@@ -5,12 +5,9 @@ use std::io::{self, Read};
 use super::{
     approval::*, coding_tool_artifact::*, coding_tool_event::*, coding_tool_step_module::*,
     command_protocol::CommandOperation, model_mount::*, model_mount_receipt::*, policy::*,
-    runtime_conversation_artifact_control::*, runtime_conversation_artifact_projection::*,
     runtime_diagnostics_repair_control::*, runtime_diagnostics_repair_policy::*,
-    runtime_diagnostics_repair_projection::*, runtime_managed_session_control::*,
-    runtime_memory_control::*, runtime_memory_projection::*, runtime_subagent_control::*,
-    runtime_subagent_projection::*, runtime_thread_fork_control::*,
-    runtime_workflow_edit_control::*, runtime_workspace_change_control::*,
+    runtime_diagnostics_repair_projection::*, runtime_memory_control::*,
+    runtime_memory_projection::*,
 };
 
 #[derive(Debug, Clone)]
@@ -151,51 +148,6 @@ pub fn dispatch_command_operation_response(
             project_runtime_diagnostics_repair_policy_response(decode(raw_request)?)
                 .map_err(Into::into)
         }
-        CommandOperation::PlanRuntimeTaskJobCancelStateUpdate => {
-            plan_runtime_task_job_cancel_state_update_response(decode(raw_request)?)
-                .map_err(Into::into)
-        }
-        CommandOperation::PlanRuntimeTaskJobCreateStateUpdate => {
-            plan_runtime_task_job_create_state_update_response(decode(raw_request)?)
-                .map_err(Into::into)
-        }
-        CommandOperation::ProjectRuntimeTaskJobProjection => {
-            project_runtime_task_job_projection_response(decode(raw_request)?).map_err(Into::into)
-        }
-        CommandOperation::PlanRuntimeWorkflowEditControl => {
-            plan_runtime_workflow_edit_control_response(decode(raw_request)?).map_err(Into::into)
-        }
-        CommandOperation::ProjectRuntimeManagedSessionProjection => {
-            project_runtime_managed_session_projection_response(decode(raw_request)?)
-                .map_err(Into::into)
-        }
-        CommandOperation::PlanRuntimeManagedSessionControl => {
-            plan_runtime_managed_session_control_response(decode(raw_request)?).map_err(Into::into)
-        }
-        CommandOperation::ProjectRuntimeWorkspaceChangeProjection => {
-            project_runtime_workspace_change_projection_response(decode(raw_request)?)
-                .map_err(Into::into)
-        }
-        CommandOperation::PlanRuntimeWorkspaceChangeControl => {
-            plan_runtime_workspace_change_control_response(decode(raw_request)?).map_err(Into::into)
-        }
-        CommandOperation::PlanRuntimeThreadForkControl => {
-            plan_runtime_thread_fork_control_response(decode(raw_request)?).map_err(Into::into)
-        }
-        CommandOperation::PlanRuntimeConversationArtifactControl => {
-            plan_runtime_conversation_artifact_control_response(decode(raw_request)?)
-                .map_err(Into::into)
-        }
-        CommandOperation::ProjectRuntimeConversationArtifactProjection => {
-            project_runtime_conversation_artifact_projection_response(decode(raw_request)?)
-                .map_err(Into::into)
-        }
-        CommandOperation::ProjectRuntimeSubagentProjection => {
-            project_runtime_subagent_projection_response(decode(raw_request)?).map_err(Into::into)
-        }
-        CommandOperation::PlanRuntimeSubagentControl => {
-            plan_runtime_subagent_control_response(decode(raw_request)?).map_err(Into::into)
-        }
     }
 }
 
@@ -223,22 +175,11 @@ command_error_from!(ContextPolicyCommandError);
 command_error_from!(CodingToolBudgetRecoveryCommandError);
 command_error_from!(OperatorControlCommandError);
 command_error_from!(RunCancelCommandError);
-command_error_from!(RuntimeTaskJobCancelCommandError);
-command_error_from!(RuntimeTaskJobCreateCommandError);
-command_error_from!(RuntimeTaskJobProjectionCommandError);
 command_error_from!(RuntimeDiagnosticsRepairControlCommandError);
 command_error_from!(RuntimeDiagnosticsRepairProjectionCommandError);
 command_error_from!(RuntimeDiagnosticsRepairPolicyCommandError);
-command_error_from!(RuntimeManagedSessionCommandError);
 command_error_from!(RuntimeMemoryControlCommandError);
 command_error_from!(RuntimeMemoryProjectionCommandError);
-command_error_from!(RuntimeWorkspaceChangeCommandError);
-command_error_from!(RuntimeThreadForkCommandError);
-command_error_from!(RuntimeConversationArtifactControlCommandError);
-command_error_from!(RuntimeConversationArtifactProjectionCommandError);
-command_error_from!(RuntimeSubagentControlCommandError);
-command_error_from!(RuntimeSubagentProjectionCommandError);
-command_error_from!(RuntimeWorkflowEditControlCommandError);
 command_error_from!(ThreadLifecycleCommandError);
 command_error_from!(WorkspaceTrustControlCommandError);
 command_error_from!(McpMemoryCommandError);

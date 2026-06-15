@@ -90,17 +90,6 @@ pub struct RuntimeWorkflowEditControlRecord {
     pub evidence_refs: Vec<String>,
 }
 
-pub fn plan_runtime_workflow_edit_control_response(
-    request: RuntimeWorkflowEditControlRequest,
-) -> Result<Value, RuntimeWorkflowEditControlCommandError> {
-    let record = RuntimeWorkflowEditControlCore::default().plan(&request)?;
-    Ok(json!({
-        "source": "rust_runtime_workflow_edit_control_command",
-        "backend": "rust_policy",
-        "record": record.to_value(),
-    }))
-}
-
 impl RuntimeWorkflowEditControlCore {
     pub fn plan(
         &self,
@@ -222,25 +211,6 @@ impl RuntimeWorkflowEditControlCore {
             receipt_refs,
             policy_decision_refs,
             evidence_refs,
-        })
-    }
-}
-
-impl RuntimeWorkflowEditControlRecord {
-    fn to_value(&self) -> Value {
-        json!({
-            "schema_version": RUNTIME_WORKFLOW_EDIT_CONTROL_RESULT_SCHEMA_VERSION,
-            "object": "ioi.runtime_workflow_edit_control",
-            "status": "planned",
-            "operation": self.operation,
-            "operation_kind": self.operation_kind,
-            "thread_id": self.thread_id,
-            "proposal_id": self.proposal_id,
-            "control_status": self.status,
-            "event": self.event,
-            "receipt_refs": self.receipt_refs,
-            "policy_decision_refs": self.policy_decision_refs,
-            "evidence_refs": self.evidence_refs,
         })
     }
 }

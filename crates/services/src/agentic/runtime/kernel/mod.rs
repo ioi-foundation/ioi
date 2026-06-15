@@ -242,6 +242,10 @@ use repository_workflow::{
     RepositoryWorkflowProjectionBridgeRequest, RepositoryWorkflowProjectionCommandError,
     RepositoryWorkflowProjectionCore, RepositoryWorkflowProjectionRecord,
 };
+use runtime_conversation_artifact_control::{
+    RuntimeConversationArtifactControlCommandError, RuntimeConversationArtifactControlCore,
+    RuntimeConversationArtifactControlRecord, RuntimeConversationArtifactControlRequest,
+};
 use runtime_conversation_artifact_projection::{
     RuntimeConversationArtifactProjectionCommandError, RuntimeConversationArtifactProjectionCore,
     RuntimeConversationArtifactProjectionRecord, RuntimeConversationArtifactProjectionRequest,
@@ -264,6 +268,12 @@ use runtime_lifecycle::{
     RuntimeLifecycleProjectionBridgeRequest, RuntimeLifecycleProjectionCommandError,
     RuntimeLifecycleProjectionCore, RuntimeLifecycleProjectionRecord,
 };
+use runtime_managed_session_control::{
+    RuntimeManagedSessionCommandError, RuntimeManagedSessionControlCore,
+    RuntimeManagedSessionControlRecord, RuntimeManagedSessionControlRequest,
+    RuntimeManagedSessionProjectionCore, RuntimeManagedSessionProjectionRecord,
+    RuntimeManagedSessionProjectionRequest,
+};
 use runtime_mcp_serve::{
     RuntimeMcpServeError, RuntimeMcpServeToolCallPlanCore, RuntimeMcpServeToolCallPlanRecord,
     RuntimeMcpServeToolCallPlanRequest, RuntimeMcpServeToolResultProjectionRecord,
@@ -277,12 +287,24 @@ use runtime_memory_projection::{
     RuntimeMemoryProjectionBridgeRequest, RuntimeMemoryProjectionCommandError,
     RuntimeMemoryProjectionCore, RuntimeMemoryProjectionRecord,
 };
+use runtime_subagent_control::{
+    RuntimeSubagentControlCommandError, RuntimeSubagentControlCore, RuntimeSubagentControlRecord,
+    RuntimeSubagentControlRequest,
+};
+use runtime_subagent_projection::{
+    RuntimeSubagentProjectionCommandError, RuntimeSubagentProjectionCore,
+    RuntimeSubagentProjectionRecord, RuntimeSubagentProjectionRequest,
+};
 use runtime_thread_event::{
     RuntimeThreadEventAdmissionCore, RuntimeThreadEventAdmissionError,
     RuntimeThreadEventAdmissionRecord, RuntimeThreadEventAdmissionRequest,
     RuntimeThreadEventProjectionRecord, RuntimeThreadEventProjectionRequest,
     RuntimeThreadEventReplayRecord, RuntimeThreadEventReplayRequest,
     RuntimeThreadTurnProjectionRecord, RuntimeThreadTurnProjectionRequest,
+};
+use runtime_thread_fork_control::{
+    RuntimeThreadForkCommandError, RuntimeThreadForkControlCore, RuntimeThreadForkControlRecord,
+    RuntimeThreadForkControlRequest,
 };
 use runtime_tool_catalog::{
     RuntimeToolCatalogProjectionBridgeRequest, RuntimeToolCatalogProjectionCommandError,
@@ -291,6 +313,12 @@ use runtime_tool_catalog::{
 use runtime_workflow_edit_control::{
     RuntimeWorkflowEditControlCommandError, RuntimeWorkflowEditControlCore,
     RuntimeWorkflowEditControlRecord, RuntimeWorkflowEditControlRequest,
+};
+use runtime_workspace_change_control::{
+    RuntimeWorkspaceChangeCommandError, RuntimeWorkspaceChangeControlCore,
+    RuntimeWorkspaceChangeControlRecord, RuntimeWorkspaceChangeControlRequest,
+    RuntimeWorkspaceChangeProjectionCore, RuntimeWorkspaceChangeProjectionRecord,
+    RuntimeWorkspaceChangeProjectionRequest,
 };
 use settlement::{
     ArtifactPromotionReceipt, L1SettlementAdmissionError, L1SettlementAdmissionRecord,
@@ -651,6 +679,41 @@ impl RuntimeKernelService {
         RuntimeWorkflowEditControlCore.plan(request)
     }
 
+    pub fn project_runtime_managed_session_projection(
+        &self,
+        request: &RuntimeManagedSessionProjectionRequest,
+    ) -> Result<RuntimeManagedSessionProjectionRecord, RuntimeManagedSessionCommandError> {
+        RuntimeManagedSessionProjectionCore.project(request)
+    }
+
+    pub fn plan_runtime_managed_session_control(
+        &self,
+        request: &RuntimeManagedSessionControlRequest,
+    ) -> Result<RuntimeManagedSessionControlRecord, RuntimeManagedSessionCommandError> {
+        RuntimeManagedSessionControlCore.plan(request)
+    }
+
+    pub fn project_runtime_workspace_change_projection(
+        &self,
+        request: &RuntimeWorkspaceChangeProjectionRequest,
+    ) -> Result<RuntimeWorkspaceChangeProjectionRecord, RuntimeWorkspaceChangeCommandError> {
+        RuntimeWorkspaceChangeProjectionCore.project(request)
+    }
+
+    pub fn plan_runtime_workspace_change_control(
+        &self,
+        request: &RuntimeWorkspaceChangeControlRequest,
+    ) -> Result<RuntimeWorkspaceChangeControlRecord, RuntimeWorkspaceChangeCommandError> {
+        RuntimeWorkspaceChangeControlCore.plan(request)
+    }
+
+    pub fn plan_runtime_thread_fork_control(
+        &self,
+        request: &RuntimeThreadForkControlRequest,
+    ) -> Result<RuntimeThreadForkControlRecord, RuntimeThreadForkCommandError> {
+        RuntimeThreadForkControlCore.plan(request)
+    }
+
     pub fn plan_runtime_diagnostics_repair_control(
         &self,
         request: &RuntimeDiagnosticsRepairControlRequest,
@@ -693,6 +756,30 @@ impl RuntimeKernelService {
         RuntimeConversationArtifactProjectionCommandError,
     > {
         RuntimeConversationArtifactProjectionCore.project(request)
+    }
+
+    pub fn plan_runtime_conversation_artifact_control(
+        &self,
+        request: &RuntimeConversationArtifactControlRequest,
+    ) -> Result<
+        RuntimeConversationArtifactControlRecord,
+        RuntimeConversationArtifactControlCommandError,
+    > {
+        RuntimeConversationArtifactControlCore::default().plan(request)
+    }
+
+    pub fn project_runtime_subagent_projection(
+        &self,
+        request: &RuntimeSubagentProjectionRequest,
+    ) -> Result<RuntimeSubagentProjectionRecord, RuntimeSubagentProjectionCommandError> {
+        RuntimeSubagentProjectionCore::default().project(request)
+    }
+
+    pub fn plan_runtime_subagent_control(
+        &self,
+        request: &RuntimeSubagentControlRequest,
+    ) -> Result<RuntimeSubagentControlRecord, RuntimeSubagentControlCommandError> {
+        RuntimeSubagentControlCore::default().plan(request)
     }
 
     pub fn plan_thread_control_agent_state_update(

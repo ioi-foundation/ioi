@@ -74,17 +74,6 @@ pub struct RuntimeConversationArtifactProjectionRecord {
     pub receipt_refs: Vec<String>,
 }
 
-pub fn project_runtime_conversation_artifact_projection_response(
-    request: RuntimeConversationArtifactProjectionRequest,
-) -> Result<Value, RuntimeConversationArtifactProjectionCommandError> {
-    let record = RuntimeConversationArtifactProjectionCore::default().project(&request)?;
-    Ok(json!({
-        "source": "rust_runtime_conversation_artifact_projection_command",
-        "backend": "rust_policy",
-        "record": record.to_value(),
-    }))
-}
-
 impl RuntimeConversationArtifactProjectionCore {
     pub fn project(
         &self,
@@ -105,7 +94,7 @@ impl RuntimeConversationArtifactProjectionCore {
             format!("runtime.conversation_artifact_projection.{projection_kind}")
         });
         let source = optional_trimmed(request.source.as_deref())
-            .unwrap_or_else(|| "runtime.conversation_artifact_projection.rust_command".to_string());
+            .unwrap_or_else(|| "runtime.conversation_artifact_projection.rust_api".to_string());
         let evidence_refs = if request.evidence_refs.is_empty() {
             vec![
                 "runtime_conversation_artifact_read_projection_rust_owned".to_string(),
@@ -128,26 +117,6 @@ impl RuntimeConversationArtifactProjectionCore {
             receipt_refs: vec![format!(
                 "receipt_runtime_conversation_artifact_projection_{projection_kind}"
             )],
-        })
-    }
-}
-
-impl RuntimeConversationArtifactProjectionRecord {
-    fn to_value(&self) -> Value {
-        json!({
-            "schema_version": RUNTIME_CONVERSATION_ARTIFACT_PROJECTION_RESULT_SCHEMA_VERSION,
-            "object": "ioi.runtime_conversation_artifact_projection",
-            "status": "projected",
-            "operation": self.operation,
-            "operation_kind": self.operation_kind,
-            "projection_kind": self.projection_kind,
-            "thread_id": self.thread_id,
-            "artifact_id": self.artifact_id,
-            "source": self.source,
-            "projection": self.projection,
-            "record_count": self.record_count,
-            "evidence_refs": self.evidence_refs,
-            "receipt_refs": self.receipt_refs,
         })
     }
 }
@@ -593,34 +562,6 @@ mod tests {
             .expect("revision projection");
         assert_eq!(revisions.record_count, 1);
         assert_eq!(revisions.projection[0]["revision_id"], "rev-new");
-    }
-
-    #[test]
-    fn rust_shapes_conversation_artifact_projection_command_response() {
-        let temp = tempfile::tempdir().expect("tempdir");
-        seed_artifact_state(temp.path());
-        let response = project_runtime_conversation_artifact_projection_response(
-            RuntimeConversationArtifactProjectionRequest {
-                operation_kind: Some("runtime.conversation_artifact_projection.get".to_string()),
-                projection_kind: Some("get".to_string()),
-                artifact_id: Some("artifact-new".to_string()),
-                state_dir: Some(temp.path().to_string_lossy().to_string()),
-                ..Default::default()
-            },
-        )
-        .expect("command response");
-
-        assert_eq!(
-            response["source"],
-            "rust_runtime_conversation_artifact_projection_command"
-        );
-        assert_eq!(
-            response["record"]["schema_version"],
-            RUNTIME_CONVERSATION_ARTIFACT_PROJECTION_RESULT_SCHEMA_VERSION
-        );
-        assert_eq!(response["record"]["projection_kind"], "get");
-        assert_eq!(response["record"]["projection"]["id"], "artifact-new");
-        assert_eq!(response["record"]["record_count"], 1);
     }
 
     #[test]

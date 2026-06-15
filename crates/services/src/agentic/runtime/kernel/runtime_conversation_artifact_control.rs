@@ -74,17 +74,6 @@ pub struct RuntimeConversationArtifactControlRecord {
     pub evidence_refs: Vec<String>,
 }
 
-pub fn plan_runtime_conversation_artifact_control_response(
-    request: RuntimeConversationArtifactControlRequest,
-) -> Result<Value, RuntimeConversationArtifactControlCommandError> {
-    let record = RuntimeConversationArtifactControlCore::default().plan(&request)?;
-    Ok(json!({
-        "source": "rust_runtime_conversation_artifact_control_command",
-        "backend": "rust_policy",
-        "record": record.to_value(),
-    }))
-}
-
 impl RuntimeConversationArtifactControlCore {
     pub fn plan(
         &self,
@@ -248,25 +237,6 @@ impl RuntimeConversationArtifactControlCore {
             receipt_refs,
             policy_decision_refs,
             evidence_refs,
-        })
-    }
-}
-
-impl RuntimeConversationArtifactControlRecord {
-    fn to_value(&self) -> Value {
-        json!({
-            "schema_version": RUNTIME_CONVERSATION_ARTIFACT_CONTROL_RESULT_SCHEMA_VERSION,
-            "object": "ioi.runtime_conversation_artifact_control",
-            "status": "planned",
-            "operation": self.operation,
-            "operation_kind": self.operation_kind,
-            "thread_id": self.thread_id,
-            "artifact_id": self.artifact_id,
-            "artifact": self.artifact,
-            "result": self.result,
-            "receipt_refs": self.receipt_refs,
-            "policy_decision_refs": self.policy_decision_refs,
-            "evidence_refs": self.evidence_refs,
         })
     }
 }
@@ -632,24 +602,6 @@ mod tests {
             .expect("promote planned");
         assert_eq!(promoted.result["status"], "promoted");
         assert!(promoted.artifact["promotion_refs"].is_array());
-    }
-
-    #[test]
-    fn rust_shapes_conversation_artifact_control_command_response() {
-        let response = plan_runtime_conversation_artifact_control_response(create_request())
-            .expect("command response");
-        assert_eq!(
-            response["source"],
-            "rust_runtime_conversation_artifact_control_command"
-        );
-        assert_eq!(
-            response["record"]["schema_version"],
-            RUNTIME_CONVERSATION_ARTIFACT_CONTROL_RESULT_SCHEMA_VERSION
-        );
-        assert_eq!(
-            response["record"]["artifact"]["schema_version"],
-            CONVERSATION_ARTIFACT_SCHEMA_VERSION
-        );
     }
 
     #[test]

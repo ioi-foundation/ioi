@@ -59,7 +59,7 @@ function plannedTaskJobCancel(request, operationKind) {
     status: "canceled",
   };
   return {
-    source: "rust_runtime_task_job_cancel_state_update_command",
+    source: "rust_runtime_task_job_cancel_state_update_api",
     status: "planned",
     operation_kind: operationKind,
     cancel_kind: request.cancel_kind,
@@ -110,7 +110,7 @@ function plannedTaskJobCreate(request) {
     status: "completed",
   };
   return {
-    source: "rust_runtime_task_job_create_state_update_command",
+    source: "rust_runtime_task_job_create_state_update_api",
     status: "planned",
     operation_kind: "task.create",
     task_id: runtimeTask.taskId,
@@ -484,7 +484,7 @@ test("runtime task job read projection calls Rust state-dir projector for list f
       projectRuntimeTaskJobProjection(request) {
         calls.push({ name: "projectRuntimeTaskJobProjection", request });
         return {
-          source: "rust_runtime_task_job_projection_command",
+          source: "rust_runtime_task_job_projection_api",
           status: "projected",
           operation_kind: request.projection_kind,
           projection_kind: request.projection_kind,
@@ -537,7 +537,7 @@ test("runtime task job read projection returns Rust-selected task and job record
         calls.push({ name: "projectRuntimeTaskJobProjection", request });
         if (request.projection_kind === "task.get") {
           return {
-            source: "rust_runtime_task_job_projection_command",
+            source: "rust_runtime_task_job_projection_api",
             status: "projected",
             operation_kind: "task.get",
             projection_kind: "task.get",
@@ -548,7 +548,7 @@ test("runtime task job read projection returns Rust-selected task and job record
           };
         }
         return {
-          source: "rust_runtime_task_job_projection_command",
+          source: "rust_runtime_task_job_projection_api",
           status: "projected",
           operation_kind: "job.get",
           projection_kind: "job.get",
@@ -625,7 +625,7 @@ test("runtime task job read projection rejects Rust projection mismatches before
     taskJobProjectionRunner: {
       projectRuntimeTaskJobProjection(request) {
         return {
-          source: "rust_runtime_task_job_projection_command",
+          source: "rust_runtime_task_job_projection_api",
           status: "projected",
           operation_kind: request.projection_kind,
           projection_kind: request.projection_kind,

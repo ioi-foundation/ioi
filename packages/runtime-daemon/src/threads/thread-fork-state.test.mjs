@@ -5,7 +5,7 @@ import { createThreadForkState } from "./thread-fork-state.mjs";
 
 function plannedForkRecord() {
   return {
-    source: "rust_runtime_thread_fork_control_command",
+    source: "rust_runtime_thread_fork_control_api",
     backend: "rust_policy",
     object: "ioi.runtime_thread_fork_control",
     status: "planned",

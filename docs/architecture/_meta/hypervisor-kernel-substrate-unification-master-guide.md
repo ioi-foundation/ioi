@@ -9508,6 +9508,24 @@ storage/replay for catalog, repository workflow, lifecycle/run-read, and
 doctor/readiness projections plus stable IDE/CLI/SDK protocol APIs still need
 deeper Rust daemon-core ownership.
 
+Slice 1226 retires the runtime compositor/task-job command transport family.
+Task/job create/cancel state planning, task/job read projection, workflow-edit
+control, managed-session projection/control, workspace-change
+projection/control, thread-fork control, conversation-artifact
+projection/control, and subagent projection/control now enter Rust through typed
+`daemonCoreRuntimeControlApi` or `daemonCoreRuntimeProjectionApi` methods backed
+by `RuntimeKernelService` positive APIs. The old command operations,
+`CommandOperation` variants, dispatch arms, command-response wrappers, command
+source markers, and JS `operation`/`backend` command envelopes are retired for
+these hot paths; `command_protocol.rs` proves the retired operation names are
+unknown. Conformance now guards the typed APIs, direct Rust service methods,
+retired command protocol entries, missing dispatch wrappers, source-scan
+blockers, and absence of command-fallback source markers. This remains
+non-terminal because coding-tool StepModule transport, diagnostics/coding-tool
+artifact command transport, deeper durable replay/storage, MCP materialization,
+model_mount backend/materialization work, and stable IDE/CLI/SDK protocol APIs
+still need terminal Rust daemon-core ownership.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

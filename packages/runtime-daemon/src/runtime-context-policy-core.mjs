@@ -174,6 +174,14 @@ export const RUNTIME_CONTROL_RUN_CANCEL_STATE_UPDATE_API_METHOD =
   "planRunCancelStateUpdate";
 export const RUNTIME_CONTROL_RUN_CANCEL_ADMISSION_REQUIRED_API_METHOD =
   "planRunCancelAdmissionRequired";
+export const RUNTIME_CONTROL_TASK_JOB_CANCEL_STATE_UPDATE_API_METHOD =
+  "planRuntimeTaskJobCancelStateUpdate";
+export const RUNTIME_CONTROL_TASK_JOB_CREATE_STATE_UPDATE_API_METHOD =
+  "planRuntimeTaskJobCreateStateUpdate";
+export const RUNTIME_PROJECTION_TASK_JOB_API_METHOD =
+  "projectRuntimeTaskJobProjection";
+export const RUNTIME_CONTROL_WORKFLOW_EDIT_CONTROL_API_METHOD =
+  "planRuntimeWorkflowEditControl";
 export const RUNTIME_PROJECTION_SKILL_HOOK_REGISTRY_API_METHOD =
   "projectSkillHookRegistry";
 export const RUNTIME_PROJECTION_REPOSITORY_WORKFLOW_API_METHOD =
@@ -182,6 +190,24 @@ export const RUNTIME_PROJECTION_TOOL_CATALOG_API_METHOD =
   "projectRuntimeToolCatalog";
 export const RUNTIME_PROJECTION_LIFECYCLE_API_METHOD =
   "projectRuntimeLifecycle";
+export const RUNTIME_PROJECTION_MANAGED_SESSION_API_METHOD =
+  "projectRuntimeManagedSessionProjection";
+export const RUNTIME_CONTROL_MANAGED_SESSION_API_METHOD =
+  "planRuntimeManagedSessionControl";
+export const RUNTIME_PROJECTION_WORKSPACE_CHANGE_API_METHOD =
+  "projectRuntimeWorkspaceChangeProjection";
+export const RUNTIME_CONTROL_WORKSPACE_CHANGE_API_METHOD =
+  "planRuntimeWorkspaceChangeControl";
+export const RUNTIME_CONTROL_THREAD_FORK_API_METHOD =
+  "planRuntimeThreadForkControl";
+export const RUNTIME_PROJECTION_CONVERSATION_ARTIFACT_API_METHOD =
+  "projectRuntimeConversationArtifactProjection";
+export const RUNTIME_CONTROL_CONVERSATION_ARTIFACT_API_METHOD =
+  "planRuntimeConversationArtifactControl";
+export const RUNTIME_PROJECTION_SUBAGENT_API_METHOD =
+  "projectRuntimeSubagentProjection";
+export const RUNTIME_CONTROL_SUBAGENT_API_METHOD =
+  "planRuntimeSubagentControl";
 export const THREAD_LIFECYCLE_THREAD_CONTROL_AGENT_STATE_UPDATE_API_METHOD =
   "planThreadControlAgentStateUpdate";
 export const THREAD_LIFECYCLE_THREAD_TURN_ADMISSION_REQUIRED_API_METHOD =
@@ -483,27 +509,27 @@ export class RuntimeContextPolicyCore {
   }
 
   planRuntimeTaskJobCancelStateUpdate(request = {}) {
-    return normalizeRuntimeTaskJobCancelStateUpdateBridgeResult(this.evaluateRawPolicy({
-      operation: "plan_runtime_task_job_cancel_state_update",
-      schemaVersion: RUNTIME_TASK_JOB_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+    return normalizeRuntimeTaskJobCancelStateUpdateBridgeResult(this.invokeRuntimeControlApi(
+      RUNTIME_CONTROL_TASK_JOB_CANCEL_STATE_UPDATE_API_METHOD,
+      RUNTIME_TASK_JOB_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   planRuntimeTaskJobCreateStateUpdate(request = {}) {
-    return normalizeRuntimeTaskJobCreateStateUpdateBridgeResult(this.evaluateRawPolicy({
-      operation: "plan_runtime_task_job_create_state_update",
-      schemaVersion: RUNTIME_TASK_JOB_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+    return normalizeRuntimeTaskJobCreateStateUpdateBridgeResult(this.invokeRuntimeControlApi(
+      RUNTIME_CONTROL_TASK_JOB_CREATE_STATE_UPDATE_API_METHOD,
+      RUNTIME_TASK_JOB_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   projectRuntimeTaskJobProjection(request = {}) {
-    return normalizeRuntimeTaskJobProjectionBridgeResult(this.evaluateRawPolicy({
-      operation: "project_runtime_task_job_projection",
-      schemaVersion: RUNTIME_TASK_JOB_PROJECTION_REQUEST_SCHEMA_VERSION,
+    return normalizeRuntimeTaskJobProjectionBridgeResult(this.invokeRuntimeProjectionApi(
+      RUNTIME_PROJECTION_TASK_JOB_API_METHOD,
+      RUNTIME_TASK_JOB_PROJECTION_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   projectSkillHookRegistry(request = {}) {
@@ -571,83 +597,83 @@ export class RuntimeContextPolicyCore {
   }
 
   planRuntimeWorkflowEditControl(request = {}) {
-    return normalizeRuntimeWorkflowEditControlBridgeResult(this.evaluateRawPolicy({
-      operation: "plan_runtime_workflow_edit_control",
-      schemaVersion: RUNTIME_WORKFLOW_EDIT_CONTROL_REQUEST_SCHEMA_VERSION,
+    return normalizeRuntimeWorkflowEditControlBridgeResult(this.invokeRuntimeControlApi(
+      RUNTIME_CONTROL_WORKFLOW_EDIT_CONTROL_API_METHOD,
+      RUNTIME_WORKFLOW_EDIT_CONTROL_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   projectRuntimeManagedSessionProjection(request = {}) {
-    return normalizeRuntimeManagedSessionProjectionBridgeResult(this.evaluateRawPolicy({
-      operation: "project_runtime_managed_session_projection",
-      schemaVersion: RUNTIME_MANAGED_SESSION_PROJECTION_REQUEST_SCHEMA_VERSION,
+    return normalizeRuntimeManagedSessionProjectionBridgeResult(this.invokeRuntimeProjectionApi(
+      RUNTIME_PROJECTION_MANAGED_SESSION_API_METHOD,
+      RUNTIME_MANAGED_SESSION_PROJECTION_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   planRuntimeManagedSessionControl(request = {}) {
-    return normalizeRuntimeManagedSessionControlBridgeResult(this.evaluateRawPolicy({
-      operation: "plan_runtime_managed_session_control",
-      schemaVersion: RUNTIME_MANAGED_SESSION_CONTROL_REQUEST_SCHEMA_VERSION,
+    return normalizeRuntimeManagedSessionControlBridgeResult(this.invokeRuntimeControlApi(
+      RUNTIME_CONTROL_MANAGED_SESSION_API_METHOD,
+      RUNTIME_MANAGED_SESSION_CONTROL_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   projectRuntimeWorkspaceChangeProjection(request = {}) {
-    return normalizeRuntimeWorkspaceChangeProjectionBridgeResult(this.evaluateRawPolicy({
-      operation: "project_runtime_workspace_change_projection",
-      schemaVersion: RUNTIME_WORKSPACE_CHANGE_PROJECTION_REQUEST_SCHEMA_VERSION,
+    return normalizeRuntimeWorkspaceChangeProjectionBridgeResult(this.invokeRuntimeProjectionApi(
+      RUNTIME_PROJECTION_WORKSPACE_CHANGE_API_METHOD,
+      RUNTIME_WORKSPACE_CHANGE_PROJECTION_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   planRuntimeWorkspaceChangeControl(request = {}) {
-    return normalizeRuntimeWorkspaceChangeControlBridgeResult(this.evaluateRawPolicy({
-      operation: "plan_runtime_workspace_change_control",
-      schemaVersion: RUNTIME_WORKSPACE_CHANGE_CONTROL_REQUEST_SCHEMA_VERSION,
+    return normalizeRuntimeWorkspaceChangeControlBridgeResult(this.invokeRuntimeControlApi(
+      RUNTIME_CONTROL_WORKSPACE_CHANGE_API_METHOD,
+      RUNTIME_WORKSPACE_CHANGE_CONTROL_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   planRuntimeThreadForkControl(request = {}) {
-    return normalizeRuntimeThreadForkControlBridgeResult(this.evaluateRawPolicy({
-      operation: "plan_runtime_thread_fork_control",
-      schemaVersion: RUNTIME_THREAD_FORK_CONTROL_REQUEST_SCHEMA_VERSION,
+    return normalizeRuntimeThreadForkControlBridgeResult(this.invokeRuntimeControlApi(
+      RUNTIME_CONTROL_THREAD_FORK_API_METHOD,
+      RUNTIME_THREAD_FORK_CONTROL_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   planRuntimeConversationArtifactControl(request = {}) {
-    return normalizeRuntimeConversationArtifactControlBridgeResult(this.evaluateRawPolicy({
-      operation: "plan_runtime_conversation_artifact_control",
-      schemaVersion: RUNTIME_CONVERSATION_ARTIFACT_CONTROL_REQUEST_SCHEMA_VERSION,
+    return normalizeRuntimeConversationArtifactControlBridgeResult(this.invokeRuntimeControlApi(
+      RUNTIME_CONTROL_CONVERSATION_ARTIFACT_API_METHOD,
+      RUNTIME_CONVERSATION_ARTIFACT_CONTROL_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   projectRuntimeConversationArtifactProjection(request = {}) {
-    return normalizeRuntimeConversationArtifactProjectionBridgeResult(this.evaluateRawPolicy({
-      operation: "project_runtime_conversation_artifact_projection",
-      schemaVersion: RUNTIME_CONVERSATION_ARTIFACT_PROJECTION_REQUEST_SCHEMA_VERSION,
+    return normalizeRuntimeConversationArtifactProjectionBridgeResult(this.invokeRuntimeProjectionApi(
+      RUNTIME_PROJECTION_CONVERSATION_ARTIFACT_API_METHOD,
+      RUNTIME_CONVERSATION_ARTIFACT_PROJECTION_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   projectRuntimeSubagentProjection(request = {}) {
-    return normalizeRuntimeSubagentProjectionBridgeResult(this.evaluateRawPolicy({
-      operation: "project_runtime_subagent_projection",
-      schemaVersion: RUNTIME_SUBAGENT_PROJECTION_REQUEST_SCHEMA_VERSION,
+    return normalizeRuntimeSubagentProjectionBridgeResult(this.invokeRuntimeProjectionApi(
+      RUNTIME_PROJECTION_SUBAGENT_API_METHOD,
+      RUNTIME_SUBAGENT_PROJECTION_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   planRuntimeSubagentControl(request = {}) {
-    return normalizeRuntimeSubagentControlBridgeResult(this.evaluateRawPolicy({
-      operation: "plan_runtime_subagent_control",
-      schemaVersion: RUNTIME_SUBAGENT_CONTROL_REQUEST_SCHEMA_VERSION,
+    return normalizeRuntimeSubagentControlBridgeResult(this.invokeRuntimeControlApi(
+      RUNTIME_CONTROL_SUBAGENT_API_METHOD,
+      RUNTIME_SUBAGENT_CONTROL_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   planThreadControlAgentStateUpdate(request = {}) {
@@ -1756,7 +1782,7 @@ export function normalizeRuntimeTaskJobCancelStateUpdateBridgeResult(value = {})
     source:
       result.source ??
       record.source ??
-      "rust_runtime_task_job_cancel_state_update_command",
+      "rust_runtime_task_job_cancel_state_update_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
@@ -1789,7 +1815,7 @@ export function normalizeRuntimeTaskJobCreateStateUpdateBridgeResult(value = {})
     source:
       result.source ??
       record.source ??
-      "rust_runtime_task_job_create_state_update_command",
+      "rust_runtime_task_job_create_state_update_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
@@ -1824,7 +1850,7 @@ export function normalizeRuntimeTaskJobProjectionBridgeResult(value = {}) {
     source:
       result.source ??
       record.source ??
-      "rust_runtime_task_job_projection_command",
+      "rust_runtime_task_job_projection_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
@@ -2206,7 +2232,7 @@ export function normalizeRuntimeWorkflowEditControlBridgeResult(value = {}) {
     source:
       result.source ??
       record.source ??
-      "rust_runtime_workflow_edit_control_command",
+      "rust_runtime_workflow_edit_control_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
@@ -2239,7 +2265,7 @@ export function normalizeRuntimeConversationArtifactProjectionBridgeResult(value
     source:
       result.source ??
       record.source ??
-      "rust_runtime_conversation_artifact_projection_command",
+      "rust_runtime_conversation_artifact_projection_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
@@ -2285,7 +2311,7 @@ export function normalizeRuntimeConversationArtifactControlBridgeResult(value = 
     source:
       result.source ??
       record.source ??
-      "rust_runtime_conversation_artifact_control_command",
+      "rust_runtime_conversation_artifact_control_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
@@ -2323,7 +2349,7 @@ export function normalizeRuntimeSubagentProjectionBridgeResult(value = {}) {
     source:
       result.source ??
       record.source ??
-      "rust_runtime_subagent_projection_command",
+      "rust_runtime_subagent_projection_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
@@ -2362,7 +2388,7 @@ export function normalizeRuntimeSubagentControlBridgeResult(value = {}) {
     source:
       result.source ??
       record.source ??
-      "rust_runtime_subagent_control_command",
+      "rust_runtime_subagent_control_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
@@ -2392,7 +2418,7 @@ export function normalizeRuntimeManagedSessionProjectionBridgeResult(value = {})
     source:
       result.source ??
       record.source ??
-      "rust_runtime_managed_session_projection_command",
+      "rust_runtime_managed_session_projection_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
@@ -2427,7 +2453,7 @@ export function normalizeRuntimeManagedSessionControlBridgeResult(value = {}) {
     source:
       result.source ??
       record.source ??
-      "rust_runtime_managed_session_control_command",
+      "rust_runtime_managed_session_control_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
@@ -2457,7 +2483,7 @@ export function normalizeRuntimeWorkspaceChangeProjectionBridgeResult(value = {}
     source:
       result.source ??
       record.source ??
-      "rust_runtime_workspace_change_projection_command",
+      "rust_runtime_workspace_change_projection_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
@@ -2492,7 +2518,7 @@ export function normalizeRuntimeWorkspaceChangeControlBridgeResult(value = {}) {
     source:
       result.source ??
       record.source ??
-      "rust_runtime_workspace_change_control_command",
+      "rust_runtime_workspace_change_control_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
@@ -2544,7 +2570,7 @@ export function normalizeRuntimeThreadForkControlBridgeResult(value = {}) {
     source:
       result.source ??
       record.source ??
-      "rust_runtime_thread_fork_control_command",
+      "rust_runtime_thread_fork_control_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,

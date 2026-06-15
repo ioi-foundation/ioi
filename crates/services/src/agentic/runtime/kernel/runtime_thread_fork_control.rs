@@ -74,17 +74,6 @@ pub struct RuntimeThreadForkControlRecord {
     pub evidence_refs: Vec<String>,
 }
 
-pub fn plan_runtime_thread_fork_control_response(
-    request: RuntimeThreadForkControlRequest,
-) -> Result<Value, RuntimeThreadForkCommandError> {
-    let record = RuntimeThreadForkControlCore.plan(&request)?;
-    Ok(json!({
-        "source": "rust_runtime_thread_fork_control_command",
-        "backend": "rust_policy",
-        "record": record.to_value(),
-    }))
-}
-
 impl RuntimeThreadForkControlCore {
     pub fn plan(
         &self,
@@ -281,27 +270,6 @@ impl RuntimeThreadForkControlCore {
     }
 }
 
-impl RuntimeThreadForkControlRecord {
-    fn to_value(&self) -> Value {
-        json!({
-            "schema_version": RUNTIME_THREAD_FORK_CONTROL_RESULT_SCHEMA_VERSION,
-            "object": "ioi.runtime_thread_fork_control",
-            "status": "planned",
-            "operation": self.operation,
-            "operation_kind": self.operation_kind,
-            "thread_id": self.thread_id,
-            "forked_thread_id": self.forked_thread_id,
-            "agent_id": self.agent_id,
-            "event": self.event,
-            "agent": self.agent,
-            "thread": self.thread,
-            "receipt_refs": self.receipt_refs,
-            "policy_decision_refs": self.policy_decision_refs,
-            "evidence_refs": self.evidence_refs,
-        })
-    }
-}
-
 fn thread_fork_receipt_refs(
     request: &RuntimeThreadForkControlRequest,
     fork_hash: &str,
@@ -461,22 +429,6 @@ mod tests {
         assert!(record
             .evidence_refs
             .contains(&"runtime_thread_fork_control_rust_owned".to_string()));
-    }
-
-    #[test]
-    fn rust_shapes_thread_fork_control_command_response() {
-        let response =
-            plan_runtime_thread_fork_control_response(control_request()).expect("response");
-
-        assert_eq!(
-            response["source"],
-            "rust_runtime_thread_fork_control_command"
-        );
-        assert_eq!(response["record"]["operation_kind"], "thread.fork");
-        assert_eq!(
-            response["record"]["event"]["component_kind"],
-            "thread_fork_control"
-        );
     }
 
     #[test]

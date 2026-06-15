@@ -66,7 +66,7 @@ function createWorkflowEditRunner(calls = []) {
       const isApply = request.operation_kind === "workflow.edit.apply";
       const proposalId = request.proposal_id ?? "proposal_planned";
       return {
-        source: "rust_runtime_workflow_edit_control_command",
+        source: "rust_runtime_workflow_edit_control_api",
         backend: "rust_policy",
         object: "ioi.runtime_workflow_edit_control",
         status: "planned",

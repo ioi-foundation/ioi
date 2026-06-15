@@ -14,19 +14,6 @@ pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
     "plan_runtime_diagnostics_repair_retry_run",
     "project_runtime_diagnostics_repair_projection",
     "project_runtime_diagnostics_repair_policy",
-    "plan_runtime_task_job_cancel_state_update",
-    "plan_runtime_task_job_create_state_update",
-    "project_runtime_task_job_projection",
-    "plan_runtime_workflow_edit_control",
-    "project_runtime_managed_session_projection",
-    "plan_runtime_managed_session_control",
-    "project_runtime_workspace_change_projection",
-    "plan_runtime_workspace_change_control",
-    "plan_runtime_thread_fork_control",
-    "plan_runtime_conversation_artifact_control",
-    "project_runtime_conversation_artifact_projection",
-    "project_runtime_subagent_projection",
-    "plan_runtime_subagent_control",
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -40,19 +27,6 @@ pub enum CommandOperation {
     PlanRuntimeDiagnosticsRepairRetryRun,
     ProjectRuntimeDiagnosticsRepairProjection,
     ProjectRuntimeDiagnosticsRepairPolicy,
-    PlanRuntimeTaskJobCancelStateUpdate,
-    PlanRuntimeTaskJobCreateStateUpdate,
-    ProjectRuntimeTaskJobProjection,
-    PlanRuntimeWorkflowEditControl,
-    ProjectRuntimeManagedSessionProjection,
-    PlanRuntimeManagedSessionControl,
-    ProjectRuntimeWorkspaceChangeProjection,
-    PlanRuntimeWorkspaceChangeControl,
-    PlanRuntimeThreadForkControl,
-    PlanRuntimeConversationArtifactControl,
-    ProjectRuntimeConversationArtifactProjection,
-    ProjectRuntimeSubagentProjection,
-    PlanRuntimeSubagentControl,
 }
 
 impl CommandOperation {
@@ -75,31 +49,6 @@ impl CommandOperation {
             Self::ProjectRuntimeDiagnosticsRepairPolicy => {
                 "project_runtime_diagnostics_repair_policy"
             }
-            Self::PlanRuntimeTaskJobCancelStateUpdate => {
-                "plan_runtime_task_job_cancel_state_update"
-            }
-            Self::PlanRuntimeTaskJobCreateStateUpdate => {
-                "plan_runtime_task_job_create_state_update"
-            }
-            Self::ProjectRuntimeTaskJobProjection => "project_runtime_task_job_projection",
-            Self::PlanRuntimeWorkflowEditControl => "plan_runtime_workflow_edit_control",
-            Self::ProjectRuntimeManagedSessionProjection => {
-                "project_runtime_managed_session_projection"
-            }
-            Self::PlanRuntimeManagedSessionControl => "plan_runtime_managed_session_control",
-            Self::ProjectRuntimeWorkspaceChangeProjection => {
-                "project_runtime_workspace_change_projection"
-            }
-            Self::PlanRuntimeWorkspaceChangeControl => "plan_runtime_workspace_change_control",
-            Self::PlanRuntimeThreadForkControl => "plan_runtime_thread_fork_control",
-            Self::PlanRuntimeConversationArtifactControl => {
-                "plan_runtime_conversation_artifact_control"
-            }
-            Self::ProjectRuntimeConversationArtifactProjection => {
-                "project_runtime_conversation_artifact_projection"
-            }
-            Self::ProjectRuntimeSubagentProjection => "project_runtime_subagent_projection",
-            Self::PlanRuntimeSubagentControl => "plan_runtime_subagent_control",
         }
     }
 
@@ -181,41 +130,6 @@ pub fn command_operation(operation: &str) -> Option<CommandOperation> {
         "project_runtime_diagnostics_repair_policy" => {
             Some(CommandOperation::ProjectRuntimeDiagnosticsRepairPolicy)
         }
-        "plan_runtime_task_job_cancel_state_update" => {
-            Some(CommandOperation::PlanRuntimeTaskJobCancelStateUpdate)
-        }
-        "plan_runtime_task_job_create_state_update" => {
-            Some(CommandOperation::PlanRuntimeTaskJobCreateStateUpdate)
-        }
-        "project_runtime_task_job_projection" => {
-            Some(CommandOperation::ProjectRuntimeTaskJobProjection)
-        }
-        "plan_runtime_workflow_edit_control" => {
-            Some(CommandOperation::PlanRuntimeWorkflowEditControl)
-        }
-        "project_runtime_managed_session_projection" => {
-            Some(CommandOperation::ProjectRuntimeManagedSessionProjection)
-        }
-        "plan_runtime_managed_session_control" => {
-            Some(CommandOperation::PlanRuntimeManagedSessionControl)
-        }
-        "project_runtime_workspace_change_projection" => {
-            Some(CommandOperation::ProjectRuntimeWorkspaceChangeProjection)
-        }
-        "plan_runtime_workspace_change_control" => {
-            Some(CommandOperation::PlanRuntimeWorkspaceChangeControl)
-        }
-        "plan_runtime_thread_fork_control" => Some(CommandOperation::PlanRuntimeThreadForkControl),
-        "plan_runtime_conversation_artifact_control" => {
-            Some(CommandOperation::PlanRuntimeConversationArtifactControl)
-        }
-        "project_runtime_conversation_artifact_projection" => {
-            Some(CommandOperation::ProjectRuntimeConversationArtifactProjection)
-        }
-        "project_runtime_subagent_projection" => {
-            Some(CommandOperation::ProjectRuntimeSubagentProjection)
-        }
-        "plan_runtime_subagent_control" => Some(CommandOperation::PlanRuntimeSubagentControl),
         _ => None,
     }
 }
@@ -274,22 +188,42 @@ mod tests {
             "plan_runtime_coding_tool_artifact_drafts",
             "project_runtime_coding_tool_artifact_read",
             "plan_post_edit_diagnostics_feedback",
+            "plan_runtime_diagnostics_repair_control",
+            "plan_runtime_diagnostics_repair_retry_run",
+            "project_runtime_diagnostics_repair_projection",
             "project_runtime_diagnostics_repair_policy",
+        ] {
+            assert_eq!(
+                expected_command_schema_version(operation),
+                Some(DAEMON_CORE_COMMAND_SCHEMA_VERSION)
+            );
+        }
+    }
+
+    #[test]
+    fn runtime_compositor_command_transport_is_retired() {
+        for operation in [
+            "plan_runtime_task_job_cancel_state_update",
             "plan_runtime_task_job_create_state_update",
             "project_runtime_task_job_projection",
+            "plan_runtime_workflow_edit_control",
             "project_runtime_managed_session_projection",
             "plan_runtime_managed_session_control",
             "project_runtime_workspace_change_projection",
             "plan_runtime_workspace_change_control",
             "plan_runtime_thread_fork_control",
             "plan_runtime_conversation_artifact_control",
-            "project_runtime_diagnostics_repair_projection",
             "project_runtime_conversation_artifact_projection",
             "project_runtime_subagent_projection",
+            "plan_runtime_subagent_control",
         ] {
+            assert_eq!(command_operation(operation), None);
+            assert_eq!(expected_command_schema_version(operation), None);
             assert_eq!(
-                expected_command_schema_version(operation),
-                Some(DAEMON_CORE_COMMAND_SCHEMA_VERSION)
+                validate_command_envelope(operation, DAEMON_CORE_COMMAND_SCHEMA_VERSION)
+                    .unwrap_err()
+                    .code(),
+                "operation_unknown"
             );
         }
     }

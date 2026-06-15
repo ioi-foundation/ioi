@@ -147,7 +147,7 @@ test("conversation artifact mutation plans in Rust and commits artifact truth wi
           revisions: [{ revision_id: `revision-${artifactId}` }],
         };
         return {
-          source: "rust_runtime_conversation_artifact_control_command",
+          source: "rust_runtime_conversation_artifact_control_api",
           backend: "rust_policy",
           operation: request.operation,
           operation_kind: request.operation_kind,

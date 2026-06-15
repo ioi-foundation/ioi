@@ -74,17 +74,6 @@ pub struct RuntimeSubagentProjectionRecord {
     pub receipt_refs: Vec<String>,
 }
 
-pub fn project_runtime_subagent_projection_response(
-    request: RuntimeSubagentProjectionRequest,
-) -> Result<Value, RuntimeSubagentProjectionCommandError> {
-    let record = RuntimeSubagentProjectionCore::default().project(&request)?;
-    Ok(json!({
-        "source": "rust_runtime_subagent_projection_command",
-        "backend": "rust_policy",
-        "record": record.to_value(),
-    }))
-}
-
 impl RuntimeSubagentProjectionCore {
     pub fn project(
         &self,
@@ -102,7 +91,7 @@ impl RuntimeSubagentProjectionCore {
             .clone()
             .unwrap_or_else(|| format!("runtime.subagent_projection.{projection_kind}"));
         let source = optional_trimmed(request.source.as_deref())
-            .unwrap_or_else(|| "runtime.subagent_projection.rust_command".to_string());
+            .unwrap_or_else(|| "runtime.subagent_projection.rust_api".to_string());
         let evidence_refs = if request.evidence_refs.is_empty() {
             vec![
                 "runtime_subagent_read_projection_rust_owned".to_string(),
@@ -126,27 +115,6 @@ impl RuntimeSubagentProjectionCore {
             receipt_refs: vec![format!(
                 "receipt_runtime_subagent_projection_{projection_kind}"
             )],
-        })
-    }
-}
-
-impl RuntimeSubagentProjectionRecord {
-    fn to_value(&self) -> Value {
-        json!({
-            "schema_version": RUNTIME_SUBAGENT_PROJECTION_RESULT_SCHEMA_VERSION,
-            "object": "ioi.runtime_subagent_projection",
-            "status": "projected",
-            "operation": self.operation,
-            "operation_kind": self.operation_kind,
-            "projection_kind": self.projection_kind,
-            "thread_id": self.thread_id,
-            "subagent_id": self.subagent_id,
-            "role": self.role,
-            "source": self.source,
-            "projection": self.projection,
-            "record_count": self.record_count,
-            "evidence_refs": self.evidence_refs,
-            "receipt_refs": self.receipt_refs,
         })
     }
 }
@@ -539,34 +507,6 @@ mod tests {
         assert_eq!(
             result.projection["output"]["sections"]["EVIDENCE"],
             json!(["evidence-run-new", "receipt_record_new", "receipt_run_new"])
-        );
-    }
-
-    #[test]
-    fn rust_shapes_subagent_projection_command_response() {
-        let response =
-            project_runtime_subagent_projection_response(RuntimeSubagentProjectionRequest {
-                operation_kind: Some("runtime.subagent_projection.get".to_string()),
-                projection_kind: Some("get".to_string()),
-                thread_id: Some("thread_1".to_string()),
-                subagent_id: Some("subagent_new".to_string()),
-                projection: projection_candidates(),
-                ..Default::default()
-            })
-            .expect("command response");
-
-        assert_eq!(
-            response["source"],
-            "rust_runtime_subagent_projection_command"
-        );
-        assert_eq!(
-            response["record"]["schema_version"],
-            RUNTIME_SUBAGENT_PROJECTION_RESULT_SCHEMA_VERSION
-        );
-        assert_eq!(response["record"]["projection_kind"], "get");
-        assert_eq!(
-            response["record"]["projection"]["subagent_id"],
-            "subagent_new"
         );
     }
 

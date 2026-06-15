@@ -25,10 +25,23 @@ import {
   RUNTIME_CONTROL_OPERATOR_TURN_CONTROL_ADMISSION_REQUIRED_API_METHOD,
   RUNTIME_CONTROL_RUN_CANCEL_ADMISSION_REQUIRED_API_METHOD,
   RUNTIME_CONTROL_RUN_CANCEL_STATE_UPDATE_API_METHOD,
+  RUNTIME_CONTROL_TASK_JOB_CANCEL_STATE_UPDATE_API_METHOD,
+  RUNTIME_CONTROL_TASK_JOB_CREATE_STATE_UPDATE_API_METHOD,
+  RUNTIME_CONTROL_WORKFLOW_EDIT_CONTROL_API_METHOD,
   RUNTIME_CONTROL_WORKFLOW_EDIT_ADMISSION_REQUIRED_API_METHOD,
+  RUNTIME_CONTROL_MANAGED_SESSION_API_METHOD,
+  RUNTIME_CONTROL_WORKSPACE_CHANGE_API_METHOD,
+  RUNTIME_CONTROL_THREAD_FORK_API_METHOD,
+  RUNTIME_CONTROL_CONVERSATION_ARTIFACT_API_METHOD,
+  RUNTIME_CONTROL_SUBAGENT_API_METHOD,
+  RUNTIME_PROJECTION_TASK_JOB_API_METHOD,
   RUNTIME_PROJECTION_LIFECYCLE_API_METHOD,
+  RUNTIME_PROJECTION_MANAGED_SESSION_API_METHOD,
   RUNTIME_PROJECTION_REPOSITORY_WORKFLOW_API_METHOD,
   RUNTIME_PROJECTION_SKILL_HOOK_REGISTRY_API_METHOD,
+  RUNTIME_PROJECTION_WORKSPACE_CHANGE_API_METHOD,
+  RUNTIME_PROJECTION_CONVERSATION_ARTIFACT_API_METHOD,
+  RUNTIME_PROJECTION_SUBAGENT_API_METHOD,
   RUNTIME_PROJECTION_TOOL_CATALOG_API_METHOD,
   THREAD_MEMORY_AGENT_STATE_UPDATE_API_METHOD,
   THREAD_MEMORY_MANAGER_STATUS_PROJECTION_API_METHOD,
@@ -2148,42 +2161,43 @@ test("run cancel admission-required core sends Rust request through direct runti
   assert.equal(Object.hasOwn(result.record.details, "runStatus"), false);
 });
 
-test("runtime task job cancel core sends Rust state update through direct daemon-core invoker", () => {
+test("runtime task job cancel core sends Rust state update through typed runtime-control API", () => {
   let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
+  const { calls, runner } = createRuntimeControlDirectCore(
+    RUNTIME_CONTROL_TASK_JOB_CANCEL_STATE_UPDATE_API_METHOD,
+    (request) => {
       captured = request;
       return {
-            source: "rust_runtime_task_job_cancel_state_update_command",
-            backend: "rust_policy",
-            status: "planned",
-            operation_kind: "task.cancel",
-            cancel_kind: "task",
-            task_id: "task_run_cancel_one",
-            run_id: "run_cancel_one",
-            updated_at: "2026-06-06T04:45:00.000Z",
-            runtime_task: {
-              taskId: "task_run_cancel_one",
-              status: "canceled",
-            },
-            runtime_job: {
-              jobId: "job_run_cancel_one",
-              status: "canceled",
-            },
-            runtime_checklist: {
-              checklistId: "checklist_run_cancel_one",
-              status: "canceled",
-            },
-            run: {
-              id: "run_cancel_one",
-              status: "canceled",
-              events: [{ type: "job_canceled" }, { type: "canceled" }],
-              receipts: [{ id: "receipt_cancel" }],
-              artifacts: [{ id: "artifact_cancel" }],
-            },
-          };
+        source: "rust_runtime_task_job_cancel_state_update_api",
+        backend: "rust_policy",
+        status: "planned",
+        operation_kind: "task.cancel",
+        cancel_kind: "task",
+        task_id: "task_run_cancel_one",
+        run_id: "run_cancel_one",
+        updated_at: "2026-06-06T04:45:00.000Z",
+        runtime_task: {
+          taskId: "task_run_cancel_one",
+          status: "canceled",
+        },
+        runtime_job: {
+          jobId: "job_run_cancel_one",
+          status: "canceled",
+        },
+        runtime_checklist: {
+          checklistId: "checklist_run_cancel_one",
+          status: "canceled",
+        },
+        run: {
+          id: "run_cancel_one",
+          status: "canceled",
+          events: [{ type: "job_canceled" }, { type: "canceled" }],
+          receipts: [{ id: "receipt_cancel" }],
+          artifacts: [{ id: "artifact_cancel" }],
+        },
+      };
     },
-  });
+  );
 
   const result = runner.planRuntimeTaskJobCancelStateUpdate({
     cancel_kind: "task",
@@ -2193,16 +2207,16 @@ test("runtime task job cancel core sends Rust state update through direct daemon
     canceled_at: "2026-06-06T04:45:00.000Z",
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "plan_runtime_task_job_cancel_state_update");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, RUNTIME_CONTROL_TASK_JOB_CANCEL_STATE_UPDATE_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    captured.schema_version,
     RUNTIME_TASK_JOB_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.cancel_kind, "task");
-  assert.equal(captured.request.task_id, "task_run_cancel_one");
-  assert.equal(result.source, "rust_runtime_task_job_cancel_state_update_command");
+  assert.equal(captured.cancel_kind, "task");
+  assert.equal(captured.task_id, "task_run_cancel_one");
+  assert.equal(Object.hasOwn(captured, "backend"), false);
+  assert.equal(result.source, "rust_runtime_task_job_cancel_state_update_api");
   assert.equal(result.operation_kind, "task.cancel");
   assert.equal(result.cancel_kind, "task");
   assert.equal(result.task_id, "task_run_cancel_one");
@@ -2212,7 +2226,7 @@ test("runtime task job cancel core sends Rust state update through direct daemon
 
 test("runtime task job cancel normalizer accepts job cancel operation kind", () => {
   const result = normalizeRuntimeTaskJobCancelStateUpdateBridgeResult({
-    source: "rust_runtime_task_job_cancel_state_update_command",
+    source: "rust_runtime_task_job_cancel_state_update_api",
     backend: "rust_policy",
     record: {
       status: "planned",
@@ -2231,13 +2245,14 @@ test("runtime task job cancel normalizer accepts job cancel operation kind", () 
   assert.equal(result.runtime_job.status, "canceled");
 });
 
-test("runtime task job create core sends Rust state update through direct daemon-core invoker", () => {
+test("runtime task job create core sends Rust state update through typed runtime-control API", () => {
   let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
+  const { calls, runner } = createRuntimeControlDirectCore(
+    RUNTIME_CONTROL_TASK_JOB_CREATE_STATE_UPDATE_API_METHOD,
+    (request) => {
       captured = request;
       return {
-        source: "rust_runtime_task_job_create_state_update_command",
+        source: "rust_runtime_task_job_create_state_update_api",
         backend: "rust_policy",
         status: "planned",
         operation_kind: "task.create",
@@ -2267,22 +2282,22 @@ test("runtime task job create core sends Rust state update through direct daemon
         },
       };
     },
-  });
+  );
 
   const result = runner.planRuntimeTaskJobCreateStateUpdate({
     agent_id: "agent-one",
     run: { id: "run_create_one", agentId: "agent-one", status: "completed" },
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "plan_runtime_task_job_create_state_update");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, RUNTIME_CONTROL_TASK_JOB_CREATE_STATE_UPDATE_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    captured.schema_version,
     RUNTIME_TASK_JOB_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.agent_id, "agent-one");
-  assert.equal(result.source, "rust_runtime_task_job_create_state_update_command");
+  assert.equal(captured.agent_id, "agent-one");
+  assert.equal(Object.hasOwn(captured, "backend"), false);
+  assert.equal(result.source, "rust_runtime_task_job_create_state_update_api");
   assert.equal(result.operation_kind, "task.create");
   assert.equal(result.task_id, "task_run_create_one");
   assert.equal(result.runtime_task.status, "completed");
@@ -2291,7 +2306,7 @@ test("runtime task job create core sends Rust state update through direct daemon
 
 test("runtime task job create normalizer requires task create operation kind", () => {
   const result = normalizeRuntimeTaskJobCreateStateUpdateBridgeResult({
-    source: "rust_runtime_task_job_create_state_update_command",
+    source: "rust_runtime_task_job_create_state_update_api",
     backend: "rust_policy",
     record: {
       status: "planned",
@@ -2312,13 +2327,14 @@ test("runtime task job create normalizer requires task create operation kind", (
   assert.equal(result.runtime_checklist.status, "completed");
 });
 
-test("runtime task job projection core sends Rust projection through direct daemon-core invoker", () => {
+test("runtime task job projection core sends Rust projection through typed runtime-projection API", () => {
   let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
+  const { calls, runner } = createRuntimeProjectionDirectCore(
+    RUNTIME_PROJECTION_TASK_JOB_API_METHOD,
+    (request) => {
       captured = request;
       return {
-        source: "rust_runtime_task_job_projection_command",
+        source: "rust_runtime_task_job_projection_api",
         backend: "rust_policy",
         status: "projected",
         operation_kind: "task.list",
@@ -2336,7 +2352,7 @@ test("runtime task job projection core sends Rust projection through direct daem
         record_count: 1,
       };
     },
-  });
+  );
 
   const result = runner.projectRuntimeTaskJobProjection({
     projection_kind: "task.list",
@@ -2345,18 +2361,18 @@ test("runtime task job projection core sends Rust projection through direct daem
     status: "running",
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "project_runtime_task_job_projection");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, RUNTIME_PROJECTION_TASK_JOB_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    captured.schema_version,
     RUNTIME_TASK_JOB_PROJECTION_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.projection_kind, "task.list");
-  assert.equal(captured.request.state_dir, "/tmp/ioi-runtime-state");
-  assert.equal(captured.request.agent_id, "agent-one");
-  assert.equal(Object.hasOwn(captured.request, "runs"), false);
-  assert.equal(result.source, "rust_runtime_task_job_projection_command");
+  assert.equal(captured.projection_kind, "task.list");
+  assert.equal(captured.state_dir, "/tmp/ioi-runtime-state");
+  assert.equal(captured.agent_id, "agent-one");
+  assert.equal(Object.hasOwn(captured, "runs"), false);
+  assert.equal(Object.hasOwn(captured, "backend"), false);
+  assert.equal(result.source, "rust_runtime_task_job_projection_api");
   assert.equal(result.operation_kind, "task.list");
   assert.equal(result.projection_kind, "task.list");
   assert.equal(result.records[0].taskId, "task_run-one");
@@ -2365,7 +2381,7 @@ test("runtime task job projection core sends Rust projection through direct daem
 
 test("runtime task job projection normalizer accepts get operation kinds", () => {
   const taskResult = normalizeRuntimeTaskJobProjectionBridgeResult({
-    source: "rust_runtime_task_job_projection_command",
+    source: "rust_runtime_task_job_projection_api",
     backend: "rust_policy",
     record: {
       status: "projected",
@@ -2378,7 +2394,7 @@ test("runtime task job projection normalizer accepts get operation kinds", () =>
     },
   });
   const jobResult = normalizeRuntimeTaskJobProjectionBridgeResult({
-    source: "rust_runtime_task_job_projection_command",
+    source: "rust_runtime_task_job_projection_api",
     backend: "rust_policy",
     record: {
       status: "projected",
@@ -2880,13 +2896,14 @@ test("runtime memory control core sends Rust control through typed Rust daemon-c
   );
 });
 
-test("runtime workflow-edit control core sends Rust daemon-core request", () => {
+test("runtime workflow-edit control core sends Rust request through typed runtime-control API", () => {
   let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
+  const { calls, runner } = createRuntimeControlDirectCore(
+    RUNTIME_CONTROL_WORKFLOW_EDIT_CONTROL_API_METHOD,
+    (request) => {
       captured = request;
       return {
-        source: "rust_runtime_workflow_edit_control_command",
+        source: "rust_runtime_workflow_edit_control_api",
         backend: "rust_policy",
         record: {
           object: "ioi.runtime_workflow_edit_control",
@@ -2910,7 +2927,7 @@ test("runtime workflow-edit control core sends Rust daemon-core request", () => 
         },
       };
     },
-  });
+  );
 
   const result = runner.planRuntimeWorkflowEditControl({
     operation: "workflow_edit_proposal",
@@ -2925,16 +2942,16 @@ test("runtime workflow-edit control core sends Rust daemon-core request", () => 
     },
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "plan_runtime_workflow_edit_control");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, RUNTIME_CONTROL_WORKFLOW_EDIT_CONTROL_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    captured.schema_version,
     RUNTIME_WORKFLOW_EDIT_CONTROL_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.operation_kind, "workflow.edit_proposed");
-  assert.equal(captured.request.request.workflow_patch.nodes[0].id, "node_123");
-  assert.equal(result.source, "rust_runtime_workflow_edit_control_command");
+  assert.equal(captured.operation_kind, "workflow.edit_proposed");
+  assert.equal(captured.request.workflow_patch.nodes[0].id, "node_123");
+  assert.equal(Object.hasOwn(captured, "backend"), false);
+  assert.equal(result.source, "rust_runtime_workflow_edit_control_api");
   assert.equal(result.operation_kind, "workflow.edit_proposed");
   assert.equal(result.event.event_kind, "workflow.edit_proposed");
   assert.equal(result.receipt_refs[0], "receipt_workflow_edit");
@@ -2956,13 +2973,14 @@ test("runtime workflow-edit control core sends Rust daemon-core request", () => 
   );
 });
 
-test("runtime managed-session projection core sends Rust daemon-core request", () => {
+test("runtime managed-session projection core sends Rust request through typed runtime-projection API", () => {
   let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
+  const { calls, runner } = createRuntimeProjectionDirectCore(
+    RUNTIME_PROJECTION_MANAGED_SESSION_API_METHOD,
+    (request) => {
       captured = request;
       return {
-        source: "rust_runtime_managed_session_projection_command",
+        source: "rust_runtime_managed_session_projection_api",
         backend: "rust_policy",
         record: {
           object: "ioi.runtime_managed_session_projection",
@@ -2978,7 +2996,7 @@ test("runtime managed-session projection core sends Rust daemon-core request", (
         },
       };
     },
-  });
+  );
 
   const result = runner.projectRuntimeManagedSessionProjection({
     operation: "managed_session_inspection",
@@ -2988,19 +3006,19 @@ test("runtime managed-session projection core sends Rust daemon-core request", (
     state_dir: "/runtime-state",
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "project_runtime_managed_session_projection");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, RUNTIME_PROJECTION_MANAGED_SESSION_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    captured.schema_version,
     RUNTIME_MANAGED_SESSION_PROJECTION_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.operation_kind, "managed_session.inspect");
-  assert.equal(captured.request.projection_kind, "list");
-  assert.equal(captured.request.thread_id, "thread_123");
-  assert.equal(captured.request.state_dir, "/runtime-state");
-  assert.equal(Object.hasOwn(captured.request, "projection"), false);
-  assert.equal(result.source, "rust_runtime_managed_session_projection_command");
+  assert.equal(captured.operation_kind, "managed_session.inspect");
+  assert.equal(captured.projection_kind, "list");
+  assert.equal(captured.thread_id, "thread_123");
+  assert.equal(captured.state_dir, "/runtime-state");
+  assert.equal(Object.hasOwn(captured, "projection"), false);
+  assert.equal(Object.hasOwn(captured, "backend"), false);
+  assert.equal(result.source, "rust_runtime_managed_session_projection_api");
   assert.equal(result.operation_kind, "managed_session.inspect");
   assert.equal(result.projection[0].managed_session_id, "sandbox_browser:1");
   assert.equal(result.record_count, 1);
@@ -3025,13 +3043,14 @@ test("runtime managed-session projection core sends Rust daemon-core request", (
   );
 });
 
-test("runtime managed-session control core sends Rust daemon-core request", () => {
+test("runtime managed-session control core sends Rust request through typed runtime-control API", () => {
   let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
+  const { calls, runner } = createRuntimeControlDirectCore(
+    RUNTIME_CONTROL_MANAGED_SESSION_API_METHOD,
+    (request) => {
       captured = request;
       return {
-        source: "rust_runtime_managed_session_control_command",
+        source: "rust_runtime_managed_session_control_api",
         backend: "rust_policy",
         record: {
           object: "ioi.runtime_managed_session_control",
@@ -3054,7 +3073,7 @@ test("runtime managed-session control core sends Rust daemon-core request", () =
         },
       };
     },
-  });
+  );
 
   const result = runner.planRuntimeManagedSessionControl({
     operation: "managed_session_control",
@@ -3067,19 +3086,19 @@ test("runtime managed-session control core sends Rust daemon-core request", () =
     request: { receipt_refs: ["receipt_request"] },
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "plan_runtime_managed_session_control");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, RUNTIME_CONTROL_MANAGED_SESSION_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    captured.schema_version,
     RUNTIME_MANAGED_SESSION_CONTROL_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.operation_kind, "managed_session.control");
-  assert.equal(captured.request.state_dir, "/runtime-state");
-  assert.equal(captured.request.managed_session_id, "sandbox_browser:1");
-  assert.equal(captured.request.control_state, "take_over");
-  assert.equal(Object.hasOwn(captured.request, "managed_session"), false);
-  assert.equal(result.source, "rust_runtime_managed_session_control_command");
+  assert.equal(captured.operation_kind, "managed_session.control");
+  assert.equal(captured.state_dir, "/runtime-state");
+  assert.equal(captured.managed_session_id, "sandbox_browser:1");
+  assert.equal(captured.control_state, "take_over");
+  assert.equal(Object.hasOwn(captured, "managed_session"), false);
+  assert.equal(Object.hasOwn(captured, "backend"), false);
+  assert.equal(result.source, "rust_runtime_managed_session_control_api");
   assert.equal(result.operation_kind, "managed_session.control");
   assert.equal(result.event.event_kind, "managed_session.controlled");
   assert.equal(result.receipt_refs[0], "receipt_managed_session_control");
@@ -3101,13 +3120,14 @@ test("runtime managed-session control core sends Rust daemon-core request", () =
   );
 });
 
-test("runtime workspace-change projection core sends Rust daemon-core request", () => {
+test("runtime workspace-change projection core sends Rust request through typed runtime-projection API", () => {
   let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
+  const { calls, runner } = createRuntimeProjectionDirectCore(
+    RUNTIME_PROJECTION_WORKSPACE_CHANGE_API_METHOD,
+    (request) => {
       captured = request;
       return {
-        source: "rust_runtime_workspace_change_projection_command",
+        source: "rust_runtime_workspace_change_projection_api",
         backend: "rust_policy",
         record: {
           object: "ioi.runtime_workspace_change_projection",
@@ -3123,7 +3143,7 @@ test("runtime workspace-change projection core sends Rust daemon-core request", 
         },
       };
     },
-  });
+  );
 
   const result = runner.projectRuntimeWorkspaceChangeProjection({
     operation: "workspace_change_inspection",
@@ -3133,19 +3153,19 @@ test("runtime workspace-change projection core sends Rust daemon-core request", 
     state_dir: "/runtime-state",
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "project_runtime_workspace_change_projection");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, RUNTIME_PROJECTION_WORKSPACE_CHANGE_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    captured.schema_version,
     RUNTIME_WORKSPACE_CHANGE_PROJECTION_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.operation_kind, "workspace_change.inspect");
-  assert.equal(captured.request.projection_kind, "list");
-  assert.equal(captured.request.thread_id, "thread_123");
-  assert.equal(captured.request.state_dir, "/runtime-state");
-  assert.equal(Object.hasOwn(captured.request, "projection"), false);
-  assert.equal(result.source, "rust_runtime_workspace_change_projection_command");
+  assert.equal(captured.operation_kind, "workspace_change.inspect");
+  assert.equal(captured.projection_kind, "list");
+  assert.equal(captured.thread_id, "thread_123");
+  assert.equal(captured.state_dir, "/runtime-state");
+  assert.equal(Object.hasOwn(captured, "projection"), false);
+  assert.equal(Object.hasOwn(captured, "backend"), false);
+  assert.equal(result.source, "rust_runtime_workspace_change_projection_api");
   assert.equal(result.operation_kind, "workspace_change.inspect");
   assert.equal(result.projection[0].workspace_change_id, "workspace_change:file:1");
   assert.equal(result.record_count, 1);
@@ -3170,13 +3190,14 @@ test("runtime workspace-change projection core sends Rust daemon-core request", 
   );
 });
 
-test("runtime workspace-change control core sends Rust daemon-core request", () => {
+test("runtime workspace-change control core sends Rust request through typed runtime-control API", () => {
   let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
+  const { calls, runner } = createRuntimeControlDirectCore(
+    RUNTIME_CONTROL_WORKSPACE_CHANGE_API_METHOD,
+    (request) => {
       captured = request;
       return {
-        source: "rust_runtime_workspace_change_control_command",
+        source: "rust_runtime_workspace_change_control_api",
         backend: "rust_policy",
         record: {
           object: "ioi.runtime_workspace_change_control",
@@ -3199,7 +3220,7 @@ test("runtime workspace-change control core sends Rust daemon-core request", () 
         },
       };
     },
-  });
+  );
 
   const result = runner.planRuntimeWorkspaceChangeControl({
     operation: "workspace_change_control",
@@ -3212,19 +3233,19 @@ test("runtime workspace-change control core sends Rust daemon-core request", () 
     request: { receipt_refs: ["receipt_request"] },
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "plan_runtime_workspace_change_control");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, RUNTIME_CONTROL_WORKSPACE_CHANGE_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    captured.schema_version,
     RUNTIME_WORKSPACE_CHANGE_CONTROL_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.operation_kind, "workspace_change.control");
-  assert.equal(captured.request.state_dir, "/runtime-state");
-  assert.equal(captured.request.workspace_change_id, "workspace_change:file:1");
-  assert.equal(captured.request.control_state, "accept");
-  assert.equal(Object.hasOwn(captured.request, "workspace_change"), false);
-  assert.equal(result.source, "rust_runtime_workspace_change_control_command");
+  assert.equal(captured.operation_kind, "workspace_change.control");
+  assert.equal(captured.state_dir, "/runtime-state");
+  assert.equal(captured.workspace_change_id, "workspace_change:file:1");
+  assert.equal(captured.control_state, "accept");
+  assert.equal(Object.hasOwn(captured, "workspace_change"), false);
+  assert.equal(Object.hasOwn(captured, "backend"), false);
+  assert.equal(result.source, "rust_runtime_workspace_change_control_api");
   assert.equal(result.operation_kind, "workspace_change.control");
   assert.equal(result.event.event_kind, "workspace_change.controlled");
   assert.equal(result.receipt_refs[0], "receipt_workspace_change_control");
@@ -3246,13 +3267,14 @@ test("runtime workspace-change control core sends Rust daemon-core request", () 
   );
 });
 
-test("runtime thread-fork control core sends Rust daemon-core request", () => {
+test("runtime thread-fork control core sends Rust request through typed runtime-control API", () => {
   let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
+  const { calls, runner } = createRuntimeControlDirectCore(
+    RUNTIME_CONTROL_THREAD_FORK_API_METHOD,
+    (request) => {
       captured = request;
       return {
-        source: "rust_runtime_thread_fork_control_command",
+        source: "rust_runtime_thread_fork_control_api",
         backend: "rust_policy",
         record: {
           object: "ioi.runtime_thread_fork_control",
@@ -3286,7 +3308,7 @@ test("runtime thread-fork control core sends Rust daemon-core request", () => {
         },
       };
     },
-  });
+  );
 
   const result = runner.planRuntimeThreadForkControl({
     operation: "thread_fork",
@@ -3298,18 +3320,18 @@ test("runtime thread-fork control core sends Rust daemon-core request", () => {
     request: { idempotency_key: "fork-key" },
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "plan_runtime_thread_fork_control");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, RUNTIME_CONTROL_THREAD_FORK_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    captured.schema_version,
     RUNTIME_THREAD_FORK_CONTROL_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.operation_kind, "thread.fork");
-  assert.equal(captured.request.thread_id, "thread_123");
-  assert.equal(captured.request.source_agent.id, "agent_123");
-  assert.equal(captured.request.request.idempotency_key, "fork-key");
-  assert.equal(result.source, "rust_runtime_thread_fork_control_command");
+  assert.equal(captured.operation_kind, "thread.fork");
+  assert.equal(captured.thread_id, "thread_123");
+  assert.equal(captured.source_agent.id, "agent_123");
+  assert.equal(captured.request.idempotency_key, "fork-key");
+  assert.equal(Object.hasOwn(captured, "backend"), false);
+  assert.equal(result.source, "rust_runtime_thread_fork_control_api");
   assert.equal(result.operation_kind, "thread.fork");
   assert.equal(result.agent.id, "agent_fork_123");
   assert.equal(result.thread.thread_id, "thread_fork_123");
@@ -3335,13 +3357,14 @@ test("runtime thread-fork control core sends Rust daemon-core request", () => {
   );
 });
 
-test("runtime conversation artifact projection core sends Rust daemon-core request", () => {
+test("runtime conversation artifact projection core sends Rust request through typed runtime-projection API", () => {
   let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
+  const { calls, runner } = createRuntimeProjectionDirectCore(
+    RUNTIME_PROJECTION_CONVERSATION_ARTIFACT_API_METHOD,
+    (request) => {
       captured = request;
       return {
-        source: "rust_runtime_conversation_artifact_projection_command",
+        source: "rust_runtime_conversation_artifact_projection_api",
         backend: "rust_policy",
         record: {
           object: "ioi.runtime_conversation_artifact_projection",
@@ -3358,7 +3381,7 @@ test("runtime conversation artifact projection core sends Rust daemon-core reque
         },
       };
     },
-  });
+  );
 
   const result = runner.projectRuntimeConversationArtifactProjection({
     operation: "runtime_conversation_artifact_projection",
@@ -3368,23 +3391,23 @@ test("runtime conversation artifact projection core sends Rust daemon-core reque
     state_dir: "/runtime-state",
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "project_runtime_conversation_artifact_projection");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, RUNTIME_PROJECTION_CONVERSATION_ARTIFACT_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    captured.schema_version,
     RUNTIME_CONVERSATION_ARTIFACT_PROJECTION_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.operation, "runtime_conversation_artifact_projection");
+  assert.equal(captured.operation, "runtime_conversation_artifact_projection");
   assert.equal(
-    captured.request.operation_kind,
+    captured.operation_kind,
     "runtime.conversation_artifact_projection.list",
   );
-  assert.equal(captured.request.projection_kind, "list");
-  assert.equal(captured.request.thread_id, "thread_123");
-  assert.equal(captured.request.state_dir, "/runtime-state");
-  assert.equal(Object.hasOwn(captured.request, "projection"), false);
-  assert.equal(result.source, "rust_runtime_conversation_artifact_projection_command");
+  assert.equal(captured.projection_kind, "list");
+  assert.equal(captured.thread_id, "thread_123");
+  assert.equal(captured.state_dir, "/runtime-state");
+  assert.equal(Object.hasOwn(captured, "projection"), false);
+  assert.equal(Object.hasOwn(captured, "backend"), false);
+  assert.equal(result.source, "rust_runtime_conversation_artifact_projection_api");
   assert.equal(result.projection_kind, "list");
   assert.equal(result.projection[0].id, "artifact_123");
   assert.equal(result.record_count, 1);
@@ -3409,13 +3432,14 @@ test("runtime conversation artifact projection core sends Rust daemon-core reque
   );
 });
 
-test("runtime conversation artifact control core sends Rust daemon-core request", () => {
+test("runtime conversation artifact control core sends Rust request through typed runtime-control API", () => {
   let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
+  const { calls, runner } = createRuntimeControlDirectCore(
+    RUNTIME_CONTROL_CONVERSATION_ARTIFACT_API_METHOD,
+    (request) => {
       captured = request;
       return {
-        source: "rust_runtime_conversation_artifact_control_command",
+        source: "rust_runtime_conversation_artifact_control_api",
         backend: "rust_policy",
         record: {
           object: "ioi.runtime_conversation_artifact_control",
@@ -3442,7 +3466,7 @@ test("runtime conversation artifact control core sends Rust daemon-core request"
         },
       };
     },
-  });
+  );
 
   const result = runner.planRuntimeConversationArtifactControl({
     operation: "conversation_artifact_create",
@@ -3454,18 +3478,18 @@ test("runtime conversation artifact control core sends Rust daemon-core request"
     },
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "plan_runtime_conversation_artifact_control");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, RUNTIME_CONTROL_CONVERSATION_ARTIFACT_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    captured.schema_version,
     RUNTIME_CONVERSATION_ARTIFACT_CONTROL_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.operation, "conversation_artifact_create");
-  assert.equal(captured.request.operation_kind, "artifact.conversation.create");
-  assert.equal(captured.request.thread_id, "thread_123");
-  assert.equal(captured.request.request.idempotency_key, "artifact-key");
-  assert.equal(result.source, "rust_runtime_conversation_artifact_control_command");
+  assert.equal(captured.operation, "conversation_artifact_create");
+  assert.equal(captured.operation_kind, "artifact.conversation.create");
+  assert.equal(captured.thread_id, "thread_123");
+  assert.equal(captured.request.idempotency_key, "artifact-key");
+  assert.equal(Object.hasOwn(captured, "backend"), false);
+  assert.equal(result.source, "rust_runtime_conversation_artifact_control_api");
   assert.equal(result.operation_kind, "artifact.conversation.create");
   assert.equal(result.artifact.id, "artifact_123");
   assert.equal(result.result.status, "created");
@@ -3489,13 +3513,14 @@ test("runtime conversation artifact control core sends Rust daemon-core request"
   );
 });
 
-test("runtime subagent projection core sends Rust daemon-core request", () => {
+test("runtime subagent projection core sends Rust request through typed runtime-projection API", () => {
   let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
+  const { calls, runner } = createRuntimeProjectionDirectCore(
+    RUNTIME_PROJECTION_SUBAGENT_API_METHOD,
+    (request) => {
       captured = request;
       return {
-        source: "rust_runtime_subagent_projection_command",
+        source: "rust_runtime_subagent_projection_api",
         backend: "rust_policy",
         record: {
           object: "ioi.runtime_subagent_projection",
@@ -3513,7 +3538,7 @@ test("runtime subagent projection core sends Rust daemon-core request", () => {
         },
       };
     },
-  });
+  );
 
   const projection = {
     subagents: [{ subagent_id: "subagent_123", parent_thread_id: "thread_123" }],
@@ -3528,20 +3553,20 @@ test("runtime subagent projection core sends Rust daemon-core request", () => {
     projection,
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "project_runtime_subagent_projection");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, RUNTIME_PROJECTION_SUBAGENT_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    captured.schema_version,
     RUNTIME_SUBAGENT_PROJECTION_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.operation, "runtime_subagent_projection");
-  assert.equal(captured.request.operation_kind, "runtime.subagent_projection.list");
-  assert.equal(captured.request.projection_kind, "list");
-  assert.equal(captured.request.thread_id, "thread_123");
-  assert.equal(captured.request.role, "reviewer");
-  assert.deepEqual(captured.request.projection, projection);
-  assert.equal(result.source, "rust_runtime_subagent_projection_command");
+  assert.equal(captured.operation, "runtime_subagent_projection");
+  assert.equal(captured.operation_kind, "runtime.subagent_projection.list");
+  assert.equal(captured.projection_kind, "list");
+  assert.equal(captured.thread_id, "thread_123");
+  assert.equal(captured.role, "reviewer");
+  assert.deepEqual(captured.projection, projection);
+  assert.equal(Object.hasOwn(captured, "backend"), false);
+  assert.equal(result.source, "rust_runtime_subagent_projection_api");
   assert.equal(result.projection_kind, "list");
   assert.equal(result.projection[0].subagent_id, "subagent_123");
   assert.equal(result.record_count, 1);
@@ -3563,13 +3588,14 @@ test("runtime subagent projection core sends Rust daemon-core request", () => {
   );
 });
 
-test("runtime subagent wait control core sends Rust daemon-core request", () => {
+test("runtime subagent wait control core sends Rust request through typed runtime-control API", () => {
   let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
+  const { calls, runner } = createRuntimeControlDirectCore(
+    RUNTIME_CONTROL_SUBAGENT_API_METHOD,
+    (request) => {
       captured = request;
       return {
-        source: "rust_runtime_subagent_control_command",
+        source: "rust_runtime_subagent_control_api",
         backend: "rust_policy",
         record: {
           object: "ioi.runtime_subagent_control",
@@ -3593,7 +3619,7 @@ test("runtime subagent wait control core sends Rust daemon-core request", () => 
         },
       };
     },
-  });
+  );
 
   const result = runner.planRuntimeSubagentControl({
     operation: "wait",
@@ -3604,16 +3630,16 @@ test("runtime subagent wait control core sends Rust daemon-core request", () => 
     request: { receipt_refs: ["receipt_request"] },
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "plan_runtime_subagent_control");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, RUNTIME_CONTROL_SUBAGENT_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    captured.schema_version,
     RUNTIME_SUBAGENT_CONTROL_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.operation_kind, "subagent.wait");
-  assert.equal(captured.request.subagent.subagent_id, "subagent_123");
-  assert.equal(result.source, "rust_runtime_subagent_control_command");
+  assert.equal(captured.operation_kind, "subagent.wait");
+  assert.equal(captured.subagent.subagent_id, "subagent_123");
+  assert.equal(Object.hasOwn(captured, "backend"), false);
+  assert.equal(result.source, "rust_runtime_subagent_control_api");
   assert.equal(result.operation_kind, "subagent.wait");
   assert.equal(result.event.event_kind, "subagent.wait_completed");
   assert.equal(result.receipt_refs[0], "receipt_wait");

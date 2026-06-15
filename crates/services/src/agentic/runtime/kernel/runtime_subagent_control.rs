@@ -71,17 +71,6 @@ pub struct RuntimeSubagentControlRecord {
     pub evidence_refs: Vec<String>,
 }
 
-pub fn plan_runtime_subagent_control_response(
-    request: RuntimeSubagentControlRequest,
-) -> Result<Value, RuntimeSubagentControlCommandError> {
-    let record = RuntimeSubagentControlCore::default().plan(&request)?;
-    Ok(json!({
-        "source": "rust_runtime_subagent_control_command",
-        "backend": "rust_policy",
-        "record": record.to_value(),
-    }))
-}
-
 impl RuntimeSubagentControlCore {
     pub fn plan(
         &self,
@@ -229,25 +218,6 @@ impl RuntimeSubagentControlCore {
             receipt_refs,
             policy_decision_refs,
             evidence_refs,
-        })
-    }
-}
-
-impl RuntimeSubagentControlRecord {
-    fn to_value(&self) -> Value {
-        json!({
-            "schema_version": RUNTIME_SUBAGENT_CONTROL_RESULT_SCHEMA_VERSION,
-            "object": "ioi.runtime_subagent_control",
-            "status": "planned",
-            "operation": self.operation,
-            "operation_kind": self.operation_kind,
-            "thread_id": self.thread_id,
-            "subagent_id": self.subagent_id,
-            "control_status": self.status,
-            "event": self.event,
-            "receipt_refs": self.receipt_refs,
-            "policy_decision_refs": self.policy_decision_refs,
-            "evidence_refs": self.evidence_refs,
         })
     }
 }
@@ -529,18 +499,6 @@ mod tests {
             .and_then(Value::as_array)
             .unwrap()
             .contains(&json!("policy_request")));
-    }
-
-    #[test]
-    fn rust_shapes_subagent_wait_control_command_response() {
-        let response =
-            plan_runtime_subagent_control_response(wait_request()).expect("response should shape");
-        assert_eq!(response["source"], "rust_runtime_subagent_control_command");
-        assert_eq!(response["record"]["operation_kind"], "subagent.wait");
-        assert_eq!(
-            response["record"]["event"]["component_kind"],
-            "subagent_lifecycle"
-        );
     }
 
     #[test]

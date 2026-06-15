@@ -13897,10 +13897,10 @@ function runBridge() {
     /RUNTIME_THREAD_FORK_CONTROL_RESULT_SCHEMA_VERSION/.test(
       runtimeThreadForkControlCore,
     ) &&
-    /pub fn plan_runtime_thread_fork_control_response/.test(
+    !/pub fn plan_runtime_thread_fork_control_response/.test(
       runtimeThreadForkControlCore,
     ) &&
-    /rust_runtime_thread_fork_control_command/.test(
+    !/rust_runtime_thread_fork_control_command/.test(
       runtimeThreadForkControlCore,
     ) &&
     /OperatorControl\.ThreadFork/.test(runtimeThreadForkControlCore) &&
@@ -13913,23 +13913,27 @@ function runBridge() {
     /rust_plans_thread_fork_agent_thread_and_event/.test(
       runtimeThreadForkControlCore,
     ) &&
-    /rust_shapes_thread_fork_control_command_response/.test(
+    !/rust_shapes_thread_fork_control_command_response/.test(
       runtimeThreadForkControlCore,
     ) &&
     /rust_ignores_retired_thread_fork_idempotency_alias/.test(
       runtimeThreadForkControlCore,
     ) &&
     /rust_rejects_invalid_thread_fork_schema/.test(runtimeThreadForkControlCore) &&
-    /PlanRuntimeThreadForkControl/.test(commandProtocolCore) &&
-    /"plan_runtime_thread_fork_control"/.test(commandProtocolCore) &&
-    /CommandOperation::PlanRuntimeThreadForkControl/.test(coreCommandDispatch) &&
-    /plan_runtime_thread_fork_control_response/.test(coreCommandDispatch) &&
-    /command_error_from!\(RuntimeThreadForkCommandError\)/.test(
+    /runtime_compositor_command_transport_is_retired/.test(commandProtocolCore) &&
+    !/PlanRuntimeThreadForkControl/.test(commandProtocolCore) &&
+    !/CommandOperation::PlanRuntimeThreadForkControl/.test(coreCommandDispatch) &&
+    !/plan_runtime_thread_fork_control_response/.test(coreCommandDispatch) &&
+    !/command_error_from!\(RuntimeThreadForkCommandError\)/.test(
       coreCommandDispatch,
     ) &&
     /pub mod runtime_thread_fork_control;/.test(kernelModuleForBridgeChecks) &&
+    /pub fn plan_runtime_thread_fork_control\(/.test(kernelModuleForBridgeChecks) &&
     /planRuntimeThreadForkControl\(request/.test(runtimeContextPolicyCore) &&
-    /plan_runtime_thread_fork_control/.test(runtimeContextPolicyCore) &&
+    /RUNTIME_CONTROL_THREAD_FORK_API_METHOD/.test(runtimeContextPolicyCore) &&
+    /invokeRuntimeControlApi\(\s*RUNTIME_CONTROL_THREAD_FORK_API_METHOD/.test(
+      runtimeContextPolicyCore,
+    ) &&
     /RUNTIME_THREAD_FORK_CONTROL_REQUEST_SCHEMA_VERSION/.test(
       runtimeContextPolicyCore,
     ) &&
@@ -13937,7 +13941,7 @@ function runBridge() {
       runtimeContextPolicyCore,
     ) &&
     /expectedOperationKind:\s*"thread\.fork"/.test(runtimeContextPolicyCore) &&
-    /runtime thread-fork control core sends Rust daemon-core request/.test(
+    /runtime thread-fork control core sends Rust request through typed runtime-control API/.test(
       runtimeContextPolicyCoreTest,
     ) &&
     /runtime_thread_fork_control_event_missing/.test(
@@ -15198,13 +15202,18 @@ function runBridge() {
     /rust_plans_runtime_workflow_edit_proposal_control_event/.test(runtimeWorkflowEditControlCore) &&
     /rust_plans_runtime_workflow_edit_apply_control_event/.test(runtimeWorkflowEditControlCore) &&
     /rust_rejects_unowned_runtime_workflow_edit_control_kind/.test(runtimeWorkflowEditControlCore) &&
-    /PlanRuntimeWorkflowEditControl/.test(commandProtocolCore) &&
-    /"plan_runtime_workflow_edit_control"/.test(commandProtocolCore) &&
-    /plan_runtime_workflow_edit_control_response/.test(coreCommandDispatch) &&
+    /runtime_compositor_command_transport_is_retired/.test(commandProtocolCore) &&
+    !/PlanRuntimeWorkflowEditControl/.test(commandProtocolCore) &&
+    !/plan_runtime_workflow_edit_control_response/.test(coreCommandDispatch) &&
     /pub mod runtime_workflow_edit_control;/.test(kernelModuleForBridgeChecks) &&
+    /pub fn plan_runtime_workflow_edit_control\(/.test(kernelModuleForBridgeChecks) &&
     /planRuntimeWorkflowEditControl\(request = \{\}\)/.test(runtimeContextPolicyCore) &&
+    /RUNTIME_CONTROL_WORKFLOW_EDIT_CONTROL_API_METHOD/.test(runtimeContextPolicyCore) &&
+    /invokeRuntimeControlApi\(\s*RUNTIME_CONTROL_WORKFLOW_EDIT_CONTROL_API_METHOD/.test(
+      runtimeContextPolicyCore,
+    ) &&
     /normalizeRuntimeWorkflowEditControlBridgeResult/.test(runtimeContextPolicyCore) &&
-    /runtime workflow-edit control core sends Rust daemon-core request/.test(
+    /runtime workflow-edit control core sends Rust request through typed runtime-control API/.test(
       runtimeContextPolicyCoreTest,
     ) &&
     /workflowEditRunner:\s*this\.contextPolicyCore/.test(runtimeDaemonIndex) &&
@@ -28993,20 +29002,24 @@ function runCompositor() {
     !/throwRuntimeSubagentRustCoreRequired/.test(runtimeSubagentGetBlock) &&
     !/throwRuntimeSubagentRustCoreRequired/.test(runtimeSubagentResultReadBlock) &&
     /projectRuntimeSubagentProjection\(request/.test(runtimeContextPolicyCore) &&
-    /project_runtime_subagent_projection/.test(runtimeContextPolicyCore) &&
+    /RUNTIME_PROJECTION_SUBAGENT_API_METHOD/.test(runtimeContextPolicyCore) &&
+    /invokeRuntimeProjectionApi\(\s*RUNTIME_PROJECTION_SUBAGENT_API_METHOD/.test(
+      runtimeContextPolicyCore,
+    ) &&
     /RUNTIME_SUBAGENT_PROJECTION_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyCore) &&
     /normalizeRuntimeSubagentProjectionBridgeResult/.test(runtimeContextPolicyCore) &&
-    /runtime subagent projection core sends Rust daemon-core request/.test(
+    /runtime subagent projection core sends Rust request through typed runtime-projection API/.test(
       runtimeContextPolicyCoreTest,
     ) &&
     /pub struct RuntimeSubagentProjectionCore;/.test(runtimeSubagentProjectionCore) &&
-    /pub fn project_runtime_subagent_projection_response/.test(runtimeSubagentProjectionCore) &&
+    !/pub fn project_runtime_subagent_projection_response/.test(runtimeSubagentProjectionCore) &&
     /rust_projects_subagent_list_get_and_result/.test(runtimeSubagentProjectionCore) &&
-    /rust_shapes_subagent_projection_command_response/.test(runtimeSubagentProjectionCore) &&
-    /ProjectRuntimeSubagentProjection/.test(commandProtocolCoreForCompositor) &&
-    /"project_runtime_subagent_projection"/.test(commandProtocolCoreForCompositor) &&
-    /project_runtime_subagent_projection_response/.test(coreCommandDispatchForCompositor) &&
+    !/rust_shapes_subagent_projection_command_response/.test(runtimeSubagentProjectionCore) &&
+    /runtime_compositor_command_transport_is_retired/.test(commandProtocolCoreForCompositor) &&
+    !/ProjectRuntimeSubagentProjection/.test(commandProtocolCoreForCompositor) &&
+    !/project_runtime_subagent_projection_response/.test(coreCommandDispatchForCompositor) &&
     /pub mod runtime_subagent_projection;/.test(kernelModuleForCompositor) &&
+    /pub fn project_runtime_subagent_projection\(/.test(kernelModuleForCompositor) &&
     /contextPolicyCore:\s*this\.contextPolicyCore/.test(runtimeDaemonIndex) &&
     /subagent read projections fail closed before JS subagent\/run reads without Rust/.test(
       runtimeSubagentSurfaceTest,
@@ -29036,21 +29049,24 @@ function runCompositor() {
       )?.[0] ?? "",
     ) &&
     /planRuntimeSubagentControl\(request/.test(runtimeContextPolicyCore) &&
-    /plan_runtime_subagent_control/.test(runtimeContextPolicyCore) &&
+    /RUNTIME_CONTROL_SUBAGENT_API_METHOD/.test(runtimeContextPolicyCore) &&
+    /invokeRuntimeControlApi\(\s*RUNTIME_CONTROL_SUBAGENT_API_METHOD/.test(
+      runtimeContextPolicyCore,
+    ) &&
     /RUNTIME_SUBAGENT_CONTROL_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyCore) &&
     /normalizeRuntimeSubagentControlBridgeResult/.test(runtimeContextPolicyCore) &&
-    /runtime subagent wait control core sends Rust daemon-core request/.test(
+    /runtime subagent wait control core sends Rust request through typed runtime-control API/.test(
       runtimeContextPolicyCoreTest,
     ) &&
     /pub struct RuntimeSubagentControlCore;/.test(runtimeSubagentControlCore) &&
-    /pub fn plan_runtime_subagent_control_response/.test(runtimeSubagentControlCore) &&
+    !/pub fn plan_runtime_subagent_control_response/.test(runtimeSubagentControlCore) &&
     /rust_plans_subagent_wait_control_event/.test(runtimeSubagentControlCore) &&
-    /rust_shapes_subagent_wait_control_command_response/.test(runtimeSubagentControlCore) &&
+    !/rust_shapes_subagent_wait_control_command_response/.test(runtimeSubagentControlCore) &&
     /rust_rejects_unowned_subagent_control_kind/.test(runtimeSubagentControlCore) &&
-    /PlanRuntimeSubagentControl/.test(commandProtocolCoreForCompositor) &&
-    /"plan_runtime_subagent_control"/.test(commandProtocolCoreForCompositor) &&
-    /plan_runtime_subagent_control_response/.test(coreCommandDispatchForCompositor) &&
+    !/PlanRuntimeSubagentControl/.test(commandProtocolCoreForCompositor) &&
+    !/plan_runtime_subagent_control_response/.test(coreCommandDispatchForCompositor) &&
     /pub mod runtime_subagent_control;/.test(kernelModuleForCompositor) &&
+    /pub fn plan_runtime_subagent_control\(/.test(kernelModuleForCompositor) &&
     /subagent direct controls fail closed before Rust read\/control planning/.test(
       runtimeSubagentSurfaceTest,
     ) &&
@@ -30412,28 +30428,33 @@ function runCompositor() {
     /runtime_task_job_runs_from_state_dir/.test(policyTaskJobCore) &&
     /RUNTIME_TASK_JOB_PROJECTION_REQUEST_SCHEMA_VERSION/.test(policyTaskJobCore) &&
     /RUNTIME_TASK_JOB_PROJECTION_RESULT_SCHEMA_VERSION/.test(policyTaskJobCore) &&
-    /pub fn project_runtime_task_job_projection_response/.test(policyTaskJobCore) &&
-    /rust_runtime_task_job_projection_command/.test(policyTaskJobCore) &&
+    !/pub fn project_runtime_task_job_projection_response/.test(policyTaskJobCore) &&
+    !/rust_runtime_task_job_projection_command/.test(policyTaskJobCore) &&
     /rust_policy_projects_runtime_task_list/.test(policyTaskJobCore) &&
     /rust_policy_projects_runtime_job_get/.test(policyTaskJobCore) &&
     /rust_policy_filters_runtime_task_job_projection_in_rust/.test(policyTaskJobCore) &&
     /rust_policy_replays_runtime_task_job_projection_from_state_dir/.test(policyTaskJobCore) &&
     /rust_policy_rejects_runtime_task_job_projection_without_state_dir/.test(policyTaskJobCore) &&
     /rust_policy_rejects_runtime_task_job_projection_run_candidate_transport/.test(policyTaskJobCore) &&
-    /project_runtime_task_job_projection/.test(commandProtocolCoreForCompositor) &&
-    /CommandOperation::ProjectRuntimeTaskJobProjection/.test(commandProtocolCoreForCompositor) &&
-    /CommandOperation::ProjectRuntimeTaskJobProjection/.test(coreCommandDispatchForCompositor) &&
-    /project_runtime_task_job_projection_response/.test(coreCommandDispatchForCompositor) &&
-    /command_error_from!\(RuntimeTaskJobProjectionCommandError\)/.test(
+    /runtime_compositor_command_transport_is_retired/.test(commandProtocolCoreForCompositor) &&
+    !/ProjectRuntimeTaskJobProjection/.test(commandProtocolCoreForCompositor) &&
+    !/CommandOperation::ProjectRuntimeTaskJobProjection/.test(coreCommandDispatchForCompositor) &&
+    !/project_runtime_task_job_projection_response/.test(coreCommandDispatchForCompositor) &&
+    !/command_error_from!\(RuntimeTaskJobProjectionCommandError\)/.test(
       coreCommandDispatchForCompositor,
     ) &&
+    /pub fn project_runtime_task_job_projection\(/.test(kernelModuleForCompositor) &&
     /projectRuntimeTaskJobProjection/.test(runtimeContextPolicyCore) &&
+    /RUNTIME_PROJECTION_TASK_JOB_API_METHOD/.test(runtimeContextPolicyCore) &&
+    /invokeRuntimeProjectionApi\(\s*RUNTIME_PROJECTION_TASK_JOB_API_METHOD/.test(
+      runtimeContextPolicyCore,
+    ) &&
     /RUNTIME_TASK_JOB_PROJECTION_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyCore) &&
     /normalizeRuntimeTaskJobProjectionBridgeResult/.test(runtimeContextPolicyCore) &&
     /expectedOperationKinds:\s*\["task\.list",\s*"task\.get",\s*"job\.list",\s*"job\.get"\]/.test(
       runtimeContextPolicyCore,
     ) &&
-    /runtime task job projection core sends Rust projection through direct daemon-core invoker/.test(
+    /runtime task job projection core sends Rust projection through typed runtime-projection API/.test(
       runtimeContextPolicyCoreTest,
     ) &&
     /runtime task job projection normalizer accepts get operation kinds/.test(
@@ -30488,37 +30509,42 @@ function runCompositor() {
       policyTaskJobCore,
     ) &&
     /RunCreateStateUpdateCore/.test(policyTaskJobCore) &&
-    /pub fn plan_runtime_task_job_create_state_update_response/.test(
+    !/pub fn plan_runtime_task_job_create_state_update_response/.test(
       policyTaskJobCore,
     ) &&
-    /rust_runtime_task_job_create_state_update_command/.test(
+    !/rust_runtime_task_job_create_state_update_command/.test(
       policyTaskJobCore,
     ) &&
     /rust_policy_plans_runtime_task_create_state_update/.test(
       policyTaskJobCore,
     ) &&
-    /rust_policy_shapes_runtime_task_job_create_command_response/.test(
+    !/rust_policy_shapes_runtime_task_job_create_command_response/.test(
       policyTaskJobCore,
     ) &&
     /rust_policy_rejects_runtime_task_create_agent_mismatch/.test(
       policyTaskJobCore,
     ) &&
-    /plan_runtime_task_job_create_state_update/.test(
+    /runtime_compositor_command_transport_is_retired/.test(
       commandProtocolCoreForCompositor,
     ) &&
-    /CommandOperation::PlanRuntimeTaskJobCreateStateUpdate/.test(
+    !/PlanRuntimeTaskJobCreateStateUpdate/.test(
       commandProtocolCoreForCompositor,
     ) &&
-    /CommandOperation::PlanRuntimeTaskJobCreateStateUpdate/.test(
+    !/CommandOperation::PlanRuntimeTaskJobCreateStateUpdate/.test(
       coreCommandDispatchForCompositor,
     ) &&
-    /plan_runtime_task_job_create_state_update_response/.test(
+    !/plan_runtime_task_job_create_state_update_response/.test(
       coreCommandDispatchForCompositor,
     ) &&
-    /command_error_from!\(RuntimeTaskJobCreateCommandError\)/.test(
+    !/command_error_from!\(RuntimeTaskJobCreateCommandError\)/.test(
       coreCommandDispatchForCompositor,
     ) &&
+    /pub fn plan_runtime_task_job_create_state_update\(/.test(kernelModuleForCompositor) &&
     /planRuntimeTaskJobCreateStateUpdate/.test(runtimeContextPolicyCore) &&
+    /RUNTIME_CONTROL_TASK_JOB_CREATE_STATE_UPDATE_API_METHOD/.test(runtimeContextPolicyCore) &&
+    /invokeRuntimeControlApi\(\s*RUNTIME_CONTROL_TASK_JOB_CREATE_STATE_UPDATE_API_METHOD/.test(
+      runtimeContextPolicyCore,
+    ) &&
     /RUNTIME_TASK_JOB_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
       runtimeContextPolicyCore,
     ) &&
@@ -30526,7 +30552,7 @@ function runCompositor() {
       runtimeContextPolicyCore,
     ) &&
     /expectedOperationKind:\s*"task\.create"/.test(runtimeContextPolicyCore) &&
-    /runtime task job create core sends Rust state update through direct daemon-core invoker/.test(
+    /runtime task job create core sends Rust state update through typed runtime-control API/.test(
       runtimeContextPolicyCoreTest,
     ) &&
     /runtime task job create normalizer requires task create operation kind/.test(
@@ -30541,10 +30567,10 @@ function runCompositor() {
       policyTaskJobCore,
     ) &&
     /RunCancelStateUpdateCore/.test(policyTaskJobCore) &&
-    /pub fn plan_runtime_task_job_cancel_state_update_response/.test(
+    !/pub fn plan_runtime_task_job_cancel_state_update_response/.test(
       policyTaskJobCore,
     ) &&
-    /rust_runtime_task_job_cancel_state_update_command/.test(
+    !/rust_runtime_task_job_cancel_state_update_command/.test(
       policyTaskJobCore,
     ) &&
     /rust_policy_plans_runtime_task_cancel_state_update/.test(
@@ -30559,22 +30585,24 @@ function runCompositor() {
     /rust_policy_rejects_mismatched_runtime_task_job_run_id/.test(
       policyTaskJobCore,
     ) &&
-    /plan_runtime_task_job_cancel_state_update/.test(
+    !/PlanRuntimeTaskJobCancelStateUpdate/.test(
       commandProtocolCoreForCompositor,
     ) &&
-    /CommandOperation::PlanRuntimeTaskJobCancelStateUpdate/.test(
-      commandProtocolCoreForCompositor,
-    ) &&
-    /CommandOperation::PlanRuntimeTaskJobCancelStateUpdate/.test(
+    !/CommandOperation::PlanRuntimeTaskJobCancelStateUpdate/.test(
       coreCommandDispatchForCompositor,
     ) &&
-    /plan_runtime_task_job_cancel_state_update_response/.test(
+    !/plan_runtime_task_job_cancel_state_update_response/.test(
       coreCommandDispatchForCompositor,
     ) &&
-    /command_error_from!\(RuntimeTaskJobCancelCommandError\)/.test(
+    !/command_error_from!\(RuntimeTaskJobCancelCommandError\)/.test(
       coreCommandDispatchForCompositor,
     ) &&
+    /pub fn plan_runtime_task_job_cancel_state_update\(/.test(kernelModuleForCompositor) &&
     /planRuntimeTaskJobCancelStateUpdate/.test(runtimeContextPolicyCore) &&
+    /RUNTIME_CONTROL_TASK_JOB_CANCEL_STATE_UPDATE_API_METHOD/.test(runtimeContextPolicyCore) &&
+    /invokeRuntimeControlApi\(\s*RUNTIME_CONTROL_TASK_JOB_CANCEL_STATE_UPDATE_API_METHOD/.test(
+      runtimeContextPolicyCore,
+    ) &&
     /RUNTIME_TASK_JOB_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
       runtimeContextPolicyCore,
     ) &&
@@ -30584,7 +30612,7 @@ function runCompositor() {
     /expectedOperationKinds:\s*\["task\.cancel",\s*"job\.cancel"\]/.test(
       runtimeContextPolicyCore,
     ) &&
-    /runtime task job cancel core sends Rust state update through direct daemon-core invoker/.test(
+    /runtime task job cancel core sends Rust state update through typed runtime-control API/.test(
       runtimeContextPolicyCoreTest,
     ) &&
     /runtime task job cancel normalizer accepts job cancel operation kind/.test(
@@ -30832,7 +30860,7 @@ function runCompositor() {
     /pub struct RuntimeConversationArtifactControlCore;/.test(
       runtimeConversationArtifactControlCore,
     ) &&
-    /pub fn plan_runtime_conversation_artifact_control_response/.test(
+    !/pub fn plan_runtime_conversation_artifact_control_response/.test(
       runtimeConversationArtifactControlCore,
     ) &&
     /rust_plans_conversation_artifact_create_record/.test(
@@ -30841,7 +30869,7 @@ function runCompositor() {
     /rust_plans_conversation_artifact_action_export_and_promote/.test(
       runtimeConversationArtifactControlCore,
     ) &&
-    /rust_shapes_conversation_artifact_control_command_response/.test(
+    !/rust_shapes_conversation_artifact_control_command_response/.test(
       runtimeConversationArtifactControlCore,
     ) &&
     /rust_ignores_retired_conversation_artifact_request_aliases/.test(
@@ -30853,28 +30881,30 @@ function runCompositor() {
     /runtime_conversation_artifact_state_commit_rust_owned/.test(
       runtimeConversationArtifactControlCore,
     ) &&
-    /"plan_runtime_conversation_artifact_control"/.test(
-      commandProtocolCoreForCompositor,
-    ) &&
-    /PlanRuntimeConversationArtifactControl/.test(commandProtocolCoreForCompositor) &&
-    /plan_runtime_conversation_artifact_control_response/.test(
+    /runtime_compositor_command_transport_is_retired/.test(commandProtocolCoreForCompositor) &&
+    !/PlanRuntimeConversationArtifactControl/.test(commandProtocolCoreForCompositor) &&
+    !/plan_runtime_conversation_artifact_control_response/.test(
       coreCommandDispatchForCompositor,
     ) &&
     /pub mod runtime_conversation_artifact_control;/.test(kernelModuleForCompositor) &&
+    /pub fn plan_runtime_conversation_artifact_control\(/.test(kernelModuleForCompositor) &&
     /RUNTIME_CONVERSATION_ARTIFACT_CONTROL_REQUEST_SCHEMA_VERSION/.test(
       runtimeContextPolicyCore,
     ) &&
     /planRuntimeConversationArtifactControl\(request = \{\}\)/.test(
       runtimeContextPolicyCore,
     ) &&
-    /plan_runtime_conversation_artifact_control/.test(runtimeContextPolicyCore) &&
+    /RUNTIME_CONTROL_CONVERSATION_ARTIFACT_API_METHOD/.test(runtimeContextPolicyCore) &&
+    /invokeRuntimeControlApi\(\s*RUNTIME_CONTROL_CONVERSATION_ARTIFACT_API_METHOD/.test(
+      runtimeContextPolicyCore,
+    ) &&
     /normalizeRuntimeConversationArtifactControlBridgeResult/.test(
       runtimeContextPolicyCore,
     ) &&
     /runtime_conversation_artifact_control_artifact_missing/.test(
       runtimeContextPolicyCore,
     ) &&
-    /runtime conversation artifact control core sends Rust daemon-core request/.test(
+    /runtime conversation artifact control core sends Rust request through typed runtime-control API/.test(
       runtimeContextPolicyCoreTest,
     ) &&
     /commitRuntimeArtifactRecord/.test(runtimeConversationArtifactSurface) &&
@@ -30954,14 +30984,17 @@ function runCompositor() {
       runtimeConversationArtifactRevisionListBlock,
     ) &&
     /projectRuntimeConversationArtifactProjection\(request/.test(runtimeContextPolicyCore) &&
-    /project_runtime_conversation_artifact_projection/.test(runtimeContextPolicyCore) &&
+    /RUNTIME_PROJECTION_CONVERSATION_ARTIFACT_API_METHOD/.test(runtimeContextPolicyCore) &&
+    /invokeRuntimeProjectionApi\(\s*RUNTIME_PROJECTION_CONVERSATION_ARTIFACT_API_METHOD/.test(
+      runtimeContextPolicyCore,
+    ) &&
     /RUNTIME_CONVERSATION_ARTIFACT_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
       runtimeContextPolicyCore,
     ) &&
     /normalizeRuntimeConversationArtifactProjectionBridgeResult/.test(
       runtimeContextPolicyCore,
     ) &&
-    /runtime conversation artifact projection core sends Rust daemon-core request/.test(
+    /runtime conversation artifact projection core sends Rust request through typed runtime-projection API/.test(
       runtimeContextPolicyCoreTest,
     ) &&
     /captured\.request\.state_dir,\s*"\/runtime-state"/.test(
@@ -30982,7 +31015,7 @@ function runCompositor() {
     ) &&
     /conversation_artifacts_from_state_dir/.test(runtimeConversationArtifactProjectionCore) &&
     /load_conversation_artifact_records/.test(runtimeConversationArtifactProjectionCore) &&
-    /pub fn project_runtime_conversation_artifact_projection_response/.test(
+    !/pub fn project_runtime_conversation_artifact_projection_response/.test(
       runtimeConversationArtifactProjectionCore,
     ) &&
     /rust_projects_conversation_artifact_list_get_and_revisions/.test(
@@ -30994,19 +31027,19 @@ function runCompositor() {
     /rust_requires_state_dir_for_conversation_artifact_projection/.test(
       runtimeConversationArtifactProjectionCore,
     ) &&
-    /rust_shapes_conversation_artifact_projection_command_response/.test(
+    !/rust_shapes_conversation_artifact_projection_command_response/.test(
       runtimeConversationArtifactProjectionCore,
     ) &&
-    /ProjectRuntimeConversationArtifactProjection/.test(
+    !/ProjectRuntimeConversationArtifactProjection/.test(
       commandProtocolCoreForCompositor,
     ) &&
-    /"project_runtime_conversation_artifact_projection"/.test(
-      commandProtocolCoreForCompositor,
-    ) &&
-    /project_runtime_conversation_artifact_projection_response/.test(
+    !/project_runtime_conversation_artifact_projection_response/.test(
       coreCommandDispatchForCompositor,
     ) &&
     /pub mod runtime_conversation_artifact_projection;/.test(kernelModuleForCompositor) &&
+    /pub fn project_runtime_conversation_artifact_projection\(/.test(
+      kernelModuleForCompositor,
+    ) &&
     /contextPolicyCore:\s*this\.contextPolicyCore/.test(runtimeDaemonIndex) &&
     /public conversation artifact routes use mounted Rust-owned artifact surface/.test(
       publicRuntimeRoutesTest,
@@ -36219,8 +36252,14 @@ function runCompositor() {
       /managed_session\.control/.test(managedSessionState) &&
       /projectRuntimeManagedSessionProjection\(request/.test(runtimeContextPolicyCore) &&
       /planRuntimeManagedSessionControl\(request/.test(runtimeContextPolicyCore) &&
-      /project_runtime_managed_session_projection/.test(runtimeContextPolicyCore) &&
-      /plan_runtime_managed_session_control/.test(runtimeContextPolicyCore) &&
+      /RUNTIME_PROJECTION_MANAGED_SESSION_API_METHOD/.test(runtimeContextPolicyCore) &&
+      /RUNTIME_CONTROL_MANAGED_SESSION_API_METHOD/.test(runtimeContextPolicyCore) &&
+      /invokeRuntimeProjectionApi\(\s*RUNTIME_PROJECTION_MANAGED_SESSION_API_METHOD/.test(
+        runtimeContextPolicyCore,
+      ) &&
+      /invokeRuntimeControlApi\(\s*RUNTIME_CONTROL_MANAGED_SESSION_API_METHOD/.test(
+        runtimeContextPolicyCore,
+      ) &&
       /RUNTIME_MANAGED_SESSION_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
         runtimeContextPolicyCore,
       ) &&
@@ -36233,17 +36272,17 @@ function runCompositor() {
       /normalizeRuntimeManagedSessionControlBridgeResult/.test(
         runtimeContextPolicyCore,
       ) &&
-      /runtime managed-session projection core sends Rust daemon-core request/.test(
+      /runtime managed-session projection core sends Rust request through typed runtime-projection API/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /captured\.request\.state_dir/.test(runtimeContextPolicyCoreTest) &&
-      /Object\.hasOwn\(captured\.request,\s*"projection"\),\s*false/.test(
+      /captured\.state_dir,\s*"\/runtime-state"/.test(runtimeContextPolicyCoreTest) &&
+      /Object\.hasOwn\(captured,\s*"projection"\),\s*false/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /runtime managed-session control core sends Rust daemon-core request/.test(
+      /runtime managed-session control core sends Rust request through typed runtime-control API/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /Object\.hasOwn\(captured\.request,\s*"managed_session"\),\s*false/.test(
+      /Object\.hasOwn\(captured,\s*"managed_session"\),\s*false/.test(
         runtimeContextPolicyCoreTest,
       ) &&
       /pub struct RuntimeManagedSessionProjectionCore;/.test(
@@ -36252,10 +36291,10 @@ function runCompositor() {
       /pub struct RuntimeManagedSessionControlCore;/.test(
         runtimeManagedSessionControlCore,
       ) &&
-      /pub fn project_runtime_managed_session_projection_response/.test(
+      !/pub fn project_runtime_managed_session_projection_response/.test(
         runtimeManagedSessionControlCore,
       ) &&
-      /pub fn plan_runtime_managed_session_control_response/.test(
+      !/pub fn plan_runtime_managed_session_control_response/.test(
         runtimeManagedSessionControlCore,
       ) &&
       /rust_projects_managed_session_inspection/.test(
@@ -36310,27 +36349,24 @@ function runCompositor() {
       !/pub action:|request\.action|string_field\(&request\.request,\s*"action"\)/.test(
         runtimeManagedSessionControlCore,
       ) &&
-      /ProjectRuntimeManagedSessionProjection/.test(commandProtocolCoreForCompositor) &&
-      /PlanRuntimeManagedSessionControl/.test(commandProtocolCoreForCompositor) &&
-      /"project_runtime_managed_session_projection"/.test(
-        commandProtocolCoreForCompositor,
-      ) &&
-      /"plan_runtime_managed_session_control"/.test(
-        commandProtocolCoreForCompositor,
-      ) &&
-      /CommandOperation::ProjectRuntimeManagedSessionProjection/.test(
+      /runtime_compositor_command_transport_is_retired/.test(commandProtocolCoreForCompositor) &&
+      !/ProjectRuntimeManagedSessionProjection/.test(commandProtocolCoreForCompositor) &&
+      !/PlanRuntimeManagedSessionControl/.test(commandProtocolCoreForCompositor) &&
+      !/CommandOperation::ProjectRuntimeManagedSessionProjection/.test(
         coreCommandDispatchForCompositor,
       ) &&
-      /CommandOperation::PlanRuntimeManagedSessionControl/.test(
+      !/CommandOperation::PlanRuntimeManagedSessionControl/.test(
         coreCommandDispatchForCompositor,
       ) &&
-      /project_runtime_managed_session_projection_response/.test(
+      !/project_runtime_managed_session_projection_response/.test(
         coreCommandDispatchForCompositor,
       ) &&
-      /plan_runtime_managed_session_control_response/.test(
+      !/plan_runtime_managed_session_control_response/.test(
         coreCommandDispatchForCompositor,
       ) &&
       /pub mod runtime_managed_session_control;/.test(kernelModuleForCompositor) &&
+      /pub fn project_runtime_managed_session_projection\(/.test(kernelModuleForCompositor) &&
+      /pub fn plan_runtime_managed_session_control\(/.test(kernelModuleForCompositor) &&
       !exists("packages/runtime-daemon/src/managed-session-inspection.mjs") &&
       !exists("packages/runtime-daemon/src/managed-session-inspection.test.mjs") &&
       /managed session inspection returns Rust daemon-core projection without JS bridge readback/.test(
@@ -36418,6 +36454,7 @@ function runCompositor() {
       "crates/services/src/agentic/runtime/kernel/runtime_managed_session_control.rs",
       "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
       "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
+      "crates/services/src/agentic/runtime/kernel/mod.rs",
       "packages/runtime-daemon/src/runtime-thread-auxiliary-surface.mjs",
       "packages/runtime-daemon/src/index.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.mjs",
@@ -36436,16 +36473,16 @@ function runCompositor() {
       /RUNTIME_WORKSPACE_CHANGE_CONTROL_REQUEST_SCHEMA_VERSION/.test(
         runtimeWorkspaceChangeControlCore,
       ) &&
-      /pub fn project_runtime_workspace_change_projection_response/.test(
+      !/pub fn project_runtime_workspace_change_projection_response/.test(
         runtimeWorkspaceChangeControlCore,
       ) &&
-      /pub fn plan_runtime_workspace_change_control_response/.test(
+      !/pub fn plan_runtime_workspace_change_control_response/.test(
         runtimeWorkspaceChangeControlCore,
       ) &&
-      /rust_runtime_workspace_change_projection_command/.test(
+      !/rust_runtime_workspace_change_projection_command/.test(
         runtimeWorkspaceChangeControlCore,
       ) &&
-      /rust_runtime_workspace_change_control_command/.test(
+      !/rust_runtime_workspace_change_control_command/.test(
         runtimeWorkspaceChangeControlCore,
       ) &&
       /OperatorControl\.WorkspaceChangeControl/.test(runtimeWorkspaceChangeControlCore) &&
@@ -36495,31 +36532,40 @@ function runCompositor() {
       /rust_rejects_retired_workspace_change_control_action_alias/.test(
         runtimeWorkspaceChangeControlCore,
       ) &&
-      /project_runtime_workspace_change_projection/.test(commandProtocolCoreForCompositor) &&
-      /plan_runtime_workspace_change_control/.test(commandProtocolCoreForCompositor) &&
-      /CommandOperation::ProjectRuntimeWorkspaceChangeProjection/.test(
+      /runtime_compositor_command_transport_is_retired/.test(commandProtocolCoreForCompositor) &&
+      !/ProjectRuntimeWorkspaceChangeProjection/.test(
         commandProtocolCoreForCompositor,
       ) &&
-      /CommandOperation::PlanRuntimeWorkspaceChangeControl/.test(
+      !/PlanRuntimeWorkspaceChangeControl/.test(
         commandProtocolCoreForCompositor,
       ) &&
-      /CommandOperation::ProjectRuntimeWorkspaceChangeProjection/.test(
+      !/CommandOperation::ProjectRuntimeWorkspaceChangeProjection/.test(
         coreCommandDispatchForCompositor,
       ) &&
-      /CommandOperation::PlanRuntimeWorkspaceChangeControl/.test(
+      !/CommandOperation::PlanRuntimeWorkspaceChangeControl/.test(
         coreCommandDispatchForCompositor,
       ) &&
-      /project_runtime_workspace_change_projection_response/.test(
+      !/project_runtime_workspace_change_projection_response/.test(
         coreCommandDispatchForCompositor,
       ) &&
-      /plan_runtime_workspace_change_control_response/.test(
+      !/plan_runtime_workspace_change_control_response/.test(
         coreCommandDispatchForCompositor,
       ) &&
-      /command_error_from!\(RuntimeWorkspaceChangeCommandError\)/.test(
+      !/command_error_from!\(RuntimeWorkspaceChangeCommandError\)/.test(
         coreCommandDispatchForCompositor,
       ) &&
+      /pub fn project_runtime_workspace_change_projection\(/.test(kernelModuleForCompositor) &&
+      /pub fn plan_runtime_workspace_change_control\(/.test(kernelModuleForCompositor) &&
       /projectRuntimeWorkspaceChangeProjection/.test(runtimeContextPolicyCore) &&
       /planRuntimeWorkspaceChangeControl/.test(runtimeContextPolicyCore) &&
+      /RUNTIME_PROJECTION_WORKSPACE_CHANGE_API_METHOD/.test(runtimeContextPolicyCore) &&
+      /RUNTIME_CONTROL_WORKSPACE_CHANGE_API_METHOD/.test(runtimeContextPolicyCore) &&
+      /invokeRuntimeProjectionApi\(\s*RUNTIME_PROJECTION_WORKSPACE_CHANGE_API_METHOD/.test(
+        runtimeContextPolicyCore,
+      ) &&
+      /invokeRuntimeControlApi\(\s*RUNTIME_CONTROL_WORKSPACE_CHANGE_API_METHOD/.test(
+        runtimeContextPolicyCore,
+      ) &&
       /RUNTIME_WORKSPACE_CHANGE_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
         runtimeContextPolicyCore,
       ) &&
@@ -36538,17 +36584,17 @@ function runCompositor() {
       /expectedOperationKind:\s*"workspace_change\.control"/.test(
         runtimeContextPolicyCore,
       ) &&
-      /runtime workspace-change projection core sends Rust daemon-core request/.test(
+      /runtime workspace-change projection core sends Rust request through typed runtime-projection API/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /captured\.request\.state_dir/.test(runtimeContextPolicyCoreTest) &&
-      /Object\.hasOwn\(captured\.request,\s*"projection"\),\s*false/.test(
+      /captured\.state_dir,\s*"\/runtime-state"/.test(runtimeContextPolicyCoreTest) &&
+      /Object\.hasOwn\(captured,\s*"projection"\),\s*false/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /runtime workspace-change control core sends Rust daemon-core request/.test(
+      /runtime workspace-change control core sends Rust request through typed runtime-control API/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /Object\.hasOwn\(captured\.request,\s*"workspace_change"\),\s*false/.test(
+      /Object\.hasOwn\(captured,\s*"workspace_change"\),\s*false/.test(
         runtimeContextPolicyCoreTest,
       ) &&
       /runtime_workspace_change_control_event_missing/.test(
@@ -36660,6 +36706,7 @@ function runCompositor() {
       "crates/services/src/agentic/runtime/kernel/runtime_workspace_change_control.rs",
       "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
       "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
+      "crates/services/src/agentic/runtime/kernel/mod.rs",
       "packages/runtime-daemon/src/runtime-thread-auxiliary-surface.mjs",
       "packages/runtime-daemon/src/index.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.mjs",
@@ -36674,36 +36721,41 @@ function runCompositor() {
       /RUNTIME_THREAD_FORK_CONTROL_REQUEST_SCHEMA_VERSION/.test(
         runtimeThreadForkControlCore,
       ) &&
-      /pub fn plan_runtime_thread_fork_control_response/.test(
+      !/pub fn plan_runtime_thread_fork_control_response/.test(
         runtimeThreadForkControlCore,
       ) &&
-      /rust_runtime_thread_fork_control_command/.test(
+      !/rust_runtime_thread_fork_control_command/.test(
         runtimeThreadForkControlCore,
       ) &&
       /OperatorControl\.ThreadFork/.test(runtimeThreadForkControlCore) &&
       /thread\.forked/.test(runtimeThreadForkControlCore) &&
       /runtime_thread_fork_control_rust_owned/.test(runtimeThreadForkControlCore) &&
       /runtime_thread_fork_event_rust_owned/.test(runtimeThreadForkControlCore) &&
-      /PlanRuntimeThreadForkControl/.test(commandProtocolCoreForCompositor) &&
-      /"plan_runtime_thread_fork_control"/.test(commandProtocolCoreForCompositor) &&
-      /CommandOperation::PlanRuntimeThreadForkControl/.test(
+      /runtime_compositor_command_transport_is_retired/.test(commandProtocolCoreForCompositor) &&
+      !/PlanRuntimeThreadForkControl/.test(commandProtocolCoreForCompositor) &&
+      !/CommandOperation::PlanRuntimeThreadForkControl/.test(
         coreCommandDispatchForCompositor,
       ) &&
-      /plan_runtime_thread_fork_control_response/.test(
+      !/plan_runtime_thread_fork_control_response/.test(
         coreCommandDispatchForCompositor,
       ) &&
-      /command_error_from!\(RuntimeThreadForkCommandError\)/.test(
+      !/command_error_from!\(RuntimeThreadForkCommandError\)/.test(
         coreCommandDispatchForCompositor,
       ) &&
       /pub mod runtime_thread_fork_control;/.test(kernelModuleForCompositor) &&
+      /pub fn plan_runtime_thread_fork_control\(/.test(kernelModuleForCompositor) &&
       /planRuntimeThreadForkControl/.test(runtimeContextPolicyCore) &&
+      /RUNTIME_CONTROL_THREAD_FORK_API_METHOD/.test(runtimeContextPolicyCore) &&
+      /invokeRuntimeControlApi\(\s*RUNTIME_CONTROL_THREAD_FORK_API_METHOD/.test(
+        runtimeContextPolicyCore,
+      ) &&
       /RUNTIME_THREAD_FORK_CONTROL_REQUEST_SCHEMA_VERSION/.test(
         runtimeContextPolicyCore,
       ) &&
       /normalizeRuntimeThreadForkControlBridgeResult/.test(
         runtimeContextPolicyCore,
       ) &&
-      /runtime thread-fork control core sends Rust daemon-core request/.test(
+      /runtime thread-fork control core sends Rust request through typed runtime-control API/.test(
         runtimeContextPolicyCoreTest,
       ) &&
       /threadForkRunner/.test(runtimeThreadForkState) &&

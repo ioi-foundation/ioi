@@ -123,28 +123,6 @@ pub struct RuntimeWorkspaceChangeControlRecord {
     pub evidence_refs: Vec<String>,
 }
 
-pub fn project_runtime_workspace_change_projection_response(
-    request: RuntimeWorkspaceChangeProjectionRequest,
-) -> Result<Value, RuntimeWorkspaceChangeCommandError> {
-    let record = RuntimeWorkspaceChangeProjectionCore.project(&request)?;
-    Ok(json!({
-        "source": "rust_runtime_workspace_change_projection_command",
-        "backend": "rust_policy",
-        "record": record.to_value(),
-    }))
-}
-
-pub fn plan_runtime_workspace_change_control_response(
-    request: RuntimeWorkspaceChangeControlRequest,
-) -> Result<Value, RuntimeWorkspaceChangeCommandError> {
-    let record = RuntimeWorkspaceChangeControlCore.plan(&request)?;
-    Ok(json!({
-        "source": "rust_runtime_workspace_change_control_command",
-        "backend": "rust_policy",
-        "record": record.to_value(),
-    }))
-}
-
 impl RuntimeWorkspaceChangeProjectionCore {
     pub fn project(
         &self,
@@ -209,7 +187,7 @@ impl RuntimeWorkspaceChangeProjectionCore {
             ));
         }
         let source = optional_trimmed(request.source.as_deref())
-            .unwrap_or_else(|| "runtime.workspace_change_projection.rust_command".to_string());
+            .unwrap_or_else(|| "runtime.workspace_change_projection.rust_api".to_string());
         let evidence_refs = if request.evidence_refs.is_empty() {
             vec![
                 "runtime_workspace_change_projection_rust_owned".to_string(),
@@ -384,44 +362,6 @@ impl RuntimeWorkspaceChangeControlCore {
             receipt_refs,
             policy_decision_refs,
             evidence_refs,
-        })
-    }
-}
-
-impl RuntimeWorkspaceChangeProjectionRecord {
-    fn to_value(&self) -> Value {
-        json!({
-            "schema_version": RUNTIME_WORKSPACE_CHANGE_PROJECTION_RESULT_SCHEMA_VERSION,
-            "object": "ioi.runtime_workspace_change_projection",
-            "status": "projected",
-            "operation": self.operation,
-            "operation_kind": self.operation_kind,
-            "projection_kind": self.projection_kind,
-            "thread_id": self.thread_id,
-            "source": self.source,
-            "projection": self.projection,
-            "record_count": self.record_count,
-            "evidence_refs": self.evidence_refs,
-            "receipt_refs": self.receipt_refs,
-        })
-    }
-}
-
-impl RuntimeWorkspaceChangeControlRecord {
-    fn to_value(&self) -> Value {
-        json!({
-            "schema_version": RUNTIME_WORKSPACE_CHANGE_CONTROL_RESULT_SCHEMA_VERSION,
-            "object": "ioi.runtime_workspace_change_control",
-            "status": "planned",
-            "operation": self.operation,
-            "operation_kind": self.operation_kind,
-            "thread_id": self.thread_id,
-            "workspace_change_id": self.workspace_change_id,
-            "control_state": self.control_state,
-            "event": self.event,
-            "receipt_refs": self.receipt_refs,
-            "policy_decision_refs": self.policy_decision_refs,
-            "evidence_refs": self.evidence_refs,
         })
     }
 }
@@ -1155,25 +1095,6 @@ mod tests {
     }
 
     #[test]
-    fn rust_shapes_workspace_change_projection_command_response() {
-        let temp = tempfile::tempdir().expect("tempdir");
-        seed_workspace_change_events(temp.path());
-        let response =
-            project_runtime_workspace_change_projection_response(projection_request(temp.path()))
-                .expect("response should shape");
-
-        assert_eq!(
-            response["source"],
-            "rust_runtime_workspace_change_projection_command"
-        );
-        assert_eq!(
-            response["record"]["operation_kind"],
-            "workspace_change.inspect"
-        );
-        assert_eq!(response["record"]["record_count"], 1);
-    }
-
-    #[test]
     fn rust_plans_workspace_change_control_event() {
         let temp = tempfile::tempdir().expect("tempdir");
         seed_workspace_change_events(temp.path());
@@ -1204,27 +1125,6 @@ mod tests {
         assert!(record
             .evidence_refs
             .contains(&"runtime_workspace_change_control_rust_owned".to_string()));
-    }
-
-    #[test]
-    fn rust_shapes_workspace_change_control_command_response() {
-        let temp = tempfile::tempdir().expect("tempdir");
-        seed_workspace_change_events(temp.path());
-        let response = plan_runtime_workspace_change_control_response(control_request(temp.path()))
-            .expect("response should shape");
-
-        assert_eq!(
-            response["source"],
-            "rust_runtime_workspace_change_control_command"
-        );
-        assert_eq!(
-            response["record"]["operation_kind"],
-            "workspace_change.control"
-        );
-        assert_eq!(
-            response["record"]["event"]["component_kind"],
-            "workspace_change_control"
-        );
     }
 
     #[test]
