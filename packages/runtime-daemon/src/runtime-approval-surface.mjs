@@ -353,9 +353,6 @@ function approvalDecisionAuthorityRequest({
   createdAt,
   source,
 }) {
-  const normalizedDecision = optionalString(decision)?.toLowerCase();
-  const requiresWalletApprovalGrant =
-    normalizedDecision === "approve" || normalizedDecision === "approved";
   return {
     thread_id: threadId,
     approval_id: approvalId,
@@ -372,9 +369,7 @@ function approvalDecisionAuthorityRequest({
     expires_at: optionalString(request.expires_at) ?? null,
     approval_lease: objectRecord(request.approval_lease) ?? null,
     wallet_approval_grant: objectRecord(request.wallet_approval_grant) ?? null,
-    authority_grant_refs: requiresWalletApprovalGrant
-      ? []
-      : normalizeArray(request.authority_grant_refs),
+    authority_grant_refs: [],
     authority_receipt_refs: normalizeArray(request.authority_receipt_refs),
     policy_decision_refs: normalizeArray(request.policy_decision_refs),
     approval_manifest: objectRecord(request.approval_manifest) ?? null,

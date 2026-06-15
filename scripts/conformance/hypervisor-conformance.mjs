@@ -10439,8 +10439,9 @@ function runBridge() {
 	      /approval_authority_state_binding_present/.test(approvalCore) &&
 	      /pub fn authorize_approval_decision_protocol_response/.test(approvalCore) &&
 	      /rust_authority_authorizes_approval_decision_with_wallet_network_grant/.test(approvalCore) &&
-	      /rust_authority_rejects_approval_decision_without_wallet_approval_grant/.test(approvalCore) &&
-	      /rust_authority_rejects_revoke_decision_without_wallet_network_grant/.test(approvalCore) &&
+		      /rust_authority_rejects_approval_decision_without_wallet_approval_grant/.test(approvalCore) &&
+		      /rust_authority_rejects_reject_decision_without_wallet_approval_grant/.test(approvalCore) &&
+		      /rust_authority_rejects_revoke_decision_without_wallet_approval_grant/.test(approvalCore) &&
 	      /rust_core_shapes_approval_decision_authority_protocol_response/.test(approvalCore) &&
       /rust_authority_plans_approval_decision_state_update/.test(approvalCore) &&
       /rust_authority_plans_approval_decision_agent_state_update/.test(approvalCore) &&
@@ -10518,9 +10519,13 @@ function runBridge() {
 	      /wallet_approval_grant:\s*objectRecord\(request\.wallet_approval_grant\)\s*\?\?\s*null/.test(
 	        runtimeApprovalSurface,
 	      ) &&
-	      /authority_grant_refs:\s*requiresWalletApprovalGrant\s*\?\s*\[\]\s*:\s*normalizeArray\(request\.authority_grant_refs\)/.test(
-	        runtimeApprovalSurface,
-	      ) &&
+		      /authority_grant_refs:\s*\[\]/.test(
+		        runtimeApprovalSurface,
+		      ) &&
+		      !/requiresWalletApprovalGrant/.test(runtimeApprovalSurface) &&
+		      !/authority_grant_refs:\s*normalizeArray\(request\.authority_grant_refs\)/.test(
+		        runtimeApprovalSurface,
+		      ) &&
 	      /approval_decision_wallet_network_authority_required/.test(runtimeApprovalSurface) &&
       /rust_daemon_core_approval_decision_authority_required/.test(runtimeApprovalSurface) &&
       /receipt_refs:\s*normalizeArray\(authority\.authority_receipt_refs\)/.test(
@@ -10568,9 +10573,12 @@ function runBridge() {
 	      /assert\.deepEqual\(calls\[0\]\.request\.authority_grant_refs,\s*\[\]\)/.test(
 	        runtimeApprovalControlFacadeTest,
 	      ) &&
-	      /assert\.deepEqual\(captured\.wallet_approval_grant,\s*walletApprovalGrant\(\)\)/.test(
-	        runtimeApprovalStateCoreTest,
-	      ) &&
+		      /assert\.deepEqual\(captured\.wallet_approval_grant,\s*walletApprovalGrant\(\)\)/.test(
+		        runtimeApprovalStateCoreTest,
+		      ) &&
+		      /revokeThreadApproval public surface calls Rust authority[\s\S]*js_forged_revoke_ref[\s\S]*assert\.deepEqual\(calls\[0\]\.request\.wallet_approval_grant,\s*walletApprovalGrant\(\)\)[\s\S]*assert\.deepEqual\(calls\[0\]\.request\.authority_grant_refs,\s*\[\]\)[\s\S]*assert\.deepEqual\(calls\[1\]\.request\.authority_grant_refs,\s*\[WALLET_APPROVAL_GRANT_REF\]\)/.test(
+		        runtimeApprovalControlFacadeTest,
+		      ) &&
 	      /approval decision facade fails closed before state update without Rust wallet\.network authority/.test(
 	        runtimeApprovalControlFacadeTest,
 	      ) &&

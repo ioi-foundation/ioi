@@ -225,12 +225,9 @@ function walletApprovalGrant() {
 function approvalAuthorityResult(decision = "approve") {
   const leaseStatus =
     decision === "revoke" ? "revoked" : decision === "reject" ? "denied" : "active";
-  const walletGrantRefs =
-    decision === "approve"
-      ? [WALLET_APPROVAL_GRANT_REF]
-      : ["wallet.network://grant/approval/approval_alpha"];
-  const walletGrantHash = decision === "approve" ? WALLET_APPROVAL_GRANT_HASH : null;
-  const walletGrantRef = decision === "approve" ? WALLET_APPROVAL_GRANT_REF : null;
+  const walletGrantRefs = [WALLET_APPROVAL_GRANT_REF];
+  const walletGrantHash = WALLET_APPROVAL_GRANT_HASH;
+  const walletGrantRef = WALLET_APPROVAL_GRANT_REF;
   const approvalLease = {
     schema_version: "ioi.runtime.approval-lease.v1",
     object: "ioi.runtime_approval_lease",
@@ -519,7 +516,8 @@ test("revokeThreadApproval public surface calls Rust authority and commits Rust 
     created_at: "2026-06-06T04:40:00.000Z",
     lease_id: "lease_alpha",
     receipt_refs: ["receipt_js_caller_must_not_authorize"],
-    authority_grant_refs: ["wallet.network://grant/approval/approval_alpha"],
+    wallet_approval_grant: walletApprovalGrant(),
+    authority_grant_refs: ["wallet.network://grant/approval/js_forged_revoke_ref"],
     authority_receipt_refs: ["receipt://wallet.network/approval/approval_alpha"],
     policy_decision_refs: ["policy_revoke"],
     approvalId: "approval_retired",
@@ -530,6 +528,8 @@ test("revokeThreadApproval public surface calls Rust authority and commits Rust 
   assert.equal(calls[0].request.decision, "revoke");
   assert.equal(Object.hasOwn(calls[0].request, "run"), false);
   assert.equal(Object.hasOwn(calls[0].request, "agent"), false);
+  assert.deepEqual(calls[0].request.wallet_approval_grant, walletApprovalGrant());
+  assert.deepEqual(calls[0].request.authority_grant_refs, []);
   assert.equal(calls[1].method, "planApprovalRevokeStateUpdate");
   assert.equal(calls[1].request.approval_id, "approval_alpha");
   assert.equal(calls[1].request.lease_id, "lease_alpha");
@@ -539,6 +539,7 @@ test("revokeThreadApproval public surface calls Rust authority and commits Rust 
   assert.deepEqual(calls[1].request.receipt_refs, [
     "receipt://wallet.network/approval/approval_alpha",
   ]);
+  assert.deepEqual(calls[1].request.authority_grant_refs, [WALLET_APPROVAL_GRANT_REF]);
   assert.equal(calls[1].request.authority_hash, "sha256:approval-authority-revoke");
   assertNoRetiredApprovalControlAliases(calls[1].request);
   assert.equal(result.operation_kind, "approval.revoke");

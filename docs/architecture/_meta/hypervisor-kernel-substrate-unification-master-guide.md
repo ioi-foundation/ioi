@@ -8555,16 +8555,16 @@ retired from command transport.
 Public approval decision/revoke authority is now wallet.network-bound at the
 typed Rust daemon-core approval API boundary. Rust `approval.rs` exposes
 `authorize_approval_decision`; the public decision/revoke surface calls the typed
-approval API before state planning, and approve decisions now require a typed
-`wallet_approval_grant` artifact. Rust verifies the grant structure, derives the
-canonical approval grant artifact hash/ref, emits those bindings in the authority
-record/hash, and ignores caller-supplied approval grant-ref strings for approve.
-Revoke/reject still require wallet.network grant refs plus authority receipts,
-and the Rust decision/revoke state planners fail closed without that authority
-binding before any Agentgres-gated JS commit can persist. The JS surface no
-longer treats caller-provided `receipt_refs` or approve `authority_grant_refs` as
-approval authority truth; it forwards only the Rust authority receipts/hash/grant
-bindings into the state update. Broader wallet.network grant issuance and
+approval API before state planning, and every decision outcome now requires a
+typed `wallet_approval_grant` artifact. Rust verifies the grant structure,
+derives the canonical approval grant artifact hash/ref, emits those bindings in
+the authority record/hash, and ignores caller-supplied approval grant-ref strings
+for approve, reject, and revoke. The Rust decision/revoke state planners fail
+closed without that authority binding before any Agentgres-gated JS commit can
+persist. The JS surface no longer treats caller-provided `receipt_refs` or
+`authority_grant_refs` as approval authority truth; it forwards only the Rust
+authority receipts/hash/grant bindings into the state update. Broader
+wallet.network grant issuance and
 consumption semantics, approval authority projection/replay, and stable direct
 Rust approval protocol/API bindings remain non-terminal beyond the thin JS
 protocol-client scaffolding.
@@ -10103,20 +10103,20 @@ projection/replay storage, durable approval read APIs, wallet/cTEE authority
 coverage across the remaining routes, and stable IDE/CLI/SDK protocol APIs
 remain non-terminal.
 
-Slice 1265 hard-cuts approval decision approve authority onto typed
-wallet.network approval-grant artifacts. `ApprovalDecisionAuthorityRequest` now
-accepts `wallet_approval_grant`, Rust `ApprovalDecisionAuthorityCore` verifies
-the grant structure, derives the canonical grant artifact hash/ref, records
-`wallet_approval_grant_hash` and `wallet_approval_grant_ref`, and uses that ref
-as the approval wallet authority. The public JS approval surface forwards the
-typed grant object but blanks caller `authority_grant_refs` for approve, so an
-approve decision can no longer return through a JS-minted
-`wallet.network://grant/...` string. Conformance guards the typed field, the
-Rust missing-grant negative path, the facade blanking behavior, and the Rust
+Slice 1265 hard-cuts approval decision authority onto typed wallet.network
+approval-grant artifacts. `ApprovalDecisionAuthorityRequest` now accepts
+`wallet_approval_grant`, Rust `ApprovalDecisionAuthorityCore` verifies the grant
+structure for approve, reject, and revoke decisions, derives the canonical grant
+artifact hash/ref, records `wallet_approval_grant_hash` and
+`wallet_approval_grant_ref`, and uses that derived ref as the approval wallet
+authority. The public JS approval surface forwards the typed grant object but
+always blanks caller `authority_grant_refs`, so approval decisions can no longer
+return through JS-minted `wallet.network://grant/...` strings. Conformance guards
+the typed field, the approve/reject/revoke missing-grant negative paths, the
+facade blanking behavior, the revoke forged-ref regression case, and the Rust
 authority-derived state-update grant refs. Broader wallet.network grant issuance
 and signature/consumption semantics, richer durable authority projection/replay
-storage, revoke/reject grant consumption hardening, and stable IDE/CLI/SDK
-approval APIs remain non-terminal.
+storage, and stable IDE/CLI/SDK approval APIs remain non-terminal.
 
 Slice 1262 deletes the temporary StepModule runner facade from the daemon hot
 path. `packages/runtime-daemon/src/step-module-runner.mjs` and its focused test

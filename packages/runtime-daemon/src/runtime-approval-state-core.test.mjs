@@ -147,7 +147,6 @@ function approvalRequestAuthorityResult(request) {
 }
 
 function approvalDecisionAuthorityRequest(decision = "approve") {
-  const isApprove = decision === "approve";
   return {
     thread_id: "thread_alpha",
     approval_id: "approval_alpha",
@@ -156,8 +155,8 @@ function approvalDecisionAuthorityRequest(decision = "approve") {
     run_id: "run_alpha",
     actor_ref: "operator://local/heath",
     idempotency_key: `approval:thread_alpha:approval_alpha:${decision}`,
-    wallet_approval_grant: isApprove ? walletApprovalGrant() : null,
-    authority_grant_refs: isApprove ? [] : ["wallet.network://grant/approval/approval_alpha"],
+    wallet_approval_grant: walletApprovalGrant(),
+    authority_grant_refs: [],
     authority_receipt_refs: ["receipt://wallet.network/approval/approval_alpha"],
     policy_decision_refs: ["policy_wallet_approval"],
     approval_request: {
@@ -172,13 +171,9 @@ function approvalDecisionAuthorityRequest(decision = "approve") {
 }
 
 function approvalDecisionAuthorityResult(request) {
-  const walletGrantRefs =
-    request.decision === "approve"
-      ? [WALLET_APPROVAL_GRANT_REF]
-      : request.authority_grant_refs;
-  const walletGrantHash =
-    request.decision === "approve" ? WALLET_APPROVAL_GRANT_HASH : null;
-  const walletGrantRef = request.decision === "approve" ? WALLET_APPROVAL_GRANT_REF : null;
+  const walletGrantRefs = [WALLET_APPROVAL_GRANT_REF];
+  const walletGrantHash = WALLET_APPROVAL_GRANT_HASH;
+  const walletGrantRef = WALLET_APPROVAL_GRANT_REF;
   return {
     schema_version: "ioi.runtime.approval-decision-authority.v1",
     object: "ioi.runtime_approval_decision_authority",
