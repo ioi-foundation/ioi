@@ -9,7 +9,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::Command;
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::{mpsc, oneshot, Mutex};
 
 #[derive(Debug, Clone)]
 pub struct McpSpawnPolicy {
@@ -19,6 +19,7 @@ pub struct McpSpawnPolicy {
 
 /// Handles the JSON-RPC 2.0 communication over Stdio.
 pub struct McpTransport {
+    _child: Mutex<tokio::process::Child>,
     request_id: AtomicU64,
     tx_sender: mpsc::Sender<Value>,
     pending_requests:
@@ -119,6 +120,7 @@ impl McpTransport {
         });
 
         Ok(Self {
+            _child: Mutex::new(child),
             request_id: AtomicU64::new(0),
             tx_sender: tx,
             pending_requests: pending,

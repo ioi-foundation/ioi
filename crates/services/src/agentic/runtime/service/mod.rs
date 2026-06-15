@@ -6,6 +6,7 @@ pub mod actions;
 pub mod builder;
 pub mod decision_loop;
 pub mod lifecycle;
+pub mod mcp_live_backend;
 pub mod output;
 pub mod planning;
 pub(crate) mod policy;

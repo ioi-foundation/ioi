@@ -3690,6 +3690,17 @@ function runBridge() {
   )
     ? read("crates/services/src/agentic/runtime/kernel/policy/mcp_memory.rs")
     : "";
+  const runtimeMcpLiveBackendService = exists(
+    "crates/services/src/agentic/runtime/service/mcp_live_backend.rs",
+  )
+    ? read("crates/services/src/agentic/runtime/service/mcp_live_backend.rs")
+    : "";
+  const mcpDriverCore = exists("crates/drivers/src/mcp/mod.rs")
+    ? read("crates/drivers/src/mcp/mod.rs")
+    : "";
+  const mcpTransportCore = exists("crates/drivers/src/mcp/transport.rs")
+    ? read("crates/drivers/src/mcp/transport.rs")
+    : "";
   const runtimeMemoryProjectionCore = exists(
     "crates/services/src/agentic/runtime/kernel/runtime_memory_projection.rs",
   )
@@ -13231,6 +13242,11 @@ function runBridge() {
       /planMcpControlAgentStateUpdate/.test(runtimeContextPolicyCore) &&
       /projectMcpLiveResultReplay/.test(runtimeContextPolicyCore) &&
       /executeRuntimeMcpLiveBackend/.test(runtimeContextPolicyCore) &&
+      /execute_runtime_mcp_live_backend/.test(runtimeMcpLiveBackendService) &&
+      /execute_tool_with_result/.test(runtimeMcpLiveBackendService) &&
+      /list_admitted_tools_for_server/.test(runtimeMcpLiveBackendService) &&
+      /runtime_mcp_live_backend_actual_mcp_manager_io/.test(runtimeMcpLiveBackendService) &&
+      /_child:\s*Mutex<tokio::process::Child>/.test(mcpTransportCore) &&
       /normalizeMcpLiveResultReplayApiResult/.test(runtimeContextPolicyCore) &&
       /normalizeMcpLiveBackendExecutionApiResult/.test(runtimeContextPolicyCore) &&
       /validateMcpServers/.test(runtimeContextPolicyCore) &&
@@ -28634,6 +28650,17 @@ function runCompositor() {
   const runtimeContextPolicyCoreTest = exists("packages/runtime-daemon/src/runtime-context-policy-core.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-context-policy-core.test.mjs")
     : "";
+  const runtimeMcpLiveBackendService = exists(
+    "crates/services/src/agentic/runtime/service/mcp_live_backend.rs",
+  )
+    ? read("crates/services/src/agentic/runtime/service/mcp_live_backend.rs")
+    : "";
+  const mcpDriverCore = exists("crates/drivers/src/mcp/mod.rs")
+    ? read("crates/drivers/src/mcp/mod.rs")
+    : "";
+  const mcpTransportCore = exists("crates/drivers/src/mcp/transport.rs")
+    ? read("crates/drivers/src/mcp/transport.rs")
+    : "";
   const runtimeDaemonIndex = exists("packages/runtime-daemon/src/index.mjs")
     ? read("packages/runtime-daemon/src/index.mjs")
     : "";
@@ -29689,6 +29716,20 @@ function runCompositor() {
 		    /contextPolicyCore\.planMcpControlAgentStateUpdate/.test(runtimeMcpControlSurface) &&
 		    /contextPolicyCore\.projectMcpLiveResultReplay/.test(runtimeMcpControlSurface) &&
 		    /contextPolicyCore\.executeRuntimeMcpLiveBackend/.test(runtimeMcpControlSurface) &&
+		    /execute_runtime_mcp_live_backend/.test(runtimeMcpLiveBackendService) &&
+		    /execute_tool_with_result/.test(runtimeMcpLiveBackendService) &&
+		    /list_admitted_tools_for_server/.test(runtimeMcpLiveBackendService) &&
+		    /runtime_mcp_live_backend_actual_mcp_manager_io/.test(runtimeMcpLiveBackendService) &&
+		    /runtime_mcp_live_backend_executes_tool_call_through_mcp_manager/.test(
+		      runtimeMcpLiveBackendService,
+		    ) &&
+		    /runtime_mcp_live_backend_executes_live_discovery_through_mcp_manager/.test(
+		      runtimeMcpLiveBackendService,
+		    ) &&
+		    /list_admitted_tools_for_server/.test(mcpDriverCore) &&
+		    /transport\.list_tools\(\)\.await/.test(mcpDriverCore) &&
+		    /_child:\s*Mutex<tokio::process::Child>/.test(mcpTransportCore) &&
+		    /_child:\s*Mutex::new\(child\)/.test(mcpTransportCore) &&
 		    /mcpControlRequestPayload/.test(runtimeMcpControlSurface) &&
 	    /"authority_grant_refs"/.test(runtimeMcpControlSurface) &&
 	    /"authority_receipt_refs"/.test(runtimeMcpControlSurface) &&

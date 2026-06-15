@@ -246,6 +246,45 @@ impl McpManager {
         all_tools
     }
 
+    pub async fn list_admitted_tools_for_server(
+        &self,
+        server_name: &str,
+    ) -> Result<Vec<LlmToolDefinition>> {
+        let transport = {
+            let servers = self.servers.read().await;
+            servers
+                .get(server_name)
+                .cloned()
+                .ok_or_else(|| anyhow!("MCP Server '{}' is dead or disconnected", server_name))?
+        };
+        let admitted = {
+            let receipts = self.server_receipts.read().await;
+            let receipt = receipts.get(server_name).ok_or_else(|| {
+                anyhow!(
+                    "MCP Server '{}' is missing its admission receipt for live discovery",
+                    server_name
+                )
+            })?;
+            receipt.tools.iter().cloned().collect::<HashSet<_>>()
+        };
+        let prefix = format!("{}__", server_name);
+        let live_tools = transport.list_tools().await?;
+        Ok(live_tools
+            .into_iter()
+            .filter_map(|tool| {
+                let namespaced_name = format!("{}{}", prefix, tool.name);
+                if !admitted.contains(&namespaced_name) {
+                    return None;
+                }
+                Some(LlmToolDefinition {
+                    name: namespaced_name,
+                    description: tool.description.unwrap_or_default(),
+                    parameters: tool.input_schema.to_string(),
+                })
+            })
+            .collect())
+    }
+
     pub async fn get_server_receipts(&self) -> Vec<McpServerReceipt> {
         let receipts = self.server_receipts.read().await;
         receipts.values().cloned().collect()

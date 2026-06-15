@@ -9798,6 +9798,25 @@ boundary still needs to be wired to actual live MCP server process I/O through
 Rust `McpManager` under runtime containment, then exposed through stable
 SDK/IDE/CLI protocol APIs over Rust replay records.
 
+Slice 1243 wires that required MCP live-backend API to real Rust MCP process
+I/O. `RuntimeAgentService::execute_runtime_mcp_live_backend()` now validates
+`ioi.runtime.mcp-live-backend-execution-request.v1`, requires wallet authority,
+cTEE custody, containment refs, and the Rust driver contract, and then calls the
+mounted `ioi_drivers::mcp::McpManager` for `tools/call` or live
+`tools/list`. `McpManager::list_admitted_tools_for_server()` performs a live
+`McpTransport::list_tools()` query and filters the response to the server's
+admitted receipt tools, while tool invocation continues through
+`execute_tool_with_result()` and `WorkloadSpec` lease validation. The
+underlying `McpTransport` now retains the spawned child process instead of
+dropping a `kill_on_drop` child immediately after pipe extraction, so live stdio
+JSON-RPC survives initialization. Rust tests execute both `tools/call` and
+`tools/list` through the repo MCP stdio fixture, and conformance guards the
+service API, admitted live discovery path, and child-retention fix. This remains
+non-terminal because the current JS commit order still commits the live-exit
+receipt before the backend driver response can be hashed into the public result
+payload, and stable SDK/IDE/CLI protocol APIs over the Rust replay records plus
+broader MCP serve admission still need to close.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The
