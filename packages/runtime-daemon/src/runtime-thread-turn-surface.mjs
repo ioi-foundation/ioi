@@ -179,20 +179,16 @@ export function createRuntimeThreadTurnSurface(deps = {}) {
         });
       }
       const diagnosticsFeedback = store.pendingDiagnosticsFeedbackForNextTurn?.(threadId, controlledRequest) ?? null;
-      if (diagnosticsFeedbackBlocksContinuation(diagnosticsFeedback)) {
-        throwThreadTurnRustCoreRequired({
-          operation: "thread_turn_diagnostics_block",
-          operationKind: "turn.diagnostics_block",
-          threadId,
-          agentId: agent?.id ?? null,
-          runtime_profile: agent?.runtime_profile ?? null,
-          evidenceRefs: [
-            "thread_turn_diagnostics_block_js_run_creation_retired",
-            "rust_daemon_core_thread_turn_create_required",
-            "agentgres_thread_turn_create_truth_required",
-          ],
-        });
-      }
+      const turnRequest = diagnosticsFeedbackBlocksContinuation(diagnosticsFeedback)
+        ? {
+            ...controlledRequest,
+            diagnostics_feedback: diagnosticsFeedback,
+            context: {
+              ...(controlledRequest.context ?? {}),
+              diagnostics_feedback: diagnosticsFeedback,
+            },
+          }
+        : controlledRequest;
       if (
         typeof store.agentRunLifecycleSurface?.createRun !== "function" ||
         typeof store.turnForRun !== "function"
@@ -210,7 +206,7 @@ export function createRuntimeThreadTurnSurface(deps = {}) {
           ],
         });
       }
-      const run = await store.agentRunLifecycleSurface.createRun(store, agent.id, controlledRequest);
+      const run = await store.agentRunLifecycleSurface.createRun(store, agent.id, turnRequest);
       const turnProjection = store.turnForRun(run);
       if (
         optionalStringDep(turnProjection?.thread_id) !== threadId ||

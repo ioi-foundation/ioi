@@ -539,43 +539,45 @@ test("thread turn surface fails closed for non-runtime turns when mounted Rust r
   assert.equal(store.calls.some((call) => call.method === "turnForRun"), false);
 });
 
-test("thread turn surface fails closed for diagnostics-blocked turns before Rust run creation", async () => {
+test("thread turn surface creates diagnostics-blocked turns through Rust-planned run creation", async () => {
   const admissionRequiredCalls = [];
+  const diagnosticsFeedback = {
+    blocking: true,
+    diagnostic_status: "findings",
+    diagnostic_count: 2,
+    injection_id: "diag_injection_alpha",
+  };
   const surface = createRuntimeThreadTurnSurface({
     contextPolicyCore: createThreadTurnAdmissionRunner(admissionRequiredCalls),
     diagnosticsFeedbackBlocksContinuation: () => true,
     runtimeError,
   });
   const store = createStore({
-    diagnosticsFeedback: { status: "blocked" },
+    diagnosticsFeedback,
   });
 
-  await assert.rejects(
-    () => surface.createTurn(store, "thread_alpha", {
-      prompt: "ship it",
-      options: {},
-    }),
-    (error) => assertThreadTurnRustCoreRequired(error, {
-      operation: "thread_turn_diagnostics_block",
-      operationKind: "turn.diagnostics_block",
-    }),
-  );
+  const turn = await surface.createTurn(store, "thread_alpha", {
+    prompt: "ship it",
+    options: {},
+  });
 
-  assert.equal(admissionRequiredCalls.length, 1);
-  assert.deepEqual(admissionRequiredCalls[0], {
-    operation: "thread_turn_diagnostics_block",
-    operation_kind: "turn.diagnostics_block",
-    thread_id: "thread_alpha",
-    agent_id: "agent_alpha",
-    runtime_profile: "fixture",
-    evidence_refs: [
-      "thread_turn_diagnostics_block_js_run_creation_retired",
-      "rust_daemon_core_thread_turn_create_required",
-      "agentgres_thread_turn_create_truth_required",
+  assert.equal(turn.turn_id, "turn_alpha");
+  assert.equal(turn.thread_id, "thread_alpha");
+  assert.equal(admissionRequiredCalls.length, 0);
+  assert.deepEqual(
+    store.calls.map((call) => call.method),
+    [
+      "agentForThread",
+      "pendingDiagnosticsFeedbackForNextTurn",
+      "agentRunLifecycleSurface.createRun",
+      "turnForRun",
     ],
-  });
+  );
+  assert.deepEqual(store.calls[2].request.diagnostics_feedback, diagnosticsFeedback);
+  assert.deepEqual(store.calls[2].request.context.diagnostics_feedback, diagnosticsFeedback);
   assert.equal(store.calls.some((call) => call.method === "createRun"), false);
-  assert.equal(store.calls.some((call) => call.method === "turnForRun"), false);
+  assert.equal(store.calls.some((call) => call.method === "updateAgent"), false);
+  assert.equal(store.calls.some((call) => call.method === "createRuntimeBridgeTurn"), false);
 });
 
 test("thread turn surface plans operator interrupt and steer through Rust before run persistence", async () => {

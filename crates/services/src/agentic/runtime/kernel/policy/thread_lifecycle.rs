@@ -1124,10 +1124,7 @@ impl ThreadTurnAdmissionRequiredRequest {
         let operation_kind = optional_trimmed(Some(self.operation_kind.as_str())).ok_or(
             ThreadTurnAdmissionRequiredError::MissingField("operation_kind"),
         )?;
-        if operation_kind != "thread.resume"
-            && operation_kind != "turn.create"
-            && operation_kind != "turn.diagnostics_block"
-        {
+        if operation_kind != "thread.resume" && operation_kind != "turn.create" {
             return Err(ThreadTurnAdmissionRequiredError::UnsupportedOperationKind(
                 operation_kind,
             ));
@@ -1656,11 +1653,6 @@ fn default_thread_turn_evidence_refs(operation: &str) -> Vec<String> {
             "thread_resume_js_state_mutation_retired".to_string(),
             "rust_daemon_core_thread_resume_required".to_string(),
             "agentgres_thread_resume_truth_required".to_string(),
-        ],
-        "thread_turn_diagnostics_block" => vec![
-            "thread_turn_diagnostics_block_js_run_creation_retired".to_string(),
-            "rust_daemon_core_thread_turn_create_required".to_string(),
-            "agentgres_thread_turn_create_truth_required".to_string(),
         ],
         _ => vec![
             "thread_turn_create_js_run_creation_retired".to_string(),
@@ -2861,6 +2853,24 @@ mod tests {
                 expected: THREAD_TURN_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
                 actual: "legacy.schema".to_string(),
             }
+        );
+    }
+
+    #[test]
+    fn rust_policy_rejects_retired_diagnostics_block_thread_turn_admission() {
+        let mut request = thread_turn_admission_required_request();
+        request.operation = "thread_turn_diagnostics_block".to_string();
+        request.operation_kind = "turn.diagnostics_block".to_string();
+
+        let error = ThreadTurnAdmissionRequiredCore
+            .plan(&request)
+            .expect_err("retired diagnostics block admission path should fail");
+
+        assert_eq!(
+            error,
+            ThreadTurnAdmissionRequiredError::UnsupportedOperationKind(
+                "turn.diagnostics_block".to_string(),
+            )
         );
     }
 

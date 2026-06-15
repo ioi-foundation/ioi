@@ -12296,14 +12296,26 @@ function runBridge() {
       /rust_core_boundary:\s*"runtime\.thread_turn"/.test(runtimeThreadTurnSurface) &&
       /thread_resume_js_state_mutation_retired/.test(runtimeThreadTurnSurface) &&
       /thread_turn_create_js_run_creation_retired/.test(runtimeThreadTurnSurface) &&
-      /thread_turn_diagnostics_block_js_run_creation_retired/.test(runtimeThreadTurnSurface) &&
+      !/thread_turn_diagnostics_block/.test(runtimeThreadTurnSurface) &&
+      !/turn\.diagnostics_block/.test(runtimeThreadTurnSurface) &&
       /rust_daemon_core_thread_turn_create_required/.test(runtimeThreadTurnSurface) &&
       /agentgres_thread_turn_create_truth_required/.test(runtimeThreadTurnSurface) &&
+      /rust_policy_rejects_retired_diagnostics_block_thread_turn_admission/.test(
+        policyThreadLifecycleCore,
+      ) &&
+      !/operation_kind != "turn\.diagnostics_block"/.test(policyThreadLifecycleCore) &&
       /store\.agentRunLifecycleSurface\.updateAgent\(\s*store,\s*agent\.id,\s*"active",\s*"agent\.resume"/.test(
         runtimeThreadTurnSurface,
       ) &&
       /store\.threadForAgent\(updatedAgent\)/.test(runtimeThreadTurnSurface) &&
-      /store\.agentRunLifecycleSurface\.createRun\(store,\s*agent\.id,\s*controlledRequest\)/.test(
+      /const\s+turnRequest\s*=\s*diagnosticsFeedbackBlocksContinuation\(diagnosticsFeedback\)/.test(
+        runtimeThreadTurnSurface,
+      ) &&
+      /diagnostics_feedback:\s*diagnosticsFeedback/.test(runtimeThreadTurnSurface) &&
+      /context:\s*\{[\s\S]*diagnostics_feedback:\s*diagnosticsFeedback/.test(
+        runtimeThreadTurnSurface,
+      ) &&
+      /store\.agentRunLifecycleSurface\.createRun\(store,\s*agent\.id,\s*turnRequest\)/.test(
         runtimeThreadTurnSurface,
       ) &&
       /store\.turnForRun\(run\)/.test(runtimeThreadTurnSurface) &&
@@ -12377,11 +12389,15 @@ function runBridge() {
         runtimeThreadTurnSurfaceTest,
       ) &&
       /operation:\s*"thread_turn_create"/.test(runtimeThreadTurnSurfaceTest) &&
-      /thread turn surface fails closed for diagnostics-blocked turns before Rust run creation/.test(
+      /thread turn surface creates diagnostics-blocked turns through Rust-planned run creation/.test(
         runtimeThreadTurnSurfaceTest,
       ) &&
-      /operation:\s*"thread_turn_diagnostics_block"/.test(runtimeThreadTurnSurfaceTest) &&
-      /assert\.equal\(store\.calls\.some\(\(call\) => call\.method === "createRun"\), false\)/.test(
+      /admissionRequiredCalls\.length,\s*0/.test(runtimeThreadTurnSurfaceTest) &&
+      /store\.calls\[2\]\.request\.diagnostics_feedback/.test(runtimeThreadTurnSurfaceTest) &&
+      /store\.calls\[2\]\.request\.context\.diagnostics_feedback/.test(
+        runtimeThreadTurnSurfaceTest,
+      ) &&
+      /"pendingDiagnosticsFeedbackForNextTurn"[\s\S]*"agentRunLifecycleSurface\.createRun"[\s\S]*"turnForRun"/.test(
         runtimeThreadTurnSurfaceTest,
       ) &&
       /assert\.equal\(store\.calls\.some\(\(call\) => call\.method === "updateAgent"\), false\)/.test(
@@ -12393,7 +12409,7 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-thread-surface-delegates-retired.test.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.mjs",
     ],
-    "Phase 10/11 is pending: public non-runtime resume and turn creation must use Rust-planned lifecycle state plus Rust thread/turn projection, while diagnostics-blocked and runtime-service bridge paths remain fail-closed until direct Rust daemon-core APIs own them",
+    "Phase 10/11 is pending: public non-runtime resume, turn creation, and diagnostics-blocked turn creation must use Rust-planned lifecycle state plus Rust thread/turn projection, while missing Rust boundaries and runtime-service bridge paths remain fail-closed",
   );
   assertCheck(
     result,

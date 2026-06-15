@@ -5204,9 +5204,11 @@ accumulate in the broad model-mount kernel file;
 the route-facing skill/hook, model catalog/capability, repository workflow,
 runtime account/node/tool, and doctor-report daemon-store delegates have been
 deleted rather than preserved as inert compatibility wrappers;
-the mounted thread-turn surface now fails closed for non-runtime resume,
-non-runtime turn creation, and diagnostics-blocked turn creation before JS agent
-status mutation, run creation, or turn projection can become accepted truth;
+the mounted thread-turn surface now fails closed for missing non-runtime resume
+and turn-create Rust boundaries before JS agent status mutation, run creation,
+or turn projection can become accepted truth, while diagnostics-blocked turn
+creation enters the Rust-planned run-create path and returns the Rust turn
+projection instead of the retired diagnostics-block refusal route;
 public usage, public authority-evidence, and `/api/v1` authority-evidence /
 workflow-capability preflight routes now call the mounted lifecycle projection
 surface, where Rust replays Agentgres state instead of the JS run-read cache;
@@ -6088,29 +6090,28 @@ transport, wallet/runtime-control authority, Agentgres expected-head/state-root
 commit depth, replay/projection storage, and stable protocol APIs must still
 become direct Rust daemon-core surfaces.
 
-Slice 1084 moves the public non-runtime thread-turn admission-required refusal
-contract into the Rust thread-lifecycle policy core. The Rust
-`ThreadTurnAdmissionRequiredCore` now owns the canonical
-`runtime_thread_turn_rust_core_required` record and the daemon-core command
-protocol exposes it as `plan_thread_turn_admission_required`. The current
-positive cut keeps that Rust-authored refusal only for missing mounted Rust
-boundaries and diagnostics-blocked turn creation. Normal public non-runtime
-resume now enters the mounted Rust-planned agent status-control path and
-returns the Rust thread projection, while normal public non-runtime turn
-creation enters the mounted Rust-planned run-create path and returns the Rust
-turn projection. Direct JS `updateAgent()`, `createRun()`, JS turn projection
-composition, runtime-event append, and daemon-store pass-through wrappers stay
-retired from the thread-turn surface.
+Slice 1084 moved the public non-runtime thread-turn admission-required refusal
+contract into the Rust thread-lifecycle policy core. That refusal now remains
+only for missing mounted Rust boundaries. Normal public non-runtime resume
+enters the mounted Rust-planned agent status-control path and returns the Rust
+thread projection, while normal public non-runtime turn creation enters the
+mounted Rust-planned run-create path and returns the Rust turn projection.
+Slice 1260 supersedes the earlier diagnostics-blocked exception: blocking
+diagnostics feedback now travels through the same Rust-planned run-create path,
+and `ThreadTurnAdmissionRequiredCore` rejects the retired diagnostics-block
+operation instead of preserving a separate refusal lane. Direct JS
+`updateAgent()`, `createRun()`, JS turn projection composition, runtime-event
+append, and daemon-store pass-through wrappers stay retired from the
+thread-turn surface.
 
 Conformance now fails if the thread-turn required-boundary envelope is authored
-only in JS, if the new daemon-core command operation is removed from Rust typed
-command dispatch, if the temporary Node command wrapper drifts back into the
-broad bridge module, if the public non-runtime path re-enters direct JS
-mutation wrappers, or if diagnostics-blocked turn creation stops failing closed
-before run creation. This remains non-terminal: diagnostics-blocked turn
-handling, direct Rust daemon-core thread-turn protocol APIs, durable
-replay/projection storage, and command transport retirement still need Rust
-ownership.
+only in JS, if the typed Rust daemon-core boundary drifts back into broad
+command-wrapper plumbing, if the public non-runtime path re-enters direct JS
+mutation wrappers, or if diagnostics-blocked turn creation re-enters the
+retired admission-required refusal path instead of Rust run-create planning.
+This remains non-terminal: direct Rust daemon-core thread-turn protocol APIs,
+durable replay/projection storage, and command transport retirement still need
+Rust ownership across the remaining lifecycle edges.
 
 Slice 1085 moves the public agent/run lifecycle admission-required refusal
 family into the Rust thread-lifecycle policy core. The Rust
@@ -10053,6 +10054,22 @@ reads. This removes another runtime-service compatibility truth path; broader
 lifecycle completion still depends on durable wallet/cTEE authority,
 deletion/cancellation replay/projection, and stable IDE/CLI/SDK lifecycle APIs
 over Rust-owned records.
+
+Slice 1260 hard-cuts diagnostics-blocked non-runtime turn creation out of the
+admission-required refusal path. When post-edit diagnostics feedback blocks
+continuation, the thread-turn surface now injects the Rust-projected
+diagnostics feedback into the canonical turn request, enters the mounted Rust
+run-create lifecycle path, commits only the Rust-planned blocked run through
+Agentgres-backed `writeRun`, and returns the Rust thread/turn projection for
+that run. The retired `thread_turn_diagnostics_block` /
+`turn.diagnostics_block` operation is no longer accepted by
+`ThreadTurnAdmissionRequiredCore`, and conformance now guards that
+diagnostics-blocked turns cannot re-enter that refusal path or direct JS
+`createRun()` / `updateAgent()` mutation. This removes a fail-closed-only
+lifecycle route edge; deletion/cancellation replay/projection, direct
+runtime-control event materialization, durable diagnostics replay/storage,
+wallet/cTEE authority, broader run lifecycle, and stable protocol APIs remain
+non-terminal.
 
 ## Final Doctrine
 
