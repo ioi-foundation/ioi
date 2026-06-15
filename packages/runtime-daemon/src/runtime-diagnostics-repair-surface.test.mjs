@@ -619,22 +619,21 @@ test("diagnostics repair retry uses Rust retry-run planning, run creation, event
       assert.equal(threadId, "thread_alpha");
       return { id: "agent_alpha" };
     },
-    agentRunLifecycleSurface: {
-      createRun(state, agentId, request) {
-        assert.equal(state, store);
-        runCreates.push({ agentId, request });
-        return { id: "run_retry", turn_id: "turn_retry", agentId };
-      },
-    },
     appendRuntimeEvent(event) {
       appended.push(event);
       return { ...event, admitted: true };
     },
   };
   const surface = createRuntimeDiagnosticsRepairSurface({
+    createLifecycleRun(state, agentId, request) {
+      assert.equal(state, store);
+      runCreates.push({ agentId, request });
+      return { id: "run_retry", turn_id: "turn_retry", agentId };
+    },
     runtimeError,
     diagnosticsRepairRunner: runner,
   });
+  assert.equal(Object.hasOwn(store, "agentRunLifecycleSurface"), false);
 
   const result = surface.createDiagnosticsRepairRetryTurn(store, "thread_alpha", {
     request: {
@@ -877,16 +876,14 @@ test("diagnostics repair retry rejects partial Rust retry-result projection with
     agentForThread() {
       return { id: "agent_alpha" };
     },
-    agentRunLifecycleSurface: {
-      createRun() {
-        return { id: "run_retry", turn_id: "turn_retry" };
-      },
-    },
     appendRuntimeEvent(event) {
       return { ...event, admitted: true };
     },
   };
   const surface = createRuntimeDiagnosticsRepairSurface({
+    createLifecycleRun() {
+      return { id: "run_retry", turn_id: "turn_retry" };
+    },
     runtimeError,
     diagnosticsRepairRunner: runner,
   });

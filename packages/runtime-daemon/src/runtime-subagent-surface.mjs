@@ -10,6 +10,10 @@ import {
 } from "./runtime-value-helpers.mjs";
 import { cancelRun } from "./runtime-run-cancellation.mjs";
 import {
+  createAgent as createLifecycleAgent,
+  createRun as createLifecycleRun,
+} from "./runtime-agent-run-lifecycle.mjs";
+import {
   RUNTIME_SUBAGENT_MANAGER_SCHEMA_VERSION,
   normalizeSubagentRole,
   subagentContractOutputForRun,
@@ -199,15 +203,25 @@ function subagentCancellationPropagatesRecord(record = {}) {
 export function createRuntimeSubagentSurface({
   cancelRun: cancelRunDep = cancelRun,
   contextPolicyCore = null,
+  createLifecycleAgent: createLifecycleAgentDep = createLifecycleAgent,
+  createLifecycleRun: createLifecycleRunDep = createLifecycleRun,
   eventStreamIdForThread: eventStreamIdForThreadDep = eventStreamIdForThread,
+  ensureProviderAvailable = null,
+  initialThreadRuntimeControls = null,
   lifecycleStatusForRun: lifecycleStatusForRunDep = lifecycleStatusForRun,
+  mcpRegistryForWorkspace = null,
   nowIso = () => new Date().toISOString(),
+  approvalModeForThreadMode = null,
+  buildRun = null,
+  runtimeModeForOptions = null,
   runtimeError: runtimeErrorDep = runtimeError,
   schemaVersion = RUNTIME_SUBAGENT_MANAGER_SCHEMA_VERSION,
+  summarizeAgentOptions = null,
   normalizeSubagentRole: normalizeSubagentRoleDep = normalizeSubagentRole,
   subagentContractOutputForRun: subagentContractOutputForRunDep = subagentContractOutputForRun,
   subagentResultForRun: subagentResultForRunDep = subagentResultForRun,
   threadIdForAgent: threadIdForAgentDep = threadIdForAgent,
+  threadModeForRunMode = null,
   validateSubagentOutputContract: validateSubagentOutputContractDep = validateSubagentOutputContract,
 } = {}) {
   function subagentProjectionRunner(store, request = {}) {
@@ -360,8 +374,7 @@ export function createRuntimeSubagentSurface({
     operationKind,
     threadId,
   }) {
-    const agentCreateSurface = store?.agentRunLifecycleSurface;
-    if (typeof agentCreateSurface?.createAgent !== "function") {
+    if (typeof createLifecycleAgentDep !== "function") {
       throw runtimeErrorDep({
         status: 501,
         code: "runtime_subagent_agent_create_rust_core_required",
@@ -379,12 +392,20 @@ export function createRuntimeSubagentSurface({
         },
       });
     }
-    const agent = agentCreateSurface.createAgent(store, {
+    const agent = createLifecycleAgentDep(store, {
       local: { cwd: parentAgent?.cwd ?? store?.defaultCwd },
       model: {
         id: parentAgent?.requestedModelId ?? parentAgent?.modelId ?? "auto",
         route_id: modelRouteId ?? parentAgent?.modelRouteId ?? "route.local-first",
       },
+    }, {
+      ensureProviderAvailable,
+      initialThreadRuntimeControls,
+      lifecycleAdmissionRunner: store?.contextPolicyCore ?? contextPolicyCore,
+      mcpRegistryForWorkspace: lifecycleMcpRegistryForStore(store),
+      runtimeError: runtimeErrorDep,
+      runtimeModeForOptions,
+      summarizeAgentOptions,
     });
     if (!optionalString(agent?.id)) {
       throw runtimeErrorDep({
@@ -412,8 +433,7 @@ export function createRuntimeSubagentSurface({
     threadId,
     subagentId,
   }) {
-    const runCreateSurface = store?.agentRunLifecycleSurface;
-    if (typeof runCreateSurface?.createRun !== "function") {
+    if (typeof createLifecycleRunDep !== "function") {
       throw runtimeErrorDep({
         status: 501,
         code: "runtime_subagent_run_create_rust_core_required",
@@ -432,7 +452,7 @@ export function createRuntimeSubagentSurface({
         },
       });
     }
-    const run = runCreateSurface.createRun(store, agentId, {
+    const run = createLifecycleRunDep(store, agentId, {
       mode: "send",
       prompt,
       options: {
@@ -440,6 +460,13 @@ export function createRuntimeSubagentSurface({
         memory: request.memory ?? request.options?.memory ?? {},
         ...(modelRouteId ? { model: { id: "auto", route_id: modelRouteId } } : {}),
       },
+    }, {
+      approvalModeForThreadMode,
+      buildRun,
+      ensureProviderAvailable,
+      lifecycleAdmissionRunner: store?.contextPolicyCore ?? contextPolicyCore,
+      runtimeError: runtimeErrorDep,
+      threadModeForRunMode,
     });
     if (!optionalString(run?.id)) {
       throw runtimeErrorDep({
@@ -476,6 +503,17 @@ export function createRuntimeSubagentSurface({
       subagents: Array.from(subagentValues.call(store.subagents)),
       runs: Array.from(runValues.call(store.runs)),
     };
+  }
+
+  function lifecycleMcpRegistryForStore(store) {
+    if (typeof mcpRegistryForWorkspace !== "function") {
+      return null;
+    }
+    return (cwd, options = {}) =>
+      mcpRegistryForWorkspace(cwd, {
+        ...options,
+        contextPolicyCore: store?.contextPolicyCore ?? contextPolicyCore,
+      });
   }
 
   function projectSubagentRead(store, projectionKind, {

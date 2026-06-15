@@ -30,7 +30,7 @@ function retiredRouteWrapper() {
   throw new Error("retired route wrapper must not be routed");
 }
 
-function routeHandlers() {
+function routeHandlers(overrides = {}) {
   return createRuntimeRouteHandlers({
     baseUrlForRequest: () => "http://daemon.test",
     nativeEmbeddingResponse: () => ({}),
@@ -59,6 +59,7 @@ function routeHandlers() {
       response.statusCode = 200;
       response.end(JSON.stringify(payload));
     },
+    ...overrides,
   });
 }
 
@@ -306,8 +307,7 @@ test("agent, thread, and run detail routes return lifecycle projection surface o
   ]);
 });
 
-test("agent lifecycle mutation routes use mounted agent lifecycle surface", async () => {
-  const { handleAgentRoute } = routeHandlers();
+test("agent lifecycle mutation routes use direct Rust lifecycle APIs", async () => {
   const calls = [];
   const rustCoreRequired = (code, details = {}) => {
     const error = new Error("agent lifecycle requires Rust core");
@@ -316,25 +316,26 @@ test("agent lifecycle mutation routes use mounted agent lifecycle surface", asyn
     error.details = details;
     throw error;
   };
-  const store = {
-    agentRunLifecycleSurface: {
-      updateAgent(surfaceStore, agentId, status, operationKind) {
-        calls.push({ method: "updateAgent", surfaceStore, agentId, status, operationKind });
-        rustCoreRequired("runtime_agent_status_control_rust_core_required", {
-          agent_id: agentId,
-          requested_status: status,
-          requested_operation_kind: operationKind,
-        });
-      },
-      deleteAgent(surfaceStore, agentId) {
-        calls.push({ method: "deleteAgent", surfaceStore, agentId });
-        rustCoreRequired("runtime_agent_delete_rust_core_required", { agent_id: agentId });
-      },
-      createRun(surfaceStore, agentId, input) {
-        calls.push({ method: "createRun", surfaceStore, agentId, input });
-        rustCoreRequired("runtime_run_create_rust_core_required", { agent_id: agentId });
-      },
+  const { handleAgentRoute } = routeHandlers({
+    updateLifecycleAgent(surfaceStore, agentId, status, operationKind, deps) {
+      calls.push({ method: "updateAgent", surfaceStore, agentId, status, operationKind, deps });
+      rustCoreRequired("runtime_agent_status_control_rust_core_required", {
+        agent_id: agentId,
+        requested_status: status,
+        requested_operation_kind: operationKind,
+      });
     },
+    deleteLifecycleAgent(surfaceStore, agentId, deps) {
+      calls.push({ method: "deleteAgent", surfaceStore, agentId, deps });
+      rustCoreRequired("runtime_agent_delete_rust_core_required", { agent_id: agentId });
+    },
+    createLifecycleRun(surfaceStore, agentId, input, deps) {
+      calls.push({ method: "createRun", surfaceStore, agentId, input, deps });
+      rustCoreRequired("runtime_run_create_rust_core_required", { agent_id: agentId });
+    },
+  });
+  const store = {
+    contextPolicyCore: { direct: true },
     updateAgent: retiredRouteWrapper,
     deleteAgent: retiredRouteWrapper,
     createRun: retiredRouteWrapper,
@@ -368,6 +369,10 @@ test("agent lifecycle mutation routes use mounted agent lifecycle surface", asyn
   }
 
   assert.equal(calls.every((call) => call.surfaceStore === store), true);
+  assert.equal(calls.every((call) => call.deps.lifecycleAdmissionRunner === store.contextPolicyCore ||
+    call.deps.statusStateUpdateRunner === store.contextPolicyCore ||
+    call.deps.deleteStateUpdateRunner === store.contextPolicyCore), true);
+  assert.equal(Object.hasOwn(store, "agentRunLifecycleSurface"), false);
   assert.deepEqual(
     calls.map(({ method, agentId, status, operationKind, input }) => ({
       method,

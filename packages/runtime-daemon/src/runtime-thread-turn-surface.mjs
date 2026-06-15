@@ -10,9 +10,13 @@ import {
   requestWithThreadRuntimeControls,
 } from "./threads/thread-runtime-controls.mjs";
 import {
+  createRun as createLifecycleRun,
   createRuntimeBridgeThreadControl,
   createRuntimeBridgeTurnRun,
 } from "./runtime-agent-run-lifecycle.mjs";
+import {
+  updateAgent as updateLifecycleAgent,
+} from "./threads/thread-store.mjs";
 import {
   objectRecord,
   optionalString,
@@ -32,6 +36,8 @@ export function createRuntimeThreadTurnSurface(deps = {}) {
     requestWithThreadRuntimeControls: requestWithThreadRuntimeControlsDep = requestWithThreadRuntimeControls,
     runtimeBridgeThreadControl = createRuntimeBridgeThreadControl,
     runtimeBridgeTurnRun = createRuntimeBridgeTurnRun,
+    lifecycleAgentStatusUpdate = updateLifecycleAgent,
+    lifecycleRunCreate = createLifecycleRun,
     runtimeError: runtimeErrorDep = runtimeError,
     runtimeProfileForRequest: runtimeProfileForRequestDep = runtimeProfileForRequest,
     threadTurnAdmissionRunner = deps.contextPolicyCore ?? null,
@@ -71,7 +77,7 @@ export function createRuntimeThreadTurnSurface(deps = {}) {
         return threadProjection;
       }
       if (
-        typeof store.agentRunLifecycleSurface?.updateAgent !== "function" ||
+        typeof lifecycleAgentStatusUpdate !== "function" ||
         typeof store.threadForAgent !== "function"
       ) {
         throwThreadTurnRustCoreRequired({
@@ -87,11 +93,15 @@ export function createRuntimeThreadTurnSurface(deps = {}) {
           ],
         });
       }
-      const updatedAgent = await store.agentRunLifecycleSurface.updateAgent(
+      const updatedAgent = await lifecycleAgentStatusUpdate(
         store,
         agent.id,
         "active",
         "agent.resume",
+        {
+          runtimeError: runtimeErrorDep,
+          statusStateUpdateRunner: threadLifecycleRunner,
+        },
       );
       const threadProjection = store.threadForAgent(updatedAgent);
       if (
@@ -175,7 +185,7 @@ export function createRuntimeThreadTurnSurface(deps = {}) {
           }
         : controlledRequest;
       if (
-        typeof store.agentRunLifecycleSurface?.createRun !== "function" ||
+        typeof lifecycleRunCreate !== "function" ||
         typeof store.turnForRun !== "function"
       ) {
         throwThreadTurnRustCoreRequired({
@@ -191,7 +201,14 @@ export function createRuntimeThreadTurnSurface(deps = {}) {
           ],
         });
       }
-      const run = await store.agentRunLifecycleSurface.createRun(store, agent.id, turnRequest);
+      const run = await lifecycleRunCreate(store, agent.id, turnRequest, {
+        approvalModeForThreadMode,
+        buildRun,
+        ensureProviderAvailable,
+        lifecycleAdmissionRunner: threadLifecycleRunner,
+        runtimeError: runtimeErrorDep,
+        threadModeForRunMode,
+      });
       const turnProjection = store.turnForRun(run);
       if (
         optionalStringDep(turnProjection?.thread_id) !== threadId ||

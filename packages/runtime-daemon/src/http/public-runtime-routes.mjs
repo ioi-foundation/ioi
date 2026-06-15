@@ -1,25 +1,44 @@
 import crypto from "node:crypto";
 
+import {
+  createAgent as createLifecycleAgent,
+  createThread as createLifecycleThread,
+} from "../runtime-agent-run-lifecycle.mjs";
+
 export function createPublicRuntimeRequestHandler(deps) {
   const {
     RUNTIME_USAGE_TELEMETRY_SCHEMA_VERSION,
     baseUrlForRequest,
+    createLifecycleAgent: createLifecycleAgentDep = createLifecycleAgent,
+    createLifecycleThread: createLifecycleThreadDep = createLifecycleThread,
+    ensureProviderAvailable = null,
+    eventStreamIdForThread = null,
     handleAgentRoute,
     handleModelMountingNativeRoute,
     handleOpenAiCompatibilityRoute,
     handleRunRoute,
     handleThreadRoute,
+    initialThreadRuntimeControls = null,
     isOpenAiCompatibilityRoute,
+    lifecycleAdmissionRunner = null,
+    mcpRegistryForWorkspace = null,
     normalizeBooleanOption,
     notFound,
     optionalString,
     readBody,
+    runtimeError = null,
+    runtimeModeForOptions = null,
+    runtimeThreadSchemaVersion = null,
+    summarizeAgentOptions = null,
+    threadIdForAgent = null,
+    threadStatusForAgent = null,
     usageRequestMetadataFromUrl,
     usageTelemetryWithRequestMetadata,
     writeError,
     writeJsonResponse,
     writeMcpJsonRpcResponse,
   } = deps;
+  const lifecycleRuntimeError = typeof runtimeError === "function" ? runtimeError : undefined;
 
   return async function handleRequest({ request, response, store }) {
     const requestId = `req_${crypto.randomUUID()}`;
@@ -128,7 +147,15 @@ export function createPublicRuntimeRequestHandler(deps) {
         return;
       }
       if (request.method === "POST" && url.pathname === "/v1/agents") {
-        writeJsonResponse(response, store.agentRunLifecycleSurface.createAgent(store, (await readBody(request)).options ?? {}));
+        writeJsonResponse(response, createLifecycleAgentDep(store, (await readBody(request)).options ?? {}, {
+          ensureProviderAvailable,
+          initialThreadRuntimeControls,
+          lifecycleAdmissionRunner: store.contextPolicyCore ?? lifecycleAdmissionRunner,
+          mcpRegistryForWorkspace: lifecycleMcpRegistryForStore(store),
+          runtimeError: lifecycleRuntimeError,
+          runtimeModeForOptions,
+          summarizeAgentOptions,
+        }));
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/agents") {
@@ -136,7 +163,19 @@ export function createPublicRuntimeRequestHandler(deps) {
         return;
       }
       if (request.method === "POST" && url.pathname === "/v1/threads") {
-        writeJsonResponse(response, await store.agentRunLifecycleSurface.createThread(store, await readBody(request)));
+        writeJsonResponse(response, await createLifecycleThreadDep(store, await readBody(request), {
+          ensureProviderAvailable,
+          eventStreamIdForThread,
+          initialThreadRuntimeControls,
+          lifecycleAdmissionRunner: store.contextPolicyCore ?? lifecycleAdmissionRunner,
+          mcpRegistryForWorkspace: lifecycleMcpRegistryForStore(store),
+          runtimeError: lifecycleRuntimeError,
+          runtimeThreadSchemaVersion,
+          runtimeModeForOptions,
+          summarizeAgentOptions,
+          threadIdForAgent,
+          threadStatusForAgent,
+        }));
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/threads") {
@@ -343,6 +382,17 @@ export function createPublicRuntimeRequestHandler(deps) {
       writeError(response, error);
     }
   };
+
+  function lifecycleMcpRegistryForStore(store) {
+    if (typeof mcpRegistryForWorkspace !== "function") {
+      return null;
+    }
+    return (cwd, options = {}) =>
+      mcpRegistryForWorkspace(cwd, {
+        ...options,
+        contextPolicyCore: store?.contextPolicyCore ?? lifecycleAdmissionRunner,
+      });
+  }
 }
 
 function mcpServeProtocolParts(body, query) {

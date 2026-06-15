@@ -3,7 +3,6 @@ import test from "node:test";
 
 import {
   createAgent,
-  createRuntimeAgentRunLifecycleSurface,
   createRuntimeBridgeThreadControl,
   createRuntimeBridgeTurnRun,
   createRun,
@@ -1255,38 +1254,36 @@ test("createRuntimeBridgeTurn fails closed before route, memory, or persistence 
   assert.deepEqual(store.turnProjectionCalls, []);
 });
 
-test("agent/run lifecycle surface routes create, run creation, and thread creation to mounted boundary", async () => {
+test("agent/run lifecycle direct APIs route create, run creation, and thread creation through Rust planning", async () => {
   const store = fakeStore();
-  const surface = createRuntimeAgentRunLifecycleSurface({
+
+  const lifecycleDeps = {
     lifecycleAdmissionRunner: store.contextPolicyCore,
     ...runCreateDeps(store),
     ...threadCreateDeps(store),
-  });
-  assert.equal(typeof surface.createRuntimeBridgeThreadControl, "undefined");
-  assert.equal(typeof surface.createRuntimeBridgeTurn, "undefined");
-
-  const agent = surface.createAgent(store, { local: { cwd: "/workspace/surface" } });
+  };
+  const agent = createAgent(store, { local: { cwd: "/workspace/surface" } }, lifecycleDeps);
   assert.equal(agent.id, "agent_uuid-agent");
   assert.equal(agent.rust_planned, true);
-  const run = surface.createRun(store, "agent_existing", { mode: "review" });
+  const run = createRun(store, "agent_existing", { mode: "review" }, lifecycleDeps);
   assert.equal(run.id, "run_uuid-run");
   assert.equal(run.rust_planned, true);
   assert.equal(run.thread_mode, "agent");
   assert.equal(run.approval_mode, "suggest");
-  const thread = surface.createThread(store, {
+  const thread = createThread(store, {
     options: { local: { cwd: "/workspace/thread" } },
-  });
+  }, lifecycleDeps);
   assert.equal(thread.thread_id, "thread_uuid-agent");
   assert.equal(thread.agent_id, "agent_uuid-agent");
   assert.equal(thread.rust_projected, true);
-  const runtimeThread = surface.createThread(store, {
+  const runtimeThread = createThread(store, {
     options: {
       runtime_profile: "runtime_service",
       runtime_session_id: "session_runtime",
       runtime_bridge_id: "bridge_runtime",
       runtime_bridge_source: "rust_core",
     },
-  });
+  }, lifecycleDeps);
   assert.equal(runtimeThread.thread_id, "thread_uuid-agent");
   assert.equal(runtimeThread.agent_id, "agent_uuid-agent");
   assert.equal(runtimeThread.rust_projected, true);

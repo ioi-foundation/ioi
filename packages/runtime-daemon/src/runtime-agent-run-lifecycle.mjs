@@ -2,10 +2,6 @@ import crypto from "node:crypto";
 import path from "node:path";
 
 import {
-  deleteAgent as deleteAgentState,
-  updateAgent as updateAgentState,
-} from "./threads/thread-store.mjs";
-import {
   isRuntimeServiceProfile,
   runtimeProfileForRequest,
 } from "./runtime-profile.mjs";
@@ -20,71 +16,6 @@ import {
   objectRecord,
   optionalString,
 } from "./runtime-value-helpers.mjs";
-
-export function createRuntimeAgentRunLifecycleSurface({
-  approvalModeForThreadMode = null,
-  buildRun = null,
-  ensureProviderAvailable = null,
-  eventStreamIdForThread = null,
-  initialThreadRuntimeControls = null,
-  lifecycleAdmissionRunner = null,
-  mcpRegistryForWorkspace = null,
-  randomUUID = null,
-  runtimeError,
-  runtimeThreadSchemaVersion = RUNTIME_THREAD_SCHEMA_VERSION,
-  runtimeModeForOptions = null,
-  summarizeAgentOptions = null,
-  threadIdForAgent = null,
-  threadModeForRunMode = null,
-  threadStatusForAgent = null,
-} = {}) {
-  return {
-    createAgent(store, options = {}) {
-      return createAgent(store, options, {
-        ensureProviderAvailable,
-        initialThreadRuntimeControls,
-        lifecycleAdmissionRunner,
-        mcpRegistryForWorkspace,
-        randomUUID,
-        runtimeError,
-        runtimeModeForOptions,
-        summarizeAgentOptions,
-      });
-    },
-    createRun(store, agentId, request = {}) {
-      return createRun(store, agentId, request, {
-        approvalModeForThreadMode,
-        buildRun,
-        ensureProviderAvailable,
-        lifecycleAdmissionRunner,
-        runtimeError,
-        threadModeForRunMode,
-      });
-    },
-    createThread(store, request = {}) {
-      return createThread(store, request, {
-        ensureProviderAvailable,
-        eventStreamIdForThread,
-        initialThreadRuntimeControls,
-        lifecycleAdmissionRunner,
-        mcpRegistryForWorkspace,
-        randomUUID,
-        runtimeError,
-        runtimeThreadSchemaVersion,
-        runtimeModeForOptions,
-        summarizeAgentOptions,
-        threadIdForAgent,
-        threadStatusForAgent,
-      });
-    },
-    updateAgent(store, agentId, status, operationKind) {
-      return updateAgentState(store, agentId, status, operationKind, { runtimeError });
-    },
-    deleteAgent(store, agentId) {
-      return deleteAgentState(store, agentId, { runtimeError });
-    },
-  };
-}
 
 export function createThread(store, request = {}, deps = {}) {
   const options = request.options ?? request;

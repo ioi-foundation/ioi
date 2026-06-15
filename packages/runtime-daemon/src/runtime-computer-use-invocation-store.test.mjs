@@ -313,6 +313,12 @@ test("computer-use run materialization is delegated to Rust run-create planning"
     store.writeRun = (run, operationKind) => {
       writes.push({ run, operationKind });
     };
+    store.turnForRun = (run) => ({
+      thread_id: "thread_browser",
+      request_id: run.id,
+      run_id: run.id,
+      turn_id: run.turn_id ?? run.id,
+    });
     store.agents.set("agent_browser", {
       id: "agent_browser",
       status: "active",
@@ -332,7 +338,7 @@ test("computer-use run materialization is delegated to Rust run-create planning"
       updatedAt: "2026-06-15T18:00:00.000Z",
     });
 
-    const run = store.agentRunLifecycleSurface.createRun(store, "agent_browser", {
+    await store.threadTurnSurface.createTurn(store, "thread_browser", {
       mode: "send",
       prompt: "Inspect the browser page without side effects.",
       metadata: {
@@ -342,6 +348,7 @@ test("computer-use run materialization is delegated to Rust run-create planning"
         computer_use_target_ref: "target_browser",
       },
     });
+    const run = writes[0].run;
 
     assert.equal(daemonCoreThreadLifecycleApi.calls.length, 1);
     assert.equal(run.trace.computerUse.source, "rust_daemon_core_run_create");

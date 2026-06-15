@@ -12347,9 +12347,10 @@ function runBridge() {
         policyThreadLifecycleCore,
       ) &&
       !/operation_kind != "turn\.diagnostics_block"/.test(policyThreadLifecycleCore) &&
-      /store\.agentRunLifecycleSurface\.updateAgent\(\s*store,\s*agent\.id,\s*"active",\s*"agent\.resume"/.test(
+      /lifecycleAgentStatusUpdate\(\s*store,\s*agent\.id,\s*"active",\s*"agent\.resume"/.test(
         runtimeThreadTurnSurface,
       ) &&
+      /statusStateUpdateRunner:\s*threadLifecycleRunner/.test(runtimeThreadTurnSurface) &&
       /store\.threadForAgent\(updatedAgent\)/.test(runtimeThreadTurnSurface) &&
       /const\s+turnRequest\s*=\s*diagnosticsFeedbackBlocksContinuation\(diagnosticsFeedback\)/.test(
         runtimeThreadTurnSurface,
@@ -12358,9 +12359,10 @@ function runBridge() {
       /context:\s*\{[\s\S]*diagnostics_feedback:\s*diagnosticsFeedback/.test(
         runtimeThreadTurnSurface,
       ) &&
-      /store\.agentRunLifecycleSurface\.createRun\(store,\s*agent\.id,\s*turnRequest\)/.test(
+      /lifecycleRunCreate\(store,\s*agent\.id,\s*turnRequest,\s*\{/.test(
         runtimeThreadTurnSurface,
       ) &&
+      /lifecycleAdmissionRunner:\s*threadLifecycleRunner/.test(runtimeThreadTurnSurface) &&
       /store\.turnForRun\(run\)/.test(runtimeThreadTurnSurface) &&
       /runtime_thread_turn_projection_mismatch/.test(runtimeThreadTurnSurface) &&
       !/store\.updateAgent\(/.test(runtimeThreadTurnSurface) &&
@@ -12418,8 +12420,8 @@ function runBridge() {
       /thread turn surface resumes non-runtime threads through Rust lifecycle status and projection/.test(
         runtimeThreadTurnSurfaceTest,
       ) &&
-      /agentRunLifecycleSurface\.updateAgent/.test(runtimeThreadTurnSurfaceTest) &&
-      /thread turn surface fails closed for non-runtime resume when mounted Rust lifecycle boundary is missing/.test(
+      /lifecycleAgentStatusUpdate/.test(runtimeThreadTurnSurfaceTest) &&
+      /thread turn surface fails closed for non-runtime resume when direct Rust lifecycle API is missing/.test(
         runtimeThreadTurnSurfaceTest,
       ) &&
       /admissionRequiredCalls\.length,\s*1/.test(runtimeThreadTurnSurfaceTest) &&
@@ -12427,8 +12429,8 @@ function runBridge() {
       /thread turn surface creates non-runtime turns through Rust-planned run and projection/.test(
         runtimeThreadTurnSurfaceTest,
       ) &&
-      /agentRunLifecycleSurface\.createRun/.test(runtimeThreadTurnSurfaceTest) &&
-      /thread turn surface fails closed for non-runtime turns when mounted Rust run boundary is missing/.test(
+      /lifecycleRunCreate/.test(runtimeThreadTurnSurfaceTest) &&
+      /thread turn surface fails closed for non-runtime turns when direct Rust run API is missing/.test(
         runtimeThreadTurnSurfaceTest,
       ) &&
       /operation:\s*"thread_turn_create"/.test(runtimeThreadTurnSurfaceTest) &&
@@ -12440,9 +12442,14 @@ function runBridge() {
       /store\.calls\[2\]\.request\.context\.diagnostics_feedback/.test(
         runtimeThreadTurnSurfaceTest,
       ) &&
-      /"pendingDiagnosticsFeedbackForNextTurn"[\s\S]*"agentRunLifecycleSurface\.createRun"[\s\S]*"turnForRun"/.test(
+      /"pendingDiagnosticsFeedbackForNextTurn"[\s\S]*"lifecycleRunCreate"[\s\S]*"turnForRun"/.test(
         runtimeThreadTurnSurfaceTest,
       ) &&
+      /Object\.hasOwn\(store,\s*"agentRunLifecycleSurface"\), false/.test(
+        runtimeThreadTurnSurfaceTest,
+      ) &&
+      !/agentRunLifecycleSurface\.(?:updateAgent|createRun)/.test(runtimeThreadTurnSurfaceTest) &&
+      !/agentRunLifecycleSurface/.test(runtimeThreadTurnSurface) &&
       /assert\.equal\(store\.calls\.some\(\(call\) => call\.method === "updateAgent"\), false\)/.test(
         runtimeThreadTurnSurfaceTest,
       ),
@@ -14525,7 +14532,10 @@ function runBridge() {
     !/\n\s{4}createRuntimeBridgeThreadControl\(store,\s*threadId,\s*agent,\s*request = \{\}\)\s*\{/.test(
       runtimeAgentRunLifecycle,
     ) &&
-    /typeof surface\.createRuntimeBridgeThreadControl,\s*"undefined"/.test(
+    !/createRuntimeAgentRunLifecycleSurface/.test(
+      runtimeAgentRunLifecycleTest,
+    ) &&
+    /agent\/run lifecycle direct APIs route create, run creation, and thread creation through Rust planning/.test(
       runtimeAgentRunLifecycleTest,
     ) &&
     /thread turn surface controls runtime thread resume through Rust bridge-control state planning/.test(
@@ -14741,7 +14751,10 @@ function runBridge() {
       !/\n\s{4}createRuntimeBridgeTurn\(store,\s*threadId,\s*agent,\s*request = \{\}\)\s*\{/.test(
         runtimeAgentRunLifecycle,
       ) &&
-      /typeof surface\.createRuntimeBridgeTurn,\s*"undefined"/.test(
+      !/createRuntimeAgentRunLifecycleSurface/.test(
+        runtimeAgentRunLifecycleTest,
+      ) &&
+      /agent\/run lifecycle direct APIs route create, run creation, and thread creation through Rust planning/.test(
         runtimeAgentRunLifecycleTest,
       ) &&
       /createThread starts runtime-service threads through Rust bridge-start state planning/.test(
@@ -14776,7 +14789,7 @@ function runBridge() {
       ) &&
       /assertRuntimeBridgeThreadRustCoreRequired/.test(runtimeAgentRunLifecycleTest) &&
       /assertRuntimeBridgeThreadRustCoreRequired/.test(runtimeThreadTurnSurfaceTest) &&
-      /store\.calls\.some\(\(call\) => call\.method === "agentRunLifecycleSurface\.createRuntimeBridgeTurn"\), false/.test(
+      /Object\.hasOwn\(store,\s*"agentRunLifecycleSurface"\), false/.test(
         runtimeThreadTurnSurfaceTest,
       ) &&
       !/runtimeBridge:\s*\{/.test(runtimeThreadTurnSurfaceTest) &&
@@ -14793,7 +14806,10 @@ function runBridge() {
       /runtime thread-control compatibility store wrappers stay retired/.test(
         runtimeThreadControlTest,
       ) &&
-      /store\.agentRunLifecycleSurface\.createThread\(store,/.test(
+      /import \{ createThread \} from "\.\/runtime-agent-run-lifecycle\.mjs";/.test(
+        runtimeThreadControlTest,
+      ) &&
+      /createThread\(store,\s*\{/.test(
         runtimeThreadControlTest,
       ) &&
       /calls\.some\(\(call\) => call\.operation === "start_thread"\), false/.test(
@@ -15233,12 +15249,23 @@ function runBridge() {
       /approvalModeForThreadMode/.test(runtimeAgentRunLifecycle) &&
       /buildRun/.test(runtimeAgentRunLifecycle) &&
       /threadModeForRunMode/.test(runtimeAgentRunLifecycle) &&
-      /createRuntimeAgentRunLifecycleSurface/.test(runtimeAgentRunLifecycle) &&
+      !/createRuntimeAgentRunLifecycleSurface/.test(runtimeAgentRunLifecycle) &&
       /approvalModeForThreadMode/.test(runtimeDaemonIndex) &&
       /buildRun/.test(runtimeDaemonIndex) &&
-      /lifecycleAdmissionRunner:\s*this\.contextPolicyCore/.test(
-        runtimeDaemonIndex,
+      !/agentRunLifecycleSurface/.test(runtimeDaemonIndex) &&
+      /lifecycleAdmissionRunner:\s*store\.contextPolicyCore\s*\?\?\s*lifecycleAdmissionRunner/.test(
+        publicRuntimeRoutes,
       ) &&
+      /lifecycleAdmissionRunner:\s*store\.contextPolicyCore\s*\?\?\s*lifecycleAdmissionRunner/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /statusStateUpdateRunner:\s*store\.contextPolicyCore\s*\?\?\s*lifecycleAdmissionRunner/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /deleteStateUpdateRunner:\s*store\.contextPolicyCore\s*\?\?\s*lifecycleAdmissionRunner/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /contextPolicyCore:\s*this\.contextPolicyCore/.test(runtimeDaemonIndex) &&
       /initialThreadRuntimeControls/.test(runtimeDaemonIndex) &&
       /mcpRegistryForWorkspace/.test(runtimeDaemonIndex) &&
       /runtimeModeForOptions/.test(runtimeDaemonIndex) &&
@@ -15253,19 +15280,22 @@ function runBridge() {
       !/\n\s*createAgent\(options = \{\}\)/.test(runtimeDaemonIndex) &&
       !/\n\s*createRun\(agentId, request = \{\}\)/.test(runtimeDaemonIndex) &&
       !/\n\s*async createThread\(request = \{\}\)/.test(runtimeDaemonIndex) &&
-      /store\.agentRunLifecycleSurface\.createAgent\(store,/.test(publicRuntimeRoutes) &&
-      /store\.agentRunLifecycleSurface\.createThread\(store,/.test(publicRuntimeRoutes) &&
-      /store\.agentRunLifecycleSurface\.createRun\(store, agentId,/.test(runtimeRouteHandlers) &&
-      /public runtime agent create route uses mounted agent lifecycle surface/.test(
+      /createLifecycleAgentDep\(store,/.test(publicRuntimeRoutes) &&
+      /createLifecycleThreadDep\(store,/.test(publicRuntimeRoutes) &&
+      /createLifecycleRunDep\(store, agentId,/.test(runtimeRouteHandlers) &&
+      /updateLifecycleAgentDep\(store, agentId,/.test(runtimeRouteHandlers) &&
+      /deleteLifecycleAgentDep\(store, agentId,/.test(runtimeRouteHandlers) &&
+      !/agentRunLifecycleSurface/.test(`${publicRuntimeRoutes}\n${runtimeRouteHandlers}`) &&
+      /public runtime agent create route uses direct Rust lifecycle API/.test(
         publicRuntimeRoutesTest,
       ) &&
-      /public runtime thread create route uses mounted agent lifecycle surface/.test(
+      /public runtime thread create route uses direct Rust lifecycle API/.test(
         publicRuntimeRoutesTest,
       ) &&
-      /agent lifecycle mutation routes use mounted agent lifecycle surface/.test(
+      /agent lifecycle mutation routes use direct Rust lifecycle APIs/.test(
         runtimeRouteHandlersTest,
       ) &&
-      /agent\/run lifecycle surface routes create, run creation, and thread creation to mounted boundary/.test(
+      /agent\/run lifecycle direct APIs route create, run creation, and thread creation through Rust planning/.test(
         runtimeAgentRunLifecycleTest,
       ) &&
       !/store\.(?:createAgent|createRun|createThread|updateAgent|deleteAgent|getAgent)\(/.test(
@@ -15405,14 +15435,15 @@ function runBridge() {
       /store\.writeAgent\(plannedAgent,\s*plannedOperationKind\)/.test(threadStore) &&
       /agent_status_state_update_agent_missing/.test(threadStore) &&
       /agent_status_state_update_operation_kind_mismatch/.test(threadStore) &&
-      /store\.agentRunLifecycleSurface\.updateAgent\(store, agentId, "archived", "agent\.archive"\)/.test(
+      /updateLifecycleAgentDep\(store, agentId, "archived", "agent\.archive"/.test(
         runtimeRouteHandlers,
       ) &&
-      /store\.agentRunLifecycleSurface\.updateAgent\(store, agentId, null, "agent\.reload"\)/.test(
+      /updateLifecycleAgentDep\(store, agentId, null, "agent\.reload"/.test(
         runtimeRouteHandlers,
       ) &&
-      /store\.agentRunLifecycleSurface\.deleteAgent\(store, agentId\)/.test(runtimeRouteHandlers) &&
-      /agent lifecycle mutation routes use mounted agent lifecycle surface/.test(
+      /deleteLifecycleAgentDep\(store, agentId,/.test(runtimeRouteHandlers) &&
+      !/agentRunLifecycleSurface/.test(runtimeRouteHandlers) &&
+      /agent lifecycle mutation routes use direct Rust lifecycle APIs/.test(
         runtimeRouteHandlersTest,
       ) &&
       !/store\.(?:updateAgent|deleteAgent|getAgent)\(/.test(runtimeRouteHandlers) &&
@@ -29886,8 +29917,9 @@ function runCompositor() {
     /runtime_subagent_agent_create_rust_owned/.test(runtimeSubagentSurface) &&
     /runtime_subagent_run_create_rust_owned/.test(runtimeSubagentSurface) &&
     /createSubagentAgent/.test(runtimeSubagentSurface) &&
-    /agentRunLifecycleSurface/.test(runtimeSubagentSurface) &&
-    /agentCreateSurface\.createAgent\(store/.test(runtimeSubagentSurface) &&
+    /createLifecycleAgentDep/.test(runtimeSubagentSurface) &&
+    /createLifecycleAgentDep\(store/.test(runtimeSubagentSurface) &&
+    !/agentRunLifecycleSurface/.test(runtimeSubagentSurface) &&
     /createSubagentRun/.test(runtimeSubagentSurface) &&
     !/store\.createAgent\(/.test(runtimeSubagentSurface) &&
     !/store\.createRun\(/.test(runtimeSubagentSurface) &&
@@ -29955,8 +29987,9 @@ function runCompositor() {
     /runtime_subagent_resume_control_rust_owned/.test(runtimeSubagentSurface) &&
     /runtime_subagent_run_create_rust_owned/.test(runtimeSubagentSurface) &&
     /createSubagentRun/.test(runtimeSubagentSurface) &&
-    /agentRunLifecycleSurface/.test(runtimeSubagentSurface) &&
-    /runCreateSurface\.createRun\(store,\s*agentId/.test(runtimeSubagentSurface) &&
+    /createLifecycleRunDep/.test(runtimeSubagentSurface) &&
+    /createLifecycleRunDep\(store,\s*agentId/.test(runtimeSubagentSurface) &&
+    !/agentRunLifecycleSurface/.test(runtimeSubagentSurface) &&
     !/store\.createRun\(/.test(runtimeSubagentSurface) &&
     /sendSubagentInput\(store, threadId, subagentId, request = \{\}\) \{[\s\S]*?createSubagentRun[\s\S]*?commitSubagentControlRecord[\s\S]*?operation:\s*"send_input"[\s\S]*?operationKind/.test(
       runtimeSubagentSurface,
@@ -37987,8 +38020,9 @@ function runCompositor() {
     ) &&
     /runtime_run_create_js_facade_retired/.test(runtimeDiagnosticsRepairSurface) &&
     /agentgres_run_create_state_truth_required/.test(runtimeDiagnosticsRepairSurface) &&
-    /agentRunLifecycleSurface/.test(runtimeDiagnosticsRepairSurface) &&
-    /runCreateSurface\.createRun\(store,\s*agentId,/.test(runtimeDiagnosticsRepairSurface) &&
+    /createLifecycleRunDep/.test(runtimeDiagnosticsRepairSurface) &&
+    /createLifecycleRunDep\(store,\s*agentId,/.test(runtimeDiagnosticsRepairSurface) &&
+    !/agentRunLifecycleSurface/.test(runtimeDiagnosticsRepairSurface) &&
     /projectRuntimeDiagnosticsRepairRetryResult/.test(runtimeDiagnosticsRepairSurface) &&
     /runtime_diagnostics_repair_retry_result_projection_rust_owned/.test(
       runtimeDiagnosticsRepairSurface,
@@ -38378,7 +38412,16 @@ function runCompositor() {
       ) &&
       /runtime_run_create_js_facade_retired/.test(runtimeDiagnosticsRepairSurface) &&
       /agentgres_run_create_state_truth_required/.test(runtimeDiagnosticsRepairSurface) &&
-      /runCreateSurface\.createRun\(store,\s*agentId,/.test(runtimeDiagnosticsRepairSurface) &&
+      /createLifecycleRunDep/.test(runtimeDiagnosticsRepairSurface) &&
+      /createLifecycleRunDep\(store,\s*agentId,/.test(runtimeDiagnosticsRepairSurface) &&
+      /lifecycleAdmissionRunner:\s*store\?\.contextPolicyCore\s*\?\?\s*diagnosticsRepairRunner/.test(
+        runtimeDiagnosticsRepairSurface,
+      ) &&
+      /approvalModeForThreadMode/.test(runtimeDiagnosticsRepairSurface) &&
+      /buildRun/.test(runtimeDiagnosticsRepairSurface) &&
+      /ensureProviderAvailable/.test(runtimeDiagnosticsRepairSurface) &&
+      /threadModeForRunMode/.test(runtimeDiagnosticsRepairSurface) &&
+      !/agentRunLifecycleSurface/.test(runtimeDiagnosticsRepairSurface) &&
       /projectRuntimeDiagnosticsRepairRetryResult/.test(runtimeDiagnosticsRepairSurface) &&
       /runtime_diagnostics_repair_retry_result_projection_rust_owned/.test(
         runtimeDiagnosticsRepairSurface,
@@ -38469,6 +38512,9 @@ function runCompositor() {
         runtimeDiagnosticsRepairSurfaceTest,
       ) &&
       /diagnostics repair retry uses Rust retry-run planning, run creation, event admission, and result projection/.test(
+        runtimeDiagnosticsRepairSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(store,\s*"agentRunLifecycleSurface"\),\s*false/.test(
         runtimeDiagnosticsRepairSurfaceTest,
       ) &&
       /diagnostics repair retry fails closed before JS lookup without Rust retry-run planning/.test(

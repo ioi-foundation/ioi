@@ -3,6 +3,43 @@ import test from "node:test";
 
 import { createRuntimeSubagentSurface } from "./runtime-subagent-surface.mjs";
 
+function createLifecycleAgentForTest(state, options = {}) {
+  const agentId = `agent_spawn_${state.agentCreates.length + 1}`;
+  const agent = {
+    id: agentId,
+    cwd: options.local?.cwd ?? state.parentAgent.cwd,
+    modelId: options.model?.id ?? "auto",
+    requestedModelId: options.model?.id ?? "auto",
+    modelRouteId: options.model?.route_id ?? "route.local-first",
+  };
+  state.agentCreates.push({ options, agent });
+  state.agents.set(agentId, agent);
+  return agent;
+}
+
+function createLifecycleRunForTest(state, agentId, request = {}) {
+  const runId = `run_created_${state.runCreates.length + 1}`;
+  const run = {
+    id: runId,
+    agentId,
+    status: "completed",
+    result: `Created response: ${request.prompt}`,
+    request,
+    receipts: [{ id: `receipt_${runId}` }],
+    trace: {
+      taskState: {
+        changedObjects: ["input-response"],
+        uncertainFacts: [],
+        blockers: [],
+        evidenceRefs: [`evidence-${runId}`],
+      },
+    },
+  };
+  state.runCreates.push({ agentId, request, run });
+  state.runs.set(runId, run);
+  return run;
+}
+
 function createStore() {
   const parentAgent = {
     id: "agent_parent",
@@ -110,43 +147,6 @@ function createStore() {
     },
     getAgent(agentId) {
       return this.agents.get(agentId);
-    },
-    agentRunLifecycleSurface: {
-      createAgent(state, options = {}) {
-        const agentId = `agent_spawn_${state.agentCreates.length + 1}`;
-        const agent = {
-          id: agentId,
-          cwd: options.local?.cwd ?? parentAgent.cwd,
-          modelId: options.model?.id ?? "auto",
-          requestedModelId: options.model?.id ?? "auto",
-          modelRouteId: options.model?.route_id ?? "route.local-first",
-        };
-        state.agentCreates.push({ options, agent });
-        state.agents.set(agentId, agent);
-        return agent;
-      },
-      createRun(state, agentId, request = {}) {
-        const runId = `run_created_${state.runCreates.length + 1}`;
-        const run = {
-          id: runId,
-          agentId,
-          status: "completed",
-          result: `Created response: ${request.prompt}`,
-          request,
-          receipts: [{ id: `receipt_${runId}` }],
-          trace: {
-            taskState: {
-              changedObjects: ["input-response"],
-              uncertainFacts: [],
-              blockers: [],
-              evidenceRefs: [`evidence-${runId}`],
-            },
-          },
-        };
-        state.runCreates.push({ agentId, request, run });
-        state.runs.set(runId, run);
-        return run;
-      },
     },
     appendThreadSubagentControlEvent(input) {
       this.eventInputs.push(input);
@@ -636,6 +636,8 @@ test("subagent control event append uses Rust control planning and Agentgres eve
         throw new Error("direct control-event append must not update subagent record");
       },
     },
+    createLifecycleAgent: createLifecycleAgentForTest,
+    createLifecycleRun: createLifecycleRunForTest,
     nowIso: () => "2026-06-04T12:00:03.000Z",
   });
   store.surface = surface;
@@ -879,6 +881,8 @@ test("subagent spawn control uses Rust agent and run creation, control planning,
         };
       },
     },
+    createLifecycleAgent: createLifecycleAgentForTest,
+    createLifecycleRun: createLifecycleRunForTest,
     nowIso: () => "2026-06-04T12:00:03.000Z",
   });
   store.surface = surface;
@@ -970,6 +974,7 @@ test("subagent wait control uses Rust control, state planning, and Agentgres com
         };
       },
     },
+    createLifecycleRun: createLifecycleRunForTest,
     nowIso: () => "2026-06-04T12:00:03.000Z",
   });
   store.surface = surface;
@@ -1041,6 +1046,7 @@ test("subagent input and resume controls use Rust run creation, control planning
         };
       },
     },
+    createLifecycleRun: createLifecycleRunForTest,
     nowIso: () => "2026-06-04T12:00:03.000Z",
   });
   store.surface = surface;

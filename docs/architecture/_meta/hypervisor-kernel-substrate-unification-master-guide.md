@@ -943,12 +943,12 @@ the Rust run-cancel state-update path and then commits the Rust-planned subagent
 cancellation projection. The subagent input/resume macro cut extends the same
 boundary to `subagent.input` and `subagent.resume`; both controls now require
 the Rust read projection, Rust-owned child-agent run creation through the
-agent/run lifecycle surface, Rust control planning, Rust runtime-event Agentgres
+direct lifecycle run-create API, Rust control planning, Rust runtime-event Agentgres
 admission, Rust subagent state-update planning, and Agentgres-backed
 `writeSubagent` persistence. The subagent spawn macro cut extends the boundary
 to `subagent.spawn`; public `spawnSubagent()` now preflights the Rust subagent
 control/state planner, composes Rust-owned child-agent creation and Rust-owned
-child-run creation through the mounted agent/run lifecycle surface, admits the
+child-run creation through direct lifecycle APIs, admits the
 Rust-authored `subagent.spawned` runtime event, and persists only the
 Rust-planned subagent projection through Agentgres-backed `writeSubagent`.
 Cancellation propagation and direct control-event append now use Rust
@@ -4997,12 +4997,12 @@ through Rust Agentgres run-state admission without JS run-map mutation; direct
 operator-override event append also calls Rust diagnostics repair control
 planning, applies the same wallet authority gate, and admits only the
 Rust-authored operator-override event through Rust runtime-event admission;
-diagnostics repair retry-turn creation composes with the Rust-owned run-create
-lifecycle surface and admits only a Rust-authored retry event through Rust
+diagnostics repair retry-turn creation composes with the direct Rust-backed
+run-create lifecycle API and admits only a Rust-authored retry event through Rust
 diagnostics repair event planning/runtime-event admission, while direct
 retry-event append uses that same Rust-owned admission path; public agent
 create, top-level thread create, agent status/delete, and agent-scoped run
-create routes call the mounted agent/run lifecycle surface directly; public
+create routes call direct Rust-backed lifecycle APIs; public
 runtime account/node/tool catalog routes call the mounted tool surface directly;
 public repository workflow routes call the mounted repository surface directly;
 public skill and hook catalog routes call the mounted skill-hook registry
@@ -6095,11 +6095,12 @@ commit depth, replay/projection storage, and stable protocol APIs must still
 become direct Rust daemon-core surfaces.
 
 Slice 1084 moved the public non-runtime thread-turn admission-required refusal
-contract into the Rust thread-lifecycle policy core. That refusal now remains
-only for missing mounted Rust boundaries. Normal public non-runtime resume
-enters the mounted Rust-planned agent status-control path and returns the Rust
-thread projection, while normal public non-runtime turn creation enters the
-mounted Rust-planned run-create path and returns the Rust turn projection.
+contract into the Rust thread-lifecycle policy core. Slice 1280 supersedes the
+temporary mounted lifecycle surface: missing direct Rust lifecycle APIs still
+fail closed, while normal public non-runtime resume calls the direct
+Rust-backed agent status-control API and returns the Rust thread projection, and
+normal public non-runtime turn creation calls the direct Rust-backed run-create
+API and returns the Rust turn projection.
 Slice 1260 supersedes the earlier diagnostics-blocked exception: blocking
 diagnostics feedback now travels through the same Rust-planned run-create path,
 and `ThreadTurnAdmissionRequiredCore` rejects the retired diagnostics-block
@@ -6198,20 +6199,19 @@ non-terminal.
 Slice 1086 retires the `RuntimeDaemonStore.createAgent()`,
 `RuntimeDaemonStore.createRun()`, and `RuntimeDaemonStore.createThread()`
 compatibility pass-throughs. Public agent creation, top-level thread creation,
-and agent-scoped run creation already enter through the mounted
-`agentRunLifecycleSurface`; the daemon store no longer exposes a second
-lifecycle creation method family that can be mistaken for the canonical
-authority boundary after context compaction. Internal runtime-service fixtures
-and proofs that still need the temporary mounted surface call it explicitly.
+and agent-scoped run creation now enter direct Rust-backed lifecycle APIs; the
+daemon store no longer exposes a second lifecycle creation method family that
+can be mistaken for the canonical authority boundary after context compaction.
 
 Conformance now fails if the daemon store re-imports the retired
 `createAgentState`/`createRunState` helpers, reintroduces store-level
 `createAgent()`/`createRun()`/`createThread()` wrappers, or routes public
 agent/thread/run creation through the store compatibility layer instead of the
-mounted lifecycle surface. This remains non-terminal: the mounted JS surface is
-still migration scaffolding, and the next Rust-core cut must replace it with
-direct Rust daemon-core lifecycle admission, persistence, replay, projection,
-Agentgres expected-head/state-root binding, and stable protocol APIs.
+direct lifecycle APIs. Slice 1280 also makes conformance fail if the mounted
+`agentRunLifecycleSurface` facade or `createRuntimeAgentRunLifecycleSurface`
+export returns. This remains non-terminal: durable lifecycle replay/projection,
+Agentgres expected-head/state-root binding, wallet/cTEE authority, and stable
+protocol APIs still need terminal Rust-owned coverage.
 
 Slice 1087 converts the stale `runtime-thread-control.test.mjs` live
 runtime-service proof into bounded Rust-ownership evidence. That test no longer
@@ -6335,8 +6335,8 @@ module instead of preserving it as a fail-closed compatibility wrapper.
 test are deleted, and the daemon store no longer imports or exposes
 `createRuntimeBridgeThread()` or `createRuntimeBridgeTurn()` pass-through
 methods. Runtime-service thread start, control, and turn submit now enter
-positive Rust state-planning boundaries through the mounted lifecycle surface;
-the thread-turn surface delegates runtime resume to that Rust-owned lifecycle
+positive Rust state-planning boundaries through direct lifecycle APIs; the
+thread-turn surface delegates runtime resume to that Rust-owned lifecycle
 boundary instead of preserving a JS bridge-control path.
 
 Conformance now treats the deleted module as the invariant. Positive
@@ -10108,6 +10108,20 @@ thread start still enters through the create-thread lifecycle surface, and
 broader lifecycle completion still needs deletion/cancellation replay/projection,
 durable wallet/cTEE authority, and stable IDE/CLI/SDK lifecycle APIs over
 Rust-owned records.
+
+Slice 1280 deletes the remaining mounted agent/run lifecycle facade from the
+daemon hot path. Public agent/thread/run create routes, agent
+archive/unarchive/resume/close/reload/delete routes, non-runtime thread
+resume/turn creation, diagnostics repair retry-run creation, subagent
+spawn/input/resume, and runtime-service thread creation now call direct
+Rust-backed lifecycle functions with explicit planner, run-builder,
+provider-gate, Agentgres commit, and projection dependencies. The daemon store
+no longer constructs `agentRunLifecycleSurface`, `createRuntimeAgentRunLifecycleSurface`
+is absent, focused tests prove the store property is absent, and conformance
+rejects production source that restores that facade. This remains non-terminal
+because durable lifecycle deletion/cancellation replay/projection, deeper
+wallet/cTEE lifecycle authority, and stable IDE/CLI/SDK lifecycle protocol APIs
+still need Rust-owned records across the remaining hot paths.
 
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,

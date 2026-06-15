@@ -119,7 +119,6 @@ import { createRuntimeWorkerServicePackageCore } from "./runtime-worker-service-
 import { createRuntimeCteePrivateWorkspaceCore } from "./runtime-ctee-private-workspace-core.mjs";
 import { createRuntimeL1SettlementCore } from "./runtime-l1-settlement-core.mjs";
 import { createRuntimeWorkspaceRestoreCore } from "./runtime-workspace-restore-core.mjs";
-import { createRuntimeAgentRunLifecycleSurface } from "./runtime-agent-run-lifecycle.mjs";
 import { createRuntimeRepositorySurface } from "./runtime-repository-surface.mjs";
 import { startRuntimeDaemonServiceWithStore } from "./service/runtime-daemon-service.mjs";
 import {
@@ -343,25 +342,6 @@ const {
 });
 
 const {
-  handleAgentRoute,
-  handleModelMountingNativeRoute,
-  handleRunRoute,
-  handleThreadRoute,
-} = createRuntimeRouteHandlers({
-  baseUrlForRequest,
-  nativeEmbeddingResponse,
-  nativeInvocationResponse,
-  notFound,
-  readBody,
-  runtimeEventCursorFromRequest,
-  usageRequestMetadataFromUrl,
-  usageTelemetryWithRequestMetadata,
-  writeJsonResponse,
-  writeMcpJsonRpcResponse,
-  writeSse,
-});
-
-const {
   githubPrCreatePlanForReviewGate,
   issueContextForGithub,
   prAttemptForRepository,
@@ -375,27 +355,6 @@ const {
   normalizeArray,
   repositoryContextForWorkspace,
   uniqueStrings,
-});
-
-const handleRequest = createPublicRuntimeRequestHandler({
-  RUNTIME_USAGE_TELEMETRY_SCHEMA_VERSION,
-  baseUrlForRequest,
-  handleAgentRoute,
-  handleModelMountingNativeRoute,
-  handleOpenAiCompatibilityRoute,
-  handleRunRoute,
-  handleThreadRoute,
-  isOpenAiCompatibilityRoute,
-  normalizeBooleanOption,
-  notFound,
-  optionalString,
-  readBody,
-  runtimeError,
-  usageRequestMetadataFromUrl,
-  usageTelemetryWithRequestMetadata,
-  writeError,
-  writeJsonResponse,
-  writeMcpJsonRpcResponse,
 });
 
 const {
@@ -505,6 +464,60 @@ const {
   runtimeEventStatusForRunEvent,
   stringRecord,
   workflowNodeForRunEvent,
+});
+
+const {
+  handleAgentRoute,
+  handleModelMountingNativeRoute,
+  handleRunRoute,
+  handleThreadRoute,
+} = createRuntimeRouteHandlers({
+  approvalModeForThreadMode,
+  baseUrlForRequest,
+  buildRun,
+  ensureProviderAvailable,
+  nativeEmbeddingResponse,
+  nativeInvocationResponse,
+  notFound,
+  readBody,
+  runtimeError,
+  runtimeEventCursorFromRequest,
+  threadModeForRunMode,
+  usageRequestMetadataFromUrl,
+  usageTelemetryWithRequestMetadata,
+  writeJsonResponse,
+  writeMcpJsonRpcResponse,
+  writeSse,
+});
+
+const handleRequest = createPublicRuntimeRequestHandler({
+  RUNTIME_USAGE_TELEMETRY_SCHEMA_VERSION,
+  baseUrlForRequest,
+  ensureProviderAvailable,
+  eventStreamIdForThread,
+  handleAgentRoute,
+  handleModelMountingNativeRoute,
+  handleOpenAiCompatibilityRoute,
+  handleRunRoute,
+  handleThreadRoute,
+  initialThreadRuntimeControls,
+  isOpenAiCompatibilityRoute,
+  mcpRegistryForWorkspace,
+  normalizeBooleanOption,
+  notFound,
+  optionalString,
+  readBody,
+  runtimeError,
+  runtimeModeForOptions,
+  runtimeThreadSchemaVersion: RUNTIME_THREAD_SCHEMA_VERSION,
+  summarizeAgentOptions,
+  threadIdForAgent,
+  threadStatusForAgent,
+  usageRequestMetadataFromUrl,
+  usageTelemetryWithRequestMetadata,
+  writeError,
+  writeJsonResponse,
+  writeMcpJsonRpcResponse,
 });
 
 const RUNTIME_BRIDGE_AGENT_TURN_MIN_STEPS = 8;
@@ -641,26 +654,6 @@ export class AgentgresRuntimeStateStore {
       threadIdForAgent,
     });
     this.threadMemorySurface = threadMemoryState;
-    this.agentRunLifecycleSurface = createRuntimeAgentRunLifecycleSurface({
-      approvalModeForThreadMode,
-      buildRun,
-      ensureProviderAvailable,
-      eventStreamIdForThread,
-      initialThreadRuntimeControls,
-      lifecycleAdmissionRunner: this.contextPolicyCore,
-      mcpRegistryForWorkspace: (cwd, options = {}) =>
-        mcpRegistryForWorkspace(cwd, {
-          ...options,
-          contextPolicyCore: this.contextPolicyCore,
-        }),
-      runtimeError,
-      runtimeThreadSchemaVersion: RUNTIME_THREAD_SCHEMA_VERSION,
-      runtimeModeForOptions,
-      summarizeAgentOptions,
-      threadIdForAgent,
-      threadModeForRunMode,
-      threadStatusForAgent,
-    });
     this.threadAuxiliarySurface = createRuntimeThreadAuxiliarySurface();
     this.conversationArtifactSurface = createRuntimeConversationArtifactSurface({
       contextPolicyCore: this.contextPolicyCore,
@@ -745,11 +738,15 @@ export class AgentgresRuntimeStateStore {
       normalizeDiagnosticsMode,
     });
     this.diagnosticsRepairSurface = createRuntimeDiagnosticsRepairSurface({
+      approvalModeForThreadMode,
+      buildRun,
       contextPolicyCore: this.contextPolicyCore,
       diagnosticsRepairRunner: this.contextPolicyCore,
+      ensureProviderAvailable,
       eventStreamIdForThread,
       diagnosticsRepairRetryFeedback,
       runtimeError,
+      threadModeForRunMode,
     });
     this.codingToolGovernanceSurface = createRuntimeCodingToolGovernanceSurface({
       codingToolBudgetBlockPlanner: this.contextPolicyCore,
@@ -817,7 +814,19 @@ export class AgentgresRuntimeStateStore {
       threadModeForRunMode,
     });
     this.subagentSurface = createRuntimeSubagentSurface({
+      approvalModeForThreadMode,
+      buildRun,
       contextPolicyCore: this.contextPolicyCore,
+      ensureProviderAvailable,
+      initialThreadRuntimeControls,
+      mcpRegistryForWorkspace: (cwd, options = {}) =>
+        mcpRegistryForWorkspace(cwd, {
+          ...options,
+          contextPolicyCore: this.contextPolicyCore,
+        }),
+      runtimeModeForOptions,
+      summarizeAgentOptions,
+      threadModeForRunMode,
     });
     this.threadTurnProjection = createThreadTurnProjection({
       eventStreamIdForThread,

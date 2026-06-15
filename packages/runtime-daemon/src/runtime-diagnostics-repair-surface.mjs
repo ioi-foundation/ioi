@@ -1,6 +1,9 @@
 import { runtimeError as defaultRuntimeError } from "./runtime-http-utils.mjs";
 import { eventStreamIdForThread } from "./runtime-identifiers.mjs";
 import {
+  createRun as createLifecycleRun,
+} from "./runtime-agent-run-lifecycle.mjs";
+import {
   DIAGNOSTICS_REPAIR_DECISION_EXECUTION_SCHEMA_VERSION,
 } from "./runtime-contract-constants.mjs";
 import { normalizeArray, objectRecord, optionalString } from "./runtime-value-helpers.mjs";
@@ -69,9 +72,14 @@ const DIAGNOSTICS_REPAIR_DECISION_EXECUTION_RETIRED_REQUEST_ALIASES = [
 
 export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
   const {
+    approvalModeForThreadMode = null,
+    buildRun = null,
+    createLifecycleRun: createLifecycleRunDep = createLifecycleRun,
+    ensureProviderAvailable = null,
     eventStreamIdForThread: eventStreamIdForThreadDep = eventStreamIdForThread,
     runtimeError = defaultRuntimeError,
     diagnosticsRepairRunner = deps.contextPolicyCore ?? null,
+    threadModeForRunMode = null,
   } = deps;
 
   function diagnosticsRepairControlEvidenceRefs(operationKind) {
@@ -616,9 +624,8 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
     };
     const retryRunRunner = diagnosticsRepairRetryRunRunner(store, details);
     const retryResultProjector = diagnosticsRepairRetryResultProjectionRunner(store, details);
-    const runCreateSurface = store?.agentRunLifecycleSurface;
     if (
-      typeof runCreateSurface?.createRun !== "function" ||
+      typeof createLifecycleRunDep !== "function" ||
       typeof store?.agentForThread !== "function"
     ) {
       throwDiagnosticsRepairRetryRunRustCoreRequired(details);
@@ -695,7 +702,14 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
         },
       });
     }
-    const retryRun = runCreateSurface.createRun(store, agentId, plannedRunRequest);
+    const retryRun = createLifecycleRunDep(store, agentId, plannedRunRequest, {
+      approvalModeForThreadMode,
+      buildRun,
+      ensureProviderAvailable,
+      lifecycleAdmissionRunner: store?.contextPolicyCore ?? diagnosticsRepairRunner,
+      runtimeError,
+      threadModeForRunMode,
+    });
     const retryRunId = optionalString(retryRun?.id);
     if (!retryRunId) {
       throw runtimeError({

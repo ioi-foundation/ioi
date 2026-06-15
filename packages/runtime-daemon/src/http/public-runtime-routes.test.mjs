@@ -548,21 +548,21 @@ test("public runtime run list route uses mounted lifecycle projection surface", 
   ]);
 });
 
-test("public runtime agent create route uses mounted agent lifecycle surface", async () => {
-  const { handleRequest } = routeHarness();
-  const response = responseRecorder();
+test("public runtime agent create route uses direct Rust lifecycle API", async () => {
   const calls = [];
-  const store = {
-    agentRunLifecycleSurface: {
-      createAgent(surfaceStore, options) {
-        calls.push({ surfaceStore, options });
-        const error = new Error("agent creation requires Rust core");
-        error.status = 501;
-        error.code = "runtime_agent_create_rust_core_required";
-        error.details = { rust_core_boundary: "runtime.agent_create", requested_cwd: options.local?.cwd };
-        throw error;
-      },
+  const { handleRequest } = routeHarness({
+    createLifecycleAgent(surfaceStore, options, deps) {
+      calls.push({ surfaceStore, options, deps });
+      const error = new Error("agent creation requires Rust core");
+      error.status = 501;
+      error.code = "runtime_agent_create_rust_core_required";
+      error.details = { rust_core_boundary: "runtime.agent_create", requested_cwd: options.local?.cwd };
+      throw error;
     },
+  });
+  const response = responseRecorder();
+  const store = {
+    contextPolicyCore: { direct: true },
     createAgent: retiredRouteWrapper,
   };
 
@@ -578,23 +578,27 @@ test("public runtime agent create route uses mounted agent lifecycle surface", a
 
   assert.equal(response.statusCode, 501);
   assert.equal(response.error.code, "runtime_agent_create_rust_core_required");
-  assert.deepEqual(calls, [{ surfaceStore: store, options: { local: { cwd: "/workspace/project" } } }]);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].surfaceStore, store);
+  assert.deepEqual(calls[0].options, { local: { cwd: "/workspace/project" } });
+  assert.equal(calls[0].deps.lifecycleAdmissionRunner, store.contextPolicyCore);
+  assert.equal(Object.hasOwn(store, "agentRunLifecycleSurface"), false);
 });
 
-test("public runtime thread create route uses mounted agent lifecycle surface", async () => {
-  const { handleRequest } = routeHarness();
-  const response = responseRecorder();
+test("public runtime thread create route uses direct Rust lifecycle API", async () => {
   const calls = [];
-  const store = {
-    agentRunLifecycleSurface: {
-      async createThread(surfaceStore, body) {
-        calls.push({ surfaceStore, body });
-        return {
-          thread_id: "thread_route",
-          status: "active",
-        };
-      },
+  const { handleRequest } = routeHarness({
+    async createLifecycleThread(surfaceStore, body, deps) {
+      calls.push({ surfaceStore, body, deps });
+      return {
+        thread_id: "thread_route",
+        status: "active",
+      };
     },
+  });
+  const response = responseRecorder();
+  const store = {
+    contextPolicyCore: { direct: true },
     createThread: retiredRouteWrapper,
   };
 
@@ -613,12 +617,11 @@ test("public runtime thread create route uses mounted agent lifecycle surface", 
     thread_id: "thread_route",
     status: "active",
   });
-  assert.deepEqual(calls, [
-    {
-      surfaceStore: store,
-      body: { options: { local: { cwd: "/workspace/project" } } },
-    },
-  ]);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].surfaceStore, store);
+  assert.deepEqual(calls[0].body, { options: { local: { cwd: "/workspace/project" } } });
+  assert.equal(calls[0].deps.lifecycleAdmissionRunner, store.contextPolicyCore);
+  assert.equal(Object.hasOwn(store, "agentRunLifecycleSurface"), false);
 });
 
 test("public runtime usage and authority evidence routes use mounted lifecycle projection surface", async () => {

@@ -1,14 +1,32 @@
+import {
+  createRun as createLifecycleRun,
+} from "./runtime-agent-run-lifecycle.mjs";
+import {
+  deleteAgent as deleteLifecycleAgent,
+  updateAgent as updateLifecycleAgent,
+} from "./threads/thread-store.mjs";
+
 export function createRuntimeRouteHandlers(deps) {
   const {
+    approvalModeForThreadMode = null,
     baseUrlForRequest,
+    buildRun = null,
+    createLifecycleRun: createLifecycleRunDep = createLifecycleRun,
+    deleteLifecycleAgent: deleteLifecycleAgentDep = deleteLifecycleAgent,
+    ensureProviderAvailable = null,
+    lifecycleAdmissionRunner = null,
     nativeEmbeddingResponse,
     nativeInvocationResponse,
     notFound,
     readBody,
+    runtimeError = null,
+    threadModeForRunMode = null,
+    updateLifecycleAgent: updateLifecycleAgentDep = updateLifecycleAgent,
     writeJsonResponse,
     writeMcpJsonRpcResponse,
     writeSse,
   } = deps;
+  const lifecycleRuntimeError = typeof runtimeError === "function" ? runtimeError : undefined;
 
   async function handleModelMountingNativeRoute({ request, response, store, url, segments }) {
     const mounts = store.modelMounting;
@@ -585,31 +603,56 @@ export function createRuntimeRouteHandlers(deps) {
       return;
     }
     if (request.method === "DELETE" && !action) {
-      writeJsonResponse(response, store.agentRunLifecycleSurface.deleteAgent(store, agentId), 204);
+      writeJsonResponse(response, deleteLifecycleAgentDep(store, agentId, {
+        deleteStateUpdateRunner: store.contextPolicyCore ?? lifecycleAdmissionRunner,
+        runtimeError: lifecycleRuntimeError,
+      }), 204);
       return;
     }
     if (request.method === "POST" && action === "archive") {
-      writeJsonResponse(response, store.agentRunLifecycleSurface.updateAgent(store, agentId, "archived", "agent.archive"));
+      writeJsonResponse(response, updateLifecycleAgentDep(store, agentId, "archived", "agent.archive", {
+        runtimeError: lifecycleRuntimeError,
+        statusStateUpdateRunner: store.contextPolicyCore ?? lifecycleAdmissionRunner,
+      }));
       return;
     }
     if (request.method === "POST" && action === "unarchive") {
-      writeJsonResponse(response, store.agentRunLifecycleSurface.updateAgent(store, agentId, "active", "agent.unarchive"));
+      writeJsonResponse(response, updateLifecycleAgentDep(store, agentId, "active", "agent.unarchive", {
+        runtimeError: lifecycleRuntimeError,
+        statusStateUpdateRunner: store.contextPolicyCore ?? lifecycleAdmissionRunner,
+      }));
       return;
     }
     if (request.method === "POST" && action === "resume") {
-      writeJsonResponse(response, store.agentRunLifecycleSurface.updateAgent(store, agentId, "active", "agent.resume"));
+      writeJsonResponse(response, updateLifecycleAgentDep(store, agentId, "active", "agent.resume", {
+        runtimeError: lifecycleRuntimeError,
+        statusStateUpdateRunner: store.contextPolicyCore ?? lifecycleAdmissionRunner,
+      }));
       return;
     }
     if (request.method === "POST" && action === "close") {
-      writeJsonResponse(response, store.agentRunLifecycleSurface.updateAgent(store, agentId, "closed", "agent.close"));
+      writeJsonResponse(response, updateLifecycleAgentDep(store, agentId, "closed", "agent.close", {
+        runtimeError: lifecycleRuntimeError,
+        statusStateUpdateRunner: store.contextPolicyCore ?? lifecycleAdmissionRunner,
+      }));
       return;
     }
     if (request.method === "POST" && action === "reload") {
-      writeJsonResponse(response, store.agentRunLifecycleSurface.updateAgent(store, agentId, null, "agent.reload"));
+      writeJsonResponse(response, updateLifecycleAgentDep(store, agentId, null, "agent.reload", {
+        runtimeError: lifecycleRuntimeError,
+        statusStateUpdateRunner: store.contextPolicyCore ?? lifecycleAdmissionRunner,
+      }));
       return;
     }
     if (request.method === "POST" && action === "runs") {
-      writeJsonResponse(response, store.agentRunLifecycleSurface.createRun(store, agentId, await readBody(request)));
+      writeJsonResponse(response, createLifecycleRunDep(store, agentId, await readBody(request), {
+        approvalModeForThreadMode,
+        buildRun,
+        ensureProviderAvailable,
+        lifecycleAdmissionRunner: store.contextPolicyCore ?? lifecycleAdmissionRunner,
+        runtimeError: lifecycleRuntimeError,
+        threadModeForRunMode,
+      }));
       return;
     }
     if (request.method === "GET" && action === "runs") {

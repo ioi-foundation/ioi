@@ -5,6 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 
 import { AgentgresRuntimeStateStore } from "./index.mjs";
+import { createThread } from "./runtime-agent-run-lifecycle.mjs";
 
 function modelMountCoreForTest(calls) {
   return {
@@ -315,7 +316,7 @@ test("runtime-service thread creation uses Rust bridge-start planning with retir
   const calls = [];
   const store = runtimeControlStore(stateDir, calls);
   try {
-    const thread = store.agentRunLifecycleSurface.createThread(store, {
+    const thread = createThread(store, {
       runtime_profile: "runtime_service",
       options: {
         runtime_profile: "runtime_service",
@@ -324,6 +325,8 @@ test("runtime-service thread creation uses Rust bridge-start planning with retir
         runtime_bridge_source: "rust_core",
         local: { cwd: stateDir },
       },
+    }, {
+      lifecycleAdmissionRunner: store.contextPolicyCore,
     });
 
     assert.equal(thread.runtime_profile, "runtime_service");
