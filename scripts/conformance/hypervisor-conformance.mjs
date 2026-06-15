@@ -6245,20 +6245,34 @@ function runBridge() {
       /RuntimeThreadEventProjectionRecord/.test(runtimeThreadEventCore) &&
       /RuntimeThreadEventReplayRequest/.test(runtimeThreadEventCore) &&
       /RuntimeThreadEventReplayRecord/.test(runtimeThreadEventCore) &&
+      /#\[serde\(deny_unknown_fields\)\]\s*pub struct RuntimeThreadEventAdmissionRequest/.test(
+        runtimeThreadEventCore,
+      ) &&
       /#\[serde\(deny_unknown_fields\)\]\s*pub struct RuntimeThreadEventProjectionRequest/.test(
         runtimeThreadEventCore,
       ) &&
       /#\[serde\(deny_unknown_fields\)\]\s*pub struct RuntimeThreadEventReplayRequest/.test(
         runtimeThreadEventCore,
       ) &&
+      /AdmissionStateDirRequired/.test(runtimeThreadEventCore) &&
       /ProjectionStateDirRequired/.test(runtimeThreadEventCore) &&
       /pub state_dir: Option<String>/.test(runtimeThreadEventCore) &&
       /pub run_id: Option<String>/.test(runtimeThreadEventCore) &&
+      /runtime_thread_admission_state_from_state_dir/.test(runtimeThreadEventCore) &&
       /runtime_thread_projection_sources_from_state_dir/.test(runtimeThreadEventCore) &&
       /runtime_thread_json_records_from_state_dir/.test(runtimeThreadEventCore) &&
       /runtime_thread_projection_state_from_state_dir/.test(runtimeThreadEventCore) &&
       /runtime_thread_replay_events_from_state_dir/.test(runtimeThreadEventCore) &&
       /RetiredReplayEventTransport/.test(runtimeThreadEventCore) &&
+      !/pub struct RuntimeThreadEventAdmissionRequest\s*\{(?:(?!\n\})[\s\S])*latest_seq: Option<u64>/.test(
+        runtimeThreadEventCore,
+      ) &&
+      !/pub struct RuntimeThreadEventAdmissionRequest\s*\{(?:(?!\n\})[\s\S])*expected_head: Option<String>/.test(
+        runtimeThreadEventCore,
+      ) &&
+      !/pub struct RuntimeThreadEventAdmissionRequest\s*\{(?:(?!\n\})[\s\S])*state_root_before: Option<String>/.test(
+        runtimeThreadEventCore,
+      ) &&
       !/pub struct RuntimeThreadEventProjectionRequest\s*\{(?:(?!\n\})[\s\S])*latest_seq: Option<u64>/.test(
         runtimeThreadEventCore,
       ) &&
@@ -6293,6 +6307,10 @@ function runBridge() {
       /rust_rejects_runtime_thread_event_replay_without_agentgres_refs/.test(runtimeThreadEventCore) &&
       /rust_projection_skips_existing_runtime_thread_event_idempotency/.test(runtimeThreadEventCore) &&
       /rust_rejects_runtime_thread_event_without_receipts/.test(runtimeThreadEventCore) &&
+      /rust_requires_state_dir_for_runtime_thread_event_admission/.test(runtimeThreadEventCore) &&
+      /rust_rejects_retired_runtime_thread_event_admission_cache_transport/.test(
+        runtimeThreadEventCore,
+      ) &&
       /rust_rejects_retired_runtime_thread_event_request_aliases/.test(runtimeThreadEventCore) &&
       /rust_rejects_retired_runtime_thread_event_projection_request_aliases/.test(runtimeThreadEventCore) &&
       /rust_requires_state_dir_for_runtime_thread_event_projection/.test(runtimeThreadEventCore) &&
@@ -6360,6 +6378,9 @@ function runBridge() {
       /Object\.hasOwn\(calls\[0\]\.request\.request,\s*"expected_head"\),\s*false/.test(
         runtimeAgentgresCoreTest,
       ) &&
+      /Object\.hasOwn\(calls\[0\]\.request\.request,\s*"state_root_before"\),\s*false/.test(
+        runtimeAgentgresCoreTest,
+      ) &&
       /Object\.hasOwn\(calls\[0\]\.request\.request,\s*"existing_idempotency_keys"\),\s*false/.test(
         runtimeAgentgresCoreTest,
       ) &&
@@ -6418,6 +6439,21 @@ function runBridge() {
       /Object\.hasOwn\(call\.input,\s*"workspace_root"\),\s*false/.test(runtimeThreadControlTest) &&
       /admitRuntimeThreadEventForThread/.test(runtimeDaemonIndex) &&
       /runtimeAgentgresAdmissionCore\.admitRuntimeThreadEvent/.test(runtimeDaemonIndex) &&
+      /admitRuntimeThreadEventForThread\(store, request = \{\}\) \{(?:(?!\n  admitCodingToolResultEventForThread\(store, request = \{\}\) \{)[\s\S])*?state_dir:\s*this\.stateDir/.test(
+        runtimeDaemonIndex,
+      ) &&
+      !/admitRuntimeThreadEventForThread\(store, request = \{\}\) \{(?:(?!\n  admitCodingToolResultEventForThread\(store, request = \{\}\) \{)[\s\S])*?latestRuntimeEventSeq/.test(
+        runtimeDaemonIndex,
+      ) &&
+      !/admitRuntimeThreadEventForThread\(store, request = \{\}\) \{(?:(?!\n  admitCodingToolResultEventForThread\(store, request = \{\}\) \{)[\s\S])*?latest_seq:/.test(
+        runtimeDaemonIndex,
+      ) &&
+      !/admitRuntimeThreadEventForThread\(store, request = \{\}\) \{(?:(?!\n  admitCodingToolResultEventForThread\(store, request = \{\}\) \{)[\s\S])*?expected_head:/.test(
+        runtimeDaemonIndex,
+      ) &&
+      !/admitRuntimeThreadEventForThread\(store, request = \{\}\) \{(?:(?!\n  admitCodingToolResultEventForThread\(store, request = \{\}\) \{)[\s\S])*?state_root_before/.test(
+        runtimeDaemonIndex,
+      ) &&
       /store\.registerRuntimeEvent\(admittedEvent\)/.test(runtimeDaemonIndex),
     [
       "crates/services/src/agentic/runtime/kernel/runtime_thread_event.rs",
@@ -39898,6 +39934,28 @@ function runCompositor() {
       /rust_projection_skips_existing_runtime_thread_event_idempotency/.test(
         runtimeThreadEventCoreForCompositor,
       ) &&
+      /#\[serde\(deny_unknown_fields\)\]\s*pub struct RuntimeThreadEventAdmissionRequest/.test(
+        runtimeThreadEventCoreForCompositor,
+      ) &&
+      /AdmissionStateDirRequired/.test(runtimeThreadEventCoreForCompositor) &&
+      /runtime_thread_admission_state_from_state_dir/.test(
+        runtimeThreadEventCoreForCompositor,
+      ) &&
+      /rust_requires_state_dir_for_runtime_thread_event_admission/.test(
+        runtimeThreadEventCoreForCompositor,
+      ) &&
+      /rust_rejects_retired_runtime_thread_event_admission_cache_transport/.test(
+        runtimeThreadEventCoreForCompositor,
+      ) &&
+      !/pub struct RuntimeThreadEventAdmissionRequest\s*\{(?:(?!\n\})[\s\S])*latest_seq: Option<u64>/.test(
+        runtimeThreadEventCoreForCompositor,
+      ) &&
+      !/pub struct RuntimeThreadEventAdmissionRequest\s*\{(?:(?!\n\})[\s\S])*expected_head: Option<String>/.test(
+        runtimeThreadEventCoreForCompositor,
+      ) &&
+      !/pub struct RuntimeThreadEventAdmissionRequest\s*\{(?:(?!\n\})[\s\S])*state_root_before: Option<String>/.test(
+        runtimeThreadEventCoreForCompositor,
+      ) &&
       /rust_requires_state_dir_for_runtime_thread_event_projection/.test(
         runtimeThreadEventCoreForCompositor,
       ) &&
@@ -39927,6 +39985,21 @@ function runCompositor() {
       /runtimeAgentgresAdmissionCore\.projectRuntimeThreadEvents/.test(runtimeDaemonIndex) &&
       /runtimeAgentgresAdmissionCore\.projectRuntimeThreadEventReplay/.test(runtimeDaemonIndex) &&
       /admitRuntimeThreadEventForThread/.test(runtimeDaemonIndex) &&
+      /admitRuntimeThreadEventForThread\(store, request = \{\}\) \{(?:(?!\n  admitCodingToolResultEventForThread\(store, request = \{\}\) \{)[\s\S])*?state_dir:\s*this\.stateDir/.test(
+        runtimeDaemonIndex,
+      ) &&
+      !/admitRuntimeThreadEventForThread\(store, request = \{\}\) \{(?:(?!\n  admitCodingToolResultEventForThread\(store, request = \{\}\) \{)[\s\S])*?latestRuntimeEventSeq/.test(
+        runtimeDaemonIndex,
+      ) &&
+      !/admitRuntimeThreadEventForThread\(store, request = \{\}\) \{(?:(?!\n  admitCodingToolResultEventForThread\(store, request = \{\}\) \{)[\s\S])*?latest_seq:/.test(
+        runtimeDaemonIndex,
+      ) &&
+      !/admitRuntimeThreadEventForThread\(store, request = \{\}\) \{(?:(?!\n  admitCodingToolResultEventForThread\(store, request = \{\}\) \{)[\s\S])*?expected_head:/.test(
+        runtimeDaemonIndex,
+      ) &&
+      !/admitRuntimeThreadEventForThread\(store, request = \{\}\) \{(?:(?!\n  admitCodingToolResultEventForThread\(store, request = \{\}\) \{)[\s\S])*?state_root_before/.test(
+        runtimeDaemonIndex,
+      ) &&
       /projectRuntimeThreadEventsForThread/.test(runtimeDaemonIndex) &&
       /projectRuntimeThreadEventReplayForThread/.test(runtimeDaemonIndex) &&
       /state_dir:\s*this\.stateDir/.test(runtimeDaemonIndex) &&

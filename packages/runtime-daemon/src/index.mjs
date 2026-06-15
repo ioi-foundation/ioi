@@ -1186,13 +1186,9 @@ export class AgentgresRuntimeStateStore {
   admitRuntimeThreadEventForThread(store, request = {}) {
     const event = objectRecord(request.event);
     const eventStreamId = optionalString(event?.event_stream_id);
-    const latestSeq = eventStreamId ? store.latestRuntimeEventSeq(eventStreamId) : undefined;
     const admission = this.runtimeAgentgresAdmissionCore.admitRuntimeThreadEvent({
       event,
-      latest_seq: latestSeq,
-      expected_head: eventStreamId
-        ? `agentgres://runtime-events/${safeId(eventStreamId)}/head/${latestSeq}`
-        : undefined,
+      state_dir: this.stateDir,
     });
     const admittedEvent = objectRecord(admission?.event);
     if (!admittedEvent) {

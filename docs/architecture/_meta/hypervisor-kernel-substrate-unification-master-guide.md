@@ -10253,6 +10253,22 @@ non-terminal until local replay-cache hydration, durable protocol read APIs, and
 remaining IDE/CLI/SDK consumers move fully onto Rust-owned projection/replay
 records.
 
+Slice 1289 hard-cuts runtime thread-event admission cache transport.
+`RuntimeThreadEventAdmissionRequest` now denies unknown fields, requires runtime
+`state_dir`, and no longer accepts caller-supplied `latest_seq`,
+`expected_head`, or `state_root_before`. Direct generic event append now sends
+only the candidate event plus daemon state dir; Rust reads admitted
+`events/*.jsonl` Agentgres records to derive latest sequence, current head, and
+state root before admission, receipt/storage binding, projection watermarking,
+and state-root-after calculation. The old JS path no longer calls
+`store.latestRuntimeEventSeq()` or formats an expected head for this migrated
+admission hot path, and conformance guards the fail-closed Rust request shape,
+state-dir requirement, rejected cache fields, and scoped JS absence. This removes
+the generic runtime-event head/state handoff as an authority input; the remaining
+non-terminal work is to retire the temporary local replay-cache hydration and
+move remaining SDK/IDE event reads fully onto Rust-owned protocol projection and
+replay records.
+
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,
 `/v1/memory/policy`, `/v1/memory/path`, or `/v1/memory/validate`; the daemon

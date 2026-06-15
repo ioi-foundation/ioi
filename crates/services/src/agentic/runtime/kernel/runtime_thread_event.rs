@@ -39,6 +39,7 @@ pub enum RuntimeThreadEventAdmissionError {
     InvalidReplayKind(String),
     InvalidThreadTurnProjectionKind(String),
     InvalidCursorField(String),
+    AdmissionStateDirRequired,
     ProjectionStateDirRequired,
     ReplayStateDirRequired,
     ReplayReadFailed(String),
@@ -62,15 +63,12 @@ impl From<AgentgresAdmissionError> for RuntimeThreadEventAdmissionError {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct RuntimeThreadEventAdmissionRequest {
     pub schema_version: String,
     pub event: Value,
     #[serde(default)]
-    pub latest_seq: Option<u64>,
-    #[serde(default)]
-    pub expected_head: Option<String>,
-    #[serde(default)]
-    pub state_root_before: Option<String>,
+    pub state_dir: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -296,13 +294,28 @@ impl RuntimeThreadEventAdmissionCore {
         request.validate()?;
         let event = request.event.as_object().expect("validated event object");
         let event_stream_id = required_event_string(event, "event_stream_id")?;
+        let admission_state =
+            runtime_thread_admission_state_from_state_dir(request, &event_stream_id)?;
+        self.admit_event_with_state(
+            &request.event,
+            admission_state.latest_seq,
+            admission_state.expected_head,
+            admission_state.state_root_before,
+        )
+    }
+
+    fn admit_event_with_state(
+        &self,
+        event_value: &Value,
+        latest_seq: u64,
+        expected_head: Option<String>,
+        state_root_before: Option<String>,
+    ) -> Result<RuntimeThreadEventAdmissionRecord, RuntimeThreadEventAdmissionError> {
+        let event = event_value.as_object().expect("validated event object");
+        let event_stream_id = required_event_string(event, "event_stream_id")?;
         let thread_id = required_event_string(event, "thread_id")?;
         let idempotency_key = required_event_string(event, "idempotency_key")?;
         let event_kind = required_event_string(event, "event_kind")?;
-        let latest_seq = request
-            .latest_seq
-            .or_else(|| event.get("latest_seq").and_then(Value::as_u64))
-            .unwrap_or(0);
         let seq = latest_seq + 1;
         let event_id = optional_event_string(event, "event_id").unwrap_or_else(|| {
             format!(
@@ -312,23 +325,15 @@ impl RuntimeThreadEventAdmissionCore {
         });
         let created_at =
             optional_event_string(event, "created_at").unwrap_or_else(|| "rust_daemon_core".into());
-        let expected_heads =
-            unique_trimmed_strings(vec![request.expected_head.clone().unwrap_or_else(|| {
-                format!(
-                    "agentgres://runtime-events/{}/head/{}",
-                    safe_component(&event_stream_id),
-                    latest_seq
-                )
-            })]);
-        let state_root_before = request.state_root_before.clone().unwrap_or_else(|| {
+        let expected_heads = unique_trimmed_strings(vec![expected_head.unwrap_or_else(|| {
             format!(
-                "sha256:{}",
-                sha256_hex(
-                    format!("runtime-thread-event-before:{event_stream_id}:{latest_seq}")
-                        .as_bytes()
-                )
+                "agentgres://runtime-events/{}/head/{}",
+                safe_component(&event_stream_id),
+                latest_seq
             )
-        });
+        })]);
+        let state_root_before = state_root_before
+            .unwrap_or_else(|| default_state_root_before(&event_stream_id, latest_seq));
         let mut admitted_event = event.clone();
         admitted_event.insert("event_id".to_string(), Value::String(event_id.clone()));
         admitted_event.insert("seq".to_string(), json!(seq));
@@ -499,19 +504,18 @@ impl RuntimeThreadEventAdmissionCore {
                 skipped_count += 1;
                 continue;
             }
-            let admission = self.admit(&RuntimeThreadEventAdmissionRequest {
-                schema_version: RUNTIME_THREAD_EVENT_ADMISSION_REQUEST_SCHEMA_VERSION.to_string(),
-                event: candidate,
-                latest_seq: Some(latest_seq),
-                expected_head: expected_head.clone().or_else(|| {
+            let admission = self.admit_event_with_state(
+                &candidate,
+                latest_seq,
+                expected_head.clone().or_else(|| {
                     Some(format!(
                         "agentgres://runtime-events/{}/head/{}",
                         safe_component(&request.event_stream_id),
                         latest_seq
                     ))
                 }),
-                state_root_before: state_root_before.clone(),
-            })?;
+                state_root_before.clone(),
+            )?;
             latest_seq = admission.seq;
             expected_head = Some(admission.resulting_head.clone());
             state_root_before = Some(admission.state_root_after.clone());
@@ -904,6 +908,9 @@ impl RuntimeThreadEventAdmissionRequest {
                 return Err(RuntimeThreadEventAdmissionError::MissingField(field));
             }
         }
+        if optional_trimmed(self.state_dir.as_deref()).is_none() {
+            return Err(RuntimeThreadEventAdmissionError::AdmissionStateDirRequired);
+        }
         Ok(())
     }
 }
@@ -1040,12 +1047,26 @@ fn runtime_thread_projection_state_from_state_dir(
     request: &RuntimeThreadEventProjectionRequest,
 ) -> Result<RuntimeThreadEventProjectionState, RuntimeThreadEventAdmissionError> {
     let replay_events = runtime_thread_projection_events_from_state_dir(request)?;
+    runtime_thread_event_state_for_stream(replay_events, &request.event_stream_id)
+}
+
+fn runtime_thread_admission_state_from_state_dir(
+    request: &RuntimeThreadEventAdmissionRequest,
+    event_stream_id: &str,
+) -> Result<RuntimeThreadEventProjectionState, RuntimeThreadEventAdmissionError> {
+    let replay_events = runtime_thread_admission_events_from_state_dir(request)?;
+    runtime_thread_event_state_for_stream(replay_events, event_stream_id)
+}
+
+fn runtime_thread_event_state_for_stream(
+    replay_events: Vec<Value>,
+    event_stream_id: &str,
+) -> Result<RuntimeThreadEventProjectionState, RuntimeThreadEventAdmissionError> {
     let mut selected = replay_events
         .iter()
         .filter_map(|event| event.as_object().map(|record| (event, record)))
         .filter(|(_, record)| {
-            optional_event_string(record, "event_stream_id").as_deref()
-                == Some(request.event_stream_id.as_str())
+            optional_event_string(record, "event_stream_id").as_deref() == Some(event_stream_id)
         })
         .map(|(event, record)| {
             validate_admitted_replay_event(record)?;
@@ -1075,6 +1096,16 @@ fn runtime_thread_projection_state_from_state_dir(
             .and_then(|event| optional_event_string(event, "state_root_after")),
         existing_idempotency_keys,
     })
+}
+
+fn runtime_thread_admission_events_from_state_dir(
+    request: &RuntimeThreadEventAdmissionRequest,
+) -> Result<Vec<Value>, RuntimeThreadEventAdmissionError> {
+    runtime_thread_events_from_state_dir(
+        request.state_dir.as_deref(),
+        RuntimeThreadEventAdmissionError::AdmissionStateDirRequired,
+        "admission",
+    )
 }
 
 fn runtime_thread_projection_events_from_state_dir(
@@ -2068,6 +2099,15 @@ mod tests {
     use super::*;
 
     fn admission_request() -> RuntimeThreadEventAdmissionRequest {
+        let state_dir = write_runtime_thread_event_state(
+            "admission",
+            &[replay_event(
+                "event_admission_seed_4",
+                "admission:thread_1:seed:4",
+                "thread.seeded",
+                4,
+            )],
+        );
         RuntimeThreadEventAdmissionRequest {
             schema_version: RUNTIME_THREAD_EVENT_ADMISSION_REQUEST_SCHEMA_VERSION.to_string(),
             event: json!({
@@ -2089,9 +2129,7 @@ mod tests {
                 "artifact_refs": [],
                 "rollback_refs": []
             }),
-            latest_seq: Some(4),
-            expected_head: Some("agentgres://runtime-events/thread_1_events/head/4".to_string()),
-            state_root_before: None,
+            state_dir: Some(state_dir.to_string_lossy().to_string()),
         }
     }
 
@@ -2400,9 +2438,43 @@ mod tests {
     }
 
     #[test]
+    fn rust_requires_state_dir_for_runtime_thread_event_admission() {
+        let mut request = admission_request();
+        request.state_dir = None;
+        let error = RuntimeThreadEventAdmissionCore
+            .admit(&request)
+            .expect_err("admission requires Agentgres state dir");
+        assert_eq!(
+            error,
+            RuntimeThreadEventAdmissionError::AdmissionStateDirRequired
+        );
+    }
+
+    #[test]
+    fn rust_rejects_retired_runtime_thread_event_admission_cache_transport() {
+        let error = serde_json::from_value::<RuntimeThreadEventAdmissionRequest>(json!({
+            "schema_version": RUNTIME_THREAD_EVENT_ADMISSION_REQUEST_SCHEMA_VERSION,
+            "event": {
+                "event_stream_id": "thread_1:events",
+                "thread_id": "thread_1",
+                "idempotency_key": "thread:thread_1:mode:review",
+                "event_kind": "thread.mode_updated",
+                "receipt_refs": ["receipt_thread_control"]
+            },
+            "state_dir": "/tmp/runtime-state",
+            "latest_seq": 4,
+            "expected_head": "agentgres://runtime-events/thread_1_events/head/4",
+            "state_root_before": "sha256:caller-state-root"
+        }))
+        .expect_err("retired admission cache transport must not parse");
+        assert!(error.to_string().contains("unknown field"));
+    }
+
+    #[test]
     fn rust_rejects_retired_runtime_thread_event_request_aliases() {
         let request: RuntimeThreadEventAdmissionRequest = serde_json::from_value(json!({
             "schema_version": RUNTIME_THREAD_EVENT_ADMISSION_REQUEST_SCHEMA_VERSION,
+            "state_dir": "/tmp/runtime-state",
             "event": {
                 "eventStreamId": "thread_1:events",
                 "threadId": "thread_1",

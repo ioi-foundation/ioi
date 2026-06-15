@@ -314,8 +314,7 @@ function runtimeThreadEventAdmissionRequest() {
       receipt_refs: ["receipt_thread"],
       payload_refs: ["payload_thread"],
     },
-    latest_seq: 4,
-    expected_head: "agentgres://runtime-events/thread_1_events/head/4",
+    state_dir: "/tmp/ioi-state",
   };
 }
 
@@ -419,6 +418,10 @@ test("runtime Agentgres core admits runtime thread events through typed Rust dae
 
   assertTypedAgentgresRequest(calls[0], AGENTGRES_RUNTIME_THREAD_EVENT_API_METHOD);
   assert.equal(calls[0].request.request.schema_version, RUNTIME_THREAD_EVENT_ADMISSION_REQUEST_SCHEMA_VERSION);
+  assert.equal(calls[0].request.request.state_dir, "/tmp/ioi-state");
+  assert.equal(Object.hasOwn(calls[0].request.request, "latest_seq"), false);
+  assert.equal(Object.hasOwn(calls[0].request.request, "expected_head"), false);
+  assert.equal(Object.hasOwn(calls[0].request.request, "state_root_before"), false);
   assert.equal(result.event.event_id, "event_runtime_thread_1");
 });
 
