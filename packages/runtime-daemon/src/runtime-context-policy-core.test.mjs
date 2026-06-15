@@ -4221,7 +4221,7 @@ test("MCP tool search projection sends typed Rust daemon-core MCP catalog search
         tools: [{ stable_tool_id: "mcp.agent.git.diff", server_id: "mcp.agent.git", tool_name: "diff" }],
         catalog_summaries: [],
         failures: [],
-        routes: { get_tool: "/v1/mcp/tools/{tool_id}" },
+        routes: { get_tool: "/v1/threads/{thread_id}/mcp/tools/{tool_id}" },
         evidence_refs: ["runtime_mcp_tool_search_rust_projection"],
       };
     },
@@ -4276,7 +4276,7 @@ test("MCP tool fetch projection sends typed Rust daemon-core MCP fetch request",
         returned_count: 1,
         search_projection: { object: "ioi.runtime_mcp_tool_search" },
         catalog_summaries: [],
-        routes: { get_tool: "/v1/mcp/tools/{tool_id}" },
+        routes: { get_tool: "/v1/threads/{thread_id}/mcp/tools/{tool_id}" },
         evidence_refs: ["runtime_mcp_tool_fetch_rust_projection"],
       };
     },
@@ -4602,7 +4602,7 @@ test("MCP manager status projection core sends typed Rust daemon-core MCP projec
               tools: [{ stable_tool_id: "mcp.docs.search" }],
             },
             routes: {
-              search_tools: "/v1/mcp/tools/search",
+              search_tools: "/v1/threads/{thread_id}/mcp/tools/search",
             },
           };
     },
@@ -4615,7 +4615,7 @@ test("MCP manager status projection core sends typed Rust daemon-core MCP projec
     tools: [{ stable_tool_id: "mcp.docs.search" }],
     resources: [{ uri: "mcp.docs://root" }],
     prompts: [{ name: "ask" }],
-    routes: { search_tools: "/v1/mcp/tools/search" },
+    routes: { search_tools: "/v1/threads/{thread_id}/mcp/tools/search" },
   });
 
   assert.equal(calls.length, 1);
@@ -4634,7 +4634,7 @@ test("MCP manager status projection core sends typed Rust daemon-core MCP projec
   assert.equal(result.enabled_tool_count, 1);
   assert.equal(result.validation.server_count, 2);
   assert.equal(result.validation.tools[0].stable_tool_id, "mcp.docs.search");
-  assert.equal(result.routes.search_tools, "/v1/mcp/tools/search");
+  assert.equal(result.routes.search_tools, "/v1/threads/{thread_id}/mcp/tools/search");
   assert.equal(Object.hasOwn(result, "serverCount"), false);
   assert.equal(Object.hasOwn(result.routes, "searchTools"), false);
 });
@@ -4819,8 +4819,8 @@ test("MCP manager catalog summary projection core sends typed Rust daemon-core M
             preview_tool_names: ["search"],
             deferred: false,
             full_catalog_included: true,
-            search_route: "/v1/mcp/tools/search",
-            fetch_route: "/v1/mcp/tools/{tool_id}",
+            search_route: "/v1/threads/{thread_id}/mcp/tools/search",
+            fetch_route: "/v1/threads/{thread_id}/mcp/tools/{tool_id}",
           };
     },
   );
@@ -4843,7 +4843,7 @@ test("MCP manager catalog summary projection core sends typed Rust daemon-core M
   assert.equal(result.object, "ioi.runtime_mcp_catalog_summary");
   assert.equal(result.tool_count, 1);
   assert.equal(result.namespaces[0], "search");
-  assert.equal(result.search_route, "/v1/mcp/tools/search");
+  assert.equal(result.search_route, "/v1/threads/{thread_id}/mcp/tools/search");
   assert.equal(Object.hasOwn(result, "toolCount"), false);
   assert.equal(Object.hasOwn(result, "catalogHash"), false);
 });

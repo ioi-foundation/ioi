@@ -116,8 +116,8 @@ function harness() {
           deferred: request.deferred ?? false,
           full_catalog_included: !(request.deferred ?? false),
           error_code: request.error_code ?? null,
-          search_route: "/v1/mcp/tools/search",
-          fetch_route: "/v1/mcp/tools/{tool_id}",
+          search_route: "/v1/threads/{thread_id}/mcp/tools/search",
+          fetch_route: "/v1/threads/{thread_id}/mcp/tools/{tool_id}",
         };
       },
       projectMcpToolSearchProjection(request) {
@@ -189,9 +189,9 @@ function harness() {
           catalog_summaries: catalogSummaries,
           failures: [],
           routes: {
-            search: "/v1/mcp/tools/search",
-            get_tool: "/v1/mcp/tools/{tool_id}",
-            invoke_tool: "/v1/mcp/tools/{tool_id}/invoke",
+            search: "/v1/threads/{thread_id}/mcp/tools/search",
+            get_tool: "/v1/threads/{thread_id}/mcp/tools/{tool_id}",
+            invoke_tool: "/v1/threads/{thread_id}/mcp/tools/{tool_id}/invoke",
           },
           evidence_refs: evidenceRefs,
         };
@@ -371,7 +371,7 @@ test("runtime MCP catalog surface projects status and validation envelopes", () 
     calls.find((call) => call.name === "planMcpManagerCatalogProjection")?.request.state_dir,
     "/runtime-state",
   );
-  assert.equal(status.routes.search_tools, "/v1/mcp/tools/search");
+  assert.equal(status.routes.search_tools, "/v1/threads/{thread_id}/mcp/tools/search");
   assert.equal(Object.hasOwn(status, "schemaVersion"), false);
   assert.equal(Object.hasOwn(status, "serverCount"), false);
   assert.equal(Object.hasOwn(status, "toolCount"), false);
@@ -424,7 +424,7 @@ test("runtime MCP catalog surface projects status and validation envelopes", () 
   );
   assert.equal(
     calls.find((call) => call.name === "planMcpManagerStatusProjection")?.request.routes.search_tools,
-    "/v1/mcp/tools/search",
+    "/v1/threads/{thread_id}/mcp/tools/search",
   );
   assert.deepEqual(
     calls.filter((call) => call.name === "validateMcpServers").at(-1)?.request.servers.map((item) => item.id),
@@ -457,7 +457,7 @@ test("runtime MCP catalog surface searches and fetches tools through global and 
   assert.equal(globalSearch.source, "rust_mcp_tool_search_projection_api");
   assert.equal(globalSearch.server_count, 2);
   assert.deepEqual(globalSearch.tools.map((tool) => tool.stable_tool_id), ["mcp.agent.git.diff"]);
-  assert.equal(globalSearch.routes.get_tool, "/v1/mcp/tools/{tool_id}");
+  assert.equal(globalSearch.routes.get_tool, "/v1/threads/{thread_id}/mcp/tools/{tool_id}");
   assert.equal(
     globalSearch.catalog_summaries[0].source,
     "rust_mcp_manager_catalog_summary_projection_api",

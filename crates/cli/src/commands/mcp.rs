@@ -3,12 +3,11 @@ use clap::{Parser, Subcommand};
 use ioi_types::config::{
     McpConfigEntry, McpContainmentMode, McpMode, McpServerTier, WorkloadConfig,
 };
-use reqwest::Method;
 use serde::Serialize;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use super::model_mount_http::{daemon_request, print_value};
+use super::model_mount_http::print_value;
 
 #[derive(Parser, Debug)]
 pub struct McpArgs {
@@ -20,37 +19,14 @@ pub struct McpArgs {
     #[clap(long)]
     pub json: bool,
 
-    /// Runtime daemon endpoint for live MCP registry aliases.
-    #[clap(long)]
-    pub endpoint: Option<String>,
-
-    /// Capability token for live MCP registry aliases.
-    #[clap(long)]
-    pub token: Option<String>,
-
     #[clap(subcommand)]
     pub command: McpCommands,
 }
 
 #[derive(Subcommand, Debug)]
 pub enum McpCommands {
-    /// Alias for listing MCP servers registered with the local model mounting daemon.
-    Ls,
-    /// Import mcp.json into the local model mounting daemon.
-    Import { path: PathBuf },
     /// Validate an mcp.json file without registering it.
     Validate { path: PathBuf },
-    /// Invoke one registered MCP tool through the governed daemon path.
-    Invoke {
-        #[clap(long)]
-        server_id: Option<String>,
-        #[clap(long)]
-        server_label: Option<String>,
-        #[clap(long)]
-        tool: String,
-        #[clap(long)]
-        input_json: Option<String>,
-    },
     /// List configured MCP servers and containment posture.
     List,
     /// Inspect one configured MCP server.
@@ -105,29 +81,6 @@ struct McpStaticCheck {
 
 pub async fn run(args: McpArgs) -> Result<()> {
     match &args.command {
-        McpCommands::Ls => {
-            let value = daemon_request(
-                args.endpoint.as_deref(),
-                args.token.as_deref(),
-                Method::GET,
-                "/api/v1/mcp",
-                None,
-            )
-            .await?;
-            return print_value(&value, args.json);
-        }
-        McpCommands::Import { path } => {
-            let value = read_json_value(path)?;
-            let response = daemon_request(
-                args.endpoint.as_deref(),
-                args.token.as_deref(),
-                Method::POST,
-                "/api/v1/mcp/import",
-                Some(value),
-            )
-            .await?;
-            return print_value(&response, args.json);
-        }
         McpCommands::Validate { path } => {
             let value = read_json_value(path)?;
             let server_count = value
@@ -143,41 +96,12 @@ pub async fn run(args: McpArgs) -> Result<()> {
             });
             return print_value(&report, args.json);
         }
-        McpCommands::Invoke {
-            server_id,
-            server_label,
-            tool,
-            input_json,
-        } => {
-            let input = match input_json {
-                Some(text) => serde_json::from_str(&text)
-                    .with_context(|| "failed to parse --input-json as JSON")?,
-                None => serde_json::json!({}),
-            };
-            let response = daemon_request(
-                args.endpoint.as_deref(),
-                args.token.as_deref(),
-                Method::POST,
-                "/api/v1/mcp/invoke",
-                Some(serde_json::json!({
-                    "server_id": server_id,
-                    "server_label": server_label,
-                    "tool": tool,
-                    "input": input,
-                })),
-            )
-            .await?;
-            return print_value(&response, args.json);
-        }
         _ => {}
     }
 
     let workload = read_workload(&args.workload)?;
     match args.command {
-        McpCommands::Ls
-        | McpCommands::Import { .. }
-        | McpCommands::Validate { .. }
-        | McpCommands::Invoke { .. } => Ok(()),
+        McpCommands::Validate { .. } => Ok(()),
         McpCommands::List => print_list(&workload, args.json),
         McpCommands::Inspect { server } => print_inspect(&workload, &server, args.json),
         McpCommands::Tools { server } => print_tools(&workload, &server, args.json),

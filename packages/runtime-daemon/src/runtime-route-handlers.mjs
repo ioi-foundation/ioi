@@ -571,19 +571,6 @@ export function createRuntimeRouteHandlers(deps) {
       writeJsonResponse(response, mounts.validateReceiptGate(await readBody(request)));
       return;
     }
-    if (request.method === "GET" && url.pathname === "/api/v1/mcp") {
-      writeJsonResponse(response, mounts.listMcpServers());
-      return;
-    }
-    if (request.method === "POST" && url.pathname === "/api/v1/mcp/import") {
-      mounts.authorize(authorization, "mcp.import:*");
-      writeJsonResponse(response, mounts.importMcpJson(await readBody(request)), 201);
-      return;
-    }
-    if (request.method === "POST" && url.pathname === "/api/v1/mcp/invoke") {
-      writeJsonResponse(response, mounts.invokeMcpTool({ authorization, body: await readBody(request) }));
-      return;
-    }
     throw notFound("Model mounting route not found.", {
       method: request.method,
       path: url.pathname,

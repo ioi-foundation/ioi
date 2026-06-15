@@ -1476,20 +1476,6 @@ export interface RuntimeSubstrateClient {
   getAccount(): Promise<RuntimeAccountProfile>;
   listRuntimeNodes(): Promise<RuntimeNodeProfile[]>;
   listTools(options?: RuntimeToolListOptions): Promise<RuntimeToolCatalogEntry[]>;
-  getMcpStatus(options?: RuntimeMcpListOptions): Promise<RuntimeMcpStatus>;
-  listMcpServers(options?: RuntimeMcpListOptions): Promise<RuntimeMcpServerEntry[]>;
-  listMcpTools(options?: RuntimeMcpListOptions): Promise<RuntimeMcpToolEntry[]>;
-  searchMcpTools(input?: RuntimeMcpToolSearchInput): Promise<RuntimeMcpToolSearchResult>;
-  getMcpTool(toolId: string, input?: RuntimeMcpToolSearchInput): Promise<RuntimeMcpToolSearchResult>;
-  listMcpResources(options?: RuntimeMcpListOptions): Promise<RuntimeMcpResourceEntry[]>;
-  listMcpPrompts(options?: RuntimeMcpListOptions): Promise<RuntimeMcpPromptEntry[]>;
-  validateMcp(input?: RuntimeMcpValidationInput): Promise<RuntimeMcpValidationResult>;
-  importMcp(input?: RuntimeMcpServerMutationInput): Promise<RuntimeMcpStatus>;
-  addMcpServer(input?: RuntimeMcpServerMutationInput): Promise<RuntimeMcpStatus>;
-  removeMcpServer(serverId: string, input?: RuntimeMcpServerMutationInput): Promise<RuntimeMcpStatus>;
-  enableMcpServer(serverId: string, input?: RuntimeMcpServerControlInput): Promise<RuntimeMcpStatus>;
-  disableMcpServer(serverId: string, input?: RuntimeMcpServerControlInput): Promise<RuntimeMcpStatus>;
-  invokeMcpTool(input?: RuntimeMcpToolInvokeInput): Promise<RuntimeMcpInvocationResult>;
   threadMcpStatus(threadId: string, input?: RuntimeThreadMcpInput): Promise<RuntimeMcpStatus>;
   importThreadMcp(threadId: string, input?: RuntimeMcpServerMutationInput): Promise<RuntimeMcpStatus>;
   addThreadMcpServer(threadId: string, input?: RuntimeMcpServerMutationInput): Promise<RuntimeMcpStatus>;
@@ -2262,116 +2248,6 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
   async listTools(options: RuntimeToolListOptions = {}): Promise<RuntimeToolCatalogEntry[]> {
     return normalizeRuntimeToolCatalogEntries(
       await this.request("listTools", "GET", `/v1/tools${toolListQuery(options)}`),
-    );
-  }
-
-  async getMcpStatus(options: RuntimeMcpListOptions = {}): Promise<RuntimeMcpStatus> {
-    return this.request("getMcpStatus", "GET", `/v1/mcp${mcpListQuery(options)}`);
-  }
-
-  async listMcpServers(options: RuntimeMcpListOptions = {}): Promise<RuntimeMcpServerEntry[]> {
-    return this.request("listMcpServers", "GET", `/v1/mcp/servers${mcpListQuery(options)}`);
-  }
-
-  async listMcpTools(options: RuntimeMcpListOptions = {}): Promise<RuntimeMcpToolEntry[]> {
-    return this.request("listMcpTools", "GET", `/v1/mcp/tools${mcpListQuery(options)}`);
-  }
-
-  async searchMcpTools(input: RuntimeMcpToolSearchInput = {}): Promise<RuntimeMcpToolSearchResult> {
-    return this.request("searchMcpTools", "GET", `/v1/mcp/tools/search${mcpListQuery(input)}`);
-  }
-
-  async getMcpTool(
-    toolId: string,
-    input: RuntimeMcpToolSearchInput = {},
-  ): Promise<RuntimeMcpToolSearchResult> {
-    return this.request("getMcpTool", "GET", `/v1/mcp/tools/${encodePath(toolId)}${mcpListQuery(input)}`);
-  }
-
-  async listMcpResources(options: RuntimeMcpListOptions = {}): Promise<RuntimeMcpResourceEntry[]> {
-    return this.request("listMcpResources", "GET", `/v1/mcp/resources${mcpListQuery(options)}`);
-  }
-
-  async listMcpPrompts(options: RuntimeMcpListOptions = {}): Promise<RuntimeMcpPromptEntry[]> {
-    return this.request("listMcpPrompts", "GET", `/v1/mcp/prompts${mcpListQuery(options)}`);
-  }
-
-  async validateMcp(input: RuntimeMcpValidationInput = {}): Promise<RuntimeMcpValidationResult> {
-    return this.request("validateMcp", "POST", "/v1/mcp/validate", {
-      source: "sdk_client",
-      ...input,
-    });
-  }
-
-  async importMcp(input: RuntimeMcpServerMutationInput = {}): Promise<RuntimeMcpStatus> {
-    return this.request("importMcp", "POST", "/v1/mcp/import", {
-      source: "sdk_client",
-      ...input,
-    });
-  }
-
-  async addMcpServer(input: RuntimeMcpServerMutationInput = {}): Promise<RuntimeMcpStatus> {
-    return this.request("addMcpServer", "POST", "/v1/mcp/servers", {
-      source: "sdk_client",
-      ...input,
-    });
-  }
-
-  async removeMcpServer(
-    serverId: string,
-    input: RuntimeMcpServerMutationInput = {},
-  ): Promise<RuntimeMcpStatus> {
-    return this.request(
-      "removeMcpServer",
-      "DELETE",
-      `/v1/mcp/servers/${encodePath(serverId)}`,
-      {
-        source: "sdk_client",
-        ...input,
-      },
-    );
-  }
-
-  async enableMcpServer(
-    serverId: string,
-    input: RuntimeMcpServerControlInput = {},
-  ): Promise<RuntimeMcpStatus> {
-    return this.request(
-      "enableMcpServer",
-      "POST",
-      `/v1/mcp/servers/${encodePath(serverId)}/enable`,
-      {
-        source: "sdk_client",
-        ...input,
-      },
-    );
-  }
-
-  async disableMcpServer(
-    serverId: string,
-    input: RuntimeMcpServerControlInput = {},
-  ): Promise<RuntimeMcpStatus> {
-    return this.request(
-      "disableMcpServer",
-      "POST",
-      `/v1/mcp/servers/${encodePath(serverId)}/disable`,
-      {
-        source: "sdk_client",
-        ...input,
-      },
-    );
-  }
-
-  async invokeMcpTool(input: RuntimeMcpToolInvokeInput = {}): Promise<RuntimeMcpInvocationResult> {
-    const toolId = input.tool_id ?? `${input.server_id ?? "mcp"}.${input.tool_name ?? input.tool ?? "tool"}`;
-    return this.request(
-      "invokeMcpTool",
-      "POST",
-      `/v1/mcp/tools/${encodePath(toolId)}/invoke`,
-      {
-        source: "sdk_client",
-        ...input,
-      },
     );
   }
 

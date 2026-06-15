@@ -1958,6 +1958,47 @@ test("model mounting native route does not expose retired estimate-load endpoint
   assert.deepEqual(calls, []);
 });
 
+test("model mounting native route does not expose retired MCP aliases", async () => {
+  const { handleModelMountingNativeRoute } = routeHandlers();
+  const calls = [];
+  const failRetiredAlias = (name) => (...args) => {
+    calls.push([name, ...args]);
+    throw new Error(`retired MCP alias ${name} must not be reached`);
+  };
+  const store = {
+    modelMounting: {
+      authorize: failRetiredAlias("authorize"),
+      listMcpServers: failRetiredAlias("listMcpServers"),
+      importMcpJson: failRetiredAlias("importMcpJson"),
+      invokeMcpTool: failRetiredAlias("invokeMcpTool"),
+    },
+  };
+  const cases = [
+    { method: "GET", path: "/api/v1/mcp" },
+    { method: "POST", path: "/api/v1/mcp/import" },
+    { method: "POST", path: "/api/v1/mcp/invoke" },
+  ];
+
+  for (const testCase of cases) {
+    await assert.rejects(
+      () => handleModelMountingNativeRoute({
+        request: request({
+          method: testCase.method,
+          url: testCase.path,
+          body: { request_id: "retired-mcp-alias" },
+        }),
+        response: responseRecorder(),
+        store,
+        url: new URL(testCase.path, "http://daemon.test"),
+        segments: new URL(testCase.path, "http://daemon.test").pathname.split("/").filter(Boolean),
+      }),
+      (error) => error.code === "not_found" && error.details.path === testCase.path,
+    );
+  }
+
+  assert.deepEqual(calls, []);
+});
+
 test("thread route does not expose governed improvement apply shortcut", async () => {
   const { handleThreadRoute } = routeHandlers();
   const response = responseRecorder();

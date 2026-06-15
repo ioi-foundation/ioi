@@ -71,7 +71,6 @@ export function createRuntimeMcpServeSurface({
         tool_count: tools.length,
         tools,
         routes: {
-          serve: "/v1/mcp/serve",
           serve_for_thread: "/v1/threads/{thread_id}/mcp/serve",
         },
         evidence_refs: ["mcp.serve.http_jsonrpc", "coding_tool_receipt"],

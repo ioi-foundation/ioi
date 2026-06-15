@@ -86,20 +86,18 @@ export function createRuntimeMcpCatalogSurface({
       const catalog = contextPolicyCore.planMcpManagerCatalogProjection({ servers });
       const validation = contextPolicyCore.validateMcpServers({ servers });
       const routes = {
-        servers: "/v1/mcp/servers",
-        tools: "/v1/mcp/tools",
-        search_tools: "/v1/mcp/tools/search",
-        get_tool: "/v1/mcp/tools/{tool_id}",
-        resources: "/v1/mcp/resources",
-        prompts: "/v1/mcp/prompts",
-        validate: "/v1/mcp/validate",
-        import_servers: "/v1/mcp/import",
-        add_server: "/v1/mcp/servers",
-        remove_server: "/v1/mcp/servers/{server_id}",
-        enable_server: "/v1/mcp/servers/{server_id}/enable",
-        disable_server: "/v1/mcp/servers/{server_id}/disable",
-        invoke_tool: "/v1/mcp/tools/{tool_id}/invoke",
-        serve: "/v1/mcp/serve",
+        status: "/v1/threads/{thread_id}/mcp/status",
+        servers: "/v1/threads/{thread_id}/mcp/servers",
+        tools: "/v1/threads/{thread_id}/mcp/tools",
+        search_tools: "/v1/threads/{thread_id}/mcp/tools/search",
+        get_tool: "/v1/threads/{thread_id}/mcp/tools/{tool_id}",
+        validate: "/v1/threads/{thread_id}/mcp/validate",
+        import_servers: "/v1/threads/{thread_id}/mcp/import",
+        add_server: "/v1/threads/{thread_id}/mcp/servers",
+        remove_server: "/v1/threads/{thread_id}/mcp/servers/{server_id}",
+        enable_server: "/v1/threads/{thread_id}/mcp/servers/{server_id}/enable",
+        disable_server: "/v1/threads/{thread_id}/mcp/servers/{server_id}/disable",
+        invoke_tool: "/v1/threads/{thread_id}/mcp/tools/{tool_id}/invoke",
         serve_for_thread: "/v1/threads/{thread_id}/mcp/serve",
       };
       return contextPolicyCore.planMcpManagerStatusProjection({

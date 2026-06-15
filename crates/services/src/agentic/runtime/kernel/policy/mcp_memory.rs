@@ -2758,9 +2758,9 @@ fn mcp_tool_matches_query(tool: &Value, query: &str) -> bool {
 
 fn mcp_tool_projection_routes() -> Value {
     json!({
-        "search": "/v1/mcp/tools/search",
-        "get_tool": "/v1/mcp/tools/{tool_id}",
-        "invoke_tool": "/v1/mcp/tools/{tool_id}/invoke",
+        "search": "/v1/threads/{thread_id}/mcp/tools/search",
+        "get_tool": "/v1/threads/{thread_id}/mcp/tools/{tool_id}",
+        "invoke_tool": "/v1/threads/{thread_id}/mcp/tools/{tool_id}/invoke",
     })
 }
 
@@ -2825,8 +2825,8 @@ impl McpManagerCatalogSummaryProjectionCore {
             deferred,
             full_catalog_included: !deferred,
             error_code: request.error_code.clone(),
-            search_route: "/v1/mcp/tools/search".to_string(),
-            fetch_route: "/v1/mcp/tools/{tool_id}".to_string(),
+            search_route: "/v1/threads/{thread_id}/mcp/tools/search".to_string(),
+            fetch_route: "/v1/threads/{thread_id}/mcp/tools/{tool_id}".to_string(),
             generated_at: "rust_policy_core".to_string(),
         })
     }
@@ -5360,7 +5360,10 @@ mod tests {
         assert!(projection
             .evidence_refs
             .contains(&"runtime_mcp_catalog_js_search_filter_retired".to_string()));
-        assert_eq!(projection.routes["get_tool"], "/v1/mcp/tools/{tool_id}");
+        assert_eq!(
+            projection.routes["get_tool"],
+            "/v1/threads/{thread_id}/mcp/tools/{tool_id}"
+        );
     }
 
     #[test]
@@ -5514,7 +5517,7 @@ mod tests {
             prompts: vec![json!({ "name": "ask" })],
             enabled_tools: vec![json!({ "stable_tool_id": "mcp.docs.search" })],
             routes: json!({
-                "search_tools": "/v1/mcp/tools/search",
+                "search_tools": "/v1/threads/{thread_id}/mcp/tools/search",
             }),
         };
 
@@ -5539,7 +5542,10 @@ mod tests {
             record.validation["tools"][0]["stable_tool_id"],
             "mcp.docs.search"
         );
-        assert_eq!(record.routes["search_tools"], "/v1/mcp/tools/search");
+        assert_eq!(
+            record.routes["search_tools"],
+            "/v1/threads/{thread_id}/mcp/tools/search"
+        );
         assert!(record.validation.get("serverCount").is_none());
         assert!(record.routes.get("searchTools").is_none());
     }
@@ -5996,8 +6002,14 @@ mod tests {
         assert_eq!(record.namespace_count, 1);
         assert_eq!(record.namespaces[0], "search");
         assert_eq!(record.preview_tool_names[0], "search.index");
-        assert_eq!(record.search_route, "/v1/mcp/tools/search");
-        assert_eq!(record.fetch_route, "/v1/mcp/tools/{tool_id}");
+        assert_eq!(
+            record.search_route,
+            "/v1/threads/{thread_id}/mcp/tools/search"
+        );
+        assert_eq!(
+            record.fetch_route,
+            "/v1/threads/{thread_id}/mcp/tools/{tool_id}"
+        );
         assert!(!record.catalog_hash.is_empty());
     }
 

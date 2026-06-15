@@ -401,25 +401,10 @@ POST /v1/connectors/{connector_id}/subscriptions
 
 MCP manager endpoints expose tool/resource/prompt discovery and governed MCP
 tool invocation to TUI, SDK, ADK, agent-ide, and Hypervisor IDE surfaces. Global
-endpoints describe runtime-wide MCP state; thread endpoints bind MCP activity
-to a specific operator/runtime session.
+MCP routes are thread-scoped daemon protocol APIs; retired top-level
+`/v1/mcp*` and legacy `/api/v1/mcp*` routes are not compatibility fallbacks.
 
 ```http
-GET  /v1/mcp
-GET  /v1/mcp/servers
-POST /v1/mcp/servers
-DELETE /v1/mcp/servers/{server_id}
-POST /v1/mcp/servers/{server_id}/enable
-POST /v1/mcp/servers/{server_id}/disable
-GET  /v1/mcp/tools
-GET  /v1/mcp/tools/search
-GET  /v1/mcp/tools/{tool_id}
-POST /v1/mcp/tools/{tool_id}/invoke
-GET  /v1/mcp/resources
-GET  /v1/mcp/prompts
-POST /v1/mcp/validate
-POST /v1/mcp/import
-POST /v1/mcp/serve
 GET  /v1/threads/{thread_id}/mcp/status
 POST /v1/threads/{thread_id}/mcp/validate
 POST /v1/threads/{thread_id}/mcp/import

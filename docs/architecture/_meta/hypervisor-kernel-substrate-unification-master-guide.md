@@ -9957,6 +9957,19 @@ client, and the global SDK request type cannot return. This remains
 non-terminal because broader non-MCP SDK route-family coverage over Rust replay
 records still needs to close.
 
+Slice 1270 retires the rest of the runtime MCP top-level route/client family.
+The public daemon no longer handles `/v1/mcp*`, the legacy model-mount daemon no
+longer exposes `/api/v1/mcp*`, SDK global MCP catalog/control clients are gone,
+and the standalone CLI live MCP aliases are deleted instead of being bridged
+through compatibility transport. MCP status/search/fetch/serve projections now
+advertise only `/v1/threads/{thread_id}/mcp*` daemon protocol routes, while the
+thread-scoped MCP routes remain mounted surface clients over Rust-owned
+admission, Agentgres replay, receipt/state-root binding, wallet authority, and
+cTEE custody checks. Tests and conformance guard that the old route families,
+SDK globals, CLI aliases, and projection route strings cannot return. This
+remains non-terminal because broader non-MCP SDK route-family coverage over Rust
+replay records still needs to close.
+
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,
 `/v1/memory/policy`, `/v1/memory/path`, or `/v1/memory/validate`; the daemon

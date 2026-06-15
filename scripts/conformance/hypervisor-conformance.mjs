@@ -31039,6 +31039,9 @@ function runCompositor() {
   const agentTuiLoop = exists("crates/cli/src/commands/agent_tui_loop.rs")
     ? read("crates/cli/src/commands/agent_tui_loop.rs")
     : "";
+  const agentMcpCli = exists("crates/cli/src/commands/mcp.rs")
+    ? read("crates/cli/src/commands/mcp.rs")
+    : "";
   const runtimeCompletePlus = exists("scripts/evidence/runtime-complete-plus.mjs")
     ? read("scripts/evidence/runtime-complete-plus.mjs")
     : "";
@@ -39688,20 +39691,10 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-mcp-route-wrappers-retired",
-    /public runtime MCP routes use mounted MCP surfaces directly/.test(publicRuntimeRoutesTestForTaskJob) &&
+      /public runtime top-level MCP route family is retired/.test(publicRuntimeRoutesTestForTaskJob) &&
       /thread route sends MCP controls through mounted MCP surfaces/.test(runtimeRouteHandlersTest) &&
-      /store\.mcpCatalogSurface\.mcpStatus\(store,/.test(publicRuntimeRoutesForTaskJob) &&
-      /store\.mcpServeSurface\.mcpServeStatus\(store,/.test(publicRuntimeRoutesForTaskJob) &&
+      /model mounting native route does not expose retired MCP aliases/.test(runtimeRouteHandlersTest) &&
       /store\.mcpServeSurface\.handleMcpServeJsonRpc\(store,\s*threadId,/.test(publicRuntimeRoutesForTaskJob) &&
-      /store\.mcpCatalogSurface\.listMcpServers\(store,/.test(publicRuntimeRoutesForTaskJob) &&
-      /store\.mcpCatalogSurface\.searchMcpTools\(store,/.test(publicRuntimeRoutesForTaskJob) &&
-      /store\.mcpCatalogSurface\.getMcpTool\(\s*store,/.test(publicRuntimeRoutesForTaskJob) &&
-      /store\.mcpCatalogSurface\.validateMcp\(store,/.test(publicRuntimeRoutesForTaskJob) &&
-      /store\.mcpControlSurface\.importMcp\(store,/.test(publicRuntimeRoutesForTaskJob) &&
-      /store\.mcpControlSurface\.addMcpServer\(store,/.test(publicRuntimeRoutesForTaskJob) &&
-      /store\.mcpControlSurface\.setMcpServerEnabled\(store,/.test(publicRuntimeRoutesForTaskJob) &&
-      /store\.mcpControlSurface\.removeMcpServer\(store,/.test(publicRuntimeRoutesForTaskJob) &&
-      /store\.mcpControlSurface\.invokeMcpTool\(store,/.test(publicRuntimeRoutesForTaskJob) &&
       /store\.mcpControlSurface\.importThreadMcp\(store,\s*threadId,/.test(runtimeRouteHandlers) &&
       /store\.mcpControlSurface\.addThreadMcpServer\(store,\s*threadId,/.test(runtimeRouteHandlers) &&
       /store\.mcpControlSurface\.removeThreadMcpServer\(\s*store,\s*threadId,/.test(runtimeRouteHandlers) &&
@@ -39713,6 +39706,17 @@ function runCompositor() {
       /store\.mcpServeSurface\.handleMcpServeJsonRpc\(store,\s*threadId,/.test(runtimeRouteHandlers) &&
       /store\.mcpControlSurface\.recordThreadMcpStatus\(store,\s*threadId,/.test(runtimeRouteHandlers) &&
       /store\.mcpControlSurface\.validateThreadMcp\(store,\s*threadId,/.test(runtimeRouteHandlers) &&
+      !/url\.pathname === "\/v1\/mcp(?:\/|")/.test(publicRuntimeRoutesForTaskJob) &&
+      !/segments\[1\] === "mcp"/.test(publicRuntimeRoutesForTaskJob) &&
+      !/url\.pathname === "\/api\/v1\/mcp(?:\/|")/.test(runtimeRouteHandlers) &&
+      !/mounts\.(?:listMcpServers|importMcpJson|invokeMcpTool)\(/.test(runtimeRouteHandlers) &&
+      !/\b(?:getMcpStatus|listMcpServers|listMcpTools|searchMcpTools|getMcpTool|listMcpResources|listMcpPrompts|validateMcp|importMcp|addMcpServer|removeMcpServer|enableMcpServer|disableMcpServer|invokeMcpTool)\(/.test(
+        agentSdkSubstrateClient,
+      ) &&
+      !/\/v1\/mcp(?:\/|`|\$|\?)/.test(agentSdkSubstrateClient) &&
+      !/McpCommands::(?:Ls|Import|Invoke)|\b(?:Ls|Import|Invoke)\s*(?:\{|,)|\/api\/v1\/mcp|daemon_request\(/.test(
+        agentMcpCli,
+      ) &&
       !/^\s*(?:listMcpServers|listMcpTools|searchMcpTools|getMcpTool|listMcpResources|listMcpPrompts|mcpStatus|validateMcp|importMcp|addMcpServer|removeMcpServer|importThreadMcp|addThreadMcpServer|removeThreadMcpServer|searchThreadMcpTools|getThreadMcpTool|getMcpToolFromCatalog|searchMcpToolCatalog|setMcpServerEnabled|setThreadMcpServerEnabled|invokeMcpTool|invokeThreadMcpTool|mcpServeStatus|mcpServeToolCatalog|handleMcpServeJsonRpc|handleSingleMcpServeJsonRpc|recordThreadMcpStatus|validateThreadMcp)\(/m.test(
         runtimeDaemonIndex,
       ) &&
@@ -39728,8 +39732,10 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-route-handlers.test.mjs",
       "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
       "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
+      "packages/agent-sdk/src/substrate-client.ts",
+      "crates/cli/src/commands/mcp.rs",
     ],
-    "Phase 10/11 is pending: public and thread MCP routes must call mounted MCP surfaces directly without daemon-store MCP pass-through wrappers",
+    "Phase 10/11 is pending: top-level and legacy MCP route/client families must stay retired while thread MCP routes call mounted MCP surfaces directly",
   );
   assertCheck(
     result,
@@ -39741,8 +39747,8 @@ function runCompositor() {
       /surface\.importMcp\(store, \{ threadId: "thread-agent-one"/.test(
         runtimeMcpControlSurfaceTest,
       ) &&
-      /public runtime top-level MCP serve route is retired/.test(publicRuntimeRoutesTestForTaskJob) &&
-      /url: "\/v1\/mcp\/serve\?thread_id=thread-retired"/.test(publicRuntimeRoutesTestForTaskJob) &&
+      /public runtime top-level MCP route family is retired/.test(publicRuntimeRoutesTestForTaskJob) &&
+      /path: "\/v1\/mcp\/serve\?thread_id=thread-retired"/.test(publicRuntimeRoutesTestForTaskJob) &&
       /^\s*thread_id\?: string;/m.test(runtimeMcpSdkServerControlInputBlock) &&
       /^\s*thread_id\?: string;/m.test(runtimeMcpSdkToolInvokeInputBlock) &&
       !/(?:input|request)\.threadId\b/.test(runtimeMcpControlSurface) &&
@@ -39798,7 +39804,7 @@ function runCompositor() {
       /public runtime MCP serve route accepts stable protocol admission envelope/.test(
         publicRuntimeRoutesTestForTaskJob,
       ) &&
-      /public runtime top-level MCP serve route is retired/.test(publicRuntimeRoutesTestForTaskJob) &&
+      /public runtime top-level MCP route family is retired/.test(publicRuntimeRoutesTestForTaskJob) &&
       /SDK MCP serve clients send stable protocol admission body/.test(agentSdkTest) &&
       /assert\.equal\(requests\.length,\s*1\)/.test(agentSdkTest) &&
       !/client\.serveMcpRpc/.test(agentSdkTest) &&
@@ -39888,6 +39894,9 @@ function runCompositor() {
       agentTuiCli,
     ) &&
       /const TUI_THREAD_MCP_SERVE_ROUTE_TEMPLATE: &str = "\/v1\/threads\/\{thread_id\}\/mcp\/serve";/.test(
+        agentTuiCli,
+      ) &&
+      !/TUI_MCP_(?:STATUS|SERVER_LIST|TOOL_LIST|VALIDATE)_ROUTE|\"mcp_(?:status|servers|tools|validate)\"/.test(
         agentTuiCli,
       ) &&
       /"thread_mcp_serve"\.to_string\(\),\s*Value::String\(TUI_THREAD_MCP_SERVE_ROUTE_TEMPLATE\.to_string\(\)\)/.test(
@@ -40693,7 +40702,7 @@ function runCompositor() {
       /resources:\s*catalog\.resources/.test(runtimeMcpStatusBlock) &&
       /prompts:\s*catalog\.prompts/.test(runtimeMcpStatusBlock) &&
       /enabled_tools:\s*catalog\.enabled_tools/.test(runtimeMcpStatusBlock) &&
-      /search_tools:\s*"\/v1\/mcp\/tools\/search"/.test(runtimeMcpStatusBlock) &&
+      /search_tools:\s*"\/v1\/threads\/\{thread_id\}\/mcp\/tools\/search"/.test(runtimeMcpStatusBlock) &&
       /serve_for_thread:\s*"\/v1\/threads\/\{thread_id\}\/mcp\/serve"/.test(runtimeMcpStatusBlock) &&
       /contextPolicyCore\.planMcpManagerCatalogProjection\(\{ servers \}\)/.test(runtimeMcpValidateBlock) &&
       /contextPolicyCore\.planMcpManagerValidationProjection\(\{/.test(runtimeMcpValidateBlock) &&

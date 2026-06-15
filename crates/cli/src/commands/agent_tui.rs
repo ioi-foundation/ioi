@@ -69,10 +69,6 @@ const TUI_THREAD_SUBAGENT_CANCEL_PROPAGATE_ROUTE_TEMPLATE: &str =
     "/v1/threads/{thread_id}/subagents/cancel";
 const TUI_MEMORY_STATUS_ROUTE: &str = "/v1/memory";
 const TUI_MEMORY_VALIDATE_ROUTE: &str = "/v1/memory/validate";
-const TUI_MCP_STATUS_ROUTE: &str = "/v1/mcp";
-const TUI_MCP_SERVER_LIST_ROUTE: &str = "/v1/mcp/servers";
-const TUI_MCP_TOOL_LIST_ROUTE: &str = "/v1/mcp/tools";
-const TUI_MCP_VALIDATE_ROUTE: &str = "/v1/mcp/validate";
 const TUI_TURN_CREATE_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/turns";
 const TUI_EVENT_STREAM_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/events";
 const TUI_INTERRUPT_ROUTE_TEMPLATE: &str = "/v1/threads/{thread_id}/turns/{turn_id}/interrupt";
@@ -309,10 +305,6 @@ fn print_tui_json(render: &TuiRender) -> Result<()> {
         "thread_memory_record": TUI_THREAD_MEMORY_RECORD_ROUTE_TEMPLATE,
         "memory_status": TUI_MEMORY_STATUS_ROUTE,
         "memory_validate": TUI_MEMORY_VALIDATE_ROUTE,
-        "mcp_status": TUI_MCP_STATUS_ROUTE,
-        "mcp_servers": TUI_MCP_SERVER_LIST_ROUTE,
-        "mcp_tools": TUI_MCP_TOOL_LIST_ROUTE,
-        "mcp_validate": TUI_MCP_VALIDATE_ROUTE,
         "turn_create": TUI_TURN_CREATE_ROUTE_TEMPLATE,
         "event_stream": TUI_EVENT_STREAM_ROUTE_TEMPLATE,
         "interrupt": TUI_INTERRUPT_ROUTE_TEMPLATE,
