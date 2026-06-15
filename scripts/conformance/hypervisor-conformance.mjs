@@ -4191,11 +4191,11 @@ function runBridge() {
   const runtimeBridgeThreadTest = exists("packages/runtime-daemon/src/threads/runtime-bridge-thread.test.mjs")
     ? read("packages/runtime-daemon/src/threads/runtime-bridge-thread.test.mjs")
     : "";
-  const runtimeApiBridge = exists("packages/runtime-daemon/src/runtime-api-bridge.mjs")
-    ? read("packages/runtime-daemon/src/runtime-api-bridge.mjs")
+  const runtimeProfileHelper = exists("packages/runtime-daemon/src/runtime-profile.mjs")
+    ? read("packages/runtime-daemon/src/runtime-profile.mjs")
     : "";
-  const runtimeApiBridgeTest = exists("packages/runtime-daemon/src/runtime-api-bridge.test.mjs")
-    ? read("packages/runtime-daemon/src/runtime-api-bridge.test.mjs")
+  const runtimeProfileHelperTest = exists("packages/runtime-daemon/src/runtime-profile.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-profile.test.mjs")
     : "";
   const runtimeAgentServiceInferenceHelper = exists("scripts/lib/autopilot-runtime-agent-service-inference.mjs")
     ? read("scripts/lib/autopilot-runtime-agent-service-inference.mjs")
@@ -14812,13 +14812,15 @@ function runBridge() {
       /typeof store\.createThread,\s*"undefined"/.test(runtimeThreadControlTest) &&
       !exists("scripts/lib/workflow-stage5-stop-cancel-recover-live-gui-proof.mjs") &&
       !exists("scripts/lib/workflow-stage7-delegation-live-gui-proof.mjs") &&
+      !exists("packages/runtime-daemon/src/runtime-api-bridge.mjs") &&
+      !exists("packages/runtime-daemon/src/runtime-api-bridge.test.mjs") &&
       /runtime profile request normalization ignores retired camelCase aliases/.test(
-        runtimeApiBridgeTest,
+        runtimeProfileHelperTest,
       ) &&
       /runtimeProfileForRequest\(\{ runtimeProfile: "runtime" \}\), "fixture"/.test(
-        runtimeApiBridgeTest,
+        runtimeProfileHelperTest,
       ) &&
-      !/request\.runtimeProfile|options\.runtimeProfile/.test(runtimeApiBridge) &&
+      !/request\.runtimeProfile|options\.runtimeProfile/.test(runtimeProfileHelper) &&
       !/deps\.runtimeProfile/.test(runtimeAgentRunLifecycle) &&
       !/const updated = \{\s*\.\.\.agent,\s*runtimeProfile,\s*runtimeSessionId/s.test(
         runtimeBridgeThread,
@@ -14829,6 +14831,8 @@ function runBridge() {
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
+      "packages/runtime-daemon/src/runtime-profile.mjs",
+      "packages/runtime-daemon/src/runtime-profile.test.mjs",
       "packages/runtime-daemon/src/runtime-api-bridge.mjs",
       "packages/runtime-daemon/src/runtime-api-bridge.test.mjs",
       "packages/runtime-daemon/src/runtime-agent-run-lifecycle.mjs",
@@ -14853,20 +14857,22 @@ function runBridge() {
       !exists("scripts/run-autopilot-agent-studio-rust-agentic-runtime-parity-goal.mjs") &&
       !exists("scripts/lib/autopilot-runtime-agent-service-bridge.mjs") &&
       exists("scripts/lib/autopilot-runtime-agent-service-inference.mjs") &&
-      !/runtime-agent-service-adapter\.mjs/.test(runtimeApiBridge) &&
-      !/createRuntimeAgentServiceCommandAdapterFromEnv/.test(runtimeApiBridge) &&
+      !exists("packages/runtime-daemon/src/runtime-api-bridge.mjs") &&
+      !exists("packages/runtime-daemon/src/runtime-api-bridge.test.mjs") &&
+      !/runtime-agent-service-adapter\.mjs/.test(runtimeProfileHelper) &&
+      !/createRuntimeAgentServiceCommandAdapterFromEnv/.test(runtimeProfileHelper) &&
       !/createRuntimeApiBridge|class RuntimeApiBridge|RuntimeApiBridgeUnavailableError/.test(
-        runtimeApiBridge,
+        runtimeProfileHelper,
       ) &&
       !/IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND|IOI_RUNTIME_BRIDGE_COMMAND/.test(
-        runtimeApiBridge,
+        runtimeProfileHelper,
       ) &&
-      /runtime service adapter surface is retired/.test(runtimeApiBridgeTest) &&
+      /runtime service bridge module is retired/.test(runtimeProfileHelperTest) &&
       !/IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND|IOI_RUNTIME_BRIDGE_COMMAND|ioi-runtime-bridge/.test(
-        runtimeApiBridgeTest,
+        runtimeProfileHelperTest,
       ) &&
       /Object\.hasOwn\(runtimeProfile,\s*exportName\),\s*false/.test(
-        runtimeApiBridgeTest,
+        runtimeProfileHelperTest,
       ) &&
       /runtimeBridge is retired/.test(runtimeDaemonIndex) &&
       /runtimeBridge is retired/.test(runtimeDaemonService) &&
@@ -27203,8 +27209,17 @@ function runReceipts() {
       /store\.toolSurface\.listRuntimeNodes\(\)/.test(runtimeDoctorReport) &&
       !/store\.listTools\(\)/.test(runtimeDoctorReport) &&
       !/store\.listRuntimeNodes\(\)/.test(runtimeDoctorReport) &&
-      /runtime_tool_catalog_rust_core_required/.test(runtimeDoctorReport) &&
-      /runtime doctor report degrades when runtime tool catalog projection is Rust-core required/.test(
+      !/Runtime tool catalog projection is retired in JS/.test(runtimeDoctorReport) &&
+      !/runtime_tool_catalog_rust_core_required/.test(runtimeDoctorReport) &&
+      !/runtime_skill_hook_registry_rust_core_required/.test(runtimeDoctorReport) &&
+      !/rustCoreRequired:\s*true/.test(runtimeDoctorReport) &&
+      /runtime doctor report fails closed when runtime tool catalog projection is Rust-core required/.test(
+        runtimeDoctorReportTest,
+      ) &&
+      /runtime doctor report fails closed when runtime-node projection is Rust-core required/.test(
+        runtimeDoctorReportTest,
+      ) &&
+      /runtime doctor report fails closed when skill-hook projection is Rust-core required/.test(
         runtimeDoctorReportTest,
       ) &&
       /retired doctor store wrapper must not be routed/.test(runtimeDoctorReportTest) &&

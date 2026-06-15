@@ -3,7 +3,7 @@ import {
 } from "../runtime-contract-constants.mjs";
 import {
   isRuntimeServiceProfile,
-} from "../runtime-api-bridge.mjs";
+} from "../runtime-profile.mjs";
 import {
   runtimeError,
 } from "../runtime-http-utils.mjs";

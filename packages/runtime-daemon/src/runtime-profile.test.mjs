@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import * as runtimeProfile from "./runtime-api-bridge.mjs";
+import * as runtimeProfile from "./runtime-profile.mjs";
 
 const {
   isFixtureRuntimeProfile,
@@ -31,7 +31,7 @@ test("runtime profile request normalization ignores retired camelCase aliases", 
   );
 });
 
-test("runtime service adapter surface is retired", () => {
+test("runtime service bridge module is retired", async () => {
   const retiredExports = [
     ["create", "Runtime", "Api", "Bridge"].join(""),
     ["Runtime", "Api", "Bridge"].join(""),
@@ -40,5 +40,9 @@ test("runtime service adapter surface is retired", () => {
   for (const exportName of retiredExports) {
     assert.equal(Object.hasOwn(runtimeProfile, exportName), false);
   }
+  await assert.rejects(
+    import("./runtime-api-bridge.mjs"),
+    /Cannot find module/,
+  );
   assert.equal(runtimeProfileForRequest({ runtime_profile: "runtime" }), "runtime_service");
 });

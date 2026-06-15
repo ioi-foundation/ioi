@@ -113,6 +113,15 @@ the public daemon no longer handles `/v1/mcp*`, the legacy model-mount daemon no
 longer handles `/api/v1/mcp*`, SDK global MCP catalog/control clients are gone,
 CLI live MCP aliases are deleted, and MCP status/search/fetch/serve projections
 advertise only `/v1/threads/{thread_id}/mcp*` protocol routes.
+Slice 1271 additionally retires the runtime doctor/readiness missing-core
+compatibility fallback: `/v1/doctor` no longer synthesizes degraded tool,
+runtime-node, or skill/hook readiness rows when Rust projection APIs are absent;
+the mounted doctor aggregate now fails closed until Rust-authored projections
+are available.
+Slice 1272 additionally deletes the remaining runtime-service bridge-named
+profile helper artifact: live daemon code now imports `runtime-profile.mjs`,
+`runtime-api-bridge.mjs` and its test are absent, and conformance guards that
+the retired bridge module filename cannot return as compatibility scaffolding.
 Slice 1226 additionally retired the runtime compositor/task-job command
 transport family: task/job create/cancel/projection, workflow-edit control,
 managed-session projection/control, workspace-change projection/control,
@@ -244,8 +253,9 @@ and SDK global memory status/validation clients are gone; explicit
 `/v1/threads/{thread_id}/memory*` and `/v1/agents/{agent_id}/memory*` routes are
 the protocol surface over Rust-owned memory projection/control records.
 Slice 1251 hard-retires the RuntimeAgentService command/binary bridge
-substrate: `RuntimeApiBridge` no longer exports an adapter class/factory, the
-`ioi-runtime-bridge` Cargo bin is deleted, daemon startup rejects
+substrate and Slice 1272 deletes the bridge-named JS helper module:
+`runtime-api-bridge.mjs` is absent, runtime profile normalization lives in
+`runtime-profile.mjs`, the `ioi-runtime-bridge` Cargo bin is deleted, daemon startup rejects
 `runtimeBridge`, Rust service policy no longer reads bridge command-env
 overrides, Agent Studio launch/proof scripts use inference/model-route helper
 APIs instead of the deleted helper, and stale retired runtime-service proof

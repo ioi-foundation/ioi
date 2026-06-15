@@ -8,7 +8,7 @@ import {
 import {
   isRuntimeServiceProfile,
   runtimeProfileForRequest,
-} from "./runtime-api-bridge.mjs";
+} from "./runtime-profile.mjs";
 import { RUNTIME_THREAD_SCHEMA_VERSION } from "./runtime-contract-constants.mjs";
 import {
   eventStreamIdForThread as defaultEventStreamIdForThread,

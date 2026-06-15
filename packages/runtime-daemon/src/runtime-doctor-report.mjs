@@ -230,68 +230,24 @@ export function createRuntimeDoctorReport({
 }
 
 function runtimeToolCatalogForDoctor(store) {
-  try {
-    const tools = store.toolSurface.listTools();
-    return {
-      status: tools.length > 0 ? "pass" : "blocked",
-      message: `${tools.length} governed runtime tool(s) are registered.`,
-      toolIds: tools.map((tool) => tool.stable_tool_id),
-      rustCoreRequired: false,
-      rustCoreDetails: null,
-    };
-  } catch (error) {
-    if (error?.code !== "runtime_tool_catalog_rust_core_required") {
-      throw error;
-    }
-    return {
-      status: "degraded",
-      message: "Runtime tool catalog projection is retired in JS and requires direct Rust daemon-core projection.",
-      toolIds: [
-        "runtime_tool_catalog_js_projection_retired",
-        "rust_daemon_core_runtime_tool_catalog_required",
-      ],
-      rustCoreRequired: true,
-      rustCoreDetails: error.details,
-    };
-  }
+  const tools = store.toolSurface.listTools();
+  return {
+    status: tools.length > 0 ? "pass" : "blocked",
+    message: `${tools.length} governed runtime tool(s) are registered.`,
+    toolIds: tools.map((tool) => tool.stable_tool_id),
+    rustCoreRequired: false,
+    rustCoreDetails: null,
+  };
 }
 
 function runtimeNodesForDoctor(store) {
-  try {
-    return {
-      nodes: store.toolSurface.listRuntimeNodes(),
-      rustCoreRequired: false,
-      rustCoreDetails: null,
-    };
-  } catch (error) {
-    if (error?.code !== "runtime_tool_catalog_rust_core_required") {
-      throw error;
-    }
-    return {
-      nodes: [],
-      rustCoreRequired: true,
-      rustCoreDetails: error.details,
-    };
-  }
+  return {
+    nodes: store.toolSurface.listRuntimeNodes(),
+    rustCoreRequired: false,
+    rustCoreDetails: null,
+  };
 }
 
 function skillHookCatalogForDoctor(store) {
-  try {
-    return store.skillHookSurface.skillHookCatalog({ cwd: store.defaultCwd });
-  } catch (error) {
-    if (error?.code !== "runtime_skill_hook_registry_rust_core_required") {
-      throw error;
-    }
-    return {
-      status: "degraded",
-      skillCount: 0,
-      hookCount: 0,
-      sources: [],
-      activeSkillSetHash: null,
-      activeHookSetHash: null,
-      validationIssueCount: 1,
-      rustCoreRequired: true,
-      rustCoreDetails: error.details,
-    };
-  }
+  return store.skillHookSurface.skillHookCatalog({ cwd: store.defaultCwd });
 }

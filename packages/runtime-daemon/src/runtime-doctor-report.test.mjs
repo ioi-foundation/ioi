@@ -106,7 +106,7 @@ test("runtime doctor report blocks when required state paths are missing", () =>
   assert.equal(report.workspace.exists, false);
 });
 
-test("runtime doctor report degrades when runtime tool catalog projection is Rust-core required", () => {
+test("runtime doctor report fails closed when runtime tool catalog projection is Rust-core required", () => {
   const { helper, store } = createHarness();
   store.toolSurface.listTools = () => {
     const error = new Error("Runtime tool catalog requires Rust core.");
@@ -118,6 +118,16 @@ test("runtime doctor report degrades when runtime tool catalog projection is Rus
     };
     throw error;
   };
+  assert.throws(
+    () => helper.doctorReport(store),
+    (error) =>
+      error.code === "runtime_tool_catalog_rust_core_required" &&
+      error.details.projection_kind === "tools",
+  );
+});
+
+test("runtime doctor report fails closed when runtime-node projection is Rust-core required", () => {
+  const { helper, store } = createHarness();
   store.toolSurface.listRuntimeNodes = () => {
     const error = new Error("Runtime nodes require Rust core.");
     error.code = "runtime_tool_catalog_rust_core_required";
@@ -129,12 +139,31 @@ test("runtime doctor report degrades when runtime tool catalog projection is Rus
     throw error;
   };
 
-  const report = helper.doctorReport(store);
-  const toolCheck = report.checks.find((check) => check.id === "tool.catalog");
+  assert.throws(
+    () => helper.doctorReport(store),
+    (error) =>
+      error.code === "runtime_tool_catalog_rust_core_required" &&
+      error.details.projection_kind === "runtime_nodes",
+  );
+});
 
-  assert.equal(report.readiness, "ready");
-  assert.equal(toolCheck.status, "degraded");
-  assert.equal(toolCheck.required, false);
-  assert.ok(report.optionalWarnings.includes("tool.catalog"));
-  assert.equal(report.runtimeNodes.length, 0);
+test("runtime doctor report fails closed when skill-hook projection is Rust-core required", () => {
+  const { helper, store } = createHarness();
+  store.skillHookSurface.skillHookCatalog = () => {
+    const error = new Error("Skill hook registry requires Rust core.");
+    error.code = "runtime_skill_hook_registry_rust_core_required";
+    error.details = {
+      rust_core_boundary: "runtime.skill_hook_registry",
+      registry_kind: "catalog",
+      workspace_root: "/workspace",
+    };
+    throw error;
+  };
+
+  assert.throws(
+    () => helper.doctorReport(store),
+    (error) =>
+      error.code === "runtime_skill_hook_registry_rust_core_required" &&
+      error.details.registry_kind === "catalog",
+  );
 });

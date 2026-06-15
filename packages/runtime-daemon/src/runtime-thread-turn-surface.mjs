@@ -1,7 +1,7 @@
 import {
   isRuntimeServiceProfile,
   runtimeProfileForRequest,
-} from "./runtime-api-bridge.mjs";
+} from "./runtime-profile.mjs";
 import {
   eventStreamIdForThread,
   isRuntimeBackedAgent,

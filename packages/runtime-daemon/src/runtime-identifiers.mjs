@@ -1,4 +1,4 @@
-import { isRuntimeServiceProfile } from "./runtime-api-bridge.mjs";
+import { isRuntimeServiceProfile } from "./runtime-profile.mjs";
 import { DAEMON_FIXTURE_PROFILE } from "./runtime-contract-constants.mjs";
 
 export function threadIdForAgent(agentId) {
