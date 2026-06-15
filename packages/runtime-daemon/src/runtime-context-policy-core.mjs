@@ -56,6 +56,8 @@ export const RUNTIME_TOOL_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.tool-catalog-projection-request.v1";
 export const RUNTIME_LIFECYCLE_PROJECTION_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.lifecycle-projection-request.v1";
+export const RUNTIME_DOCTOR_REPORT_PROJECTION_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.doctor-report-projection-request.v1";
 export const RUNTIME_MEMORY_PROJECTION_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.memory-projection-request.v1";
 export const RUNTIME_MEMORY_CONTROL_REQUEST_SCHEMA_VERSION =
@@ -211,6 +213,8 @@ export const RUNTIME_PROJECTION_TOOL_CATALOG_API_METHOD =
   "projectRuntimeToolCatalog";
 export const RUNTIME_PROJECTION_LIFECYCLE_API_METHOD =
   "projectRuntimeLifecycle";
+export const RUNTIME_PROJECTION_DOCTOR_REPORT_API_METHOD =
+  "projectRuntimeDoctorReport";
 export const RUNTIME_PROJECTION_MANAGED_SESSION_API_METHOD =
   "projectRuntimeManagedSessionProjection";
 export const RUNTIME_CONTROL_MANAGED_SESSION_API_METHOD =
@@ -592,6 +596,14 @@ export class RuntimeContextPolicyCore {
     return normalizeRuntimeLifecycleProjectionBridgeResult(this.invokeRuntimeProjectionApi(
       RUNTIME_PROJECTION_LIFECYCLE_API_METHOD,
       RUNTIME_LIFECYCLE_PROJECTION_REQUEST_SCHEMA_VERSION,
+      request,
+    ));
+  }
+
+  projectRuntimeDoctorReport(request = {}) {
+    return normalizeRuntimeDoctorReportProjectionBridgeResult(this.invokeRuntimeProjectionApi(
+      RUNTIME_PROJECTION_DOCTOR_REPORT_API_METHOD,
+      RUNTIME_DOCTOR_REPORT_PROJECTION_REQUEST_SCHEMA_VERSION,
       request,
     ));
   }
@@ -2166,6 +2178,34 @@ export function normalizeRuntimeLifecycleProjectionBridgeResult(value = {}) {
     projection:
       objectRecord(projection) ?? (Array.isArray(projection) ? projection : projection ?? null),
     record_count: numberValue(result.record_count ?? record.record_count),
+    evidence_refs: stringArray(result.evidence_refs ?? record.evidence_refs),
+    receipt_refs: stringArray(result.receipt_refs ?? record.receipt_refs),
+    record,
+  };
+}
+
+export function normalizeRuntimeDoctorReportProjectionBridgeResult(value = {}) {
+  const result = objectRecord(value) ?? {};
+  const record = objectRecord(result.record) ?? result;
+  const report = objectRecord(result.report) ?? objectRecord(record.report);
+  return {
+    ...record,
+    source:
+      result.source ??
+      record.source ??
+      "rust_runtime_doctor_report_projection_api",
+    backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
+    object: optionalString(result.object ?? record.object) ?? null,
+    status: optionalString(result.status ?? record.status) ?? null,
+    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+      codePrefix: "runtime_doctor_report_projection",
+      expectedOperationKind: "runtime.doctor_report.projection",
+    }),
+    workspace_root:
+      optionalString(result.workspace_root ?? record.workspace_root) ?? null,
+    state_dir: optionalString(result.state_dir ?? record.state_dir) ?? null,
+    report,
+    record_count: numberValue(result.record_count ?? record.record_count) ?? (report ? 1 : 0),
     evidence_refs: stringArray(result.evidence_refs ?? record.evidence_refs),
     receipt_refs: stringArray(result.receipt_refs ?? record.receipt_refs),
     record,

@@ -45,6 +45,7 @@ import {
   RUNTIME_PROJECTION_DIAGNOSTICS_REPAIR_PROJECTION_API_METHOD,
   RUNTIME_PROJECTION_TASK_JOB_API_METHOD,
   RUNTIME_PROJECTION_LIFECYCLE_API_METHOD,
+  RUNTIME_PROJECTION_DOCTOR_REPORT_API_METHOD,
   RUNTIME_PROJECTION_MANAGED_SESSION_API_METHOD,
   RUNTIME_PROJECTION_REPOSITORY_WORKFLOW_API_METHOD,
   RUNTIME_PROJECTION_SKILL_HOOK_REGISTRY_API_METHOD,
@@ -117,6 +118,7 @@ import {
   REPOSITORY_WORKFLOW_PROJECTION_REQUEST_SCHEMA_VERSION,
   RUNTIME_TOOL_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION,
   RUNTIME_LIFECYCLE_PROJECTION_REQUEST_SCHEMA_VERSION,
+  RUNTIME_DOCTOR_REPORT_PROJECTION_REQUEST_SCHEMA_VERSION,
   RUNTIME_MEMORY_CONTROL_REQUEST_SCHEMA_VERSION,
   RUNTIME_MEMORY_PROJECTION_REQUEST_SCHEMA_VERSION,
   RUNTIME_MCP_SERVE_TOOL_CALL_PLAN_REQUEST_SCHEMA_VERSION,
@@ -183,6 +185,7 @@ import {
   normalizeRuntimeTaskJobProjectionBridgeResult,
   normalizeRuntimeToolCatalogProjectionBridgeResult,
   normalizeRuntimeLifecycleProjectionBridgeResult,
+  normalizeRuntimeDoctorReportProjectionBridgeResult,
   normalizeRuntimeMemoryControlBridgeResult,
   normalizeRuntimeMcpServeToolCallPlanBridgeResult,
   normalizeRuntimeMcpServeToolResultProjectionBridgeResult,
@@ -2819,6 +2822,79 @@ test("runtime lifecycle projection core sends Rust daemon-core request", () => {
       assert.equal(
         error.code,
         "runtime_lifecycle_projection_operation_kind_mismatch",
+      );
+      assertNoRetiredOperationKindDetailAliases(error.details);
+      return true;
+    },
+  );
+});
+
+test("runtime doctor report projection core sends Rust daemon-core request", () => {
+  let captured = null;
+  const { calls, runner } = createRuntimeProjectionDirectCore(
+    RUNTIME_PROJECTION_DOCTOR_REPORT_API_METHOD,
+    (request) => {
+      captured = request;
+      return {
+        source: "rust_runtime_doctor_report_projection_api",
+        backend: "rust_policy",
+        record: {
+          object: "ioi.runtime_doctor_report_projection",
+          status: "projected",
+          operation: "runtime_doctor_report_projection",
+          operation_kind: "runtime.doctor_report.projection",
+          workspace_root: "/workspace/project",
+          state_dir: "/state",
+          report: {
+            schemaVersion: "ioi.agent-runtime.doctor.v1",
+            object: "ioi.agent_runtime_doctor_report",
+            status: "degraded",
+            readiness: "ready",
+            evidenceRefs: ["rust_daemon_core_runtime_doctor_report_projection"],
+          },
+          record_count: 1,
+          evidence_refs: ["rust_daemon_core_runtime_doctor_report_projection"],
+          receipt_refs: ["receipt_runtime_doctor_report_projection"],
+        },
+      };
+    },
+  );
+
+  const result = runner.projectRuntimeDoctorReport({
+    operation: "runtime_doctor_report_projection",
+    operation_kind: "runtime.doctor_report.projection",
+    base_url: "http://daemon.test",
+    workspace_root: "/workspace/project",
+    state_dir: "/state",
+  });
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, RUNTIME_PROJECTION_DOCTOR_REPORT_API_METHOD);
+  assert.equal(
+    captured.schema_version,
+    RUNTIME_DOCTOR_REPORT_PROJECTION_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(Object.hasOwn(captured, "backend"), false);
+  assert.equal(captured.operation, "runtime_doctor_report_projection");
+  assert.equal(captured.operation_kind, "runtime.doctor_report.projection");
+  assert.equal(captured.state_dir, "/state");
+  assert.equal(result.source, "rust_runtime_doctor_report_projection_api");
+  assert.equal(result.report.schemaVersion, "ioi.agent-runtime.doctor.v1");
+  assert.equal(result.report.evidenceRefs[0], "rust_daemon_core_runtime_doctor_report_projection");
+  assert.equal(Object.hasOwn(result.report, "runtimeDoctorReport"), false);
+
+  assert.throws(
+    () =>
+      normalizeRuntimeDoctorReportProjectionBridgeResult({
+        record: {
+          operation_kind: "runtime.doctor_report.retired_js_aggregate",
+          report: {},
+        },
+      }),
+    (error) => {
+      assert.equal(
+        error.code,
+        "runtime_doctor_report_projection_operation_kind_mismatch",
       );
       assertNoRetiredOperationKindDetailAliases(error.details);
       return true;

@@ -122,6 +122,13 @@ Slice 1272 additionally deletes the remaining runtime-service bridge-named
 profile helper artifact: live daemon code now imports `runtime-profile.mjs`,
 `runtime-api-bridge.mjs` and its test are absent, and conformance guards that
 the retired bridge module filename cannot return as compatibility scaffolding.
+Slice 1273 hard-cuts runtime doctor/readiness projection ownership into Rust:
+`/v1/doctor` now calls typed
+`daemonCoreRuntimeProjectionApi.projectRuntimeDoctorReport`, backed by Rust
+`RuntimeKernelService::project_runtime_doctor_report`; the
+`runtime-doctor-report.mjs` facade and test are absent; and conformance rejects
+any return to the JS doctor aggregate, daemon-store doctor wrapper, or mounted
+tool/skill surface composition inside the doctor route.
 Slice 1226 additionally retired the runtime compositor/task-job command
 transport family: task/job create/cancel/projection, workflow-edit control,
 managed-session projection/control, workspace-change projection/control,

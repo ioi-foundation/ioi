@@ -5119,9 +5119,10 @@ that schema/generation defaults, array/object extraction, and receipt-kind
 filtering are owned outside the broad dispatcher;
 public studio intent-frame routing now calls the intent resolver dependency
 directly instead of a daemon-store route wrapper;
-public doctor routing now calls the mounted doctor-report aggregate directly,
-and the doctor aggregate reads mounted tool and skill-hook surfaces instead of
-rediscovering public registry truth through daemon-store catalog wrappers;
+public doctor routing now calls typed
+`daemonCoreRuntimeProjectionApi.projectRuntimeDoctorReport` and returns the Rust
+doctor report, while `runtime-doctor-report.mjs` is absent so the doctor route
+cannot recompose readiness through mounted JS tool or skill surfaces;
 Rust-live coding-tool invocation can still shape workload results through a
 test-injected admission boundary, but the production-default invocation surface
 now fails closed before appending an accepted coding-tool result event from JS.
@@ -9997,6 +9998,21 @@ conformance guards both the deleted old path and the absence of
 command/binary bridge from persisting as a harmless-looking JS compatibility
 module while runtime-service execution and replay move toward stable Rust
 daemon-core protocol/API ownership.
+
+Slice 1273 hard-cuts runtime doctor/readiness onto a positive Rust daemon-core
+projection API. `/v1/doctor` now calls
+`contextPolicyCore.projectRuntimeDoctorReport()` with only request context facts,
+and Rust `runtime_doctor_report.rs` owns readiness checks, model_mount route/MCP
+replay, runtime tool/runtime-node catalog projection, skill/hook catalog
+projection, Agentgres state-dir/run/memory evidence, wallet.network redaction,
+and provider-key redaction before public truth returns. The JS
+`runtime-doctor-report.mjs` facade and test are deleted, daemon store no longer
+constructs `runtimeDoctorReport`, and conformance rejects any return to
+`store.runtimeDoctorReport`, the daemon-store `doctorReport()` wrapper,
+doctor-specific mounted JS tool/skill surface composition, missing-core degraded
+fallback strings, or the deleted facade files. This remains non-terminal because
+broader stable IDE/CLI/SDK protocol APIs and remaining route-family coverage over
+Rust replay records still need to close.
 
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,

@@ -22026,9 +22026,10 @@ function runReceipts() {
   const authorityEvidenceSummaryTest = exists("packages/runtime-daemon/src/authority-evidence-summary.test.mjs")
     ? read("packages/runtime-daemon/src/authority-evidence-summary.test.mjs")
     : "";
-  const runtimeDoctorReport = exists("packages/runtime-daemon/src/runtime-doctor-report.mjs")
-    ? read("packages/runtime-daemon/src/runtime-doctor-report.mjs")
+  const runtimeDoctorReportRustCore = exists("crates/services/src/agentic/runtime/kernel/runtime_doctor_report.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/runtime_doctor_report.rs")
     : "";
+  const runtimeDoctorReportJsExists = exists("packages/runtime-daemon/src/runtime-doctor-report.mjs");
   const codingToolsForRuntimeState = exists("packages/runtime-daemon/src/coding-tools.mjs")
     ? read("packages/runtime-daemon/src/coding-tools.mjs")
     : "";
@@ -22056,12 +22057,13 @@ function runReceipts() {
   const publicRuntimeRoutesTest = exists("packages/runtime-daemon/src/http/public-runtime-routes.test.mjs")
     ? read("packages/runtime-daemon/src/http/public-runtime-routes.test.mjs")
     : "";
+  const publicRuntimeDoctorRoute =
+    publicRuntimeRoutes.match(/if \(request\.method === "GET" && url\.pathname === "\/v1\/doctor"\) \{[\s\S]*?return;\n      \}/)?.[0] ??
+    "";
   const runtimeRouteHandlersTest = exists("packages/runtime-daemon/src/runtime-route-handlers.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-route-handlers.test.mjs")
     : "";
-  const runtimeDoctorReportTest = exists("packages/runtime-daemon/src/runtime-doctor-report.test.mjs")
-    ? read("packages/runtime-daemon/src/runtime-doctor-report.test.mjs")
-    : "";
+  const runtimeDoctorReportTestExists = exists("packages/runtime-daemon/src/runtime-doctor-report.test.mjs");
   const liveRuntimeDaemonContract = exists("scripts/lib/live-runtime-daemon-contract.test.mjs")
     ? read("scripts/lib/live-runtime-daemon-contract.test.mjs")
     : "";
@@ -22072,7 +22074,7 @@ function runReceipts() {
     threadPersistence,
     runtimeDaemonIndex,
     runtimeRunReadSurface,
-    runtimeDoctorReport,
+    runtimeDoctorReportRustCore,
     runtimeToolCatalog,
     threadTurnProjection,
   ].join("\n");
@@ -27069,18 +27071,18 @@ function runReceipts() {
       ) &&
       /agentgres_canonical_state_projection/.test(runtimeRunReadSurface) &&
       /runStateWatermark/.test(runtimeRunReadSurface) &&
-      /agentgres_canonical_state_projection/.test(runtimeDoctorReport) &&
-      /runStateWatermark/.test(runtimeDoctorReport) &&
-      /tool\.stable_tool_id/.test(runtimeDoctorReport) &&
-      /listTools: \(\) => \[\{ stable_tool_id: "fs\.read" \}\]/.test(
-        read("packages/runtime-daemon/src/runtime-doctor-report.test.mjs"),
+      /agentgres_canonical_state_projection/.test(runtimeDoctorReportRustCore) &&
+      /runStateWatermark/.test(runtimeDoctorReportRustCore) &&
+      /stable_tool_id/.test(runtimeDoctorReportRustCore) &&
+      /rust_projects_runtime_doctor_report_from_daemon_core_records/.test(
+        runtimeDoctorReportRustCore,
       ) &&
-      !/tool\.stableToolId/.test(runtimeDoctorReport),
+      !/stableToolId/.test(runtimeDoctorReportRustCore),
     [
       "packages/runtime-daemon/src/threads/thread-persistence.mjs",
       "packages/runtime-daemon/src/threads/thread-persistence.test.mjs",
       "packages/runtime-daemon/src/runtime-run-read-surface.mjs",
-      "packages/runtime-daemon/src/runtime-doctor-report.mjs",
+      "crates/services/src/agentic/runtime/kernel/runtime_doctor_report.rs",
       "packages/runtime-daemon/src/runtime-tool-catalog.mjs",
       "packages/runtime-daemon/src/threads/thread-turn-projection.mjs",
       "packages/runtime-daemon/src/index.mjs",
@@ -27195,34 +27197,55 @@ function runReceipts() {
       ) &&
       !/store\.(?:getAccount|listRuntimeNodes|listTools)\(/.test(publicRuntimeRoutes) &&
       !/^\s+(?:getAccount|listRuntimeNodes|listTools)\(/m.test(runtimeDaemonIndex) &&
-      /store\.runtimeDoctorReport\.doctorReport\(store, \{ baseUrl: baseUrlForRequest\(request\) \}\)/.test(
+      !runtimeDoctorReportJsExists &&
+      !runtimeDoctorReportTestExists &&
+      /pub const RUNTIME_DOCTOR_REPORT_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
+        runtimeDoctorReportRustCore,
+      ) &&
+      /pub struct RuntimeDoctorReportProjectionCore/.test(runtimeDoctorReportRustCore) &&
+      /rust_projects_runtime_doctor_report_from_daemon_core_records/.test(
+        runtimeDoctorReportRustCore,
+      ) &&
+      /rust_doctor_report_blocks_missing_required_agentgres_state/.test(
+        runtimeDoctorReportRustCore,
+      ) &&
+      /pub fn project_runtime_doctor_report\(/.test(runtimeKernelModule) &&
+      /RUNTIME_DOCTOR_REPORT_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
+        runtimeContextPolicyCoreForState,
+      ) &&
+      /RUNTIME_PROJECTION_DOCTOR_REPORT_API_METHOD/.test(
+        runtimeContextPolicyCoreForState,
+      ) &&
+      /projectRuntimeDoctorReport\(request = \{\}\)/.test(
+        runtimeContextPolicyCoreForState,
+      ) &&
+      /normalizeRuntimeDoctorReportProjectionBridgeResult/.test(
+        runtimeContextPolicyCoreForState,
+      ) &&
+      /runtime doctor report projection core sends Rust daemon-core request/.test(
+        runtimeContextPolicyCoreTestForState,
+      ) &&
+      /store\.contextPolicyCore\.projectRuntimeDoctorReport\(\{/.test(
         publicRuntimeRoutes,
       ) &&
-      !/store\.doctorReport\(/.test(publicRuntimeRoutes) &&
-      !/doctorReport\(\{ baseUrl = null \} = \{\}\)/.test(runtimeDaemonIndex) &&
+      /operation_kind:\s*"runtime\.doctor_report\.projection"/.test(publicRuntimeRoutes) &&
       /public runtime routes dispatch top-level daemon projections/.test(
         publicRuntimeRoutesTest,
       ) &&
+      /runtimeDoctorReport: retiredRouteWrapper/.test(publicRuntimeRoutesTest) &&
       /doctorReport: retiredRouteWrapper/.test(publicRuntimeRoutesTest) &&
-      /runtimeToolCatalogForDoctor/.test(runtimeDoctorReport) &&
-      /store\.toolSurface\.listTools\(\)/.test(runtimeDoctorReport) &&
-      /store\.toolSurface\.listRuntimeNodes\(\)/.test(runtimeDoctorReport) &&
-      !/store\.listTools\(\)/.test(runtimeDoctorReport) &&
-      !/store\.listRuntimeNodes\(\)/.test(runtimeDoctorReport) &&
-      !/Runtime tool catalog projection is retired in JS/.test(runtimeDoctorReport) &&
-      !/runtime_tool_catalog_rust_core_required/.test(runtimeDoctorReport) &&
-      !/runtime_skill_hook_registry_rust_core_required/.test(runtimeDoctorReport) &&
-      !/rustCoreRequired:\s*true/.test(runtimeDoctorReport) &&
-      /runtime doctor report fails closed when runtime tool catalog projection is Rust-core required/.test(
-        runtimeDoctorReportTest,
-      ) &&
-      /runtime doctor report fails closed when runtime-node projection is Rust-core required/.test(
-        runtimeDoctorReportTest,
-      ) &&
-      /runtime doctor report fails closed when skill-hook projection is Rust-core required/.test(
-        runtimeDoctorReportTest,
-      ) &&
-      /retired doctor store wrapper must not be routed/.test(runtimeDoctorReportTest) &&
+      /method:\s*"projectRuntimeDoctorReport"/.test(publicRuntimeRoutesTest) &&
+      !/store\.runtimeDoctorReport/.test(publicRuntimeRoutes) &&
+      !/store\.doctorReport\(/.test(publicRuntimeRoutes) &&
+      !/doctorReport\(\{ baseUrl = null \} = \{\}\)/.test(runtimeDaemonIndex) &&
+      !/runtimeToolCatalogForDoctor/.test(runtimeDaemonIndex) &&
+      !/store\.toolSurface\.listTools\(/.test(publicRuntimeDoctorRoute) &&
+      !/store\.toolSurface\.listRuntimeNodes\(/.test(publicRuntimeDoctorRoute) &&
+      !/Runtime tool catalog projection is retired in JS/.test(runtimeDoctorReportRustCore) &&
+      !/runtime_tool_catalog_rust_core_required/.test(runtimeDoctorReportRustCore) &&
+      !/runtime_skill_hook_registry_rust_core_required/.test(runtimeDoctorReportRustCore) &&
+      /runtime_doctor_js_aggregate_retired/.test(runtimeDoctorReportRustCore) &&
+      /agentgres_doctor_projection_replay_required/.test(runtimeDoctorReportRustCore) &&
       /const catalog = await fetchJsonStatus\(`\$\{daemon\.endpoint\}\/v1\/tools\?pack=coding`\)/.test(
         liveRuntimeDaemonContractForState,
       ) &&
@@ -27243,8 +27266,7 @@ function runReceipts() {
       "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
       "packages/runtime-daemon/src/runtime-tool-surface.mjs",
       "packages/runtime-daemon/src/runtime-tool-surface.test.mjs",
-      "packages/runtime-daemon/src/runtime-doctor-report.mjs",
-      "packages/runtime-daemon/src/runtime-doctor-report.test.mjs",
+      "crates/services/src/agentic/runtime/kernel/runtime_doctor_report.rs",
       "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
       "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
       "packages/runtime-daemon/src/index.mjs",

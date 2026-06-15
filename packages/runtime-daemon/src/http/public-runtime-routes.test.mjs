@@ -102,12 +102,17 @@ test("public runtime routes dispatch top-level daemon projections", async () => 
   const response = responseRecorder();
   const calls = [];
   const store = {
-    runtimeDoctorReport: {
-      doctorReport(surfaceStore, { baseUrl }) {
-        calls.push({ surfaceStore, baseUrl });
-        return { ok: true, baseUrl };
+    defaultCwd: "/workspace",
+    homeDir: "/home/operator",
+    schemaVersion: "ioi.agentgres.runtime.v0",
+    stateDir: "/state",
+    contextPolicyCore: {
+      projectRuntimeDoctorReport(request) {
+        calls.push({ method: "projectRuntimeDoctorReport", request });
+        return { report: { ok: true, baseUrl: request.base_url } };
       },
     },
+    runtimeDoctorReport: retiredRouteWrapper,
     doctorReport: retiredRouteWrapper,
   };
 
@@ -115,7 +120,19 @@ test("public runtime routes dispatch top-level daemon projections", async () => 
 
   assert.equal(response.statusCode, 200);
   assert.deepEqual(JSON.parse(response.body), { ok: true, baseUrl: "http://daemon.test" });
-  assert.deepEqual(calls, [{ surfaceStore: store, baseUrl: "http://daemon.test" }]);
+  assert.deepEqual(calls, [{
+    method: "projectRuntimeDoctorReport",
+    request: {
+      operation: "runtime_doctor_report_projection",
+      operation_kind: "runtime.doctor_report.projection",
+      base_url: "http://daemon.test",
+      workspace_root: "/workspace",
+      state_dir: "/state",
+      home_dir: "/home/operator",
+      runtime_schema_version: "ioi.agentgres.runtime.v0",
+      source: "public_runtime_routes./v1/doctor",
+    },
+  }]);
 });
 
 test("public runtime repository workflow routes use mounted repository surface", async () => {

@@ -38,6 +38,7 @@ pub mod runtime_conversation_artifact_projection;
 pub mod runtime_diagnostics_repair_control;
 pub mod runtime_diagnostics_repair_policy;
 pub mod runtime_diagnostics_repair_projection;
+pub mod runtime_doctor_report;
 pub mod runtime_lifecycle;
 pub mod runtime_managed_session_control;
 pub mod runtime_mcp_serve;
@@ -274,6 +275,10 @@ use runtime_diagnostics_repair_policy::{
 use runtime_diagnostics_repair_projection::{
     RuntimeDiagnosticsRepairProjectionCommandError, RuntimeDiagnosticsRepairProjectionCore,
     RuntimeDiagnosticsRepairProjectionRecord, RuntimeDiagnosticsRepairProjectionRequest,
+};
+use runtime_doctor_report::{
+    RuntimeDoctorReportProjectionCommandError, RuntimeDoctorReportProjectionCore,
+    RuntimeDoctorReportProjectionRecord, RuntimeDoctorReportProjectionRequest,
 };
 use runtime_lifecycle::{
     RuntimeLifecycleProjectionBridgeRequest, RuntimeLifecycleProjectionCommandError,
@@ -688,6 +693,14 @@ impl RuntimeKernelService {
         request: &RuntimeLifecycleProjectionBridgeRequest,
     ) -> Result<RuntimeLifecycleProjectionRecord, RuntimeLifecycleProjectionCommandError> {
         RuntimeLifecycleProjectionCore::default().project(request.clone())
+    }
+
+    pub fn project_runtime_doctor_report(
+        &self,
+        request: &RuntimeDoctorReportProjectionRequest,
+    ) -> Result<RuntimeDoctorReportProjectionRecord, RuntimeDoctorReportProjectionCommandError>
+    {
+        RuntimeDoctorReportProjectionCore::default().project(request.clone())
     }
 
     pub fn project_runtime_memory_projection(

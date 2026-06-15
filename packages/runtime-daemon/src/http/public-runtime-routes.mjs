@@ -48,7 +48,19 @@ export function createPublicRuntimeRequestHandler(deps) {
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/doctor") {
-        writeJsonResponse(response, store.runtimeDoctorReport.doctorReport(store, { baseUrl: baseUrlForRequest(request) }));
+        writeJsonResponse(
+          response,
+          store.contextPolicyCore.projectRuntimeDoctorReport({
+            operation: "runtime_doctor_report_projection",
+            operation_kind: "runtime.doctor_report.projection",
+            base_url: baseUrlForRequest(request),
+            workspace_root: store.defaultCwd,
+            state_dir: store.stateDir,
+            home_dir: store.homeDir,
+            runtime_schema_version: store.schemaVersion,
+            source: "public_runtime_routes./v1/doctor",
+          }).report,
+        );
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/computer-use/browser-discovery") {

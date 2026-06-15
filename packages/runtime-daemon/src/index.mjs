@@ -35,7 +35,6 @@ import {
 } from "./runtime-identifiers.mjs";
 import { boundedPositiveInteger } from "./runtime-mcp-helpers.mjs";
 import {
-  redactRuntimeNodeForDoctor,
   runtimeToolRegistryGovernanceMetadata,
 } from "./runtime-tool-catalog.mjs";
 import { mcpRegistryForWorkspace } from "./mcp-manager.mjs";
@@ -78,7 +77,6 @@ import { createRuntimeRunEventHelpers } from "./runtime-run-event-helpers.mjs";
 import { createRuntimeEventEnvelopeHelpers } from "./runtime-event-envelopes.mjs";
 import { createRuntimeEventPayloadHelpers } from "./runtime-event-payloads.mjs";
 import { createRuntimeCodingToolResultHelpers } from "./runtime-coding-tool-results.mjs";
-import { createRuntimeDoctorReport } from "./runtime-doctor-report.mjs";
 import { createRuntimeCodingToolApprovalCore } from "./runtime-coding-tool-approval-core.mjs";
 import { createRuntimeCodingToolArtifactSurface } from "./runtime-coding-tool-artifact-surface.mjs";
 import { createRuntimeCodingToolInvocationSurface } from "./runtime-coding-tool-invocation-surface.mjs";
@@ -109,7 +107,6 @@ import { createRuntimeToolSurface } from "./runtime-tool-surface.mjs";
 import { createRuntimeSubagentSurface } from "./runtime-subagent-surface.mjs";
 import {
   booleanValue,
-  doctorCheck,
   doctorHash,
   normalizeArray,
   normalizeBooleanOption,
@@ -411,7 +408,6 @@ const handleRequest = createPublicRuntimeRequestHandler({
 });
 
 const {
-  doctorProviderKeyReport,
   ensureProviderAvailable,
   loadCursorCompatibilityConfig,
   memoryOptionsForRequest,
@@ -675,16 +671,6 @@ export class AgentgresRuntimeStateStore {
       threadStatusForAgent,
     });
     this.threadAuxiliarySurface = createRuntimeThreadAuxiliarySurface();
-    this.runtimeDoctorReport = createRuntimeDoctorReport({
-      doctorCheck,
-      doctorHash,
-      doctorProviderKeyReport,
-      fs,
-      normalizeArray,
-      path,
-      processEnv: process.env,
-      redactRuntimeNodeForDoctor,
-    });
     this.conversationArtifactSurface = createRuntimeConversationArtifactSurface({
       contextPolicyCore: this.contextPolicyCore,
       notFound,
