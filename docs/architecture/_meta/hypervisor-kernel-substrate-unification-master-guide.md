@@ -10371,13 +10371,14 @@ custody, durable memory replay/projection depth, and stable IDE/SDK memory APIs.
 Slice 1296 hard-cuts runtime task/job runner injection scaffolding.
 `createRuntimeTaskJobSurface()` no longer accepts `taskJobCreateRunner`,
 `taskJobCancelRunner`, or `taskJobProjectionRunner`; task create, task/job
-cancel, and task/job read projection resolve only `store.contextPolicyCore`
-before entering the Rust daemon-core task/job planners/projector. Daemon
-construction no longer wires parallel task/job runner handles, focused tests
-mount fake Rust planners only under `store.contextPolicyCore`, and conformance
-guards that the retired alias names cannot return. Remaining work is durable
-task/job replay/projection depth, wallet/cTEE task authority, direct lifecycle
-APIs, and stable IDE/CLI/SDK task/job clients, not a JS runner fallback.
+cancel, and task/job read projection moved onto the Rust daemon-core task/job
+planners/projector before Agentgres-backed run persistence or route projection.
+Daemon construction no longer wires parallel task/job runner handles, and
+conformance guards that the retired alias names cannot return; Slice 1314
+removes the remaining store-mounted planner/projector fallback. Remaining work
+is durable task/job replay/projection depth, wallet/cTEE task authority, direct
+lifecycle APIs, and stable IDE/CLI/SDK task/job clients, not a JS runner
+fallback.
 
 Slice 1297 hard-cuts diagnostics repair runner injection scaffolding.
 `createRuntimeDiagnosticsRepairSurface()` no longer accepts
@@ -10580,6 +10581,17 @@ fallback. Conformance now guards that the retired fallback cannot return.
 Remaining work is retry-event materialization, durable replay/projection, and
 deeper approval authority projection, not an alternate budget recovery planner
 mount.
+
+Slice 1314 hard-cuts the runtime task/job surface store-core fallback. Task
+create, task/job cancel, and task/job list/get projection now resolve only
+through the positive `contextPolicyCore` mount supplied to
+`createRuntimeTaskJobSurface()` by daemon startup. The task/job surface and
+focused tests no longer read or model `store.contextPolicyCore` or
+`store.contextPolicyCore ?? null`, so task/job run truth and read projection
+cannot return through a store-mounted planner/projector fallback. Conformance
+now guards that the retired fallback cannot return. Remaining work is durable
+task/job replay/projection depth, wallet/cTEE task authority, direct lifecycle
+APIs, and stable protocol clients, not an alternate task/job core mount.
 
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,

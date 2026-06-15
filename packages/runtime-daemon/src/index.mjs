@@ -783,6 +783,7 @@ export class AgentgresRuntimeStateStore {
     });
     this.taskJobSurface = createRuntimeTaskJobSurface({
       buildRun,
+      contextPolicyCore: this.contextPolicyCore,
       ensureProviderAvailable,
       notFound,
       optionalString,

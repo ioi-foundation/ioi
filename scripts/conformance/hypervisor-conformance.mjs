@@ -32047,8 +32047,11 @@ function runCompositor() {
     !/taskJob(?:Create|Cancel|Projection)Runner/.test(
       runtimeTaskJobSurface + runtimeDaemonIndex + runtimeTaskJobSurfaceTest,
     ) &&
-    (runtimeTaskJobSurface.match(/const runner = store\.contextPolicyCore \?\? null;/g) ?? [])
-      .length >= 3 &&
+    /contextPolicyCore = null/.test(runtimeTaskJobSurface) &&
+    !/store\.contextPolicyCore|store\?\.contextPolicyCore|store\.contextPolicyCore\s*\?\?\s*null/.test(
+      runtimeTaskJobSurface + runtimeTaskJobSurfaceTest,
+    ) &&
+    /contextPolicyCore:\s*this\.contextPolicyCore/.test(runtimeDaemonIndex) &&
     /projectRuntimeTaskJob/.test(runtimeTaskJobSurface) &&
     /projectRuntimeTaskJobProjection/.test(runtimeTaskJobSurface) &&
     /runtime_task_job_projection_state_dir_required/.test(runtimeTaskJobSurface) &&
@@ -32227,7 +32230,7 @@ function runCompositor() {
       runtimeTaskJobSurface,
     ) &&
     !/taskJobCreateRunner/.test(runtimeDaemonIndex) &&
-    /buildRun,\s*\n\s*ensureProviderAvailable,\s*\n\s*notFound/.test(
+    /buildRun,\s*\n\s*contextPolicyCore:\s*this\.contextPolicyCore,\s*\n\s*ensureProviderAvailable,\s*\n\s*notFound/.test(
       runtimeDaemonIndex,
     ) &&
     !/taskJobCancelRunner/.test(runtimeDaemonIndex) &&
