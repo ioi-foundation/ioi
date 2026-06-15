@@ -380,7 +380,7 @@ export class RuntimeContextPolicyCore {
   }
 
   planCodingToolBudgetRecoveryStateUpdate(request = {}) {
-    return normalizeCodingToolBudgetRecoveryStateUpdateBridgeResult(this.invokeRuntimeControlApi(
+    return normalizeCodingToolBudgetRecoveryStateUpdateApiResult(this.invokeRuntimeControlApi(
       RUNTIME_CONTROL_CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_API_METHOD,
       CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
@@ -468,7 +468,7 @@ export class RuntimeContextPolicyCore {
   }
 
   planDiagnosticsOperatorOverrideStateUpdate(request = {}) {
-    return normalizeDiagnosticsOperatorOverrideStateUpdateBridgeResult(this.invokeRuntimeControlApi(
+    return normalizeDiagnosticsOperatorOverrideStateUpdateApiResult(this.invokeRuntimeControlApi(
       RUNTIME_CONTROL_DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_API_METHOD,
       DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
@@ -492,7 +492,7 @@ export class RuntimeContextPolicyCore {
   }
 
   planOperatorInterruptStateUpdate(request = {}) {
-    return normalizeOperatorInterruptStateUpdateBridgeResult(this.invokeRuntimeControlApi(
+    return normalizeOperatorInterruptStateUpdateApiResult(this.invokeRuntimeControlApi(
       RUNTIME_CONTROL_OPERATOR_INTERRUPT_STATE_UPDATE_API_METHOD,
       OPERATOR_INTERRUPT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
@@ -500,7 +500,7 @@ export class RuntimeContextPolicyCore {
   }
 
   planOperatorSteerStateUpdate(request = {}) {
-    return normalizeOperatorSteerStateUpdateBridgeResult(this.invokeRuntimeControlApi(
+    return normalizeOperatorSteerStateUpdateApiResult(this.invokeRuntimeControlApi(
       RUNTIME_CONTROL_OPERATOR_STEER_STATE_UPDATE_API_METHOD,
       OPERATOR_STEER_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
@@ -1283,7 +1283,7 @@ export function normalizeContextCompactionStateUpdateBridgeResult(value = {}) {
   };
 }
 
-export function normalizeCodingToolBudgetRecoveryStateUpdateBridgeResult(value = {}) {
+export function normalizeCodingToolBudgetRecoveryStateUpdateApiResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   return {
@@ -1291,7 +1291,7 @@ export function normalizeCodingToolBudgetRecoveryStateUpdateBridgeResult(value =
     source:
       result.source ??
       record.source ??
-      "rust_coding_tool_budget_recovery_state_update_command",
+      "rust_coding_tool_budget_recovery_state_update_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
@@ -1464,7 +1464,7 @@ export function normalizeRuntimeCodingToolArtifactReadProjectionBridgeResult(val
   };
 }
 
-export function normalizeDiagnosticsOperatorOverrideStateUpdateBridgeResult(value = {}) {
+export function normalizeDiagnosticsOperatorOverrideStateUpdateApiResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   return {
@@ -1472,7 +1472,7 @@ export function normalizeDiagnosticsOperatorOverrideStateUpdateBridgeResult(valu
     source:
       result.source ??
       record.source ??
-      "rust_diagnostics_operator_override_state_update_command",
+      "rust_diagnostics_operator_override_state_update_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
@@ -1487,7 +1487,7 @@ export function normalizeDiagnosticsOperatorOverrideStateUpdateBridgeResult(valu
   };
 }
 
-export function normalizeOperatorInterruptStateUpdateBridgeResult(value = {}) {
+export function normalizeOperatorInterruptStateUpdateApiResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   return {
@@ -1495,7 +1495,7 @@ export function normalizeOperatorInterruptStateUpdateBridgeResult(value = {}) {
     source:
       result.source ??
       record.source ??
-      "rust_operator_interrupt_state_update_command",
+      "rust_operator_interrupt_state_update_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
@@ -1512,7 +1512,7 @@ export function normalizeOperatorInterruptStateUpdateBridgeResult(value = {}) {
   };
 }
 
-export function normalizeOperatorSteerStateUpdateBridgeResult(value = {}) {
+export function normalizeOperatorSteerStateUpdateApiResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   return {
@@ -1520,7 +1520,7 @@ export function normalizeOperatorSteerStateUpdateBridgeResult(value = {}) {
     source:
       result.source ??
       record.source ??
-      "rust_operator_steer_state_update_command",
+      "rust_operator_steer_state_update_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,

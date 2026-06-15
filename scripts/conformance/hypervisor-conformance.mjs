@@ -8874,58 +8874,78 @@ function runBridge() {
   assertCheck(
     result,
     "runtime-control-command-envelope-owned-by-rust-core",
-    /pub struct CodingToolBudgetRecoveryCommandError/.test(policyCodingToolBudgetRecoveryCore) &&
-      /pub fn plan_coding_tool_budget_recovery_state_update_response/.test(
+    /pub struct CodingToolBudgetRecoveryStateUpdateCore;/.test(policyCodingToolBudgetRecoveryCore) &&
+      /pub struct CodingToolBudgetRecoveryControlCore;/.test(
         policyCodingToolBudgetRecoveryCore,
       ) &&
-	      /pub fn plan_coding_tool_budget_recovery_control_response/.test(
+      !/CodingToolBudgetRecoveryCommandError/.test(policyCodingToolBudgetRecoveryCore) &&
+      !/CodingToolBudgetRecoveryStateUpdateBridgeRequest/.test(
 	        policyCodingToolBudgetRecoveryCore,
 	      ) &&
+      !/CodingToolBudgetRecoveryControlBridgeRequest/.test(
+        policyCodingToolBudgetRecoveryCore,
+      ) &&
+      !/pub fn plan_coding_tool_budget_recovery_state_update_response/.test(
+        policyCodingToolBudgetRecoveryCore,
+      ) &&
+      !/pub fn plan_coding_tool_budget_recovery_control_response/.test(
+        policyCodingToolBudgetRecoveryCore,
+      ) &&
 	      !/plan_coding_tool_budget_recovery_admission_required/.test(
 	        commandProtocolCore + coreCommandDispatch + policyCodingToolBudgetRecoveryCore + runtimeContextPolicyCore,
 	      ) &&
 	      !/planCodingToolBudgetRecoveryAdmissionRequired/.test(runtimeContextPolicyCore) &&
-	      /rust_coding_tool_budget_recovery_state_update_command/.test(
+      !/rust_coding_tool_budget_recovery_state_update_command/.test(
 	        policyCodingToolBudgetRecoveryCore,
 	      ) &&
-	      /rust_coding_tool_budget_recovery_control_command/.test(
+      !/rust_coding_tool_budget_recovery_control_command/.test(
 	        policyCodingToolBudgetRecoveryCore,
 	      ) &&
-      /rust_policy_shapes_coding_tool_budget_recovery_state_update_command_response/.test(
+      !/rust_policy_shapes_coding_tool_budget_recovery_state_update_command_response/.test(
         policyCodingToolBudgetRecoveryCore,
       ) &&
-	      /rust_policy_shapes_coding_tool_budget_recovery_control_command_response/.test(
+      !/rust_policy_shapes_coding_tool_budget_recovery_control_command_response/.test(
 	        policyCodingToolBudgetRecoveryCore,
 	      ) &&
-      /pub struct OperatorControlCommandError/.test(policyOperatorControlCore) &&
-      /pub fn plan_diagnostics_operator_override_state_update_response/.test(
+      /pub struct DiagnosticsOperatorOverrideStateUpdateCore;/.test(policyOperatorControlCore) &&
+      /pub struct OperatorInterruptStateUpdateCore;/.test(policyOperatorControlCore) &&
+      /pub struct OperatorSteerStateUpdateCore;/.test(policyOperatorControlCore) &&
+      /pub struct OperatorTurnControlAdmissionRequiredCore;/.test(policyOperatorControlCore) &&
+      !/OperatorControlCommandError/.test(policyOperatorControlCore) &&
+      !/DiagnosticsOperatorOverrideStateUpdateBridgeRequest/.test(
         policyOperatorControlCore,
       ) &&
-      /pub fn plan_operator_turn_control_admission_required_response/.test(
+      !/OperatorTurnControlAdmissionRequiredBridgeRequest/.test(policyOperatorControlCore) &&
+      !/OperatorInterruptStateUpdateBridgeRequest/.test(policyOperatorControlCore) &&
+      !/OperatorSteerStateUpdateBridgeRequest/.test(policyOperatorControlCore) &&
+      !/pub fn plan_diagnostics_operator_override_state_update_response/.test(
         policyOperatorControlCore,
       ) &&
-      /pub fn plan_operator_interrupt_state_update_response/.test(
+      !/pub fn plan_operator_turn_control_admission_required_response/.test(
         policyOperatorControlCore,
       ) &&
-      /pub fn plan_operator_steer_state_update_response/.test(policyOperatorControlCore) &&
-      /rust_diagnostics_operator_override_state_update_command/.test(
+      !/pub fn plan_operator_interrupt_state_update_response/.test(
         policyOperatorControlCore,
       ) &&
-      /rust_operator_turn_control_admission_required_command/.test(
+      !/pub fn plan_operator_steer_state_update_response/.test(policyOperatorControlCore) &&
+      !/rust_diagnostics_operator_override_state_update_command/.test(
         policyOperatorControlCore,
       ) &&
-      /rust_operator_interrupt_state_update_command/.test(policyOperatorControlCore) &&
-      /rust_operator_steer_state_update_command/.test(policyOperatorControlCore) &&
-      /rust_policy_shapes_diagnostics_operator_override_state_update_command_response/.test(
+      !/rust_operator_turn_control_admission_required_command/.test(
         policyOperatorControlCore,
       ) &&
-      /rust_policy_shapes_operator_turn_control_admission_required_command_response/.test(
+      !/rust_operator_interrupt_state_update_command/.test(policyOperatorControlCore) &&
+      !/rust_operator_steer_state_update_command/.test(policyOperatorControlCore) &&
+      !/rust_policy_shapes_diagnostics_operator_override_state_update_command_response/.test(
         policyOperatorControlCore,
       ) &&
-      /rust_policy_shapes_operator_interrupt_state_update_command_response/.test(
+      !/rust_policy_shapes_operator_turn_control_admission_required_command_response/.test(
         policyOperatorControlCore,
       ) &&
-      /rust_policy_shapes_operator_steer_state_update_command_response/.test(
+      !/rust_policy_shapes_operator_interrupt_state_update_command_response/.test(
+        policyOperatorControlCore,
+      ) &&
+      !/rust_policy_shapes_operator_steer_state_update_command_response/.test(
         policyOperatorControlCore,
       ) &&
       /pub struct RunCancelStateUpdateCore;/.test(policyRunCancelCore) &&
@@ -8965,7 +8985,7 @@ function runBridge() {
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "scripts/conformance/hypervisor-conformance.mjs",
     ],
-    "Phase 10/11 migration guard: runtime-control command request/response envelopes and source markers remain retired; run-cancel now exposes only typed Rust daemon-core policy APIs while the temporary Node delegate stays retired",
+    "Phase 10/11 migration guard: runtime-control command request/response envelopes and source markers remain retired; budget recovery, operator control, and run-cancel now expose only typed Rust daemon-core policy APIs while the temporary Node delegate stays retired",
   );
   const policyLifecycleMemoryCommandWrappers = [
     contextPolicyCommandBridge,
@@ -11128,13 +11148,16 @@ function runBridge() {
         codingToolBudgetRecoveryStateUpdateCoreBlock,
       ) &&
       !runtimeControlCommandBridgeExists && !/mod runtime_control_command;/.test(bridgeModule) &&
-      /pub fn plan_coding_tool_budget_recovery_state_update_response/.test(
+      !/pub fn plan_coding_tool_budget_recovery_state_update_response/.test(
         policyCodingToolBudgetRecoveryCore,
       ) &&
-      /rust_coding_tool_budget_recovery_state_update_command/.test(
+      !/CodingToolBudgetRecoveryStateUpdateBridgeRequest/.test(
         policyCodingToolBudgetRecoveryCore,
       ) &&
-      /rust_policy_shapes_coding_tool_budget_recovery_state_update_command_response/.test(
+      !/rust_coding_tool_budget_recovery_state_update_command/.test(
+        policyCodingToolBudgetRecoveryCore,
+      ) &&
+      !/rust_policy_shapes_coding_tool_budget_recovery_state_update_command_response/.test(
         policyCodingToolBudgetRecoveryCore,
       ) &&
       !/plan_coding_tool_budget_recovery_state_update_response as plan_coding_tool_budget_recovery_state_update/.test(bridgeModule) &&
@@ -11157,11 +11180,14 @@ function runBridge() {
       !/plan_coding_tool_budget_recovery_state_update_response\(decode\(raw_request\)\?\)/.test(
         coreCommandDispatch,
       ) &&
-      /response\["operator_control"\]\["approval_id"\]/.test(
+      /record\.operator_control\["approval_id"\]/.test(
         policyCodingToolBudgetRecoveryCore,
       ) &&
-      /response\["operator_control"\]\.get\("approvalId"\)\.is_none\(\)/.test(
+      /record\.operator_control\.get\("approvalId"\)\.is_none\(\)/.test(
         policyCodingToolBudgetRecoveryCore,
+      ) &&
+      /rust_coding_tool_budget_recovery_state_update_api/.test(
+        runtimeContextPolicyCoreTest,
       ) &&
       /planCodingToolBudgetRecoveryStateUpdate/.test(runtimeContextPolicyCore) &&
       /CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
@@ -11250,10 +11276,10 @@ function runBridge() {
 	      /rust_policy_rejects_coding_tool_budget_recovery_override_without_wallet_authority/.test(
 	        policyCodingToolBudgetRecoveryCore,
 	      ) &&
-      /rust_policy_shapes_coding_tool_budget_recovery_state_update_command_response/.test(
+      !/rust_policy_shapes_coding_tool_budget_recovery_state_update_command_response/.test(
         policyCodingToolBudgetRecoveryCore,
       ) &&
-	      /rust_policy_shapes_coding_tool_budget_recovery_control_command_response/.test(
+      !/rust_policy_shapes_coding_tool_budget_recovery_control_command_response/.test(
 	        policyCodingToolBudgetRecoveryCore,
 	      ) &&
       !/pub struct CodingToolBudgetRecoveryStateUpdateCore;/.test(policyFacade) &&
@@ -11319,22 +11345,29 @@ function runBridge() {
 	        policyCodingToolBudgetRecoveryCore,
 	      ) &&
 	      /MissingWalletNetworkAuthority/.test(policyCodingToolBudgetRecoveryCore) &&
-      /pub fn plan_coding_tool_budget_recovery_state_update_response/.test(
+      !/pub fn plan_coding_tool_budget_recovery_state_update_response/.test(
         policyCodingToolBudgetRecoveryCore,
       ) &&
-	      /pub fn plan_coding_tool_budget_recovery_control_response/.test(
+      !/pub fn plan_coding_tool_budget_recovery_control_response/.test(
 	        policyCodingToolBudgetRecoveryCore,
 	      ) &&
-      /rust_coding_tool_budget_recovery_state_update_command/.test(
+      !/CodingToolBudgetRecoveryCommandError/.test(policyCodingToolBudgetRecoveryCore) &&
+      !/CodingToolBudgetRecoveryStateUpdateBridgeRequest/.test(
         policyCodingToolBudgetRecoveryCore,
       ) &&
-	      /rust_coding_tool_budget_recovery_control_command/.test(
+      !/CodingToolBudgetRecoveryControlBridgeRequest/.test(
+        policyCodingToolBudgetRecoveryCore,
+      ) &&
+      !/rust_coding_tool_budget_recovery_state_update_command/.test(
+        policyCodingToolBudgetRecoveryCore,
+      ) &&
+      !/rust_coding_tool_budget_recovery_control_command/.test(
 	        policyCodingToolBudgetRecoveryCore,
 	      ) &&
-      /rust_policy_shapes_coding_tool_budget_recovery_state_update_command_response/.test(
+      !/rust_policy_shapes_coding_tool_budget_recovery_state_update_command_response/.test(
         policyCodingToolBudgetRecoveryCore,
       ) &&
-	      /rust_policy_shapes_coding_tool_budget_recovery_control_command_response/.test(
+      !/rust_policy_shapes_coding_tool_budget_recovery_control_command_response/.test(
 	        policyCodingToolBudgetRecoveryCore,
 	      ) &&
 	      !/plan_coding_tool_budget_recovery_state_update_response as plan_coding_tool_budget_recovery_state_update/.test(bridgeModule) &&
@@ -11360,9 +11393,10 @@ function runBridge() {
 	      /planCodingToolBudgetRecoveryControl\(request = \{\}\)/.test(
 	        runtimeContextPolicyCore,
 	      ) &&
-	      /coding-tool budget recovery control core sends Rust request through direct runtime-control API/.test(
-	        runtimeContextPolicyCoreTest,
-	      ) &&
+      /coding-tool budget recovery control core sends Rust request through direct runtime-control API/.test(
+        runtimeContextPolicyCoreTest,
+      ) &&
+      /rust_coding_tool_budget_recovery_control_api/.test(runtimeContextPolicyCoreTest) &&
       /codingToolBudgetRecoveryRunner:\s*this\.contextPolicyCore/.test(
         runtimeDaemonIndex,
       ) &&
@@ -11524,13 +11558,16 @@ function runBridge() {
       !/"decisionId": decision_id|"gateEventId": gate_event_id|"approvalRequired": approval\.required|"approvalSatisfied": approval\.satisfied|"approvalSource": approval\.source|"snapshotId": snapshot_id|"eventId": request\.event_id|"createdAt": request\.created_at/.test(
         diagnosticsOperatorOverrideStateUpdateCoreBlock,
       ) &&
-      /pub fn plan_diagnostics_operator_override_state_update_response/.test(
+      !/pub fn plan_diagnostics_operator_override_state_update_response/.test(
         policyOperatorControlCore,
       ) &&
-      /rust_diagnostics_operator_override_state_update_command/.test(
+      !/DiagnosticsOperatorOverrideStateUpdateBridgeRequest/.test(
         policyOperatorControlCore,
       ) &&
-      /rust_policy_shapes_diagnostics_operator_override_state_update_command_response/.test(
+      !/rust_diagnostics_operator_override_state_update_command/.test(
+        policyOperatorControlCore,
+      ) &&
+      !/rust_policy_shapes_diagnostics_operator_override_state_update_command_response/.test(
         policyOperatorControlCore,
       ) &&
       /rust_policy_derives_diagnostics_operator_override_approval_from_request_context/.test(
@@ -11568,8 +11605,8 @@ function runBridge() {
       !/plan_diagnostics_operator_override_state_update_response\(decode\(raw_request\)\?\)/.test(
         coreCommandDispatch,
       ) &&
-      /response\["operator_control"\]\["decision_id"\]/.test(policyOperatorControlCore) &&
-      /"decisionId"[\s\S]*"createdAt"[\s\S]*response\["operator_control"\]\.get\(field\)\.is_none\(\)/.test(
+      /record\.operator_control\["decision_id"\]/.test(policyOperatorControlCore) &&
+      /"decisionId"[\s\S]*"createdAt"[\s\S]*record\.operator_control\.get\(field\)\.is_none\(\)/.test(
         policyOperatorControlCore,
       ) &&
       /planDiagnosticsOperatorOverrideStateUpdate/.test(runtimeContextPolicyCore) &&
@@ -11577,6 +11614,9 @@ function runBridge() {
         runtimeContextPolicyCore,
       ) &&
       /diagnostics operator override state update core sends Rust state update through direct runtime-control API/.test(
+        runtimeContextPolicyCoreTest,
+      ) &&
+      /rust_diagnostics_operator_override_state_update_api/.test(
         runtimeContextPolicyCoreTest,
       ) &&
       /result\.operator_control\.decision_id/.test(runtimeContextPolicyCoreTest) &&
@@ -11707,11 +11747,12 @@ function runBridge() {
       !/"eventId": request\.event_id|"createdAt": request\.created_at/.test(
         operatorInterruptStateUpdateCoreBlock,
       ) &&
-      /pub fn plan_operator_interrupt_state_update_response/.test(
+      !/pub fn plan_operator_interrupt_state_update_response/.test(
         policyOperatorControlCore,
       ) &&
-      /rust_operator_interrupt_state_update_command/.test(policyOperatorControlCore) &&
-      /rust_policy_shapes_operator_interrupt_state_update_command_response/.test(
+      !/OperatorInterruptStateUpdateBridgeRequest/.test(policyOperatorControlCore) &&
+      !/rust_operator_interrupt_state_update_command/.test(policyOperatorControlCore) &&
+      !/rust_policy_shapes_operator_interrupt_state_update_command_response/.test(
         policyOperatorControlCore,
       ) &&
       !/plan_operator_interrupt_state_update_response as plan_operator_interrupt_state_update/.test(bridgeModule) &&
@@ -11721,20 +11762,21 @@ function runBridge() {
       ) &&
       !/fn plan_operator_interrupt_state_update/.test(bridgeModule) &&
       !/struct OperatorInterruptStateUpdateBridgeRequest/.test(bridgeModule) &&
-      /response\["operator_control"\]\["event_id"\]/.test(policyOperatorControlCore) &&
-      /response\["operator_control"\]\.get\("eventId"\)\.is_none\(\)/.test(
+      /record\.operator_control\["event_id"\]/.test(policyOperatorControlCore) &&
+      /record\.operator_control\.get\("eventId"\)\.is_none\(\)/.test(
         policyOperatorControlCore,
       ) &&
-      /response\["operator_control"\]\.get\("createdAt"\)\.is_none\(\)/.test(
+      /record\.operator_control\.get\("createdAt"\)\.is_none\(\)/.test(
         policyOperatorControlCore,
       ) &&
-      /pub fn plan_operator_turn_control_admission_required_response/.test(
+      !/pub fn plan_operator_turn_control_admission_required_response/.test(
         policyOperatorControlCore,
       ) &&
-      /rust_operator_turn_control_admission_required_command/.test(
+      !/OperatorTurnControlAdmissionRequiredBridgeRequest/.test(policyOperatorControlCore) &&
+      !/rust_operator_turn_control_admission_required_command/.test(
         policyOperatorControlCore,
       ) &&
-      /rust_policy_shapes_operator_turn_control_admission_required_command_response/.test(
+      !/rust_policy_shapes_operator_turn_control_admission_required_command_response/.test(
         policyOperatorControlCore,
       ) &&
       !/plan_operator_turn_control_admission_required_response as plan_operator_turn_control_admission_required/.test(bridgeModule) &&
@@ -11755,13 +11797,16 @@ function runBridge() {
       !/plan_operator_turn_control_admission_required_response\(decode\(raw_request\)\?\)/.test(
         coreCommandDispatch,
       ) &&
-      /response\["details"\]\["thread_id"\]/.test(policyOperatorControlCore) &&
-      /response\["details"\]\.get\(field\)\.is_none\(\)/.test(policyOperatorControlCore) &&
+      /record\.details\["thread_id"\]/.test(policyOperatorControlCore) &&
+      /record\.details\.get\(field\)\.is_none\(\)/.test(policyOperatorControlCore) &&
       /planOperatorTurnControlAdmissionRequired/.test(runtimeContextPolicyCore) &&
       /OPERATOR_TURN_CONTROL_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION/.test(
         runtimeContextPolicyCore,
       ) &&
       /operator turn control admission-required core sends Rust request through direct runtime-control API/.test(
+        runtimeContextPolicyCoreTest,
+      ) &&
+      /rust_operator_turn_control_admission_required_api/.test(
         runtimeContextPolicyCoreTest,
       ) &&
       /calls\[0\]\.method,\s*RUNTIME_CONTROL_OPERATOR_TURN_CONTROL_ADMISSION_REQUIRED_API_METHOD/.test(
@@ -11786,6 +11831,7 @@ function runBridge() {
       /operator interrupt state update core sends Rust state update through direct runtime-control API/.test(
         runtimeContextPolicyCoreTest,
       ) &&
+      /rust_operator_interrupt_state_update_api/.test(runtimeContextPolicyCoreTest) &&
       /result\.operator_control\.event_id/.test(runtimeContextPolicyCoreTest) &&
       /Object\.hasOwn\(result\.operator_control,\s*"eventId"\),\s*false/.test(
         runtimeContextPolicyCoreTest,
@@ -11880,9 +11926,10 @@ function runBridge() {
       !/"eventId": request\.event_id|"createdAt": request\.created_at/.test(
         operatorSteerStateUpdateCoreBlock,
       ) &&
-      /pub fn plan_operator_steer_state_update_response/.test(policyOperatorControlCore) &&
-      /rust_operator_steer_state_update_command/.test(policyOperatorControlCore) &&
-      /rust_policy_shapes_operator_steer_state_update_command_response/.test(
+      !/pub fn plan_operator_steer_state_update_response/.test(policyOperatorControlCore) &&
+      !/OperatorSteerStateUpdateBridgeRequest/.test(policyOperatorControlCore) &&
+      !/rust_operator_steer_state_update_command/.test(policyOperatorControlCore) &&
+      !/rust_policy_shapes_operator_steer_state_update_command_response/.test(
         policyOperatorControlCore,
       ) &&
       !/plan_operator_steer_state_update_response as plan_operator_steer_state_update/.test(bridgeModule) &&
@@ -11890,11 +11937,11 @@ function runBridge() {
       !/bridge_plans_operator_steer_state_update_through_rust_core/.test(bridgeModule) &&
       !/fn plan_operator_steer_state_update/.test(bridgeModule) &&
       !/struct OperatorSteerStateUpdateBridgeRequest/.test(bridgeModule) &&
-      /response\["operator_control"\]\["event_id"\]/.test(policyOperatorControlCore) &&
-      /response\["operator_control"\]\.get\("eventId"\)\.is_none\(\)/.test(
+      /record\.operator_control\["event_id"\]/.test(policyOperatorControlCore) &&
+      /record\.operator_control\.get\("eventId"\)\.is_none\(\)/.test(
         policyOperatorControlCore,
       ) &&
-      /response\["operator_control"\]\.get\("createdAt"\)\.is_none\(\)/.test(
+      /record\.operator_control\.get\("createdAt"\)\.is_none\(\)/.test(
         policyOperatorControlCore,
       ) &&
       /planOperatorSteerStateUpdate/.test(runtimeContextPolicyCore) &&
@@ -11911,6 +11958,7 @@ function runBridge() {
       /operator steer state update core sends Rust state update through direct runtime-control API/.test(
         runtimeContextPolicyCoreTest,
       ) &&
+      /rust_operator_steer_state_update_api/.test(runtimeContextPolicyCoreTest) &&
       /result\.operator_control\.event_id/.test(runtimeContextPolicyCoreTest) &&
       /Object\.hasOwn\(result\.operator_control,\s*"eventId"\),\s*false/.test(
         runtimeContextPolicyCoreTest,

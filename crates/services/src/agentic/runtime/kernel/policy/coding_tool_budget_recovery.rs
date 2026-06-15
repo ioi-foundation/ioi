@@ -164,99 +164,6 @@ struct CodingToolBudgetRecoveryAuthorityRecord {
     generated_at: String,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct CodingToolBudgetRecoveryCommandError {
-    code: &'static str,
-    message: String,
-}
-
-impl CodingToolBudgetRecoveryCommandError {
-    pub fn code(&self) -> &'static str {
-        self.code
-    }
-
-    pub fn message(&self) -> &str {
-        self.message.as_str()
-    }
-
-    fn from_debug<E: std::fmt::Debug>(code: &'static str, error: E) -> Self {
-        Self {
-            code,
-            message: format!("{error:?}"),
-        }
-    }
-}
-
-#[derive(Debug, Deserialize)]
-pub struct CodingToolBudgetRecoveryStateUpdateBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: CodingToolBudgetRecoveryStateUpdateRequest,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct CodingToolBudgetRecoveryControlBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: CodingToolBudgetRecoveryControlRequest,
-}
-
-pub fn plan_coding_tool_budget_recovery_state_update_response(
-    request: CodingToolBudgetRecoveryStateUpdateBridgeRequest,
-) -> Result<Value, CodingToolBudgetRecoveryCommandError> {
-    let record = CodingToolBudgetRecoveryStateUpdateCore
-        .plan(&request.request)
-        .map_err(|error| {
-            CodingToolBudgetRecoveryCommandError::from_debug(
-                "coding_tool_budget_recovery_state_update_invalid",
-                error,
-            )
-        })?;
-    Ok(json!({
-        "source": "rust_coding_tool_budget_recovery_state_update_command",
-        "backend": runtime_control_policy_backend(request.backend),
-        "record": record.clone(),
-        "status": record.status.clone(),
-        "operation_kind": record.operation_kind.clone(),
-        "updated_at": record.updated_at.clone(),
-        "operator_control": record.operator_control.clone(),
-        "run": record.run.clone(),
-    }))
-}
-
-pub fn plan_coding_tool_budget_recovery_control_response(
-    request: CodingToolBudgetRecoveryControlBridgeRequest,
-) -> Result<Value, CodingToolBudgetRecoveryCommandError> {
-    let record = CodingToolBudgetRecoveryControlCore
-        .plan(&request.request)
-        .map_err(|error| {
-            CodingToolBudgetRecoveryCommandError::from_debug(
-                "coding_tool_budget_recovery_control_invalid",
-                error,
-            )
-        })?;
-    Ok(json!({
-        "source": "rust_coding_tool_budget_recovery_control_command",
-        "backend": runtime_control_policy_backend(request.backend),
-        "record": record.clone(),
-        "status": record.status.clone(),
-        "action": record.action.clone(),
-        "operation_kind": record.operation_kind.clone(),
-        "operator_control": record.operator_control.clone(),
-        "run": record.run.clone(),
-        "receipt_refs": record.receipt_refs.clone(),
-        "policy_decision_refs": record.policy_decision_refs.clone(),
-        "wallet_network_grant_refs": record.wallet_network_grant_refs.clone(),
-        "authority_receipt_refs": record.authority_receipt_refs.clone(),
-        "authority": record.authority.clone(),
-        "authority_hash": record.authority_hash.clone(),
-    }))
-}
-
-fn runtime_control_policy_backend(backend: Option<String>) -> String {
-    backend.unwrap_or_else(|| "rust_policy".to_string())
-}
-
 #[derive(Debug, Default, Clone)]
 pub struct CodingToolBudgetRecoveryStateUpdateCore;
 
@@ -829,40 +736,6 @@ mod tests {
     }
 
     #[test]
-    fn rust_policy_shapes_coding_tool_budget_recovery_state_update_command_response() {
-        let response = plan_coding_tool_budget_recovery_state_update_response(
-            CodingToolBudgetRecoveryStateUpdateBridgeRequest {
-                backend: Some("rust_policy".to_string()),
-                request: coding_tool_budget_recovery_state_update_request(),
-            },
-        )
-        .expect("coding tool budget recovery state update command response");
-
-        assert_eq!(
-            response["source"],
-            "rust_coding_tool_budget_recovery_state_update_command"
-        );
-        assert_eq!(response["backend"], "rust_policy");
-        assert_eq!(response["status"], "planned");
-        assert_eq!(response["operation_kind"], "workflow.run.retry_completed");
-        assert_eq!(
-            response["operator_control"]["approval_id"],
-            "approval_budget"
-        );
-        assert!(response["operator_control"].get("approvalId").is_none());
-        assert!(response["operator_control"].get("eventId").is_none());
-        assert!(response["operator_control"].get("receiptRefs").is_none());
-        assert!(response["operator_control"]
-            .get("policyDecisionRefs")
-            .is_none());
-        assert!(response["operator_control"].get("createdAt").is_none());
-        assert_eq!(
-            response["run"]["trace"]["operatorControls"][0]["control"],
-            "coding_tool_budget_recovery"
-        );
-    }
-
-    #[test]
     fn rust_policy_plans_coding_tool_budget_recovery_request_approval_control() {
         let record = CodingToolBudgetRecoveryControlCore
             .plan(&coding_tool_budget_recovery_control_request(
@@ -896,51 +769,6 @@ mod tests {
         assert!(record.operator_control.get("approvalId").is_none());
         assert!(record.operator_control.get("sourceEventId").is_none());
         assert!(record.operator_control.get("authorityHash").is_none());
-    }
-
-    #[test]
-    fn rust_policy_shapes_coding_tool_budget_recovery_control_command_response() {
-        let response = plan_coding_tool_budget_recovery_control_response(
-            CodingToolBudgetRecoveryControlBridgeRequest {
-                backend: Some("rust_policy".to_string()),
-                request: coding_tool_budget_recovery_control_request("approve_override"),
-            },
-        )
-        .expect("coding-tool budget recovery control command response");
-
-        assert_eq!(
-            response["source"],
-            "rust_coding_tool_budget_recovery_control_command"
-        );
-        assert_eq!(response["backend"], "rust_policy");
-        assert_eq!(response["status"], "planned");
-        assert_eq!(
-            response["operation_kind"],
-            "workflow.run.coding_tool_budget_recovery.approve_override"
-        );
-        assert_eq!(response["action"], "approve_override");
-        assert_eq!(
-            response["operator_control"]["approval_id"],
-            "approval_alpha"
-        );
-        assert_eq!(
-            response["wallet_network_grant_refs"][0],
-            "wallet.network://grant/coding-tool-budget-recovery"
-        );
-        assert_eq!(
-            response["authority_receipt_refs"][0],
-            "receipt://wallet.network/coding-tool-budget-recovery"
-        );
-        assert_eq!(
-            response["authority"]["projection_source"],
-            "rust_daemon_core_wallet_network_coding_tool_budget_recovery_authority"
-        );
-        assert!(response["authority_hash"]
-            .as_str()
-            .unwrap()
-            .starts_with("sha256:"));
-        assert!(response["operator_control"].get("approvalId").is_none());
-        assert!(response["operator_control"].get("authorityHash").is_none());
     }
 
     #[test]

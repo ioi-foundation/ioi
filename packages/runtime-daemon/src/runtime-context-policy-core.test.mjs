@@ -151,7 +151,7 @@ import {
   normalizeAgentDeleteStateUpdateBridgeResult,
   normalizeAgentStatusStateUpdateBridgeResult,
   normalizeCodingToolBudgetBlockBridgeResult,
-  normalizeCodingToolBudgetRecoveryStateUpdateBridgeResult,
+  normalizeCodingToolBudgetRecoveryStateUpdateApiResult,
   normalizeCodingToolResultEnvelopePlanBridgeResult,
   normalizeRuntimeCodingToolArtifactDraftPlanBridgeResult,
   normalizeRuntimeCodingToolArtifactReadProjectionBridgeResult,
@@ -159,7 +159,7 @@ import {
   normalizeContextBudgetPolicyBridgeResult,
   normalizeContextCompactionPlanBridgeResult,
   normalizeContextCompactionStateUpdateBridgeResult,
-  normalizeDiagnosticsOperatorOverrideStateUpdateBridgeResult,
+  normalizeDiagnosticsOperatorOverrideStateUpdateApiResult,
   normalizeMcpControlAgentStateUpdateApiResult,
   normalizeMcpManagerCatalogProjectionApiResult,
   normalizeMcpManagerCatalogSummaryProjectionApiResult,
@@ -169,8 +169,8 @@ import {
   normalizeMcpToolSearchProjectionApiResult,
   normalizeMemoryManagerStatusProjectionBridgeResult,
   normalizeMemoryManagerValidationProjectionBridgeResult,
-  normalizeOperatorInterruptStateUpdateBridgeResult,
-  normalizeOperatorSteerStateUpdateBridgeResult,
+  normalizeOperatorInterruptStateUpdateApiResult,
+  normalizeOperatorSteerStateUpdateApiResult,
   normalizePostEditDiagnosticsFeedbackPlanBridgeResult,
   normalizeRunCancelStateUpdateApiResult,
   normalizeRuntimeTaskJobCancelStateUpdateBridgeResult,
@@ -710,30 +710,30 @@ test("runtime context lifecycle core does not synthesize Rust-owned public field
 test("runtime state-update core does not synthesize Rust-owned envelopes", () => {
   const sparseCases = [
     [
-      normalizeCodingToolBudgetRecoveryStateUpdateBridgeResult,
+      normalizeCodingToolBudgetRecoveryStateUpdateApiResult,
       {
-        source: "rust_coding_tool_budget_recovery_state_update_command",
+        source: "rust_coding_tool_budget_recovery_state_update_api",
         operation_kind: "workflow.run.retry_completed",
       },
     ],
     [
-      normalizeDiagnosticsOperatorOverrideStateUpdateBridgeResult,
+      normalizeDiagnosticsOperatorOverrideStateUpdateApiResult,
       {
-        source: "rust_diagnostics_operator_override_state_update_command",
+        source: "rust_diagnostics_operator_override_state_update_api",
         operation_kind: "diagnostics.operator_override.event",
       },
     ],
     [
-      normalizeOperatorInterruptStateUpdateBridgeResult,
+      normalizeOperatorInterruptStateUpdateApiResult,
       {
-        source: "rust_operator_interrupt_state_update_command",
+        source: "rust_operator_interrupt_state_update_api",
         operation_kind: "turn.interrupt",
       },
     ],
     [
-      normalizeOperatorSteerStateUpdateBridgeResult,
+      normalizeOperatorSteerStateUpdateApiResult,
       {
-        source: "rust_operator_steer_state_update_command",
+        source: "rust_operator_steer_state_update_api",
         operation_kind: "turn.steer",
       },
     ],
@@ -828,7 +828,7 @@ test("coding tool budget recovery state update core sends Rust state update thro
   const { calls, runner } = createRuntimeControlDirectCore(
     RUNTIME_CONTROL_CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_API_METHOD,
     () => ({
-            source: "rust_coding_tool_budget_recovery_state_update_command",
+            source: "rust_coding_tool_budget_recovery_state_update_api",
             backend: "rust_policy",
             status: "planned",
             operation_kind: "workflow.run.retry_completed",
@@ -875,7 +875,7 @@ test("coding tool budget recovery state update core sends Rust state update thro
   assert.equal(calls[0].request.approval_id, "approval_budget");
   assert.equal(Object.hasOwn(calls[0].request, "operation"), false);
   assert.equal(Object.hasOwn(calls[0].request, "backend"), false);
-  assert.equal(result.source, "rust_coding_tool_budget_recovery_state_update_command");
+  assert.equal(result.source, "rust_coding_tool_budget_recovery_state_update_api");
   assert.equal(result.operation_kind, "workflow.run.retry_completed");
   assert.equal(result.operator_control.approval_id, "approval_budget");
   for (const field of ["approvalId", "eventId", "receiptRefs", "policyDecisionRefs", "createdAt"]) {
@@ -964,7 +964,7 @@ test("coding-tool budget recovery control core sends Rust request through direct
   const { calls, runner } = createRuntimeControlDirectCore(
     RUNTIME_CONTROL_CODING_TOOL_BUDGET_RECOVERY_CONTROL_API_METHOD,
     () => ({
-        source: "rust_coding_tool_budget_recovery_control_command",
+        source: "rust_coding_tool_budget_recovery_control_api",
         backend: "rust_policy",
         status: "planned",
         action: "approve_override",
@@ -1014,7 +1014,7 @@ test("coding-tool budget recovery control core sends Rust request through direct
     "wallet.network://grant/coding-tool-budget-recovery",
   ]);
   assert.equal(Object.hasOwn(calls[0].request, "backend"), false);
-  assert.equal(result.source, "rust_coding_tool_budget_recovery_control_command");
+  assert.equal(result.source, "rust_coding_tool_budget_recovery_control_api");
   assert.equal(result.status, "planned");
   assert.equal(result.operator_control.authority_hash, "sha256:budget-authority");
   assert.equal(Object.hasOwn(result.operator_control, "authorityHash"), false);
@@ -1426,7 +1426,7 @@ test("diagnostics operator override state update core sends Rust state update th
   const { calls, runner } = createRuntimeControlDirectCore(
     RUNTIME_CONTROL_DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_API_METHOD,
     () => ({
-            source: "rust_diagnostics_operator_override_state_update_command",
+            source: "rust_diagnostics_operator_override_state_update_api",
             backend: "rust_policy",
             status: "planned",
             operation_kind: "diagnostics.operator_override.event",
@@ -1513,7 +1513,7 @@ test("diagnostics operator override state update core sends Rust state update th
   }
   assert.equal(Object.hasOwn(calls[0].request, "operation"), false);
   assert.equal(Object.hasOwn(calls[0].request, "backend"), false);
-  assert.equal(result.source, "rust_diagnostics_operator_override_state_update_command");
+  assert.equal(result.source, "rust_diagnostics_operator_override_state_update_api");
   assert.equal(result.operation_kind, "diagnostics.operator_override.event");
   assert.equal(result.operator_control.decision_id, "decision_override");
   assert.equal(result.operator_control.authority_hash, "sha256:diagnostics-operator-override-authority");
@@ -1854,7 +1854,7 @@ test("operator turn control admission-required core sends Rust request through d
   const { calls, runner } = createRuntimeControlDirectCore(
     RUNTIME_CONTROL_OPERATOR_TURN_CONTROL_ADMISSION_REQUIRED_API_METHOD,
     () => ({
-            source: "rust_operator_turn_control_admission_required_command",
+            source: "rust_operator_turn_control_admission_required_api",
             backend: "rust_policy",
             record: {
               status: "rust_core_required",
@@ -1892,7 +1892,7 @@ test("operator turn control admission-required core sends Rust request through d
   );
   assert.equal(calls[0].request.operation_kind, "turn.interrupt");
   assert.equal(Object.hasOwn(calls[0].request, "backend"), false);
-  assert.equal(result.source, "rust_operator_turn_control_admission_required_command");
+  assert.equal(result.source, "rust_operator_turn_control_admission_required_api");
   assert.equal(result.record.code, "runtime_operator_turn_control_rust_core_required");
   assert.equal(result.record.details.thread_id, "thread_budget");
   assert.equal(Object.hasOwn(result.record.details, "threadId"), false);
@@ -1904,7 +1904,7 @@ test("operator interrupt state update core sends Rust state update through direc
   const { calls, runner } = createRuntimeControlDirectCore(
     RUNTIME_CONTROL_OPERATOR_INTERRUPT_STATE_UPDATE_API_METHOD,
     () => ({
-            source: "rust_operator_interrupt_state_update_command",
+            source: "rust_operator_interrupt_state_update_api",
             backend: "rust_policy",
             status: "planned",
             operation_kind: "turn.interrupt",
@@ -1954,7 +1954,7 @@ test("operator interrupt state update core sends Rust state update through direc
   assert.equal(calls[0].request.reason, "operator_stop");
   assert.equal(Object.hasOwn(calls[0].request, "operation"), false);
   assert.equal(Object.hasOwn(calls[0].request, "backend"), false);
-  assert.equal(result.source, "rust_operator_interrupt_state_update_command");
+  assert.equal(result.source, "rust_operator_interrupt_state_update_api");
   assert.equal(result.operation_kind, "turn.interrupt");
   assert.equal(result.operator_control.reason, "operator_stop");
   assert.equal(result.operator_control.event_id, "event_interrupt");
@@ -1969,7 +1969,7 @@ test("operator steer state update core sends Rust state update through direct ru
   const { calls, runner } = createRuntimeControlDirectCore(
     RUNTIME_CONTROL_OPERATOR_STEER_STATE_UPDATE_API_METHOD,
     () => ({
-            source: "rust_operator_steer_state_update_command",
+            source: "rust_operator_steer_state_update_api",
             backend: "rust_policy",
             status: "planned",
             operation_kind: "turn.steer",
@@ -2016,7 +2016,7 @@ test("operator steer state update core sends Rust state update through direct ru
   assert.equal(calls[0].request.guidance, "focus on the failing bridge assertion");
   assert.equal(Object.hasOwn(calls[0].request, "operation"), false);
   assert.equal(Object.hasOwn(calls[0].request, "backend"), false);
-  assert.equal(result.source, "rust_operator_steer_state_update_command");
+  assert.equal(result.source, "rust_operator_steer_state_update_api");
   assert.equal(result.operation_kind, "turn.steer");
   assert.equal(result.operator_control.guidance, "focus on the failing bridge assertion");
   assert.equal(result.operator_control.event_id, "event_steer");
@@ -5342,7 +5342,7 @@ test("runtime context policy state-update core fails closed without Rust-planned
   );
   assert.throws(
     () =>
-      normalizeOperatorInterruptStateUpdateBridgeResult({
+      normalizeOperatorInterruptStateUpdateApiResult({
         status: "planned",
         operation_kind: "turn.steer",
         run: { id: "run_alpha" },

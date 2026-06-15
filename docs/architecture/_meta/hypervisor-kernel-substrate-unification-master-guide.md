@@ -9603,6 +9603,26 @@ replay/projection storage, direct lifecycle protocol APIs, durable
 replay/storage, and stable IDE/CLI/SDK protocol APIs still need terminal
 Rust-owned records.
 
+Slice 1231 retires the remaining runtime-control command-shaped Rust owner
+wrapper cluster for coding-tool budget recovery and operator control. The
+budget-recovery child now exposes only `CodingToolBudgetRecoveryStateUpdateCore`
+and `CodingToolBudgetRecoveryControlCore`, while the operator-control child keeps
+only `DiagnosticsOperatorOverrideStateUpdateCore`,
+`OperatorTurnControlAdmissionRequiredCore`, `OperatorInterruptStateUpdateCore`,
+and `OperatorSteerStateUpdateCore` plus the direct `RuntimeKernelService`
+methods. `CodingToolBudgetRecoveryCommandError`,
+`CodingToolBudgetRecovery*BridgeRequest`, `OperatorControlCommandError`,
+`*Operator*BridgeRequest`, `plan_coding_tool_budget_recovery_*_response`,
+`plan_diagnostics_operator_override_state_update_response`,
+`plan_operator_*_response`, and the `rust_*_command` source markers are
+deleted. `RuntimeContextPolicyCore` now normalizes these migrated
+runtime-control responses as `_api` sources, and conformance fails if the old
+command wrappers, bridge request types, command-source markers, or bridge-shaped
+Rust owner tests return. This remains non-terminal because durable
+runtime-control replay/projection, richer wallet/runtime-control authority,
+deeper receipt/state-root binding, and stable IDE/CLI/SDK protocol APIs still
+need terminal Rust-owned records.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The
