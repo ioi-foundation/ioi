@@ -17,7 +17,6 @@ pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
     "plan_model_mount_accepted_receipt_head",
     "plan_model_mount_accepted_receipt_transition",
     "bind_model_mount_invocation_receipt",
-    "plan_model_mount_read_projection",
     "plan_coding_tool_result_envelope",
     "plan_runtime_coding_tool_artifact_drafts",
     "project_runtime_coding_tool_artifact_read",
@@ -65,7 +64,6 @@ pub enum CommandOperation {
     PlanModelMountAcceptedReceiptHead,
     PlanModelMountAcceptedReceiptTransition,
     BindModelMountInvocationReceipt,
-    PlanModelMountReadProjection,
     PlanCodingToolResultEnvelope,
     PlanRuntimeCodingToolArtifactDrafts,
     ProjectRuntimeCodingToolArtifactRead,
@@ -116,7 +114,6 @@ impl CommandOperation {
                 "plan_model_mount_accepted_receipt_transition"
             }
             Self::BindModelMountInvocationReceipt => "bind_model_mount_invocation_receipt",
-            Self::PlanModelMountReadProjection => "plan_model_mount_read_projection",
             Self::PlanCodingToolResultEnvelope => "plan_coding_tool_result_envelope",
             Self::PlanRuntimeCodingToolArtifactDrafts => "plan_runtime_coding_tool_artifact_drafts",
             Self::ProjectRuntimeCodingToolArtifactRead => {
@@ -256,7 +253,6 @@ pub fn command_operation(operation: &str) -> Option<CommandOperation> {
         "bind_model_mount_invocation_receipt" => {
             Some(CommandOperation::BindModelMountInvocationReceipt)
         }
-        "plan_model_mount_read_projection" => Some(CommandOperation::PlanModelMountReadProjection),
         "plan_coding_tool_result_envelope" => Some(CommandOperation::PlanCodingToolResultEnvelope),
         "plan_runtime_coding_tool_artifact_drafts" => {
             Some(CommandOperation::PlanRuntimeCodingToolArtifactDrafts)
@@ -607,6 +603,24 @@ mod tests {
         assert_eq!(
             validate_command_envelope(
                 "plan_model_mount_runtime_survey",
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+            )
+            .unwrap_err()
+            .code(),
+            "operation_unknown"
+        );
+    }
+
+    #[test]
+    fn model_mount_read_projection_command_transport_is_retired() {
+        assert_eq!(command_operation("plan_model_mount_read_projection"), None);
+        assert_eq!(
+            expected_command_schema_version("plan_model_mount_read_projection"),
+            None
+        );
+        assert_eq!(
+            validate_command_envelope(
+                "plan_model_mount_read_projection",
                 DAEMON_CORE_COMMAND_SCHEMA_VERSION,
             )
             .unwrap_err()

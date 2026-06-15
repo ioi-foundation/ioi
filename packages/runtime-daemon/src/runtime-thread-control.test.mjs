@@ -9,10 +9,9 @@ import { AgentgresRuntimeStateStore } from "./index.mjs";
 function modelMountCoreForTest(calls) {
   return {
     planReadProjection(request) {
-      calls.push({ operation: "plan_model_mount_read_projection", input: request });
+      calls.push({ method: "planModelMountReadProjection", input: request });
       return {
-        source: "rust_model_mount_read_projection_command",
-        backend: "rust_model_mount_read_projection",
+        source: "rust_daemon_core.model_mount.read_projection",
         projection_kind: request.projection_kind,
         projection: { source: "agentgres_model_mounting_projection" },
         evidence_refs: [

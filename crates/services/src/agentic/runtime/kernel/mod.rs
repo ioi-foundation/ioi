@@ -131,6 +131,7 @@ use model_mount::{
     ModelMountProviderInvocationResult, ModelMountProviderLifecycleRequest,
     ModelMountProviderLifecycleResult, ModelMountProviderResultAdmissionRecord,
     ModelMountProviderResultAdmissionRequest, ModelMountProviderStreamInvocationResult,
+    ModelMountReadProjectionError, ModelMountReadProjectionPlan, ModelMountReadProjectionRequest,
     ModelMountReceiptGatePlan, ModelMountReceiptGateRequest, ModelMountRouteControlPlan,
     ModelMountRouteControlRequest, ModelMountRouteDecisionRecord, ModelMountRouteDecisionRequest,
     ModelMountRuntimeEnginePlan, ModelMountRuntimeEngineRequest, ModelMountRuntimeSurveyPlan,
@@ -929,6 +930,13 @@ impl RuntimeKernelService {
         request: &ModelMountRuntimeSurveyRequest,
     ) -> Result<ModelMountRuntimeSurveyPlan, ModelMountError> {
         ModelMountCore.plan_runtime_survey(request)
+    }
+
+    pub fn plan_model_mount_read_projection(
+        &self,
+        request: &ModelMountReadProjectionRequest,
+    ) -> Result<ModelMountReadProjectionPlan, ModelMountReadProjectionError> {
+        ModelMountCore.plan_read_projection(request)
     }
 
     pub fn plan_model_mount_catalog_provider_control(

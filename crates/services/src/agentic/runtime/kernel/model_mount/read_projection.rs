@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::Value;
 
 mod adapter_boundary;
 mod aggregate;
@@ -109,26 +109,6 @@ impl ModelMountReadProjectionError {
             message: message.into(),
         }
     }
-}
-
-#[derive(Debug, Deserialize)]
-pub struct ModelMountReadProjectionBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: ModelMountReadProjectionRequest,
-}
-
-pub fn plan_model_mount_read_projection_response(
-    request: ModelMountReadProjectionBridgeRequest,
-) -> Result<Value, ModelMountReadProjectionError> {
-    let plan = plan_read_projection(&request.request)?;
-    Ok(json!({
-        "source": "rust_model_mount_read_projection_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_model_mount_read_projection".to_string()),
-        "projection_kind": plan.projection_kind,
-        "projection": plan.projection,
-        "evidence_refs": plan.evidence_refs,
-    }))
 }
 
 pub(super) fn plan_read_projection(
@@ -394,10 +374,10 @@ pub(super) fn model_mount_read_projection(
 
 #[cfg(test)]
 mod tests {
-    use crate::agentic::runtime::kernel::command_protocol::DAEMON_CORE_COMMAND_SCHEMA_VERSION;
-
     use super::super::MODEL_MOUNT_RUNTIME_SCHEMA_VERSION;
     use super::*;
+    use crate::agentic::runtime::kernel::RuntimeKernelService;
+    use serde_json::json;
 
     fn write_receipts(state_dir: &std::path::Path, receipts: &[Value]) {
         let receipt_dir = state_dir.join("receipts");
@@ -465,7 +445,7 @@ mod tests {
     }
 
     #[test]
-    fn rust_core_shapes_model_mount_read_projection_command_response() {
+    fn rust_core_plans_model_mount_read_projection_direct_api() {
         let temp = tempfile::tempdir().expect("tempdir");
         let state_dir = temp.path().to_string_lossy().to_string();
         write_receipts(
@@ -486,62 +466,56 @@ mod tests {
                 }
             })],
         );
-        let request: ModelMountReadProjectionBridgeRequest = serde_json::from_value(json!({
-            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
-            "operation": "plan_model_mount_read_projection",
-            "backend": "rust_model_mount_read_projection",
-            "request": {
-                "projection_kind": "projection",
-                "schema_version": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
-                "generated_at": "2026-06-08T00:00:00.000Z",
-                "state_dir": state_dir,
-                "state": {
-                    "wallet": {"port": "WalletAuthorityPort"},
-                    "vault": {"port": "VaultPort"},
-                    "agentgres_store": {"port": "AgentgresStorePort"},
-                    "receipts": [{
-                        "id": "receipt-js",
-                        "kind": "model_route_selection",
-                        "createdAt": "2026-06-08T00:00:00.000Z",
-                        "details": {
-                            "model_route_decision": {
-                                "schema_version": "ioi.model-route-decision.v1",
-                                "route_id": "route.local-first",
-                                "selected_model": "model.local"
-                            },
+        let request = ModelMountReadProjectionRequest {
+            projection_kind: "projection".to_string(),
+            schema_version: Some(MODEL_MOUNT_RUNTIME_SCHEMA_VERSION.to_string()),
+            generated_at: Some("2026-06-08T00:00:00.000Z".to_string()),
+            receipt_id: None,
+            engine_id: None,
+            provider_id: None,
+            download_id: None,
+            base_url: None,
+            state_dir: Some(state_dir),
+            state: json!({
+                "wallet": {"port": "WalletAuthorityPort"},
+                "vault": {"port": "VaultPort"},
+                "agentgres_store": {"port": "AgentgresStorePort"},
+                "receipts": [{
+                    "id": "receipt-js",
+                    "kind": "model_route_selection",
+                    "createdAt": "2026-06-08T00:00:00.000Z",
+                    "details": {
+                        "model_route_decision": {
+                            "schema_version": "ioi.model-route-decision.v1",
                             "route_id": "route.local-first",
-                            "endpoint_id": "endpoint.local",
-                            "provider_id": "provider.local"
-                        }
-                    }]
-                }
-            }
-        }))
-        .expect("read projection command request");
+                            "selected_model": "model.local"
+                        },
+                        "route_id": "route.local-first",
+                        "endpoint_id": "endpoint.local",
+                        "provider_id": "provider.local"
+                    }
+                }]
+            }),
+        };
 
-        let response =
-            plan_model_mount_read_projection_response(request).expect("read projection response");
+        let response = RuntimeKernelService
+            .plan_model_mount_read_projection(&request)
+            .expect("read projection plan");
 
+        assert_eq!(response.projection_kind, "projection");
         assert_eq!(
-            response["source"],
-            "rust_model_mount_read_projection_command"
-        );
-        assert_eq!(response["backend"], "rust_model_mount_read_projection");
-        assert_eq!(response["projection_kind"], "projection");
-        assert_eq!(
-            response["projection"]["source"],
+            response.projection["source"],
             "agentgres_model_mounting_projection"
         );
-        assert_eq!(response["projection"]["watermark"], 1);
-        assert_eq!(response["projection"]["routeDecisions"], json!([]));
+        assert_eq!(response.projection["watermark"], 1);
+        assert_eq!(response.projection["routeDecisions"], json!([]));
         assert_eq!(
-            response["projection"]["adapterBoundaries"]["agentgres"]["port"],
+            response.projection["adapterBoundaries"]["agentgres"]["port"],
             "AgentgresStorePort"
         );
-        assert!(response["projection"].get("route_decisions").is_none());
-        assert!(response["evidence_refs"]
-            .as_array()
-            .expect("evidence refs")
+        assert!(response.projection.get("route_decisions").is_none());
+        assert!(response
+            .evidence_refs
             .iter()
             .any(|value| value == "model_mount_js_read_projection_authoring_retired"));
     }

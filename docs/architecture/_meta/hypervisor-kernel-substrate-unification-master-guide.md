@@ -807,7 +807,7 @@ requests now return Rust-projected declared rows with a
 `rust_mcp_live_discovery_deferred` summary instead of executing JS transport.
 This still does not claim terminal MCP migration: actual Rust MCP transport
 execution, StepModuleRouter live backend execution, result payload
-materialization, replay/projection storage, command-transport retirement, and
+materialization, replay/projection storage, and
 stable SDK/IDE protocol APIs remain non-terminal.
 Slice 783 retired the dead helper-level JS MCP mutation/registry projection
 path. `runtime-mcp-helpers.mjs` no longer exports
@@ -879,7 +879,7 @@ retired projection candidate transport, and fails closed when the Rust projector
 is absent or returns a mismatched projection kind. Public memory mutation now
 sends runtime `state_dir`; Rust replays admitted current record/policy truth and
 rejects JS `current_record`/`current_policy` transport. Wallet authority, direct
-admission/storage APIs, command-transport retirement, stable protocol APIs, and
+admission/storage APIs, stable protocol APIs, and
 cTEE-coupled private workspace custody remain non-terminal.
 The current conversation-artifact read/control macro cut replaces the
 fail-closed public read facade and the mutation-only refusal facade with Rust
@@ -1438,7 +1438,7 @@ provider-native request-shaping hooks, or stream downgrade fallback. This still
 does not claim terminal model invocation migration: hosted/provider transports,
 model loading and instance lifecycle truth, conversation-state and
 stream-completion projection, durable projection/replay, deeper wallet/cTEE
-invocation policy, command-transport retirement, and stable SDK/IDE invocation
+invocation policy, and stable SDK/IDE invocation
 APIs remain required.
 
 Slice 823 retired the hosted/OpenAI-compatible JS provider invocation and
@@ -1661,7 +1661,7 @@ receipt replay, so
 `lmStudioRuntimeEngines()`, and `lmStudioRuntimeSurvey()` were deleted instead
 of being preserved as non-authoritative compatibility shims. This is still not
 terminal runtime-survey migration: richer runtime materialization, projection
-persistence, command-transport retirement, and stable protocol APIs remain
+persistence, and stable protocol APIs remain
 required before runtime survey reaches the pure Rust substrate target.
 
 Slice 838 retired the remaining non-search catalog variant enrichment path from
@@ -2028,7 +2028,7 @@ capture work superseded that mounted edge refusal: public
 admission, and still avoids JS hardware probes, runtime-engine reads,
 LM Studio public-CLI execution, and JS receipt creation. This does not claim
 terminal runtime-survey migration: richer runtime materialization, projection
-persistence, command-transport retirement, and stable protocol APIs remain
+persistence, and stable protocol APIs remain
 required.
 
 Slice 871 retired the `catalog-provider-oauth.mjs` helper module after public
@@ -2096,7 +2096,7 @@ retired. The mounted public `ModelMountingState` vault methods now only own
 canonical request alias rejection, required `vault_ref`/`material` preflight,
 material hashing, Rust planning, Rust record commit, and committed-response
 forwarding. Remaining non-terminal work is deeper cTEE material storage,
-provider auth materialization, command-transport retirement, and stable
+provider auth materialization, and stable
 protocol APIs.
 
 Slice 875 retired the fail-closed `tokenizer-operations.mjs` helper module after
@@ -2108,7 +2108,7 @@ Rust-core-required errors, and context-window fallback reads directly, without
 importing a helper module or dependency-injecting JS tokenization/truncation
 helpers. This does not claim terminal tokenizer migration: direct Rust
 daemon-core tokenizer/context-fit admission and projection, receipt/state-root
-binding, Agentgres truth, replay, command-transport retirement, and stable
+binding, Agentgres truth, replay, and stable
 protocol APIs remain required.
 
 Slice 876 retired the fail-closed `artifact-endpoint-operations.mjs` helper
@@ -2153,7 +2153,7 @@ projection, vault, runtime-material, receipt, or record-state helpers. This
 does not claim terminal catalog-provider control migration: direct Rust
 daemon-core catalog-provider control/search/status/custody APIs,
 wallet.network/cTEE vault binding, Agentgres-admitted receipts and record-state
-truth, projection persistence, command-transport retirement, and stable
+truth, projection persistence, and stable
 protocol APIs remain required. The current `ioi-step-module-bridge` command
 path is migration scaffolding for proving a stable daemon-to-kernel protocol
 surface, not a permanent bridge binary, and must not be treated as the terminal
@@ -2215,7 +2215,7 @@ Rust-core-required errors directly, without importing an MCP workflow helper or
 preserving a standalone JS MCP/workflow mutation surface. This does not claim
 terminal MCP/workflow migration: direct Rust daemon-core MCP/workflow APIs,
 wallet authority, StepModuleRouter dispatch, receipt binding, Agentgres
-admission, projection, replay, command-transport retirement, and stable
+admission, projection, replay, and stable
 protocol APIs remain required.
 
 Slice 883 retired the fail-closed `model-loading-operations.mjs` helper module
@@ -2235,7 +2235,7 @@ record-state commit path, including Rust-authored `reason` and `superseded_by`
 metadata for maintenance transitions, while leaving the JS `state.instances`
 cache unchanged after commit. This does not claim terminal instance
 lifecycle migration: direct Rust projection/replay, deeper receipt/state-root
-binding, command-transport retirement, and stable protocol APIs remain
+binding, and stable protocol APIs remain
 required.
 Slice 930 retired the remaining JS estimate-only model-load projection path:
 `ModelMountingState.loadEstimate()` and `estimateNativeLocalResources()` are
@@ -2331,7 +2331,7 @@ JS-authored lifecycle controls, and materializes backend projection truth from
 Rust-owned lifecycle records. The remaining backend registry state is migration
 plumbing for backend process planning/default records only; terminal
 conformance still requires direct Rust process supervision, backend process
-state materialization, command-transport retirement, and stable backend
+state materialization, and stable backend
 protocol APIs.
 Slice 944 removed backend-registry snapshots from native fixture materialization.
 The Rust-backed native fixture artifact and endpoint records no longer carry
@@ -2392,7 +2392,7 @@ Rust emits only conversation records with the `model_mount.conversation`
 boundary, conversation hash, Rust conversation-state or stream-completion
 evidence, and Agentgres conversation-truth evidence by replaying persisted
 `model-conversations/*.json` Agentgres records from the runtime `state_dir`.
-Command-transport retirement, deeper wallet/cTEE authority, hosted stream
+deeper wallet/cTEE authority, hosted stream
 parity, and stable protocol APIs remain required before terminal conformance.
 Slice 949 now has a positive Rust read projection boundary instead of only a
 retired JS readback facade. Public `RuntimeSubagentControl.listSubagents()`,
@@ -2439,7 +2439,7 @@ longer preserves `createTask()`, `listTasks()`, `getTask()`, `cancelTask()`,
 not claim terminal task/job admission/projection: direct Rust daemon-core route
 admission, wallet lifecycle authority, StepModuleRouter dispatch, Agentgres
 expected-head/state-root binding, receipt/event materialization, replay,
-projection, command-transport retirement, and stable SDK/IDE/CLI protocol APIs
+projection, and stable SDK/IDE/CLI protocol APIs
 remain required before terminal conformance.
 Slice 960 retired the daemon-store admission route pass-through wrappers for
 governed improvement proposals, external capability exits, worker/service
@@ -2454,7 +2454,7 @@ daemon-store compatibility wrappers. This does not claim terminal admission
 migration: direct Rust daemon-core route admission, wallet.network authority,
 cTEE custody enforcement, StepModuleRouter dispatch, Agentgres
 expected-head/state-root binding, receipt/event materialization, replay,
-projection, command-transport retirement, and stable SDK/IDE/CLI protocol APIs
+projection, and stable SDK/IDE/CLI protocol APIs
 remain required before terminal pure Rust substrate conformance.
 Slice 961 retired the daemon-store route pass-through wrappers for workflow
 edit apply, diagnostics repair decision execution, workspace snapshot list, and
@@ -2467,7 +2467,7 @@ daemon-store compatibility wrappers. This does not claim terminal workflow,
 diagnostics, or workspace-snapshot migration: direct Rust daemon-core route
 admission, wallet/cTEE authority where applicable, Agentgres
 expected-head/state-root binding, receipt/artifact materialization, replay,
-projection, command-transport retirement, and stable SDK/IDE/CLI protocol APIs
+projection, and stable SDK/IDE/CLI protocol APIs
 remain required before terminal pure Rust substrate conformance.
 Slice 962 retired the daemon-store approval route pass-through wrappers. The
 public approval request, decision, approve/reject shortcut, and revoke routes
@@ -2477,7 +2477,7 @@ preserves `requestThreadApproval()`, `decideThreadApproval()`, or
 claim terminal approval authority migration: direct Rust daemon-core route
 admission, wallet.network grant/lease issuance, Agentgres expected-head and
 state-root binding, receipt/event materialization, replay, projection,
-command-transport retirement, and stable SDK/IDE/CLI protocol APIs remain
+stable SDK/IDE/CLI protocol APIs remain
 required before terminal pure Rust substrate conformance.
 Slice 963 retired the daemon-store context-policy route pass-through wrappers.
 The public workflow-only context-budget, thread context-budget, thread
@@ -2496,7 +2496,7 @@ runtime event, and composes Rust-approved compaction execution through the
 Rust-owned `compactThread()` path. This does not claim terminal context-policy
 migration: direct Rust daemon-core route admission, durable Agentgres
 expected-head/state-root binding across context-policy routes, richer policy
-receipt/event materialization, replay, projection, command-transport retirement,
+receipt/event materialization, replay, projection,
 and stable SDK/IDE/CLI protocol APIs remain required before terminal pure Rust
 substrate conformance.
 Slice 964 retired the daemon-store MCP route pass-through wrappers. Public MCP
@@ -2507,7 +2507,7 @@ control, and serve surfaces directly. JS no longer preserves the route-facing
 MCP store wrappers as compatibility authority. This does not claim terminal MCP
 migration: direct Rust daemon-core MCP admission/projection, wallet.network
 external-exit authority, Agentgres expected-head/state-root binding, MCP
-receipt/event materialization, replay, command-transport retirement, and stable
+receipt/event materialization, replay, and stable
 SDK/IDE/CLI protocol APIs remain required before terminal pure Rust substrate
 conformance.
 Slice 965 retired the remaining route-facing daemon-store pass-through
@@ -2549,7 +2549,7 @@ run-state persistence. Override issuance requires wallet.network grant refs plus
 authority receipts and binds the Rust authority hash into the projection; the old
 admission-required budget-recovery command is retired. This does not claim
 terminal coding-tool budget recovery migration: retry-event materialization,
-durable replay/projection, command-transport retirement, and stable SDK/IDE/CLI
+durable replay/projection, and stable SDK/IDE/CLI
 protocol APIs remain required before terminal pure Rust substrate conformance.
 Slice 968 moved the diagnostics repair Rust-core-required admission refusal
 into the Rust daemon-core policy bridge. `DiagnosticsRepairAdmissionRequiredCore`
@@ -2564,7 +2564,7 @@ refusal when the daemon-core command is configured. This does not claim terminal
 repair migration: direct Rust daemon-core repair admission/projection,
 wallet.network/operator authority, Agentgres expected-head/state-root binding,
 repair/operator receipts, retry-run admission, event materialization, replay,
-command-transport retirement, and stable SDK/IDE/CLI protocol APIs remain
+stable SDK/IDE/CLI protocol APIs remain
 required before terminal pure Rust substrate conformance.
 The later diagnostics repair decision-control cut supersedes the route-facing
 refusal path for decision execution and direct decision-event append: both now
@@ -2620,7 +2620,7 @@ route family is retired rather than preserved as compatibility scaffolding. This
 does not claim terminal skill/hook registry migration: direct Rust
 governance/catalog persistence, Agentgres-backed replay/projection storage,
 wallet authority where applicable, receipt/state-root binding,
-command-transport retirement, and stable SDK/IDE/CLI protocol APIs remain
+stable SDK/IDE/CLI protocol APIs remain
 required before terminal pure Rust substrate conformance.
 The public repository workflow boundary now uses the positive Rust daemon-core
 `project_repository_workflow` API. Rust owns read-only Git discovery, sanitized
@@ -2634,7 +2634,7 @@ projection kind. The older `RepositoryWorkflowProjectionRequiredCore` command
 path is retired rather than preserved as compatibility scaffolding. This does
 not claim terminal repository workflow migration: durable Agentgres-backed
 repository workflow storage/replay, wallet.network authority for external
-capability exits, receipt/state-root binding, command-transport retirement, and
+capability exits, receipt/state-root binding, and
 stable SDK/IDE/CLI protocol APIs remain required before terminal pure Rust
 substrate conformance.
 Slice 951 retired runtime conversation-artifact public JS readback, and the
@@ -2729,7 +2729,7 @@ post-edit diagnostics feedback dispatch onto the same mounted invocation
 surface. This does not claim terminal thread-tool admission: direct Rust
 daemon-core route admission, wallet authority, StepModuleRouter dispatch,
 receipt/state-root binding, Agentgres truth, replay, projection,
-command-transport retirement, and stable SDK/IDE/CLI protocol APIs remain
+stable SDK/IDE/CLI protocol APIs remain
 required before terminal thread-tool conformance.
 Slice 957 retired the daemon-store thread-control route pass-through wrappers.
 The public mode/model/thinking and workspace-trust acknowledgement routes call
@@ -2788,7 +2788,7 @@ refusals, backend-process ensure/touch/start/spawn/stop refusals,
 importing a backend lifecycle helper. This does not claim terminal backend
 lifecycle migration: direct Rust daemon-core backend lifecycle/control/projection
 APIs over Agentgres-backed state, provider lifecycle execution, replay,
-command-transport retirement, and stable protocol APIs remain required.
+stable protocol APIs remain required.
 
 Slice 885 retired the fail-closed `catalog-operations.mjs` helper module after
 public catalog search orchestration, catalog-status readback, and non-search
@@ -2798,7 +2798,7 @@ storage-summary readback, `model_catalog_search_js_orchestrator_retired`, and
 `model_catalog_variant_enrichment_js_retired` directly, without importing a
 standalone catalog operations helper. This does not claim terminal catalog
 migration: direct Rust daemon-core catalog search/status/variant projection APIs
-over Agentgres-backed state, command-transport retirement, and stable protocol
+over Agentgres-backed state, and stable protocol
 APIs remain required.
 
 Slice 886 retired the direct JS model-route selector and explicit endpoint
@@ -3127,7 +3127,7 @@ replay: Rust derives canonical `ioi.model-capability.v1` records from admitted
 `model-routes`, `model-route-endpoint-resolutions`, `model-provider-inventory`,
 and `model-instances` records, filters JS-authored records, emits explicit
 candidate readiness/evidence, and no longer returns a default empty list for
-admitted route truth. Command-transport retirement, richer wallet/cTEE authority
+admitted route truth. richer wallet/cTEE authority
 binding, stable protocol APIs, and broader hosted/provider materialization still
 remain before capability projection reaches terminal pure Rust conformance.
 
@@ -5121,7 +5121,7 @@ Rust commit cannot leave JS in-memory lifecycle truth behind; model-mount
 default seeding no longer writes derived backend records into the JS backend
 registry map, and the retired backend seeding facade fails closed before backend
 map mutation; public backend list projection now routes through the Rust
-model-mount read-projection command with empty JS request state plus runtime
+model-mount read-projection API with empty JS request state plus runtime
 `state_dir` instead of the JS backend registry/readback facade, and Rust replays
 admitted `model-backend-lifecycle-controls/*.json` records while filtering
 JS-authored lifecycle controls; public backend health/start/stop/log lifecycle controls
@@ -5548,7 +5548,7 @@ transport into
 includes route-decision admission, invocation admission, provider execution,
 provider invocation and stream planning, lifecycle/inventory/backend-process
 planning, required-record planners, accepted-receipt head/transition planning,
-invocation receipt binding, and read-projection command wrappers. The Rust
+invocation receipt binding, and read-projection wrappers. The Rust
 owner remains `crates/services/src/agentic/runtime/kernel/model_mount.rs` and
 its child modules, with receipt binding, StepModuleRouter admission,
 Agentgres admission, and projection still called from Rust. The bridge child
@@ -6944,13 +6944,14 @@ wallet.network authority where approval or operator authority applies,
 Agentgres expected-head and state-root truth, receipt/event materialization,
 replay, projection, and stable IDE/CLI/SDK surfaces end to end.
 
-Slice 1129 moves model-mount read-projection command request/response shaping
-out of the temporary Node model-mount bridge and into Rust
-`model_mount/read_projection.rs`. Rust core now owns the
-`ModelMountReadProjectionBridgeRequest`, response envelope, canonical command
-source marker, backend default, and bridge-facing error propagation for
-`plan_model_mount_read_projection`; the remaining Node function only delegates
-to `plan_model_mount_read_projection_response`.
+Slice 1129 originally moved model-mount read-projection request/response
+shaping out of the temporary Node model-mount bridge and into Rust
+`model_mount/read_projection.rs`. The current read-projection typed API cut
+supersedes that command-envelope shape: Rust daemon-core now exposes
+`RuntimeKernelService::plan_model_mount_read_projection`, and the JS
+`ModelMountCore` calls it through
+`daemonCoreModelMountApi.planModelMountReadProjection` without a command
+operation, backend marker, or bridge response wrapper.
 
 This remains non-terminal because the broader Node model-mount bridge, command
 dispatch table, shared daemon-core command runner, JS command callers,
@@ -7193,9 +7194,10 @@ model-mount request/response ownership had moved into Rust
 `ioi_step_module_bridge/model_mount_command.rs` and
 `ioi_step_module_bridge/model_mount_receipt_command.rs`. The bridge proof
 surface now imports Rust model-mount admission, provider execution, lifecycle,
-backend planning, read-projection, accepted-receipt, and invocation-receipt
-binding response functions and request types directly from the Rust kernel
-modules.
+backend planning, accepted-receipt, and invocation-receipt binding response
+functions and request types directly from the Rust kernel modules; current
+read-projection ownership has since moved to the typed daemon-core model_mount
+API.
 
 This remains non-terminal because the Node bridge binary, JS daemon-core
 command runner, StepModule command runner, JS command callers, model-mount
@@ -7639,7 +7641,7 @@ boundary.
 
 This remains non-terminal because broader diagnostics orchestration,
 expected-head/state-root binding, receipt/policy binding, durable
-projection/replay, command-transport retirement, and stable IDE/CLI/SDK protocol
+projection/replay, and stable IDE/CLI/SDK protocol
 APIs are still pending beyond the Rust policy replay projection API. The
 operator-override issuance edge is now wallet-gated by Rust for
 approval-required overrides, while the target remains no JS repair policy object
@@ -8054,27 +8056,29 @@ route-control planning no longer does. The target is direct Rust daemon-core
 model-mount protocol/API ownership where backend supervision, tokenizer/context-fit control, Agentgres truth, replay, and stable
 IDE/CLI/SDK surfaces no longer depend on Node bridge endpoint proof scaffolding.
 
-Slice 1186 moves the remaining model-mount accepted-receipt and read-projection
-command-response proof cluster out of the temporary bridge proof surface and
-into Rust owners at
+Slice 1186 moved the remaining model-mount accepted-receipt proof cluster and
+the then-temporary read-projection proof cluster out of the temporary bridge
+proof surface and into Rust owners at
 `crates/services/src/agentic/runtime/kernel/model_mount_receipt.rs` and
 `crates/services/src/agentic/runtime/kernel/model_mount/read_projection.rs`.
-Accepted-receipt head, accepted-receipt transition, and read-projection
-command-envelope response shaping now run as Rust owner tests. Bridge
-conformance now requires those owner tests, proves typed Rust
+Accepted-receipt head and accepted-receipt transition command-envelope response
+shaping still run as Rust owner tests, while read-projection has since moved to
+the positive typed API owned by
+`RuntimeKernelService::plan_model_mount_read_projection`. Bridge conformance
+now requires those owner tests, proves typed Rust
 `command_dispatch.rs` still dispatches
 `plan_model_mount_accepted_receipt_head`,
-`plan_model_mount_accepted_receipt_transition`, and
-`plan_model_mount_read_projection`, and proves the old bridge-named tests,
-request-type imports, response-function aliases, and command-protocol proof
-imports stay absent from `ioi_step_module_bridge/proof_tests.rs`. The bridge
-proof suite now runs 32 tests.
+`plan_model_mount_accepted_receipt_transition`, and proves the old
+bridge-named tests, request-type imports, response-function aliases, and
+command-protocol proof imports stay absent from
+`ioi_step_module_bridge/proof_tests.rs`. The bridge proof suite now runs 32
+tests.
 
-This remains non-terminal because accepted-receipt planning and read-projection
-response shaping still cross temporary command transport. The target is direct
-Rust daemon-core model-mount protocol/API ownership where accepted receipt
-heads, state-root transitions, projection/replay reads, Agentgres truth,
-replay, and stable IDE/CLI/SDK surfaces no longer depend on Node bridge
+This remains non-terminal because accepted-receipt planning still crosses
+temporary command transport. Read-projection no longer does; the target is
+direct Rust daemon-core model-mount protocol/API ownership where accepted
+receipt heads, state-root transitions, projection/replay reads, Agentgres
+truth, replay, and stable IDE/CLI/SDK surfaces no longer depend on Node bridge
 endpoint proof scaffolding.
 
 Slice 1187 deletes the remaining temporary bridge proof module and moves its
@@ -8644,9 +8648,14 @@ storage control, route-control planning, MCP workflow planning, server-control p
 `daemonCoreModelMountApi` methods instead of command envelopes. Rust rejects the
 retired command operations, dispatch arms, and bridge request/response wrappers
 for that family. Backend process/lifecycle, remaining required-control,
-accepted-receipt head/transition, read-projection, invocation receipt-binding,
-tokenizer, conversation/stream, and projection helpers still enter Rust through
-remaining migration transport. Catalog-provider control, provider control,
+accepted-receipt head/transition, invocation receipt-binding, tokenizer,
+conversation/stream, and projection helpers still enter Rust through remaining
+migration transport. Read-projection now calls
+`daemonCoreModelMountApi.planModelMountReadProjection`, backed by
+`RuntimeKernelService::plan_model_mount_read_projection`; the old
+read-projection command operation, dispatch arm, bridge wrapper, backend/source
+marker, and JS command-envelope builder are retired. Catalog-provider control,
+provider control,
 capability-token control, vault control, and receipt-gate planning now call typed
 `daemonCoreModelMountApi` methods backed by Rust `RuntimeKernelService`; the
 old command operations, dispatch arms, bridge wrappers, backend markers, and JS
@@ -8946,7 +8955,7 @@ Coding-tool approval satisfaction projection also uses runtime `state_dir`
 replay and rejects JS `agent`/`run` candidate transport before
 request/decision/lease truth can return. The remaining approval blockers are
 richer approval authority projection/replay storage, request/grant issuance
-semantics, command-transport retirement, and stable protocol APIs.
+semantics, and stable protocol APIs.
 Runtime MCP registry/control state has moved from the fail-closed JS mutation
 facade into Rust-owned `plan_mcp_control_agent_state_update` planning plus
 Agentgres-backed `writeAgent` commits. Import/add/remove/enable/disable,
@@ -9047,7 +9056,7 @@ repair event planning/admission.
 Diagnostics repair policy projection now replays admitted Agentgres runtime
 events from runtime `state_dir` instead of accepting JS policy-input candidates.
 The remaining diagnostics repair blockers are broader orchestration, durable
-projection/replay, receipt/state-root binding, command-transport retirement,
+projection/replay, receipt/state-root binding,
 and stable protocol APIs.
 Run-level coding-tool budget recovery retry completion has moved from the
 fail-closed JS control facade to Rust `plan_coding_tool_budget_recovery_state_update`
@@ -9067,7 +9076,7 @@ admission. Inspection now sends runtime `state_dir`, and Rust replays admitted
 now also sends runtime `state_dir`, Rust replays the selected current session,
 and JS control candidates are rejected. The remaining managed-session blockers
 are durable session record storage beyond runtime-event replay, wallet/cTEE
-session authority, command-transport retirement, and stable protocol APIs.
+session authority, and stable protocol APIs.
 Workspace-change inspection/control has moved from a fail-closed public facade
 to Rust daemon-core projection/control planning plus Rust-authored runtime-event
 admission. Inspection now sends runtime `state_dir`, and Rust replays admitted
@@ -9075,7 +9084,7 @@ admission. Inspection now sends runtime `state_dir`, and Rust replays admitted
 now also sends runtime `state_dir`, Rust replays the selected current change,
 and JS control candidates are rejected. The remaining workspace-change blockers
 are durable workspace-change record storage beyond runtime-event replay,
-wallet/workspace rollback authority, command-transport retirement, and stable
+wallet/workspace rollback authority, and stable
 protocol APIs.
 Model-mount provider lifecycle has moved from fail-closed JS public
 health/start/stop facades to Rust `plan_model_mount_provider_lifecycle` plus
@@ -9091,7 +9100,7 @@ provider-health list/latest projections now replay admitted
 `model-provider-lifecycle-controls/*.json` records in Rust and ignore stale
 `provider_health` receipts or JS telemetry inputs. This remains non-terminal
 because actual hosted/provider transports, deeper receipt/state-root binding,
-command-transport retirement, and stable protocol APIs remain open.
+stable protocol APIs remain open.
 Public model artifact import and endpoint mount/unmount have moved from the
 fail-closed artifact/endpoint JS facade to typed
 `daemonCoreModelMountApi.planModelMountArtifactEndpoint`, backed by Rust
@@ -9218,7 +9227,7 @@ provider lookup now lives in the Rust `providers` read-projection kind: Rust
 replays admitted `model-providers/*.json` records, filters JS-authored provider
 truth, and the mounted provider accessor consumes that projection instead of
 `state.providers` map truth. Hosted/provider transports, hosted/provider
-endpoint discovery/materialization, command-transport retirement, and stable
+endpoint discovery/materialization, and stable
 direct Rust/Agentgres APIs remain non-terminal.
 Public `listInstances()` now calls Rust read-projection kind
 `instances` with runtime `state_dir`; Rust replays persisted
@@ -9231,7 +9240,7 @@ filters to Rust-authored route-control records with route-control evidence and
 receipt refs, and keeps JS route maps out of public-list request truth. This is
 still non-terminal until hosted provider transports, hosted/provider endpoint
 discovery/materialization, richer hosted catalog materialization, deeper Agentgres receipt/state-root
-binding beyond record-state commit, command-transport retirement, and stable
+binding beyond record-state commit, and stable
 protocol APIs are Rust-owned.
 Public model route write/test has moved from the fail-closed route-control JS
 facade to typed `daemonCoreModelMountApi.planModelMountRouteControl`, backed by
@@ -9272,7 +9281,7 @@ Public `listInstances()` now calls Rust read-projection kind `instances` with ru
 and emits only Rust-authored instance lifecycle records with lifecycle hashes
 and Agentgres registry evidence. The dedicated instance-list request state
 remains empty, so JS instance maps cannot return as public topology truth.
-Command-transport retirement, deeper receipt/state-root binding, hosted/provider
+deeper receipt/state-root binding, hosted/provider
 transports, hosted/provider endpoint discovery/materialization, richer hosted
 catalog materialization, stable route/instance APIs, and stable protocol APIs
 remain required.
@@ -9339,11 +9348,12 @@ cut only; later model_mount typed API cuts also retired command transport for
 invocation admission, provider-execution admission, provider invocation/stream
 execution, provider lifecycle/inventory, instance lifecycle, provider-result
 admission, artifact-endpoint planning, storage control, route-control planning,
-MCP workflow planning, and server-control planning. Remaining model_mount backend-process/lifecycle, required-control,
-read-projection, receipt-binding, tokenizer, conversation/stream, and projection
+MCP workflow planning, server-control planning, and read-projection planning.
+Remaining model_mount backend-process/lifecycle, required-control,
+receipt-binding, tokenizer, conversation/stream, and projection
 migration transports still need direct Rust daemon-core protocol/API ownership;
-the catalog-provider/provider/capability-token/vault/receipt-gate command
-transports are retired.
+the read-projection and catalog-provider/provider/capability-token/vault/receipt-gate
+command transports are retired.
 
 Model-mount backend registry lookup now consumes Rust read-projection kind
 `backends` through `ModelMountingState.backendRegistry()` and the internal
@@ -9352,7 +9362,7 @@ derived backend defaults, `state.backends`, and process snapshots is deleted, so
 public APIs and internal process-planning preflight no longer have a duplicate
 JS backend truth path. This remains non-terminal because actual backend process
 supervision/transport execution, richer backend process-state materialization,
-command-transport retirement, and stable SDK/IDE/CLI APIs still need direct
+stable SDK/IDE/CLI APIs still need direct
 Rust ownership.
 
 ## Final Doctrine

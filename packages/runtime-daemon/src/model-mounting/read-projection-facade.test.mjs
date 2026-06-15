@@ -1333,8 +1333,7 @@ function createState() {
     planReadProjection(request) {
       readProjectionRequests.push(request);
       return {
-        source: "rust_model_mount_read_projection_command",
-        backend: "rust_model_mount_read_projection",
+        source: "rust_daemon_core.model_mount.read_projection",
         projection_kind: request.projection_kind,
         projection: rustProjectionFixture(request),
         evidence_refs: [
@@ -4382,7 +4381,7 @@ test("read projection facade composes snapshots, projection, and receipt replay"
   assert.equal(projection.vaultRefs[0].vault_projection_boundary, "model_mount.vault_projection");
 
   const projectionWritePlan = facade.canonicalProjectionWritePlan(state);
-  assert.equal(projectionWritePlan.source, "rust_model_mount_read_projection_command");
+  assert.equal(projectionWritePlan.source, "rust_daemon_core.model_mount.read_projection");
   assert.equal(projectionWritePlan.projection_kind, "projection");
   assert.equal(projectionWritePlan.projection.source, "agentgres_model_mounting_projection");
   assert.equal(projectionWritePlan.evidence_refs.includes("agentgres_model_mount_read_truth"), true);
@@ -4797,8 +4796,7 @@ test("read projection facade preserves latest health not-found errors", () => {
       });
     }
     return {
-      source: "rust_model_mount_read_projection_command",
-      backend: "rust_model_mount_read_projection",
+      source: "rust_daemon_core.model_mount.read_projection",
       projection_kind: request.projection_kind,
       projection: rustProjectionFixture(request),
     };

@@ -34,8 +34,7 @@ function modelMountCoreForApprovalLeaseTest() {
     planReadProjection(request) {
       const projection = { source: "agentgres_model_mounting_projection" };
       return {
-        source: "rust_model_mount_read_projection_command",
-        backend: "rust_model_mount_read_projection",
+        source: "rust_daemon_core.model_mount.read_projection",
         projection_kind: request.projection_kind,
         projection,
         evidence_refs: [

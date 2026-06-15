@@ -36,6 +36,7 @@ export const MODEL_MOUNT_SERVER_CONTROL_API_METHOD = "planModelMountServerContro
 export const MODEL_MOUNT_ROUTE_CONTROL_API_METHOD = "planModelMountRouteControl";
 export const MODEL_MOUNT_RUNTIME_ENGINE_API_METHOD = "planModelMountRuntimeEngine";
 export const MODEL_MOUNT_RUNTIME_SURVEY_API_METHOD = "planModelMountRuntimeSurvey";
+export const MODEL_MOUNT_READ_PROJECTION_API_METHOD = "planModelMountReadProjection";
 export const MODEL_MOUNT_CATALOG_PROVIDER_CONTROL_API_METHOD = "planModelMountCatalogProviderControl";
 export const MODEL_MOUNT_PROVIDER_CONTROL_API_METHOD = "planModelMountProviderControl";
 export const MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_API_METHOD = "planModelMountCapabilityTokenControl";
@@ -294,13 +295,9 @@ export class ModelMountCore {
   }
 
   planReadProjection(request) {
-    const bridgeRequest = {
-      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
-      operation: "plan_model_mount_read_projection",
-      backend: "rust_model_mount_read_projection",
-      request,
-    };
-    return normalizeReadProjectionBridgeResult(this.invokeDaemonCore(bridgeRequest));
+    return normalizeReadProjectionApiResult(
+      this.invokeModelMountApi(MODEL_MOUNT_READ_PROJECTION_API_METHOD, request),
+    );
   }
 
   bindInvocationReceipt(request = {}) {
@@ -2042,11 +2039,10 @@ function normalizeInvocationReceiptBindingBridgeResult(value = {}) {
   };
 }
 
-function normalizeReadProjectionBridgeResult(value = {}) {
+function normalizeReadProjectionApiResult(value = {}) {
   const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   return {
-    source: result.source ?? "rust_model_mount_read_projection_command",
-    backend: result.backend ?? "rust_model_mount_read_projection",
+    source: result.source ?? "rust_daemon_core.model_mount.read_projection",
     projection_kind: result.projection_kind ?? result.projectionKind ?? null,
     projection: result.projection ?? null,
     evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : null,

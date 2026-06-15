@@ -237,11 +237,8 @@ function assertRustAuthoredModelMountProjection(name, projection, rustProjection
 
   if (name !== "model-mounting-canonical") mismatches.push("projection_name");
   if (!rustProjection || typeof rustProjection !== "object") missing.push("rust_projection_plan");
-  if (rustProjection?.source !== "rust_model_mount_read_projection_command") {
+  if (rustProjection?.source !== "rust_daemon_core.model_mount.read_projection") {
     mismatches.push("rust_projection.source");
-  }
-  if (rustProjection?.backend !== "rust_model_mount_read_projection") {
-    mismatches.push("rust_projection.backend");
   }
   if (rustProjection?.projection_kind !== "projection") {
     mismatches.push("rust_projection.projection_kind");

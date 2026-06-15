@@ -183,6 +183,55 @@ function isModelMountInvocationLifecycleTypedApiOwned(sources) {
   );
 }
 
+function isModelMountReadProjectionTypedApiOwned({
+  coreCommandDispatch = "",
+  rustModelMountCore = "",
+  modelMountCommandSurface = "",
+  commandProtocolCore = "",
+  modelMountDaemonCore = "",
+  modelMountCoreTest = "",
+  kernelModule = "",
+  daemonCoreDirectInvokerServiceTest = "",
+}) {
+  const runtimeKernelModule =
+    kernelModule ||
+    (exists("crates/services/src/agentic/runtime/kernel/mod.rs")
+      ? read("crates/services/src/agentic/runtime/kernel/mod.rs")
+      : "");
+  const directInvokerServiceTest =
+    daemonCoreDirectInvokerServiceTest ||
+    (exists("packages/runtime-daemon/src/runtime-daemon-core-direct-invoker-service.test.mjs")
+      ? read("packages/runtime-daemon/src/runtime-daemon-core-direct-invoker-service.test.mjs")
+      : "");
+  return (
+    !/plan_model_mount_read_projection_response/.test(coreCommandDispatch) &&
+    !/plan_model_mount_read_projection_response/.test(rustModelMountCore) &&
+    !/ModelMountReadProjectionBridgeRequest/.test(rustModelMountCore) &&
+    !/ModelMountReadProjectionBridgeRequest/.test(modelMountCommandSurface) &&
+    !/rust_model_mount_read_projection_command/.test(rustModelMountCore) &&
+    !/rust_model_mount_read_projection_command/.test(modelMountCommandSurface) &&
+    !/CommandOperation::PlanModelMountReadProjection/.test(commandProtocolCore + coreCommandDispatch) &&
+    !/PlanModelMountReadProjection/.test(commandProtocolCore + coreCommandDispatch) &&
+    !/operation:\s*"plan_model_mount_read_projection"/.test(modelMountDaemonCore) &&
+    !/backend:\s*"rust_model_mount_read_projection"/.test(modelMountDaemonCore) &&
+    !/normalizeReadProjectionBridgeResult/.test(modelMountDaemonCore) &&
+    /MODEL_MOUNT_READ_PROJECTION_API_METHOD = "planModelMountReadProjection"/.test(
+      modelMountDaemonCore,
+    ) &&
+    /invokeModelMountApi\(\s*MODEL_MOUNT_READ_PROJECTION_API_METHOD,\s*request\s*\)/.test(
+      modelMountDaemonCore,
+    ) &&
+    /normalizeReadProjectionApiResult/.test(modelMountDaemonCore) &&
+    /rust_daemon_core\.model_mount\.read_projection/.test(modelMountDaemonCore) &&
+    /model_mount_read_projection_command_transport_is_retired/.test(commandProtocolCore) &&
+    /rust_core_plans_model_mount_read_projection_direct_api/.test(rustModelMountCore) &&
+    /pub fn plan_model_mount_read_projection/.test(runtimeKernelModule) &&
+    /Rust model_mount core sends read projection through typed daemon-core API/.test(modelMountCoreTest) &&
+    /assertDirectModelMountApiCall/.test(modelMountCoreTest) &&
+    /planModelMountReadProjection/.test(directInvokerServiceTest)
+  );
+}
+
 function readRustPolicyCore() {
   return [
     exists("crates/services/src/agentic/runtime/kernel/policy.rs")
@@ -8674,13 +8723,19 @@ function runBridge() {
       /ReceiptBinder/.test(modelMountReceiptCore) &&
       /AgentgresAdmissionCore/.test(modelMountReceiptCore) &&
       /RustProjectionCore/.test(modelMountReceiptCore) &&
+      isModelMountReadProjectionTypedApiOwned({
+        coreCommandDispatch,
+        rustModelMountCore,
+        modelMountCommandSurface,
+        commandProtocolCore,
+        modelMountDaemonCore,
+        modelMountCoreTest,
+        kernelModule: kernelModuleForBridgeChecks,
+        daemonCoreDirectInvokerServiceTest,
+      }) &&
       !/plan_model_mount_read_projection_response as plan_model_mount_read_projection/.test(
         bridgeModule,
       ) &&
-      /plan_model_mount_read_projection_response\(decode\(raw_request\)\?\)/.test(
-        coreCommandDispatch,
-      ) &&
-      /rust_core_shapes_model_mount_read_projection_command_response/.test(modelMountCore) &&
       !/bridge_plans_model_mount_read_projection_through_rust_core/.test(bridgeModule),
     [
       "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
@@ -8689,19 +8744,24 @@ function runBridge() {
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "scripts/conformance/hypervisor-conformance.mjs",
     ],
-    "Phase 3/5/10/11 remains non-terminal: model-mount child wrappers are retired and route-decision command transport must stay absent while the next Rust-core extraction/facade-retirement slices replace the remaining temporary model_mount protocol transport",
+    "Phase 3/5/10/11 remains non-terminal: model-mount child wrappers are retired and route-decision/read-projection command transport must stay absent while the next Rust-core extraction/facade-retirement slices replace the remaining temporary model_mount protocol transport",
   );
   assertCheck(
     result,
-    "model-mount-read-projection-command-envelope-owned-by-rust-core",
-      /pub struct ModelMountReadProjectionBridgeRequest/.test(modelMountCore) &&
-      /pub fn plan_model_mount_read_projection_response/.test(modelMountCore) &&
-      /rust_model_mount_read_projection_command/.test(modelMountCore) &&
+    "model-mount-read-projection-typed-api-owned-by-rust-core",
+    isModelMountReadProjectionTypedApiOwned({
+      coreCommandDispatch,
+      rustModelMountCore,
+      modelMountCommandSurface,
+      commandProtocolCore,
+      modelMountDaemonCore,
+      modelMountCoreTest,
+      kernelModule: kernelModuleForBridgeChecks,
+      daemonCoreDirectInvokerServiceTest,
+    }) &&
+      /pub struct ModelMountReadProjectionRequest/.test(modelMountCore) &&
+      /fn plan_read_projection/.test(modelMountCore) &&
       /model_mount_read_projection_kind_unsupported/.test(modelMountCore) &&
-      /rust_core_shapes_model_mount_read_projection_command_response/.test(modelMountCore) &&
-      /plan_model_mount_read_projection_response\(decode\(raw_request\)\?\)/.test(
-        coreCommandDispatch,
-      ) &&
       !modelMountCommandBridgeExists &&
       !/plan_model_mount_read_projection_response as plan_model_mount_read_projection/.test(bridgeModule) &&
       !/ModelMountReadProjectionBridgeRequest/.test(bridgeModule) &&
@@ -8713,10 +8773,14 @@ function runBridge() {
     [
       "crates/services/src/agentic/runtime/kernel/model_mount/read_projection.rs",
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
+      "crates/services/src/agentic/runtime/kernel/mod.rs",
+      "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
+      "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-core.mjs",
       "scripts/conformance/hypervisor-conformance.mjs",
     ],
-    "Phase 10/11 migration guard: model-mount read-projection command request/response envelope and source marker live in Rust model_mount core; the child Node delegate is retired while the broad bridge remains temporary transport only",
+    "Phase 10/11 migration guard: model-mount read projection must call the positive Rust daemon-core typed API; the old command operation, dispatch arm, bridge request/response wrapper, source marker, and child Node delegate stay retired",
   );
   assertCheck(
     result,
@@ -15667,16 +15731,25 @@ function runBridge() {
       /return this\.store\.listReceipts\(\);/.test(modelMountReceiptOperationsBridge) &&
       /return this\.store\.getReceipt\(receiptId\);/.test(modelMountReceiptOperationsBridge) &&
       /planReadProjection/.test(modelMountCore) &&
-      /plan_model_mount_read_projection/.test(modelMountCore) &&
+      /MODEL_MOUNT_READ_PROJECTION_API_METHOD = "planModelMountReadProjection"/.test(modelMountDaemonCore) &&
+      /invokeModelMountApi\(\s*MODEL_MOUNT_READ_PROJECTION_API_METHOD,\s*request\s*\)/.test(
+        modelMountDaemonCore,
+      ) &&
       /model_mount_read_projection_rust_core_required/.test(modelMountingReadProjectionFacade) &&
       !exists("packages/runtime-daemon/src/model-mounting/receipt-operations.mjs") &&
       !/return buildModelMountingProjection\(state,\s*\{ schemaVersion: modelMountSchemaVersion \}\);/.test(
         modelMountingReadProjectionFacade,
       ) &&
-      /plan_model_mount_read_projection_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
-      /rust_core_shapes_model_mount_read_projection_command_response/.test(modelMountCore) &&
-      !/plan_model_mount_read_projection_response as plan_model_mount_read_projection/.test(modelMountCommandSurface) &&
-      !/bridge_plans_model_mount_read_projection_through_rust_core/.test(modelMountCommandSurface),
+      isModelMountReadProjectionTypedApiOwned({
+        coreCommandDispatch,
+        rustModelMountCore,
+        modelMountCommandSurface,
+        commandProtocolCore,
+        modelMountDaemonCore,
+        modelMountCoreTest,
+        kernelModule: kernelModuleForBridgeChecks,
+        daemonCoreDirectInvokerServiceTest,
+      }),
     [
       "packages/runtime-daemon/src/model-mounting/io.mjs",
       "packages/runtime-daemon/src/runtime-http-utils.mjs",
@@ -16192,14 +16265,29 @@ function runBridge() {
       /Reranker"\)\.capability,\s*"rerank"/.test(modelMountingReadProjectionFacadeTest) &&
       /provider health has not been checked/.test(modelMountingReadProjectionFacadeTest) &&
       /vault adapter health has not been checked/.test(modelMountingReadProjectionFacadeTest) &&
-      /Rust model_mount core sends read projection plan request/.test(modelMountCoreTest) &&
+      /Rust model_mount core sends read projection through typed daemon-core API/.test(modelMountCoreTest) &&
       /planReadProjection\(request\)/.test(modelMountCore) &&
-      /operation:\s*"plan_model_mount_read_projection"/.test(modelMountCore) &&
-      /normalizeReadProjectionBridgeResult/.test(modelMountCore) &&
-      /ModelMountReadProjectionBridgeRequest/.test(modelMountReadProjectionEvidence) &&
+      /MODEL_MOUNT_READ_PROJECTION_API_METHOD = "planModelMountReadProjection"/.test(modelMountDaemonCore) &&
+      /invokeModelMountApi\(\s*MODEL_MOUNT_READ_PROJECTION_API_METHOD,\s*request\s*\)/.test(
+        modelMountDaemonCore,
+      ) &&
+      /normalizeReadProjectionApiResult/.test(modelMountDaemonCore) &&
+      !/normalizeReadProjectionBridgeResult/.test(modelMountDaemonCore) &&
+      !/ModelMountReadProjectionBridgeRequest/.test(modelMountReadProjectionEvidence) &&
       /pub struct ModelMountReadProjectionRequest/.test(modelMountCore) &&
-      /pub fn plan_read_projection/.test(modelMountCore) &&
+      /fn plan_read_projection/.test(modelMountCore) &&
       /read_projection_is_planned_in_rust_model_mount_core/.test(modelMountCore) &&
+      /rust_core_plans_model_mount_read_projection_direct_api/.test(modelMountCore) &&
+      isModelMountReadProjectionTypedApiOwned({
+        coreCommandDispatch,
+        rustModelMountCore,
+        modelMountCommandSurface,
+        commandProtocolCore,
+        modelMountDaemonCore,
+        modelMountCoreTest,
+        kernelModule: kernelModuleForBridgeChecks,
+        daemonCoreDirectInvokerServiceTest,
+      }) &&
       !/fn model_mount_read_projection\(/.test(modelMountCommandSurface) &&
       /mod aggregate;/.test(modelMountReadProjectionEvidence) &&
       /"snapshot" => aggregate::snapshot\(request\)/.test(modelMountReadProjectionEvidence) &&
@@ -16470,23 +16558,22 @@ function runBridge() {
       /"workflowNodes": adapter_boundary::workflow_bindings\(\)/.test(modelMountReadProjectionEvidence) &&
       /"workflowBindings": adapter_boundary::workflow_bindings\(\)/.test(modelMountReadProjectionEvidence) &&
       /"modelCapabilities": \[\]/.test(modelMountReadProjectionEvidence) &&
-      /rust_model_mount_read_projection_command/.test(modelMountReadProjectionEvidence) &&
+      /rust_daemon_core\.model_mount\.read_projection/.test(modelMountDaemonCore) &&
       /rust_daemon_core_model_mount_projection/.test(modelMountReadProjectionEvidence) &&
       /agentgres_model_mount_read_truth/.test(modelMountReadProjectionEvidence) &&
       /pub base_url: Option<String>/.test(modelMountReadProjectionEvidence) &&
-      /rust_core_shapes_model_mount_read_projection_command_response/.test(
-        modelMountReadProjectionEvidence,
-      ) &&
-      /plan_model_mount_read_projection_response\(decode\(raw_request\)\?\)/.test(
+      /rust_core_plans_model_mount_read_projection_direct_api/.test(modelMountReadProjectionEvidence) &&
+      isModelMountReadProjectionTypedApiOwned({
         coreCommandDispatch,
-      ) &&
-      !/plan_model_mount_read_projection_response as plan_model_mount_read_projection/.test(
+        rustModelMountCore,
         modelMountCommandSurface,
-      ) &&
-      !/bridge_plans_model_mount_read_projection_through_rust_core/.test(
-        modelMountCommandSurface,
-      ) &&
-      /"projection_kind": "projection"/.test(modelMountReadProjectionEvidence) &&
+        commandProtocolCore,
+        modelMountDaemonCore,
+        modelMountCoreTest,
+        kernelModule: kernelModuleForBridgeChecks,
+        daemonCoreDirectInvokerServiceTest,
+      }) &&
+      /projection_kind:\s*"projection"\.to_string\(\)/.test(modelMountReadProjectionEvidence) &&
       !/server_status_input/.test(modelMountReadProjectionEvidence) &&
       /unwrap_or_else\(\|\| "stopped"\.to_string\(\)\)/.test(modelMountReadProjectionEvidence) &&
       /"loadedInstances": topology::instance_records\(request\)\.len\(\)/.test(modelMountReadProjectionEvidence) &&
@@ -16500,8 +16587,8 @@ function runBridge() {
       /facade\.listProductArtifacts\(state\)\.map\(\(artifact\) => artifact\.model_ref\),\s*\[\s*"model:\/\/fixture\/qwen3"/.test(modelMountingReadProjectionFacadeTest) &&
       /const providers = facade\.listProviders\(state\);[\s\S]*providers\.map\(\(provider\) => provider\.provider_ref\),\s*\[\s*"provider:\/\/fixture",\s*"provider:\/\/native",\s*"provider:\/\/openai"/.test(modelMountingReadProjectionFacadeTest) &&
       /materializationRequest\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
-      /response\["projection"\]\["adapterBoundaries"\]\["agentgres"\]\["port"\]/.test(modelMountReadProjectionEvidence) &&
-      /assert_eq!\(response\["projection"\]\["routeDecisions"\], json!\(\[\]\)\)/.test(modelMountReadProjectionEvidence) &&
+      /response\.projection\["adapterBoundaries"\]\["agentgres"\]\["port"\]/.test(modelMountReadProjectionEvidence) &&
+      /assert_eq!\(response\.projection\["routeDecisions"\], json!\(\[\]\)\)/.test(modelMountReadProjectionEvidence) &&
       /route_decisions_replay_agentgres_selection_records_and_filter_js_truth/.test(modelMountReadProjectionEvidence) &&
       /endpoint_resolutions_replay_agentgres_records/.test(modelMountReadProjectionEvidence) &&
       /model_mount_route_decision_js_receipt_projection_retired/.test(modelMountReadProjectionEvidence) &&

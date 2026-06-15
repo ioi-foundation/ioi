@@ -485,8 +485,7 @@ test("canonical projection writes persist only after Rust projection planning", 
     watermark: 1,
   };
   const rustProjection = {
-    source: "rust_model_mount_read_projection_command",
-    backend: "rust_model_mount_read_projection",
+    source: "rust_daemon_core.model_mount.read_projection",
     projection_kind: "projection",
     projection,
     evidence_refs: [

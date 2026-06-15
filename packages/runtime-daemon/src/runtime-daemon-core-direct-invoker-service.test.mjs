@@ -506,6 +506,22 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
         survey_hash: "sha256:direct-runtime-survey",
       };
     },
+    planModelMountReadProjection(request) {
+      modelMountCalls.push({ method: "planModelMountReadProjection", request });
+      return {
+        source: "rust_daemon_core.model_mount.read_projection",
+        projection_kind: request.projection_kind,
+        evidence_refs: [
+          "rust_daemon_core_model_mount_projection",
+          "agentgres_model_mount_read_truth",
+          "model_mount_js_read_projection_authoring_retired",
+        ],
+        projection: {
+          schemaVersion: request.schema_version,
+          source: "agentgres_model_mounting_projection",
+        },
+      };
+    },
     planModelMountCatalogProviderControl(request) {
       modelMountCalls.push({ method: "planModelMountCatalogProviderControl", request });
       const record = {
@@ -780,21 +796,7 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
         return directModelMountCore.planReceiptGate(request);
       },
       planReadProjection(request) {
-        const projection = {
-          schemaVersion: request.schema_version,
-          source: "agentgres_model_mounting_projection",
-        };
-        return {
-          source: "rust_model_mount_read_projection_command",
-          backend: "rust_model_mount_read_projection",
-          projection_kind: request.projection_kind,
-          evidence_refs: [
-            "rust_daemon_core_model_mount_projection",
-            "agentgres_model_mount_read_truth",
-            "model_mount_js_read_projection_authoring_retired",
-          ],
-          projection,
-        };
+        return directModelMountCore.planReadProjection(request);
       },
       planStorageControl(request) {
         return directModelMountCore.planStorageControl(request);
@@ -1478,6 +1480,16 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
     agentgresCalls.at(-1).request.request.receipt_id,
     "receipt_runtime_survey_direct",
   );
+  const projectionSummary = store.modelMounting.projectionSummary();
+  assert.equal(calls.length, 0);
+  assertModelMountDirectApiCall(
+    modelMountCalls.at(-1),
+    "planModelMountReadProjection",
+    "ioi.model-mounting.runtime.v1",
+  );
+  assert.equal(modelMountCalls.at(-1).request.projection_kind, "projection_summary");
+  assert.equal(modelMountCalls.at(-1).request.state_dir, stateDir);
+  assert.equal(projectionSummary.source, "agentgres_model_mounting_projection");
   const memoryPlan = store.contextPolicyCore.planRuntimeMemoryControl({
     operation: "write",
     operation_kind: "memory.write",

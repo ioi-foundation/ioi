@@ -16,6 +16,7 @@ import {
   MODEL_MOUNT_PROVIDER_LIFECYCLE_API_METHOD,
   MODEL_MOUNT_PROVIDER_RESULT_API_METHOD,
   MODEL_MOUNT_PROVIDER_STREAM_INVOCATION_API_METHOD,
+  MODEL_MOUNT_READ_PROJECTION_API_METHOD,
   MODEL_MOUNT_RECEIPT_GATE_API_METHOD,
   MODEL_MOUNT_ROUTE_CONTROL_API_METHOD,
   MODEL_MOUNT_ROUTE_DECISION_API_METHOD,
@@ -719,7 +720,6 @@ test("Rust model_mount core does not synthesize Rust-owned receipt, required-bou
     ["plan_model_mount_accepted_receipt_head", { head: {} }],
     ["plan_model_mount_accepted_receipt_transition", { transition: {} }],
     ["bind_model_mount_invocation_receipt", {}],
-    ["plan_model_mount_read_projection", {}],
     ["plan_model_mount_tokenizer_required", { record: { details: {} } }],
     ["plan_model_mount_route_control_required", { record: { details: {} } }],
   ]);
@@ -752,12 +752,15 @@ test("Rust model_mount core does not synthesize Rust-owned receipt, required-bou
       admitModelMountProviderResult() {
         return { ok: true, result: { record: {} } };
       },
+      planModelMountReadProjection() {
+        return { ok: true, result: {} };
+      },
     },
     daemonCoreInvoker(request) {
       return {
         ok: true,
         result: sparseResultByOperation.get(request.operation) ?? {},
-      };
+      }
     },
   });
 
@@ -3522,16 +3525,17 @@ test("Rust model_mount core sends accepted receipt head plan request", () => {
   assert.equal(Object.hasOwn(result, "stateRoot"), false);
 });
 
-test("Rust model_mount core sends read projection plan request", () => {
+test("Rust model_mount core sends read projection through typed daemon-core API", () => {
   const calls = [];
+  const genericCalls = [];
   const runner = new ModelMountCore({
-    daemonCoreInvoker(request) {
-      calls.push({ request });
-      return {
-        ok: true,
-        result: {
-            source: "rust_model_mount_read_projection_command",
-            backend: "rust_model_mount_read_projection",
+    daemonCoreModelMountApi: {
+      planModelMountReadProjection(request) {
+        calls.push({ method: MODEL_MOUNT_READ_PROJECTION_API_METHOD, request });
+        return {
+          ok: true,
+          result: {
+            source: "rust_daemon_core.model_mount.read_projection",
             projection_kind: "projection_summary",
             projection: {
               schemaVersion: "model.mount.schema",
@@ -3545,8 +3549,10 @@ test("Rust model_mount core sends read projection plan request", () => {
               "model_mount_js_read_projection_authoring_retired",
             ],
           },
-      };
+        };
+      }
     },
+    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(genericCalls),
   });
 
   const result = runner.planReadProjection({
@@ -3557,10 +3563,13 @@ test("Rust model_mount core sends read projection plan request", () => {
   });
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
-  assert.equal(calls[0].request.operation, "plan_model_mount_read_projection");
-  assert.equal(calls[0].request.backend, "rust_model_mount_read_projection");
-  assert.equal(calls[0].request.request.projection_kind, "projection_summary");
+  assert.equal(genericCalls.length, 0);
+  assertDirectModelMountApiCall(
+    calls[0],
+    MODEL_MOUNT_READ_PROJECTION_API_METHOD,
+    "model.mount.schema",
+  );
+  assert.equal(calls[0].request.projection_kind, "projection_summary");
   assert.equal(result.projection_kind, "projection_summary");
   assert.equal(result.projection.receiptCount, 1);
   assert.equal(Object.hasOwn(result.projection, "receipt_count"), false);

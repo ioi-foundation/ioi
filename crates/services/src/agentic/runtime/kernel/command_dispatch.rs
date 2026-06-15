@@ -157,10 +157,6 @@ pub fn dispatch_command_operation_response(
         CommandOperation::BindModelMountInvocationReceipt => {
             bind_model_mount_invocation_receipt_response(decode(raw_request)?).map_err(Into::into)
         }
-        CommandOperation::PlanModelMountReadProjection => {
-            plan_model_mount_read_projection_response(decode(raw_request)?)
-                .map_err(CommandDispatchError::from)
-        }
         CommandOperation::PlanCodingToolResultEnvelope => {
             plan_coding_tool_result_envelope_response(decode(raw_request)?).map_err(|error| {
                 CommandDispatchError::new(

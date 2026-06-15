@@ -26,8 +26,7 @@ function testModelMountCore(overrides = {}) {
   return {
     planReadProjection(request) {
       return {
-        source: "rust_model_mount_read_projection_command",
-        backend: "rust_model_mount_read_projection",
+        source: "rust_daemon_core.model_mount.read_projection",
         projection_kind: request.projection_kind,
         projection: projectionForKind(request.projection_kind),
         evidence_refs: [
