@@ -10368,6 +10368,17 @@ append are deleted, so migrated memory routes and run construction cannot
 return through those compatibility handles. Remaining work is wallet/policy authority, cTEE private-memory
 custody, durable memory replay/projection depth, and stable IDE/SDK memory APIs.
 
+Slice 1296 hard-cuts runtime task/job runner injection scaffolding.
+`createRuntimeTaskJobSurface()` no longer accepts `taskJobCreateRunner`,
+`taskJobCancelRunner`, or `taskJobProjectionRunner`; task create, task/job
+cancel, and task/job read projection resolve only `store.contextPolicyCore`
+before entering the Rust daemon-core task/job planners/projector. Daemon
+construction no longer wires parallel task/job runner handles, focused tests
+mount fake Rust planners only under `store.contextPolicyCore`, and conformance
+guards that the retired alias names cannot return. Remaining work is durable
+task/job replay/projection depth, wallet/cTEE task authority, direct lifecycle
+APIs, and stable IDE/CLI/SDK task/job clients, not a JS runner fallback.
+
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,
 `/v1/memory/policy`, `/v1/memory/path`, or `/v1/memory/validate`; the daemon

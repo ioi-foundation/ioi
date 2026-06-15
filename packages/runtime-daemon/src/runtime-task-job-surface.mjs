@@ -19,9 +19,6 @@ const runtimeTaskJobControlFacadeRetirementEvidenceRefs = [
 export function createRuntimeTaskJobSurface({
   buildRun = null,
   ensureProviderAvailable = null,
-  taskJobCreateRunner = null,
-  taskJobCancelRunner = null,
-  taskJobProjectionRunner = null,
   notFound: notFoundDep = null,
   runtimeError: runtimeErrorDep = null,
 } = {}) {
@@ -129,7 +126,7 @@ export function createRuntimeTaskJobSurface({
   function createRuntimeTask(store, body = {}) {
     const operation = "runtime_task_create";
     const operationKind = "task.create";
-    const runner = taskJobCreateRunner ?? store.contextPolicyCore ?? null;
+    const runner = store.contextPolicyCore ?? null;
     if (typeof runner?.planRuntimeTaskJobCreateStateUpdate !== "function") {
       throwRuntimeTaskJobRustCoreRequired({
         operation,
@@ -307,7 +304,7 @@ export function createRuntimeTaskJobSurface({
     taskId = null,
     jobId = null,
   }) {
-    const runner = taskJobProjectionRunner ?? store.contextPolicyCore ?? null;
+    const runner = store.contextPolicyCore ?? null;
     if (typeof runner?.projectRuntimeTaskJobProjection !== "function") {
       throwRuntimeTaskJobRustCoreRequired({
         operation,
@@ -430,7 +427,7 @@ export function createRuntimeTaskJobSurface({
     operationKind,
     publicId,
   }) {
-    const runner = taskJobCancelRunner ?? store.contextPolicyCore ?? null;
+    const runner = store.contextPolicyCore ?? null;
     const idKey = cancelKind === "task" ? "taskId" : "jobId";
     if (typeof runner?.planRuntimeTaskJobCancelStateUpdate !== "function") {
       throwRuntimeTaskJobRustCoreRequired({

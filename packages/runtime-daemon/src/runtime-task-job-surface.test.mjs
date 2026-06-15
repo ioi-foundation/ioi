@@ -200,14 +200,14 @@ test("runtime task create commits Rust-planned task/job projection", () => {
     ensureProviderAvailable(runtime, options) {
       calls.push({ name: "ensureProviderAvailable", runtime, options });
     },
-    taskJobCreateRunner: {
+  });
+  const store = {
+    contextPolicyCore: {
       planRuntimeTaskJobCreateStateUpdate(request) {
         calls.push({ name: "planRuntimeTaskJobCreateStateUpdate", request });
         return plannedTaskJobCreate(request);
       },
     },
-  });
-  const store = {
     getAgent(agentId) {
       calls.push({ name: "getAgent", agentId });
       return agent;
@@ -303,7 +303,9 @@ test("runtime task create rejects Rust projection mismatches before persistence"
         trace: { usage_telemetry: {}, qualityLedger: {} },
       };
     },
-    taskJobCreateRunner: {
+  });
+  const store = {
+    contextPolicyCore: {
       planRuntimeTaskJobCreateStateUpdate(request) {
         const planned = plannedTaskJobCreate(request);
         planned.runtime_task = { ...planned.runtime_task, taskId: "task_run-other" };
@@ -314,8 +316,6 @@ test("runtime task create rejects Rust projection mismatches before persistence"
         return planned;
       },
     },
-  });
-  const store = {
     getAgent() {
       return agent;
     },
@@ -348,15 +348,14 @@ test("runtime task cancel commits Rust-planned run cancellation and returns task
   const calls = [];
   const writes = [];
   const existingRun = run("run-a", "running", "2026-06-04T00:00:01.000Z");
-  const surface = createRuntimeTaskJobSurface({
-    taskJobCancelRunner: {
+  const surface = createRuntimeTaskJobSurface();
+  const store = {
+    contextPolicyCore: {
       planRuntimeTaskJobCancelStateUpdate(request) {
         calls.push({ name: "planRuntimeTaskJobCancelStateUpdate", request });
         return plannedTaskJobCancel(request, "task.cancel");
       },
     },
-  });
-  const store = {
     nowIso: () => "2026-06-06T05:00:00.000Z",
     getRun(runId) {
       calls.push({ name: "getRun", runId });
@@ -391,14 +390,13 @@ test("runtime task cancel commits Rust-planned run cancellation and returns task
 test("runtime job cancel commits Rust-planned run cancellation and returns job projection", () => {
   const writes = [];
   const existingRun = run("run-b", "running", "2026-06-04T00:00:02.000Z");
-  const surface = createRuntimeTaskJobSurface({
-    taskJobCancelRunner: {
+  const surface = createRuntimeTaskJobSurface();
+  const store = {
+    contextPolicyCore: {
       planRuntimeTaskJobCancelStateUpdate(request) {
         return plannedTaskJobCancel(request, "job.cancel");
       },
     },
-  });
-  const store = {
     nowIso: () => "2026-06-06T05:01:00.000Z",
     getRun(runId) {
       assert.equal(runId, "run-b");
@@ -445,16 +443,15 @@ test("runtime task job cancel fails closed before run lookup when Rust planner i
 test("runtime task job cancel rejects Rust projection mismatches before persistence", () => {
   const writes = [];
   const existingRun = run("run-a", "running", "2026-06-04T00:00:01.000Z");
-  const surface = createRuntimeTaskJobSurface({
-    taskJobCancelRunner: {
+  const surface = createRuntimeTaskJobSurface();
+  const store = {
+    contextPolicyCore: {
       planRuntimeTaskJobCancelStateUpdate(request) {
         const planned = plannedTaskJobCancel(request, "task.cancel");
         planned.runtime_task = { ...planned.runtime_task, taskId: "task_run-other" };
         return planned;
       },
     },
-  });
-  const store = {
     getRun() {
       return existingRun;
     },
@@ -479,8 +476,9 @@ test("runtime task job cancel rejects Rust projection mismatches before persiste
 
 test("runtime task job read projection calls Rust state-dir projector for list filters", () => {
   const calls = [];
-  const surface = createRuntimeTaskJobSurface({
-    taskJobProjectionRunner: {
+  const surface = createRuntimeTaskJobSurface();
+  const store = {
+    contextPolicyCore: {
       projectRuntimeTaskJobProjection(request) {
         calls.push({ name: "projectRuntimeTaskJobProjection", request });
         return {
@@ -500,8 +498,6 @@ test("runtime task job read projection calls Rust state-dir projector for list f
         };
       },
     },
-  });
-  const store = {
     stateDir: "/tmp/ioi-runtime-state",
   };
 
@@ -531,8 +527,9 @@ test("runtime task job read projection calls Rust state-dir projector for list f
 
 test("runtime task job read projection returns Rust-selected task and job records", () => {
   const calls = [];
-  const surface = createRuntimeTaskJobSurface({
-    taskJobProjectionRunner: {
+  const surface = createRuntimeTaskJobSurface();
+  const store = {
+    contextPolicyCore: {
       projectRuntimeTaskJobProjection(request) {
         calls.push({ name: "projectRuntimeTaskJobProjection", request });
         if (request.projection_kind === "task.get") {
@@ -559,8 +556,6 @@ test("runtime task job read projection returns Rust-selected task and job record
         };
       },
     },
-  });
-  const store = {
     stateDir: "/tmp/ioi-runtime-state",
   };
 
@@ -621,8 +616,9 @@ test("runtime task job read projection fails closed before run lookup when Rust 
 });
 
 test("runtime task job read projection rejects Rust projection mismatches before returning", () => {
-  const surface = createRuntimeTaskJobSurface({
-    taskJobProjectionRunner: {
+  const surface = createRuntimeTaskJobSurface();
+  const store = {
+    contextPolicyCore: {
       projectRuntimeTaskJobProjection(request) {
         return {
           source: "rust_runtime_task_job_projection_api",
@@ -635,8 +631,6 @@ test("runtime task job read projection rejects Rust projection mismatches before
         };
       },
     },
-  });
-  const store = {
     stateDir: "/tmp/ioi-runtime-state",
   };
 

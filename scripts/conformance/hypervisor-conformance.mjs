@@ -31979,7 +31979,11 @@ function runCompositor() {
     /runtime task job projection normalizer accepts get operation kinds/.test(
       runtimeContextPolicyCoreTest,
     ) &&
-    /taskJobProjectionRunner/.test(runtimeTaskJobSurface) &&
+    !/taskJob(?:Create|Cancel|Projection)Runner/.test(
+      runtimeTaskJobSurface + runtimeDaemonIndex + runtimeTaskJobSurfaceTest,
+    ) &&
+    (runtimeTaskJobSurface.match(/const runner = store\.contextPolicyCore \?\? null;/g) ?? [])
+      .length >= 3 &&
     /projectRuntimeTaskJob/.test(runtimeTaskJobSurface) &&
     /projectRuntimeTaskJobProjection/.test(runtimeTaskJobSurface) &&
     /runtime_task_job_projection_state_dir_required/.test(runtimeTaskJobSurface) &&
@@ -31999,7 +32003,7 @@ function runCompositor() {
     /runtime_task_job_projection_not_found/.test(runtimeTaskJobSurface) &&
     /Task not found: \$\{taskId\}/.test(runtimeTaskJobSurface) &&
     /Job not found: \$\{jobId\}/.test(runtimeTaskJobSurface) &&
-    /taskJobProjectionRunner: this\.contextPolicyCore/.test(runtimeDaemonIndex) &&
+    !/taskJobProjectionRunner/.test(runtimeDaemonIndex) &&
     !/runtimeJobRecordForRun,\s*\n\s*runtimeTaskRecordForRun/.test(runtimeDaemonIndex) &&
     !/runtimeTaskRecordForRun/.test(runtimeTaskJobSurface) &&
     !/runtimeJobRecordForRun/.test(runtimeTaskJobSurface) &&
@@ -32148,7 +32152,6 @@ function runCompositor() {
     /runtime_job_cancel_js_facade_retired/.test(runtimeTaskJobSurface) &&
     /rust_daemon_core_runtime_task_job_control_required/.test(runtimeTaskJobSurface) &&
     /agentgres_runtime_task_job_truth_required/.test(runtimeTaskJobSurface) &&
-    /taskJobCreateRunner/.test(runtimeTaskJobSurface) &&
     /createRuntimeTask/.test(runtimeTaskJobSurface) &&
     /canonicalTaskCreateRunRequest/.test(runtimeTaskJobSurface) &&
     /planRuntimeTaskJobCreateStateUpdate/.test(runtimeTaskJobSurface) &&
@@ -32158,11 +32161,11 @@ function runCompositor() {
     /runtime_task_create_state_update_projection_mismatch/.test(
       runtimeTaskJobSurface,
     ) &&
-    /taskJobCreateRunner: this\.contextPolicyCore/.test(runtimeDaemonIndex) &&
+    !/taskJobCreateRunner/.test(runtimeDaemonIndex) &&
     /buildRun,\s*\n\s*ensureProviderAvailable,\s*\n\s*notFound/.test(
       runtimeDaemonIndex,
     ) &&
-    /taskJobCancelRunner/.test(runtimeTaskJobSurface) &&
+    !/taskJobCancelRunner/.test(runtimeDaemonIndex) &&
     /cancelRuntimeTaskJob/.test(runtimeTaskJobSurface) &&
     /planRuntimeTaskJobCancelStateUpdate/.test(runtimeTaskJobSurface) &&
     /runIdForTaskJobPublicId/.test(runtimeTaskJobSurface) &&

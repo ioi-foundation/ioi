@@ -789,9 +789,6 @@ export class AgentgresRuntimeStateStore {
       ensureProviderAvailable,
       notFound,
       optionalString,
-      taskJobCreateRunner: this.contextPolicyCore,
-      taskJobCancelRunner: this.contextPolicyCore,
-      taskJobProjectionRunner: this.contextPolicyCore,
     });
     this.toolSurface = createRuntimeToolSurface({
       toolCatalogRunner: this.contextPolicyCore,
