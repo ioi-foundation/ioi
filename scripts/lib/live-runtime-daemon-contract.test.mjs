@@ -3721,13 +3721,24 @@ test("daemon owns MCP discovery, validation, and React Flow workflow rows", asyn
     );
     assert.ok(serveTools.result.tools.every((tool) => tool._meta.schema_version === "ioi.runtime.mcp-serve.v1"));
 
+    const mcpServeAdmission = {
+      authority_grant_refs: [`wallet.network://grant/mcp-serve/${thread.thread_id}/workspace.status`],
+      authority_receipt_refs: [`receipt://wallet.network/mcp-serve/${thread.thread_id}/workspace.status`],
+      custody_ref: `ctee://workspace/${thread.thread_id}`,
+      containment_ref: `containment://mcp-serve/${thread.thread_id}/workspace.status`,
+    };
     const serveCall = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}/mcp/serve`, {
       method: "POST",
       body: JSON.stringify({
-        jsonrpc: "2.0",
-        id: "call",
-        method: "tools/call",
-        params: { name: "workspace.status", arguments: {} },
+        schema_version: "ioi.runtime.mcp-serve-client.v1",
+        source: "live_runtime_daemon_contract",
+        ...mcpServeAdmission,
+        message: {
+          jsonrpc: "2.0",
+          id: "call",
+          method: "tools/call",
+          params: { name: "workspace.status", arguments: {} },
+        },
       }),
     });
     assert.equal(serveCall.result.structuredContent.status, "completed");
@@ -3739,7 +3750,7 @@ test("daemon owns MCP discovery, validation, and React Flow workflow rows", asyn
       jsonrpc: "2.0",
       id: "sdk-tools",
       method: "tools/list",
-    });
+    }, mcpServeAdmission);
     assert.ok(
       sdkServeTools.result.tools.some((tool) => tool.name === "workspace.status"),
     );

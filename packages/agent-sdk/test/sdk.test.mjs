@@ -1651,6 +1651,66 @@ test("SDK thread and turn create requests reject retired aliases before transpor
   );
 });
 
+test("SDK MCP serve clients send stable protocol admission body", async () => {
+  const requests = [];
+  const admission = {
+    authority_grant_refs: ["wallet.network://grant/mcp-serve/git.diff"],
+    authority_receipt_refs: ["receipt://wallet.network/mcp-serve/git.diff"],
+    custody_ref: "ctee://workspace/thread-sdk",
+    containment_ref: "containment://mcp-serve/thread-sdk/git.diff",
+  };
+  const rpcMessage = {
+    jsonrpc: "2.0",
+    id: 41,
+    method: "tools/call",
+    params: { name: "git.diff", arguments: { includeStat: true } },
+  };
+  const server = http.createServer(async (request, response) => {
+    const url = new URL(request.url ?? "/", "http://127.0.0.1");
+    const body = await readBody(request);
+    requests.push({ method: request.method, pathname: url.pathname, search: url.search, body });
+    response.setHeader("content-type", "application/json");
+    if (
+      request.method === "POST" &&
+      (url.pathname === "/v1/threads/thread_sdk/mcp/serve" || url.pathname === "/v1/mcp/serve")
+    ) {
+      assert.equal(url.searchParams.has("authority_grant_refs"), false);
+      assert.equal(url.searchParams.has("authority_receipt_refs"), false);
+      assert.equal(url.searchParams.has("custody_ref"), false);
+      assert.equal(url.searchParams.has("containment_ref"), false);
+      assert.equal(body.schema_version, "ioi.runtime.mcp-serve-client.v1");
+      assert.equal(body.source, "sdk_client");
+      assert.deepEqual(body.message, rpcMessage);
+      assert.deepEqual(body.authority_grant_refs, admission.authority_grant_refs);
+      assert.deepEqual(body.authority_receipt_refs, admission.authority_receipt_refs);
+      assert.equal(body.custody_ref, admission.custody_ref);
+      assert.equal(body.containment_ref, admission.containment_ref);
+      response.end(JSON.stringify({ jsonrpc: "2.0", id: body.message.id, result: { status: "completed" } }));
+      return;
+    }
+    response.statusCode = 404;
+    response.end(JSON.stringify({ error: { code: "not_found", message: "missing route" } }));
+  });
+  await listen(server);
+  try {
+    const address = server.address();
+    assert.ok(address && typeof address === "object");
+    const client = createRuntimeSubstrateClient({ endpoint: `http://127.0.0.1:${address.port}` });
+
+    const threadResult = await client.threadMcpServeRpc("thread_sdk", rpcMessage, admission);
+    const globalResult = await client.serveMcpRpc({ thread_id: "thread_sdk", message: rpcMessage, ...admission });
+
+    assert.equal(threadResult.result.status, "completed");
+    assert.equal(globalResult.result.status, "completed");
+    assert.equal(requests[0].pathname, "/v1/threads/thread_sdk/mcp/serve");
+    assert.equal(requests[0].search, "");
+    assert.equal(requests[1].pathname, "/v1/mcp/serve");
+    assert.equal(requests[1].search, "?thread_id=thread_sdk");
+  } finally {
+    await close(server);
+  }
+});
+
 test("Thread create wrapper rejects retired option aliases before transport", async () => {
   const client = createRuntimeSubstrateClient({ endpoint: "http://127.0.0.1:9" });
   await assert.rejects(

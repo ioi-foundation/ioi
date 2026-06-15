@@ -1117,6 +1117,18 @@ test("public runtime MCP routes use mounted MCP surfaces directly", async () => 
       expectedMethod: "handleMcpServeJsonRpc",
       expectedArgs: ["thread_route", body, { thread_id: "thread_route" }],
     },
+    {
+      method: "GET",
+      path: "/v1/threads/thread_route/mcp/serve?server_id=mcp.docs",
+      expectedMethod: "mcpServeStatus",
+      expectedArgs: [{ server_id: "mcp.docs", thread_id: "thread_route" }],
+    },
+    {
+      method: "POST",
+      path: "/v1/threads/thread_route/mcp/serve",
+      expectedMethod: "handleMcpServeJsonRpc",
+      expectedArgs: ["thread_route", body, { thread_id: "thread_route" }],
+    },
   ];
 
   for (const testCase of cases) {
@@ -1141,6 +1153,56 @@ test("public runtime MCP routes use mounted MCP surfaces directly", async () => 
       args: testCase.expectedArgs,
     });
   }
+});
+
+test("public runtime MCP serve route accepts stable protocol admission envelope", async () => {
+  const { handleRequest } = routeHarness();
+  const calls = [];
+  const store = {
+    mcpServeSurface: {
+      handleMcpServeJsonRpc(surfaceStore, threadId, message, options) {
+        calls.push({ surfaceStore, threadId, message, options });
+        return { jsonrpc: "2.0", id: message.id, result: { ok: true } };
+      },
+    },
+  };
+  const admission = {
+    authority_grant_refs: ["wallet.network://grant/mcp-serve/git.diff"],
+    authority_receipt_refs: ["receipt://wallet.network/mcp-serve/git.diff"],
+    custody_ref: "ctee://workspace/thread-route",
+    containment_ref: "containment://mcp-serve/thread-route/git.diff",
+  };
+  const response = responseRecorder();
+
+  await handleRequest({
+    request: request({
+      method: "POST",
+      url: "/v1/threads/thread_route/mcp/serve",
+      body: {
+        schema_version: "ioi.runtime.mcp-serve-client.v1",
+        source: "sdk_client",
+        ...admission,
+        message: {
+          jsonrpc: "2.0",
+          id: 31,
+          method: "tools/call",
+          params: { name: "git.diff", arguments: { includeStat: true } },
+        },
+      },
+    }),
+    response,
+    store,
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(calls[0].threadId, "thread_route");
+  assert.equal(calls[0].message.method, "tools/call");
+  assert.deepEqual(calls[0].options.authority_grant_refs, admission.authority_grant_refs);
+  assert.deepEqual(calls[0].options.authority_receipt_refs, admission.authority_receipt_refs);
+  assert.equal(calls[0].options.custody_ref, admission.custody_ref);
+  assert.equal(calls[0].options.containment_ref, admission.containment_ref);
+  assert.equal(calls[0].options.thread_id, "thread_route");
+  assert.deepEqual(JSON.parse(response.body), { jsonrpc: "2.0", id: 31, result: { ok: true } });
 });
 
 test("public runtime routes preserve MCP serve thread requirement", async () => {

@@ -30519,6 +30519,9 @@ function runCompositor() {
   const runtimeMcpSdkToolInvokeInputBlock =
     agentSdkSubstrateClient.match(/export interface RuntimeMcpToolInvokeInput[\s\S]*?\n}\n/)?.[0] ??
     "";
+  const runtimeMcpSdkServeRpcOptionsBlock =
+    agentSdkSubstrateClient.match(/export interface RuntimeMcpServeRpcOptions[\s\S]*?\n}\n/)?.[0] ??
+    "";
   const runtimeMcpSdkServeRpcInputBlock =
     agentSdkSubstrateClient.match(/export interface RuntimeMcpServeRpcInput[\s\S]*?\n}\n/)?.[0] ??
     "";
@@ -39134,6 +39137,52 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "runtime-mcp-serve-stable-protocol-client",
+    /export interface RuntimeMcpServeAdmissionRefs/.test(agentSdkSubstrateClient) &&
+      /export interface RuntimeMcpServeRpcOptions extends RuntimeMcpListOptions, RuntimeMcpServeAdmissionRefs/.test(
+        agentSdkSubstrateClient,
+      ) &&
+      /export interface RuntimeMcpServeAdmissionRefs \{[\s\S]*authority_grant_refs: string\[\];[\s\S]*authority_receipt_refs: string\[\];[\s\S]*custody_ref: string;[\s\S]*containment_ref: string;[\s\S]*\}/.test(
+        agentSdkSubstrateClient,
+      ) &&
+      /allowed_tools\?: string\[\];/.test(runtimeMcpSdkServeRpcOptionsBlock) &&
+      /mcpServeProtocolBody\(message, \{ source: "sdk_client", \.\.\.options \}\)/.test(
+        agentSdkSubstrateClient,
+      ) &&
+      /`\/v1\/threads\/\$\{encodePath\(threadId\)\}\/mcp\/serve\$\{mcpServeQuery\(options\)\}`/.test(
+        agentSdkSubstrateClient,
+      ) &&
+      !/`\/v1\/threads\/\$\{encodePath\(threadId\)\}\/mcp\/serve\$\{mcpListQuery\(options\)\}`[\s\S]*?message/.test(
+        agentSdkSubstrateClient,
+      ) &&
+      /function mcpServeProtocolParts/.test(publicRuntimeRoutesForTaskJob) &&
+      /segments\[3\] === "mcp" &&\s*segments\[4\] === "serve"/.test(
+        publicRuntimeRoutesForTaskJob,
+      ) &&
+      /handleMcpServeJsonRpc\(store, threadId, message, \{ \.\.\.context, thread_id: threadId \}\)/.test(
+        publicRuntimeRoutesForTaskJob,
+      ) &&
+      /public runtime MCP serve route accepts stable protocol admission envelope/.test(
+        publicRuntimeRoutesTestForTaskJob,
+      ) &&
+      /SDK MCP serve clients send stable protocol admission body/.test(agentSdkTest) &&
+      /url\.searchParams\.has\("authority_grant_refs"\), false/.test(agentSdkTest) &&
+      /body\.schema_version,\s*"ioi\.runtime\.mcp-serve-client\.v1"/.test(agentSdkTest) &&
+      /const mcpServeAdmission = \{/.test(liveRuntimeDaemonContract) &&
+      /schema_version: "ioi\.runtime\.mcp-serve-client\.v1"/.test(liveRuntimeDaemonContract) &&
+      /sdkThread\.mcpServeRpc\([\s\S]*?mcpServeAdmission\)/.test(liveRuntimeDaemonContract),
+    [
+      "packages/agent-sdk/src/substrate-client.ts",
+      "packages/agent-sdk/src/thread.ts",
+      "packages/agent-sdk/test/sdk.test.mjs",
+      "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
+      "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
+      "scripts/lib/live-runtime-daemon-contract.test.mjs",
+    ],
+    "Phase 10/11 is pending: SDK MCP serve clients and public routes must use stable protocol admission bodies over Rust replay records instead of query-string admission or unadvertised thread routes",
+  );
+  assertCheck(
+    result,
     "runtime-mcp-control-server-request-alias-retired",
     runtimeMcpControlFacadeRetired &&
       /server_id:\s*optionalStringDep\(serverId\) \?\? optionalStringDep\(request\.server_id\) \?\? null/.test(runtimeMcpControlSurface) &&
@@ -39359,10 +39408,14 @@ function runCompositor() {
       /workspaceRoot: "\/retired"/.test(runtimeMcpCatalogSurfaceTest) &&
       /allowedTools: \["file\.inspect"\]/.test(runtimeMcpHelpersTest) &&
       /toolIds: \["test\.run"\]/.test(runtimeMcpHelpersTest) &&
-      /^\s*allowed_tools\?: string\[\];/m.test(runtimeMcpSdkServeRpcInputBlock) &&
+      /^\s*allowed_tools\?: string\[\];/m.test(
+        `${runtimeMcpSdkServeRpcInputBlock}\n${runtimeMcpSdkServeRpcOptionsBlock}`,
+      ) &&
       !/input\.workspaceRoot\b/.test(runtimeMcpCatalogSurface) &&
       !/options\.(?:allowedTools|toolIds)\b/.test(runtimeMcpHelpers) &&
-      !/^\s*allowedTools\?:/m.test(runtimeMcpSdkServeRpcInputBlock),
+      !/^\s*allowedTools\?:/m.test(
+        `${runtimeMcpSdkServeRpcInputBlock}\n${runtimeMcpSdkServeRpcOptionsBlock}`,
+      ),
     [
       "packages/runtime-daemon/src/runtime-mcp-catalog-surface.mjs",
       "packages/runtime-daemon/src/runtime-mcp-catalog-surface.test.mjs",

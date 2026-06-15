@@ -14,6 +14,7 @@ import {
   type RuntimeThreadMcpInput,
   type RuntimeMcpJsonRpcRequest,
   type RuntimeMcpJsonRpcResponse,
+  type RuntimeMcpServeRpcOptions,
   type RuntimeMcpServerMutationInput,
   type RuntimeMcpToolInvokeInput,
   type RuntimeMcpToolSearchInput,
@@ -270,7 +271,7 @@ export class Thread {
 
   async mcpServeRpc(
     message: RuntimeMcpJsonRpcRequest | RuntimeMcpJsonRpcRequest[],
-    options: RuntimeThreadMcpInput = {},
+    options: RuntimeMcpServeRpcOptions,
   ): Promise<RuntimeMcpJsonRpcResponse | RuntimeMcpJsonRpcResponse[] | null> {
     return this.client.threadMcpServeRpc(this.id, message, options);
   }

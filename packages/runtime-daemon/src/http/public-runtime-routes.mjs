@@ -208,6 +208,29 @@ export function createPublicRuntimeRequestHandler(deps) {
           return;
         }
       }
+      if (
+        segments[0] === "v1" &&
+        segments[1] === "threads" &&
+        segments[2] &&
+        segments[3] === "mcp" &&
+        segments[4] === "serve" &&
+        !segments[5]
+      ) {
+        const threadId = decodeURIComponent(segments[2]);
+        const query = Object.fromEntries(url.searchParams.entries());
+        if (request.method === "GET") {
+          writeJsonResponse(response, store.mcpServeSurface.mcpServeStatus(store, { ...query, thread_id: threadId }));
+          return;
+        }
+        if (request.method === "POST") {
+          const { message, context } = mcpServeProtocolParts(await readBody(request), query);
+          writeMcpJsonRpcResponse(
+            response,
+            await store.mcpServeSurface.handleMcpServeJsonRpc(store, threadId, message, { ...context, thread_id: threadId }),
+          );
+          return;
+        }
+      }
       if (segments[0] === "v1" && segments[1] === "threads" && segments[2]) {
         await handleThreadRoute({ request, response, store, url, segments });
         return;
@@ -310,6 +333,7 @@ export function createPublicRuntimeRequestHandler(deps) {
       }
       if (request.method === "POST" && url.pathname === "/v1/mcp/serve") {
         const query = Object.fromEntries(url.searchParams.entries());
+        const { message, context } = mcpServeProtocolParts(await readBody(request), query);
         const threadId = optionalString(query.thread_id);
         if (!threadId) {
           throw runtimeError({
@@ -321,7 +345,7 @@ export function createPublicRuntimeRequestHandler(deps) {
         }
         writeMcpJsonRpcResponse(
           response,
-          await store.mcpServeSurface.handleMcpServeJsonRpc(store, threadId, await readBody(request), query),
+          await store.mcpServeSurface.handleMcpServeJsonRpc(store, threadId, message, context),
         );
         return;
       }
@@ -442,4 +466,13 @@ export function createPublicRuntimeRequestHandler(deps) {
       writeError(response, error);
     }
   };
+}
+
+function mcpServeProtocolParts(body, query) {
+  const record = body && typeof body === "object" && !Array.isArray(body) ? body : null;
+  if (record && Object.hasOwn(record, "message")) {
+    const { message, ...context } = record;
+    return { message, context: { ...query, ...context } };
+  }
+  return { message: body, context: query };
 }

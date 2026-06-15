@@ -9846,6 +9846,20 @@ the authority/custody/containment refusal paths, no-JS/no-command fallback
 facts, and replay-before-return path. This remains non-terminal because stable
 SDK/IDE/CLI protocol APIs over Rust replay records still need to close.
 
+Slice 1246 closes the SDK/public-route MCP serve protocol gap. The public
+daemon now implements the advertised
+`/v1/threads/{thread_id}/mcp/serve` route before the generic thread dispatcher,
+unwraps stable `ioi.runtime.mcp-serve-client.v1` protocol envelopes, and
+forwards body-carried wallet authority grant/receipt refs, cTEE custody refs,
+and transport containment refs into the Rust-owned MCP serve context. The SDK
+`serveMcpRpc()` and `threadMcpServeRpc()` clients now require those admission
+refs, send them in the protocol body instead of query-string transport, and
+keep raw JSON-RPC as the message being served. Tests and conformance guard the
+stable SDK body, the advertised thread route, absence of admission refs in
+query strings, and Rust replay context handoff. This remains non-terminal
+because IDE/CLI protocol APIs and broader SDK route-family coverage over Rust
+replay records still need to close.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The
