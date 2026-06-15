@@ -98,7 +98,7 @@ function catalogProviderControlPlan(request) {
     },
   };
   return {
-    source: "rust_model_mount_catalog_provider_control_command",
+    source: "rust_daemon_core.model_mount.catalog_provider_control",
     backend: "rust_model_mount_catalog_provider_control",
     plan: { record },
     record_dir: "model-catalog-provider-controls",

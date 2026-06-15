@@ -16721,13 +16721,25 @@ function runBridge() {
     result,
     "model-mount-catalog-provider-control-js-facade-retired",
     !exists("packages/runtime-daemon/src/model-mounting/catalog-provider-configuration-operations.mjs") &&
-      /plan_model_mount_catalog_provider_control/.test(commandProtocolCore) &&
-      /CommandOperation::PlanModelMountCatalogProviderControl/.test(commandProtocolCore) &&
-      /plan_model_mount_catalog_provider_control_response\(decode\(raw_request\)\?\)/.test(
+      /mod catalog_provider_control;/.test(modelMountCore) &&
+      /MODEL_MOUNT_CATALOG_PROVIDER_CONTROL_API_METHOD = "planModelMountCatalogProviderControl"/.test(
+        modelMountDaemonCore,
+      ) &&
+      /invokeModelMountApi\(MODEL_MOUNT_CATALOG_PROVIDER_CONTROL_API_METHOD, request\)/.test(
+        modelMountDaemonCore,
+      ) &&
+      /pub fn plan_model_mount_catalog_provider_control/.test(
+        read("crates/services/src/agentic/runtime/kernel/mod.rs"),
+      ) &&
+      /rust_core_plans_catalog_provider_control_direct_api/.test(rustModelMountCore) &&
+      /model_mount_catalog_provider_vault_receipt_gate_command_transport_is_retired/.test(
+        commandProtocolCore,
+      ) &&
+      !/CommandOperation::PlanModelMountCatalogProviderControl/.test(commandProtocolCore) &&
+      !/plan_model_mount_catalog_provider_control_response/.test(modelMountCore) &&
+      !/plan_model_mount_catalog_provider_control_response\(decode\(raw_request\)\?\)/.test(
         coreCommandDispatch,
       ) &&
-      /mod catalog_provider_control;/.test(modelMountCore) &&
-      /pub fn plan_model_mount_catalog_provider_control_response/.test(modelMountCore) &&
       /MODEL_MOUNT_CATALOG_PROVIDER_CONTROL_SCHEMA_VERSION/.test(modelMountCore) &&
       /wallet_network_catalog_provider_authority_required/.test(modelMountCore) &&
       /ctee_catalog_provider_custody_enforced/.test(modelMountCore) &&
@@ -16735,12 +16747,12 @@ function runBridge() {
       /planCatalogProviderControl\(request\)\s*\{[\s\S]*?this\.modelMountCore\.planCatalogProviderControl\(request\)/.test(
         modelMountingState,
       ) &&
-      /planCatalogProviderControl\(request\)\s*\{[\s\S]*?operation:\s*"plan_model_mount_catalog_provider_control"/.test(
-        modelMountCore,
-      ) &&
-      /normalizeCatalogProviderControlBridgeResult/.test(modelMountCore) &&
-      /RUST_MODEL_MOUNT_CATALOG_PROVIDER_CONTROL_BACKEND/.test(modelMountCore) &&
+      !/operation:\s*"plan_model_mount_catalog_provider_control"/.test(modelMountDaemonCore) &&
+      /normalizeCatalogProviderControlApiResult/.test(modelMountDaemonCore) &&
       /Rust model_mount core sends positive catalog-provider-control request/.test(
+        modelMountCoreTest,
+      ) &&
+      /Rust model_mount core rejects command-shaped catalog\/provider\/vault\/receipt-gate fallbacks/.test(
         modelMountCoreTest,
       ) &&
       !/catalogProviderConfigState|catalogProviderRuntimeMaterialState|configureCatalogProviderState|getCatalogProviderConfigState|listCatalogProviderConfigsState/.test(modelMountingState) &&
@@ -16850,9 +16862,14 @@ function runBridge() {
     result,
     "model-mount-catalog-provider-oauth-js-facade-retired",
     !exists("packages/runtime-daemon/src/model-mounting/catalog-provider-oauth.mjs") &&
-      /plan_model_mount_catalog_provider_control/.test(commandProtocolCore) &&
-      /planCatalogProviderControl\(request\)\s*\{[\s\S]*?operation:\s*"plan_model_mount_catalog_provider_control"/.test(
-        modelMountCore,
+      /MODEL_MOUNT_CATALOG_PROVIDER_CONTROL_API_METHOD = "planModelMountCatalogProviderControl"/.test(
+        modelMountDaemonCore,
+      ) &&
+      /invokeModelMountApi\(MODEL_MOUNT_CATALOG_PROVIDER_CONTROL_API_METHOD, request\)/.test(
+        modelMountDaemonCore,
+      ) &&
+      !/operation:\s*"plan_model_mount_catalog_provider_control"/.test(
+        modelMountDaemonCore,
       ) &&
       /ctee_catalog_provider_custody_enforced/.test(modelMountCore) &&
       !exists("packages/runtime-daemon/src/model-mounting/oauth-record-state.mjs") &&
@@ -16993,27 +17010,38 @@ function runBridge() {
       /agentgres_model_receipt_gate_truth_required/.test(modelMountingValidation) &&
       /rust_core_boundary:\s*"model_mount\.receipt_gate"/.test(modelMountingValidation) &&
       /model_mount_receipt_gate_receipt_state_commit_unconfigured/.test(modelMountingValidation) &&
-      /RUST_MODEL_MOUNT_RECEIPT_GATE_BACKEND/.test(modelMountCore) &&
-      /planReceiptGate\(request\)/.test(modelMountCore) &&
-      /operation:\s*"plan_model_mount_receipt_gate"/.test(modelMountCore) &&
-      /normalizeReceiptGateBridgeResult/.test(modelMountCore) &&
+      /MODEL_MOUNT_RECEIPT_GATE_API_METHOD = "planModelMountReceiptGate"/.test(
+        modelMountDaemonCore,
+      ) &&
+      /planReceiptGate\(request\)\s*\{[\s\S]*invokeModelMountApi\(MODEL_MOUNT_RECEIPT_GATE_API_METHOD, request\)/.test(
+        modelMountDaemonCore,
+      ) &&
+      !/operation:\s*"plan_model_mount_receipt_gate"/.test(modelMountDaemonCore) &&
+      /normalizeReceiptGateApiResult/.test(modelMountDaemonCore) &&
       /receipt\.details\.model_mount_receipt_gate_hash/.test(modelMountCore) &&
       /receipt\.details\.model_mount_receipt_binding_ref/.test(modelMountCore) &&
       /receipt\.details\.model_mount_agentgres_operation_ref/.test(modelMountCore) &&
       /Rust model_mount core sends positive receipt-gate request/.test(modelMountCoreTest) &&
-      /plan_model_mount_receipt_gate/.test(modelMountCoreTest) &&
-      /RUST_MODEL_MOUNT_RECEIPT_GATE_BACKEND/.test(modelMountCoreTest) &&
+      /Rust model_mount core rejects command-shaped catalog\/provider\/vault\/receipt-gate fallbacks/.test(
+        modelMountCoreTest,
+      ) &&
       /MODEL_MOUNT_RECEIPT_GATE_SCHEMA_VERSION/.test(modelMountCore) &&
       /MODEL_MOUNT_RECEIPT_GATE_PLAN_SCHEMA_VERSION/.test(modelMountCore) &&
-      /plan_model_mount_receipt_gate_response/.test(modelMountCore) &&
+      !/plan_model_mount_receipt_gate_response/.test(modelMountCore) &&
       /plan_receipt_gate/.test(modelMountCore) &&
+      /pub fn plan_model_mount_receipt_gate/.test(
+        read("crates/services/src/agentic/runtime/kernel/mod.rs"),
+      ) &&
+      /rust_core_plans_receipt_gate_direct_api/.test(rustModelMountCore) &&
       /workflow_receipt_gate_blocked/.test(modelMountCore) &&
       /model_mount_receipt_gate_rust_owned/.test(modelMountCore) &&
       /rust_receipt_binder_core/.test(modelMountCore) &&
       /agentgres_model_receipt_gate_truth_required/.test(modelMountCore) &&
-      /"plan_model_mount_receipt_gate"/.test(commandProtocolCore) &&
-      /CommandOperation::PlanModelMountReceiptGate/.test(commandProtocolCore) &&
-      /plan_model_mount_receipt_gate_response/.test(coreCommandDispatch) &&
+      /model_mount_catalog_provider_vault_receipt_gate_command_transport_is_retired/.test(
+        commandProtocolCore,
+      ) &&
+      !/CommandOperation::PlanModelMountReceiptGate/.test(commandProtocolCore) &&
+      !/plan_model_mount_receipt_gate_response/.test(coreCommandDispatch) &&
       !/createReceipt\("workflow_receipt_gate/.test(modelReceiptGateValidation) &&
       !/void createReceipt/.test(modelReceiptGateValidation) &&
       !/const requiredRouteId = body\.route_id/.test(modelReceiptGateValidation) &&
@@ -24709,25 +24737,33 @@ function runReceipts() {
       /assertNoPlaintextProviderSecret\(body\);/.test(providerUpsertBlock) &&
       /planAndCommitProviderControl\(this,\s*"model_mount\.provider\.write"/.test(providerUpsertBlock) &&
       /MODEL_MOUNT_PROVIDER_CONTROL_SCHEMA_VERSION/.test(providerOperations) &&
-      /RUST_MODEL_MOUNT_PROVIDER_CONTROL_BACKEND/.test(providerOperations) &&
       /planModelMountProviderControl\(request\)\s*\{\s*return this\.modelMountCore\.planProviderControl\(request\);/.test(
         providerOperations,
       ) &&
-      /planProviderControl\(request\)/.test(modelMountCore) &&
-      /operation:\s*"plan_model_mount_provider_control"/.test(modelMountCore) &&
-      /normalizeProviderControlBridgeResult/.test(modelMountCore) &&
+      /MODEL_MOUNT_PROVIDER_CONTROL_API_METHOD = "planModelMountProviderControl"/.test(
+        modelMountDaemonCore,
+      ) &&
+      /planProviderControl\(request\)\s*\{[\s\S]*invokeModelMountApi\(MODEL_MOUNT_PROVIDER_CONTROL_API_METHOD, request\)/.test(
+        modelMountDaemonCore,
+      ) &&
+      !/operation:\s*"plan_model_mount_provider_control"/.test(modelMountDaemonCore) &&
+      /normalizeProviderControlApiResult/.test(modelMountDaemonCore) &&
       /model_mount_provider_control_plan_invalid/.test(modelMountCore) &&
-      /RUST_MODEL_MOUNT_PROVIDER_CONTROL_BACKEND/.test(modelMountCore) &&
-      /PlanModelMountProviderControl/.test(coreCommandProtocol) &&
-      /"plan_model_mount_provider_control"/.test(coreCommandProtocol) &&
-      /plan_model_mount_provider_control_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
-      /model_mount_provider_control_invalid/.test(coreCommandDispatch) &&
+      /model_mount_catalog_provider_vault_receipt_gate_command_transport_is_retired/.test(
+        coreCommandProtocol,
+      ) &&
+      !/PlanModelMountProviderControl/.test(coreCommandProtocol) &&
+      !/plan_model_mount_provider_control_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      !/model_mount_provider_control_invalid/.test(coreCommandDispatch) &&
       /mod provider_control;/.test(modelMountCore) &&
-      /plan_model_mount_provider_control_response/.test(modelMountCore) &&
+      !/plan_model_mount_provider_control_response/.test(modelMountCore) &&
       /MODEL_MOUNT_PROVIDER_CONTROL_SCHEMA_VERSION/.test(modelMountCore) &&
       /MODEL_MOUNT_PROVIDER_CONTROL_PLAN_SCHEMA_VERSION/.test(modelMountCore) &&
-      /rust_core_plans_provider_control_record/.test(
+      /rust_core_plans_provider_control_direct_api/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount/provider_control.rs"),
+      ) &&
+      /pub fn plan_model_mount_provider_control/.test(
+        read("crates/services/src/agentic/runtime/kernel/mod.rs"),
       ) &&
       /ProviderControlPlaintextMaterial/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount/provider_control.rs"),
@@ -25010,30 +25046,44 @@ function runReceipts() {
       /model_mount_capability_token_rust_core_required/.test(capabilityTokenControl) &&
       /rust_core_boundary:\s*"model_mount\.capability_token"/.test(capabilityTokenControl) &&
       /public_capability_token_js_facade_retired/.test(capabilityTokenControl) &&
-      /RUST_MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_BACKEND/.test(modelMountCore) &&
-      /planCapabilityTokenControl\(request\)/.test(modelMountCore) &&
-      /operation:\s*"plan_model_mount_capability_token_control"/.test(modelMountCore) &&
-      /normalizeCapabilityTokenControlBridgeResult/.test(modelMountCore) &&
+      /MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_API_METHOD = "planModelMountCapabilityTokenControl"/.test(
+        modelMountDaemonCore,
+      ) &&
+      /planCapabilityTokenControl\(request\)\s*\{[\s\S]*invokeModelMountApi\(MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_API_METHOD, request\)/.test(
+        modelMountDaemonCore,
+      ) &&
+      !/operation:\s*"plan_model_mount_capability_token_control"/.test(modelMountDaemonCore) &&
+      /normalizeCapabilityTokenControlApiResult/.test(modelMountDaemonCore) &&
       /record\.public_response\.token_absent/.test(modelMountCore) &&
       /record\.public_response\.plaintext_material_persisted_false/.test(modelMountCore) &&
-      /RUST_MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_BACKEND/.test(modelMountCoreTest) &&
       /Rust model_mount core sends positive capability-token-control request/.test(
+        modelMountCoreTest,
+      ) &&
+      /Rust model_mount core rejects command-shaped catalog\/provider\/vault\/receipt-gate fallbacks/.test(
         modelMountCoreTest,
       ) &&
       /result\.record\.public_response\.token,\s*undefined/.test(modelMountCoreTest) &&
       /result\.public_response\.token,\s*"ioi_mnt_positive_token"/.test(modelMountCoreTest) &&
       /MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_SCHEMA_VERSION/.test(modelMountCore) &&
       /MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_PLAN_SCHEMA_VERSION/.test(modelMountCore) &&
-      /plan_model_mount_capability_token_control_response/.test(modelMountCore) &&
+      !/plan_model_mount_capability_token_control_response/.test(modelMountCore) &&
       /plan_capability_token_control/.test(modelMountCore) &&
+      /pub fn plan_model_mount_capability_token_control/.test(
+        read("crates/services/src/agentic/runtime/kernel/mod.rs"),
+      ) &&
+      /rust_core_plans_capability_token_control_direct_api/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/capability_token_control.rs"),
+      ) &&
       /load_capability_tokens/.test(modelMountCore) &&
       /"capability-tokens"/.test(modelMountCore) &&
       /wallet_network_capability_token_authority_required/.test(modelMountCore) &&
       /agentgres_capability_token_truth_required/.test(modelMountCore) &&
       /plaintext_material_persisted/.test(modelMountCore) &&
       /pub public_response: Value/.test(modelMountCore) &&
-      /"plan_model_mount_capability_token_control"/.test(commandProtocolCore) &&
-      /CommandOperation::PlanModelMountCapabilityTokenControl/.test(coreCommandDispatch) &&
+      /model_mount_catalog_provider_vault_receipt_gate_command_transport_is_retired/.test(
+        commandProtocolCore,
+      ) &&
+      !/CommandOperation::PlanModelMountCapabilityTokenControl/.test(coreCommandDispatch) &&
       !/this\.walletAuthority\.(?:createGrant|authorizeScope|revokeGrant)/.test(modelMountingState) &&
       !/this\.tokens\.(?:has|values|set)/.test(modelMountingState) &&
       !/notFound\(`Token not found: \$\{tokenId\}`/.test(modelMountingState) &&
@@ -25168,20 +25218,30 @@ function runReceipts() {
       /wallet_network_vault_authority_required/.test(vaultControl) &&
       /ctee_vault_custody_enforced/.test(vaultControl) &&
       /agentgres_vault_truth_required/.test(vaultControl) &&
-      /RUST_MODEL_MOUNT_VAULT_CONTROL_BACKEND/.test(modelMountCore) &&
-      /planVaultControl\(request\)/.test(modelMountCore) &&
-      /operation:\s*"plan_model_mount_vault_control"/.test(modelMountCore) &&
-      /normalizeVaultControlBridgeResult/.test(modelMountCore) &&
+      /MODEL_MOUNT_VAULT_CONTROL_API_METHOD = "planModelMountVaultControl"/.test(
+        modelMountDaemonCore,
+      ) &&
+      /planVaultControl\(request\)\s*\{[\s\S]*invokeModelMountApi\(MODEL_MOUNT_VAULT_CONTROL_API_METHOD, request\)/.test(
+        modelMountDaemonCore,
+      ) &&
+      !/operation:\s*"plan_model_mount_vault_control"/.test(modelMountDaemonCore) &&
+      /normalizeVaultControlApiResult/.test(modelMountDaemonCore) &&
       /record\.public_response\.material_absent/.test(modelMountCore) &&
       /record\.ctee_custody\.plaintext_material_persisted_false/.test(modelMountCore) &&
       /record\.ctee_custody\.plaintext_material_returned_false/.test(modelMountCore) &&
       /Rust model_mount core sends positive vault-control request/.test(modelMountCoreTest) &&
-      /Object\.hasOwn\(calls\[0\]\.request\.request\.body,\s*"material"\),\s*false/.test(modelMountCoreTest) &&
+      /Object\.hasOwn\(calls\[0\]\.request\.body,\s*"material"\),\s*false/.test(modelMountCoreTest) &&
       /result\.record\.ctee_custody\.plaintext_material_persisted,\s*false/.test(modelMountCoreTest) &&
       /MODEL_MOUNT_VAULT_CONTROL_SCHEMA_VERSION/.test(modelMountCore) &&
       /MODEL_MOUNT_VAULT_CONTROL_PLAN_SCHEMA_VERSION/.test(modelMountCore) &&
-      /plan_model_mount_vault_control_response/.test(modelMountCore) &&
+      !/plan_model_mount_vault_control_response/.test(modelMountCore) &&
       /plan_vault_control/.test(modelMountCore) &&
+      /pub fn plan_model_mount_vault_control/.test(
+        read("crates/services/src/agentic/runtime/kernel/mod.rs"),
+      ) &&
+      /rust_core_plans_vault_control_direct_api/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/vault_control.rs"),
+      ) &&
       /load_vault_refs/.test(modelMountCore) &&
       /"vault-refs"/.test(modelMountCore) &&
       /wallet_network_vault_authority_required/.test(modelMountCore) &&
@@ -25189,9 +25249,11 @@ function runReceipts() {
       /agentgres_vault_truth_required/.test(modelMountCore) &&
       /plaintext_material_persisted/.test(modelMountCore) &&
       /pub public_response: Value/.test(modelMountCore) &&
-      /"plan_model_mount_vault_control"/.test(commandProtocolCore) &&
-      /CommandOperation::PlanModelMountVaultControl/.test(commandProtocolCore) &&
-      /plan_model_mount_vault_control_response/.test(coreCommandDispatch) &&
+      /model_mount_catalog_provider_vault_receipt_gate_command_transport_is_retired/.test(
+        commandProtocolCore,
+      ) &&
+      !/CommandOperation::PlanModelMountVaultControl/.test(commandProtocolCore) &&
+      !/plan_model_mount_vault_control_response/.test(coreCommandDispatch) &&
       /model_mount_vault_ref_js_metadata_write_retired/.test(
         read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs"),
       ) &&

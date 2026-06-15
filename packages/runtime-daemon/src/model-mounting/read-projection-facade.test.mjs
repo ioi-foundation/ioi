@@ -185,7 +185,7 @@ function createState() {
       object: "ioi.model_mount_provider",
       status: "configured",
       operation_kind: "model_mount.provider.write",
-      source: "rust_model_mount_provider_control_command",
+      source: "rust_daemon_core.model_mount.provider_control",
       provider_id: "provider.openai",
       provider_ref: "provider://openai",
       kind: "openai",

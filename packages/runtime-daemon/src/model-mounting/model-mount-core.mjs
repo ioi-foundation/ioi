@@ -10,11 +10,6 @@ export const RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_BACKEND = "rust_model_mount_back
 export const RUST_MODEL_MOUNT_STORAGE_CONTROL_BACKEND = "rust_model_mount_storage_control";
 export const RUST_MODEL_MOUNT_TOKENIZER_REQUIRED_BACKEND = "rust_model_mount_tokenizer_required";
 export const RUST_MODEL_MOUNT_ROUTE_CONTROL_REQUIRED_BACKEND = "rust_model_mount_route_control_required";
-export const RUST_MODEL_MOUNT_CATALOG_PROVIDER_CONTROL_BACKEND = "rust_model_mount_catalog_provider_control";
-export const RUST_MODEL_MOUNT_PROVIDER_CONTROL_BACKEND = "rust_model_mount_provider_control";
-export const RUST_MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_BACKEND = "rust_model_mount_capability_token_control";
-export const RUST_MODEL_MOUNT_VAULT_CONTROL_BACKEND = "rust_model_mount_vault_control";
-export const RUST_MODEL_MOUNT_RECEIPT_GATE_BACKEND = "rust_model_mount_receipt_gate";
 export const RUST_MODEL_MOUNT_TOKENIZER_BACKEND = "rust_model_mount_tokenizer";
 export const RUST_MODEL_MOUNT_CONVERSATION_STATE_BACKEND = "rust_model_mount_conversation_state";
 export const RUST_MODEL_MOUNT_STREAM_COMPLETION_BACKEND = "rust_model_mount_stream_completion";
@@ -41,6 +36,11 @@ export const MODEL_MOUNT_SERVER_CONTROL_API_METHOD = "planModelMountServerContro
 export const MODEL_MOUNT_ROUTE_CONTROL_API_METHOD = "planModelMountRouteControl";
 export const MODEL_MOUNT_RUNTIME_ENGINE_API_METHOD = "planModelMountRuntimeEngine";
 export const MODEL_MOUNT_RUNTIME_SURVEY_API_METHOD = "planModelMountRuntimeSurvey";
+export const MODEL_MOUNT_CATALOG_PROVIDER_CONTROL_API_METHOD = "planModelMountCatalogProviderControl";
+export const MODEL_MOUNT_PROVIDER_CONTROL_API_METHOD = "planModelMountProviderControl";
+export const MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_API_METHOD = "planModelMountCapabilityTokenControl";
+export const MODEL_MOUNT_VAULT_CONTROL_API_METHOD = "planModelMountVaultControl";
+export const MODEL_MOUNT_RECEIPT_GATE_API_METHOD = "planModelMountReceiptGate";
 
 export function createModelMountCore(options = {}) {
   return new ModelMountCore(options);
@@ -244,53 +244,33 @@ export class ModelMountCore {
   }
 
   planCatalogProviderControl(request) {
-    const bridgeRequest = {
-      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
-      operation: "plan_model_mount_catalog_provider_control",
-      backend: RUST_MODEL_MOUNT_CATALOG_PROVIDER_CONTROL_BACKEND,
-      request,
-    };
-    return normalizeCatalogProviderControlBridgeResult(this.invokeDaemonCore(bridgeRequest));
+    return normalizeCatalogProviderControlApiResult(
+      this.invokeModelMountApi(MODEL_MOUNT_CATALOG_PROVIDER_CONTROL_API_METHOD, request),
+    );
   }
 
   planProviderControl(request) {
-    const bridgeRequest = {
-      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
-      operation: "plan_model_mount_provider_control",
-      backend: RUST_MODEL_MOUNT_PROVIDER_CONTROL_BACKEND,
-      request,
-    };
-    return normalizeProviderControlBridgeResult(this.invokeDaemonCore(bridgeRequest));
+    return normalizeProviderControlApiResult(
+      this.invokeModelMountApi(MODEL_MOUNT_PROVIDER_CONTROL_API_METHOD, request),
+    );
   }
 
   planCapabilityTokenControl(request) {
-    const bridgeRequest = {
-      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
-      operation: "plan_model_mount_capability_token_control",
-      backend: RUST_MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_BACKEND,
-      request,
-    };
-    return normalizeCapabilityTokenControlBridgeResult(this.invokeDaemonCore(bridgeRequest));
+    return normalizeCapabilityTokenControlApiResult(
+      this.invokeModelMountApi(MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_API_METHOD, request),
+    );
   }
 
   planVaultControl(request) {
-    const bridgeRequest = {
-      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
-      operation: "plan_model_mount_vault_control",
-      backend: RUST_MODEL_MOUNT_VAULT_CONTROL_BACKEND,
-      request,
-    };
-    return normalizeVaultControlBridgeResult(this.invokeDaemonCore(bridgeRequest));
+    return normalizeVaultControlApiResult(
+      this.invokeModelMountApi(MODEL_MOUNT_VAULT_CONTROL_API_METHOD, request),
+    );
   }
 
   planReceiptGate(request) {
-    const bridgeRequest = {
-      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
-      operation: "plan_model_mount_receipt_gate",
-      backend: RUST_MODEL_MOUNT_RECEIPT_GATE_BACKEND,
-      request,
-    };
-    return normalizeReceiptGateBridgeResult(this.invokeDaemonCore(bridgeRequest));
+    return normalizeReceiptGateApiResult(
+      this.invokeModelMountApi(MODEL_MOUNT_RECEIPT_GATE_API_METHOD, request),
+    );
   }
 
   planAcceptedReceiptHead(request) {
@@ -1335,7 +1315,7 @@ function normalizeRouteControlApiResult(value = {}) {
   return normalized;
 }
 
-function normalizeCatalogProviderControlBridgeResult(value = {}) {
+function normalizeCatalogProviderControlApiResult(value = {}) {
   const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   const plan = result.plan && typeof result.plan === "object" && !Array.isArray(result.plan)
     ? result.plan
@@ -1346,8 +1326,7 @@ function normalizeCatalogProviderControlBridgeResult(value = {}) {
       ? plan.record
       : null;
   const normalized = {
-    source: result.source ?? "rust_model_mount_catalog_provider_control_command",
-    backend: result.backend ?? RUST_MODEL_MOUNT_CATALOG_PROVIDER_CONTROL_BACKEND,
+    source: result.source ?? "rust_daemon_core.model_mount.catalog_provider_control",
     plan,
     record_dir: result.record_dir ?? plan.record_dir ?? null,
     record_id: result.record_id ?? plan.record_id ?? null,
@@ -1400,7 +1379,6 @@ function normalizeCatalogProviderControlBridgeResult(value = {}) {
     error.details = {
       missing,
       source: normalized.source,
-      backend: normalized.backend,
       operation_kind: normalized.operation_kind,
     };
     throw error;
@@ -1408,7 +1386,7 @@ function normalizeCatalogProviderControlBridgeResult(value = {}) {
   return normalized;
 }
 
-function normalizeProviderControlBridgeResult(value = {}) {
+function normalizeProviderControlApiResult(value = {}) {
   const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   const plan = result.plan && typeof result.plan === "object" && !Array.isArray(result.plan)
     ? result.plan
@@ -1419,8 +1397,7 @@ function normalizeProviderControlBridgeResult(value = {}) {
       ? plan.record
       : null;
   const normalized = {
-    source: result.source ?? "rust_model_mount_provider_control_command",
-    backend: result.backend ?? RUST_MODEL_MOUNT_PROVIDER_CONTROL_BACKEND,
+    source: result.source ?? "rust_daemon_core.model_mount.provider_control",
     plan,
     record_dir: result.record_dir ?? plan.record_dir ?? null,
     record_id: result.record_id ?? plan.record_id ?? null,
@@ -1486,7 +1463,6 @@ function normalizeProviderControlBridgeResult(value = {}) {
     error.details = {
       missing,
       source: normalized.source,
-      backend: normalized.backend,
       operation_kind: normalized.operation_kind,
     };
     throw error;
@@ -1494,7 +1470,7 @@ function normalizeProviderControlBridgeResult(value = {}) {
   return normalized;
 }
 
-function normalizeCapabilityTokenControlBridgeResult(value = {}) {
+function normalizeCapabilityTokenControlApiResult(value = {}) {
   const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   const plan = result.plan && typeof result.plan === "object" && !Array.isArray(result.plan)
     ? result.plan
@@ -1505,8 +1481,7 @@ function normalizeCapabilityTokenControlBridgeResult(value = {}) {
       ? plan.record
       : null;
   const normalized = {
-    source: result.source ?? "rust_model_mount_capability_token_control_command",
-    backend: result.backend ?? RUST_MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_BACKEND,
+    source: result.source ?? "rust_daemon_core.model_mount.capability_token_control",
     plan,
     record_dir: result.record_dir ?? plan.record_dir ?? null,
     record_id: result.record_id ?? plan.record_id ?? null,
@@ -1563,7 +1538,6 @@ function normalizeCapabilityTokenControlBridgeResult(value = {}) {
     error.details = {
       missing,
       source: normalized.source,
-      backend: normalized.backend,
       operation_kind: normalized.operation_kind,
     };
     throw error;
@@ -1571,7 +1545,7 @@ function normalizeCapabilityTokenControlBridgeResult(value = {}) {
   return normalized;
 }
 
-function normalizeVaultControlBridgeResult(value = {}) {
+function normalizeVaultControlApiResult(value = {}) {
   const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   const plan = result.plan && typeof result.plan === "object" && !Array.isArray(result.plan)
     ? result.plan
@@ -1582,8 +1556,7 @@ function normalizeVaultControlBridgeResult(value = {}) {
       ? plan.record
       : null;
   const normalized = {
-    source: result.source ?? "rust_model_mount_vault_control_command",
-    backend: result.backend ?? RUST_MODEL_MOUNT_VAULT_CONTROL_BACKEND,
+    source: result.source ?? "rust_daemon_core.model_mount.vault_control",
     plan,
     record_dir: result.record_dir ?? plan.record_dir ?? null,
     record_id: result.record_id ?? plan.record_id ?? null,
@@ -1649,7 +1622,6 @@ function normalizeVaultControlBridgeResult(value = {}) {
     error.details = {
       missing,
       source: normalized.source,
-      backend: normalized.backend,
       operation_kind: normalized.operation_kind,
     };
     throw error;
@@ -1935,7 +1907,7 @@ function normalizeStreamCancelBridgeResult(value = {}) {
   return normalized;
 }
 
-function normalizeReceiptGateBridgeResult(value = {}) {
+function normalizeReceiptGateApiResult(value = {}) {
   const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   const plan = result.plan && typeof result.plan === "object" && !Array.isArray(result.plan)
     ? result.plan
@@ -1946,8 +1918,7 @@ function normalizeReceiptGateBridgeResult(value = {}) {
       ? plan.receipt
       : null;
   const normalized = {
-    source: result.source ?? "rust_model_mount_receipt_gate_command",
-    backend: result.backend ?? RUST_MODEL_MOUNT_RECEIPT_GATE_BACKEND,
+    source: result.source ?? "rust_daemon_core.model_mount.receipt_gate",
     plan,
     receipt,
     public_response: result.public_response ?? plan.public_response ?? null,
@@ -2000,7 +1971,6 @@ function normalizeReceiptGateBridgeResult(value = {}) {
     error.details = {
       missing,
       source: normalized.source,
-      backend: normalized.backend,
       operation_kind: normalized.operation_kind,
     };
     throw error;

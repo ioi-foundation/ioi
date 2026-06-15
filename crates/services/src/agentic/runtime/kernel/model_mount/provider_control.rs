@@ -62,13 +62,6 @@ pub struct ModelMountProviderControlPlan {
     pub authority_hash: String,
 }
 
-#[derive(Debug, Deserialize)]
-pub struct ModelMountProviderControlBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: ModelMountProviderControlRequest,
-}
-
 impl ModelMountProviderControlRequest {
     pub fn validate(&self) -> Result<(), ModelMountError> {
         if self.schema_version != MODEL_MOUNT_PROVIDER_CONTROL_SCHEMA_VERSION {
@@ -102,39 +95,6 @@ impl ModelMountProviderControlRequest {
         }
         Ok(())
     }
-}
-
-pub fn plan_model_mount_provider_control_response(
-    request: ModelMountProviderControlBridgeRequest,
-) -> Result<Value, ModelMountError> {
-    let plan = plan_provider_control(&request.request)?;
-    let record_dir = plan.record_dir.clone();
-    let record_id = plan.record_id.clone();
-    let record = plan.record.clone();
-    let receipt_refs = plan.receipt_refs.clone();
-    let authority_grant_refs = plan.authority_grant_refs.clone();
-    let authority_receipt_refs = plan.authority_receipt_refs.clone();
-    let evidence_refs = plan.evidence_refs.clone();
-    let control_hash = plan.control_hash.clone();
-    let authority_hash = plan.authority_hash.clone();
-    let operation_kind = plan.operation_kind.clone();
-    let rust_core_boundary = plan.rust_core_boundary.clone();
-    Ok(json!({
-        "source": "rust_model_mount_provider_control_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_model_mount_provider_control".to_string()),
-        "plan": plan,
-        "record_dir": record_dir,
-        "record_id": record_id,
-        "record": record,
-        "receipt_refs": receipt_refs,
-        "authority_grant_refs": authority_grant_refs,
-        "authority_receipt_refs": authority_receipt_refs,
-        "evidence_refs": evidence_refs,
-        "control_hash": control_hash,
-        "authority_hash": authority_hash,
-        "operation_kind": operation_kind,
-        "rust_core_boundary": rust_core_boundary,
-    }))
 }
 
 pub(super) fn plan_provider_control(
@@ -460,7 +420,7 @@ mod tests {
     }
 
     #[test]
-    fn rust_core_plans_provider_control_record() {
+    fn rust_core_plans_provider_control_direct_api() {
         let plan = plan_provider_control(&request()).expect("provider control plan");
 
         assert_eq!(

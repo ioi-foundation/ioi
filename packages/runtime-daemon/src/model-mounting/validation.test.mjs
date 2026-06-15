@@ -143,7 +143,7 @@ test("model mounting validation fails closed on retired continuation fallback al
 function receiptGatePlan(request, status = "passed", failures = []) {
   const kind = status === "passed" ? "workflow_receipt_gate" : "workflow_receipt_gate_blocked";
   return {
-    source: "rust_model_mount_receipt_gate_command",
+    source: "rust_daemon_core.model_mount.receipt_gate",
     backend: "rust_model_mount_receipt_gate",
     operation_kind: request.operation_kind,
     rust_core_boundary: "model_mount.receipt_gate",

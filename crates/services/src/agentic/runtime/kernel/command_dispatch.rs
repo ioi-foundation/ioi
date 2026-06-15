@@ -130,28 +130,6 @@ pub fn dispatch_command_operation_response(
                 |error| model_mount_error("model_mount_route_control_required_invalid", error),
             )
         }
-        CommandOperation::PlanModelMountCatalogProviderControl => {
-            plan_model_mount_catalog_provider_control_response(decode(raw_request)?).map_err(
-                |error| model_mount_error("model_mount_catalog_provider_control_invalid", error),
-            )
-        }
-        CommandOperation::PlanModelMountProviderControl => {
-            plan_model_mount_provider_control_response(decode(raw_request)?)
-                .map_err(|error| model_mount_error("model_mount_provider_control_invalid", error))
-        }
-        CommandOperation::PlanModelMountCapabilityTokenControl => {
-            plan_model_mount_capability_token_control_response(decode(raw_request)?).map_err(
-                |error| model_mount_error("model_mount_capability_token_control_invalid", error),
-            )
-        }
-        CommandOperation::PlanModelMountVaultControl => {
-            plan_model_mount_vault_control_response(decode(raw_request)?)
-                .map_err(|error| model_mount_error("model_mount_vault_control_invalid", error))
-        }
-        CommandOperation::PlanModelMountReceiptGate => {
-            plan_model_mount_receipt_gate_response(decode(raw_request)?)
-                .map_err(|error| model_mount_error("model_mount_receipt_gate_invalid", error))
-        }
         CommandOperation::PlanModelMountTokenizer => {
             plan_model_mount_tokenizer_response(decode(raw_request)?)
                 .map_err(|error| model_mount_error("model_mount_tokenizer_invalid", error))

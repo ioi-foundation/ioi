@@ -10,11 +10,6 @@ pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
     "plan_model_mount_backend_lifecycle",
     "plan_model_mount_tokenizer_required",
     "plan_model_mount_route_control_required",
-    "plan_model_mount_catalog_provider_control",
-    "plan_model_mount_provider_control",
-    "plan_model_mount_capability_token_control",
-    "plan_model_mount_vault_control",
-    "plan_model_mount_receipt_gate",
     "plan_model_mount_tokenizer",
     "plan_model_mount_conversation_state",
     "plan_model_mount_stream_completion",
@@ -63,11 +58,6 @@ pub enum CommandOperation {
     PlanModelMountBackendLifecycle,
     PlanModelMountTokenizerRequired,
     PlanModelMountRouteControlRequired,
-    PlanModelMountCatalogProviderControl,
-    PlanModelMountProviderControl,
-    PlanModelMountCapabilityTokenControl,
-    PlanModelMountVaultControl,
-    PlanModelMountReceiptGate,
     PlanModelMountTokenizer,
     PlanModelMountConversationState,
     PlanModelMountStreamCompletion,
@@ -117,15 +107,6 @@ impl CommandOperation {
             Self::PlanModelMountBackendLifecycle => "plan_model_mount_backend_lifecycle",
             Self::PlanModelMountTokenizerRequired => "plan_model_mount_tokenizer_required",
             Self::PlanModelMountRouteControlRequired => "plan_model_mount_route_control_required",
-            Self::PlanModelMountCatalogProviderControl => {
-                "plan_model_mount_catalog_provider_control"
-            }
-            Self::PlanModelMountProviderControl => "plan_model_mount_provider_control",
-            Self::PlanModelMountCapabilityTokenControl => {
-                "plan_model_mount_capability_token_control"
-            }
-            Self::PlanModelMountVaultControl => "plan_model_mount_vault_control",
-            Self::PlanModelMountReceiptGate => "plan_model_mount_receipt_gate",
             Self::PlanModelMountTokenizer => "plan_model_mount_tokenizer",
             Self::PlanModelMountConversationState => "plan_model_mount_conversation_state",
             Self::PlanModelMountStreamCompletion => "plan_model_mount_stream_completion",
@@ -258,17 +239,6 @@ pub fn command_operation(operation: &str) -> Option<CommandOperation> {
         "plan_model_mount_route_control_required" => {
             Some(CommandOperation::PlanModelMountRouteControlRequired)
         }
-        "plan_model_mount_catalog_provider_control" => {
-            Some(CommandOperation::PlanModelMountCatalogProviderControl)
-        }
-        "plan_model_mount_provider_control" => {
-            Some(CommandOperation::PlanModelMountProviderControl)
-        }
-        "plan_model_mount_capability_token_control" => {
-            Some(CommandOperation::PlanModelMountCapabilityTokenControl)
-        }
-        "plan_model_mount_vault_control" => Some(CommandOperation::PlanModelMountVaultControl),
-        "plan_model_mount_receipt_gate" => Some(CommandOperation::PlanModelMountReceiptGate),
         "plan_model_mount_tokenizer" => Some(CommandOperation::PlanModelMountTokenizer),
         "plan_model_mount_conversation_state" => {
             Some(CommandOperation::PlanModelMountConversationState)
@@ -440,11 +410,6 @@ mod tests {
             "project_runtime_diagnostics_repair_projection",
             "project_runtime_conversation_artifact_projection",
             "project_runtime_subagent_projection",
-            "plan_model_mount_catalog_provider_control",
-            "plan_model_mount_provider_control",
-            "plan_model_mount_capability_token_control",
-            "plan_model_mount_vault_control",
-            "plan_model_mount_receipt_gate",
             "plan_model_mount_conversation_state",
             "plan_model_mount_stream_completion",
         ] {
@@ -648,6 +613,26 @@ mod tests {
             .code(),
             "operation_unknown"
         );
+    }
+
+    #[test]
+    fn model_mount_catalog_provider_vault_receipt_gate_command_transport_is_retired() {
+        for operation in [
+            "plan_model_mount_catalog_provider_control",
+            "plan_model_mount_provider_control",
+            "plan_model_mount_capability_token_control",
+            "plan_model_mount_vault_control",
+            "plan_model_mount_receipt_gate",
+        ] {
+            assert_eq!(command_operation(operation), None);
+            assert_eq!(expected_command_schema_version(operation), None);
+            assert_eq!(
+                validate_command_envelope(operation, DAEMON_CORE_COMMAND_SCHEMA_VERSION)
+                    .unwrap_err()
+                    .code(),
+                "operation_unknown"
+            );
+        }
     }
 
     #[test]

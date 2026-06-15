@@ -77,7 +77,7 @@ function fakeState() {
         object: "ioi.model_mount_provider",
         status: body.status,
         operation_kind: request.operation_kind,
-        source: "rust_model_mount_provider_control_command",
+        source: "rust_daemon_core.model_mount.provider_control",
         provider_id: providerId,
         provider_ref: publicResponse.provider_ref,
         kind: body.kind,
@@ -112,7 +112,7 @@ function fakeState() {
         control_hash: "provider-control",
       };
       return {
-        source: "rust_model_mount_provider_control_command",
+        source: "rust_daemon_core.model_mount.provider_control",
         backend: "rust_model_mount_provider_control",
         plan: {
           schema_version: "ioi.model_mount.provider_control_plan.v1",

@@ -68,21 +68,14 @@ pub use common::{
 };
 mod capability_token_control;
 pub use capability_token_control::{
-    plan_model_mount_capability_token_control_response,
-    ModelMountCapabilityTokenControlBridgeRequest, ModelMountCapabilityTokenControlPlan,
-    ModelMountCapabilityTokenControlRequest,
+    ModelMountCapabilityTokenControlPlan, ModelMountCapabilityTokenControlRequest,
 };
 mod catalog_provider_control;
 pub use catalog_provider_control::{
-    plan_model_mount_catalog_provider_control_response,
-    ModelMountCatalogProviderControlBridgeRequest, ModelMountCatalogProviderControlPlan,
-    ModelMountCatalogProviderControlRequest,
+    ModelMountCatalogProviderControlPlan, ModelMountCatalogProviderControlRequest,
 };
 mod provider_control;
-pub use provider_control::{
-    plan_model_mount_provider_control_response, ModelMountProviderControlBridgeRequest,
-    ModelMountProviderControlPlan, ModelMountProviderControlRequest,
-};
+pub use provider_control::{ModelMountProviderControlPlan, ModelMountProviderControlRequest};
 mod conversation;
 pub use conversation::{
     plan_model_mount_conversation_state_response, plan_model_mount_stream_cancel_response,
@@ -127,15 +120,9 @@ pub use tokenizer::{
     ModelMountTokenizerRequest,
 };
 mod vault_control;
-pub use vault_control::{
-    plan_model_mount_vault_control_response, ModelMountVaultControlBridgeRequest,
-    ModelMountVaultControlPlan, ModelMountVaultControlRequest,
-};
+pub use vault_control::{ModelMountVaultControlPlan, ModelMountVaultControlRequest};
 mod receipt_gate;
-pub use receipt_gate::{
-    plan_model_mount_receipt_gate_response, ModelMountReceiptGateBridgeRequest,
-    ModelMountReceiptGatePlan, ModelMountReceiptGateRequest,
-};
+pub use receipt_gate::{ModelMountReceiptGatePlan, ModelMountReceiptGateRequest};
 mod required;
 pub use required::{
     plan_model_mount_route_control_required_response, plan_model_mount_tokenizer_required_response,

@@ -8640,14 +8640,17 @@ tests are deleted, the daemon store/service pass only `modelMountCore`, and the
 old command/env factory path is gone. Route decision, invocation admission,
 provider execution, provider invocation/stream execution, lifecycle/inventory,
 instance lifecycle, provider-result admission, artifact-endpoint planning,
-storage control, route-control planning, MCP workflow planning, server-control planning, runtime-engine planning, and runtime-survey planning now call typed
+storage control, route-control planning, MCP workflow planning, server-control planning, runtime-engine planning, runtime-survey planning, catalog-provider control planning, provider control planning, capability-token control planning, vault control planning, and receipt-gate planning now call typed
 `daemonCoreModelMountApi` methods instead of command envelopes. Rust rejects the
 retired command operations, dispatch arms, and bridge request/response wrappers
 for that family. Backend process/lifecycle, remaining required-control,
 accepted-receipt head/transition, read-projection, invocation receipt-binding,
-tokenizer,
-catalog/provider/vault/receipt-gate, conversation/stream, and projection helpers
-still enter Rust through remaining migration transport. The core requires typed
+tokenizer, conversation/stream, and projection helpers still enter Rust through
+remaining migration transport. Catalog-provider control, provider control,
+capability-token control, vault control, and receipt-gate planning now call typed
+`daemonCoreModelMountApi` methods backed by Rust `RuntimeKernelService`; the
+old command operations, dispatch arms, bridge wrappers, backend markers, and JS
+command-envelope builders are retired. The core requires typed
 `daemonCoreModelMountApi` for migrated model_mount APIs, uses
 `daemonCoreInvoker` only for remaining temporary operations, rejects retired
 `command`, `args`, and `env` compatibility options, and keeps Rust-owned receipt
@@ -9298,8 +9301,8 @@ Rust response envelope. JS no longer executes OAuth credential helpers, resolves
 catalog-provider vault refs, reads config/runtime-material maps as accepted
 truth, writes OAuth/session/provider maps, or returns plaintext catalog-provider
 material for those public control edges. Auth-header materialization, richer
-hosted catalog transport, command-transport retirement, and stable protocol APIs
-remain required.
+hosted catalog transport, and stable protocol APIs remain required; the
+catalog-provider-control command transport is retired.
 Public model conversation-state writes and native stream-completion
 finalization now move through Rust daemon-core model_mount planners.
 `recordConversationState()` calls `plan_model_mount_conversation_state` and
@@ -9337,9 +9340,10 @@ invocation admission, provider-execution admission, provider invocation/stream
 execution, provider lifecycle/inventory, instance lifecycle, provider-result
 admission, artifact-endpoint planning, storage control, route-control planning,
 MCP workflow planning, and server-control planning. Remaining model_mount backend-process/lifecycle, required-control,
-read-projection, receipt-binding, tokenizer, catalog/provider/vault/
-receipt-gate, conversation/stream, and projection migration transports still
-need direct Rust daemon-core protocol/API ownership.
+read-projection, receipt-binding, tokenizer, conversation/stream, and projection
+migration transports still need direct Rust daemon-core protocol/API ownership;
+the catalog-provider/provider/capability-token/vault/receipt-gate command
+transports are retired.
 
 Model-mount backend registry lookup now consumes Rust read-projection kind
 `backends` through `ModelMountingState.backendRegistry()` and the internal

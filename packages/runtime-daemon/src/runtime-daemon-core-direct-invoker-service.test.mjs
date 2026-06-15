@@ -506,6 +506,226 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
         survey_hash: "sha256:direct-runtime-survey",
       };
     },
+    planModelMountCatalogProviderControl(request) {
+      modelMountCalls.push({ method: "planModelMountCatalogProviderControl", request });
+      const record = {
+        id: "catalog-provider-control.direct",
+        object: "ioi.model_mount_catalog_provider_control",
+        status: "planned",
+        operation_kind: request.operation_kind,
+        provider_id: request.provider_id,
+        rust_core_boundary: "model_mount.catalog_provider_control",
+        plaintext_material_returned: false,
+        public_response: {
+          object: "ioi.model_catalog_provider_config_write",
+          provider_id: request.provider_id,
+          status: "accepted",
+          private_material_returned: false,
+        },
+      };
+      return {
+        source: "direct_model_mount_api",
+        record_dir: "model-catalog-provider-controls",
+        record_id: record.id,
+        record,
+        operation_kind: request.operation_kind,
+        rust_core_boundary: "model_mount.catalog_provider_control",
+        receipt_refs: request.receipt_refs ?? [],
+        authority_grant_refs: request.authority_grant_refs ?? [],
+        authority_receipt_refs: request.authority_receipt_refs ?? [],
+        evidence_refs: [
+          "rust_daemon_core_catalog_provider_control",
+          "ctee_catalog_provider_custody_enforced",
+          "agentgres_catalog_provider_control_truth_required",
+        ],
+        control_hash: "sha256:direct-catalog-provider-control",
+        authority_hash: "sha256:direct-catalog-provider-authority",
+      };
+    },
+    planModelMountProviderControl(request) {
+      modelMountCalls.push({ method: "planModelMountProviderControl", request });
+      const record = {
+        id: request.provider_id,
+        object: "ioi.model_mount_provider",
+        status: "configured",
+        operation_kind: request.operation_kind,
+        provider_id: request.provider_id,
+        rust_core_boundary: "model_mount.provider_control",
+        plaintext_material_returned: false,
+        public_response: {
+          object: "ioi.model_mount_provider",
+          provider_id: request.provider_id,
+          status: "configured",
+          private_material_returned: false,
+          plaintext_material_persisted: false,
+        },
+        evidence_refs: [
+          "rust_daemon_core_provider_control",
+          "ctee_provider_custody_enforced",
+          "agentgres_provider_control_truth_required",
+          "public_provider_control_js_facade_retired",
+        ],
+      };
+      return {
+        source: "direct_model_mount_api",
+        record_dir: "model-providers",
+        record_id: record.id,
+        record,
+        operation_kind: request.operation_kind,
+        rust_core_boundary: "model_mount.provider_control",
+        receipt_refs: request.receipt_refs ?? [],
+        authority_grant_refs: request.authority_grant_refs ?? [],
+        authority_receipt_refs: request.authority_receipt_refs ?? [],
+        evidence_refs: record.evidence_refs,
+        control_hash: "sha256:direct-provider-control",
+        authority_hash: "sha256:direct-provider-authority",
+      };
+    },
+    planModelMountCapabilityTokenControl(request) {
+      modelMountCalls.push({ method: "planModelMountCapabilityTokenControl", request });
+      const record = {
+        id: "capability-token-control.direct",
+        object: "ioi.model_mount_capability_token_control",
+        status: "planned",
+        operation_kind: request.operation_kind,
+        rust_core_boundary: "model_mount.capability_token",
+        public_response: {
+          object: "ioi.model_mount_capability_token",
+          status: "issued",
+          token_id: "capability_token.direct",
+          plaintext_material_persisted: false,
+          token_hash: "sha256:direct-capability-token",
+        },
+        evidence_refs: [
+          "rust_daemon_core_capability_token_control",
+          "wallet_network_capability_token_authority_required",
+          "agentgres_capability_token_truth_required",
+          "public_capability_token_js_facade_retired",
+        ],
+      };
+      return {
+        source: "direct_model_mount_api",
+        record_dir: "capability-tokens",
+        record_id: record.id,
+        record,
+        public_response: {
+          ...record.public_response,
+          token: "ioi_mnt_direct_token",
+        },
+        operation_kind: request.operation_kind,
+        rust_core_boundary: "model_mount.capability_token",
+        receipt_refs: request.receipt_refs ?? [],
+        authority_grant_refs: request.authority_grant_refs ?? [],
+        authority_receipt_refs: request.authority_receipt_refs ?? [],
+        evidence_refs: record.evidence_refs,
+        control_hash: "sha256:direct-capability-token-control",
+        authority_hash: "sha256:direct-capability-token-authority",
+      };
+    },
+    planModelMountVaultControl(request) {
+      modelMountCalls.push({ method: "planModelMountVaultControl", request });
+      const record = {
+        id: "vault-control.direct",
+        object: "ioi.model_mount_vault_control",
+        status: "planned",
+        operation_kind: request.operation_kind,
+        rust_core_boundary: "model_mount.vault",
+        public_response: {
+          object: "ioi.model_mount_vault_ref",
+          status: "bound",
+          vault_ref_hash: "sha256:direct-vault-ref",
+          plaintext_material_persisted: false,
+          plaintext_material_returned: false,
+        },
+        ctee_custody: {
+          plaintext_material_persisted: false,
+          plaintext_material_returned: false,
+        },
+        evidence_refs: [
+          "rust_daemon_core_vault_control",
+          "wallet_network_vault_authority_required",
+          "ctee_vault_custody_enforced",
+          "agentgres_vault_truth_required",
+          "public_vault_js_facade_retired",
+        ],
+      };
+      return {
+        source: "direct_model_mount_api",
+        record_dir: "vault-refs",
+        record_id: record.id,
+        record,
+        public_response: record.public_response,
+        operation_kind: request.operation_kind,
+        rust_core_boundary: "model_mount.vault",
+        receipt_refs: request.receipt_refs ?? [],
+        authority_grant_refs: request.authority_grant_refs ?? [],
+        authority_receipt_refs: request.authority_receipt_refs ?? [],
+        evidence_refs: record.evidence_refs,
+        control_hash: "sha256:direct-vault-control",
+        authority_hash: "sha256:direct-vault-authority",
+      };
+    },
+    planModelMountReceiptGate(request) {
+      modelMountCalls.push({ method: "planModelMountReceiptGate", request });
+      const receipt = {
+        id: "receipt.workflow_receipt_gate.direct",
+        kind: "workflow_receipt_gate",
+        redaction: "redacted",
+        details: {
+          model_mount_receipt_gate_hash: "sha256:direct-receipt-gate",
+          model_mount_receipt_binding_ref: "sha256:direct-receipt-binding",
+          model_mount_agentgres_operation_ref:
+            "agentgres://model-mounting/receipt-gates/direct-receipt-gate",
+        },
+      };
+      return {
+        source: "direct_model_mount_api",
+        plan: {
+          schema_version: "ioi.model_mount.receipt_gate_plan.v1",
+          object: "ioi.model_mount_receipt_gate_plan",
+          status: "planned",
+          rust_core_boundary: "model_mount.receipt_gate",
+          operation_kind: request.operation_kind,
+          receipt_id: request.receipt_id,
+          gate_status: "passed",
+          failures: [],
+          receipt,
+          public_response: {
+            object: "ioi.model_mount_receipt_gate_result",
+            status: "passed",
+            receipt_id: request.receipt_id,
+            gate_receipt_id: receipt.id,
+            failures: [],
+          },
+          receipt_refs: [request.receipt_id],
+          evidence_refs: [
+            "model_mount_receipt_gate_rust_owned",
+            "model_mount_receipt_gate_js_facade_retired",
+            "rust_receipt_binder_core",
+            "agentgres_model_receipt_gate_truth_required",
+          ],
+          gate_hash: "sha256:direct-receipt-gate",
+        },
+        receipt,
+        public_response: {
+          object: "ioi.model_mount_receipt_gate_result",
+          status: "passed",
+          receipt_id: request.receipt_id,
+          gate_receipt_id: receipt.id,
+          failures: [],
+        },
+        operation_kind: request.operation_kind,
+        rust_core_boundary: "model_mount.receipt_gate",
+        receipt_refs: [request.receipt_id],
+        evidence_refs: [
+          "model_mount_receipt_gate_rust_owned",
+          "model_mount_receipt_gate_js_facade_retired",
+          "rust_receipt_binder_core",
+          "agentgres_model_receipt_gate_truth_required",
+        ],
+        gate_hash: "sha256:direct-receipt-gate",
+      };
+    },
   };
   const directModelMountCore = createModelMountCore({
     daemonCoreInvoker: failCommandInvoker,
@@ -543,6 +763,21 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
       },
       planArtifactEndpoint(request) {
         return directModelMountCore.planArtifactEndpoint(request);
+      },
+      planCatalogProviderControl(request) {
+        return directModelMountCore.planCatalogProviderControl(request);
+      },
+      planProviderControl(request) {
+        return directModelMountCore.planProviderControl(request);
+      },
+      planCapabilityTokenControl(request) {
+        return directModelMountCore.planCapabilityTokenControl(request);
+      },
+      planVaultControl(request) {
+        return directModelMountCore.planVaultControl(request);
+      },
+      planReceiptGate(request) {
+        return directModelMountCore.planReceiptGate(request);
       },
       planReadProjection(request) {
         const projection = {
@@ -1045,6 +1280,104 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
   assert.equal(artifactEndpointPlan.source, "direct_model_mount_api");
   assert.equal(artifactEndpointPlan.record_id, "endpoint.direct");
   assert.equal(artifactEndpointPlan.rust_core_boundary, "model_mount.artifact_endpoint");
+  const catalogProviderPlan = store.modelMounting.planCatalogProviderControl({
+    schema_version: "ioi.model_mount.catalog_provider_control.v1",
+    operation_kind: "model_mount.catalog_provider_configuration.write",
+    provider_id: "catalog.direct",
+    source: "runtime-daemon.model_mounting.catalog_provider_control",
+    body: { auth_header_name: "authorization" },
+    receipt_refs: ["receipt://catalog-provider/direct"],
+    authority_grant_refs: ["grant://wallet/catalog-provider-direct"],
+    authority_receipt_refs: ["receipt://wallet/catalog-provider-direct"],
+    custody_ref: "ctee://catalog-provider/direct",
+  });
+  assert.equal(calls.length, 0);
+  assertModelMountDirectApiCall(
+    modelMountCalls.at(-1),
+    "planModelMountCatalogProviderControl",
+    "ioi.model_mount.catalog_provider_control.v1",
+  );
+  assert.equal(catalogProviderPlan.source, "direct_model_mount_api");
+  assert.equal(catalogProviderPlan.record_id, "catalog-provider-control.direct");
+  assert.equal(catalogProviderPlan.rust_core_boundary, "model_mount.catalog_provider_control");
+  const providerPlan = store.modelMounting.planModelMountProviderControl({
+    schema_version: "ioi.model_mount.provider_control.v1",
+    operation_kind: "model_mount.provider.write",
+    provider_id: "provider.direct",
+    source: "runtime-daemon.model_mounting.provider_control",
+    body: { kind: "openai", secret_ref: "vault://provider/direct" },
+    receipt_refs: ["receipt://provider/direct"],
+    authority_grant_refs: ["grant://wallet/provider-direct"],
+    authority_receipt_refs: ["receipt://wallet/provider-direct"],
+    custody_ref: "ctee://provider/direct",
+  });
+  assert.equal(calls.length, 0);
+  assertModelMountDirectApiCall(
+    modelMountCalls.at(-1),
+    "planModelMountProviderControl",
+    "ioi.model_mount.provider_control.v1",
+  );
+  assert.equal(providerPlan.source, "direct_model_mount_api");
+  assert.equal(providerPlan.record_id, "provider.direct");
+  assert.equal(providerPlan.rust_core_boundary, "model_mount.provider_control");
+  const capabilityPlan = store.modelMounting.planCapabilityTokenControl({
+    schema_version: "ioi.model_mount.capability_token_control.v1",
+    operation_kind: "model_mount.capability_token.create",
+    source: "runtime-daemon.model_mounting.capability_token",
+    body: { allowed: ["model.chat:*"] },
+    receipt_refs: ["receipt://capability-token/direct"],
+    authority_grant_refs: ["grant://wallet/capability-token-direct"],
+    authority_receipt_refs: ["receipt://wallet/capability-token-direct"],
+  });
+  assert.equal(calls.length, 0);
+  assertModelMountDirectApiCall(
+    modelMountCalls.at(-1),
+    "planModelMountCapabilityTokenControl",
+    "ioi.model_mount.capability_token_control.v1",
+  );
+  assert.equal(capabilityPlan.source, "direct_model_mount_api");
+  assert.equal(capabilityPlan.record_id, "capability-token-control.direct");
+  assert.equal(capabilityPlan.rust_core_boundary, "model_mount.capability_token");
+  const vaultPlan = store.modelMounting.planVaultControl({
+    schema_version: "ioi.model_mount.vault_control.v1",
+    operation_kind: "model_mount.vault_ref.bind",
+    source: "runtime-daemon.model_mounting.vault",
+    vault_ref: "vault://provider/direct",
+    material_hash: "sha256:direct-vault-material",
+    body: { label: "Direct vault" },
+    receipt_refs: ["receipt://vault/direct"],
+    authority_grant_refs: ["grant://wallet/vault-direct"],
+    authority_receipt_refs: ["receipt://wallet/vault-direct"],
+  });
+  assert.equal(calls.length, 0);
+  assertModelMountDirectApiCall(
+    modelMountCalls.at(-1),
+    "planModelMountVaultControl",
+    "ioi.model_mount.vault_control.v1",
+  );
+  assert.equal(vaultPlan.source, "direct_model_mount_api");
+  assert.equal(vaultPlan.record_id, "vault-control.direct");
+  assert.equal(vaultPlan.rust_core_boundary, "model_mount.vault");
+  const receiptGatePlan = store.modelMounting.planReceiptGate({
+    schema_version: "ioi.model_mount.receipt_gate.v1",
+    operation_kind: "workflow_receipt_gate",
+    receipt_id: "receipt://route/direct",
+    receipt: {
+      id: "receipt://route/direct",
+      kind: "model_route_selection",
+      redaction: "redacted",
+      details: {},
+    },
+  });
+  assert.equal(calls.length, 0);
+  assertModelMountDirectApiCall(
+    modelMountCalls.at(-1),
+    "planModelMountReceiptGate",
+    "ioi.model_mount.receipt_gate.v1",
+  );
+  assert.equal(receiptGatePlan.source, "direct_model_mount_api");
+  assert.equal(receiptGatePlan.gate_hash, "sha256:direct-receipt-gate");
+  assert.equal(receiptGatePlan.rust_core_boundary, "model_mount.receipt_gate");
   const storagePlan = store.modelMounting.planStorageControl({
     schema_version: "ioi.model_mount.storage_control.v1",
     operation_kind: "model_mount.download.queue",

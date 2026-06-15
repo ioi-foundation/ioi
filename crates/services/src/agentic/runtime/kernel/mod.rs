@@ -119,19 +119,23 @@ use marketplace::{
     WorkerServicePackageInvocationRecord, WorkerServicePackageInvocationRequest,
 };
 use model_mount::{
-    ModelMountArtifactEndpointPlan, ModelMountArtifactEndpointRequest, ModelMountCore,
+    ModelMountArtifactEndpointPlan, ModelMountArtifactEndpointRequest,
+    ModelMountCapabilityTokenControlPlan, ModelMountCapabilityTokenControlRequest,
+    ModelMountCatalogProviderControlPlan, ModelMountCatalogProviderControlRequest, ModelMountCore,
     ModelMountError, ModelMountInstanceLifecycleRequest, ModelMountInstanceLifecycleResult,
     ModelMountInvocationAdmissionRecord, ModelMountInvocationAdmissionRequest,
-    ModelMountMcpWorkflowPlan, ModelMountMcpWorkflowRequest, ModelMountProviderExecutionRecord,
+    ModelMountMcpWorkflowPlan, ModelMountMcpWorkflowRequest, ModelMountProviderControlPlan,
+    ModelMountProviderControlRequest, ModelMountProviderExecutionRecord,
     ModelMountProviderExecutionRequest, ModelMountProviderInventoryRequest,
     ModelMountProviderInventoryResult, ModelMountProviderInvocationRequest,
     ModelMountProviderInvocationResult, ModelMountProviderLifecycleRequest,
     ModelMountProviderLifecycleResult, ModelMountProviderResultAdmissionRecord,
     ModelMountProviderResultAdmissionRequest, ModelMountProviderStreamInvocationResult,
-    ModelMountRouteControlPlan, ModelMountRouteControlRequest, ModelMountRouteDecisionRecord,
-    ModelMountRouteDecisionRequest, ModelMountRuntimeEnginePlan, ModelMountRuntimeEngineRequest,
-    ModelMountRuntimeSurveyPlan, ModelMountRuntimeSurveyRequest, ModelMountStorageControlPlan,
-    ModelMountStorageControlRequest,
+    ModelMountReceiptGatePlan, ModelMountReceiptGateRequest, ModelMountRouteControlPlan,
+    ModelMountRouteControlRequest, ModelMountRouteDecisionRecord, ModelMountRouteDecisionRequest,
+    ModelMountRuntimeEnginePlan, ModelMountRuntimeEngineRequest, ModelMountRuntimeSurveyPlan,
+    ModelMountRuntimeSurveyRequest, ModelMountStorageControlPlan, ModelMountStorageControlRequest,
+    ModelMountVaultControlPlan, ModelMountVaultControlRequest,
 };
 use plan::{validate_plan, ExecutablePlan, PlanValidationError};
 use policy::{
@@ -925,6 +929,41 @@ impl RuntimeKernelService {
         request: &ModelMountRuntimeSurveyRequest,
     ) -> Result<ModelMountRuntimeSurveyPlan, ModelMountError> {
         ModelMountCore.plan_runtime_survey(request)
+    }
+
+    pub fn plan_model_mount_catalog_provider_control(
+        &self,
+        request: &ModelMountCatalogProviderControlRequest,
+    ) -> Result<ModelMountCatalogProviderControlPlan, ModelMountError> {
+        ModelMountCore.plan_catalog_provider_control(request)
+    }
+
+    pub fn plan_model_mount_provider_control(
+        &self,
+        request: &ModelMountProviderControlRequest,
+    ) -> Result<ModelMountProviderControlPlan, ModelMountError> {
+        ModelMountCore.plan_provider_control(request)
+    }
+
+    pub fn plan_model_mount_capability_token_control(
+        &self,
+        request: &ModelMountCapabilityTokenControlRequest,
+    ) -> Result<ModelMountCapabilityTokenControlPlan, ModelMountError> {
+        ModelMountCore.plan_capability_token_control(request)
+    }
+
+    pub fn plan_model_mount_vault_control(
+        &self,
+        request: &ModelMountVaultControlRequest,
+    ) -> Result<ModelMountVaultControlPlan, ModelMountError> {
+        ModelMountCore.plan_vault_control(request)
+    }
+
+    pub fn plan_model_mount_receipt_gate(
+        &self,
+        request: &ModelMountReceiptGateRequest,
+    ) -> Result<ModelMountReceiptGatePlan, ModelMountError> {
+        ModelMountCore.plan_receipt_gate(request)
     }
 
     pub fn validate_tool_invocation(

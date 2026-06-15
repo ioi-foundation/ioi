@@ -4,34 +4,34 @@ import test from "node:test";
 import {
   MODEL_MOUNT_CORE_SCHEMA_VERSION,
   MODEL_MOUNT_ARTIFACT_ENDPOINT_API_METHOD,
+  MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_API_METHOD,
+  MODEL_MOUNT_CATALOG_PROVIDER_CONTROL_API_METHOD,
   MODEL_MOUNT_INSTANCE_LIFECYCLE_API_METHOD,
   MODEL_MOUNT_INVOCATION_API_METHOD,
   MODEL_MOUNT_MCP_WORKFLOW_API_METHOD,
+  MODEL_MOUNT_PROVIDER_CONTROL_API_METHOD,
   MODEL_MOUNT_PROVIDER_EXECUTION_API_METHOD,
   MODEL_MOUNT_PROVIDER_INVENTORY_API_METHOD,
   MODEL_MOUNT_PROVIDER_INVOCATION_API_METHOD,
   MODEL_MOUNT_PROVIDER_LIFECYCLE_API_METHOD,
   MODEL_MOUNT_PROVIDER_RESULT_API_METHOD,
   MODEL_MOUNT_PROVIDER_STREAM_INVOCATION_API_METHOD,
+  MODEL_MOUNT_RECEIPT_GATE_API_METHOD,
   MODEL_MOUNT_ROUTE_CONTROL_API_METHOD,
   MODEL_MOUNT_ROUTE_DECISION_API_METHOD,
   MODEL_MOUNT_RUNTIME_ENGINE_API_METHOD,
   MODEL_MOUNT_RUNTIME_SURVEY_API_METHOD,
   MODEL_MOUNT_SERVER_CONTROL_API_METHOD,
   MODEL_MOUNT_STORAGE_CONTROL_API_METHOD,
+  MODEL_MOUNT_VAULT_CONTROL_API_METHOD,
   ModelMountCoreError,
   RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_BACKEND,
-  RUST_MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_BACKEND,
-  RUST_MODEL_MOUNT_CATALOG_PROVIDER_CONTROL_BACKEND,
   RUST_MODEL_MOUNT_CONVERSATION_STATE_BACKEND,
-  RUST_MODEL_MOUNT_PROVIDER_CONTROL_BACKEND,
-  RUST_MODEL_MOUNT_RECEIPT_GATE_BACKEND,
   RUST_MODEL_MOUNT_ROUTE_CONTROL_REQUIRED_BACKEND,
   RUST_MODEL_MOUNT_STREAM_CANCEL_BACKEND,
   RUST_MODEL_MOUNT_STREAM_COMPLETION_BACKEND,
   RUST_MODEL_MOUNT_TOKENIZER_BACKEND,
   RUST_MODEL_MOUNT_TOKENIZER_REQUIRED_BACKEND,
-  RUST_MODEL_MOUNT_VAULT_CONTROL_BACKEND,
   createModelMountCore,
   ModelMountCore,
 } from "./model-mount-core.mjs";
@@ -2547,35 +2547,33 @@ test("Rust model_mount core rejects retired MCP workflow rust_required execution
 test("Rust model_mount core sends positive catalog-provider-control request", () => {
   const calls = [];
   const runner = new ModelMountCore({
-    daemonCoreInvoker(request) {
-      calls.push({ request });
+    daemonCoreModelMountApi: {
+      planModelMountCatalogProviderControl(request) {
+      calls.push({ method: MODEL_MOUNT_CATALOG_PROVIDER_CONTROL_API_METHOD, request });
       const record = {
         id: "catalog_provider_control:catalog.huggingface:test",
         object: "ioi.model_mount_catalog_provider_control",
         status: "planned",
-        operation_kind: request.request.operation_kind,
-        provider_id: request.request.provider_id,
+        operation_kind: request.operation_kind,
+        provider_id: request.provider_id,
         rust_core_boundary: "model_mount.catalog_provider_control",
         plaintext_material_returned: false,
         public_response: {
           object: "ioi.model_catalog_provider_config_write",
-          provider_id: request.request.provider_id,
+          provider_id: request.provider_id,
           status: "accepted",
           private_material_returned: false,
         },
       };
       return {
-        ok: true,
-        result: {
-          source: "rust_model_mount_catalog_provider_control_command",
-          backend: RUST_MODEL_MOUNT_CATALOG_PROVIDER_CONTROL_BACKEND,
+          source: "rust_daemon_core.model_mount.catalog_provider_control",
           plan: {
             schema_version: "ioi.model_mount.catalog_provider_control_plan.v1",
             object: "ioi.model_mount_catalog_provider_control_plan",
             status: "planned",
             rust_core_boundary: "model_mount.catalog_provider_control",
-            operation_kind: request.request.operation_kind,
-            source: request.request.source,
+            operation_kind: request.operation_kind,
+            source: request.source,
             record_dir: "model-catalog-provider-controls",
             record_id: record.id,
             record,
@@ -2601,25 +2599,27 @@ test("Rust model_mount core sends positive catalog-provider-control request", ()
             "ctee_catalog_provider_custody_enforced",
             "agentgres_catalog_provider_control_truth_required",
           ],
-          operation_kind: request.request.operation_kind,
+          operation_kind: request.operation_kind,
           rust_core_boundary: "model_mount.catalog_provider_control",
           control_hash: "sha256:catalog-provider-control",
           authority_hash: "sha256:catalog-provider-authority",
-        },
       };
     },
+    },
+    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(),
   });
 
   const result = runner.planCatalogProviderControl(catalogProviderControlRequest());
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
-  assert.equal(calls[0].request.operation, "plan_model_mount_catalog_provider_control");
-  assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_CATALOG_PROVIDER_CONTROL_BACKEND);
-  assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.catalog_provider_control.v1");
-  assert.equal(calls[0].request.request.operation_kind, "model_mount.catalog_provider_configuration.write");
-  assert.equal(calls[0].request.request.provider_id, "catalog.huggingface");
-  assert.equal(calls[0].request.request.custody_ref, "ctee://catalog-provider/huggingface");
+  assertDirectModelMountApiCall(
+    calls[0],
+    MODEL_MOUNT_CATALOG_PROVIDER_CONTROL_API_METHOD,
+    "ioi.model_mount.catalog_provider_control.v1",
+  );
+  assert.equal(calls[0].request.operation_kind, "model_mount.catalog_provider_configuration.write");
+  assert.equal(calls[0].request.provider_id, "catalog.huggingface");
+  assert.equal(calls[0].request.custody_ref, "ctee://catalog-provider/huggingface");
   assert.equal(result.record_dir, "model-catalog-provider-controls");
   assert.equal(result.record_id, "catalog_provider_control:catalog.huggingface:test");
   assert.equal(result.record.plaintext_material_returned, false);
@@ -2633,22 +2633,23 @@ test("Rust model_mount core sends positive catalog-provider-control request", ()
 test("Rust model_mount core sends positive provider-control request", () => {
   const calls = [];
   const runner = new ModelMountCore({
-    daemonCoreInvoker(request) {
-      calls.push({ request });
+    daemonCoreModelMountApi: {
+      planModelMountProviderControl(request) {
+      calls.push({ method: MODEL_MOUNT_PROVIDER_CONTROL_API_METHOD, request });
       const record = {
         id: "provider.openai",
         record_id: "provider.openai",
         object: "ioi.model_mount_provider",
         schema_version: "ioi.model_mount.provider_control.v1",
         status: "configured",
-        operation_kind: request.request.operation_kind,
-        provider_id: request.request.provider_id,
+        operation_kind: request.operation_kind,
+        provider_id: request.provider_id,
         provider_ref: "provider://provider.openai",
         rust_core_boundary: "model_mount.provider_control",
         plaintext_material_returned: false,
         public_response: {
           object: "ioi.model_mount_provider",
-          provider_id: request.request.provider_id,
+          provider_id: request.provider_id,
           status: "configured",
           private_material_returned: false,
           plaintext_material_persisted: false,
@@ -2661,17 +2662,14 @@ test("Rust model_mount core sends positive provider-control request", () => {
         ],
       };
       return {
-        ok: true,
-        result: {
-          source: "rust_model_mount_provider_control_command",
-          backend: RUST_MODEL_MOUNT_PROVIDER_CONTROL_BACKEND,
+          source: "rust_daemon_core.model_mount.provider_control",
           plan: {
             schema_version: "ioi.model_mount.provider_control_plan.v1",
             object: "ioi.model_mount_provider_control_plan",
             status: "planned",
             rust_core_boundary: "model_mount.provider_control",
-            operation_kind: request.request.operation_kind,
-            source: request.request.source,
+            operation_kind: request.operation_kind,
+            source: request.source,
             record_dir: "model-providers",
             record_id: record.id,
             record,
@@ -2689,25 +2687,27 @@ test("Rust model_mount core sends positive provider-control request", () => {
           authority_grant_refs: ["grant://wallet/provider-write"],
           authority_receipt_refs: ["receipt://wallet/provider-write"],
           evidence_refs: record.evidence_refs,
-          operation_kind: request.request.operation_kind,
+          operation_kind: request.operation_kind,
           rust_core_boundary: "model_mount.provider_control",
           control_hash: "sha256:provider-control",
           authority_hash: "sha256:provider-authority",
-        },
       };
     },
+    },
+    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(),
   });
 
   const result = runner.planProviderControl(providerControlRequest());
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
-  assert.equal(calls[0].request.operation, "plan_model_mount_provider_control");
-  assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_PROVIDER_CONTROL_BACKEND);
-  assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.provider_control.v1");
-  assert.equal(calls[0].request.request.operation_kind, "model_mount.provider.write");
-  assert.equal(calls[0].request.request.provider_id, "provider.openai");
-  assert.equal(calls[0].request.request.custody_ref, "ctee://provider/openai");
+  assertDirectModelMountApiCall(
+    calls[0],
+    MODEL_MOUNT_PROVIDER_CONTROL_API_METHOD,
+    "ioi.model_mount.provider_control.v1",
+  );
+  assert.equal(calls[0].request.operation_kind, "model_mount.provider.write");
+  assert.equal(calls[0].request.provider_id, "provider.openai");
+  assert.equal(calls[0].request.custody_ref, "ctee://provider/openai");
   assert.equal(result.record_dir, "model-providers");
   assert.equal(result.record_id, "provider.openai");
   assert.equal(result.record.plaintext_material_returned, false);
@@ -2721,22 +2721,23 @@ test("Rust model_mount core sends positive provider-control request", () => {
 test("Rust model_mount core sends positive capability-token-control request", () => {
   const calls = [];
   const runner = new ModelMountCore({
-    daemonCoreInvoker(request) {
-      calls.push({ request });
+    daemonCoreModelMountApi: {
+      planModelMountCapabilityTokenControl(request) {
+      calls.push({ method: MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_API_METHOD, request });
       const record = {
         id: "capability_token_control:capability_token.test:create",
         record_id: "capability_token_control:capability_token.test:create",
         object: "ioi.model_mount_capability_token_control",
         status: "planned",
-        operation_kind: request.request.operation_kind,
+        operation_kind: request.operation_kind,
         token_id: "capability_token:test",
         token_hash: "sha256:capability-token",
         rust_core_boundary: "model_mount.capability_token",
         wallet_authority_boundary: "wallet.network.capability_token",
         capability_token_authority: {
           authority_hash: "sha256:capability-token-authority",
-          authority_grant_refs: request.request.authority_grant_refs,
-          authority_receipt_refs: request.request.authority_receipt_refs,
+          authority_grant_refs: request.authority_grant_refs,
+          authority_receipt_refs: request.authority_receipt_refs,
         },
         public_response: {
           object: "ioi.model_mount_capability_token",
@@ -2756,17 +2757,14 @@ test("Rust model_mount core sends positive capability-token-control request", ()
         control_hash: "sha256:capability-token-control",
       };
       return {
-        ok: true,
-        result: {
-          source: "rust_model_mount_capability_token_control_command",
-          backend: RUST_MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_BACKEND,
+          source: "rust_daemon_core.model_mount.capability_token_control",
           plan: {
             schema_version: "ioi.model_mount.capability_token_control_plan.v1",
             object: "ioi.model_mount_capability_token_control_plan",
             status: "planned",
             rust_core_boundary: "model_mount.capability_token",
-            operation_kind: request.request.operation_kind,
-            source: request.request.source,
+            operation_kind: request.operation_kind,
+            source: request.source,
             record_dir: "capability-tokens",
             record_id: record.id,
             record,
@@ -2792,26 +2790,28 @@ test("Rust model_mount core sends positive capability-token-control request", ()
           authority_grant_refs: ["grant://wallet/capability"],
           authority_receipt_refs: ["receipt://wallet/capability"],
           evidence_refs: record.evidence_refs,
-          operation_kind: request.request.operation_kind,
+          operation_kind: request.operation_kind,
           rust_core_boundary: "model_mount.capability_token",
           control_hash: "sha256:capability-token-control",
           authority_hash: "sha256:capability-token-authority",
-        },
       };
     },
+    },
+    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(),
   });
 
   const result = runner.planCapabilityTokenControl(capabilityTokenControlRequest());
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
-  assert.equal(calls[0].request.operation, "plan_model_mount_capability_token_control");
-  assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_BACKEND);
-  assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.capability_token_control.v1");
-  assert.equal(calls[0].request.request.operation_kind, "model_mount.capability_token.create");
-  assert.equal(calls[0].request.request.state_dir, "/tmp/ioi-model-mount-state");
-  assert.deepEqual(calls[0].request.request.body.allowed, ["model.chat:*"]);
-  assert.deepEqual(calls[0].request.request.authority_grant_refs, ["grant://wallet/capability"]);
+  assertDirectModelMountApiCall(
+    calls[0],
+    MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_API_METHOD,
+    "ioi.model_mount.capability_token_control.v1",
+  );
+  assert.equal(calls[0].request.operation_kind, "model_mount.capability_token.create");
+  assert.equal(calls[0].request.state_dir, "/tmp/ioi-model-mount-state");
+  assert.deepEqual(calls[0].request.body.allowed, ["model.chat:*"]);
+  assert.deepEqual(calls[0].request.authority_grant_refs, ["grant://wallet/capability"]);
   assert.equal(result.record_dir, "capability-tokens");
   assert.equal(result.record_id, "capability_token_control:capability_token.test:create");
   assert.equal(result.record.public_response.token, undefined);
@@ -2828,31 +2828,32 @@ test("Rust model_mount core sends positive capability-token-control request", ()
 test("Rust model_mount core sends positive vault-control request", () => {
   const calls = [];
   const runner = new ModelMountCore({
-    daemonCoreInvoker(request) {
-      calls.push({ request });
+    daemonCoreModelMountApi: {
+      planModelMountVaultControl(request) {
+      calls.push({ method: MODEL_MOUNT_VAULT_CONTROL_API_METHOD, request });
       const record = {
         id: "vault_control:vault_ref.test:bind",
         record_id: "vault_control:vault_ref.test:bind",
         object: "ioi.model_mount_vault_control",
         status: "planned",
-        operation_kind: request.request.operation_kind,
+        operation_kind: request.operation_kind,
         vault_ref_hash: "sha256:vault-ref",
-        material_hash: request.request.material_hash,
+        material_hash: request.material_hash,
         rust_core_boundary: "model_mount.vault",
         wallet_authority_boundary: "wallet.network.vault",
         ctee_custody_boundary: "ctee.vault_custody",
         vault_authority: {
           authority_hash: "sha256:vault-authority",
           vault_ref_hash: "sha256:vault-ref",
-          material_hash: request.request.material_hash,
-          authority_grant_refs: request.request.authority_grant_refs,
-          authority_receipt_refs: request.request.authority_receipt_refs,
+          material_hash: request.material_hash,
+          authority_grant_refs: request.authority_grant_refs,
+          authority_receipt_refs: request.authority_receipt_refs,
         },
         ctee_custody: {
           custody_ref: "ctee://vault/custom",
           plaintext_material_persisted: false,
           plaintext_material_returned: false,
-          material_hash: request.request.material_hash,
+          material_hash: request.material_hash,
         },
         public_response: {
           object: "ioi.model_mount_vault_ref",
@@ -2862,7 +2863,7 @@ test("Rust model_mount core sends positive vault-control request", () => {
           vault_ref: { redacted: true, hash: "sha256:vault-ref" },
           label: "Custom auth",
           purpose: "provider.auth:custom",
-          material_hash: request.request.material_hash,
+          material_hash: request.material_hash,
           custody_ref: "ctee://vault/custom",
           configured: true,
           material_bound: true,
@@ -2880,17 +2881,14 @@ test("Rust model_mount core sends positive vault-control request", () => {
         control_hash: "sha256:vault-control",
       };
       return {
-        ok: true,
-        result: {
-          source: "rust_model_mount_vault_control_command",
-          backend: RUST_MODEL_MOUNT_VAULT_CONTROL_BACKEND,
+          source: "rust_daemon_core.model_mount.vault_control",
           plan: {
             schema_version: "ioi.model_mount.vault_control_plan.v1",
             object: "ioi.model_mount_vault_control_plan",
             status: "planned",
             rust_core_boundary: "model_mount.vault",
-            operation_kind: request.request.operation_kind,
-            source: request.request.source,
+            operation_kind: request.operation_kind,
+            source: request.source,
             record_dir: "vault-refs",
             record_id: record.id,
             record,
@@ -2910,27 +2908,29 @@ test("Rust model_mount core sends positive vault-control request", () => {
           authority_grant_refs: ["grant://wallet/vault"],
           authority_receipt_refs: ["receipt://wallet/vault"],
           evidence_refs: record.evidence_refs,
-          operation_kind: request.request.operation_kind,
+          operation_kind: request.operation_kind,
           rust_core_boundary: "model_mount.vault",
           control_hash: "sha256:vault-control",
           authority_hash: "sha256:vault-authority",
-        },
       };
     },
+    },
+    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(),
   });
 
   const result = runner.planVaultControl(vaultControlRequest());
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
-  assert.equal(calls[0].request.operation, "plan_model_mount_vault_control");
-  assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_VAULT_CONTROL_BACKEND);
-  assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.vault_control.v1");
-  assert.equal(calls[0].request.request.operation_kind, "model_mount.vault_ref.bind");
-  assert.equal(calls[0].request.request.state_dir, "/tmp/ioi-model-mount-state");
-  assert.equal(calls[0].request.request.material_hash, "sha256:vault-material");
-  assert.equal(Object.hasOwn(calls[0].request.request.body, "material"), false);
-  assert.deepEqual(calls[0].request.request.authority_grant_refs, ["grant://wallet/vault"]);
+  assertDirectModelMountApiCall(
+    calls[0],
+    MODEL_MOUNT_VAULT_CONTROL_API_METHOD,
+    "ioi.model_mount.vault_control.v1",
+  );
+  assert.equal(calls[0].request.operation_kind, "model_mount.vault_ref.bind");
+  assert.equal(calls[0].request.state_dir, "/tmp/ioi-model-mount-state");
+  assert.equal(calls[0].request.material_hash, "sha256:vault-material");
+  assert.equal(Object.hasOwn(calls[0].request.body, "material"), false);
+  assert.deepEqual(calls[0].request.authority_grant_refs, ["grant://wallet/vault"]);
   assert.equal(result.record_dir, "vault-refs");
   assert.equal(result.record_id, "vault_control:vault_ref.test:bind");
   assert.equal(result.record.public_response.material, undefined);
@@ -2945,20 +2945,18 @@ test("Rust model_mount core sends positive vault-control request", () => {
 test("Rust model_mount core sends positive receipt-gate request", () => {
   const calls = [];
   const runner = new ModelMountCore({
-    daemonCoreInvoker(request) {
-      calls.push({ request });
+    daemonCoreModelMountApi: {
+      planModelMountReceiptGate(request) {
+      calls.push({ method: MODEL_MOUNT_RECEIPT_GATE_API_METHOD, request });
       return {
-        ok: true,
-        result: {
-          source: "rust_model_mount_receipt_gate_command",
-          backend: RUST_MODEL_MOUNT_RECEIPT_GATE_BACKEND,
+          source: "rust_daemon_core.model_mount.receipt_gate",
           plan: {
             schema_version: "ioi.model_mount.receipt_gate_plan.v1",
             object: "ioi.model_mount_receipt_gate_plan",
             status: "planned",
             rust_core_boundary: "model_mount.receipt_gate",
-            operation_kind: request.request.operation_kind,
-            receipt_id: request.request.receipt_id,
+            operation_kind: request.operation_kind,
+            receipt_id: request.receipt_id,
             gate_status: "passed",
             failures: [],
             receipt: {
@@ -2981,7 +2979,7 @@ test("Rust model_mount core sends positive receipt-gate request", () => {
             public_response: {
               object: "ioi.model_mount_receipt_gate_result",
               status: "passed",
-              receipt_id: request.request.receipt_id,
+              receipt_id: request.receipt_id,
               gate_receipt_id: "receipt.workflow_receipt_gate.test",
               failures: [],
             },
@@ -3014,7 +3012,7 @@ test("Rust model_mount core sends positive receipt-gate request", () => {
           public_response: {
             object: "ioi.model_mount_receipt_gate_result",
             status: "passed",
-            receipt_id: request.request.receipt_id,
+            receipt_id: request.receipt_id,
             gate_receipt_id: "receipt.workflow_receipt_gate.test",
             failures: [],
           },
@@ -3025,27 +3023,58 @@ test("Rust model_mount core sends positive receipt-gate request", () => {
             "rust_receipt_binder_core",
             "agentgres_model_receipt_gate_truth_required",
           ],
-          operation_kind: request.request.operation_kind,
+          operation_kind: request.operation_kind,
           rust_core_boundary: "model_mount.receipt_gate",
           gate_hash: "sha256:receipt-gate",
-        },
       };
     },
+    },
+    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(),
   });
 
   const result = runner.planReceiptGate(receiptGateRequest());
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
-  assert.equal(calls[0].request.operation, "plan_model_mount_receipt_gate");
-  assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_RECEIPT_GATE_BACKEND);
-  assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.receipt_gate.v1");
-  assert.equal(calls[0].request.request.operation_kind, "workflow_receipt_gate");
-  assert.equal(calls[0].request.request.receipt_id, "receipt-route");
+  assertDirectModelMountApiCall(
+    calls[0],
+    MODEL_MOUNT_RECEIPT_GATE_API_METHOD,
+    "ioi.model_mount.receipt_gate.v1",
+  );
+  assert.equal(calls[0].request.operation_kind, "workflow_receipt_gate");
+  assert.equal(calls[0].request.receipt_id, "receipt-route");
   assert.equal(result.receipt.kind, "workflow_receipt_gate");
   assert.equal(result.receipt.details.model_mount_receipt_binding_ref, "sha256:receipt-binding");
   assert.equal(result.gate_hash, "sha256:receipt-gate");
   assert.equal(result.rust_core_boundary, "model_mount.receipt_gate");
+});
+
+test("Rust model_mount core rejects command-shaped catalog/provider/vault/receipt-gate fallbacks", () => {
+  const calls = [];
+  const runner = new ModelMountCore({
+    daemonCoreInvoker(request) {
+      calls.push({ method: "daemonCoreInvoker", request });
+      throw new Error(`generic command invoker must not run migrated model_mount controls: ${request?.operation}`);
+    },
+  });
+  const cases = [
+    [MODEL_MOUNT_CATALOG_PROVIDER_CONTROL_API_METHOD, () => runner.planCatalogProviderControl(catalogProviderControlRequest())],
+    [MODEL_MOUNT_PROVIDER_CONTROL_API_METHOD, () => runner.planProviderControl(providerControlRequest())],
+    [MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_API_METHOD, () => runner.planCapabilityTokenControl(capabilityTokenControlRequest())],
+    [MODEL_MOUNT_VAULT_CONTROL_API_METHOD, () => runner.planVaultControl(vaultControlRequest())],
+    [MODEL_MOUNT_RECEIPT_GATE_API_METHOD, () => runner.planReceiptGate(receiptGateRequest())],
+  ];
+
+  for (const [method, invoke] of cases) {
+    assert.throws(
+      invoke,
+      (error) => {
+        assert.equal(error.code, "model_mount_core_direct_model_mount_api_unconfigured");
+        assert.equal(error.details.boundary, `daemonCoreModelMountApi.${method}`);
+        return true;
+      },
+    );
+  }
+  assert.equal(calls.length, 0);
 });
 
 test("Rust model_mount core sends positive conversation-state request", () => {

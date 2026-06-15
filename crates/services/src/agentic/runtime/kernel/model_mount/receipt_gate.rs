@@ -55,13 +55,6 @@ pub struct ModelMountReceiptGatePlan {
     pub resulting_head: String,
 }
 
-#[derive(Debug, Deserialize)]
-pub struct ModelMountReceiptGateBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: ModelMountReceiptGateRequest,
-}
-
 impl ModelMountReceiptGateRequest {
     pub fn validate(&self) -> Result<(), ModelMountError> {
         if self.schema_version != MODEL_MOUNT_RECEIPT_GATE_SCHEMA_VERSION {
@@ -80,31 +73,6 @@ impl ModelMountReceiptGateRequest {
         }
         Ok(())
     }
-}
-
-pub fn plan_model_mount_receipt_gate_response(
-    request: ModelMountReceiptGateBridgeRequest,
-) -> Result<Value, ModelMountError> {
-    let plan = plan_receipt_gate(&request.request)?;
-    let receipt = plan.receipt.clone();
-    let public_response = plan.public_response.clone();
-    let receipt_refs = plan.receipt_refs.clone();
-    let evidence_refs = plan.evidence_refs.clone();
-    let gate_hash = plan.gate_hash.clone();
-    let operation_kind = plan.operation_kind.clone();
-    let rust_core_boundary = plan.rust_core_boundary.clone();
-    Ok(json!({
-        "source": "rust_model_mount_receipt_gate_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_model_mount_receipt_gate".to_string()),
-        "plan": plan,
-        "receipt": receipt,
-        "public_response": public_response,
-        "receipt_refs": receipt_refs,
-        "evidence_refs": evidence_refs,
-        "gate_hash": gate_hash,
-        "operation_kind": operation_kind,
-        "rust_core_boundary": rust_core_boundary,
-    }))
 }
 
 pub(super) fn plan_receipt_gate(
@@ -436,7 +404,7 @@ mod tests {
     }
 
     #[test]
-    fn rust_core_plans_matching_receipt_gate() {
+    fn rust_core_plans_receipt_gate_direct_api() {
         let plan = plan_receipt_gate(&request()).expect("receipt gate plan");
 
         assert_eq!(plan.gate_status, "passed");
