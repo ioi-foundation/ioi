@@ -168,7 +168,7 @@ export function createRuntimeLifecycleProjectionSurface({
     replayRun(store, runId) {
       return project(store, LIFECYCLE_PROJECTIONS.run_replay, {
         run_id: optionalString(runId),
-        replay: callStore(store, "replayFromCanonicalState", runId, []),
+        replay: callStore(store, "eventsForRun", runId, []),
       });
     },
     getRunTrace(store, runId) {

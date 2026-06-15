@@ -334,15 +334,8 @@ function runtimeThreadEventReplayRequest() {
     replay_kind: "stream",
     event_stream_id: "thread_1:events",
     cursor: { since_seq: 4 },
-    events: [
-      {
-        event_id: "event_projected_1",
-        event_stream_id: "thread_1:events",
-        seq: 5,
-        agentgres_operation_ref: "agentgres://runtime-events/thread_1_events/ops/event_projected_1",
-        admission_hash: "sha256:admission",
-      },
-    ],
+    state_dir: "/tmp/ioi-state",
+    latest_seq: 5,
   };
 }
 
@@ -465,6 +458,8 @@ test("runtime Agentgres core replays runtime thread events through typed Rust da
 
   assertTypedAgentgresRequest(calls[0], AGENTGRES_RUNTIME_THREAD_EVENT_REPLAY_API_METHOD);
   assert.equal(calls[0].request.request.schema_version, RUNTIME_THREAD_EVENT_REPLAY_REQUEST_SCHEMA_VERSION);
+  assert.equal(calls[0].request.request.state_dir, "/tmp/ioi-state");
+  assert.equal(Object.hasOwn(calls[0].request.request, "events"), false);
   assert.equal(result.events[0].event_id, "event_projected_1");
 });
 

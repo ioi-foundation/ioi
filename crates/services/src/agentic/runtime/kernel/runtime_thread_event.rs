@@ -1,6 +1,10 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 use sha2::{Digest, Sha256};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 use super::agentgres_admission::{
     AgentgresAdmissionCore, AgentgresAdmissionError, StorageBackendWriteAdmissionRecord,
@@ -35,6 +39,10 @@ pub enum RuntimeThreadEventAdmissionError {
     InvalidReplayKind(String),
     InvalidThreadTurnProjectionKind(String),
     InvalidCursorField(String),
+    ReplayStateDirRequired,
+    ReplayReadFailed(String),
+    ReplayRecordInvalid(String),
+    RetiredReplayEventTransport,
     CursorOutOfRange {
         event_stream_id: Option<String>,
         last_event_id: Option<String>,
@@ -169,6 +177,8 @@ pub struct RuntimeThreadEventReplayRequest {
     pub turn_id: Option<String>,
     #[serde(default)]
     pub cursor: Option<Value>,
+    #[serde(default)]
+    pub state_dir: Option<String>,
     #[serde(default)]
     pub events: Vec<Value>,
     #[serde(default)]
@@ -581,8 +591,8 @@ impl RuntimeThreadEventAdmissionCore {
         request: &RuntimeThreadEventReplayRequest,
     ) -> Result<RuntimeThreadEventReplayRecord, RuntimeThreadEventAdmissionError> {
         request.validate_replay()?;
-        let mut selected = request
-            .events
+        let replay_events = runtime_thread_replay_events_from_state_dir(request)?;
+        let mut selected = replay_events
             .iter()
             .filter_map(|event| event.as_object().map(|record| (event, record)))
             .filter(|(_, record)| match request.replay_kind.as_str() {
@@ -618,7 +628,7 @@ impl RuntimeThreadEventAdmissionCore {
         let last_event = events
             .last()
             .and_then(Value::as_object)
-            .or_else(|| request.events.last().and_then(Value::as_object));
+            .or_else(|| replay_events.last().and_then(Value::as_object));
         let event_stream_id = if request.event_stream_id.trim().is_empty() {
             last_event
                 .and_then(|event| optional_event_string(event, "event_stream_id"))
@@ -941,6 +951,9 @@ impl RuntimeThreadEventReplayRequest {
             });
         }
         validate_cursor_shape(self.cursor.as_ref())?;
+        if !self.events.is_empty() {
+            return Err(RuntimeThreadEventAdmissionError::RetiredReplayEventTransport);
+        }
         match self.replay_kind.as_str() {
             "stream" => {
                 if self.event_stream_id.trim().is_empty() {
@@ -967,6 +980,61 @@ impl RuntimeThreadEventReplayRequest {
             )),
         }
     }
+}
+
+fn runtime_thread_replay_events_from_state_dir(
+    request: &RuntimeThreadEventReplayRequest,
+) -> Result<Vec<Value>, RuntimeThreadEventAdmissionError> {
+    let state_dir = optional_trimmed(request.state_dir.as_deref())
+        .ok_or(RuntimeThreadEventAdmissionError::ReplayStateDirRequired)?;
+    let events_dir = Path::new(&state_dir).join("events");
+    if !events_dir.exists() {
+        return Ok(Vec::new());
+    }
+    let entries = fs::read_dir(&events_dir).map_err(|error| {
+        RuntimeThreadEventAdmissionError::ReplayReadFailed(format!(
+            "runtime thread-event replay could not read Agentgres events: {error}"
+        ))
+    })?;
+    let mut paths: Vec<PathBuf> = Vec::new();
+    for entry in entries {
+        let entry = entry.map_err(|error| {
+            RuntimeThreadEventAdmissionError::ReplayReadFailed(format!(
+                "runtime thread-event replay could not inspect Agentgres event entry: {error}"
+            ))
+        })?;
+        let path = entry.path();
+        if path.is_file() && path.extension().and_then(|value| value.to_str()) == Some("jsonl") {
+            paths.push(path);
+        }
+    }
+    paths.sort();
+
+    let mut events = Vec::new();
+    for path in paths {
+        let contents = fs::read_to_string(&path).map_err(|error| {
+            RuntimeThreadEventAdmissionError::ReplayReadFailed(format!(
+                "runtime thread-event replay could not read Agentgres event record {}: {error}",
+                path.display()
+            ))
+        })?;
+        for (index, line) in contents.lines().enumerate() {
+            let line = line.trim();
+            if line.is_empty() {
+                continue;
+            }
+            let event: Value = serde_json::from_str(line).map_err(|error| {
+                RuntimeThreadEventAdmissionError::ReplayRecordInvalid(format!(
+                    "runtime thread-event replay found invalid Agentgres event record {}:{}: {error}",
+                    path.display(),
+                    index + 1
+                ))
+            })?;
+            events.push(event);
+        }
+    }
+    events.sort_by_key(|event| event.as_object().and_then(event_seq).unwrap_or(0));
+    Ok(events)
 }
 
 impl RuntimeThreadTurnProjectionRequest {
@@ -1014,6 +1082,13 @@ fn optional_event_string(event: &Map<String, Value>, field: &str) -> Option<Stri
     event
         .get(field)
         .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+}
+
+fn optional_trimmed(value: Option<&str>) -> Option<String> {
+    value
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(str::to_string)
@@ -1902,17 +1977,61 @@ mod tests {
     }
 
     fn replay_request() -> RuntimeThreadEventReplayRequest {
+        replay_request_with_events().0
+    }
+
+    fn replay_request_with_events() -> (RuntimeThreadEventReplayRequest, Vec<Value>) {
         let projection = RuntimeThreadEventAdmissionCore
             .project(&projection_request())
             .expect("projection provides admitted replay events");
+        let events = projection.events;
+        let state_dir = write_runtime_thread_event_state("replay", &events);
+        (
+            RuntimeThreadEventReplayRequest {
+                schema_version: RUNTIME_THREAD_EVENT_REPLAY_REQUEST_SCHEMA_VERSION.to_string(),
+                replay_kind: "stream".to_string(),
+                event_stream_id: "thread_1:events".to_string(),
+                turn_id: None,
+                cursor: None,
+                state_dir: Some(state_dir.to_string_lossy().to_string()),
+                events: vec![],
+                latest_seq: Some(projection.resulting_seq),
+            },
+            events,
+        )
+    }
+
+    fn write_runtime_thread_event_state(label: &str, events: &[Value]) -> std::path::PathBuf {
+        let state_dir = std::env::temp_dir().join(format!(
+            "ioi-runtime-thread-event-{label}-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("system clock")
+                .as_nanos()
+        ));
+        let events_dir = state_dir.join("events");
+        std::fs::create_dir_all(&events_dir).expect("events dir");
+        let contents = events
+            .iter()
+            .map(|event| serde_json::to_string(event).expect("event json"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        std::fs::write(events_dir.join("thread_1.jsonl"), format!("{contents}\n"))
+            .expect("write runtime events");
+        state_dir
+    }
+
+    fn empty_replay_request() -> RuntimeThreadEventReplayRequest {
         RuntimeThreadEventReplayRequest {
             schema_version: RUNTIME_THREAD_EVENT_REPLAY_REQUEST_SCHEMA_VERSION.to_string(),
             replay_kind: "stream".to_string(),
             event_stream_id: "thread_1:events".to_string(),
             turn_id: None,
             cursor: None,
-            events: projection.events,
-            latest_seq: Some(projection.resulting_seq),
+            state_dir: None,
+            events: vec![],
+            latest_seq: None,
         }
     }
 
@@ -2229,11 +2348,11 @@ mod tests {
 
     #[test]
     fn rust_replays_runtime_thread_events_by_turn_cursor() {
-        let mut request = replay_request();
+        let (mut request, events) = replay_request_with_events();
         request.replay_kind = "turn".to_string();
         request.turn_id = Some("turn_1".to_string());
         request.event_stream_id = String::new();
-        request.cursor = Some(json!({ "last_event_id": request.events[1]["event_id"] }));
+        request.cursor = Some(json!({ "last_event_id": events[1]["event_id"] }));
 
         let record = RuntimeThreadEventAdmissionCore
             .replay(&request)
@@ -2267,12 +2386,49 @@ mod tests {
     }
 
     #[test]
+    fn rust_requires_state_dir_for_runtime_thread_event_replay() {
+        let request = empty_replay_request();
+        let error = RuntimeThreadEventAdmissionCore
+            .replay(&request)
+            .expect_err("replay requires Agentgres state dir");
+        assert_eq!(
+            error,
+            RuntimeThreadEventAdmissionError::ReplayStateDirRequired
+        );
+    }
+
+    #[test]
+    fn rust_rejects_retired_runtime_thread_event_replay_event_transport() {
+        let mut request = empty_replay_request();
+        request.state_dir = Some("/tmp/runtime-state".to_string());
+        request.events = vec![json!({
+            "event_id": "event_retired_transport",
+            "event_stream_id": "thread_1:events",
+            "thread_id": "thread_1",
+            "turn_id": "turn_1",
+            "event_kind": "turn.started",
+            "seq": 1,
+            "agentgres_operation_ref": "agentgres://runtime-events/thread_1/events/event_retired_transport",
+            "receipt_refs": ["receipt_retired_transport"]
+        })];
+        let error = RuntimeThreadEventAdmissionCore
+            .replay(&request)
+            .expect_err("JS event candidates are retired for replay");
+        assert_eq!(
+            error,
+            RuntimeThreadEventAdmissionError::RetiredReplayEventTransport
+        );
+    }
+
+    #[test]
     fn rust_rejects_runtime_thread_event_replay_without_agentgres_refs() {
-        let mut request = replay_request();
-        request.events[0]
+        let (mut request, mut events) = replay_request_with_events();
+        events[0]
             .as_object_mut()
             .expect("event object")
             .remove("agentgres_operation_ref");
+        let state_dir = write_runtime_thread_event_state("missing-agentgres-ref", &events);
+        request.state_dir = Some(state_dir.to_string_lossy().to_string());
         let error = RuntimeThreadEventAdmissionCore
             .replay(&request)
             .expect_err("replay requires admitted Agentgres events");

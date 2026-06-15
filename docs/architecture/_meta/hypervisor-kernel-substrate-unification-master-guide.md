@@ -8939,16 +8939,20 @@ the projection envelopes from canonical agent/run facts, rejects retired
 projection aliases, skips known idempotency keys, admits each projected event
 through the same Agentgres admission core, and returns only Rust-admitted events
 for local replay registration. Public stream/turn replay readback now calls Rust
-`project_runtime_thread_event_replay`; Rust owns replay selection, canonical
-cursor evaluation, required Agentgres admission refs, state/head/watermark
-projection, and the returned event set while JS only supplies temporary cache
-candidates. Public thread/turn projection records now call Rust
+`project_runtime_thread_event_replay` with replay kind, cursor, latest seq, and
+runtime `state_dir`; Rust reads admitted Agentgres `events/*.jsonl` records,
+owns replay selection, canonical cursor evaluation, required Agentgres
+admission refs, state/head/watermark projection, and the returned event set,
+and rejects caller-supplied replay `events` transport. Public run replay enters
+through `eventsForRun`, while the duplicate `replayFromCanonicalState` facade
+and JS replay-candidate collector are retired. Public thread/turn projection
+records now call Rust
 `project_runtime_thread_turn_projection`; Rust owns public thread/turn record
 shape, runtime identity fields, projection hashes, and event-derived seq/input/
 output fields over admitted replay events through typed
 `daemonCoreAgentgresApi.projectRuntimeThreadTurnProjection`, while JS only
-supplies canonical agent/run/event facts and a temporary replay cache. Stable
-Rust projection/replay protocol APIs remain non-terminal beyond that thin JS
+supplies canonical agent/run/event facts and a temporary hydration cache. Stable
+Rust lifecycle projection protocol APIs remain non-terminal beyond that thin JS
 protocol-client scaffolding.
 
 This is still not terminal coding-tool migration. Coding-tool artifact draft
@@ -9932,6 +9936,22 @@ the retired command-shaped wrapper layer. This bridge-wrapper family is
 terminally retired; broader lifecycle completion still depends on moving the
 remaining local cache/replay and stable IDE/CLI/SDK lifecycle read APIs fully
 onto Rust-owned Agentgres projection/replay records.
+
+Slice 1253 hard-cuts runtime thread-event replay off JS replay candidates. Rust
+`RuntimeThreadEventReplayRequest` now requires runtime `state_dir`, replays
+admitted `events/*.jsonl` Agentgres event records in Rust, and rejects
+caller-supplied replay `events` transport. The daemon passes only replay kind,
+cursor, latest seq, and `state_dir` into
+`project_runtime_thread_event_replay`; the old JS
+`runtimeThreadReplayCandidateEvents` collector is deleted. Public run lifecycle
+replay now reaches the mounted Rust thread-event replay path through
+`eventsForRun`, and the duplicate `replayFromCanonicalState` daemon/run-read
+facade is retired. Conformance guards the state-dir replay requirement, the
+retired event-candidate transport, and absence of the public replay alias. This
+removes a split-brain replay boundary for stream/turn/run replay; broader
+lifecycle completion still depends on moving the remaining lifecycle projection
+candidate facts and stable IDE/CLI/SDK read APIs fully onto Rust-owned
+Agentgres projection records.
 
 ## Final Doctrine
 

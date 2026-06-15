@@ -1202,16 +1202,16 @@ export class AgentgresRuntimeStateStore {
     const replayKind = optionalString(request.replay_kind) ?? "stream";
     const eventStreamId = optionalString(request.event_stream_id);
     const turnId = optionalString(request.turn_id);
-    const candidateEvents = runtimeThreadReplayCandidateEvents(store, {
-      replayKind,
-      eventStreamId,
-    });
+    const latestSeq = eventStreamId
+      ? store.latestRuntimeEventSeq(eventStreamId)
+      : undefined;
     const replay = this.runtimeAgentgresAdmissionCore.projectRuntimeThreadEventReplay({
       replay_kind: replayKind,
       event_stream_id: eventStreamId,
       turn_id: turnId,
       cursor: request.cursor ?? {},
-      events: candidateEvents,
+      state_dir: this.stateDir,
+      latest_seq: latestSeq,
     });
     if (replay?.projected !== true) {
       throw runtimeError({
@@ -1399,10 +1399,6 @@ export class AgentgresRuntimeStateStore {
 
   authorityEvidenceSummary(options = {}) {
     return this.runReadSurface.authorityEvidenceSummary(this, options);
-  }
-
-  replayFromCanonicalState(runId, cursor) {
-    return this.runReadSurface.replayFromCanonicalState(this, runId, cursor);
   }
 
   traceFromCanonicalState(runId) {
@@ -1732,17 +1728,6 @@ function runtimeThreadProjectionRunEvent(event) {
     policy_decision_refs: normalizeArray(record.policy_decision_refs),
     rollback_refs: normalizeArray(record.rollback_refs),
   };
-}
-
-function runtimeThreadReplayCandidateEvents(store, { replayKind, eventStreamId } = {}) {
-  if (replayKind === "stream" && eventStreamId) {
-    return normalizeArray(store.runtimeEventStream(eventStreamId).events).filter((event) =>
-      objectRecord(event)
-    );
-  }
-  return [...store.runtimeEventStreams.values()]
-    .flatMap((stream) => normalizeArray(stream.events))
-    .filter((event) => objectRecord(event));
 }
 
 function canonicalMemoryWorkflowNodeId(value = {}) {

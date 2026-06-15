@@ -146,6 +146,27 @@ function runtimeControlStore(stateDir, calls) {
           evidence_refs: ["rust_agentgres_runtime_model_mount_record_state_commit"],
         };
       },
+      projectRuntimeThreadEventReplay(request) {
+        const input = request.request ?? {};
+        calls.push({ method: "projectRuntimeThreadEventReplay", input });
+        return {
+          source: "direct_agentgres_api",
+          backend: "runtime-agentgres",
+          projected: true,
+          events: [
+            {
+              event_id: "event_replay_1",
+              event_stream_id: input.event_stream_id,
+              seq: input.latest_seq ?? 0,
+              agentgres_operation_ref:
+                "agentgres://runtime-events/thread_1_events/operations/event_replay_1",
+              receipt_refs: ["receipt_runtime_replay"],
+            },
+          ],
+          event_count: 1,
+          replay_hash: "sha256:runtime-thread-replay",
+        };
+      },
     },
     daemonCoreMcpApi: {
       planMcpManagerCatalogProjection(request) {
@@ -252,6 +273,37 @@ test("runtime thread-control integration proof seeds model routes through Rust r
       calls.filter((call) => call.method === "commitRuntimeModelMountRecordState").length,
       1,
     );
+  } finally {
+    store.close();
+    rmSync(stateDir, { recursive: true, force: true });
+  }
+});
+
+test("runtime thread-event replay sends state-dir request without JS event candidates", () => {
+  const stateDir = mkdtempSync(join(tmpdir(), "ioi-runtime-thread-event-replay-state-dir-"));
+  const calls = [];
+  const store = runtimeControlStore(stateDir, calls);
+  try {
+    store.registerRuntimeEvent({
+      event_stream_id: "thread_1:events",
+      event_id: "event_head_7",
+      idempotency_key: "event_head_7",
+      event_kind: "turn.completed",
+      seq: 7,
+    });
+
+    const replay = store.projectRuntimeThreadEventReplayForThread(store, {
+      replay_kind: "stream",
+      event_stream_id: "thread_1:events",
+      cursor: { since_seq: 6 },
+    });
+    const call = calls.find((candidate) => candidate.method === "projectRuntimeThreadEventReplay");
+
+    assert.equal(replay.events[0].event_id, "event_replay_1");
+    assert.equal(call.input.state_dir, stateDir);
+    assert.equal(call.input.latest_seq, 7);
+    assert.equal(call.input.cursor.since_seq, 6);
+    assert.equal(Object.hasOwn(call.input, "events"), false);
   } finally {
     store.close();
     rmSync(stateDir, { recursive: true, force: true });

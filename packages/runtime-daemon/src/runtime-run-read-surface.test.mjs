@@ -138,7 +138,7 @@ test("runtime run read surface delegates get/list and usage projections", () => 
   assert.throws(() => surface.getRun(store, "missing"), /Run not found/);
 });
 
-test("runtime run read surface projects authority evidence, replay, trace, and canonical paths", () => {
+test("runtime run read surface projects authority evidence, trace, and canonical paths", () => {
   const { calls, store, surface } = harness();
 
   assert.deepEqual(surface.authorityEvidenceSummary(store, { group: "all" }), {
@@ -151,9 +151,7 @@ test("runtime run read surface projects authority evidence, replay, trace, and c
     "authorityEvidenceSummaryForEvents",
   ]);
   assert.equal(Object.hasOwn(surface, "legacyEventsForRun"), false);
-  assert.deepEqual(surface.replayFromCanonicalState(store, "run-one", { since_seq: 3 }), [
-    { id: "canonical-event", cursor: { since_seq: 3 } },
-  ]);
+  assert.equal(Object.hasOwn(surface, "replayFromCanonicalState"), false);
   assert.deepEqual(surface.traceFromCanonicalState(store, "run-one"), {
     stopCondition: { reason: "done" },
     scorecard: { status: "pass" },

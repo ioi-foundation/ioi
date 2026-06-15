@@ -111,9 +111,6 @@ function storeFixture() {
     eventsForRun(runId) {
       return [{ run_id: runId, seq: 1, event_id: "event_run" }];
     },
-    replayFromCanonicalState(runId) {
-      return [{ run_id: runId, seq: 1, event_id: "event_replay" }];
-    },
   };
 }
 
@@ -143,7 +140,7 @@ test("runtime lifecycle surface returns Rust-owned public lifecycle projections"
   assert.equal(surface.getRunConversation(store, "run_123")[0].content, "ship it");
   assert.equal(surface.getRunUsage(store, "run_123").total_tokens, 7);
   assert.equal(surface.listRunEvents(store, "run_123")[0].event_id, "event_run");
-  assert.equal(surface.replayRun(store, "run_123")[0].event_id, "event_replay");
+  assert.equal(surface.replayRun(store, "run_123")[0].event_id, "event_run");
   assert.equal(surface.getRunTrace(store, "run_123").scorecard.score, 1);
   assert.equal(surface.getRunComputerUseTrace(store, "run_123").steps, 2);
   assert.equal(surface.getRunComputerUseTrajectory(store, "run_123")[0].x, 1);

@@ -86,9 +86,6 @@ export function createRuntimeRunReadSurface({
         options,
       );
     },
-    replayFromCanonicalState(store, runId, cursor) {
-      return store.eventsForRun(runId, cursor);
-    },
     traceFromCanonicalState(store, runId) {
       return store.getRun(runId).trace;
     },

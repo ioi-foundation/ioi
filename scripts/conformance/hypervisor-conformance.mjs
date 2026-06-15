@@ -5895,6 +5895,9 @@ function runBridge() {
       /RuntimeThreadEventProjectionRecord/.test(runtimeThreadEventCore) &&
       /RuntimeThreadEventReplayRequest/.test(runtimeThreadEventCore) &&
       /RuntimeThreadEventReplayRecord/.test(runtimeThreadEventCore) &&
+      /pub state_dir: Option<String>/.test(runtimeThreadEventCore) &&
+      /runtime_thread_replay_events_from_state_dir/.test(runtimeThreadEventCore) &&
+      /RetiredReplayEventTransport/.test(runtimeThreadEventCore) &&
       /RUNTIME_THREAD_EVENT_ADMISSION_REQUEST_SCHEMA_VERSION/.test(runtimeThreadEventCore) &&
       /RUNTIME_THREAD_EVENT_PROJECTION_REQUEST_SCHEMA_VERSION/.test(runtimeThreadEventCore) &&
       /RUNTIME_THREAD_EVENT_REPLAY_REQUEST_SCHEMA_VERSION/.test(runtimeThreadEventCore) &&
@@ -5911,6 +5914,8 @@ function runBridge() {
       /rust_rejects_retired_runtime_thread_event_request_aliases/.test(runtimeThreadEventCore) &&
       /rust_rejects_retired_runtime_thread_event_projection_request_aliases/.test(runtimeThreadEventCore) &&
       /rust_rejects_retired_runtime_thread_event_replay_cursor_aliases/.test(runtimeThreadEventCore) &&
+      /rust_requires_state_dir_for_runtime_thread_event_replay/.test(runtimeThreadEventCore) &&
+      /rust_rejects_retired_runtime_thread_event_replay_event_transport/.test(runtimeThreadEventCore) &&
       /rust_core_shapes_runtime_thread_event_admission_protocol_response/.test(
         runtimeThreadEventCore,
       ) &&
@@ -5951,6 +5956,12 @@ function runBridge() {
       /runtime Agentgres core replays runtime thread events through typed Rust daemon-core Agentgres API/.test(
         runtimeAgentgresCoreTest,
       ) &&
+      /calls\[0\]\.request\.request\.state_dir,\s*"\/tmp\/ioi-state"/.test(
+        runtimeAgentgresCoreTest,
+      ) &&
+      /Object\.hasOwn\(calls\[0\]\.request\.request,\s*"events"\),\s*false/.test(
+        runtimeAgentgresCoreTest,
+      ) &&
       /runtime Agentgres core returns Rust envelopes without JS normalization/.test(runtimeAgentgresCoreTest) &&
       /runtime Agentgres core returns Rust envelopes without JS normalization/.test(runtimeAgentgresCoreTest) &&
       /runtime Agentgres core returns Rust envelopes without JS normalization/.test(runtimeAgentgresCoreTest) &&
@@ -5958,6 +5969,13 @@ function runBridge() {
       /runtimeAgentgresAdmissionCore\.projectRuntimeThreadEvents/.test(runtimeDaemonIndex) &&
       /projectRuntimeThreadEventReplayForThread/.test(runtimeDaemonIndex) &&
       /runtimeAgentgresAdmissionCore\.projectRuntimeThreadEventReplay/.test(runtimeDaemonIndex) &&
+      /state_dir:\s*this\.stateDir/.test(runtimeDaemonIndex) &&
+      !/runtimeThreadReplayCandidateEvents/.test(runtimeDaemonIndex) &&
+      !/events:\s*candidateEvents/.test(runtimeDaemonIndex) &&
+      /runtime thread-event replay sends state-dir request without JS event candidates/.test(
+        runtimeThreadControlTest,
+      ) &&
+      /Object\.hasOwn\(call\.input,\s*"events"\),\s*false/.test(runtimeThreadControlTest) &&
       /admitRuntimeThreadEventForThread/.test(runtimeDaemonIndex) &&
       /runtimeAgentgresAdmissionCore\.admitRuntimeThreadEvent/.test(runtimeDaemonIndex) &&
       /store\.registerRuntimeEvent\(admittedEvent\)/.test(runtimeDaemonIndex),
@@ -5969,8 +5987,9 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-agentgres-admission-core.mjs",
       "packages/runtime-daemon/src/runtime-agentgres-admission-core.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
+      "packages/runtime-daemon/src/runtime-thread-control.test.mjs",
     ],
-    "Phase 10/11 is pending: generic runtime thread events and projection must be admitted by Rust daemon-core Agentgres/projection before JS replay registration",
+    "Phase 10/11 is pending: generic runtime thread events and replay must be admitted/projected by Rust daemon-core Agentgres state-dir replay without JS replay candidate transport",
   );
   assertCheck(
     result,
@@ -28810,6 +28829,9 @@ function runCompositor() {
   const runtimeRunReadSurfaceTest = exists("packages/runtime-daemon/src/runtime-run-read-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-run-read-surface.test.mjs")
     : "";
+  const runtimeLifecycleProjectionSurface = exists("packages/runtime-daemon/src/runtime-lifecycle-projection-surface.mjs")
+    ? read("packages/runtime-daemon/src/runtime-lifecycle-projection-surface.mjs")
+    : "";
   const runtimeTaskJobSurface = exists("packages/runtime-daemon/src/runtime-task-job-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-task-job-surface.mjs")
     : "";
@@ -32574,16 +32596,24 @@ function runCompositor() {
     result,
     "runtime-run-legacy-event-read-alias-retired",
     !/legacyEventsForRun/.test(`${runtimeDaemonIndex}\n${runtimeRunReadSurface}`) &&
-      /replayFromCanonicalState/.test(runtimeDaemonIndex) &&
-      /replayFromCanonicalState/.test(runtimeRunReadSurface) &&
+      !/replayFromCanonicalState/.test(
+        `${runtimeDaemonIndex}\n${runtimeRunReadSurface}\n${runtimeLifecycleProjectionSurface}`,
+      ) &&
+      /replay:\s*callStore\(store,\s*"eventsForRun",\s*runId,\s*\[\]\)/.test(
+        runtimeLifecycleProjectionSurface,
+      ) &&
       /canonicalProjection/.test(runtimeRunReadSurface) &&
-      /Object\.hasOwn\(surface,\s*"legacyEventsForRun"\),\s*false/.test(runtimeRunReadSurfaceTest),
+      /Object\.hasOwn\(surface,\s*"legacyEventsForRun"\),\s*false/.test(runtimeRunReadSurfaceTest) &&
+      /Object\.hasOwn\(surface,\s*"replayFromCanonicalState"\),\s*false/.test(
+        runtimeRunReadSurfaceTest,
+      ),
     [
       "packages/runtime-daemon/src/index.mjs",
       "packages/runtime-daemon/src/runtime-run-read-surface.mjs",
+      "packages/runtime-daemon/src/runtime-lifecycle-projection-surface.mjs",
       "packages/runtime-daemon/src/runtime-run-read-surface.test.mjs",
     ],
-    "Phase 10/11 is pending: runtime run reads must use canonical replay/projection APIs instead of the legacy event alias",
+    "Phase 10/11 is pending: runtime run reads must retire JS replay aliases and use Rust thread-event replay through lifecycle projection",
   );
   assertCheck(
     result,
@@ -38863,7 +38893,9 @@ function runCompositor() {
       /admitRuntimeThreadEventForThread/.test(runtimeDaemonIndex) &&
       /projectRuntimeThreadEventsForThread/.test(runtimeDaemonIndex) &&
       /projectRuntimeThreadEventReplayForThread/.test(runtimeDaemonIndex) &&
-      /runtimeThreadReplayCandidateEvents/.test(runtimeDaemonIndex) &&
+      /state_dir:\s*this\.stateDir/.test(runtimeDaemonIndex) &&
+      !/runtimeThreadReplayCandidateEvents/.test(runtimeDaemonIndex) &&
+      !/events:\s*candidateEvents/.test(runtimeDaemonIndex) &&
       /existing_idempotency_keys:\s*\[\.\.\.stream\.idempotency\.keys\(\)\]/.test(
         runtimeDaemonIndex,
       ) &&

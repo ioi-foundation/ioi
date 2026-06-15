@@ -193,7 +193,6 @@ test("agent, thread, and run detail routes return lifecycle projection surface o
     lifecycleProjectionSurface,
     usageForRun: retiredRouteWrapper,
     eventsForRun: retiredRouteWrapper,
-    replayFromCanonicalState: retiredRouteWrapper,
     usageForThread: retiredRouteWrapper,
     listTurns: retiredRouteWrapper,
     getTurn: retiredRouteWrapper,
