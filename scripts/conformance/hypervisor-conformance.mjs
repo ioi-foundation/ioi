@@ -8928,13 +8928,17 @@ function runBridge() {
       /rust_policy_shapes_operator_steer_state_update_command_response/.test(
         policyOperatorControlCore,
       ) &&
-      /pub struct RunCancelCommandError/.test(policyRunCancelCore) &&
-      /pub fn plan_run_cancel_state_update_response/.test(policyRunCancelCore) &&
-      /pub fn plan_run_cancel_admission_required_response/.test(policyRunCancelCore) &&
-      /rust_run_cancel_state_update_command/.test(policyRunCancelCore) &&
-      /rust_run_cancel_admission_required_command/.test(policyRunCancelCore) &&
-      /rust_policy_shapes_run_cancel_state_update_command_response/.test(policyRunCancelCore) &&
-      /rust_policy_shapes_run_cancel_admission_required_command_response/.test(
+      /pub struct RunCancelStateUpdateCore;/.test(policyRunCancelCore) &&
+      /pub struct RunCancelAdmissionRequiredCore;/.test(policyRunCancelCore) &&
+      !/RunCancelCommandError/.test(policyRunCancelCore) &&
+      !/RunCancelStateUpdateBridgeRequest/.test(policyRunCancelCore) &&
+      !/RunCancelAdmissionRequiredBridgeRequest/.test(policyRunCancelCore) &&
+      !/pub fn plan_run_cancel_state_update_response/.test(policyRunCancelCore) &&
+      !/pub fn plan_run_cancel_admission_required_response/.test(policyRunCancelCore) &&
+      !/rust_run_cancel_state_update_command/.test(policyRunCancelCore) &&
+      !/rust_run_cancel_admission_required_command/.test(policyRunCancelCore) &&
+      !/rust_policy_shapes_run_cancel_state_update_command_response/.test(policyRunCancelCore) &&
+      !/rust_policy_shapes_run_cancel_admission_required_command_response/.test(
         policyRunCancelCore,
       ) &&
       !runtimeControlCommandBridgeExists &&
@@ -8961,7 +8965,7 @@ function runBridge() {
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "scripts/conformance/hypervisor-conformance.mjs",
     ],
-    "Phase 10/11 migration guard: runtime-control command request/response envelopes and source markers live in Rust policy cores; the temporary Node delegate is retired",
+    "Phase 10/11 migration guard: runtime-control command request/response envelopes and source markers remain retired; run-cancel now exposes only typed Rust daemon-core policy APIs while the temporary Node delegate stays retired",
   );
   const policyLifecycleMemoryCommandWrappers = [
     contextPolicyCommandBridge,
@@ -12254,14 +12258,15 @@ function runBridge() {
   );
   assertCheck(
     result,
-    "run-cancel-state-update-live-bridge",
+    "run-cancel-state-update-direct-api",
     /RunCancelStateUpdateCore/.test(policyCore) &&
       /RunCancelStateUpdateRequest/.test(policyCore) &&
       /RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
       /rust_policy_plans_run_cancel_state_update/.test(policyCore) &&
-      /pub fn plan_run_cancel_state_update_response/.test(policyRunCancelCore) &&
-      /rust_run_cancel_state_update_command/.test(policyRunCancelCore) &&
-      /rust_policy_shapes_run_cancel_state_update_command_response/.test(policyRunCancelCore) &&
+      !/pub fn plan_run_cancel_state_update_response/.test(policyRunCancelCore) &&
+      !/RunCancelStateUpdateBridgeRequest/.test(policyRunCancelCore) &&
+      !/rust_run_cancel_state_update_command/.test(policyRunCancelCore) &&
+      !/rust_policy_shapes_run_cancel_state_update_command_response/.test(policyRunCancelCore) &&
       !/plan_run_cancel_state_update_response as plan_run_cancel_state_update/.test(
         bridgeModule,
       ) &&
@@ -12283,12 +12288,14 @@ function runBridge() {
       /run cancel state update core sends Rust state update through direct runtime-control API/.test(
         runtimeContextPolicyCoreTest,
       ) &&
+      /rust_run_cancel_state_update_api/.test(runtimeContextPolicyCoreTest) &&
       /RunCancelAdmissionRequiredCore/.test(policyCore) &&
       /RUN_CANCEL_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
       /rust_policy_plans_run_cancel_admission_required/.test(policyCore) &&
-      /pub fn plan_run_cancel_admission_required_response/.test(policyRunCancelCore) &&
-      /rust_run_cancel_admission_required_command/.test(policyRunCancelCore) &&
-      /rust_policy_shapes_run_cancel_admission_required_command_response/.test(
+      !/pub fn plan_run_cancel_admission_required_response/.test(policyRunCancelCore) &&
+      !/RunCancelAdmissionRequiredBridgeRequest/.test(policyRunCancelCore) &&
+      !/rust_run_cancel_admission_required_command/.test(policyRunCancelCore) &&
+      !/rust_policy_shapes_run_cancel_admission_required_command_response/.test(
         policyRunCancelCore,
       ) &&
       !/plan_run_cancel_admission_required_response as plan_run_cancel_admission_required/.test(
@@ -12313,6 +12320,7 @@ function runBridge() {
       /run cancel admission-required core sends Rust request through direct runtime-control API/.test(
         runtimeContextPolicyCoreTest,
       ) &&
+      /rust_run_cancel_admission_required_api/.test(runtimeContextPolicyCoreTest) &&
       /runtime_run_cancel_rust_core_required/.test(runtimeRunCancellation) &&
       /rust_core_boundary:\s*"runtime\.run_cancel"/.test(runtimeRunCancellation) &&
       /runtime_run_cancel_js_facade_retired/.test(runtimeRunCancellation) &&
@@ -12380,7 +12388,7 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-route-handlers.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.test.mjs",
     ],
-    "Phase 9/10 is pending: public run cancellation must use the Rust daemon-core state-update planner, commit only the Rust canceled run through Agentgres, and keep JS cancellation materialization retired",
+    "Phase 9/10 is pending: public run cancellation must use the typed Rust daemon-core state-update planner, commit only the Rust canceled run through Agentgres, and keep JS cancellation materialization plus command-shaped bridge wrappers retired",
   );
   assertCheck(
     result,

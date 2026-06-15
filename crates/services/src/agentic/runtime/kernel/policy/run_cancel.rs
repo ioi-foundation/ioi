@@ -87,92 +87,6 @@ pub struct RunCancelAdmissionRequiredRecord {
     pub generated_at: String,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct RunCancelCommandError {
-    code: &'static str,
-    message: String,
-}
-
-impl RunCancelCommandError {
-    pub fn code(&self) -> &'static str {
-        self.code
-    }
-
-    pub fn message(&self) -> &str {
-        self.message.as_str()
-    }
-
-    fn from_debug<E: std::fmt::Debug>(code: &'static str, error: E) -> Self {
-        Self {
-            code,
-            message: format!("{error:?}"),
-        }
-    }
-}
-
-#[derive(Debug, Deserialize)]
-pub struct RunCancelStateUpdateBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: RunCancelStateUpdateRequest,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct RunCancelAdmissionRequiredBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: RunCancelAdmissionRequiredRequest,
-}
-
-pub fn plan_run_cancel_state_update_response(
-    request: RunCancelStateUpdateBridgeRequest,
-) -> Result<Value, RunCancelCommandError> {
-    let record = RunCancelStateUpdateCore
-        .plan(&request.request)
-        .map_err(|error| {
-            RunCancelCommandError::from_debug("run_cancel_state_update_invalid", error)
-        })?;
-    Ok(json!({
-        "source": "rust_run_cancel_state_update_command",
-        "backend": runtime_control_policy_backend(request.backend),
-        "record": record.clone(),
-        "status": record.status.clone(),
-        "operation_kind": record.operation_kind.clone(),
-        "updated_at": record.updated_at.clone(),
-        "stop_condition": record.stop_condition.clone(),
-        "runtime_task": record.runtime_task.clone(),
-        "runtime_job": record.runtime_job.clone(),
-        "runtime_checklist": record.runtime_checklist.clone(),
-        "run": record.run.clone(),
-    }))
-}
-
-pub fn plan_run_cancel_admission_required_response(
-    request: RunCancelAdmissionRequiredBridgeRequest,
-) -> Result<Value, RunCancelCommandError> {
-    let record = RunCancelAdmissionRequiredCore
-        .plan(&request.request)
-        .map_err(|error| {
-            RunCancelCommandError::from_debug("run_cancel_admission_required_invalid", error)
-        })?;
-    Ok(json!({
-        "source": "rust_run_cancel_admission_required_command",
-        "backend": runtime_control_policy_backend(request.backend),
-        "record": record.clone(),
-        "status": record.status.clone(),
-        "status_code": record.status_code,
-        "code": record.code.clone(),
-        "message": record.message.clone(),
-        "rust_core_boundary": record.rust_core_boundary.clone(),
-        "operation_kind": record.operation_kind.clone(),
-        "details": record.details.clone(),
-    }))
-}
-
-fn runtime_control_policy_backend(backend: Option<String>) -> String {
-    backend.unwrap_or_else(|| "rust_policy".to_string())
-}
-
 #[derive(Debug, Default, Clone)]
 pub struct RunCancelStateUpdateCore;
 
@@ -1273,24 +1187,6 @@ mod tests {
     }
 
     #[test]
-    fn rust_policy_shapes_run_cancel_state_update_command_response() {
-        let response = plan_run_cancel_state_update_response(RunCancelStateUpdateBridgeRequest {
-            backend: Some("rust_policy".to_string()),
-            request: run_cancel_state_update_request(),
-        })
-        .expect("run cancel state update command response");
-
-        assert_eq!(response["source"], "rust_run_cancel_state_update_command");
-        assert_eq!(response["backend"], "rust_policy");
-        assert_eq!(response["status"], "planned");
-        assert_eq!(response["operation_kind"], "run.cancel");
-        assert_eq!(response["run"]["status"], "canceled");
-        assert_eq!(response["run"]["events"][0]["type"], "runtime_task");
-        assert_eq!(response["run"]["events"][3]["type"], "job_canceled");
-        assert_eq!(response["runtime_job"]["status"], "canceled");
-    }
-
-    #[test]
     fn rust_policy_plans_run_cancel_admission_required() {
         let record = RunCancelAdmissionRequiredCore
             .plan(&RunCancelAdmissionRequiredRequest {
@@ -1322,46 +1218,6 @@ mod tests {
         assert_eq!(record.details["run_status"], "running");
         assert!(record.details.get("runId").is_none());
         assert!(record.details.get("runStatus").is_none());
-    }
-
-    #[test]
-    fn rust_policy_shapes_run_cancel_admission_required_command_response() {
-        let response =
-            plan_run_cancel_admission_required_response(RunCancelAdmissionRequiredBridgeRequest {
-                backend: Some("rust_policy".to_string()),
-                request: RunCancelAdmissionRequiredRequest {
-                    schema_version: RUN_CANCEL_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION
-                        .to_string(),
-                    operation: "run_cancel".to_string(),
-                    operation_kind: "run.cancel".to_string(),
-                    run_id: "run_cancel_one".to_string(),
-                    run_status: Some("running".to_string()),
-                    source: Some("operator".to_string()),
-                    evidence_refs: vec![
-                        "runtime_run_cancel_js_facade_retired".to_string(),
-                        "rust_daemon_core_run_cancel_required".to_string(),
-                        "agentgres_run_cancel_state_truth_required".to_string(),
-                    ],
-                },
-            })
-            .expect("run cancel admission-required command response");
-
-        assert_eq!(
-            response["source"],
-            "rust_run_cancel_admission_required_command"
-        );
-        assert_eq!(response["backend"], "rust_policy");
-        assert_eq!(response["status"], "rust_core_required");
-        assert_eq!(response["status_code"], 501);
-        assert_eq!(response["code"], "runtime_run_cancel_rust_core_required");
-        assert_eq!(
-            response["details"]["rust_core_boundary"],
-            "runtime.run_cancel"
-        );
-        assert_eq!(response["details"]["run_id"], "run_cancel_one");
-        assert_eq!(response["details"]["run_status"], "running");
-        assert!(response["details"].get("runId").is_none());
-        assert!(response["details"].get("runStatus").is_none());
     }
 
     #[test]

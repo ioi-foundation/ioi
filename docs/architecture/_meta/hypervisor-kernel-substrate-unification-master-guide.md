@@ -7892,10 +7892,12 @@ temporary bridge proof surface and relies on the Rust policy owners at
 budget recovery state-update and admission-required responses, diagnostics
 operator override state-update responses, operator turn-control
 admission-required responses, operator interrupt/steer state-update responses,
-and run-cancel state-update/admission-required responses now run as Rust owner
-tests. Bridge conformance now requires those owner tests and proves the old
+and the then-current run-cancel state-update/admission-required responses moved
+to Rust owner tests. Bridge conformance now requires those owner tests and proves the old
 bridge-named runtime-control tests, request-type imports, and response-function
 aliases stay absent from `ioi_step_module_bridge/proof_tests.rs`.
+Slice 1230 retires the remaining run-cancel command-shaped owner wrappers from
+that intermediate proof cluster.
 
 The runtime-control transport cut after Slice 1179 replaces that temporary
 command path with typed `daemonCoreRuntimeControlApi` methods for coding-tool
@@ -9586,6 +9588,20 @@ transport, OAuth/materialization, invocation authority, local cache scaffolding,
 durable replay/storage, richer MCP runtime materialization, and stable
 IDE/CLI/SDK protocol APIs still need terminal Rust-owned materialization and
 projection/replay records.
+
+Slice 1230 retires the run-cancel command-shaped Rust owner wrappers. The
+run-cancel policy child keeps only `RunCancelStateUpdateCore` and
+`RunCancelAdmissionRequiredCore` plus the direct `RuntimeKernelService`
+methods; `RunCancelCommandError`, `RunCancel*BridgeRequest`,
+`plan_run_cancel_*_response`, and `rust_run_cancel_*_command` source markers
+are deleted. `RuntimeContextPolicyCore` now normalizes run-cancel state updates
+as `rust_run_cancel_state_update_api`, admission-required refusals use
+`rust_run_cancel_admission_required_api`, and conformance fails if the old
+command wrappers, bridge request types, or command source markers return. This
+remains non-terminal because wallet/operator authority, cancellation
+replay/projection storage, direct lifecycle protocol APIs, durable
+replay/storage, and stable IDE/CLI/SDK protocol APIs still need terminal
+Rust-owned records.
 
 ## Final Doctrine
 

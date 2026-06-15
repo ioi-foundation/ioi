@@ -47,7 +47,7 @@ function canceledRunProjection(request, overrides = {}) {
     status: "canceled",
   };
   return {
-    source: "rust_run_cancel_state_update_command",
+    source: "rust_run_cancel_state_update_api",
     backend: "rust_policy",
     status: "planned",
     operation_kind: "run.cancel",
@@ -159,7 +159,7 @@ test("cancelRun facade uses Rust daemon-core admission-required planner when sta
       planRunCancelAdmissionRequired(request) {
         runnerCalls.push(request);
         return {
-          source: "rust_run_cancel_admission_required_command",
+          source: "rust_run_cancel_admission_required_api",
           backend: "rust_policy",
           record: {
             status_code: 501,

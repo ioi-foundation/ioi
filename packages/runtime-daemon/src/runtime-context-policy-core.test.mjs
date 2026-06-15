@@ -172,7 +172,7 @@ import {
   normalizeOperatorInterruptStateUpdateBridgeResult,
   normalizeOperatorSteerStateUpdateBridgeResult,
   normalizePostEditDiagnosticsFeedbackPlanBridgeResult,
-  normalizeRunCancelStateUpdateBridgeResult,
+  normalizeRunCancelStateUpdateApiResult,
   normalizeRuntimeTaskJobCancelStateUpdateBridgeResult,
   normalizeRuntimeTaskJobCreateStateUpdateBridgeResult,
   normalizeRuntimeTaskJobProjectionBridgeResult,
@@ -738,9 +738,9 @@ test("runtime state-update core does not synthesize Rust-owned envelopes", () =>
       },
     ],
     [
-      normalizeRunCancelStateUpdateBridgeResult,
+      normalizeRunCancelStateUpdateApiResult,
       {
-        source: "rust_run_cancel_state_update_command",
+        source: "rust_run_cancel_state_update_api",
         operation_kind: "run.cancel",
       },
     ],
@@ -2029,7 +2029,7 @@ test("run cancel state update core sends Rust state update through direct runtim
   const { calls, runner } = createRuntimeControlDirectCore(
     RUNTIME_CONTROL_RUN_CANCEL_STATE_UPDATE_API_METHOD,
     () => ({
-            source: "rust_run_cancel_state_update_command",
+            source: "rust_run_cancel_state_update_api",
             backend: "rust_policy",
             status: "planned",
             operation_kind: "run.cancel",
@@ -2078,7 +2078,7 @@ test("run cancel state update core sends Rust state update through direct runtim
   assert.equal(calls[0].request.canceled_at, "2026-06-06T04:45:00.000Z");
   assert.equal(Object.hasOwn(calls[0].request, "operation"), false);
   assert.equal(Object.hasOwn(calls[0].request, "backend"), false);
-  assert.equal(result.source, "rust_run_cancel_state_update_command");
+  assert.equal(result.source, "rust_run_cancel_state_update_api");
   assert.equal(result.operation_kind, "run.cancel");
   assert.equal(result.runtime_job.status, "canceled");
   assert.equal(result.run.events.at(-1).type, "canceled");
@@ -2088,7 +2088,7 @@ test("run cancel admission-required core sends Rust request through direct runti
   const { calls, runner } = createRuntimeControlDirectCore(
     RUNTIME_CONTROL_RUN_CANCEL_ADMISSION_REQUIRED_API_METHOD,
     () => ({
-            source: "rust_run_cancel_admission_required_command",
+            source: "rust_run_cancel_admission_required_api",
             backend: "rust_policy",
             record: {
               status_code: 501,
@@ -2124,7 +2124,7 @@ test("run cancel admission-required core sends Rust request through direct runti
   assert.equal(calls[0].request.operation, "run_cancel");
   assert.equal(calls[0].request.operation_kind, "run.cancel");
   assert.equal(Object.hasOwn(calls[0].request, "backend"), false);
-  assert.equal(result.source, "rust_run_cancel_admission_required_command");
+  assert.equal(result.source, "rust_run_cancel_admission_required_api");
   assert.equal(result.record.status_code, 501);
   assert.equal(result.record.details.run_id, "run_cancel_one");
   assert.equal(Object.hasOwn(result.record.details, "runId"), false);

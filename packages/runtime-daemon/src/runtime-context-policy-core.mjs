@@ -508,7 +508,7 @@ export class RuntimeContextPolicyCore {
   }
 
   planRunCancelStateUpdate(request = {}) {
-    return normalizeRunCancelStateUpdateBridgeResult(this.invokeRuntimeControlApi(
+    return normalizeRunCancelStateUpdateApiResult(this.invokeRuntimeControlApi(
       RUNTIME_CONTROL_RUN_CANCEL_STATE_UPDATE_API_METHOD,
       RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
@@ -1728,7 +1728,7 @@ export function normalizeRuntimeDiagnosticsRepairPolicyBridgeResult(value = {}) 
   };
 }
 
-export function normalizeRunCancelStateUpdateBridgeResult(value = {}) {
+export function normalizeRunCancelStateUpdateApiResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   return {
@@ -1736,7 +1736,7 @@ export function normalizeRunCancelStateUpdateBridgeResult(value = {}) {
     source:
       result.source ??
       record.source ??
-      "rust_run_cancel_state_update_command",
+      "rust_run_cancel_state_update_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
