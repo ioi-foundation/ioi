@@ -1211,13 +1211,9 @@ export class AgentgresRuntimeStateStore {
   admitCodingToolResultEventForThread(store, request = {}) {
     const event = objectRecord(request.event);
     const eventStreamId = optionalString(event?.event_stream_id);
-    const latestSeq = eventStreamId ? store.latestRuntimeEventSeq(eventStreamId) : undefined;
     const admission = this.runtimeAgentgresAdmissionCore.admitCodingToolResultEvent({
       event,
-      latest_seq: latestSeq,
-      expected_head: eventStreamId
-        ? `agentgres://runtime-events/${safeId(eventStreamId)}/head/${latestSeq}`
-        : undefined,
+      state_dir: this.stateDir,
     });
     const admittedEvent = objectRecord(admission?.event);
     if (!admittedEvent) {
@@ -1238,14 +1234,9 @@ export class AgentgresRuntimeStateStore {
   }
 
   admitCodingToolCommandStreamEventsForThread(store, request = {}) {
-    const eventStreamId = optionalString(request.event_stream_id);
-    const latestSeq = eventStreamId ? store.latestRuntimeEventSeq(eventStreamId) : undefined;
     const admission = this.runtimeAgentgresAdmissionCore.admitCodingToolCommandStreamEvents({
       ...request,
-      latest_seq: latestSeq,
-      expected_head: eventStreamId
-        ? `agentgres://runtime-events/${safeId(eventStreamId)}/head/${latestSeq}`
-        : undefined,
+      state_dir: this.stateDir,
     });
     const events = normalizeArray(admission?.events).filter((event) => objectRecord(event));
     for (const event of events) {

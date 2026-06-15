@@ -276,8 +276,7 @@ function codingToolResultEventAdmissionRequest() {
         receipt_refs: ["receipt_tool"],
       },
     },
-    latest_seq: 4,
-    expected_head: "agentgres://runtime-events/thread_1_events/head/4",
+    state_dir: "/tmp/ioi-state",
   };
 }
 
@@ -295,10 +294,9 @@ function codingToolCommandStreamAdmissionRequest() {
     status: "completed",
     request: { stream_output: true },
     result: { stdout: "ok", stderr: "warn" },
-    latest_seq: 5,
-    expected_head: "agentgres://runtime-events/thread_1_events/head/5",
     receipt_refs: ["receipt_tool"],
     artifact_refs: ["artifact_tool"],
+    state_dir: "/tmp/ioi-state",
   };
 }
 
@@ -400,6 +398,10 @@ test("runtime Agentgres core admits coding-tool result events through typed Rust
     calls[0].request.request.schema_version,
     CODING_TOOL_RESULT_EVENT_ADMISSION_REQUEST_SCHEMA_VERSION,
   );
+  assert.equal(calls[0].request.request.state_dir, "/tmp/ioi-state");
+  assert.equal(Object.hasOwn(calls[0].request.request, "latest_seq"), false);
+  assert.equal(Object.hasOwn(calls[0].request.request, "expected_head"), false);
+  assert.equal(Object.hasOwn(calls[0].request.request, "state_root_before"), false);
   assert.equal(result.event.event_id, "event_coding_tool_1");
 });
 
@@ -507,6 +509,10 @@ test("runtime Agentgres core admits coding-tool command-stream events through ty
     calls[0].request.request.schema_version,
     CODING_TOOL_COMMAND_STREAM_ADMISSION_REQUEST_SCHEMA_VERSION,
   );
+  assert.equal(calls[0].request.request.state_dir, "/tmp/ioi-state");
+  assert.equal(Object.hasOwn(calls[0].request.request, "latest_seq"), false);
+  assert.equal(Object.hasOwn(calls[0].request.request, "expected_head"), false);
+  assert.equal(Object.hasOwn(calls[0].request.request, "state_root_before"), false);
   assert.equal(result.events[0].event_id, "event_stream_1");
 });
 

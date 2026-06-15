@@ -10269,6 +10269,23 @@ non-terminal work is to retire the temporary local replay-cache hydration and
 move remaining SDK/IDE event reads fully onto Rust-owned protocol projection and
 replay records.
 
+Slice 1290 hard-cuts coding-tool event admission cache transport.
+`CodingToolResultEventAdmissionRequest` and
+`CodingToolCommandStreamAdmissionRequest` now deny unknown fields, require
+runtime `state_dir`, and reject caller-supplied `latest_seq`, `expected_head`,
+and `state_root_before`. The daemon result-event and command-stream admission
+wrappers no longer call `store.latestRuntimeEventSeq()` or format expected heads;
+they send only canonical event/request facts plus daemon state dir. Rust
+`coding_tool_event.rs` reads admitted `events/*.jsonl` Agentgres records to
+derive latest sequence, current head, and state root before result-event or
+command-stream admission, storage binding, receipt binding, and projection
+watermarking. Conformance guards both fail-closed request structs, state-dir
+requirements, rejected cache fields, Rust state loaders, and scoped JS absence.
+This removes the remaining coding-tool Agentgres admission head/state handoff as
+a JS authority input; remaining coding-tool work is now durable read/projection
+cleanup and stable API consumption rather than command/env, binary bridge, or
+cache-head admission fallback.
+
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,
 `/v1/memory/policy`, `/v1/memory/path`, or `/v1/memory/validate`; the daemon

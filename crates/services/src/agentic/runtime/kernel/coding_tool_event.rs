@@ -1,6 +1,10 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 use sha2::{Digest, Sha256};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 use super::agentgres_admission::{
     AgentgresAdmissionCore, AgentgresAdmissionError, StorageBackendWriteAdmissionRecord,
@@ -38,6 +42,9 @@ pub enum CodingToolResultEventAdmissionError {
     },
     MissingField(&'static str),
     MissingReceiptRefs,
+    StateDirRequired,
+    ReplayReadFailed(String),
+    ReplayRecordInvalid(String),
     Agentgres(AgentgresAdmissionError),
     HashFailed(String),
 }
@@ -50,6 +57,9 @@ pub enum CodingToolCommandStreamAdmissionError {
     },
     MissingField(&'static str),
     MissingReceiptRefs,
+    StateDirRequired,
+    ReplayReadFailed(String),
+    ReplayRecordInvalid(String),
     Agentgres(AgentgresAdmissionError),
     HashFailed(String),
 }
@@ -86,16 +96,50 @@ impl From<AgentgresAdmissionError> for CodingToolResultEventAdmissionError {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+enum CodingToolEventStateReadError {
+    StateDirRequired,
+    ReadFailed(String),
+    RecordInvalid(String),
+    MissingField(&'static str),
+    MissingReceiptRefs,
+}
+
+impl From<CodingToolEventStateReadError> for CodingToolResultEventAdmissionError {
+    fn from(error: CodingToolEventStateReadError) -> Self {
+        match error {
+            CodingToolEventStateReadError::StateDirRequired => Self::StateDirRequired,
+            CodingToolEventStateReadError::ReadFailed(message) => Self::ReplayReadFailed(message),
+            CodingToolEventStateReadError::RecordInvalid(message) => {
+                Self::ReplayRecordInvalid(message)
+            }
+            CodingToolEventStateReadError::MissingField(field) => Self::MissingField(field),
+            CodingToolEventStateReadError::MissingReceiptRefs => Self::MissingReceiptRefs,
+        }
+    }
+}
+
+impl From<CodingToolEventStateReadError> for CodingToolCommandStreamAdmissionError {
+    fn from(error: CodingToolEventStateReadError) -> Self {
+        match error {
+            CodingToolEventStateReadError::StateDirRequired => Self::StateDirRequired,
+            CodingToolEventStateReadError::ReadFailed(message) => Self::ReplayReadFailed(message),
+            CodingToolEventStateReadError::RecordInvalid(message) => {
+                Self::ReplayRecordInvalid(message)
+            }
+            CodingToolEventStateReadError::MissingField(field) => Self::MissingField(field),
+            CodingToolEventStateReadError::MissingReceiptRefs => Self::MissingReceiptRefs,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct CodingToolResultEventAdmissionRequest {
     pub schema_version: String,
     pub event: Value,
     #[serde(default)]
-    pub latest_seq: Option<u64>,
-    #[serde(default)]
-    pub expected_head: Option<String>,
-    #[serde(default)]
-    pub state_root_before: Option<String>,
+    pub state_dir: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -130,6 +174,7 @@ pub struct CodingToolResultEventAdmissionRecord {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct CodingToolCommandStreamAdmissionRequest {
     pub schema_version: String,
     pub event_stream_id: String,
@@ -157,11 +202,7 @@ pub struct CodingToolCommandStreamAdmissionRequest {
     #[serde(default)]
     pub artifact_refs: Vec<String>,
     #[serde(default)]
-    pub latest_seq: Option<u64>,
-    #[serde(default)]
-    pub expected_head: Option<String>,
-    #[serde(default)]
-    pub state_root_before: Option<String>,
+    pub state_dir: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -388,10 +429,9 @@ impl CodingToolResultEventAdmissionCore {
                 "payload_schema_version",
             ));
         }
-        let latest_seq = request
-            .latest_seq
-            .or_else(|| event.get("latest_seq").and_then(Value::as_u64))
-            .unwrap_or(0);
+        let admission_state =
+            coding_tool_result_event_admission_state_from_state_dir(request, &event_stream_id)?;
+        let latest_seq = admission_state.latest_seq;
         let seq = latest_seq + 1;
         let event_id = optional_event_string(event, "event_id").unwrap_or_else(|| {
             format!(
@@ -402,20 +442,15 @@ impl CodingToolResultEventAdmissionCore {
         let created_at =
             optional_event_string(event, "created_at").unwrap_or_else(|| "rust_daemon_core".into());
         let expected_heads =
-            unique_trimmed_strings(vec![request.expected_head.clone().unwrap_or_else(|| {
+            unique_trimmed_strings(vec![admission_state.expected_head.unwrap_or_else(|| {
                 format!(
                     "agentgres://runtime-events/{}/head/{}",
                     safe_component(&event_stream_id),
                     latest_seq
                 )
             })]);
-        let state_root_before = request.state_root_before.clone().unwrap_or_else(|| {
-            format!(
-                "sha256:{}",
-                sha256_hex(
-                    format!("runtime-event-before:{event_stream_id}:{latest_seq}").as_bytes()
-                )
-            )
+        let state_root_before = admission_state.state_root_before.unwrap_or_else(|| {
+            default_result_event_state_root_before(&event_stream_id, latest_seq)
         });
         let mut admitted_event = event.clone();
         admitted_event.insert("event_id".to_string(), Value::String(event_id.clone()));
@@ -624,21 +659,18 @@ impl CodingToolCommandStreamAdmissionCore {
             .filter(|value| !value.is_empty())
             .unwrap_or("completed")
             .to_string();
-        let latest_seq = request.latest_seq.unwrap_or(0);
+        let admission_state =
+            coding_tool_command_stream_admission_state_from_state_dir(request, &event_stream_id)?;
+        let latest_seq = admission_state.latest_seq;
         let event_stream_ref = safe_component(&event_stream_id);
         let expected_heads =
-            unique_trimmed_strings(vec![request.expected_head.clone().unwrap_or_else(|| {
+            unique_trimmed_strings(vec![admission_state.expected_head.unwrap_or_else(|| {
                 format!("agentgres://runtime-events/{event_stream_ref}/head/{latest_seq}")
             })]);
-        let mut current_state_root = request.state_root_before.clone().unwrap_or_else(|| {
-            format!(
-                "sha256:{}",
-                sha256_hex(
-                    format!("runtime-command-stream-before:{event_stream_id}:{latest_seq}")
-                        .as_bytes()
-                )
-            )
+        let state_root_before = admission_state.state_root_before.unwrap_or_else(|| {
+            default_command_stream_state_root_before(&event_stream_id, latest_seq)
         });
+        let mut current_state_root = state_root_before.clone();
         let chunks = if coding_tool_command_stream_requested(&request.request) {
             coding_tool_command_stream_chunks(&request.result)
         } else {
@@ -829,18 +861,7 @@ impl CodingToolCommandStreamAdmissionCore {
             latest_seq,
             event_count: events.len(),
             expected_heads,
-            state_root_before: request.state_root_before.clone().unwrap_or_else(|| {
-                format!(
-                    "sha256:{}",
-                    sha256_hex(
-                        format!(
-                            "runtime-command-stream-before:{}:{}",
-                            request.event_stream_id, latest_seq
-                        )
-                        .as_bytes()
-                    )
-                )
-            }),
+            state_root_before,
             state_root_after: current_state_root,
             resulting_head,
             projection_watermark,
@@ -1314,6 +1335,9 @@ impl CodingToolResultEventAdmissionRequest {
                 required_event_string(event, field)?;
             }
         }
+        if optional_trimmed_string(self.state_dir.as_deref()).is_none() {
+            return Err(CodingToolResultEventAdmissionError::StateDirRequired);
+        }
         Ok(())
     }
 }
@@ -1348,8 +1372,179 @@ impl CodingToolCommandStreamAdmissionRequest {
             "tool_call_id",
             CodingToolCommandStreamAdmissionError::MissingField,
         )?;
+        if optional_trimmed_string(self.state_dir.as_deref()).is_none() {
+            return Err(CodingToolCommandStreamAdmissionError::StateDirRequired);
+        }
         Ok(())
     }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct CodingToolEventAdmissionState {
+    latest_seq: u64,
+    expected_head: Option<String>,
+    state_root_before: Option<String>,
+}
+
+fn coding_tool_result_event_admission_state_from_state_dir(
+    request: &CodingToolResultEventAdmissionRequest,
+    event_stream_id: &str,
+) -> Result<CodingToolEventAdmissionState, CodingToolResultEventAdmissionError> {
+    let events =
+        coding_tool_events_from_state_dir(request.state_dir.as_deref(), "result-event admission")?;
+    Ok(coding_tool_event_state_for_stream(events, event_stream_id)?)
+}
+
+fn coding_tool_command_stream_admission_state_from_state_dir(
+    request: &CodingToolCommandStreamAdmissionRequest,
+    event_stream_id: &str,
+) -> Result<CodingToolEventAdmissionState, CodingToolCommandStreamAdmissionError> {
+    let events = coding_tool_events_from_state_dir(
+        request.state_dir.as_deref(),
+        "command-stream admission",
+    )?;
+    Ok(coding_tool_event_state_for_stream(events, event_stream_id)?)
+}
+
+fn coding_tool_event_state_for_stream(
+    events: Vec<Value>,
+    event_stream_id: &str,
+) -> Result<CodingToolEventAdmissionState, CodingToolEventStateReadError> {
+    let mut selected = events
+        .iter()
+        .filter_map(|event| event.as_object().map(|record| (event, record)))
+        .filter(|(_, record)| {
+            optional_event_string(record, "event_stream_id").as_deref() == Some(event_stream_id)
+        })
+        .map(|(event, record)| {
+            validate_admitted_coding_tool_event(record)?;
+            Ok(event.clone())
+        })
+        .collect::<Result<Vec<_>, CodingToolEventStateReadError>>()?;
+    selected.sort_by_key(|event| {
+        event
+            .as_object()
+            .and_then(coding_tool_event_seq)
+            .unwrap_or(0)
+    });
+    let latest_event = selected.last().and_then(Value::as_object);
+    let latest_seq = selected
+        .iter()
+        .filter_map(|event| event.as_object().and_then(coding_tool_event_seq))
+        .max()
+        .unwrap_or(0);
+    Ok(CodingToolEventAdmissionState {
+        latest_seq,
+        expected_head: latest_event
+            .and_then(|event| optional_event_string(event, "resulting_head")),
+        state_root_before: latest_event
+            .and_then(|event| optional_event_string(event, "state_root_after")),
+    })
+}
+
+fn coding_tool_events_from_state_dir(
+    state_dir: Option<&str>,
+    operation: &str,
+) -> Result<Vec<Value>, CodingToolEventStateReadError> {
+    let state_dir = optional_trimmed_string(state_dir)
+        .ok_or(CodingToolEventStateReadError::StateDirRequired)?;
+    let events_dir = Path::new(&state_dir).join("events");
+    if !events_dir.exists() {
+        return Ok(Vec::new());
+    }
+    let entries = fs::read_dir(&events_dir).map_err(|error| {
+        CodingToolEventStateReadError::ReadFailed(format!(
+            "coding-tool event {operation} could not read Agentgres events: {error}"
+        ))
+    })?;
+    let mut paths: Vec<PathBuf> = Vec::new();
+    for entry in entries {
+        let entry = entry.map_err(|error| {
+            CodingToolEventStateReadError::ReadFailed(format!(
+                "coding-tool event {operation} could not inspect Agentgres event entry: {error}"
+            ))
+        })?;
+        let path = entry.path();
+        if path.is_file() && path.extension().and_then(|value| value.to_str()) == Some("jsonl") {
+            paths.push(path);
+        }
+    }
+    paths.sort();
+
+    let mut events = Vec::new();
+    for path in paths {
+        let contents = fs::read_to_string(&path).map_err(|error| {
+            CodingToolEventStateReadError::ReadFailed(format!(
+                "coding-tool event {operation} could not read Agentgres event record {}: {error}",
+                path.display()
+            ))
+        })?;
+        for (index, line) in contents.lines().enumerate() {
+            let line = line.trim();
+            if line.is_empty() {
+                continue;
+            }
+            let event: Value = serde_json::from_str(line).map_err(|error| {
+                CodingToolEventStateReadError::RecordInvalid(format!(
+                    "coding-tool event {operation} found invalid Agentgres event record {}:{}: {error}",
+                    path.display(),
+                    index + 1
+                ))
+            })?;
+            events.push(event);
+        }
+    }
+    events.sort_by_key(|event| {
+        event
+            .as_object()
+            .and_then(coding_tool_event_seq)
+            .unwrap_or(0)
+    });
+    Ok(events)
+}
+
+fn validate_admitted_coding_tool_event(
+    event: &Map<String, Value>,
+) -> Result<(), CodingToolEventStateReadError> {
+    for field in [
+        "event_id",
+        "event_stream_id",
+        "agentgres_operation_ref",
+        "state_root_after",
+        "resulting_head",
+        "projection_watermark",
+    ] {
+        if optional_event_string(event, field).is_none() {
+            return Err(CodingToolEventStateReadError::MissingField(field));
+        }
+    }
+    if coding_tool_event_seq(event).is_none() {
+        return Err(CodingToolEventStateReadError::MissingField("seq"));
+    }
+    if json_string_array_from_map(event, "receipt_refs").is_empty() {
+        return Err(CodingToolEventStateReadError::MissingReceiptRefs);
+    }
+    Ok(())
+}
+
+fn coding_tool_event_seq(event: &Map<String, Value>) -> Option<u64> {
+    event.get("seq").and_then(Value::as_u64)
+}
+
+fn default_result_event_state_root_before(event_stream_id: &str, latest_seq: u64) -> String {
+    format!(
+        "sha256:{}",
+        sha256_hex(format!("runtime-event-before:{event_stream_id}:{latest_seq}").as_bytes())
+    )
+}
+
+fn default_command_stream_state_root_before(event_stream_id: &str, latest_seq: u64) -> String {
+    format!(
+        "sha256:{}",
+        sha256_hex(
+            format!("runtime-command-stream-before:{event_stream_id}:{latest_seq}").as_bytes()
+        )
+    )
 }
 
 impl CodingToolResultEnvelopePlanRequest {
@@ -1853,11 +2048,17 @@ mod tests {
     use super::*;
 
     fn admission_request() -> CodingToolResultEventAdmissionRequest {
+        let state_dir = write_coding_tool_event_state(
+            "result-admission",
+            &[admitted_replay_event(
+                "event_coding_tool_seed_2",
+                "coding-tool:seed:2",
+                2,
+            )],
+        );
         CodingToolResultEventAdmissionRequest {
             schema_version: CODING_TOOL_RESULT_EVENT_ADMISSION_REQUEST_SCHEMA_VERSION.to_string(),
-            latest_seq: Some(2),
-            expected_head: Some("agentgres://runtime-events/thread_1_events/head/2".to_string()),
-            state_root_before: Some("sha256:before".to_string()),
+            state_dir: Some(state_dir.to_string_lossy().to_string()),
             event: json!({
                 "event_stream_id": "thread_1:events",
                 "thread_id": "thread_1",
@@ -1891,6 +2092,14 @@ mod tests {
     }
 
     fn command_stream_request() -> CodingToolCommandStreamAdmissionRequest {
+        let state_dir = write_coding_tool_event_state(
+            "command-stream",
+            &[admitted_replay_event(
+                "event_coding_tool_stream_seed_3",
+                "coding-tool-stream:seed:3",
+                3,
+            )],
+        );
         CodingToolCommandStreamAdmissionRequest {
             schema_version: CODING_TOOL_COMMAND_STREAM_ADMISSION_REQUEST_SCHEMA_VERSION.to_string(),
             event_stream_id: "thread_1:events".to_string(),
@@ -1912,10 +2121,47 @@ mod tests {
             }),
             receipt_refs: vec!["receipt_1".to_string()],
             artifact_refs: vec!["artifact_1".to_string()],
-            latest_seq: Some(3),
-            expected_head: Some("agentgres://runtime-events/thread_1_events/head/3".to_string()),
-            state_root_before: Some("sha256:before-stream".to_string()),
+            state_dir: Some(state_dir.to_string_lossy().to_string()),
         }
+    }
+
+    fn admitted_replay_event(event_id: &str, idempotency_key: &str, seq: u64) -> Value {
+        json!({
+            "event_id": event_id,
+            "event_stream_id": "thread_1:events",
+            "thread_id": "thread_1",
+            "turn_id": "turn_1",
+            "item_id": format!("turn_1:item:{event_id}"),
+            "idempotency_key": idempotency_key,
+            "event_kind": "tool.completed",
+            "seq": seq,
+            "agentgres_operation_ref": format!("agentgres://runtime-events/thread_1_events/operations/{event_id}"),
+            "state_root_after": format!("sha256:state-root-after-{seq}"),
+            "resulting_head": format!("agentgres://runtime-events/thread_1_events/head/{seq}"),
+            "projection_watermark": format!("runtime-events:thread_1:events:{seq}"),
+            "receipt_refs": [format!("receipt_{event_id}")],
+        })
+    }
+
+    fn write_coding_tool_event_state(label: &str, events: &[Value]) -> std::path::PathBuf {
+        let state_dir = std::env::temp_dir().join(format!(
+            "ioi-coding-tool-event-{label}-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("system clock")
+                .as_nanos()
+        ));
+        let events_dir = state_dir.join("events");
+        std::fs::create_dir_all(&events_dir).expect("events dir");
+        let contents = events
+            .iter()
+            .map(|event| serde_json::to_string(event).expect("event json"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        std::fs::write(events_dir.join("thread_1.jsonl"), format!("{contents}\n"))
+            .expect("write coding-tool events");
+        state_dir
     }
 
     fn result_envelope_request(phase: &str) -> CodingToolResultEnvelopePlanRequest {
@@ -2039,7 +2285,10 @@ mod tests {
             record.event["agentgres_operation_ref"],
             record.operation_ref
         );
-        assert_eq!(record.event["state_root_before"], "sha256:before");
+        assert_eq!(
+            record.event["state_root_before"],
+            "sha256:state-root-after-2"
+        );
         assert_eq!(record.event["state_root_after"], record.state_root_after);
         assert_eq!(record.event["resulting_head"], record.resulting_head);
         assert!(record.payload_refs.contains(&format!(
@@ -2069,6 +2318,44 @@ mod tests {
             error,
             CodingToolResultEventAdmissionError::MissingReceiptRefs
         );
+    }
+
+    #[test]
+    fn rust_requires_state_dir_for_coding_tool_result_event_admission() {
+        let mut request = admission_request();
+        request.state_dir = None;
+        let error = CodingToolResultEventAdmissionCore
+            .admit(&request)
+            .expect_err("result-event admission requires Agentgres state dir");
+
+        assert_eq!(error, CodingToolResultEventAdmissionError::StateDirRequired);
+    }
+
+    #[test]
+    fn rust_rejects_retired_coding_tool_result_event_cache_transport() {
+        let error = serde_json::from_value::<CodingToolResultEventAdmissionRequest>(json!({
+            "schema_version": CODING_TOOL_RESULT_EVENT_ADMISSION_REQUEST_SCHEMA_VERSION,
+            "state_dir": "/tmp/runtime-state",
+            "event": {
+                "event_stream_id": "thread_1:events",
+                "thread_id": "thread_1",
+                "idempotency_key": "thread:thread_1:coding-tool:call_1",
+                "event_kind": "tool.completed",
+                "status": "completed",
+                "tool_call_id": "call_1",
+                "receipt_refs": ["receipt_1"],
+                "payload_schema_version": CODING_TOOL_RESULT_SCHEMA_VERSION,
+                "payload_summary": {
+                    "schema_version": CODING_TOOL_RESULT_SCHEMA_VERSION,
+                    "receipt_refs": ["receipt_1"]
+                }
+            },
+            "latest_seq": 2,
+            "expected_head": "agentgres://runtime-events/thread_1_events/head/2",
+            "state_root_before": "sha256:caller-state-root"
+        }))
+        .expect_err("retired result-event cache transport must not parse");
+        assert!(error.to_string().contains("unknown field"));
     }
 
     #[test]
@@ -2156,6 +2443,7 @@ mod tests {
         assert!(record.envelope_hash.starts_with("sha256:"));
     }
 
+    #[test]
     fn rust_admits_coding_tool_command_stream_events_with_agentgres_refs() {
         let record = CodingToolCommandStreamAdmissionCore
             .admit(&command_stream_request())
@@ -2180,7 +2468,7 @@ mod tests {
         assert_eq!(record.events[1]["seq"], 5);
         assert_eq!(
             record.events[0]["state_root_before"],
-            "sha256:before-stream"
+            "sha256:state-root-after-3"
         );
         assert_eq!(
             record.events[1]["state_root_after"],
@@ -2222,6 +2510,40 @@ mod tests {
             error,
             CodingToolCommandStreamAdmissionError::MissingReceiptRefs
         );
+    }
+
+    #[test]
+    fn rust_requires_state_dir_for_coding_tool_command_stream_admission() {
+        let mut request = command_stream_request();
+        request.state_dir = None;
+        let error = CodingToolCommandStreamAdmissionCore
+            .admit(&request)
+            .expect_err("command-stream admission requires Agentgres state dir");
+
+        assert_eq!(
+            error,
+            CodingToolCommandStreamAdmissionError::StateDirRequired
+        );
+    }
+
+    #[test]
+    fn rust_rejects_retired_coding_tool_command_stream_cache_transport() {
+        let error = serde_json::from_value::<CodingToolCommandStreamAdmissionRequest>(json!({
+            "schema_version": CODING_TOOL_COMMAND_STREAM_ADMISSION_REQUEST_SCHEMA_VERSION,
+            "event_stream_id": "thread_1:events",
+            "thread_id": "thread_1",
+            "tool_id": "test.run",
+            "tool_call_id": "call_1",
+            "request": { "stream_output": true },
+            "result": { "stdout": "ok" },
+            "receipt_refs": ["receipt_1"],
+            "state_dir": "/tmp/runtime-state",
+            "latest_seq": 3,
+            "expected_head": "agentgres://runtime-events/thread_1_events/head/3",
+            "state_root_before": "sha256:caller-state-root"
+        }))
+        .expect_err("retired command-stream cache transport must not parse");
+        assert!(error.to_string().contains("unknown field"));
     }
 
     #[test]

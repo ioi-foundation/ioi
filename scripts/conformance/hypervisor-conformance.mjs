@@ -6097,6 +6097,21 @@ function runBridge() {
       /CodingToolResultEventAdmissionCore/.test(codingToolEventCore) &&
       /CodingToolResultEventAdmissionRequest/.test(codingToolEventCore) &&
       /CodingToolResultEventAdmissionRecord/.test(codingToolEventCore) &&
+      /#\[serde\(deny_unknown_fields\)\]\s*pub struct CodingToolResultEventAdmissionRequest/.test(
+        codingToolEventCore,
+      ) &&
+      /StateDirRequired/.test(codingToolEventCore) &&
+      /coding_tool_result_event_admission_state_from_state_dir/.test(codingToolEventCore) &&
+      /coding_tool_events_from_state_dir/.test(codingToolEventCore) &&
+      !/pub struct CodingToolResultEventAdmissionRequest\s*\{(?:(?!\n\})[\s\S])*latest_seq: Option<u64>/.test(
+        codingToolEventCore,
+      ) &&
+      !/pub struct CodingToolResultEventAdmissionRequest\s*\{(?:(?!\n\})[\s\S])*expected_head: Option<String>/.test(
+        codingToolEventCore,
+      ) &&
+      !/pub struct CodingToolResultEventAdmissionRequest\s*\{(?:(?!\n\})[\s\S])*state_root_before: Option<String>/.test(
+        codingToolEventCore,
+      ) &&
       /CodingToolResultEnvelopePlanCore/.test(codingToolEventCore) &&
       /CodingToolResultEnvelopePlanRequest/.test(codingToolEventCore) &&
       /CodingToolResultEnvelopePlanRecord/.test(codingToolEventCore) &&
@@ -6106,6 +6121,12 @@ function runBridge() {
       !/pub fn plan_coding_tool_result_envelope_response/.test(codingToolEventCore) &&
       /rust_admits_coding_tool_result_event_with_agentgres_refs/.test(codingToolEventCore) &&
       /rust_rejects_coding_tool_result_event_without_receipts/.test(codingToolEventCore) &&
+      /rust_requires_state_dir_for_coding_tool_result_event_admission/.test(
+        codingToolEventCore,
+      ) &&
+      /rust_rejects_retired_coding_tool_result_event_cache_transport/.test(
+        codingToolEventCore,
+      ) &&
       /rust_plans_coding_tool_result_step_module_context/.test(codingToolEventCore) &&
       /rust_plans_coding_tool_result_event_envelope/.test(codingToolEventCore) &&
       !/rust_shapes_coding_tool_result_envelope_command_response/.test(codingToolEventCore) &&
@@ -6149,6 +6170,15 @@ function runBridge() {
       /runtime Agentgres core admits coding-tool result events through typed Rust daemon-core Agentgres API/.test(
         runtimeAgentgresCoreTest,
       ) &&
+      /Object\.hasOwn\(calls\[0\]\.request\.request,\s*"latest_seq"\),\s*false/.test(
+        runtimeAgentgresCoreTest,
+      ) &&
+      /Object\.hasOwn\(calls\[0\]\.request\.request,\s*"expected_head"\),\s*false/.test(
+        runtimeAgentgresCoreTest,
+      ) &&
+      /Object\.hasOwn\(calls\[0\]\.request\.request,\s*"state_root_before"\),\s*false/.test(
+        runtimeAgentgresCoreTest,
+      ) &&
       /codingToolResultEventAdmissionForThread = requireRustCoreCodingToolResultEventAdmission/.test(
         runtimeCodingToolInvocationSurface,
       ) &&
@@ -6178,6 +6208,21 @@ function runBridge() {
       /admitCodingToolResultEventForThread/.test(runtimeDaemonIndex) &&
       /contextPolicyCore\.planCodingToolResultEnvelope/.test(runtimeDaemonIndex) &&
       /runtimeAgentgresAdmissionCore\.admitCodingToolResultEvent/.test(runtimeDaemonIndex) &&
+      /admitCodingToolResultEventForThread\(store, request = \{\}\) \{(?:(?!\n  admitCodingToolCommandStreamEventsForThread\(store, request = \{\}\) \{)[\s\S])*?state_dir:\s*this\.stateDir/.test(
+        runtimeDaemonIndex,
+      ) &&
+      !/admitCodingToolResultEventForThread\(store, request = \{\}\) \{(?:(?!\n  admitCodingToolCommandStreamEventsForThread\(store, request = \{\}\) \{)[\s\S])*?latestRuntimeEventSeq/.test(
+        runtimeDaemonIndex,
+      ) &&
+      !/admitCodingToolResultEventForThread\(store, request = \{\}\) \{(?:(?!\n  admitCodingToolCommandStreamEventsForThread\(store, request = \{\}\) \{)[\s\S])*?latest_seq:/.test(
+        runtimeDaemonIndex,
+      ) &&
+      !/admitCodingToolResultEventForThread\(store, request = \{\}\) \{(?:(?!\n  admitCodingToolCommandStreamEventsForThread\(store, request = \{\}\) \{)[\s\S])*?expected_head:/.test(
+        runtimeDaemonIndex,
+      ) &&
+      !/admitCodingToolResultEventForThread\(store, request = \{\}\) \{(?:(?!\n  admitCodingToolCommandStreamEventsForThread\(store, request = \{\}\) \{)[\s\S])*?state_root_before/.test(
+        runtimeDaemonIndex,
+      ) &&
       /store\.registerRuntimeEvent\(admittedEvent\)/.test(runtimeDaemonIndex) &&
       /runtime_coding_tool_result_envelope_rust_core_required/.test(
         runtimeCodingToolInvocationSurface,
@@ -7522,6 +7567,21 @@ function runBridge() {
     /CodingToolCommandStreamAdmissionCore/.test(codingToolEventCore) &&
       /CodingToolCommandStreamAdmissionRequest/.test(codingToolEventCore) &&
       /CodingToolCommandStreamAdmissionRecord/.test(codingToolEventCore) &&
+      /#\[serde\(deny_unknown_fields\)\]\s*pub struct CodingToolCommandStreamAdmissionRequest/.test(
+        codingToolEventCore,
+      ) &&
+      /coding_tool_command_stream_admission_state_from_state_dir/.test(
+        codingToolEventCore,
+      ) &&
+      !/pub struct CodingToolCommandStreamAdmissionRequest\s*\{(?:(?!\n\})[\s\S])*latest_seq: Option<u64>/.test(
+        codingToolEventCore,
+      ) &&
+      !/pub struct CodingToolCommandStreamAdmissionRequest\s*\{(?:(?!\n\})[\s\S])*expected_head: Option<String>/.test(
+        codingToolEventCore,
+      ) &&
+      !/pub struct CodingToolCommandStreamAdmissionRequest\s*\{(?:(?!\n\})[\s\S])*state_root_before: Option<String>/.test(
+        codingToolEventCore,
+      ) &&
       /CODING_TOOL_COMMAND_STREAM_ADMISSION_REQUEST_SCHEMA_VERSION/.test(codingToolEventCore) &&
       /CODING_TOOL_COMMAND_STREAM_PAYLOAD_SCHEMA_VERSION/.test(codingToolEventCore) &&
       /pub fn admit_coding_tool_command_stream_events_response/.test(codingToolEventCore) &&
@@ -7529,6 +7589,12 @@ function runBridge() {
         codingToolEventCore,
       ) &&
       /rust_rejects_coding_tool_command_stream_without_receipts/.test(codingToolEventCore) &&
+      /rust_requires_state_dir_for_coding_tool_command_stream_admission/.test(
+        codingToolEventCore,
+      ) &&
+      /rust_rejects_retired_coding_tool_command_stream_cache_transport/.test(
+        codingToolEventCore,
+      ) &&
       /rust_core_shapes_coding_tool_command_stream_admission_protocol_response/.test(
         codingToolEventCore,
       ) &&
@@ -7547,6 +7613,15 @@ function runBridge() {
       /runtime Agentgres core admits coding-tool command-stream events through typed Rust daemon-core Agentgres API/.test(
         runtimeAgentgresCoreTest,
       ) &&
+      /Object\.hasOwn\(calls\[0\]\.request\.request,\s*"latest_seq"\),\s*false/.test(
+        runtimeAgentgresCoreTest,
+      ) &&
+      /Object\.hasOwn\(calls\[0\]\.request\.request,\s*"expected_head"\),\s*false/.test(
+        runtimeAgentgresCoreTest,
+      ) &&
+      /Object\.hasOwn\(calls\[0\]\.request\.request,\s*"state_root_before"\),\s*false/.test(
+        runtimeAgentgresCoreTest,
+      ) &&
       /function admitCodingToolCommandStreamEvents/.test(codingToolCommandStreamBlock) &&
       /codingToolCommandStreamAdmissionForThread/.test(codingToolCommandStreamBlock) &&
       /coding_tool_command_stream_event_admission/.test(codingToolCommandStreamBlock) &&
@@ -7558,6 +7633,21 @@ function runBridge() {
       /codingToolCommandStreamAdmissionForThread\(store,/.test(codingToolCommandStreamBlock) &&
       /admitCodingToolCommandStreamEventsForThread/.test(runtimeDaemonIndex) &&
       /runtimeAgentgresAdmissionCore\.admitCodingToolCommandStreamEvents/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /admitCodingToolCommandStreamEventsForThread\(store, request = \{\}\) \{(?:(?!\n  runtimeEventStreamPath\(eventStreamId\) \{)[\s\S])*?state_dir:\s*this\.stateDir/.test(
+        runtimeDaemonIndex,
+      ) &&
+      !/admitCodingToolCommandStreamEventsForThread\(store, request = \{\}\) \{(?:(?!\n  runtimeEventStreamPath\(eventStreamId\) \{)[\s\S])*?latestRuntimeEventSeq/.test(
+        runtimeDaemonIndex,
+      ) &&
+      !/admitCodingToolCommandStreamEventsForThread\(store, request = \{\}\) \{(?:(?!\n  runtimeEventStreamPath\(eventStreamId\) \{)[\s\S])*?latest_seq:/.test(
+        runtimeDaemonIndex,
+      ) &&
+      !/admitCodingToolCommandStreamEventsForThread\(store, request = \{\}\) \{(?:(?!\n  runtimeEventStreamPath\(eventStreamId\) \{)[\s\S])*?expected_head:/.test(
+        runtimeDaemonIndex,
+      ) &&
+      !/admitCodingToolCommandStreamEventsForThread\(store, request = \{\}\) \{(?:(?!\n  runtimeEventStreamPath\(eventStreamId\) \{)[\s\S])*?state_root_before/.test(
         runtimeDaemonIndex,
       ) &&
       /store\.registerRuntimeEvent\(event\)/.test(runtimeDaemonIndex) &&
