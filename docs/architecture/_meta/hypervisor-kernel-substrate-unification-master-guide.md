@@ -10547,6 +10547,16 @@ Remaining work is durable Agentgres-backed artifact replay/projection,
 ArtifactRef/PayloadRef admission depth, wallet/cTEE authority where needed, and
 stable protocol APIs, not alternate conversation-artifact runners.
 
+Slice 1311 hard-cuts the runtime MCP serve store-core fallback. MCP serve
+`tools/call` planning, Rust result projection, and live-result replay now
+resolve only through the positive `contextPolicyCore` mount supplied to
+`createRuntimeMcpServeSurface()` by daemon startup. The MCP serve surface and
+focused tests no longer read or model `store.contextPolicyCore`, and the old
+`store.contextPolicyCore ?? contextPolicyCore` fallback cannot return.
+Conformance now guards the absence of that store-mounted planner path. Remaining
+work is broader SDK route-family protocol coverage and deeper MCP replay/storage
+cleanup, not an alternate MCP serve planner mount.
+
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,
 `/v1/memory/policy`, `/v1/memory/path`, or `/v1/memory/validate`; the daemon

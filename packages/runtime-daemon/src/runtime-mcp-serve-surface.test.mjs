@@ -10,7 +10,7 @@ const MCP_SERVE_ADMISSION = {
   containment_ref: "containment://mcp-serve/thread-one/git.diff",
 };
 
-function harness() {
+function harness({ mountContextPolicyCore = true } = {}) {
   const invocations = [];
   const plans = [];
   const resultProjections = [];
@@ -23,7 +23,7 @@ function harness() {
   ];
   const allowedToolIds = (options = {}) =>
     options.onlyDiff === true ? ["git.diff"] : ["workspace.status", "git.diff"];
-  const surface = createRuntimeMcpServeSurface({
+  const surfaceOptions = {
     RUNTIME_MCP_SERVE_PROTOCOL_VERSION: "mcp.protocol.test",
     RUNTIME_MCP_SERVE_SCHEMA_VERSION: "ioi.runtime.mcp-serve.test",
     codingToolContracts() {
@@ -41,7 +41,7 @@ function harness() {
     mcpServeToolIdForName(name, options = {}) {
       return allowedToolIds(options).includes(name) ? name : null;
     },
-  });
+  };
   function rustMcpServeToolCallPlan(planRequest = {}) {
     plans.push(planRequest);
     const params = planRequest.params && typeof planRequest.params === "object" ? planRequest.params : {};
@@ -292,6 +292,33 @@ function harness() {
       ],
     };
   }
+  const contextPolicyCore = {
+    planRuntimeMcpServeToolCall: rustMcpServeToolCallPlan,
+    projectRuntimeMcpServeToolResult: rustMcpServeToolResultProjection,
+    projectMcpLiveResultReplay(request) {
+      liveResultReplays.push(request);
+      const commit = [...resultCommits]
+        .reverse()
+        .find((entry) => entry.request.result_id === request.result_id);
+      const latestResult = commit?.request?.result ?? null;
+      return {
+        source: "rust_mcp_live_result_replay_api",
+        backend: "rust_policy",
+        schema_version: "ioi.runtime.mcp-live-result-replay.v1",
+        object: "ioi.runtime_mcp_live_result_replay",
+        status: "projected",
+        result_count: latestResult ? 1 : 0,
+        results: latestResult ? [latestResult] : [],
+        result_ids: latestResult?.id ? [latestResult.id] : [],
+        latest_result: latestResult,
+        replay_hash: `replay.${request.result_id}`,
+      };
+    },
+  };
+  const surface = createRuntimeMcpServeSurface({
+    ...surfaceOptions,
+    contextPolicyCore: mountContextPolicyCore ? contextPolicyCore : null,
+  });
   const store = {
     stateDir: "/runtime-state",
     agentForThread() {
@@ -302,29 +329,6 @@ function harness() {
     },
     async invokeThreadToolAsync() {
       throw new Error("MCP serve tool-call facade must not invoke retired async JS thread tools.");
-    },
-    contextPolicyCore: {
-      planRuntimeMcpServeToolCall: rustMcpServeToolCallPlan,
-      projectRuntimeMcpServeToolResult: rustMcpServeToolResultProjection,
-      projectMcpLiveResultReplay(request) {
-        liveResultReplays.push(request);
-        const commit = [...resultCommits]
-          .reverse()
-          .find((entry) => entry.request.result_id === request.result_id);
-        const latestResult = commit?.request?.result ?? null;
-        return {
-          source: "rust_mcp_live_result_replay_api",
-          backend: "rust_policy",
-          schema_version: "ioi.runtime.mcp-live-result-replay.v1",
-          object: "ioi.runtime_mcp_live_result_replay",
-          status: "projected",
-          result_count: latestResult ? 1 : 0,
-          results: latestResult ? [latestResult] : [],
-          result_ids: latestResult?.id ? [latestResult.id] : [],
-          latest_result: latestResult,
-          replay_hash: `replay.${request.result_id}`,
-        };
-      },
     },
     codingToolInvocationSurface: {
       invokeThreadTool(surfaceStore, threadId, toolId, request) {
@@ -358,7 +362,7 @@ function harness() {
       };
     },
   };
-  return { invocations, liveResultReplays, plans, resultCommits, resultProjections, store, surface };
+  return { contextPolicyCore, invocations, liveResultReplays, plans, resultCommits, resultProjections, store, surface };
 }
 
 test("runtime MCP serve surface projects status and allowed tool catalog", () => {
@@ -588,9 +592,9 @@ test("runtime MCP serve surface invokes Rust-owned coding-tool path and Rust-own
 });
 
 test("runtime MCP serve tool calls reject retired transport fallback proof fields", async () => {
-  const { invocations, resultCommits, store, surface } = harness();
-  const projectResult = store.contextPolicyCore.projectRuntimeMcpServeToolResult;
-  store.contextPolicyCore.projectRuntimeMcpServeToolResult = (request) => {
+  const { contextPolicyCore, invocations, resultCommits, store, surface } = harness();
+  const projectResult = contextPolicyCore.projectRuntimeMcpServeToolResult;
+  contextPolicyCore.projectRuntimeMcpServeToolResult = (request) => {
     const projection = projectResult(request);
     projection.live_result.details.command_transport_fallback = false;
     projection.live_result.details.js_transport_invocation = false;
@@ -680,8 +684,8 @@ test("runtime MCP serve tool calls fail closed without Agentgres live-result com
 });
 
 test("runtime MCP serve tool calls fail closed without Rust live-result replay", async () => {
-  const { invocations, store, surface } = harness();
-  delete store.contextPolicyCore.projectMcpLiveResultReplay;
+  const { contextPolicyCore, invocations, store, surface } = harness();
+  delete contextPolicyCore.projectMcpLiveResultReplay;
 
   const response = await surface.handleSingleMcpServeJsonRpc(
     store,
@@ -705,8 +709,7 @@ test("runtime MCP serve tool calls fail closed without Rust live-result replay",
 });
 
 test("runtime MCP serve tool calls fail closed without Rust-owned MCP serve planner", async () => {
-  const { store, surface } = harness();
-  delete store.contextPolicyCore;
+  const { store, surface } = harness({ mountContextPolicyCore: false });
 
   const response = await surface.handleSingleMcpServeJsonRpc(
     store,
@@ -729,8 +732,8 @@ test("runtime MCP serve tool calls fail closed without Rust-owned MCP serve plan
 });
 
 test("runtime MCP serve tool calls fail closed without Rust-owned result projection", async () => {
-  const { invocations, store, surface } = harness();
-  delete store.contextPolicyCore.projectRuntimeMcpServeToolResult;
+  const { contextPolicyCore, invocations, store, surface } = harness();
+  delete contextPolicyCore.projectRuntimeMcpServeToolResult;
 
   const response = await surface.handleSingleMcpServeJsonRpc(
     store,
@@ -750,8 +753,8 @@ test("runtime MCP serve tool calls fail closed without Rust-owned result project
 });
 
 test("runtime MCP serve tool calls reject incomplete Rust daemon-core plans", async () => {
-  const { invocations, store, surface } = harness();
-  store.contextPolicyCore.planRuntimeMcpServeToolCall = () => ({
+  const { contextPolicyCore, invocations, store, surface } = harness();
+  contextPolicyCore.planRuntimeMcpServeToolCall = () => ({
     status: "planned",
     operation_kind: "mcp.serve.tools.call",
     thread_id: "thread-one",
@@ -777,8 +780,8 @@ test("runtime MCP serve tool calls reject incomplete Rust daemon-core plans", as
 });
 
 test("runtime MCP serve tool calls reject incomplete Rust result projections", async () => {
-  const { invocations, store, surface } = harness();
-  store.contextPolicyCore.projectRuntimeMcpServeToolResult = () => ({
+  const { contextPolicyCore, invocations, store, surface } = harness();
+  contextPolicyCore.projectRuntimeMcpServeToolResult = () => ({
     status: "projected",
     operation_kind: "mcp.serve.tools.result",
     thread_id: "thread-one",

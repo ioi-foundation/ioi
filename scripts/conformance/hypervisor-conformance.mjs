@@ -41321,9 +41321,16 @@ function runCompositor() {
       ) &&
       /Object\.hasOwn\(captured,\s*"operation"\),\s*false/.test(runtimeContextPolicyCoreTest) &&
 	      /store\?\.codingToolInvocationSurface\?\.invokeThreadTool/.test(runtimeMcpServeSurface) &&
-	      /planner\.planRuntimeMcpServeToolCall/.test(runtimeMcpServeSurface) &&
-	      /planner\?\.projectRuntimeMcpServeToolResult/.test(runtimeMcpServeSurface) &&
-	      /planner\?\.projectMcpLiveResultReplay/.test(runtimeMcpServeSurface) &&
+	      /const planner = contextPolicyCore/.test(runtimeMcpServeSurface) &&
+	      !/store\?\.contextPolicyCore|store\.contextPolicyCore|store\?\.contextPolicyCore\s*\?\?\s*contextPolicyCore/.test(
+	        runtimeMcpServeSurface + runtimeMcpServeSurfaceTest,
+	      ) &&
+	      /contextPolicyCore:\s*mountContextPolicyCore \? contextPolicyCore : null/.test(
+	        runtimeMcpServeSurfaceTest,
+	      ) &&
+		      /planner\.planRuntimeMcpServeToolCall/.test(runtimeMcpServeSurface) &&
+		      /planner\?\.projectRuntimeMcpServeToolResult/.test(runtimeMcpServeSurface) &&
+		      /planner\?\.projectMcpLiveResultReplay/.test(runtimeMcpServeSurface) &&
 	      /store\?\.commitRuntimeMcpLiveResultState/.test(runtimeMcpServeSurface) &&
 	      /MCP_LIVE_RESULT_REPLAY_REQUEST_SCHEMA_VERSION/.test(runtimeMcpServeSurface) &&
 	      /commitAndReplayMcpServeLiveResult/.test(runtimeMcpServeSurface) &&

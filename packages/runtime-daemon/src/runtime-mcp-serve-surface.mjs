@@ -146,7 +146,7 @@ export function createRuntimeMcpServeSurface({
               allowed_tools: mcpServeAllowedToolIdsDep(request),
             });
           }
-          const planner = store?.contextPolicyCore ?? contextPolicyCore;
+          const planner = contextPolicyCore;
           const invokeRustCodingTool = store?.codingToolInvocationSurface?.invokeThreadTool;
           if (
             typeof planner?.planRuntimeMcpServeToolCall !== "function" ||
