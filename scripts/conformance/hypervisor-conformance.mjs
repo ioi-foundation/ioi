@@ -8657,41 +8657,26 @@ function runBridge() {
   );
   assertCheck(
     result,
-    "thread-lifecycle-command-envelope-owned-by-rust-core",
-    /pub struct ThreadLifecycleCommandError/.test(policyThreadLifecycleCore) &&
-      /pub fn plan_runtime_bridge_thread_start_agent_state_update_response/.test(
+    "thread-lifecycle-command-envelope-retired",
+    !/ThreadLifecycleCommandError/.test(policyThreadLifecycleCore) &&
+      !/(?:ThreadControlAgentStateUpdate|RuntimeBridgeThreadStartAgentStateUpdate|RuntimeBridgeThreadControlAgentStateUpdate|RuntimeBridgeTurnRunStateUpdate|SubagentRecordStateUpdate|AgentCreateStateUpdate|ThreadCreateStateUpdate|RunCreateStateUpdate|AgentStatusStateUpdate|AgentDeleteStateUpdate)BridgeRequest/.test(policyThreadLifecycleCore) &&
+      !/pub fn plan_(?:thread_control_agent_state_update|runtime_bridge_thread_start_agent_state_update|runtime_bridge_thread_control_agent_state_update|runtime_bridge_turn_run_state_update|subagent_record_state_update|agent_create_state_update|thread_create_state_update|run_create_state_update|agent_status_state_update|agent_delete_state_update)_response/.test(policyThreadLifecycleCore) &&
+      !/rust_(?:thread_control_agent_state_update|runtime_bridge_thread_start_agent_state_update|runtime_bridge_thread_control_agent_state_update|runtime_bridge_turn_run_state_update|subagent_record_state_update|agent_create_state_update|thread_create_state_update|run_create_state_update|agent_status_state_update|agent_delete_state_update)_command/.test(policyThreadLifecycleCore) &&
+      /pub struct ThreadControlAgentStateUpdateCore;/.test(policyThreadLifecycleCore) &&
+      /pub struct RuntimeBridgeThreadStartAgentStateUpdateCore;/.test(
         policyThreadLifecycleCore,
       ) &&
-      /pub fn plan_runtime_bridge_turn_run_state_update_response/.test(
+      /pub struct RuntimeBridgeThreadControlAgentStateUpdateCore;/.test(
         policyThreadLifecycleCore,
       ) &&
-      /pub fn plan_subagent_record_state_update_response/.test(policyThreadLifecycleCore) &&
-      /pub fn plan_thread_control_agent_state_update_response/.test(
-        policyThreadLifecycleCore,
-      ) &&
-      !/pub fn plan_thread_turn_admission_required_response/.test(
-        policyThreadLifecycleCore,
-      ) &&
-      !/pub fn plan_lifecycle_admission_required_response/.test(policyThreadLifecycleCore) &&
-      /pub fn plan_agent_create_state_update_response/.test(policyThreadLifecycleCore) &&
-      /pub fn plan_thread_create_state_update_response/.test(policyThreadLifecycleCore) &&
-      /pub fn plan_agent_status_state_update_response/.test(policyThreadLifecycleCore) &&
-      /pub fn plan_agent_delete_state_update_response/.test(policyThreadLifecycleCore) &&
-      /pub fn plan_run_create_state_update_response/.test(policyThreadLifecycleCore) &&
-      /rust_runtime_bridge_thread_start_agent_state_update_command/.test(
-        policyThreadLifecycleCore,
-      ) &&
-      /rust_runtime_bridge_turn_run_state_update_command/.test(policyThreadLifecycleCore) &&
-      /rust_subagent_record_state_update_command/.test(policyThreadLifecycleCore) &&
-      /rust_thread_control_agent_state_update_command/.test(policyThreadLifecycleCore) &&
-      !/rust_thread_turn_admission_required_command/.test(policyThreadLifecycleCore) &&
-      !/rust_lifecycle_admission_required_command/.test(policyThreadLifecycleCore) &&
-      /rust_agent_create_state_update_command/.test(policyThreadLifecycleCore) &&
-      /rust_thread_create_state_update_command/.test(policyThreadLifecycleCore) &&
-      /rust_agent_status_state_update_command/.test(policyThreadLifecycleCore) &&
-      /rust_agent_delete_state_update_command/.test(policyThreadLifecycleCore) &&
-      /rust_run_create_state_update_command/.test(policyThreadLifecycleCore) &&
-      /rust_policy_shapes_thread_control_agent_state_update_command_response/.test(
+      /pub struct RuntimeBridgeTurnRunStateUpdateCore;/.test(policyThreadLifecycleCore) &&
+      /pub struct SubagentRecordStateUpdateCore;/.test(policyThreadLifecycleCore) &&
+      /pub struct AgentCreateStateUpdateCore;/.test(policyThreadLifecycleCore) &&
+      /pub struct ThreadCreateStateUpdateCore;/.test(policyThreadLifecycleCore) &&
+      /pub struct RunCreateStateUpdateCore;/.test(policyThreadLifecycleCore) &&
+      /pub struct AgentStatusStateUpdateCore;/.test(policyThreadLifecycleCore) &&
+      /pub struct AgentDeleteStateUpdateCore;/.test(policyThreadLifecycleCore) &&
+      /rust_policy_shapes_thread_control_agent_state_update_direct_record/.test(
         policyThreadLifecycleCore,
       ) &&
       /rust_policy_shapes_thread_turn_admission_required_direct_record/.test(
@@ -8700,30 +8685,57 @@ function runBridge() {
       /rust_policy_shapes_lifecycle_admission_required_direct_record/.test(
         policyThreadLifecycleCore,
       ) &&
-      /rust_policy_shapes_runtime_bridge_thread_start_agent_state_update_command_response/.test(
+      /rust_policy_shapes_runtime_bridge_thread_start_agent_state_update_direct_record/.test(
         policyThreadLifecycleCore,
       ) &&
-      /rust_policy_shapes_runtime_bridge_turn_run_state_update_command_response/.test(
+      /rust_policy_shapes_runtime_bridge_thread_control_agent_state_update_direct_record/.test(
         policyThreadLifecycleCore,
       ) &&
-      /rust_policy_shapes_subagent_record_state_update_command_response/.test(
+      /rust_policy_shapes_runtime_bridge_turn_run_state_update_direct_record/.test(
         policyThreadLifecycleCore,
       ) &&
-      /rust_policy_shapes_agent_create_state_update_command_response/.test(
+      /rust_policy_shapes_subagent_record_state_update_direct_record/.test(
         policyThreadLifecycleCore,
       ) &&
-      /rust_policy_shapes_thread_create_state_update_command_response/.test(
+      /rust_policy_shapes_agent_create_state_update_direct_record/.test(
         policyThreadLifecycleCore,
       ) &&
-      /rust_policy_shapes_agent_status_state_update_command_response/.test(
+      /rust_policy_shapes_thread_create_state_update_direct_record/.test(
         policyThreadLifecycleCore,
       ) &&
-      /rust_policy_shapes_agent_delete_state_update_command_response/.test(
+      /rust_policy_shapes_run_create_state_update_direct_record/.test(
         policyThreadLifecycleCore,
       ) &&
-      /rust_policy_shapes_run_create_state_update_command_response/.test(
+      /rust_policy_shapes_agent_status_state_update_direct_record/.test(
         policyThreadLifecycleCore,
       ) &&
+      /rust_policy_shapes_agent_delete_state_update_direct_record/.test(
+        policyThreadLifecycleCore,
+      ) &&
+      /normalizeThreadControlAgentStateUpdateApiResult/.test(runtimeContextPolicyCore) &&
+      /normalizeRuntimeBridgeThreadStartAgentStateUpdateApiResult/.test(runtimeContextPolicyCore) &&
+      /normalizeRuntimeBridgeThreadControlAgentStateUpdateApiResult/.test(
+        runtimeContextPolicyCore,
+      ) &&
+      /normalizeRuntimeBridgeTurnRunStateUpdateApiResult/.test(runtimeContextPolicyCore) &&
+      /normalizeSubagentRecordStateUpdateApiResult/.test(runtimeContextPolicyCore) &&
+      /normalizeAgentCreateStateUpdateApiResult/.test(runtimeContextPolicyCore) &&
+      /normalizeThreadCreateStateUpdateApiResult/.test(runtimeContextPolicyCore) &&
+      /normalizeRunCreateStateUpdateApiResult/.test(runtimeContextPolicyCore) &&
+      /normalizeAgentStatusStateUpdateApiResult/.test(runtimeContextPolicyCore) &&
+      /normalizeAgentDeleteStateUpdateApiResult/.test(runtimeContextPolicyCore) &&
+      /rust_thread_control_agent_state_update_api/.test(runtimeContextPolicyCore) &&
+      /rust_runtime_bridge_thread_start_agent_state_update_api/.test(runtimeContextPolicyCore) &&
+      /rust_runtime_bridge_thread_control_agent_state_update_api/.test(
+        runtimeContextPolicyCore,
+      ) &&
+      /rust_runtime_bridge_turn_run_state_update_api/.test(runtimeContextPolicyCore) &&
+      /rust_subagent_record_state_update_api/.test(runtimeContextPolicyCore) &&
+      /rust_agent_create_state_update_api/.test(runtimeContextPolicyCore) &&
+      /rust_thread_create_state_update_api/.test(runtimeContextPolicyCore) &&
+      /rust_run_create_state_update_api/.test(runtimeContextPolicyCore) &&
+      /rust_agent_status_state_update_api/.test(runtimeContextPolicyCore) &&
+      /rust_agent_delete_state_update_api/.test(runtimeContextPolicyCore) &&
       /thread_lifecycle_state_update_command_transport_is_retired/.test(commandProtocolCore) &&
       !/CommandOperation::(?:PlanThreadControlAgentStateUpdate|PlanRuntimeBridgeThreadStartAgentStateUpdate|PlanRuntimeBridgeThreadControlAgentStateUpdate|PlanRuntimeBridgeTurnRunStateUpdate|PlanSubagentRecordStateUpdate|PlanThreadCreateStateUpdate|PlanAgentCreateStateUpdate|PlanAgentStatusStateUpdate|PlanAgentDeleteStateUpdate|PlanRunCreateStateUpdate)/.test(commandProtocolCore) &&
       !/"(?:plan_thread_control_agent_state_update|plan_runtime_bridge_thread_start_agent_state_update|plan_runtime_bridge_thread_control_agent_state_update|plan_runtime_bridge_turn_run_state_update|plan_subagent_record_state_update|plan_thread_create_state_update|plan_agent_create_state_update|plan_agent_status_state_update|plan_agent_delete_state_update|plan_run_create_state_update)"\s*=>/.test(commandProtocolCore) &&
@@ -8802,7 +8814,7 @@ function runBridge() {
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "scripts/conformance/hypervisor-conformance.mjs",
     ],
-    "Phase 10/11 migration guard: thread lifecycle command request/response envelopes and source markers live in Rust policy core; the temporary Node delegate is retired",
+    "Thread lifecycle state-update command wrappers, bridge request types, and command source markers must stay deleted; JS may only normalize typed Rust daemon-core API records.",
   );
   assertCheck(
     result,
@@ -12818,12 +12830,18 @@ function runBridge() {
       !/"controlKind": control_kind|"eventId": request\.event_id|"createdAt": request\.created_at|"workspaceTrustWarningEventId": request\.workspace_trust_warning_event_id/.test(
         threadControlAgentStateUpdateCoreBlock,
       ) &&
-      !threadLifecycleCommandBridgeExists && !/mod thread_lifecycle_command;/.test(bridgeModule) &&
-      /pub fn plan_thread_control_agent_state_update_response/.test(policyThreadLifecycleCore) &&
-      /rust_thread_control_agent_state_update_command/.test(policyThreadLifecycleCore) &&
-      /rust_policy_shapes_thread_control_agent_state_update_command_response/.test(
+      !threadLifecycleCommandBridgeExists &&
+      !/mod thread_lifecycle_command;/.test(bridgeModule) &&
+      !/pub fn plan_thread_control_agent_state_update_response/.test(
         policyThreadLifecycleCore,
       ) &&
+      !/ThreadControlAgentStateUpdateBridgeRequest/.test(policyThreadLifecycleCore) &&
+      !/rust_thread_control_agent_state_update_command/.test(policyThreadLifecycleCore) &&
+      /rust_policy_shapes_thread_control_agent_state_update_direct_record/.test(
+        policyThreadLifecycleCore,
+      ) &&
+      /rust_thread_control_agent_state_update_api/.test(runtimeContextPolicyCore) &&
+      /normalizeThreadControlAgentStateUpdateApiResult/.test(runtimeContextPolicyCore) &&
       !/plan_thread_control_agent_state_update_response as plan_thread_control_agent_state_update/.test(bridgeModule) &&
       !/ThreadControlAgentStateUpdateBridgeRequest/.test(bridgeModule) &&
       !/bridge_plans_thread_control_agent_state_update_through_rust_core/.test(
@@ -14266,7 +14284,6 @@ function runBridge() {
   const runtimeBridgeThreadControlRustOwned =
     /RuntimeBridgeThreadControlAgentStateUpdateCore/.test(policyCore) &&
     /RuntimeBridgeThreadControlAgentStateUpdateRequest/.test(policyCore) &&
-    /RuntimeBridgeThreadControlAgentStateUpdateBridgeRequest/.test(policyCore) &&
     /RuntimeBridgeThreadControlAgentStateUpdateRecord/.test(policyCore) &&
     /RUNTIME_BRIDGE_THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
       policyCore,
@@ -14274,16 +14291,21 @@ function runBridge() {
     /RUNTIME_BRIDGE_THREAD_CONTROL_AGENT_STATE_UPDATE_RESULT_SCHEMA_VERSION/.test(
       policyCore,
     ) &&
-    /pub fn plan_runtime_bridge_thread_control_agent_state_update_response/.test(
+    !/RuntimeBridgeThreadControlAgentStateUpdateBridgeRequest/.test(policyCore) &&
+    !/pub fn plan_runtime_bridge_thread_control_agent_state_update_response/.test(
       policyThreadLifecycleCore,
     ) &&
-    /rust_runtime_bridge_thread_control_agent_state_update_command/.test(
+    !/rust_runtime_bridge_thread_control_agent_state_update_command/.test(
       policyThreadLifecycleCore,
+    ) &&
+    /rust_runtime_bridge_thread_control_agent_state_update_api/.test(runtimeContextPolicyCore) &&
+    /normalizeRuntimeBridgeThreadControlAgentStateUpdateApiResult/.test(
+      runtimeContextPolicyCore,
     ) &&
     /rust_policy_plans_runtime_bridge_thread_control_agent_state_update/.test(
       policyThreadLifecycleCore,
     ) &&
-    /rust_policy_shapes_runtime_bridge_thread_control_agent_state_update_command_response/.test(
+    /rust_policy_shapes_runtime_bridge_thread_control_agent_state_update_direct_record/.test(
       policyThreadLifecycleCore,
     ) &&
     /rust_policy_rejects_invalid_runtime_bridge_thread_control_agent_state_update_schema/.test(
@@ -14324,7 +14346,7 @@ function runBridge() {
     /RUNTIME_BRIDGE_THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
       runtimeContextPolicyCore,
     ) &&
-    /normalizeRuntimeBridgeThreadControlAgentStateUpdateBridgeResult/.test(
+    /normalizeRuntimeBridgeThreadControlAgentStateUpdateApiResult/.test(
       runtimeContextPolicyCore,
     ) &&
     /runtime bridge thread control agent state update core sends Rust state update through typed thread-lifecycle API/.test(
@@ -14456,20 +14478,28 @@ function runBridge() {
       !/"runtimeProfile": request\.runtime_profile|"sessionId": request\.session_id|"bridgeId": request\.bridge_id|"updatedAt": request\.updated_at/.test(
         runtimeBridgeThreadStartAgentStateUpdateCoreBlock,
       ) &&
-      /pub fn plan_runtime_bridge_thread_start_agent_state_update_response/.test(
+      !/pub fn plan_runtime_bridge_thread_start_agent_state_update_response/.test(
         policyThreadLifecycleCore,
       ) &&
-      /pub fn plan_runtime_bridge_turn_run_state_update_response/.test(
+      !/pub fn plan_runtime_bridge_turn_run_state_update_response/.test(
         policyThreadLifecycleCore,
       ) &&
-      /rust_runtime_bridge_thread_start_agent_state_update_command/.test(
+      !/RuntimeBridgeThreadStartAgentStateUpdateBridgeRequest/.test(policyThreadLifecycleCore) &&
+      !/RuntimeBridgeTurnRunStateUpdateBridgeRequest/.test(policyThreadLifecycleCore) &&
+      !/rust_runtime_bridge_thread_start_agent_state_update_command/.test(
         policyThreadLifecycleCore,
       ) &&
-      /rust_runtime_bridge_turn_run_state_update_command/.test(policyThreadLifecycleCore) &&
-      /rust_policy_shapes_runtime_bridge_thread_start_agent_state_update_command_response/.test(
+      !/rust_runtime_bridge_turn_run_state_update_command/.test(policyThreadLifecycleCore) &&
+      /rust_runtime_bridge_thread_start_agent_state_update_api/.test(runtimeContextPolicyCore) &&
+      /rust_runtime_bridge_turn_run_state_update_api/.test(runtimeContextPolicyCore) &&
+      /normalizeRuntimeBridgeThreadStartAgentStateUpdateApiResult/.test(
+        runtimeContextPolicyCore,
+      ) &&
+      /normalizeRuntimeBridgeTurnRunStateUpdateApiResult/.test(runtimeContextPolicyCore) &&
+      /rust_policy_shapes_runtime_bridge_thread_start_agent_state_update_direct_record/.test(
         policyThreadLifecycleCore,
       ) &&
-      /rust_policy_shapes_runtime_bridge_turn_run_state_update_command_response/.test(
+      /rust_policy_shapes_runtime_bridge_turn_run_state_update_direct_record/.test(
         policyThreadLifecycleCore,
       ) &&
       !/plan_runtime_bridge_thread_start_agent_state_update_response as plan_runtime_bridge_thread_start_agent_state_update/.test(bridgeModule) &&
@@ -14708,7 +14738,14 @@ function runBridge() {
       /rust_policy_rejects_invalid_runtime_bridge_turn_run_state_update_schema/.test(
         policyCore,
       ) &&
-      /plan_runtime_bridge_turn_run_state_update_response/.test(policyThreadLifecycleCore) &&
+      !/RuntimeBridgeTurnRunStateUpdateBridgeRequest/.test(policyThreadLifecycleCore) &&
+      !/plan_runtime_bridge_turn_run_state_update_response/.test(policyThreadLifecycleCore) &&
+      !/rust_runtime_bridge_turn_run_state_update_command/.test(policyThreadLifecycleCore) &&
+      /rust_policy_shapes_runtime_bridge_turn_run_state_update_direct_record/.test(
+        policyThreadLifecycleCore,
+      ) &&
+      /normalizeRuntimeBridgeTurnRunStateUpdateApiResult/.test(runtimeContextPolicyCore) &&
+      /rust_runtime_bridge_turn_run_state_update_api/.test(runtimeContextPolicyCore) &&
       /planRuntimeBridgeTurnRunStateUpdate/.test(runtimeContextPolicyCore) &&
       /runtime bridge turn run state update core sends Rust state update through typed thread-lifecycle API/.test(
         runtimeContextPolicyCoreTest,
@@ -14810,29 +14847,31 @@ function runBridge() {
       /rust_policy_plans_run_create_state_update/.test(policyCore) &&
       /rust_policy_plans_agent_status_state_update/.test(policyCore) &&
       /rust_policy_plans_agent_delete_state_update/.test(policyCore) &&
-      /pub fn plan_agent_create_state_update_response/.test(policyThreadLifecycleCore) &&
-      /pub fn plan_thread_create_state_update_response/.test(policyThreadLifecycleCore) &&
-      /pub fn plan_run_create_state_update_response/.test(policyThreadLifecycleCore) &&
-      /pub fn plan_agent_status_state_update_response/.test(policyThreadLifecycleCore) &&
-      /pub fn plan_agent_delete_state_update_response/.test(policyThreadLifecycleCore) &&
-      /rust_agent_create_state_update_command/.test(policyThreadLifecycleCore) &&
-      /rust_thread_create_state_update_command/.test(policyThreadLifecycleCore) &&
-      /rust_run_create_state_update_command/.test(policyThreadLifecycleCore) &&
-      /rust_agent_status_state_update_command/.test(policyThreadLifecycleCore) &&
-      /rust_agent_delete_state_update_command/.test(policyThreadLifecycleCore) &&
-      /rust_policy_shapes_agent_create_state_update_command_response/.test(
+      !/pub fn plan_agent_create_state_update_response/.test(policyThreadLifecycleCore) &&
+      !/pub fn plan_thread_create_state_update_response/.test(policyThreadLifecycleCore) &&
+      !/pub fn plan_run_create_state_update_response/.test(policyThreadLifecycleCore) &&
+      !/pub fn plan_agent_status_state_update_response/.test(policyThreadLifecycleCore) &&
+      !/pub fn plan_agent_delete_state_update_response/.test(policyThreadLifecycleCore) &&
+      !/(?:AgentCreateStateUpdate|ThreadCreateStateUpdate|RunCreateStateUpdate|AgentStatusStateUpdate|AgentDeleteStateUpdate)BridgeRequest/.test(policyThreadLifecycleCore) &&
+      !/rust_(?:agent_create_state_update|thread_create_state_update|run_create_state_update|agent_status_state_update|agent_delete_state_update)_command/.test(policyThreadLifecycleCore) &&
+      /rust_agent_create_state_update_api/.test(runtimeContextPolicyCore) &&
+      /rust_thread_create_state_update_api/.test(runtimeContextPolicyCore) &&
+      /rust_run_create_state_update_api/.test(runtimeContextPolicyCore) &&
+      /rust_agent_status_state_update_api/.test(runtimeContextPolicyCore) &&
+      /rust_agent_delete_state_update_api/.test(runtimeContextPolicyCore) &&
+      /rust_policy_shapes_agent_create_state_update_direct_record/.test(
         policyThreadLifecycleCore,
       ) &&
-      /rust_policy_shapes_thread_create_state_update_command_response/.test(
+      /rust_policy_shapes_thread_create_state_update_direct_record/.test(
         policyThreadLifecycleCore,
       ) &&
-      /rust_policy_shapes_run_create_state_update_command_response/.test(
+      /rust_policy_shapes_run_create_state_update_direct_record/.test(
         policyThreadLifecycleCore,
       ) &&
-      /rust_policy_shapes_agent_status_state_update_command_response/.test(
+      /rust_policy_shapes_agent_status_state_update_direct_record/.test(
         policyThreadLifecycleCore,
       ) &&
-      /rust_policy_shapes_agent_delete_state_update_command_response/.test(
+      /rust_policy_shapes_agent_delete_state_update_direct_record/.test(
         policyThreadLifecycleCore,
       ) &&
       !/plan_agent_create_state_update_response as plan_agent_create_state_update/.test(bridgeModule) &&
@@ -34093,9 +34132,12 @@ function runCompositor() {
       /rust_policy_rejects_subagent_record_state_update_thread_mismatch/.test(
         policyThreadLifecycleCore,
       ) &&
-      /pub fn plan_subagent_record_state_update_response/.test(policyThreadLifecycleCore) &&
-      /rust_subagent_record_state_update_command/.test(policyThreadLifecycleCore) &&
-      /rust_policy_shapes_subagent_record_state_update_command_response/.test(
+      !/pub fn plan_subagent_record_state_update_response/.test(policyThreadLifecycleCore) &&
+      !/SubagentRecordStateUpdateBridgeRequest/.test(policyThreadLifecycleCore) &&
+      !/rust_subagent_record_state_update_command/.test(policyThreadLifecycleCore) &&
+      /rust_subagent_record_state_update_api/.test(runtimeContextPolicyCore) &&
+      /normalizeSubagentRecordStateUpdateApiResult/.test(runtimeContextPolicyCore) &&
+      /rust_policy_shapes_subagent_record_state_update_direct_record/.test(
         policyThreadLifecycleCore,
       ) &&
       !/plan_subagent_record_state_update_response as plan_subagent_record_state_update/.test(bridgeModule) &&

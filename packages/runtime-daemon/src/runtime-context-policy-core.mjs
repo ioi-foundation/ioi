@@ -695,7 +695,7 @@ export class RuntimeContextPolicyCore {
   }
 
   planThreadControlAgentStateUpdate(request = {}) {
-    return normalizeThreadControlAgentStateUpdateBridgeResult(this.invokeThreadLifecycleApi(
+    return normalizeThreadControlAgentStateUpdateApiResult(this.invokeThreadLifecycleApi(
       THREAD_LIFECYCLE_THREAD_CONTROL_AGENT_STATE_UPDATE_API_METHOD,
       THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
@@ -839,7 +839,7 @@ export class RuntimeContextPolicyCore {
   }
 
   planRuntimeBridgeThreadStartAgentStateUpdate(request = {}) {
-    return normalizeRuntimeBridgeThreadStartAgentStateUpdateBridgeResult(this.invokeThreadLifecycleApi(
+    return normalizeRuntimeBridgeThreadStartAgentStateUpdateApiResult(this.invokeThreadLifecycleApi(
       THREAD_LIFECYCLE_RUNTIME_BRIDGE_THREAD_START_AGENT_STATE_UPDATE_API_METHOD,
       RUNTIME_BRIDGE_THREAD_START_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
@@ -847,7 +847,7 @@ export class RuntimeContextPolicyCore {
   }
 
   planRuntimeBridgeThreadControlAgentStateUpdate(request = {}) {
-    return normalizeRuntimeBridgeThreadControlAgentStateUpdateBridgeResult(this.invokeThreadLifecycleApi(
+    return normalizeRuntimeBridgeThreadControlAgentStateUpdateApiResult(this.invokeThreadLifecycleApi(
       THREAD_LIFECYCLE_RUNTIME_BRIDGE_THREAD_CONTROL_AGENT_STATE_UPDATE_API_METHOD,
       RUNTIME_BRIDGE_THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
@@ -855,7 +855,7 @@ export class RuntimeContextPolicyCore {
   }
 
   planRuntimeBridgeTurnRunStateUpdate(request = {}) {
-    return normalizeRuntimeBridgeTurnRunStateUpdateBridgeResult(this.invokeThreadLifecycleApi(
+    return normalizeRuntimeBridgeTurnRunStateUpdateApiResult(this.invokeThreadLifecycleApi(
       THREAD_LIFECYCLE_RUNTIME_BRIDGE_TURN_RUN_STATE_UPDATE_API_METHOD,
       RUNTIME_BRIDGE_TURN_RUN_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
@@ -863,7 +863,7 @@ export class RuntimeContextPolicyCore {
   }
 
   planSubagentRecordStateUpdate(request = {}) {
-    return normalizeSubagentRecordStateUpdateBridgeResult(this.invokeThreadLifecycleApi(
+    return normalizeSubagentRecordStateUpdateApiResult(this.invokeThreadLifecycleApi(
       THREAD_LIFECYCLE_SUBAGENT_RECORD_STATE_UPDATE_API_METHOD,
       SUBAGENT_RECORD_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
@@ -871,7 +871,7 @@ export class RuntimeContextPolicyCore {
   }
 
   planThreadCreateStateUpdate(request = {}) {
-    return normalizeThreadCreateStateUpdateBridgeResult(this.invokeThreadLifecycleApi(
+    return normalizeThreadCreateStateUpdateApiResult(this.invokeThreadLifecycleApi(
       THREAD_LIFECYCLE_THREAD_CREATE_STATE_UPDATE_API_METHOD,
       THREAD_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
@@ -879,7 +879,7 @@ export class RuntimeContextPolicyCore {
   }
 
   planAgentCreateStateUpdate(request = {}) {
-    return normalizeAgentCreateStateUpdateBridgeResult(this.invokeThreadLifecycleApi(
+    return normalizeAgentCreateStateUpdateApiResult(this.invokeThreadLifecycleApi(
       THREAD_LIFECYCLE_AGENT_CREATE_STATE_UPDATE_API_METHOD,
       AGENT_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
@@ -887,7 +887,7 @@ export class RuntimeContextPolicyCore {
   }
 
   planRunCreateStateUpdate(request = {}) {
-    return normalizeRunCreateStateUpdateBridgeResult(this.invokeThreadLifecycleApi(
+    return normalizeRunCreateStateUpdateApiResult(this.invokeThreadLifecycleApi(
       THREAD_LIFECYCLE_RUN_CREATE_STATE_UPDATE_API_METHOD,
       RUN_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
@@ -895,7 +895,7 @@ export class RuntimeContextPolicyCore {
   }
 
   planAgentStatusStateUpdate(request = {}) {
-    return normalizeAgentStatusStateUpdateBridgeResult(this.invokeThreadLifecycleApi(
+    return normalizeAgentStatusStateUpdateApiResult(this.invokeThreadLifecycleApi(
       THREAD_LIFECYCLE_AGENT_STATUS_STATE_UPDATE_API_METHOD,
       AGENT_STATUS_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
@@ -903,7 +903,7 @@ export class RuntimeContextPolicyCore {
   }
 
   planAgentDeleteStateUpdate(request = {}) {
-    return normalizeAgentDeleteStateUpdateBridgeResult(this.invokeThreadLifecycleApi(
+    return normalizeAgentDeleteStateUpdateApiResult(this.invokeThreadLifecycleApi(
       THREAD_LIFECYCLE_AGENT_DELETE_STATE_UPDATE_API_METHOD,
       AGENT_DELETE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
@@ -2589,7 +2589,7 @@ export function normalizeRuntimeThreadForkControlBridgeResult(value = {}) {
   };
 }
 
-export function normalizeThreadControlAgentStateUpdateBridgeResult(value = {}) {
+export function normalizeThreadControlAgentStateUpdateApiResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   return {
@@ -2597,7 +2597,7 @@ export function normalizeThreadControlAgentStateUpdateBridgeResult(value = {}) {
     source:
       result.source ??
       record.source ??
-      "rust_thread_control_agent_state_update_command",
+      "rust_thread_control_agent_state_update_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
@@ -3057,7 +3057,7 @@ export function normalizeThreadMemoryAgentStateUpdateBridgeResult(value = {}) {
   };
 }
 
-export function normalizeRuntimeBridgeThreadStartAgentStateUpdateBridgeResult(value = {}) {
+export function normalizeRuntimeBridgeThreadStartAgentStateUpdateApiResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   return {
@@ -3065,7 +3065,7 @@ export function normalizeRuntimeBridgeThreadStartAgentStateUpdateBridgeResult(va
     source:
       result.source ??
       record.source ??
-      "rust_runtime_bridge_thread_start_agent_state_update_command",
+      "rust_runtime_bridge_thread_start_agent_state_update_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
@@ -3080,7 +3080,7 @@ export function normalizeRuntimeBridgeThreadStartAgentStateUpdateBridgeResult(va
   };
 }
 
-export function normalizeRuntimeBridgeThreadControlAgentStateUpdateBridgeResult(value = {}) {
+export function normalizeRuntimeBridgeThreadControlAgentStateUpdateApiResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   return {
@@ -3088,7 +3088,7 @@ export function normalizeRuntimeBridgeThreadControlAgentStateUpdateBridgeResult(
     source:
       result.source ??
       record.source ??
-      "rust_runtime_bridge_thread_control_agent_state_update_command",
+      "rust_runtime_bridge_thread_control_agent_state_update_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
@@ -3103,7 +3103,7 @@ export function normalizeRuntimeBridgeThreadControlAgentStateUpdateBridgeResult(
   };
 }
 
-export function normalizeRuntimeBridgeTurnRunStateUpdateBridgeResult(value = {}) {
+export function normalizeRuntimeBridgeTurnRunStateUpdateApiResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   return {
@@ -3111,7 +3111,7 @@ export function normalizeRuntimeBridgeTurnRunStateUpdateBridgeResult(value = {})
     source:
       result.source ??
       record.source ??
-      "rust_runtime_bridge_turn_run_state_update_command",
+      "rust_runtime_bridge_turn_run_state_update_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
@@ -3124,7 +3124,7 @@ export function normalizeRuntimeBridgeTurnRunStateUpdateBridgeResult(value = {})
   };
 }
 
-export function normalizeSubagentRecordStateUpdateBridgeResult(value = {}) {
+export function normalizeSubagentRecordStateUpdateApiResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   return {
@@ -3132,7 +3132,7 @@ export function normalizeSubagentRecordStateUpdateBridgeResult(value = {}) {
     source:
       result.source ??
       record.source ??
-      "rust_subagent_record_state_update_command",
+      "rust_subagent_record_state_update_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
@@ -3145,7 +3145,7 @@ export function normalizeSubagentRecordStateUpdateBridgeResult(value = {}) {
   };
 }
 
-export function normalizeAgentCreateStateUpdateBridgeResult(value = {}) {
+export function normalizeAgentCreateStateUpdateApiResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   return {
@@ -3153,7 +3153,7 @@ export function normalizeAgentCreateStateUpdateBridgeResult(value = {}) {
     source:
       result.source ??
       record.source ??
-      "rust_agent_create_state_update_command",
+      "rust_agent_create_state_update_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
@@ -3167,7 +3167,7 @@ export function normalizeAgentCreateStateUpdateBridgeResult(value = {}) {
   };
 }
 
-export function normalizeThreadCreateStateUpdateBridgeResult(value = {}) {
+export function normalizeThreadCreateStateUpdateApiResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   return {
@@ -3175,7 +3175,7 @@ export function normalizeThreadCreateStateUpdateBridgeResult(value = {}) {
     source:
       result.source ??
       record.source ??
-      "rust_thread_create_state_update_command",
+      "rust_thread_create_state_update_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
@@ -3192,7 +3192,7 @@ export function normalizeThreadCreateStateUpdateBridgeResult(value = {}) {
   };
 }
 
-export function normalizeRunCreateStateUpdateBridgeResult(value = {}) {
+export function normalizeRunCreateStateUpdateApiResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   return {
@@ -3200,7 +3200,7 @@ export function normalizeRunCreateStateUpdateBridgeResult(value = {}) {
     source:
       result.source ??
       record.source ??
-      "rust_run_create_state_update_command",
+      "rust_run_create_state_update_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
@@ -3214,7 +3214,7 @@ export function normalizeRunCreateStateUpdateBridgeResult(value = {}) {
   };
 }
 
-export function normalizeAgentStatusStateUpdateBridgeResult(value = {}) {
+export function normalizeAgentStatusStateUpdateApiResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   return {
@@ -3222,7 +3222,7 @@ export function normalizeAgentStatusStateUpdateBridgeResult(value = {}) {
     source:
       result.source ??
       record.source ??
-      "rust_agent_status_state_update_command",
+      "rust_agent_status_state_update_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
@@ -3235,7 +3235,7 @@ export function normalizeAgentStatusStateUpdateBridgeResult(value = {}) {
   };
 }
 
-export function normalizeAgentDeleteStateUpdateBridgeResult(value = {}) {
+export function normalizeAgentDeleteStateUpdateApiResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   return {
@@ -3243,7 +3243,7 @@ export function normalizeAgentDeleteStateUpdateBridgeResult(value = {}) {
     source:
       result.source ??
       record.source ??
-      "rust_agent_delete_state_update_command",
+      "rust_agent_delete_state_update_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,

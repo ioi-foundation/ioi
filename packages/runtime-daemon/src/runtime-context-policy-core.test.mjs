@@ -149,9 +149,9 @@ import {
   WORKSPACE_TRUST_CONTROL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   WORKFLOW_EDIT_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
   createRuntimeContextPolicyCore,
-  normalizeAgentCreateStateUpdateBridgeResult,
-  normalizeAgentDeleteStateUpdateBridgeResult,
-  normalizeAgentStatusStateUpdateBridgeResult,
+  normalizeAgentCreateStateUpdateApiResult,
+  normalizeAgentDeleteStateUpdateApiResult,
+  normalizeAgentStatusStateUpdateApiResult,
   normalizeCodingToolBudgetBlockBridgeResult,
   normalizeCodingToolBudgetRecoveryStateUpdateApiResult,
   normalizeCodingToolResultEnvelopePlanBridgeResult,
@@ -199,13 +199,13 @@ import {
   normalizeRuntimeSubagentProjectionBridgeResult,
   normalizeRepositoryWorkflowProjectionBridgeResult,
   normalizeSkillHookRegistryProjectionBridgeResult,
-  normalizeRunCreateStateUpdateBridgeResult,
-  normalizeRuntimeBridgeThreadStartAgentStateUpdateBridgeResult,
-  normalizeRuntimeBridgeThreadControlAgentStateUpdateBridgeResult,
-  normalizeRuntimeBridgeTurnRunStateUpdateBridgeResult,
-  normalizeSubagentRecordStateUpdateBridgeResult,
-  normalizeThreadCreateStateUpdateBridgeResult,
-  normalizeThreadControlAgentStateUpdateBridgeResult,
+  normalizeRunCreateStateUpdateApiResult,
+  normalizeRuntimeBridgeThreadStartAgentStateUpdateApiResult,
+  normalizeRuntimeBridgeThreadControlAgentStateUpdateApiResult,
+  normalizeRuntimeBridgeTurnRunStateUpdateApiResult,
+  normalizeSubagentRecordStateUpdateApiResult,
+  normalizeThreadCreateStateUpdateApiResult,
+  normalizeThreadControlAgentStateUpdateApiResult,
   normalizeThreadMemoryAgentStateUpdateBridgeResult,
   normalizeWorkspaceTrustControlStateUpdateBridgeResult,
 } from "./runtime-context-policy-core.mjs";
@@ -748,9 +748,9 @@ test("runtime state-update core does not synthesize Rust-owned envelopes", () =>
       },
     ],
     [
-      normalizeThreadControlAgentStateUpdateBridgeResult,
+      normalizeThreadControlAgentStateUpdateApiResult,
       {
-        source: "rust_thread_control_agent_state_update_command",
+        source: "rust_thread_control_agent_state_update_api",
         operation_kind: "thread.pause",
       },
     ],
@@ -769,51 +769,51 @@ test("runtime state-update core does not synthesize Rust-owned envelopes", () =>
       },
     ],
     [
-      normalizeRuntimeBridgeThreadStartAgentStateUpdateBridgeResult,
+      normalizeRuntimeBridgeThreadStartAgentStateUpdateApiResult,
       {
-        source: "rust_runtime_bridge_thread_start_agent_state_update_command",
+        source: "rust_runtime_bridge_thread_start_agent_state_update_api",
         operation_kind: "thread.runtime_bridge.start",
       },
     ],
     [
-      normalizeRuntimeBridgeTurnRunStateUpdateBridgeResult,
+      normalizeRuntimeBridgeTurnRunStateUpdateApiResult,
       {
-        source: "rust_runtime_bridge_turn_run_state_update_command",
+        source: "rust_runtime_bridge_turn_run_state_update_api",
         operation_kind: "turn.runtime_bridge.submit",
       },
     ],
     [
-      normalizeSubagentRecordStateUpdateBridgeResult,
+      normalizeSubagentRecordStateUpdateApiResult,
       {
-        source: "rust_subagent_record_state_update_command",
+        source: "rust_subagent_record_state_update_api",
         operation_kind: "subagent.spawn",
       },
     ],
     [
-      normalizeThreadCreateStateUpdateBridgeResult,
+      normalizeThreadCreateStateUpdateApiResult,
       {
-        source: "rust_thread_create_state_update_command",
+        source: "rust_thread_create_state_update_api",
         operation_kind: "thread.create",
       },
     ],
     [
-      normalizeAgentCreateStateUpdateBridgeResult,
+      normalizeAgentCreateStateUpdateApiResult,
       {
-        source: "rust_agent_create_state_update_command",
+        source: "rust_agent_create_state_update_api",
         operation_kind: "agent.create",
       },
     ],
     [
-      normalizeRunCreateStateUpdateBridgeResult,
+      normalizeRunCreateStateUpdateApiResult,
       {
-        source: "rust_run_create_state_update_command",
+        source: "rust_run_create_state_update_api",
         operation_kind: "run.create",
       },
     ],
     [
-      normalizeAgentStatusStateUpdateBridgeResult,
+      normalizeAgentStatusStateUpdateApiResult,
       {
-        source: "rust_agent_status_state_update_command",
+        source: "rust_agent_status_state_update_api",
         operation_kind: "agent.status",
       },
     ],
@@ -3641,7 +3641,7 @@ test("thread control agent state update core sends Rust state update through typ
     (request) => {
       captured = request;
       return {
-            source: "rust_thread_control_agent_state_update_command",
+            source: "rust_thread_control_agent_state_update_api",
             backend: "rust_policy",
             status: "planned",
             operation_kind: "thread.thinking",
@@ -3695,7 +3695,7 @@ test("thread control agent state update core sends Rust state update through typ
   for (const field of ["selectedModel", "requestedModelId", "routeId"]) {
     assert.equal(Object.hasOwn(captured.model_route, field), false);
   }
-  assert.equal(result.source, "rust_thread_control_agent_state_update_command");
+  assert.equal(result.source, "rust_thread_control_agent_state_update_api");
   assert.equal(result.operation_kind, "thread.thinking");
   assert.deepEqual(result.receipt_refs, ["receipt_route_1"]);
   assert.equal(result.control.control_kind, "thinking");
@@ -4926,7 +4926,7 @@ test("runtime bridge thread start agent state update core sends Rust state updat
     (request) => {
       captured = request;
       return {
-            source: "rust_runtime_bridge_thread_start_agent_state_update_command",
+            source: "rust_runtime_bridge_thread_start_agent_state_update_api",
             backend: "rust_policy",
             status: "planned",
             operation_kind: "thread.runtime_bridge.start",
@@ -4975,7 +4975,7 @@ test("runtime bridge thread start agent state update core sends Rust state updat
   assert.equal(Object.hasOwn(captured, "operation"), false);
   assert.equal(Object.hasOwn(captured, "backend"), false);
   assert.equal(captured.session_id, "session_runtime");
-  assert.equal(result.source, "rust_runtime_bridge_thread_start_agent_state_update_command");
+  assert.equal(result.source, "rust_runtime_bridge_thread_start_agent_state_update_api");
   assert.equal(result.operation_kind, "thread.runtime_bridge.start");
   assert.equal(result.bridge_start.bridge_id, "bridge_runtime");
   for (const field of ["runtimeProfile", "sessionId", "bridgeId", "updatedAt"]) {
@@ -4995,7 +4995,7 @@ test("runtime bridge thread control agent state update core sends Rust state upd
     (request) => {
       captured = request;
       return {
-            source: "rust_runtime_bridge_thread_control_agent_state_update_command",
+            source: "rust_runtime_bridge_thread_control_agent_state_update_api",
             backend: "rust_policy",
             status: "planned",
             operation_kind: "thread.runtime_bridge.control",
@@ -5040,7 +5040,7 @@ test("runtime bridge thread control agent state update core sends Rust state upd
   assert.equal(captured.thread_id, "thread_1");
   assert.equal(captured.action, "resume");
   assert.equal(Object.hasOwn(captured, "threadId"), false);
-  assert.equal(result.source, "rust_runtime_bridge_thread_control_agent_state_update_command");
+  assert.equal(result.source, "rust_runtime_bridge_thread_control_agent_state_update_api");
   assert.equal(result.operation_kind, "thread.runtime_bridge.control");
   assert.equal(result.control.action, "resume");
   assert.equal(result.control.runtime_bridge_status, "active");
@@ -5056,7 +5056,7 @@ test("runtime bridge turn run state update core sends Rust state update through 
     (request) => {
       captured = request;
       return {
-            source: "rust_runtime_bridge_turn_run_state_update_command",
+            source: "rust_runtime_bridge_turn_run_state_update_api",
             backend: "rust_policy",
             status: "planned",
             operation_kind: "turn.runtime_bridge.submit",
@@ -5095,7 +5095,7 @@ test("runtime bridge turn run state update core sends Rust state update through 
   assert.equal(Object.hasOwn(captured, "backend"), false);
   assert.equal(captured.projection.run_id, "run_runtime");
   assert.equal(Object.hasOwn(captured.projection, "runId"), false);
-  assert.equal(result.source, "rust_runtime_bridge_turn_run_state_update_command");
+  assert.equal(result.source, "rust_runtime_bridge_turn_run_state_update_api");
   assert.equal(result.operation_kind, "turn.runtime_bridge.submit");
   assert.equal(result.run.id, "run_runtime");
 });
@@ -5107,7 +5107,7 @@ test("subagent record state update core sends Rust state update through typed th
     (request) => {
       captured = request;
       return {
-            source: "rust_subagent_record_state_update_command",
+            source: "rust_subagent_record_state_update_api",
             backend: "rust_policy",
             status: "planned",
             operation_kind: "subagent.wait",
@@ -5143,7 +5143,7 @@ test("subagent record state update core sends Rust state update through typed th
   assert.equal(Object.hasOwn(captured, "backend"), false);
   assert.equal(captured.operation_kind, "subagent.wait");
   assert.equal(captured.subagent.subagent_id, "subagent_1");
-  assert.equal(result.source, "rust_subagent_record_state_update_command");
+  assert.equal(result.source, "rust_subagent_record_state_update_api");
   assert.equal(result.operation_kind, "subagent.wait");
   assert.equal(result.subagent.subagent_id, "subagent_1");
 });
@@ -5155,7 +5155,7 @@ test("agent create state update core sends Rust state update through typed threa
     (request) => {
       captured = request;
       return {
-            source: "rust_agent_create_state_update_command",
+            source: "rust_agent_create_state_update_api",
             backend: "rust_policy",
             status: "planned",
             operation_kind: "agent.create",
@@ -5187,7 +5187,7 @@ test("agent create state update core sends Rust state update through typed threa
   assert.equal(Object.hasOwn(captured, "operation"), false);
   assert.equal(Object.hasOwn(captured, "backend"), false);
   assert.equal(captured.agent.id, "agent_create_one");
-  assert.equal(result.source, "rust_agent_create_state_update_command");
+  assert.equal(result.source, "rust_agent_create_state_update_api");
   assert.equal(result.operation_kind, "agent.create");
   assert.equal(result.agent.id, "agent_create_one");
 });
@@ -5199,7 +5199,7 @@ test("thread create state update core sends Rust state update through typed thre
     (request) => {
       captured = request;
       return {
-            source: "rust_thread_create_state_update_command",
+            source: "rust_thread_create_state_update_api",
             backend: "rust_policy",
             status: "planned",
             operation_kind: "thread.create",
@@ -5250,7 +5250,7 @@ test("thread create state update core sends Rust state update through typed thre
   assert.equal(Object.hasOwn(captured, "backend"), false);
   assert.equal(captured.agent.id, "agent_create_one");
   assert.equal(captured.thread.thread_id, "thread_create_one");
-  assert.equal(result.source, "rust_thread_create_state_update_command");
+  assert.equal(result.source, "rust_thread_create_state_update_api");
   assert.equal(result.operation_kind, "thread.create");
   assert.equal(result.thread.thread_id, "thread_create_one");
   assert.equal(result.agent.id, "agent_create_one");
@@ -5263,7 +5263,7 @@ test("agent status state update core sends Rust state update through typed threa
     (request) => {
       captured = request;
       return {
-            source: "rust_agent_status_state_update_command",
+            source: "rust_agent_status_state_update_api",
             backend: "rust_policy",
             status: "planned",
             operation_kind: "agent.archive",
@@ -5293,7 +5293,7 @@ test("agent status state update core sends Rust state update through typed threa
   assert.equal(Object.hasOwn(captured, "operation"), false);
   assert.equal(Object.hasOwn(captured, "backend"), false);
   assert.equal(captured.status, "archived");
-  assert.equal(result.source, "rust_agent_status_state_update_command");
+  assert.equal(result.source, "rust_agent_status_state_update_api");
   assert.equal(result.operation_kind, "agent.archive");
   assert.equal(result.agent.status, "archived");
 });
@@ -5305,7 +5305,7 @@ test("agent delete state update core sends Rust tombstone through typed thread-l
     (request) => {
       captured = request;
       return {
-            source: "rust_agent_delete_state_update_command",
+            source: "rust_agent_delete_state_update_api",
             backend: "rust_policy",
             status: "planned",
             operation_kind: "agent.delete",
@@ -5336,7 +5336,7 @@ test("agent delete state update core sends Rust tombstone through typed thread-l
   assert.equal(Object.hasOwn(captured, "operation"), false);
   assert.equal(Object.hasOwn(captured, "backend"), false);
   assert.equal(captured.operation_kind, "agent.delete");
-  assert.equal(result.source, "rust_agent_delete_state_update_command");
+  assert.equal(result.source, "rust_agent_delete_state_update_api");
   assert.equal(result.operation_kind, "agent.delete");
   assert.equal(result.agent.status, "deleted");
   assert.equal(result.agent.deletedAt, "2026-06-06T06:40:00.000Z");
@@ -5349,7 +5349,7 @@ test("run create state update core sends Rust state update through typed thread-
     (request) => {
       captured = request;
       return {
-            source: "rust_run_create_state_update_command",
+            source: "rust_run_create_state_update_api",
             backend: "rust_policy",
             status: "planned",
             operation_kind: "run.create",
@@ -5387,7 +5387,7 @@ test("run create state update core sends Rust state update through typed thread-
   assert.equal(Object.hasOwn(captured, "operation"), false);
   assert.equal(Object.hasOwn(captured, "backend"), false);
   assert.equal(captured.run.id, "run_create_one");
-  assert.equal(result.source, "rust_run_create_state_update_command");
+  assert.equal(result.source, "rust_run_create_state_update_api");
   assert.equal(result.operation_kind, "run.create");
   assert.equal(result.run.usage_telemetry.total_tokens, 7);
 });
@@ -5446,7 +5446,7 @@ test("runtime context policy state-update core fails closed without Rust-planned
   );
   assert.throws(
     () =>
-      normalizeThreadControlAgentStateUpdateBridgeResult({
+      normalizeThreadControlAgentStateUpdateApiResult({
         status: "planned",
         operation_kind: "agent.status",
         agent: { id: "agent_alpha" },
@@ -5480,7 +5480,7 @@ test("runtime context policy state-update core fails closed without Rust-planned
   );
   assert.throws(
     () =>
-      normalizeSubagentRecordStateUpdateBridgeResult({
+      normalizeSubagentRecordStateUpdateApiResult({
         status: "planned",
         subagent: { id: "subagent_alpha" },
       }),
@@ -5494,7 +5494,7 @@ test("runtime context policy state-update core fails closed without Rust-planned
   );
   assert.throws(
     () =>
-      normalizeAgentCreateStateUpdateBridgeResult({
+      normalizeAgentCreateStateUpdateApiResult({
         status: "planned",
         operation_kind: "run.create",
         agent: { id: "agent_alpha" },

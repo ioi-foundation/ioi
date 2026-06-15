@@ -193,7 +193,7 @@ function fakeStore({
 
 function defaultAgentCreatePlan(request) {
   return {
-    source: "rust_agent_create_state_update_command",
+    source: "rust_agent_create_state_update_api",
     backend: "rust_policy",
     status: "planned",
     operation_kind: "agent.create",
@@ -208,7 +208,7 @@ function defaultAgentCreatePlan(request) {
 
 function defaultThreadCreatePlan(request) {
   return {
-    source: "rust_thread_create_state_update_command",
+    source: "rust_thread_create_state_update_api",
     backend: "rust_policy",
     status: "planned",
     operation_kind: "thread.create",
@@ -229,7 +229,7 @@ function defaultThreadCreatePlan(request) {
 
 function defaultRunCreatePlan(request) {
   return {
-    source: "rust_run_create_state_update_command",
+    source: "rust_run_create_state_update_api",
     backend: "rust_policy",
     status: "planned",
     operation_kind: "run.create",
@@ -244,7 +244,7 @@ function defaultRunCreatePlan(request) {
 
 function defaultRuntimeBridgeThreadStartPlan(request) {
   return {
-    source: "rust_runtime_bridge_thread_start_agent_state_update_command",
+    source: "rust_runtime_bridge_thread_start_agent_state_update_api",
     backend: "rust_policy",
     status: "planned",
     operation_kind: "thread.runtime_bridge.start",
@@ -280,7 +280,7 @@ function defaultRuntimeBridgeThreadStartPlan(request) {
 
 function defaultRuntimeBridgeThreadControlPlan(request) {
   return {
-    source: "rust_runtime_bridge_thread_control_agent_state_update_command",
+    source: "rust_runtime_bridge_thread_control_agent_state_update_api",
     backend: "rust_policy",
     status: "planned",
     operation_kind: "thread.runtime_bridge.control",
@@ -307,7 +307,7 @@ function defaultRuntimeBridgeThreadControlPlan(request) {
 
 function defaultRuntimeBridgeTurnRunStateUpdatePlan(request) {
   return {
-    source: "rust_runtime_bridge_turn_run_state_update_command",
+    source: "rust_runtime_bridge_turn_run_state_update_api",
     backend: "rust_policy",
     status: "planned",
     operation_kind: "turn.runtime_bridge.submit",

@@ -9918,6 +9918,21 @@ This bridge family is terminally retired; the broader master guide remains
 non-terminal until runtime-service execution and replay land through stable Rust
 daemon-core protocol APIs with Agentgres truth.
 
+Slice 1252 retires the thread/run/subagent lifecycle command-shaped Rust owner
+wrapper cluster. Thread control, runtime bridge thread start/control/turn,
+subagent record updates, and agent/thread/run create/status/delete now expose
+only direct Rust daemon-core request/record APIs in
+`policy/thread_lifecycle.rs`; `ThreadLifecycleCommandError`, lifecycle
+`*BridgeRequest` structs, `plan_*_state_update_response` wrappers,
+`rust_*_state_update_command` source markers, policy facade exports, and
+bridge-shaped owner tests are deleted. `RuntimeContextPolicyCore` now names
+these as typed API result normalizers with `rust_*_state_update_api` defaults,
+and conformance guards that no migrated lifecycle hot path can re-enter through
+the retired command-shaped wrapper layer. This bridge-wrapper family is
+terminally retired; broader lifecycle completion still depends on moving the
+remaining local cache/replay and stable IDE/CLI/SDK lifecycle read APIs fully
+onto Rust-owned Agentgres projection/replay records.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

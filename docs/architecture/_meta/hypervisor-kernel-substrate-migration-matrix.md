@@ -215,6 +215,16 @@ substrate: `RuntimeApiBridge` no longer exports an adapter class/factory, the
 overrides, Agent Studio launch/proof scripts use inference/model-route helper
 APIs instead of the deleted helper, and stale retired runtime-service proof
 scripts/tests are removed.
+Slice 1252 retires the thread/run/subagent lifecycle command-shaped Rust owner
+wrapper cluster: `policy/thread_lifecycle.rs` now exposes only direct
+`*Core::plan()` request/record APIs for thread control, runtime bridge
+thread-start/control/turn, subagent records, and agent/thread/run
+create/status/delete; `ThreadLifecycleCommandError`, the lifecycle
+`*BridgeRequest` structs, `plan_*_state_update_response` wrappers,
+`rust_*_state_update_command` source markers, and bridge-shaped owner tests are
+deleted. JS context-policy normalizers are typed API normalizers with
+`rust_*_state_update_api` defaults, and conformance forbids the command
+wrappers from returning.
 Slice 1229 additionally retires the model_mount generic daemon-core invoker
 shim: `ModelMountCore` rejects `daemonCoreInvoker`, stores only
 `daemonCoreModelMountApi`, deletes `invokeDaemonCore()`, removes the command

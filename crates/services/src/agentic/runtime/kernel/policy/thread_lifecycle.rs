@@ -463,317 +463,6 @@ pub struct SubagentRecordStateUpdateRecord {
     pub generated_at: String,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct ThreadLifecycleCommandError {
-    code: &'static str,
-    message: String,
-}
-
-impl ThreadLifecycleCommandError {
-    pub fn code(&self) -> &'static str {
-        self.code
-    }
-
-    pub fn message(&self) -> &str {
-        self.message.as_str()
-    }
-
-    fn from_debug<E: std::fmt::Debug>(code: &'static str, error: E) -> Self {
-        Self {
-            code,
-            message: format!("{error:?}"),
-        }
-    }
-}
-
-#[derive(Debug, Deserialize)]
-pub struct ThreadControlAgentStateUpdateBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: ThreadControlAgentStateUpdateRequest,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct ThreadCreateStateUpdateBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: ThreadCreateStateUpdateRequest,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct RuntimeBridgeThreadStartAgentStateUpdateBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: RuntimeBridgeThreadStartAgentStateUpdateRequest,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct RuntimeBridgeThreadControlAgentStateUpdateBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: RuntimeBridgeThreadControlAgentStateUpdateRequest,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct RuntimeBridgeTurnRunStateUpdateBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: RuntimeBridgeTurnRunStateUpdateRequest,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct SubagentRecordStateUpdateBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: SubagentRecordStateUpdateRequest,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct AgentCreateStateUpdateBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: AgentCreateStateUpdateRequest,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct AgentStatusStateUpdateBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: AgentStatusStateUpdateRequest,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct AgentDeleteStateUpdateBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: AgentDeleteStateUpdateRequest,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct RunCreateStateUpdateBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: RunCreateStateUpdateRequest,
-}
-
-pub fn plan_runtime_bridge_thread_start_agent_state_update_response(
-    request: RuntimeBridgeThreadStartAgentStateUpdateBridgeRequest,
-) -> Result<Value, ThreadLifecycleCommandError> {
-    let record = RuntimeBridgeThreadStartAgentStateUpdateCore
-        .plan(&request.request)
-        .map_err(|error| {
-            ThreadLifecycleCommandError::from_debug(
-                "runtime_bridge_thread_start_agent_state_update_invalid",
-                error,
-            )
-        })?;
-    Ok(json!({
-        "source": "rust_runtime_bridge_thread_start_agent_state_update_command",
-        "backend": rust_policy_backend(request.backend),
-        "record": record.clone(),
-        "status": record.status.clone(),
-        "operation_kind": record.operation_kind.clone(),
-        "updated_at": record.updated_at.clone(),
-        "bridge_start": record.bridge_start.clone(),
-        "agent": record.agent.clone(),
-    }))
-}
-
-pub fn plan_runtime_bridge_thread_control_agent_state_update_response(
-    request: RuntimeBridgeThreadControlAgentStateUpdateBridgeRequest,
-) -> Result<Value, ThreadLifecycleCommandError> {
-    let record = RuntimeBridgeThreadControlAgentStateUpdateCore
-        .plan(&request.request)
-        .map_err(|error| {
-            ThreadLifecycleCommandError::from_debug(
-                "runtime_bridge_thread_control_agent_state_update_invalid",
-                error,
-            )
-        })?;
-    Ok(json!({
-        "source": "rust_runtime_bridge_thread_control_agent_state_update_command",
-        "backend": rust_policy_backend(request.backend),
-        "record": record.clone(),
-        "status": record.status.clone(),
-        "operation_kind": record.operation_kind.clone(),
-        "updated_at": record.updated_at.clone(),
-        "control": record.control.clone(),
-        "agent": record.agent.clone(),
-    }))
-}
-
-pub fn plan_runtime_bridge_turn_run_state_update_response(
-    request: RuntimeBridgeTurnRunStateUpdateBridgeRequest,
-) -> Result<Value, ThreadLifecycleCommandError> {
-    let record = RuntimeBridgeTurnRunStateUpdateCore
-        .plan(&request.request)
-        .map_err(|error| {
-            ThreadLifecycleCommandError::from_debug(
-                "runtime_bridge_turn_run_state_update_invalid",
-                error,
-            )
-        })?;
-    Ok(json!({
-        "source": "rust_runtime_bridge_turn_run_state_update_command",
-        "backend": rust_policy_backend(request.backend),
-        "record": record.clone(),
-        "status": record.status.clone(),
-        "operation_kind": record.operation_kind.clone(),
-        "updated_at": record.updated_at.clone(),
-        "run": record.run.clone(),
-    }))
-}
-
-pub fn plan_subagent_record_state_update_response(
-    request: SubagentRecordStateUpdateBridgeRequest,
-) -> Result<Value, ThreadLifecycleCommandError> {
-    let record = SubagentRecordStateUpdateCore
-        .plan(&request.request)
-        .map_err(|error| {
-            ThreadLifecycleCommandError::from_debug("subagent_record_state_update_invalid", error)
-        })?;
-    Ok(json!({
-        "source": "rust_subagent_record_state_update_command",
-        "backend": rust_policy_backend(request.backend),
-        "record": record.clone(),
-        "status": record.status.clone(),
-        "operation_kind": record.operation_kind.clone(),
-        "updated_at": record.updated_at.clone(),
-        "subagent": record.subagent.clone(),
-    }))
-}
-
-pub fn plan_thread_control_agent_state_update_response(
-    request: ThreadControlAgentStateUpdateBridgeRequest,
-) -> Result<Value, ThreadLifecycleCommandError> {
-    let record = ThreadControlAgentStateUpdateCore
-        .plan(&request.request)
-        .map_err(|error| {
-            ThreadLifecycleCommandError::from_debug(
-                "thread_control_agent_state_update_invalid",
-                error,
-            )
-        })?;
-    Ok(json!({
-        "source": "rust_thread_control_agent_state_update_command",
-        "backend": rust_policy_backend(request.backend),
-        "record": record.clone(),
-        "status": record.status.clone(),
-        "operation_kind": record.operation_kind.clone(),
-        "updated_at": record.updated_at.clone(),
-        "receipt_refs": record.receipt_refs.clone(),
-        "policy_decision_refs": record.policy_decision_refs.clone(),
-        "control": record.control.clone(),
-        "agent": record.agent.clone(),
-    }))
-}
-
-pub fn plan_thread_create_state_update_response(
-    request: ThreadCreateStateUpdateBridgeRequest,
-) -> Result<Value, ThreadLifecycleCommandError> {
-    let record = ThreadCreateStateUpdateCore
-        .plan(&request.request)
-        .map_err(|error| {
-            ThreadLifecycleCommandError::from_debug("thread_create_state_update_invalid", error)
-        })?;
-    Ok(json!({
-        "source": "rust_thread_create_state_update_command",
-        "backend": rust_policy_backend(request.backend),
-        "record": record.clone(),
-        "status": record.status.clone(),
-        "operation_kind": record.operation_kind.clone(),
-        "thread_id": record.thread_id.clone(),
-        "agent_id": record.agent_id.clone(),
-        "created_at": record.created_at.clone(),
-        "updated_at": record.updated_at.clone(),
-        "agent": record.agent.clone(),
-        "thread": record.thread.clone(),
-    }))
-}
-
-pub fn plan_agent_create_state_update_response(
-    request: AgentCreateStateUpdateBridgeRequest,
-) -> Result<Value, ThreadLifecycleCommandError> {
-    let record = AgentCreateStateUpdateCore
-        .plan(&request.request)
-        .map_err(|error| {
-            ThreadLifecycleCommandError::from_debug("agent_create_state_update_invalid", error)
-        })?;
-    Ok(json!({
-        "source": "rust_agent_create_state_update_command",
-        "backend": rust_policy_backend(request.backend),
-        "record": record.clone(),
-        "status": record.status.clone(),
-        "operation_kind": record.operation_kind.clone(),
-        "created_at": record.created_at.clone(),
-        "updated_at": record.updated_at.clone(),
-        "agent": record.agent.clone(),
-    }))
-}
-
-pub fn plan_agent_status_state_update_response(
-    request: AgentStatusStateUpdateBridgeRequest,
-) -> Result<Value, ThreadLifecycleCommandError> {
-    let record = AgentStatusStateUpdateCore
-        .plan(&request.request)
-        .map_err(|error| {
-            ThreadLifecycleCommandError::from_debug("agent_status_state_update_invalid", error)
-        })?;
-    Ok(json!({
-        "source": "rust_agent_status_state_update_command",
-        "backend": rust_policy_backend(request.backend),
-        "record": record.clone(),
-        "status": record.status.clone(),
-        "operation_kind": record.operation_kind.clone(),
-        "updated_at": record.updated_at.clone(),
-        "agent": record.agent.clone(),
-    }))
-}
-
-pub fn plan_agent_delete_state_update_response(
-    request: AgentDeleteStateUpdateBridgeRequest,
-) -> Result<Value, ThreadLifecycleCommandError> {
-    let record = AgentDeleteStateUpdateCore
-        .plan(&request.request)
-        .map_err(|error| {
-            ThreadLifecycleCommandError::from_debug("agent_delete_state_update_invalid", error)
-        })?;
-    Ok(json!({
-        "source": "rust_agent_delete_state_update_command",
-        "backend": rust_policy_backend(request.backend),
-        "record": record.clone(),
-        "status": record.status.clone(),
-        "operation_kind": record.operation_kind.clone(),
-        "deleted_at": record.deleted_at.clone(),
-        "updated_at": record.updated_at.clone(),
-        "agent": record.agent.clone(),
-    }))
-}
-
-pub fn plan_run_create_state_update_response(
-    request: RunCreateStateUpdateBridgeRequest,
-) -> Result<Value, ThreadLifecycleCommandError> {
-    let record = RunCreateStateUpdateCore
-        .plan(&request.request)
-        .map_err(|error| {
-            ThreadLifecycleCommandError::from_debug("run_create_state_update_invalid", error)
-        })?;
-    Ok(json!({
-        "source": "rust_run_create_state_update_command",
-        "backend": rust_policy_backend(request.backend),
-        "record": record.clone(),
-        "status": record.status.clone(),
-        "operation_kind": record.operation_kind.clone(),
-        "created_at": record.created_at.clone(),
-        "updated_at": record.updated_at.clone(),
-        "run": record.run.clone(),
-    }))
-}
-
-fn rust_policy_backend(backend: Option<String>) -> String {
-    backend.unwrap_or_else(|| "rust_policy".to_string())
-}
-
 #[derive(Debug, Default, Clone)]
 pub struct ThreadControlAgentStateUpdateCore;
 
@@ -2425,20 +2114,12 @@ mod tests {
     }
 
     #[test]
-    fn rust_policy_shapes_thread_control_agent_state_update_command_response() {
-        let response = plan_thread_control_agent_state_update_response(
-            ThreadControlAgentStateUpdateBridgeRequest {
-                backend: Some("rust_policy".to_string()),
-                request: thread_control_agent_state_update_request("thinking"),
-            },
-        )
-        .expect("thread control agent state update command response");
+    fn rust_policy_shapes_thread_control_agent_state_update_direct_record() {
+        let record = ThreadControlAgentStateUpdateCore
+            .plan(&thread_control_agent_state_update_request("thinking"))
+            .expect("thread control agent state update record");
+        let response = serde_json::to_value(record).expect("record serializes");
 
-        assert_eq!(
-            response["source"],
-            "rust_thread_control_agent_state_update_command"
-        );
-        assert_eq!(response["backend"], "rust_policy");
         assert_eq!(response["status"], "planned");
         assert_eq!(response["operation_kind"], "thread.thinking");
         assert_eq!(response["control"]["control_kind"], "thinking");
@@ -2463,6 +2144,9 @@ mod tests {
         );
         assert_eq!(response["agent"]["modelId"], "local-model");
         assert_eq!(response["agent"]["modelRouteReceiptId"], "receipt_route_1");
+        assert!(response.get("source").is_none());
+        assert!(response.get("backend").is_none());
+        assert!(response.get("record").is_none());
     }
 
     #[test]
@@ -2742,19 +2426,18 @@ mod tests {
     }
 
     #[test]
-    fn rust_policy_shapes_agent_create_state_update_command_response() {
-        let response =
-            plan_agent_create_state_update_response(AgentCreateStateUpdateBridgeRequest {
-                backend: Some("rust_policy".to_string()),
-                request: agent_create_state_update_request(),
-            })
-            .expect("agent create state update command response");
+    fn rust_policy_shapes_agent_create_state_update_direct_record() {
+        let record = AgentCreateStateUpdateCore
+            .plan(&agent_create_state_update_request())
+            .expect("agent create state update record");
+        let response = serde_json::to_value(record).expect("record serializes");
 
-        assert_eq!(response["source"], "rust_agent_create_state_update_command");
-        assert_eq!(response["backend"], "rust_policy");
         assert_eq!(response["status"], "planned");
         assert_eq!(response["operation_kind"], "agent.create");
         assert_eq!(response["agent"]["id"], "agent_create_one");
+        assert!(response.get("source").is_none());
+        assert!(response.get("backend").is_none());
+        assert!(response.get("record").is_none());
     }
 
     #[test]
@@ -2776,19 +2459,12 @@ mod tests {
     }
 
     #[test]
-    fn rust_policy_shapes_thread_create_state_update_command_response() {
-        let response =
-            plan_thread_create_state_update_response(ThreadCreateStateUpdateBridgeRequest {
-                backend: Some("rust_policy".to_string()),
-                request: thread_create_state_update_request(),
-            })
-            .expect("thread create state update command response");
+    fn rust_policy_shapes_thread_create_state_update_direct_record() {
+        let record = ThreadCreateStateUpdateCore
+            .plan(&thread_create_state_update_request())
+            .expect("thread create state update record");
+        let response = serde_json::to_value(record).expect("record serializes");
 
-        assert_eq!(
-            response["source"],
-            "rust_thread_create_state_update_command"
-        );
-        assert_eq!(response["backend"], "rust_policy");
         assert_eq!(response["status"], "planned");
         assert_eq!(response["operation_kind"], "thread.create");
         assert_eq!(response["thread_id"], "thread_create_one");
@@ -2797,6 +2473,9 @@ mod tests {
             response["thread"]["event_stream_id"],
             "thread_create_one:events"
         );
+        assert!(response.get("source").is_none());
+        assert!(response.get("backend").is_none());
+        assert!(response.get("record").is_none());
     }
 
     #[test]
@@ -2819,15 +2498,12 @@ mod tests {
     }
 
     #[test]
-    fn rust_policy_shapes_run_create_state_update_command_response() {
-        let response = plan_run_create_state_update_response(RunCreateStateUpdateBridgeRequest {
-            backend: Some("rust_policy".to_string()),
-            request: run_create_state_update_request(),
-        })
-        .expect("run create state update command response");
+    fn rust_policy_shapes_run_create_state_update_direct_record() {
+        let record = RunCreateStateUpdateCore
+            .plan(&run_create_state_update_request())
+            .expect("run create state update record");
+        let response = serde_json::to_value(record).expect("record serializes");
 
-        assert_eq!(response["source"], "rust_run_create_state_update_command");
-        assert_eq!(response["backend"], "rust_policy");
         assert_eq!(response["status"], "planned");
         assert_eq!(response["operation_kind"], "run.create");
         assert_eq!(response["run"]["id"], "run_create_one");
@@ -2835,6 +2511,9 @@ mod tests {
             response["run"]["trace"]["usage_telemetry"]["total_tokens"],
             7
         );
+        assert!(response.get("source").is_none());
+        assert!(response.get("backend").is_none());
+        assert!(response.get("record").is_none());
     }
 
     #[test]
@@ -2856,21 +2535,20 @@ mod tests {
     }
 
     #[test]
-    fn rust_policy_shapes_agent_status_state_update_command_response() {
-        let response =
-            plan_agent_status_state_update_response(AgentStatusStateUpdateBridgeRequest {
-                backend: Some("rust_policy".to_string()),
-                request: agent_status_state_update_request(),
-            })
-            .expect("agent status state update command response");
+    fn rust_policy_shapes_agent_status_state_update_direct_record() {
+        let record = AgentStatusStateUpdateCore
+            .plan(&agent_status_state_update_request())
+            .expect("agent status state update record");
+        let response = serde_json::to_value(record).expect("record serializes");
 
-        assert_eq!(response["source"], "rust_agent_status_state_update_command");
-        assert_eq!(response["backend"], "rust_policy");
         assert_eq!(response["status"], "planned");
         assert_eq!(response["operation_kind"], "agent.archive");
         assert_eq!(response["agent"]["id"], "agent_status_one");
         assert_eq!(response["agent"]["status"], "archived");
         assert_eq!(response["agent"]["updatedAt"], "2026-06-06T06:25:00.000Z");
+        assert!(response.get("source").is_none());
+        assert!(response.get("backend").is_none());
+        assert!(response.get("record").is_none());
     }
 
     #[test]
@@ -2894,21 +2572,20 @@ mod tests {
     }
 
     #[test]
-    fn rust_policy_shapes_agent_delete_state_update_command_response() {
-        let response =
-            plan_agent_delete_state_update_response(AgentDeleteStateUpdateBridgeRequest {
-                backend: Some("rust_policy".to_string()),
-                request: agent_delete_state_update_request(),
-            })
-            .expect("agent delete state update command response");
+    fn rust_policy_shapes_agent_delete_state_update_direct_record() {
+        let record = AgentDeleteStateUpdateCore
+            .plan(&agent_delete_state_update_request())
+            .expect("agent delete state update record");
+        let response = serde_json::to_value(record).expect("record serializes");
 
-        assert_eq!(response["source"], "rust_agent_delete_state_update_command");
-        assert_eq!(response["backend"], "rust_policy");
         assert_eq!(response["status"], "planned");
         assert_eq!(response["operation_kind"], "agent.delete");
         assert_eq!(response["agent"]["id"], "agent_delete_one");
         assert_eq!(response["agent"]["status"], "deleted");
         assert_eq!(response["agent"]["deletedAt"], "2026-06-06T06:40:00.000Z");
+        assert!(response.get("source").is_none());
+        assert!(response.get("backend").is_none());
+        assert!(response.get("record").is_none());
     }
 
     #[test]
@@ -2943,20 +2620,12 @@ mod tests {
     }
 
     #[test]
-    fn rust_policy_shapes_runtime_bridge_thread_start_agent_state_update_command_response() {
-        let response = plan_runtime_bridge_thread_start_agent_state_update_response(
-            RuntimeBridgeThreadStartAgentStateUpdateBridgeRequest {
-                backend: Some("rust_policy".to_string()),
-                request: runtime_bridge_thread_start_agent_state_update_request(),
-            },
-        )
-        .expect("runtime bridge thread start agent state update command response");
+    fn rust_policy_shapes_runtime_bridge_thread_start_agent_state_update_direct_record() {
+        let record = RuntimeBridgeThreadStartAgentStateUpdateCore
+            .plan(&runtime_bridge_thread_start_agent_state_update_request())
+            .expect("runtime bridge thread start agent state update record");
+        let response = serde_json::to_value(record).expect("record serializes");
 
-        assert_eq!(
-            response["source"],
-            "rust_runtime_bridge_thread_start_agent_state_update_command"
-        );
-        assert_eq!(response["backend"], "rust_policy");
         assert_eq!(response["status"], "planned");
         assert_eq!(response["operation_kind"], "thread.runtime_bridge.start");
         assert_eq!(response["bridge_start"]["session_id"], "session_runtime");
@@ -2974,6 +2643,9 @@ mod tests {
             "runtime_service"
         );
         assert_eq!(response["agent"]["fixtureProfile"], Value::Null);
+        assert!(response.get("source").is_none());
+        assert!(response.get("backend").is_none());
+        assert!(response.get("record").is_none());
     }
 
     #[test]
@@ -3010,20 +2682,12 @@ mod tests {
     }
 
     #[test]
-    fn rust_policy_shapes_runtime_bridge_thread_control_agent_state_update_command_response() {
-        let response = plan_runtime_bridge_thread_control_agent_state_update_response(
-            RuntimeBridgeThreadControlAgentStateUpdateBridgeRequest {
-                backend: Some("rust_policy".to_string()),
-                request: runtime_bridge_thread_control_agent_state_update_request(),
-            },
-        )
-        .expect("runtime bridge thread control agent state update command response");
+    fn rust_policy_shapes_runtime_bridge_thread_control_agent_state_update_direct_record() {
+        let record = RuntimeBridgeThreadControlAgentStateUpdateCore
+            .plan(&runtime_bridge_thread_control_agent_state_update_request())
+            .expect("runtime bridge thread control agent state update record");
+        let response = serde_json::to_value(record).expect("record serializes");
 
-        assert_eq!(
-            response["source"],
-            "rust_runtime_bridge_thread_control_agent_state_update_command"
-        );
-        assert_eq!(response["backend"], "rust_policy");
         assert_eq!(response["status"], "planned");
         assert_eq!(response["operation_kind"], "thread.runtime_bridge.control");
         assert_eq!(response["control"]["action"], "resume");
@@ -3031,6 +2695,9 @@ mod tests {
         assert_eq!(response["agent"]["id"], "agent_1");
         assert_eq!(response["agent"]["runtimeBridgeStatus"], "active");
         assert_eq!(response["agent"]["runtime_bridge_status"], "active");
+        assert!(response.get("source").is_none());
+        assert!(response.get("backend").is_none());
+        assert!(response.get("record").is_none());
     }
 
     #[test]
@@ -3053,24 +2720,19 @@ mod tests {
     }
 
     #[test]
-    fn rust_policy_shapes_runtime_bridge_turn_run_state_update_command_response() {
-        let response = plan_runtime_bridge_turn_run_state_update_response(
-            RuntimeBridgeTurnRunStateUpdateBridgeRequest {
-                backend: Some("rust_policy".to_string()),
-                request: runtime_bridge_turn_run_state_update_request(),
-            },
-        )
-        .expect("runtime bridge turn run state update command response");
+    fn rust_policy_shapes_runtime_bridge_turn_run_state_update_direct_record() {
+        let record = RuntimeBridgeTurnRunStateUpdateCore
+            .plan(&runtime_bridge_turn_run_state_update_request())
+            .expect("runtime bridge turn run state update record");
+        let response = serde_json::to_value(record).expect("record serializes");
 
-        assert_eq!(
-            response["source"],
-            "rust_runtime_bridge_turn_run_state_update_command"
-        );
-        assert_eq!(response["backend"], "rust_policy");
         assert_eq!(response["status"], "planned");
         assert_eq!(response["operation_kind"], "turn.runtime_bridge.submit");
         assert_eq!(response["run"]["id"], "run_runtime_bridge");
         assert_eq!(response["run"]["agentId"], "agent_1");
+        assert!(response.get("source").is_none());
+        assert!(response.get("backend").is_none());
+        assert!(response.get("record").is_none());
     }
 
     #[test]
@@ -3111,22 +2773,18 @@ mod tests {
     }
 
     #[test]
-    fn rust_policy_shapes_subagent_record_state_update_command_response() {
-        let response =
-            plan_subagent_record_state_update_response(SubagentRecordStateUpdateBridgeRequest {
-                backend: Some("rust_policy".to_string()),
-                request: subagent_record_state_update_request(),
-            })
-            .expect("subagent record state update command response");
+    fn rust_policy_shapes_subagent_record_state_update_direct_record() {
+        let record = SubagentRecordStateUpdateCore
+            .plan(&subagent_record_state_update_request())
+            .expect("subagent record state update record");
+        let response = serde_json::to_value(record).expect("record serializes");
 
-        assert_eq!(
-            response["source"],
-            "rust_subagent_record_state_update_command"
-        );
-        assert_eq!(response["backend"], "rust_policy");
         assert_eq!(response["status"], "planned");
         assert_eq!(response["operation_kind"], "subagent.wait");
         assert_eq!(response["subagent"]["subagent_id"], "subagent_1");
+        assert!(response.get("source").is_none());
+        assert!(response.get("backend").is_none());
+        assert!(response.get("record").is_none());
     }
 
     #[test]
