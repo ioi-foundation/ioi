@@ -140,6 +140,7 @@ mod tests {
             "plan_post_edit_diagnostics_feedback",
             "plan_runtime_diagnostics_repair_control",
             "plan_runtime_diagnostics_repair_retry_run",
+            "project_runtime_diagnostics_repair_retry_result",
             "project_runtime_diagnostics_repair_projection",
             "project_runtime_diagnostics_repair_policy",
         ] {

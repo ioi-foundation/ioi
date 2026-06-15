@@ -68,7 +68,6 @@ import { createRuntimeApprovalLease } from "./runtime-approval-lease.mjs";
 import { artifact } from "./runtime-artifacts.mjs";
 import { createCodingToolApprovalPolicy } from "./runtime-coding-tool-approval.mjs";
 import { createRuntimeInvocationResultProjections } from "./runtime-invocation-results.mjs";
-import { createDiagnosticsRepairExecutionHelpers } from "./diagnostics-repair-execution.mjs";
 import { createDiagnosticsFeedbackHelpers } from "./diagnostics-feedback.mjs";
 import { createRuntimeDiagnosticsFeedbackSurface } from "./runtime-diagnostics-feedback-surface.mjs";
 import { createDiagnosticsRepairPolicyHelpers } from "./diagnostics-repair-policy.mjs";
@@ -241,18 +240,6 @@ import {
   COMPUTER_USE_CONTROL_TOOL_IDS,
 } from "./runtime-contract-constants.mjs";
 
-const {
-  diagnosticsOperatorOverrideResultFromEvent,
-  diagnosticsRepairApplyApprovalKey,
-  diagnosticsRepairExecutionStatus,
-  diagnosticsRepairRetryResultFromEvent,
-} = createDiagnosticsRepairExecutionHelpers({
-  normalizeArray,
-  normalizeBooleanOption,
-  optionalString,
-  safeId,
-  uniqueStrings,
-});
 const {
   contextPressureAlertPayload,
   contextPressureDeltaPayload,
@@ -805,11 +792,7 @@ export class AgentgresRuntimeStateStore {
       contextPolicyCore: this.contextPolicyCore,
       diagnosticsRepairRunner: this.contextPolicyCore,
       eventStreamIdForThread,
-      diagnosticsOperatorOverrideResultFromEvent,
-      diagnosticsRepairApplyApprovalKey,
-      diagnosticsRepairExecutionStatus,
       diagnosticsRepairRetryFeedback,
-      diagnosticsRepairRetryResultFromEvent,
       runtimeError,
     });
     this.codingToolGovernanceSurface = createRuntimeCodingToolGovernanceSurface({

@@ -11,12 +11,6 @@ function normalizeArray(value) {
   return Array.isArray(value) ? value : [];
 }
 
-function normalizeBooleanOption(value, fallback) {
-  if (value === true || value === "true" || value === "1" || value === 1) return true;
-  if (value === false || value === "false" || value === "0" || value === 0) return false;
-  return fallback;
-}
-
 function safeId(value) {
   return String(value ?? "unknown").replace(/[^a-z0-9_.:-]+/gi, "_").replace(/^_+|_+$/g, "") || "unknown";
 }
@@ -27,8 +21,6 @@ function uniqueStrings(values) {
 
 function helpers() {
   return createDiagnosticsRepairExecutionHelpers({
-    normalizeArray,
-    normalizeBooleanOption,
     optionalString,
     safeId,
     uniqueStrings,
@@ -41,7 +33,6 @@ test("workspace restore apply helpers enforce approval and conflict policy", () 
   const missingApproval = runtime.workspaceRestoreApplyApprovalForRequest({});
   assert.equal(missingApproval.required, true);
   assert.equal(missingApproval.satisfied, false);
-  assert.equal(runtime.diagnosticsRepairApplyApprovalKey({}), "approval_required");
 
   const approved = runtime.workspaceRestoreApplyApprovalForRequest({
     approval_decision: "approved",
@@ -67,127 +58,20 @@ test("workspace restore apply helpers enforce approval and conflict policy", () 
     "policy_workspace_restore_apply_snapshot:one_conflict_override",
     "policy_workspace_restore_apply_snapshot:one_write_failed",
   ]);
-  assert.equal(runtime.diagnosticsRepairExecutionStatus({ apply_status: "failed" }), "failed");
-  assert.equal(runtime.diagnosticsRepairExecutionStatus({ applyStatus: "failed" }), "completed");
-  assert.equal(runtime.diagnosticsRepairExecutionStatus({ preview_status: "blocked" }), "blocked");
-  assert.equal(runtime.diagnosticsRepairExecutionStatus({ previewStatus: "blocked" }), "completed");
+});
+
+test("diagnostics repair public result helpers are retired from JS helpers", () => {
+  const runtime = helpers();
+
+  assert.equal(Object.hasOwn(runtime, "diagnosticsRepairRetryResultFromEvent"), false);
+  assert.equal(Object.hasOwn(runtime, "diagnosticsOperatorOverrideResultFromEvent"), false);
+  assert.equal(Object.hasOwn(runtime, "diagnosticsRepairApplyApprovalKey"), false);
+  assert.equal(Object.hasOwn(runtime, "diagnosticsRepairExecutionStatus"), false);
 });
 
 test("operator override approval derivation is retired from JS helpers", () => {
   const runtime = helpers();
 
-  assert.equal(
-    Object.hasOwn(runtime, "diagnosticsOperatorOverrideApprovalForRequest"),
-    false,
-  );
+  assert.equal(Object.hasOwn(runtime, "diagnosticsOperatorOverrideApprovalForRequest"), false);
   assert.equal(Object.hasOwn(runtime, "diagnosticsOperatorOverrideApprovalKey"), false);
-});
-
-test("diagnostics repair execution projections preserve public envelopes", () => {
-  const runtime = helpers();
-  const event = {
-    event_id: "evt-repair",
-    status: "completed",
-    receipt_refs: ["receipt-one"],
-    artifact_refs: ["artifact-one"],
-    policy_decision_refs: ["policy-one"],
-    rollback_refs: ["snapshot-one"],
-    payload_summary: {
-      retry_turn_id: "turn-retry",
-      retry_request_id: "request-retry",
-      summary: "Repair retry queued.",
-    },
-  };
-
-  const retry = runtime.diagnosticsRepairRetryResultFromEvent({
-    threadId: "thread-one",
-    event,
-  });
-  assert.equal(retry.object, "ioi.runtime_diagnostics_repair_retry");
-  assert.equal(retry.thread_id, "thread-one");
-  assert.equal(retry.turn_id, "turn-retry");
-  assert.deepEqual(retry.receipt_refs, ["receipt-one"]);
-  for (const field of [
-    "schemaVersion",
-    "threadId",
-    "turnId",
-    "requestId",
-    "repairTurn",
-    "receiptRefs",
-    "artifactRefs",
-    "policyDecisionRefs",
-    "rollbackRefs",
-  ]) {
-    assert.equal(Object.hasOwn(retry, field), false);
-  }
-
-  const override = runtime.diagnosticsOperatorOverrideResultFromEvent({
-    threadId: "thread-one",
-    event: {
-      ...event,
-      payload_summary: {
-        gate_event_id: "event-gate",
-        gate_id: "gate-one",
-        target_turn_id: "turn-blocked",
-        target_run_id: "run-blocked",
-        approval_required: true,
-        approval_satisfied: true,
-        approval_source: "boolean_confirmation",
-        continuation_allowed: true,
-      },
-    },
-  });
-  assert.equal(override.object, "ioi.runtime_diagnostics_operator_override");
-  assert.equal(override.gate_event_id, "event-gate");
-  assert.equal(override.gate_id, "gate-one");
-  assert.equal(override.target_turn_id, "turn-blocked");
-  assert.equal(override.target_run_id, "run-blocked");
-  assert.equal(override.approval_required, true);
-  assert.equal(override.approval_satisfied, true);
-  assert.equal(override.approval_source, "boolean_confirmation");
-  assert.equal(override.continuation_allowed, true);
-  for (const field of [
-    "schemaVersion",
-    "threadId",
-    "overrideStatus",
-    "gateEventId",
-    "gateId",
-    "targetTurnId",
-    "targetRunId",
-    "approvalRequired",
-    "approvalSatisfied",
-    "approvalSource",
-    "continuationAllowed",
-    "receiptRefs",
-    "artifactRefs",
-    "policyDecisionRefs",
-    "rollbackRefs",
-  ]) {
-    assert.equal(Object.hasOwn(override, field), false);
-  }
-
-  const aliasOnlyOverride = runtime.diagnosticsOperatorOverrideResultFromEvent({
-    threadId: "thread-one",
-    event: {
-      ...event,
-      payload_summary: {
-        gateEventId: "event-gate-alias",
-        gateId: "gate-alias",
-        targetTurnId: "turn-alias",
-        targetRunId: "run-alias",
-        approvalRequired: true,
-        approvalSatisfied: true,
-        approvalSource: "alias_source",
-        continuationAllowed: true,
-      },
-    },
-  });
-  assert.equal(aliasOnlyOverride.gate_event_id, null);
-  assert.equal(aliasOnlyOverride.gate_id, null);
-  assert.equal(aliasOnlyOverride.target_turn_id, null);
-  assert.equal(aliasOnlyOverride.target_run_id, null);
-  assert.equal(aliasOnlyOverride.approval_required, false);
-  assert.equal(aliasOnlyOverride.approval_satisfied, false);
-  assert.equal(aliasOnlyOverride.approval_source, null);
-  assert.equal(aliasOnlyOverride.continuation_allowed, false);
 });

@@ -17,6 +17,12 @@ const DIAGNOSTICS_REPAIR_RETRY_RUN_EVIDENCE_REFS = [
   "agentgres_run_create_state_truth_required",
 ];
 
+const DIAGNOSTICS_REPAIR_RETRY_RESULT_EVIDENCE_REFS = [
+  "runtime_diagnostics_repair_retry_result_projection_rust_owned",
+  "runtime_diagnostics_repair_retry_event_replay_required",
+  "runtime_diagnostics_repair_js_result_helper_retired",
+];
+
 const DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_EVIDENCE_REFS = [
   "diagnostics_operator_override_state_update_rust_owned",
   "rust_daemon_core_operator_override_state_required",
@@ -36,7 +42,6 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
     eventStreamIdForThread: eventStreamIdForThreadDep = eventStreamIdForThread,
     runtimeError = defaultRuntimeError,
     diagnosticsRepairRunner = deps.contextPolicyCore ?? null,
-    diagnosticsRepairRetryResultFromEvent = null,
   } = deps;
 
   function diagnosticsRepairControlEvidenceRefs(operationKind) {
@@ -116,6 +121,30 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
       return runner;
     }
     throwDiagnosticsRepairRetryRunRustCoreRequired(details);
+  }
+
+  function throwDiagnosticsRepairRetryResultRustCoreRequired(details = {}) {
+    throw runtimeError({
+      status: 501,
+      code: "runtime_diagnostics_repair_retry_result_rust_core_required",
+      message:
+        "Diagnostics repair retry result projection requires Rust daemon-core retry-result projection.",
+      details: {
+        rust_core_boundary: "runtime.diagnostics_repair.retry_result",
+        operation: "project_runtime_diagnostics_repair_retry_result",
+        operation_kind: "runtime.diagnostics_repair_retry.result",
+        ...details,
+        evidence_refs: DIAGNOSTICS_REPAIR_RETRY_RESULT_EVIDENCE_REFS,
+      },
+    });
+  }
+
+  function diagnosticsRepairRetryResultProjectionRunner(store, details = {}) {
+    const runner = store?.contextPolicyCore ?? diagnosticsRepairRunner;
+    if (runner?.projectRuntimeDiagnosticsRepairRetryResult) {
+      return runner;
+    }
+    throwDiagnosticsRepairRetryResultRustCoreRequired(details);
   }
 
   function diagnosticsRepairProjectionRunner(store, details = {}) {
@@ -506,6 +535,7 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
       snapshot_id: normalizedSnapshotId,
     };
     const retryRunRunner = diagnosticsRepairRetryRunRunner(store, details);
+    const retryResultProjector = diagnosticsRepairRetryResultProjectionRunner(store, details);
     const runCreateSurface = store?.agentRunLifecycleSurface;
     if (
       typeof runCreateSurface?.createRun !== "function" ||
@@ -617,28 +647,79 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
         decision_id: decisionId,
       }),
     );
-    if (typeof diagnosticsRepairRetryResultFromEvent === "function") {
-      return diagnosticsRepairRetryResultFromEvent({
-        threadId,
+    const projectedRetryResult =
+      retryResultProjector.projectRuntimeDiagnosticsRepairRetryResult({
+        operation: "project_runtime_diagnostics_repair_retry_result",
+        operation_kind: "runtime.diagnostics_repair_retry.result",
+        thread_id: threadId,
         event: admittedEvent,
         run: retryRun,
+        evidence_refs: DIAGNOSTICS_REPAIR_RETRY_RESULT_EVIDENCE_REFS,
+      });
+    const projectedEvent = objectRecord(projectedRetryResult?.event);
+    const projectedRetryEvent = objectRecord(projectedRetryResult?.repair_retry_event);
+    const projectedStatus = optionalString(projectedRetryResult?.status);
+    const projectedThreadId = optionalString(projectedRetryResult?.thread_id);
+    const projectedTurnId = optionalString(projectedRetryResult?.turn_id);
+    const projectedRequestId = optionalString(projectedRetryResult?.request_id);
+    const projectedSummary = optionalString(projectedRetryResult?.summary);
+    const projectedEvidenceRefs = stringRefs(projectedRetryResult?.evidence_refs);
+    if (
+      projectedStatus !== "created" ||
+      projectedThreadId !== threadId ||
+      projectedTurnId !== retryTurnId ||
+      projectedRequestId !== retryRunId ||
+      !projectedEvent ||
+      !projectedRetryEvent ||
+      optionalString(projectedRetryEvent.event_id) !== optionalString(admittedEvent.event_id) ||
+      optionalString(projectedRetryEvent.thread_id) !== threadId ||
+      optionalString(projectedRetryEvent.event_kind) !== "diagnostics.repair_retry.created" ||
+      !Array.isArray(projectedRetryResult?.receipt_refs) ||
+      !Array.isArray(projectedRetryResult?.artifact_refs) ||
+      !Array.isArray(projectedRetryResult?.policy_decision_refs) ||
+      !Array.isArray(projectedRetryResult?.rollback_refs) ||
+      !Array.isArray(projectedRetryResult?.evidence_refs) ||
+      !projectedSummary ||
+      !projectedEvidenceRefs.includes("runtime_diagnostics_repair_retry_result_projection_rust_owned") ||
+      !projectedEvidenceRefs.includes("runtime_diagnostics_repair_js_result_helper_retired")
+    ) {
+      throw runtimeError({
+        status: 502,
+        code: "runtime_diagnostics_repair_retry_result_projection_invalid",
+        message: "Rust diagnostics repair retry result projection returned mismatched retry truth.",
+        details: {
+          rust_core_boundary: "runtime.diagnostics_repair.retry.result",
+          operation: "project_runtime_diagnostics_repair_retry_result",
+          operation_kind: "runtime.diagnostics_repair_retry.result",
+          thread_id: threadId,
+          decision_id: decisionId,
+          retry_turn_id: retryTurnId,
+          retry_run_id: retryRunId,
+          actual_status: projectedStatus ?? null,
+          actual_thread_id: projectedThreadId ?? null,
+          actual_turn_id: projectedTurnId ?? null,
+          actual_request_id: projectedRequestId ?? null,
+          evidence_refs: DIAGNOSTICS_REPAIR_RETRY_RESULT_EVIDENCE_REFS,
+        },
       });
     }
     return {
       schema_version: DIAGNOSTICS_REPAIR_DECISION_EXECUTION_SCHEMA_VERSION,
       object: "ioi.runtime_diagnostics_repair_retry",
       thread_id: threadId,
-      status: optionalString(admittedEvent?.status) ?? "created",
-      turn_id: retryTurnId,
-      request_id: retryRunId,
-      repair_turn: null,
-      event: admittedEvent,
-      repair_retry_event: admittedEvent,
-      receipt_refs: stringRefs(admittedEvent?.receipt_refs),
-      artifact_refs: stringRefs(admittedEvent?.artifact_refs),
-      policy_decision_refs: stringRefs(admittedEvent?.policy_decision_refs),
-      rollback_refs: stringRefs(admittedEvent?.rollback_refs),
-      summary,
+      status: projectedStatus,
+      turn_id: projectedTurnId,
+      request_id: projectedRequestId,
+      repair_turn: objectRecord(projectedRetryResult?.repair_turn) ?? null,
+      event: projectedEvent,
+      repair_retry_event: projectedRetryEvent,
+      receipt_refs: stringRefs(projectedRetryResult?.receipt_refs),
+      artifact_refs: stringRefs(projectedRetryResult?.artifact_refs),
+      policy_decision_refs: stringRefs(projectedRetryResult?.policy_decision_refs),
+      rollback_refs: stringRefs(projectedRetryResult?.rollback_refs),
+      summary: projectedSummary,
+      evidence_refs: projectedEvidenceRefs,
+      projection: projectedRetryResult,
     };
   }
 

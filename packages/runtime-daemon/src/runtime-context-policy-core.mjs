@@ -22,6 +22,8 @@ export const RUNTIME_DIAGNOSTICS_REPAIR_CONTROL_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.diagnostics-repair-control-request.v1";
 export const RUNTIME_DIAGNOSTICS_REPAIR_RETRY_RUN_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.diagnostics-repair-retry-run-request.v1";
+export const RUNTIME_DIAGNOSTICS_REPAIR_RETRY_RESULT_PROJECTION_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.diagnostics-repair-retry-result-projection-request.v1";
 export const RUNTIME_DIAGNOSTICS_REPAIR_PROJECTION_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.diagnostics-repair-projection-request.v1";
 export const RUNTIME_DIAGNOSTICS_REPAIR_POLICY_REQUEST_SCHEMA_VERSION =
@@ -173,6 +175,8 @@ export const RUNTIME_CONTROL_DIAGNOSTICS_REPAIR_CONTROL_API_METHOD =
   "planRuntimeDiagnosticsRepairControl";
 export const RUNTIME_CONTROL_DIAGNOSTICS_REPAIR_RETRY_RUN_API_METHOD =
   "planRuntimeDiagnosticsRepairRetryRun";
+export const RUNTIME_PROJECTION_DIAGNOSTICS_REPAIR_RETRY_RESULT_API_METHOD =
+  "projectRuntimeDiagnosticsRepairRetryResult";
 export const RUNTIME_PROJECTION_DIAGNOSTICS_REPAIR_PROJECTION_API_METHOD =
   "projectRuntimeDiagnosticsRepairProjection";
 export const RUNTIME_PROJECTION_DIAGNOSTICS_REPAIR_POLICY_API_METHOD =
@@ -452,6 +456,16 @@ export class RuntimeContextPolicyCore {
       RUNTIME_DIAGNOSTICS_REPAIR_RETRY_RUN_REQUEST_SCHEMA_VERSION,
       request,
     ));
+  }
+
+  projectRuntimeDiagnosticsRepairRetryResult(request = {}) {
+    return normalizeRuntimeDiagnosticsRepairRetryResultProjectionBridgeResult(
+      this.invokeRuntimeProjectionApi(
+        RUNTIME_PROJECTION_DIAGNOSTICS_REPAIR_RETRY_RESULT_API_METHOD,
+        RUNTIME_DIAGNOSTICS_REPAIR_RETRY_RESULT_PROJECTION_REQUEST_SCHEMA_VERSION,
+        request,
+      ),
+    );
   }
 
   projectRuntimeDiagnosticsRepairProjection(request = {}) {
@@ -1658,6 +1672,89 @@ export function normalizeRuntimeDiagnosticsRepairRetryRunBridgeResult(value = {}
       result.policy_decision_refs ?? record.policy_decision_refs,
     ),
     evidence_refs: stringArray(result.evidence_refs ?? record.evidence_refs),
+  };
+}
+
+export function normalizeRuntimeDiagnosticsRepairRetryResultProjectionBridgeResult(value = {}) {
+  const result = objectRecord(value) ?? {};
+  const record = objectRecord(result.record) ?? result;
+  const status = optionalString(result.status ?? record.status);
+  const threadId = optionalString(result.thread_id ?? record.thread_id);
+  const turnId = optionalString(result.turn_id ?? record.turn_id);
+  const requestId = optionalString(result.request_id ?? record.request_id);
+  const repairTurn =
+    objectRecord(result.repair_turn) ?? objectRecord(record.repair_turn) ?? null;
+  const event = objectRecord(result.event) ?? objectRecord(record.event);
+  const repairRetryEvent =
+    objectRecord(result.repair_retry_event) ??
+    objectRecord(record.repair_retry_event);
+  const receiptRefsValue = result.receipt_refs ?? record.receipt_refs;
+  const artifactRefsValue = result.artifact_refs ?? record.artifact_refs;
+  const policyDecisionRefsValue =
+    result.policy_decision_refs ?? record.policy_decision_refs;
+  const rollbackRefsValue = result.rollback_refs ?? record.rollback_refs;
+  const evidenceRefsValue = result.evidence_refs ?? record.evidence_refs;
+  const summary = optionalString(result.summary ?? record.summary);
+  const evidenceRefs = stringArray(evidenceRefsValue);
+  if (
+    status !== "created" ||
+    !threadId ||
+    !turnId ||
+    !requestId ||
+    !event ||
+    !repairRetryEvent ||
+    !Array.isArray(receiptRefsValue) ||
+    !Array.isArray(artifactRefsValue) ||
+    !Array.isArray(policyDecisionRefsValue) ||
+    !Array.isArray(rollbackRefsValue) ||
+    !Array.isArray(evidenceRefsValue) ||
+    !summary ||
+    !evidenceRefs.includes("runtime_diagnostics_repair_retry_result_projection_rust_owned")
+  ) {
+    throw new RuntimeContextPolicyCoreError(
+      "Rust diagnostics repair retry result projection did not include the required admitted retry result record.",
+      "runtime_diagnostics_repair_retry_result_projection_invalid",
+      {
+        operation_kind: "runtime.diagnostics_repair_retry.result",
+        status,
+        thread_id: threadId ?? null,
+        turn_id: turnId ?? null,
+        request_id: requestId ?? null,
+        has_event: Boolean(event),
+        has_repair_retry_event: Boolean(repairRetryEvent),
+        evidence_refs: evidenceRefs,
+      },
+    );
+  }
+  return {
+    ...record,
+    source:
+      result.source ??
+      record.source ??
+      "rust_runtime_diagnostics_repair_retry_result_projection_api",
+    backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
+    record,
+    object:
+      optionalString(result.object ?? record.object) ??
+      "ioi.runtime_diagnostics_repair_retry",
+    status: optionalString(result.status ?? record.status) ?? null,
+    operation: optionalString(result.operation ?? record.operation) ?? null,
+    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+      codePrefix: "runtime_diagnostics_repair_retry_result_projection",
+      expectedOperationKind: "runtime.diagnostics_repair_retry.result",
+    }),
+    thread_id: threadId,
+    turn_id: turnId,
+    request_id: requestId,
+    repair_turn: repairTurn,
+    event,
+    repair_retry_event: repairRetryEvent,
+    receipt_refs: stringArray(receiptRefsValue),
+    artifact_refs: stringArray(artifactRefsValue),
+    policy_decision_refs: stringArray(policyDecisionRefsValue),
+    rollback_refs: stringArray(rollbackRefsValue),
+    summary,
+    evidence_refs: evidenceRefs,
   };
 }
 

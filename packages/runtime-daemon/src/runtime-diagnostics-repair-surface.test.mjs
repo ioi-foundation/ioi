@@ -72,6 +72,7 @@ function harness() {
 function diagnosticsRepairControlRunner({ operationKind = "diagnostics.repair_decision.execute" } = {}) {
   const requests = [];
   const retryRunRequests = [];
+  const retryResultRequests = [];
   const controlStatus = operationKind === "diagnostics.repair_decision.executed"
     ? "executed"
     : operationKind === "diagnostics.repair_retry.created"
@@ -82,6 +83,7 @@ function diagnosticsRepairControlRunner({ operationKind = "diagnostics.repair_de
   return {
     requests,
     retryRunRequests,
+    retryResultRequests,
     planRuntimeDiagnosticsRepairRetryRun(request) {
       retryRunRequests.push(request);
       const retryRequest = request.request ?? {};
@@ -155,6 +157,29 @@ function diagnosticsRepairControlRunner({ operationKind = "diagnostics.repair_de
         receipt_refs: ["receipt_alpha"],
         policy_decision_refs: ["policy_alpha"],
         evidence_refs: request.evidence_refs,
+      };
+    },
+    projectRuntimeDiagnosticsRepairRetryResult(request) {
+      retryResultRequests.push(request);
+      assert.equal(Object.hasOwn(request.event?.payload ?? {}, "retryTurnId"), false);
+      return {
+        source: "rust_runtime_diagnostics_repair_retry_result_projection_api",
+        backend: "rust_policy",
+        status: "created",
+        operation: "project_runtime_diagnostics_repair_retry_result",
+        operation_kind: "runtime.diagnostics_repair_retry.result",
+        thread_id: request.thread_id,
+        turn_id: request.event?.payload?.retry_turn_id ?? "turn_retry",
+        request_id: request.run?.id ?? request.event?.payload?.retry_request_id ?? "run_retry",
+        repair_turn: null,
+        event: request.event,
+        repair_retry_event: request.event,
+        receipt_refs: request.event?.receipt_refs ?? [],
+        artifact_refs: request.event?.artifact_refs ?? [],
+        policy_decision_refs: request.event?.policy_decision_refs ?? [],
+        rollback_refs: request.event?.rollback_refs ?? [],
+        summary: request.event?.payload?.summary ?? "Diagnostics repair retry turn created.",
+        evidence_refs: request.evidence_refs ?? [],
       };
     },
   };
@@ -534,7 +559,7 @@ test("diagnostics operator override fails closed before run lookup without Rust 
   assert.deepEqual(calls, []);
 });
 
-test("diagnostics repair retry uses Rust retry-run planning, run creation, and event admission", () => {
+test("diagnostics repair retry uses Rust retry-run planning, run creation, event admission, and result projection", () => {
   const appended = [];
   const runner = diagnosticsRepairControlRunner({
     operationKind: "diagnostics.repair_retry.created",
@@ -581,6 +606,10 @@ test("diagnostics repair retry uses Rust retry-run planning, run creation, and e
   assert.equal(result.turn_id, "turn_retry");
   assert.equal(result.request_id, "run_retry");
   assert.equal(result.event.admitted, true);
+  assert.equal(
+    result.projection.source,
+    "rust_runtime_diagnostics_repair_retry_result_projection_api",
+  );
   assert.equal(appended[0].event_kind, "diagnostics.repair_retry.created");
   assert.equal(appended[0].payload.retry_run_id, "run_retry");
   assert.deepEqual(runner.retryRunRequests, [{
@@ -664,6 +693,45 @@ test("diagnostics repair retry uses Rust retry-run planning, run creation, and e
       "agentgres_runtime_thread_event_truth_required",
     ],
   }]);
+  assert.deepEqual(runner.retryResultRequests, [{
+    operation: "project_runtime_diagnostics_repair_retry_result",
+    operation_kind: "runtime.diagnostics_repair_retry.result",
+    thread_id: "thread_alpha",
+    event: {
+      event_id: "event_decision_retry",
+      event_stream_id: "thread_alpha:events",
+      thread_id: "thread_alpha",
+      event_kind: "diagnostics.repair_retry.created",
+      status: "created",
+      payload: {
+        decision_id: "decision_retry",
+        gate_event_id: "event_gate",
+        snapshot_id: "snapshot_alpha",
+        action: "repair_retry",
+        retry_turn_id: "turn_retry",
+        retry_request_id: "run_retry",
+        retry_run_id: "run_retry",
+        target_run_id: "run_blocked",
+        summary: "Retry queued.",
+        receipt_refs: ["receipt_retry_request"],
+        policy_decision_refs: ["policy_retry_request"],
+      },
+      receipt_refs: ["receipt_alpha"],
+      policy_decision_refs: ["policy_alpha"],
+      evidence_refs: [
+        "runtime_diagnostics_repair_retry_event_rust_owned",
+        "runtime_diagnostics_repair_control_event_rust_owned",
+        "agentgres_runtime_thread_event_truth_required",
+      ],
+      admitted: true,
+    },
+    run: { id: "run_retry", turn_id: "turn_retry", agentId: "agent_alpha" },
+    evidence_refs: [
+      "runtime_diagnostics_repair_retry_result_projection_rust_owned",
+      "runtime_diagnostics_repair_retry_event_replay_required",
+      "runtime_diagnostics_repair_js_result_helper_retired",
+    ],
+  }]);
 });
 
 test("diagnostics repair retry fails closed before JS lookup without Rust retry-run planning", () => {
@@ -696,6 +764,116 @@ test("diagnostics repair retry fails closed before JS lookup without Rust retry-
   );
 
   assert.deepEqual(calls, []);
+});
+
+test("diagnostics repair retry fails closed before JS lookup without Rust retry-result projection", () => {
+  const { calls, store } = harness();
+  const surface = createRuntimeDiagnosticsRepairSurface({
+    runtimeError,
+    diagnosticsRepairRunner: {
+      planRuntimeDiagnosticsRepairRetryRun() {
+        throw new Error("retry run planning should not run without result projection");
+      },
+      planRuntimeDiagnosticsRepairControl() {
+        throw new Error("control planning should not run without result projection");
+      },
+    },
+  });
+
+  assert.throws(
+    () =>
+      surface.createDiagnosticsRepairRetryTurn(store, "thread_alpha", {
+        request: { decision_id: "decision_retry" },
+        gateEvent: { event_id: "event_gate" },
+        decision: { decision_id: "decision_retry" },
+        snapshotId: "snapshot_alpha",
+      }),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "runtime_diagnostics_repair_retry_result_rust_core_required");
+      assert.equal(error.details.operation, "project_runtime_diagnostics_repair_retry_result");
+      assert.equal(error.details.operation_kind, "runtime.diagnostics_repair_retry.result");
+      assert.equal(error.details.thread_id, "thread_alpha");
+      assert.equal(error.details.decision_id, "decision_retry");
+      assert.deepEqual(error.details.evidence_refs, [
+        "runtime_diagnostics_repair_retry_result_projection_rust_owned",
+        "runtime_diagnostics_repair_retry_event_replay_required",
+        "runtime_diagnostics_repair_js_result_helper_retired",
+      ]);
+      assertNoRetiredDiagnosticsRepairDetailAliases(error.details);
+      return true;
+    },
+  );
+
+  assert.deepEqual(calls, []);
+});
+
+test("diagnostics repair retry rejects partial Rust retry-result projection without JS result synthesis", () => {
+  const runner = diagnosticsRepairControlRunner({
+    operationKind: "diagnostics.repair_retry.created",
+  });
+  runner.projectRuntimeDiagnosticsRepairRetryResult = (request) => {
+    runner.retryResultRequests.push(request);
+    return {
+      source: "rust_runtime_diagnostics_repair_retry_result_projection_api",
+      backend: "rust_policy",
+      status: "created",
+      operation: "project_runtime_diagnostics_repair_retry_result",
+      operation_kind: "runtime.diagnostics_repair_retry.result",
+      thread_id: request.thread_id,
+      evidence_refs: ["runtime_diagnostics_repair_retry_result_projection_rust_owned"],
+    };
+  };
+  const store = {
+    agentForThread() {
+      return { id: "agent_alpha" };
+    },
+    agentRunLifecycleSurface: {
+      createRun() {
+        return { id: "run_retry", turn_id: "turn_retry" };
+      },
+    },
+    appendRuntimeEvent(event) {
+      return { ...event, admitted: true };
+    },
+  };
+  const surface = createRuntimeDiagnosticsRepairSurface({
+    runtimeError,
+    diagnosticsRepairRunner: runner,
+  });
+
+  assert.throws(
+    () =>
+      surface.createDiagnosticsRepairRetryTurn(store, "thread_alpha", {
+        request: {
+          decision_id: "decision_retry",
+          prompt: "Retry the diagnostics repair.",
+        },
+        gateEvent: { event_id: "event_gate" },
+        decision: { decision_id: "decision_retry" },
+        snapshotId: "snapshot_alpha",
+      }),
+    (error) => {
+      assert.equal(error.status, 502);
+      assert.equal(error.code, "runtime_diagnostics_repair_retry_result_projection_invalid");
+      assert.equal(error.details.operation, "project_runtime_diagnostics_repair_retry_result");
+      assert.equal(error.details.operation_kind, "runtime.diagnostics_repair_retry.result");
+      assert.equal(error.details.thread_id, "thread_alpha");
+      assert.equal(error.details.decision_id, "decision_retry");
+      assert.equal(error.details.retry_turn_id, "turn_retry");
+      assert.equal(error.details.retry_run_id, "run_retry");
+      assert.equal(error.details.actual_turn_id, null);
+      assert.equal(error.details.actual_request_id, null);
+      assert.deepEqual(error.details.evidence_refs, [
+        "runtime_diagnostics_repair_retry_result_projection_rust_owned",
+        "runtime_diagnostics_repair_retry_event_replay_required",
+        "runtime_diagnostics_repair_js_result_helper_retired",
+      ]);
+      assertNoRetiredDiagnosticsRepairDetailAliases(error.details);
+      return true;
+    },
+  );
+  assert.equal(runner.retryResultRequests.length, 1);
 });
 
 test("diagnostics repair decision executed event uses Rust planning and runtime event admission", () => {

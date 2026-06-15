@@ -1,10 +1,4 @@
-import {
-  DIAGNOSTICS_REPAIR_DECISION_EXECUTION_SCHEMA_VERSION,
-} from "./runtime-contract-constants.mjs";
-
 export function createDiagnosticsRepairExecutionHelpers({
-  normalizeArray,
-  normalizeBooleanOption,
   optionalString,
   safeId,
   uniqueStrings,
@@ -30,71 +24,6 @@ export function createDiagnosticsRepairExecutionHelpers({
       required: true,
       satisfied: approvedBoolean || approvedText.includes(text),
       source: approvedBoolean ? "boolean_confirmation" : approvedText.includes(text) ? text : "missing",
-    };
-  }
-
-  function diagnosticsRepairApplyApprovalKey(request = {}) {
-    const approval = workspaceRestoreApplyApprovalForRequest(request);
-    return approval.satisfied ? `approval_${safeId(approval.source)}` : "approval_required";
-  }
-
-  function diagnosticsRepairExecutionStatus(result = {}) {
-    const status = optionalString(result.status);
-    if (["blocked", "failed", "completed"].includes(status)) return status;
-    const applyStatus = optionalString(result.apply_status);
-    if (applyStatus === "blocked") return "blocked";
-    if (applyStatus === "failed") return "failed";
-    const previewStatus = optionalString(result.preview_status);
-    if (previewStatus === "blocked") return "blocked";
-    return "completed";
-  }
-
-  function diagnosticsRepairRetryResultFromEvent({ threadId, event, turn = null, run = null } = {}) {
-    const payload = event?.payload_summary ?? event?.payload ?? {};
-    const repairTurn = turn ?? null;
-    return {
-      schema_version: DIAGNOSTICS_REPAIR_DECISION_EXECUTION_SCHEMA_VERSION,
-      object: "ioi.runtime_diagnostics_repair_retry",
-      thread_id: threadId,
-      status: event?.status ?? "completed",
-      turn_id: repairTurn?.turn_id ?? payload.retry_turn_id ?? null,
-      request_id: repairTurn?.request_id ?? run?.id ?? payload.retry_request_id ?? null,
-      repair_turn: repairTurn,
-      event,
-      repair_retry_event: event,
-      receipt_refs: normalizeArray(event?.receipt_refs),
-      artifact_refs: normalizeArray(event?.artifact_refs),
-      policy_decision_refs: normalizeArray(event?.policy_decision_refs),
-      rollback_refs: normalizeArray(event?.rollback_refs),
-      summary: optionalString(payload.summary) ?? "Diagnostics repair retry turn created.",
-    };
-  }
-
-  function diagnosticsOperatorOverrideResultFromEvent({ threadId, event, turn = null } = {}) {
-    const payload = event?.payload_summary ?? event?.payload ?? {};
-    const status = optionalString(event?.status ?? payload.status) ?? "completed";
-    return {
-      schema_version: DIAGNOSTICS_REPAIR_DECISION_EXECUTION_SCHEMA_VERSION,
-      object: "ioi.runtime_diagnostics_operator_override",
-      thread_id: threadId,
-      status,
-      override_status: status,
-      gate_event_id: payload.gate_event_id ?? null,
-      gate_id: payload.gate_id ?? null,
-      target_turn_id: payload.target_turn_id ?? null,
-      target_run_id: payload.target_run_id ?? null,
-      approval_required: Boolean(payload.approval_required),
-      approval_satisfied: Boolean(payload.approval_satisfied),
-      approval_source: payload.approval_source ?? null,
-      continuation_allowed: Boolean(payload.continuation_allowed),
-      turn,
-      event,
-      operator_override_event: event,
-      receipt_refs: normalizeArray(event?.receipt_refs),
-      artifact_refs: normalizeArray(event?.artifact_refs),
-      policy_decision_refs: normalizeArray(event?.policy_decision_refs),
-      rollback_refs: normalizeArray(event?.rollback_refs),
-      summary: optionalString(payload.summary) ?? "Diagnostics operator override executed.",
     };
   }
 
@@ -167,10 +96,6 @@ export function createDiagnosticsRepairExecutionHelpers({
   }
 
   return {
-    diagnosticsOperatorOverrideResultFromEvent,
-    diagnosticsRepairApplyApprovalKey,
-    diagnosticsRepairExecutionStatus,
-    diagnosticsRepairRetryResultFromEvent,
     workspaceRestoreApplyAllowsConflicts,
     workspaceRestoreApplyApprovalForRequest,
     workspaceRestoreApplyBlockedReason,

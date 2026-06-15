@@ -40,6 +40,7 @@ import {
   RUNTIME_CONTROL_SUBAGENT_API_METHOD,
   RUNTIME_CONTROL_POST_EDIT_DIAGNOSTICS_FEEDBACK_API_METHOD,
   RUNTIME_PROJECTION_CODING_TOOL_ARTIFACT_READ_API_METHOD,
+  RUNTIME_PROJECTION_DIAGNOSTICS_REPAIR_RETRY_RESULT_API_METHOD,
   RUNTIME_PROJECTION_DIAGNOSTICS_REPAIR_POLICY_API_METHOD,
   RUNTIME_PROJECTION_DIAGNOSTICS_REPAIR_PROJECTION_API_METHOD,
   RUNTIME_PROJECTION_TASK_JOB_API_METHOD,
@@ -78,6 +79,7 @@ import {
   DIAGNOSTICS_REPAIR_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
   RUNTIME_DIAGNOSTICS_REPAIR_CONTROL_REQUEST_SCHEMA_VERSION,
   RUNTIME_DIAGNOSTICS_REPAIR_RETRY_RUN_REQUEST_SCHEMA_VERSION,
+  RUNTIME_DIAGNOSTICS_REPAIR_RETRY_RESULT_PROJECTION_REQUEST_SCHEMA_VERSION,
   RUNTIME_DIAGNOSTICS_REPAIR_PROJECTION_REQUEST_SCHEMA_VERSION,
   RUNTIME_DIAGNOSTICS_REPAIR_POLICY_REQUEST_SCHEMA_VERSION,
   DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
@@ -1245,6 +1247,125 @@ test("runtime diagnostics repair retry-run core sends Rust daemon-core request",
   assert.equal(result.run_request.options.diagnostics_repair.action, "repair_retry");
   assert.equal(result.retry_event_request.target_run_id, "run_blocked");
   assert.deepEqual(result.receipt_refs, ["receipt_retry"]);
+});
+
+test("runtime diagnostics repair retry-result projection core sends Rust daemon-core request", () => {
+  const { calls, runner } = createRuntimeProjectionDirectCore(
+    RUNTIME_PROJECTION_DIAGNOSTICS_REPAIR_RETRY_RESULT_API_METHOD,
+    () => ({
+        source: "rust_runtime_diagnostics_repair_retry_result_projection_api",
+        backend: "rust_policy",
+        record: {
+          schema_version: "ioi.runtime.diagnostics_repair_retry_result_projection.v1",
+          object: "ioi.runtime_diagnostics_repair_retry",
+          status: "created",
+          operation: "project_runtime_diagnostics_repair_retry_result",
+          operation_kind: "runtime.diagnostics_repair_retry.result",
+          thread_id: "thread_alpha",
+          turn_id: "turn_retry",
+          request_id: "run_retry",
+          repair_turn: null,
+          event: {
+            event_id: "event_retry",
+            thread_id: "thread_alpha",
+            event_kind: "diagnostics.repair_retry.created",
+            payload: {
+              retry_turn_id: "turn_retry",
+              retry_request_id: "run_retry",
+              summary: "Retry queued.",
+            },
+          },
+          repair_retry_event: {
+            event_id: "event_retry",
+            thread_id: "thread_alpha",
+            event_kind: "diagnostics.repair_retry.created",
+          },
+          receipt_refs: ["receipt_retry_event"],
+          artifact_refs: ["artifact_retry"],
+          policy_decision_refs: ["policy_retry"],
+          rollback_refs: ["snapshot_retry"],
+          summary: "Retry queued.",
+          evidence_refs: ["runtime_diagnostics_repair_retry_result_projection_rust_owned"],
+        },
+      }),
+  );
+
+  const result = runner.projectRuntimeDiagnosticsRepairRetryResult({
+    operation: "project_runtime_diagnostics_repair_retry_result",
+    operation_kind: "runtime.diagnostics_repair_retry.result",
+    thread_id: "thread_alpha",
+    event: {
+      event_id: "event_retry",
+      thread_id: "thread_alpha",
+      event_kind: "diagnostics.repair_retry.created",
+      payload: {
+        retry_turn_id: "turn_retry",
+        retry_request_id: "run_retry",
+      },
+    },
+    run: { id: "run_retry" },
+  });
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, RUNTIME_PROJECTION_DIAGNOSTICS_REPAIR_RETRY_RESULT_API_METHOD);
+  assert.equal(
+    calls[0].request.schema_version,
+    RUNTIME_DIAGNOSTICS_REPAIR_RETRY_RESULT_PROJECTION_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(
+    calls[0].request.operation,
+    "project_runtime_diagnostics_repair_retry_result",
+  );
+  assert.equal(calls[0].request.operation_kind, "runtime.diagnostics_repair_retry.result");
+  assert.equal(calls[0].request.thread_id, "thread_alpha");
+  assert.equal(Object.hasOwn(calls[0].request, "backend"), false);
+  assert.equal(Object.hasOwn(calls[0].request.event.payload, "retryTurnId"), false);
+  assert.equal(result.source, "rust_runtime_diagnostics_repair_retry_result_projection_api");
+  assert.equal(result.object, "ioi.runtime_diagnostics_repair_retry");
+  assert.equal(result.operation_kind, "runtime.diagnostics_repair_retry.result");
+  assert.equal(result.turn_id, "turn_retry");
+  assert.equal(result.request_id, "run_retry");
+  assert.deepEqual(result.receipt_refs, ["receipt_retry_event"]);
+  assert.deepEqual(result.evidence_refs, ["runtime_diagnostics_repair_retry_result_projection_rust_owned"]);
+});
+
+test("runtime diagnostics repair retry-result projection core rejects partial Rust records", () => {
+  const { calls, runner } = createRuntimeProjectionDirectCore(
+    RUNTIME_PROJECTION_DIAGNOSTICS_REPAIR_RETRY_RESULT_API_METHOD,
+    () => ({
+      source: "rust_runtime_diagnostics_repair_retry_result_projection_api",
+      backend: "rust_policy",
+      record: {
+        status: "created",
+        operation_kind: "runtime.diagnostics_repair_retry.result",
+        thread_id: "thread_alpha",
+        evidence_refs: ["runtime_diagnostics_repair_retry_result_projection_rust_owned"],
+      },
+    }),
+  );
+
+  assert.throws(
+    () =>
+      runner.projectRuntimeDiagnosticsRepairRetryResult({
+        operation: "project_runtime_diagnostics_repair_retry_result",
+        operation_kind: "runtime.diagnostics_repair_retry.result",
+        thread_id: "thread_alpha",
+      }),
+    (error) => {
+      assert.equal(error instanceof RuntimeContextPolicyCoreError, true);
+      assert.equal(
+        error.code,
+        "runtime_diagnostics_repair_retry_result_projection_invalid",
+      );
+      assert.equal(error.details.thread_id, "thread_alpha");
+      assert.equal(error.details.turn_id, null);
+      assert.equal(error.details.request_id, null);
+      assert.equal(error.details.has_event, false);
+      assert.equal(error.details.has_repair_retry_event, false);
+      return true;
+    },
+  );
+  assert.equal(calls.length, 1);
 });
 
 test("runtime diagnostics repair projection core sends Rust daemon-core request", () => {

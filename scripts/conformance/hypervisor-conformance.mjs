@@ -37629,7 +37629,32 @@ function runCompositor() {
     /agentgres_run_create_state_truth_required/.test(runtimeDiagnosticsRepairSurface) &&
     /agentRunLifecycleSurface/.test(runtimeDiagnosticsRepairSurface) &&
     /runCreateSurface\.createRun\(store,\s*agentId,/.test(runtimeDiagnosticsRepairSurface) &&
-    /diagnosticsRepairRetryResultFromEvent/.test(runtimeDiagnosticsRepairSurface) &&
+    /projectRuntimeDiagnosticsRepairRetryResult/.test(runtimeDiagnosticsRepairSurface) &&
+    /runtime_diagnostics_repair_retry_result_projection_rust_owned/.test(
+      runtimeDiagnosticsRepairSurface,
+    ) &&
+    /runtime_diagnostics_repair_js_result_helper_retired/.test(
+      runtimeDiagnosticsRepairSurface,
+    ) &&
+    /runtime_diagnostics_repair_retry_result_projection_invalid/.test(
+      runtimeDiagnosticsRepairSurface,
+    ) &&
+    !/status:\s*optionalString\(projectedRetryResult\?\.status\)\s*\?\?/.test(
+      runtimeDiagnosticsRepairSurface,
+    ) &&
+    !/turn_id:\s*optionalString\(projectedRetryResult\?\.turn_id\)\s*\?\?/.test(
+      runtimeDiagnosticsRepairSurface,
+    ) &&
+    !/request_id:\s*optionalString\(projectedRetryResult\?\.request_id\)\s*\?\?/.test(
+      runtimeDiagnosticsRepairSurface,
+    ) &&
+    !/event:\s*objectRecord\(projectedRetryResult\?\.event\)\s*\?\?/.test(
+      runtimeDiagnosticsRepairSurface,
+    ) &&
+    !/summary:\s*optionalString\(projectedRetryResult\?\.summary\)\s*\?\?/.test(
+      runtimeDiagnosticsRepairSurface,
+    ) &&
+    !/diagnosticsRepairRetryResultFromEvent/.test(runtimeDiagnosticsRepairSurface) &&
     /diagnostics\.repair_retry\.created/.test(runtimeDiagnosticsRepairSurface) &&
     /diagnostics\.operator_override\.event/.test(runtimeDiagnosticsRepairSurface) &&
     /RuntimeDiagnosticsRepairControlCore/.test(runtimeDiagnosticsRepairControlCore) &&
@@ -37640,8 +37665,17 @@ function runCompositor() {
     /RUNTIME_DIAGNOSTICS_REPAIR_RETRY_RUN_REQUEST_SCHEMA_VERSION/.test(
       runtimeDiagnosticsRepairControlCore,
     ) &&
+    /RUNTIME_DIAGNOSTICS_REPAIR_RETRY_RESULT_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
+      runtimeDiagnosticsRepairControlCore,
+    ) &&
     /diagnostics\.repair_retry\.created/.test(runtimeDiagnosticsRepairControlCore) &&
     /diagnostics\.repair_retry\.run_create/.test(runtimeDiagnosticsRepairControlCore) &&
+    /RuntimeDiagnosticsRepairRetryResultProjectionCore/.test(
+      runtimeDiagnosticsRepairControlCore,
+    ) &&
+    /runtime_diagnostics_repair_retry_result_projection_transport_retired/.test(
+      runtimeDiagnosticsRepairControlCore,
+    ) &&
     /DiagnosticsRepair\.RetryCreated/.test(runtimeDiagnosticsRepairControlCore) &&
     /diagnostics\.operator_override\.event/.test(runtimeDiagnosticsRepairControlCore) &&
     /DiagnosticsRepair\.OperatorOverride/.test(runtimeDiagnosticsRepairControlCore) &&
@@ -37754,7 +37788,7 @@ function runCompositor() {
     /diagnostics repair decision execution fails closed before event append without Rust planning/.test(
       runtimeDiagnosticsRepairSurfaceTest,
     ) &&
-    /diagnostics repair retry uses Rust retry-run planning, run creation, and event admission/.test(
+    /diagnostics repair retry uses Rust retry-run planning, run creation, event admission, and result projection/.test(
       runtimeDiagnosticsRepairSurfaceTest,
     ) &&
     /diagnostics repair retry fails closed before JS lookup without Rust retry-run planning/.test(
@@ -37985,7 +38019,32 @@ function runCompositor() {
       /runtime_run_create_js_facade_retired/.test(runtimeDiagnosticsRepairSurface) &&
       /agentgres_run_create_state_truth_required/.test(runtimeDiagnosticsRepairSurface) &&
       /runCreateSurface\.createRun\(store,\s*agentId,/.test(runtimeDiagnosticsRepairSurface) &&
-      /diagnosticsRepairRetryResultFromEvent/.test(runtimeDiagnosticsRepairSurface) &&
+      /projectRuntimeDiagnosticsRepairRetryResult/.test(runtimeDiagnosticsRepairSurface) &&
+      /runtime_diagnostics_repair_retry_result_projection_rust_owned/.test(
+        runtimeDiagnosticsRepairSurface,
+      ) &&
+      /runtime_diagnostics_repair_retry_result_rust_core_required/.test(
+        runtimeDiagnosticsRepairSurface,
+      ) &&
+      /runtime_diagnostics_repair_retry_result_projection_invalid/.test(
+        runtimeDiagnosticsRepairSurface,
+      ) &&
+      !/status:\s*optionalString\(projectedRetryResult\?\.status\)\s*\?\?/.test(
+        runtimeDiagnosticsRepairSurface,
+      ) &&
+      !/turn_id:\s*optionalString\(projectedRetryResult\?\.turn_id\)\s*\?\?/.test(
+        runtimeDiagnosticsRepairSurface,
+      ) &&
+      !/request_id:\s*optionalString\(projectedRetryResult\?\.request_id\)\s*\?\?/.test(
+        runtimeDiagnosticsRepairSurface,
+      ) &&
+      !/event:\s*objectRecord\(projectedRetryResult\?\.event\)\s*\?\?/.test(
+        runtimeDiagnosticsRepairSurface,
+      ) &&
+      !/summary:\s*optionalString\(projectedRetryResult\?\.summary\)\s*\?\?/.test(
+        runtimeDiagnosticsRepairSurface,
+      ) &&
+      !/diagnosticsRepairRetryResultFromEvent/.test(runtimeDiagnosticsRepairSurface) &&
       /runtime_diagnostics_repair_decision_projection_rust_owned/.test(
         runtimeDiagnosticsRepairSurface,
       ) &&
@@ -38014,7 +38073,23 @@ function runCompositor() {
         runtimeContextPolicyCoreTest,
       ) &&
       /diagnosticsRepairRunner:\s*this\.contextPolicyCore/.test(runtimeDaemonIndex) &&
-      /diagnosticsRepairRetryResultFromEvent/.test(runtimeDaemonIndex) &&
+      !/diagnosticsRepairRetryResultFromEvent/.test(runtimeDaemonIndex) &&
+      !/diagnosticsOperatorOverrideResultFromEvent/.test(runtimeDaemonIndex) &&
+      /RUNTIME_PROJECTION_DIAGNOSTICS_REPAIR_RETRY_RESULT_API_METHOD/.test(
+        runtimeContextPolicyCore,
+      ) &&
+      /projectRuntimeDiagnosticsRepairRetryResult\(request = \{\}\)/.test(
+        runtimeContextPolicyCore,
+      ) &&
+      /runtime diagnostics repair retry-result projection core sends Rust daemon-core request/.test(
+        runtimeContextPolicyCoreTest,
+      ) &&
+      /runtime diagnostics repair retry-result projection core rejects partial Rust records/.test(
+        runtimeContextPolicyCoreTest,
+      ) &&
+      /runtime_diagnostics_repair_retry_result_projection_invalid/.test(
+        runtimeContextPolicyCore,
+      ) &&
       !/store\.(?:createRun|runs\.set|resolveDiagnosticsRepairDecision|executeDiagnosticsOperatorOverride|createDiagnosticsRepairRetryTurn)\b/.test(
         runtimeDiagnosticsRepairSurface,
       ) &&
@@ -38033,12 +38108,18 @@ function runCompositor() {
       /diagnostics operator override fails closed before run lookup without Rust state update/.test(
         runtimeDiagnosticsRepairSurfaceTest,
       ) &&
-	      /diagnostics repair retry uses Rust retry-run planning, run creation, and event admission/.test(
-	        runtimeDiagnosticsRepairSurfaceTest,
-	      ) &&
-	      /diagnostics repair retry fails closed before JS lookup without Rust retry-run planning/.test(
-	        runtimeDiagnosticsRepairSurfaceTest,
-	      ) &&
+      /diagnostics repair retry uses Rust retry-run planning, run creation, event admission, and result projection/.test(
+        runtimeDiagnosticsRepairSurfaceTest,
+      ) &&
+      /diagnostics repair retry fails closed before JS lookup without Rust retry-run planning/.test(
+        runtimeDiagnosticsRepairSurfaceTest,
+      ) &&
+      /diagnostics repair retry fails closed before JS lookup without Rust retry-result projection/.test(
+        runtimeDiagnosticsRepairSurfaceTest,
+      ) &&
+      /diagnostics repair retry rejects partial Rust retry-result projection without JS result synthesis/.test(
+        runtimeDiagnosticsRepairSurfaceTest,
+      ) &&
 	      /planRuntimeDiagnosticsRepairRetryRun\(request = \{\}\)/.test(
 	        runtimeContextPolicyCore,
 	      ) &&
@@ -38770,71 +38851,29 @@ function runCompositor() {
     ],
     "Phase 10/11 is pending: diagnostics feedback and blocking-gate envelopes must expose canonical snake_case fields without duplicate camelCase aliases or reader fallbacks",
   );
-		  const diagnosticsRepairRetryResultBody =
-		    diagnosticsRepairExecution.match(
-      /  function diagnosticsRepairRetryResultFromEvent\(\{ threadId, event, turn = null, run = null \} = \{\}\) \{[\s\S]*?(?=\n  function diagnosticsOperatorOverrideResultFromEvent)/,
-    )?.[0] ?? "";
-  const diagnosticsOperatorOverrideResultBody =
-    diagnosticsRepairExecution.match(
-      /  function diagnosticsOperatorOverrideResultFromEvent\(\{ threadId, event, turn = null \} = \{\}\) \{[\s\S]*?(?=\n  function workspaceRestoreApplyAllowsConflicts)/,
-    )?.[0] ?? "";
-  const diagnosticsRepairExecutionStatusBody =
-    diagnosticsRepairExecution.match(
-      /  function diagnosticsRepairExecutionStatus\(result = \{\}\) \{[\s\S]*?(?=\n  function diagnosticsRepairRetryResultFromEvent)/,
-    )?.[0] ?? "";
-	  assertCheck(
-	    result,
-	    "diagnostics-repair-helper-result-aliases-retired",
-    /schema_version:\s*DIAGNOSTICS_REPAIR_DECISION_EXECUTION_SCHEMA_VERSION/.test(
-      diagnosticsRepairRetryResultBody,
+  const diagnosticsRepairRetiredResultHelpersAbsent =
+    !/diagnosticsRepairRetryResultFromEvent|diagnosticsOperatorOverrideResultFromEvent|diagnosticsRepairExecutionStatus|diagnosticsRepairApplyApprovalKey/.test(
+      diagnosticsRepairExecution,
     ) &&
-      /thread_id:\s*threadId/.test(diagnosticsRepairRetryResultBody) &&
-      /turn_id:\s*repairTurn\?\.turn_id \?\? payload\.retry_turn_id \?\? null/.test(
-        diagnosticsRepairRetryResultBody,
-      ) &&
-      /request_id:\s*repairTurn\?\.request_id \?\? run\?\.id \?\? payload\.retry_request_id \?\? null/.test(
-        diagnosticsRepairRetryResultBody,
-      ) &&
-      /receipt_refs:\s*normalizeArray\(event\?\.receipt_refs\)/.test(
-        diagnosticsRepairRetryResultBody,
-      ) &&
-      /gate_event_id:\s*payload\.gate_event_id \?\? null/.test(
-        diagnosticsOperatorOverrideResultBody,
-      ) &&
-      /gate_id:\s*payload\.gate_id \?\? null/.test(
-        diagnosticsOperatorOverrideResultBody,
-      ) &&
-      /approval_required:\s*Boolean\(payload\.approval_required\)/.test(
-        diagnosticsOperatorOverrideResultBody,
-      ) &&
-      /continuation_allowed:\s*Boolean\(payload\.continuation_allowed\)/.test(
-        diagnosticsOperatorOverrideResultBody,
-      ) &&
-      /receipt_refs:\s*normalizeArray\(event\?\.receipt_refs\)/.test(
-        diagnosticsOperatorOverrideResultBody,
-      ) &&
-      /const applyStatus = optionalString\(result\.apply_status\)/.test(
-        diagnosticsRepairExecutionStatusBody,
-      ) &&
-      /const previewStatus = optionalString\(result\.preview_status\)/.test(
-        diagnosticsRepairExecutionStatusBody,
-      ) &&
-      !/\b(?:result|payload)\.(?:applyStatus|previewStatus|gateEventId|gateId|targetTurnId|targetRunId|approvalRequired|approvalSatisfied|approvalSource|continuationAllowed)\b/.test(
-        `${diagnosticsRepairExecutionStatusBody}\n${diagnosticsOperatorOverrideResultBody}`,
-      ) &&
-      !/^\s*(?:schemaVersion|threadId|turnId|requestId|repairTurn|receiptRefs|artifactRefs|policyDecisionRefs|rollbackRefs)\s*:/m.test(
-        diagnosticsRepairRetryResultBody,
-      ) &&
-      !/^\s*(?:schemaVersion|threadId|overrideStatus|gateEventId|gateId|targetTurnId|targetRunId|approvalRequired|approvalSatisfied|approvalSource|continuationAllowed|receiptRefs|artifactRefs|policyDecisionRefs|rollbackRefs)\s*:/m.test(
-        diagnosticsOperatorOverrideResultBody,
-      ) &&
-      /Object\.hasOwn\(retry,\s*field\),\s*false/.test(diagnosticsRepairExecutionTest) &&
-      /Object\.hasOwn\(override,\s*field\),\s*false/.test(diagnosticsRepairExecutionTest) &&
-      /diagnosticsRepairExecutionStatus\(\{ applyStatus: "failed" \}\), "completed"/.test(
-        diagnosticsRepairExecutionTest,
-      ) &&
-      /gateEventId: "event-gate-alias"/.test(diagnosticsRepairExecutionTest) &&
-      /aliasOnlyOverride\.gate_event_id,\s*null/.test(diagnosticsRepairExecutionTest),
+    !/diagnosticsRepairRetryResultFromEvent|diagnosticsOperatorOverrideResultFromEvent|diagnosticsRepairExecutionStatus|diagnosticsRepairApplyApprovalKey/.test(
+      runtimeDaemonIndex,
+    ) &&
+    /diagnostics repair public result helpers are retired from JS helpers/.test(
+      diagnosticsRepairExecutionTest,
+    ) &&
+    /Object\.hasOwn\(runtime,\s*"diagnosticsRepairRetryResultFromEvent"\),\s*false/.test(
+      diagnosticsRepairExecutionTest,
+    ) &&
+    /Object\.hasOwn\(runtime,\s*"diagnosticsOperatorOverrideResultFromEvent"\),\s*false/.test(
+      diagnosticsRepairExecutionTest,
+    ) &&
+    /Object\.hasOwn\(runtime,\s*"diagnosticsRepairExecutionStatus"\),\s*false/.test(
+      diagnosticsRepairExecutionTest,
+    );
+		  assertCheck(
+		    result,
+		    "diagnostics-repair-helper-result-aliases-retired",
+	    diagnosticsRepairRetiredResultHelpersAbsent,
     [
       "packages/runtime-daemon/src/diagnostics-repair-execution.mjs",
       "packages/runtime-daemon/src/diagnostics-repair-execution.test.mjs",

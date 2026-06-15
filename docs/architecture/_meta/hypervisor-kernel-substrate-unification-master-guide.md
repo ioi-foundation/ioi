@@ -10000,6 +10000,28 @@ use `/v1/authority-evidence` or `/v1/workflow-capability-preflights`.
 Conformance now guards the absence of those native aliases so the migrated read
 family cannot regain a duplicate compatibility truth path.
 
+Slice 1257 hard-cuts the diagnostics repair retry result facade. Rust
+`RuntimeDiagnosticsRepairRetryResultProjectionCore` now owns the retry result
+projection through typed
+`daemonCoreRuntimeProjectionApi.projectRuntimeDiagnosticsRepairRetryResult`;
+the daemon requires that projection API before JS agent lookup/run creation,
+admits the Rust-authored retry event, validates the complete Rust-projected
+result after admission, rejects partial or mismatched projections, and returns
+only the Rust-projected retry result envelope without locally filling missing
+fields. The old JS `diagnosticsRepairRetryResultFromEvent`,
+`diagnosticsOperatorOverrideResultFromEvent`,
+`diagnosticsRepairApplyApprovalKey`, and `diagnosticsRepairExecutionStatus`
+helpers plus the stale daemon constructor wiring are deleted. Rust
+`command_protocol.rs` rejects
+`project_runtime_diagnostics_repair_retry_result` as command transport, and
+conformance now guards the positive typed API, the retired helper exports, the
+fail-closed missing/partial projection paths, and the absence of JS
+retry/operator result helper wiring. This removes the diagnostics repair retry
+result split-brain projection fallback; broader diagnostics completion still
+depends on durable
+diagnostics repair storage/replay, wallet-governed repair policy authority, and
+stable IDE/CLI/SDK diagnostics APIs over Rust-owned records.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The
