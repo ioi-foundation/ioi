@@ -635,6 +635,13 @@ Do not encode the remaining JS MCP serve protocol facade as terminal
 architecture. The Slice 769 MCP serve `params.args` alias-retirement
 matrix-compaction pass is complete, and the Slice 1224/1236 MCP serve
 authority-boundary cuts are tracked in the macro authority ledger.
+Slice 1237 then hard-cuts hosted provider lifecycle/inventory metadata transport
+out of the refusal-marker lane: Rust now emits contained hosted metadata
+transport contracts with `rust_materialized` execution status, cTEE
+no-plaintext custody evidence, wallet.network transport authority evidence, and
+explicit JS/command/binary-bridge/compatibility fallback false facts, while the
+JS protocol edge rejects retired `hosted_provider_transport_not_executed`
+evidence before public truth can return.
 Slice 770 retired the MCP manager `allowedTools` server config/catalog fallback
 before MCP manager records can expose tools. `mcp-manager.mjs` now derives
 declared tool exposure only from canonical `allowed_tools` and declared `tools`
@@ -9163,13 +9170,17 @@ Rust-authored `model-provider-lifecycle-controls` records with lifecycle
 hash/evidence, operation kind, and `model_mount.provider_lifecycle` boundary,
 then require Rust Agentgres commit before returning public lifecycle truth. They
 still avoid JS driver execution, lifecycle receipt creation, provider-map
-mutation, projection writes, and hosted transport execution; hosted/custom
-records carry `hosted_provider_transport_not_executed` evidence. Public
+mutation, projection writes, and JS-hosted transport execution; hosted/custom
+records carry Rust-contained metadata transport contracts with
+`rust_hosted_provider_metadata_transport_materialized`,
+`ctee_hosted_provider_secret_not_exposed`, and
+`wallet_network_provider_transport_authority_bound` evidence plus explicit
+JS/command/binary-bridge/compatibility fallback false facts. Public
 provider-health list/latest projections now replay admitted
 `model-provider-lifecycle-controls/*.json` records in Rust and ignore stale
 `provider_health` receipts or JS telemetry inputs. This remains non-terminal
-because actual hosted/provider transports, deeper receipt/state-root binding,
-stable protocol APIs remain open.
+because live external hosted API/model payload execution, deeper
+receipt/state-root binding, and stable protocol APIs remain open.
 Public model artifact import and endpoint mount/unmount have moved from the
 fail-closed artifact/endpoint JS facade to typed
 `daemonCoreModelMountApi.planModelMountArtifactEndpoint`, backed by Rust
@@ -9220,8 +9231,11 @@ envelopes, receive Rust-authored `model-provider-inventory` records, and commit
 only those records through Rust Agentgres model_mount record-state admission
 before inventory truth can return. Hosted/nonlocal provider inventory uses the
 Rust `rust_model_mount_hosted_provider_inventory` metadata backend, records only
-canonical provider metadata/item refs, marks hosted transport as not executed,
-and still avoids JS driver/network execution. `providerInventoryRecords()` now
+canonical provider metadata/item refs, carries a Rust-contained metadata
+transport contract with `rust_materialized` execution status, cTEE
+no-plaintext custody evidence, wallet.network transport authority evidence, and
+explicit JS/command/binary-bridge/compatibility fallback false facts, and still
+avoids JS driver/network execution. `providerInventoryRecords()` now
 calls Rust read-projection kind `provider_inventory_records` with runtime
 `state_dir`; Rust replays persisted `model-provider-inventory/*.json` Agentgres
 records and filters public truth to Rust-authored provider inventory records.
@@ -9279,9 +9293,10 @@ and returns catalog provider status, storage status, last-search summary, and
 result rows with catalog-status evidence. JS `catalog_status_input`, provider
 port iteration, storage summarization, `lastCatalogSearch` readback, and status
 aggregation stay retired.
-Hosted/nonlocal provider transport execution and dynamic hosted catalog
+Live external hosted catalog API execution and dynamic hosted catalog
 materialization remain non-terminal, but the public hosted inventory facade no
-longer fails closed or returns through JS driver execution. Public
+longer fails closed, returns the retired hosted-transport-not-executed marker, or
+returns through JS driver execution. Public
 provider upsert now moves through Rust daemon-core
 `plan_model_mount_provider_control`: the mounted daemon facade sends canonical
 provider facts, never resolves vault material, receives a Rust-authored
@@ -9695,6 +9710,19 @@ only the replayed protocol payload. This remains non-terminal because external
 MCP transport execution, runtime containment sandboxing for live backends,
 broader serve admission, and stable SDK/IDE protocol APIs still need terminal
 Rust-owned records.
+
+Slice 1237 hard-cuts hosted provider lifecycle/inventory metadata transport out
+of the old refusal-marker compatibility lane. Rust provider lifecycle and
+inventory planners now emit contained hosted metadata transport contracts with
+`rust_materialized` execution status, cTEE no-plaintext custody checks,
+wallet.network transport-authority evidence, and explicit JS/command/
+binary-bridge/compatibility fallback false facts. Public JS protocol adapters
+must preserve and validate those Rust-authored contracts, and they now reject the
+retired `hosted_provider_transport_not_executed` evidence marker before hosted
+provider lifecycle or inventory truth can return. This remains non-terminal
+because live external hosted API/model payload execution, richer hosted catalog
+materialization, deeper receipt/state-root binding, and stable SDK/IDE provider
+protocol APIs still need terminal Rust-owned records.
 
 ## Final Doctrine
 

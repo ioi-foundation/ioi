@@ -4264,6 +4264,14 @@ function assertRustAuthoredProviderInventoryResult(result = {}, options = {}) {
   const recordId = result.record_id ?? inventoryRecord.id ?? inventoryRecord.record_id;
   const operationKind = result.operation_kind ?? record.operation_kind ?? inventoryRecord.operation_kind;
   const rustCoreBoundary = result.rust_core_boundary ?? record.rust_core_boundary ?? inventoryRecord.rust_core_boundary;
+  const transportContract =
+    result.transport_contract && typeof result.transport_contract === "object" && !Array.isArray(result.transport_contract)
+      ? result.transport_contract
+      : record.transport_contract && typeof record.transport_contract === "object" && !Array.isArray(record.transport_contract)
+        ? record.transport_contract
+        : inventoryRecord.transport_contract && typeof inventoryRecord.transport_contract === "object" && !Array.isArray(inventoryRecord.transport_contract)
+          ? inventoryRecord.transport_contract
+          : null;
   const missing = [];
   const mismatches = [];
   if (!record.provider_ref) missing.push("result.provider_ref");
@@ -4297,6 +4305,25 @@ function assertRustAuthoredProviderInventoryResult(result = {}, options = {}) {
   if (inventoryRecord.rust_core_boundary !== "model_mount.provider_inventory") {
     missing.push("record.rust_core_boundary");
   }
+  if (!transportContract) {
+    missing.push("transport_contract");
+  } else {
+    if (transportContract.transport_execution_status !== "rust_materialized") {
+      missing.push("transport_contract.transport_execution_status.rust_materialized");
+    }
+    if (transportContract.transport_execution_owner !== "rust_daemon_core.model_mount.provider_inventory") {
+      missing.push("transport_contract.transport_execution_owner");
+    }
+    for (const field of [
+      "plaintext_secret_material_returned",
+      "js_transport_invocation",
+      "command_transport_fallback",
+      "binary_bridge_fallback",
+      "compatibility_fallback",
+    ]) {
+      if (transportContract[field] !== false) missing.push(`transport_contract.${field}_false`);
+    }
+  }
   if (!Array.isArray(result.receipt_refs)) missing.push("receipt_refs");
   if (!evidenceRefs.includes("rust_model_mount_provider_inventory")) {
     missing.push("evidence_refs.rust_model_mount_provider_inventory");
@@ -4309,6 +4336,12 @@ function assertRustAuthoredProviderInventoryResult(result = {}, options = {}) {
   }
   if (!recordEvidenceRefs.includes("agentgres_provider_inventory_truth_required")) {
     missing.push("record.evidence_refs.agentgres_provider_inventory_truth_required");
+  }
+  if (evidenceRefs.includes("hosted_provider_transport_not_executed")) {
+    missing.push("evidence_refs.hosted_provider_transport_not_executed_retired");
+  }
+  if (recordEvidenceRefs.includes("hosted_provider_transport_not_executed")) {
+    missing.push("record.evidence_refs.hosted_provider_transport_not_executed_retired");
   }
   if (missing.length === 0 && mismatches.length === 0) return;
   throw runtimeError({
@@ -4354,6 +4387,14 @@ function assertRustAuthoredProviderLifecycleResult(result = {}, options = {}) {
     : Array.isArray(record.evidence_refs)
       ? record.evidence_refs
       : [];
+  const transportContract =
+    result.transport_contract && typeof result.transport_contract === "object" && !Array.isArray(result.transport_contract)
+      ? result.transport_contract
+      : record.transport_contract && typeof record.transport_contract === "object" && !Array.isArray(record.transport_contract)
+        ? record.transport_contract
+        : lifecycleRecord.transport_contract && typeof lifecycleRecord.transport_contract === "object" && !Array.isArray(lifecycleRecord.transport_contract)
+          ? lifecycleRecord.transport_contract
+          : null;
   const missing = [];
   const mismatches = [];
   if (!result.lifecycle_hash && !record.lifecycle_hash) missing.push("lifecycle_hash");
@@ -4369,6 +4410,28 @@ function assertRustAuthoredProviderLifecycleResult(result = {}, options = {}) {
     missing.push("result.action");
   } else if (options.action && record.action !== options.action) {
     mismatches.push("result.action");
+  }
+  if (!transportContract) {
+    missing.push("transport_contract");
+  } else {
+    if (transportContract.transport_execution_status !== "rust_materialized") {
+      missing.push("transport_contract.transport_execution_status.rust_materialized");
+    }
+    if (transportContract.transport_execution_owner !== "rust_daemon_core.model_mount.provider_lifecycle") {
+      missing.push("transport_contract.transport_execution_owner");
+    }
+    for (const field of [
+      "plaintext_secret_material_returned",
+      "js_transport_invocation",
+      "command_transport_fallback",
+      "binary_bridge_fallback",
+      "compatibility_fallback",
+    ]) {
+      if (transportContract[field] !== false) missing.push(`transport_contract.${field}_false`);
+    }
+  }
+  if (evidenceRefs.includes("hosted_provider_transport_not_executed")) {
+    missing.push("evidence_refs.hosted_provider_transport_not_executed_retired");
   }
   if (options.commitRecordState) {
     const lifecycleHash = result.lifecycle_hash ?? record.lifecycle_hash ?? lifecycleRecord.lifecycle_hash;
@@ -4399,6 +4462,9 @@ function assertRustAuthoredProviderLifecycleResult(result = {}, options = {}) {
     }
     if (!recordEvidenceRefs.includes("agentgres_provider_lifecycle_truth_required")) {
       missing.push("record.evidence_refs.agentgres_provider_lifecycle_truth_required");
+    }
+    if (recordEvidenceRefs.includes("hosted_provider_transport_not_executed")) {
+      missing.push("record.evidence_refs.hosted_provider_transport_not_executed_retired");
     }
   }
   if (missing.length === 0 && mismatches.length === 0) return;

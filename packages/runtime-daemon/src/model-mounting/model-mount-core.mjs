@@ -460,6 +460,9 @@ function normalizeProviderLifecycleApiResult(value = {}) {
     driver: result.driver ?? record.driver ?? null,
     executionBackend: result.execution_backend ?? record.execution_backend ?? null,
     lifecycle_hash: result.lifecycle_hash ?? record.lifecycle_hash ?? null,
+    transport_contract: result.transport_contract ?? record.transport_contract ?? lifecycleRecord?.transport_contract ?? null,
+    transport_execution_status:
+      result.transport_execution_status ?? record.transport_execution_status ?? lifecycleRecord?.transport_execution_status ?? null,
     operation_kind: result.operation_kind ?? record.operation_kind ?? lifecycleRecord?.operation_kind ?? null,
     rust_core_boundary: result.rust_core_boundary ?? record.rust_core_boundary ?? lifecycleRecord?.rust_core_boundary ?? null,
     record_dir: result.record_dir ?? record.record_dir ?? lifecycleRecord?.record_dir ?? null,
@@ -508,6 +511,14 @@ function normalizeProviderInventoryApiResult(value = {}) {
     itemRefs,
     itemCount: result.item_count ?? record.item_count ?? null,
     inventory_hash: result.inventory_hash ?? record.inventory_hash ?? null,
+    transport_contract:
+      result.transport_contract ?? record.transport_contract ?? result.record?.transport_contract ?? record.record?.transport_contract ?? null,
+    transport_execution_status:
+      result.transport_execution_status ??
+      record.transport_execution_status ??
+      result.record?.transport_execution_status ??
+      record.record?.transport_execution_status ??
+      null,
     operation_kind: result.operation_kind ?? record.operation_kind ?? null,
     rust_core_boundary: result.rust_core_boundary ?? record.rust_core_boundary ?? null,
     record_dir: result.record_dir ?? record.record_dir ?? null,

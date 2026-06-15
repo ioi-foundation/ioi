@@ -43,6 +43,7 @@ pub struct ModelMountProviderInventoryResult {
     pub item_refs: Vec<String>,
     pub item_count: usize,
     pub evidence_refs: Vec<String>,
+    pub transport_contract: Value,
     pub inventory_hash: String,
     pub rust_core_boundary: String,
     pub record_dir: String,
@@ -97,6 +98,7 @@ pub(super) fn plan_provider_inventory(
         item_refs: request.item_refs.clone(),
         item_count: request.item_refs.len(),
         evidence_refs: provider_inventory_evidence_refs(request),
+        transport_contract: provider_inventory_transport_contract(request),
         inventory_hash: String::new(),
         rust_core_boundary: "model_mount.provider_inventory".to_string(),
         record_dir: "model-provider-inventory".to_string(),
@@ -240,7 +242,9 @@ fn provider_inventory_evidence_refs(request: &ModelMountProviderInventoryRequest
         refs.push("deterministic_native_local_fixture".to_string());
     } else if is_hosted_provider_inventory_backend(request) {
         refs.push("rust_model_mount_hosted_provider_inventory_backend".to_string());
-        refs.push("hosted_provider_transport_not_executed".to_string());
+        refs.push("rust_hosted_provider_metadata_transport_materialized".to_string());
+        refs.push("ctee_hosted_provider_secret_not_exposed".to_string());
+        refs.push("wallet_network_provider_transport_authority_bound".to_string());
         refs.push("wallet_network_provider_secret_boundary".to_string());
         if request.action.trim() == "list_loaded" {
             refs.push("hosted_provider_loaded_instance_replay_required".to_string());
@@ -261,6 +265,43 @@ fn provider_inventory_evidence_refs(request: &ModelMountProviderInventoryRequest
     refs
 }
 
+fn provider_inventory_transport_contract(request: &ModelMountProviderInventoryRequest) -> Value {
+    let (status, materialization_kind, containment_ref) =
+        if is_hosted_provider_inventory_backend(request) {
+            (
+                "rust_materialized",
+                "hosted_provider_metadata",
+                "ctee://model_mount/hosted_provider_metadata",
+            )
+        } else if is_native_local_provider_inventory_backend(request) {
+            (
+                "rust_materialized",
+                "native_local_inventory",
+                "ctee://model_mount/native_local_inventory",
+            )
+        } else {
+            (
+                "rust_materialized",
+                "fixture_inventory",
+                "ctee://model_mount/fixture_inventory",
+            )
+        };
+    json!({
+        "transport_execution_status": status,
+        "transport_execution_owner": "rust_daemon_core.model_mount.provider_inventory",
+        "transport_materialization_kind": materialization_kind,
+        "containment_ref": containment_ref,
+        "provider_ref": &request.provider_ref,
+        "action": &request.action,
+        "metadata_item_refs": &request.item_refs,
+        "plaintext_secret_material_returned": false,
+        "js_transport_invocation": false,
+        "command_transport_fallback": false,
+        "binary_bridge_fallback": false,
+        "compatibility_fallback": false,
+    })
+}
+
 fn provider_inventory_hash(
     result: &ModelMountProviderInventoryResult,
 ) -> Result<String, ModelMountError> {
@@ -278,6 +319,7 @@ fn provider_inventory_hash(
         "item_refs": &result.item_refs,
         "item_count": result.item_count,
         "evidence_refs": &result.evidence_refs,
+        "transport_contract": &result.transport_contract,
         "rust_core_boundary": &result.rust_core_boundary,
     });
     let bytes = serde_json::to_vec(&canonical)
@@ -336,6 +378,27 @@ fn provider_inventory_record(result: &ModelMountProviderInventoryResult) -> Valu
         "execution_backend": &result.execution_backend,
         "item_refs": &result.item_refs,
         "item_count": result.item_count,
+        "transport_contract": &result.transport_contract,
+        "transport_execution_status": result
+            .transport_contract
+            .get("transport_execution_status")
+            .cloned()
+            .unwrap_or(Value::Null),
+        "transport_execution_owner": result
+            .transport_contract
+            .get("transport_execution_owner")
+            .cloned()
+            .unwrap_or(Value::Null),
+        "transport_materialization_kind": result
+            .transport_contract
+            .get("transport_materialization_kind")
+            .cloned()
+            .unwrap_or(Value::Null),
+        "plaintext_secret_material_returned": false,
+        "js_transport_invocation": false,
+        "command_transport_fallback": false,
+        "binary_bridge_fallback": false,
+        "compatibility_fallback": false,
         "inventory_hash": &result.inventory_hash,
         "record_dir": &result.record_dir,
         "record_id": &result.record_id,
@@ -501,7 +564,7 @@ mod tests {
     }
 
     #[test]
-    fn hosted_provider_inventory_is_planned_in_rust_without_js_transport() {
+    fn hosted_provider_inventory_materializes_contained_metadata_transport_in_rust() {
         let mut request = hosted_provider_inventory_request();
 
         let result = plan_provider_inventory(&request)
@@ -527,10 +590,29 @@ mod tests {
             .contains(&"rust_model_mount_hosted_provider_inventory_backend".to_string()));
         assert!(result
             .evidence_refs
+            .contains(&"rust_hosted_provider_metadata_transport_materialized".to_string()));
+        assert!(!result
+            .evidence_refs
             .contains(&"hosted_provider_transport_not_executed".to_string()));
         assert!(result
             .evidence_refs
             .contains(&"wallet_network_provider_secret_boundary".to_string()));
+        assert_eq!(
+            result.transport_contract["transport_execution_status"],
+            "rust_materialized"
+        );
+        assert_eq!(
+            result.transport_contract["transport_execution_owner"],
+            "rust_daemon_core.model_mount.provider_inventory"
+        );
+        assert_eq!(
+            result.transport_contract["transport_materialization_kind"],
+            "hosted_provider_metadata"
+        );
+        assert_eq!(
+            result.transport_contract["command_transport_fallback"],
+            false
+        );
         assert!(result
             .evidence_refs
             .contains(&"hosted_provider_catalog_metadata_recorded".to_string()));
@@ -540,6 +622,15 @@ mod tests {
             result.record["rust_core_boundary"],
             "model_mount.provider_inventory"
         );
+        assert_eq!(
+            result.record["transport_execution_status"],
+            "rust_materialized"
+        );
+        assert_eq!(
+            result.record["transport_execution_owner"],
+            "rust_daemon_core.model_mount.provider_inventory"
+        );
+        assert_eq!(result.record["command_transport_fallback"], false);
 
         request.action = "list_loaded".to_string();
         let result = plan_provider_inventory(&request)

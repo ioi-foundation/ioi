@@ -53,6 +53,7 @@ pub struct ModelMountProviderLifecycleResult {
     pub driver: String,
     pub execution_backend: String,
     pub evidence_refs: Vec<String>,
+    pub transport_contract: Value,
     pub lifecycle_hash: String,
     pub operation_kind: String,
     pub rust_core_boundary: String,
@@ -112,6 +113,7 @@ pub(super) fn plan_provider_lifecycle(
         driver: provider_lifecycle_driver(request),
         execution_backend: request.execution_backend.clone(),
         evidence_refs: provider_lifecycle_evidence_refs(request),
+        transport_contract: provider_lifecycle_transport_contract(request),
         lifecycle_hash: String::new(),
         operation_kind,
         rust_core_boundary: "model_mount.provider_lifecycle".to_string(),
@@ -287,7 +289,9 @@ fn provider_lifecycle_evidence_refs(request: &ModelMountProviderLifecycleRequest
         refs.push("deterministic_native_local_fixture".to_string());
     } else if is_hosted_provider_lifecycle_backend(request) {
         refs.push("rust_model_mount_hosted_provider_lifecycle_backend".to_string());
-        refs.push("hosted_provider_transport_not_executed".to_string());
+        refs.push("rust_hosted_provider_metadata_transport_materialized".to_string());
+        refs.push("ctee_hosted_provider_secret_not_exposed".to_string());
+        refs.push("wallet_network_provider_transport_authority_bound".to_string());
         refs.push("wallet_network_provider_lifecycle_authority_required".to_string());
     } else {
         refs.push("rust_model_mount_fixture_lifecycle_backend".to_string());
@@ -302,6 +306,37 @@ fn provider_lifecycle_evidence_refs(request: &ModelMountProviderLifecycleRequest
         push_unique_ref(&mut refs, evidence_ref);
     }
     refs
+}
+
+fn provider_lifecycle_transport_contract(request: &ModelMountProviderLifecycleRequest) -> Value {
+    let (materialization_kind, containment_ref) = if is_hosted_provider_lifecycle_backend(request) {
+        (
+            "hosted_provider_metadata_lifecycle",
+            "ctee://model_mount/hosted_provider_lifecycle",
+        )
+    } else if is_native_local_provider_lifecycle_backend(request) {
+        (
+            "native_local_lifecycle",
+            "ctee://model_mount/native_local_lifecycle",
+        )
+    } else {
+        ("fixture_lifecycle", "ctee://model_mount/fixture_lifecycle")
+    };
+    json!({
+        "transport_execution_status": "rust_materialized",
+        "transport_execution_owner": "rust_daemon_core.model_mount.provider_lifecycle",
+        "transport_materialization_kind": materialization_kind,
+        "containment_ref": containment_ref,
+        "provider_ref": &request.provider_ref,
+        "endpoint_ref": &request.endpoint_ref,
+        "model_ref": &request.model_ref,
+        "action": &request.action,
+        "plaintext_secret_material_returned": false,
+        "js_transport_invocation": false,
+        "command_transport_fallback": false,
+        "binary_bridge_fallback": false,
+        "compatibility_fallback": false,
+    })
 }
 
 fn provider_lifecycle_hash(
@@ -322,6 +357,7 @@ fn provider_lifecycle_hash(
         "operation_kind": &result.operation_kind,
         "rust_core_boundary": &result.rust_core_boundary,
         "evidence_refs": &result.evidence_refs,
+        "transport_contract": &result.transport_contract,
         "receipt_refs": &result.receipt_refs,
     });
     let bytes = serde_json::to_vec(&canonical)
@@ -372,7 +408,28 @@ fn provider_lifecycle_public_response(result: &ModelMountProviderLifecycleResult
         "operation_kind": &result.operation_kind,
         "rust_core_boundary": &result.rust_core_boundary,
         "lifecycle_hash": &result.lifecycle_hash,
+        "transport_contract": &result.transport_contract,
+        "transport_execution_status": result
+            .transport_contract
+            .get("transport_execution_status")
+            .cloned()
+            .unwrap_or(Value::Null),
+        "transport_execution_owner": result
+            .transport_contract
+            .get("transport_execution_owner")
+            .cloned()
+            .unwrap_or(Value::Null),
+        "transport_materialization_kind": result
+            .transport_contract
+            .get("transport_materialization_kind")
+            .cloned()
+            .unwrap_or(Value::Null),
+        "plaintext_secret_material_returned": false,
         "js_provider_driver_call": false,
+        "js_transport_invocation": false,
+        "command_transport_fallback": false,
+        "binary_bridge_fallback": false,
+        "compatibility_fallback": false,
         "js_provider_map_write": false,
         "js_lifecycle_receipt": false,
         "js_projection_write": false,
@@ -398,6 +455,27 @@ fn provider_lifecycle_record(result: &ModelMountProviderLifecycleResult) -> Valu
         "backend_id": &result.backend_id,
         "driver": &result.driver,
         "execution_backend": &result.execution_backend,
+        "transport_contract": &result.transport_contract,
+        "transport_execution_status": result
+            .transport_contract
+            .get("transport_execution_status")
+            .cloned()
+            .unwrap_or(Value::Null),
+        "transport_execution_owner": result
+            .transport_contract
+            .get("transport_execution_owner")
+            .cloned()
+            .unwrap_or(Value::Null),
+        "transport_materialization_kind": result
+            .transport_contract
+            .get("transport_materialization_kind")
+            .cloned()
+            .unwrap_or(Value::Null),
+        "plaintext_secret_material_returned": false,
+        "js_transport_invocation": false,
+        "command_transport_fallback": false,
+        "binary_bridge_fallback": false,
+        "compatibility_fallback": false,
         "lifecycle_hash": &result.lifecycle_hash,
         "record_dir": &result.record_dir,
         "receipt_refs": record_receipt_refs,
@@ -601,7 +679,7 @@ mod tests {
     }
 
     #[test]
-    fn hosted_provider_lifecycle_is_planned_without_transport_execution() {
+    fn hosted_provider_lifecycle_materializes_contained_metadata_transport_in_rust() {
         let request = ModelMountProviderLifecycleRequest {
             schema_version: MODEL_MOUNT_PROVIDER_LIFECYCLE_SCHEMA_VERSION.to_string(),
             provider_ref: "provider://openai".to_string(),
@@ -637,7 +715,31 @@ mod tests {
             .contains(&"rust_model_mount_hosted_provider_lifecycle_backend".to_string()));
         assert!(result
             .evidence_refs
+            .contains(&"rust_hosted_provider_metadata_transport_materialized".to_string()));
+        assert!(!result
+            .evidence_refs
             .contains(&"hosted_provider_transport_not_executed".to_string()));
+        assert_eq!(
+            result.transport_contract["transport_execution_status"],
+            "rust_materialized"
+        );
+        assert_eq!(
+            result.transport_contract["transport_execution_owner"],
+            "rust_daemon_core.model_mount.provider_lifecycle"
+        );
+        assert_eq!(
+            result.transport_contract["transport_materialization_kind"],
+            "hosted_provider_metadata_lifecycle"
+        );
+        assert_eq!(
+            result.transport_contract["command_transport_fallback"],
+            false
+        );
+        assert_eq!(
+            result.public_response["transport_execution_status"],
+            "rust_materialized"
+        );
+        assert_eq!(result.public_response["command_transport_fallback"], false);
         assert!(result.public_response["js_provider_driver_call"] == false);
     }
 

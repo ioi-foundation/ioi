@@ -24086,14 +24086,27 @@ function runReceipts() {
       /local provider inventory uses Rust native-local inventory planner without JS driver/.test(
         read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
       ) &&
-      /hosted provider inventory commits Rust metadata records without JS driver execution/.test(
-        providerOperationsTest,
-      ) &&
-      /rust_model_mount_hosted_provider_inventory/.test(providerOperationsTest) &&
-      /hosted_provider_transport_not_executed/.test(providerOperationsTest) &&
-      /local provider inventory fails closed when Rust inventory planner is unavailable/.test(
-        read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
-      ) &&
+	      /hosted provider inventory commits Rust metadata records without JS driver execution/.test(
+	        providerOperationsTest,
+	      ) &&
+	      /rust_model_mount_hosted_provider_inventory/.test(providerOperationsTest) &&
+	      /rust_hosted_provider_metadata_transport_materialized/.test(providerOperationsTest) &&
+	      /assert\.equal\(models\.evidence_refs\.includes\("hosted_provider_transport_not_executed"\),\s*false\)/.test(
+	        providerOperationsTest,
+	      ) &&
+	      /hosted_provider_inventory_materializes_contained_metadata_transport_in_rust/.test(
+	        modelMountCore,
+	      ) &&
+	      /rust_daemon_core\.model_mount\.provider_inventory/.test(modelMountCore) &&
+	      /transport_contract\.transport_execution_status\.rust_materialized/.test(
+	        providerOperations,
+	      ) &&
+	      /evidence_refs\.hosted_provider_transport_not_executed_retired/.test(
+	        providerOperations,
+	      ) &&
+	      /local provider inventory fails closed when Rust inventory planner is unavailable/.test(
+	        read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
+	      ) &&
       /provider inventory facade requires Rust Agentgres provider-inventory record-state commit/.test(
         providerOperationsTest,
       ) &&
@@ -24143,14 +24156,27 @@ function runReceipts() {
       !/state\.driverForProvider\(provider\)\.health/.test(providerOperations) &&
       !/state\.receipt\("provider_health"/.test(providerOperations) &&
       !/state\.providers\.set/.test(providerOperations) &&
-      !/state\.writeProjection/.test(providerOperations) &&
-      /RUST_MODEL_MOUNT_HOSTED_PROVIDER_LIFECYCLE_BACKEND/.test(providerOperations) &&
-      /hostedProviderMetadata\(provider\)/.test(providerOperations) &&
-      /rust_model_mount_hosted_provider_lifecycle/.test(modelMountCore) &&
-      /hosted_provider_lifecycle_is_planned_without_transport_execution/.test(modelMountCore) &&
-      /provider health commits Rust provider-lifecycle record without JS driver, receipt, or provider write/.test(
-        read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
-      ) &&
+	      !/state\.writeProjection/.test(providerOperations) &&
+	      /RUST_MODEL_MOUNT_HOSTED_PROVIDER_LIFECYCLE_BACKEND/.test(providerOperations) &&
+	      /hostedProviderMetadata\(provider\)/.test(providerOperations) &&
+	      /rust_model_mount_hosted_provider_lifecycle/.test(modelMountCore) &&
+	      /hosted_provider_lifecycle_materializes_contained_metadata_transport_in_rust/.test(
+	        modelMountCore,
+	      ) &&
+	      /rust_hosted_provider_metadata_transport_materialized/.test(providerOperationsTest) &&
+	      /assert\.equal\(stopResult\.evidence_refs\.includes\("hosted_provider_transport_not_executed"\),\s*false\)/.test(
+	        providerOperationsTest,
+	      ) &&
+	      /rust_daemon_core\.model_mount\.provider_lifecycle/.test(modelMountCore) &&
+	      /transport_contract\.transport_execution_status\.rust_materialized/.test(
+	        providerOperations,
+	      ) &&
+	      /record\.evidence_refs\.hosted_provider_transport_not_executed_retired/.test(
+	        providerOperations,
+	      ) &&
+	      /provider health commits Rust provider-lifecycle record without JS driver, receipt, or provider write/.test(
+	        read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
+	      ) &&
       /hosted provider health commits Rust metadata lifecycle records without JS driver execution/.test(
         providerOperationsTest,
       ) &&

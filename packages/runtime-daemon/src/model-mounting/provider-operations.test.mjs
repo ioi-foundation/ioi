@@ -182,11 +182,27 @@ function fakeState() {
             : "rust_model_mount_fixture_lifecycle_backend",
         ...(hostedProvider
           ? [
-            "hosted_provider_transport_not_executed",
+            "rust_hosted_provider_metadata_transport_materialized",
+            "ctee_hosted_provider_secret_not_exposed",
+            "wallet_network_provider_transport_authority_bound",
             "wallet_network_provider_lifecycle_authority_required",
           ]
           : []),
       ];
+      const transportContract = {
+        transport_execution_status: "rust_materialized",
+        transport_execution_owner: "rust_daemon_core.model_mount.provider_lifecycle",
+        transport_materialization_kind: hostedProvider
+          ? "hosted_provider_metadata_lifecycle"
+          : nativeLocal
+            ? "native_local_lifecycle"
+            : "fixture_lifecycle",
+        plaintext_secret_material_returned: false,
+        js_transport_invocation: false,
+        command_transport_fallback: false,
+        binary_bridge_fallback: false,
+        compatibility_fallback: false,
+      };
       const record = {
         ...request,
         operation_kind: request.operation_kind,
@@ -196,6 +212,7 @@ function fakeState() {
         driver,
         lifecycle_hash: `sha256:${request.provider_ref}:${request.action}`,
         evidence_refs: evidenceRefs,
+        transport_contract: transportContract,
         rust_core_boundary: "model_mount.provider_lifecycle",
         record_dir: "model-provider-lifecycle-controls",
         receipt_refs: [],
@@ -217,6 +234,15 @@ function fakeState() {
         backend_id: backendId,
         driver: record.driver,
         execution_backend: request.execution_backend,
+        transport_contract: transportContract,
+        transport_execution_status: "rust_materialized",
+        transport_execution_owner: "rust_daemon_core.model_mount.provider_lifecycle",
+        transport_materialization_kind: transportContract.transport_materialization_kind,
+        plaintext_secret_material_returned: false,
+        js_transport_invocation: false,
+        command_transport_fallback: false,
+        binary_bridge_fallback: false,
+        compatibility_fallback: false,
         lifecycle_hash: record.lifecycle_hash,
         record_dir: "model-provider-lifecycle-controls",
         receipt_refs: [record.lifecycle_hash],
@@ -239,7 +265,13 @@ function fakeState() {
         operation_kind: request.operation_kind,
         rust_core_boundary: "model_mount.provider_lifecycle",
         lifecycle_hash: record.lifecycle_hash,
+        transport_contract: transportContract,
+        transport_execution_status: "rust_materialized",
         js_provider_driver_call: false,
+        js_transport_invocation: false,
+        command_transport_fallback: false,
+        binary_bridge_fallback: false,
+        compatibility_fallback: false,
         js_provider_map_write: false,
         js_lifecycle_receipt: false,
         js_projection_write: false,
@@ -292,11 +324,27 @@ function fakeState() {
             : "rust_model_mount_fixture_inventory_backend",
         ...(hostedProvider
           ? [
-            "hosted_provider_transport_not_executed",
+            "rust_hosted_provider_metadata_transport_materialized",
+            "ctee_hosted_provider_secret_not_exposed",
+            "wallet_network_provider_transport_authority_bound",
             "wallet_network_provider_secret_boundary",
           ]
           : []),
       ];
+      const transportContract = {
+        transport_execution_status: "rust_materialized",
+        transport_execution_owner: "rust_daemon_core.model_mount.provider_inventory",
+        transport_materialization_kind: hostedProvider
+          ? "hosted_provider_metadata"
+          : nativeLocal
+            ? "native_local_inventory"
+            : "fixture_inventory",
+        plaintext_secret_material_returned: false,
+        js_transport_invocation: false,
+        command_transport_fallback: false,
+        binary_bridge_fallback: false,
+        compatibility_fallback: false,
+      };
       const inventoryHash = `sha256:${request.provider_ref}:${request.action}`;
       const recordId = `provider_inventory_${request.provider_ref.replace(/[^a-z0-9._-]+/gi, "_").replace(/^_+|_+$/g, "")}_${request.action}_test`;
       const providerInventoryRecord = {
@@ -318,6 +366,15 @@ function fakeState() {
         execution_backend: request.execution_backend,
         item_refs: itemRefs,
         item_count: itemRefs.length,
+        transport_contract: transportContract,
+        transport_execution_status: "rust_materialized",
+        transport_execution_owner: "rust_daemon_core.model_mount.provider_inventory",
+        transport_materialization_kind: transportContract.transport_materialization_kind,
+        plaintext_secret_material_returned: false,
+        js_transport_invocation: false,
+        command_transport_fallback: false,
+        binary_bridge_fallback: false,
+        compatibility_fallback: false,
         inventory_hash: inventoryHash,
         record_dir: "model-provider-inventory",
         record_id: recordId,
@@ -339,6 +396,8 @@ function fakeState() {
         driver: nativeLocal ? "native_local" : hostedProvider ? "hosted_provider_metadata" : "fixture",
         item_refs: itemRefs,
         item_count: itemRefs.length,
+        transport_contract: transportContract,
+        transport_execution_status: "rust_materialized",
         inventory_hash: inventoryHash,
         rust_core_boundary: "model_mount.provider_inventory",
         record_dir: "model-provider-inventory",
@@ -358,6 +417,8 @@ function fakeState() {
         executionBackend: request.execution_backend,
         itemRefs,
         itemCount: itemRefs.length,
+        transport_contract: transportContract,
+        transport_execution_status: "rust_materialized",
         inventory_hash: inventoryHash,
         operation_kind: operationKind,
         rust_core_boundary: "model_mount.provider_inventory",
@@ -801,7 +862,12 @@ test("hosted provider health commits Rust metadata lifecycle records without JS 
   assert.equal(result.driver, "hosted_provider_metadata");
   assert.equal(result.public_response.js_provider_driver_call, false);
   assert.equal(result.evidence_refs.includes("rust_model_mount_hosted_provider_lifecycle_backend"), true);
-  assert.equal(result.evidence_refs.includes("hosted_provider_transport_not_executed"), true);
+  assert.equal(result.evidence_refs.includes("rust_hosted_provider_metadata_transport_materialized"), true);
+  assert.equal(result.evidence_refs.includes("hosted_provider_transport_not_executed"), false);
+  assert.equal(result.transport_execution_status, "rust_materialized");
+  assert.equal(result.public_response.transport_execution_status, "rust_materialized");
+  assert.equal(result.public_response.command_transport_fallback, false);
+  assert.equal(result.record.transport_execution_owner, "rust_daemon_core.model_mount.provider_lifecycle");
   assert.equal(state.providers.get("provider.remote").status, "configured");
   assert.deepEqual(state.receipts, []);
   assert.equal(state.recordStateCommits.length, 1);
@@ -1091,7 +1157,11 @@ test("hosted provider inventory commits Rust metadata records without JS driver 
   assert.equal(models.itemCount, 1);
   assert.equal(models.record.rust_core_boundary, "model_mount.provider_inventory");
   assert.equal(models.evidence_refs.includes("rust_model_mount_hosted_provider_inventory_backend"), true);
-  assert.equal(models.evidence_refs.includes("hosted_provider_transport_not_executed"), true);
+  assert.equal(models.evidence_refs.includes("rust_hosted_provider_metadata_transport_materialized"), true);
+  assert.equal(models.evidence_refs.includes("hosted_provider_transport_not_executed"), false);
+  assert.equal(models.transport_execution_status, "rust_materialized");
+  assert.equal(models.record.transport_execution_owner, "rust_daemon_core.model_mount.provider_inventory");
+  assert.equal(models.record.command_transport_fallback, false);
   assert.equal(models.commit.record_id, models.record_id);
   assert.equal(loaded.status, "listed");
   assert.equal(loaded.operation_kind, "model_mount.provider.inventory.list_loaded");
@@ -1303,7 +1373,10 @@ test("hosted provider start and stop commit Rust metadata lifecycle records with
   assert.equal(startResult.public_response.js_provider_driver_call, false);
   assert.equal(stopResult.public_response.js_provider_driver_call, false);
   assert.equal(startResult.evidence_refs.includes("rust_model_mount_hosted_provider_lifecycle_backend"), true);
-  assert.equal(stopResult.evidence_refs.includes("hosted_provider_transport_not_executed"), true);
+  assert.equal(stopResult.evidence_refs.includes("rust_hosted_provider_metadata_transport_materialized"), true);
+  assert.equal(stopResult.evidence_refs.includes("hosted_provider_transport_not_executed"), false);
+  assert.equal(stopResult.transport_execution_status, "rust_materialized");
+  assert.equal(stopResult.public_response.binary_bridge_fallback, false);
   assert.equal(state.providers.get("provider.custom").status, "configured");
   assert.deepEqual(state.receipts, []);
   assert.equal(state.recordStateCommits.length, 2);

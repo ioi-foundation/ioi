@@ -1141,31 +1141,52 @@ test("Rust model_mount core sends hosted provider lifecycle through typed daemon
           result: {
           source: "rust_model_mount_provider_lifecycle_api",
           backend: "rust_model_mount_hosted_provider_lifecycle",
-          result: {
-            ...request,
-            status: "available",
-            backend: "openai_compatible",
-            backend_id: "backend.hosted.custom_http",
-            driver: "hosted_provider_metadata",
-            lifecycle_hash: "sha256:hosted-lifecycle",
-            evidence_refs: [
-              "rust_model_mount_provider_lifecycle",
-              "rust_model_mount_hosted_provider_lifecycle_backend",
-              "hosted_provider_transport_not_executed",
-            ],
-          },
+	          result: {
+	            ...request,
+	            status: "available",
+	            backend: "openai_compatible",
+	            backend_id: "backend.hosted.custom_http",
+	            driver: "hosted_provider_metadata",
+	            lifecycle_hash: "sha256:hosted-lifecycle",
+	            transport_contract: {
+	              transport_execution_status: "rust_materialized",
+	              transport_execution_owner: "rust_daemon_core.model_mount.provider_lifecycle",
+	              transport_materialization_kind: "hosted_provider_metadata_lifecycle",
+	              plaintext_secret_material_returned: false,
+	              js_transport_invocation: false,
+	              command_transport_fallback: false,
+	              binary_bridge_fallback: false,
+	              compatibility_fallback: false,
+	            },
+	            evidence_refs: [
+	              "rust_model_mount_provider_lifecycle",
+	              "rust_model_mount_hosted_provider_lifecycle_backend",
+	              "rust_hosted_provider_metadata_transport_materialized",
+	            ],
+	          },
           status: "available",
           backend_id: "backend.hosted.custom_http",
           provider_backend: "openai_compatible",
           driver: "hosted_provider_metadata",
-          execution_backend: "rust_model_mount_hosted_provider_lifecycle",
-          lifecycle_hash: "sha256:hosted-lifecycle",
-          evidence_refs: [
-            "rust_model_mount_provider_lifecycle",
-            "rust_model_mount_hosted_provider_lifecycle_backend",
-            "hosted_provider_transport_not_executed",
-          ],
-        },
+	          execution_backend: "rust_model_mount_hosted_provider_lifecycle",
+	          lifecycle_hash: "sha256:hosted-lifecycle",
+	          transport_contract: {
+	            transport_execution_status: "rust_materialized",
+	            transport_execution_owner: "rust_daemon_core.model_mount.provider_lifecycle",
+	            transport_materialization_kind: "hosted_provider_metadata_lifecycle",
+	            plaintext_secret_material_returned: false,
+	            js_transport_invocation: false,
+	            command_transport_fallback: false,
+	            binary_bridge_fallback: false,
+	            compatibility_fallback: false,
+	          },
+	          transport_execution_status: "rust_materialized",
+	          evidence_refs: [
+	            "rust_model_mount_provider_lifecycle",
+	            "rust_model_mount_hosted_provider_lifecycle_backend",
+	            "rust_hosted_provider_metadata_transport_materialized",
+	          ],
+	        },
         };
       },
     },
@@ -1192,11 +1213,13 @@ test("Rust model_mount core sends hosted provider lifecycle through typed daemon
   );
   assert.equal(calls[0].request.provider_kind, "custom_http");
   assert.equal(result.status, "available");
-  assert.equal(result.providerBackend, "openai_compatible");
-  assert.equal(result.driver, "hosted_provider_metadata");
-  assert.equal(result.executionBackend, "rust_model_mount_hosted_provider_lifecycle");
-  assert.equal(result.evidence_refs.includes("hosted_provider_transport_not_executed"), true);
-});
+	  assert.equal(result.providerBackend, "openai_compatible");
+	  assert.equal(result.driver, "hosted_provider_metadata");
+	  assert.equal(result.executionBackend, "rust_model_mount_hosted_provider_lifecycle");
+	  assert.equal(result.evidence_refs.includes("rust_hosted_provider_metadata_transport_materialized"), true);
+	  assert.equal(result.evidence_refs.includes("hosted_provider_transport_not_executed"), false);
+	  assert.equal(result.transport_execution_status, "rust_materialized");
+	});
 
 test("Rust model_mount core sends local provider inventory through typed daemon-core API", () => {
   const calls = [];
