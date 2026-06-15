@@ -3162,6 +3162,9 @@ function runBridge() {
     ? read("crates/services/src/agentic/runtime/kernel/coding_tool_computer_use.rs")
     : "";
   const computerUseCoreRuntime = computerUseCore.split("#[cfg(test)]")[0] ?? computerUseCore;
+  const runtimeComputerUseProjectionCore = exists("crates/services/src/agentic/runtime/kernel/runtime_computer_use.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/runtime_computer_use.rs")
+    : "";
   const policyCommandBridgeExists = exists("crates/node/src/bin/ioi_step_module_bridge/policy_command.rs");
   const policyCommandBridge = policyCommandBridgeExists
     ? read("crates/node/src/bin/ioi_step_module_bridge/policy_command.rs")
@@ -3211,12 +3214,11 @@ function runBridge() {
   const visualGuiLocalCaptureTest = exists("packages/runtime-daemon/src/visual-gui-local-capture.test.mjs")
     ? read("packages/runtime-daemon/src/visual-gui-local-capture.test.mjs")
     : "";
-  const computerUseProviderRegistry = exists("packages/runtime-daemon/src/computer-use-provider-registry.mjs")
-    ? read("packages/runtime-daemon/src/computer-use-provider-registry.mjs")
-    : "";
-  const computerUseProviderRegistryTest = exists("packages/runtime-daemon/src/computer-use-provider-registry.test.mjs")
-    ? read("packages/runtime-daemon/src/computer-use-provider-registry.test.mjs")
-    : "";
+  const computerUseProviderRegistryJsRetired =
+    !exists("packages/runtime-daemon/src/computer-use-provider-registry.mjs") &&
+    !exists("packages/runtime-daemon/src/computer-use-provider-registry.test.mjs") &&
+    !exists("packages/runtime-daemon/src/browser-discovery.mjs") &&
+    !exists("packages/runtime-daemon/src/browser-discovery.test.mjs");
   assertCheck(
     result,
 	    "bridge-command-schema-version-alias-retired",
@@ -7824,21 +7826,47 @@ function runBridge() {
   );
   assertCheck(
     result,
-    "computer-use-provider-selection-aliases-retired",
-    /const providerHint = cleanString\(options\.provider_id\);/.test(computerUseProviderRegistry) &&
-      /const sessionMode = cleanString\(options\.session_mode\);/.test(computerUseProviderRegistry) &&
-      /computer-use provider selection ignores retired hint aliases/.test(
-        computerUseProviderRegistryTest,
+    "runtime-computer-use-public-projection-positive-api",
+    computerUseProviderRegistryJsRetired &&
+      /pub struct RuntimeComputerUseProjectionRequest/.test(runtimeComputerUseProjectionCore) &&
+      /pub struct RuntimeComputerUseProjectionCore/.test(runtimeComputerUseProjectionCore) &&
+      /computer_use_provider_registry_report\(None\)/.test(runtimeComputerUseProjectionCore) &&
+      /fn browser_discovery_report/.test(runtimeComputerUseProjectionCore) &&
+      /rust_projects_computer_use_provider_registry_from_shared_step_module_registry/.test(
+        runtimeComputerUseProjectionCore,
       ) &&
-      /providerHint:\s*"local_container"/.test(computerUseProviderRegistryTest) &&
-      /providerKind:\s*"local_container"/.test(computerUseProviderRegistryTest) &&
-      /sessionMode:\s*"unsupported_retired_mode"/.test(computerUseProviderRegistryTest) &&
-      !/\boptions\.(?:providerHint|providerKind|sessionMode)\b/.test(computerUseProviderRegistry),
+      /rust_browser_discovery_redacts_profile_paths_and_excludes_child_processes/.test(
+        runtimeComputerUseProjectionCore,
+      ) &&
+      /rust_browser_discovery_ignores_retired_request_aliases/.test(
+        runtimeComputerUseProjectionCore,
+      ) &&
+      /pub fn project_runtime_computer_use/.test(kernelModuleForBridgeChecks) &&
+      /RUNTIME_PROJECTION_COMPUTER_USE_API_METHOD =\s*"projectRuntimeComputerUse"/.test(
+        runtimeContextPolicyCore,
+      ) &&
+      /RUNTIME_COMPUTER_USE_PROJECTION_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyCore) &&
+      /projectRuntimeComputerUse\(request = \{\}\)/.test(runtimeContextPolicyCore) &&
+      /normalizeRuntimeComputerUseProjectionBridgeResult/.test(runtimeContextPolicyCore) &&
+      /runtime computer-use projection core sends Rust daemon-core request/.test(
+        runtimeContextPolicyCoreTest,
+      ) &&
+      /store\.contextPolicyCore\.projectRuntimeComputerUse\(\{/.test(publicRuntimeRoutes) &&
+      /\/v1\/computer-use\/providers/.test(publicRuntimeRoutes) &&
+      /\/v1\/computer-use\/browser-discovery/.test(publicRuntimeRoutes) &&
+      /method:\s*"projectRuntimeComputerUse"/.test(publicRuntimeRoutesTest) &&
+      !/computerUseProviderRegistryReport|discoverComputerUseBrowsers/.test(
+        runtimeDaemonIndex + publicRuntimeRoutes + publicRuntimeRoutesTest,
+      ),
     [
-      "packages/runtime-daemon/src/computer-use-provider-registry.mjs",
-      "packages/runtime-daemon/src/computer-use-provider-registry.test.mjs",
+      "crates/services/src/agentic/runtime/kernel/runtime_computer_use.rs",
+      "crates/services/src/agentic/runtime/kernel/coding_tool_computer_use.rs",
+      "crates/services/src/agentic/runtime/kernel/mod.rs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
+      "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
+      "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
     ],
-    "Phase 10/11 is pending: computer-use provider selection must use canonical provider_id/session_mode without retired camelCase hint aliases",
+    "Phase 10/11 is pending: public computer-use provider registry and browser discovery must be Rust daemon-core projections with the JS registry/discovery facades deleted",
   );
   assertCheck(
     result,

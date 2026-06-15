@@ -23,7 +23,7 @@ impl CodingToolComputerUseError {
 }
 
 #[derive(Clone)]
-struct ComputerUseProvider {
+pub(crate) struct ComputerUseProvider {
     provider_id: &'static str,
     provider_kind: &'static str,
     lane: &'static str,
@@ -228,7 +228,9 @@ fn computer_use_action_is_read_only(action_kind: &str) -> bool {
     matches!(action_kind, "inspect" | "hover" | "wait" | "scroll")
 }
 
-fn computer_use_provider_registry_report(selected: Option<&ComputerUseProvider>) -> Value {
+pub(crate) fn computer_use_provider_registry_report(
+    selected: Option<&ComputerUseProvider>,
+) -> Value {
     let providers = computer_use_providers();
     let available_provider_ids = providers
         .iter()

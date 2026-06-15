@@ -58,6 +58,8 @@ export const RUNTIME_LIFECYCLE_PROJECTION_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.lifecycle-projection-request.v1";
 export const RUNTIME_DOCTOR_REPORT_PROJECTION_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.doctor-report-projection-request.v1";
+export const RUNTIME_COMPUTER_USE_PROJECTION_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.computer-use-projection-request.v1";
 export const STUDIO_INTENT_FRAME_PROJECTION_REQUEST_SCHEMA_VERSION =
   "ioi.studio.intent-frame-projection-request.v1";
 export const RUNTIME_MEMORY_PROJECTION_REQUEST_SCHEMA_VERSION =
@@ -217,6 +219,8 @@ export const RUNTIME_PROJECTION_LIFECYCLE_API_METHOD =
   "projectRuntimeLifecycle";
 export const RUNTIME_PROJECTION_DOCTOR_REPORT_API_METHOD =
   "projectRuntimeDoctorReport";
+export const RUNTIME_PROJECTION_COMPUTER_USE_API_METHOD =
+  "projectRuntimeComputerUse";
 export const RUNTIME_PROJECTION_STUDIO_INTENT_FRAME_API_METHOD =
   "projectStudioIntentFrame";
 export const RUNTIME_PROJECTION_MANAGED_SESSION_API_METHOD =
@@ -609,6 +613,23 @@ export class RuntimeContextPolicyCore {
       RUNTIME_PROJECTION_DOCTOR_REPORT_API_METHOD,
       RUNTIME_DOCTOR_REPORT_PROJECTION_REQUEST_SCHEMA_VERSION,
       request,
+    ));
+  }
+
+  projectRuntimeComputerUse(request = {}) {
+    const canonicalRequest = objectRecord(request) ?? {};
+    const {
+      includeTabs: _retiredIncludeTabs,
+      revealTabTitles: _retiredRevealTabTitles,
+      providerHint: _retiredProviderHint,
+      providerKind: _retiredProviderKind,
+      sessionMode: _retiredSessionMode,
+      ...requestWithoutRetiredAliases
+    } = canonicalRequest;
+    return normalizeRuntimeComputerUseProjectionBridgeResult(this.invokeRuntimeProjectionApi(
+      RUNTIME_PROJECTION_COMPUTER_USE_API_METHOD,
+      RUNTIME_COMPUTER_USE_PROJECTION_REQUEST_SCHEMA_VERSION,
+      requestWithoutRetiredAliases,
     ));
   }
 
@@ -2221,6 +2242,53 @@ export function normalizeRuntimeDoctorReportProjectionBridgeResult(value = {}) {
     state_dir: optionalString(result.state_dir ?? record.state_dir) ?? null,
     report,
     record_count: numberValue(result.record_count ?? record.record_count) ?? (report ? 1 : 0),
+    evidence_refs: stringArray(result.evidence_refs ?? record.evidence_refs),
+    receipt_refs: stringArray(result.receipt_refs ?? record.receipt_refs),
+    record,
+  };
+}
+
+export function normalizeRuntimeComputerUseProjectionBridgeResult(value = {}) {
+  const result = objectRecord(value) ?? {};
+  const record = objectRecord(result.record) ?? result;
+  const projectionKind = optionalString(result.projection_kind ?? record.projection_kind);
+  const expectedOperationKind = projectionKind
+    ? `runtime.computer_use.projection.${projectionKind}`
+    : null;
+  const providerRegistry =
+    objectRecord(result.provider_registry) ?? objectRecord(record.provider_registry) ?? null;
+  const browserDiscovery =
+    objectRecord(result.browser_discovery) ?? objectRecord(record.browser_discovery) ?? null;
+  return {
+    ...record,
+    source:
+      result.source ??
+      record.source ??
+      "rust_runtime_computer_use_projection_api",
+    backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
+    object: optionalString(result.object ?? record.object) ?? null,
+    status: optionalString(result.status ?? record.status) ?? null,
+    operation_kind: expectedOperationKind
+      ? requiredContextPolicyBridgeOperationKind(result, record, {
+          codePrefix: "runtime_computer_use_projection",
+          expectedOperationKind,
+        })
+      : requiredContextPolicyBridgeOperationKind(result, record, {
+          codePrefix: "runtime_computer_use_projection",
+          expectedOperationKinds: [
+            "runtime.computer_use.projection.provider_registry",
+            "runtime.computer_use.projection.browser_discovery",
+          ],
+        }),
+    projection_kind: projectionKind,
+    workspace_root:
+      optionalString(result.workspace_root ?? record.workspace_root) ?? null,
+    state_dir: optionalString(result.state_dir ?? record.state_dir) ?? null,
+    provider_registry: providerRegistry,
+    browser_discovery: browserDiscovery,
+    record_count:
+      numberValue(result.record_count ?? record.record_count) ??
+      (providerRegistry?.providers?.length ?? browserDiscovery?.browser_process_count ?? 0),
     evidence_refs: stringArray(result.evidence_refs ?? record.evidence_refs),
     receipt_refs: stringArray(result.receipt_refs ?? record.receipt_refs),
     record,

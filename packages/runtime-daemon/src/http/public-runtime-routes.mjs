@@ -4,8 +4,6 @@ export function createPublicRuntimeRequestHandler(deps) {
   const {
     RUNTIME_USAGE_TELEMETRY_SCHEMA_VERSION,
     baseUrlForRequest,
-    computerUseProviderRegistryReport,
-    discoverComputerUseBrowsers,
     handleAgentRoute,
     handleModelMountingNativeRoute,
     handleOpenAiCompatibilityRoute,
@@ -65,16 +63,32 @@ export function createPublicRuntimeRequestHandler(deps) {
       if (request.method === "GET" && url.pathname === "/v1/computer-use/browser-discovery") {
         writeJsonResponse(
           response,
-          await discoverComputerUseBrowsers({
-            includeCdpProbe: normalizeBooleanOption(url.searchParams.get("probe"), true),
-            includeTabMetadata: normalizeBooleanOption(url.searchParams.get("include_tabs"), false),
-            revealTabTitles: normalizeBooleanOption(url.searchParams.get("reveal_tab_titles"), false),
-          }),
+          store.contextPolicyCore.projectRuntimeComputerUse({
+            operation: "runtime_computer_use_projection",
+            operation_kind: "runtime.computer_use.projection.browser_discovery",
+            projection_kind: "browser_discovery",
+            workspace_root: store.defaultCwd,
+            state_dir: store.stateDir,
+            include_cdp_probe: normalizeBooleanOption(url.searchParams.get("probe"), true),
+            include_tab_metadata: normalizeBooleanOption(url.searchParams.get("include_tabs"), false),
+            reveal_tab_titles: normalizeBooleanOption(url.searchParams.get("reveal_tab_titles"), false),
+            source: "public_runtime_routes./v1/computer-use/browser-discovery",
+          }).browser_discovery,
         );
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/computer-use/providers") {
-        writeJsonResponse(response, computerUseProviderRegistryReport());
+        writeJsonResponse(
+          response,
+          store.contextPolicyCore.projectRuntimeComputerUse({
+            operation: "runtime_computer_use_projection",
+            operation_kind: "runtime.computer_use.projection.provider_registry",
+            projection_kind: "provider_registry",
+            workspace_root: store.defaultCwd,
+            state_dir: store.stateDir,
+            source: "public_runtime_routes./v1/computer-use/providers",
+          }).provider_registry,
+        );
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/skills") {

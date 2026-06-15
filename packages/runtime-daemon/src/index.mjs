@@ -10,10 +10,6 @@ import {
   computerUseSourceEventKind,
   isComputerUseRunEventType,
 } from "./computer-use-projection.mjs";
-import {
-  discoverComputerUseBrowsers,
-} from "./browser-discovery.mjs";
-import { computerUseProviderRegistryReport } from "./computer-use-provider-registry.mjs";
 import { AgentMemoryStore, parseMemoryCommand } from "./memory-store.mjs";
 import {
   CODING_TOOL_PACK_ID,
@@ -385,8 +381,6 @@ const {
 const handleRequest = createPublicRuntimeRequestHandler({
   RUNTIME_USAGE_TELEMETRY_SCHEMA_VERSION,
   baseUrlForRequest,
-  computerUseProviderRegistryReport,
-  discoverComputerUseBrowsers,
   handleAgentRoute,
   handleModelMountingNativeRoute,
   handleOpenAiCompatibilityRoute,

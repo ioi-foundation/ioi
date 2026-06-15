@@ -46,6 +46,7 @@ import {
   RUNTIME_PROJECTION_TASK_JOB_API_METHOD,
   RUNTIME_PROJECTION_LIFECYCLE_API_METHOD,
   RUNTIME_PROJECTION_DOCTOR_REPORT_API_METHOD,
+  RUNTIME_PROJECTION_COMPUTER_USE_API_METHOD,
   RUNTIME_PROJECTION_STUDIO_INTENT_FRAME_API_METHOD,
   RUNTIME_PROJECTION_MANAGED_SESSION_API_METHOD,
   RUNTIME_PROJECTION_REPOSITORY_WORKFLOW_API_METHOD,
@@ -120,6 +121,7 @@ import {
   RUNTIME_TOOL_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION,
   RUNTIME_LIFECYCLE_PROJECTION_REQUEST_SCHEMA_VERSION,
   RUNTIME_DOCTOR_REPORT_PROJECTION_REQUEST_SCHEMA_VERSION,
+  RUNTIME_COMPUTER_USE_PROJECTION_REQUEST_SCHEMA_VERSION,
   STUDIO_INTENT_FRAME_PROJECTION_REQUEST_SCHEMA_VERSION,
   RUNTIME_MEMORY_CONTROL_REQUEST_SCHEMA_VERSION,
   RUNTIME_MEMORY_PROJECTION_REQUEST_SCHEMA_VERSION,
@@ -188,6 +190,7 @@ import {
   normalizeRuntimeToolCatalogProjectionBridgeResult,
   normalizeRuntimeLifecycleProjectionBridgeResult,
   normalizeRuntimeDoctorReportProjectionBridgeResult,
+  normalizeRuntimeComputerUseProjectionBridgeResult,
   normalizeStudioIntentFrameProjectionBridgeResult,
   normalizeRuntimeMemoryControlBridgeResult,
   normalizeRuntimeMcpServeToolCallPlanBridgeResult,
@@ -2898,6 +2901,86 @@ test("runtime doctor report projection core sends Rust daemon-core request", () 
       assert.equal(
         error.code,
         "runtime_doctor_report_projection_operation_kind_mismatch",
+      );
+      assertNoRetiredOperationKindDetailAliases(error.details);
+      return true;
+    },
+  );
+});
+
+test("runtime computer-use projection core sends Rust daemon-core request", () => {
+  let captured = null;
+  const { calls, runner } = createRuntimeProjectionDirectCore(
+    RUNTIME_PROJECTION_COMPUTER_USE_API_METHOD,
+    (request) => {
+      captured = request;
+      return {
+        source: "rust_runtime_computer_use_projection_api",
+        backend: "rust_policy",
+        record: {
+          object: "ioi.runtime_computer_use_projection",
+          status: "projected",
+          operation: "runtime_computer_use_projection",
+          operation_kind: "runtime.computer_use.projection.browser_discovery",
+          projection_kind: "browser_discovery",
+          browser_discovery: {
+            schema_version: "ioi.computer-use.browser-discovery.v1",
+            object: "ioi.computer_use.browser_discovery_report",
+            browser_process_count: 0,
+            cdp_endpoint_count: 0,
+            safety: { cdp_probe_enabled: request.include_cdp_probe },
+          },
+          record_count: 1,
+          evidence_refs: ["rust_daemon_core_runtime_computer_use_projection"],
+          receipt_refs: ["receipt_runtime_computer_use_projection_browser_discovery"],
+        },
+      };
+    },
+  );
+
+  const result = runner.projectRuntimeComputerUse({
+    operation: "runtime_computer_use_projection",
+    operation_kind: "runtime.computer_use.projection.browser_discovery",
+    projection_kind: "browser_discovery",
+    workspace_root: "/workspace/project",
+    state_dir: "/state",
+    include_cdp_probe: false,
+    include_tab_metadata: true,
+    reveal_tab_titles: false,
+    includeTabs: true,
+  });
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, RUNTIME_PROJECTION_COMPUTER_USE_API_METHOD);
+  assert.equal(
+    captured.schema_version,
+    RUNTIME_COMPUTER_USE_PROJECTION_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(Object.hasOwn(captured, "backend"), false);
+  assert.equal(Object.hasOwn(captured, "includeTabs"), false);
+  assert.equal(captured.operation, "runtime_computer_use_projection");
+  assert.equal(captured.operation_kind, "runtime.computer_use.projection.browser_discovery");
+  assert.equal(captured.projection_kind, "browser_discovery");
+  assert.equal(captured.include_cdp_probe, false);
+  assert.equal(captured.include_tab_metadata, true);
+  assert.equal(result.source, "rust_runtime_computer_use_projection_api");
+  assert.equal(result.browser_discovery.object, "ioi.computer_use.browser_discovery_report");
+  assert.equal(result.browser_discovery.safety.cdp_probe_enabled, false);
+  assert.equal(Object.hasOwn(result, "browserDiscovery"), false);
+
+  assert.throws(
+    () =>
+      normalizeRuntimeComputerUseProjectionBridgeResult({
+        record: {
+          operation_kind: "runtime.computer_use.retired_js_browser_discovery",
+          projection_kind: "browser_discovery",
+          browser_discovery: {},
+        },
+      }),
+    (error) => {
+      assert.equal(
+        error.code,
+        "runtime_computer_use_projection_operation_kind_mismatch",
       );
       assertNoRetiredOperationKindDetailAliases(error.details);
       return true;

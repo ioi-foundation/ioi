@@ -37,8 +37,6 @@ function routeHarness(overrides = {}) {
   const deps = {
     RUNTIME_USAGE_TELEMETRY_SCHEMA_VERSION: "usage.v.test",
     baseUrlForRequest: () => "http://daemon.test",
-    computerUseProviderRegistryReport: () => ({ providers: [] }),
-    discoverComputerUseBrowsers: async () => ({ browsers: [] }),
     handleAgentRoute: async () => calls.push("agent"),
     handleModelMountingNativeRoute: async () => calls.push("model-native"),
     handleOpenAiCompatibilityRoute: async () => calls.push("openai"),
@@ -129,6 +127,89 @@ test("public runtime routes dispatch top-level daemon projections", async () => 
       source: "public_runtime_routes./v1/doctor",
     },
   }]);
+});
+
+test("public runtime computer-use routes dispatch through Rust daemon-core projection", async () => {
+  const { handleRequest } = routeHarness();
+  const calls = [];
+  const store = {
+    defaultCwd: "/workspace",
+    stateDir: "/state",
+    contextPolicyCore: {
+      projectRuntimeComputerUse(request) {
+        calls.push({ method: "projectRuntimeComputerUse", request });
+        if (request.projection_kind === "provider_registry") {
+          return {
+            provider_registry: {
+              object: "ioi.computer_use.provider_registry_report",
+              providers: [{ provider_id: "ioi.computer_use.native_browser.task_scoped_profile" }],
+            },
+          };
+        }
+        return {
+          browser_discovery: {
+            object: "ioi.computer_use.browser_discovery_report",
+            browser_process_count: 0,
+            cdp_endpoint_count: 0,
+          },
+        };
+      },
+    },
+  };
+
+  const providersResponse = responseRecorder();
+  await handleRequest({
+    request: request({ url: "/v1/computer-use/providers" }),
+    response: providersResponse,
+    store,
+  });
+
+  assert.equal(providersResponse.statusCode, 200);
+  assert.deepEqual(JSON.parse(providersResponse.body), {
+    object: "ioi.computer_use.provider_registry_report",
+    providers: [{ provider_id: "ioi.computer_use.native_browser.task_scoped_profile" }],
+  });
+
+  const browserResponse = responseRecorder();
+  await handleRequest({
+    request: request({ url: "/v1/computer-use/browser-discovery?probe=false&include_tabs=true&reveal_tab_titles=true" }),
+    response: browserResponse,
+    store,
+  });
+
+  assert.equal(browserResponse.statusCode, 200);
+  assert.deepEqual(JSON.parse(browserResponse.body), {
+    object: "ioi.computer_use.browser_discovery_report",
+    browser_process_count: 0,
+    cdp_endpoint_count: 0,
+  });
+  assert.deepEqual(calls, [
+    {
+      method: "projectRuntimeComputerUse",
+      request: {
+        operation: "runtime_computer_use_projection",
+        operation_kind: "runtime.computer_use.projection.provider_registry",
+        projection_kind: "provider_registry",
+        workspace_root: "/workspace",
+        state_dir: "/state",
+        source: "public_runtime_routes./v1/computer-use/providers",
+      },
+    },
+    {
+      method: "projectRuntimeComputerUse",
+      request: {
+        operation: "runtime_computer_use_projection",
+        operation_kind: "runtime.computer_use.projection.browser_discovery",
+        projection_kind: "browser_discovery",
+        workspace_root: "/workspace",
+        state_dir: "/state",
+        include_cdp_probe: false,
+        include_tab_metadata: true,
+        reveal_tab_titles: true,
+        source: "public_runtime_routes./v1/computer-use/browser-discovery",
+      },
+    },
+  ]);
 });
 
 test("public runtime repository workflow routes use mounted repository surface", async () => {

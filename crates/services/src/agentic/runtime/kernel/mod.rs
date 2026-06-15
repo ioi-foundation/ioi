@@ -33,6 +33,7 @@ pub mod profile;
 pub mod projection;
 pub mod receipt_binder;
 pub mod repository_workflow;
+pub mod runtime_computer_use;
 pub mod runtime_conversation_artifact_control;
 pub mod runtime_conversation_artifact_projection;
 pub mod runtime_diagnostics_repair_control;
@@ -252,6 +253,10 @@ use receipt_binder::{
 use repository_workflow::{
     RepositoryWorkflowProjectionBridgeRequest, RepositoryWorkflowProjectionCommandError,
     RepositoryWorkflowProjectionCore, RepositoryWorkflowProjectionRecord,
+};
+use runtime_computer_use::{
+    RuntimeComputerUseProjectionCommandError, RuntimeComputerUseProjectionCore,
+    RuntimeComputerUseProjectionRecord, RuntimeComputerUseProjectionRequest,
 };
 use runtime_conversation_artifact_control::{
     RuntimeConversationArtifactControlCommandError, RuntimeConversationArtifactControlCore,
@@ -706,6 +711,13 @@ impl RuntimeKernelService {
     ) -> Result<RuntimeDoctorReportProjectionRecord, RuntimeDoctorReportProjectionCommandError>
     {
         RuntimeDoctorReportProjectionCore::default().project(request.clone())
+    }
+
+    pub fn project_runtime_computer_use(
+        &self,
+        request: &RuntimeComputerUseProjectionRequest,
+    ) -> Result<RuntimeComputerUseProjectionRecord, RuntimeComputerUseProjectionCommandError> {
+        RuntimeComputerUseProjectionCore::default().project(request.clone())
     }
 
     pub fn project_studio_intent_frame(

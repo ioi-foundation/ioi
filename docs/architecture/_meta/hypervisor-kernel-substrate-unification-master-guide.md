@@ -10030,6 +10030,23 @@ This remains non-terminal because downstream wallet/cTEE admission, Agentgres
 receipt/state-root binding for consequential intent execution, and broader
 stable IDE/CLI/SDK protocol coverage still need to close.
 
+Slice 1275 hard-cuts public computer-use provider/discovery projections onto a
+positive Rust daemon-core API. `/v1/computer-use/providers` and
+`/v1/computer-use/browser-discovery` now call
+`contextPolicyCore.projectRuntimeComputerUse()` with only canonical request
+facts, and Rust `runtime_computer_use.rs` owns provider-registry and
+browser-discovery public truth before route responses return. The Rust projection
+reuses the StepModule provider registry in `coding_tool_computer_use.rs`, shapes
+host browser-process/CDP discovery in Rust, emits Rust receipt/evidence refs, and
+ignores retired camelCase request aliases. The JS
+`computer-use-provider-registry.mjs` and `browser-discovery.mjs` facades/tests
+are deleted, daemon startup no longer imports or injects those route
+dependencies, and conformance rejects any return to the JS facades or retired
+route dependency names. This remains non-terminal because concrete provider
+execution, direct Rust computer-use event materialization, cTEE custody, durable
+Agentgres expected-head/state-root binding, replay/projection, and stable
+IDE/CLI/SDK APIs still need to close.
+
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,
 `/v1/memory/policy`, `/v1/memory/path`, or `/v1/memory/validate`; the daemon
