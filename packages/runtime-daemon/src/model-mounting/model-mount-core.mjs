@@ -14,8 +14,6 @@ export const RUST_MODEL_MOUNT_TOKENIZER_BACKEND = "rust_model_mount_tokenizer";
 export const RUST_MODEL_MOUNT_CONVERSATION_STATE_BACKEND = "rust_model_mount_conversation_state";
 export const RUST_MODEL_MOUNT_STREAM_COMPLETION_BACKEND = "rust_model_mount_stream_completion";
 export const RUST_MODEL_MOUNT_STREAM_CANCEL_BACKEND = "rust_model_mount_stream_cancel";
-export const RUST_MODEL_MOUNT_ACCEPTED_RECEIPT_HEAD_BACKEND = "rust_model_mount_accepted_receipt_head";
-export const RUST_MODEL_MOUNT_ACCEPTED_RECEIPT_TRANSITION_BACKEND = "rust_model_mount_accepted_receipt_transition";
 export const RUST_MODEL_MOUNT_INSTANCE_LIFECYCLE_BACKEND = "rust_model_mount_instance_lifecycle";
 export const RUST_MODEL_MOUNT_NATIVE_LOCAL_BACKEND = "rust_model_mount_native_local";
 export const RUST_MODEL_MOUNT_NATIVE_LOCAL_INVENTORY_BACKEND = "rust_model_mount_native_local_inventory";
@@ -37,6 +35,9 @@ export const MODEL_MOUNT_ROUTE_CONTROL_API_METHOD = "planModelMountRouteControl"
 export const MODEL_MOUNT_RUNTIME_ENGINE_API_METHOD = "planModelMountRuntimeEngine";
 export const MODEL_MOUNT_RUNTIME_SURVEY_API_METHOD = "planModelMountRuntimeSurvey";
 export const MODEL_MOUNT_READ_PROJECTION_API_METHOD = "planModelMountReadProjection";
+export const MODEL_MOUNT_ACCEPTED_RECEIPT_HEAD_API_METHOD = "planModelMountAcceptedReceiptHead";
+export const MODEL_MOUNT_ACCEPTED_RECEIPT_TRANSITION_API_METHOD = "planModelMountAcceptedReceiptTransition";
+export const MODEL_MOUNT_INVOCATION_RECEIPT_BINDING_API_METHOD = "bindModelMountInvocationReceipt";
 export const MODEL_MOUNT_CATALOG_PROVIDER_CONTROL_API_METHOD = "planModelMountCatalogProviderControl";
 export const MODEL_MOUNT_PROVIDER_CONTROL_API_METHOD = "planModelMountProviderControl";
 export const MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_API_METHOD = "planModelMountCapabilityTokenControl";
@@ -275,23 +276,15 @@ export class ModelMountCore {
   }
 
   planAcceptedReceiptHead(request) {
-    const bridgeRequest = {
-      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
-      operation: "plan_model_mount_accepted_receipt_head",
-      backend: RUST_MODEL_MOUNT_ACCEPTED_RECEIPT_HEAD_BACKEND,
-      request,
-    };
-    return normalizeAcceptedReceiptHeadBridgeResult(this.invokeDaemonCore(bridgeRequest));
+    return normalizeAcceptedReceiptHeadApiResult(
+      this.invokeModelMountApi(MODEL_MOUNT_ACCEPTED_RECEIPT_HEAD_API_METHOD, request),
+    );
   }
 
   planAcceptedReceiptTransition(request) {
-    const bridgeRequest = {
-      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
-      operation: "plan_model_mount_accepted_receipt_transition",
-      backend: RUST_MODEL_MOUNT_ACCEPTED_RECEIPT_TRANSITION_BACKEND,
-      request,
-    };
-    return normalizeAcceptedReceiptTransitionBridgeResult(this.invokeDaemonCore(bridgeRequest));
+    return normalizeAcceptedReceiptTransitionApiResult(
+      this.invokeModelMountApi(MODEL_MOUNT_ACCEPTED_RECEIPT_TRANSITION_API_METHOD, request),
+    );
   }
 
   planReadProjection(request) {
@@ -314,16 +307,15 @@ export class ModelMountCore {
       acceptedReceiptTransition = null,
       receiptRef = null,
     } = request;
-    const bridgeRequest = {
-      schema_version: MODEL_MOUNT_CORE_SCHEMA_VERSION,
-      operation: "bind_model_mount_invocation_receipt",
-      backend: RUST_MODEL_MOUNT_ADMISSION_BACKEND,
+    const bindingRequest = {
       invocation,
       result,
       accepted_receipt_transition: acceptedReceiptTransition,
       receipt_ref: receiptRef,
     };
-    return normalizeInvocationReceiptBindingBridgeResult(this.invokeDaemonCore(bridgeRequest));
+    return normalizeInvocationReceiptBindingApiResult(
+      this.invokeModelMountApi(MODEL_MOUNT_INVOCATION_RECEIPT_BINDING_API_METHOD, bindingRequest),
+    );
   }
 
   invokeDaemonCore(request) {
@@ -1975,12 +1967,11 @@ function normalizeReceiptGateApiResult(value = {}) {
   return normalized;
 }
 
-function normalizeAcceptedReceiptHeadBridgeResult(value = {}) {
+function normalizeAcceptedReceiptHeadApiResult(value = {}) {
   const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   const head = result.head && typeof result.head === "object" ? result.head : {};
   return {
-    source: result.source ?? "rust_model_mount_accepted_receipt_head_command",
-    backend: result.backend ?? RUST_MODEL_MOUNT_ACCEPTED_RECEIPT_HEAD_BACKEND,
+    source: result.source ?? "rust_daemon_core.model_mount.accepted_receipt_head",
     head,
     sequence: result.sequence ?? head.sequence ?? null,
     head_ref: result.head_ref ?? head.head_ref ?? null,
@@ -1995,12 +1986,11 @@ function normalizeAcceptedReceiptHeadBridgeResult(value = {}) {
   };
 }
 
-function normalizeAcceptedReceiptTransitionBridgeResult(value = {}) {
+function normalizeAcceptedReceiptTransitionApiResult(value = {}) {
   const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   const transition = result.transition && typeof result.transition === "object" ? result.transition : {};
   return {
-    source: result.source ?? "rust_model_mount_accepted_receipt_transition_command",
-    backend: result.backend ?? RUST_MODEL_MOUNT_ACCEPTED_RECEIPT_TRANSITION_BACKEND,
+    source: result.source ?? "rust_daemon_core.model_mount.accepted_receipt_transition",
     transition,
     operation_id: result.operation_id ?? transition.operation_id ?? null,
     operation_ref: result.operation_ref ?? transition.operation_ref ?? null,
@@ -2022,11 +2012,10 @@ function normalizeAcceptedReceiptTransitionBridgeResult(value = {}) {
   };
 }
 
-function normalizeInvocationReceiptBindingBridgeResult(value = {}) {
+function normalizeInvocationReceiptBindingApiResult(value = {}) {
   const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   return {
-    source: result.source ?? "rust_model_mount_receipt_binding_command",
-    backend: result.backend ?? RUST_MODEL_MOUNT_ADMISSION_BACKEND,
+    source: result.source ?? "rust_daemon_core.model_mount.invocation_receipt_binding",
     invocation: result.invocation ?? null,
     result: result.result ?? null,
     router_admission: result.router_admission ?? null,

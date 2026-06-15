@@ -152,8 +152,7 @@ function fakeState(overrides = {}) {
       const nextSequence = request.current_sequence + 1;
       const operationId = `op_${String(nextSequence).padStart(8, "0")}_${request.receipt_kind.replace(/[^a-z0-9]+/gi, "_")}`;
       return {
-        source: "rust_model_mount_accepted_receipt_transition_command",
-        backend: "rust_model_mount_accepted_receipt_transition",
+        source: "rust_daemon_core.model_mount.accepted_receipt_transition",
         transition: {
           schema_version: "ioi.model_mount.accepted_receipt_transition.v1",
           operation_id: operationId,
@@ -180,8 +179,7 @@ function fakeState(overrides = {}) {
     bindModelMountInvocationReceipt(request) {
       this.receiptBindingRequests.push(request);
       return {
-        source: "rust_model_mount_receipt_binding_command",
-        backend: "rust_model_mount_live",
+        source: "rust_daemon_core.model_mount.invocation_receipt_binding",
         invocation: request.invocation,
         result: request.result,
         router_admission: {
@@ -602,7 +600,7 @@ test("invokeModel public facade executes migrated fixture through Rust model_mou
   assert.equal(invocation.receipt.details.required_scope, "model.chat:*");
   assert.equal(
     invocation.receipt.details.rust_daemon_core_receipt_author,
-    "ModelMountCore.bind_model_mount_invocation_receipt",
+    "daemonCoreModelMountApi.bindModelMountInvocationReceipt",
   );
   assert.equal(
     invocation.receipt.details.model_mount_route_decision_ref,

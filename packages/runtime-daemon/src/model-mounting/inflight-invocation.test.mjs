@@ -381,8 +381,7 @@ function mockModelMountCore() {
     },
     planAcceptedReceiptHead(request) {
       return {
-        source: "rust_model_mount_accepted_receipt_head_command",
-        backend: "rust_model_mount_accepted_receipt_head",
+        source: "rust_daemon_core.model_mount.accepted_receipt_head",
         sequence: request.sequence,
         head_ref: `agentgres://model-mounting/accepted-receipts/head/${request.sequence}`,
         state_root: `sha256:state-${request.sequence}`,
@@ -395,8 +394,7 @@ function mockModelMountCore() {
       const nextSequence = request.current_sequence + 1;
       const operationId = `op_${String(nextSequence).padStart(8, "0")}_${request.receipt_kind.replace(/[^a-z0-9]+/gi, "_")}`;
       return {
-        source: "rust_model_mount_accepted_receipt_transition_command",
-        backend: "rust_model_mount_accepted_receipt_transition",
+        source: "rust_daemon_core.model_mount.accepted_receipt_transition",
         operation_id: operationId,
         operation_ref: `agentgres://model-mounting/accepted-receipts/${operationId}`,
         expected_heads: [request.current_head_ref],
@@ -448,8 +446,7 @@ function mockModelMountCore() {
     },
     bindInvocationReceipt(request) {
       return {
-        source: "rust_model_mount_receipt_binding_command",
-        backend: "rust_model_mount_live",
+        source: "rust_daemon_core.model_mount.invocation_receipt_binding",
         invocation: request.invocation,
         result: request.result,
         router_admission: {

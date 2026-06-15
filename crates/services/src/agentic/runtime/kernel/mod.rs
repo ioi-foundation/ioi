@@ -119,6 +119,7 @@ use marketplace::{
     WorkerServicePackageInvocationRecord, WorkerServicePackageInvocationRequest,
 };
 use model_mount::{
+    ModelMountAcceptedReceiptHeadRequest, ModelMountAcceptedReceiptTransitionRequest,
     ModelMountArtifactEndpointPlan, ModelMountArtifactEndpointRequest,
     ModelMountCapabilityTokenControlPlan, ModelMountCapabilityTokenControlRequest,
     ModelMountCatalogProviderControlPlan, ModelMountCatalogProviderControlRequest, ModelMountCore,
@@ -137,6 +138,11 @@ use model_mount::{
     ModelMountRuntimeEnginePlan, ModelMountRuntimeEngineRequest, ModelMountRuntimeSurveyPlan,
     ModelMountRuntimeSurveyRequest, ModelMountStorageControlPlan, ModelMountStorageControlRequest,
     ModelMountVaultControlPlan, ModelMountVaultControlRequest,
+};
+use model_mount_receipt::{
+    bind_model_mount_invocation_receipt, plan_model_mount_accepted_receipt_head,
+    plan_model_mount_accepted_receipt_transition, ModelMountInvocationReceiptBindingRequest,
+    ModelMountReceiptError,
 };
 use plan::{validate_plan, ExecutablePlan, PlanValidationError};
 use policy::{
@@ -972,6 +978,27 @@ impl RuntimeKernelService {
         request: &ModelMountReceiptGateRequest,
     ) -> Result<ModelMountReceiptGatePlan, ModelMountError> {
         ModelMountCore.plan_receipt_gate(request)
+    }
+
+    pub fn plan_model_mount_accepted_receipt_head(
+        &self,
+        request: &ModelMountAcceptedReceiptHeadRequest,
+    ) -> Result<serde_json::Value, ModelMountReceiptError> {
+        plan_model_mount_accepted_receipt_head(request)
+    }
+
+    pub fn plan_model_mount_accepted_receipt_transition(
+        &self,
+        request: &ModelMountAcceptedReceiptTransitionRequest,
+    ) -> Result<serde_json::Value, ModelMountReceiptError> {
+        plan_model_mount_accepted_receipt_transition(request)
+    }
+
+    pub fn bind_model_mount_invocation_receipt(
+        &self,
+        request: &ModelMountInvocationReceiptBindingRequest,
+    ) -> Result<serde_json::Value, ModelMountReceiptError> {
+        bind_model_mount_invocation_receipt(request)
     }
 
     pub fn validate_tool_invocation(

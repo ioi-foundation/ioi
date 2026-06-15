@@ -14,9 +14,6 @@ pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
     "plan_model_mount_conversation_state",
     "plan_model_mount_stream_completion",
     "plan_model_mount_stream_cancel",
-    "plan_model_mount_accepted_receipt_head",
-    "plan_model_mount_accepted_receipt_transition",
-    "bind_model_mount_invocation_receipt",
     "plan_coding_tool_result_envelope",
     "plan_runtime_coding_tool_artifact_drafts",
     "project_runtime_coding_tool_artifact_read",
@@ -61,9 +58,6 @@ pub enum CommandOperation {
     PlanModelMountConversationState,
     PlanModelMountStreamCompletion,
     PlanModelMountStreamCancel,
-    PlanModelMountAcceptedReceiptHead,
-    PlanModelMountAcceptedReceiptTransition,
-    BindModelMountInvocationReceipt,
     PlanCodingToolResultEnvelope,
     PlanRuntimeCodingToolArtifactDrafts,
     ProjectRuntimeCodingToolArtifactRead,
@@ -109,11 +103,6 @@ impl CommandOperation {
             Self::PlanModelMountConversationState => "plan_model_mount_conversation_state",
             Self::PlanModelMountStreamCompletion => "plan_model_mount_stream_completion",
             Self::PlanModelMountStreamCancel => "plan_model_mount_stream_cancel",
-            Self::PlanModelMountAcceptedReceiptHead => "plan_model_mount_accepted_receipt_head",
-            Self::PlanModelMountAcceptedReceiptTransition => {
-                "plan_model_mount_accepted_receipt_transition"
-            }
-            Self::BindModelMountInvocationReceipt => "bind_model_mount_invocation_receipt",
             Self::PlanCodingToolResultEnvelope => "plan_coding_tool_result_envelope",
             Self::PlanRuntimeCodingToolArtifactDrafts => "plan_runtime_coding_tool_artifact_drafts",
             Self::ProjectRuntimeCodingToolArtifactRead => {
@@ -244,15 +233,6 @@ pub fn command_operation(operation: &str) -> Option<CommandOperation> {
             Some(CommandOperation::PlanModelMountStreamCompletion)
         }
         "plan_model_mount_stream_cancel" => Some(CommandOperation::PlanModelMountStreamCancel),
-        "plan_model_mount_accepted_receipt_head" => {
-            Some(CommandOperation::PlanModelMountAcceptedReceiptHead)
-        }
-        "plan_model_mount_accepted_receipt_transition" => {
-            Some(CommandOperation::PlanModelMountAcceptedReceiptTransition)
-        }
-        "bind_model_mount_invocation_receipt" => {
-            Some(CommandOperation::BindModelMountInvocationReceipt)
-        }
         "plan_coding_tool_result_envelope" => Some(CommandOperation::PlanCodingToolResultEnvelope),
         "plan_runtime_coding_tool_artifact_drafts" => {
             Some(CommandOperation::PlanRuntimeCodingToolArtifactDrafts)
@@ -627,6 +607,24 @@ mod tests {
             .code(),
             "operation_unknown"
         );
+    }
+
+    #[test]
+    fn model_mount_receipt_binding_command_transport_is_retired() {
+        for operation in [
+            "plan_model_mount_accepted_receipt_head",
+            "plan_model_mount_accepted_receipt_transition",
+            "bind_model_mount_invocation_receipt",
+        ] {
+            assert_eq!(command_operation(operation), None);
+            assert_eq!(expected_command_schema_version(operation), None);
+            assert_eq!(
+                validate_command_envelope(operation, DAEMON_CORE_COMMAND_SCHEMA_VERSION)
+                    .unwrap_err()
+                    .code(),
+                "operation_unknown"
+            );
+        }
     }
 
     #[test]

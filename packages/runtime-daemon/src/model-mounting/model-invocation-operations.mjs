@@ -815,7 +815,7 @@ function persistModelInvocationReceipt(
     createdAt: nowIsoForState(state),
     details: {
       ...details,
-      rust_daemon_core_receipt_author: "ModelMountCore.bind_model_mount_invocation_receipt",
+      rust_daemon_core_receipt_author: "daemonCoreModelMountApi.bindModelMountInvocationReceipt",
     },
     schemaVersion: "ioi.model-mounting.runtime.v1",
   };

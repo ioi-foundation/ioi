@@ -146,17 +146,6 @@ pub fn dispatch_command_operation_response(
             plan_model_mount_stream_cancel_response(decode(raw_request)?)
                 .map_err(|error| model_mount_error("model_mount_stream_cancel_invalid", error))
         }
-        CommandOperation::PlanModelMountAcceptedReceiptHead => {
-            plan_model_mount_accepted_receipt_head_response(decode(raw_request)?)
-                .map_err(Into::into)
-        }
-        CommandOperation::PlanModelMountAcceptedReceiptTransition => {
-            plan_model_mount_accepted_receipt_transition_response(decode(raw_request)?)
-                .map_err(Into::into)
-        }
-        CommandOperation::BindModelMountInvocationReceipt => {
-            bind_model_mount_invocation_receipt_response(decode(raw_request)?).map_err(Into::into)
-        }
         CommandOperation::PlanCodingToolResultEnvelope => {
             plan_coding_tool_result_envelope_response(decode(raw_request)?).map_err(|error| {
                 CommandDispatchError::new(

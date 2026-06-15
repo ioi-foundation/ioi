@@ -3,10 +3,13 @@ import test from "node:test";
 
 import {
   MODEL_MOUNT_CORE_SCHEMA_VERSION,
+  MODEL_MOUNT_ACCEPTED_RECEIPT_HEAD_API_METHOD,
+  MODEL_MOUNT_ACCEPTED_RECEIPT_TRANSITION_API_METHOD,
   MODEL_MOUNT_ARTIFACT_ENDPOINT_API_METHOD,
   MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_API_METHOD,
   MODEL_MOUNT_CATALOG_PROVIDER_CONTROL_API_METHOD,
   MODEL_MOUNT_INSTANCE_LIFECYCLE_API_METHOD,
+  MODEL_MOUNT_INVOCATION_RECEIPT_BINDING_API_METHOD,
   MODEL_MOUNT_INVOCATION_API_METHOD,
   MODEL_MOUNT_MCP_WORKFLOW_API_METHOD,
   MODEL_MOUNT_PROVIDER_CONTROL_API_METHOD,
@@ -717,9 +720,6 @@ function streamCancelRequest() {
 test("Rust model_mount core does not synthesize Rust-owned receipt, required-boundary evidence, or process fields", () => {
   const sparseResultByOperation = new Map([
     ["plan_model_mount_backend_process", { result: {} }],
-    ["plan_model_mount_accepted_receipt_head", { head: {} }],
-    ["plan_model_mount_accepted_receipt_transition", { transition: {} }],
-    ["bind_model_mount_invocation_receipt", {}],
     ["plan_model_mount_tokenizer_required", { record: { details: {} } }],
     ["plan_model_mount_route_control_required", { record: { details: {} } }],
   ]);
@@ -753,6 +753,15 @@ test("Rust model_mount core does not synthesize Rust-owned receipt, required-bou
         return { ok: true, result: { record: {} } };
       },
       planModelMountReadProjection() {
+        return { ok: true, result: {} };
+      },
+      planModelMountAcceptedReceiptHead() {
+        return { ok: true, result: { head: {} } };
+      },
+      planModelMountAcceptedReceiptTransition() {
+        return { ok: true, result: { transition: {} } };
+      },
+      bindModelMountInvocationReceipt() {
         return { ok: true, result: {} };
       },
     },
@@ -3051,7 +3060,7 @@ test("Rust model_mount core sends positive receipt-gate request", () => {
   assert.equal(result.rust_core_boundary, "model_mount.receipt_gate");
 });
 
-test("Rust model_mount core rejects command-shaped catalog/provider/vault/receipt-gate fallbacks", () => {
+test("Rust model_mount core rejects command-shaped catalog/provider/vault/receipt fallbacks", () => {
   const calls = [];
   const runner = new ModelMountCore({
     daemonCoreInvoker(request) {
@@ -3065,6 +3074,22 @@ test("Rust model_mount core rejects command-shaped catalog/provider/vault/receip
     [MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_API_METHOD, () => runner.planCapabilityTokenControl(capabilityTokenControlRequest())],
     [MODEL_MOUNT_VAULT_CONTROL_API_METHOD, () => runner.planVaultControl(vaultControlRequest())],
     [MODEL_MOUNT_RECEIPT_GATE_API_METHOD, () => runner.planReceiptGate(receiptGateRequest())],
+    [MODEL_MOUNT_ACCEPTED_RECEIPT_HEAD_API_METHOD, () => runner.planAcceptedReceiptHead({
+      schema_version: "ioi.model_mount.accepted_receipt_head.v1",
+      sequence: 0,
+    })],
+    [MODEL_MOUNT_ACCEPTED_RECEIPT_TRANSITION_API_METHOD, () => runner.planAcceptedReceiptTransition({
+      schema_version: "ioi.model_mount.accepted_receipt_transition.v1",
+      current_sequence: 0,
+      current_head_ref: "agentgres://model-mounting/accepted-receipts/head/0",
+      current_state_root: "sha256:state-0",
+      receipt_id: "receipt.invoke",
+      receipt_kind: "model_invocation",
+    })],
+    [MODEL_MOUNT_INVOCATION_RECEIPT_BINDING_API_METHOD, () => runner.bindInvocationReceipt({
+      invocation: {},
+      result: {},
+    })],
   ];
 
   for (const [method, invoke] of cases) {
@@ -3315,16 +3340,17 @@ test("Rust model_mount core sends positive stream-cancel request", () => {
   assert.equal(result.evidence_refs.includes("agentgres_model_stream_cancel_truth_required"), true);
 });
 
-test("Rust model_mount core sends invocation receipt binding request", () => {
+test("Rust model_mount core binds invocation receipt through typed daemon-core API", () => {
   const calls = [];
+  const genericCalls = [];
   const runner = new ModelMountCore({
-    daemonCoreInvoker(request) {
-      calls.push({ request });
-      return {
-        ok: true,
-        result: {
-            source: "rust_model_mount_receipt_binding_command",
-            backend: "rust_model_mount_live",
+    daemonCoreModelMountApi: {
+      bindModelMountInvocationReceipt(request) {
+        calls.push({ method: MODEL_MOUNT_INVOCATION_RECEIPT_BINDING_API_METHOD, request });
+        return {
+          ok: true,
+          result: {
+            source: "rust_daemon_core.model_mount.invocation_receipt_binding",
             receipt_binding: {
               schema_version: "ioi.step_module_receipt_binding.v1",
               binding_hash: "sha256:binding",
@@ -3350,8 +3376,10 @@ test("Rust model_mount core sends invocation receipt binding request", () => {
             receipt_refs: ["receipt://invocation"],
             evidence_refs: ["rust_receipt_binder_core", "sha256:binding", "sha256:append"],
           },
-      };
+        };
+      },
     },
+    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(genericCalls),
   });
 
   const result = runner.bindInvocationReceipt({
@@ -3381,9 +3409,11 @@ test("Rust model_mount core sends invocation receipt binding request", () => {
   });
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
-  assert.equal(calls[0].request.operation, "bind_model_mount_invocation_receipt");
+  assert.equal(genericCalls.length, 0);
+  assert.equal(calls[0].method, MODEL_MOUNT_INVOCATION_RECEIPT_BINDING_API_METHOD);
   assert.equal(Object.hasOwn(calls[0].request, "expected_heads"), false);
+  assert.equal(Object.hasOwn(calls[0].request, "operation"), false);
+  assert.equal(Object.hasOwn(calls[0].request, "backend"), false);
   assert.deepEqual(calls[0].request.accepted_receipt_transition.expected_heads, [
     "agentgres://model-mounting/accepted-receipts/head/0",
   ]);
@@ -3411,16 +3441,17 @@ test("Rust model_mount core rejects direct expected head binding input", () => {
   );
 });
 
-test("Rust model_mount core sends accepted receipt transition plan request", () => {
+test("Rust model_mount core sends accepted receipt transition through typed daemon-core API", () => {
   const calls = [];
+  const genericCalls = [];
   const runner = new ModelMountCore({
-    daemonCoreInvoker(request) {
-      calls.push({ request });
-      return {
-        ok: true,
-        result: {
-            source: "rust_model_mount_accepted_receipt_transition_command",
-            backend: "rust_model_mount_accepted_receipt_transition",
+    daemonCoreModelMountApi: {
+      planModelMountAcceptedReceiptTransition(request) {
+        calls.push({ method: MODEL_MOUNT_ACCEPTED_RECEIPT_TRANSITION_API_METHOD, request });
+        return {
+          ok: true,
+          result: {
+            source: "rust_daemon_core.model_mount.accepted_receipt_transition",
             transition: {
               schema_version: "ioi.model_mount.accepted_receipt_transition.v1",
               operation_id: "op_00000001_model_invocation",
@@ -3443,8 +3474,10 @@ test("Rust model_mount core sends accepted receipt transition plan request", () 
             transition_hash: "sha256:transition",
             evidence_refs: ["rust_model_mount_accepted_receipt_transition"],
           },
-      };
+        };
+      },
     },
+    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(genericCalls),
   });
 
   const result = runner.planAcceptedReceiptTransition({
@@ -3457,10 +3490,13 @@ test("Rust model_mount core sends accepted receipt transition plan request", () 
   });
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
-  assert.equal(calls[0].request.operation, "plan_model_mount_accepted_receipt_transition");
-  assert.equal(calls[0].request.backend, "rust_model_mount_accepted_receipt_transition");
-  assert.equal(calls[0].request.request.current_sequence, 0);
+  assert.equal(genericCalls.length, 0);
+  assertDirectModelMountApiCall(
+    calls[0],
+    MODEL_MOUNT_ACCEPTED_RECEIPT_TRANSITION_API_METHOD,
+    "ioi.model_mount.accepted_receipt_transition.v1",
+  );
+  assert.equal(calls[0].request.current_sequence, 0);
   assert.equal(result.operation_id, "op_00000001_model_invocation");
   assert.equal(
     result.operation_ref,
@@ -3476,16 +3512,17 @@ test("Rust model_mount core sends accepted receipt transition plan request", () 
   assert.equal(Object.hasOwn(result, "resultingHead"), false);
 });
 
-test("Rust model_mount core sends accepted receipt head plan request", () => {
+test("Rust model_mount core sends accepted receipt head through typed daemon-core API", () => {
   const calls = [];
+  const genericCalls = [];
   const runner = new ModelMountCore({
-    daemonCoreInvoker(request) {
-      calls.push({ request });
-      return {
-        ok: true,
-        result: {
-            source: "rust_model_mount_accepted_receipt_head_command",
-            backend: "rust_model_mount_accepted_receipt_head",
+    daemonCoreModelMountApi: {
+      planModelMountAcceptedReceiptHead(request) {
+        calls.push({ method: MODEL_MOUNT_ACCEPTED_RECEIPT_HEAD_API_METHOD, request });
+        return {
+          ok: true,
+          result: {
+            source: "rust_daemon_core.model_mount.accepted_receipt_head",
             head: {
               schema_version: "ioi.model_mount.accepted_receipt_head.v1",
               sequence: 2,
@@ -3502,8 +3539,10 @@ test("Rust model_mount core sends accepted receipt head plan request", () => {
             head_hash: "sha256:head",
             evidence_refs: ["rust_model_mount_accepted_receipt_head"],
           },
-      };
+        };
+      },
     },
+    daemonCoreInvoker: rejectMigratedModelMountCommandInvoker(genericCalls),
   });
 
   const result = runner.planAcceptedReceiptHead({
@@ -3512,10 +3551,13 @@ test("Rust model_mount core sends accepted receipt head plan request", () => {
   });
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_CORE_SCHEMA_VERSION);
-  assert.equal(calls[0].request.operation, "plan_model_mount_accepted_receipt_head");
-  assert.equal(calls[0].request.backend, "rust_model_mount_accepted_receipt_head");
-  assert.equal(calls[0].request.request.sequence, 2);
+  assert.equal(genericCalls.length, 0);
+  assertDirectModelMountApiCall(
+    calls[0],
+    MODEL_MOUNT_ACCEPTED_RECEIPT_HEAD_API_METHOD,
+    "ioi.model_mount.accepted_receipt_head.v1",
+  );
+  assert.equal(calls[0].request.sequence, 2);
   assert.equal(result.sequence, 2);
   assert.equal(result.head_ref, "agentgres://model-mounting/accepted-receipts/head/2");
   assert.equal(result.state_root, "sha256:state-2");

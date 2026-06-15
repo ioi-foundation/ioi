@@ -232,6 +232,90 @@ function isModelMountReadProjectionTypedApiOwned({
   );
 }
 
+function isModelMountReceiptBindingTypedApiOwned({
+  coreCommandDispatch = "",
+  modelMountReceiptCore = "",
+  modelMountDaemonCore = "",
+  modelMountCoreTest = "",
+  commandProtocolCore = "",
+  kernelModule = "",
+  daemonCoreDirectInvokerServiceTest = "",
+}) {
+  const runtimeKernelModule =
+    kernelModule ||
+    (exists("crates/services/src/agentic/runtime/kernel/mod.rs")
+      ? read("crates/services/src/agentic/runtime/kernel/mod.rs")
+      : "");
+  const directInvokerServiceTest =
+    daemonCoreDirectInvokerServiceTest ||
+    (exists("packages/runtime-daemon/src/runtime-daemon-core-direct-invoker-service.test.mjs")
+      ? read("packages/runtime-daemon/src/runtime-daemon-core-direct-invoker-service.test.mjs")
+      : "");
+  return (
+    !/plan_model_mount_accepted_receipt_head_response/.test(coreCommandDispatch + modelMountReceiptCore) &&
+    !/plan_model_mount_accepted_receipt_transition_response/.test(
+      coreCommandDispatch + modelMountReceiptCore,
+    ) &&
+    !/bind_model_mount_invocation_receipt_response/.test(coreCommandDispatch + modelMountReceiptCore) &&
+    !/ModelMountAcceptedReceiptHeadBridgeRequest/.test(modelMountReceiptCore) &&
+    !/ModelMountAcceptedReceiptTransitionBridgeRequest/.test(modelMountReceiptCore) &&
+    !/ModelMountInvocationReceiptBindingBridgeRequest/.test(modelMountReceiptCore) &&
+    !/operation:\s*"plan_model_mount_accepted_receipt_head"/.test(modelMountDaemonCore) &&
+    !/operation:\s*"plan_model_mount_accepted_receipt_transition"/.test(modelMountDaemonCore) &&
+    !/operation:\s*"bind_model_mount_invocation_receipt"/.test(modelMountDaemonCore) &&
+    !/backend:\s*"rust_model_mount_accepted_receipt_head"/.test(modelMountDaemonCore) &&
+    !/backend:\s*"rust_model_mount_accepted_receipt_transition"/.test(modelMountDaemonCore) &&
+    !/rust_model_mount_receipt_binding_command/.test(modelMountDaemonCore) &&
+    /MODEL_MOUNT_ACCEPTED_RECEIPT_HEAD_API_METHOD = "planModelMountAcceptedReceiptHead"/.test(
+      modelMountDaemonCore,
+    ) &&
+    /MODEL_MOUNT_ACCEPTED_RECEIPT_TRANSITION_API_METHOD = "planModelMountAcceptedReceiptTransition"/.test(
+      modelMountDaemonCore,
+    ) &&
+    /MODEL_MOUNT_INVOCATION_RECEIPT_BINDING_API_METHOD = "bindModelMountInvocationReceipt"/.test(
+      modelMountDaemonCore,
+    ) &&
+    /invokeModelMountApi\(\s*MODEL_MOUNT_ACCEPTED_RECEIPT_HEAD_API_METHOD,\s*request\s*\)/.test(
+      modelMountDaemonCore,
+    ) &&
+    /invokeModelMountApi\(\s*MODEL_MOUNT_ACCEPTED_RECEIPT_TRANSITION_API_METHOD,\s*request\s*\)/.test(
+      modelMountDaemonCore,
+    ) &&
+    /invokeModelMountApi\(\s*MODEL_MOUNT_INVOCATION_RECEIPT_BINDING_API_METHOD,\s*bindingRequest\s*\)/.test(
+      modelMountDaemonCore,
+    ) &&
+    /normalizeAcceptedReceiptHeadApiResult/.test(modelMountDaemonCore) &&
+    /normalizeAcceptedReceiptTransitionApiResult/.test(modelMountDaemonCore) &&
+    /normalizeInvocationReceiptBindingApiResult/.test(modelMountDaemonCore) &&
+    /rust_daemon_core\.model_mount\.accepted_receipt_head/.test(modelMountDaemonCore + modelMountReceiptCore) &&
+    /rust_daemon_core\.model_mount\.accepted_receipt_transition/.test(
+      modelMountDaemonCore + modelMountReceiptCore,
+    ) &&
+    /rust_daemon_core\.model_mount\.invocation_receipt_binding/.test(
+      modelMountDaemonCore + modelMountReceiptCore,
+    ) &&
+    /model_mount_receipt_binding_command_transport_is_retired/.test(commandProtocolCore) &&
+    /rust_core_plans_accepted_receipt_head_direct_api/.test(modelMountReceiptCore) &&
+    /rust_core_plans_accepted_receipt_transition_direct_api/.test(modelMountReceiptCore) &&
+    /rust_core_binds_model_mount_receipt_and_admits_agentgres/.test(modelMountReceiptCore) &&
+    /pub fn plan_model_mount_accepted_receipt_head/.test(runtimeKernelModule) &&
+    /pub fn plan_model_mount_accepted_receipt_transition/.test(runtimeKernelModule) &&
+    /pub fn bind_model_mount_invocation_receipt/.test(runtimeKernelModule) &&
+    /Rust model_mount core sends accepted receipt head through typed daemon-core API/.test(
+      modelMountCoreTest,
+    ) &&
+    /Rust model_mount core sends accepted receipt transition through typed daemon-core API/.test(
+      modelMountCoreTest,
+    ) &&
+    /Rust model_mount core binds invocation receipt through typed daemon-core API/.test(
+      modelMountCoreTest,
+    ) &&
+    /planModelMountAcceptedReceiptHead/.test(directInvokerServiceTest) &&
+    /planModelMountAcceptedReceiptTransition/.test(directInvokerServiceTest) &&
+    /bindModelMountInvocationReceipt/.test(directInvokerServiceTest)
+  );
+}
+
 function readRustPolicyCore() {
   return [
     exists("crates/services/src/agentic/runtime/kernel/policy.rs")
@@ -3145,7 +3229,7 @@ function runBridge() {
   const retiredModelInvocationFacadeBodyPattern =
     /\b(?:state\.authorize|state\.selectRoute|state\.routeSelectionReceipt|state\.ensureLoaded|state\.compileEphemeralMcpIntegrations|state\.receipt|state\.admitModelMountInvocation|state\.bindModelMountInvocationReceipt|state\.inflightModelInvocations|state\.invokeModel|admitModelMountProviderExecution|admitModelMountProviderResult|executeModelProviderInvocation|executeModelMountProviderInvocation|executeModelMountProviderStreamInvocation|bindModelMountInvocationReceipt|invocationReceiptDetails|persistRouteSelection|rejectUnmigratedProviderInvocationExecution|rejectProviderCompatTranslation|withTextChunksReadableStream|model_mount_provider_invocation_backend_unmigrated|model_mount_provider_stream_invocation_backend_unmigrated|model_mount_native_stream_result_required|model_mount_native_stream_backend_required)\b/;
   const modelMountInvocationReceiptBridgeBlock =
-    modelMountReceiptCore.match(/fn bind_model_mount_invocation_receipt_response[\s\S]*$/)?.[0] ??
+    modelMountReceiptCore.match(/pub fn bind_model_mount_invocation_receipt\([\s\S]*?(?=\n\n#\[cfg\(test\)])/)?.[0] ??
     "";
   const modelMountInvocationReceiptRunnerBlock =
     modelMountCore.match(/bindInvocationReceipt\(request = \{\}\)[\s\S]*?(?=\n}\n\nexport class ModelMountCoreError)/)?.[0] ??
@@ -8696,30 +8780,36 @@ function runBridge() {
       !/plan_model_mount_accepted_receipt_transition_response as plan_model_mount_accepted_receipt_transition/.test(
         bridgeModule,
       ) &&
-      /plan_model_mount_accepted_receipt_head_response\(decode\(raw_request\)\?\)/.test(
+      !/plan_model_mount_accepted_receipt_head_response\(decode\(raw_request\)\?\)/.test(
         coreCommandDispatch,
       ) &&
-      /plan_model_mount_accepted_receipt_transition_response\(decode\(raw_request\)\?\)/.test(
+      !/plan_model_mount_accepted_receipt_transition_response\(decode\(raw_request\)\?\)/.test(
         coreCommandDispatch,
       ) &&
-      /rust_core_shapes_accepted_receipt_head_response/.test(modelMountReceiptCore) &&
-      /rust_core_shapes_accepted_receipt_transition_response/.test(modelMountReceiptCore) &&
+      /rust_core_plans_accepted_receipt_head_direct_api/.test(modelMountReceiptCore) &&
+      /rust_core_plans_accepted_receipt_transition_direct_api/.test(modelMountReceiptCore) &&
       !/bridge_plans_model_mount_accepted_receipt_head_through_rust_core/.test(bridgeModule) &&
       !/bridge_plans_model_mount_accepted_receipt_transition_through_rust_core/.test(bridgeModule) &&
       !/bind_model_mount_invocation_receipt_response as bind_model_mount_invocation_receipt/.test(
         bridgeModule,
       ) &&
-      /bind_model_mount_invocation_receipt_response\(decode\(raw_request\)\?\)/.test(
+      !/bind_model_mount_invocation_receipt_response\(decode\(raw_request\)\?\)/.test(
         coreCommandDispatch,
-      ) &&
-      /rust_core_shapes_model_mount_invocation_receipt_command_response/.test(
-        modelMountReceiptCore,
       ) &&
       !/ReceiptBinder/.test(modelMountReceiptCommandBridge) &&
       !/AgentgresAdmissionCore/.test(modelMountReceiptCommandBridge) &&
       !/RustProjectionCore/.test(modelMountReceiptCommandBridge) &&
       /pub mod model_mount_receipt;/.test(kernelModuleForBridgeChecks) &&
-      /pub fn bind_model_mount_invocation_receipt_response/.test(modelMountReceiptCore) &&
+      isModelMountReceiptBindingTypedApiOwned({
+        coreCommandDispatch,
+        modelMountReceiptCore,
+        modelMountDaemonCore,
+        modelMountCoreTest,
+        commandProtocolCore,
+        kernelModule: read("crates/services/src/agentic/runtime/kernel/mod.rs"),
+        daemonCoreDirectInvokerServiceTest,
+      }) &&
+      /pub struct ModelMountInvocationReceiptBindingRequest/.test(modelMountReceiptCore) &&
       /ReceiptBinder/.test(modelMountReceiptCore) &&
       /AgentgresAdmissionCore/.test(modelMountReceiptCore) &&
       /RustProjectionCore/.test(modelMountReceiptCore) &&
@@ -8730,7 +8820,7 @@ function runBridge() {
         commandProtocolCore,
         modelMountDaemonCore,
         modelMountCoreTest,
-        kernelModule: kernelModuleForBridgeChecks,
+        kernelModule: read("crates/services/src/agentic/runtime/kernel/mod.rs"),
         daemonCoreDirectInvokerServiceTest,
       }) &&
       !/plan_model_mount_read_projection_response as plan_model_mount_read_projection/.test(
@@ -15747,7 +15837,7 @@ function runBridge() {
         commandProtocolCore,
         modelMountDaemonCore,
         modelMountCoreTest,
-        kernelModule: kernelModuleForBridgeChecks,
+        kernelModule: read("crates/services/src/agentic/runtime/kernel/mod.rs"),
         daemonCoreDirectInvokerServiceTest,
       }),
     [
@@ -16285,7 +16375,7 @@ function runBridge() {
         commandProtocolCore,
         modelMountDaemonCore,
         modelMountCoreTest,
-        kernelModule: kernelModuleForBridgeChecks,
+        kernelModule: read("crates/services/src/agentic/runtime/kernel/mod.rs"),
         daemonCoreDirectInvokerServiceTest,
       }) &&
       !/fn model_mount_read_projection\(/.test(modelMountCommandSurface) &&
@@ -16839,7 +16929,7 @@ function runBridge() {
       /Rust model_mount core sends positive catalog-provider-control request/.test(
         modelMountCoreTest,
       ) &&
-      /Rust model_mount core rejects command-shaped catalog\/provider\/vault\/receipt-gate fallbacks/.test(
+      /Rust model_mount core rejects command-shaped catalog\/provider\/vault\/receipt fallbacks/.test(
         modelMountCoreTest,
       ) &&
       !/catalogProviderConfigState|catalogProviderRuntimeMaterialState|configureCatalogProviderState|getCatalogProviderConfigState|listCatalogProviderConfigsState/.test(modelMountingState) &&
@@ -17109,7 +17199,7 @@ function runBridge() {
       /receipt\.details\.model_mount_receipt_binding_ref/.test(modelMountCore) &&
       /receipt\.details\.model_mount_agentgres_operation_ref/.test(modelMountCore) &&
       /Rust model_mount core sends positive receipt-gate request/.test(modelMountCoreTest) &&
-      /Rust model_mount core rejects command-shaped catalog\/provider\/vault\/receipt-gate fallbacks/.test(
+      /Rust model_mount core rejects command-shaped catalog\/provider\/vault\/receipt fallbacks/.test(
         modelMountCoreTest,
       ) &&
       /MODEL_MOUNT_RECEIPT_GATE_SCHEMA_VERSION/.test(modelMountCore) &&
@@ -18090,7 +18180,7 @@ function runBridge() {
       const backendProcessCoreBlock =
         modelMountCore.match(/pub fn plan_model_mount_backend_process_response[\s\S]*?(?=\n\nfn backend_supports_supervision)/)?.[0] ?? "";
       const backendProcessRunnerBlock =
-        modelMountCore.match(/function normalizeBackendProcessPlanBridgeResult[\s\S]*?(?=\n\nfunction normalizeInvocationReceiptBindingBridgeResult)/)?.[0] ?? "";
+        modelMountCore.match(/function normalizeBackendProcessPlanBridgeResult[\s\S]*?(?=\n\nfunction normalizeAcceptedReceiptHeadApiResult)/)?.[0] ?? "";
       return /pub struct ModelMountBackendProcessPlanBridgeRequest/.test(modelMountCore) &&
         /pub fn plan_model_mount_backend_process_response/.test(modelMountCore) &&
         /rust_core_shapes_model_mount_backend_process_command_response/.test(modelMountCore) &&
@@ -18672,17 +18762,26 @@ function runBridge() {
   );
   assertCheck(
     result,
-    "model-mount-invocation-receipt-binding-live-bridge",
-    /ModelMountInvocationReceiptBindingBridgeRequest/.test(modelMountReceiptCore) &&
+    "model-mount-invocation-receipt-binding-typed-api",
+    isModelMountReceiptBindingTypedApiOwned({
+      coreCommandDispatch,
+      modelMountReceiptCore,
+      modelMountDaemonCore,
+      modelMountCoreTest,
+      commandProtocolCore,
+      kernelModule: kernelModuleForBridgeChecks,
+      daemonCoreDirectInvokerServiceTest,
+    }) &&
+      /ModelMountInvocationReceiptBindingRequest/.test(modelMountReceiptCore) &&
       /accepted_receipt_transition:\s*Option<ModelMountAcceptedReceiptTransition>/.test(modelMountReceiptCore) &&
       /model_mount_caller_supplied_expected_heads/.test(modelMountInvocationReceiptBridgeBlock) &&
       /model_mount_accepted_receipt_transition_required/.test(modelMountInvocationReceiptBridgeBlock) &&
       /validate_accepted_receipt_transition\(transition\)/.test(modelMountInvocationReceiptBridgeBlock) &&
       /model_mount_accepted_receipt_transition_mismatch/.test(modelMountInvocationReceiptBridgeBlock) &&
-      /bind_model_mount_invocation_receipt_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
-      /rust_core_shapes_model_mount_invocation_receipt_command_response/.test(modelMountReceiptCore) &&
+      !/bind_model_mount_invocation_receipt_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      /rust_core_binds_model_mount_receipt_and_admits_agentgres/.test(modelMountReceiptCore) &&
       !/bind_model_mount_invocation_receipt_response as bind_model_mount_invocation_receipt/.test(modelMountCommandSurface) &&
-      !/ModelMountInvocationReceiptBindingBridgeRequest/.test(modelMountCommandSurface) &&
+      !/ModelMountInvocationReceiptBindingBridgeRequest/.test(modelMountCommandSurface + modelMountReceiptCore) &&
       !/bridge_binds_model_mount_invocation_receipt_through_rust_core/.test(modelMountCommandSurface) &&
       !/ReceiptBinder/.test(modelMountReceiptCommandBridge) &&
       !/AgentgresAdmissionCore/.test(modelMountReceiptCommandBridge) &&
@@ -20403,7 +20502,7 @@ function runReceipts() {
     ? read("packages/runtime-daemon/src/runtime-daemon-core-direct-invoker-service.test.mjs")
     : "";
   const modelMountInvocationReceiptBridgeBlock =
-    modelMountReceiptCore.match(/fn bind_model_mount_invocation_receipt_response[\s\S]*$/)?.[0] ??
+    modelMountReceiptCore.match(/pub fn bind_model_mount_invocation_receipt\([\s\S]*?(?=\n\n#\[cfg\(test\)])/)?.[0] ??
     "";
   const modelMountInvocationReceiptRunnerBlock =
     modelMountDaemonCore.match(/bindInvocationReceipt\(request = \{\}\)[\s\S]*?(?=\n}\n\nexport class ModelMountCoreError)/)?.[0] ??
@@ -25146,7 +25245,7 @@ function runReceipts() {
       /Rust model_mount core sends positive capability-token-control request/.test(
         modelMountCoreTest,
       ) &&
-      /Rust model_mount core rejects command-shaped catalog\/provider\/vault\/receipt-gate fallbacks/.test(
+      /Rust model_mount core rejects command-shaped catalog\/provider\/vault\/receipt fallbacks/.test(
         modelMountCoreTest,
       ) &&
       /result\.record\.public_response\.token,\s*undefined/.test(modelMountCoreTest) &&
@@ -26993,20 +27092,29 @@ function runReceipts() {
     "model-mount-invocation-receipt-binder-core",
     !modelMountCommandBridgeExists &&
       !modelMountReceiptCommandBridgeExists &&
+      isModelMountReceiptBindingTypedApiOwned({
+        coreCommandDispatch,
+        modelMountReceiptCore,
+        modelMountDaemonCore,
+        modelMountCoreTest,
+        commandProtocolCore,
+        kernelModule: read("crates/services/src/agentic/runtime/kernel/mod.rs"),
+        daemonCoreDirectInvokerServiceTest,
+      }) &&
       !/mod model_mount_command;/.test(bridgeModule) &&
       !/mod model_mount_receipt_command;/.test(bridgeModule) &&
       !/bind_model_mount_invocation_receipt/.test(modelMountCommandBridge) &&
       !/ReceiptBinder/.test(modelMountCommandBridge) &&
       !/AgentgresAdmissionCore/.test(modelMountCommandBridge) &&
       !/RustProjectionCore/.test(modelMountCommandBridge) &&
-      /bind_model_mount_invocation_receipt_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
-      /rust_core_shapes_model_mount_invocation_receipt_command_response/.test(modelMountReceiptCore) &&
+      !/bind_model_mount_invocation_receipt_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      /rust_core_binds_model_mount_receipt_and_admits_agentgres/.test(modelMountReceiptCore) &&
       !/bind_model_mount_invocation_receipt_response as bind_model_mount_invocation_receipt/.test(bridgeModule) &&
       !/ReceiptBinder/.test(modelMountReceiptCommandBridge) &&
       !/AgentgresAdmissionCore/.test(modelMountReceiptCommandBridge) &&
       !/append_accepted_receipt/.test(modelMountReceiptCommandBridge) &&
       !/RustProjectionCore/.test(modelMountReceiptCommandBridge) &&
-      /bind_model_mount_invocation_receipt_response/.test(modelMountReceiptCore) &&
+      /pub fn bind_model_mount_invocation_receipt/.test(modelMountReceiptCore) &&
       /ReceiptBinder/.test(modelMountReceiptCore) &&
       /AgentgresAdmissionCore/.test(modelMountReceiptCore) &&
       /append_accepted_receipt/.test(modelMountReceiptCore) &&
@@ -27021,11 +27129,11 @@ function runReceipts() {
       /acceptedReceiptTransition:\s*objectRecord\(agentgresTransition\?\.acceptedReceiptTransition\)/.test(modelInvocationOps) &&
       /acceptedReceiptTransition\.expected_heads/.test(modelInvocationOpsTest) &&
       /planAcceptedReceiptHead/.test(modelMountingState) &&
-      /plan_model_mount_accepted_receipt_head/.test(modelMountCore) &&
-      /plan_model_mount_accepted_receipt_head_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      /MODEL_MOUNT_ACCEPTED_RECEIPT_HEAD_API_METHOD = "planModelMountAcceptedReceiptHead"/.test(modelMountCore) &&
+      !/plan_model_mount_accepted_receipt_head_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
       !/plan_model_mount_accepted_receipt_head_response as plan_model_mount_accepted_receipt_head/.test(bridgeModule) &&
       !/bridge_plans_model_mount_accepted_receipt_head_through_rust_core/.test(bridgeModule) &&
-      /rust_core_shapes_accepted_receipt_head_response/.test(modelMountReceiptCore) &&
+      /rust_core_plans_accepted_receipt_head_direct_api/.test(modelMountReceiptCore) &&
       /ModelMountAcceptedReceiptHeadRequest/.test(modelMountReceiptCore) &&
       /mod accepted_receipt;/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
@@ -27066,7 +27174,7 @@ function runReceipts() {
       /state_root:\s*hashRef\(value\?\.state_root,\s*"agentgresHead\.state_root"\)/.test(
         modelInvocationOps,
       ) &&
-      /plan_model_mount_accepted_receipt_transition_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      !/plan_model_mount_accepted_receipt_transition_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
       !/plan_model_mount_accepted_receipt_transition_response as plan_model_mount_accepted_receipt_transition/.test(bridgeModule) &&
       !/bridge_plans_model_mount_accepted_receipt_transition_through_rust_core/.test(bridgeModule) &&
       /accepted_receipt_transition:\s*Option<ModelMountAcceptedReceiptTransition>/.test(modelMountReceiptCore) &&
@@ -27078,7 +27186,7 @@ function runReceipts() {
       !/expected_heads:/.test(modelMountInvocationReceiptRunnerBlock) &&
       /accepted_receipt_transition:\s*acceptedReceiptTransition/.test(modelMountInvocationReceiptRunnerBlock) &&
       /Rust model_mount core rejects direct expected head binding input/.test(modelMountCoreTest) &&
-      /ModelMountAcceptedReceiptTransitionBridgeRequest/.test(modelMountReceiptCore) &&
+      !/ModelMountAcceptedReceiptTransitionBridgeRequest/.test(modelMountReceiptCore) &&
       /ModelMountAcceptedReceiptTransitionRequest/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount/accepted_receipt.rs"),
       ) &&
@@ -27148,8 +27256,17 @@ function runReceipts() {
     result,
     "model-mount-invocation-agentgres-admission-core",
     !modelMountReceiptCommandBridgeExists &&
-      /bind_model_mount_invocation_receipt_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
-      /rust_core_shapes_model_mount_invocation_receipt_command_response/.test(modelMountReceiptCore) &&
+      isModelMountReceiptBindingTypedApiOwned({
+        coreCommandDispatch,
+        modelMountReceiptCore,
+        modelMountDaemonCore,
+        modelMountCoreTest,
+        commandProtocolCore,
+        kernelModule: read("crates/services/src/agentic/runtime/kernel/mod.rs"),
+        daemonCoreDirectInvokerServiceTest,
+      }) &&
+      !/bind_model_mount_invocation_receipt_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      /rust_core_binds_model_mount_receipt_and_admits_agentgres/.test(modelMountReceiptCore) &&
       !/bind_model_mount_invocation_receipt_response as bind_model_mount_invocation_receipt/.test(bridgeModule) &&
       !/AgentgresAdmissionCore/.test(modelMountReceiptCommandBridge) &&
       /AgentgresAdmissionCore/.test(modelMountReceiptCore) &&

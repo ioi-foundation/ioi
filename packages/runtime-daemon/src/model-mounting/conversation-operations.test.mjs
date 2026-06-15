@@ -54,8 +54,7 @@ function fakeState() {
       const nextSequence = request.current_sequence + 1;
       const operationId = `op_${String(nextSequence).padStart(8, "0")}_${request.receipt_kind.replace(/[^a-z0-9]+/gi, "_")}`;
       return {
-        source: "rust_model_mount_accepted_receipt_transition_command",
-        backend: "rust_model_mount_accepted_receipt_transition",
+        source: "rust_daemon_core.model_mount.accepted_receipt_transition",
         transition: {
           schema_version: "ioi.model_mount.accepted_receipt_transition.v1",
           operation_id: operationId,
@@ -82,8 +81,7 @@ function fakeState() {
     bindModelMountInvocationReceipt(request) {
       this.receiptBindingRequests.push(request);
       return {
-        source: "rust_model_mount_receipt_binding_command",
-        backend: "rust_model_mount_live",
+        source: "rust_daemon_core.model_mount.invocation_receipt_binding",
         invocation: request.invocation,
         result: request.result,
         router_admission: {

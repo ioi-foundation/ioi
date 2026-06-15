@@ -742,6 +742,83 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
         gate_hash: "sha256:direct-receipt-gate",
       };
     },
+    planModelMountAcceptedReceiptHead(request) {
+      modelMountCalls.push({ method: "planModelMountAcceptedReceiptHead", request });
+      return {
+        source: "rust_daemon_core.model_mount.accepted_receipt_head",
+        head: {
+          schema_version: request.schema_version,
+          sequence: request.sequence,
+          head_ref: `agentgres://model-mounting/accepted-receipts/head/${request.sequence}`,
+          state_root: "sha256:direct-state-root",
+          projection_watermark: `model-mounting-accepted-receipts:${request.sequence}`,
+          head_hash: "sha256:direct-head",
+          evidence_refs: ["rust_agentgres_receipt_head_planner"],
+        },
+        sequence: request.sequence,
+        head_ref: `agentgres://model-mounting/accepted-receipts/head/${request.sequence}`,
+        state_root: "sha256:direct-state-root",
+        projection_watermark: `model-mounting-accepted-receipts:${request.sequence}`,
+        head_hash: "sha256:direct-head",
+        evidence_refs: ["rust_agentgres_receipt_head_planner"],
+      };
+    },
+    planModelMountAcceptedReceiptTransition(request) {
+      modelMountCalls.push({ method: "planModelMountAcceptedReceiptTransition", request });
+      return {
+        source: "rust_daemon_core.model_mount.accepted_receipt_transition",
+        transition: {
+          schema_version: request.schema_version,
+          operation_id: "op_00000001_model_invocation",
+          operation_ref: "agentgres://model-mounting/accepted-receipts/op_00000001_model_invocation",
+          expected_heads: [request.current_head_ref],
+          state_root_before: request.current_state_root,
+          state_root_after: "sha256:direct-state-after",
+          resulting_head: "agentgres://model-mounting/accepted-receipts/head/1",
+          projection_watermark: "model-mounting-accepted-receipts:1",
+          transition_hash: "sha256:direct-transition",
+          evidence_refs: ["rust_agentgres_receipt_state_root_planner"],
+        },
+        operation_id: "op_00000001_model_invocation",
+        operation_ref: "agentgres://model-mounting/accepted-receipts/op_00000001_model_invocation",
+        expected_heads: [request.current_head_ref],
+        state_root_before: request.current_state_root,
+        state_root_after: "sha256:direct-state-after",
+        resulting_head: "agentgres://model-mounting/accepted-receipts/head/1",
+        projection_watermark: "model-mounting-accepted-receipts:1",
+        transition_hash: "sha256:direct-transition",
+        evidence_refs: ["rust_agentgres_receipt_state_root_planner"],
+      };
+    },
+    bindModelMountInvocationReceipt(request) {
+      modelMountCalls.push({ method: "bindModelMountInvocationReceipt", request });
+      return {
+        source: "rust_daemon_core.model_mount.invocation_receipt_binding",
+        invocation: request.invocation,
+        result: request.result,
+        receipt_binding: {
+          schema_version: "ioi.step_module_receipt_binding.v1",
+          binding_hash: "sha256:direct-binding",
+          receipt_refs: [request.receipt_ref],
+        },
+        accepted_receipt_append: {
+          schema_version: "ioi.accepted_receipt_append.v1",
+          append_hash: "sha256:direct-append",
+          receipt_ref: request.receipt_ref,
+        },
+        agentgres_admission: {
+          schema_version: "ioi.agentgres_admission.v1",
+          operation_ref: request.accepted_receipt_transition?.operation_ref,
+          expected_heads: request.accepted_receipt_transition?.expected_heads ?? [],
+          admission_hash: "sha256:direct-agentgres",
+        },
+        projection_record: {
+          component_kind: "ModelInvocationNode",
+        },
+        receipt_refs: [request.receipt_ref],
+        evidence_refs: ["rust_receipt_binder_core", "sha256:direct-binding", "sha256:direct-append"],
+      };
+    },
   };
   const directModelMountCore = createModelMountCore({
     daemonCoreInvoker: failCommandInvoker,
@@ -794,6 +871,15 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
       },
       planReceiptGate(request) {
         return directModelMountCore.planReceiptGate(request);
+      },
+      planAcceptedReceiptHead(request) {
+        return directModelMountCore.planAcceptedReceiptHead(request);
+      },
+      planAcceptedReceiptTransition(request) {
+        return directModelMountCore.planAcceptedReceiptTransition(request);
+      },
+      bindInvocationReceipt(request) {
+        return directModelMountCore.bindInvocationReceipt(request);
       },
       planReadProjection(request) {
         return directModelMountCore.planReadProjection(request);
@@ -1380,6 +1466,45 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
   assert.equal(receiptGatePlan.source, "direct_model_mount_api");
   assert.equal(receiptGatePlan.gate_hash, "sha256:direct-receipt-gate");
   assert.equal(receiptGatePlan.rust_core_boundary, "model_mount.receipt_gate");
+  const acceptedHead = store.modelMounting.agentgresModelMountingHead();
+  assert.equal(calls.length, 0);
+  assertModelMountDirectApiCall(
+    modelMountCalls.at(-1),
+    "planModelMountAcceptedReceiptHead",
+    "ioi.model_mount.accepted_receipt_head.v1",
+  );
+  assert.equal(acceptedHead.source, "rust_daemon_core.model_mount.accepted_receipt_head");
+  assert.equal(acceptedHead.head_hash, "sha256:direct-head");
+  const acceptedTransition = store.modelMounting.planModelMountAcceptedReceiptTransition({
+    schema_version: "ioi.model_mount.accepted_receipt_transition.v1",
+    current_sequence: 0,
+    current_head_ref: "agentgres://model-mounting/accepted-receipts/head/0",
+    current_state_root: "sha256:direct-state-root",
+    receipt_id: "receipt.invoke.direct",
+    receipt_kind: "model_invocation",
+  });
+  assert.equal(calls.length, 0);
+  assertModelMountDirectApiCall(
+    modelMountCalls.at(-1),
+    "planModelMountAcceptedReceiptTransition",
+    "ioi.model_mount.accepted_receipt_transition.v1",
+  );
+  assert.equal(
+    acceptedTransition.operation_ref,
+    "agentgres://model-mounting/accepted-receipts/op_00000001_model_invocation",
+  );
+  const receiptBinding = store.modelMounting.bindModelMountInvocationReceipt({
+    invocation: { invocation_id: "model-invocation://direct" },
+    result: { receipt_refs: ["receipt://invocation/direct"] },
+    acceptedReceiptTransition: acceptedTransition.transition,
+    receiptRef: "receipt://invocation/direct",
+  });
+  assert.equal(calls.length, 0);
+  assert.equal(modelMountCalls.at(-1).method, "bindModelMountInvocationReceipt");
+  assert.equal(Object.hasOwn(modelMountCalls.at(-1).request, "operation"), false);
+  assert.equal(Object.hasOwn(modelMountCalls.at(-1).request, "backend"), false);
+  assert.equal(receiptBinding.source, "rust_daemon_core.model_mount.invocation_receipt_binding");
+  assert.equal(receiptBinding.receipt_binding.binding_hash, "sha256:direct-binding");
   const storagePlan = store.modelMounting.planStorageControl({
     schema_version: "ioi.model_mount.storage_control.v1",
     operation_kind: "model_mount.download.queue",

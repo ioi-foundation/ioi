@@ -39,23 +39,7 @@ impl ModelMountReceiptError {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct ModelMountAcceptedReceiptHeadBridgeRequest {
-    #[serde(default)]
-    pub backend: Option<String>,
-    pub request: ModelMountAcceptedReceiptHeadRequest,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct ModelMountAcceptedReceiptTransitionBridgeRequest {
-    #[serde(default)]
-    pub backend: Option<String>,
-    pub request: ModelMountAcceptedReceiptTransitionRequest,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct ModelMountInvocationReceiptBindingBridgeRequest {
-    #[serde(default)]
-    pub backend: Option<String>,
+pub struct ModelMountInvocationReceiptBindingRequest {
     pub invocation: StepModuleInvocation,
     pub result: StepModuleResult,
     #[serde(default)]
@@ -66,11 +50,11 @@ pub struct ModelMountInvocationReceiptBindingBridgeRequest {
     pub receipt_ref: Option<String>,
 }
 
-pub fn plan_model_mount_accepted_receipt_head_response(
-    request: ModelMountAcceptedReceiptHeadBridgeRequest,
+pub fn plan_model_mount_accepted_receipt_head(
+    request: &ModelMountAcceptedReceiptHeadRequest,
 ) -> Result<Value, ModelMountReceiptError> {
     let head = ModelMountCore
-        .plan_accepted_receipt_head(&request.request)
+        .plan_accepted_receipt_head(request)
         .map_err(|error| {
             ModelMountReceiptError::new(
                 "model_mount_accepted_receipt_head_rejected",
@@ -78,8 +62,7 @@ pub fn plan_model_mount_accepted_receipt_head_response(
             )
         })?;
     Ok(json!({
-        "source": "rust_model_mount_accepted_receipt_head_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_model_mount_accepted_receipt_head".to_string()),
+        "source": "rust_daemon_core.model_mount.accepted_receipt_head",
         "head": head.clone(),
         "sequence": head.sequence,
         "head_ref": head.head_ref,
@@ -90,11 +73,11 @@ pub fn plan_model_mount_accepted_receipt_head_response(
     }))
 }
 
-pub fn plan_model_mount_accepted_receipt_transition_response(
-    request: ModelMountAcceptedReceiptTransitionBridgeRequest,
+pub fn plan_model_mount_accepted_receipt_transition(
+    request: &ModelMountAcceptedReceiptTransitionRequest,
 ) -> Result<Value, ModelMountReceiptError> {
     let transition = ModelMountCore
-        .plan_accepted_receipt_transition(&request.request)
+        .plan_accepted_receipt_transition(request)
         .map_err(|error| {
             ModelMountReceiptError::new(
                 "model_mount_accepted_receipt_transition_rejected",
@@ -102,8 +85,7 @@ pub fn plan_model_mount_accepted_receipt_transition_response(
             )
         })?;
     Ok(json!({
-        "source": "rust_model_mount_accepted_receipt_transition_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_model_mount_accepted_receipt_transition".to_string()),
+        "source": "rust_daemon_core.model_mount.accepted_receipt_transition",
         "transition": transition.clone(),
         "operation_id": transition.operation_id,
         "operation_ref": transition.operation_ref,
@@ -117,8 +99,8 @@ pub fn plan_model_mount_accepted_receipt_transition_response(
     }))
 }
 
-pub fn bind_model_mount_invocation_receipt_response(
-    request: ModelMountInvocationReceiptBindingBridgeRequest,
+pub fn bind_model_mount_invocation_receipt(
+    request: &ModelMountInvocationReceiptBindingRequest,
 ) -> Result<Value, ModelMountReceiptError> {
     if request.invocation.module_ref.kind != StepModuleKind::ModelMount
         || request.invocation.execution.backend != StepModuleBackend::ModelMount
@@ -213,8 +195,7 @@ pub fn bind_model_mount_invocation_receipt_response(
     let binding_hash = receipt_binding.binding_hash.clone();
     let append_hash = accepted_receipt_append.append_hash.clone();
     Ok(json!({
-        "source": "rust_model_mount_receipt_binding_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_model_mount_live".to_string()),
+        "source": "rust_daemon_core.model_mount.invocation_receipt_binding",
         "invocation": request.invocation,
         "result": request.result,
         "router_admission": router_admission,
@@ -232,7 +213,7 @@ pub fn bind_model_mount_invocation_receipt_response(
 }
 
 fn expected_heads_from_transition(
-    request: &ModelMountInvocationReceiptBindingBridgeRequest,
+    request: &ModelMountInvocationReceiptBindingRequest,
 ) -> Result<Vec<String>, ModelMountReceiptError> {
     if request.result.agentgres_operation_refs.is_empty() {
         return Ok(vec![]);
@@ -276,7 +257,6 @@ fn expected_heads_from_transition(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::agentic::runtime::kernel::command_protocol::DAEMON_CORE_COMMAND_SCHEMA_VERSION;
     use crate::agentic::runtime::kernel::model_mount::{
         MODEL_MOUNT_ACCEPTED_RECEIPT_HEAD_SCHEMA_VERSION,
         MODEL_MOUNT_ACCEPTED_RECEIPT_TRANSITION_SCHEMA_VERSION,
@@ -399,27 +379,16 @@ mod tests {
     }
 
     #[test]
-    fn rust_core_shapes_accepted_receipt_head_response() {
-        let request: ModelMountAcceptedReceiptHeadBridgeRequest = serde_json::from_value(json!({
-        "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
-            "operation": "plan_model_mount_accepted_receipt_head",
-            "backend": "rust_model_mount_accepted_receipt_head",
-            "request": {
-                "schema_version": MODEL_MOUNT_ACCEPTED_RECEIPT_HEAD_SCHEMA_VERSION,
-                "sequence": 7
-            }
-        }))
-        .expect("head command request");
-        let response =
-            plan_model_mount_accepted_receipt_head_response(request).expect("head response");
+    fn rust_core_plans_accepted_receipt_head_direct_api() {
+        let request = ModelMountAcceptedReceiptHeadRequest {
+            schema_version: MODEL_MOUNT_ACCEPTED_RECEIPT_HEAD_SCHEMA_VERSION.to_string(),
+            sequence: 7,
+        };
+        let response = plan_model_mount_accepted_receipt_head(&request).expect("head response");
 
         assert_eq!(
             response["source"],
-            "rust_model_mount_accepted_receipt_head_command"
-        );
-        assert_eq!(
-            response["backend"],
-            "rust_model_mount_accepted_receipt_head"
+            "rust_daemon_core.model_mount.accepted_receipt_head"
         );
         assert_eq!(response["sequence"], 7);
         assert_eq!(
@@ -444,38 +413,27 @@ mod tests {
     }
 
     #[test]
-    fn rust_core_shapes_accepted_receipt_transition_response() {
-        let request: ModelMountAcceptedReceiptTransitionBridgeRequest =
-            serde_json::from_value(json!({
-                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
-                "operation": "plan_model_mount_accepted_receipt_transition",
-                "backend": "rust_model_mount_accepted_receipt_transition",
-                "request": {
-                    "schema_version": MODEL_MOUNT_ACCEPTED_RECEIPT_TRANSITION_SCHEMA_VERSION,
-                    "current_sequence": 0,
-                    "current_head_ref": "agentgres://model-mounting/accepted-receipts/head/0",
-                    "current_state_root": "sha256:state-0",
-                    "receipt_id": "receipt.invoke",
-                    "receipt_kind": "model_invocation",
-                    "route_decision_ref": "model_mount://route_decision/test",
-                    "invocation_admission_ref": "model_mount://invocation_admission/test",
-                    "invocation_admission_hash": "sha256:invocation-test",
-                    "input_hash": "sha256:input",
-                    "output_hash": "sha256:output"
-                }
-            }))
-            .expect("accepted receipt transition command request");
+    fn rust_core_plans_accepted_receipt_transition_direct_api() {
+        let request = ModelMountAcceptedReceiptTransitionRequest {
+            schema_version: MODEL_MOUNT_ACCEPTED_RECEIPT_TRANSITION_SCHEMA_VERSION.to_string(),
+            current_sequence: 0,
+            current_head_ref: "agentgres://model-mounting/accepted-receipts/head/0".to_string(),
+            current_state_root: "sha256:state-0".to_string(),
+            receipt_id: "receipt.invoke".to_string(),
+            receipt_kind: "model_invocation".to_string(),
+            route_decision_ref: Some("model_mount://route_decision/test".to_string()),
+            invocation_admission_ref: Some("model_mount://invocation_admission/test".to_string()),
+            invocation_admission_hash: Some("sha256:invocation-test".to_string()),
+            input_hash: Some("sha256:input".to_string()),
+            output_hash: Some("sha256:output".to_string()),
+        };
 
-        let response = plan_model_mount_accepted_receipt_transition_response(request)
+        let response = plan_model_mount_accepted_receipt_transition(&request)
             .expect("accepted receipt transition response");
 
         assert_eq!(
             response["source"],
-            "rust_model_mount_accepted_receipt_transition_command"
-        );
-        assert_eq!(
-            response["backend"],
-            "rust_model_mount_accepted_receipt_transition"
+            "rust_daemon_core.model_mount.accepted_receipt_transition"
         );
         assert_eq!(response["operation_id"], "op_00000001_model_invocation");
         assert_eq!(
@@ -511,21 +469,19 @@ mod tests {
     #[test]
     fn rust_core_binds_model_mount_receipt_and_admits_agentgres() {
         let transition = transition();
-        let response = bind_model_mount_invocation_receipt_response(
-            ModelMountInvocationReceiptBindingBridgeRequest {
-                backend: Some("rust_model_mount_live".to_string()),
+        let response =
+            bind_model_mount_invocation_receipt(&ModelMountInvocationReceiptBindingRequest {
                 invocation: invocation(&transition),
                 result: result(&transition),
                 expected_heads: vec![],
                 accepted_receipt_transition: Some(transition),
                 receipt_ref: Some("receipt://receipt.test".to_string()),
-            },
-        )
-        .expect("receipt binding response");
+            })
+            .expect("receipt binding response");
 
         assert_eq!(
             response["source"],
-            "rust_model_mount_receipt_binding_command"
+            "rust_daemon_core.model_mount.invocation_receipt_binding"
         );
         assert_eq!(response["router_admission"]["backend"], "model_mount");
         assert_eq!(
@@ -543,52 +499,6 @@ mod tests {
         assert_eq!(
             response["projection_record"]["component_kind"],
             "ModelInvocationNode"
-        );
-    }
-
-    #[test]
-    fn rust_core_shapes_model_mount_invocation_receipt_command_response() {
-        let transition = transition();
-        let request: ModelMountInvocationReceiptBindingBridgeRequest =
-            serde_json::from_value(json!({
-                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
-                "operation": "bind_model_mount_invocation_receipt",
-                "backend": "rust_model_mount_live",
-                "invocation": invocation(&transition),
-                "result": result(&transition),
-                "accepted_receipt_transition": transition,
-                "receipt_ref": "receipt://receipt.test"
-            }))
-            .expect("receipt binding command request");
-
-        let response =
-            bind_model_mount_invocation_receipt_response(request).expect("receipt bound");
-
-        assert_eq!(
-            response["source"],
-            "rust_model_mount_receipt_binding_command"
-        );
-        assert_eq!(response["backend"], "rust_model_mount_live");
-        assert_eq!(response["router_admission"]["backend"], "model_mount");
-        assert_eq!(
-            response["accepted_receipt_append"]["receipt_ref"],
-            "receipt://receipt.test"
-        );
-        assert_eq!(
-            response["projection_record"]["component_kind"],
-            "ModelInvocationNode"
-        );
-        assert_eq!(
-            response["receipt_binding"]["receipt_refs"][0],
-            "receipt://receipt.test"
-        );
-        assert_eq!(
-            response["receipt_binding"]["expected_heads"][0],
-            "agentgres://model-mounting/accepted-receipts/head/0"
-        );
-        assert_eq!(
-            response["agentgres_admission"]["operation_ref"],
-            "agentgres://model-mounting/accepted-receipts/op_00000001_model_invocation"
         );
     }
 
@@ -599,17 +509,15 @@ mod tests {
         result.resulting_head =
             Some("agentgres://model-mounting/accepted-receipts/head/tampered".to_string());
 
-        let error = bind_model_mount_invocation_receipt_response(
-            ModelMountInvocationReceiptBindingBridgeRequest {
-                backend: Some("rust_model_mount_live".to_string()),
+        let error =
+            bind_model_mount_invocation_receipt(&ModelMountInvocationReceiptBindingRequest {
                 invocation: invocation(&transition),
                 result,
                 expected_heads: vec![],
                 accepted_receipt_transition: Some(transition),
                 receipt_ref: Some("receipt://receipt.test".to_string()),
-            },
-        )
-        .expect_err("mismatched transition must fail");
+            })
+            .expect_err("mismatched transition must fail");
 
         assert_eq!(
             error.code(),

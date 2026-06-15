@@ -6500,7 +6500,7 @@ until direct Rust daemon-core computer-use admission, wallet.network authority,
 cTEE/workspace custody, Agentgres expected-head/state-root binding,
 receipt/event materialization, replay, and projection APIs replace the bridge.
 
-Slice 1104 splits the Rust model_mount accepted-receipt planning and invocation
+Slice 1104 originally split the Rust model_mount accepted-receipt planning and invocation
 receipt binding command boundary out of
 `ioi_step_module_bridge/model_mount_command.rs` into
 `ioi_step_module_bridge/model_mount_receipt_command.rs`. The general
@@ -6510,10 +6510,10 @@ boundary owns accepted-receipt head/transition planning, caller-supplied expecte
 head rejection, transition validation, StepModuleRouter admission, receipt
 binding, accepted-receipt append, Agentgres admission, and projection binding.
 
-This is still temporary command-transport scaffolding, not the terminal direct
-daemon-core API. It exists only to keep receipt/state-root ownership explicit
-until direct Rust daemon-core model_mount protocol APIs replace the Node command
-bridge and remaining JS model_mount facades.
+That temporary command-transport receipt boundary is now superseded by the typed
+Rust daemon-core model_mount receipt API: accepted-receipt head/transition
+planning and invocation receipt binding call `daemonCoreModelMountApi` methods,
+and Rust rejects the old command operations before dispatch.
 
 Slice 1105 splits the Rust coding-tool StepModule workload dispatch,
 StepModuleRouter admission, receipt binding, Agentgres admission, and projection
@@ -6706,26 +6706,24 @@ admission, replay, projection, and stable protocol APIs end to end, with the
 bridge deleted or reduced to external protocol transport once the direct Rust
 daemon-core surface is verified.
 
-Slice 1117 moves model_mount accepted-receipt response shaping and invocation
+Slice 1117 moved model_mount accepted-receipt response shaping and invocation
 receipt binding/admission out of the temporary Node receipt bridge and into
 Rust `model_mount_receipt.rs` under the kernel service crate. Rust core now
-owns accepted-receipt head/transition command responses, model_mount
+owns accepted-receipt head/transition direct API envelopes, model_mount
 StepModule invocation/result gate checks, caller-supplied expected-head
 rejection, Rust-planned accepted-receipt transition validation, transition
 mismatch fail-closed checks, StepModuleRouter admission, receipt binding,
 accepted-receipt append through `ReceiptBinder`, optional Agentgres operation
 admission, projection record creation, and the canonical
-`rust_model_mount_receipt_binding_command` response envelope.
+`rust_daemon_core.model_mount.invocation_receipt_binding` response source.
 
-This remains non-terminal because the Node bridge, command dispatch table,
-shared daemon-core command runner, JS command callers, model-mount admission
-runner, and model-mount JS protocol facades still exist. The remaining
-`ioi_step_module_bridge/model_mount_receipt_command.rs` file is a temporary
-delegate to Rust core, not a durable receipt/admission boundary. The long-term
-target remains direct Rust daemon-core model_mount protocol APIs over
-Agentgres-backed receipt/state-root binding, replay, projection, wallet.network
-authority, cTEE custody where applicable, and stable IDE/CLI/SDK surfaces end
-to end.
+The original receipt command-transport delegate is retired for this family:
+`plan_model_mount_accepted_receipt_head`,
+`plan_model_mount_accepted_receipt_transition`, and
+`bind_model_mount_invocation_receipt` are no longer daemon-core command
+operations. The remaining non-terminal work is the rest of model_mount transport
+and stable protocol/API ownership, not accepted-receipt or invocation receipt
+binding.
 
 Slice 1118 moves governed receipt command response shaping for cTEE private
 workspace execution and worker/service package invocation out of the temporary
@@ -7978,27 +7976,17 @@ admission, provider execution, provider invocation, Agentgres truth, replay,
 and stable IDE/CLI/SDK surfaces no longer depend on Node bridge endpoint proof
 scaffolding.
 
-Slice 1183 moves the next model-mount provider-result and receipt-binding
+Slice 1183 moved the next model-mount provider-result and receipt-binding
 command-response proof cluster out of the temporary bridge proof surface and
 into the Rust owners at
 `crates/services/src/agentic/runtime/kernel/model_mount/provider_result.rs`
 and `crates/services/src/agentic/runtime/kernel/model_mount_receipt.rs`.
-Provider-result command-envelope shaping, retired JS provider-observation
-rejection, and model invocation receipt-binding command-envelope shaping now
-run as Rust owner tests. Bridge conformance now requires those owner tests,
-proves typed Rust `command_dispatch.rs` still dispatches
-`admit_model_mount_provider_result` and
-`bind_model_mount_invocation_receipt`, and proves the old bridge-named tests,
-request-type imports, and response-function aliases stay absent from
-`ioi_step_module_bridge/proof_tests.rs`. The bridge proof suite now runs 44
-tests.
-
-This remains non-terminal because provider-result admission and invocation
-receipt binding still cross temporary command transport. The target is direct
-Rust daemon-core model-mount protocol/API ownership where provider result
-admission, receipt binding, accepted-receipt append, Agentgres truth, replay,
-and stable IDE/CLI/SDK surfaces no longer depend on Node bridge endpoint proof
-scaffolding.
+Provider-result command-envelope shaping and the then-command-shaped receipt
+binding proofs moved to Rust owner tests first; later cuts moved provider-result
+admission and invocation receipt binding to typed `daemonCoreModelMountApi`
+methods and removed their command operations from Rust protocol/dispatch. The
+target remains direct Rust daemon-core model-mount protocol/API ownership for
+the remaining transport families.
 
 Slice 1184 moves the model-mount provider lifecycle, provider inventory, and
 instance lifecycle command-response proof cluster out of the temporary bridge
@@ -8061,25 +8049,12 @@ the then-temporary read-projection proof cluster out of the temporary bridge
 proof surface and into Rust owners at
 `crates/services/src/agentic/runtime/kernel/model_mount_receipt.rs` and
 `crates/services/src/agentic/runtime/kernel/model_mount/read_projection.rs`.
-Accepted-receipt head and accepted-receipt transition command-envelope response
-shaping still run as Rust owner tests, while read-projection has since moved to
-the positive typed API owned by
-`RuntimeKernelService::plan_model_mount_read_projection`. Bridge conformance
-now requires those owner tests, proves typed Rust
-`command_dispatch.rs` still dispatches
-`plan_model_mount_accepted_receipt_head`,
-`plan_model_mount_accepted_receipt_transition`, and proves the old
-bridge-named tests, request-type imports, response-function aliases, and
-command-protocol proof imports stay absent from
-`ioi_step_module_bridge/proof_tests.rs`. The bridge proof suite now runs 32
-tests.
-
-This remains non-terminal because accepted-receipt planning still crosses
-temporary command transport. Read-projection no longer does; the target is
-direct Rust daemon-core model-mount protocol/API ownership where accepted
-receipt heads, state-root transitions, projection/replay reads, Agentgres
-truth, replay, and stable IDE/CLI/SDK surfaces no longer depend on Node bridge
-endpoint proof scaffolding.
+Accepted-receipt head/transition planning and read-projection have since moved
+to positive typed APIs owned by `RuntimeKernelService`; Rust command protocol
+now rejects `plan_model_mount_accepted_receipt_head`,
+`plan_model_mount_accepted_receipt_transition`, and
+`bind_model_mount_invocation_receipt`. This remains non-terminal only because
+other model_mount helpers still cross temporary transport.
 
 Slice 1187 deletes the remaining temporary bridge proof module and moves its
 coding-tool StepModule proof obligations into Rust owner tests. The Node bridge
@@ -8644,12 +8619,11 @@ tests are deleted, the daemon store/service pass only `modelMountCore`, and the
 old command/env factory path is gone. Route decision, invocation admission,
 provider execution, provider invocation/stream execution, lifecycle/inventory,
 instance lifecycle, provider-result admission, artifact-endpoint planning,
-storage control, route-control planning, MCP workflow planning, server-control planning, runtime-engine planning, runtime-survey planning, catalog-provider control planning, provider control planning, capability-token control planning, vault control planning, and receipt-gate planning now call typed
+storage control, route-control planning, MCP workflow planning, server-control planning, runtime-engine planning, runtime-survey planning, catalog-provider control planning, provider control planning, capability-token control planning, vault control planning, receipt-gate planning, accepted-receipt head/transition planning, and invocation receipt-binding now call typed
 `daemonCoreModelMountApi` methods instead of command envelopes. Rust rejects the
 retired command operations, dispatch arms, and bridge request/response wrappers
 for that family. Backend process/lifecycle, remaining required-control,
-accepted-receipt head/transition, invocation receipt-binding, tokenizer,
-conversation/stream, and projection helpers still enter Rust through remaining
+tokenizer, conversation/stream, and projection helpers still enter Rust through remaining
 migration transport. Read-projection now calls
 `daemonCoreModelMountApi.planModelMountReadProjection`, backed by
 `RuntimeKernelService::plan_model_mount_read_projection`; the old
@@ -8813,6 +8787,21 @@ search/fetch truth. JS maps Rust `not_found` to the route error only. This
 remains non-terminal because actual MCP transport execution, payload
 materialization, command transport retirement, and stable IDE/CLI/SDK protocol
 APIs over Rust projection/replay records still need deeper Rust ownership.
+
+Slice 1219 retires the model_mount accepted-receipt and invocation
+receipt-binding command transport. `ModelMountCore` now calls typed
+`daemonCoreModelMountApi.planModelMountAcceptedReceiptHead`,
+`planModelMountAcceptedReceiptTransition`, and
+`bindModelMountInvocationReceipt` without `operation` or `backend` fields;
+Rust `RuntimeKernelService` exposes the matching direct methods over
+`model_mount_receipt.rs`; and `command_protocol.rs` rejects the retired
+`plan_model_mount_accepted_receipt_head`,
+`plan_model_mount_accepted_receipt_transition`, and
+`bind_model_mount_invocation_receipt` operations. The JS normalizers preserve
+Rust daemon-core sources instead of synthesizing command/backend truth, and
+conformance now guards the old bridge request/response wrappers, dispatch arms,
+source/backend markers, command-envelope builders, and direct-invoker fallback
+from returning.
 
 Coding-tool approval satisfaction projection is now Rust-owned. The daemon
 approval core exposes `project_coding_tool_approval_satisfaction`; Rust
@@ -9350,10 +9339,11 @@ execution, provider lifecycle/inventory, instance lifecycle, provider-result
 admission, artifact-endpoint planning, storage control, route-control planning,
 MCP workflow planning, server-control planning, and read-projection planning.
 Remaining model_mount backend-process/lifecycle, required-control,
-receipt-binding, tokenizer, conversation/stream, and projection
+tokenizer, conversation/stream, and projection
 migration transports still need direct Rust daemon-core protocol/API ownership;
-the read-projection and catalog-provider/provider/capability-token/vault/receipt-gate
-command transports are retired.
+the read-projection, accepted-receipt, invocation receipt-binding,
+catalog-provider/provider/capability-token/vault/receipt-gate command transports
+are retired.
 
 Model-mount backend registry lookup now consumes Rust read-projection kind
 `backends` through `ModelMountingState.backendRegistry()` and the internal
