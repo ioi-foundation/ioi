@@ -31,7 +31,6 @@ export function createRuntimeSkillHookSurface({
   return {
     skillHookCatalog(request = {}) {
       return project({
-        operation: "skill_hook_registry_catalog",
         operation_kind: "skill_hook.registry.catalog",
         registry_kind: "catalog",
         workspace_root: cwdForRequest(request),
@@ -39,7 +38,6 @@ export function createRuntimeSkillHookSurface({
     },
     listSkills(request = {}) {
       return project({
-        operation: "skill_hook_registry_skills",
         operation_kind: "skill_hook.registry.skills",
         registry_kind: "skills",
         workspace_root: cwdForRequest(request),
@@ -47,7 +45,6 @@ export function createRuntimeSkillHookSurface({
     },
     listHooks(request = {}) {
       return project({
-        operation: "skill_hook_registry_hooks",
         operation_kind: "skill_hook.registry.hooks",
         registry_kind: "hooks",
         workspace_root: cwdForRequest(request),

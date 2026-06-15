@@ -10,9 +10,7 @@ pub const SKILL_HOOK_REGISTRY_PROJECTION_RESULT_SCHEMA_VERSION: &str =
     "ioi.runtime.skill-hook-registry-projection.v1";
 
 #[derive(Debug, Clone, Deserialize, Default)]
-pub struct SkillHookRegistryProjectionBridgeRequest {
-    #[serde(default)]
-    pub operation: Option<String>,
+pub struct SkillHookRegistryProjectionRequest {
     #[serde(default)]
     pub operation_kind: Option<String>,
     #[serde(default)]
@@ -53,7 +51,6 @@ pub struct SkillHookRegistryProjectionCore;
 
 #[derive(Debug, Clone)]
 pub struct SkillHookRegistryProjectionRecord {
-    pub operation: String,
     pub operation_kind: String,
     pub registry_kind: String,
     pub workspace_root: String,
@@ -71,7 +68,7 @@ pub struct SkillHookRegistryProjectionRecord {
 impl SkillHookRegistryProjectionCore {
     pub fn project(
         &self,
-        request: SkillHookRegistryProjectionBridgeRequest,
+        request: SkillHookRegistryProjectionRequest,
     ) -> Result<SkillHookRegistryProjectionRecord, SkillHookRegistryProjectionCommandError> {
         let registry_kind = normalized_registry_kind(&request)?;
         let workspace_root = absolute_path(
@@ -91,10 +88,6 @@ impl SkillHookRegistryProjectionCore {
                 "hooks" => "skill_hook.registry.hooks".to_string(),
                 _ => "skill_hook.registry.unknown".to_string(),
             });
-        let operation = request
-            .operation
-            .clone()
-            .unwrap_or_else(|| format!("skill_hook_registry_{registry_kind}"));
         let source = optional_trimmed(request.source.as_deref())
             .unwrap_or_else(|| "rust_skill_hook_registry_projection_api".to_string());
         let catalog = discover_skill_hook_catalog(&workspace_root, &home_dir);
@@ -119,7 +112,6 @@ impl SkillHookRegistryProjectionCore {
         };
 
         Ok(SkillHookRegistryProjectionRecord {
-            operation,
             operation_kind,
             registry_kind: registry_kind.clone(),
             workspace_root,
@@ -147,7 +139,6 @@ impl SkillHookRegistryProjectionRecord {
             "schema_version": SKILL_HOOK_REGISTRY_PROJECTION_RESULT_SCHEMA_VERSION,
             "object": "ioi.runtime_skill_hook_registry_projection",
             "status": "projected",
-            "operation": self.operation,
             "operation_kind": self.operation_kind,
             "registry_kind": self.registry_kind,
             "workspace_root": self.workspace_root,
@@ -786,7 +777,7 @@ fn hook_record_from_definition(
 }
 
 fn normalized_registry_kind(
-    request: &SkillHookRegistryProjectionBridgeRequest,
+    request: &SkillHookRegistryProjectionRequest,
 ) -> Result<String, SkillHookRegistryProjectionCommandError> {
     if let Some(value) = optional_trimmed_lower(request.registry_kind.as_deref()) {
         return Ok(value);
@@ -1071,8 +1062,7 @@ mod tests {
         .unwrap();
 
         let record = SkillHookRegistryProjectionCore
-            .project(SkillHookRegistryProjectionBridgeRequest {
-                operation: Some("skill_hook_registry_catalog".to_string()),
+            .project(SkillHookRegistryProjectionRequest {
                 operation_kind: Some("skill_hook.registry.catalog".to_string()),
                 registry_kind: Some("catalog".to_string()),
                 workspace_root: Some(workspace.to_string_lossy().to_string()),
@@ -1117,7 +1107,7 @@ mod tests {
         .unwrap();
 
         let skills = SkillHookRegistryProjectionCore
-            .project(SkillHookRegistryProjectionBridgeRequest {
+            .project(SkillHookRegistryProjectionRequest {
                 registry_kind: Some("skills".to_string()),
                 operation_kind: Some("skill_hook.registry.skills".to_string()),
                 workspace_root: Some(workspace.to_string_lossy().to_string()),
@@ -1126,7 +1116,7 @@ mod tests {
             })
             .expect("skills projection");
         let hooks = SkillHookRegistryProjectionCore
-            .project(SkillHookRegistryProjectionBridgeRequest {
+            .project(SkillHookRegistryProjectionRequest {
                 registry_kind: Some("hooks".to_string()),
                 operation_kind: Some("skill_hook.registry.hooks".to_string()),
                 workspace_root: Some(workspace.to_string_lossy().to_string()),
@@ -1159,7 +1149,7 @@ mod tests {
     fn rust_shapes_skill_hook_registry_direct_record() {
         let (workspace, home) = fixture_roots("command");
         let record = SkillHookRegistryProjectionCore::default()
-            .project(SkillHookRegistryProjectionBridgeRequest {
+            .project(SkillHookRegistryProjectionRequest {
                 registry_kind: Some("skills".to_string()),
                 operation_kind: Some("skill_hook.registry.skills".to_string()),
                 workspace_root: Some(workspace.to_string_lossy().to_string()),
@@ -1174,6 +1164,8 @@ mod tests {
             record["schema_version"],
             SKILL_HOOK_REGISTRY_PROJECTION_RESULT_SCHEMA_VERSION
         );
+        assert!(record.get("operation").is_none());
+        assert_eq!(record["operation_kind"], "skill_hook.registry.skills");
         assert_eq!(
             record["projection"]["schemaVersion"],
             "ioi.agent-runtime.skills.v1"

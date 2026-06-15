@@ -348,8 +348,8 @@ use settlement::{
     SettlementReceiptBundleV2,
 };
 use skill_hook_registry::{
-    SkillHookRegistryProjectionBridgeRequest, SkillHookRegistryProjectionCommandError,
-    SkillHookRegistryProjectionCore, SkillHookRegistryProjectionRecord,
+    SkillHookRegistryProjectionCommandError, SkillHookRegistryProjectionCore,
+    SkillHookRegistryProjectionRecord, SkillHookRegistryProjectionRequest,
 };
 use step_module::{StepModuleInvocation, StepModuleResult, StepModuleValidationError};
 use step_router::{
@@ -679,7 +679,7 @@ impl RuntimeKernelService {
 
     pub fn project_skill_hook_registry(
         &self,
-        request: &SkillHookRegistryProjectionBridgeRequest,
+        request: &SkillHookRegistryProjectionRequest,
     ) -> Result<SkillHookRegistryProjectionRecord, SkillHookRegistryProjectionCommandError> {
         SkillHookRegistryProjectionCore::default().project(request.clone())
     }

@@ -4265,6 +4265,11 @@ function runBridge() {
   )
     ? read("crates/services/src/agentic/runtime/kernel/skill_hook_registry.rs")
     : "";
+  const runtimeDoctorReportRustCore = exists(
+    "crates/services/src/agentic/runtime/kernel/runtime_doctor_report.rs",
+  )
+    ? read("crates/services/src/agentic/runtime/kernel/runtime_doctor_report.rs")
+    : "";
   const repositoryWorkflowRustCore = exists(
     "crates/services/src/agentic/runtime/kernel/repository_workflow.rs",
   )
@@ -12539,6 +12544,13 @@ function runBridge() {
       /pub const SKILL_HOOK_REGISTRY_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
         skillHookRegistryRustCore,
       ) &&
+      /pub struct SkillHookRegistryProjectionRequest/.test(skillHookRegistryRustCore) &&
+      !/SkillHookRegistryProjectionBridgeRequest/.test(
+        `${skillHookRegistryRustCore}\n${kernelModuleForBridgeChecks}\n${runtimeDoctorReportRustCore}`,
+      ) &&
+      !/pub operation: Option<String>|pub operation: String|"operation": self\.operation/.test(
+        skillHookRegistryRustCore,
+      ) &&
       /pub struct SkillHookRegistryProjectionCore/.test(skillHookRegistryRustCore) &&
       !/pub fn project_skill_hook_registry_response/.test(skillHookRegistryRustCore) &&
       /pub fn project_skill_hook_registry\(/.test(kernelModuleForBridgeChecks) &&
@@ -12547,6 +12559,7 @@ function runBridge() {
       /rust_projects_skill_hook_registry_catalog/.test(skillHookRegistryRustCore) &&
       /rust_projects_skill_and_hook_route_shapes/.test(skillHookRegistryRustCore) &&
       /rust_shapes_skill_hook_registry_direct_record/.test(skillHookRegistryRustCore) &&
+      /record\.get\("operation"\)\.is_none\(\)/.test(skillHookRegistryRustCore) &&
       /public_projection_catalog_command_transport_is_retired/.test(commandProtocolCore) &&
       !/ProjectSkillHookRegistry/.test(commandProtocolCore) &&
 	      !/project_skill_hook_registry_response/.test(coreCommandDispatch) &&
@@ -12573,11 +12586,21 @@ function runBridge() {
         runtimeContextPolicyCore,
       ) &&
       !/operation:\s*"project_skill_hook_registry"/.test(runtimeContextPolicyCore) &&
+      !/operation:\s*"skill_hook_registry_(?:catalog|skills|hooks)"/.test(
+        runtimeContextPolicyCore,
+      ) &&
       /normalizeSkillHookRegistryProjectionBridgeResult/.test(
         runtimeContextPolicyCore,
       ) &&
+      /recordWithoutRetiredOperation/.test(runtimeContextPolicyCore) &&
       !/planSkillHookRegistryProjectionRequired/.test(runtimeContextPolicyCore) &&
       /skill hook registry projection core sends Rust daemon-core request/.test(
+        runtimeContextPolicyCoreTest,
+      ) &&
+      !/operation:\s*"skill_hook_registry_(?:catalog|skills|hooks)"/.test(
+        runtimeContextPolicyCoreTest,
+      ) &&
+      /Object\.hasOwn\(captured,\s*"operation"\),\s*false/.test(
         runtimeContextPolicyCoreTest,
       ) &&
       /runtime_skill_hook_registry_rust_core_required/.test(runtimeSkillHookSurface) &&
@@ -12592,6 +12615,9 @@ function runBridge() {
       /skillHookRunner\.projectSkillHookRegistry/.test(
         runtimeSkillHookSurface,
       ) &&
+      !/operation:\s*"skill_hook_registry_(?:catalog|skills|hooks)"/.test(
+        runtimeSkillHookSurface,
+      ) &&
       !/planSkillHookRegistryProjectionRequired/.test(runtimeSkillHookSurface) &&
       !/discoverSkillHookCatalog/.test(runtimeSkillHookSurface) &&
       !/schemaVersion:\s*"ioi\.agent-runtime\.skills\.v1"/.test(
@@ -12601,6 +12627,9 @@ function runBridge() {
         runtimeSkillHookSurface,
       ) &&
       /runtime skill hook surface returns Rust-owned catalog skills and hooks/.test(
+        runtimeSkillHookSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(calls\[0\],\s*"operation"\),\s*false/.test(
         runtimeSkillHookSurfaceTest,
       ) &&
       /runtime skill hook surface fails closed when Rust projection is missing/.test(

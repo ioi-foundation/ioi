@@ -8,9 +8,7 @@ use super::{
     runtime_tool_catalog::{
         RuntimeToolCatalogProjectionBridgeRequest, RuntimeToolCatalogProjectionCore,
     },
-    skill_hook_registry::{
-        SkillHookRegistryProjectionBridgeRequest, SkillHookRegistryProjectionCore,
-    },
+    skill_hook_registry::{SkillHookRegistryProjectionCore, SkillHookRegistryProjectionRequest},
 };
 
 pub const RUNTIME_DOCTOR_REPORT_PROJECTION_REQUEST_SCHEMA_VERSION: &str =
@@ -147,8 +145,7 @@ impl RuntimeDoctorReportProjectionCore {
                 RuntimeDoctorReportProjectionCommandError::new(error.code(), error.message())
             })?;
         let skill_hook_catalog = SkillHookRegistryProjectionCore::default()
-            .project(SkillHookRegistryProjectionBridgeRequest {
-                operation: Some("skill_hook_registry_catalog".to_string()),
+            .project(SkillHookRegistryProjectionRequest {
                 operation_kind: Some("skill_hook.registry.catalog".to_string()),
                 registry_kind: Some("catalog".to_string()),
                 workspace_root: Some(workspace_root.clone()),

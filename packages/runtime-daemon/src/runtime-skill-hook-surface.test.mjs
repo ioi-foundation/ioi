@@ -63,6 +63,7 @@ test("runtime skill hook surface returns Rust-owned catalog skills and hooks", (
   assert.equal(calls[0].workspace_root, "/workspace/project");
   assert.equal(calls[0].home_dir, "/home/operator");
   assert.equal(calls[2].workspace_root, "/workspace/other");
+  assert.equal(Object.hasOwn(calls[0], "operation"), false);
   assert.equal(Object.hasOwn(calls[0], "workspaceRoot"), false);
   assert.equal(Object.hasOwn(calls[0], "registryKind"), false);
 });

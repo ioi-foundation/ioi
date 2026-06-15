@@ -2046,6 +2046,7 @@ export function normalizeRuntimeTaskJobProjectionBridgeResult(value = {}) {
 export function normalizeSkillHookRegistryProjectionBridgeResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
+  const { operation: _retiredOperation, ...recordWithoutRetiredOperation } = record;
   const registryKind = optionalString(result.registry_kind ?? record.registry_kind);
   const expectedOperationKind = {
     catalog: "skill_hook.registry.catalog",
@@ -2053,7 +2054,7 @@ export function normalizeSkillHookRegistryProjectionBridgeResult(value = {}) {
     hooks: "skill_hook.registry.hooks",
   }[registryKind];
   return {
-    ...record,
+    ...recordWithoutRetiredOperation,
     source:
       result.source ??
       record.source ??

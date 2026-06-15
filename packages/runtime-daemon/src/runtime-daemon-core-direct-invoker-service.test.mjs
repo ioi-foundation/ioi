@@ -1741,6 +1741,7 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
     "projectRuntimeComputerUse",
   ]);
   assert.equal(runtimeProjectionCalls[0].request.schema_version, "ioi.runtime.skill-hook-registry-projection-request.v1");
+  assert.equal(Object.hasOwn(runtimeProjectionCalls[0].request, "operation"), false);
   assert.equal(runtimeProjectionCalls[1].request.schema_version, "ioi.runtime.repository-workflow-projection-request.v1");
   assert.equal(runtimeProjectionCalls[2].request.schema_version, "ioi.runtime.tool-catalog-projection-request.v1");
   assert.equal(runtimeProjectionCalls[3].request.schema_version, "ioi.runtime.lifecycle-projection-request.v1");

@@ -9550,8 +9550,11 @@ direct projection methods, `command_protocol.rs` rejects the old
 `command_dispatch.rs` is deleted, and the Rust command-response
 wrappers/source markers are deleted. Conformance now guards the typed API,
 direct Rust records, retired command operations, missing dispatch wrappers, and
-source-scan blockers. This remains non-terminal because durable Rust
-storage/replay for catalog, repository workflow, lifecycle/run-read, and
+source-scan blockers. The skill/hook projection contract no longer carries the
+remaining command-shaped `operation` field: JS sends only `operation_kind`, Rust
+serializes no `operation`, and the JS normalizer drops stale `operation` fields
+instead of preserving a compatibility path. This remains non-terminal because
+durable Rust storage/replay for catalog, repository workflow, lifecycle/run-read, and
 doctor/readiness projections plus stable IDE/CLI/SDK protocol APIs still need
 deeper Rust daemon-core ownership.
 

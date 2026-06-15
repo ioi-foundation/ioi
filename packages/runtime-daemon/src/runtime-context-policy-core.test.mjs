@@ -2528,7 +2528,6 @@ test("skill hook registry projection core sends Rust daemon-core request", () =>
         record: {
           object: "ioi.runtime_skill_hook_registry_projection",
           status: "projected",
-          operation: "skill_hook_registry_skills",
           operation_kind: "skill_hook.registry.skills",
           registry_kind: "skills",
           workspace_root: "/workspace/project",
@@ -2551,7 +2550,6 @@ test("skill hook registry projection core sends Rust daemon-core request", () =>
   );
 
   const result = runner.projectSkillHookRegistry({
-    operation: "skill_hook_registry_skills",
     operation_kind: "skill_hook.registry.skills",
     registry_kind: "skills",
     workspace_root: "/workspace/project",
@@ -2565,7 +2563,7 @@ test("skill hook registry projection core sends Rust daemon-core request", () =>
     SKILL_HOOK_REGISTRY_PROJECTION_REQUEST_SCHEMA_VERSION,
   );
   assert.equal(Object.hasOwn(captured, "backend"), false);
-  assert.equal(captured.operation, "skill_hook_registry_skills");
+  assert.equal(Object.hasOwn(captured, "operation"), false);
   assert.equal(captured.operation_kind, "skill_hook.registry.skills");
   assert.equal(captured.registry_kind, "skills");
   assert.equal(captured.home_dir, "/home/operator");
@@ -2573,6 +2571,7 @@ test("skill hook registry projection core sends Rust daemon-core request", () =>
   assert.equal(result.registry_kind, "skills");
   assert.equal(result.projection.skillCount, 1);
   assert.equal(result.skills[0].id, "skill.repo");
+  assert.equal(Object.hasOwn(result, "operation"), false);
   assert.equal(Object.hasOwn(result, "registryKind"), false);
 
   assert.throws(
