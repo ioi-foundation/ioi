@@ -2368,8 +2368,8 @@ workflow-node execution, and server list readback now use the typed
 `RuntimeKernel::plan_model_mount_mcp_workflow`; the old command operation,
 dispatch arm, bridge response wrapper, backend tag, and command-envelope builder
 are retired. Rust authors the `mcp-servers` or `mcp-workflow-controls` records,
-evidence refs, receipt refs, workflow hashes, authority hashes, custody facts,
-and no-JS-execution flags before JS can commit record-state truth through Rust
+evidence refs, receipt refs, workflow hashes, authority hashes, and custody
+facts before JS can commit record-state truth through Rust
 Agentgres admission. MCP tool invocation and workflow-node execution now return
 Rust-admitted execution/StepModule dispatch contracts, bind containment into the
 authority hash, expose content receipt refs, omit retired JS/command/binary-
@@ -9787,11 +9787,13 @@ records.
 
 Slice 1267 hard-deletes the model_mount MCP workflow fallback-proof protocol
 shape. Rust `plan_model_mount_mcp_workflow` no longer serializes
+`js_registry_mutation`, `js_receipt_gate_dispatch`,
 `js_transport_invocation`, `js_route_test`, `js_model_invocation`,
 `js_mcp_tool_invocation`, `js_result_synthesis`,
 `command_transport_fallback`, `binary_bridge_fallback`,
 `compatibility_fallback`, or `legacy_js_result_fallback` as false-valued proof
-fields on MCP tool, workflow-node, or materialized result payload contracts.
+fields on MCP server, MCP tool, workflow-node, or materialized result payload
+contracts.
 The JS model-mount core treats those keys as retired compatibility fields and
 fails closed if they reappear in the public response, record details, or
 receipt/result payloads. Conformance now requires the MCP workflow Rust source

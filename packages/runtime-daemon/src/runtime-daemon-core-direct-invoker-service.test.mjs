@@ -690,7 +690,6 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
         rust_core_boundary: "model_mount.mcp_workflow",
         details: {
           server_ids: ["mcp.direct"],
-          js_registry_mutation: false,
         },
         receipt_refs: request.receipt_refs ?? [],
         evidence_refs: [

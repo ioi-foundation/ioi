@@ -3,6 +3,35 @@ import test from "node:test";
 
 import { ModelMountingState } from "../model-mounting.mjs";
 
+const MCP_WORKFLOW_RETIRED_JS_PROOF_FIELDS = [
+  "js_registry_mutation",
+  "js_transport_invocation",
+  "js_route_test",
+  "js_mcp_tool_invocation",
+  "js_receipt_gate_dispatch",
+  "js_model_invocation",
+];
+
+const MCP_WORKFLOW_RETIRED_FALLBACK_FIELDS = [
+  "command_transport_fallback",
+  "binary_bridge_fallback",
+  "compatibility_fallback",
+  "legacy_js_result_fallback",
+];
+
+const MCP_WORKFLOW_RETIRED_RESULT_PAYLOAD_FIELDS = [
+  "js_result_synthesis",
+  "command_transport_fallback",
+  "binary_bridge_fallback",
+  "compatibility_fallback",
+];
+
+function assertRetiredFieldsAbsent(value, fields) {
+  for (const field of fields) {
+    assert.equal(Object.hasOwn(value, field), false);
+  }
+}
+
 function fakeState() {
   return {
     authorizations: [],
@@ -167,10 +196,6 @@ function mcpWorkflowPlan(request) {
       content_receipt_id: `receipt.${recordId}`,
       result_receipt_id: `receipt.${recordId}`,
       is_error: false,
-      js_result_synthesis: false,
-      command_transport_fallback: false,
-      binary_bridge_fallback: false,
-      compatibility_fallback: false,
     }
     : undefined;
   const resultPayloadHash = executionOperation ? `sha256:result-payload:${recordId}` : undefined;
@@ -211,14 +236,6 @@ function mcpWorkflowPlan(request) {
       : undefined,
     agentgres_admission_required: executionOperation || undefined,
     receipt_state_root_binding_required: executionOperation || undefined,
-    js_transport_invocation: operationKind === "model_mount.mcp_tool.invoke" ? false : undefined,
-    js_route_test: operationKind === "model_mount.workflow_node.execute" ? false : undefined,
-    js_model_invocation: operationKind === "model_mount.workflow_node.execute" ? false : undefined,
-    js_mcp_tool_invocation: operationKind === "model_mount.workflow_node.execute" ? false : undefined,
-    command_transport_fallback: executionOperation ? false : undefined,
-    binary_bridge_fallback: executionOperation ? false : undefined,
-    compatibility_fallback: executionOperation ? false : undefined,
-    legacy_js_result_fallback: executionOperation ? false : undefined,
     server_id: request.body.server_id ?? null,
     tool: request.body.tool ?? null,
     workflow_node_id: request.body.workflow_node_id ?? null,
@@ -231,16 +248,6 @@ function mcpWorkflowPlan(request) {
     details: {
       server_ids: serverIds,
       servers: serverIds.map((id) => ({ id, label: id, status: "registered" })),
-      js_registry_mutation: false,
-      js_transport_invocation: false,
-      js_route_test: false,
-      js_mcp_tool_invocation: false,
-      js_receipt_gate_dispatch: false,
-      js_model_invocation: false,
-      command_transport_fallback: executionOperation ? false : undefined,
-      binary_bridge_fallback: executionOperation ? false : undefined,
-      compatibility_fallback: executionOperation ? false : undefined,
-      legacy_js_result_fallback: executionOperation ? false : undefined,
       result_payload: resultPayload,
       result_payload_hash: resultPayloadHash,
       model_mount_mcp_result_materialized: executionOperation ? true : undefined,
@@ -511,6 +518,8 @@ test("importMcpJson uses Rust MCP workflow planning, record-state commit, and Ru
   assert.equal(state.recordStateCommits.length, 1);
   assert.equal(state.recordStateCommits[0].record_dir, "mcp-servers");
   assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.mcp_server.import");
+  assertRetiredFieldsAbsent(result, MCP_WORKFLOW_RETIRED_JS_PROOF_FIELDS);
+  assertRetiredFieldsAbsent(state.recordStateCommits[0].record.details, MCP_WORKFLOW_RETIRED_JS_PROOF_FIELDS);
   assert.deepEqual(state.receipts, []);
   assert.deepEqual(state.writes, []);
 
@@ -612,11 +621,12 @@ test("invokeMcpTool uses Rust MCP workflow admission and rejects JS or command f
   assert.equal(result.receipt.details.result_payload_hash, result.result_payload_hash);
   assert.equal(result.receipt.details.model_mount_step_module_result.result_materialized, true);
   assert.equal(result.receipt_commit.commit_hash, `sha256:receipt-commit:${result.receipt.id}`);
-  assert.equal(result.js_transport_invocation, false);
-  assert.equal(result.command_transport_fallback, false);
-  assert.equal(result.binary_bridge_fallback, false);
-  assert.equal(result.compatibility_fallback, false);
-  assert.equal(result.legacy_js_result_fallback, false);
+  assertRetiredFieldsAbsent(result, [
+    "js_transport_invocation",
+    ...MCP_WORKFLOW_RETIRED_FALLBACK_FIELDS,
+  ]);
+  assertRetiredFieldsAbsent(result.result_payload, MCP_WORKFLOW_RETIRED_RESULT_PAYLOAD_FIELDS);
+  assertRetiredFieldsAbsent(result.receipt.details.result_payload, MCP_WORKFLOW_RETIRED_RESULT_PAYLOAD_FIELDS);
   assert.equal(state.mcpWorkflowRequests.length, 1);
   assert.equal(state.mcpWorkflowRequests[0].body.server_id, "mcp.Local");
   assert.equal(state.mcpWorkflowRequests[0].body.tool, "run");
@@ -639,10 +649,14 @@ test("invokeMcpTool uses Rust MCP workflow admission and rejects JS or command f
   assert.equal(state.recordStateCommits[0].record.details.containment_ref, "containment://mcp/local");
   assert.equal(state.recordStateCommits.length, 1);
   assert.equal(state.recordStateCommits[0].record_dir, "mcp-workflow-controls");
-  assert.equal(state.recordStateCommits[0].record.details.js_transport_invocation, false);
-  assert.equal(state.recordStateCommits[0].record.details.command_transport_fallback, false);
-  assert.equal(state.recordStateCommits[0].record.details.binary_bridge_fallback, false);
-  assert.equal(state.recordStateCommits[0].record.details.compatibility_fallback, false);
+  assertRetiredFieldsAbsent(state.recordStateCommits[0].record.details, [
+    "js_transport_invocation",
+    ...MCP_WORKFLOW_RETIRED_FALLBACK_FIELDS,
+  ]);
+  assertRetiredFieldsAbsent(
+    state.recordStateCommits[0].record.details.result_payload,
+    MCP_WORKFLOW_RETIRED_RESULT_PAYLOAD_FIELDS,
+  );
   assert.equal(state.recordStateCommits[0].record.details.model_mount_mcp_result_materialized, true);
   assert.equal(state.recordStateCommits[0].record.details.result_payload_hash, result.result_payload_hash);
   assert.equal(state.receiptStateCommits.length, 1);
@@ -863,6 +877,8 @@ test("compileEphemeralMcpIntegrations uses Rust MCP workflow planning and record
   assert.equal(state.mcpWorkflowRequests[0].body.integrations[0].server_label, "Search");
   assert.equal(state.recordStateCommits.length, 1);
   assert.equal(state.recordStateCommits[0].record_dir, "mcp-servers");
+  assertRetiredFieldsAbsent(result, MCP_WORKFLOW_RETIRED_JS_PROOF_FIELDS);
+  assertRetiredFieldsAbsent(state.recordStateCommits[0].record.details, MCP_WORKFLOW_RETIRED_JS_PROOF_FIELDS);
   assert.deepEqual(state.authorizations, []);
   assert.deepEqual(state.receipts, []);
 });
@@ -949,13 +965,14 @@ test("executeWorkflowNode uses Rust StepModule dispatch admission and rejects JS
   assert.equal(result.receipt.details.result_payload_hash, result.result_payload_hash);
   assert.equal(result.receipt.details.model_mount_step_module_result.result_materialized, true);
   assert.equal(result.receipt_commit.commit_hash, `sha256:receipt-commit:${result.receipt.id}`);
-  assert.equal(result.js_route_test, false);
-  assert.equal(result.js_model_invocation, false);
-  assert.equal(result.js_mcp_tool_invocation, false);
-  assert.equal(result.command_transport_fallback, false);
-  assert.equal(result.binary_bridge_fallback, false);
-  assert.equal(result.compatibility_fallback, false);
-  assert.equal(result.legacy_js_result_fallback, false);
+  assertRetiredFieldsAbsent(result, [
+    "js_route_test",
+    "js_model_invocation",
+    "js_mcp_tool_invocation",
+    ...MCP_WORKFLOW_RETIRED_FALLBACK_FIELDS,
+  ]);
+  assertRetiredFieldsAbsent(result.result_payload, MCP_WORKFLOW_RETIRED_RESULT_PAYLOAD_FIELDS);
+  assertRetiredFieldsAbsent(result.receipt.details.result_payload, MCP_WORKFLOW_RETIRED_RESULT_PAYLOAD_FIELDS);
   assert.equal(state.mcpWorkflowRequests.length, 1);
   assert.deepEqual(
     {
@@ -971,14 +988,20 @@ test("executeWorkflowNode uses Rust StepModule dispatch admission and rejects JS
   );
   assert.equal(state.recordStateCommits.length, 1);
   assert.equal(state.recordStateCommits[0].record_dir, "mcp-workflow-controls");
-  assert.equal(state.recordStateCommits[0].record.details.js_model_invocation, false);
   assert.equal(state.recordStateCommits[0].record.details.wallet_authority_required, true);
   assert.equal(state.recordStateCommits[0].record.details.ctee_custody_required, true);
   assert.equal(state.recordStateCommits[0].record.details.transport_containment_required, true);
   assert.equal(state.recordStateCommits[0].record.details.containment_ref, "containment://workflow/node/embed");
-  assert.equal(state.recordStateCommits[0].record.details.command_transport_fallback, false);
-  assert.equal(state.recordStateCommits[0].record.details.binary_bridge_fallback, false);
-  assert.equal(state.recordStateCommits[0].record.details.compatibility_fallback, false);
+  assertRetiredFieldsAbsent(state.recordStateCommits[0].record.details, [
+    "js_route_test",
+    "js_model_invocation",
+    "js_mcp_tool_invocation",
+    ...MCP_WORKFLOW_RETIRED_FALLBACK_FIELDS,
+  ]);
+  assertRetiredFieldsAbsent(
+    state.recordStateCommits[0].record.details.result_payload,
+    MCP_WORKFLOW_RETIRED_RESULT_PAYLOAD_FIELDS,
+  );
   assert.equal(state.receiptStateCommits.length, 1);
   assert.equal(state.receiptStateCommits[0].receipt_id, result.content_receipt_id);
   assert.equal(state.mcpServers.size, 1);

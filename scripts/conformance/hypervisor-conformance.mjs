@@ -24036,8 +24036,27 @@ function runReceipts() {
 		      ) &&
 		      /"result_payload_hash": result_payload_hash/.test(modelMountCore) &&
 		      /model_mount_mcp_result_payload_rust_materialized/.test(modelMountCore) &&
-		      !/"(?:js_transport_invocation|command_transport_fallback|binary_bridge_fallback|compatibility_fallback|legacy_js_result_fallback|js_route_test|js_model_invocation|js_mcp_tool_invocation|js_result_synthesis)": false/.test(
+		      !/"(?:js_registry_mutation|js_receipt_gate_dispatch|js_transport_invocation|command_transport_fallback|binary_bridge_fallback|compatibility_fallback|legacy_js_result_fallback|js_route_test|js_model_invocation|js_mcp_tool_invocation|js_result_synthesis)"\s*:\s*false/.test(
 		        rustModelMountMcpWorkflowCore,
+		      ) &&
+		      !/\b(?:js_registry_mutation|js_receipt_gate_dispatch|js_transport_invocation|command_transport_fallback|binary_bridge_fallback|compatibility_fallback|legacy_js_result_fallback|js_route_test|js_model_invocation|js_mcp_tool_invocation|js_result_synthesis)\s*:\s*false/.test(
+		        mcpWorkflowOperationsTest,
+		      ) &&
+		      !/\b(?:js_registry_mutation|js_receipt_gate_dispatch)\s*:\s*false/.test(
+		        modelMountCoreTest,
+		      ) &&
+		      !/\b(?:js_registry_mutation|js_receipt_gate_dispatch)\s*:\s*false/.test(
+		        daemonCoreDirectInvokerServiceTest,
+		      ) &&
+		      /MCP_WORKFLOW_RETIRED_JS_PROOF_FIELDS/.test(mcpWorkflowOperationsTest) &&
+		      /assertRetiredFieldsAbsent\(result,\s*MCP_WORKFLOW_RETIRED_JS_PROOF_FIELDS\)/.test(
+		        mcpWorkflowOperationsTest,
+		      ) &&
+		      /assertRetiredFieldsAbsent\(state\.recordStateCommits\[0\]\.record\.details,\s*MCP_WORKFLOW_RETIRED_JS_PROOF_FIELDS\)/.test(
+		        mcpWorkflowOperationsTest,
+		      ) &&
+		      /assertRetiredFieldsAbsent\(result\.receipt\.details\.result_payload,\s*MCP_WORKFLOW_RETIRED_RESULT_PAYLOAD_FIELDS\)/.test(
+		        mcpWorkflowOperationsTest,
 		      ) &&
 	      /pub receipt: Option<Value>/.test(modelMountCore) &&
 	      /mcp_execution_receipt/.test(modelMountCore) &&

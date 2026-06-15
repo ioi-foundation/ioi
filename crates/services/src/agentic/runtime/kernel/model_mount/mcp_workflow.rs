@@ -143,7 +143,6 @@ fn plan_mcp_import(
             "server_ids": server_ids.clone(),
             "import_count": server_ids.len(),
             "plaintext_secret_material_returned": false,
-            "js_registry_mutation": false,
         }),
         json!({
             "status": "committed",
@@ -208,7 +207,6 @@ fn plan_ephemeral_register(
             "ephemeral": true,
             "input_hash": string_field(body, "input").map(|input| hash_text(&input)).transpose()?,
             "plaintext_secret_material_returned": false,
-            "js_registry_mutation": false,
         }),
         json!({
             "status": "committed",
@@ -829,7 +827,6 @@ fn mcp_server_record(
         "imported_at": generated_at,
         "server_hash": server_hash,
         "plaintext_secret_material_returned": false,
-        "js_registry_mutation": false,
     }))
 }
 

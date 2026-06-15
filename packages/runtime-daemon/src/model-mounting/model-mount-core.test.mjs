@@ -2267,7 +2267,6 @@ test("Rust model_mount core sends positive MCP workflow request", () => {
         rust_core_boundary: "model_mount.mcp_workflow",
         details: {
           server_ids: ["mcp.docs"],
-          js_registry_mutation: false,
         },
         receipt_refs: ["receipt://mcp-import"],
         evidence_refs: [
