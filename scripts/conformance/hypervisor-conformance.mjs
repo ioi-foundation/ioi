@@ -12445,7 +12445,7 @@ function runBridge() {
       /contextPolicyCore:\s*this\.contextPolicyCore/.test(runtimeDaemonIndex) &&
       /runtime_operator_turn_control_rust_core_required/.test(runtimeThreadTurnSurface) &&
       /planOperatorTurnControlAdmissionRequired/.test(runtimeThreadTurnSurface) &&
-      /operatorTurnControlAdmissionRunner/.test(runtimeThreadTurnSurface) &&
+      /contextPolicyCore\?\.\[plannerMethod\]/.test(runtimeThreadTurnSurface) &&
       /rust_core_boundary:\s*"runtime\.operator_turn_control"/.test(runtimeThreadTurnSurface) &&
       /operator_interrupt_js_facade_retired/.test(runtimeThreadTurnSurface) &&
       /rust_daemon_core_operator_interrupt_state_update/.test(runtimeThreadTurnSurface) &&
@@ -12803,7 +12803,7 @@ function runBridge() {
       ) &&
       /runtime_thread_turn_rust_core_required/.test(runtimeThreadTurnSurface) &&
       /planThreadTurnAdmissionRequired/.test(runtimeThreadTurnSurface) &&
-      /threadTurnAdmissionRunner/.test(runtimeThreadTurnSurface) &&
+      /contextPolicyCore\?\.planThreadTurnAdmissionRequired/.test(runtimeThreadTurnSurface) &&
       /rust_core_boundary:\s*"runtime\.thread_turn"/.test(runtimeThreadTurnSurface) &&
       /thread_resume_js_state_mutation_retired/.test(runtimeThreadTurnSurface) &&
       /thread_turn_create_js_run_creation_retired/.test(runtimeThreadTurnSurface) &&
@@ -12818,7 +12818,7 @@ function runBridge() {
       /lifecycleAgentStatusUpdate\(\s*store,\s*agent\.id,\s*"active",\s*"agent\.resume"/.test(
         runtimeThreadTurnSurface,
       ) &&
-      /statusStateUpdateRunner:\s*threadLifecycleRunner/.test(runtimeThreadTurnSurface) &&
+      /statusStateUpdateRunner:\s*contextPolicyCore/.test(runtimeThreadTurnSurface) &&
       /store\.threadForAgent\(updatedAgent\)/.test(runtimeThreadTurnSurface) &&
       /const\s+turnRequest\s*=\s*diagnosticsFeedbackBlocksContinuation\(diagnosticsFeedback\)/.test(
         runtimeThreadTurnSurface,
@@ -12830,9 +12830,12 @@ function runBridge() {
       /lifecycleRunCreate\(store,\s*agent\.id,\s*turnRequest,\s*\{/.test(
         runtimeThreadTurnSurface,
       ) &&
-      /lifecycleAdmissionRunner:\s*threadLifecycleRunner/.test(runtimeThreadTurnSurface) &&
+      /lifecycleAdmissionRunner:\s*contextPolicyCore/.test(runtimeThreadTurnSurface) &&
       /store\.turnForRun\(run\)/.test(runtimeThreadTurnSurface) &&
       /runtime_thread_turn_projection_mismatch/.test(runtimeThreadTurnSurface) &&
+      !/operatorTurnControlAdmissionRunner|threadTurnAdmissionRunner|threadLifecycleRunner|deps\.threadLifecycleRunner/.test(
+        runtimeThreadTurnSurface + runtimeThreadTurnSurfaceTest,
+      ) &&
       !/store\.updateAgent\(/.test(runtimeThreadTurnSurface) &&
       !/store\.createRun\(agent\.id/.test(runtimeThreadTurnSurface) &&
       !/requestWithDiagnosticsFeedback/.test(runtimeThreadTurnSurface) &&
@@ -14999,7 +15002,7 @@ function runBridge() {
     /runtimeBridgeThreadControl\(\s*store,\s*threadId,\s*agent,/.test(
       runtimeThreadTurnSurface,
     ) &&
-    /lifecycleAdmissionRunner:\s*threadLifecycleRunner/.test(runtimeThreadTurnSurface) &&
+    /lifecycleAdmissionRunner:\s*contextPolicyCore/.test(runtimeThreadTurnSurface) &&
     !/store\.agentRunLifecycleSurface\.createRuntimeBridgeThreadControl/.test(
       runtimeThreadTurnSurface,
     ) &&
@@ -15231,7 +15234,7 @@ function runBridge() {
       /buildRun/.test(runtimeThreadTurnSurface) &&
       /ensureProviderAvailable/.test(runtimeThreadTurnSurface) &&
       /threadModeForRunMode/.test(runtimeThreadTurnSurface) &&
-      /lifecycleAdmissionRunner:\s*threadLifecycleRunner/.test(runtimeThreadTurnSurface) &&
+      /lifecycleAdmissionRunner:\s*contextPolicyCore/.test(runtimeThreadTurnSurface) &&
       !/store\.agentRunLifecycleSurface\.createRuntimeBridgeTurn/.test(
         runtimeThreadTurnSurface,
       ) &&

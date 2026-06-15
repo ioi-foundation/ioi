@@ -284,7 +284,7 @@ function createOperatorTurnControlRunner(calls) {
           source: request.source,
           reason: request.reason,
           event_id: request.event_id,
-          seq: request.seq,
+          seq: 8,
           created_at: request.created_at,
         },
         stop_condition: {
@@ -318,7 +318,7 @@ function createOperatorTurnControlRunner(calls) {
           source: request.source,
           guidance: request.guidance,
           event_id: request.event_id,
-          seq: request.seq,
+          seq: 9,
           created_at: request.created_at,
         },
         run: {
@@ -423,17 +423,16 @@ test("thread turn surface submits runtime turns through Rust bridge-turn state p
       "agentForThread",
       "resolveRunModelRoute",
       "resolveRunMemory",
-      "turnForRun",
       "planRuntimeBridgeTurnRunStateUpdate",
       "writeRun",
       "turnForRun",
     ],
   );
-  assert.equal(store.calls[4].request.thread_id, "thread_alpha");
-  assert.equal(store.calls[4].request.agent.id, "agent_runtime");
-  assert.equal(store.calls[4].request.run.objective, "ship it");
-  assert.equal(store.calls[5].operationKind, "turn.runtime_bridge.submit");
-  assert.equal(store.calls[6].runId, "run_runtime");
+  assert.equal(store.calls[3].request.thread_id, "thread_alpha");
+  assert.equal(store.calls[3].request.agent.id, "agent_runtime");
+  assert.equal(store.calls[3].request.run.objective, "ship it");
+  assert.equal(store.calls[4].operationKind, "turn.runtime_bridge.submit");
+  assert.equal(store.calls[5].runId, "run_runtime");
   assert.equal(store.calls.some((call) => call.method === "createRuntimeBridgeTurn"), false);
   assert.equal(Object.hasOwn(store, "agentRunLifecycleSurface"), false);
   assert.equal(store.calls.some((call) => call.method === "createRun"), false);
@@ -700,7 +699,7 @@ test("thread turn surface plans operator interrupt and steer through Rust before
   ]);
   assert.equal(operatorCalls[0].request.run_id, "run_alpha");
   assert.equal(operatorCalls[0].request.reason, "stop");
-  assert.equal(operatorCalls[0].request.event_id, "event_operator_interrupt_thread_alpha_turn_alpha_00000008");
+  assert.equal(operatorCalls[0].request.event_id, "event_operator_interrupt_thread_alpha_turn_alpha_2026-06-13T12:02:00.000Z");
   assert.equal(operatorCalls[1].request.guidance, "focus on Rust-owned state");
   assert.equal(store.calls.filter((call) => call.method === "writeRun").length, 2);
   assert.equal(store.calls.some((call) => call.method === "createRun"), false);

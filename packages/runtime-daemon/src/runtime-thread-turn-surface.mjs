@@ -27,12 +27,12 @@ export function createRuntimeThreadTurnSurface(deps = {}) {
   const {
     approvalModeForThreadMode = null,
     buildRun = null,
+    contextPolicyCore = null,
     diagnosticsFeedbackBlocksContinuation,
     ensureProviderAvailable = null,
     isRuntimeBackedAgent: isRuntimeBackedAgentDep = isRuntimeBackedAgent,
     isRuntimeServiceProfile: isRuntimeServiceProfileDep = isRuntimeServiceProfile,
     optionalString: optionalStringDep = optionalString,
-    operatorTurnControlAdmissionRunner = deps.contextPolicyCore ?? null,
     requestWithThreadRuntimeControls: requestWithThreadRuntimeControlsDep = requestWithThreadRuntimeControls,
     runtimeBridgeThreadControl = createRuntimeBridgeThreadControl,
     runtimeBridgeTurnRun = createRuntimeBridgeTurnRun,
@@ -40,10 +40,8 @@ export function createRuntimeThreadTurnSurface(deps = {}) {
     lifecycleRunCreate = createLifecycleRun,
     runtimeError: runtimeErrorDep = runtimeError,
     runtimeProfileForRequest: runtimeProfileForRequestDep = runtimeProfileForRequest,
-    threadTurnAdmissionRunner = deps.contextPolicyCore ?? null,
     threadModeForRunMode = null,
   } = deps;
-  const threadLifecycleRunner = deps.threadLifecycleRunner ?? deps.contextPolicyCore ?? null;
   return {
     async resumeThread(store, threadId, request = {}) {
       const agent = store.agentForThread(threadId);
@@ -57,7 +55,7 @@ export function createRuntimeThreadTurnSurface(deps = {}) {
             action: "resume",
           },
           {
-            lifecycleAdmissionRunner: threadLifecycleRunner,
+            lifecycleAdmissionRunner: contextPolicyCore,
             runtimeError: runtimeErrorDep,
           },
         );
@@ -100,7 +98,7 @@ export function createRuntimeThreadTurnSurface(deps = {}) {
         "agent.resume",
         {
           runtimeError: runtimeErrorDep,
-          statusStateUpdateRunner: threadLifecycleRunner,
+          statusStateUpdateRunner: contextPolicyCore,
         },
       );
       const threadProjection = store.threadForAgent(updatedAgent);
@@ -133,7 +131,7 @@ export function createRuntimeThreadTurnSurface(deps = {}) {
             approvalModeForThreadMode,
             buildRun,
             ensureProviderAvailable,
-            lifecycleAdmissionRunner: threadLifecycleRunner,
+            lifecycleAdmissionRunner: contextPolicyCore,
             runtimeError: runtimeErrorDep,
             threadModeForRunMode,
           },
@@ -205,7 +203,7 @@ export function createRuntimeThreadTurnSurface(deps = {}) {
         approvalModeForThreadMode,
         buildRun,
         ensureProviderAvailable,
-        lifecycleAdmissionRunner: threadLifecycleRunner,
+        lifecycleAdmissionRunner: contextPolicyCore,
         runtimeError: runtimeErrorDep,
         threadModeForRunMode,
       });
@@ -263,7 +261,7 @@ export function createRuntimeThreadTurnSurface(deps = {}) {
     request,
     { operation, operationKind, plannerMethod, controlKind, controlRequest = {} },
   ) {
-    const planner = operatorTurnControlAdmissionRunner?.[plannerMethod];
+    const planner = contextPolicyCore?.[plannerMethod];
     const requestedAction =
       operation === "operator_interrupt"
         ? request.runtime_control_action ?? request.control_action ?? null
@@ -317,7 +315,7 @@ export function createRuntimeThreadTurnSurface(deps = {}) {
     const eventId =
       optionalStringDep(request.event_id ?? request.eventId) ??
       operatorTurnControlEventId(operation, threadId, turnId, createdAt);
-    const plan = planner.call(operatorTurnControlAdmissionRunner, {
+    const plan = planner.call(contextPolicyCore, {
       thread_id: threadId,
       state_dir: optionalStringDep(store?.stateDir) ?? null,
       event_stream_id: streamId,
@@ -413,8 +411,8 @@ export function createRuntimeThreadTurnSurface(deps = {}) {
     turnId,
     requestedAction = null,
   }) {
-    if (operatorTurnControlAdmissionRunner?.planOperatorTurnControlAdmissionRequired) {
-      const record = operatorTurnControlAdmissionRunner.planOperatorTurnControlAdmissionRequired({
+    if (contextPolicyCore?.planOperatorTurnControlAdmissionRequired) {
+      const record = contextPolicyCore.planOperatorTurnControlAdmissionRequired({
         operation,
         operation_kind: operationKind,
         thread_id: threadId,
@@ -532,8 +530,8 @@ export function createRuntimeThreadTurnSurface(deps = {}) {
     runtime_profile,
     evidenceRefs,
   }) {
-    if (threadTurnAdmissionRunner?.planThreadTurnAdmissionRequired) {
-      const record = threadTurnAdmissionRunner.planThreadTurnAdmissionRequired({
+    if (contextPolicyCore?.planThreadTurnAdmissionRequired) {
+      const record = contextPolicyCore.planThreadTurnAdmissionRequired({
         operation,
         operation_kind: operationKind,
         thread_id: threadId,

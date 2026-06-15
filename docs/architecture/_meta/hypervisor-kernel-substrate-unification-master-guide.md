@@ -10479,6 +10479,16 @@ shape cannot return. Remaining work is wallet/cTEE policy depth,
 receipt/state-root binding, lifecycle replay/projection storage, and stable
 protocol APIs, not an alternate JS route runner.
 
+Slice 1306 hard-cuts thread-turn surface runner aliases.
+`createRuntimeThreadTurnSurface()` no longer accepts `threadLifecycleRunner`,
+`threadTurnAdmissionRunner`, or `operatorTurnControlAdmissionRunner`;
+runtime-service resume/turn submit, public non-runtime resume/turn create, and
+operator interrupt/steer planning all resolve through the single positive
+`contextPolicyCore` mount. Conformance now guards that the retired aliases
+cannot return. Remaining work is durable lifecycle replay/projection,
+wallet/cTEE runtime-service authority, receipt/state-root binding, and stable
+thread-turn protocol APIs, not alternate surface runners.
+
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,
 `/v1/memory/policy`, `/v1/memory/path`, or `/v1/memory/validate`; the daemon
