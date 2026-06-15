@@ -13,6 +13,7 @@ function fakeState() {
     modelMountLifecycleRequests: [],
     modelMountInventoryRequests: [],
     modelMountProviderControlRequests: [],
+    endpointProjectionRecords: [],
     recordStateCommits: [],
     projections: 0,
     receipts: [],
@@ -31,6 +32,9 @@ function fakeState() {
     },
     listArtifacts() {
       return [...this.artifacts.values()];
+    },
+    listEndpoints() {
+      return this.endpointProjectionRecords;
     },
     listInstances() {
       return [...this.instances.values()];
@@ -742,6 +746,12 @@ test("provider health commits Rust provider-lifecycle record without JS driver, 
     modelId: "local:auto",
     status: "mounted",
   });
+  state.endpointProjectionRecords.push({
+    id: "endpoint.fixture",
+    providerId: "provider.fixture",
+    modelId: "local:auto",
+    status: "mounted",
+  });
   state.drivers.set("provider.fixture", {
     async health() {
       healthCalls += 1;
@@ -908,6 +918,12 @@ test("provider health requires Rust Agentgres provider-lifecycle record-state co
     modelId: "local:auto",
     status: "mounted",
   });
+  state.endpointProjectionRecords.push({
+    id: "endpoint.fixture",
+    providerId: "provider.fixture",
+    modelId: "local:auto",
+    status: "mounted",
+  });
   state.drivers.set("provider.fixture", {
     async health() {
       return {
@@ -961,6 +977,12 @@ test("local provider health uses Rust native-local lifecycle planner without JS 
     modelId: "autopilot:native-fixture",
     status: "mounted",
   });
+  state.endpointProjectionRecords.push({
+    id: "endpoint.local",
+    providerId: "provider.local",
+    modelId: "autopilot:native-fixture",
+    status: "mounted",
+  });
   state.drivers.set("provider.local", {
     async health() {
       healthCalls += 1;
@@ -999,6 +1021,38 @@ test("local provider health uses Rust native-local lifecycle planner without JS 
   assert.equal(state.projections, 0);
 });
 
+test("provider lifecycle ignores map-only endpoints before Rust planning", async () => {
+  const state = fakeState();
+  state.providers.set("provider.local", {
+    id: "provider.local",
+    kind: "ioi_native_local",
+    label: "Native",
+    status: "configured",
+    discovery: { evidenceRefs: ["native_provider"] },
+  });
+  state.endpoints.set("endpoint.map-only", {
+    id: "endpoint.map-only",
+    providerId: "provider.local",
+    modelId: "autopilot:map-only",
+    status: "mounted",
+  });
+
+  await assert.rejects(
+    () => providerHealth(state, "provider.local"),
+    (error) => {
+      assert.equal(error.code, "model_mount_provider_health_rust_core_required");
+      assert.equal(error.details.operation, "provider_health");
+      assert.equal(error.details.operation_kind, "model_mount.provider.health");
+      assert.deepEqual(error.details.missing, ["endpoint_ref", "model_ref"]);
+      assert.equal(Object.hasOwn(error.details, "endpointId"), false);
+      return true;
+    },
+  );
+  assert.deepEqual(state.modelMountLifecycleRequests, []);
+  assert.deepEqual(state.recordStateCommits, []);
+  assert.deepEqual(state.receipts, []);
+});
+
 test("local provider health fails closed when Rust lifecycle planner is unavailable", async () => {
   const state = fakeState();
   delete state.planModelMountProviderLifecycle;
@@ -1011,6 +1065,12 @@ test("local provider health fails closed when Rust lifecycle planner is unavaila
     discovery: { evidenceRefs: ["native_provider"] },
   });
   state.endpoints.set("endpoint.local", {
+    id: "endpoint.local",
+    providerId: "provider.local",
+    modelId: "autopilot:native-fixture",
+    status: "mounted",
+  });
+  state.endpointProjectionRecords.push({
     id: "endpoint.local",
     providerId: "provider.local",
     modelId: "autopilot:native-fixture",
@@ -1444,6 +1504,12 @@ test("local provider start and stop commit Rust native-local provider-lifecycle 
     discovery: { evidenceRefs: ["native_provider"] },
   });
   state.endpoints.set("endpoint.local", {
+    id: "endpoint.local",
+    providerId: "provider.local",
+    modelId: "autopilot:native-fixture",
+    status: "mounted",
+  });
+  state.endpointProjectionRecords.push({
     id: "endpoint.local",
     providerId: "provider.local",
     modelId: "autopilot:native-fixture",

@@ -9200,7 +9200,11 @@ Rust-authored `model-provider-lifecycle-controls` records with lifecycle
 hash/evidence, operation kind, and `model_mount.provider_lifecycle` boundary,
 then require Rust Agentgres commit before returning public lifecycle truth. They
 still avoid JS driver execution, lifecycle receipt creation, provider-map
-mutation, projection writes, and JS-hosted transport execution; hosted/custom
+mutation, projection writes, JS endpoint-map subject selection, and JS-hosted
+transport execution; provider lifecycle health/start/stop now derive implicit
+endpoint/model subjects from the Rust `endpoints` read-projection list instead
+of `state.endpoints`, so map-only endpoint rows cannot become lifecycle request
+truth before Rust planning; hosted/custom
 records carry Rust-contained metadata transport contracts with
 `rust_hosted_provider_metadata_transport_materialized`,
 `ctee_hosted_provider_secret_not_exposed`, and
@@ -10141,6 +10145,19 @@ mounted route lookup, and raw endpoint/provider map candidate transport in the
 route-control builder. This remains non-terminal because hosted/provider
 transport materialization, deeper wallet/cTEE route authority, Rust-owned
 topology joins, and stable IDE/CLI/SDK route APIs still need to close.
+
+Slice 1282 hard-retires provider lifecycle JS endpoint-map subject truth.
+Public provider health/start/stop still require Rust
+`planModelMountProviderLifecycle` and Rust Agentgres model_mount record-state
+commit before lifecycle truth can return, but implicit endpoint/model subjects
+are now selected from the Rust `endpoints` read-projection list instead of
+`state.endpoints`. Focused provider tests seed a map-only endpoint and prove it
+cannot produce a lifecycle request before Rust planning, while conformance
+rejects restored `state.endpoints` enumeration in the provider lifecycle
+request builder. This remains non-terminal because live hosted/provider
+transport materialization, deeper receipt/state-root binding, Rust-owned
+topology joins, and stable IDE/CLI/SDK provider lifecycle APIs still need to
+close.
 
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,

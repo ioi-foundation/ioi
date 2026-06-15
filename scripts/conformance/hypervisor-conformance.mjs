@@ -17619,9 +17619,9 @@ function runBridge() {
       !/state\.routes\.set\(/.test(modelRoutes) &&
       !/state\?\.routes\?\.get/.test(modelRoutes) &&
       /routeControlRouteForMountedState\(this,\s*selectedRouteId\)/.test(modelMountingState) &&
-      /routeControlProjectionRecords\(state,\s*"listRoutes"\)/.test(modelMountingState) &&
-      /routeControlProjectionRecords\(state,\s*"listEndpoints"\)/.test(modelMountingState) &&
-      /routeControlProjectionRecords\(state,\s*"listProviders"\)/.test(modelMountingState) &&
+      /modelMountProjectionRecords\(state,\s*"listRoutes"\)/.test(modelMountingState) &&
+      /modelMountProjectionRecords\(state,\s*"listEndpoints"\)/.test(modelMountingState) &&
+      /modelMountProjectionRecords\(state,\s*"listProviders"\)/.test(modelMountingState) &&
       !/this\.routes\.get\(selectedRouteId\)/.test(modelMountingState) &&
       !/endpoints:\s*\[\.\.\.\(state\.endpoints\?\.values/.test(modelMountingState) &&
       !/providers:\s*\[\.\.\.\(state\.providers\?\.values/.test(modelMountingState) &&
@@ -24669,6 +24669,9 @@ function runReceipts() {
       /function planProviderLifecycle\(state,\s*provider,\s*options = \{\}\)/.test(providerOperations) &&
       /modelMountProviderLifecycleRequest\(state,\s*provider,\s*options\)/.test(providerOperations) &&
       /state\.planModelMountProviderLifecycle\(request\)/.test(providerOperations) &&
+      /providerLifecycleEndpointForState\(state,\s*provider\)/.test(providerOperations) &&
+      /modelMountProjectionRecords\(state,\s*"listEndpoints"\)/.test(providerOperations) &&
+      !/\[\.\.\.\(state\.endpoints\?\.values/.test(providerOperations) &&
       /assertRustAuthoredProviderLifecycleResult\(result,\s*options\)/.test(providerOperations) &&
       /model_mount\.provider\.health/.test(providerOperations) &&
       /commitRecordState:\s*true/.test(providerHealthBoundaryBlock) &&
@@ -24726,6 +24729,12 @@ function runReceipts() {
         read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
       ) &&
       /local provider health uses Rust native-local lifecycle planner without JS driver/.test(
+        read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
+      ) &&
+      /provider lifecycle ignores map-only endpoints before Rust planning/.test(
+        read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
+      ) &&
+      /assert\.deepEqual\(state\.modelMountLifecycleRequests,\s*\[\]\)/.test(
         read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
       ) &&
       /local provider health fails closed when Rust lifecycle planner is unavailable/.test(

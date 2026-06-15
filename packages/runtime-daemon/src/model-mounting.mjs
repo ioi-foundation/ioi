@@ -4135,11 +4135,7 @@ function hostedProviderLifecycleMetadataOperation(options = {}) {
 }
 
 function providerLifecycleSubject(state, provider, options = {}) {
-  const endpoint = options.endpoint ?? [...(state.endpoints?.values?.() ?? [])].find(
-    (candidate) =>
-      candidate?.providerId === provider?.id &&
-      candidate.status !== "unmounted",
-  );
+  const endpoint = options.endpoint ?? providerLifecycleEndpointForState(state, provider);
   const modelRef = endpoint?.model_ref ?? endpoint?.modelId ?? endpoint?.model_id ?? null;
   if (!endpoint || !endpoint.id || !modelRef || String(modelRef).trim().toLowerCase() === "auto") {
     if (hostedProviderMetadata(provider)) {
@@ -4164,6 +4160,21 @@ function providerLifecycleSubject(state, provider, options = {}) {
     model_ref: endpoint.model_ref ?? `model://${modelRef}`,
     backend_ref: endpoint.backend_ref ?? endpoint.backendId ?? provider?.backend_ref ?? null,
   };
+}
+
+function providerLifecycleEndpointForState(state, provider) {
+  const providerId = String(provider?.id ?? provider?.provider_id ?? "").trim();
+  const providerRef = String(provider?.provider_ref ?? (providerId ? `provider://${providerId}` : "")).trim();
+  if (!providerId && !providerRef) return null;
+  return modelMountProjectionRecords(state, "listEndpoints").find(
+    (candidate) =>
+      candidate?.status !== "unmounted" &&
+      (
+        candidate?.providerId === providerId ||
+        candidate?.provider_id === providerId ||
+        candidate?.provider_ref === providerRef
+      ),
+  ) ?? null;
 }
 
 function providerLifecycleEvidenceRefs(provider = {}, operation) {
@@ -4783,13 +4794,13 @@ function routeControlRequestForMountedState(
     generated_at: typeof state.nowIso === "function" ? state.nowIso() : null,
     body,
     current_route,
-    endpoints: routeControlProjectionRecords(state, "listEndpoints"),
-    providers: routeControlProjectionRecords(state, "listProviders"),
+    endpoints: modelMountProjectionRecords(state, "listEndpoints"),
+    providers: modelMountProjectionRecords(state, "listProviders"),
   };
 }
 
 function routeControlRouteForMountedState(state, routeId) {
-  return routeControlProjectionRecords(state, "listRoutes").find(
+  return modelMountProjectionRecords(state, "listRoutes").find(
     (record) =>
       record?.id === routeId ||
       record?.route_id === routeId ||
@@ -4797,7 +4808,7 @@ function routeControlRouteForMountedState(state, routeId) {
   ) ?? null;
 }
 
-function routeControlProjectionRecords(state, methodName) {
+function modelMountProjectionRecords(state, methodName) {
   const records = typeof state?.[methodName] === "function" ? state[methodName]() : [];
   return Array.isArray(records) ? records : [];
 }
