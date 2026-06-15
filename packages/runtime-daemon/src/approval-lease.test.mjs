@@ -367,6 +367,7 @@ function daemonCoreFixtureForApprovalLeaseTest() {
     },
     authorizeApprovalRequest(request = {}) {
       const approvalId = approvalIdFor(request);
+      const lease = leaseForApproval(approvalId);
       return {
         source: "rust_approval_request_authority_protocol",
         backend: "rust_authority",
@@ -374,6 +375,9 @@ function daemonCoreFixtureForApprovalLeaseTest() {
         operation_kind: "approval.request.authority",
         thread_id: request.thread_id,
         approval_id: approvalId,
+        lease_id: lease.lease_id,
+        lease_status: "pending",
+        approval_lease: { ...lease, status: "pending" },
         target_kind: request.target_kind,
         run_id: request.run_id,
         receipt_refs: request.receipt_refs ?? [],
@@ -386,6 +390,9 @@ function daemonCoreFixtureForApprovalLeaseTest() {
           status: "issued",
           operation_kind: "approval.request.authority",
           approval_id: approvalId,
+          lease_id: lease.lease_id,
+          lease_status: "pending",
+          approval_lease: { ...lease, status: "pending" },
           authority_receipt_refs: [`receipt://authority/approval-request/${approvalId}`],
           policy_decision_refs: request.policy_decision_refs ?? [],
           direct_truth_write_allowed: false,
@@ -395,6 +402,10 @@ function daemonCoreFixtureForApprovalLeaseTest() {
     },
     authorizeApprovalDecision(request = {}) {
         const approvalId = approvalIdFor(request);
+        const lease = leaseForApproval(approvalId);
+        const leaseStatus =
+          request.decision === "revoke" ? "revoked" : request.decision === "reject" ? "denied" : "active";
+        const approvalLease = { ...lease, status: leaseStatus };
         return {
           source: "rust_approval_decision_authority_protocol",
           backend: "rust_authority",
@@ -403,6 +414,9 @@ function daemonCoreFixtureForApprovalLeaseTest() {
           thread_id: request.thread_id,
           approval_id: approvalId,
           decision: request.decision,
+          lease_id: lease.lease_id,
+          lease_status: leaseStatus,
+          approval_lease: approvalLease,
           wallet_network_grant_refs: [`wallet.network://grant/approval/${approvalId}`],
           authority_receipt_refs: [`receipt://wallet.network/approval/${approvalId}`],
           policy_decision_refs: ["policy_wallet_approval"],
@@ -413,6 +427,10 @@ function daemonCoreFixtureForApprovalLeaseTest() {
             status: "authorized",
             operation_kind: "approval.decision.authority",
             approval_id: approvalId,
+            decision: request.decision,
+            lease_id: lease.lease_id,
+            lease_status: leaseStatus,
+            approval_lease: approvalLease,
           },
         };
     },

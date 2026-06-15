@@ -10624,7 +10624,8 @@ function runBridge() {
       ) &&
       /"approval_id": approval_id/.test(approvalCore) &&
       /"lease_id": lease_id/.test(approvalCore) &&
-      /"lease_status": "revoked"/.test(approvalCore) &&
+      /"lease_status": lease_status\.clone\(\)/.test(approvalCore) &&
+      /"approval_lease": approval_lease\.clone\(\)/.test(approvalCore) &&
       /pub struct ApprovalRevokeStateUpdateProtocolRequest/.test(approvalCore) &&
       /pub fn plan_approval_revoke_state_update_protocol_response/.test(approvalCore) &&
       /rust_approval_revoke_state_update_protocol/.test(approvalCore) &&
@@ -10659,6 +10660,7 @@ function runBridge() {
       /authorizeApprovalDecision/.test(approvalRevokeFacadeBody) &&
       /planApprovalRevokeStateUpdate/.test(approvalRevokeFacadeBody) &&
       /state_dir:\s*store\?\.stateDir \?\? null/.test(approvalRevokeFacadeBody) &&
+      /approval_lease:\s*approvalLease/.test(approvalRevokeFacadeBody) &&
       /receipt_refs:\s*normalizeArray\(authority\.authority_receipt_refs\)/.test(
         approvalRevokeFacadeBody,
       ) &&
@@ -10743,14 +10745,19 @@ function runBridge() {
       /assert\.equal\(store\.runtimeEventStreams\.size,\s*0\)/.test(
         runtimeApprovalControlFacadeTest,
       ) &&
-      /approval lease metadata for request ignores retired request aliases/.test(
-        runtimeApprovalLeaseTest,
+      runtimeApprovalLease === "" &&
+      runtimeApprovalLeaseTest === "" &&
+      !exists("packages/runtime-daemon/src/runtime-approval-lease.mjs") &&
+      !exists("packages/runtime-daemon/src/runtime-approval-lease.test.mjs") &&
+      /APPROVAL_LEASE_SCHEMA_VERSION/.test(approvalCore) &&
+      /pub approval_lease: Value/.test(approvalCore) &&
+      /fn approval_lease_binding_present/.test(approvalCore) &&
+      /approval_lease_binding_present\(/.test(approvalCore) &&
+      /approval_rust_lease_authority_incomplete/.test(runtimeApprovalSurface) &&
+      /approval_lease: approvalLease/.test(runtimeApprovalSurface) &&
+      /assert\.equal\(calls\[1\]\.request\.approval_lease\.status,\s*"active"\)/.test(
+        runtimeApprovalControlFacadeTest,
       ) &&
-      /approval lease metadata from payload ignores retired payload aliases/.test(
-        runtimeApprovalLeaseTest,
-      ) &&
-      /Object\.hasOwn\(metadata,\s*alias\),\s*false/.test(runtimeApprovalLeaseTest) &&
-      /Object\.hasOwn\(state,\s*"leaseId"\),\s*false/.test(runtimeApprovalLeaseTest) &&
       !/^\s*(?:approvalRequired|approvalManifest|toolId|effectClass|riskDomain|pressureStatus|alertId|sourceEventId)\s*[:,]/m.test(
         runtimeApprovalSurface,
       ) &&
@@ -10760,26 +10767,15 @@ function runBridge() {
       !/request\.(?:turnId|workflowNodeId|workflowGraphId|requestedBy|approvalAction|toolId|toolName|effectClass|riskDomain|approvalId|contextPressure|pressureStatus|contextPressureStatus|alertId|alertEventId|sourceEventId|policyDecisionRefs|authorityScopeRequirements|approvalManifest|receiptRefs|idempotencyKey)\b/.test(
         runtimeApprovalSurface,
       ) &&
-      !/request\.(?:ttlMs|leaseTtlMs|expiresAt|expectedReceiptRefs|authorityScopeRequirements|leaseId|policyHash)\b/.test(
-        runtimeApprovalLease,
-      ) &&
-      !/\bpayload\.approvalLease\b/.test(runtimeApprovalLease) &&
-      !/\b(?:lease|payload)\.(?:leaseId|policyHash|ttlMs|expiresAt|expectedReceiptRefs|authorityScopeRequirements)\b/.test(
-        runtimeApprovalLease,
-      ) &&
-      !/^\s*(?:schemaVersion|leaseId|approvalId|policyHash|ttlMs|expiresAt|expectedReceiptRefs|authorityScopeRequirements|revokeEndpoint|createdAt)\s*[:,]/m.test(
-        runtimeApprovalLease,
-      ) &&
       !/^\s*(?:approvalLease|approvalRequestEventId|approvalDecisionEventId|leaseId|leaseStatus|policyHash|ttlMs|expiresAt|expectedReceiptRefs|authorityScopeRequirements|revokeEndpoint)\s*[:,]/m.test(
         runtimeApprovalSurface,
       ),
     [
       "packages/runtime-daemon/src/runtime-approval-surface.mjs",
       "packages/runtime-daemon/src/runtime-approval-control-facade.test.mjs",
-      "packages/runtime-daemon/src/runtime-approval-lease.mjs",
-      "packages/runtime-daemon/src/runtime-approval-lease.test.mjs",
-    ],
-    "Phase 10/11 is pending: approval request, decision, and revoke public controls must call Rust authority without reviving retired request aliases; approval lease helpers must keep canonical lease fields",
+      "crates/services/src/agentic/runtime/kernel/approval.rs",
+      ],
+    "Phase 10/11 is pending: approval request, decision, and revoke public controls must call Rust authority without reviving retired request aliases; approval lease authority must be Rust-owned and the JS lease facade must stay deleted",
   );
   assertCheck(
     result,

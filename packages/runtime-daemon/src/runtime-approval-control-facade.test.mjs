@@ -81,9 +81,6 @@ function createStore({ approvalStateCore = null } = {}) {
     },
   };
   const surface = createRuntimeApprovalSurface({
-    approvalDecisionForRequest(value) {
-      return value === "reject" || value === "rejected" ? "reject" : "approve";
-    },
     approvalStateCore,
     nowIso() {
       return "2026-06-06T04:35:00.000Z";
@@ -119,9 +116,17 @@ function rustRunRecord(operationKind, request, control = {}) {
       thread_id: request.thread_id,
       run_id: request.run_id ?? run.id,
       updated_at: request.created_at,
+      approval_id: request.approval_id,
+      decision: request.decision ?? null,
+      lease_id: request.lease_id ?? null,
+      lease_status: request.lease_status ?? null,
+      approval_lease: request.approval_lease ?? null,
       operator_control: {
         control: control.control,
         approval_id: request.approval_id,
+        lease_id: request.lease_id ?? null,
+        lease_status: request.lease_status ?? null,
+        approval_lease: request.approval_lease ?? null,
         event_id: request.event_id,
         seq: request.seq,
         receipt_refs: request.receipt_refs,
@@ -151,6 +156,14 @@ function rustRunRecord(operationKind, request, control = {}) {
 }
 
 function approvalRequestAuthorityResult(request = {}) {
+  const approvalLease = {
+    schema_version: "ioi.runtime.approval-lease.v1",
+    object: "ioi.runtime_approval_lease",
+    lease_id: "lease_alpha",
+    approval_id: request.approval_id,
+    status: "pending",
+    projection_source: "rust_daemon_core_approval_lease_authority",
+  };
   return {
     source: "rust_approval_request_authority_protocol",
     backend: "rust_authority",
@@ -158,6 +171,9 @@ function approvalRequestAuthorityResult(request = {}) {
     operation_kind: "approval.request.authority",
     thread_id: request.thread_id,
     approval_id: request.approval_id,
+    lease_id: approvalLease.lease_id,
+    lease_status: approvalLease.status,
+    approval_lease: approvalLease,
     target_kind: request.target_kind,
     run_id: request.run_id,
     actor_ref: request.actor_ref,
@@ -173,6 +189,9 @@ function approvalRequestAuthorityResult(request = {}) {
       operation_kind: "approval.request.authority",
       thread_id: request.thread_id,
       approval_id: request.approval_id,
+      lease_id: approvalLease.lease_id,
+      lease_status: approvalLease.status,
+      approval_lease: approvalLease,
       authority_receipt_refs: ["receipt://authority/approval-request/approval_alpha"],
       policy_decision_refs: request.policy_decision_refs,
       direct_truth_write_allowed: false,
@@ -182,6 +201,17 @@ function approvalRequestAuthorityResult(request = {}) {
 }
 
 function approvalAuthorityResult(decision = "approve") {
+  const leaseStatus =
+    decision === "revoke" ? "revoked" : decision === "reject" ? "denied" : "active";
+  const approvalLease = {
+    schema_version: "ioi.runtime.approval-lease.v1",
+    object: "ioi.runtime_approval_lease",
+    lease_id: "lease_alpha",
+    approval_id: "approval_alpha",
+    status: leaseStatus,
+    expires_at: "2026-06-06T04:45:00Z",
+    projection_source: "rust_daemon_core_approval_lease_authority",
+  };
   return {
     source: "rust_approval_decision_authority_protocol",
     backend: "rust_authority",
@@ -190,6 +220,9 @@ function approvalAuthorityResult(decision = "approve") {
     thread_id: "thread_alpha",
     approval_id: "approval_alpha",
     decision,
+    lease_id: approvalLease.lease_id,
+    lease_status: approvalLease.status,
+    approval_lease: approvalLease,
     target_kind: "run",
     run_id: "run_alpha",
     actor_ref: "operator://local/heath",
@@ -206,6 +239,9 @@ function approvalAuthorityResult(decision = "approve") {
       thread_id: "thread_alpha",
       approval_id: "approval_alpha",
       decision,
+      lease_id: approvalLease.lease_id,
+      lease_status: approvalLease.status,
+      approval_lease: approvalLease,
       wallet_network_grant_refs: ["wallet.network://grant/approval/approval_alpha"],
       authority_receipt_refs: ["receipt://wallet.network/approval/approval_alpha"],
       policy_decision_refs: ["policy_wallet_approval"],
@@ -264,6 +300,9 @@ test("requestThreadApproval public surface calls Rust approval authority and com
   assert.equal(calls[1].request.target_kind, "run");
   assertRustReplayStateUpdateRequest(calls[1].request);
   assert.equal(calls[1].request.approval_id, "approval_alpha");
+  assert.equal(calls[1].request.lease_id, "lease_alpha");
+  assert.equal(calls[1].request.lease_status, "pending");
+  assert.equal(calls[1].request.approval_lease.status, "pending");
   assert.deepEqual(calls[1].request.receipt_refs, [
     "receipt://authority/approval-request/approval_alpha",
   ]);
@@ -370,6 +409,7 @@ test("decideThreadApproval public surface calls Rust authority with canonical de
   assert.equal(calls[1].request.status, "approved");
   assert.equal(calls[1].request.lease_status, "active");
   assert.equal(calls[1].request.lease_id, "lease_alpha");
+  assert.equal(calls[1].request.approval_lease.status, "active");
   assert.equal(calls[1].request.run_id, null);
   assertRustReplayStateUpdateRequest(calls[1].request);
   assert.deepEqual(calls[1].request.receipt_refs, [
@@ -460,6 +500,7 @@ test("revokeThreadApproval public surface calls Rust authority and commits Rust 
   assert.equal(calls[1].method, "planApprovalRevokeStateUpdate");
   assert.equal(calls[1].request.approval_id, "approval_alpha");
   assert.equal(calls[1].request.lease_id, "lease_alpha");
+  assert.equal(calls[1].request.approval_lease.status, "revoked");
   assert.equal(calls[1].request.run_id, null);
   assertRustReplayStateUpdateRequest(calls[1].request);
   assert.deepEqual(calls[1].request.receipt_refs, [

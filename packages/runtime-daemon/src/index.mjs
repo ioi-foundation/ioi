@@ -64,7 +64,6 @@ import {
 } from "./skill-hook-manifest.mjs";
 import { createRuntimeRouteHandlers } from "./runtime-route-handlers.mjs";
 import { createRuntimeRecordProjections } from "./runtime-record-projections.mjs";
-import { createRuntimeApprovalLease } from "./runtime-approval-lease.mjs";
 import { artifact } from "./runtime-artifacts.mjs";
 import { createCodingToolApprovalPolicy } from "./runtime-coding-tool-approval.mjs";
 import { createRuntimeInvocationResultProjections } from "./runtime-invocation-results.mjs";
@@ -336,21 +335,6 @@ const {
   isComputerUseRunEventType,
   memoryEventKind,
   normalizeArray,
-  uniqueStrings,
-});
-const {
-  approvalDecisionForRequest,
-  approvalLeaseMetadataForRequest,
-  approvalLeaseMetadataFromPayload,
-  approvalLeaseStateForDecision,
-  approvalReasonForDecisionEvent,
-} = createRuntimeApprovalLease({
-  doctorHash,
-  normalizeArray,
-  optionalPositiveInteger,
-  optionalString,
-  runtimeError,
-  safeId,
   uniqueStrings,
 });
 const {
@@ -706,9 +690,6 @@ export class AgentgresRuntimeStateStore {
       notFound,
     });
     this.approvalSurface = createRuntimeApprovalSurface({
-      approvalDecisionForRequest,
-      approvalLeaseMetadataForRequest,
-      approvalLeaseMetadataFromPayload,
       approvalStateCore: this.approvalStateCore,
       notFound,
       runtimeError,
@@ -729,7 +710,6 @@ export class AgentgresRuntimeStateStore {
       runtimeError,
     });
     this.codingToolBudgetRecoverySurface = createRuntimeCodingToolBudgetRecoverySurface({
-      approvalReasonForDecisionEvent,
       codingToolBudgetRecoveryRunner: this.contextPolicyCore,
       contextPolicyCore: this.contextPolicyCore,
       notFound,
@@ -803,7 +783,6 @@ export class AgentgresRuntimeStateStore {
       runtimeError,
     });
     this.workflowEditSurface = createRuntimeWorkflowEditSurface({
-      approvalReasonForDecisionEvent,
       eventStreamIdForThread,
       notFound,
       policyError,

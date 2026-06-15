@@ -25,7 +25,6 @@ function approvalRevokeRequiredError(runtimeError, threadId) {
 
 export function createRuntimeApprovalSurface(deps = {}) {
   const {
-    approvalDecisionForRequest,
     approvalStateCore = null,
     nowIso = () => new Date().toISOString(),
     runtimeError,
@@ -68,6 +67,9 @@ export function createRuntimeApprovalSurface(deps = {}) {
       createdAt,
       source,
     }));
+    const approvalLease = rustApprovalLease(authority, runtimeError, "approval_request_authority");
+    const leaseId = rustApprovalLeaseId(authority, approvalLease, runtimeError, "approval_request_authority");
+    const leaseStatus = rustApprovalLeaseStatus(authority, runtimeError, "approval_request_authority");
     const record = requireApprovalStateCore(
       "planApprovalRequestStateUpdate",
       "approval_request",
@@ -83,6 +85,9 @@ export function createRuntimeApprovalSurface(deps = {}) {
       seq,
       created_at: createdAt,
       approval_id: approvalId,
+      lease_id: leaseId,
+      lease_status: leaseStatus,
+      approval_lease: approvalLease,
       source,
       reason: optionalString(request.reason) ?? "operator requested approval",
       receipt_refs: normalizeArray(authority.authority_receipt_refs),
@@ -101,9 +106,8 @@ export function createRuntimeApprovalSurface(deps = {}) {
       (() => {
         throw approvalRequiredError(runtimeError, threadId);
       })();
-    const decision = approvalDecisionForRequest(request.decision);
     const target = approvalControlTargetFacts(request);
-    const eventId = approvalEventId(request, normalizedApprovalId, decision);
+    const eventId = approvalEventId(request, normalizedApprovalId, "decision");
     const seq = approvalSeq(request);
     const createdAt = approvalCreatedAt(request);
     const source = approvalSource(request);
@@ -116,7 +120,7 @@ export function createRuntimeApprovalSurface(deps = {}) {
     ).authorizeApprovalDecision(approvalDecisionAuthorityRequest({
       threadId,
       approvalId: normalizedApprovalId,
-      decision,
+      decision: request.decision,
       target,
       request,
       eventId,
@@ -124,6 +128,10 @@ export function createRuntimeApprovalSurface(deps = {}) {
       createdAt,
       source,
     }));
+    const decision = rustApprovalDecision(authority, runtimeError, "approval_decision_authority");
+    const approvalLease = rustApprovalLease(authority, runtimeError, "approval_decision_authority");
+    const leaseId = rustApprovalLeaseId(authority, approvalLease, runtimeError, "approval_decision_authority");
+    const leaseStatus = rustApprovalLeaseStatus(authority, runtimeError, "approval_decision_authority");
     const record = requireApprovalStateCore(
       "planApprovalDecisionStateUpdate",
       "approval_decision",
@@ -139,8 +147,9 @@ export function createRuntimeApprovalSurface(deps = {}) {
       seq,
       created_at: createdAt,
       approval_id: normalizedApprovalId,
-      lease_id: optionalString(request.lease_id) ?? null,
-      lease_status: optionalString(request.lease_status) ?? (decision === "approve" ? "active" : "denied"),
+      lease_id: leaseId,
+      lease_status: leaseStatus,
+      approval_lease: approvalLease,
       decision,
       status: decision === "approve" ? "approved" : "rejected",
       source,
@@ -183,6 +192,9 @@ export function createRuntimeApprovalSurface(deps = {}) {
       createdAt,
       source,
     }));
+    const decision = rustApprovalDecision(authority, runtimeError, "approval_revoke_authority");
+    const approvalLease = rustApprovalLease(authority, runtimeError, "approval_revoke_authority");
+    const leaseId = rustApprovalLeaseId(authority, approvalLease, runtimeError, "approval_revoke_authority");
     const record = requireApprovalStateCore(
       "planApprovalRevokeStateUpdate",
       "approval_revoke",
@@ -198,7 +210,8 @@ export function createRuntimeApprovalSurface(deps = {}) {
       seq,
       created_at: createdAt,
       approval_id: normalizedApprovalId,
-      lease_id: optionalString(request.lease_id) ?? null,
+      lease_id: leaseId,
+      approval_lease: approvalLease,
       source,
       reason: optionalString(request.reason) ?? null,
       receipt_refs: normalizeArray(authority.authority_receipt_refs),
@@ -351,6 +364,10 @@ function approvalDecisionAuthorityRequest({
     idempotency_key:
       optionalString(request.idempotency_key) ??
       `approval:${safeId(threadId)}:${safeId(approvalId)}:${safeId(decision)}:${seq}`,
+    lease_id: optionalString(request.lease_id) ?? null,
+    lease_ttl_ms: optionalPositiveInteger(request.ttl_ms ?? request.lease_ttl_ms),
+    expires_at: optionalString(request.expires_at) ?? null,
+    approval_lease: objectRecord(request.approval_lease) ?? null,
     authority_grant_refs: normalizeArray(request.authority_grant_refs),
     authority_receipt_refs: normalizeArray(request.authority_receipt_refs),
     policy_decision_refs: normalizeArray(request.policy_decision_refs),
@@ -385,6 +402,12 @@ function approvalRequestAuthorityRequest({
     idempotency_key:
       optionalString(request.idempotency_key) ??
       `approval:${safeId(threadId)}:${safeId(approvalId)}:request:${seq}`,
+    lease_id: optionalString(request.lease_id) ?? null,
+    lease_ttl_ms: optionalPositiveInteger(request.ttl_ms ?? request.lease_ttl_ms),
+    expires_at: optionalString(request.expires_at) ?? null,
+    action: optionalString(request.action) ?? null,
+    scope: optionalString(request.scope) ?? null,
+    authority_scope_requirements: normalizeArray(request.authority_scope_requirements),
     receipt_refs: normalizeArray(request.receipt_refs),
     policy_decision_refs: normalizeArray(request.policy_decision_refs),
     approval_manifest: objectRecord(request.approval_manifest) ?? {},
@@ -447,4 +470,72 @@ function approvalControlEvidenceRefs(operation) {
 
 function objectRecord(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+}
+
+function optionalPositiveInteger(value) {
+  const number = Number(value);
+  return Number.isSafeInteger(number) && number > 0 ? number : null;
+}
+
+function rustApprovalDecision(authority, runtimeError, operation) {
+  const decision = optionalString(authority?.decision ?? authority?.authority?.decision);
+  if (decision === "approve" || decision === "reject" || decision === "revoke") {
+    return decision;
+  }
+  throw runtimeError({
+    status: 502,
+    code: "approval_rust_decision_authority_incomplete",
+    message: "Rust approval authority did not return a canonical decision.",
+    details: {
+      operation,
+      decision: decision ?? null,
+      rust_core_boundary: "runtime.approval_control",
+    },
+  });
+}
+
+function rustApprovalLease(authority, runtimeError, operation) {
+  const lease =
+    objectRecord(authority?.approval_lease) ??
+    objectRecord(authority?.authority?.approval_lease);
+  if (lease) return lease;
+  throw runtimeError({
+    status: 502,
+    code: "approval_rust_lease_authority_incomplete",
+    message: "Rust approval authority did not return an approval lease record.",
+    details: {
+      operation,
+      rust_core_boundary: "runtime.approval_control",
+    },
+  });
+}
+
+function rustApprovalLeaseId(authority, approvalLease, runtimeError, operation) {
+  const leaseId =
+    optionalString(authority?.lease_id ?? authority?.authority?.lease_id) ??
+    optionalString(approvalLease?.lease_id);
+  if (leaseId) return leaseId;
+  throw runtimeError({
+    status: 502,
+    code: "approval_rust_lease_id_missing",
+    message: "Rust approval authority did not bind a lease id.",
+    details: {
+      operation,
+      rust_core_boundary: "runtime.approval_control",
+    },
+  });
+}
+
+function rustApprovalLeaseStatus(authority, runtimeError, operation) {
+  const leaseStatus = optionalString(authority?.lease_status ?? authority?.authority?.lease_status);
+  if (leaseStatus) return leaseStatus;
+  throw runtimeError({
+    status: 502,
+    code: "approval_rust_lease_status_missing",
+    message: "Rust approval authority did not bind a lease status.",
+    details: {
+      operation,
+      rust_core_boundary: "runtime.approval_control",
+    },
+  });
 }

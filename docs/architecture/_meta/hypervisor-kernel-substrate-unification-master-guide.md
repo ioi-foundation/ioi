@@ -8981,8 +8981,9 @@ receipt refs, available-artifact projection, and retired `artifact_records`
 candidate-transport rejection. JS still coordinates snapshot materialization,
 diagnostics orchestration, runner transport, and projection adapters around
 Rust-owned plans. Diagnostics projection/replay, temporary runner transport,
-approval grant issuance semantics, and authority projection/replay
-still need direct Rust daemon-core ownership.
+wallet.network grant issuance semantics, and authority projection/replay still
+need direct Rust daemon-core ownership; approval lease authority is now
+Rust-owned and no longer comes from a JS helper.
 
 This is still not terminal migration. These runner, gate, coding-tool,
 thread-control, run-cancel, task/job create/control/projection,
@@ -10115,6 +10116,22 @@ usage, missing-API fail-closed behavior, and absence of the retired command/env
 selectors. Durable diagnostics replay/storage, remaining model_mount/MCP
 materialization, richer authority projection/replay, and stable IDE/CLI/SDK
 protocol APIs remain non-terminal.
+
+Slice 1263 hard-cuts approval lease authority into Rust and deletes the JS
+approval lease facade. `RuntimeApprovalStateCore` now expects the typed
+`daemonCoreApprovalApi.authorizeApprovalRequest` and
+`authorizeApprovalDecision` responses to carry Rust-authored `approval_lease`
+records, lease ids, and lease statuses. Rust `approval.rs` owns the
+`ioi.runtime.approval-lease.v1` record, hashes it into request/decision
+authority records, includes it in request/decision/revoke state updates, and
+rejects state planning when the authority record lacks the lease binding. The
+public approval surface no longer normalizes decisions locally and no longer
+authors lease ids, TTL/expiry facts, policy hashes, or lease state; it simply
+requires Rust authority output before persistence. `runtime-approval-lease.mjs`
+and `runtime-approval-lease.test.mjs` are absent, and conformance now guards
+their absence plus the Rust lease-binding API. Wallet.network grant issuance
+semantics, richer authority projection/replay storage, and stable IDE/CLI/SDK
+approval APIs remain non-terminal.
 
 ## Final Doctrine
 

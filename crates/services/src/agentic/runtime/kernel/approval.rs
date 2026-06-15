@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::{collections::BTreeMap, fs, path::PathBuf};
+use time::{format_description::well_known::Rfc3339, Duration, OffsetDateTime};
 use url::Url;
 
 pub const CODING_TOOL_APPROVAL_REQUEST_SCHEMA_VERSION: &str =
@@ -35,6 +36,7 @@ pub const APPROVAL_DECISION_AUTHORITY_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.approval-decision-authority-request.v1";
 pub const APPROVAL_DECISION_AUTHORITY_RESULT_SCHEMA_VERSION: &str =
     "ioi.runtime.approval-decision-authority.v1";
+pub const APPROVAL_LEASE_SCHEMA_VERSION: &str = "ioi.runtime.approval-lease.v1";
 pub const CODING_TOOL_RESULT_SCHEMA_VERSION: &str = "ioi.runtime.coding-tool-result.v1";
 pub const CODING_TOOL_PACK_ID: &str = "ioi.tool_pack.coding";
 pub const WORKFLOW_TOOL_APPROVAL_POLICY_SCHEMA_VERSION: &str =
@@ -527,6 +529,18 @@ pub struct ApprovalRequestAuthorityRequest {
     #[serde(default)]
     pub run_id: Option<String>,
     #[serde(default)]
+    pub lease_id: Option<String>,
+    #[serde(default)]
+    pub lease_ttl_ms: Option<u64>,
+    #[serde(default)]
+    pub expires_at: Option<String>,
+    #[serde(default)]
+    pub action: Option<String>,
+    #[serde(default)]
+    pub scope: Option<String>,
+    #[serde(default)]
+    pub authority_scope_requirements: Vec<String>,
+    #[serde(default)]
     pub actor_ref: Option<String>,
     #[serde(default)]
     pub source: Option<String>,
@@ -550,6 +564,9 @@ pub struct ApprovalRequestAuthorityRecord {
     pub operation_kind: String,
     pub thread_id: String,
     pub approval_id: String,
+    pub lease_id: String,
+    pub lease_status: String,
+    pub approval_lease: Value,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub target_kind: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -579,6 +596,14 @@ pub struct ApprovalDecisionAuthorityRequest {
     #[serde(default)]
     pub run_id: Option<String>,
     #[serde(default)]
+    pub lease_id: Option<String>,
+    #[serde(default)]
+    pub lease_ttl_ms: Option<u64>,
+    #[serde(default)]
+    pub expires_at: Option<String>,
+    #[serde(default)]
+    pub approval_lease: Value,
+    #[serde(default)]
     pub actor_ref: Option<String>,
     #[serde(default)]
     pub source: Option<String>,
@@ -607,6 +632,9 @@ pub struct ApprovalDecisionAuthorityRecord {
     pub thread_id: String,
     pub approval_id: String,
     pub decision: String,
+    pub lease_id: String,
+    pub lease_status: String,
+    pub approval_lease: Value,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub target_kind: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -708,6 +736,12 @@ pub struct ApprovalRequestStateUpdateRequest {
     pub seq: u64,
     pub created_at: String,
     pub approval_id: String,
+    #[serde(default)]
+    pub lease_id: Option<String>,
+    #[serde(default)]
+    pub lease_status: Option<String>,
+    #[serde(default)]
+    pub approval_lease: Value,
     pub source: String,
     pub reason: String,
     #[serde(default)]
@@ -731,6 +765,10 @@ pub struct ApprovalRequestStateUpdateRecord {
     pub status: String,
     pub operation_kind: String,
     pub target_kind: String,
+    pub approval_id: String,
+    pub lease_id: String,
+    pub lease_status: String,
+    pub approval_lease: Value,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub thread_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -764,6 +802,8 @@ pub struct ApprovalDecisionStateUpdateRequest {
     pub approval_id: String,
     #[serde(default)]
     pub lease_id: Option<String>,
+    #[serde(default)]
+    pub approval_lease: Value,
     pub lease_status: String,
     pub decision: String,
     pub status: String,
@@ -791,6 +831,11 @@ pub struct ApprovalDecisionStateUpdateRecord {
     pub status: String,
     pub operation_kind: String,
     pub target_kind: String,
+    pub approval_id: String,
+    pub decision: String,
+    pub lease_id: String,
+    pub lease_status: String,
+    pub approval_lease: Value,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub thread_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -824,6 +869,8 @@ pub struct ApprovalRevokeStateUpdateRequest {
     pub approval_id: String,
     #[serde(default)]
     pub lease_id: Option<String>,
+    #[serde(default)]
+    pub approval_lease: Value,
     pub source: String,
     #[serde(default)]
     pub reason: Option<String>,
@@ -848,6 +895,11 @@ pub struct ApprovalRevokeStateUpdateRecord {
     pub status: String,
     pub operation_kind: String,
     pub target_kind: String,
+    pub approval_id: String,
+    pub decision: String,
+    pub lease_id: String,
+    pub lease_status: String,
+    pub approval_lease: Value,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub thread_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -969,6 +1021,17 @@ impl ApprovalRequestStateUpdateCore {
             approval_authority_grant_refs(&request.authority_grant_refs, &authority_record);
         let authority_receipt_refs =
             approval_authority_receipt_refs(&request.authority_receipt_refs, &authority_record);
+        let approval_lease = approval_state_update_lease(
+            &approval_id,
+            request.lease_id.as_deref(),
+            request.lease_status.as_deref(),
+            &request.approval_lease,
+            &authority_record,
+        );
+        let lease_id = value_string(&approval_lease, "lease_id")
+            .unwrap_or_else(|| format!("approval_lease_{}", safe_id(&approval_id)));
+        let lease_status =
+            value_string(&approval_lease, "status").unwrap_or_else(|| "pending".to_string());
         let receipt_refs = unique_trimmed_values(
             request
                 .receipt_refs
@@ -984,7 +1047,10 @@ impl ApprovalRequestStateUpdateCore {
         );
         let operator_control = json!({
             "control": "approval_request",
-            "approval_id": approval_id,
+            "approval_id": approval_id.clone(),
+            "lease_id": lease_id.clone(),
+            "lease_status": lease_status.clone(),
+            "approval_lease": approval_lease.clone(),
             "status": "waiting_for_approval",
             "source": source,
             "reason": reason,
@@ -1055,6 +1121,10 @@ impl ApprovalRequestStateUpdateCore {
             status: "planned".to_string(),
             operation_kind: "approval.required".to_string(),
             target_kind,
+            approval_id,
+            lease_id,
+            lease_status,
+            approval_lease,
             thread_id,
             run_id,
             updated_at: request.created_at.clone(),
@@ -1086,8 +1156,6 @@ impl ApprovalDecisionStateUpdateCore {
         let source = optional_trimmed(Some(request.source.as_str()))
             .unwrap_or_else(|| "sdk_client".to_string());
         let approval_id = optional_trimmed(Some(request.approval_id.as_str())).unwrap();
-        let lease_id = optional_trimmed(request.lease_id.as_deref());
-        let lease_status = optional_trimmed(Some(request.lease_status.as_str())).unwrap();
         let decision = normalized_approval_decision(Some(request.decision.as_str())).unwrap();
         let status = optional_trimmed(Some(request.status.as_str())).unwrap();
         let reason = optional_trimmed(request.reason.as_deref());
@@ -1098,6 +1166,17 @@ impl ApprovalDecisionStateUpdateCore {
             approval_authority_grant_refs(&request.authority_grant_refs, &authority_record);
         let authority_receipt_refs =
             approval_authority_receipt_refs(&request.authority_receipt_refs, &authority_record);
+        let approval_lease = approval_state_update_lease(
+            &approval_id,
+            request.lease_id.as_deref(),
+            Some(request.lease_status.as_str()),
+            &request.approval_lease,
+            &authority_record,
+        );
+        let lease_id = value_string(&approval_lease, "lease_id")
+            .unwrap_or_else(|| format!("approval_lease_{}", safe_id(&approval_id)));
+        let lease_status = value_string(&approval_lease, "status")
+            .unwrap_or_else(|| optional_trimmed(Some(request.lease_status.as_str())).unwrap());
         let receipt_refs = unique_trimmed_values(
             request
                 .receipt_refs
@@ -1113,10 +1192,11 @@ impl ApprovalDecisionStateUpdateCore {
         );
         let operator_control = json!({
             "control": "approval_decision",
-            "approval_id": approval_id,
-            "lease_id": lease_id,
-            "lease_status": lease_status,
-            "decision": decision,
+            "approval_id": approval_id.clone(),
+            "lease_id": lease_id.clone(),
+            "lease_status": lease_status.clone(),
+            "approval_lease": approval_lease.clone(),
+            "decision": decision.clone(),
             "status": status,
             "source": source,
             "reason": reason,
@@ -1181,6 +1261,11 @@ impl ApprovalDecisionStateUpdateCore {
             status: "planned".to_string(),
             operation_kind: format!("approval.{decision}"),
             target_kind,
+            approval_id,
+            decision,
+            lease_id,
+            lease_status,
+            approval_lease,
             thread_id,
             run_id,
             updated_at: request.created_at.clone(),
@@ -1212,7 +1297,6 @@ impl ApprovalRevokeStateUpdateCore {
         let source = optional_trimmed(Some(request.source.as_str()))
             .unwrap_or_else(|| "sdk_client".to_string());
         let approval_id = optional_trimmed(Some(request.approval_id.as_str())).unwrap();
-        let lease_id = optional_trimmed(request.lease_id.as_deref());
         let reason = optional_trimmed(request.reason.as_deref());
         let authority_record = authority_record_value(&request.authority_record);
         let authority_hash =
@@ -1221,6 +1305,17 @@ impl ApprovalRevokeStateUpdateCore {
             approval_authority_grant_refs(&request.authority_grant_refs, &authority_record);
         let authority_receipt_refs =
             approval_authority_receipt_refs(&request.authority_receipt_refs, &authority_record);
+        let approval_lease = approval_state_update_lease(
+            &approval_id,
+            request.lease_id.as_deref(),
+            Some("revoked"),
+            &request.approval_lease,
+            &authority_record,
+        );
+        let lease_id = value_string(&approval_lease, "lease_id")
+            .unwrap_or_else(|| format!("approval_lease_{}", safe_id(&approval_id)));
+        let lease_status =
+            value_string(&approval_lease, "status").unwrap_or_else(|| "revoked".to_string());
         let receipt_refs = unique_trimmed_values(
             request
                 .receipt_refs
@@ -1236,9 +1331,10 @@ impl ApprovalRevokeStateUpdateCore {
         );
         let operator_control = json!({
             "control": "approval_revoke",
-            "approval_id": approval_id,
-            "lease_id": lease_id,
-            "lease_status": "revoked",
+            "approval_id": approval_id.clone(),
+            "lease_id": lease_id.clone(),
+            "lease_status": lease_status.clone(),
+            "approval_lease": approval_lease.clone(),
             "decision": "revoke",
             "status": "revoked",
             "source": source,
@@ -1310,6 +1406,11 @@ impl ApprovalRevokeStateUpdateCore {
             status: "planned".to_string(),
             operation_kind: "approval.revoke".to_string(),
             target_kind,
+            approval_id,
+            decision: "revoke".to_string(),
+            lease_id,
+            lease_status,
+            approval_lease,
             thread_id,
             run_id,
             updated_at: request.created_at.clone(),
@@ -1600,6 +1701,22 @@ impl ApprovalRequestAuthorityCore {
         let receipt_refs = unique_trimmed(&request.receipt_refs);
         let idempotency_key = optional_trimmed(request.idempotency_key.as_deref())
             .unwrap_or_else(|| format!("approval:{thread_id}:{approval_id}:request"));
+        let authority_created_at = value_string(&request.authority_context, "created_at");
+        let approval_lease = approval_lease_record(
+            &approval_id,
+            request.lease_id.as_deref(),
+            "pending",
+            request.lease_ttl_ms,
+            request.expires_at.as_deref(),
+            &Value::Null,
+            request.action.as_deref(),
+            request.scope.as_deref(),
+            &request.authority_scope_requirements,
+            &receipt_refs,
+            authority_created_at.as_deref(),
+        );
+        let lease_id = value_string(&approval_lease, "lease_id")
+            .unwrap_or_else(|| format!("approval_lease_{}", safe_id(&approval_id)));
         let mut record = ApprovalRequestAuthorityRecord {
             schema_version: APPROVAL_REQUEST_AUTHORITY_RESULT_SCHEMA_VERSION.to_string(),
             object: "ioi.runtime_approval_request_authority".to_string(),
@@ -1607,6 +1724,9 @@ impl ApprovalRequestAuthorityCore {
             operation_kind: "approval.request.authority".to_string(),
             thread_id,
             approval_id,
+            lease_id,
+            lease_status: "pending".to_string(),
+            approval_lease,
             target_kind: optional_trimmed(request.target_kind.as_deref()),
             run_id: optional_trimmed(request.run_id.as_deref()),
             actor_ref: optional_trimmed(request.actor_ref.as_deref()),
@@ -1648,6 +1768,30 @@ impl ApprovalDecisionAuthorityCore {
         let policy_decision_refs = unique_trimmed(&request.policy_decision_refs);
         let idempotency_key = optional_trimmed(request.idempotency_key.as_deref())
             .unwrap_or_else(|| format!("approval:{thread_id}:{approval_id}:{decision}"));
+        let lease_status = match decision.as_str() {
+            "approve" => "active",
+            "reject" => "denied",
+            "revoke" => "revoked",
+            _ => "unknown",
+        };
+        let existing_action = value_string(&request.approval_lease, "action");
+        let existing_scope = value_string(&request.approval_lease, "scope");
+        let authority_created_at = value_string(&request.authority_context, "created_at");
+        let approval_lease = approval_lease_record(
+            &approval_id,
+            request.lease_id.as_deref(),
+            lease_status,
+            request.lease_ttl_ms,
+            request.expires_at.as_deref(),
+            &request.approval_lease,
+            existing_action.as_deref(),
+            existing_scope.as_deref(),
+            &array_strings(&request.approval_lease, "authority_scope_requirements"),
+            &authority_receipt_refs,
+            authority_created_at.as_deref(),
+        );
+        let lease_id = value_string(&approval_lease, "lease_id")
+            .unwrap_or_else(|| format!("approval_lease_{}", safe_id(&approval_id)));
         let mut record = ApprovalDecisionAuthorityRecord {
             schema_version: APPROVAL_DECISION_AUTHORITY_RESULT_SCHEMA_VERSION.to_string(),
             object: "ioi.runtime_approval_decision_authority".to_string(),
@@ -1656,6 +1800,9 @@ impl ApprovalDecisionAuthorityCore {
             thread_id,
             approval_id,
             decision,
+            lease_id,
+            lease_status: lease_status.to_string(),
+            approval_lease,
             target_kind: optional_trimmed(request.target_kind.as_deref()),
             run_id: optional_trimmed(request.run_id.as_deref()),
             actor_ref: optional_trimmed(request.actor_ref.as_deref()),
@@ -2184,6 +2331,9 @@ pub fn authorize_approval_request_protocol_response(
         "authority": record.clone(),
         "thread_id": record.thread_id,
         "approval_id": record.approval_id,
+        "lease_id": record.lease_id,
+        "lease_status": record.lease_status,
+        "approval_lease": record.approval_lease,
         "target_kind": record.target_kind,
         "run_id": record.run_id,
         "actor_ref": record.actor_ref,
@@ -2217,6 +2367,9 @@ pub fn authorize_approval_decision_protocol_response(
         "thread_id": record.thread_id,
         "approval_id": record.approval_id,
         "decision": record.decision,
+        "lease_id": record.lease_id,
+        "lease_status": record.lease_status,
+        "approval_lease": record.approval_lease,
         "target_kind": record.target_kind,
         "run_id": record.run_id,
         "actor_ref": record.actor_ref,
@@ -2321,6 +2474,14 @@ where
         "status": record_value.get("status").cloned().unwrap_or(Value::Null),
         "operation_kind": record_value.get("operation_kind").cloned().unwrap_or(Value::Null),
         "target_kind": record_value.get("target_kind").cloned().unwrap_or(Value::Null),
+        "approval_id": record_value.get("approval_id").cloned().unwrap_or(Value::Null),
+        "decision": record_value.get("decision").cloned().unwrap_or(Value::Null),
+        "lease_id": record_value.get("lease_id").cloned().unwrap_or(Value::Null),
+        "lease_status": record_value.get("lease_status").cloned().unwrap_or(Value::Null),
+        "approval_lease": record_value
+            .get("approval_lease")
+            .cloned()
+            .unwrap_or(Value::Null),
         "updated_at": record_value.get("updated_at").cloned().unwrap_or(Value::Null),
         "operator_control": record_value
             .get("operator_control")
@@ -2533,6 +2694,16 @@ impl ApprovalRequestStateUpdateRequest {
                 "authority_record",
             ));
         }
+        if !approval_lease_binding_present(
+            &self.approval_lease,
+            &self.authority_record,
+            &self.approval_id,
+            self.lease_id.as_deref(),
+        ) {
+            return Err(ApprovalRequestStateUpdateError::MissingField(
+                "approval_lease",
+            ));
+        }
         Ok(())
     }
 }
@@ -2593,6 +2764,16 @@ impl ApprovalDecisionStateUpdateRequest {
                 "authority_record",
             ));
         }
+        if !approval_lease_binding_present(
+            &self.approval_lease,
+            &self.authority_record,
+            &self.approval_id,
+            self.lease_id.as_deref(),
+        ) {
+            return Err(ApprovalDecisionStateUpdateError::MissingField(
+                "approval_lease",
+            ));
+        }
         Ok(())
     }
 }
@@ -2638,6 +2819,16 @@ impl ApprovalRevokeStateUpdateRequest {
         ) {
             return Err(ApprovalRevokeStateUpdateError::MissingField(
                 "authority_record",
+            ));
+        }
+        if !approval_lease_binding_present(
+            &self.approval_lease,
+            &self.authority_record,
+            &self.approval_id,
+            self.lease_id.as_deref(),
+        ) {
+            return Err(ApprovalRevokeStateUpdateError::MissingField(
+                "approval_lease",
             ));
         }
         Ok(())
@@ -2902,6 +3093,182 @@ fn approval_authority_policy_decision_refs(
     )
 }
 
+fn approval_lease_record(
+    approval_id: &str,
+    requested_lease_id: Option<&str>,
+    requested_status: &str,
+    requested_ttl_ms: Option<u64>,
+    requested_expires_at: Option<&str>,
+    existing_lease: &Value,
+    requested_action: Option<&str>,
+    requested_scope: Option<&str>,
+    requested_scope_requirements: &[String],
+    expected_receipt_refs: &[String],
+    created_at: Option<&str>,
+) -> Value {
+    let existing_lease_id = value_string(existing_lease, "lease_id");
+    let existing_status = value_string(existing_lease, "status");
+    let existing_ttl_ms = value_u64(existing_lease, "ttl_ms");
+    let existing_expires_at = value_string(existing_lease, "expires_at");
+    let existing_action = value_string(existing_lease, "action");
+    let existing_scope = value_string(existing_lease, "scope");
+    let existing_created_at = value_string(existing_lease, "created_at");
+    let lease_id = optional_trimmed(requested_lease_id)
+        .or(existing_lease_id)
+        .unwrap_or_else(|| format!("approval_lease_{}", safe_id(approval_id)));
+    let status = optional_trimmed(Some(requested_status))
+        .or(existing_status)
+        .unwrap_or_else(|| "pending".to_string());
+    let ttl_ms = requested_ttl_ms.or(existing_ttl_ms);
+    let expires_at = optional_trimmed(requested_expires_at)
+        .or(existing_expires_at)
+        .or_else(|| {
+            ttl_ms.and_then(|ttl| {
+                approval_lease_expiration(
+                    optional_trimmed(created_at)
+                        .or(existing_created_at.clone())
+                        .as_deref(),
+                    ttl,
+                )
+            })
+        });
+    let action = optional_trimmed(requested_action)
+        .or(existing_action)
+        .unwrap_or_else(|| "runtime.approval".to_string());
+    let scope = optional_trimmed(requested_scope)
+        .or(existing_scope)
+        .unwrap_or_else(|| "thread".to_string());
+    let authority_scope_requirements = unique_trimmed_values(
+        requested_scope_requirements
+            .iter()
+            .cloned()
+            .chain(array_strings(
+                existing_lease,
+                "authority_scope_requirements",
+            ))
+            .collect::<Vec<_>>()
+            .as_slice(),
+    );
+    let receipt_refs = unique_trimmed_values(
+        expected_receipt_refs
+            .iter()
+            .cloned()
+            .chain(array_strings(existing_lease, "expected_receipt_refs"))
+            .collect::<Vec<_>>()
+            .as_slice(),
+    );
+    let created_at_value = optional_trimmed(created_at).or(existing_created_at);
+    let policy_hash = approval_lease_policy_hash(json!({
+        "approval_id": approval_id,
+        "lease_id": lease_id,
+        "status": status,
+        "action": action,
+        "scope": scope,
+        "ttl_ms": ttl_ms,
+        "expires_at": expires_at,
+        "authority_scope_requirements": authority_scope_requirements,
+        "expected_receipt_refs": receipt_refs,
+    }));
+    json!({
+        "schema_version": APPROVAL_LEASE_SCHEMA_VERSION,
+        "object": "ioi.runtime_approval_lease",
+        "lease_id": lease_id,
+        "approval_id": approval_id,
+        "status": status,
+        "action": action,
+        "scope": scope,
+        "policy_hash": policy_hash,
+        "ttl_ms": ttl_ms,
+        "expires_at": expires_at,
+        "expected_receipt_refs": receipt_refs,
+        "authority_scope_requirements": authority_scope_requirements,
+        "created_at": created_at_value,
+        "projection_source": "rust_daemon_core_approval_lease_authority",
+    })
+}
+
+fn approval_state_update_lease(
+    approval_id: &str,
+    requested_lease_id: Option<&str>,
+    requested_status: Option<&str>,
+    requested_lease: &Value,
+    authority_record: &Value,
+) -> Value {
+    let authority_lease = authority_record
+        .get("approval_lease")
+        .filter(|value| value.is_object())
+        .unwrap_or(&Value::Null);
+    let source_lease = if requested_lease.is_object() {
+        requested_lease
+    } else {
+        authority_lease
+    };
+    let status = optional_trimmed(requested_status)
+        .or_else(|| value_string(source_lease, "status"))
+        .unwrap_or_else(|| "pending".to_string());
+    let scope_requirements = array_strings(source_lease, "authority_scope_requirements");
+    let receipt_refs = array_strings(source_lease, "expected_receipt_refs");
+    let source_lease_id = value_string(source_lease, "lease_id");
+    let source_expires_at = value_string(source_lease, "expires_at");
+    let source_action = value_string(source_lease, "action");
+    let source_scope = value_string(source_lease, "scope");
+    let source_created_at = value_string(source_lease, "created_at");
+    approval_lease_record(
+        approval_id,
+        requested_lease_id.or(source_lease_id.as_deref()),
+        &status,
+        value_u64(source_lease, "ttl_ms"),
+        source_expires_at.as_deref(),
+        source_lease,
+        source_action.as_deref(),
+        source_scope.as_deref(),
+        &scope_requirements,
+        &receipt_refs,
+        source_created_at.as_deref(),
+    )
+}
+
+fn approval_lease_binding_present(
+    approval_lease: &Value,
+    authority_record: &Value,
+    approval_id: &str,
+    requested_lease_id: Option<&str>,
+) -> bool {
+    let Some(authority_lease) = authority_record
+        .get("approval_lease")
+        .filter(|value| value.is_object())
+    else {
+        return false;
+    };
+    if approval_lease.is_object()
+        && value_string(approval_lease, "lease_id") != value_string(authority_lease, "lease_id")
+    {
+        return false;
+    }
+    let lease = approval_state_update_lease(
+        approval_id,
+        requested_lease_id,
+        None,
+        authority_lease,
+        authority_record,
+    );
+    lease.get("schema_version").and_then(Value::as_str) == Some(APPROVAL_LEASE_SCHEMA_VERSION)
+        && value_string(&lease, "approval_id").as_deref() == Some(approval_id)
+        && value_string(&lease, "lease_id").is_some()
+}
+
+fn approval_lease_expiration(created_at: Option<&str>, ttl_ms: u64) -> Option<String> {
+    let created_at = optional_trimmed(created_at)?;
+    let parsed = OffsetDateTime::parse(&created_at, &Rfc3339).ok()?;
+    let ttl = Duration::milliseconds(i64::try_from(ttl_ms).ok()?);
+    (parsed + ttl).format(&Rfc3339).ok()
+}
+
+fn approval_lease_policy_hash(value: Value) -> String {
+    let bytes = serde_json::to_vec(&value).unwrap_or_default();
+    format!("sha256:{}", hex::encode(Sha256::digest(bytes)))
+}
+
 fn approval_authority_state_binding_present(
     authority_record: &Value,
     authority_hash: Option<&str>,
@@ -3155,6 +3522,30 @@ fn approval_projection_lease_state(latest_decision: &Value) -> Value {
     if !latest_decision.is_object() {
         return Value::Null;
     }
+    if let Some(lease) = latest_decision
+        .get("approval_lease")
+        .filter(|value| value.is_object())
+    {
+        let lease_status = value_string(lease, "status")
+            .or_else(|| value_string(latest_decision, "lease_status"))
+            .unwrap_or_else(|| "unknown".to_string());
+        let expired = matches!(
+            lease_status.to_ascii_lowercase().as_str(),
+            "expired" | "revoked" | "rejected" | "denied"
+        );
+        return json!({
+            "approval_id": value_string(lease, "approval_id")
+                .or_else(|| value_string(latest_decision, "approval_id")),
+            "decision_event_id": value_string(latest_decision, "event_id"),
+            "decision_seq": value_u64(latest_decision, "seq"),
+            "lease_id": value_string(lease, "lease_id"),
+            "lease_status": lease_status.clone(),
+            "status": lease_status,
+            "expires_at": value_string(lease, "expires_at"),
+            "expired": expired,
+            "approval_lease": lease.clone(),
+        });
+    }
     let lease_status = value_string(latest_decision, "lease_status")
         .or_else(|| value_string(latest_decision, "status"))
         .unwrap_or_else(|| "unknown".to_string());
@@ -3168,7 +3559,7 @@ fn approval_projection_lease_state(latest_decision: &Value) -> Value {
         "decision_event_id": value_string(latest_decision, "event_id"),
         "decision_seq": value_u64(latest_decision, "seq"),
         "lease_id": value_string(latest_decision, "lease_id"),
-        "lease_status": lease_status,
+        "lease_status": lease_status.clone(),
         "status": lease_status,
         "expires_at": value_string(latest_decision, "expires_at"),
         "expired": expired,
@@ -3681,7 +4072,11 @@ fn approval_queue_entry(
     latest_decision: Value,
     status: &'static str,
 ) -> Value {
-    let lease_state = approval_projection_lease_state(&latest_decision);
+    let lease_state = if latest_decision.is_object() {
+        approval_projection_lease_state(&latest_decision)
+    } else {
+        approval_request_lease_state(&approval_request)
+    };
     json!({
         "schema_version": "ioi.runtime.approval-queue-entry.v1",
         "thread_id": thread_id,
@@ -3702,6 +4097,28 @@ fn approval_queue_entry(
         "approval_request": approval_request,
         "latest_decision": latest_decision,
         "lease_state": lease_state,
+    })
+}
+
+fn approval_request_lease_state(approval_request: &Value) -> Value {
+    let Some(lease) = approval_request
+        .get("approval_lease")
+        .filter(|value| value.is_object())
+    else {
+        return Value::Null;
+    };
+    let status = value_string(lease, "status").unwrap_or_else(|| "pending".to_string());
+    json!({
+        "approval_id": value_string(lease, "approval_id")
+            .or_else(|| value_string(approval_request, "approval_id")),
+        "request_event_id": value_string(approval_request, "event_id"),
+        "request_seq": value_u64(approval_request, "seq"),
+        "lease_id": value_string(lease, "lease_id"),
+        "lease_status": status.clone(),
+        "status": status,
+        "expires_at": value_string(lease, "expires_at"),
+        "expired": false,
+        "approval_lease": lease.clone(),
     })
 }
 
@@ -4019,6 +4436,9 @@ mod tests {
             seq: 3,
             created_at: "2026-06-06T04:30:00.000Z".to_string(),
             approval_id: "approval_alpha".to_string(),
+            lease_id: Some(authority.lease_id.clone()),
+            lease_status: Some(authority.lease_status.clone()),
+            approval_lease: authority.approval_lease.clone(),
             source: "runtime_auto".to_string(),
             reason: "Need permission".to_string(),
             receipt_refs: vec!["receipt_approval".to_string()],
@@ -4033,6 +4453,9 @@ mod tests {
 
     fn approval_decision_state_update_request() -> ApprovalDecisionStateUpdateRequest {
         let state_dir = temp_state_dir("decision-state-update");
+        let authority = ApprovalDecisionAuthorityCore
+            .authorize(&approval_decision_authority_request("approve"))
+            .expect("approval decision authority");
         let run = json!({
             "id": "run_alpha",
             "agentId": "agent_alpha",
@@ -4054,36 +4477,28 @@ mod tests {
             seq: 4,
             created_at: "2026-06-06T04:35:00.000Z".to_string(),
             approval_id: "approval_alpha".to_string(),
-            lease_id: Some("lease_alpha".to_string()),
-            lease_status: "active".to_string(),
+            lease_id: Some(authority.lease_id.clone()),
+            approval_lease: authority.approval_lease.clone(),
+            lease_status: authority.lease_status.clone(),
             decision: "approve".to_string(),
             status: "approved".to_string(),
             source: "runtime_auto".to_string(),
             reason: Some("Looks good".to_string()),
             receipt_refs: vec!["receipt_decision".to_string()],
             policy_decision_refs: vec!["policy_decision".to_string()],
-            authority_record: json!({
-                "schema_version": APPROVAL_DECISION_AUTHORITY_RESULT_SCHEMA_VERSION,
-                "object": "ioi.runtime_approval_decision_authority",
-                "status": "authorized",
-                "operation_kind": "approval.decision.authority",
-                "thread_id": "thread_alpha",
-                "approval_id": "approval_alpha",
-                "decision": "approve",
-                "wallet_network_grant_refs": ["wallet.network://grant/approval/approval_alpha"],
-                "authority_receipt_refs": ["receipt://wallet.network/approval/approval_alpha"],
-                "policy_decision_refs": ["policy_wallet_approval"],
-                "direct_truth_write_allowed": false,
-                "authority_hash": "sha256:approval-authority",
-            }),
-            authority_hash: None,
-            authority_grant_refs: vec![],
-            authority_receipt_refs: vec![],
+            authority_record: serde_json::to_value(authority.clone())
+                .expect("authority serializes"),
+            authority_hash: Some(authority.authority_hash),
+            authority_grant_refs: authority.wallet_network_grant_refs,
+            authority_receipt_refs: authority.authority_receipt_refs,
         }
     }
 
     fn approval_revoke_state_update_request() -> ApprovalRevokeStateUpdateRequest {
         let state_dir = temp_state_dir("revoke-state-update");
+        let authority = ApprovalDecisionAuthorityCore
+            .authorize(&approval_decision_authority_request("revoke"))
+            .expect("approval revoke authority");
         let run = json!({
             "id": "run_alpha",
             "agentId": "agent_alpha",
@@ -4105,28 +4520,17 @@ mod tests {
             seq: 5,
             created_at: "2026-06-06T04:40:00.000Z".to_string(),
             approval_id: "approval_alpha".to_string(),
-            lease_id: Some("lease_alpha".to_string()),
+            lease_id: Some(authority.lease_id.clone()),
+            approval_lease: authority.approval_lease.clone(),
             source: "runtime_auto".to_string(),
             reason: Some("Changed my mind".to_string()),
             receipt_refs: vec!["receipt_revoke".to_string()],
             policy_decision_refs: vec!["policy_revoke".to_string()],
-            authority_record: json!({
-                "schema_version": APPROVAL_DECISION_AUTHORITY_RESULT_SCHEMA_VERSION,
-                "object": "ioi.runtime_approval_decision_authority",
-                "status": "authorized",
-                "operation_kind": "approval.decision.authority",
-                "thread_id": "thread_alpha",
-                "approval_id": "approval_alpha",
-                "decision": "revoke",
-                "wallet_network_grant_refs": ["wallet.network://grant/approval/approval_alpha"],
-                "authority_receipt_refs": ["receipt://wallet.network/approval/approval_alpha"],
-                "policy_decision_refs": ["policy_wallet_approval"],
-                "direct_truth_write_allowed": false,
-                "authority_hash": "sha256:approval-authority-revoke",
-            }),
-            authority_hash: None,
-            authority_grant_refs: vec![],
-            authority_receipt_refs: vec![],
+            authority_record: serde_json::to_value(authority.clone())
+                .expect("authority serializes"),
+            authority_hash: Some(authority.authority_hash),
+            authority_grant_refs: authority.wallet_network_grant_refs,
+            authority_receipt_refs: authority.authority_receipt_refs,
         }
     }
 
@@ -4138,6 +4542,10 @@ mod tests {
             decision: decision.to_string(),
             target_kind: Some("run".to_string()),
             run_id: Some("run_alpha".to_string()),
+            lease_id: Some("lease_alpha".to_string()),
+            lease_ttl_ms: Some(600_000),
+            expires_at: Some("2026-06-06T04:45:00.000Z".to_string()),
+            approval_lease: Value::Null,
             actor_ref: Some("operator://local/heath".to_string()),
             source: Some("sdk_client".to_string()),
             idempotency_key: Some("approval:thread_alpha:approval_alpha:approve".to_string()),
@@ -4170,6 +4578,12 @@ mod tests {
             approval_id: "approval_alpha".to_string(),
             target_kind: Some("run".to_string()),
             run_id: Some("run_alpha".to_string()),
+            lease_id: Some("lease_alpha".to_string()),
+            lease_ttl_ms: Some(600_000),
+            expires_at: Some("2026-06-06T04:40:00.000Z".to_string()),
+            action: Some("coding_tool.invoke".to_string()),
+            scope: Some("thread".to_string()),
+            authority_scope_requirements: vec!["workspace.write".to_string()],
             actor_ref: Some("operator://local/heath".to_string()),
             source: Some("sdk_client".to_string()),
             idempotency_key: Some("approval:thread_alpha:approval_alpha:request".to_string()),
@@ -4320,6 +4734,21 @@ mod tests {
         second_request.seq = 5;
         second_request.reason = "Need another permission".to_string();
         second_request.receipt_refs = vec!["receipt_request_beta".to_string()];
+        let mut second_authority_request = approval_request_authority_request();
+        second_authority_request.approval_id = "approval_beta".to_string();
+        second_authority_request.lease_id = Some("lease_beta".to_string());
+        second_authority_request.receipt_refs =
+            vec!["receipt://authority/approval-request/approval_beta".to_string()];
+        let second_authority = ApprovalRequestAuthorityCore
+            .authorize(&second_authority_request)
+            .expect("second approval request authority");
+        second_request.lease_id = Some(second_authority.lease_id.clone());
+        second_request.lease_status = Some(second_authority.lease_status.clone());
+        second_request.approval_lease = second_authority.approval_lease.clone();
+        second_request.authority_record =
+            serde_json::to_value(second_authority.clone()).expect("second authority serializes");
+        second_request.authority_hash = Some(second_authority.authority_hash);
+        second_request.authority_receipt_refs = second_authority.authority_receipt_refs;
         let second_record = ApprovalRequestStateUpdateCore
             .plan(&second_request)
             .expect("second approval request state");
@@ -4763,10 +5192,12 @@ mod tests {
             record.approvals[0]["decision_event_id"],
             "event_decision_alpha"
         );
-        assert_eq!(
-            record.approvals[0]["receipt_refs"][1],
-            "receipt_decision_alpha"
-        );
+        let receipt_refs = record.approvals[0]["receipt_refs"]
+            .as_array()
+            .expect("approval receipt refs");
+        assert!(receipt_refs
+            .iter()
+            .any(|value| value.as_str() == Some("receipt_decision_alpha")));
         assert_eq!(record.approvals[1]["approval_id"], "approval_beta");
         assert_eq!(record.approvals[1]["status"], "pending");
         assert_eq!(
@@ -4848,6 +5279,13 @@ mod tests {
         assert_eq!(record.operation_kind, "approval.request.authority");
         assert_eq!(record.thread_id, "thread_alpha");
         assert_eq!(record.approval_id, "approval_alpha");
+        assert_eq!(record.lease_id, "lease_alpha");
+        assert_eq!(record.lease_status, "pending");
+        assert_eq!(record.approval_lease["status"], "pending");
+        assert_eq!(
+            record.approval_lease["expires_at"],
+            "2026-06-06T04:40:00.000Z"
+        );
         assert_eq!(
             record.authority_receipt_refs,
             vec!["receipt://authority/approval-request/approval_alpha"]
@@ -4885,6 +5323,8 @@ mod tests {
         );
         assert_eq!(response["status"], "issued");
         assert_eq!(response["operation_kind"], "approval.request.authority");
+        assert_eq!(response["lease_id"], "lease_alpha");
+        assert_eq!(response["approval_lease"]["status"], "pending");
         assert_eq!(
             response["authority"]["authority_receipt_refs"][0],
             "receipt://authority/approval-request/approval_alpha"
@@ -5303,9 +5743,14 @@ mod tests {
             record.run["operatorControls"][0]["receipt_refs"][1],
             "receipt://wallet.network/approval/approval_alpha"
         );
+        assert!(record.operator_control["authority_hash"]
+            .as_str()
+            .unwrap_or_default()
+            .starts_with("sha256:"));
+        assert_eq!(record.approval_lease["status"], "active");
         assert_eq!(
-            record.operator_control["authority_hash"],
-            "sha256:approval-authority"
+            record.operator_control["approval_lease"]["lease_id"],
+            "lease_alpha"
         );
         assert_eq!(
             record.operator_control["authority_grant_refs"][0],
@@ -5445,10 +5890,11 @@ mod tests {
         assert_eq!(response["status"], "planned");
         assert_eq!(response["operation_kind"], "approval.approve");
         assert_eq!(response["operator_control"]["lease_id"], "lease_alpha");
-        assert_eq!(
-            response["operator_control"]["authority_hash"],
-            "sha256:approval-authority"
-        );
+        assert!(response["operator_control"]["authority_hash"]
+            .as_str()
+            .unwrap_or_default()
+            .starts_with("sha256:"));
+        assert_eq!(response["approval_lease"]["status"], "active");
         assert_eq!(
             response["record"]["schema_version"],
             APPROVAL_DECISION_STATE_UPDATE_RESULT_SCHEMA_VERSION
@@ -5494,10 +5940,11 @@ mod tests {
             record.run["operatorControls"][0]["policy_decision_refs"][1],
             "policy_wallet_approval"
         );
-        assert_eq!(
-            record.operator_control["authority_hash"],
-            "sha256:approval-authority-revoke"
-        );
+        assert!(record.operator_control["authority_hash"]
+            .as_str()
+            .unwrap_or_default()
+            .starts_with("sha256:"));
+        assert_eq!(record.approval_lease["status"], "revoked");
         assert_eq!(
             record.operator_control["authority_receipt_refs"][0],
             "receipt://wallet.network/approval/approval_alpha"
@@ -5615,10 +6062,11 @@ mod tests {
         assert_eq!(response["status"], "planned");
         assert_eq!(response["operation_kind"], "approval.revoke");
         assert_eq!(response["operator_control"]["lease_status"], "revoked");
-        assert_eq!(
-            response["operator_control"]["authority_hash"],
-            "sha256:approval-authority-revoke"
-        );
+        assert!(response["operator_control"]["authority_hash"]
+            .as_str()
+            .unwrap_or_default()
+            .starts_with("sha256:"));
+        assert_eq!(response["approval_lease"]["status"], "revoked");
         assert_eq!(
             response["record"]["schema_version"],
             APPROVAL_REVOKE_STATE_UPDATE_RESULT_SCHEMA_VERSION
