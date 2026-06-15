@@ -10393,6 +10393,18 @@ durable diagnostics repair replay/storage, wallet-governed repair authority,
 cTEE custody where repair work touches private workspace state, and stable
 IDE/CLI/SDK diagnostics clients, not a JS runner fallback.
 
+Slice 1298 hard-cuts workflow-edit runner injection scaffolding.
+`createRuntimeWorkflowEditSurface()` no longer accepts `workflowEditRunner`;
+public workflow-edit proposal and apply controls resolve only
+`store.contextPolicyCore` before Rust daemon-core workflow-edit control
+planning and Rust runtime-event admission. Daemon construction no longer wires
+a parallel workflow-edit runner handle, focused tests mount fake Rust planners
+only under `store.contextPolicyCore`, and conformance guards that the retired
+alias name cannot return. Remaining work is wallet approval authority depth,
+workflow mutation custody, durable workflow-edit projection/replay,
+ArtifactRef/PayloadRef binding where needed, and stable IDE/CLI/SDK
+workflow-edit clients, not a JS runner fallback.
+
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,
 `/v1/memory/policy`, `/v1/memory/path`, or `/v1/memory/validate`; the daemon

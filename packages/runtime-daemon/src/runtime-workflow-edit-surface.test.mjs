@@ -11,12 +11,13 @@ function runtimeError({ status, code, message, details }) {
   return error;
 }
 
-function createStore() {
+function createStore({ contextPolicyCore = null } = {}) {
   const events = [];
   const calls = [];
   return {
     events,
     calls,
+    contextPolicyCore,
     agentForThread(threadId) {
       calls.push({ name: "agentForThread", threadId });
       throw new Error("agentForThread must not be called by the Rust-owned workflow-edit surface");
@@ -59,7 +60,7 @@ function createStore() {
   };
 }
 
-function createWorkflowEditRunner(calls = []) {
+function createWorkflowEditCore(calls = []) {
   return {
     planRuntimeWorkflowEditControl(request) {
       calls.push({ name: "planRuntimeWorkflowEditControl", request });
@@ -105,11 +106,10 @@ function createWorkflowEditRunner(calls = []) {
   };
 }
 
-function createSurface({ runnerCalls = [] } = {}) {
+function createSurface() {
   return createRuntimeWorkflowEditSurface({
     eventStreamIdForThread: (threadId) => `event_stream_${threadId}`,
     runtimeError,
-    workflowEditRunner: createWorkflowEditRunner(runnerCalls),
   });
 }
 
@@ -131,9 +131,9 @@ function assertNoRetiredWorkflowEditDetailAliases(details) {
 }
 
 test("workflow-edit proposal uses Rust planning and runtime event admission", () => {
-  const store = createStore();
   const runnerCalls = [];
-  const surface = createSurface({ runnerCalls });
+  const store = createStore({ contextPolicyCore: createWorkflowEditCore(runnerCalls) });
+  const surface = createSurface();
 
   const result = surface.proposeWorkflowEdit(store, "thread_alpha", {
     source: "agent_studio",
@@ -168,9 +168,9 @@ test("workflow-edit proposal uses Rust planning and runtime event admission", ()
 });
 
 test("workflow-edit apply uses Rust planning and runtime event admission", () => {
-  const store = createStore();
   const runnerCalls = [];
-  const surface = createSurface({ runnerCalls });
+  const store = createStore({ contextPolicyCore: createWorkflowEditCore(runnerCalls) });
+  const surface = createSurface();
 
   const result = surface.applyWorkflowEditProposal(store, "thread_alpha", "proposal_one", {
     source: "agent_studio",
