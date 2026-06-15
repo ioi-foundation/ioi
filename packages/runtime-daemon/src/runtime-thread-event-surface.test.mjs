@@ -197,6 +197,7 @@ test("runtime thread event surface delegates replay and projection helpers", () 
     threadStatusForAgent: calls.find((call) => call.name === "ensureThreadStartedEvent").deps.threadStatusForAgent,
   });
   assert.deepEqual(calls.find((call) => call.name === "projectRunEvents").depKeys, [
+    "eventStreamIdForThread",
     "isRuntimeBackedAgent",
     "runtimeError",
     "threadIdForAgent",

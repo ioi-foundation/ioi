@@ -319,12 +319,8 @@ test("runtime thread-event projection sends state-dir request without JS replay 
 
     const projection = store.projectRuntimeThreadEventsForThread(store, {
       projection_kind: "thread_started",
-      agent: {
-        id: "agent_1",
-        cwd: stateDir,
-        status: "active",
-        receipt_refs: ["receipt_runtime_projection"],
-      },
+      thread_id: "thread_1",
+      event_stream_id: "thread_1:events",
     });
     const call = calls.find((candidate) => candidate.method === "projectRuntimeThreadEvents");
 
@@ -333,6 +329,9 @@ test("runtime thread-event projection sends state-dir request without JS replay 
     assert.equal(Object.hasOwn(call.input, "latest_seq"), false);
     assert.equal(Object.hasOwn(call.input, "expected_head"), false);
     assert.equal(Object.hasOwn(call.input, "existing_idempotency_keys"), false);
+    assert.equal(Object.hasOwn(call.input, "workspace_root"), false);
+    assert.equal(Object.hasOwn(call.input, "agent"), false);
+    assert.equal(Object.hasOwn(call.input, "runs"), false);
   } finally {
     store.close();
     rmSync(stateDir, { recursive: true, force: true });

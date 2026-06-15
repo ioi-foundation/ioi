@@ -6253,6 +6253,9 @@ function runBridge() {
       ) &&
       /ProjectionStateDirRequired/.test(runtimeThreadEventCore) &&
       /pub state_dir: Option<String>/.test(runtimeThreadEventCore) &&
+      /pub run_id: Option<String>/.test(runtimeThreadEventCore) &&
+      /runtime_thread_projection_sources_from_state_dir/.test(runtimeThreadEventCore) &&
+      /runtime_thread_json_records_from_state_dir/.test(runtimeThreadEventCore) &&
       /runtime_thread_projection_state_from_state_dir/.test(runtimeThreadEventCore) &&
       /runtime_thread_replay_events_from_state_dir/.test(runtimeThreadEventCore) &&
       /RetiredReplayEventTransport/.test(runtimeThreadEventCore) &&
@@ -6263,6 +6266,15 @@ function runBridge() {
         runtimeThreadEventCore,
       ) &&
       !/pub struct RuntimeThreadEventProjectionRequest\s*\{(?:(?!\n\})[\s\S])*existing_idempotency_keys/.test(
+        runtimeThreadEventCore,
+      ) &&
+      !/pub struct RuntimeThreadEventProjectionRequest\s*\{(?:(?!\n\})[\s\S])*workspace_root/.test(
+        runtimeThreadEventCore,
+      ) &&
+      !/pub struct RuntimeThreadEventProjectionRequest\s*\{(?:(?!\n\})[\s\S])*agent: Option/.test(
+        runtimeThreadEventCore,
+      ) &&
+      !/pub struct RuntimeThreadEventProjectionRequest\s*\{(?:(?!\n\})[\s\S])*runs: Vec/.test(
         runtimeThreadEventCore,
       ) &&
       !/pub struct RuntimeThreadEventReplayRequest\s*\{(?:(?!\n\})[\s\S])*latest_seq: Option<u64>/.test(
@@ -6285,6 +6297,9 @@ function runBridge() {
       /rust_rejects_retired_runtime_thread_event_projection_request_aliases/.test(runtimeThreadEventCore) &&
       /rust_requires_state_dir_for_runtime_thread_event_projection/.test(runtimeThreadEventCore) &&
       /rust_rejects_retired_runtime_thread_event_projection_cache_transport/.test(
+        runtimeThreadEventCore,
+      ) &&
+      /rust_rejects_retired_runtime_thread_event_projection_fact_transport/.test(
         runtimeThreadEventCore,
       ) &&
       /rust_rejects_retired_runtime_thread_event_replay_cursor_aliases/.test(runtimeThreadEventCore) &&
@@ -6348,6 +6363,15 @@ function runBridge() {
       /Object\.hasOwn\(calls\[0\]\.request\.request,\s*"existing_idempotency_keys"\),\s*false/.test(
         runtimeAgentgresCoreTest,
       ) &&
+      /Object\.hasOwn\(calls\[0\]\.request\.request,\s*"workspace_root"\),\s*false/.test(
+        runtimeAgentgresCoreTest,
+      ) &&
+      /Object\.hasOwn\(calls\[0\]\.request\.request,\s*"agent"\),\s*false/.test(
+        runtimeAgentgresCoreTest,
+      ) &&
+      /Object\.hasOwn\(calls\[0\]\.request\.request,\s*"runs"\),\s*false/.test(
+        runtimeAgentgresCoreTest,
+      ) &&
       /runtime Agentgres core returns Rust envelopes without JS normalization/.test(runtimeAgentgresCoreTest) &&
       /runtime Agentgres core returns Rust envelopes without JS normalization/.test(runtimeAgentgresCoreTest) &&
       /runtime Agentgres core returns Rust envelopes without JS normalization/.test(runtimeAgentgresCoreTest) &&
@@ -6358,6 +6382,9 @@ function runBridge() {
       /state_dir:\s*this\.stateDir/.test(runtimeDaemonIndex) &&
       !/runtimeThreadReplayCandidateEvents/.test(runtimeDaemonIndex) &&
       !/events:\s*candidateEvents/.test(runtimeDaemonIndex) &&
+      !/runtimeThreadProjectionAgent/.test(runtimeDaemonIndex) &&
+      !/runtimeThreadProjectionRun/.test(runtimeDaemonIndex) &&
+      !/runtimeThreadProjectionRunEvent/.test(runtimeDaemonIndex) &&
       !/projectRuntimeThreadEventsForThread\(store, request = \{\}\) \{(?:(?!\n  projectRuntimeThreadEventReplayForThread\(store, request = \{\}\) \{)[\s\S])*?latest_seq:\s*latestSeq/.test(
         runtimeDaemonIndex,
       ) &&
@@ -6365,6 +6392,15 @@ function runBridge() {
         runtimeDaemonIndex,
       ) &&
       !/projectRuntimeThreadEventsForThread\(store, request = \{\}\) \{(?:(?!\n  projectRuntimeThreadEventReplayForThread\(store, request = \{\}\) \{)[\s\S])*?existing_idempotency_keys/.test(
+        runtimeDaemonIndex,
+      ) &&
+      !/projectRuntimeThreadEventsForThread\(store, request = \{\}\) \{(?:(?!\n  projectRuntimeThreadEventReplayForThread\(store, request = \{\}\) \{)[\s\S])*?workspace_root:/.test(
+        runtimeDaemonIndex,
+      ) &&
+      !/projectRuntimeThreadEventsForThread\(store, request = \{\}\) \{(?:(?!\n  projectRuntimeThreadEventReplayForThread\(store, request = \{\}\) \{)[\s\S])*?agent:/.test(
+        runtimeDaemonIndex,
+      ) &&
+      !/projectRuntimeThreadEventsForThread\(store, request = \{\}\) \{(?:(?!\n  projectRuntimeThreadEventReplayForThread\(store, request = \{\}\) \{)[\s\S])*?runs:/.test(
         runtimeDaemonIndex,
       ) &&
       !/projectRuntimeThreadEventReplayForThread\(store, request = \{\}\) \{(?:(?!\n  projectRuntimeThreadTurnProjectionForThread\(store, request = \{\}\) \{)[\s\S])*?latest_seq:\s*latestSeq/.test(
@@ -6377,6 +6413,9 @@ function runBridge() {
         runtimeThreadControlTest,
       ) &&
       /Object\.hasOwn\(call\.input,\s*"events"\),\s*false/.test(runtimeThreadControlTest) &&
+      /Object\.hasOwn\(call\.input,\s*"agent"\),\s*false/.test(runtimeThreadControlTest) &&
+      /Object\.hasOwn\(call\.input,\s*"runs"\),\s*false/.test(runtimeThreadControlTest) &&
+      /Object\.hasOwn\(call\.input,\s*"workspace_root"\),\s*false/.test(runtimeThreadControlTest) &&
       /admitRuntimeThreadEventForThread/.test(runtimeDaemonIndex) &&
       /runtimeAgentgresAdmissionCore\.admitRuntimeThreadEvent/.test(runtimeDaemonIndex) &&
       /store\.registerRuntimeEvent\(admittedEvent\)/.test(runtimeDaemonIndex),
@@ -39865,6 +39904,22 @@ function runCompositor() {
       /rust_rejects_retired_runtime_thread_event_projection_cache_transport/.test(
         runtimeThreadEventCoreForCompositor,
       ) &&
+      /rust_rejects_retired_runtime_thread_event_projection_fact_transport/.test(
+        runtimeThreadEventCoreForCompositor,
+      ) &&
+      /runtime_thread_projection_sources_from_state_dir/.test(
+        runtimeThreadEventCoreForCompositor,
+      ) &&
+      /pub run_id: Option<String>/.test(runtimeThreadEventCoreForCompositor) &&
+      !/pub struct RuntimeThreadEventProjectionRequest\s*\{(?:(?!\n\})[\s\S])*workspace_root/.test(
+        runtimeThreadEventCoreForCompositor,
+      ) &&
+      !/pub struct RuntimeThreadEventProjectionRequest\s*\{(?:(?!\n\})[\s\S])*agent: Option/.test(
+        runtimeThreadEventCoreForCompositor,
+      ) &&
+      !/pub struct RuntimeThreadEventProjectionRequest\s*\{(?:(?!\n\})[\s\S])*runs: Vec/.test(
+        runtimeThreadEventCoreForCompositor,
+      ) &&
       /rust_rejects_retired_runtime_thread_event_replay_latest_seq_transport/.test(
         runtimeThreadEventCoreForCompositor,
       ) &&
@@ -39877,6 +39932,9 @@ function runCompositor() {
       /state_dir:\s*this\.stateDir/.test(runtimeDaemonIndex) &&
       !/runtimeThreadReplayCandidateEvents/.test(runtimeDaemonIndex) &&
       !/events:\s*candidateEvents/.test(runtimeDaemonIndex) &&
+      !/runtimeThreadProjectionAgent/.test(runtimeDaemonIndex) &&
+      !/runtimeThreadProjectionRun/.test(runtimeDaemonIndex) &&
+      !/runtimeThreadProjectionRunEvent/.test(runtimeDaemonIndex) &&
       !/projectRuntimeThreadEventsForThread\(store, request = \{\}\) \{(?:(?!\n  projectRuntimeThreadEventReplayForThread\(store, request = \{\}\) \{)[\s\S])*?latest_seq:\s*latestSeq/.test(
         runtimeDaemonIndex,
       ) &&
@@ -39884,6 +39942,15 @@ function runCompositor() {
         runtimeDaemonIndex,
       ) &&
       !/projectRuntimeThreadEventsForThread\(store, request = \{\}\) \{(?:(?!\n  projectRuntimeThreadEventReplayForThread\(store, request = \{\}\) \{)[\s\S])*?existing_idempotency_keys/.test(
+        runtimeDaemonIndex,
+      ) &&
+      !/projectRuntimeThreadEventsForThread\(store, request = \{\}\) \{(?:(?!\n  projectRuntimeThreadEventReplayForThread\(store, request = \{\}\) \{)[\s\S])*?workspace_root:/.test(
+        runtimeDaemonIndex,
+      ) &&
+      !/projectRuntimeThreadEventsForThread\(store, request = \{\}\) \{(?:(?!\n  projectRuntimeThreadEventReplayForThread\(store, request = \{\}\) \{)[\s\S])*?agent:/.test(
+        runtimeDaemonIndex,
+      ) &&
+      !/projectRuntimeThreadEventsForThread\(store, request = \{\}\) \{(?:(?!\n  projectRuntimeThreadEventReplayForThread\(store, request = \{\}\) \{)[\s\S])*?runs:/.test(
         runtimeDaemonIndex,
       ) &&
       !/projectRuntimeThreadEventReplayForThread\(store, request = \{\}\) \{(?:(?!\n  projectRuntimeThreadTurnProjectionForThread\(store, request = \{\}\) \{)[\s\S])*?latest_seq:\s*latestSeq/.test(
@@ -39938,15 +40005,28 @@ function runCompositor() {
       /store\.projectRuntimeThreadEventsForThread\(store,\s*\{[\s\S]*projection_kind:\s*"thread_started"/.test(
         ensureThreadStartedEventBlock,
       ) &&
+      /thread_id:\s*threadId/.test(ensureThreadStartedEventBlock) &&
+      /event_stream_id:\s*eventStreamIdForThread\(threadId\)/.test(
+        ensureThreadStartedEventBlock,
+      ) &&
       /store\.projectRuntimeThreadEventsForThread\(store,\s*\{[\s\S]*projection_kind:\s*"thread"/.test(
         projectThreadEventsBlock,
       ) &&
-      /runs:\s*typeof store\.listRuns === "function" \? store\.listRuns\(agent\.id\) : \[\]/.test(
+      /thread_id:\s*threadId/.test(projectThreadEventsBlock) &&
+      /event_stream_id:\s*eventStreamIdForThread\(threadId\)/.test(
         projectThreadEventsBlock,
       ) &&
       /store\.projectRuntimeThreadEventsForThread\(store,\s*\{[\s\S]*projection_kind:\s*"run"/.test(
         projectRunEventsBlock,
       ) &&
+      /thread_id:\s*threadId/.test(projectRunEventsBlock) &&
+      /event_stream_id:\s*eventStreamIdForThread\(threadId\)/.test(
+        projectRunEventsBlock,
+      ) &&
+      /run_id:\s*run\.id/.test(projectRunEventsBlock) &&
+      !/\n\s*agent,\s*\n/.test(`${ensureThreadStartedEventBlock}\n${projectThreadEventsBlock}\n${projectRunEventsBlock}`) &&
+      !/runs:/.test(`${ensureThreadStartedEventBlock}\n${projectThreadEventsBlock}\n${projectRunEventsBlock}`) &&
+      !/workspace_root:/.test(`${ensureThreadStartedEventBlock}\n${projectThreadEventsBlock}\n${projectRunEventsBlock}`) &&
       /store\.projectRuntimeThreadEventReplayForThread\(store,\s*\{[\s\S]*replay_kind:\s*"stream"/.test(
         runtimeEventsForStreamBlock,
       ) &&

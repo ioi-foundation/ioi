@@ -85,10 +85,16 @@ export function createRuntimeThreadEventSurface({
       });
     },
     projectThreadEvents(store, agent) {
-      return projectThreadEventsDep(store, agent, { isRuntimeBackedAgent, runtimeError });
+      return projectThreadEventsDep(store, agent, {
+        eventStreamIdForThread,
+        isRuntimeBackedAgent,
+        runtimeError,
+        threadIdForAgent,
+      });
     },
     projectRunEvents(store, run, agent = store.getAgent(run.agentId)) {
       return projectRunEventsDep(store, run, agent, {
+        eventStreamIdForThread,
         isRuntimeBackedAgent,
         runtimeError,
         threadIdForAgent,

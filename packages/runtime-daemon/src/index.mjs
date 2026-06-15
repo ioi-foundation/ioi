@@ -1095,9 +1095,7 @@ export class AgentgresRuntimeStateStore {
   }
 
   projectRuntimeThreadEventsForThread(store, request = {}) {
-    const agent = objectRecord(request.agent);
-    const agentId = optionalString(agent?.id ?? agent?.agent_id);
-    const threadId = optionalString(request.thread_id) ?? (agentId ? threadIdForAgent(agentId) : undefined);
+    const threadId = optionalString(request.thread_id);
     const eventStreamId = optionalString(request.event_stream_id) ?? (threadId ? eventStreamIdForThread(threadId) : undefined);
     if (!threadId || !eventStreamId) {
       throw runtimeError({
@@ -1107,7 +1105,8 @@ export class AgentgresRuntimeStateStore {
         details: {
           operation: "project_runtime_thread_events",
           projection_kind: request.projection_kind ?? null,
-          agent_id: agentId ?? null,
+          thread_id: threadId ?? null,
+          event_stream_id: eventStreamId ?? null,
         },
       });
     }
@@ -1115,12 +1114,7 @@ export class AgentgresRuntimeStateStore {
       projection_kind: optionalString(request.projection_kind) ?? "thread",
       thread_id: threadId,
       event_stream_id: eventStreamId,
-      workspace_root: optionalString(request.workspace_root ?? agent?.cwd ?? agent?.workspace_root),
-      agent: runtimeThreadProjectionAgent(agent, { threadId }),
-      runs: normalizeArray(request.runs).map((run) => runtimeThreadProjectionRun(run, {
-        agent,
-        threadId,
-      })),
+      run_id: optionalString(request.run_id),
       state_dir: this.stateDir,
     });
     const events = normalizeArray(projection?.events).filter((event) => objectRecord(event));
@@ -1687,55 +1681,6 @@ function shouldRequestComputerUseMaterialization(prompt, request = {}) {
     "type",
     "scroll",
   ].some((needle) => text.includes(needle));
-}
-
-function runtimeThreadProjectionAgent(agent, { threadId } = {}) {
-  const record = objectRecord(agent) ?? {};
-  return {
-    agent_id: optionalString(record.agent_id ?? record.id) ?? null,
-    thread_id: threadId ?? null,
-    status: optionalString(record.status) ?? null,
-    created_at: optionalString(record.created_at ?? record.createdAt) ?? null,
-    updated_at: optionalString(record.updated_at ?? record.updatedAt) ?? null,
-    workspace_root: optionalString(record.workspace_root ?? record.cwd) ?? null,
-    fixture_profile: optionalString(record.fixture_profile) ?? null,
-    model_route_receipt_id: optionalString(
-      record.model_route_receipt_id ?? record.modelRouteReceiptId,
-    ) ?? null,
-    receipt_refs: normalizeArray(record.receipt_refs),
-  };
-}
-
-function runtimeThreadProjectionRun(run, { agent, threadId } = {}) {
-  const record = objectRecord(run) ?? {};
-  const runId = optionalString(record.run_id ?? record.id);
-  return {
-    run_id: runId ?? null,
-    agent_id: optionalString(record.agent_id ?? record.agentId ?? agent?.id ?? agent?.agent_id) ?? null,
-    thread_id: threadId ?? null,
-    turn_id: optionalString(record.turn_id ?? record.runtime_turn_id ?? record.runtimeTurnId)
-      ?? (runId ? turnIdForRun(runId) : null),
-    workspace_root: optionalString(record.workspace_root ?? record.cwd ?? agent?.cwd ?? agent?.workspace_root) ?? null,
-    created_at: optionalString(record.created_at ?? record.createdAt) ?? null,
-    updated_at: optionalString(record.updated_at ?? record.updatedAt) ?? null,
-    events: normalizeArray(record.events).map(runtimeThreadProjectionRunEvent),
-  };
-}
-
-function runtimeThreadProjectionRunEvent(event) {
-  const record = objectRecord(event) ?? {};
-  const data = objectRecord(record.data) ?? {};
-  return {
-    id: optionalString(record.id ?? record.event_id) ?? null,
-    type: optionalString(record.type ?? record.event_type ?? record.event_kind) ?? null,
-    run_id: optionalString(record.run_id ?? record.runId) ?? null,
-    created_at: optionalString(record.created_at ?? record.createdAt) ?? null,
-    data,
-    receipt_refs: normalizeArray(record.receipt_refs),
-    artifact_refs: normalizeArray(record.artifact_refs),
-    policy_decision_refs: normalizeArray(record.policy_decision_refs),
-    rollback_refs: normalizeArray(record.rollback_refs),
-  };
 }
 
 function canonicalMemoryWorkflowNodeId(value = {}) {

@@ -123,11 +123,7 @@ pub struct RuntimeThreadEventProjectionRequest {
     #[serde(default)]
     pub event_stream_id: String,
     #[serde(default)]
-    pub workspace_root: Option<String>,
-    #[serde(default)]
-    pub agent: Option<Value>,
-    #[serde(default)]
-    pub runs: Vec<Value>,
+    pub run_id: Option<String>,
     #[serde(default)]
     pub state_dir: Option<String>,
 }
@@ -763,24 +759,23 @@ impl RuntimeThreadEventAdmissionCore {
         request: &RuntimeThreadEventProjectionRequest,
     ) -> Result<Vec<Value>, RuntimeThreadEventAdmissionError> {
         let mut candidates = Vec::new();
+        let sources = runtime_thread_projection_sources_from_state_dir(request)?;
         if request.projection_kind == "thread" || request.projection_kind == "thread_started" {
-            let agent = request
-                .agent
-                .as_ref()
-                .and_then(Value::as_object)
-                .ok_or(RuntimeThreadEventAdmissionError::MissingField("agent"))?;
-            candidates.push(thread_started_event(request, agent)?);
+            candidates.push(thread_started_event(request, &sources.agent)?);
         }
         if request.projection_kind == "thread" || request.projection_kind == "run" {
-            for run in &request.runs {
-                let run = run
-                    .as_object()
-                    .ok_or(RuntimeThreadEventAdmissionError::MissingField("run"))?;
+            for run in &sources.runs {
                 for (index, event) in run_event_values(run).iter().enumerate() {
                     let event = event
                         .as_object()
                         .ok_or(RuntimeThreadEventAdmissionError::MissingField("run_event"))?;
-                    candidates.push(run_thread_event(request, run, event, index)?);
+                    candidates.push(run_thread_event(
+                        request,
+                        run,
+                        event,
+                        index,
+                        Some(&sources.agent),
+                    )?);
                 }
             }
         }
@@ -989,6 +984,58 @@ struct RuntimeThreadEventProjectionState {
     existing_idempotency_keys: Vec<String>,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+struct RuntimeThreadEventProjectionSources {
+    agent: Map<String, Value>,
+    runs: Vec<Map<String, Value>>,
+}
+
+fn runtime_thread_projection_sources_from_state_dir(
+    request: &RuntimeThreadEventProjectionRequest,
+) -> Result<RuntimeThreadEventProjectionSources, RuntimeThreadEventAdmissionError> {
+    let state_dir = optional_trimmed(request.state_dir.as_deref())
+        .ok_or(RuntimeThreadEventAdmissionError::ProjectionStateDirRequired)?;
+    let agents = runtime_thread_json_records_from_state_dir(&state_dir, "agents", "projection")?;
+    let runs = runtime_thread_json_records_from_state_dir(&state_dir, "runs", "projection")?;
+    let expected_agent_id = agent_id_for_thread(&request.thread_id);
+    let agent = agents
+        .into_iter()
+        .filter_map(|value| value.as_object().cloned())
+        .find(|record| {
+            optional_json_string(record, &["thread_id"]).as_deref()
+                == Some(request.thread_id.as_str())
+                || optional_json_string(record, &["id", "agent_id"]).as_deref()
+                    == Some(expected_agent_id.as_str())
+        })
+        .ok_or(RuntimeThreadEventAdmissionError::MissingField("agent"))?;
+    let agent_id = optional_json_string(&agent, &["id", "agent_id"])
+        .unwrap_or_else(|| expected_agent_id.clone());
+    let requested_run_id = optional_trimmed(request.run_id.as_deref());
+    if request.projection_kind == "run" && requested_run_id.is_none() {
+        return Err(RuntimeThreadEventAdmissionError::MissingField("run_id"));
+    }
+    let selected_runs = runs
+        .into_iter()
+        .filter_map(|value| value.as_object().cloned())
+        .filter(|record| {
+            if let Some(run_id) = requested_run_id.as_deref() {
+                return optional_json_string(record, &["id", "run_id"]).as_deref() == Some(run_id);
+            }
+            optional_json_string(record, &["thread_id"]).as_deref()
+                == Some(request.thread_id.as_str())
+                || optional_json_string(record, &["agentId", "agent_id"]).as_deref()
+                    == Some(agent_id.as_str())
+        })
+        .collect::<Vec<_>>();
+    if request.projection_kind == "run" && selected_runs.is_empty() {
+        return Err(RuntimeThreadEventAdmissionError::MissingField("run"));
+    }
+    Ok(RuntimeThreadEventProjectionSources {
+        agent,
+        runs: selected_runs,
+    })
+}
+
 fn runtime_thread_projection_state_from_state_dir(
     request: &RuntimeThreadEventProjectionRequest,
 ) -> Result<RuntimeThreadEventProjectionState, RuntimeThreadEventAdmissionError> {
@@ -1104,6 +1151,53 @@ fn runtime_thread_events_from_state_dir(
     }
     events.sort_by_key(|event| event.as_object().and_then(event_seq).unwrap_or(0));
     Ok(events)
+}
+
+fn runtime_thread_json_records_from_state_dir(
+    state_dir: &str,
+    record_dir: &str,
+    operation: &str,
+) -> Result<Vec<Value>, RuntimeThreadEventAdmissionError> {
+    let records_dir = Path::new(state_dir).join(record_dir);
+    if !records_dir.exists() {
+        return Ok(Vec::new());
+    }
+    let entries = fs::read_dir(&records_dir).map_err(|error| {
+        RuntimeThreadEventAdmissionError::ReplayReadFailed(format!(
+            "runtime thread-event {operation} could not read Agentgres {record_dir}: {error}"
+        ))
+    })?;
+    let mut paths: Vec<PathBuf> = Vec::new();
+    for entry in entries {
+        let entry = entry.map_err(|error| {
+            RuntimeThreadEventAdmissionError::ReplayReadFailed(format!(
+                "runtime thread-event {operation} could not inspect Agentgres {record_dir} entry: {error}"
+            ))
+        })?;
+        let path = entry.path();
+        if path.is_file() && path.extension().and_then(|value| value.to_str()) == Some("json") {
+            paths.push(path);
+        }
+    }
+    paths.sort();
+
+    let mut records = Vec::new();
+    for path in paths {
+        let contents = fs::read_to_string(&path).map_err(|error| {
+            RuntimeThreadEventAdmissionError::ReplayReadFailed(format!(
+                "runtime thread-event {operation} could not read Agentgres {record_dir} record {}: {error}",
+                path.display()
+            ))
+        })?;
+        let record: Value = serde_json::from_str(&contents).map_err(|error| {
+            RuntimeThreadEventAdmissionError::ReplayRecordInvalid(format!(
+                "runtime thread-event {operation} found invalid Agentgres {record_dir} record {}: {error}",
+                path.display()
+            ))
+        })?;
+        records.push(record);
+    }
+    Ok(records)
 }
 
 impl RuntimeThreadTurnProjectionRequest {
@@ -1527,11 +1621,8 @@ fn thread_started_event(
         .ok_or(RuntimeThreadEventAdmissionError::MissingField("agent_id"))?;
     let thread_status =
         thread_status_for_agent(optional_json_string(agent, &["status"]).as_deref());
-    let workspace_root = request
-        .workspace_root
-        .clone()
-        .or_else(|| optional_json_string(agent, &["workspace_root", "cwd"]))
-        .unwrap_or_default();
+    let workspace_root =
+        optional_json_string(agent, &["workspace_root", "cwd"]).unwrap_or_default();
     let created_at = optional_json_string(agent, &["created_at", "createdAt"])
         .or_else(|| optional_json_string(agent, &["updated_at", "updatedAt"]))
         .unwrap_or_else(|| "rust_daemon_core".to_string());
@@ -1596,6 +1687,7 @@ fn run_thread_event(
     run: &Map<String, Value>,
     event: &Map<String, Value>,
     index: usize,
+    agent: Option<&Map<String, Value>>,
 ) -> Result<Value, RuntimeThreadEventAdmissionError> {
     let run_id = optional_json_string(run, &["run_id", "id"])
         .ok_or(RuntimeThreadEventAdmissionError::MissingField("run_id"))?;
@@ -1610,10 +1702,10 @@ fn run_thread_event(
         .and_then(Value::as_object)
         .cloned()
         .unwrap_or_default();
-    let workspace_root = request
-        .workspace_root
-        .clone()
-        .or_else(|| optional_json_string(run, &["workspace_root", "cwd"]))
+    let workspace_root = optional_json_string(run, &["workspace_root", "cwd"])
+        .or_else(|| {
+            agent.and_then(|record| optional_json_string(record, &["workspace_root", "cwd"]))
+        })
         .unwrap_or_default();
     let created_at = optional_json_string(event, &["created_at", "createdAt"])
         .or_else(|| optional_json_string(run, &["created_at", "createdAt"]))
@@ -1734,6 +1826,13 @@ fn turn_id_for_run(run_id: &str) -> String {
         .strip_prefix("run_")
         .map(|suffix| format!("turn_{suffix}"))
         .unwrap_or_else(|| format!("turn_{run_id}"))
+}
+
+fn agent_id_for_thread(thread_id: &str) -> String {
+    thread_id
+        .strip_prefix("thread_")
+        .map(|suffix| format!("agent_{suffix}"))
+        .unwrap_or_else(|| thread_id.to_string())
 }
 
 fn runtime_event_kind_for_run_event(event_type: &str) -> String {
@@ -1997,7 +2096,7 @@ mod tests {
     }
 
     fn projection_request() -> RuntimeThreadEventProjectionRequest {
-        let state_dir = write_runtime_thread_event_state(
+        let state_dir = write_runtime_thread_projection_state(
             "projection",
             &[
                 replay_event(
@@ -2019,42 +2118,7 @@ mod tests {
             projection_kind: "thread".to_string(),
             thread_id: "thread_1".to_string(),
             event_stream_id: "thread_1:events".to_string(),
-            workspace_root: Some("/workspace".to_string()),
-            agent: Some(json!({
-                "agent_id": "agent_1",
-                "status": "active",
-                "created_at": "2026-06-12T00:00:00.000Z",
-                "workspace_root": "/workspace",
-                "receipt_refs": ["receipt_agent_state"],
-                "model_route_receipt_id": "receipt_model_route"
-            })),
-            runs: vec![json!({
-                "run_id": "run_1",
-                "turn_id": "turn_1",
-                "workspace_root": "/workspace",
-                "events": [
-                    {
-                        "id": "event_run_started",
-                        "type": "run_started",
-                        "run_id": "run_1",
-                        "created_at": "2026-06-12T00:00:01.000Z",
-                        "data": {
-                            "receipt_id": "receipt_run_policy",
-                            "workflow_node_id": "runtime.runtime-thread"
-                        }
-                    },
-                    {
-                        "id": "event_run_completed",
-                        "type": "completed",
-                        "run_id": "run_1",
-                        "created_at": "2026-06-12T00:00:02.000Z",
-                        "data": {
-                            "receipt_id": "receipt_run_agentgres",
-                            "artifact_refs": ["result.txt"]
-                        }
-                    }
-                ]
-            })],
+            run_id: None,
             state_dir: Some(state_dir.to_string_lossy().to_string()),
         }
     }
@@ -2119,6 +2183,66 @@ mod tests {
             .join("\n");
         std::fs::write(events_dir.join("thread_1.jsonl"), format!("{contents}\n"))
             .expect("write runtime events");
+        state_dir
+    }
+
+    fn write_runtime_thread_projection_state(label: &str, events: &[Value]) -> std::path::PathBuf {
+        let state_dir = write_runtime_thread_event_state(label, events);
+        let agents_dir = state_dir.join("agents");
+        let runs_dir = state_dir.join("runs");
+        std::fs::create_dir_all(&agents_dir).expect("agents dir");
+        std::fs::create_dir_all(&runs_dir).expect("runs dir");
+        std::fs::write(
+            agents_dir.join("agent_1.json"),
+            serde_json::to_string(&json!({
+                "id": "agent_1",
+                "agent_id": "agent_1",
+                "thread_id": "thread_1",
+                "status": "active",
+                "created_at": "2026-06-12T00:00:00.000Z",
+                "workspace_root": "/workspace",
+                "receipt_refs": ["receipt_agent_state"],
+                "model_route_receipt_id": "receipt_model_route"
+            }))
+            .expect("agent json"),
+        )
+        .expect("write agent record");
+        std::fs::write(
+            runs_dir.join("run_1.json"),
+            serde_json::to_string(&json!({
+                "id": "run_1",
+                "run_id": "run_1",
+                "agentId": "agent_1",
+                "agent_id": "agent_1",
+                "thread_id": "thread_1",
+                "turn_id": "turn_1",
+                "workspace_root": "/workspace",
+                "events": [
+                    {
+                        "id": "event_run_started",
+                        "type": "run_started",
+                        "run_id": "run_1",
+                        "created_at": "2026-06-12T00:00:01.000Z",
+                        "data": {
+                            "receipt_id": "receipt_run_policy",
+                            "workflow_node_id": "runtime.runtime-thread"
+                        }
+                    },
+                    {
+                        "id": "event_run_completed",
+                        "type": "completed",
+                        "run_id": "run_1",
+                        "created_at": "2026-06-12T00:00:02.000Z",
+                        "data": {
+                            "receipt_id": "receipt_run_agentgres",
+                            "artifact_refs": ["result.txt"]
+                        }
+                    }
+                ]
+            }))
+            .expect("run json"),
+        )
+        .expect("write run record");
         state_dir
     }
 
@@ -2354,7 +2478,7 @@ mod tests {
     #[test]
     fn rust_projection_skips_existing_runtime_thread_event_idempotency() {
         let mut request = projection_request();
-        let state_dir = write_runtime_thread_event_state(
+        let state_dir = write_runtime_thread_projection_state(
             "projection-skip",
             &[
                 replay_event(
@@ -2420,17 +2544,34 @@ mod tests {
             "thread_id": "thread_1",
             "event_stream_id": "thread_1:events",
             "state_dir": "/tmp/runtime-state",
-            "agent": {
-                "agent_id": "agent_1",
-                "receipt_refs": ["receipt_agent_state"]
-            },
-            "runs": [],
             "latest_seq": 7,
             "expected_head": "agentgres://runtime-events/thread_1_events/head/7",
             "state_root_before": "sha256:caller-state-root",
             "existing_idempotency_keys": ["thread:thread_1:started"]
         }))
         .expect_err("retired projection cache transport must not parse");
+        assert!(error.to_string().contains("unknown field"));
+    }
+
+    #[test]
+    fn rust_rejects_retired_runtime_thread_event_projection_fact_transport() {
+        let error = serde_json::from_value::<RuntimeThreadEventProjectionRequest>(json!({
+            "schema_version": RUNTIME_THREAD_EVENT_PROJECTION_REQUEST_SCHEMA_VERSION,
+            "projection_kind": "thread",
+            "thread_id": "thread_1",
+            "event_stream_id": "thread_1:events",
+            "state_dir": "/tmp/runtime-state",
+            "workspace_root": "/workspace",
+            "agent": {
+                "agent_id": "agent_1",
+                "receipt_refs": ["receipt_agent_state"]
+            },
+            "runs": [{
+                "run_id": "run_1",
+                "events": []
+            }]
+        }))
+        .expect_err("retired projection fact transport must not parse");
         assert!(error.to_string().contains("unknown field"));
     }
 

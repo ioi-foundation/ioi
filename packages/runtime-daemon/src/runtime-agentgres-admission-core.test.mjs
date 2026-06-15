@@ -321,12 +321,9 @@ function runtimeThreadEventAdmissionRequest() {
 
 function runtimeThreadEventProjectionRequest() {
   return {
-    projection_kind: "thread.started",
+    projection_kind: "thread_started",
     thread_id: "thread_1",
     event_stream_id: "thread_1:events",
-    workspace_root: "/tmp/workspace",
-    agent: { id: "agent_1", thread_id: "thread_1", status: "active" },
-    runs: [{ id: "run_1", status: "completed" }],
     state_dir: "/tmp/ioi-state",
   };
 }
@@ -445,6 +442,9 @@ test("runtime Agentgres core projects runtime thread events through typed Rust d
   assert.equal(Object.hasOwn(calls[0].request.request, "latest_seq"), false);
   assert.equal(Object.hasOwn(calls[0].request.request, "expected_head"), false);
   assert.equal(Object.hasOwn(calls[0].request.request, "existing_idempotency_keys"), false);
+  assert.equal(Object.hasOwn(calls[0].request.request, "workspace_root"), false);
+  assert.equal(Object.hasOwn(calls[0].request.request, "agent"), false);
+  assert.equal(Object.hasOwn(calls[0].request.request, "runs"), false);
   assert.equal(result.events[0].event_id, "event_projected_1");
 });
 

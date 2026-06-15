@@ -22,6 +22,7 @@ export function appendRuntimeEvent(store, event, deps = {}) {
 
 export function ensureThreadStartedEvent(store, agent, deps = {}) {
   const {
+    eventStreamIdForThread,
     runtimeError,
     threadIdForAgent,
   } = deps;
@@ -29,7 +30,8 @@ export function ensureThreadStartedEvent(store, agent, deps = {}) {
   if (typeof store.projectRuntimeThreadEventsForThread === "function") {
     return store.projectRuntimeThreadEventsForThread(store, {
       projection_kind: "thread_started",
-      agent,
+      thread_id: threadId,
+      event_stream_id: eventStreamIdForThread(threadId),
     });
   }
   throwRuntimeThreadEventRustCoreRequired(runtimeError, "thread_started_event_admission", "thread.started", {
@@ -46,13 +48,19 @@ export function ensureThreadStartedEvent(store, agent, deps = {}) {
 }
 
 export function projectThreadEvents(store, agent, deps = {}) {
-  const { isRuntimeBackedAgent, runtimeError } = deps;
+  const {
+    eventStreamIdForThread,
+    isRuntimeBackedAgent,
+    runtimeError,
+    threadIdForAgent,
+  } = deps;
   if (isRuntimeBackedAgent(agent)) return;
+  const threadId = threadIdForAgent(agent.id);
   if (typeof store.projectRuntimeThreadEventsForThread === "function") {
     return store.projectRuntimeThreadEventsForThread(store, {
       projection_kind: "thread",
-      agent,
-      runs: typeof store.listRuns === "function" ? store.listRuns(agent.id) : [],
+      thread_id: threadId,
+      event_stream_id: eventStreamIdForThread(threadId),
     });
   }
   throwRuntimeThreadEventRustCoreRequired(runtimeError, "thread_event_projection", "runtime.thread_event_projection", {
@@ -67,6 +75,7 @@ export function projectThreadEvents(store, agent, deps = {}) {
 
 export function projectRunEvents(store, run, agent, deps = {}) {
   const {
+    eventStreamIdForThread,
     isRuntimeBackedAgent,
     runtimeError,
     threadIdForAgent,
@@ -78,8 +87,9 @@ export function projectRunEvents(store, run, agent, deps = {}) {
   if (typeof store.projectRuntimeThreadEventsForThread === "function") {
     return store.projectRuntimeThreadEventsForThread(store, {
       projection_kind: "run",
-      agent,
-      runs: [run],
+      thread_id: threadId,
+      event_stream_id: eventStreamIdForThread(threadId),
+      run_id: run.id,
     });
   }
   throwRuntimeThreadEventRustCoreRequired(runtimeError, "run_event_projection", "runtime.run_event_projection", {

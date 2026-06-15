@@ -10231,9 +10231,27 @@ longer forwards a JS latest-seq candidate. Conformance guards the Rust state-dir
 requirement, rejected retired projection cache fields, rejected replay
 `latest_seq`, and the absence of the old JS cache-derived request fields. This
 removes the duplicate event-head/idempotency truth handoff; broader thread-event
-completion remains non-terminal until JS stops supplying agent/run projection
-facts and stable IDE/CLI/SDK event APIs consume Rust projection/replay records
-without the temporary local hydration cache.
+completion remains non-terminal until stable IDE/CLI/SDK event APIs consume Rust
+projection/replay records without the temporary local hydration cache.
+
+Slice 1288 hard-cuts runtime thread-event projection fact transport.
+`RuntimeThreadEventProjectionRequest` no longer accepts `workspace_root`,
+`agent`, or `runs`; Rust derives synthetic `thread.started` and run-event source
+facts by reading admitted Agentgres `agents/*.json` and `runs/*.json` records
+from `state_dir` before event admission. The daemon projection wrapper now sends
+only `projection_kind`, canonical `thread_id`, `event_stream_id`, optional
+`run_id`, and `state_dir`, and the thread-event replay surface routes
+thread-start, whole-thread, and run projections through those protocol IDs
+instead of forwarding JS agent/run objects. The retired
+`runtimeThreadProjectionAgent`, `runtimeThreadProjectionRun`, and
+`runtimeThreadProjectionRunEvent` helpers are deleted, Rust rejects the old fact
+transport under `deny_unknown_fields`, and conformance guards the absent JS
+helpers, absent `agent`/`runs`/`workspace_root` request fields, and the new
+state-dir Agentgres source loader. This removes the duplicate JS agent/run fact
+handoff for the runtime thread-event projector; the broader master guide remains
+non-terminal until local replay-cache hydration, durable protocol read APIs, and
+remaining IDE/CLI/SDK consumers move fully onto Rust-owned projection/replay
+records.
 
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,

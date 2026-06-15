@@ -314,7 +314,15 @@ test("thread replay projects thread start through Rust projection before replay 
   const calls = [];
   const store = fakeStore(calls);
   store.projectRuntimeThreadEventsForThread = (inputStore, request) => {
-    calls.push({ operation: "project_runtime_thread_events", projection_kind: request.projection_kind, agent: request.agent });
+    calls.push({
+      operation: "project_runtime_thread_events",
+      projection_kind: request.projection_kind,
+      thread_id: request.thread_id,
+      event_stream_id: request.event_stream_id,
+      hasAgent: Object.hasOwn(request, "agent"),
+      hasRuns: Object.hasOwn(request, "runs"),
+      hasWorkspaceRoot: Object.hasOwn(request, "workspace_root"),
+    });
     const admitted = {
       event_stream_id: "stream_thread_agent_1",
       event_id: "event_thread_started",
@@ -342,7 +350,11 @@ test("thread replay projects thread start through Rust projection before replay 
   assert.deepEqual(calls, [{
     operation: "project_runtime_thread_events",
     projection_kind: "thread_started",
-    agent,
+    thread_id: "thread_agent_1",
+    event_stream_id: "stream_thread_agent_1",
+    hasAgent: false,
+    hasRuns: false,
+    hasWorkspaceRoot: false,
   }]);
   assert.deepEqual(store.runtimeEventStream("stream_thread_agent_1").events, projection.events);
 });
@@ -354,7 +366,12 @@ test("thread replay projects run events through Rust projection before replay re
     calls.push({
       operation: "project_runtime_thread_events",
       projection_kind: request.projection_kind,
-      runIds: request.runs.map((run) => run.id),
+      thread_id: request.thread_id,
+      event_stream_id: request.event_stream_id,
+      run_id: request.run_id,
+      hasAgent: Object.hasOwn(request, "agent"),
+      hasRuns: Object.hasOwn(request, "runs"),
+      hasWorkspaceRoot: Object.hasOwn(request, "workspace_root"),
     });
     const admitted = {
       event_stream_id: "stream_thread_agent_1",
@@ -387,7 +404,12 @@ test("thread replay projects run events through Rust projection before replay re
   assert.deepEqual(calls, [{
     operation: "project_runtime_thread_events",
     projection_kind: "run",
-    runIds: ["run_1"],
+    thread_id: "thread_agent_1",
+    event_stream_id: "stream_thread_agent_1",
+    run_id: "run_1",
+    hasAgent: false,
+    hasRuns: false,
+    hasWorkspaceRoot: false,
   }]);
   assert.deepEqual(store.runtimeEventStream("stream_thread_agent_1").events, projection.events);
 });
@@ -404,7 +426,11 @@ test("thread replay projects whole thread through Rust projection before replay 
     calls.push({
       operation: "project_runtime_thread_events",
       projection_kind: request.projection_kind,
-      runIds: request.runs.map((run) => run.id),
+      thread_id: request.thread_id,
+      event_stream_id: request.event_stream_id,
+      hasAgent: Object.hasOwn(request, "agent"),
+      hasRuns: Object.hasOwn(request, "runs"),
+      hasWorkspaceRoot: Object.hasOwn(request, "workspace_root"),
     });
     const admitted = {
       event_stream_id: "stream_thread_agent_1",
@@ -431,7 +457,11 @@ test("thread replay projects whole thread through Rust projection before replay 
   assert.deepEqual(calls, [{
     operation: "project_runtime_thread_events",
     projection_kind: "thread",
-    runIds: ["run_1"],
+    thread_id: "thread_agent_1",
+    event_stream_id: "stream_thread_agent_1",
+    hasAgent: false,
+    hasRuns: false,
+    hasWorkspaceRoot: false,
   }]);
   assert.deepEqual(store.runtimeEventStream("stream_thread_agent_1").events, projection.events);
 });
