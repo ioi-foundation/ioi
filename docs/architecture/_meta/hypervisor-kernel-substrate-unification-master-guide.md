@@ -237,7 +237,7 @@ These pieces are conceptually aligned but not fully wired end to end:
 | Target | Present state |
 | --- | --- |
 | One Step/Module ABI across daemon, workload, service modules, worker packages, service packages, verifiers, model mounts, and cTEE actions | In migration. Shared invocation/result envelopes exist, coding-tool and model-mount projections bind into the ABI, and worker/service, cTEE, settlement, and governed-improvement admission paths use stable StepModule-facing APIs; remaining work is terminal extraction of every hot route into one Rust daemon core. |
-| Daemon tool step routed through workload client into Rust/WASM service module | Current conformance requires `rust_workload_live` as the default StepModule runner, rejects explicit `daemon_js`, and removes the retired JS coding-tool dispatcher from live invocation. Remaining work is broader JS facade retirement around non-migrated route families. |
+| Daemon tool step routed through workload client into Rust/WASM service module | Current conformance requires migrated coding-tool execution to call `daemonCoreWorkloadApi.runCodingToolStepModule` directly from the daemon invocation surface, keeps the temporary StepModule runner facade deleted, rejects command/backend/env fallback shapes, and removes the retired JS coding-tool dispatcher from live invocation. Remaining work is broader JS facade retirement around non-migrated route families. |
 | Agentgres operation/state-root unification across daemon local state and domain-kernel state | In migration. Runtime run-state persistence now commits through Rust Agentgres admission with expected heads, state roots, materialized records, storage admissions, and projection watermarks; remaining JS receipt/cache persistence must continue demoting behind Rust binding/admission. |
 | Workflow compositor as live graph controller over the same runtime substrate | In migration. Rust projection records and accepted-truth guards exist, and IDE/SDK/daemon projection aliases are being retired; deeper live package/review UI remains ordinary product work on top of admitted projection APIs. |
 | cTEE Private Workspace as concrete workload/module path | Implemented at the admission path: Rust validation/execution/admission/projection bundle, daemon runner, product/API route, SDK/IDE/CLI clients, and plaintext negative conformance exist. Deeper private workspace UI/replay remains product work. |
@@ -278,11 +278,13 @@ transport must be a stable Rust daemon-core API surface with no independent
 execution authority, no compatibility-shim semantics, and no duplicate truth
 path.
 
-Current sprint note: Slice 924 retired the `IOI_STEP_MODULE_COMMAND_ARGS` and
-constructor-`args` selectors at the runtime-daemon StepModule runner, and Slice
-1233 deletes the remaining bridge binary/tombstone artifact. The JS edge may no
-longer shape argv or preserve compatibility argument semantics; any direct Rust
-daemon-core API that replaces this transport must keep that selector retired.
+Current sprint note: Slices 924, 1232, and 1262 retired the
+`IOI_STEP_MODULE_COMMAND_ARGS`/constructor-`args` selectors and then deleted the
+temporary runtime-daemon StepModule runner facade. The JS edge may no longer
+shape argv, select command/backend/env compatibility, or preserve runner
+fallback semantics; migrated coding-tool execution now reaches Rust through the
+typed `daemonCoreWorkloadApi.runCodingToolStepModule` API from the invocation
+surface itself.
 Slice 925 applies the same fixed-argv rule to the worker/service package, L1
 settlement, cTEE private workspace, external capability authority, and governed
 meta-improvement daemon-core runners by retiring `IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS`
@@ -7245,14 +7247,14 @@ scaffolding. Slice 1142 later retires the dedicated StepModule command runner
 wrapper. The deleted coding-tool helper must not be recreated or treated as
 canonical.
 
-Slice 1142 retires `packages/runtime-daemon/src/step-module-command-runner.mjs`
-as a second JS command-wrapper shape. The StepModule runner remains
-`rust_workload_live` by construction and now calls the shared
-`runtime-daemon-core-command-runner.mjs` invoker with StepModule-specific
-schema/error metadata instead of owning a distinct child-process wrapper. This
-collapses duplicate JS command plumbing while preserving fixed empty-argv
-migration transport until the direct Rust daemon-core and Rust/WASM workload
-protocol/API seam is ready.
+Slice 1142 retired `packages/runtime-daemon/src/step-module-command-runner.mjs`
+as a second JS command-wrapper shape. At that historical cut, the temporary
+StepModule runner remained `rust_workload_live` by construction and called the
+shared `runtime-daemon-core-command-runner.mjs` invoker with StepModule-specific
+schema/error metadata instead of owning a distinct child-process wrapper. Later
+slices delete that shared command runner, the bridge binary, and finally the
+temporary StepModule runner facade itself; the live coding-tool path now calls
+the typed Rust workload API directly from the invocation surface.
 
 This remains non-terminal because the Node bridge binary, shared JS daemon-core
 command runner, JS command callers, runtime coding-tool facades, and broad
@@ -8117,10 +8119,10 @@ reads `IOI_STEP_MODULE_COMMAND` or `IOI_RUNTIME_DAEMON_CORE_COMMAND`, and no
 command env is a live StepModule source.
 
 Slice 1189 was the intermediate daemon-core command-schema contraction for
-coding-tool StepModule dispatch. It was superseded by Slice 1228: the live JS
-StepModule runner no longer emits any command schema or command envelope for
-`run_coding_tool_step_module`; it calls typed
-`daemonCoreWorkloadApi.runCodingToolStepModule`, while Rust
+coding-tool StepModule dispatch. It was superseded by Slice 1228 and then
+Slice 1262: the live coding-tool invocation surface no longer emits any command
+schema or command envelope for `run_coding_tool_step_module`; it calls typed
+`daemonCoreWorkloadApi.runCodingToolStepModule` directly, while Rust
 `command_protocol.rs` rejects `run_coding_tool_step_module` as an unknown
 command operation. The old StepModule and daemon-core command schemas remain
 only as rejected legacy evidence.
@@ -8206,15 +8208,15 @@ there is now a single reviewed direct-invoker seam for in-process Rust API
 wiring and one explicit binary-spawn fallback to delete after that wiring is
 verified.
 
-Slice 1195 lifts the direct daemon-core invoker seam from per-runner test
-plumbing into the daemon composition boundary. `AgentgresRuntimeStateStore`
-accepts `daemonCoreInvoker`, stores it once, and passes it through the default
-runtime Agentgres, context-policy, governed-improvement, external capability,
-worker/service package, cTEE private workspace, L1 settlement, workspace
-restore, model_mount core, and StepModule runner construction paths. The
-coding-tool invocation surface now receives a StepModule runner constructed
-with the daemon-level direct invoker instead of relying on its own env-only
-default.
+Slice 1195 lifted the direct daemon-core invoker seam from per-runner test
+plumbing into the daemon composition boundary. At that historical cut,
+`AgentgresRuntimeStateStore` accepted `daemonCoreInvoker`, stored it once, and
+passed it through the default runtime Agentgres, context-policy,
+governed-improvement, external capability, worker/service package, cTEE private
+workspace, L1 settlement, workspace restore, model_mount core, and StepModule
+runner construction paths. Later typed-core cuts retire that generic invoker,
+and Slice 1262 deletes the temporary StepModule runner facade; the live
+coding-tool invocation surface receives `daemonCoreWorkloadApi` directly.
 
 This is still migration scaffolding, not terminal direct Rust ownership. It
 does make the next pure-Rust cut larger and cleaner: a real Rust daemon-core
@@ -9574,16 +9576,15 @@ operation catalog, missing dispatch wrappers, missing command response helpers,
 and source-scan blockers. Slice 1228 retires the remaining StepModule command
 transport.
 
-Slice 1228 retires the coding-tool StepModule command transport. The runtime
-daemon now passes `daemonCoreWorkloadApi` into `RustWorkloadStepModuleRunner`,
-and the runner calls `runCodingToolStepModule` with canonical
-`ioi.runtime.coding-tool-step-module-request.v1` facts instead of a daemon-core
-command envelope. Constructor backend/command/argv selectors and generic
-`daemonCoreInvoker` fail closed, while retired backend/command env selectors are
-absent from the runner; only workload transport handles remain env-readable.
-The runner rejects command `operation`, command `backend`, and JS-supplied
-`invocation` fields before admitted workload dispatch can return through JS
-authority. Rust `coding_tool_step_module.rs` exposes the direct
+Slice 1228 retires the coding-tool StepModule command transport. At that cut
+the runtime daemon passed `daemonCoreWorkloadApi` through the temporary
+Rust-workload runner facade, and the facade called `runCodingToolStepModule`
+with canonical `ioi.runtime.coding-tool-step-module-request.v1` facts instead
+of a daemon-core command envelope. Constructor backend/command/argv selectors
+and generic `daemonCoreInvoker` failed closed, while retired backend/command env
+selectors were absent from the facade. Slice 1262 supersedes that scaffolding by
+deleting the facade and having the coding-tool invocation surface call the typed
+workload API directly. Rust `coding_tool_step_module.rs` exposes the direct
 `CodingToolStepModuleRunRequest` with deny-unknown deserialization, while
 `RuntimeKernelService::run_coding_tool_step_module` owns the positive API.
 `command_protocol.rs` now has an empty `DAEMON_CORE_OPERATIONS` catalog. At that
@@ -9650,18 +9651,18 @@ deeper receipt/state-root binding, and stable IDE/CLI/SDK protocol APIs still
 need terminal Rust-owned records.
 
 Slice 1232 removes the remaining StepModule command-env selector surface from
-the JS Rust-workload runner. `createStepModuleRunnerFromEnv()` no longer reads
-`IOI_STEP_MODULE_BACKEND`, `IOI_STEP_MODULE_COMMAND`,
+the temporary JS Rust-workload runner. `createStepModuleRunnerFromEnv()` no
+longer read `IOI_STEP_MODULE_BACKEND`, `IOI_STEP_MODULE_COMMAND`,
 `IOI_STEP_MODULE_COMMAND_ARGS`, `IOI_RUNTIME_DAEMON_CORE_COMMAND`, or
-`IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS`; it reads only workload transport handles
+`IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS`; it read only workload transport handles
 (`IOI_WORKLOAD_GRPC_ADDR` and `IOI_SHMEM_ID`) before constructing
-`RustWorkloadStepModuleRunner`. Constructor compatibility options still fail
-closed, but command-env compatibility is deleted rather than preserved as a
-runtime selector. Conformance now requires the retired env names to stay absent
-from the StepModule runner and its focused tests. This remains non-terminal
-because durable replay/storage, MCP/model_mount materialization, and stable
-IDE/CLI/SDK protocol APIs still need terminal Rust-owned projection/replay
-records.
+`RustWorkloadStepModuleRunner`. Slice 1262 then deletes that runner facade and
+moves the workload transport handles to the daemon composition boundary. Command
+env compatibility is deleted rather than preserved as a runtime selector, and
+conformance now requires the retired runner files to stay absent. This remains
+non-terminal because durable replay/storage, MCP/model_mount materialization,
+and stable IDE/CLI/SDK protocol APIs still need terminal Rust-owned
+projection/replay records.
 
 Slice 1233 deletes the retired `ioi-step-module-bridge` binary and tombstone
 module. `crates/node/src/bin/ioi-step-module-bridge.rs` and
@@ -10096,6 +10097,24 @@ the two-step public request ordering. Approval grant issuance, richer authority
 projection/replay storage, durable approval read APIs, wallet/cTEE authority
 coverage across the remaining routes, and stable IDE/CLI/SDK protocol APIs
 remain non-terminal.
+
+Slice 1262 deletes the temporary StepModule runner facade from the daemon hot
+path. `packages/runtime-daemon/src/step-module-runner.mjs` and its focused test
+are absent, `AgentgresRuntimeStateStore` no longer imports or constructs
+`createStepModuleRunnerFromEnv()`, and the coding-tool invocation surface calls
+`daemonCoreWorkloadApi.runCodingToolStepModule` directly after Rust result
+envelope planning returns the StepModule context. The direct request carries the
+canonical `ioi.runtime.coding-tool-step-module-request.v1` facts and keeps
+command `operation`, command `backend`, JS-supplied `invocation`, command-env
+selectors, binary bridge fallback, and generic daemon-core invoker semantics out
+of the migrated coding-tool execution path. Workload transport handles remain
+daemon composition inputs only (`IOI_WORKLOAD_GRPC_ADDR` and `IOI_SHMEM_ID`);
+they do not reintroduce command transport or JS execution authority.
+Conformance now guards the deleted runner files, direct typed workload API
+usage, missing-API fail-closed behavior, and absence of the retired command/env
+selectors. Durable diagnostics replay/storage, remaining model_mount/MCP
+materialization, richer authority projection/replay, and stable IDE/CLI/SDK
+protocol APIs remain non-terminal.
 
 ## Final Doctrine
 

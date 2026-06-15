@@ -1,13 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  codingToolContracts,
-  codingToolStepModuleProjection,
-} from "./coding-tools.mjs";
+import { codingToolContracts } from "./coding-tools.mjs";
 import {
   STEP_MODULE_INVOCATION_SCHEMA_VERSION,
   STEP_MODULE_RESULT_SCHEMA_VERSION,
+  createCodingToolStepModuleProjection,
   createModelMountStepModuleProjection,
   createStepModuleInvocationForCodingTool,
   createStepModuleResultForCodingTool,
@@ -15,12 +13,52 @@ import {
   validateStepModuleResultShape,
 } from "./step-module-abi.mjs";
 
+function codingToolStepModuleProjectionForTest(toolId, input = {}, result = {}, context = {}) {
+  const contract = codingToolContracts().find((candidate) => candidate.stable_tool_id === toolId);
+  return createCodingToolStepModuleProjection({
+    contract,
+    toolId,
+    input,
+    result,
+    run_id: context.run_id,
+    task_id: context.task_id,
+    thread_id: context.thread_id ?? null,
+    workflow_graph_id: context.workflow_graph_id,
+    workflow_node_id: context.workflow_node_id,
+    context_chamber_ref: context.context_chamber_ref ?? null,
+    action_proposal_ref: context.action_proposal_ref,
+    gate_result_ref: context.gate_result_ref,
+    actor_id: context.actor_id,
+    runtime_node_ref: context.runtime_node_ref,
+    policy_hash: context.policy_hash,
+    authority_grant_refs: context.authority_grant_refs ?? [],
+    approval_ref: context.approval_ref ?? null,
+    state_root_before: context.state_root_before ?? null,
+    projection_watermark: context.projection_watermark ?? null,
+    idempotency_key: context.idempotency_key,
+    deadline_ms: context.deadline_ms,
+    status: context.status ?? "success",
+    workflow_projection_status: context.workflow_projection_status ?? "projected",
+    execution_result_ref: context.execution_result_ref ?? null,
+    normalized_observation_ref: context.normalized_observation_ref ?? null,
+    receipt_refs: context.receipt_refs ?? null,
+    artifact_refs: context.artifact_refs ?? [],
+    payload_refs: context.payload_refs ?? [],
+    agentgres_operation_refs: context.agentgres_operation_refs ?? [],
+    state_root_after: context.state_root_after ?? null,
+    resulting_head: context.resulting_head ?? null,
+    evidence_refs: context.evidence_refs ?? [],
+    model_reentry_required: context.model_reentry_required ?? false,
+    verifier_required: context.verifier_required ?? false,
+  });
+}
+
 test("every coding tool contract can project into the Step/Module ABI", () => {
   for (const contract of codingToolContracts()) {
     assert.equal(Object.hasOwn(contract, "stableToolId"), false);
     assert.equal(Object.hasOwn(contract, "primitiveCapabilities"), false);
     assert.equal(Object.hasOwn(contract, "authorityScopeRequirements"), false);
-    const { invocation, result } = codingToolStepModuleProjection(
+    const { invocation, result } = codingToolStepModuleProjectionForTest(
       contract.stable_tool_id,
       {},
       {},
@@ -105,7 +143,7 @@ test("cTEE private workspace projection refuses node plaintext custody", () => {
 
 test("coding tool StepModule projection ignores retired camelCase context aliases", () => {
   const contract = codingToolContracts()[0];
-  const { invocation, result } = codingToolStepModuleProjection(
+  const { invocation, result } = codingToolStepModuleProjectionForTest(
     contract.stable_tool_id,
     {},
     {},
@@ -276,7 +314,7 @@ test("Agentgres operation refs require result state-root binding", () => {
   const contract = codingToolContracts()[0];
   assert.throws(
     () =>
-      codingToolStepModuleProjection(contract.stable_tool_id, {}, {}, {
+      codingToolStepModuleProjectionForTest(contract.stable_tool_id, {}, {}, {
         agentgres_operation_refs: ["agentgres://operation/test"],
       }),
     /state_root_after and resulting_head/,

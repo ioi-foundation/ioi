@@ -83,7 +83,6 @@ import { createRuntimeDoctorReport } from "./runtime-doctor-report.mjs";
 import { createRuntimeCodingToolApprovalCore } from "./runtime-coding-tool-approval-core.mjs";
 import { createRuntimeCodingToolArtifactSurface } from "./runtime-coding-tool-artifact-surface.mjs";
 import { createRuntimeCodingToolInvocationSurface } from "./runtime-coding-tool-invocation-surface.mjs";
-import { createStepModuleRunnerFromEnv } from "./step-module-runner.mjs";
 import { createRuntimeWorkspaceSnapshotSurface } from "./runtime-workspace-snapshot-surface.mjs";
 import { createRuntimeCodingToolGovernanceSurface } from "./runtime-coding-tool-governance-surface.mjs";
 import { createRuntimeCodingToolBudgetRecoverySurface } from "./runtime-coding-tool-budget-recovery-surface.mjs";
@@ -770,9 +769,9 @@ export class AgentgresRuntimeStateStore {
         this.contextPolicyCore.planCodingToolResultEnvelope(request),
       codingToolResultEventAdmissionForThread: (store, request = {}) =>
         this.admitCodingToolResultEventForThread(store, request),
-      stepModuleRunner: createStepModuleRunnerFromEnv(process.env, {
-        daemonCoreWorkloadApi: this.daemonCoreWorkloadApi,
-      }),
+      daemonCoreWorkloadApi: this.daemonCoreWorkloadApi,
+      workloadGrpcAddr: process.env.IOI_WORKLOAD_GRPC_ADDR ?? null,
+      workloadShmemId: process.env.IOI_SHMEM_ID ?? null,
     });
     this.workspaceSnapshotSurface = createRuntimeWorkspaceSnapshotSurface({
       notFound,

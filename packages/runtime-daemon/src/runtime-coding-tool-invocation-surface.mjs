@@ -29,7 +29,10 @@ import {
   codingToolSummary,
   retiredArtifactReadRangeAliases,
 } from "./coding-tools.mjs";
-import { createStepModuleRunnerFromEnv } from "./step-module-runner.mjs";
+
+const WORKLOAD_STEP_MODULE_API_METHOD = "runCodingToolStepModule";
+const CODING_TOOL_STEP_MODULE_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.coding-tool-step-module-request.v1";
 
 const RUST_WORKLOAD_LIVE_TOOL_IDS = new Set([
   "workspace.status",
@@ -55,7 +58,9 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
     diagnosticsRepairContextForToolPack,
     codingToolResultEnvelopeForThread = requireRustCoreCodingToolResultEnvelopePlanning,
     codingToolResultEventAdmissionForThread = requireRustCoreCodingToolResultEventAdmission,
-    stepModuleRunner = createStepModuleRunnerFromEnv(),
+    daemonCoreWorkloadApi = null,
+    workloadGrpcAddr = null,
+    workloadShmemId = null,
   } = deps;
 
   function invokeThreadTool(store, threadId, toolId, request = {}) {
@@ -266,16 +271,14 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
         };
       }
     }
-    const rustLiveCodingTool =
-      stepModuleRunner.backend === "rust_workload_live" &&
-      RUST_WORKLOAD_LIVE_TOOL_IDS.has(normalizedToolId);
+    const rustLiveCodingTool = RUST_WORKLOAD_LIVE_TOOL_IDS.has(normalizedToolId);
     if (!rustLiveCodingTool) {
       throw policyError("Coding tool execution requires the Rust workload live backend.", {
         threadId,
         toolId: normalizedToolId,
         tool_call_id: toolCallId,
         reason: "coding_tool_rust_workload_live_required",
-        backend: stepModuleRunner.backend,
+        backend: "rust_workload_live",
         rust_workload_live_supported: RUST_WORKLOAD_LIVE_TOOL_IDS.has(normalizedToolId),
       });
     }
@@ -320,6 +323,11 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
       tool_call_id: toolCallId,
       phase: "step_module_context",
     });
+    const runCodingToolStepModule = requireRustWorkloadStepModuleApi(daemonCoreWorkloadApi, {
+      thread_id: threadId,
+      tool_id: normalizedToolId,
+      tool_call_id: toolCallId,
+    });
     let status = "completed";
     let result = null;
     let error = null;
@@ -329,7 +337,10 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
     let stepModuleError = null;
     try {
       const rustLiveInput = rustLiveInputForCodingTool(store, threadId, normalizedToolId, input);
-      stepModuleProjection = stepModuleRunner.runCodingTool({
+      stepModuleProjection = runCodingToolStepModuleViaDaemonCore({
+        runCodingToolStepModule,
+        workloadGrpcAddr,
+        workloadShmemId,
         toolId: normalizedToolId,
         input: rustLiveInput,
         context: stepModuleContext,
@@ -378,7 +389,7 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
     } catch (caught) {
       status = "failed";
       stepModuleError = {
-        code: caught?.code ?? "step_module_runner_failed",
+        code: caught?.code ?? "step_module_execution_failed",
         message: String(caught?.message ?? caught),
         details: caught?.details ?? null,
       };
@@ -407,7 +418,7 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
       rollback_refs: rollbackRefs,
       receipt_refs: uniqueStrings(receiptRefs),
       artifact_refs: uniqueStrings(artifactRefs),
-      step_module_backend: stepModuleProjection?.backend ?? stepModuleRunner.backend,
+      step_module_backend: stepModuleProjection?.backend ?? "rust_workload_live",
       step_module: stepModuleProjection,
       step_module_error: stepModuleError,
     });
@@ -477,6 +488,102 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
 
   return {
     invokeThreadTool,
+  };
+}
+
+function requireRustWorkloadStepModuleApi(daemonCoreWorkloadApi, details = {}) {
+  const invoke =
+    daemonCoreWorkloadApi && typeof daemonCoreWorkloadApi === "object"
+      ? daemonCoreWorkloadApi[WORKLOAD_STEP_MODULE_API_METHOD]
+      : null;
+  if (typeof invoke === "function") return invoke.bind(daemonCoreWorkloadApi);
+  throw runtimeError({
+    status: 501,
+    code: "runtime_coding_tool_workload_rust_core_required",
+    message: "Coding-tool StepModule execution requires daemonCoreWorkloadApi.runCodingToolStepModule.",
+    details: {
+      rust_core_boundary: "runtime.coding_tool_invocation",
+      operation: "coding_tool_step_module_execution",
+      operation_kind: "runtime.coding_tool.step_module",
+      ...details,
+      evidence_refs: [
+        "step_module_runner_js_facade_retired",
+        "rust_daemon_core_workload_api_required",
+        "step_module_router_dispatch_required",
+      ],
+    },
+  });
+}
+
+function runCodingToolStepModuleViaDaemonCore({
+  runCodingToolStepModule,
+  workloadGrpcAddr,
+  workloadShmemId,
+  toolId,
+  input,
+  context,
+}) {
+  const request = {
+    schema_version: CODING_TOOL_STEP_MODULE_REQUEST_SCHEMA_VERSION,
+    workload_grpc_addr: optionalString(workloadGrpcAddr),
+    shmem_id: optionalString(workloadShmemId),
+    tool_id: optionalString(toolId),
+    workspace_root: context.workspace_root ?? null,
+    run_id: context.run_id ?? null,
+    task_id: context.task_id ?? null,
+    thread_id: context.thread_id ?? null,
+    workflow_graph_id: context.workflow_graph_id ?? null,
+    workflow_node_id: context.workflow_node_id ?? null,
+    context_chamber_ref: context.context_chamber_ref ?? null,
+    action_proposal_ref: context.action_proposal_ref ?? null,
+    gate_result_ref: context.gate_result_ref ?? null,
+    authority_grant_refs: uniqueStrings(normalizeArray(context.authority_grant_refs)),
+    approval_ref: context.approval_ref ?? null,
+    state_root_before: context.state_root_before ?? null,
+    projection_watermark: context.projection_watermark ?? null,
+    artifact_refs: uniqueStrings(normalizeArray(context.artifact_refs)),
+    payload_refs: uniqueStrings(normalizeArray(context.payload_refs)),
+    data_plane_handle: context.data_plane_handle ?? null,
+    idempotency_key: context.idempotency_key ?? null,
+    deadline_ms: context.deadline_ms ?? null,
+    manifest_ref: context.manifest_ref ?? null,
+    input,
+  };
+  const response = runCodingToolStepModule(request);
+  const responseError = objectRecord(response?.error);
+  if (response?.ok === false && responseError) {
+    const error = new Error(
+      responseError.message ?? "Rust workload StepModule core rejected the invocation.",
+    );
+    error.status = responseError.status ?? 502;
+    error.code = responseError.code ?? "rust_workload_api_rejected";
+    error.details = { error: responseError };
+    throw error;
+  }
+  const workloadApiResult = normalizeWorkloadApiResult(
+    response?.ok === true ? response.result : response,
+    { source: "rust_workload_api" },
+  );
+  return {
+    backend: "rust_workload_live",
+    mode: "live",
+    blocking: true,
+    source: workloadApiResult.source,
+    workload_result: workloadApiResult,
+    invocation: workloadApiResult.invocation ?? null,
+    result: workloadApiResult.result ?? null,
+  };
+}
+
+function normalizeWorkloadApiResult(value, defaults = {}) {
+  const result = objectRecord(value) ?? {};
+  return {
+    ...result,
+    source: result.source ?? defaults.source ?? "rust_workload",
+    invocation: result.invocation ?? defaults.invocation ?? null,
+    result: result.result ?? null,
+    evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : [],
+    receipt_refs: Array.isArray(result.receipt_refs) ? result.receipt_refs : [],
   };
 }
 

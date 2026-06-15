@@ -882,10 +882,13 @@ function runDocs() {
     !/JS direct tool dispatch remains the normal path|JS fallback remains default until shadow mode proves stable/.test(
       guide,
     ) &&
-      /Current conformance requires `rust_workload_live`/.test(guide) &&
-      /(?:rejects explicit `daemon_js`|explicit\s+`daemon_js` selection fails closed)/.test(guide),
+      /Current conformance requires migrated coding-tool execution to call `daemonCoreWorkloadApi\.runCodingToolStepModule` directly/.test(
+        guide,
+      ) &&
+      /keeps the temporary StepModule runner facade deleted/.test(guide) &&
+      /rejects command\/backend\/env fallback shapes/.test(guide),
     [GUIDE],
-    "master guide live status must reflect the current Rust workload live default and fail-closed daemon_js selection",
+    "master guide live status must reflect the direct Rust workload API path and deleted StepModule runner facade",
   );
   assertCheck(
     result,
@@ -983,10 +986,11 @@ function runDocs() {
     /Macro Authority Cut Ledger/.test(matrix) &&
     /Do Not Recreate/.test(matrix) &&
     /Slice 1228 retires the remaining coding-tool StepModule command transport/.test(matrix) &&
-    /Slice 1233 deletes the retired `ioi-step-module-bridge` binary and\s+the empty `ioi_step_module_bridge\/mod\.rs` tombstone/.test(matrix) &&
-    /`RustWorkloadStepModuleRunner` calls `runCodingToolStepModule`/.test(matrix) &&
+    /Slice 1262 deletes the temporary JS StepModule runner facade/.test(matrix) &&
+    /Slice 1233 deletes the retired `ioi-step-module-bridge` binary and\s+the\s+empty `ioi_step_module_bridge\/mod\.rs` tombstone/.test(matrix) &&
+    /coding-tool invocation surface calls `daemonCoreWorkloadApi\.runCodingToolStepModule` directly/.test(matrix) &&
     /`command_protocol\.rs` has an empty daemon-core operation catalog/.test(matrix) &&
-    /old `ioi-step-module-bridge` binary and `ioi_step_module_bridge\/mod\.rs` tombstone must not exist/.test(matrix) &&
+    /The former `ioi-step-module-bridge` command path is retired for daemon hot\s+paths/.test(matrix) &&
     /Terminal acceptance still requires the master guide terminal conditions/.test(matrix);
   assertCheck(
     result,
@@ -2801,7 +2805,7 @@ function runDocs() {
     "matrix-coding-tools-rust-live-status-reconciled",
     (/Rust-live coding-tool StepModule path/.test(matrix) &&
       /Migrated coding tools execute through Rust workload\/StepModule contracts/.test(matrix) &&
-      /explicit constructor backend\/command\/argv, generic invoker, and command-envelope selection fails closed, retired command\/backend env selectors are absent/.test(
+      /command-envelope selection fails closed, retired command\/backend env selectors and the temporary StepModule runner facade are absent/.test(
         matrix,
       ) &&
       /Rust daemon-core constructs the coding-tool `StepModuleInvocation` envelope before workload dispatch\/admission/.test(
@@ -2953,15 +2957,20 @@ function runAbi() {
     "js-coding-tool-abi-projection-wrapper",
     exists("packages/runtime-daemon/src/step-module-abi.mjs") &&
       /createCodingToolStepModuleProjection/.test(stepModuleAbi) &&
-      /codingToolStepModuleProjection/.test(read("packages/runtime-daemon/src/coding-tools.mjs")) &&
-      /module_kind = "workload_job"/.test(stepModuleAbi) &&
-      /execution_backend = "workload_grpc"/.test(stepModuleAbi) &&
-      /run_id:\s*context\.run_id/.test(read("packages/runtime-daemon/src/coding-tools.mjs")) &&
-      /authority_grant_refs:\s*context\.authority_grant_refs \?\? \[\]/.test(
+      !/createCodingToolStepModuleProjection|codingToolStepModuleProjection/.test(
         read("packages/runtime-daemon/src/coding-tools.mjs"),
       ) &&
+      /codingToolStepModuleProjectionForTest/.test(
+        read("packages/runtime-daemon/src/step-module-abi.test.mjs"),
+      ) &&
+      /module_kind = "workload_job"/.test(stepModuleAbi) &&
+      /execution_backend = "workload_grpc"/.test(stepModuleAbi) &&
+      /run_id:\s*context\.run_id/.test(read("packages/runtime-daemon/src/step-module-abi.test.mjs")) &&
+      /authority_grant_refs:\s*context\.authority_grant_refs \?\? \[\]/.test(
+        read("packages/runtime-daemon/src/step-module-abi.test.mjs"),
+      ) &&
       /agentgres_operation_refs:\s*context\.agentgres_operation_refs \?\? \[\]/.test(
-        read("packages/runtime-daemon/src/coding-tools.mjs"),
+        read("packages/runtime-daemon/src/step-module-abi.test.mjs"),
       ) &&
       /receipt_refs = \[\]/.test(stepModuleAbi) &&
       /const normalizedReceiptRefs = normalizeStringArray\(receipt_refs\)/.test(stepModuleAbi) &&
@@ -4724,9 +4733,20 @@ function runBridge() {
       !exists("packages/runtime-daemon/src/runtime-daemon-core-command-runner.test.mjs") &&
       !exists("packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs") &&
       !exists("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs") &&
-      /assertNoStepModuleCommandInvoker\("daemonCoreInvoker", options\.daemonCoreInvoker\)/.test(stepModuleRunner) &&
-      !/this\.daemonCoreInvoker = optionalFunction\(options\.daemonCoreInvoker\)/.test(stepModuleRunner) &&
-      /this\.daemonCoreWorkloadApi = workloadApi\(options\.daemonCoreWorkloadApi\)/.test(stepModuleRunner) &&
+      !exists("packages/runtime-daemon/src/step-module-runner.mjs") &&
+      !exists("packages/runtime-daemon/src/step-module-runner.test.mjs") &&
+      !/createStepModuleRunnerFromEnv|StepModuleRunner|RustWorkloadStepModuleRunner|stepModuleRunner/.test(
+        [runtimeDaemonIndex, runtimeCodingToolInvocationSurface].join("\n"),
+      ) &&
+      /daemonCoreWorkloadApi: this\.daemonCoreWorkloadApi/.test(runtimeDaemonIndex) &&
+      /workloadGrpcAddr: process\.env\.IOI_WORKLOAD_GRPC_ADDR \?\? null/.test(runtimeDaemonIndex) &&
+      /workloadShmemId: process\.env\.IOI_SHMEM_ID \?\? null/.test(runtimeDaemonIndex) &&
+      /const WORKLOAD_STEP_MODULE_API_METHOD = "runCodingToolStepModule"/.test(
+        runtimeCodingToolInvocationSurface,
+      ) &&
+      /requireRustWorkloadStepModuleApi\(daemonCoreWorkloadApi/.test(
+        runtimeCodingToolInvocationSurface,
+      ) &&
       /assertNoRetiredModelMountCoreOption\("daemonCoreInvoker", options\.daemonCoreInvoker\)/.test(
         modelMountCore,
       ) &&
@@ -4736,7 +4756,7 @@ function runBridge() {
       !/invokeDaemonCore\(/.test(modelMountCore) &&
       !/ioi\.runtime\.daemon_core\.command\.v1/.test(modelMountCore) &&
       !/mockResult|mockSource|defaultBackend|createDaemonCoreCommandInvoker|spawnSyncImpl/.test(
-        [stepModuleRunner, modelMountCore].join("\n"),
+        [runtimeCodingToolInvocationSurface, modelMountCore].join("\n"),
       ) &&
       /assertNoRuntimeContextPolicyCoreOption\("daemonCoreInvoker", options\.daemonCoreInvoker\)/.test(
         runtimeContextPolicyCore,
@@ -5058,9 +5078,8 @@ function runBridge() {
       !/this\.workspaceRestoreRunner/.test(runtimeDaemonIndex) &&
       /workspaceRestoreCore: this\.workspaceRestoreCore/.test(runtimeDaemonIndex) &&
       /this\.daemonCoreWorkloadApi = options\.daemonCoreWorkloadApi/.test(runtimeDaemonIndex) &&
-      /createStepModuleRunnerFromEnv\(process\.env,\s*\{\s*daemonCoreWorkloadApi: this\.daemonCoreWorkloadApi,\s*\}\)/.test(
-        runtimeDaemonIndex,
-      ) &&
+      /daemonCoreWorkloadApi: this\.daemonCoreWorkloadApi/.test(runtimeDaemonIndex) &&
+      !/createStepModuleRunnerFromEnv|stepModuleRunner/.test(runtimeDaemonIndex) &&
       /daemon-level typed APIs feed migrated daemon-core surfaces/.test(
         daemonCoreDirectInvokerServiceTest,
       ),
@@ -5070,7 +5089,7 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-daemon-core-direct-invoker-service.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
-      "packages/runtime-daemon/src/step-module-runner.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-approval-core.mjs",
       "packages/runtime-daemon/src/runtime-worker-service-package-core.mjs",
       "packages/runtime-daemon/src/runtime-ctee-private-workspace-core.mjs",
@@ -5085,131 +5104,74 @@ function runBridge() {
   );
   assertCheck(
     result,
-    "step-module-runner-interface",
-    codeCorpusContains(/StepModuleRunner/),
-    ["packages/runtime-daemon/src", "crates/services/src/agentic/runtime"],
-    "Phase 2 is pending: add StepModuleRunner interface and runner selection",
-  );
-  assertCheck(
-    result,
-    "rust-workload-step-module-runner",
-      /RustWorkloadStepModuleRunner/.test(stepModuleRunner) &&
-      /assertNoStepModuleBackendSelection/.test(stepModuleRunner) &&
-      /assertNoStepModuleCommandArgs/.test(stepModuleRunner) &&
-      /assertNoStepModuleCommandSelection/.test(stepModuleRunner) &&
-      /assertNoStepModuleCommandInvoker/.test(stepModuleRunner) &&
-      /CODING_TOOL_STEP_MODULE_REQUEST_SCHEMA_VERSION/.test(stepModuleRunner) &&
-      /schema_version:\s*CODING_TOOL_STEP_MODULE_REQUEST_SCHEMA_VERSION/.test(stepModuleRunner) &&
-      /tool_id:\s*optionalString\(toolId\)/.test(stepModuleRunner) &&
-      !/operation:\s*"run_coding_tool_step_module"/.test(stepModuleRunner) &&
-	      !/const request = \{(?:(?!const workloadApiResult)[\s\S])*backend:\s*this\.backend/.test(
-	        stepModuleRunner,
-	      ) &&
-      !/from "\.\/step-module-abi\.mjs"/.test(stepModuleRunner) &&
-      !/createStepModuleInvocationForCodingTool/.test(stepModuleRunner) &&
-      !/createCodingToolStepModuleProjection/.test(stepModuleRunner) &&
-      /result:\s*workloadApiResult\.result\s*\?\?\s*null/.test(stepModuleRunner) &&
-      /assert\.equal\(projection\.result,\s*null\)/.test(
-        read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
-      ) &&
-      /IOI_WORKLOAD_GRPC_ADDR/.test(stepModuleRunner) &&
-      !/IOI_STEP_MODULE_BACKEND|IOI_STEP_MODULE_COMMAND|IOI_STEP_MODULE_COMMAND_ARGS|IOI_RUNTIME_DAEMON_CORE_COMMAND|IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS/.test(
-        stepModuleRunner,
-      ) &&
-      !/STEP_MODULE_COMMAND_ENV/.test(stepModuleRunner) &&
-      !/STEP_MODULE_BACKEND_ENV/.test(stepModuleRunner) &&
-      !/STEP_MODULE_COMMAND_ARGS_ENV/.test(stepModuleRunner) &&
-      !/normalizeStepModuleBackend/.test(stepModuleRunner) &&
-      !/parseCommandArgs/.test(stepModuleRunner) &&
-      !/normalizeArgs/.test(stepModuleRunner) &&
-      !/env\[STEP_MODULE_BACKEND_ENV\]/.test(stepModuleRunner) &&
-      /assertNoStepModuleBackendSelection\(options\.backend\)/.test(stepModuleRunner) &&
-      /step_module_backend_selection_retired/.test(stepModuleRunner) &&
-      /step_module_command_args_retired/.test(stepModuleRunner) &&
-      /step_module_command_selection_retired/.test(stepModuleRunner) &&
-      /step_module_daemon_core_invoker_retired/.test(stepModuleRunner) &&
-      /rust_workload_api_unconfigured/.test(stepModuleRunner) &&
-      !/DaemonJsStepModuleRunner/.test(stepModuleRunner) &&
-      !/"daemon_js",/.test(stepModuleRunner) &&
-      !/"rust_workload_shadow",/.test(stepModuleRunner) &&
-      !/"rust_workload_gated",/.test(stepModuleRunner) &&
-      /mode:\s*"live"/.test(stepModuleRunner) &&
-      !/this\.backend\.replace\("rust_workload_"/.test(stepModuleRunner) &&
-      /daemonCoreWorkloadApi: options\.daemonCoreWorkloadApi/.test(stepModuleRunner) &&
-      /this\.daemonCoreWorkloadApi = workloadApi\(options\.daemonCoreWorkloadApi\)/.test(stepModuleRunner) &&
-      /this\.invokeWorkloadApi\(request\)/.test(stepModuleRunner) &&
-      !/this\.daemonCoreInvoker = optionalFunction\(options\.daemonCoreInvoker\)/.test(stepModuleRunner) &&
-      !/this\.invokeDaemonCore\(request\)/.test(stepModuleRunner) &&
-      !/createDaemonCoreCommandInvoker/.test(stepModuleRunner) &&
-      !/from "\.\/runtime-daemon-core-command-runner\.mjs"/.test(stepModuleRunner) &&
-      !/from "node:child_process"/.test(stepModuleRunner) &&
-      !/spawnSyncImpl\(/.test(stepModuleRunner) &&
+    "step-module-runner-facade-retired",
+      !exists("packages/runtime-daemon/src/step-module-runner.mjs") &&
+      !exists("packages/runtime-daemon/src/step-module-runner.test.mjs") &&
       !stepModuleCommandRunnerExists &&
       !/createStepModuleCommandInvoker/.test(stepModuleCommandRunner) &&
-      !exists("packages/runtime-daemon/src/runtime-daemon-core-command-runner.mjs") &&
-      !exists("packages/runtime-daemon/src/runtime-daemon-core-command-runner.test.mjs") &&
-      /workspace_root:\s*context\.workspace_root \?\? null/.test(stepModuleRunner) &&
-      !/context\.workspaceRoot/.test(stepModuleRunner) &&
-      /workspaceRoot: "\/tmp\/retired-workspace"/.test(
-        read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
+      /const WORKLOAD_STEP_MODULE_API_METHOD = "runCodingToolStepModule"/.test(
+        runtimeCodingToolInvocationSurface,
       ) &&
-      /assert\.notEqual\(calls\[0\]\.request\.workspace_root,\s*"\/tmp\/retired-workspace"\)/.test(
-        read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
+      /const CODING_TOOL_STEP_MODULE_REQUEST_SCHEMA_VERSION/.test(
+        runtimeCodingToolInvocationSurface,
+      ) &&
+      /schema_version:\s*CODING_TOOL_STEP_MODULE_REQUEST_SCHEMA_VERSION/.test(
+        runtimeCodingToolInvocationSurface,
+      ) &&
+      /tool_id:\s*optionalString\(toolId\)/.test(runtimeCodingToolInvocationSurface) &&
+      /runCodingToolStepModuleViaDaemonCore/.test(runtimeCodingToolInvocationSurface) &&
+      /requireRustWorkloadStepModuleApi/.test(runtimeCodingToolInvocationSurface) &&
+      /daemonCoreWorkloadApi = null/.test(runtimeCodingToolInvocationSurface) &&
+      /workloadGrpcAddr = null/.test(runtimeCodingToolInvocationSurface) &&
+      /workloadShmemId = null/.test(runtimeCodingToolInvocationSurface) &&
+      /runtime_coding_tool_workload_rust_core_required/.test(
+        runtimeCodingToolInvocationSurface,
+      ) &&
+      /step_module_runner_js_facade_retired/.test(runtimeCodingToolInvocationSurface) &&
+      !/operation:\s*"run_coding_tool_step_module"/.test(runtimeCodingToolInvocationSurface) &&
+      !/from "\.\/step-module-abi\.mjs"/.test(runtimeCodingToolInvocationSurface) &&
+      !/createStepModuleInvocationForCodingTool/.test(runtimeCodingToolInvocationSurface) &&
+      !/createCodingToolStepModuleProjection/.test(runtimeCodingToolInvocationSurface) &&
+      !/createStepModuleRunnerFromEnv|StepModuleRunner|RustWorkloadStepModuleRunner|stepModuleRunner/.test(
+        [runtimeDaemonIndex, runtimeCodingToolInvocationSurface].join("\n"),
       ) &&
       !/IOI_STEP_MODULE_BACKEND|IOI_STEP_MODULE_COMMAND|IOI_STEP_MODULE_COMMAND_ARGS|IOI_RUNTIME_DAEMON_CORE_COMMAND|IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS/.test(
-        read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
+        runtimeCodingToolInvocationSurface,
       ) &&
-      /StepModule runner env reads only workload transport handles/.test(
-        read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
+      !/STEP_MODULE_COMMAND_ENV|STEP_MODULE_BACKEND_ENV|STEP_MODULE_COMMAND_ARGS_ENV/.test(
+        runtimeCodingToolInvocationSurface,
       ) &&
-      /IOI_WORKLOAD_GRPC_ADDR/.test(
-        read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
+      !/normalizeStepModuleBackend|parseCommandArgs|normalizeArgs|from "node:child_process"|spawnSyncImpl\(/.test(
+        runtimeCodingToolInvocationSurface,
       ) &&
-      /IOI_SHMEM_ID/.test(read("packages/runtime-daemon/src/step-module-runner.test.mjs")) &&
-      /retired StepModule backend constructor option fails closed/.test(
-        read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
+      !/"daemon_js",|rust_workload_shadow|rust_workload_gated/.test(
+        runtimeCodingToolInvocationSurface,
       ) &&
-      /retired StepModule command args constructor option fails closed/.test(
-        read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
+      /daemonCoreWorkloadApi: this\.daemonCoreWorkloadApi/.test(runtimeDaemonIndex) &&
+      /workloadGrpcAddr: process\.env\.IOI_WORKLOAD_GRPC_ADDR \?\? null/.test(runtimeDaemonIndex) &&
+      /workloadShmemId: process\.env\.IOI_SHMEM_ID \?\? null/.test(runtimeDaemonIndex) &&
+      /coding tool invocation surface fails closed without Rust workload API before JS execution/.test(
+        runtimeCodingToolInvocationSurfaceTest,
       ) &&
-      /retired StepModule command constructor option fails closed/.test(
-        read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
+      /daemonCoreWorkloadApi: workloadApiFromRunner\(liveRunner\)/.test(
+        runtimeCodingToolInvocationSurfaceTest,
       ) &&
-      /retired StepModule daemon-core invoker option fails closed/.test(
-        read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
+      /assert\.equal\(runnerCalls\[0\]\.context\.schema_version,\s*"ioi\.runtime\.coding-tool-step-module-request\.v1"\)/.test(
+        runtimeCodingToolInvocationSurfaceTest,
       ) &&
-      /rust workload direct daemon-core workload API sends canonical coding-tool request/.test(
-        read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
-      ) &&
-      /assert\.equal\(Object\.hasOwn\(calls\[0\]\.request,\s*"operation"\),\s*false\)/.test(
-        read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
-      ) &&
-      /assert\.equal\(Object\.hasOwn\(calls\[0\]\.request,\s*"backend"\),\s*false\)/.test(
-        read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
-      ) &&
-      /assert\.equal\(Object\.hasOwn\(calls\[0\]\.request,\s*"invocation"\),\s*false\)/.test(
-        read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
-      ) &&
-      /assert\.equal\(calls\[0\]\.request\.tool_id,\s*"workspace\.status"\)/.test(
-        read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
-      ) &&
-      !/StepModule runner reads unified daemon-core command env/.test(
-        read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
-      ) &&
-      !/IOI_RUNTIME_DAEMON_CORE_COMMAND: "mock-daemon-core-command"/.test(
-        read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
-      ) &&
-      !/assert\.deepEqual\(calls\[0\]\.args,\s*\[\]\)/.test(
-        read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
+      /Object\.hasOwn\(runnerCalls\[0\]\.context,\s*"workflow_projection_status"\),\s*false/.test(
+        runtimeCodingToolInvocationSurfaceTest,
       ),
     [
       "packages/runtime-daemon/src/step-module-runner.mjs",
       "packages/runtime-daemon/src/step-module-runner.test.mjs",
       "packages/runtime-daemon/src/runtime-daemon-core-command-runner.mjs",
       "packages/runtime-daemon/src/runtime-daemon-core-command-runner.test.mjs",
-      "crates/client/src/workload_client/mod.rs",
+      "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
     ],
-    "Phase 2 is pending: StepModule execution must be Rust workload live by construction, typed-workload-API-only, Rust-owned for coding-tool invocation envelope construction, with command-env selectors absent and explicit constructor backend or command selection failing closed",
+    "StepModule execution must stay direct Rust workload API only: runner facade/test deleted, no command/backend/env selectors, no JS invocation builder, and missing typed API fails closed",
   );
   assertCheck(
     result,
@@ -5365,7 +5327,7 @@ function runBridge() {
       !/executeCodingTool/.test(runtimeDaemonIndex) &&
       !retiredCodingToolJsBodyPattern.test(codingTools) &&
       !retiredCodingToolJsImportPattern.test(codingTools) &&
-      /coding tool invocation surface rejects non-live coding-tool runners before JS execution/.test(
+      /coding tool invocation surface fails closed without Rust workload API before JS execution/.test(
         runtimeCodingToolInvocationSurfaceTest,
       ) &&
       /thread route invokes coding tools through mounted invocation surface/.test(
@@ -5396,7 +5358,7 @@ function runBridge() {
       "packages/runtime-daemon/src/index.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs",
     ],
-    "Phase 3/10 is pending: route migrated coding tools through Rust core StepModule admission/receipt/projection planning and the live workload path without daemon_js while command transport remains temporary",
+    "Migrated coding tools must route through Rust core StepModule admission/receipt/projection planning and the direct typed workload API without daemon_js, runner facade, command transport, or command-env fallback",
   );
   assertCheck(
     result,
@@ -5691,11 +5653,11 @@ function runBridge() {
       /coding_tool_step_module_operation_rejects_retired_step_module_command_schema/.test(
         commandProtocolCore,
       ) &&
-      /request\.schema_version,\s*"ioi\.runtime\.coding-tool-step-module-request\.v1"/.test(
-        read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
+      /runnerCalls\[0\]\.context\.schema_version,\s*"ioi\.runtime\.coding-tool-step-module-request\.v1"/.test(
+        runtimeCodingToolInvocationSurfaceTest,
       ) &&
-      /Object\.hasOwn\(calls\[0\]\.request,\s*"operation"\),\s*false/.test(
-        read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
+      /Object\.hasOwn\(runnerCalls\[0\]\.context,\s*"workflow_projection_status"\),\s*false/.test(
+        runtimeCodingToolInvocationSurfaceTest,
       ) &&
       !/coding_tool_step_module_rejects_daemon_core_command_schema/.test(bridgeModule) &&
       !/CodingToolStepModuleBridgeRequest as StepModuleBridgeRequest/.test(bridgeModule) &&

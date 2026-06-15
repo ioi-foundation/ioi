@@ -1,5 +1,3 @@
-import { createCodingToolStepModuleProjection } from "./step-module-abi.mjs";
-
 export const CODING_TOOL_PACK_SCHEMA_VERSION = "ioi.runtime.coding-tool-pack.v1";
 export const CODING_TOOL_RESULT_SCHEMA_VERSION = "ioi.runtime.coding-tool-result.v1";
 export const CODING_TOOL_PACK_ID = "coding";
@@ -543,52 +541,6 @@ export function codingToolInputForRequest(request = {}) {
   const input = Object.hasOwn(request, "input") ? request.input : request;
   if (!input || typeof input !== "object" || Array.isArray(input)) return {};
   return input;
-}
-
-export function codingToolStepModuleProjection(toolId, input = {}, result = {}, context = {}) {
-  const contract = codingToolContracts().find((candidate) => candidate.stable_tool_id === toolId);
-  if (!contract) {
-    throw codingToolError(404, "not_found", `Coding tool not found: ${toolId}`, {
-      toolId,
-      pack: CODING_TOOL_PACK_ID,
-    });
-  }
-  return createCodingToolStepModuleProjection({
-    contract,
-    toolId,
-    input,
-    result,
-    run_id: context.run_id,
-    task_id: context.task_id,
-    thread_id: context.thread_id ?? null,
-    workflow_graph_id: context.workflow_graph_id,
-    workflow_node_id: context.workflow_node_id,
-    context_chamber_ref: context.context_chamber_ref ?? null,
-    action_proposal_ref: context.action_proposal_ref,
-    gate_result_ref: context.gate_result_ref,
-    actor_id: context.actor_id,
-    runtime_node_ref: context.runtime_node_ref,
-    policy_hash: context.policy_hash,
-    authority_grant_refs: context.authority_grant_refs ?? [],
-    approval_ref: context.approval_ref ?? null,
-    state_root_before: context.state_root_before ?? null,
-    projection_watermark: context.projection_watermark ?? null,
-    idempotency_key: context.idempotency_key,
-    deadline_ms: context.deadline_ms,
-    status: context.status ?? "success",
-    workflow_projection_status: context.workflow_projection_status ?? "projected",
-    execution_result_ref: context.execution_result_ref ?? null,
-    normalized_observation_ref: context.normalized_observation_ref ?? null,
-    receipt_refs: context.receipt_refs ?? null,
-    artifact_refs: context.artifact_refs ?? [],
-    payload_refs: context.payload_refs ?? [],
-    agentgres_operation_refs: context.agentgres_operation_refs ?? [],
-    state_root_after: context.state_root_after ?? null,
-    resulting_head: context.resulting_head ?? null,
-    evidence_refs: context.evidence_refs ?? [],
-    model_reentry_required: context.model_reentry_required ?? false,
-    verifier_required: context.verifier_required ?? false,
-  });
 }
 
 export function codingToolInputSummary(toolId, input = {}) {

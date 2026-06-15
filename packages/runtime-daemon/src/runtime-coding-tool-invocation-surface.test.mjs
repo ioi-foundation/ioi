@@ -245,7 +245,6 @@ function createSurface(overrides = {}) {
       store.registerRuntimeEvent(admitted);
       return admitted;
     },
-    stepModuleRunner: createRetiredNonLiveStepModuleRunner(),
     ...overrides,
   });
 }
@@ -258,35 +257,24 @@ function assertNoRetiredInvocationErrorDetailAliases(details) {
   }
 }
 
-function createRetiredNonLiveStepModuleRunner() {
+function workloadApiFromRunner(runner) {
   return {
-    backend: "rust_workload_shadow",
-    blocksDaemonJsExecution: false,
-    runCodingTool({ toolId, context = {} }) {
-      const invocationId = `invocation://shadow/${toolId}`;
+    runCodingToolStepModule(request = {}) {
+      const projection = runner.runCodingTool({
+        toolId: request.tool_id,
+        input: request.input,
+        context: request,
+      });
+      const workloadResult =
+        projection?.workload_result && typeof projection.workload_result === "object"
+          ? projection.workload_result
+          : projection;
       return {
-        backend: "rust_workload_shadow",
-        mode: "shadow",
-        blocking: false,
-        source: "rust_workload_shadow_test",
-        invocation: {
-          schema_version: "ioi.step_module_invocation.v1",
-          invocation_id: invocationId,
-        },
-        result: {
-          schema_version: "ioi.step_module_result.v1",
-          invocation_id: invocationId,
-          status: "success",
-          receipt_refs: context.receipt_refs ?? [],
-          artifact_refs: context.artifact_refs ?? [],
-          payload_refs: [],
-          agentgres_operation_refs: [],
-          state_root_after: null,
-          resulting_head: null,
-          workflow_projection: {
-            status: context.workflow_projection_status ?? "shadow",
-          },
-        },
+        ...workloadResult,
+        source: workloadResult?.source ?? projection?.source,
+        invocation: workloadResult?.invocation ?? projection?.invocation ?? null,
+        result: workloadResult?.result ?? projection?.result ?? null,
+        receipt_refs: workloadResult?.receipt_refs ?? projection?.receipt_refs ?? [],
       };
     },
   };
@@ -456,7 +444,7 @@ function createStore(options = {}) {
   return store;
 }
 
-test("coding tool invocation surface rejects non-live coding-tool runners before JS execution", () => {
+test("coding tool invocation surface fails closed without Rust workload API before JS execution", () => {
   const surface = createSurface();
   const store = createStore();
 
@@ -470,10 +458,19 @@ test("coding tool invocation surface rejects non-live coding-tool runners before
         input: { patch: "*** Begin Patch\n*** End Patch\n" },
       }),
     (error) => {
-      assert.equal(error.status, 403);
-      assert.equal(error.code, "policy");
-      assert.equal(error.details.reason, "coding_tool_rust_workload_live_required");
-      assert.equal(error.details.backend, "rust_workload_shadow");
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "runtime_coding_tool_workload_rust_core_required");
+      assert.equal(error.details.rust_core_boundary, "runtime.coding_tool_invocation");
+      assert.equal(error.details.operation, "coding_tool_step_module_execution");
+      assert.equal(error.details.operation_kind, "runtime.coding_tool.step_module");
+      assert.equal(error.details.thread_id, "thread_alpha");
+      assert.equal(error.details.tool_id, "file.apply_patch");
+      assert.equal(error.details.tool_call_id, "tool_alpha");
+      assert.deepEqual(error.details.evidence_refs, [
+        "step_module_runner_js_facade_retired",
+        "rust_daemon_core_workload_api_required",
+        "step_module_router_dispatch_required",
+      ]);
       return true;
     },
   );
@@ -501,7 +498,7 @@ test("coding tool invocation surface fails closed before workload execution with
     codingToolResultWithoutDrafts: (result = {}) => result,
     diagnosticsRepairContextForRequest: () => null,
     diagnosticsRepairContextForToolPack: () => null,
-    stepModuleRunner: liveRunner,
+    daemonCoreWorkloadApi: workloadApiFromRunner(liveRunner),
   });
   const store = createStore();
 
@@ -588,7 +585,7 @@ test("coding tool invocation surface fails closed until Rust result-event admiss
     diagnosticsRepairContextForRequest: () => null,
     diagnosticsRepairContextForToolPack: () => null,
     codingToolResultEnvelopeForThread: planCodingToolResultEnvelopeForTest,
-    stepModuleRunner: liveRunner,
+    daemonCoreWorkloadApi: workloadApiFromRunner(liveRunner),
   });
   const store = createStore();
 
@@ -694,7 +691,7 @@ test("coding tool invocation surface ignores retired request identity aliases", 
       };
     },
   };
-  const surface = createSurface({ stepModuleRunner: liveRunner });
+  const surface = createSurface({ daemonCoreWorkloadApi: workloadApiFromRunner(liveRunner) });
   const store = createStore();
 
   const result = surface.invokeThreadTool(store, "thread_alpha", "workspace.status", {
@@ -752,7 +749,7 @@ test("coding tool invocation surface accepts canonical idempotency key", () => {
       };
     },
   };
-  const surface = createSurface({ stepModuleRunner: liveRunner });
+  const surface = createSurface({ daemonCoreWorkloadApi: workloadApiFromRunner(liveRunner) });
   const store = createStore();
 
   const result = surface.invokeThreadTool(store, "thread_alpha", "workspace.status", {
@@ -779,11 +776,11 @@ test("coding tool invocation surface returns canonical failed result when rust l
       throw error;
     },
   };
-  const surface = createSurface({ stepModuleRunner: liveRunner });
+  const surface = createSurface({ daemonCoreWorkloadApi: workloadApiFromRunner(liveRunner) });
   const store = createStore();
 
   const result = surface.invokeThreadTool(store, "thread_alpha", "workspace.status", {
-    tool_call_id: "tool_status_runner_failed",
+        tool_call_id: "tool_status_execution_failed",
     input: {},
   });
 
@@ -879,7 +876,7 @@ test("coding tool invocation surface runs workspace.status through rust workload
     },
   };
   const surface = createSurface({
-    stepModuleRunner: liveRunner,
+    daemonCoreWorkloadApi: workloadApiFromRunner(liveRunner),
   });
   const store = createStore();
 
@@ -894,7 +891,8 @@ test("coding tool invocation surface runs workspace.status through rust workload
 
   assert.equal(result.status, "completed");
   assert.equal(runnerCalls.length, 1);
-  assert.equal(runnerCalls[0].context.workflow_projection_status, "live");
+  assert.equal(runnerCalls[0].context.schema_version, "ioi.runtime.coding-tool-step-module-request.v1");
+  assert.equal(Object.hasOwn(runnerCalls[0].context, "workflow_projection_status"), false);
   assert.equal(result.result.rust_workload, true);
   assert.equal(result.result.git.available, true);
   assert.equal(result.result.git.branch, "main");
@@ -1013,7 +1011,7 @@ test("coding tool invocation surface runs file.inspect through rust workload liv
     },
   };
   const surface = createSurface({
-    stepModuleRunner: liveRunner,
+    daemonCoreWorkloadApi: workloadApiFromRunner(liveRunner),
   });
   const store = createStore();
 
@@ -1026,7 +1024,8 @@ test("coding tool invocation surface runs file.inspect through rust workload liv
 
   assert.equal(result.status, "completed");
   assert.equal(runnerCalls.length, 1);
-  assert.equal(runnerCalls[0].context.workflow_projection_status, "live");
+  assert.equal(runnerCalls[0].context.schema_version, "ioi.runtime.coding-tool-step-module-request.v1");
+  assert.equal(Object.hasOwn(runnerCalls[0].context, "workflow_projection_status"), false);
   assert.equal(result.result.rust_workload, true);
   assert.equal(result.result.path, "README.md");
   assert.equal(result.result.kind, "file");
@@ -1109,7 +1108,7 @@ test("coding tool invocation surface runs git.diff through rust workload live pa
     },
   };
   const surface = createSurface({
-    stepModuleRunner: liveRunner,
+    daemonCoreWorkloadApi: workloadApiFromRunner(liveRunner),
   });
   const store = createStore();
 
@@ -1122,7 +1121,8 @@ test("coding tool invocation surface runs git.diff through rust workload live pa
 
   assert.equal(result.status, "completed");
   assert.equal(runnerCalls.length, 1);
-  assert.equal(runnerCalls[0].context.workflow_projection_status, "live");
+  assert.equal(runnerCalls[0].context.schema_version, "ioi.runtime.coding-tool-step-module-request.v1");
+  assert.equal(Object.hasOwn(runnerCalls[0].context, "workflow_projection_status"), false);
   assert.equal(result.result.rust_workload, true);
   assert.deepEqual(result.result.paths, ["README.md"]);
   assert.equal(result.result.diff_hash, "abc123");
@@ -1228,7 +1228,7 @@ test("coding tool invocation surface runs lsp.diagnostics through rust workload 
     },
   };
   const surface = createSurface({
-    stepModuleRunner: liveRunner,
+    daemonCoreWorkloadApi: workloadApiFromRunner(liveRunner),
   });
   const store = createStore();
 
@@ -1241,7 +1241,8 @@ test("coding tool invocation surface runs lsp.diagnostics through rust workload 
 
   assert.equal(result.status, "completed");
   assert.equal(runnerCalls.length, 1);
-  assert.equal(runnerCalls[0].context.workflow_projection_status, "live");
+  assert.equal(runnerCalls[0].context.schema_version, "ioi.runtime.coding-tool-step-module-request.v1");
+  assert.equal(Object.hasOwn(runnerCalls[0].context, "workflow_projection_status"), false);
   assert.equal(result.result.rust_workload, true);
   assert.equal(result.result.backend, "node.check");
   assert.equal(result.result.diagnostic_status, "clean");
@@ -1336,7 +1337,7 @@ test("coding tool invocation surface runs test.run through rust workload live pa
     },
   };
   const surface = createSurface({
-    stepModuleRunner: liveRunner,
+    daemonCoreWorkloadApi: workloadApiFromRunner(liveRunner),
   });
   const store = createStore();
 
@@ -1349,7 +1350,8 @@ test("coding tool invocation surface runs test.run through rust workload live pa
 
   assert.equal(result.status, "completed");
   assert.equal(runnerCalls.length, 1);
-  assert.equal(runnerCalls[0].context.workflow_projection_status, "live");
+  assert.equal(runnerCalls[0].context.schema_version, "ioi.runtime.coding-tool-step-module-request.v1");
+  assert.equal(Object.hasOwn(runnerCalls[0].context, "workflow_projection_status"), false);
   assert.equal(result.result.rust_workload, true);
   assert.equal(result.result.command_id, "node.test");
   assert.equal(result.result.test_status, "passed");
@@ -1471,7 +1473,7 @@ test("coding tool invocation surface runs file.apply_patch through rust workload
     },
   };
   const surface = createSurface({
-    stepModuleRunner: liveRunner,
+    daemonCoreWorkloadApi: workloadApiFromRunner(liveRunner),
   });
   const store = createStore();
 
@@ -1484,7 +1486,8 @@ test("coding tool invocation surface runs file.apply_patch through rust workload
 
   assert.equal(result.status, "completed");
   assert.equal(runnerCalls.length, 1);
-  assert.equal(runnerCalls[0].context.workflow_projection_status, "live");
+  assert.equal(runnerCalls[0].context.schema_version, "ioi.runtime.coding-tool-step-module-request.v1");
+  assert.equal(Object.hasOwn(runnerCalls[0].context, "workflow_projection_status"), false);
   assert.equal(result.result.rust_workload, true);
   assert.equal(result.result.applied, true);
   assert.equal(result.result.edit_count, 1);
@@ -1621,7 +1624,7 @@ test("coding tool invocation surface runs artifact.read through rust workload li
     },
   };
   const surface = createSurface({
-    stepModuleRunner: liveRunner,
+    daemonCoreWorkloadApi: workloadApiFromRunner(liveRunner),
   });
   const store = createStore();
 
@@ -1634,7 +1637,8 @@ test("coding tool invocation surface runs artifact.read through rust workload li
 
   assert.equal(result.status, "completed");
   assert.equal(runnerCalls.length, 1);
-  assert.equal(runnerCalls[0].context.workflow_projection_status, "live");
+  assert.equal(runnerCalls[0].context.schema_version, "ioi.runtime.coding-tool-step-module-request.v1");
+  assert.equal(Object.hasOwn(runnerCalls[0].context, "workflow_projection_status"), false);
   assert.equal(runnerCalls[0].input.rust_workload_data_plane.schema_version, "ioi.runtime.coding-tool-data-plane.v1");
   assert.equal(runnerCalls[0].input.rust_workload_data_plane.source, "daemon_artifact_store");
   assert.equal(runnerCalls[0].input.rust_workload_data_plane.result.content, "stored artifact\n");
@@ -1740,7 +1744,7 @@ test("coding tool invocation surface runs tool.retrieve_result through rust work
     },
   };
   const surface = createSurface({
-    stepModuleRunner: liveRunner,
+    daemonCoreWorkloadApi: workloadApiFromRunner(liveRunner),
   });
   const store = createStore();
 
@@ -1753,7 +1757,8 @@ test("coding tool invocation surface runs tool.retrieve_result through rust work
 
   assert.equal(result.status, "completed");
   assert.equal(runnerCalls.length, 1);
-  assert.equal(runnerCalls[0].context.workflow_projection_status, "live");
+  assert.equal(runnerCalls[0].context.schema_version, "ioi.runtime.coding-tool-step-module-request.v1");
+  assert.equal(Object.hasOwn(runnerCalls[0].context, "workflow_projection_status"), false);
   assert.equal(runnerCalls[0].input.rust_workload_data_plane.schema_version, "ioi.runtime.coding-tool-data-plane.v1");
   assert.equal(runnerCalls[0].input.rust_workload_data_plane.query.tool_call_id, "tool_patch");
   assert.equal(runnerCalls[0].input.rust_workload_data_plane.result.content, "stored result\n");
@@ -1902,7 +1907,7 @@ test("coding tool invocation surface runs computer_use.request_lease through rus
     },
   };
   const surface = createSurface({
-    stepModuleRunner: liveRunner,
+    daemonCoreWorkloadApi: workloadApiFromRunner(liveRunner),
   });
   const store = createStore();
 
@@ -1920,7 +1925,8 @@ test("coding tool invocation surface runs computer_use.request_lease through rus
 
   assert.equal(result.status, "completed");
   assert.equal(runnerCalls.length, 1);
-  assert.equal(runnerCalls[0].context.workflow_projection_status, "live");
+  assert.equal(runnerCalls[0].context.schema_version, "ioi.runtime.coding-tool-step-module-request.v1");
+  assert.equal(Object.hasOwn(runnerCalls[0].context, "workflow_projection_status"), false);
   assert.equal(runnerCalls[0].input.action_kind, "click");
   assert.equal(result.result.rust_workload, true);
   assert.equal(result.result.request_ref, "computer_use_lease_request_alpha");
@@ -2078,7 +2084,7 @@ test("coding tool invocation surface executes approval-required tools only after
         policy_decision_refs: ["policy_approval"],
       };
     },
-    stepModuleRunner: liveRunner,
+    daemonCoreWorkloadApi: workloadApiFromRunner(liveRunner),
   });
   const store = createStore();
 
