@@ -17616,6 +17616,15 @@ function runBridge() {
       /routeControlPlanForState\(state,\s*"model_mount\.route\.test"/.test(modelRoutes) &&
       /commitRouteControlPlan\(state,\s*plan/.test(modelRoutes) &&
       /commitModelMountRecordState\(state/.test(modelRoutes) &&
+      !/state\.routes\.set\(/.test(modelRoutes) &&
+      !/state\?\.routes\?\.get/.test(modelRoutes) &&
+      /routeControlRouteForMountedState\(this,\s*selectedRouteId\)/.test(modelMountingState) &&
+      /routeControlProjectionRecords\(state,\s*"listRoutes"\)/.test(modelMountingState) &&
+      /routeControlProjectionRecords\(state,\s*"listEndpoints"\)/.test(modelMountingState) &&
+      /routeControlProjectionRecords\(state,\s*"listProviders"\)/.test(modelMountingState) &&
+      !/this\.routes\.get\(selectedRouteId\)/.test(modelMountingState) &&
+      !/endpoints:\s*\[\.\.\.\(state\.endpoints\?\.values/.test(modelMountingState) &&
+      !/providers:\s*\[\.\.\.\(state\.providers\?\.values/.test(modelMountingState) &&
       /routeControlRequiredForState\(state,\s*operation_kind,\s*details = \{\}\)/.test(modelRoutes) &&
       /this\.modelMountCore\.planRouteControlRequired/.test(modelMountingState) &&
       /this\.modelMountCore\.planRouteControl\(request\)/.test(modelMountingState) &&
@@ -17672,7 +17681,14 @@ function runBridge() {
       ) &&
       /route upsert rejects retired request aliases before Rust-required boundary/.test(modelRoutesTest) &&
       /route upsert commits Rust-planned route record without JS normalization/.test(modelRoutesTest) &&
+      /assert\.equal\(routes\.has\("route:Research Route"\),\s*false\)/.test(modelRoutesTest) &&
+      /assert\.equal\(routeControlPlans\[0\]\.current_route,\s*null\)/.test(modelRoutesTest) &&
       /model mounting public route control uses Rust planning and Agentgres record commits/.test(modelRoutesTest) &&
+      /assert\.equal\(routes\.has\("route:Review"\),\s*false\)/.test(modelRoutesTest) &&
+      /assert\.equal\(routeControlPlans\[1\]\.current_route,\s*null\)/.test(modelRoutesTest) &&
+      /listRoutes\(\)\s*\{/.test(modelRoutesTest) &&
+      /listEndpoints\(\)\s*\{/.test(modelRoutesTest) &&
+      /listProviders\(\)\s*\{/.test(modelRoutesTest) &&
       /route-selection receipt helper is retired behind Rust core/.test(modelRoutesTest) &&
       /recordStateCommits\[0\]\.record_dir/.test(modelRoutesTest) &&
       /modelTokenizerUtility uses Rust tokenizer planning and Agentgres commit without JS tokenization receipt/.test(modelTokenizerOperationsTest) &&

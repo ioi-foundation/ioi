@@ -1776,7 +1776,7 @@ export class ModelMountingState {
   selectRoute({ modelId, routeId, capability, policy, body = {} }) {
     const requestBody = body && typeof body === "object" && !Array.isArray(body) ? body : {};
     const selectedRouteId = routeId ?? requestBody.route_id ?? "route.local-first";
-    const currentRoute = this.routes.get(selectedRouteId) ?? null;
+    const currentRoute = routeControlRouteForMountedState(this, selectedRouteId);
     const selectedModel = modelId ?? requestBody.model ?? requestBody.model_id ?? null;
     const selectedCapability = capability ?? requestBody.capability ?? "chat";
     const selectedPolicy = policy && typeof policy === "object" && !Array.isArray(policy)
@@ -4783,9 +4783,23 @@ function routeControlRequestForMountedState(
     generated_at: typeof state.nowIso === "function" ? state.nowIso() : null,
     body,
     current_route,
-    endpoints: [...(state.endpoints?.values?.() ?? [])],
-    providers: [...(state.providers?.values?.() ?? [])],
+    endpoints: routeControlProjectionRecords(state, "listEndpoints"),
+    providers: routeControlProjectionRecords(state, "listProviders"),
   };
+}
+
+function routeControlRouteForMountedState(state, routeId) {
+  return routeControlProjectionRecords(state, "listRoutes").find(
+    (record) =>
+      record?.id === routeId ||
+      record?.route_id === routeId ||
+      record?.route_ref === routeId,
+  ) ?? null;
+}
+
+function routeControlProjectionRecords(state, methodName) {
+  const records = typeof state?.[methodName] === "function" ? state[methodName]() : [];
+  return Array.isArray(records) ? records : [];
 }
 
 function modelMountProviderControlRustCoreRequired(provider, operation, details = {}) {

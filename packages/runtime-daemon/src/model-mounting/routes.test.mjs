@@ -300,10 +300,11 @@ test("model mounting route upsert commits Rust-planned route record without JS n
   assert.equal(result.route.id, "route:Research Route");
   assert.equal(result.route.fallback[0], "endpoint.local");
   assert.deepEqual(calls, []);
-  assert.equal(routes.get("route:Research Route").id, "route:Research Route");
+  assert.equal(routes.has("route:Research Route"), false);
   assert.equal(routeControlPlans.length, 1);
   assert.equal(routeControlPlans[0].operation_kind, "model_mount.route.write");
   assert.equal(routeControlPlans[0].body.role, "Research Route");
+  assert.equal(routeControlPlans[0].current_route, null);
   assert.equal(recordStateCommits.length, 1);
   assert.equal(recordStateCommits[0].record_dir, "model-routes");
   assert.equal(recordStateCommits[0].record_id, "route:Research Route");
@@ -393,6 +394,15 @@ test("mounted route selection uses Rust planning and Agentgres commits before JS
     }]]),
     endpoints: new Map([["endpoint.local", endpoint]]),
     providers: new Map([["provider.local", provider]]),
+    listRoutes() {
+      return [...this.routes.values()];
+    },
+    listEndpoints() {
+      return [...this.endpoints.values()];
+    },
+    listProviders() {
+      return [...this.providers.values()];
+    },
     route(routeId) {
       calls.push(["route", routeId]);
       return this.routes.get(routeId);
@@ -489,6 +499,7 @@ test("model mounting public route control uses Rust planning and Agentgres recor
   assert.equal(upsertResult.status, "committed");
   assert.equal(upsertResult.operation_kind, "model_mount.route.write");
   assert.equal(upsertResult.route.id, "route:Review");
+  assert.equal(routes.has("route:Review"), false);
 
   const testResult = testRoute(state, "route.local-first", {
     model: "model.local",
@@ -499,11 +510,13 @@ test("model mounting public route control uses Rust planning and Agentgres recor
   assert.equal(testResult.route_test.route_id, "route.local-first");
   assert.equal(testResult.route_test.model, "model.local");
   assert.deepEqual(calls, []);
-  assert.equal(routes.has("route:Review"), true);
+  assert.equal(routes.has("route:Review"), false);
   assert.equal(routes.get("route.local-first").lastReceiptId, undefined);
   assert.equal(routeControlPlans.length, 2);
   assert.equal(routeControlPlans[0].operation_kind, "model_mount.route.write");
+  assert.equal(routeControlPlans[0].current_route, null);
   assert.equal(routeControlPlans[1].operation_kind, "model_mount.route.test");
+  assert.equal(routeControlPlans[1].current_route, null);
   assert.equal(recordStateCommits.length, 2);
   assert.deepEqual(recordStateCommits.map((commit) => commit.record_dir), [
     "model-routes",

@@ -56,16 +56,12 @@ export function upsertRoute(state, body = {}, deps = {}) {
   const plan = routeControlPlanForState(state, "model_mount.route.write", {
     body,
     route_id: routeId,
-    current_route: routeId ? state?.routes?.get?.(routeId) ?? null : null,
   });
   const commit = commitRouteControlPlan(state, plan, {
     unconfiguredCode: "model_mount_route_control_record_state_commit_unconfigured",
     unconfiguredMessage:
       "Model route control requires Rust Agentgres record-state commit before public route truth can return.",
   });
-  if (plan.record_dir === "model-routes" && state?.routes?.set) {
-    state.routes.set(plan.record_id, plan.record);
-  }
   return routeControlResponse(plan, commit, { route: plan.record });
 }
 
@@ -74,7 +70,6 @@ export function testRoute(state, routeId, body = {}) {
   const plan = routeControlPlanForState(state, "model_mount.route.test", {
     body,
     route_id: routeId,
-    current_route: state?.routes?.get?.(routeId) ?? null,
   });
   const commit = commitRouteControlPlan(state, plan, {
     unconfiguredCode: "model_mount_route_test_record_state_commit_unconfigured",

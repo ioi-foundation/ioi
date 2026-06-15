@@ -9364,7 +9364,11 @@ endpoint resolution now use the same positive Rust route-control planner,
 commit only Rust-authored route-selection or endpoint-resolution records, and route
 selection reuses Rust model_mount route-decision admission plus the
 Rust-authored accepted route-selection receipt before JS sees a selected
-endpoint. Runtime explicit/run-override model-route selection now forwards
+endpoint. Public route write/test no longer repopulates `state.routes` or sends
+JS route-map `current_route` candidates into Rust; mounted route-selection now
+feeds Rust candidate routes, endpoints, and providers from the Rust
+read-projection list APIs instead of `this.routes`, `state.endpoints`, or
+`state.providers` maps. Runtime explicit/run-override model-route selection now forwards
 canonical runtime model-route requests through that Rust-owned route-control
 client and returns only the Rust-authored route decision, receipt, and
 route-control refs. Public `listRoutes()` now replays persisted
@@ -10122,6 +10126,21 @@ rejects production source that restores that facade. This remains non-terminal
 because durable lifecycle deletion/cancellation replay/projection, deeper
 wallet/cTEE lifecycle authority, and stable IDE/CLI/SDK lifecycle protocol APIs
 still need Rust-owned records across the remaining hot paths.
+
+Slice 1281 hard-retires the public model route-control JS route-map truth path.
+Public route upsert/test still require Rust `planModelMountRouteControl` and
+Rust Agentgres model_mount record-state commit before returning, but they no
+longer write Rust-planned records back into `state.routes` or pass JS
+route-map `current_route` candidates to Rust. Mounted route selection now builds
+its route/endpoints/providers candidate set from Rust read-projection list APIs
+instead of `this.routes`, `state.endpoints`, or `state.providers` maps.
+Focused route tests assert the JS route map remains untouched and public
+write/test requests carry no JS current-route candidate, while conformance
+rejects restored route-map writeback, route-map current-route reads, raw
+mounted route lookup, and raw endpoint/provider map candidate transport in the
+route-control builder. This remains non-terminal because hosted/provider
+transport materialization, deeper wallet/cTEE route authority, Rust-owned
+topology joins, and stable IDE/CLI/SDK route APIs still need to close.
 
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,
