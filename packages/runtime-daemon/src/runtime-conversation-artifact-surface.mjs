@@ -111,23 +111,6 @@ export function createRuntimeConversationArtifactSurface({
     });
   }
 
-  function candidateConversationArtifacts(store) {
-    const list = store?.conversationArtifacts?.list;
-    if (typeof list !== "function") {
-      throw runtimeError({
-        status: 500,
-        code: "runtime_conversation_artifact_read_projection_candidates_missing",
-        message:
-          "Runtime conversation artifact read projection candidates are unavailable.",
-        details: {
-          rust_core_boundary: "runtime.conversation_artifact_projection",
-          source: "runtime.conversation_artifact_surface.read_projection",
-        },
-      });
-    }
-    return list.call(store.conversationArtifacts, {});
-  }
-
   function conversationArtifactProjectionStateDir(store) {
     return optionalString(store?.stateDir) ?? optionalString(store?.conversationArtifacts?.stateDir);
   }
@@ -180,20 +163,12 @@ export function createRuntimeConversationArtifactSurface({
     };
     const runner = conversationArtifactControlRunner(store, requestContext);
     assertConversationArtifactCommitAvailable(store, requestContext);
-    const artifacts = candidateConversationArtifacts(store);
-    const artifact = artifactId
-      ? artifacts.find((record) => (
-          optionalString(record?.id) === artifactId ||
-          optionalString(record?.artifact_id) === artifactId
-        )) ?? null
-      : null;
     const request = {
       operation,
       operation_kind: operationKind,
       thread_id: threadId,
       artifact_id: artifactId,
-      artifacts,
-      artifact,
+      state_dir: conversationArtifactProjectionStateDir(store),
       request: conversationArtifactControlRequestPayload(input),
       evidence_refs: [
         ...conversationArtifactControlEvidenceRefs,

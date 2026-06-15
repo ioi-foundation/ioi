@@ -1,6 +1,7 @@
 use serde::Deserialize;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
+use std::{fs, path::Path};
 
 pub const RUNTIME_CONVERSATION_ARTIFACT_CONTROL_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.conversation-artifact-control-request.v1";
@@ -21,6 +22,8 @@ pub struct RuntimeConversationArtifactControlRequest {
     pub thread_id: Option<String>,
     #[serde(default)]
     pub artifact_id: Option<String>,
+    #[serde(default)]
+    pub state_dir: Option<String>,
     #[serde(default)]
     pub artifacts: Value,
     #[serde(default)]
@@ -90,6 +93,7 @@ impl RuntimeConversationArtifactControlCore {
                 ));
             }
         }
+        reject_control_candidate_transport(request)?;
 
         let operation_kind = normalized_operation_kind(request)?;
         let operation = optional_trimmed(request.operation.as_deref()).unwrap_or_else(|| {
@@ -267,17 +271,14 @@ fn existing_artifact(
     request: &RuntimeConversationArtifactControlRequest,
     artifact_id: &str,
 ) -> Result<Value, RuntimeConversationArtifactControlCommandError> {
-    if request.artifact.is_object() && matches_artifact_id(&request.artifact, artifact_id) {
-        return Ok(request.artifact.clone());
-    }
-    artifact_candidates(&request.artifacts)
+    conversation_artifact_records_from_state_dir(request)?
         .into_iter()
         .find(|record| matches_artifact_id(record, artifact_id))
         .ok_or_else(|| {
             RuntimeConversationArtifactControlCommandError::new(
                 "runtime_conversation_artifact_control_artifact_not_found",
                 format!(
-                    "conversation artifact {artifact_id} was not found in Rust control candidates"
+                    "conversation artifact {artifact_id} was not found in Rust Agentgres replay"
                 ),
             )
         })
@@ -395,15 +396,110 @@ fn receipt_refs(
     unique_strings(refs)
 }
 
-fn artifact_candidates(value: &Value) -> Vec<Value> {
-    if let Some(records) = value.as_array() {
-        return records.clone();
+fn reject_control_candidate_transport(
+    request: &RuntimeConversationArtifactControlRequest,
+) -> Result<(), RuntimeConversationArtifactControlCommandError> {
+    if has_candidate_transport(&request.artifact) || has_candidate_transport(&request.artifacts) {
+        return Err(RuntimeConversationArtifactControlCommandError::new(
+            "runtime_conversation_artifact_control_candidate_transport_retired",
+            "conversation artifact control rejects JS-supplied artifact candidates; provide state_dir for Rust Agentgres replay",
+        ));
     }
-    value
-        .get("artifacts")
-        .and_then(Value::as_array)
-        .cloned()
-        .unwrap_or_default()
+    Ok(())
+}
+
+fn has_candidate_transport(value: &Value) -> bool {
+    match value {
+        Value::Null => false,
+        Value::Object(object) => !object.is_empty(),
+        Value::Array(items) => !items.is_empty(),
+        _ => true,
+    }
+}
+
+fn conversation_artifact_records_from_state_dir(
+    request: &RuntimeConversationArtifactControlRequest,
+) -> Result<Vec<Value>, RuntimeConversationArtifactControlCommandError> {
+    let state_dir = optional_trimmed(request.state_dir.as_deref()).ok_or_else(|| {
+        RuntimeConversationArtifactControlCommandError::new(
+            "runtime_conversation_artifact_control_state_dir_required",
+            "conversation artifact control requires runtime state_dir for Agentgres artifact replay",
+        )
+    })?;
+    let state_root = Path::new(&state_dir);
+    Ok(load_conversation_artifact_records(state_root)?
+        .into_iter()
+        .filter(canonical_conversation_artifact)
+        .filter(active_conversation_artifact)
+        .collect())
+}
+
+fn load_conversation_artifact_records(
+    state_root: &Path,
+) -> Result<Vec<Value>, RuntimeConversationArtifactControlCommandError> {
+    let dir = state_root.join("artifacts");
+    if !dir.exists() {
+        return Ok(Vec::new());
+    }
+    let entries = fs::read_dir(&dir).map_err(|error| {
+        RuntimeConversationArtifactControlCommandError::new(
+            "runtime_conversation_artifact_control_replay_read_failed",
+            format!("conversation artifact control could not read Agentgres artifacts: {error}"),
+        )
+    })?;
+    let mut paths = Vec::new();
+    for entry in entries {
+        let entry = entry.map_err(|error| {
+            RuntimeConversationArtifactControlCommandError::new(
+                "runtime_conversation_artifact_control_replay_read_failed",
+                format!(
+                    "conversation artifact control could not inspect Agentgres artifact entry: {error}"
+                ),
+            )
+        })?;
+        let path = entry.path();
+        if path.is_file() && path.extension().and_then(|value| value.to_str()) == Some("json") {
+            paths.push(path);
+        }
+    }
+    paths.sort();
+
+    let mut records = Vec::new();
+    for path in paths.into_iter().take(1000) {
+        let contents = fs::read_to_string(&path).map_err(|error| {
+            RuntimeConversationArtifactControlCommandError::new(
+                "runtime_conversation_artifact_control_replay_read_failed",
+                format!(
+                    "conversation artifact control could not read Agentgres artifact record {}: {error}",
+                    path.display()
+                ),
+            )
+        })?;
+        let record = serde_json::from_str(&contents).map_err(|error| {
+            RuntimeConversationArtifactControlCommandError::new(
+                "runtime_conversation_artifact_control_replay_record_invalid",
+                format!(
+                    "conversation artifact control found invalid Agentgres artifact record {}: {error}",
+                    path.display()
+                ),
+            )
+        })?;
+        records.push(record);
+    }
+    Ok(records)
+}
+
+fn canonical_conversation_artifact(record: &Value) -> bool {
+    record.as_object().is_some()
+        && string_field(record, "schema_version").as_deref()
+            == Some(CONVERSATION_ARTIFACT_SCHEMA_VERSION)
+        && string_field(record, "object").as_deref() == Some("ioi.conversation_artifact")
+        && (string_field(record, "id").is_some() || string_field(record, "artifact_id").is_some())
+}
+
+fn active_conversation_artifact(record: &Value) -> bool {
+    string_field(record, "status").as_deref() != Some("deleted")
+        && string_field(record, "deleted_at").is_none()
 }
 
 fn matches_artifact_id(record: &Value, artifact_id: &str) -> bool {
@@ -513,6 +609,7 @@ fn short_hash(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::{fs, path::Path};
 
     fn create_request() -> RuntimeConversationArtifactControlRequest {
         RuntimeConversationArtifactControlRequest {
@@ -534,6 +631,45 @@ mod tests {
         }
     }
 
+    fn write_artifact_record(state_dir: &Path, file_name: &str, record: Value) {
+        let artifact_dir = state_dir.join("artifacts");
+        fs::create_dir_all(&artifact_dir).expect("artifact dir");
+        fs::write(
+            artifact_dir.join(file_name),
+            serde_json::to_string_pretty(&record).expect("artifact json"),
+        )
+        .expect("write artifact record");
+    }
+
+    fn seed_artifact_state(state_dir: &Path) {
+        write_artifact_record(
+            state_dir,
+            "artifact-one.json",
+            json!({
+                "schema_version": CONVERSATION_ARTIFACT_SCHEMA_VERSION,
+                "object": "ioi.conversation_artifact",
+                "id": "artifact-one",
+                "artifact_id": "artifact-one",
+                "thread_id": "thread-one",
+                "title": "Draft",
+                "status": "active",
+                "updated_at": "2026-06-12T00:00:00.000Z",
+                "revisions": []
+            }),
+        );
+        write_artifact_record(
+            state_dir,
+            "artifact-js-authored.json",
+            json!({
+                "schemaVersion": CONVERSATION_ARTIFACT_SCHEMA_VERSION,
+                "object": "ioi.conversation_artifact",
+                "id": "artifact-js-authored",
+                "threadId": "thread-one",
+                "title": "Retired JS candidate"
+            }),
+        );
+    }
+
     #[test]
     fn rust_plans_conversation_artifact_create_record() {
         let record = RuntimeConversationArtifactControlCore
@@ -553,19 +689,11 @@ mod tests {
 
     #[test]
     fn rust_plans_conversation_artifact_action_export_and_promote() {
-        let artifact = json!({
-            "schema_version": CONVERSATION_ARTIFACT_SCHEMA_VERSION,
-            "object": "ioi.conversation_artifact",
-            "id": "artifact-one",
-            "artifact_id": "artifact-one",
-            "thread_id": "thread-one",
-            "title": "Draft",
-            "updated_at": "2026-06-12T00:00:00.000Z",
-            "revisions": []
-        });
+        let temp = tempfile::tempdir().expect("tempdir");
+        seed_artifact_state(temp.path());
         let base = RuntimeConversationArtifactControlRequest {
             artifact_id: Some("artifact-one".to_string()),
-            artifact: artifact.clone(),
+            state_dir: Some(temp.path().to_string_lossy().to_string()),
             request: json!({
                 "created_at": "2026-06-12T00:05:00.000Z",
                 "action_kind": "edit",
@@ -605,6 +733,44 @@ mod tests {
     }
 
     #[test]
+    fn rust_rejects_conversation_artifact_control_candidate_transport() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        seed_artifact_state(temp.path());
+        let error = RuntimeConversationArtifactControlCore
+            .plan(&RuntimeConversationArtifactControlRequest {
+                operation_kind: Some("artifact.conversation.action".to_string()),
+                artifact_id: Some("artifact-one".to_string()),
+                state_dir: Some(temp.path().to_string_lossy().to_string()),
+                artifact: json!({
+                    "schema_version": CONVERSATION_ARTIFACT_SCHEMA_VERSION,
+                    "object": "ioi.conversation_artifact",
+                    "id": "artifact-one"
+                }),
+                ..Default::default()
+            })
+            .expect_err("candidate artifact transport rejected");
+        assert_eq!(
+            error.code(),
+            "runtime_conversation_artifact_control_candidate_transport_retired"
+        );
+    }
+
+    #[test]
+    fn rust_requires_state_dir_for_conversation_artifact_action() {
+        let error = RuntimeConversationArtifactControlCore
+            .plan(&RuntimeConversationArtifactControlRequest {
+                operation_kind: Some("artifact.conversation.action".to_string()),
+                artifact_id: Some("artifact-one".to_string()),
+                ..Default::default()
+            })
+            .expect_err("state_dir required");
+        assert_eq!(
+            error.code(),
+            "runtime_conversation_artifact_control_state_dir_required"
+        );
+    }
+
+    #[test]
     fn rust_ignores_retired_conversation_artifact_request_aliases() {
         let mut request = create_request();
         request.request = json!({
@@ -639,10 +805,13 @@ mod tests {
 
     #[test]
     fn rust_rejects_missing_conversation_artifact_action_candidate() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        seed_artifact_state(temp.path());
         let error = RuntimeConversationArtifactControlCore
             .plan(&RuntimeConversationArtifactControlRequest {
                 operation_kind: Some("artifact.conversation.action".to_string()),
                 artifact_id: Some("artifact-missing".to_string()),
+                state_dir: Some(temp.path().to_string_lossy().to_string()),
                 ..Default::default()
             })
             .expect_err("missing artifact must fail");

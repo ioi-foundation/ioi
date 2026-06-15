@@ -909,12 +909,12 @@ conversation-artifact list, get, and revision-list routes call
 `project_runtime_conversation_artifact_projection` through the mounted
 conversation-artifact surface, while create/action/export/promote call
 `plan_runtime_conversation_artifact_control` and commit only the Rust-authored
-artifact through Rust Agentgres artifact-state admission. JS supplies temporary
-artifact candidates only for control planning; read projection sends canonical
-request fields plus runtime `state_dir`, Rust replays admitted `artifacts/*.json`
-conversation-artifact records, and rejects retired JS artifact candidate
-transport. The route family fails closed when Rust projection, planning, or
-commit is absent or mismatched. Durable ArtifactRef/PayloadRef truth, richer
+artifact through Rust Agentgres artifact-state admission. Read projection and
+action/export/promote control send canonical request fields plus runtime
+`state_dir`; Rust replays admitted `artifacts/*.json` conversation-artifact
+records before returning route truth and rejects retired JS artifact candidate
+transport. The route family fails closed when Rust projection, planning, replay,
+or commit is absent or mismatched. Durable ArtifactRef/PayloadRef truth, richer
 Agentgres mutation replay/projection storage,
 wallet/cTEE authority where needed, receipt/state-root binding, and direct
 protocol APIs remain non-terminal.
@@ -2665,10 +2665,10 @@ Rust daemon-core `project_runtime_conversation_artifact_projection`; public
 `createConversationArtifact()`, `performConversationArtifactAction()`,
 `exportConversationArtifact()`, and `promoteConversationArtifact()` now call
 Rust daemon-core `plan_runtime_conversation_artifact_control` and commit the
-returned artifact through Rust Agentgres artifact-state admission. JS supplies
-only temporary artifact candidates for control planning; read projection sends
-canonical request fields plus runtime `state_dir`, replays admitted
-`artifacts/*.json` records in Rust, and rejects retired JS artifact candidate
+returned artifact through Rust Agentgres artifact-state admission. Read
+projection and action/export/promote control send canonical request fields plus
+runtime `state_dir`; Rust replays admitted `artifacts/*.json` records before
+returning route truth, and rejects retired JS `artifact`/`artifacts` candidate
 transport. Durable ArtifactRef/PayloadRef custody, richer mutation
 storage/replay, and direct protocol APIs remain required before terminal
 conformance.
@@ -10158,6 +10158,19 @@ request builder. This remains non-terminal because live hosted/provider
 transport materialization, deeper receipt/state-root binding, Rust-owned
 topology joins, and stable IDE/CLI/SDK provider lifecycle APIs still need to
 close.
+
+Slice 1283 hard-retires conversation-artifact control JS artifact-candidate
+transport. Public create/action/export/promote still call Rust
+`planRuntimeConversationArtifactControl` and Rust Agentgres artifact-state
+commit before truth; action/export/promote now send runtime `state_dir`, Rust
+`runtime_conversation_artifact_control.rs` replays admitted `artifacts/*.json`
+records, rejects `artifact`/`artifacts` control candidates, and requires
+`state_dir` for existing-artifact controls. The mounted JS surface no longer
+calls `ConversationArtifactStore.list()` or sends artifact candidates for
+control planning, and focused Rust/JS tests plus conformance guard that the
+retired candidate path cannot return. This remains non-terminal because durable
+ArtifactRef/PayloadRef admission, richer replay/storage, wallet/cTEE authority,
+and stable SDK/IDE artifact APIs still need to close.
 
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,

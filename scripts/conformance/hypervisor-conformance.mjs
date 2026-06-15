@@ -31838,6 +31838,22 @@ function runCompositor() {
     /rust_plans_conversation_artifact_action_export_and_promote/.test(
       runtimeConversationArtifactControlCore,
     ) &&
+    /pub state_dir: Option<String>/.test(runtimeConversationArtifactControlCore) &&
+    /runtime_conversation_artifact_control_candidate_transport_retired/.test(
+      runtimeConversationArtifactControlCore,
+    ) &&
+    /runtime_conversation_artifact_control_state_dir_required/.test(
+      runtimeConversationArtifactControlCore,
+    ) &&
+    /conversation_artifact_records_from_state_dir/.test(
+      runtimeConversationArtifactControlCore,
+    ) &&
+    /rust_rejects_conversation_artifact_control_candidate_transport/.test(
+      runtimeConversationArtifactControlCore,
+    ) &&
+    /rust_requires_state_dir_for_conversation_artifact_action/.test(
+      runtimeConversationArtifactControlCore,
+    ) &&
     !/rust_shapes_conversation_artifact_control_command_response/.test(
       runtimeConversationArtifactControlCore,
     ) &&
@@ -31881,6 +31897,12 @@ function runCompositor() {
     /planRuntimeConversationArtifactControl\(request\)/.test(
       runtimeConversationArtifactSurface,
     ) &&
+    /state_dir:\s*conversationArtifactProjectionStateDir\(store\)/.test(
+      runtimeConversationArtifactSurface,
+    ) &&
+    !/candidateConversationArtifacts/.test(runtimeConversationArtifactSurface) &&
+    !/store\?\.conversationArtifacts\?\.list/.test(runtimeConversationArtifactSurface) &&
+    !/artifacts,\s*\n\s*artifact,/.test(runtimeConversationArtifactSurface) &&
     /commitRuntimeArtifactState/.test(runtimeConversationArtifactSurface) &&
     /runtime_conversation_artifact_control_rust_owned/.test(
       runtimeConversationArtifactSurface,
@@ -31906,6 +31928,13 @@ function runCompositor() {
       runtimeConversationArtifactSurfaceTest,
     ) &&
     /conversation artifact mutation rejects invalid Rust plans before commit/.test(
+      runtimeConversationArtifactSurfaceTest,
+    ) &&
+    /request\.state_dir === "\/runtime-state"/.test(runtimeConversationArtifactSurfaceTest) &&
+    /Object\.hasOwn\(request,\s*"artifacts"\) === false/.test(
+      runtimeConversationArtifactSurfaceTest,
+    ) &&
+    /Object\.hasOwn\(request,\s*"artifact"\) === false/.test(
       runtimeConversationArtifactSurfaceTest,
     ) &&
     /calls\.some\(\(call\) => \["create", "action", "exportArtifact", "promoteArtifact"\]/.test(

@@ -140,8 +140,8 @@ test("conversation artifact mutation plans in Rust and commits artifact truth wi
         const artifact = {
           id: artifactId,
           artifact_id: artifactId,
-          thread_id: request.thread_id ?? request.artifact?.thread_id ?? "thread-one",
-          title: request.request.title ?? request.artifact?.title ?? "Planned",
+          thread_id: request.thread_id ?? "thread-one",
+          title: request.request.title ?? "Planned",
           receipt_refs: [`receipt-${artifactId}`],
           evidence_refs: ["runtime_conversation_artifact_control_rust_owned"],
           revisions: [{ revision_id: `revision-${artifactId}` }],
@@ -214,6 +214,9 @@ test("conversation artifact mutation plans in Rust and commits artifact truth wi
   );
   assert.equal(planCalls[0].thread_id, "thread-one");
   assert.equal(planCalls[0].request.idempotency_key, "canonical");
+  assert.equal(planCalls.every((request) => request.state_dir === "/runtime-state"), true);
+  assert.equal(planCalls.every((request) => Object.hasOwn(request, "artifacts") === false), true);
+  assert.equal(planCalls.every((request) => Object.hasOwn(request, "artifact") === false), true);
   for (const request of planCalls.map((call) => call.request)) {
     for (const alias of ["threadId", "artifactId", "createdAt", "idempotencyKey", "kind", "format", "target"]) {
       assert.equal(Object.hasOwn(request, alias), false, `retired request alias ${alias} must be absent`);
@@ -222,13 +225,9 @@ test("conversation artifact mutation plans in Rust and commits artifact truth wi
   assert.deepEqual(
     calls.map((call) => call.name),
     [
-      "list",
       "commitRuntimeArtifactState",
-      "list",
       "commitRuntimeArtifactState",
-      "list",
       "commitRuntimeArtifactState",
-      "list",
       "commitRuntimeArtifactState",
     ],
   );
@@ -237,7 +236,7 @@ test("conversation artifact mutation plans in Rust and commits artifact truth wi
     false,
   );
   assert.equal(
-    calls[1].request.artifact.evidence_refs?.includes("runtime_conversation_artifact_control_rust_owned"),
+    calls[0].request.artifact.evidence_refs?.includes("runtime_conversation_artifact_control_rust_owned"),
     true,
   );
 });
@@ -305,7 +304,7 @@ test("conversation artifact mutation rejects invalid Rust plans before commit", 
       error.details.rust_core_boundary === "runtime.conversation_artifact_control",
   );
 
-  assert.deepEqual(calls, [{ name: "list", query: {} }]);
+  assert.deepEqual(calls, []);
 });
 
 test("conversation artifact read projections fail closed before JS artifact reads without Rust", () => {
