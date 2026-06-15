@@ -6546,7 +6546,7 @@ binding, accepted-receipt append, Agentgres admission, and projection binding.
 That temporary command-transport receipt boundary is now superseded by the typed
 Rust daemon-core model_mount receipt API: accepted-receipt head/transition
 planning and invocation receipt binding call `daemonCoreModelMountApi` methods,
-and Rust rejects the old command operations before dispatch.
+and Rust command-protocol source is deleted and conformance source-scans keep the old command operations absent before dispatch.
 
 Slice 1105 splits the Rust coding-tool StepModule workload dispatch,
 StepModuleRouter admission, receipt binding, Agentgres admission, and projection
@@ -7123,7 +7123,8 @@ longer declares `ioi_step_module_bridge/coding_tool_command.rs`; that file is
 deleted, and the bridge module imports the Rust
 `coding_tool_step_module.rs` response functions directly for the remaining
 stdin/JSON dispatch and proof-test transport. Command identity and schema
-validation remain Rust `command_protocol.rs` ownership, while coding-tool
+validation moved through Rust command-protocol ownership and now resolve to
+source-absence conformance, while coding-tool
 request/response shaping, StepModuleRouter admission, workload dispatch,
 receipt/state-root binding, Agentgres admission, projection, artifact
 data-plane binding, and computer-use lease evidence binding remain Rust
@@ -7483,9 +7484,8 @@ the daemon now mounts `cteePrivateWorkspaceCore`, requires typed
 `daemonCoreCteeApi.executePrivateWorkspaceCteeAction`, rejects the retired
 generic `daemonCoreInvoker` command-transport option, and returns the Rust
 `governed_receipt.rs` cTEE custody protocol envelope as-is instead of inventing
-receipt/evidence refs, source, or backend compatibility truth. Rust
-`command_protocol.rs` rejects the old `execute_private_workspace_ctee_action`
-operation, so this migrated custody path cannot return through the temporary
+receipt/evidence refs, source, or backend compatibility truth. The deleted command-protocol source plus conformance source scans keep the old
+`execute_private_workspace_ctee_action` operation absent, so this migrated custody path cannot return through the temporary
 command dispatcher.
 
 This remains non-terminal because richer cTEE projection/replay records,
@@ -8134,9 +8134,8 @@ Slice 1189 was the intermediate daemon-core command-schema contraction for
 coding-tool StepModule dispatch. It was superseded by Slice 1228 and then
 Slice 1262: the live coding-tool invocation surface no longer emits any command
 schema or command envelope for `run_coding_tool_step_module`; it calls typed
-`daemonCoreWorkloadApi.runCodingToolStepModule` directly, while Rust
-`command_protocol.rs` rejects `run_coding_tool_step_module` as an unknown
-command operation. The old StepModule and daemon-core command schemas remain
+`daemonCoreWorkloadApi.runCodingToolStepModule` directly, while the deleted command-protocol source plus conformance source scans keep
+`run_coding_tool_step_module` absent as a command operation. The old StepModule and daemon-core command schemas remain
 only as rejected legacy evidence.
 
 Slice 1190 removes the dead StepModule command-family/catalog API left behind
@@ -8245,8 +8244,8 @@ the L1 settlement core now requires typed
 `daemonCoreGovernedAdmissionApi.admitL1SettlementAttempt`, rejects generic
 `daemonCoreInvoker`, calls Rust with the canonical attempt plus thread/agent
 route context, and returns the Rust `governed_admission.rs` admission protocol
-envelope as-is. Rust `command_protocol.rs` rejects
-`admit_l1_settlement_attempt` as a daemon-core command operation, so the old
+envelope as-is. The deleted command-protocol source plus conformance source scans keep
+`admit_l1_settlement_attempt` absent as a daemon-core command operation, so the old
 command-envelope path cannot be selected for this migrated family.
 
 This removes JS envelope truth for the settlement path: trigger admission,
@@ -8270,8 +8269,8 @@ the governed-improvement core now requires typed
 `daemonCoreGovernedAdmissionApi.admitGovernedRuntimeImprovementProposal`,
 rejects generic `daemonCoreInvoker`, calls Rust with the canonical proposal plus
 thread/agent route context, and returns the Rust `governed_admission.rs`
-admission protocol envelope as-is. Rust `command_protocol.rs` rejects
-`admit_governed_runtime_improvement_proposal` as a daemon-core command
+admission protocol envelope as-is. The deleted command-protocol source plus conformance source scans keep
+`admit_governed_runtime_improvement_proposal` absent as a daemon-core command
 operation, so the old command-envelope path cannot be selected for this
 migrated family.
 
@@ -8381,8 +8380,8 @@ worker/service package core now requires typed
 `daemonCoreWorkerServiceApi.admitWorkerServicePackageInvocation`, rejects
 generic `daemonCoreInvoker`, calls Rust with the canonical invocation plus
 thread/agent route context, and returns the Rust `governed_receipt.rs`
-admission protocol envelope as-is. Rust `command_protocol.rs` rejects
-`admit_worker_service_package_invocation` as a daemon-core command operation, so
+admission protocol envelope as-is. The deleted command-protocol source plus conformance source scans keep
+`admit_worker_service_package_invocation` absent as a daemon-core command operation, so
 the old command-envelope path cannot be selected for this migrated family.
 
 This removes JS envelope truth for the receipt-bearing worker/service package
@@ -8830,7 +8829,7 @@ receipt-binding command transport. `ModelMountCore` now calls typed
 `planModelMountAcceptedReceiptTransition`, and
 `bindModelMountInvocationReceipt` without `operation` or `backend` fields;
 Rust `RuntimeKernelService` exposes the matching direct methods over
-`model_mount_receipt.rs`; and `command_protocol.rs` rejects the retired
+`model_mount_receipt.rs`; and command-protocol source absence keeps the retired
 `plan_model_mount_accepted_receipt_head`,
 `plan_model_mount_accepted_receipt_transition`, and
 `bind_model_mount_invocation_receipt` operations. The JS normalizers preserve
@@ -8847,7 +8846,7 @@ command-envelope `operation` or `backend` fields; Rust
 `RuntimeKernelService` exposes
 `plan_model_mount_tokenizer_required`,
 `plan_model_mount_route_control_required`, and
-`plan_model_mount_tokenizer`; and `command_protocol.rs` rejects the retired
+`plan_model_mount_tokenizer`; and command-protocol source absence keeps the retired
 `plan_model_mount_tokenizer_required`,
 `plan_model_mount_route_control_required`, and
 `plan_model_mount_tokenizer` operations. The JS normalizers preserve Rust
@@ -8864,7 +8863,7 @@ command-envelope `operation` or `backend` fields; Rust
 `RuntimeKernelService` exposes
 `plan_model_mount_conversation_state`,
 `plan_model_mount_stream_completion`, and `plan_model_mount_stream_cancel`;
-and `command_protocol.rs` rejects the retired
+and command-protocol source absence keeps the retired
 `plan_model_mount_conversation_state`,
 `plan_model_mount_stream_completion`, and
 `plan_model_mount_stream_cancel` operations. The JS normalizers preserve Rust
@@ -8879,8 +8878,8 @@ command transport. `ModelMountCore` now calls typed
 `planModelMountBackendLifecycle` without command-envelope `operation` or
 `backend` fields; Rust `RuntimeKernelService` exposes
 `plan_model_mount_backend_process` and
-`plan_model_mount_backend_lifecycle`; and `command_protocol.rs` rejects the
-retired `plan_model_mount_backend_process` and
+`plan_model_mount_backend_lifecycle`; and command-protocol source absence keeps
+the retired `plan_model_mount_backend_process` and
 `plan_model_mount_backend_lifecycle` operations. The Rust direct API responses
 preserve daemon-core sources instead of command/backend markers, JS normalizers
 no longer synthesize backend truth, and conformance guards the old bridge
@@ -9102,8 +9101,9 @@ catalog-summary projection, and tool search/fetch projection:
 `RuntimeContextPolicyCore` now requires typed `daemonCoreMcpApi` methods,
 `mcp-manager.mjs` no longer passes a generic command invoker or
 `daemonCoreApi.mcp` compatibility mount, `policy/mcp_memory.rs` no longer
-exports MCP command-response wrappers or bridge request structs, and Rust
-`command_protocol.rs` rejects the retired MCP command operations. Slice 1224
+exports MCP command-response wrappers or bridge request structs, and
+command-protocol source absence keeps the retired MCP command operations out of
+daemon-core transport. Slice 1224
 then retires the MCP serve command transport: `RuntimeContextPolicyCore` calls
 typed `daemonCoreMcpApi.planRuntimeMcpServeToolCall` and
 `daemonCoreMcpApi.projectRuntimeMcpServeToolResult`, Rust
@@ -9469,8 +9469,9 @@ need direct Rust ownership.
 
 Model-mount route-decision admission now uses the typed Rust daemon-core
 `daemonCoreModelMountApi.admitModelMountRouteDecision` surface instead of the
-generic command-envelope transport. Rust `command_protocol.rs` rejects the old
-`admit_model_mount_route_decision` command operation, `command_dispatch.rs` has
+generic command-envelope transport. The deleted command-protocol source plus
+conformance source scans keep the old `admit_model_mount_route_decision`
+command operation absent, `command_dispatch.rs` has
 no route-decision arm, and the route-decision bridge request/response helper is
 deleted from `model_mount/admission.rs`. The mounted JS model-mount core fails
 closed without the typed API and no longer sends `operation` or `backend` fields
@@ -9517,11 +9518,11 @@ typed `daemonCoreThreadLifecycleApi` methods for thread-turn and lifecycle
 admission-required records. Rust `RuntimeKernelService` exposes positive direct
 methods for the lifecycle admission-required planners, the old bridge request
 structs and command-response wrappers are deleted, `command_dispatch.rs` has no
-arms for the retired operations, and `command_protocol.rs` rejects
+arms for the retired operations, and command-protocol source absence keeps
 `plan_workflow_edit_admission_required`,
 `plan_diagnostics_repair_admission_required`,
 `plan_thread_turn_admission_required`, and
-`plan_lifecycle_admission_required` as unknown command operations. Conformance
+`plan_lifecycle_admission_required` absent as command operations. Conformance
 now guards the typed API calls, direct Rust records, and retired command
 operations so this family cannot return through JS authority, a command-env
 fallback, or the binary bridge command path. This remains non-terminal only
@@ -9533,9 +9534,9 @@ Slice 1224 retires the MCP serve `tools/call` command transport. MCP serve
 planning and result projection now call typed `daemonCoreMcpApi` methods instead
 of `evaluateRawPolicy`, backed by Rust
 `RuntimeKernelService::plan_runtime_mcp_serve_tool_call` and
-`RuntimeKernelService::project_runtime_mcp_serve_tool_result`. Rust
-`command_protocol.rs` rejects `plan_runtime_mcp_serve_tool_call` and
-`project_runtime_mcp_serve_tool_result` as unknown command operations,
+`RuntimeKernelService::project_runtime_mcp_serve_tool_result`.
+Command-protocol source absence keeps `plan_runtime_mcp_serve_tool_call` and
+`project_runtime_mcp_serve_tool_result` absent as command operations,
 `command_dispatch.rs` is deleted, the Rust response wrappers and
 `RuntimeMcpServeCommandError` are deleted, and JS no longer sends command
 `operation`/`backend` envelopes or command-source markers for the MCP serve hot
@@ -9554,9 +9555,9 @@ lifecycle projections. `RuntimeContextPolicyCore` now calls typed
 `projectRepositoryWorkflow`, `projectRuntimeToolCatalog`, and
 `projectRuntimeLifecycle` instead of the generic command-envelope
 `evaluateRawPolicy` path. Rust `RuntimeKernelService` exposes the corresponding
-direct projection methods, `command_protocol.rs` rejects the old
+direct projection methods, command-protocol source absence keeps the old
 `project_skill_hook_registry`, `project_repository_workflow`,
-`project_runtime_tool_catalog`, and `project_runtime_lifecycle` operations,
+`project_runtime_tool_catalog`, and `project_runtime_lifecycle` operations absent,
 `command_dispatch.rs` is deleted, and the Rust command-response
 wrappers/source markers are deleted. Conformance now guards the typed API,
 direct Rust records, retired command operations, missing dispatch wrappers, and
@@ -9597,8 +9598,9 @@ rollback repair policy projection now enter Rust through typed
 by direct `RuntimeKernelService` APIs. `RuntimeContextPolicyCore` rejects the
 old generic `daemonCoreInvoker` option, no longer builds command envelopes for
 these hot paths, and sends no command `operation`/`backend` transport fields.
-Rust `command_protocol.rs` rejected the retired coding/artifact/diagnostics
-operation names as unknown while still retaining the temporary
+Rust command-protocol source-absence conformance now keeps the retired
+coding/artifact/diagnostics operation names absent; at that historical cut Rust
+still retained the temporary
 `run_coding_tool_step_module` operation at that cut, and `command_dispatch.rs`
 had no dispatch arms or response-wrapper error conversions for the retired
 coding/artifact/diagnostics operations. The Rust bridge request/response
@@ -10187,6 +10189,19 @@ control still coordinates current subagent/run mutation facts, and direct
 StepModuleRouter delegation/execution, wallet authority, durable replay/storage,
 and stable SDK/IDE subagent APIs still need to close.
 
+Slice 1285 deletes the empty Rust daemon-core command-protocol substrate. The
+kernel no longer exports `pub mod command_protocol`, and
+`crates/services/src/agentic/runtime/kernel/command_protocol.rs` is absent
+instead of preserving an empty `DAEMON_CORE_OPERATIONS` catalog or
+`CommandEnvelope` validator as terminal scaffolding. Hypervisor conformance now
+uses a virtual retired-marker surface only after proving the source file and
+module export are absent, so old command operation strings, command-dispatch
+arms, bridge binaries, command-env fallbacks, and command-envelope compatibility
+paths cannot return as daemon hot-path authority. This command substrate is
+terminally retired; the broader master guide remains non-terminal until durable
+replay/storage, richer wallet/cTEE authority, model_mount/MCP materialization,
+and stable IDE/CLI/SDK protocol APIs close over Rust-owned records.
+
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,
 `/v1/memory/policy`, `/v1/memory/path`, or `/v1/memory/validate`; the daemon
@@ -10305,9 +10320,9 @@ only the Rust-projected retry result envelope without locally filling missing
 fields. The old JS `diagnosticsRepairRetryResultFromEvent`,
 `diagnosticsOperatorOverrideResultFromEvent`,
 `diagnosticsRepairApplyApprovalKey`, and `diagnosticsRepairExecutionStatus`
-helpers plus the stale daemon constructor wiring are deleted. Rust
-`command_protocol.rs` rejects
-`project_runtime_diagnostics_repair_retry_result` as command transport, and
+helpers plus the stale daemon constructor wiring are deleted.
+Command-protocol source absence keeps
+`project_runtime_diagnostics_repair_retry_result` out of command transport, and
 conformance now guards the positive typed API, the retired helper exports, the
 fail-closed missing/partial projection paths, and the absence of JS
 retry/operator result helper wiring. This removes the diagnostics repair retry

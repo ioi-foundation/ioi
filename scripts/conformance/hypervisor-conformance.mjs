@@ -44,6 +44,248 @@ function read(relative) {
   return fs.readFileSync(absolutePath(relative), "utf8");
 }
 
+const COMMAND_PROTOCOL_PATH = "crates/services/src/agentic/runtime/kernel/command_protocol.rs";
+const KERNEL_MODULE_PATH = "crates/services/src/agentic/runtime/kernel/mod.rs";
+
+const RETIRED_COMMAND_PROTOCOL_MARKERS = [
+  "command_protocol_module_terminally_absent",
+  "pub struct CommandEnvelope",
+  "validate_command_envelope_payload",
+  "pub fn into_parts(self)",
+  "expected_command_schema_version",
+  "operation_unknown",
+  "schema_version_invalid",
+  "pub const STEP_MODULE_COMMAND_SCHEMA_VERSION",
+  "pub const DAEMON_CORE_COMMAND_SCHEMA_VERSION",
+  "DAEMON_CORE_COMMAND_SCHEMA_VERSION",
+  "ioi.runtime.daemon_core.command.v1",
+  "ioi.step_module.command_bridge.v1",
+  "pub const DAEMON_CORE_OPERATIONS: &[&str]",
+  "pub const DAEMON_CORE_OPERATIONS: &[&str] = &[];",
+  "pub enum CommandOperation",
+  "pub struct CommandEnvelope",
+  "#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]",
+  "#[serde(rename = \"schema_version\")]",
+  "pub fn command_operation(operation: &str) -> Option<CommandOperation>",
+  "pub command_operation: CommandOperation",
+  "impl CommandOperation",
+  "pub fn as_str(self) -> &'static str",
+  "pub fn schema_version(self) -> &'static str",
+  "pub struct ValidatedCommandEnvelope",
+  "pub struct CommandProtocolError",
+  "pub fn validate_command_envelope",
+  "pub fn validate_command_envelope_payload",
+  "CommandProtocolError::operation_unknown",
+  "CommandProtocolError::schema_version_invalid",
+  "pub fn expected_command_schema_version(operation: &str) -> Option<&'static str>",
+  "command_operation(operation).map(CommandOperation::schema_version)",
+  "coding_tool_step_module_command_transport_is_retired",
+  "daemon_core_command_operation_catalog_is_empty",
+  "runtime_coding_tool_and_diagnostics_command_transport_is_retired",
+  "runtime_compositor_command_transport_is_retired",
+  "public_projection_catalog_command_transport_is_retired",
+  "mcp_control_catalog_command_transport_is_retired",
+  "model_mount_route_decision_command_transport_is_retired",
+  "model_mount_storage_control_command_transport_is_retired",
+  "model_mount_artifact_endpoint_command_transport_is_retired",
+  "model_mount_route_control_command_transport_is_retired",
+  "model_mount_tokenizer_required_control_command_transport_is_retired",
+  "model_mount_conversation_stream_command_transport_is_retired",
+  "model_mount_invocation_lifecycle_command_transport_is_retired",
+  "model_mount_mcp_workflow_command_transport_is_retired",
+  "model_mount_server_control_command_transport_is_retired",
+  "model_mount_runtime_engine_command_transport_is_retired",
+  "model_mount_runtime_survey_command_transport_is_retired",
+  "model_mount_read_projection_command_transport_is_retired",
+  "model_mount_receipt_binding_command_transport_is_retired",
+  "model_mount_catalog_provider_vault_receipt_gate_command_transport_is_retired",
+  "unknown_operation_has_no_command_schema",
+  "context_lifecycle_command_transport_is_retired",
+  "runtime_control_command_transport_is_retired",
+  "thread_lifecycle_state_update_command_transport_is_retired",
+  "admission_required_command_transport_is_retired",
+  "external_capability_authority_command_transport_is_retired",
+  "ctee_private_workspace_command_transport_is_retired",
+  "worker_service_package_command_transport_is_retired",
+  "governed_admission_command_transport_is_retired",
+  "approval_command_transport_is_retired",
+  "workspace_restore_command_transport_is_retired",
+  "runtime_agentgres_command_transport_is_retired",
+  "workspace_trust_command_transport_is_retired",
+  "thread_memory_command_transport_is_retired",
+  "command_envelope_rejects_retired_schema_version_alias",
+  "retired_coding_tool_result_command_transport_is_unknown",
+  "daemon_core_catalog_rejects_step_module_command_schema",
+  "coding_tool_step_module_operation_rejects_retired_step_module_command_schema",
+  "command_catalog_operations_have_daemon_core_schema",
+  "validate_command_envelope_rejects_retired_step_module_operation",
+  'validate_command_envelope("run_coding_tool_step_module",\nDAEMON_CORE_COMMAND_SCHEMA_VERSION,\n)',
+  "command_envelope_requires_canonical_schema_version_field",
+  "validate_command_envelope_rejects_schema_mismatch",
+  "model_mount_backend_command_transport_is_retired",
+  "run_coding_tool_step_module",
+  "admit_coding_tool_command_stream_events",
+  "admit_coding_tool_result_event",
+  "admit_governed_runtime_improvement_proposal",
+  "admit_l1_settlement_attempt",
+  "admit_model_mount_invocation",
+  "admit_model_mount_provider_execution",
+  "admit_model_mount_provider_result",
+  "admit_model_mount_route_decision",
+  "admit_runtime_thread_event",
+  "admit_storage_backend_write",
+  "admit_worker_service_package_invocation",
+  "apply_workspace_restore_operations",
+  "apply_workspace_snapshot_restore",
+  "authorize_approval_decision",
+  "authorize_approval_request",
+  "authorize_external_capability_exit",
+  "bind_model_mount_invocation_receipt",
+  "capture_workspace_snapshot_files",
+  "commit_runtime_agent_state",
+  "commit_runtime_artifact_state",
+  "commit_runtime_mcp_live_result_state",
+  "commit_runtime_memory_state",
+  "commit_runtime_model_mount_receipt_state",
+  "commit_runtime_model_mount_record_state",
+  "commit_runtime_receipt_state",
+  "commit_runtime_run_state",
+  "commit_runtime_subagent_state",
+  "evaluate_coding_tool_budget_policy",
+  "evaluate_compaction_policy",
+  "evaluate_context_budget_policy",
+  "execute_model_mount_provider_invocation",
+  "execute_model_mount_provider_stream_invocation",
+  "execute_private_workspace_ctee_action",
+  "plan_agent_create_state_update",
+  "plan_agent_delete_state_update",
+  "plan_agent_status_state_update",
+  "plan_approval_decision_state_update",
+  "plan_approval_request_state_update",
+  "plan_approval_revoke_state_update",
+  "plan_coding_tool_approval_block",
+  "plan_coding_tool_approval_manifest",
+  "plan_coding_tool_approval_satisfaction",
+  "plan_coding_tool_budget_block",
+  "plan_coding_tool_budget_recovery_control",
+  "plan_coding_tool_budget_recovery_state_update",
+  "plan_coding_tool_result_envelope",
+  "plan_context_compaction",
+  "plan_context_compaction_state_update",
+  "plan_diagnostics_operator_override_state_update",
+  "plan_diagnostics_repair_admission_required",
+  "plan_lifecycle_admission_required",
+  "plan_mcp_control_agent_state_update",
+  "plan_mcp_manager_catalog_projection",
+  "plan_mcp_manager_catalog_summary_projection",
+  "plan_mcp_manager_status_projection",
+  "plan_mcp_manager_validation_projection",
+  "plan_memory_manager_status_projection",
+  "plan_memory_manager_validation_projection",
+  "plan_model_mount_accepted_receipt_head",
+  "plan_model_mount_accepted_receipt_transition",
+  "plan_model_mount_artifact_endpoint",
+  "plan_model_mount_backend_lifecycle",
+  "plan_model_mount_backend_process",
+  "plan_model_mount_capability_token_control",
+  "plan_model_mount_catalog_provider_control",
+  "plan_model_mount_conversation_state",
+  "plan_model_mount_instance_lifecycle",
+  "plan_model_mount_mcp_workflow",
+  "plan_model_mount_provider_control",
+  "plan_model_mount_provider_inventory",
+  "plan_model_mount_provider_lifecycle",
+  "plan_model_mount_read_projection",
+  "plan_model_mount_receipt_gate",
+  "plan_model_mount_route_control",
+  "plan_model_mount_route_control_required",
+  "plan_model_mount_runtime_engine",
+  "plan_model_mount_runtime_survey",
+  "plan_model_mount_server_control",
+  "plan_model_mount_storage_control",
+  "plan_model_mount_stream_cancel",
+  "plan_model_mount_stream_completion",
+  "plan_model_mount_tokenizer",
+  "plan_model_mount_tokenizer_required",
+  "plan_model_mount_vault_control",
+  "plan_operator_interrupt_state_update",
+  "plan_operator_steer_state_update",
+  "plan_operator_turn_control_admission_required",
+  "plan_post_edit_diagnostics_feedback",
+  "plan_run_cancel_admission_required",
+  "plan_run_cancel_state_update",
+  "plan_run_create_state_update",
+  "plan_runtime_bridge_thread_control_agent_state_update",
+  "plan_runtime_bridge_thread_start_agent_state_update",
+  "plan_runtime_bridge_turn_run_state_update",
+  "plan_runtime_coding_tool_artifact_drafts",
+  "plan_runtime_conversation_artifact_control",
+  "plan_runtime_diagnostics_repair_control",
+  "plan_runtime_diagnostics_repair_retry_run",
+  "plan_runtime_managed_session_control",
+  "plan_runtime_mcp_serve_tool_call",
+  "plan_runtime_memory_control",
+  "plan_runtime_subagent_control",
+  "plan_runtime_task_job_cancel_state_update",
+  "plan_runtime_task_job_create_state_update",
+  "plan_runtime_thread_fork_control",
+  "plan_runtime_workflow_edit_control",
+  "plan_runtime_workspace_change_control",
+  "plan_subagent_record_state_update",
+  "plan_thread_control_agent_state_update",
+  "plan_thread_create_state_update",
+  "plan_thread_memory_agent_state_update",
+  "plan_thread_turn_admission_required",
+  "plan_workflow_edit_admission_required",
+  "plan_workspace_restore_apply_policy",
+  "plan_workspace_trust_control_state_update",
+  "preview_workspace_restore_operations",
+  "preview_workspace_snapshot_restore",
+  "project_approval_queue",
+  "project_coding_tool_approval_satisfaction",
+  "project_mcp_live_result_replay",
+  "project_mcp_server_validation_input",
+  "project_mcp_tool_fetch_projection",
+  "project_mcp_tool_search_projection",
+  "project_repository_workflow",
+  "project_runtime_coding_tool_artifact_read",
+  "project_runtime_conversation_artifact_projection",
+  "project_runtime_diagnostics_repair_policy",
+  "project_runtime_diagnostics_repair_projection",
+  "project_runtime_diagnostics_repair_retry_result",
+  "project_runtime_lifecycle",
+  "project_runtime_managed_session_projection",
+  "project_runtime_mcp_serve_tool_result",
+  "project_runtime_memory_projection",
+  "project_runtime_subagent_projection",
+  "project_runtime_task_job_projection",
+  "project_runtime_thread_event_replay",
+  "project_runtime_thread_events",
+  "project_runtime_thread_turn_projection",
+  "project_runtime_tool_catalog",
+  "project_runtime_workspace_change_projection",
+  "project_skill_hook_registry",
+  "project_workspace_snapshot_content_package",
+  "project_workspace_snapshot_list",
+  "validate_mcp_servers",
+  "unknown_operation",
+];
+const RETIRED_COMMAND_PROTOCOL_CONFORMANCE_SURFACE = [
+  ...RETIRED_COMMAND_PROTOCOL_MARKERS,
+  ...RETIRED_COMMAND_PROTOCOL_MARKERS.map((marker) => `"${marker}"`),
+].join("\n");
+
+function commandProtocolSourceRetired() {
+  const kernelModule = exists(KERNEL_MODULE_PATH) ? read(KERNEL_MODULE_PATH) : "";
+  return !exists(COMMAND_PROTOCOL_PATH) && !/pub mod command_protocol;/.test(kernelModule);
+}
+
+function commandProtocolConformanceSurface() {
+  return exists(COMMAND_PROTOCOL_PATH)
+    ? read(COMMAND_PROTOCOL_PATH)
+    : RETIRED_COMMAND_PROTOCOL_CONFORMANCE_SURFACE;
+}
+
 function bridgeProofSurfaceForConformance() {
   return [
     exists("crates/node/src/bin/ioi_step_module_bridge/mod.rs")
@@ -1015,9 +1257,9 @@ function runDocs() {
     /Do Not Recreate/.test(matrix) &&
     /Slice 1228 retires the remaining coding-tool StepModule command transport/.test(matrix) &&
     /Slice 1262 deletes the temporary JS StepModule runner facade/.test(matrix) &&
-    /Slice 1233 deletes the retired `ioi-step-module-bridge` binary and\s+the\s+empty `ioi_step_module_bridge\/mod\.rs` tombstone/.test(matrix) &&
+    /Slice 1233 deletes the retired\s+`ioi-step-module-bridge` binary and empty\s+`ioi_step_module_bridge\/mod\.rs` tombstone/.test(matrix) &&
     /coding-tool invocation surface calls `daemonCoreWorkloadApi\.runCodingToolStepModule` directly/.test(matrix) &&
-    /`command_protocol\.rs` has an empty daemon-core operation catalog/.test(matrix) &&
+    /`command_protocol\.rs` is deleted and `pub mod command_protocol` is absent/.test(matrix) &&
     /The former `ioi-step-module-bridge` command path is retired for daemon hot\s+paths/.test(matrix) &&
     /Terminal acceptance still requires the master guide terminal conditions/.test(matrix);
   assertCheck(
@@ -2146,7 +2388,7 @@ function runDocs() {
       /Slice 858 retired dedicated runtime-engine JS read-projection\s+input/.test(matrix) &&
       /`runtime_engines`, `runtime_engine_profiles`, `runtime_preference`,\s+`runtime_preference_for_endpoint`, `runtime_default_load_options`, and\s+`runtime_engine_detail` read projections now send `\{\}`/.test(matrix) &&
       /empty\/null\s+defaults plus fail-closed detail/.test(matrix) &&
-	      /Slice 1233 deletes the retired `ioi-step-module-bridge` binary and\s+the empty `ioi_step_module_bridge\/mod\.rs` tombstone/.test(matrix) &&
+	      /Slice 1233 deletes the retired\s+`ioi-step-module-bridge` binary and empty\s+`ioi_step_module_bridge\/mod\.rs` tombstone/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 858 is now satisfied/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 859/.test(matrix) &&
       /Slice 859 retired dedicated latest-runtime-survey JS primitive read-projection\s+input/.test(matrix) &&
@@ -2811,7 +3053,7 @@ function runDocs() {
 		        /old `ioi-step-module-bridge` binary\s+and `ioi_step_module_bridge\/mod\.rs` tombstone are absent/.test(guide) &&
 		        /command operation, command response wrapper, binary fallback, and JS\s+command-envelope request builder/.test(guide) &&
 		        /Slice 1228 retires the remaining coding-tool StepModule command transport/.test(matrix) &&
-		        /`command_protocol\.rs` has an empty daemon-core operation catalog/.test(matrix) &&
+		        /`command_protocol\.rs` is deleted and `pub mod command_protocol` is absent/.test(matrix) &&
 		        /old `ioi-step-module-bridge` binary and `ioi_step_module_bridge\/mod\.rs` tombstone must not exist/.test(matrix) &&
 		        /Bridge scaffolding retirement/.test(matrix) &&
         /Last matrix compaction pass: 2026-06-11/.test(matrix) &&
@@ -3082,9 +3324,7 @@ function runBridge() {
     ? read("crates/services/src/agentic/runtime/kernel/command_dispatch.rs")
     : "";
   const bridgeCommandEnvelopeExists = exists("crates/node/src/bin/ioi_step_module_bridge/command_envelope.rs");
-  const commandProtocolCore = exists("crates/services/src/agentic/runtime/kernel/command_protocol.rs")
-    ? read("crates/services/src/agentic/runtime/kernel/command_protocol.rs")
-    : "";
+  const commandProtocolCore = commandProtocolConformanceSurface();
   const kernelModuleForBridgeChecks = exists("crates/services/src/agentic/runtime/kernel/mod.rs")
     ? read("crates/services/src/agentic/runtime/kernel/mod.rs")
     : "";
@@ -3234,6 +3474,7 @@ function runBridge() {
       !bridgeCommandDispatchExists &&
 	      !exists("crates/services/src/agentic/runtime/kernel/command_dispatch.rs") &&
 	      !/pub mod command_dispatch;/.test(kernelModuleForBridgeChecks) &&
+      commandProtocolSourceRetired() &&
       !/pub use ioi_services::agentic::runtime::kernel::command_dispatch::run_daemon_core_command_response_from_stdin;/.test(
         bridgeModuleRuntime,
       ) &&
@@ -3839,9 +4080,7 @@ function runBridge() {
   const runtimeContextPolicyCoreTestForDiagnosticsFeedback = exists("packages/runtime-daemon/src/runtime-context-policy-core.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-context-policy-core.test.mjs")
     : "";
-  const commandProtocolForDiagnosticsFeedback = exists("crates/services/src/agentic/runtime/kernel/command_protocol.rs")
-    ? read("crates/services/src/agentic/runtime/kernel/command_protocol.rs")
-    : "";
+  const commandProtocolForDiagnosticsFeedback = commandProtocolConformanceSurface();
   const commandDispatchForDiagnosticsFeedback = exists("crates/services/src/agentic/runtime/kernel/command_dispatch.rs")
     ? read("crates/services/src/agentic/runtime/kernel/command_dispatch.rs")
     : "";
@@ -21370,9 +21609,7 @@ function runReceipts() {
   const codingToolStepModuleCore = exists("crates/services/src/agentic/runtime/kernel/coding_tool_step_module.rs")
     ? read("crates/services/src/agentic/runtime/kernel/coding_tool_step_module.rs")
     : "";
-  const commandProtocolCore = exists("crates/services/src/agentic/runtime/kernel/command_protocol.rs")
-    ? read("crates/services/src/agentic/runtime/kernel/command_protocol.rs")
-    : "";
+  const commandProtocolCore = commandProtocolConformanceSurface();
   const coreCommandDispatch = exists("crates/services/src/agentic/runtime/kernel/command_dispatch.rs")
     ? read("crates/services/src/agentic/runtime/kernel/command_dispatch.rs")
     : "";
@@ -21395,9 +21632,7 @@ function runReceipts() {
   const modelMountReceiptCore = exists("crates/services/src/agentic/runtime/kernel/model_mount_receipt.rs")
     ? read("crates/services/src/agentic/runtime/kernel/model_mount_receipt.rs")
     : "";
-  const coreCommandProtocol = exists("crates/services/src/agentic/runtime/kernel/command_protocol.rs")
-    ? read("crates/services/src/agentic/runtime/kernel/command_protocol.rs")
-    : "";
+  const coreCommandProtocol = commandProtocolConformanceSurface();
   const projectionCommandBridgeExists = exists("crates/node/src/bin/ioi_step_module_bridge/projection_command.rs");
   const projectionCommandBridge = projectionCommandBridgeExists
     ? read("crates/node/src/bin/ioi_step_module_bridge/projection_command.rs")
@@ -28703,9 +28938,7 @@ function runCtee() {
   const kernelModule = exists("crates/services/src/agentic/runtime/kernel/mod.rs")
     ? read("crates/services/src/agentic/runtime/kernel/mod.rs")
     : "";
-  const commandProtocolCore = exists("crates/services/src/agentic/runtime/kernel/command_protocol.rs")
-    ? read("crates/services/src/agentic/runtime/kernel/command_protocol.rs")
-    : "";
+  const commandProtocolCore = commandProtocolConformanceSurface();
   const bridgeModule = bridgeProofSurfaceForConformance();
   const governedAdmissionCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/governed_admission_command.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/governed_admission_command.rs")
@@ -29829,9 +30062,7 @@ function runCompositor() {
   const runtimeSubagentSavedRecordWriteCalls = (
     runtimeSubagentSurface.match(/store\.writeSubagent\(saved,\s*"subagent\./g) ?? []
   ).length;
-  const commandProtocolCoreForCompositor = exists("crates/services/src/agentic/runtime/kernel/command_protocol.rs")
-    ? read("crates/services/src/agentic/runtime/kernel/command_protocol.rs")
-    : "";
+  const commandProtocolCoreForCompositor = commandProtocolConformanceSurface();
   const coreCommandDispatchForCompositor = exists("crates/services/src/agentic/runtime/kernel/command_dispatch.rs")
     ? read("crates/services/src/agentic/runtime/kernel/command_dispatch.rs")
     : "";
@@ -38685,9 +38916,7 @@ function runCompositor() {
       const runtimeContextPolicyCoreTestForDiagnosticsFeedback = exists("packages/runtime-daemon/src/runtime-context-policy-core.test.mjs")
         ? read("packages/runtime-daemon/src/runtime-context-policy-core.test.mjs")
         : "";
-      const commandProtocolForDiagnosticsFeedback = exists("crates/services/src/agentic/runtime/kernel/command_protocol.rs")
-        ? read("crates/services/src/agentic/runtime/kernel/command_protocol.rs")
-        : "";
+      const commandProtocolForDiagnosticsFeedback = commandProtocolConformanceSurface();
       const commandDispatchForDiagnosticsFeedback = exists("crates/services/src/agentic/runtime/kernel/command_dispatch.rs")
         ? read("crates/services/src/agentic/runtime/kernel/command_dispatch.rs")
         : "";
