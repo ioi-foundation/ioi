@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import * as defaultRecords from "./default-records.mjs";
 import {
-  backendRegistryRecords,
   defaultRouteRecords,
   localFixtureArtifactRecords,
   localFixtureEndpointRecord,
@@ -74,56 +74,6 @@ test("default artifact, endpoint, and route records preserve compatibility ids",
   assert.deepEqual(routes[1].deniedProviders, ["openai", "anthropic", "gemini", "lm_studio"]);
 });
 
-test("default backend registry records ignore JS provider-map projection", () => {
-  const previousOpenAiBaseUrl = process.env.OPENAI_COMPATIBLE_BASE_URL;
-  const previousOllamaHost = process.env.OLLAMA_HOST;
-  const previousVllmBaseUrl = process.env.VLLM_BASE_URL;
-  delete process.env.OPENAI_COMPATIBLE_BASE_URL;
-  delete process.env.OLLAMA_HOST;
-  delete process.env.VLLM_BASE_URL;
-  const providers = {
-    get() {
-      throw new Error("backend registry records must not read JS provider inventory");
-    },
-  };
-  try {
-    const backends = backendRegistryRecords({
-      checkedAt,
-      hardware: { gpu: "none" },
-      llamaBinary: "/opt/llama-server",
-      ollamaBinary: "/opt/ollama",
-      providers,
-      vllmBinary: "/opt/vllm",
-    });
-
-    assert.equal(backends.find((backend) => backend.id === "backend.fixture").status, "available");
-    assert.equal(backends.find((backend) => backend.id === "backend.llama-cpp").processStatus, "binary_configured");
-    assert.equal(backends.find((backend) => backend.id === "backend.lmstudio").status, "projection_required");
-    assert.equal(backends.find((backend) => backend.id === "backend.lmstudio").binaryPath, null);
-    assert.equal(backends.find((backend) => backend.id === "backend.openai-compatible").baseUrl, null);
-    assert.equal(backends.find((backend) => backend.id === "backend.ollama").processStatus, "binary_configured");
-    assert.equal(backends.find((backend) => backend.id === "backend.ollama").baseUrl, "http://127.0.0.1:11434");
-    assert.equal(backends.find((backend) => backend.id === "backend.vllm").status, "configured");
-    assert.equal(backends.find((backend) => backend.id === "backend.vllm").processStatus, "binary_configured");
-    assert.equal(
-      backends.find((backend) => backend.id === "backend.ollama").evidenceRefs.includes("backend_registry_provider_map_readback_retired"),
-      true,
-    );
-  } finally {
-    if (previousOpenAiBaseUrl === undefined) {
-      delete process.env.OPENAI_COMPATIBLE_BASE_URL;
-    } else {
-      process.env.OPENAI_COMPATIBLE_BASE_URL = previousOpenAiBaseUrl;
-    }
-    if (previousOllamaHost === undefined) {
-      delete process.env.OLLAMA_HOST;
-    } else {
-      process.env.OLLAMA_HOST = previousOllamaHost;
-    }
-    if (previousVllmBaseUrl === undefined) {
-      delete process.env.VLLM_BASE_URL;
-    } else {
-      process.env.VLLM_BASE_URL = previousVllmBaseUrl;
-    }
-  }
+test("default JS backend registry record factory stays retired", () => {
+  assert.equal(Object.hasOwn(defaultRecords, "backendRegistryRecords"), false);
 });

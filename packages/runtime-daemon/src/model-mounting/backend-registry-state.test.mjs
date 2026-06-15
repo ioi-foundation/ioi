@@ -4,19 +4,18 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import {
+import * as backendRegistryState from "./backend-registry-state.mjs";
+
+const {
   backendProcessForBackend,
-  deriveBackendRegistry,
   listBackendProcesses,
   reconciledBackendProcess,
-  seedBackends,
   writeBackendLog,
-} from "./backend-registry-state.mjs";
+} = backendRegistryState;
 
 function fakeState() {
   return {
     backendProcesses: new Map(),
-    backends: new Map(),
     bootId: "boot.current",
     homeDir: "/home/test",
     providers: {
@@ -32,9 +31,6 @@ function fakeState() {
     backendProcessForBackend(backendId) {
       return backendProcessForBackend(this, backendId);
     },
-    deriveBackendRegistry(checkedAt) {
-      return deriveBackendRegistry(this, checkedAt, deps);
-    },
     listBackendProcesses() {
       return listBackendProcesses(this);
     },
@@ -45,42 +41,9 @@ function fakeState() {
 }
 
 const deps = {
-  backendRegistryRecords(request) {
-    assert.equal(Object.hasOwn(request, "providers"), false);
-    const { checkedAt, hardware, llamaBinary, ollamaBinary, vllmBinary } = request;
-    return [
-      {
-        id: "backend.llama_cpp",
-        checkedAt,
-        hardware,
-        binary: llamaBinary,
-        evidenceRefs: ["derived"],
-      },
-      {
-        id: "backend.ollama",
-        checkedAt,
-        binary: ollamaBinary,
-      },
-      {
-        id: "backend.vllm",
-        checkedAt,
-        binary: vllmBinary,
-      },
-    ];
-  },
-  discoverAutopilotLlamaServer(homeDir) {
-    return `${homeDir}/bin/llama-server`;
-  },
-  findExecutable(name) {
-    return `/usr/bin/${name}`;
-  },
-  hardwareSnapshot() {
-    return { gpu: "fixture" };
-  },
   normalizeScopes(value, fallback = []) {
     return Array.isArray(value) ? value : fallback;
   },
-  processEnv: {},
   randomUUID() {
     return "uuid-1";
   },
@@ -92,45 +55,9 @@ const deps = {
   },
 };
 
-test("deriveBackendRegistry uses environment override, discovery, executables, and hardware without provider inventory", () => {
-  const state = fakeState();
-
-  const derived = deriveBackendRegistry(state, "2026-06-04T05:00:00.000Z", {
-    ...deps,
-    processEnv: { IOI_LLAMA_CPP_SERVER_PATH: "/custom/llama-server" },
-  });
-
-  assert.equal(derived[0].binary, "/custom/llama-server");
-  assert.deepEqual(derived[0].hardware, { gpu: "fixture" });
-  assert.equal(derived[1].binary, "/usr/bin/ollama");
-  assert.equal(derived[2].binary, "/usr/bin/vllm");
-});
-
-test("seedBackends fails closed before JS backend map mutation", () => {
-  const state = fakeState();
-  state.backends.set("backend.llama_cpp", { id: "backend.llama_cpp", status: "custom" });
-
-  assert.throws(
-    () => seedBackends(state, "2026-06-04T05:00:00.000Z"),
-    (error) => {
-      assert.equal(error.status, 501);
-      assert.equal(error.code, "model_mount_backend_projection_rust_core_required");
-      assert.equal(error.details.rust_core_boundary, "model_mount.backend_projection");
-      assert.equal(error.details.operation_kind, "model_mount.backend.seed");
-      assert.equal(error.details.checked_at, "2026-06-04T05:00:00.000Z");
-      assert.deepEqual(error.details.evidence_refs, [
-        "model_mount_backend_seed_js_map_write_retired",
-        "rust_daemon_core_backend_projection_required",
-        "agentgres_backend_projection_truth_required",
-      ]);
-      assert.equal(Object.hasOwn(error.details, "operationKind"), false);
-      assert.equal(Object.hasOwn(error.details, "checkedAt"), false);
-      return true;
-    },
-  );
-  assert.deepEqual([...state.backends.entries()], [
-    ["backend.llama_cpp", { id: "backend.llama_cpp", status: "custom" }],
-  ]);
+test("backend registry JS derivation and seeding exports stay retired", () => {
+  assert.equal(Object.hasOwn(backendRegistryState, "deriveBackendRegistry"), false);
+  assert.equal(Object.hasOwn(backendRegistryState, "seedBackends"), false);
 });
 
 test("listBackendProcesses reconciles stale boot records and backendProcessForBackend returns newest", () => {

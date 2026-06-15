@@ -101,7 +101,6 @@ export class AgentgresModelMountingStore {
       "model-instances",
       "model-routes",
       "model-providers",
-      "model-backends",
       "backend-processes",
       "model-downloads",
       "model-catalog-providers",

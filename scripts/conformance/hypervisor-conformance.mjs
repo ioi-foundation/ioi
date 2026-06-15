@@ -1303,9 +1303,9 @@ function runDocs() {
       /`ollamaCatalogProviderPort\(\)` no longer\s+reads `state\.providers\.get\("provider\.ollama"\)`/.test(guide) &&
       /At that slice, its port-local health\/search metadata was only a\s+gated Rust-core-required migration placeholder/.test(guide) &&
       /Slice 910 later deleted that\s+port helper surface entirely/.test(guide) &&
-      /Slice 846 retired backend-registry provider-map readback/.test(guide) &&
-      /`deriveBackendRegistry\(\)` no longer passes `state\.providers` into\s+`backendRegistryRecords\(\)`/.test(guide) &&
-      /provider-map records can no longer\s+become backend lifecycle\/projection truth/.test(guide) &&
+      /Slice 1266 hard-retires backend registry derivation and seeding/.test(guide) &&
+      /`deriveBackendRegistry\(\)`, `seedBackends\(\)`, and\s+`backendRegistryRecords\(\)` are absent/.test(guide) &&
+      /backend metadata can no longer become backend lifecycle\/projection truth/.test(guide) &&
       /Slice 847 retired JS provider-status summaries from server-status projection\s+input/.test(guide) &&
       /`serverStatusProjectionInput\(\)` no longer reads `state\.providers\.values\(\)`/.test(guide) &&
       /Direct Rust daemon-core\s+server-control\/provider projection must own provider-state counts/.test(guide) &&
@@ -2053,9 +2053,9 @@ function runDocs() {
       /`ollama_catalog_provider_map_readback_retired` evidence/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 845 is now satisfied/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 846/.test(matrix) &&
-      /Slice 846 retired backend-registry provider-map readback/.test(matrix) &&
-      /`deriveBackendRegistry\(\)` no longer passes `state\.providers` into\s+`backendRegistryRecords\(\)`/.test(matrix) &&
-      /Focused tests install\s+poisonous provider maps at both the default-record and derivation boundaries/.test(matrix) &&
+      /backend registry derivation\/seeding JS facade deletion cut/.test(matrix) &&
+      /`deriveBackendRegistry\(\)`, `seedBackends\(\)`, the JS `backendRegistryRecords\(\)` default factory/.test(matrix) &&
+      /cannot re-enter as fixture-carried, default-seeded, or fail-closed JS truth/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 846 is now satisfied/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 847/.test(matrix) &&
       /Slice 847 retired JS provider-status summaries from server-status projection\s+input/.test(matrix) &&
@@ -21500,7 +21500,7 @@ function runReceipts() {
     modelMountingState.match(/\n\s+backend\(backendId\) \{[\s\S]*?\n\s+\}/)?.[0] ?? "",
     modelMountingState.match(/\n\s+listBackends\(\) \{[\s\S]*?\n\s+\}/)?.[0] ?? "",
     modelMountingState.match(/\n\s+ensureBackendProcess\(backendId,[\s\S]*?\n\s+writeBackendLog\(endpointId, event\) \{/)?.[0] ?? "",
-    modelMountingState.match(/function throwBackendLifecycleRustCoreRequired\(record = \{\}\) \{[\s\S]*?\n\}\n\nfunction commitBackendLifecycleForState\(state, operation_kind, details = \{\}\) \{[\s\S]*?\n\}\n\nfunction backendLifecycleControlBody\(value = \{\}\) \{[\s\S]*?\n\}\n\nfunction throwBackendProjectionRustCoreRequired\(operation_kind\) \{[\s\S]*?\n\}\n\nfunction backendProcessSupervisorRetiredError\(operation_kind, backend = \{\}, details = \{\}\) \{[\s\S]*?\n\}\n\nfunction throwBackendProcessSupervisorRetired\(operation_kind, backend, details = \{\}\) \{[\s\S]*?\n\}/)?.[0] ?? "",
+    modelMountingState.match(/function throwBackendLifecycleRustCoreRequired\(record = \{\}\) \{[\s\S]*?\n\}\n\nfunction commitBackendLifecycleForState\(state, operation_kind, details = \{\}\) \{[\s\S]*?\n\}\n\nfunction backendLifecycleControlBody\(value = \{\}\) \{[\s\S]*?\n\}\n\nfunction backendProcessSupervisorRetiredError\(operation_kind, backend = \{\}, details = \{\}\) \{[\s\S]*?\n\}\n\nfunction throwBackendProcessSupervisorRetired\(operation_kind, backend, details = \{\}\) \{[\s\S]*?\n\}/)?.[0] ?? "",
   ].join("\n");
   const backendLifecycleTest = exists("packages/runtime-daemon/src/model-mounting/backend-lifecycle.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/backend-lifecycle.test.mjs")
@@ -25646,7 +25646,9 @@ function runReceipts() {
       !/state\.backendProcesses\.set/.test(backendLifecycle) &&
       !/state\.backendChildProcesses/.test(backendLifecycle) &&
       /model_mount_backend_log_js_writer_retired/.test(backendRegistryState) &&
-      /model_mount_backend_seed_js_map_write_retired/.test(backendRegistryState) &&
+      !/export function seedBackends/.test(backendRegistryState) &&
+      !/export function deriveBackendRegistry/.test(backendRegistryState) &&
+      !/backendRegistryRecords/.test(backendRegistryState) &&
       /persistenceStatus:\s*"not_persisted"/.test(backendRegistryState) &&
       !/from "node:fs"|from "node:path"|appendFileSync|backend-logs/.test(backendRegistryState) &&
       !/providers:\s*state\.providers/.test(backendRegistryState) &&
@@ -25655,9 +25657,15 @@ function runReceipts() {
       !/state\.backends\.entries/.test(backendRegistryState) &&
       !/state\.backendProcessForBackend\(backend\.id\)/.test(backendRegistryState) &&
       !/state\.seedBackends\(checkedAt\)/.test(stateSeeding) &&
+      !/seedBackends\(checkedAt\)\s*\{/.test(modelMountingState) &&
+      !/deriveBackendRegistry\(checkedAt\)\s*\{/.test(modelMountingState) &&
+      !/this\.backends\s*=/.test(modelMountingState) &&
       !/providers\.get\("provider\.(?:lmstudio|openai-compatible|ollama|vllm)"\)/.test(defaultRecords) &&
-      /backend_registry_provider_map_readback_retired/.test(defaultRecords) &&
-      /rust_daemon_core_backend_projection_required/.test(defaultRecords) &&
+      !/export function backendRegistryRecords/.test(defaultRecords) &&
+      !/backend_registry_provider_map_readback_retired/.test(defaultRecords) &&
+      !/rust_daemon_core_backend_projection_required/.test(defaultRecords) &&
+      !/\["model-backends",\s*"backends"\]/.test(read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs")) &&
+      !/"model-backends"/.test(modelMountStore) &&
       /backendRegistry\(\)\s*\{[\s\S]*?return this\.readProjectionFacade\.listBackends\(this\)/.test(
         backendLifecycle,
       ) &&
@@ -25688,15 +25696,15 @@ function runReceipts() {
       !/listBackends\(\)\s*\{[\s\S]*?return this\.backendRegistry\(\)/.test(backendLifecycle) &&
       /url\.pathname === "\/api\/v1\/backends"[\s\S]*?mounts\.listBackends\(\)/.test(runtimeRouteHandlers) &&
       /url\.pathname === "\/api\/v1\/models\/backends"[\s\S]*?mounts\.listBackends\(\)/.test(runtimeRouteHandlers) &&
-      /default backend registry records ignore JS provider-map projection/.test(defaultRecordsTest) &&
-      /backend registry records must not read JS provider inventory/.test(defaultRecordsTest) &&
-      /deriveBackendRegistry uses environment override, discovery, executables, and hardware without provider inventory/.test(
+      /default JS backend registry record factory stays retired/.test(defaultRecordsTest) &&
+      /Object\.hasOwn\(defaultRecords,\s*"backendRegistryRecords"\),\s*false/.test(defaultRecordsTest) &&
+      /backend registry JS derivation and seeding exports stay retired/.test(
         backendRegistryStateTest,
       ) &&
-      /deriveBackendRegistry must not read JS provider inventory/.test(backendRegistryStateTest) &&
-      /Object\.hasOwn\(request,\s*"providers"\),\s*false/.test(backendRegistryStateTest) &&
-      /seedBackends fails closed before JS backend map mutation/.test(backendRegistryStateTest) &&
-      /state\.backends\.set\("backend\.llama_cpp"/.test(backendRegistryStateTest) &&
+      /Object\.hasOwn\(backendRegistryState,\s*"deriveBackendRegistry"\),\s*false/.test(backendRegistryStateTest) &&
+      /Object\.hasOwn\(backendRegistryState,\s*"seedBackends"\),\s*false/.test(backendRegistryStateTest) &&
+      /Object\.hasOwn\(ModelMountingState\.prototype,\s*"seedBackends"\),\s*false/.test(backendLifecycleTest) &&
+      /Object\.hasOwn\(ModelMountingState\.prototype,\s*"deriveBackendRegistry"\),\s*false/.test(backendLifecycleTest) &&
       /writeBackendLog returns redacted telemetry without local backend log files/.test(backendRegistryStateTest) &&
       /existsSync\(endpointLog\),\s*false/.test(backendRegistryStateTest) &&
       /existsSync\(backendLog\),\s*false/.test(backendRegistryStateTest) &&
@@ -25785,6 +25793,10 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/backend-lifecycle.test.mjs",
       "packages/runtime-daemon/src/model-mounting/backend-registry-state.mjs",
       "packages/runtime-daemon/src/model-mounting/backend-registry-state.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/default-records.mjs",
+      "packages/runtime-daemon/src/model-mounting/default-records.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/state-persistence.mjs",
+      "packages/runtime-daemon/src/model-mounting/store.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/model-mount-core.mjs",
       "packages/runtime-daemon/src/model-mounting/model-mount-core.test.mjs",

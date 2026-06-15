@@ -41,10 +41,8 @@ import {
 } from "./model-mounting/state-accessors.mjs";
 import {
   backendProcessForBackend as backendProcessForBackendState,
-  deriveBackendRegistry as deriveBackendRegistryState,
   listBackendProcesses as listBackendProcessesState,
   reconciledBackendProcess as reconciledBackendProcessState,
-  seedBackends as seedBackendsState,
   writeBackendLog as writeBackendLogState,
 } from "./model-mounting/backend-registry-state.mjs";
 import { discoverAutopilotLlamaServer, llamaCppLibraryPathEnv } from "./model-mounting/local-runtime-engines.mjs";
@@ -119,7 +117,6 @@ import {
   internalFixtureModelsEnabled,
 } from "./model-mounting/environment.mjs";
 import {
-  backendRegistryRecords,
   defaultRouteRecords,
   localFixtureArtifactRecords,
   localFixtureEndpointRecord,
@@ -436,7 +433,6 @@ export class ModelMountingState {
       materialAdapter: configuredVaultMaterialAdapter({ now: this.now }),
     });
     this.providers = new Map();
-    this.backends = new Map();
     this.backendChildProcesses = new Map();
     this.backendProcesses = new Map();
     this.artifacts = new Map();
@@ -1857,22 +1853,8 @@ export class ModelMountingState {
     return this.now().toISOString();
   }
 
-  seedBackends(checkedAt) {
-    return seedBackendsState(this, checkedAt);
-  }
-
   backendRegistry() {
     return this.readProjectionFacade.listBackends(this);
-  }
-
-  deriveBackendRegistry(checkedAt) {
-    return deriveBackendRegistryState(this, checkedAt, {
-      backendRegistryRecords,
-      discoverAutopilotLlamaServer,
-      findExecutable,
-      hardwareSnapshot,
-      processEnv: process.env,
-    });
   }
 
   listBackends() {
@@ -2313,23 +2295,6 @@ function backendLifecycleControlBody(value = {}) {
     if (Object.hasOwn(source, field) && source[field] !== undefined) body[field] = source[field];
   }
   return body;
-}
-
-function throwBackendProjectionRustCoreRequired(operation_kind) {
-  throw runtimeError({
-    status: 501,
-    code: "model_mount_backend_projection_rust_core_required",
-    message: "Backend projection readback requires Rust daemon-core model_mount projection ownership.",
-    details: {
-      operation_kind,
-      rust_core_boundary: "model_mount.backend_projection",
-      evidence_refs: [
-        "public_backend_projection_js_facade_retired",
-        "rust_daemon_core_backend_projection_required",
-        "agentgres_backend_projection_truth_required",
-      ],
-    },
-  });
 }
 
 function throwServerControlRustCoreRequired(record = {}) {

@@ -401,6 +401,8 @@ test("mounted backend registry delegates to Rust projection without JS registry 
       return rustBackends;
     },
   };
+  assert.equal(Object.hasOwn(ModelMountingState.prototype, "seedBackends"), false);
+  assert.equal(Object.hasOwn(ModelMountingState.prototype, "deriveBackendRegistry"), false);
   state.deriveBackendRegistry = () => {
     throw new Error("backendRegistry must not derive JS backend truth");
   };

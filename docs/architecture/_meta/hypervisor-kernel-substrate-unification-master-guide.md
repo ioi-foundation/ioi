@@ -1765,14 +1765,12 @@ daemon-core model_mount/catalog-provider projection, not JS provider-map status
 readback, JS port health metadata, or bridge-owned authority.
 
 Slice 846 retired backend-registry provider-map readback from derived backend
-records. `deriveBackendRegistry()` no longer passes `state.providers` into
-`backendRegistryRecords()`, and the default backend registry no longer reads
-LM Studio, OpenAI-compatible, Ollama, or vLLM provider records to project backend
-status, base URLs, or public-CLI binary paths. Backend records may still expose
-env/binary-gated migration metadata, but provider-map records can no longer
-become backend lifecycle/projection truth; direct Rust daemon-core backend and
-provider projection APIs must own admitted backend/provider truth before the
-terminal pure Rust substrate target is met.
+records. Slice 1266 hard-retires backend registry derivation and seeding as a JS
+truth path: `deriveBackendRegistry()`, `seedBackends()`, and
+`backendRegistryRecords()` are absent from the mounted model_mount state and JS
+default records. Backend projection truth now enters through Rust read-projection
+kind `backends` over Agentgres-admitted lifecycle records; env/binary-gated JS
+backend metadata can no longer become backend lifecycle/projection truth.
 
 Slice 847 retired JS provider-status summaries from server-status projection
 input. `serverStatusProjectionInput()` no longer reads `state.providers.values()`
@@ -9480,10 +9478,12 @@ Model-mount backend registry lookup now consumes Rust read-projection kind
 `backend()` accessor. The old JS backend-registry overlay export that merged
 derived backend defaults, `state.backends`, and process snapshots is deleted, so
 public APIs and internal process-planning preflight no longer have a duplicate
-JS backend truth path. This remains non-terminal because actual backend process
-supervision/transport execution, richer backend process-state materialization,
-stable SDK/IDE/CLI APIs still need direct
-Rust ownership.
+JS backend truth path. Slice 1266 additionally deletes the mounted
+`deriveBackendRegistry()` and `seedBackends()` methods, removes the
+`backendRegistryRecords()` JS default-record factory, and stops loading the
+retired `model-backends` local map. This remains non-terminal because actual
+backend process supervision/transport execution, richer backend process-state
+materialization, stable SDK/IDE/CLI APIs still need direct Rust ownership.
 
 Slice 1223 retires the admission-required command transport for workflow-edit,
 diagnostics-repair, thread-turn, and lifecycle required-boundary refusals.
