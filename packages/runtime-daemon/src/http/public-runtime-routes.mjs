@@ -16,7 +16,6 @@ export function createPublicRuntimeRequestHandler(deps) {
     notFound,
     optionalString,
     readBody,
-    resolveStudioIntentFrame,
     usageRequestMetadataFromUrl,
     usageTelemetryWithRequestMetadata,
     writeError,
@@ -161,7 +160,19 @@ export function createPublicRuntimeRequestHandler(deps) {
         return;
       }
       if (request.method === "POST" && url.pathname === "/v1/studio/intent-frame") {
-        writeJsonResponse(response, resolveStudioIntentFrame(await readBody(request)));
+        const body = await readBody(request);
+        writeJsonResponse(
+          response,
+          store.contextPolicyCore.projectStudioIntentFrame({
+            operation: "studio_intent_frame_projection",
+            operation_kind: "studio.intent_frame.projection",
+            prompt: body.prompt,
+            input: body.input,
+            query: body.query,
+            execution_mode: body.execution_mode,
+            source: "public_runtime_routes./v1/studio/intent-frame",
+          }).frame,
+        );
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/conversation-artifacts") {

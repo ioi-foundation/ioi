@@ -129,6 +129,13 @@ Slice 1273 hard-cuts runtime doctor/readiness projection ownership into Rust:
 `runtime-doctor-report.mjs` facade and test are absent; and conformance rejects
 any return to the JS doctor aggregate, daemon-store doctor wrapper, or mounted
 tool/skill surface composition inside the doctor route.
+Slice 1274 hard-cuts Studio intent-frame routing ownership into Rust:
+`/v1/studio/intent-frame` now calls typed
+`daemonCoreRuntimeProjectionApi.projectStudioIntentFrame`, backed by Rust
+`RuntimeKernelService::project_studio_intent_frame`; the
+`studio-intent-frame.mjs` classifier facade and test are absent; and conformance
+rejects any return to the JS resolver, daemon-store route wrapper, or retired
+`executionMode` input alias passthrough.
 Slice 1226 additionally retired the runtime compositor/task-job command
 transport family: task/job create/cancel/projection, workflow-edit control,
 managed-session projection/control, workspace-change projection/control,

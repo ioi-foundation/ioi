@@ -56,10 +56,6 @@ function routeHarness(overrides = {}) {
       return text || null;
     },
     readBody: async (req) => req.body ?? {},
-    resolveStudioIntentFrame: (input) => ({
-      object: "ioi.studio_intent_frame",
-      target: input.prompt ?? null,
-    }),
     runtimeError: (error) => Object.assign(new Error(error.message), error),
     usageRequestMetadataFromUrl: () => ({ requestMetadata: true }),
     usageTelemetryWithRequestMetadata: (payload, metadata) => ({ payload, metadata }),
@@ -299,35 +295,51 @@ test("public runtime model catalog routes use mounted model projection surface",
   ]);
 });
 
-test("public runtime studio intent route uses resolver dependency directly", async () => {
+test("public runtime studio intent route uses Rust daemon-core projection", async () => {
   const calls = [];
-  const { handleRequest } = routeHarness({
-    resolveStudioIntentFrame(input) {
-      calls.push(input);
-      return {
-        object: "ioi.studio_intent_frame",
-        route_directive: "agent",
-        target: input.prompt,
-      };
-    },
-  });
+  const { handleRequest } = routeHarness();
   const response = responseRecorder();
   const store = {
     resolveStudioIntentFrame: retiredRouteWrapper,
+    contextPolicyCore: {
+      projectStudioIntentFrame(request) {
+        calls.push({ method: "projectStudioIntentFrame", request });
+        return {
+          frame: {
+            object: "ioi.studio_intent_frame",
+            route_directive: "agent",
+            target: request.prompt,
+          },
+        };
+      },
+    },
   };
 
   await handleRequest({
     request: request({
       method: "POST",
       url: "/v1/studio/intent-frame",
-      body: { prompt: "inspect the runtime" },
+      body: { prompt: "inspect the runtime", execution_mode: "agent", executionMode: "ask" },
     }),
     response,
     store,
   });
 
   assert.equal(response.statusCode, 200);
-  assert.deepEqual(calls, [{ prompt: "inspect the runtime" }]);
+  assert.deepEqual(calls, [
+    {
+      method: "projectStudioIntentFrame",
+      request: {
+        operation: "studio_intent_frame_projection",
+        operation_kind: "studio.intent_frame.projection",
+        prompt: "inspect the runtime",
+        input: undefined,
+        query: undefined,
+        execution_mode: "agent",
+        source: "public_runtime_routes./v1/studio/intent-frame",
+      },
+    },
+  ]);
   assert.deepEqual(JSON.parse(response.body), {
     object: "ioi.studio_intent_frame",
     route_directive: "agent",

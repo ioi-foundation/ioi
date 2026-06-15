@@ -56,6 +56,7 @@ pub mod settlement;
 pub mod skill_hook_registry;
 pub mod step_module;
 pub mod step_router;
+pub mod studio_intent_frame;
 pub mod trace;
 pub mod workspace_restore;
 
@@ -348,6 +349,10 @@ use skill_hook_registry::{
 use step_module::{StepModuleInvocation, StepModuleResult, StepModuleValidationError};
 use step_router::{
     StepModuleExecutionAdmissionRecord, StepModuleRouterCore, StepModuleRouterError,
+};
+use studio_intent_frame::{
+    StudioIntentFrameProjectionCore, StudioIntentFrameProjectionError,
+    StudioIntentFrameProjectionRecord, StudioIntentFrameProjectionRequest,
 };
 use workspace_restore::{
     apply_workspace_snapshot_restore_protocol_response,
@@ -701,6 +706,13 @@ impl RuntimeKernelService {
     ) -> Result<RuntimeDoctorReportProjectionRecord, RuntimeDoctorReportProjectionCommandError>
     {
         RuntimeDoctorReportProjectionCore::default().project(request.clone())
+    }
+
+    pub fn project_studio_intent_frame(
+        &self,
+        request: &StudioIntentFrameProjectionRequest,
+    ) -> Result<StudioIntentFrameProjectionRecord, StudioIntentFrameProjectionError> {
+        StudioIntentFrameProjectionCore::default().project(request.clone())
     }
 
     pub fn project_runtime_memory_projection(

@@ -54,7 +54,6 @@ import {
   runtimeUsageTelemetrySummary,
 } from "./usage-telemetry.mjs";
 import { ConversationArtifactStore } from "./conversation-artifacts.mjs";
-import { resolveStudioIntentFrame } from "./studio-intent-frame.mjs";
 import {
   activeSkillHookManifestForRun,
   hookDryRunPlanForManifest,
@@ -398,7 +397,6 @@ const handleRequest = createPublicRuntimeRequestHandler({
   notFound,
   optionalString,
   readBody,
-  resolveStudioIntentFrame,
   runtimeError,
   usageRequestMetadataFromUrl,
   usageTelemetryWithRequestMetadata,

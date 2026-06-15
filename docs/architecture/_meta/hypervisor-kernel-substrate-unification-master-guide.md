@@ -5117,8 +5117,10 @@ model-mount read-projection shared helpers now live in the dedicated Rust
 `model_mount/read_projection/common.rs` module, with module-local Rust proof
 that schema/generation defaults, array/object extraction, and receipt-kind
 filtering are owned outside the broad dispatcher;
-public studio intent-frame routing now calls the intent resolver dependency
-directly instead of a daemon-store route wrapper;
+public studio intent-frame routing now calls typed
+`daemonCoreRuntimeProjectionApi.projectStudioIntentFrame`, backed by Rust
+`studio_intent_frame.rs`, while `studio-intent-frame.mjs` is absent so the
+route cannot classify consequential Studio intents through a JS resolver;
 public doctor routing now calls typed
 `daemonCoreRuntimeProjectionApi.projectRuntimeDoctorReport` and returns the Rust
 doctor report, while `runtime-doctor-report.mjs` is absent so the doctor route
@@ -10013,6 +10015,20 @@ doctor-specific mounted JS tool/skill surface composition, missing-core degraded
 fallback strings, or the deleted facade files. This remains non-terminal because
 broader stable IDE/CLI/SDK protocol APIs and remaining route-family coverage over
 Rust replay records still need to close.
+
+Slice 1274 hard-cuts Studio intent-frame routing onto a positive Rust
+daemon-core projection API. `/v1/studio/intent-frame` now calls
+`contextPolicyCore.projectStudioIntentFrame()` with only canonical request facts,
+and Rust `studio_intent_frame.rs` owns artifact/retrieval/workspace/runtime-action
+classification, effect-contract construction, required capability selection,
+prompt hashing, and canonical `execution_mode` handling before public intent
+truth returns. The JS `studio-intent-frame.mjs` classifier facade and test are
+deleted, daemon startup no longer imports or injects `resolveStudioIntentFrame`,
+and conformance rejects any return to the JS resolver, daemon-store route
+wrapper, deleted facade files, or retired `executionMode` input alias passthrough.
+This remains non-terminal because downstream wallet/cTEE admission, Agentgres
+receipt/state-root binding for consequential intent execution, and broader
+stable IDE/CLI/SDK protocol coverage still need to close.
 
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,

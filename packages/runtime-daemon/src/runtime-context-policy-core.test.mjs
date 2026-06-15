@@ -46,6 +46,7 @@ import {
   RUNTIME_PROJECTION_TASK_JOB_API_METHOD,
   RUNTIME_PROJECTION_LIFECYCLE_API_METHOD,
   RUNTIME_PROJECTION_DOCTOR_REPORT_API_METHOD,
+  RUNTIME_PROJECTION_STUDIO_INTENT_FRAME_API_METHOD,
   RUNTIME_PROJECTION_MANAGED_SESSION_API_METHOD,
   RUNTIME_PROJECTION_REPOSITORY_WORKFLOW_API_METHOD,
   RUNTIME_PROJECTION_SKILL_HOOK_REGISTRY_API_METHOD,
@@ -119,6 +120,7 @@ import {
   RUNTIME_TOOL_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION,
   RUNTIME_LIFECYCLE_PROJECTION_REQUEST_SCHEMA_VERSION,
   RUNTIME_DOCTOR_REPORT_PROJECTION_REQUEST_SCHEMA_VERSION,
+  STUDIO_INTENT_FRAME_PROJECTION_REQUEST_SCHEMA_VERSION,
   RUNTIME_MEMORY_CONTROL_REQUEST_SCHEMA_VERSION,
   RUNTIME_MEMORY_PROJECTION_REQUEST_SCHEMA_VERSION,
   RUNTIME_MCP_SERVE_TOOL_CALL_PLAN_REQUEST_SCHEMA_VERSION,
@@ -186,6 +188,7 @@ import {
   normalizeRuntimeToolCatalogProjectionBridgeResult,
   normalizeRuntimeLifecycleProjectionBridgeResult,
   normalizeRuntimeDoctorReportProjectionBridgeResult,
+  normalizeStudioIntentFrameProjectionBridgeResult,
   normalizeRuntimeMemoryControlBridgeResult,
   normalizeRuntimeMcpServeToolCallPlanBridgeResult,
   normalizeRuntimeMcpServeToolResultProjectionBridgeResult,
@@ -2895,6 +2898,82 @@ test("runtime doctor report projection core sends Rust daemon-core request", () 
       assert.equal(
         error.code,
         "runtime_doctor_report_projection_operation_kind_mismatch",
+      );
+      assertNoRetiredOperationKindDetailAliases(error.details);
+      return true;
+    },
+  );
+});
+
+test("studio intent frame projection core sends Rust daemon-core request", () => {
+  let captured = null;
+  const { calls, runner } = createRuntimeProjectionDirectCore(
+    RUNTIME_PROJECTION_STUDIO_INTENT_FRAME_API_METHOD,
+    (request) => {
+      captured = request;
+      return {
+        source: "rust_studio_intent_frame_projection_api",
+        backend: "rust_policy",
+        record: {
+          object: "ioi.studio_intent_frame_projection",
+          status: "projected",
+          operation: "studio_intent_frame_projection",
+          operation_kind: "studio.intent_frame.projection",
+          frame: {
+            schemaVersion: "ioi.studio.intent-frame.v1",
+            object: "ioi.studio_intent_frame",
+            target: request.prompt,
+            route_directive: "agent",
+            execution_mode: request.execution_mode,
+            decision_material: {
+              source: "rust_studio_intent_frame_projection",
+              matched_features: ["workspace_context_required"],
+            },
+          },
+          record_count: 1,
+          evidence_refs: ["rust_daemon_core_studio_intent_frame_projection"],
+          receipt_refs: ["receipt_studio_intent_frame_projection"],
+        },
+      };
+    },
+  );
+
+  const result = runner.projectStudioIntentFrame({
+    operation: "studio_intent_frame_projection",
+    operation_kind: "studio.intent_frame.projection",
+    prompt: "Where are model providers registered in this repo?",
+    execution_mode: "agent",
+    executionMode: "ask",
+  });
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, RUNTIME_PROJECTION_STUDIO_INTENT_FRAME_API_METHOD);
+  assert.equal(
+    captured.schema_version,
+    STUDIO_INTENT_FRAME_PROJECTION_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(Object.hasOwn(captured, "backend"), false);
+  assert.equal(captured.operation, "studio_intent_frame_projection");
+  assert.equal(captured.operation_kind, "studio.intent_frame.projection");
+  assert.equal(captured.prompt, "Where are model providers registered in this repo?");
+  assert.equal(captured.execution_mode, "agent");
+  assert.equal(Object.hasOwn(captured, "executionMode"), false);
+  assert.equal(result.source, "rust_studio_intent_frame_projection_api");
+  assert.equal(result.frame.schemaVersion, "ioi.studio.intent-frame.v1");
+  assert.equal(result.frame.decision_material.source, "rust_studio_intent_frame_projection");
+
+  assert.throws(
+    () =>
+      normalizeStudioIntentFrameProjectionBridgeResult({
+        record: {
+          operation_kind: "studio.intent_frame.retired_js_resolver",
+          frame: {},
+        },
+      }),
+    (error) => {
+      assert.equal(
+        error.code,
+        "studio_intent_frame_projection_operation_kind_mismatch",
       );
       assertNoRetiredOperationKindDetailAliases(error.details);
       return true;

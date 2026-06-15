@@ -58,6 +58,8 @@ export const RUNTIME_LIFECYCLE_PROJECTION_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.lifecycle-projection-request.v1";
 export const RUNTIME_DOCTOR_REPORT_PROJECTION_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.doctor-report-projection-request.v1";
+export const STUDIO_INTENT_FRAME_PROJECTION_REQUEST_SCHEMA_VERSION =
+  "ioi.studio.intent-frame-projection-request.v1";
 export const RUNTIME_MEMORY_PROJECTION_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.memory-projection-request.v1";
 export const RUNTIME_MEMORY_CONTROL_REQUEST_SCHEMA_VERSION =
@@ -215,6 +217,8 @@ export const RUNTIME_PROJECTION_LIFECYCLE_API_METHOD =
   "projectRuntimeLifecycle";
 export const RUNTIME_PROJECTION_DOCTOR_REPORT_API_METHOD =
   "projectRuntimeDoctorReport";
+export const RUNTIME_PROJECTION_STUDIO_INTENT_FRAME_API_METHOD =
+  "projectStudioIntentFrame";
 export const RUNTIME_PROJECTION_MANAGED_SESSION_API_METHOD =
   "projectRuntimeManagedSessionProjection";
 export const RUNTIME_CONTROL_MANAGED_SESSION_API_METHOD =
@@ -605,6 +609,17 @@ export class RuntimeContextPolicyCore {
       RUNTIME_PROJECTION_DOCTOR_REPORT_API_METHOD,
       RUNTIME_DOCTOR_REPORT_PROJECTION_REQUEST_SCHEMA_VERSION,
       request,
+    ));
+  }
+
+  projectStudioIntentFrame(request = {}) {
+    const canonicalRequest = objectRecord(request) ?? {};
+    const { executionMode: _retiredExecutionMode, ...requestWithoutRetiredAliases } =
+      canonicalRequest;
+    return normalizeStudioIntentFrameProjectionBridgeResult(this.invokeRuntimeProjectionApi(
+      RUNTIME_PROJECTION_STUDIO_INTENT_FRAME_API_METHOD,
+      STUDIO_INTENT_FRAME_PROJECTION_REQUEST_SCHEMA_VERSION,
+      requestWithoutRetiredAliases,
     ));
   }
 
@@ -2206,6 +2221,31 @@ export function normalizeRuntimeDoctorReportProjectionBridgeResult(value = {}) {
     state_dir: optionalString(result.state_dir ?? record.state_dir) ?? null,
     report,
     record_count: numberValue(result.record_count ?? record.record_count) ?? (report ? 1 : 0),
+    evidence_refs: stringArray(result.evidence_refs ?? record.evidence_refs),
+    receipt_refs: stringArray(result.receipt_refs ?? record.receipt_refs),
+    record,
+  };
+}
+
+export function normalizeStudioIntentFrameProjectionBridgeResult(value = {}) {
+  const result = objectRecord(value) ?? {};
+  const record = objectRecord(result.record) ?? result;
+  const frame = objectRecord(result.frame) ?? objectRecord(record.frame);
+  return {
+    ...record,
+    source:
+      result.source ??
+      record.source ??
+      "rust_studio_intent_frame_projection_api",
+    backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
+    object: optionalString(result.object ?? record.object) ?? null,
+    status: optionalString(result.status ?? record.status) ?? null,
+    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+      codePrefix: "studio_intent_frame_projection",
+      expectedOperationKind: "studio.intent_frame.projection",
+    }),
+    frame,
+    record_count: numberValue(result.record_count ?? record.record_count) ?? (frame ? 1 : 0),
     evidence_refs: stringArray(result.evidence_refs ?? record.evidence_refs),
     receipt_refs: stringArray(result.receipt_refs ?? record.receipt_refs),
     record,

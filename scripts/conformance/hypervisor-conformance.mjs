@@ -29180,6 +29180,15 @@ function runCompositor() {
   const runtimeDaemonIndex = exists("packages/runtime-daemon/src/index.mjs")
     ? read("packages/runtime-daemon/src/index.mjs")
     : "";
+  const runtimeKernelModule = exists("crates/services/src/agentic/runtime/kernel/mod.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/mod.rs")
+    : "";
+  const runtimeContextPolicyCoreForState = exists("packages/runtime-daemon/src/runtime-context-policy-core.mjs")
+    ? read("packages/runtime-daemon/src/runtime-context-policy-core.mjs")
+    : "";
+  const runtimeContextPolicyCoreTestForState = exists("packages/runtime-daemon/src/runtime-context-policy-core.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-context-policy-core.test.mjs")
+    : "";
   const runtimeRouteHandlers = exists("packages/runtime-daemon/src/runtime-route-handlers.mjs")
     ? read("packages/runtime-daemon/src/runtime-route-handlers.mjs")
     : "";
@@ -29233,11 +29242,12 @@ function runCompositor() {
   const publicRuntimeRoutesTest = exists("packages/runtime-daemon/src/http/public-runtime-routes.test.mjs")
     ? read("packages/runtime-daemon/src/http/public-runtime-routes.test.mjs")
     : "";
-  const studioIntentFrame = exists("packages/runtime-daemon/src/studio-intent-frame.mjs")
-    ? read("packages/runtime-daemon/src/studio-intent-frame.mjs")
-    : "";
-  const studioIntentFrameTest = exists("packages/runtime-daemon/src/studio-intent-frame.test.mjs")
-    ? read("packages/runtime-daemon/src/studio-intent-frame.test.mjs")
+  const studioIntentFrameJsExists = exists("packages/runtime-daemon/src/studio-intent-frame.mjs");
+  const studioIntentFrameTestExists = exists("packages/runtime-daemon/src/studio-intent-frame.test.mjs");
+  const studioIntentFrameRustCore = exists(
+    "crates/services/src/agentic/runtime/kernel/studio_intent_frame.rs",
+  )
+    ? read("crates/services/src/agentic/runtime/kernel/studio_intent_frame.rs")
     : "";
   const runtimeRunReadSurface = exists("packages/runtime-daemon/src/runtime-run-read-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-run-read-surface.mjs")
@@ -36690,25 +36700,39 @@ function runCompositor() {
   assertCheck(
     result,
     "studio-intent-execution-mode-input-alias-retired",
-    /lowerText\(input\.execution_mode \?\? "agent"\)/.test(studioIntentFrame) &&
-      /lowerText\(context\.execution_mode \|\| "agent"\)/.test(studioIntentFrame) &&
-      /execution_mode: "ask"/.test(studioIntentFrameTest) &&
-      /executionMode: "ask"/.test(studioIntentFrameTest) &&
-      /retiredOnlyAsk\.execution_mode,\s*"agent"/.test(studioIntentFrameTest) &&
-      /retiredOnlyAsk\.route_directive,\s*"agent"/.test(studioIntentFrameTest) &&
-      !/\b(?:input|context)\.executionMode\b/.test(studioIntentFrame) &&
-      /resolveStudioIntentFrame\(await readBody\(request\)\)/.test(publicRuntimeRoutes) &&
+    !studioIntentFrameJsExists &&
+      !studioIntentFrameTestExists &&
+      /pub struct StudioIntentFrameProjectionRequest/.test(studioIntentFrameRustCore) &&
+      /pub struct StudioIntentFrameProjectionCore/.test(studioIntentFrameRustCore) &&
+      /STUDIO_INTENT_FRAME_PROJECTION_REQUEST_SCHEMA_VERSION/.test(studioIntentFrameRustCore) &&
+      /execution_mode: Some\("ask"\.to_string\(\)\)/.test(studioIntentFrameRustCore) &&
+      /rust_studio_intent_consumes_canonical_execution_mode_only/.test(studioIntentFrameRustCore) &&
+      !/pub executionMode/.test(studioIntentFrameRustCore) &&
+      /pub fn project_studio_intent_frame\(/.test(runtimeKernelModule) &&
+      /RUNTIME_PROJECTION_STUDIO_INTENT_FRAME_API_METHOD/.test(runtimeContextPolicyCoreForState) &&
+      /projectStudioIntentFrame\(request = \{\}\)/.test(runtimeContextPolicyCoreForState) &&
+      /executionMode:\s*_retiredExecutionMode/.test(runtimeContextPolicyCoreForState) &&
+      /normalizeStudioIntentFrameProjectionBridgeResult/.test(runtimeContextPolicyCoreForState) &&
+      /STUDIO_INTENT_FRAME_PROJECTION_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyCoreTestForState) &&
+      /studio intent frame projection core sends Rust daemon-core request/.test(runtimeContextPolicyCoreTestForState) &&
+      /Object\.hasOwn\(captured,\s*"executionMode"\),\s*false/.test(runtimeContextPolicyCoreTestForState) &&
+      /store\.contextPolicyCore\.projectStudioIntentFrame\(\{/.test(publicRuntimeRoutes) &&
+      /operation_kind:\s*"studio\.intent_frame\.projection"/.test(publicRuntimeRoutes) &&
       !/store\.resolveStudioIntentFrame/.test(publicRuntimeRoutes) &&
-      !/resolveStudioIntentFrame\(input = \{\}\)/.test(runtimeDaemonIndex) &&
-      /public runtime studio intent route uses resolver dependency directly/.test(publicRuntimeRoutesTest),
+      !/resolveStudioIntentFrame\(await readBody\(request\)\)/.test(publicRuntimeRoutes) &&
+      !/studio-intent-frame\.mjs/.test(runtimeDaemonIndex) &&
+      /method:\s*"projectStudioIntentFrame"/.test(publicRuntimeRoutesTest) &&
+      /public runtime studio intent route uses Rust daemon-core projection/.test(publicRuntimeRoutesTest),
     [
-      "packages/runtime-daemon/src/studio-intent-frame.mjs",
-      "packages/runtime-daemon/src/studio-intent-frame.test.mjs",
+      "crates/services/src/agentic/runtime/kernel/studio_intent_frame.rs",
+      "crates/services/src/agentic/runtime/kernel/mod.rs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
       "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
       "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
     ],
-    "Phase 10/11 is pending: Studio intent routing must use canonical execution_mode without retired executionMode input aliases or daemon-store route wrappers",
+    "Phase 10/11 is pending: Studio intent routing must be Rust daemon-core owned, strip retired executionMode input aliases, and keep the deleted JS resolver facade absent",
   );
   assertCheck(
     result,
