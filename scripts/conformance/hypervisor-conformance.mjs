@@ -13216,9 +13216,10 @@ function runBridge() {
       ) &&
       /rust_daemon_core_skill_hook_registry_projection_required/.test(runtimeSkillHookSurface) &&
       /agentgres_skill_hook_registry_truth_required/.test(runtimeSkillHookSurface) &&
-      /skillHookRunner\.projectSkillHookRegistry/.test(
+      /contextPolicyCore\.projectSkillHookRegistry/.test(
         runtimeSkillHookSurface,
       ) &&
+      !/skillHookRunner/.test(runtimeDaemonIndex + runtimeSkillHookSurface + runtimeSkillHookSurfaceTest) &&
       !/operation:\s*"skill_hook_registry_(?:catalog|skills|hooks)"/.test(
         runtimeSkillHookSurface,
       ) &&
@@ -13253,7 +13254,7 @@ function runBridge() {
       /public runtime skill and hook routes use mounted skill hook surface/.test(
         publicRuntimeRoutesTest,
       ) &&
-      /createRuntimeSkillHookSurface\(\{\s*defaultCwd:\s*this\.defaultCwd,\s*skillHookRunner:\s*this\.contextPolicyCore,/s.test(
+      /createRuntimeSkillHookSurface\(\{\s*contextPolicyCore:\s*this\.contextPolicyCore,\s*defaultCwd:\s*this\.defaultCwd,/s.test(
         runtimeDaemonIndex,
       ) &&
       !/^\s+(?:skillHookCatalog|listSkills|listHooks)\(/m.test(runtimeDaemonIndex),

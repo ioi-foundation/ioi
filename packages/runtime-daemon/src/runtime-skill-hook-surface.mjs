@@ -1,19 +1,19 @@
 import { objectRecord, optionalString } from "./runtime-value-helpers.mjs";
 
 export function createRuntimeSkillHookSurface({
+  contextPolicyCore = null,
   defaultCwd,
   env = process.env,
-  skillHookRunner = null,
 } = {}) {
   const cwdForRequest = (request = {}) => request.cwd ?? defaultCwd;
   const project = (projection) => {
-    if (!skillHookRunner?.projectSkillHookRegistry) {
+    if (!contextPolicyCore?.projectSkillHookRegistry) {
       throwSkillHookRegistryRustCoreRequired({
         ...projection,
         source: "runtime.skill_hook_surface",
       });
     }
-    const result = skillHookRunner.projectSkillHookRegistry({
+    const result = contextPolicyCore.projectSkillHookRegistry({
       ...projection,
       source: "runtime.skill_hook_surface",
       home_dir: optionalString(env.HOME),

@@ -778,8 +778,8 @@ export class AgentgresRuntimeStateStore {
       workspaceRoot: this.defaultCwd,
     });
     this.skillHookSurface = createRuntimeSkillHookSurface({
+      contextPolicyCore: this.contextPolicyCore,
       defaultCwd: this.defaultCwd,
-      skillHookRunner: this.contextPolicyCore,
     });
     this.taskJobSurface = createRuntimeTaskJobSurface({
       buildRun,

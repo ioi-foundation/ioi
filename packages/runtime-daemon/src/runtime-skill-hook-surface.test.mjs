@@ -8,7 +8,7 @@ test("runtime skill hook surface returns Rust-owned catalog skills and hooks", (
   const surface = createRuntimeSkillHookSurface({
     defaultCwd: "/workspace/project",
     env: { HOME: "/home/operator" },
-    skillHookRunner: {
+    contextPolicyCore: {
       projectSkillHookRegistry(request) {
         calls.push(request);
         if (request.registry_kind === "catalog") {
@@ -86,7 +86,7 @@ test("runtime skill hook surface fails closed when Rust projection is missing", 
 test("runtime skill hook surface rejects Rust projection mismatches", () => {
   const surface = createRuntimeSkillHookSurface({
     defaultCwd: "/workspace/project",
-    skillHookRunner: {
+    contextPolicyCore: {
       projectSkillHookRegistry() {
         return {
           registry_kind: "hooks",

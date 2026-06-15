@@ -10437,6 +10437,16 @@ direct Rust catalog storage/replay depth, wallet/network authority on external
 exposure, receipt/state-root binding, and stable protocol APIs, not a JS runner
 fallback.
 
+Slice 1302 hard-cuts skill/hook registry runner injection scaffolding.
+`createRuntimeSkillHookSurface()` no longer accepts `skillHookRunner`; catalog,
+skills, and hooks projections mount the positive `contextPolicyCore` API
+directly before Rust daemon-core registry projection. Daemon construction no
+longer wires a parallel skill/hook runner handle, focused tests mount fake Rust
+projectors only through `contextPolicyCore`, and conformance guards that the
+retired alias name cannot return. Remaining work is direct Rust governance and
+catalog storage/replay depth, wallet authority where applicable,
+receipt/state-root binding, and stable protocol APIs, not a JS runner fallback.
+
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,
 `/v1/memory/policy`, `/v1/memory/path`, or `/v1/memory/validate`; the daemon
