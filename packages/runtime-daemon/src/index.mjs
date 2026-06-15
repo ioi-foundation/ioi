@@ -594,7 +594,9 @@ export class AgentgresRuntimeStateStore {
     this.codingArtifacts = new Map();
     this.conversationArtifacts = new ConversationArtifactStore(this.stateDir);
     this.runtimeBridge = createRuntimeApiBridge(options.runtimeBridge);
-    this.daemonCoreInvoker = options.daemonCoreInvoker;
+    if (Object.hasOwn(options, "daemonCoreInvoker")) {
+      throw new Error("daemonCoreInvoker is retired; pass typed Rust daemon-core APIs for the authority boundary.");
+    }
     this.daemonCoreContextLifecycleApi = options.daemonCoreContextLifecycleApi;
     this.daemonCoreRuntimeControlApi = options.daemonCoreRuntimeControlApi;
     this.daemonCoreRuntimeProjectionApi = options.daemonCoreRuntimeProjectionApi;

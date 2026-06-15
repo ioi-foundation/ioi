@@ -956,7 +956,8 @@ function runDocs() {
   );
   const macroPrunedMatrixGuard =
     /Slice 1228 retires the coding-tool StepModule command transport/.test(guide) &&
-    /old\s+`ioi-step-module-bridge` binary returns `daemon_core_command_transport_retired`/.test(guide) &&
+    /Slice 1233 deletes the retired `ioi-step-module-bridge` binary and tombstone\s+module/.test(guide) &&
+    /old `ioi-step-module-bridge` binary\s+and `ioi_step_module_bridge\/mod\.rs` tombstone are absent/.test(guide) &&
     /command operation, command response wrapper, binary fallback, and JS\s+command-envelope request builder/.test(guide) &&
     /Macro-cut bias/.test(guide) &&
     /do not add per-slice evidence sections/.test(guide) &&
@@ -964,9 +965,10 @@ function runDocs() {
     /Macro Authority Cut Ledger/.test(matrix) &&
     /Do Not Recreate/.test(matrix) &&
     /Slice 1228 retires the remaining coding-tool StepModule command transport/.test(matrix) &&
+    /Slice 1233 deletes the retired `ioi-step-module-bridge` binary and\s+the empty `ioi_step_module_bridge\/mod\.rs` tombstone/.test(matrix) &&
     /`RustWorkloadStepModuleRunner` calls `runCodingToolStepModule`/.test(matrix) &&
     /`command_protocol\.rs` has an empty daemon-core operation catalog/.test(matrix) &&
-    /old `ioi-step-module-bridge` binary is fail-closed/.test(matrix) &&
+    /old `ioi-step-module-bridge` binary and `ioi_step_module_bridge\/mod\.rs` tombstone must not exist/.test(matrix) &&
     /Terminal acceptance still requires the master guide terminal conditions/.test(matrix);
   assertCheck(
     result,
@@ -975,10 +977,10 @@ function runDocs() {
       (/stable daemon-to-kernel protocol surface, not a\s+permanent bridge binary/.test(
       guide,
     ) &&
-      (/`ioi-step-module-bridge` command path is migration scaffolding/.test(guide) ||
-        /Slice 1228 retires the coding-tool StepModule command transport/.test(guide)) &&
-      /old\s+`ioi-step-module-bridge` binary returns `daemon_core_command_transport_retired`/.test(guide) &&
-      /command operation, command response wrapper, binary fallback, and JS\s+command-envelope request builder/.test(guide) &&
+	      (/`ioi-step-module-bridge` command path is migration scaffolding/.test(guide) ||
+	        /Slice 1228 retires the coding-tool StepModule command transport/.test(guide)) &&
+	      /old `ioi-step-module-bridge` binary\s+and `ioi_step_module_bridge\/mod\.rs` tombstone are absent/.test(guide) &&
+	      /command operation, command response wrapper, binary fallback, and JS\s+command-envelope request builder/.test(guide) &&
       /Resume-goal scheduling marker: the Slice 733-740 matrix-compaction pass is\s+complete/.test(
         guide,
       ) &&
@@ -2094,7 +2096,7 @@ function runDocs() {
       /Slice 858 retired dedicated runtime-engine JS read-projection\s+input/.test(matrix) &&
       /`runtime_engines`, `runtime_engine_profiles`, `runtime_preference`,\s+`runtime_preference_for_endpoint`, `runtime_default_load_options`, and\s+`runtime_engine_detail` read projections now send `\{\}`/.test(matrix) &&
       /empty\/null\s+defaults plus fail-closed detail/.test(matrix) &&
-      /cargo test -p ioi-node model_mount_read_projection --bin ioi-step-module-bridge/.test(matrix) &&
+	      /Slice 1233 deletes the retired `ioi-step-module-bridge` binary and\s+the empty `ioi_step_module_bridge\/mod\.rs` tombstone/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 858 is now satisfied/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 859/.test(matrix) &&
       /Slice 859 retired dedicated latest-runtime-survey JS primitive read-projection\s+input/.test(matrix) &&
@@ -2344,9 +2346,10 @@ function runDocs() {
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
-      /`ioi-step-module-bridge` command path is acceptable only as\s+migration transport/.test(
-        matrix,
-      ) &&
+	      /The former `ioi-step-module-bridge` command path is retired for daemon hot\s+paths/.test(
+	        matrix,
+	      ) &&
+	      /must not exist even as a fail-closed tombstone/.test(matrix) &&
       /not the terminal architecture/.test(matrix) &&
       /Bridge scaffolding retirement/.test(matrix) &&
       /Last matrix compaction pass: 2026-06-11/.test(matrix) &&
@@ -2747,15 +2750,15 @@ function runDocs() {
         matrix,
       )) ||
       (/stable daemon-to-kernel protocol surface, not a\s+permanent bridge binary/.test(
-        guide,
-      ) &&
-	        /Slice 1228 retires the coding-tool StepModule command transport/.test(guide) &&
-	        /old\s+`ioi-step-module-bridge` binary returns `daemon_core_command_transport_retired`/.test(guide) &&
-	        /command operation, command response wrapper, binary fallback, and JS\s+command-envelope request builder/.test(guide) &&
-	        /Slice 1228 retires the remaining coding-tool StepModule command transport/.test(matrix) &&
-	        /`command_protocol\.rs` has an empty daemon-core operation catalog/.test(matrix) &&
-	        /old `ioi-step-module-bridge` binary is fail-closed/.test(matrix) &&
-	        /Bridge scaffolding retirement/.test(matrix) &&
+	        guide,
+	      ) &&
+		        /Slice 1228 retires the coding-tool StepModule command transport/.test(guide) &&
+		        /old `ioi-step-module-bridge` binary\s+and `ioi_step_module_bridge\/mod\.rs` tombstone are absent/.test(guide) &&
+		        /command operation, command response wrapper, binary fallback, and JS\s+command-envelope request builder/.test(guide) &&
+		        /Slice 1228 retires the remaining coding-tool StepModule command transport/.test(matrix) &&
+		        /`command_protocol\.rs` has an empty daemon-core operation catalog/.test(matrix) &&
+		        /old `ioi-step-module-bridge` binary and `ioi_step_module_bridge\/mod\.rs` tombstone must not exist/.test(matrix) &&
+		        /Bridge scaffolding retirement/.test(matrix) &&
         /Last matrix compaction pass: 2026-06-11/.test(matrix) &&
         /Compacted Implementation Slice Evidence: 941-969/.test(matrix) &&
         /Scheduled matrix-compaction obligation from Slices 941-969 is now satisfied/.test(
@@ -3121,6 +3124,12 @@ function runBridge() {
   const runtimeDaemonIndex = exists("packages/runtime-daemon/src/index.mjs")
     ? read("packages/runtime-daemon/src/index.mjs")
     : "";
+  const runtimeDaemonService = exists("packages/runtime-daemon/src/service/runtime-daemon-service.mjs")
+    ? read("packages/runtime-daemon/src/service/runtime-daemon-service.mjs")
+    : "";
+  const runtimeDaemonTopLevelGenericInvokerTest = exists("packages/runtime-daemon/src/runtime-daemon-top-level-generic-invoker.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-daemon-top-level-generic-invoker.test.mjs")
+    : "";
   const runtimeHttpUtilsBridge = exists("packages/runtime-daemon/src/runtime-http-utils.mjs")
     ? read("packages/runtime-daemon/src/runtime-http-utils.mjs")
     : "";
@@ -3144,41 +3153,37 @@ function runBridge() {
     : "";
   assertCheck(
     result,
-    "bridge-command-schema-version-alias-retired",
-    !exists("crates/node/src/bin/ioi_step_module_bridge/bridge_dispatch.rs") &&
-      !/mod bridge_dispatch;/.test(bridgeModuleSource) &&
+	    "bridge-command-schema-version-alias-retired",
+	    !exists("crates/node/src/bin/ioi-step-module-bridge.rs") &&
+	      !exists("crates/node/src/bin/ioi_step_module_bridge/mod.rs") &&
+	      !exists("crates/node/src/bin/ioi_step_module_bridge/bridge_dispatch.rs") &&
+	      !/mod bridge_dispatch;/.test(bridgeModuleSource) &&
       !exists("crates/node/src/bin/ioi_step_module_bridge/proof_tests.rs") &&
       !/#\[cfg\(test\)\]\s*mod proof_tests;/.test(bridgeModuleSource) &&
       !/mod command_dispatch;/.test(bridgeModule) &&
       !/mod command_envelope;/.test(bridgeModule) &&
       !bridgeCommandEnvelopeExists &&
       !bridgeCommandDispatchExists &&
-      /pub mod command_dispatch;/.test(kernelModuleForBridgeChecks) &&
+	      !exists("crates/services/src/agentic/runtime/kernel/command_dispatch.rs") &&
+	      !/pub mod command_dispatch;/.test(kernelModuleForBridgeChecks) &&
       !/pub use ioi_services::agentic::runtime::kernel::command_dispatch::run_daemon_core_command_response_from_stdin;/.test(
         bridgeModuleRuntime,
       ) &&
-      !/ioi_services::agentic::runtime::kernel::command_dispatch::run_daemon_core_command_response_from_stdin\(\)/.test(
-        bridgeBin,
-      ) &&
-      /daemon_core_command_transport_retired/.test(bridgeBin) &&
-      !/struct BridgeEnvelope/.test(bridgeDispatch) &&
+	      !/ioi_services::agentic::runtime::kernel::command_dispatch::run_daemon_core_command_response_from_stdin\(\)/.test(
+	        bridgeBin,
+	      ) &&
+	      !/struct BridgeEnvelope/.test(bridgeDispatch) &&
       !/struct BridgeError/.test(bridgeModule) &&
       !/fn run_bridge\(\)/.test(bridgeModule) &&
-      /pub struct CommandTransportError/.test(coreCommandDispatch) &&
-      /pub fn run_daemon_core_command_response_from_stdin\(\) -> Value/.test(coreCommandDispatch) &&
-      /pub fn run_daemon_core_command_from_stdin\(\) -> Result<Value, CommandTransportError>/.test(
-        coreCommandDispatch,
-      ) &&
-      /pub fn run_daemon_core_command_from_json_str\(input: &str\) -> Result<Value, CommandTransportError>/.test(
-        coreCommandDispatch,
-      ) &&
-      /pub fn run_daemon_core_command_from_value\(\s*raw_request: Value,\s*\) -> Result<Value, CommandTransportError>/.test(
-        coreCommandDispatch,
-      ) &&
+	      !/CommandTransportError/.test(coreCommandDispatch + kernelModuleForBridgeChecks) &&
+	      !/run_daemon_core_command_response_from_stdin/.test(coreCommandDispatch + kernelModuleForBridgeChecks) &&
+	      !/run_daemon_core_command_from_stdin/.test(coreCommandDispatch + kernelModuleForBridgeChecks) &&
+	      !/run_daemon_core_command_from_json_str/.test(coreCommandDispatch + kernelModuleForBridgeChecks) &&
+	      !/run_daemon_core_command_from_value/.test(coreCommandDispatch + kernelModuleForBridgeChecks) &&
       !/pub\(super\) fn run_bridge/.test(bridgeDispatch) &&
       !/#\[derive\(Debug, Deserialize\)\]/.test(bridgeDispatch) &&
       !/alias = "schemaVersion"/.test(bridgeDispatch) &&
-      /dispatch_command_operation_response/.test(coreCommandDispatch) &&
+	      !/dispatch_command_operation_response/.test(coreCommandDispatch + kernelModuleForBridgeChecks) &&
       !/ioi_client::workload_client/.test(bridgeModuleRuntime) &&
       !/#\[cfg\(test\)\]\s*mod tests \{[\s\S]*use ioi_services::agentic::runtime::kernel::command_protocol::/.test(
         bridgeProofTests,
@@ -3186,24 +3191,15 @@ function runBridge() {
       !/#\[cfg\(test\)\]\s*mod tests \{[\s\S]*use ioi_client::workload_client::WORKLOAD_STEP_MODULE_DISPATCH_SCHEMA_VERSION/.test(
         bridgeProofTests,
       ) &&
-      /super::command_protocol::CommandEnvelope/.test(coreCommandDispatch) &&
-      /let envelope: super::command_protocol::CommandEnvelope/.test(coreCommandDispatch) &&
-      /super::command_protocol::validate_command_envelope_payload\(&envelope\)/.test(
-        coreCommandDispatch,
-      ) &&
-      /error\.into_parts\(\)/.test(coreCommandDispatch) &&
-      /dispatch_command_operation_response\(validated\.command_operation,\s*raw_request\)/.test(
-        coreCommandDispatch,
-      ) &&
+	      /pub struct CommandEnvelope/.test(commandProtocolCore) &&
+	      /validate_command_envelope_payload/.test(commandProtocolCore) &&
+	      /pub fn into_parts\(self\)/.test(commandProtocolCore) &&
       !/expected_schema_version/.test(bridgeDispatch) &&
       !/schema_version_invalid/.test(bridgeDispatch) &&
       !/match envelope\.operation\.as_str\(\)/.test(bridgeDispatch) &&
-      /pub fn dispatch_command_operation_response\(\s*command_operation: CommandOperation,\s*_raw_request: Value,\s*\)/.test(
-        coreCommandDispatch,
-      ) &&
-      /pub struct CommandDispatchError/.test(coreCommandDispatch) &&
-      /match command_operation/.test(coreCommandDispatch) &&
-      /match command_operation\s*\{\s*\}/.test(coreCommandDispatch) &&
+	      !/CommandDispatchError/.test(coreCommandDispatch + kernelModuleForBridgeChecks) &&
+	      !/match command_operation/.test(coreCommandDispatch) &&
+	      !/match command_operation\s*\{\s*\}/.test(coreCommandDispatch) &&
       !/CommandOperation::RunCodingToolStepModule/.test(coreCommandDispatch) &&
       !/CommandOperation::AdmitModelMountRouteDecision/.test(coreCommandDispatch) &&
       !/match \(command_family, operation\)/.test(bridgeCommandDispatch) &&
@@ -4691,7 +4687,20 @@ function runBridge() {
       !/this\.daemonCoreInvoker = optionalFunction\(options\.daemonCoreInvoker\)/.test(
         runtimeContextPolicyCore,
       ) &&
-      /this\.daemonCoreInvoker = options\.daemonCoreInvoker/.test(runtimeDaemonIndex) &&
+      !/this\.daemonCoreInvoker\s*=\s*options\.daemonCoreInvoker/.test(runtimeDaemonIndex) &&
+      !/daemonCoreInvoker:\s*options\.daemonCoreInvoker/.test(runtimeDaemonService) &&
+      !/daemonCoreInvoker:\s*deps\.daemonCoreInvoker/.test(runtimeCodingToolApproval) &&
+      /Object\.hasOwn\(options,\s*"daemonCoreInvoker"\)/.test(runtimeDaemonIndex) &&
+      /Object\.hasOwn\(options,\s*"daemonCoreInvoker"\)/.test(runtimeDaemonService) &&
+      /daemonCoreInvoker is retired; pass typed Rust daemon-core APIs/.test(runtimeDaemonIndex) &&
+      /daemonCoreInvoker is retired; pass typed Rust daemon-core APIs/.test(runtimeDaemonService) &&
+      /runtime daemon startup rejects daemon-wide generic invoker option/.test(
+        runtimeDaemonTopLevelGenericInvokerTest,
+      ) &&
+      /runtime daemon store rejects daemon-wide generic invoker option/.test(
+        runtimeDaemonTopLevelGenericInvokerTest,
+      ) &&
+      /daemonCoreApprovalApi:\s*deps\.daemonCoreApprovalApi/.test(runtimeCodingToolApproval) &&
       /this\.daemonCoreAgentgresApi = options\.daemonCoreAgentgresApi/.test(runtimeDaemonIndex) &&
       /createRuntimeAgentgresAdmissionCore\(\{\s*daemonCoreAgentgresApi: this\.daemonCoreAgentgresApi,\s*\}\)/.test(
         runtimeDaemonIndex,
@@ -5144,23 +5153,22 @@ function runBridge() {
   );
   assertCheck(
     result,
-    "migrated-coding-tools-rust-command-bridge",
-      exists("crates/node/src/bin/ioi-step-module-bridge.rs") &&
-      exists("crates/node/src/bin/ioi_step_module_bridge/mod.rs") &&
-      !exists("crates/node/src/bin/ioi_step_module_bridge/coding_tool_command.rs") &&
+	    "migrated-coding-tools-rust-command-bridge",
+	      !exists("crates/node/src/bin/ioi-step-module-bridge.rs") &&
+	      !exists("crates/node/src/bin/ioi_step_module_bridge/mod.rs") &&
+	      !exists("crates/node/src/bin/ioi_step_module_bridge/coding_tool_command.rs") &&
       !codingToolHelpersBridgeExists &&
       !exists("crates/node/src/bin/ioi_step_module_bridge/coding_tool_receipt_command.rs") &&
-      !exists("crates/node/src/bin/ioi_step_module_bridge/computer_use.rs") &&
-      exists("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs") &&
-      /daemon_core_command_transport_retired/.test(bridgeBin) &&
-      !/run_daemon_core_command_response_from_stdin/.test(bridgeBin) &&
+	      !exists("crates/node/src/bin/ioi_step_module_bridge/computer_use.rs") &&
+	      exists("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs") &&
+	      !/run_daemon_core_command_response_from_stdin/.test(bridgeBin) &&
       !/mod coding_tool_command;/.test(bridgeModule) &&
       !/mod coding_tool_helpers;/.test(bridgeModule) &&
       !/mod coding_tool_receipt_command;/.test(bridgeModule) &&
       !/mod computer_use;/.test(bridgeModule) &&
-      !/run_coding_tool_step_module_response/.test(coreCommandDispatch) &&
-      !/CommandOperation::RunCodingToolStepModule/.test(coreCommandDispatch) &&
-      /command_transport_rejects_retired_step_module_operation_before_dispatch/.test(coreCommandDispatch) &&
+	      !/run_coding_tool_step_module_response/.test(coreCommandDispatch) &&
+	      !/CommandOperation::RunCodingToolStepModule/.test(coreCommandDispatch) &&
+	      /validate_command_envelope_rejects_retired_step_module_operation/.test(commandProtocolCore) &&
       !/CodingToolStepModuleBridgeRequest as StepModuleBridgeRequest/.test(bridgeModule) &&
       !/fn run_coding_tool_step_module/.test(bridgeModule) &&
       !/core_run_coding_tool_step_module/.test(bridgeModule) &&
@@ -5613,12 +5621,10 @@ function runBridge() {
       !/operation:\s*String/.test(codingToolReceiptCommandBridge) &&
       !/schema_version_invalid/.test(codingToolCommandBridge) &&
       !/schema_version_invalid/.test(codingToolReceiptCommandBridge) &&
-      !/operation_unsupported/.test(codingToolCommandBridge) &&
-      !/operation_unsupported/.test(codingToolReceiptCommandBridge) &&
-      !/CommandOperation::RunCodingToolStepModule/.test(coreCommandDispatch) &&
-      /command_transport_rejects_retired_step_module_operation_before_dispatch/.test(
-        coreCommandDispatch,
-      ) &&
+	      !/operation_unsupported/.test(codingToolCommandBridge) &&
+	      !/operation_unsupported/.test(codingToolReceiptCommandBridge) &&
+	      !/CommandOperation::RunCodingToolStepModule/.test(coreCommandDispatch) &&
+	      /validate_command_envelope_rejects_retired_step_module_operation/.test(commandProtocolCore) &&
       /validate_command_envelope\(\s*"run_coding_tool_step_module",[\s\n]*DAEMON_CORE_COMMAND_SCHEMA_VERSION,?\s*\)/.test(
         commandProtocolCore,
       ) &&
@@ -12511,9 +12517,7 @@ function runBridge() {
       /rust_shapes_skill_hook_registry_direct_record/.test(skillHookRegistryRustCore) &&
       /public_projection_catalog_command_transport_is_retired/.test(commandProtocolCore) &&
       !/ProjectSkillHookRegistry/.test(commandProtocolCore) &&
-      !/project_skill_hook_registry_response/.test(
-        read("crates/services/src/agentic/runtime/kernel/command_dispatch.rs"),
-      ) &&
+	      !/project_skill_hook_registry_response/.test(coreCommandDispatch) &&
       !/plan_skill_hook_registry_projection_required/.test(commandProtocolCore) &&
       !/SkillHookRegistryProjectionRequired/.test(policyCore) &&
       !/mod projection_command;/.test(bridgeModule) &&
@@ -12634,9 +12638,7 @@ function runBridge() {
       ) &&
       /public_projection_catalog_command_transport_is_retired/.test(commandProtocolCore) &&
       !/ProjectRepositoryWorkflow/.test(commandProtocolCore) &&
-      !/project_repository_workflow_response/.test(
-        read("crates/services/src/agentic/runtime/kernel/command_dispatch.rs"),
-      ) &&
+	      !/project_repository_workflow_response/.test(coreCommandDispatch) &&
       !/plan_repository_workflow_projection_required/.test(commandProtocolCore) &&
       !/RepositoryWorkflowProjectionRequired/.test(policyCore) &&
       !/RepositoryWorkflowProjectionRequired/.test(policyProjectionRequiredCore) &&
@@ -26614,9 +26616,7 @@ function runReceipts() {
       /rust_shapes_runtime_tool_catalog_direct_record/.test(runtimeToolCatalogRustCore) &&
       /public_projection_catalog_command_transport_is_retired/.test(commandProtocolCore) &&
       !/ProjectRuntimeToolCatalog/.test(commandProtocolCore) &&
-      !/project_runtime_tool_catalog_response/.test(
-        read("crates/services/src/agentic/runtime/kernel/command_dispatch.rs"),
-      ) &&
+	      !/project_runtime_tool_catalog_response/.test(coreCommandDispatch) &&
       !/plan_runtime_tool_catalog_projection_required/.test(commandProtocolCore) &&
       !/RuntimeToolCatalogProjectionRequired/.test(policyCoreForState) &&
       !/mod projection_command;/.test(bridgeModule) &&
@@ -26737,9 +26737,7 @@ function runReceipts() {
       ) &&
       /public_projection_catalog_command_transport_is_retired/.test(commandProtocolCore) &&
       !/ProjectRuntimeLifecycle/.test(commandProtocolCore) &&
-      !/project_runtime_lifecycle_response/.test(
-        read("crates/services/src/agentic/runtime/kernel/command_dispatch.rs"),
-      ) &&
+	      !/project_runtime_lifecycle_response/.test(coreCommandDispatch) &&
       /pub mod runtime_lifecycle;/.test(runtimeKernelModule) &&
       !/RUNTIME_LIFECYCLE_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION/.test(policyCoreForState) &&
       !/RUNTIME_LIFECYCLE_PROJECTION_REQUIRED_RESULT_SCHEMA_VERSION/.test(policyCoreForState) &&

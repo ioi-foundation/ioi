@@ -270,18 +270,17 @@ Daemon ActionProposal
   -> workflow compositor projection
 ```
 
-The current `ioi-step-module-bridge` command path is migration scaffolding for
-the Node/JS facade while Rust ownership is being proven route by route; it must
-not be treated as the terminal substrate. After parity is proven, the bridge
-surface should either collapse into the Rust daemon core API or be renamed and
-shrunk into a narrow daemon/kernel protocol transport with no independent
+The former `ioi-step-module-bridge` command path was migration scaffolding for
+the Node/JS facade while Rust ownership was being proven route by route. It is
+now retired for daemon hot paths: the bridge binary and empty root tombstone are
+deleted, conformance guards their absence, and any future daemon/kernel protocol
+transport must be a stable Rust daemon-core API surface with no independent
 execution authority, no compatibility-shim semantics, and no duplicate truth
-path. The target transport shape is a temporary transport to the Rust daemon core
-with no independent authority or compatibility-shim behavior.
+path.
 
-Current sprint note: Slice 924 retires the `IOI_STEP_MODULE_COMMAND_ARGS` and
-constructor-`args` selectors at the runtime-daemon StepModule runner. The bridge
-binary path may still exist as migration transport, but the JS edge may no
+Current sprint note: Slice 924 retired the `IOI_STEP_MODULE_COMMAND_ARGS` and
+constructor-`args` selectors at the runtime-daemon StepModule runner, and Slice
+1233 deletes the remaining bridge binary/tombstone artifact. The JS edge may no
 longer shape argv or preserve compatibility argument semantics; any direct Rust
 daemon-core API that replaces this transport must keep that selector retired.
 Slice 925 applies the same fixed-argv rule to the worker/service package, L1
@@ -2159,11 +2158,10 @@ projection, vault, runtime-material, receipt, or record-state helpers. This
 does not claim terminal catalog-provider control migration: direct Rust
 daemon-core catalog-provider control/search/status/custody APIs,
 wallet.network/cTEE vault binding, Agentgres-admitted receipts and record-state
-truth, projection persistence, and stable
-protocol APIs remain required. The current `ioi-step-module-bridge` command
-path is migration scaffolding for proving a stable daemon-to-kernel protocol
-surface, not a permanent bridge binary, and must not be treated as the terminal
-substrate; the transport must collapse into the Rust daemon core API.
+truth, projection persistence, and stable protocol APIs remain required. The
+former `ioi-step-module-bridge` command path was migration scaffolding for
+proving a stable daemon-to-kernel protocol surface, not a permanent bridge
+binary, and is now deleted rather than preserved as a terminal substrate.
 
 Slice 879 retired the fail-closed `receipt-operations.mjs` helper module after
 direct model lifecycle receipt authoring and generic model_mount JS receipt
@@ -8154,13 +8152,13 @@ and conformance fails if the deleted bridge-local transport module is
 recreated. Resume by replacing the remaining JS command invoker and binary
 spawn path with direct Rust daemon-core protocol/API calls.
 
-Slice 1192 removes the last live transport re-export from
-`crates/node/src/bin/ioi_step_module_bridge/mod.rs`. The temporary
-`ioi-step-module-bridge` binary now calls
-`ioi_services::agentic::runtime::kernel::command_dispatch::run_daemon_core_command_response_from_stdin()`
-directly, while `ioi_step_module_bridge/mod.rs` remains only as an empty
-tombstone for static conformance to prove retired bridge wrappers, proof
-modules, helper imports, and command facades are not recreated.
+Slice 1192 removed the last live transport re-export from
+`crates/node/src/bin/ioi_step_module_bridge/mod.rs`. Later Slice 1233 deleted
+the temporary `ioi-step-module-bridge` binary and the empty
+`ioi_step_module_bridge/mod.rs` tombstone, and Slice 1234 deleted the
+`command_dispatch.rs` stdin/JSON transport; conformance now proves retired bridge
+wrappers, proof modules, helper imports, command facades, binary fallback, and
+service command dispatch are not recreated.
 
 This is not terminal because the JS daemon still invokes the temporary binary.
 It does remove another compatibility shim from the live path: there is no
@@ -9463,7 +9461,7 @@ of `evaluateRawPolicy`, backed by Rust
 `RuntimeKernelService::project_runtime_mcp_serve_tool_result`. Rust
 `command_protocol.rs` rejects `plan_runtime_mcp_serve_tool_call` and
 `project_runtime_mcp_serve_tool_result` as unknown command operations,
-`command_dispatch.rs` has no arms for them, the Rust response wrappers and
+`command_dispatch.rs` is deleted, the Rust response wrappers and
 `RuntimeMcpServeCommandError` are deleted, and JS no longer sends command
 `operation`/`backend` envelopes or command-source markers for the MCP serve hot
 path. Conformance now guards the typed API, direct Rust records, retired command
@@ -9482,7 +9480,7 @@ lifecycle projections. `RuntimeContextPolicyCore` now calls typed
 direct projection methods, `command_protocol.rs` rejects the old
 `project_skill_hook_registry`, `project_repository_workflow`,
 `project_runtime_tool_catalog`, and `project_runtime_lifecycle` operations,
-`command_dispatch.rs` has no arms for them, and the Rust command-response
+`command_dispatch.rs` is deleted, and the Rust command-response
 wrappers/source markers are deleted. Conformance now guards the typed API,
 direct Rust records, retired command operations, missing dispatch wrappers, and
 source-scan blockers. This remains non-terminal because durable Rust
@@ -9542,9 +9540,10 @@ The runner rejects command `operation`, command `backend`, and JS-supplied
 authority. Rust `coding_tool_step_module.rs` exposes the direct
 `CodingToolStepModuleRunRequest` with deny-unknown deserialization, while
 `RuntimeKernelService::run_coding_tool_step_module` owns the positive API.
-`command_protocol.rs` now has an empty `DAEMON_CORE_OPERATIONS` catalog,
-`command_dispatch.rs` has no StepModule dispatch arm, and the old
-`ioi-step-module-bridge` binary returns `daemon_core_command_transport_retired`.
+`command_protocol.rs` now has an empty `DAEMON_CORE_OPERATIONS` catalog. At that
+cut, `command_dispatch.rs` had no StepModule dispatch arm and the old
+`ioi-step-module-bridge` binary was only a fail-closed artifact; Slices 1233 and
+1234 delete those artifacts instead of preserving them as terminal scaffolding.
 The coding-tool invocation surface consumes `workload_result` rather than a
 bridge result, and conformance guards the typed API path plus absence of the old
 command operation, command response wrapper, binary fallback, and JS
@@ -9617,6 +9616,51 @@ from the StepModule runner and its focused tests. This remains non-terminal
 because durable replay/storage, MCP/model_mount materialization, and stable
 IDE/CLI/SDK protocol APIs still need terminal Rust-owned projection/replay
 records.
+
+Slice 1233 deletes the retired `ioi-step-module-bridge` binary and tombstone
+module. `crates/node/src/bin/ioi-step-module-bridge.rs` and
+`crates/node/src/bin/ioi_step_module_bridge/mod.rs` are absent; the old bridge
+can no longer return a fail-closed command-transport response, be selected as a
+binary fallback, or preserve a root module where command wrappers could be
+reintroduced. Conformance now requires the old `ioi-step-module-bridge` binary
+and `ioi_step_module_bridge/mod.rs` tombstone are absent while still proving the
+retired command operation, command response wrapper, binary fallback, and JS
+command-envelope request builder cannot return. This remains non-terminal
+because durable replay/storage, MCP/model_mount materialization, richer
+Agentgres projection/replay records, and stable IDE/CLI/SDK protocol APIs still
+need terminal Rust-owned records, but the StepModule bridge artifact itself is
+gone.
+
+Slice 1234 deletes the remaining Rust service-kernel command-dispatch transport
+module. `crates/services/src/agentic/runtime/kernel/command_dispatch.rs` is
+absent, `crates/services/src/agentic/runtime/kernel/mod.rs` no longer exports
+`command_dispatch`, and the retired stdin/JSON helpers
+`run_daemon_core_command_response_from_stdin`,
+`run_daemon_core_command_from_stdin`,
+`run_daemon_core_command_from_json_str`,
+`run_daemon_core_command_from_value`, `CommandTransportError`, and
+`dispatch_command_operation_response` cannot return. The empty
+`command_protocol.rs` catalog remains only as a retired-operation guard for
+source and conformance, not as an executable transport. This remains
+non-terminal because durable replay/storage, MCP/model_mount materialization,
+richer Agentgres projection/replay records, and stable IDE/CLI/SDK protocol APIs
+still need terminal Rust-owned records, but the command-dispatch process
+transport is gone.
+
+Slice 1235 retires the daemon-wide generic `daemonCoreInvoker` pass-through.
+`packages/runtime-daemon/src/service/runtime-daemon-service.mjs` now rejects a
+top-level `daemonCoreInvoker` option before constructing the store,
+`AgentgresRuntimeStateStore` also fails closed if the stale option is supplied
+directly, and `createCodingToolApprovalPolicy()` constructs its default core
+from typed `daemonCoreApprovalApi` instead of forwarding
+`deps.daemonCoreInvoker`. Conformance now forbids the live daemon surfaces from
+storing or forwarding `daemonCoreInvoker: options.daemonCoreInvoker`,
+`this.daemonCoreInvoker = options.daemonCoreInvoker`, or
+`daemonCoreInvoker: deps.daemonCoreInvoker` while preserving direct core-level
+negative tests that retired compatibility options fail closed. This remains
+non-terminal because remaining `rust_core_required` route edges still need
+positive Rust materialization/projection APIs, but the daemon-wide generic
+invoker handle can no longer be used as split-brain fallback scaffolding.
 
 ## Final Doctrine
 

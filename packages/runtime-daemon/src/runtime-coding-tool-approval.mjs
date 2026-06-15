@@ -20,7 +20,7 @@ export function createCodingToolApprovalPolicy(deps = {}) {
   const approvalCore =
     deps.approvalCore ??
     createRuntimeCodingToolApprovalCore({
-      daemonCoreInvoker: deps.daemonCoreInvoker,
+      daemonCoreApprovalApi: deps.daemonCoreApprovalApi,
     });
   const approvalModeForThreadMode = deps.approvalModeForThreadMode || (() => "suggest");
   const codingToolInputSummary = deps.codingToolInputSummary || (() => ({}));

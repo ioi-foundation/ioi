@@ -13,6 +13,9 @@ export async function startRuntimeDaemonServiceWithStore({
   if (Object.hasOwn(options, "contextPolicyRunner")) {
     throw new Error("contextPolicyRunner is retired; pass contextPolicyCore for the Rust daemon-core policy boundary.");
   }
+  if (Object.hasOwn(options, "daemonCoreInvoker")) {
+    throw new Error("daemonCoreInvoker is retired; pass typed Rust daemon-core APIs for the authority boundary.");
+  }
   const store = new StateStore(stateDir, {
     cwd: options.cwd ?? process.cwd(),
     homeDir: options.homeDir,
@@ -23,7 +26,6 @@ export async function startRuntimeDaemonServiceWithStore({
     runtimeAgentgresAdmissionCore: options.runtimeAgentgresAdmissionCore,
     workspaceRestoreCore: options.workspaceRestoreCore,
     runtimeBridge: options.runtimeBridge,
-    daemonCoreInvoker: options.daemonCoreInvoker,
     daemonCoreContextLifecycleApi: options.daemonCoreContextLifecycleApi,
     daemonCoreRuntimeControlApi: options.daemonCoreRuntimeControlApi,
     daemonCoreRuntimeProjectionApi: options.daemonCoreRuntimeProjectionApi,
