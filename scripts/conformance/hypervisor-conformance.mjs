@@ -38915,26 +38915,43 @@ function runCompositor() {
       /workflowNodeId: "retired\.node"/.test(runtimeMcpServeSurfaceTest) &&
       /toolName: "git\.diff"/.test(runtimeMcpServeSurfaceTest) &&
       /args:\s*\{\s*includeStat:\s*"retired"\s*\}/.test(runtimeMcpServeSurfaceTest) &&
-      /plan_runtime_mcp_serve_tool_call/.test(commandProtocolCoreForCompositor) &&
-      /project_runtime_mcp_serve_tool_result/.test(commandProtocolCoreForCompositor) &&
-      /CommandOperation::PlanRuntimeMcpServeToolCall/.test(commandProtocolCoreForCompositor) &&
-      /CommandOperation::ProjectRuntimeMcpServeToolResult/.test(commandProtocolCoreForCompositor) &&
-      /plan_runtime_mcp_serve_tool_call_response/.test(coreCommandDispatchForCompositor) &&
-      /project_runtime_mcp_serve_tool_result_response/.test(coreCommandDispatchForCompositor) &&
+      /"plan_runtime_mcp_serve_tool_call"/.test(commandProtocolCoreForCompositor) &&
+      /"project_runtime_mcp_serve_tool_result"/.test(commandProtocolCoreForCompositor) &&
+      /operation_unknown/.test(commandProtocolCoreForCompositor) &&
+      !/\bPlanRuntimeMcpServeToolCall\b/.test(commandProtocolCoreForCompositor) &&
+      !/\bProjectRuntimeMcpServeToolResult\b/.test(commandProtocolCoreForCompositor) &&
+      !/plan_runtime_mcp_serve_tool_call_response/.test(coreCommandDispatchForCompositor) &&
+      !/project_runtime_mcp_serve_tool_result_response/.test(coreCommandDispatchForCompositor) &&
       /pub mod runtime_mcp_serve;/.test(kernelModuleForCompositor) &&
+      /pub fn plan_runtime_mcp_serve_tool_call/.test(kernelModuleForCompositor) &&
+      /pub fn project_runtime_mcp_serve_tool_result/.test(kernelModuleForCompositor) &&
       /RuntimeMcpServeToolCallPlanCore/.test(runtimeMcpServeCore) &&
       /RuntimeMcpServeToolCallPlanRequest/.test(runtimeMcpServeCore) &&
-      /plan_runtime_mcp_serve_tool_call_response/.test(runtimeMcpServeCore) &&
       /RuntimeMcpServeToolResultProjectionRequest/.test(runtimeMcpServeCore) &&
-      /project_runtime_mcp_serve_tool_result_response/.test(runtimeMcpServeCore) &&
+      /RuntimeMcpServeError/.test(runtimeMcpServeCore) &&
+      !/RuntimeMcpServeCommandError/.test(runtimeMcpServeCore) &&
+      !/plan_runtime_mcp_serve_tool_call_response/.test(runtimeMcpServeCore) &&
+      !/project_runtime_mcp_serve_tool_result_response/.test(runtimeMcpServeCore) &&
+      !/rust_runtime_mcp_serve_tool_call_plan_command/.test(runtimeMcpServeCore + runtimeContextPolicyCore) &&
+      !/rust_runtime_mcp_serve_tool_result_projection_command/.test(
+        runtimeMcpServeCore + runtimeContextPolicyCore,
+      ) &&
       /rust_plans_mcp_serve_tool_call_request/.test(runtimeMcpServeCore) &&
-      /rust_shapes_mcp_serve_tool_call_command_response/.test(runtimeMcpServeCore) &&
+      /rust_shapes_mcp_serve_tool_call_direct_record/.test(runtimeMcpServeCore) &&
       /rust_projects_mcp_serve_tool_call_result/.test(runtimeMcpServeCore) &&
-      /rust_shapes_mcp_serve_tool_result_command_response/.test(runtimeMcpServeCore) &&
+      /rust_shapes_mcp_serve_tool_result_direct_record/.test(runtimeMcpServeCore) &&
       /planRuntimeMcpServeToolCall\(request = \{\}\)/.test(runtimeContextPolicyCore) &&
       /projectRuntimeMcpServeToolResult\(request = \{\}\)/.test(runtimeContextPolicyCore) &&
-      /operation:\s*"plan_runtime_mcp_serve_tool_call"/.test(runtimeContextPolicyCore) &&
-      /operation:\s*"project_runtime_mcp_serve_tool_result"/.test(runtimeContextPolicyCore) &&
+      /MCP_SERVE_TOOL_CALL_PLAN_API_METHOD/.test(runtimeContextPolicyCore) &&
+      /MCP_SERVE_TOOL_RESULT_PROJECTION_API_METHOD/.test(runtimeContextPolicyCore) &&
+      /invokeMcpApi\(\s*MCP_SERVE_TOOL_CALL_PLAN_API_METHOD/.test(runtimeContextPolicyCore) &&
+      /invokeMcpApi\(\s*MCP_SERVE_TOOL_RESULT_PROJECTION_API_METHOD/.test(runtimeContextPolicyCore) &&
+      !/operation:\s*"plan_runtime_mcp_serve_tool_call"/.test(
+        runtimeContextPolicyCore + runtimeMcpServeSurface,
+      ) &&
+      !/operation:\s*"project_runtime_mcp_serve_tool_result"/.test(
+        runtimeContextPolicyCore + runtimeMcpServeSurface,
+      ) &&
       /RUNTIME_MCP_SERVE_TOOL_CALL_PLAN_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyCore) &&
       /RUNTIME_MCP_SERVE_TOOL_RESULT_PROJECTION_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyCore) &&
       /normalizeRuntimeMcpServeToolCallPlanBridgeResult/.test(runtimeContextPolicyCore) &&
@@ -38945,12 +38962,15 @@ function runCompositor() {
       /runtime MCP serve tool-result projector sends Rust daemon-core projection request/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /captured\.operation,\s*"plan_runtime_mcp_serve_tool_call"/.test(
+      /MCP_SERVE_TOOL_CALL_PLAN_API_METHOD/.test(runtimeContextPolicyCoreTest) &&
+      /MCP_SERVE_TOOL_RESULT_PROJECTION_API_METHOD/.test(runtimeContextPolicyCoreTest) &&
+      /calls\[0\]\.method,\s*MCP_SERVE_TOOL_CALL_PLAN_API_METHOD/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /captured\.operation,\s*"project_runtime_mcp_serve_tool_result"/.test(
+      /calls\[0\]\.method,\s*MCP_SERVE_TOOL_RESULT_PROJECTION_API_METHOD/.test(
         runtimeContextPolicyCoreTest,
       ) &&
+      /Object\.hasOwn\(captured,\s*"operation"\),\s*false/.test(runtimeContextPolicyCoreTest) &&
       /store\?\.codingToolInvocationSurface\?\.invokeThreadTool/.test(runtimeMcpServeSurface) &&
       /planner\.planRuntimeMcpServeToolCall/.test(runtimeMcpServeSurface) &&
       /planner\?\.projectRuntimeMcpServeToolResult/.test(runtimeMcpServeSurface) &&

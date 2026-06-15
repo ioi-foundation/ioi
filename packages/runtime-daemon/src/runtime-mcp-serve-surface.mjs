@@ -152,7 +152,6 @@ export function createRuntimeMcpServeSurface({
             });
           }
           const plan = planner.planRuntimeMcpServeToolCall({
-            operation: "runtime_mcp_serve_tool_call",
             operation_kind: "mcp.serve.tools.call",
             thread_id: threadId,
             tool_id: toolId,
@@ -175,7 +174,6 @@ export function createRuntimeMcpServeSurface({
             invocationRequest,
           );
           const resultProjection = planner.projectRuntimeMcpServeToolResult({
-            operation: "project_runtime_mcp_serve_tool_result",
             operation_kind: "mcp.serve.tools.result",
             thread_id: threadId,
             tool_id: toolId,

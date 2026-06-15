@@ -63,12 +63,12 @@ pub struct RuntimeMcpServeToolResultProjectionRequest {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RuntimeMcpServeCommandError {
+pub struct RuntimeMcpServeError {
     code: &'static str,
     message: String,
 }
 
-impl RuntimeMcpServeCommandError {
+impl RuntimeMcpServeError {
     fn new(code: &'static str, message: impl Into<String>) -> Self {
         Self {
             code,
@@ -125,36 +125,14 @@ pub struct RuntimeMcpServeToolResultProjectionRecord {
     pub policy_decision_refs: Vec<String>,
 }
 
-pub fn plan_runtime_mcp_serve_tool_call_response(
-    request: RuntimeMcpServeToolCallPlanRequest,
-) -> Result<Value, RuntimeMcpServeCommandError> {
-    let record = RuntimeMcpServeToolCallPlanCore.plan(&request)?;
-    Ok(json!({
-        "source": "rust_runtime_mcp_serve_tool_call_plan_command",
-        "backend": "rust_policy",
-        "record": record.to_value(),
-    }))
-}
-
-pub fn project_runtime_mcp_serve_tool_result_response(
-    request: RuntimeMcpServeToolResultProjectionRequest,
-) -> Result<Value, RuntimeMcpServeCommandError> {
-    let record = RuntimeMcpServeToolCallPlanCore.project_result(&request)?;
-    Ok(json!({
-        "source": "rust_runtime_mcp_serve_tool_result_projection_command",
-        "backend": "rust_policy",
-        "record": record.to_value(),
-    }))
-}
-
 impl RuntimeMcpServeToolCallPlanCore {
     pub fn plan(
         &self,
         request: &RuntimeMcpServeToolCallPlanRequest,
-    ) -> Result<RuntimeMcpServeToolCallPlanRecord, RuntimeMcpServeCommandError> {
+    ) -> Result<RuntimeMcpServeToolCallPlanRecord, RuntimeMcpServeError> {
         if let Some(schema_version) = optional_trimmed(request.schema_version.as_deref()) {
             if schema_version != RUNTIME_MCP_SERVE_TOOL_CALL_PLAN_REQUEST_SCHEMA_VERSION {
-                return Err(RuntimeMcpServeCommandError::new(
+                return Err(RuntimeMcpServeError::new(
                     "runtime_mcp_serve_tool_call_schema_version_invalid",
                     format!(
                         "expected {RUNTIME_MCP_SERVE_TOOL_CALL_PLAN_REQUEST_SCHEMA_VERSION}, got {schema_version}"
@@ -168,7 +146,7 @@ impl RuntimeMcpServeToolCallPlanCore {
         let operation_kind = optional_trimmed(request.operation_kind.as_deref())
             .unwrap_or_else(|| "mcp.serve.tools.call".to_string());
         if operation_kind != "mcp.serve.tools.call" {
-            return Err(RuntimeMcpServeCommandError::new(
+            return Err(RuntimeMcpServeError::new(
                 "runtime_mcp_serve_tool_call_operation_kind_unsupported",
                 format!("{operation_kind} is not an MCP serve tools/call operation"),
             ));
@@ -176,19 +154,19 @@ impl RuntimeMcpServeToolCallPlanCore {
         let method =
             optional_trimmed(request.method.as_deref()).unwrap_or_else(|| "tools/call".to_string());
         if method != "tools/call" {
-            return Err(RuntimeMcpServeCommandError::new(
+            return Err(RuntimeMcpServeError::new(
                 "runtime_mcp_serve_tool_call_method_unsupported",
                 format!("{method} is not supported for MCP serve tool-call planning"),
             ));
         }
         let thread_id = optional_trimmed(request.thread_id.as_deref()).ok_or_else(|| {
-            RuntimeMcpServeCommandError::new(
+            RuntimeMcpServeError::new(
                 "runtime_mcp_serve_tool_call_thread_id_required",
                 "MCP serve tool-call planning requires thread_id",
             )
         })?;
         let tool_id = optional_trimmed(request.tool_id.as_deref()).ok_or_else(|| {
-            RuntimeMcpServeCommandError::new(
+            RuntimeMcpServeError::new(
                 "runtime_mcp_serve_tool_call_tool_id_required",
                 "MCP serve tool-call planning requires tool_id",
             )
@@ -306,10 +284,10 @@ impl RuntimeMcpServeToolCallPlanCore {
     pub fn project_result(
         &self,
         request: &RuntimeMcpServeToolResultProjectionRequest,
-    ) -> Result<RuntimeMcpServeToolResultProjectionRecord, RuntimeMcpServeCommandError> {
+    ) -> Result<RuntimeMcpServeToolResultProjectionRecord, RuntimeMcpServeError> {
         if let Some(schema_version) = optional_trimmed(request.schema_version.as_deref()) {
             if schema_version != RUNTIME_MCP_SERVE_TOOL_RESULT_PROJECTION_REQUEST_SCHEMA_VERSION {
-                return Err(RuntimeMcpServeCommandError::new(
+                return Err(RuntimeMcpServeError::new(
                     "runtime_mcp_serve_tool_result_schema_version_invalid",
                     format!(
                         "expected {RUNTIME_MCP_SERVE_TOOL_RESULT_PROJECTION_REQUEST_SCHEMA_VERSION}, got {schema_version}"
@@ -319,23 +297,23 @@ impl RuntimeMcpServeToolCallPlanCore {
         }
 
         let operation = optional_trimmed(request.operation.as_deref())
-            .unwrap_or_else(|| "project_runtime_mcp_serve_tool_result".to_string());
+            .unwrap_or_else(|| "runtime_mcp_serve_tool_result".to_string());
         let operation_kind = optional_trimmed(request.operation_kind.as_deref())
             .unwrap_or_else(|| "mcp.serve.tools.result".to_string());
         if operation_kind != "mcp.serve.tools.result" {
-            return Err(RuntimeMcpServeCommandError::new(
+            return Err(RuntimeMcpServeError::new(
                 "runtime_mcp_serve_tool_result_operation_kind_unsupported",
                 format!("{operation_kind} is not an MCP serve tools/call result projection"),
             ));
         }
         let thread_id = optional_trimmed(request.thread_id.as_deref()).ok_or_else(|| {
-            RuntimeMcpServeCommandError::new(
+            RuntimeMcpServeError::new(
                 "runtime_mcp_serve_tool_result_thread_id_required",
                 "MCP serve result projection requires thread_id",
             )
         })?;
         let tool_id = optional_trimmed(request.tool_id.as_deref()).ok_or_else(|| {
-            RuntimeMcpServeCommandError::new(
+            RuntimeMcpServeError::new(
                 "runtime_mcp_serve_tool_result_tool_id_required",
                 "MCP serve result projection requires tool_id",
             )
@@ -343,13 +321,13 @@ impl RuntimeMcpServeToolCallPlanCore {
         let plan = object_value(&request.plan);
         let invocation = object_value(&request.invocation);
         if plan.is_empty() {
-            return Err(RuntimeMcpServeCommandError::new(
+            return Err(RuntimeMcpServeError::new(
                 "runtime_mcp_serve_tool_result_plan_required",
                 "MCP serve result projection requires the Rust tool-call plan",
             ));
         }
         if invocation.is_empty() {
-            return Err(RuntimeMcpServeCommandError::new(
+            return Err(RuntimeMcpServeError::new(
                 "runtime_mcp_serve_tool_result_invocation_required",
                 "MCP serve result projection requires a Rust coding-tool invocation result",
             ));
@@ -359,7 +337,7 @@ impl RuntimeMcpServeToolCallPlanCore {
         if plan_thread_id.as_deref() != Some(thread_id.as_str())
             || plan_tool_id.as_deref() != Some(tool_id.as_str())
         {
-            return Err(RuntimeMcpServeCommandError::new(
+            return Err(RuntimeMcpServeError::new(
                 "runtime_mcp_serve_tool_result_plan_mismatch",
                 "MCP serve result projection requires matching Rust plan identity",
             ));
@@ -627,15 +605,13 @@ mod tests {
     }
 
     #[test]
-    fn rust_shapes_mcp_serve_tool_call_command_response() {
-        let response =
-            plan_runtime_mcp_serve_tool_call_response(request()).expect("command response");
-        assert_eq!(
-            response["source"],
-            "rust_runtime_mcp_serve_tool_call_plan_command"
-        );
-        assert_eq!(response["record"]["operation_kind"], "mcp.serve.tools.call");
-        assert_eq!(response["record"]["request"]["source"], "mcp_serve");
+    fn rust_shapes_mcp_serve_tool_call_direct_record() {
+        let record = RuntimeMcpServeToolCallPlanCore
+            .plan(&request())
+            .expect("direct record");
+        let value = record.to_value();
+        assert_eq!(value["operation_kind"], "mcp.serve.tools.call");
+        assert_eq!(value["request"]["source"], "mcp_serve");
     }
 
     #[test]
@@ -697,13 +673,13 @@ mod tests {
     }
 
     #[test]
-    fn rust_shapes_mcp_serve_tool_result_command_response() {
+    fn rust_shapes_mcp_serve_tool_result_direct_record() {
         let plan = RuntimeMcpServeToolCallPlanCore
             .plan(&request())
             .expect("mcp serve plan")
             .to_value();
-        let response = project_runtime_mcp_serve_tool_result_response(
-            RuntimeMcpServeToolResultProjectionRequest {
+        let record = RuntimeMcpServeToolCallPlanCore
+            .project_result(&RuntimeMcpServeToolResultProjectionRequest {
                 schema_version: Some(
                     RUNTIME_MCP_SERVE_TOOL_RESULT_PROJECTION_REQUEST_SCHEMA_VERSION.to_string(),
                 ),
@@ -720,15 +696,11 @@ mod tests {
                     "event": { "payload_summary": { "summary": "ok" } }
                 }),
                 mcp_serve_schema_version: None,
-            },
-        )
-        .expect("command response");
+            })
+            .expect("direct record");
+        let value = record.to_value();
         assert_eq!(
-            response["source"],
-            "rust_runtime_mcp_serve_tool_result_projection_command"
-        );
-        assert_eq!(
-            response["record"]["result"]["structuredContent"]["object"],
+            value["result"]["structuredContent"]["object"],
             "ioi.runtime_mcp_serve_tool_result"
         );
     }

@@ -1425,6 +1425,74 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
           routes: request.routes ?? {},
         };
       },
+      planRuntimeMcpServeToolCall(request) {
+        mcpCalls.push({ method: "planRuntimeMcpServeToolCall", request });
+        return {
+          source: "direct_mcp_serve_api",
+          backend: "rust_policy",
+          record: {
+            schema_version: "ioi.runtime.mcp_serve_tool_call_plan.v1",
+            object: "ioi.runtime_mcp_serve_tool_call_plan",
+            status: "planned",
+            operation_kind: "mcp.serve.tools.call",
+            thread_id: request.thread_id,
+            tool_id: request.tool_id,
+            tool_name: request.tool_name,
+            method: "tools/call",
+            tool_call_id: "mcp_serve_direct",
+            idempotency_key: "thread:thread_direct:mcp-serve:mcp_serve_direct",
+            workflow_graph_id: "runtime.mcp_serve",
+            workflow_node_id: "runtime.mcp_serve.git_diff",
+            request_hash: "sha256:direct-mcp-serve",
+            request: {
+              source: "mcp_serve",
+              tool_call_id: "mcp_serve_direct",
+              idempotency_key: "thread:thread_direct:mcp-serve:mcp_serve_direct",
+              workflow_graph_id: "runtime.mcp_serve",
+              workflow_node_id: "runtime.mcp_serve.git_diff",
+              mcp_serve_request: {
+                method: "tools/call",
+                thread_id: request.thread_id,
+                tool_id: request.tool_id,
+              },
+            },
+            evidence_refs: ["runtime_mcp_serve_tool_call_rust_owned"],
+          },
+        };
+      },
+      projectRuntimeMcpServeToolResult(request) {
+        mcpCalls.push({ method: "projectRuntimeMcpServeToolResult", request });
+        return {
+          source: "direct_mcp_serve_api",
+          backend: "rust_policy",
+          record: {
+            schema_version: "ioi.runtime.mcp_serve_tool_result_projection.v1",
+            object: "ioi.runtime_mcp_serve_tool_result_projection",
+            status: "projected",
+            operation_kind: "mcp.serve.tools.result",
+            thread_id: request.thread_id,
+            tool_id: request.tool_id,
+            tool_name: request.tool_name,
+            tool_call_id: "mcp_serve_direct",
+            event_id: "event_mcp_serve_direct",
+            tool_status: "completed",
+            result: {
+              content: [{ type: "text", text: "git diff completed" }],
+              structuredContent: {
+                schema_version: "ioi.runtime.mcp-serve.test",
+                object: "ioi.runtime_mcp_serve_tool_result",
+                status: "completed",
+                thread_id: request.thread_id,
+                tool_name: request.tool_name,
+                tool_call_id: "mcp_serve_direct",
+                event_id: "event_mcp_serve_direct",
+              },
+              isError: false,
+            },
+            evidence_refs: ["runtime_mcp_serve_tool_result_rust_owned"],
+          },
+        };
+      },
     },
     daemonCoreThreadMemoryApi: {
       planRuntimeMemoryControl(request) {
@@ -1701,6 +1769,44 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
   assert.equal(Object.hasOwn(mcpCalls[0].request, "backend"), false);
   assert.equal(mcpStatus.source, "direct_mcp_api");
   assert.equal(mcpStatus.server_count, 1);
+  const mcpServePlan = store.contextPolicyCore.planRuntimeMcpServeToolCall({
+    operation_kind: "mcp.serve.tools.call",
+    thread_id: "thread_direct",
+    tool_id: "git.diff",
+    tool_name: "git.diff",
+    method: "tools/call",
+    params: { name: "git.diff", arguments: { include_stat: true } },
+  });
+  assert.equal(calls.length, 0);
+  assert.equal(mcpCalls.length, 2);
+  assert.equal(mcpCalls[1].method, "planRuntimeMcpServeToolCall");
+  assert.equal(
+    mcpCalls[1].request.schema_version,
+    "ioi.runtime.mcp-serve-tool-call-plan-request.v1",
+  );
+  assert.equal(Object.hasOwn(mcpCalls[1].request, "operation"), false);
+  assert.equal(Object.hasOwn(mcpCalls[1].request, "backend"), false);
+  assert.equal(mcpServePlan.source, "direct_mcp_serve_api");
+  assert.equal(mcpServePlan.request.source, "mcp_serve");
+  const mcpServeResult = store.contextPolicyCore.projectRuntimeMcpServeToolResult({
+    operation_kind: "mcp.serve.tools.result",
+    thread_id: "thread_direct",
+    tool_id: "git.diff",
+    tool_name: "git.diff",
+    plan: mcpServePlan,
+    invocation: { status: "completed" },
+  });
+  assert.equal(calls.length, 0);
+  assert.equal(mcpCalls.length, 3);
+  assert.equal(mcpCalls[2].method, "projectRuntimeMcpServeToolResult");
+  assert.equal(
+    mcpCalls[2].request.schema_version,
+    "ioi.runtime.mcp-serve-tool-result-projection-request.v1",
+  );
+  assert.equal(Object.hasOwn(mcpCalls[2].request, "operation"), false);
+  assert.equal(Object.hasOwn(mcpCalls[2].request, "backend"), false);
+  assert.equal(mcpServeResult.source, "direct_mcp_serve_api");
+  assert.equal(mcpServeResult.result.structuredContent.event_id, "event_mcp_serve_direct");
   const invocationAdmission = store.modelMounting.admitModelMountInvocation({
     schema_version: "ioi.model_mount.invocation_admission.v1",
     invocation_ref: "model-invocation://direct",

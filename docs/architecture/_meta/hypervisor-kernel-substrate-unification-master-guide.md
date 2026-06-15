@@ -614,18 +614,21 @@ extraction or facade-retirement seam lands.
 Slice 769 retired the MCP serve `tools/call` `params.args` fallback before
 served runtime tool invocation input crosses into the daemon: at that slice,
 the MCP serve surface consumes canonical MCP `params.arguments` only. Slice 955
-later retired the remaining MCP serve JS tool-call dispatch path entirely, and
-the current MCP serve cut moves served tool-call request-envelope authorship to
-Rust daemon-core `plan_runtime_mcp_serve_tool_call`; canonical
+later retired the remaining MCP serve JS tool-call dispatch path entirely.
+Slice 1224 replaces the remaining MCP serve command transport with typed
+`daemonCoreMcpApi.planRuntimeMcpServeToolCall` and
+`daemonCoreMcpApi.projectRuntimeMcpServeToolResult`, backed by Rust
+`RuntimeKernelService::plan_runtime_mcp_serve_tool_call` and
+`RuntimeKernelService::project_runtime_mcp_serve_tool_result`; canonical
 `params.arguments` now crosses only as Rust planner input before the adapter
 calls the Rust-owned coding-tool invocation surface. This does not claim
-terminal MCP serve migration: direct Rust daemon-core MCP serve/control,
-admission/projection still needs to own wallet authority,
-transport containment, StepModuleRouter dispatch, receipt binding, Agentgres
-expected-head/state-root binding, projection, replay, SDK/IDE protocol coverage,
-and conformance. Do not encode the remaining JS MCP serve protocol facade as
-terminal architecture. The Slice 769 MCP serve `params.args` alias-retirement
-matrix-compaction pass is complete.
+terminal MCP serve migration: Rust MCP transport execution, transport
+containment, real payload materialization into persisted live-result records,
+serve admission, projection/replay storage, SDK/IDE protocol coverage, and
+conformance still require deeper Rust ownership. Do not encode the remaining JS
+MCP serve protocol facade as terminal architecture. The Slice 769 MCP serve
+`params.args` alias-retirement matrix-compaction pass is complete, and the Slice
+1224 command-transport retirement is tracked in the macro authority ledger.
 Slice 770 retired the MCP manager `allowedTools` server config/catalog fallback
 before MCP manager records can expose tools. `mcp-manager.mjs` now derives
 declared tool exposure only from canonical `allowed_tools` and declared `tools`
@@ -9059,11 +9062,19 @@ catalog-summary projection, and tool search/fetch projection:
 `mcp-manager.mjs` no longer passes a generic command invoker or
 `daemonCoreApi.mcp` compatibility mount, `policy/mcp_memory.rs` no longer
 exports MCP command-response wrappers or bridge request structs, and Rust
-`command_protocol.rs` rejects the retired MCP command operations. Actual MCP
-transport execution, runtime containment sandboxing, real result payload
-materialization into the persisted live-result records, MCP serve command
-transport retirement, and stable protocol APIs over Rust replay records remain
-non-terminal.
+`command_protocol.rs` rejects the retired MCP command operations. Slice 1224
+then retires the MCP serve command transport: `RuntimeContextPolicyCore` calls
+typed `daemonCoreMcpApi.planRuntimeMcpServeToolCall` and
+`daemonCoreMcpApi.projectRuntimeMcpServeToolResult`, Rust
+`RuntimeKernelService` exposes the matching positive methods, the old
+`plan_runtime_mcp_serve_tool_call` and
+`project_runtime_mcp_serve_tool_result` command operations, dispatch arms,
+response wrappers, `RuntimeMcpServeCommandError`, command source markers, and JS
+command-envelope fields are absent, and conformance requires command-protocol
+rejection for both retired operations. Actual MCP transport execution, runtime
+containment sandboxing, real result payload materialization into the persisted
+live-result records, serve admission, and stable protocol APIs over Rust replay
+records remain non-terminal.
 Model-mount MCP workflow control has a matching typed Rust positive boundary:
 `daemonCoreModelMountApi.planModelMountMcpWorkflow` now calls Rust
 `RuntimeKernel::plan_model_mount_mcp_workflow` for import, ephemeral
@@ -9453,8 +9464,25 @@ arms for the retired operations, and `command_protocol.rs` rejects
 now guards the typed API calls, direct Rust records, and retired command
 operations so this family cannot return through JS authority, a command-env
 fallback, or the binary bridge command path. This remains non-terminal only
-because other route families, especially MCP/memory and remaining model_mount
-materialization/protocol work, still need direct Rust daemon-core ownership.
+because other route families, especially remaining MCP transport/materialization,
+memory custody/replay, and model_mount materialization/protocol work, still need
+direct Rust daemon-core ownership.
+
+Slice 1224 retires the MCP serve `tools/call` command transport. MCP serve
+planning and result projection now call typed `daemonCoreMcpApi` methods instead
+of `evaluateRawPolicy`, backed by Rust
+`RuntimeKernelService::plan_runtime_mcp_serve_tool_call` and
+`RuntimeKernelService::project_runtime_mcp_serve_tool_result`. Rust
+`command_protocol.rs` rejects `plan_runtime_mcp_serve_tool_call` and
+`project_runtime_mcp_serve_tool_result` as unknown command operations,
+`command_dispatch.rs` has no arms for them, the Rust response wrappers and
+`RuntimeMcpServeCommandError` are deleted, and JS no longer sends command
+`operation`/`backend` envelopes or command-source markers for the MCP serve hot
+path. Conformance now guards the typed API, direct Rust records, retired command
+transport, and source-scan blockers. This remains non-terminal because actual
+Rust MCP transport execution, runtime containment, serve admission, durable
+payload materialization/replay, and stable IDE/CLI/SDK protocol APIs still need
+deeper Rust daemon-core ownership.
 
 ## Final Doctrine
 

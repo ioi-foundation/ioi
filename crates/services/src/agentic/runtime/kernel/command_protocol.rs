@@ -21,8 +21,6 @@ pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
     "project_repository_workflow",
     "project_runtime_tool_catalog",
     "project_runtime_lifecycle",
-    "plan_runtime_mcp_serve_tool_call",
-    "project_runtime_mcp_serve_tool_result",
     "plan_runtime_workflow_edit_control",
     "project_runtime_managed_session_projection",
     "plan_runtime_managed_session_control",
@@ -53,8 +51,6 @@ pub enum CommandOperation {
     ProjectRepositoryWorkflow,
     ProjectRuntimeToolCatalog,
     ProjectRuntimeLifecycle,
-    PlanRuntimeMcpServeToolCall,
-    ProjectRuntimeMcpServeToolResult,
     PlanRuntimeWorkflowEditControl,
     ProjectRuntimeManagedSessionProjection,
     PlanRuntimeManagedSessionControl,
@@ -98,8 +94,6 @@ impl CommandOperation {
             Self::ProjectRepositoryWorkflow => "project_repository_workflow",
             Self::ProjectRuntimeToolCatalog => "project_runtime_tool_catalog",
             Self::ProjectRuntimeLifecycle => "project_runtime_lifecycle",
-            Self::PlanRuntimeMcpServeToolCall => "plan_runtime_mcp_serve_tool_call",
-            Self::ProjectRuntimeMcpServeToolResult => "project_runtime_mcp_serve_tool_result",
             Self::PlanRuntimeWorkflowEditControl => "plan_runtime_workflow_edit_control",
             Self::ProjectRuntimeManagedSessionProjection => {
                 "project_runtime_managed_session_projection"
@@ -212,10 +206,6 @@ pub fn command_operation(operation: &str) -> Option<CommandOperation> {
         "project_repository_workflow" => Some(CommandOperation::ProjectRepositoryWorkflow),
         "project_runtime_tool_catalog" => Some(CommandOperation::ProjectRuntimeToolCatalog),
         "project_runtime_lifecycle" => Some(CommandOperation::ProjectRuntimeLifecycle),
-        "plan_runtime_mcp_serve_tool_call" => Some(CommandOperation::PlanRuntimeMcpServeToolCall),
-        "project_runtime_mcp_serve_tool_result" => {
-            Some(CommandOperation::ProjectRuntimeMcpServeToolResult)
-        }
         "plan_runtime_workflow_edit_control" => {
             Some(CommandOperation::PlanRuntimeWorkflowEditControl)
         }
@@ -304,8 +294,6 @@ mod tests {
             "plan_runtime_task_job_create_state_update",
             "project_runtime_task_job_projection",
             "project_runtime_tool_catalog",
-            "plan_runtime_mcp_serve_tool_call",
-            "project_runtime_mcp_serve_tool_result",
             "project_runtime_managed_session_projection",
             "plan_runtime_managed_session_control",
             "project_runtime_workspace_change_projection",
@@ -330,6 +318,8 @@ mod tests {
             "project_mcp_live_result_replay",
             "validate_mcp_servers",
             "project_mcp_server_validation_input",
+            "plan_runtime_mcp_serve_tool_call",
+            "project_runtime_mcp_serve_tool_result",
             "plan_mcp_manager_status_projection",
             "plan_mcp_manager_validation_projection",
             "plan_mcp_manager_catalog_projection",

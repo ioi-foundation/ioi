@@ -192,6 +192,9 @@ export const MCP_MANAGER_CATALOG_SUMMARY_PROJECTION_API_METHOD =
   "planMcpManagerCatalogSummaryProjection";
 export const MCP_TOOL_SEARCH_PROJECTION_API_METHOD = "projectMcpToolSearchProjection";
 export const MCP_TOOL_FETCH_PROJECTION_API_METHOD = "projectMcpToolFetchProjection";
+export const MCP_SERVE_TOOL_CALL_PLAN_API_METHOD = "planRuntimeMcpServeToolCall";
+export const MCP_SERVE_TOOL_RESULT_PROJECTION_API_METHOD =
+  "projectRuntimeMcpServeToolResult";
 export const THREAD_MEMORY_RUNTIME_MEMORY_PROJECTION_API_METHOD =
   "projectRuntimeMemoryProjection";
 export const THREAD_MEMORY_RUNTIME_MEMORY_CONTROL_API_METHOD =
@@ -538,19 +541,19 @@ export class RuntimeContextPolicyCore {
   }
 
   planRuntimeMcpServeToolCall(request = {}) {
-    return normalizeRuntimeMcpServeToolCallPlanBridgeResult(this.evaluateRawPolicy({
-      operation: "plan_runtime_mcp_serve_tool_call",
-      schemaVersion: RUNTIME_MCP_SERVE_TOOL_CALL_PLAN_REQUEST_SCHEMA_VERSION,
+    return normalizeRuntimeMcpServeToolCallPlanBridgeResult(this.invokeMcpApi(
+      MCP_SERVE_TOOL_CALL_PLAN_API_METHOD,
+      RUNTIME_MCP_SERVE_TOOL_CALL_PLAN_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   projectRuntimeMcpServeToolResult(request = {}) {
-    return normalizeRuntimeMcpServeToolResultProjectionBridgeResult(this.evaluateRawPolicy({
-      operation: "project_runtime_mcp_serve_tool_result",
-      schemaVersion: RUNTIME_MCP_SERVE_TOOL_RESULT_PROJECTION_REQUEST_SCHEMA_VERSION,
+    return normalizeRuntimeMcpServeToolResultProjectionBridgeResult(this.invokeMcpApi(
+      MCP_SERVE_TOOL_RESULT_PROJECTION_API_METHOD,
+      RUNTIME_MCP_SERVE_TOOL_RESULT_PROJECTION_REQUEST_SCHEMA_VERSION,
       request,
-    }));
+    ));
   }
 
   planRuntimeWorkflowEditControl(request = {}) {
@@ -2075,7 +2078,7 @@ export function normalizeRuntimeMcpServeToolCallPlanBridgeResult(value = {}) {
     source:
       result.source ??
       record.source ??
-      "rust_runtime_mcp_serve_tool_call_plan_command",
+      "rust_runtime_mcp_serve_tool_call_plan_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
@@ -2119,7 +2122,7 @@ export function normalizeRuntimeMcpServeToolResultProjectionBridgeResult(value =
     source:
       result.source ??
       record.source ??
-      "rust_runtime_mcp_serve_tool_result_projection_command",
+      "rust_runtime_mcp_serve_tool_result_projection_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,

@@ -78,6 +78,8 @@ import {
   MCP_SERVER_VALIDATION_INPUT_REQUEST_SCHEMA_VERSION,
   MCP_SERVER_VALIDATION_API_METHOD,
   MCP_SERVER_VALIDATION_REQUEST_SCHEMA_VERSION,
+  MCP_SERVE_TOOL_CALL_PLAN_API_METHOD,
+  MCP_SERVE_TOOL_RESULT_PROJECTION_API_METHOD,
   MEMORY_MANAGER_STATUS_PROJECTION_REQUEST_SCHEMA_VERSION,
   MEMORY_MANAGER_VALIDATION_PROJECTION_REQUEST_SCHEMA_VERSION,
   OPERATOR_TURN_CONTROL_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
@@ -4183,47 +4185,48 @@ test("MCP server validation input core sends typed Rust daemon-core MCP projecti
 
 test("runtime MCP serve tool-call planner sends Rust daemon-core request", () => {
   let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
+  const { calls, runner } = createMcpDirectCore(
+    MCP_SERVE_TOOL_CALL_PLAN_API_METHOD,
+    (request) => {
       captured = request;
       return {
-            source: "rust_runtime_mcp_serve_tool_call_plan_command",
-            backend: "rust_policy",
-            record: {
-              schema_version: "ioi.runtime.mcp_serve_tool_call_plan.v1",
-              object: "ioi.runtime_mcp_serve_tool_call_plan",
-              status: "planned",
-              operation: "runtime_mcp_serve_tool_call",
-              operation_kind: "mcp.serve.tools.call",
+        source: "rust_runtime_mcp_serve_tool_call_plan_api",
+        backend: "rust_policy",
+        record: {
+          schema_version: "ioi.runtime.mcp_serve_tool_call_plan.v1",
+          object: "ioi.runtime_mcp_serve_tool_call_plan",
+          status: "planned",
+          operation: "runtime_mcp_serve_tool_call",
+          operation_kind: "mcp.serve.tools.call",
+          thread_id: "thread-one",
+          tool_id: "git.diff",
+          tool_name: "git.diff",
+          method: "tools/call",
+          tool_call_id: "mcp_serve_git_diff_hash",
+          idempotency_key: "thread:thread-one:mcp-serve:mcp_serve_git_diff_hash",
+          workflow_graph_id: "runtime.mcp_serve",
+          workflow_node_id: "runtime.mcp_serve.git_diff",
+          request_hash: "hash",
+          request: {
+            include_stat: true,
+            source: "mcp_serve",
+            tool_call_id: "mcp_serve_git_diff_hash",
+            idempotency_key: "thread:thread-one:mcp-serve:mcp_serve_git_diff_hash",
+            workflow_graph_id: "runtime.mcp_serve",
+            workflow_node_id: "runtime.mcp_serve.git_diff",
+            mcp_serve_request: {
+              method: "tools/call",
               thread_id: "thread-one",
               tool_id: "git.diff",
-              tool_name: "git.diff",
-              method: "tools/call",
-              tool_call_id: "mcp_serve_git_diff_hash",
-              idempotency_key: "thread:thread-one:mcp-serve:mcp_serve_git_diff_hash",
-              workflow_graph_id: "runtime.mcp_serve",
-              workflow_node_id: "runtime.mcp_serve.git_diff",
-              request_hash: "hash",
-              request: {
-                include_stat: true,
-                source: "mcp_serve",
-                tool_call_id: "mcp_serve_git_diff_hash",
-                idempotency_key: "thread:thread-one:mcp-serve:mcp_serve_git_diff_hash",
-                workflow_graph_id: "runtime.mcp_serve",
-                workflow_node_id: "runtime.mcp_serve.git_diff",
-                mcp_serve_request: {
-                  method: "tools/call",
-                  thread_id: "thread-one",
-                  tool_id: "git.diff",
-                },
-              },
-              receipt_refs: ["receipt_runtime_mcp_serve_tool_call_plan_git_diff"],
-              policy_decision_refs: ["policy_runtime_mcp_serve_tool_call_plan_git_diff"],
-              evidence_refs: ["runtime_mcp_serve_tool_call_rust_owned"],
             },
-          };
+          },
+          receipt_refs: ["receipt_runtime_mcp_serve_tool_call_plan_git_diff"],
+          policy_decision_refs: ["policy_runtime_mcp_serve_tool_call_plan_git_diff"],
+          evidence_refs: ["runtime_mcp_serve_tool_call_rust_owned"],
+        },
+      };
     },
-  });
+  );
 
   const result = runner.planRuntimeMcpServeToolCall({
     thread_id: "thread-one",
@@ -4233,15 +4236,16 @@ test("runtime MCP serve tool-call planner sends Rust daemon-core request", () =>
     params: { name: "git.diff", arguments: { include_stat: true } },
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "plan_runtime_mcp_serve_tool_call");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, MCP_SERVE_TOOL_CALL_PLAN_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    captured.schema_version,
     RUNTIME_MCP_SERVE_TOOL_CALL_PLAN_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.params.arguments.include_stat, true);
-  assert.equal(result.source, "rust_runtime_mcp_serve_tool_call_plan_command");
+  assert.equal(Object.hasOwn(captured, "operation"), false);
+  assert.equal(Object.hasOwn(captured, "backend"), false);
+  assert.equal(captured.params.arguments.include_stat, true);
+  assert.equal(result.source, "rust_runtime_mcp_serve_tool_call_plan_api");
   assert.equal(result.operation_kind, "mcp.serve.tools.call");
   assert.equal(result.request.source, "mcp_serve");
   assert.equal(result.request.mcp_serve_request.method, "tools/call");
@@ -4252,7 +4256,7 @@ test("runtime MCP serve tool-call planner rejects missing Rust request envelope"
   assert.throws(
     () =>
       normalizeRuntimeMcpServeToolCallPlanBridgeResult({
-        source: "rust_runtime_mcp_serve_tool_call_plan_command",
+        source: "rust_runtime_mcp_serve_tool_call_plan_api",
         operation_kind: "mcp.serve.tools.call",
       }),
     (error) =>
@@ -4263,21 +4267,22 @@ test("runtime MCP serve tool-call planner rejects missing Rust request envelope"
 
 test("runtime MCP serve tool-result projector sends Rust daemon-core projection request", () => {
   let captured = null;
-  const runner = new RuntimeContextPolicyCore({
-    daemonCoreInvoker(request) {
+  const { calls, runner } = createMcpDirectCore(
+    MCP_SERVE_TOOL_RESULT_PROJECTION_API_METHOD,
+    (request) => {
       captured = request;
       return {
-        source: "rust_runtime_mcp_serve_tool_result_projection_command",
+        source: "rust_runtime_mcp_serve_tool_result_projection_api",
         backend: "rust_policy",
         record: {
           schema_version: "ioi.runtime.mcp_serve_tool_result_projection.v1",
           object: "ioi.runtime_mcp_serve_tool_result_projection",
           status: "projected",
-          operation: "project_runtime_mcp_serve_tool_result",
+          operation: "runtime_mcp_serve_tool_result",
           operation_kind: "mcp.serve.tools.result",
-          thread_id: request.request.thread_id,
-          tool_id: request.request.tool_id,
-          tool_name: request.request.tool_name,
+          thread_id: request.thread_id,
+          tool_id: request.tool_id,
+          tool_name: request.tool_name,
           tool_call_id: "call-one",
           workflow_graph_id: "runtime.mcp_serve",
           workflow_node_id: "runtime.mcp_serve.git_diff",
@@ -4289,8 +4294,8 @@ test("runtime MCP serve tool-result projector sends Rust daemon-core projection 
               schema_version: "ioi.runtime.mcp-serve.test",
               object: "ioi.runtime_mcp_serve_tool_result",
               status: "completed",
-              thread_id: request.request.thread_id,
-              tool_name: request.request.tool_name,
+              thread_id: request.thread_id,
+              tool_name: request.tool_name,
               tool_call_id: "call-one",
               event_id: "event-one",
               receipt_refs: ["receipt-one"],
@@ -4303,7 +4308,7 @@ test("runtime MCP serve tool-result projector sends Rust daemon-core projection 
         },
       };
     },
-  });
+  );
 
   const result = runner.projectRuntimeMcpServeToolResult({
     thread_id: "thread-one",
@@ -4314,15 +4319,16 @@ test("runtime MCP serve tool-result projector sends Rust daemon-core projection 
     invocation: { status: "completed" },
   });
 
-  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
-  assert.equal(captured.operation, "project_runtime_mcp_serve_tool_result");
-  assert.equal(captured.backend, "rust_policy");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, MCP_SERVE_TOOL_RESULT_PROJECTION_API_METHOD);
   assert.equal(
-    captured.request.schema_version,
+    captured.schema_version,
     RUNTIME_MCP_SERVE_TOOL_RESULT_PROJECTION_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(captured.request.invocation.status, "completed");
-  assert.equal(result.source, "rust_runtime_mcp_serve_tool_result_projection_command");
+  assert.equal(Object.hasOwn(captured, "operation"), false);
+  assert.equal(Object.hasOwn(captured, "backend"), false);
+  assert.equal(captured.invocation.status, "completed");
+  assert.equal(result.source, "rust_runtime_mcp_serve_tool_result_projection_api");
   assert.equal(result.operation_kind, "mcp.serve.tools.result");
   assert.equal(result.result.structuredContent.event_id, "event-one");
   assert.deepEqual(result.evidence_refs, ["runtime_mcp_serve_tool_result_rust_owned"]);
@@ -4332,7 +4338,7 @@ test("runtime MCP serve tool-result projector rejects missing Rust result envelo
   assert.throws(
     () =>
       normalizeRuntimeMcpServeToolResultProjectionBridgeResult({
-        source: "rust_runtime_mcp_serve_tool_result_projection_command",
+        source: "rust_runtime_mcp_serve_tool_result_projection_api",
         operation_kind: "mcp.serve.tools.result",
       }),
     (error) =>

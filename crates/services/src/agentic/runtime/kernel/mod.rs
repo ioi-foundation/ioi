@@ -256,6 +256,11 @@ use runtime_diagnostics_repair_projection::{
     RuntimeDiagnosticsRepairProjectionCommandError, RuntimeDiagnosticsRepairProjectionCore,
     RuntimeDiagnosticsRepairProjectionRecord, RuntimeDiagnosticsRepairProjectionRequest,
 };
+use runtime_mcp_serve::{
+    RuntimeMcpServeError, RuntimeMcpServeToolCallPlanCore, RuntimeMcpServeToolCallPlanRecord,
+    RuntimeMcpServeToolCallPlanRequest, RuntimeMcpServeToolResultProjectionRecord,
+    RuntimeMcpServeToolResultProjectionRequest,
+};
 use runtime_memory_control::{
     RuntimeMemoryControlCommandError, RuntimeMemoryControlCore, RuntimeMemoryControlRecord,
     RuntimeMemoryControlRequest,
@@ -686,6 +691,20 @@ impl RuntimeKernelService {
         request: &McpLiveResultReplayRequest,
     ) -> Result<McpLiveResultReplayRecord, McpLiveResultReplayError> {
         McpLiveResultReplayCore.project(request)
+    }
+
+    pub fn plan_runtime_mcp_serve_tool_call(
+        &self,
+        request: &RuntimeMcpServeToolCallPlanRequest,
+    ) -> Result<RuntimeMcpServeToolCallPlanRecord, RuntimeMcpServeError> {
+        RuntimeMcpServeToolCallPlanCore.plan(request)
+    }
+
+    pub fn project_runtime_mcp_serve_tool_result(
+        &self,
+        request: &RuntimeMcpServeToolResultProjectionRequest,
+    ) -> Result<RuntimeMcpServeToolResultProjectionRecord, RuntimeMcpServeError> {
+        RuntimeMcpServeToolCallPlanCore.project_result(request)
     }
 
     pub fn validate_mcp_servers(
