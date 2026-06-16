@@ -17,7 +17,7 @@ const DEFAULT_CONTEXT_WINDOW_TOKENS: u64 = 128_000;
 const FALLBACK_COST_USD_PER_TOKEN: f64 = 0.000001;
 
 #[derive(Debug, Clone, Deserialize, Default)]
-pub struct RuntimeLifecycleProjectionBridgeRequest {
+pub struct RuntimeLifecycleProjectionRequest {
     #[serde(default)]
     pub operation: Option<String>,
     #[serde(default)]
@@ -87,12 +87,12 @@ pub struct RuntimeLifecycleProjectionBridgeRequest {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RuntimeLifecycleProjectionCommandError {
+pub struct RuntimeLifecycleProjectionError {
     code: &'static str,
     message: String,
 }
 
-impl RuntimeLifecycleProjectionCommandError {
+impl RuntimeLifecycleProjectionError {
     fn new(code: &'static str, message: impl Into<String>) -> Self {
         Self {
             code,
@@ -140,8 +140,8 @@ struct RuntimeLifecycleProjectionSources {
 impl RuntimeLifecycleProjectionCore {
     pub fn project(
         &self,
-        request: RuntimeLifecycleProjectionBridgeRequest,
-    ) -> Result<RuntimeLifecycleProjectionRecord, RuntimeLifecycleProjectionCommandError> {
+        request: RuntimeLifecycleProjectionRequest,
+    ) -> Result<RuntimeLifecycleProjectionRecord, RuntimeLifecycleProjectionError> {
         reject_retired_lifecycle_candidate_transport(&request)?;
         let sources = runtime_lifecycle_sources_from_state_dir(request.state_dir.as_deref())?;
         let projection_kind = normalized_projection_kind(&request)?;
@@ -218,9 +218,9 @@ impl RuntimeLifecycleProjectionRecord {
 
 fn projection_for_kind(
     projection_kind: &str,
-    request: &RuntimeLifecycleProjectionBridgeRequest,
+    request: &RuntimeLifecycleProjectionRequest,
     sources: &RuntimeLifecycleProjectionSources,
-) -> Result<Value, RuntimeLifecycleProjectionCommandError> {
+) -> Result<Value, RuntimeLifecycleProjectionError> {
     match projection_kind {
         "agents" => Ok(Value::Array(sort_records(sources.agents.clone()))),
         "agent" => Ok(find_by_id(
@@ -312,7 +312,7 @@ fn projection_for_kind(
             .unwrap_or(Value::Null)),
         "usage_list" => Ok(usage_list_projection(sources, request)),
         "authority_evidence_summary" => Ok(authority_evidence_summary_projection(sources, request)),
-        _ => Err(RuntimeLifecycleProjectionCommandError::new(
+        _ => Err(RuntimeLifecycleProjectionError::new(
             "runtime_lifecycle_projection_kind_invalid",
             format!("unsupported runtime lifecycle projection kind {projection_kind}"),
         )),
@@ -320,8 +320,8 @@ fn projection_for_kind(
 }
 
 fn reject_retired_lifecycle_candidate_transport(
-    request: &RuntimeLifecycleProjectionBridgeRequest,
-) -> Result<(), RuntimeLifecycleProjectionCommandError> {
+    request: &RuntimeLifecycleProjectionRequest,
+) -> Result<(), RuntimeLifecycleProjectionError> {
     let retired_field = [
         (!request.agents.is_empty(), "agents"),
         (request.agent.is_some(), "agent"),
@@ -348,7 +348,7 @@ fn reject_retired_lifecycle_candidate_transport(
     .into_iter()
     .find_map(|(present, field)| present.then_some(field));
     if let Some(field) = retired_field {
-        return Err(RuntimeLifecycleProjectionCommandError::new(
+        return Err(RuntimeLifecycleProjectionError::new(
             "runtime_lifecycle_projection_retired_candidate_transport",
             format!(
                 "runtime lifecycle projection must replay Agentgres state_dir records; retired JS candidate field {field} is not accepted"
@@ -360,9 +360,9 @@ fn reject_retired_lifecycle_candidate_transport(
 
 fn runtime_lifecycle_sources_from_state_dir(
     state_dir: Option<&str>,
-) -> Result<RuntimeLifecycleProjectionSources, RuntimeLifecycleProjectionCommandError> {
+) -> Result<RuntimeLifecycleProjectionSources, RuntimeLifecycleProjectionError> {
     let state_dir = optional_trimmed(state_dir).ok_or_else(|| {
-        RuntimeLifecycleProjectionCommandError::new(
+        RuntimeLifecycleProjectionError::new(
             "runtime_lifecycle_projection_state_dir_required",
             "runtime lifecycle projection requires Agentgres state_dir replay",
         )
@@ -379,7 +379,7 @@ fn read_json_records(
     state_root: &Path,
     dir: &str,
     label: &str,
-) -> Result<Vec<Value>, RuntimeLifecycleProjectionCommandError> {
+) -> Result<Vec<Value>, RuntimeLifecycleProjectionError> {
     let record_dir = state_root.join(dir);
     if !record_dir.exists() {
         return Ok(Vec::new());
@@ -389,7 +389,7 @@ fn read_json_records(
     let mut records = Vec::new();
     for path in paths {
         let contents = fs::read_to_string(&path).map_err(|error| {
-            RuntimeLifecycleProjectionCommandError::new(
+            RuntimeLifecycleProjectionError::new(
                 "runtime_lifecycle_projection_replay_read_failed",
                 format!(
                     "runtime lifecycle projection could not read Agentgres {label} record {}: {error}",
@@ -398,7 +398,7 @@ fn read_json_records(
             )
         })?;
         let record: Value = serde_json::from_str(&contents).map_err(|error| {
-            RuntimeLifecycleProjectionCommandError::new(
+            RuntimeLifecycleProjectionError::new(
                 "runtime_lifecycle_projection_replay_record_invalid",
                 format!(
                     "runtime lifecycle projection found invalid Agentgres {label} record {}: {error}",
@@ -415,7 +415,7 @@ fn read_jsonl_records(
     state_root: &Path,
     dir: &str,
     label: &str,
-) -> Result<Vec<Value>, RuntimeLifecycleProjectionCommandError> {
+) -> Result<Vec<Value>, RuntimeLifecycleProjectionError> {
     let record_dir = state_root.join(dir);
     if !record_dir.exists() {
         return Ok(Vec::new());
@@ -425,7 +425,7 @@ fn read_jsonl_records(
     let mut records = Vec::new();
     for path in paths {
         let contents = fs::read_to_string(&path).map_err(|error| {
-            RuntimeLifecycleProjectionCommandError::new(
+            RuntimeLifecycleProjectionError::new(
                 "runtime_lifecycle_projection_replay_read_failed",
                 format!(
                     "runtime lifecycle projection could not read Agentgres {label} stream {}: {error}",
@@ -439,7 +439,7 @@ fn read_jsonl_records(
                 continue;
             }
             let record: Value = serde_json::from_str(line).map_err(|error| {
-                RuntimeLifecycleProjectionCommandError::new(
+                RuntimeLifecycleProjectionError::new(
                     "runtime_lifecycle_projection_replay_record_invalid",
                     format!(
                         "runtime lifecycle projection found invalid Agentgres {label} record {}:{}: {error}",
@@ -458,9 +458,9 @@ fn json_record_paths(
     record_dir: &Path,
     extension: &str,
     label: &str,
-) -> Result<Vec<PathBuf>, RuntimeLifecycleProjectionCommandError> {
+) -> Result<Vec<PathBuf>, RuntimeLifecycleProjectionError> {
     let entries = fs::read_dir(record_dir).map_err(|error| {
-        RuntimeLifecycleProjectionCommandError::new(
+        RuntimeLifecycleProjectionError::new(
             "runtime_lifecycle_projection_replay_read_failed",
             format!(
                 "runtime lifecycle projection could not read Agentgres {label} directory {}: {error}",
@@ -471,7 +471,7 @@ fn json_record_paths(
     let mut paths = Vec::new();
     for entry in entries {
         let entry = entry.map_err(|error| {
-            RuntimeLifecycleProjectionCommandError::new(
+            RuntimeLifecycleProjectionError::new(
                 "runtime_lifecycle_projection_replay_read_failed",
                 format!(
                     "runtime lifecycle projection could not inspect Agentgres {label} entry: {error}"
@@ -487,8 +487,8 @@ fn json_record_paths(
 }
 
 fn normalized_projection_kind(
-    request: &RuntimeLifecycleProjectionBridgeRequest,
-) -> Result<String, RuntimeLifecycleProjectionCommandError> {
+    request: &RuntimeLifecycleProjectionRequest,
+) -> Result<String, RuntimeLifecycleProjectionError> {
     if let Some(value) = optional_trimmed_lower(request.projection_kind.as_deref()) {
         return Ok(value);
     }
@@ -498,7 +498,7 @@ fn normalized_projection_kind(
             return Ok(last.to_string());
         }
     }
-    Err(RuntimeLifecycleProjectionCommandError::new(
+    Err(RuntimeLifecycleProjectionError::new(
         "runtime_lifecycle_projection_kind_required",
         "runtime lifecycle projection kind is required",
     ))
@@ -540,7 +540,7 @@ fn filter_runs_for_agent(records: Vec<Value>, agent_id: Option<&str>) -> Vec<Val
 
 fn run_for_request(
     sources: &RuntimeLifecycleProjectionSources,
-    request: &RuntimeLifecycleProjectionBridgeRequest,
+    request: &RuntimeLifecycleProjectionRequest,
 ) -> Option<Value> {
     find_by_id(&sources.runs, &["id", "run_id"], request.run_id.as_deref())
 }
@@ -717,7 +717,7 @@ fn run_usage(run: &Value) -> Value {
 
 fn usage_list_projection(
     sources: &RuntimeLifecycleProjectionSources,
-    request: &RuntimeLifecycleProjectionBridgeRequest,
+    request: &RuntimeLifecycleProjectionRequest,
 ) -> Value {
     let group_by =
         optional_trimmed_lower(request.group_by.as_deref()).unwrap_or_else(|| "run".to_string());
@@ -928,7 +928,7 @@ fn aggregate_usage_records(
 
 fn authority_evidence_summary_projection(
     sources: &RuntimeLifecycleProjectionSources,
-    request: &RuntimeLifecycleProjectionBridgeRequest,
+    request: &RuntimeLifecycleProjectionRequest,
 ) -> Value {
     let filters = json!({
         "thread_id": optional_trimmed(request.thread_id.as_deref()),
@@ -1159,7 +1159,7 @@ fn authority_evidence_row_from_preflight_row(
 
 fn authority_evidence_row_matches_filters(
     row: &Value,
-    request: &RuntimeLifecycleProjectionBridgeRequest,
+    request: &RuntimeLifecycleProjectionRequest,
 ) -> bool {
     if let Some(thread_id) = optional_trimmed(request.thread_id.as_deref()) {
         if value_string_any(row, &["thread_id"]).as_deref() != Some(thread_id.as_str()) {
@@ -1519,7 +1519,7 @@ mod tests {
     fn rust_projects_runtime_lifecycle_route_family_shapes() {
         let core = RuntimeLifecycleProjectionCore;
         let state_dir = write_runtime_lifecycle_state();
-        let base = RuntimeLifecycleProjectionBridgeRequest {
+        let base = RuntimeLifecycleProjectionRequest {
             operation: Some("runtime_lifecycle_projection".to_string()),
             operation_kind: Some("runtime.lifecycle_projection.agent_runs".to_string()),
             projection_kind: Some("agent_runs".to_string()),
@@ -1559,7 +1559,7 @@ mod tests {
         let scorecard = core.project(scorecard_request).expect("scorecard");
         assert_eq!(scorecard.projection["score"], 1);
 
-        let mut replay_request = RuntimeLifecycleProjectionBridgeRequest {
+        let mut replay_request = RuntimeLifecycleProjectionRequest {
             projection_kind: Some("run_replay".to_string()),
             operation_kind: Some("runtime.lifecycle_projection.run_replay".to_string()),
             run_id: Some("run_one".to_string()),
@@ -1574,7 +1574,7 @@ mod tests {
         assert_eq!(threads.projection[0]["thread_id"], "thread_one");
 
         let usage = core
-            .project(RuntimeLifecycleProjectionBridgeRequest {
+            .project(RuntimeLifecycleProjectionRequest {
                 projection_kind: Some("usage_list".to_string()),
                 operation_kind: Some("runtime.lifecycle_projection.usage_list".to_string()),
                 agent_id: Some("agent_one".to_string()),
@@ -1588,7 +1588,7 @@ mod tests {
         assert_eq!(usage.projection["usage"][0]["total_tokens"], 7);
 
         let authority = core
-            .project(RuntimeLifecycleProjectionBridgeRequest {
+            .project(RuntimeLifecycleProjectionRequest {
                 projection_kind: Some("authority_evidence_summary".to_string()),
                 operation_kind: Some(
                     "runtime.lifecycle_projection.authority_evidence_summary".to_string(),
@@ -1612,7 +1612,7 @@ mod tests {
     fn rust_shapes_runtime_lifecycle_direct_record() {
         let state_dir = write_runtime_lifecycle_state();
         let record = RuntimeLifecycleProjectionCore::default()
-            .project(RuntimeLifecycleProjectionBridgeRequest {
+            .project(RuntimeLifecycleProjectionRequest {
                 operation: Some("runtime_lifecycle_projection".to_string()),
                 operation_kind: Some("runtime.lifecycle_projection.agents".to_string()),
                 projection_kind: Some("agents".to_string()),
@@ -1635,7 +1635,7 @@ mod tests {
     #[test]
     fn rust_requires_state_dir_for_runtime_lifecycle_projection() {
         let error = RuntimeLifecycleProjectionCore::default()
-            .project(RuntimeLifecycleProjectionBridgeRequest {
+            .project(RuntimeLifecycleProjectionRequest {
                 operation_kind: Some("runtime.lifecycle_projection.agents".to_string()),
                 projection_kind: Some("agents".to_string()),
                 ..Default::default()
@@ -1651,7 +1651,7 @@ mod tests {
     fn rust_rejects_retired_runtime_lifecycle_candidate_transport() {
         let state_dir = write_runtime_lifecycle_state();
         let error = RuntimeLifecycleProjectionCore::default()
-            .project(RuntimeLifecycleProjectionBridgeRequest {
+            .project(RuntimeLifecycleProjectionRequest {
                 operation_kind: Some("runtime.lifecycle_projection.agents".to_string()),
                 projection_kind: Some("agents".to_string()),
                 state_dir: Some(state_dir.to_string_lossy().to_string()),

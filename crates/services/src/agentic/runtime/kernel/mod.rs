@@ -286,7 +286,7 @@ use runtime_doctor_report::{
     RuntimeDoctorReportProjectionRecord, RuntimeDoctorReportProjectionRequest,
 };
 use runtime_lifecycle::{
-    RuntimeLifecycleProjectionBridgeRequest, RuntimeLifecycleProjectionCommandError,
+    RuntimeLifecycleProjectionRequest, RuntimeLifecycleProjectionError,
     RuntimeLifecycleProjectionCore, RuntimeLifecycleProjectionRecord,
 };
 use runtime_managed_session_control::{
@@ -699,8 +699,8 @@ impl RuntimeKernelService {
 
     pub fn project_runtime_lifecycle(
         &self,
-        request: &RuntimeLifecycleProjectionBridgeRequest,
-    ) -> Result<RuntimeLifecycleProjectionRecord, RuntimeLifecycleProjectionCommandError> {
+        request: &RuntimeLifecycleProjectionRequest,
+    ) -> Result<RuntimeLifecycleProjectionRecord, RuntimeLifecycleProjectionError> {
         RuntimeLifecycleProjectionCore::default().project(request.clone())
     }
 

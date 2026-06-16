@@ -574,7 +574,7 @@ export class RuntimeContextPolicyCore {
   }
 
   projectRuntimeLifecycle(request = {}) {
-    return normalizeRuntimeLifecycleProjectionBridgeResult(this.invokeRuntimeProjectionApi(
+    return normalizeRuntimeLifecycleProjectionResult(this.invokeRuntimeProjectionApi(
       RUNTIME_PROJECTION_LIFECYCLE_API_METHOD,
       RUNTIME_LIFECYCLE_PROJECTION_REQUEST_SCHEMA_VERSION,
       request,
@@ -2154,7 +2154,7 @@ export function normalizeRuntimeToolCatalogProjectionResult(value = {}) {
   };
 }
 
-export function normalizeRuntimeLifecycleProjectionBridgeResult(value = {}) {
+export function normalizeRuntimeLifecycleProjectionResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   const projectionKind = optionalString(result.projection_kind ?? record.projection_kind);

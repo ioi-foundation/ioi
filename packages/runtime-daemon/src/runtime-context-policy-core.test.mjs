@@ -188,7 +188,7 @@ import {
   normalizeRuntimeTaskJobCreateStateUpdateBridgeResult,
   normalizeRuntimeTaskJobProjectionBridgeResult,
   normalizeRuntimeToolCatalogProjectionResult,
-  normalizeRuntimeLifecycleProjectionBridgeResult,
+  normalizeRuntimeLifecycleProjectionResult,
   normalizeRuntimeDoctorReportProjectionBridgeResult,
   normalizeRuntimeComputerUseProjectionBridgeResult,
   normalizeStudioIntentFrameProjectionBridgeResult,
@@ -2834,7 +2834,7 @@ test("runtime lifecycle projection core sends Rust daemon-core request", () => {
 
   assert.throws(
     () =>
-      normalizeRuntimeLifecycleProjectionBridgeResult({
+      normalizeRuntimeLifecycleProjectionResult({
         record: {
           operation_kind: "runtime.lifecycle_projection.retired",
           projection_kind: "run_artifact",

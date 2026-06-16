@@ -13155,7 +13155,14 @@ function runBridge() {
       !/pub use projection_required::/.test(policyFacade) &&
       policyProjectionRequiredCore.trim() === "" &&
       /pub struct RuntimeLifecycleProjectionCore/.test(runtimeLifecycleRustCore) &&
-      /pub struct RuntimeLifecycleProjectionBridgeRequest/.test(runtimeLifecycleRustCore) &&
+      /pub struct RuntimeLifecycleProjectionRequest/.test(runtimeLifecycleRustCore) &&
+      !/RuntimeLifecycleProjectionBridgeRequest/.test(
+        `${runtimeLifecycleRustCore}\n${kernelModuleForBridgeChecks}`,
+      ) &&
+      /pub struct RuntimeLifecycleProjectionError/.test(runtimeLifecycleRustCore) &&
+      !/RuntimeLifecycleProjectionCommandError/.test(
+        `${runtimeLifecycleRustCore}\n${kernelModuleForBridgeChecks}`,
+      ) &&
       /pub state_dir: Option<String>/.test(runtimeLifecycleRustCore) &&
       !/pub fn project_runtime_lifecycle_response/.test(runtimeLifecycleRustCore) &&
       /pub fn project_runtime_lifecycle\(/.test(kernelModuleForBridgeChecks) &&
@@ -27861,6 +27868,34 @@ function runReceipts() {
     ],
     "Runtime tool catalog, repository workflow, and skill/hook registry projection APIs must not preserve bridge-shaped request/error/result aliases beside positive Rust daemon-core projection APIs",
   );
+  const runtimeLifecycleProjectionBridgeShapeSources = [
+    runtimeLifecycleRustCore,
+    runtimeKernelModule,
+    read("packages/runtime-daemon/src/runtime-context-policy-core.mjs"),
+    read("packages/runtime-daemon/src/runtime-context-policy-core.test.mjs"),
+  ].join("\n");
+  assertCheck(
+    result,
+    "runtime-lifecycle-projection-bridge-shaped-api-names-retired",
+    !/(?:RuntimeLifecycleProjectionBridgeRequest|RuntimeLifecycleProjectionCommandError|normalizeRuntimeLifecycleProjectionBridgeResult)/.test(
+      runtimeLifecycleProjectionBridgeShapeSources,
+    ) &&
+      /Slice 1341 hard-cuts runtime lifecycle projection bridge-shaped public API names/.test(
+        guide,
+      ) &&
+      /Runtime lifecycle projection bridge-shaped API names retired/.test(matrix) &&
+      /RuntimeDaemonCoreLifecycleProjectionBridgeShapeRetired/.test(implementationMatrix),
+    [
+      "crates/services/src/agentic/runtime/kernel/runtime_lifecycle.rs",
+      "crates/services/src/agentic/runtime/kernel/mod.rs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
+      "docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md",
+      "docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md",
+      "docs/architecture/_meta/implementation-matrix.md",
+    ],
+    "Runtime lifecycle projection must not preserve bridge-shaped request/error/result aliases beside the positive Rust daemon-core Agentgres replay projector",
+  );
   assertCheck(
     result,
     "runtime-tool-catalog-public-js-projection-retired",
@@ -28024,8 +28059,17 @@ function runReceipts() {
       !/pub fn project_runtime_lifecycle_response/.test(runtimeLifecycleRustCore) &&
       /pub fn project_runtime_lifecycle\(/.test(runtimeKernelModule) &&
       /pub struct RuntimeLifecycleProjectionCore/.test(runtimeLifecycleRustCore) &&
-	      /pub struct RuntimeLifecycleProjectionBridgeRequest/.test(
+	      /pub struct RuntimeLifecycleProjectionRequest/.test(
 	        runtimeLifecycleRustCore,
+	      ) &&
+	      !/RuntimeLifecycleProjectionBridgeRequest/.test(
+	        `${runtimeLifecycleRustCore}\n${runtimeKernelModule}`,
+	      ) &&
+	      /pub struct RuntimeLifecycleProjectionError/.test(
+	        runtimeLifecycleRustCore,
+	      ) &&
+	      !/RuntimeLifecycleProjectionCommandError/.test(
+	        `${runtimeLifecycleRustCore}\n${runtimeKernelModule}`,
 	      ) &&
 	      /pub state_dir: Option<String>/.test(runtimeLifecycleRustCore) &&
 	      /rust_runtime_lifecycle_projection_api/.test(runtimeLifecycleRustCore) &&
@@ -28092,8 +28136,11 @@ function runReceipts() {
       !/operation:\s*"project_runtime_lifecycle"/.test(
         runtimeContextPolicyCoreForState,
       ) &&
-      /normalizeRuntimeLifecycleProjectionBridgeResult/.test(
+      /normalizeRuntimeLifecycleProjectionResult/.test(
         runtimeContextPolicyCoreForState,
+      ) &&
+      !/normalizeRuntimeLifecycleProjectionBridgeResult/.test(
+        `${runtimeContextPolicyCoreForState}\n${runtimeContextPolicyCoreTestForState}`,
       ) &&
       !/planRuntimeLifecycleProjectionRequired/.test(runtimeContextPolicyCoreForState) &&
       /runtime lifecycle projection core sends Rust daemon-core request/.test(

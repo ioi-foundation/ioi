@@ -10870,7 +10870,7 @@ candidate facts and stable IDE/CLI/SDK read APIs fully onto Rust-owned
 Agentgres projection records.
 
 Slice 1254 hard-cuts public lifecycle projection off JS cache candidates. Rust
-`RuntimeLifecycleProjectionBridgeRequest` now requires runtime `state_dir`,
+`RuntimeLifecycleProjectionRequest` now requires runtime `state_dir`,
 replays admitted `agents/*.json`, `runs/*.json`, and `events/*.jsonl`
 Agentgres records in Rust, and derives public agent/thread/run/turn/event,
 run replay, usage, trace, computer-use, scorecard, and artifact projections
@@ -11187,6 +11187,17 @@ and `SkillHookRegistryProjectionError` are the direct Rust errors; and the JS
 policy client normalizers use positive projection-result names only. The retired
 bridge-shaped request, command-error, and bridge-result names must not return as
 compatibility aliases for these Rust-owned public projection families.
+
+Slice 1341 hard-cuts runtime lifecycle projection bridge-shaped public API names.
+The public lifecycle read projection family already routes through typed Rust
+daemon-core projection over Agentgres `state_dir` replay; its Rust request/error
+and JS protocol normalizer no longer carry bridge-shaped names. The public Rust
+API is `RuntimeLifecycleProjectionRequest` and `RuntimeLifecycleProjectionError`,
+and the JS protocol client uses `normalizeRuntimeLifecycleProjectionResult`.
+`RuntimeLifecycleProjectionBridgeRequest`,
+`RuntimeLifecycleProjectionCommandError`, and
+`normalizeRuntimeLifecycleProjectionBridgeResult` must not return as lifecycle
+projection compatibility aliases beside the Rust-owned replay projector.
 
 ## Final Doctrine
 
