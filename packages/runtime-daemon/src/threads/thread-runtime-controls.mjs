@@ -19,7 +19,6 @@ export function initialThreadRuntimeControls(options = {}, modelRoute = {}, now 
   return {
     schema_version: RUNTIME_THREAD_CONTROLS_SCHEMA_VERSION,
     mode,
-    approvalMode,
     approval_mode: approvalMode,
     model: {
       id: modelRoute.requestedModelId ?? options.model?.id ?? options.model?.model ?? "auto",
@@ -36,7 +35,6 @@ export function initialThreadRuntimeControls(options = {}, modelRoute = {}, now 
       workflow_node_id: modelRoute.decision?.workflow_node_id ?? options.model?.workflow_node_id ?? "runtime.model-router",
       updated_at: now,
     },
-    updatedAt: now,
   };
 }
 
@@ -44,7 +42,7 @@ export function normalizedAgentRuntimeControls(agent = {}) {
   const source = agent.runtimeControls ?? {};
   const mode = normalizeThreadInteractionMode(source.mode ?? agent.mode ?? "agent");
   const approvalMode = normalizeThreadApprovalMode(
-    source.approvalMode ?? source.approval_mode ?? agent.approvalMode ?? agent.approval_mode,
+    source.approval_mode ?? agent.approval_mode,
     approvalModeForThreadMode(mode),
   );
   const model = source.model ?? {};
@@ -60,11 +58,10 @@ export function normalizedAgentRuntimeControls(agent = {}) {
     model.workflow_graph_id ?? agent.modelRouteDecision?.workflow_graph_id ?? null;
   const workflowNodeId =
     model.workflow_node_id ?? agent.modelRouteDecision?.workflow_node_id ?? "runtime.model-router";
-  const updatedAt = model.updated_at ?? source.updatedAt ?? source.updated_at ?? agent.updatedAt ?? null;
+  const updatedAt = model.updated_at ?? source.updated_at ?? agent.updatedAt ?? null;
   return {
     schema_version: RUNTIME_THREAD_CONTROLS_SCHEMA_VERSION,
     mode,
-    approvalMode,
     approval_mode: approvalMode,
     model: {
       id: model.id ?? agent.requestedModelId ?? agent.modelId ?? "auto",
@@ -81,7 +78,6 @@ export function normalizedAgentRuntimeControls(agent = {}) {
       workflow_node_id: workflowNodeId,
       updated_at: updatedAt,
     },
-    updatedAt: source.updatedAt ?? source.updated_at ?? agent.updatedAt ?? null,
   };
 }
 
@@ -95,13 +91,17 @@ export function requestWithThreadRuntimeControls(agent, request = {}) {
     controlledOptions.model = threadRuntimeControlModelForOptions(controls.model);
   }
   const mode = request.mode ?? runModeForThreadMode(controls.mode);
+  const canonicalRequest = { ...request };
+  for (const retiredAlias of ["threadMode", "approvalMode"]) {
+    delete canonicalRequest[retiredAlias];
+  }
   return {
-    ...request,
+    ...canonicalRequest,
     mode,
-    threadMode: request.thread_mode ?? controls.mode,
-    approvalMode:
+    thread_mode: request.thread_mode ?? controls.mode,
+    approval_mode:
       request.approval_mode ??
-      controls.approvalMode ??
+      controls.approval_mode ??
       approvalModeForThreadMode(controls.mode),
     options: controlledOptions,
   };
@@ -301,7 +301,7 @@ export function normalizeThreadApprovalMode(value, fallback = "suggest") {
     status: 400,
     code: "approval_mode_invalid",
     message: "Approval mode must be suggest, auto_local, never_prompt, human_required, or policy_required.",
-    details: { approvalMode: value ?? null },
+    details: { approval_mode: value ?? null },
   });
 }
 

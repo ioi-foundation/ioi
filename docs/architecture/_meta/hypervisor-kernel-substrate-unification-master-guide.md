@@ -10728,6 +10728,22 @@ guards the absence of the `existingModel.*` fallback reads. Remaining work is
 wallet/model-route authority depth, durable replay/projection binding, and
 stable IDE/CLI/SDK lifecycle APIs, not a thread-control compatibility fallback.
 
+Slice 1325 hard-cuts the thread runtime-control top-level alias truth path.
+`initialThreadRuntimeControls()`, `normalizedAgentRuntimeControls()`,
+`RuntimeThreadControlSurface.nextThreadRuntimeControls()`, and the lifecycle
+fallback seed now emit only canonical `approval_mode` runtime-control truth,
+drop top-level `approvalMode` and `updatedAt`, and read persisted control
+approval only from `approval_mode`. Runtime-backed turn requests produced by
+`requestWithThreadRuntimeControls()` now scrub poisoned `threadMode` /
+`approvalMode` request aliases and forward canonical `thread_mode` /
+`approval_mode` into the direct Rust lifecycle path. Coding-tool approval and
+repository/workspace-trust consumers read `controls.approval_mode`, focused
+tests poison the retired aliases while proving they cannot return as output, and
+conformance guards the helper, surface, and lifecycle fallback against restoring
+the alias fields. Remaining work is wallet/model-route authority depth, durable
+replay/projection binding, and stable IDE/CLI/SDK lifecycle APIs, not a
+thread-control top-level alias truth path.
+
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,
 `/v1/memory/policy`, `/v1/memory/path`, or `/v1/memory/validate`; the daemon

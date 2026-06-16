@@ -264,7 +264,7 @@ test("turn projection distinguishes closed and open turns", () => {
   const agent = {
     id: "agent_one",
     cwd: "/workspace",
-    runtimeControls: { mode: "agent", approvalMode: "review" },
+    runtimeControls: { mode: "agent", approval_mode: "review" },
   };
   const events = [
     { seq: 1, event_kind: "turn.started", item_id: "item-in" },
@@ -346,7 +346,7 @@ test("turn projection ignores retired run usage aliases", () => {
   const agent = {
     id: "agent_one",
     cwd: "/workspace",
-    runtimeControls: { mode: "agent", approvalMode: "review" },
+    runtimeControls: { mode: "agent", approval_mode: "review" },
   };
   const store = createStore({ agent });
   const turn = createProjection().turnForRun(store, {

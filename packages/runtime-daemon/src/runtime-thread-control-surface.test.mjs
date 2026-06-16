@@ -11,11 +11,11 @@ function createStore() {
     runtime_session_id: "session_1",
     runtimeControls: {
       mode: "agent",
-      approvalMode: "suggest",
+      approval_mode: "suggest",
       model: {
         id: "auto",
-        routeId: "route.local-first",
-        workflowNodeId: "runtime.model-router",
+        route_id: "route.local-first",
+        workflow_node_id: "runtime.model-router",
       },
     },
   };
@@ -145,7 +145,7 @@ function createSurface(plannerCalls = [], { threadControlStateUpdate = null } = 
           payload_summary: {
             warning_id: "workspace_trust_warning_1",
             mode: input.controls.mode,
-            approval_mode: input.controls.approvalMode,
+            approval_mode: input.controls.approval_mode,
           },
           receipt_refs: ["receipt_workspace_trust_warning_1"],
           policy_decision_refs: ["policy_workspace_trust_warning_1"],

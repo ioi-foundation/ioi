@@ -346,7 +346,6 @@ function agentCreateDeps(store) {
       store.runtimeControlCalls.push({ options, modelRoute, now });
       return {
         mode: "agent",
-        approvalMode: "suggest",
         approval_mode: "suggest",
         model: {
           id: modelRoute.requestedModelId,
@@ -357,7 +356,6 @@ function agentCreateDeps(store) {
           receipt_id: modelRoute.receiptId,
           updated_at: now,
         },
-        updatedAt: now,
       };
     },
     mcpRegistryForWorkspace(cwd, options) {

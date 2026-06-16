@@ -1058,7 +1058,6 @@ function defaultInitialThreadRuntimeControls(options = {}, modelRoute = {}, now 
   const approvalMode = options.approval_mode ?? "suggest";
   return {
     mode: options.interaction_mode ?? "agent",
-    approvalMode,
     approval_mode: approvalMode,
     model: {
       id: modelRoute.requestedModelId ?? options.model?.id ?? options.model?.model ?? "auto",
@@ -1069,7 +1068,6 @@ function defaultInitialThreadRuntimeControls(options = {}, modelRoute = {}, now 
       receipt_id: modelRoute.receiptId ?? null,
       updated_at: now,
     },
-    updatedAt: now,
   };
 }
 

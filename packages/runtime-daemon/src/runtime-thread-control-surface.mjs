@@ -193,12 +193,10 @@ export function createRuntimeThreadControlSurface({
       return {
         ...current,
         mode,
-        approvalMode,
         approval_mode: approvalMode,
         model: {
           ...(objectRecord(current.model) ?? {}),
         },
-        updatedAt: now,
       };
     }
 
@@ -235,7 +233,6 @@ export function createRuntimeThreadControlSurface({
         updated_at: now,
       },
       model_route: canonicalModelRoute,
-      updatedAt: now,
     };
   }
 

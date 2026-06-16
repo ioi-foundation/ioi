@@ -13624,6 +13624,18 @@ function runBridge() {
       ) &&
       /threadMode: "review"/.test(threadRuntimeControlsTest) &&
       /approvalMode: "human_required"/.test(threadRuntimeControlsTest) &&
+      /assert\.equal\(controlled\.thread_mode,\s*"agent"\)/.test(
+        threadRuntimeControlsTest,
+      ) &&
+      /assert\.equal\(controlled\.approval_mode,\s*"suggest"\)/.test(
+        threadRuntimeControlsTest,
+      ) &&
+      /Object\.hasOwn\(controlled,\s*"threadMode"\),\s*false/.test(
+        threadRuntimeControlsTest,
+      ) &&
+      /Object\.hasOwn\(controlled,\s*"approvalMode"\),\s*false/.test(
+        threadRuntimeControlsTest,
+      ) &&
       /workflowGraphId: "graph-retired-context"/.test(threadRuntimeControlsTest) &&
       /workflow_node_id: "runtime\.model-router"/.test(threadRuntimeControlsTest) &&
       /workflow_node_type: "Model Router"/.test(threadRuntimeControlsTest) &&
@@ -16021,6 +16033,12 @@ function runBridge() {
       /mode: "yolo"/.test(threadRuntimeControlsTest) &&
       /approvalMode: "never_prompt"/.test(threadRuntimeControlsTest) &&
       /workflowGraphId: "graph\.retired"/.test(threadRuntimeControlsTest) &&
+      !/function defaultInitialThreadRuntimeControls(?:(?!\n}\n\nfunction agentCreateEvidenceRefs)[\s\S])*^\s*approvalMode\s*,/m.test(
+        runtimeAgentRunLifecycle,
+      ) &&
+      !/function defaultInitialThreadRuntimeControls(?:(?!\n}\n\nfunction agentCreateEvidenceRefs)[\s\S])*^\s*updatedAt\s*:/m.test(
+        runtimeAgentRunLifecycle,
+      ) &&
       !/request\.(?:threadMode|approvalMode)\b/.test(runtimeAgentRunLifecycle) &&
       /assertNoRetiredRuntimeRunCreateOptionAliases\(options,\s*mode\);/.test(
         agentSdkSubstrateClient,
@@ -18725,7 +18743,24 @@ function runBridge() {
     /schema_version:\s*RUNTIME_THREAD_CONTROLS_SCHEMA_VERSION/.test(threadRuntimeControls) &&
       !/schemaVersion:\s*RUNTIME_THREAD_CONTROLS_SCHEMA_VERSION/.test(threadRuntimeControls) &&
       !/schemaVersion:\s*runtimeThreadControlsSchemaVersion/.test(runtimeThreadControlSurface) &&
+      !/initialThreadRuntimeControls(?:(?!\nexport function normalizedAgentRuntimeControls)[\s\S])*^\s*approvalMode\s*,/m.test(
+        threadRuntimeControls,
+      ) &&
+      !/normalizedAgentRuntimeControls(?:(?!\nexport function requestWithThreadRuntimeControls)[\s\S])*^\s*approvalMode\s*,/m.test(
+        threadRuntimeControls,
+      ) &&
+      !/initialThreadRuntimeControls(?:(?!\nexport function normalizedAgentRuntimeControls)[\s\S])*^\s*updatedAt\s*:/m.test(
+        threadRuntimeControls,
+      ) &&
+      !/normalizedAgentRuntimeControls(?:(?!\nexport function requestWithThreadRuntimeControls)[\s\S])*^\s*updatedAt\s*:/m.test(
+        threadRuntimeControls,
+      ) &&
       /Object\.hasOwn\(controls,\s*"schemaVersion"\),\s*false/.test(threadRuntimeControlsTest) &&
+      /Object\.hasOwn\(controls,\s*"approvalMode"\),\s*false/.test(threadRuntimeControlsTest) &&
+      /Object\.hasOwn\(controls,\s*"updatedAt"\),\s*false/.test(threadRuntimeControlsTest) &&
+      /assert\.equal\(controls\.approval_mode,\s*"human_required"\)/.test(
+        threadRuntimeControlsTest,
+      ) &&
       /runtime_thread_control_js_facade_retired/.test(runtimeThreadControlSurface) &&
       /thread control mode\/model\/thinking facades delegate to Rust planner and Agentgres-backed write/.test(
         runtimeThreadControlSurfaceTest,

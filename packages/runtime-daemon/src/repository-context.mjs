@@ -178,7 +178,7 @@ export function workspaceTrustWarningRecordForMode({
     generatedAt,
   });
   const mode = controls?.mode ?? "agent";
-  const approvalMode = controls?.approvalMode ?? approvalModeForThreadMode(mode);
+  const approvalMode = controls?.approval_mode ?? approvalModeForThreadMode(mode);
   const ignoredUiFields = workspaceTrustIgnoredUiFields(request);
   const modeReasons =
     mode === "yolo"

@@ -624,8 +624,8 @@ test("coding tool approval leases stop satisfying retries after expiry", async (
       modelRouteDecision: null,
       runtimeControls: {
         mode: "yolo",
-        approvalMode: "never_prompt",
-        model: { id: "auto", routeId: "route.native-local" },
+        approval_mode: "never_prompt",
+        model: { id: "auto", route_id: "route.native-local" },
       },
       mcpRegistry: null,
       createdAt: now,

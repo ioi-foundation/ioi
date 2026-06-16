@@ -58,8 +58,10 @@ test("initial and normalized runtime controls preserve schema and model route fi
 
   assert.equal(controls.schema_version, "ioi.runtime.thread-controls.v1");
   assert.equal(Object.hasOwn(controls, "schemaVersion"), false);
+  assert.equal(Object.hasOwn(controls, "approvalMode"), false);
+  assert.equal(Object.hasOwn(controls, "updatedAt"), false);
   assert.equal(controls.mode, "plan");
-  assert.equal(controls.approvalMode, "human_required");
+  assert.equal(controls.approval_mode, "human_required");
   assert.equal(controls.model.selected_model, "local-model");
   assert.equal(controls.model.reasoning_effort, "low");
   assert.equal(controls.model.workflow_graph_id, "graph-1");
@@ -98,8 +100,10 @@ test("initial and normalized runtime controls preserve schema and model route fi
     "2026-06-03T00:00:00.000Z",
   );
   assert.equal(Object.hasOwn(poisoned, "schemaVersion"), false);
+  assert.equal(Object.hasOwn(poisoned, "approvalMode"), false);
+  assert.equal(Object.hasOwn(poisoned, "updatedAt"), false);
   assert.equal(poisoned.mode, "agent");
-  assert.equal(poisoned.approvalMode, "suggest");
+  assert.equal(poisoned.approval_mode, "suggest");
   assert.equal(poisoned.model.route_id, "route.local-first");
   assert.equal(poisoned.model.reasoning_effort, null);
   assert.equal(poisoned.model.max_cost_usd, null);
@@ -163,8 +167,10 @@ test("runtime-backed requests inherit model controls without overriding explicit
 
   const controlled = requestWithThreadRuntimeControls(agent, { prompt: "ship it", options: {} });
   assert.equal(controlled.mode, "plan");
-  assert.equal(controlled.threadMode, "review");
-  assert.equal(controlled.approvalMode, "human_required");
+  assert.equal(controlled.thread_mode, "review");
+  assert.equal(controlled.approval_mode, "human_required");
+  assert.equal(Object.hasOwn(controlled, "threadMode"), false);
+  assert.equal(Object.hasOwn(controlled, "approvalMode"), false);
   assert.deepEqual(controlled.options.model, {
     id: "auto",
     route_id: "route.local-first",
@@ -253,8 +259,10 @@ test("thread runtime control helpers ignore retired request aliases", () => {
       options: {},
     },
   );
-  assert.equal(controlled.threadMode, "agent");
-  assert.equal(controlled.approvalMode, "suggest");
+  assert.equal(controlled.thread_mode, "agent");
+  assert.equal(controlled.approval_mode, "suggest");
+  assert.equal(Object.hasOwn(controlled, "threadMode"), false);
+  assert.equal(Object.hasOwn(controlled, "approvalMode"), false);
 
   for (const request of [
     { reasoningEffort: "low" },

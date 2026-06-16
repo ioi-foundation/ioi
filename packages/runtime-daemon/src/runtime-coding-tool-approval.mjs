@@ -89,7 +89,7 @@ export function createCodingToolApprovalPolicy(deps = {}) {
     const controls = normalizedAgentRuntimeControls(agent);
     const workflowPolicy = codingToolWorkflowApprovalRequestForRust(request);
     const threadMode = normalizeThreadInteractionMode(controls.mode ?? agent.mode ?? "agent");
-    const approvalMode = normalizeThreadApprovalMode(controls.approvalMode, approvalModeForThreadMode(threadMode));
+    const approvalMode = normalizeThreadApprovalMode(controls.approval_mode, approvalModeForThreadMode(threadMode));
     const requestedApprovalMode =
       optionalString(request.approval_mode ?? workflowPolicy.approval_mode) ?? null;
     const requestedMode = optionalString(request.mode ?? request.thread_mode) ?? null;

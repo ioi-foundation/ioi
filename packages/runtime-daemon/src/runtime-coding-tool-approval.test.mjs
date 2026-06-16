@@ -229,7 +229,7 @@ test("coding tool approval manifest is planned by Rust authority core", () => {
       mode: "agent",
       runtimeControls: {
         mode: "plan",
-        approvalMode: "suggest",
+        approval_mode: "suggest",
       },
     },
     threadId: "thread_1",
@@ -279,7 +279,7 @@ test("coding tool approval manifest ignores retired workflow policy aliases", ()
   });
 
   const manifest = policy.codingToolApprovalManifestForThread({
-    agent: { mode: "agent", runtimeControls: { mode: "agent", approvalMode: "suggest" } },
+    agent: { mode: "agent", runtimeControls: { mode: "agent", approval_mode: "suggest" } },
     threadId: "thread_1",
     toolId: "file__write",
     toolCallId: "call_1",
@@ -325,7 +325,7 @@ test("coding tool approval manifest ignores retired UI override aliases", () => 
 
   for (const request of [{ approvalGranted: true }, { approved: true }]) {
     policy.codingToolApprovalManifestForThread({
-      agent: { mode: "agent", runtimeControls: { mode: "plan", approvalMode: "suggest" } },
+      agent: { mode: "agent", runtimeControls: { mode: "plan", approval_mode: "suggest" } },
       threadId: "thread_1",
       toolId: "file__write",
       toolCallId: "call_1",
@@ -474,7 +474,7 @@ test("coding tool approval manifest is omitted when no approval gate applies", (
   const policy = createPolicy();
 
   assert.equal(policy.codingToolApprovalManifestForThread({
-    agent: { mode: "agent", runtimeControls: { mode: "agent", approvalMode: "suggest" } },
+    agent: { mode: "agent", runtimeControls: { mode: "agent", approval_mode: "suggest" } },
     threadId: "thread_1",
     toolId: "file__write",
     toolCallId: "call_1",
