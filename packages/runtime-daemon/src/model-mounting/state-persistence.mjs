@@ -6,7 +6,6 @@ export const MODEL_MOUNTING_STATE_MAPS = [
   ["model-endpoints", "endpoints"],
   ["model-instances", "instances"],
   ["model-routes", "routes"],
-  ["model-downloads", "downloads"],
 ];
 
 export function loadModelMountingMaps(state, deps = {}) {

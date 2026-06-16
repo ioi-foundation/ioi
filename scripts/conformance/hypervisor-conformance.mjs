@@ -23772,6 +23772,19 @@ function runReceipts() {
       /modelMountReadProjection\(this,\s*"storage_summary"\)/.test(storageSummaryBlock) &&
       /modelMountReadProjection\(this,\s*"download_status",\s*\{ downloadId: jobId \}\)/.test(downloadStatusBlock) &&
       !/this\.downloads\.get/.test(downloadStatusBlock) &&
+      !/this\.downloads\s*=/.test(modelMountingState) &&
+      !/\["model-downloads",\s*"downloads"\]/.test(
+        read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs"),
+      ) &&
+      !/"model-downloads"/.test(read("packages/runtime-daemon/src/model-mounting/store.mjs")) &&
+      /download JS cache maps stay retired/.test(
+        read("packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs"),
+      ) &&
+      /download local cache storage/.test(read("packages/runtime-daemon/src/model-mounting/store.test.mjs")) &&
+      /Object\.hasOwn\(state,\s*"downloads"\),\s*false/.test(storageOperationsTest) &&
+      /Slice 1335 hard-cuts the model_mount download JS cache substrate/.test(guide) &&
+      /Model_mount download JS cache retired/.test(matrix) &&
+      /RuntimeDaemonCoreModelMountDownloadCacheRetired/.test(implementationMatrix) &&
       /storageSummary\(\)\s*\{[\s\S]*?modelMountReadProjection\(this,\s*"storage_summary"\)/.test(
         modelMountingReadProjectionDirectClient,
       ) &&

@@ -6,7 +6,6 @@ import { ModelMountingState } from "../model-mounting.mjs";
 function fakeState() {
   return {
     artifacts: new Map(),
-    downloads: new Map(),
     projections: 0,
     recordStateCommits: [],
     planRequests: [],
@@ -120,7 +119,7 @@ function assertNoCatalogDownloadMutation(state) {
   assert.equal(state.projections, 0);
   assert.equal(state.timestamped, undefined);
   assert.equal(state.artifacts.size, 0);
-  assert.equal(state.downloads.size, 0);
+  assert.equal(Object.hasOwn(state, "downloads"), false);
 }
 
 function assertOnlyRustStorageControl(state, expectedCommitCount) {
@@ -129,7 +128,7 @@ function assertOnlyRustStorageControl(state, expectedCommitCount) {
   assert.deepEqual(state.writes, []);
   assert.equal(state.projections, 0);
   assert.equal(state.artifacts.size, 0);
-  assert.equal(state.downloads.size, 0);
+  assert.equal(Object.hasOwn(state, "downloads"), false);
 }
 
 test("catalog import and download mutations commit Rust-authored storage-control records", async () => {

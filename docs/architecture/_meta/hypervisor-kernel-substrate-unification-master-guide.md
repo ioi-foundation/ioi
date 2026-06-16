@@ -11115,6 +11115,16 @@ authority evidence, cTEE custody evidence, and Rust custody replay. The
 `vault-refs` record directory remains the admitted Agentgres substrate; the
 retired JS `vaultRefs` map must not return beside it.
 
+Slice 1335 hard-cuts the model_mount download JS cache substrate.
+`ModelMountingState` no longer constructs `downloads`,
+`MODEL_MOUNTING_STATE_MAPS` no longer hydrates `model-downloads` into JS
+memory, and the store no longer precreates a local `model-downloads` cache
+directory. Public download queue/cancel/status/list truth remains Rust-owned
+through `planModelMountStorageControl`, Agentgres `model-downloads` commits,
+and Rust storage read-projection replay. The `model-downloads` record directory
+remains an admitted Agentgres substrate created by record-state commits; the
+retired JS `downloads` map must not return beside it.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

@@ -431,7 +431,6 @@ export class ModelMountingState {
     this.endpoints = new Map();
     this.instances = new Map();
     this.routes = new Map();
-    this.downloads = new Map();
     this.ensureDirs();
     this.load();
     this.seedDefaults();

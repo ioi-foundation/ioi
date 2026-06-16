@@ -6,7 +6,6 @@ import { ModelMountingState } from "../model-mounting.mjs";
 function fakeState() {
   const state = {
     artifacts: new Map(),
-    downloads: new Map(),
     endpoints: new Map(),
     instances: new Map(),
     recordStateCommits: [],
@@ -157,11 +156,6 @@ function assertOnlyRustStorageControl(state, expectedCommitCount) {
 
 test("downloadStatus remains a read projection and uses canonical not-found details", () => {
   const state = fakeState();
-  state.downloads = {
-    get(jobId) {
-      throw new Error(`JS download map read should not run: ${jobId}`);
-    },
-  };
 
   assert.equal(ModelMountingState.prototype.downloadStatus.call(state, "job.1").id, "job.1");
   assert.throws(
@@ -177,11 +171,11 @@ test("downloadStatus remains a read projection and uses canonical not-found deta
     { operation: "download_status", jobId: "job.1" },
     { operation: "download_status", jobId: "missing" },
   ]);
+  assert.equal(Object.hasOwn(state, "downloads"), false);
 });
 
 test("model storage mutations commit Rust-authored storage-control records", () => {
   const state = fakeState();
-  state.downloads.set("job.active", { id: "job.active", status: "running" });
   state.artifacts.set("artifact.llama", { id: "artifact.llama", modelId: "llama-test" });
 
   const cases = [
@@ -214,7 +208,7 @@ test("model storage mutations commit Rust-authored storage-control records", () 
     }
   }
 
-  assert.equal(state.downloads.get("job.active").status, "running");
+  assert.equal(Object.hasOwn(state, "downloads"), false);
   assert.equal(state.artifacts.has("artifact.llama"), true);
   assertOnlyRustStorageControl(state, 3);
   assert.deepEqual(
