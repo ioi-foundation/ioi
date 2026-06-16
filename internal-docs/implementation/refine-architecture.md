@@ -803,6 +803,194 @@ select or inherit a model mount, bind authority, see privacy posture, and inspec
 receipts without the app feeling like a VS Code tab collection.
 ```
 
+### Phase 0B: Harness Adapter Testbed
+
+Status: implementation leg for proving heterogeneous harnesses under the same
+Hypervisor Core contract.
+
+Decision:
+
+```text
+Do not implement Default Harness Profile as Codex, Claude Code, DeepSeek TUI,
+or any other external harness.
+
+Default Harness Profile remains IOI's reference scaffold/fallback
+HarnessProfile.
+
+Codex-style, Claude-style, DeepSeek-style, Aider-style, OpenHands-style,
+shell/tmux, and hosted coding agents become AgentHarnessAdapters. Hypervisor may
+launch them, compare them, containerize them, route them through model mounts
+where supported, and receipt their actions, but they do not become runtime truth.
+```
+
+Current repo adapter candidates:
+
+```text
+examples/codex-desktop-linux
+  Codex-like desktop/client lane and computer-use reference path.
+
+examples/claude-code-main/claude-code-main
+  Claude Code-like CLI architecture reference. Treat carefully as reference
+  material, not a canonical dependency or endorsed source import.
+
+examples/DeepSeek-TUI-main/DeepSeek-TUI-main
+  DeepSeek TUI-like terminal harness with Docker, approval modes, tool registry,
+  session resume, rollback, HTTP/SSE runtime API, and OpenAI-compatible client
+  shape.
+
+examples/LocalAI-master(1)/LocalAI-master
+  Local model server/backend candidate. Treat as model-route infrastructure,
+  not as an AgentHarnessAdapter.
+```
+
+Target contract:
+
+```ts
+interface AgentHarnessAdapterProfile {
+  adapter_id:
+    | "codex_cli"
+    | "codex_desktop_linux"
+    | "claude_code_cli"
+    | "deepseek_tui"
+    | "aider_cli"
+    | "openhands"
+    | "generic_cli";
+  adapter_kind:
+    | "cli"
+    | "desktop_example"
+    | "containerized_cli"
+    | "remote_harness"
+    | "hosted_agent";
+  execution_lane:
+    | "host_dev"
+    | "docker_container"
+    | "podman_container"
+    | "microvm_later"
+    | "desktop_linux_example"
+    | "remote_api";
+  model_route_policy:
+    | "hypervisor_model_mount"
+    | "adapter_builtin"
+    | "provider_trust"
+    | "forbidden";
+  workspace_mount_policy:
+    | "public_trunk"
+    | "redacted_projection"
+    | "plain_workspace"
+    | "ctee_private_workspace";
+  required_authority_scopes: string[];
+  receipt_policy_ref: string;
+}
+
+interface HarnessComparisonRun {
+  run_id: string;
+  project_ref: string;
+  task_ref: string;
+  candidate_adapter_refs: string[];
+  selected_model_mount_ref?: string;
+  comparison_mode: "same_task" | "same_fixture" | "benchmark" | "shadow";
+  acceptance_criteria_refs: string[];
+  receipt_refs: string[];
+}
+
+interface HarnessAdapterReceipt {
+  receipt_id: string;
+  adapter_profile_ref: string;
+  execution_lane: AgentHarnessAdapterProfile["execution_lane"];
+  model_route_ref?: string;
+  container_image_ref?: string;
+  command_argv_hash?: string;
+  workspace_mount_policy: AgentHarnessAdapterProfile["workspace_mount_policy"];
+  authority_scope_refs: string[];
+  privacy_posture_ref: string;
+  agentgres_operation_refs: string[];
+  artifact_refs: string[];
+}
+```
+
+Harness/model split:
+
+```text
+Harness adapters decide how a step is reasoned through:
+  Codex CLI, codex-desktop-linux, Claude Code, DeepSeek TUI, Aider, OpenHands,
+  shell/tmux agents, hosted coding agents.
+
+Model routes decide where cognition is served:
+  Hypervisor model mount, LocalAI, Ollama, llama.cpp, vLLM, provider APIs,
+  customer endpoints, hosted models.
+
+The selector must allow:
+  harness = Codex adapter + model = local model mount, if compatible;
+  harness = DeepSeek TUI adapter + model = configured OpenAI-compatible route,
+    if compatible;
+  harness = Claude Code adapter + model = adapter-native/provider route unless
+    a supported local-model bridge is proven;
+  harness = Default Harness Profile + model = selected Hypervisor model route.
+```
+
+Execution lanes:
+
+| Lane | Use | Boundary |
+| --- | --- | --- |
+| Host dev CLI | Fast local development and adapter probing. | Lowest isolation; never privacy proof. |
+| Docker/Podman container | Reproducible harness smoke tests and public workspace tasks. | Useful sandbox; not a root-provider privacy guarantee. |
+| `examples/codex-desktop-linux` | Desktop/client parity and computer-use reference. | Adapter target, not Hypervisor Core. |
+| Local model server | LocalAI/Ollama/llama.cpp/vLLM endpoint behind model mount. | Model backend, not harness authority. |
+| Remote/provider API | Existing harness-native provider path. | Provider-trust lane; mark privacy posture explicitly. |
+
+Implementation phases:
+
+| Phase | Objective | Main files | Acceptance |
+| --- | --- | --- | --- |
+| 0B.1 Adapter manifest fixtures | Add static manifests for Codex, codex-desktop-linux, Claude Code, DeepSeek TUI, and generic CLI. | new adapter manifest module under app/daemon, test fixtures | UI can list adapters without executing them. |
+| 0B.2 Harness selector in New Session | Add harness selector beside model route and privacy posture. | Hypervisor App launch flow from Phase 0A | Session summary shows harness, model route, workspace mount, and privacy posture. |
+| 0B.3 Model-mount compatibility check | Probe `/v1/model-mount/*` inventory before offering local route. | `packages/agent-sdk/src/substrate-client.ts`, model mount clients | No harness silently falls back to cloud/provider if local route is unavailable. |
+| 0B.4 Container lane contract | Define Docker/Podman command, mount, network, env, and receipt envelope. | runtime daemon adapter service, docs, tests | Container run receipts include image, argv hash, mounts, network policy, exit status. |
+| 0B.5 First public smoke task | Run the same non-sensitive fixture task through two adapters where installed. | adapter runner tests, sample workspace | Receipts prove both were mediated by daemon gates. |
+| 0B.6 cTEE/private workspace guard | Restrict external harnesses to public trunk/redacted projection unless explicitly allowed. | private workspace policy, adapter runner | Sensitive work cannot be mounted into plain external harness workspace by default. |
+| 0B.7 Comparison dashboard | Add HarnessComparisonRun view to Workbench/Foundry. | Hypervisor App Workbench/Foundry surfaces | User can compare adapter output, cost, receipts, and verification results. |
+
+First implementation slice:
+
+```text
+1. Define `AgentHarnessAdapterProfile`, `HarnessAdapterReceipt`, and
+   `HarnessComparisonRun` fixtures.
+2. Add adapter choices to New Session:
+   Default Harness Profile, Codex CLI, codex-desktop-linux, Claude Code,
+   DeepSeek TUI, Generic CLI.
+3. Add model route choices from the daemon model-mount inventory.
+4. Add compatibility states:
+   compatible, adapter-native only, provider-trust, local-route unavailable.
+5. Add container lane dry-run receipt for a public fixture workspace.
+6. Add source scans proving no external harness bypasses daemon gates.
+```
+
+Anti-patterns:
+
+```text
+Codex = Default Harness Profile
+Claude Code = Default Harness Profile
+External harness = Hypervisor runtime truth
+Container = cTEE privacy guarantee
+Docker mount of private workspace = safe because encrypted at rest
+LocalAI/Ollama/llama.cpp = harness adapter
+Harness-native provider fallback = private local model route
+Adapter comparison = unreceipted manual experiment
+```
+
+Verification ladder:
+
+```text
+rg -n "Codex = Default Harness|Claude Code = Default Harness|external harness.*runtime truth" \
+  internal-docs/implementation docs/architecture
+  # Remaining hits must be anti-pattern examples only.
+node --check touched adapter .mjs files
+focused adapter manifest tests
+focused model-mount compatibility tests
+container dry-run receipt test
+git diff --check -- internal-docs/implementation docs/architecture apps/autopilot packages/runtime-daemon
+```
+
 ### Phase 1: Promote Broad Autonomous Labor Canon
 
 | Field | Detail |
@@ -913,6 +1101,8 @@ This guide is complete when it contains:
 - at least ten coherence findings;
 - a Hypervisor App UX implementation plan from Autopilot/OpenVSCode gravity to
   Hypervisor Core cockpit;
+- a Harness Adapter Testbed plan for Codex-style, Claude-style, DeepSeek-style,
+  and generic CLI harness comparison under daemon gates;
 - at least five simplification opportunities;
 - source-of-truth corrections;
 - vocabulary corrections;
@@ -927,4 +1117,5 @@ Verification for this guide:
 git diff --check -- internal-docs/implementation/refine-architecture.md
 rg -n "Executive Verdict|Edge-Case Stress Tests|Coherence Findings|Proposed Patch Plan|Final Doctrine Delta" internal-docs/implementation/refine-architecture.md
 rg -n "Hypervisor App UX Master Plan|HypervisorSessionLaunchRecipe|WorkbenchAdapterPreference" internal-docs/implementation/refine-architecture.md
+rg -n "Harness Adapter Testbed|AgentHarnessAdapterProfile|HarnessAdapterReceipt|HarnessComparisonRun" internal-docs/implementation/refine-architecture.md
 ```
