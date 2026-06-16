@@ -26737,9 +26737,9 @@ function runReceipts() {
     ],
     "Model_mount provider, vault, token, and catalog-provider clients must use stable /v1/model-mount protocol routes; retired /api/v1 provider/vault/token/catalog aliases must not return",
   );
-  assertCheck(
-    result,
-    "model-mount-stable-sdk-control-protocol-clients",
+	  assertCheck(
+	    result,
+	    "model-mount-stable-sdk-control-protocol-clients",
     /export type ModelMountControlInput = Record<string, unknown>/.test(read("packages/agent-sdk/src/model-mounts.ts")) &&
       /export type ModelMountControlResult = Record<string, unknown>/.test(read("packages/agent-sdk/src/model-mounts.ts")) &&
       /upsertModelRoute\(input: ModelMountControlInput\): Promise<ModelRoute>/.test(
@@ -26828,11 +26828,96 @@ function runReceipts() {
       "packages/agent-sdk/test/sdk.test.mjs",
       "scripts/conformance/hypervisor-conformance.mjs",
     ],
-    "Model_mount SDK control clients must use stable /v1/model-mount protocol APIs for route, server, backend, runtime, lifecycle, storage, provider, vault, token, and catalog controls; SDK requests must not reintroduce /api/v1 control paths",
-  );
-  assertCheck(
-    result,
-    "model-mount-receipt-stable-protocol-clients",
+	    "Model_mount SDK control clients must use stable /v1/model-mount protocol APIs for route, server, backend, runtime, lifecycle, storage, provider, vault, token, and catalog controls; SDK requests must not reintroduce /api/v1 control paths",
+	  );
+  const modelMountStableIdeControlNodes = exists(
+    "packages/agent-ide/src/runtime/workflow-model-mount-control-nodes.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-model-mount-control-nodes.ts")
+    : "";
+  const modelMountStableIdeControlNodesTest = exists(
+    "packages/agent-ide/src/runtime/workflow-model-mount-control-nodes.test.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-model-mount-control-nodes.test.ts")
+    : "";
+  const modelMountWorkbenchActions = exists(
+    "apps/autopilot/openvscode-extension/ioi-workbench/commands/model-daemon-actions.js",
+  )
+    ? read("apps/autopilot/openvscode-extension/ioi-workbench/commands/model-daemon-actions.js")
+    : "";
+  const modelMountStableIdeIndex = exists("packages/agent-ide/src/index.ts")
+    ? read("packages/agent-ide/src/index.ts")
+    : "";
+	  assertCheck(
+	    result,
+	    "model-mount-stable-ide-control-protocol-clients",
+    /WORKFLOW_MODEL_MOUNT_IDE_CONTROL_SCHEMA_VERSION/.test(
+      modelMountStableIdeControlNodes,
+    ) &&
+      /MODEL_MOUNT_IDE_CONTROL_ROUTES = \[/.test(modelMountStableIdeControlNodes) &&
+      /"route\.upsert"/.test(modelMountStableIdeControlNodes) &&
+      /"server\.restart"/.test(modelMountStableIdeControlNodes) &&
+      /"backend\.health"/.test(modelMountStableIdeControlNodes) &&
+      /"runtime\.engine\.update"/.test(modelMountStableIdeControlNodes) &&
+      /"lifecycle\.instance\.unload_by_id"/.test(modelMountStableIdeControlNodes) &&
+      /"storage\.download\.cancel"/.test(modelMountStableIdeControlNodes) &&
+      /"catalog_provider\.oauth\.refresh"/.test(modelMountStableIdeControlNodes) &&
+      /"token\.count"/.test(modelMountStableIdeControlNodes) &&
+      /"vault\.health\.latest"/.test(modelMountStableIdeControlNodes) &&
+      /"provider\.stop"/.test(modelMountStableIdeControlNodes) &&
+      /createModelMountIdeControlRequest/.test(modelMountStableIdeControlNodes) &&
+      /renderModelMountIdeControlEndpoint/.test(modelMountStableIdeControlNodes) &&
+      /assertStableModelMountIdeControlEndpoint/.test(modelMountStableIdeControlNodes) &&
+      /assertNoRetiredModelMountControlInputAliases/.test(
+        modelMountStableIdeControlNodes,
+      ) &&
+      /Retired model_mount IDE control input alias/.test(
+        modelMountStableIdeControlNodes,
+      ) &&
+      /IDE controls model_mount through stable daemon protocol routes/.test(
+        modelMountStableIdeControlNodesTest,
+      ) &&
+      /POST \/v1\/model-mount\/catalog\/providers\/catalog\.ide\/oauth\/start/.test(
+        modelMountStableIdeControlNodesTest,
+      ) &&
+      /GET \/v1\/model-mount\/providers\/provider\.ide\/loaded/.test(
+        modelMountStableIdeControlNodesTest,
+      ) &&
+      /assert\.equal\(requests\.some\(\(entry\) => entry\.endpoint\.includes\("\/api\/v1\/"\)\), false\)/.test(
+        modelMountStableIdeControlNodesTest,
+      ) &&
+      /assert\.throws\(\s*\(\)\s*=>\s*createModelMountIdeControlRequest/.test(
+        modelMountStableIdeControlNodesTest,
+      ) &&
+      /MODEL_MOUNT_IDE_CONTROL_ROUTES/.test(modelMountStableIdeIndex) &&
+      /createModelMountIdeControlRequest/.test(modelMountStableIdeIndex) &&
+      /ModelMountIdeControlRequest/.test(modelMountStableIdeIndex) &&
+      /\/v1\/model-mount\/endpoints\/\$\{encodeURIComponent\(targetEndpointId\)\}\/load/.test(
+        modelMountWorkbenchActions,
+      ) &&
+      /\/v1\/model-mount\/catalog\/providers\/\$\{encodeURIComponent\(providerId\)\}/.test(
+        modelMountWorkbenchActions,
+      ) &&
+      !/requestJson\([^)]*\/api\/v1\//.test(modelMountWorkbenchActions) &&
+      /Slice 1361 hard-cuts stable model_mount IDE control protocol clients/.test(
+        guide,
+      ) &&
+      /Model_mount stable IDE control protocol clients/.test(matrix) &&
+      /RuntimeDaemonCoreModelMountStableIdeControlProtocolClients/.test(
+        implementationMatrix,
+      ),
+	    [
+      "packages/agent-ide/src/runtime/workflow-model-mount-control-nodes.ts",
+      "packages/agent-ide/src/runtime/workflow-model-mount-control-nodes.test.ts",
+      "packages/agent-ide/src/index.ts",
+      "apps/autopilot/openvscode-extension/ioi-workbench/commands/model-daemon-actions.js",
+	      "scripts/conformance/hypervisor-conformance.mjs",
+	    ],
+	    "Model_mount IDE control clients must use stable /v1/model-mount protocol APIs for route, server, backend, runtime, lifecycle, storage, provider, vault, token, and catalog controls; IDE clients must not reintroduce /api/v1 control paths or retired camelCase request aliases",
+	  );
+	  assertCheck(
+	    result,
+	    "model-mount-receipt-stable-protocol-clients",
     /\/v1\/model-mount\/receipts/.test(publicRuntimeRoutes) &&
       /store\.modelMounting\.listReceipts\(\)/.test(publicRuntimeRoutes) &&
       /store\.modelMounting\.getReceipt\(decodeURIComponent\(segments\[3\]\)\)/.test(publicRuntimeRoutes) &&

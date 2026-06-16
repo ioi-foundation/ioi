@@ -392,6 +392,18 @@ export {
   createRuntimeMcpToolControlRequestFromWorkflowNode,
 } from "./runtime/workflow-runtime-mcp-control-nodes";
 export {
+  MODEL_MOUNT_IDE_CONTROL_COMPONENT_KIND,
+  MODEL_MOUNT_IDE_CONTROL_PAYLOAD_SCHEMA_VERSION,
+  MODEL_MOUNT_IDE_CONTROL_ROUTES,
+  MODEL_MOUNT_IDE_CONTROL_SOURCE,
+  WORKFLOW_MODEL_MOUNT_IDE_CONTROL_SCHEMA_VERSION,
+  assertStableModelMountIdeControlEndpoint,
+  createModelMountIdeControlRequest,
+  modelMountIdeControlRoute,
+  modelMountIdeControlRouteIdsByFamily,
+  renderModelMountIdeControlEndpoint,
+} from "./runtime/workflow-model-mount-control-nodes";
+export {
   RUNTIME_SUBAGENT_COMPONENT_KIND,
   RUNTIME_SUBAGENT_DEFAULT_OUTPUT_CONTRACT,
   RUNTIME_SUBAGENT_EVENT_KIND_BY_OPERATION,
@@ -932,6 +944,15 @@ export type {
   RuntimeMcpToolOperation,
   RuntimeMcpToolWorkflowNodeOptions,
 } from "./runtime/workflow-runtime-mcp-control-nodes";
+export type {
+  ModelMountIdeControlFamily,
+  ModelMountIdeControlMethod,
+  ModelMountIdeControlRequest,
+  ModelMountIdeControlRequestBody,
+  ModelMountIdeControlRequestInput,
+  ModelMountIdeControlRoute,
+  ModelMountIdeControlRouteId,
+} from "./runtime/workflow-model-mount-control-nodes";
 export type {
   WorkflowRuntimeTelemetrySummary,
   WorkflowRuntimeTelemetrySummaryInput,

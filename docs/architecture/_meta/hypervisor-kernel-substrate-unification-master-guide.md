@@ -510,7 +510,7 @@ already-admitted canonical records only. This does not claim terminal
 conversation-artifact migration: direct Rust daemon-core artifact admission and
 projection still need to own lifecycle execution, receipt binding, ArtifactRef
 and PayloadRef admission, Agentgres expected-head/state-root binding,
-projection, replay, SDK/IDE protocol coverage, and conformance. Do not encode
+projection, replay, SDK/later stable client protocol rows, and conformance. Do not encode
 the remaining JS read adapter as terminal architecture.
 The Slice 763 direct conversation-artifact store writer retirement
 matrix-compaction pass is complete. No matrix-compaction pass is pending until
@@ -559,7 +559,7 @@ health/start/stop/log facades remain fail-closed at the Rust-core-required
 boundary. This does not claim terminal backend lifecycle migration: direct Rust
 daemon-core backend lifecycle/control/projection still needs to own process
 control, log/event projection, Agentgres expected-head/state-root binding,
-receipt/event materialization, replay, SDK/IDE protocol coverage, and
+receipt/event materialization, replay, SDK/later stable client protocol rows, and
 conformance. Do not encode the remaining JS process-supervision helper as
 terminal architecture.
 The Slice 765 backend registry local log writer retirement matrix-compaction
@@ -576,7 +576,7 @@ adapter cannot appear to forward accepted artifact truth through JS. This does
 not claim terminal conversation-artifact migration: direct Rust daemon-core
 artifact admission/projection still needs to own lifecycle execution, receipt
 binding, ArtifactRef/PayloadRef admission, Agentgres expected-head/state-root
-binding, projection, replay, SDK/IDE protocol coverage, and conformance. Do not
+binding, projection, replay, SDK/later stable client protocol rows, and conformance. Do not
 encode the remaining JS read adapter or artifact-state command transport as
 terminal architecture.
 The Slice 766 conversation-artifact committer injection retirement
@@ -594,7 +594,7 @@ longer includes retired context source/config aliases in evidence refs. This
 does not claim terminal MCP migration: direct
 Rust daemon-core MCP control/admission/projection still needs to own registry
 truth, external-exit authority, transport containment, receipts, Agentgres
-expected-head/state-root binding, replay, SDK/IDE protocol coverage, and
+expected-head/state-root binding, replay, SDK/later stable client protocol rows, and
 conformance. Do not encode the remaining JS MCP read/config helpers or command
 transport as terminal architecture.
 The Slice 767 MCP manager/catalog/helper config/source handoff alias-retirement
@@ -609,7 +609,7 @@ not appear in fail-closed error details. This does not claim terminal visual
 artifact migration: direct Rust daemon-core coding-tool artifact admission still
 needs to own visual artifact materialization, receipt binding,
 ArtifactRef/PayloadRef admission, Agentgres expected-head/state-root binding,
-projection, replay, SDK/IDE protocol coverage, and conformance. Do not encode
+projection, replay, SDK/later stable client protocol rows, and conformance. Do not encode
 the remaining fail-closed JS artifact facade as terminal architecture.
 The Slice 768 visual artifact path alias-retirement matrix-compaction pass is
 complete. No matrix-compaction pass is pending until the next Rust-core
@@ -633,7 +633,7 @@ binary-bridge/compatibility fallback proof fields; the JS adapter must
 `commitRuntimeMcpLiveResultState()` and `projectMcpLiveResultReplay()` before it
 can wrap the replayed protocol payload as JSON-RPC. This does not claim terminal
 MCP serve migration: external Rust MCP transport execution, transport
-containment for non-coding-tool live backends, SDK/IDE protocol coverage, and
+containment for non-coding-tool live backends, SDK/later stable client protocol rows, and
 conformance still require deeper Rust ownership.
 Do not encode the remaining JS MCP serve protocol facade as terminal
 architecture. The Slice 769 MCP serve `params.args` alias-retirement
@@ -654,7 +654,7 @@ suppress empty-allowed-tools warnings. This does not claim terminal MCP manager
 migration: direct Rust daemon-core MCP control/admission/projection still needs
 to own wallet authority, transport containment, StepModuleRouter dispatch,
 receipt binding, Agentgres expected-head/state-root binding, registry truth,
-replay, SDK/IDE protocol coverage, and conformance. Do not encode the remaining
+replay, SDK/later stable client protocol rows, and conformance. Do not encode the remaining
 JS MCP manager/catalog helpers as terminal architecture. The Slice 770 MCP
 manager `allowedTools` alias-retirement matrix-compaction pass is complete.
 Slice 771 retired the MCP manager `allowedResources` and `allowedPrompts`
@@ -666,7 +666,7 @@ prompt catalog rows or registry counts. This does not claim terminal MCP manager
 migration: direct Rust daemon-core MCP control/admission/projection still needs
 to own wallet authority, transport containment, StepModuleRouter dispatch,
 receipt binding, Agentgres expected-head/state-root binding, registry truth,
-replay, SDK/IDE protocol coverage, and conformance. Do not encode the remaining
+replay, SDK/later stable client protocol rows, and conformance. Do not encode the remaining
 JS MCP manager/catalog helpers as terminal architecture. The Slice 771 MCP
 manager resource/prompt alias-retirement matrix-compaction pass is complete.
 Slice 772 retired MCP manager `serverUrl`, `containmentMode`,
@@ -690,7 +690,7 @@ manager validation boundary. This does not claim terminal MCP manager migration:
 direct Rust daemon-core MCP control/admission/projection still needs to own
 wallet authority, transport containment, StepModuleRouter dispatch, receipt
 binding, Agentgres expected-head/state-root binding, registry truth, replay,
-SDK/IDE protocol coverage, and conformance. Do not encode the remaining JS MCP
+SDK/later stable client protocol rows, and conformance. Do not encode the remaining JS MCP
 manager/catalog helpers as terminal architecture. The Slice 773 MCP manager
 validation secret-ref alias-retirement matrix-compaction pass is complete. No
 matrix-compaction pass is pending until the next Rust-core extraction or
@@ -715,7 +715,7 @@ MCP status/validation pass-block decisions come from Rust
 `McpServerValidationCore` via `validate_mcp_servers` migration transport. This
 still does not claim terminal MCP migration: catalog normalization/projection,
 registry truth, wallet authority, transport containment, receipt binding,
-Agentgres admission, replay, and SDK/IDE protocol coverage still need direct
+Agentgres admission, replay, and SDK/later stable client protocol rows still need direct
 Rust daemon-core ownership. The Slice 775 MCP status validation Rust-core
 matrix-compaction pass is complete. No matrix-compaction pass is pending until
 the next Rust-core extraction or facade-retirement seam lands.
@@ -756,7 +756,7 @@ agent-scoped `mcpStatusForAgent()` before those rows enter
 readiness/count/status input authority. This still does not claim terminal MCP
 migration: direct Rust daemon-core MCP registry truth, live transport
 containment, wallet authority, StepModuleRouter dispatch, receipt binding,
-Agentgres admission, replay, and SDK/IDE protocol coverage still need direct
+Agentgres admission, replay, and SDK/later stable client protocol rows still need direct
 Rust daemon-core ownership. The Slice 778 MCP status catalog-projection
 Rust-core matrix-compaction pass is complete. No matrix-compaction pass is
 pending until the next Rust-core extraction or facade-retirement seam lands.
@@ -771,7 +771,7 @@ public validation status, counts, issues/warnings counts, or tool/resource/promp
 row envelope itself. This still does not claim terminal MCP migration: direct
 Rust daemon-core MCP registry truth, live transport containment, wallet
 authority, StepModuleRouter dispatch, receipt binding, Agentgres admission,
-replay, and SDK/IDE protocol coverage still need direct Rust daemon-core
+replay, and SDK/later stable client protocol rows still need direct Rust daemon-core
 ownership. The Slice 779 MCP validation projection Rust-core matrix-compaction
 pass is complete. No matrix-compaction pass is pending until the next Rust-core
 extraction or facade-retirement seam lands.
@@ -786,7 +786,7 @@ declared rows until a Rust MCP transport backend owns live discovery.
 This still does not claim terminal MCP migration: direct Rust daemon-core MCP
 registry truth, live transport discovery and containment, wallet authority,
 StepModuleRouter dispatch, receipt binding, Agentgres admission, replay, and
-SDK/IDE protocol coverage still need direct Rust daemon-core ownership. The
+SDK/later stable client protocol rows still need direct Rust daemon-core ownership. The
 Slice 780 MCP public catalog Rust-core matrix-compaction pass is complete. No
 matrix-compaction pass is pending until the next Rust-core extraction or
 facade-retirement seam lands.
@@ -799,7 +799,7 @@ surface no longer imports, injects, or calls `mcpCatalogSummaryForServer()` for
 those public summaries. This still does not claim terminal MCP migration:
 direct Rust daemon-core MCP registry truth, live transport discovery and
 containment, wallet authority, StepModuleRouter dispatch, receipt binding,
-Agentgres admission, replay, and SDK/IDE protocol coverage still need direct
+Agentgres admission, replay, and SDK/later stable client protocol rows still need direct
 Rust daemon-core ownership. The Slice 781 MCP catalog summary Rust-core
 matrix-compaction pass is complete. No matrix-compaction pass is pending until
 the next Rust-core extraction or facade-retirement seam lands.
@@ -812,7 +812,7 @@ owned by `McpManagerCatalogSummaryProjectionCore` through migration transport.
 This still does not claim terminal MCP migration: direct Rust daemon-core MCP
 registry truth, live transport discovery and containment, wallet authority,
 StepModuleRouter dispatch, receipt binding, Agentgres admission, replay, and
-SDK/IDE protocol coverage still need direct Rust daemon-core ownership. The
+SDK/later stable client protocol rows still need direct Rust daemon-core ownership. The
 Slice 782 MCP helper summary-retirement matrix-compaction pass is complete. No
 matrix-compaction pass is pending until the next Rust-core extraction or
 facade-retirement seam lands.
@@ -869,7 +869,7 @@ public status/validation already route through Rust `McpServerValidationCore`.
 This still does not claim terminal MCP migration: direct Rust daemon-core MCP
 registry truth, live transport discovery and containment, wallet authority,
 StepModuleRouter dispatch, receipt binding, Agentgres admission, replay, and
-SDK/IDE protocol coverage still need direct Rust daemon-core ownership. The
+SDK/later stable client protocol rows still need direct Rust daemon-core ownership. The
 Slice 785 MCP JS validation helper-retirement matrix-compaction pass is
 complete. No matrix-compaction pass is pending until the next Rust-core
 extraction or facade-retirement seam lands.
@@ -886,7 +886,7 @@ write-block reasons, routes, validation records, or evidence refs in JS. This
 still does not claim terminal memory migration: direct Rust daemon-core memory
 record truth, Agentgres admission/head/state-root binding, wallet authority,
 StepModuleRouter dispatch for admitted memory work, cTEE custody coupling,
-replay, SDK/IDE protocol coverage, and direct Rust API replacement for command
+replay, SDK/later stable client protocol rows, and direct Rust API replacement for command
 transport still need ownership. The Slice 786 memory manager projection
 Rust-core matrix-compaction pass is complete. No matrix-compaction pass is
 pending until the next Rust-core extraction or facade-retirement seam lands; do
@@ -1066,7 +1066,7 @@ is unavailable. This still does not claim terminal model_mount migration:
 current state materialization and command transport remain migration plumbing,
 and direct Rust daemon-core APIs still need to own storage-backed projection
 reads, Agentgres projection watermarks, replay, wallet authority binding,
-SDK/IDE protocol coverage, and replacement of the bridge process boundary. The
+SDK/later stable client protocol rows, and replacement of the bridge process boundary. The
 Slice 792 model_mount read-projection Rust-authoring matrix-compaction pass is
 complete. No matrix-compaction pass is pending until the next Rust-core
 extraction or facade-retirement seam lands; do not encode the command bridge,
@@ -11318,8 +11318,7 @@ Conformance guards the stable route surface, SDK methods, CLI read-command
 URLs, and the absence of the retired client read fallbacks for migrated read
 commands. This remains non-terminal because hosted/provider materialization,
 OAuth/auth-header materialization, backend execution/materialization,
-invocation authority depth, IDE protocol coverage, and mutation/control SDK
-coverage still need terminal Rust-owned materialization and replay records.
+invocation authority depth, later stable IDE and SDK control-client rows still need terminal Rust-owned materialization and replay records.
 
 Slice 1349 retires the legacy model_mount native read aliases for the migrated
 stable read family. The daemon no longer routes `GET /api/v1/model-capabilities`,
@@ -11334,8 +11333,7 @@ instead of treating them as model IDs. Conformance source-scans keep the removed
 GET handlers absent. This remains
 non-terminal because mutation/control routes, backend execution/materialization,
 hosted/provider transport, OAuth/auth-header materialization, invocation
-authority depth, and IDE protocol coverage still need terminal Rust-owned
-coverage.
+authority depth, and later stable client protocol rows had not yet landed at that cut.
 
 Slice 1350 hard-cuts stable model_mount receipt protocol clients and retires the
 native receipt read aliases. Public receipt list/get/replay now use
@@ -11350,7 +11348,7 @@ without calling receipt methods, and conformance scans keep clients and handlers
 off the retired `/api/v1/receipts` family. This remains non-terminal because
 mutation/control routes, backend execution/materialization, hosted/provider
 transport, OAuth/auth-header materialization, invocation authority depth, and
-IDE protocol coverage still need terminal Rust-owned coverage.
+later stable client protocol rows had not yet landed at that cut.
 
 Slice 1351 hard-cuts stable model_mount read proof and IDE clients. Current
 proof/autopilot scripts, product UI/desktop/workbench clients, and IDE
@@ -11364,8 +11362,7 @@ mutation/control aliases, and conformance scans CLI/SDK/proof/IDE client
 surfaces plus product source-only clients so the retired read clients cannot
 return. This remains non-terminal because mutation/control routes, backend
 execution/materialization, hosted/provider transport, OAuth/auth-header
-materialization, invocation authority depth, and IDE protocol coverage still
-need terminal Rust-owned coverage.
+materialization, invocation authority depth, and later stable client protocol rows had not yet landed at that cut.
 
 Slice 1352 hard-cuts stable model_mount operational read clients and retires
 the native read aliases for that family. Public server status/logs/events,
@@ -11386,8 +11383,7 @@ of treating them as model ids. Conformance scans source-only clients and
 focused route tests so these retired read aliases cannot return. This remains
 non-terminal because mutation/control routes, backend execution/materialization,
 hosted/provider transport, OAuth/auth-header materialization, invocation
-authority depth, and broader IDE/CLI/SDK control coverage still need terminal
-Rust-owned coverage.
+authority depth, and later stable control-client rows had not yet landed at that cut.
 
 Slice 1353 hard-cuts stable model_mount server-control protocol clients and
 retires the native server-control aliases. Public server start/stop/restart now
@@ -11402,10 +11398,10 @@ contract tests moved off `POST /api/v1/server/start`,
 The daemon native handler no longer exposes those aliases, focused route tests
 assert they return `not_found` without calling server-control methods, and
 conformance scans client surfaces so the retired control compatibility path
-cannot return. This remains non-terminal because backend execution/
-materialization, hosted/provider transport, OAuth/auth-header materialization,
-invocation authority depth, and broader IDE/SDK control coverage still need
-terminal Rust-owned protocol coverage.
+cannot return. At this cut the migration remained non-terminal because backend
+execution/materialization, hosted/provider transport, OAuth/auth-header
+materialization, invocation authority depth, and later stable control-client
+rows had not yet landed.
 
 Slice 1354 hard-cuts stable model_mount backend-control protocol clients and
 retires the native backend lifecycle control aliases. Public backend
@@ -11422,8 +11418,7 @@ calling backend lifecycle methods, and conformance scans client surfaces so the
 retired backend-control compatibility path cannot return. This remains
 non-terminal because backend execution/materialization, hosted/provider
 transport, OAuth/auth-header materialization, invocation authority depth, and
-broader IDE/SDK control coverage still need terminal Rust-owned protocol
-coverage.
+later stable control-client rows had not yet landed at that cut.
 
 Slice 1355 hard-cuts stable model_mount runtime-control protocol clients and
 retires the native runtime survey/select/profile aliases. Public runtime
@@ -11446,8 +11441,7 @@ the retired runtime-control compatibility path cannot return. This remains
 non-terminal because model import/download/mount/load/unload, provider/vault/
 catalog OAuth controls, backend execution/materialization, hosted/provider
 transport, OAuth/auth-header materialization, invocation authority depth, and
-broader IDE/SDK control coverage still need terminal Rust-owned protocol
-coverage.
+later stable control-client rows had not yet landed at that cut.
 
 Slice 1356 hard-cuts stable model_mount route-control protocol clients and
 retires the native route write/test control aliases. Public route upsert and
@@ -11465,8 +11459,7 @@ retired route-control compatibility path cannot return. This remains
 non-terminal because model import/download/mount/load/unload, provider/vault/
 catalog OAuth controls, backend execution/materialization, hosted/provider
 transport, OAuth/auth-header materialization, invocation authority depth, and
-broader IDE/SDK control coverage still need terminal Rust-owned protocol
-coverage.
+later stable control-client rows had not yet landed at that cut.
 
 Slice 1357 hard-cuts stable model_mount lifecycle protocol clients and retires
 the native model import/mount/load/unload aliases. Public model artifact import
@@ -11500,7 +11493,7 @@ load-policy/load-option request selectors cannot return. This remains
 non-terminal because model download/storage controls, provider/vault/catalog
 OAuth controls, backend execution/materialization, hosted/provider transport,
 OAuth/auth-header materialization, invocation authority depth, and broader
-IDE/SDK control coverage still need terminal Rust-owned protocol coverage.
+later stable control-client rows had not yet landed at that cut.
 
 Slice 1358 hard-cuts stable model_mount storage-download protocol clients and
 retires the native catalog import-url, model download, artifact delete, and
@@ -11528,7 +11521,7 @@ source clients so the retired storage/download compatibility path cannot
 return. This remains non-terminal because provider/vault/catalog OAuth
 controls, backend execution/materialization, hosted/provider transport,
 OAuth/auth-header materialization, invocation authority depth, and broader
-IDE/SDK control coverage still need terminal Rust-owned protocol coverage.
+later stable control-client rows had not yet landed at that cut.
 
 Slice 1359 hard-cuts stable model_mount provider-vault-token-catalog protocol
 clients and retires the native provider, vault, token, and catalog-provider
@@ -11551,8 +11544,7 @@ without calling provider/vault/token/catalog methods, and conformance scans
 source clients so the retired compatibility path cannot return. This remains
 non-terminal because backend execution/materialization, hosted/provider
 transport, OAuth/auth-header materialization depth, invocation authority depth,
-and broader SDK/IDE control coverage still need terminal Rust-owned protocol
-coverage.
+and later stable control-client rows had not yet landed at that cut.
 
 Slice 1360 hard-cuts stable model_mount SDK control protocol clients. The
 agent SDK now exposes named protocol-client methods for the full stable
@@ -11566,10 +11558,27 @@ upsert/health/models/loaded/start/stop. These methods call only the stable
 planners and Agentgres record/projection truth; the SDK source has no
 authoritative `/api/v1` model_mount control request path, and focused SDK tests
 drive the whole route family while asserting retired `/api/v1` control routes
-do not return through the SDK. This remains non-terminal because backend
-execution/materialization, hosted/provider transport, OAuth/auth-header
-materialization depth, invocation authority depth, and broader IDE control
-coverage still need terminal Rust-owned protocol coverage.
+do not return through the SDK. At this cut the migration remained non-terminal
+because backend execution/materialization, hosted/provider transport,
+OAuth/auth-header materialization depth, invocation authority depth, and the
+then-pending IDE control surface still needed terminal Rust-owned protocol
+coverage.
+
+Slice 1361 hard-cuts stable model_mount IDE control protocol clients. The agent
+IDE now exports a full model_mount control route catalog and request builder for
+route upsert/test, server start/stop/restart, backend health/start/stop/logs,
+runtime survey/select/profile controls, artifact import/delete, endpoint
+mount/unmount/load/unload, instance load/unload, download/status/cancel, storage
+cleanup, catalog-provider config and OAuth controls, capability tokens, vault
+refs/status/health, and provider upsert/health/models/loaded/start/stop. The
+IDE protocol client builds only stable `/v1/model-mount/*` endpoints, rejects
+retired camelCase model_mount control request aliases instead of translating
+them, exports the surface through `@ioi/agent-ide`, and focused tests drive the
+whole route family while asserting no `/api/v1` control path returns through the
+IDE. Workbench actions remain stable protocol clients over the same daemon
+routes. This remains non-terminal because backend execution/materialization,
+hosted/provider transport, OAuth/auth-header materialization depth, and
+invocation authority depth still need terminal Rust-owned protocol coverage.
 
 ## Final Doctrine
 
