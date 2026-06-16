@@ -42,6 +42,15 @@ owns block materialization end to end. Once real Rust daemon-core APIs are wired
 and verified, retire remaining JS facade scaffolding instead of preserving it as
 compatibility wrappers.
 
+Current model_mount blocker interpretation: historical rows may preserve the
+"remaining at this cut" wording for review lineage, but the active blocker
+ledger is the newest dedicated model_mount rows plus the migration matrix
+terminal-blocker section. Hosted live transport, hosted stream semantics,
+backend-process live supervision, hosted cTEE egress resolver binding,
+invocation authority planning, invocation JS helper deletion, and
+backend-process fallback-proof protocol deletion are Rust-owned and are no
+longer current implementation blockers.
+
 Status values:
 
 ```text

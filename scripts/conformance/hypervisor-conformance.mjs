@@ -1042,6 +1042,15 @@ function runDocs() {
   const guide = read(GUIDE);
   const matrix = read(MATRIX);
   const implementationMatrix = read(IMPLEMENTATION_MATRIX);
+  const terminalBlockersStart = matrix.indexOf("## Remaining Terminal Blockers");
+  const terminalBlockersEnd = matrix.indexOf("## Do Not Recreate", terminalBlockersStart);
+  const terminalBlockers =
+    terminalBlockersStart >= 0 && terminalBlockersEnd > terminalBlockersStart
+      ? matrix.slice(terminalBlockersStart, terminalBlockersEnd)
+      : "";
+  const modelMountingRouteRow = matrix.match(/^\| `model-mounting` \|.*$/m)?.[0] ?? "";
+  const modelMountingCoreBoundaryRow =
+    matrix.match(/^\| `model-mounting\/core-api-boundary` \|.*$/m)?.[0] ?? "";
   const localRuntimeEngines = exists("packages/runtime-daemon/src/model-mounting/local-runtime-engines.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/local-runtime-engines.mjs")
     : "";
@@ -3204,6 +3213,65 @@ function runDocs() {
       )),
     [MATRIX],
     "migration matrix must mark completed coding-tool Rust workload live slices as reconciled without stale JS fallback notes",
+  );
+  assertCheck(
+    result,
+    "matrix-model-mount-terminal-blockers-reconciled",
+    terminalBlockers.length > 0 &&
+      /Model_mount no longer counts hosted live transport, hosted stream semantics,\s+live backend-process supervision, hosted cTEE egress resolver binding,\s+invocation authority planning, invocation JS helper deletion, or\s+backend-process fallback-proof field deletion as terminal blockers/.test(
+        terminalBlockers,
+      ) &&
+      /Slices\s+1377-1383 moved those authority boundaries into Rust daemon-core ownership/.test(
+        terminalBlockers,
+      ) &&
+      /Remaining model_mount blockers are richer hosted catalog\/discovery\s+materialization, deeper wallet\/cTEE route authority and revocation policy/.test(
+        terminalBlockers,
+      ) &&
+      !/live external backend binary spawning\/supervision|hosted\/provider transport|live cTEE secret injection into outbound hosted network requests|live external hosted API execution|actual external MCP transport\s+execution\/backend discovery/.test(
+        terminalBlockers,
+      ),
+    [MATRIX, IMPLEMENTATION_MATRIX, GUIDE],
+    "migration matrix terminal blockers must not relist model_mount live transport, backend supervision, cTEE egress, or invocation-authority cuts after Slices 1377-1383",
+  );
+  assertCheck(
+    result,
+    "matrix-model-mount-route-row-current-blockers-reconciled",
+    /Move remaining richer hosted catalog\/discovery materialization, deeper wallet\/cTEE route authority and revocation policy, conversation\/provider\/instance replay depth where still adapter-shaped, and stable SDK\/IDE\/CLI protocol APIs over Rust records/.test(
+      modelMountingRouteRow,
+    ) &&
+      /Move remaining richer hosted catalog\/discovery materialization, deeper wallet\/cTEE route authority and revocation policy, conversation\/provider\/instance replay depth where still adapter-shaped, and stable IDE\/CLI\/SDK protocol APIs over Rust records/.test(
+        modelMountingCoreBoundaryRow,
+      ) &&
+      !/Move remaining live external backend binary spawning\/supervision, hosted\/provider transport, OAuth execution\/materialization, hosted catalog materialization, invocation authority/.test(
+        modelMountingRouteRow,
+      ) &&
+      !/Move remaining live external backend binary spawning\/supervision, hosted\/provider transport, OAuth\/materialization, invocation authority/.test(
+        modelMountingCoreBoundaryRow,
+      ),
+    [MATRIX],
+    "migration matrix model_mount owner rows must point at current blockers rather than superseded live transport, backend supervision, or invocation-authority work",
+  );
+  assertCheck(
+    result,
+    "matrix-governed-product-route-command-envelope-blocker-retired",
+    terminalBlockers.length > 0 &&
+      /cTEE private workspace, worker\/service package, L1 settlement,\s+governed-improvement, and external capability authority now use explicit typed\s+Rust daemon-core APIs instead of JS runners or command-envelope request\s+builders/.test(
+        terminalBlockers,
+      ) &&
+      /production cores reject `command`, `args`, `daemonCoreApi`,\s+and `daemonCoreInvoker`/.test(terminalBlockers) &&
+      /Remaining blockers in these\s+families are richer projection\/replay records, deeper Agentgres\s+receipt\/state-root binding, and stable IDE\/CLI\/SDK read APIs/.test(
+        terminalBlockers,
+      ) &&
+      !/temporary\s+command-envelope request builders/.test(terminalBlockers),
+    [
+      MATRIX,
+      "packages/runtime-daemon/src/runtime-ctee-private-workspace-core.mjs",
+      "packages/runtime-daemon/src/runtime-worker-service-package-core.mjs",
+      "packages/runtime-daemon/src/runtime-l1-settlement-core.mjs",
+      "packages/runtime-daemon/src/runtime-governed-improvement-core.mjs",
+      "packages/runtime-daemon/src/runtime-external-capability-authority-core.mjs",
+    ],
+    "migration matrix terminal blockers must not claim governed product-route admission still depends on temporary command-envelope builders after typed Rust daemon-core APIs are mandatory",
   );
   checkStaleLiveTerminology(result);
   return result;
