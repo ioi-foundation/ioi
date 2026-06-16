@@ -31,26 +31,6 @@ export function createRuntimeRouteHandlers(deps) {
     const mounts = store.modelMounting;
     const authorization = request.headers.authorization;
     const baseUrl = baseUrlForRequest(request);
-    if (request.method === "POST" && segments[2] === "runtime" && segments[3] === "engines" && segments[4] && segments[5] === "select") {
-      writeJsonResponse(response, mounts.selectRuntimeEngine({ engine_id: decodeURIComponent(segments[4]), ...(await readBody(request)) }));
-      return;
-    }
-    if (request.method === "PATCH" && segments[2] === "runtime" && segments[3] === "engines" && segments[4]) {
-      writeJsonResponse(response, mounts.updateRuntimeEngine(decodeURIComponent(segments[4]), await readBody(request)));
-      return;
-    }
-    if (request.method === "DELETE" && segments[2] === "runtime" && segments[3] === "engines" && segments[4]) {
-      writeJsonResponse(response, mounts.removeRuntimeEngineOverride(decodeURIComponent(segments[4])));
-      return;
-    }
-    if (request.method === "POST" && url.pathname === "/api/v1/runtime/survey") {
-      writeJsonResponse(response, mounts.runtimeSurvey());
-      return;
-    }
-    if (request.method === "POST" && url.pathname === "/api/v1/runtime/select") {
-      writeJsonResponse(response, mounts.selectRuntimeEngine(await readBody(request)));
-      return;
-    }
     if (request.method === "GET" && url.pathname === "/api/v1/models") {
       writeJsonResponse(response, mounts.snapshot(baseUrl));
       return;

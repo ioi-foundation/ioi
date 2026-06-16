@@ -26183,7 +26183,7 @@ function runReceipts() {
       /\/v1\/model-mount\/runtime\/engines/.test(publicRuntimeRoutesTest) &&
       /\/v1\/model-mount\/instances\/loaded/.test(publicRuntimeRoutesTest) &&
       /\/v1\/model-mount\/authority/.test(publicRuntimeRoutesTest) &&
-      /model mounting native route does not expose retired operational read, server-control, or backend-control aliases/.test(
+      /model mounting native route does not expose retired operational read, server-control, backend-control, or runtime-control aliases/.test(
         runtimeRouteHandlersTest,
       ) &&
       !/\/api\/v1\/server\/status/.test(modelMountStableReadProtocolClientCorpus) &&
@@ -26250,7 +26250,7 @@ function runReceipts() {
       /serverStart\(baseUrl\)/.test(publicRuntimeRoutesTest) &&
       /serverStop\(baseUrl\)/.test(publicRuntimeRoutesTest) &&
       /serverRestart\(baseUrl\)/.test(publicRuntimeRoutesTest) &&
-      /model mounting native route does not expose retired operational read, server-control, or backend-control aliases/.test(
+      /model mounting native route does not expose retired operational read, server-control, backend-control, or runtime-control aliases/.test(
         runtimeRouteHandlersTest,
       ) &&
       !/\/api\/v1\/server\/(?:start|stop|restart)/.test(modelMountStableReadProtocolClientCorpus) &&
@@ -26305,7 +26305,7 @@ function runReceipts() {
       /backendHealth\(id\)/.test(publicRuntimeRoutesTest) &&
       /startBackend\(id, body\)/.test(publicRuntimeRoutesTest) &&
       /stopBackend\(id\)/.test(publicRuntimeRoutesTest) &&
-      /model mounting native route does not expose retired operational read, server-control, or backend-control aliases/.test(
+      /model mounting native route does not expose retired operational read, server-control, backend-control, or runtime-control aliases/.test(
         runtimeRouteHandlersTest,
       ) &&
       !/\/api\/v1\/backends\/[^"'`)]+\/(?:health|start|stop)/.test(modelMountStableReadProtocolClientCorpus) &&
@@ -26326,6 +26326,69 @@ function runReceipts() {
       "scripts/conformance/hypervisor-conformance.mjs",
     ],
     "Model_mount backend lifecycle clients must use the stable /v1/model-mount/backends control protocol; retired /api/v1/backends control aliases must not return",
+  );
+  assertCheck(
+    result,
+    "model-mount-stable-runtime-control-protocol-clients",
+    /url\.pathname === "\/v1\/model-mount\/runtime\/survey"[\s\S]*?store\.modelMounting\.runtimeSurvey\(\)/.test(
+      publicRuntimeRoutes,
+    ) &&
+      /url\.pathname === "\/v1\/model-mount\/runtime\/select"[\s\S]*?store\.modelMounting\.selectRuntimeEngine\(await readBody\(request\)\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /segments\[2\] === "runtime"[\s\S]*?segments\[3\] === "engines"[\s\S]*?segments\[5\] === "select"[\s\S]*?store\.modelMounting\.selectRuntimeEngine\(\{[\s\S]*?engine_id: decodeURIComponent\(segments\[4\]\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /request\.method === "PATCH"[\s\S]*?store\.modelMounting\.updateRuntimeEngine\(decodeURIComponent\(segments\[4\]\),\s*await readBody\(request\)\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /request\.method === "DELETE"[\s\S]*?store\.modelMounting\.removeRuntimeEngineOverride\(decodeURIComponent\(segments\[4\]\)\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      !/url\.pathname === "\/api\/v1\/runtime\/survey"/.test(runtimeRouteHandlers) &&
+      !/url\.pathname === "\/api\/v1\/runtime\/select"/.test(runtimeRouteHandlers) &&
+      !/segments\[2\] === "runtime" && segments\[3\] === "engines" && segments\[4\] && segments\[5\] === "select"/.test(
+        runtimeRouteHandlers,
+      ) &&
+      !/request\.method === "PATCH" && segments\[2\] === "runtime" && segments\[3\] === "engines" && segments\[4\]/.test(
+        runtimeRouteHandlers,
+      ) &&
+      !/request\.method === "DELETE" && segments\[2\] === "runtime" && segments\[3\] === "engines" && segments\[4\]/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /POST \/v1\/model-mount\/runtime\/survey/.test(publicRuntimeRoutesTest) &&
+      /POST \/v1\/model-mount\/runtime\/select/.test(publicRuntimeRoutesTest) &&
+      /POST \/v1\/model-mount\/runtime\/engines\/engine\.route\/select/.test(publicRuntimeRoutesTest) &&
+      /PATCH \/v1\/model-mount\/runtime\/engines\/engine\.route/.test(publicRuntimeRoutesTest) &&
+      /DELETE \/v1\/model-mount\/runtime\/engines\/engine\.route/.test(publicRuntimeRoutesTest) &&
+      /runtimeSurvey\(\)/.test(publicRuntimeRoutesTest) &&
+      /selectRuntimeEngine\(body\)/.test(publicRuntimeRoutesTest) &&
+      /updateRuntimeEngine\(id, body\)/.test(publicRuntimeRoutesTest) &&
+      /removeRuntimeEngineOverride\(id\)/.test(publicRuntimeRoutesTest) &&
+      /model mounting native route does not expose retired operational read, server-control, backend-control, or runtime-control aliases/.test(
+        runtimeRouteHandlersTest,
+      ) &&
+      /\/api\/v1\/runtime\/survey/.test(runtimeRouteHandlersTest) &&
+      /\/api\/v1\/runtime\/select/.test(runtimeRouteHandlersTest) &&
+      /\/api\/v1\/runtime\/engines\/engine\.route\/select/.test(runtimeRouteHandlersTest) &&
+      !/\/api\/v1\/runtime\/(?:survey|select|engines)/.test(modelMountStableReadProtocolClientCorpus) &&
+      /\/v1\/model-mount\/runtime\/survey/.test(modelMountStableReadCliBackends) &&
+      /\/v1\/model-mount\/runtime\/select/.test(modelMountStableReadCliBackends) &&
+      /\/v1\/model-mount\/runtime\/engines\/\{engine_id\}/.test(modelMountStableReadCliBackends) &&
+      /url\.pathname === "\/v1\/model-mount\/runtime\/survey"/.test(read("scripts/run-autopilot-model-mounting-goal.mjs")) &&
+      /url\.pathname === "\/v1\/model-mount\/runtime\/select"/.test(read("scripts/run-autopilot-model-mounting-goal.mjs")) &&
+      /segments\[5\] === "select"/.test(read("scripts/run-autopilot-model-mounting-goal.mjs")) &&
+      /Slice 1355 hard-cuts stable model_mount runtime-control protocol clients/.test(guide) &&
+      /Model_mount stable runtime-control protocol clients/.test(matrix) &&
+      /RuntimeDaemonCoreModelMountStableRuntimeControlProtocolClients/.test(implementationMatrix),
+    [
+      "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.mjs",
+      "crates/cli/src/commands/backends.rs",
+      "scripts/run-autopilot-model-mounting-goal.mjs",
+      "scripts/conformance/hypervisor-conformance.mjs",
+    ],
+    "Model_mount runtime survey/select/profile clients must use the stable /v1/model-mount/runtime control protocol; retired /api/v1/runtime control aliases must not return",
   );
   assertCheck(
     result,

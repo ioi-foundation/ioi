@@ -11425,6 +11425,30 @@ transport, OAuth/auth-header materialization, invocation authority depth, and
 broader IDE/SDK control coverage still need terminal Rust-owned protocol
 coverage.
 
+Slice 1355 hard-cuts stable model_mount runtime-control protocol clients and
+retires the native runtime survey/select/profile aliases. Public runtime
+survey, selection, engine select-by-id, engine profile update, and profile
+remove controls now use `POST /v1/model-mount/runtime/survey`,
+`POST /v1/model-mount/runtime/select`,
+`POST /v1/model-mount/runtime/engines/{id}/select`,
+`PATCH /v1/model-mount/runtime/engines/{id}`, and
+`DELETE /v1/model-mount/runtime/engines/{id}` over the mounted Rust
+daemon-core runtime-survey/runtime-engine planners and Agentgres receipt or
+record-state commit paths. CLI backend runtime controls, daemon contract tests,
+validation proofs, product UI actions, and workbench route proofs moved off
+`POST /api/v1/runtime/survey`, `POST /api/v1/runtime/select`,
+`POST /api/v1/runtime/engines/{id}/select`,
+`PATCH /api/v1/runtime/engines/{id}`, and
+`DELETE /api/v1/runtime/engines/{id}`. The daemon native handler no longer
+exposes those aliases, focused route tests assert they return `not_found`
+without calling runtime-control methods, and conformance scans source clients so
+the retired runtime-control compatibility path cannot return. This remains
+non-terminal because model import/download/mount/load/unload, provider/vault/
+catalog OAuth controls, backend execution/materialization, hosted/provider
+transport, OAuth/auth-header materialization, invocation authority depth, and
+broader IDE/SDK control coverage still need terminal Rust-owned protocol
+coverage.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

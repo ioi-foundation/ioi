@@ -474,7 +474,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     const runtimeEngines = await expectOk(daemon.endpoint, "/v1/model-mount/runtime/engines");
     assert.ok(runtimeEngines.some((engine) => engine.id === "backend.autopilot.native-local.fixture"));
     assert.ok(runtimeEngines.some((engine) => engine.source === "autopilot_backend_registry"));
-    const runtimeSurvey = await expectOk(daemon.endpoint, "/api/v1/runtime/survey", { method: "POST" });
+    const runtimeSurvey = await expectOk(daemon.endpoint, "/v1/model-mount/runtime/survey", { method: "POST" });
     assert.equal(runtimeSurvey.schemaVersion, "ioi.model-mounting.runtime.v1");
     assert.ok(runtimeSurvey.engines.some((engine) => engine.id === "backend.autopilot.native-local.fixture"));
     assert.equal(typeof runtimeSurvey.hardware.totalMemoryBytes, "number");
@@ -483,15 +483,15 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     const runtimeSurveyReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${runtimeSurvey.receiptId}`);
     assert.equal(runtimeSurveyReceipt.kind, "runtime_survey");
     assert.equal(runtimeSurveyReceipt.details.engineCount, runtimeSurvey.engines.length);
-    const runtimeSelection = await expectOk(daemon.endpoint, "/api/v1/runtime/select", {
+    const runtimeSelection = await expectOk(daemon.endpoint, "/v1/model-mount/runtime/select", {
       method: "POST",
       body: { engine_id: "backend.autopilot.native-local.fixture" },
     });
     assert.equal(runtimeSelection.selectedEngineId, "backend.autopilot.native-local.fixture");
     assert.match(runtimeSelection.receiptId, /^receipt_model_lifecycle_/);
-    const selectedRuntimeEngines = await expectOk(daemon.endpoint, "/api/v1/runtime/engines");
+    const selectedRuntimeEngines = await expectOk(daemon.endpoint, "/v1/model-mount/runtime/engines");
     assert.equal(selectedRuntimeEngines.find((engine) => engine.id === "backend.autopilot.native-local.fixture")?.selected, true);
-    const llamaProfile = await expectOk(daemon.endpoint, "/api/v1/runtime/engines/backend.llama-cpp", {
+    const llamaProfile = await expectOk(daemon.endpoint, "/v1/model-mount/runtime/engines/backend.llama-cpp", {
       method: "PATCH",
       body: {
         disabled: true,
@@ -501,15 +501,15 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     });
     assert.equal(llamaProfile.engine.operatorProfile.disabled, true);
     assert.equal(llamaProfile.engine.operatorProfile.defaultLoadOptions.contextLength, 2048);
-    const disabledRuntimeSelect = await requestJson(daemon.endpoint, "/api/v1/runtime/engines/backend.llama-cpp/select", {
+    const disabledRuntimeSelect = await requestJson(daemon.endpoint, "/v1/model-mount/runtime/engines/backend.llama-cpp/select", {
       method: "POST",
     });
     assert.equal(disabledRuntimeSelect.response.status, 409);
-    const removedRuntimeProfile = await expectOk(daemon.endpoint, "/api/v1/runtime/engines/backend.llama-cpp", {
+    const removedRuntimeProfile = await expectOk(daemon.endpoint, "/v1/model-mount/runtime/engines/backend.llama-cpp", {
       method: "DELETE",
     });
     assert.equal(removedRuntimeProfile.removed, true);
-    const selectedRuntimeProfile = await expectOk(daemon.endpoint, "/api/v1/runtime/engines/backend.autopilot.native-local.fixture", {
+    const selectedRuntimeProfile = await expectOk(daemon.endpoint, "/v1/model-mount/runtime/engines/backend.autopilot.native-local.fixture", {
       method: "PATCH",
       body: {
         label: "Autopilot native fixture tuned",
@@ -518,7 +518,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
       },
     });
     assert.equal(selectedRuntimeProfile.engine.operatorProfile.defaultLoadOptions.parallel, 3);
-    const runtimeEngineDetail = await expectOk(daemon.endpoint, "/api/v1/runtime/engines/backend.autopilot.native-local.fixture");
+    const runtimeEngineDetail = await expectOk(daemon.endpoint, "/v1/model-mount/runtime/engines/backend.autopilot.native-local.fixture");
     assert.equal(runtimeEngineDetail.profile.defaultLoadOptions.contextLength, 3072);
     const backendHealth = await expectOk(daemon.endpoint, "/v1/model-mount/backends/backend.autopilot.native-local.fixture/health", {
       method: "POST",
@@ -4309,9 +4309,9 @@ exit 0
     const providerLoaded = await expectOk(daemon.endpoint, "/api/v1/providers/provider.lmstudio/loaded");
     assert.ok(providerLoaded.some((model) => model.modelId === "qwen/qwen3.5-9b"));
 
-    const runtimeEngines = await expectOk(daemon.endpoint, "/api/v1/runtime/engines");
+    const runtimeEngines = await expectOk(daemon.endpoint, "/v1/model-mount/runtime/engines");
     assert.ok(runtimeEngines.some((engine) => engine.kind === "lm_studio_runtime" && engine.selected));
-    const runtimeSurvey = await expectOk(daemon.endpoint, "/api/v1/runtime/survey", { method: "POST" });
+    const runtimeSurvey = await expectOk(daemon.endpoint, "/v1/model-mount/runtime/survey", { method: "POST" });
     assert.equal(runtimeSurvey.lmStudio.status, "available");
     assert.equal(runtimeSurvey.lmStudio.cpu, "x86_64 (AVX2, AVX)");
     assert.equal(runtimeSurvey.lmStudio.ram, "64.00 GiB");
@@ -4591,9 +4591,9 @@ exit 0
     assert.equal(snapshot.artifacts.some((model) => model.id === "lmstudio.detected"), false);
     assert.equal(snapshot.endpoints.some((endpoint) => endpoint.providerId === "provider.lmstudio"), false);
     assert.equal(snapshot.instances.some((instance) => instance.providerId === "provider.lmstudio"), false);
-    const runtimeEngines = await expectOk(daemon.endpoint, "/api/v1/runtime/engines");
+    const runtimeEngines = await expectOk(daemon.endpoint, "/v1/model-mount/runtime/engines");
     assert.equal(runtimeEngines.some((engine) => engine.kind === "lm_studio_runtime"), false);
-    const runtimeSurvey = await expectOk(daemon.endpoint, "/api/v1/runtime/survey", { method: "POST" });
+    const runtimeSurvey = await expectOk(daemon.endpoint, "/v1/model-mount/runtime/survey", { method: "POST" });
     assert.equal(runtimeSurvey.lmStudio.status, "absent");
     assert.ok(runtimeSurvey.lmStudio.evidenceRefs.includes("lm_studio_public_runtime_discovery_disabled"));
     assert.equal(fs.existsSync(callsPath), false);

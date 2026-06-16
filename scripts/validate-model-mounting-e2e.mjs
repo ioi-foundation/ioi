@@ -589,7 +589,7 @@ async function main() {
         engines.some((engine) => engine.id === "backend.autopilot.native-local.fixture"),
         "missing native-local runtime engine",
       );
-      const survey = await expectOk(daemon.endpoint, "/api/v1/runtime/survey", { method: "POST" });
+      const survey = await expectOk(daemon.endpoint, "/v1/model-mount/runtime/survey", { method: "POST" });
       runtimeSurveyReceiptId = survey.receiptId;
       assert.equal(survey.schemaVersion, "ioi.model-mounting.runtime.v1");
       assert.match(runtimeSurveyReceiptId, /^receipt_runtime_survey_/);
@@ -603,12 +603,12 @@ async function main() {
       assert.equal(receiptText.includes(path.join(os.homedir(), ".lmstudio/bin/lms")), false);
       assert.equal(receiptText.includes(path.join(os.homedir(), ".local/bin/lm-studio")), false);
       assert.equal(receiptText.includes(path.join(os.homedir(), ".local/bin/lm-studio.AppImage")), false);
-      const selection = await expectOk(daemon.endpoint, "/api/v1/runtime/select", {
+      const selection = await expectOk(daemon.endpoint, "/v1/model-mount/runtime/select", {
         method: "POST",
         body: { engine_id: "backend.autopilot.native-local.fixture" },
       });
       assert.equal(selection.selectedEngineId, "backend.autopilot.native-local.fixture");
-      const profile = await expectOk(daemon.endpoint, "/api/v1/runtime/engines/backend.autopilot.native-local.fixture", {
+      const profile = await expectOk(daemon.endpoint, "/v1/model-mount/runtime/engines/backend.autopilot.native-local.fixture", {
         method: "PATCH",
         body: {
           label: "Autopilot native fixture e2e",

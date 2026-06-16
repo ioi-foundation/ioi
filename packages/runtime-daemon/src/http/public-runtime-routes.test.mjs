@@ -421,6 +421,22 @@ test("public runtime model catalog routes use mounted model projection surface",
         calls.push({ method: "runtimeEngine", id });
         return { id, object: "runtime.engine" };
       },
+      runtimeSurvey() {
+        calls.push({ method: "runtimeSurvey" });
+        return { object: "runtime.survey" };
+      },
+      selectRuntimeEngine(body) {
+        calls.push({ method: "selectRuntimeEngine", body });
+        return { selectedEngineId: body.engine_id };
+      },
+      updateRuntimeEngine(id, body) {
+        calls.push({ method: "updateRuntimeEngine", id, body });
+        return { id, object: "runtime.engine.update" };
+      },
+      removeRuntimeEngineOverride(id) {
+        calls.push({ method: "removeRuntimeEngineOverride", id });
+        return { id, removed: true };
+      },
       listInstances() {
         calls.push({ method: "listInstances" });
         return [{ id: "instance.loaded", status: "loaded" }, { id: "instance.idle", status: "idle" }];
@@ -484,6 +500,11 @@ test("public runtime model catalog routes use mounted model projection surface",
     ["/v1/model-mount/backends/backend.route/logs", { id: "backend.route", object: "backend.logs" }],
     ["/v1/model-mount/runtime/engines", [{ id: "engine.route" }]],
     ["/v1/model-mount/runtime/engines/engine.route", { id: "engine.route", object: "runtime.engine" }],
+    ["POST /v1/model-mount/runtime/survey", { object: "runtime.survey" }],
+    ["POST /v1/model-mount/runtime/select", {}],
+    ["POST /v1/model-mount/runtime/engines/engine.route/select", { selectedEngineId: "engine.route" }],
+    ["PATCH /v1/model-mount/runtime/engines/engine.route", { id: "engine.route", object: "runtime.engine.update" }],
+    ["DELETE /v1/model-mount/runtime/engines/engine.route", { id: "engine.route", removed: true }],
     ["/v1/model-mount/instances", [{ id: "instance.loaded", status: "loaded" }, { id: "instance.idle", status: "idle" }]],
     ["/v1/model-mount/instances/loaded", [{ id: "instance.loaded", status: "loaded" }]],
     ["/v1/model-mount/authority", { id: "authority.snapshot", baseUrl: "http://daemon.test" }],
@@ -491,9 +512,11 @@ test("public runtime model catalog routes use mounted model projection surface",
     ["/v1/model-mount/receipts/receipt.route", { id: "receipt.route" }],
     ["/v1/model-mount/receipts/receipt.route/replay", { receipt_id: "receipt.route", replayed: true }],
   ]) {
-    const [method, routePath] = path.startsWith("POST ") ? ["POST", path.slice("POST ".length)] : ["GET", path];
+    const methodMatch = path.match(/^(GET|POST|PATCH|DELETE) (.+)$/);
+    const [method, routePath] = methodMatch ? [methodMatch[1], methodMatch[2]] : ["GET", path];
+    const body = method === "PATCH" ? { label: "Engine route" } : {};
     const routeResponse = responseRecorder();
-    await handleRequest({ request: request({ method, url: routePath }), response: routeResponse, store });
+    await handleRequest({ request: request({ method, url: routePath, body }), response: routeResponse, store });
     assert.equal(routeResponse.statusCode, 200);
     assert.deepEqual(JSON.parse(routeResponse.body), expected);
   }
@@ -526,6 +549,11 @@ test("public runtime model catalog routes use mounted model projection surface",
     { method: "backendLogs", id: "backend.route" },
     { method: "listRuntimeEngines" },
     { method: "runtimeEngine", id: "engine.route" },
+    { method: "runtimeSurvey" },
+    { method: "selectRuntimeEngine", body: {} },
+    { method: "selectRuntimeEngine", body: { engine_id: "engine.route" } },
+    { method: "updateRuntimeEngine", id: "engine.route", body: { label: "Engine route" } },
+    { method: "removeRuntimeEngineOverride", id: "engine.route" },
     { method: "listInstances" },
     { method: "listInstances" },
     { method: "authoritySnapshot", baseUrl: "http://daemon.test" },

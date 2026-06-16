@@ -120,7 +120,7 @@ pub async fn run(args: BackendsArgs) -> Result<()> {
                 endpoint,
                 token,
                 Method::POST,
-                "/api/v1/runtime/survey",
+                "/v1/model-mount/runtime/survey",
                 None,
             )
             .await?
@@ -150,7 +150,7 @@ pub async fn run(args: BackendsArgs) -> Result<()> {
                 endpoint,
                 token,
                 Method::POST,
-                "/api/v1/runtime/select",
+                "/v1/model-mount/runtime/select",
                 Some(json!({ "engine_id": engine_id })),
             )
             .await?
@@ -205,7 +205,7 @@ pub async fn run(args: BackendsArgs) -> Result<()> {
                 endpoint,
                 token,
                 Method::PATCH,
-                &format!("/api/v1/runtime/engines/{engine_id}"),
+                &format!("/v1/model-mount/runtime/engines/{engine_id}"),
                 Some(Value::Object(body)),
             )
             .await?
@@ -215,7 +215,7 @@ pub async fn run(args: BackendsArgs) -> Result<()> {
                 endpoint,
                 token,
                 Method::DELETE,
-                &format!("/api/v1/runtime/engines/{engine_id}"),
+                &format!("/v1/model-mount/runtime/engines/{engine_id}"),
                 None,
             )
             .await?

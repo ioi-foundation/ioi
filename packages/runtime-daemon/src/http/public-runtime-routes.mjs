@@ -460,16 +460,47 @@ export function createPublicRuntimeRequestHandler(deps) {
         writeJsonResponse(response, store.modelMounting.listRuntimeEngines());
         return;
       }
+      if (request.method === "POST" && url.pathname === "/v1/model-mount/runtime/survey") {
+        writeJsonResponse(response, store.modelMounting.runtimeSurvey());
+        return;
+      }
+      if (request.method === "POST" && url.pathname === "/v1/model-mount/runtime/select") {
+        writeJsonResponse(response, store.modelMounting.selectRuntimeEngine(await readBody(request)));
+        return;
+      }
       if (
-        request.method === "GET" &&
+        (request.method === "GET" || request.method === "PATCH" || request.method === "DELETE" || request.method === "POST") &&
         segments[0] === "v1" &&
         segments[1] === "model-mount" &&
         segments[2] === "runtime" &&
         segments[3] === "engines" &&
         segments[4]
       ) {
-        writeJsonResponse(response, store.modelMounting.runtimeEngine(decodeURIComponent(segments[4])));
-        return;
+        if (request.method === "POST" && segments[5] === "select") {
+          writeJsonResponse(
+            response,
+            store.modelMounting.selectRuntimeEngine({
+              ...(await readBody(request)),
+              engine_id: decodeURIComponent(segments[4]),
+            }),
+          );
+          return;
+        }
+        if (request.method === "PATCH" && !segments[5]) {
+          writeJsonResponse(
+            response,
+            store.modelMounting.updateRuntimeEngine(decodeURIComponent(segments[4]), await readBody(request)),
+          );
+          return;
+        }
+        if (request.method === "DELETE" && !segments[5]) {
+          writeJsonResponse(response, store.modelMounting.removeRuntimeEngineOverride(decodeURIComponent(segments[4])));
+          return;
+        }
+        if (request.method === "GET" && !segments[5]) {
+          writeJsonResponse(response, store.modelMounting.runtimeEngine(decodeURIComponent(segments[4])));
+          return;
+        }
       }
       if (request.method === "GET" && url.pathname === "/v1/model-mount/instances") {
         writeJsonResponse(response, store.modelMounting.listInstances());

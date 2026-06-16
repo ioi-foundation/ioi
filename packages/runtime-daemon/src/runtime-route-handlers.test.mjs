@@ -2096,7 +2096,7 @@ test("model mounting native route does not expose retired receipt read aliases",
   assert.deepEqual(calls, []);
 });
 
-test("model mounting native route does not expose retired operational read, server-control, or backend-control aliases", async () => {
+test("model mounting native route does not expose retired operational read, server-control, backend-control, or runtime-control aliases", async () => {
   const { handleModelMountingNativeRoute } = routeHandlers();
   const calls = [];
   const failRetiredAlias = (name) => (...args) => {
@@ -2111,7 +2111,10 @@ test("model mounting native route does not expose retired operational read, serv
       listBackends: failRetiredAlias("listBackends"),
       listInstances: failRetiredAlias("listInstances"),
       listRuntimeEngines: failRetiredAlias("listRuntimeEngines"),
+      removeRuntimeEngineOverride: failRetiredAlias("removeRuntimeEngineOverride"),
       runtimeEngine: failRetiredAlias("runtimeEngine"),
+      runtimeSurvey: failRetiredAlias("runtimeSurvey"),
+      selectRuntimeEngine: failRetiredAlias("selectRuntimeEngine"),
       serverEvents: failRetiredAlias("serverEvents"),
       serverLogs: failRetiredAlias("serverLogs"),
       serverRestart: failRetiredAlias("serverRestart"),
@@ -2120,6 +2123,7 @@ test("model mounting native route does not expose retired operational read, serv
       serverStop: failRetiredAlias("serverStop"),
       startBackend: failRetiredAlias("startBackend"),
       stopBackend: failRetiredAlias("stopBackend"),
+      updateRuntimeEngine: failRetiredAlias("updateRuntimeEngine"),
     },
   };
   const cases = [
@@ -2140,6 +2144,11 @@ test("model mounting native route does not expose retired operational read, serv
     "/api/v1/models/backends",
     "/api/v1/runtime/engines",
     "/api/v1/runtime/engines/engine.route",
+    ["POST", "/api/v1/runtime/engines/engine.route/select"],
+    ["PATCH", "/api/v1/runtime/engines/engine.route"],
+    ["DELETE", "/api/v1/runtime/engines/engine.route"],
+    ["POST", "/api/v1/runtime/survey"],
+    ["POST", "/api/v1/runtime/select"],
     "/api/v1/models/runtime-engines",
     "/api/v1/models/instances",
     "/api/v1/models/loaded",

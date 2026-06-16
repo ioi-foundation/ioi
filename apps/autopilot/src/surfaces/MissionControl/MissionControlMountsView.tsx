@@ -3024,14 +3024,14 @@ function useModelMountsDaemon() {
         }),
       runRuntimeSurvey: () =>
         runAction("runtime-survey", async () => {
-          const survey = await requestJson("/api/v1/runtime/survey", { method: "POST" });
+          const survey = await requestJson("/v1/model-mount/runtime/survey", { method: "POST" });
           const count = Array.isArray(survey?.engines) ? survey.engines.length : 0;
           const receiptId = stringValue(survey?.receiptId, "no receipt");
           return `Runtime survey captured ${count} engine profile${count === 1 ? "" : "s"}; receipt ${receiptId}.`;
         }),
       selectRuntimeEngine: (engineId: string) =>
         runAction("runtime-select", async () => {
-          const selection = await requestJson("/api/v1/runtime/select", {
+          const selection = await requestJson("/v1/model-mount/runtime/select", {
             method: "POST",
             body: { engine_id: engineId },
           });
@@ -3051,7 +3051,7 @@ function useModelMountsDaemon() {
               identifier: draft.identifier || undefined,
             },
           };
-          const result = await requestJson(`/api/v1/runtime/engines/${encodeURIComponent(engineId)}`, {
+          const result = await requestJson(`/v1/model-mount/runtime/engines/${encodeURIComponent(engineId)}`, {
             method: "PATCH",
             body,
           });
@@ -3059,7 +3059,7 @@ function useModelMountsDaemon() {
         }),
       forgetRuntimeEngine: (engineId: string) =>
         runAction("runtime-engine-remove", async () => {
-          const result = await requestJson(`/api/v1/runtime/engines/${encodeURIComponent(engineId)}`, {
+          const result = await requestJson(`/v1/model-mount/runtime/engines/${encodeURIComponent(engineId)}`, {
             method: "DELETE",
           });
           return `${engineId} runtime profile ${result?.removed ? "forgotten" : "was already clear"}; receipt ${stringValue(result?.receiptId, "none")}.`;
@@ -4561,8 +4561,8 @@ function ServerPanel({
           "GET /v1/model-mount/server/logs",
           "GET /v1/model-mount/server/events",
           "GET /v1/model-mount/runtime/engines",
-          "POST /api/v1/runtime/survey",
-          "POST /api/v1/runtime/select",
+          "POST /v1/model-mount/runtime/survey",
+          "POST /v1/model-mount/runtime/select",
           "GET /v1/model-mount/backends",
           "POST /v1/model-mount/backends/:id/health",
           "POST /v1/model-mount/backends/:id/start",
