@@ -1599,16 +1599,6 @@ test("Rust model_mount core sends backend process materialization through typed 
             spawn_required: true,
             spawn_status: "spawn_ready",
             spawn_args_hash: "sha256:redacted-spawn-args",
-            js_process_supervisor: false,
-            command_transport_spawn: false,
-            binary_bridge_spawn: false,
-            compatibility_spawn_fallback: false,
-          },
-          retired_paths: {
-            js_process_supervisor: false,
-            command_transport_spawn: false,
-            binary_bridge_spawn: false,
-            compatibility_spawn_fallback: false,
           },
           evidence_refs: [
             "rust_daemon_core_backend_process_materialization",
@@ -1640,10 +1630,6 @@ test("Rust model_mount core sends backend process materialization through typed 
           spawn_args_returned: false,
           pid_returned: false,
           plaintext_process_material_returned: false,
-          js_process_supervisor: false,
-          command_transport_spawn: false,
-          binary_bridge_spawn: false,
-          compatibility_spawn_fallback: false,
         };
         record.public_response = publicResponse;
         return {
@@ -1682,11 +1668,96 @@ test("Rust model_mount core sends backend process materialization through typed 
   assert.equal(result.backend_process_ref, "backend_process://backend.llama.process#sha256:plan");
   assert.equal(result.backend_supervision_hash, "sha256:backend-supervision");
   assert.equal(result.public_response.spawn_args_returned, false);
-  assert.equal(result.public_response.js_process_supervisor, false);
-  assert.equal(result.public_response.command_transport_spawn, false);
+  assert.equal(Object.hasOwn(result.record, "retired_paths"), false);
+  assert.equal(Object.hasOwn(result.record.supervision_contract, "command_transport_spawn"), false);
+  assert.equal(Object.hasOwn(result.public_response, "js_process_supervisor"), false);
+  assert.equal(Object.hasOwn(result.public_response, "command_transport_spawn"), false);
   assert.equal(result.materialization_hash, "sha256:backend-process-materialization");
   assert.ok(result.evidence_refs.includes("agentgres_backend_process_materialization_truth_required"));
   assert.equal(Object.hasOwn(result, "spawnArgs"), false);
+});
+
+test("Rust model_mount core rejects backend process fallback-proof protocol fields", () => {
+  const evidenceRefs = [
+    "rust_daemon_core_backend_process_materialization",
+    "rust_backend_process_materialization_bound",
+    "wallet_network_backend_process_authority_bound",
+    "ctee_backend_process_custody_enforced",
+    "agentgres_backend_process_materialization_truth_required",
+    "rust_backend_process_supervision_bound",
+    "js_backend_process_supervisor_retired",
+    "command_transport_backend_process_spawn_retired",
+    "binary_bridge_backend_process_spawn_retired",
+  ];
+  const runner = new ModelMountCore({
+    daemonCoreModelMountApi: {
+      planModelMountBackendProcessMaterialization(request) {
+        const record = {
+          id: "backend.llama.process",
+          record_id: "backend.llama.process",
+          schema_version: "ioi.model_mount.backend_process_materialization.v1",
+          object: "ioi.model_mount_backend_process_materialization",
+          operation_kind: request.operation_kind,
+          backend_process_ref: "backend_process://backend.llama.process#sha256:plan",
+          backend_supervision_ref: "backend_supervision://backend.llama.process#sha256:plan",
+          backend_supervision_hash: "sha256:backend-supervision",
+          backend_supervision_status: "rust_external_process_supervision_contract_bound",
+          process_materialization_status: "rust_spawn_contract_bound",
+          rust_core_boundary: "model_mount.backend_process_materialization",
+          process_execution_owner: "rust_daemon_core.model_mount.backend_process_materialization",
+          process_supervision_owner: "rust_daemon_core.model_mount.backend_process_supervisor",
+          spawn_contract: {
+            spawn_args_returned: false,
+            pid_returned: false,
+            plaintext_process_material_returned: false,
+          },
+          supervision_contract: {
+            backend_supervision_ref: "backend_supervision://backend.llama.process#sha256:plan",
+            backend_supervision_hash: "sha256:backend-supervision",
+            backend_supervision_status: "rust_external_process_supervision_contract_bound",
+            process_supervision_owner: "rust_daemon_core.model_mount.backend_process_supervisor",
+          },
+          retired_paths: {
+            command_transport_spawn: false,
+          },
+          public_response: {
+            backend_supervision_ref: "backend_supervision://backend.llama.process#sha256:plan",
+            backend_supervision_hash: "sha256:backend-supervision",
+            backend_supervision_status: "rust_external_process_supervision_contract_bound",
+            process_supervision_owner: "rust_daemon_core.model_mount.backend_process_supervisor",
+            spawn_args_returned: false,
+            command_transport_spawn: false,
+          },
+          evidence_refs: evidenceRefs,
+        };
+        return {
+          source: "rust_daemon_core.model_mount.backend_process_materialization",
+          record_dir: "model-backend-process-materializations",
+          record_id: record.id,
+          record,
+          public_response: record.public_response,
+          operation_kind: request.operation_kind,
+          rust_core_boundary: "model_mount.backend_process_materialization",
+          evidence_refs: evidenceRefs,
+          materialization_hash: "sha256:backend-process-materialization",
+          authority_hash: "sha256:backend-process-authority",
+        };
+      },
+    },
+  });
+
+  let error;
+  try {
+    runner.planBackendProcessMaterialization(backendProcessMaterializationRequest());
+  } catch (caught) {
+    error = caught;
+  }
+
+  assert.ok(error);
+  assert.match(error.message, /backend-process materialization/);
+  assert.equal(error.code, "model_mount_backend_process_materialization_plan_invalid");
+  assert.equal(error.details.missing.includes("record.retired_paths_retired"), true);
+  assert.equal(error.details.missing.includes("public_response.command_transport_spawn_retired"), true);
 });
 
 test("Rust model_mount core sends backend process live supervision through typed Rust daemon-core API", () => {
@@ -1714,10 +1785,6 @@ test("Rust model_mount core sends backend process live supervision through typed
           spawn_args_returned: false,
           executable_path_returned: false,
           pid_returned: false,
-          js_process_supervisor: false,
-          command_transport_spawn: false,
-          binary_bridge_spawn: false,
-          compatibility_spawn_fallback: false,
         };
         const record = {
           id: publicResponse.id,
@@ -1742,12 +1809,6 @@ test("Rust model_mount core sends backend process live supervision through typed
             spawn_args_returned: false,
             executable_path_returned: false,
             pid_returned: false,
-          },
-          retired_paths: {
-            js_process_supervisor: false,
-            command_transport_spawn: false,
-            binary_bridge_spawn: false,
-            compatibility_spawn_fallback: false,
           },
           public_response: publicResponse,
           evidence_refs: [
@@ -1802,6 +1863,8 @@ test("Rust model_mount core sends backend process live supervision through typed
   assert.equal(result.runtime_status, "rust_external_process_live_started");
   assert.equal(result.record.spawn_contract.executable_path_returned, false);
   assert.equal(result.public_response.pid_returned, false);
+  assert.equal(Object.hasOwn(result.record, "retired_paths"), false);
+  assert.equal(Object.hasOwn(result.public_response, "command_transport_spawn"), false);
   assert.ok(result.evidence_refs.includes("rust_backend_process_live_supervision_owned"));
   assert.equal(Object.hasOwn(result, "pid"), false);
 });

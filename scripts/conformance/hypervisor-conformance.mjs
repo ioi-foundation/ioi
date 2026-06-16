@@ -19621,10 +19621,9 @@ function runBridge() {
           backendProcessMaterializationBlock,
         ) &&
         /rust_backend_process_supervision_bound/.test(modelMountCore) &&
-        /"js_process_supervisor":\s*false/.test(backendProcessMaterializationBlock) &&
-        /"command_transport_spawn":\s*false/.test(backendProcessMaterializationBlock) &&
-        /"binary_bridge_spawn":\s*false/.test(backendProcessMaterializationBlock) &&
-        /"compatibility_spawn_fallback":\s*false/.test(backendProcessMaterializationBlock) &&
+        !/"(?:retired_paths|js_process_supervisor|command_transport_spawn|binary_bridge_spawn|compatibility_spawn_fallback)"\s*:/.test(
+          backendProcessMaterializationBlock,
+        ) &&
         /MODEL_MOUNT_BACKEND_PROCESS_MATERIALIZATION_API_METHOD\s*=\s*"planModelMountBackendProcessMaterialization"/.test(
           modelMountDaemonCore,
         ) &&
@@ -19633,6 +19632,10 @@ function runBridge() {
         ) &&
         /normalizeBackendProcessMaterializationApiResult/.test(modelMountDaemonCore) &&
         /model_mount_backend_process_materialization_plan_invalid/.test(modelMountDaemonCore) &&
+        /assertRetiredBackendProcessFallbackProofFieldsAbsent/.test(
+          backendProcessMaterializationRunnerBlock,
+        ) &&
+        /record\.retired_paths_retired/.test(modelMountCoreTest) &&
         /agentgres_backend_process_materialization_truth_required/.test(
           backendProcessMaterializationRunnerBlock,
         ) &&
@@ -19738,9 +19741,9 @@ function runBridge() {
         /rust_backend_process_live_stop_executed/.test(modelMountCore) &&
         /"executable_path_returned":\s*false/.test(backendProcessSupervisionCoreBlock) &&
         /"pid_returned":\s*false/.test(backendProcessSupervisionCoreBlock) &&
-        /"js_process_supervisor":\s*false/.test(backendProcessSupervisionCoreBlock) &&
-        /"command_transport_spawn":\s*false/.test(backendProcessSupervisionCoreBlock) &&
-        /"binary_bridge_spawn":\s*false/.test(backendProcessSupervisionCoreBlock) &&
+        !/"(?:retired_paths|js_process_supervisor|command_transport_spawn|binary_bridge_spawn|compatibility_spawn_fallback)"\s*:/.test(
+          backendProcessSupervisionCoreBlock,
+        ) &&
         /MODEL_MOUNT_BACKEND_PROCESS_SUPERVISION_API_METHOD\s*=\s*"superviseModelMountBackendProcess"/.test(
           modelMountDaemonCore,
         ) &&

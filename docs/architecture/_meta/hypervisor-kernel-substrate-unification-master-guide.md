@@ -11956,6 +11956,20 @@ restoring the helper export names, helper alias table, JS receipt-detail builder
 false-predicate exports, or old direct helper tests beside the Rust invocation
 authority planner.
 
+Slice 1383 deletes backend-process fallback-proof protocol fields from the
+Rust daemon-core model_mount backend-process materialization and live
+supervision contracts. Rust `backend_process.rs` no longer serializes
+`retired_paths`, `js_process_supervisor`, `command_transport_spawn`,
+`binary_bridge_spawn`, or `compatibility_spawn_fallback` fields in
+backend-process materialization seeds, Agentgres records, supervision
+contracts, public responses, or live-supervision records. The JS daemon facade
+and direct model_mount core now reject those fields if a Rust plan attempts to
+return them, while preserving positive evidence refs for the retired JS
+supervisor, command-transport spawn, and binary-bridge spawn boundaries. Focused
+Rust and JS tests assert absence/rejection, and conformance guards that the
+old false-field compatibility proof cannot reappear beside the Rust
+backend-process owner.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

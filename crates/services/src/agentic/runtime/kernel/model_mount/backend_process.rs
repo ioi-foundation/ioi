@@ -401,12 +401,6 @@ pub(super) fn plan_backend_process_materialization(
         "executable_hash": executable_hash,
         "backend_supervision_status": backend_supervision_status,
         "process_supervision_owner": RUST_BACKEND_PROCESS_SUPERVISION_OWNER,
-        "retired_paths": {
-            "js_process_supervisor": false,
-            "command_transport_spawn": false,
-            "binary_bridge_spawn": false,
-            "compatibility_spawn_fallback": false,
-        },
     });
     let backend_supervision_hash = format!("sha256:{}", hash_json(&backend_supervision_seed)?);
     let authority_seed = json!({
@@ -468,10 +462,6 @@ pub(super) fn plan_backend_process_materialization(
         "executable_path_returned": false,
         "pid_returned": false,
         "plaintext_process_material_returned": false,
-        "js_process_supervisor": false,
-        "command_transport_spawn": false,
-        "binary_bridge_spawn": false,
-        "compatibility_spawn_fallback": false,
         "materialization_hash": materialization_hash,
         "authority_hash": authority_hash,
     });
@@ -532,16 +522,6 @@ pub(super) fn plan_backend_process_materialization(
             "spawn_status": process_plan.spawn_status,
             "spawn_args_hash": spawn_args_hash,
             "executable_hash": executable_hash,
-            "js_process_supervisor": false,
-            "command_transport_spawn": false,
-            "binary_bridge_spawn": false,
-            "compatibility_spawn_fallback": false,
-        },
-        "retired_paths": {
-            "js_process_supervisor": false,
-            "command_transport_spawn": false,
-            "binary_bridge_spawn": false,
-            "compatibility_spawn_fallback": false,
         },
         "authority": {
             "authority_hash": authority_hash,
@@ -900,10 +880,6 @@ fn supervision_plan(
         "executable_path_returned": false,
         "pid_returned": false,
         "pid_hash": pid_hash,
-        "js_process_supervisor": false,
-        "command_transport_spawn": false,
-        "binary_bridge_spawn": false,
-        "compatibility_spawn_fallback": false,
         "supervision_hash": runtime_hash,
         "authority_hash": authority_hash,
     });
@@ -941,12 +917,6 @@ fn supervision_plan(
             "ctee_custody_required": true,
             "custody_ref": request.custody_ref,
             "containment_ref": request.containment_ref,
-        },
-        "retired_paths": {
-            "js_process_supervisor": false,
-            "command_transport_spawn": false,
-            "binary_bridge_spawn": false,
-            "compatibility_spawn_fallback": false,
         },
         "authority": {
             "authority_hash": authority_hash,
@@ -1667,12 +1637,14 @@ mod tests {
             plan.public_response["backend_supervision_hash"],
             plan.record["backend_supervision_hash"]
         );
-        assert_eq!(plan.record["retired_paths"]["js_process_supervisor"], false);
-        assert_eq!(
-            plan.record["retired_paths"]["command_transport_spawn"],
-            false
-        );
-        assert_eq!(plan.record["retired_paths"]["binary_bridge_spawn"], false);
+        assert!(plan.record.get("retired_paths").is_none());
+        assert!(plan.public_response.get("js_process_supervisor").is_none());
+        assert!(plan.public_response.get("command_transport_spawn").is_none());
+        assert!(plan.public_response.get("binary_bridge_spawn").is_none());
+        assert!(plan
+            .public_response
+            .get("compatibility_spawn_fallback")
+            .is_none());
         assert_eq!(plan.record["spawn_contract"]["spawn_args_returned"], false);
         assert_eq!(
             plan.record["spawn_contract"]["executable_path_returned"],
@@ -1733,8 +1705,8 @@ mod tests {
             plan.record["backend_supervision_status"],
             "rust_fixture_supervision_bound"
         );
-        assert_eq!(plan.record["retired_paths"]["js_process_supervisor"], false);
-        assert_eq!(plan.public_response["command_transport_spawn"], false);
+        assert!(plan.record.get("retired_paths").is_none());
+        assert!(plan.public_response.get("command_transport_spawn").is_none());
         assert!(plan
             .evidence_refs
             .contains(&"js_backend_process_supervisor_retired".to_string()));

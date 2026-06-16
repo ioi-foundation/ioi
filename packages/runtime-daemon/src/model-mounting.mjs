@@ -3330,6 +3330,21 @@ function providerAuthMaterializationResponse(plan, commit) {
   };
 }
 
+const RETIRED_BACKEND_PROCESS_FALLBACK_PROOF_FIELDS = [
+  "retired_paths",
+  "js_process_supervisor",
+  "command_transport_spawn",
+  "binary_bridge_spawn",
+  "compatibility_spawn_fallback",
+];
+
+function assertRetiredBackendProcessFallbackProofFieldsAbsent(record, path, missing) {
+  if (!record || typeof record !== "object" || Array.isArray(record)) return;
+  for (const field of RETIRED_BACKEND_PROCESS_FALLBACK_PROOF_FIELDS) {
+    if (Object.hasOwn(record, field)) missing.push(`${path}.${field}_retired`);
+  }
+}
+
 function assertRustAuthoredBackendProcessMaterializationPlan(plan = {}, options = {}) {
   const record = plan.record && typeof plan.record === "object" && !Array.isArray(plan.record)
     ? plan.record
@@ -3391,15 +3406,9 @@ function assertRustAuthoredBackendProcessMaterializationPlan(plan = {}, options 
   if (record.spawn_contract?.plaintext_process_material_returned !== false) {
     missing.push("record.spawn_contract.plaintext_process_material_returned_false");
   }
-  for (const field of [
-    "js_process_supervisor",
-    "command_transport_spawn",
-    "binary_bridge_spawn",
-    "compatibility_spawn_fallback",
-  ]) {
-    if (record.retired_paths?.[field] !== false) missing.push(`record.retired_paths.${field}_false`);
-    if (publicResponse[field] !== false) missing.push(`public_response.${field}_false`);
-  }
+  assertRetiredBackendProcessFallbackProofFieldsAbsent(record, "record", missing);
+  assertRetiredBackendProcessFallbackProofFieldsAbsent(record.supervision_contract, "record.supervision_contract", missing);
+  assertRetiredBackendProcessFallbackProofFieldsAbsent(publicResponse, "public_response", missing);
   if (publicResponse.spawn_args_returned !== false) {
     missing.push("public_response.spawn_args_returned_false");
   }
@@ -3471,10 +3480,6 @@ function backendProcessMaterializationResponse(plan, commit) {
     backend_supervision_ref: record.backend_supervision_ref ?? publicResponse.backend_supervision_ref ?? null,
     backend_supervision_hash: record.backend_supervision_hash ?? publicResponse.backend_supervision_hash ?? null,
     backend_supervision_status: record.backend_supervision_status ?? publicResponse.backend_supervision_status ?? null,
-    js_process_supervisor: false,
-    command_transport_spawn: false,
-    binary_bridge_spawn: false,
-    compatibility_spawn_fallback: false,
   };
 }
 
@@ -3523,15 +3528,8 @@ function assertRustAuthoredBackendProcessSupervisionPlan(plan = {}, options = {}
   if (record.spawn_contract?.pid_returned !== false) {
     missing.push("record.spawn_contract.pid_returned_false");
   }
-  for (const field of [
-    "js_process_supervisor",
-    "command_transport_spawn",
-    "binary_bridge_spawn",
-    "compatibility_spawn_fallback",
-  ]) {
-    if (record.retired_paths?.[field] !== false) missing.push(`record.retired_paths.${field}_false`);
-    if (publicResponse[field] !== false) missing.push(`public_response.${field}_false`);
-  }
+  assertRetiredBackendProcessFallbackProofFieldsAbsent(record, "record", missing);
+  assertRetiredBackendProcessFallbackProofFieldsAbsent(publicResponse, "public_response", missing);
   for (const ref of [
     "rust_daemon_core_backend_process_supervision",
     "rust_backend_process_live_supervision_owned",
@@ -3592,10 +3590,6 @@ function backendProcessSupervisionResponse(plan, commit) {
     runtime_hash: plan.runtime_hash ?? record.backend_process_runtime_hash ?? null,
     runtime_status: plan.runtime_status ?? record.backend_process_runtime_status ?? null,
     authority_hash: plan.authority_hash,
-    js_process_supervisor: false,
-    command_transport_spawn: false,
-    binary_bridge_spawn: false,
-    compatibility_spawn_fallback: false,
   };
 }
 

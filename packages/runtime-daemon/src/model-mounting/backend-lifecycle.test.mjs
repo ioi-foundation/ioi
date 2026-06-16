@@ -101,10 +101,6 @@ function fakeState() {
         process_supervision_owner: "rust_daemon_core.model_mount.backend_process_supervisor",
         rust_core_boundary: "model_mount.backend_process_materialization",
         spawn_args_returned: false,
-        js_process_supervisor: false,
-        command_transport_spawn: false,
-        binary_bridge_spawn: false,
-        compatibility_spawn_fallback: false,
       };
       const record = {
         id: recordId,
@@ -133,12 +129,6 @@ function fakeState() {
           spawn_args_returned: false,
           pid_returned: false,
           plaintext_process_material_returned: false,
-        },
-        retired_paths: {
-          js_process_supervisor: false,
-          command_transport_spawn: false,
-          binary_bridge_spawn: false,
-          compatibility_spawn_fallback: false,
         },
         public_response: publicResponse,
         receipt_refs: [...(request.receipt_refs ?? []), "sha256:backend-process-materialization"],
@@ -203,10 +193,6 @@ function fakeState() {
         spawn_args_returned: false,
         executable_path_returned: false,
         pid_returned: false,
-        js_process_supervisor: false,
-        command_transport_spawn: false,
-        binary_bridge_spawn: false,
-        compatibility_spawn_fallback: false,
       };
       const record = {
         id: recordId,
@@ -230,12 +216,6 @@ function fakeState() {
           spawn_args_returned: false,
           executable_path_returned: false,
           pid_returned: false,
-        },
-        retired_paths: {
-          js_process_supervisor: false,
-          command_transport_spawn: false,
-          binary_bridge_spawn: false,
-          compatibility_spawn_fallback: false,
         },
         public_response: publicResponse,
         receipt_refs: [...(request.receipt_refs ?? []), publicResponse.backend_process_runtime_hash],

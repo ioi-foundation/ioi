@@ -691,6 +691,21 @@ function normalizeBackendProcessPlanApiResult(value = {}) {
   };
 }
 
+const RETIRED_BACKEND_PROCESS_FALLBACK_PROOF_FIELDS = [
+  "retired_paths",
+  "js_process_supervisor",
+  "command_transport_spawn",
+  "binary_bridge_spawn",
+  "compatibility_spawn_fallback",
+];
+
+function assertRetiredBackendProcessFallbackProofFieldsAbsent(record, path, missing) {
+  if (!record || typeof record !== "object" || Array.isArray(record)) return;
+  for (const field of RETIRED_BACKEND_PROCESS_FALLBACK_PROOF_FIELDS) {
+    if (Object.hasOwn(record, field)) missing.push(`${path}.${field}_retired`);
+  }
+}
+
 function normalizeBackendProcessMaterializationApiResult(value = {}) {
   const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   const plan = result.plan && typeof result.plan === "object" && !Array.isArray(result.plan)
@@ -800,15 +815,9 @@ function normalizeBackendProcessMaterializationApiResult(value = {}) {
   if (record?.spawn_contract?.pid_returned !== false) {
     missing.push("record.spawn_contract.pid_returned_false");
   }
-  if (record?.retired_paths?.js_process_supervisor !== false) {
-    missing.push("record.retired_paths.js_process_supervisor_false");
-  }
-  if (record?.retired_paths?.command_transport_spawn !== false) {
-    missing.push("record.retired_paths.command_transport_spawn_false");
-  }
-  if (record?.retired_paths?.binary_bridge_spawn !== false) {
-    missing.push("record.retired_paths.binary_bridge_spawn_false");
-  }
+  assertRetiredBackendProcessFallbackProofFieldsAbsent(record, "record", missing);
+  assertRetiredBackendProcessFallbackProofFieldsAbsent(record?.supervision_contract, "record.supervision_contract", missing);
+  assertRetiredBackendProcessFallbackProofFieldsAbsent(publicResponse, "public_response", missing);
   if (publicResponse?.spawn_args_returned !== false) {
     missing.push("public_response.spawn_args_returned_false");
   }
@@ -823,15 +832,6 @@ function normalizeBackendProcessMaterializationApiResult(value = {}) {
   }
   if (publicResponse?.process_supervision_owner !== "rust_daemon_core.model_mount.backend_process_supervisor") {
     missing.push("public_response.process_supervision_owner");
-  }
-  if (publicResponse?.js_process_supervisor !== false) {
-    missing.push("public_response.js_process_supervisor_false");
-  }
-  if (publicResponse?.command_transport_spawn !== false) {
-    missing.push("public_response.command_transport_spawn_false");
-  }
-  if (publicResponse?.binary_bridge_spawn !== false) {
-    missing.push("public_response.binary_bridge_spawn_false");
   }
   if (missing.length > 0) {
     const error = new Error("Rust model_mount backend-process materialization plan is incomplete.");
@@ -916,15 +916,8 @@ function normalizeBackendProcessSupervisionApiResult(value = {}) {
   if (record?.spawn_contract?.pid_returned !== false) {
     missing.push("record.spawn_contract.pid_returned_false");
   }
-  for (const field of [
-    "js_process_supervisor",
-    "command_transport_spawn",
-    "binary_bridge_spawn",
-    "compatibility_spawn_fallback",
-  ]) {
-    if (record?.retired_paths?.[field] !== false) missing.push(`record.retired_paths.${field}_false`);
-    if (publicResponse?.[field] !== false) missing.push(`public_response.${field}_false`);
-  }
+  assertRetiredBackendProcessFallbackProofFieldsAbsent(record, "record", missing);
+  assertRetiredBackendProcessFallbackProofFieldsAbsent(publicResponse, "public_response", missing);
   for (const ref of [
     "rust_daemon_core_backend_process_supervision",
     "rust_backend_process_live_supervision_owned",
