@@ -266,12 +266,122 @@ Adapter doctrine:
 
 ```text
 Editor choice is a session preference.
+Adapter targets resolve through connection profiles.
 Adapter targets propose or project.
 Hypervisor Core mediates.
 Hypervisor Daemon executes.
 wallet.network authorizes.
 Agentgres records truth.
 ```
+
+## Adapter Connection Profiles
+
+An adapter target is the destination a user sees. An
+`AdapterConnectionProfile` is the implementable contract that tells Hypervisor
+how a session connects to that destination.
+
+Examples:
+
+```text
+VS Code / Cursor / Windsurf
+  SSH extension or local bridge profile
+
+VS Code Browser / browser IDE
+  embedded browser profile
+
+JetBrains
+  Toolbox/plugin or remote-development profile
+
+Zed / generic editor
+  manual SSH profile
+
+terminal / tmux / shell
+  terminal session profile
+```
+
+The profile declares connection mode, launch path, required local and remote
+components, supported features, policy coverage, and known limitations. It is
+the concrete mechanism behind the rule:
+
+> **Editor choice is a session preference, not Hypervisor's product identity.**
+
+## Agent Harness Environment Ops
+
+Agent harness adapters need a stable environment-operations contract so
+external agent harnesses can discover, create, inspect, execute in, and clean
+up Hypervisor-governed sessions without scraping product UI.
+
+Environment-ops contracts cover:
+
+```text
+project discovery
+runtime/environment class discovery
+create session from project or context URL
+non-blocking create and readiness polling
+structured command execution
+SSH or shell access when explicitly allowed
+logs and output capture
+stop / archive / delete
+cleanup obligations
+receipt obligations
+```
+
+External harnesses may receive structured outputs and exit codes. They do not
+get durable secrets, plaintext custody, or authority except through
+wallet.network capability leases and receipts.
+
+## Projects, Sessions, And Missions
+
+`HypervisorProject`, `HypervisorSession`, and `HypervisorMission` are distinct.
+
+```text
+HypervisorProject
+  stable project/workspace identity, repository/context roots, policy defaults,
+  persistence defaults, adapter preferences, and Agentgres domain links
+
+HypervisorSession
+  live interactive or operator-facing workspace/run/control context
+
+HypervisorMission
+  background/manual/scheduled/webhook/event-triggered autonomous work that may
+  run without an interactive editor or terminal attached
+```
+
+Missions are how Hypervisor represents background automations and long-running
+outcome work. A mission may create sessions and runs, but it is not merely an
+editor tab. It has trigger policy, review contract, authority requirements,
+output contract, and receipt obligations.
+
+## Access, Ports, Browser, Logs, And Support
+
+Remote sessions need explicit operational policies because these surfaces can
+leak protected information even when no file write occurs.
+
+Canonical objects:
+
+```text
+SessionAccessToken
+  short-lived access token for editor, SSH, browser, logs, or environment-ops
+  access; issued under wallet.network authority and bound to session, audience,
+  expiry, scopes, and revocation epoch
+
+PortExposurePolicy
+  declares which local/session ports may be opened, forwarded, shared,
+  previewed, or exposed externally
+
+BrowserOpenPolicy
+  declares whether browser URLs can be auto-opened, proxied, externally shared,
+  recorded, or blocked
+
+SupportBundlePolicy
+  declares what logs, traces, environment metadata, screenshots, redacted diffs,
+  and diagnostic files may leave the session
+```
+
+These are not convenience details. They are part of the custody and authority
+boundary. Log export, browser previews, port forwarding, screenshots, SSH
+config, and support bundles must be policy-bound, redacted where required, and
+receipted when they affect privacy, authority, dispute, or restore.
 
 ## Lifecycle
 
@@ -319,6 +429,7 @@ HypervisorSurface:
 
 HypervisorSession:
   session_id: hypervisor_session:...
+  project_ref: project:... | null
   session_kind:
     local_workspace | remote_vm_workspace | browser_sandbox |
     hosted_worker | hypervisoros_node | terminal | editor |
@@ -334,7 +445,15 @@ HypervisorSession:
     - receipt://...
   adapter_targets:
     - adapter_target:...
+  adapter_connection_profile_refs:
+    - adapter_connection_profile:...
+  workspace_persistence_profile_ref: workspace_persistence:... | null
   ctee_posture_ref: ctee_posture:... | null
+  access_token_refs:
+    - session_access_token:...
+  port_exposure_policy_ref: policy://... | null
+  browser_open_policy_ref: policy://... | null
+  support_bundle_policy_ref: policy://... | null
   status:
     requested | active | waiting_for_approval | blocked |
     completed | archived | restore_available
@@ -347,8 +466,118 @@ AdapterTarget:
     cloud_vm | container | hypervisoros_node | hosted_worker
   mediation_level:
     observe_only | propose_actions | gated_execution | managed_session
+  connection_profile_refs:
+    - adapter_connection_profile:...
   limits:
     - string
+
+AdapterConnectionProfile:
+  profile_id: adapter_connection_profile:...
+  target_kind:
+    vscode | vscode_browser | cursor | windsurf | jetbrains |
+    zed | ssh_editor | terminal | browser_ide | local_bridge
+  connection_mode:
+    ssh_extension | browser_embedded | toolbox_plugin |
+    manual_ssh | environment_ops_api | local_bridge
+  launch_mode:
+    one_click | uri_scheme | browser_tab | cli_generated_ssh |
+    embedded_surface | manual
+  required_local_components:
+    - string
+  required_remote_components:
+    - string
+  supports:
+    rebuild: true
+    port_forwarding: true
+    browser_url_handling: true
+    automation_controls: true
+    log_export: true
+    prebuild_warmup: false
+  policy_coverage:
+    organization_editor_policy: covered | partial | not_covered
+    support_bundle_redaction_required: true
+  known_limitations:
+    - string
+
+AgentHarnessEnvironmentOpsProfile:
+  profile_id: agent_harness_env_ops:...
+  harness_kind:
+    codex | claude_code | grok_build | openhands | aider |
+    cursor_agent | windsurf_agent | shell_agent | ci_agent | custom
+  discovery:
+    projects: list | search | fixed
+    runtime_classes: list | policy_filtered | fixed
+  environment_lifecycle:
+    create_from_project: true
+    create_from_context_url: true
+    non_blocking_create: true
+    readiness_poll: true
+    stop: true
+    archive: optional
+    delete: true
+  command_execution:
+    mode:
+      environment_ops_api | ssh | shell_wrapper | mcp_gateway
+    structured_output:
+      json | yaml | text
+    exit_code_passthrough: true
+    timeout_policy_ref: policy://...
+  cleanup_obligations:
+    on_success: stop | archive | delete | keep
+    on_failure: stop | archive | keep_for_debug
+  receipt_obligations:
+    - environment_created
+    - command_executed
+    - output_captured
+    - environment_stopped_or_deleted
+
+HypervisorProject:
+  project_id: project:...
+  owner_ref: wallet://... | org://...
+  repository_refs:
+    - repo://...
+  context_roots:
+    - artifact://... | workspace://...
+  default_policy_refs:
+    - policy://...
+  default_workspace_persistence_profile_ref: workspace_persistence:... | null
+  preferred_adapter_connection_profile_refs:
+    - adapter_connection_profile:...
+  agentgres_domain_ref: agentgres://domain/... | null
+
+HypervisorMission:
+  mission_id: mission:...
+  mission_kind:
+    manual | schedule | webhook | pull_request | issue_event |
+    policy_event | service_outcome | marketplace_job
+  interactive: false
+  project_ref: project:...
+  workflow_ref: workflow:...
+  default_harness_profile_ref: dhp:...
+  runtime_assignment_ref: runtime_assignment:... | null
+  trigger_policy_ref: policy://...
+  review_contract:
+    required: true
+    reviewer_refs:
+      - wallet://... | org_role://...
+  output_contract_ref: output_contract://...
+  receipt_refs:
+    - receipt://...
+  status:
+    enabled | disabled | running | waiting_for_review |
+    completed | failed | archived
+
+SessionAccessToken:
+  token_id: session_access_token:...
+  session_ref: hypervisor_session:...
+  audience:
+    editor | ssh | browser | logs | environment_ops | support
+  scopes:
+    - scope:...
+  issued_by: wallet://... | daemon://...
+  expires_at: timestamp
+  revocation_epoch: integer
+  receipt_ref: receipt://...
 ```
 
 ## Conformance Checks
@@ -362,6 +591,20 @@ AdapterTarget:
 - Workbench, Foundry, and Fleet must share Core session, authority, receipt,
   replay, and projection contracts.
 - Editor integrations must make mediation limits visible.
+- Every editor, terminal, browser, VM, and harness target must resolve through
+  an `AdapterConnectionProfile`; a string editor preference is not enough.
+- Agent harness adapters must use daemon/Core environment-ops APIs for
+  discovery, execution, logs, and cleanup rather than scraping Hypervisor UI or
+  directly mutating workspaces.
+- Background missions must be modeled as `HypervisorMission` objects with
+  trigger policy, review contract, authority requirements, output contract, and
+  receipts; they must not be hidden interactive sessions.
+- Remote access, SSH, browser previews, logs, support bundles, and environment
+  operations must use short-lived session access tokens bound to wallet.network
+  authority and revocation epochs.
+- Port forwarding, browser-open behavior, and support bundle export must be
+  explicit policy objects when the session is remote, shared, private, or
+  provider-hosted.
 - Remote/private sessions must declare cTEE, TEE, provider-trust, or local-only
   posture before protected workspace state is mounted or projected.
 
@@ -378,6 +621,11 @@ CLI/headless owns a separate runtime loop
 TUI = separate first-class client lane
 external CLI agent harness = Hypervisor client
 Codex/Claude Code/Grok Build = runtime truth
+editor name string = adapter contract
+support bundle = harmless log export
+port preview = not a data boundary
+SSH token = durable credential
+background automation = hidden editor session
 Workbench = runtime truth
 Foundry = direct self-mutation path
 Fleet = infrastructure runtime or authority owner

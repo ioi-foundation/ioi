@@ -62,7 +62,7 @@ GET /v1/runtime/nodes
   "default_harness_profile": "2026.05.default-harness-profile.v1",
   "agentgres_version": "0.2.0",
   "supported_execution_profiles": ["local", "hosted", "provider", "depin_mutual_blind", "hypervisoros_bare_metal", "tee_enterprise", "customer_vpc"],
-  "supported_interfaces": ["agents", "managed_instances", "threads", "runs", "workers", "training", "benchmarks", "routing", "tools", "models", "connectors", "authority_gateway", "action_requests", "artifacts", "receipts", "trace", "replay", "scorecards"],
+  "supported_interfaces": ["agents", "managed_instances", "projects", "sessions", "missions", "adapter_targets", "environment_ops", "threads", "runs", "workers", "training", "benchmarks", "routing", "tools", "models", "connectors", "authority_gateway", "action_requests", "artifacts", "receipts", "trace", "replay", "scorecards"],
   "primitive_capabilities": ["prim:fs.read", "prim:fs.write", "prim:sys.exec", "prim:net.request", "prim:model.invoke"],
   "attestation": {
     "required": false,
@@ -268,6 +268,111 @@ contracts rather than maintaining private session loops.
   }
 }
 ```
+
+## Project, Session, Mission, and Adapter APIs
+
+Projects, sessions, missions, adapter targets, and environment operations are
+daemon/Core APIs. Hypervisor App, Hypervisor Web, CLI/headless clients,
+Workbench, Foundry, Fleet, SDK/ADK clients, and agent harness adapters may
+render or call these APIs, but they must not maintain parallel lifecycle truth.
+
+### Projects
+
+```http
+GET  /v1/projects
+POST /v1/projects
+GET  /v1/projects/{project_id}
+PATCH /v1/projects/{project_id}
+GET  /v1/projects/{project_id}/sessions
+GET  /v1/projects/{project_id}/missions
+GET  /v1/projects/{project_id}/adapter-connection-profiles
+```
+
+### Sessions and Environment Ops
+
+```http
+POST /v1/sessions
+POST /v1/sessions/from-project
+POST /v1/sessions/from-context-url
+GET  /v1/sessions
+GET  /v1/sessions/{session_id}
+GET  /v1/sessions/{session_id}/status
+GET  /v1/sessions/{session_id}/events
+POST /v1/sessions/{session_id}/exec
+GET  /v1/sessions/{session_id}/logs
+GET  /v1/sessions/{session_id}/ssh-config
+POST /v1/sessions/{session_id}/stop
+POST /v1/sessions/{session_id}/archive
+POST /v1/sessions/{session_id}/unarchive
+DELETE /v1/sessions/{session_id}
+```
+
+External agent harnesses should use the session/environment-ops API for
+structured command execution, readiness polling, logs, and cleanup. They should
+not scrape Hypervisor product UI.
+
+### Short-Lived Access and Log Tokens
+
+```http
+POST /v1/sessions/{session_id}/access-tokens
+POST /v1/sessions/{session_id}/log-tokens
+DELETE /v1/sessions/{session_id}/access-tokens/{token_id}
+```
+
+Access tokens are short-lived, audience-bound, revocation-epoch-bound, and
+receipted. Durable editor, SSH, browser, log, support, or environment-ops
+credentials are non-conformant unless they are explicitly local-only and
+outside the remote/provider trust boundary.
+
+### Ports, Browser Open, and Support Bundles
+
+```http
+GET  /v1/sessions/{session_id}/ports
+POST /v1/sessions/{session_id}/ports/{port}/share
+POST /v1/sessions/{session_id}/ports/{port}/revoke
+POST /v1/sessions/{session_id}/browser-open
+POST /v1/sessions/{session_id}/support-bundles
+GET  /v1/sessions/{session_id}/support-bundles/{bundle_id}
+```
+
+Port sharing, browser previews, and support bundles must bind to policy, risk
+labels, redaction status, session refs, and receipts when they cross a local,
+private, shared, or provider-hosted boundary.
+
+### Adapter Targets and Connection Profiles
+
+```http
+GET  /v1/adapter-targets
+GET  /v1/adapter-targets/{target_id}
+GET  /v1/adapter-connection-profiles
+GET  /v1/adapter-connection-profiles/{profile_id}
+POST /v1/adapter-targets/{target_id}/resolve-open-url
+POST /v1/adapter-targets/{target_id}/launch
+```
+
+Adapter APIs resolve concrete connection profiles for editor, terminal,
+browser, VM/container, HypervisorOS, and hosted-worker targets. A raw editor
+name is not an execution or mediation contract.
+
+### Background Missions
+
+```http
+POST /v1/missions
+GET  /v1/missions
+GET  /v1/missions/{mission_id}
+PATCH /v1/missions/{mission_id}
+POST /v1/missions/{mission_id}/start
+POST /v1/missions/{mission_id}/disable
+GET  /v1/missions/{mission_id}/executions
+GET  /v1/mission-executions/{execution_id}
+GET  /v1/mission-executions/{execution_id}/actions
+GET  /v1/mission-executions/{execution_id}/outputs
+GET  /v1/mission-executions/{execution_id}/receipts
+```
+
+Missions are background/manual/scheduled/webhook/event-triggered autonomous
+work with trigger policy, review contract, output contract, and receipts. They
+are not hidden interactive sessions.
 
 ## Event Stream
 
