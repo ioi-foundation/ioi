@@ -269,7 +269,7 @@ export function ChatLocalActivityBar({
     <aside
       className={`chat-activity-bar ${collapsed ? "is-collapsed" : ""}`}
       role="navigation"
-      aria-label="Autopilot navigation"
+      aria-label="Hypervisor navigation"
       data-collapsed={collapsed ? "true" : "false"}
       data-inspection-target="operator-activity-rail"
       data-operator-activity-rail={railModel.projectionId}
@@ -328,7 +328,7 @@ export function ChatLocalActivityBar({
 
       <div className="chat-activity-apps">
         <div className="chat-activity-section-label">Applications</div>
-        <p>Your favorite Autopilot surfaces will appear here</p>
+        <p>Pin Hypervisor surfaces and adapter targets here</p>
       </div>
 
       <div className="chat-activity-spacer" />

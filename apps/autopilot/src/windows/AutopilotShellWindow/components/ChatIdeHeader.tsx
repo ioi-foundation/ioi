@@ -21,20 +21,20 @@ function windowSurfaceTitle(
   workflowSurface: ChatIdeHeaderProps["workflowSurface"],
 ): string {
   if (view === "workflows") {
-    if (workflowSurface === "home") return "Workflows";
+    if (workflowSurface === "home") return "Automations";
     if (workflowSurface === "agents") return "Agents";
     if (workflowSurface === "catalog") return "Catalog";
     return "Canvas";
   }
-  if (view === "workspace") return "Workspace";
+  if (view === "workspace") return "Workbench";
   if (view === "home") return "Home";
-  if (view === "policy") return "Governance";
-  if (view === "runs") return "Runs";
-  if (view === "mounts") return "Model Mounts";
-  if (view === "inbox") return "Inbox";
-  if (view === "capabilities") return "Capabilities";
+  if (view === "policy") return "Authority";
+  if (view === "runs") return "Insights";
+  if (view === "mounts") return "Models";
+  if (view === "inbox") return "Missions";
+  if (view === "capabilities") return "Agents";
   if (view === "settings") return "Settings";
-  return "Chat";
+  return "Sessions";
 }
 
 export function ChatIdeHeader({
@@ -45,7 +45,7 @@ export function ChatIdeHeader({
 }: ChatIdeHeaderProps) {
   const [windowMaximized, setWindowMaximized] = useState(false);
   const windowControlsVisible = isTauriRuntime();
-  const resolvedWindowTitle = `Autopilot Chat · ${windowSurfaceTitle(
+  const resolvedWindowTitle = `Hypervisor · ${windowSurfaceTitle(
     activeView,
     workflowSurface,
   )}`;

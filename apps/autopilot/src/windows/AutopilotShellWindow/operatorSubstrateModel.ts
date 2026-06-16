@@ -275,14 +275,14 @@ const EMPTY_EVIDENCE_REFS: OperatorRuntimeEvidenceRefs = {
 
 const PRIMARY_VIEW_LABELS: Record<PrimaryView, string> = {
   home: "Home",
-  chat: "Chat",
-  workspace: "Workspace",
-  workflows: "Workflows",
-  runs: "Runs",
-  mounts: "Model Mounts",
-  inbox: "Inbox",
-  capabilities: "Capabilities",
-  policy: "Policy",
+  chat: "Sessions",
+  workspace: "Workbench",
+  workflows: "Automations",
+  runs: "Insights",
+  mounts: "Models",
+  inbox: "Missions",
+  capabilities: "Agents",
+  policy: "Authority",
   settings: "Settings",
 };
 
@@ -413,7 +413,8 @@ export function buildOperatorInspectionTargetModel({
         },
         {
           kind: "aria",
-          accessibleName: "Search Autopilot, code, workflows, runs, and commands",
+          accessibleName:
+            "Search Hypervisor, sessions, workbench, automations, and commands",
         },
       ],
     },
@@ -643,7 +644,8 @@ export function buildOperatorCommandCenterModel({
     projectionId: `operator-command-center:${activeView}:${workflowSurface}:${currentProject.id}`,
     activeRoute: { kind: "primary-view", view: activeView },
     scopeLabel: `${currentProject.name} / ${surfaceLabel}`,
-    placeholder: "Search Autopilot, code, workflows, runs, and commands",
+    placeholder:
+      "Search Hypervisor, sessions, workbench, automations, and commands",
     shortcutLabel: "Ctrl+K",
     runtimeTruthSource: "daemon-runtime",
     evidenceRefs: {

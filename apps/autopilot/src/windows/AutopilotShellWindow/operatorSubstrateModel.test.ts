@@ -30,7 +30,7 @@ test("operator command center is a daemon-runtime projection", () => {
   });
 
   assert.equal(model.runtimeTruthSource, "daemon-runtime");
-  assert.equal(model.scopeLabel, "Autopilot Core / Workspace");
+  assert.equal(model.scopeLabel, "Autopilot Core / Workbench");
   assert.equal(model.shortcutLabel, "Ctrl+K");
   assert.deepEqual(model.evidenceRefs.receiptIds, ["receipt-1"]);
   assert.ok(

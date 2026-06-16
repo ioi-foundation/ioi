@@ -6,6 +6,18 @@ const source = readFileSync(
   new URL("./hypervisorShellNavigationModel.ts", import.meta.url),
   "utf8",
 );
+const operatorSubstrate = readFileSync(
+  new URL("./operatorSubstrateModel.ts", import.meta.url),
+  "utf8",
+);
+const activityBar = readFileSync(
+  new URL("./components/ChatLocalActivityBar.tsx", import.meta.url),
+  "utf8",
+);
+const header = readFileSync(
+  new URL("./components/ChatIdeHeader.tsx", import.meta.url),
+  "utf8",
+);
 
 test("hypervisor shell exposes the canonical core client and surface taxonomy", () => {
   assert.match(source, /export type HypervisorClientKind/);
@@ -34,6 +46,24 @@ test("hypervisor shell models IOI-reference session detail and inspectors", () =
   assert.match(source, /HYPERVISOR_RIGHT_INSPECTOR_PANELS/);
   assert.match(source, /HYPERVISOR_BOTTOM_INSPECTOR_PANELS/);
   assert.match(source, /"ports_services"[\s\S]*"tasks"[\s\S]*"terminal"[\s\S]*"logs"/);
+});
+
+test("visible shell chrome uses Hypervisor labels over compatibility route keys", () => {
+  assert.match(operatorSubstrate, /chat: "Sessions"/);
+  assert.match(operatorSubstrate, /workspace: "Workbench"/);
+  assert.match(operatorSubstrate, /workflows: "Automations"/);
+  assert.match(operatorSubstrate, /runs: "Insights"/);
+  assert.match(operatorSubstrate, /mounts: "Models"/);
+  assert.match(operatorSubstrate, /capabilities: "Agents"/);
+  assert.match(operatorSubstrate, /policy: "Authority"/);
+  assert.match(
+    operatorSubstrate,
+    /Search Hypervisor, sessions, workbench, automations, and commands/,
+  );
+  assert.match(activityBar, /aria-label="Hypervisor navigation"/);
+  assert.match(activityBar, /Pin Hypervisor surfaces and adapter targets here/);
+  assert.match(header, /`Hypervisor .*?\$\{windowSurfaceTitle/s);
+  assert.doesNotMatch(header, /Autopilot Chat/);
 });
 
 console.log("hypervisorShellNavigationModel.test.mjs: ok");
