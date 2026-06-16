@@ -99,7 +99,7 @@ function parseSseEvents(text) {
 async function waitForReceipt(endpoint, predicate, { timeoutMs = 2500 } = {}) {
   const started = Date.now();
   while (Date.now() - started < timeoutMs) {
-    const receipts = await expectOk(endpoint, "/api/v1/receipts");
+    const receipts = await expectOk(endpoint, "/v1/model-mount/receipts");
     const receipt = receipts.find(predicate);
     if (receipt) return receipt;
     await new Promise((resolve) => setTimeout(resolve, 25));
@@ -177,7 +177,7 @@ try {
   );
   assert.equal(completedReceipt.kind, "model_invocation_stream_completed");
 
-  const receipts = await expectOk(daemon.endpoint, "/api/v1/receipts");
+  const receipts = await expectOk(daemon.endpoint, "/v1/model-mount/receipts");
   assert.equal(JSON.stringify(receipts).includes(grant.token), false);
   const panel = buildWorkflowAuthStreamFailurePanel({
     authFailures: [

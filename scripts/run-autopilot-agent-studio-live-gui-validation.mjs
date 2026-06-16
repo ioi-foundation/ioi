@@ -2387,7 +2387,7 @@ async function runValidation(outputDir, { scenario = resolveAgentStudioChatScena
     if (disallowedFailedToolNames.length > 0) {
       throw new Error(`Daemon runtime traces included failed required Agent tools: ${disallowedFailedToolNames.join(", ")}`);
     }
-    const receiptResponse = await fetch(`${daemon.endpoint}/api/v1/receipts`);
+    const receiptResponse = await fetch(`${daemon.endpoint}/v1/model-mount/receipts`);
     const receiptPayload = receiptResponse.ok ? await receiptResponse.json() : { error: await receiptResponse.text() };
     const receiptItems = Array.isArray(receiptPayload)
       ? receiptPayload

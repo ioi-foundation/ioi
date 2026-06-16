@@ -687,7 +687,7 @@ async function runValidation(outputDir) {
     );
 
     const daemonThreads = await requestJson(daemon.endpoint, "/v1/threads").catch((error) => ({ error: String(error) }));
-    const daemonReceipts = await requestJson(daemon.endpoint, "/api/v1/receipts").catch((error) => ({ error: String(error) }));
+    const daemonReceipts = await requestJson(daemon.endpoint, "/v1/model-mount/receipts").catch((error) => ({ error: String(error) }));
     writeFileSync(join(outputDir, "daemon-threads.json"), `${JSON.stringify(daemonThreads, null, 2)}\n`);
     writeFileSync(join(outputDir, "daemon-receipts.json"), `${JSON.stringify(daemonReceipts, null, 2)}\n`);
     writeFileSync(join(outputDir, "bridge-requests.json"), `${JSON.stringify(requests, null, 2)}\n`);

@@ -36,14 +36,14 @@ pub async fn run(args: ReceiptsArgs) -> Result<()> {
     let token = args.token.as_deref();
     let value = match args.command {
         ReceiptsCommands::Ls => {
-            daemon_request(endpoint, token, Method::GET, "/api/v1/receipts", None).await?
+            daemon_request(endpoint, token, Method::GET, "/v1/model-mount/receipts", None).await?
         }
         ReceiptsCommands::Get { id } => {
             daemon_request(
                 endpoint,
                 token,
                 Method::GET,
-                &format!("/api/v1/receipts/{id}"),
+                &format!("/v1/model-mount/receipts/{id}"),
                 None,
             )
             .await?
@@ -53,7 +53,7 @@ pub async fn run(args: ReceiptsArgs) -> Result<()> {
                 endpoint,
                 token,
                 Method::GET,
-                &format!("/api/v1/receipts/{id}/replay"),
+                &format!("/v1/model-mount/receipts/{id}/replay"),
                 None,
             )
             .await?

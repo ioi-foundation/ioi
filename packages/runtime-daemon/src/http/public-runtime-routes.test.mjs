@@ -366,6 +366,18 @@ test("public runtime model catalog routes use mounted model projection surface",
         calls.push({ method: "catalogSearch", query });
         return [{ id: "catalog.route", query: query.query }];
       },
+      listReceipts() {
+        calls.push({ method: "listReceipts" });
+        return [{ id: "receipt.route" }];
+      },
+      getReceipt(id) {
+        calls.push({ method: "getReceipt", id });
+        return { id };
+      },
+      receiptReplay(id) {
+        calls.push({ method: "receiptReplay", id });
+        return { receipt_id: id, replayed: true };
+      },
     },
     listModels: retiredRouteWrapper,
     listModelCapabilities: retiredRouteWrapper,
@@ -396,6 +408,9 @@ test("public runtime model catalog routes use mounted model projection surface",
     ["/v1/models/providers", [{ id: "provider.route" }]],
     ["/v1/models/routes", [{ id: "route.route" }]],
     ["/v1/models/catalog/search?query=qwen", [{ id: "catalog.route", query: "qwen" }]],
+    ["/v1/model-mount/receipts", [{ id: "receipt.route" }]],
+    ["/v1/model-mount/receipts/receipt.route", { id: "receipt.route" }],
+    ["/v1/model-mount/receipts/receipt.route/replay", { receipt_id: "receipt.route", replayed: true }],
   ]) {
     const routeResponse = responseRecorder();
     await handleRequest({ request: request({ url: path }), response: routeResponse, store });
@@ -411,6 +426,9 @@ test("public runtime model catalog routes use mounted model projection surface",
     { method: "listProviders" },
     { method: "listRoutes" },
     { method: "catalogSearch", query: { query: "qwen" } },
+    { method: "listReceipts" },
+    { method: "getReceipt", id: "receipt.route" },
+    { method: "receiptReplay", id: "receipt.route" },
   ]);
 });
 

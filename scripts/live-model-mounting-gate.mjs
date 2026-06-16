@@ -164,7 +164,7 @@ async function expectOk(endpoint, route, options) {
 async function waitForReceipt(endpoint, predicate, { timeoutMs = 5000 } = {}) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    const receipts = await expectOk(endpoint, "/api/v1/receipts");
+    const receipts = await expectOk(endpoint, "/v1/model-mount/receipts");
     const receipt = receipts.find(predicate);
     if (receipt) return receipt;
     await new Promise((resolve) => setTimeout(resolve, 50));
@@ -207,7 +207,7 @@ async function exerciseLiveChatStreamReceipts({
   assert.ok(metadata?.stream_receipt_id, "completed live stream did not expose stream receipt metadata");
   assert.equal(metadata.route_id, routeId);
   assert.equal(metadata.provider_stream, "native");
-  const completedInvocation = await expectOk(daemon.endpoint, `/api/v1/receipts/${metadata.receipt_id}`);
+  const completedInvocation = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${metadata.receipt_id}`);
   assert.equal(completedInvocation.kind, "model_invocation");
   assert.equal(completedInvocation.details.routeId, routeId);
   assert.equal(completedInvocation.details.selectedModel, modelId);
@@ -217,7 +217,7 @@ async function exerciseLiveChatStreamReceipts({
   assert.equal(completedInvocation.details.backendId, backendId);
   assert.equal(completedInvocation.details.streamSource, "provider_native");
   assert.equal(completedInvocation.details.providerResponseKind, providerResponseKind);
-  const completedReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${metadata.stream_receipt_id}`);
+  const completedReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${metadata.stream_receipt_id}`);
   assertLiveStreamReceipt(completedReceipt, {
     kind: "model_invocation_stream_completed",
     routeId,
@@ -231,7 +231,7 @@ async function exerciseLiveChatStreamReceipts({
   });
   assert.equal(typeof completedReceipt.details.outputHash, "string");
   assert.equal(typeof completedReceipt.details.finishReason, "string");
-  const completedReplay = await expectOk(daemon.endpoint, `/api/v1/receipts/${metadata.stream_receipt_id}/replay`);
+  const completedReplay = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${metadata.stream_receipt_id}/replay`);
   assert.equal(completedReplay.receipt.id, metadata.stream_receipt_id);
   assert.equal(completedReplay.route.id, routeId);
   assert.equal(completedReplay.endpoint.id, endpointId);
@@ -277,11 +277,11 @@ async function exerciseLiveChatStreamReceipts({
     status: "aborted",
     reason: "client_disconnect",
   });
-  const abortedInvocation = await expectOk(daemon.endpoint, `/api/v1/receipts/${abortedReceipt.details.invocationReceiptId}`);
+  const abortedInvocation = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${abortedReceipt.details.invocationReceiptId}`);
   assert.equal(abortedInvocation.kind, "model_invocation");
   assert.equal(abortedInvocation.details.streamSource, "provider_native");
   assert.equal(abortedInvocation.details.providerResponseKind, providerResponseKind);
-  const abortedReplay = await expectOk(daemon.endpoint, `/api/v1/receipts/${abortedReceipt.id}/replay`);
+  const abortedReplay = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${abortedReceipt.id}/replay`);
   assert.equal(abortedReplay.receipt.id, abortedReceipt.id);
   assert.equal(abortedReplay.route.id, routeId);
   assert.equal(abortedReplay.endpoint.id, endpointId);
@@ -845,7 +845,7 @@ async function runLmStudioGate(evidence) {
         max_output_tokens: 8,
       },
     });
-    const receipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${response.receipt_id}`);
+    const receipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${response.receipt_id}`);
     assert.equal(receipt.details.providerId, "provider.lmstudio");
     assert.equal(receipt.details.backend, "lm_studio");
     evidence.status = "passed";
@@ -1067,9 +1067,9 @@ async function runLlamaCppGate(evidence) {
           embeddingErrorHash = stableHash(String(error?.message ?? error));
         }
 
-        const chatReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${chat.receipt_id}`);
-        const responseReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${responses.receipt_id}`);
-        const replay = await expectOk(daemon.endpoint, `/api/v1/receipts/${chat.receipt_id}/replay`);
+        const chatReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${chat.receipt_id}`);
+        const responseReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${responses.receipt_id}`);
+        const replay = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${chat.receipt_id}/replay`);
         assert.equal(chatReceipt.details.providerId, "provider.llama-cpp");
         assert.equal(chatReceipt.details.backend, "llama_cpp");
         assert.equal(chatReceipt.details.backendProcessPidHash, loaded.backendProcess.pidHash);
@@ -1280,7 +1280,7 @@ async function runModelBackendsGate(evidence) {
           options: { num_predict: 8 },
         },
       });
-      const chatReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${chat.receipt_id}`);
+      const chatReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${chat.receipt_id}`);
       assert.equal(chatReceipt.details.providerId, "provider.ollama");
       assert.equal(chatReceipt.details.backend, "ollama");
       const streamReceipts = await exerciseLiveChatStreamReceipts({
@@ -1323,7 +1323,7 @@ async function runModelBackendsGate(evidence) {
           body: { model: embeddingModel, input: "live ollama embedding check" },
         });
         embeddingReceiptId = embeddings.receipt_id;
-        const embeddingReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${embeddingReceiptId}`);
+        const embeddingReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${embeddingReceiptId}`);
         assert.equal(embeddingReceipt.details.providerId, "provider.ollama");
         assert.equal(embeddingReceipt.details.backend, "ollama");
       }
@@ -1495,7 +1495,7 @@ async function runModelBackendsGate(evidence) {
             max_tokens: 8,
           },
         });
-        const responseReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${responses.receipt_id}`);
+        const responseReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${responses.receipt_id}`);
         assert.equal(responseReceipt.details.providerId, "provider.vllm");
         assert.equal(responseReceipt.details.backend, "vllm");
         const streamReceipts = await exerciseLiveChatStreamReceipts({
@@ -1687,7 +1687,7 @@ async function runModelCatalogGate(evidence) {
       const status = await expectOk(daemon.endpoint, `/api/v1/models/download/status/${download.id}`);
       assert.equal(status.status, "completed");
       assert.equal(status.id, download.id);
-      const replay = await expectOk(daemon.endpoint, `/api/v1/receipts/${download.receiptId}/replay`);
+      const replay = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${download.receiptId}/replay`);
       assert.equal(replay.receipt.id, download.receiptId);
       const projection = await expectOk(daemon.endpoint, "/api/v1/projections/model-mounting");
       assert.ok(projection.downloads.some((job) => job.id === download.id));
@@ -1914,7 +1914,7 @@ async function runModelCatalogOAuthGate(evidence) {
     assert.equal(started.authorizationUrlRedacted.includes(oauthState), false);
     if (codeChallenge) assert.equal(started.authorizationUrlRedacted.includes(codeChallenge), false);
 
-    const startedReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${started.receiptId}`);
+    const startedReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${started.receiptId}`);
     assert.equal(startedReceipt.kind, "catalog_oauth_start");
     const startSecretScan = scanFilesForNeedles(stateDir, [grant.token, clientId, started.authorizationUrl, oauthState, codeChallenge]);
     assert.equal(startSecretScan.passed, true);
@@ -2063,7 +2063,7 @@ async function runModelCatalogOAuthGate(evidence) {
     assert.equal(JSON.stringify(completed).includes(callbackState), false);
     assert.equal(JSON.stringify(completed).includes(authorizationCode), false);
     assert.equal(JSON.stringify(completed).includes(clientId), false);
-    const completedReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${completed.receiptId}`);
+    const completedReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${completed.receiptId}`);
     assert.equal(completedReceipt.kind, "catalog_oauth_callback");
     const projection = await expectOk(daemon.endpoint, "/api/v1/projections/model-mounting");
     assert.ok(projection.oauthStates.some((state) => state.status === "completed" && state.id === completed.oauthState.id));
@@ -2245,7 +2245,7 @@ async function runAgentgresGate(evidence) {
             input: "Agentgres remote boundary replay check",
           },
         });
-        const replay = await expectOk(daemon.endpoint, `/api/v1/receipts/${chat.receipt_id}/replay`);
+        const replay = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${chat.receipt_id}/replay`);
         assert.equal(replay.receipt.id, chat.receipt_id);
         assert.equal(replay.source, "agentgres_model_mounting_projection_replay");
         const projection = await expectOk(daemon.endpoint, "/api/v1/projections/model-mounting");

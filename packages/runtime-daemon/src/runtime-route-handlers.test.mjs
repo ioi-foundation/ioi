@@ -2058,6 +2058,44 @@ test("model mounting native route does not expose retired stable read aliases", 
   assert.deepEqual(calls, []);
 });
 
+test("model mounting native route does not expose retired receipt read aliases", async () => {
+  const { handleModelMountingNativeRoute } = routeHandlers();
+  const calls = [];
+  const failRetiredAlias = (name) => (...args) => {
+    calls.push([name, ...args]);
+    throw new Error(`retired receipt alias ${name} must not be reached`);
+  };
+  const store = {
+    modelMounting: {
+      listReceipts: failRetiredAlias("listReceipts"),
+      getReceipt: failRetiredAlias("getReceipt"),
+      receiptReplay: failRetiredAlias("receiptReplay"),
+    },
+  };
+  const cases = [
+    "/api/v1/receipts",
+    "/api/v1/receipts/receipt.route",
+    "/api/v1/receipts/receipt.route/replay",
+  ];
+
+  for (const path of cases) {
+    await assert.rejects(
+      () => handleModelMountingNativeRoute({
+        request: request({ url: path }),
+        response: responseRecorder(),
+        store,
+        url: new URL(path, "http://daemon.test"),
+        segments: new URL(path, "http://daemon.test").pathname.split("/").filter(Boolean),
+      }),
+      (error) =>
+        error.code === "not_found" &&
+        error.details.path === new URL(path, "http://daemon.test").pathname,
+    );
+  }
+
+  assert.deepEqual(calls, []);
+});
+
 test("model mounting native route does not expose retired MCP aliases", async () => {
   const { handleModelMountingNativeRoute } = routeHandlers();
   const calls = [];

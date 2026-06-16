@@ -500,7 +500,7 @@ async function bootstrapDaemonModelRuntime(outputDir = null) {
   const projection = await requestJson(daemon.endpoint, "/api/v1/projections/model-mounting", {
     token: grant.token,
   });
-  const receipts = await requestJson(daemon.endpoint, "/api/v1/receipts", {
+  const receipts = await requestJson(daemon.endpoint, "/v1/model-mount/receipts", {
     token: grant.token,
   });
   const bootstrap = {
@@ -1006,7 +1006,7 @@ async function runGuiValidation(outputRoot) {
       "/api/v1/projections/model-mounting",
       { token: boot.token },
     );
-    const finalReceipts = await requestJson(boot.daemon.endpoint, "/api/v1/receipts", {
+    const finalReceipts = await requestJson(boot.daemon.endpoint, "/v1/model-mount/receipts", {
       token: boot.token,
     });
     writeFileSync(join(outputDir, "projection-after-gui.json"), `${JSON.stringify(finalProjection, null, 2)}\n`);

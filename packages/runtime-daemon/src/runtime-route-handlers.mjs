@@ -541,18 +541,6 @@ export function createRuntimeRouteHandlers(deps) {
       writeJsonResponse(response, mounts.revokeToken(decodeURIComponent(segments[3])));
       return;
     }
-    if (request.method === "GET" && url.pathname === "/api/v1/receipts") {
-      writeJsonResponse(response, mounts.listReceipts());
-      return;
-    }
-    if (request.method === "GET" && segments[2] === "receipts" && segments[3] && segments[4] === "replay") {
-      writeJsonResponse(response, mounts.receiptReplay(decodeURIComponent(segments[3])));
-      return;
-    }
-    if (request.method === "GET" && segments[2] === "receipts" && segments[3]) {
-      writeJsonResponse(response, mounts.getReceipt(decodeURIComponent(segments[3])));
-      return;
-    }
     if (request.method === "GET" && url.pathname === "/api/v1/projections/model-mounting") {
       writeJsonResponse(response, mounts.projection());
       return;

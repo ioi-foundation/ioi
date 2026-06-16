@@ -204,7 +204,7 @@ test("model routing parity keeps canonical route decisions Rust-owned and workfl
 async function waitForReceipt(endpoint, predicate, { timeoutMs = 2000 } = {}) {
   const started = Date.now();
   while (Date.now() - started < timeoutMs) {
-    const receipts = await expectOk(endpoint, "/api/v1/receipts");
+    const receipts = await expectOk(endpoint, "/v1/model-mount/receipts");
     const receipt = receipts.find(predicate);
     if (receipt) return receipt;
     await new Promise((resolve) => setTimeout(resolve, 25));
@@ -298,7 +298,7 @@ test("model=auto resolves to a canonical ModelRouteDecision before provider invo
     assert.equal(chat.route_decision.reasoningEffort, "medium");
     assert.equal(chat.route_decision.workflowNodeId, "node.model-call");
 
-    const replay = await expectOk(daemon.endpoint, `/api/v1/receipts/${chat.route_receipt_id}/replay`);
+    const replay = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${chat.route_receipt_id}/replay`);
     assert.equal(replay.modelRouteDecision.decisionId, chat.route_decision.decisionId);
     assert.equal(replay.modelRouteDecision.selectedModel, "autopilot:native-fixture");
 
@@ -491,7 +491,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.equal(typeof runtimeSurvey.hardware.totalMemoryBytes, "number");
     assert.ok(["absent", "available", "blocked"].includes(runtimeSurvey.lmStudio.status));
     assert.match(runtimeSurvey.receiptId, /^receipt_runtime_survey_/);
-    const runtimeSurveyReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${runtimeSurvey.receiptId}`);
+    const runtimeSurveyReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${runtimeSurvey.receiptId}`);
     assert.equal(runtimeSurveyReceipt.kind, "runtime_survey");
     assert.equal(runtimeSurveyReceipt.details.engineCount, runtimeSurvey.engines.length);
     const runtimeSelection = await expectOk(daemon.endpoint, "/api/v1/runtime/select", {
@@ -650,7 +650,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     });
     assert.equal(collisionChat.endpoint_id, "endpoint.test.native-collision");
     assert.match(collisionChat.output_text, /Autopilot native local model response/);
-    const collisionReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${collisionChat.receipt_id}`);
+    const collisionReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${collisionChat.receipt_id}`);
     assert.equal(collisionReceipt.details.providerId, "provider.autopilot.local");
     assert.equal(collisionReceipt.details.endpointId, "endpoint.test.native-collision");
 
@@ -691,7 +691,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.equal(nativeLoadEstimate.runtimeEngineId, "backend.autopilot.native-local.fixture");
     assert.equal(nativeLoadEstimate.loadOptions.contextLength, 4096);
     assert.match(nativeLoadEstimate.receiptId, /^receipt_model_lifecycle_/);
-    const nativeLoadEstimateReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${nativeLoadEstimate.receiptId}`);
+    const nativeLoadEstimateReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${nativeLoadEstimate.receiptId}`);
     assert.equal(nativeLoadEstimateReceipt.details.operation, "model_load_estimate");
     assert.equal(nativeLoadEstimateReceipt.details.loadOptions.estimateOnly, true);
     const nativeLoaded = await expectOk(daemon.endpoint, "/api/v1/models/load", {
@@ -725,7 +725,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
       body: { route_id: "route.native-local", model: "native:imported", input: "hello autopilot native local" },
     });
     assert.match(nativeChat.output_text, /Autopilot native local model response/);
-    const nativeReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${nativeChat.receipt_id}`);
+    const nativeReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${nativeChat.receipt_id}`);
     assert.equal(nativeReceipt.details.providerId, "provider.autopilot.local");
     assert.equal(nativeReceipt.details.backend, "autopilot.native_local.fixture");
     assert.equal(nativeReceipt.details.backendId, "backend.autopilot.native-local.fixture");
@@ -745,7 +745,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.equal(tokenized.tokenizer, "deterministic_context_estimator");
     assert.ok(tokenized.tokens.length >= 3);
     assert.equal(tokenized.usage.prompt_tokens, tokenized.token_count);
-    const tokenizedReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${tokenized.receipt_id}`);
+    const tokenizedReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${tokenized.receipt_id}`);
     assert.equal(tokenizedReceipt.kind, "model_tokenization");
     assert.equal(tokenizedReceipt.details.operation, "tokenize");
     assert.equal(tokenizedReceipt.details.grantId, grant.grantId);
@@ -777,7 +777,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.equal(fitted.fits, false);
     assert.equal(fitted.truncation.applied, true);
     assert.match(fitted.fitted_input_hash, /^[a-f0-9]{64}$/);
-    const fittedReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${fitted.receipt_id}`);
+    const fittedReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${fitted.receipt_id}`);
     assert.equal(fittedReceipt.kind, "model_context_fit");
     assert.equal(fittedReceipt.details.operation, "context_fit");
 
@@ -823,14 +823,14 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     const nativeCompatStreamMetadata = nativeCompatStreamChunks.find((chunk) => chunk !== "[DONE]" && chunk.stream_receipt_id);
     assert.equal(nativeCompatStreamMetadata.route_id, "route.native-local");
     assert.equal(nativeCompatStreamMetadata.provider_stream, "native");
-    const nativeCompatStreamReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${nativeCompatStreamMetadata.receipt_id}`);
+    const nativeCompatStreamReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${nativeCompatStreamMetadata.receipt_id}`);
     assert.equal(nativeCompatStreamReceipt.details.providerId, "provider.autopilot.local");
     assert.equal(nativeCompatStreamReceipt.details.backend, "autopilot.native_local.fixture");
     assert.equal(nativeCompatStreamReceipt.details.backendId, "backend.autopilot.native-local.fixture");
     assert.equal(nativeCompatStreamReceipt.details.backendProcessPidHash, nativeLoaded.backendProcess.pidHash);
     assert.equal(nativeCompatStreamReceipt.details.providerResponseKind, "native_local.chat.stream");
     assert.ok(nativeCompatStreamReceipt.details.backendEvidenceRefs.includes("autopilot_native_local_provider_native_stream"));
-    const nativeCompatStreamCompleteReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${nativeCompatStreamMetadata.stream_receipt_id}`);
+    const nativeCompatStreamCompleteReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${nativeCompatStreamMetadata.stream_receipt_id}`);
     assert.equal(nativeCompatStreamCompleteReceipt.details.invocationReceiptId, nativeCompatStreamMetadata.receipt_id);
     assert.equal(
       nativeCompatStreamCompleteReceipt.details.outputHash,
@@ -857,14 +857,14 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     const nativeResponseCompleted = nativeResponseStream.events.find((event) => event.event === "response.completed")?.data.response;
     assert.equal(nativeResponseCompleted.route_id, "route.native-local");
     assert.equal(nativeResponseCompleted.provider_stream, "native");
-    const nativeResponseStreamReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${nativeResponseCompleted.receipt_id}`);
+    const nativeResponseStreamReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${nativeResponseCompleted.receipt_id}`);
     assert.equal(nativeResponseStreamReceipt.details.providerId, "provider.autopilot.local");
     assert.equal(nativeResponseStreamReceipt.details.backend, "autopilot.native_local.fixture");
     assert.equal(nativeResponseStreamReceipt.details.backendId, "backend.autopilot.native-local.fixture");
     assert.equal(nativeResponseStreamReceipt.details.backendProcessPidHash, nativeLoaded.backendProcess.pidHash);
     assert.equal(nativeResponseStreamReceipt.details.providerResponseKind, "native_local.responses.stream");
     assert.ok(nativeResponseStreamReceipt.details.backendEvidenceRefs.includes("autopilot_native_local_provider_native_stream"));
-    const nativeResponseStreamCompleteReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${nativeResponseCompleted.stream_receipt_id}`);
+    const nativeResponseStreamCompleteReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${nativeResponseCompleted.stream_receipt_id}`);
     assert.equal(nativeResponseStreamCompleteReceipt.details.invocationReceiptId, nativeResponseCompleted.receipt_id);
     assert.equal(
       nativeResponseStreamCompleteReceipt.details.outputHash,
@@ -895,7 +895,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.equal(nativeAnthropicStop.event, "message_stop");
     assert.equal(nativeAnthropicStop.data.route_id, "route.native-local");
     assert.equal(nativeAnthropicStop.data.provider_stream, "native");
-    const nativeAnthropicStreamReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${nativeAnthropicStop.data.receipt_id}`);
+    const nativeAnthropicStreamReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${nativeAnthropicStop.data.receipt_id}`);
     assert.equal(nativeAnthropicStreamReceipt.details.providerId, "provider.autopilot.local");
     assert.equal(nativeAnthropicStreamReceipt.details.backend, "autopilot.native_local.fixture");
     assert.equal(nativeAnthropicStreamReceipt.details.backendId, "backend.autopilot.native-local.fixture");
@@ -904,7 +904,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.ok(nativeAnthropicStreamReceipt.details.backendEvidenceRefs.includes("autopilot_native_local_provider_native_stream"));
     const nativeAnthropicStreamCompleteReceipt = await expectOk(
       daemon.endpoint,
-      `/api/v1/receipts/${nativeAnthropicStop.data.stream_receipt_id}`,
+      `/v1/model-mount/receipts/${nativeAnthropicStop.data.stream_receipt_id}`,
     );
     assert.equal(nativeAnthropicStreamCompleteReceipt.details.streamKind, "anthropic_messages_provider_native");
     assert.equal(nativeAnthropicStreamCompleteReceipt.details.invocationReceiptId, nativeAnthropicStop.data.receipt_id);
@@ -950,7 +950,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.ok(canceledNativeCompatReceipt.details.backendEvidenceRefs.includes("autopilot_native_local_provider_native_stream"));
     const canceledNativeCompatInvocation = await expectOk(
       daemon.endpoint,
-      `/api/v1/receipts/${canceledNativeCompatReceipt.details.invocationReceiptId}`,
+      `/v1/model-mount/receipts/${canceledNativeCompatReceipt.details.invocationReceiptId}`,
     );
     assert.equal(canceledNativeCompatInvocation.kind, "model_invocation");
     assert.equal(canceledNativeCompatInvocation.details.backendProcessPidHash, nativeLoaded.backendProcess.pidHash);
@@ -1094,7 +1094,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
       .map((chunk) => chunk.choices[0].delta.content ?? "")
       .join("");
     assert.match(compatStreamedText, /IOI model router fixture response/);
-    const compatStreamReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${compatChunks[0].receipt_id}`);
+    const compatStreamReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${compatChunks[0].receipt_id}`);
     assert.equal(compatStreamReceipt.kind, "model_invocation");
 
     const deniedCompatStream = await requestJson(daemon.endpoint, "/v1/chat/completions", {
@@ -1133,7 +1133,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.equal(typeof canceledCompatReceipt.details.invocationReceiptId, "string");
     const canceledInvocationReceipt = await expectOk(
       daemon.endpoint,
-      `/api/v1/receipts/${canceledCompatReceipt.details.invocationReceiptId}`,
+      `/v1/model-mount/receipts/${canceledCompatReceipt.details.invocationReceiptId}`,
     );
     assert.equal(canceledInvocationReceipt.kind, "model_invocation");
 
@@ -1164,7 +1164,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.match(responsesStreamedText, /IOI model router fixture response/);
     const responsesStreamReceipt = await expectOk(
       daemon.endpoint,
-      `/api/v1/receipts/${responsesStreaming.events.at(-1).data.response.receipt_id}`,
+      `/v1/model-mount/receipts/${responsesStreaming.events.at(-1).data.response.receipt_id}`,
     );
     assert.equal(responsesStreamReceipt.kind, "model_invocation");
 
@@ -1186,7 +1186,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     });
     assert.match(continuedStatefulResponse.id, /^resp_/);
     assert.equal(continuedStatefulResponse.previous_response_id, firstStatefulResponse.id);
-    const continuedReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${continuedStatefulResponse.receipt_id}`);
+    const continuedReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${continuedStatefulResponse.receipt_id}`);
     assert.equal(continuedReceipt.details.previousResponseId, firstStatefulResponse.id);
     assert.equal(continuedReceipt.details.continuation.mode, "matched");
     const statefulProjection = await expectOk(daemon.endpoint, "/api/v1/projections/model-mounting");
@@ -1219,7 +1219,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
         input: "stateful response explicit route switch",
       },
     });
-    const consentedReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${consentedContinuation.receipt_id}`);
+    const consentedReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${consentedContinuation.receipt_id}`);
     assert.equal(consentedReceipt.details.continuation.mode, "fallback_allowed");
     assert.ok(consentedReceipt.details.continuation.mismatchFields.includes("route_id"));
 
@@ -1276,7 +1276,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.equal(typeof anthropic.receipt_id, "string");
     assert.equal(Array.isArray(anthropic.tool_receipt_ids), true);
     assert.equal(typeof anthropic.usage.input_tokens, "number");
-    const anthropicReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${anthropic.receipt_id}`);
+    const anthropicReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${anthropic.receipt_id}`);
     assert.equal(anthropicReceipt.kind, "model_invocation");
     assert.equal(anthropicReceipt.details.routeId, "route.local-first");
     assert.equal(anthropicReceipt.details.selectedModel, "local:auto");
@@ -1312,7 +1312,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.match(streamedText, /IOI model router fixture response/);
     const streamedReceipt = await expectOk(
       daemon.endpoint,
-      `/api/v1/receipts/${anthropicStreaming.events.at(-1).data.receipt_id}`,
+      `/v1/model-mount/receipts/${anthropicStreaming.events.at(-1).data.receipt_id}`,
     );
     assert.equal(streamedReceipt.kind, "model_invocation");
 
@@ -1401,7 +1401,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
       },
     });
     assert.equal(ephemeralMcpResponse.tool_receipt_ids.length, 1);
-    const ephemeralReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${ephemeralMcpResponse.receipt_id}`);
+    const ephemeralReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${ephemeralMcpResponse.receipt_id}`);
     assert.deepEqual(ephemeralReceipt.details.toolReceiptIds, ephemeralMcpResponse.tool_receipt_ids);
     assert.equal(JSON.stringify(ephemeralReceipt).includes("vault://fixture/mcp/ephemeral-huggingface"), false);
 
@@ -1479,7 +1479,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.deepEqual(workflowMemoryCall.invocation.send_options.memory, workflowMemoryCall.invocation.memory_policy);
     const workflowMemoryReceipt = await expectOk(
       daemon.endpoint,
-      `/api/v1/receipts/${workflowMemoryCall.invocation.receipt_id}`,
+      `/v1/model-mount/receipts/${workflowMemoryCall.invocation.receipt_id}`,
     );
     assert.deepEqual(workflowMemoryReceipt.details.memory, workflowMemoryCall.invocation.memory_policy);
     assert.deepEqual(workflowMemoryReceipt.details.sendOptions.memory, workflowMemoryCall.invocation.memory_policy);
@@ -1563,7 +1563,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     });
     assert.equal(revokedMessagesUse.response.status, 403);
 
-    const receipts = await expectOk(daemon.endpoint, "/api/v1/receipts");
+    const receipts = await expectOk(daemon.endpoint, "/v1/model-mount/receipts");
     assert.ok(receipts.some((receipt) => receipt.kind === "model_lifecycle"));
     assert.ok(
       receipts.some(
@@ -1584,7 +1584,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.ok(receipts.some((receipt) => receipt.kind === "mcp_tool_invocation"));
     assert.ok(receipts.some((receipt) => receipt.kind === "workflow_receipt_gate"));
     assert.equal(JSON.stringify(receipts).includes("vault://fixture/mcp/huggingface"), false);
-    const receiptById = await expectOk(daemon.endpoint, `/api/v1/receipts/${workflowCall.receipt.id}`);
+    const receiptById = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${workflowCall.receipt.id}`);
     assert.equal(receiptById.id, workflowCall.receipt.id);
 
     const legacyModels = await expectOk(daemon.endpoint, "/v1/models");
@@ -2021,9 +2021,9 @@ test("catalog provider auth resolves vault-backed headers for custom and live ca
     });
     assert.equal(liveImport.status, "completed");
     assert.ok(liveCatalogServer.observedHeaders().some((headers) => headers.authorization === `Bearer ${liveSecret}`));
-    const importReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${liveImport.catalogReceiptId}`);
+    const importReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${liveImport.catalogReceiptId}`);
     assert.equal(importReceipt.details.catalogAuth.resolvedMaterial, true);
-    const downloadReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${liveImport.download.receiptId}`);
+    const downloadReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${liveImport.download.receiptId}`);
     assert.equal(downloadReceipt.details.catalogAuth.resolvedMaterial, true);
     const projection = await expectOk(daemon.endpoint, "/api/v1/projections/model-mounting");
     assert.equal(JSON.stringify(projection).includes(customSecret), false);
@@ -2316,7 +2316,7 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
     assert.equal(liveImport.download.maxBytes, liveEntry.sizeBytes);
     assert.equal(liveImport.download.bytesCompleted > 0, true);
     assert.equal(fs.existsSync(liveImport.download.targetPath), true);
-    const liveImportReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${liveImport.catalogReceiptId}`);
+    const liveImportReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${liveImport.catalogReceiptId}`);
     assert.equal(liveImportReceipt.details.approvalDecision.required, true);
     assert.equal(liveImportReceipt.details.approvalDecision.approved, true);
     assert.ok(liveImportReceipt.details.selectionReceiptFields.includes("download_risk"));
@@ -2614,7 +2614,7 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
     assert.equal(deleted.projectedFreedBytes > 0, true);
     assert.equal(fs.existsSync(copied.artifactPath), false);
 
-    const receipts = await expectOk(daemon.endpoint, "/api/v1/receipts");
+    const receipts = await expectOk(daemon.endpoint, "/v1/model-mount/receipts");
     assert.ok(receipts.some((receipt) => receipt.details?.operation === "model_catalog_import_url"));
     assert.ok(receipts.some((receipt) => receipt.details?.operation === "model_import_dry_run"));
     assert.ok(receipts.some((receipt) => receipt.details?.operation === "model_artifact_delete"));
@@ -2630,7 +2630,7 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
     assert.ok(receipts.some((receipt) => receipt.details?.transfer?.retryCount === 1));
     assert.equal(JSON.stringify(receipts).includes("hf-partial-secret-token"), false);
 
-    const replay = await expectOk(daemon.endpoint, `/api/v1/receipts/${completed.receiptId}/replay`);
+    const replay = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${completed.receiptId}/replay`);
     assert.equal(replay.receipt.id, completed.receiptId);
     assert.equal(replay.source, "agentgres_model_mounting_projection_replay");
     assert.ok(replay.projectionWatermark > 0);
@@ -2679,10 +2679,10 @@ test("Agentgres model mounting projection and receipt lookup survive daemon rest
 
   daemon = await startRuntimeDaemonService({ cwd, stateDir });
   try {
-    const receipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${receiptId}`);
+    const receipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${receiptId}`);
     assert.equal(receipt.id, receiptId);
     assert.equal(receipt.details.routeId, "route.native-local");
-    const replay = await expectOk(daemon.endpoint, `/api/v1/receipts/${receiptId}/replay`);
+    const replay = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${receiptId}/replay`);
     assert.equal(replay.receipt.id, receiptId);
     assert.equal(replay.route.id, "route.native-local");
     assert.equal(replay.endpoint.modelId, "autopilot:native-fixture");
@@ -2794,11 +2794,11 @@ test("Ollama provider adapter lists models, invokes through policy, and redacts 
     const streamedChatMetadata = streamedChatChunks.find((chunk) => chunk !== "[DONE]" && chunk.stream_receipt_id);
     assert.equal(streamedChatMetadata.route_id, "route.test.ollama");
     assert.equal(streamedChatMetadata.provider_stream, "native");
-    const streamedChatReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${streamedChatMetadata.receipt_id}`);
+    const streamedChatReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${streamedChatMetadata.receipt_id}`);
     assert.equal(streamedChatReceipt.details.providerId, "provider.test.ollama");
     assert.equal(streamedChatReceipt.details.providerResponseKind, "ollama.chat.stream");
     assert.ok(streamedChatReceipt.details.backendEvidenceRefs.includes("ollama_api_chat_native_stream"));
-    const streamedChatCompleteReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${streamedChatMetadata.stream_receipt_id}`);
+    const streamedChatCompleteReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${streamedChatMetadata.stream_receipt_id}`);
     assert.equal(streamedChatCompleteReceipt.details.invocationReceiptId, streamedChatMetadata.receipt_id);
     assert.equal(streamedChatCompleteReceipt.details.outputHash, crypto.createHash("sha256").update(streamedChatText).digest("hex"));
 
@@ -2824,11 +2824,11 @@ test("Ollama provider adapter lists models, invokes through policy, and redacts 
     assert.equal(streamedResponseCompleted.provider_stream, "native");
     assert.equal(typeof streamedResponseCompleted.receipt_id, "string");
     assert.equal(typeof streamedResponseCompleted.stream_receipt_id, "string");
-    const streamedResponseReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${streamedResponseCompleted.receipt_id}`);
+    const streamedResponseReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${streamedResponseCompleted.receipt_id}`);
     assert.equal(streamedResponseReceipt.details.providerId, "provider.test.ollama");
     assert.equal(streamedResponseReceipt.details.providerResponseKind, "ollama.responses.stream");
     assert.ok(streamedResponseReceipt.details.backendEvidenceRefs.includes("ollama_api_chat_native_stream"));
-    const streamedResponseCompleteReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${streamedResponseCompleted.stream_receipt_id}`);
+    const streamedResponseCompleteReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${streamedResponseCompleted.stream_receipt_id}`);
     assert.equal(streamedResponseCompleteReceipt.details.invocationReceiptId, streamedResponseCompleted.receipt_id);
     assert.equal(streamedResponseCompleteReceipt.details.outputHash, crypto.createHash("sha256").update(streamedResponseText).digest("hex"));
 
@@ -2839,7 +2839,7 @@ test("Ollama provider adapter lists models, invokes through policy, and redacts 
     });
     assert.deepEqual(embeddings.embeddings[0].embedding, [0.12, 0.34, 0.56]);
 
-    const receipts = await expectOk(daemon.endpoint, "/api/v1/receipts");
+    const receipts = await expectOk(daemon.endpoint, "/v1/model-mount/receipts");
     const invocation = receipts.find(
       (receipt) =>
         receipt.kind === "model_invocation" &&
@@ -3000,7 +3000,7 @@ setInterval(() => {}, 1000);
       token: grant.token,
       body: { route_id: "route.test.ollama.supervised", input: "hello supervised ollama" },
     });
-    const receipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${chat.receipt_id}`);
+    const receipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${chat.receipt_id}`);
     assert.equal(receipt.details.backend, "ollama");
     assert.equal(receipt.details.backendId, "backend.ollama");
 
@@ -3163,14 +3163,14 @@ test("vLLM and OpenAI-compatible adapters support responses fallback, embeddings
     assert.equal(typeof metadataChunk.receipt_id, "string");
     assert.equal(typeof metadataChunk.stream_receipt_id, "string");
     assert.equal(streamed.response.headers.get("x-ioi-receipt-id"), metadataChunk.receipt_id);
-    const streamStartReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${metadataChunk.receipt_id}`);
+    const streamStartReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${metadataChunk.receipt_id}`);
     assert.equal(streamStartReceipt.kind, "model_invocation");
     assert.equal(streamStartReceipt.details.providerId, "provider.test.openai-compatible-stream");
     assert.equal(streamStartReceipt.details.streamSource, "provider_native");
     assert.equal(streamStartReceipt.details.streamStatus, "started");
     assert.equal(streamStartReceipt.details.providerResponseKind, "chat.completions.stream");
     assert.ok(streamStartReceipt.details.backendEvidenceRefs.includes("openai_compatible_provider_native_stream"));
-    const streamCompleteReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${metadataChunk.stream_receipt_id}`);
+    const streamCompleteReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${metadataChunk.stream_receipt_id}`);
     assert.equal(streamCompleteReceipt.kind, "model_invocation_stream_completed");
     assert.equal(streamCompleteReceipt.details.invocationReceiptId, metadataChunk.receipt_id);
     assert.equal(streamCompleteReceipt.details.outputHash, crypto.createHash("sha256").update(streamedText).digest("hex"));
@@ -3201,14 +3201,14 @@ test("vLLM and OpenAI-compatible adapters support responses fallback, embeddings
     assert.equal(typeof responseMetadata.receipt_id, "string");
     assert.equal(typeof responseMetadata.stream_receipt_id, "string");
     assert.equal(streamedResponse.response.headers.get("x-ioi-receipt-id"), responseMetadata.receipt_id);
-    const responseStreamStartReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${responseMetadata.receipt_id}`);
+    const responseStreamStartReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${responseMetadata.receipt_id}`);
     assert.equal(responseStreamStartReceipt.kind, "model_invocation");
     assert.equal(responseStreamStartReceipt.details.providerId, "provider.test.openai-compatible-stream");
     assert.equal(responseStreamStartReceipt.details.streamSource, "provider_native");
     assert.equal(responseStreamStartReceipt.details.streamStatus, "started");
     assert.equal(responseStreamStartReceipt.details.providerResponseKind, "responses.stream");
     assert.ok(responseStreamStartReceipt.details.backendEvidenceRefs.includes("openai_compatible_responses_provider_native_stream"));
-    const responseStreamCompleteReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${responseMetadata.stream_receipt_id}`);
+    const responseStreamCompleteReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${responseMetadata.stream_receipt_id}`);
     assert.equal(responseStreamCompleteReceipt.kind, "model_invocation_stream_completed");
     assert.equal(responseStreamCompleteReceipt.details.invocationReceiptId, responseMetadata.receipt_id);
     assert.equal(responseStreamCompleteReceipt.details.outputHash, crypto.createHash("sha256").update(streamedResponseText).digest("hex"));
@@ -3256,7 +3256,7 @@ test("vLLM and OpenAI-compatible adapters support responses fallback, embeddings
     });
     assert.deepEqual(embeddings.data[0].embedding, [0.91, 0.82, 0.73]);
 
-    const receipts = await expectOk(daemon.endpoint, "/api/v1/receipts");
+    const receipts = await expectOk(daemon.endpoint, "/v1/model-mount/receipts");
     const invocation = receipts.find(
       (receipt) =>
         receipt.kind === "model_invocation" &&
@@ -3439,7 +3439,7 @@ setInterval(() => {}, 1000);
       body: { route_id: "route.test.vllm.supervised", input: "embed supervised vllm" },
     });
     assert.deepEqual(embeddings.data[0].embedding, [0.91, 0.82, 0.73]);
-    const receipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${response.receipt_id}`);
+    const receipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${response.receipt_id}`);
     assert.equal(receipt.details.backend, "vllm");
     assert.equal(receipt.details.backendId, "backend.vllm");
     assert.equal(receipt.details.backendProcessPidHash, loaded.backendProcess.pidHash);
@@ -3465,7 +3465,7 @@ setInterval(() => {}, 1000);
     assert.equal(streamedChatText, "fake vllm streamed chat");
     const streamedChatMetadata = streamedChatChunks.find((chunk) => chunk !== "[DONE]" && chunk.provider_stream === "native");
     assert.equal(streamedChatMetadata.route_id, "route.test.vllm.supervised");
-    const streamedChatReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${streamedChatMetadata.receipt_id}`);
+    const streamedChatReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${streamedChatMetadata.receipt_id}`);
     assert.equal(streamedChatReceipt.details.backend, "vllm");
     assert.equal(streamedChatReceipt.details.backendId, "backend.vllm");
     assert.equal(streamedChatReceipt.details.backendProcessPidHash, loaded.backendProcess.pidHash);
@@ -3473,7 +3473,7 @@ setInterval(() => {}, 1000);
     assert.ok(streamedChatReceipt.details.backendEvidenceRefs.includes("vllm_openai_compatible_server"));
     assert.ok(streamedChatReceipt.details.backendEvidenceRefs.includes("vllm_process_supervisor"));
     assert.ok(streamedChatReceipt.details.backendEvidenceRefs.includes("vllm_provider_native_stream"));
-    const streamedChatCompleteReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${streamedChatMetadata.stream_receipt_id}`);
+    const streamedChatCompleteReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${streamedChatMetadata.stream_receipt_id}`);
     assert.equal(streamedChatCompleteReceipt.details.invocationReceiptId, streamedChatMetadata.receipt_id);
     assert.equal(streamedChatCompleteReceipt.details.outputHash, crypto.createHash("sha256").update(streamedChatText).digest("hex"));
 
@@ -3606,7 +3606,7 @@ setInterval(() => {}, 1000);
       body: { route_id: "route.test.llama-cpp", input: "hello llama cpp" },
     });
     assert.match(chat.output_text, /fake llama.cpp chat/);
-    const receipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${chat.receipt_id}`);
+    const receipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${chat.receipt_id}`);
     assert.equal(receipt.details.backend, "llama_cpp");
     assert.equal(receipt.details.backendId, "backend.llama-cpp");
     assert.equal(receipt.details.backendProcessPidHash, loaded.backendProcess.pidHash);
@@ -3632,7 +3632,7 @@ setInterval(() => {}, 1000);
     const responseMetadata = streamedResponse.events.find((event) => event.event === "response.ioi.receipt")?.data;
     assert.equal(responseMetadata.route_id, "route.test.llama-cpp");
     assert.equal(responseMetadata.provider_stream, "native");
-    const responseStreamReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${responseMetadata.receipt_id}`);
+    const responseStreamReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${responseMetadata.receipt_id}`);
     assert.equal(responseStreamReceipt.details.backend, "llama_cpp");
     assert.equal(responseStreamReceipt.details.backendId, "backend.llama-cpp");
     assert.equal(responseStreamReceipt.details.backendProcessPidHash, loaded.backendProcess.pidHash);
@@ -3640,7 +3640,7 @@ setInterval(() => {}, 1000);
     assert.ok(responseStreamReceipt.details.backendEvidenceRefs.includes("llama_cpp_openai_compatible_server"));
     assert.ok(responseStreamReceipt.details.backendEvidenceRefs.includes("llama_cpp_process_supervisor"));
     assert.ok(responseStreamReceipt.details.backendEvidenceRefs.includes("llama_cpp_responses_provider_native_stream"));
-    const responseStreamCompleteReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${responseMetadata.stream_receipt_id}`);
+    const responseStreamCompleteReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${responseMetadata.stream_receipt_id}`);
     assert.equal(responseStreamCompleteReceipt.details.invocationReceiptId, responseMetadata.receipt_id);
     assert.equal(responseStreamCompleteReceipt.details.outputHash, crypto.createHash("sha256").update(streamedResponseText).digest("hex"));
 
@@ -3901,7 +3901,7 @@ test("hosted and custom HTTP provider auth fails closed behind wallet vault refs
     assert.equal(JSON.stringify(unresolvedHealth.json).includes(vaultMaterial), false);
     const unresolvedHealthReceipt = await expectOk(
       daemon.endpoint,
-      `/api/v1/receipts/${unresolvedHealth.json.error.details.providerHealthReceiptId}`,
+      `/v1/model-mount/receipts/${unresolvedHealth.json.error.details.providerHealthReceiptId}`,
     );
     assert.equal(unresolvedHealthReceipt.kind, "provider_health");
     assert.equal(unresolvedHealthReceipt.details.status, "blocked");
@@ -3964,7 +3964,7 @@ test("hosted and custom HTTP provider auth fails closed behind wallet vault refs
     assert.equal(health.vaultBoundary.runtimeBound, true);
     assert.equal(typeof health.discovery.lastHealthCheck.authVaultRefHash, "string");
     assert.equal(typeof health.discovery.lastHealthCheck.receiptId, "string");
-    const providerHealthReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${health.discovery.lastHealthCheck.receiptId}`);
+    const providerHealthReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${health.discovery.lastHealthCheck.receiptId}`);
     assert.equal(providerHealthReceipt.kind, "provider_health");
     assert.equal(providerHealthReceipt.details.status, "available");
     assert.equal(JSON.stringify(health).includes(vaultRef), false);
@@ -4010,7 +4010,7 @@ test("hosted and custom HTTP provider auth fails closed behind wallet vault refs
       body: { route_id: "route.test.custom-vault", input: "vault backed custom provider" },
     });
     assert.equal(chat.route_id, "route.test.custom-vault");
-    const receipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${chat.receipt_id}`);
+    const receipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${chat.receipt_id}`);
     assert.equal(receipt.details.providerId, "provider.test.custom-vault");
     assert.equal(typeof receipt.details.authVaultRefHash, "string");
     assert.ok(receipt.details.providerAuthEvidenceRefs.includes("VaultPort.resolveVaultRef"));
@@ -4339,7 +4339,7 @@ exit 0
     assert.equal(loaded.backend, "lm_studio");
     assert.equal(loaded.loadOptions.contextLength, 8192);
     assert.equal(loaded.identifier, "qwen-dev");
-    const loadReceipt = (await expectOk(daemon.endpoint, "/api/v1/receipts")).find(
+    const loadReceipt = (await expectOk(daemon.endpoint, "/v1/model-mount/receipts")).find(
       (receipt) => receipt.details?.operation === "model_load" && receipt.details?.endpointId === mounted.id,
     );
     assert.equal(loadReceipt.details.commandArgsHash.length > 0, true);
@@ -4360,7 +4360,7 @@ exit 0
     });
     assert.deepEqual(embeddings.data[0].embedding, [0.1, 0.2, 0.3]);
 
-    const receipts = await expectOk(daemon.endpoint, "/api/v1/receipts");
+    const receipts = await expectOk(daemon.endpoint, "/v1/model-mount/receipts");
     const invocation = receipts.find(
       (receipt) =>
         receipt.kind === "model_invocation" &&

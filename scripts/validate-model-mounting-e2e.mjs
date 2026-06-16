@@ -145,7 +145,7 @@ async function expectOk(endpoint, route, options) {
 async function waitForReceipt(endpoint, predicate, { timeoutMs = 3000 } = {}) {
   const started = Date.now();
   while (Date.now() - started < timeoutMs) {
-    const receipts = await expectOk(endpoint, "/api/v1/receipts");
+    const receipts = await expectOk(endpoint, "/v1/model-mount/receipts");
     const receipt = receipts.find(predicate);
     if (receipt) return receipt;
     await new Promise((resolve) => setTimeout(resolve, 25));
@@ -596,7 +596,7 @@ async function main() {
       assert.equal(typeof survey.hardware.totalMemoryBytes, "number");
       assert.ok(Array.isArray(survey.engines));
       assert.ok(survey.engines.length >= engines.length);
-      const receipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${runtimeSurveyReceiptId}`);
+      const receipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${runtimeSurveyReceiptId}`);
       assert.equal(receipt.kind, "runtime_survey");
       assert.equal(receipt.details.engineCount, survey.engines.length);
       const receiptText = JSON.stringify(receipt);
@@ -759,7 +759,7 @@ async function main() {
       continuedResponseReceiptId = continuedResponse.receipt_id;
       assert.equal(continuedResponse.previous_response_id, responses.response_id);
       assert.match(continuedResponse.output_text, /Autopilot native local model response/);
-      const continuedResponseReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${continuedResponseReceiptId}`);
+      const continuedResponseReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${continuedResponseReceiptId}`);
       assert.equal(continuedResponseReceipt.details.previousResponseId, responses.response_id);
       assert.equal(continuedResponseReceipt.details.continuation.mode, "matched");
 
@@ -778,7 +778,7 @@ async function main() {
       assert.equal(anthropic.route_id, "route.native-local");
       assert.equal(anthropic.model, "native:e2e");
       assert.match(anthropic.content[0].text, /Autopilot native local model response/);
-      const anthropicReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${anthropicReceiptId}`);
+      const anthropicReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${anthropicReceiptId}`);
       assert.equal(anthropicReceipt.kind, "model_invocation");
       assert.equal(anthropicReceipt.details.routeId, "route.native-local");
 
@@ -799,7 +799,7 @@ async function main() {
       assert.equal(tokenized.model, "native:e2e");
       assert.ok(tokenized.tokens.length >= 3);
       assert.equal(tokenized.usage.prompt_tokens, tokenized.token_count);
-      const tokenizationReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${tokenizerReceiptId}`);
+      const tokenizationReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${tokenizerReceiptId}`);
       assert.equal(tokenizationReceipt.kind, "model_tokenization");
       assert.equal(tokenizationReceipt.details.operation, "tokenize");
       assert.equal(tokenizationReceipt.details.selectedModel, "native:e2e");
@@ -831,7 +831,7 @@ async function main() {
       assert.equal(contextFit.context_window, 5);
       assert.equal(contextFit.fits, false);
       assert.equal(contextFit.truncation.applied, true);
-      const contextFitReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${contextFitReceiptId}`);
+      const contextFitReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${contextFitReceiptId}`);
       assert.equal(contextFitReceipt.kind, "model_context_fit");
       assert.equal(contextFitReceipt.details.operation, "context_fit");
       assert.equal(contextFitReceipt.details.selectedModel, "native:e2e");
@@ -862,11 +862,11 @@ async function main() {
       assert.equal(anthropicStop.data.provider_stream, "native");
       anthropicStreamInvocationReceiptId = anthropicStop.data.receipt_id;
       anthropicStreamReceiptId = anthropicStop.data.stream_receipt_id;
-      const anthropicStreamInvocation = await expectOk(daemon.endpoint, `/api/v1/receipts/${anthropicStreamInvocationReceiptId}`);
+      const anthropicStreamInvocation = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${anthropicStreamInvocationReceiptId}`);
       assert.equal(anthropicStreamInvocation.kind, "model_invocation");
       assert.equal(anthropicStreamInvocation.details.streamSource, "provider_native");
       assert.equal(anthropicStreamInvocation.details.providerResponseKind, "native_local.chat.stream");
-      const anthropicStreamReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${anthropicStreamReceiptId}`);
+      const anthropicStreamReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${anthropicStreamReceiptId}`);
       assert.equal(anthropicStreamReceipt.kind, "model_invocation_stream_completed");
       assert.equal(anthropicStreamReceipt.details.streamKind, "anthropic_messages_provider_native");
       assert.equal(anthropicStreamReceipt.details.invocationReceiptId, anthropicStreamInvocationReceiptId);
@@ -901,13 +901,13 @@ async function main() {
       nativeStreamCompletionReceiptId = streamedChatMetadata.stream_receipt_id;
       const streamInvocationReceipt = await expectOk(
         daemon.endpoint,
-        `/api/v1/receipts/${nativeStreamCompletionInvocationReceiptId}`,
+        `/v1/model-mount/receipts/${nativeStreamCompletionInvocationReceiptId}`,
       );
       assert.equal(streamInvocationReceipt.kind, "model_invocation");
       assert.equal(streamInvocationReceipt.details.streamStatus, "started");
       assert.equal(streamInvocationReceipt.details.streamSource, "provider_native");
       assert.equal(streamInvocationReceipt.details.providerResponseKind, "native_local.chat.stream");
-      const streamCompletionReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${nativeStreamCompletionReceiptId}`);
+      const streamCompletionReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${nativeStreamCompletionReceiptId}`);
       assertNativeLocalStreamReceipt(streamCompletionReceipt, {
         kind: "model_invocation_stream_completed",
         streamKind: "openai_chat_completions_native_local",
@@ -962,7 +962,7 @@ async function main() {
         reason: "client_disconnect",
       });
       assert.equal(streamAbortReceipt.details.providerResponseKind, "native_local.responses.stream");
-      const streamAbortInvocation = await expectOk(daemon.endpoint, `/api/v1/receipts/${nativeStreamAbortInvocationReceiptId}`);
+      const streamAbortInvocation = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${nativeStreamAbortInvocationReceiptId}`);
       assert.equal(streamAbortInvocation.kind, "model_invocation");
       assert.equal(streamAbortInvocation.details.streamStatus, "started");
       assert.equal(streamAbortInvocation.details.streamSource, "provider_native");
@@ -1108,7 +1108,7 @@ async function main() {
       ephemeralReceiptId = response.receipt_id;
       ephemeralToolReceiptIds = response.tool_receipt_ids;
       assert.equal(ephemeralToolReceiptIds.length, 1);
-      const receipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${ephemeralReceiptId}`);
+      const receipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${ephemeralReceiptId}`);
       assert.deepEqual(receipt.details.toolReceiptIds, ephemeralToolReceiptIds);
       assert.equal(JSON.stringify(receipt).includes(ephemeralVaultRef), false);
       return {
@@ -1504,9 +1504,9 @@ async function main() {
       await daemon.close();
       daemon = await startRuntimeDaemonService({ cwd: workspaceDir, stateDir });
       evidence.restartedDaemonEndpoint = daemon.endpoint;
-      const receipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${nativeReceiptId}`);
+      const receipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${nativeReceiptId}`);
       assert.equal(receipt.id, nativeReceiptId);
-      const replay = await expectOk(daemon.endpoint, `/api/v1/receipts/${nativeReceiptId}/replay`);
+      const replay = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${nativeReceiptId}/replay`);
       assert.equal(replay.receipt.id, nativeReceiptId);
       assert.equal(replay.route.id, "route.native-local");
       const projection = await expectOk(daemon.endpoint, "/api/v1/projections/model-mounting");
@@ -1522,18 +1522,18 @@ async function main() {
       assert.ok(projection.receipts.some((item) => item.id === contextFitReceiptId));
       assert.ok(projection.runtimeSurveyReceipts.some((item) => item.id === runtimeSurveyReceiptId));
       assert.ok(projection.toolReceipts.some((item) => ephemeralToolReceiptIds.includes(item.id)));
-      const streamCompletionReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${nativeStreamCompletionReceiptId}`);
+      const streamCompletionReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${nativeStreamCompletionReceiptId}`);
       assertNativeLocalStreamReceipt(streamCompletionReceipt, {
         kind: "model_invocation_stream_completed",
         streamKind: "openai_chat_completions_native_local",
         selectedModel: "native:e2e",
         endpointId: "endpoint.e2e.native-local",
       });
-      const streamCompletionReplay = await expectOk(daemon.endpoint, `/api/v1/receipts/${nativeStreamCompletionReceiptId}/replay`);
+      const streamCompletionReplay = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${nativeStreamCompletionReceiptId}/replay`);
       assert.equal(streamCompletionReplay.receipt.id, nativeStreamCompletionReceiptId);
       assert.equal(streamCompletionReplay.route.id, "route.native-local");
       assert.equal(streamCompletionReplay.endpoint.id, "endpoint.e2e.native-local");
-      const streamAbortReceipt = await expectOk(daemon.endpoint, `/api/v1/receipts/${nativeStreamAbortReceiptId}`);
+      const streamAbortReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${nativeStreamAbortReceiptId}`);
       assertNativeLocalStreamReceipt(streamAbortReceipt, {
         kind: "model_invocation_stream_canceled",
         streamKind: "openai_responses_native_local",
@@ -1542,34 +1542,34 @@ async function main() {
         status: "aborted",
         reason: "client_disconnect",
       });
-      const streamAbortReplay = await expectOk(daemon.endpoint, `/api/v1/receipts/${nativeStreamAbortReceiptId}/replay`);
+      const streamAbortReplay = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${nativeStreamAbortReceiptId}/replay`);
       assert.equal(streamAbortReplay.receipt.id, nativeStreamAbortReceiptId);
       assert.equal(streamAbortReplay.route.id, "route.native-local");
       assert.equal(streamAbortReplay.endpoint.id, "endpoint.e2e.native-local");
-      const tokenizerReplay = await expectOk(daemon.endpoint, `/api/v1/receipts/${tokenizerReceiptId}/replay`);
+      const tokenizerReplay = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${tokenizerReceiptId}/replay`);
       assert.equal(tokenizerReplay.receipt.id, tokenizerReceiptId);
       assert.equal(tokenizerReplay.route.id, "route.native-local");
       assert.equal(tokenizerReplay.endpoint.id, "endpoint.e2e.native-local");
-      const contextReplay = await expectOk(daemon.endpoint, `/api/v1/receipts/${contextFitReceiptId}/replay`);
+      const contextReplay = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${contextFitReceiptId}/replay`);
       assert.equal(contextReplay.receipt.id, contextFitReceiptId);
       assert.equal(contextReplay.route.id, "route.native-local");
       assert.equal(contextReplay.endpoint.id, "endpoint.e2e.native-local");
-      const anthropicReplay = await expectOk(daemon.endpoint, `/api/v1/receipts/${anthropicReceiptId}/replay`);
+      const anthropicReplay = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${anthropicReceiptId}/replay`);
       assert.equal(anthropicReplay.receipt.id, anthropicReceiptId);
       assert.equal(anthropicReplay.route.id, "route.native-local");
       assert.equal(anthropicReplay.endpoint.id, "endpoint.e2e.native-local");
-      const anthropicStreamReplay = await expectOk(daemon.endpoint, `/api/v1/receipts/${anthropicStreamReceiptId}/replay`);
+      const anthropicStreamReplay = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${anthropicStreamReceiptId}/replay`);
       assert.equal(anthropicStreamReplay.receipt.id, anthropicStreamReceiptId);
       assert.equal(anthropicStreamReplay.route.id, "route.native-local");
       assert.equal(anthropicStreamReplay.endpoint.id, "endpoint.e2e.native-local");
-      const continuedReplay = await expectOk(daemon.endpoint, `/api/v1/receipts/${continuedResponseReceiptId}/replay`);
+      const continuedReplay = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${continuedResponseReceiptId}/replay`);
       assert.equal(continuedReplay.receipt.id, continuedResponseReceiptId);
       assert.equal(continuedReplay.route.id, "route.native-local");
       assert.equal(continuedReplay.endpoint.id, "endpoint.e2e.native-local");
       const restartedProcess = projection.backendProcesses.find((process) => process.backendId === "backend.autopilot.native-local.fixture");
       assert.equal(restartedProcess.status, "stale_recovered");
       assert.equal(restartedProcess.staleReason, "daemon_boot_mismatch");
-      const runtimeSurveyReplay = await expectOk(daemon.endpoint, `/api/v1/receipts/${runtimeSurveyReceiptId}/replay`);
+      const runtimeSurveyReplay = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${runtimeSurveyReceiptId}/replay`);
       assert.equal(runtimeSurveyReplay.receipt.id, runtimeSurveyReceiptId);
       const vaultMeta = await expectOk(daemon.endpoint, "/api/v1/vault/refs/meta", {
         method: "POST",

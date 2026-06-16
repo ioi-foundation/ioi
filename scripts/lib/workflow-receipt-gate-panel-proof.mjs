@@ -93,7 +93,7 @@ try {
 
   const blockedReceipt = await expectOk(
     daemon.endpoint,
-    `/api/v1/receipts/${blockedGate.json.error.details.gateReceiptId}`,
+    `/v1/model-mount/receipts/${blockedGate.json.error.details.gateReceiptId}`,
   );
   assert.equal(blockedReceipt.kind, "workflow_receipt_gate_blocked");
 
@@ -121,7 +121,7 @@ try {
   assert.ok(panel.rows.some((row) => row.status === "blocked" && row.failures.includes("route:route.local-first")));
   assert.ok(panel.rows.every((row) => row.receiptId && row.gateReceiptId));
 
-  const receipts = await expectOk(daemon.endpoint, "/api/v1/receipts");
+  const receipts = await expectOk(daemon.endpoint, "/v1/model-mount/receipts");
   assert.ok(receipts.some((receipt) => receipt.id === passedGate.gateReceipt.id));
   assert.ok(receipts.some((receipt) => receipt.id === blockedReceipt.id));
 

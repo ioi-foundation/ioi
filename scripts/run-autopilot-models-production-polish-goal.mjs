@@ -552,7 +552,7 @@ async function bootstrapDaemon(outputDir) {
     },
   });
   const afterBootstrapProjection = await projection(daemon.endpoint, grant.token);
-  const receipts = await requestJson(daemon.endpoint, "/api/v1/receipts", {
+  const receipts = await requestJson(daemon.endpoint, "/v1/model-mount/receipts", {
     token: grant.token,
   });
   const bootstrap = {
@@ -916,7 +916,7 @@ async function runGuiValidation(outputRoot) {
     await screenshot(page, outputDir, "workflow-live-model-dry-run.png", screenshots);
 
     const finalProjection = await projection(boot.daemon.endpoint, boot.token);
-    const finalReceipts = await requestJson(boot.daemon.endpoint, "/api/v1/receipts", {
+    const finalReceipts = await requestJson(boot.daemon.endpoint, "/v1/model-mount/receipts", {
       token: boot.token,
     });
     const tracePath = join(outputDir, "playwright-trace.zip");

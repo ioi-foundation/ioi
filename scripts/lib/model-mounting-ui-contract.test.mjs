@@ -56,8 +56,8 @@ test("Autopilot Mounts workbench is wired to daemon API without persisting capab
     "/api/v1/mcp/import",
     "/api/v1/routes",
     "/api/v1/routes/route.local-first/test",
-    "/api/v1/receipts",
-    "/api/v1/receipts/:id/replay",
+    "/v1/model-mount/receipts",
+    "/v1/model-mount/receipts/:id/replay",
     "/api/v1/projections/model-mounting",
     "/api/v1/workflows/nodes/execute",
   ]) {

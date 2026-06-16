@@ -1287,7 +1287,7 @@ async function runValidation(outputDir) {
     for (const item of promptResults) {
       assertNotCannedDaemonProjection(item.assistantText, item.kind);
     }
-    const receiptResponse = await fetch(`${daemon.endpoint}/api/v1/receipts`);
+    const receiptResponse = await fetch(`${daemon.endpoint}/v1/model-mount/receipts`);
     const receiptPayload = receiptResponse.ok ? await receiptResponse.json() : { error: await receiptResponse.text() };
     const receiptItems = Array.isArray(receiptPayload)
       ? receiptPayload

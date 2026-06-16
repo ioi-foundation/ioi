@@ -377,6 +377,32 @@ export function createPublicRuntimeRequestHandler(deps) {
         writeJsonResponse(response, store.modelMounting.listModelCapabilities());
         return;
       }
+      if (request.method === "GET" && url.pathname === "/v1/model-mount/receipts") {
+        writeJsonResponse(response, store.modelMounting.listReceipts());
+        return;
+      }
+      if (
+        request.method === "GET" &&
+        segments[0] === "v1" &&
+        segments[1] === "model-mount" &&
+        segments[2] === "receipts" &&
+        segments[3] &&
+        segments[4] === "replay"
+      ) {
+        writeJsonResponse(response, store.modelMounting.receiptReplay(decodeURIComponent(segments[3])));
+        return;
+      }
+      if (
+        request.method === "GET" &&
+        segments[0] === "v1" &&
+        segments[1] === "model-mount" &&
+        segments[2] === "receipts" &&
+        segments[3] &&
+        !segments[4]
+      ) {
+        writeJsonResponse(response, store.modelMounting.getReceipt(decodeURIComponent(segments[3])));
+        return;
+      }
       if (request.method === "GET" && url.pathname === "/v1/repositories") {
         writeJsonResponse(response, store.repositorySurface.listRepositories(store));
         return;

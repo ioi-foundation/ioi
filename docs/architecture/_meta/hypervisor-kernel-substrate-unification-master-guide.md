@@ -11337,6 +11337,21 @@ hosted/provider transport, OAuth/auth-header materialization, invocation
 authority depth, and IDE protocol coverage still need terminal Rust-owned
 coverage.
 
+Slice 1350 hard-cuts stable model_mount receipt protocol clients and retires the
+native receipt read aliases. Public receipt list/get/replay now use
+`GET /v1/model-mount/receipts`, `GET /v1/model-mount/receipts/{id}`, and
+`GET /v1/model-mount/receipts/{id}/replay` over the mounted model_mount
+receipt store and Rust `receipt_replay` read projection; CLI receipt commands
+and current proof/autopilot scripts consume those stable protocol routes.
+`GET /api/v1/receipts`, `GET /api/v1/receipts/{id}`, and
+`GET /api/v1/receipts/{id}/replay` are no longer routed by the native
+model_mount handler, focused route tests assert those aliases return `not_found`
+without calling receipt methods, and conformance scans keep clients and handlers
+off the retired `/api/v1/receipts` family. This remains non-terminal because
+mutation/control routes, backend execution/materialization, hosted/provider
+transport, OAuth/auth-header materialization, invocation authority depth, and
+IDE protocol coverage still need terminal Rust-owned coverage.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

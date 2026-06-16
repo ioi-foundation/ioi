@@ -22539,6 +22539,16 @@ function runReceipts() {
   const modelMountStableReadCliRoutes = exists("crates/cli/src/commands/routes.rs")
     ? read("crates/cli/src/commands/routes.rs")
     : "";
+  const modelMountStableReadCliReceipts = exists("crates/cli/src/commands/receipts.rs")
+    ? read("crates/cli/src/commands/receipts.rs")
+    : "";
+  const modelMountReceiptProtocolClients = [
+    modelMountStableReadCliReceipts,
+    ...collectFiles(
+      "scripts",
+      (file) => file.endsWith(".mjs") && file !== "scripts/conformance/hypervisor-conformance.mjs",
+    ).map((file) => read(file)),
+  ].join("\n");
   const modelMountStableReadCliModelsLsBlock =
     modelMountStableReadCliModels.match(/ModelsCommands::Ls => \{[\s\S]*?\n        ModelsCommands::Capabilities/)?.[0] ?? "";
   const modelMountStableReadCliModelsCapabilitiesBlock =
@@ -26078,6 +26088,37 @@ function runReceipts() {
       "crates/cli/src/commands/routes.rs",
     ],
     "Stable model_mount read clients must use /v1 Rust projection APIs; migrated CLI/SDK read commands must not fall back through older /api/v1 model_mount read routes",
+  );
+  assertCheck(
+    result,
+    "model-mount-receipt-stable-protocol-clients",
+    /\/v1\/model-mount\/receipts/.test(publicRuntimeRoutes) &&
+      /store\.modelMounting\.listReceipts\(\)/.test(publicRuntimeRoutes) &&
+      /store\.modelMounting\.getReceipt\(decodeURIComponent\(segments\[3\]\)\)/.test(publicRuntimeRoutes) &&
+      /store\.modelMounting\.receiptReplay\(decodeURIComponent\(segments\[3\]\)\)/.test(publicRuntimeRoutes) &&
+      /\/v1\/model-mount\/receipts/.test(publicRuntimeRoutesTest) &&
+      /method: "listReceipts"/.test(publicRuntimeRoutesTest) &&
+      /method: "getReceipt"/.test(publicRuntimeRoutesTest) &&
+      /method: "receiptReplay"/.test(publicRuntimeRoutesTest) &&
+      /daemon_request\(endpoint, token, Method::GET, "\/v1\/model-mount\/receipts", None\)/.test(
+        modelMountStableReadCliReceipts,
+      ) &&
+      /\/v1\/model-mount\/receipts\/\{id\}/.test(modelMountStableReadCliReceipts) &&
+      /\/v1\/model-mount\/receipts\/\{id\}\/replay/.test(modelMountStableReadCliReceipts) &&
+      !/\/api\/v1\/receipts/.test(modelMountReceiptProtocolClients) &&
+      !/url\.pathname === "\/api\/v1\/receipts"/.test(runtimeRouteHandlers) &&
+      !/segments\[2\] === "receipts"/.test(runtimeRouteHandlers) &&
+      /model mounting native route does not expose retired receipt read aliases/.test(runtimeRouteHandlersTest) &&
+      /Slice 1350 hard-cuts stable model_mount receipt protocol clients/.test(guide) &&
+      /Model_mount receipt stable protocol clients/.test(matrix) &&
+      /RuntimeDaemonCoreModelMountReceiptStableProtocolClients/.test(implementationMatrix),
+    [
+      "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.mjs",
+      "crates/cli/src/commands/receipts.rs",
+      "scripts",
+    ],
+    "Model_mount receipt read/replay clients must use the stable /v1 protocol route; the retired /api/v1/receipts native aliases must not return",
   );
   assertCheck(
     result,
