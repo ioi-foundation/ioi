@@ -338,14 +338,18 @@ function createOperatorTurnControlRunner(calls) {
 }
 
 test("thread turn surface controls runtime thread resume through Rust bridge-control state planning", async () => {
+  const store = createStore({
+    agent: { id: "agent_runtime", runtime_profile: "runtime_service" },
+  });
   const surface = createRuntimeThreadTurnSurface({
+    contextPolicyCore: store.contextPolicyCore,
     diagnosticsFeedbackBlocksContinuation: () => false,
     isRuntimeBackedAgent: () => true,
     ...runtimeBridgeTurnDeps(),
+    runtimeBridgeThreadControl() {
+      throw new Error("retired runtimeBridgeThreadControl constructor alias must not be called");
+    },
     runtimeError,
-  });
-  const store = createStore({
-    agent: { id: "agent_runtime", runtime_profile: "runtime_service" },
   });
 
   const thread = await surface.resumeThread(store, "thread_alpha", { reason: "continue" });
@@ -373,15 +377,19 @@ test("thread turn surface controls runtime thread resume through Rust bridge-con
 });
 
 test("thread turn surface fails closed for runtime thread resume when Rust bridge-control boundary is missing", async () => {
-  const surface = createRuntimeThreadTurnSurface({
-    diagnosticsFeedbackBlocksContinuation: () => false,
-    isRuntimeBackedAgent: () => true,
-    ...runtimeBridgeTurnDeps(),
-    runtimeError,
-  });
   const store = createStore({
     agent: { id: "agent_runtime", runtime_profile: "runtime_service" },
     contextPolicyCore: {},
+  });
+  const surface = createRuntimeThreadTurnSurface({
+    contextPolicyCore: store.contextPolicyCore,
+    diagnosticsFeedbackBlocksContinuation: () => false,
+    isRuntimeBackedAgent: () => true,
+    ...runtimeBridgeTurnDeps(),
+    runtimeBridgeThreadControl() {
+      throw new Error("retired runtimeBridgeThreadControl constructor alias must not be called");
+    },
+    runtimeError,
   });
 
   await assert.rejects(
@@ -399,14 +407,18 @@ test("thread turn surface fails closed for runtime thread resume when Rust bridg
 });
 
 test("thread turn surface submits runtime turns through Rust bridge-turn state planning", async () => {
+  const store = createStore({
+    agent: { id: "agent_runtime", runtime_profile: "runtime_service" },
+  });
   const surface = createRuntimeThreadTurnSurface({
+    contextPolicyCore: store.contextPolicyCore,
     diagnosticsFeedbackBlocksContinuation: () => false,
     isRuntimeBackedAgent: () => true,
     ...runtimeBridgeTurnDeps(),
+    runtimeBridgeTurnRun() {
+      throw new Error("retired runtimeBridgeTurnRun constructor alias must not be called");
+    },
     runtimeError,
-  });
-  const store = createStore({
-    agent: { id: "agent_runtime", runtime_profile: "runtime_service" },
   });
 
   const turn = await surface.createTurn(store, "thread_alpha", {
@@ -439,15 +451,19 @@ test("thread turn surface submits runtime turns through Rust bridge-turn state p
 });
 
 test("thread turn surface fails closed for runtime turns when Rust bridge-turn lifecycle boundary is missing", async () => {
-  const surface = createRuntimeThreadTurnSurface({
-    diagnosticsFeedbackBlocksContinuation: () => false,
-    isRuntimeBackedAgent: () => true,
-    ...runtimeBridgeTurnDeps(),
-    runtimeError,
-  });
   const store = createStore({
     agent: { id: "agent_runtime", runtime_profile: "runtime_service" },
     contextPolicyCore: {},
+  });
+  const surface = createRuntimeThreadTurnSurface({
+    contextPolicyCore: store.contextPolicyCore,
+    diagnosticsFeedbackBlocksContinuation: () => false,
+    isRuntimeBackedAgent: () => true,
+    ...runtimeBridgeTurnDeps(),
+    runtimeBridgeTurnRun() {
+      throw new Error("retired runtimeBridgeTurnRun constructor alias must not be called");
+    },
+    runtimeError,
   });
 
   await assert.rejects(

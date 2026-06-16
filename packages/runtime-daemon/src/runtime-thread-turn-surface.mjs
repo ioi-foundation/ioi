@@ -34,8 +34,6 @@ export function createRuntimeThreadTurnSurface(deps = {}) {
     isRuntimeServiceProfile: isRuntimeServiceProfileDep = isRuntimeServiceProfile,
     optionalString: optionalStringDep = optionalString,
     requestWithThreadRuntimeControls: requestWithThreadRuntimeControlsDep = requestWithThreadRuntimeControls,
-    runtimeBridgeThreadControl = createRuntimeBridgeThreadControl,
-    runtimeBridgeTurnRun = createRuntimeBridgeTurnRun,
     lifecycleAgentStatusUpdate = updateLifecycleAgent,
     lifecycleRunCreate = createLifecycleRun,
     runtimeError: runtimeErrorDep = runtimeError,
@@ -46,7 +44,7 @@ export function createRuntimeThreadTurnSurface(deps = {}) {
     async resumeThread(store, threadId, request = {}) {
       const agent = store.agentForThread(threadId);
       if (isRuntimeBackedAgentDep(agent)) {
-        const threadProjection = await runtimeBridgeThreadControl(
+        const threadProjection = await createRuntimeBridgeThreadControl(
           store,
           threadId,
           agent,
@@ -122,7 +120,7 @@ export function createRuntimeThreadTurnSurface(deps = {}) {
       const agent = store.agentForThread(threadId);
       const controlledRequest = requestWithThreadRuntimeControlsDep(agent, request);
       if (isRuntimeBackedAgentDep(agent)) {
-        const turnProjection = await runtimeBridgeTurnRun(
+        const turnProjection = await createRuntimeBridgeTurnRun(
           store,
           threadId,
           agent,

@@ -10690,6 +10690,19 @@ tests and conformance guard the retired self-core defaults, the retired planner
 alias, and the daemon injection path. Remaining work is durable policy/memory
 replay and wallet/cTEE authority depth, not another helper-owned core fallback.
 
+Slice 1322 hard-cuts the runtime-service thread-turn bridge-adapter constructor
+aliases. `runtime-thread-turn-surface.mjs` no longer accepts
+`runtimeBridgeThreadControl` or `runtimeBridgeTurnRun` overrides; runtime-service
+resume and turn submission call the imported direct Rust lifecycle adapters
+(`createRuntimeBridgeThreadControl()` and `createRuntimeBridgeTurnRun()`) with
+the daemon-mounted `contextPolicyCore`. Focused tests mount fake Rust lifecycle
+cores through `contextPolicyCore` and install throw-if-called retired aliases to
+prove the old injected bridge handles cannot author runtime-service thread or
+turn truth. Conformance guards the direct adapter calls and the absent
+constructor aliases. Remaining work is durable lifecycle replay/projection,
+wallet/cTEE runtime-service authority, and stable IDE/CLI/SDK lifecycle APIs,
+not another bridge-adapter injection path.
+
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,
 `/v1/memory/policy`, `/v1/memory/path`, or `/v1/memory/validate`; the daemon
