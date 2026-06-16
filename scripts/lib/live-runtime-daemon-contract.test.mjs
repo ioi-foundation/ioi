@@ -11142,6 +11142,54 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     path.join(root, "packages/runtime-daemon/src/index.mjs"),
     "utf8",
   );
+  const runtimePublicRoutes = fs.readFileSync(
+    path.join(root, "packages/runtime-daemon/src/http/public-runtime-routes.mjs"),
+    "utf8",
+  );
+  const runtimeRouteHandlers = fs.readFileSync(
+    path.join(root, "packages/runtime-daemon/src/runtime-route-handlers.mjs"),
+    "utf8",
+  );
+  const runtimeContextPolicySurface = fs.readFileSync(
+    path.join(root, "packages/runtime-daemon/src/runtime-context-policy-surface.mjs"),
+    "utf8",
+  );
+  const runtimeUsageEvents = fs.readFileSync(
+    path.join(root, "packages/runtime-daemon/src/runtime-usage-events.mjs"),
+    "utf8",
+  );
+  const runtimeApprovalSurface = fs.readFileSync(
+    path.join(root, "packages/runtime-daemon/src/runtime-approval-surface.mjs"),
+    "utf8",
+  );
+  const runtimeCodingToolApproval = fs.readFileSync(
+    path.join(root, "packages/runtime-daemon/src/runtime-coding-tool-approval.mjs"),
+    "utf8",
+  );
+  const runtimeCodingToolInvocationSurface = fs.readFileSync(
+    path.join(root, "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs"),
+    "utf8",
+  );
+  const runtimeCodingToolBudgetRecoverySurface = fs.readFileSync(
+    path.join(root, "packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.mjs"),
+    "utf8",
+  );
+  const runtimeContractConstants = fs.readFileSync(
+    path.join(root, "packages/runtime-daemon/src/runtime-contract-constants.mjs"),
+    "utf8",
+  );
+  const runtimeWorkflowEditSurface = fs.readFileSync(
+    path.join(root, "packages/runtime-daemon/src/runtime-workflow-edit-surface.mjs"),
+    "utf8",
+  );
+  const runtimeWorkspaceTrustState = fs.readFileSync(
+    path.join(root, "packages/runtime-daemon/src/threads/workspace-trust-state.mjs"),
+    "utf8",
+  );
+  const runtimeSubagentManager = fs.readFileSync(
+    path.join(root, "packages/runtime-daemon/src/subagent-manager.mjs"),
+    "utf8",
+  );
   const runtimeCodingTools = fs.readFileSync(
     path.join(root, "packages/runtime-daemon/src/coding-tools.mjs"),
     "utf8",
@@ -11936,15 +11984,15 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(runtimeActionSchema, /runtime_coding_tool_budget_recovery/);
   assert.match(tauriRuntimeProjection, /RuntimeCodingToolBudgetRecovery/);
   assert.match(tauriProjectTemplates, /workflow\.runtime\.coding_tool_budget_recovery/);
-  assert.match(runtimeDaemon, /subagentBudgetStatusForRun/);
-  assert.match(runtimeDaemon, /subagentBudgetUsageTelemetryForRequest/);
-  assert.match(runtimeDaemon, /Subagent budget limit exceeded/);
+  assert.match(runtimeSubagentManager, /subagentBudgetStatusForRun/);
+  assert.match(runtimeSubagentManager, /subagentBudgetUsageTelemetryForRequest/);
+  assert.match(runtimeSubagentManager, /subagent_budget_exceeded/);
   assert.match(runtimeDaemon, /runtimeUsageTelemetryForThread/);
   assert.match(runtimeDaemon, /\/v1\/usage/);
-  assert.match(runtimeDaemon, /\/v1\/context-budget/);
-  assert.match(runtimeDaemon, /evaluateContextBudget/);
-  assert.match(runtimeDaemon, /action === "compaction-policy"/);
-  assert.match(runtimeDaemon, /evaluateCompactionPolicy/);
+  assert.match(runtimePublicRoutes, /\/v1\/context-budget/);
+  assert.match(runtimeContextPolicySurface, /evaluateContextBudget/);
+  assert.match(runtimeRouteHandlers, /action === "compaction-policy"/);
+  assert.match(runtimeContextPolicySurface, /evaluateCompactionPolicy/);
   assert.match(runtimeDaemon, /usage_delta/);
   assert.match(runtimeDaemon, /context_pressure_delta/);
   assert.match(runtimeDaemon, /usage_final/);
@@ -12196,9 +12244,9 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowRunsPanel, /data-coding-tool-budget-recovery-action-count/);
   assert.match(workflowRunsPanel, /data-recovery-policy-operator-role/);
   assert.match(workflowRunsPanel, /onCreateRuntimeCodingToolBudgetRecoverySubflow/);
-  assert.match(runtimeDaemon, /proposeWorkflowEdit/);
-  assert.match(runtimeDaemon, /applyWorkflowEditProposal/);
-  assert.match(runtimeDaemon, /action === "workflow-edit-proposals"/);
+  assert.match(runtimeWorkflowEditSurface, /proposeWorkflowEdit/);
+  assert.match(runtimeWorkflowEditSurface, /applyWorkflowEditProposal/);
+  assert.match(runtimeRouteHandlers, /action === "workflow-edit-proposals"/);
   assert.match(workflowValidation, /workflowWorkspaceTrustGateIssues/);
   assert.match(workflowValidation, /missing_workspace_trust_gate/);
   assert.match(workflowValidation, /workflowRuntimeCodingToolBudgetRecoveryBindingIssues/);
@@ -12260,30 +12308,29 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(workflowComposerView, /onCreateRuntimeCodingToolBudgetRecoverySubflow/);
   assert.match(workflowComposerView, /workflow-add-coding-budget-recovery-template/);
   assert.match(workflowComposerView, /handleInsertRuntimeCodingToolBudgetRecoveryTemplate/);
-  assert.match(runtimeDaemon, /context_pressure_alert/);
-  assert.match(runtimeDaemon, /context\.pressure_alert/);
-  assert.match(runtimeDaemon, /requestThreadApproval/);
-  assert.match(runtimeDaemon, /OperatorApproval\.Request/);
-  assert.match(runtimeDaemon, /approval\.required/);
-  assert.match(runtimeDaemon, /codingToolApprovalManifestForThread/);
-  assert.match(runtimeDaemon, /codingToolApprovalSatisfaction/);
-  assert.match(runtimeDaemon, /codingToolApprovalManifestsMatch/);
+  assert.match(runtimeUsageEvents, /context_pressure_alert/);
+  assert.match(runtimeUsageEvents, /context\.pressure_alert/);
+  assert.match(runtimeApprovalSurface, /requestThreadApproval/);
+  assert.match(runtimeApprovalSurface, /approval\.required/);
+  assert.match(runtimeCodingToolApproval, /codingToolApprovalManifestForThread/);
+  assert.match(runtimeCodingToolApproval, /codingToolApprovalSatisfactionForThread/);
+  assert.doesNotMatch(runtimeCodingToolApproval, /codingToolApprovalManifestsMatch/);
   assert.match(runtimeDaemon, /codingToolBudgetPolicyForRequest/);
-  assert.match(runtimeDaemon, /coding_tool_budget_exceeded/);
-  assert.match(runtimeDaemon, /codingToolBudgetRecoveryForRun/);
-  assert.match(runtimeDaemon, /coding-tool-budget-recovery/);
-  assert.match(runtimeDaemon, /WorkflowRunCodingToolBudgetApprovedRetry/);
-  assert.match(runtimeDaemon, /ioi\.workflow\.coding-tool-budget-recovery\.v1/);
-  assert.match(runtimeDaemon, /workflow_node_requires_approval/);
-  assert.match(runtimeDaemon, /workflow_trust_profile_requires_approval/);
-  assert.match(runtimeDaemon, /approval_decision_event_id/);
-  assert.match(runtimeDaemon, /coding_tool_approval_required/);
-  assert.match(runtimeDaemon, /thread_review_mode_requires_approval/);
-  assert.match(runtimeDaemon, /WORKSPACE_TRUST_WARNING_SCHEMA_VERSION/);
-  assert.match(runtimeDaemon, /WORKSPACE_TRUST_ACKNOWLEDGEMENT_SCHEMA_VERSION/);
-  assert.match(runtimeDaemon, /workspace\.trust_warning/);
-  assert.match(runtimeDaemon, /workspace\.trust_acknowledged/);
-  assert.match(runtimeDaemon, /canvas_local_trust_state_accepted/);
+  assert.match(runtimeCodingToolInvocationSurface, /coding_tool_budget_exceeded/);
+  assert.match(runtimeCodingToolBudgetRecoverySurface, /codingToolBudgetRecoveryForRun/);
+  assert.match(runtimeRouteHandlers, /coding-tool-budget-recovery/);
+  assert.match(workflowRuntimePolicyStack, /WorkflowRunCodingToolBudgetApprovedRetry/);
+  assert.match(runtimeContractConstants, /ioi\.workflow\.coding-tool-budget-recovery\.v1/);
+  assert.match(runtimeCodingToolApproval, /node_approval_override/);
+  assert.match(runtimeCodingToolApproval, /trustRequiresApproval/);
+  assert.match(runtimeCodingToolInvocationSurface, /approval_decision_event_id/);
+  assert.match(runtimeCodingToolInvocationSurface, /coding_tool_approval_block/);
+  assert.match(runtimeCodingToolApproval, /threadMode/);
+  assert.match(runtimeContractConstants, /WORKSPACE_TRUST_WARNING_SCHEMA_VERSION/);
+  assert.match(runtimeContractConstants, /WORKSPACE_TRUST_ACKNOWLEDGEMENT_SCHEMA_VERSION/);
+  assert.match(runtimeWorkspaceTrustState, /workspace\.trust_warning/);
+  assert.match(runtimeWorkspaceTrustState, /workspace\.trust_acknowledged/);
+  assert.match(runtimeWorkspaceTrustState, /workspace_trust_warning_event/);
   assert.match(workflowRuntimeEventProjection, /workspace_trust_warning/);
   assert.match(workflowRuntimeEventProjection, /workspace_trust_acknowledged/);
   assert.match(workflowRuntimeEventProjection, /approval_decision/);

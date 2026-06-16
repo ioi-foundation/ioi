@@ -12260,6 +12260,22 @@ prove the direct API method is absent, and conformance now rejects the old JS
 method, schema, hot-path call, and positive admission-required test so this
 fallback cannot return beside the Rust-owned cancel state-update path.
 
+Slice 1401 hard-cuts active skill/hook run materialization into Rust daemon
+core. Run creation now sends only a
+`skill_hook_materialization_request` envelope with run/agent/workspace/home and
+selection facts; `RunCreateStateUpdateCore` calls the Rust skill/hook catalog
+discovery core, materializes the active manifest, hook dry-run plan, invocation
+ledger, escalation receipts, runtime events, artifacts, trace bindings, prompt
+audit refs, and runtime-task manifest id during Rust run-create planning, then
+removes the request before Agentgres persistence. `buildRun()` no longer imports
+or calls the JS manifest planner, the `skill-hook-manifest.mjs` facade and test
+are deleted, and Rust rejects run candidates that already carry
+`activeSkillHookManifest`, `hookDryRunPlan`, or `hookInvocationLedger` truth so
+the retired JS authoring path cannot return as a compatibility fallback.
+Conformance now guards the deleted JS files/imports/event builders plus the
+Rust materializer, retired-candidate rejection, and Rust-authored
+manifest/dry-run/invocation artifact outputs.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

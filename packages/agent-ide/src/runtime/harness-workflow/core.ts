@@ -10738,7 +10738,8 @@ export const DEFAULT_AGENT_HARNESS_COMPONENTS: WorkflowHarnessComponentSpec[] =
       label: "Hook policy",
       description:
         "Projects hook dry-run policy decisions before hook commands are eligible for execution.",
-      kernelRef: "packages/runtime-daemon/src/index.mjs::hookDryRunPlanForManifest",
+      kernelRef:
+        "crates/services/src/agentic/runtime/kernel/policy/thread_lifecycle.rs::materialize_skill_hook_run",
       capabilityScope: ["hook.policy.preview", "workflow.activation.read"],
       eventKinds: ["HookDryRunPlan"],
       evidence: [

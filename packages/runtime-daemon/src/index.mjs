@@ -45,12 +45,6 @@ import {
   runtimeUsageTelemetrySummary,
 } from "./usage-telemetry.mjs";
 import { ConversationArtifactStore } from "./conversation-artifacts.mjs";
-import {
-  activeSkillHookManifestForRun,
-  hookDryRunPlanForManifest,
-  hookEscalationReceiptsForLedger,
-  hookInvocationLedgerForPlan,
-} from "./skill-hook-manifest.mjs";
 import { createRuntimeRouteHandlers } from "./runtime-route-handlers.mjs";
 import { createRuntimeRecordProjections } from "./runtime-record-projections.mjs";
 import { artifact } from "./runtime-artifacts.mjs";
@@ -1459,6 +1453,8 @@ function computerUseLeaseInputForRequest(source = {}) {
 
 const COMPUTER_USE_RUN_MATERIALIZATION_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.computer-use-run-materialization-request.v1";
+const SKILL_HOOK_RUN_MATERIALIZATION_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.skill-hook-run-materialization-request.v1";
 
 function computerUseMaterializationRequestForRun({
   agent,
@@ -1511,6 +1507,28 @@ function computerUseMaterializationRequestForRun({
     evidence_refs: [
       "rust_daemon_core_computer_use_run_materialization_required",
       "computer_use_projection_js_facade_retired",
+    ],
+  };
+}
+
+function skillHookMaterializationRequestForRun({ agent, runId, request, homeDir = null } = {}) {
+  return {
+    schema_version: SKILL_HOOK_RUN_MATERIALIZATION_REQUEST_SCHEMA_VERSION,
+    object: "ioi.runtime_skill_hook_run_materialization_request",
+    run_id: optionalString(runId) ?? null,
+    agent_id: optionalString(agent?.id) ?? null,
+    workspace_root: optionalString(agent?.cwd) ?? null,
+    home_dir: optionalString(homeDir) ?? optionalString(process.env.HOME) ?? null,
+    source: "daemon_protocol_client",
+    agent_options: {
+      skillNames: normalizeArray(agent?.options?.skillNames),
+      hookNames: normalizeArray(agent?.options?.hookNames),
+    },
+    request_options: objectRecord(request?.options) ?? {},
+    evidence_refs: [
+      "rust_daemon_core_skill_hook_run_materialization_required",
+      "skill_hook_manifest_js_authoring_retired",
+      "agentgres_skill_hook_registry_truth_required",
     ],
   };
 }
@@ -1774,7 +1792,7 @@ function buildRun({
   modelRoute,
   memory = {},
   repositoryWorkflowProjector = null,
-  skillHookCatalog = null,
+  homeDir = null,
   diagnosticsFeedback = null,
 }) {
   const runId = `run_${crypto.randomUUID()}`;
@@ -1798,6 +1816,12 @@ function buildRun({
     request,
     selectedModel,
   });
+  const skillHookMaterializationRequest = skillHookMaterializationRequestForRun({
+    agent,
+    runId,
+    request,
+    homeDir,
+  });
   const modelRouteReceiptId =
     modelRoute?.receiptId ?? modelRouteDecision?.receipt_id ?? `receipt_${runId}_model_route`;
   const memoryRecords = normalizeArray(memory.records);
@@ -1813,12 +1837,6 @@ function buildRun({
   const subagentMemoryReceipt = subagentMemoryInheritance
     ? subagentMemoryInheritanceReceipt(runId, subagentMemoryInheritance)
     : null;
-  const activeSkillHookManifest = activeSkillHookManifestForRun({
-    runId,
-    agent,
-    request,
-    catalog: skillHookCatalog,
-  });
   const runtimeTask = runtimeTaskRecord({
     runId,
     agent,
@@ -1827,7 +1845,6 @@ function buildRun({
     taskFamily,
     selectedStrategy,
     modelRouteDecision,
-    activeSkillHookManifest,
     createdAt,
     updatedAt: createdAt,
     status: runStatus,
@@ -1851,15 +1868,6 @@ function buildRun({
     updatedAt: createdAt,
   });
   runtimeJob = attachChecklistToRuntimeJob(runtimeJob, runtimeChecklist);
-  const hookDryRunPlan = hookDryRunPlanForManifest({
-    runId,
-    manifest: activeSkillHookManifest,
-  });
-  const hookInvocationLedger = hookInvocationLedgerForPlan({
-    runId,
-    manifest: activeSkillHookManifest,
-    dryRunPlan: hookDryRunPlan,
-  });
   const {
     repositoryContext,
     branchPolicy,
@@ -1900,10 +1908,6 @@ function buildRun({
             `Subagent memory inheritance: mode=${subagentMemoryInheritance.mode}, receiver=${subagentMemoryInheritance.subagent_name ?? "handoff"}, records=${subagentMemoryInheritance.records.length}, write_allowed=${subagentMemoryInheritance.write_allowed}`,
           ]
         : []),
-      `Active skill/hook manifest: skills=${activeSkillHookManifest.selectedSkillIds.length}, hooks=${activeSkillHookManifest.selectedHookIds.length}, skillSet=${activeSkillHookManifest.activeSkillSetHash.slice(0, 12)}, hookSet=${activeSkillHookManifest.activeHookSetHash.slice(0, 12)}`,
-      `Hook dry-run plan: wouldRun=${hookDryRunPlan.wouldRunCount}, blocked=${hookDryRunPlan.blockedCount}, skipped=${hookDryRunPlan.skippedCount}`,
-      `Hook invocation ledger: invocations=${hookInvocationLedger.invocationCount}, wouldRun=${hookInvocationLedger.wouldRunCount}, blocked=${hookInvocationLedger.blockedCount}, skipped=${hookInvocationLedger.skippedCount}`,
-      `Hook escalation receipts: ${hookInvocationLedger.escalationCount} blocked invocation(s) require declaration fixes`,
       ...(diagnosticsFeedback
         ? [
             `Post-edit diagnostics: status=${diagnosticsFeedback.diagnostic_status}, findings=${diagnosticsFeedback.diagnostic_count}, mode=${diagnosticsFeedback.mode}`,
@@ -1939,17 +1943,12 @@ function buildRun({
       prAttempt.attemptId,
       reviewGate.gateId,
       githubPrCreatePlan.planId,
-      activeSkillHookManifest.manifestId,
-      hookDryRunPlan.planId,
-      hookInvocationLedger.ledgerId,
       diagnosticsFeedback?.injection_id,
       diagnosticsBlockingGate?.gate_id,
       diagnosticsBlockingGate?.policy_decision_id,
       ...(diagnosticsBlockingGate?.policy_decision_refs ?? []),
       ...(diagnosticsBlockingGate?.rollback_refs ?? []),
       diagnosticsBlockingGate?.receipt_id,
-      activeSkillHookManifest.activeSkillSetHash,
-      activeSkillHookManifest.activeHookSetHash,
       ...agent.options.mcpServerNames,
       ...agent.options.skillNames,
       ...agent.options.hookNames,
@@ -2021,11 +2020,6 @@ function buildRun({
         status: "passed",
       },
       {
-        checkId: "active-skill-hook-manifest",
-        description: "Trace records the exact skill and hook catalog snapshot used by this turn.",
-        status: "passed",
-      },
-      {
         checkId: "repository-context-read-only",
         description: "Repository context is captured without mutating branch, index, or worktree state.",
         status: "passed",
@@ -2060,25 +2054,11 @@ function buildRun({
         description: "GitHub PR creation is represented as a dry-run request plan with no network lookup, token exposure, or mutation.",
         status: "passed",
       },
-      {
-        checkId: "hook-dry-run-plan",
-        description: "Hook execution is previewed with policy decisions and no command execution.",
-        status: "passed",
-      },
       ...(computerUseMaterializationRequest
         ? [
             {
               checkId: "computer-use-glass-box-trace",
               description: "Computer-use run materialization request is delegated to Rust daemon-core before run persistence.",
-              status: "passed",
-            },
-          ]
-        : []),
-      ...(hookInvocationLedger.escalationCount > 0
-        ? [
-            {
-              checkId: "hook-escalation-receipts",
-              description: "Blocked hook invocations produce escalation receipts with required declaration fixes.",
               status: "passed",
             },
           ]
@@ -2124,10 +2104,6 @@ function buildRun({
       "pr_diff_artifact",
       "review_gate",
       "github_pr_create_plan",
-      "active_skill_hook_manifest",
-      "hook_dry_run_plan",
-      "hook_invocation_ledger",
-      "hook_escalation_receipt",
       ...(computerUseMaterializationRequest ? ["computer_use_trace", "computer-use-trace.json"] : []),
       ...(diagnosticsFeedback ? ["lsp_diagnostics_injection"] : []),
       ...(diagnosticsBlockingGate ? ["lsp_diagnostics_blocking_gate"] : []),
@@ -2175,11 +2151,6 @@ function buildRun({
       "ModelRouteDecision",
       "AgentMemoryRecord",
       "SubagentMemoryInheritanceProjection",
-      "ActiveSkillHookManifest",
-      "HookDryRunPlan",
-      "HookInvocationLedger",
-      "HookInvocationRecord",
-      "HookEscalationReceipt",
       "RuntimeUsageTelemetry",
       ...(computerUseMaterializationRequest
         ? [
@@ -2216,18 +2187,6 @@ function buildRun({
       "github.pr_attempt.preview_only",
       "repository.review_gate.read_only",
       "github.pr_create.dry_run",
-      "skills_hooks.active_manifest.read_only",
-      "hooks.dry_run_preview_only",
-      "hooks.invocation_ledger_preview_only",
-      ...(hookInvocationLedger.escalationCount > 0
-        ? ["hooks.escalation_receipt_required_for_blocked_invocations"]
-        : []),
-      ...(activeSkillHookManifest.mutationBlockedHookIds.length > 0
-        ? ["hooks.mutation_blocked_without_contract"]
-        : []),
-      ...(hookDryRunPlan.blockedCount > 0
-        ? ["hooks.dry_run_blocked_without_declared_capabilities"]
-        : []),
       ...(diagnosticsFeedback
         ? [`lsp.diagnostics.${diagnosticsFeedback.mode}`]
         : []),
@@ -2442,48 +2401,6 @@ function buildRun({
       "github.pr_create.dry_run",
     ].filter(Boolean),
   };
-  const skillHookReceipt = {
-    id: `receipt_${runId}_skill_hook_manifest`,
-    kind: "active_skill_hook_manifest",
-    summary: `Recorded active skill/hook manifest with ${activeSkillHookManifest.selectedSkillIds.length} skill(s) and ${activeSkillHookManifest.selectedHookIds.length} hook(s).`,
-    redaction: "redacted",
-    evidenceRefs: [
-      activeSkillHookManifest.manifestId,
-      "runtime_skill_hook_discovery",
-      "hook_execution_disabled_until_policy",
-    ],
-  };
-  const hookDryRunReceipt = {
-    id: `receipt_${runId}_hook_dry_run_plan`,
-    kind: "hook_dry_run_plan",
-    summary: `Previewed ${hookDryRunPlan.decisionCount} hook(s): ${hookDryRunPlan.wouldRunCount} would run, ${hookDryRunPlan.blockedCount} blocked, ${hookDryRunPlan.skippedCount} skipped.`,
-    redaction: "redacted",
-    evidenceRefs: [hookDryRunPlan.planId, activeSkillHookManifest.manifestId, "hook_preview_only"],
-  };
-  const hookPolicyReceipt = {
-    id: `receipt_${runId}_hook_policy_decision`,
-    kind: "hook_policy_decision",
-    summary: hookDryRunPlan.policyDecision.summary,
-    redaction: "redacted",
-    evidenceRefs: [
-      hookDryRunPlan.planId,
-      "hook_policy_decision",
-      "hook_execution_disabled_until_policy",
-    ],
-  };
-  const hookInvocationReceipt = {
-    id: `receipt_${runId}_hook_invocation_ledger`,
-    kind: "hook_invocation_ledger",
-    summary: `Recorded ${hookInvocationLedger.invocationCount} preview hook invocation(s): ${hookInvocationLedger.wouldRunCount} would run, ${hookInvocationLedger.blockedCount} blocked, ${hookInvocationLedger.skippedCount} skipped, ${hookInvocationLedger.escalationCount} escalated.`,
-    redaction: "redacted",
-    evidenceRefs: [
-      hookInvocationLedger.ledgerId,
-      hookDryRunPlan.planId,
-      activeSkillHookManifest.manifestId,
-      "hook_invocation_preview_only",
-    ],
-  };
-  const hookEscalationReceipts = hookEscalationReceiptsForLedger(hookInvocationLedger);
   const diagnosticsInjectionReceipt = diagnosticsFeedback
     ? {
         id: diagnosticsFeedback.receipt_id,
@@ -2544,13 +2461,8 @@ function buildRun({
     prAttemptReceipt,
     reviewGateReceipt,
     githubPrCreatePlanReceipt,
-    skillHookReceipt,
-    hookDryRunReceipt,
-    hookPolicyReceipt,
-    hookInvocationReceipt,
     diagnosticsInjectionReceipt,
     diagnosticsBlockingGateReceipt,
-    ...hookEscalationReceipts,
     ...memoryWriteReceipts,
     policyReceipt,
     authorityReceipt,
@@ -2864,57 +2776,6 @@ function buildRun({
     workflow_node_id: "runtime.github-pr-create",
     redaction: githubPrCreatePlan.redaction,
   });
-  addEvent("skill_hook_manifest", "Active skill and hook manifest recorded", {
-    event_kind: "ActiveSkillHookManifest",
-    manifest_id: activeSkillHookManifest.manifestId ?? null,
-    active_skill_set_hash: activeSkillHookManifest.activeSkillSetHash ?? null,
-    active_hook_set_hash: activeSkillHookManifest.activeHookSetHash ?? null,
-    selected_skill_ids: normalizeArray(activeSkillHookManifest.selectedSkillIds),
-    selected_hook_ids: normalizeArray(activeSkillHookManifest.selectedHookIds),
-    mutation_blocked_hook_ids: normalizeArray(activeSkillHookManifest.mutationBlockedHookIds),
-    hook_execution: {
-      enabled: Boolean(activeSkillHookManifest.hookExecution?.enabled),
-    },
-    receipt_id: skillHookReceipt.id,
-    workflow_node_id: "runtime.skill-hook-manifest",
-    redaction: activeSkillHookManifest.redaction,
-  });
-  addEvent("hook_dry_run_plan", "Hook dry-run plan recorded", {
-    event_kind: "HookDryRunPlan",
-    plan_id: hookDryRunPlan.planId ?? null,
-    manifest_id: hookDryRunPlan.manifestId ?? null,
-    decision_count: hookDryRunPlan.decisionCount ?? 0,
-    would_run_count: hookDryRunPlan.wouldRunCount ?? 0,
-    blocked_count: hookDryRunPlan.blockedCount ?? 0,
-    skipped_count: hookDryRunPlan.skippedCount ?? 0,
-    policy_decision: {
-      status: hookDryRunPlan.policyDecision?.status ?? null,
-    },
-    hook_execution_enabled: Boolean(hookDryRunPlan.hookExecutionEnabled),
-    command_execution_enabled: Boolean(hookDryRunPlan.commandExecutionEnabled),
-    receipt_id: hookDryRunReceipt.id,
-    policy_receipt_id: hookPolicyReceipt.id,
-    workflow_node_id: "runtime.hook-policy",
-    redaction: hookDryRunPlan.redaction,
-  });
-  addEvent("hook_invocation_ledger", "Hook invocation ledger recorded", {
-    event_kind: "HookInvocationLedger",
-    ledger_id: hookInvocationLedger.ledgerId ?? null,
-    manifest_id: hookInvocationLedger.manifestId ?? null,
-    dry_run_plan_id: hookInvocationLedger.dryRunPlanId ?? null,
-    emitted_event_kinds: normalizeArray(hookInvocationLedger.emittedEventKinds),
-    invocation_count: hookInvocationLedger.invocationCount ?? 0,
-    would_run_count: hookInvocationLedger.wouldRunCount ?? 0,
-    blocked_count: hookInvocationLedger.blockedCount ?? 0,
-    skipped_count: hookInvocationLedger.skippedCount ?? 0,
-    escalation_count: hookInvocationLedger.escalationCount ?? 0,
-    hook_execution_enabled: Boolean(hookInvocationLedger.hookExecutionEnabled),
-    command_execution_enabled: Boolean(hookInvocationLedger.commandExecutionEnabled),
-    receipt_id: hookInvocationReceipt.id,
-    escalation_receipt_ids: hookEscalationReceipts.map((receipt) => receipt.id),
-    workflow_node_id: "runtime.hook-invocations",
-    redaction: hookInvocationLedger.redaction,
-  });
   if (modelRouteDecision) {
     addEvent("model_route_decision", "Model route decision recorded", {
       ...modelRouteDecision,
@@ -3052,9 +2913,6 @@ function buildRun({
       "pr-diff.patch",
       "review-gate.json",
       "github-pr-create-plan.json",
-      "active-skill-hook-manifest.json",
-      "hook-dry-run-plan.json",
-      "hook-invocations.json",
       ...(diagnosticsBlockingGate ? ["diagnostics-blocking-gate.json"] : []),
       "scorecard.json",
       "agentgres-projection.json",
@@ -3077,7 +2935,6 @@ function buildRun({
     postconditions,
     semanticImpact,
     modelRouteDecision,
-    activeSkillHookManifest,
     runtimeTask,
     runtimeJob,
     runtimeChecklist,
@@ -3088,8 +2945,6 @@ function buildRun({
     prAttempt,
     reviewGate,
     githubPrCreatePlan,
-    hookDryRunPlan,
-    hookInvocationLedger,
     promptAudit: {
       schemaVersion: "ioi.agent-runtime.prompt-audit.v1",
       runId,
@@ -3104,14 +2959,6 @@ function buildRun({
       prAttemptId: prAttempt.attemptId,
       reviewGateId: reviewGate.gateId,
       githubPrCreatePlanId: githubPrCreatePlan.planId,
-      activeSkillHookManifestId: activeSkillHookManifest.manifestId,
-      activeSkillSetHash: activeSkillHookManifest.activeSkillSetHash,
-      activeHookSetHash: activeSkillHookManifest.activeHookSetHash,
-      selectedSkillIds: activeSkillHookManifest.selectedSkillIds,
-      selectedHookIds: activeSkillHookManifest.selectedHookIds,
-      hookExecutionEnabled: false,
-      hookDryRunPlanId: hookDryRunPlan.planId,
-      hookInvocationLedgerId: hookInvocationLedger.ledgerId,
       redaction: {
         promptIncluded: false,
         hookCommandsIncluded: false,
@@ -3128,7 +2975,6 @@ function buildRun({
         prAttempt.attemptId,
         reviewGate.gateId,
         githubPrCreatePlan.planId,
-        activeSkillHookManifest.manifestId,
       ],
     },
     memoryPolicy,
@@ -3242,30 +3088,6 @@ function buildRun({
       githubPrCreatePlan,
       "redacted",
     ),
-    artifact(
-      runId,
-      "active-skill-hook-manifest.json",
-      "application/json",
-      skillHookReceipt.id,
-      activeSkillHookManifest,
-      "redacted",
-    ),
-    artifact(
-      runId,
-      "hook-dry-run-plan.json",
-      "application/json",
-      hookDryRunReceipt.id,
-      hookDryRunPlan,
-      "redacted",
-    ),
-    artifact(
-      runId,
-      "hook-invocations.json",
-      "application/json",
-      hookInvocationReceipt.id,
-      hookInvocationLedger,
-      "redacted",
-    ),
     ...(diagnosticsBlockingGate
       ? [
           artifact(
@@ -3313,7 +3135,6 @@ function buildRun({
     trace,
     modelRouteDecision,
     modelRouteReceiptId,
-    activeSkillHookManifest,
     runtimeTask,
     runtimeJob,
     runtimeChecklist,
@@ -3324,8 +3145,6 @@ function buildRun({
     prAttempt,
     reviewGate,
     githubPrCreatePlan,
-    hookDryRunPlan,
-    hookInvocationLedger,
     memoryPolicy,
     memoryRecords,
     memoryWriteReceipts,
@@ -3335,6 +3154,7 @@ function buildRun({
     diagnosticsBlockingGate,
     subagentMemoryInheritance,
     computer_use_materialization_request: computerUseMaterializationRequest,
+    skill_hook_materialization_request: skillHookMaterializationRequest,
     result,
   };
 }

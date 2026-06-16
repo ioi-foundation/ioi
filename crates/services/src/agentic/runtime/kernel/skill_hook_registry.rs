@@ -155,7 +155,7 @@ impl SkillHookRegistryProjectionRecord {
     }
 }
 
-fn discover_skill_hook_catalog(workspace_root: &str, home_dir: &str) -> Value {
+pub(crate) fn discover_skill_hook_catalog(workspace_root: &str, home_dir: &str) -> Value {
     let sources = skill_hook_sources(workspace_root, home_dir);
     let skills: Vec<Value> = sources
         .iter()

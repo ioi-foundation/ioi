@@ -37201,46 +37201,29 @@ function runCompositor() {
       !/\.\.\.githubPrCreatePlan|^\s*(?:receiptId|eventKind|workflowNodeId|planId|repositoryContextId|branchPolicyId|githubContextId|issueContextId|prAttemptId|reviewGateId|dryRun|toolName|repoFullName|baseBranch|headBranch|issueNumber|reviewGateStatus|reviewSatisfied|mutationAttempted|mutationExecuted|networkLookupPerformed)\s*:/m.test(
         runtimeGithubPrCreatePlanEventProducerBlock,
       ) &&
-      runtimeSkillHookManifestEventProducerBlock.length > 0 &&
-      /event_kind:\s*"ActiveSkillHookManifest"/.test(runtimeSkillHookManifestEventProducerBlock) &&
-      /manifest_id:\s*activeSkillHookManifest\.manifestId \?\? null/.test(
-        runtimeSkillHookManifestEventProducerBlock,
+      !exists("packages/runtime-daemon/src/skill-hook-manifest.mjs") &&
+      !exists("packages/runtime-daemon/src/skill-hook-manifest.test.mjs") &&
+      /function skillHookMaterializationRequestForRun\(/.test(runtimeDaemonIndex) &&
+      /skill_hook_materialization_request:\s*skillHookMaterializationRequest/.test(runtimeDaemonIndex) &&
+      !/activeSkillHookManifestForRun|hookDryRunPlanForManifest|hookInvocationLedgerForPlan|hookEscalationReceiptsForLedger/.test(
+        runtimeDaemonIndex,
       ) &&
-      /selected_skill_ids:\s*normalizeArray\(activeSkillHookManifest\.selectedSkillIds\)/.test(
-        runtimeSkillHookManifestEventProducerBlock,
+      !/addEvent\("skill_hook_manifest"|addEvent\("hook_dry_run_plan"|addEvent\("hook_invocation_ledger"/.test(
+        runtimeDaemonIndex,
       ) &&
-      /workflow_node_id:\s*"runtime\.skill-hook-manifest"/.test(
-        runtimeSkillHookManifestEventProducerBlock,
+      /fn materialize_skill_hook_run\(/.test(policyThreadLifecycleCore) &&
+      /discover_skill_hook_catalog\(&workspace_root,\s*&home_dir\)/.test(policyThreadLifecycleCore) &&
+      /RetiredSkillHookMaterializationCandidate/.test(policyThreadLifecycleCore) &&
+      /run\.contains_key\("activeSkillHookManifest"\)/.test(policyThreadLifecycleCore) &&
+      /run\.remove\("skill_hook_materialization_request"\)/.test(policyThreadLifecycleCore) &&
+      /rust_hook_dry_run_plan\(&run_id,\s*&manifest\)/.test(policyThreadLifecycleCore) &&
+      /rust_hook_invocation_ledger\(&run_id,\s*&manifest,\s*&dry_run_plan\)/.test(
+        policyThreadLifecycleCore,
       ) &&
-      !/\.\.\.activeSkillHookManifest|^\s*(?:receiptId|eventKind|workflowNodeId|manifestId|activeSkillSetHash|activeHookSetHash|selectedSkillIds|selectedHookIds|mutationBlockedHookIds|hookExecution)\s*:/m.test(
-        runtimeSkillHookManifestEventProducerBlock,
-      ) &&
-      runtimeHookDryRunPlanEventProducerBlock.length > 0 &&
-      /event_kind:\s*"HookDryRunPlan"/.test(runtimeHookDryRunPlanEventProducerBlock) &&
-      /plan_id:\s*hookDryRunPlan\.planId \?\? null/.test(
-        runtimeHookDryRunPlanEventProducerBlock,
-      ) &&
-      /policy_receipt_id:\s*hookPolicyReceipt\.id/.test(runtimeHookDryRunPlanEventProducerBlock) &&
-      /workflow_node_id:\s*"runtime\.hook-policy"/.test(
-        runtimeHookDryRunPlanEventProducerBlock,
-      ) &&
-      !/\.\.\.hookDryRunPlan|^\s*(?:receiptId|policyReceiptId|eventKind|workflowNodeId|planId|manifestId|decisionCount|wouldRunCount|blockedCount|skippedCount|policyDecision|hookExecutionEnabled|commandExecutionEnabled)\s*:/m.test(
-        runtimeHookDryRunPlanEventProducerBlock,
-      ) &&
-      runtimeHookInvocationLedgerEventProducerBlock.length > 0 &&
-      /event_kind:\s*"HookInvocationLedger"/.test(runtimeHookInvocationLedgerEventProducerBlock) &&
-      /ledger_id:\s*hookInvocationLedger\.ledgerId \?\? null/.test(
-        runtimeHookInvocationLedgerEventProducerBlock,
-      ) &&
-      /escalation_receipt_ids:\s*hookEscalationReceipts\.map/.test(
-        runtimeHookInvocationLedgerEventProducerBlock,
-      ) &&
-      /workflow_node_id:\s*"runtime\.hook-invocations"/.test(
-        runtimeHookInvocationLedgerEventProducerBlock,
-      ) &&
-      !/\.\.\.hookInvocationLedger|^\s*(?:receiptId|escalationReceiptIds|eventKind|workflowNodeId|ledgerId|manifestId|dryRunPlanId|emittedEventKinds|invocationCount|wouldRunCount|blockedCount|skippedCount|escalationCount|hookExecutionEnabled|commandExecutionEnabled)\s*:/m.test(
-        runtimeHookInvocationLedgerEventProducerBlock,
-      ) &&
+      /rust_skill_hook_run_events\(/.test(policyThreadLifecycleCore) &&
+      /active-skill-hook-manifest\.json/.test(policyThreadLifecycleCore) &&
+      /hook-dry-run-plan\.json/.test(policyThreadLifecycleCore) &&
+      /hook-invocations\.json/.test(policyThreadLifecycleCore) &&
       runtimeMemoryMutationEventProducerBlock.length > 0 &&
       /canonicalMemoryMutationEventPayload\(mutation\.record \?\? mutation\.policy \?\? \{\}\)/.test(
         runtimeMemoryMutationEventProducerBlock,

@@ -2,6 +2,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 
+use crate::agentic::runtime::kernel::skill_hook_registry::discover_skill_hook_catalog;
+
 use super::{
     AGENT_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
     AGENT_CREATE_STATE_UPDATE_RESULT_SCHEMA_VERSION,
@@ -92,6 +94,7 @@ pub enum RunCreateStateUpdateError {
     },
     MissingField(&'static str),
     RetiredComputerUseProjectionCandidate,
+    RetiredSkillHookMaterializationCandidate,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -783,6 +786,7 @@ impl RunCreateStateUpdateCore {
         let mut run =
             object_value(&request.run).ok_or(RunCreateStateUpdateError::MissingField("run"))?;
         materialize_computer_use_run(&mut run)?;
+        materialize_skill_hook_run(&mut run)?;
         let run_value = Value::Object(run.clone());
         let run_id = optional_json_string(&run_value, "id")
             .ok_or(RunCreateStateUpdateError::MissingField("run.id"))?;
@@ -1575,6 +1579,1145 @@ fn unique_string_vec(values: Vec<String>) -> Vec<String> {
 const COMPUTER_USE_CONTRACT_SCHEMA_VERSION: &str = "ioi.computer-use.harness.v1";
 const COMPUTER_USE_RUN_MATERIALIZATION_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.computer-use-run-materialization-request.v1";
+const SKILL_HOOK_RUN_MATERIALIZATION_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.skill-hook-run-materialization-request.v1";
+
+fn materialize_skill_hook_run(
+    run: &mut serde_json::Map<String, Value>,
+) -> Result<(), RunCreateStateUpdateError> {
+    if run.contains_key("activeSkillHookManifest")
+        || run.contains_key("hookDryRunPlan")
+        || run.contains_key("hookInvocationLedger")
+        || run
+            .get("trace")
+            .and_then(Value::as_object)
+            .is_some_and(|trace| {
+                trace.contains_key("activeSkillHookManifest")
+                    || trace.contains_key("hookDryRunPlan")
+                    || trace.contains_key("hookInvocationLedger")
+            })
+    {
+        return Err(RunCreateStateUpdateError::RetiredSkillHookMaterializationCandidate);
+    }
+    let request_value = match run.remove("skill_hook_materialization_request") {
+        Some(Value::Object(request)) => Value::Object(request),
+        Some(Value::Null) | None => return Ok(()),
+        Some(_) => {
+            return Err(RunCreateStateUpdateError::MissingField(
+                "run.skill_hook_materialization_request",
+            ))
+        }
+    };
+    let request = request_value
+        .as_object()
+        .ok_or(RunCreateStateUpdateError::MissingField(
+            "run.skill_hook_materialization_request",
+        ))?;
+    let schema_version = optional_json_string(&request_value, "schema_version").ok_or(
+        RunCreateStateUpdateError::MissingField(
+            "run.skill_hook_materialization_request.schema_version",
+        ),
+    )?;
+    if schema_version != SKILL_HOOK_RUN_MATERIALIZATION_REQUEST_SCHEMA_VERSION {
+        return Err(RunCreateStateUpdateError::InvalidSchemaVersion {
+            expected: SKILL_HOOK_RUN_MATERIALIZATION_REQUEST_SCHEMA_VERSION,
+            actual: schema_version,
+        });
+    }
+
+    let run_value = Value::Object(run.clone());
+    let run_id = optional_json_string(&run_value, "id")
+        .ok_or(RunCreateStateUpdateError::MissingField("run.id"))?;
+    let agent_id = optional_json_string(&run_value, "agentId")
+        .ok_or(RunCreateStateUpdateError::MissingField("run.agentId"))?;
+    let workspace_root = optional_json_string(&request_value, "workspace_root")
+        .or_else(|| optional_json_string(&run_value, "workspaceRoot"))
+        .unwrap_or_else(|| ".".to_string());
+    let home_dir = optional_json_string(&request_value, "home_dir")
+        .unwrap_or_else(|| std::env::var("HOME").unwrap_or_else(|_| workspace_root.clone()));
+    let catalog = discover_skill_hook_catalog(&workspace_root, &home_dir);
+    let skills = json_array(&catalog["skills"]);
+    let hooks = json_array(&catalog["hooks"]);
+    let request_options = request.get("request_options").and_then(Value::as_object);
+    let agent_options = request.get("agent_options").and_then(Value::as_object);
+    let requested_skill_refs = manifest_selection_refs(
+        &[request_options, agent_options],
+        &[
+            "skills",
+            "skillIds",
+            "skill_ids",
+            "skillNames",
+            "skill_names",
+        ],
+    );
+    let requested_hook_refs = manifest_selection_refs(
+        &[request_options, agent_options],
+        &["hooks", "hookIds", "hook_ids", "hookNames", "hook_names"],
+    );
+    let selected_skills = select_manifest_records(&skills, &requested_skill_refs, "skillHash");
+    let enabled_hooks: Vec<Value> = hooks
+        .into_iter()
+        .filter(|hook| hook.get("enabled").and_then(Value::as_bool) != Some(false))
+        .collect();
+    let selected_hooks =
+        select_manifest_records(&enabled_hooks, &requested_hook_refs, "definitionHash");
+    let mut skill_hashes: Vec<String> = selected_skills
+        .iter()
+        .filter_map(|skill| string_value_from_json(skill, "skillHash"))
+        .collect();
+    skill_hashes.sort();
+    let mut hook_hashes: Vec<String> = selected_hooks
+        .iter()
+        .filter_map(|hook| string_value_from_json(hook, "definitionHash"))
+        .collect();
+    hook_hashes.sort();
+    let blocked_hooks: Vec<Value> = selected_hooks
+        .iter()
+        .filter(|hook| {
+            hook.get("commandConfigured").and_then(Value::as_bool) == Some(true)
+                && (string_array_from_json(hook.get("authorityScopes")).is_empty()
+                    || string_array_from_json(hook.get("toolContracts")).is_empty())
+        })
+        .cloned()
+        .collect();
+    let mut blocked_hook_ids: Vec<String> = blocked_hooks
+        .iter()
+        .filter_map(|hook| string_value_from_json(hook, "id"))
+        .collect();
+    blocked_hook_ids.sort();
+    let manifest_payload = json!({
+        "skillHashes": skill_hashes,
+        "hookHashes": hook_hashes,
+        "catalogSkillSetHash": string_value_from_json(&catalog, "activeSkillSetHash").unwrap_or_else(|| sha256_text("")),
+        "catalogHookSetHash": string_value_from_json(&catalog, "activeHookSetHash").unwrap_or_else(|| sha256_text("")),
+        "blockedHookIds": blocked_hook_ids,
+    });
+    let manifest_hash = sha256_text(&serde_json::to_string(&manifest_payload).unwrap_or_default());
+    let mut validation_issues = Vec::new();
+    for record in selected_skills.iter().chain(selected_hooks.iter()) {
+        validation_issues.extend(string_array_from_json(
+            record
+                .get("validation")
+                .and_then(|value| value.get("issues")),
+        ));
+    }
+    validation_issues.sort();
+    validation_issues.dedup();
+    let selected_skill_ids: Vec<String> = selected_skills
+        .iter()
+        .filter_map(|skill| string_value_from_json(skill, "id"))
+        .collect();
+    let selected_hook_ids: Vec<String> = selected_hooks
+        .iter()
+        .filter_map(|hook| string_value_from_json(hook, "id"))
+        .collect();
+    let mutation_allowed_hook_ids: Vec<String> = selected_hooks
+        .iter()
+        .filter(|hook| {
+            hook.get("commandConfigured").and_then(Value::as_bool) == Some(true)
+                && !string_array_from_json(hook.get("authorityScopes")).is_empty()
+                && !string_array_from_json(hook.get("toolContracts")).is_empty()
+        })
+        .filter_map(|hook| string_value_from_json(hook, "id"))
+        .collect();
+    let manifest_id = format!("skill_hook_manifest_{run_id}_{}", &manifest_hash[..12]);
+    let manifest = json!({
+        "schemaVersion": "ioi.agent-runtime.active-skill-hook-manifest.v1",
+        "object": "ioi.agent_active_skill_hook_manifest",
+        "manifestId": manifest_id,
+        "runId": run_id,
+        "agentId": agent_id,
+        "generatedAt": "rust_policy_core",
+        "workspace": workspace_root,
+        "selectionMode": if requested_skill_refs.is_empty() && requested_hook_refs.is_empty() { "catalog_snapshot_read_only" } else { "explicit_or_configured" },
+        "catalog": {
+            "schemaVersion": catalog["schemaVersion"],
+            "generatedAt": catalog["generatedAt"],
+            "status": catalog["status"],
+            "activeSkillSetHash": catalog["activeSkillSetHash"],
+            "activeHookSetHash": catalog["activeHookSetHash"],
+            "skillCount": catalog["skillCount"],
+            "hookCount": catalog["hookCount"],
+        },
+        "activeSkillSetHash": sha256_text(&skill_hashes.join("\n")),
+        "activeHookSetHash": sha256_text(&hook_hashes.join("\n")),
+        "manifestHash": manifest_hash,
+        "selectedSkillIds": selected_skill_ids,
+        "selectedHookIds": selected_hook_ids,
+        "requestedSkillRefs": requested_skill_refs,
+        "requestedHookRefs": requested_hook_refs,
+        "skills": selected_skills.iter().map(skill_manifest_record).collect::<Vec<Value>>(),
+        "hooks": selected_hooks.iter().map(hook_manifest_record).collect::<Vec<Value>>(),
+        "validation": {
+            "status": if validation_issues.is_empty() { "pass" } else { "degraded" },
+            "issueCount": validation_issues.len(),
+            "issues": validation_issues,
+        },
+        "hookExecution": {
+            "enabled": false,
+            "disabledReason": "hook_execution_policy_slice_pending",
+            "mutationBlockedWithoutDeclaredCapabilities": true,
+            "mutationAllowedHookIds": mutation_allowed_hook_ids,
+            "mutationBlockedHookIds": blocked_hook_ids,
+        },
+        "mutationBlockedHookIds": blocked_hook_ids,
+        "redaction": {
+            "profile": "active_skill_hook_manifest_safe",
+            "skillBodiesIncluded": false,
+            "hookCommandsIncluded": false,
+            "hookCommandsHashed": true,
+            "secretValuesIncluded": false,
+        },
+        "evidenceRefs": [
+            "rust_daemon_core_active_skill_hook_manifest",
+            "runtime_skill_hook_discovery",
+            "prompt_audit",
+            "hook_execution_disabled_until_policy",
+        ],
+    });
+    let dry_run_plan = rust_hook_dry_run_plan(&run_id, &manifest);
+    let invocation_ledger = rust_hook_invocation_ledger(&run_id, &manifest, &dry_run_plan);
+    let skill_hook_receipt = json!({
+        "id": format!("receipt_{run_id}_skill_hook_manifest"),
+        "kind": "active_skill_hook_manifest",
+        "summary": format!(
+            "Rust daemon-core recorded active skill/hook manifest with {} skill(s) and {} hook(s).",
+            json_array(&manifest["selectedSkillIds"]).len(),
+            json_array(&manifest["selectedHookIds"]).len(),
+        ),
+        "redaction": "redacted",
+        "evidenceRefs": [
+            manifest["manifestId"].as_str().unwrap_or_default(),
+            "runtime_skill_hook_discovery",
+            "rust_daemon_core_active_skill_hook_manifest",
+            "hook_execution_disabled_until_policy",
+        ],
+    });
+    let hook_dry_run_receipt = json!({
+        "id": format!("receipt_{run_id}_hook_dry_run_plan"),
+        "kind": "hook_dry_run_plan",
+        "summary": format!(
+            "Rust daemon-core previewed {} hook(s): {} would run, {} blocked, {} skipped.",
+            dry_run_plan["decisionCount"].as_u64().unwrap_or(0),
+            dry_run_plan["wouldRunCount"].as_u64().unwrap_or(0),
+            dry_run_plan["blockedCount"].as_u64().unwrap_or(0),
+            dry_run_plan["skippedCount"].as_u64().unwrap_or(0),
+        ),
+        "redaction": "redacted",
+        "evidenceRefs": [
+            dry_run_plan["planId"].as_str().unwrap_or_default(),
+            manifest["manifestId"].as_str().unwrap_or_default(),
+            "hook_preview_only",
+        ],
+    });
+    let hook_policy_receipt = json!({
+        "id": format!("receipt_{run_id}_hook_policy_decision"),
+        "kind": "hook_policy_decision",
+        "summary": dry_run_plan["policyDecision"]["summary"],
+        "redaction": "redacted",
+        "evidenceRefs": [
+            dry_run_plan["planId"].as_str().unwrap_or_default(),
+            "hook_policy_decision",
+            "hook_execution_disabled_until_policy",
+        ],
+    });
+    let hook_invocation_receipt = json!({
+        "id": format!("receipt_{run_id}_hook_invocation_ledger"),
+        "kind": "hook_invocation_ledger",
+        "summary": format!(
+            "Rust daemon-core recorded {} preview hook invocation(s): {} would run, {} blocked, {} skipped, {} escalated.",
+            invocation_ledger["invocationCount"].as_u64().unwrap_or(0),
+            invocation_ledger["wouldRunCount"].as_u64().unwrap_or(0),
+            invocation_ledger["blockedCount"].as_u64().unwrap_or(0),
+            invocation_ledger["skippedCount"].as_u64().unwrap_or(0),
+            invocation_ledger["escalationCount"].as_u64().unwrap_or(0),
+        ),
+        "redaction": "redacted",
+        "evidenceRefs": [
+            invocation_ledger["ledgerId"].as_str().unwrap_or_default(),
+            dry_run_plan["planId"].as_str().unwrap_or_default(),
+            manifest["manifestId"].as_str().unwrap_or_default(),
+            "hook_invocation_preview_only",
+        ],
+    });
+    let escalation_receipts = rust_hook_escalation_receipts(&invocation_ledger);
+    let mut receipts = vec![
+        skill_hook_receipt.clone(),
+        hook_dry_run_receipt.clone(),
+        hook_policy_receipt.clone(),
+        hook_invocation_receipt.clone(),
+    ];
+    receipts.extend(escalation_receipts.clone());
+    let events = rust_skill_hook_run_events(
+        &run_id,
+        &agent_id,
+        &manifest,
+        &dry_run_plan,
+        &invocation_ledger,
+        &skill_hook_receipt,
+        &hook_dry_run_receipt,
+        &hook_policy_receipt,
+        &hook_invocation_receipt,
+        &escalation_receipts,
+    );
+    let artifacts = vec![
+        json_artifact(
+            &run_id,
+            "active-skill-hook-manifest.json",
+            &skill_hook_receipt,
+            &manifest,
+        ),
+        json_artifact(
+            &run_id,
+            "hook-dry-run-plan.json",
+            &hook_dry_run_receipt,
+            &dry_run_plan,
+        ),
+        json_artifact(
+            &run_id,
+            "hook-invocations.json",
+            &hook_invocation_receipt,
+            &invocation_ledger,
+        ),
+    ];
+
+    run.insert("activeSkillHookManifest".to_string(), manifest.clone());
+    run.insert("hookDryRunPlan".to_string(), dry_run_plan.clone());
+    run.insert(
+        "hookInvocationLedger".to_string(),
+        invocation_ledger.clone(),
+    );
+    append_array_field(run, "receipts", receipts.clone());
+    append_array_field(run, "events", events.clone());
+    append_array_field(run, "artifacts", artifacts.clone());
+    update_runtime_task_skill_hook_binding(run, &manifest);
+    if let Some(trace) = run.get_mut("trace").and_then(Value::as_object_mut) {
+        trace.insert("activeSkillHookManifest".to_string(), manifest.clone());
+        trace.insert("hookDryRunPlan".to_string(), dry_run_plan.clone());
+        trace.insert(
+            "hookInvocationLedger".to_string(),
+            invocation_ledger.clone(),
+        );
+        append_array_field(trace, "receipts", receipts);
+        append_array_field(trace, "events", events);
+        append_array_field(trace, "artifacts", artifacts);
+        if let Some(task_state) = trace.get_mut("taskState").and_then(Value::as_object_mut) {
+            append_string_array_field(
+                task_state,
+                "knownFacts",
+                vec![
+                    format!(
+                        "Rust daemon-core active skill/hook manifest: skills={}, hooks={}, skillSet={}, hookSet={}",
+                        json_array(&manifest["selectedSkillIds"]).len(),
+                        json_array(&manifest["selectedHookIds"]).len(),
+                        manifest["activeSkillSetHash"].as_str().unwrap_or_default().chars().take(12).collect::<String>(),
+                        manifest["activeHookSetHash"].as_str().unwrap_or_default().chars().take(12).collect::<String>(),
+                    ),
+                    format!(
+                        "Rust daemon-core hook dry-run plan: wouldRun={}, blocked={}, skipped={}",
+                        dry_run_plan["wouldRunCount"].as_u64().unwrap_or(0),
+                        dry_run_plan["blockedCount"].as_u64().unwrap_or(0),
+                        dry_run_plan["skippedCount"].as_u64().unwrap_or(0),
+                    ),
+                    format!(
+                        "Rust daemon-core hook invocation ledger: invocations={}, wouldRun={}, blocked={}, skipped={}",
+                        invocation_ledger["invocationCount"].as_u64().unwrap_or(0),
+                        invocation_ledger["wouldRunCount"].as_u64().unwrap_or(0),
+                        invocation_ledger["blockedCount"].as_u64().unwrap_or(0),
+                        invocation_ledger["skippedCount"].as_u64().unwrap_or(0),
+                    ),
+                ],
+            );
+            append_string_array_field(
+                task_state,
+                "evidenceRefs",
+                vec![
+                    manifest["manifestId"]
+                        .as_str()
+                        .unwrap_or_default()
+                        .to_string(),
+                    dry_run_plan["planId"]
+                        .as_str()
+                        .unwrap_or_default()
+                        .to_string(),
+                    invocation_ledger["ledgerId"]
+                        .as_str()
+                        .unwrap_or_default()
+                        .to_string(),
+                    "rust_daemon_core_skill_hook_run_materialization".to_string(),
+                    "skill_hook_manifest_js_authoring_retired".to_string(),
+                ],
+            );
+        }
+        if let Some(prompt_audit) = trace.get_mut("promptAudit").and_then(Value::as_object_mut) {
+            prompt_audit.insert(
+                "activeSkillHookManifestId".to_string(),
+                manifest["manifestId"].clone(),
+            );
+            prompt_audit.insert(
+                "activeSkillSetHash".to_string(),
+                manifest["activeSkillSetHash"].clone(),
+            );
+            prompt_audit.insert(
+                "activeHookSetHash".to_string(),
+                manifest["activeHookSetHash"].clone(),
+            );
+            prompt_audit.insert(
+                "selectedSkillIds".to_string(),
+                manifest["selectedSkillIds"].clone(),
+            );
+            prompt_audit.insert(
+                "selectedHookIds".to_string(),
+                manifest["selectedHookIds"].clone(),
+            );
+            prompt_audit.insert("hookExecutionEnabled".to_string(), Value::Bool(false));
+            prompt_audit.insert(
+                "hookDryRunPlanId".to_string(),
+                dry_run_plan["planId"].clone(),
+            );
+            prompt_audit.insert(
+                "hookInvocationLedgerId".to_string(),
+                invocation_ledger["ledgerId"].clone(),
+            );
+            append_string_array_field(
+                prompt_audit,
+                "evidenceRefs",
+                vec![
+                    manifest["manifestId"]
+                        .as_str()
+                        .unwrap_or_default()
+                        .to_string(),
+                    dry_run_plan["planId"]
+                        .as_str()
+                        .unwrap_or_default()
+                        .to_string(),
+                    invocation_ledger["ledgerId"]
+                        .as_str()
+                        .unwrap_or_default()
+                        .to_string(),
+                    "rust_daemon_core_skill_hook_run_materialization".to_string(),
+                ],
+            );
+        }
+    }
+    Ok(())
+}
+
+fn rust_hook_dry_run_plan(run_id: &str, manifest: &Value) -> Value {
+    let decisions: Vec<Value> = json_array(&manifest["hooks"])
+        .iter()
+        .map(|hook| {
+            let authority_scopes = string_array_from_json(hook.get("authorityScopes"));
+            let tool_contracts = string_array_from_json(hook.get("toolContracts"));
+            let command_configured =
+                hook.get("commandConfigured").and_then(Value::as_bool) == Some(true);
+            let mut blockers = Vec::new();
+            let mut decision = "skipped";
+            let mut reason = "no_command_configured";
+            if command_configured {
+                if authority_scopes.is_empty() {
+                    blockers.push("missing_authority_scope".to_string());
+                }
+                if tool_contracts.is_empty() {
+                    blockers.push("missing_tool_contract".to_string());
+                }
+                if blockers.is_empty() {
+                    decision = "would_run";
+                    reason = "preview_only_authority_and_tool_contract_declared";
+                } else {
+                    decision = "blocked";
+                    reason = "missing_declared_capabilities";
+                }
+            }
+            json!({
+                "hookId": hook["id"],
+                "name": hook["name"],
+                "eventKinds": hook["eventKinds"],
+                "failurePolicy": hook["failurePolicy"],
+                "sideEffectClass": hook["sideEffectClass"],
+                "commandConfigured": command_configured,
+                "commandHash": hook["commandHash"],
+                "commandRedacted": hook["commandRedacted"],
+                "authorityScopes": authority_scopes,
+                "toolContracts": tool_contracts,
+                "decision": decision,
+                "reason": reason,
+                "blockers": blockers,
+                "execution": {
+                    "previewOnly": true,
+                    "commandExecuted": false,
+                    "mutationAllowed": false,
+                },
+                "evidenceRefs": hook["evidenceRefs"],
+            })
+        })
+        .collect();
+    let would_run_count = decisions
+        .iter()
+        .filter(|decision| decision["decision"] == "would_run")
+        .count();
+    let blocked_count = decisions
+        .iter()
+        .filter(|decision| decision["decision"] == "blocked")
+        .count();
+    let skipped_count = decisions
+        .iter()
+        .filter(|decision| decision["decision"] == "skipped")
+        .count();
+    let plan_payload = json!({
+        "manifestId": manifest["manifestId"],
+        "decisions": decisions.iter().map(|decision| json!({
+            "hookId": decision["hookId"],
+            "decision": decision["decision"],
+            "blockers": decision["blockers"],
+        })).collect::<Vec<Value>>(),
+    });
+    let plan_hash = sha256_text(&serde_json::to_string(&plan_payload).unwrap_or_default());
+    let plan_id = format!("hook_dry_run_{run_id}_{}", &plan_hash[..12]);
+    json!({
+        "schemaVersion": "ioi.agent-runtime.hook-dry-run-plan.v1",
+        "object": "ioi.agent_hook_dry_run_plan",
+        "planId": plan_id,
+        "runId": run_id,
+        "manifestId": manifest["manifestId"],
+        "activeHookSetHash": manifest["activeHookSetHash"],
+        "generatedAt": "rust_policy_core",
+        "mode": "preview_only",
+        "hookExecutionEnabled": false,
+        "commandExecutionEnabled": false,
+        "decisionCount": decisions.len(),
+        "wouldRunCount": would_run_count,
+        "blockedCount": blocked_count,
+        "skippedCount": skipped_count,
+        "decisions": decisions,
+        "policyDecision": {
+            "status": if blocked_count > 0 { "blocked" } else { "passed" },
+            "summary": if blocked_count > 0 {
+                format!("{blocked_count} hook(s) blocked by missing declared capabilities; no commands executed.")
+            } else {
+                "All command-backed hooks are eligible for dry-run preview; no commands executed.".to_string()
+            },
+            "previewOnly": true,
+            "hookExecutionEnabled": false,
+            "commandExecutionEnabled": false,
+        },
+        "redaction": {
+            "profile": "hook_dry_run_safe",
+            "hookCommandsIncluded": false,
+            "hookCommandsHashed": true,
+            "secretValuesIncluded": false,
+        },
+        "evidenceRefs": [
+            "rust_daemon_core_hook_dry_run_plan",
+            "hook_policy_decision",
+            manifest["manifestId"].as_str().unwrap_or_default(),
+        ],
+    })
+}
+
+fn rust_hook_invocation_ledger(run_id: &str, manifest: &Value, dry_run_plan: &Value) -> Value {
+    let events = [
+        (
+            "workflow_activation",
+            "run_started",
+            "activation",
+            "runtime.runtime-thread",
+        ),
+        (
+            "pre_model",
+            "model_route_decision",
+            "before_model",
+            "runtime.model-router",
+        ),
+        (
+            "post_model",
+            "delta",
+            "after_model",
+            "runtime.output-writer",
+        ),
+    ];
+    let decisions = json_array(&dry_run_plan["decisions"]);
+    let hooks = json_array(&manifest["hooks"]);
+    let mut records = Vec::new();
+    for (event_kind, runtime_event_type, phase, workflow_node_id) in events {
+        for hook in &hooks {
+            if !string_array_from_json(hook.get("eventKinds"))
+                .iter()
+                .any(|value| value == event_kind)
+            {
+                continue;
+            }
+            let hook_id = string_value_from_json(hook, "id").unwrap_or_default();
+            let plan_decision = decisions
+                .iter()
+                .find(|decision| decision["hookId"].as_str() == Some(hook_id.as_str()));
+            let decision = plan_decision
+                .and_then(|value| value["decision"].as_str())
+                .unwrap_or("skipped");
+            let blockers =
+                string_array_from_json(plan_decision.and_then(|value| value.get("blockers")));
+            let invocation_hash = sha256_text(
+                &serde_json::to_string(&json!({
+                    "runId": run_id,
+                    "eventKind": event_kind,
+                    "hookId": hook_id,
+                    "decision": decision,
+                    "blockers": blockers,
+                }))
+                .unwrap_or_default(),
+            );
+            let escalation = if decision == "blocked" {
+                rust_hook_escalation(run_id, &invocation_hash, event_kind, hook, blockers.clone())
+            } else {
+                json!({
+                    "required": false,
+                    "receiptId": Value::Null,
+                    "missingAuthorityScopes": [],
+                    "missingToolContracts": [],
+                    "recommendedNextAction": "No hook escalation is required for this preview invocation.",
+                })
+            };
+            records.push(json!({
+                "schemaVersion": "ioi.agent-runtime.hook-invocation-record.v1",
+                "object": "ioi.agent_hook_invocation_record",
+                "invocationId": format!("hook_invocation_{run_id}_{}", &invocation_hash[..12]),
+                "runId": run_id,
+                "manifestId": manifest["manifestId"],
+                "dryRunPlanId": dry_run_plan["planId"],
+                "eventKind": event_kind,
+                "runtimeEventType": runtime_event_type,
+                "runtimeEventPhase": phase,
+                "hookId": hook["id"],
+                "hookName": hook["name"],
+                "hookDefinitionHash": hook["definitionHash"],
+                "hookEventKinds": hook["eventKinds"],
+                "failurePolicy": hook["failurePolicy"],
+                "sideEffectClass": hook["sideEffectClass"],
+                "authorityScopes": hook["authorityScopes"],
+                "toolContracts": hook["toolContracts"],
+                "commandConfigured": hook["commandConfigured"],
+                "commandHash": hook["commandHash"],
+                "commandRedacted": hook["commandRedacted"],
+                "state": decision,
+                "decision": decision,
+                "reason": plan_decision.and_then(|value| value["reason"].as_str()).unwrap_or("preview_only_event_subscription_matched"),
+                "blockers": blockers,
+                "escalation": escalation,
+                "policyDecisionStatus": dry_run_plan["policyDecision"]["status"],
+                "execution": {
+                    "previewOnly": true,
+                    "commandExecuted": false,
+                    "mutationAllowed": false,
+                },
+                "workflowNodeId": workflow_node_id,
+                "hookPolicyNodeId": "runtime.hook-policy",
+                "evidenceRefs": [
+                    "rust_daemon_core_hook_invocation_record",
+                    dry_run_plan["planId"].as_str().unwrap_or_default(),
+                    manifest["manifestId"].as_str().unwrap_or_default(),
+                    hook["id"].as_str().unwrap_or_default(),
+                    event_kind,
+                ],
+            }));
+        }
+    }
+    let would_run_count = records
+        .iter()
+        .filter(|record| record["state"] == "would_run")
+        .count();
+    let blocked_count = records
+        .iter()
+        .filter(|record| record["state"] == "blocked")
+        .count();
+    let skipped_count = records
+        .iter()
+        .filter(|record| record["state"] == "skipped")
+        .count();
+    let escalations: Vec<Value> = records
+        .iter()
+        .filter(|record| record["escalation"]["required"] == true)
+        .map(|record| {
+            let mut escalation = record["escalation"].clone();
+            if let Some(object) = escalation.as_object_mut() {
+                object.insert("invocationId".to_string(), record["invocationId"].clone());
+                object.insert("hookId".to_string(), record["hookId"].clone());
+                object.insert("hookName".to_string(), record["hookName"].clone());
+                object.insert("eventKind".to_string(), record["eventKind"].clone());
+                object.insert("failurePolicy".to_string(), record["failurePolicy"].clone());
+                object.insert(
+                    "workflowNodeId".to_string(),
+                    record["workflowNodeId"].clone(),
+                );
+            }
+            escalation
+        })
+        .collect();
+    let ledger_hash = sha256_text(
+        &serde_json::to_string(&json!({
+            "manifestId": manifest["manifestId"],
+            "planId": dry_run_plan["planId"],
+            "records": records.iter().map(|record| json!({
+                "eventKind": record["eventKind"],
+                "hookId": record["hookId"],
+                "state": record["state"],
+            })).collect::<Vec<Value>>(),
+        }))
+        .unwrap_or_default(),
+    );
+    json!({
+        "schemaVersion": "ioi.agent-runtime.hook-invocation-ledger.v1",
+        "object": "ioi.agent_hook_invocation_ledger",
+        "ledgerId": format!("hook_invocations_{run_id}_{}", &ledger_hash[..12]),
+        "runId": run_id,
+        "manifestId": manifest["manifestId"],
+        "dryRunPlanId": dry_run_plan["planId"],
+        "activeHookSetHash": manifest["activeHookSetHash"],
+        "generatedAt": "rust_policy_core",
+        "mode": "preview_only",
+        "hookExecutionEnabled": false,
+        "commandExecutionEnabled": false,
+        "emittedEventKinds": ["workflow_activation", "pre_model", "post_model"],
+        "invocationCount": records.len(),
+        "wouldRunCount": would_run_count,
+        "blockedCount": blocked_count,
+        "skippedCount": skipped_count,
+        "escalationCount": escalations.len(),
+        "escalations": escalations,
+        "records": records,
+        "redaction": {
+            "profile": "hook_invocation_ledger_safe",
+            "hookCommandsIncluded": false,
+            "hookCommandsHashed": true,
+            "secretValuesIncluded": false,
+        },
+        "evidenceRefs": [
+            "rust_daemon_core_hook_invocation_ledger",
+            "hook_invocation_preview_only",
+            dry_run_plan["planId"].as_str().unwrap_or_default(),
+            manifest["manifestId"].as_str().unwrap_or_default(),
+        ],
+    })
+}
+
+fn rust_hook_escalation(
+    run_id: &str,
+    invocation_hash: &str,
+    event_kind: &str,
+    hook: &Value,
+    blockers: Vec<String>,
+) -> Value {
+    let missing_authority_scopes = if blockers
+        .iter()
+        .any(|blocker| blocker == "missing_authority_scope")
+    {
+        vec!["declare_at_least_one_authority_scope".to_string()]
+    } else {
+        Vec::new()
+    };
+    let missing_tool_contracts = if blockers
+        .iter()
+        .any(|blocker| blocker == "missing_tool_contract")
+    {
+        vec!["declare_at_least_one_tool_contract".to_string()]
+    } else {
+        Vec::new()
+    };
+    let mut missing_declarations = Vec::new();
+    if !missing_authority_scopes.is_empty() {
+        missing_declarations.push("authorityScopes".to_string());
+    }
+    if !missing_tool_contracts.is_empty() {
+        missing_declarations.push("toolContracts".to_string());
+    }
+    json!({
+        "required": true,
+        "receiptId": format!("receipt_{run_id}_hook_escalation_{}", &invocation_hash[..12]),
+        "escalationKind": "missing_declared_capabilities",
+        "missingDeclarations": missing_declarations,
+        "missingAuthorityScopes": missing_authority_scopes,
+        "missingToolContracts": missing_tool_contracts,
+        "eventKind": event_kind,
+        "hookId": hook["id"],
+        "hookName": hook["name"],
+        "failurePolicy": hook["failurePolicy"],
+        "blockers": blockers,
+        "recommendedNextAction": "Declare authorityScopes and toolContracts for this hook before requesting execution.",
+        "commandExecuted": false,
+        "approvalGrantCreated": false,
+        "evidenceRefs": [
+            "hook_escalation_receipt",
+            hook["id"].as_str().unwrap_or_default(),
+            event_kind,
+            "blocked",
+        ],
+    })
+}
+
+fn rust_hook_escalation_receipts(ledger: &Value) -> Vec<Value> {
+    json_array(&ledger["records"])
+        .iter()
+        .filter(|record| record["escalation"]["required"] == true)
+        .map(|record| {
+            let missing_declarations = string_array_from_json(
+                record
+                    .get("escalation")
+                    .and_then(|value| value.get("missingDeclarations")),
+            );
+            json!({
+                "id": record["escalation"]["receiptId"],
+                "kind": "hook_escalation",
+                "summary": format!(
+                    "Hook {} on {} is blocked until {} are declared.",
+                    record["hookName"].as_str().unwrap_or("hook"),
+                    record["eventKind"].as_str().unwrap_or("event"),
+                    if missing_declarations.is_empty() { "policy".to_string() } else { missing_declarations.join(" and ") },
+                ),
+                "redaction": "redacted",
+                "evidenceRefs": [
+                    ledger["ledgerId"].as_str().unwrap_or_default(),
+                    record["invocationId"].as_str().unwrap_or_default(),
+                    record["dryRunPlanId"].as_str().unwrap_or_default(),
+                    record["manifestId"].as_str().unwrap_or_default(),
+                    "hook_escalation_receipt",
+                ],
+                "details": {
+                    "schemaVersion": "ioi.agent-runtime.hook-escalation-receipt.v1",
+                    "object": "ioi.agent_hook_escalation_receipt",
+                    "receiptId": record["escalation"]["receiptId"],
+                    "invocationId": record["invocationId"],
+                    "hookId": record["hookId"],
+                    "hookName": record["hookName"],
+                    "eventKind": record["eventKind"],
+                    "failurePolicy": record["failurePolicy"],
+                    "blockers": record["blockers"],
+                    "missingDeclarations": record["escalation"]["missingDeclarations"],
+                    "missingAuthorityScopes": record["escalation"]["missingAuthorityScopes"],
+                    "missingToolContracts": record["escalation"]["missingToolContracts"],
+                    "recommendedNextAction": record["escalation"]["recommendedNextAction"],
+                    "workflowNodeId": record["workflowNodeId"],
+                    "hookPolicyNodeId": record["hookPolicyNodeId"],
+                    "commandExecuted": false,
+                    "approvalGrantCreated": false,
+                },
+            })
+        })
+        .collect()
+}
+
+fn rust_skill_hook_run_events(
+    run_id: &str,
+    agent_id: &str,
+    manifest: &Value,
+    dry_run_plan: &Value,
+    invocation_ledger: &Value,
+    skill_hook_receipt: &Value,
+    hook_dry_run_receipt: &Value,
+    hook_policy_receipt: &Value,
+    hook_invocation_receipt: &Value,
+    escalation_receipts: &[Value],
+) -> Vec<Value> {
+    vec![
+        json!({
+            "id": format!("{run_id}:event:rust-skill-hook:000:skill_hook_manifest"),
+            "run_id": run_id,
+            "agent_id": agent_id,
+            "type": "skill_hook_manifest",
+            "cursor": format!("{run_id}:rust-skill-hook:0"),
+            "created_at": "rust_policy_core",
+            "summary": "Active skill and hook manifest recorded by Rust daemon-core",
+            "data": {
+                "event_kind": "ActiveSkillHookManifest",
+                "manifest_id": manifest["manifestId"],
+                "active_skill_set_hash": manifest["activeSkillSetHash"],
+                "active_hook_set_hash": manifest["activeHookSetHash"],
+                "selected_skill_ids": manifest["selectedSkillIds"],
+                "selected_hook_ids": manifest["selectedHookIds"],
+                "mutation_blocked_hook_ids": manifest["mutationBlockedHookIds"],
+                "hook_execution": {
+                    "enabled": manifest["hookExecution"]["enabled"],
+                },
+                "receipt_id": skill_hook_receipt["id"],
+                "workflow_node_id": "runtime.skill-hook-manifest",
+                "redaction": manifest["redaction"],
+                "rust_daemon_core_materialized": true,
+            },
+        }),
+        json!({
+            "id": format!("{run_id}:event:rust-skill-hook:001:hook_dry_run_plan"),
+            "run_id": run_id,
+            "agent_id": agent_id,
+            "type": "hook_dry_run_plan",
+            "cursor": format!("{run_id}:rust-skill-hook:1"),
+            "created_at": "rust_policy_core",
+            "summary": "Hook dry-run plan recorded by Rust daemon-core",
+            "data": {
+                "event_kind": "HookDryRunPlan",
+                "plan_id": dry_run_plan["planId"],
+                "manifest_id": dry_run_plan["manifestId"],
+                "decision_count": dry_run_plan["decisionCount"],
+                "would_run_count": dry_run_plan["wouldRunCount"],
+                "blocked_count": dry_run_plan["blockedCount"],
+                "skipped_count": dry_run_plan["skippedCount"],
+                "policy_decision": {
+                    "status": dry_run_plan["policyDecision"]["status"],
+                },
+                "hook_execution_enabled": dry_run_plan["hookExecutionEnabled"],
+                "command_execution_enabled": dry_run_plan["commandExecutionEnabled"],
+                "receipt_id": hook_dry_run_receipt["id"],
+                "policy_receipt_id": hook_policy_receipt["id"],
+                "workflow_node_id": "runtime.hook-policy",
+                "redaction": dry_run_plan["redaction"],
+                "rust_daemon_core_materialized": true,
+            },
+        }),
+        json!({
+            "id": format!("{run_id}:event:rust-skill-hook:002:hook_invocation_ledger"),
+            "run_id": run_id,
+            "agent_id": agent_id,
+            "type": "hook_invocation_ledger",
+            "cursor": format!("{run_id}:rust-skill-hook:2"),
+            "created_at": "rust_policy_core",
+            "summary": "Hook invocation ledger recorded by Rust daemon-core",
+            "data": {
+                "event_kind": "HookInvocationLedger",
+                "ledger_id": invocation_ledger["ledgerId"],
+                "manifest_id": invocation_ledger["manifestId"],
+                "dry_run_plan_id": invocation_ledger["dryRunPlanId"],
+                "emitted_event_kinds": invocation_ledger["emittedEventKinds"],
+                "invocation_count": invocation_ledger["invocationCount"],
+                "would_run_count": invocation_ledger["wouldRunCount"],
+                "blocked_count": invocation_ledger["blockedCount"],
+                "skipped_count": invocation_ledger["skippedCount"],
+                "escalation_count": invocation_ledger["escalationCount"],
+                "hook_execution_enabled": invocation_ledger["hookExecutionEnabled"],
+                "command_execution_enabled": invocation_ledger["commandExecutionEnabled"],
+                "receipt_id": hook_invocation_receipt["id"],
+                "escalation_receipt_ids": escalation_receipts.iter().map(|receipt| receipt["id"].clone()).collect::<Vec<Value>>(),
+                "workflow_node_id": "runtime.hook-invocations",
+                "redaction": invocation_ledger["redaction"],
+                "rust_daemon_core_materialized": true,
+            },
+        }),
+    ]
+}
+
+fn update_runtime_task_skill_hook_binding(
+    run: &mut serde_json::Map<String, Value>,
+    manifest: &Value,
+) {
+    for key in ["runtimeTask"] {
+        if let Some(task) = run.get_mut(key).and_then(Value::as_object_mut) {
+            task.insert(
+                "activeSkillHookManifestId".to_string(),
+                manifest["manifestId"].clone(),
+            );
+            append_string_array_field(
+                task,
+                "evidenceRefs",
+                vec![
+                    manifest["manifestId"]
+                        .as_str()
+                        .unwrap_or_default()
+                        .to_string(),
+                    "rust_daemon_core_skill_hook_run_materialization".to_string(),
+                ],
+            );
+        }
+    }
+    if let Some(trace_task) = run
+        .get_mut("trace")
+        .and_then(Value::as_object_mut)
+        .and_then(|trace| trace.get_mut("runtimeTask"))
+        .and_then(Value::as_object_mut)
+    {
+        trace_task.insert(
+            "activeSkillHookManifestId".to_string(),
+            manifest["manifestId"].clone(),
+        );
+        append_string_array_field(
+            trace_task,
+            "evidenceRefs",
+            vec![
+                manifest["manifestId"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .to_string(),
+                "rust_daemon_core_skill_hook_run_materialization".to_string(),
+            ],
+        );
+    }
+}
+
+fn json_artifact(run_id: &str, name: &str, receipt: &Value, content: &Value) -> Value {
+    json!({
+        "id": format!("artifact_{run_id}_{}", artifact_slug(name)),
+        "runId": run_id,
+        "name": name,
+        "mediaType": "application/json",
+        "redaction": "redacted",
+        "receiptId": receipt["id"],
+        "content": serde_json::to_string_pretty(content).unwrap_or_else(|_| "{}".to_string()),
+    })
+}
+
+fn artifact_slug(value: &str) -> String {
+    let mut slug = String::new();
+    let mut last_was_sep = false;
+    for ch in value.chars() {
+        if ch.is_ascii_alphanumeric() {
+            slug.push(ch);
+            last_was_sep = false;
+        } else if !last_was_sep {
+            slug.push('_');
+            last_was_sep = true;
+        }
+    }
+    let trimmed = slug.trim_matches('_').to_string();
+    if trimmed.is_empty() {
+        "artifact".to_string()
+    } else {
+        trimmed
+    }
+}
+
+fn skill_manifest_record(skill: &Value) -> Value {
+    json!({
+        "id": skill["id"],
+        "name": skill["name"],
+        "skillHash": skill["skillHash"],
+        "sourceId": skill["sourceId"],
+        "compatibility": skill["compatibility"],
+        "trustLevel": skill["trustLevel"],
+        "activationMode": skill["activationMode"],
+        "validationStatus": skill["validation"]["status"],
+        "provenance": skill["provenance"],
+        "evidenceRefs": skill["evidenceRefs"],
+    })
+}
+
+fn hook_manifest_record(hook: &Value) -> Value {
+    json!({
+        "id": hook["id"],
+        "name": hook["name"],
+        "enabled": hook.get("enabled").and_then(Value::as_bool) != Some(false),
+        "definitionHash": hook["definitionHash"],
+        "sourceId": hook["sourceId"],
+        "compatibility": hook["compatibility"],
+        "trustLevel": hook["trustLevel"],
+        "eventKinds": hook["eventKinds"],
+        "failurePolicy": hook["failurePolicy"],
+        "sideEffectClass": hook["sideEffectClass"],
+        "authorityScopes": hook["authorityScopes"],
+        "toolContracts": hook["toolContracts"],
+        "commandConfigured": hook["commandConfigured"],
+        "commandHash": hook["commandHash"],
+        "commandRedacted": hook["commandRedacted"],
+        "validationStatus": hook["validation"]["status"],
+        "mutationPolicy": hook["mutationPolicy"],
+        "evidenceRefs": hook["evidenceRefs"],
+    })
+}
+
+fn manifest_selection_refs(
+    objects: &[Option<&serde_json::Map<String, Value>>],
+    keys: &[&str],
+) -> Vec<String> {
+    let mut refs = Vec::new();
+    for object in objects.iter().flatten() {
+        for key in keys {
+            collect_manifest_selection_refs(object.get(*key), &mut refs);
+        }
+    }
+    unique_string_vec(refs)
+}
+
+fn collect_manifest_selection_refs(value: Option<&Value>, refs: &mut Vec<String>) {
+    match value {
+        Some(Value::Array(items)) => {
+            for item in items {
+                collect_manifest_selection_refs(Some(item), refs);
+            }
+        }
+        Some(Value::Object(object)) => {
+            for key in ["id", "name", "skillHash", "definitionHash"] {
+                if let Some(value) = object.get(key).and_then(Value::as_str) {
+                    if let Some(value) = optional_trimmed(Some(value)) {
+                        refs.push(value);
+                    }
+                }
+            }
+        }
+        Some(Value::String(value)) => {
+            if let Some(value) = optional_trimmed(Some(value)) {
+                refs.push(value);
+            }
+        }
+        Some(value) if !value.is_null() => refs.push(value.to_string()),
+        _ => {}
+    }
+}
+
+fn select_manifest_records(
+    records: &[Value],
+    requested_refs: &[String],
+    hash_field: &str,
+) -> Vec<Value> {
+    if requested_refs.is_empty() {
+        return records.to_vec();
+    }
+    let requested: Vec<String> = requested_refs
+        .iter()
+        .map(|value| normalize_manifest_token(value))
+        .collect();
+    records
+        .iter()
+        .filter(|record| {
+            ["id", "name", hash_field, "sourceId"]
+                .iter()
+                .filter_map(|key| string_value_from_json(record, key))
+                .map(|value| normalize_manifest_token(&value))
+                .any(|candidate| requested.contains(&candidate))
+        })
+        .cloned()
+        .collect()
+}
+
+fn normalize_manifest_token(value: &str) -> String {
+    value
+        .trim()
+        .to_ascii_lowercase()
+        .split_whitespace()
+        .collect::<Vec<&str>>()
+        .join("-")
+}
+
+fn json_array(value: &Value) -> Vec<Value> {
+    value.as_array().cloned().unwrap_or_default()
+}
+
+fn string_array_from_json(value: Option<&Value>) -> Vec<String> {
+    value
+        .and_then(Value::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(Value::as_str)
+                .filter_map(|value| optional_trimmed(Some(value)))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn string_value_from_json(value: &Value, key: &str) -> Option<String> {
+    value
+        .get(key)
+        .and_then(Value::as_str)
+        .and_then(|value| optional_trimmed(Some(value)))
+}
+
+fn sha256_text(value: &str) -> String {
+    hex::encode(Sha256::digest(value.as_bytes()))
+}
 
 fn materialize_computer_use_run(
     run: &mut serde_json::Map<String, Value>,
@@ -2365,6 +3508,7 @@ fn optional_json_string(value: &Value, key: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     fn thread_control_agent_state_update_request(
         control_kind: &str,
@@ -2524,6 +3668,19 @@ mod tests {
                 }
             }),
         }
+    }
+
+    fn skill_hook_fixture_roots(label: &str) -> (std::path::PathBuf, std::path::PathBuf) {
+        let seed = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("ioi-thread-lifecycle-{label}-{seed}"));
+        let workspace = root.join("workspace");
+        let home = root.join("home");
+        std::fs::create_dir_all(&workspace).unwrap();
+        std::fs::create_dir_all(&home).unwrap();
+        (workspace, home)
     }
 
     fn agent_status_state_update_request() -> AgentStatusStateUpdateRequest {
@@ -3180,6 +4337,146 @@ mod tests {
             .expect("evidence refs")
             .iter()
             .any(|value| value == "rust_daemon_core_computer_use_run_materialization"));
+    }
+
+    #[test]
+    fn rust_policy_materializes_skill_hook_run_create_truth() {
+        let (workspace, home) = skill_hook_fixture_roots("run-create");
+        std::fs::create_dir_all(workspace.join(".cursor/skills/repo-cartographer")).unwrap();
+        std::fs::write(
+            workspace.join(".cursor/skills/repo-cartographer/SKILL.md"),
+            "---\nname: Repo Cartographer\ndescription: Maps code\n---\n# Repo Cartographer\n",
+        )
+        .unwrap();
+        std::fs::write(
+            workspace.join(".cursor/hooks.json"),
+            json!({
+                "hooks": [
+                    {
+                        "name": "workflow-observer",
+                        "event_kinds": ["workflow_activation"],
+                        "side_effect_class": "none"
+                    },
+                    {
+                        "name": "pre-model-redaction",
+                        "event_kinds": ["pre_model"],
+                        "authority_scopes": ["runtime.read"],
+                        "tool_contracts": ["fs.read"],
+                        "command": "redacted-command",
+                        "failure_policy": "block"
+                    },
+                    {
+                        "name": "post-model-blocked",
+                        "event_kinds": ["post_model"],
+                        "command": "blocked-command"
+                    }
+                ]
+            })
+            .to_string(),
+        )
+        .unwrap();
+
+        let mut request = run_create_state_update_request();
+        request.run["runtimeTask"] = json!({
+            "taskId": "task_run_create_one",
+            "evidenceRefs": []
+        });
+        request.run["trace"]["runtimeTask"] = request.run["runtimeTask"].clone();
+        request.run["trace"]["taskState"] = json!({
+            "knownFacts": [],
+            "evidenceRefs": []
+        });
+        request.run["trace"]["promptAudit"] = json!({
+            "evidenceRefs": []
+        });
+        request.run["skill_hook_materialization_request"] = json!({
+            "schema_version": SKILL_HOOK_RUN_MATERIALIZATION_REQUEST_SCHEMA_VERSION,
+            "object": "ioi.runtime_skill_hook_run_materialization_request",
+            "run_id": "run_create_one",
+            "agent_id": "agent_create_one",
+            "workspace_root": workspace.to_string_lossy(),
+            "home_dir": home.to_string_lossy(),
+            "agent_options": {
+                "skillNames": [],
+                "hookNames": []
+            },
+            "request_options": {}
+        });
+
+        let record = RunCreateStateUpdateCore
+            .plan(&request)
+            .expect("run create state update");
+
+        assert!(record
+            .run
+            .get("skill_hook_materialization_request")
+            .is_none());
+        assert_eq!(
+            record.run["activeSkillHookManifest"]["schemaVersion"],
+            "ioi.agent-runtime.active-skill-hook-manifest.v1"
+        );
+        assert_eq!(
+            record.run["activeSkillHookManifest"]["selectedSkillIds"]
+                .as_array()
+                .expect("selected skills")
+                .len(),
+            1
+        );
+        assert_eq!(
+            record.run["activeSkillHookManifest"]["selectedHookIds"]
+                .as_array()
+                .expect("selected hooks")
+                .len(),
+            3
+        );
+        assert_eq!(record.run["hookDryRunPlan"]["decisionCount"], 3);
+        assert_eq!(record.run["hookDryRunPlan"]["wouldRunCount"], 1);
+        assert_eq!(record.run["hookDryRunPlan"]["blockedCount"], 1);
+        assert_eq!(record.run["hookDryRunPlan"]["skippedCount"], 1);
+        assert_eq!(record.run["hookInvocationLedger"]["invocationCount"], 3);
+        assert_eq!(record.run["hookInvocationLedger"]["escalationCount"], 1);
+        assert_eq!(
+            record.run["trace"]["promptAudit"]["activeSkillHookManifestId"],
+            record.run["activeSkillHookManifest"]["manifestId"]
+        );
+        assert!(record.run["events"]
+            .as_array()
+            .expect("events")
+            .iter()
+            .any(|event| event["type"] == "skill_hook_manifest"
+                && event["data"]["rust_daemon_core_materialized"] == true));
+        assert!(record.run["receipts"]
+            .as_array()
+            .expect("receipts")
+            .iter()
+            .any(|receipt| receipt["kind"] == "hook_invocation_ledger"));
+        assert!(record.run["artifacts"]
+            .as_array()
+            .expect("artifacts")
+            .iter()
+            .any(|artifact| artifact["name"] == "active-skill-hook-manifest.json"));
+        assert!(record.run["trace"]["taskState"]["evidenceRefs"]
+            .as_array()
+            .expect("evidence refs")
+            .iter()
+            .any(|value| value == "rust_daemon_core_skill_hook_run_materialization"));
+    }
+
+    #[test]
+    fn rust_policy_rejects_js_skill_hook_materialization_candidate() {
+        let mut request = run_create_state_update_request();
+        request.run["activeSkillHookManifest"] = json!({
+            "source": "js_skill_hook_manifest"
+        });
+
+        let error = RunCreateStateUpdateCore
+            .plan(&request)
+            .expect_err("retired JS skill hook materialization candidate rejected");
+
+        assert_eq!(
+            error,
+            RunCreateStateUpdateError::RetiredSkillHookMaterializationCandidate
+        );
     }
 
     #[test]
