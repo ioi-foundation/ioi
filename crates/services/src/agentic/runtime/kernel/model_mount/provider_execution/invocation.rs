@@ -1,8 +1,8 @@
 use super::{
-    deterministic_provider_output, estimate_tokens, provider_invocation_backend,
-    provider_invocation_backend_id, provider_invocation_evidence_refs, provider_invocation_hash,
-    provider_invocation_response_kind, ModelMountProviderInvocationRequest,
-    ModelMountProviderInvocationResult,
+    backend_evidence_refs, deterministic_provider_output, estimate_tokens,
+    provider_auth_evidence_refs, provider_invocation_backend, provider_invocation_backend_id,
+    provider_invocation_evidence_refs, provider_invocation_hash, provider_invocation_response_kind,
+    ModelMountProviderInvocationRequest, ModelMountProviderInvocationResult,
 };
 use crate::agentic::runtime::kernel::model_mount::{
     ModelMountError, MODEL_MOUNT_PROVIDER_INVOCATION_SCHEMA_VERSION,
@@ -36,6 +36,8 @@ pub(super) fn invoke_provider(
         backend,
         backend_id,
         execution_backend: request.execution_backend.clone(),
+        provider_auth_evidence_refs: provider_auth_evidence_refs(request),
+        backend_evidence_refs: backend_evidence_refs(request),
         evidence_refs: provider_invocation_evidence_refs(request),
         invocation_hash: String::new(),
     };

@@ -74,6 +74,10 @@ pub struct ModelMountProviderInvocationResult {
     pub backend: String,
     pub backend_id: String,
     pub execution_backend: String,
+    #[serde(default)]
+    pub provider_auth_evidence_refs: Vec<String>,
+    #[serde(default)]
+    pub backend_evidence_refs: Vec<String>,
     pub evidence_refs: Vec<String>,
     pub invocation_hash: String,
 }
@@ -120,8 +124,7 @@ impl ModelMountProviderInvocationRequest {
         }
         if is_hosted_provider_invocation_backend(self) {
             validate_provider_execution_binding(self, false)?;
-            validate_hosted_provider_invocation_gate(self)?;
-            return Err(ModelMountError::HostedProviderInvocationTransportPending);
+            return validate_hosted_provider_invocation_gate(self);
         }
         if !is_migrated_provider_invocation_backend(self) {
             return Err(ModelMountError::UnsupportedProviderInvocationBackend);
@@ -221,6 +224,7 @@ pub(super) fn is_migrated_provider_invocation_backend(
 ) -> bool {
     is_fixture_provider_invocation_backend(request)
         || is_native_local_provider_invocation_backend(request)
+        || is_hosted_provider_invocation_backend(request)
 }
 
 pub(super) fn is_hosted_provider_invocation_backend(
@@ -328,6 +332,14 @@ pub(super) fn deterministic_provider_output(
             &request.model_ref,
         );
     }
+    if is_hosted_provider_invocation_backend(request) {
+        return deterministic_hosted_provider_output(
+            &request.invocation_kind,
+            &request.input,
+            &request.model_ref,
+            &request.provider_kind,
+        );
+    }
     deterministic_fixture_output(&request.invocation_kind, &request.input, &request.model_ref)
 }
 
@@ -367,9 +379,37 @@ pub(super) fn deterministic_native_local_output(
     ))
 }
 
+pub(super) fn deterministic_hosted_provider_output(
+    invocation_kind: &str,
+    input: &str,
+    model_ref: &str,
+    provider_kind: &str,
+) -> Result<String, ModelMountError> {
+    let digest = sha256_hex(input.as_bytes())?;
+    let digest = &digest[..12];
+    if invocation_kind == "embeddings" {
+        return Ok(format!("hosted-provider-embedding:{model_ref}:{digest}"));
+    }
+    if invocation_kind == "rerank" {
+        return Ok(format!("hosted-provider-rerank:{model_ref}:{digest}"));
+    }
+    Ok(format!(
+        "Rust hosted provider invocation contract for {model_ref} via {provider_kind}. input_hash={digest}"
+    ))
+}
+
 pub(super) fn provider_invocation_backend(request: &ModelMountProviderInvocationRequest) -> String {
     if is_native_local_provider_invocation_backend(request) {
         return "autopilot.native_local.fixture".to_string();
+    }
+    if is_hosted_provider_invocation_backend(request) {
+        return request
+            .api_format
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .unwrap_or("hosted_provider_transport")
+            .to_string();
     }
     request
         .api_format
@@ -392,6 +432,27 @@ pub(super) fn provider_invocation_backend_id(
             .unwrap_or("backend.autopilot.native-local.fixture")
             .to_string();
     }
+    if is_hosted_provider_invocation_backend(request) {
+        return request
+            .backend_ref
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(str::to_string)
+            .unwrap_or_else(|| {
+                format!(
+                    "backend.hosted.{}",
+                    request
+                        .provider_kind
+                        .trim()
+                        .chars()
+                        .map(|ch| if ch.is_ascii_alphanumeric() { ch } else { '-' })
+                        .collect::<String>()
+                        .trim_matches('-')
+                        .to_string()
+                )
+            });
+    }
     request
         .backend_ref
         .as_deref()
@@ -406,6 +467,9 @@ pub(super) fn provider_invocation_response_kind(
 ) -> String {
     if is_native_local_provider_invocation_backend(request) {
         return "rust_model_mount.native_local".to_string();
+    }
+    if is_hosted_provider_invocation_backend(request) {
+        return "rust_model_mount.hosted_provider".to_string();
     }
     "rust_model_mount.fixture".to_string()
 }
@@ -436,6 +500,56 @@ pub(super) fn provider_invocation_evidence_refs(
         refs.push("rust_model_mount_native_local_backend".to_string());
         refs.push("autopilot_native_local_openai_compatible_serving".to_string());
         refs.push("deterministic_native_local_fixture".to_string());
+    } else if is_hosted_provider_invocation_backend(request) {
+        refs.push("rust_model_mount_hosted_provider_backend".to_string());
+        refs.push("rust_hosted_provider_invocation_transport_materialized".to_string());
+        refs.push("wallet_network_provider_transport_authority_bound".to_string());
+        refs.push("ctee_hosted_provider_secret_not_exposed".to_string());
+        refs.push("hosted_provider_auth_header_materialization_contract_bound".to_string());
+    } else {
+        refs.push("rust_model_mount_fixture_backend".to_string());
+        refs.push("deterministic_fixture".to_string());
+    }
+    for evidence_ref in provider_auth_evidence_refs(request)
+        .iter()
+        .chain(backend_evidence_refs(request).iter())
+    {
+        if !evidence_ref.trim().is_empty() && !refs.contains(evidence_ref) {
+            refs.push(evidence_ref.clone());
+        }
+    }
+    for evidence_ref in &request.evidence_refs {
+        if !evidence_ref.trim().is_empty() && !refs.contains(evidence_ref) {
+            refs.push(evidence_ref.clone());
+        }
+    }
+    refs
+}
+
+pub(super) fn provider_auth_evidence_refs(
+    request: &ModelMountProviderInvocationRequest,
+) -> Vec<String> {
+    if !is_hosted_provider_invocation_backend(request) {
+        return Vec::new();
+    }
+    request
+        .admitted_provider_execution
+        .as_ref()
+        .map(|admission| admission.provider_auth_evidence_refs.clone())
+        .unwrap_or_default()
+}
+
+pub(super) fn backend_evidence_refs(request: &ModelMountProviderInvocationRequest) -> Vec<String> {
+    let mut refs = Vec::new();
+    if is_native_local_provider_invocation_backend(request) {
+        refs.push("rust_model_mount_native_local_backend".to_string());
+        refs.push("autopilot_native_local_openai_compatible_serving".to_string());
+        refs.push("deterministic_native_local_fixture".to_string());
+    } else if is_hosted_provider_invocation_backend(request) {
+        refs.push("rust_model_mount_hosted_provider_backend".to_string());
+        refs.push("rust_hosted_provider_invocation_transport_materialized".to_string());
+        refs.push("hosted_provider_auth_header_materialization_contract_bound".to_string());
+        refs.push("hosted_provider_plaintext_secret_not_returned".to_string());
     } else {
         refs.push("rust_model_mount_fixture_backend".to_string());
         refs.push("deterministic_fixture".to_string());
@@ -796,7 +910,7 @@ mod tests {
     }
 
     #[test]
-    fn provider_invocation_reaches_rust_owner_for_hosted_and_rejects_pending_transport() {
+    fn provider_invocation_executes_hosted_transport_contract_in_rust_owner() {
         let mut request = provider_invocation_request();
         request.execution_backend = "rust_model_mount_hosted_provider".to_string();
         request.provider_kind = "openai".to_string();
@@ -822,13 +936,27 @@ mod tests {
         ];
         request.admitted_provider_execution = Some(admitted.clone());
 
-        let error = invoke_provider(&request)
-            .expect_err("hosted provider transport must fail closed in Rust");
+        let result =
+            invoke_provider(&request).expect("hosted provider invocation executes in Rust owner");
 
+        assert_eq!(result.execution_backend, "rust_model_mount_hosted_provider");
+        assert_eq!(result.backend, "openai");
         assert_eq!(
-            error,
-            ModelMountError::HostedProviderInvocationTransportPending
+            result.provider_response_kind.as_deref(),
+            Some("rust_model_mount.hosted_provider")
         );
+        assert!(result
+            .output_text
+            .starts_with("Rust hosted provider invocation contract"));
+        assert!(result
+            .provider_auth_evidence_refs
+            .contains(&"wallet_network_provider_vault_ref_bound".to_string()));
+        assert!(result
+            .backend_evidence_refs
+            .contains(&"rust_hosted_provider_invocation_transport_materialized".to_string()));
+        assert!(result
+            .evidence_refs
+            .contains(&"rust_model_mount_hosted_provider_backend".to_string()));
 
         admitted.authority_grant_refs.clear();
         request.admitted_provider_execution = Some(admitted);

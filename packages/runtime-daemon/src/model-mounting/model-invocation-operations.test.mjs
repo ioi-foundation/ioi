@@ -1376,6 +1376,53 @@ test("modelMountProviderResultAdmissionRequestForExecution binds Rust provider r
   assert.deepEqual(request.provider_auth_evidence_refs, []);
   assert.deepEqual(request.backend_evidence_refs, ["rust_model_mount_fixture_backend"]);
   assert.equal(request.admitted_provider_execution.provider_execution_hash, "sha256:provider-execution-test");
+  const hostedRequest = modelMountProviderResultAdmissionRequestForExecution({
+    input: "user: hosted",
+    instance: { backend_id: "backend.openai-compatible" },
+    kind: "chat.completions",
+    modelMountProviderExecutionAdmission: {
+      record: {
+        ...admission.record,
+        provider_ref: "provider.openai",
+        endpoint_ref: "endpoint.openai",
+        model_ref: "model.openai",
+        provider_auth_evidence_refs: [
+          "rust_model_mount_hosted_provider_auth_gate",
+          "wallet_network_provider_vault_ref_bound",
+          "ctee_hosted_provider_secret_not_exposed",
+        ],
+      },
+      provider_execution_ref: admission.provider_execution_ref,
+      provider_execution_hash: admission.provider_execution_hash,
+      receipt_refs: ["receipt://route"],
+      evidence_refs: ["rust_model_mount_core"],
+    },
+    providerResult: {
+      output_text: "Rust hosted provider invocation contract for model.openai",
+      provider_response_kind: "rust_model_mount.hosted_provider",
+      execution_backend: "rust_model_mount_hosted_provider",
+      token_count: { prompt_tokens: 2, completion_tokens: 8, total_tokens: 10 },
+      provider_auth_evidence_refs: [
+        "rust_model_mount_hosted_provider_auth_gate",
+        "wallet_network_provider_vault_ref_bound",
+        "ctee_hosted_provider_secret_not_exposed",
+      ],
+      backend_evidence_refs: [
+        "rust_model_mount_hosted_provider_backend",
+        "rust_hosted_provider_invocation_transport_materialized",
+        "hosted_provider_auth_header_materialization_contract_bound",
+      ],
+    },
+    selection: selection({
+      endpoint: { api_format: "openai", driver: "openai_compatible" },
+      provider: { id: "provider.openai", kind: "openai", driver: "openai_compatible" },
+    }),
+  });
+
+  assert.equal(hostedRequest.execution_backend, "rust_model_mount_hosted_provider");
+  assert.equal(hostedRequest.provider_response_kind, "rust_model_mount.hosted_provider");
+  assert.equal(hostedRequest.provider_auth_evidence_refs.includes("wallet_network_provider_vault_ref_bound"), true);
+  assert.equal(hostedRequest.backend_evidence_refs.includes("rust_hosted_provider_invocation_transport_materialized"), true);
   assert.throws(
     () =>
       modelMountProviderResultAdmissionRequestForExecution({

@@ -11668,14 +11668,14 @@ kinds such as OpenAI, Anthropic, Gemini, OpenAI-compatible, Ollama, vLLM,
 llama.cpp, LM Studio, custom HTTP, and depin TEE instead of returning through the
 JS `model_mount_provider_invocation_rust_backend_required` decision path. The
 Rust `provider_execution` owner now receives that hosted request and rejects it
-with `UnsupportedProviderInvocationBackend` until direct Rust hosted transport
-and vault-backed auth materialization exist; focused JS/Rust tests and
-conformance guard that the hosted non-stream request reaches the Rust direct API
-boundary, while hosted stream remains blocked before unsupported stream
-transport can masquerade as migrated execution. This remains non-terminal
-because live external hosted API execution, direct Rust/vault auth-header
-materialization, actual Rust backend process execution/materialization, and
-invocation authority depth still need terminal Rust-owned execution coverage.
+with a Rust-owned hosted lane rather than a JS unsupported-backend predicate;
+focused JS/Rust tests and conformance guard that the hosted non-stream request
+reaches the Rust direct API boundary, while hosted stream remains blocked before
+unsupported stream transport can masquerade as migrated execution. This cut was
+superseded by the hosted transport-contract materialization cut below; live
+external hosted API execution, direct Rust/vault auth-header materialization,
+actual Rust backend process execution/materialization, and invocation authority
+depth still need terminal Rust-owned execution coverage.
 
 Slice 1368 hard-cuts hosted provider invocation out of the generic unsupported
 backend lane and into a Rust-owned wallet/vault/cTEE transport gate. Hosted
@@ -11686,13 +11686,31 @@ vault-ref configuration (`rust_model_mount_hosted_provider_auth_gate`,
 materializing plaintext or leaking the vault ref. Rust `provider_execution`
 recognizes `rust_model_mount_hosted_provider` as a first-class hosted invocation
 lane, validates the bound provider-execution record, requires wallet authority
-grant/receipt refs plus hosted auth/cTEE evidence, fails missing authority or
-auth evidence with named Rust errors, and only then rejects live execution at
-`HostedProviderInvocationTransportPending`. This remains non-terminal because
-direct Rust/vault auth-header materialization, live external hosted API
-execution, hosted stream parity, actual Rust backend process execution/
-materialization, and deeper invocation authority still need terminal Rust-owned
-execution coverage.
+grant/receipt refs plus hosted auth/cTEE evidence, and fails missing authority or
+auth evidence with named Rust errors before execution. This remains
+non-terminal because direct Rust/vault auth-header materialization, live
+external hosted API execution, hosted stream parity, actual Rust backend process
+execution/materialization, and deeper invocation authority still need terminal
+Rust-owned execution coverage.
+
+Slice 1369 hard-cuts the hosted provider invocation temporary transport
+boundary. The Rust `provider_execution` owner no longer returns a temporary
+transport error after authority/auth validation. Hosted non-stream provider invocation now
+materializes a Rust-owned `rust_model_mount_hosted_provider` result contract
+with output text, token accounting, invocation hash, provider-auth evidence
+refs, backend evidence refs, wallet transport authority evidence, cTEE
+no-plaintext evidence, and a hosted auth-header materialization contract marker.
+Rust provider-result admission now accepts hosted results only when the
+execution backend is `rust_model_mount_hosted_provider`, the response kind is
+`rust_model_mount.hosted_provider`, and the wallet/vault/cTEE plus hosted
+transport materialization evidence is present; missing evidence or JS-observed
+provider-result backends fail closed before accepted truth. Focused JS/Rust
+tests and conformance require the positive hosted transport-contract path and
+reject restoring the retired pending error. This remains non-terminal because
+direct live external provider network I/O, direct Rust/vault secret
+materialization into outbound auth headers, hosted stream parity, actual Rust
+backend process execution/materialization, and deeper invocation authority still
+need terminal Rust-owned execution coverage.
 
 ## Final Doctrine
 
