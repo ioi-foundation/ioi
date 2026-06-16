@@ -40,9 +40,10 @@ IOI L1 settles only triggered public/economic/cross-domain commitments.
 Short form:
 
 > **Hypervisor Fleet is a general infrastructure manager whose first-class
-> workload is autonomous systems. It appears inside Hypervisor IDE and
-> console.ioi.ai, but its authority comes from wallet.network, its truth comes
-> from Agentgres, and execution remains daemon-owned.**
+> workload is autonomous systems. It appears as an application surface inside
+> Hypervisor App, Hypervisor Web, CLI/headless projections, and console.ioi.ai, but
+> its authority comes from wallet.network, its truth comes from Agentgres, and
+> execution remains daemon-owned.**
 
 ## Why Fleet Exists
 
@@ -199,12 +200,21 @@ cheap DePIN GPU route = private route.
 
 ## Surfaces
 
-Fleet is a substrate abstraction with multiple surfaces, not another mental app
-that users must manage separately.
+Fleet is an application surface over Hypervisor Core with multiple client
+presentations, not another mental app that users must manage separately.
 
 ```text
-Hypervisor IDE Fleet Surface
+Hypervisor App Fleet Surface
   hands-on operator cockpit for personal and persistent workspaces
+
+Hypervisor Web Fleet Surface
+  browser/team/remote cockpit for remote workspaces, provider integrations,
+  team posture, and restore/entitlement flows
+
+CLI/headless Fleet Projection
+  terminal/headless operator surface for node ops, placement, logs, receipts,
+  health, and scripted infrastructure workflows; a TUI may present this
+  interactively but does not create separate runtime truth
 
 console.ioi.ai Fleet Surface
   web/org/admin control plane for accounts, devices, entitlements,
@@ -212,11 +222,11 @@ console.ioi.ai Fleet Surface
   and team fleet posture
 ```
 
-Hypervisor IDE may host Fleet as one application/lens among substrate-backed
-applications:
+Hypervisor App and Hypervisor Web may host Fleet as one application surface
+among Core-backed surfaces:
 
 ```text
-Workspaces
+Workbench
 Fleet
 Foundry
 Agents
@@ -227,9 +237,9 @@ Receipts / Audit
 Connectors
 ```
 
-Foundry, Fleet, and future verticals are application lenses over the same
-daemon, Agentgres, wallet.network, cTEE, AIIP, and provider substrate. They do
-not create separate runtime truth.
+Workbench, Foundry, Fleet, and future verticals are application surfaces over
+the same Hypervisor Core, Hypervisor Daemon, Agentgres, wallet.network, cTEE,
+AIIP, and provider substrate. They do not create separate runtime truth.
 
 ## Owns
 
@@ -259,7 +269,9 @@ Fleet may own or coordinate:
   Nutanix, HypervisorOS, cloud, and DePIN targets;
 - Fleet policy visibility and proposal surfaces;
 - org/team/admin fleet views through console.ioi.ai;
-- personal/operator workspace fleet views through Hypervisor IDE.
+- personal/operator workspace fleet views through Hypervisor App and
+  Hypervisor Web;
+- terminal/headless fleet views through CLI/headless projections.
 
 ## Does Not Own
 
@@ -291,7 +303,7 @@ provider account or local node is registered
   -> Hypervisor Daemon heartbeat or provider connector updates status
   -> Agentgres projections expose state roots, receipts, archive refs, and run status
   -> Fleet recommends or displays placement, cost, health, cTEE posture, and replay state
-  -> operator approves node/workspace/run changes through Hypervisor IDE or console.ioi.ai
+  -> operator approves node/workspace/run changes through Hypervisor App, Hypervisor Web, CLI/headless, or console.ioi.ai
   -> Hypervisor Daemon executes the authorized work
   -> Agentgres records admitted operations and receipt refs
   -> storage backends hold payload bytes
@@ -547,7 +559,7 @@ Hypervisor Daemon emits trace/receipt events
   -> Agentgres records refs, receipts, state roots, projection watermarks
   -> storage backends hold large trace/log payloads
   -> Fleet indexes fleet-level observability
-  -> Hypervisor IDE opens workspace/run-level replay
+  -> Hypervisor App, Hypervisor Web, or CLI/headless opens workspace/run-level replay
 ```
 
 Fleet may render:
@@ -614,8 +626,8 @@ Reject these:
 10. Fleet logs as canonical proof without receipt and artifact-ref linkage.
 11. Fleet storage status as proof that payload meaning or restore validity is
     accepted.
-12. One GUI app per vertical when a Hypervisor IDE application lens over the
-    same substrate is sufficient.
+12. One GUI app per vertical when a Hypervisor application surface over the
+    same Core is sufficient.
 13. Promoting parked future `decentralized.cloud` into a mandatory cloud
     gateway.
 14. Treating cheap DePIN GPU availability as a privacy guarantee.

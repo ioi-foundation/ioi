@@ -76,7 +76,11 @@ Mixture of Workers
   labor routing across bounded workers by policy, benchmarks, receipts, cost, trust, and contribution quality
 
 Client Surfaces
-  Hypervisor IDE, IOI CLI/TUI, SDK, ADK, agent-ide, browser apps, harnesses, benchmarks
+  Hypervisor App, Hypervisor Web, CLI/headless, optional TUI, SDK, ADK,
+  agent-ide, browser apps, harnesses, benchmarks
+
+Hypervisor Application Surfaces
+  Workbench, Foundry, Fleet, Agents, Services, Models, cTEE/Privacy, Receipts/Audit
 
 Storage Backends
   immutable package, artifact, evidence, receipt, checkpoint, snapshot, sealed archive byte availability
@@ -132,8 +136,8 @@ Execution Nodes           = local/hosted/DePIN/TEE/customer runtime nodes
 Authority Plane           = wallet.network
 Artifact-Ref Plane        = Agentgres artifact refs
 Storage Backends          = local disk, S3/object stores, Filecoin, CAS/IPFS, provider blobs
-Application Surfaces      = React/Web/native apps such as Hypervisor, aiagent.xyz, sas.xyz
-Developer/Operator Clients = IOI CLI/TUI, @ioi/agent-sdk, IOI ADK, agent-ide, harnesses
+Application Surfaces      = Workbench, Foundry, Fleet, Agents, Services, Models, cTEE/Privacy, Receipts/Audit
+Developer/Operator Clients = Hypervisor App, Hypervisor Web, IOI CLI/headless, optional TUI, @ioi/agent-sdk, IOI ADK, agent-ide, harnesses
 MoW Routing               = worker selection, sparse categories, contribution policy, benchmark eligibility
 ```
 
@@ -148,7 +152,9 @@ Hypervisor Node = local orchestration, interop, authority, receipts, replay, and
 AIIP = work interop protocol across bounded execution domains
 Hypervisor Daemon runtime nodes = execution layer
 MoW = labor routing layer for bounded workers
-Hypervisor IDE/CLI/TUI/SDK/ADK/agent-ide = clients, builder frameworks, and projections over runtime/domain contracts
+Hypervisor App/Web/CLI-headless/SDK/ADK/agent-ide = clients, builder frameworks, and projections over runtime/domain contracts
+TUI = optional CLI presentation over the same runtime/domain contracts
+Workbench/Foundry/Fleet = application surfaces over Hypervisor Core and daemon/domain contracts
 ```
 
 ## Edge-In Topology
@@ -206,12 +212,15 @@ A canonical Web4 app is a stateful, authority-aware, autonomous application doma
 
 | App | Canonical Web4 Role |
 |---|---|
-| Hypervisor IDE | Local Web4 app, private workspace, and workflow construction surface over a local Hypervisor Daemon. |
+| Hypervisor Core | Shared product/runtime substrate for governed autonomous work; the Hypervisor Daemon owns execution inside it. |
+| Hypervisor App | Native desktop client over Hypervisor Core. |
+| Hypervisor Web | Browser/team/remote client over Hypervisor Core. |
+| Hypervisor Workbench | Code/systems/workspace application surface over Hypervisor Core, with editors and terminals as adapter targets. |
 | Hypervisor Node | Local settlement, interop, authority, state, replay, and routing domain for governed autonomous systems. |
 | AIIP | RPC-shaped, receipt-native interop protocol for autonomous work across bounded execution domains. |
 | Bounded Execution Domain | Any local, hosted, enterprise, marketplace, robot, worker, service, microharness, or AS-L1 domain that performs scoped autonomous work under policy and receipts. |
 | Governed Autonomous-System Chain | Local stateful execution object with policy, modules, proposals, receipts, and governed upgrades. |
-| IOI CLI/TUI | Local operator client for daemon, domain, authority, receipt, and settlement workflows. |
+| IOI CLI/headless | Local operator, scripting, CI, and node-ops client for daemon, domain, authority, receipt, and settlement workflows; TUI is an optional presentation. |
 | IOI SDK | Low-level protocol/client library over daemon, Agentgres, wallet.network, AIIP, and IOI L1 contracts. |
 | IOI ADK | Autonomous development kit for building workers, service modules, harnesses, evals, manifests, receipts, deployment profiles, and governed autonomous systems. |
 | Hypervisor Daemon | Portable runtime endpoint for local, hosted, provider, DePIN, TEE, and customer execution. |

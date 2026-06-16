@@ -105,9 +105,10 @@ Define Task
 → Monitor & Improve When Needed
 ```
 
-The same lifecycle can be operated through CLI/TUI, daemon APIs, hosted
-runtime-node jobs, or sas.xyz service engagements. Hypervisor owns the local
-product experience, not the underlying state, authority, or execution substrate.
+The same lifecycle can be operated through CLI/headless clients, optional TUI
+views, daemon APIs, hosted runtime-node jobs, or sas.xyz service engagements.
+Hypervisor owns the local product experience, not the underlying state,
+authority, or execution substrate.
 
 Foundry is a product lens over the shared IOI builder substrate, not a
 separate canvas environment. Training recipes, evaluation recipes, benchmark

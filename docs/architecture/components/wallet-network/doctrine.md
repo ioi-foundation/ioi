@@ -18,9 +18,10 @@ payments, revocation, and audit lineage. It is not merely a crypto wallet.
 
 ## Core Doctrine
 
-> **The Hypervisor Daemon runs autonomous work. Hypervisor IDE lets humans operate
-> it. Agentgres remembers and settles what changed. wallet.network decides what
-> power workers are allowed to use.**
+> **The Hypervisor Daemon runs autonomous work. Hypervisor App, Hypervisor Web,
+> CLI/headless clients, optional TUI views, and application surfaces let humans
+> operate it. Agentgres remembers and settles what changed. wallet.network
+> decides what power workers are allowed to use.**
 
 Put more sharply:
 
@@ -36,8 +37,9 @@ state's canonical meaning remains in Agentgres refs and the encrypted bytes
 remain in storage backends.
 
 - Hypervisor Daemon executes work as the autonomous-execution hypervisor/control plane.
-- Hypervisor IDE and Desktop request, approve, and inspect work as operator
-  surfaces.
+- Hypervisor App, Hypervisor Web, CLI/headless clients, optional TUI views, and
+  Workbench/Foundry/Fleet request, approve, and inspect work as operator
+  clients and application surfaces.
 - Agentgres records operational state, runs, receipts, projections, delivery,
   and contribution accounting.
 - IOI L1 settles registry, rights, escrows, bonds, disputes, and public

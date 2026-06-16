@@ -91,10 +91,11 @@ console.ioi.ai Fleet Surface
   org/admin policy visibility
 ```
 
-The companion local/operator lens lives in Hypervisor IDE:
+The companion local/operator presentations live in Hypervisor App, Hypervisor
+Web, and CLI/headless projections:
 
 ```text
-Hypervisor IDE Fleet Surface
+Hypervisor App / Web Fleet Surface
   attached nodes
   persistent workspaces
   active agents/workers/services
@@ -105,13 +106,18 @@ Hypervisor IDE Fleet Surface
   logs/replay projections
   node attach/detach
   start/stop/resume/archive/restore
+
+CLI/headless Fleet Projection
+  node ops
+  health/logs/receipts
+  scripted provider and restore workflows
 ```
 
 Fleet itself is canonically owned by
 [`components/hypervisor/fleet.md`](../../components/hypervisor/fleet.md).
-ioi.ai owns the web/account/org coordination surface for Fleet; Hypervisor IDE
-owns the hands-on operator lens; Hypervisor Daemon executes; wallet.network
-authorizes; Agentgres records admitted truth.
+ioi.ai owns the web/account/org coordination surface for Fleet; Hypervisor
+App/Web/CLI clients host the hands-on operator presentations; Hypervisor Daemon
+executes; wallet.network authorizes; Agentgres records admitted truth.
 
 ## Control-Plane Flow
 
@@ -247,7 +253,7 @@ The SDK may submit, inspect, stream, or control the run as a client. It is not t
 Fleet-driven placement follows the same boundary:
 
 ```text
-console.ioi.ai or Hypervisor IDE Fleet surface
+console.ioi.ai, Hypervisor App/Web Fleet surface, or CLI/headless Fleet projection
 → Hypervisor Fleet placement/projection
 → wallet.network authority check
 → domain kernel/runtime router
@@ -302,10 +308,12 @@ selected Hypervisor Daemon runtime-node profile.
   records, invocation surfaces, MoW routing eligibility, quality, and
   marketplace records.
 - sas.xyz owns service orders, outcome workspaces, deliveries, approvals, disputes, and settlement mirrors.
-- local Hypervisor owns the Hypervisor IDE experience and local projections.
-- Hypervisor Foundry owns the local Worker Training product experience.
+- local Hypervisor owns Hypervisor App/Web/CLI client experiences and local
+  projections.
+- Hypervisor Foundry owns the Worker Training application surface.
 - Hypervisor Fleet owns general infrastructure-manager semantics for autonomous
-  systems, with surfaces in Hypervisor IDE and console.ioi.ai.
+  systems, with surfaces in Hypervisor App, Hypervisor Web, CLI/headless, and
+  console.ioi.ai.
 - wallet.network owns authority, secrets, key leases, payment approvals, and revocation.
 - Agentgres owns operational truth and archive refs.
 - Private Workspace backed by cTEE owns cTEE semantics for persistent rented GPU

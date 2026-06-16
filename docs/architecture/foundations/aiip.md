@@ -293,7 +293,8 @@ sas.xyz
   first-party marketplace for outcomes, services, acceptance, escrow, and disputes
 
 Hypervisor
-  first-party local Hypervisor IDE, meta-harness, router, and governance surface
+  first-party Hypervisor Core clients, application surfaces, meta-harness,
+  router, and governance substrate
 
 Third-party systems
   any custom autonomous system that wants to settle receipts, authority, payments,

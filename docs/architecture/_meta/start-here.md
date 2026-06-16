@@ -16,9 +16,21 @@ publicly.
 Read the stack like this:
 
 ```text
-Operator surfaces
-  request, inspect, steer, and approve work
-  Hypervisor IDE, CLI/TUI, SDK, ADK, Authority Gateway adapters
+Hypervisor clients
+  request, inspect, steer, and approve work through the same Core
+  Hypervisor App, Hypervisor Web, CLI/headless, SDK, ADK, Authority Gateway adapters
+  TUI is an optional CLI presentation, not a separate first-class client
+
+Hypervisor application surfaces
+  organize the same Core by job-to-be-done
+  Workbench, Foundry, Fleet, Agents, Services, Models, cTEE/Privacy, Receipts/Audit
+
+Hypervisor Core
+  shared product/runtime substrate whose execution owner is the daemon
+
+Agent harness adapters
+  mediate external agent harnesses such as Codex, Claude Code, Grok Build,
+  OpenHands, Aider, shell/tmux agents, CI agents, and hosted coding agents
 
 Hypervisor Daemon
   executes work and owns effect semantics
@@ -30,7 +42,8 @@ Hypervisor Fleet
   general infrastructure manager whose first-class workload is autonomous
   systems; coordinates machines, workloads, private workspaces, nodes,
   providers, placement, storage posture, cTEE posture, receipts, replay
-  projections, and policy visibility without owning execution or authority
+  projections, and policy visibility without owning execution or authority;
+  Fleet is an application surface over Hypervisor Core, not a separate runtime
 
 Default Harness Profile
   orchestrates loop-native autonomous work inside the daemon
@@ -109,6 +122,7 @@ The short version:
 
 ```text
 Surfaces request.
+Hypervisor Core coordinates clients, surfaces, sessions, and adapters.
 Hypervisor Daemon executes.
 HypervisorOS roots serious nodes.
 Hypervisor Fleet manages infrastructure for autonomous systems.
@@ -130,7 +144,8 @@ L1 settles selected public/economic commitments.
 
 ```text
 Intent
-  -> operator surface
+  -> Hypervisor client or application surface
+  -> Hypervisor Core session / adapter boundary
   -> Hypervisor Daemon
   -> Default Harness Profile
   -> model/tool/result/model loop
@@ -141,8 +156,9 @@ Intent
 ```
 
 Do not add another runtime beside the Hypervisor Daemon. Runtime profiles,
-harnesses, adapters, SDK clients, and Hypervisor IDE controls are clients,
-projections, or daemon-executed profiles.
+harnesses, adapters, SDK clients, Hypervisor App/Web/CLI-headless clients, and
+Workbench/Foundry/Fleet surfaces are clients, projections, application
+surfaces, or daemon-executed profiles.
 
 ## Reader Paths
 
@@ -154,13 +170,14 @@ Start here:
 2. [`components/daemon-runtime/private-workspace-ctee.md`](../components/daemon-runtime/private-workspace-ctee.md)
 3. [`components/daemon-runtime/runtime-nodes-tee-depin.md`](../components/daemon-runtime/runtime-nodes-tee-depin.md)
 4. [`components/daemon-runtime/hypervisoros.md`](../components/daemon-runtime/hypervisoros.md)
-5. [`components/hypervisor/fleet.md`](../components/hypervisor/fleet.md)
-6. [`domains/decentralized/README.md`](../domains/decentralized/README.md)
-7. [`components/daemon-runtime/doctrine.md`](../components/daemon-runtime/doctrine.md)
-8. [`components/daemon-runtime/api.md`](../components/daemon-runtime/api.md)
-9. [`components/daemon-runtime/events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md)
-10. [`../conformance/agentic-runtime/CIRC.md`](../../conformance/agentic-runtime/CIRC.md)
-11. [`../conformance/agentic-runtime/CEC.md`](../../conformance/agentic-runtime/CEC.md)
+5. [`components/hypervisor/core-clients-surfaces.md`](../components/hypervisor/core-clients-surfaces.md)
+6. [`components/hypervisor/fleet.md`](../components/hypervisor/fleet.md)
+7. [`domains/decentralized/README.md`](../domains/decentralized/README.md)
+8. [`components/daemon-runtime/doctrine.md`](../components/daemon-runtime/doctrine.md)
+9. [`components/daemon-runtime/api.md`](../components/daemon-runtime/api.md)
+10. [`components/daemon-runtime/events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md)
+11. [`../conformance/agentic-runtime/CIRC.md`](../../conformance/agentic-runtime/CIRC.md)
+12. [`../conformance/agentic-runtime/CEC.md`](../../conformance/agentic-runtime/CEC.md)
 
 Build for: intent resolution, action proposals, policy/authority gates,
 execution, normalized observations, receipts, context topology, output
@@ -260,15 +277,17 @@ Start here:
 
 1. [`components/daemon-runtime/doctrine.md`](../components/daemon-runtime/doctrine.md)
 2. [`components/daemon-runtime/api.md`](../components/daemon-runtime/api.md)
-3. [`domains/ioi-ai/control-plane.md`](../domains/ioi-ai/control-plane.md)
-4. [`components/hypervisor/fleet.md`](../components/hypervisor/fleet.md)
-5. [`domains/aiagent/worker-marketplace.md`](../domains/aiagent/worker-marketplace.md)
-6. [`domains/sas/service-marketplace.md`](../domains/sas/service-marketplace.md)
+3. [`components/hypervisor/core-clients-surfaces.md`](../components/hypervisor/core-clients-surfaces.md)
+4. [`domains/ioi-ai/control-plane.md`](../domains/ioi-ai/control-plane.md)
+5. [`components/hypervisor/fleet.md`](../components/hypervisor/fleet.md)
+6. [`domains/aiagent/worker-marketplace.md`](../domains/aiagent/worker-marketplace.md)
+7. [`domains/sas/service-marketplace.md`](../domains/sas/service-marketplace.md)
 
 Build for: operator controls, approval cards, run graphs, context topology
-views, receipt timelines, artifact viewers, Fleet surfaces, package
-install/publish flows, and clear distinction between Hypervisor IDE,
-Hypervisor Fleet, Hypervisor Node, Hypervisor Daemon, Agentgres, and L1.
+views, receipt timelines, artifact viewers, first-class App/Web/CLI clients,
+Workbench/Foundry/Fleet application surfaces, package install/publish flows,
+and clear distinction between Hypervisor Core, Hypervisor Node, Hypervisor
+Daemon, Agentgres, wallet.network, and L1.
 
 ### Implementing Interop
 
@@ -302,7 +321,12 @@ Avoid these models:
 
 ```text
 Default Harness Profile = a peer runtime beside the daemon
-Hypervisor IDE = runtime truth
+Hypervisor App/Web/CLI-headless = runtime truth
+TUI = separate first-class client lane
+external CLI agent harness = Hypervisor runtime truth
+Codex/Claude Code/Grok Build = Hypervisor client
+Hypervisor Workbench/Foundry/Fleet = runtime truth
+Hypervisor IDE = live parent product term
 Hypervisor Fleet = execution runtime or authority plane
 decentralized.exchange = exchange backend or liquidity owner
 decentralized.trade = broker, custodian, or ordinary swap route
@@ -326,6 +350,11 @@ Correct them to:
 
 ```text
 daemon executes
+Hypervisor Core coordinates clients, surfaces, sessions, and adapters
+Hypervisor App/Web/CLI-headless are first-class clients
+TUI is an optional CLI presentation
+Hypervisor Workbench/Foundry/Fleet are application surfaces over Core
+External agent harnesses are mediated through Agent Harness Adapters
 Hypervisor Fleet manages infrastructure for autonomous systems
 Default Harness Profile orchestrates inside the daemon
 Agentgres admits operational truth

@@ -48,10 +48,27 @@ Conflict rule:
      placement, health, cost, storage posture, cTEE posture, receipts, replay
      projections, and policy visibility, but does not execute work, authorize
      power, admit truth, or own payload bytes;
-   - Hypervisor IDE is the IDE-grade operator console, not runtime truth;
-   - Hypervisor is the flagship product surface for building, deploying, and
+   - Hypervisor Core is the shared product/runtime substrate whose execution
+     owner is the Hypervisor Daemon; it is not a peer runtime beside the daemon,
+     not a replacement for wallet.network, and not a replacement for Agentgres;
+   - Hypervisor App, Hypervisor Web, and Hypervisor CLI/headless are
+     first-class clients over Hypervisor Core; TUI is an optional presentation
+     of the CLI/headless client, not a separate first-class client lane;
+   - Hypervisor Workbench, Foundry, and Fleet are application surfaces over
+     Hypervisor Core, not separate apps with separate runtime truth;
+   - Hypervisor Workbench replaces "Hypervisor IDE" as the live code/systems
+     surface term; "Hypervisor IDE" should be treated as deprecated or
+     historical shorthand unless explicitly qualified;
+   - editor integrations such as VS Code, Cursor, Windsurf, JetBrains, browser
+     IDEs, terminals, VMs, local OS surfaces, and HypervisorOS nodes are
+     adapter targets, not Hypervisor's product identity;
+   - external CLI or hosted agent harnesses such as Codex, Claude Code, Grok
+     Build, OpenHands, Aider, shell/tmux agents, CI agents, and hosted coding
+     agents are Agent Harness Adapters; they submit proposed work through
+     Hypervisor Core and the daemon and do not become Hypervisor clients or
+     runtime truth;
+   - Hypervisor is the flagship product substrate for building, deploying, and
      governing autonomous systems through daemon/runtime contracts;
-   - the Electron/VS Code fork is the canonical Hypervisor app shell;
    - IOI Authority Gateway is the daemon sidecar/compatibility profile for
      existing IDE, CLI, browser, hosted-agent, and MCP/tool ecosystems; it is
      not a separate runtime;
@@ -119,8 +136,9 @@ Conflict rule:
    - a Hypervisor Node is a local settlement, orchestration, authority, state,
      replay, routing, and interop domain for many governed autonomous-system
      chains;
-   - Hypervisor IDE is not the Hypervisor Node; the IDE is the operator
-     console, while the node is the local settlement domain composed around
+   - Hypervisor App, Hypervisor Web, CLI/headless, Workbench, Foundry, and Fleet are
+     not the Hypervisor Node; they are clients or application surfaces, while
+     the node is the local settlement domain composed around
      Hypervisor Daemon, Agentgres, wallet.network authority paths, local
      registries, receipts, and replay;
    - Hypervisor Nodes settle autonomous work locally; IOI L1 settles machine
@@ -136,12 +154,14 @@ Conflict rule:
    - policy, receipts, replay, approvals, authority scopes, and settlement hooks
      are the shared trust/audit substrate;
    - clients are projections or operators, not private runtime truth;
-   - Fleet surfaces in Hypervisor IDE and console.ioi.ai are projections and
+   - Fleet surfaces in Hypervisor App, Hypervisor Web, CLI/headless projections, and
+     console.ioi.ai are projections and
      control lenses over daemon, Agentgres, wallet.network, cTEE, AIIP, and
      provider substrate; they are not separate apps with separate runtime truth;
-   - CLI/TUI, SDK, and ADK are separate surfaces: CLI/TUI is the operator
-     interface, SDK is the low-level protocol/client library, and ADK is the
-     autonomous-system builder framework;
+   - CLI/headless, SDK, and ADK are separate surfaces: CLI/headless is the
+     operator/scripting/CI client, TUI is an optional presentation of it, SDK is
+     the low-level protocol/client library, and ADK is the autonomous-system
+     builder framework;
    - IDE/CLI/browser/hosted-agent adapters mediate through available control
      points only and must not claim total interception of opaque tools;
    - models and agents may reason or propose; the daemon authorizes anything
@@ -189,14 +209,15 @@ Conflict rule:
 | Agent Wiki, `ioi-memory`, and context-memory admission boundary | [`agentgres-state-substrate.md`](../components/agentgres/doctrine.md) | [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md), [`ioi-daemon-runtime-api.md`](../components/daemon-runtime/api.md), [`canonical-state-and-projection-system-whitepaper.md`](../components/agentgres/projection-system-reference.md) | ADR 0001, roadmap memory notes, Hypervisor product context |
 | Default Harness Profile, loop-native orchestration, context topology, and output ownership | [`default-harness-profile.md`](../components/daemon-runtime/default-harness-profile.md) | [`ioi-cli-daemon-runtime.md`](../components/daemon-runtime/doctrine.md), [`ioi-daemon-runtime-api.md`](../components/daemon-runtime/api.md), [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md), [`agentgres-api-and-object-model.md`](../components/agentgres/api-object-model.md), [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md) | CIRC/CEC, runtime harness code, default-harness projection/shadow/gated/live activation |
 | HypervisorOS, bare-metal Hypervisor nodes, measured boot, daemon-rooted node control, node measurement receipts, and HypervisorOS conformance | [`hypervisoros.md`](../components/daemon-runtime/hypervisoros.md) | [`runtime-nodes-tee-depin.md`](../components/daemon-runtime/runtime-nodes-tee-depin.md), [`ioi-cli-daemon-runtime.md`](../components/daemon-runtime/doctrine.md), [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md), [`private-workspace-ctee.md`](../components/daemon-runtime/private-workspace-ctee.md) | bare-metal node image plans, measured boot plans, provider/DePIN node integrity docs |
-| Hypervisor Fleet, general infrastructure manager, autonomous infrastructure manager, node registry, provider integrations, CloudRoute, CloudCandidate, VMs, containers, microVMs, WASM workloads, images, volumes, networks, snapshots, backups, restore, GPU pools, DePIN/cloud/local/bare-metal fleet posture, storage posture, cTEE posture, placement, cost, health, receipts, replay projections, migration cockpit, Hypervisor IDE Fleet surface, and console.ioi.ai Fleet surface | [`fleet.md`](../components/hypervisor/fleet.md) | [`cloud-parked-future.md`](../domains/decentralized/cloud-parked-future.md), [`runtime-nodes-tee-depin.md`](../components/daemon-runtime/runtime-nodes-tee-depin.md), [`private-workspace-ctee.md`](../components/daemon-runtime/private-workspace-ctee.md), [`ioi-ai-control-plane.md`](../domains/ioi-ai/control-plane.md), [`agentgres-api-and-object-model.md`](../components/agentgres/api-object-model.md), [`wallet-network-api-and-authority-scopes.md`](../components/wallet-network/api-authority-scopes.md) | VMware/Proxmox/KubeVirt/Nutanix/Kubernetes/bare-metal migration cockpit, direct provider connectors, DePIN/cloud GPU manager, Akash/Filecoin/CAS/S3 posture, HypervisorOS estate, provider connectors, node health/cost/placement, Fleet surfaces inside Hypervisor IDE and console.ioi.ai |
+| Hypervisor Core, Hypervisor App, Hypervisor Web, Hypervisor CLI/headless, optional TUI presentation, Hypervisor Workbench, first-class clients, application surfaces, Hypervisor Sessions, adapter targets, editor targets, Agent Harness Adapters, and client/surface/session taxonomy | [`core-clients-surfaces.md`](../components/hypervisor/core-clients-surfaces.md) | [`ioi-cli-daemon-runtime.md`](../components/daemon-runtime/doctrine.md), [`ioi-daemon-runtime-api.md`](../components/daemon-runtime/api.md), [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md), [`fleet.md`](../components/hypervisor/fleet.md) | Hypervisor App/Web/CLI-headless clients, optional TUI presentation, Workbench/Foundry/Fleet application surfaces, VS Code/Cursor/Windsurf/JetBrains/browser IDE/terminal/VM/HypervisorOS adapter targets, Codex/Claude Code/Grok Build/OpenHands/Aider/CI harness adapters, session preferences, shared Core contracts, deprecated Hypervisor IDE parent wording |
+| Hypervisor Fleet, general infrastructure manager, autonomous infrastructure manager, node registry, provider integrations, CloudRoute, CloudCandidate, VMs, containers, microVMs, WASM workloads, images, volumes, networks, snapshots, backups, restore, GPU pools, DePIN/cloud/local/bare-metal fleet posture, storage posture, cTEE posture, placement, cost, health, receipts, replay projections, migration cockpit, Hypervisor App Fleet surface, Hypervisor Web Fleet surface, CLI/headless Fleet projections, and console.ioi.ai Fleet surface | [`fleet.md`](../components/hypervisor/fleet.md) | [`core-clients-surfaces.md`](../components/hypervisor/core-clients-surfaces.md), [`cloud-parked-future.md`](../domains/decentralized/cloud-parked-future.md), [`runtime-nodes-tee-depin.md`](../components/daemon-runtime/runtime-nodes-tee-depin.md), [`private-workspace-ctee.md`](../components/daemon-runtime/private-workspace-ctee.md), [`ioi-ai-control-plane.md`](../domains/ioi-ai/control-plane.md), [`agentgres-api-and-object-model.md`](../components/agentgres/api-object-model.md), [`wallet-network-api-and-authority-scopes.md`](../components/wallet-network/api-authority-scopes.md) | VMware/Proxmox/KubeVirt/Nutanix/Kubernetes/bare-metal migration cockpit, direct provider connectors, DePIN/cloud GPU manager, Akash/Filecoin/CAS/S3 posture, HypervisorOS estate, provider connectors, node health/cost/placement, Fleet surfaces inside Hypervisor App, Hypervisor Web, CLI/headless, and console.ioi.ai |
 | Private Workspace backed by cTEE, Plaintext-Free Runtime Mounting, Plaintext-Free Model Mounting, Custody Types, Custody Proof, Private Agency Transform, Candidate Coverage Profile, Counterfactual Lattice Execution, Cryptographic Operator Plane, Candidate-Lattice Private Decoding, External Model API Boundary, Execution Privacy Posture, persistent rented GPU Hypervisor Nodes, private files/folders, private strategy execution, deterrence/detection, and autonomy leases | [`private-workspace-ctee.md`](../components/daemon-runtime/private-workspace-ctee.md) | [`runtime-nodes-tee-depin.md`](../components/daemon-runtime/runtime-nodes-tee-depin.md), [`wallet-network-authority-layer.md`](../components/wallet-network/doctrine.md), [`agentgres-artifact-ref-plane.md`](../components/agentgres/artifact-ref-plane.md), [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md) | private quant strategy profile, DePIN/cloud node privacy, provider-trust boundary, coverage/redundancy profiles, privacy posture labels, custody proofs, runtime/model/lattice/private-operator receipts, canary/watermark receipts, deprecated shielded-compute notes |
-| Hypervisor IDE, Electron/VS Code shell, shared builder substrate, and workflow compositor | [`ioi-cli-daemon-runtime.md`](../components/daemon-runtime/doctrine.md) | [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md), [`ioi-daemon-runtime-api.md`](../components/daemon-runtime/api.md) | internal product context, IDE-first Tauri retirement guide, and workflow-compositor specs |
+| Shared builder substrate and workflow compositor | [`core-clients-surfaces.md`](../components/hypervisor/core-clients-surfaces.md), [`ioi-cli-daemon-runtime.md`](../components/daemon-runtime/doctrine.md) | [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md), [`ioi-daemon-runtime-api.md`](../components/daemon-runtime/api.md) | Workbench is the live code/systems surface; "Hypervisor IDE" and Electron/VS Code-shell language is legacy or implementation context, not parent product doctrine |
 | IOI Authority Gateway, Hypervisor Guard, and compatibility adapters | [`ioi-cli-daemon-runtime.md`](../components/daemon-runtime/doctrine.md) | [`ioi-daemon-runtime-api.md`](../components/daemon-runtime/api.md), [`connector-and-tool-contracts.md`](../components/connectors-tools/contracts.md), [`wallet-network-api-and-authority-scopes.md`](../components/wallet-network/api-authority-scopes.md), [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md) | IDE/CLI/browser adapter specs, MCP gateways, shell wrappers, Git hooks, hosted-agent gateways |
 | Daemon and public runtime API | [`ioi-cli-daemon-runtime.md`](../components/daemon-runtime/doctrine.md) | [`ioi-daemon-runtime-api.md`](../components/daemon-runtime/api.md) | Cursor SDK parity guide |
-| CLI/TUI operator surface | [`ioi-cli-daemon-runtime.md`](../components/daemon-runtime/doctrine.md) | [`ioi-daemon-runtime-api.md`](../components/daemon-runtime/api.md), [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md) | CLI product context, operator workflows |
+| CLI/headless operator surface and optional TUI presentation | [`ioi-cli-daemon-runtime.md`](../components/daemon-runtime/doctrine.md) | [`ioi-daemon-runtime-api.md`](../components/daemon-runtime/api.md), [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md) | CLI product context, headless scripting, CI, node ops, optional TUI presentation |
 | SDK and ADK boundaries | [`ioi-daemon-runtime-api.md`](../components/daemon-runtime/api.md) | [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md), [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md) | agent-sdk package docs, future ADK docs, internal package-boundary docs |
-| SDK, CLI, GUI, harness, benchmark, compositor boundaries | [`ioi-daemon-runtime-api.md`](../components/daemon-runtime/api.md) | [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md), [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md) | Compatibility row for shared client-surface validation; use the split CLI/TUI and SDK/ADK rows above for ownership. |
+| SDK, CLI/headless, GUI, harness, benchmark, compositor, and agent-harness-adapter boundaries | [`ioi-daemon-runtime-api.md`](../components/daemon-runtime/api.md) | [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md), [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md) | Compatibility row for shared client-surface validation; use the split CLI/headless and SDK/ADK rows above for ownership. External agent harnesses are adapters, not runtime truth. |
 | wallet.network authority, low-assurance access points, SMS/challenge escalation, step-up grants, repo/product split, protocol package target, SDK package target, and generated schema boundary | [`wallet-network-authority-layer.md`](../components/wallet-network/doctrine.md) | [`wallet-network-api-and-authority-scopes.md`](../components/wallet-network/api-authority-scopes.md), [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md), [`implementation-matrix.md`](./implementation-matrix.md), [`wallet-protocol-sdk-packaging-plan.md`](./wallet-protocol-sdk-packaging-plan.md) | CIRC/CEC, access-point bindings, step-up challenges, guardian/auth surface boundary; IOI monorepo owns Rust wallet types, service transitions, generated protocol/SDK/OpenAPI/JSON Schema targets, receipt fixtures, and conformance; wallet-network product repos consume those contracts and own UI/design/prototype state only |
 | wallet.network product doctrine, reusable authority UX model, presentation profiles, approval modes, cockpit role, exchange authority, trade authority, prediction authority, route-source boundaries, `ExchangeIntent`, `RouteCandidate`, `TradeIntent`, `PredictionIntent`, `PositionReceipt`, `PredictionReceipt`, `CapabilityLease`, risk coverage states, asset exposure, protection actions, approval inbox, wallet receipts, and wallet SDK events | [`wallet-network/product-exchange-risk.md`](../components/wallet-network/product-exchange-risk.md) | [`exchange.md`](../domains/decentralized/exchange.md), [`trade.md`](../domains/decentralized/trade.md), [`wallet-network-api-and-authority-scopes.md`](../components/wallet-network/api-authority-scopes.md), [`wallet-network-authority-layer.md`](../components/wallet-network/doctrine.md), [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md), [`agentgres-state-substrate.md`](../components/agentgres/doctrine.md), [`ioi-l1-mainnet.md`](../foundations/ioi-l1-mainnet.md) | Wallet authority pipeline is reusable infrastructure; Wallet console is one high-trust presentation, while embedded dapps, mobile, CLI, and advanced consoles use lighter or denser shells over the same review contract; decentralized.exchange and decentralized.trade are non-custodial route/venue intelligence engines consumed by Wallet through API/RPC/SDK boundaries; direct pools, DEX routers, solvers, quote APIs, bridge routers, venue adapters, perps/margin/prediction-market policy, route-risk, position-risk, event-risk disclosure, protection center, Activity receipts |
 | Capability and authority ontology | [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md) | [`conformance/CIRC.md`](../../conformance/agentic-runtime/CIRC.md), [`wallet-network-api-and-authority-scopes.md`](../components/wallet-network/api-authority-scopes.md) | agent tool vocabulary plan |
@@ -232,16 +253,19 @@ Conflict rule:
   autonomous-system interop, service-module invocation, or machine-economy stack
   language to
   [`governed-autonomous-systems.md`](../foundations/governed-autonomous-systems.md)
-  first. Do not collapse Hypervisor IDE, Hypervisor Node, Agentgres domain,
-  and IOI L1 into one layer.
+  first. Do not collapse Hypervisor clients, application surfaces, Hypervisor
+  Node, Agentgres domain, and IOI L1 into one layer.
 - Add new alignment-security, bounded-agency, process-containment,
   self-upgrade, or execution-boundary proof language to
   [`verifiable-bounded-agency.md`](../foundations/verifiable-bounded-agency.md)
   first. Do not canonize claims that IOI proves every model's private cognition
   or goals are safe; route such wording through explicit non-claims or ADRs.
-- Add new Hypervisor shell, IDE, extension-host, or GUI authority language
-  to daemon/runtime ownership docs and Hypervisor product architecture docs before
-  implementation plans rely on it. Hypervisor IDE surfaces are operator consoles and
+- Add new Hypervisor App, Hypervisor Web, CLI/headless, optional TUI,
+  Workbench, Foundry, Fleet, session, adapter-target, agent-harness-adapter,
+  editor-target, extension-host, or GUI authority
+  language to [`core-clients-surfaces.md`](../components/hypervisor/core-clients-surfaces.md)
+  and daemon/runtime ownership docs before implementation plans rely on it.
+  Hypervisor clients and application surfaces are operator surfaces and
   projections; they do not own runtime truth.
 - Add new IOI Authority Gateway, Hypervisor Guard, IDE/CLI sidecar, shell
   wrapper, MCP gateway, API proxy, Git hook, browser adapter, hosted-agent
@@ -265,7 +289,7 @@ Conflict rule:
   ontology-to-worker doctrine to
   [`domain-ontologies-and-data-recipes.md`](../foundations/domain-ontologies-and-data-recipes.md)
   before product, connector, Agentgres, or Worker Training docs rely on it.
-- Add new operator-facing CLI/TUI control language to
+- Add new operator-facing CLI/headless or optional TUI control language to
   [`ioi-cli-daemon-runtime.md`](../components/daemon-runtime/doctrine.md),
   [`ioi-daemon-runtime-api.md`](../components/daemon-runtime/api.md), and
   [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md)

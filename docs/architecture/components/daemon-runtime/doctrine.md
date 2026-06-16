@@ -22,10 +22,12 @@ execution semantics and durable run truth.
 domains, manifests, receipts, authority scopes, and mainnet/application-domain
 interactions.**
 
-The IOI CLI is a terminal/TUI client over daemon/public runtime APIs and the
-broader canonical Web4 stack. It may mirror daemon commands, render operator
-workflows, resolve natural-language intent into inspectable plans, and
-administer domain/settlement/authority surfaces.
+The IOI CLI is a terminal/headless client over daemon/public runtime APIs and
+the broader canonical Web4 stack. It may mirror daemon commands, render
+operator workflows, resolve natural-language intent into inspectable plans, and
+administer domain/settlement/authority surfaces. A TUI may be offered as an
+interactive presentation of the CLI, but it is not a separate first-class
+runtime or client lane.
 The CLI must not own a separate agent runtime or execution loop.
 
 Through daemon APIs, it launches workflows, agents, workers, tools, models,
@@ -33,22 +35,34 @@ connectors, worker-training jobs, benchmark jobs, evaluation jobs, MoW routing
 decisions, and artifact-producing jobs across local, hosted, provider, DePIN,
 TEE, and enterprise environments.
 
-Hypervisor IDE is the IDE-grade operator console over this substrate. The
-Electron/VS Code fork is the canonical Hypervisor app shell. Hypervisor IDE,
-CLI/TUI, SDK, ADK, harnesses, benchmarks, and the extension host are clients,
-builder frameworks, or projections; they do not become private runtimes.
+Hypervisor Core is the shared product/runtime substrate over this daemon-owned
+execution boundary. Hypervisor App, Hypervisor Web, CLI/headless, SDK, ADK,
+benchmarks, and extension hosts are first-class clients, builder frameworks, or
+projections; they do not become private runtimes. A TUI is an optional
+presentation of CLI/headless controls. Hypervisor Workbench, Foundry, Fleet,
+Agents, Services, Models, cTEE/Privacy, Receipts/Audit, and Connectors are
+application surfaces over the same Core, not separate runtime truth paths.
+
+Hypervisor Workbench replaces "Hypervisor IDE" as the live code/systems
+surface term. VS Code, Cursor, Windsurf, JetBrains, browser IDEs, terminals,
+VMs, local OS surfaces, and HypervisorOS nodes are adapter targets for
+Hypervisor Sessions, not Hypervisor's product identity. External CLI or hosted
+agent harnesses such as Codex, Claude Code, Grok Build, OpenHands, Aider,
+shell/tmux agents, CI agents, and hosted coding agents are Agent Harness
+Adapters, not Hypervisor clients or runtime truth.
 
 HypervisorOS is the bare-metal node profile for this same daemon substrate. It
 does not create a peer runtime. It makes the Hypervisor Daemon the node root for
 serious local, provider, marketplace, enterprise, or DePIN nodes so autonomous
 workloads run under daemon policy, measurement, receipts, and capability exits.
 
-The CLI/TUI, SDK, and ADK are distinct:
+The CLI/headless client, optional TUI presentation, SDK, and ADK are distinct:
 
 ```text
-CLI/TUI = human/operator interface
-SDK     = low-level protocol/client library
-ADK     = autonomous-system builder framework
+CLI/headless = operator, scripting, CI, and node-ops client
+TUI          = optional interactive presentation of CLI/headless controls
+SDK          = low-level protocol/client library
+ADK          = autonomous-system builder framework
 ```
 
 The SDK may submit, inspect, stream, and control work through daemon/domain
@@ -61,8 +75,8 @@ CLI agents, hosted-agent tools, browser automation, MCP ecosystems, shell
 wrappers, Git hooks, API proxies, credential brokers, and CI/CD gates. It exists
 to let users keep their IDE and keep their model while putting consequential
 execution behind IOI. It is a daemon deployment/adoption profile, not a second
-runtime and not a replacement for Hypervisor IDE as the native operator
-console.
+runtime and not a replacement for Hypervisor App, Hypervisor Web, CLI/headless,
+or the Hypervisor Workbench surface as first-party operator experiences.
 
 > **Models reason. Hypervisor Daemon gates action. IOI settles what needs public
 > trust.**
@@ -92,16 +106,19 @@ conformance phases used by the Default Harness Profile.
 ## Hypervisor Node Boundary
 
 A Hypervisor Node is the local autonomous-system settlement and interop domain
-composed around Hypervisor IDE, the Hypervisor Daemon, Agentgres, wallet.network
-authority paths, local registries, receipt/replay stores, and runtime profiles.
+composed around Hypervisor Core clients/surfaces, the Hypervisor Daemon,
+Agentgres, wallet.network authority paths, local registries, receipt/replay
+stores, and runtime profiles.
 
 The daemon is the execution and authority-enforcement substrate inside that
-node. Hypervisor IDE is the operator console. Agentgres is the local operational
-truth substrate. AIIP is the semantic interop protocol for local microharness
-routing and external autonomous-system handoffs. wallet.network owns authority.
-IOI L1 receives selected roots when public trust, economic settlement,
-reputation portability, dispute resolution, or cross-system handoff finality
-requires them.
+node. Hypervisor App, Hypervisor Web, CLI/headless, optional TUI views, and
+application surfaces such as Workbench, Foundry, and Fleet are operator
+clients/projections. Agentgres is the local operational truth substrate. AIIP is
+the semantic interop protocol for local microharness routing and external
+autonomous-system handoffs.
+wallet.network owns authority. IOI L1 receives selected roots when public
+trust, economic settlement, reputation portability, dispute resolution, or
+cross-system handoff finality requires them.
 
 The daemon may execute an autonomous-system harness as a modular
 state-transition pipeline. Consequential harness steps are typed
@@ -115,7 +132,7 @@ access, hosted pools, TEE sessions, DePIN sessions, and customer VPC endpoints
 are deployment-profile resources. Bundled model weights are allowed only when a
 node/runtime profile explicitly declares them.
 
-Do not describe the Hypervisor IDE UI as the settlement layer. Do not
+Do not describe Hypervisor clients or application surfaces as the settlement layer. Do not
 describe the daemon as IOI L1. Local Hypervisor Node settlement means local
 canonical acceptance of work, state transitions, proposals, receipts, authority
 outcomes, and AIIP interop messages; IOI L1 settlement means public registry,
@@ -136,11 +153,11 @@ One-line positioning:
 The CLI can be natural-language capable, but structured plans, canonical
 commands, manifests, receipts, and replayable execution remain durable truth.
 
-The TUI is the interactive form of the same operator client. It may provide
-rich thread, turn, approval, memory, MCP, subagent, snapshot, restore,
-diagnostics, usage, and context-budget controls, but every control must resolve
-to daemon/public runtime APIs or domain-kernel APIs. It must not carry a private
-execution loop.
+The optional TUI is the interactive presentation of the same operator client. It
+may provide rich thread, turn, approval, memory, MCP, subagent, snapshot,
+restore, diagnostics, usage, and context-budget controls, but every control
+must resolve to daemon/public runtime APIs or domain-kernel APIs. It must not
+carry a private execution loop or become a separate first-class client lane.
 
 ### Core Command Families
 
@@ -231,21 +248,24 @@ CLI-compatible workflow/domain packages. The CLI may inspect, validate,
 materialize, promote, publish, route, or verify them through daemon and
 Agentgres APIs. The CLI does not become the Hypervisor runtime.
 
-Hypervisor IDE may manage a local Hypervisor Daemon and render local runtime
+Hypervisor App, Hypervisor Web, CLI/headless, and Workbench/Foundry/Fleet surfaces
+may manage or inspect local Hypervisor Daemons and render local runtime
 projections. Remote, hosted, provider, DePIN, TEE, and customer runtime nodes
-should still be described as Hypervisor Daemon runtime-node profiles, even when they
-run Hypervisor-compatible workflow packages.
+should still be described as Hypervisor Daemon runtime-node profiles, even when
+they run Hypervisor-compatible workflow packages.
 
 ### Authority Gateway / Sidecar Profile
 
 The Authority Gateway profile is the adoption wedge for users who already live
-inside Cursor, VS Code, JetBrains, Codex, Claude Code, OpenHands-like tools, or
-hosted agent products. The product message is:
+inside Cursor, VS Code, JetBrains, Codex, Claude Code, Grok Build,
+OpenHands-like tools, Aider, shell/tmux agents, CI agents, or hosted agent
+products. The product message is:
 
 > **Keep your IDE. Keep your model. Put consequential execution behind IOI.**
 
 The sidecar routes proposed actions into the same daemon policy, authority,
-approval, receipt, replay, and settlement path used by Hypervisor IDE.
+approval, receipt, replay, and settlement path used by first-party Hypervisor
+clients and application surfaces.
 Different tools expose different control points. VS Code-family tools can use
 extensions, terminals, workspace watchers, and MCP gateways. CLI agents can run
 as guest workloads behind shell wrappers and tool proxies. Hosted agent systems
@@ -255,8 +275,8 @@ receipt ingestion.
 This profile strengthens the marketplace/protocol thesis instead of competing
 with it: developers can first govern existing models and agents, then discover
 better workers, install marketplace workers, delegate authority through
-wallet.network, and graduate to the full Hypervisor IDE when they need the
-native control room.
+wallet.network, and graduate to Hypervisor App, Hypervisor Web, or Workbench
+when they need the native control room.
 
 ## Runtime Role
 
@@ -280,7 +300,7 @@ It is responsible for:
 
 ## Deployment Targets
 
-1. **Local Hypervisor Daemon under Hypervisor IDE** — desktop/private execution.
+1. **Local Hypervisor Daemon under Hypervisor App or Workbench** — desktop/private execution.
 2. **Hosted Hypervisor Daemon** — always-on hosted workers/services.
 3. **Provider daemon** — service provider infrastructure.
 4. **DePIN daemon** — Akash-like public compute.
@@ -312,8 +332,9 @@ POST /v1/runs/{id}/cancel
 GET  /v1/deliveries/{id}
 ```
 
-Interactive clients and builder frameworks such as the TUI, SDK, ADK,
-agent-ide, and Hypervisor IDE also use the thread/turn control substrate:
+Interactive clients and builder frameworks such as Hypervisor App/Web,
+CLI/headless, optional TUI views, SDK, ADK, agent-ide, and
+Workbench/Foundry/Fleet surfaces also use the thread/turn control substrate:
 
 ```http
 POST /v1/threads
@@ -392,7 +413,8 @@ These envelopes must be stable across local, hosted, marketplace, CLI, UI, workf
 The implementation may bridge the daemon API into a lower-level
 `RuntimeAgentService` or other runtime service loop. That bridge is behind the
 daemon/runtime-node profile. It does not change client ownership: SDK, ADK,
-CLI/TUI, agent-ide, Hypervisor IDE, harnesses, and benchmarks remain
+CLI/headless, optional TUI views, agent-ide, Hypervisor App/Web clients,
+Workbench/Foundry/Fleet surfaces, harnesses, and benchmarks remain
 clients, builder frameworks, or projections.
 
 ## Event Model
@@ -464,8 +486,13 @@ Do not model the daemon/runtime layer as:
 
 ```text
 SDK = runtime substrate
-CLI/TUI = private execution loop
-Hypervisor IDE = runtime truth
+CLI/headless = private execution loop
+TUI = separate first-class runtime/client lane
+external CLI agent harness = Hypervisor client
+Codex/Claude Code/Grok Build = runtime truth
+Hypervisor App/Web/CLI-headless = runtime truth
+Hypervisor Workbench/Foundry/Fleet = runtime truth
+Hypervisor Core = peer runtime beside the daemon
 Default Harness Profile = peer daemon
 Authority Gateway adapter = total control over opaque third-party agents
 runtime node = application-domain truth store
@@ -476,6 +503,7 @@ Correct model:
 
 ```text
 daemon owns execution semantics
+Hypervisor Core coordinates clients, surfaces, sessions, and adapters
 clients request, inspect, steer, and approve
 profiles configure daemon-executed behavior
 Agentgres records operational truth
@@ -491,6 +519,9 @@ receipts and replay make work accountable
   mediation.
 - [`events-receipts-delivery-bundles.md`](./events-receipts-delivery-bundles.md):
   runtime event, receipt, trace, replay, and delivery objects.
+- [`../hypervisor/core-clients-surfaces.md`](../hypervisor/core-clients-surfaces.md):
+  Hypervisor Core, first-class clients, application surfaces, sessions, and
+  adapters.
 - [`../wallet-network/doctrine.md`](../wallet-network/doctrine.md): authority
   and approval substrate.
 - [`../agentgres/doctrine.md`](../agentgres/doctrine.md): operational truth
@@ -507,7 +538,8 @@ receipts and replay make work accountable
 7. No long-running job without deadline, cancellation, and progress events.
 8. No compute-node architecture where the SDK replaces the Hypervisor Daemon runtime
    profile as execution owner.
-9. No TUI-only runtime controls; TUI controls must map to daemon/domain APIs.
+9. No TUI-only runtime controls; TUI controls must map to daemon/domain APIs
+   and remain an optional presentation of CLI/headless controls.
 
 ## One-Line Doctrine
 

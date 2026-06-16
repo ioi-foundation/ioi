@@ -4,7 +4,7 @@ Status: internal implementation roadmap.
 Authority: `docs/architecture/` and accepted ADRs are canonical; this file sequences implementation only.
 Supports: high-level implementation sequencing; low-level proof gates live in [`low-level-implementation-milestones.md`](./low-level-implementation-milestones.md).
 Superseded by: canonical architecture docs or ADRs when conflicts arise.
-Last alignment pass: 2026-05-15.
+Last alignment pass: 2026-06-16.
 
 ## Purpose
 
@@ -19,9 +19,9 @@ Workflow Canvas V1 Hardening
 → Harness-as-Workflow
 → Phase 4.5 Capability Authority Readiness Gate
 → Phase 5 Early Connector Expansion
-→ Autopilot Foundry / Worker Training Workbench
+→ Hypervisor Foundry / Worker Training Workbench
 → Minimal Persistent Worker/Agent State
-→ Daemon-backed CLI/TUI Operator Controls
+→ Daemon-backed CLI/headless Operator Controls
 → My Agents GUI
 → Worker Office / Project Rooms
 → Worker/Agent API
@@ -132,7 +132,8 @@ Build:
 - canonical connector/tool/model capability registry metadata;
 - wallet-core-lite authority path for BYOK, connector secrets, grants, approval tokens, revocation, and audit receipts;
 - capability request APIs so workflows call model/tool capabilities rather than provider-specific branches;
-- Autopilot Policy/Settings authority center refresh for credentials, grants, approvals, and stale settings removal;
+- Hypervisor Policy/Settings authority center refresh for credentials, grants,
+  approvals, and stale settings removal;
 - React Flow capability binding/readiness projections;
 - Playwright-backed browser/computer-use readiness probes for isolated task contexts and degraded/fail-closed paths;
 - go/no-go report proving Phase 5 can start without a second runtime or shadow truth store.
@@ -143,7 +144,7 @@ Authoritative guide:
 
 ## Phase 5 — Early Connector Expansion
 
-Goal: prove Autopilot can operate real production software safely without
+Goal: prove Hypervisor can operate real production software safely without
 starting with money-moving commerce.
 
 Build:
@@ -175,7 +176,7 @@ Build:
 - worker receipts and dashboards;
 - My Agents surfaces backed by runtime contracts.
 
-## Phase 6.5 — Autopilot Foundry / Worker Training Workbench
+## Phase 6.5 — Hypervisor Foundry / Worker Training Workbench
 
 Goal: turn repeated workflows, examples, corrections, source material, and
 verifier gates into deployable workers without creating a private training
@@ -195,7 +196,8 @@ Build:
 - quality gate and human review queues;
 - train/configure/evaluate controls over daemon APIs;
 - TrainingReceipt, EvaluationReceipt, and BenchmarkReceipt inspection;
-- CLI/TUI controls for training runs, benchmark jobs, and receipt review.
+- CLI/headless controls, with optional TUI presentation, for training runs,
+  benchmark jobs, and receipt review.
 
 Exit:
 
@@ -221,10 +223,12 @@ Objects:
 - `AgentArtifact`;
 - `AgentReceipt`.
 
-## Phase 7.5 — Daemon-backed CLI/TUI Operator Controls
+## Phase 7.5 — Daemon-backed CLI/headless Operator Controls
 
-Goal: the terminal/TUI operator surface can control the same daemon substrate as
-SDK, agent-ide, Autopilot, harnesses, and benchmarks.
+Goal: the terminal/headless operator client can control the same daemon
+substrate as SDK, agent-ide, Hypervisor App/Web, application surfaces,
+harnesses, and benchmarks. TUI is an optional presentation over this client,
+not a separate runtime lane.
 
 Surfaces:
 
@@ -294,7 +298,8 @@ GET  /v1/receipts/{id}
 
 ## Phase 11 — Agentgres v0
 
-Start by replacing Autopilot workflow/agent/run canonical state, not every database concept.
+Start by replacing Hypervisor workflow/agent/run canonical state, not every
+database concept.
 
 Initial scope:
 
@@ -385,7 +390,7 @@ Add:
 1. Persistent workers require wallet-core-lite.
 2. My Agents requires minimal persistent worker/agent state.
 3. Marketplace workers require manifests, package refs, install/run flow, and receipts.
-4. Autopilot Foundry requires workflow runtime parity, model routing, wallet authority, Domain Ontology/DataRecipe objects, daemon training endpoints, and Agentgres receipt state.
+4. Hypervisor Foundry requires workflow runtime parity, model routing, wallet authority, Domain Ontology/DataRecipe objects, daemon training endpoints, and Agentgres receipt state.
 5. Sparse Worker Categories require WorkerManifest MoW fields, benchmark receipts, quality records, and routing decision receipts.
 6. sas.xyz requires delivery bundles, escrow contracts, Worker Training contract objects, and provider runtime routing.
 7. Agentgres v0 should be dogfooded before marketplace scale.

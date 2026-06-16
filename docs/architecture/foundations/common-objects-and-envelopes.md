@@ -8,7 +8,7 @@ Last alignment pass: 2026-06-03.
 
 ## Purpose
 
-This file defines the shared low-level objects that every IOI/Web4 component must understand. The goal is to prevent split-brain API design between `@ioi/agent-sdk`, IOI ADK, IOI CLI/TUI, agent-ide, Hypervisor, Hypervisor Daemon, Agentgres, wallet.network, aiagent.xyz, sas.xyz, workflow compositor, harnesses, benchmarks, hosted/self-hosted workers, and IOI L1 contracts.
+This file defines the shared low-level objects that every IOI/Web4 component must understand. The goal is to prevent split-brain API design between `@ioi/agent-sdk`, IOI ADK, IOI CLI/headless, optional TUI, agent-ide, Hypervisor, Hypervisor Daemon, Agentgres, wallet.network, aiagent.xyz, sas.xyz, workflow compositor, harnesses, benchmarks, hosted/self-hosted workers, and IOI L1 contracts.
 
 ## Canonical Envelope Types
 
@@ -266,7 +266,7 @@ deployment profiles, and receipts into one packageable object.
 
 Implementation may represent the package as a strict `ManifestEnvelope` profile,
 as `AutonomousSystemManifestEnvelope`, or as both. That implementation choice
-must not make the package concept invisible in product, SDK, ADK, CLI/TUI,
+must not make the package concept invisible in product, SDK, ADK, CLI/headless,
 workflow, or documentation surfaces.
 
 The canonical lifecycle loop is:

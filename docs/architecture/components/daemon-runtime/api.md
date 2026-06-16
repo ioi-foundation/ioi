@@ -9,9 +9,11 @@ Last alignment pass: 2026-05-30.
 ## Purpose
 
 The Hypervisor Daemon is the universal execution endpoint and hypervisor/control plane
-for canonical Web4 autonomous work. The IOI CLI/TUI, `@ioi/agent-sdk`, future
-IOI ADK, agent-ide, Hypervisor IDE, workflow
-compositor, harnesses, benchmarks, VS Code extension-host code, and IOI
+for canonical Web4 autonomous work. The IOI CLI/headless client, optional TUI
+presentation, `@ioi/agent-sdk`, future
+IOI ADK, agent-ide, Hypervisor App, Hypervisor Web, Workbench/Foundry/Fleet
+surfaces, workflow compositor, harnesses, benchmarks, editor extension-host
+code, and IOI
 Authority Gateway adapters are clients, builder frameworks, or projections over
 this public runtime API. They must not own separate execution semantics. Local
 Hypervisor-managed daemons, hosted providers, DePIN nodes, TEE nodes, and
@@ -178,7 +180,8 @@ Response:
 ## Data Recipe, Worker Training, Benchmark, and MoW Routing API
 
 Data recipe, transformation, training, evaluation, benchmark, and routing
-endpoints are daemon execution surfaces. Hypervisor, CLI/TUI, SDK, ADK, harnesses,
+endpoints are daemon execution surfaces. Hypervisor, CLI/headless, optional TUI,
+SDK, ADK, harnesses,
 and benchmarks can call them as clients; they must not implement a separate
 semantic-data or training runtime.
 
@@ -238,7 +241,8 @@ POST /v1/threads/{thread_id}/turns/{turn_id}/interrupt
 POST /v1/threads/{thread_id}/turns/{turn_id}/steer
 ```
 
-TUI, SDK, ADK, agent-ide, workflow-composer, and Hypervisor IDE clients may
+Hypervisor App, Hypervisor Web, CLI/headless, optional TUI, SDK, ADK, agent-ide,
+workflow-composer, and Workbench/Foundry/Fleet surfaces may
 render these controls differently, but they must converge on these daemon
 contracts rather than maintaining private session loops.
 
@@ -400,8 +404,9 @@ POST /v1/connectors/{connector_id}/subscriptions
 ## MCP Manager API
 
 MCP manager endpoints expose tool/resource/prompt discovery and governed MCP
-tool invocation to TUI, SDK, ADK, agent-ide, and Hypervisor IDE surfaces. Global
-MCP routes are thread-scoped daemon protocol APIs; retired top-level
+tool invocation to Hypervisor App, Hypervisor Web, CLI/headless clients,
+optional TUI views, SDK, ADK, agent-ide, and Workbench/Foundry/Fleet surfaces.
+Global MCP routes are thread-scoped daemon protocol APIs; retired top-level
 `/v1/mcp*` and legacy `/api/v1/mcp*` routes are not compatibility fallbacks.
 
 ```http
@@ -556,7 +561,7 @@ POST /v1/runtime/assignments/{assignment_id}/reject
 3. The daemon cannot receive raw secrets unless it is local/customer-controlled or Enterprise Secure mode with attestation.
 4. All effectful actions require policy decision persistence.
 5. Every exposed API must support redacted diagnostic export.
-6. SDK, ADK, CLI/TUI, GUI, workflow compositor, harness, and benchmark clients must observe the same run contracts rather than owning separate runtimes.
+6. SDK, ADK, CLI/headless, optional TUI, GUI, workflow compositor, harness, and benchmark clients must observe the same run contracts rather than owning separate runtimes.
 7. The Default Harness Profile is a daemon-executed orchestration profile, not a
    peer runtime beside the daemon.
 8. TUI controls must be represented as daemon/domain API controls, not as hidden

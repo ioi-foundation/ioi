@@ -13,10 +13,11 @@ capabilities inside the Hypervisor Daemon runtime hypervisor.**
 
 Tools are not arbitrary function calls. Every effectful tool must have a contract, risk class, primitive capability requirements, authority scope requirements, policy target, and receipt obligation.
 
-Hypervisor IDE may display connector readiness, auth posture, dry-run
-previews, approval requests, run state, and receipts. It must not hold connector
-secrets or call provider APIs directly. Connector execution flows through daemon
-tool calls, wallet.network authority, policy decisions, and receipts.
+Hypervisor clients and application surfaces may display connector readiness,
+auth posture, dry-run previews, approval requests, run state, and receipts.
+They must not hold connector secrets or call provider APIs directly. Connector
+execution flows through daemon tool calls, wallet.network authority, policy
+decisions, and receipts.
 
 ## Connector Examples
 

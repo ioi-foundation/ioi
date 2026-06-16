@@ -8,10 +8,11 @@ Last alignment pass: 2026-05-13.
 
 ## Purpose
 
-Runtime nodes are execution venues. They may be a local Hypervisor Daemon managed by
-Hypervisor IDE, hosted Hypervisor Daemon, provider node, DePIN node, TEE-verified
-node, or customer VPC node. They execute task capsules and return events,
-artifacts, and receipts.
+Runtime nodes are execution venues. They may be a local Hypervisor Daemon
+managed by Hypervisor App, Hypervisor Web, CLI/headless clients, optional TUI
+views, or Workbench/Fleet surfaces; hosted Hypervisor Daemon; provider node;
+DePIN node; TEE-verified node; or customer VPC node. They execute task
+capsules and return events, artifacts, and receipts.
 
 Runtime nodes run Hypervisor Daemon-compatible profiles. A worker package may import
 SDK helpers, and an operator may use the SDK to control the run, but the SDK is

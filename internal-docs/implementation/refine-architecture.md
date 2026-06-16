@@ -3,7 +3,7 @@
 Status: internal implementation master guide.
 Owner: implementation/canon hardening workstream.
 Primary canon target: `docs/architecture`.
-Last reviewed against current canon: 2026-06-15.
+Last reviewed against current canon: 2026-06-16.
 
 ## Purpose
 
@@ -27,9 +27,25 @@ Patch the canon only when the cleaner shape improves implementation.
 The architecture now mostly converges on this clean spine:
 
 ```text
-Clients and product surfaces
-  Hypervisor IDE, Wallet, aiagent.xyz, sas.xyz, console.ioi.ai, CLI/TUI,
-  SDKs, ADKs, embedded approval cards, marketplace consoles.
+Hypervisor Core and first-class clients
+  Hypervisor Core is the shared product/runtime substrate whose execution owner
+  is the Hypervisor Daemon. Hypervisor App, Hypervisor Web, and Hypervisor
+  CLI/headless are first-class clients over Core; TUI is an optional
+  presentation of the CLI/headless client, not a separate runtime lane.
+
+Hypervisor application surfaces
+  Workbench, Foundry, Fleet, Agents, Services, Models, cTEE/Privacy,
+  Receipts/Audit, Connectors, Wallet presentations, aiagent.xyz, sas.xyz,
+  console.ioi.ai, embedded approval cards, and marketplace consoles are
+  surfaces over shared authority/runtime contracts.
+
+Hypervisor adapters and harnesses
+  VS Code, Cursor, Windsurf, JetBrains, browser IDEs, terminals, browsers, VMs,
+  local OS surfaces, cloud resources, and HypervisorOS nodes are adapter
+  targets. Codex, Claude Code, Grok Build, OpenHands, Aider, shell/tmux agents,
+  CI agents, and hosted coding agents are Agent Harness Adapters: they may
+  propose work through Hypervisor Core, but they are not Hypervisor clients or
+  runtime truth.
 
 Hypervisor Daemon
   Owns execution semantics, runtime-node profiles, effect boundaries,
@@ -109,11 +125,12 @@ Top implementation-pressure discoveries:
 
 | Rank | Cleaner shape revealed by pressure | Why it matters |
 | --- | --- | --- |
-| 1 | `WalletAuthorityCore` should become the reusable authority kernel; Wallet UI is one presentation. | Prevents all Web3/Web4 apps from inheriting a heavy finance console. |
-| 2 | Broad autonomous labor needs first-class ontology and integration-surface canon, not only a plan doc. | aiagent still reads as "portable digital workers" while edge cases include games, Discord, finance, robotics, and embodied systems. |
-| 3 | Physical/embodied action needs a canonical safety envelope owner. | `physical_action` appears as a risk class, but robotics-grade objects are still plan-level. |
-| 4 | cTEE must expose lane selection for user privacy, model-weight privacy, and provider trust separately. | Harness/workspace privacy is not the same as protecting proprietary model weights. |
-| 5 | Long-lived managed instances need lapse, archive, restore, and context-custody semantics. | Years-long agents and subscription lapses cannot rely on generic "persistent" wording. |
+| 1 | Hypervisor needs the Core/client/surface/adapter taxonomy everywhere. | Prevents the old "Hypervisor IDE" or "CLI/TUI" framing from collapsing product clients, app surfaces, external harnesses, and runtime truth into one bucket. |
+| 2 | `WalletAuthorityCore` should become the reusable authority kernel; Wallet UI is one presentation. | Prevents all Web3/Web4 apps from inheriting a heavy finance console. |
+| 3 | Broad autonomous labor needs first-class ontology and integration-surface canon, not only a plan doc. | aiagent still reads as "portable digital workers" while edge cases include games, Discord, finance, robotics, and embodied systems. |
+| 4 | Physical/embodied action needs a canonical safety envelope owner. | `physical_action` appears as a risk class, but robotics-grade objects are still plan-level. |
+| 5 | cTEE must expose lane selection for user privacy, model-weight privacy, and provider trust separately. | Harness/workspace privacy is not the same as protecting proprietary model weights. |
+| 6 | Long-lived managed instances need lapse, archive, restore, and context-custody semantics. | Years-long agents and subscription lapses cannot rely on generic "persistent" wording. |
 
 The target is not more surface area. The target is sharper object ownership:
 
@@ -137,6 +154,8 @@ ExecutionPrivacyPosture for every model/provider route.
 | sas.xyz outcome uses nested workers, private data, disputes | sas delivery bundles and receipts fit. | Nested contribution, privacy posture, and delivery evidence need default bundle shape. | Add service composition evidence profile that binds worker contribution, private data posture, and dispute refs. |
 | Humanoid/robot preps cars at a carwash | AIIP and common envelopes mention robot domains. | Physical safety objects are still in broad plan, not canonical owner docs. | Add `physical-action-safety.md` or equivalent under aiagent/foundations. |
 | Wallet user approves a session envelope instead of per-action modals | Wallet authority UX model now fits. | Needs protocol package implementation, not only docs. | Implement `AuthorityReview`, `ApprovalMode`, and `CapabilityLease` in `@ioi/wallet-protocol` and SDK. |
+| Operator uses Codex, Claude Code, Grok Build, or Aider inside a Hypervisor-managed workspace | Authority Gateway and Hypervisor adapter docs mostly fit. | External agent harnesses can be mistaken for first-class Hypervisor clients or trusted runtimes. | Treat them as `AgentHarnessAdapter` targets: proposal in, daemon gate, wallet authority, Agentgres receipt/replay out. |
+| Operator wants a terminal UI for node ops | CLI/headless plus optional TUI fits. | Calling this "CLI/TUI" suggests the TUI is a separate client/runtime lane. | Keep `HypervisorCliHeadless` as the first-class client and `HypervisorTui` as optional presentation over the same daemon/domain APIs. |
 | Prediction market trade proposed by an agent | decentralized.trade and Wallet Trade fit. | Live event exposure by agents needs eligibility, compliance, and market-category policy. | Add `PredictionAuthorityPolicy` as a profile over `PredictionIntent`. |
 | Cloud route needs AWS/GCP/Akash/Filecoin/local choices | Fleet direct provider integrations fit. | "CloudRoute" can sound like one router, not a provider decision object. | Clarify `CloudCandidate` as provider evidence and `CloudRoute` as selected approved plan. |
 | Storage backend loses payload bytes but Agentgres has refs | Artifact-ref plane fits. | Need repair playbook in operational docs. | Add `ArtifactAvailabilityIncident` and repair receipts in Agentgres artifact doc. |
@@ -158,6 +177,18 @@ ExecutionPrivacyPosture for every model/provider route.
 | Why it matters | Implementers may build a worker storefront instead of an autonomous labor substrate that supports millions of vertical profiles. |
 | Recommended change | Promote broad labor plan into canonical aiagent docs: Digital Worker Ontology, Vertical Ontology Packs, Integration Surface Taxonomy, Managed Worker Lifecycle, Managed Agent Console Contract. |
 | Fix type | Docs now; schema/API implementation next. |
+
+### 1A. Hypervisor client/surface/adapter taxonomy must stay implementation-visible
+
+| Field | Detail |
+| --- | --- |
+| Severity | High |
+| Current canon | `docs/architecture/components/hypervisor/core-clients-surfaces.md`, daemon runtime doctrine, source-of-truth map, vocabulary. |
+| Edge case | A team builds Hypervisor as a VS Code product, treats TUI as a runtime lane, or lets Codex/Claude Code/Grok Build bypass daemon receipts. |
+| Issue | The canon now has the cleaner taxonomy, but implementation plans can drift back to old "IDE" or "CLI/TUI" shorthand. |
+| Why it matters | The product becomes brittle if clients, application surfaces, adapter targets, and external agent harnesses each invent their own runtime truth. |
+| Recommended change | Keep `HypervisorCore`, `HypervisorClient`, `HypervisorApplicationSurface`, `HypervisorAdapterTarget`, and `AgentHarnessAdapter` in source maps, vocabulary, implementation matrix, app APIs, and future conformance checks. |
+| Fix type | Docs already patched; API/schema/conformance still needed. |
 
 ### 2. Physical-action safety lacks a canonical owner
 
@@ -295,6 +326,7 @@ ExecutionPrivacyPosture for every model/provider route.
 
 | Opportunity | Replace this | With this |
 | --- | --- | --- |
+| Hypervisor product taxonomy | "Hypervisor IDE", "Electron/VS Code fork", or "CLI/TUI" as parent product | Hypervisor Core with App/Web/CLI-headless clients, optional TUI presentation, Workbench/Foundry/Fleet surfaces, adapter targets, and Agent Harness Adapters. |
 | Authority UX | "Wallet app UI handles approvals" | `WalletAuthorityCore` plus presentation profiles. |
 | Cloud/provider routing | "Cloud lane" or future `decentralized.cloud` as present product | Direct Hypervisor provider integrations plus optional future catalog. |
 | Marketplace verticals | Hardcoded agent categories | Digital Worker Ontology plus Vertical Ontology Packs. |
@@ -310,6 +342,7 @@ ExecutionPrivacyPosture for every model/provider route.
 
 | Concept | Current state | Needed owner |
 | --- | --- | --- |
+| Hypervisor client/surface/adapter taxonomy | Canon docs patched, implementation plans must stay aligned | `docs/architecture/components/hypervisor/core-clients-surfaces.md` |
 | Digital Worker Ontology | Plan doc only | `docs/architecture/domains/aiagent/digital-worker-ontology.md` |
 | Vertical Ontology Packs | Plan doc only | `docs/architecture/domains/aiagent/vertical-ontology-packs.md` |
 | Managed Worker Instance lifecycle | Partly in worker marketplace/endpoints | `docs/architecture/domains/aiagent/managed-worker-instance-lifecycle.md` |
@@ -326,6 +359,15 @@ Add or tighten:
 
 ```text
 DigitalWorkerOntology
+HypervisorCore
+HypervisorClient
+HypervisorCliHeadless
+HypervisorTui
+HypervisorApplicationSurface
+HypervisorWorkbench
+HypervisorSession
+HypervisorAdapterTarget
+AgentHarnessAdapter
 VerticalOntologyPack
 IntegrationSurface
 ManagedWorkerInstanceLifecycle
@@ -397,6 +439,7 @@ ServiceCompositionReceiptBundle
 Docs that are too doctrinal and need implementation objects:
 
 ```text
+Hypervisor Core client/surface/adapter taxonomy
 aiagent broad labor plan
 physical/embodied work references
 Agent Wiki / ioi-memory boundary
@@ -421,6 +464,9 @@ cTEE candidate-lattice math
 
 | Doc | Anti-pattern |
 | --- | --- |
+| Hypervisor core/client/surface docs | Treating Hypervisor Workbench or a VS Code shell as the parent product/runtime. |
+| Hypervisor core/client/surface docs | Treating TUI as a first-class runtime lane instead of optional CLI/headless presentation. |
+| Hypervisor core/client/surface docs | Treating Codex, Claude Code, Grok Build, OpenHands, Aider, shell/tmux agents, CI agents, or hosted coding agents as Hypervisor clients or runtime truth. |
 | aiagent worker marketplace | Treating categories as hardcoded verticals instead of ontology-pack indexed profiles. |
 | aiagent worker marketplace | Treating managed instance web console as runtime truth. |
 | aiagent worker marketplace | Letting payment lapse silently delete user context without archive/export policy. |
@@ -434,6 +480,15 @@ cTEE candidate-lattice math
 | sas service docs | Settling service outcomes without evidence bundle and contribution receipts. |
 
 ## Proposed Patch Plan
+
+### Phase 0: Keep Hypervisor Core Taxonomy Implementation-Visible
+
+| Field | Detail |
+| --- | --- |
+| Files | `docs/architecture/components/hypervisor/core-clients-surfaces.md`, daemon API/docs, source map, vocabulary, implementation matrix, future app/API contracts |
+| Change | Ensure product APIs, schemas, and implementation plans preserve the distinction between Core, clients, application surfaces, adapter targets, and Agent Harness Adapters. |
+| Acceptance | No live implementation guide treats Hypervisor Workbench/IDE, VS Code shells, TUI, or external CLI agents as runtime truth. |
+| Verify | Run `rg -n "Hypervisor IDE|CLI/TUI|Electron/VS Code fork|Codex.*runtime truth|TUI = separate" docs/architecture internal-docs/implementation`; remaining hits must be deprecated, historical, or anti-pattern examples only. |
 
 ### Phase 1: Promote Broad Autonomous Labor Canon
 
@@ -522,6 +577,8 @@ The architecture becomes cleaner if we say:
 
 ```text
 Wallet is not the universal UI; it is the authority core plus presentations.
+Hypervisor is not an IDE shell; it is Core plus first-class clients,
+application surfaces, sessions, adapter targets, and mediated agent harnesses.
 aiagent is not a fixed worker catalog; it is an ontology-bound labor substrate.
 Physical action is not a tool call; it is a safety-envelope-bound effect.
 cTEE does not make rented GPUs trusted; it keeps protected plaintext out of

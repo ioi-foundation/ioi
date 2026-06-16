@@ -16,8 +16,10 @@ can reuse it.
 
 In the Hypervisor/daemon canon, the Hypervisor Daemon is the hypervisor/control plane
 for autonomous execution and Agentgres is the operational truth substrate behind
-that control plane. Hypervisor IDE may render Agentgres-backed projections,
-but it must not become the canonical state store.
+that control plane. Hypervisor App, Hypervisor Web, CLI/headless clients,
+optional TUI views, and application surfaces such as Workbench, Foundry, and
+Fleet may render Agentgres-backed projections, but they must not become the
+canonical state store.
 
 In the machine-economy canon, Agentgres is the local/domain operational truth
 substrate for governed autonomous-system chains and Hypervisor Node settlement
@@ -132,11 +134,11 @@ Agentgres does not own:
 - retrieval candidates, embeddings, full-text indexes, or wiki projections as canonical truth.
 
 wallet.network owns authority. Hypervisor Daemon runtime nodes own execution.
-Hypervisor IDE owns local UX/projections. AIIP owns autonomous-work interop
-semantics. Storage backends own payload byte availability. IOI L1 owns public
-settlement and rights. Hypervisor Nodes coordinate local settlement and interop,
-but their operational truth is still recorded through Agentgres/domain
-operations rather than Hypervisor IDE UI state.
+Hypervisor clients and application surfaces own UX/projections. AIIP owns
+autonomous-work interop semantics. Storage backends own payload byte
+availability. IOI L1 owns public settlement and rights. Hypervisor Nodes
+coordinate local settlement and interop, but their operational truth is still
+recorded through Agentgres/domain operations rather than client UI state.
 
 ## Memory And Agent Wiki Boundary
 
@@ -3482,7 +3484,8 @@ public API contracts
 
 ### Open Repo Normally
 
-The user opens a normal Git repo in Hypervisor IDE/VS Code OSS.
+The user opens a normal Git repo in Hypervisor Workbench with a VS Code adapter,
+another editor adapter, or terminal Git.
 
 VS Code Git integration works as usual.
 

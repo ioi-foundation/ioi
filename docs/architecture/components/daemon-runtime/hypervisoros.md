@@ -29,11 +29,14 @@ infrastructure management.
 Canonical framing:
 
 ```text
-Hypervisor IDE
-  hosted/private workspace surface
+Hypervisor App / Web / Workbench
+  hosted/private workspace clients and application surface
 
-Hypervisor CLI/TUI
-  operator and developer interface
+Hypervisor CLI/headless
+  operator, developer, scripting, CI, and node-ops interface
+
+Optional TUI
+  interactive presentation over the CLI/headless client
 
 Hypervisor Daemon
   process-level alignment runtime
@@ -631,7 +634,7 @@ For developers:
 
 ```text
 Build once against the Hypervisor SDK.
-Run hosted in Hypervisor IDE.
+Run hosted through Hypervisor App, Hypervisor Web, Workbench, or CLI/headless.
 Promote to HypervisorOS for bare-metal nodes.
 Settle through IOI.
 ```

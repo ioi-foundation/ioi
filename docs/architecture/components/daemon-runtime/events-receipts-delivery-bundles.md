@@ -9,12 +9,13 @@ Last alignment pass: 2026-06-03.
 ## Purpose
 
 Events enable observation; receipts enable proof; replay enables inspection;
-delivery bundles enable marketplace settlement. These objects must be consistent
-across Hypervisor IDE, Hypervisor Daemon, Agentgres, aiagent.xyz, sas.xyz, and
-wallet.network.
+delivery bundles enable marketplace settlement. These objects must be
+consistent across Hypervisor clients/application surfaces, Hypervisor Daemon,
+Agentgres, aiagent.xyz, sas.xyz, and wallet.network.
 
 The Hypervisor Daemon emits these objects as the autonomous-execution
-hypervisor/control plane. Hypervisor IDE, CLI/TUI, SDK, ADK, harnesses,
+hypervisor/control plane. Hypervisor App, Hypervisor Web, CLI/headless,
+optional TUI, SDK, ADK, Workbench/Foundry/Fleet surfaces, harnesses,
 benchmarks, and extension-host code may project or inspect them, but they must
 not mint private runtime truth for consequential work.
 
@@ -673,7 +674,7 @@ archival checkpoint files.
 3. Delivery requires outputs plus evidence, not just files.
 4. Quality/reputation roots should be aggregated before L1 commitment.
 5. Private traces must support redacted export.
-6. TUI, SDK, ADK, agent-ide, and Hypervisor controls must leave the same event
-   and receipt trail when they mutate runtime state.
+6. Optional TUI, SDK, ADK, agent-ide, and Hypervisor controls must leave the
+   same event and receipt trail when they mutate runtime state.
 7. Private Workspace cTEE receipts must never reveal protected plaintext merely
    to prove that private work occurred.

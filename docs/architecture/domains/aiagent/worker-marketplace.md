@@ -190,7 +190,9 @@ aiagent.xyz Agentgres tracks:
 When a user invokes or initializes a worker:
 
 1. **Ephemeral invocation** — one task/run, no durable agent instance.
-2. **Local Hypervisor install** — package is downloaded and run through a local Hypervisor Daemon managed by Hypervisor IDE.
+2. **Local Hypervisor install** — package is downloaded and run through a local
+   Hypervisor Daemon managed by Hypervisor App, Workbench, Web, or
+   CLI/headless.
 3. **Managed hosted/provider instance** — aiagent.xyz initializes a worker instance on a hosted or provider Hypervisor Daemon and mounts a web console over daemon thread/run APIs.
 4. **DePIN zero-to-idle or persistent instance** — minimized or encrypted state runs on decentralized compute, then checkpoints and rehydrates through Agentgres, storage backend payloads, and wallet.network.
 5. **Private Workspace cTEE instance** — a rented/provider/DePIN GPU node runs the daemon shell, public inference, encrypted state, public trunk files, redacted workspace projections, Plaintext-Free Runtime Mounting, and Candidate-Lattice Private Decoding while protected classes stay sealed, masked, client-held, guardian-mediated, or declassified through wallet.network.
@@ -245,8 +247,8 @@ browser UI
 Hypervisor is optional local execution, not required for all marketplace use.
 The web console is a client surface, not a private runtime. It can expose chat,
 forms, approvals, receipts, spend controls, pause/resume/archive, API keys, and
-webhooks over the same daemon/domain contracts used by Hypervisor, CLI/TUI, SDK,
-ADK, and agent-ide.
+webhooks over the same daemon/domain contracts used by Hypervisor,
+CLI/headless, optional TUI views, SDK, ADK, and agent-ide.
 
 ## Sparse Worker Categories
 

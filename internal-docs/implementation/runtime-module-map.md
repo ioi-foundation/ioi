@@ -4,7 +4,7 @@ Status: internal source-tree map; layout-refactor guardrail.
 Authority: `docs/architecture/` and accepted ADRs are canonical; this file maps implementation locations only.
 Supports: runtime substrate, clients, projections, fixtures, and validation module placement.
 Superseded by: canonical architecture docs or ADRs when conflicts arise.
-Last alignment pass: 2026-05-13.
+Last alignment pass: 2026-06-16.
 
 This map names architecture-aligned homes for runtime execution, clients,
 projections, validation, and compatibility code. It is intentionally concrete:
@@ -18,7 +18,7 @@ parallel execution path.
 | Runtime kernel | `crates/services/src/agentic/runtime/kernel/` | State transition, authority, and execution invariants. |
 | Runtime service loop | `crates/services/src/agentic/runtime/service/` | Agent loop orchestration over the kernel and tool contracts. |
 | Runtime tools | `crates/services/src/agentic/runtime/tools/` | Governed tool contracts, discovery, MCP, skills, and built-ins. |
-| Daemon service | `packages/runtime-daemon/` | Public daemon API, runtime-node profile, thread/turn controls, training/evaluation/benchmark/routing jobs, and local v0 substrate for SDK/CLI/TUI/GUI/harness validation. |
+| Daemon service | `packages/runtime-daemon/` | Public daemon API, runtime-node profile, thread/turn controls, training/evaluation/benchmark/routing jobs, and local v0 substrate for SDK/CLI-headless/GUI/harness validation. |
 | Runtime service bridge | `crates/node/src/bin/ioi-runtime-bridge.rs` and `packages/runtime-daemon/src/runtime-api-bridge.mjs` | Bridge from daemon API into `RuntimeAgentService` or equivalent lower-level runtime service loops. |
 | Agentgres state | `packages/runtime-daemon/src/index.mjs` for local v0 proof, future `crates/agentgres` or daemon storage crate | Canonical operation log, runs, tasks, training lineage, benchmark state, routing decisions, receipts, scorecards, and projections. |
 
@@ -27,9 +27,9 @@ parallel execution path.
 | Surface | Canonical Home | Must Remain |
 | --- | --- | --- |
 | `@ioi/agent-sdk` | `packages/agent-sdk/` | Developer client over daemon/substrate contracts. |
-| `ioi-cli` / TUI | `crates/cli/` | Terminal and interactive TUI client over daemon/public runtime APIs, including training, benchmark, receipt, and routing inspection controls. |
+| `ioi-cli` / headless | `crates/cli/` | Terminal, scripting, CI, node-ops, and headless client over daemon/public runtime APIs, including training, benchmark, receipt, and routing inspection controls; TUI is an optional presentation over this client. |
 | `@ioi/agent-ide` | `packages/agent-ide/` | Workbench and workflow-composer projection over shared contracts. |
-| Autopilot | `apps/autopilot/` | Product shell over chat, IDE, Autopilot Foundry, and daemon/runtime projections. |
+| Hypervisor App/Web | `apps/autopilot/` today, future Hypervisor app/web homes as code is renamed | First-class product clients over Hypervisor Core; product shell over Workbench, Foundry, Fleet, chat/assistant surfaces, and daemon/runtime projections. |
 | Shared builder substrate | `packages/agent-ide/src/types/graph.ts`, `packages/agent-ide/src/runtime/workflow-schema.ts`, workflow runtime models | Typed graph, schema, and recipe contracts consumed by multiple builder lenses. |
 | Workflow compositor | `packages/agent-ide/src/WorkflowComposer/` | Standard graph projection over the shared builder substrate; submits to daemon/domain contracts and never owns canonical run truth. |
 
@@ -41,7 +41,7 @@ parallel execution path.
 | Runtime evidence | `scripts/evidence/` | Durable evidence generation commands. |
 | Script launchers | `scripts/` | Thin operator wrappers only. |
 | JS contract tests | `scripts/lib/*.test.mjs` | Tests and guardrails, not runtime implementation. |
-| Autopilot proofs | `apps/autopilot/src-tauri/src/proofs/` or `apps/autopilot/src-tauri/src/harness/` | Proof/harness code only; product runtime modules should stay uncluttered. |
+| Hypervisor proofs | `apps/autopilot/src-tauri/src/proofs/` or `apps/autopilot/src-tauri/src/harness/` while the source path is still named `autopilot` | Proof/harness code only; product runtime modules should stay uncluttered. |
 
 ## Vocabulary Rules
 
@@ -57,9 +57,9 @@ parallel execution path.
 - `ComputeSession` means a bounded runtime allocation served by a daemon profile
   on local, hosted, provider, DePIN, TEE, customer, or browser/container/VM
   substrate.
-- `AutopilotFoundry` means the Autopilot product surface for Worker Training.
-  It is a client/projection over daemon, Agentgres, wallet.network, model
-  router, and Filecoin/CAS contracts.
+- `HypervisorFoundry` means the Hypervisor application surface for Worker
+  Training. It is a client/projection over daemon, Agentgres, wallet.network,
+  model router, and Agentgres-governed artifact/storage contracts.
 - `MoWRouter` means worker routing logic over bounded workers and receipts. It
   is not the model router and must not be implemented as hidden product-surface
   ranking.

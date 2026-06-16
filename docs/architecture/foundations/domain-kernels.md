@@ -54,8 +54,12 @@ Execution worker nodes
   run Hypervisor Daemon runtime-node profiles and execute work
 
 Client surfaces
-  Hypervisor IDE, IOI CLI/TUI, @ioi/agent-sdk, IOI ADK, agent-ide, browser apps
+  Hypervisor App, Hypervisor Web, IOI CLI/headless, optional TUI, @ioi/agent-sdk, IOI ADK, agent-ide, browser apps
   submit, inspect, scaffold, and control work through stable domain/runtime contracts
+
+Hypervisor application surfaces
+  Workbench, Foundry, Fleet, Agents, Services, Models, cTEE/Privacy, Receipts/Audit
+  organize the same Core by job-to-be-done without owning runtime truth
 ```
 
 This is an **edge-in topology**. Traditional blockchain applications usually
@@ -76,10 +80,10 @@ hosted first-party domains, enterprise domains, sovereign third-party domains,
 and public L1 commitments. The responsibilities differ by layer, but the
 operation-log, policy, receipt, replay, and projection doctrine stays coherent.
 
-A Hypervisor Node is one such local domain composition: Hypervisor IDE,
-Hypervisor Daemon, Agentgres, wallet.network authority paths, local registries,
-receipts, replay, and runtime profiles. It may host many governed
-autonomous-system chains, but it does not become IOI L1.
+A Hypervisor Node is one such local domain composition: Hypervisor Core
+clients/surfaces, Hypervisor Daemon, Agentgres, wallet.network authority paths,
+local registries, receipts, replay, and runtime profiles. It may host many
+governed autonomous-system chains, but it does not become IOI L1.
 
 ## Root vs Domain
 
@@ -251,7 +255,8 @@ L1:
 
 For run-per-launch work, the domain kernel may route to:
 
-- user-local Hypervisor Daemon managed through Hypervisor IDE;
+- user-local Hypervisor Daemon managed through Hypervisor App, Hypervisor Web,
+  CLI/headless, or Workbench/Fleet surfaces;
 - hosted Hypervisor Daemon;
 - provider runtime;
 - DePIN node;
@@ -291,7 +296,8 @@ It synchronizes with IOI L1 only for:
 3. Execution nodes are interchangeable venues, not domain state owners by default.
 4. Domain kernels must not create split-brain state separate from Agentgres.
 5. All surfaces must use stable runtime/substrate envelopes.
-6. Client surfaces such as CLI/TUI, SDK, ADK, agent-ide, and Hypervisor IDE
+6. Client surfaces such as Hypervisor App, Hypervisor Web, CLI/headless,
+   optional TUI, SDK, ADK, agent-ide, Workbench, Foundry, and Fleet
    must not bypass domain kernels or daemon runtime contracts for canonical
    work.
 

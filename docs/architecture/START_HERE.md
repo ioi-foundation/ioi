@@ -15,9 +15,21 @@ implementation matrix.
 Current Fleet addition:
 
 > **Hypervisor Fleet is a general infrastructure manager whose first-class
-> workload is autonomous systems. It appears inside Hypervisor IDE and
-> console.ioi.ai, but its authority comes from wallet.network, its truth comes
-> from Agentgres, and execution remains daemon-owned.**
+> workload is autonomous systems. It appears as an application surface inside
+> Hypervisor App, Hypervisor Web, CLI/headless projections, and console.ioi.ai, but
+> its authority comes from wallet.network, its truth comes from Agentgres, and
+> execution remains daemon-owned.**
+
+Current Hypervisor product-surface addition:
+
+> **Hypervisor Core is the shared product/runtime substrate whose execution owner
+> is the Hypervisor Daemon. Hypervisor App, Hypervisor Web, and CLI/headless are
+> first-class clients over Core; TUI is an optional CLI presentation. Hypervisor
+> Workbench, Foundry, and Fleet are application surfaces over the same Core.
+> Editor integrations and external agent harnesses such as VS Code, Cursor,
+> Windsurf, JetBrains, Codex, Claude Code, Grok Build, browser IDEs, terminals,
+> VMs, local OS surfaces, and HypervisorOS nodes are adapter targets, not
+> Hypervisor's product identity.**
 
 Current Wallet addition:
 

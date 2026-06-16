@@ -43,8 +43,9 @@ compliance acronyms for hidden audit material.
   microVMs, WASM workloads, images, volumes, networks, GPU pools, node
   registry, provider integrations, placement, health, cost, storage posture,
   cTEE posture, receipts, replay projections, and policy visibility. It appears
-  through Hypervisor IDE and console.ioi.ai surfaces, but it does not execute
-  work, authorize power, admit Agentgres truth, or own payload bytes.
+  through Hypervisor App, Hypervisor Web, CLI/headless projections, optional TUI
+  views, and console.ioi.ai surfaces, but it does not execute work, authorize
+  power, admit Agentgres truth, or own payload bytes.
 - `FleetNode`: the Fleet projection/object for a local, cloud, GPU, DePIN,
   customer, HypervisorOS, TEE, or bare-metal runtime node. It binds node
   identity, daemon refs, provider metadata, Agentgres domain refs, authority
@@ -387,10 +388,62 @@ compliance acronyms for hidden audit material.
   inside a governed autonomous-system chain. It may reason, plan, diagnose,
   route work, and propose upgrades, but consequential transitions must pass the
   deterministic authority boundary.
+- `HypervisorCore`: the shared Hypervisor product/runtime substrate used by
+  first-class clients and application surfaces. Its execution owner is the
+  Hypervisor Daemon. It coordinates sessions, adapter targets, daemon APIs,
+  receipts/replay projections, policy admission hooks, wallet.network
+  authority gateway integration, Agentgres admission/projection bridges, cTEE
+  posture, and provider integration surfaces. It is not a peer runtime beside
+  the daemon and not a replacement for wallet.network or Agentgres.
+- `HypervisorClient`: a first-class client over Hypervisor Core, such as
+  Hypervisor App, Hypervisor Web, Hypervisor CLI/headless, SDK, ADK, or embedded
+  clients. Clients request, inspect, steer, approve, and render; they do not
+  own runtime truth.
+- `HypervisorApp`: the native desktop client over Hypervisor Core. It may host
+  Workbench, Foundry, Fleet, Agents, Models, cTEE/Privacy, Receipts/Audit,
+  Connectors, and other application surfaces.
+- `HypervisorWeb`: the browser/team/remote client over Hypervisor Core. It may
+  host web/operator/team versions of the same application surfaces while using
+  the same daemon, authority, Agentgres, session, receipt, and adapter
+  contracts.
+- `HypervisorCliHeadless`: the terminal, scripting, CI, node-ops, and headless
+  operator client over Hypervisor Core. It can render plans, controls, traces,
+  approvals, receipts, Fleet projections, and node operations, but it does not
+  own execution semantics.
+- `HypervisorTui`: an optional interactive presentation of the
+  HypervisorCliHeadless client. It is not a separate first-class client lane and
+  must not maintain hidden runtime controls outside daemon/domain APIs.
+- `HypervisorApplicationSurface`: a major product surface over Hypervisor Core,
+  such as Workbench, Foundry, Fleet, Agents, Services, Models, cTEE/Privacy,
+  Receipts/Audit, or Connectors. Application surfaces are not separate apps with
+  separate runtime truth.
+- `HypervisorWorkbench`: the code, systems, workspace, editor, terminal,
+  browser, workflow, and debugging surface over Hypervisor Core. It replaces
+  "Hypervisor IDE" as the live product term for the code-oriented Hypervisor
+  experience.
+- `HypervisorSession`: a live governed workspace, run, or control context
+  managed through Hypervisor Core. Examples include local workspaces, remote VM
+  workspaces, browser sandboxes, hosted workers, HypervisorOS nodes, terminal
+  sessions, editor sessions, computer-use sessions, Foundry/eval/training
+  sessions, and Fleet/provider sessions.
+- `HypervisorAdapterTarget`: an editor, terminal, browser, VM, container, local
+  OS surface, hosted worker, HypervisorOS node, or external tool that a
+  Hypervisor Session can project into or mediate. VS Code, Cursor, Windsurf,
+  JetBrains, browser IDEs, Git, terminal/tmux, browser automation, local apps,
+  cloud VMs, and HypervisorOS nodes are adapter targets, not Hypervisor's
+  product identity.
+- `AgentHarnessAdapter`: a Hypervisor adapter family for external CLI or hosted
+  agent harnesses such as Codex, Claude Code, Grok Build, OpenHands, Aider,
+  Cursor/Windsurf agent loops, shell/tmux agent loops, CI agents, and hosted
+  coding agents. These harnesses may propose work through Hypervisor Core and
+  the Hypervisor Daemon, but they are not Hypervisor clients and not runtime
+  truth.
 - `HypervisorNode`: the local autonomous-system settlement domain for a user,
-  organization, project, or deployment. It composes Hypervisor IDE,
-  Hypervisor Daemon, Agentgres, wallet.network authority paths, local registries,
-  receipts, replay, and runtime profiles. It is not the Hypervisor IDE UI by itself.
+  organization, project, or deployment. It composes Hypervisor Core clients and
+  application surfaces, Hypervisor Daemon, Agentgres, wallet.network authority
+  paths, local registries, receipts, replay, and runtime profiles. It is not
+  the Hypervisor App, Hypervisor Web, CLI/headless client, optional TUI view,
+  Workbench, Foundry, or Fleet by itself.
 - `LocalSettlementDomain`: a Hypervisor Node domain that locally accepts work,
   proposals, authority outcomes, receipts, interop messages, and state
   transitions for many governed autonomous-system chains. Public economic
@@ -559,17 +612,19 @@ compliance acronyms for hidden audit material.
   Worker Training spec.
 - `SharedBuilderSubstrate`: the shared graph model, typed node contracts,
   schemas, recipe model, daemon execution path, and Agentgres receipt model
-  used by Hypervisor builder lenses. It is a UI/workflow substrate, not
+  used by Hypervisor application surfaces. It is a UI/workflow substrate, not
   canonical runtime truth by itself.
-- `HypervisorFoundry`: the Hypervisor product lens for creating, training,
+- `HypervisorFoundry`: the Hypervisor application surface for creating, training,
   configuring, evaluating, packaging, deploying, and improving workers through
   the Worker Training lifecycle. It can project recipes into the standard
-  workflow compositor, but it is not a separate canvas environment.
-- `HypervisorIDEFleetSurface`: the Hypervisor IDE lens for hands-on management
-  of attached nodes, persistent workspaces, active agents/workers/services,
-  model mounts, cTEE posture, receipts, approvals, trace summaries, replay
-  availability, and start/stop/resume/archive/restore actions. It requests and
-  displays; it does not own Fleet truth, execution, or authority.
+  workflow compositor, but it is not a separate canvas environment or runtime.
+- `HypervisorFleetSurface`: the Fleet application surface in Hypervisor App,
+  Hypervisor Web, CLI/headless projections, optional TUI views, or
+  console.ioi.ai for hands-on management of attached nodes, persistent
+  workspaces, active agents/workers/services, model mounts, cTEE posture,
+  receipts, approvals, trace summaries, replay availability, and
+  start/stop/resume/archive/restore actions. It requests and displays; it does
+  not own Fleet truth, execution, or authority.
 - `ConsoleIoiAiFleetSurface`: the console.ioi.ai web/org/admin lens for
   accounts, devices, entitlements, node registry, provider integrations, fleet
   status, billing, remote access, restore routing, and org policy visibility.
@@ -581,27 +636,32 @@ compliance acronyms for hidden audit material.
 - `TaskCapsule`: a minimized, policy-bound execution packet given to a runtime
   node. It carries visible context, hidden context classes, allowed/forbidden
   actions, output contract, TTL, and authority bindings.
-- `HypervisorIDE`: the IDE-grade operator console for autonomous systems. It
-  observes, requests, approves, interrupts, debugs, explains, and replays
-  daemon-governed work. It is not an execution authority and it must not become a
-  second runtime inside the VS Code extension host. It is also not the full
-  Hypervisor Node; the node includes daemon, Agentgres, wallet.network authority
-  paths, local registries, receipts, replay, and runtime profiles.
+- `HypervisorIDE`: deprecated live parent-product wording. Use
+  `HypervisorWorkbench` for the code/systems/workspace surface, `HypervisorApp`
+  for the native desktop client, `HypervisorWeb` for the browser/team/remote
+  client, and `HypervisorCliHeadless` for terminal/headless operation.
+  Historical
+  docs may use Hypervisor IDE as shorthand for the old IDE-grade operator
+  console; new live architecture must qualify or replace it.
 - `HypervisorGuard`: developer-facing packaging for IOI Authority Gateway
   adapters. It can describe "bring IOI alignment security to Cursor, VS Code,
-  Codex, Claude Code, JetBrains, OpenHands, hosted agents, and similar tools,"
-  but canonical runtime authority still belongs to the Hypervisor Daemon.
-- `HypervisorAppShell`: the Electron/VS Code fork that hosts Hypervisor IDE and
-  local runtime surfaces. It owns shell affordances such as windows, deep links,
-  tray, shortcuts, updater, auth handoff, and daemon supervision.
-  Tauri/OpenVSCode embedding is legacy extraction inventory, not the target
-  shell.
+  Codex, Claude Code, Grok Build, JetBrains, OpenHands, Aider, hosted agents,
+  and similar tools," but canonical runtime authority still belongs to the
+  Hypervisor Daemon.
+- `HypervisorAppShell`: implementation-level native shell for Hypervisor App.
+  It owns shell affordances such as windows, deep links, tray, shortcuts,
+  updater, auth handoff, and daemon supervision. Electron/VS Code fork,
+  Tauri/OpenVSCode embedding, and similar shells are implementation choices or
+  legacy extraction inventory, not Hypervisor's product identity.
 - `HypervisorDesktop`: the local/private device automation mode within the
   Hypervisor product. It may launch, manage, or project a local Hypervisor Daemon runtime
   profile, but it does not define a separate canonical runtime path.
-- `IOICliTui`: the terminal/TUI operator client over daemon/public runtime APIs.
-  It can render plans, controls, traces, approvals, and receipts, but it does
-  not own execution semantics.
+- `IOICli`: the terminal/headless operator client over daemon/public runtime
+  APIs. It can render plans, controls, traces, approvals, and receipts, but it
+  does not own execution semantics.
+- `IOITui`: an optional interactive presentation of IOI CLI controls. It is
+  useful when a terminal operator wants a dashboard-like flow, but it must map
+  to daemon/domain APIs and must not create hidden runtime truth.
 - `IOISdk`: a low-level protocol/client library over daemon, Agentgres,
   wallet.network, AIIP, and IOI L1 contracts. It may provide typed helpers,
   transports, generated clients, and explicit test mocks; it is not the

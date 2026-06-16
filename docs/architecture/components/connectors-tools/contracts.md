@@ -12,8 +12,8 @@ Connectors expose typed, permissioned, receipted guest capabilities into
 workflows, workers, and Hypervisor. Tools are not ambient authority; every tool
 has a contract, risk class, primitive capability requirements, authority scope
 requirements, and receipt obligations. Effectful connector calls execute through
-the Hypervisor Daemon hypervisor/control plane, not from Hypervisor IDE or the
-extension host.
+the Hypervisor Daemon hypervisor/control plane, not from Hypervisor clients,
+application surfaces, or extension hosts.
 
 ## RuntimeToolContract
 

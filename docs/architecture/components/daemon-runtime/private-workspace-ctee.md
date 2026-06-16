@@ -268,10 +268,10 @@ for that same node to both:
 If the user has no always-on local laptop or desktop, the architecture needs a
 small trusted or threshold authority path outside the rented GPU node. In
 product terms this is usually wallet.network, an authenticated browser/device
-session, a mobile approval path, local Hypervisor IDE/CLI while online, or a cheap
-policy/key service. It does not need to run the model. It needs to guard keys,
-policy, declassification, private-head selection, leakage budgets, and small
-sensitive computations.
+session, a mobile approval path, local Hypervisor App/Web/CLI while online, or
+a cheap policy/key service. It does not need to run the model. It needs to
+guard keys, policy, declassification, private-head selection, leakage budgets,
+and small sensitive computations.
 
 Correct doctrine:
 

@@ -50,7 +50,9 @@ profile boundary as worker execution.
 
 ## Execution Venues
 
-1. **Local Hypervisor Daemon under Hypervisor IDE** — user machine/private runtime.
+1. **Local Hypervisor Daemon under Hypervisor App, Workbench, or
+   CLI/headless** — user machine/private runtime; TUI is an optional
+   presentation over CLI/headless.
 2. **Hosted IOI Runtime** — first-party managed runtime.
 3. **Provider Runtime** — worker/service seller runtime.
 4. **DePIN Runtime** — Akash-like decentralized compute node.

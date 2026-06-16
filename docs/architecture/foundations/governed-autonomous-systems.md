@@ -36,7 +36,7 @@ consensus, or an IOI L1 replacement.
 These layers must not collapse into one another:
 
 ```text
-Hypervisor UI != Hypervisor Node != IOI L1
+Hypervisor clients/surfaces != Hypervisor Node != IOI L1
 ```
 
 The canonical stack is:
@@ -60,10 +60,13 @@ IOI L1
 An **Hypervisor Node** is the local autonomous-system settlement domain for a
 user, organization, project, or deployment.
 
-It is not merely the Hypervisor IDE UI. It is the node-shaped composition
-of:
+It is not merely a Hypervisor client or application surface. It is the
+node-shaped composition of:
 
-- Hypervisor IDE as the operator console;
+- Hypervisor App, Hypervisor Web, CLI/headless, and application surfaces such
+  as Workbench, Foundry, and Fleet as operator clients/projections; optional TUI
+  views are presentations over the CLI/headless client, not separate runtime
+  lanes;
 - Hypervisor Daemon as the deterministic execution and authority-enforcement
   substrate;
 - Agentgres as the local canonical operational state and projection substrate;
@@ -282,7 +285,7 @@ The coherent product and protocol roles are:
 
 ## Non-Negotiables
 
-1. Do not call the Hypervisor IDE UI the settlement layer.
+1. Do not call Hypervisor clients or application surfaces the settlement layer.
 2. Do not imply every governed autonomous system is a standalone blockchain L1.
 3. Do not use IOI L1 for every module invocation, workflow node, tool call,
    memory update, or local receipt.

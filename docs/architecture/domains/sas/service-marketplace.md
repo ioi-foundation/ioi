@@ -375,7 +375,8 @@ It is where service candidates become real provider products.
 It is not:
 
 * the end-user intent ingress,
-* the private local Hypervisor IDE/runtime-control shell,
+* the private local Hypervisor App, Workbench, Web, CLI/headless, or optional
+  TUI runtime-control clients,
 * the L0 domain instantiation surface,
 * the demand-side marketplace,
 * the freelance procurement board,

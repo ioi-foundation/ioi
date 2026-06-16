@@ -13,7 +13,8 @@ per-slice evidence accumulation.
 This guide has three jobs:
 
 1. Give architects the clean target shape for Hypervisor, the daemon, the
-   Rust/WASM substrate, Agentgres, wallet.network, cTEE, and Hypervisor IDE.
+   Rust/WASM substrate, Agentgres, wallet.network, cTEE, Hypervisor Core,
+   first-class clients, and application surfaces.
 2. Give implementers enough low-level structure to migrate the current repo
    without creating another split brain.
 3. Define the completion contract for the implementation migration itself.
@@ -24,7 +25,7 @@ Read it by role:
 | --- | --- | --- |
 | System architect | One-Page Doctrine | Part I, Part II, Final Doctrine |
 | Runtime implementer | One-Page Doctrine | Part III, Part IV, Part VII |
-| Hypervisor IDE / workflow implementer | One-Page Doctrine | Part V, Part VI, Part VII |
+| Hypervisor Workbench / workflow implementer | One-Page Doctrine | Part V, Part VI, Part VII |
 | Agentgres / receipt implementer | One-Page Doctrine | Part III, Part IV |
 | cTEE / private workspace implementer | One-Page Doctrine | Part II, Part III, Part VII |
 | Migration lead | One-Page Doctrine | Part VII, Part VIII, Part IX |
@@ -72,7 +73,9 @@ Route consequential daemon steps through the existing Rust/WASM
 kernel/workload substrate as the authoritative step/module execution backend.
 Record admitted truth in Agentgres.
 Authorize through wallet.network.
-Project the same graph into Hypervisor IDE.
+Project the same graph into Hypervisor Workbench, App/Web clients, and
+CLI/headless projections; TUI remains an optional presentation over the
+CLI/headless client.
 Use cTEE Private Workspace profiles when untrusted compute must not receive
 protected plaintext custody.
 ```
@@ -85,7 +88,8 @@ Default Harness Profile configures loop-native orchestration.
 Rust/WASM workload/kernel executes admitted step modules.
 Agentgres admits and proves operational truth.
 wallet.network authorizes.
-Hypervisor IDE composes and inspects the same graph.
+Hypervisor Core coordinates clients, application surfaces, sessions, and adapters.
+Hypervisor Workbench composes and inspects the same graph.
 ```
 
 This guide is intentionally honest about what exists today versus what is the
@@ -99,7 +103,7 @@ target. It should prevent two common mistakes:
 ### End state in one diagram
 
 ```text
-Hypervisor IDE / CLI / SDK
+Hypervisor App / Hypervisor Web / CLI / SDK
   request, compose, inspect, approve, replay
         |
         v
@@ -141,7 +145,7 @@ Agentgres + receipts + artifact refs + state roots
 
 | Layer | User sees | Implementer builds | Canon boundary |
 | --- | --- | --- | --- |
-| Product surface | Hypervisor IDE/CLI/SDK workflow | workflow graph, approvals, replay, package UX | product requests and inspection only |
+| Product surface | Workbench/App/Web/CLI/SDK workflow | workflow graph, approvals, replay, package UX | product requests and inspection only |
 | Daemon authority | a run that can act safely | gates, leases, StepModuleRouter, cTEE checks | execution semantics live here |
 | Harness profile | loop-native autonomous work | ActionProposal -> GateResult -> module execution -> observation | Default Harness Profile configures, does not replace daemon |
 | Execution backend | tool/model/worker/service progress | Rust/WASM service modules, workload jobs, model mounts, verifiers | backend executes admitted steps |
@@ -198,7 +202,7 @@ The architecture docs already name the intended boundaries:
 Live product runtime today is primarily:
 
 ```text
-Hypervisor IDE / agent-ide surfaces
+Hypervisor Workbench / Hypervisor App/Web / agent-ide surfaces
   -> @ioi/runtime-daemon HTTP routes
   -> JS state store / thread store / model-mounting store
   -> JS direct tool dispatch for local coding tools
@@ -3288,7 +3292,7 @@ execution substrate.
 ### Unified stack
 
 ```text
-Hypervisor IDE / CLI / SDK
+Hypervisor App / Hypervisor Web / CLI / SDK
   compose, inspect, approve, replay, package, and govern work
 
 Hypervisor Daemon
@@ -3330,7 +3334,7 @@ IOI L1 / compatible app chains
 
 | Responsibility | Authoritative owner | Notes |
 | --- | --- | --- |
-| User/operator UX | Hypervisor IDE / CLI / SDK | Requests, displays, composes, steers, inspects. Does not own execution semantics. |
+| User/operator UX | Hypervisor App / Web / CLI / SDK and Workbench surfaces | Requests, displays, composes, steers, inspects. Does not own execution semantics. |
 | Execution semantics | Hypervisor Daemon | The daemon decides what can cross an effect boundary. |
 | Orchestration profile | Default Harness Profile | Configures loop-native work under daemon ownership. |
 | Step/module execution backend | Rust/WASM workload/kernel substrate | Authoritative backend for admitted module execution after migration. |
@@ -3445,7 +3449,7 @@ from authoritative runtime paths.
 Keep JS/TS where it is a product or developer-experience advantage:
 
 ```text
-Hypervisor IDE
+Hypervisor App / Hypervisor Web / Workbench
 web product surfaces
 SDK ergonomics and examples
 workflow authoring UI
@@ -3473,7 +3477,7 @@ Target:
 ```text
 Hypervisor Daemon = Rust
 Hypervisor kernel/workload = Rust/WASM
-Hypervisor IDE = TS/React or equivalent product UI
+Hypervisor App/Web/Workbench = TS/React or equivalent product UI
 Hypervisor SDK = protocol bindings over Rust/core APIs
 ```
 
@@ -3765,13 +3769,13 @@ can be shadowed by a Rust/WASM module later.
 
 ## Part V: Workflow Compositor as Control Plane
 
-This part keeps Hypervisor IDE out of the "pretty canvas only" trap. The
+This part keeps Hypervisor Workbench out of the "pretty canvas only" trap. The
 compositor should operate as the visual control plane over the same module graph
 the daemon routes, the Rust/WASM backend executes, and Agentgres admits.
 
 ### Compositor purpose
 
-Hypervisor IDE's workflow compositor should not be only a canvas. It should be
+Hypervisor Workbench's workflow compositor should not be only a canvas. It should be
 the operator's visual control plane over the same module graph the daemon and
 kernel execute.
 
@@ -4010,7 +4014,7 @@ That means:
 - Rust/WASM workload/kernel backends execute admitted step and module work
   through the shared Step/Module contract.
 - Agentgres is the admitted truth path for meaningful transitions.
-- Hypervisor IDE/CLI/SDK interact through stable protocol APIs instead of
+- Hypervisor App/Web/CLI/SDK and Workbench surfaces interact through stable protocol APIs instead of
   depending on legacy JS daemon execution routes.
 - Legacy JS authoritative paths, compatibility shims, and split-brain fallback
   routes have been deleted or demoted into non-authoritative clients.
@@ -4505,7 +4509,7 @@ Acceptance criteria:
 ### Phase 5: Workflow compositor projection upgrade
 
 Objective:
-Make Hypervisor IDE display the same substrate the daemon executes.
+Make Hypervisor Workbench display the same substrate the daemon executes.
 
 Implementation work:
 
@@ -4832,7 +4836,7 @@ Implementation work:
 - Add a reference demo:
 
 ```text
-Hypervisor IDE workflow
+Hypervisor Workbench workflow
   -> daemon ActionProposal
   -> wallet.network / daemon GateResult
   -> Rust/WASM module invocation
@@ -12066,12 +12070,12 @@ existing Rust/WASM workload/kernel substrate should become the authoritative
 backend for admitted step and module execution. Agentgres records admitted
 truth. wallet.network authorizes secrets, scopes, approvals, leases, and
 declassification. Private Workspace backed by cTEE keeps protected plaintext out
-of untrusted compute by default. Hypervisor IDE composes, governs, and replays
+of untrusted compute by default. Hypervisor Workbench composes, governs, and replays
 the same graph the daemon and kernel execute. IOI L1 receives only selected
 public, economic, rights, dispute, registry, or cross-domain commitments.
 
 In one line:
 
 > **The daemon decides, the kernel executes, Agentgres admits, wallet.network
-> authorizes, cTEE protects custody, and Hypervisor IDE makes the whole machine
+> authorizes, cTEE protects custody, and Hypervisor Workbench makes the whole machine
 > governable.**
