@@ -789,7 +789,7 @@ async function main() {
       });
       assert.equal(embeddings.data.length, 2);
 
-      const tokenized = await expectOk(daemon.endpoint, "/api/v1/tokenize", {
+      const tokenized = await expectOk(daemon.endpoint, "/v1/model-mount/tokens/tokenize", {
         method: "POST",
         token,
         body: { route_id: "route.native-local", model: "native:e2e", input: "tokenizer e2e controls" },
@@ -814,7 +814,7 @@ async function main() {
       assert.ok(counted.token_count >= 4);
       assert.match(counted.input_hash, /^[a-f0-9]{64}$/);
 
-      const contextFit = await expectOk(daemon.endpoint, "/api/v1/context/fit", {
+      const contextFit = await expectOk(daemon.endpoint, "/v1/model-mount/context/fit", {
         method: "POST",
         token,
         body: {

@@ -5,15 +5,14 @@ function invocationProtocolMetadata(invocation, extra = {}) {
     ? invocation.receipt.details
     : {};
   const routeDecision = invocation.routeReceipt?.details?.model_route_decision ?? details.model_route_decision ?? null;
-  const endpointId = invocation.endpoint?.id ?? details.endpoint_id ?? details.endpointId ?? null;
-  const instanceId = invocation.instance?.id ?? details.instance_id ?? details.instanceId ?? null;
+  const endpointId = invocation.endpoint?.id ?? details.endpoint_id ?? null;
+  const instanceId = invocation.instance?.id ?? details.instance_id ?? null;
   const backendId =
     invocation.instance?.backendId ??
     invocation.instance?.backend_id ??
     invocation.backendId ??
     invocation.backend_id ??
     details.backend_id ??
-    details.backendId ??
     null;
   return {
     receipt_id: invocation.receipt?.id ?? null,
@@ -21,7 +20,7 @@ function invocationProtocolMetadata(invocation, extra = {}) {
     endpoint_id: endpointId,
     instance_id: instanceId,
     backend_id: backendId,
-    route_receipt_id: invocation.routeReceipt?.id ?? details.route_receipt_id ?? details.routeReceiptId ?? null,
+    route_receipt_id: invocation.routeReceipt?.id ?? details.route_receipt_id ?? null,
     route_decision: routeDecision,
     tool_receipt_ids: invocation.toolReceiptIds ?? [],
     response_id: invocation.responseId ?? null,
@@ -93,6 +92,16 @@ export function openAiEmbedding(invocation, body = {}) {
   throwProviderEmbeddingResponseRequired(invocation);
 }
 
+export function modelMountRerank(invocation, body = {}) {
+  if (invocation.providerResponse && String(invocation.providerResponseKind ?? "").includes("rerank")) {
+    return {
+      ...invocation.providerResponse,
+      ...invocationProtocolMetadata(invocation, { request_model: body.model ?? null }),
+    };
+  }
+  throwProviderRerankResponseRequired(invocation);
+}
+
 export function openAiCompletion(invocation) {
   return {
     id: `cmpl_${crypto.randomUUID()}`,
@@ -137,6 +146,25 @@ function throwProviderEmbeddingResponseRequired(invocation = {}) {
     evidence_refs: [
       "model_mount_embedding_js_vector_fallback_retired",
       "rust_daemon_core_provider_embedding_required",
+    ],
+  };
+  throw error;
+}
+
+function throwProviderRerankResponseRequired(invocation = {}) {
+  const error = new Error("Rerank responses require Rust/provider-authored ranking output.");
+  error.status = 501;
+  error.code = "model_mount_rerank_provider_response_required";
+  error.details = {
+    rust_core_boundary: "model_mount.provider_invocation",
+    operation_kind: "model_mount.provider_result.rerank",
+    provider_response_kind: invocation.providerResponseKind ?? null,
+    receipt_id: invocation.receipt?.id ?? null,
+    route_id: invocation.route?.id ?? null,
+    response_id: invocation.responseId ?? null,
+    evidence_refs: [
+      "model_mount_rerank_js_ranking_fallback_retired",
+      "rust_daemon_core_provider_rerank_required",
     ],
   };
   throw error;

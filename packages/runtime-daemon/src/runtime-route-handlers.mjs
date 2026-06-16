@@ -13,7 +13,6 @@ export function createRuntimeRouteHandlers(deps) {
     createLifecycleRun: createLifecycleRunDep = createLifecycleRun,
     deleteLifecycleAgent: deleteLifecycleAgentDep = deleteLifecycleAgent,
     ensureProviderAvailable = null,
-    nativeInvocationResponse,
     notFound,
     readBody,
     runtimeError = null,
@@ -41,40 +40,6 @@ export function createRuntimeRouteHandlers(deps) {
   }
 
   async function handleModelMountingNativeRoute({ request, response, store, url, segments }) {
-    const mounts = store.modelMounting;
-    const authorization = request.headers.authorization;
-    if (request.method === "POST" && url.pathname === "/api/v1/rerank") {
-      const invocation = await mounts.invokeModel({
-        authorization,
-        requiredScope: "model.rerank:*",
-        kind: "rerank",
-        body: await readBody(request),
-      });
-      writeJsonResponse(response, nativeInvocationResponse(invocation));
-      return;
-    }
-    if (request.method === "POST" && url.pathname === "/api/v1/tokenize") {
-      writeJsonResponse(
-        response,
-        mounts.tokenizeModel({
-          authorization,
-          requiredScope: "model.tokenize:*",
-          body: await readBody(request),
-        }),
-      );
-      return;
-    }
-    if (request.method === "POST" && url.pathname === "/api/v1/context/fit") {
-      writeJsonResponse(
-        response,
-        mounts.fitModelContext({
-          authorization,
-          requiredScope: "model.context:*",
-          body: await readBody(request),
-        }),
-      );
-      return;
-    }
     throw notFound("Model mounting route not found.", {
       method: request.method,
       path: url.pathname,

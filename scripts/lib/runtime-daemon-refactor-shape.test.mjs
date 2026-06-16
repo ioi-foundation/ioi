@@ -36,7 +36,7 @@ test("runtime daemon entrypoint delegates constants and HTTP helpers to focused 
   assert.match(httpUtils, /export async function readBody/);
   assert.match(httpUtils, /export function writeError/);
   assert.match(openAiCompat, /export async function handleOpenAiCompatibilityRoute/);
-  assert.match(openAiCompat, /export function nativeInvocationResponse/);
+  assert.doesNotMatch(openAiCompat, /nativeInvocationResponse/);
   assert.match(routeHandlers, /export function createRuntimeRouteHandlers/);
   assert.match(routeHandlers, /async function handleModelMountingNativeRoute/);
   assert.match(routeHandlers, /async function handleThreadRoute/);

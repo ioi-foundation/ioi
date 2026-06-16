@@ -5114,6 +5114,12 @@ function runBridge() {
   const openAiCompatRoutesTest = exists("packages/runtime-daemon/src/openai-compat-routes.test.mjs")
     ? read("packages/runtime-daemon/src/openai-compat-routes.test.mjs")
     : "";
+  const modelMountProtocolResponses = exists("packages/runtime-daemon/src/model-mounting/protocol-responses.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/protocol-responses.mjs")
+    : "";
+  const modelMountProtocolResponsesTest = exists("packages/runtime-daemon/src/model-mounting/protocol-responses.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/protocol-responses.test.mjs")
+    : "";
   const retiredRouteDecisionEnvPattern = new RegExp("MODEL_MOUNT_" + "ROUTE_DECISION_COMMAND_ENV");
   const modelMountInvocationLifecycleSources = {
     coreCommandDispatch,
@@ -17169,8 +17175,10 @@ function runBridge() {
       !exists("packages/runtime-daemon/src/model-mounting/workflow-node.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/workflow-node.test.mjs") &&
       !/from "\.\/model-mounting\/workflow-node\.mjs"/.test(modelMountingState) &&
-      /route_decision:\s*invocation\.routeReceipt\?\.details\?\.model_route_decision/.test(openAiCompatRoutes) &&
-      !/route_decision:\s*invocation\.routeReceipt\?\.details\?\.modelRouteDecision/.test(openAiCompatRoutes) &&
+      /const routeDecision = invocation\.routeReceipt\?\.details\?\.model_route_decision \?\? details\.model_route_decision \?\? null;/.test(
+        modelMountProtocolResponses,
+      ) &&
+      !/modelRouteDecision/.test(modelMountProtocolResponses) &&
       !/export function isAutoModelSelector\b/.test(modelRoutes) &&
       !/export function endpointIdsForExplicitModel\b/.test(modelRoutes) &&
       !/export function endpointIdsForExplicitModelForState\b/.test(modelRoutes) &&
@@ -17238,8 +17246,11 @@ function runBridge() {
       !/modelMountRouteDecisionRequestForSelection/.test(modelRoutes) &&
       !exists(modelProjectionsPath) &&
       !exists(modelProjectionsTestPath) &&
-      /canonical route decision details/.test(
-        read("packages/runtime-daemon/src/openai-compat-routes.test.mjs"),
+      /OpenAI chat completion preserves provider responses with receipt metadata/.test(
+        modelMountProtocolResponsesTest,
+      ) &&
+      /Object\.hasOwn\(response\.route_decision,\s*"routeId"\),\s*false/.test(
+        modelMountProtocolResponsesTest,
       ) &&
       !/modelMountRouteDecisionRef/.test(modelInvocationOps),
     [
@@ -18508,16 +18519,16 @@ function runBridge() {
     !exists("packages/runtime-daemon/src/model-mounting/workflow-node.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/workflow-node.test.mjs") &&
       !/nativeInvocationResponseShape/.test(modelMountingState) &&
-      /model_route_decision:\s*\{\s*route_id:\s*"route\.native",\s*selected_model:\s*"model\.native"\s*\}/.test(
-        openAiCompatRoutesTest,
+      /assert\.deepEqual\(response\.route_decision,\s*\{ route_id: "route-1", selected_model: "model-1" \}\)/.test(
+        modelMountProtocolResponsesTest,
       ) &&
-      /Object\.hasOwn\(response\.route_decision,\s*"routeId"\),\s*false/.test(openAiCompatRoutesTest) &&
-      /Object\.hasOwn\(response\.route_decision,\s*"selectedModel"\),\s*false/.test(openAiCompatRoutesTest) &&
-      !/model_route_decision:\s*\{\s*(?:routeId|selectedModel)/.test(openAiCompatRoutesTest),
+      /Object\.hasOwn\(response\.route_decision,\s*"routeId"\),\s*false/.test(modelMountProtocolResponsesTest) &&
+      /Object\.hasOwn\(response\.route_decision,\s*"selectedModel"\),\s*false/.test(modelMountProtocolResponsesTest) &&
+      !/model_route_decision:\s*\{\s*(?:routeId|selectedModel)/.test(modelMountProtocolResponsesTest),
     [
       "packages/runtime-daemon/src/model-mounting/workflow-node.mjs",
       "packages/runtime-daemon/src/model-mounting/workflow-node.test.mjs",
-      "packages/runtime-daemon/src/openai-compat-routes.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/protocol-responses.test.mjs",
     ],
     "Phase 3/10 is pending: native response route-decision projections must use canonical snake_case fixtures without duplicate camelCase aliases",
   );
@@ -18686,7 +18697,7 @@ function runBridge() {
       /details\.get\("tool_receipt_ids"\)/.test(modelMountInvocationReceiptProjectionEvidence) &&
       !/details\.get\("tool_receipt_ids"\)/.test(modelMountCommandSurface) &&
       !/details\.get\("(?:instanceId|toolReceiptIds)"\)/.test(modelMountCommandSurface) &&
-      /receipt\.details\?\.backend_id/.test(openAiCompatRoutes) &&
+      /details\.backend_id/.test(modelMountProtocolResponses) &&
       !exists("packages/runtime-daemon/src/model-mounting/workflow-node.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/workflow-node.test.mjs") &&
       !/receipt\.details\?\.(?:backendId|sendOptions|selectedBackend|providerResponseKind|backendEvidenceRefs)/.test(
@@ -27620,6 +27631,7 @@ function runReceipts() {
       /assert\.equal\(response\.endpoint_id,\s*"endpoint-1"\)/.test(modelMountProtocolResponsesTest) &&
       /assert\.equal\(response\.route_receipt_id,\s*"route-receipt-1"\)/.test(modelMountProtocolResponsesTest) &&
       !/nativeEmbeddingResponse/.test(`${openAiCompatRoutes}\n${runtimeRouteHandlers}\n${read("packages/runtime-daemon/src/index.mjs")}`) &&
+      !/nativeInvocationResponse/.test(`${openAiCompatRoutes}\n${runtimeRouteHandlers}\n${read("packages/runtime-daemon/src/index.mjs")}`) &&
       !/url\.pathname === "\/api\/v1\/chat"/.test(runtimeRouteHandlers) &&
       !/url\.pathname === "\/api\/v1\/responses"/.test(runtimeRouteHandlers) &&
       !/url\.pathname === "\/api\/v1\/embeddings"/.test(runtimeRouteHandlers) &&
@@ -27646,6 +27658,81 @@ function runReceipts() {
       "apps/autopilot/scripts/desktop_model_mounts_probe.py",
     ],
     "Model_mount invocation clients must use stable /v1 chat, responses, and embeddings protocol routes; retired /api/v1 invocation aliases and native embedding response shims must not return",
+  );
+  assertCheck(
+    result,
+    "model-mount-stable-utility-protocol-clients",
+    /url\.pathname === "\/v1\/model-mount\/tokens\/tokenize"[\s\S]*store\.modelMounting\.tokenizeModel/.test(
+      publicRuntimeRoutes,
+    ) &&
+      /url\.pathname === "\/v1\/model-mount\/tokens\/count"[\s\S]*store\.modelMounting\.countModelTokens/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /url\.pathname === "\/v1\/model-mount\/context\/fit"[\s\S]*store\.modelMounting\.fitModelContext/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /url\.pathname === "\/v1\/rerank"[\s\S]*kind:\s*"rerank"/.test(openAiCompatRoutes) &&
+      /modelMountRerank\(invocation,\s*body\)/.test(openAiCompatRoutes) &&
+      /export function modelMountRerank/.test(modelMountProtocolResponses) &&
+      /model_mount_rerank_provider_response_required/.test(modelMountProtocolResponses) &&
+      /stable rerank responses require Rust\/provider-authored ranking output/.test(modelMountProtocolResponsesTest) &&
+      !/url\.pathname === "\/api\/v1\/rerank"/.test(runtimeRouteHandlers) &&
+      !/url\.pathname === "\/api\/v1\/tokenize"/.test(runtimeRouteHandlers) &&
+      !/url\.pathname === "\/api\/v1\/context\/fit"/.test(runtimeRouteHandlers) &&
+      /native chat, responses, and embeddings invocation aliases are retired with native rerank tokenizer utilities/.test(
+        runtimeRouteHandlersTest,
+      ) &&
+      /"\/api\/v1\/rerank"/.test(runtimeRouteHandlersTest) &&
+      /"\/api\/v1\/tokenize"/.test(runtimeRouteHandlersTest) &&
+      /"\/api\/v1\/context\/fit"/.test(runtimeRouteHandlersTest) &&
+      /POST \/v1\/model-mount\/tokens\/tokenize/.test(publicRuntimeRoutesTest) &&
+      /POST \/v1\/model-mount\/context\/fit/.test(publicRuntimeRoutesTest) &&
+      /\/v1\/model-mount\/tokens\/tokenize/.test(modelMountStableInvocationProofClientCorpus) &&
+      /\/v1\/model-mount\/tokens\/count/.test(modelMountStableInvocationProofClientCorpus) &&
+      /\/v1\/model-mount\/context\/fit/.test(modelMountStableInvocationProofClientCorpus) &&
+      !/\/api\/v1\/(?:rerank|tokenize|context\/fit)/.test(modelMountStableInvocationProofClientCorpus) &&
+      /\/v1\/model-mount\/tokens\/tokenize/.test(modelMountStableReadCliModels) &&
+      /\/v1\/model-mount\/context\/fit/.test(modelMountStableReadCliModels) &&
+      !/\/api\/v1\/(?:rerank|tokenize|context\/fit)/.test(modelMountStableReadCliModels) &&
+      /rerankModel\(input: ModelMountControlInput\): Promise<ModelMountControlResult>/.test(
+        modelMountStableReadAgentSdkSubstrateClient,
+      ) &&
+      /tokenizeModel\(input: ModelMountControlInput\): Promise<ModelMountControlResult>/.test(
+        modelMountStableReadAgentSdkSubstrateClient,
+      ) &&
+      /fitModelContext\(input: ModelMountControlInput\): Promise<ModelMountControlResult>/.test(
+        modelMountStableReadAgentSdkSubstrateClient,
+      ) &&
+      /this\.request\("rerankModel", "POST", "\/v1\/rerank", input\)/.test(
+        modelMountStableReadAgentSdkSubstrateClient,
+      ) &&
+      /this\.request\("tokenizeModel", "POST", "\/v1\/model-mount\/tokens\/tokenize", input\)/.test(
+        modelMountStableReadAgentSdkSubstrateClient,
+      ) &&
+      /this\.request\("fitModelContext", "POST", "\/v1\/model-mount\/context\/fit", input\)/.test(
+        modelMountStableReadAgentSdkSubstrateClient,
+      ) &&
+      /POST \/v1\/rerank/.test(modelMountStableReadAgentSdkTest) &&
+      /POST \/v1\/model-mount\/tokens\/tokenize/.test(modelMountStableReadAgentSdkTest) &&
+      /POST \/v1\/model-mount\/context\/fit/.test(modelMountStableReadAgentSdkTest) &&
+      /Slice 1391 hard-cuts stable model_mount utility protocol clients/.test(guide) &&
+      /Model_mount stable utility protocol clients/.test(matrix) &&
+      /RuntimeDaemonCoreModelMountStableUtilityProtocolClients/.test(implementationMatrix),
+    [
+      "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
+      "packages/runtime-daemon/src/openai-compat-routes.mjs",
+      "packages/runtime-daemon/src/model-mounting/protocol-responses.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.mjs",
+      "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.test.mjs",
+      "crates/cli/src/commands/models.rs",
+      "packages/agent-sdk/src/substrate-client.ts",
+      "packages/agent-sdk/test/sdk.test.mjs",
+      "scripts/lib/model-mounting-daemon-contract.test.mjs",
+      "scripts/validate-model-mounting-e2e.mjs",
+      "scripts/conformance/hypervisor-conformance.mjs",
+    ],
+    "Model_mount rerank, tokenize, count, and context-fit clients must use stable daemon protocol routes; retired /api/v1 utility aliases and native invocation response helpers must not return",
   );
 	  assertCheck(
 	    result,

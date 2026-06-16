@@ -4,7 +4,6 @@ import test from "node:test";
 
 import {
   anthropicMessagesToCanonicalBody,
-  nativeInvocationResponse,
   recordModelStreamCanceled,
   writeOpenAiProviderChatCompletionStream,
 } from "./openai-compat-routes.mjs";
@@ -199,32 +198,4 @@ test("stream cancellation is delegated to Rust model_mount stream lifecycle admi
   });
   assert.equal(Object.hasOwn(delegated[0].providerResult, "providerResponseKind"), false);
   assert.deepEqual(receiptCalls, []);
-});
-
-test("native invocation response reads canonical route decision details", () => {
-  const { invocation } = invocationFixture();
-  const response = nativeInvocationResponse({
-    ...invocation,
-    routeReceipt: {
-      id: "receipt.route",
-      details: {
-        model_route_decision: { route_id: "route.native", selected_model: "model.native" },
-      },
-    },
-  });
-
-  assert.deepEqual(response.route_decision, { route_id: "route.native", selected_model: "model.native" });
-  assert.equal(Object.hasOwn(response.route_decision, "routeId"), false);
-  assert.equal(Object.hasOwn(response.route_decision, "selectedModel"), false);
-
-  const legacyOnly = nativeInvocationResponse({
-    ...invocation,
-    routeReceipt: {
-      id: "receipt.route.legacy",
-      details: {
-        modelRouteDecision: { routeId: "route.legacy" },
-      },
-    },
-  });
-  assert.equal(legacyOnly.route_decision, null);
 });

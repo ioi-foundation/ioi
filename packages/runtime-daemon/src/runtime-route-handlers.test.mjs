@@ -33,7 +33,6 @@ function retiredRouteWrapper() {
 function routeHandlers(overrides = {}) {
   return createRuntimeRouteHandlers({
     baseUrlForRequest: () => "http://daemon.test",
-    nativeInvocationResponse: () => ({}),
     notFound(message, details) {
       const error = new Error(message);
       error.status = 404;
@@ -111,14 +110,20 @@ test("native authority evidence compatibility routes are retired", async () => {
   assert.deepEqual(calls, []);
 });
 
-test("native chat, responses, and embeddings invocation aliases are retired", async () => {
-  const { handleModelMountingNativeRoute } = routeHandlers({
-    nativeInvocationResponse: retiredRouteWrapper,
-  });
+test("native chat, responses, and embeddings invocation aliases are retired with native rerank tokenizer utilities", async () => {
+  const { handleModelMountingNativeRoute } = routeHandlers();
   const calls = [];
   const store = {
     modelMounting: {
       invokeModel(payload) {
+        calls.push(payload);
+        return {};
+      },
+      tokenizeModel(payload) {
+        calls.push(payload);
+        return {};
+      },
+      fitModelContext(payload) {
         calls.push(payload);
         return {};
       },
@@ -128,6 +133,9 @@ test("native chat, responses, and embeddings invocation aliases are retired", as
     "/api/v1/chat",
     "/api/v1/responses",
     "/api/v1/embeddings",
+    "/api/v1/rerank",
+    "/api/v1/tokenize",
+    "/api/v1/context/fit",
   ];
 
   for (const path of paths) {

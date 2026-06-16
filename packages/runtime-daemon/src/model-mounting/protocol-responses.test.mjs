@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   anthropicMessage,
+  modelMountRerank,
   openAiChatCompletion,
   openAiEmbedding,
   openAiResponse,
@@ -45,6 +46,8 @@ test("OpenAI chat completion preserves provider responses with receipt metadata"
   assert.equal(response.backend_id, "backend-1");
   assert.equal(response.route_receipt_id, "route-receipt-1");
   assert.deepEqual(response.route_decision, { route_id: "route-1", selected_model: "model-1" });
+  assert.equal(Object.hasOwn(response.route_decision, "routeId"), false);
+  assert.equal(Object.hasOwn(response.route_decision, "selectedModel"), false);
   assert.equal(response.response_id, "resp-1");
   assert.equal(response.previous_response_id, "resp-0");
   assert.equal(response.output_text, "done");
@@ -114,6 +117,38 @@ test("OpenAI embeddings fail closed without Rust/provider-authored vectors", () 
       ]);
       assert.equal(Object.hasOwn(error.details, "providerResponseKind"), false);
       assert.equal(Object.hasOwn(error.details, "receiptId"), false);
+      return true;
+    },
+  );
+});
+
+test("stable rerank responses require Rust/provider-authored ranking output", () => {
+  const response = modelMountRerank(invocation({
+    providerResponseKind: "cohere.rerank",
+    providerResponse: {
+      object: "list",
+      model: "rerank-model",
+      results: [{ index: 0, relevance_score: 0.97 }],
+    },
+  }), { model: "requested-rerank" });
+
+  assert.equal(response.object, "list");
+  assert.equal(response.model, "rerank-model");
+  assert.deepEqual(response.results, [{ index: 0, relevance_score: 0.97 }]);
+  assert.equal(response.receipt_id, "receipt-1");
+  assert.equal(response.route_id, "route-1");
+  assert.equal(response.request_model, "requested-rerank");
+
+  assert.throws(
+    () => modelMountRerank(invocation(), { model: "requested-rerank" }),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "model_mount_rerank_provider_response_required");
+      assert.equal(error.details.operation_kind, "model_mount.provider_result.rerank");
+      assert.deepEqual(error.details.evidence_refs, [
+        "model_mount_rerank_js_ranking_fallback_retired",
+        "rust_daemon_core_provider_rerank_required",
+      ]);
       return true;
     },
   );

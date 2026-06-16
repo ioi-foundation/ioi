@@ -769,9 +769,17 @@ test("public runtime provider vault token and catalog controls use stable model 
         calls.push({ method: "createToken", body });
         return { id: "token.created", object: "token" };
       },
+      tokenizeModel({ authorization, requiredScope, body }) {
+        calls.push({ method: "tokenizeModel", authorization, requiredScope, body });
+        return { tokens: [{ text: "route" }], token_count: 1 };
+      },
       countModelTokens({ authorization, requiredScope, body }) {
         calls.push({ method: "countModelTokens", authorization, requiredScope, body });
         return { token_count: 7 };
+      },
+      fitModelContext({ authorization, requiredScope, body }) {
+        calls.push({ method: "fitModelContext", authorization, requiredScope, body });
+        return { fits: true, context_window: 2048 };
       },
       revokeToken(id) {
         calls.push({ method: "revokeToken", id });
@@ -850,7 +858,9 @@ test("public runtime provider vault token and catalog controls use stable model 
     ["POST /v1/model-mount/catalog/providers/catalog.route/oauth/revoke", { id: "catalog.route", object: "catalog.oauth.revoke" }],
     ["/v1/model-mount/tokens", [{ id: "token.route" }]],
     ["POST /v1/model-mount/tokens", { id: "token.created", object: "token" }, 201],
+    ["POST /v1/model-mount/tokens/tokenize", { tokens: [{ text: "route" }], token_count: 1 }],
     ["POST /v1/model-mount/tokens/count", { token_count: 7 }],
+    ["POST /v1/model-mount/context/fit", { fits: true, context_window: 2048 }],
     ["DELETE /v1/model-mount/tokens/token.route", { id: "token.route", revoked: true }],
     ["/v1/model-mount/vault/refs", [{ vault_ref: "vault://route" }]],
     ["POST /v1/model-mount/vault/refs", { vault_ref: "vault://route", bound: true }, 201],
@@ -899,7 +909,9 @@ test("public runtime provider vault token and catalog controls use stable model 
     { method: "revokeCatalogProviderOAuth", id: "catalog.route" },
     { method: "listTokens" },
     { method: "createToken", body: {} },
+    { method: "tokenizeModel", authorization: undefined, requiredScope: "model.tokenize:*", body: {} },
     { method: "countModelTokens", authorization: undefined, requiredScope: "model.tokenize:*", body: {} },
+    { method: "fitModelContext", authorization: undefined, requiredScope: "model.context:*", body: {} },
     { method: "revokeToken", id: "token.route" },
     { method: "authorize", authorization: undefined, scope: "vault.read:*" },
     { method: "listVaultRefs" },

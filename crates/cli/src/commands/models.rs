@@ -419,7 +419,7 @@ pub async fn run(args: ModelsArgs) -> Result<()> {
                 endpoint,
                 token,
                 Method::POST,
-                "/api/v1/tokenize",
+                "/v1/model-mount/tokens/tokenize",
                 Some(json!({
                     "model": model,
                     "route_id": route_id,
@@ -439,7 +439,7 @@ pub async fn run(args: ModelsArgs) -> Result<()> {
                 endpoint,
                 token,
                 Method::POST,
-                "/api/v1/context/fit",
+                "/v1/model-mount/context/fit",
                 Some(json!({
                     "model": model,
                     "route_id": route_id,

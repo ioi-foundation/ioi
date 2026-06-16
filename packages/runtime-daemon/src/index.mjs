@@ -160,7 +160,6 @@ import { createThreadMemoryState } from "./threads/thread-memory-state.mjs";
 import {
   handleOpenAiCompatibilityRoute,
   isOpenAiCompatibilityRoute,
-  nativeInvocationResponse,
 } from "./openai-compat-routes.mjs";
 import { createPublicRuntimeRequestHandler } from "./http/public-runtime-routes.mjs";
 import {
@@ -448,7 +447,6 @@ const {
   baseUrlForRequest,
   buildRun,
   ensureProviderAvailable,
-  nativeInvocationResponse,
   notFound,
   readBody,
   runtimeError,

@@ -728,7 +728,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     );
     assert.ok(nativeBackendLogs.some((record) => record.event === "invoke"));
 
-    const tokenized = await expectOk(daemon.endpoint, "/api/v1/tokenize", {
+    const tokenized = await expectOk(daemon.endpoint, "/v1/model-mount/tokens/tokenize", {
       method: "POST",
       token: grant.token,
       body: { route_id: "route.native-local", model: "native:imported", input: "tokenize this native context" },
@@ -753,7 +753,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.equal(counted.token_count, counted.usage.total_tokens);
     assert.match(counted.input_hash, /^[a-f0-9]{64}$/);
 
-    const fitted = await expectOk(daemon.endpoint, "/api/v1/context/fit", {
+    const fitted = await expectOk(daemon.endpoint, "/v1/model-mount/context/fit", {
       method: "POST",
       token: grant.token,
       body: {
@@ -780,7 +780,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
         allowed: ["model.chat:*"],
       },
     });
-    const deniedTokenize = await requestJson(daemon.endpoint, "/api/v1/tokenize", {
+    const deniedTokenize = await requestJson(daemon.endpoint, "/v1/model-mount/tokens/tokenize", {
       method: "POST",
       token: deniedTokenizerGrant.token,
       body: { input: "tokenize denied" },

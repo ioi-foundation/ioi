@@ -592,12 +592,34 @@ export function createPublicRuntimeRequestHandler(deps) {
         writeJsonResponse(response, store.modelMounting.createToken(await readBody(request)), 201);
         return;
       }
+      if (request.method === "POST" && url.pathname === "/v1/model-mount/tokens/tokenize") {
+        writeJsonResponse(
+          response,
+          store.modelMounting.tokenizeModel({
+            authorization: request.headers.authorization,
+            requiredScope: "model.tokenize:*",
+            body: await readBody(request),
+          }),
+        );
+        return;
+      }
       if (request.method === "POST" && url.pathname === "/v1/model-mount/tokens/count") {
         writeJsonResponse(
           response,
           store.modelMounting.countModelTokens({
             authorization: request.headers.authorization,
             requiredScope: "model.tokenize:*",
+            body: await readBody(request),
+          }),
+        );
+        return;
+      }
+      if (request.method === "POST" && url.pathname === "/v1/model-mount/context/fit") {
+        writeJsonResponse(
+          response,
+          store.modelMounting.fitModelContext({
+            authorization: request.headers.authorization,
+            requiredScope: "model.context:*",
             body: await readBody(request),
           }),
         );

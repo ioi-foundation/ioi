@@ -1538,7 +1538,10 @@ export interface RuntimeSubstrateClient {
   revokeModelCatalogProviderOAuth(providerId: string): Promise<ModelMountControlResult>;
   listModelPermissionTokens(): Promise<PermissionToken[]>;
   createModelPermissionToken(input: ModelMountControlInput): Promise<PermissionToken>;
+  rerankModel(input: ModelMountControlInput): Promise<ModelMountControlResult>;
+  tokenizeModel(input: ModelMountControlInput): Promise<ModelMountControlResult>;
   countModelTokens(input: ModelMountControlInput): Promise<ModelMountControlResult>;
+  fitModelContext(input: ModelMountControlInput): Promise<ModelMountControlResult>;
   revokeModelPermissionToken(tokenId: string): Promise<ModelMountControlResult>;
   listModelVaultRefs(): Promise<ModelMountControlResult[]>;
   bindModelVaultRef(input: ModelMountControlInput): Promise<ModelMountControlResult>;
@@ -2594,8 +2597,20 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
     return this.request("createModelPermissionToken", "POST", "/v1/model-mount/tokens", input);
   }
 
+  async rerankModel(input: ModelMountControlInput): Promise<ModelMountControlResult> {
+    return this.request("rerankModel", "POST", "/v1/rerank", input);
+  }
+
+  async tokenizeModel(input: ModelMountControlInput): Promise<ModelMountControlResult> {
+    return this.request("tokenizeModel", "POST", "/v1/model-mount/tokens/tokenize", input);
+  }
+
   async countModelTokens(input: ModelMountControlInput): Promise<ModelMountControlResult> {
     return this.request("countModelTokens", "POST", "/v1/model-mount/tokens/count", input);
+  }
+
+  async fitModelContext(input: ModelMountControlInput): Promise<ModelMountControlResult> {
+    return this.request("fitModelContext", "POST", "/v1/model-mount/context/fit", input);
   }
 
   async revokeModelPermissionToken(tokenId: string): Promise<ModelMountControlResult> {

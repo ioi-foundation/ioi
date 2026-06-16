@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 
 import {
   anthropicMessage,
+  modelMountRerank,
   openAiChatCompletion,
   openAiCompletion,
   openAiEmbedding,
@@ -86,6 +87,17 @@ export async function handleOpenAiCompatibilityRoute({ request, response, store,
     writeJsonResponse(response, openAiEmbedding(invocation, body));
     return;
   }
+  if (request.method === "POST" && url.pathname === "/v1/rerank") {
+    const body = await readBody(request);
+    const invocation = await mounts.invokeModel({
+      authorization,
+      requiredScope: "model.rerank:*",
+      kind: "rerank",
+      body,
+    });
+    writeJsonResponse(response, modelMountRerank(invocation, body));
+    return;
+  }
   if (request.method === "POST" && url.pathname === "/v1/completions") {
     const body = await readBody(request);
     const invocation = await mounts.invokeModel({
@@ -137,6 +149,7 @@ export function isOpenAiCompatibilityRoute(request, url) {
     "/v1/chat/completions",
     "/v1/responses",
     "/v1/embeddings",
+    "/v1/rerank",
     "/v1/completions",
     "/v1/messages",
   ].includes(url.pathname);
@@ -1494,24 +1507,4 @@ export function parseJsonMaybe(text) {
 
 export function delay(milliseconds) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
-}
-
-export function nativeInvocationResponse(invocation) {
-  return {
-    id: `model_invocation_${crypto.randomUUID()}`,
-    object: "ioi.model_invocation",
-    model: invocation.model,
-    route_id: invocation.route.id,
-    endpoint_id: invocation.endpoint.id,
-    instance_id: invocation.instance.id,
-    backend_id: invocation.instance.backendId ?? invocation.receipt.details?.backend_id ?? null,
-    receipt_id: invocation.receipt.id,
-    route_receipt_id: invocation.routeReceipt?.id ?? null,
-    route_decision: invocation.routeReceipt?.details?.model_route_decision ?? null,
-    response_id: invocation.responseId ?? null,
-    previous_response_id: invocation.previousResponseId ?? null,
-    tool_receipt_ids: invocation.toolReceiptIds ?? [],
-    output_text: invocation.outputText,
-    usage: invocation.tokenCount,
-  };
 }

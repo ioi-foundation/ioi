@@ -1360,7 +1360,10 @@ test("SDK controls model_mount through stable daemon protocol routes", async () 
     "POST /v1/model-mount/catalog/providers/catalog.sdk/oauth/revoke",
     "GET /v1/model-mount/tokens",
     "POST /v1/model-mount/tokens",
+    "POST /v1/rerank",
+    "POST /v1/model-mount/tokens/tokenize",
     "POST /v1/model-mount/tokens/count",
+    "POST /v1/model-mount/context/fit",
     "DELETE /v1/model-mount/tokens/token.sdk",
     "GET /v1/model-mount/vault/refs",
     "POST /v1/model-mount/vault/refs",
@@ -1455,7 +1458,10 @@ test("SDK controls model_mount through stable daemon protocol routes", async () 
     await client.revokeModelCatalogProviderOAuth("catalog.sdk");
     await client.listModelPermissionTokens();
     await client.createModelPermissionToken({ audience: "model.sdk" });
+    await client.rerankModel({ model: "model.sdk", query: "hello", documents: ["hello", "world"] });
+    await client.tokenizeModel({ model: "model.sdk", input: "hello" });
     await client.countModelTokens({ model: "model.sdk", input: "hello" });
+    await client.fitModelContext({ model: "model.sdk", input: "hello", context_length: 1024 });
     await client.revokeModelPermissionToken("token.sdk");
     await client.listModelVaultRefs();
     await client.bindModelVaultRef({ vault_ref: "vault://sdk" });

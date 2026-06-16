@@ -767,9 +767,9 @@ test("model mounting CLI exposes vault-backed provider configuration flags", () 
     "Logs",
     "Events",
     "Raw keys are rejected by the daemon",
-    "/api/v1/tokenize",
+    "/v1/model-mount/tokens/tokenize",
     "/v1/model-mount/tokens/count",
-    "/api/v1/context/fit",
+    "/v1/model-mount/context/fit",
   ]) {
     assert.match(combinedSource, new RegExp(token.replaceAll("/", "\\/")));
   }

@@ -12099,10 +12099,30 @@ do not need the native invocation shape. The native alias handlers and native
 embedding response shim are absent, focused route tests require the aliases to
 return `not_found` without invoking model execution, and conformance scans the
 product/proof/live validation corpus so those compatibility paths cannot return.
-Rerank/tokenize/context-fit native utilities, live external backend
-spawning/supervision, hosted/provider transport materialization, and live cTEE
-outbound secret injection remain non-terminal; do not restore `/api/v1`
-invocation aliases beside the stable Rust-owned invocation protocol.
+Utility protocol clients were still native at this cut and are superseded by
+Slice 1391. Live external backend spawning/supervision, hosted/provider
+transport materialization, and live cTEE outbound secret injection remain
+non-terminal; do not restore `/api/v1` invocation aliases beside the stable
+Rust-owned invocation protocol.
+
+Slice 1391 hard-cuts stable model_mount utility protocol clients. Public
+tokenize/count/context-fit utility clients now use
+`POST /v1/model-mount/tokens/tokenize`, `POST /v1/model-mount/tokens/count`,
+and `POST /v1/model-mount/context/fit` over the mounted Rust daemon-core
+tokenizer planner and Agentgres record-state commits, while rerank uses
+`POST /v1/rerank` and requires Rust/provider-authored ranking output with
+receipt metadata instead of any JS ranking fallback. CLI, SDK, daemon-contract,
+UI-contract, and live e2e proof clients moved off `POST /api/v1/tokenize` and
+`POST /api/v1/context/fit`; the unused `POST /api/v1/rerank` native alias is
+also retired. The native utility handlers and the old `nativeInvocationResponse`
+helper are absent, focused route tests require all retired utility aliases to
+return `not_found` without invoking model execution/tokenizer methods, and
+conformance scans runtime, CLI, SDK, proof, and docs so those compatibility paths
+cannot return. Live external backend spawning/supervision, hosted/provider
+transport materialization, and live cTEE outbound secret injection remain
+non-terminal; do not restore `/api/v1` utility aliases, JS ranking fallbacks, or
+native invocation response helpers beside stable Rust-owned daemon protocol
+routes.
 
 ## Final Doctrine
 
