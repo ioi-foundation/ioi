@@ -38,8 +38,23 @@ export function createPublicRuntimeRequestHandler(deps) {
     writeMcpJsonRpcResponse,
   } = deps;
   const lifecycleRuntimeError = typeof runtimeError === "function" ? runtimeError : undefined;
+  function requiredPublicRuntimeContextPolicyCore(contextPolicyCore, rustCoreBoundary) {
+    if (contextPolicyCore) {
+      return contextPolicyCore;
+    }
+    const error = {
+      status: 501,
+      code: "runtime_route_context_policy_core_required",
+      message: "Public runtime routes require the explicit Rust daemon-core policy boundary.",
+      details: {
+        rust_core_boundary: rustCoreBoundary,
+        retired_store_fallback: "context_policy_core_store_mount",
+      },
+    };
+    throw lifecycleRuntimeError ? lifecycleRuntimeError(error) : Object.assign(new Error(error.message), error);
+  }
 
-  return async function handleRequest({ request, response, store }) {
+  return async function handleRequest({ request, response, store, contextPolicyCore = null }) {
     const requestId = `req_${crypto.randomUUID()}`;
     response.setHeader("x-request-id", requestId);
     response.setHeader("access-control-allow-origin", "*");
@@ -63,9 +78,13 @@ export function createPublicRuntimeRequestHandler(deps) {
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/doctor") {
+        const routeContextPolicyCore = requiredPublicRuntimeContextPolicyCore(
+          contextPolicyCore,
+          "runtime.doctor_report.projection",
+        );
         writeJsonResponse(
           response,
-          store.contextPolicyCore.projectRuntimeDoctorReport({
+          routeContextPolicyCore.projectRuntimeDoctorReport({
             operation: "runtime_doctor_report_projection",
             operation_kind: "runtime.doctor_report.projection",
             base_url: baseUrlForRequest(request),
@@ -79,9 +98,13 @@ export function createPublicRuntimeRequestHandler(deps) {
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/computer-use/browser-discovery") {
+        const routeContextPolicyCore = requiredPublicRuntimeContextPolicyCore(
+          contextPolicyCore,
+          "runtime.computer_use.projection.browser_discovery",
+        );
         writeJsonResponse(
           response,
-          store.contextPolicyCore.projectRuntimeComputerUse({
+          routeContextPolicyCore.projectRuntimeComputerUse({
             operation: "runtime_computer_use_projection",
             operation_kind: "runtime.computer_use.projection.browser_discovery",
             projection_kind: "browser_discovery",
@@ -96,9 +119,13 @@ export function createPublicRuntimeRequestHandler(deps) {
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/computer-use/providers") {
+        const routeContextPolicyCore = requiredPublicRuntimeContextPolicyCore(
+          contextPolicyCore,
+          "runtime.computer_use.projection.provider_registry",
+        );
         writeJsonResponse(
           response,
-          store.contextPolicyCore.projectRuntimeComputerUse({
+          routeContextPolicyCore.projectRuntimeComputerUse({
             operation: "runtime_computer_use_projection",
             operation_kind: "runtime.computer_use.projection.provider_registry",
             projection_kind: "provider_registry",
@@ -146,11 +173,15 @@ export function createPublicRuntimeRequestHandler(deps) {
         return;
       }
       if (request.method === "POST" && url.pathname === "/v1/agents") {
+        const routeContextPolicyCore = requiredPublicRuntimeContextPolicyCore(
+          contextPolicyCore,
+          "runtime.agent_create",
+        );
         writeJsonResponse(response, createLifecycleAgentDep(store, (await readBody(request)).options ?? {}, {
           ensureProviderAvailable,
           initialThreadRuntimeControls,
-          lifecycleAdmissionRunner: store.contextPolicyCore,
-          mcpRegistryForWorkspace: lifecycleMcpRegistryForStore(store),
+          lifecycleAdmissionRunner: routeContextPolicyCore,
+          mcpRegistryForWorkspace: lifecycleMcpRegistryForContextPolicyCore(routeContextPolicyCore),
           runtimeError: lifecycleRuntimeError,
           runtimeModeForOptions,
           summarizeAgentOptions,
@@ -162,12 +193,16 @@ export function createPublicRuntimeRequestHandler(deps) {
         return;
       }
       if (request.method === "POST" && url.pathname === "/v1/threads") {
+        const routeContextPolicyCore = requiredPublicRuntimeContextPolicyCore(
+          contextPolicyCore,
+          "runtime.thread_create",
+        );
         writeJsonResponse(response, await createLifecycleThreadDep(store, await readBody(request), {
           ensureProviderAvailable,
           eventStreamIdForThread,
           initialThreadRuntimeControls,
-          lifecycleAdmissionRunner: store.contextPolicyCore,
-          mcpRegistryForWorkspace: lifecycleMcpRegistryForStore(store),
+          lifecycleAdmissionRunner: routeContextPolicyCore,
+          mcpRegistryForWorkspace: lifecycleMcpRegistryForContextPolicyCore(routeContextPolicyCore),
           runtimeError: lifecycleRuntimeError,
           runtimeThreadSchemaVersion,
           runtimeModeForOptions,
@@ -213,9 +248,13 @@ export function createPublicRuntimeRequestHandler(deps) {
       }
       if (request.method === "POST" && url.pathname === "/v1/studio/intent-frame") {
         const body = await readBody(request);
+        const routeContextPolicyCore = requiredPublicRuntimeContextPolicyCore(
+          contextPolicyCore,
+          "studio.intent_frame.projection",
+        );
         writeJsonResponse(
           response,
-          store.contextPolicyCore.projectStudioIntentFrame({
+          routeContextPolicyCore.projectStudioIntentFrame({
             operation: "studio_intent_frame_projection",
             operation_kind: "studio.intent_frame.projection",
             prompt: body.prompt,
@@ -310,7 +349,7 @@ export function createPublicRuntimeRequestHandler(deps) {
         return;
       }
       if (segments[0] === "v1" && segments[1] === "agents" && segments[2]) {
-        await handleAgentRoute({ request, response, store, url, segments });
+        await handleAgentRoute({ request, response, store, url, segments, contextPolicyCore });
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/runs") {
@@ -851,14 +890,14 @@ export function createPublicRuntimeRequestHandler(deps) {
     }
   };
 
-  function lifecycleMcpRegistryForStore(store) {
+  function lifecycleMcpRegistryForContextPolicyCore(contextPolicyCore) {
     if (typeof mcpRegistryForWorkspace !== "function") {
       return null;
     }
     return (cwd, options = {}) =>
       mcpRegistryForWorkspace(cwd, {
         ...options,
-        contextPolicyCore: store?.contextPolicyCore,
+        contextPolicyCore,
       });
   }
 }

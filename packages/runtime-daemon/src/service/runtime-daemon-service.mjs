@@ -45,8 +45,9 @@ export async function startRuntimeDaemonServiceWithStore({
     daemonCoreGovernedAdmissionApi: options.daemonCoreGovernedAdmissionApi,
     daemonCoreWorkspaceRestoreApi: options.daemonCoreWorkspaceRestoreApi,
   });
+  const { contextPolicyCore } = store;
   const server = http.createServer((request, response) => {
-    handleRequest({ request, response, store }).catch((error) => {
+    handleRequest({ request, response, store, contextPolicyCore }).catch((error) => {
       writeError(response, {
         status: 500,
         code: "runtime",

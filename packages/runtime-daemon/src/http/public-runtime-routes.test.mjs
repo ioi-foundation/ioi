@@ -95,22 +95,22 @@ test("public runtime routes dispatch top-level daemon projections", async () => 
   const { handleRequest } = routeHarness();
   const response = responseRecorder();
   const calls = [];
+  const contextPolicyCore = {
+    projectRuntimeDoctorReport(request) {
+      calls.push({ method: "projectRuntimeDoctorReport", request });
+      return { report: { ok: true, baseUrl: request.base_url } };
+    },
+  };
   const store = {
     defaultCwd: "/workspace",
     homeDir: "/home/operator",
     schemaVersion: "ioi.agentgres.runtime.v0",
     stateDir: "/state",
-    contextPolicyCore: {
-      projectRuntimeDoctorReport(request) {
-        calls.push({ method: "projectRuntimeDoctorReport", request });
-        return { report: { ok: true, baseUrl: request.base_url } };
-      },
-    },
     runtimeDoctorReport: retiredRouteWrapper,
     doctorReport: retiredRouteWrapper,
   };
 
-  await handleRequest({ request: request({ url: "/v1/doctor" }), response, store });
+  await handleRequest({ request: request({ url: "/v1/doctor" }), response, store, contextPolicyCore });
 
   assert.equal(response.statusCode, 200);
   assert.deepEqual(JSON.parse(response.body), { ok: true, baseUrl: "http://daemon.test" });
@@ -132,29 +132,29 @@ test("public runtime routes dispatch top-level daemon projections", async () => 
 test("public runtime computer-use routes dispatch through Rust daemon-core projection", async () => {
   const { handleRequest } = routeHarness();
   const calls = [];
+  const contextPolicyCore = {
+    projectRuntimeComputerUse(request) {
+      calls.push({ method: "projectRuntimeComputerUse", request });
+      if (request.projection_kind === "provider_registry") {
+        return {
+          provider_registry: {
+            object: "ioi.computer_use.provider_registry_report",
+            providers: [{ provider_id: "ioi.computer_use.native_browser.task_scoped_profile" }],
+          },
+        };
+      }
+      return {
+        browser_discovery: {
+          object: "ioi.computer_use.browser_discovery_report",
+          browser_process_count: 0,
+          cdp_endpoint_count: 0,
+        },
+      };
+    },
+  };
   const store = {
     defaultCwd: "/workspace",
     stateDir: "/state",
-    contextPolicyCore: {
-      projectRuntimeComputerUse(request) {
-        calls.push({ method: "projectRuntimeComputerUse", request });
-        if (request.projection_kind === "provider_registry") {
-          return {
-            provider_registry: {
-              object: "ioi.computer_use.provider_registry_report",
-              providers: [{ provider_id: "ioi.computer_use.native_browser.task_scoped_profile" }],
-            },
-          };
-        }
-        return {
-          browser_discovery: {
-            object: "ioi.computer_use.browser_discovery_report",
-            browser_process_count: 0,
-            cdp_endpoint_count: 0,
-          },
-        };
-      },
-    },
   };
 
   const providersResponse = responseRecorder();
@@ -162,6 +162,7 @@ test("public runtime computer-use routes dispatch through Rust daemon-core proje
     request: request({ url: "/v1/computer-use/providers" }),
     response: providersResponse,
     store,
+    contextPolicyCore,
   });
 
   assert.equal(providersResponse.statusCode, 200);
@@ -175,6 +176,7 @@ test("public runtime computer-use routes dispatch through Rust daemon-core proje
     request: request({ url: "/v1/computer-use/browser-discovery?probe=false&include_tabs=true&reveal_tab_titles=true" }),
     response: browserResponse,
     store,
+    contextPolicyCore,
   });
 
   assert.equal(browserResponse.statusCode, 200);
@@ -884,20 +886,20 @@ test("public runtime studio intent route uses Rust daemon-core projection", asyn
   const calls = [];
   const { handleRequest } = routeHarness();
   const response = responseRecorder();
+  const contextPolicyCore = {
+    projectStudioIntentFrame(request) {
+      calls.push({ method: "projectStudioIntentFrame", request });
+      return {
+        frame: {
+          object: "ioi.studio_intent_frame",
+          route_directive: "agent",
+          target: request.prompt,
+        },
+      };
+    },
+  };
   const store = {
     resolveStudioIntentFrame: retiredRouteWrapper,
-    contextPolicyCore: {
-      projectStudioIntentFrame(request) {
-        calls.push({ method: "projectStudioIntentFrame", request });
-        return {
-          frame: {
-            object: "ioi.studio_intent_frame",
-            route_directive: "agent",
-            target: request.prompt,
-          },
-        };
-      },
-    },
   };
 
   await handleRequest({
@@ -908,6 +910,7 @@ test("public runtime studio intent route uses Rust daemon-core projection", asyn
     }),
     response,
     store,
+    contextPolicyCore,
   });
 
   assert.equal(response.statusCode, 200);
@@ -1065,8 +1068,8 @@ test("public runtime agent create route uses direct Rust lifecycle API", async (
     },
   });
   const response = responseRecorder();
+  const contextPolicyCore = { direct: true };
   const store = {
-    contextPolicyCore: { direct: true },
     createAgent: retiredRouteWrapper,
   };
 
@@ -1078,6 +1081,7 @@ test("public runtime agent create route uses direct Rust lifecycle API", async (
     }),
     response,
     store,
+    contextPolicyCore,
   });
 
   assert.equal(response.statusCode, 501);
@@ -1085,7 +1089,7 @@ test("public runtime agent create route uses direct Rust lifecycle API", async (
   assert.equal(calls.length, 1);
   assert.equal(calls[0].surfaceStore, store);
   assert.deepEqual(calls[0].options, { local: { cwd: "/workspace/project" } });
-  assert.equal(calls[0].deps.lifecycleAdmissionRunner, store.contextPolicyCore);
+  assert.equal(calls[0].deps.lifecycleAdmissionRunner, contextPolicyCore);
   assert.equal(Object.hasOwn(store, "agentRunLifecycleSurface"), false);
 });
 
@@ -1101,8 +1105,8 @@ test("public runtime thread create route uses direct Rust lifecycle API", async 
     },
   });
   const response = responseRecorder();
+  const contextPolicyCore = { direct: true };
   const store = {
-    contextPolicyCore: { direct: true },
     createThread: retiredRouteWrapper,
   };
 
@@ -1114,6 +1118,7 @@ test("public runtime thread create route uses direct Rust lifecycle API", async 
     }),
     response,
     store,
+    contextPolicyCore,
   });
 
   assert.equal(response.statusCode, 200);
@@ -1124,7 +1129,7 @@ test("public runtime thread create route uses direct Rust lifecycle API", async 
   assert.equal(calls.length, 1);
   assert.equal(calls[0].surfaceStore, store);
   assert.deepEqual(calls[0].body, { options: { local: { cwd: "/workspace/project" } } });
-  assert.equal(calls[0].deps.lifecycleAdmissionRunner, store.contextPolicyCore);
+  assert.equal(calls[0].deps.lifecycleAdmissionRunner, contextPolicyCore);
   assert.equal(Object.hasOwn(store, "agentRunLifecycleSurface"), false);
 });
 

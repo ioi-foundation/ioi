@@ -8255,10 +8255,11 @@ function runBridge() {
       /runtime computer-use projection core sends Rust daemon-core request/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /store\.contextPolicyCore\.projectRuntimeComputerUse\(\{/.test(publicRuntimeRoutes) &&
+      /routeContextPolicyCore\.projectRuntimeComputerUse\(\{/.test(publicRuntimeRoutes) &&
       /\/v1\/computer-use\/providers/.test(publicRuntimeRoutes) &&
       /\/v1\/computer-use\/browser-discovery/.test(publicRuntimeRoutes) &&
       /method:\s*"projectRuntimeComputerUse"/.test(publicRuntimeRoutesTest) &&
+      !/store\?\.contextPolicyCore|store\.contextPolicyCore/.test(publicRuntimeRoutes) &&
       !/computerUseProviderRegistryReport|discoverComputerUseBrowsers/.test(
         runtimeDaemonIndex + publicRuntimeRoutes + publicRuntimeRoutesTest,
       ),
@@ -15948,21 +15949,33 @@ function runBridge() {
       /approvalModeForThreadMode/.test(runtimeDaemonIndex) &&
       /buildRun/.test(runtimeDaemonIndex) &&
       !/agentRunLifecycleSurface/.test(runtimeDaemonIndex) &&
-      /lifecycleAdmissionRunner:\s*store\.contextPolicyCore/.test(
-        publicRuntimeRoutes,
-      ) &&
-      /lifecycleAdmissionRunner:\s*store\.contextPolicyCore/.test(
-        runtimeRouteHandlers,
-      ) &&
-      /statusStateUpdateRunner:\s*store\.contextPolicyCore/.test(
-        runtimeRouteHandlers,
-      ) &&
-      /deleteStateUpdateRunner:\s*store\.contextPolicyCore/.test(
-        runtimeRouteHandlers,
-      ) &&
-      !/lifecycleAdmissionRunner\s*=\s*null/.test(
-        publicRuntimeRoutes + runtimeRouteHandlers,
-      ) &&
+	      /handleRequest\(\{ request, response, store, contextPolicyCore = null \}\)/.test(
+	        publicRuntimeRoutes,
+	      ) &&
+	      /handleAgentRoute\(\{ request, response, store, url, segments, contextPolicyCore \}\)/.test(
+	        runtimeRouteHandlers,
+	      ) &&
+	      /handleRequest\(\{ request, response, store, contextPolicyCore \}\)/.test(
+	        runtimeDaemonService,
+	      ) &&
+	      /lifecycleAdmissionRunner:\s*routeContextPolicyCore/.test(
+	        publicRuntimeRoutes,
+	      ) &&
+	      /lifecycleAdmissionRunner:\s*routeContextPolicyCore/.test(
+	        runtimeRouteHandlers,
+	      ) &&
+	      /statusStateUpdateRunner:\s*routeContextPolicyCore/.test(
+	        runtimeRouteHandlers,
+	      ) &&
+	      /deleteStateUpdateRunner:\s*routeContextPolicyCore/.test(
+	        runtimeRouteHandlers,
+	      ) &&
+	      !/store\?\.contextPolicyCore|store\.contextPolicyCore/.test(
+	        `${publicRuntimeRoutes}\n${runtimeRouteHandlers}\n${publicRuntimeRoutesTest}\n${runtimeRouteHandlersTest}`,
+	      ) &&
+	      !/lifecycleAdmissionRunner\s*=\s*null/.test(
+	        publicRuntimeRoutes + runtimeRouteHandlers,
+	      ) &&
       !/\?\?\s*lifecycleAdmissionRunner/.test(
         publicRuntimeRoutes + runtimeRouteHandlers,
       ) &&
@@ -29327,17 +29340,18 @@ function runReceipts() {
       /runtime doctor report projection core sends Rust daemon-core request/.test(
         runtimeContextPolicyCoreTestForState,
       ) &&
-      /store\.contextPolicyCore\.projectRuntimeDoctorReport\(\{/.test(
-        publicRuntimeRoutes,
-      ) &&
-      /operation_kind:\s*"runtime\.doctor_report\.projection"/.test(publicRuntimeRoutes) &&
+	      /routeContextPolicyCore\.projectRuntimeDoctorReport\(\{/.test(
+	        publicRuntimeRoutes,
+	      ) &&
+	      /operation_kind:\s*"runtime\.doctor_report\.projection"/.test(publicRuntimeRoutes) &&
       /public runtime routes dispatch top-level daemon projections/.test(
         publicRuntimeRoutesTest,
       ) &&
       /runtimeDoctorReport: retiredRouteWrapper/.test(publicRuntimeRoutesTest) &&
       /doctorReport: retiredRouteWrapper/.test(publicRuntimeRoutesTest) &&
-      /method:\s*"projectRuntimeDoctorReport"/.test(publicRuntimeRoutesTest) &&
-      !/store\.runtimeDoctorReport/.test(publicRuntimeRoutes) &&
+	      /method:\s*"projectRuntimeDoctorReport"/.test(publicRuntimeRoutesTest) &&
+	      !/store\?\.contextPolicyCore|store\.contextPolicyCore/.test(publicRuntimeRoutes) &&
+	      !/store\.runtimeDoctorReport/.test(publicRuntimeRoutes) &&
       !/store\.doctorReport\(/.test(publicRuntimeRoutes) &&
       !/doctorReport\(\{ baseUrl = null \} = \{\}\)/.test(runtimeDaemonIndex) &&
       !/runtimeToolCatalogForDoctor/.test(runtimeDaemonIndex) &&
@@ -38923,9 +38937,10 @@ function runCompositor() {
       /STUDIO_INTENT_FRAME_PROJECTION_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyCoreTestForState) &&
       /studio intent frame projection core sends Rust daemon-core request/.test(runtimeContextPolicyCoreTestForState) &&
       /Object\.hasOwn\(captured,\s*"executionMode"\),\s*false/.test(runtimeContextPolicyCoreTestForState) &&
-      /store\.contextPolicyCore\.projectStudioIntentFrame\(\{/.test(publicRuntimeRoutes) &&
-      /operation_kind:\s*"studio\.intent_frame\.projection"/.test(publicRuntimeRoutes) &&
-      !/store\.resolveStudioIntentFrame/.test(publicRuntimeRoutes) &&
+	      /routeContextPolicyCore\.projectStudioIntentFrame\(\{/.test(publicRuntimeRoutes) &&
+	      /operation_kind:\s*"studio\.intent_frame\.projection"/.test(publicRuntimeRoutes) &&
+	      !/store\?\.contextPolicyCore|store\.contextPolicyCore/.test(publicRuntimeRoutes) &&
+	      !/store\.resolveStudioIntentFrame/.test(publicRuntimeRoutes) &&
       !/resolveStudioIntentFrame\(await readBody\(request\)\)/.test(publicRuntimeRoutes) &&
       !/studio-intent-frame\.mjs/.test(runtimeDaemonIndex) &&
       /method:\s*"projectStudioIntentFrame"/.test(publicRuntimeRoutesTest) &&

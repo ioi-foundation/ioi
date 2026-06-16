@@ -11645,6 +11645,21 @@ actual Rust backend process execution/materialization, direct Rust/vault
 auth-header materialization, and invocation authority depth still need terminal
 Rust-owned execution coverage.
 
+Slice 1366 hard-cuts the public/runtime route store-core lifecycle fallback.
+Public daemon request handling now receives the Rust `contextPolicyCore` as an
+explicit request dependency from daemon service startup, and the public
+doctor/computer-use/studio projections plus agent/thread/run lifecycle control
+routes require that explicit core before any Rust projection or lifecycle
+planner can execute. `runtime-route-handlers.mjs` no longer reads
+`store.contextPolicyCore` for agent delete/status/run creation; focused route
+tests remove `contextPolicyCore` from their store fixtures and pass the Rust
+core explicitly. Conformance now rejects restoring `store.contextPolicyCore` or
+`store?.contextPolicyCore` in the public/runtime route files and requires the
+service-level explicit core handoff. This remains non-terminal because hosted
+provider transport, actual Rust backend process execution/materialization,
+direct Rust/vault auth-header materialization, and invocation authority depth
+still need terminal Rust-owned execution coverage.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

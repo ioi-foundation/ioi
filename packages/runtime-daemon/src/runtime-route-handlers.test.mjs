@@ -334,8 +334,8 @@ test("agent lifecycle mutation routes use direct Rust lifecycle APIs", async () 
       rustCoreRequired("runtime_run_create_rust_core_required", { agent_id: agentId });
     },
   });
+  const contextPolicyCore = { direct: true };
   const store = {
-    contextPolicyCore: { direct: true },
     updateAgent: retiredRouteWrapper,
     deleteAgent: retiredRouteWrapper,
     createRun: retiredRouteWrapper,
@@ -358,6 +358,7 @@ test("agent lifecycle mutation routes use direct Rust lifecycle APIs", async () 
         request: req,
         response: responseRecorder(),
         store,
+        contextPolicyCore,
         url: new URL(req.url, "http://daemon.test"),
         segments: new URL(req.url, "http://daemon.test").pathname.split("/").filter(Boolean),
       }),
@@ -369,9 +370,9 @@ test("agent lifecycle mutation routes use direct Rust lifecycle APIs", async () 
   }
 
   assert.equal(calls.every((call) => call.surfaceStore === store), true);
-  assert.equal(calls.every((call) => call.deps.lifecycleAdmissionRunner === store.contextPolicyCore ||
-    call.deps.statusStateUpdateRunner === store.contextPolicyCore ||
-    call.deps.deleteStateUpdateRunner === store.contextPolicyCore), true);
+  assert.equal(calls.every((call) => call.deps.lifecycleAdmissionRunner === contextPolicyCore ||
+    call.deps.statusStateUpdateRunner === contextPolicyCore ||
+    call.deps.deleteStateUpdateRunner === contextPolicyCore), true);
   assert.equal(Object.hasOwn(store, "agentRunLifecycleSurface"), false);
   assert.deepEqual(
     calls.map(({ method, agentId, status, operationKind, input }) => ({

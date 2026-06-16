@@ -26,6 +26,21 @@ export function createRuntimeRouteHandlers(deps) {
     writeSse,
   } = deps;
   const lifecycleRuntimeError = typeof runtimeError === "function" ? runtimeError : undefined;
+  function requiredRouteContextPolicyCore(contextPolicyCore, rustCoreBoundary) {
+    if (contextPolicyCore) {
+      return contextPolicyCore;
+    }
+    const error = {
+      status: 501,
+      code: "runtime_route_context_policy_core_required",
+      message: "Runtime lifecycle routes require the explicit Rust daemon-core policy boundary.",
+      details: {
+        rust_core_boundary: rustCoreBoundary,
+        retired_store_fallback: "context_policy_core_store_mount",
+      },
+    };
+    throw lifecycleRuntimeError ? lifecycleRuntimeError(error) : Object.assign(new Error(error.message), error);
+  }
 
   async function handleModelMountingNativeRoute({ request, response, store, url, segments }) {
     const mounts = store.modelMounting;
@@ -130,7 +145,7 @@ export function createRuntimeRouteHandlers(deps) {
     });
   }
 
-  async function handleAgentRoute({ request, response, store, url, segments }) {
+  async function handleAgentRoute({ request, response, store, url, segments, contextPolicyCore }) {
     const agentId = decodeURIComponent(segments[2]);
     const action = segments[3];
     if (request.method === "GET" && !action) {
@@ -138,53 +153,60 @@ export function createRuntimeRouteHandlers(deps) {
       return;
     }
     if (request.method === "DELETE" && !action) {
+      const routeContextPolicyCore = requiredRouteContextPolicyCore(contextPolicyCore, "runtime.agent_delete");
       writeJsonResponse(response, deleteLifecycleAgentDep(store, agentId, {
-        deleteStateUpdateRunner: store.contextPolicyCore,
+        deleteStateUpdateRunner: routeContextPolicyCore,
         runtimeError: lifecycleRuntimeError,
       }), 204);
       return;
     }
     if (request.method === "POST" && action === "archive") {
+      const routeContextPolicyCore = requiredRouteContextPolicyCore(contextPolicyCore, "runtime.agent_status_control");
       writeJsonResponse(response, updateLifecycleAgentDep(store, agentId, "archived", "agent.archive", {
         runtimeError: lifecycleRuntimeError,
-        statusStateUpdateRunner: store.contextPolicyCore,
+        statusStateUpdateRunner: routeContextPolicyCore,
       }));
       return;
     }
     if (request.method === "POST" && action === "unarchive") {
+      const routeContextPolicyCore = requiredRouteContextPolicyCore(contextPolicyCore, "runtime.agent_status_control");
       writeJsonResponse(response, updateLifecycleAgentDep(store, agentId, "active", "agent.unarchive", {
         runtimeError: lifecycleRuntimeError,
-        statusStateUpdateRunner: store.contextPolicyCore,
+        statusStateUpdateRunner: routeContextPolicyCore,
       }));
       return;
     }
     if (request.method === "POST" && action === "resume") {
+      const routeContextPolicyCore = requiredRouteContextPolicyCore(contextPolicyCore, "runtime.agent_status_control");
       writeJsonResponse(response, updateLifecycleAgentDep(store, agentId, "active", "agent.resume", {
         runtimeError: lifecycleRuntimeError,
-        statusStateUpdateRunner: store.contextPolicyCore,
+        statusStateUpdateRunner: routeContextPolicyCore,
       }));
       return;
     }
     if (request.method === "POST" && action === "close") {
+      const routeContextPolicyCore = requiredRouteContextPolicyCore(contextPolicyCore, "runtime.agent_status_control");
       writeJsonResponse(response, updateLifecycleAgentDep(store, agentId, "closed", "agent.close", {
         runtimeError: lifecycleRuntimeError,
-        statusStateUpdateRunner: store.contextPolicyCore,
+        statusStateUpdateRunner: routeContextPolicyCore,
       }));
       return;
     }
     if (request.method === "POST" && action === "reload") {
+      const routeContextPolicyCore = requiredRouteContextPolicyCore(contextPolicyCore, "runtime.agent_status_control");
       writeJsonResponse(response, updateLifecycleAgentDep(store, agentId, null, "agent.reload", {
         runtimeError: lifecycleRuntimeError,
-        statusStateUpdateRunner: store.contextPolicyCore,
+        statusStateUpdateRunner: routeContextPolicyCore,
       }));
       return;
     }
     if (request.method === "POST" && action === "runs") {
+      const routeContextPolicyCore = requiredRouteContextPolicyCore(contextPolicyCore, "runtime.run_create");
       writeJsonResponse(response, createLifecycleRunDep(store, agentId, await readBody(request), {
         approvalModeForThreadMode,
         buildRun,
         ensureProviderAvailable,
-        lifecycleAdmissionRunner: store.contextPolicyCore,
+        lifecycleAdmissionRunner: routeContextPolicyCore,
         runtimeError: lifecycleRuntimeError,
         threadModeForRunMode,
       }));
