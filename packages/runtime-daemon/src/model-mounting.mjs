@@ -136,6 +136,8 @@ const MODEL_MOUNT_INSTANCE_LIFECYCLE_SCHEMA_VERSION = "ioi.model_mount.instance_
 const MODEL_MOUNT_ARTIFACT_ENDPOINT_SCHEMA_VERSION = "ioi.model_mount.artifact_endpoint.v1";
 const MODEL_MOUNT_STORAGE_CONTROL_SCHEMA_VERSION = "ioi.model_mount.storage_control.v1";
 const MODEL_MOUNT_MCP_WORKFLOW_SCHEMA_VERSION = "ioi.model_mount.mcp_workflow.v1";
+const MODEL_MOUNT_MCP_LIVE_BACKEND_EXECUTION_SCHEMA_VERSION =
+  "ioi.runtime.mcp-live-backend-execution-request.v1";
 const MODEL_MOUNT_CONVERSATION_STATE_SCHEMA_VERSION = "ioi.model_mount.conversation_state.v1";
 const MODEL_MOUNT_STREAM_COMPLETION_SCHEMA_VERSION = "ioi.model_mount.stream_completion.v1";
 const MODEL_MOUNT_STREAM_CANCEL_SCHEMA_VERSION = "ioi.model_mount.stream_cancel.v1";
@@ -186,11 +188,26 @@ const RETIRED_MCP_TOOL_INVOCATION_REQUEST_ALIASES = [
   "serverId",
   "server_label",
   "serverLabel",
+  "threadId",
+  "agentId",
+  "workloadSpec",
+  "timeoutMs",
+  "liveTransport",
+  "executionMode",
+  "toolId",
+  "toolName",
+  "arguments",
 ];
 const CANONICAL_MCP_TOOL_INVOCATION_REQUEST_FIELDS = [
   "server_id",
   "tool",
   "input",
+  "thread_id",
+  "agent_id",
+  "workload_spec",
+  "timeout_ms",
+  "live_transport",
+  "execution_mode",
 ];
 const RETIRED_MCP_SERVER_CONFIG_ALIASES = [
   "serverUrl",
@@ -375,6 +392,7 @@ export class ModelMountingState {
     vaultSecrets = {},
     modelMountCore = null,
     daemonCoreModelMountApi = null,
+    contextPolicyCore = null,
     commitRuntimeModelMountRecordState = null,
     commitRuntimeModelMountReceiptState = null,
   }) {
@@ -389,6 +407,7 @@ export class ModelMountingState {
       createModelMountCore({
         daemonCoreModelMountApi,
       });
+    this.contextPolicyCore = contextPolicyCore;
     this.commitRuntimeModelMountRecordState = commitRuntimeModelMountRecordState;
     this.store = new AgentgresModelMountingStore({
       stateDir: this.stateDir,
@@ -3801,44 +3820,289 @@ function planAndCommitMcpWorkflow(state, operation_kind, options = {}) {
     containment_ref: optionalString(options.containmentRef) ?? optionalString(body.containment_ref),
     required_scope: optionalString(options.requiredScope),
   });
+  const terminalPlan =
+    operation_kind === "model_mount.mcp_tool.invoke"
+      ? executeAndBindModelMountMcpLiveBackend(state, plan, body)
+      : plan;
   const commit = commitModelMountRecordState(state, {
-    recordDir: plan.record_dir,
-    record: plan.record,
-    operation_kind: plan.operation_kind,
-    receipt_refs: plan.receipt_refs,
+    recordDir: terminalPlan.record_dir,
+    record: terminalPlan.record,
+    operation_kind: terminalPlan.operation_kind,
+    receipt_refs: terminalPlan.receipt_refs,
     unconfiguredCode: "model_mount_mcp_workflow_record_state_commit_unconfigured",
     unconfiguredMessage:
       "Model-mount MCP workflow requires Rust Agentgres record-state commit before MCP truth can return.",
     unconfiguredDetails: {
-      rust_core_boundary: plan.rust_core_boundary ?? "model_mount.mcp_workflow",
-      operation_kind: plan.operation_kind ?? operation_kind,
+      rust_core_boundary: terminalPlan.rust_core_boundary ?? "model_mount.mcp_workflow",
+      operation_kind: terminalPlan.operation_kind ?? operation_kind,
     },
     invalidCode: "model_mount_mcp_workflow_record_state_commit_invalid",
   });
-  const receiptState = persistMcpWorkflowExecutionReceipt(state, plan);
+  const receiptState = persistMcpWorkflowExecutionReceipt(state, terminalPlan);
   const publicResponse =
-    plan.public_response && typeof plan.public_response === "object" && !Array.isArray(plan.public_response)
-      ? plan.public_response
+    terminalPlan.public_response && typeof terminalPlan.public_response === "object" && !Array.isArray(terminalPlan.public_response)
+      ? terminalPlan.public_response
       : {};
   return {
     ...publicResponse,
-    status: publicResponse.status ?? plan.status ?? "committed",
-    operation_kind: plan.operation_kind,
-    rust_core_boundary: plan.rust_core_boundary,
-    record_dir: plan.record_dir,
-    record_id: plan.record_id,
-    record: plan.record,
+    status: publicResponse.status ?? terminalPlan.status ?? "committed",
+    operation_kind: terminalPlan.operation_kind,
+    rust_core_boundary: terminalPlan.rust_core_boundary,
+    record_dir: terminalPlan.record_dir,
+    record_id: terminalPlan.record_id,
+    record: terminalPlan.record,
     commit,
     receipt: receiptState?.receipt ?? null,
     receipt_commit: receiptState?.commit ?? null,
     receipt_state_commit: receiptState?.commit ?? null,
-    receipt_refs: plan.receipt_refs,
-    authority_grant_refs: plan.authority_grant_refs,
-    authority_receipt_refs: plan.authority_receipt_refs,
-    evidence_refs: plan.evidence_refs,
-    workflow_hash: plan.workflow_hash,
-    authority_hash: plan.authority_hash,
+    receipt_refs: terminalPlan.receipt_refs,
+    authority_grant_refs: terminalPlan.authority_grant_refs,
+    authority_receipt_refs: terminalPlan.authority_receipt_refs,
+    evidence_refs: terminalPlan.evidence_refs,
+    workflow_hash: terminalPlan.workflow_hash,
+    authority_hash: terminalPlan.authority_hash,
   };
+}
+
+function executeAndBindModelMountMcpLiveBackend(state, plan = {}, body = {}) {
+  const executor = state.contextPolicyCore?.executeRuntimeMcpLiveBackend;
+  if (typeof executor !== "function") {
+    throw runtimeError({
+      status: 501,
+      code: "model_mount_mcp_live_backend_execution_required",
+      message:
+        "Model-mount MCP tool invocation requires the Rust MCP live backend execution API before truth can commit.",
+      details: {
+        rust_core_boundary: plan.rust_core_boundary ?? "model_mount.mcp_workflow",
+        operation_kind: plan.operation_kind ?? "model_mount.mcp_tool.invoke",
+        required_policy_api: "executeRuntimeMcpLiveBackend",
+        schema_version: MODEL_MOUNT_MCP_LIVE_BACKEND_EXECUTION_SCHEMA_VERSION,
+        evidence_refs: [
+          "model_mount_mcp_live_backend_execution_required",
+          "runtime_mcp_live_backend_rust_driver_executed",
+          "runtime_mcp_live_backend_no_js_transport",
+        ],
+      },
+    });
+  }
+  const publicResponse = objectRecord(plan.public_response) ?? {};
+  const record = objectRecord(plan.record) ?? {};
+  const details = objectRecord(record.details) ?? {};
+  const receipt = objectRecord(plan.receipt);
+  const resultPayload = objectRecord(publicResponse.result_payload) ?? objectRecord(details.result_payload);
+  const backendExecution =
+    objectRecord(publicResponse.backend_execution) ??
+    objectRecord(resultPayload?.backend_execution) ??
+    objectRecord(details.backend_execution);
+  const plannedResult =
+    objectRecord(publicResponse.live_backend_planned_result) ??
+    objectRecord(details.live_backend_planned_result);
+  const threadId = optionalString(body.thread_id) ?? optionalString(publicResponse.thread_id) ?? optionalString(details.thread_id);
+  const agentId = optionalString(body.agent_id) ?? optionalString(publicResponse.agent_id) ?? optionalString(details.agent_id);
+  const workloadSpec = objectRecord(body.workload_spec) ?? objectRecord(details.workload_spec);
+  if (!receipt) {
+    throw runtimeError({
+      status: 502,
+      code: "model_mount_mcp_execution_receipt_required",
+      message: "Model-mount MCP live backend execution requires a Rust-authored content receipt before truth can commit.",
+      details: {
+        rust_core_boundary: plan.rust_core_boundary ?? "model_mount.mcp_workflow",
+        operation_kind: plan.operation_kind ?? "model_mount.mcp_tool.invoke",
+        record_id: plan.record_id ?? null,
+      },
+    });
+  }
+  const missing = [];
+  if (!backendExecution) missing.push("backend_execution");
+  if (!plannedResult) missing.push("live_backend_planned_result");
+  if (!threadId) missing.push("thread_id");
+  if (!agentId) missing.push("agent_id");
+  if (!workloadSpec) missing.push("workload_spec");
+  if (backendExecution?.status !== "rust_driver_contract_bound") {
+    missing.push("backend_execution.status.rust_driver_contract_bound");
+  }
+  if (backendExecution?.method !== "tools/call") {
+    missing.push("backend_execution.method.tools_call");
+  }
+  if (missing.length > 0) {
+    throw runtimeError({
+      status: 502,
+      code: "model_mount_mcp_live_backend_contract_required",
+      message:
+        "Rust model_mount MCP tool planning must provide the live backend execution contract before truth can commit.",
+      details: {
+        rust_core_boundary: plan.rust_core_boundary ?? "model_mount.mcp_workflow",
+        operation_kind: plan.operation_kind ?? "model_mount.mcp_tool.invoke",
+        record_id: plan.record_id ?? null,
+        missing,
+      },
+    });
+  }
+  const execution = executor.call(state.contextPolicyCore, {
+    schema_version: MODEL_MOUNT_MCP_LIVE_BACKEND_EXECUTION_SCHEMA_VERSION,
+    state_dir: optionalString(state.stateDir),
+    thread_id: threadId,
+    agent_id: agentId,
+    control_kind: "model_mount.mcp_tool.invoke",
+    event_id: optionalString(plan.record_id) ?? optionalString(record.id),
+    server_id: optionalString(body.server_id) ?? optionalString(publicResponse.server_id) ?? optionalString(details.server_id),
+    tool_id: optionalString(body.tool) ?? optionalString(publicResponse.tool) ?? optionalString(details.tool),
+    tool_name: optionalString(body.tool) ?? optionalString(publicResponse.tool) ?? optionalString(details.tool),
+    tool_ref: optionalString(backendExecution.tool_ref),
+    live_transport: optionalString(body.live_transport),
+    execution_mode: optionalString(body.execution_mode),
+    timeout_ms: Number.isFinite(body.timeout_ms) && body.timeout_ms > 0 ? body.timeout_ms : null,
+    arguments: objectRecord(body.input) ?? {},
+    workload_spec: workloadSpec,
+    authority_grant_refs: uniqueModelMountRefs(plan.authority_grant_refs),
+    authority_receipt_refs: uniqueModelMountRefs(plan.authority_receipt_refs),
+    custody_ref: optionalString(publicResponse.custody_ref) ?? optionalString(details.custody_ref),
+    containment_ref: optionalString(publicResponse.containment_ref) ?? optionalString(details.containment_ref),
+    backend_execution: backendExecution,
+    receipt,
+    control: details,
+    planned_result: plannedResult,
+  });
+  return bindModelMountMcpLiveBackendExecution(plan, execution);
+}
+
+function bindModelMountMcpLiveBackendExecution(plan = {}, execution = {}) {
+  const executionRecord = objectRecord(execution?.record) ?? objectRecord(execution) ?? {};
+  const liveResult = objectRecord(executionRecord.result) ?? objectRecord(execution?.result);
+  const livePayload = objectRecord(liveResult?.payload);
+  const driverResultHash =
+    optionalString(livePayload?.runtime_mcp_live_backend_driver_result_hash) ??
+    optionalString(livePayload?.driver_result_hash) ??
+    optionalString(executionRecord.driver_result_hash);
+  const resultPayloadHash =
+    optionalString(livePayload?.result_payload_hash) ??
+    optionalString(livePayload?.payload_hash);
+  const backendExecution =
+    objectRecord(livePayload?.backend_execution) ??
+    objectRecord(executionRecord.backend_execution);
+  if (!liveResult || !livePayload || !resultPayloadHash || !driverResultHash || !backendExecution) {
+    throw runtimeError({
+      status: 502,
+      code: "model_mount_mcp_live_backend_execution_invalid",
+      message:
+        "Rust MCP live backend execution did not return a receipt-bound live result payload for model_mount MCP truth.",
+      details: {
+        rust_core_boundary: plan.rust_core_boundary ?? "model_mount.mcp_workflow",
+        operation_kind: plan.operation_kind ?? "model_mount.mcp_tool.invoke",
+        record_id: plan.record_id ?? null,
+      },
+    });
+  }
+  const publicResponse = objectRecord(plan.public_response) ?? {};
+  const record = objectRecord(plan.record) ?? {};
+  const details = objectRecord(record.details) ?? {};
+  const plannedPayload = objectRecord(publicResponse.result_payload) ?? objectRecord(details.result_payload) ?? {};
+  const protocolResult = objectRecord(livePayload.protocol_result) ?? {};
+  const resultPayload = {
+    ...plannedPayload,
+    backend_execution: backendExecution,
+    protocol_result: protocolResult,
+    content: Array.isArray(protocolResult.content) ? protocolResult.content : plannedPayload.content,
+    is_error: Boolean(protocolResult.isError ?? plannedPayload.is_error ?? false),
+    driver_result_hash: driverResultHash,
+    runtime_mcp_live_backend_driver_result_hash: driverResultHash,
+    runtime_mcp_live_backend_execution_status: "rust_driver_executed",
+    runtime_mcp_live_backend_execution_source: "rust_mcp_live_backend_execution_api",
+  };
+  const executionEvidenceRefs = uniqueModelMountRefs([
+    ...(Array.isArray(plan.evidence_refs) ? plan.evidence_refs : []),
+    ...(Array.isArray(executionRecord.evidence_refs) ? executionRecord.evidence_refs : []),
+    "model_mount_mcp_live_backend_execution_required",
+    "runtime_mcp_live_backend_rust_driver_executed",
+    "runtime_mcp_live_backend_actual_mcp_manager_io",
+    "runtime_mcp_live_backend_no_js_transport",
+  ]);
+  const executedDetails = {
+    ...details,
+    result_payload: resultPayload,
+    result_payload_hash: resultPayloadHash,
+    backend_execution: backendExecution,
+    live_backend_execution: executionRecord,
+    live_backend_result: liveResult,
+    model_mount_mcp_result_materialized: true,
+    model_mount_mcp_result_materialization_status: "rust_materialized",
+    runtime_mcp_backend_execution_status: "rust_driver_executed",
+    runtime_mcp_live_backend_execution_required: true,
+    runtime_mcp_live_backend_execution_status: "rust_driver_executed",
+    runtime_mcp_live_backend_driver_result_hash: driverResultHash,
+    transport_execution_status: "rust_driver_executed",
+    rust_transport_execution_admitted: true,
+  };
+  const stepModuleResult = objectRecord(executedDetails.model_mount_step_module_result);
+  if (stepModuleResult) {
+    executedDetails.model_mount_step_module_result = {
+      ...stepModuleResult,
+      result_payload_hash: resultPayloadHash,
+      runtime_mcp_live_backend_execution_status: "rust_driver_executed",
+      runtime_mcp_live_backend_driver_result_hash: driverResultHash,
+    };
+  }
+  const executedRecord = {
+    ...record,
+    details: executedDetails,
+    evidence_refs: executionEvidenceRefs,
+  };
+  const executedReceipt = objectRecord(executionRecord.receipt) ?? objectRecord(execution?.receipt) ?? objectRecord(plan.receipt);
+  const receiptDetails = objectRecord(executedReceipt?.details) ?? {};
+  const boundReceipt = executedReceipt
+    ? {
+        ...executedReceipt,
+        evidenceRefs: uniqueModelMountRefs([
+          ...(Array.isArray(executedReceipt.evidenceRefs) ? executedReceipt.evidenceRefs : []),
+          "runtime_mcp_live_backend_rust_driver_executed",
+          "runtime_mcp_live_backend_actual_mcp_manager_io",
+        ]),
+        details: {
+          ...receiptDetails,
+          result_payload: resultPayload,
+          result_payload_hash: resultPayloadHash,
+          model_mount_mcp_result_materialized: true,
+          model_mount_mcp_result_materialization_status: "rust_materialized",
+          runtime_mcp_live_backend_execution_required: true,
+          runtime_mcp_live_backend_execution_status: "rust_driver_executed",
+          runtime_mcp_live_backend_driver_result_hash: driverResultHash,
+          model_mount_step_module_result: objectRecord(receiptDetails.model_mount_step_module_result)
+            ? {
+                ...receiptDetails.model_mount_step_module_result,
+                result_payload_hash: resultPayloadHash,
+                runtime_mcp_live_backend_execution_status: "rust_driver_executed",
+                runtime_mcp_live_backend_driver_result_hash: driverResultHash,
+              }
+            : receiptDetails.model_mount_step_module_result,
+        },
+      }
+    : null;
+  return {
+    ...plan,
+    record: executedRecord,
+    receipt: boundReceipt,
+    public_response: {
+      ...publicResponse,
+      result_payload: resultPayload,
+      result_payload_hash: resultPayloadHash,
+      backend_execution: backendExecution,
+      live_backend_execution: executionRecord,
+      live_backend_result: liveResult,
+      model_mount_mcp_result_materialized: true,
+      model_mount_mcp_result_materialization_status: "rust_materialized",
+      runtime_mcp_backend_execution_status: "rust_driver_executed",
+      runtime_mcp_live_backend_execution_required: true,
+      runtime_mcp_live_backend_execution_status: "rust_driver_executed",
+      runtime_mcp_live_backend_driver_result_hash: driverResultHash,
+      transport_execution_status: "rust_driver_executed",
+      rust_transport_execution_admitted: true,
+    },
+    evidence_refs: executionEvidenceRefs,
+  };
+}
+
+function objectRecord(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : null;
 }
 
 function persistMcpWorkflowExecutionReceipt(state, plan = {}) {
@@ -3970,6 +4234,12 @@ function mcpWorkflowBody(value = {}) {
     "input",
     "server_id",
     "tool",
+    "thread_id",
+    "agent_id",
+    "workload_spec",
+    "timeout_ms",
+    "live_transport",
+    "execution_mode",
     "node",
     "node_type",
     "model",

@@ -95,6 +95,11 @@ impl ModelMountMcpWorkflowRequest {
             "model_mount.mcp_tool.invoke" => {
                 required_body_string(body, "server_id")?;
                 required_body_string(body, "tool")?;
+                required_body_string(body, "thread_id")?;
+                required_body_string(body, "agent_id")?;
+                if !body.get("workload_spec").is_some_and(Value::is_object) {
+                    return Err(ModelMountError::MissingField("workload_spec"));
+                }
                 require_mcp_external_exit_authority(self)?;
             }
             "model_mount.workflow_node.execute" => {
@@ -225,6 +230,12 @@ fn plan_mcp_tool_invoke(
     let authority = mcp_external_exit_authority(request)?;
     let server_id = required_body_string(body, "server_id")?;
     let tool = required_body_string(body, "tool")?;
+    let thread_id = required_body_string(body, "thread_id")?;
+    let agent_id = required_body_string(body, "agent_id")?;
+    let workload_spec = body
+        .get("workload_spec")
+        .cloned()
+        .ok_or(ModelMountError::MissingField("workload_spec"))?;
     let input_hash = body
         .get("input")
         .map(hash_json)
@@ -239,8 +250,19 @@ fn plan_mcp_tool_invoke(
         hash_prefix(&json!({ "server_id": server_id, "tool": tool, "input_hash": input_hash }))
     );
     let receipt_id = receipt_id_for("mcp_tool_invocation", &record_id);
-    let result_payload = mcp_tool_result_payload(&server_id, &tool, &input_hash, &receipt_id);
+    let backend_execution = mcp_tool_backend_execution_contract(&server_id, &tool);
+    let result_payload =
+        mcp_tool_result_payload(&server_id, &tool, &input_hash, &receipt_id, &backend_execution);
     let result_payload_hash = hash_json(&result_payload)?;
+    let live_backend_planned_result = mcp_tool_live_backend_planned_result(
+        &record_id,
+        &receipt_id,
+        &server_id,
+        &tool,
+        &input_hash,
+        &backend_execution,
+        &result_payload_hash,
+    );
     mcp_workflow_plan(
         request,
         "mcp-workflow-controls",
@@ -249,6 +271,9 @@ fn plan_mcp_tool_invoke(
         json!({
             "server_id": server_id,
             "tool": tool,
+            "thread_id": thread_id,
+            "agent_id": agent_id,
+            "workload_spec": workload_spec,
             "input_hash": input_hash,
             "tool_receipt_id": receipt_id,
             "tool_receipt_ids": [receipt_id],
@@ -257,6 +282,10 @@ fn plan_mcp_tool_invoke(
             "content_receipt_required": true,
             "result_payload": result_payload.clone(),
             "result_payload_hash": result_payload_hash.clone(),
+            "backend_execution": backend_execution.clone(),
+            "live_backend_planned_result": live_backend_planned_result.clone(),
+            "runtime_mcp_backend_execution_status": "rust_driver_contract_bound",
+            "runtime_mcp_live_backend_execution_required": true,
             "model_mount_mcp_result_materialized": true,
             "model_mount_mcp_result_materialization_status": "rust_materialized",
             "result_materialization_owner": "rust_daemon_core.model_mount.mcp_workflow",
@@ -281,6 +310,8 @@ fn plan_mcp_tool_invoke(
             "operation_kind": request.operation_kind,
             "server_id": server_id,
             "tool": tool,
+            "thread_id": thread_id,
+            "agent_id": agent_id,
             "tool_receipt_id": receipt_id,
             "tool_receipt_ids": [receipt_id],
             "content_receipt_id": receipt_id,
@@ -288,6 +319,10 @@ fn plan_mcp_tool_invoke(
             "content_receipt_required": true,
             "result_payload": result_payload,
             "result_payload_hash": result_payload_hash,
+            "backend_execution": backend_execution,
+            "live_backend_planned_result": live_backend_planned_result,
+            "runtime_mcp_backend_execution_status": "rust_driver_contract_bound",
+            "runtime_mcp_live_backend_execution_required": true,
             "model_mount_mcp_result_materialized": true,
             "model_mount_mcp_result_materialization_status": "rust_materialized",
             "result_materialization_owner": "rust_daemon_core.model_mount.mcp_workflow",
@@ -416,12 +451,16 @@ fn mcp_tool_result_payload(
     tool: &str,
     input_hash: &str,
     receipt_id: &str,
+    backend_execution: &Value,
 ) -> Value {
     json!({
         "schema_version": "ioi.model_mount.mcp_result.v1",
         "payload_kind": "mcp_tool_result",
         "materialization_status": "rust_materialized",
         "materialization_owner": "rust_daemon_core.model_mount.mcp_workflow",
+        "backend_execution": backend_execution,
+        "runtime_mcp_backend_execution_status": "rust_driver_contract_bound",
+        "runtime_mcp_live_backend_execution_required": true,
         "server_id": server_id,
         "tool": tool,
         "input_hash": input_hash,
@@ -436,6 +475,81 @@ fn mcp_tool_result_payload(
             )
         }],
         "is_error": false,
+    })
+}
+
+fn mcp_tool_backend_execution_contract(server_id: &str, tool: &str) -> Value {
+    json!({
+        "schema_version": "ioi.runtime.mcp-backend-execution.v1",
+        "object": "ioi.runtime_mcp_backend_execution",
+        "status": "rust_driver_contract_bound",
+        "owner": "ioi_drivers::mcp::McpManager",
+        "transport_owner": "ioi_drivers::mcp::transport::McpTransport",
+        "method": "tools/call",
+        "server_id": server_id,
+        "tool_ref": format!("{server_id}__{tool}"),
+    })
+}
+
+fn mcp_tool_live_backend_planned_result(
+    record_id: &str,
+    receipt_id: &str,
+    server_id: &str,
+    tool: &str,
+    input_hash: &str,
+    backend_execution: &Value,
+    result_payload_hash: &str,
+) -> Value {
+    json!({
+        "schema_version": "ioi.runtime.mcp-live-result.v1",
+        "object": "ioi.runtime_mcp_live_result",
+        "id": format!("model_mount_mcp_live_result.{record_id}"),
+        "kind": "model_mount_mcp_tool_live_result",
+        "status": "rust_materialized",
+        "receipt_id": receipt_id,
+        "receipt_refs": [receipt_id],
+        "evidence_refs": [
+            "model_mount_mcp_live_backend_planned_result",
+            "runtime_mcp_backend_execution_rust_driver_bound",
+            "agentgres_mcp_content_receipt_truth_required",
+            "receipt_state_root_binding_required"
+        ],
+        "payload": {
+            "schema_version": "ioi.runtime.mcp-live-result-payload.v1",
+            "object": "ioi.runtime_mcp_live_result_payload",
+            "payload_hash": result_payload_hash,
+            "result_payload_hash": result_payload_hash,
+            "backend_execution": backend_execution,
+            "protocol_result": {
+                "content": [{
+                    "type": "text",
+                    "text": format!(
+                        "rust_materialized_mcp_tool_result:{}:{}",
+                        safe_segment(server_id),
+                        safe_segment(tool)
+                    )
+                }],
+                "structuredContent": {
+                    "server_id": server_id,
+                    "tool": tool,
+                    "input_hash": input_hash,
+                    "backend_execution_status": "rust_driver_contract_bound"
+                },
+                "isError": false
+            }
+        },
+        "details": {
+            "rust_daemon_core_result_author": "model_mount.mcp_workflow",
+            "result_materialized": true,
+            "backend_materialization_status": "rust_driver_contract_bound",
+            "runtime_mcp_backend_execution_status": "rust_driver_contract_bound",
+            "runtime_mcp_backend_owner": "ioi_drivers::mcp::McpManager",
+            "runtime_mcp_backend_transport_owner": "ioi_drivers::mcp::transport::McpTransport",
+            "runtime_mcp_backend_method": "tools/call",
+            "runtime_mcp_backend_contract_required": true,
+            "payload_hash": result_payload_hash,
+            "result_payload_hash": result_payload_hash
+        }
     })
 }
 
@@ -1156,6 +1270,17 @@ mod tests {
             "server_id": "mcp.docs",
             "tool": "search",
             "input": { "query": "rust" },
+            "thread_id": "thread.docs",
+            "agent_id": "agent.docs",
+            "workload_spec": {
+                "runtime_target": "mcp_adapter",
+                "net_mode": "disabled",
+                "capability_lease": {
+                    "lease_id": "lease-docs-search",
+                    "mode": "one_shot",
+                    "capability_allowlist": ["mcp.docs__search"]
+                }
+            },
             "authority_grant_refs": ["wallet.network://grant/mcp/docs/search"],
             "authority_receipt_refs": ["receipt://wallet.network/mcp/docs/search"],
             "custody_ref": "ctee://workspace/docs",
@@ -1169,6 +1294,20 @@ mod tests {
         assert_eq!(plan.record["status"], "admitted");
         assert_eq!(plan.record["details"]["server_id"], "mcp.docs");
         assert_eq!(plan.record["details"]["tool"], "search");
+        assert_eq!(plan.record["details"]["thread_id"], "thread.docs");
+        assert_eq!(plan.record["details"]["agent_id"], "agent.docs");
+        assert_eq!(
+            plan.record["details"]["backend_execution"]["status"],
+            "rust_driver_contract_bound"
+        );
+        assert_eq!(
+            plan.record["details"]["backend_execution"]["method"],
+            "tools/call"
+        );
+        assert_eq!(
+            plan.record["details"]["live_backend_planned_result"]["kind"],
+            "model_mount_mcp_tool_live_result"
+        );
         for retired_field in [
             "js_transport_invocation",
             "command_transport_fallback",
@@ -1196,6 +1335,14 @@ mod tests {
         assert_eq!(
             plan.public_response["transport_execution_owner"],
             "rust_daemon_core.model_mount.mcp_workflow"
+        );
+        assert_eq!(
+            plan.public_response["runtime_mcp_live_backend_execution_required"],
+            true
+        );
+        assert_eq!(
+            plan.public_response["backend_execution"]["status"],
+            "rust_driver_contract_bound"
         );
         assert_eq!(
             plan.public_response["step_module_dispatch_owner"],
@@ -1431,7 +1578,13 @@ mod tests {
         request.body = json!({
             "server_id": "mcp.docs",
             "tool": "search",
-            "input": { "query": "rust" }
+            "input": { "query": "rust" },
+            "thread_id": "thread.docs",
+            "agent_id": "agent.docs",
+            "workload_spec": {
+                "runtime_target": "mcp_adapter",
+                "net_mode": "disabled"
+            }
         });
 
         assert_eq!(
@@ -1448,6 +1601,12 @@ mod tests {
             "server_id": "mcp.docs",
             "tool": "search",
             "input": { "query": "rust" },
+            "thread_id": "thread.docs",
+            "agent_id": "agent.docs",
+            "workload_spec": {
+                "runtime_target": "mcp_adapter",
+                "net_mode": "disabled"
+            },
             "authority_grant_refs": ["wallet.network://grant/mcp/docs/search"],
             "authority_receipt_refs": ["receipt://wallet.network/mcp/docs/search"]
         });
@@ -1461,6 +1620,12 @@ mod tests {
             "server_id": "mcp.docs",
             "tool": "search",
             "input": { "query": "rust" },
+            "thread_id": "thread.docs",
+            "agent_id": "agent.docs",
+            "workload_spec": {
+                "runtime_target": "mcp_adapter",
+                "net_mode": "disabled"
+            },
             "authority_grant_refs": ["wallet.network://grant/mcp/docs/search"],
             "authority_receipt_refs": ["receipt://wallet.network/mcp/docs/search"],
             "custody_ref": "ctee://workspace/docs"

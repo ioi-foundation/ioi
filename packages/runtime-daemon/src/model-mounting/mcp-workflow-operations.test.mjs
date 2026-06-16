@@ -36,6 +36,7 @@ function fakeState() {
   const state = {
     authorizations: [],
     mcpWorkflowRequests: [],
+    mcpLiveBackendExecutions: [],
     modelInvocations: [],
     readProjectionRequests: [],
     recordStateCommits: [],
@@ -97,6 +98,11 @@ function fakeState() {
     planModelMountMcpWorkflow(request) {
       this.mcpWorkflowRequests.push(JSON.parse(JSON.stringify(request)));
       return mcpWorkflowPlan(request);
+    },
+    contextPolicyCore: {
+      executeRuntimeMcpLiveBackend(request) {
+        return executeRuntimeMcpLiveBackend(state, request);
+      },
     },
     modelMountCore: {
       planReadProjection(request) {
@@ -176,6 +182,19 @@ function mcpWorkflowPlan(request) {
     };
     throw error;
   }
+  if (
+    operationKind === "model_mount.mcp_tool.invoke" &&
+    (!request.body.thread_id || !request.body.agent_id || !request.body.workload_spec)
+  ) {
+    const error = new Error("Rust MCP workflow tool invocation requires live backend identity and workload spec.");
+    error.status = 400;
+    error.code = "model_mount_mcp_live_backend_contract_required";
+    error.details = {
+      rust_core_boundary: "model_mount.mcp_workflow",
+      operation_kind: operationKind,
+    };
+    throw error;
+  }
   const recordDir = operationKind === "model_mount.mcp_server.import" ||
     operationKind === "model_mount.mcp_server.ephemeral_register"
     ? "mcp-servers"
@@ -189,18 +208,68 @@ function mcpWorkflowPlan(request) {
   const executionOperation = ["model_mount.mcp_tool.invoke", "model_mount.workflow_node.execute"].includes(
     operationKind,
   );
+  const backendExecution = operationKind === "model_mount.mcp_tool.invoke"
+    ? {
+      schema_version: "ioi.runtime.mcp-backend-execution.v1",
+      object: "ioi.runtime_mcp_backend_execution",
+      status: "rust_driver_contract_bound",
+      owner: "ioi_drivers::mcp::McpManager",
+      transport_owner: "ioi_drivers::mcp::transport::McpTransport",
+      method: "tools/call",
+      server_id: request.body.server_id,
+      tool_ref: `${request.body.server_id}__${request.body.tool}`,
+    }
+    : undefined;
   const resultPayload = executionOperation
     ? {
       schema_version: "ioi.model_mount.mcp_result.v1",
       payload_kind: operationKind === "model_mount.mcp_tool.invoke" ? "mcp_tool_result" : "workflow_node_result",
       materialization_status: "rust_materialized",
       materialization_owner: "rust_daemon_core.model_mount.mcp_workflow",
+      backend_execution: backendExecution,
+      runtime_mcp_backend_execution_status: operationKind === "model_mount.mcp_tool.invoke"
+        ? "rust_driver_contract_bound"
+        : undefined,
+      runtime_mcp_live_backend_execution_required: operationKind === "model_mount.mcp_tool.invoke" || undefined,
       content_receipt_id: `receipt.${recordId}`,
       result_receipt_id: `receipt.${recordId}`,
       is_error: false,
     }
     : undefined;
   const resultPayloadHash = executionOperation ? `sha256:result-payload:${recordId}` : undefined;
+  const liveBackendPlannedResult = operationKind === "model_mount.mcp_tool.invoke"
+    ? {
+      schema_version: "ioi.runtime.mcp-live-result.v1",
+      object: "ioi.runtime_mcp_live_result",
+      id: `model_mount_mcp_live_result.${recordId}`,
+      kind: "model_mount_mcp_tool_live_result",
+      status: "rust_materialized",
+      receipt_id: `receipt.${recordId}`,
+      receipt_refs: [`receipt.${recordId}`],
+      evidence_refs: [
+        "model_mount_mcp_live_backend_planned_result",
+        "runtime_mcp_backend_execution_rust_driver_bound",
+      ],
+      payload: {
+        schema_version: "ioi.runtime.mcp-live-result-payload.v1",
+        object: "ioi.runtime_mcp_live_result_payload",
+        payload_hash: resultPayloadHash,
+        result_payload_hash: resultPayloadHash,
+        backend_execution: backendExecution,
+        protocol_result: {
+          content: [{ type: "text", text: "planned" }],
+          structuredContent: { backend_execution_status: "rust_driver_contract_bound" },
+          isError: false,
+        },
+      },
+      details: {
+        runtime_mcp_backend_execution_status: "rust_driver_contract_bound",
+        runtime_mcp_backend_contract_required: true,
+        payload_hash: resultPayloadHash,
+        result_payload_hash: resultPayloadHash,
+      },
+    }
+    : undefined;
   const publicResponse = {
     status: operationKind.includes("mcp_server") ? "committed" : "admitted",
     operation_kind: operationKind,
@@ -215,6 +284,12 @@ function mcpWorkflowPlan(request) {
     content_receipt_required: executionOperation || undefined,
     result_payload: resultPayload,
     result_payload_hash: resultPayloadHash,
+    backend_execution: backendExecution,
+    live_backend_planned_result: liveBackendPlannedResult,
+    runtime_mcp_backend_execution_status: operationKind === "model_mount.mcp_tool.invoke"
+      ? "rust_driver_contract_bound"
+      : undefined,
+    runtime_mcp_live_backend_execution_required: operationKind === "model_mount.mcp_tool.invoke" || undefined,
     model_mount_mcp_result_materialized: executionOperation ? true : undefined,
     model_mount_mcp_result_materialization_status: executionOperation ? "rust_materialized" : undefined,
     result_materialization_owner: executionOperation
@@ -240,6 +315,8 @@ function mcpWorkflowPlan(request) {
     receipt_state_root_binding_required: executionOperation || undefined,
     server_id: request.body.server_id ?? null,
     tool: request.body.tool ?? null,
+    thread_id: request.body.thread_id ?? null,
+    agent_id: request.body.agent_id ?? null,
     workflow_node_id: request.body.workflow_node_id ?? null,
   };
   const record = {
@@ -252,6 +329,12 @@ function mcpWorkflowPlan(request) {
       servers: serverIds.map((id) => ({ id, label: id, status: "registered" })),
       result_payload: resultPayload,
       result_payload_hash: resultPayloadHash,
+      backend_execution: backendExecution,
+      live_backend_planned_result: liveBackendPlannedResult,
+      runtime_mcp_backend_execution_status: operationKind === "model_mount.mcp_tool.invoke"
+        ? "rust_driver_contract_bound"
+        : undefined,
+      runtime_mcp_live_backend_execution_required: operationKind === "model_mount.mcp_tool.invoke" || undefined,
       model_mount_mcp_result_materialized: executionOperation ? true : undefined,
       model_mount_mcp_result_materialization_status: executionOperation ? "rust_materialized" : undefined,
       result_materialization_owner: executionOperation
@@ -270,6 +353,9 @@ function mcpWorkflowPlan(request) {
       authority_receipt_refs: request.authority_receipt_refs ?? [],
       custody_ref: request.custody_ref ?? null,
       containment_ref: request.containment_ref ?? null,
+      thread_id: request.body.thread_id ?? null,
+      agent_id: request.body.agent_id ?? null,
+      workload_spec: request.body.workload_spec ?? null,
     },
     receipt_id: `receipt.${recordId}`,
     receipt_refs: [`receipt.${recordId}`],
@@ -308,6 +394,10 @@ function mcpWorkflowPlan(request) {
         result_materialization_owner: "rust_daemon_core.model_mount.mcp_workflow",
         result_payload: resultPayload,
         result_payload_hash: resultPayloadHash,
+        runtime_mcp_backend_execution_status: operationKind === "model_mount.mcp_tool.invoke"
+          ? "rust_driver_contract_bound"
+          : undefined,
+        runtime_mcp_live_backend_execution_required: operationKind === "model_mount.mcp_tool.invoke" || undefined,
         result_payload_replay_owner: "rust_daemon_core.model_mount.read_projection.mcp_workflow_result",
         workflow_hash: record.workflow_hash,
         authority_hash: record.authority_hash,
@@ -347,6 +437,82 @@ function mcpWorkflowPlan(request) {
     evidence_refs: record.evidence_refs,
     workflow_hash: record.workflow_hash,
     authority_hash: record.authority_hash,
+  };
+}
+
+function executeRuntimeMcpLiveBackend(state, request) {
+  state.mcpLiveBackendExecutions.push(JSON.parse(JSON.stringify(request)));
+  const driverResultHash = `sha256:driver-result:${request.event_id}`;
+  const payloadHash = `sha256:live-payload:${request.event_id}`;
+  const backendExecution = {
+    ...request.backend_execution,
+    status: "rust_driver_executed",
+    driver_result_hash: driverResultHash,
+  };
+  const protocolResult = {
+    content: [{ type: "text", text: `live:${request.tool_ref}` }],
+    structuredContent: {
+      backend_method: "tools/call",
+      driver_result_hash: driverResultHash,
+    },
+    isError: false,
+  };
+  const result = {
+    ...request.planned_result,
+    status: "rust_driver_executed",
+    evidence_refs: [
+      ...(request.planned_result.evidence_refs ?? []),
+      "runtime_mcp_live_backend_rust_driver_executed",
+      "runtime_mcp_live_backend_actual_mcp_manager_io",
+    ],
+    payload: {
+      ...(request.planned_result.payload ?? {}),
+      payload_hash: payloadHash,
+      result_payload_hash: payloadHash,
+      backend_execution: backendExecution,
+      protocol_result: protocolResult,
+      runtime_mcp_live_backend_driver_result_hash: driverResultHash,
+      driver_result_hash: driverResultHash,
+    },
+    details: {
+      ...(request.planned_result.details ?? {}),
+      payload_hash: payloadHash,
+      result_payload_hash: payloadHash,
+      runtime_mcp_live_backend_execution_status: "rust_driver_executed",
+      runtime_mcp_live_backend_execution_required: true,
+      runtime_mcp_live_backend_driver_result_hash: driverResultHash,
+    },
+  };
+  const receipt = {
+    ...request.receipt,
+    evidenceRefs: [
+      ...(request.receipt.evidenceRefs ?? []),
+      "runtime_mcp_live_backend_rust_driver_executed",
+      "runtime_mcp_live_backend_actual_mcp_manager_io",
+    ],
+    details: {
+      ...(request.receipt.details ?? {}),
+      result_payload_hash: payloadHash,
+      runtime_mcp_live_backend_execution_status: "rust_driver_executed",
+      runtime_mcp_live_backend_execution_required: true,
+      runtime_mcp_live_backend_driver_result_hash: driverResultHash,
+    },
+  };
+  return {
+    source: "rust_mcp_live_backend_execution_api",
+    backend: "rust_mcp_live_backend",
+    schema_version: "ioi.runtime.mcp-live-backend-execution-result.v1",
+    object: "ioi.runtime_mcp_live_backend_execution",
+    status: "rust_driver_executed",
+    backend_execution: backendExecution,
+    driver_result_hash: driverResultHash,
+    result,
+    receipt,
+    evidence_refs: [
+      "runtime_mcp_live_backend_rust_driver_executed",
+      "runtime_mcp_live_backend_actual_mcp_manager_io",
+      "runtime_mcp_live_backend_no_js_transport",
+    ],
   };
 }
 
@@ -468,6 +634,7 @@ function assertNoMcpWorkflowMutation(state) {
   assert.equal(Object.hasOwn(state, "mcpServers"), false);
   assert.deepEqual(state.authorizations, []);
   assert.deepEqual(state.mcpWorkflowRequests, []);
+  assert.deepEqual(state.mcpLiveBackendExecutions, []);
   assert.deepEqual(state.modelInvocations, []);
   assert.deepEqual(state.readProjectionRequests, []);
   assert.deepEqual(state.recordStateCommits, []);
@@ -590,6 +757,17 @@ test("invokeMcpTool uses Rust MCP workflow admission and rejects JS or command f
         server_id: "mcp.Local",
         tool: "run",
         input: { prompt: "hello" },
+        thread_id: "thread.mcp.local",
+        agent_id: "agent.mcp.local",
+        workload_spec: {
+          runtime_target: "mcp_adapter",
+          net_mode: "disabled",
+          capability_lease: {
+            lease_id: "lease-mcp-local",
+            mode: "one_shot",
+            capability_allowlist: ["mcp.Local__run"],
+          },
+        },
         authority_grant_refs: ["wallet.network://grant/mcp/local/run"],
         authority_receipt_refs: ["receipt://wallet.network/mcp/local/run"],
         custody_ref: "ctee://workspace/local",
@@ -600,8 +778,10 @@ test("invokeMcpTool uses Rust MCP workflow admission and rejects JS or command f
 
   assert.equal(result.operation_kind, "model_mount.mcp_tool.invoke");
   assert.equal(result.status, "admitted");
-  assert.equal(result.transport_execution_status, "rust_admitted");
+  assert.equal(result.transport_execution_status, "rust_driver_executed");
   assert.equal(result.rust_transport_execution_admitted, true);
+  assert.equal(result.runtime_mcp_live_backend_execution_status, "rust_driver_executed");
+  assert.equal(result.runtime_mcp_live_backend_execution_required, true);
   assert.equal(result.transport_execution_owner, "rust_daemon_core.model_mount.mcp_workflow");
   assert.equal(result.step_module_dispatch_owner, "rust_daemon_core.step_module_router");
   assert.equal(result.content_receipt_required, true);
@@ -610,13 +790,25 @@ test("invokeMcpTool uses Rust MCP workflow admission and rejects JS or command f
   assert.equal(result.model_mount_mcp_result_materialization_status, "rust_materialized");
   assert.equal(result.result_materialization_owner, "rust_daemon_core.model_mount.mcp_workflow");
   assert.equal(result.result_payload.payload_kind, "mcp_tool_result");
-  assert.equal(result.result_payload_hash, `sha256:result-payload:${state.recordStateCommits[0]?.record_id ?? "unused"}`);
+  assert.equal(result.result_payload.runtime_mcp_live_backend_execution_status, "rust_driver_executed");
+  assert.equal(result.result_payload.backend_execution.status, "rust_driver_executed");
+  assert.equal(result.result_payload.protocol_result.content[0].text, "live:mcp.Local__run");
+  assert.equal(result.result_payload_hash, `sha256:live-payload:${state.mcpWorkflowRequests[0]?.operation_kind.replace(/[^a-z0-9]+/gi, "_")}.alpha`);
   assert.equal(result.receipt.kind, "mcp_tool_invocation");
   assert.equal(result.receipt.details.rust_daemon_core_receipt_author, "model_mount.mcp_workflow");
   assert.equal(result.receipt.details.model_mount_mcp_result_materialized, true);
   assert.equal(result.receipt.details.model_mount_mcp_result_materialization_status, "rust_materialized");
   assert.equal(result.receipt.details.result_payload_hash, result.result_payload_hash);
+  assert.equal(result.receipt.details.runtime_mcp_live_backend_execution_status, "rust_driver_executed");
+  assert.equal(
+    result.receipt.details.runtime_mcp_live_backend_driver_result_hash,
+    `sha256:driver-result:${state.mcpWorkflowRequests[0]?.operation_kind.replace(/[^a-z0-9]+/gi, "_")}.alpha`,
+  );
   assert.equal(result.receipt.details.model_mount_step_module_result.result_materialized, true);
+  assert.equal(
+    result.receipt.details.model_mount_step_module_result.runtime_mcp_live_backend_execution_status,
+    "rust_driver_executed",
+  );
   assert.equal(result.receipt_commit.commit_hash, `sha256:receipt-commit:${result.receipt.id}`);
   assertRetiredFieldsAbsent(result, [
     "js_transport_invocation",
@@ -627,6 +819,9 @@ test("invokeMcpTool uses Rust MCP workflow admission and rejects JS or command f
   assert.equal(state.mcpWorkflowRequests.length, 1);
   assert.equal(state.mcpWorkflowRequests[0].body.server_id, "mcp.Local");
   assert.equal(state.mcpWorkflowRequests[0].body.tool, "run");
+  assert.equal(state.mcpWorkflowRequests[0].body.thread_id, "thread.mcp.local");
+  assert.equal(state.mcpWorkflowRequests[0].body.agent_id, "agent.mcp.local");
+  assert.equal(state.mcpWorkflowRequests[0].body.workload_spec.runtime_target, "mcp_adapter");
   assert.deepEqual(state.mcpWorkflowRequests[0].authority_grant_refs, [
     "wallet.network://grant/mcp/local/run",
   ]);
@@ -635,6 +830,13 @@ test("invokeMcpTool uses Rust MCP workflow admission and rejects JS or command f
   ]);
   assert.equal(state.mcpWorkflowRequests[0].custody_ref, "ctee://workspace/local");
   assert.equal(state.mcpWorkflowRequests[0].containment_ref, "containment://mcp/local");
+  assert.equal(state.mcpLiveBackendExecutions.length, 1);
+  assert.equal(state.mcpLiveBackendExecutions[0].schema_version, "ioi.runtime.mcp-live-backend-execution-request.v1");
+  assert.equal(state.mcpLiveBackendExecutions[0].thread_id, "thread.mcp.local");
+  assert.equal(state.mcpLiveBackendExecutions[0].agent_id, "agent.mcp.local");
+  assert.equal(state.mcpLiveBackendExecutions[0].backend_execution.status, "rust_driver_contract_bound");
+  assert.equal(state.mcpLiveBackendExecutions[0].backend_execution.method, "tools/call");
+  assert.equal(state.mcpLiveBackendExecutions[0].planned_result.kind, "model_mount_mcp_tool_live_result");
   assert.equal(state.recordStateCommits[0].record.details.wallet_authority_required, true);
   assert.equal(
     state.recordStateCommits[0].record.details.wallet_authority_boundary,
@@ -644,6 +846,11 @@ test("invokeMcpTool uses Rust MCP workflow admission and rejects JS or command f
   assert.equal(state.recordStateCommits[0].record.details.transport_containment_required, true);
   assert.equal(state.recordStateCommits[0].record.details.custody_ref, "ctee://workspace/local");
   assert.equal(state.recordStateCommits[0].record.details.containment_ref, "containment://mcp/local");
+  assert.equal(state.recordStateCommits[0].record.details.runtime_mcp_live_backend_execution_status, "rust_driver_executed");
+  assert.equal(
+    state.recordStateCommits[0].record.details.runtime_mcp_live_backend_driver_result_hash,
+    state.mcpLiveBackendExecutions[0].event_id.replace(/^/, "sha256:driver-result:"),
+  );
   assert.equal(state.recordStateCommits.length, 1);
   assert.equal(state.recordStateCommits[0].record_dir, "mcp-workflow-controls");
   assertRetiredFieldsAbsent(state.recordStateCommits[0].record.details, [
@@ -674,7 +881,17 @@ test("invokeMcpTool fails closed without wallet authority refs", () => {
     () =>
       invokeMcpTool(
         state,
-        { authorization: "auth", body: { server_id: "mcp.Local", tool: "run", input: { prompt: "hello" } } },
+        {
+          authorization: "auth",
+          body: {
+            server_id: "mcp.Local",
+            tool: "run",
+            input: { prompt: "hello" },
+            thread_id: "thread.mcp.local",
+            agent_id: "agent.mcp.local",
+            workload_spec: { runtime_target: "mcp_adapter", net_mode: "disabled" },
+          },
+        },
       ),
     (error) => {
       assert.equal(error.code, "model_mount_mcp_external_exit_wallet_authority_required");
@@ -685,6 +902,42 @@ test("invokeMcpTool fails closed without wallet authority refs", () => {
   );
   assert.equal(state.recordStateCommits.length, 0);
   assert.deepEqual(state.authorizations, []);
+});
+
+test("invokeMcpTool fails closed without Rust MCP live backend executor", () => {
+  const state = fakeState();
+  delete state.contextPolicyCore;
+
+  assert.throws(
+    () =>
+      invokeMcpTool(
+        state,
+        {
+          authorization: "auth",
+          body: {
+            server_id: "mcp.Local",
+            tool: "run",
+            input: { prompt: "hello" },
+            thread_id: "thread.mcp.local",
+            agent_id: "agent.mcp.local",
+            workload_spec: { runtime_target: "mcp_adapter", net_mode: "disabled" },
+            authority_grant_refs: ["wallet.network://grant/mcp/local/run"],
+            authority_receipt_refs: ["receipt://wallet.network/mcp/local/run"],
+            custody_ref: "ctee://workspace/local",
+            containment_ref: "containment://mcp/local",
+          },
+        },
+      ),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "model_mount_mcp_live_backend_execution_required");
+      assert.equal(error.details.required_policy_api, "executeRuntimeMcpLiveBackend");
+      return true;
+    },
+  );
+  assert.equal(state.mcpLiveBackendExecutions.length, 0);
+  assert.equal(state.recordStateCommits.length, 0);
+  assert.equal(state.receiptStateCommits.length, 0);
 });
 
 test("invokeMcpTool fails closed without Rust MCP execution receipt commit", () => {
@@ -706,6 +959,9 @@ test("invokeMcpTool fails closed without Rust MCP execution receipt commit", () 
             server_id: "mcp.Local",
             tool: "run",
             input: { prompt: "hello" },
+            thread_id: "thread.mcp.local",
+            agent_id: "agent.mcp.local",
+            workload_spec: { runtime_target: "mcp_adapter", net_mode: "disabled" },
             authority_grant_refs: ["wallet.network://grant/mcp/local/run"],
             authority_receipt_refs: ["receipt://wallet.network/mcp/local/run"],
             custody_ref: "ctee://workspace/local",
@@ -715,7 +971,8 @@ test("invokeMcpTool fails closed without Rust MCP execution receipt commit", () 
       ),
     (error) => error.code === "model_mount_mcp_execution_receipt_required",
   );
-  assert.equal(missingReceiptState.recordStateCommits.length, 1);
+  assert.equal(missingReceiptState.mcpLiveBackendExecutions.length, 0);
+  assert.equal(missingReceiptState.recordStateCommits.length, 0);
   assert.equal(missingReceiptState.receiptStateCommits.length, 0);
 
   const missingCommitterState = fakeState();
@@ -730,6 +987,9 @@ test("invokeMcpTool fails closed without Rust MCP execution receipt commit", () 
             server_id: "mcp.Local",
             tool: "run",
             input: { prompt: "hello" },
+            thread_id: "thread.mcp.local",
+            agent_id: "agent.mcp.local",
+            workload_spec: { runtime_target: "mcp_adapter", net_mode: "disabled" },
             authority_grant_refs: ["wallet.network://grant/mcp/local/run"],
             authority_receipt_refs: ["receipt://wallet.network/mcp/local/run"],
             custody_ref: "ctee://workspace/local",
@@ -756,6 +1016,9 @@ test("invokeMcpTool fails closed without custody and containment refs", () => {
             server_id: "mcp.Local",
             tool: "run",
             input: { prompt: "hello" },
+            thread_id: "thread.mcp.local",
+            agent_id: "agent.mcp.local",
+            workload_spec: { runtime_target: "mcp_adapter", net_mode: "disabled" },
             authority_grant_refs: ["wallet.network://grant/mcp/local/run"],
             authority_receipt_refs: ["receipt://wallet.network/mcp/local/run"],
           },
@@ -778,6 +1041,9 @@ test("invokeMcpTool fails closed without custody and containment refs", () => {
             server_id: "mcp.Local",
             tool: "run",
             input: { prompt: "hello" },
+            thread_id: "thread.mcp.local",
+            agent_id: "agent.mcp.local",
+            workload_spec: { runtime_target: "mcp_adapter", net_mode: "disabled" },
             authority_grant_refs: ["wallet.network://grant/mcp/local/run"],
             authority_receipt_refs: ["receipt://wallet.network/mcp/local/run"],
             custody_ref: "ctee://workspace/local",
@@ -817,7 +1083,17 @@ test("invokeMcpTool rejects retired request aliases before authorization", () =>
       assert.equal(error.status, 400);
       assert.equal(error.code, "model_mount_mcp_tool_invocation_request_aliases_retired");
       assert.deepEqual(error.details.retired_aliases, ["serverId", "server_label", "serverLabel"]);
-      assert.deepEqual(error.details.canonical_fields, ["server_id", "tool", "input"]);
+      assert.deepEqual(error.details.canonical_fields, [
+        "server_id",
+        "tool",
+        "input",
+        "thread_id",
+        "agent_id",
+        "workload_spec",
+        "timeout_ms",
+        "live_transport",
+        "execution_mode",
+      ]);
       return true;
     },
   );

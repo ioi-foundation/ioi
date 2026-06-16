@@ -630,6 +630,7 @@ export class AgentgresRuntimeStateStore {
       vaultSecrets: options.vaultSecrets,
       modelMountCore: options.modelMountCore,
       daemonCoreModelMountApi: this.daemonCoreModelMountApi,
+      contextPolicyCore: this.contextPolicyCore,
       commitRuntimeModelMountRecordState: (request) => this.commitRuntimeModelMountRecordState(request),
       commitRuntimeModelMountReceiptState: (request) => this.commitRuntimeModelMountReceiptState(request),
     });

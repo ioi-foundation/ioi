@@ -8727,9 +8727,11 @@ proof fields entirely, and
 the transport containment ref alongside wallet grant refs, authority receipt
 refs, and cTEE custody refs. The JS model-mount core rejects stale
 `rust_required` and fallback-proof MCP workflow execution responses instead of
-normalizing them into public truth. This remains non-terminal until live external MCP backend
-invocation/discovery, runtime containment for external backends, direct protocol
-APIs, and command-transport retirement are complete.
+normalizing them into public truth. Slice 1382 supersedes the tool-invocation
+side of this blocker by requiring Rust MCP live backend execution before
+model_mount MCP tool truth can commit; live external MCP discovery, runtime
+containment for external backends, direct protocol APIs, and command-transport
+retirement remain open elsewhere.
 
 Slice 1214 binds the migrated model-mount MCP execution hot paths to
 Rust-authored execution/content receipts instead of leaving result truth implied
@@ -8782,9 +8784,10 @@ public live-exit truth can return. The new
 `commit_runtime_mcp_live_result_state` daemon-core operation persists runtime
 MCP live-result records under `mcp-live-results/*.json` through Rust Agentgres
 storage admission, so JS cannot substitute a live transport result projection.
-This remains non-terminal until actual external Rust MCP backend invocation and
-discovery execute inside the contained runtime, and stable protocol APIs
-replay/project those Rust records without temporary command transport.
+This intermediate blocker is superseded by the later Rust live backend executor
+cuts; remaining runtime MCP work is containment hardening for live backends and
+stable protocol APIs that replay/project those Rust records without temporary
+command transport.
 
 Slice 1217 binds runtime MCP live-result public return to Rust-owned
 Agentgres replay/projection. Rust `McpLiveResultReplayCore` and
@@ -9114,10 +9117,9 @@ typed `daemonCoreMcpApi.planRuntimeMcpServeToolCall` and
 `project_runtime_mcp_serve_tool_result` command operations, dispatch arms,
 response wrappers, `RuntimeMcpServeCommandError`, command source markers, and JS
 command-envelope fields are absent, and conformance requires command-protocol
- rejection for both retired operations. Actual external MCP transport execution,
- runtime containment sandboxing for live backend invocation/discovery, broader
- serve admission, and stable protocol APIs over Rust replay records remain
- non-terminal.
+rejection for both retired operations. Runtime containment sandboxing for live
+backend discovery/serve flows, broader serve admission, and stable protocol APIs
+over Rust replay records remain non-terminal.
 Model-mount MCP workflow control has a matching typed Rust positive boundary:
 `daemonCoreModelMountApi.planModelMountMcpWorkflow` now calls Rust
 `RuntimeKernel::plan_model_mount_mcp_workflow` for import, ephemeral
@@ -9137,12 +9139,19 @@ execution/content receipts, materialized protocol result payload hashes, and Rus
 Agentgres receipt-state commit before route truth returns, so JS cannot invent
 the content receipt, StepModule result binding, or result envelope locally. Rust
 `mcp_servers` read projection replays admitted `mcp-servers` records for public
-server list readback. The JS surface remains only a canonical request client plus
-record/receipt-state commit adapter; JS MCP receipt synthesis, server-map
-projection, route tests, receipt-gate dispatch, and model invocation stay retired
-for this family while live external MCP backend invocation/discovery, broader
-runtime containment sandboxing, and stable protocol APIs remain the terminal
-blockers.
+server list readback. Slice 1382 adds the terminal MCP tool-invocation cut:
+`invokeMcpTool()` now requires `contextPolicyCore.executeRuntimeMcpLiveBackend`
+over the Rust `ioi.runtime.mcp-backend-execution.v1` contract, canonical
+`thread_id` / `agent_id`, and `workload_spec` before model_mount record or
+receipt truth can commit. Missing executor, missing backend contract, or missing
+live result fails closed with no Agentgres model_mount record commit, and the
+committed response carries `runtime_mcp_live_backend_rust_driver_executed`
+evidence plus the Rust driver-result hash. The JS surface remains only a
+canonical request client plus record/receipt-state commit adapter; JS MCP receipt
+synthesis, server-map projection, route tests, receipt-gate dispatch, model
+invocation, and plan-only tool-result success stay retired for this family while
+live external MCP discovery, broader runtime containment sandboxing, and stable
+protocol APIs remain the terminal blockers.
 Workflow-edit proposal/apply controls have also moved to Rust-owned event
 planning plus Rust runtime-event admission; the remaining workflow-edit blockers
 are wallet approval authority, workflow mutation custody, durable
@@ -9781,10 +9790,31 @@ and marks `model_mount_mcp_result_materialized: true` with
 `rust_materialized` status. The JS model-mount core and mounted state path now
 reject stale pending-materialization plans before public truth can return, and
 receipt-write guards reject direct MCP execution receipt appends without the
-Rust materialized result binding. This remains non-terminal because live
-external MCP transport backend invocation/discovery, broader runtime containment
+Rust materialized result binding. Slice 1382 supersedes the MCP tool-invocation
+transport blocker by requiring the Rust live backend executor before model_mount
+tool truth can commit; live MCP discovery, broader runtime containment
 sandboxing, and stable IDE/CLI/SDK protocol APIs still need terminal Rust-owned
 records.
+
+Slice 1382 hard-cuts model_mount MCP tool invocation through the Rust MCP live
+backend executor. Rust `plan_model_mount_mcp_workflow` now requires canonical
+`thread_id`, `agent_id`, and `workload_spec` for `model_mount.mcp_tool.invoke`,
+emits an `ioi.runtime.mcp-backend-execution.v1` contract bound to
+`ioi_drivers::mcp::McpManager` / `McpTransport`, and provides a planned
+`ioi.runtime.mcp-live-result.v1` result object for the backend executor. The
+mounted daemon model_mount path receives `contextPolicyCore` from daemon startup
+and calls `executeRuntimeMcpLiveBackend()` before model_mount record-state commit
+or MCP execution receipt-state commit. If the executor, backend contract,
+workload spec, Rust-authored content receipt, live result payload, or Rust driver
+hash is missing, no model_mount MCP tool truth commits. Successful tool
+invocation binds `runtime_mcp_live_backend_rust_driver_executed`,
+`runtime_mcp_live_backend_actual_mcp_manager_io`, and
+`runtime_mcp_live_backend_no_js_transport` evidence into the public response,
+record details, and receipt, stamps `transport_execution_status:
+"rust_driver_executed"`, and carries the Rust driver-result hash into
+`result_payload_hash`, the StepModule result binding, and receipt details. The
+old plan-only deterministic MCP tool payload remains admissible planning data
+only; it cannot be terminal public truth or a compatibility fallback.
 
 Slice 1267 hard-deletes the model_mount MCP workflow fallback-proof protocol
 shape. Rust `plan_model_mount_mcp_workflow` no longer serializes
@@ -9842,9 +9872,8 @@ Rust replay now rejects MCP control live-result records that still carry the
 retired pending backend evidence, and the JS MCP control surface rejects
 `admitted_pending_rust_transport` / `runtime_mcp_transport_backend_pending`
 records before result-state commit or public truth can return. This remains
-non-terminal because actual external Rust MCP backend invocation/discovery,
-runtime containment sandboxing for live backends, and stable IDE/CLI/SDK
-protocol APIs still need terminal Rust-owned records.
+non-terminal because runtime containment sandboxing for live backends and stable
+IDE/CLI/SDK protocol APIs still need terminal Rust-owned records.
 
 Slice 1240 hard-cuts runtime MCP catalog live-discovery out of the deferred
 projection lane. Rust `McpToolSearchProjectionCore` now marks live catalog
@@ -9855,9 +9884,8 @@ non-deferred catalog summaries for declared Rust-projected server rows. The JS
 catalog surface and context-policy adapter preserve the Rust materialized field
 as protocol output, while conformance rejects the old deferred-live-discovery
 surface name and marker from the success path. This remains non-terminal because
-actual external Rust MCP backend invocation/discovery, runtime containment
-sandboxing for live backends, and stable IDE/CLI/SDK protocol APIs still need
-terminal Rust-owned records.
+runtime containment sandboxing for live backends and stable IDE/CLI/SDK protocol
+APIs still need terminal Rust-owned records.
 
 Slice 1241 hard-cuts runtime MCP control live results out of the generic
 Rust-shaped backend-materialization lane. Rust `mcp_control_live_exit_result`

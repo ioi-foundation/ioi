@@ -1201,9 +1201,15 @@ function runDocs() {
 	      ) &&
 	      /Slice 1267 hard-deletes the model_mount MCP workflow fallback-proof protocol\s+shape/.test(guide) &&
 	      /materialized protocol result payload hashes/.test(guide) &&
-	      /live\s+external MCP transport backend invocation\/discovery/.test(guide),
+	      /Slice 1382 hard-cuts model_mount MCP tool invocation through the Rust MCP live\s+backend executor/.test(
+	        guide,
+	      ) &&
+	      /executeRuntimeMcpLiveBackend\(\)/.test(guide) &&
+	      /transport_execution_status:\s+"rust_driver_executed"/.test(guide) &&
+	      /old plan-only deterministic MCP tool payload remains admissible planning data\s+only/.test(guide) &&
+	      /live MCP discovery/.test(guide),
 	    [GUIDE],
-	    "master guide must record the retired MCP workflow rust_required placeholder, Rust execution receipt/result binding, and the remaining live external MCP backend blocker",
+	    "master guide must record the retired MCP workflow rust_required placeholder, Rust execution receipt/result binding, and the model_mount MCP live-backend execution hard cut",
 	  );
   assertCheck(
     result,
@@ -1239,7 +1245,7 @@ function runDocs() {
       /ioi\.runtime\.mcp-live-exit-receipt\.v1/.test(guide) &&
       /commitRuntimeReceiptState\(\)` before `writeAgent\(\)` can persist/.test(guide) &&
       /commit_runtime_receipt_state/.test(guide) &&
-      /actual external Rust MCP backend invocation and\s+discovery execute inside the contained runtime/.test(guide),
+      /intermediate blocker is superseded by the later Rust live backend executor\s+cuts/.test(guide),
     [GUIDE],
     "master guide must record Rust-owned runtime MCP live-exit receipt-state binding and the narrower remaining external backend blocker",
   );
@@ -1251,7 +1257,7 @@ function runDocs() {
       /commitRuntimeMcpLiveResultState\(\)` after `commitRuntimeReceiptState\(\)` and\s+before `writeAgent\(\)` can persist/.test(guide) &&
       /commit_runtime_mcp_live_result_state/.test(guide) &&
       /mcp-live-results\/\*\.json/.test(guide) &&
-      /actual external Rust MCP backend invocation and\s+discovery execute inside the contained runtime/.test(guide),
+      /intermediate blocker is superseded by the later Rust live backend executor\s+cuts/.test(guide),
     [GUIDE],
     "master guide must record Rust-owned runtime MCP live-result state binding and the remaining external backend blocker",
   );
@@ -3062,9 +3068,9 @@ function runDocs() {
 	      ) &&
 		      /pending-materialization MCP workflow execution responses/.test(implementationMatrix) &&
 		      /materialized result payloads, and `result_payload_hash` binding/.test(implementationMatrix) &&
-		      /live external MCP transport backend invocation\/discovery, broader runtime containment sandboxing, and stable SDK\/IDE APIs remain non-terminal/.test(
-		        implementationMatrix,
-		      ) &&
+	      /live external MCP discovery, broader runtime containment sandboxing, and stable SDK\/IDE APIs remain non-terminal/.test(
+	        implementationMatrix,
+	      ) &&
       /`allowedTools`, `allowedResources`, `allowedPrompts`, `serverUrl`,\s+`containmentMode`, `allowNetworkEgress`, `allowChildProcesses`, and\s+`secretRefs` aliases/.test(
         implementationMatrix,
       ) &&
@@ -24616,10 +24622,20 @@ function runReceipts() {
 	      /MissingField\("authority_receipt_refs"\)/.test(modelMountCore) &&
 	      /MissingField\("custody_ref"\)/.test(modelMountCore) &&
 	      /MissingField\("containment_ref"\)/.test(modelMountCore) &&
+	      /required_body_string\(body,\s*"thread_id"\)/.test(rustModelMountMcpWorkflowCore) &&
+	      /required_body_string\(body,\s*"agent_id"\)/.test(rustModelMountMcpWorkflowCore) &&
+	      /MissingField\("workload_spec"\)/.test(rustModelMountMcpWorkflowCore) &&
 	      /"wallet_authority_boundary": "wallet\.network\.mcp_external_exit"/.test(modelMountCore) &&
 	      /"ctee_custody_required": true/.test(modelMountCore) &&
 	      /"transport_containment_required": true/.test(modelMountCore) &&
 	      /"transport_execution_status": "rust_admitted"/.test(modelMountCore) &&
+	      /mcp_tool_backend_execution_contract/.test(rustModelMountMcpWorkflowCore) &&
+	      /"schema_version": "ioi\.runtime\.mcp-backend-execution\.v1"/.test(rustModelMountMcpWorkflowCore) &&
+	      /"status": "rust_driver_contract_bound"/.test(rustModelMountMcpWorkflowCore) &&
+	      /"method": "tools\/call"/.test(rustModelMountMcpWorkflowCore) &&
+	      /mcp_tool_live_backend_planned_result/.test(rustModelMountMcpWorkflowCore) &&
+	      /model_mount_mcp_tool_live_result/.test(rustModelMountMcpWorkflowCore) &&
+	      /runtime_mcp_live_backend_execution_required/.test(rustModelMountMcpWorkflowCore) &&
 	      /"execution_status": "rust_admitted"/.test(modelMountCore) &&
 		      /"rust_transport_execution_admitted": true/.test(modelMountCore) &&
 		      /"rust_step_module_dispatch_admitted": true/.test(modelMountCore) &&
@@ -24663,6 +24679,17 @@ function runReceipts() {
 		      /public_response\.execution_status\.retired_rust_required/.test(modelMountCore) &&
 		      /assertMcpWorkflowResultMaterialized/.test(modelMountDaemonCore) &&
 		      /assertRetiredMcpWorkflowFieldsAbsent/.test(modelMountDaemonCore) &&
+		      /MODEL_MOUNT_MCP_LIVE_BACKEND_EXECUTION_SCHEMA_VERSION/.test(mcpWorkflowOperations) &&
+		      /contextPolicyCore: this\.contextPolicyCore/.test(runtimeDaemonIndex) &&
+		      /this\.contextPolicyCore = contextPolicyCore/.test(mcpWorkflowOperations) &&
+		      /executeAndBindModelMountMcpLiveBackend/.test(mcpWorkflowOperations) &&
+		      /executeRuntimeMcpLiveBackend/.test(mcpWorkflowOperations) &&
+		      /model_mount_mcp_live_backend_execution_required/.test(mcpWorkflowOperations) &&
+		      /model_mount_mcp_live_backend_contract_required/.test(mcpWorkflowOperations) &&
+		      /runtime_mcp_live_backend_rust_driver_executed/.test(mcpWorkflowOperations) &&
+		      /runtime_mcp_live_backend_no_js_transport/.test(mcpWorkflowOperations) &&
+		      /transport_execution_status: "rust_driver_executed"/.test(mcpWorkflowOperations) &&
+		      /live_backend_execution: executionRecord/.test(mcpWorkflowOperations) &&
 		      /public_response\.model_mount_mcp_result_materialization_status\.retired_pending_transport_backend/.test(
 		        modelMountDaemonCore,
 		      ) &&
@@ -24688,15 +24715,34 @@ function runReceipts() {
 	      /wallet_network_mcp_external_exit_authority_required/.test(modelMountCore) &&
 	      /ctee_mcp_external_exit_custody_required/.test(modelMountCore) &&
 	      /mcp_transport_containment_required/.test(modelMountCore) &&
-	      /rust_admits_model_mount_mcp_tool_invocation_without_js_or_command_fallback/.test(modelMountCore) &&
-	      /rust_admits_model_mount_workflow_node_dispatch_without_js_fallback/.test(modelMountCore) &&
-	      /rust_rejects_model_mount_mcp_tool_invocation_without_wallet_authority/.test(modelMountCore) &&
-	      /rust_rejects_model_mount_mcp_tool_invocation_without_custody_or_containment/.test(modelMountCore) &&
+	      /invokeMcpTool fails closed without Rust MCP live backend executor/.test(mcpWorkflowOperationsTest) &&
+	      /state\.mcpLiveBackendExecutions\.length,\s*1/.test(mcpWorkflowOperationsTest) &&
+	      /state\.mcpLiveBackendExecutions\[0\]\.backend_execution\.status,\s*"rust_driver_contract_bound"/.test(
+	        mcpWorkflowOperationsTest,
+	      ) &&
+	      /result\.runtime_mcp_live_backend_execution_status,\s*"rust_driver_executed"/.test(
+	        mcpWorkflowOperationsTest,
+	      ) &&
+	      /result\.result_payload\.backend_execution\.status,\s*"rust_driver_executed"/.test(
+	        mcpWorkflowOperationsTest,
+	      ) &&
+	      /rust_admits_model_mount_mcp_tool_invocation_without_js_or_command_fallback/.test(
+	        rustModelMountMcpWorkflowCore,
+	      ) &&
+	      /rust_admits_model_mount_workflow_node_dispatch_without_js_fallback/.test(
+	        rustModelMountMcpWorkflowCore,
+	      ) &&
+	      /rust_rejects_model_mount_mcp_tool_invocation_without_wallet_authority/.test(
+	        rustModelMountMcpWorkflowCore,
+	      ) &&
+	      /rust_rejects_model_mount_mcp_tool_invocation_without_custody_or_containment/.test(
+	        rustModelMountMcpWorkflowCore,
+	      ) &&
 	      /rust_core_plans_model_mount_mcp_workflow_direct_api/.test(modelMountCore) &&
 	      /model_mount_mcp_workflow_receipt_synthesis_js_retired/.test(modelMountCore) &&
 	      /model_mount_mcp_workflow_record_state_js_retired/.test(modelMountCore) &&
 	      /planModelMountMcpWorkflow\(request\)/.test(mcpWorkflowOperations) &&
-	      /persistMcpWorkflowExecutionReceipt\(state, plan\)/.test(mcpWorkflowOperations) &&
+	      /persistMcpWorkflowExecutionReceipt\(state, terminalPlan\)/.test(mcpWorkflowOperations) &&
 	      /persistRustAuthoredReceiptWithCommit\(receipt\)/.test(mcpWorkflowOperations) &&
 	      /model_mount_mcp_execution_result_materialization_required/.test(mcpWorkflowOperations) &&
 	      /model_mount_mcp_execution_receipt_required/.test(mcpWorkflowOperations) &&
@@ -24832,7 +24878,7 @@ function runReceipts() {
 	        modelMountStoreTest,
 	      ) &&
       /`ioi\.model_mount\.mcp_workflow_receipt\.v1` receipts/.test(implementationMatrix) &&
-	      /persistRustAuthoredReceiptWithCommit\(\)` plus the materialized result binding before public execution truth returns/.test(
+	      /persistRustAuthoredReceiptWithCommit\(\)` plus the materialized\/live result binding before public execution truth returns/.test(
 	        implementationMatrix,
 	      ) &&
       /assertNoMcpWorkflowMutation\(state\)/.test(mcpWorkflowOperationsTest) &&
