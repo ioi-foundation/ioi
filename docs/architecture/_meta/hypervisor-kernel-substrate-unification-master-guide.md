@@ -11352,6 +11352,21 @@ mutation/control routes, backend execution/materialization, hosted/provider
 transport, OAuth/auth-header materialization, invocation authority depth, and
 IDE protocol coverage still need terminal Rust-owned coverage.
 
+Slice 1351 hard-cuts stable model_mount read proof and IDE clients. Current
+proof/autopilot scripts, product UI/desktop/workbench clients, and IDE
+workflow model-capability binding surfaces no longer name retired
+`/api/v1/model-capabilities`, `/api/v1/models/catalog/search`,
+`/api/v1/models/artifacts`, or `/api/v1/models/routes` read URLs; they use
+`/v1/model-capabilities`, `/v1/models/catalog/search`, and the other stable
+`/v1` model read protocols from Slice 1348. The workbench proof route scanner
+now checks stable public read routes separately from the still-native
+mutation/control aliases, and conformance scans CLI/SDK/proof/IDE client
+surfaces plus product source-only clients so the retired read clients cannot
+return. This remains non-terminal because mutation/control routes, backend
+execution/materialization, hosted/provider transport, OAuth/auth-header
+materialization, invocation authority depth, and IDE protocol coverage still
+need terminal Rust-owned coverage.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

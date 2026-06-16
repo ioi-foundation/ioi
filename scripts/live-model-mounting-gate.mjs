@@ -1606,11 +1606,11 @@ async function runModelCatalogGate(evidence) {
     evidence.details.daemonEndpoint = daemon.endpoint;
     evidence.details.stateDir = stateDir;
     const params = new URLSearchParams();
-    params.set("q", query);
+    params.set("query", query);
     if (format) params.set("format", format);
     if (quantization) params.set("quantization", quantization);
     params.set("limit", String(limit));
-    const catalog = await expectOk(daemon.endpoint, `/api/v1/models/catalog/search?${params.toString()}`);
+    const catalog = await expectOk(daemon.endpoint, `/v1/models/catalog/search?${params.toString()}`);
     const liveProvider = catalog.providers?.find?.((provider) => provider.id === "catalog.huggingface");
     if (liveProvider?.status !== "available") {
       evidence.status = "blocked";

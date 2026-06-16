@@ -327,22 +327,29 @@ function checkWorkbenchImplementation() {
 }
 
 function checkDaemonRouteImplementation() {
-  const source = read(join(repoRoot, "packages/runtime-daemon/src/index.mjs"));
-  const required = [
-    'url.pathname === "/api/v1/models/artifacts"',
-    'url.pathname === "/api/v1/models/estimate-load"',
+  const publicRoutes = read(join(repoRoot, "packages/runtime-daemon/src/http/public-runtime-routes.mjs"));
+  const nativeRoutes = read(join(repoRoot, "packages/runtime-daemon/src/runtime-route-handlers.mjs"));
+  const requiredPublic = [
+    'url.pathname === "/v1/models/artifacts"',
+    'url.pathname === "/v1/model-capabilities"',
+    'url.pathname === "/v1/models/catalog/search"',
+  ];
+  const requiredNativeControl = [
     'segments[3] === "mounts"',
     'url.pathname === "/api/v1/models/server"',
     'url.pathname === "/api/v1/models/runtime-engines"',
     'url.pathname === "/api/v1/models/backends"',
   ];
-  const missing = required.filter((phrase) => !source.includes(phrase));
+  const missing = [
+    ...requiredPublic.filter((phrase) => !publicRoutes.includes(phrase)),
+    ...requiredNativeControl.filter((phrase) => !nativeRoutes.includes(phrase)),
+  ];
   return {
     id: "daemon:model-mounting-workbench-routes",
     ok: missing.length === 0,
     summary:
       missing.length === 0
-        ? "Daemon exposes workbench-facing model mounting aliases"
+        ? "Daemon exposes stable model read routes and workbench-facing control aliases"
         : "Daemon model mounting route aliases are incomplete",
     evidence: { missing },
   };

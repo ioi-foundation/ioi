@@ -364,7 +364,7 @@ export function PolicyView({
     try {
       const receipt = await fetchAuthorityJson(
         endpoint,
-        `/api/v1/receipts/${encodeURIComponent(receiptId)}`,
+        `/v1/model-mount/receipts/${encodeURIComponent(receiptId)}`,
       );
       setAuthorityReceipt(authorityReceiptPreview(receipt));
       setAuthorityActionStatus(`Opened receipt ${receiptId}.`);
@@ -457,7 +457,7 @@ export function PolicyView({
           { method: "DELETE" },
         );
         const revoked = authorityRecord(result);
-        const receipts = await fetchAuthorityJson(endpoint, "/api/v1/receipts");
+        const receipts = await fetchAuthorityJson(endpoint, "/v1/model-mount/receipts");
         const receiptId =
           latestReceiptIdForGrant(
             receipts,

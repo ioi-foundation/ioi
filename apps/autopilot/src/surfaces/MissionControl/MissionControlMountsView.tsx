@@ -2431,12 +2431,12 @@ function useModelMountsDaemon() {
 	      searchCatalog: (draft: CatalogSearchDraft) =>
 	        runAction("catalog-search", async () => {
           const params = new URLSearchParams({
-            q: draft.query || "autopilot",
+            query: draft.query || "autopilot",
             format: draft.format,
             quantization: draft.quantization,
             limit: draft.limit || "20",
           });
-          const result = await requestJson(`/api/v1/models/catalog/search?${params.toString()}`);
+          const result = await requestJson(`/v1/models/catalog/search?${params.toString()}`);
           const variants = normalizeCatalogVariants(result?.results);
           setCatalogVariants(variants);
           const count = variants.length;
@@ -3105,7 +3105,7 @@ function useModelMountsDaemon() {
         }),
       replayReceipt: (receiptId: string) =>
         runAction("receipt-replay", async () => {
-          const replay = await requestJson(`/api/v1/receipts/${encodeURIComponent(receiptId)}/replay`);
+          const replay = await requestJson(`/v1/model-mount/receipts/${encodeURIComponent(receiptId)}/replay`);
           const kind = stringValue(replay?.receipt?.kind, "receipt");
           return `Replayed ${kind} receipt ${receiptId}.`;
         }),
@@ -4572,7 +4572,7 @@ function ServerPanel({
           "POST /api/v1/models/load",
           "POST /api/v1/models/unload",
           "POST /api/v1/models/download",
-          "GET /api/v1/models/catalog/search",
+          "GET /v1/models/catalog/search",
           "POST /api/v1/models/catalog/import-url",
           "POST /api/v1/models/storage/cleanup",
           "DELETE /api/v1/models/:id",
@@ -4591,8 +4591,8 @@ function ServerPanel({
           "POST /v1/chat/completions",
           "POST /api/v1/mcp/import",
           "POST /api/v1/workflows/nodes/execute",
-          "GET /api/v1/receipts",
-          "GET /api/v1/receipts/:id/replay",
+          "GET /v1/model-mount/receipts",
+          "GET /v1/model-mount/receipts/:id/replay",
           "GET /api/v1/projections/model-mounting",
         ].map((routePath) => (
           <code key={routePath}>{routePath}</code>

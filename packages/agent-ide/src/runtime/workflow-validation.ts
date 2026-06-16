@@ -235,7 +235,7 @@ function liveModelBindingContractMetadataIssues(
     issues.push({
       nodeId,
       code: "missing_model_capability_ref",
-      message: "Live model bindings need a modelCapabilityRef from /api/v1/model-capabilities or authority projection.",
+      message: "Live model bindings need a modelCapabilityRef from /v1/model-capabilities or authority projection.",
     });
   }
   if (!String(normalized.routeId ?? "").trim()) {

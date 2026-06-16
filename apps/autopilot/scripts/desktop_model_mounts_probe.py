@@ -211,7 +211,7 @@ def seed_model_mounting_state(endpoint: str) -> dict[str, Any]:
         "/api/v1/backends/backend.autopilot.native-local.fixture/health",
         method="POST",
     )
-    catalog_search = request_json(endpoint, "/api/v1/models/catalog/search?q=autopilot&format=gguf&limit=10")
+    catalog_search = request_json(endpoint, "/v1/models/catalog/search?query=autopilot&format=gguf&limit=10")
     download = request_json(
         endpoint,
         "/api/v1/models/download",
@@ -716,7 +716,7 @@ def wait_for_receipt_condition(
     last_error: str | None = None
     while time.time() < deadline:
         try:
-            receipts = request_json(endpoint, "/api/v1/receipts", timeout=6.0)
+            receipts = request_json(endpoint, "/v1/model-mount/receipts", timeout=6.0)
             if isinstance(receipts, list):
                 last_receipts = receipts
                 if predicate(receipts):
@@ -772,7 +772,7 @@ def exercise_download_row_actions(
             name="downloads-open-receipt-logs",
         )
     )
-    opened_receipt = request_json(endpoint, f"/api/v1/receipts/{urllib.parse.quote(opened_receipt_id)}")
+    opened_receipt = request_json(endpoint, f"/v1/model-mount/receipts/{urllib.parse.quote(opened_receipt_id)}")
 
     activate_tab(window_id, "F5")
     press_action_shortcut(window_id, "F10")
@@ -825,7 +825,7 @@ def exercise_download_row_actions(
         )
     )
 
-    receipts = request_json(endpoint, "/api/v1/receipts")
+    receipts = request_json(endpoint, "/v1/model-mount/receipts")
     assertions = {
         "openReceiptKeyRoutedToLogs": action_screenshots[0].get("tab") == "logs" and not action_screenshots[0].get("capture_error"),
         "openedReceiptLookupSucceeded": opened_receipt.get("id") == opened_receipt_id,
@@ -903,7 +903,7 @@ def exercise_model_lifecycle_actions(
     observed: dict[str, list[dict[str, Any]]] = {}
 
     def receipts_before() -> int:
-        receipts = request_json(endpoint, "/api/v1/receipts")
+        receipts = request_json(endpoint, "/v1/model-mount/receipts")
         return len(receipts) if isinstance(receipts, list) else 0
 
     def run_receipted_action(shortcut: str, label: str, condition_label: str, predicate) -> list[dict[str, Any]]:
@@ -974,7 +974,7 @@ def exercise_model_lifecycle_actions(
             None,
         ),
     )
-    receipts = request_json(endpoint, "/api/v1/receipts")
+    receipts = request_json(endpoint, "/v1/model-mount/receipts")
     model_receipts = [
         receipt
         for receipt in receipts
@@ -995,8 +995,8 @@ def exercise_model_lifecycle_actions(
             name="models-open-receipt-logs",
         )
     )
-    opened_receipt = request_json(endpoint, f"/api/v1/receipts/{urllib.parse.quote(opened_receipt_id)}") if opened_receipt_id else {}
-    replay = request_json(endpoint, f"/api/v1/receipts/{urllib.parse.quote(opened_receipt_id)}/replay") if opened_receipt_id else {}
+    opened_receipt = request_json(endpoint, f"/v1/model-mount/receipts/{urllib.parse.quote(opened_receipt_id)}") if opened_receipt_id else {}
+    replay = request_json(endpoint, f"/v1/model-mount/receipts/{urllib.parse.quote(opened_receipt_id)}/replay") if opened_receipt_id else {}
     artifact = next((item for item in final_snapshot.get("artifacts", []) if item.get("modelId") == model_id), {})
     mounted_endpoint = next((item for item in final_snapshot.get("endpoints", []) if item.get("id") == endpoint_id), {})
     assertions = {
@@ -1055,7 +1055,7 @@ def exercise_token_mcp_actions(
     action_screenshots: list[dict[str, Any]] = []
 
     def receipts_before() -> int:
-        receipts = request_json(endpoint, "/api/v1/receipts")
+        receipts = request_json(endpoint, "/v1/model-mount/receipts")
         return len(receipts) if isinstance(receipts, list) else 0
 
     activate_tab(window_id, "F6")
@@ -1127,7 +1127,7 @@ def exercise_token_mcp_actions(
     )
 
     snapshot = request_json(endpoint, "/api/v1/models")
-    receipts = request_json(endpoint, "/api/v1/receipts")
+    receipts = request_json(endpoint, "/v1/model-mount/receipts")
     validation_tokens = [
         token for token in snapshot.get("tokens", [])
         if token.get("grantId") == validation_grant_id
@@ -1186,7 +1186,7 @@ def exercise_routing_workflow_actions(
     observed: dict[str, list[dict[str, Any]]] = {}
 
     def receipts_before() -> int:
-        receipts = request_json(endpoint, "/api/v1/receipts")
+        receipts = request_json(endpoint, "/v1/model-mount/receipts")
         return len(receipts) if isinstance(receipts, list) else 0
 
     def run_receipted_action(shortcut: str, label: str, condition_label: str, predicate) -> None:
@@ -1240,7 +1240,7 @@ def exercise_routing_workflow_actions(
     )
 
     snapshot = request_json(endpoint, "/api/v1/models")
-    receipts = request_json(endpoint, "/api/v1/receipts")
+    receipts = request_json(endpoint, "/v1/model-mount/receipts")
     route = next((item for item in snapshot.get("routes", []) if item.get("id") == "route.local-first"), {})
     route_receipt_id = route.get("receipt") or route.get("lastReceiptId")
     workflow_nodes = {node.get("node") for node in snapshot.get("workflowNodes", [])}
@@ -1286,7 +1286,7 @@ def exercise_benchmark_observability_actions(
     observed: dict[str, list[dict[str, Any]]] = {}
 
     def receipts_before() -> int:
-        receipts = request_json(endpoint, "/api/v1/receipts")
+        receipts = request_json(endpoint, "/v1/model-mount/receipts")
         return len(receipts) if isinstance(receipts, list) else 0
 
     def native_benchmark_invocation(receipt: dict[str, Any], summary_prefix: str | None = None) -> bool:
@@ -1333,13 +1333,13 @@ def exercise_benchmark_observability_actions(
         )
     )
 
-    benchmark_receipts = [receipt for receipt in request_json(endpoint, "/api/v1/receipts") if native_benchmark_invocation(receipt)]
+    benchmark_receipts = [receipt for receipt in request_json(endpoint, "/v1/model-mount/receipts") if native_benchmark_invocation(receipt)]
     latest_benchmark = benchmark_receipts[-1] if benchmark_receipts else {}
     latest_benchmark_id = str(latest_benchmark.get("id") or "")
 
     press_action_shortcut(window_id, "shift+F14")
     time.sleep(1.5)
-    replay = request_json(endpoint, f"/api/v1/receipts/{urllib.parse.quote(latest_benchmark_id)}/replay") if latest_benchmark_id else {}
+    replay = request_json(endpoint, f"/v1/model-mount/receipts/{urllib.parse.quote(latest_benchmark_id)}/replay") if latest_benchmark_id else {}
     action_screenshots.append(
         capture_action_state(
             window_id,
@@ -1363,10 +1363,10 @@ def exercise_benchmark_observability_actions(
             name="benchmarks-open-receipt-logs",
         )
     )
-    opened_receipt = request_json(endpoint, f"/api/v1/receipts/{urllib.parse.quote(latest_benchmark_id)}") if latest_benchmark_id else {}
+    opened_receipt = request_json(endpoint, f"/v1/model-mount/receipts/{urllib.parse.quote(latest_benchmark_id)}") if latest_benchmark_id else {}
 
     snapshot = request_json(endpoint, "/api/v1/models")
-    receipts = request_json(endpoint, "/api/v1/receipts")
+    receipts = request_json(endpoint, "/v1/model-mount/receipts")
     native_invocations = [receipt for receipt in receipts if native_benchmark_invocation(receipt)]
     chat_receipts = [receipt for receipt in native_invocations if str(receipt.get("summary") or "").startswith("chat invocation")]
     response_receipts = [receipt for receipt in native_invocations if str(receipt.get("summary") or "").startswith("responses invocation")]
@@ -1425,7 +1425,7 @@ def exercise_stream_lifecycle_observability_action(
     """Exercise the Logs stream lifecycle panel with live provider-native stream receipts."""
 
     action_screenshots: list[dict[str, Any]] = []
-    before_receipts = request_json(endpoint, "/api/v1/receipts")
+    before_receipts = request_json(endpoint, "/v1/model-mount/receipts")
     before_count = len(before_receipts) if isinstance(before_receipts, list) else 0
 
     activate_tab(window_id, "F9")
@@ -1468,7 +1468,7 @@ def exercise_stream_lifecycle_observability_action(
         )
     )
 
-    all_receipts = request_json(endpoint, "/api/v1/receipts")
+    all_receipts = request_json(endpoint, "/v1/model-mount/receipts")
     completed_receipts = [
         receipt
         for receipt in all_receipts
@@ -1630,7 +1630,7 @@ def exercise_provider_backend_actions(
         time.sleep(1.5)
 
     snapshot = request_json(endpoint, "/api/v1/models")
-    receipts = request_json(endpoint, "/api/v1/receipts")
+    receipts = request_json(endpoint, "/v1/model-mount/receipts")
     backend = next((item for item in snapshot.get("backends", []) if item.get("id") == backend_id), None)
     provider = next((item for item in snapshot.get("providers", []) if item.get("id") == provider_id), None)
     provider_artifacts = [

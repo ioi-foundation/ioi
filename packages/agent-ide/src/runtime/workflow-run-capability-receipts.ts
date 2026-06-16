@@ -67,7 +67,7 @@ export type WorkflowCapabilityRepairAction = {
   targetSurface: "node_binding_editor" | "authority_center";
   configSection: "bindings";
   authorityEndpoint: "/api/v1/authority" | null;
-  catalogEndpoint: "/api/v1/model-capabilities" | "/api/v1/tools" | null;
+  catalogEndpoint: "/v1/model-capabilities" | "/api/v1/tools" | null;
   missingFields: string[];
   authorityScopes: string[];
   blockerReasons: string[];
@@ -557,7 +557,7 @@ function workflowCapabilityCatalogEndpoint(
   bindingKind: WorkflowRunCapabilityReceiptRow["bindingKind"],
 ): WorkflowCapabilityRepairAction["catalogEndpoint"] {
   return bindingKind === "Model"
-    ? "/api/v1/model-capabilities"
+    ? "/v1/model-capabilities"
     : "/api/v1/tools";
 }
 

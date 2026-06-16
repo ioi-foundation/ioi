@@ -6,7 +6,7 @@ import type {
   WorkflowModelBinding,
 } from "../types/graph";
 
-export const MODEL_CAPABILITY_BINDING_ENDPOINT = "/api/v1/model-capabilities";
+export const MODEL_CAPABILITY_BINDING_ENDPOINT = "/v1/model-capabilities";
 export const MODEL_AUTHORITY_BINDING_ENDPOINT = "/api/v1/authority";
 
 export const WORKFLOW_MODEL_BINDING_KEYS = [

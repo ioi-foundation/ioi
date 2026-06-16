@@ -30,7 +30,7 @@ const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-stage25-state-"));
 const daemon = await startRuntimeDaemonService({ cwd, stateDir });
 
 try {
-  const capabilities = await fetchJson(`${daemon.endpoint}/api/v1/model-capabilities`);
+  const capabilities = await fetchJson(`${daemon.endpoint}/v1/model-capabilities`);
   assert.ok(capabilities.some((capability) => capability.routeId === "route.local-first"));
   assert.ok(capabilities.some((capability) => capability.routeId === "route.native-local"));
 

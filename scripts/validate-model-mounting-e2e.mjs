@@ -986,7 +986,7 @@ async function main() {
     });
 
     await runStep(evidence, "catalog search, import modes, cleanup, and download lifecycle", async () => {
-      const catalog = await expectOk(daemon.endpoint, "/api/v1/models/catalog/search?q=autopilot");
+      const catalog = await expectOk(daemon.endpoint, "/v1/models/catalog/search?query=autopilot");
       assert.ok(catalog.results.some((entry) => entry.sourceUrl === "fixture://catalog/autopilot-native-3b-q4"));
       const catalogImport = await expectOk(daemon.endpoint, "/api/v1/models/catalog/import-url", {
         method: "POST",

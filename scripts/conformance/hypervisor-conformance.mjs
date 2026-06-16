@@ -22542,11 +22542,55 @@ function runReceipts() {
   const modelMountStableReadCliReceipts = exists("crates/cli/src/commands/receipts.rs")
     ? read("crates/cli/src/commands/receipts.rs")
     : "";
+  const modelMountStableReadProtocolClientCorpus = [
+    modelMountStableReadAgentSdkSubstrateClient,
+    modelMountStableReadAgentSdkTest,
+    modelMountStableReadCliModels,
+    modelMountStableReadCliRoutes,
+    ...collectFiles(
+      "scripts",
+      (file) =>
+        file.endsWith(".mjs") &&
+        !file.endsWith(".test.mjs") &&
+        file !== "scripts/conformance/hypervisor-conformance.mjs",
+    ).map((file) => read(file)),
+    ...collectFiles(
+      "packages/agent-ide/src",
+      (file) => file.endsWith(".ts") || file.endsWith(".tsx") || file.endsWith(".js") || file.endsWith(".jsx"),
+    ).map((file) => read(file)),
+    ...collectFiles(
+      "apps/autopilot/src",
+      (file) => file.endsWith(".ts") || file.endsWith(".tsx") || file.endsWith(".js") || file.endsWith(".jsx"),
+    ).map((file) => read(file)),
+    ...collectFiles(
+      "apps/autopilot/scripts",
+      (file) => file.endsWith(".py") || file.endsWith(".mjs") || file.endsWith(".js"),
+    ).map((file) => read(file)),
+    ...collectFiles(
+      "apps/autopilot/openvscode-extension/ioi-workbench/commands",
+      (file) => file.endsWith(".js") || file.endsWith(".mjs"),
+    ).map((file) => read(file)),
+  ].join("\n");
   const modelMountReceiptProtocolClients = [
     modelMountStableReadCliReceipts,
     ...collectFiles(
       "scripts",
-      (file) => file.endsWith(".mjs") && file !== "scripts/conformance/hypervisor-conformance.mjs",
+      (file) =>
+        file.endsWith(".mjs") &&
+        !file.endsWith(".test.mjs") &&
+        file !== "scripts/conformance/hypervisor-conformance.mjs",
+    ).map((file) => read(file)),
+    ...collectFiles(
+      "apps/autopilot/src",
+      (file) => file.endsWith(".ts") || file.endsWith(".tsx") || file.endsWith(".js") || file.endsWith(".jsx"),
+    ).map((file) => read(file)),
+    ...collectFiles(
+      "apps/autopilot/scripts",
+      (file) => file.endsWith(".py") || file.endsWith(".mjs") || file.endsWith(".js"),
+    ).map((file) => read(file)),
+    ...collectFiles(
+      "apps/autopilot/openvscode-extension/ioi-workbench/commands",
+      (file) => file.endsWith(".js") || file.endsWith(".mjs"),
     ).map((file) => read(file)),
   ].join("\n");
   const modelMountStableReadCliModelsLsBlock =
@@ -26075,12 +26119,19 @@ function runReceipts() {
       !/"\/api\/v1\/model-capabilities"/.test(modelMountStableReadCliModelsCapabilitiesBlock) &&
       !/"\/api\/v1\/models\/catalog\/search/.test(modelMountStableReadCliModelsCatalogSearchBlock) &&
       !/"\/api\/v1\/routes"/.test(modelMountStableReadCliRoutesLsBlock) &&
+      !/\/api\/v1\/model-capabilities/.test(modelMountStableReadProtocolClientCorpus) &&
+      !/\/api\/v1\/models\/catalog\/search/.test(modelMountStableReadProtocolClientCorpus) &&
+      !/\/api\/v1\/models\/artifacts/.test(modelMountStableReadProtocolClientCorpus) &&
+      !/\/api\/v1\/models\/routes/.test(modelMountStableReadProtocolClientCorpus) &&
       /Slice 1348 hard-cuts stable model_mount read protocol clients/.test(guide) &&
       /Slice 1349 retires the legacy model_mount native read aliases/.test(guide) &&
+      /Slice 1351 hard-cuts stable model_mount read proof and IDE clients/.test(guide) &&
       /Model_mount stable read protocol clients/.test(matrix) &&
       /Model_mount legacy native read aliases retired/.test(matrix) &&
+      /Model_mount stable read proof and IDE clients/.test(matrix) &&
       /RuntimeDaemonCoreModelMountStableReadProtocolClients/.test(implementationMatrix) &&
-      /RuntimeDaemonCoreModelMountLegacyReadAliasesRetired/.test(implementationMatrix),
+      /RuntimeDaemonCoreModelMountLegacyReadAliasesRetired/.test(implementationMatrix) &&
+      /RuntimeDaemonCoreModelMountStableReadProofIdeClients/.test(implementationMatrix),
     [
       "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
       "packages/agent-sdk/src/substrate-client.ts",

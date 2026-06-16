@@ -96,7 +96,7 @@ test("catalog search and provider configuration preserve daemon route envelopes"
 
   assert.equal(
     requests[0].route,
-    "/api/v1/models/catalog/search?q=qwen&query=qwen&format=gguf&quantization=Q4_K_M&limit=5",
+    "/v1/models/catalog/search?query=qwen&format=gguf&quantization=Q4_K_M&limit=5",
   );
   assert.equal(requests[0].options.method, "GET");
   assert.equal(

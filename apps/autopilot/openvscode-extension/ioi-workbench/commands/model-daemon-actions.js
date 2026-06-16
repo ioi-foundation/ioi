@@ -95,7 +95,6 @@ function createModelDaemonActions({
     const params = new URLSearchParams();
     const query = pickPayloadString(payload, "query") || pickPayloadString(payload, "q") || "";
     if (query) {
-      params.set("q", query);
       params.set("query", query);
     }
     const format = pickPayloadString(payload, "format");
@@ -103,7 +102,7 @@ function createModelDaemonActions({
     if (format) params.set("format", format);
     if (quantization) params.set("quantization", quantization);
     params.set("limit", pickPayloadString(payload, "limit") || "20");
-    return requestJson(endpoint, `/api/v1/models/catalog/search?${params.toString()}`, {
+    return requestJson(endpoint, `/v1/models/catalog/search?${params.toString()}`, {
       method: "GET",
       token,
     });
