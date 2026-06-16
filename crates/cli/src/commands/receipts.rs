@@ -36,7 +36,14 @@ pub async fn run(args: ReceiptsArgs) -> Result<()> {
     let token = args.token.as_deref();
     let value = match args.command {
         ReceiptsCommands::Ls => {
-            daemon_request(endpoint, token, Method::GET, "/v1/model-mount/receipts", None).await?
+            daemon_request(
+                endpoint,
+                token,
+                Method::GET,
+                "/v1/model-mount/receipts",
+                None,
+            )
+            .await?
         }
         ReceiptsCommands::Get { id } => {
             daemon_request(

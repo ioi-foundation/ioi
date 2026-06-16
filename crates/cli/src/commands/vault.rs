@@ -89,10 +89,24 @@ pub async fn run(args: VaultArgs) -> Result<()> {
             .await?
         }
         VaultCommands::Ls => {
-            daemon_request(endpoint, token, Method::GET, "/v1/model-mount/vault/refs", None).await?
+            daemon_request(
+                endpoint,
+                token,
+                Method::GET,
+                "/v1/model-mount/vault/refs",
+                None,
+            )
+            .await?
         }
         VaultCommands::Status => {
-            daemon_request(endpoint, token, Method::GET, "/v1/model-mount/vault/status", None).await?
+            daemon_request(
+                endpoint,
+                token,
+                Method::GET,
+                "/v1/model-mount/vault/status",
+                None,
+            )
+            .await?
         }
         VaultCommands::Health { latest } => {
             if latest {
@@ -105,7 +119,14 @@ pub async fn run(args: VaultArgs) -> Result<()> {
                 )
                 .await?
             } else {
-                daemon_request(endpoint, token, Method::POST, "/v1/model-mount/vault/health", None).await?
+                daemon_request(
+                    endpoint,
+                    token,
+                    Method::POST,
+                    "/v1/model-mount/vault/health",
+                    None,
+                )
+                .await?
             }
         }
         VaultCommands::GetMeta { vault_ref } => {

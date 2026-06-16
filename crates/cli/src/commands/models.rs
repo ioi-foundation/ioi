@@ -185,14 +185,7 @@ pub async fn run(args: ModelsArgs) -> Result<()> {
             daemon_request(endpoint, token, Method::GET, "/v1/models", None).await?
         }
         ModelsCommands::Capabilities => {
-            daemon_request(
-                endpoint,
-                token,
-                Method::GET,
-                "/v1/model-capabilities",
-                None,
-            )
-            .await?
+            daemon_request(endpoint, token, Method::GET, "/v1/model-capabilities", None).await?
         }
         ModelsCommands::Get { id } => {
             daemon_request(
@@ -388,7 +381,14 @@ pub async fn run(args: ModelsArgs) -> Result<()> {
             .await?
         }
         ModelsCommands::Ps => {
-            daemon_request(endpoint, token, Method::GET, "/v1/model-mount/instances/loaded", None).await?
+            daemon_request(
+                endpoint,
+                token,
+                Method::GET,
+                "/v1/model-mount/instances/loaded",
+                None,
+            )
+            .await?
         }
         ModelsCommands::ProviderModels { provider_id } => {
             daemon_request(

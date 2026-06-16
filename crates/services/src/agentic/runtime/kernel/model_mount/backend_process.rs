@@ -1639,7 +1639,10 @@ mod tests {
         );
         assert!(plan.record.get("retired_paths").is_none());
         assert!(plan.public_response.get("js_process_supervisor").is_none());
-        assert!(plan.public_response.get("command_transport_spawn").is_none());
+        assert!(plan
+            .public_response
+            .get("command_transport_spawn")
+            .is_none());
         assert!(plan.public_response.get("binary_bridge_spawn").is_none());
         assert!(plan
             .public_response
@@ -1706,7 +1709,10 @@ mod tests {
             "rust_fixture_supervision_bound"
         );
         assert!(plan.record.get("retired_paths").is_none());
-        assert!(plan.public_response.get("command_transport_spawn").is_none());
+        assert!(plan
+            .public_response
+            .get("command_transport_spawn")
+            .is_none());
         assert!(plan
             .evidence_refs
             .contains(&"js_backend_process_supervisor_retired".to_string()));

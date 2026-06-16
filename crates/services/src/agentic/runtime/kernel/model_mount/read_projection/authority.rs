@@ -216,10 +216,7 @@ mod tests {
             snapshot["vaultRefs"][0]["vault_projection_boundary"],
             "model_mount.vault_projection"
         );
-        assert_eq!(
-            snapshot["server"]["nativeBaseUrl"],
-            "http://127.0.0.1:3200/api/v1"
-        );
+        assert_eq!(snapshot["server"].get("nativeBaseUrl"), None);
         assert_eq!(snapshot["receipts"].as_array().expect("receipts").len(), 2);
     }
 

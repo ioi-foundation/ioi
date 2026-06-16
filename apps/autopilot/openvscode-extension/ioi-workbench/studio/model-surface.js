@@ -940,12 +940,10 @@ function renderModelsPanelBody(state, { compact = false } = {}) {
   const artifactCapabilities = Array.isArray(selectedArtifact.capabilities)
     ? selectedArtifact.capabilities
     : [];
-      const serverBaseUrl =
+  const serverBaseUrl =
     snapshot.server.openAiCompatibleBaseUrl ||
-      snapshot.server.openAiCompatibleApi ||
-      snapshot.server.nativeBaseUrl ||
-      snapshot.server.nativeApi ||
-      "/v1";
+    snapshot.server.openAiCompatibleApi ||
+    "/v1";
 
   return `
       <section
@@ -1213,7 +1211,6 @@ function renderModelsPanelBody(state, { compact = false } = {}) {
                   ${modelStatusPill(snapshot.server.gatewayStatus || snapshot.server.status || "unknown")}
                 </div>
                 <dl data-testid="model-server-endpoints">
-                  <div><dt>Native API</dt><dd>${escapeHtml(snapshot.server.nativeApi || snapshot.server.nativeBaseUrl || "/api/v1")}</dd></div>
                   <div><dt>OpenAI API</dt><dd>${escapeHtml(serverBaseUrl)}</dd></div>
                   <div><dt>Loaded</dt><dd data-testid="model-server-loaded-models">${escapeHtml(String(snapshot.server.loadedInstances ?? loadedCount))}</dd></div>
                   <div><dt>Daemon</dt><dd>${escapeHtml(modelStatus.endpoint || daemonEndpoint() || "not configured")}</dd></div>

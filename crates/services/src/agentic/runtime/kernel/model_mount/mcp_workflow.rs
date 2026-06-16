@@ -251,8 +251,13 @@ fn plan_mcp_tool_invoke(
     );
     let receipt_id = receipt_id_for("mcp_tool_invocation", &record_id);
     let backend_execution = mcp_tool_backend_execution_contract(&server_id, &tool);
-    let result_payload =
-        mcp_tool_result_payload(&server_id, &tool, &input_hash, &receipt_id, &backend_execution);
+    let result_payload = mcp_tool_result_payload(
+        &server_id,
+        &tool,
+        &input_hash,
+        &receipt_id,
+        &backend_execution,
+    );
     let result_payload_hash = hash_json(&result_payload)?;
     let live_backend_planned_result = mcp_tool_live_backend_planned_result(
         &record_id,

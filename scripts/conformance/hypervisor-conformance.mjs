@@ -23112,6 +23112,11 @@ function runReceipts() {
   const modelMountWorkbenchExtension = exists("apps/autopilot/openvscode-extension/ioi-workbench/extension.js")
     ? read("apps/autopilot/openvscode-extension/ioi-workbench/extension.js")
     : "";
+  const modelMountWorkbenchStudioModelSurface = exists(
+    "apps/autopilot/openvscode-extension/ioi-workbench/studio/model-surface.js",
+  )
+    ? read("apps/autopilot/openvscode-extension/ioi-workbench/studio/model-surface.js")
+    : "";
   const modelMountWorkbenchWorkflowComposerBundle = exists(
     "apps/autopilot/openvscode-extension/ioi-workbench/media/workflow-composer/workflow-composer.js",
   )
@@ -23136,6 +23141,7 @@ function runReceipts() {
     modelMountStableReadCliVault,
     modelMountStableReadCliTokens,
     modelMountWorkbenchExtension,
+    modelMountWorkbenchStudioModelSurface,
     modelMountWorkbenchWorkflowComposerBundle,
     modelMountWorkbenchWorkflowComposerMap,
     modelMountAgentIdeDist,
@@ -27058,6 +27064,10 @@ function runReceipts() {
       !/\/api\/v1\/projections\/model-mounting/.test(modelMountStableReadProtocolClientCorpus) &&
       !/\/api\/v1\/workflows\/(?:nodes\/execute|receipt-gate)/.test(modelMountStableReadProtocolClientCorpus) &&
       !/\/api\/v1\/mcp\/(?:import|invoke)/.test(modelMountStableReadProtocolClientCorpus) &&
+      !/\"nativeBaseUrl\"\s*:/.test(modelMountCore) &&
+      !/\bnativeBaseUrl\b|\bnativeApi\b|Native API/.test(modelMountStableReadProtocolClientCorpus) &&
+      /"openAiCompatibleBaseUrl": open_ai_compatible_base_url/.test(modelMountCore) &&
+      /Object\.hasOwn\(status,\s*"nativeBaseUrl"\),\s*false/.test(modelMountingDaemonContract) &&
       /\/v1\/model-mount\/projection/.test(modelMountWorkbenchWorkflowComposerBundle) &&
       /\/v1\/model-mount\/workflows\/nodes\/execute/.test(modelMountWorkbenchWorkflowComposerBundle) &&
       !/\/api\/v1\/projections\/model-mounting/.test(modelMountWorkbenchWorkflowComposerBundle) &&
@@ -27137,7 +27147,7 @@ function runReceipts() {
       ) &&
       /\/v1\/model-mount\/server\/logs\?limit=/.test(modelMountStableReadCliServer) &&
       /\/v1\/model-mount\/server\/events\?limit=/.test(modelMountStableReadCliServer) &&
-      /daemon_request\(endpoint, token, Method::GET, "\/v1\/model-mount\/backends", None\)/.test(
+      /daemon_request\([\s\S]*Method::GET,[\s\S]*"\/v1\/model-mount\/backends"[\s\S]*None/.test(
         modelMountStableReadCliBackends,
       ) &&
       /\/v1\/model-mount\/backends\/\{id\}\/logs/.test(modelMountStableReadCliBackends) &&
@@ -27153,17 +27163,20 @@ function runReceipts() {
       /Slice 1384 hard-cuts stable model_mount snapshot, projection, MCP workflow,\s+and workflow-node protocol clients/.test(guide) &&
       /Slice 1385 hard-cuts shipped workbench workflow-composer generated media/.test(guide) &&
       /Slice 1396 hard-cuts proof contract native route fallbacks/.test(guide) &&
+      /Slice 1397 hard-cuts model_mount native API metadata/.test(guide) &&
       /Model_mount stable read protocol clients/.test(matrix) &&
       /Model_mount legacy native read aliases retired/.test(matrix) &&
       /Model_mount stable read proof and IDE clients/.test(matrix) &&
       /Model_mount stable snapshot\/projection\/MCP\/workflow protocol clients/.test(matrix) &&
       /Proof contract stable protocol clients/.test(matrix) &&
+      /Model_mount native API metadata retired/.test(matrix) &&
       /Model_mount workbench workflow-composer generated media protocol clients/.test(matrix) &&
       /RuntimeDaemonCoreModelMountStableReadProtocolClients/.test(implementationMatrix) &&
       /RuntimeDaemonCoreModelMountLegacyReadAliasesRetired/.test(implementationMatrix) &&
       /RuntimeDaemonCoreModelMountStableReadProofIdeClients/.test(implementationMatrix) &&
       /RuntimeDaemonCoreModelMountStableSnapshotWorkflowProtocolClients/.test(implementationMatrix) &&
       /RuntimeProofContractStableProtocolClients/.test(implementationMatrix) &&
+      /RuntimeDaemonCoreModelMountNativeApiMetadataRetired/.test(implementationMatrix) &&
       /RuntimeDaemonCoreModelMountWorkbenchWorkflowComposerGeneratedMediaClients/.test(implementationMatrix),
     [
       "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
@@ -27171,8 +27184,12 @@ function runReceipts() {
       "crates/cli/src/commands/models.rs",
       "crates/cli/src/commands/routes.rs",
       "scripts/lib/model-mounting-daemon-contract.test.mjs",
+      "apps/autopilot/src/surfaces/MissionControl/MissionControlMountsView.tsx",
+      "apps/autopilot/openvscode-extension/ioi-workbench/studio/model-surface.js",
+      "crates/services/src/agentic/runtime/kernel/model_mount/read_projection/status.rs",
+      "crates/services/src/agentic/runtime/kernel/runtime_doctor_report.rs",
     ],
-    "Stable model_mount read clients must use /v1 Rust projection APIs; migrated CLI/SDK read commands must not fall back through older /api/v1 model_mount read routes",
+    "Stable model_mount read clients must use /v1 Rust projection APIs; migrated CLI/SDK read commands and product metadata must not fall back through older /api/v1 model_mount read routes or native API breadcrumbs",
   );
   assertCheck(
     result,
@@ -27955,7 +27972,7 @@ function runReceipts() {
       /method: "listReceipts"/.test(publicRuntimeRoutesTest) &&
       /method: "getReceipt"/.test(publicRuntimeRoutesTest) &&
       /method: "receiptReplay"/.test(publicRuntimeRoutesTest) &&
-      /daemon_request\(endpoint, token, Method::GET, "\/v1\/model-mount\/receipts", None\)/.test(
+      /daemon_request\([\s\S]*Method::GET,[\s\S]*"\/v1\/model-mount\/receipts"[\s\S]*None/.test(
         modelMountStableReadCliReceipts,
       ) &&
       /\/v1\/model-mount\/receipts\/\{id\}/.test(modelMountStableReadCliReceipts) &&
@@ -30527,6 +30544,8 @@ function runReceipts() {
       !/Runtime tool catalog projection is retired in JS/.test(runtimeDoctorReportRustCore) &&
       !/runtime_tool_catalog_rust_core_required/.test(runtimeDoctorReportRustCore) &&
       !/runtime_skill_hook_registry_rust_core_required/.test(runtimeDoctorReportRustCore) &&
+      !/\bnativeApi\b/.test(runtimeDoctorReportRustCore) &&
+      /"publicApi": "\/v1"/.test(runtimeDoctorReportRustCore) &&
       /runtime_doctor_js_aggregate_retired/.test(runtimeDoctorReportRustCore) &&
       /agentgres_doctor_projection_replay_required/.test(runtimeDoctorReportRustCore) &&
       /const catalog = await fetchJsonStatus\(`\$\{daemon\.endpoint\}\/v1\/tools\?pack=coding`\)/.test(

@@ -372,7 +372,6 @@ impl RuntimeDoctorReportProjectionCore {
             "daemon": {
                 "endpoint": optional_trimmed(request.base_url.as_deref()),
                 "publicApi": "/v1",
-                "nativeApi": "/api/v1",
                 "requestScoped": true,
             },
             "workspace": {

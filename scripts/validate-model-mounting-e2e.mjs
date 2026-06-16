@@ -484,7 +484,6 @@ async function main() {
       assert.equal(revoked.response.status, 403);
 
       return {
-        nativeBaseUrl: status.nativeBaseUrl,
         openAiCompatibleBaseUrl: status.openAiCompatibleBaseUrl,
         failClosedStatuses: [unauthenticated.response.status, denied.response.status, expired.response.status, revoked.response.status],
       };

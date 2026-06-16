@@ -363,7 +363,6 @@ interface ServerPreview {
   lastServerOperation: string;
   lastServerOperationAt: string;
   lastServerReceiptId: string;
-  nativeBaseUrl: string;
   openAiCompatibleBaseUrl: string;
   loadedInstances: number;
   mountedEndpoints: number;
@@ -720,7 +719,6 @@ const fallbackData: MountsWorkbenchData = {
     lastServerOperation: "fixture_projection",
     lastServerOperationAt: "not connected",
     lastServerReceiptId: "none",
-    nativeBaseUrl: `${DEFAULT_DAEMON_ENDPOINT}/api/v1`,
     openAiCompatibleBaseUrl: `${DEFAULT_DAEMON_ENDPOINT}/v1`,
     loadedInstances: 1,
     mountedEndpoints: 2,
@@ -3546,7 +3544,6 @@ function normalizeSnapshot(snapshot: any, endpoint: string): MountsWorkbenchData
       lastServerOperation: stringValue(snapshot?.server?.lastServerOperation, "none"),
       lastServerOperationAt: stringValue(snapshot?.server?.lastServerOperationAt, "not recorded"),
       lastServerReceiptId: stringValue(snapshot?.server?.lastServerReceiptId, "none"),
-      nativeBaseUrl: stringValue(snapshot?.server?.nativeBaseUrl, `${endpoint}/api/v1`),
       openAiCompatibleBaseUrl: stringValue(snapshot?.server?.openAiCompatibleBaseUrl, `${endpoint}/v1`),
       loadedInstances: numberValue(snapshot?.server?.loadedInstances, instances.filter((item) => item.status === "loaded").length),
       mountedEndpoints: numberValue(snapshot?.server?.mountedEndpoints, endpoints.length),
@@ -4509,10 +4506,6 @@ function ServerPanel({
         <div>
           <span>Control</span>
           <strong>{data.server.controlStatus}</strong>
-        </div>
-        <div>
-          <span>Native API</span>
-          <strong>{data.server.nativeBaseUrl}</strong>
         </div>
         <div>
           <span>OpenAI compatible</span>

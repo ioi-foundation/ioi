@@ -12206,6 +12206,15 @@ Rust-required projection path. Conformance scans these proof contracts so
 proof/live validation clients cannot preserve native-route split-brain fallback
 behavior beside Rust-owned protocol projections.
 
+Slice 1397 hard-cuts model_mount native API metadata.
+Rust model_mount server-status and authority projections no longer emit
+`nativeBaseUrl`, the Rust runtime doctor report no longer advertises `nativeApi`,
+and product/workbench model surfaces no longer render a "Native API" fallback or
+derive `/api/v1` from server metadata. The daemon proof now asserts the retired
+field is absent while preserving the stable `/v1` OpenAI-compatible protocol
+base, and conformance scans Rust producers plus product/proof clients so retired
+native endpoint breadcrumbs cannot return as discoverable split-brain metadata.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

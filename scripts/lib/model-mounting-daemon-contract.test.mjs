@@ -310,7 +310,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
   try {
     const status = await expectOk(daemon.endpoint, "/v1/model-mount/server/status");
     assert.equal(status.schemaVersion, "ioi.model-mounting.runtime.v1");
-    assert.equal(status.nativeBaseUrl, `${daemon.endpoint}/api/v1`);
+    assert.equal(Object.hasOwn(status, "nativeBaseUrl"), false);
     assert.equal(status.openAiCompatibleBaseUrl, `${daemon.endpoint}/v1`);
 
     const unauthenticated = await requestJson(daemon.endpoint, "/v1/chat/completions", {

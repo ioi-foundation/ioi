@@ -1787,7 +1787,6 @@ function serverStatusFromRustRequest(request) {
     lastServerOperation: publicResponse.operation ?? latest?.operation_kind ?? "server_status",
     lastServerOperationAt: latest?.generated_at ?? null,
     lastServerReceiptId: lastReceipt,
-    nativeBaseUrl: baseUrl ? `${baseUrl}/api/v1` : "/api/v1",
     openAiCompatibleBaseUrl: baseUrl ? `${baseUrl}/v1` : "/v1",
     loadedInstances: instanceRecords.length,
     mountedEndpoints: endpointRecords.length,
@@ -4725,7 +4724,7 @@ test("read projection direct client delegates server status through Rust project
   assert.equal(status.recordCount, 2);
   assert.equal(status.rustCoreBoundary, "model_mount.server_control_projection");
   assert.equal(status.evidenceRefs.includes("agentgres_server_control_replay_required"), true);
-  assert.equal(status.nativeBaseUrl, "http://127.0.0.1:3200/api/v1");
+  assert.equal(Object.hasOwn(status, "nativeBaseUrl"), false);
   assert.equal(status.openAiCompatibleBaseUrl, "http://127.0.0.1:3200/v1");
   assert.equal(status.loadedInstances, 2);
   assert.equal(status.mountedEndpoints, 2);

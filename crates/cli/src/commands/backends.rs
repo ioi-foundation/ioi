@@ -73,7 +73,14 @@ pub async fn run(args: BackendsArgs) -> Result<()> {
     let token = args.token.as_deref();
     let value = match args.command {
         BackendsCommands::Ls => {
-            daemon_request(endpoint, token, Method::GET, "/v1/model-mount/backends", None).await?
+            daemon_request(
+                endpoint,
+                token,
+                Method::GET,
+                "/v1/model-mount/backends",
+                None,
+            )
+            .await?
         }
         BackendsCommands::Health { id } => {
             daemon_request(

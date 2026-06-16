@@ -81,10 +81,6 @@ fn server_status_from_records(
     backend_records: Vec<Value>,
 ) -> Value {
     let base_url = request.base_url.clone();
-    let native_base_url = base_url
-        .as_ref()
-        .map(|url| format!("{url}/api/v1"))
-        .unwrap_or_else(|| "/api/v1".to_string());
     let open_ai_compatible_base_url = base_url
         .as_ref()
         .map(|url| format!("{url}/v1"))
@@ -141,7 +137,6 @@ fn server_status_from_records(
         "lastServerOperation": last_operation,
         "lastServerOperationAt": last_operation_at,
         "lastServerReceiptId": last_receipt,
-        "nativeBaseUrl": native_base_url,
         "openAiCompatibleBaseUrl": open_ai_compatible_base_url,
         "loadedInstances": topology::instance_records(request).len(),
         "mountedEndpoints": topology::endpoint_records(request).len(),
@@ -787,7 +782,7 @@ mod tests {
             status["rustCoreBoundary"],
             "model_mount.server_control_projection"
         );
-        assert_eq!(status["nativeBaseUrl"], "http://127.0.0.1:3200/api/v1");
+        assert_eq!(status.get("nativeBaseUrl"), None);
         assert_eq!(
             status["openAiCompatibleBaseUrl"],
             "http://127.0.0.1:3200/v1"
