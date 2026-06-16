@@ -11292,6 +11292,19 @@ sequence, memory-count side read, runtime identity override, camelCase replay
 fallback, and compatibility projection shapers must not return beside the
 Rust-owned thread/turn projection hot path.
 
+Slice 1347 hard-cuts runtime MCP serve query/raw JSON-RPC transport
+compatibility. SDK `threadMcpServeRpc()` no longer inherits MCP list query
+options, no longer builds `mcpServeQuery()`, and rejects retired
+`thread_id`/`agent_id`/`server_id`/source-mode query context before transport.
+Public and runtime thread MCP serve routes now require the
+`ioi.runtime.mcp-serve-client.v1` body envelope on
+`/v1/threads/{thread_id}/mcp/serve`, reject query-carried serve context, and
+reject raw JSON-RPC bodies instead of merging query facts into the Rust-owned
+MCP serve context. The live daemon contract initializes and lists served tools
+through the same stable body envelope used for tool calls, and conformance
+guards that the retired SDK query builder, query context merge, top-level serve
+transport, and raw JSON-RPC compatibility path cannot return.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

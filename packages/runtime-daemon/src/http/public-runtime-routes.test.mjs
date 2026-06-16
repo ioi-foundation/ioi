@@ -1184,3 +1184,47 @@ test("public runtime MCP serve route accepts stable protocol admission envelope"
   assert.equal(calls[0].options.thread_id, "thread_route");
   assert.deepEqual(JSON.parse(response.body), { jsonrpc: "2.0", id: 31, result: { ok: true } });
 });
+
+test("public runtime MCP serve route rejects query or raw JSON-RPC compatibility transport", async () => {
+  const { handleRequest } = routeHarness();
+  const store = {
+    mcpServeSurface: {
+      mcpServeStatus: retiredRouteWrapper,
+      handleMcpServeJsonRpc: retiredRouteWrapper,
+    },
+  };
+
+  for (const { method, url, body, code } of [
+    {
+      method: "GET",
+      url: "/v1/threads/thread_route/mcp/serve?server_id=mcp.docs",
+      body: {},
+      code: "runtime_mcp_serve_query_context_retired",
+    },
+    {
+      method: "POST",
+      url: "/v1/threads/thread_route/mcp/serve?server_id=mcp.docs",
+      body: {
+        schema_version: "ioi.runtime.mcp-serve-client.v1",
+        message: { jsonrpc: "2.0", id: 32, method: "tools/list" },
+      },
+      code: "runtime_mcp_serve_query_context_retired",
+    },
+    {
+      method: "POST",
+      url: "/v1/threads/thread_route/mcp/serve",
+      body: { jsonrpc: "2.0", id: 33, method: "tools/list" },
+      code: "runtime_mcp_serve_protocol_envelope_required",
+    },
+  ]) {
+    const response = responseRecorder();
+    await handleRequest({
+      request: request({ method, url, body }),
+      response,
+      store,
+    });
+
+    assert.equal(response.statusCode, 400);
+    assert.equal(response.error.code, code);
+  }
+});

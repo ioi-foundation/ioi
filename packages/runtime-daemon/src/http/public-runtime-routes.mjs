@@ -291,13 +291,13 @@ export function createPublicRuntimeRequestHandler(deps) {
         !segments[5]
       ) {
         const threadId = decodeURIComponent(segments[2]);
-        const query = Object.fromEntries(url.searchParams.entries());
+        assertNoMcpServeQueryContext(url);
         if (request.method === "GET") {
-          writeJsonResponse(response, store.mcpServeSurface.mcpServeStatus(store, { ...query, thread_id: threadId }));
+          writeJsonResponse(response, store.mcpServeSurface.mcpServeStatus(store, { thread_id: threadId }));
           return;
         }
         if (request.method === "POST") {
-          const { message, context } = mcpServeProtocolParts(await readBody(request), query);
+          const { message, context } = mcpServeProtocolParts(await readBody(request));
           writeMcpJsonRpcResponse(
             response,
             await store.mcpServeSurface.handleMcpServeJsonRpc(store, threadId, message, { ...context, thread_id: threadId }),
@@ -394,11 +394,30 @@ export function createPublicRuntimeRequestHandler(deps) {
   }
 }
 
-function mcpServeProtocolParts(body, query) {
+function assertNoMcpServeQueryContext(url) {
+  if (url.searchParams.size === 0) return;
+  const error = new Error("MCP serve query-string context is retired; send the stable protocol admission body.");
+  error.status = 400;
+  error.code = "runtime_mcp_serve_query_context_retired";
+  error.details = {
+    retired_query_fields: [...url.searchParams.keys()],
+    canonical_transport: "ioi.runtime.mcp-serve-client.v1 body",
+  };
+  throw error;
+}
+
+function mcpServeProtocolParts(body) {
   const record = body && typeof body === "object" && !Array.isArray(body) ? body : null;
   if (record && Object.hasOwn(record, "message")) {
     const { message, ...context } = record;
-    return { message, context: { ...query, ...context } };
+    return { message, context };
   }
-  return { message: body, context: query };
+  const error = new Error("MCP serve requires the stable protocol admission envelope.");
+  error.status = 400;
+  error.code = "runtime_mcp_serve_protocol_envelope_required";
+  error.details = {
+    schema_version: "ioi.runtime.mcp-serve-client.v1",
+    required_fields: ["schema_version", "message"],
+  };
+  throw error;
 }

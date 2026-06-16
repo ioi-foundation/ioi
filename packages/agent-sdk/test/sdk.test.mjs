@@ -1705,6 +1705,31 @@ test("SDK MCP serve clients send stable protocol admission body", async () => {
   }
 });
 
+test("SDK MCP serve rejects retired query-context options before transport", async () => {
+  const client = createRuntimeSubstrateClient({ endpoint: "http://127.0.0.1:9" });
+  await assert.rejects(
+    client.threadMcpServeRpc(
+      "thread_sdk",
+      { jsonrpc: "2.0", id: "tools", method: "tools/list" },
+      {
+        thread_id: "thread_retired",
+        server_id: "mcp.docs",
+        mcp_config_source_mode: "workspace",
+        authority_grant_refs: ["grant://mcp"],
+        authority_receipt_refs: ["receipt://mcp"],
+        custody_ref: "ctee://workspace/thread_sdk",
+        containment_ref: "containment://mcp-serve/thread_sdk/tools-list",
+      },
+    ),
+    (error) =>
+      error instanceof IoiAgentError &&
+      error.code === "config" &&
+      error.details?.code === "mcp_serve_sdk_query_context_retired" &&
+      error.details?.retired_fields?.includes("thread_id") &&
+      error.details?.retired_fields?.includes("server_id"),
+  );
+});
+
 test("Thread create wrapper rejects retired option aliases before transport", async () => {
   const client = createRuntimeSubstrateClient({ endpoint: "http://127.0.0.1:9" });
   await assert.rejects(

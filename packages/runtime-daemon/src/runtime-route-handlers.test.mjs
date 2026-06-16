@@ -943,7 +943,7 @@ test("thread route sends workflow, diagnostics, and snapshot controls through mo
       request: request({
         method: testCase.method,
         url: testCase.path,
-        body,
+        body: testCase.body ?? body,
       }),
       response,
       store,
@@ -1057,7 +1057,7 @@ test("thread route sends approvals through mounted approval surface", async () =
       request: request({
         method: testCase.method,
         url: testCase.path,
-        body,
+        body: testCase.body ?? body,
       }),
       response,
       store,
@@ -1316,6 +1316,17 @@ test("thread route sends MCP controls through mounted MCP surfaces", async () =>
   const { handleThreadRoute } = routeHandlers();
   const calls = [];
   const body = { request_id: "thread-mcp-route-test" };
+  const serveBody = {
+    schema_version: "ioi.runtime.mcp-serve-client.v1",
+    source: "sdk_client",
+    allowed_tools: ["workspace.status"],
+    authority_grant_refs: ["wallet.network://grant/mcp-serve/thread_route/workspace.status"],
+    authority_receipt_refs: ["receipt://wallet.network/mcp-serve/thread_route/workspace.status"],
+    custody_ref: "ctee://workspace/thread_route",
+    containment_ref: "containment://mcp-serve/thread_route/workspace.status",
+    message: { jsonrpc: "2.0", id: "thread-route-serve", method: "tools/list" },
+  };
+  const { message: serveMessage, ...serveContext } = serveBody;
   const surfaceResult = (surface, method, args) => ({
     status: "rust_core_required",
     surface,
@@ -1470,17 +1481,18 @@ test("thread route sends MCP controls through mounted MCP surfaces", async () =>
     },
     {
       method: "GET",
-      path: "/v1/threads/thread_route/mcp/serve?transport=sse",
+      path: "/v1/threads/thread_route/mcp/serve",
       segments: ["v1", "threads", "thread_route", "mcp", "serve"],
       surfaceMethod: "mcpServeStatus",
-      args: [{ transport: "sse", thread_id: "thread_route" }],
+      args: [{ thread_id: "thread_route" }],
     },
     {
       method: "POST",
       path: "/v1/threads/thread_route/mcp/serve",
       segments: ["v1", "threads", "thread_route", "mcp", "serve"],
+      body: serveBody,
       surfaceMethod: "handleMcpServeJsonRpc",
-      args: ["thread_route", body, { thread_id: "thread_route" }],
+      args: ["thread_route", serveMessage, { ...serveContext, thread_id: "thread_route" }],
     },
     {
       method: "POST",
@@ -1504,7 +1516,7 @@ test("thread route sends MCP controls through mounted MCP surfaces", async () =>
       request: request({
         method: testCase.method,
         url: testCase.path,
-        body,
+        body: testCase.body ?? body,
       }),
       response,
       store,
@@ -1523,6 +1535,46 @@ test("thread route sends MCP controls through mounted MCP surfaces", async () =>
       args: testCase.args,
     });
   }
+});
+
+test("thread route MCP serve rejects query or raw JSON-RPC compatibility transport", async () => {
+  const { handleThreadRoute } = routeHandlers();
+  const store = {
+    mcpServeSurface: {
+      mcpServeStatus: retiredRouteWrapper,
+      handleMcpServeJsonRpc: retiredRouteWrapper,
+    },
+  };
+
+  await assert.rejects(
+    () =>
+      handleThreadRoute({
+        request: request({ method: "GET", url: "/v1/threads/thread_route/mcp/serve?server_id=mcp.docs" }),
+        response: responseRecorder(),
+        store,
+        url: new URL("/v1/threads/thread_route/mcp/serve?server_id=mcp.docs", "http://daemon.test"),
+        segments: ["v1", "threads", "thread_route", "mcp", "serve"],
+      }),
+    (error) =>
+      error.code === "runtime_mcp_serve_query_context_retired" &&
+      error.details?.retired_query_fields?.includes("server_id"),
+  );
+
+  await assert.rejects(
+    () =>
+      handleThreadRoute({
+        request: request({
+          method: "POST",
+          url: "/v1/threads/thread_route/mcp/serve",
+          body: { jsonrpc: "2.0", id: "raw", method: "tools/list" },
+        }),
+        response: responseRecorder(),
+        store,
+        url: new URL("/v1/threads/thread_route/mcp/serve", "http://daemon.test"),
+        segments: ["v1", "threads", "thread_route", "mcp", "serve"],
+      }),
+    (error) => error.code === "runtime_mcp_serve_protocol_envelope_required",
+  );
 });
 
 test("thread route invokes coding tools through mounted invocation surface", async () => {

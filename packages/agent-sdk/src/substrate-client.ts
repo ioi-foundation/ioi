@@ -31,11 +31,7 @@ import type {
   RuntimeAccountProfile,
   RuntimeEventEnvelope,
   RuntimeMcpInvocationResult,
-  RuntimeMcpPromptEntry,
-  RuntimeMcpResourceEntry,
-  RuntimeMcpServerEntry,
   RuntimeMcpStatus,
-  RuntimeMcpToolEntry,
   RuntimeMcpToolSearchResult,
   RuntimeMcpValidationResult,
   RuntimeMemoryStatus,
@@ -742,7 +738,7 @@ export interface RuntimeMcpServeAdmissionRefs {
   containment_ref: string;
 }
 
-export interface RuntimeMcpServeRpcOptions extends RuntimeMcpListOptions, RuntimeMcpServeAdmissionRefs {
+export interface RuntimeMcpServeRpcOptions extends RuntimeMcpServeAdmissionRefs {
   allowed_tools?: string[];
   source?: "sdk_client" | "cli_tui" | "react_flow" | "mcp_serve" | string;
 }
@@ -2403,10 +2399,11 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
     message: RuntimeMcpJsonRpcRequest | RuntimeMcpJsonRpcRequest[],
     options: RuntimeMcpServeRpcOptions,
   ): Promise<RuntimeMcpJsonRpcResponse | RuntimeMcpJsonRpcResponse[] | null> {
+    assertNoRetiredMcpServeRpcOptions(options);
     return this.request(
       "threadMcpServeRpc",
       "POST",
-      `/v1/threads/${encodePath(threadId)}/mcp/serve${mcpServeQuery(options)}`,
+      `/v1/threads/${encodePath(threadId)}/mcp/serve`,
       mcpServeProtocolBody(message, { source: "sdk_client", ...options }),
     );
   }
@@ -3049,34 +3046,33 @@ function mcpListQuery(options: RuntimeMcpListOptions = {}): string {
   return text ? `?${text}` : "";
 }
 
-function mcpServeQuery(options: RuntimeMcpListOptions = {}): string {
-  const params = new URLSearchParams();
-  for (const key of ["thread_id", "agent_id", "server_id", "mcp_config_source_mode", "config_source_mode"] as const) {
-    const value = options[key];
-    if (value === undefined || value === null || value === "") continue;
-    params.set(key, String(value));
-  }
-  const text = params.toString();
-  return text ? `?${text}` : "";
-}
-
 function mcpServeProtocolBody(
   message: RuntimeMcpJsonRpcRequest | RuntimeMcpJsonRpcRequest[],
   options: RuntimeMcpServeRpcOptions & { source: string },
 ): Record<string, unknown> {
-  const {
-    thread_id: _threadId,
-    agent_id: _agentId,
-    server_id: _serverId,
-    mcp_config_source_mode: _mcpConfigSourceMode,
-    config_source_mode: _configSourceMode,
-    ...context
-  } = options;
   return {
     schema_version: "ioi.runtime.mcp-serve-client.v1",
-    ...context,
+    ...options,
     message,
   };
+}
+
+function assertNoRetiredMcpServeRpcOptions(options: RuntimeMcpServeRpcOptions): void {
+  const record = options as unknown as Record<string, unknown>;
+  const retiredFields = ["thread_id", "agent_id", "server_id", "mcp_config_source_mode", "config_source_mode"].filter(
+    (field) => Object.prototype.hasOwnProperty.call(record, field),
+  );
+  if (retiredFields.length === 0) return;
+  throw new IoiAgentError({
+    code: "config",
+    message:
+      "MCP serve query-context options are retired; use the thread route plus stable protocol admission body.",
+    details: {
+      code: "mcp_serve_sdk_query_context_retired",
+      retired_fields: retiredFields,
+      canonical_transport: "ioi.runtime.mcp-serve-client.v1 body",
+    },
+  });
 }
 
 function normalizeRuntimeToolCatalogEntries(value: unknown): RuntimeToolCatalogEntry[] {

@@ -41261,7 +41261,10 @@ function runCompositor() {
     result,
     "runtime-mcp-serve-stable-protocol-client",
     /export interface RuntimeMcpServeAdmissionRefs/.test(agentSdkSubstrateClient) &&
-      /export interface RuntimeMcpServeRpcOptions extends RuntimeMcpListOptions, RuntimeMcpServeAdmissionRefs/.test(
+      /export interface RuntimeMcpServeRpcOptions extends RuntimeMcpServeAdmissionRefs/.test(
+        agentSdkSubstrateClient,
+      ) &&
+      !/export interface RuntimeMcpServeRpcOptions extends RuntimeMcpListOptions/.test(
         agentSdkSubstrateClient,
       ) &&
       runtimeMcpSdkServeRpcInputBlock === "" &&
@@ -41276,13 +41279,22 @@ function runCompositor() {
       /mcpServeProtocolBody\(message, \{ source: "sdk_client", \.\.\.options \}\)/.test(
         agentSdkSubstrateClient,
       ) &&
-      /`\/v1\/threads\/\$\{encodePath\(threadId\)\}\/mcp\/serve\$\{mcpServeQuery\(options\)\}`/.test(
+      /assertNoRetiredMcpServeRpcOptions\(options\)/.test(agentSdkSubstrateClient) &&
+      /mcp_serve_sdk_query_context_retired/.test(agentSdkSubstrateClient) &&
+      !/function mcpServeQuery/.test(agentSdkSubstrateClient) &&
+      !/mcpServeQuery\(options\)/.test(agentSdkSubstrateClient) &&
+      /`\/v1\/threads\/\$\{encodePath\(threadId\)\}\/mcp\/serve`/.test(
         agentSdkSubstrateClient,
       ) &&
       !/`\/v1\/threads\/\$\{encodePath\(threadId\)\}\/mcp\/serve\$\{mcpListQuery\(options\)\}`[\s\S]*?message/.test(
         agentSdkSubstrateClient,
       ) &&
-      /function mcpServeProtocolParts/.test(publicRuntimeRoutesForTaskJob) &&
+      /function mcpServeProtocolParts\(body\)/.test(publicRuntimeRoutesForTaskJob) &&
+      /assertNoMcpServeQueryContext\(url\)/.test(publicRuntimeRoutesForTaskJob) &&
+      /runtime_mcp_serve_query_context_retired/.test(publicRuntimeRoutesForTaskJob) &&
+      /runtime_mcp_serve_protocol_envelope_required/.test(publicRuntimeRoutesForTaskJob) &&
+      !/mcpServeProtocolParts\(body,\s*query\)/.test(publicRuntimeRoutesForTaskJob) &&
+      !/context:\s*\{\s*\.\.\.query/.test(publicRuntimeRoutesForTaskJob) &&
       /segments\[3\] === "mcp" &&\s*segments\[4\] === "serve"/.test(
         publicRuntimeRoutesForTaskJob,
       ) &&
@@ -41294,8 +41306,20 @@ function runCompositor() {
       /public runtime MCP serve route accepts stable protocol admission envelope/.test(
         publicRuntimeRoutesTestForTaskJob,
       ) &&
+      /public runtime MCP serve route rejects query or raw JSON-RPC compatibility transport/.test(
+        publicRuntimeRoutesTestForTaskJob,
+      ) &&
       /public runtime top-level MCP route family is retired/.test(publicRuntimeRoutesTestForTaskJob) &&
+      /assertNoMcpServeQueryContext\(url\)/.test(runtimeRouteHandlers) &&
+      /runtime_mcp_serve_query_context_retired/.test(runtimeRouteHandlers) &&
+      /runtime_mcp_serve_protocol_envelope_required/.test(runtimeRouteHandlers) &&
+      !/mcpServeProtocolParts\(body,\s*query\)/.test(runtimeRouteHandlers) &&
+      !/context:\s*\{\s*\.\.\.query/.test(runtimeRouteHandlers) &&
+      /thread route MCP serve rejects query or raw JSON-RPC compatibility transport/.test(
+        runtimeRouteHandlersTest,
+      ) &&
       /SDK MCP serve clients send stable protocol admission body/.test(agentSdkTest) &&
+      /SDK MCP serve rejects retired query-context options before transport/.test(agentSdkTest) &&
       /assert\.equal\(requests\.length,\s*1\)/.test(agentSdkTest) &&
       !/client\.serveMcpRpc/.test(agentSdkTest) &&
       !/\/v1\/mcp\/serve/.test(agentSdkTest) &&
@@ -41303,6 +41327,10 @@ function runCompositor() {
       /body\.schema_version,\s*"ioi\.runtime\.mcp-serve-client\.v1"/.test(agentSdkTest) &&
       /const mcpServeAdmission = \{/.test(liveRuntimeDaemonContract) &&
       /schema_version: "ioi\.runtime\.mcp-serve-client\.v1"/.test(liveRuntimeDaemonContract) &&
+      !/\/v1\/mcp\/serve\?thread_id/.test(liveRuntimeDaemonContract) &&
+      /const serveInitialize = await fetchJson\(`\$\{daemon\.endpoint\}\/v1\/threads\/\$\{thread\.thread_id\}\/mcp\/serve`/.test(
+        liveRuntimeDaemonContract,
+      ) &&
       /sdkThread\.mcpServeRpc\([\s\S]*?mcpServeAdmission\)/.test(liveRuntimeDaemonContract),
     [
       "packages/agent-sdk/src/substrate-client.ts",
@@ -41310,6 +41338,8 @@ function runCompositor() {
       "packages/agent-sdk/test/sdk.test.mjs",
       "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
       "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.test.mjs",
       "scripts/lib/live-runtime-daemon-contract.test.mjs",
     ],
     "Phase 10/11 is pending: SDK MCP serve clients and public routes must use stable protocol admission bodies over Rust replay records instead of query-string admission or unadvertised thread routes",
