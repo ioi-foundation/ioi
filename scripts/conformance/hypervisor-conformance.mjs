@@ -693,14 +693,18 @@ function isModelMountBackendTypedApiOwned({
   const retiredBridgeSurface = [coreCommandDispatch, rustModelMountCore, modelMountDaemonCore].join("\n");
   return (
     !/plan_model_mount_backend_process_response/.test(retiredBridgeSurface) &&
+    !/plan_model_mount_backend_process_materialization_response/.test(retiredBridgeSurface) &&
     !/plan_model_mount_backend_lifecycle_response/.test(retiredBridgeSurface) &&
     !/ModelMountBackendProcessPlanBridgeRequest/.test(rustModelMountCore) &&
+    !/ModelMountBackendProcessMaterializationBridgeRequest/.test(rustModelMountCore) &&
     !/ModelMountBackendLifecycleBridgeRequest/.test(rustModelMountCore) &&
     !/rust_model_mount_backend_process_command/.test(retiredBridgeSurface) &&
+    !/rust_model_mount_backend_process_materialization_command/.test(retiredBridgeSurface) &&
     !/rust_model_mount_backend_lifecycle_command/.test(retiredBridgeSurface) &&
     !/RUST_MODEL_MOUNT_BACKEND_PROCESS_BACKEND/.test(modelMountDaemonCore) &&
     !/RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_BACKEND/.test(modelMountDaemonCore) &&
     !/operation:\s*"plan_model_mount_backend_process"/.test(modelMountDaemonCore) &&
+    !/operation:\s*"plan_model_mount_backend_process_materialization"/.test(modelMountDaemonCore) &&
     !/operation:\s*"plan_model_mount_backend_lifecycle"/.test(modelMountDaemonCore) &&
     !/backend:\s*"rust_model_mount_backend_process"/.test(modelMountDaemonCore) &&
     !/backend:\s*"rust_model_mount_backend_lifecycle"/.test(modelMountDaemonCore) &&
@@ -709,18 +713,28 @@ function isModelMountBackendTypedApiOwned({
     /MODEL_MOUNT_BACKEND_PROCESS_API_METHOD = "planModelMountBackendProcess"/.test(
       modelMountDaemonCore,
     ) &&
+    /MODEL_MOUNT_BACKEND_PROCESS_MATERIALIZATION_API_METHOD\s*=\s*"planModelMountBackendProcessMaterialization"/.test(
+      modelMountDaemonCore,
+    ) &&
     /MODEL_MOUNT_BACKEND_LIFECYCLE_API_METHOD = "planModelMountBackendLifecycle"/.test(
       modelMountDaemonCore,
     ) &&
     /invokeModelMountApi\(\s*MODEL_MOUNT_BACKEND_PROCESS_API_METHOD,\s*request\s*\)/.test(
       modelMountDaemonCore,
     ) &&
+    /invokeModelMountApi\(\s*MODEL_MOUNT_BACKEND_PROCESS_MATERIALIZATION_API_METHOD,\s*request\s*\)/.test(
+      modelMountDaemonCore,
+    ) &&
     /invokeModelMountApi\(\s*MODEL_MOUNT_BACKEND_LIFECYCLE_API_METHOD,\s*request\s*\)/.test(
       modelMountDaemonCore,
     ) &&
     /normalizeBackendProcessPlanApiResult/.test(modelMountDaemonCore) &&
+    /normalizeBackendProcessMaterializationApiResult/.test(modelMountDaemonCore) &&
     /normalizeBackendLifecycleApiResult/.test(modelMountDaemonCore) &&
     /rust_daemon_core\.model_mount\.backend_process/.test(
+      modelMountDaemonCore + rustModelMountCore,
+    ) &&
+    /rust_daemon_core\.model_mount\.backend_process_materialization/.test(
       modelMountDaemonCore + rustModelMountCore,
     ) &&
     /rust_daemon_core\.model_mount\.backend_lifecycle/.test(
@@ -728,18 +742,30 @@ function isModelMountBackendTypedApiOwned({
     ) &&
     /model_mount_backend_command_transport_is_retired/.test(commandProtocolCore) &&
     !/CommandOperation::PlanModelMountBackendProcess/.test(coreCommandDispatch + commandProtocolCore) &&
+    !/CommandOperation::PlanModelMountBackendProcessMaterialization/.test(
+      coreCommandDispatch + commandProtocolCore,
+    ) &&
     !/CommandOperation::PlanModelMountBackendLifecycle/.test(coreCommandDispatch + commandProtocolCore) &&
     /pub fn plan_model_mount_backend_process/.test(rustModelMountCore) &&
+    /pub fn plan_model_mount_backend_process_materialization/.test(rustModelMountCore) &&
     /pub fn plan_model_mount_backend_lifecycle/.test(rustModelMountCore) &&
     /pub fn plan_model_mount_backend_process\([\s\S]*?&self/.test(runtimeKernelModule) &&
+    /pub fn plan_model_mount_backend_process_materialization\([\s\S]*?&self/.test(
+      runtimeKernelModule,
+    ) &&
     /pub fn plan_model_mount_backend_lifecycle\([\s\S]*?&self/.test(runtimeKernelModule) &&
     /rust_core_shapes_model_mount_backend_process_direct_api/.test(rustModelMountCore) &&
+    /rust_core_plans_backend_process_materialization_direct_api/.test(rustModelMountCore) &&
     /rust_core_shapes_model_mount_backend_lifecycle_direct_api/.test(rustModelMountCore) &&
     /Rust model_mount core sends backend process plan request through typed Rust daemon-core API/.test(
       modelMountCoreTest,
     ) &&
+    /Rust model_mount core sends backend process materialization through typed Rust daemon-core API/.test(
+      modelMountCoreTest,
+    ) &&
     /Rust model_mount core sends positive backend lifecycle request/.test(modelMountCoreTest) &&
     /planModelMountBackendProcess/.test(directInvokerServiceTest) &&
+    /planModelMountBackendProcessMaterialization/.test(directInvokerServiceTest) &&
     /planModelMountBackendLifecycle/.test(directInvokerServiceTest)
   );
 }
@@ -19509,6 +19535,106 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "model-mount-backend-process-materialization-rust-owner",
+    (() => {
+      const backendProcessMaterializationBlock =
+        modelMountCore.match(/pub\(super\) fn plan_backend_process_materialization[\s\S]*?(?=\n\npub fn plan_model_mount_backend_process_materialization)/)?.[0] ?? "";
+      const backendProcessMaterializationRunnerBlock =
+        modelMountDaemonCore.match(/function normalizeBackendProcessMaterializationApiResult[\s\S]*?(?=\n\nfunction normalizeBackendLifecycleApiResult)/)?.[0] ?? "";
+      const modelLoadingOperationsTest = read("packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs");
+      return modelMountBackendTypedApiOwned &&
+        /MODEL_MOUNT_BACKEND_PROCESS_MATERIALIZATION_SCHEMA_VERSION/.test(modelMountCore) &&
+        /MODEL_MOUNT_BACKEND_PROCESS_MATERIALIZATION_PLAN_SCHEMA_VERSION/.test(modelMountCore) &&
+        /ModelMountBackendProcessMaterializationRequest/.test(modelMountCore) &&
+        /ModelMountBackendProcessMaterializationPlan/.test(modelMountCore) &&
+        /pub fn plan_model_mount_backend_process_materialization/.test(modelMountCore) &&
+        /pub fn plan_model_mount_backend_process_materialization\([\s\S]*?&self/.test(
+          kernelModuleForBridgeChecks,
+        ) &&
+        /rust_core_plans_backend_process_materialization_direct_api/.test(modelMountCore) &&
+        /rust_core_rejects_backend_process_materialization_when_not_ready/.test(modelMountCore) &&
+        /rust_core_materializes_native_local_fixture_process_without_js_supervisor/.test(modelMountCore) &&
+        /BackendProcessMaterializationNotReady/.test(modelMountCore) &&
+        /process_execution_owner":\s*"rust_daemon_core\.model_mount\.backend_process_materialization"/.test(
+          backendProcessMaterializationBlock,
+        ) &&
+        /"js_process_supervisor":\s*false/.test(backendProcessMaterializationBlock) &&
+        /"command_transport_spawn":\s*false/.test(backendProcessMaterializationBlock) &&
+        /"binary_bridge_spawn":\s*false/.test(backendProcessMaterializationBlock) &&
+        /"compatibility_spawn_fallback":\s*false/.test(backendProcessMaterializationBlock) &&
+        /MODEL_MOUNT_BACKEND_PROCESS_MATERIALIZATION_API_METHOD\s*=\s*"planModelMountBackendProcessMaterialization"/.test(
+          modelMountDaemonCore,
+        ) &&
+        /planBackendProcessMaterialization\(request\)\s*\{[\s\S]*invokeModelMountApi\(MODEL_MOUNT_BACKEND_PROCESS_MATERIALIZATION_API_METHOD,\s*request\)/.test(
+          modelMountDaemonCore,
+        ) &&
+        /normalizeBackendProcessMaterializationApiResult/.test(modelMountDaemonCore) &&
+        /model_mount_backend_process_materialization_plan_invalid/.test(modelMountDaemonCore) &&
+        /agentgres_backend_process_materialization_truth_required/.test(
+          backendProcessMaterializationRunnerBlock,
+        ) &&
+        /js_backend_process_supervisor_retired/.test(backendProcessMaterializationRunnerBlock) &&
+        /command_transport_backend_process_spawn_retired/.test(
+          backendProcessMaterializationRunnerBlock,
+        ) &&
+        /binary_bridge_backend_process_spawn_retired/.test(
+          backendProcessMaterializationRunnerBlock,
+        ) &&
+        /planModelMountBackendProcessMaterialization\(request\)\s*\{\s*return this\.modelMountCore\.planBackendProcessMaterialization\(request\);/.test(
+          modelMountingState,
+        ) &&
+        /planAndCommitBackendProcessMaterialization\(\s*this,\s*"model_mount\.backend_process\.materialize"/.test(
+          modelMountingState,
+        ) &&
+        /model_mount_backend_process_materialization_record_state_commit_unconfigured/.test(
+          modelMountingState,
+        ) &&
+        /backend_process_ref/.test(modelMountingState) &&
+        /backend_process_materialization_hash/.test(modelMountingState) &&
+        /rust_model_mount_backend_process_materialization_bound/.test(modelMountingState) &&
+        /loadModel commits Rust-planned instance lifecycle without mutating JS instance cache/.test(
+          modelLoadingOperationsTest,
+        ) &&
+        /backendProcessMaterializationRequests/.test(modelLoadingOperationsTest) &&
+        /assert\.equal\(state\.recordStateCommits\.length,\s*2\)/.test(
+          modelLoadingOperationsTest,
+        ) &&
+        /model-backend-process-materializations/.test(modelLoadingOperationsTest) &&
+        /model_mount_backend_process_materialization_record_state_commit_unconfigured/.test(
+          modelLoadingOperationsTest,
+        ) &&
+        /Rust model_mount core sends backend process materialization through typed Rust daemon-core API/.test(
+          modelMountCoreTest,
+        ) &&
+        /MODEL_MOUNT_BACKEND_PROCESS_MATERIALIZATION_API_METHOD/.test(modelMountCoreTest) &&
+        /planModelMountBackendProcessMaterialization/.test(daemonCoreDirectInvokerServiceTest) &&
+        !/operation:\s*"plan_model_mount_backend_process_materialization"/.test(
+          modelMountDaemonCore,
+        ) &&
+        !/plan_model_mount_backend_process_materialization_response/.test(
+          coreCommandDispatch + modelMountCommandSurface + modelMountCore,
+        ) &&
+        !/CommandOperation::PlanModelMountBackendProcessMaterialization/.test(
+          coreCommandDispatch + commandProtocolCore,
+        ) &&
+        !/spawnBackendChildProcess|childProcess\.spawn|from "node:child_process"/.test(
+          modelMountingState,
+        );
+    })(),
+    [
+      "crates/services/src/agentic/runtime/kernel/model_mount/backend_process.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/instance.rs",
+      "crates/services/src/agentic/runtime/kernel/mod.rs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-core.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-core.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs",
+      "packages/runtime-daemon/src/runtime-daemon-core-direct-invoker-service.test.mjs",
+    ],
+    "Model load must bind a Rust daemon-core backend-process materialization record before instance truth can commit, with JS process supervision, command-transport spawn, binary-bridge spawn, and compatibility fallback paths retired",
+  );
+  assertCheck(
+    result,
     "model-mount-backend-process-load-option-aliases-retired",
     (() => {
       const productDefaultsTest = read("packages/runtime-daemon/src/model-mounting/product-defaults.test.mjs");
@@ -27701,7 +27827,7 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/product-defaults.test.mjs",
       "scripts/conformance/hypervisor-conformance.mjs",
     ],
-    "Backend process supervision must not keep fail-closed JS facade stubs; process execution remains unavailable until a positive Rust daemon-core materialization API owns it",
+    "Backend process supervision must not keep fail-closed JS facade stubs; process materialization must stay owned by the Rust daemon-core materialization API instead of JS supervisor shims",
   );
   assertCheck(
     result,

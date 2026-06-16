@@ -19,6 +19,8 @@ export const MODEL_MOUNT_PROVIDER_INVENTORY_API_METHOD = "planModelMountProvider
 export const MODEL_MOUNT_INSTANCE_LIFECYCLE_API_METHOD = "planModelMountInstanceLifecycle";
 export const MODEL_MOUNT_PROVIDER_RESULT_API_METHOD = "admitModelMountProviderResult";
 export const MODEL_MOUNT_BACKEND_PROCESS_API_METHOD = "planModelMountBackendProcess";
+export const MODEL_MOUNT_BACKEND_PROCESS_MATERIALIZATION_API_METHOD =
+  "planModelMountBackendProcessMaterialization";
 export const MODEL_MOUNT_BACKEND_LIFECYCLE_API_METHOD = "planModelMountBackendLifecycle";
 export const MODEL_MOUNT_ARTIFACT_ENDPOINT_API_METHOD = "planModelMountArtifactEndpoint";
 export const MODEL_MOUNT_STORAGE_CONTROL_API_METHOD = "planModelMountStorageControl";
@@ -126,6 +128,12 @@ export class ModelMountCore {
   planBackendProcess(request) {
     return normalizeBackendProcessPlanApiResult(
       this.invokeModelMountApi(MODEL_MOUNT_BACKEND_PROCESS_API_METHOD, request),
+    );
+  }
+
+  planBackendProcessMaterialization(request) {
+    return normalizeBackendProcessMaterializationApiResult(
+      this.invokeModelMountApi(MODEL_MOUNT_BACKEND_PROCESS_MATERIALIZATION_API_METHOD, request),
     );
   }
 
@@ -566,6 +574,11 @@ function normalizeInstanceLifecycleApiResult(value = {}) {
     driver: result.driver ?? record.driver ?? null,
     executionBackend: result.execution_backend ?? record.execution_backend ?? null,
     provider_lifecycle_hash: result.provider_lifecycle_hash ?? record.provider_lifecycle_hash ?? null,
+    backend_process_ref: result.backend_process_ref ?? record.backend_process_ref ?? null,
+    backend_process_materialization_hash:
+      result.backend_process_materialization_hash ??
+      record.backend_process_materialization_hash ??
+      null,
     instance_lifecycle_hash: result.instance_lifecycle_hash ?? record.instance_lifecycle_hash ?? null,
     evidence_refs: Array.isArray(result.evidence_refs)
       ? result.evidence_refs
@@ -631,6 +644,101 @@ function normalizeBackendProcessPlanApiResult(value = {}) {
         ? record.evidence_refs
         : null,
   };
+}
+
+function normalizeBackendProcessMaterializationApiResult(value = {}) {
+  const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const plan = result.plan && typeof result.plan === "object" && !Array.isArray(result.plan)
+    ? result.plan
+    : {};
+  const record = result.record && typeof result.record === "object" && !Array.isArray(result.record)
+    ? result.record
+    : plan.record && typeof plan.record === "object" && !Array.isArray(plan.record)
+      ? plan.record
+      : null;
+  const publicResponse = result.public_response ?? plan.public_response ?? record?.public_response ?? null;
+  const normalized = {
+    source: result.source ?? plan.source ?? "rust_daemon_core.model_mount.backend_process_materialization",
+    plan,
+    record_dir: result.record_dir ?? plan.record_dir ?? null,
+    record_id: result.record_id ?? plan.record_id ?? null,
+    record,
+    public_response: publicResponse,
+    process_plan: result.process_plan ?? plan.process_plan ?? record?.process_plan ?? null,
+    operation_kind: result.operation_kind ?? plan.operation_kind ?? null,
+    rust_core_boundary: result.rust_core_boundary ?? plan.rust_core_boundary ?? null,
+    receipt_refs: arrayOrNull(result.receipt_refs) ?? arrayOrNull(plan.receipt_refs) ?? [],
+    authority_grant_refs: arrayOrNull(result.authority_grant_refs) ?? arrayOrNull(plan.authority_grant_refs) ?? [],
+    authority_receipt_refs:
+      arrayOrNull(result.authority_receipt_refs) ?? arrayOrNull(plan.authority_receipt_refs) ?? [],
+    evidence_refs: arrayOrNull(result.evidence_refs) ?? arrayOrNull(plan.evidence_refs),
+    materialization_hash: result.materialization_hash ?? plan.materialization_hash ?? null,
+    authority_hash: result.authority_hash ?? plan.authority_hash ?? null,
+  };
+  const missing = [];
+  for (const field of ["record_dir", "record_id", "record", "operation_kind", "materialization_hash", "authority_hash"]) {
+    if (!normalized[field]) missing.push(field);
+  }
+  if (normalized.rust_core_boundary !== "model_mount.backend_process_materialization") {
+    missing.push("rust_core_boundary");
+  }
+  for (const ref of [
+    "rust_daemon_core_backend_process_materialization",
+    "rust_backend_process_materialization_bound",
+    "wallet_network_backend_process_authority_bound",
+    "ctee_backend_process_custody_enforced",
+    "agentgres_backend_process_materialization_truth_required",
+    "js_backend_process_supervisor_retired",
+    "command_transport_backend_process_spawn_retired",
+    "binary_bridge_backend_process_spawn_retired",
+  ]) {
+    if (!Array.isArray(normalized.evidence_refs) || !normalized.evidence_refs.includes(ref)) {
+      missing.push(`evidence_refs.${ref}`);
+    }
+  }
+  if (record?.id !== normalized.record_id) missing.push("record.id");
+  if (record?.process_materialization_status == null) {
+    missing.push("record.process_materialization_status");
+  }
+  if (record?.spawn_contract?.spawn_args_returned !== false) {
+    missing.push("record.spawn_contract.spawn_args_returned_false");
+  }
+  if (record?.spawn_contract?.pid_returned !== false) {
+    missing.push("record.spawn_contract.pid_returned_false");
+  }
+  if (record?.retired_paths?.js_process_supervisor !== false) {
+    missing.push("record.retired_paths.js_process_supervisor_false");
+  }
+  if (record?.retired_paths?.command_transport_spawn !== false) {
+    missing.push("record.retired_paths.command_transport_spawn_false");
+  }
+  if (record?.retired_paths?.binary_bridge_spawn !== false) {
+    missing.push("record.retired_paths.binary_bridge_spawn_false");
+  }
+  if (publicResponse?.spawn_args_returned !== false) {
+    missing.push("public_response.spawn_args_returned_false");
+  }
+  if (publicResponse?.js_process_supervisor !== false) {
+    missing.push("public_response.js_process_supervisor_false");
+  }
+  if (publicResponse?.command_transport_spawn !== false) {
+    missing.push("public_response.command_transport_spawn_false");
+  }
+  if (publicResponse?.binary_bridge_spawn !== false) {
+    missing.push("public_response.binary_bridge_spawn_false");
+  }
+  if (missing.length > 0) {
+    const error = new Error("Rust model_mount backend-process materialization plan is incomplete.");
+    error.status = 502;
+    error.code = "model_mount_backend_process_materialization_plan_invalid";
+    error.details = {
+      missing,
+      source: normalized.source,
+      operation_kind: normalized.operation_kind,
+    };
+    throw error;
+  }
+  return normalized;
 }
 
 function normalizeBackendLifecycleApiResult(value = {}) {

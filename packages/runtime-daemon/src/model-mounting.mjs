@@ -128,6 +128,8 @@ const MODEL_MOUNT_ROUTE_CONTROL_SCHEMA_VERSION = "ioi.model_mount.route_control.
 const MODEL_MOUNT_PROVIDER_CONTROL_SCHEMA_VERSION = "ioi.model_mount.provider_control.v1";
 const MODEL_MOUNT_PROVIDER_AUTH_MATERIALIZATION_SCHEMA_VERSION =
   "ioi.model_mount.provider_auth_materialization.v1";
+const MODEL_MOUNT_BACKEND_PROCESS_MATERIALIZATION_SCHEMA_VERSION =
+  "ioi.model_mount.backend_process_materialization.v1";
 const MODEL_MOUNT_PROVIDER_LIFECYCLE_SCHEMA_VERSION = "ioi.model_mount.provider_lifecycle.v1";
 const MODEL_MOUNT_PROVIDER_INVENTORY_SCHEMA_VERSION = "ioi.model_mount.provider_inventory.v1";
 const MODEL_MOUNT_INSTANCE_LIFECYCLE_SCHEMA_VERSION = "ioi.model_mount.instance_lifecycle.v1";
@@ -801,19 +803,35 @@ export class ModelMountingState {
       operation_kind: "model_mount.instance.load",
       endpoint,
     });
+    const instanceId = body.instance_id ?? body.id ?? defaultModelInstanceId(endpoint, loadOptions);
+    const backendProcessMaterialization = planAndCommitBackendProcessMaterialization(
+      this,
+      "model_mount.backend_process.materialize",
+      {
+        endpoint,
+        provider,
+        backendId,
+        loadOptions,
+        providerLifecycle,
+        instanceId,
+        requiredScope: `backend.process:${backendId}`,
+      },
+    );
     const lifecycle = planModelInstanceLifecycle(this, {
       action: "load",
       targetStatus: "loaded",
       endpoint,
       provider,
       backendId,
-      instanceId: body.instance_id ?? body.id ?? defaultModelInstanceId(endpoint, loadOptions),
+      instanceId,
       providerLifecycle,
+      backendProcessMaterialization,
       evidenceRefs: ["model_mount_model_loading_rust_positive_api"],
     });
     return commitModelInstanceLifecycleRecordState(this, lifecycle, {
       operation_kind: "model_mount.instance.load",
       providerLifecycle,
+      backendProcessMaterialization,
     });
   }
 
@@ -1135,6 +1153,10 @@ export class ModelMountingState {
 
   planModelMountProviderAuthMaterialization(request) {
     return this.modelMountCore.planProviderAuthMaterialization(request);
+  }
+
+  planModelMountBackendProcessMaterialization(request) {
+    return this.modelMountCore.planBackendProcessMaterialization(request);
   }
 
   planProviderLifecycle(provider, options = {}) {
@@ -2620,6 +2642,139 @@ function planAndCommitProviderAuthMaterialization(state, operation_kind, options
   return providerAuthMaterializationResponse(plan, commit);
 }
 
+function planAndCommitBackendProcessMaterialization(state, operation_kind, options = {}) {
+  const endpoint = options.endpoint && typeof options.endpoint === "object" && !Array.isArray(options.endpoint)
+    ? options.endpoint
+    : {};
+  const provider = options.provider && typeof options.provider === "object" && !Array.isArray(options.provider)
+    ? options.provider
+    : {};
+  const providerLifecycle = options.providerLifecycle &&
+    typeof options.providerLifecycle === "object" &&
+    !Array.isArray(options.providerLifecycle)
+    ? options.providerLifecycle
+    : {};
+  const backendRef = requiredString(
+    options.backendId ?? endpoint.backend_id ?? endpoint.backendId ?? providerLifecycle.backendId,
+    "backend_ref",
+  );
+  const backendKind = requiredString(
+    options.backendKind ?? backendProcessKindForLoad(provider, providerLifecycle),
+    "backend_kind",
+  );
+  if (typeof state.planModelMountBackendProcessMaterialization !== "function") {
+    throw runtimeError({
+      status: 501,
+      code: "model_mount_backend_process_materialization_rust_core_required",
+      message: "Backend process materialization requires Rust daemon-core ownership.",
+      details: {
+        backend_ref: backendRef,
+        backend_kind: backendKind,
+        operation_kind,
+        rust_core_boundary: "model_mount.backend_process_materialization",
+        rust_core_api: "daemonCoreModelMountApi.planModelMountBackendProcessMaterialization",
+      },
+    });
+  }
+  const loadOptions = backendProcessMaterializationLoadOptions(options.loadOptions ?? {});
+  const plan = state.planModelMountBackendProcessMaterialization({
+    schema_version: MODEL_MOUNT_BACKEND_PROCESS_MATERIALIZATION_SCHEMA_VERSION,
+    operation_kind,
+    backend_ref: backendRef,
+    backend_kind: backendKind,
+    base_url: optionalString(options.baseUrl ?? endpoint.base_url ?? endpoint.baseUrl ?? provider.base_url ?? provider.baseUrl),
+    model_ref: optionalString(
+      options.modelRef ??
+      endpoint.model_ref ??
+      endpoint.model_id ??
+      endpoint.modelId,
+    ),
+    artifact_path: optionalString(options.artifactPath ?? endpoint.artifact_path ?? endpoint.artifactPath),
+    binary_configured: Boolean(
+      options.binaryConfigured ??
+      provider.binary_configured ??
+      provider.binaryConfigured ??
+      provider.binary_path ??
+      provider.binaryPath ??
+      endpoint.binary_configured ??
+      endpoint.binaryConfigured ??
+      endpoint.binary_path ??
+      endpoint.binaryPath,
+    ),
+    load_options: loadOptions,
+    source: "runtime-daemon.model_mounting.backend_process_materialization",
+    generated_at: typeof state.nowIso === "function" ? state.nowIso() : null,
+    receipt_refs: uniqueModelMountRefs([
+      options.receipt_id,
+      ...(Array.isArray(options.receipt_refs) ? options.receipt_refs : []),
+    ]),
+    authority_grant_refs: uniqueModelMountRefs(
+      Array.isArray(options.authority_grant_refs) ? options.authority_grant_refs : [],
+    ),
+    authority_receipt_refs: uniqueModelMountRefs(
+      Array.isArray(options.authority_receipt_refs) ? options.authority_receipt_refs : [],
+    ),
+    custody_ref: optionalString(options.custodyRef) ?? `ctee://backend-process/${safeId(backendRef)}`,
+    containment_ref: optionalString(options.containmentRef),
+    required_scope: optionalString(options.requiredScope) ?? `backend.process:${backendRef}`,
+    backend_lifecycle_ref: optionalString(providerLifecycle.backend_lifecycle_ref ?? providerLifecycle.record?.object_ref),
+    backend_lifecycle_hash: optionalString(providerLifecycle.lifecycle_hash ?? providerLifecycle.control_hash),
+    body: {
+      endpoint_id: endpoint.id ?? endpoint.endpoint_id ?? null,
+      provider_id: provider.id ?? provider.provider_id ?? null,
+      instance_id: options.instanceId ?? null,
+    },
+  });
+  assertRustAuthoredBackendProcessMaterializationPlan(plan, { operation_kind });
+  const commit = commitModelMountRecordState(state, {
+    recordDir: plan.record_dir,
+    record: plan.record,
+    operation_kind: plan.operation_kind,
+    receipt_refs: plan.receipt_refs,
+    unconfiguredCode: "model_mount_backend_process_materialization_record_state_commit_unconfigured",
+    unconfiguredMessage:
+      "Backend process materialization requires Rust Agentgres record-state commit before model load truth can return.",
+    unconfiguredDetails: {
+      rust_core_boundary: plan.rust_core_boundary ?? "model_mount.backend_process_materialization",
+      operation_kind: plan.operation_kind ?? operation_kind,
+      materialization_hash: plan.materialization_hash ?? null,
+    },
+    invalidCode: "model_mount_backend_process_materialization_record_state_commit_invalid",
+  });
+  return backendProcessMaterializationResponse(plan, commit);
+}
+
+function backendProcessKindForLoad(provider = {}, providerLifecycle = {}) {
+  const driver = optionalString(providerLifecycle.driver ?? provider.driver ?? provider.driver_ref);
+  const providerKind = optionalString(provider.kind ?? provider.provider_kind);
+  const apiFormat = optionalString(provider.api_format ?? provider.apiFormat);
+  if (driver === "native_local" || providerKind === "ioi_native_local" || apiFormat === "ioi_native") {
+    return "native_local";
+  }
+  if (["llama_cpp", "ollama", "vllm"].includes(driver)) return driver;
+  if (["native_local", "llama_cpp", "ollama", "vllm"].includes(providerKind)) return providerKind;
+  if (driver === "fixture" || providerKind === "local_folder" || apiFormat === "ioi_fixture" || apiFormat === "fixture") {
+    return "fixture";
+  }
+  return driver ?? providerKind ?? null;
+}
+
+function backendProcessMaterializationLoadOptions(loadOptions = {}) {
+  return {
+    context_length: loadOptions.context_length ?? loadOptions.contextLength ?? null,
+    max_model_len: loadOptions.max_model_len ?? loadOptions.maxModelLen ?? null,
+    parallel: loadOptions.parallel ?? null,
+    tensor_parallel_size: loadOptions.tensor_parallel_size ?? loadOptions.tensorParallelSize ?? null,
+    gpu: loadOptions.gpu ?? null,
+    dtype: loadOptions.dtype ?? null,
+    gpu_memory_utilization: loadOptions.gpu_memory_utilization ?? loadOptions.gpuMemoryUtilization ?? null,
+    identifier: loadOptions.identifier ?? null,
+    embeddings: Boolean(loadOptions.embeddings ?? false),
+    model_path: loadOptions.model_path ?? loadOptions.modelPath ?? null,
+    model: loadOptions.model ?? null,
+  };
+}
+
 function providerControlBody(body = {}, existing = {}, { id, kind } = {}) {
   const secretInput = providerSecretInput(body);
   const secretRef = secretInput === undefined
@@ -2873,6 +3028,120 @@ function providerAuthMaterializationResponse(plan, commit) {
     authority_hash: plan.authority_hash,
     js_auth_header_materialization: false,
     js_vault_resolution: false,
+  };
+}
+
+function assertRustAuthoredBackendProcessMaterializationPlan(plan = {}, options = {}) {
+  const record = plan.record && typeof plan.record === "object" && !Array.isArray(plan.record)
+    ? plan.record
+    : {};
+  const publicResponse = plan.public_response && typeof plan.public_response === "object" && !Array.isArray(plan.public_response)
+    ? plan.public_response
+    : record.public_response && typeof record.public_response === "object" && !Array.isArray(record.public_response)
+      ? record.public_response
+      : {};
+  const evidenceRefs = Array.isArray(plan.evidence_refs) ? plan.evidence_refs : [];
+  const recordEvidenceRefs = Array.isArray(record.evidence_refs) ? record.evidence_refs : [];
+  const missing = [];
+  const mismatches = [];
+  if (plan.record_dir !== "model-backend-process-materializations") missing.push("record_dir");
+  if (!plan.record_id) missing.push("record_id");
+  if (record.id !== plan.record_id) mismatches.push("record.id");
+  if (record.record_id !== plan.record_id) mismatches.push("record.record_id");
+  if (record.object !== "ioi.model_mount_backend_process_materialization") {
+    missing.push("record.object");
+  }
+  if (record.schema_version !== MODEL_MOUNT_BACKEND_PROCESS_MATERIALIZATION_SCHEMA_VERSION) {
+    missing.push("record.schema_version");
+  }
+  if (plan.operation_kind !== options.operation_kind) mismatches.push("operation_kind");
+  if (plan.rust_core_boundary !== "model_mount.backend_process_materialization") {
+    missing.push("rust_core_boundary");
+  }
+  if (!plan.materialization_hash) missing.push("materialization_hash");
+  if (!plan.authority_hash) missing.push("authority_hash");
+  if (!record.backend_process_ref) missing.push("record.backend_process_ref");
+  if (!record.process_materialization_status) missing.push("record.process_materialization_status");
+  if (record.process_execution_owner !== "rust_daemon_core.model_mount.backend_process_materialization") {
+    missing.push("record.process_execution_owner");
+  }
+  if (record.spawn_contract?.spawn_args_returned !== false) {
+    missing.push("record.spawn_contract.spawn_args_returned_false");
+  }
+  if (record.spawn_contract?.pid_returned !== false) {
+    missing.push("record.spawn_contract.pid_returned_false");
+  }
+  if (record.spawn_contract?.plaintext_process_material_returned !== false) {
+    missing.push("record.spawn_contract.plaintext_process_material_returned_false");
+  }
+  for (const field of [
+    "js_process_supervisor",
+    "command_transport_spawn",
+    "binary_bridge_spawn",
+    "compatibility_spawn_fallback",
+  ]) {
+    if (record.retired_paths?.[field] !== false) missing.push(`record.retired_paths.${field}_false`);
+    if (publicResponse[field] !== false) missing.push(`public_response.${field}_false`);
+  }
+  if (publicResponse.spawn_args_returned !== false) {
+    missing.push("public_response.spawn_args_returned_false");
+  }
+  for (const ref of [
+    "rust_daemon_core_backend_process_materialization",
+    "rust_backend_process_materialization_bound",
+    "wallet_network_backend_process_authority_bound",
+    "ctee_backend_process_custody_enforced",
+    "agentgres_backend_process_materialization_truth_required",
+    "js_backend_process_supervisor_retired",
+    "command_transport_backend_process_spawn_retired",
+    "binary_bridge_backend_process_spawn_retired",
+  ]) {
+    if (!evidenceRefs.includes(ref)) missing.push(`evidence_refs.${ref}`);
+    if (!recordEvidenceRefs.includes(ref)) missing.push(`record.evidence_refs.${ref}`);
+  }
+  if (missing.length === 0 && mismatches.length === 0) return;
+  throw runtimeError({
+    status: 502,
+    code: "model_mount_backend_process_materialization_plan_invalid",
+    message: "Backend process materialization facade requires a Rust-authored process materialization plan.",
+    details: {
+      operation_kind: options.operation_kind ?? null,
+      missing,
+      mismatches,
+    },
+  });
+}
+
+function backendProcessMaterializationResponse(plan, commit) {
+  const record = plan.record && typeof plan.record === "object" && !Array.isArray(plan.record)
+    ? plan.record
+    : {};
+  const publicResponse = plan.public_response && typeof plan.public_response === "object" && !Array.isArray(plan.public_response)
+    ? plan.public_response
+    : record.public_response && typeof record.public_response === "object" && !Array.isArray(record.public_response)
+      ? record.public_response
+      : {};
+  return {
+    ...publicResponse,
+    status: publicResponse.status ?? "materialized",
+    operation_kind: plan.operation_kind,
+    rust_core_boundary: plan.rust_core_boundary,
+    record_dir: plan.record_dir,
+    record_id: plan.record_id,
+    record,
+    commit,
+    process_plan: plan.process_plan,
+    receipt_refs: plan.receipt_refs,
+    authority_grant_refs: plan.authority_grant_refs,
+    authority_receipt_refs: plan.authority_receipt_refs,
+    evidence_refs: plan.evidence_refs,
+    materialization_hash: plan.materialization_hash,
+    authority_hash: plan.authority_hash,
+    backend_process_ref: record.backend_process_ref ?? publicResponse.backend_process_ref ?? null,
+    js_process_supervisor: false,
+    command_transport_spawn: false,
+    binary_bridge_spawn: false,
+    compatibility_spawn_fallback: false,
   };
 }
 
@@ -4504,6 +4773,7 @@ function modelMountInstanceLifecycleRequest({
   modelId,
   backendId,
   providerLifecycle,
+  backendProcessMaterialization,
   load_options,
   runtime_engine_id,
   evidenceRefs = [],
@@ -4526,6 +4796,12 @@ function modelMountInstanceLifecycleRequest({
   const provider_lifecycle_hash = action === "estimate"
     ? optionalProviderLifecycleHash(providerLifecycle)
     : requiredProviderLifecycleHash(providerLifecycle);
+  const backend_process_ref = action === "load"
+    ? requiredBackendProcessMaterializationRef(backendProcessMaterialization)
+    : optionalBackendProcessMaterializationRef(backendProcessMaterialization);
+  const backend_process_materialization_hash = action === "load"
+    ? requiredBackendProcessMaterializationHash(backendProcessMaterialization)
+    : optionalBackendProcessMaterializationHash(backendProcessMaterialization);
   const request = {
     schema_version: MODEL_MOUNT_INSTANCE_LIFECYCLE_SCHEMA_VERSION,
     instance_ref: resolvedInstanceId,
@@ -4538,6 +4814,8 @@ function modelMountInstanceLifecycleRequest({
     backend_ref: resolvedBackendId,
     driver,
     provider_lifecycle_hash,
+    backend_process_ref,
+    backend_process_materialization_hash,
     evidence_refs: [
       ...new Set([
         "public_model_loading_rust_facade",
@@ -4550,6 +4828,56 @@ function modelMountInstanceLifecycleRequest({
     request.load_options = canonicalLoadEstimateOptions(load_options);
   }
   return request;
+}
+
+function requiredBackendProcessMaterializationRef(materialization = {}) {
+  const ref = optionalBackendProcessMaterializationRef(materialization);
+  if (ref) return ref;
+  throw runtimeError({
+    status: 502,
+    code: "model_mount_instance_lifecycle_backend_process_ref_required",
+    message: "Model instance lifecycle requires a Rust backend-process materialization ref.",
+    details: {
+      rust_core_boundary: "model_mount.instance_lifecycle",
+      backend_process_materialization_source: materialization.source ?? null,
+    },
+  });
+}
+
+function requiredBackendProcessMaterializationHash(materialization = {}) {
+  const hash = optionalBackendProcessMaterializationHash(materialization);
+  if (hash) return hash;
+  throw runtimeError({
+    status: 502,
+    code: "model_mount_instance_lifecycle_backend_process_hash_required",
+    message: "Model instance lifecycle requires a Rust backend-process materialization hash.",
+    details: {
+      rust_core_boundary: "model_mount.instance_lifecycle",
+      backend_process_materialization_source: materialization.source ?? null,
+    },
+  });
+}
+
+function optionalBackendProcessMaterializationRef(materialization = {}) {
+  const record = materialization.record && typeof materialization.record === "object" && !Array.isArray(materialization.record)
+    ? materialization.record
+    : {};
+  const publicResponse = materialization.public_response &&
+    typeof materialization.public_response === "object" &&
+    !Array.isArray(materialization.public_response)
+    ? materialization.public_response
+    : {};
+  return materialization.backend_process_ref ??
+    publicResponse.backend_process_ref ??
+    record.backend_process_ref ??
+    "";
+}
+
+function optionalBackendProcessMaterializationHash(materialization = {}) {
+  const record = materialization.record && typeof materialization.record === "object" && !Array.isArray(materialization.record)
+    ? materialization.record
+    : {};
+  return materialization.materialization_hash ?? record.materialization_hash ?? "";
 }
 
 function requiredProviderLifecycleHash(providerLifecycle = {}) {
@@ -4588,6 +4916,15 @@ function assertRustAuthoredModelInstanceLifecycleResult(result = {}, options = {
   if (!evidenceRefs.includes("rust_model_mount_instance_lifecycle")) {
     missing.push("evidence_refs.rust_model_mount_instance_lifecycle");
   }
+  if (options.action === "load") {
+    if (!record.backend_process_ref) missing.push("result.backend_process_ref");
+    if (!record.backend_process_materialization_hash) {
+      missing.push("result.backend_process_materialization_hash");
+    }
+    if (!evidenceRefs.includes("rust_model_mount_backend_process_materialization_bound")) {
+      missing.push("evidence_refs.rust_model_mount_backend_process_materialization_bound");
+    }
+  }
   if (options.action && record.action !== options.action) mismatches.push("result.action");
   if (options.targetStatus && record.status !== options.targetStatus) mismatches.push("result.status");
   if (missing.length === 0 && mismatches.length === 0) return;
@@ -4625,7 +4962,7 @@ function canonicalLoadEstimateOptions(load_options = {}) {
 function commitModelInstanceLifecycleRecordState(
   state,
   lifecycle,
-  { operation_kind, providerLifecycle } = {},
+  { operation_kind, providerLifecycle, backendProcessMaterialization } = {},
 ) {
   const record = lifecycle.result;
   const commit = commitModelMountRecordState(state, {
@@ -4638,10 +4975,15 @@ function commitModelInstanceLifecycleRecordState(
       "Model instance lifecycle requires Rust Agentgres record-state commit before public model-instance truth can return.",
     invalidCode: "model_mount_instance_lifecycle_record_state_commit_invalid",
   });
-  return modelInstanceLifecycleResponse(lifecycle, commit, providerLifecycle);
+  return modelInstanceLifecycleResponse(lifecycle, commit, providerLifecycle, backendProcessMaterialization);
 }
 
-function modelInstanceLifecycleResponse(lifecycle, commit, providerLifecycle = {}) {
+function modelInstanceLifecycleResponse(
+  lifecycle,
+  commit,
+  providerLifecycle = {},
+  backendProcessMaterialization = {},
+) {
   const record = lifecycle.result;
   return {
     ...record,
@@ -4651,7 +4993,14 @@ function modelInstanceLifecycleResponse(lifecycle, commit, providerLifecycle = {
     record,
     commit,
     provider_lifecycle: providerLifecycle.result ?? null,
+    backend_process_materialization: backendProcessMaterialization.record ?? null,
     provider_lifecycle_hash: lifecycle.provider_lifecycle_hash ?? record.provider_lifecycle_hash ?? null,
+    backend_process_ref: record.backend_process_ref ?? null,
+    backend_process_materialization_hash:
+      lifecycle.backend_process_materialization_hash ??
+      record.backend_process_materialization_hash ??
+      backendProcessMaterialization.materialization_hash ??
+      null,
     instance_lifecycle_hash: lifecycle.instance_lifecycle_hash ?? record.instance_lifecycle_hash ?? null,
     evidence_refs: lifecycle.evidence_refs ?? record.evidence_refs ?? [],
   };

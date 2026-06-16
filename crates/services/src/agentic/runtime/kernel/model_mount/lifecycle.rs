@@ -160,6 +160,8 @@ mod tests {
             "backend_ref": "backend.autopilot.native-local.fixture",
             "driver": "native_local",
             "provider_lifecycle_hash": "sha256:provider-lifecycle",
+            "backend_process_ref": "backend_process://backend.autopilot.native-local.fixture_process#sha256:plan",
+            "backend_process_materialization_hash": "sha256:backend-process-materialization",
             "evidence_refs": ["rust_model_mount_provider_lifecycle"]
         }))
         .expect("instance lifecycle request");
@@ -176,9 +178,16 @@ mod tests {
             response.provider_lifecycle_hash,
             "sha256:provider-lifecycle"
         );
+        assert_eq!(
+            response.backend_process_materialization_hash,
+            "sha256:backend-process-materialization"
+        );
         assert!(response.instance_lifecycle_hash.starts_with("sha256:"));
         assert!(response
             .evidence_refs
             .contains(&"rust_model_mount_instance_lifecycle".to_string()));
+        assert!(response
+            .evidence_refs
+            .contains(&"rust_model_mount_backend_process_materialization_bound".to_string()));
     }
 }

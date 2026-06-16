@@ -8088,7 +8088,7 @@ daemon-core APIs. The
 bridge proof suite now runs 35 tests.
 
 This remains non-terminal because actual backend process supervision/transport
-execution and richer backend process-state materialization still need Rust
+execution and live external backend process-state supervision still need Rust
 ownership. Backend-process/backend-lifecycle planning, public route-control, and
 model_mount conversation/stream planning no longer cross temporary command
 transport. The target is direct Rust daemon-core model-mount protocol/API
@@ -8890,7 +8890,7 @@ no longer synthesize backend truth, and conformance guards the old bridge
 request/response wrappers, dispatch arms, source/backend markers,
 command-envelope builders, and direct-invoker fallback from returning. This is
 not terminal backend execution ownership: actual process supervision/transport
-execution, richer backend process-state materialization, and stable
+execution, live external backend process-state supervision, and stable
 SDK/IDE/CLI backend APIs remain open.
 
 Coding-tool approval satisfaction projection is now Rust-owned. The daemon
@@ -9651,7 +9651,7 @@ reports `rust_model_mount_api` instead of a command-transport marker.
 Conformance guards the retired option, absence of generic invoker storage,
 absence of the direct-invoker fallback error, absence of the command schema
 marker, and the no-bridge/no-command-env source scan. This remains non-terminal
-because backend execution/materialization, hosted/provider transport,
+because live external backend binary spawning/supervision, hosted/provider transport,
 hosted provider auth materialization, invocation authority, remaining
 non-OAuth cache scaffolding, durable replay/storage, richer MCP runtime
 materialization, and stable IDE/CLI/SDK protocol APIs still need terminal
@@ -10762,7 +10762,7 @@ and log readbacks remain Rust read-projection/replay records, and JS process
 supervisor entrypoints remain fail-closed before any subprocess authority.
 Conformance now guards the absent daemon fields, helper exports, persistence
 map, store directory, Rust aggregate compatibility field, and focused absence
-assertions. Remaining work is actual Rust backend execution/materialization,
+assertions. Remaining work is actual Rust live external backend binary spawning/supervision,
 hosted/provider transport, invocation authority depth, and stable SDK/IDE/CLI
 protocol APIs, not a JS backend-process cache fallback.
 
@@ -10777,7 +10777,7 @@ the Rust aggregate keeps the protocol fields as Rust-authored output, not JS
 state. Conformance guards the absent daemon fields, persistence map entries,
 store directories, and focused absence assertions while preserving Rust replay
 coverage for OAuth session/state records. Remaining work is hosted OAuth/
-live cTEE secret injection into outbound hosted network requests, actual Rust backend execution/materialization,
+live cTEE secret injection into outbound hosted network requests, actual Rust live external backend binary spawning/supervision,
 hosted/provider transport, invocation authority depth, and stable SDK/IDE/CLI
 protocol APIs, not a JS OAuth session/state cache fallback.
 
@@ -11318,7 +11318,7 @@ and `routes ls` no longer use the older `/api/v1` model_mount read URLs.
 Conformance guards the stable route surface, SDK methods, CLI read-command
 URLs, and the absence of the retired client read fallbacks for migrated read
 commands. This remains non-terminal because hosted/provider materialization,
-live cTEE secret injection into outbound hosted network requests, backend execution/materialization,
+live cTEE secret injection into outbound hosted network requests, live external backend binary spawning/supervision,
 invocation authority depth, later stable IDE and SDK control-client rows still need terminal Rust-owned materialization and replay records.
 
 Slice 1349 retires the legacy model_mount native read aliases for the migrated
@@ -11332,7 +11332,7 @@ aliases return `not_found` without calling `catalogSearch()`, `listArtifacts()`,
 the generic `/api/v1/models/:id` route fences collection-style retired aliases
 instead of treating them as model IDs. Conformance source-scans keep the removed
 GET handlers absent. This remains
-non-terminal because mutation/control routes, backend execution/materialization,
+non-terminal because mutation/control routes, live external backend binary spawning/supervision,
 hosted/provider transport, live cTEE secret injection into outbound hosted network requests, invocation
 authority depth, and later stable client protocol rows had not yet landed at that cut.
 
@@ -11347,7 +11347,7 @@ and current proof/autopilot scripts consume those stable protocol routes.
 model_mount handler, focused route tests assert those aliases return `not_found`
 without calling receipt methods, and conformance scans keep clients and handlers
 off the retired `/api/v1/receipts` family. This remains non-terminal because
-mutation/control routes, backend execution/materialization, hosted/provider
+mutation/control routes, live external backend binary spawning/supervision, hosted/provider
 transport, live cTEE secret injection into outbound hosted network requests, invocation authority depth, and
 later stable client protocol rows had not yet landed at that cut.
 
@@ -11382,7 +11382,7 @@ longer exposes `GET /api/v1/server/status`, `GET /api/v1/server/logs`,
 `/api/v1/models/:id` handler fences retired collection-style segments instead
 of treating them as model ids. Conformance scans source-only clients and
 focused route tests so these retired read aliases cannot return. This remains
-non-terminal because mutation/control routes, backend execution/materialization,
+non-terminal because mutation/control routes, live external backend binary spawning/supervision,
 hosted/provider transport, live cTEE secret injection into outbound hosted network requests, invocation
 authority depth, and later stable control-client rows had not yet landed at that cut.
 
@@ -11417,7 +11417,7 @@ and daemon contract tests moved off `POST /api/v1/backends/{id}/health`,
 those aliases, focused route tests assert they return `not_found` without
 calling backend lifecycle methods, and conformance scans client surfaces so the
 retired backend-control compatibility path cannot return. This remains
-non-terminal because backend execution/materialization, hosted/provider
+non-terminal because live external backend binary spawning/supervision, hosted/provider
 transport, live cTEE secret injection into outbound hosted network requests, invocation authority depth, and
 later stable control-client rows had not yet landed at that cut.
 
@@ -11440,7 +11440,7 @@ exposes those aliases, focused route tests assert they return `not_found`
 without calling runtime-control methods, and conformance scans source clients so
 the retired runtime-control compatibility path cannot return. This remains
 non-terminal because model import/download/mount/load/unload, provider/vault/
-catalog OAuth controls, backend execution/materialization, hosted/provider
+catalog OAuth controls, live external backend binary spawning/supervision, hosted/provider
 transport, live cTEE secret injection into outbound hosted network requests, invocation authority depth, and
 later stable control-client rows had not yet landed at that cut.
 
@@ -11458,7 +11458,7 @@ those aliases, focused route tests assert they return `not_found` without
 calling route-control methods, and conformance scans source clients so the
 retired route-control compatibility path cannot return. This remains
 non-terminal because model import/download/mount/load/unload, provider/vault/
-catalog OAuth controls, backend execution/materialization, hosted/provider
+catalog OAuth controls, live external backend binary spawning/supervision, hosted/provider
 transport, live cTEE secret injection into outbound hosted network requests, invocation authority depth, and
 later stable control-client rows had not yet landed at that cut.
 
@@ -11492,7 +11492,7 @@ handler no longer exposes those aliases, focused route tests assert they return
 clients so the retired lifecycle compatibility path plus retired camelCase
 load-policy/load-option request selectors cannot return. This remains
 non-terminal because model download/storage controls, provider/vault/catalog
-OAuth controls, backend execution/materialization, hosted/provider transport,
+OAuth controls, live external backend binary spawning/supervision, hosted/provider transport,
 live cTEE secret injection into outbound hosted network requests, invocation authority depth, and broader
 later stable control-client rows had not yet landed at that cut.
 
@@ -11520,7 +11520,7 @@ longer exposes those aliases, focused route tests assert they return
 `not_found` without calling storage/download methods, and conformance scans
 source clients so the retired storage/download compatibility path cannot
 return. This remains non-terminal because provider/vault/catalog OAuth
-controls, backend execution/materialization, hosted/provider transport,
+controls, live external backend binary spawning/supervision, hosted/provider transport,
 live cTEE secret injection into outbound hosted network requests, invocation authority depth, and broader
 later stable control-client rows had not yet landed at that cut.
 
@@ -11543,7 +11543,7 @@ UI actions, IDE workbench actions, and OAuth callback proofs moved off
 exposes those aliases, focused route tests assert they return `not_found`
 without calling provider/vault/token/catalog methods, and conformance scans
 source clients so the retired compatibility path cannot return. This remains
-non-terminal because backend execution/materialization, hosted/provider
+non-terminal because live external backend binary spawning/supervision, hosted/provider
 transport, live cTEE outbound injection depth, invocation authority depth,
 and later stable control-client rows had not yet landed at that cut.
 
@@ -11560,7 +11560,7 @@ planners and Agentgres record/projection truth; the SDK source has no
 authoritative `/api/v1` model_mount control request path, and focused SDK tests
 drive the whole route family while asserting retired `/api/v1` control routes
 do not return through the SDK. At this cut the migration remained non-terminal
-because backend execution/materialization, hosted/provider transport,
+because live external backend binary spawning/supervision, hosted/provider transport,
 live cTEE outbound injection depth, invocation authority depth, and the
 then-pending IDE control surface still needed terminal Rust-owned protocol
 coverage.
@@ -11577,7 +11577,7 @@ retired camelCase model_mount control request aliases instead of translating
 them, exports the surface through `@ioi/agent-ide`, and focused tests drive the
 whole route family while asserting no `/api/v1` control path returns through the
 IDE. Workbench actions remain stable protocol clients over the same daemon
-routes. This remains non-terminal because backend execution/materialization,
+routes. This remains non-terminal because live external backend binary spawning/supervision,
 hosted/provider transport, live cTEE outbound injection depth, and
 invocation authority depth still need terminal Rust-owned protocol coverage.
 
@@ -11596,7 +11596,7 @@ hosted defaults stay blocked on vault refs, legacy plaintext helper inputs fail
 closed, and env values do not resolve provider vault material. Conformance
 guards the absence of provider API-key env aliases in the model_mount hosted
 provider/vault path so the fallback cannot return. This remains non-terminal
-because backend execution/materialization, hosted/provider transport, live cTEE secret injection into outbound hosted network requests, and invocation authority depth still
+because live external backend binary spawning/supervision, hosted/provider transport, live cTEE secret injection into outbound hosted network requests, and invocation authority depth still
 need terminal Rust-owned execution coverage.
 
 Slice 1363 deletes the backend-process supervisor facade stubs. The mounted
@@ -11612,9 +11612,10 @@ shim rather than preserving them as terminal scaffolding. Focused tests assert
 the supervisor/snapshot methods are absent from the mounted facade while backend
 lifecycle still commits Rust-authored records and backend logs still project
 through Rust replay. Conformance now rejects restoring those method names or the
-retired supervisor shim. This remains non-terminal because actual Rust backend
-process execution/materialization, hosted/provider transport, live cTEE secret injection into outbound hosted network requests, and invocation authority depth still need terminal
-Rust-owned execution coverage.
+retired supervisor shim. This remains non-terminal because live external
+backend binary spawning/supervision, hosted/provider transport, live cTEE
+secret injection into outbound hosted network requests, and invocation
+authority depth still need terminal Rust-owned execution coverage.
 
 Slice 1364 deletes the mounted provider-driver factory facade stub. Provider
 execution, provider lifecycle, provider inventory, and provider result admission
@@ -11627,7 +11628,7 @@ while lifecycle and inventory tests continue to prove fixture, native-local,
 and hosted provider calls do not consult the inert JS driver sentinels.
 Conformance now rejects restoring the method name, retired error code, or
 provider-driver helper shim. This remains non-terminal because hosted/provider
-transport, actual Rust backend process execution/materialization, live cTEE secret injection into outbound hosted network requests, and invocation authority depth still
+transport, live external backend binary spawning/supervision, live cTEE secret injection into outbound hosted network requests, and invocation authority depth still
 need terminal Rust-owned execution coverage.
 
 Slice 1365 deletes the mounted receipt-authoring facade stubs. The mounted
@@ -11641,7 +11642,7 @@ reads still delegate to the canonical store and non-Rust receipt persistence
 still fails closed. Conformance now rejects restoring those method names,
 `model_mount_js_receipt_creation_retired`, or the lifecycle receipt JS facade
 evidence shim. This remains non-terminal because hosted/provider transport,
-actual Rust backend process execution/materialization, live cTEE secret injection into outbound hosted network requests, and invocation authority depth still need terminal
+live external backend binary spawning/supervision, live cTEE secret injection into outbound hosted network requests, and invocation authority depth still need terminal
 Rust-owned execution coverage.
 
 Slice 1366 hard-cuts the public/runtime route store-core lifecycle fallback.
@@ -11655,7 +11656,7 @@ tests remove `contextPolicyCore` from their store fixtures and pass the Rust
 core explicitly. Conformance now rejects restoring `store.contextPolicyCore` or
 `store?.contextPolicyCore` in the public/runtime route files and requires the
 service-level explicit core handoff. This remains non-terminal because hosted
-provider transport, actual Rust backend process execution/materialization,
+provider transport, live external backend binary spawning/supervision,
 live cTEE secret injection into outbound hosted network requests, and invocation authority depth
 still need terminal Rust-owned execution coverage.
 
@@ -11673,7 +11674,7 @@ reaches the Rust direct API boundary, while hosted stream remains blocked before
 unsupported stream transport can masquerade as migrated execution. This cut was
 superseded by the hosted transport-contract materialization cut below; live
 external hosted API execution, live cTEE secret injection into outbound hosted network requests,
-actual Rust backend process execution/materialization, and invocation authority
+live external backend binary spawning/supervision, and invocation authority
 depth still need terminal Rust-owned execution coverage.
 
 Slice 1368 hard-cuts hosted provider invocation out of the generic unsupported
@@ -11688,7 +11689,7 @@ lane, validates the bound provider-execution record, requires wallet authority
 grant/receipt refs plus hosted auth/cTEE evidence, and fails missing authority or
 auth evidence with named Rust errors before execution. This remains
 non-terminal because live cTEE secret injection into outbound hosted network requests, live external hosted API execution, live hosted streaming network I/O, actual Rust
-backend process execution/materialization, and deeper invocation authority still
+live external backend binary spawning/supervision, and deeper invocation authority still
 need terminal Rust-owned execution coverage.
 
 Slice 1369 hard-cuts the hosted provider invocation temporary transport
@@ -11707,7 +11708,7 @@ tests and conformance require the positive hosted transport-contract path and
 reject restoring the retired pending error. This remains non-terminal because
 direct live external provider network I/O, live cTEE secret injection into
 outbound hosted network requests, live hosted streaming network I/O, actual Rust
-backend process execution/materialization, and deeper invocation authority still
+live external backend binary spawning/supervision, and deeper invocation authority still
 need terminal Rust-owned execution coverage.
 
 Slice 1370 hard-cuts hosted provider stream invocation out of the fail-closed
@@ -11729,7 +11730,7 @@ fail closed before accepted truth. Focused JS/Rust tests and conformance now
 require the positive hosted stream path and reject restoring the old hosted
 stream Rust-required fallback. This remains non-terminal because live hosted
 network I/O, live cTEE secret injection into outbound hosted network requests,
-actual Rust backend process execution/materialization, and deeper invocation
+live external backend binary spawning/supervision, and deeper invocation
 authority still need terminal Rust-owned execution coverage.
 
 Slice 1371 hard-cuts hosted provider auth-header materialization into a Rust
@@ -11748,8 +11749,29 @@ auth-materialization evidence. Focused JS/Rust tests and conformance guard the
 positive typed API and reject restoring JS auth-header materializers or
 command-shaped provider-auth materialization transport. This remains
 non-terminal because live hosted network I/O, live cTEE secret injection into
-outbound hosted network requests, actual Rust backend process
-execution/materialization, and deeper invocation authority still need terminal
+outbound hosted network requests, live external backend binary
+spawning/supervision, and deeper invocation authority still need terminal
+Rust-owned execution coverage.
+
+Slice 1372 hard-cuts model-load backend process materialization into a Rust
+daemon-core API. `loadModel()` now calls
+`planModelMountBackendProcessMaterialization` after Rust provider lifecycle
+planning and before instance lifecycle truth can commit; Rust
+`backend_process` emits an Agentgres `model-backend-process-materializations`
+record with wallet backend-process authority, cTEE process custody, redacted
+spawn-contract hash, `process_execution_owner:
+"rust_daemon_core.model_mount.backend_process_materialization"`, and explicit
+false markers for JS process supervision, command-transport spawn,
+binary-bridge spawn, and compatibility spawn fallback. Rust instance lifecycle
+`load` requests now require `backend_process_ref` and
+`backend_process_materialization_hash`, and model-load record-state commits
+write the backend-process materialization record before the model-instance
+record. Focused JS/Rust tests and conformance require the positive typed API,
+the Agentgres commit, the instance binding, and the absence of restored JS
+child-process supervisor, command transport, or binary bridge spawn paths. This
+remains non-terminal because live hosted network I/O, live cTEE secret
+injection into outbound hosted network requests, live external backend binary
+spawning/supervision, and deeper invocation authority still need terminal
 Rust-owned execution coverage.
 
 ## Final Doctrine

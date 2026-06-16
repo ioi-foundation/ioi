@@ -21,6 +21,10 @@ pub struct ModelMountInstanceLifecycleRequest {
     pub driver: String,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub provider_lifecycle_hash: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub backend_process_ref: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub backend_process_materialization_hash: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -50,6 +54,10 @@ pub struct ModelMountInstanceLifecycleResult {
     pub driver: String,
     pub execution_backend: String,
     pub provider_lifecycle_hash: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub backend_process_ref: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub backend_process_materialization_hash: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -83,6 +91,13 @@ impl ModelMountInstanceLifecycleRequest {
         require_non_empty("driver", &self.driver)?;
         if self.action.trim() != "estimate" {
             require_non_empty("provider_lifecycle_hash", &self.provider_lifecycle_hash)?;
+        }
+        if self.action.trim() == "load" {
+            require_non_empty("backend_process_ref", &self.backend_process_ref)?;
+            require_non_empty(
+                "backend_process_materialization_hash",
+                &self.backend_process_materialization_hash,
+            )?;
         }
         if self.execution_backend.trim() != "rust_model_mount_instance_lifecycle" {
             return Err(ModelMountError::UnsupportedInstanceLifecycleBackend);
@@ -127,6 +142,8 @@ pub(super) fn plan_instance_lifecycle(
         driver: request.driver.clone(),
         execution_backend: request.execution_backend.clone(),
         provider_lifecycle_hash: provider_lifecycle_hash(request)?,
+        backend_process_ref: request.backend_process_ref.clone(),
+        backend_process_materialization_hash: request.backend_process_materialization_hash.clone(),
         reason: request.reason.clone(),
         superseded_by: request.superseded_by.clone(),
         runtime_engine_id: request.runtime_engine_ref.clone(),
@@ -150,6 +167,7 @@ fn instance_lifecycle_evidence_refs(request: &ModelMountInstanceLifecycleRequest
         refs.push("model_mount_model_loading_js_estimate_facade_retired".to_string());
     } else {
         refs.push("rust_model_mount_provider_lifecycle_bound".to_string());
+        refs.push("rust_model_mount_backend_process_materialization_bound".to_string());
     }
     for evidence_ref in &request.evidence_refs {
         push_unique_ref(&mut refs, evidence_ref);
@@ -240,6 +258,9 @@ mod tests {
             backend_ref: "backend.autopilot.native-local.fixture".to_string(),
             driver: "native_local".to_string(),
             provider_lifecycle_hash: "sha256:provider-lifecycle".to_string(),
+            backend_process_ref: "backend_process://backend.native_process#sha256:plan".to_string(),
+            backend_process_materialization_hash: "sha256:backend-process-materialization"
+                .to_string(),
             reason: None,
             superseded_by: None,
             runtime_engine_ref: None,

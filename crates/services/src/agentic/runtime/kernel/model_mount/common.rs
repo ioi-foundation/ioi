@@ -21,6 +21,10 @@ pub const MODEL_MOUNT_INSTANCE_LIFECYCLE_SCHEMA_VERSION: &str =
 pub const MODEL_MOUNT_PROVIDER_RESULT_SCHEMA_VERSION: &str = "ioi.model_mount.provider_result.v1";
 pub const MODEL_MOUNT_BACKEND_PROCESS_PLAN_SCHEMA_VERSION: &str =
     "ioi.model_mount.backend_process_plan.v1";
+pub const MODEL_MOUNT_BACKEND_PROCESS_MATERIALIZATION_SCHEMA_VERSION: &str =
+    "ioi.model_mount.backend_process_materialization.v1";
+pub const MODEL_MOUNT_BACKEND_PROCESS_MATERIALIZATION_PLAN_SCHEMA_VERSION: &str =
+    "ioi.model_mount.backend_process_materialization_plan.v1";
 pub const MODEL_MOUNT_BACKEND_LIFECYCLE_SCHEMA_VERSION: &str =
     "ioi.model_mount.backend_lifecycle.v1";
 pub const MODEL_MOUNT_BACKEND_LIFECYCLE_PLAN_SCHEMA_VERSION: &str =
@@ -120,6 +124,8 @@ pub enum ModelMountError {
     UnsupportedInstanceLifecycleAction,
     UnsupportedInstanceLifecycleBackend,
     UnsupportedBackendProcessKind,
+    UnsupportedBackendProcessMaterializationOperation,
+    BackendProcessMaterializationNotReady,
     UnsupportedBackendLifecycleOperation,
     UnsupportedRouteControlKind,
     UnsupportedTokenizerOperation,

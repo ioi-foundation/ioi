@@ -6,6 +6,7 @@ import {
   MODEL_MOUNT_ACCEPTED_RECEIPT_TRANSITION_API_METHOD,
   MODEL_MOUNT_ARTIFACT_ENDPOINT_API_METHOD,
   MODEL_MOUNT_BACKEND_LIFECYCLE_API_METHOD,
+  MODEL_MOUNT_BACKEND_PROCESS_MATERIALIZATION_API_METHOD,
   MODEL_MOUNT_BACKEND_PROCESS_API_METHOD,
   MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_API_METHOD,
   MODEL_MOUNT_CATALOG_PROVIDER_CONTROL_API_METHOD,
@@ -273,6 +274,32 @@ function backendProcessPlanRequest() {
       identifier: "llama profile",
       embeddings: true,
     },
+  };
+}
+
+function backendProcessMaterializationRequest() {
+  return {
+    schema_version: "ioi.model_mount.backend_process_materialization.v1",
+    operation_kind: "model_mount.backend_process.materialize",
+    backend_ref: "backend.llama",
+    backend_kind: "llama_cpp",
+    base_url: "http://127.0.0.1:8091/v1",
+    model_ref: "model.local",
+    artifact_path: "/models/private/model.gguf",
+    binary_configured: true,
+    load_options: {
+      context_length: 4096,
+      parallel: 2,
+      gpu: "auto",
+      identifier: "llama profile",
+      embeddings: true,
+    },
+    receipt_refs: ["receipt://backend-lifecycle/start"],
+    authority_grant_refs: ["grant://wallet/backend-process"],
+    authority_receipt_refs: ["receipt://wallet/backend-process"],
+    custody_ref: "ctee://backend/backend.llama",
+    containment_ref: "ctee://workspace/private",
+    required_scope: "backend.process:backend.llama",
   };
 }
 
@@ -1487,6 +1514,107 @@ test("Rust model_mount core sends backend process plan request through typed Rus
   assert.equal(result.plan_hash, "sha256:backend-process-plan");
   assert.equal(Object.hasOwn(result, "spawnStatus"), false);
   assert.equal(Object.hasOwn(result, "publicArgs"), false);
+});
+
+test("Rust model_mount core sends backend process materialization through typed Rust daemon-core API", () => {
+  const calls = [];
+  const runner = new ModelMountCore({
+    daemonCoreModelMountApi: {
+      planModelMountBackendProcessMaterialization(request) {
+        calls.push({ method: MODEL_MOUNT_BACKEND_PROCESS_MATERIALIZATION_API_METHOD, request });
+        const record = {
+          id: "backend.llama.process",
+          record_id: "backend.llama.process",
+          schema_version: "ioi.model_mount.backend_process_materialization.v1",
+          object: "ioi.model_mount_backend_process_materialization",
+          status: "materialized",
+          operation_kind: request.operation_kind,
+          backend_ref: request.backend_ref,
+          backend_kind: request.backend_kind,
+          backend_process_ref: "backend_process://backend.llama.process#sha256:plan",
+          process_materialization_status: "rust_spawn_contract_bound",
+          rust_core_boundary: "model_mount.backend_process_materialization",
+          process_execution_owner: "rust_daemon_core.model_mount.backend_process_materialization",
+          spawn_contract: {
+            spawn_args_returned: false,
+            pid_returned: false,
+            plaintext_process_material_returned: false,
+          },
+          retired_paths: {
+            js_process_supervisor: false,
+            command_transport_spawn: false,
+            binary_bridge_spawn: false,
+            compatibility_spawn_fallback: false,
+          },
+          evidence_refs: [
+            "rust_daemon_core_backend_process_materialization",
+            "rust_backend_process_materialization_bound",
+            "wallet_network_backend_process_authority_bound",
+            "ctee_backend_process_custody_enforced",
+            "agentgres_backend_process_materialization_truth_required",
+            "js_backend_process_supervisor_retired",
+            "command_transport_backend_process_spawn_retired",
+            "binary_bridge_backend_process_spawn_retired",
+          ],
+          materialization_hash: "sha256:backend-process-materialization",
+          authority_hash: "sha256:backend-process-authority",
+        };
+        const publicResponse = {
+          object: "ioi.model_mount_backend_process_materialization",
+          id: record.id,
+          backend_ref: request.backend_ref,
+          backend_kind: request.backend_kind,
+          backend_process_ref: record.backend_process_ref,
+          process_materialization_status: record.process_materialization_status,
+          rust_core_boundary: "model_mount.backend_process_materialization",
+          process_execution_owner: "rust_daemon_core.model_mount.backend_process_materialization",
+          spawn_args_returned: false,
+          pid_returned: false,
+          plaintext_process_material_returned: false,
+          js_process_supervisor: false,
+          command_transport_spawn: false,
+          binary_bridge_spawn: false,
+          compatibility_spawn_fallback: false,
+        };
+        record.public_response = publicResponse;
+        return {
+          source: "rust_daemon_core.model_mount.backend_process_materialization",
+          record_dir: "model-backend-process-materializations",
+          record_id: record.id,
+          record,
+          public_response: publicResponse,
+          operation_kind: request.operation_kind,
+          rust_core_boundary: "model_mount.backend_process_materialization",
+          receipt_refs: request.receipt_refs,
+          authority_grant_refs: request.authority_grant_refs,
+          authority_receipt_refs: request.authority_receipt_refs,
+          evidence_refs: record.evidence_refs,
+          materialization_hash: record.materialization_hash,
+          authority_hash: record.authority_hash,
+        };
+      },
+    },
+  });
+
+  const result = runner.planBackendProcessMaterialization(backendProcessMaterializationRequest());
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, MODEL_MOUNT_BACKEND_PROCESS_MATERIALIZATION_API_METHOD);
+  assert.equal(calls[0].request.schema_version, "ioi.model_mount.backend_process_materialization.v1");
+  assert.equal(calls[0].request.operation_kind, "model_mount.backend_process.materialize");
+  assert.equal(calls[0].request.backend_kind, "llama_cpp");
+  assert.equal(Object.hasOwn(calls[0].request, "operation"), false);
+  assert.equal(Object.hasOwn(calls[0].request, "backend"), false);
+  assert.equal(result.source, "rust_daemon_core.model_mount.backend_process_materialization");
+  assert.equal(result.rust_core_boundary, "model_mount.backend_process_materialization");
+  assert.equal(result.record_dir, "model-backend-process-materializations");
+  assert.equal(result.record.process_execution_owner, "rust_daemon_core.model_mount.backend_process_materialization");
+  assert.equal(result.public_response.spawn_args_returned, false);
+  assert.equal(result.public_response.js_process_supervisor, false);
+  assert.equal(result.public_response.command_transport_spawn, false);
+  assert.equal(result.materialization_hash, "sha256:backend-process-materialization");
+  assert.ok(result.evidence_refs.includes("agentgres_backend_process_materialization_truth_required"));
+  assert.equal(Object.hasOwn(result, "spawnArgs"), false);
 });
 
 test("Rust model_mount core sends positive backend lifecycle request", () => {
@@ -3428,6 +3556,10 @@ test("Rust model_mount core rejects command-shaped backend/catalog/provider/vaul
   });
   const cases = [
     [MODEL_MOUNT_BACKEND_PROCESS_API_METHOD, () => runner.planBackendProcess(backendProcessPlanRequest())],
+    [
+      MODEL_MOUNT_BACKEND_PROCESS_MATERIALIZATION_API_METHOD,
+      () => runner.planBackendProcessMaterialization(backendProcessMaterializationRequest()),
+    ],
     [MODEL_MOUNT_BACKEND_LIFECYCLE_API_METHOD, () => runner.planBackendLifecycle(backendLifecycleRequest())],
     [MODEL_MOUNT_CATALOG_PROVIDER_CONTROL_API_METHOD, () => runner.planCatalogProviderControl(catalogProviderControlRequest())],
     [MODEL_MOUNT_PROVIDER_CONTROL_API_METHOD, () => runner.planProviderControl(providerControlRequest())],

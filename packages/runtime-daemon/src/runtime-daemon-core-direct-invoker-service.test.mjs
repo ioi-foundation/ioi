@@ -174,7 +174,10 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
           status: "loaded",
           backend_id: request.backend_ref,
           instance_lifecycle_hash: "sha256:direct-instance-lifecycle",
-          evidence_refs: ["rust_daemon_core_model_mount_instance_lifecycle"],
+          evidence_refs: [
+            "rust_daemon_core_model_mount_instance_lifecycle",
+            "rust_model_mount_backend_process_materialization_bound",
+          ],
         },
         status: "loaded",
         backendId: request.backend_ref,
@@ -182,7 +185,10 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
         execution_backend: request.execution_backend,
         provider_lifecycle_hash: request.provider_lifecycle_hash,
         instance_lifecycle_hash: "sha256:direct-instance-lifecycle",
-        evidence_refs: ["rust_daemon_core_model_mount_instance_lifecycle"],
+        evidence_refs: [
+          "rust_daemon_core_model_mount_instance_lifecycle",
+          "rust_model_mount_backend_process_materialization_bound",
+        ],
       };
     },
     admitModelMountProviderResult(request) {
@@ -224,6 +230,85 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
         spawn_status: "spawn_ready",
         plan_hash: "sha256:direct-backend-process",
         evidence_refs: ["rust_model_mount_backend_process_plan"],
+      };
+    },
+    planModelMountBackendProcessMaterialization(request) {
+      modelMountCalls.push({ method: "planModelMountBackendProcessMaterialization", request });
+      const evidenceRefs = [
+        "rust_daemon_core_backend_process_materialization",
+        "rust_backend_process_materialization_bound",
+        "wallet_network_backend_process_authority_bound",
+        "ctee_backend_process_custody_enforced",
+        "agentgres_backend_process_materialization_truth_required",
+        "js_backend_process_supervisor_retired",
+        "command_transport_backend_process_spawn_retired",
+        "binary_bridge_backend_process_spawn_retired",
+      ];
+      const publicResponse = {
+        object: "ioi.model_mount_backend_process_materialization",
+        id: "backend.llama.process",
+        backend_ref: request.backend_ref,
+        backend_kind: request.backend_kind,
+        backend_process_ref: "backend_process://backend.llama.process#sha256:direct-backend-process",
+        process_materialization_status: "rust_spawn_contract_bound",
+        rust_core_boundary: "model_mount.backend_process_materialization",
+        process_execution_owner: "rust_daemon_core.model_mount.backend_process_materialization",
+        spawn_args_returned: false,
+        pid_returned: false,
+        plaintext_process_material_returned: false,
+        js_process_supervisor: false,
+        command_transport_spawn: false,
+        binary_bridge_spawn: false,
+        compatibility_spawn_fallback: false,
+      };
+      const record = {
+        id: publicResponse.id,
+        record_id: publicResponse.id,
+        schema_version: "ioi.model_mount.backend_process_materialization.v1",
+        object: "ioi.model_mount_backend_process_materialization",
+        status: "materialized",
+        operation_kind: request.operation_kind,
+        backend_ref: request.backend_ref,
+        backend_kind: request.backend_kind,
+        backend_process_ref: publicResponse.backend_process_ref,
+        process_materialization_status: publicResponse.process_materialization_status,
+        rust_core_boundary: "model_mount.backend_process_materialization",
+        process_execution_owner: "rust_daemon_core.model_mount.backend_process_materialization",
+        spawn_contract: {
+          spawn_args_returned: false,
+          pid_returned: false,
+          plaintext_process_material_returned: false,
+        },
+        retired_paths: {
+          js_process_supervisor: false,
+          command_transport_spawn: false,
+          binary_bridge_spawn: false,
+          compatibility_spawn_fallback: false,
+        },
+        public_response: publicResponse,
+        evidence_refs: evidenceRefs,
+        materialization_hash: "sha256:direct-backend-process-materialization",
+        authority_hash: "sha256:direct-backend-process-authority",
+      };
+      return {
+        source: "rust_daemon_core.model_mount.backend_process_materialization",
+        record_dir: "model-backend-process-materializations",
+        record_id: record.id,
+        record,
+        public_response: publicResponse,
+        process_plan: {
+          backend_ref: request.backend_ref,
+          backend_kind: request.backend_kind,
+          plan_hash: "sha256:direct-backend-process",
+        },
+        operation_kind: request.operation_kind,
+        rust_core_boundary: "model_mount.backend_process_materialization",
+        receipt_refs: request.receipt_refs ?? [],
+        authority_grant_refs: request.authority_grant_refs ?? [],
+        authority_receipt_refs: request.authority_receipt_refs ?? [],
+        evidence_refs: evidenceRefs,
+        materialization_hash: record.materialization_hash,
+        authority_hash: record.authority_hash,
       };
     },
     planModelMountBackendLifecycle(request) {
@@ -1190,6 +1275,9 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
       planBackendProcess(request) {
         return directModelMountCore.planBackendProcess(request);
       },
+      planBackendProcessMaterialization(request) {
+        return directModelMountCore.planBackendProcessMaterialization(request);
+      },
       planBackendLifecycle(request) {
         return directModelMountCore.planBackendLifecycle(request);
       },
@@ -2028,6 +2116,8 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
     driver: "native_local",
     backend_ref: "backend.autopilot.native-local.fixture",
     provider_lifecycle_hash: providerLifecycle.lifecycle_hash,
+    backend_process_ref: "backend_process://backend.llama.process#sha256:direct-backend-process",
+    backend_process_materialization_hash: "sha256:direct-backend-process-materialization",
   });
   assert.equal(calls.length, 0);
   assertModelMountDirectApiCall(
@@ -2076,6 +2166,27 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
   assert.equal(modelMountCalls.at(-1).request.backend_kind, "llama_cpp");
   assert.equal(backendProcess.source, "rust_daemon_core.model_mount.backend_process");
   assert.equal(backendProcess.spawn_status, "spawn_ready");
+  const backendProcessMaterialization =
+    store.modelMounting.planModelMountBackendProcessMaterialization({
+      schema_version: "ioi.model_mount.backend_process_materialization.v1",
+      operation_kind: "model_mount.backend_process.materialize",
+      backend_ref: "backend.llama",
+      backend_kind: "llama_cpp",
+      binary_configured: true,
+      load_options: { context_length: 4096 },
+      receipt_refs: ["receipt://backend-process/direct"],
+    });
+  assert.equal(calls.length, 0);
+  assertModelMountDirectApiCall(
+    modelMountCalls.at(-1),
+    "planModelMountBackendProcessMaterialization",
+    "ioi.model_mount.backend_process_materialization.v1",
+  );
+  assert.equal(backendProcessMaterialization.rust_core_boundary, "model_mount.backend_process_materialization");
+  assert.equal(
+    backendProcessMaterialization.materialization_hash,
+    "sha256:direct-backend-process-materialization",
+  );
   const backendLifecycle = store.modelMounting.planBackendLifecycle({
     schema_version: "ioi.model_mount.backend_lifecycle.v1",
     operation_kind: "model_mount.backend.start",

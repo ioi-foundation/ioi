@@ -40,6 +40,7 @@ function fakeState() {
     instances: new Map(),
     providerRecord: provider,
     providerLifecycleRequests: [],
+    backendProcessMaterializationRequests: [],
     instanceLifecycleRequests: [],
     recordStateCommits: [],
     receipts: [],
@@ -125,19 +126,91 @@ function fakeState() {
       const backendId = request.backend_ref ?? (nativeLocal
         ? "backend.autopilot.native-local.fixture"
         : "backend.fixture");
-      const record = {
-        ...request,
+      const evidenceRefs = [
+        "public_provider_lifecycle_js_facade_retired",
+        "rust_model_mount_provider_lifecycle",
+        "agentgres_provider_lifecycle_truth_required",
+        nativeLocal
+          ? "rust_model_mount_native_local_lifecycle_backend"
+          : "rust_model_mount_fixture_lifecycle_backend",
+      ];
+      const transportContract = {
+        transport_execution_status: "rust_materialized",
+        transport_execution_owner: "rust_daemon_core.model_mount.provider_lifecycle",
+        transport_materialization_kind: nativeLocal ? "native_local_lifecycle" : "fixture_lifecycle",
+        plaintext_secret_material_returned: false,
+      };
+      const lifecycleHash = `sha256:provider:${request.provider_ref}:${request.action}`;
+      const recordId = `provider_lifecycle_${request.provider_ref
+        .replace(/[^a-z0-9._-]+/gi, "_")
+        .replace(/^_+|_+$/g, "")}_${request.action}_test`;
+      const providerLifecycleRecord = {
+        id: recordId,
+        record_id: recordId,
+        object: "ioi.model_mount_provider_lifecycle",
+        schema_version: "ioi.model_mount.provider_lifecycle_plan.v1",
+        provider_ref: request.provider_ref,
+        provider_kind: request.provider_kind,
+        endpoint_ref: request.endpoint_ref,
+        model_ref: request.model_ref,
+        action: request.action,
+        operation_kind: request.operation_kind,
         status,
         backend: nativeLocal ? "autopilot.native_local.fixture" : "ioi_fixture",
         backend_id: backendId,
         driver: nativeLocal ? "native_local" : "fixture",
-        lifecycle_hash: `sha256:provider:${request.provider_ref}:${request.action}`,
-        evidence_refs: [
-          "rust_model_mount_provider_lifecycle",
-          nativeLocal
-            ? "rust_model_mount_native_local_lifecycle_backend"
-            : "rust_model_mount_fixture_lifecycle_backend",
-        ],
+        execution_backend: request.execution_backend,
+        transport_contract: transportContract,
+        transport_execution_status: "rust_materialized",
+        transport_execution_owner: "rust_daemon_core.model_mount.provider_lifecycle",
+        transport_materialization_kind: transportContract.transport_materialization_kind,
+        plaintext_secret_material_returned: false,
+        lifecycle_hash: lifecycleHash,
+        record_dir: "model-provider-lifecycle-controls",
+        receipt_refs: [],
+        rust_core_boundary: "model_mount.provider_lifecycle",
+        source: "rust_model_mount_provider_lifecycle_command",
+        evidence_refs: evidenceRefs,
+      };
+      const publicResponse = {
+        object: "ioi.model_mount_provider_lifecycle",
+        status,
+        provider_ref: request.provider_ref,
+        provider_kind: request.provider_kind,
+        endpoint_ref: request.endpoint_ref,
+        model_ref: request.model_ref,
+        action: request.action,
+        backend_id: backendId,
+        provider_backend: providerLifecycleRecord.backend,
+        driver: providerLifecycleRecord.driver,
+        execution_backend: request.execution_backend,
+        operation_kind: request.operation_kind,
+        rust_core_boundary: "model_mount.provider_lifecycle",
+        lifecycle_hash: lifecycleHash,
+        transport_contract: transportContract,
+        transport_execution_status: "rust_materialized",
+        js_provider_driver_call: false,
+        js_provider_map_write: false,
+        js_lifecycle_receipt: false,
+        js_projection_write: false,
+      };
+      providerLifecycleRecord.public_response = publicResponse;
+      const record = {
+        ...request,
+        operation_kind: request.operation_kind,
+        status,
+        backend: nativeLocal ? "autopilot.native_local.fixture" : "ioi_fixture",
+        backend_id: backendId,
+        driver: nativeLocal ? "native_local" : "fixture",
+        lifecycle_hash: lifecycleHash,
+        evidence_refs: evidenceRefs,
+        transport_contract: transportContract,
+        rust_core_boundary: "model_mount.provider_lifecycle",
+        record_dir: "model-provider-lifecycle-controls",
+        record_id: recordId,
+        record: providerLifecycleRecord,
+        public_response: publicResponse,
+        receipt_refs: [],
       };
       return {
         source: "rust_model_mount_provider_lifecycle_command",
@@ -149,6 +222,13 @@ function fakeState() {
         driver: record.driver,
         executionBackend: request.execution_backend,
         lifecycle_hash: record.lifecycle_hash,
+        operation_kind: request.operation_kind,
+        rust_core_boundary: "model_mount.provider_lifecycle",
+        record_dir: "model-provider-lifecycle-controls",
+        record_id: recordId,
+        record: providerLifecycleRecord,
+        public_response: publicResponse,
+        receipt_refs: [],
         evidence_refs: record.evidence_refs,
         backendEvidenceRefs: record.evidence_refs,
       };
@@ -174,6 +254,8 @@ function fakeState() {
         provider_lifecycle_hash: estimate
           ? `sha256:estimate-provider-lifecycle-not-executed:${request.instance_ref}`
           : request.provider_lifecycle_hash,
+        backend_process_ref: request.backend_process_ref ?? "",
+        backend_process_materialization_hash: request.backend_process_materialization_hash ?? "",
         runtime_engine_id: request.runtime_engine_ref,
         load_options: request.load_options,
         load_estimate: estimate
@@ -200,7 +282,10 @@ function fakeState() {
               "agentgres_model_instance_estimate_truth_required",
               "model_mount_model_loading_js_estimate_facade_retired",
             ]
-            : ["rust_model_mount_provider_lifecycle_bound"]),
+            : [
+              "rust_model_mount_provider_lifecycle_bound",
+              "rust_model_mount_backend_process_materialization_bound",
+            ]),
           ...request.evidence_refs,
         ],
         instance_lifecycle_hash: `sha256:instance:${request.instance_ref}:${request.action}`,
@@ -218,6 +303,91 @@ function fakeState() {
         instance_lifecycle_hash: record.instance_lifecycle_hash,
         evidence_refs: record.evidence_refs,
         backendEvidenceRefs: record.evidence_refs,
+      };
+    },
+    planModelMountBackendProcessMaterialization(request) {
+      this.backendProcessMaterializationRequests.push(JSON.parse(JSON.stringify(request)));
+      const recordId = `${request.backend_ref}.process`;
+      const evidenceRefs = [
+        "rust_daemon_core_backend_process_materialization",
+        "rust_backend_process_materialization_bound",
+        "wallet_network_backend_process_authority_bound",
+        "ctee_backend_process_custody_enforced",
+        "agentgres_backend_process_materialization_truth_required",
+        "js_backend_process_supervisor_retired",
+        "command_transport_backend_process_spawn_retired",
+        "binary_bridge_backend_process_spawn_retired",
+      ];
+      const publicResponse = {
+        object: "ioi.model_mount_backend_process_materialization",
+        id: recordId,
+        backend_ref: request.backend_ref,
+        backend_kind: request.backend_kind,
+        backend_process_ref: `backend_process://${recordId}#sha256:plan`,
+        process_materialization_status: "rust_fixture_process_materialized",
+        rust_core_boundary: "model_mount.backend_process_materialization",
+        process_execution_owner: "rust_daemon_core.model_mount.backend_process_materialization",
+        spawn_args_returned: false,
+        pid_returned: false,
+        plaintext_process_material_returned: false,
+        js_process_supervisor: false,
+        command_transport_spawn: false,
+        binary_bridge_spawn: false,
+        compatibility_spawn_fallback: false,
+        materialization_hash: "sha256:backend-process-materialization",
+        authority_hash: "sha256:backend-process-authority",
+      };
+      const record = {
+        id: recordId,
+        record_id: recordId,
+        schema_version: "ioi.model_mount.backend_process_materialization.v1",
+        object: "ioi.model_mount_backend_process_materialization",
+        status: "materialized",
+        operation_kind: request.operation_kind,
+        backend_ref: request.backend_ref,
+        backend_kind: request.backend_kind,
+        backend_process_ref: publicResponse.backend_process_ref,
+        process_materialization_status: publicResponse.process_materialization_status,
+        rust_core_boundary: "model_mount.backend_process_materialization",
+        process_execution_owner: "rust_daemon_core.model_mount.backend_process_materialization",
+        spawn_contract: {
+          spawn_args_returned: false,
+          pid_returned: false,
+          plaintext_process_material_returned: false,
+        },
+        retired_paths: {
+          js_process_supervisor: false,
+          command_transport_spawn: false,
+          binary_bridge_spawn: false,
+          compatibility_spawn_fallback: false,
+        },
+        public_response: publicResponse,
+        evidence_refs: evidenceRefs,
+        materialization_hash: "sha256:backend-process-materialization",
+        authority_hash: "sha256:backend-process-authority",
+      };
+      return {
+        source: "rust_daemon_core.model_mount.backend_process_materialization",
+        schema_version: "ioi.model_mount.backend_process_materialization_plan.v1",
+        object: "ioi.model_mount_backend_process_materialization_plan",
+        status: "planned",
+        rust_core_boundary: "model_mount.backend_process_materialization",
+        operation_kind: request.operation_kind,
+        record_dir: "model-backend-process-materializations",
+        record_id: recordId,
+        record,
+        public_response: publicResponse,
+        process_plan: {
+          backend_ref: request.backend_ref,
+          backend_kind: request.backend_kind,
+          spawn_status: "not_required",
+        },
+        receipt_refs: [],
+        authority_grant_refs: [],
+        authority_receipt_refs: [],
+        evidence_refs: evidenceRefs,
+        materialization_hash: "sha256:backend-process-materialization",
+        authority_hash: "sha256:backend-process-authority",
       };
     },
     resolveEndpoint(endpointId, modelId) {
@@ -436,11 +606,35 @@ test("loadModel commits Rust-planned instance lifecycle without mutating JS inst
   assert.equal(loaded.provider_id, "provider.local");
   assert.equal(loaded.backend_id, "backend.autopilot.native-local.fixture");
   assert.equal(loaded.provider_lifecycle_hash, "sha256:provider:provider://provider.local:load");
+  assert.equal(
+    loaded.backend_process_ref,
+    "backend_process://backend.autopilot.native-local.fixture.process#sha256:plan",
+  );
+  assert.equal(loaded.backend_process_materialization_hash, "sha256:backend-process-materialization");
   assert.equal(loaded.instance_lifecycle_hash, "sha256:instance:instance.explicit:load");
+  assert.equal(
+    loaded.backend_process_materialization.process_execution_owner,
+    "rust_daemon_core.model_mount.backend_process_materialization",
+  );
   assert.equal(state.instances.has("instance.explicit"), false);
   assert.equal(state.providerLifecycleRequests.length, 1);
   assert.equal(state.providerLifecycleRequests[0].action, "load");
   assert.equal(state.providerLifecycleRequests[0].execution_backend, "rust_model_mount_native_local_lifecycle");
+  assert.equal(state.backendProcessMaterializationRequests.length, 1);
+  assert.equal(
+    state.backendProcessMaterializationRequests[0].schema_version,
+    "ioi.model_mount.backend_process_materialization.v1",
+  );
+  assert.equal(
+    state.backendProcessMaterializationRequests[0].operation_kind,
+    "model_mount.backend_process.materialize",
+  );
+  assert.equal(
+    state.backendProcessMaterializationRequests[0].backend_ref,
+    "backend.autopilot.native-local.fixture",
+  );
+  assert.equal(state.backendProcessMaterializationRequests[0].backend_kind, "native_local");
+  assert.equal(state.backendProcessMaterializationRequests[0].load_options.identifier, "llama-test");
   assert.equal(state.instanceLifecycleRequests.length, 1);
   assert.equal(state.instanceLifecycleRequests[0].action, "load");
   assert.equal(state.instanceLifecycleRequests[0].target_status, "loaded");
@@ -449,13 +643,20 @@ test("loadModel commits Rust-planned instance lifecycle without mutating JS inst
     state.instanceLifecycleRequests[0].provider_lifecycle_hash,
     "sha256:provider:provider://provider.local:load",
   );
-  assert.equal(state.recordStateCommits.length, 1);
-  assert.equal(state.recordStateCommits[0].record_dir, "model-instances");
-  assert.equal(state.recordStateCommits[0].record_id, "instance.explicit");
-  assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.instance.load");
-  assert.equal(state.recordStateCommits[0].record.status, "loaded");
-  assert.equal(state.recordStateCommits[0].record.action, "load");
-  assert.deepEqual(state.recordStateCommits[0].receipt_refs, []);
+  assert.equal(
+    state.instanceLifecycleRequests[0].backend_process_materialization_hash,
+    "sha256:backend-process-materialization",
+  );
+  assert.equal(state.recordStateCommits.length, 2);
+  assert.equal(state.recordStateCommits[0].record_dir, "model-backend-process-materializations");
+  assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.backend_process.materialize");
+  assert.equal(state.recordStateCommits[0].record.process_execution_owner, "rust_daemon_core.model_mount.backend_process_materialization");
+  assert.equal(state.recordStateCommits[1].record_dir, "model-instances");
+  assert.equal(state.recordStateCommits[1].record_id, "instance.explicit");
+  assert.equal(state.recordStateCommits[1].operation_kind, "model_mount.instance.load");
+  assert.equal(state.recordStateCommits[1].record.status, "loaded");
+  assert.equal(state.recordStateCommits[1].record.action, "load");
+  assert.deepEqual(state.recordStateCommits[1].receipt_refs, []);
   assert.deepEqual(state.superseded, []);
   assert.deepEqual(state.writes, []);
   assert.deepEqual(state.receipts, []);
@@ -589,7 +790,7 @@ test("loadModel fails closed if Rust Agentgres commit is unavailable after Rust 
 
   await assert.rejects(
     () => loadModel(state, { endpoint_id: "endpoint.local.llama", id: "instance.fail" }, deps),
-    (error) => error.code === "model_mount_instance_lifecycle_record_state_commit_unconfigured",
+    (error) => error.code === "model_mount_backend_process_materialization_record_state_commit_unconfigured",
   );
 
   assert.equal(state.instances.has("instance.fail"), false);
@@ -597,7 +798,8 @@ test("loadModel fails closed if Rust Agentgres commit is unavailable after Rust 
   assert.deepEqual(state.receipts, []);
   assert.deepEqual(state.recordStateCommits, []);
   assert.equal(state.providerLifecycleRequests.length, 1);
-  assert.equal(state.instanceLifecycleRequests.length, 1);
+  assert.equal(state.backendProcessMaterializationRequests.length, 1);
+  assert.equal(state.instanceLifecycleRequests.length, 0);
   assert.equal(state.writes.length, 0);
 });
 
