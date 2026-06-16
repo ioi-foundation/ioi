@@ -7,7 +7,6 @@ export const MODEL_MOUNTING_STATE_MAPS = [
   ["model-instances", "instances"],
   ["model-routes", "routes"],
   ["model-downloads", "downloads"],
-  ["model-catalog-providers", "catalogProviderConfigs"],
   ["runtime-preferences", "runtimeSelections"],
   ["runtime-engine-profiles", "runtimeEngineProfiles"],
   ["vault-refs", "vaultRefs"],

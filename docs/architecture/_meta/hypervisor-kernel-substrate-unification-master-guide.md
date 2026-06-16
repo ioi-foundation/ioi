@@ -10792,6 +10792,22 @@ absence assertion. Remaining work is deeper wallet authority policy, revocation
 epochs, and stable SDK/IDE/CLI capability-token APIs, not a JS `tokens` cache
 fallback.
 
+Slice 1329 hard-cuts the model_mount catalog-provider configuration/runtime
+material JS cache substrate. `ModelMountingState` no longer constructs
+`catalogProviderConfigs` or `catalogProviderRuntimeMaterials`, the legacy
+`model-catalog-providers` persistence entry and store directory are gone, and
+focused catalog-provider/state/store tests assert those local fields and the
+directory are absent instead of seeded and untouched. Public catalog-provider
+config list/get/write, private config readback, runtime-material resolution,
+and OAuth start/callback/exchange/refresh/revoke still enter Rust
+`plan_model_mount_catalog_provider_control` and commit
+`model-catalog-provider-controls` records through Agentgres before public
+truth returns. Conformance guards the absent daemon fields, persistence map
+entry, store directory, and focused absence assertions. Remaining work is
+auth-header materialization, richer hosted catalog transport/materialization,
+and stable SDK/IDE/CLI catalog-provider APIs, not a JS catalog-provider config
+or runtime-material cache fallback.
+
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,
 `/v1/memory/policy`, `/v1/memory/path`, or `/v1/memory/validate`; the daemon

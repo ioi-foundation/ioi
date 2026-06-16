@@ -17,8 +17,6 @@ function createState() {
   const state = {
     calls,
     recordStateCommits,
-    catalogProviderConfigs: new Map(),
-    catalogProviderRuntimeMaterials: new Map(),
     planCatalogProviderControl(request) {
       calls.push({ name: "planCatalogProviderControl", request });
       return catalogProviderControlPlan(request);
@@ -143,11 +141,6 @@ function publicResponseForRequest(request) {
 
 test("catalog provider config list/get/write commit Rust control records without JS projection", () => {
   const state = createState();
-  state.catalogProviderConfigs.set("catalog.huggingface", { id: "catalog.huggingface", enabled: true });
-  state.catalogProviderRuntimeMaterials.set("catalog.huggingface", {
-    baseUrl: "https://huggingface.example.invalid",
-    runtimeMaterialStatus: "bound_runtime_session",
-  });
 
   const list = ModelMountingState.prototype.listCatalogProviderConfigs.call(state);
   const get = ModelMountingState.prototype.getCatalogProviderConfig.call(state, "catalog.huggingface");
@@ -182,19 +175,12 @@ test("catalog provider config list/get/write commit Rust control records without
     ],
   );
   assert.equal(state.recordStateCommits[2].operation_kind, "model_mount.catalog_provider_configuration.write");
-  assert.equal(state.catalogProviderConfigs.get("catalog.huggingface").enabled, true);
+  assert.equal(Object.hasOwn(state, "catalogProviderConfigs"), false);
+  assert.equal(Object.hasOwn(state, "catalogProviderRuntimeMaterials"), false);
 });
 
 test("private config and runtime material resolve through Rust cTEE control only", () => {
   const state = createState();
-  state.catalogProviderConfigs.set("catalog.huggingface", {
-    id: "catalog.huggingface",
-    authVaultRefHash: "hash:vault://catalog/auth",
-  });
-  state.catalogProviderRuntimeMaterials.set("catalog.huggingface", {
-    materialVaultRefHash: "hash:vault://catalog/source",
-    runtimeMaterialStatus: "bound_runtime_session",
-  });
 
   const privateConfig = ModelMountingState.prototype.catalogProviderConfig.call(state, "catalog.huggingface");
   const runtimeMaterial = ModelMountingState.prototype.catalogProviderRuntimeMaterial.call(state, "catalog.huggingface");
@@ -206,4 +192,6 @@ test("private config and runtime material resolve through Rust cTEE control only
   assert.deepEqual(state.calls.map((call) => call.request.body), [{}, {}]);
   assert.equal(state.recordStateCommits.length, 2);
   assert.equal(state.recordStateCommits[1].operation_kind, "model_mount.catalog_provider_runtime_material.resolve");
+  assert.equal(Object.hasOwn(state, "catalogProviderConfigs"), false);
+  assert.equal(Object.hasOwn(state, "catalogProviderRuntimeMaterials"), false);
 });

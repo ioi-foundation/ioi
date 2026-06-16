@@ -432,8 +432,6 @@ export class ModelMountingState {
     this.instances = new Map();
     this.routes = new Map();
     this.downloads = new Map();
-    this.catalogProviderConfigs = new Map();
-    this.catalogProviderRuntimeMaterials = new Map();
     this.lastCatalogSearch = null;
     this.runtimeSelections = new Map();
     this.runtimeEngineProfiles = new Map();

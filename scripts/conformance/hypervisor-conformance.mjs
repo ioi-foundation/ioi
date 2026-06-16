@@ -18007,6 +18007,8 @@ function runBridge() {
         modelMountCoreTest,
       ) &&
       !/catalogProviderConfigState|catalogProviderRuntimeMaterialState|configureCatalogProviderState|getCatalogProviderConfigState|listCatalogProviderConfigsState/.test(modelMountingState) &&
+      !/this\.catalogProviderConfigs\s*=/.test(modelMountingState) &&
+      !/this\.catalogProviderRuntimeMaterials\s*=/.test(modelMountingState) &&
       /catalogProviderControlPlanForState/.test(catalogProviderConfig) &&
       /commitCatalogProviderControlPlan/.test(catalogProviderConfig) &&
       /catalogProviderControlResponse/.test(catalogProviderConfig) &&
@@ -18045,6 +18047,19 @@ function runBridge() {
       !/state\.catalogProviderRuntimeMaterials\.(?:set|delete)/.test(
         `${catalogProviderListBlock}\n${catalogProviderGetBlock}\n${catalogProviderConfigureBlock}\n${catalogProviderPrivateConfigBlock}\n${catalogProviderRuntimeMaterialBlock}`,
       ) &&
+      !/\["model-catalog-providers",\s*"catalogProviderConfigs"\]/.test(
+        read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs"),
+      ) &&
+      !/"model-catalog-providers"/.test(read("packages/runtime-daemon/src/model-mounting/store.mjs")) &&
+      /Slice 1329 hard-cuts the model_mount catalog-provider configuration\/runtime\s+material JS cache substrate/.test(
+        read("docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md"),
+      ) &&
+      /Model_mount catalog-provider JS cache retired/.test(
+        read("docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md"),
+      ) &&
+      /RuntimeDaemonCoreModelMountCatalogProviderCacheRetired/.test(
+        read("docs/architecture/_meta/implementation-matrix.md"),
+      ) &&
       !/state\.writeMap\("model-catalog-providers"/.test(
         catalogProviderConfigureBlock,
       ) &&
@@ -18059,6 +18074,12 @@ function runBridge() {
       /commitRuntimeModelMountRecordState/.test(catalogProviderConfigurationOperationsTest) &&
       /ctee_catalog_provider_custody_enforced/.test(catalogProviderConfigurationOperationsTest) &&
       /agentgres_catalog_provider_control_truth_required/.test(catalogProviderConfigurationOperationsTest) &&
+      /Object\.hasOwn\(state,\s*"catalogProviderConfigs"\),\s*false/.test(
+        catalogProviderConfigurationOperationsTest,
+      ) &&
+      /Object\.hasOwn\(state,\s*"catalogProviderRuntimeMaterials"\),\s*false/.test(
+        catalogProviderConfigurationOperationsTest,
+      ) &&
       /private config and runtime material resolve through Rust cTEE control only/.test(
         catalogProviderConfigurationOperationsTest,
       ) &&

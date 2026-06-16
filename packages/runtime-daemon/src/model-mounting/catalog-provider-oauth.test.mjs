@@ -19,8 +19,6 @@ function fakeState() {
   return {
     calls,
     recordStateCommits,
-    catalogProviderConfigs: new Map(),
-    catalogProviderRuntimeMaterials: new Map(),
     oauthCredentialProvider: {
       startAuthorization() {
         throw new Error("oauth start should not run in JS");

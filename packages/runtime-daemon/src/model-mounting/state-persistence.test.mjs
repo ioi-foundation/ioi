@@ -116,7 +116,7 @@ test("loadModelMountingMaps applies the canonical directory map table", () => {
   }
 });
 
-test("OAuth and capability-token JS cache maps stay retired", () => {
+test("OAuth, catalog-provider, and capability-token JS cache maps stay retired", () => {
   assert.equal(
     MODEL_MOUNTING_STATE_MAPS.some(([dir, property]) => dir === "oauth-sessions" || property === "oauthSessions"),
     false,
@@ -127,6 +127,12 @@ test("OAuth and capability-token JS cache maps stay retired", () => {
   );
   assert.equal(
     MODEL_MOUNTING_STATE_MAPS.some(([dir, property]) => dir === "tokens" || property === "tokens"),
+    false,
+  );
+  assert.equal(
+    MODEL_MOUNTING_STATE_MAPS.some(
+      ([dir, property]) => dir === "model-catalog-providers" || property === "catalogProviderConfigs",
+    ),
     false,
   );
 });
