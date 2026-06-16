@@ -14548,7 +14548,7 @@ function runBridge() {
     /invokeThreadMemoryApi/.test(runtimeContextPolicyCore) &&
     !/operation:\s*"plan_runtime_memory_control"/.test(runtimeContextPolicyCore) &&
     /RUNTIME_MEMORY_CONTROL_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyCore) &&
-    /normalizeRuntimeMemoryControlBridgeResult/.test(runtimeContextPolicyCore) &&
+    /normalizeRuntimeMemoryControlResult/.test(runtimeContextPolicyCore) &&
     /runtime memory control core sends Rust control through typed Rust daemon-core thread-memory API/.test(
       runtimeContextPolicyCoreTest,
     ) &&
@@ -27973,6 +27973,64 @@ function runReceipts() {
     ],
     "Context policy, compaction, memory-manager, and thread-memory state-update adapters must not preserve bridge-shaped request/error/result aliases or command source markers beside positive Rust daemon-core APIs",
   );
+  const runtimeMemoryProjectionCoreForBridgeShape = exists(
+    "crates/services/src/agentic/runtime/kernel/runtime_memory_projection.rs",
+  )
+    ? read("crates/services/src/agentic/runtime/kernel/runtime_memory_projection.rs")
+    : "";
+  const runtimeMemoryControlCoreForBridgeShape = exists(
+    "crates/services/src/agentic/runtime/kernel/runtime_memory_control.rs",
+  )
+    ? read("crates/services/src/agentic/runtime/kernel/runtime_memory_control.rs")
+    : "";
+  const runtimeMemoryBridgeShapeSources = [
+    runtimeMemoryProjectionCoreForBridgeShape,
+    runtimeMemoryControlCoreForBridgeShape,
+    runtimeKernelModule,
+    runtimeContextPolicyCoreForState,
+    runtimeContextPolicyCoreTestForState,
+    read("packages/runtime-daemon/src/threads/thread-memory-state.test.mjs"),
+  ].join("\n");
+  assertCheck(
+    result,
+    "runtime-memory-bridge-shaped-api-names-retired",
+    !/(?:RuntimeMemoryProjectionBridgeRequest|RuntimeMemoryProjectionCommandError|RuntimeMemoryControlCommandError|normalizeRuntimeMemoryProjectionBridgeResult|normalizeRuntimeMemoryControlBridgeResult|rust_runtime_memory_projection_command|rust_runtime_memory_control_command|rust_shapes_runtime_memory_projection_command_response)/.test(
+      runtimeMemoryBridgeShapeSources,
+    ) &&
+      /pub struct RuntimeMemoryProjectionApiRequest/.test(
+        runtimeMemoryProjectionCoreForBridgeShape,
+      ) &&
+      /pub struct RuntimeMemoryProjectionApiError/.test(
+        runtimeMemoryProjectionCoreForBridgeShape,
+      ) &&
+      /pub struct RuntimeMemoryControlApiRequest/.test(
+        runtimeMemoryControlCoreForBridgeShape,
+      ) &&
+      /pub struct RuntimeMemoryControlApiError/.test(
+        runtimeMemoryControlCoreForBridgeShape,
+      ) &&
+      /normalizeRuntimeMemoryProjectionResult/.test(runtimeContextPolicyCoreForState) &&
+      /normalizeRuntimeMemoryControlResult/.test(runtimeContextPolicyCoreForState) &&
+      /rust_runtime_memory_projection_api/.test(runtimeMemoryProjectionCoreForBridgeShape) &&
+      /rust_runtime_memory_control_api/.test(runtimeMemoryControlCoreForBridgeShape) &&
+      /Slice 1343 hard-cuts runtime memory projection\/control bridge-shaped public API/.test(
+        guide,
+      ) &&
+      /Runtime memory projection\/control bridge-shaped API names retired/.test(matrix) &&
+      /RuntimeDaemonCoreRuntimeMemoryBridgeShapeRetired/.test(implementationMatrix),
+    [
+      "crates/services/src/agentic/runtime/kernel/runtime_memory_projection.rs",
+      "crates/services/src/agentic/runtime/kernel/runtime_memory_control.rs",
+      "crates/services/src/agentic/runtime/kernel/mod.rs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
+      "packages/runtime-daemon/src/threads/thread-memory-state.test.mjs",
+      "docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md",
+      "docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md",
+      "docs/architecture/_meta/implementation-matrix.md",
+    ],
+    "Runtime memory projection/control APIs must not preserve bridge-shaped request/error/result aliases or command source markers beside positive Rust daemon-core memory APIs",
+  );
   assertCheck(
     result,
     "runtime-tool-catalog-public-js-projection-retired",
@@ -31872,7 +31930,7 @@ function runCompositor() {
     /invokeThreadMemoryApi/.test(runtimeContextPolicyCore) &&
     !/operation:\s*"plan_runtime_memory_control"/.test(runtimeContextPolicyCore) &&
     /RUNTIME_MEMORY_CONTROL_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyCore) &&
-    /normalizeRuntimeMemoryControlBridgeResult/.test(runtimeContextPolicyCore) &&
+    /normalizeRuntimeMemoryControlResult/.test(runtimeContextPolicyCore) &&
     /runtime memory control core sends Rust control through typed Rust daemon-core thread-memory API/.test(
       runtimeContextPolicyCoreTest,
     ) &&
@@ -33174,7 +33232,7 @@ function runCompositor() {
 	      /invokeThreadMemoryApi/.test(runtimeContextPolicyCore) &&
 	      !/operation:\s*"project_runtime_memory_projection"/.test(runtimeContextPolicyCore) &&
 	      /RUNTIME_MEMORY_PROJECTION_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyCore) &&
-	      /normalizeRuntimeMemoryProjectionBridgeResult/.test(runtimeContextPolicyCore) &&
+	      /normalizeRuntimeMemoryProjectionResult/.test(runtimeContextPolicyCore) &&
 	      /runtime memory projection core sends Rust projection through typed Rust daemon-core thread-memory API/.test(
 	        runtimeContextPolicyCoreTest,
 	      ) &&
@@ -33192,7 +33250,7 @@ function runCompositor() {
 	      /rust_projects_runtime_memory_route_family_shapes/.test(runtimeMemoryProjectionCore) &&
 	      /rust_rejects_runtime_memory_projection_candidate_transport/.test(runtimeMemoryProjectionCore) &&
 	      /rust_requires_state_dir_for_runtime_memory_projection/.test(runtimeMemoryProjectionCore) &&
-	      /rust_shapes_runtime_memory_projection_command_response/.test(
+	      /rust_shapes_runtime_memory_projection_api_response/.test(
 	        runtimeMemoryProjectionCore,
 	      ) &&
 	      !/ProjectRuntimeMemoryProjection/.test(commandProtocolCoreForCompositor) &&

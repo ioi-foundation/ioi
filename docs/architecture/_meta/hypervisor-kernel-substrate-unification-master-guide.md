@@ -11216,6 +11216,22 @@ command-error, bridge-result normalizer, `*_command` source marker, and
 context-policy, compaction, memory-manager, and thread-memory state-update
 surfaces.
 
+Slice 1343 hard-cuts runtime memory projection/control bridge-shaped public API
+names. Public memory read projection and memory mutation/control already enter
+Rust through typed `daemonCoreThreadMemoryApi` methods with runtime `state_dir`
+replay and Agentgres memory-state admission; their remaining Rust request/error,
+JS normalizer, and source-marker names no longer preserve bridge or command
+transport shape. The public Rust APIs are
+`RuntimeMemoryProjectionApiRequest`, `RuntimeMemoryProjectionApiError`,
+`RuntimeMemoryControlApiRequest`, and `RuntimeMemoryControlApiError`; the JS
+protocol client uses `normalizeRuntimeMemoryProjectionResult` and
+`normalizeRuntimeMemoryControlResult`; and Rust source markers use
+`rust_runtime_memory_projection_api` and `rust_runtime_memory_control_api`.
+The retired runtime memory `BridgeRequest`, `CommandError`,
+`normalize*BridgeResult`, `_command` source-marker, and
+`*_command_response` helper/test names must not return as compatibility aliases
+beside the Rust-owned memory projection/control route family.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

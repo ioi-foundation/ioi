@@ -10,7 +10,7 @@ const AGENT_MEMORY_SCHEMA_VERSION: &str = "ioi.agent-runtime.memory.v1";
 const AGENT_MEMORY_POLICY_SCHEMA_VERSION: &str = "ioi.agent-runtime.memory-policy.v1";
 
 #[derive(Debug, Clone, Deserialize, Default)]
-pub struct RuntimeMemoryControlRequest {
+pub struct RuntimeMemoryControlApiRequest {
     #[serde(default)]
     pub schema_version: Option<String>,
     #[serde(default)]
@@ -48,12 +48,12 @@ pub struct RuntimeMemoryControlRequest {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RuntimeMemoryControlCommandError {
+pub struct RuntimeMemoryControlApiError {
     code: &'static str,
     message: String,
 }
 
-impl RuntimeMemoryControlCommandError {
+impl RuntimeMemoryControlApiError {
     fn new(code: &'static str, message: impl Into<String>) -> Self {
         Self {
             code,
@@ -88,11 +88,11 @@ pub struct RuntimeMemoryControlRecord {
 }
 
 pub fn plan_runtime_memory_control_response(
-    request: RuntimeMemoryControlRequest,
-) -> Result<Value, RuntimeMemoryControlCommandError> {
+    request: RuntimeMemoryControlApiRequest,
+) -> Result<Value, RuntimeMemoryControlApiError> {
     let record = RuntimeMemoryControlCore::default().plan(&request)?;
     Ok(json!({
-        "source": "rust_runtime_memory_control_command",
+        "source": "rust_runtime_memory_control_api",
         "backend": "rust_policy",
         "record": record.to_value(),
     }))
@@ -101,11 +101,11 @@ pub fn plan_runtime_memory_control_response(
 impl RuntimeMemoryControlCore {
     pub fn plan(
         &self,
-        request: &RuntimeMemoryControlRequest,
-    ) -> Result<RuntimeMemoryControlRecord, RuntimeMemoryControlCommandError> {
+        request: &RuntimeMemoryControlApiRequest,
+    ) -> Result<RuntimeMemoryControlRecord, RuntimeMemoryControlApiError> {
         if let Some(schema_version) = optional_trimmed(request.schema_version.as_deref()) {
             if schema_version != RUNTIME_MEMORY_CONTROL_REQUEST_SCHEMA_VERSION {
-                return Err(RuntimeMemoryControlCommandError::new(
+                return Err(RuntimeMemoryControlApiError::new(
                     "runtime_memory_control_schema_version_invalid",
                     format!("expected {RUNTIME_MEMORY_CONTROL_REQUEST_SCHEMA_VERSION}, got {schema_version}"),
                 ));
@@ -117,7 +117,7 @@ impl RuntimeMemoryControlCore {
         let requested_memory_id = optional_trimmed(request.memory_id.as_deref());
         let current_record = if matches!(operation_kind.as_str(), "memory.edit" | "memory.delete") {
             let memory_id = requested_memory_id.as_deref().ok_or_else(|| {
-                RuntimeMemoryControlCommandError::new(
+                RuntimeMemoryControlApiError::new(
                     "runtime_memory_control_memory_id_required",
                     "memory edit/delete requires memory_id",
                 )
@@ -136,7 +136,7 @@ impl RuntimeMemoryControlCore {
             && agent_id.is_none()
             && !matches!(operation_kind.as_str(), "memory.edit" | "memory.delete")
         {
-            return Err(RuntimeMemoryControlCommandError::new(
+            return Err(RuntimeMemoryControlApiError::new(
                 "runtime_memory_control_identity_required",
                 "memory control requires thread_id or agent_id",
             ));
@@ -273,16 +273,16 @@ impl RuntimeMemoryControlRecord {
 }
 
 fn reject_control_candidate_transport(
-    request: &RuntimeMemoryControlRequest,
-) -> Result<(), RuntimeMemoryControlCommandError> {
+    request: &RuntimeMemoryControlApiRequest,
+) -> Result<(), RuntimeMemoryControlApiError> {
     if has_candidate_transport(&request.current_record) {
-        return Err(RuntimeMemoryControlCommandError::new(
+        return Err(RuntimeMemoryControlApiError::new(
             "runtime_memory_control_current_record_transport_retired",
             "runtime memory control rejects JS-supplied current records; provide state_dir for Agentgres memory replay",
         ));
     }
     if has_candidate_transport(&request.current_policy) {
-        return Err(RuntimeMemoryControlCommandError::new(
+        return Err(RuntimeMemoryControlApiError::new(
             "runtime_memory_control_current_policy_transport_retired",
             "runtime memory control rejects JS-supplied current policies; provide state_dir for Agentgres memory replay",
         ));
@@ -302,14 +302,14 @@ fn has_candidate_transport(value: &Value) -> bool {
 fn memory_control_record_from_state_dir(
     state_dir: Option<&str>,
     memory_id: &str,
-) -> Result<Value, RuntimeMemoryControlCommandError> {
+) -> Result<Value, RuntimeMemoryControlApiError> {
     let state_root = memory_control_state_root(state_dir)?;
     load_memory_state_dir_records(state_root.join("memory-records"), "memory records")?
         .into_iter()
         .filter(canonical_memory_record)
         .find(|record| string_field(record, "id").as_deref() == Some(memory_id))
         .ok_or_else(|| {
-            RuntimeMemoryControlCommandError::new(
+            RuntimeMemoryControlApiError::new(
                 "runtime_memory_control_record_required",
                 format!("memory control requires admitted memory record {memory_id} in state_dir"),
             )
@@ -318,11 +318,11 @@ fn memory_control_record_from_state_dir(
 
 fn memory_control_policy_from_state_dir(
     state_dir: Option<&str>,
-    request: &RuntimeMemoryControlRequest,
+    request: &RuntimeMemoryControlApiRequest,
     thread_id: Option<&str>,
     agent_id: Option<&str>,
     workspace_root: Option<&str>,
-) -> Result<Value, RuntimeMemoryControlCommandError> {
+) -> Result<Value, RuntimeMemoryControlApiError> {
     let state_root = memory_control_state_root(state_dir)?;
     let policies =
         load_memory_state_dir_records(state_root.join("memory-policies"), "memory policies")?
@@ -357,11 +357,11 @@ fn memory_control_policy_from_state_dir(
 
 fn memory_control_state_root(
     state_dir: Option<&str>,
-) -> Result<PathBuf, RuntimeMemoryControlCommandError> {
+) -> Result<PathBuf, RuntimeMemoryControlApiError> {
     optional_trimmed(state_dir)
         .map(PathBuf::from)
         .ok_or_else(|| {
-            RuntimeMemoryControlCommandError::new(
+            RuntimeMemoryControlApiError::new(
                 "runtime_memory_control_state_dir_required",
                 "runtime memory control requires runtime state_dir for Agentgres memory replay",
             )
@@ -371,12 +371,12 @@ fn memory_control_state_root(
 fn load_memory_state_dir_records(
     dir: PathBuf,
     label: &str,
-) -> Result<Vec<Value>, RuntimeMemoryControlCommandError> {
+) -> Result<Vec<Value>, RuntimeMemoryControlApiError> {
     if !dir.exists() {
         return Ok(Vec::new());
     }
     let entries = fs::read_dir(&dir).map_err(|error| {
-        RuntimeMemoryControlCommandError::new(
+        RuntimeMemoryControlApiError::new(
             "runtime_memory_control_replay_read_failed",
             format!("runtime memory control could not read Agentgres {label}: {error}"),
         )
@@ -384,7 +384,7 @@ fn load_memory_state_dir_records(
     let mut paths = Vec::new();
     for entry in entries {
         let entry = entry.map_err(|error| {
-            RuntimeMemoryControlCommandError::new(
+            RuntimeMemoryControlApiError::new(
                 "runtime_memory_control_replay_read_failed",
                 format!(
                     "runtime memory control could not inspect Agentgres {label} entry: {error}"
@@ -401,7 +401,7 @@ fn load_memory_state_dir_records(
     let mut records = Vec::new();
     for path in paths.into_iter().take(1000) {
         let contents = fs::read_to_string(&path).map_err(|error| {
-            RuntimeMemoryControlCommandError::new(
+            RuntimeMemoryControlApiError::new(
                 "runtime_memory_control_replay_read_failed",
                 format!(
                     "runtime memory control could not read Agentgres {label} record {}: {error}",
@@ -410,7 +410,7 @@ fn load_memory_state_dir_records(
             )
         })?;
         let record = serde_json::from_str(&contents).map_err(|error| {
-            RuntimeMemoryControlCommandError::new(
+            RuntimeMemoryControlApiError::new(
                 "runtime_memory_control_replay_record_invalid",
                 format!(
                     "runtime memory control found invalid Agentgres {label} record {}: {error}",
@@ -470,7 +470,7 @@ fn default_memory_policy(
 }
 
 fn record_payload(
-    request: &RuntimeMemoryControlRequest,
+    request: &RuntimeMemoryControlApiRequest,
     operation_kind: &str,
     state_id: &str,
     thread_id: Option<&str>,
@@ -551,7 +551,7 @@ fn record_payload(
 }
 
 fn policy_payload(
-    request: &RuntimeMemoryControlRequest,
+    request: &RuntimeMemoryControlApiRequest,
     state_id: &str,
     thread_id: Option<&str>,
     agent_id: Option<&str>,
@@ -618,7 +618,7 @@ fn policy_payload(
 }
 
 fn event_payload(
-    request: &RuntimeMemoryControlRequest,
+    request: &RuntimeMemoryControlApiRequest,
     operation_kind: &str,
     event_id: &str,
     thread_id: Option<&str>,
@@ -696,8 +696,8 @@ fn event_payload(
 }
 
 fn normalized_operation_kind(
-    request: &RuntimeMemoryControlRequest,
-) -> Result<String, RuntimeMemoryControlCommandError> {
+    request: &RuntimeMemoryControlApiRequest,
+) -> Result<String, RuntimeMemoryControlApiError> {
     let operation_kind = optional_trimmed(request.operation_kind.as_deref()).unwrap_or_else(|| {
         let operation =
             optional_trimmed(request.operation.as_deref()).unwrap_or_else(|| "write".to_string());
@@ -720,7 +720,7 @@ fn normalized_operation_kind(
             | "memory.status"
             | "memory.validate"
     ) {
-        return Err(RuntimeMemoryControlCommandError::new(
+        return Err(RuntimeMemoryControlApiError::new(
             "runtime_memory_control_operation_kind_unsupported",
             format!("{operation_kind} is not yet Rust-owned"),
         ));
@@ -744,7 +744,7 @@ fn is_event_operation(operation_kind: &str) -> bool {
 }
 
 fn policy_id(
-    request: &RuntimeMemoryControlRequest,
+    request: &RuntimeMemoryControlApiRequest,
     thread_id: Option<&str>,
     agent_id: Option<&str>,
 ) -> String {
@@ -773,7 +773,7 @@ fn memory_policy_id(target_type: &str, target_id: &str) -> String {
 }
 
 fn memory_receipt_refs(
-    request: &RuntimeMemoryControlRequest,
+    request: &RuntimeMemoryControlApiRequest,
     operation: &str,
     state_id: &str,
 ) -> Vec<String> {
@@ -793,7 +793,7 @@ fn memory_receipt_refs(
 }
 
 fn memory_evidence_refs(
-    request: &RuntimeMemoryControlRequest,
+    request: &RuntimeMemoryControlApiRequest,
     operation_kind: &str,
 ) -> Vec<String> {
     if !request.evidence_refs.is_empty() {
@@ -978,8 +978,8 @@ mod tests {
         );
     }
 
-    fn memory_control_request(state_dir: &Path) -> RuntimeMemoryControlRequest {
-        RuntimeMemoryControlRequest {
+    fn memory_control_request(state_dir: &Path) -> RuntimeMemoryControlApiRequest {
+        RuntimeMemoryControlApiRequest {
             schema_version: Some(RUNTIME_MEMORY_CONTROL_REQUEST_SCHEMA_VERSION.to_string()),
             operation: Some("write".to_string()),
             operation_kind: Some("memory.write".to_string()),

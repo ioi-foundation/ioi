@@ -192,10 +192,10 @@ import {
   normalizeRuntimeDoctorReportProjectionBridgeResult,
   normalizeRuntimeComputerUseProjectionBridgeResult,
   normalizeStudioIntentFrameProjectionBridgeResult,
-  normalizeRuntimeMemoryControlBridgeResult,
+  normalizeRuntimeMemoryControlResult,
   normalizeRuntimeMcpServeToolCallPlanBridgeResult,
   normalizeRuntimeMcpServeToolResultProjectionBridgeResult,
-  normalizeRuntimeMemoryProjectionBridgeResult,
+  normalizeRuntimeMemoryProjectionResult,
   normalizeRuntimeDiagnosticsRepairProjectionBridgeResult,
   normalizeRuntimeDiagnosticsRepairPolicyBridgeResult,
   normalizeRuntimeWorkflowEditControlBridgeResult,
@@ -3087,7 +3087,7 @@ test("runtime memory projection core sends Rust projection through typed Rust da
     (request) => {
       captured = request;
       return {
-        source: "rust_runtime_memory_projection_command",
+        source: "rust_runtime_memory_projection_api",
         backend: "rust_policy",
         record: {
           object: "ioi.runtime_memory_projection",
@@ -3138,7 +3138,7 @@ test("runtime memory projection core sends Rust projection through typed Rust da
   assert.equal(captured.state_dir, "/runtime-state");
   assert.deepEqual(captured.filters, { query: "deploy", scope: null });
   assert.equal(Object.hasOwn(captured, "projection"), false);
-  assert.equal(result.source, "rust_runtime_memory_projection_command");
+  assert.equal(result.source, "rust_runtime_memory_projection_api");
   assert.equal(result.projection_kind, "records");
   assert.equal(result.projection.records[0].id, "memory_123");
   assert.equal(result.record_count, 1);
@@ -3146,7 +3146,7 @@ test("runtime memory projection core sends Rust projection through typed Rust da
 
   assert.throws(
     () =>
-      normalizeRuntimeMemoryProjectionBridgeResult({
+      normalizeRuntimeMemoryProjectionResult({
         record: {
           operation_kind: "runtime.memory_projection.retired",
           projection_kind: "records",
@@ -3170,7 +3170,7 @@ test("runtime memory control core sends Rust control through typed Rust daemon-c
     (request) => {
       captured = request;
       return {
-        source: "rust_runtime_memory_control_command",
+        source: "rust_runtime_memory_control_api",
         backend: "rust_policy",
         record: {
           object: "ioi.runtime_memory_control",
@@ -3221,7 +3221,7 @@ test("runtime memory control core sends Rust control through typed Rust daemon-c
   assert.equal(captured.request.text, "Remember release window");
   assert.equal(Object.hasOwn(captured, "current_record"), false);
   assert.equal(Object.hasOwn(captured, "current_policy"), false);
-  assert.equal(result.source, "rust_runtime_memory_control_command");
+  assert.equal(result.source, "rust_runtime_memory_control_api");
   assert.equal(result.operation_kind, "memory.write");
   assert.equal(result.memory_state_kind, "record");
   assert.equal(result.payload.id, "memory_123");
@@ -3230,7 +3230,7 @@ test("runtime memory control core sends Rust control through typed Rust daemon-c
 
   assert.throws(
     () =>
-      normalizeRuntimeMemoryControlBridgeResult({
+      normalizeRuntimeMemoryControlResult({
         record: {
           operation_kind: "memory.write",
         },

@@ -618,7 +618,7 @@ export class RuntimeContextPolicyCore {
   }
 
   projectRuntimeMemoryProjection(request = {}) {
-    return normalizeRuntimeMemoryProjectionBridgeResult(this.invokeThreadMemoryApi(
+    return normalizeRuntimeMemoryProjectionResult(this.invokeThreadMemoryApi(
       THREAD_MEMORY_RUNTIME_MEMORY_PROJECTION_API_METHOD,
       RUNTIME_MEMORY_PROJECTION_REQUEST_SCHEMA_VERSION,
       request,
@@ -626,7 +626,7 @@ export class RuntimeContextPolicyCore {
   }
 
   planRuntimeMemoryControl(request = {}) {
-    return normalizeRuntimeMemoryControlBridgeResult(this.invokeThreadMemoryApi(
+    return normalizeRuntimeMemoryControlResult(this.invokeThreadMemoryApi(
       THREAD_MEMORY_RUNTIME_MEMORY_CONTROL_API_METHOD,
       RUNTIME_MEMORY_CONTROL_REQUEST_SCHEMA_VERSION,
       request,
@@ -2294,7 +2294,7 @@ export function normalizeStudioIntentFrameProjectionBridgeResult(value = {}) {
   };
 }
 
-export function normalizeRuntimeMemoryProjectionBridgeResult(value = {}) {
+export function normalizeRuntimeMemoryProjectionResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   const projectionKind = optionalString(result.projection_kind ?? record.projection_kind);
@@ -2307,7 +2307,7 @@ export function normalizeRuntimeMemoryProjectionBridgeResult(value = {}) {
     source:
       result.source ??
       record.source ??
-      "rust_runtime_memory_projection_command",
+      "rust_runtime_memory_projection_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
@@ -2331,7 +2331,7 @@ export function normalizeRuntimeMemoryProjectionBridgeResult(value = {}) {
   };
 }
 
-export function normalizeRuntimeMemoryControlBridgeResult(value = {}) {
+export function normalizeRuntimeMemoryControlResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   const payload = objectRecord(result.payload) ?? objectRecord(record.payload);
@@ -2351,7 +2351,7 @@ export function normalizeRuntimeMemoryControlBridgeResult(value = {}) {
     source:
       result.source ??
       record.source ??
-      "rust_runtime_memory_control_command",
+      "rust_runtime_memory_control_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,

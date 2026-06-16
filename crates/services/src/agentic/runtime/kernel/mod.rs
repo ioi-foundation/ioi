@@ -301,11 +301,11 @@ use runtime_mcp_serve::{
     RuntimeMcpServeToolResultProjectionRequest,
 };
 use runtime_memory_control::{
-    RuntimeMemoryControlCommandError, RuntimeMemoryControlCore, RuntimeMemoryControlRecord,
-    RuntimeMemoryControlRequest,
+    RuntimeMemoryControlApiError, RuntimeMemoryControlCore, RuntimeMemoryControlRecord,
+    RuntimeMemoryControlApiRequest,
 };
 use runtime_memory_projection::{
-    RuntimeMemoryProjectionBridgeRequest, RuntimeMemoryProjectionCommandError,
+    RuntimeMemoryProjectionApiRequest, RuntimeMemoryProjectionApiError,
     RuntimeMemoryProjectionCore, RuntimeMemoryProjectionRecord,
 };
 use runtime_subagent_control::{
@@ -728,15 +728,15 @@ impl RuntimeKernelService {
 
     pub fn project_runtime_memory_projection(
         &self,
-        request: &RuntimeMemoryProjectionBridgeRequest,
-    ) -> Result<RuntimeMemoryProjectionRecord, RuntimeMemoryProjectionCommandError> {
+        request: &RuntimeMemoryProjectionApiRequest,
+    ) -> Result<RuntimeMemoryProjectionRecord, RuntimeMemoryProjectionApiError> {
         RuntimeMemoryProjectionCore.project(request)
     }
 
     pub fn plan_runtime_memory_control(
         &self,
-        request: &RuntimeMemoryControlRequest,
-    ) -> Result<RuntimeMemoryControlRecord, RuntimeMemoryControlCommandError> {
+        request: &RuntimeMemoryControlApiRequest,
+    ) -> Result<RuntimeMemoryControlRecord, RuntimeMemoryControlApiError> {
         RuntimeMemoryControlCore.plan(request)
     }
 

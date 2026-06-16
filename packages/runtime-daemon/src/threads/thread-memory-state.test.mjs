@@ -137,7 +137,7 @@ function createHarness(options = {}) {
                     receipt_refs: [`receipt_${stateId}`],
                   };
             return {
-              source: "rust_runtime_memory_control_command",
+              source: "rust_runtime_memory_control_api",
               status: "planned",
               operation: request.operation,
               operation_kind: request.operation_kind,
@@ -154,7 +154,7 @@ function createHarness(options = {}) {
           projectRuntimeMemoryProjection(request = {}) {
             calls.push({ type: "projectRuntimeMemoryProjection", input: request });
             return {
-              source: "rust_runtime_memory_projection_command",
+              source: "rust_runtime_memory_projection_api",
               projection_kind: request.projection_kind,
               operation_kind: request.operation_kind,
               projection: publicMemoryProjectionForRequest(request, store),

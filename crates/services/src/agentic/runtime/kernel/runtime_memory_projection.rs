@@ -23,7 +23,7 @@ const AGENT_MEMORY_SCHEMA_VERSION: &str = "ioi.agent-runtime.memory.v1";
 const AGENT_MEMORY_POLICY_SCHEMA_VERSION: &str = "ioi.agent-runtime.memory-policy.v1";
 
 #[derive(Debug, Clone, Deserialize, Default)]
-pub struct RuntimeMemoryProjectionBridgeRequest {
+pub struct RuntimeMemoryProjectionApiRequest {
     #[serde(default)]
     pub operation: Option<String>,
     #[serde(default)]
@@ -53,12 +53,12 @@ pub struct RuntimeMemoryProjectionBridgeRequest {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RuntimeMemoryProjectionCommandError {
+pub struct RuntimeMemoryProjectionApiError {
     code: &'static str,
     message: String,
 }
 
-impl RuntimeMemoryProjectionCommandError {
+impl RuntimeMemoryProjectionApiError {
     fn new(code: &'static str, message: impl Into<String>) -> Self {
         Self {
             code,
@@ -94,11 +94,11 @@ pub struct RuntimeMemoryProjectionRecord {
 }
 
 pub fn project_runtime_memory_projection_response(
-    request: RuntimeMemoryProjectionBridgeRequest,
-) -> Result<Value, RuntimeMemoryProjectionCommandError> {
+    request: RuntimeMemoryProjectionApiRequest,
+) -> Result<Value, RuntimeMemoryProjectionApiError> {
     let record = RuntimeMemoryProjectionCore::default().project(&request)?;
     Ok(json!({
-        "source": "rust_runtime_memory_projection_command",
+        "source": "rust_runtime_memory_projection_api",
         "backend": "rust_policy",
         "record": record.to_value(),
     }))
@@ -107,8 +107,8 @@ pub fn project_runtime_memory_projection_response(
 impl RuntimeMemoryProjectionCore {
     pub fn project(
         &self,
-        request: &RuntimeMemoryProjectionBridgeRequest,
-    ) -> Result<RuntimeMemoryProjectionRecord, RuntimeMemoryProjectionCommandError> {
+        request: &RuntimeMemoryProjectionApiRequest,
+    ) -> Result<RuntimeMemoryProjectionRecord, RuntimeMemoryProjectionApiError> {
         let projection_kind = normalized_projection_kind(request)?;
         let operation_kind = request
             .operation_kind
@@ -119,7 +119,7 @@ impl RuntimeMemoryProjectionCore {
             .clone()
             .unwrap_or_else(|| "runtime_memory_projection".to_string());
         let source = optional_trimmed(request.source.as_deref())
-            .unwrap_or_else(|| "rust_runtime_memory_projection_command".to_string());
+            .unwrap_or_else(|| "rust_runtime_memory_projection_api".to_string());
         reject_projection_candidate_transport(request)?;
         let projection = projection_for_kind(&projection_kind, request)?;
         let record_count = record_count_for_projection(&projection_kind, &projection);
@@ -173,8 +173,8 @@ impl RuntimeMemoryProjectionRecord {
 
 fn projection_for_kind(
     projection_kind: &str,
-    request: &RuntimeMemoryProjectionBridgeRequest,
-) -> Result<Value, RuntimeMemoryProjectionCommandError> {
+    request: &RuntimeMemoryProjectionApiRequest,
+) -> Result<Value, RuntimeMemoryProjectionApiError> {
     let memory_projection = memory_projection_from_state_dir(request)?;
     match projection_kind {
         "records" => Ok(memory_projection),
@@ -198,7 +198,7 @@ fn projection_for_kind(
                     projection: memory_projection,
                 })
                 .map_err(|error| {
-                    RuntimeMemoryProjectionCommandError::new(
+                    RuntimeMemoryProjectionApiError::new(
                         "runtime_memory_projection_status_invalid",
                         format!("{error:?}"),
                     )
@@ -217,7 +217,7 @@ fn projection_for_kind(
                     projection: memory_projection,
                 })
                 .map_err(|error| {
-                    RuntimeMemoryProjectionCommandError::new(
+                    RuntimeMemoryProjectionApiError::new(
                         "runtime_memory_projection_validation_invalid",
                         format!("{error:?}"),
                     )
@@ -227,7 +227,7 @@ fn projection_for_kind(
             insert_context_fields(&mut value, request);
             Ok(value)
         }
-        _ => Err(RuntimeMemoryProjectionCommandError::new(
+        _ => Err(RuntimeMemoryProjectionApiError::new(
             "runtime_memory_projection_kind_invalid",
             format!("unsupported runtime memory projection kind {projection_kind}"),
         )),
@@ -235,8 +235,8 @@ fn projection_for_kind(
 }
 
 fn reject_projection_candidate_transport(
-    request: &RuntimeMemoryProjectionBridgeRequest,
-) -> Result<(), RuntimeMemoryProjectionCommandError> {
+    request: &RuntimeMemoryProjectionApiRequest,
+) -> Result<(), RuntimeMemoryProjectionApiError> {
     let has_candidate_projection = match &request.projection {
         Value::Null => false,
         Value::Object(object) => !object.is_empty(),
@@ -244,7 +244,7 @@ fn reject_projection_candidate_transport(
         _ => true,
     };
     if has_candidate_projection {
-        return Err(RuntimeMemoryProjectionCommandError::new(
+        return Err(RuntimeMemoryProjectionApiError::new(
             "runtime_memory_projection_candidate_transport_retired",
             "runtime memory projection rejects JS-supplied projection candidates; provide state_dir for Agentgres replay",
         ));
@@ -253,8 +253,8 @@ fn reject_projection_candidate_transport(
 }
 
 fn normalized_projection_kind(
-    request: &RuntimeMemoryProjectionBridgeRequest,
-) -> Result<String, RuntimeMemoryProjectionCommandError> {
+    request: &RuntimeMemoryProjectionApiRequest,
+) -> Result<String, RuntimeMemoryProjectionApiError> {
     if let Some(value) = optional_trimmed_lower(request.projection_kind.as_deref()) {
         return Ok(value);
     }
@@ -264,17 +264,17 @@ fn normalized_projection_kind(
             return Ok(last.to_string());
         }
     }
-    Err(RuntimeMemoryProjectionCommandError::new(
+    Err(RuntimeMemoryProjectionApiError::new(
         "runtime_memory_projection_kind_required",
         "runtime memory projection kind is required",
     ))
 }
 
 fn memory_projection_from_state_dir(
-    request: &RuntimeMemoryProjectionBridgeRequest,
-) -> Result<Value, RuntimeMemoryProjectionCommandError> {
+    request: &RuntimeMemoryProjectionApiRequest,
+) -> Result<Value, RuntimeMemoryProjectionApiError> {
     let state_dir = optional_trimmed(request.state_dir.as_deref()).ok_or_else(|| {
-        RuntimeMemoryProjectionCommandError::new(
+        RuntimeMemoryProjectionApiError::new(
             "runtime_memory_projection_state_dir_required",
             "runtime memory projection requires runtime state_dir for Agentgres memory replay",
         )
@@ -335,7 +335,7 @@ fn memory_projection_from_state_dir(
     }))
 }
 
-fn insert_context_fields(value: &mut Value, request: &RuntimeMemoryProjectionBridgeRequest) {
+fn insert_context_fields(value: &mut Value, request: &RuntimeMemoryProjectionApiRequest) {
     let Some(object) = value.as_object_mut() else {
         return;
     };
@@ -416,13 +416,13 @@ impl MemoryProjectionFilters {
 
 fn load_memory_records(
     state_root: &Path,
-) -> Result<Vec<Value>, RuntimeMemoryProjectionCommandError> {
+) -> Result<Vec<Value>, RuntimeMemoryProjectionApiError> {
     load_memory_state_dir_records(state_root.join("memory-records"), "memory records")
 }
 
 fn load_memory_policies(
     state_root: &Path,
-) -> Result<Vec<Value>, RuntimeMemoryProjectionCommandError> {
+) -> Result<Vec<Value>, RuntimeMemoryProjectionApiError> {
     load_memory_state_dir_records(state_root.join("memory-policies"), "memory policies").map(
         |records| {
             records
@@ -436,12 +436,12 @@ fn load_memory_policies(
 fn load_memory_state_dir_records(
     dir: PathBuf,
     label: &str,
-) -> Result<Vec<Value>, RuntimeMemoryProjectionCommandError> {
+) -> Result<Vec<Value>, RuntimeMemoryProjectionApiError> {
     if !dir.exists() {
         return Ok(Vec::new());
     }
     let entries = fs::read_dir(&dir).map_err(|error| {
-        RuntimeMemoryProjectionCommandError::new(
+        RuntimeMemoryProjectionApiError::new(
             "runtime_memory_projection_replay_read_failed",
             format!("runtime memory projection could not read Agentgres {label}: {error}"),
         )
@@ -449,7 +449,7 @@ fn load_memory_state_dir_records(
     let mut paths = Vec::new();
     for entry in entries {
         let entry = entry.map_err(|error| {
-            RuntimeMemoryProjectionCommandError::new(
+            RuntimeMemoryProjectionApiError::new(
                 "runtime_memory_projection_replay_read_failed",
                 format!(
                     "runtime memory projection could not inspect Agentgres {label} entry: {error}"
@@ -466,7 +466,7 @@ fn load_memory_state_dir_records(
     let mut records = Vec::new();
     for path in paths.into_iter().take(1000) {
         let contents = fs::read_to_string(&path).map_err(|error| {
-            RuntimeMemoryProjectionCommandError::new(
+            RuntimeMemoryProjectionApiError::new(
                 "runtime_memory_projection_replay_read_failed",
                 format!(
                     "runtime memory projection could not read Agentgres {label} record {}: {error}",
@@ -475,7 +475,7 @@ fn load_memory_state_dir_records(
             )
         })?;
         let record = serde_json::from_str(&contents).map_err(|error| {
-            RuntimeMemoryProjectionCommandError::new(
+            RuntimeMemoryProjectionApiError::new(
                 "runtime_memory_projection_replay_record_invalid",
                 format!(
                     "runtime memory projection found invalid Agentgres {label} record {}: {error}",
@@ -791,8 +791,8 @@ mod tests {
     fn base_request(
         projection_kind: &str,
         state_dir: &Path,
-    ) -> RuntimeMemoryProjectionBridgeRequest {
-        RuntimeMemoryProjectionBridgeRequest {
+    ) -> RuntimeMemoryProjectionApiRequest {
+        RuntimeMemoryProjectionApiRequest {
             operation: Some("runtime_memory_projection".to_string()),
             operation_kind: Some(format!("runtime.memory_projection.{projection_kind}")),
             projection_kind: Some(projection_kind.to_string()),
@@ -941,14 +941,14 @@ mod tests {
     }
 
     #[test]
-    fn rust_shapes_runtime_memory_projection_command_response() {
+    fn rust_shapes_runtime_memory_projection_api_response() {
         let temp = tempfile::tempdir().expect("tempdir");
         seed_memory_state(temp.path());
         let response =
             project_runtime_memory_projection_response(base_request("records", temp.path()))
                 .expect("runtime memory projection response");
 
-        assert_eq!(response["source"], "rust_runtime_memory_projection_command");
+        assert_eq!(response["source"], "rust_runtime_memory_projection_api");
         assert_eq!(response["backend"], "rust_policy");
         assert_eq!(
             response["record"]["schema_version"],
