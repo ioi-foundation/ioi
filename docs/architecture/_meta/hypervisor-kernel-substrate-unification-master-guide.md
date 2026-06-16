@@ -2842,18 +2842,17 @@ Agentgres-backed state, stable protocol APIs, replay, and command-transport
 retirement remain required before model route control reaches the pure Rust
 substrate target.
 
-Slice 887 retired the mounted JS provider-driver factory. The
-`provider-driver-factory.mjs` module and its concrete-driver routing test were
-deleted, and `ModelMountingState.driverForProvider()` now fails closed with
-`model_mount_provider_driver_factory_retired` before allocating fixture,
-native-local, OpenAI-compatible, Ollama, LM Studio, vLLM, or llama.cpp JS driver
-objects. Lower-level driver modules remain only as explicitly retired
-edge-adapter tests or fail-closed transport stubs until direct Rust daemon-core
-provider execution/control APIs replace them. This does not claim terminal
-provider migration: direct Rust daemon-core provider transports, lifecycle,
-inventory, projection, Agentgres-backed replay, stable protocol APIs, and
-command-transport retirement remain required before provider execution reaches
-the pure Rust substrate target.
+Slice 887 retired the mounted JS provider-driver factory module. The
+`provider-driver-factory.mjs` module and concrete-driver routing test are
+deleted; `ModelMountingState.driverForProvider()` was temporarily left as a
+fail-closed compatibility facade before later deletion. Lower-level driver
+modules remain only as explicitly retired edge-adapter tests or fail-closed
+transport stubs until direct Rust daemon-core provider execution/control APIs
+replace them. This does not claim terminal provider migration: direct Rust
+daemon-core provider transports, lifecycle, inventory, projection,
+Agentgres-backed replay, stable protocol APIs, and command-transport retirement
+remain required before provider execution reaches the pure Rust substrate
+target.
 
 Slice 888 retired the LM Studio driver's nested OpenAI-compatible adapter. The
 fail-closed `LmStudioModelProviderDriver` no longer imports or constructs
@@ -3128,15 +3127,14 @@ Slice 913 deleted the final local provider driver adapter module.
 `provider-local-drivers.mjs` and `provider-local-drivers.test.mjs` are absent
 rather than preserved as Rust-planning wrapper classes for native-local or
 fixture health, inventory, lifecycle, direct invoke, or stream invoke. The
-mounted `driverForProvider()` factory remains fail-closed, local provider
-invocation and stream invocation continue through Rust `model_mount`
-admission/execution paths, and provider health/inventory/load/unload public
-facades remain mounted Rust-core-required boundaries until direct Rust
-daemon-core provider control/projection APIs own those surfaces. Direct Rust
-daemon-core provider transports, inventory, lifecycle control, Agentgres-backed
-truth, replay, stable protocol APIs, and command-transport retirement remain
-required before provider execution/control reaches terminal pure Rust
-conformance.
+mounted `driverForProvider()` factory is now absent, local provider invocation
+and stream invocation continue through Rust `model_mount` admission/execution
+paths, and provider health/inventory/load/unload public facades remain mounted
+Rust-core-required boundaries until direct Rust daemon-core provider
+control/projection APIs own those surfaces. Direct Rust daemon-core provider
+transports, inventory, lifecycle control, Agentgres-backed truth, replay, stable
+protocol APIs, and command-transport retirement remain required before provider
+execution/control reaches terminal pure Rust conformance.
 
 Slice 914 deleted the orphan JS model-capability materializer.
 `model-capability.mjs` and `model-capability.test.mjs` are absent instead of
@@ -11616,6 +11614,21 @@ retired supervisor shim. This remains non-terminal because actual Rust backend
 process execution/materialization, hosted/provider transport, direct Rust/vault
 auth-header materialization, and invocation authority depth still need terminal
 Rust-owned execution coverage.
+
+Slice 1364 deletes the mounted provider-driver factory facade stub. Provider
+execution, provider lifecycle, provider inventory, and provider result admission
+already flow through typed Rust daemon-core model_mount APIs and Agentgres
+record-state commits; the mounted `ModelMountingState` no longer exposes
+`driverForProvider()` as a fail-closed JS driver allocation path, and the
+`model_mount_provider_driver_factory_retired` shim is gone. Focused provider
+tests assert the facade is absent before any JS driver allocation can occur,
+while lifecycle and inventory tests continue to prove fixture, native-local,
+and hosted provider calls do not consult the inert JS driver sentinels.
+Conformance now rejects restoring the method name, retired error code, or
+provider-driver helper shim. This remains non-terminal because hosted/provider
+transport, actual Rust backend process execution/materialization, direct
+Rust/vault auth-header materialization, and invocation authority depth still
+need terminal Rust-owned execution coverage.
 
 ## Final Doctrine
 

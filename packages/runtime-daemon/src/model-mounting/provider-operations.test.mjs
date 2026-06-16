@@ -22,9 +22,6 @@ function fakeState() {
     stateDir: "/state",
     now: "2026-06-03T22:00:00.000Z",
     drivers: new Map(),
-    driverForProvider(provider) {
-      return this.drivers.get(provider.id) ?? {};
-    },
     lifecycleReceipt(kind, details) {
       const receipt = { id: `lifecycle.${kind}.${this.receipts.length + 1}`, kind, details };
       this.receipts.push(receipt);
@@ -557,7 +554,7 @@ function stopProvider(state, providerId) {
   return ModelMountingState.prototype.stopProvider.call(state, providerId);
 }
 
-test("mounted provider driver factory fails closed before JS driver allocation", () => {
+test("mounted provider driver factory facade is deleted before JS driver allocation", () => {
   const state = fakeState();
   state.providers.set("provider.openai", {
     id: "provider.openai",
@@ -566,21 +563,10 @@ test("mounted provider driver factory fails closed before JS driver allocation",
     status: "configured",
   });
 
-  assert.throws(
-    () => ModelMountingState.prototype.driverForProvider.call(state, state.providers.get("provider.openai")),
-    (error) => {
-      assert.equal(error.status, 501);
-      assert.equal(error.code, "model_mount_provider_driver_factory_retired");
-      assert.equal(error.details.rust_core_boundary, "model_mount.provider_execution");
-      assert.equal(error.details.operation_kind, "model_mount.provider.driver_factory");
-      assert.equal(error.details.provider_id, "provider.openai");
-      assert.equal(error.details.provider_kind, "openai");
-      assert.equal(error.details.evidence_refs.includes("js_provider_driver_factory_retired"), true);
-      assert.equal(Object.hasOwn(error.details, "providerId"), false);
-      assert.equal(Object.hasOwn(error.details, "providerKind"), false);
-      return true;
-    },
-  );
+  assert.equal(Object.hasOwn(ModelMountingState.prototype, "driverForProvider"), false);
+  assert.equal(Object.hasOwn(state, "driverForProvider"), false);
+  assert.deepEqual(state.receipts, []);
+  assert.deepEqual(state.recordStateCommits, []);
 });
 
 test("provider upsert commits Rust provider-control record without vault resolution or provider mutation", () => {

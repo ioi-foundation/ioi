@@ -19396,7 +19396,8 @@ function runBridge() {
       !exists("packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/provider-local-drivers.test.mjs") &&
       !/modelMountProviderLifecycle/.test(providerLocalDrivers) &&
-      /driverForProvider\(provider\)\s*\{[\s\S]*?throwProviderDriverFactoryRetired\(provider\);[\s\S]*?\n\s+\}/.test(modelMountingState);
+      !/\bdriverForProvider\s*\(/.test(modelMountingState) &&
+      !/throwProviderDriverFactoryRetired|model_mount_provider_driver_factory_retired/.test(modelMountingState);
     })(),
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
@@ -19601,7 +19602,8 @@ function runBridge() {
       !/\binventoryHash\b/.test(providerLocalDrivers) &&
       !/\binventoryEvidenceRefs\b/.test(providerLocalDrivers) &&
       !/\binventoryItemCount\b/.test(providerLocalDrivers) &&
-      /driverForProvider\(provider\)\s*\{[\s\S]*?throwProviderDriverFactoryRetired\(provider\);[\s\S]*?\n\s+\}/.test(modelMountingState);
+      !/\bdriverForProvider\s*\(/.test(modelMountingState) &&
+      !/throwProviderDriverFactoryRetired|model_mount_provider_driver_factory_retired/.test(modelMountingState);
     })(),
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
@@ -19775,10 +19777,9 @@ function runBridge() {
       !exists("packages/runtime-daemon/src/model-mounting/provider-driver-factory.test.mjs") &&
       !/driverForProviderState/.test(modelMountingState) &&
       !/provider-driver-factory/.test(modelMountingState) &&
-      /driverForProvider\(provider\)\s*\{[\s\S]*?throwProviderDriverFactoryRetired\(provider\);[\s\S]*?\n\s+\}/.test(modelMountingState) &&
-      /model_mount_provider_driver_factory_retired/.test(modelMountingState) &&
-      /rust_core_boundary:\s*"model_mount\.provider_execution"/.test(modelMountingState) &&
-      /js_provider_driver_factory_retired/.test(modelMountingState) &&
+      !/\bdriverForProvider\s*\(/.test(modelMountingState) &&
+      !/throwProviderDriverFactoryRetired|model_mount_provider_driver_factory_retired/.test(modelMountingState) &&
+      !/js_provider_driver_factory_retired/.test(modelMountingState) &&
       !exists("packages/runtime-daemon/src/model-mounting/provider-invocation-retirement.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/provider-transport.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/provider-transport.test.mjs") &&
@@ -19797,12 +19798,15 @@ function runBridge() {
       !/chatCompletionRequestBody/.test(providerProtocol) &&
       !/outputTextFromChat/.test(providerProtocol) &&
       !/outputTextFromResponse/.test(providerProtocol) &&
-      /mounted provider driver factory fails closed before JS driver allocation/.test(
+      /mounted provider driver factory facade is deleted before JS driver allocation/.test(
         read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
       ) &&
-      /Object\.hasOwn\(error\.details,\s*"providerId"\),\s*false/.test(
+      /Object\.hasOwn\(ModelMountingState\.prototype,\s*"driverForProvider"\),\s*false/.test(
         read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
       ) &&
+      /Slice 1364 deletes the mounted provider-driver factory facade stub/.test(read(GUIDE)) &&
+      /Model_mount provider-driver factory facade stub deleted/.test(read(MATRIX)) &&
+      /RuntimeDaemonCoreModelMountProviderDriverFactoryFacadeDeleted/.test(read(IMPLEMENTATION_MATRIX)) &&
       /providerResult\.execution_backend/.test(modelInvocationOps) &&
       !/providerResult\.executionBackend/.test(modelInvocationOps) &&
       !/rejectUnmigratedProviderInvocationExecution/.test(modelInvocationOps) &&

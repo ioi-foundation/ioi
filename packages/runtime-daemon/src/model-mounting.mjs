@@ -1935,10 +1935,6 @@ export class ModelMountingState {
       safeFileName,
     });
   }
-
-  driverForProvider(provider) {
-    throwProviderDriverFactoryRetired(provider);
-  }
 }
 
 function planRuntimeSurveyForState(state, request) {
@@ -2354,25 +2350,6 @@ function runtimeEngineControlBody(value = {}) {
     if (Object.hasOwn(source, field) && source[field] !== undefined) body[field] = source[field];
   }
   return body;
-}
-
-function throwProviderDriverFactoryRetired(provider = {}) {
-  throw runtimeError({
-    status: 501,
-    code: "model_mount_provider_driver_factory_retired",
-    message: "JS provider driver factory is retired; provider execution and control require Rust daemon-core model_mount APIs.",
-    details: {
-      provider_id: provider?.id ?? null,
-      provider_kind: provider?.kind ?? null,
-      operation_kind: "model_mount.provider.driver_factory",
-      rust_core_boundary: "model_mount.provider_execution",
-      evidence_refs: [
-        "js_provider_driver_factory_retired",
-        "rust_daemon_core_provider_execution_required",
-        "agentgres_provider_execution_truth_required",
-      ],
-    },
-  });
 }
 
 function assertCanonicalModelStorageRequestBody(body = {}) {
