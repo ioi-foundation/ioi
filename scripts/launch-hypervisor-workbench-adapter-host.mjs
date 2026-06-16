@@ -408,7 +408,7 @@ async function bootstrapConfiguredLlamaCppModel(endpoint, token, mountedCount) {
     body: {
       id: "route.local-first",
       role: "default",
-      description: "Autopilot IDE native local model route from configured llama.cpp runtime.",
+      description: "Hypervisor Workbench native local model route from configured llama.cpp runtime.",
       privacy: "local_only",
       quality: "local_native",
       fallback: [mounted.id],
@@ -486,7 +486,7 @@ async function bootstrapLocalModelDiscovery(endpoint, token) {
       body: {
         id: "route.native-local",
         role: "default",
-        description: "Autopilot IDE local model route from startup discovery.",
+        description: "Hypervisor Workbench local model route from startup discovery.",
         privacy: "local_only",
         provider_eligibility: ["llama_cpp"],
         fallback: [productMounted.id],

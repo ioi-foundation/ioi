@@ -145,7 +145,7 @@ const paths = {
   workflowCommands:
     "apps/autopilot/openvscode-extension/ioi-workbench/commands/workflow.js",
   packageJson: "apps/autopilot/openvscode-extension/ioi-workbench/package.json",
-  launcher: "scripts/launch-autopilot-ide-fork.mjs",
+  launcher: "scripts/launch-hypervisor-workbench-adapter-host.mjs",
   shellPatch: "scripts/lib/autopilot-workbench-shell-patch.mjs",
 };
 

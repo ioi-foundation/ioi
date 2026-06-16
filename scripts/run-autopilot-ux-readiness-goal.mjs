@@ -324,12 +324,12 @@ function checkCanonicalForkReadiness() {
     : null;
 
   const productIdentity = {
-    nameShort: product.nameShort === "Autopilot",
-    nameLong: product.nameLong === "Autopilot IDE",
-    applicationName: product.applicationName === "autopilot",
-    dataFolderName: product.dataFolderName === ".autopilot",
-    urlProtocol: product.urlProtocol === "autopilot",
-    packageName: ["Autopilot", "autopilot-ide"].includes(packagedAppPackage.name),
+    nameShort: product.nameShort === "Hypervisor",
+    nameLong: product.nameLong === "Hypervisor",
+    applicationName: product.applicationName === "hypervisor",
+    dataFolderName: product.dataFolderName === ".hypervisor",
+    urlProtocol: product.urlProtocol === "hypervisor",
+    packageName: ["Hypervisor", "hypervisor"].includes(packagedAppPackage.name),
   };
   const legacyAutopilotCore = {
     packagedExtensionAbsentOrRetired:
@@ -856,12 +856,12 @@ async function runCanonicalControlRoomValidation(outputRoot) {
     const windowId = await waitForPredicate(() => {
       const byName = runCommand(
         `for id in $(xdotool search --name ${JSON.stringify(
-          "Autopilot",
-        )} 2>/dev/null); do title=$(xdotool getwindowname "$id" 2>/dev/null || true); case "$title" in *"Autopilot IDE"*|*"Welcome - "*"Autopilot IDE"*) echo "$id";; esac; done | tail -n 1`,
+          "Hypervisor",
+        )} 2>/dev/null); do title=$(xdotool getwindowname "$id" 2>/dev/null || true); case "$title" in *"Hypervisor"*|*"Autopilot"*) echo "$id";; esac; done | tail -n 1`,
       );
       if (byName.ok && byName.stdout.trim()) return byName.stdout.trim();
       const byPid = runCommand(
-        `for id in $(xdotool search --pid ${app.pid} 2>/dev/null); do title=$(xdotool getwindowname "$id" 2>/dev/null || true); case "$title" in *"Autopilot IDE"*|*"Welcome - "*"Autopilot IDE"*) echo "$id";; esac; done | tail -n 1`,
+        `for id in $(xdotool search --pid ${app.pid} 2>/dev/null); do title=$(xdotool getwindowname "$id" 2>/dev/null || true); case "$title" in *"Hypervisor"*|*"Autopilot"*) echo "$id";; esac; done | tail -n 1`,
       );
       return byPid.ok && byPid.stdout.trim() ? byPid.stdout.trim() : null;
     }, 30_000, 1_000);

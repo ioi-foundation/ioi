@@ -180,7 +180,6 @@ function checkMasterGuide() {
   const guidePath = join(repoRoot, MASTER_GUIDE);
   const content = read(guidePath);
   const required = [
-    "Electron/VS Code fork remains the canonical Autopilot app shell",
     "WorkflowComposer",
     "Tauri must not be revived",
     "Validation must prove workflow compositor parity",
@@ -576,16 +575,16 @@ async function runGuiValidation(outputRoot) {
     const windowId = await waitForPredicate(() => {
       const byName = runCommand(
         `for id in $(xdotool search --name ${JSON.stringify(
-          "Autopilot",
-        )} 2>/dev/null); do title=$(xdotool getwindowname "$id" 2>/dev/null || true); case "$title" in *"Autopilot IDE"*|*"Autopilot Workflow Composer"*|*"Welcome - "*"Autopilot IDE"*) echo "$id";; esac; done | tail -n 1`,
+          "Hypervisor",
+        )} 2>/dev/null); do title=$(xdotool getwindowname "$id" 2>/dev/null || true); case "$title" in *"Hypervisor"*|*"Autopilot"*) echo "$id";; esac; done | tail -n 1`,
       );
       if (byName.ok && byName.stdout.trim()) return byName.stdout.trim();
       const byPid = runCommand(
-        `for id in $(xdotool search --pid ${app.pid} 2>/dev/null); do title=$(xdotool getwindowname "$id" 2>/dev/null || true); case "$title" in *"Autopilot IDE"*|*"Autopilot Workflow Composer"*|*"Welcome - "*"Autopilot IDE"*) echo "$id";; esac; done | tail -n 1`,
+        `for id in $(xdotool search --pid ${app.pid} 2>/dev/null); do title=$(xdotool getwindowname "$id" 2>/dev/null || true); case "$title" in *"Hypervisor"*|*"Autopilot"*) echo "$id";; esac; done | tail -n 1`,
       );
       return byPid.ok && byPid.stdout.trim() ? byPid.stdout.trim() : null;
     }, 35_000, 1000);
-    if (!windowId) throw new Error("No Autopilot IDE window found.");
+    if (!windowId) throw new Error("No Hypervisor Workbench adapter window found.");
     writeFileSync(join(outputDir, "window-id"), `${windowId}\n`);
 
     commands.push({

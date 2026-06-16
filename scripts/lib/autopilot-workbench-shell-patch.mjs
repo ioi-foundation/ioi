@@ -679,7 +679,7 @@ function workbenchShellJs() {
         { label: "Welcome" },
         { label: "Documentation" },
         { label: "Keyboard Shortcuts" },
-        { label: "About Autopilot IDE" },
+        { label: "About Hypervisor" },
       ],
     },
   ];
@@ -1022,8 +1022,8 @@ function workbenchShellJs() {
   }
 
   function workspaceLabel() {
-    const title = document.title || "ioi - Autopilot IDE";
-    const match = title.match(/-\\s*([^-]+)\\s*-\\s*Autopilot IDE/i);
+    const title = document.title || "ioi - Hypervisor";
+    const match = title.match(/-\\s*([^-]+)\\s*-\\s*(?:Hypervisor|Autopilot\\s+IDE)/i);
     return match?.[1]?.trim() || "ioi";
   }
 

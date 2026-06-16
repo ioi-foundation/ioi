@@ -1088,9 +1088,9 @@ def main() -> int:
                 "Contained OpenVSCode workbench did not occupy the top of the workspace rect."
             )
         if not containment["activityBarVisible"]:
-            raise RuntimeError("Autopilot activity bar chrome was not visibly retained.")
+            raise RuntimeError("Hypervisor activity bar chrome was not visibly retained.")
         if not containment["headerVisible"]:
-            raise RuntimeError("Autopilot IDE header chrome was not visibly retained.")
+            raise RuntimeError("Hypervisor header chrome was not visibly retained.")
 
         composer_notification_dismissal = dismiss_transient_workbench_notifications(
             target_window_id
