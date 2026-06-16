@@ -10810,6 +10810,21 @@ auth-header materialization, richer hosted catalog transport/materialization,
 and stable SDK/IDE/CLI catalog-provider APIs, not a JS catalog-provider config
 or runtime-material cache fallback.
 
+Slice 1330 hard-cuts the model_mount invocation helper compatibility-alias
+path. Migrated model invocation, provider execution, and provider-result helper
+boundaries now reject retired camelCase selection, route receipt/control,
+endpoint/provider, instance/backend-process, token, provider-result, stream,
+MCP, and evidence helper fields before shaping provider execution admission or
+provider-result admission requests. The helper normalizers read only canonical
+snake_case Rust model_mount records, so stale `routeReceipt`, `routeDecision`,
+`executionBackend`, `tokenCount`, `streamChunks`, or similar compatibility
+fields cannot become route, provider execution, token, stream, or provider
+result truth. Focused tests and conformance poison those aliases while keeping
+canonical snake_case records live. Remaining work is backend
+execution/materialization, hosted/provider transport, invocation authority
+depth, and stable SDK/IDE/CLI protocol APIs, not helper-level compatibility
+translation on the migrated model_mount invocation hot path.
+
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,
 `/v1/memory/policy`, `/v1/memory/path`, or `/v1/memory/validate`; the daemon

@@ -77,13 +77,15 @@ function mockModelMountCore() {
       return {
         source: "rust_daemon_core.model_mount.read_projection",
         projection_kind: request.projection_kind,
-        projection: {
-          schemaVersion: request.schema_version,
-          source: "agentgres_model_mounting_projection",
-          projectionKind: request.projection_kind,
-          generatedAt: request.generated_at,
-          watermark: 0,
-        },
+        projection: request.projection_kind === "model_conversation_states"
+          ? []
+          : {
+              schemaVersion: request.schema_version,
+              source: "agentgres_model_mounting_projection",
+              projectionKind: request.projection_kind,
+              generatedAt: request.generated_at,
+              watermark: 0,
+            },
         evidence_refs: [
           "rust_daemon_core_model_mount_projection",
           "agentgres_model_mount_read_truth",
@@ -239,16 +241,17 @@ function mockModelMountCore() {
         id: rawEndpoint.id ?? "endpoint.test",
         provider_id: rawEndpoint.provider_id ?? "provider.test",
         model_id: rawEndpoint.model_id ?? request.body?.model ?? request.body?.model_id ?? "test-model",
-        api_format: rawEndpoint.api_format ?? "openai",
+        api_format: rawEndpoint.api_format ?? "ioi_fixture",
+        driver: rawEndpoint.driver ?? "fixture",
         backend_id: rawEndpoint.backend_id ?? "backend.test",
         status: rawEndpoint.status ?? "mounted",
       };
       const rawProvider = request.providers?.[0] ?? {};
       const provider = {
         id: rawProvider.id ?? endpoint.provider_id ?? "provider.test",
-        driver: rawProvider.driver ?? "openai_compatible",
-        kind: "openai_compatible",
-        api_format: rawProvider.api_format ?? "openai",
+        driver: rawProvider.driver ?? endpoint.driver ?? "fixture",
+        kind: rawProvider.kind ?? "local_folder",
+        api_format: rawProvider.api_format ?? endpoint.api_format ?? "ioi_fixture",
         status: rawProvider.status ?? "configured",
       };
       const modelId = endpoint.model_id ?? "test-model";
@@ -366,17 +369,17 @@ function mockModelMountCore() {
           evidence_refs: ["rust_model_mount_provider_invocation", request.provider_execution_ref],
           invocation_hash: "sha256:provider-invocation-test",
         },
-        outputText: "provider answer",
-        tokenCount: { prompt_tokens: 1, completion_tokens: 2, total_tokens: 3 },
-        providerResponse: null,
-        providerResponseKind: "rust_model_mount.fixture",
-        executionBackend: "rust_model_mount_fixture",
-        backendId: "backend.fixture",
+        output_text: "provider answer",
+        token_count: { prompt_tokens: 1, completion_tokens: 2, total_tokens: 3 },
+        provider_response: null,
+        provider_response_kind: "rust_model_mount.fixture",
+        execution_backend: "rust_model_mount_fixture",
+        backend_id: "backend.fixture",
         provider_execution_ref: request.provider_execution_ref,
         provider_execution_hash: request.provider_execution_hash,
         invocation_hash: "sha256:provider-invocation-test",
         evidence_refs: ["rust_model_mount_provider_invocation", request.provider_execution_ref],
-        backendEvidenceRefs: ["rust_model_mount_provider_invocation", request.provider_execution_ref],
+        backend_evidence_refs: ["rust_model_mount_provider_invocation", request.provider_execution_ref],
       };
     },
     planAcceptedReceiptHead(request) {
@@ -490,10 +493,10 @@ function mockModelMountCore() {
 function mountTestModel(state) {
   state.upsertProvider({
     id: "provider.test",
-    kind: "openai_compatible",
+    kind: "local_folder",
     label: "test",
-    driver: "openai_compatible",
-    api_format: "openai",
+    driver: "fixture",
+    api_format: "ioi_fixture",
     base_url: "http://127.0.0.1:1",
     capabilities: ["chat"],
     status: "configured",
@@ -503,6 +506,9 @@ function mountTestModel(state) {
     id: "endpoint.test",
     model_id: "test-model",
     provider_id: "provider.test",
+    driver: "fixture",
+    api_format: "ioi_fixture",
+    backend_id: "backend.fixture",
   });
 }
 

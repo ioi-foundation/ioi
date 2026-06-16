@@ -40,9 +40,9 @@ function fakeState(overrides = {}) {
     },
     compileEphemeralMcpIntegrations() {
       return {
-        evidenceRefs: ["mcp.ephemeral"],
-        serverIds: ["mcp.server"],
-        toolReceiptIds: ["receipt.tool"],
+        evidence_refs: ["mcp.ephemeral"],
+        server_ids: ["mcp.server"],
+        tool_receipt_ids: ["receipt.tool"],
       };
     },
     conversationState(responseId) {
@@ -377,7 +377,7 @@ function providerInvocationBridgeResult(request, options = {}) {
     },
     output_text,
     token_count: { prompt_tokens: 1, completion_tokens: 2, total_tokens: 3 },
-    providerResponse: null,
+    provider_response: null,
     provider_response_kind,
     execution_backend,
     backend_id,
@@ -403,7 +403,7 @@ function providerStreamInvocationBridgeResult(request, options = {}) {
       ? "openai_responses_native_local"
       : "openai_chat_completions_native_local";
   const streamChunks =
-    options.streamChunks ?? [
+    options.stream_chunks ?? [
       `{"delta":${JSON.stringify(output_text)},"done":false}\n`,
       `{"delta":"","done":true,"done_reason":"stop","prompt_eval_count":${token_count.prompt_tokens},"eval_count":${token_count.completion_tokens}}\n`,
     ];
@@ -433,13 +433,13 @@ function providerStreamInvocationBridgeResult(request, options = {}) {
     },
     output_text,
     token_count,
-    providerResponse: null,
+    provider_response: null,
     provider_response_kind: "rust_model_mount.native_local.stream",
     execution_backend,
     backend_id,
-    streamFormat: "ioi_jsonl",
-    streamKind,
-    streamChunks,
+    stream_format: "ioi_jsonl",
+    stream_kind: streamKind,
+    stream_chunks: streamChunks,
     provider_execution_ref: request.provider_execution_ref,
     provider_execution_hash: request.provider_execution_hash,
     invocation_hash: invocationHash,
@@ -886,31 +886,119 @@ test("model invocation migration helpers reject retired camelCase helper aliases
             backendId: "backend.endpoint",
             custodyRef: "ctee://custody/private-workspace",
             nodePlaintextAllowed: true,
+            loadPolicy: { mode: "compat" },
           },
           provider: {
             privacyClass: "private_workspace_ctee",
           },
         }),
-        token: { grantId: "grant://model-chat" },
+        token: {
+          grantId: "grant://model-chat",
+        },
       }),
     (error) => {
       assert.equal(error.status, 400);
       assert.equal(error.code, "model_mount_invocation_helper_aliases_retired");
-      assert.deepEqual(error.details.retired_aliases, [
+      assert.deepEqual([...error.details.retired_aliases].sort(), [
         "modelId",
         "apiFormat",
         "backendId",
         "custodyRef",
         "nodePlaintextAllowed",
+        "loadPolicy",
         "privacyClass",
         "grantId",
-      ]);
+      ].sort());
       assert.deepEqual(error.details.canonical_fields.slice(0, 4), [
         "api_format",
         "backend_evidence_refs",
         "backend_id",
         "custody_ref",
       ]);
+      return true;
+    },
+  );
+  assert.throws(
+    () =>
+      modelMountProviderResultAdmissionRequestForExecution({
+        input: "user: hello",
+        instance: {
+          backendProcess: { pid_hash: "sha256:compat" },
+          backendProcessId: "backend-process.compat",
+          backendProcessPidHash: "sha256:pid",
+        },
+        kind: "chat.completions",
+        modelMountProviderExecutionAdmission: {
+          record: {
+            provider_execution_ref: "model_mount://provider_execution/test",
+            provider_execution_hash: "sha256:provider-execution-test",
+            route_decision_ref: "model_mount://route_decision/test",
+            route_receipt_ref: "receipt://route",
+            route_ref: "route.local-first",
+            provider_ref: "provider.fixture",
+            endpoint_ref: "endpoint.fixture",
+            model_ref: "fixture:model",
+            capability: "chat",
+            invocation_kind: "chat.completions",
+            request_hash: "sha256:request",
+          },
+        },
+        providerResult: {
+          outputText: "fixture provider answer",
+          providerResponse: { id: "compat.response" },
+          providerResponseKind: "rust_model_mount.fixture",
+          executionBackend: "rust_model_mount_fixture",
+          tokenCount: { prompt_tokens: 1, completion_tokens: 2, total_tokens: 3 },
+          providerAuthEvidenceRefs: [],
+          backendEvidenceRefs: ["rust_model_mount_fixture_backend"],
+          streamFormat: "ioi_jsonl",
+          streamKind: "openai_chat_completions_native_local",
+          streamChunks: [],
+        },
+        selection: {
+          ...selection({
+            endpoint: {
+              api_format: "ioi_fixture",
+              driver: "fixture",
+              provider_id: "provider.fixture",
+              backend_id: "backend.fixture",
+            },
+            provider: {
+              id: "provider.fixture",
+              kind: "local_folder",
+              driver: "fixture",
+            },
+          }),
+          routeDecision: {},
+          routeReceipt: {},
+          routeControl: {},
+          acceptedReceiptRecord: {},
+          evidenceRefs: ["compat.evidence"],
+        },
+      }),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "model_mount_invocation_helper_aliases_retired");
+      assert.deepEqual([...error.details.retired_aliases].sort(), [
+        "acceptedReceiptRecord",
+        "backendEvidenceRefs",
+        "backendProcess",
+        "backendProcessId",
+        "backendProcessPidHash",
+        "evidenceRefs",
+        "executionBackend",
+        "outputText",
+        "providerAuthEvidenceRefs",
+        "providerResponse",
+        "providerResponseKind",
+        "routeControl",
+        "routeDecision",
+        "routeReceipt",
+        "streamChunks",
+        "streamFormat",
+        "streamKind",
+        "tokenCount",
+      ].sort());
       return true;
     },
   );

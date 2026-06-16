@@ -17,21 +17,36 @@ const RETIRED_MODEL_INVOCATION_REQUEST_ALIASES = [
 ];
 
 const RETIRED_MODEL_INVOCATION_HELPER_ALIASES = [
+  "acceptedReceiptRecord",
   "apiFormat",
   "backendEvidenceRefs",
   "backendId",
+  "backendProcess",
+  "backendProcessId",
+  "backendProcessPidHash",
   "compatTranslation",
   "custodyRef",
   "executionBackend",
+  "evidenceRefs",
   "grantId",
+  "loadPolicy",
   "modelId",
   "nodePlaintextAllowed",
   "outputText",
   "privacyClass",
   "providerAuthEvidenceRefs",
   "providerId",
+  "providerResponse",
   "providerResponseKind",
+  "routeControl",
+  "routeDecision",
+  "routeReceipt",
+  "serverIds",
+  "streamChunks",
+  "streamFormat",
+  "streamKind",
   "tokenCount",
+  "toolReceiptIds",
 ];
 
 export async function invokeModel(state, { authorization, requiredScope, kind, body = {} } = {}, deps = {}) {
@@ -737,7 +752,7 @@ async function executeModelInvocationThroughRustCore(
     receipt,
     routeReceipt,
     tokenCount,
-    providerResponse: providerInvocation["providerResponse"] ?? providerInvocation.provider_response ?? null,
+    providerResponse: providerInvocation.provider_response ?? providerInvocation.result?.provider_response ?? null,
     providerResponseKind: providerResult.provider_response_kind ?? null,
     toolReceiptIds: ephemeralMcp.toolReceiptIds,
     responseId,
@@ -747,10 +762,7 @@ async function executeModelInvocationThroughRustCore(
   };
   if (!stream) return invocation;
   const streamHandle = readableStreamFromRustProviderChunks(
-    providerInvocation["streamChunks"] ??
-      providerInvocation.stream_chunks ??
-      providerInvocation.result?.stream_chunks ??
-      [],
+    providerInvocation.stream_chunks ?? providerInvocation.result?.stream_chunks ?? [],
   );
   return {
     native: true,
@@ -761,15 +773,9 @@ async function executeModelInvocationThroughRustCore(
       ...providerInvocation,
       ...providerResult,
       streamFormat:
-        providerInvocation["streamFormat"] ??
-        providerInvocation.stream_format ??
-        providerInvocation.result?.stream_format ??
-        null,
+        providerInvocation.stream_format ?? providerInvocation.result?.stream_format ?? null,
       streamKind:
-        providerInvocation["streamKind"] ??
-        providerInvocation.stream_kind ??
-        providerInvocation.result?.stream_kind ??
-        null,
+        providerInvocation.stream_kind ?? providerInvocation.result?.stream_kind ?? null,
     },
   };
 }
@@ -913,18 +919,15 @@ function nextInvocationReceiptId(state, kind) {
 function normalizeModelMountSelection(selection = {}) {
   const endpoint = canonicalEndpointRecord(selection.endpoint);
   const provider = canonicalProviderRecord(selection.provider, endpoint);
-  const routeDecision = objectRecord(selection.route_decision ?? selection.routeDecision) ?? {};
-  const routeReceipt =
-    objectRecord(selection.route_receipt ?? selection.routeReceipt ?? selection.accepted_receipt_record) ?? null;
   return {
     route: objectRecord(selection.route) ?? {},
     endpoint,
     provider,
-    route_decision: routeDecision,
-    route_receipt: routeReceipt,
-    route_control: objectRecord(selection.route_control ?? selection.routeControl) ?? null,
+    route_decision: objectRecord(selection.route_decision) ?? {},
+    route_receipt: canonicalRouteReceiptRecord(selection.route_receipt),
+    route_control: canonicalRouteControlRecord(selection.route_control),
     rust_core_boundary: optionalRef(selection.rust_core_boundary),
-    evidence_refs: uniqueRefs(selection.evidence_refs ?? selection.evidenceRefs ?? []),
+    evidence_refs: uniqueRefs(selection.evidence_refs ?? []),
   };
 }
 
@@ -932,17 +935,17 @@ function canonicalEndpointRecord(endpoint = {}) {
   const record = objectRecord(endpoint) ?? {};
   return {
     id: optionalRef(record.id),
-    model_id: optionalRef(record.model_id ?? record.modelId),
-    provider_id: optionalRef(record.provider_id ?? record.providerId),
-    api_format: optionalRef(record.api_format ?? record.apiFormat),
+    model_id: optionalRef(record.model_id),
+    provider_id: optionalRef(record.provider_id),
+    api_format: optionalRef(record.api_format),
     driver: optionalRef(record.driver),
-    backend_id: optionalRef(record.backend_id ?? record.backendId),
-    custody_ref: optionalRef(record.custody_ref ?? record.custodyRef),
-    node_plaintext_allowed: Boolean(record.node_plaintext_allowed ?? record.nodePlaintextAllowed ?? false),
-    privacy_class: optionalRef(record.privacy_class ?? record.privacyClass),
+    backend_id: optionalRef(record.backend_id),
+    custody_ref: optionalRef(record.custody_ref),
+    node_plaintext_allowed: Boolean(record.node_plaintext_allowed ?? false),
+    privacy_class: optionalRef(record.privacy_class),
     status: optionalRef(record.status),
     capabilities: arrayOfStrings(record.capabilities),
-    load_policy: objectRecord(record.load_policy ?? record.loadPolicy),
+    load_policy: objectRecord(record.load_policy),
   };
 }
 
@@ -951,13 +954,39 @@ function canonicalProviderRecord(provider = {}, endpoint = {}) {
   return {
     id: optionalRef(record.id ?? endpoint.provider_id),
     kind: optionalRef(record.kind),
-    api_format: optionalRef(record.api_format ?? record.apiFormat),
+    api_format: optionalRef(record.api_format),
     driver: optionalRef(record.driver),
-    custody_ref: optionalRef(record.custody_ref ?? record.custodyRef),
-    node_plaintext_allowed: Boolean(record.node_plaintext_allowed ?? record.nodePlaintextAllowed ?? false),
-    privacy_class: optionalRef(record.privacy_class ?? record.privacyClass),
+    custody_ref: optionalRef(record.custody_ref),
+    node_plaintext_allowed: Boolean(record.node_plaintext_allowed ?? false),
+    privacy_class: optionalRef(record.privacy_class),
     status: optionalRef(record.status),
     capabilities: arrayOfStrings(record.capabilities),
+  };
+}
+
+function canonicalRouteReceiptRecord(receipt = {}) {
+  const record = objectRecord(receipt);
+  if (!record) return null;
+  return {
+    id: optionalRef(record.id),
+    kind: optionalRef(record.kind),
+    details: objectRecord(record.details) ?? {},
+  };
+}
+
+function canonicalRouteControlRecord(control = {}) {
+  const record = objectRecord(control);
+  if (!record) return null;
+  const commit = objectRecord(record.commit) ?? {};
+  const receiptCommit = objectRecord(record.receipt_commit) ?? {};
+  return {
+    record_dir: optionalRef(record.record_dir),
+    record_id: optionalRef(record.record_id),
+    control_hash: optionalRef(record.control_hash),
+    commit_hash: optionalRef(commit.commit_hash),
+    object_ref: optionalRef(commit.object_ref),
+    receipt_commit_hash: optionalRef(receiptCommit.commit_hash),
+    receipt_object_ref: optionalRef(receiptCommit.object_ref),
   };
 }
 
@@ -965,26 +994,26 @@ function normalizeModelMountInstance(instance = {}, selection = {}) {
   const record = objectRecord(instance) ?? {};
   return {
     id: optionalRef(record.id),
-    endpoint_id: optionalRef(record.endpoint_id ?? record.endpointId ?? selection.endpoint?.id),
-    provider_id: optionalRef(record.provider_id ?? record.providerId ?? selection.provider?.id),
-    backend_id: optionalRef(record.backend_id ?? record.backendId ?? selection.endpoint?.backend_id),
-    backend_process: objectRecord(record.backend_process ?? record.backendProcess),
-    backend_process_id: optionalRef(record.backend_process_id ?? record.backendProcessId),
-    backend_process_pid_hash: optionalRef(record.backend_process_pid_hash ?? record.backendProcessPidHash),
+    endpoint_id: optionalRef(record.endpoint_id ?? selection.endpoint?.id),
+    provider_id: optionalRef(record.provider_id ?? selection.provider?.id),
+    backend_id: optionalRef(record.backend_id ?? selection.endpoint?.backend_id),
+    backend_process: objectRecord(record.backend_process),
+    backend_process_id: optionalRef(record.backend_process_id),
+    backend_process_pid_hash: optionalRef(record.backend_process_pid_hash),
   };
 }
 
 function normalizeEphemeralMcp(value = {}) {
   return {
-    toolReceiptIds: uniqueRefs(value.toolReceiptIds ?? value.tool_receipt_ids ?? []),
-    serverIds: uniqueRefs(value.serverIds ?? value.server_ids ?? []),
-    evidenceRefs: uniqueRefs(value.evidenceRefs ?? value.evidence_refs ?? []),
+    toolReceiptIds: uniqueRefs(value.tool_receipt_ids ?? []),
+    serverIds: uniqueRefs(value.server_ids ?? []),
+    evidenceRefs: uniqueRefs(value.evidence_refs ?? []),
   };
 }
 
 function normalizeInvocationToken(value = {}) {
   return {
-    grant_ref: optionalRef(value?.grant_ref ?? value?.grantId),
+    grant_ref: optionalRef(value?.grant_ref),
   };
 }
 
@@ -1002,29 +1031,25 @@ function requiredRouteReceipt(selection = {}) {
 function canonicalProviderResultForAdmission(providerResult = {}) {
   const result = objectRecord(providerResult.result) ?? {};
   return {
-    output_text: String(providerResult.output_text ?? providerResult["outputText"] ?? result.output_text ?? ""),
+    output_text: String(providerResult.output_text ?? result.output_text ?? ""),
     token_count:
-      objectRecord(providerResult.token_count ?? providerResult["tokenCount"] ?? result.token_count) ?? null,
+      objectRecord(providerResult.token_count ?? result.token_count) ?? null,
     provider_response_kind: optionalRef(
       providerResult.provider_response_kind ??
-        providerResult["providerResponseKind"] ??
         result.provider_response_kind,
     ),
     execution_backend: optionalRef(
       providerResult.execution_backend ??
-        providerResult["executionBackend"] ??
         result.execution_backend,
     ),
-    backend_id: optionalRef(providerResult.backend_id ?? providerResult["backendId"] ?? result.backend_id),
+    backend_id: optionalRef(providerResult.backend_id ?? result.backend_id),
     provider_auth_evidence_refs: uniqueRefs(
       providerResult.provider_auth_evidence_refs ??
-        providerResult["providerAuthEvidenceRefs"] ??
         result.provider_auth_evidence_refs ??
         [],
     ),
     backend_evidence_refs: uniqueRefs(
       providerResult.backend_evidence_refs ??
-        providerResult["backendEvidenceRefs"] ??
         result.backend_evidence_refs ??
         result.evidence_refs ??
         providerResult.evidence_refs ??

@@ -18597,17 +18597,28 @@ function runBridge() {
       /"grantId"/.test(modelInvocationOps) &&
       /"outputText"/.test(modelInvocationOps) &&
       /"providerResponseKind"/.test(modelInvocationOps) &&
+      /"routeReceipt"/.test(modelInvocationOps) &&
+      /"streamChunks"/.test(modelInvocationOps) &&
       /model invocation migration helpers reject retired camelCase helper aliases/.test(
         modelInvocationOpsTest,
       ) &&
       /model_mount_invocation_helper_aliases_retired/.test(modelInvocationOpsTest) &&
+      !/selection\?*\.(?:routeDecision|routeReceipt|routeControl|acceptedReceiptRecord|evidenceRefs)\b/.test(
+        modelInvocationOps,
+      ) &&
       !/selection\?\.endpoint\?\.(?:modelId|apiFormat|backendId|custodyRef|nodePlaintextAllowed)/.test(
         modelInvocationOps,
       ) &&
       !/selection\?\.provider\?\.(?:apiFormat|custodyRef|privacyClass|nodePlaintextAllowed)/.test(
         modelInvocationOps,
       ) &&
-      !/(?:instance|providerResult|token)\.(?:backendId|executionBackend|grantId|outputText|tokenCount|providerResponseKind|providerAuthEvidenceRefs|backendEvidenceRefs)\b/.test(
+      !/record\.(?:modelId|providerId|apiFormat|backendId|custodyRef|nodePlaintextAllowed|privacyClass|loadPolicy|backendProcess|backendProcessId|backendProcessPidHash)\b/.test(
+        modelInvocationOps,
+      ) &&
+      !/(?:instance|providerResult|providerInvocation|token|value)\.(?:backendId|executionBackend|grantId|outputText|tokenCount|providerResponse|providerResponseKind|providerAuthEvidenceRefs|backendEvidenceRefs|streamChunks|streamFormat|streamKind|toolReceiptIds|serverIds|evidenceRefs)\b/.test(
+        modelInvocationOps,
+      ) &&
+      !/(?:providerResult|providerInvocation)\["(?:backendId|executionBackend|outputText|tokenCount|providerResponse|providerResponseKind|providerAuthEvidenceRefs|backendEvidenceRefs|streamChunks|streamFormat|streamKind)"\]/.test(
         modelInvocationOps,
       ) &&
       /selection\?\.endpoint\?\.model_id/.test(modelInvocationOps) &&
