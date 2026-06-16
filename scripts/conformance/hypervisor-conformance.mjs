@@ -1723,11 +1723,12 @@ function runDocs() {
       /thread model-route binding reads canonical\s+`details\.model_route_decision` locally and emits canonical `receipt_id` without\s+a `receiptId` alias/.test(guide) &&
       /unused provider request-shaping helper\/test path\s+is gone instead of being preserved as compatibility scaffolding/.test(guide) &&
       /Slice 820 retired the provider-invocation helper-level false predicate for\s+hosted\/non-migrated providers/.test(guide) &&
-      /`modelMountProviderInvocationRequiresRust\(\)` and\s+`modelMountProviderStreamInvocationRequiresRust\(\)` now report that every\s+provider invocation path requires Rust `model_mount` ownership/.test(guide) &&
-      /request builders fail closed with\s+`model_mount_provider_invocation_rust_backend_required`/.test(guide) &&
+      /transitional JS predicate surface is now superseded by the Rust invocation\s+authority planner and the Slice 1382 helper-export deletion/.test(guide) &&
       /Slice 821 retired hosted\/non-migrated provider-result observation admission\s+from the JS helper path/.test(guide) &&
-      /`modelMountProviderResultAdmissionRequestForExecution\(\)`\s+now derives the expected Rust provider invocation backend/.test(guide) &&
-      /`model_mount_provider_result_rust_backend_required`/.test(guide) &&
+      /provider-result builder is now superseded by Rust\s+`provider_result_admission_request` planning/.test(guide) &&
+      /Slice 1382 deletes the production JS model_mount invocation contract helper\s+surface/.test(guide) &&
+      /retired helper exports are absent/.test(guide) &&
+      /RuntimeDaemonCoreModelMountInvocationJsContractHelpersDeleted/.test(implementationMatrix) &&
       /Slice 822 moved the provider-result backend invariant into the Rust\s+`model_mount` core/.test(guide) &&
       /`ModelMountProviderResultAdmissionRequest::validate\(\)` no\s+longer accepts `js_provider_driver_observation`/.test(guide) &&
       /`rust_model_mount_provider_result_backend_bound` evidence/.test(guide) &&
@@ -2019,13 +2020,12 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 819 is now satisfied/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 820/.test(matrix) &&
       /Slice 820 retired the provider-invocation helper-level false predicate/.test(matrix) &&
-      /`modelMountProviderInvocationRequiresRust\(\)`\s+and `modelMountProviderStreamInvocationRequiresRust\(\)` now return that every\s+provider invocation path requires Rust `model_mount` ownership/.test(matrix) &&
-      /`model_mount_provider_invocation_rust_backend_required`/.test(matrix) &&
+      /Model_mount invocation JS contract helper surface deleted/.test(matrix) &&
+      /production JS contract builders, helper alias tables, receipt-detail builders/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 820 is now satisfied/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 821/.test(matrix) &&
       /Slice 821 retired hosted\/non-migrated provider-result observation admission/.test(matrix) &&
-      /`modelMountProviderResultAdmissionRequestForExecution\(\)` now\s+derives the expected Rust provider invocation backend/.test(matrix) &&
-      /`model_mount_provider_result_rust_backend_required`/.test(matrix) &&
+      /Rust-authored operation requests/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 821 is now satisfied/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 822/.test(matrix) &&
       /Slice 822 moved the provider-result backend invariant into Rust\s+`model_mount`\s+core validation/.test(matrix) &&
@@ -3864,7 +3864,7 @@ function runBridge() {
     modelInvocationOps.match(/export async function invokeModel[\s\S]*?(?=\n\nexport async function startModelStream)/)?.[0] ??
     "";
   const modelStreamFacadeBlock =
-    modelInvocationOps.match(/export async function startModelStream[\s\S]*?(?=\n\nexport function modelMountInvocationAdmissionRequestForReceipt)/)?.[0] ??
+    modelInvocationOps.match(/export async function startModelStream[\s\S]*?(?=\n\nexport function withModelMountInvocationAdmission)/)?.[0] ??
     "";
   const modelInvocationHotPathBlock =
     modelInvocationOps.match(/async function executeModelInvocationThroughRustCore\([\s\S]*?(?=\n\nfunction modelMountInvocationAuthorityBaseRequest)/)?.[0] ??
@@ -17895,8 +17895,9 @@ function runBridge() {
       !/details:\s*\{\s*routeId:\s*route\.id,\s*capability,\s*policy,\s*evaluatedCandidates\s*\}/.test(
         modelRoutes,
       ) &&
-      /routeReceipt\?\.details\?\.workflow_graph_id/.test(modelInvocationOps) &&
-      /routeReceipt\?\.details\?\.workflow_node_id/.test(modelInvocationOps) &&
+      /route_receipt:\s*routeReceipt/.test(modelInvocationOps) &&
+      /workflow_graph_ref:\s*optional_route_receipt_detail\(request,\s*"workflow_graph_id"\)/.test(modelMountCore) &&
+      /workflow_node_ref:\s*optional_route_receipt_detail\(request,\s*"workflow_node_id"\)/.test(modelMountCore) &&
       !/routeReceipt\?\.details\?\.(?:workflowGraphId|workflowNodeId)/.test(modelInvocationOps) &&
       /mounted route selection uses Rust planning and Agentgres commits before JS endpoint policy evaluation/.test(modelRoutesTest) &&
       /routeControlPlans\[0\]\.operation_kind,\s*"model_mount\.route\.select"/.test(modelRoutesTest) &&
@@ -18532,6 +18533,8 @@ function runBridge() {
       !/modelMountProviderResultAdmissionRequestForExecution\(/.test(modelInvocationHotPathBlock) &&
       !/modelMountInvocationAdmissionRequestForReceipt\(/.test(modelInvocationHotPathBlock) &&
       !/modelMountInvocationReceiptBindingRequestForReceipt\(/.test(modelInvocationHotPathBlock) &&
+      !/export function modelMount(?:InvocationAdmissionRequestForReceipt|ProviderExecutionRequestForInvocation|ProviderInvocationRequestForExecution|ProviderStreamInvocationRequestForExecution|ProviderResultAdmissionRequestForExecution|InvocationReceiptBindingRequestForReceipt|InvocationAgentgresTransitionForReceipt|ProviderInvocationRequiresRust|ProviderStreamInvocationRequiresRust)/.test(modelInvocationOps) &&
+      !/function invocationReceiptDetails/.test(modelInvocationOps) &&
       /plan_model_mount_invocation_authority/.test(modelMountCore) &&
       /ModelMountInvocationAuthorityRequest/.test(modelMountCore) &&
       /MODEL_MOUNT_INVOCATION_AUTHORITY_SCHEMA_VERSION/.test(modelMountCore) &&
@@ -18539,7 +18542,10 @@ function runBridge() {
       /planModelMountInvocationAuthority\(request\)/.test(modelMountingState) &&
       /rust_plans_provider_execution_contract/.test(modelMountCore) &&
       /rust_plans_receipt_binding_step_module_projection/.test(modelMountCore) &&
-      /authorityPlanRequests\.map\(\(request\) => request\.operation\)/.test(modelInvocationOpsTest),
+      /authorityPlanRequests\.map\(\(request\) => request\.operation\)/.test(modelInvocationOpsTest) &&
+      /retired model invocation JS contract helper exports are deleted/.test(modelInvocationOpsTest) &&
+      /Object\.hasOwn\(modelInvocationOpsModule,\s*exportName\),\s*false/.test(modelInvocationOpsTest) &&
+      /invokeModel fails closed when the Rust invocation authority planner is missing/.test(modelInvocationOpsTest),
     [
       "crates/services/src/agentic/runtime/kernel/model_mount/invocation_authority.rs",
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
@@ -18558,22 +18564,14 @@ function runBridge() {
       /stream:\s*true/.test(modelStreamFacadeBlock) &&
       !retiredModelInvocationFacadeBodyPattern.test(modelInvokeFacadeBlock) &&
       !retiredModelInvocationFacadeBodyPattern.test(modelStreamFacadeBlock) &&
-      /function invocationReceiptDetails/.test(modelInvocationOps) &&
+      !/function invocationReceiptDetails/.test(modelInvocationOps) &&
       !/function persistRouteSelection/.test(modelInvocationOps) &&
       !/state\.receipt\("model_invocation/.test(modelInvocationOps) &&
-      /receiptDetails\.route_id/.test(modelInvocationOps) &&
-      /receiptDetails\.provider_id/.test(modelInvocationOps) &&
-      /receiptDetails\.endpoint_id/.test(modelInvocationOps) &&
-      /receiptDetails\.selected_model/.test(modelInvocationOps) &&
-      /receiptDetails\.policy_hash/.test(modelInvocationOps) &&
-      /receiptDetails\.input_hash/.test(modelInvocationOps) &&
-      /receiptDetails\.output_hash/.test(modelInvocationOps) &&
-      /receiptDetails\.tool_receipt_ids/.test(modelInvocationOps) &&
-      /receiptDetails\.grant_id/.test(modelInvocationOps) &&
-      /receiptDetails\.provider_auth_evidence_refs/.test(modelInvocationOps) &&
-      /receiptDetails\.backend_evidence_refs/.test(modelInvocationOps) &&
-      /receiptDetails\.response_id/.test(modelInvocationOps) &&
-      /receiptDetails\.stream_status/.test(modelInvocationOps) &&
+      /const receiptDetails = withModelMountProviderExecutionAdmission\(\s*invocationAuthority\.receipt_details,\s*providerExecutionAdmission,\s*\)/.test(modelInvocationOps) &&
+      /const invocationAdmissionRequest = invocationAuthority\.invocation_admission_request/.test(modelInvocationOps) &&
+      /receipt_details: receiptDetails/.test(modelInvocationHotPathBlock) &&
+      /fn invocation_receipt_details/.test(read("crates/services/src/agentic/runtime/kernel/model_mount/invocation_authority.rs")) &&
+      /fn invocation_admission_request/.test(read("crates/services/src/agentic/runtime/kernel/model_mount/invocation_authority.rs")) &&
       !/receiptDetails\.(?:routeId|providerId|endpointId|selectedModel|policyHash|inputHash|outputHash|toolReceiptIds|grantId|providerAuthEvidenceRefs|backendEvidenceRefs|responseId|streamStatus)/.test(
         modelInvocationOps,
       ) &&
@@ -18654,11 +18652,11 @@ function runBridge() {
       /function defaultBackendForProvider\(provider = \{\}\)/.test(modelMountingState) &&
       /return "backend\.openai-compatible"/.test(modelMountingState) &&
       !/driverForProviderKind|driverNameForProvider/.test(modelMountingState) &&
-	      !/driverNameForProvider|provider\.driver \?\? driver|endpoint\.driver \?\? provider\.driver \?\?/.test(
-	        modelInvocationOps,
-	      ) &&
-	      /return optionalRef\(endpoint\.driver \?\? provider\.driver\)/.test(modelInvocationOps) &&
-	      /assert\.equal\(hostedRequest\.driver,\s*null\)/.test(modelInvocationOpsTest),
+      !/driverNameForProvider|provider\.driver \?\? driver|endpoint\.driver \?\? provider\.driver \?\?|explicitProviderDriver/.test(
+        modelInvocationOps,
+      ) &&
+      /driver:\s*optional_endpoint_or_provider_string\(request,\s*"driver"\)/.test(modelMountCore) &&
+      /retired model invocation JS contract helper exports are deleted/.test(modelInvocationOpsTest),
     [
       "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
@@ -18674,33 +18672,22 @@ function runBridge() {
       /"custodyRef"/.test(modelInvocationOps) &&
       /"privacyProfile"/.test(modelInvocationOps) &&
       /"nodePlaintextAllowed"/.test(modelInvocationOps) &&
-      (modelInvocationOps.match(/assertCanonicalModelInvocationRequestBody\(body\)/g) ?? []).length >= 4 &&
-      /authority_grant_refs:\s*uniqueRefs\(\[\s*optionalRef\(receiptDetails\.grant_id\),\s*\.\.\.\(Array\.isArray\(body\.authority_grant_refs\)/.test(
-        modelInvocationOps,
-      ) &&
-      /authority_grant_refs:\s*uniqueRefs\(\[\s*optionalRef\(token\.grant_ref\),\s*\.\.\.\(Array\.isArray\(body\.authority_grant_refs\)/.test(
-        modelInvocationOps,
-      ) &&
-      /authority_receipt_refs:\s*uniqueRefs\(\[\s*\.\.\.\(Array\.isArray\(body\.authority_receipt_refs\)/.test(
-        modelInvocationOps,
-      ) &&
-      /body\.custody_ref \?\?\s*selection\?\.endpoint\?\.custody_ref/.test(modelInvocationOps) &&
-      /body\.privacy_profile \?\?\s*policy\.privacy_profile/.test(modelInvocationOps) &&
-      /body\.node_plaintext_allowed \?\?\s*selection\?\.endpoint\?\.node_plaintext_allowed/.test(
-        modelInvocationOps,
-      ) &&
+      (modelInvocationOps.match(/assertCanonicalModelInvocationRequestBody\(body\)/g) ?? []).length >= 2 &&
+      /authority_grant_refs/.test(read("crates/services/src/agentic/runtime/kernel/model_mount/invocation_authority.rs")) &&
+      /authority_receipt_refs/.test(read("crates/services/src/agentic/runtime/kernel/model_mount/invocation_authority.rs")) &&
+      /fn invocation_custody_ref/.test(read("crates/services/src/agentic/runtime/kernel/model_mount/invocation_authority.rs")) &&
+      /fn invocation_privacy_profile/.test(read("crates/services/src/agentic/runtime/kernel/model_mount/invocation_authority.rs")) &&
+      /fn invocation_node_plaintext_allowed/.test(read("crates/services/src/agentic/runtime/kernel/model_mount/invocation_authority.rs")) &&
       !/(?:body|selection\?\.endpoint\?|selection\?\.provider\?|token\.)(?:authorityGrantRefs|authorityReceiptRefs|custodyRef|privacyProfile|nodePlaintextAllowed|grantId|privacyClass)\b/.test(
         modelInvocationOps,
       ) &&
       !/policy\.privacyProfile\b/.test(modelInvocationOps) &&
       /model invocations reject retired authority request aliases before authorization/.test(modelInvocationOpsTest) &&
-      /modelMountInvocationAdmissionRequestForReceipt rejects retired authority aliases before ref validation/.test(
+      /retired model invocation JS contract helper exports are deleted/.test(modelInvocationOpsTest) &&
+      !/modelMountInvocationAdmissionRequestForReceipt rejects retired authority aliases before ref validation/.test(
         modelInvocationOpsTest,
       ) &&
-      /modelMountProviderExecutionRequestForInvocation rejects retired authority aliases before route receipt validation/.test(
-        modelInvocationOpsTest,
-      ) &&
-      /model mount invocation admission builders ignore retired policy privacy profile alias/.test(
+      !/modelMountProviderExecutionRequestForInvocation rejects retired authority aliases before route receipt validation/.test(
         modelInvocationOpsTest,
       ),
     [
@@ -18712,21 +18699,22 @@ function runBridge() {
   assertCheck(
     result,
     "model-mount-invocation-helper-aliases-retired",
-    /RETIRED_MODEL_INVOCATION_HELPER_ALIASES/.test(modelInvocationOps) &&
-      /model_mount_invocation_helper_aliases_retired/.test(modelInvocationOps) &&
-      (modelInvocationOps.match(/assertCanonicalModelInvocationHelperInputs\(/g) ?? []).length >= 6 &&
-      /"modelId"/.test(modelInvocationOps) &&
-      /"apiFormat"/.test(modelInvocationOps) &&
-      /"backendId"/.test(modelInvocationOps) &&
-      /"grantId"/.test(modelInvocationOps) &&
-      /"outputText"/.test(modelInvocationOps) &&
-      /"providerResponseKind"/.test(modelInvocationOps) &&
-      /"routeReceipt"/.test(modelInvocationOps) &&
-      /"streamChunks"/.test(modelInvocationOps) &&
-      /model invocation migration helpers reject retired camelCase helper aliases/.test(
+    !/RETIRED_MODEL_INVOCATION_HELPER_ALIASES/.test(modelInvocationOps) &&
+      !/model_mount_invocation_helper_aliases_retired/.test(modelInvocationOps) &&
+      !/assertCanonicalModelInvocationHelperInputs\(/.test(modelInvocationOps) &&
+      !/export function modelMount(?:InvocationAdmissionRequestForReceipt|ProviderExecutionRequestForInvocation|ProviderInvocationRequestForExecution|ProviderStreamInvocationRequestForExecution|ProviderResultAdmissionRequestForExecution|InvocationReceiptBindingRequestForReceipt|InvocationAgentgresTransitionForReceipt|ProviderInvocationRequiresRust|ProviderStreamInvocationRequiresRust)/.test(modelInvocationOps) &&
+      /retired model invocation JS contract helper exports are deleted/.test(
         modelInvocationOpsTest,
       ) &&
-      /model_mount_invocation_helper_aliases_retired/.test(modelInvocationOpsTest) &&
+      /Object\.hasOwn\(modelInvocationOpsModule,\s*exportName\),\s*false/.test(modelInvocationOpsTest) &&
+      /testRustPlanProviderExecutionContract/.test(modelInvocationOpsTest) &&
+      /testRustPlanProviderInvocationContract/.test(modelInvocationOpsTest) &&
+      /testRustPlanProviderResultAdmissionContract/.test(modelInvocationOpsTest) &&
+      /testRustPlanInvocationAdmissionContract/.test(modelInvocationOpsTest) &&
+      /testRustPlanReceiptBindingContract/.test(modelInvocationOpsTest) &&
+      !/model invocation migration helpers reject retired camelCase helper aliases/.test(
+        modelInvocationOpsTest,
+      ) &&
       !/selection\?*\.(?:routeDecision|routeReceipt|routeControl|acceptedReceiptRecord|evidenceRefs)\b/.test(
         modelInvocationOps,
       ) &&
@@ -18744,11 +18732,7 @@ function runBridge() {
       ) &&
       !/(?:providerResult|providerInvocation)\["(?:backendId|executionBackend|outputText|tokenCount|providerResponse|providerResponseKind|providerAuthEvidenceRefs|backendEvidenceRefs|streamChunks|streamFormat|streamKind)"\]/.test(
         modelInvocationOps,
-      ) &&
-      /selection\?\.endpoint\?\.model_id/.test(modelInvocationOps) &&
-      /token\.grant_ref/.test(modelInvocationOps) &&
-      /providerResult\.output_text/.test(modelInvocationOps) &&
-      /providerResult\.provider_response_kind/.test(modelInvocationOps),
+      ),
     [
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs",
@@ -19181,7 +19165,9 @@ function runBridge() {
       /admitInvocation/.test(modelMountCore) &&
       /MODEL_MOUNT_INVOCATION_API_METHOD/.test(modelMountCore) &&
       /admitModelMountInvocation/.test(modelMountingState) &&
-      /modelMountInvocationAdmissionRequestForReceipt/.test(modelInvocationOps) &&
+      /operation:\s*"invocation_admission"/.test(modelInvocationHotPathBlock) &&
+      /const invocationAdmissionRequest = invocationAuthority\.invocation_admission_request/.test(modelInvocationOps) &&
+      /fn invocation_admission_request/.test(read("crates/services/src/agentic/runtime/kernel/model_mount/invocation_authority.rs")) &&
       /model_mount_invocation_admission_ref/.test(modelInvocationOps) &&
       !retiredModelInvocationFacadeBodyPattern.test(modelInvokeFacadeBlock) &&
       !retiredModelInvocationFacadeBodyPattern.test(modelStreamFacadeBlock) &&
@@ -19210,7 +19196,9 @@ function runBridge() {
       /admitProviderExecution/.test(modelMountCore) &&
       /MODEL_MOUNT_PROVIDER_EXECUTION_API_METHOD/.test(modelMountCore) &&
       /admitModelMountProviderExecution/.test(modelMountingState) &&
-      /modelMountProviderExecutionRequestForInvocation/.test(modelInvocationOps) &&
+      /operation:\s*"provider_execution"/.test(modelInvocationHotPathBlock) &&
+      /providerExecutionAuthority\.provider_execution_request/.test(modelInvocationOps) &&
+      /fn provider_execution_request/.test(read("crates/services/src/agentic/runtime/kernel/model_mount/invocation_authority.rs")) &&
       /model_mount_provider_execution_ref/.test(modelInvocationOps) &&
       !retiredModelInvocationFacadeBodyPattern.test(modelInvokeFacadeBlock) &&
       !retiredModelInvocationFacadeBodyPattern.test(modelStreamFacadeBlock) &&
@@ -19243,9 +19231,11 @@ function runBridge() {
         modelMountingValidationTest,
       ) &&
       /required: "allow_continuation_fallback"/.test(modelMountingValidationTest) &&
-      /previous_response_ref:\s*optionalRef\(receiptDetails\.previous_response_id\)/.test(modelInvocationOps) &&
+      /previous_response_ref:\s*request\.previous_response_id\.clone\(\)/.test(modelMountCore) &&
+      /previous_response_ref:\s*optional_string_path\(receipt_details,\s*&\["previous_response_id"\]\)/.test(modelMountCore) &&
       !/previous_response_ref:\s*optionalRef\(receiptDetails\.previousResponseId\)/.test(modelInvocationOps) &&
-      /function invocationReceiptDetails/.test(modelInvocationOps) &&
+      !/function invocationReceiptDetails/.test(modelInvocationOps) &&
+      /fn invocation_receipt_details/.test(read("crates/services/src/agentic/runtime/kernel/model_mount/invocation_authority.rs")) &&
       /previous_response_id:\s*optionalString\(previousState\?\.id\)/.test(modelConversationOps) &&
       /previous_response_id:\s*optionalString\(invocation\?\.previousResponseId\)/.test(modelConversationOps) &&
       /root_response_id:\s*\n\s*optionalString\(previousState\?\.root_response_id\)/.test(
@@ -19403,20 +19393,16 @@ function runBridge() {
       /executeProviderInvocation/.test(modelMountCore) &&
       /MODEL_MOUNT_PROVIDER_INVOCATION_API_METHOD/.test(modelMountCore) &&
       /executeModelMountProviderInvocation/.test(modelMountingState) &&
-      /modelMountProviderInvocationRequestForExecution/.test(modelInvocationOps) &&
-	      /modelMountProviderInvocationRequiresRust/.test(modelInvocationOps) &&
-	      /export function modelMountProviderInvocationRequiresRust\([\s\S]*?\)\s*\{[\s\S]*?return true;\s*\}/.test(modelInvocationOps) &&
-	      /rust_model_mount_native_local/.test(modelInvocationOps) &&
-	      /rust_model_mount_hosted_provider/.test(modelInvocationOps) &&
-	      /provider_auth_evidence_refs:\s*hostedProviderAuthEvidenceRefs\(selection,\s*hash\)/.test(modelInvocationOps) &&
-	      /function hostedProviderAuthEvidenceRefs\(selection = \{\},\s*hash = stableHash\)/.test(modelInvocationOps) &&
-	      /rust_provider_auth_materialization_bound/.test(modelInvocationOps) &&
-	      /hosted_provider_auth_header_materialized_by_rust/.test(modelInvocationOps) &&
+      /operation:\s*stream \? "provider_stream_invocation" : "provider_invocation"/.test(modelInvocationHotPathBlock) &&
+	      /providerInvocationAuthority\.provider_invocation_request/.test(modelInvocationOps) &&
+	      /fn provider_invocation_request/.test(read("crates/services/src/agentic/runtime/kernel/model_mount/invocation_authority.rs")) &&
+	      /rust_model_mount_native_local/.test(modelMountCore) &&
+	      /rust_model_mount_hosted_provider/.test(modelMountCore) &&
+	      /rust_provider_auth_materialization_bound/.test(modelMountCore) &&
+	      /hosted_provider_auth_header_materialized_by_rust/.test(modelMountCore) &&
 	      /secret_ref:\s*optionalRef\(record\.secret_ref \?\? record\.secretRef\)/.test(modelInvocationOps) &&
-	      /model_mount_provider_invocation_rust_backend_required/.test(modelInvocationOps) &&
-	      /modelMountProviderInvocationRequiresRust\(\{ provider: \{ kind: "openai" \}, endpoint: \{\} \}\), true/.test(
-	        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
-	      ) &&
+	      !/model_mount_provider_invocation_rust_backend_required/.test(modelInvocationOps) &&
+	      /retired model invocation JS contract helper exports are deleted/.test(modelInvocationOpsTest) &&
       !retiredModelInvocationFacadeBodyPattern.test(modelInvokeFacadeBlock) &&
       !/model_mount_provider_invocation_execution_required/.test(modelInvocationOps),
     [
@@ -19444,19 +19430,14 @@ function runBridge() {
       /executeProviderStreamInvocation/.test(modelMountCore) &&
       /MODEL_MOUNT_PROVIDER_STREAM_INVOCATION_API_METHOD/.test(modelMountCore) &&
       /executeModelMountProviderStreamInvocation/.test(modelMountingState) &&
-      /modelMountProviderStreamInvocationRequestForExecution/.test(modelInvocationOps) &&
-      /modelMountProviderStreamInvocationRequiresRust/.test(modelInvocationOps) &&
-      /export function modelMountProviderStreamInvocationRequiresRust\([\s\S]*?\)\s*\{[\s\S]*?return true;\s*\}/.test(modelInvocationOps) &&
-      /rust_model_mount_native_local_stream/.test(modelInvocationOps) &&
-      /modelMountProviderStreamInvocationExecutionBackend/.test(modelInvocationOps) &&
-      /model_mount_provider_invocation_rust_backend_required/.test(modelInvocationOps) &&
-      /modelMountProviderStreamInvocationRequiresRust\(\{ provider: \{ kind: "openai" \}, endpoint: \{\} \}\), true/.test(
-        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
-      ) &&
-      /rust_model_mount_hosted_provider_stream/.test(modelInvocationOps) &&
-      /assert\.equal\(hostedStreamRequest\.execution_backend,\s*"rust_model_mount_hosted_provider_stream"\)/.test(
-        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
-      ) &&
+      /operation:\s*stream \? "provider_stream_invocation" : "provider_invocation"/.test(modelInvocationHotPathBlock) &&
+      /providerInvocationAuthority\.provider_invocation_request/.test(modelInvocationOps) &&
+      /fn provider_invocation_request/.test(read("crates/services/src/agentic/runtime/kernel/model_mount/invocation_authority.rs")) &&
+      /rust_model_mount_native_local_stream/.test(modelMountCore) &&
+      !/modelMountProviderStreamInvocationExecutionBackend/.test(modelInvocationOps) &&
+      !/model_mount_provider_invocation_rust_backend_required/.test(modelInvocationOps) &&
+      /rust_model_mount_hosted_provider_stream/.test(modelMountCore) &&
+      /testRustPlanProviderInvocationContract/.test(modelInvocationOpsTest) &&
       /hosted_provider_stream_invocation_executes_transport_contract_in_rust_owner/.test(modelMountCore) &&
       /rust_hosted_provider_stream_transport_materialized/.test(modelMountCore) &&
       /admits_hosted_provider_stream_result_bound_to_rust_transport_contract/.test(modelMountCore) &&
@@ -20114,12 +20095,14 @@ function runBridge() {
       /admitProviderResult/.test(modelMountCore) &&
       /MODEL_MOUNT_PROVIDER_RESULT_API_METHOD/.test(modelMountCore) &&
       /admitModelMountProviderResult/.test(modelMountingState) &&
-      /modelMountProviderResultAdmissionRequestForExecution/.test(modelInvocationOps) &&
+      /operation:\s*"provider_result_admission"/.test(modelInvocationHotPathBlock) &&
+      /providerResultAuthority\.provider_result_admission_request/.test(modelInvocationOps) &&
+      /fn provider_result_admission_request/.test(read("crates/services/src/agentic/runtime/kernel/model_mount/invocation_authority.rs")) &&
       /model_mount_invocation_positive_rust_path/.test(modelInvocationOps) &&
       /model_mount_invocation_js_facade_retired/.test(modelInvocationOps) &&
-      /model_mount_provider_invocation_js_false_predicate_retired/.test(modelInvocationOps) &&
-      /model_mount_provider_result_js_observation_retired/.test(modelInvocationOps) &&
-      /model_mount_provider_result_rust_backend_required/.test(modelInvocationOps) &&
+      !/model_mount_provider_invocation_js_false_predicate_retired/.test(modelInvocationOps) &&
+      !/model_mount_provider_result_js_observation_retired/.test(modelInvocationOps) &&
+      !/model_mount_provider_result_rust_backend_required/.test(modelInvocationOps) &&
       !exists("packages/runtime-daemon/src/model-mounting/provider-driver-factory.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/provider-driver-factory.test.mjs") &&
       !/driverForProviderState/.test(modelMountingState) &&
@@ -20164,151 +20147,63 @@ function runBridge() {
       !/await driver\.streamInvoke/.test(modelInvocationOps) &&
       !retiredModelInvocationFacadeBodyPattern.test(modelInvokeFacadeBlock) &&
       !retiredModelInvocationFacadeBodyPattern.test(modelStreamFacadeBlock) &&
-      /schema_version:\s*"ioi\.model_mount\.provider_result\.v1"/.test(modelInvocationOps) &&
+      /MODEL_MOUNT_PROVIDER_RESULT_SCHEMA_VERSION/.test(modelMountCore) &&
       /invokeModel public facade executes migrated fixture through Rust model_mount core, provider execution, and receipt binding/.test(
         read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
       ) &&
-	      /startModelStream public facade executes native-local stream through Rust model_mount without JS fallback/.test(
-	        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
-	      ) &&
-	      /assert\.equal\(hostedRequest\.execution_backend,\s*"rust_model_mount_hosted_provider"\)/.test(
-	        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
-	      ) &&
-	      /provider_auth_evidence_refs\.includes\("rust_model_mount_hosted_provider_auth_gate"\)/.test(
-	        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
-	      ) &&
-	      /provider_auth_evidence_refs\.includes\("rust_provider_auth_materialization_bound"\)/.test(
-	        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
-	      ) &&
-	      /provider_auth_evidence_refs\.some\(\(ref\) => ref\.includes\("vault:\/\/"\)\),\s*false/.test(
-	        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
-	      ) &&
-		      /provider_invocation_executes_hosted_transport_contract_in_rust_owner/.test(modelMountCore) &&
-		      /HostedProviderInvocationMissingAuthEvidence/.test(modelMountCore) &&
-		      /HostedProviderInvocationMissingEndpointUrl/.test(modelMountCore) &&
-			      /HostedProviderInvocationMissingAuthMaterialization/.test(modelMountCore) &&
-			      /HostedProviderInvocationMissingCteeEgressResolver/.test(modelMountCore) &&
-			      /HostedProviderInvocationMissingAuthority/.test(modelMountCore) &&
-			      !/HostedProviderInvocationTransportPending/.test(modelMountCore) &&
-			      /rust_hosted_provider_invocation_transport_materialized/.test(modelMountCore) &&
-			      /rust_hosted_provider_live_network_io_executed/.test(modelMountCore) &&
-			      /rust_hosted_provider_transport_executor_owned/.test(modelMountCore) &&
-			      /hosted_provider_ctee_egress_resolution/.test(modelMountCore) &&
-			      /hosted_provider_transport_output/.test(modelMountCore) &&
-			      /hosted_provider_transport_binding/.test(modelMountCore) &&
-			      /x-ioi-ctee-egress-resolver-ref/.test(modelMountCore) &&
-			      !/deterministic_hosted_provider_output/.test(modelMountCore) &&
-			      !/Rust hosted provider invocation contract/.test(modelMountCore) &&
-			      /rust_hosted_provider_endpoint_url_bound/.test(modelMountCore) &&
-			      /ctee_outbound_header_binding_ref_bound/.test(modelMountCore) &&
-			      /ctee_outbound_secret_injection_ref_bound/.test(modelMountCore) &&
-			      /rust_ctee_egress_resolver_bound/.test(modelMountCore) &&
-			      /ctee_outbound_egress_resolver_depth_bound/.test(modelMountCore) &&
-			      /rust_hosted_provider_transport_request_bound/.test(modelMountCore) &&
-			      /rust_hosted_provider_transport_response_bound/.test(modelMountCore) &&
-			      /base_url_hash/.test(modelMountCore) &&
-		      /hosted_transport_request_hash/.test(modelMountCore) &&
-		      /hosted_transport_response_hash/.test(modelMountCore) &&
-			      /provider_auth_materialization_ref/.test(modelMountCore) &&
-			      /outbound_header_binding_ref/.test(modelMountCore) &&
-			      /ctee_egress_resolver_ref/.test(modelInvocationOps) &&
-			      /ctee_egress_resolver_hash/.test(modelInvocationOps) &&
-			      /ctee_egress_resolution_status/.test(modelInvocationOps) &&
-			      /rust_provider_auth_materialization_bound/.test(modelMountCore) &&
-			      /hosted_provider_auth_header_materialized_by_rust/.test(modelMountCore) &&
-			      /admits_hosted_provider_result_bound_to_rust_transport_contract/.test(modelMountCore) &&
-		      /assert\.equal\(hostedRequest\.provider_response_kind,\s*"rust_model_mount\.hosted_provider"\)/.test(
-		        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
-		      ) &&
-		      /hostedRequest\.backend_evidence_refs\.includes\("rust_hosted_provider_invocation_transport_materialized"\)/.test(
-		        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
-		      ) &&
-		      /hostedRequest\.backend_evidence_refs\.includes\("rust_hosted_provider_live_network_io_executed"\)/.test(
-		        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
-		      ) &&
-		      /hostedRequest\.backend_evidence_refs\.includes\("rust_hosted_provider_transport_executor_owned"\)/.test(
-		        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
-		      ) &&
-		      /hostedRequest\.backend_evidence_refs\.includes\("rust_hosted_provider_transport_request_bound"\)/.test(
-		        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
-		      ) &&
-			      /hostedRequest\.backend_evidence_refs\.includes\("ctee_outbound_secret_injection_ref_bound"\)/.test(
-			        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
-			      ) &&
-			      /assert\.equal\(\s*hostedRequest\.ctee_egress_resolver_ref,\s*"ctee:\/\/model-mount\/egress-resolver\/provider\.openai_auth_header#sha256:egress"/.test(
-			        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
-			      ) &&
-			      /hostedRequest\.backend_evidence_refs\.includes\("rust_ctee_egress_resolver_bound"\)/.test(
-			        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
-			      ) &&
-			      /hostedRequest\.backend_evidence_refs\.includes\("ctee_outbound_egress_resolver_depth_bound"\)/.test(
-			        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
-			      ) &&
-			      /assert\.equal\(hostedRequest\.hosted_transport_request_hash,\s*"sha256:hosted-transport-request"\)/.test(
-			        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
-			      ) &&
-		      /assert\.equal\(hostedRequest\.base_url,\s*"https:\/\/api\.openai\.example\/v1"\)/.test(
-		        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
-		      ) &&
-		      /assert\.equal\(\s*hostedRequest\.outbound_header_binding_ref,\s*"provider_auth_header:\/\/provider\.openai_auth_header#sha256:provider-auth"/.test(
-		        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
-		      ) &&
-		      /assert\.equal\(hostedStreamRequest\.execution_backend,\s*"rust_model_mount_hosted_provider_stream"\)/.test(
-		        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
-		      ) &&
-		      /hostedStreamRequest\.backend_evidence_refs\.includes\("rust_hosted_provider_stream_transport_materialized"\)/.test(
-		        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
-		      ) &&
-		      /hostedStreamRequest\.backend_evidence_refs\.includes\("rust_hosted_provider_stream_live_chunks_executed"\)/.test(
-		        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
-		      ) &&
-		      /hostedStreamRequest\.backend_evidence_refs\.includes\("rust_hosted_provider_stream_semantics_owned"\)/.test(
-		        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
-		      ) &&
-		      /hostedStreamRequest\.backend_evidence_refs\.includes\("rust_hosted_provider_stream_sse_chunks_bound"\)/.test(
-		        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
-		      ) &&
-		      /hostedStreamRequest\.backend_evidence_refs\.includes\("rust_hosted_provider_live_network_io_executed"\)/.test(
-		        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
-		      ) &&
-		      /hostedStreamRequest\.backend_evidence_refs\.includes\("rust_hosted_provider_transport_executor_owned"\)/.test(
-		        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
-		      ) &&
-		      /hostedStreamRequest\.backend_evidence_refs\.includes\("rust_hosted_provider_transport_response_bound"\)/.test(
-		        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
-		      ) &&
-			      /hostedStreamRequest\.backend_evidence_refs\.includes\("ctee_outbound_secret_injection_ref_bound"\)/.test(
-			        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
-			      ) &&
-			      /assert\.equal\(\s*hostedStreamRequest\.ctee_egress_resolver_ref,\s*"ctee:\/\/model-mount\/egress-resolver\/provider\.openai_auth_header#sha256:egress"/.test(
-			        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
-			      ) &&
-			      /hostedStreamRequest\.backend_evidence_refs\.includes\("rust_ctee_egress_resolver_bound"\)/.test(
-			        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
-			      ) &&
-			      /hostedStreamRequest\.backend_evidence_refs\.includes\("ctee_outbound_egress_resolver_depth_bound"\)/.test(
-			        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
-			      ) &&
-			      /assert\.equal\(hostedStreamRequest\.hosted_transport_response_hash,\s*"sha256:hosted-stream-transport-response"\)/.test(
-			        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
-			      ) &&
-		      /assert\.equal\(hostedStreamRequest\.base_url,\s*"https:\/\/api\.openai\.example\/v1"\)/.test(
-		        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
-		      ) &&
-		      /admits_hosted_provider_stream_result_bound_to_rust_transport_contract/.test(modelMountCore) &&
-		      /hosted_provider_stream_transport_output/.test(modelMountCore) &&
-		      /live_hosted_provider_stream_chunks/.test(
-		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/stream.rs"),
-		      ) &&
-			      !/hosted_provider_transport_output\(request\)\?/.test(
-			        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/stream.rs"),
-			      ) &&
-		      /Slice 1380 hard-cuts hosted cTEE egress resolver binding/.test(read(GUIDE)) &&
-		      /Model_mount hosted cTEE egress resolver binding Rust contract/.test(read(MATRIX)) &&
-		      /RuntimeDaemonCoreModelMountHostedCteeEgressResolverBindingRustContract/.test(read(IMPLEMENTATION_MATRIX)) &&
-			      /error\.code === "model_mount_provider_result_rust_backend_required"/.test(
-			        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
-			      ) &&
+      /startModelStream public facade executes native-local stream through Rust model_mount without JS fallback/.test(
+        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
+      ) &&
+      /testRustPlanProviderResultAdmissionContract/.test(modelInvocationOpsTest) &&
+      /retired model invocation JS contract helper exports are deleted/.test(modelInvocationOpsTest) &&
+      /provider_invocation_executes_hosted_transport_contract_in_rust_owner/.test(modelMountCore) &&
+      /HostedProviderInvocationMissingAuthEvidence/.test(modelMountCore) &&
+      /HostedProviderInvocationMissingEndpointUrl/.test(modelMountCore) &&
+      /HostedProviderInvocationMissingAuthMaterialization/.test(modelMountCore) &&
+      /HostedProviderInvocationMissingCteeEgressResolver/.test(modelMountCore) &&
+      /HostedProviderInvocationMissingAuthority/.test(modelMountCore) &&
+      !/HostedProviderInvocationTransportPending/.test(modelMountCore) &&
+      /rust_hosted_provider_invocation_transport_materialized/.test(modelMountCore) &&
+      /rust_hosted_provider_live_network_io_executed/.test(modelMountCore) &&
+      /rust_hosted_provider_transport_executor_owned/.test(modelMountCore) &&
+      /hosted_provider_ctee_egress_resolution/.test(modelMountCore) &&
+      /hosted_provider_transport_output/.test(modelMountCore) &&
+      /hosted_provider_transport_binding/.test(modelMountCore) &&
+      /x-ioi-ctee-egress-resolver-ref/.test(modelMountCore) &&
+      !/deterministic_hosted_provider_output/.test(modelMountCore) &&
+      !/Rust hosted provider invocation contract/.test(modelMountCore) &&
+      /rust_hosted_provider_endpoint_url_bound/.test(modelMountCore) &&
+      /ctee_outbound_header_binding_ref_bound/.test(modelMountCore) &&
+      /ctee_outbound_secret_injection_ref_bound/.test(modelMountCore) &&
+      /rust_ctee_egress_resolver_bound/.test(modelMountCore) &&
+      /ctee_outbound_egress_resolver_depth_bound/.test(modelMountCore) &&
+      /rust_hosted_provider_transport_request_bound/.test(modelMountCore) &&
+      /rust_hosted_provider_transport_response_bound/.test(modelMountCore) &&
+      /base_url_hash/.test(modelMountCore) &&
+      /hosted_transport_request_hash/.test(modelMountCore) &&
+      /hosted_transport_response_hash/.test(modelMountCore) &&
+      /provider_auth_materialization_ref/.test(modelMountCore) &&
+      /outbound_header_binding_ref/.test(modelMountCore) &&
+      /ctee_egress_resolver_ref/.test(modelInvocationOps) &&
+      /ctee_egress_resolver_hash/.test(modelInvocationOps) &&
+      /ctee_egress_resolution_status/.test(modelInvocationOps) &&
+      /rust_provider_auth_materialization_bound/.test(modelMountCore) &&
+      /hosted_provider_auth_header_materialized_by_rust/.test(modelMountCore) &&
+      /admits_hosted_provider_result_bound_to_rust_transport_contract/.test(modelMountCore) &&
+      /admits_hosted_provider_stream_result_bound_to_rust_transport_contract/.test(modelMountCore) &&
+      /hosted_provider_stream_transport_output/.test(modelMountCore) &&
+      /live_hosted_provider_stream_chunks/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/stream.rs"),
+      ) &&
+      !/hosted_provider_transport_output\(request\)\?/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/stream.rs"),
+      ) &&
+      /Slice 1380 hard-cuts hosted cTEE egress resolver binding/.test(read(GUIDE)) &&
+      /Model_mount hosted cTEE egress resolver binding Rust contract/.test(read(MATRIX)) &&
+      /RuntimeDaemonCoreModelMountHostedCteeEgressResolverBindingRustContract/.test(read(IMPLEMENTATION_MATRIX)) &&
+      !/hostedRequest|hostedStreamRequest|model_mount_provider_result_rust_backend_required/.test(
+        modelInvocationOpsTest,
+      ) &&
       !/assert\.equal\(request\.provider_kind,\s*"openai"\)/.test(
         read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
       ) &&
@@ -20431,11 +20326,11 @@ function runBridge() {
     result,
     "model-mount-stream-provider-result-admission-live-bridge",
     /startModelStream/.test(modelInvocationOps) &&
-      /modelMountProviderResultAdmissionRequestForExecution/.test(modelInvocationOps) &&
-      /streamStatus = null/.test(modelInvocationOps) &&
-      /stream_status:\s*optionalRef\(record\.stream_status\)/.test(modelInvocationOps) &&
-      /assert\.equal\(request\.stream_status,\s*"started"\)/.test(modelInvocationOpsTest) &&
-      /schema_version:\s*"ioi\.model_mount\.provider_result\.v1"/.test(modelInvocationOps) &&
+      /operation:\s*"provider_result_admission"/.test(modelInvocationHotPathBlock) &&
+      /providerResultAuthority\.provider_result_admission_request/.test(modelInvocationOps) &&
+      /fn provider_result_admission_request/.test(read("crates/services/src/agentic/runtime/kernel/model_mount/invocation_authority.rs")) &&
+      /testRustPlanProviderResultAdmissionContract/.test(modelInvocationOpsTest) &&
+      /schema_version:\s*"ioi\.model_mount\.provider_result\.v1"/.test(modelInvocationOpsTest) &&
       !/requireModelMountProviderResultAdmission/.test(modelInvocationOps) &&
       !retiredModelInvocationFacadeBodyPattern.test(modelStreamFacadeBlock) &&
       !/model\.provider_stream_request_shape/.test(modelInvocationOps) &&
@@ -20513,9 +20408,10 @@ function runBridge() {
       /accepted_receipt_transition:\s*acceptedReceiptTransition/.test(modelMountInvocationReceiptRunnerBlock) &&
       /Rust model_mount core rejects direct expected head binding input/.test(modelMountCoreTest) &&
       /bindModelMountInvocationReceipt/.test(modelMountingState) &&
-      /modelMountInvocationReceiptBindingRequestForReceipt/.test(modelInvocationOps) &&
-      /acceptedReceiptTransition:\s*objectRecord\(agentgresTransition\?\.acceptedReceiptTransition\)/.test(modelInvocationOps) &&
-      /acceptedReceiptTransition\.expected_heads/.test(modelInvocationOpsTest) &&
+      /operation:\s*"receipt_binding"/.test(modelInvocationHotPathBlock) &&
+      /receiptBindingAuthority\.receipt_binding_request/.test(modelInvocationOps) &&
+      /fn receipt_binding_request/.test(read("crates/services/src/agentic/runtime/kernel/model_mount/invocation_authority.rs")) &&
+      /testRustPlanReceiptBindingContract/.test(modelInvocationOpsTest) &&
       /model_mount_agentgres_head_required/.test(modelInvocationOps) &&
       /model_mount_receipt_binding_ref/.test(modelInvocationOps) &&
       /model_mount_agentgres_admission/.test(modelInvocationOps) &&
@@ -22299,7 +22195,10 @@ function runReceipts() {
     modelInvocationOps.match(/export async function invokeModel[\s\S]*?(?=\n\nexport async function startModelStream)/)?.[0] ??
     "";
   const modelStreamFacadeBlock =
-    modelInvocationOps.match(/export async function startModelStream[\s\S]*?(?=\n\nexport function modelMountInvocationAdmissionRequestForReceipt)/)?.[0] ??
+    modelInvocationOps.match(/export async function startModelStream[\s\S]*?(?=\n\nexport function withModelMountInvocationAdmission)/)?.[0] ??
+    "";
+  const modelInvocationHotPathBlock =
+    modelInvocationOps.match(/async function executeModelInvocationThroughRustCore\([\s\S]*?(?=\n\nfunction modelMountInvocationAuthorityBaseRequest)/)?.[0] ??
     "";
   const retiredModelInvocationFacadeBodyPattern =
     /\b(?:state\.authorize|state\.selectRoute|state\.routeSelectionReceipt|state\.ensureLoaded|state\.compileEphemeralMcpIntegrations|state\.receipt|state\.admitModelMountInvocation|state\.bindModelMountInvocationReceipt|state\.inflightModelInvocations|state\.invokeModel|admitModelMountProviderExecution|admitModelMountProviderResult|executeModelProviderInvocation|executeModelMountProviderInvocation|executeModelMountProviderStreamInvocation|bindModelMountInvocationReceipt|invocationReceiptDetails|persistRouteSelection|rejectUnmigratedProviderInvocationExecution|rejectProviderCompatTranslation|withTextChunksReadableStream|model_mount_provider_invocation_backend_unmigrated|model_mount_provider_stream_invocation_backend_unmigrated|model_mount_native_stream_result_required|model_mount_native_stream_backend_required)\b/;
@@ -23353,7 +23252,8 @@ function runReceipts() {
       /admit_model_mount_provider_execution/.test(
         read("crates/services/src/agentic/runtime/kernel/mod.rs"),
       ) &&
-      /modelMountProviderExecutionRequestForInvocation/.test(modelInvocationOps) &&
+      /fn provider_execution_request/.test(read("crates/services/src/agentic/runtime/kernel/model_mount/invocation_authority.rs")) &&
+      /providerExecutionAuthority\.provider_execution_request/.test(modelInvocationOps) &&
       !retiredModelInvocationFacadeBodyPattern.test(modelInvokeFacadeBlock) &&
       !retiredModelInvocationFacadeBodyPattern.test(modelStreamFacadeBlock),
     [
@@ -23550,7 +23450,8 @@ function runReceipts() {
       /invoke_model_mount_provider/.test(
         read("crates/services/src/agentic/runtime/kernel/mod.rs"),
       ) &&
-      /modelMountProviderInvocationRequestForExecution/.test(modelInvocationOps) &&
+      /fn provider_invocation_request/.test(read("crates/services/src/agentic/runtime/kernel/model_mount/invocation_authority.rs")) &&
+      /providerInvocationAuthority\.provider_invocation_request/.test(modelInvocationOps) &&
       !/model_mount_provider_invocation_execution_required/.test(modelInvocationOps),
     [
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
@@ -23601,7 +23502,8 @@ function runReceipts() {
       /invoke_model_mount_provider_stream/.test(
         read("crates/services/src/agentic/runtime/kernel/mod.rs"),
       ) &&
-      /modelMountProviderStreamInvocationRequestForExecution/.test(modelInvocationOps) &&
+      /fn provider_invocation_request/.test(read("crates/services/src/agentic/runtime/kernel/model_mount/invocation_authority.rs")) &&
+      /providerInvocationAuthority\.provider_invocation_request/.test(modelInvocationOps) &&
       !/model_mount_provider_stream_invocation_execution_required/.test(modelInvocationOps),
     [
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
@@ -26127,33 +26029,12 @@ function runReceipts() {
       /Object\.hasOwn\(result,\s*"providerResultRef"\),\s*false/.test(
         modelMountCoreTest,
       ) &&
-	      /modelMountProviderResultAdmissionRequestForExecution/.test(modelInvocationOps) &&
-	      /model_mount_provider_result_js_observation_retired/.test(modelInvocationOps) &&
-	      /model_mount_provider_result_rust_backend_required/.test(modelInvocationOps) &&
-	      /assert\.equal\(hostedRequest\.execution_backend,\s*"rust_model_mount_hosted_provider"\)/.test(
-	        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
-	      ) &&
-	      /rust_provider_auth_materialization_bound/.test(
-	        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
-	      ) &&
-	      /assert\.equal\(hostedRequest\.hosted_transport_request_hash,\s*"sha256:hosted-transport-request"\)/.test(
-	        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
-	      ) &&
-		      /assert\.equal\(hostedRequest\.hosted_transport_status,\s*"rust_hosted_provider_transport_response_bound"\)/.test(
-	        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
-	      ) &&
-	      /hostedRequest\.backend_evidence_refs\.includes\("rust_hosted_provider_live_network_io_executed"\)/.test(
-	        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
-	      ) &&
-		      /hostedRequest\.backend_evidence_refs\.includes\("ctee_outbound_secret_injection_ref_bound"\)/.test(
-		        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
-		      ) &&
-		      /assert\.equal\(\s*hostedRequest\.ctee_egress_resolver_hash,\s*"sha256:ctee-egress"\)/.test(
-		        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
-		      ) &&
-		      /hostedRequest\.backend_evidence_refs\.includes\("rust_ctee_egress_resolver_bound"\)/.test(
-		        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
-		      ) &&
+	      !/modelMountProviderResultAdmissionRequestForExecution/.test(modelInvocationOps) &&
+	      !/model_mount_provider_result_js_observation_retired/.test(modelInvocationOps) &&
+	      !/model_mount_provider_result_rust_backend_required/.test(modelInvocationOps) &&
+	      /providerResultAuthority\.provider_result_admission_request/.test(modelInvocationOps) &&
+	      /fn provider_result_admission_request/.test(read("crates/services/src/agentic/runtime/kernel/model_mount/invocation_authority.rs")) &&
+	      /testRustPlanProviderResultAdmissionContract/.test(modelInvocationOpsTest) &&
 			      /provider_invocation_executes_hosted_transport_contract_in_rust_owner/.test(
 			        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
 			      ) &&
@@ -26192,7 +26073,7 @@ function runReceipts() {
 	      !/assert\.equal\(request\.provider_kind,\s*"openai"\)/.test(
 	        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
 	      ) &&
-      /schema_version:\s*"ioi\.model_mount\.provider_result\.v1"/.test(modelInvocationOps),
+      /schema_version:\s*"ioi\.model_mount\.provider_result\.v1"/.test(modelInvocationOpsTest),
     [
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
       "crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs",
@@ -26235,9 +26116,10 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-stream-request-shape-append-retired",
-    /modelMountProviderResultAdmissionRequestForExecution/.test(modelInvocationOps) &&
-      /streamStatus = null/.test(modelInvocationOps) &&
-      /assert\.equal\(request\.stream_status,\s*"started"\)/.test(modelInvocationOpsTest) &&
+    !/modelMountProviderResultAdmissionRequestForExecution/.test(modelInvocationOps) &&
+      /providerResultAuthority\.provider_result_admission_request/.test(modelInvocationOps) &&
+      /fn provider_result_admission_request/.test(read("crates/services/src/agentic/runtime/kernel/model_mount/invocation_authority.rs")) &&
+      /testRustPlanProviderResultAdmissionContract/.test(modelInvocationOpsTest) &&
       !/model\.provider_stream_request_shape/.test(modelInvocationOps) &&
       !/model_provider_stream_request_shape/.test(modelInvocationOps),
     ["packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs"],
@@ -26251,12 +26133,14 @@ function runReceipts() {
       !/from "\.\/model-mounting\/provider-protocol\.mjs"/.test(modelMountingState) &&
       !/from "\.\/provider-protocol\.mjs"/.test(modelInvocationOps) &&
       !/estimateTokens/.test(modelInvocationOps) &&
-      /model_mount_provider_result_token_count_required/.test(modelInvocationOps) &&
-      /model_mount_provider_result_token_count_mismatch/.test(modelInvocationOps) &&
-      /error\.code === "model_mount_provider_result_token_count_required"/.test(
-        modelInvocationOpsTest,
+      !/model_mount_provider_result_token_count_required/.test(modelInvocationOps) &&
+      !/model_mount_provider_result_token_count_mismatch/.test(modelInvocationOps) &&
+      /token_count/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_result.rs"),
       ) &&
-      /error\.code === "model_mount_provider_result_token_count_mismatch"/.test(
+      /token_count/.test(read("crates/services/src/agentic/runtime/kernel/model_mount/invocation_authority.rs")) &&
+      /testRustPlanProviderResultAdmissionContract/.test(modelInvocationOpsTest) &&
+      !/model_mount_provider_result_token_count_required|model_mount_provider_result_token_count_mismatch/.test(
         modelInvocationOpsTest,
       ),
     [
@@ -31131,8 +31015,16 @@ function runReceipts() {
       /model_mount_agentgres_head_required/.test(modelInvocationOps) &&
       /planModelMountAcceptedReceiptTransition/.test(modelInvocationOps) &&
       /model_mount_accepted_receipt_transition_planner_required/.test(modelInvocationOps) &&
-      /acceptedReceiptTransition:\s*objectRecord\(agentgresTransition\?\.acceptedReceiptTransition\)/.test(modelInvocationOps) &&
-      /acceptedReceiptTransition\.expected_heads/.test(modelInvocationOpsTest) &&
+      /transitionAuthority\.accepted_receipt_transition_request/.test(modelInvocationOps) &&
+      /receiptBindingAuthority\.receipt_binding_request/.test(modelInvocationOps) &&
+      /acceptedReceiptTransition:\s*objectRecord\(transition\?\.transition\)/.test(modelInvocationOps) &&
+      /fn accepted_receipt_transition_request/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/invocation_authority.rs"),
+      ) &&
+      /fn receipt_binding_request/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/invocation_authority.rs"),
+      ) &&
+      /expected_heads:\s*\[request\.current_head_ref\]/.test(modelInvocationOpsTest) &&
       /planAcceptedReceiptHead/.test(modelMountingState) &&
       /MODEL_MOUNT_ACCEPTED_RECEIPT_HEAD_API_METHOD = "planModelMountAcceptedReceiptHead"/.test(modelMountCore) &&
       !/plan_model_mount_accepted_receipt_head_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
@@ -31163,11 +31055,14 @@ function runReceipts() {
       /head_ref:\s*result\.head_ref \?\? head\.head_ref/.test(modelMountCore) &&
       /state_root:\s*result\.state_root \?\? head\.state_root/.test(modelMountCore) &&
       /Object\.hasOwn\(result,\s*"headRef"\),\s*false/.test(modelMountCoreTest) &&
-      /model invocation Agentgres transition rejects retired camelCase head fields/.test(
-        modelInvocationOpsTest,
+      /retired model invocation JS contract helper exports are deleted/.test(modelInvocationOpsTest) &&
+      /current_head:\s*currentHead/.test(modelInvocationOps) &&
+      /"current_head_ref":\s*string_path\(&request\.current_head,\s*&\["head_ref"\]/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/invocation_authority.rs"),
       ) &&
-      /current_head_ref:\s*currentHead\.head_ref/.test(modelInvocationOps) &&
-      /current_state_root:\s*currentHead\.state_root/.test(modelInvocationOps) &&
+      /"current_state_root":\s*hash_ref\(&string_path\(&request\.current_head,\s*&\["state_root"\]/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/invocation_authority.rs"),
+      ) &&
       !/current_head_ref:\s*currentHead\.headRef/.test(modelInvocationOps) &&
       !/current_state_root:\s*currentHead\.stateRoot/.test(modelInvocationOps) &&
       !/\b(?:headRef|stateRoot|projectionWatermark|headHash):\s*result\./.test(
@@ -31230,10 +31125,11 @@ function runReceipts() {
       !/const\s+stateRootAfter\s*=\s*`sha256:\$\{stableHash\(/.test(modelInvocationOps) &&
       !/stateRoot:\s*`sha256:\$\{stableHash\(/.test(modelMountingState) &&
       !/model-mounting-operation-log/.test(`${modelInvocationOps}\n${modelMountingState}`) &&
-      /agentgres_operation_refs/.test(modelInvocationOps) &&
+      /model_mount_agentgres_operation_ref/.test(modelInvocationOps) &&
       /state_root_after/.test(modelInvocationOps) &&
       /resulting_head/.test(modelInvocationOps) &&
-      /model invocation Agentgres transition ignores retired camelCase bridge fields/.test(modelInvocationOpsTest) &&
+      /invokeModel fails closed when the Rust invocation authority planner is missing/.test(modelInvocationOpsTest) &&
+      !/model invocation Agentgres transition ignores retired camelCase bridge fields/.test(modelInvocationOpsTest) &&
       !/agentgresTransition\?\.(?:operationRef|stateRootBefore|stateRootAfter|resultingHead|projectionWatermark)/.test(
         modelInvocationOps,
       ) &&
@@ -31277,12 +31173,13 @@ function runReceipts() {
       /AgentgresAdmissionCore/.test(modelMountReceiptCore) &&
       /agentgres_admission/.test(modelMountReceiptCore) &&
       !/AgentgresAdmissionCore/.test(modelMountCommandBridge) &&
-      /modelMountInvocationAgentgresTransitionForReceipt/.test(modelInvocationOps) &&
+      /operation:\s*"accepted_receipt_transition"/.test(modelInvocationHotPathBlock) &&
+      /transitionAuthority\.accepted_receipt_transition_request/.test(modelInvocationOps) &&
+      /fn accepted_receipt_transition_request/.test(read("crates/services/src/agentic/runtime/kernel/model_mount/invocation_authority.rs")) &&
       /model_mount_agentgres_expected_heads/.test(modelInvocationOps) &&
       /model_mount_agentgres_state_root_before/.test(modelInvocationOps) &&
       /model_mount_agentgres_state_root_after/.test(modelInvocationOps) &&
       /model_mount_agentgres_resulting_head/.test(modelInvocationOps) &&
-      /operation_id:\s*requiredStringRef\("transition\.operation_id"/.test(modelInvocationOps) &&
       /state_root_before:\s*requiredStringRef\("transition\.state_root_before"/.test(
         modelInvocationOps,
       ) &&

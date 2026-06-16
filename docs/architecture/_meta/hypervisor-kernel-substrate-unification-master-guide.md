@@ -1411,31 +1411,27 @@ route-control, route-selection, provider execution/request shaping, projection,
 Agentgres-backed read APIs, and command-transport retirement remain required.
 
 Slice 820 retired the provider-invocation helper-level false predicate for
-hosted/non-migrated providers. `modelMountProviderInvocationRequiresRust()` and
-`modelMountProviderStreamInvocationRequiresRust()` now report that every
-provider invocation path requires Rust `model_mount` ownership, while the
-request builders fail closed with
-`model_mount_provider_invocation_rust_backend_required` when a provider kind
-does not yet have a Rust execution backend. This prevents unknown or
-unsupported provider paths from being represented as
-JS-compatible escape hatches while the public invocation facades remain
-fail-closed. This still does not claim terminal provider migration: direct Rust
-daemon-core hosted/provider transports, provider request shaping, projection,
-Agentgres-backed reads, and command-transport retirement remain required.
+hosted/non-migrated providers as an intermediate fail-closed cut. That
+transitional JS predicate surface is now superseded by the Rust invocation
+authority planner and the Slice 1382 helper-export deletion: provider invocation
+request shape and stream request shape are Rust-authored, and the production JS
+hot path no longer exposes helper predicates as a compatibility surface. This
+still does not claim terminal provider migration: direct Rust daemon-core
+hosted/provider transports, projection, Agentgres-backed reads, and
+command-transport retirement remain required.
 
 Slice 821 retired hosted/non-migrated provider-result observation admission
-from the JS helper path. `modelMountProviderResultAdmissionRequestForExecution()`
-now derives the expected Rust provider invocation backend from the selected
-provider and stream status, rejects unsupported selections with
-`model_mount_provider_result_rust_backend_required`, and rejects mismatched
-`providerResult.execution_backend` before an `ioi.model_mount.provider_result.v1`
-request can be assembled. Fixture/local-folder, native-local, and hosted
-Rust-backed outputs remain admissible only with the matching Rust backend,
-response kind, and evidence; hosted/OpenAI output text can no longer be wrapped
-as a Rust provider result by JS without Rust-hosted transport evidence. This
-still does not claim terminal provider migration: direct Rust daemon-core
-hosted/provider transports, provider request shaping, projection,
-Agentgres-backed reads, and command-transport retirement remain required.
+from the JS helper path as an intermediate fail-closed cut. That transitional
+provider-result builder is now superseded by Rust
+`provider_result_admission_request` planning in
+`invocation_authority.rs` and the Slice 1382 helper-export deletion:
+provider-result admission request shape is Rust-authored before JS can call
+the typed admission API. Fixture/local-folder, native-local, and hosted
+Rust-backed outputs remain admissible only through matching Rust backend,
+response kind, custody, and transport evidence. This still does not claim
+terminal provider migration: direct Rust daemon-core hosted/provider
+transports, projection, Agentgres-backed reads, and command-transport
+retirement remain required.
 
 Slice 822 moved the provider-result backend invariant into the Rust
 `model_mount` core. `ModelMountProviderResultAdmissionRequest::validate()` no
@@ -11656,20 +11652,18 @@ provider transport, live external backend binary spawning/supervision,
 live cTEE secret injection into outbound hosted network requests. The invocation-authority blocker is superseded by Slice 1381.
 
 Slice 1367 hard-cuts the hosted provider invocation JS backend predicate for
-non-stream model invocation. `modelMountProviderInvocationRequestForExecution()`
-now builds a canonical `ioi.model_mount.provider_invocation.v1` request with
+non-stream model invocation. This intermediate cut is now superseded by Rust
+invocation authority planning: `invocation_authority.rs` builds the canonical
+`ioi.model_mount.provider_invocation.v1` request with
 `execution_backend: "rust_model_mount_hosted_provider"` for hosted provider
 kinds such as OpenAI, Anthropic, Gemini, OpenAI-compatible, Ollama, vLLM,
-llama.cpp, LM Studio, custom HTTP, and depin TEE instead of returning through the
-JS `model_mount_provider_invocation_rust_backend_required` decision path. The
-Rust `provider_execution` owner now receives that hosted request and rejects it
-with a Rust-owned hosted lane rather than a JS unsupported-backend predicate;
-focused JS/Rust tests and conformance guard that the hosted non-stream request
-reaches the Rust direct API boundary, while hosted stream remains blocked before
-unsupported stream transport can masquerade as migrated execution. This cut was
-superseded by the hosted transport-contract materialization cut below; live
-external hosted API execution, live cTEE secret injection into outbound hosted network requests,
-live external backend binary spawning/supervision, and the invocation-authority blocker is superseded by Slice 1381.
+llama.cpp, LM Studio, custom HTTP, and depin TEE instead of returning through a
+JS unsupported-backend predicate. The Rust `provider_execution` owner receives
+that hosted request through the direct API boundary. This cut was superseded by
+the hosted transport-contract materialization cut below; live external hosted
+API execution, live cTEE secret injection into outbound hosted network
+requests, live external backend binary spawning/supervision, and the
+invocation-authority blocker is superseded by Slice 1381.
 
 Slice 1368 hard-cuts hosted provider invocation out of the generic unsupported
 backend lane and into a Rust-owned wallet/vault/cTEE transport gate. Hosted
@@ -11943,6 +11937,24 @@ returns to JS contract authoring, command/env fallback, binary bridge fallback,
 or unguarded compatibility shape for provider execution, provider invocation,
 provider-result admission, invocation admission, accepted receipt transition,
 or receipt binding.
+
+Slice 1382 deletes the production JS model_mount invocation contract helper
+surface after Rust daemon-core parity is verified. `model-invocation-operations.mjs`
+no longer exports or implements the old provider-execution, provider-invocation,
+provider-stream-invocation, provider-result-admission, invocation-admission,
+accepted-receipt-transition, receipt-binding, or provider-invocation
+requires-Rust helper constructors/predicates. The public `invokeModel()` and
+`startModelStream()` facades now have only one authoritative substrate: gather
+canonical protocol facts, require `planModelMountInvocationAuthority()`, consume
+the Rust-authored request for each operation, and fail closed before any
+provider execution, Agentgres admission, receipt persistence, state-root
+transition, replay, or StepModule projection can proceed without that Rust plan.
+Focused tests use local test-only Rust-plan fixtures rather than a production JS
+contract builder, assert the retired helper exports are absent, and prove the
+facade fails closed when the Rust planner is missing. Conformance now rejects
+restoring the helper export names, helper alias table, JS receipt-detail builder,
+false-predicate exports, or old direct helper tests beside the Rust invocation
+authority planner.
 
 ## Final Doctrine
 
