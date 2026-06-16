@@ -12200,7 +12200,7 @@ export function useWorkflowComposerController({
       }
       const target =
         action.targetSurface === "authority_center"
-          ? `Authority Center ${action.authorityEndpoint ?? "/api/v1/authority"}`
+          ? `Authority Center ${action.authorityEndpoint ?? "/v1/model-mount/authority"}`
           : "capability binding editor";
       setStatusMessage(
         `${action.label}: ${target} for ${action.capabilityRef}.`,

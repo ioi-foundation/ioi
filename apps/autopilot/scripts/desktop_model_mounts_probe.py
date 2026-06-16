@@ -122,7 +122,7 @@ def wait_for_daemon(endpoint: str, timeout_secs: float = 20.0) -> None:
     last_error: str | None = None
     while time.time() < deadline:
         try:
-            request_json(endpoint, "/api/v1/server/status", timeout=2.0)
+            request_json(endpoint, "/v1/model-mount/server/status", timeout=2.0)
             return
         except Exception as error:
             last_error = str(error)
@@ -675,7 +675,7 @@ def stream_receipt_has_details(
 
 
 def backend_logs_include(endpoint: str, backend_id: str, event: str) -> bool:
-    records = request_json(endpoint, f"/api/v1/backends/{urllib.parse.quote(backend_id)}/logs")
+    records = request_json(endpoint, f"/v1/model-mount/backends/{urllib.parse.quote(backend_id)}/logs")
     return any(record.get("event") == event for record in records if isinstance(record, dict))
 
 

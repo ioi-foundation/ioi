@@ -11367,6 +11367,28 @@ execution/materialization, hosted/provider transport, OAuth/auth-header
 materialization, invocation authority depth, and IDE protocol coverage still
 need terminal Rust-owned coverage.
 
+Slice 1352 hard-cuts stable model_mount operational read clients and retires
+the native read aliases for that family. Public server status/logs/events,
+backend list/logs, runtime-engine list/detail, instance list/loaded, and
+authority snapshot reads now use `/v1/model-mount/*` stable daemon protocol
+routes over the mounted Rust-owned model_mount read projections. CLI server,
+backend, model `ps`, current proof scripts, product UI/desktop clients, and IDE
+authority-binding surfaces moved off the older native read URLs. The daemon no
+longer exposes `GET /api/v1/server/status`, `GET /api/v1/server/logs`,
+`GET /api/v1/server/events`, `GET /api/v1/models/server`,
+`GET /api/v1/backends`, `GET /api/v1/backends/{id}/logs`,
+`GET /api/v1/models/backends`, `GET /api/v1/runtime/engines`,
+`GET /api/v1/runtime/engines/{id}`, `GET /api/v1/models/runtime-engines`,
+`GET /api/v1/models/instances`, `GET /api/v1/models/loaded`, or
+`GET /api/v1/authority` as native read aliases, and the generic
+`/api/v1/models/:id` handler fences retired collection-style segments instead
+of treating them as model ids. Conformance scans source-only clients and
+focused route tests so these retired read aliases cannot return. This remains
+non-terminal because mutation/control routes, backend execution/materialization,
+hosted/provider transport, OAuth/auth-header materialization, invocation
+authority depth, and broader IDE/CLI/SDK control coverage still need terminal
+Rust-owned coverage.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

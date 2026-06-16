@@ -333,12 +333,15 @@ function checkDaemonRouteImplementation() {
     'url.pathname === "/v1/models/artifacts"',
     'url.pathname === "/v1/model-capabilities"',
     'url.pathname === "/v1/models/catalog/search"',
+    'url.pathname === "/v1/model-mount/server/status"',
+    'url.pathname === "/v1/model-mount/runtime/engines"',
+    'url.pathname === "/v1/model-mount/backends"',
+    'url.pathname === "/v1/model-mount/authority"',
   ];
   const requiredNativeControl = [
     'segments[3] === "mounts"',
-    'url.pathname === "/api/v1/models/server"',
-    'url.pathname === "/api/v1/models/runtime-engines"',
-    'url.pathname === "/api/v1/models/backends"',
+    'url.pathname === "/api/v1/models/server/start"',
+    'url.pathname === "/api/v1/models/server/stop"',
   ];
   const missing = [
     ...requiredPublic.filter((phrase) => !publicRoutes.includes(phrase)),

@@ -14,8 +14,8 @@ export type WorkflowCatalogBindingSelection =
   | { kind: "connector"; value: WorkflowConnectorBinding };
 
 export const TOOL_CAPABILITY_BINDING_ENDPOINT = "/api/v1/tools";
-export const TOOL_AUTHORITY_BINDING_ENDPOINT = "/api/v1/authority";
-export const CONNECTOR_AUTHORITY_BINDING_ENDPOINT = "/api/v1/authority";
+export const TOOL_AUTHORITY_BINDING_ENDPOINT = "/v1/model-mount/authority";
+export const CONNECTOR_AUTHORITY_BINDING_ENDPOINT = "/v1/model-mount/authority";
 
 export type WorkflowRuntimeToolContractLike = Record<string, unknown> & {
   stableToolId?: string;

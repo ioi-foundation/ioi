@@ -120,17 +120,6 @@ async function expectOk(endpoint, route, options) {
   return result.json;
 }
 
-async function expectBackendProjectionRustCoreRequired(endpoint, route) {
-  const result = await requestJson(endpoint, route);
-  assert.equal(result.response.status, 501);
-  assert.equal(result.json.error.code, "model_mount_backend_projection_rust_core_required");
-  assert.equal(result.json.error.details.operation_kind, "model_mount.backend.list");
-  assert.equal(result.json.error.details.rust_core_boundary, "model_mount.backend_projection");
-  assert.ok(result.json.error.details.evidence_refs.includes("public_backend_projection_js_facade_retired"));
-  assert.ok(result.json.error.details.evidence_refs.includes("agentgres_backend_projection_truth_required"));
-  return result.json;
-}
-
 async function expectMcpProjectionRustCoreRequired(endpoint, route) {
   const result = await requestJson(endpoint, route);
   assert.equal(result.response.status, 501);
@@ -322,7 +311,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-model-mounting-state-"));
   const daemon = await startRuntimeDaemonService({ cwd, stateDir });
   try {
-    const status = await expectOk(daemon.endpoint, "/api/v1/server/status");
+    const status = await expectOk(daemon.endpoint, "/v1/model-mount/server/status");
     assert.equal(status.schemaVersion, "ioi.model-mounting.runtime.v1");
     assert.equal(status.nativeBaseUrl, `${daemon.endpoint}/api/v1`);
     assert.equal(status.openAiCompatibleBaseUrl, `${daemon.endpoint}/v1`);
@@ -428,11 +417,11 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     });
     assert.equal(serverRestart.controlStatus, "running");
     assert.match(serverRestart.receiptId, /^receipt_model_lifecycle_/);
-    const serverLogs = await expectOk(daemon.endpoint, "/api/v1/server/logs?limit=20", { token: grant.token });
+    const serverLogs = await expectOk(daemon.endpoint, "/v1/model-mount/server/logs?limit=20", { token: grant.token });
     assert.equal(serverLogs.redaction, "redacted");
     assert.ok(serverLogs.records.some((record) => record.event === "server_restart"));
     assert.equal(JSON.stringify(serverLogs).includes(grant.token), false);
-    const serverEvents = await expectOk(daemon.endpoint, "/api/v1/server/events?limit=20", { token: grant.token });
+    const serverEvents = await expectOk(daemon.endpoint, "/v1/model-mount/server/events?limit=20", { token: grant.token });
     assert.ok(serverEvents.events.some((event) => event.event === "server_restart"));
 
     const snapshot = await expectOk(daemon.endpoint, "/api/v1/models");
@@ -464,7 +453,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
 
     const nativeProviderModels = await expectOk(daemon.endpoint, "/api/v1/providers/provider.autopilot.local/models");
     assert.ok(nativeProviderModels.some((model) => model.modelId === "autopilot:native-fixture"));
-    const catalog = await expectOk(daemon.endpoint, "/api/v1/models/catalog/search?q=autopilot");
+    const catalog = await expectOk(daemon.endpoint, "/v1/models/catalog/search?q=autopilot");
     assert.equal(catalog.providers.find((provider) => provider.id === "catalog.fixture")?.status, "available");
     const fixtureCatalogEntry = catalog.results.find((entry) => entry.sourceUrl === "fixture://catalog/autopilot-native-3b-q4");
     assert.ok(fixtureCatalogEntry);
@@ -480,9 +469,9 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.equal(snapshotAfterCatalogSearch.catalog.lastSearch.query, "autopilot");
     assert.ok(snapshotAfterCatalogSearch.catalog.results.some((entry) => entry.sourceUrl === "fixture://catalog/autopilot-native-3b-q4" && entry.recommendation?.primaryBackend));
 
-    await expectBackendProjectionRustCoreRequired(daemon.endpoint, "/api/v1/backends");
-    await expectBackendProjectionRustCoreRequired(daemon.endpoint, "/api/v1/models/backends");
-    const runtimeEngines = await expectOk(daemon.endpoint, "/api/v1/runtime/engines");
+    const backends = await expectOk(daemon.endpoint, "/v1/model-mount/backends");
+    assert.ok(backends.some((backend) => backend.id === "backend.autopilot.native-local.fixture"));
+    const runtimeEngines = await expectOk(daemon.endpoint, "/v1/model-mount/runtime/engines");
     assert.ok(runtimeEngines.some((engine) => engine.id === "backend.autopilot.native-local.fixture"));
     assert.ok(runtimeEngines.some((engine) => engine.source === "autopilot_backend_registry"));
     const runtimeSurvey = await expectOk(daemon.endpoint, "/api/v1/runtime/survey", { method: "POST" });
@@ -577,7 +566,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
       },
     });
     assert.equal(loaded.status, "loaded");
-    const loadedAfterTtl = await expectOk(daemon.endpoint, "/api/v1/models/loaded");
+    const loadedAfterTtl = await expectOk(daemon.endpoint, "/v1/model-mount/instances/loaded");
     assert.equal(loadedAfterTtl.length, 0);
 
     const chat = await expectOk(daemon.endpoint, "/api/v1/chat", {
@@ -718,7 +707,8 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.match(nativeLoaded.backendProcess.pidHash, /^[a-f0-9]{16}$/);
     assert.ok(nativeLoaded.backendProcess.argsHash);
     assert.ok(nativeLoaded.backendProcess.evidenceRefs.includes("ModelBackendDriver.process_supervision"));
-    await expectBackendProjectionRustCoreRequired(daemon.endpoint, "/api/v1/backends");
+    const nativeBackends = await expectOk(daemon.endpoint, "/v1/model-mount/backends");
+    assert.ok(nativeBackends.some((backend) => backend.id === "backend.autopilot.native-local.fixture"));
     const nativeChat = await expectOk(daemon.endpoint, "/api/v1/chat", {
       method: "POST",
       token: grant.token,
@@ -732,7 +722,10 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.equal(nativeReceipt.details.backendProcess.status, "started");
     assert.equal(nativeReceipt.details.backendProcessPidHash, nativeLoaded.backendProcess.pidHash);
     assert.ok(nativeReceipt.details.backendEvidenceRefs.includes("autopilot_native_local_openai_compatible_serving"));
-    const nativeBackendLogs = await expectOk(daemon.endpoint, "/api/v1/backends/backend.autopilot.native-local.fixture/logs");
+    const nativeBackendLogs = await expectOk(
+      daemon.endpoint,
+      "/v1/model-mount/backends/backend.autopilot.native-local.fixture/logs",
+    );
     assert.ok(nativeBackendLogs.some((record) => record.event === "invoke"));
 
     const tokenized = await expectOk(daemon.endpoint, "/api/v1/tokenize", {
@@ -1028,7 +1021,10 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.equal(canceledNativeAnthropicReceipt.details.providerResponseKind, "native_local.chat.stream");
     assert.ok(canceledNativeAnthropicReceipt.details.backendEvidenceRefs.includes("autopilot_native_local_provider_native_stream"));
 
-    const nativeProviderAbortLogs = await expectOk(daemon.endpoint, "/api/v1/backends/backend.autopilot.native-local.fixture/logs");
+    const nativeProviderAbortLogs = await expectOk(
+      daemon.endpoint,
+      "/v1/model-mount/backends/backend.autopilot.native-local.fixture/logs",
+    );
     assert.ok(
       nativeProviderAbortLogs.some(
         (record) => record.event === "stream_abort" && record.kind === "chat.completions" && record.reason === "client_disconnect",
@@ -1052,7 +1048,10 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     });
     assert.equal(nativeBackendStop.status, "stopped");
     assert.equal(nativeBackendStop.processStatus, "stopped");
-    const nativeBackendLifecycleLogs = await expectOk(daemon.endpoint, "/api/v1/backends/backend.autopilot.native-local.fixture/logs");
+    const nativeBackendLifecycleLogs = await expectOk(
+      daemon.endpoint,
+      "/v1/model-mount/backends/backend.autopilot.native-local.fixture/logs",
+    );
     assert.ok(nativeBackendLifecycleLogs.some((record) => record.event === "backend_start"));
     assert.ok(nativeBackendLifecycleLogs.some((record) => record.event === "backend_stop"));
 
@@ -1656,7 +1655,7 @@ test("model catalog provider ports unify fixture, manifest, custom HTTP, and Oll
       method: "POST",
       body: { allowed: ["model.download:*", "model.import:*", "provider.write:*"] },
     });
-    const catalog = await expectOk(daemon.endpoint, "/api/v1/models/catalog/search?q=&limit=20");
+    const catalog = await expectOk(daemon.endpoint, "/v1/models/catalog/search?q=&limit=20");
     assert.equal(catalog.adapterBoundary.port, "ModelCatalogProviderPort");
     for (const providerId of ["catalog.fixture", "catalog.local_manifest", "catalog.custom_http", "catalog.ollama", "catalog.huggingface"]) {
       assert.equal(catalog.providers.find((provider) => provider.id === providerId)?.adapterPort, "ModelCatalogProviderPort");
@@ -1729,7 +1728,7 @@ test("model catalog provider ports unify fixture, manifest, custom HTTP, and Oll
     assert.equal(JSON.stringify(configuredCustomGet).includes(customCatalogServer.endpoint), false);
     assert.equal(JSON.stringify(configuredCustomGet).includes(catalogVaultRef), false);
 
-    const operatorCatalog = await expectOk(daemon.endpoint, "/api/v1/models/catalog/search?q=operator&limit=5");
+    const operatorCatalog = await expectOk(daemon.endpoint, "/v1/models/catalog/search?q=operator&limit=5");
     const operatorEntry = operatorCatalog.results.find((entry) => entry.catalogProviderId === "catalog.local_manifest");
     assert.equal(operatorEntry?.modelId, "operator/local-catalog-1b");
     assert.equal(operatorCatalog.providers.find((provider) => provider.id === "catalog.local_manifest")?.runtimeMaterialStatus, "bound_runtime_session");
@@ -1819,10 +1818,10 @@ test("catalog source material persists through the encrypted vault adapter witho
     assert.equal(directoryContainsNeedle(stateDir, customCatalogServer.endpoint), false);
     assert.equal(directoryContainsNeedle(keychainDir, customCatalogServer.endpoint), false);
 
-    const firstCatalog = await expectOk(daemon.endpoint, "/api/v1/models/catalog/search?q=keychain&limit=5");
+    const firstCatalog = await expectOk(daemon.endpoint, "/v1/models/catalog/search?q=keychain&limit=5");
     assert.equal(firstCatalog.results.find((entry) => entry.catalogProviderId === "catalog.local_manifest")?.modelId, "keychain/local-catalog-2b");
     assert.equal(firstCatalog.providers.find((provider) => provider.id === "catalog.local_manifest")?.runtimeMaterialStatus, "bound_runtime_session");
-    const firstCustomCatalog = await expectOk(daemon.endpoint, "/api/v1/models/catalog/search?q=custom&limit=5");
+    const firstCustomCatalog = await expectOk(daemon.endpoint, "/v1/models/catalog/search?q=custom&limit=5");
     assert.equal(firstCustomCatalog.results.find((entry) => entry.catalogProviderId === "catalog.custom_http")?.modelId, "custom/http-vllm-fixture");
     const projection = await expectOk(daemon.endpoint, "/api/v1/projections/model-mounting");
     assert.equal(JSON.stringify(projection).includes(manifestPath), false);
@@ -1840,9 +1839,9 @@ test("catalog source material persists through the encrypted vault adapter witho
     assert.equal(restartedCustom.runtimeMaterialStatus, "resolved_from_vault");
     assert.equal(restartedCustom.vaultMaterialSource, "encrypted_keychain_vault_adapter");
     assert.equal(restartedCustom.materialVaultRefHash, configuredCustom.materialVaultRefHash);
-    const restartedCatalog = await expectOk(daemon.endpoint, "/api/v1/models/catalog/search?q=keychain&limit=5");
+    const restartedCatalog = await expectOk(daemon.endpoint, "/v1/models/catalog/search?q=keychain&limit=5");
     assert.equal(restartedCatalog.results.find((entry) => entry.catalogProviderId === "catalog.local_manifest")?.modelId, "keychain/local-catalog-2b");
-    const restartedCustomCatalog = await expectOk(daemon.endpoint, "/api/v1/models/catalog/search?q=custom&limit=5");
+    const restartedCustomCatalog = await expectOk(daemon.endpoint, "/v1/models/catalog/search?q=custom&limit=5");
     assert.equal(restartedCustomCatalog.results.find((entry) => entry.catalogProviderId === "catalog.custom_http")?.modelId, "custom/http-vllm-fixture");
     const restartedVaultRefs = await expectOk(daemon.endpoint, "/api/v1/vault/refs", { token: grant.token });
     assert.ok(restartedVaultRefs.some((ref) => ref.vaultRefHash === configuredManifest.materialVaultRefHash && ref.resolvedMaterial === true));
@@ -1909,7 +1908,7 @@ test("catalog source material fails closed after restart when only session-bound
     assert.equal(configured.runtimeMaterialStatus, "bound_runtime_session");
     assert.equal(configured.vaultMaterialSource, "runtime_memory");
     assert.equal(directoryContainsNeedle(stateDir, manifestPath), false);
-    const catalog = await expectOk(daemon.endpoint, "/api/v1/models/catalog/search?q=session&limit=5");
+    const catalog = await expectOk(daemon.endpoint, "/v1/models/catalog/search?q=session&limit=5");
     assert.equal(catalog.results.find((entry) => entry.catalogProviderId === "catalog.local_manifest")?.modelId, "session/local-catalog-1b");
 
     await daemon.close();
@@ -1919,7 +1918,7 @@ test("catalog source material fails closed after restart when only session-bound
     assert.equal(restarted.runtimeMaterialStatus, "missing_runtime_material");
     assert.equal(restarted.vaultMaterialSource, "unbound");
     assert.equal(restarted.provider.status, "metadata_only");
-    const restartedCatalog = await expectOk(daemon.endpoint, "/api/v1/models/catalog/search?q=session&limit=5");
+    const restartedCatalog = await expectOk(daemon.endpoint, "/v1/models/catalog/search?q=session&limit=5");
     assert.equal(restartedCatalog.results.some((entry) => entry.catalogProviderId === "catalog.local_manifest"), false);
     assert.equal(directoryContainsNeedle(stateDir, manifestPath), false);
   } finally {
@@ -1968,7 +1967,7 @@ test("catalog provider auth resolves vault-backed headers for custom and live ca
     assert.equal(JSON.stringify(configuredCustom).includes("x-catalog-key"), false);
     assert.equal(JSON.stringify(configuredCustom).includes(customVaultRef), false);
 
-    const blockedCustom = await expectOk(daemon.endpoint, "/api/v1/models/catalog/search?q=custom&limit=5");
+    const blockedCustom = await expectOk(daemon.endpoint, "/v1/models/catalog/search?q=custom&limit=5");
     const blockedCustomProvider = blockedCustom.providers.find((provider) => provider.id === "catalog.custom_http");
     assert.equal(blockedCustomProvider.status, "blocked");
     assert.equal(blockedCustomProvider.catalogAuthResolved, false);
@@ -1979,7 +1978,7 @@ test("catalog provider auth resolves vault-backed headers for custom and live ca
       token: grant.token,
       body: { vault_ref: customVaultRef, material: customSecret, purpose: "catalog.auth:catalog.custom_http", label: "Custom catalog auth" },
     });
-    const customCatalog = await expectOk(daemon.endpoint, "/api/v1/models/catalog/search?q=custom&limit=5");
+    const customCatalog = await expectOk(daemon.endpoint, "/v1/models/catalog/search?q=custom&limit=5");
     const customProvider = customCatalog.providers.find((provider) => provider.id === "catalog.custom_http");
     assert.equal(customProvider.status, "available");
     assert.equal(customProvider.catalogAuthResolved, true);
@@ -2007,7 +2006,7 @@ test("catalog provider auth resolves vault-backed headers for custom and live ca
       token: grant.token,
       body: { vault_ref: liveVaultRef, material: liveSecret, purpose: "catalog.auth:catalog.huggingface", label: "Live catalog auth" },
     });
-    const liveCatalog = await expectOk(daemon.endpoint, "/api/v1/models/catalog/search?q=qwen&format=gguf&limit=5");
+    const liveCatalog = await expectOk(daemon.endpoint, "/v1/models/catalog/search?q=qwen&format=gguf&limit=5");
     const liveProvider = liveCatalog.providers.find((provider) => provider.id === "catalog.huggingface");
     assert.equal(liveProvider.status, "available");
     assert.equal(liveProvider.catalogAuthResolved, true);
@@ -2083,7 +2082,7 @@ test("catalog provider OAuth sessions exchange, refresh, revoke, and keep tokens
     assert.equal(JSON.stringify(exchanged).includes(oauth.tokens.refresh), false);
     assert.equal(JSON.stringify(exchanged).includes(oauth.endpoint), false);
 
-    const searched = await expectOk(daemon.endpoint, "/api/v1/models/catalog/search?q=custom&limit=5");
+    const searched = await expectOk(daemon.endpoint, "/v1/models/catalog/search?q=custom&limit=5");
     const customProvider = searched.providers.find((provider) => provider.id === "catalog.custom_http");
     assert.equal(customProvider.status, "available");
     assert.equal(customProvider.catalogAuthResolved, true);
@@ -2100,7 +2099,7 @@ test("catalog provider OAuth sessions exchange, refresh, revoke, and keep tokens
     assert.equal(refreshed.oauthSession.refreshCount, 1);
     assert.equal(JSON.stringify(refreshed).includes(oauth.tokens.refreshedAccess), false);
     assert.equal(JSON.stringify(refreshed).includes(oauth.tokens.refreshedRefresh), false);
-    const searchedAfterRefresh = await expectOk(daemon.endpoint, "/api/v1/models/catalog/search?q=custom&limit=5");
+    const searchedAfterRefresh = await expectOk(daemon.endpoint, "/v1/models/catalog/search?q=custom&limit=5");
     assert.ok(customCatalogServer.observedHeaders().some((headers) => headers.authorization === `Bearer ${oauth.tokens.refreshedAccess}`));
     assert.equal(searchedAfterRefresh.providers.find((provider) => provider.id === "catalog.custom_http").oauthBoundary.refreshCount, 1);
 
@@ -2110,7 +2109,7 @@ test("catalog provider OAuth sessions exchange, refresh, revoke, and keep tokens
       body: {},
     });
     assert.equal(revoked.oauthSession.status, "revoked");
-    const blocked = await expectOk(daemon.endpoint, "/api/v1/models/catalog/search?q=custom&limit=5");
+    const blocked = await expectOk(daemon.endpoint, "/v1/models/catalog/search?q=custom&limit=5");
     const blockedProvider = blocked.providers.find((provider) => provider.id === "catalog.custom_http");
     assert.equal(blockedProvider.status, "blocked");
     assert.equal(blockedProvider.catalogAuthResolved, false);
@@ -2245,7 +2244,7 @@ test("catalog provider OAuth start and callback use PKCE state without persistin
     assert.equal(JSON.stringify(callback).includes(oauth.tokens.refresh), false);
     assert.equal(JSON.stringify(callback).includes(oauthState), false);
 
-    const searched = await expectOk(daemon.endpoint, "/api/v1/models/catalog/search?q=custom&limit=5");
+    const searched = await expectOk(daemon.endpoint, "/v1/models/catalog/search?q=custom&limit=5");
     assert.equal(searched.providers.find((provider) => provider.id === "catalog.custom_http").oauthBoundary.status, "active");
     assert.ok(customCatalogServer.observedHeaders().some((headers) => headers.authorization === `Bearer ${oauth.tokens.access}`));
     assert.ok(oauth.observed().some((entry) => entry.grantType === "authorization_start" && entry.method === "S256"));
@@ -2285,14 +2284,14 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
       body: { allowed: ["model.download:*", "model.import:*", "model.delete:*", "model.chat:*", "route.use:*"] },
     });
 
-    const catalog = await expectOk(daemon.endpoint, "/api/v1/models/catalog/search?q=native");
+    const catalog = await expectOk(daemon.endpoint, "/v1/models/catalog/search?q=native");
     assert.ok(catalog.results.some((entry) => entry.modelId === "autopilot/native-fixture-3b"));
     assert.equal(catalog.providers.find((provider) => provider.id === "catalog.huggingface")?.status, "gated");
 
     process.env.IOI_LIVE_MODEL_CATALOG = "1";
     process.env.IOI_LIVE_MODEL_DOWNLOAD = "1";
     process.env.IOI_MODEL_CATALOG_HF_BASE_URL = liveCatalogServer.endpoint;
-    const liveCatalog = await expectOk(daemon.endpoint, "/api/v1/models/catalog/search?q=qwen&format=gguf&quantization=Q4&limit=5");
+    const liveCatalog = await expectOk(daemon.endpoint, "/v1/models/catalog/search?q=qwen&format=gguf&quantization=Q4&limit=5");
     assert.equal(liveCatalog.providers.find((provider) => provider.id === "catalog.huggingface")?.status, "available");
     const liveEntry = liveCatalog.results.find((entry) => entry.catalogProviderId === "catalog.huggingface");
     assert.equal(liveEntry.format, "gguf");
@@ -3017,7 +3016,7 @@ setInterval(() => {}, 1000);
       token: grant.token,
     });
     assert.equal(backendStop.process.processStatus, "stopped");
-    const logs = await expectOk(daemon.endpoint, "/api/v1/backends/backend.ollama/logs");
+    const logs = await expectOk(daemon.endpoint, "/v1/model-mount/backends/backend.ollama/logs");
     assert.ok(logs.some((record) => record.event === "backend_process_start"));
     assert.ok(logs.some((record) => record.event === "backend_process_stop"));
   } finally {
@@ -3486,7 +3485,7 @@ setInterval(() => {}, 1000);
     });
     assert.equal(unloaded.status, "unloaded");
     assert.equal(unloaded.providerEvidenceRefs.includes("clean_backend_stop"), true);
-    const logs = await expectOk(daemon.endpoint, "/api/v1/backends/backend.vllm/logs");
+    const logs = await expectOk(daemon.endpoint, "/v1/model-mount/backends/backend.vllm/logs");
     assert.ok(logs.some((record) => record.event === "backend_process_start"));
     assert.ok(logs.some((record) => record.event === "backend_process_stop"));
   } finally {
@@ -3651,7 +3650,7 @@ setInterval(() => {}, 1000);
     });
     assert.equal(unloaded.status, "unloaded");
     assert.equal(unloaded.providerEvidenceRefs.includes("clean_backend_stop"), true);
-    const logs = await expectOk(daemon.endpoint, "/api/v1/backends/backend.llama-cpp/logs");
+    const logs = await expectOk(daemon.endpoint, "/v1/model-mount/backends/backend.llama-cpp/logs");
     assert.ok(logs.some((record) => record.event === "backend_process_start"));
     assert.ok(logs.some((record) => record.event === "backend_process_stop"));
   } finally {

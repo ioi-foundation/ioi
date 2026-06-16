@@ -437,7 +437,7 @@ async function main() {
     evidence.daemonEndpoint = daemon.endpoint;
 
     await runStep(evidence, "server status and fail-closed token probes", async () => {
-      const status = await expectOk(daemon.endpoint, "/api/v1/server/status");
+      const status = await expectOk(daemon.endpoint, "/v1/model-mount/server/status");
       assert.equal(status.schemaVersion, "ioi.model-mounting.runtime.v1");
 
       const unauthenticated = await requestJson(daemon.endpoint, "/api/v1/chat", {
@@ -533,10 +533,10 @@ async function main() {
       assert.equal(stopped.controlStatus, "stopped");
       const restarted = await expectOk(daemon.endpoint, "/api/v1/server/restart", { method: "POST", token });
       assert.equal(restarted.controlStatus, "running");
-      const logs = await expectOk(daemon.endpoint, "/api/v1/server/logs?limit=20", { token });
+      const logs = await expectOk(daemon.endpoint, "/v1/model-mount/server/logs?limit=20", { token });
       assert.equal(logs.redaction, "redacted");
       assert.ok(logs.records.some((record) => record.event === "server_restart"));
-      const events = await expectOk(daemon.endpoint, "/api/v1/server/events?limit=20", { token });
+      const events = await expectOk(daemon.endpoint, "/v1/model-mount/server/events?limit=20", { token });
       assert.ok(events.events.some((event) => event.event === "server_restart"));
       return {
         stopReceiptId: stopped.receiptId,
@@ -584,7 +584,7 @@ async function main() {
     });
 
     await runStep(evidence, "runtime engines and hardware survey", async () => {
-      const engines = await expectOk(daemon.endpoint, "/api/v1/runtime/engines");
+      const engines = await expectOk(daemon.endpoint, "/v1/model-mount/runtime/engines");
       assert.ok(
         engines.some((engine) => engine.id === "backend.autopilot.native-local.fixture"),
         "missing native-local runtime engine",
@@ -617,9 +617,9 @@ async function main() {
         },
       });
       assert.equal(profile.engine.operatorProfile.defaultLoadOptions.contextLength, 3584);
-      const detail = await expectOk(daemon.endpoint, "/api/v1/runtime/engines/backend.autopilot.native-local.fixture");
+      const detail = await expectOk(daemon.endpoint, "/v1/model-mount/runtime/engines/backend.autopilot.native-local.fixture");
       assert.equal(detail.profile.defaultLoadOptions.parallel, 3);
-      const selectedEngines = await expectOk(daemon.endpoint, "/api/v1/runtime/engines");
+      const selectedEngines = await expectOk(daemon.endpoint, "/v1/model-mount/runtime/engines");
       assert.equal(selectedEngines.find((engine) => engine.id === selection.selectedEngineId)?.selected, true);
       return {
         engineCount: survey.engines.length,
@@ -703,7 +703,7 @@ async function main() {
       assert.equal(loaded.backendProcess.status, "started");
       assert.match(loaded.backendProcess.pidHash, /^[a-f0-9]{16}$/);
       assert.equal(loaded.backendProcess.argsRedacted.includes("--context"), true);
-      const processBackends = await expectOk(daemon.endpoint, "/api/v1/backends");
+      const processBackends = await expectOk(daemon.endpoint, "/v1/model-mount/backends");
       const nativeProcessBackend = processBackends.find((backend) => backend.id === "backend.autopilot.native-local.fixture");
       assert.equal(nativeProcessBackend.process.status, "started");
       assert.equal(nativeProcessBackend.process.argsRedacted.includes("4096"), true);

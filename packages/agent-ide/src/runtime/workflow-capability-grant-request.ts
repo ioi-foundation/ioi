@@ -18,7 +18,7 @@ export type WorkflowCapabilityGrantRequest = {
   bindingKind: WorkflowCapabilityRepairAction["bindingKind"];
   capabilityRef: string;
   routeId: string | null;
-  authorityEndpoint: "/api/v1/authority";
+  authorityEndpoint: "/v1/model-mount/authority";
   authorityScopes: string[];
   policyTarget: {
     kind:
@@ -155,7 +155,7 @@ export function workflowCapabilityGrantRequestFromRepairAction(
     bindingKind: action.bindingKind,
     capabilityRef: action.capabilityRef,
     routeId: action.routeId,
-    authorityEndpoint: action.authorityEndpoint ?? "/api/v1/authority",
+    authorityEndpoint: action.authorityEndpoint ?? "/v1/model-mount/authority",
     authorityScopes,
     policyTarget: {
       kind: policyTargetKind(action.bindingKind),

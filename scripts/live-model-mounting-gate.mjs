@@ -1095,7 +1095,7 @@ async function runLlamaCppGate(evidence) {
           body: { instance_id: loaded.id },
         });
         assert.equal(unloaded.status, "unloaded");
-        const logs = await expectOk(daemon.endpoint, "/api/v1/backends/backend.llama-cpp/logs");
+        const logs = await expectOk(daemon.endpoint, "/v1/model-mount/backends/backend.llama-cpp/logs");
         assert.ok(logs.some((record) => record.event === "backend_process_start"));
         assert.ok(logs.some((record) => record.event === "backend_process_stop"));
         const secretScan = scanFilesForNeedles(stateDir, [grant.token]);
@@ -1189,7 +1189,7 @@ async function runModelBackendsGate(evidence) {
     return;
   }
   await withDaemon(async ({ daemon, stateDir }) => {
-    const backends = await expectOk(daemon.endpoint, "/api/v1/backends");
+    const backends = await expectOk(daemon.endpoint, "/v1/model-mount/backends");
     const checked = [];
     for (const backend of backends.filter((item) => ["llama_cpp", "ollama", "vllm"].includes(item.kind))) {
       const health = await expectOk(daemon.endpoint, `/api/v1/backends/${backend.id}/health`, { method: "POST" });
@@ -1535,7 +1535,7 @@ async function runModelBackendsGate(evidence) {
           body: { instance_id: loaded.id },
         });
         assert.equal(unloaded.status, "unloaded");
-        const logs = await expectOk(daemon.endpoint, "/api/v1/backends/backend.vllm/logs");
+        const logs = await expectOk(daemon.endpoint, "/v1/model-mount/backends/backend.vllm/logs");
         const secretScan = scanFilesForNeedles(stateDir, [grant.token]);
         assert.equal(secretScan.passed, true);
         result.vllm = {

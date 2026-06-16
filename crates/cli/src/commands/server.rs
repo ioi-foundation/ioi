@@ -49,17 +49,17 @@ pub async fn run(args: ServerArgs) -> Result<()> {
     let endpoint = args.endpoint.as_deref();
     let token = args.token.as_deref();
     let (method, route) = match args.command {
-        ServerCommands::Status => (Method::GET, "/api/v1/server/status".to_string()),
+        ServerCommands::Status => (Method::GET, "/v1/model-mount/server/status".to_string()),
         ServerCommands::Start => (Method::POST, "/api/v1/server/start".to_string()),
         ServerCommands::Stop => (Method::POST, "/api/v1/server/stop".to_string()),
         ServerCommands::Restart => (Method::POST, "/api/v1/server/restart".to_string()),
         ServerCommands::Logs { limit } => (
             Method::GET,
-            format!("/api/v1/server/logs?limit={}", limit.min(200)),
+            format!("/v1/model-mount/server/logs?limit={}", limit.min(200)),
         ),
         ServerCommands::Events { limit } => (
             Method::GET,
-            format!("/api/v1/server/events?limit={}", limit.min(200)),
+            format!("/v1/model-mount/server/events?limit={}", limit.min(200)),
         ),
     };
     let value = daemon_request(endpoint, token, method, &route, None).await?;

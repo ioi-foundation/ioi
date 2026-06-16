@@ -2096,6 +2096,60 @@ test("model mounting native route does not expose retired receipt read aliases",
   assert.deepEqual(calls, []);
 });
 
+test("model mounting native route does not expose retired operational read aliases", async () => {
+  const { handleModelMountingNativeRoute } = routeHandlers();
+  const calls = [];
+  const failRetiredAlias = (name) => (...args) => {
+    calls.push([name, ...args]);
+    throw new Error(`retired operational read alias ${name} must not be reached`);
+  };
+  const store = {
+    modelMounting: {
+      authoritySnapshot: failRetiredAlias("authoritySnapshot"),
+      backendLogs: failRetiredAlias("backendLogs"),
+      listBackends: failRetiredAlias("listBackends"),
+      listInstances: failRetiredAlias("listInstances"),
+      listRuntimeEngines: failRetiredAlias("listRuntimeEngines"),
+      runtimeEngine: failRetiredAlias("runtimeEngine"),
+      serverEvents: failRetiredAlias("serverEvents"),
+      serverLogs: failRetiredAlias("serverLogs"),
+      serverStatus: failRetiredAlias("serverStatus"),
+    },
+  };
+  const cases = [
+    "/api/v1/server/status",
+    "/api/v1/server/logs",
+    "/api/v1/server/events",
+    "/api/v1/models/server",
+    "/api/v1/backends",
+    "/api/v1/backends/backend.route/logs",
+    "/api/v1/models/backends",
+    "/api/v1/runtime/engines",
+    "/api/v1/runtime/engines/engine.route",
+    "/api/v1/models/runtime-engines",
+    "/api/v1/models/instances",
+    "/api/v1/models/loaded",
+    "/api/v1/authority",
+  ];
+
+  for (const path of cases) {
+    await assert.rejects(
+      () => handleModelMountingNativeRoute({
+        request: request({ url: path }),
+        response: responseRecorder(),
+        store,
+        url: new URL(path, "http://daemon.test"),
+        segments: new URL(path, "http://daemon.test").pathname.split("/").filter(Boolean),
+      }),
+      (error) =>
+        error.code === "not_found" &&
+        error.details.path === new URL(path, "http://daemon.test").pathname,
+    );
+  }
+
+  assert.deepEqual(calls, []);
+});
+
 test("model mounting native route does not expose retired MCP aliases", async () => {
   const { handleModelMountingNativeRoute } = routeHandlers();
   const calls = [];

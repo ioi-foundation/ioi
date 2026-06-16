@@ -136,7 +136,7 @@ test("workflow capability preflight blocks unready live capability bindings", ()
     annotation?.rows[0]?.repairActions.find(
       (action) => action.kind === "request_authority_grant",
     )?.authorityEndpoint,
-    "/api/v1/authority",
+    "/v1/model-mount/authority",
   );
 
   const validation = workflowCapabilityPreflightValidationResult(preflight!);

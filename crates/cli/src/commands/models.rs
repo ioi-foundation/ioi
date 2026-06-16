@@ -388,7 +388,7 @@ pub async fn run(args: ModelsArgs) -> Result<()> {
             .await?
         }
         ModelsCommands::Ps => {
-            daemon_request(endpoint, token, Method::GET, "/api/v1/models/loaded", None).await?
+            daemon_request(endpoint, token, Method::GET, "/v1/model-mount/instances/loaded", None).await?
         }
         ModelsCommands::ProviderModels { provider_id } => {
             daemon_request(

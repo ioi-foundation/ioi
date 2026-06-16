@@ -377,6 +377,65 @@ export function createPublicRuntimeRequestHandler(deps) {
         writeJsonResponse(response, store.modelMounting.listModelCapabilities());
         return;
       }
+      if (request.method === "GET" && url.pathname === "/v1/model-mount/server/status") {
+        writeJsonResponse(response, store.modelMounting.serverStatus(baseUrlForRequest(request)));
+        return;
+      }
+      if (request.method === "GET" && url.pathname === "/v1/model-mount/server/logs") {
+        store.modelMounting.authorize(request.headers.authorization, "server.logs:*");
+        writeJsonResponse(response, store.modelMounting.serverLogs(Object.fromEntries(url.searchParams.entries())));
+        return;
+      }
+      if (request.method === "GET" && url.pathname === "/v1/model-mount/server/events") {
+        store.modelMounting.authorize(request.headers.authorization, "server.logs:*");
+        writeJsonResponse(response, store.modelMounting.serverEvents(Object.fromEntries(url.searchParams.entries())));
+        return;
+      }
+      if (request.method === "GET" && url.pathname === "/v1/model-mount/backends") {
+        writeJsonResponse(response, store.modelMounting.listBackends());
+        return;
+      }
+      if (
+        request.method === "GET" &&
+        segments[0] === "v1" &&
+        segments[1] === "model-mount" &&
+        segments[2] === "backends" &&
+        segments[3] &&
+        segments[4] === "logs"
+      ) {
+        writeJsonResponse(response, store.modelMounting.backendLogs(decodeURIComponent(segments[3])));
+        return;
+      }
+      if (request.method === "GET" && url.pathname === "/v1/model-mount/runtime/engines") {
+        writeJsonResponse(response, store.modelMounting.listRuntimeEngines());
+        return;
+      }
+      if (
+        request.method === "GET" &&
+        segments[0] === "v1" &&
+        segments[1] === "model-mount" &&
+        segments[2] === "runtime" &&
+        segments[3] === "engines" &&
+        segments[4]
+      ) {
+        writeJsonResponse(response, store.modelMounting.runtimeEngine(decodeURIComponent(segments[4])));
+        return;
+      }
+      if (request.method === "GET" && url.pathname === "/v1/model-mount/instances") {
+        writeJsonResponse(response, store.modelMounting.listInstances());
+        return;
+      }
+      if (request.method === "GET" && url.pathname === "/v1/model-mount/instances/loaded") {
+        writeJsonResponse(
+          response,
+          store.modelMounting.listInstances().filter((instance) => instance.status === "loaded"),
+        );
+        return;
+      }
+      if (request.method === "GET" && url.pathname === "/v1/model-mount/authority") {
+        writeJsonResponse(response, store.modelMounting.authoritySnapshot(baseUrlForRequest(request)));
+        return;
+      }
       if (request.method === "GET" && url.pathname === "/v1/model-mount/receipts") {
         writeJsonResponse(response, store.modelMounting.listReceipts());
         return;

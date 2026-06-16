@@ -66,7 +66,7 @@ export type WorkflowCapabilityRepairAction = {
   routeId: string | null;
   targetSurface: "node_binding_editor" | "authority_center";
   configSection: "bindings";
-  authorityEndpoint: "/api/v1/authority" | null;
+  authorityEndpoint: "/v1/model-mount/authority" | null;
   catalogEndpoint: "/v1/model-capabilities" | "/api/v1/tools" | null;
   missingFields: string[];
   authorityScopes: string[];
@@ -446,9 +446,9 @@ function workflowCapabilityRepairActions(input: {
       kind: "request_authority_grant",
       label: "Request grant",
       detail:
-        "Review this binding against /api/v1/authority and request the scoped runtime grant before execution.",
+        "Review this binding against /v1/model-mount/authority and request the scoped runtime grant before execution.",
       targetSurface: "authority_center",
-      authorityEndpoint: "/api/v1/authority",
+      authorityEndpoint: "/v1/model-mount/authority",
       catalogEndpoint: null,
       missingFields: missingFields.filter((field) =>
         [
@@ -467,7 +467,7 @@ function workflowCapabilityRepairActions(input: {
       detail:
         "Apply an approved authority grant to this node binding so the workflow can clear capability preflight.",
       targetSurface: "authority_center",
-      authorityEndpoint: "/api/v1/authority",
+      authorityEndpoint: "/v1/model-mount/authority",
       catalogEndpoint: null,
       missingFields: missingFields.filter((field) =>
         [

@@ -2356,7 +2356,7 @@ function useModelMountsDaemon() {
       tailServerLogs: () =>
         runAction("server-logs", async () => {
           const token = await ensureToken();
-          const result = await requestJson("/api/v1/server/logs?limit=20", { token });
+          const result = await requestJson("/v1/model-mount/server/logs?limit=20", { token });
           const count = Array.isArray(result?.records) ? result.records.length : 0;
           return `Read ${count} redacted server log record${count === 1 ? "" : "s"}; receipt ${stringValue(result?.receiptId, "none")}.`;
         }),
@@ -2387,7 +2387,7 @@ function useModelMountsDaemon() {
         }),
       tailNativeBackendLogs: () =>
         runAction("backend-logs", async () => {
-          const logs = await requestJson("/api/v1/backends/backend.autopilot.native-local.fixture/logs");
+          const logs = await requestJson("/v1/model-mount/backends/backend.autopilot.native-local.fixture/logs");
           const count = Array.isArray(logs) ? logs.length : 0;
           return `Native-local backend returned ${count} bounded log record${count === 1 ? "" : "s"}.`;
         }),
@@ -4554,20 +4554,20 @@ function ServerPanel({
 
       <div className="model-mounts-route-list" aria-label="Server routes">
         {[
-          "GET /api/v1/server/status",
+          "GET /v1/model-mount/server/status",
           "POST /api/v1/server/start",
           "POST /api/v1/server/stop",
           "POST /api/v1/server/restart",
-          "GET /api/v1/server/logs",
-          "GET /api/v1/server/events",
-          "GET /api/v1/runtime/engines",
+          "GET /v1/model-mount/server/logs",
+          "GET /v1/model-mount/server/events",
+          "GET /v1/model-mount/runtime/engines",
           "POST /api/v1/runtime/survey",
           "POST /api/v1/runtime/select",
-          "GET /api/v1/backends",
+          "GET /v1/model-mount/backends",
           "POST /api/v1/backends/:id/health",
           "POST /api/v1/backends/:id/start",
           "POST /api/v1/backends/:id/stop",
-          "GET /api/v1/backends/:id/logs",
+          "GET /v1/model-mount/backends/:id/logs",
           "GET /api/v1/models",
           "POST /api/v1/models/load",
           "POST /api/v1/models/unload",

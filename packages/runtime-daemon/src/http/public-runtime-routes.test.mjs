@@ -366,6 +366,45 @@ test("public runtime model catalog routes use mounted model projection surface",
         calls.push({ method: "catalogSearch", query });
         return [{ id: "catalog.route", query: query.query }];
       },
+      authorize(authorization, scope) {
+        calls.push({ method: "authorize", authorization, scope });
+      },
+      serverStatus(baseUrl) {
+        calls.push({ method: "serverStatus", baseUrl });
+        return { id: "server.status", baseUrl };
+      },
+      serverLogs(query) {
+        calls.push({ method: "serverLogs", query });
+        return { id: "server.logs", limit: query.limit };
+      },
+      serverEvents(query) {
+        calls.push({ method: "serverEvents", query });
+        return { id: "server.events", limit: query.limit };
+      },
+      listBackends() {
+        calls.push({ method: "listBackends" });
+        return [{ id: "backend.route" }];
+      },
+      backendLogs(id) {
+        calls.push({ method: "backendLogs", id });
+        return { id, object: "backend.logs" };
+      },
+      listRuntimeEngines() {
+        calls.push({ method: "listRuntimeEngines" });
+        return [{ id: "engine.route" }];
+      },
+      runtimeEngine(id) {
+        calls.push({ method: "runtimeEngine", id });
+        return { id, object: "runtime.engine" };
+      },
+      listInstances() {
+        calls.push({ method: "listInstances" });
+        return [{ id: "instance.loaded", status: "loaded" }, { id: "instance.idle", status: "idle" }];
+      },
+      authoritySnapshot(baseUrl) {
+        calls.push({ method: "authoritySnapshot", baseUrl });
+        return { id: "authority.snapshot", baseUrl };
+      },
       listReceipts() {
         calls.push({ method: "listReceipts" });
         return [{ id: "receipt.route" }];
@@ -408,6 +447,16 @@ test("public runtime model catalog routes use mounted model projection surface",
     ["/v1/models/providers", [{ id: "provider.route" }]],
     ["/v1/models/routes", [{ id: "route.route" }]],
     ["/v1/models/catalog/search?query=qwen", [{ id: "catalog.route", query: "qwen" }]],
+    ["/v1/model-mount/server/status", { id: "server.status", baseUrl: "http://daemon.test" }],
+    ["/v1/model-mount/server/logs?limit=5", { id: "server.logs", limit: "5" }],
+    ["/v1/model-mount/server/events?limit=6", { id: "server.events", limit: "6" }],
+    ["/v1/model-mount/backends", [{ id: "backend.route" }]],
+    ["/v1/model-mount/backends/backend.route/logs", { id: "backend.route", object: "backend.logs" }],
+    ["/v1/model-mount/runtime/engines", [{ id: "engine.route" }]],
+    ["/v1/model-mount/runtime/engines/engine.route", { id: "engine.route", object: "runtime.engine" }],
+    ["/v1/model-mount/instances", [{ id: "instance.loaded", status: "loaded" }, { id: "instance.idle", status: "idle" }]],
+    ["/v1/model-mount/instances/loaded", [{ id: "instance.loaded", status: "loaded" }]],
+    ["/v1/model-mount/authority", { id: "authority.snapshot", baseUrl: "http://daemon.test" }],
     ["/v1/model-mount/receipts", [{ id: "receipt.route" }]],
     ["/v1/model-mount/receipts/receipt.route", { id: "receipt.route" }],
     ["/v1/model-mount/receipts/receipt.route/replay", { receipt_id: "receipt.route", replayed: true }],
@@ -426,6 +475,18 @@ test("public runtime model catalog routes use mounted model projection surface",
     { method: "listProviders" },
     { method: "listRoutes" },
     { method: "catalogSearch", query: { query: "qwen" } },
+    { method: "serverStatus", baseUrl: "http://daemon.test" },
+    { method: "authorize", authorization: undefined, scope: "server.logs:*" },
+    { method: "serverLogs", query: { limit: "5" } },
+    { method: "authorize", authorization: undefined, scope: "server.logs:*" },
+    { method: "serverEvents", query: { limit: "6" } },
+    { method: "listBackends" },
+    { method: "backendLogs", id: "backend.route" },
+    { method: "listRuntimeEngines" },
+    { method: "runtimeEngine", id: "engine.route" },
+    { method: "listInstances" },
+    { method: "listInstances" },
+    { method: "authoritySnapshot", baseUrl: "http://daemon.test" },
     { method: "listReceipts" },
     { method: "getReceipt", id: "receipt.route" },
     { method: "receiptReplay", id: "receipt.route" },

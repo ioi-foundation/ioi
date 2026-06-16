@@ -22542,11 +22542,19 @@ function runReceipts() {
   const modelMountStableReadCliReceipts = exists("crates/cli/src/commands/receipts.rs")
     ? read("crates/cli/src/commands/receipts.rs")
     : "";
+  const modelMountStableReadCliServer = exists("crates/cli/src/commands/server.rs")
+    ? read("crates/cli/src/commands/server.rs")
+    : "";
+  const modelMountStableReadCliBackends = exists("crates/cli/src/commands/backends.rs")
+    ? read("crates/cli/src/commands/backends.rs")
+    : "";
   const modelMountStableReadProtocolClientCorpus = [
     modelMountStableReadAgentSdkSubstrateClient,
     modelMountStableReadAgentSdkTest,
     modelMountStableReadCliModels,
     modelMountStableReadCliRoutes,
+    modelMountStableReadCliServer,
+    modelMountStableReadCliBackends,
     ...collectFiles(
       "scripts",
       (file) =>
@@ -26123,6 +26131,83 @@ function runReceipts() {
       !/\/api\/v1\/models\/catalog\/search/.test(modelMountStableReadProtocolClientCorpus) &&
       !/\/api\/v1\/models\/artifacts/.test(modelMountStableReadProtocolClientCorpus) &&
       !/\/api\/v1\/models\/routes/.test(modelMountStableReadProtocolClientCorpus) &&
+      /url\.pathname === "\/v1\/model-mount\/server\/status"[\s\S]*store\.modelMounting\.serverStatus\(baseUrlForRequest\(request\)\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /url\.pathname === "\/v1\/model-mount\/server\/logs"[\s\S]*store\.modelMounting\.serverLogs\(Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /url\.pathname === "\/v1\/model-mount\/server\/events"[\s\S]*store\.modelMounting\.serverEvents\(Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /url\.pathname === "\/v1\/model-mount\/backends"[\s\S]*store\.modelMounting\.listBackends\(\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /segments\[1\] === "model-mount"[\s\S]*segments\[2\] === "backends"[\s\S]*segments\[4\] === "logs"[\s\S]*store\.modelMounting\.backendLogs\(decodeURIComponent\(segments\[3\]\)\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /url\.pathname === "\/v1\/model-mount\/runtime\/engines"[\s\S]*store\.modelMounting\.listRuntimeEngines\(\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /segments\[1\] === "model-mount"[\s\S]*segments\[2\] === "runtime"[\s\S]*segments\[3\] === "engines"[\s\S]*store\.modelMounting\.runtimeEngine\(decodeURIComponent\(segments\[4\]\)\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /url\.pathname === "\/v1\/model-mount\/instances"[\s\S]*store\.modelMounting\.listInstances\(\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /url\.pathname === "\/v1\/model-mount\/instances\/loaded"[\s\S]*store\.modelMounting\.listInstances\(\)\.filter/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /url\.pathname === "\/v1\/model-mount\/authority"[\s\S]*store\.modelMounting\.authoritySnapshot\(baseUrlForRequest\(request\)\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      !/url\.pathname === "\/api\/v1\/server\/status"/.test(runtimeRouteHandlers) &&
+      !/url\.pathname === "\/api\/v1\/server\/logs"/.test(runtimeRouteHandlers) &&
+      !/url\.pathname === "\/api\/v1\/server\/events"/.test(runtimeRouteHandlers) &&
+      !/url\.pathname === "\/api\/v1\/models\/server"/.test(runtimeRouteHandlers) &&
+      !/url\.pathname === "\/api\/v1\/backends"/.test(runtimeRouteHandlers) &&
+      !/url\.pathname === "\/api\/v1\/models\/backends"/.test(runtimeRouteHandlers) &&
+      !/url\.pathname === "\/api\/v1\/runtime\/engines"/.test(runtimeRouteHandlers) &&
+      !/url\.pathname === "\/api\/v1\/models\/runtime-engines"/.test(runtimeRouteHandlers) &&
+      !/request\.method === "GET" && segments\[2\] === "runtime" && segments\[3\] === "engines" && segments\[4\]/.test(
+        runtimeRouteHandlers,
+      ) &&
+      !/request\.method === "GET" && segments\[2\] === "backends" && segments\[3\] && segments\[4\] === "logs"/.test(
+        runtimeRouteHandlers,
+      ) &&
+      !/url\.pathname === "\/api\/v1\/models\/instances"/.test(runtimeRouteHandlers) &&
+      !/url\.pathname === "\/api\/v1\/models\/loaded"/.test(runtimeRouteHandlers) &&
+      !/url\.pathname === "\/api\/v1\/authority"/.test(runtimeRouteHandlers) &&
+      /\/v1\/model-mount\/server\/status/.test(publicRuntimeRoutesTest) &&
+      /\/v1\/model-mount\/backends/.test(publicRuntimeRoutesTest) &&
+      /\/v1\/model-mount\/runtime\/engines/.test(publicRuntimeRoutesTest) &&
+      /\/v1\/model-mount\/instances\/loaded/.test(publicRuntimeRoutesTest) &&
+      /\/v1\/model-mount\/authority/.test(publicRuntimeRoutesTest) &&
+      /model mounting native route does not expose retired operational read aliases/.test(runtimeRouteHandlersTest) &&
+      !/\/api\/v1\/server\/status/.test(modelMountStableReadProtocolClientCorpus) &&
+      !/\/api\/v1\/server\/logs/.test(modelMountStableReadProtocolClientCorpus) &&
+      !/\/api\/v1\/server\/events/.test(modelMountStableReadProtocolClientCorpus) &&
+      !/\/api\/v1\/backends\/[^"'`)]+\/logs/.test(modelMountStableReadProtocolClientCorpus) &&
+      !/\/api\/v1\/models\/loaded/.test(modelMountStableReadProtocolClientCorpus) &&
+      !/\/api\/v1\/models\/server["'`]/.test(modelMountStableReadProtocolClientCorpus) &&
+      !/\/api\/v1\/models\/backends/.test(modelMountStableReadProtocolClientCorpus) &&
+      !/\/api\/v1\/models\/runtime-engines/.test(modelMountStableReadProtocolClientCorpus) &&
+      !/\/api\/v1\/authority(?!-evidence)/.test(modelMountStableReadProtocolClientCorpus) &&
+      /ServerCommands::Status => \(Method::GET,\s*"\/v1\/model-mount\/server\/status"\.to_string\(\)\)/.test(
+        modelMountStableReadCliServer,
+      ) &&
+      /\/v1\/model-mount\/server\/logs\?limit=/.test(modelMountStableReadCliServer) &&
+      /\/v1\/model-mount\/server\/events\?limit=/.test(modelMountStableReadCliServer) &&
+      /daemon_request\(endpoint, token, Method::GET, "\/v1\/model-mount\/backends", None\)/.test(
+        modelMountStableReadCliBackends,
+      ) &&
+      /\/v1\/model-mount\/backends\/\{id\}\/logs/.test(modelMountStableReadCliBackends) &&
+      /\/v1\/model-mount\/runtime\/engines/.test(modelMountStableReadCliBackends) &&
+      /\/v1\/model-mount\/runtime\/engines\/\{engine_id\}/.test(modelMountStableReadCliBackends) &&
+      /\/v1\/model-mount\/instances\/loaded/.test(modelMountStableReadCliModels) &&
+      /Slice 1352 hard-cuts stable model_mount operational read clients/.test(guide) &&
+      /Model_mount stable operational read clients/.test(matrix) &&
+      /RuntimeDaemonCoreModelMountStableOperationalReadClients/.test(implementationMatrix) &&
       /Slice 1348 hard-cuts stable model_mount read protocol clients/.test(guide) &&
       /Slice 1349 retires the legacy model_mount native read aliases/.test(guide) &&
       /Slice 1351 hard-cuts stable model_mount read proof and IDE clients/.test(guide) &&
@@ -26623,8 +26708,15 @@ function runReceipts() {
       /rust_core_rejects_retired_backend_logs_read_control/.test(modelMountCore) &&
       /model_mount_backend_log_read_js_control_path_retired/.test(modelMountCore) &&
       !/listBackends\(\)\s*\{[\s\S]*?return this\.backendRegistry\(\)/.test(backendLifecycle) &&
-      /url\.pathname === "\/api\/v1\/backends"[\s\S]*?mounts\.listBackends\(\)/.test(runtimeRouteHandlers) &&
-      /url\.pathname === "\/api\/v1\/models\/backends"[\s\S]*?mounts\.listBackends\(\)/.test(runtimeRouteHandlers) &&
+      /url\.pathname === "\/v1\/model-mount\/backends"[\s\S]*?store\.modelMounting\.listBackends\(\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      !/url\.pathname === "\/api\/v1\/backends"[\s\S]*?mounts\.listBackends\(\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      !/url\.pathname === "\/api\/v1\/models\/backends"[\s\S]*?mounts\.listBackends\(\)/.test(
+        runtimeRouteHandlers,
+      ) &&
       /default JS backend registry record factory stays retired/.test(defaultRecordsTest) &&
       /Object\.hasOwn\(defaultRecords,\s*"backendRegistryRecords"\),\s*false/.test(defaultRecordsTest) &&
       /backend registry JS derivation and seeding exports stay retired/.test(
@@ -26731,6 +26823,7 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/default-records.test.mjs",
       "packages/runtime-daemon/src/model-mounting/state-persistence.mjs",
       "packages/runtime-daemon/src/model-mounting/store.mjs",
+      "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/model-mount-core.mjs",
       "packages/runtime-daemon/src/model-mounting/model-mount-core.test.mjs",
