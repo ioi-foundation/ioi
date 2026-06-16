@@ -315,6 +315,12 @@ function backendLifecycleRequest() {
       backend_id: "backend.llama_cpp",
       backend_kind: "llama_cpp",
       load_options: { context_length: 4096 },
+      backend_process_ref: "backend_process://backend.llama_cpp.process",
+      backend_process_materialization_hash: "sha256:backend-process-materialization",
+      backend_supervision_ref: "backend_supervision://backend.llama_cpp.process#sha256:plan",
+      backend_supervision_hash: "sha256:backend-supervision",
+      backend_supervision_status: "rust_external_process_supervision_contract_bound",
+      process_supervision_owner: "rust_daemon_core.model_mount.backend_process_supervisor",
     },
     receipt_refs: ["receipt://backend-lifecycle"],
   };
@@ -1634,6 +1640,7 @@ test("Rust model_mount core sends backend process materialization through typed 
   assert.equal(result.record_dir, "model-backend-process-materializations");
   assert.equal(result.record.process_execution_owner, "rust_daemon_core.model_mount.backend_process_materialization");
   assert.equal(result.record.process_supervision_owner, "rust_daemon_core.model_mount.backend_process_supervisor");
+  assert.equal(result.backend_process_ref, "backend_process://backend.llama.process#sha256:plan");
   assert.equal(result.backend_supervision_hash, "sha256:backend-supervision");
   assert.equal(result.public_response.spawn_args_returned, false);
   assert.equal(result.public_response.js_process_supervisor, false);
@@ -1661,7 +1668,16 @@ test("Rust model_mount core sends positive backend lifecycle request", () => {
             "public_backend_lifecycle_js_facade_retired",
             "rust_daemon_core_backend_lifecycle",
             "agentgres_backend_lifecycle_truth_required",
+            "rust_backend_lifecycle_backend_process_materialization_bound",
+            "rust_backend_lifecycle_backend_process_supervision_bound",
+            "backend_lifecycle_start_js_process_control_retired",
           ],
+          backend_process_ref: request.body.backend_process_ref,
+          backend_process_materialization_hash: request.body.backend_process_materialization_hash,
+          backend_supervision_ref: request.body.backend_supervision_ref,
+          backend_supervision_hash: request.body.backend_supervision_hash,
+          backend_supervision_status: request.body.backend_supervision_status,
+          process_supervision_owner: request.body.process_supervision_owner,
         };
         const publicResponse = {
           object: "ioi.model_mount_backend_lifecycle",
@@ -1672,6 +1688,12 @@ test("Rust model_mount core sends positive backend lifecycle request", () => {
           rust_core_boundary: "model_mount.backend_lifecycle",
           backend_status: "start_planned",
           load_options: request.body.load_options,
+          backend_process_ref: request.body.backend_process_ref,
+          backend_process_materialization_hash: request.body.backend_process_materialization_hash,
+          backend_supervision_ref: request.body.backend_supervision_ref,
+          backend_supervision_hash: request.body.backend_supervision_hash,
+          backend_supervision_status: request.body.backend_supervision_status,
+          process_supervision_owner: request.body.process_supervision_owner,
           js_backend_registry_read: false,
           js_process_control: false,
           js_log_read: false,
@@ -1727,12 +1749,19 @@ test("Rust model_mount core sends positive backend lifecycle request", () => {
   assert.equal(result.record_id, "backend-lifecycle-control:test");
   assert.equal(result.record.id, "backend-lifecycle-control:test");
   assert.equal(result.public_response.backend_status, "start_planned");
+  assert.equal(result.backend_process_materialization_hash, "sha256:backend-process-materialization");
+  assert.equal(result.backend_supervision_hash, "sha256:backend-supervision");
+  assert.equal(
+    result.public_response.process_supervision_owner,
+    "rust_daemon_core.model_mount.backend_process_supervisor",
+  );
   assert.equal(result.public_response.js_process_control, false);
   assert.equal(result.operation_kind, "model_mount.backend.start");
   assert.equal(result.rust_core_boundary, "model_mount.backend_lifecycle");
   assert.deepEqual(result.receipt_refs, ["receipt://backend-lifecycle"]);
   assert.ok(result.evidence_refs.includes("rust_daemon_core_backend_lifecycle"));
   assert.ok(result.evidence_refs.includes("agentgres_backend_lifecycle_truth_required"));
+  assert.ok(result.evidence_refs.includes("rust_backend_lifecycle_backend_process_supervision_bound"));
   assert.equal(result.control_hash, "sha256:backend-lifecycle-control");
   assert.equal(Object.hasOwn(result, "status_code"), false);
 });

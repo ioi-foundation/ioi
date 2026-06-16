@@ -33,6 +33,13 @@ function fakeState() {
     ["backend.blocked", { id: "backend.blocked", kind: "llama_cpp", label: "Blocked", status: "blocked", evidenceRefs: ["binary_missing"] }],
     ["backend.llama", { id: "backend.llama", kind: "llama_cpp", label: "llama.cpp", status: "configured", binaryPath: "/bin/llama-server", baseUrl: "http://127.0.0.1:8091/v1" }],
   ]);
+  const projectedBackends = Array.from(backends.values()).map((backend) => ({
+    id: backend.id,
+    kind: backend.kind,
+    status: backend.status,
+    base_url: backend.baseUrl ?? null,
+    binary_configured: Boolean(backend.binaryPath),
+  }));
   const state = {
     bootId: "boot-a",
     cwd: "/workspace",
@@ -43,8 +50,10 @@ function fakeState() {
     writes: [],
     now: "2026-06-03T20:00:00.000Z",
     backendLifecyclePlans: [],
+    backendProcessMaterializationPlans: [],
     backendLogProjectionRequests: [],
     recordStateCommits: [],
+    projectedBackends,
     backend(backendId) {
       return this.backends.get(backendId);
     },
@@ -58,6 +67,100 @@ function fakeState() {
     },
     planBackendLifecycle(request) {
       return ModelMountingState.prototype.planBackendLifecycle.call(this, request);
+    },
+    planModelMountBackendProcessMaterialization(request) {
+      this.backendProcessMaterializationPlans.push(request);
+      const suffix = request.backend_ref.replace(/[^a-z0-9]+/gi, "-");
+      const recordId = `backend-process-materialization:${suffix}`;
+      const evidenceRefs = [
+        "rust_daemon_core_backend_process_materialization",
+        "rust_backend_process_materialization_bound",
+        "wallet_network_backend_process_authority_bound",
+        "ctee_backend_process_custody_enforced",
+        "agentgres_backend_process_materialization_truth_required",
+        "rust_backend_process_supervision_bound",
+        "js_backend_process_supervisor_retired",
+        "command_transport_backend_process_spawn_retired",
+        "binary_bridge_backend_process_spawn_retired",
+      ];
+      const backendProcessRef = `backend_process://${request.backend_ref}.process`;
+      const backendSupervisionRef = `backend_supervision://${request.backend_ref}.process#sha256:plan`;
+      const backendSupervisionHash = "sha256:backend-supervision";
+      const backendSupervisionStatus = "rust_external_process_supervision_contract_bound";
+      const publicResponse = {
+        object: "ioi.model_mount_backend_process_materialization",
+        status: "materialized",
+        backend_ref: request.backend_ref,
+        backend_kind: request.backend_kind,
+        backend_process_ref: backendProcessRef,
+        backend_supervision_ref: backendSupervisionRef,
+        backend_supervision_hash: backendSupervisionHash,
+        backend_supervision_status: backendSupervisionStatus,
+        process_supervision_owner: "rust_daemon_core.model_mount.backend_process_supervisor",
+        rust_core_boundary: "model_mount.backend_process_materialization",
+        spawn_args_returned: false,
+        js_process_supervisor: false,
+        command_transport_spawn: false,
+        binary_bridge_spawn: false,
+        compatibility_spawn_fallback: false,
+      };
+      const record = {
+        id: recordId,
+        record_id: recordId,
+        object: "ioi.model_mount_backend_process_materialization",
+        schema_version: "ioi.model_mount.backend_process_materialization.v1",
+        backend_ref: request.backend_ref,
+        backend_kind: request.backend_kind,
+        backend_process_ref: backendProcessRef,
+        materialization_hash: "sha256:backend-process-materialization",
+        authority_hash: "sha256:backend-process-authority",
+        backend_supervision_ref: backendSupervisionRef,
+        backend_supervision_hash: backendSupervisionHash,
+        backend_supervision_status: backendSupervisionStatus,
+        process_materialization_status: "rust_backend_process_materialization_bound",
+        rust_core_boundary: "model_mount.backend_process_materialization",
+        process_execution_owner: "rust_daemon_core.model_mount.backend_process_materialization",
+        process_supervision_owner: "rust_daemon_core.model_mount.backend_process_supervisor",
+        supervision_contract: {
+          backend_supervision_ref: backendSupervisionRef,
+          backend_supervision_hash: backendSupervisionHash,
+          backend_supervision_status: backendSupervisionStatus,
+          process_supervision_owner: "rust_daemon_core.model_mount.backend_process_supervisor",
+        },
+        spawn_contract: {
+          spawn_args_returned: false,
+          pid_returned: false,
+          plaintext_process_material_returned: false,
+        },
+        retired_paths: {
+          js_process_supervisor: false,
+          command_transport_spawn: false,
+          binary_bridge_spawn: false,
+          compatibility_spawn_fallback: false,
+        },
+        public_response: publicResponse,
+        receipt_refs: [...(request.receipt_refs ?? []), "sha256:backend-process-materialization"],
+        evidence_refs: evidenceRefs,
+      };
+      return {
+        source: "rust_daemon_core.model_mount.backend_process_materialization",
+        status: "materialized",
+        rust_core_boundary: "model_mount.backend_process_materialization",
+        record_dir: "model-backend-process-materializations",
+        record_id: recordId,
+        record,
+        public_response: publicResponse,
+        process_plan: {
+          plan_hash: "sha256:backend-process-plan",
+        },
+        operation_kind: request.operation_kind,
+        receipt_refs: request.receipt_refs ?? [],
+        authority_grant_refs: request.authority_grant_refs ?? [],
+        authority_receipt_refs: request.authority_receipt_refs ?? [],
+        evidence_refs: evidenceRefs,
+        materialization_hash: "sha256:backend-process-materialization",
+        authority_hash: "sha256:backend-process-authority",
+      };
     },
     writeBackendLog(backendId, event) {
       this.logs.push({ backendId, ...event });
@@ -122,6 +225,13 @@ function fakeState() {
         "rust_daemon_core_backend_lifecycle",
         "agentgres_backend_lifecycle_truth_required",
       ];
+      if (request.operation_kind === "model_mount.backend.start") {
+        evidenceRefs.push(
+          "rust_backend_lifecycle_backend_process_materialization_bound",
+          "rust_backend_lifecycle_backend_process_supervision_bound",
+          "backend_lifecycle_start_js_process_control_retired",
+        );
+      }
       const publicResponse = {
         object: "ioi.model_mount_backend_lifecycle",
         status: "planned",
@@ -137,6 +247,16 @@ function fakeState() {
       if (request.operation_kind === "model_mount.backend.start") {
         publicResponse.backend_status = "start_planned";
         if (request.body?.load_options) publicResponse.load_options = request.body.load_options;
+        for (const field of [
+          "backend_process_ref",
+          "backend_process_materialization_hash",
+          "backend_supervision_ref",
+          "backend_supervision_hash",
+          "backend_supervision_status",
+          "process_supervision_owner",
+        ]) {
+          publicResponse[field] = request.body?.[field] ?? null;
+        }
       } else if (request.operation_kind === "model_mount.backend.health") {
         publicResponse.backend_status = "health_planned";
       } else if (request.operation_kind === "model_mount.backend.stop") {
@@ -155,6 +275,16 @@ function fakeState() {
           backend_kind: request.backend_kind ?? null,
           operation_kind: request.operation_kind,
           rust_core_boundary: "model_mount.backend_lifecycle",
+          ...(request.operation_kind === "model_mount.backend.start"
+            ? {
+                backend_process_ref: request.body?.backend_process_ref ?? null,
+                backend_process_materialization_hash: request.body?.backend_process_materialization_hash ?? null,
+                backend_supervision_ref: request.body?.backend_supervision_ref ?? null,
+                backend_supervision_hash: request.body?.backend_supervision_hash ?? null,
+                backend_supervision_status: request.body?.backend_supervision_status ?? null,
+                process_supervision_owner: request.body?.process_supervision_owner ?? null,
+              }
+            : {}),
           receipt_refs: [...receiptRefs, "sha256:backend-lifecycle-control"],
           evidence_refs: evidenceRefs,
         },
@@ -204,8 +334,12 @@ test("public backend lifecycle facades commit Rust-authored records", () => {
     "model_mount.backend.start",
     "model_mount.backend.stop",
   ]);
+  assert.deepEqual(state.backendProcessMaterializationPlans.map((request) => request.operation_kind), [
+    "model_mount.backend_process.materialize",
+  ]);
   assert.deepEqual(state.recordStateCommits.map((request) => request.operation_kind), [
     "model_mount.backend.health",
+    "model_mount.backend_process.materialize",
     "model_mount.backend.start",
     "model_mount.backend.stop",
   ]);
@@ -213,6 +347,23 @@ test("public backend lifecycle facades commit Rust-authored records", () => {
   assert.equal(state.backendLifecyclePlans[0].backend_id, "backend.native");
   assert.equal(state.backendLifecyclePlans[0].source, "runtime-daemon.model_mounting.backend_lifecycle");
   assert.equal(state.backendLifecyclePlans[1].body.backend_id, "backend.native");
+  assert.equal(state.backendLifecyclePlans[1].body.backend_kind, "native_local");
+  assert.equal(
+    state.backendLifecyclePlans[1].body.backend_process_ref,
+    "backend_process://backend.native.process",
+  );
+  assert.equal(
+    state.backendLifecyclePlans[1].body.backend_process_materialization_hash,
+    "sha256:backend-process-materialization",
+  );
+  assert.equal(
+    state.backendLifecyclePlans[1].body.backend_supervision_hash,
+    "sha256:backend-supervision",
+  );
+  assert.equal(
+    state.backendLifecyclePlans[1].body.process_supervision_owner,
+    "rust_daemon_core.model_mount.backend_process_supervisor",
+  );
   assert.deepEqual(state.backendLifecyclePlans[1].body.load_options, { contextLength: 1024 });
   assert.equal(Object.hasOwn(state.backendLifecyclePlans[1].body, "loadOptions"), false);
 
@@ -227,6 +378,8 @@ test("public backend lifecycle facades commit Rust-authored records", () => {
   }
   assert.equal(health.backend_status, "health_planned");
   assert.equal(started.backend_status, "start_planned");
+  assert.equal(started.backend_process_materialization_hash, "sha256:backend-process-materialization");
+  assert.equal(started.backend_supervision_status, "rust_external_process_supervision_contract_bound");
   assert.deepEqual(started.load_options, { contextLength: 1024 });
   assert.equal(stopped.backend_status, "stop_planned");
 
@@ -310,9 +463,14 @@ test("blocked backend public lifecycle start still commits through Rust boundary
   assert.equal(response.backend_id, "backend.blocked");
   assert.equal(response.rust_core_boundary, "model_mount.backend_lifecycle");
   assert.equal(state.backendLifecyclePlans.length, 1);
+  assert.equal(state.backendProcessMaterializationPlans.length, 1);
   assert.equal(state.backendLifecyclePlans[0].backend_id, "backend.blocked");
-  assert.equal(state.backendLifecyclePlans[0].backend_kind, null);
-  assert.equal(state.recordStateCommits.length, 1);
+  assert.equal(state.backendLifecyclePlans[0].backend_kind, "llama_cpp");
+  assert.equal(
+    state.backendLifecyclePlans[0].body.backend_process_materialization_hash,
+    "sha256:backend-process-materialization",
+  );
+  assert.equal(state.recordStateCommits.length, 2);
 });
 
 test("public backend logs delegate to Rust projection without lifecycle control or local log reads", () => {

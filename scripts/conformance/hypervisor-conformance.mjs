@@ -22246,7 +22246,7 @@ function runReceipts() {
     modelMountingState.match(/\n\s+backend\(backendId\) \{[\s\S]*?\n\s+\}/)?.[0] ?? "",
     modelMountingState.match(/\n\s+listBackends\(\) \{[\s\S]*?\n\s+\}/)?.[0] ?? "",
     modelMountingState.match(/\n\s+backendHealth\(backendId\) \{[\s\S]*?\n\s+writeBackendLog\(endpointId, event\) \{/)?.[0] ?? "",
-    modelMountingState.match(/function throwBackendLifecycleRustCoreRequired\(record = \{\}\) \{[\s\S]*?\n\}\n\nfunction commitBackendLifecycleForState\(state, operation_kind, details = \{\}\) \{[\s\S]*?\n\}\n\nfunction backendLifecycleControlBody\(value = \{\}\) \{[\s\S]*?\n\}/)?.[0] ?? "",
+    modelMountingState.match(/function throwBackendLifecycleRustCoreRequired\(record = \{\}\) \{[\s\S]*?\nfunction backendLifecycleControlBody\(value = \{\}\) \{[\s\S]*?\n\}/)?.[0] ?? "",
   ].join("\n");
   const backendLifecycleTest = exists("packages/runtime-daemon/src/model-mounting/backend-lifecycle.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/backend-lifecycle.test.mjs")
@@ -27682,6 +27682,15 @@ function runReceipts() {
       /commitBackendLifecycleForState\(this,\s*"model_mount\.backend\.start"/.test(
         backendLifecycle,
       ) &&
+      /planAndCommitBackendProcessMaterialization\(\s*this,\s*"model_mount\.backend_process\.materialize"/.test(
+        backendLifecycle,
+      ) &&
+      /backendProcessLifecycleBindingBody\(backendProcessMaterialization\)/.test(
+        backendLifecycle,
+      ) &&
+      /rustProjectedBackendForLifecycleStart\(state,\s*backendId\)/.test(backendLifecycle) &&
+      /backend_process_materialization_hash/.test(backendLifecycle) &&
+      /process_supervision_owner/.test(backendLifecycle) &&
       /commitBackendLifecycleForState\(this,\s*"model_mount\.backend\.stop"/.test(
         backendLifecycle,
       ) &&
@@ -27769,6 +27778,15 @@ function runReceipts() {
       /pub\(super\) fn backends/.test(modelMountCore) &&
       /pub\(super\) fn backend_logs/.test(modelMountCore) &&
       /rust_core_rejects_retired_backend_logs_read_control/.test(modelMountCore) &&
+      /rust_core_rejects_backend_lifecycle_start_without_process_supervision_binding/.test(
+        modelMountCore,
+      ) &&
+      /rust_backend_lifecycle_backend_process_materialization_bound/.test(modelMountCore) &&
+      /rust_backend_lifecycle_backend_process_supervision_bound/.test(modelMountCore) &&
+      /backend_lifecycle_start_js_process_control_retired/.test(modelMountCore) &&
+      /normalizeBackendLifecycleApiResult[\s\S]*backend_process_materialization_hash/.test(
+        modelMountDaemonCore,
+      ) &&
       /model_mount_backend_log_read_js_control_path_retired/.test(modelMountCore) &&
       !/listBackends\(\)\s*\{[\s\S]*?return this\.backendRegistry\(\)/.test(backendLifecycle) &&
       /url\.pathname === "\/v1\/model-mount\/backends"[\s\S]*?store\.modelMounting\.listBackends\(\)/.test(
@@ -27810,12 +27828,19 @@ function runReceipts() {
       /public backend lifecycle facades commit Rust-authored records/.test(
         backendLifecycleTest,
       ) &&
+      /state\.backendProcessMaterializationPlans\.map/.test(backendLifecycleTest) &&
+      /state\.recordStateCommits\.map\(\(request\) => request\.operation_kind\)[\s\S]*"model_mount\.backend_process\.materialize"/.test(
+        backendLifecycleTest,
+      ) &&
+      /started\.backend_process_materialization_hash/.test(backendLifecycleTest) &&
       /public backend lifecycle fails closed only when Rust positive planner is unavailable/.test(
         backendLifecycleTest,
       ) &&
       /Rust model_mount core sends positive backend lifecycle request/.test(
         modelMountCoreTest,
       ) &&
+      /result\.backend_process_materialization_hash/.test(modelMountCoreTest) &&
+      /rust_backend_lifecycle_backend_process_supervision_bound/.test(modelMountCoreTest) &&
       /state\.backendLifecyclePlans\[0\]\.schema_version/.test(backendLifecycleTest) &&
       /state\.recordStateCommits\.map/.test(backendLifecycleTest) &&
       /assert\.ok\(response\.evidence_refs\.includes\("rust_daemon_core_backend_lifecycle"\)\)/.test(backendLifecycleTest) &&

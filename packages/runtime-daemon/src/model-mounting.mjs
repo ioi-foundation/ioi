@@ -1927,12 +1927,33 @@ export class ModelMountingState {
   startBackend(backendId, body = {}) {
     const resolvedBackendId = requiredString(backendId, "backend_id");
     const source = body && typeof body === "object" && !Array.isArray(body) ? body : {};
+    const lifecycleBody = backendLifecycleControlBody({
+      ...source,
+      backend_id: resolvedBackendId,
+      load_options: source.load_options ?? source.loadOptions,
+    });
+    const backendDescriptor = backendLifecycleStartBackendDescriptor(this, resolvedBackendId, lifecycleBody);
+    const backendProcessMaterialization = planAndCommitBackendProcessMaterialization(
+      this,
+      "model_mount.backend_process.materialize",
+      {
+        backendId: resolvedBackendId,
+        backendKind: backendDescriptor.backend_kind,
+        baseUrl: lifecycleBody.base_url ?? backendDescriptor.base_url,
+        binaryConfigured: backendDescriptor.binary_configured,
+        loadOptions: lifecycleBody.load_options ?? {},
+        receipt_id: lifecycleBody.receipt_id,
+        receipt_refs: lifecycleBody.receipt_refs,
+        requiredScope: `backend.process:${resolvedBackendId}`,
+      },
+    );
     return commitBackendLifecycleForState(this, "model_mount.backend.start", {
       backend_id: resolvedBackendId,
       body: backendLifecycleControlBody({
-        ...source,
+        ...lifecycleBody,
         backend_id: resolvedBackendId,
-        load_options: source.load_options ?? source.loadOptions,
+        backend_kind: backendDescriptor.backend_kind,
+        ...backendProcessLifecycleBindingBody(backendProcessMaterialization),
       }),
     });
   }
@@ -2147,6 +2168,63 @@ function commitBackendLifecycleForState(state, operation_kind, details = {}) {
   };
 }
 
+function backendLifecycleStartBackendDescriptor(state, backendId, body = {}) {
+  const projectedBackend = optionalString(body.backend_kind)
+    ? null
+    : rustProjectedBackendForLifecycleStart(state, backendId);
+  return {
+    backend_kind: requiredString(
+      optionalString(body.backend_kind) ??
+        optionalString(projectedBackend?.kind ?? projectedBackend?.backend_kind),
+      "backend_kind",
+    ),
+    base_url: optionalString(body.base_url ?? projectedBackend?.base_url ?? projectedBackend?.baseUrl),
+    binary_configured: Boolean(
+      body.binary_configured ??
+        projectedBackend?.binary_configured ??
+        projectedBackend?.binaryConfigured ??
+        projectedBackend?.binary_path ??
+        projectedBackend?.binaryPath,
+    ),
+  };
+}
+
+function rustProjectedBackendForLifecycleStart(state, backendId) {
+  const projected = modelMountReadProjection(state, "backends");
+  if (!Array.isArray(projected)) return null;
+  return projected.find((backend) => backend?.id === backendId || backend?.backend_id === backendId) ?? null;
+}
+
+function backendProcessLifecycleBindingBody(materialization = {}) {
+  const record = materialization.record && typeof materialization.record === "object" && !Array.isArray(materialization.record)
+    ? materialization.record
+    : {};
+  const processSupervisionOwner =
+    materialization.process_supervision_owner ??
+    record.process_supervision_owner ??
+    record.supervision_contract?.process_supervision_owner ??
+    null;
+  if (processSupervisionOwner !== "rust_daemon_core.model_mount.backend_process_supervisor") {
+    throw runtimeError({
+      status: 502,
+      code: "model_mount_backend_lifecycle_backend_process_supervision_owner_required",
+      message: "Backend lifecycle start requires a Rust backend-process supervision owner.",
+      details: {
+        rust_core_boundary: "model_mount.backend_lifecycle",
+        backend_process_materialization_source: materialization.source ?? null,
+      },
+    });
+  }
+  return {
+    backend_process_ref: requiredBackendProcessMaterializationRef(materialization),
+    backend_process_materialization_hash: requiredBackendProcessMaterializationHash(materialization),
+    backend_supervision_ref: requiredBackendProcessSupervisionRef(materialization),
+    backend_supervision_hash: requiredBackendProcessSupervisionHash(materialization),
+    backend_supervision_status: requiredBackendProcessSupervisionStatus(materialization),
+    process_supervision_owner: processSupervisionOwner,
+  };
+}
+
 function backendLifecycleControlBody(value = {}) {
   const source = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   const body = {};
@@ -2155,11 +2233,18 @@ function backendLifecycleControlBody(value = {}) {
     "backend_kind",
     "receipt_id",
     "base_url",
+    "binary_configured",
     "status",
     "reason",
     "limit",
     "details",
     "load_options",
+    "backend_process_ref",
+    "backend_process_materialization_hash",
+    "backend_supervision_ref",
+    "backend_supervision_hash",
+    "backend_supervision_status",
+    "process_supervision_owner",
     "receipt_refs",
   ]) {
     if (Object.hasOwn(source, field) && source[field] !== undefined) body[field] = source[field];

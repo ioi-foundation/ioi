@@ -341,6 +341,18 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
     },
     planModelMountBackendLifecycle(request) {
       modelMountCalls.push({ method: "planModelMountBackendLifecycle", request });
+      const evidenceRefs = [
+        "public_backend_lifecycle_js_facade_retired",
+        "rust_daemon_core_backend_lifecycle",
+        "agentgres_backend_lifecycle_truth_required",
+      ];
+      if (request.operation_kind === "model_mount.backend.start") {
+        evidenceRefs.push(
+          "rust_backend_lifecycle_backend_process_materialization_bound",
+          "rust_backend_lifecycle_backend_process_supervision_bound",
+          "backend_lifecycle_start_js_process_control_retired",
+        );
+      }
       const record = {
         id: "backend-lifecycle-control:direct",
         object: "ioi.model_mount_backend_lifecycle_record",
@@ -348,12 +360,18 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
         backend_kind: request.backend_kind,
         operation_kind: request.operation_kind,
         rust_core_boundary: "model_mount.backend_lifecycle",
+        ...(request.operation_kind === "model_mount.backend.start"
+          ? {
+              backend_process_ref: request.body?.backend_process_ref ?? null,
+              backend_process_materialization_hash: request.body?.backend_process_materialization_hash ?? null,
+              backend_supervision_ref: request.body?.backend_supervision_ref ?? null,
+              backend_supervision_hash: request.body?.backend_supervision_hash ?? null,
+              backend_supervision_status: request.body?.backend_supervision_status ?? null,
+              process_supervision_owner: request.body?.process_supervision_owner ?? null,
+            }
+          : {}),
         receipt_refs: request.receipt_refs ?? [],
-        evidence_refs: [
-          "public_backend_lifecycle_js_facade_retired",
-          "rust_daemon_core_backend_lifecycle",
-          "agentgres_backend_lifecycle_truth_required",
-        ],
+        evidence_refs: evidenceRefs,
       };
       const publicResponse = {
         object: "ioi.model_mount_backend_lifecycle",
@@ -363,6 +381,16 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
         operation_kind: request.operation_kind,
         rust_core_boundary: "model_mount.backend_lifecycle",
         backend_status: "start_planned",
+        ...(request.operation_kind === "model_mount.backend.start"
+          ? {
+              backend_process_ref: request.body?.backend_process_ref ?? null,
+              backend_process_materialization_hash: request.body?.backend_process_materialization_hash ?? null,
+              backend_supervision_ref: request.body?.backend_supervision_ref ?? null,
+              backend_supervision_hash: request.body?.backend_supervision_hash ?? null,
+              backend_supervision_status: request.body?.backend_supervision_status ?? null,
+              process_supervision_owner: request.body?.process_supervision_owner ?? null,
+            }
+          : {}),
         js_backend_registry_read: false,
         js_process_control: false,
         js_log_read: false,
@@ -2227,6 +2255,12 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
     body: {
       backend_id: "backend.llama",
       backend_kind: "llama_cpp",
+      backend_process_ref: backendProcessMaterialization.backend_process_ref,
+      backend_process_materialization_hash: backendProcessMaterialization.materialization_hash,
+      backend_supervision_ref: backendProcessMaterialization.backend_supervision_ref,
+      backend_supervision_hash: backendProcessMaterialization.backend_supervision_hash,
+      backend_supervision_status: backendProcessMaterialization.backend_supervision_status,
+      process_supervision_owner: backendProcessMaterialization.record.process_supervision_owner,
     },
     receipt_refs: ["receipt://backend-lifecycle/direct"],
   });

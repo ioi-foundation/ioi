@@ -11830,6 +11830,27 @@ injection into outbound hosted requests, live external backend binary process
 launch/supervision implementation, and deeper invocation authority still need
 terminal Rust-owned execution coverage.
 
+Slice 1376 hard-cuts public backend lifecycle start onto the Rust
+backend-process materialization/supervision contract. `startBackend()` now
+requires a Rust `planModelMountBackendProcessMaterialization` record-state
+commit before backend lifecycle truth can commit, resolves backend identity from
+canonical request input or Rust backend read projection rather than a JS backend
+registry, and forwards only the Rust materialization `backend_process_ref`,
+`backend_process_materialization_hash`, `backend_supervision_ref/hash/status`,
+and `process_supervision_owner` into the backend-lifecycle request. Rust
+`plan_model_mount_backend_lifecycle` rejects `model_mount.backend.start`
+without that process/supervision binding, records the binding in the
+Agentgres `model-backend-lifecycle-controls` record/public response, and emits
+`rust_backend_lifecycle_backend_process_materialization_bound`,
+`rust_backend_lifecycle_backend_process_supervision_bound`, and
+`backend_lifecycle_start_js_process_control_retired` evidence. Focused
+JS/Rust tests and conformance guard the two-record start path, the direct typed
+API normalizer, and the absence of restored JS process control. This remains
+non-terminal because live hosted network I/O, live cTEE secret injection into
+outbound hosted requests, live external backend binary process
+launch/supervision implementation, and deeper invocation authority still need
+terminal Rust-owned execution coverage.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

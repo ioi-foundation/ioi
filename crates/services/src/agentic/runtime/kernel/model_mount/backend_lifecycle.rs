@@ -7,6 +7,19 @@ use super::{
     MODEL_MOUNT_BACKEND_LIFECYCLE_SCHEMA_VERSION,
 };
 
+const RUST_BACKEND_PROCESS_SUPERVISION_OWNER: &str =
+    "rust_daemon_core.model_mount.backend_process_supervisor";
+
+#[derive(Debug, Clone, PartialEq)]
+struct BackendStartProcessBinding {
+    backend_process_ref: String,
+    backend_process_materialization_hash: String,
+    backend_supervision_ref: String,
+    backend_supervision_hash: String,
+    backend_supervision_status: String,
+    process_supervision_owner: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ModelMountBackendLifecycleRequest {
     pub schema_version: String,
@@ -116,8 +129,13 @@ pub(super) fn plan_backend_lifecycle(
         .as_ref()
         .and_then(|value| non_empty_string(value))
         .or_else(|| string_field(body, "backend_kind"));
+    let backend_start_process_binding = if operation_kind == "model_mount.backend.start" {
+        Some(backend_start_process_binding(body)?)
+    } else {
+        None
+    };
     let body_hash = hash_json(&request.body)?;
-    let control_seed = json!({
+    let mut control_seed = json!({
         "operation_kind": operation_kind,
         "backend_id": backend_id,
         "backend_kind": backend_kind,
@@ -125,17 +143,29 @@ pub(super) fn plan_backend_lifecycle(
         "source": source,
         "generated_at": generated_at,
     });
+    if let (Some(seed), Some(binding)) = (
+        control_seed.as_object_mut(),
+        backend_start_process_binding.as_ref(),
+    ) {
+        insert_backend_start_process_binding(seed, binding);
+    }
     let control_hash = format!("sha256:{}", hash_json(&control_seed)?);
     let record_id = format!(
         "backend-lifecycle-control:{}",
         &control_hash["sha256:".len()..24]
     );
     let receipt_refs = non_empty_vec(&request.receipt_refs);
-    let evidence_refs = backend_lifecycle_evidence_refs();
-    let public_response = public_response_for(&operation_kind, body, &backend_id, &backend_kind);
+    let evidence_refs = backend_lifecycle_evidence_refs(&operation_kind);
+    let public_response = public_response_for(
+        &operation_kind,
+        body,
+        &backend_id,
+        &backend_kind,
+        backend_start_process_binding.as_ref(),
+    );
     let mut record_receipt_refs = receipt_refs.clone();
     push_unique_ref(&mut record_receipt_refs, &control_hash);
-    let record = json!({
+    let mut record = json!({
         "schema_version": MODEL_MOUNT_BACKEND_LIFECYCLE_PLAN_SCHEMA_VERSION,
         "object": "ioi.model_mount_backend_lifecycle_record",
         "id": record_id,
@@ -152,6 +182,12 @@ pub(super) fn plan_backend_lifecycle(
         "receipt_refs": record_receipt_refs,
         "evidence_refs": evidence_refs,
     });
+    if let (Some(record), Some(binding)) = (
+        record.as_object_mut(),
+        backend_start_process_binding.as_ref(),
+    ) {
+        insert_backend_start_process_binding(record, binding);
+    }
     Ok(ModelMountBackendLifecyclePlan {
         schema_version: MODEL_MOUNT_BACKEND_LIFECYCLE_PLAN_SCHEMA_VERSION.to_string(),
         object: "ioi.model_mount_backend_lifecycle_plan".to_string(),
@@ -174,6 +210,7 @@ fn public_response_for(
     body: &Map<String, Value>,
     backend_id: &str,
     backend_kind: &Option<String>,
+    backend_start_process_binding: Option<&BackendStartProcessBinding>,
 ) -> Value {
     let base = json!({
         "object": "ioi.model_mount_backend_lifecycle",
@@ -209,6 +246,9 @@ fn public_response_for(
             if let Some(load_options) = body.get("load_options") {
                 response.insert("load_options".to_string(), load_options.clone());
             }
+            if let Some(binding) = backend_start_process_binding {
+                insert_backend_start_process_binding(&mut response, binding);
+            }
         }
         "model_mount.backend.stop" => {
             response.insert(
@@ -228,12 +268,68 @@ fn backend_lifecycle_operation_supported(operation_kind: &str) -> bool {
     )
 }
 
-fn backend_lifecycle_evidence_refs() -> Vec<String> {
-    vec![
+fn backend_lifecycle_evidence_refs(operation_kind: &str) -> Vec<String> {
+    let mut refs = vec![
         "public_backend_lifecycle_js_facade_retired".to_string(),
         "rust_daemon_core_backend_lifecycle".to_string(),
         "agentgres_backend_lifecycle_truth_required".to_string(),
-    ]
+    ];
+    if operation_kind == "model_mount.backend.start" {
+        refs.push("rust_backend_lifecycle_backend_process_materialization_bound".to_string());
+        refs.push("rust_backend_lifecycle_backend_process_supervision_bound".to_string());
+        refs.push("backend_lifecycle_start_js_process_control_retired".to_string());
+    }
+    refs
+}
+
+fn backend_start_process_binding(
+    body: &Map<String, Value>,
+) -> Result<BackendStartProcessBinding, ModelMountError> {
+    let process_supervision_owner = required_string_field(body, "process_supervision_owner")?;
+    if process_supervision_owner != RUST_BACKEND_PROCESS_SUPERVISION_OWNER {
+        return Err(ModelMountError::MissingField("process_supervision_owner"));
+    }
+    Ok(BackendStartProcessBinding {
+        backend_process_ref: required_string_field(body, "backend_process_ref")?,
+        backend_process_materialization_hash: required_string_field(
+            body,
+            "backend_process_materialization_hash",
+        )?,
+        backend_supervision_ref: required_string_field(body, "backend_supervision_ref")?,
+        backend_supervision_hash: required_string_field(body, "backend_supervision_hash")?,
+        backend_supervision_status: required_string_field(body, "backend_supervision_status")?,
+        process_supervision_owner,
+    })
+}
+
+fn insert_backend_start_process_binding(
+    target: &mut Map<String, Value>,
+    binding: &BackendStartProcessBinding,
+) {
+    target.insert(
+        "backend_process_ref".to_string(),
+        Value::String(binding.backend_process_ref.clone()),
+    );
+    target.insert(
+        "backend_process_materialization_hash".to_string(),
+        Value::String(binding.backend_process_materialization_hash.clone()),
+    );
+    target.insert(
+        "backend_supervision_ref".to_string(),
+        Value::String(binding.backend_supervision_ref.clone()),
+    );
+    target.insert(
+        "backend_supervision_hash".to_string(),
+        Value::String(binding.backend_supervision_hash.clone()),
+    );
+    target.insert(
+        "backend_supervision_status".to_string(),
+        Value::String(binding.backend_supervision_status.clone()),
+    );
+    target.insert(
+        "process_supervision_owner".to_string(),
+        Value::String(binding.process_supervision_owner.clone()),
+    );
 }
 
 fn object_or_empty(value: &Value) -> &Map<String, Value> {
@@ -255,6 +351,13 @@ fn string_field(map: &Map<String, Value>, field: &str) -> Option<String> {
         .and_then(non_empty_string)
 }
 
+fn required_string_field(
+    map: &Map<String, Value>,
+    field: &'static str,
+) -> Result<String, ModelMountError> {
+    string_field(map, field).ok_or(ModelMountError::MissingField(field))
+}
+
 fn hash_json(value: &Value) -> Result<String, ModelMountError> {
     serde_json::to_vec(value)
         .map_err(|error| ModelMountError::HashFailed(error.to_string()))
@@ -273,6 +376,40 @@ mod tests {
     use super::*;
 
     fn request(operation_kind: &str) -> ModelMountBackendLifecycleRequest {
+        let mut body = json!({
+            "backend_id": "backend.llama_cpp",
+            "backend_kind": "llama_cpp",
+            "load_options": { "context_length": 4096 },
+        });
+        if operation_kind == "model_mount.backend.start" {
+            let body = body.as_object_mut().expect("request body");
+            body.insert(
+                "backend_process_ref".to_string(),
+                Value::String("backend_process://backend.llama_cpp.process".to_string()),
+            );
+            body.insert(
+                "backend_process_materialization_hash".to_string(),
+                Value::String("sha256:backend-process-materialization".to_string()),
+            );
+            body.insert(
+                "backend_supervision_ref".to_string(),
+                Value::String(
+                    "backend_supervision://backend.llama_cpp.process#sha256:plan".to_string(),
+                ),
+            );
+            body.insert(
+                "backend_supervision_hash".to_string(),
+                Value::String("sha256:backend-supervision".to_string()),
+            );
+            body.insert(
+                "backend_supervision_status".to_string(),
+                Value::String("rust_external_process_supervision_contract_bound".to_string()),
+            );
+            body.insert(
+                "process_supervision_owner".to_string(),
+                Value::String(RUST_BACKEND_PROCESS_SUPERVISION_OWNER.to_string()),
+            );
+        }
         ModelMountBackendLifecycleRequest {
             schema_version: MODEL_MOUNT_BACKEND_LIFECYCLE_SCHEMA_VERSION.to_string(),
             operation_kind: operation_kind.to_string(),
@@ -280,11 +417,7 @@ mod tests {
             backend_kind: Some("llama_cpp".to_string()),
             source: Some("runtime-daemon.model_mounting.backend_lifecycle".to_string()),
             generated_at: Some("2026-06-13T12:00:00.000Z".to_string()),
-            body: json!({
-                "backend_id": "backend.llama_cpp",
-                "backend_kind": "llama_cpp",
-                "load_options": { "context_length": 4096 },
-            }),
+            body,
             receipt_refs: vec!["receipt://backend-lifecycle".to_string()],
         }
     }
@@ -304,12 +437,31 @@ mod tests {
         assert_eq!(plan.record["backend_id"], "backend.llama_cpp");
         assert_eq!(plan.public_response["backend_status"], "start_planned");
         assert_eq!(plan.public_response["js_process_control"], false);
+        assert_eq!(
+            plan.record["backend_process_ref"],
+            "backend_process://backend.llama_cpp.process"
+        );
+        assert_eq!(
+            plan.record["backend_process_materialization_hash"],
+            "sha256:backend-process-materialization"
+        );
+        assert_eq!(
+            plan.public_response["backend_supervision_hash"],
+            "sha256:backend-supervision"
+        );
+        assert_eq!(
+            plan.public_response["process_supervision_owner"],
+            RUST_BACKEND_PROCESS_SUPERVISION_OWNER
+        );
         assert!(plan
             .evidence_refs
             .contains(&"rust_daemon_core_backend_lifecycle".to_string()));
         assert!(plan
             .evidence_refs
             .contains(&"agentgres_backend_lifecycle_truth_required".to_string()));
+        assert!(plan
+            .evidence_refs
+            .contains(&"rust_backend_lifecycle_backend_process_supervision_bound".to_string()));
     }
 
     #[test]
@@ -331,6 +483,21 @@ mod tests {
             error,
             ModelMountError::UnsupportedBackendLifecycleOperation
         ));
+    }
+
+    #[test]
+    fn rust_core_rejects_backend_lifecycle_start_without_process_supervision_binding() {
+        let mut request = request("model_mount.backend.start");
+        request
+            .body
+            .as_object_mut()
+            .expect("request body")
+            .remove("backend_supervision_hash");
+
+        assert_eq!(
+            plan_backend_lifecycle(&request).unwrap_err(),
+            ModelMountError::MissingField("backend_supervision_hash")
+        );
     }
 
     #[test]

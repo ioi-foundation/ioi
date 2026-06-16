@@ -677,6 +677,12 @@ function normalizeBackendProcessMaterializationApiResult(value = {}) {
     evidence_refs: arrayOrNull(result.evidence_refs) ?? arrayOrNull(plan.evidence_refs),
     materialization_hash: result.materialization_hash ?? plan.materialization_hash ?? null,
     authority_hash: result.authority_hash ?? plan.authority_hash ?? null,
+    backend_process_ref:
+      result.backend_process_ref ??
+      plan.backend_process_ref ??
+      record?.backend_process_ref ??
+      publicResponse?.backend_process_ref ??
+      null,
     backend_supervision_ref:
       result.backend_supervision_ref ??
       plan.backend_supervision_ref ??
@@ -809,18 +815,34 @@ function normalizeBackendLifecycleApiResult(value = {}) {
     : plan.record && typeof plan.record === "object" && !Array.isArray(plan.record)
       ? plan.record
       : null;
+  const publicResponse = result.public_response ?? plan.public_response ?? null;
   const normalized = {
     source: result.source ?? "rust_daemon_core.model_mount.backend_lifecycle",
     plan,
     record_dir: result.record_dir ?? plan.record_dir ?? null,
     record_id: result.record_id ?? plan.record_id ?? null,
     record,
-    public_response: result.public_response ?? plan.public_response ?? null,
+    public_response: publicResponse,
     operation_kind: result.operation_kind ?? plan.operation_kind ?? null,
     rust_core_boundary: result.rust_core_boundary ?? plan.rust_core_boundary ?? null,
     receipt_refs: arrayOrNull(result.receipt_refs) ?? arrayOrNull(plan.receipt_refs) ?? [],
     evidence_refs: arrayOrNull(result.evidence_refs) ?? arrayOrNull(plan.evidence_refs),
     control_hash: result.control_hash ?? plan.control_hash ?? null,
+    backend_process_ref: result.backend_process_ref ?? record?.backend_process_ref ?? publicResponse?.backend_process_ref ?? null,
+    backend_process_materialization_hash:
+      result.backend_process_materialization_hash ??
+      record?.backend_process_materialization_hash ??
+      publicResponse?.backend_process_materialization_hash ??
+      null,
+    backend_supervision_ref:
+      result.backend_supervision_ref ?? record?.backend_supervision_ref ?? publicResponse?.backend_supervision_ref ?? null,
+    backend_supervision_hash:
+      result.backend_supervision_hash ?? record?.backend_supervision_hash ?? publicResponse?.backend_supervision_hash ?? null,
+    backend_supervision_status:
+      result.backend_supervision_status ??
+      record?.backend_supervision_status ??
+      publicResponse?.backend_supervision_status ??
+      null,
   };
   const missing = [];
   for (const field of ["record_dir", "record_id", "record", "operation_kind", "control_hash"]) {
@@ -840,6 +862,34 @@ function normalizeBackendLifecycleApiResult(value = {}) {
     !normalized.evidence_refs.includes("agentgres_backend_lifecycle_truth_required")
   ) {
     missing.push("evidence_refs.agentgres_backend_lifecycle_truth_required");
+  }
+  if (normalized.operation_kind === "model_mount.backend.start") {
+    for (const field of [
+      "backend_process_ref",
+      "backend_process_materialization_hash",
+      "backend_supervision_ref",
+      "backend_supervision_hash",
+      "backend_supervision_status",
+    ]) {
+      if (!normalized[field]) missing.push(field);
+      if (!record?.[field]) missing.push(`record.${field}`);
+      if (!publicResponse?.[field]) missing.push(`public_response.${field}`);
+    }
+    if (record?.process_supervision_owner !== "rust_daemon_core.model_mount.backend_process_supervisor") {
+      missing.push("record.process_supervision_owner");
+    }
+    if (publicResponse?.process_supervision_owner !== "rust_daemon_core.model_mount.backend_process_supervisor") {
+      missing.push("public_response.process_supervision_owner");
+    }
+    for (const ref of [
+      "rust_backend_lifecycle_backend_process_materialization_bound",
+      "rust_backend_lifecycle_backend_process_supervision_bound",
+      "backend_lifecycle_start_js_process_control_retired",
+    ]) {
+      if (!Array.isArray(normalized.evidence_refs) || !normalized.evidence_refs.includes(ref)) {
+        missing.push(`evidence_refs.${ref}`);
+      }
+    }
   }
   if (missing.length > 0) {
     const error = new Error("Rust model_mount backend-lifecycle plan is incomplete.");
