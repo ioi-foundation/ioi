@@ -2,7 +2,6 @@ import {
   CODING_TOOL_BUDGET_POLICY_REQUEST_SCHEMA_VERSION,
   COMPACTION_POLICY_REQUEST_SCHEMA_VERSION,
   CONTEXT_BUDGET_POLICY_REQUEST_SCHEMA_VERSION,
-  createRuntimeContextPolicyCore,
 } from "../runtime-context-policy-core.mjs";
 
 export function contextBudgetUsageTelemetryFromRequest(request = {}) {
@@ -19,7 +18,7 @@ export function codingToolBudgetPolicyForRequest({
   toolCallId = null,
   workflowGraphId = null,
   workflowNodeId = null,
-  budgetRunner = createRuntimeContextPolicyCore(),
+  budgetRunner = null,
 } = {}) {
   const codingPack = codingToolBudgetConfigForRequest(request);
   const usageTelemetry = contextBudgetFirstObject(
@@ -55,6 +54,11 @@ export function codingToolBudgetPolicyForRequest({
   ].some((value) => contextBudgetNumber(value) !== null);
   if (!hasBudgetLimit) return null;
 
+  const runner = requiredContextBudgetPolicyRunner(
+    budgetRunner,
+    "evaluateCodingToolBudgetPolicy",
+    "coding_tool_budget_policy",
+  );
   const mode = contextBudgetMode(
     optionalString(
       request.budget_mode ??
@@ -62,7 +66,7 @@ export function codingToolBudgetPolicyForRequest({
         codingPack.budget_mode,
     ) ?? "simulate",
   );
-  return budgetRunner.evaluateCodingToolBudgetPolicy({
+  return runner.evaluateCodingToolBudgetPolicy({
     schema_version: CODING_TOOL_BUDGET_POLICY_REQUEST_SCHEMA_VERSION,
     usage_telemetry: usageTelemetry,
     thresholds: {
@@ -104,8 +108,13 @@ export function codingToolBudgetConfigForRequest(request = {}) {
 export function evaluateContextBudgetPolicy({
   usageTelemetry,
   request = {},
-  budgetRunner = createRuntimeContextPolicyCore(),
+  budgetRunner = null,
 } = {}) {
+  const runner = requiredContextBudgetPolicyRunner(
+    budgetRunner,
+    "evaluateContextBudgetPolicy",
+    "context_budget_policy",
+  );
   const canonicalUsageTelemetry = contextBudgetFirstObject(usageTelemetry) ?? {};
   const thresholds = contextBudgetThresholds(request);
   const mode = contextBudgetMode(request.mode);
@@ -124,7 +133,7 @@ export function evaluateContextBudgetPolicy({
     optionalString(canonicalUsageTelemetry.run_id) ??
     null;
   const turnId = optionalString(request.turn_id) ?? null;
-  return budgetRunner.evaluateContextBudgetPolicy({
+  return runner.evaluateContextBudgetPolicy({
     schema_version: CONTEXT_BUDGET_POLICY_REQUEST_SCHEMA_VERSION,
     usage_telemetry: canonicalUsageTelemetry,
     thresholds: {
@@ -196,14 +205,19 @@ export function evaluateCompactionPolicyDecision({
   threadId,
   turnId = "",
   request = {},
-  policyRunner = createRuntimeContextPolicyCore(),
+  policyRunner = null,
 } = {}) {
+  const runner = requiredContextBudgetPolicyRunner(
+    policyRunner,
+    "evaluateCompactionPolicy",
+    "compaction_policy",
+  );
   const policy = contextBudgetFirstObject(request.policy, request.compaction_policy) ?? {};
   const contextBudget = contextBudgetFirstObject(
     request.context_budget,
     request.runtime_context_budget,
   ) ?? {};
-  return policyRunner.evaluateCompactionPolicy({
+  return runner.evaluateCompactionPolicy({
     schema_version: COMPACTION_POLICY_REQUEST_SCHEMA_VERSION,
     thread_id: threadId,
     turn_id: turnId || null,
@@ -272,4 +286,25 @@ function optionalString(value) {
 function operatorControlSource(value) {
   const source = optionalString(value);
   return ["cli_tui", "react_flow", "sdk_client", "runtime_auto", "mcp_serve"].includes(source) ? source : "sdk_client";
+}
+
+function requiredContextBudgetPolicyRunner(runner, method, operation) {
+  if (typeof runner?.[method] === "function") return runner;
+  const error = new Error(
+    "Runtime context-budget policy evaluation requires the daemon-mounted Rust context policy core.",
+  );
+  error.status = 501;
+  error.code = "runtime_context_budget_policy_rust_core_required";
+  error.details = {
+    rust_core_boundary: "runtime.context_budget_policy",
+    operation,
+    required_mount: "contextPolicyCore",
+    required_method: method,
+    evidence_refs: [
+      "context_budget_policy_self_core_fallback_retired",
+      "rust_daemon_core_context_budget_policy_required",
+      "agentgres_context_policy_truth_required",
+    ],
+  };
+  throw error;
 }

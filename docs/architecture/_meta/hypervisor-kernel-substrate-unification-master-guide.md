@@ -10673,6 +10673,23 @@ absence of MCP self-core defaults, and the manager's fail-closed explicit-core
 requirement. Remaining work is broader non-MCP SDK route-family protocol
 coverage and durable MCP replay/storage depth, not another MCP core fallback.
 
+Slice 1321 hard-cuts the runtime context/memory auxiliary self-core and planner
+alias fallbacks. Coding-tool invocation now passes the daemon-owned
+`contextPolicyCore` into coding-tool budget policy preflight, and the
+context-budget policy helpers no longer self-create `RuntimeContextPolicyCore`
+for context-budget, coding-tool budget, or compaction-policy evaluation.
+Workflow-only context-budget projection likewise requires the constructor-mounted
+core instead of silently creating a duplicate helper core. The coding-tool
+governance budget-block surface now accepts only the positive
+`contextPolicyCore` mount and ignores the retired `codingToolBudgetBlockPlanner`
+constructor alias, so budget-block truth cannot return through an alternate
+planner. Thread-control construction defaults its core to `null` rather than a
+self-created policy core, and memory-manager status/validation helpers require
+an explicit daemon-mounted core instead of constructing one locally. Focused
+tests and conformance guard the retired self-core defaults, the retired planner
+alias, and the daemon injection path. Remaining work is durable policy/memory
+replay and wallet/cTEE authority depth, not another helper-owned core fallback.
+
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,
 `/v1/memory/policy`, `/v1/memory/path`, or `/v1/memory/validate`; the daemon

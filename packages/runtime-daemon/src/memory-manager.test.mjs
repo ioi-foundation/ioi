@@ -85,6 +85,29 @@ test("memory manager status and validation expose canonical fields only", () => 
   }
 });
 
+test("memory manager projections require explicit daemon-mounted Rust core", () => {
+  for (const invoke of [
+    () => memoryStatusForProjection({ records: [] }),
+    () => validateMemoryProjection({ records: [] }),
+  ]) {
+    assert.throws(
+      invoke,
+      (error) => {
+        assert.equal(error.status, 501);
+        assert.equal(error.code, "runtime_memory_manager_rust_core_required");
+        assert.equal(error.details.rust_core_boundary, "runtime.memory_manager");
+        assert.equal(error.details.required_mount, "contextPolicyCore");
+        assert.deepEqual(error.details.evidence_refs, [
+          "memory_manager_self_core_fallback_retired",
+          "rust_daemon_core_memory_manager_projection_required",
+          "agentgres_memory_projection_truth_required",
+        ]);
+        return true;
+      },
+    );
+  }
+});
+
 test("memory manager rows ignore retired identity and ref aliases", () => {
   const rows = memoryRowsForStatus({
     status: "ready",

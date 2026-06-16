@@ -306,6 +306,54 @@ test("context budget policy warns in simulate mode and blocks in block mode", ()
   assert.match(blocked.summary, /Context budget blocked/);
 });
 
+test("context budget policy helpers require explicit daemon-mounted Rust core", () => {
+  assert.throws(
+    () => evaluateContextBudgetPolicy({
+      usageTelemetry: { total_tokens: 120, thread_id: "thread-1" },
+      request: { max_total_tokens: 100 },
+    }),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "runtime_context_budget_policy_rust_core_required");
+      assert.equal(error.details.rust_core_boundary, "runtime.context_budget_policy");
+      assert.equal(error.details.operation, "context_budget_policy");
+      assert.equal(error.details.required_mount, "contextPolicyCore");
+      return true;
+    },
+  );
+  assert.throws(
+    () => codingToolBudgetPolicyForRequest({
+      request: {
+        budget_usage_telemetry: { total_tokens: 120 },
+        max_total_tokens: 100,
+      },
+    }),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "runtime_context_budget_policy_rust_core_required");
+      assert.equal(error.details.operation, "coding_tool_budget_policy");
+      return true;
+    },
+  );
+  assert.throws(
+    () => evaluateCompactionPolicyDecision({
+      threadId: "thread-1",
+      request: { context_budget_status: "blocked" },
+    }),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "runtime_context_budget_policy_rust_core_required");
+      assert.equal(error.details.operation, "compaction_policy");
+      assert.deepEqual(error.details.evidence_refs, [
+        "context_budget_policy_self_core_fallback_retired",
+        "rust_daemon_core_context_budget_policy_required",
+        "agentgres_context_policy_truth_required",
+      ]);
+      return true;
+    },
+  );
+});
+
 test("context budget policy ignores retired identity request aliases", () => {
   let capturedRequest = null;
   const result = evaluateContextBudgetPolicy({

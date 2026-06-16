@@ -4,7 +4,7 @@ import {
 
 export function createRuntimeCodingToolGovernanceSurface(deps = {}) {
   const {
-    codingToolBudgetBlockPlanner = deps.contextPolicyCore ?? null,
+    contextPolicyCore = null,
     runtimeError = ({ status = 500, code = "runtime_error", message = code, details = {} } = {}) => {
       const error = new Error(message);
       error.status = status;
@@ -44,7 +44,7 @@ export function createRuntimeCodingToolGovernanceSurface(deps = {}) {
     artifactRefs = [],
     codingToolIdempotencyKey,
   }) {
-    if (!codingToolBudgetBlockPlanner?.planCodingToolBudgetBlock) {
+    if (!contextPolicyCore?.planCodingToolBudgetBlock) {
       throwGovernanceRustCoreRequired("coding_tool_budget_block", "policy.blocked", {
         thread_id: threadId,
         turn_id: turnId || null,
@@ -62,7 +62,7 @@ export function createRuntimeCodingToolGovernanceSurface(deps = {}) {
         ],
       });
     }
-    return codingToolBudgetBlockPlanner.planCodingToolBudgetBlock({
+    return contextPolicyCore.planCodingToolBudgetBlock({
       thread_id: threadId,
       turn_id: turnId || null,
       tool_id: optionalString(toolId) ?? null,

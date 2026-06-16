@@ -1,5 +1,3 @@
-import { createRuntimeContextPolicyCore } from "./runtime-context-policy-core.mjs";
-
 export const RUNTIME_MEMORY_MANAGER_STATUS_SCHEMA_VERSION =
   "ioi.runtime.memory-manager-status.v1";
 export const RUNTIME_MEMORY_MANAGER_VALIDATION_SCHEMA_VERSION =
@@ -8,8 +6,11 @@ export const RUNTIME_MEMORY_MANAGER_MUTATION_SCHEMA_VERSION =
   "ioi.runtime.memory-manager-mutation.v1";
 
 export function memoryStatusForProjection(projection = {}, options = {}) {
-  const contextPolicyCore =
-    options.contextPolicyCore ?? createRuntimeContextPolicyCore();
+  const contextPolicyCore = requiredMemoryManagerContextPolicyCore(
+    options,
+    "planMemoryManagerStatusProjection",
+    "memory_manager_status_projection",
+  );
   return contextPolicyCore.planMemoryManagerStatusProjection({
     status_schema_version: RUNTIME_MEMORY_MANAGER_STATUS_SCHEMA_VERSION,
     validation_schema_version: RUNTIME_MEMORY_MANAGER_VALIDATION_SCHEMA_VERSION,
@@ -18,8 +19,11 @@ export function memoryStatusForProjection(projection = {}, options = {}) {
 }
 
 export function validateMemoryProjection(projection = {}, options = {}) {
-  const contextPolicyCore =
-    options.contextPolicyCore ?? createRuntimeContextPolicyCore();
+  const contextPolicyCore = requiredMemoryManagerContextPolicyCore(
+    options,
+    "planMemoryManagerValidationProjection",
+    "memory_manager_validation_projection",
+  );
   return contextPolicyCore.planMemoryManagerValidationProjection({
     validation_schema_version: RUNTIME_MEMORY_MANAGER_VALIDATION_SCHEMA_VERSION,
     projection,
@@ -95,4 +99,26 @@ function normalizeArray(value) {
 
 function safeId(value) {
   return String(value ?? "runtime").replace(/[^a-zA-Z0-9_.-]+/g, "_");
+}
+
+function requiredMemoryManagerContextPolicyCore(options = {}, method, operation) {
+  const contextPolicyCore = options.contextPolicyCore ?? null;
+  if (typeof contextPolicyCore?.[method] === "function") return contextPolicyCore;
+  const error = new Error(
+    "Runtime memory-manager projection requires the daemon-mounted Rust context policy core.",
+  );
+  error.status = 501;
+  error.code = "runtime_memory_manager_rust_core_required";
+  error.details = {
+    rust_core_boundary: "runtime.memory_manager",
+    operation,
+    required_mount: "contextPolicyCore",
+    required_method: method,
+    evidence_refs: [
+      "memory_manager_self_core_fallback_retired",
+      "rust_daemon_core_memory_manager_projection_required",
+      "agentgres_memory_projection_truth_required",
+    ],
+  };
+  throw error;
 }

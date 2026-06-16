@@ -711,7 +711,11 @@ export class AgentgresRuntimeStateStore {
       codingToolApprovalManifestForThread: codingToolApprovalPolicy.codingToolApprovalManifestForThread,
       codingToolApprovalBlockForThread: codingToolApprovalPolicy.codingToolApprovalBlockForThread,
       codingToolApprovalSatisfactionForThread: codingToolApprovalPolicy.codingToolApprovalSatisfactionForThread,
-      codingToolBudgetPolicyForRequest,
+      codingToolBudgetPolicyForRequest: (request = {}) =>
+        codingToolBudgetPolicyForRequest({
+          ...request,
+          budgetRunner: this.contextPolicyCore,
+        }),
       codingToolResultWithoutDrafts,
       diagnosticsRepairContextForRequest,
       diagnosticsRepairContextForToolPack,
@@ -748,7 +752,7 @@ export class AgentgresRuntimeStateStore {
       threadModeForRunMode,
     });
     this.codingToolGovernanceSurface = createRuntimeCodingToolGovernanceSurface({
-      codingToolBudgetBlockPlanner: this.contextPolicyCore,
+      contextPolicyCore: this.contextPolicyCore,
       runtimeError,
     });
     this.contextPolicySurface = createRuntimeContextPolicySurface({

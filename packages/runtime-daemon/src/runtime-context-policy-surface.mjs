@@ -376,6 +376,14 @@ export function createRuntimeContextPolicySurface({
         return contextPolicyResultEnvelope(policy, event, CONTEXT_BUDGET_EVIDENCE_REFS);
       }
 
+      const runner = contextPolicyCore;
+      if (typeof runner?.evaluateContextBudgetPolicy !== "function") {
+        throwContextPolicyRustCoreRequired("context_budget_evaluation", "context_budget.evaluate", {
+          thread_id: null,
+          run_id: null,
+          evidence_refs: CONTEXT_BUDGET_REQUIRED_EVIDENCE_REFS,
+        });
+      }
       const usageTelemetry =
         contextBudgetUsageTelemetryFromRequestDep(canonicalRequest) ??
         store.listUsage({ group_by: "thread" });
@@ -389,6 +397,7 @@ export function createRuntimeContextPolicySurface({
           turn_id: null,
           run_id: null,
         },
+        budgetRunner: runner,
       });
     },
 

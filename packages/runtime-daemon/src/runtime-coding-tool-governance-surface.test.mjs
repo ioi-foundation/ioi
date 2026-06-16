@@ -129,11 +129,42 @@ test("coding-tool governance budget block facade fails closed before JS event ap
   assert.deepEqual(store.events, []);
 });
 
-test("coding-tool governance budget block delegates to Rust planner without JS event append", () => {
+test("coding-tool governance budget block ignores retired planner alias", () => {
   const store = createStore();
   const calls = [];
   const surface = createSurface({
     codingToolBudgetBlockPlanner: {
+      planCodingToolBudgetBlock(request) {
+        calls.push(request);
+        return { status: "blocked" };
+      },
+    },
+  });
+
+  assert.throws(
+    () => surface.blockCodingToolForBudget(store, {
+      threadId: "thread-one",
+      turnId: "turn-one",
+      toolId: "file.write",
+      toolCallId: "tool-call-one",
+      budgetPolicy: { status: "blocked" },
+      codingToolIdempotencyKey: "idempotent-budget-block",
+    }),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "runtime_coding_tool_governance_rust_core_required");
+      return true;
+    },
+  );
+  assert.deepEqual(calls, []);
+  assert.deepEqual(store.events, []);
+});
+
+test("coding-tool governance budget block delegates to Rust planner without JS event append", () => {
+  const store = createStore();
+  const calls = [];
+  const surface = createSurface({
+    contextPolicyCore: {
       planCodingToolBudgetBlock(request) {
         calls.push(request);
         return {

@@ -8671,10 +8671,11 @@ function runBridge() {
       /coding tool budget block core sends Rust block request through direct context lifecycle API/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /codingToolBudgetBlockPlanner/.test(runtimeCodingToolGovernanceSurface) &&
+      !/codingToolBudgetBlockPlanner/.test(runtimeCodingToolGovernanceSurface) &&
+      /contextPolicyCore = null/.test(runtimeCodingToolGovernanceSurface) &&
       /planCodingToolBudgetBlock/.test(runtimeCodingToolGovernanceSurface) &&
       /canonicalBudgetPolicy/.test(runtimeCodingToolGovernanceSurface) &&
-      /codingToolBudgetBlockPlanner:\s*this\.contextPolicyCore/.test(runtimeDaemonIndex) &&
+      /this\.codingToolGovernanceSurface = createRuntimeCodingToolGovernanceSurface\(\{\s*contextPolicyCore:\s*this\.contextPolicyCore,/s.test(runtimeDaemonIndex) &&
       /runtime_coding_tool_governance_rust_core_required/.test(runtimeCodingToolGovernanceSurface) &&
       /rust_core_boundary:\s*"runtime\.coding_tool_governance"/.test(runtimeCodingToolGovernanceSurface) &&
       /throwGovernanceRustCoreRequired\("coding_tool_budget_block",\s*"policy\.blocked"/.test(runtimeCodingToolGovernanceSurface) &&
@@ -8682,6 +8683,9 @@ function runBridge() {
       /rust_daemon_core_coding_tool_budget_block_required/.test(runtimeCodingToolGovernanceSurface) &&
       /agentgres_coding_tool_budget_block_truth_required/.test(runtimeCodingToolGovernanceSurface) &&
       /coding-tool governance budget block facade fails closed before JS event append/.test(
+        runtimeCodingToolGovernanceSurfaceTest,
+      ) &&
+      /coding-tool governance budget block ignores retired planner alias/.test(
         runtimeCodingToolGovernanceSurfaceTest,
       ) &&
       /coding-tool governance budget block delegates to Rust planner without JS event append/.test(
@@ -8702,6 +8706,7 @@ function runBridge() {
       !/CODING_TOOL_RESULT_SCHEMA_VERSION/.test(runtimeCodingToolGovernanceSurface) &&
       !/codingToolInputSummary/.test(runtimeCodingToolGovernanceSurface) &&
       !/codingToolSourceEventKind/.test(runtimeCodingToolGovernanceSurface) &&
+      !/codingToolBudgetBlockPlanner:\s*this\.contextPolicyCore/.test(runtimeDaemonIndex) &&
       !/budgetPolicy\.receiptRefs/.test(runtimeCodingToolGovernanceSurface) &&
       !/budgetPolicy\.policyDecisionRefs/.test(runtimeCodingToolGovernanceSurface),
     [
@@ -11449,8 +11454,14 @@ function runBridge() {
       !/^\s*evaluateContextBudget\(\{ threadId = null, runId = null, request = \{\} \} = \{\}\) \{/m.test(
         runtimeDaemonIndex,
       ) &&
-      /budgetRunner\.evaluateContextBudgetPolicy/.test(codingToolBudgetPolicySurface) &&
+      !/createRuntimeContextPolicyCore/.test(codingToolBudgetPolicySurface) &&
+      /requiredContextBudgetPolicyRunner/.test(codingToolBudgetPolicySurface) &&
+      /runtime_context_budget_policy_rust_core_required/.test(codingToolBudgetPolicySurface) &&
+      /runner\.evaluateContextBudgetPolicy/.test(codingToolBudgetPolicySurface) &&
       /capturedRequest\.schema_version,\s*"ioi\.runtime\.context-budget-policy-request\.v1"/.test(
+        codingToolBudgetPolicySurfaceTest,
+      ) &&
+      /context budget policy helpers require explicit daemon-mounted Rust core/.test(
         codingToolBudgetPolicySurfaceTest,
       ) &&
       /context budget policy ignores retired identity request aliases/.test(
@@ -11461,6 +11472,8 @@ function runBridge() {
       ) &&
       /workflowNodeId:\s*"node-retired"/.test(codingToolBudgetPolicySurfaceTest) &&
       /eventKind:\s*"RuntimeContextBudget\.Retired"/.test(codingToolBudgetPolicySurfaceTest) &&
+      /budgetRunner:\s*runner/.test(runtimeContextPolicySurface) &&
+      /policyInput\.budgetRunner,\s*contextPolicyCore/.test(runtimeContextPolicySurfaceTest) &&
       !/request\.(?:workflowNodeId|workflowGraphId|threadId|runId|turnId|eventKind)\b/.test(
         codingToolBudgetPolicySurface,
       ) &&
@@ -11520,7 +11533,7 @@ function runBridge() {
       /coding tool budget core sends Rust policy through direct context lifecycle API/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /budgetRunner\.evaluateCodingToolBudgetPolicy/.test(codingToolBudgetPolicySurface) &&
+      /runner\.evaluateCodingToolBudgetPolicy/.test(codingToolBudgetPolicySurface) &&
       /coding tool budget policy reads canonical tool pack fields and annotates runtime context/.test(
         codingToolBudgetPolicySurfaceTest,
       ) &&
@@ -13539,6 +13552,8 @@ function runBridge() {
       /runtime_thread_control_event_js_facade_retired/.test(runtimeThreadControlSurface) &&
       /rust_daemon_core_thread_control_required/.test(runtimeThreadControlSurface) &&
       /agentgres_thread_control_truth_required/.test(runtimeThreadControlSurface) &&
+      !/createRuntimeContextPolicyCore/.test(runtimeThreadControlSurface) &&
+      /contextPolicyCore: contextPolicyCoreDep = null/.test(runtimeThreadControlSurface) &&
       /contextPolicyCoreDep\?\.planThreadControlAgentStateUpdate/.test(
         runtimeThreadControlSurface,
       ) &&
@@ -16174,7 +16189,7 @@ function runBridge() {
       /compaction policy still rejects missing thread id as a request error/.test(
         runtimeContextPolicySurfaceTest,
       ) &&
-      /policyRunner\.evaluateCompactionPolicy/.test(codingToolBudgetPolicySurface) &&
+      /runner\.evaluateCompactionPolicy/.test(codingToolBudgetPolicySurface) &&
       /capturedRequest\.schema_version,\s*"ioi\.runtime\.compaction-policy-request\.v1"/.test(
         codingToolBudgetPolicySurfaceTest,
       ) &&
@@ -33501,6 +33516,12 @@ function runCompositor() {
       ) &&
       /Object\.hasOwn\(status,\s*field\),\s*false/.test(runtimeMemoryManagerTest) &&
       /Object\.hasOwn\(validation,\s*field\),\s*false/.test(runtimeMemoryManagerTest) &&
+      !/createRuntimeContextPolicyCore/.test(runtimeMemoryManager) &&
+      /requiredMemoryManagerContextPolicyCore/.test(runtimeMemoryManager) &&
+      /runtime_memory_manager_rust_core_required/.test(runtimeMemoryManager) &&
+      /memory manager projections require explicit daemon-mounted Rust core/.test(
+        runtimeMemoryManagerTest,
+      ) &&
       /threadId: "thread\.retired"/.test(runtimeMemoryManagerTest) &&
       /recordRow\.thread_id,\s*"thread\.canonical"/.test(runtimeMemoryManagerTest) &&
       /recordRow\.memory_key,\s*null/.test(runtimeMemoryManagerTest) &&

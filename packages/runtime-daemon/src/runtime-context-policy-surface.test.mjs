@@ -29,7 +29,7 @@ function assertNoRetiredContextPolicyDetailAliases(details) {
   }
 }
 
-function harness() {
+function harness({ contextPolicyCore = null } = {}) {
   const calls = [];
   const events = [];
   const store = {
@@ -57,6 +57,7 @@ function harness() {
     },
   };
   const surface = createRuntimeContextPolicySurface({
+    contextPolicyCore,
     contextBudgetUsageTelemetryFromRequest(request) {
       calls.push({ name: "contextBudgetUsageTelemetryFromRequest", request });
       return request.usage_telemetry ?? null;
@@ -599,7 +600,12 @@ test("thread-bound context budget fails closed before usage lookup or event appe
 });
 
 test("workflow-only context budget remains projection-only and ignores retired request aliases", () => {
-  const { calls, events, store, surface } = harness();
+  const contextPolicyCore = {
+    evaluateContextBudgetPolicy() {
+      throw new Error("workflow-only context budget helper should receive the mounted core as budgetRunner");
+    },
+  };
+  const { calls, events, store, surface } = harness({ contextPolicyCore });
 
   const result = surface.evaluateContextBudget(store, {
     request: {
@@ -620,6 +626,7 @@ test("workflow-only context budget remains projection-only and ignores retired r
   assert.equal(policyInput.request.thread_id, null);
   assert.equal(policyInput.request.run_id, null);
   assert.equal(policyInput.request.turn_id, null);
+  assert.equal(policyInput.budgetRunner, contextPolicyCore);
   for (const field of [
     "eventKind",
     "threadId",

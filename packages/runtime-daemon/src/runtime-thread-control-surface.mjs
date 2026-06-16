@@ -4,7 +4,6 @@ import {
   RUNTIME_THREAD_MODE_CONTROL_SCHEMA_VERSION,
 } from "./runtime-contract-constants.mjs";
 import { eventStreamIdForThread } from "./runtime-identifiers.mjs";
-import { createRuntimeContextPolicyCore } from "./runtime-context-policy-core.mjs";
 import { runtimeError } from "./runtime-http-utils.mjs";
 import {
   objectRecord,
@@ -23,7 +22,7 @@ import { createWorkspaceTrustState } from "./threads/workspace-trust-state.mjs";
 
 export function createRuntimeThreadControlSurface({
   approvalModeForThreadMode: approvalModeForThreadModeDep = approvalModeForThreadMode,
-  contextPolicyCore: contextPolicyCoreDep = createRuntimeContextPolicyCore(),
+  contextPolicyCore: contextPolicyCoreDep = null,
   eventStreamIdForThread: eventStreamIdForThreadDep = eventStreamIdForThread,
   normalizeThreadApprovalMode: normalizeThreadApprovalModeDep = normalizeThreadApprovalMode,
   normalizeThreadInteractionMode: normalizeThreadInteractionModeDep = normalizeThreadInteractionMode,
