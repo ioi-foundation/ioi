@@ -23,6 +23,9 @@ export type ModelCapability =
   | "tokenize"
   | "context_fit";
 
+export type ModelMountControlInput = Record<string, unknown>;
+export type ModelMountControlResult = Record<string, unknown>;
+
 export interface ModelLoadPolicy {
   mode:
     | "manual"

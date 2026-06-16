@@ -11554,6 +11554,23 @@ transport, OAuth/auth-header materialization depth, invocation authority depth,
 and broader SDK/IDE control coverage still need terminal Rust-owned protocol
 coverage.
 
+Slice 1360 hard-cuts stable model_mount SDK control protocol clients. The
+agent SDK now exposes named protocol-client methods for the full stable
+model_mount control surface: route upsert/test, server start/stop/restart,
+backend health/start/stop/logs, runtime survey/select/profile controls,
+artifact import/delete, endpoint mount/unmount/load/unload, instance
+load/unload, download/status/cancel, storage cleanup, catalog-provider config
+and OAuth controls, capability tokens, vault refs/status/health, and provider
+upsert/health/models/loaded/start/stop. These methods call only the stable
+`/v1/model-mount/*` daemon protocol routes over the Rust-owned daemon-core
+planners and Agentgres record/projection truth; the SDK source has no
+authoritative `/api/v1` model_mount control request path, and focused SDK tests
+drive the whole route family while asserting retired `/api/v1` control routes
+do not return through the SDK. This remains non-terminal because backend
+execution/materialization, hosted/provider transport, OAuth/auth-header
+materialization depth, invocation authority depth, and broader IDE control
+coverage still need terminal Rust-owned protocol coverage.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

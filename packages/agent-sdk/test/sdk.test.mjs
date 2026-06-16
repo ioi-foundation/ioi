@@ -1304,6 +1304,191 @@ test("SDK lists model_mount Rust projection records through stable protocol rout
   }
 });
 
+test("SDK controls model_mount through stable daemon protocol routes", async () => {
+  const requests = [];
+  const bodies = new Map();
+  const collectionRoutes = new Set([
+    "GET /v1/model-mount/backends",
+    "GET /v1/model-mount/runtime/engines",
+    "GET /v1/model-mount/instances",
+    "GET /v1/model-mount/instances/loaded",
+    "GET /v1/model-mount/tokens",
+    "GET /v1/model-mount/vault/refs",
+    "GET /v1/model-mount/providers/provider.sdk/models",
+    "GET /v1/model-mount/providers/provider.sdk/loaded",
+  ]);
+  const expectedRoutes = [
+    "POST /v1/model-mount/routes",
+    "POST /v1/model-mount/routes/route.sdk/test",
+    "POST /v1/model-mount/server/start",
+    "POST /v1/model-mount/server/stop",
+    "POST /v1/model-mount/server/restart",
+    "GET /v1/model-mount/backends",
+    "GET /v1/model-mount/backends/backend.sdk/logs",
+    "POST /v1/model-mount/backends/backend.sdk/health",
+    "POST /v1/model-mount/backends/backend.sdk/start",
+    "POST /v1/model-mount/backends/backend.sdk/stop",
+    "POST /v1/model-mount/runtime/survey",
+    "GET /v1/model-mount/runtime/engines",
+    "GET /v1/model-mount/runtime/engines/engine.sdk",
+    "POST /v1/model-mount/runtime/select",
+    "POST /v1/model-mount/runtime/engines/engine.sdk/select",
+    "PATCH /v1/model-mount/runtime/engines/engine.sdk",
+    "DELETE /v1/model-mount/runtime/engines/engine.sdk",
+    "GET /v1/model-mount/instances",
+    "GET /v1/model-mount/instances/loaded",
+    "POST /v1/model-mount/catalog/import-url",
+    "POST /v1/model-mount/artifacts/import",
+    "DELETE /v1/model-mount/artifacts/artifact.sdk",
+    "POST /v1/model-mount/endpoints",
+    "DELETE /v1/model-mount/endpoints/endpoint.sdk",
+    "POST /v1/model-mount/endpoints/endpoint.sdk/load",
+    "POST /v1/model-mount/endpoints/endpoint.sdk/unload",
+    "POST /v1/model-mount/instances/load",
+    "POST /v1/model-mount/instances/unload",
+    "POST /v1/model-mount/instances/instance.sdk/unload",
+    "POST /v1/model-mount/downloads",
+    "GET /v1/model-mount/downloads/download.sdk/status",
+    "POST /v1/model-mount/downloads/download.sdk/cancel",
+    "POST /v1/model-mount/storage/cleanup",
+    "GET /v1/model-mount/catalog/providers/catalog.sdk",
+    "PATCH /v1/model-mount/catalog/providers/catalog.sdk",
+    "POST /v1/model-mount/catalog/providers/catalog.sdk/oauth/start",
+    "POST /v1/model-mount/catalog/providers/catalog.sdk/oauth/callback",
+    "POST /v1/model-mount/catalog/providers/catalog.sdk/oauth/exchange",
+    "POST /v1/model-mount/catalog/providers/catalog.sdk/oauth/refresh",
+    "POST /v1/model-mount/catalog/providers/catalog.sdk/oauth/revoke",
+    "GET /v1/model-mount/tokens",
+    "POST /v1/model-mount/tokens",
+    "POST /v1/model-mount/tokens/count",
+    "DELETE /v1/model-mount/tokens/token.sdk",
+    "GET /v1/model-mount/vault/refs",
+    "POST /v1/model-mount/vault/refs",
+    "DELETE /v1/model-mount/vault/refs",
+    "POST /v1/model-mount/vault/refs/meta",
+    "GET /v1/model-mount/vault/status",
+    "POST /v1/model-mount/vault/health",
+    "GET /v1/model-mount/vault/health/latest",
+    "POST /v1/model-mount/providers",
+    "PATCH /v1/model-mount/providers/provider.sdk",
+    "GET /v1/model-mount/providers/provider.sdk/health/latest",
+    "POST /v1/model-mount/providers/provider.sdk/health",
+    "GET /v1/model-mount/providers/provider.sdk/models",
+    "GET /v1/model-mount/providers/provider.sdk/loaded",
+    "POST /v1/model-mount/providers/provider.sdk/start",
+    "POST /v1/model-mount/providers/provider.sdk/stop",
+  ];
+  const expectedRouteSet = new Set(expectedRoutes);
+  const server = http.createServer(async (request, response) => {
+    const url = new URL(request.url ?? "/", "http://127.0.0.1");
+    const key = `${request.method} ${url.pathname}`;
+    requests.push(key);
+    if (request.method !== "GET") {
+      bodies.set(key, await readBody(request));
+    }
+    response.setHeader("content-type", "application/json");
+    if (!expectedRouteSet.has(key)) {
+      response.statusCode = 404;
+      response.end(JSON.stringify({ error: { code: "not_found", message: key } }));
+      return;
+    }
+    response.statusCode = request.method === "POST" ? 201 : 200;
+    response.end(JSON.stringify(collectionRoutes.has(key) ? [{ id: "sdk.record" }] : { id: "sdk.record", route: key }));
+  });
+  await listen(server);
+  try {
+    const address = server.address();
+    assert.ok(address && typeof address === "object");
+    const client = createRuntimeSubstrateClient({ endpoint: `http://127.0.0.1:${address.port}` });
+
+    await client.upsertModelRoute({ id: "route.sdk" });
+    await client.testModelRoute("route.sdk", { capability: "chat" });
+    await client.startModelMountServer();
+    await client.stopModelMountServer();
+    await client.restartModelMountServer();
+    await client.listModelBackends();
+    await client.getModelBackendLogs("backend.sdk");
+    await client.probeModelBackendHealth("backend.sdk");
+    await client.startModelBackend("backend.sdk", { reason: "sdk" });
+    await client.stopModelBackend("backend.sdk");
+    await client.surveyModelRuntime();
+    await client.listModelRuntimeEngines();
+    await client.getModelRuntimeEngine("engine.sdk");
+    await client.selectModelRuntimeEngine({ engine_id: "engine.sdk" });
+    await client.selectModelRuntimeEngineById("engine.sdk", { reason: "sdk" });
+    await client.updateModelRuntimeEngine("engine.sdk", {
+      disabled: false,
+      default_load_options: { ttl_seconds: 60 },
+    });
+    await client.removeModelRuntimeEngineOverride("engine.sdk");
+    await client.listModelInstances();
+    await client.listLoadedModelInstances();
+    await client.createModelCatalogImportUrl({
+      source_url: "https://models.example/sdk.gguf",
+      model_id: "model.sdk",
+      provider_id: "provider.sdk",
+    });
+    await client.importModelArtifact({ model_id: "model.sdk", provider_id: "provider.sdk", path: "/models/sdk.gguf" });
+    await client.deleteModelArtifact("artifact.sdk", { force: true });
+    await client.mountModelEndpoint({ id: "endpoint.sdk", model_id: "model.sdk", provider_id: "provider.sdk" });
+    await client.unmountModelEndpoint("endpoint.sdk", { reason: "sdk" });
+    await client.loadModelEndpoint("endpoint.sdk", {
+      load_policy: { mode: "idle_evict", idle_ttl_seconds: 60, auto_evict: true },
+    });
+    await client.unloadModelEndpoint("endpoint.sdk");
+    await client.loadModelInstance({
+      endpoint_id: "endpoint.sdk",
+      load_options: { estimate_only: false, context_length: 4096, ttl_seconds: 60 },
+    });
+    await client.unloadModelInstance({ instance_id: "instance.sdk" });
+    await client.unloadModelInstanceById("instance.sdk");
+    await client.downloadModel({ model_id: "model.sdk", provider_id: "provider.sdk" });
+    await client.getModelDownloadStatus("download.sdk");
+    await client.cancelModelDownload("download.sdk", { reason: "sdk" });
+    await client.cleanupModelStorage({ dry_run: true });
+    await client.getModelCatalogProviderConfig("catalog.sdk");
+    await client.configureModelCatalogProvider("catalog.sdk", { enabled: true });
+    await client.startModelCatalogProviderOAuth("catalog.sdk", { redirect_uri: "http://127.0.0.1/callback" });
+    await client.completeModelCatalogProviderOAuth("catalog.sdk", { code: "code.sdk" });
+    await client.exchangeModelCatalogProviderOAuth("catalog.sdk", { code: "code.sdk" });
+    await client.refreshModelCatalogProviderOAuth("catalog.sdk");
+    await client.revokeModelCatalogProviderOAuth("catalog.sdk");
+    await client.listModelPermissionTokens();
+    await client.createModelPermissionToken({ audience: "model.sdk" });
+    await client.countModelTokens({ model: "model.sdk", input: "hello" });
+    await client.revokeModelPermissionToken("token.sdk");
+    await client.listModelVaultRefs();
+    await client.bindModelVaultRef({ vault_ref: "vault://sdk" });
+    await client.removeModelVaultRef({ vault_ref: "vault://sdk" });
+    await client.getModelVaultRefMetadata({ vault_ref: "vault://sdk" });
+    await client.getModelVaultStatus();
+    await client.checkModelVaultHealth();
+    await client.getLatestModelVaultHealth();
+    await client.upsertModelProvider({ id: "provider.sdk" });
+    await client.updateModelProvider("provider.sdk", { label: "SDK provider" });
+    await client.getLatestModelProviderHealth("provider.sdk");
+    await client.checkModelProviderHealth("provider.sdk");
+    await client.listModelProviderModels("provider.sdk");
+    await client.listModelProviderLoaded("provider.sdk");
+    await client.startModelProvider("provider.sdk");
+    await client.stopModelProvider("provider.sdk");
+
+    for (const route of expectedRouteSet) {
+      assert.ok(requests.includes(route), route);
+    }
+    assert.equal(requests.some((entry) => entry.includes("/api/v1/")), false);
+    assert.equal(Object.hasOwn(bodies.get("POST /v1/model-mount/instances/load"), "endpointId"), false);
+    assert.equal(Object.hasOwn(bodies.get("POST /v1/model-mount/instances/load")?.load_options ?? {}, "estimateOnly"), false);
+    assert.equal(bodies.get("POST /v1/model-mount/instances/load")?.load_options?.estimate_only, false);
+    assert.equal(
+      bodies.get("PATCH /v1/model-mount/runtime/engines/engine.sdk")?.default_load_options?.ttl_seconds,
+      60,
+    );
+  } finally {
+    await close(server);
+  }
+});
+
 test("Thread and Turn wrappers project canonical daemon events into typed SDK runtime events", async () => {
   const now = new Date().toISOString();
   const threadRecord = {

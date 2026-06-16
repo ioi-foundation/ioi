@@ -47,11 +47,19 @@ import type {
 } from "./messages.js";
 import type {
   ModelArtifact,
+  ModelBackend,
   ModelCatalogEntry,
+  ModelCatalogProviderStatus,
   ModelCapabilityContract,
+  ModelDownloadJob,
   ModelEndpoint,
+  ModelInstance,
+  ModelMountControlInput,
+  ModelMountControlResult,
   ModelProviderProfile,
   ModelRoute,
+  ModelRuntimeEngine,
+  PermissionToken,
   RuntimeModelCatalogEntry,
 } from "./model-mounts.js";
 
@@ -1488,6 +1496,65 @@ export interface RuntimeSubstrateClient {
   listModelRoutes(): Promise<ModelRoute[]>;
   searchModelCatalog(options?: RuntimeModelCatalogSearchOptions): Promise<ModelCatalogEntry[]>;
   listModelCapabilities(): Promise<ModelCapabilityContract[]>;
+  upsertModelRoute(input: ModelMountControlInput): Promise<ModelRoute>;
+  testModelRoute(routeId: string, input?: ModelMountControlInput): Promise<ModelMountControlResult>;
+  startModelMountServer(): Promise<ModelMountControlResult>;
+  stopModelMountServer(): Promise<ModelMountControlResult>;
+  restartModelMountServer(): Promise<ModelMountControlResult>;
+  listModelBackends(): Promise<ModelBackend[]>;
+  getModelBackendLogs(backendId: string): Promise<ModelMountControlResult>;
+  probeModelBackendHealth(backendId: string): Promise<ModelMountControlResult>;
+  startModelBackend(backendId: string, input?: ModelMountControlInput): Promise<ModelMountControlResult>;
+  stopModelBackend(backendId: string): Promise<ModelMountControlResult>;
+  surveyModelRuntime(): Promise<ModelMountControlResult>;
+  listModelRuntimeEngines(): Promise<ModelRuntimeEngine[]>;
+  getModelRuntimeEngine(engineId: string): Promise<ModelRuntimeEngine>;
+  selectModelRuntimeEngine(input: ModelMountControlInput): Promise<ModelMountControlResult>;
+  selectModelRuntimeEngineById(engineId: string, input?: ModelMountControlInput): Promise<ModelMountControlResult>;
+  updateModelRuntimeEngine(engineId: string, input: ModelMountControlInput): Promise<ModelMountControlResult>;
+  removeModelRuntimeEngineOverride(engineId: string): Promise<ModelMountControlResult>;
+  listModelInstances(): Promise<ModelInstance[]>;
+  listLoadedModelInstances(): Promise<ModelInstance[]>;
+  createModelCatalogImportUrl(input: ModelMountControlInput): Promise<ModelMountControlResult>;
+  importModelArtifact(input: ModelMountControlInput): Promise<ModelArtifact>;
+  deleteModelArtifact(artifactId: string, input?: ModelMountControlInput): Promise<ModelMountControlResult>;
+  mountModelEndpoint(input: ModelMountControlInput): Promise<ModelEndpoint>;
+  unmountModelEndpoint(endpointId: string, input?: ModelMountControlInput): Promise<ModelMountControlResult>;
+  loadModelEndpoint(endpointId: string, input?: ModelMountControlInput): Promise<ModelMountControlResult>;
+  unloadModelEndpoint(endpointId: string, input?: ModelMountControlInput): Promise<ModelMountControlResult>;
+  loadModelInstance(input: ModelMountControlInput): Promise<ModelMountControlResult>;
+  unloadModelInstance(input: ModelMountControlInput): Promise<ModelMountControlResult>;
+  unloadModelInstanceById(instanceId: string, input?: ModelMountControlInput): Promise<ModelMountControlResult>;
+  downloadModel(input: ModelMountControlInput): Promise<ModelDownloadJob>;
+  getModelDownloadStatus(downloadId: string): Promise<ModelDownloadJob>;
+  cancelModelDownload(downloadId: string, input?: ModelMountControlInput): Promise<ModelDownloadJob>;
+  cleanupModelStorage(input?: ModelMountControlInput): Promise<ModelMountControlResult>;
+  getModelCatalogProviderConfig(providerId: string): Promise<ModelCatalogProviderStatus>;
+  configureModelCatalogProvider(providerId: string, input: ModelMountControlInput): Promise<ModelCatalogProviderStatus>;
+  startModelCatalogProviderOAuth(providerId: string, input?: ModelMountControlInput): Promise<ModelMountControlResult>;
+  completeModelCatalogProviderOAuth(providerId: string, input: ModelMountControlInput): Promise<ModelMountControlResult>;
+  exchangeModelCatalogProviderOAuth(providerId: string, input: ModelMountControlInput): Promise<ModelMountControlResult>;
+  refreshModelCatalogProviderOAuth(providerId: string): Promise<ModelMountControlResult>;
+  revokeModelCatalogProviderOAuth(providerId: string): Promise<ModelMountControlResult>;
+  listModelPermissionTokens(): Promise<PermissionToken[]>;
+  createModelPermissionToken(input: ModelMountControlInput): Promise<PermissionToken>;
+  countModelTokens(input: ModelMountControlInput): Promise<ModelMountControlResult>;
+  revokeModelPermissionToken(tokenId: string): Promise<ModelMountControlResult>;
+  listModelVaultRefs(): Promise<ModelMountControlResult[]>;
+  bindModelVaultRef(input: ModelMountControlInput): Promise<ModelMountControlResult>;
+  removeModelVaultRef(input: ModelMountControlInput): Promise<ModelMountControlResult>;
+  getModelVaultRefMetadata(input: ModelMountControlInput): Promise<ModelMountControlResult>;
+  getModelVaultStatus(): Promise<ModelMountControlResult>;
+  checkModelVaultHealth(): Promise<ModelMountControlResult>;
+  getLatestModelVaultHealth(): Promise<ModelMountControlResult>;
+  upsertModelProvider(input: ModelMountControlInput): Promise<ModelProviderProfile>;
+  updateModelProvider(providerId: string, input: ModelMountControlInput): Promise<ModelProviderProfile>;
+  getLatestModelProviderHealth(providerId: string): Promise<ModelMountControlResult>;
+  checkModelProviderHealth(providerId: string): Promise<ModelMountControlResult>;
+  listModelProviderModels(providerId: string): Promise<ModelMountControlResult[]>;
+  listModelProviderLoaded(providerId: string): Promise<ModelMountControlResult[]>;
+  startModelProvider(providerId: string): Promise<ModelMountControlResult>;
+  stopModelProvider(providerId: string): Promise<ModelMountControlResult>;
   listRepositories(): Promise<Array<{ url: string; source: string; status: string }>>;
   getAccount(): Promise<RuntimeAccountProfile>;
   listRuntimeNodes(): Promise<RuntimeNodeProfile[]>;
@@ -2267,6 +2334,336 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
 
   async listModelCapabilities(): Promise<ModelCapabilityContract[]> {
     return this.request("listModelCapabilities", "GET", "/v1/model-capabilities");
+  }
+
+  async upsertModelRoute(input: ModelMountControlInput): Promise<ModelRoute> {
+    return this.request("upsertModelRoute", "POST", "/v1/model-mount/routes", input);
+  }
+
+  async testModelRoute(routeId: string, input: ModelMountControlInput = {}): Promise<ModelMountControlResult> {
+    return this.request("testModelRoute", "POST", `/v1/model-mount/routes/${encodePath(routeId)}/test`, input);
+  }
+
+  async startModelMountServer(): Promise<ModelMountControlResult> {
+    return this.request("startModelMountServer", "POST", "/v1/model-mount/server/start");
+  }
+
+  async stopModelMountServer(): Promise<ModelMountControlResult> {
+    return this.request("stopModelMountServer", "POST", "/v1/model-mount/server/stop");
+  }
+
+  async restartModelMountServer(): Promise<ModelMountControlResult> {
+    return this.request("restartModelMountServer", "POST", "/v1/model-mount/server/restart");
+  }
+
+  async listModelBackends(): Promise<ModelBackend[]> {
+    return this.request("listModelBackends", "GET", "/v1/model-mount/backends");
+  }
+
+  async getModelBackendLogs(backendId: string): Promise<ModelMountControlResult> {
+    return this.request("getModelBackendLogs", "GET", `/v1/model-mount/backends/${encodePath(backendId)}/logs`);
+  }
+
+  async probeModelBackendHealth(backendId: string): Promise<ModelMountControlResult> {
+    return this.request("probeModelBackendHealth", "POST", `/v1/model-mount/backends/${encodePath(backendId)}/health`);
+  }
+
+  async startModelBackend(
+    backendId: string,
+    input: ModelMountControlInput = {},
+  ): Promise<ModelMountControlResult> {
+    return this.request("startModelBackend", "POST", `/v1/model-mount/backends/${encodePath(backendId)}/start`, input);
+  }
+
+  async stopModelBackend(backendId: string): Promise<ModelMountControlResult> {
+    return this.request("stopModelBackend", "POST", `/v1/model-mount/backends/${encodePath(backendId)}/stop`);
+  }
+
+  async surveyModelRuntime(): Promise<ModelMountControlResult> {
+    return this.request("surveyModelRuntime", "POST", "/v1/model-mount/runtime/survey");
+  }
+
+  async listModelRuntimeEngines(): Promise<ModelRuntimeEngine[]> {
+    return this.request("listModelRuntimeEngines", "GET", "/v1/model-mount/runtime/engines");
+  }
+
+  async getModelRuntimeEngine(engineId: string): Promise<ModelRuntimeEngine> {
+    return this.request("getModelRuntimeEngine", "GET", `/v1/model-mount/runtime/engines/${encodePath(engineId)}`);
+  }
+
+  async selectModelRuntimeEngine(input: ModelMountControlInput): Promise<ModelMountControlResult> {
+    return this.request("selectModelRuntimeEngine", "POST", "/v1/model-mount/runtime/select", input);
+  }
+
+  async selectModelRuntimeEngineById(
+    engineId: string,
+    input: ModelMountControlInput = {},
+  ): Promise<ModelMountControlResult> {
+    return this.request(
+      "selectModelRuntimeEngineById",
+      "POST",
+      `/v1/model-mount/runtime/engines/${encodePath(engineId)}/select`,
+      input,
+    );
+  }
+
+  async updateModelRuntimeEngine(
+    engineId: string,
+    input: ModelMountControlInput,
+  ): Promise<ModelMountControlResult> {
+    return this.request(
+      "updateModelRuntimeEngine",
+      "PATCH",
+      `/v1/model-mount/runtime/engines/${encodePath(engineId)}`,
+      input,
+    );
+  }
+
+  async removeModelRuntimeEngineOverride(engineId: string): Promise<ModelMountControlResult> {
+    return this.request(
+      "removeModelRuntimeEngineOverride",
+      "DELETE",
+      `/v1/model-mount/runtime/engines/${encodePath(engineId)}`,
+    );
+  }
+
+  async listModelInstances(): Promise<ModelInstance[]> {
+    return this.request("listModelInstances", "GET", "/v1/model-mount/instances");
+  }
+
+  async listLoadedModelInstances(): Promise<ModelInstance[]> {
+    return this.request("listLoadedModelInstances", "GET", "/v1/model-mount/instances/loaded");
+  }
+
+  async createModelCatalogImportUrl(input: ModelMountControlInput): Promise<ModelMountControlResult> {
+    return this.request("createModelCatalogImportUrl", "POST", "/v1/model-mount/catalog/import-url", input);
+  }
+
+  async importModelArtifact(input: ModelMountControlInput): Promise<ModelArtifact> {
+    return this.request("importModelArtifact", "POST", "/v1/model-mount/artifacts/import", input);
+  }
+
+  async deleteModelArtifact(
+    artifactId: string,
+    input: ModelMountControlInput = {},
+  ): Promise<ModelMountControlResult> {
+    return this.request("deleteModelArtifact", "DELETE", `/v1/model-mount/artifacts/${encodePath(artifactId)}`, input);
+  }
+
+  async mountModelEndpoint(input: ModelMountControlInput): Promise<ModelEndpoint> {
+    return this.request("mountModelEndpoint", "POST", "/v1/model-mount/endpoints", input);
+  }
+
+  async unmountModelEndpoint(
+    endpointId: string,
+    input: ModelMountControlInput = {},
+  ): Promise<ModelMountControlResult> {
+    return this.request("unmountModelEndpoint", "DELETE", `/v1/model-mount/endpoints/${encodePath(endpointId)}`, input);
+  }
+
+  async loadModelEndpoint(
+    endpointId: string,
+    input: ModelMountControlInput = {},
+  ): Promise<ModelMountControlResult> {
+    return this.request("loadModelEndpoint", "POST", `/v1/model-mount/endpoints/${encodePath(endpointId)}/load`, input);
+  }
+
+  async unloadModelEndpoint(
+    endpointId: string,
+    input: ModelMountControlInput = {},
+  ): Promise<ModelMountControlResult> {
+    return this.request("unloadModelEndpoint", "POST", `/v1/model-mount/endpoints/${encodePath(endpointId)}/unload`, input);
+  }
+
+  async loadModelInstance(input: ModelMountControlInput): Promise<ModelMountControlResult> {
+    return this.request("loadModelInstance", "POST", "/v1/model-mount/instances/load", input);
+  }
+
+  async unloadModelInstance(input: ModelMountControlInput): Promise<ModelMountControlResult> {
+    return this.request("unloadModelInstance", "POST", "/v1/model-mount/instances/unload", input);
+  }
+
+  async unloadModelInstanceById(
+    instanceId: string,
+    input: ModelMountControlInput = {},
+  ): Promise<ModelMountControlResult> {
+    return this.request(
+      "unloadModelInstanceById",
+      "POST",
+      `/v1/model-mount/instances/${encodePath(instanceId)}/unload`,
+      input,
+    );
+  }
+
+  async downloadModel(input: ModelMountControlInput): Promise<ModelDownloadJob> {
+    return this.request("downloadModel", "POST", "/v1/model-mount/downloads", input);
+  }
+
+  async getModelDownloadStatus(downloadId: string): Promise<ModelDownloadJob> {
+    return this.request("getModelDownloadStatus", "GET", `/v1/model-mount/downloads/${encodePath(downloadId)}/status`);
+  }
+
+  async cancelModelDownload(
+    downloadId: string,
+    input: ModelMountControlInput = {},
+  ): Promise<ModelDownloadJob> {
+    return this.request("cancelModelDownload", "POST", `/v1/model-mount/downloads/${encodePath(downloadId)}/cancel`, input);
+  }
+
+  async cleanupModelStorage(input: ModelMountControlInput = {}): Promise<ModelMountControlResult> {
+    return this.request("cleanupModelStorage", "POST", "/v1/model-mount/storage/cleanup", input);
+  }
+
+  async getModelCatalogProviderConfig(providerId: string): Promise<ModelCatalogProviderStatus> {
+    return this.request(
+      "getModelCatalogProviderConfig",
+      "GET",
+      `/v1/model-mount/catalog/providers/${encodePath(providerId)}`,
+    );
+  }
+
+  async configureModelCatalogProvider(
+    providerId: string,
+    input: ModelMountControlInput,
+  ): Promise<ModelCatalogProviderStatus> {
+    return this.request(
+      "configureModelCatalogProvider",
+      "PATCH",
+      `/v1/model-mount/catalog/providers/${encodePath(providerId)}`,
+      input,
+    );
+  }
+
+  async startModelCatalogProviderOAuth(
+    providerId: string,
+    input: ModelMountControlInput = {},
+  ): Promise<ModelMountControlResult> {
+    return this.request(
+      "startModelCatalogProviderOAuth",
+      "POST",
+      `/v1/model-mount/catalog/providers/${encodePath(providerId)}/oauth/start`,
+      input,
+    );
+  }
+
+  async completeModelCatalogProviderOAuth(
+    providerId: string,
+    input: ModelMountControlInput,
+  ): Promise<ModelMountControlResult> {
+    return this.request(
+      "completeModelCatalogProviderOAuth",
+      "POST",
+      `/v1/model-mount/catalog/providers/${encodePath(providerId)}/oauth/callback`,
+      input,
+    );
+  }
+
+  async exchangeModelCatalogProviderOAuth(
+    providerId: string,
+    input: ModelMountControlInput,
+  ): Promise<ModelMountControlResult> {
+    return this.request(
+      "exchangeModelCatalogProviderOAuth",
+      "POST",
+      `/v1/model-mount/catalog/providers/${encodePath(providerId)}/oauth/exchange`,
+      input,
+    );
+  }
+
+  async refreshModelCatalogProviderOAuth(providerId: string): Promise<ModelMountControlResult> {
+    return this.request(
+      "refreshModelCatalogProviderOAuth",
+      "POST",
+      `/v1/model-mount/catalog/providers/${encodePath(providerId)}/oauth/refresh`,
+    );
+  }
+
+  async revokeModelCatalogProviderOAuth(providerId: string): Promise<ModelMountControlResult> {
+    return this.request(
+      "revokeModelCatalogProviderOAuth",
+      "POST",
+      `/v1/model-mount/catalog/providers/${encodePath(providerId)}/oauth/revoke`,
+    );
+  }
+
+  async listModelPermissionTokens(): Promise<PermissionToken[]> {
+    return this.request("listModelPermissionTokens", "GET", "/v1/model-mount/tokens");
+  }
+
+  async createModelPermissionToken(input: ModelMountControlInput): Promise<PermissionToken> {
+    return this.request("createModelPermissionToken", "POST", "/v1/model-mount/tokens", input);
+  }
+
+  async countModelTokens(input: ModelMountControlInput): Promise<ModelMountControlResult> {
+    return this.request("countModelTokens", "POST", "/v1/model-mount/tokens/count", input);
+  }
+
+  async revokeModelPermissionToken(tokenId: string): Promise<ModelMountControlResult> {
+    return this.request("revokeModelPermissionToken", "DELETE", `/v1/model-mount/tokens/${encodePath(tokenId)}`);
+  }
+
+  async listModelVaultRefs(): Promise<ModelMountControlResult[]> {
+    return this.request("listModelVaultRefs", "GET", "/v1/model-mount/vault/refs");
+  }
+
+  async bindModelVaultRef(input: ModelMountControlInput): Promise<ModelMountControlResult> {
+    return this.request("bindModelVaultRef", "POST", "/v1/model-mount/vault/refs", input);
+  }
+
+  async removeModelVaultRef(input: ModelMountControlInput): Promise<ModelMountControlResult> {
+    return this.request("removeModelVaultRef", "DELETE", "/v1/model-mount/vault/refs", input);
+  }
+
+  async getModelVaultRefMetadata(input: ModelMountControlInput): Promise<ModelMountControlResult> {
+    return this.request("getModelVaultRefMetadata", "POST", "/v1/model-mount/vault/refs/meta", input);
+  }
+
+  async getModelVaultStatus(): Promise<ModelMountControlResult> {
+    return this.request("getModelVaultStatus", "GET", "/v1/model-mount/vault/status");
+  }
+
+  async checkModelVaultHealth(): Promise<ModelMountControlResult> {
+    return this.request("checkModelVaultHealth", "POST", "/v1/model-mount/vault/health");
+  }
+
+  async getLatestModelVaultHealth(): Promise<ModelMountControlResult> {
+    return this.request("getLatestModelVaultHealth", "GET", "/v1/model-mount/vault/health/latest");
+  }
+
+  async upsertModelProvider(input: ModelMountControlInput): Promise<ModelProviderProfile> {
+    return this.request("upsertModelProvider", "POST", "/v1/model-mount/providers", input);
+  }
+
+  async updateModelProvider(providerId: string, input: ModelMountControlInput): Promise<ModelProviderProfile> {
+    return this.request("updateModelProvider", "PATCH", `/v1/model-mount/providers/${encodePath(providerId)}`, input);
+  }
+
+  async getLatestModelProviderHealth(providerId: string): Promise<ModelMountControlResult> {
+    return this.request(
+      "getLatestModelProviderHealth",
+      "GET",
+      `/v1/model-mount/providers/${encodePath(providerId)}/health/latest`,
+    );
+  }
+
+  async checkModelProviderHealth(providerId: string): Promise<ModelMountControlResult> {
+    return this.request("checkModelProviderHealth", "POST", `/v1/model-mount/providers/${encodePath(providerId)}/health`);
+  }
+
+  async listModelProviderModels(providerId: string): Promise<ModelMountControlResult[]> {
+    return this.request("listModelProviderModels", "GET", `/v1/model-mount/providers/${encodePath(providerId)}/models`);
+  }
+
+  async listModelProviderLoaded(providerId: string): Promise<ModelMountControlResult[]> {
+    return this.request("listModelProviderLoaded", "GET", `/v1/model-mount/providers/${encodePath(providerId)}/loaded`);
+  }
+
+  async startModelProvider(providerId: string): Promise<ModelMountControlResult> {
+    return this.request("startModelProvider", "POST", `/v1/model-mount/providers/${encodePath(providerId)}/start`);
+  }
+
+  async stopModelProvider(providerId: string): Promise<ModelMountControlResult> {
+    return this.request("stopModelProvider", "POST", `/v1/model-mount/providers/${encodePath(providerId)}/stop`);
   }
 
   async listRepositories(): Promise<Array<{ url: string; source: string; status: string }>> {

@@ -294,6 +294,8 @@ export type {
   ModelCatalogStatus,
   ModelCapability,
   ModelCapabilityContract,
+  ModelMountControlInput,
+  ModelMountControlResult,
   ModelDownloadJob,
   ModelEndpoint,
   ModelInstance,

@@ -26739,6 +26739,99 @@ function runReceipts() {
   );
   assertCheck(
     result,
+    "model-mount-stable-sdk-control-protocol-clients",
+    /export type ModelMountControlInput = Record<string, unknown>/.test(read("packages/agent-sdk/src/model-mounts.ts")) &&
+      /export type ModelMountControlResult = Record<string, unknown>/.test(read("packages/agent-sdk/src/model-mounts.ts")) &&
+      /upsertModelRoute\(input: ModelMountControlInput\): Promise<ModelRoute>/.test(
+        modelMountStableReadAgentSdkSubstrateClient,
+      ) &&
+      /testModelRoute\(routeId: string, input\?: ModelMountControlInput\): Promise<ModelMountControlResult>/.test(
+        modelMountStableReadAgentSdkSubstrateClient,
+      ) &&
+      /startModelMountServer\(\): Promise<ModelMountControlResult>/.test(modelMountStableReadAgentSdkSubstrateClient) &&
+      /listModelBackends\(\): Promise<ModelBackend\[]>/.test(modelMountStableReadAgentSdkSubstrateClient) &&
+      /selectModelRuntimeEngine\(input: ModelMountControlInput\): Promise<ModelMountControlResult>/.test(
+        modelMountStableReadAgentSdkSubstrateClient,
+      ) &&
+      /createModelCatalogImportUrl\(input: ModelMountControlInput\): Promise<ModelMountControlResult>/.test(
+        modelMountStableReadAgentSdkSubstrateClient,
+      ) &&
+      /loadModelEndpoint\(endpointId: string, input\?: ModelMountControlInput\): Promise<ModelMountControlResult>/.test(
+        modelMountStableReadAgentSdkSubstrateClient,
+      ) &&
+      /loadModelInstance\(input: ModelMountControlInput\): Promise<ModelMountControlResult>/.test(
+        modelMountStableReadAgentSdkSubstrateClient,
+      ) &&
+      /getModelCatalogProviderConfig\(providerId: string\): Promise<ModelCatalogProviderStatus>/.test(
+        modelMountStableReadAgentSdkSubstrateClient,
+      ) &&
+      /listModelPermissionTokens\(\): Promise<PermissionToken\[]>/.test(modelMountStableReadAgentSdkSubstrateClient) &&
+      /listModelVaultRefs\(\): Promise<ModelMountControlResult\[]>/.test(modelMountStableReadAgentSdkSubstrateClient) &&
+      /upsertModelProvider\(input: ModelMountControlInput\): Promise<ModelProviderProfile>/.test(
+        modelMountStableReadAgentSdkSubstrateClient,
+      ) &&
+      /this\.request\("upsertModelRoute", "POST", "\/v1\/model-mount\/routes", input\)/.test(
+        modelMountStableReadAgentSdkSubstrateClient,
+      ) &&
+      /this\.request\("startModelMountServer", "POST", "\/v1\/model-mount\/server\/start"\)/.test(
+        modelMountStableReadAgentSdkSubstrateClient,
+      ) &&
+      /\/v1\/model-mount\/backends\/\$\{encodePath\(backendId\)\}\/start/.test(
+        modelMountStableReadAgentSdkSubstrateClient,
+      ) &&
+      /this\.request\("surveyModelRuntime", "POST", "\/v1\/model-mount\/runtime\/survey"\)/.test(
+        modelMountStableReadAgentSdkSubstrateClient,
+      ) &&
+      /\/v1\/model-mount\/runtime\/engines\/\$\{encodePath\(engineId\)\}\/select/.test(
+        modelMountStableReadAgentSdkSubstrateClient,
+      ) &&
+      /this\.request\("createModelCatalogImportUrl", "POST", "\/v1\/model-mount\/catalog\/import-url", input\)/.test(
+        modelMountStableReadAgentSdkSubstrateClient,
+      ) &&
+      /\/v1\/model-mount\/endpoints\/\$\{encodePath\(endpointId\)\}\/load/.test(
+        modelMountStableReadAgentSdkSubstrateClient,
+      ) &&
+      /\/v1\/model-mount\/instances\/\$\{encodePath\(instanceId\)\}\/unload/.test(
+        modelMountStableReadAgentSdkSubstrateClient,
+      ) &&
+      /\/v1\/model-mount\/downloads\/\$\{encodePath\(downloadId\)\}\/cancel/.test(
+        modelMountStableReadAgentSdkSubstrateClient,
+      ) &&
+      /\/v1\/model-mount\/catalog\/providers\/\$\{encodePath\(providerId\)\}\/oauth\/start/.test(
+        modelMountStableReadAgentSdkSubstrateClient,
+      ) &&
+      /this\.request\("countModelTokens", "POST", "\/v1\/model-mount\/tokens\/count", input\)/.test(
+        modelMountStableReadAgentSdkSubstrateClient,
+      ) &&
+      /this\.request\("getModelVaultRefMetadata", "POST", "\/v1\/model-mount\/vault\/refs\/meta", input\)/.test(
+        modelMountStableReadAgentSdkSubstrateClient,
+      ) &&
+      /\/v1\/model-mount\/providers\/\$\{encodePath\(providerId\)\}\/loaded/.test(
+        modelMountStableReadAgentSdkSubstrateClient,
+      ) &&
+      !/this\.request\([^)]*"\/api\/v1\//.test(modelMountStableReadAgentSdkSubstrateClient) &&
+      /SDK controls model_mount through stable daemon protocol routes/.test(modelMountStableReadAgentSdkTest) &&
+      /expectedRoutes = \[/.test(modelMountStableReadAgentSdkTest) &&
+      /POST \/v1\/model-mount\/catalog\/providers\/catalog\.sdk\/oauth\/start/.test(modelMountStableReadAgentSdkTest) &&
+      /assert\.equal\(requests\.some\(\(entry\) => entry\.includes\("\/api\/v1\/"\)\), false\)/.test(
+        modelMountStableReadAgentSdkTest,
+      ) &&
+      /assert\.equal\(Object\.hasOwn\(bodies\.get\("POST \/v1\/model-mount\/instances\/load"\), "endpointId"\), false\)/.test(
+        modelMountStableReadAgentSdkTest,
+      ) &&
+      /Slice 1360 hard-cuts stable model_mount SDK control protocol clients/.test(guide) &&
+      /Model_mount stable SDK control protocol clients/.test(matrix) &&
+      /RuntimeDaemonCoreModelMountStableSdkControlProtocolClients/.test(implementationMatrix),
+    [
+      "packages/agent-sdk/src/substrate-client.ts",
+      "packages/agent-sdk/src/model-mounts.ts",
+      "packages/agent-sdk/test/sdk.test.mjs",
+      "scripts/conformance/hypervisor-conformance.mjs",
+    ],
+    "Model_mount SDK control clients must use stable /v1/model-mount protocol APIs for route, server, backend, runtime, lifecycle, storage, provider, vault, token, and catalog controls; SDK requests must not reintroduce /api/v1 control paths",
+  );
+  assertCheck(
+    result,
     "model-mount-receipt-stable-protocol-clients",
     /\/v1\/model-mount\/receipts/.test(publicRuntimeRoutes) &&
       /store\.modelMounting\.listReceipts\(\)/.test(publicRuntimeRoutes) &&
