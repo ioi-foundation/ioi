@@ -29,7 +29,6 @@ export function mcpRegistryForWorkspace(cwd, options = {}) {
         source: "inline_options",
         path: null,
         scope: "thread",
-        compatibility: "inline",
         servers: { [label]: config },
       });
     }
@@ -83,7 +82,6 @@ function mcpValidationInputForSource(source = {}) {
     source: source.source ?? null,
     source_path: source.path ?? null,
     source_scope: source.scope ?? null,
-    config_compatibility: source.compatibility ?? null,
     status: "configured",
   };
 }
@@ -106,7 +104,6 @@ function loadGlobalMcpConfigSources(homeDir) {
       source: "global.ioi/mcp.json",
       path: path.join(homeDir, ".ioi", "mcp.json"),
       scope: "global",
-      compatibility: "ioi",
     },
   ]);
 }
@@ -136,13 +133,11 @@ function loadWorkspaceMcpConfigSources(workspaceRoot) {
       source: ".cursor/mcp.json",
       path: path.join(workspaceRoot, ".cursor", "mcp.json"),
       scope: "workspace",
-      compatibility: "cursor",
     },
     {
       source: ".agents/mcp.json",
       path: path.join(workspaceRoot, ".agents", "mcp.json"),
       scope: "workspace",
-      compatibility: "agents",
     },
   ]);
 }
@@ -157,7 +152,6 @@ function loadMcpConfigSourceFiles(candidates = []) {
         source: candidate.source,
         path: candidate.path,
         scope: candidate.scope,
-        compatibility: candidate.compatibility,
         servers: value.mcpServers ?? value.servers ?? {},
       });
     } catch {
@@ -165,7 +159,6 @@ function loadMcpConfigSourceFiles(candidates = []) {
         source: candidate.source,
         path: candidate.path,
         scope: candidate.scope,
-        compatibility: candidate.compatibility,
         servers: {},
       });
     }

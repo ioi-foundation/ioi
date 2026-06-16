@@ -1446,7 +1446,9 @@ function runDocs() {
       /The Slice 766 conversation-artifact committer injection retirement\s+matrix-compaction pass is complete/.test(guide) &&
       /Slice 767 retired remaining MCP manager\/catalog\/helper camelCase config\/source\s+handoffs/.test(guide) &&
       /MCP mutation\/add helpers pass canonical `workspace_root` and\s+`source_scope`/.test(guide) &&
-      /mcp-manager\.mjs` no longer consumes `sourcePath`,\s+`sourceScope`, or `configCompatibility`/.test(guide) &&
+      /mcp-manager\.mjs` no longer consumes\s+`sourcePath`, `sourceScope`, `config_compatibility`, or `configCompatibility`/.test(guide) &&
+      /Slice 1399 hard-cuts runtime MCP manager config-compatibility transport/.test(guide) &&
+      /McpServerValidationInputCore` rejects retired `config_compatibility` and\s+`configCompatibility` fields anywhere in the validation input/.test(guide) &&
       /The Slice 767 MCP manager\/catalog\/helper config\/source handoff alias-retirement\s+matrix-compaction pass is complete/.test(guide) &&
       /Slice 768 retired visual observation artifact materialization path alias\s+fallback metadata/.test(guide) &&
       /`has_screenshot_path`, `has_som_path`, and `has_ax_path` only from canonical\s+`screenshot_path`, `som_path`, and `ax_path`/.test(guide) &&
@@ -3045,7 +3047,9 @@ function runDocs() {
       /canonical memory projection envelope\/policy\/path\/record fields\s+\(`schema_version`, `thread_id`, `agent_id`, `total_matches`,/.test(
         implementationMatrix,
       ) &&
-      /MCP manager\/catalog\/helper source-mode, source metadata, config-compatibility,\s+server tool-exposure, resource\/prompt catalog, transport\/containment, and validation secret-ref handoffs now use canonical snake_case fields/.test(implementationMatrix) &&
+      /RuntimeMcpManagerConfigCompatibilityTransportRetired/.test(implementationMatrix) &&
+      /MCP manager validation input now carries only `source`, `source_path`, and `source_scope` provenance/.test(implementationMatrix) &&
+      /Rust `McpServerValidationInputCore` rejects retired `config_compatibility` and `configCompatibility` fields/.test(implementationMatrix) &&
       /MCP validation input projection, server validation, validation\/status\/catalog\/catalog-summary envelopes, live-result replay, and tool search\/fetch now call typed `daemonCoreMcpApi` methods/.test(implementationMatrix) &&
       /old MCP command-response wrappers, bridge request structs, command-protocol operations, command-dispatch arms, generic `daemonCoreApi\.mcp` compatibility mount, and `mcp-manager\.mjs` generic invoker handoff are retired/.test(implementationMatrix) &&
       /MCP validation, catalog\/status projection, catalog summary, MCP control state-update, and live-result replay core semantics live in `policy\/mcp_memory\.rs`/.test(implementationMatrix) &&
@@ -44595,11 +44599,14 @@ function runCompositor() {
       /mcp_json:\s*\{\s*mcp_servers: source\.servers \?\? \{\},\s*\}/.test(runtimeMcpManager) &&
       /source_path: source\.path \?\? null/.test(runtimeMcpManager) &&
       /source_scope: source\.scope \?\? null/.test(runtimeMcpManager) &&
-      /config_compatibility: source\.compatibility \?\? null/.test(runtimeMcpManager) &&
-      /compatibility: "inline"/.test(runtimeMcpManagerRegistryBlock) &&
-      /rust_policy_projects_mcp_config_source_metadata/.test(policyCore) &&
+      !/config_compatibility:\s*source\.compatibility/.test(runtimeMcpManager) &&
+      !/source\.compatibility/.test(runtimeMcpManager) &&
+      !/compatibility:\s*"(?:inline|cursor|agents|ioi)"/.test(runtimeMcpManager) &&
+      /rust_policy_projects_mcp_source_metadata_without_compatibility_transport/.test(policyCore) &&
       /"source_path": "\/workspace\/\.cursor\/mcp\.json"/.test(policyCore) &&
-      /"config_compatibility": "cursor"/.test(policyCore) &&
+      /record\.servers\[0\]\.get\("config_compatibility"\)\.is_none\(\)/.test(policyCore) &&
+      /rust_policy_rejects_mcp_config_compatibility_transport/.test(policyCore) &&
+      /McpServerValidationInputError::RetiredField\("config_compatibility"\)/.test(policyCore) &&
       /record\.servers\[0\]\.get\("sourcePath"\)\.is_none\(\)/.test(policyCore) &&
       !/normalizeArray\(server\.allowedTools \?\? server\.allowed_tools\)/.test(
         runtimeMcpManager,
@@ -44619,6 +44626,8 @@ function runCompositor() {
       /projectMcpServerValidationInput/.test(runtimeMcpManagerTest) &&
       /planMcpManagerCatalogProjection/.test(runtimeMcpManagerTest) &&
       /rust\.projected\.mcp\.docs\.search/.test(runtimeMcpManagerTest) &&
+      /Object\.hasOwn\(calls\[0\]\.request\.input,\s*"config_compatibility"\),\s*false/.test(runtimeMcpManagerTest) &&
+      /Object\.hasOwn\(server,\s*"config_compatibility"\),\s*false/.test(runtimeMcpManagerTest) &&
 	      /MCP manager registry fails closed without Rust daemon-core projection/.test(runtimeMcpManagerTest) &&
 	      /runtime_mcp_manager_context_policy_core_required/.test(runtimeMcpManagerTest) &&
 	      /allowedTools:\s*\["retired\.invoke"\]/.test(runtimeMcpManagerTest) &&
@@ -44636,6 +44645,7 @@ function runCompositor() {
         runtimeMcpManagerRegistryBlock,
       ) &&
       !/configCompatibility:\s*(?:source\.compatibility|"inline")/.test(runtimeMcpManagerRegistryBlock) &&
+      !/config_compatibility:\s*(?:source\.compatibility|"inline"|"cursor"|"agents"|"ioi")/.test(runtimeMcpManagerRegistryBlock) &&
       !/server\.sourceScope\b/.test(
         runtimeMcpServerSourceModeBlock,
       ),

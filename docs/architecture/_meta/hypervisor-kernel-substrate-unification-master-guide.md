@@ -598,11 +598,12 @@ Slice 767 retired remaining MCP manager/catalog/helper camelCase config/source
 handoffs that kept compatibility-shaped fields inside the JS projection/control
 adapter. The
 runtime MCP catalog surface now passes `mcp_config_source_mode`,
-`workspace_root`, `source_scope`, and `config_compatibility` into the manager
-normalizer; MCP mutation/add helpers pass canonical `workspace_root` and
-`source_scope`; `mcp-manager.mjs` no longer consumes `sourcePath`,
-`sourceScope`, or `configCompatibility` from server config or context and no
-longer includes retired context source/config aliases in evidence refs. This
+`workspace_root`, and `source_scope` into the manager normalizer without a
+config-compatibility transport; MCP mutation/add helpers pass canonical
+`workspace_root` and `source_scope`; `mcp-manager.mjs` no longer consumes
+`sourcePath`, `sourceScope`, `config_compatibility`, or `configCompatibility`
+from server config or context and no longer includes retired context
+source/config aliases in evidence refs. This
 does not claim terminal MCP migration: direct
 Rust daemon-core MCP control/admission/projection still needs to own registry
 truth, external-exit authority, transport containment, receipts, Agentgres
@@ -12232,6 +12233,19 @@ existing Rust memory projection/control surfaces. Conformance guards the typed
 thread-memory API, Rust parser tests, resolver fail-closed behavior, and parser
 file/import absence so the JS grammar facade cannot return as a duplicate truth
 path.
+
+Slice 1399 hard-cuts runtime MCP manager config-compatibility transport.
+`mcp-manager.mjs` now sends only `source`, `source_path`, and `source_scope`
+provenance into Rust MCP validation input, no longer creates inline/global/
+workspace `compatibility` source metadata, and no longer forwards
+`config_compatibility` into the Rust daemon-core MCP manager catalog path. Rust
+`McpServerValidationInputCore` rejects retired `config_compatibility` and
+`configCompatibility` fields anywhere in the validation input, strips the field
+from manager status/server records, excludes it from MCP evidence refs, and
+serializes no `config_compatibility` output. Focused JS/Rust tests and
+conformance now require the field to be absent or fail-closed so MCP registry
+truth cannot preserve a config-source compatibility side channel beside the
+Rust-owned manager/catalog projection.
 
 ## Final Doctrine
 

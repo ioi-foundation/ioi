@@ -27,7 +27,6 @@ function rustMcpCore(calls = []) {
             source: request.input.source ?? "validation_input",
             source_path: request.input.source_path ?? null,
             source_scope: request.input.source_scope ?? "validation",
-            config_compatibility: request.input.config_compatibility ?? null,
             allowed_tools: Array.isArray(config.allowed_tools) ? config.allowed_tools : [],
             resources: Array.isArray(config.resources) ? config.resources : [],
             prompts: Array.isArray(config.prompts) ? config.prompts : [],
@@ -166,14 +165,14 @@ test("MCP manager registry returns Rust-projected catalog rows", () => {
   ]);
   assert.equal(calls[0].request.input.source, "inline_options");
   assert.equal(calls[0].request.input.source_scope, "thread");
-  assert.equal(calls[0].request.input.config_compatibility, "inline");
+  assert.equal(Object.hasOwn(calls[0].request.input, "config_compatibility"), false);
   assert.equal(Object.hasOwn(calls[0].request.input, "mcpServers"), false);
   assert.equal(Object.hasOwn(calls[0].request.input.mcp_json.mcp_servers.docs, "allowedTools"), true);
 
   const server = registry.servers[0];
   assert.equal(server.source, "inline_options");
   assert.equal(server.source_scope, "thread");
-  assert.equal(server.config_compatibility, "inline");
+  assert.equal(Object.hasOwn(server, "config_compatibility"), false);
   assert.equal(server.workspace_root, "/workspace");
   assert.equal(server.vault_boundary.secret_values_included, false);
   assert.equal(Object.hasOwn(server, "sourceScope"), false);

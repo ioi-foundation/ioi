@@ -75,6 +75,7 @@ pub enum McpServerValidationInputError {
         expected: &'static str,
         actual: String,
     },
+    RetiredField(&'static str),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -2102,7 +2103,6 @@ fn mcp_control_canonical_server_record(
         "source",
         "source_path",
         "source_scope",
-        "config_compatibility",
         "workspace_root",
     ] {
         if let Some(value) = json_string_value(server, key) {
@@ -2291,7 +2291,6 @@ impl McpServerValidationInputCore {
         let input_source_scope = json_string_value(&request.input, "source_scope")
             .unwrap_or_else(|| "validation".to_string());
         let input_source_path = json_string_value(&request.input, "source_path");
-        let input_config_compatibility = json_string_value(&request.input, "config_compatibility");
         let input_status =
             json_string_value(&request.input, "status").unwrap_or_else(|| "configured".to_string());
         let raw = request.input.get("mcp_json").unwrap_or(&request.input);
@@ -2306,11 +2305,8 @@ impl McpServerValidationInputCore {
                 .map(|(index, server)| {
                     let label = mcp_validation_server_label(server)
                         .unwrap_or_else(|| format!("server_{}", index + 1));
-                    let config = enrich_mcp_validation_source_metadata(
-                        server,
-                        input_source_path.as_deref(),
-                        input_config_compatibility.as_deref(),
-                    );
+                    let config =
+                        enrich_mcp_validation_source_metadata(server, input_source_path.as_deref());
                     let source = json_string_value(&config, "source")
                         .unwrap_or_else(|| input_source.clone());
                     let source_scope = json_string_value(&config, "source_scope")
@@ -2330,11 +2326,8 @@ impl McpServerValidationInputCore {
             Some(Value::Object(map)) => map
                 .iter()
                 .map(|(label, config)| {
-                    let config = enrich_mcp_validation_source_metadata(
-                        config,
-                        input_source_path.as_deref(),
-                        input_config_compatibility.as_deref(),
-                    );
+                    let config =
+                        enrich_mcp_validation_source_metadata(config, input_source_path.as_deref());
                     normalize_mcp_validation_server_record(
                         label,
                         &config,
@@ -3377,6 +3370,9 @@ impl McpServerValidationInputRequest {
                 actual: self.schema_version.clone(),
             });
         }
+        if let Some(field) = contains_mcp_config_compatibility_field(&self.input) {
+            return Err(McpServerValidationInputError::RetiredField(field));
+        }
         Ok(())
     }
 }
@@ -4153,24 +4149,32 @@ fn mcp_validation_server_label(server: &Value) -> Option<String> {
         .or_else(|| json_string_value(server, "id"))
 }
 
-fn enrich_mcp_validation_source_metadata(
-    config: &Value,
-    source_path: Option<&str>,
-    config_compatibility: Option<&str>,
-) -> Value {
+fn enrich_mcp_validation_source_metadata(config: &Value, source_path: Option<&str>) -> Value {
     let mut enriched = object_value(config).unwrap_or_default();
     if let Some(path) = source_path.and_then(|value| optional_trimmed(Some(value))) {
         enriched.insert("source_path".to_string(), Value::String(path));
     }
-    if let Some(compatibility) =
-        config_compatibility.and_then(|value| optional_trimmed(Some(value)))
-    {
-        enriched.insert(
-            "config_compatibility".to_string(),
-            Value::String(compatibility),
-        );
-    }
     Value::Object(enriched)
+}
+
+fn contains_mcp_config_compatibility_field(value: &Value) -> Option<&'static str> {
+    match value {
+        Value::Object(object) => {
+            if object.contains_key("config_compatibility") {
+                return Some("config_compatibility");
+            }
+            if object.contains_key("configCompatibility") {
+                return Some("configCompatibility");
+            }
+            object
+                .values()
+                .find_map(contains_mcp_config_compatibility_field)
+        }
+        Value::Array(items) => items
+            .iter()
+            .find_map(contains_mcp_config_compatibility_field),
+        _ => None,
+    }
 }
 
 fn normalize_mcp_validation_server_record(
@@ -4248,7 +4252,6 @@ fn normalize_mcp_validation_server_record(
     let config_source = json_string_value(config, "source").unwrap_or_else(|| source.to_string());
     let config_source_scope =
         json_string_value(config, "source_scope").unwrap_or_else(|| source_scope.to_string());
-    let config_compatibility = json_string_value(config, "config_compatibility");
     let mut evidence_refs = vec![
         "mcp.manager.validation_input".to_string(),
         config_source.clone(),
@@ -4257,9 +4260,6 @@ fn normalize_mcp_validation_server_record(
     ];
     if let Some(path) = &source_path {
         evidence_refs.push(path.clone());
-    }
-    if let Some(compatibility) = &config_compatibility {
-        evidence_refs.push(compatibility.clone());
     }
     evidence_refs.sort();
     evidence_refs.dedup();
@@ -4286,7 +4286,6 @@ fn normalize_mcp_validation_server_record(
         "source": config_source,
         "source_path": source_path,
         "source_scope": config_source_scope,
-        "config_compatibility": config_compatibility,
         "workspace_root": workspace_root,
         "allowed_tools": allowed_tools,
         "tool_count": allowed_tools.len(),
@@ -5462,7 +5461,7 @@ mod tests {
     }
 
     #[test]
-    fn rust_policy_projects_mcp_config_source_metadata() {
+    fn rust_policy_projects_mcp_source_metadata_without_compatibility_transport() {
         let record = McpServerValidationInputCore
             .project(&McpServerValidationInputRequest {
                 schema_version: MCP_SERVER_VALIDATION_INPUT_REQUEST_SCHEMA_VERSION.to_string(),
@@ -5475,19 +5474,17 @@ mod tests {
                                 "command": "npx",
                                 "allowed_tools": ["search"],
                                 "sourcePath": "/retired/mcp.json",
-                                "sourceScope": "retired",
-                                "configCompatibility": "retired"
+                                "sourceScope": "retired"
                             }
                         }
                     },
                     "source": ".cursor/mcp.json",
                     "source_path": "/workspace/.cursor/mcp.json",
                     "source_scope": "workspace",
-                    "config_compatibility": "cursor",
                     "status": "configured"
                 }),
             })
-            .expect("mcp config source metadata projection");
+            .expect("mcp source metadata projection");
 
         assert_eq!(record.server_count, 1);
         assert_eq!(record.servers[0]["source"], ".cursor/mcp.json");
@@ -5496,10 +5493,31 @@ mod tests {
             "/workspace/.cursor/mcp.json"
         );
         assert_eq!(record.servers[0]["source_scope"], "workspace");
-        assert_eq!(record.servers[0]["config_compatibility"], "cursor");
+        assert!(record.servers[0].get("config_compatibility").is_none());
         assert!(record.servers[0].get("sourcePath").is_none());
         assert!(record.servers[0].get("sourceScope").is_none());
         assert!(record.servers[0].get("configCompatibility").is_none());
+    }
+
+    #[test]
+    fn rust_policy_rejects_mcp_config_compatibility_transport() {
+        let mut request = mcp_server_validation_input_request();
+        request.input["config_compatibility"] = json!("cursor");
+        assert_eq!(
+            McpServerValidationInputCore
+                .project(&request)
+                .expect_err("top-level compatibility transport must be retired"),
+            McpServerValidationInputError::RetiredField("config_compatibility")
+        );
+
+        let mut nested = mcp_server_validation_input_request();
+        nested.input["mcp_json"]["mcp_servers"]["docs"]["configCompatibility"] = json!("retired");
+        assert_eq!(
+            McpServerValidationInputCore
+                .project(&nested)
+                .expect_err("nested camelCase compatibility transport must be retired"),
+            McpServerValidationInputError::RetiredField("configCompatibility")
+        );
     }
 
     #[test]
