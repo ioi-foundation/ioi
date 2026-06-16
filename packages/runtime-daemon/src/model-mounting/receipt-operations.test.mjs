@@ -161,17 +161,13 @@ test("model instance lifecycle receipt helper fails closed even with Rust bindin
   assert.deepEqual(created, []);
 });
 
-test("receipt operations persist Rust-authored receipts and refresh projection", () => {
+test("receipt operations persist Rust-authored receipts without projection cache refresh", () => {
   const writes = [];
   const state = {
-    projectionWrites: 0,
     store: {
       writeReceipt(record) {
         writes.push(record);
       },
-    },
-    writeProjection() {
-      this.projectionWrites += 1;
     },
   };
 
@@ -190,11 +186,11 @@ test("receipt operations persist Rust-authored receipts and refresh projection",
     schemaVersion: "ioi.model-mounting.runtime.v1",
   };
 
-  const record = ModelMountingState.prototype.persistRustAuthoredReceipt.call(state, rustRecord);
+  const result = ModelMountingState.prototype.persistRustAuthoredReceiptWithCommit.call(state, rustRecord);
 
-  assert.equal(record, rustRecord);
+  assert.equal(result.receipt, rustRecord);
   assert.equal(writes[0], rustRecord);
-  assert.equal(state.projectionWrites, 1);
+  assert.equal(typeof state.writeProjection, "undefined");
 });
 
 test("receipt operations reject JS receipt creation after Rust receipt authoring cut", () => {
@@ -215,8 +211,8 @@ test("receipt operations reject JS receipt creation after Rust receipt authoring
 test("receipt operations reject non-Rust-authored receipt persistence", () => {
   const error = captureError(
     () =>
-      ModelMountingState.prototype.persistRustAuthoredReceipt.call(
-        { store: { writeReceipt() {} }, writeProjection() {} },
+      ModelMountingState.prototype.persistRustAuthoredReceiptWithCommit.call(
+        { store: { writeReceipt() {} } },
         {
           id: "receipt-route",
           kind: "model_route_selection",

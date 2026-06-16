@@ -11153,6 +11153,18 @@ commits, and Rust read-projection replay over runtime `state_dir`. The
 record-state commits; local JS topology maps, default seeding, loader
 compatibility, and fixture-prune truth must not return beside Rust replay.
 
+Slice 1338 hard-cuts the model_mount canonical projection cache substrate.
+`ModelMountingState` no longer exposes `canonicalProjectionWritePlan()` or
+`writeProjection()`, daemon startup no longer materializes a canonical projection
+file, Rust-authored receipt persistence no longer refreshes projection cache
+JSON, and `AgentgresModelMountingStore` no longer exposes `writeProjection()` or
+`readProjection()` or creates the local `projections/` directory. Runtime doctor
+output now points to Rust model_mount read-projection ownership instead of the
+old `model-mounting-canonical` file path. Public model_mount reads remain
+Rust-owned through typed read-projection APIs over runtime `state_dir` and
+Agentgres replay; the deleted local projection cache must not return as a
+Rust-gated compatibility substrate, duplicate truth file, or diagnostic path.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

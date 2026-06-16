@@ -86,6 +86,7 @@ test("store dirs do not recreate retired topology, OAuth, catalog-provider, capa
   assert.equal(fs.existsSync(path.join(stateDir, "model-conversations")), false);
   assert.equal(fs.existsSync(path.join(stateDir, "model-routes")), false);
   assert.equal(fs.existsSync(path.join(stateDir, "model-downloads")), false);
+  assert.equal(fs.existsSync(path.join(stateDir, "projections")), false);
 });
 
 function boundModelInvocationReceipt(overrides = {}) {
@@ -513,74 +514,22 @@ test("store map writes fail closed as a retired direct persistence path", () => 
   );
 });
 
-test("canonical projection writes fail closed without Rust projection plan evidence", () => {
+test("canonical projection cache persistence surface is retired", () => {
   const { appended, stateDir, store } = testStore();
-  const projection = {
-    schemaVersion: "model.mount.schema",
-    source: "agentgres_model_mounting_projection",
-    watermark: 1,
-  };
 
-  assert.throws(
-    () => store.writeProjection("model-mounting-canonical", projection),
-    (error) =>
-      error.code === "model_mount_projection_direct_write_forbidden" &&
-      error.details.missing.includes("rust_projection_plan") &&
-      error.details.missing.includes("evidence_refs.rust_daemon_core_model_mount_projection"),
-  );
-  assert.equal(
-    fs.existsSync(path.join(stateDir, "projections", "model-mounting-canonical.json")),
-    false,
-  );
+  assert.equal(typeof store.writeProjection, "undefined");
+  assert.equal(typeof store.readProjection, "undefined");
+  assert.equal(fs.existsSync(path.join(stateDir, "projections")), false);
   assert.deepEqual(appended, []);
 });
 
-test("canonical projection writes persist only after Rust projection planning", () => {
-  const { appended, stateDir, store } = testStore();
-  const projection = {
-    schemaVersion: "model.mount.schema",
-    source: "agentgres_model_mounting_projection",
-    watermark: 1,
-  };
-  const rustProjection = {
-    source: "rust_daemon_core.model_mount.read_projection",
-    projection_kind: "projection",
-    projection,
-    evidence_refs: [
-      "rust_daemon_core_model_mount_projection",
-      "agentgres_model_mount_read_truth",
-      "model_mount_js_read_projection_authoring_retired",
-    ],
-  };
-
-  store.writeProjection("model-mounting-canonical", projection, { rustProjection });
-
-  assert.deepEqual(
-    JSON.parse(fs.readFileSync(path.join(stateDir, "projections", "model-mounting-canonical.json"), "utf8")),
-    projection,
-  );
-  assert.deepEqual(appended, []);
-});
-
-test("projection cache reads fail closed as a retired direct read path", () => {
-  const { store } = testStore();
-
-  assert.throws(
-    () => store.readProjection("model-mounting-canonical"),
-    (error) =>
-      error.code === "model_mount_projection_cache_read_retired" &&
-      error.details.projection === "model-mounting-canonical" &&
-      error.details.canonical_projection === "rust_daemon_core_model_mount_projection_plan",
-  );
-});
-
-test("adapter status identifies Rust-plan-gated projection ownership", () => {
+test("adapter status identifies Rust Agentgres receipt-state ownership", () => {
   const { store } = testStore();
   const status = store.adapterStatus();
 
-  assert.equal(status.implementation, "rust_plan_gated_receipt_projection_adapter");
-  assert.equal(status.evidenceRefs.includes("model_mount_projection_cache_read_retired"), true);
-  assert.equal(status.evidenceRefs.includes("rust_daemon_core_model_mount_projection_required"), true);
+  assert.equal(status.implementation, "rust_agentgres_receipt_state_adapter");
+  assert.equal(status.evidenceRefs.includes("model_mount_projection_cache_substrate_retired"), true);
+  assert.equal(status.evidenceRefs.includes("rust_daemon_core_model_mount_read_projection_required"), true);
 });
 
 test("model lifecycle receipt writes fail closed without provider kind and Rust instance lifecycle binding", () => {

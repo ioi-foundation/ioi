@@ -4571,11 +4571,8 @@ test("read projection direct client composes snapshots, projection, and receipt 
     "catalog-provider-oauth:start",
   ]);
 
-  const projectionWritePlan = state.canonicalProjectionWritePlan();
-  assert.equal(projectionWritePlan.source, "rust_daemon_core.model_mount.read_projection");
-  assert.equal(projectionWritePlan.projection_kind, "projection");
-  assert.equal(projectionWritePlan.projection.source, "agentgres_model_mounting_projection");
-  assert.equal(projectionWritePlan.evidence_refs.includes("agentgres_model_mount_read_truth"), true);
+  assert.equal(typeof state.canonicalProjectionWritePlan, "undefined");
+  assert.equal(typeof state.writeProjection, "undefined");
 
   const summary = state.projectionSummary();
   assert.equal(summary.schemaVersion, "ioi.model-mounting.runtime.v1");
@@ -4617,7 +4614,6 @@ test("read projection direct client composes snapshots, projection, and receipt 
   assert.equal(authority.vaultRefs[0].plaintext_material_persisted, false);
   assert.deepEqual(readProjectionRequests.map((request) => request.projection_kind), [
     "snapshot",
-    "projection",
     "projection",
     "projection_summary",
     "receipt_replay",

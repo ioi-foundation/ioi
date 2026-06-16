@@ -17405,11 +17405,10 @@ function runBridge() {
       modelMountingReadProjectionDirectClient.includes('modelMountReadProjection(this, "backend_logs"') &&
       modelMountingReadProjectionDirectClient.includes("runtimeEngine(engineId)") &&
       modelMountingReadProjectionDirectClient.includes('modelMountReadProjection(this, "runtime_engine_detail", { engineId })') &&
-      modelMountingReadProjectionDirectClient.includes("canonicalProjectionWritePlan()") &&
-      modelMountingReadProjectionDirectClient.includes('modelMountReadProjectionPlan(this, "projection")') &&
-      modelMountingReadProjectionDirectClient.includes("this.canonicalProjectionWritePlan()") &&
+      !modelMountingReadProjectionDirectClient.includes("canonicalProjectionWritePlan()") &&
+      !modelMountingReadProjectionDirectClient.includes("this.canonicalProjectionWritePlan()") &&
       modelMountingReadProjectionDirectTest.includes("state.catalogSearch({") &&
-      modelMountingReadProjectionDirectTest.includes("state.canonicalProjectionWritePlan()") &&
+      modelMountingReadProjectionDirectTest.includes('typeof state.canonicalProjectionWritePlan, "undefined"') &&
       modelMountingReadProjectionDirectTest.includes('state.downloadStatus("download.qwen3")') &&
       modelMountingReadProjectionDirectTest.includes("state.listOAuthSessions()") &&
       /read projection direct client composes snapshots, projection, and receipt replay/.test(modelMountingReadProjectionDirectTest) &&
@@ -23099,7 +23098,7 @@ function runReceipts() {
       /canonical_persistence:\s*"rust_agentgres_record_state_commit"/.test(
         read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs"),
       ) &&
-      /writeAll\(\)\s*\{\s*this\.writeProjection\(\);/.test(
+      !/writeAll\(\)|writeProjection\(/.test(
         read("packages/runtime-daemon/src/model-mounting.mjs"),
       ) &&
       !/state\.writeMap\(/.test(
@@ -27259,7 +27258,7 @@ function runReceipts() {
       /Model-mount receipt persistence requires Rust Agentgres receipt-state commit/.test(modelMountStore) &&
       /commitModelMountReceiptState\(receipt\)/.test(modelMountStore) &&
       !/writeJson\(path\.join\(this\.stateDir,\s*"receipts"/.test(modelMountStore) &&
-      /rust_plan_gated_receipt_projection_adapter/.test(modelMountStore) &&
+      /rust_agentgres_receipt_state_adapter/.test(modelMountStore) &&
       !/local_receipt_projection_store/.test(modelMountStore) &&
       /notFound\(`Receipt not found: \$\{receiptId\}`,\s*\{ receipt_id: receiptId \}\)/.test(modelMountStore) &&
       !/notFound\(`Receipt not found: \$\{receiptId\}`,\s*\{ receiptId \}\)/.test(modelMountStore) &&
@@ -27297,30 +27296,41 @@ function runReceipts() {
   );
   assertCheck(
     result,
-    "model-mount-projection-persistence-rust-core",
-    /canonicalProjectionWritePlan/.test(modelMountingState) &&
-      /this\.canonicalProjectionWritePlan\(\)/.test(modelMountingState) &&
-      /rustProjection:\s*plan/.test(modelMountingState) &&
-      !/store\.writeProjection\("model-mounting-canonical",\s*this\.projection\(\)\)/.test(modelMountingState) &&
-      /canonicalProjectionWritePlan\(\)\s*\{[\s\S]*modelMountReadProjectionPlan\(this,\s*"projection"\)/.test(modelMountingState) &&
-      /assertRustAuthoredModelMountProjection/.test(modelMountStore) &&
-      /model_mount_projection_direct_write_forbidden/.test(modelMountStore) &&
-      /rust_daemon_core_model_mount_projection/.test(modelMountStore) &&
-      /agentgres_model_mount_read_truth/.test(modelMountStore) &&
-      /model_mount_js_read_projection_authoring_retired/.test(modelMountStore) &&
-      /canonical projection writes fail closed without Rust projection plan evidence/.test(modelMountStoreTest) &&
-      /canonical projection writes persist only after Rust projection planning/.test(modelMountStoreTest) &&
-      /state\.canonicalProjectionWritePlan\(\)/.test(
+    "model-mount-canonical-projection-cache-retired",
+    !/canonicalProjectionWritePlan|writeProjection\(|writingProjection|store\.writeProjection|model-mounting-canonical/.test(
+      modelMountingState,
+    ) &&
+      !/writeProjection\(name|readProjection\(name|assertRustAuthoredModelMountProjection|model_mount_projection_direct_write_forbidden|model_mount_projection_cache_read_retired|projection\.write|model-mounting-canonical|rust_daemon_core_model_mount_projection_plan|"\s*projections\s*"/.test(
+        modelMountStore,
+      ) &&
+      /canonical projection cache persistence surface is retired/.test(modelMountStoreTest) &&
+      /typeof store\.writeProjection,\s*"undefined"/.test(modelMountStoreTest) &&
+      /typeof store\.readProjection,\s*"undefined"/.test(modelMountStoreTest) &&
+      /path\.join\(stateDir,\s*"projections"\)/.test(modelMountStoreTest) &&
+      /adapter status identifies Rust Agentgres receipt-state ownership/.test(modelMountStoreTest) &&
+      /model_mount_projection_cache_substrate_retired/.test(modelMountStore) &&
+      /rust_daemon_core_model_mount_read_projection_required/.test(modelMountStore) &&
+      /receipt operations persist Rust-authored receipts without projection cache refresh/.test(
+        modelMountReceiptOperationsTest,
+      ) &&
+      /typeof state\.writeProjection,\s*"undefined"/.test(modelMountReceiptOperationsTest) &&
+      /typeof state\.canonicalProjectionWritePlan,\s*"undefined"/.test(
         modelMountingReadProjectionDirectTest,
-      ),
+      ) &&
+      /Slice 1338 hard-cuts the model_mount canonical projection cache substrate/.test(guide) &&
+      /Model_mount canonical projection cache retired/.test(matrix) &&
+      /RuntimeDaemonCoreModelMountProjectionCacheRetired/.test(implementationMatrix),
     [
       "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/read-projection-direct.test.mjs",
       "packages/runtime-daemon/src/model-mounting/store.mjs",
       "packages/runtime-daemon/src/model-mounting/store.test.mjs",
+      "docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md",
+      "docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md",
+      "docs/architecture/_meta/implementation-matrix.md",
     ],
-    "Phase 5/10 is pending: canonical model_mount projection persistence must require a Rust daemon-core projection plan and direct JS projection writes must fail closed",
+    "Phase 5/10 is pending: canonical model_mount projection cache persistence must be deleted instead of retained as a Rust-gated local write substrate",
   );
   assertCheck(
     result,
@@ -27338,19 +27348,22 @@ function runReceipts() {
   );
   assertCheck(
     result,
-    "model-mount-projection-cache-read-retired",
-    /readProjection\(name\)\s*\{[\s\S]*model_mount_projection_cache_read_retired/.test(modelMountStore) &&
-      /rust_daemon_core_model_mount_projection_plan/.test(modelMountStore) &&
-      /rust_plan_gated_receipt_projection_adapter/.test(modelMountStore) &&
-      /rust_daemon_core_model_mount_projection_required/.test(modelMountStore) &&
-      !/readProjection\(name\)\s*\{[\s\S]*return readJson\(filePath\)/.test(modelMountStore) &&
-      /projection cache reads fail closed as a retired direct read path/.test(modelMountStoreTest) &&
-      /adapter status identifies Rust-plan-gated projection ownership/.test(modelMountStoreTest),
+    "model-mount-projection-cache-substrate-retired",
+    !/readProjection\(name\)|writeProjection\(name|model_mount_projection_cache_read_retired|model_mount_projection_direct_write_forbidden|model-mounting-canonical/.test(
+      modelMountStore,
+    ) &&
+      /rust_agentgres_receipt_state_adapter/.test(modelMountStore) &&
+      /model_mount_projection_cache_substrate_retired/.test(modelMountStore) &&
+      /rust_daemon_core_model_mount_read_projection_required/.test(modelMountStore) &&
+      !/modelMountingProjection|model-mounting-canonical/.test(runtimeDoctorReportRustCore) &&
+      /modelMountingReadProjection/.test(runtimeDoctorReportRustCore) &&
+      /canonical projection cache persistence surface is retired/.test(modelMountStoreTest) &&
+      /adapter status identifies Rust Agentgres receipt-state ownership/.test(modelMountStoreTest),
     [
       "packages/runtime-daemon/src/model-mounting/store.mjs",
       "packages/runtime-daemon/src/model-mounting/store.test.mjs",
     ],
-    "Phase 5/10 is pending: direct model_mount projection-cache reads must fail closed and the store adapter must advertise Rust-plan-gated projection ownership",
+    "Phase 5/10 is pending: direct model_mount projection-cache read/write substrate and diagnostic path references must stay deleted",
   );
   assertCheck(
     result,

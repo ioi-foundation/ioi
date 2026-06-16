@@ -404,7 +404,6 @@ export class ModelMountingState {
       materialAdapter: configuredVaultMaterialAdapter({ now: this.now }),
     });
     this.ensureDirs();
-    this.writeAll();
   }
 
   close() {}
@@ -415,10 +414,6 @@ export class ModelMountingState {
 
   writeSchemaRelationSchemas() {
     return modelMountingRelationSchemas();
-  }
-
-  writeAll() {
-    this.writeProjection();
   }
 
   writeMap(dir, map) {
@@ -577,25 +572,8 @@ export class ModelMountingState {
     return modelMountReadProjection(this, "projection");
   }
 
-  canonicalProjectionWritePlan() {
-    return modelMountReadProjectionPlan(this, "projection");
-  }
-
   adapterBoundaries() {
     return modelMountReadProjection(this, "adapter_boundaries");
-  }
-
-  writeProjection() {
-    if (this.writingProjection) return;
-    this.writingProjection = true;
-    try {
-      const plan = this.canonicalProjectionWritePlan();
-      this.store.writeProjection("model-mounting-canonical", plan.projection, {
-        rustProjection: plan,
-      });
-    } finally {
-      this.writingProjection = false;
-    }
   }
 
   receiptReplay(receiptId) {
@@ -1647,7 +1625,6 @@ export class ModelMountingState {
   persistRustAuthoredReceiptWithCommit(record) {
     assertRustAuthoredReceiptRecord(record);
     const commit = this.store.writeReceipt(record);
-    this.writeProjection();
     return { receipt: record, commit };
   }
 

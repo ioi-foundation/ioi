@@ -386,7 +386,7 @@ impl RuntimeDoctorReportProjectionCore {
                 "projections": Path::new(&state_dir).join("projections").to_string_lossy().to_string(),
                 "memoryRecords": memory_records_path.to_string_lossy(),
                 "memoryPolicies": memory_policies_path.to_string_lossy(),
-                "modelMountingProjection": Path::new(&state_dir).join("projections").join("model-mounting-canonical.json").to_string_lossy().to_string(),
+                "modelMountingReadProjection": "rust_daemon_core.model_mount.read_projection",
             },
             "providerKeys": provider_keys,
             "modelRoutes": {
