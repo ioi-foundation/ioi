@@ -64,6 +64,18 @@ compliance acronyms for hidden audit material.
   retention, replication, privacy class, and Agentgres artifact refs. It does
   not make storage backends the authority over payload meaning or restore
   validity.
+- `WorkspacePersistenceProfile`: Hypervisor/Fleet policy object for ephemeral,
+  session, zero-to-idle, persistent, or archive-only workspaces. It declares
+  idle behavior, compute shutdown, provider lease closure, archive/checkpoint
+  requirements, allowed storage backends, retrieval checks, restore policy, and
+  receipts.
+- `EnvironmentWarmupProfile`: Hypervisor/Fleet policy object for prebuilds,
+  dependency caches, model caches, index warmup, image pulls, and provider warm
+  pools. It is a performance projection, not canonical workspace truth.
+- `NodeEnforcementProfile`: HypervisorOS profile declaring daemon gates,
+  sandboxing, executable policy, egress policy, datawall/leakage detection,
+  log/export redaction, cTEE checks, and optional hardware attestation hooks.
+  It is evidence/control posture, not a substitute for cTEE privacy.
 - `ClassicalInfraPrimitive`: any traditional infrastructure object Fleet may
   manage or project, including a VM, container, microVM, WASM workload, image,
   volume, network, firewall/egress policy, snapshot, backup, restore point,
@@ -426,18 +438,45 @@ compliance acronyms for hidden audit material.
   workspaces, browser sandboxes, hosted workers, HypervisorOS nodes, terminal
   sessions, editor sessions, computer-use sessions, Foundry/eval/training
   sessions, and Fleet/provider sessions.
+- `HypervisorProject`: stable project/workspace identity under Hypervisor
+  Core. It binds repository/context roots, default policies, persistence
+  defaults, adapter preferences, and Agentgres domain links. It is not a
+  product UI and not canonical runtime truth by itself.
+- `HypervisorMission`: background/manual/scheduled/webhook/event-triggered
+  autonomous work with trigger policy, review contract, output contract,
+  authority requirements, and receipts. It is not a hidden interactive editor
+  session.
 - `HypervisorAdapterTarget`: an editor, terminal, browser, VM, container, local
   OS surface, hosted worker, HypervisorOS node, or external tool that a
   Hypervisor Session can project into or mediate. VS Code, Cursor, Windsurf,
   JetBrains, browser IDEs, Git, terminal/tmux, browser automation, local apps,
   cloud VMs, and HypervisorOS nodes are adapter targets, not Hypervisor's
   product identity.
+- `AdapterConnectionProfile`: implementable contract for connecting a
+  Hypervisor Session to an adapter target. It declares connection mode, launch
+  mode, required local/remote components, supported features, policy coverage,
+  and known limitations.
 - `AgentHarnessAdapter`: a Hypervisor adapter family for external CLI or hosted
   agent harnesses such as Codex, Claude Code, Grok Build, OpenHands, Aider,
   Cursor/Windsurf agent loops, shell/tmux agent loops, CI agents, and hosted
   coding agents. These harnesses may propose work through Hypervisor Core and
   the Hypervisor Daemon, but they are not Hypervisor clients and not runtime
   truth.
+- `AgentHarnessEnvironmentOpsProfile`: stable environment-operations contract
+  for external harnesses. It covers project/runtime discovery, create from
+  project or context URL, readiness polling, structured command execution,
+  logs, SSH/shell access when allowed, cleanup, and receipts.
+- `SessionAccessToken`: short-lived, audience-bound token for editor, SSH,
+  browser, log, support, or environment-ops access to a Hypervisor Session. It
+  is issued under wallet.network/daemon policy, bound to expiry and revocation
+  epoch, and receipted.
+- `PortExposurePolicy`: policy object declaring which session ports may be
+  opened, forwarded, shared, previewed, or externally exposed.
+- `BrowserOpenPolicy`: policy object declaring whether browser URLs in a
+  session can be auto-opened, proxied, externally shared, recorded, or blocked.
+- `SupportBundlePolicy`: policy object declaring what logs, traces, screenshots,
+  redacted diffs, environment metadata, and diagnostic files may leave a
+  session.
 - `HypervisorNode`: the local autonomous-system settlement domain for a user,
   organization, project, or deployment. It composes Hypervisor Core clients and
   application surfaces, Hypervisor Daemon, Agentgres, wallet.network authority
