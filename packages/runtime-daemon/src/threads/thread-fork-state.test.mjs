@@ -56,7 +56,6 @@ function createHarness({ plan = () => plannedForkRecord(), contextPolicyCore } =
       },
     };
   const store = {
-    contextPolicyCore: runner,
     agentForThread(threadId) {
       calls.push({ type: "agentForThread", threadId });
       return {
@@ -93,7 +92,7 @@ function createHarness({ plan = () => plannedForkRecord(), contextPolicyCore } =
       return agent;
     },
   };
-  return { calls, state, store };
+  return { calls, contextPolicyCore: runner, state, store };
 }
 
 function assertNoRetiredThreadForkDetailAliases(details) {
@@ -120,7 +119,7 @@ function assertNoRetiredThreadForkRequestAliases(request) {
 }
 
 test("thread fork uses Rust planning, Agentgres write, runtime-event admission, and Rust projection", async () => {
-  const { calls, state, store } = createHarness();
+  const { calls, contextPolicyCore, state, store } = createHarness();
 
   const projection = await state.forkThread(store, "thread_a", {
     idempotency_key: "fork-key",
@@ -133,7 +132,7 @@ test("thread fork uses Rust planning, Agentgres write, runtime-event admission, 
     workflowGraphId: "graph_retired",
     workflowNodeId: "node_retired",
     requestedBy: "operator_retired",
-  });
+  }, { contextPolicyCore });
 
   assert.deepEqual(projection, {
     thread_id: "thread_fork_123",
@@ -172,7 +171,7 @@ test("thread fork uses Rust planning, Agentgres write, runtime-event admission, 
 });
 
 test("thread fork request aliases stay retired after Rust planning", async () => {
-  const { calls, state, store } = createHarness();
+  const { calls, contextPolicyCore, state, store } = createHarness();
 
   await state.forkThread(store, "thread_a", {
     idempotency_key: "fork-key",
@@ -183,7 +182,7 @@ test("thread fork request aliases stay retired after Rust planning", async () =>
     workflowNodeId: "node_retired",
     requested_by: "operator",
     requestedBy: "operator_retired",
-  });
+  }, { contextPolicyCore });
 
   const plannedRequest = calls.find((call) => call.type === "planRuntimeThreadForkControl").request;
   assert.equal(plannedRequest.request.idempotency_key, "fork-key");
@@ -244,7 +243,7 @@ test("thread fork fails closed before source lookup when Rust planner is absent"
 });
 
 test("thread fork rejects invalid Rust plans before Agentgres write or runtime-event admission", async () => {
-  const { calls, state, store } = createHarness({
+  const { calls, contextPolicyCore, state, store } = createHarness({
     plan() {
       const record = plannedForkRecord();
       delete record.event;
@@ -253,7 +252,7 @@ test("thread fork rejects invalid Rust plans before Agentgres write or runtime-e
   });
 
   await assert.rejects(
-    () => state.forkThread(store, "thread_a", { idempotency_key: "fork-key" }),
+    () => state.forkThread(store, "thread_a", { idempotency_key: "fork-key" }, { contextPolicyCore }),
     (error) => {
       assert.equal(error.status, 502);
       assert.equal(error.code, "runtime_thread_fork_control_event_invalid");

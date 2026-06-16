@@ -20,7 +20,7 @@ function stringRefs(values) {
 }
 
 function managedSessionProjectionRunner(store, request = {}, deps = {}) {
-  const runner = deps.contextPolicyCore ?? store?.contextPolicyCore;
+  const runner = deps.contextPolicyCore;
   if (runner?.projectRuntimeManagedSessionProjection) return runner;
   throw runtimeError({
     status: 501,
@@ -38,7 +38,7 @@ function managedSessionProjectionRunner(store, request = {}, deps = {}) {
 }
 
 function managedSessionControlRunner(store, request = {}, deps = {}) {
-  const runner = deps.contextPolicyCore ?? store?.contextPolicyCore;
+  const runner = deps.contextPolicyCore;
   if (
     runner?.planRuntimeManagedSessionControl &&
     typeof store?.appendRuntimeEvent === "function"

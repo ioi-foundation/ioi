@@ -6,12 +6,11 @@ import {
   inspectWorkspaceChangeReviewsForThread,
 } from "./workspace-change-state.mjs";
 
-function fakeStore({ contextPolicyCore = {}, appendRuntimeEvent = null } = {}) {
+function fakeStore({ appendRuntimeEvent = null } = {}) {
   const calls = [];
   return {
     calls,
     stateDir: "/runtime-state",
-    contextPolicyCore,
     workspaceChangesForThread(thread_id) {
       assert.fail(`workspace change control must not read JS change candidates: ${thread_id}`);
     },
@@ -43,34 +42,33 @@ function assertNoRetiredWorkspaceChangeDetailAliases(details = {}) {
 
 test("workspace change inspection returns Rust daemon-core projection without JS bridge readback", async () => {
   let captured = null;
-  const store = fakeStore({
-    contextPolicyCore: {
-      projectRuntimeWorkspaceChangeProjection(request) {
-        captured = request;
-        return {
-          status: "projected",
-          operation: "workspace_change_inspection",
-          operation_kind: "workspace_change.inspect",
-          projection_kind: "list",
-          thread_id: "thread_runtime",
-          projection: [
-            {
-              workspace_change_id: "workspace_change:file:1",
-              thread_id: "thread_runtime",
-              review_state: "pending_review",
-            },
-          ],
-          record_count: 1,
-          evidence_refs: ["runtime_workspace_change_projection_rust_owned"],
-          receipt_refs: ["receipt_runtime_workspace_change_projection_list"],
-        };
-      },
+  const contextPolicyCore = {
+    projectRuntimeWorkspaceChangeProjection(request) {
+      captured = request;
+      return {
+        status: "projected",
+        operation: "workspace_change_inspection",
+        operation_kind: "workspace_change.inspect",
+        projection_kind: "list",
+        thread_id: "thread_runtime",
+        projection: [
+          {
+            workspace_change_id: "workspace_change:file:1",
+            thread_id: "thread_runtime",
+            review_state: "pending_review",
+          },
+        ],
+        record_count: 1,
+        evidence_refs: ["runtime_workspace_change_projection_rust_owned"],
+        receipt_refs: ["receipt_runtime_workspace_change_projection_list"],
+      };
     },
-  });
+  };
+  const store = fakeStore();
 
   const result = await inspectWorkspaceChangeReviewsForThread(store, "thread_runtime", {
     projection_kind: "list",
-  });
+  }, { contextPolicyCore });
 
   assert.equal(captured.operation, "workspace_change_inspection");
   assert.equal(captured.operation_kind, "workspace_change.inspect");
@@ -127,25 +125,24 @@ test("workspace change control uses Rust planning and runtime event admission", 
       control_state: "accept",
     },
   };
-  const store = fakeStore({
-    contextPolicyCore: {
-      planRuntimeWorkspaceChangeControl(request) {
-        captured = request;
-        return {
-          status: "planned",
-          operation: "workspace_change_control",
-          operation_kind: "workspace_change.control",
-          thread_id: "thread_runtime",
-          workspace_change_id: "workspace_change:file:1",
-          control_state: "accept",
-          event: plannedEvent,
-          receipt_refs: ["receipt_workspace_change_control"],
-          policy_decision_refs: ["policy_workspace_change_control"],
-          evidence_refs: ["runtime_workspace_change_control_rust_owned"],
-        };
-      },
+  const contextPolicyCore = {
+    planRuntimeWorkspaceChangeControl(request) {
+      captured = request;
+      return {
+        status: "planned",
+        operation: "workspace_change_control",
+        operation_kind: "workspace_change.control",
+        thread_id: "thread_runtime",
+        workspace_change_id: "workspace_change:file:1",
+        control_state: "accept",
+        event: plannedEvent,
+        receipt_refs: ["receipt_workspace_change_control"],
+        policy_decision_refs: ["policy_workspace_change_control"],
+        evidence_refs: ["runtime_workspace_change_control_rust_owned"],
+      };
     },
-  });
+  };
+  const store = fakeStore();
 
   const result = await controlWorkspaceChangeForThread(store, "thread_runtime", {
     workspace_change_id: "workspace_change:file:1",
@@ -156,7 +153,7 @@ test("workspace change control uses Rust planning and runtime event admission", 
     state_root_ref: "state_after",
     receipt_refs: ["receipt_request"],
     policy_decision_refs: ["policy_request"],
-  });
+  }, { contextPolicyCore });
 
   assert.equal(captured.operation, "workspace_change_control");
   assert.equal(captured.operation_kind, "workspace_change.control");
@@ -213,14 +210,13 @@ test("workspace change control fails closed before Rust planning or event append
 
 test("workspace change control ignores retired request aliases before Rust planning", async () => {
   let planned = false;
-  const store = fakeStore({
-    contextPolicyCore: {
-      planRuntimeWorkspaceChangeControl() {
-        planned = true;
-        assert.fail("retired workspace-change aliases must not reach Rust control planning");
-      },
+  const contextPolicyCore = {
+    planRuntimeWorkspaceChangeControl() {
+      planned = true;
+      assert.fail("retired workspace-change aliases must not reach Rust control planning");
     },
-  });
+  };
+  const store = fakeStore();
 
   await assert.rejects(
     controlWorkspaceChangeForThread(store, "thread_runtime", {
@@ -235,7 +231,7 @@ test("workspace change control ignores retired request aliases before Rust plann
       action: "accept",
       createdAt: "2026-06-12T00:00:00.000Z",
       requestHash: "retired_hash",
-    }),
+    }, { contextPolicyCore }),
     (error) => {
       assert.equal(error.status, 400);
       assert.equal(error.code, "runtime_workspace_change_control_id_required");

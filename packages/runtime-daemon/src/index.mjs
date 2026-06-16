@@ -651,7 +651,9 @@ export class AgentgresRuntimeStateStore {
       threadIdForAgent,
     });
     this.threadMemorySurface = threadMemoryState;
-    this.threadAuxiliarySurface = createRuntimeThreadAuxiliarySurface();
+    this.threadAuxiliarySurface = createRuntimeThreadAuxiliarySurface({
+      contextPolicyCore: this.contextPolicyCore,
+    });
     this.conversationArtifactSurface = createRuntimeConversationArtifactSurface({
       contextPolicyCore: this.contextPolicyCore,
       notFound,

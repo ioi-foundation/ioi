@@ -10593,6 +10593,21 @@ now guards that the retired fallback cannot return. Remaining work is durable
 task/job replay/projection depth, wallet/cTEE task authority, direct lifecycle
 APIs, and stable protocol clients, not an alternate task/job core mount.
 
+Slice 1315 hard-cuts the runtime auxiliary compositor store-core fallback.
+Managed-session projection/control, workspace-change projection/control, and
+thread-fork control now resolve only through the positive `contextPolicyCore`
+mount supplied to `createRuntimeThreadAuxiliarySurface()` by daemon startup.
+The auxiliary surface passes that mount into the helper modules explicitly, and
+the helper modules plus focused tests no longer read or model
+`deps.contextPolicyCore ?? store.contextPolicyCore`, `store.contextPolicyCore`,
+or `store?.contextPolicyCore`. Managed-session, workspace-change, and
+thread-fork truth therefore cannot return through a store-mounted
+planner/projector fallback after Rust daemon-core parity is present.
+Conformance now guards the retired fallback and the daemon-mounted auxiliary
+core dependency. Remaining work is durable replay/projection depth,
+wallet/cTEE authority expansion, StepModuleRouter delegation execution, and
+stable protocol clients, not an alternate auxiliary core mount.
+
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,
 `/v1/memory/policy`, `/v1/memory/path`, or `/v1/memory/validate`; the daemon

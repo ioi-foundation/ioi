@@ -13056,7 +13056,7 @@ function runBridge() {
       /Object\.hasOwn\(error\.details,\s*"runId"\),\s*false/.test(runtimeRunCancellationTest) &&
       /createRuntimeThreadAuxiliarySurface/.test(runtimeThreadAuxiliarySurface) &&
       /cancelRun\(store, runId\)/.test(runtimeThreadAuxiliarySurface) &&
-      /this\.threadAuxiliarySurface = createRuntimeThreadAuxiliarySurface\(\)/.test(
+      /this\.threadAuxiliarySurface = createRuntimeThreadAuxiliarySurface\(\{\s*contextPolicyCore:\s*this\.contextPolicyCore,\s*\}\)/.test(
         runtimeDaemonIndex,
       ) &&
       !/^\s*cancelRun\(runId\)/m.test(runtimeDaemonIndex) &&
@@ -14842,9 +14842,19 @@ function runBridge() {
     /thread fork rejects invalid Rust plans before Agentgres write or runtime-event admission/.test(
       runtimeThreadForkStateTest,
     ) &&
+    !/deps\.contextPolicyCore\s*\?\?\s*store\?\.contextPolicyCore|store\?\.contextPolicyCore|store\.contextPolicyCore/.test(
+      runtimeThreadForkState,
+    ) &&
+    !/deps\.contextPolicyCore\s*\?\?\s*store\?\.contextPolicyCore|store\?\.contextPolicyCore|store\.contextPolicyCore/.test(
+      runtimeThreadForkStateTest,
+    ) &&
     /createRuntimeThreadAuxiliarySurface/.test(runtimeThreadAuxiliarySurface) &&
-    /forkThread\(store, threadId, request = \{\}\)/.test(runtimeThreadAuxiliarySurface) &&
-    /this\.threadAuxiliarySurface = createRuntimeThreadAuxiliarySurface\(\)/.test(
+    /contextPolicyCore = null/.test(runtimeThreadAuxiliarySurface) &&
+    /const coreDeps = \{ contextPolicyCore \};/.test(runtimeThreadAuxiliarySurface) &&
+    /threadForkState\.forkThread\(store, threadId, request, coreDeps\)/.test(
+      runtimeThreadAuxiliarySurface,
+    ) &&
+    /this\.threadAuxiliarySurface = createRuntimeThreadAuxiliarySurface\(\{\s*contextPolicyCore:\s*this\.contextPolicyCore,\s*\}\)/.test(
       runtimeDaemonIndex,
     ) &&
     !/^\s*forkThread\(threadId,/m.test(runtimeDaemonIndex) &&
@@ -38126,14 +38136,22 @@ function runCompositor() {
       !/managed session control facade fails closed before JS bridge dispatch or result envelope/.test(
         managedSessionStateTest,
       ) &&
+      !/deps\.contextPolicyCore\s*\?\?\s*store\?\.contextPolicyCore|store\?\.contextPolicyCore|store\.contextPolicyCore/.test(
+        managedSessionState,
+      ) &&
+      !/deps\.contextPolicyCore\s*\?\?\s*store\?\.contextPolicyCore|store\?\.contextPolicyCore|store\.contextPolicyCore/.test(
+        managedSessionStateTest,
+      ) &&
       /createRuntimeThreadAuxiliarySurface/.test(runtimeThreadAuxiliarySurface) &&
-      /inspectManagedSessionsForThread\(store, threadId, request = \{\}\)/.test(
+      /contextPolicyCore = null/.test(runtimeThreadAuxiliarySurface) &&
+      /const coreDeps = \{ contextPolicyCore \};/.test(runtimeThreadAuxiliarySurface) &&
+      /inspectManagedSessionsForThread\(store, threadId, request, coreDeps\)/.test(
         runtimeThreadAuxiliarySurface,
       ) &&
-      /controlManagedSessionForThread\(store, threadId, request = \{\}\)/.test(
+      /controlManagedSessionForThread\(store, threadId, request, coreDeps\)/.test(
         runtimeThreadAuxiliarySurface,
       ) &&
-      /this\.threadAuxiliarySurface = createRuntimeThreadAuxiliarySurface\(\)/.test(
+      /this\.threadAuxiliarySurface = createRuntimeThreadAuxiliarySurface\(\{\s*contextPolicyCore:\s*this\.contextPolicyCore,\s*\}\)/.test(
         runtimeDaemonIndex,
       ) &&
       !/^\s*inspectManagedSessionsForThread\(threadId,/m.test(
@@ -38376,14 +38394,22 @@ function runCompositor() {
       /workspace change control ignores retired request aliases before Rust planning/.test(
         workspaceChangeStateTest,
       ) &&
+      !/deps\.contextPolicyCore\s*\?\?\s*store\?\.contextPolicyCore|store\?\.contextPolicyCore|store\.contextPolicyCore/.test(
+        workspaceChangeState,
+      ) &&
+      !/deps\.contextPolicyCore\s*\?\?\s*store\?\.contextPolicyCore|store\?\.contextPolicyCore|store\.contextPolicyCore/.test(
+        workspaceChangeStateTest,
+      ) &&
       /createRuntimeThreadAuxiliarySurface/.test(runtimeThreadAuxiliarySurface) &&
-      /inspectWorkspaceChangeReviewsForThread\(store, threadId, request = \{\}\)/.test(
+      /contextPolicyCore = null/.test(runtimeThreadAuxiliarySurface) &&
+      /const coreDeps = \{ contextPolicyCore \};/.test(runtimeThreadAuxiliarySurface) &&
+      /inspectWorkspaceChangeReviewsForThread\(store, threadId, request, coreDeps\)/.test(
         runtimeThreadAuxiliarySurface,
       ) &&
-      /controlWorkspaceChangeForThread\(store, threadId, request = \{\}\)/.test(
+      /controlWorkspaceChangeForThread\(store, threadId, request, coreDeps\)/.test(
         runtimeThreadAuxiliarySurface,
       ) &&
-      /this\.threadAuxiliarySurface = createRuntimeThreadAuxiliarySurface\(\)/.test(
+      /this\.threadAuxiliarySurface = createRuntimeThreadAuxiliarySurface\(\{\s*contextPolicyCore:\s*this\.contextPolicyCore,\s*\}\)/.test(
         runtimeDaemonIndex,
       ) &&
       !/^\s*inspectWorkspaceChangeReviewsForThread\(threadId,/m.test(
@@ -38498,6 +38524,21 @@ function runCompositor() {
       /thread fork fails closed before source lookup when Rust planner is absent/.test(
         runtimeThreadForkStateTest,
       ) &&
+      !/deps\.contextPolicyCore\s*\?\?\s*store\?\.contextPolicyCore|store\?\.contextPolicyCore|store\.contextPolicyCore/.test(
+        runtimeThreadForkState,
+      ) &&
+      !/deps\.contextPolicyCore\s*\?\?\s*store\?\.contextPolicyCore|store\?\.contextPolicyCore|store\.contextPolicyCore/.test(
+        runtimeThreadForkStateTest,
+      ) &&
+      /createRuntimeThreadAuxiliarySurface/.test(runtimeThreadAuxiliarySurface) &&
+      /contextPolicyCore = null/.test(runtimeThreadAuxiliarySurface) &&
+      /const coreDeps = \{ contextPolicyCore \};/.test(runtimeThreadAuxiliarySurface) &&
+      /threadForkState\.forkThread\(store, threadId, request, coreDeps\)/.test(
+        runtimeThreadAuxiliarySurface,
+      ) &&
+      /this\.threadAuxiliarySurface = createRuntimeThreadAuxiliarySurface\(\{\s*contextPolicyCore:\s*this\.contextPolicyCore,\s*\}\)/.test(
+        runtimeDaemonIndex,
+      ) &&
       !/store\.createAgent\(/.test(runtimeThreadForkState) &&
       !/store\.runtimeEventStream\(/.test(runtimeThreadForkState) &&
       !/rust_daemon_core_thread_fork_required/.test(runtimeThreadForkState) &&
@@ -38515,6 +38556,7 @@ function runCompositor() {
       "packages/runtime-daemon/src/threads/thread-fork-state.mjs",
       "packages/runtime-daemon/src/threads/thread-fork-state.test.mjs",
       "packages/runtime-daemon/src/runtime-thread-auxiliary-surface.mjs",
+      "packages/runtime-daemon/src/index.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.mjs",
     ],
     "Runtime thread-fork control must be owned by Rust daemon-core planning with Rust-authored Agentgres state, event admission, and projection; JS may remain only as the protocol commit client",

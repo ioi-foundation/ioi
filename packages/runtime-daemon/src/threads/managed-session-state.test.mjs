@@ -6,12 +6,11 @@ import {
   inspectManagedSessionsForThread,
 } from "./managed-session-state.mjs";
 
-function fakeStore({ contextPolicyCore = {}, appendRuntimeEvent = null } = {}) {
+function fakeStore({ appendRuntimeEvent = null } = {}) {
   const calls = [];
   return {
     calls,
     stateDir: "/runtime-state",
-    contextPolicyCore,
     managedSessionsForThread(thread_id) {
       assert.fail(`managed session control must not read JS session candidates: ${thread_id}`);
     },
@@ -42,34 +41,33 @@ function assertNoRetiredManagedSessionDetailAliases(details = {}) {
 
 test("managed session inspection returns Rust daemon-core projection without JS bridge readback", async () => {
   let captured = null;
-  const store = fakeStore({
-    contextPolicyCore: {
-      projectRuntimeManagedSessionProjection(request) {
-        captured = request;
-        return {
-          status: "projected",
-          operation: "managed_session_inspection",
-          operation_kind: "managed_session.inspect",
-          projection_kind: "list",
-          thread_id: "thread_runtime",
-          projection: [
-            {
-              managed_session_id: "sandbox_browser:1",
-              thread_id: "thread_runtime",
-              control_state: "observe",
-            },
-          ],
-          record_count: 1,
-          evidence_refs: ["runtime_managed_session_projection_rust_owned"],
-          receipt_refs: ["receipt_runtime_managed_session_projection_list"],
-        };
-      },
+  const contextPolicyCore = {
+    projectRuntimeManagedSessionProjection(request) {
+      captured = request;
+      return {
+        status: "projected",
+        operation: "managed_session_inspection",
+        operation_kind: "managed_session.inspect",
+        projection_kind: "list",
+        thread_id: "thread_runtime",
+        projection: [
+          {
+            managed_session_id: "sandbox_browser:1",
+            thread_id: "thread_runtime",
+            control_state: "observe",
+          },
+        ],
+        record_count: 1,
+        evidence_refs: ["runtime_managed_session_projection_rust_owned"],
+        receipt_refs: ["receipt_runtime_managed_session_projection_list"],
+      };
     },
-  });
+  };
+  const store = fakeStore();
 
   const result = await inspectManagedSessionsForThread(store, "thread_runtime", {
     projection_kind: "list",
-  });
+  }, { contextPolicyCore });
 
   assert.equal(captured.operation, "managed_session_inspection");
   assert.equal(captured.operation_kind, "managed_session.inspect");
@@ -126,25 +124,24 @@ test("managed session control uses Rust planning and runtime event admission", a
       control_state: "take_over",
     },
   };
-  const store = fakeStore({
-    contextPolicyCore: {
-      planRuntimeManagedSessionControl(request) {
-        captured = request;
-        return {
-          status: "planned",
-          operation: "managed_session_control",
-          operation_kind: "managed_session.control",
-          thread_id: "thread_runtime",
-          managed_session_id: "sandbox_browser:1",
-          control_state: "take_over",
-          event: plannedEvent,
-          receipt_refs: ["receipt_managed_session_control"],
-          policy_decision_refs: ["policy_managed_session_control"],
-          evidence_refs: ["runtime_managed_session_control_rust_owned"],
-        };
-      },
+  const contextPolicyCore = {
+    planRuntimeManagedSessionControl(request) {
+      captured = request;
+      return {
+        status: "planned",
+        operation: "managed_session_control",
+        operation_kind: "managed_session.control",
+        thread_id: "thread_runtime",
+        managed_session_id: "sandbox_browser:1",
+        control_state: "take_over",
+        event: plannedEvent,
+        receipt_refs: ["receipt_managed_session_control"],
+        policy_decision_refs: ["policy_managed_session_control"],
+        evidence_refs: ["runtime_managed_session_control_rust_owned"],
+      };
     },
-  });
+  };
+  const store = fakeStore();
 
   const result = await controlManagedSessionForThread(store, "thread_runtime", {
     managed_session_id: "sandbox_browser:1",
@@ -153,7 +150,7 @@ test("managed session control uses Rust planning and runtime event admission", a
     workspace_root: "/workspace/project",
     receipt_refs: ["receipt_request"],
     policy_decision_refs: ["policy_request"],
-  });
+  }, { contextPolicyCore });
 
   assert.equal(captured.operation, "managed_session_control");
   assert.equal(captured.operation_kind, "managed_session.control");
@@ -208,14 +205,13 @@ test("managed session control fails closed before Rust planning or event append 
 
 test("managed session control ignores retired request aliases before Rust planning", async () => {
   let planned = false;
-  const store = fakeStore({
-    contextPolicyCore: {
-      planRuntimeManagedSessionControl() {
-        planned = true;
-        assert.fail("retired managed-session aliases must not reach Rust control planning");
-      },
+  const contextPolicyCore = {
+    planRuntimeManagedSessionControl() {
+      planned = true;
+      assert.fail("retired managed-session aliases must not reach Rust control planning");
     },
-  });
+  };
+  const store = fakeStore();
 
   await assert.rejects(
     controlManagedSessionForThread(store, "thread_runtime", {
@@ -223,7 +219,7 @@ test("managed session control ignores retired request aliases before Rust planni
       action: "take_over",
       createdAt: "2026-06-12T00:00:00.000Z",
       requestHash: "retired_hash",
-    }),
+    }, { contextPolicyCore }),
     (error) => {
       assert.equal(error.status, 400);
       assert.equal(error.code, "runtime_managed_session_control_id_required");
