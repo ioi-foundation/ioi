@@ -119,7 +119,7 @@ export async function bootstrapNativeRuntimeModelRoute({
     const parallel = Number(firstNonEmptyEnv(process.env, ["IOI_LLAMA_CPP_PARALLEL"]) ?? 1);
     const gpu = firstNonEmptyEnv(process.env, ["IOI_LLAMA_CPP_GPU"]) ?? "auto";
 
-    const imported = await requestJson(daemonEndpoint, "/api/v1/models/import", {
+    const imported = await requestJson(daemonEndpoint, "/v1/model-mount/artifacts/import", {
       method: "POST",
       token,
       body: {
@@ -131,7 +131,7 @@ export async function bootstrapNativeRuntimeModelRoute({
         capabilities: ["chat", "responses", "structured_output", "code"],
       },
     });
-    const mounted = await requestJson(daemonEndpoint, "/api/v1/models/mount", {
+    const mounted = await requestJson(daemonEndpoint, "/v1/model-mount/endpoints", {
       method: "POST",
       token,
       body: {
@@ -142,7 +142,7 @@ export async function bootstrapNativeRuntimeModelRoute({
         load_policy: { mode: "on_demand", idleTtlSeconds: 900, autoEvict: false },
       },
     });
-    const loaded = await requestJson(daemonEndpoint, "/api/v1/models/load", {
+    const loaded = await requestJson(daemonEndpoint, "/v1/model-mount/instances/load", {
       method: "POST",
       token,
       body: {
@@ -233,7 +233,7 @@ export async function bootstrapNativeRuntimeModelRoute({
     ].join("\n"),
   );
 
-  const imported = await requestJson(daemonEndpoint, "/api/v1/models/import", {
+  const imported = await requestJson(daemonEndpoint, "/v1/model-mount/artifacts/import", {
     method: "POST",
     token,
     body: {
@@ -243,7 +243,7 @@ export async function bootstrapNativeRuntimeModelRoute({
       capabilities: ["chat", "responses", "embeddings", "structured_output", "code"],
     },
   });
-  const mounted = await requestJson(daemonEndpoint, "/api/v1/models/mount", {
+  const mounted = await requestJson(daemonEndpoint, "/v1/model-mount/endpoints", {
     method: "POST",
     token,
     body: {
@@ -253,7 +253,7 @@ export async function bootstrapNativeRuntimeModelRoute({
       backend_id: backendId,
     },
   });
-  const estimate = await requestJson(daemonEndpoint, "/api/v1/models/load", {
+  const estimate = await requestJson(daemonEndpoint, "/v1/model-mount/instances/load", {
     method: "POST",
     token,
     body: {
@@ -270,7 +270,7 @@ export async function bootstrapNativeRuntimeModelRoute({
       },
     },
   });
-  const loaded = await requestJson(daemonEndpoint, "/api/v1/models/load", {
+  const loaded = await requestJson(daemonEndpoint, "/v1/model-mount/instances/load", {
     method: "POST",
     token,
     body: {

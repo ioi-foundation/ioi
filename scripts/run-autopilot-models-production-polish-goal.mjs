@@ -469,7 +469,7 @@ async function bootstrapDaemon(outputDir) {
     `/api/v1/providers/${encodeURIComponent(PROVIDER_ID)}/start`,
     { method: "POST", token: grant.token },
   );
-  const mounted = await requestJson(daemon.endpoint, "/api/v1/models/mount", {
+  const mounted = await requestJson(daemon.endpoint, "/v1/model-mount/endpoints", {
     method: "POST",
     token: grant.token,
     body: {
@@ -479,7 +479,7 @@ async function bootstrapDaemon(outputDir) {
       load_policy: { mode: "manual", idleTtlSeconds: 900, autoEvict: false },
     },
   });
-  const secondaryMounted = await requestJson(daemon.endpoint, "/api/v1/models/mount", {
+  const secondaryMounted = await requestJson(daemon.endpoint, "/v1/model-mount/endpoints", {
     method: "POST",
     token: grant.token,
     body: {
@@ -504,7 +504,7 @@ async function bootstrapDaemon(outputDir) {
       },
     },
   });
-  const loaded = await requestJson(daemon.endpoint, "/api/v1/models/load", {
+  const loaded = await requestJson(daemon.endpoint, "/v1/model-mount/instances/load", {
     method: "POST",
     token: grant.token,
     body: {
@@ -1091,7 +1091,7 @@ async function runGuiValidation(outputRoot) {
         const current = await projection(boot.daemon.endpoint, boot.token);
         for (const instance of current.instances ?? []) {
           if (instance.status === "loaded") {
-            await requestJson(boot.daemon.endpoint, "/api/v1/models/unload", {
+            await requestJson(boot.daemon.endpoint, "/v1/model-mount/instances/unload", {
               method: "POST",
               token: boot.token,
               body: { instance_id: instance.id },

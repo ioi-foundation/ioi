@@ -58,7 +58,7 @@ function createModelDaemonActions({
       });
     }
     if (action === "load") {
-      return requestJson(endpoint, `/api/v1/models/mounts/${encodeURIComponent(targetEndpointId)}/load`, {
+      return requestJson(endpoint, `/v1/model-mount/endpoints/${encodeURIComponent(targetEndpointId)}/load`, {
         method: "POST",
         token,
         payload: {
@@ -77,8 +77,8 @@ function createModelDaemonActions({
       return requestJson(
         endpoint,
         targetInstanceId
-          ? `/api/v1/models/instances/${encodeURIComponent(targetInstanceId)}/unload`
-          : `/api/v1/models/mounts/${encodeURIComponent(targetEndpointId)}/unload`,
+          ? `/v1/model-mount/instances/${encodeURIComponent(targetInstanceId)}/unload`
+          : `/v1/model-mount/endpoints/${encodeURIComponent(targetEndpointId)}/unload`,
         {
           method: "POST",
           token,

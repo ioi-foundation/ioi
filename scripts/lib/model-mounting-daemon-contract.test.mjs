@@ -536,7 +536,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
       importedModelPath,
       ["family=autopilot-imported", "quantization=Q4_K_M", "context=4096", "fixture bytes"].join("\n"),
     );
-    const imported = await expectOk(daemon.endpoint, "/api/v1/models/import", {
+    const imported = await expectOk(daemon.endpoint, "/v1/model-mount/artifacts/import", {
       method: "POST",
       token: grant.token,
       body: {
@@ -550,14 +550,14 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.equal(imported.format, "gguf");
     assert.match(imported.checksum, /^sha256:/);
 
-    const mounted = await expectOk(daemon.endpoint, "/api/v1/models/mount", {
+    const mounted = await expectOk(daemon.endpoint, "/v1/model-mount/endpoints", {
       method: "POST",
       token: grant.token,
       body: { model_id: "local:auto", id: "endpoint.test.local-auto" },
     });
     assert.equal(mounted.status, "mounted");
 
-    const loaded = await expectOk(daemon.endpoint, "/api/v1/models/load", {
+    const loaded = await expectOk(daemon.endpoint, "/v1/model-mount/instances/load", {
       method: "POST",
       token: grant.token,
       body: {
@@ -581,7 +581,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.equal(typeof usedGrant.lastUsedAt, "string");
     assert.equal(JSON.stringify(tokenListAfterUse).includes(grant.token), false);
 
-    await expectOk(daemon.endpoint, "/api/v1/models/mount", {
+    await expectOk(daemon.endpoint, "/v1/model-mount/endpoints", {
       method: "POST",
       token: grant.token,
       body: {
@@ -596,7 +596,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
       collisionModelPath,
       ["family=native-collision", "quantization=Q4_K_M", "context=4096", "fixture bytes"].join("\n"),
     );
-    await expectOk(daemon.endpoint, "/api/v1/models/import", {
+    await expectOk(daemon.endpoint, "/v1/model-mount/artifacts/import", {
       method: "POST",
       token: grant.token,
       body: {
@@ -606,7 +606,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
         capabilities: ["chat"],
       },
     });
-    const nativeCollisionMounted = await expectOk(daemon.endpoint, "/api/v1/models/mount", {
+    const nativeCollisionMounted = await expectOk(daemon.endpoint, "/v1/model-mount/endpoints", {
       method: "POST",
       token: grant.token,
       body: {
@@ -643,13 +643,13 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.equal(collisionReceipt.details.providerId, "provider.autopilot.local");
     assert.equal(collisionReceipt.details.endpointId, "endpoint.test.native-collision");
 
-    const nativeMounted = await expectOk(daemon.endpoint, "/api/v1/models/mount", {
+    const nativeMounted = await expectOk(daemon.endpoint, "/v1/model-mount/endpoints", {
       method: "POST",
       token: grant.token,
       body: { model_id: "native:imported", id: "endpoint.test.native-imported" },
     });
     assert.equal(nativeMounted.providerId, "provider.autopilot.local");
-    const defaultedLoadEstimate = await expectOk(daemon.endpoint, "/api/v1/models/load", {
+    const defaultedLoadEstimate = await expectOk(daemon.endpoint, "/v1/model-mount/instances/load", {
       method: "POST",
       token: grant.token,
       body: {
@@ -660,7 +660,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.equal(defaultedLoadEstimate.loadOptions.contextLength, 3072);
     assert.equal(defaultedLoadEstimate.loadOptions.parallel, 3);
     assert.equal(defaultedLoadEstimate.loadOptions.identifier, "runtime-profile-default");
-    const nativeLoadEstimate = await expectOk(daemon.endpoint, "/api/v1/models/load", {
+    const nativeLoadEstimate = await expectOk(daemon.endpoint, "/v1/model-mount/instances/load", {
       method: "POST",
       token: grant.token,
       body: {
@@ -683,7 +683,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     const nativeLoadEstimateReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${nativeLoadEstimate.receiptId}`);
     assert.equal(nativeLoadEstimateReceipt.details.operation, "model_load_estimate");
     assert.equal(nativeLoadEstimateReceipt.details.loadOptions.estimateOnly, true);
-    const nativeLoaded = await expectOk(daemon.endpoint, "/api/v1/models/load", {
+    const nativeLoaded = await expectOk(daemon.endpoint, "/v1/model-mount/instances/load", {
       method: "POST",
       token: grant.token,
       body: {
@@ -1411,12 +1411,12 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     });
     assert.equal(routeTest.selection.endpoint.modelId, "local:auto");
 
-    await expectOk(daemon.endpoint, "/api/v1/models/import", {
+    await expectOk(daemon.endpoint, "/v1/model-mount/artifacts/import", {
       method: "POST",
       token: grant.token,
       body: { model_id: "hosted:test", provider_id: "provider.openai", capabilities: ["chat"], privacy_class: "hosted" },
     });
-    await expectOk(daemon.endpoint, "/api/v1/models/mount", {
+    await expectOk(daemon.endpoint, "/v1/model-mount/endpoints", {
       method: "POST",
       token: grant.token,
       body: { model_id: "hosted:test", id: "endpoint.hosted.test", provider_id: "provider.openai" },
@@ -2536,14 +2536,14 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
 
     const importSource = path.join(cwd, "dry-run-source.Q4_K_M.gguf");
     fs.writeFileSync(importSource, "family=dry-run-source\ncontext=1024\nquantization=Q4_K_M\n");
-    const dryRun = await expectOk(daemon.endpoint, "/api/v1/models/import", {
+    const dryRun = await expectOk(daemon.endpoint, "/v1/model-mount/artifacts/import", {
       method: "POST",
       token: grant.token,
       body: { model_id: "native:dry-run", path: importSource, import_mode: "dry_run" },
     });
     assert.equal(dryRun.status, "dry_run");
     assert.equal(dryRun.importMode, "dry_run");
-    const copied = await expectOk(daemon.endpoint, "/api/v1/models/import", {
+    const copied = await expectOk(daemon.endpoint, "/v1/model-mount/artifacts/import", {
       method: "POST",
       token: grant.token,
       body: { model_id: "native:copied-import", path: importSource, import_mode: "copy" },
@@ -2738,7 +2738,7 @@ test("Ollama provider adapter lists models, invokes through policy, and redacts 
 
     const providerModels = await expectOk(daemon.endpoint, "/api/v1/providers/provider.test.ollama/models");
     assert.ok(providerModels.some((model) => model.modelId === "qwen3:8b"));
-    const mounted = await expectOk(daemon.endpoint, "/api/v1/models/mount", {
+    const mounted = await expectOk(daemon.endpoint, "/v1/model-mount/endpoints", {
       method: "POST",
       token: grant.token,
       body: {
@@ -2862,12 +2862,12 @@ test("Ollama provider adapter lists models, invokes through policy, and redacts 
         capabilities: ["chat"],
       },
     });
-    await expectOk(daemon.endpoint, "/api/v1/models/import", {
+    await expectOk(daemon.endpoint, "/v1/model-mount/artifacts/import", {
       method: "POST",
       token: grant.token,
       body: { model_id: "ollama:error", provider_id: "provider.test.ollama-error", capabilities: ["chat"] },
     });
-    await expectOk(daemon.endpoint, "/api/v1/models/mount", {
+    await expectOk(daemon.endpoint, "/v1/model-mount/endpoints", {
       method: "POST",
       token: grant.token,
       body: {
@@ -2957,7 +2957,7 @@ setInterval(() => {}, 1000);
 
     const providerModels = await expectOk(daemon.endpoint, "/api/v1/providers/provider.ollama/models");
     assert.ok(providerModels.some((model) => model.modelId === "qwen3:8b"));
-    const mounted = await expectOk(daemon.endpoint, "/api/v1/models/mount", {
+    const mounted = await expectOk(daemon.endpoint, "/v1/model-mount/endpoints", {
       method: "POST",
       token: grant.token,
       body: {
@@ -2966,7 +2966,7 @@ setInterval(() => {}, 1000);
         id: "endpoint.test.ollama.supervised",
       },
     });
-    const loaded = await expectOk(daemon.endpoint, "/api/v1/models/load", {
+    const loaded = await expectOk(daemon.endpoint, "/v1/model-mount/instances/load", {
       method: "POST",
       token: grant.token,
       body: {
@@ -3003,7 +3003,7 @@ setInterval(() => {}, 1000);
     assert.equal(receipt.details.backend, "ollama");
     assert.equal(receipt.details.backendId, "backend.ollama");
 
-    const unloaded = await expectOk(daemon.endpoint, "/api/v1/models/unload", {
+    const unloaded = await expectOk(daemon.endpoint, "/v1/model-mount/instances/unload", {
       method: "POST",
       token: grant.token,
       body: { instance_id: loaded.id },
@@ -3117,7 +3117,7 @@ test("vLLM and OpenAI-compatible adapters support responses fallback, embeddings
         capabilities: ["chat", "responses"],
       },
     });
-    await expectOk(daemon.endpoint, "/api/v1/models/mount", {
+    await expectOk(daemon.endpoint, "/v1/model-mount/endpoints", {
       method: "POST",
       token: grant.token,
       body: {
@@ -3213,7 +3213,7 @@ test("vLLM and OpenAI-compatible adapters support responses fallback, embeddings
     assert.equal(responseStreamCompleteReceipt.details.outputHash, crypto.createHash("sha256").update(streamedResponseText).digest("hex"));
     assert.equal(responseStreamCompleteReceipt.details.providerResponseKind, "responses.stream");
 
-    const mounted = await expectOk(daemon.endpoint, "/api/v1/models/mount", {
+    const mounted = await expectOk(daemon.endpoint, "/v1/model-mount/endpoints", {
       method: "POST",
       token: grant.token,
       body: {
@@ -3280,7 +3280,7 @@ test("vLLM and OpenAI-compatible adapters support responses fallback, embeddings
         capabilities: ["chat"],
       },
     });
-    await expectOk(daemon.endpoint, "/api/v1/models/import", {
+    await expectOk(daemon.endpoint, "/v1/model-mount/artifacts/import", {
       method: "POST",
       token: grant.token,
       body: {
@@ -3290,7 +3290,7 @@ test("vLLM and OpenAI-compatible adapters support responses fallback, embeddings
         privacy_class: "workspace",
       },
     });
-    await expectOk(daemon.endpoint, "/api/v1/models/mount", {
+    await expectOk(daemon.endpoint, "/v1/model-mount/endpoints", {
       method: "POST",
       token: grant.token,
       body: {
@@ -3388,12 +3388,12 @@ setInterval(() => {}, 1000);
 
     const providerModels = await expectOk(daemon.endpoint, "/api/v1/providers/provider.vllm/models");
     assert.ok(providerModels.some((model) => model.modelId === "vllm-qwen"));
-    await expectOk(daemon.endpoint, "/api/v1/models/import", {
+    await expectOk(daemon.endpoint, "/v1/model-mount/artifacts/import", {
       method: "POST",
       token: grant.token,
       body: { model_id: "vllm-qwen", provider_id: "provider.vllm", capabilities: ["chat", "responses", "embeddings"], privacy_class: "workspace" },
     });
-    const mounted = await expectOk(daemon.endpoint, "/api/v1/models/mount", {
+    const mounted = await expectOk(daemon.endpoint, "/v1/model-mount/endpoints", {
       method: "POST",
       token: grant.token,
       body: {
@@ -3402,7 +3402,7 @@ setInterval(() => {}, 1000);
         id: "endpoint.test.vllm.supervised",
       },
     });
-    const loaded = await expectOk(daemon.endpoint, "/api/v1/models/load", {
+    const loaded = await expectOk(daemon.endpoint, "/v1/model-mount/instances/load", {
       method: "POST",
       token: grant.token,
       body: {
@@ -3478,7 +3478,7 @@ setInterval(() => {}, 1000);
 
     const providerLoaded = await expectOk(daemon.endpoint, "/api/v1/providers/provider.vllm/loaded");
     assert.ok(providerLoaded.some((model) => model.modelId === "vllm-qwen"));
-    const unloaded = await expectOk(daemon.endpoint, "/api/v1/models/unload", {
+    const unloaded = await expectOk(daemon.endpoint, "/v1/model-mount/instances/unload", {
       method: "POST",
       token: grant.token,
       body: { instance_id: loaded.id },
@@ -3546,7 +3546,7 @@ setInterval(() => {}, 1000);
 
     const modelPath = path.join(cwd, "llama-cpp-fixture.Q4_K_M.gguf");
     fs.writeFileSync(modelPath, "family=llama-cpp-fixture\nquantization=Q4_K_M\ncontext=8192\n");
-    const imported = await expectOk(daemon.endpoint, "/api/v1/models/import", {
+    const imported = await expectOk(daemon.endpoint, "/v1/model-mount/artifacts/import", {
       method: "POST",
       token: grant.token,
       body: {
@@ -3557,7 +3557,7 @@ setInterval(() => {}, 1000);
       },
     });
     assert.equal(imported.providerId, "provider.llama-cpp");
-    const mounted = await expectOk(daemon.endpoint, "/api/v1/models/mount", {
+    const mounted = await expectOk(daemon.endpoint, "/v1/model-mount/endpoints", {
       method: "POST",
       token: grant.token,
       body: {
@@ -3579,7 +3579,7 @@ setInterval(() => {}, 1000);
         denied_providers: [],
       },
     });
-    const loaded = await expectOk(daemon.endpoint, "/api/v1/models/load", {
+    const loaded = await expectOk(daemon.endpoint, "/v1/model-mount/instances/load", {
       method: "POST",
       token: grant.token,
       body: {
@@ -3643,7 +3643,7 @@ setInterval(() => {}, 1000);
     assert.equal(responseStreamCompleteReceipt.details.invocationReceiptId, responseMetadata.receipt_id);
     assert.equal(responseStreamCompleteReceipt.details.outputHash, crypto.createHash("sha256").update(streamedResponseText).digest("hex"));
 
-    const unloaded = await expectOk(daemon.endpoint, "/api/v1/models/unload", {
+    const unloaded = await expectOk(daemon.endpoint, "/v1/model-mount/instances/unload", {
       method: "POST",
       token: grant.token,
       body: { instance_id: loaded.id },
@@ -3828,7 +3828,7 @@ test("hosted and custom HTTP provider auth fails closed behind wallet vault refs
     assert.equal(rejectedForbiddenAuthHeader.response.status, 400);
     assert.equal(JSON.stringify(rejectedForbiddenAuthHeader.json).includes(vaultRef), false);
 
-    await expectOk(daemon.endpoint, "/api/v1/models/import", {
+    await expectOk(daemon.endpoint, "/v1/model-mount/artifacts/import", {
       method: "POST",
       token: grant.token,
       body: {
@@ -3838,7 +3838,7 @@ test("hosted and custom HTTP provider auth fails closed behind wallet vault refs
         privacy_class: "workspace",
       },
     });
-    await expectOk(daemon.endpoint, "/api/v1/models/mount", {
+    await expectOk(daemon.endpoint, "/v1/model-mount/endpoints", {
       method: "POST",
       token: grant.token,
       body: {
@@ -3982,7 +3982,7 @@ test("hosted and custom HTTP provider auth fails closed behind wallet vault refs
     const providerModels = await expectOk(daemon.endpoint, "/api/v1/providers/provider.test.custom-vault/models");
     assert.ok(providerModels.some((model) => model.modelId === "vllm-qwen"));
     assert.ok(providerServer.observedHeaders().some((headers) => headers["x-api-key"] === vaultMaterial));
-    await expectOk(daemon.endpoint, "/api/v1/models/mount", {
+    await expectOk(daemon.endpoint, "/v1/model-mount/endpoints", {
       method: "POST",
       token: grant.token,
       body: {
@@ -4319,14 +4319,14 @@ exit 0
     assert.equal(JSON.stringify(runtimeSurvey).includes("NVIDIA Test GPU"), true);
     assert.equal(JSON.stringify(runtimeSurvey).includes(lmsPath), false);
 
-    const mounted = await expectOk(daemon.endpoint, "/api/v1/models/mount", {
+    const mounted = await expectOk(daemon.endpoint, "/v1/model-mount/endpoints", {
       method: "POST",
       token: grant.token,
       body: { model_id: "qwen/qwen3.5-9b", id: "endpoint.test.lmstudio" },
     });
     assert.equal(mounted.providerId, "provider.lmstudio");
 
-    const loaded = await expectOk(daemon.endpoint, "/api/v1/models/load", {
+    const loaded = await expectOk(daemon.endpoint, "/v1/model-mount/instances/load", {
       method: "POST",
       token: grant.token,
       body: {
@@ -4463,7 +4463,7 @@ exit 0
         denied: ["filesystem.write", "shell.exec"],
       },
     });
-    const mounted = await expectOk(daemon.endpoint, "/api/v1/models/mount", {
+    const mounted = await expectOk(daemon.endpoint, "/v1/model-mount/endpoints", {
       method: "POST",
       token: grant.token,
       body: {
@@ -4472,7 +4472,7 @@ exit 0
         provider_id: "provider.lmstudio",
       },
     });
-    const loaded = await expectOk(daemon.endpoint, "/api/v1/models/load", {
+    const loaded = await expectOk(daemon.endpoint, "/v1/model-mount/instances/load", {
       method: "POST",
       token: grant.token,
       body: { endpoint_id: mounted.id, load_policy: { mode: "manual", autoEvict: false } },
@@ -4528,7 +4528,7 @@ test("model load records coalesce stale loaded instances per endpoint", async ()
       method: "POST",
       body: { allowed: ["model.load:*"], denied: ["filesystem.write", "shell.exec"] },
     });
-    const first = await expectOk(daemon.endpoint, "/api/v1/models/load", {
+    const first = await expectOk(daemon.endpoint, "/v1/model-mount/instances/load", {
       method: "POST",
       token: grant.token,
       body: {
@@ -4538,7 +4538,7 @@ test("model load records coalesce stale loaded instances per endpoint", async ()
       },
     });
     assert.equal(first.status, "loaded");
-    const second = await expectOk(daemon.endpoint, "/api/v1/models/load", {
+    const second = await expectOk(daemon.endpoint, "/v1/model-mount/instances/load", {
       method: "POST",
       token: grant.token,
       body: {

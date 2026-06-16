@@ -257,7 +257,7 @@ pub async fn run(args: ModelsArgs) -> Result<()> {
                 endpoint,
                 token,
                 Method::POST,
-                "/api/v1/models/import",
+                "/v1/model-mount/artifacts/import",
                 Some(json!({
                     "model_id": model_id,
                     "provider_id": provider_id,
@@ -326,7 +326,7 @@ pub async fn run(args: ModelsArgs) -> Result<()> {
                 endpoint,
                 token,
                 Method::POST,
-                "/api/v1/models/mount",
+                "/v1/model-mount/endpoints",
                 Some(json!({ "id": id, "model_id": model_id, "provider_id": provider_id })),
             )
             .await?
@@ -348,7 +348,7 @@ pub async fn run(args: ModelsArgs) -> Result<()> {
                 endpoint,
                 token,
                 Method::POST,
-                "/api/v1/models/load",
+                "/v1/model-mount/instances/load",
                 Some(json!({
                     "endpoint_id": endpoint_id,
                     "model_id": model_id,
@@ -378,7 +378,7 @@ pub async fn run(args: ModelsArgs) -> Result<()> {
                 endpoint,
                 token,
                 Method::POST,
-                "/api/v1/models/unload",
+                "/v1/model-mount/instances/unload",
                 Some(json!({
                     "instance_id": instance_id,
                     "endpoint_id": endpoint_id,

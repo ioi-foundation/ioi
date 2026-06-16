@@ -374,6 +374,26 @@ test("public runtime model catalog routes use mounted model projection surface",
         calls.push({ method: "catalogSearch", query });
         return [{ id: "catalog.route", query: query.query }];
       },
+      importModel(body) {
+        calls.push({ method: "importModel", body });
+        return { id: "artifact.imported", object: "model.artifact" };
+      },
+      mountEndpoint(body) {
+        calls.push({ method: "mountEndpoint", body });
+        return { id: "endpoint.route", object: "model.endpoint" };
+      },
+      unmountEndpoint(body) {
+        calls.push({ method: "unmountEndpoint", body });
+        return { id: body.endpoint_id, object: "model.endpoint.unmounted" };
+      },
+      loadModel(body) {
+        calls.push({ method: "loadModel", body });
+        return { id: "instance.loaded", object: "model.instance.loaded", ...body };
+      },
+      unloadModel(body) {
+        calls.push({ method: "unloadModel", body });
+        return { id: body.instance_id ?? body.endpoint_id ?? "instance.unloaded", object: "model.instance.unloaded" };
+      },
       authorize(authorization, scope) {
         calls.push({ method: "authorize", authorization, scope });
       },
@@ -497,6 +517,11 @@ test("public runtime model catalog routes use mounted model projection surface",
     ["POST /v1/model-mount/routes", { id: "route.write", object: "route.upsert" }],
     ["POST /v1/model-mount/routes/route.route/test", { id: "route.route", object: "route.test" }],
     ["/v1/models/catalog/search?query=qwen", [{ id: "catalog.route", query: "qwen" }]],
+    ["POST /v1/model-mount/artifacts/import", { id: "artifact.imported", object: "model.artifact" }],
+    ["POST /v1/model-mount/endpoints", { id: "endpoint.route", object: "model.endpoint" }],
+    ["POST /v1/model-mount/endpoints/endpoint.route/load", { id: "instance.loaded", object: "model.instance.loaded", endpoint_id: "endpoint.route" }],
+    ["POST /v1/model-mount/endpoints/endpoint.route/unload", { id: "endpoint.route", object: "model.instance.unloaded" }],
+    ["DELETE /v1/model-mount/endpoints/endpoint.route", { id: "endpoint.route", object: "model.endpoint.unmounted" }],
     ["/v1/model-mount/server/status", { id: "server.status", baseUrl: "http://daemon.test" }],
     ["POST /v1/model-mount/server/start", { id: "server.start", baseUrl: "http://daemon.test" }],
     ["POST /v1/model-mount/server/stop", { id: "server.stop", baseUrl: "http://daemon.test" }],
@@ -517,6 +542,9 @@ test("public runtime model catalog routes use mounted model projection surface",
     ["DELETE /v1/model-mount/runtime/engines/engine.route", { id: "engine.route", removed: true }],
     ["/v1/model-mount/instances", [{ id: "instance.loaded", status: "loaded" }, { id: "instance.idle", status: "idle" }]],
     ["/v1/model-mount/instances/loaded", [{ id: "instance.loaded", status: "loaded" }]],
+    ["POST /v1/model-mount/instances/load", { id: "instance.loaded", object: "model.instance.loaded" }],
+    ["POST /v1/model-mount/instances/unload", { id: "instance.unloaded", object: "model.instance.unloaded" }],
+    ["POST /v1/model-mount/instances/instance.loaded/unload", { id: "instance.loaded", object: "model.instance.unloaded" }],
     ["/v1/model-mount/authority", { id: "authority.snapshot", baseUrl: "http://daemon.test" }],
     ["/v1/model-mount/receipts", [{ id: "receipt.route" }]],
     ["/v1/model-mount/receipts/receipt.route", { id: "receipt.route" }],
@@ -527,7 +555,18 @@ test("public runtime model catalog routes use mounted model projection surface",
     const body = method === "PATCH" ? { label: "Engine route" } : {};
     const routeResponse = responseRecorder();
     await handleRequest({ request: request({ method, url: routePath, body }), response: routeResponse, store });
-    assert.equal(routeResponse.statusCode, routePath === "/v1/model-mount/routes" ? 201 : 200);
+    assert.equal(
+      routeResponse.statusCode,
+      [
+        "/v1/model-mount/routes",
+        "/v1/model-mount/artifacts/import",
+        "/v1/model-mount/endpoints",
+        "/v1/model-mount/endpoints/endpoint.route/load",
+        "/v1/model-mount/instances/load",
+      ].includes(routePath)
+        ? 201
+        : 200,
+    );
     assert.deepEqual(JSON.parse(routeResponse.body), expected);
   }
 
@@ -543,6 +582,16 @@ test("public runtime model catalog routes use mounted model projection surface",
     { method: "authorize", authorization: undefined, scope: "route.use:route.route" },
     { method: "testRoute", id: "route.route", body: {} },
     { method: "catalogSearch", query: { query: "qwen" } },
+    { method: "authorize", authorization: undefined, scope: "model.import:*" },
+    { method: "importModel", body: {} },
+    { method: "authorize", authorization: undefined, scope: "model.mount:*" },
+    { method: "mountEndpoint", body: {} },
+    { method: "authorize", authorization: undefined, scope: "model.load:*" },
+    { method: "loadModel", body: { endpoint_id: "endpoint.route" } },
+    { method: "authorize", authorization: undefined, scope: "model.unload:*" },
+    { method: "unloadModel", body: { endpoint_id: "endpoint.route" } },
+    { method: "authorize", authorization: undefined, scope: "model.unmount:*" },
+    { method: "unmountEndpoint", body: { endpoint_id: "endpoint.route" } },
     { method: "serverStatus", baseUrl: "http://daemon.test" },
     { method: "authorize", authorization: undefined, scope: "server.control:*" },
     { method: "serverStart", baseUrl: "http://daemon.test" },
@@ -570,6 +619,12 @@ test("public runtime model catalog routes use mounted model projection surface",
     { method: "removeRuntimeEngineOverride", id: "engine.route" },
     { method: "listInstances" },
     { method: "listInstances" },
+    { method: "authorize", authorization: undefined, scope: "model.load:*" },
+    { method: "loadModel", body: {} },
+    { method: "authorize", authorization: undefined, scope: "model.unload:*" },
+    { method: "unloadModel", body: {} },
+    { method: "authorize", authorization: undefined, scope: "model.unload:*" },
+    { method: "unloadModel", body: { instance_id: "instance.loaded" } },
     { method: "authoritySnapshot", baseUrl: "http://daemon.test" },
     { method: "listReceipts" },
     { method: "getReceipt", id: "receipt.route" },

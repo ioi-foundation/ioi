@@ -135,55 +135,6 @@ export function createRuntimeRouteHandlers(deps) {
       writeJsonResponse(response, mounts.projection().lifecycleEvents);
       return;
     }
-    if (request.method === "POST" && url.pathname === "/api/v1/models/mounts") {
-      mounts.authorize(authorization, "model.mount:*");
-      writeJsonResponse(response, mounts.mountEndpoint(await readBody(request)), 201);
-      return;
-    }
-    if (
-      request.method === "POST" &&
-      segments[2] === "models" &&
-      segments[3] === "mounts" &&
-      segments[4] &&
-      segments[5] === "load"
-    ) {
-      mounts.authorize(authorization, "model.load:*");
-      writeJsonResponse(response, await mounts.loadModel({ ...(await readBody(request)), endpoint_id: decodeURIComponent(segments[4]) }), 201);
-      return;
-    }
-    if (
-      request.method === "POST" &&
-      segments[2] === "models" &&
-      segments[3] === "mounts" &&
-      segments[4] &&
-      segments[5] === "unload"
-    ) {
-      mounts.authorize(authorization, "model.unload:*");
-      writeJsonResponse(response, await mounts.unloadModel({ ...(await readBody(request)), endpoint_id: decodeURIComponent(segments[4]) }));
-      return;
-    }
-    if (
-      request.method === "DELETE" &&
-      segments[2] === "models" &&
-      segments[3] === "mounts" &&
-      segments[4] &&
-      !segments[5]
-    ) {
-      mounts.authorize(authorization, "model.unmount:*");
-      writeJsonResponse(response, mounts.unmountEndpoint({ endpoint_id: decodeURIComponent(segments[4]) }));
-      return;
-    }
-    if (
-      request.method === "POST" &&
-      segments[2] === "models" &&
-      segments[3] === "instances" &&
-      segments[4] &&
-      segments[5] === "unload"
-    ) {
-      mounts.authorize(authorization, "model.unload:*");
-      writeJsonResponse(response, await mounts.unloadModel({ instance_id: decodeURIComponent(segments[4]), ...(await readBody(request)) }));
-      return;
-    }
     if (
       request.method === "GET" &&
       segments[2] === "models" &&
@@ -194,7 +145,14 @@ export function createRuntimeRouteHandlers(deps) {
       writeJsonResponse(response, mounts.getModel(decodeURIComponent(segments[3])));
       return;
     }
-    if (request.method === "DELETE" && segments[2] === "models" && segments[3]) {
+    if (
+      request.method === "DELETE" &&
+      segments[2] === "models" &&
+      segments[3] &&
+      !["artifacts", "backends", "catalog", "download", "instances", "loaded", "mounts", "routes", "runtime-engines", "server"].includes(
+        segments[3],
+      )
+    ) {
       mounts.authorize(authorization, "model.delete:*");
       writeJsonResponse(response, mounts.deleteModelArtifact(decodeURIComponent(segments[3]), await readBody(request)));
       return;
@@ -234,31 +192,6 @@ export function createRuntimeRouteHandlers(deps) {
     ) {
       mounts.authorize(authorization, "model.download:*");
       writeJsonResponse(response, mounts.cancelDownload(decodeURIComponent(segments[4]), await readBody(request)));
-      return;
-    }
-    if (request.method === "POST" && url.pathname === "/api/v1/models/import") {
-      mounts.authorize(authorization, "model.import:*");
-      writeJsonResponse(response, mounts.importModel(await readBody(request)), 201);
-      return;
-    }
-    if (request.method === "POST" && url.pathname === "/api/v1/models/mount") {
-      mounts.authorize(authorization, "model.mount:*");
-      writeJsonResponse(response, mounts.mountEndpoint(await readBody(request)), 201);
-      return;
-    }
-    if (request.method === "POST" && url.pathname === "/api/v1/models/unmount") {
-      mounts.authorize(authorization, "model.unmount:*");
-      writeJsonResponse(response, mounts.unmountEndpoint(await readBody(request)));
-      return;
-    }
-    if (request.method === "POST" && url.pathname === "/api/v1/models/load") {
-      mounts.authorize(authorization, "model.load:*");
-      writeJsonResponse(response, await mounts.loadModel(await readBody(request)), 201);
-      return;
-    }
-    if (request.method === "POST" && url.pathname === "/api/v1/models/unload") {
-      mounts.authorize(authorization, "model.unload:*");
-      writeJsonResponse(response, await mounts.unloadModel(await readBody(request)));
       return;
     }
     if (request.method === "GET" && url.pathname === "/api/v1/vault/refs") {

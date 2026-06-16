@@ -328,7 +328,6 @@ function checkWorkbenchImplementation() {
 
 function checkDaemonRouteImplementation() {
   const publicRoutes = read(join(repoRoot, "packages/runtime-daemon/src/http/public-runtime-routes.mjs"));
-  const nativeRoutes = read(join(repoRoot, "packages/runtime-daemon/src/runtime-route-handlers.mjs"));
   const requiredPublic = [
     'url.pathname === "/v1/models/artifacts"',
     'url.pathname === "/v1/model-capabilities"',
@@ -338,6 +337,10 @@ function checkDaemonRouteImplementation() {
     'url.pathname === "/v1/model-mount/runtime/survey"',
     'url.pathname === "/v1/model-mount/runtime/select"',
     'url.pathname === "/v1/model-mount/routes"',
+    'url.pathname === "/v1/model-mount/artifacts/import"',
+    'url.pathname === "/v1/model-mount/endpoints"',
+    'url.pathname === "/v1/model-mount/instances/load"',
+    'url.pathname === "/v1/model-mount/instances/unload"',
     'url.pathname === "/v1/model-mount/backends"',
     'url.pathname === "/v1/model-mount/authority"',
     'url.pathname === "/v1/model-mount/server/start"',
@@ -347,21 +350,19 @@ function checkDaemonRouteImplementation() {
     'segments[4] === "start"',
     'segments[4] === "stop"',
     'segments[2] === "routes"',
+    'segments[2] === "endpoints"',
+    'segments[2] === "instances"',
     'segments[5] === "select"',
-  ];
-  const requiredNativeControl = [
-    'segments[3] === "mounts"',
   ];
   const missing = [
     ...requiredPublic.filter((phrase) => !publicRoutes.includes(phrase)),
-    ...requiredNativeControl.filter((phrase) => !nativeRoutes.includes(phrase)),
   ];
   return {
     id: "daemon:model-mounting-workbench-routes",
     ok: missing.length === 0,
     summary:
       missing.length === 0
-        ? "Daemon exposes stable model read routes and stable server-control routes"
+        ? "Daemon exposes stable model read, lifecycle, and control routes"
         : "Daemon model mounting route aliases are incomplete",
     evidence: { missing },
   };
@@ -443,7 +444,7 @@ async function bootstrapDaemonModelRuntime(outputDir = null) {
       "fixture bytes for daemon-backed Electron model mounting validation",
     ].join("\n"),
   );
-  const imported = await requestJson(daemon.endpoint, "/api/v1/models/import", {
+  const imported = await requestJson(daemon.endpoint, "/v1/model-mount/artifacts/import", {
     method: "POST",
     token: grant.token,
     body: {
@@ -454,7 +455,7 @@ async function bootstrapDaemonModelRuntime(outputDir = null) {
       capabilities: ["chat", "responses", "embeddings", "structured_output", "code"],
     },
   });
-  const mounted = await requestJson(daemon.endpoint, "/api/v1/models/mounts", {
+  const mounted = await requestJson(daemon.endpoint, "/v1/model-mount/endpoints", {
     method: "POST",
     token: grant.token,
     body: {
@@ -482,7 +483,7 @@ async function bootstrapDaemonModelRuntime(outputDir = null) {
   });
   const loaded = await requestJson(
     daemon.endpoint,
-    `/api/v1/models/mounts/${encodeURIComponent(ENDPOINT_ID)}/load`,
+    `/v1/model-mount/endpoints/${encodeURIComponent(ENDPOINT_ID)}/load`,
     {
       method: "POST",
       token: grant.token,

@@ -26183,7 +26183,7 @@ function runReceipts() {
       /\/v1\/model-mount\/runtime\/engines/.test(publicRuntimeRoutesTest) &&
       /\/v1\/model-mount\/instances\/loaded/.test(publicRuntimeRoutesTest) &&
       /\/v1\/model-mount\/authority/.test(publicRuntimeRoutesTest) &&
-      /model mounting native route does not expose retired operational read, server-control, backend-control, runtime-control, or route-control aliases/.test(
+      /model mounting native route does not expose retired operational read, server-control, backend-control, runtime-control, route-control, or lifecycle-control aliases/.test(
         runtimeRouteHandlersTest,
       ) &&
       !/\/api\/v1\/server\/status/.test(modelMountStableReadProtocolClientCorpus) &&
@@ -26250,7 +26250,7 @@ function runReceipts() {
       /serverStart\(baseUrl\)/.test(publicRuntimeRoutesTest) &&
       /serverStop\(baseUrl\)/.test(publicRuntimeRoutesTest) &&
       /serverRestart\(baseUrl\)/.test(publicRuntimeRoutesTest) &&
-      /model mounting native route does not expose retired operational read, server-control, backend-control, runtime-control, or route-control aliases/.test(
+      /model mounting native route does not expose retired operational read, server-control, backend-control, runtime-control, route-control, or lifecycle-control aliases/.test(
         runtimeRouteHandlersTest,
       ) &&
       !/\/api\/v1\/server\/(?:start|stop|restart)/.test(modelMountStableReadProtocolClientCorpus) &&
@@ -26305,7 +26305,7 @@ function runReceipts() {
       /backendHealth\(id\)/.test(publicRuntimeRoutesTest) &&
       /startBackend\(id, body\)/.test(publicRuntimeRoutesTest) &&
       /stopBackend\(id\)/.test(publicRuntimeRoutesTest) &&
-      /model mounting native route does not expose retired operational read, server-control, backend-control, runtime-control, or route-control aliases/.test(
+      /model mounting native route does not expose retired operational read, server-control, backend-control, runtime-control, route-control, or lifecycle-control aliases/.test(
         runtimeRouteHandlersTest,
       ) &&
       !/\/api\/v1\/backends\/[^"'`)]+\/(?:health|start|stop)/.test(modelMountStableReadProtocolClientCorpus) &&
@@ -26365,7 +26365,7 @@ function runReceipts() {
       /selectRuntimeEngine\(body\)/.test(publicRuntimeRoutesTest) &&
       /updateRuntimeEngine\(id, body\)/.test(publicRuntimeRoutesTest) &&
       /removeRuntimeEngineOverride\(id\)/.test(publicRuntimeRoutesTest) &&
-      /model mounting native route does not expose retired operational read, server-control, backend-control, runtime-control, or route-control aliases/.test(
+      /model mounting native route does not expose retired operational read, server-control, backend-control, runtime-control, route-control, or lifecycle-control aliases/.test(
         runtimeRouteHandlersTest,
       ) &&
       /\/api\/v1\/runtime\/survey/.test(runtimeRouteHandlersTest) &&
@@ -26405,7 +26405,7 @@ function runReceipts() {
       /POST \/v1\/model-mount\/routes\/route\.route\/test/.test(publicRuntimeRoutesTest) &&
       /upsertRoute\(body\)/.test(publicRuntimeRoutesTest) &&
       /testRoute\(id, body\)/.test(publicRuntimeRoutesTest) &&
-      /model mounting native route does not expose retired operational read, server-control, backend-control, runtime-control, or route-control aliases/.test(
+      /model mounting native route does not expose retired operational read, server-control, backend-control, runtime-control, route-control, or lifecycle-control aliases/.test(
         runtimeRouteHandlersTest,
       ) &&
       /\/api\/v1\/routes\/route\.route\/test/.test(runtimeRouteHandlersTest) &&
@@ -26424,6 +26424,76 @@ function runReceipts() {
       "scripts/conformance/hypervisor-conformance.mjs",
     ],
     "Model_mount route write/test clients must use the stable /v1/model-mount/routes control protocol; retired /api/v1/routes control aliases must not return",
+  );
+  assertCheck(
+    result,
+    "model-mount-stable-lifecycle-protocol-clients",
+    /url\.pathname === "\/v1\/model-mount\/artifacts\/import"[\s\S]*?store\.modelMounting\.authorize\(request\.headers\.authorization,\s*"model\.import:\*"\)[\s\S]*?store\.modelMounting\.importModel\(await readBody\(request\)\)/.test(
+      publicRuntimeRoutes,
+    ) &&
+      /url\.pathname === "\/v1\/model-mount\/endpoints"[\s\S]*?store\.modelMounting\.authorize\(request\.headers\.authorization,\s*"model\.mount:\*"\)[\s\S]*?store\.modelMounting\.mountEndpoint\(await readBody\(request\)\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /segments\[2\] === "endpoints"[\s\S]*?segments\[4\] === "load"[\s\S]*?store\.modelMounting\.authorize\(request\.headers\.authorization,\s*"model\.load:\*"\)[\s\S]*?store\.modelMounting\.loadModel\(\{ \.\.\.\(await readBody\(request\)\), endpoint_id: endpointId \}\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /segments\[2\] === "endpoints"[\s\S]*?segments\[4\] === "unload"[\s\S]*?store\.modelMounting\.authorize\(request\.headers\.authorization,\s*"model\.unload:\*"\)[\s\S]*?store\.modelMounting\.unloadModel\(\{ \.\.\.\(await readBody\(request\)\), endpoint_id: endpointId \}\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /segments\[2\] === "endpoints"[\s\S]*?request\.method === "DELETE"[\s\S]*?store\.modelMounting\.authorize\(request\.headers\.authorization,\s*"model\.unmount:\*"\)[\s\S]*?store\.modelMounting\.unmountEndpoint\(\{ \.\.\.\(await readBody\(request\)\), endpoint_id: endpointId \}\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /url\.pathname === "\/v1\/model-mount\/instances\/load"[\s\S]*?store\.modelMounting\.authorize\(request\.headers\.authorization,\s*"model\.load:\*"\)[\s\S]*?store\.modelMounting\.loadModel\(await readBody\(request\)\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /url\.pathname === "\/v1\/model-mount\/instances\/unload"[\s\S]*?store\.modelMounting\.authorize\(request\.headers\.authorization,\s*"model\.unload:\*"\)[\s\S]*?store\.modelMounting\.unloadModel\(await readBody\(request\)\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /segments\[2\] === "instances"[\s\S]*?segments\[4\] === "unload"[\s\S]*?store\.modelMounting\.authorize\(request\.headers\.authorization,\s*"model\.unload:\*"\)[\s\S]*?store\.modelMounting\.unloadModel\(\{ instance_id: decodeURIComponent\(segments\[3\]\), \.\.\.\(await readBody\(request\)\) \}\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      !/url\.pathname === "\/api\/v1\/models\/import"/.test(runtimeRouteHandlers) &&
+      !/url\.pathname === "\/api\/v1\/models\/mount"/.test(runtimeRouteHandlers) &&
+      !/url\.pathname === "\/api\/v1\/models\/unmount"/.test(runtimeRouteHandlers) &&
+      !/url\.pathname === "\/api\/v1\/models\/load"/.test(runtimeRouteHandlers) &&
+      !/url\.pathname === "\/api\/v1\/models\/unload"/.test(runtimeRouteHandlers) &&
+      !/segments\[3\] === "mounts"/.test(runtimeRouteHandlers) &&
+      !/segments\[3\] === "instances"[\s\S]*?segments\[5\] === "unload"/.test(runtimeRouteHandlers) &&
+      /POST \/v1\/model-mount\/artifacts\/import/.test(publicRuntimeRoutesTest) &&
+      /POST \/v1\/model-mount\/endpoints/.test(publicRuntimeRoutesTest) &&
+      /POST \/v1\/model-mount\/endpoints\/endpoint\.route\/load/.test(publicRuntimeRoutesTest) &&
+      /POST \/v1\/model-mount\/endpoints\/endpoint\.route\/unload/.test(publicRuntimeRoutesTest) &&
+      /DELETE \/v1\/model-mount\/endpoints\/endpoint\.route/.test(publicRuntimeRoutesTest) &&
+      /POST \/v1\/model-mount\/instances\/load/.test(publicRuntimeRoutesTest) &&
+      /POST \/v1\/model-mount\/instances\/unload/.test(publicRuntimeRoutesTest) &&
+      /POST \/v1\/model-mount\/instances\/instance\.loaded\/unload/.test(publicRuntimeRoutesTest) &&
+      /model mounting native route does not expose retired operational read, server-control, backend-control, runtime-control, route-control, or lifecycle-control aliases/.test(
+        runtimeRouteHandlersTest,
+      ) &&
+      /\/api\/v1\/models\/mounts\/endpoint\.route\/load/.test(runtimeRouteHandlersTest) &&
+      /\/api\/v1\/models\/instances\/instance\.route\/unload/.test(runtimeRouteHandlersTest) &&
+      !/\/api\/v1\/models\/(?:import|mounts?(?:\/|["'`])|unmount|load|unload|instances\/[^"'`)]+\/unload)/.test(
+        modelMountStableReadProtocolClientCorpus,
+      ) &&
+      /"\/v1\/model-mount\/artifacts\/import"/.test(modelMountStableReadCliModels) &&
+      /"\/v1\/model-mount\/endpoints"/.test(modelMountStableReadCliModels) &&
+      /"\/v1\/model-mount\/instances\/load"/.test(modelMountStableReadCliModels) &&
+      /"\/v1\/model-mount\/instances\/unload"/.test(modelMountStableReadCliModels) &&
+      /url\.pathname === "\/v1\/model-mount\/artifacts\/import"/.test(read("scripts/run-autopilot-model-mounting-goal.mjs")) &&
+      /url\.pathname === "\/v1\/model-mount\/endpoints"/.test(read("scripts/run-autopilot-model-mounting-goal.mjs")) &&
+      /url\.pathname === "\/v1\/model-mount\/instances\/load"/.test(read("scripts/run-autopilot-model-mounting-goal.mjs")) &&
+      /segments\[2\] === "endpoints"/.test(read("scripts/run-autopilot-model-mounting-goal.mjs")) &&
+      /Slice 1357 hard-cuts stable model_mount lifecycle protocol clients/.test(guide) &&
+      /Model_mount stable lifecycle protocol clients/.test(matrix) &&
+      /RuntimeDaemonCoreModelMountStableLifecycleProtocolClients/.test(implementationMatrix),
+    [
+      "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.mjs",
+      "crates/cli/src/commands/models.rs",
+      "scripts/run-autopilot-model-mounting-goal.mjs",
+      "scripts/conformance/hypervisor-conformance.mjs",
+    ],
+    "Model_mount import/mount/load/unload clients must use stable /v1/model-mount lifecycle protocol routes; retired /api/v1 model lifecycle aliases must not return",
   );
   assertCheck(
     result,

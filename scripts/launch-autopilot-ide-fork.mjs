@@ -336,7 +336,7 @@ async function mountDiscoveredModels(endpoint, token, providerId, models, mounte
         ? "endpoint.electron.model-gui"
         : `endpoint.autodiscovered.${safeId(providerId)}.${safeId(modelId)}`;
     try {
-      const endpointRecord = await requestJson(endpoint, "/api/v1/models/mount", {
+      const endpointRecord = await requestJson(endpoint, "/v1/model-mount/endpoints", {
         method: "POST",
         token,
         body: {
@@ -379,7 +379,7 @@ async function bootstrapConfiguredLlamaCppModel(endpoint, token, mountedCount) {
   const parallel = Number(firstNonEmptyEnv(["IOI_LLAMA_CPP_PARALLEL"]) ?? 1);
   const gpu = firstNonEmptyEnv(["IOI_LLAMA_CPP_GPU"]) ?? "auto";
 
-  await requestJson(endpoint, "/api/v1/models/import", {
+  await requestJson(endpoint, "/v1/model-mount/artifacts/import", {
     method: "POST",
     token,
     body: {
@@ -391,7 +391,7 @@ async function bootstrapConfiguredLlamaCppModel(endpoint, token, mountedCount) {
       capabilities: ["chat", "responses"],
     },
   });
-  const mounted = await requestJson(endpoint, "/api/v1/models/mount", {
+  const mounted = await requestJson(endpoint, "/v1/model-mount/endpoints", {
     method: "POST",
     token,
     body: {
@@ -432,7 +432,7 @@ async function bootstrapConfiguredLlamaCppModel(endpoint, token, mountedCount) {
       max_cost_usd: 0,
     },
   });
-  const loaded = await requestJson(endpoint, "/api/v1/models/load", {
+  const loaded = await requestJson(endpoint, "/v1/model-mount/instances/load", {
     method: "POST",
     token,
     body: {

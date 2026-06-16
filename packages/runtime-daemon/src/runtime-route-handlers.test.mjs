@@ -2096,7 +2096,7 @@ test("model mounting native route does not expose retired receipt read aliases",
   assert.deepEqual(calls, []);
 });
 
-test("model mounting native route does not expose retired operational read, server-control, backend-control, runtime-control, or route-control aliases", async () => {
+test("model mounting native route does not expose retired operational read, server-control, backend-control, runtime-control, route-control, or lifecycle-control aliases", async () => {
   const { handleModelMountingNativeRoute } = routeHandlers();
   const calls = [];
   const failRetiredAlias = (name) => (...args) => {
@@ -2108,9 +2108,12 @@ test("model mounting native route does not expose retired operational read, serv
       authoritySnapshot: failRetiredAlias("authoritySnapshot"),
       backendHealth: failRetiredAlias("backendHealth"),
       backendLogs: failRetiredAlias("backendLogs"),
+      importModel: failRetiredAlias("importModel"),
       listBackends: failRetiredAlias("listBackends"),
       listInstances: failRetiredAlias("listInstances"),
       listRuntimeEngines: failRetiredAlias("listRuntimeEngines"),
+      loadModel: failRetiredAlias("loadModel"),
+      mountEndpoint: failRetiredAlias("mountEndpoint"),
       removeRuntimeEngineOverride: failRetiredAlias("removeRuntimeEngineOverride"),
       runtimeEngine: failRetiredAlias("runtimeEngine"),
       runtimeSurvey: failRetiredAlias("runtimeSurvey"),
@@ -2124,6 +2127,8 @@ test("model mounting native route does not expose retired operational read, serv
       startBackend: failRetiredAlias("startBackend"),
       stopBackend: failRetiredAlias("stopBackend"),
       testRoute: failRetiredAlias("testRoute"),
+      unloadModel: failRetiredAlias("unloadModel"),
+      unmountEndpoint: failRetiredAlias("unmountEndpoint"),
       updateRuntimeEngine: failRetiredAlias("updateRuntimeEngine"),
       upsertRoute: failRetiredAlias("upsertRoute"),
     },
@@ -2153,6 +2158,16 @@ test("model mounting native route does not expose retired operational read, serv
     ["POST", "/api/v1/runtime/select"],
     ["POST", "/api/v1/routes"],
     ["POST", "/api/v1/routes/route.route/test"],
+    ["POST", "/api/v1/models/import"],
+    ["POST", "/api/v1/models/mount"],
+    ["POST", "/api/v1/models/unmount"],
+    ["POST", "/api/v1/models/load"],
+    ["POST", "/api/v1/models/unload"],
+    ["POST", "/api/v1/models/mounts"],
+    ["POST", "/api/v1/models/mounts/endpoint.route/load"],
+    ["POST", "/api/v1/models/mounts/endpoint.route/unload"],
+    ["DELETE", "/api/v1/models/mounts/endpoint.route"],
+    ["POST", "/api/v1/models/instances/instance.route/unload"],
     "/api/v1/models/runtime-engines",
     "/api/v1/models/instances",
     "/api/v1/models/loaded",

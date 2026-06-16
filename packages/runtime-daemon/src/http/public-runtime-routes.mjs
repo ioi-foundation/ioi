@@ -390,6 +390,40 @@ export function createPublicRuntimeRequestHandler(deps) {
         writeJsonResponse(response, await store.modelMounting.catalogSearch(Object.fromEntries(url.searchParams.entries())));
         return;
       }
+      if (request.method === "POST" && url.pathname === "/v1/model-mount/artifacts/import") {
+        store.modelMounting.authorize(request.headers.authorization, "model.import:*");
+        writeJsonResponse(response, store.modelMounting.importModel(await readBody(request)), 201);
+        return;
+      }
+      if (request.method === "POST" && url.pathname === "/v1/model-mount/endpoints") {
+        store.modelMounting.authorize(request.headers.authorization, "model.mount:*");
+        writeJsonResponse(response, store.modelMounting.mountEndpoint(await readBody(request)), 201);
+        return;
+      }
+      if (
+        (request.method === "POST" || request.method === "DELETE") &&
+        segments[0] === "v1" &&
+        segments[1] === "model-mount" &&
+        segments[2] === "endpoints" &&
+        segments[3]
+      ) {
+        const endpointId = decodeURIComponent(segments[3]);
+        if (request.method === "POST" && segments[4] === "load") {
+          store.modelMounting.authorize(request.headers.authorization, "model.load:*");
+          writeJsonResponse(response, await store.modelMounting.loadModel({ ...(await readBody(request)), endpoint_id: endpointId }), 201);
+          return;
+        }
+        if (request.method === "POST" && segments[4] === "unload") {
+          store.modelMounting.authorize(request.headers.authorization, "model.unload:*");
+          writeJsonResponse(response, await store.modelMounting.unloadModel({ ...(await readBody(request)), endpoint_id: endpointId }));
+          return;
+        }
+        if (request.method === "DELETE" && !segments[4]) {
+          store.modelMounting.authorize(request.headers.authorization, "model.unmount:*");
+          writeJsonResponse(response, store.modelMounting.unmountEndpoint({ ...(await readBody(request)), endpoint_id: endpointId }));
+          return;
+        }
+      }
       if (request.method === "GET" && url.pathname === "/v1/model-capabilities") {
         writeJsonResponse(response, store.modelMounting.listModelCapabilities());
         return;
@@ -527,6 +561,31 @@ export function createPublicRuntimeRequestHandler(deps) {
         writeJsonResponse(
           response,
           store.modelMounting.listInstances().filter((instance) => instance.status === "loaded"),
+        );
+        return;
+      }
+      if (request.method === "POST" && url.pathname === "/v1/model-mount/instances/load") {
+        store.modelMounting.authorize(request.headers.authorization, "model.load:*");
+        writeJsonResponse(response, await store.modelMounting.loadModel(await readBody(request)), 201);
+        return;
+      }
+      if (request.method === "POST" && url.pathname === "/v1/model-mount/instances/unload") {
+        store.modelMounting.authorize(request.headers.authorization, "model.unload:*");
+        writeJsonResponse(response, await store.modelMounting.unloadModel(await readBody(request)));
+        return;
+      }
+      if (
+        request.method === "POST" &&
+        segments[0] === "v1" &&
+        segments[1] === "model-mount" &&
+        segments[2] === "instances" &&
+        segments[3] &&
+        segments[4] === "unload"
+      ) {
+        store.modelMounting.authorize(request.headers.authorization, "model.unload:*");
+        writeJsonResponse(
+          response,
+          await store.modelMounting.unloadModel({ instance_id: decodeURIComponent(segments[3]), ...(await readBody(request)) }),
         );
         return;
       }

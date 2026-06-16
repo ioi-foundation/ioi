@@ -637,7 +637,7 @@ async function main() {
         artifactPath,
         ["family=autopilot-e2e", "quantization=Q4_K_M", "context=4096", "fixture bytes"].join("\n"),
       );
-      const imported = await expectOk(daemon.endpoint, "/api/v1/models/import", {
+      const imported = await expectOk(daemon.endpoint, "/v1/model-mount/artifacts/import", {
         method: "POST",
         token,
         body: {
@@ -648,12 +648,12 @@ async function main() {
         },
       });
       assert.match(imported.checksum, /^sha256:/);
-      const mounted = await expectOk(daemon.endpoint, "/api/v1/models/mount", {
+      const mounted = await expectOk(daemon.endpoint, "/v1/model-mount/endpoints", {
         method: "POST",
         token,
         body: { model_id: "native:e2e", id: "endpoint.e2e.native-local", provider_id: "provider.autopilot.local" },
       });
-      const defaultEstimate = await expectOk(daemon.endpoint, "/api/v1/models/load", {
+      const defaultEstimate = await expectOk(daemon.endpoint, "/v1/model-mount/instances/load", {
         method: "POST",
         token,
         body: {
@@ -663,7 +663,7 @@ async function main() {
       });
       assert.equal(defaultEstimate.loadOptions.contextLength, 3584);
       assert.equal(defaultEstimate.loadOptions.parallel, 3);
-      const estimate = await expectOk(daemon.endpoint, "/api/v1/models/load", {
+      const estimate = await expectOk(daemon.endpoint, "/v1/model-mount/instances/load", {
         method: "POST",
         token,
         body: {
@@ -681,7 +681,7 @@ async function main() {
       });
       assert.equal(estimate.status, "estimate_only");
       assert.equal(estimate.runtimeEngineId, "backend.autopilot.native-local.fixture");
-      const loaded = await expectOk(daemon.endpoint, "/api/v1/models/load", {
+      const loaded = await expectOk(daemon.endpoint, "/v1/model-mount/instances/load", {
         method: "POST",
         token,
         body: {
@@ -997,13 +997,13 @@ async function main() {
       assert.equal(catalogImport.download.variant.quantization, "Q4_K_M");
       const dryRunPath = path.join(workspaceDir, "autopilot-e2e-dry-run.Q4_K_M.gguf");
       fs.writeFileSync(dryRunPath, "family=e2e-dry-run\ncontext=1024\nquantization=Q4_K_M\n");
-      const dryRun = await expectOk(daemon.endpoint, "/api/v1/models/import", {
+      const dryRun = await expectOk(daemon.endpoint, "/v1/model-mount/artifacts/import", {
         method: "POST",
         token,
         body: { model_id: "native:e2e-dry-run", path: dryRunPath, import_mode: "dry_run" },
       });
       assert.equal(dryRun.status, "dry_run");
-      const copied = await expectOk(daemon.endpoint, "/api/v1/models/import", {
+      const copied = await expectOk(daemon.endpoint, "/v1/model-mount/artifacts/import", {
         method: "POST",
         token,
         body: { model_id: "native:e2e-copied", path: dryRunPath, import_mode: "copy" },

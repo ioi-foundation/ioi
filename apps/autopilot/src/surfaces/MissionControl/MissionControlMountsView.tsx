@@ -2394,7 +2394,7 @@ function useModelMountsDaemon() {
       loadLocalModel: () =>
         runAction("load-local", async () => {
           const token = await ensureToken();
-          await requestJson("/api/v1/models/load", {
+          await requestJson("/v1/model-mount/instances/load", {
             method: "POST",
             token,
             body: { model_id: "local:auto", load_policy: { mode: "on_demand", idleTtlSeconds: 900, autoEvict: true } },
@@ -2404,7 +2404,7 @@ function useModelMountsDaemon() {
       loadNativeLocalModel: () =>
         runAction("load-native-local", async () => {
           const token = await ensureToken();
-          await requestJson("/api/v1/models/load", {
+          await requestJson("/v1/model-mount/instances/load", {
             method: "POST",
             token,
             body: {
@@ -2598,7 +2598,7 @@ function useModelMountsDaemon() {
       importValidationModel: () =>
         runAction("model-import-validation", async () => {
           const token = await ensureToken();
-          const artifact = await requestJson("/api/v1/models/import", {
+          const artifact = await requestJson("/v1/model-mount/artifacts/import", {
             method: "POST",
             token,
             body: {
@@ -2619,7 +2619,7 @@ function useModelMountsDaemon() {
       mountValidationModel: () =>
         runAction("model-mount-validation", async () => {
           const token = await ensureToken();
-          const endpointResult = await requestJson("/api/v1/models/mount", {
+          const endpointResult = await requestJson("/v1/model-mount/endpoints", {
             method: "POST",
             token,
             body: {
@@ -2637,7 +2637,7 @@ function useModelMountsDaemon() {
       loadValidationModel: () =>
         runAction("model-load-validation", async () => {
           const token = await ensureToken();
-          const instanceResult = await requestJson("/api/v1/models/load", {
+          const instanceResult = await requestJson("/v1/model-mount/instances/load", {
             method: "POST",
             token,
             body: {
@@ -2663,7 +2663,7 @@ function useModelMountsDaemon() {
             .filter((candidate) => candidate.modelId === VALIDATION_LIFECYCLE_MODEL_ID && candidate.status === "loaded")
             .at(-1);
           if (!instance) throw new Error("No loaded GUI lifecycle validation instance is projected yet.");
-          const result = await requestJson("/api/v1/models/unload", {
+          const result = await requestJson("/v1/model-mount/instances/unload", {
             method: "POST",
             token,
             body: { instance_id: instance.id },
@@ -3067,7 +3067,7 @@ function useModelMountsDaemon() {
       loadModelWithOptions: (draft: ModelLoadDraft) =>
         runAction(draft.estimateOnly ? "load-estimate" : "load-options", async () => {
           const token = await ensureToken();
-          const result = await requestJson("/api/v1/models/load", {
+          const result = await requestJson("/v1/model-mount/instances/load", {
             method: "POST",
             token,
             body: loadDraftBody(draft),
@@ -3080,7 +3080,7 @@ function useModelMountsDaemon() {
       loadPickerSelection: (selection: MountsPickerSelection) =>
         runAction("picker-load", async () => {
           const token = await ensureToken();
-          const result = await requestJson("/api/v1/models/load", {
+          const result = await requestJson("/v1/model-mount/instances/load", {
             method: "POST",
             token,
             body: {
@@ -3096,7 +3096,7 @@ function useModelMountsDaemon() {
       unloadInstance: (instanceId: string) =>
         runAction("picker-unload", async () => {
           const token = await ensureToken();
-          const result = await requestJson("/api/v1/models/unload", {
+          const result = await requestJson("/v1/model-mount/instances/unload", {
             method: "POST",
             token,
             body: { instance_id: instanceId },
@@ -4569,8 +4569,8 @@ function ServerPanel({
           "POST /v1/model-mount/backends/:id/stop",
           "GET /v1/model-mount/backends/:id/logs",
           "GET /api/v1/models",
-          "POST /api/v1/models/load",
-          "POST /api/v1/models/unload",
+          "POST /v1/model-mount/instances/load",
+          "POST /v1/model-mount/instances/unload",
           "POST /api/v1/models/download",
           "GET /v1/models/catalog/search",
           "POST /api/v1/models/catalog/import-url",

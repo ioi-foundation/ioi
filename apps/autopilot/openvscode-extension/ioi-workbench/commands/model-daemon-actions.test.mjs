@@ -54,7 +54,7 @@ test("model workbench estimate and load use daemon-owned mount payloads", async 
   });
   assert.equal(
     requests[1].route,
-    "/api/v1/models/mounts/endpoint.local%2Fmodel%20one/load",
+    "/v1/model-mount/endpoints/endpoint.local%2Fmodel%20one/load",
   );
   assert.deepEqual(requests[1].options.payload.load_policy, {
     mode: "on_demand",
@@ -74,7 +74,7 @@ test("model workbench unload prefers instance route when present", async () => {
 
   assert.equal(
     requests[0].route,
-    "/api/v1/models/instances/instance.loaded%2F1/unload",
+    "/v1/model-mount/instances/instance.loaded%2F1/unload",
   );
   assert.deepEqual(requests[0].options.payload, {});
 });

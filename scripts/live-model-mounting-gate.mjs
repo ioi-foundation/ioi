@@ -820,7 +820,7 @@ async function runLmStudioGate(evidence) {
       installedModelIds[0];
     assert.ok(selectedModel, "LM Studio live gate could not select a model.");
 
-    const mounted = await expectOk(daemon.endpoint, "/api/v1/models/mount", {
+    const mounted = await expectOk(daemon.endpoint, "/v1/model-mount/endpoints", {
       method: "POST",
       token: grant.token,
       body: {
@@ -829,7 +829,7 @@ async function runLmStudioGate(evidence) {
         provider_id: "provider.lmstudio",
       },
     });
-    const loaded = await expectOk(daemon.endpoint, "/api/v1/models/load", {
+    const loaded = await expectOk(daemon.endpoint, "/v1/model-mount/instances/load", {
       method: "POST",
       token: grant.token,
       body: { endpoint_id: mounted.id, load_policy: { mode: "manual", autoEvict: false } },
@@ -967,7 +967,7 @@ async function runLlamaCppGate(evidence) {
           },
         });
 
-        const imported = await expectOk(daemon.endpoint, "/api/v1/models/import", {
+        const imported = await expectOk(daemon.endpoint, "/v1/model-mount/artifacts/import", {
           method: "POST",
           token: grant.token,
           body: {
@@ -978,7 +978,7 @@ async function runLlamaCppGate(evidence) {
             capabilities: ["chat", "responses", "embeddings"],
           },
         });
-        const mounted = await expectOk(daemon.endpoint, "/api/v1/models/mount", {
+        const mounted = await expectOk(daemon.endpoint, "/v1/model-mount/endpoints", {
           method: "POST",
           token: grant.token,
           body: {
@@ -1002,7 +1002,7 @@ async function runLlamaCppGate(evidence) {
           },
         });
 
-        const loaded = await expectOk(daemon.endpoint, "/api/v1/models/load", {
+        const loaded = await expectOk(daemon.endpoint, "/v1/model-mount/instances/load", {
           method: "POST",
           token: grant.token,
           body: {
@@ -1089,7 +1089,7 @@ async function runLlamaCppGate(evidence) {
           abortTimeoutMs: liveTimeoutMs,
         });
 
-        const unloaded = await expectOk(daemon.endpoint, "/api/v1/models/unload", {
+        const unloaded = await expectOk(daemon.endpoint, "/v1/model-mount/instances/unload", {
           method: "POST",
           token: grant.token,
           body: { instance_id: loaded.id },
@@ -1239,7 +1239,7 @@ async function runModelBackendsGate(evidence) {
         providerModels.find((model) => !String(model.modelId).match(/embed/i))?.modelId ??
         providerModels[0]?.modelId;
       assert.ok(chatModel, "Ollama live gate could not select a chat model.");
-      const chatEndpoint = await expectOk(daemon.endpoint, "/api/v1/models/mount", {
+      const chatEndpoint = await expectOk(daemon.endpoint, "/v1/model-mount/endpoints", {
         method: "POST",
         token: grant.token,
         body: {
@@ -1262,7 +1262,7 @@ async function runModelBackendsGate(evidence) {
           max_cost_usd: 0,
         },
       });
-      const chatLoaded = await expectOk(daemon.endpoint, "/api/v1/models/load", {
+      const chatLoaded = await expectOk(daemon.endpoint, "/v1/model-mount/instances/load", {
         method: "POST",
         token: grant.token,
         body: { endpoint_id: chatEndpoint.id, load_policy: { mode: "manual", autoEvict: false } },
@@ -1303,7 +1303,7 @@ async function runModelBackendsGate(evidence) {
         providerModels.find((model) => String(model.modelId).match(/embed/i))?.modelId;
       let embeddingReceiptId = null;
       if (embeddingModel) {
-        const embeddingEndpoint = await expectOk(daemon.endpoint, "/api/v1/models/mount", {
+        const embeddingEndpoint = await expectOk(daemon.endpoint, "/v1/model-mount/endpoints", {
           method: "POST",
           token: grant.token,
           body: {
@@ -1312,7 +1312,7 @@ async function runModelBackendsGate(evidence) {
             provider_id: "provider.ollama",
           },
         });
-        await expectOk(daemon.endpoint, "/api/v1/models/load", {
+        await expectOk(daemon.endpoint, "/v1/model-mount/instances/load", {
           method: "POST",
           token: grant.token,
           body: { endpoint_id: embeddingEndpoint.id, load_policy: { mode: "manual", autoEvict: false } },
@@ -1327,7 +1327,7 @@ async function runModelBackendsGate(evidence) {
         assert.equal(embeddingReceipt.details.providerId, "provider.ollama");
         assert.equal(embeddingReceipt.details.backend, "ollama");
       }
-      const chatUnloaded = await expectOk(daemon.endpoint, "/api/v1/models/unload", {
+      const chatUnloaded = await expectOk(daemon.endpoint, "/v1/model-mount/instances/unload", {
         method: "POST",
         token: grant.token,
         body: { instance_id: chatLoaded.id },
@@ -1422,7 +1422,7 @@ async function runModelBackendsGate(evidence) {
       } else {
         const endpointId = `endpoint.live.vllm.${safeLiveId(selectedModel)}`;
         const routeId = `route.live.vllm.${safeLiveId(selectedModel)}`;
-        const imported = await expectOk(daemon.endpoint, "/api/v1/models/import", {
+        const imported = await expectOk(daemon.endpoint, "/v1/model-mount/artifacts/import", {
           method: "POST",
           token: grant.token,
           body: {
@@ -1432,7 +1432,7 @@ async function runModelBackendsGate(evidence) {
             privacy_class: "workspace",
           },
         });
-        const mounted = await expectOk(daemon.endpoint, "/api/v1/models/mount", {
+        const mounted = await expectOk(daemon.endpoint, "/v1/model-mount/endpoints", {
           method: "POST",
           token: grant.token,
           body: {
@@ -1455,7 +1455,7 @@ async function runModelBackendsGate(evidence) {
             max_cost_usd: 0,
           },
         });
-        const loaded = await expectOk(daemon.endpoint, "/api/v1/models/load", {
+        const loaded = await expectOk(daemon.endpoint, "/v1/model-mount/instances/load", {
           method: "POST",
           token: grant.token,
           body: {
@@ -1529,7 +1529,7 @@ async function runModelBackendsGate(evidence) {
         }
         const providerLoaded = await expectOk(daemon.endpoint, "/api/v1/providers/provider.vllm/loaded");
         assert.ok(providerLoaded.some((model) => model.modelId === selectedModel));
-        const unloaded = await expectOk(daemon.endpoint, "/api/v1/models/unload", {
+        const unloaded = await expectOk(daemon.endpoint, "/v1/model-mount/instances/unload", {
           method: "POST",
           token: grant.token,
           body: { instance_id: loaded.id },
