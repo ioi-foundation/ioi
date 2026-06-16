@@ -10,7 +10,6 @@ export const MODEL_MOUNTING_STATE_MAPS = [
   ["model-catalog-providers", "catalogProviderConfigs"],
   ["runtime-preferences", "runtimeSelections"],
   ["runtime-engine-profiles", "runtimeEngineProfiles"],
-  ["tokens", "tokens"],
   ["vault-refs", "vaultRefs"],
   ["mcp-servers", "mcpServers"],
   ["model-conversations", "conversations"],

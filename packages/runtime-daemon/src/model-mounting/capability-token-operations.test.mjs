@@ -14,15 +14,10 @@ const CAPABILITY_TOKEN_EVIDENCE_REFS = [
 function createState() {
   const planCalls = [];
   const recordStateCommits = [];
-  const legacyToken = {
-    id: "legacy-js-token",
-    tokenHash: "sha256:legacy-js-token",
-  };
   const state = {
     planCalls,
     recordStateCommits,
     stateDir: "/tmp/ioi-model-mount-state",
-    tokens: new Map([[legacyToken.id, legacyToken]]),
     walletAuthority: {
       createGrant() {
         throw new Error("JS walletAuthority.createGrant must not authorize capability tokens.");
@@ -60,7 +55,7 @@ function createState() {
       };
     },
   };
-  return { legacyToken, state };
+  return { state };
 }
 
 function capabilityTokenPlan(request) {
@@ -152,7 +147,7 @@ function publicResponseFor(request, tokenId) {
 }
 
 test("capability token create/list/authorize/revoke commit Rust wallet authority records without JS token truth", () => {
-  const { legacyToken, state } = createState();
+  const { state } = createState();
 
   const created = ModelMountingState.prototype.createToken.call(state, {
     audience: "agent-studio",
@@ -215,8 +210,7 @@ test("capability token create/list/authorize/revoke commit Rust wallet authority
     ),
     true,
   );
-  assert.equal(state.tokens.size, 1);
-  assert.equal(state.tokens.get(legacyToken.id), legacyToken);
+  assert.equal(Object.hasOwn(state, "tokens"), false);
 });
 
 test("capability token authorization preserves Bearer preflight before Rust boundary", () => {

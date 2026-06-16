@@ -111,7 +111,6 @@ export class AgentgresModelMountingStore {
       "server-logs",
       "projections",
       "lifecycle-events",
-      "tokens",
       "vault-refs",
       "mcp-servers",
       "workflow-bindings",

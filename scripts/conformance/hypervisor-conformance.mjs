@@ -26675,6 +26675,7 @@ function runReceipts() {
       ) &&
       !/CommandOperation::PlanModelMountCapabilityTokenControl/.test(coreCommandDispatch) &&
       !/this\.walletAuthority\.(?:createGrant|authorizeScope|revokeGrant)/.test(modelMountingState) &&
+      !/this\.tokens\s*=/.test(modelMountingState) &&
       !/this\.tokens\.(?:has|values|set)/.test(modelMountingState) &&
       !/notFound\(`Token not found: \$\{tokenId\}`/.test(modelMountingState) &&
       !/state\.receipt\("permission_token/.test(modelMountingState) &&
@@ -26683,6 +26684,17 @@ function runReceipts() {
       !/recordDir:\s*"tokens"/.test(capabilityTokenOperations) &&
       !/model_mount_capability_token_state_commit_unconfigured/.test(capabilityTokenOperations) &&
       !/this\.tokens\.set/.test(modelMountingState) &&
+      !/\["tokens",\s*"tokens"\]/.test(read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs")) &&
+      !/"tokens"/.test(read("packages/runtime-daemon/src/model-mounting/store.mjs")) &&
+      /Slice 1328 hard-cuts the model_mount legacy capability-token JS cache\s+substrate/.test(
+        read("docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md"),
+      ) &&
+      /Model_mount capability-token JS cache retired/.test(
+        read("docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md"),
+      ) &&
+      /RuntimeDaemonCoreModelMountCapabilityTokenCacheRetired/.test(
+        read("docs/architecture/_meta/implementation-matrix.md"),
+      ) &&
       !/\.map\(publicToken\)/.test(modelMountingState) &&
       !/export function publicToken/.test(modelMountingIo) &&
       !/RUNTIME_MODEL_MOUNT_RECORD_STATE_COMMIT_SCHEMA_VERSION/.test(capabilityTokenOperations) &&
@@ -26703,6 +26715,7 @@ function runReceipts() {
       /walletAuthority\.createGrant must not authorize capability tokens/.test(capabilityTokenOperationsTest) &&
       /plaintext_material_persisted/.test(capabilityTokenOperationsTest) &&
       /capability-tokens/.test(capabilityTokenOperationsTest) &&
+      /Object\.hasOwn\(state,\s*"tokens"\),\s*false/.test(capabilityTokenOperationsTest) &&
       /ModelMountingState\.prototype\.createToken\.call/.test(capabilityTokenOperationsTest) &&
       /ModelMountingState\.prototype\.revokeToken\.call/.test(capabilityTokenOperationsTest) &&
       /ModelMountingState\.prototype\.authorize\.call/.test(capabilityTokenOperationsTest) &&

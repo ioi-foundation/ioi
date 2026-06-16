@@ -67,13 +67,14 @@ function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, "utf8"));
 }
 
-test("store dirs do not recreate retired OAuth local cache storage", () => {
+test("store dirs do not recreate retired OAuth or capability-token local cache storage", () => {
   const { stateDir, store } = testStore();
 
   store.ensureDirs();
 
   assert.equal(fs.existsSync(path.join(stateDir, "oauth-sessions")), false);
   assert.equal(fs.existsSync(path.join(stateDir, "oauth-states")), false);
+  assert.equal(fs.existsSync(path.join(stateDir, "tokens")), false);
 });
 
 function boundModelInvocationReceipt(overrides = {}) {

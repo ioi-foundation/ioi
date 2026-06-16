@@ -10778,6 +10778,20 @@ auth-header materialization, actual Rust backend execution/materialization,
 hosted/provider transport, invocation authority depth, and stable SDK/IDE/CLI
 protocol APIs, not a JS OAuth session/state cache fallback.
 
+Slice 1328 hard-cuts the model_mount legacy capability-token JS cache
+substrate. `ModelMountingState` no longer constructs a `tokens` map, the
+legacy `tokens` persistence entry and store directory are gone, and focused
+capability-token/state/store tests assert the JS cache field and directory are
+absent rather than merely untouched. Public capability-token
+create/list/authorize/revoke still enter Rust daemon-core
+`plan_model_mount_capability_token_control`, commit `capability-tokens` records
+through Agentgres, and return or replay Rust-owned token authority facts; the
+one-time token material remains outside persisted records. Conformance guards
+the absent daemon field, persistence map entry, store directory, and focused
+absence assertion. Remaining work is deeper wallet authority policy, revocation
+epochs, and stable SDK/IDE/CLI capability-token APIs, not a JS `tokens` cache
+fallback.
+
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,
 `/v1/memory/policy`, `/v1/memory/path`, or `/v1/memory/validate`; the daemon
