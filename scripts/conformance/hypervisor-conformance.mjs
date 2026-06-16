@@ -23173,11 +23173,12 @@ function runReceipts() {
         !file.includes("/media/"),
     ).map((file) => read(file)),
   ].join("\n");
+  const modelMountingDaemonContract = exists("scripts/lib/model-mounting-daemon-contract.test.mjs")
+    ? read("scripts/lib/model-mounting-daemon-contract.test.mjs")
+    : "";
   const modelMountStableInvocationProofClientCorpus = [
     modelMountStableReadProtocolClientCorpus,
-    exists("scripts/lib/model-mounting-daemon-contract.test.mjs")
-      ? read("scripts/lib/model-mounting-daemon-contract.test.mjs")
-      : "",
+    modelMountingDaemonContract,
     exists("scripts/lib/model-mounting-ui-contract.test.mjs")
       ? read("scripts/lib/model-mounting-ui-contract.test.mjs")
       : "",
@@ -26998,6 +26999,12 @@ function runReceipts() {
       /\/v1\/model-mount\/mcp/.test(publicRuntimeRoutesTest) &&
       /\/v1\/model-mount\/mcp\/import/.test(publicRuntimeRoutesTest) &&
       /\/v1\/model-mount\/mcp\/invoke/.test(publicRuntimeRoutesTest) &&
+      /expectRetiredNativeRouteNotFound\(daemon\.endpoint,\s*"\/api\/v1\/mcp"\)/.test(
+        modelMountingDaemonContract,
+      ) &&
+      !/expectMcpProjectionRustCoreRequired/.test(modelMountingDaemonContract) &&
+      /\/v1\/model-mount\/mcp\/import/.test(modelMountingDaemonContract) &&
+      /\/v1\/model-mount\/mcp\/invoke/.test(modelMountingDaemonContract) &&
       /\/v1\/model-mount\/workflows\/nodes\/execute/.test(publicRuntimeRoutesTest) &&
       /\/v1\/model-mount\/workflows\/receipt-gate/.test(publicRuntimeRoutesTest) &&
       /"\/api\/v1\/models"/.test(runtimeRouteHandlersTest) &&
@@ -27145,21 +27152,25 @@ function runReceipts() {
       /Slice 1351 hard-cuts stable model_mount read proof and IDE clients/.test(guide) &&
       /Slice 1384 hard-cuts stable model_mount snapshot, projection, MCP workflow,\s+and workflow-node protocol clients/.test(guide) &&
       /Slice 1385 hard-cuts shipped workbench workflow-composer generated media/.test(guide) &&
+      /Slice 1396 hard-cuts proof contract native route fallbacks/.test(guide) &&
       /Model_mount stable read protocol clients/.test(matrix) &&
       /Model_mount legacy native read aliases retired/.test(matrix) &&
       /Model_mount stable read proof and IDE clients/.test(matrix) &&
       /Model_mount stable snapshot\/projection\/MCP\/workflow protocol clients/.test(matrix) &&
+      /Proof contract stable protocol clients/.test(matrix) &&
       /Model_mount workbench workflow-composer generated media protocol clients/.test(matrix) &&
       /RuntimeDaemonCoreModelMountStableReadProtocolClients/.test(implementationMatrix) &&
       /RuntimeDaemonCoreModelMountLegacyReadAliasesRetired/.test(implementationMatrix) &&
       /RuntimeDaemonCoreModelMountStableReadProofIdeClients/.test(implementationMatrix) &&
       /RuntimeDaemonCoreModelMountStableSnapshotWorkflowProtocolClients/.test(implementationMatrix) &&
+      /RuntimeProofContractStableProtocolClients/.test(implementationMatrix) &&
       /RuntimeDaemonCoreModelMountWorkbenchWorkflowComposerGeneratedMediaClients/.test(implementationMatrix),
     [
       "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
       "packages/agent-sdk/src/substrate-client.ts",
       "crates/cli/src/commands/models.rs",
       "crates/cli/src/commands/routes.rs",
+      "scripts/lib/model-mounting-daemon-contract.test.mjs",
     ],
     "Stable model_mount read clients must use /v1 Rust projection APIs; migrated CLI/SDK read commands must not fall back through older /api/v1 model_mount read routes",
   );
@@ -31006,6 +31017,17 @@ function runReceipts() {
       /settings authority runtime uses stable Rust authority and tool catalog protocols/.test(
         authorityCenterWiringTest,
       ) &&
+      /\$\{daemon\.endpoint\}\/v1\/authority-evidence/.test(liveRuntimeDaemonContract) &&
+      /\$\{daemon\.endpoint\}\/v1\/authority-evidence\?capability_ref=/.test(
+        liveRuntimeDaemonContract,
+      ) &&
+      /fetchJsonError\([\s\S]*\$\{daemon\.endpoint\}\/api\/v1\/authority-evidence[\s\S]*404/.test(
+        liveRuntimeDaemonContract,
+      ) &&
+      /retiredNativeEvidence\.error\.code,\s*"not_found"/.test(liveRuntimeDaemonContract) &&
+      /retiredNativeEvidence\.error\.details\.path,\s*"\/api\/v1\/authority-evidence"/.test(
+        liveRuntimeDaemonContract,
+      ) &&
       /assert\.doesNotMatch\(authorityRuntime,\s*\/\\\/api\\\/v1\\\/authority-evidence\/\)/.test(
         authorityCenterWiringTest,
       ) &&
@@ -31013,11 +31035,15 @@ function runReceipts() {
         authorityCenterWiringTest,
       ) &&
       /Slice 1386 hard-cuts the Authority Center product evidence client fallback/.test(guide) &&
+      /Slice 1396 hard-cuts proof contract native route fallbacks/.test(guide) &&
       /Runtime lifecycle authority-evidence product protocol client/.test(matrix) &&
-      /RuntimeLifecycleAuthorityEvidenceProductProtocolClient/.test(implementationMatrix),
+      /Proof contract stable protocol clients/.test(matrix) &&
+      /RuntimeLifecycleAuthorityEvidenceProductProtocolClient/.test(implementationMatrix) &&
+      /RuntimeProofContractStableProtocolClients/.test(implementationMatrix),
     [
       "apps/autopilot/src/surfaces/Policy/authorityCenterRuntime.ts",
       "apps/autopilot/src/surfaces/Settings/settingsAuthorityCenterWiring.test.ts",
+      "scripts/lib/live-runtime-daemon-contract.test.mjs",
       "docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md",
       "docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md",
       "docs/architecture/_meta/implementation-matrix.md",

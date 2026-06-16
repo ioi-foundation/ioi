@@ -120,14 +120,11 @@ async function expectOk(endpoint, route, options) {
   return result.json;
 }
 
-async function expectMcpProjectionRustCoreRequired(endpoint, route) {
+async function expectRetiredNativeRouteNotFound(endpoint, route) {
   const result = await requestJson(endpoint, route);
-  assert.equal(result.response.status, 501);
-  assert.equal(result.json.error.code, "model_mount_mcp_projection_rust_core_required");
-  assert.equal(result.json.error.details.operation_kind, "model_mount.mcp_server.list");
-  assert.equal(result.json.error.details.rust_core_boundary, "model_mount.mcp_projection");
-  assert.ok(result.json.error.details.evidence_refs.includes("model_mount_mcp_server_js_projection_retired"));
-  assert.ok(result.json.error.details.evidence_refs.includes("agentgres_mcp_projection_truth_required"));
+  assert.equal(result.response.status, 404);
+  assert.equal(result.json.error.code, "not_found");
+  assert.equal(result.json.error.details.path, route);
   return result.json;
 }
 
@@ -1372,7 +1369,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     });
     assert.equal(mcpImport.count, 1);
 
-    await expectMcpProjectionRustCoreRequired(daemon.endpoint, "/api/v1/mcp");
+    await expectRetiredNativeRouteNotFound(daemon.endpoint, "/api/v1/mcp");
 
     const tool = await expectOk(daemon.endpoint, "/v1/model-mount/mcp/invoke", {
       method: "POST",

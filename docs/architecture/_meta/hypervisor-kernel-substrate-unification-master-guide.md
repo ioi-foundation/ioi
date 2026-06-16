@@ -12181,6 +12181,16 @@ event admission, artifact commit, or JS candidate readback. Conformance guards
 the daemon-only state-dir helpers and rejects restoring the per-family fallback
 beside Rust Agentgres replay.
 
+Slice 1396 hard-cuts proof contract native route fallbacks.
+The live runtime daemon authority-evidence proof now reads canonical
+`/v1/authority-evidence` lifecycle projection and asserts retired
+`/api/v1/authority-evidence` returns `not_found`. The model_mount daemon
+contract keeps MCP import/invoke on `/v1/model-mount/mcp/*` and asserts retired
+`/api/v1/mcp` returns `not_found` instead of treating the native alias as a
+Rust-required projection path. Conformance scans these proof contracts so
+proof/live validation clients cannot preserve native-route split-brain fallback
+behavior beside Rust-owned protocol projections.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

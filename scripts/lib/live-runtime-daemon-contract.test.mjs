@@ -103,6 +103,95 @@ async function fetchJson(url, options) {
   return response.json();
 }
 
+async function fetchJsonError(url, expectedStatus, options) {
+  const response = await fetch(url, {
+    headers: { "content-type": "application/json" },
+    ...options,
+  });
+  const body = await response.json();
+  assert.equal(response.status, expectedStatus, `${response.status} ${response.statusText} for ${url}`);
+  return body;
+}
+
+function createLiveProofDaemonCoreAgentgresApi() {
+  return {
+    admitRuntimeThreadEvent(envelope = {}) {
+      const event = envelope.request?.event ?? envelope.event ?? {};
+      const eventId =
+        event.event_id ??
+        `event_${cryptoRandomSuffix("authority_evidence")}`;
+      return {
+        event: {
+          ...event,
+          event_id: eventId,
+          seq: event.seq ?? 1,
+          idempotency_key: event.idempotency_key ?? eventId,
+        },
+        admission_hash: `admission:${eventId}`,
+        evidence_refs: ["rust_daemon_core_thread_event_admission"],
+      };
+    },
+  };
+}
+
+function createLiveProofDaemonCoreRuntimeProjectionApi() {
+  return {
+    projectRuntimeLifecycle(request = {}) {
+      const rows = [
+        {
+          capability_ref: "model-capability:route.local-first",
+          route_id: "route.local-first",
+          authority_scope_requirements: ["model.chat:*"],
+          receipt_refs: [
+            "receipt_workflow_run_capability_preflight_authority_proof",
+            "receipt_model_capability_row",
+          ],
+          policy_decision_refs: [
+            "policy_workflow_run_capability_preflight_blocked_authority_proof",
+            "policy_model_capability_row",
+          ],
+        },
+        {
+          capability_ref: "tool-capability:filesystem.write",
+          route_id: null,
+          authority_scope_requirements: ["filesystem.write"],
+          receipt_refs: [
+            "receipt_workflow_run_capability_preflight_authority_proof",
+            "receipt_tool_capability_row",
+          ],
+          policy_decision_refs: [
+            "policy_workflow_run_capability_preflight_blocked_authority_proof",
+          ],
+        },
+      ].filter((row) =>
+        (!request.capability_ref || row.capability_ref === request.capability_ref) &&
+        (!request.route_id || row.route_id === request.route_id)
+      );
+      return {
+        source: "rust_runtime_lifecycle_projection_api",
+        backend: "rust_policy",
+        projection_kind: request.projection_kind,
+        operation_kind: request.operation_kind,
+        projection: {
+          schema_version: "ioi.authority-evidence-summary-list.v1",
+          object: "ioi.authority_evidence_summary_list",
+          filters: {
+            thread_id: request.thread_id ?? null,
+            run_id: request.run_id ?? null,
+            capability_ref: request.capability_ref ?? null,
+            route_id: request.route_id ?? null,
+          },
+          row_count: rows.length,
+          items: rows,
+        },
+        record_count: 1,
+        evidence_refs: ["runtime_lifecycle_rust_projection"],
+        receipt_refs: ["receipt_runtime_lifecycle_projection_authority_evidence_summary"],
+      };
+    },
+  };
+}
+
 async function fetchSseEvents(url, options = {}) {
   const text = await fetch(url, options).then(async (response) => {
     assert.ok(response.ok, `${response.status} ${response.statusText} for ${url}`);
@@ -524,14 +613,16 @@ test("local daemon exposes compact authority evidence summaries without trace pa
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-authority-evidence-state-"));
   let daemon;
   try {
-    daemon = await startRuntimeDaemonService({ cwd, stateDir });
-    const thread = await fetchJson(`${daemon.endpoint}/v1/threads`, {
-      method: "POST",
-      body: JSON.stringify({
-        goal: "Record a blocked workflow capability preflight.",
-        options: { local: { cwd }, model: { id: "auto", routeId: "route.local-first" } },
-      }),
+    daemon = await startRuntimeDaemonService({
+      cwd,
+      stateDir,
+      daemonCoreAgentgresApi: createLiveProofDaemonCoreAgentgresApi(),
+      daemonCoreRuntimeProjectionApi: createLiveProofDaemonCoreRuntimeProjectionApi(),
     });
+    const thread = {
+      thread_id: "thread_authority_evidence_proof",
+      event_stream_id: "event_stream_authority_evidence_proof",
+    };
     daemon.store.appendRuntimeEvent({
       event_stream_id: thread.event_stream_id,
       thread_id: thread.thread_id,
@@ -587,7 +678,7 @@ test("local daemon exposes compact authority evidence summaries without trace pa
       rollback_refs: [],
     });
 
-    const evidence = await fetchJson(`${daemon.endpoint}/api/v1/authority-evidence`);
+    const evidence = await fetchJson(`${daemon.endpoint}/v1/authority-evidence`);
     assert.equal(evidence.schema_version, "ioi.authority-evidence-summary-list.v1");
     assert.equal(Object.hasOwn(evidence, "schemaVersion"), false);
     assert.equal(Object.hasOwn(evidence, "rowCount"), false);
@@ -627,12 +718,19 @@ test("local daemon exposes compact authority evidence summaries without trace pa
     );
 
     const filtered = await fetchJson(
-      `${daemon.endpoint}/api/v1/authority-evidence?capability_ref=${encodeURIComponent(
+      `${daemon.endpoint}/v1/authority-evidence?capability_ref=${encodeURIComponent(
         "tool-capability:filesystem.write",
       )}`,
     );
     assert.equal(filtered.row_count, 1);
     assert.equal(filtered.items[0].capability_ref, "tool-capability:filesystem.write");
+
+    const retiredNativeEvidence = await fetchJsonError(
+      `${daemon.endpoint}/api/v1/authority-evidence`,
+      404,
+    );
+    assert.equal(retiredNativeEvidence.error.code, "not_found");
+    assert.equal(retiredNativeEvidence.error.details.path, "/api/v1/authority-evidence");
   } finally {
     if (daemon) await daemon.close();
   }
