@@ -1,7 +1,7 @@
 use super::{
     backend_evidence_refs, deterministic_native_local_output, estimate_tokens,
-    hosted_provider_base_url_hash, hosted_provider_transport_binding,
-    hosted_provider_transport_output, is_hosted_provider_stream_invocation_backend,
+    hosted_provider_base_url_hash, hosted_provider_stream_transport_output,
+    hosted_provider_transport_binding, is_hosted_provider_stream_invocation_backend,
     provider_auth_evidence_refs, provider_stream_invocation_hash,
     ModelMountProviderInvocationRequest, ModelMountProviderStreamInvocationResult,
     ModelMountTokenCount,
@@ -15,18 +15,23 @@ pub(super) fn invoke_provider_stream(
 ) -> Result<ModelMountProviderStreamInvocationResult, ModelMountError> {
     request.validate_stream()?;
     let hosted_provider_stream = is_hosted_provider_stream_invocation_backend(request);
-    let output_text = if hosted_provider_stream {
-        hosted_provider_transport_output(request)?
+    let (output_text, token_count, stream_chunks) = if hosted_provider_stream {
+        let streamed = hosted_provider_stream_transport_output(request)?;
+        let token_count = estimate_tokens(&request.input, &streamed.output_text);
+        let stream_chunks =
+            live_hosted_provider_stream_chunks(&streamed.stream_deltas, &token_count)?;
+        (streamed.output_text, token_count, stream_chunks)
     } else {
-        deterministic_native_local_output(
+        let output_text = deterministic_native_local_output(
             &request.invocation_kind,
             &request.input,
             &request.model_ref,
-        )?
+        )?;
+        let token_count = estimate_tokens(&request.input, &output_text);
+        let stream_chunks = deterministic_stream_chunks(&output_text, &token_count)?;
+        (output_text, token_count, stream_chunks)
     };
     let hosted_transport = hosted_provider_transport_binding(request, &output_text)?;
-    let token_count = estimate_tokens(&request.input, &output_text);
-    let stream_chunks = deterministic_stream_chunks(&output_text, &token_count)?;
     let mut result = ModelMountProviderStreamInvocationResult {
         schema_version: MODEL_MOUNT_PROVIDER_STREAM_INVOCATION_SCHEMA_VERSION.to_string(),
         provider_execution_ref: request.provider_execution_ref.clone(),
@@ -193,6 +198,44 @@ fn deterministic_stream_chunks(
     Ok(records)
 }
 
+fn live_hosted_provider_stream_chunks(
+    deltas: &[String],
+    token_count: &ModelMountTokenCount,
+) -> Result<Vec<String>, ModelMountError> {
+    if deltas.is_empty() {
+        return Err(ModelMountError::HostedProviderTransportExecutionFailed(
+            "hosted provider stream yielded no Rust-owned deltas".to_string(),
+        ));
+    }
+    let mut records = Vec::new();
+    for delta in deltas {
+        let record = serde_json::json!({
+            "delta": delta,
+            "done": false,
+            "source": "rust_hosted_provider_stream_transport",
+        });
+        records.push(
+            serde_json::to_string(&record)
+                .map_err(|error| ModelMountError::HashFailed(error.to_string()))?
+                + "\n",
+        );
+    }
+    let done = serde_json::json!({
+        "delta": "",
+        "done": true,
+        "done_reason": "stop",
+        "source": "rust_hosted_provider_stream_transport",
+        "prompt_eval_count": token_count.prompt_tokens,
+        "eval_count": token_count.completion_tokens,
+    });
+    records.push(
+        serde_json::to_string(&done)
+            .map_err(|error| ModelMountError::HashFailed(error.to_string()))?
+            + "\n",
+    );
+    Ok(records)
+}
+
 fn provider_stream_invocation_evidence_refs(
     request: &ModelMountProviderInvocationRequest,
 ) -> Vec<String> {
@@ -203,6 +246,9 @@ fn provider_stream_invocation_evidence_refs(
     if is_hosted_provider_stream_invocation_backend(request) {
         refs.push("rust_model_mount_hosted_provider_stream_backend".to_string());
         refs.push("rust_hosted_provider_stream_transport_materialized".to_string());
+        refs.push("rust_hosted_provider_stream_live_chunks_executed".to_string());
+        refs.push("rust_hosted_provider_stream_semantics_owned".to_string());
+        refs.push("rust_hosted_provider_stream_sse_chunks_bound".to_string());
         refs.push("rust_hosted_provider_transport_request_bound".to_string());
         refs.push("rust_hosted_provider_transport_response_bound".to_string());
         refs.push("rust_hosted_provider_endpoint_url_bound".to_string());
@@ -258,7 +304,7 @@ mod tests {
                 .expect("hosted stream request read");
             let request = String::from_utf8_lossy(&buffer[..read]).to_string();
             let response = format!(
-                "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{}",
+                "HTTP/1.1 200 OK\r\ncontent-type: text/event-stream\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{}",
                 response_body.len(),
                 response_body
             );
@@ -463,8 +509,11 @@ mod tests {
             ModelMountError::HostedProviderInvocationMissingAuthEvidence
         );
 
-        let (base_url, hosted_request) =
-            hosted_transport_server(r#"{"output_text":"live hosted stream answer"}"#);
+        let (base_url, hosted_request) = hosted_transport_server(
+            "data: {\"type\":\"response.output_text.delta\",\"delta\":\"live hosted \"}\n\n\
+             data: {\"type\":\"response.output_text.delta\",\"delta\":\"stream answer\"}\n\n\
+             data: [DONE]\n\n",
+        );
         let mut request = hosted_provider_stream_invocation_request();
         request.base_url = Some(format!("{base_url}/v1"));
         let result =
@@ -489,6 +538,9 @@ mod tests {
         assert!(raw_hosted_request.contains("POST /v1/responses HTTP/1.1"));
         assert!(raw_hosted_request
             .to_ascii_lowercase()
+            .contains("accept: text/event-stream"));
+        assert!(raw_hosted_request
+            .to_ascii_lowercase()
             .contains("x-ioi-outbound-header-binding-ref"));
         assert!(result
             .provider_auth_evidence_refs
@@ -496,6 +548,15 @@ mod tests {
         assert!(result
             .backend_evidence_refs
             .contains(&"rust_hosted_provider_stream_transport_materialized".to_string()));
+        assert!(result
+            .backend_evidence_refs
+            .contains(&"rust_hosted_provider_stream_live_chunks_executed".to_string()));
+        assert!(result
+            .backend_evidence_refs
+            .contains(&"rust_hosted_provider_stream_semantics_owned".to_string()));
+        assert!(result
+            .backend_evidence_refs
+            .contains(&"rust_hosted_provider_stream_sse_chunks_bound".to_string()));
         assert!(result
             .backend_evidence_refs
             .contains(&"rust_hosted_provider_live_network_io_executed".to_string()));
@@ -527,6 +588,9 @@ mod tests {
             Some("rust_hosted_provider_transport_response_bound")
         );
         assert!(result.stream_chunks.len() >= 2);
+        assert!(result.stream_chunks[0].contains("live hosted "));
+        assert!(result.stream_chunks[0].contains("rust_hosted_provider_stream_transport"));
+        assert!(result.stream_chunks[1].contains("stream answer"));
         assert!(result.invocation_hash.starts_with("sha256:"));
 
         let mut missing_authority = hosted_provider_stream_invocation_request();

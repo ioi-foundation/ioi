@@ -11847,9 +11847,8 @@ Agentgres `model-backend-lifecycle-controls` record/public response, and emits
 JS/Rust tests and conformance guard the two-record start path, the direct typed
 API normalizer, and the absence of restored JS process control. This remains
 non-terminal because live external backend binary process launch/supervision
-implementation, true hosted streaming semantics, production cTEE egress resolver
-depth, and deeper invocation authority still need terminal Rust-owned execution
-coverage.
+implementation, production cTEE egress resolver depth, and deeper invocation
+authority still need terminal Rust-owned execution coverage.
 
 Slice 1377 hard-cuts hosted provider invocation off the deterministic Rust
 transport-contract output and onto a Rust daemon-core live hosted transport
@@ -11867,10 +11866,31 @@ synthesizing output. Hosted result admission now requires
 transport request/response hashes, so evidence-only hosted result truth cannot
 return. Focused JS/Rust tests and conformance guard the live executor evidence,
 the cTEE ref-bound boundary, and the absence of the old deterministic hosted
-success text. This remains non-terminal because true provider streaming
-transport semantics, live external backend binary process launch/supervision,
-production cTEE egress resolver depth, and deeper invocation authority still
-need terminal Rust-owned execution coverage.
+success text. This remains non-terminal because live external backend binary
+process launch/supervision, production cTEE egress resolver depth, and deeper
+invocation authority still need terminal Rust-owned execution coverage.
+
+Slice 1378 hard-cuts hosted provider stream semantics into the Rust daemon-core
+transport owner. Hosted stream invocation no longer calls the non-stream hosted
+transport body extractor and no longer slices a buffered hosted response into
+deterministic stream frames. `provider_execution/stream` calls the Rust-owned
+`hosted_provider_stream_transport_output` executor, sends the same
+wallet/cTEE-bound no-plaintext custody headers with an event-stream accept
+contract, parses SSE or newline-delimited JSON delta frames in Rust, rejects a
+hosted stream response with no deltas, and emits IOI JSONL stream chunks from
+those live deltas. Hosted provider-result admission now requires
+`rust_hosted_provider_stream_live_chunks_executed`,
+`rust_hosted_provider_stream_semantics_owned`, and
+`rust_hosted_provider_stream_sse_chunks_bound` beside the existing hosted
+transport hashes and cTEE binding evidence, so a hosted stream cannot be
+admitted from generic network evidence or body-sliced compatibility output.
+Focused Rust tests stand up a local SSE server and assert `POST /v1/responses`,
+`Accept: text/event-stream`, cTEE/header-binding refs, live delta chunks, and
+the stream evidence; JS protocol tests and conformance guard the result
+admission shape and reject restoring `hosted_provider_transport_output(request)?`
+inside the stream owner. This remains non-terminal because live external backend
+binary process launch/supervision, production cTEE egress resolver depth, and
+deeper invocation authority still need terminal Rust-owned execution coverage.
 
 ## Final Doctrine
 

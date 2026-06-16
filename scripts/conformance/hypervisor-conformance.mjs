@@ -20075,6 +20075,15 @@ function runBridge() {
 		      /hostedStreamRequest\.backend_evidence_refs\.includes\("rust_hosted_provider_stream_transport_materialized"\)/.test(
 		        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
 		      ) &&
+		      /hostedStreamRequest\.backend_evidence_refs\.includes\("rust_hosted_provider_stream_live_chunks_executed"\)/.test(
+		        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
+		      ) &&
+		      /hostedStreamRequest\.backend_evidence_refs\.includes\("rust_hosted_provider_stream_semantics_owned"\)/.test(
+		        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
+		      ) &&
+		      /hostedStreamRequest\.backend_evidence_refs\.includes\("rust_hosted_provider_stream_sse_chunks_bound"\)/.test(
+		        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
+		      ) &&
 		      /hostedStreamRequest\.backend_evidence_refs\.includes\("rust_hosted_provider_live_network_io_executed"\)/.test(
 		        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
 		      ) &&
@@ -20094,6 +20103,13 @@ function runBridge() {
 		        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
 		      ) &&
 		      /admits_hosted_provider_stream_result_bound_to_rust_transport_contract/.test(modelMountCore) &&
+		      /hosted_provider_stream_transport_output/.test(modelMountCore) &&
+		      /live_hosted_provider_stream_chunks/.test(
+		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/stream.rs"),
+		      ) &&
+		      !/hosted_provider_transport_output\(request\)\?/.test(
+		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/stream.rs"),
+		      ) &&
 		      /error\.code === "model_mount_provider_result_rust_backend_required"/.test(
 		        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
 		      ) &&
@@ -23254,6 +23270,21 @@ function runReceipts() {
 		      /rust_hosted_provider_stream_transport_materialized/.test(
 		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/stream.rs"),
 		      ) &&
+		      /rust_hosted_provider_stream_live_chunks_executed/.test(
+		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/stream.rs"),
+		      ) &&
+		      /rust_hosted_provider_stream_semantics_owned/.test(
+		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/stream.rs"),
+		      ) &&
+		      /rust_hosted_provider_stream_sse_chunks_bound/.test(
+		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/stream.rs"),
+		      ) &&
+		      /live_hosted_provider_stream_chunks/.test(
+		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/stream.rs"),
+		      ) &&
+		      !/hosted_provider_transport_output\(request\)\?/.test(
+		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/stream.rs"),
+		      ) &&
 		      /rust_hosted_provider_live_network_io_executed/.test(
 		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/stream.rs"),
 		      ) &&
@@ -25919,6 +25950,15 @@ function runReceipts() {
 		      !/Rust hosted provider invocation contract/.test(modelMountCore) &&
 		      /rust_provider_auth_materialization_bound/.test(modelMountCore) &&
 		      /admits_hosted_provider_stream_result_bound_to_rust_transport_contract/.test(modelMountCore) &&
+		      /rust_hosted_provider_stream_live_chunks_executed/.test(
+		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_result.rs"),
+		      ) &&
+		      /rust_hosted_provider_stream_semantics_owned/.test(
+		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_result.rs"),
+		      ) &&
+		      /rust_hosted_provider_stream_sse_chunks_bound/.test(
+		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_result.rs"),
+		      ) &&
 	      !/assert\.equal\(request\.provider_kind,\s*"openai"\)/.test(
 	        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
 	      ) &&

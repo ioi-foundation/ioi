@@ -267,6 +267,21 @@ fn is_hosted_provider_result_backend(request: &ModelMountProviderResultAdmission
             "rust_provider_auth_materialization_bound",
         )
         && refs_contain(&request.backend_evidence_refs, expected_transport_evidence)
+        && (!hosted_provider_stream
+            || refs_contain(
+                &request.backend_evidence_refs,
+                "rust_hosted_provider_stream_live_chunks_executed",
+            ))
+        && (!hosted_provider_stream
+            || refs_contain(
+                &request.backend_evidence_refs,
+                "rust_hosted_provider_stream_semantics_owned",
+            ))
+        && (!hosted_provider_stream
+            || refs_contain(
+                &request.backend_evidence_refs,
+                "rust_hosted_provider_stream_sse_chunks_bound",
+            ))
         && refs_contain(
             &request.backend_evidence_refs,
             "rust_hosted_provider_transport_request_bound",
@@ -720,6 +735,9 @@ mod tests {
             backend_evidence_refs: vec![
                 "rust_model_mount_hosted_provider_stream_backend".to_string(),
                 "rust_hosted_provider_stream_transport_materialized".to_string(),
+                "rust_hosted_provider_stream_live_chunks_executed".to_string(),
+                "rust_hosted_provider_stream_semantics_owned".to_string(),
+                "rust_hosted_provider_stream_sse_chunks_bound".to_string(),
                 "rust_hosted_provider_live_network_io_executed".to_string(),
                 "rust_hosted_provider_transport_executor_owned".to_string(),
                 "rust_hosted_provider_transport_request_bound".to_string(),
@@ -746,6 +764,15 @@ mod tests {
         assert!(record
             .evidence_refs
             .contains(&"rust_hosted_provider_stream_transport_materialized".to_string()));
+        assert!(record
+            .evidence_refs
+            .contains(&"rust_hosted_provider_stream_live_chunks_executed".to_string()));
+        assert!(record
+            .evidence_refs
+            .contains(&"rust_hosted_provider_stream_semantics_owned".to_string()));
+        assert!(record
+            .evidence_refs
+            .contains(&"rust_hosted_provider_stream_sse_chunks_bound".to_string()));
         assert!(record
             .evidence_refs
             .contains(&"rust_hosted_provider_live_network_io_executed".to_string()));

@@ -1546,6 +1546,9 @@ test("modelMountProviderResultAdmissionRequestForExecution binds Rust provider r
       backend_evidence_refs: [
         "rust_model_mount_hosted_provider_stream_backend",
         "rust_hosted_provider_stream_transport_materialized",
+        "rust_hosted_provider_stream_live_chunks_executed",
+        "rust_hosted_provider_stream_semantics_owned",
+        "rust_hosted_provider_stream_sse_chunks_bound",
         "rust_hosted_provider_live_network_io_executed",
         "rust_hosted_provider_transport_executor_owned",
         "rust_hosted_provider_transport_request_bound",
@@ -1569,6 +1572,9 @@ test("modelMountProviderResultAdmissionRequestForExecution binds Rust provider r
   assert.equal(hostedStreamRequest.hosted_transport_status, "rust_hosted_provider_transport_response_bound");
   assert.equal(hostedStreamRequest.provider_auth_evidence_refs.includes("wallet_network_provider_vault_ref_bound"), true);
   assert.equal(hostedStreamRequest.backend_evidence_refs.includes("rust_hosted_provider_stream_transport_materialized"), true);
+  assert.equal(hostedStreamRequest.backend_evidence_refs.includes("rust_hosted_provider_stream_live_chunks_executed"), true);
+  assert.equal(hostedStreamRequest.backend_evidence_refs.includes("rust_hosted_provider_stream_semantics_owned"), true);
+  assert.equal(hostedStreamRequest.backend_evidence_refs.includes("rust_hosted_provider_stream_sse_chunks_bound"), true);
   assert.equal(hostedStreamRequest.backend_evidence_refs.includes("rust_hosted_provider_live_network_io_executed"), true);
   assert.equal(hostedStreamRequest.backend_evidence_refs.includes("rust_hosted_provider_transport_executor_owned"), true);
   assert.equal(hostedStreamRequest.backend_evidence_refs.includes("rust_hosted_provider_transport_request_bound"), true);

@@ -1,7 +1,10 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
-use std::time::Duration;
+use std::{
+    io::{BufRead, BufReader},
+    time::Duration,
+};
 
 use super::{
     require_non_empty, sha256_hex, validate_receipt_refs, ModelMountError,
@@ -551,6 +554,94 @@ pub(super) fn hosted_provider_transport_output(
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct HostedProviderStreamTransportOutput {
+    pub output_text: String,
+    pub stream_deltas: Vec<String>,
+}
+
+pub(super) fn hosted_provider_stream_transport_output(
+    request: &ModelMountProviderInvocationRequest,
+) -> Result<HostedProviderStreamTransportOutput, ModelMountError> {
+    let base_url = request
+        .base_url
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or(ModelMountError::HostedProviderInvocationMissingEndpointUrl)?;
+    let path = hosted_provider_transport_path(&request.invocation_kind);
+    let url = hosted_provider_transport_url(base_url, path);
+    let provider_auth_ref = request
+        .provider_auth_materialization_ref
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or(ModelMountError::HostedProviderInvocationMissingAuthMaterialization)?;
+    let header_binding_ref = request
+        .outbound_header_binding_ref
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or(ModelMountError::HostedProviderInvocationMissingAuthMaterialization)?;
+    let client = reqwest::blocking::Client::builder()
+        .timeout(Duration::from_secs(30))
+        .build()
+        .map_err(|error| {
+            ModelMountError::HostedProviderTransportExecutionFailed(error.to_string())
+        })?;
+    let response = client
+        .post(url)
+        .header("content-type", "application/json")
+        .header("accept", "text/event-stream, application/x-ndjson")
+        .header("x-ioi-provider-auth-materialization-ref", provider_auth_ref)
+        .header("x-ioi-outbound-header-binding-ref", header_binding_ref)
+        .header(
+            "x-ioi-auth-header-materialization-status",
+            request
+                .auth_header_materialization_status
+                .as_deref()
+                .unwrap_or("rust_ctee_outbound_header_bound"),
+        )
+        .header("x-ioi-ctee-secret-custody", "no-plaintext")
+        .json(&hosted_provider_transport_request_body(request))
+        .send()
+        .map_err(|error| {
+            ModelMountError::HostedProviderTransportExecutionFailed(error.to_string())
+        })?;
+    let status = response.status();
+    if !status.is_success() {
+        return Err(ModelMountError::HostedProviderTransportExecutionFailed(
+            format!("hosted provider stream transport returned HTTP {status}"),
+        ));
+    }
+    let mut deltas = Vec::new();
+    let mut reader = BufReader::new(response);
+    let mut line = String::new();
+    loop {
+        line.clear();
+        let read = reader.read_line(&mut line).map_err(|error| {
+            ModelMountError::HostedProviderTransportExecutionFailed(error.to_string())
+        })?;
+        if read == 0 {
+            break;
+        }
+        if let Some(delta) = hosted_provider_stream_delta_from_line(&line)? {
+            if !delta.is_empty() {
+                deltas.push(delta);
+            }
+        }
+    }
+    if deltas.is_empty() {
+        return Err(ModelMountError::HostedProviderTransportExecutionFailed(
+            "hosted provider stream transport returned no stream deltas".to_string(),
+        ));
+    }
+    Ok(HostedProviderStreamTransportOutput {
+        output_text: deltas.join(""),
+        stream_deltas: deltas,
+    })
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct HostedProviderTransportBinding {
     pub request_ref: String,
     pub method: String,
@@ -714,6 +805,103 @@ fn hosted_provider_output_from_response(response_text: &str) -> Result<String, M
         return Ok(text.to_string());
     }
     Ok(trimmed.to_string())
+}
+
+fn hosted_provider_stream_delta_from_line(line: &str) -> Result<Option<String>, ModelMountError> {
+    let trimmed = line.trim();
+    if trimmed.is_empty()
+        || trimmed.starts_with("event:")
+        || trimmed.starts_with("id:")
+        || trimmed.starts_with("retry:")
+        || trimmed.starts_with(':')
+    {
+        return Ok(None);
+    }
+    let payload = trimmed
+        .strip_prefix("data:")
+        .map(str::trim)
+        .unwrap_or(trimmed);
+    if payload == "[DONE]" {
+        return Ok(None);
+    }
+    let value = serde_json::from_str::<Value>(payload).map_err(|error| {
+        ModelMountError::HostedProviderTransportExecutionFailed(format!(
+            "hosted provider stream frame was not valid JSON: {error}"
+        ))
+    })?;
+    Ok(hosted_provider_stream_delta_from_value(&value))
+}
+
+fn hosted_provider_stream_delta_from_value(value: &Value) -> Option<String> {
+    if value.get("done").and_then(Value::as_bool).unwrap_or(false) {
+        return None;
+    }
+    if value
+        .get("type")
+        .and_then(Value::as_str)
+        .is_some_and(|event_type| {
+            event_type.ends_with(".done")
+                || event_type.ends_with(".completed")
+                || event_type == "message_stop"
+        })
+    {
+        return None;
+    }
+    if let Some(delta) = value.get("delta").and_then(Value::as_str) {
+        return Some(delta.to_string());
+    }
+    if let Some(text) = value
+        .get("delta")
+        .and_then(|delta| delta.get("text"))
+        .and_then(Value::as_str)
+    {
+        return Some(text.to_string());
+    }
+    if let Some(content) = value
+        .get("choices")
+        .and_then(Value::as_array)
+        .and_then(|choices| choices.first())
+        .and_then(|choice| choice.get("delta"))
+        .and_then(|delta| delta.get("content"))
+        .and_then(Value::as_str)
+    {
+        return Some(content.to_string());
+    }
+    if let Some(text) = value
+        .get("choices")
+        .and_then(Value::as_array)
+        .and_then(|choices| choices.first())
+        .and_then(|choice| choice.get("text"))
+        .and_then(Value::as_str)
+    {
+        return Some(text.to_string());
+    }
+    if let Some(output_text) = value.get("output_text").and_then(Value::as_str) {
+        return Some(output_text.to_string());
+    }
+    if let Some(text) = value.get("text").and_then(Value::as_str) {
+        return Some(text.to_string());
+    }
+    if let Some(text) = value
+        .get("content")
+        .and_then(Value::as_array)
+        .and_then(|content| content.first())
+        .and_then(|part| part.get("text"))
+        .and_then(Value::as_str)
+    {
+        return Some(text.to_string());
+    }
+    value
+        .get("candidates")
+        .and_then(Value::as_array)
+        .and_then(|candidates| candidates.first())
+        .and_then(|candidate| candidate.get("content"))
+        .and_then(|content| content.get("parts"))
+        .and_then(Value::as_array)
+        .and_then(|parts| parts.first())
+        .and_then(|part| part.get("text"))
+        .and_then(Value::as_str)
+        .map(str::to_string)
 }
 
 fn hash_json_ref(value: &serde_json::Value) -> Result<String, ModelMountError> {
@@ -916,6 +1104,9 @@ pub(super) fn backend_evidence_refs(request: &ModelMountProviderInvocationReques
     } else if is_hosted_provider_stream_invocation_backend(request) {
         refs.push("rust_model_mount_hosted_provider_stream_backend".to_string());
         refs.push("rust_hosted_provider_stream_transport_materialized".to_string());
+        refs.push("rust_hosted_provider_stream_live_chunks_executed".to_string());
+        refs.push("rust_hosted_provider_stream_semantics_owned".to_string());
+        refs.push("rust_hosted_provider_stream_sse_chunks_bound".to_string());
         refs.push("rust_hosted_provider_live_network_io_executed".to_string());
         refs.push("rust_hosted_provider_transport_executor_owned".to_string());
         refs.push("rust_hosted_provider_transport_request_bound".to_string());
