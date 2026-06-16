@@ -8663,7 +8663,7 @@ function runBridge() {
       /CODING_TOOL_BUDGET_BLOCK_RESULT_SCHEMA_VERSION/.test(policyCore) &&
       /pub fn plan_coding_tool_budget_block_response/.test(policyContextLifecycleCore) &&
       /rust_policy_plans_coding_tool_budget_block_result_event/.test(policyContextLifecycleCore) &&
-      /rust_core_shapes_coding_tool_budget_block_command_response/.test(policyContextLifecycleCore) &&
+      /rust_core_shapes_coding_tool_budget_block_api_response/.test(policyContextLifecycleCore) &&
       !/CommandOperation::PlanCodingToolBudgetBlock/.test(commandProtocolCore) &&
       !/"plan_coding_tool_budget_block"\s*=>/.test(commandProtocolCore) &&
       !/plan_coding_tool_budget_block_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
@@ -8671,7 +8671,7 @@ function runBridge() {
       /daemonCoreContextLifecycleApi/.test(runtimeContextPolicyCore) &&
       /planCodingToolBudgetBlock/.test(runtimeContextPolicyCore) &&
       /CODING_TOOL_BUDGET_BLOCK_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyCore) &&
-      /normalizeCodingToolBudgetBlockBridgeResult/.test(runtimeContextPolicyCore) &&
+      /normalizeCodingToolBudgetBlockResult/.test(runtimeContextPolicyCore) &&
       /coding tool budget block core sends Rust block request through direct context lifecycle API/.test(
         runtimeContextPolicyCoreTest,
       ) &&
@@ -9267,7 +9267,7 @@ function runBridge() {
   assertCheck(
     result,
     "mcp-memory-command-envelope-owned-by-rust-core",
-      /pub struct McpMemoryCommandError/.test(policyMcpMemoryCore) &&
+      /pub struct McpMemoryApiError/.test(policyMcpMemoryCore) &&
       !/pub fn plan_mcp_control_agent_state_update_response/.test(policyMcpMemoryCore) &&
       !/pub fn project_mcp_live_result_replay_response/.test(policyMcpMemoryCore) &&
       !/pub fn validate_mcp_servers_response/.test(policyMcpMemoryCore) &&
@@ -9327,12 +9327,12 @@ function runBridge() {
       !/rust_mcp_manager_validation_projection_api/.test(policyMcpMemoryCore) &&
       !/rust_mcp_tool_search_projection_api/.test(policyMcpMemoryCore) &&
       !/rust_mcp_tool_fetch_projection_api/.test(policyMcpMemoryCore) &&
-      /rust_memory_manager_status_projection_command/.test(policyMcpMemoryCore) &&
-      /rust_memory_manager_validation_projection_command/.test(policyMcpMemoryCore) &&
-      /rust_thread_memory_agent_state_update_command/.test(policyMcpMemoryCore) &&
-      /rust_policy_shapes_memory_manager_status_command_response/.test(policyMcpMemoryCore) &&
-      /rust_policy_shapes_memory_manager_validation_command_response/.test(policyMcpMemoryCore) &&
-      /rust_policy_shapes_thread_memory_agent_state_update_command_response/.test(policyMcpMemoryCore) &&
+      /rust_memory_manager_status_projection_api/.test(policyMcpMemoryCore) &&
+      /rust_memory_manager_validation_projection_api/.test(policyMcpMemoryCore) &&
+      /rust_thread_memory_agent_state_update_api/.test(policyMcpMemoryCore) &&
+      /rust_policy_shapes_memory_manager_status_api_response/.test(policyMcpMemoryCore) &&
+      /rust_policy_shapes_memory_manager_validation_api_response/.test(policyMcpMemoryCore) &&
+      /rust_policy_shapes_thread_memory_agent_state_update_api_response/.test(policyMcpMemoryCore) &&
       !mcpMemoryCommandBridgeExists &&
       !/mod mcp_memory_command;/.test(bridgeModule) &&
       !/plan_mcp_control_agent_state_update_response as plan_mcp_control_agent_state_update/.test(
@@ -9373,9 +9373,9 @@ function runBridge() {
       !/McpManagerCatalogProjectionBridgeRequest/.test(bridgeModule) &&
       !/McpManagerCatalogSummaryProjectionBridgeRequest/.test(bridgeModule) &&
       !/McpManagerValidationProjectionBridgeRequest/.test(bridgeModule) &&
-      !/MemoryManagerStatusProjectionBridgeRequest/.test(bridgeModule) &&
-      !/MemoryManagerValidationProjectionBridgeRequest/.test(bridgeModule) &&
-      !/ThreadMemoryAgentStateUpdateBridgeRequest/.test(bridgeModule),
+      !/MemoryManagerStatusProjectionApiRequest/.test(bridgeModule) &&
+      !/MemoryManagerValidationProjectionApiRequest/.test(bridgeModule) &&
+      !/ThreadMemoryAgentStateUpdateApiRequest/.test(bridgeModule),
     [
       "crates/services/src/agentic/runtime/kernel/policy/mcp_memory.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
@@ -11306,22 +11306,22 @@ function runBridge() {
       !/mod context_policy_command;/.test(bridgeModule) &&
       !contextPolicyCommandBridgeExists &&
       /fn evaluate_context_budget_policy_response/.test(policyContextLifecycleCore) &&
-      /ContextBudgetPolicyBridgeRequest/.test(policyContextLifecycleCore) &&
-      /rust_policy_shapes_context_budget_command_response/.test(policyContextLifecycleCore) &&
+      /ContextBudgetPolicyApiRequest/.test(policyContextLifecycleCore) &&
+      /rust_policy_shapes_context_budget_api_response/.test(policyContextLifecycleCore) &&
       /pub fn schema_version\(self\) -> &'static str/.test(commandProtocolCore) &&
       !/is_daemon_core_operation/.test(bridgeDispatch) &&
       !/context_policy_rejects_step_module_command_schema/.test(bridgeModule) &&
-      /rust_context_budget_policy_command/.test(policyContextLifecycleCore) &&
+      /rust_context_budget_policy_api/.test(policyContextLifecycleCore) &&
       /context_budget_policy_invalid/.test(policyContextLifecycleCore) &&
       /policy_record_response/.test(policyContextLifecycleCore) &&
-      /command_response_base/.test(policyContextLifecycleCore) &&
+      /api_response_base/.test(policyContextLifecycleCore) &&
       !/evaluate_context_budget_policy_response as evaluate_context_budget_policy/.test(
         bridgeModule,
       ) &&
       !/bridge_evaluates_context_budget_policy_through_rust_core/.test(bridgeModule) &&
       /runtime_event_idempotency_key/.test(policyContextLifecycleCore) &&
       !/fn evaluate_context_budget_policy/.test(bridgeModule) &&
-      !/struct ContextBudgetPolicyBridgeRequest/.test(bridgeModule) &&
+      !/struct ContextBudgetPolicyApiRequest/.test(bridgeModule) &&
       /createRuntimeContextPolicyCore/.test(runtimeContextPolicyCore) &&
       /RuntimeContextPolicyCore/.test(runtimeContextPolicyCore) &&
       /assertNoRuntimeContextPolicyCoreOption\("command",\s*options\.command\)/.test(
@@ -11511,11 +11511,11 @@ function runBridge() {
       /CODING_TOOL_BUDGET_POLICY_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
       /rust_policy_blocks_coding_tool_budget_excess/.test(policyCore) &&
       /fn evaluate_coding_tool_budget_policy_response/.test(policyContextLifecycleCore) &&
-      /ContextBudgetPolicyBridgeRequest/.test(policyContextLifecycleCore) &&
-      /rust_policy_shapes_coding_tool_budget_command_response/.test(
+      /ContextBudgetPolicyApiRequest/.test(policyContextLifecycleCore) &&
+      /rust_policy_shapes_coding_tool_budget_api_response/.test(
         policyContextLifecycleCore,
       ) &&
-      /rust_coding_tool_budget_policy_command/.test(policyContextLifecycleCore) &&
+      /rust_coding_tool_budget_policy_api/.test(policyContextLifecycleCore) &&
       /coding_tool_budget_policy_invalid/.test(policyContextLifecycleCore) &&
       !/evaluate_coding_tool_budget_policy_response as evaluate_coding_tool_budget_policy/.test(
         bridgeModule,
@@ -11573,44 +11573,44 @@ function runBridge() {
       /pub struct ContextCompactionStateUpdateCore;/.test(policyContextLifecycleCore) &&
       /rust_policy_blocks_context_budget_excess/.test(policyContextLifecycleCore) &&
       /rust_policy_blocks_coding_tool_budget_excess/.test(policyContextLifecycleCore) &&
-      /rust_policy_shapes_context_budget_command_response/.test(policyContextLifecycleCore) &&
-      /rust_policy_shapes_coding_tool_budget_command_response/.test(
+      /rust_policy_shapes_context_budget_api_response/.test(policyContextLifecycleCore) &&
+      /rust_policy_shapes_coding_tool_budget_api_response/.test(
         policyContextLifecycleCore,
       ) &&
       /rust_policy_requires_compaction_approval_before_compacting/.test(
         policyContextLifecycleCore,
       ) &&
-      /rust_policy_shapes_compaction_policy_command_response/.test(
+      /rust_policy_shapes_compaction_policy_api_response/.test(
         policyContextLifecycleCore,
       ) &&
       /rust_policy_plans_context_compaction_event_record/.test(policyContextLifecycleCore) &&
-      /rust_policy_shapes_context_compaction_command_response/.test(
+      /rust_policy_shapes_context_compaction_api_response/.test(
         policyContextLifecycleCore,
       ) &&
       /rust_policy_plans_context_compaction_run_state_update/.test(
         policyContextLifecycleCore,
       ) &&
-      /rust_policy_shapes_context_compaction_state_update_command_response/.test(
+      /rust_policy_shapes_context_compaction_state_update_api_response/.test(
         policyContextLifecycleCore,
       ) &&
       /rust_policy_rejects_invalid_context_compaction_state_update_schema/.test(
         policyContextLifecycleCore,
       ) &&
-      /pub struct ContextPolicyCommandError/.test(policyContextLifecycleCore) &&
-      /pub struct ContextBudgetPolicyBridgeRequest/.test(policyContextLifecycleCore) &&
-      /pub struct CompactionPolicyBridgeRequest/.test(policyContextLifecycleCore) &&
-      /pub struct ContextCompactionPlanBridgeRequest/.test(policyContextLifecycleCore) &&
-      /pub struct ContextCompactionStateUpdateBridgeRequest/.test(policyContextLifecycleCore) &&
+      /pub struct ContextPolicyApiError/.test(policyContextLifecycleCore) &&
+      /pub struct ContextBudgetPolicyApiRequest/.test(policyContextLifecycleCore) &&
+      /pub struct CompactionPolicyApiRequest/.test(policyContextLifecycleCore) &&
+      /pub struct ContextCompactionPlanApiRequest/.test(policyContextLifecycleCore) &&
+      /pub struct ContextCompactionStateUpdateApiRequest/.test(policyContextLifecycleCore) &&
       /pub fn evaluate_context_budget_policy_response/.test(policyContextLifecycleCore) &&
       /pub fn evaluate_coding_tool_budget_policy_response/.test(policyContextLifecycleCore) &&
       /pub fn evaluate_compaction_policy_response/.test(policyContextLifecycleCore) &&
       /pub fn plan_context_compaction_response/.test(policyContextLifecycleCore) &&
       /pub fn plan_context_compaction_state_update_response/.test(policyContextLifecycleCore) &&
-      /rust_context_budget_policy_command/.test(policyContextLifecycleCore) &&
-      /rust_coding_tool_budget_policy_command/.test(policyContextLifecycleCore) &&
-      /rust_compaction_policy_command/.test(policyContextLifecycleCore) &&
-      /rust_context_compaction_plan_command/.test(policyContextLifecycleCore) &&
-      /rust_context_compaction_state_update_command/.test(policyContextLifecycleCore) &&
+      /rust_context_budget_policy_api/.test(policyContextLifecycleCore) &&
+      /rust_coding_tool_budget_policy_api/.test(policyContextLifecycleCore) &&
+      /rust_compaction_policy_api/.test(policyContextLifecycleCore) &&
+      /rust_context_compaction_plan_api/.test(policyContextLifecycleCore) &&
+      /rust_context_compaction_state_update_api/.test(policyContextLifecycleCore) &&
       /context_budget_policy_invalid/.test(policyContextLifecycleCore) &&
       /coding_tool_budget_policy_invalid/.test(policyContextLifecycleCore) &&
       /compaction_policy_invalid/.test(policyContextLifecycleCore) &&
@@ -11637,10 +11637,10 @@ function runBridge() {
       !/plan_context_compaction_state_update_response as plan_context_compaction_state_update/.test(
         bridgeModule,
       ) &&
-      !/ContextBudgetPolicyBridgeRequest/.test(bridgeModule) &&
-      !/CompactionPolicyBridgeRequest/.test(bridgeModule) &&
-      !/ContextCompactionPlanBridgeRequest/.test(bridgeModule) &&
-      !/ContextCompactionStateUpdateBridgeRequest/.test(bridgeModule) &&
+      !/ContextBudgetPolicyApiRequest/.test(bridgeModule) &&
+      !/CompactionPolicyApiRequest/.test(bridgeModule) &&
+      !/ContextCompactionPlanApiRequest/.test(bridgeModule) &&
+      !/ContextCompactionStateUpdateApiRequest/.test(bridgeModule) &&
       !/ContextBudgetPolicyCore/.test(contextPolicyCommandBridge) &&
       !/CompactionPolicyCore/.test(contextPolicyCommandBridge) &&
       !/ContextCompactionPlanCore/.test(contextPolicyCommandBridge) &&
@@ -11649,11 +11649,11 @@ function runBridge() {
       !/CompactionPolicyRequest\b/.test(contextPolicyCommandBridge) &&
       !/ContextCompactionPlanRequest\b/.test(contextPolicyCommandBridge) &&
       !/ContextCompactionStateUpdateRequest\b/.test(contextPolicyCommandBridge) &&
-      !/rust_context_budget_policy_command/.test(contextPolicyCommandBridge) &&
-      !/rust_coding_tool_budget_policy_command/.test(contextPolicyCommandBridge) &&
-      !/rust_compaction_policy_command/.test(contextPolicyCommandBridge) &&
-      !/rust_context_compaction_plan_command/.test(contextPolicyCommandBridge) &&
-      !/rust_context_compaction_state_update_command/.test(contextPolicyCommandBridge) &&
+      !/rust_context_budget_policy_api/.test(contextPolicyCommandBridge) &&
+      !/rust_coding_tool_budget_policy_api/.test(contextPolicyCommandBridge) &&
+      !/rust_compaction_policy_api/.test(contextPolicyCommandBridge) &&
+      !/rust_context_compaction_plan_api/.test(contextPolicyCommandBridge) &&
+      !/rust_context_compaction_state_update_api/.test(contextPolicyCommandBridge) &&
       !/context_budget_policy_invalid/.test(contextPolicyCommandBridge) &&
       !/coding_tool_budget_policy_invalid/.test(contextPolicyCommandBridge) &&
       !/compaction_policy_invalid/.test(contextPolicyCommandBridge) &&
@@ -14691,17 +14691,17 @@ function runBridge() {
         threadMemoryAgentStateUpdateCoreBlock,
       ) &&
       /pub fn plan_thread_memory_agent_state_update_response/.test(policyMcpMemoryCore) &&
-      /rust_thread_memory_agent_state_update_command/.test(policyMcpMemoryCore) &&
-      /rust_policy_shapes_thread_memory_agent_state_update_command_response/.test(
+      /rust_thread_memory_agent_state_update_api/.test(policyMcpMemoryCore) &&
+      /rust_policy_shapes_thread_memory_agent_state_update_api_response/.test(
         policyMcpMemoryCore,
       ) &&
       !/plan_thread_memory_agent_state_update_response as plan_thread_memory_agent_state_update/.test(bridgeModule) &&
-      !/ThreadMemoryAgentStateUpdateBridgeRequest/.test(bridgeModule) &&
+      !/ThreadMemoryAgentStateUpdateApiRequest/.test(bridgeModule) &&
       !/bridge_plans_thread_memory_agent_state_update_through_rust_core/.test(
         bridgeModule,
       ) &&
       !/fn plan_thread_memory_agent_state_update/.test(bridgeModule) &&
-      !/struct ThreadMemoryAgentStateUpdateBridgeRequest/.test(bridgeModule) &&
+      !/struct ThreadMemoryAgentStateUpdateApiRequest/.test(bridgeModule) &&
       /response\["control"\]\["control_kind"\]/.test(policyMcpMemoryCore) &&
       /response\["control"\]\["event_id"\]/.test(policyMcpMemoryCore) &&
       /response\["control"\]\.get\("controlKind"\)\.is_none\(\)/.test(
@@ -16173,11 +16173,11 @@ function runBridge() {
       /runtime_event_item_id/.test(policyCore) &&
       /compact_idempotency_key/.test(policyCore) &&
       /fn evaluate_compaction_policy_response/.test(policyContextLifecycleCore) &&
-      /CompactionPolicyBridgeRequest/.test(policyContextLifecycleCore) &&
-      /rust_policy_shapes_compaction_policy_command_response/.test(
+      /CompactionPolicyApiRequest/.test(policyContextLifecycleCore) &&
+      /rust_policy_shapes_compaction_policy_api_response/.test(
         policyContextLifecycleCore,
       ) &&
-      /rust_compaction_policy_command/.test(policyContextLifecycleCore) &&
+      /rust_compaction_policy_api/.test(policyContextLifecycleCore) &&
       /compaction_policy_invalid/.test(policyContextLifecycleCore) &&
       !/evaluate_compaction_policy_response as evaluate_compaction_policy/.test(
         bridgeModule,
@@ -16185,7 +16185,7 @@ function runBridge() {
       !/bridge_evaluates_compaction_policy_through_rust_core/.test(bridgeModule) &&
       /runtime_event_idempotency_key/.test(policyContextLifecycleCore) &&
       !/fn evaluate_compaction_policy/.test(bridgeModule) &&
-      !/struct CompactionPolicyBridgeRequest/.test(bridgeModule) &&
+      !/struct CompactionPolicyApiRequest/.test(bridgeModule) &&
       /createRuntimeContextPolicyCore/.test(runtimeContextPolicyCore) &&
       /RuntimeContextPolicyCore/.test(runtimeContextPolicyCore) &&
       /CONTEXT_LIFECYCLE_COMPACTION_POLICY_API_METHOD =\s*"evaluateCompactionPolicy"/.test(
@@ -16605,17 +16605,17 @@ function runBridge() {
       /rust_policy_plans_context_compaction_event_record/.test(policyCore) &&
       /rust_policy_plans_runless_context_compaction_against_agent_ref/.test(policyCore) &&
       /fn plan_context_compaction_response/.test(policyContextLifecycleCore) &&
-      /ContextCompactionPlanBridgeRequest/.test(policyContextLifecycleCore) &&
-      /rust_policy_shapes_context_compaction_command_response/.test(
+      /ContextCompactionPlanApiRequest/.test(policyContextLifecycleCore) &&
+      /rust_policy_shapes_context_compaction_api_response/.test(
         policyContextLifecycleCore,
       ) &&
-      /rust_context_compaction_plan_command/.test(policyContextLifecycleCore) &&
+      /rust_context_compaction_plan_api/.test(policyContextLifecycleCore) &&
       /context_compaction_plan_invalid/.test(policyContextLifecycleCore) &&
       /"event_source"/.test(policyContextLifecycleCore) &&
       !/plan_context_compaction_response as plan_context_compaction/.test(bridgeModule) &&
       !/bridge_plans_context_compaction_through_rust_core/.test(bridgeModule) &&
       !/fn plan_context_compaction/.test(bridgeModule) &&
-      !/struct ContextCompactionPlanBridgeRequest/.test(bridgeModule) &&
+      !/struct ContextCompactionPlanApiRequest/.test(bridgeModule) &&
       /CONTEXT_LIFECYCLE_CONTEXT_COMPACTION_PLAN_API_METHOD =\s*"planContextCompaction"/.test(
         runtimeContextPolicyCore,
       ) &&
@@ -16704,11 +16704,11 @@ function runBridge() {
         contextCompactionStateUpdateCoreBlock,
       ) &&
       /fn plan_context_compaction_state_update_response/.test(policyContextLifecycleCore) &&
-      /ContextCompactionStateUpdateBridgeRequest/.test(policyContextLifecycleCore) &&
-      /rust_policy_shapes_context_compaction_state_update_command_response/.test(
+      /ContextCompactionStateUpdateApiRequest/.test(policyContextLifecycleCore) &&
+      /rust_policy_shapes_context_compaction_state_update_api_response/.test(
         policyContextLifecycleCore,
       ) &&
-      /rust_context_compaction_state_update_command/.test(policyContextLifecycleCore) &&
+      /rust_context_compaction_state_update_api/.test(policyContextLifecycleCore) &&
       /context_compaction_state_update_invalid/.test(policyContextLifecycleCore) &&
       !/plan_context_compaction_state_update_response as plan_context_compaction_state_update/.test(
         bridgeModule,
@@ -16725,7 +16725,7 @@ function runBridge() {
         policyContextLifecycleCore,
       ) &&
       !/fn plan_context_compaction_state_update/.test(bridgeModule) &&
-      !/struct ContextCompactionStateUpdateBridgeRequest/.test(bridgeModule) &&
+      !/struct ContextCompactionStateUpdateApiRequest/.test(bridgeModule) &&
       /CONTEXT_LIFECYCLE_CONTEXT_COMPACTION_STATE_UPDATE_API_METHOD =\s*"planContextCompactionStateUpdate"/.test(
         runtimeContextPolicyCore,
       ) &&
@@ -27896,6 +27896,83 @@ function runReceipts() {
     ],
     "Runtime lifecycle projection must not preserve bridge-shaped request/error/result aliases beside the positive Rust daemon-core Agentgres replay projector",
   );
+  const policyContextLifecycleCoreForBridgeShape = exists(
+    "crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs",
+  )
+    ? read("crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs")
+    : "";
+  const policyMcpMemoryCoreForBridgeShape = exists(
+    "crates/services/src/agentic/runtime/kernel/policy/mcp_memory.rs",
+  )
+    ? read("crates/services/src/agentic/runtime/kernel/policy/mcp_memory.rs")
+    : "";
+  const contextMemoryPolicyBridgeShapeSources = [
+    policyContextLifecycleCoreForBridgeShape,
+    policyMcpMemoryCoreForBridgeShape,
+    read("crates/services/src/agentic/runtime/kernel/policy.rs"),
+    runtimeContextPolicyCoreForState,
+    runtimeContextPolicyCoreTestForState,
+    read("packages/runtime-daemon/src/runtime-context-policy-surface.test.mjs"),
+    read("packages/runtime-daemon/src/threads/context-budget-policy.test.mjs"),
+    read("packages/runtime-daemon/src/runtime-coding-tool-governance-surface.test.mjs"),
+  ].join("\n");
+  assertCheck(
+    result,
+    "context-memory-policy-bridge-shaped-api-names-retired",
+    !/(?:ContextPolicyCommandError|ContextBudgetPolicyBridgeRequest|CodingToolBudgetBlockBridgeRequest|CompactionPolicyBridgeRequest|ContextCompactionPlanBridgeRequest|ContextCompactionStateUpdateBridgeRequest|McpMemoryCommandError|MemoryManagerStatusProjectionBridgeRequest|MemoryManagerValidationProjectionBridgeRequest|ThreadMemoryAgentStateUpdateBridgeRequest|normalizeContextBudgetPolicyBridgeResult|normalizeCodingToolBudgetBlockBridgeResult|normalizeCompactionPolicyBridgeResult|normalizeContextCompactionPlanBridgeResult|normalizeContextCompactionStateUpdateBridgeResult|normalizeMemoryManagerStatusProjectionBridgeResult|normalizeMemoryManagerValidationProjectionBridgeResult|normalizeThreadMemoryAgentStateUpdateBridgeResult|rust_context_budget_policy_command|rust_coding_tool_budget_policy_command|rust_coding_tool_budget_block_command|rust_compaction_policy_command|rust_context_compaction_plan_command|rust_context_compaction_state_update_command|rust_memory_manager_status_projection_command|rust_memory_manager_validation_projection_command|rust_thread_memory_agent_state_update_command|rust_policy_shapes_context_budget_command_response|rust_policy_shapes_coding_tool_budget_command_response|rust_core_shapes_coding_tool_budget_block_command_response|rust_policy_shapes_compaction_policy_command_response|rust_policy_shapes_context_compaction_command_response|rust_policy_shapes_context_compaction_state_update_command_response|rust_policy_shapes_memory_manager_validation_command_response|rust_policy_shapes_memory_manager_status_command_response|rust_policy_shapes_thread_memory_agent_state_update_command_response|command_response_base)/.test(
+      contextMemoryPolicyBridgeShapeSources,
+    ) &&
+      /pub struct ContextPolicyApiError/.test(policyContextLifecycleCoreForBridgeShape) &&
+      /pub struct ContextBudgetPolicyApiRequest/.test(
+        policyContextLifecycleCoreForBridgeShape,
+      ) &&
+      /pub struct CodingToolBudgetBlockApiRequest/.test(
+        policyContextLifecycleCoreForBridgeShape,
+      ) &&
+      /pub struct CompactionPolicyApiRequest/.test(policyContextLifecycleCoreForBridgeShape) &&
+      /pub struct ContextCompactionPlanApiRequest/.test(
+        policyContextLifecycleCoreForBridgeShape,
+      ) &&
+      /pub struct ContextCompactionStateUpdateApiRequest/.test(
+        policyContextLifecycleCoreForBridgeShape,
+      ) &&
+      /pub struct McpMemoryApiError/.test(policyMcpMemoryCoreForBridgeShape) &&
+      /pub struct MemoryManagerStatusProjectionApiRequest/.test(
+        policyMcpMemoryCoreForBridgeShape,
+      ) &&
+      /pub struct MemoryManagerValidationProjectionApiRequest/.test(
+        policyMcpMemoryCoreForBridgeShape,
+      ) &&
+      /pub struct ThreadMemoryAgentStateUpdateApiRequest/.test(
+        policyMcpMemoryCoreForBridgeShape,
+      ) &&
+      /normalizeContextBudgetPolicyResult/.test(runtimeContextPolicyCoreForState) &&
+      /normalizeCodingToolBudgetBlockResult/.test(runtimeContextPolicyCoreForState) &&
+      /normalizeCompactionPolicyResult/.test(runtimeContextPolicyCoreForState) &&
+      /normalizeContextCompactionPlanResult/.test(runtimeContextPolicyCoreForState) &&
+      /normalizeContextCompactionStateUpdateResult/.test(runtimeContextPolicyCoreForState) &&
+      /normalizeMemoryManagerStatusProjectionResult/.test(runtimeContextPolicyCoreForState) &&
+      /normalizeMemoryManagerValidationProjectionResult/.test(runtimeContextPolicyCoreForState) &&
+      /normalizeThreadMemoryAgentStateUpdateResult/.test(runtimeContextPolicyCoreForState) &&
+      /rust_context_budget_policy_api/.test(policyContextLifecycleCoreForBridgeShape) &&
+      /rust_memory_manager_status_projection_api/.test(policyMcpMemoryCoreForBridgeShape) &&
+      /Slice 1342 hard-cuts context\/memory policy bridge-shaped public API names/.test(
+        guide,
+      ) &&
+      /Context and memory policy bridge-shaped API names retired/.test(matrix) &&
+      /RuntimeDaemonCoreContextMemoryPolicyBridgeShapeRetired/.test(implementationMatrix),
+    [
+      "crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs",
+      "crates/services/src/agentic/runtime/kernel/policy/mcp_memory.rs",
+      "crates/services/src/agentic/runtime/kernel/policy.rs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
+      "docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md",
+      "docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md",
+      "docs/architecture/_meta/implementation-matrix.md",
+    ],
+    "Context policy, compaction, memory-manager, and thread-memory state-update adapters must not preserve bridge-shaped request/error/result aliases or command source markers beside positive Rust daemon-core APIs",
+  );
   assertCheck(
     result,
     "runtime-tool-catalog-public-js-projection-retired",
@@ -33475,8 +33552,8 @@ function runCompositor() {
       !/operation:\s*"plan_memory_manager_validation_projection"/.test(
         runtimeContextPolicyCore,
       ) &&
-      /normalizeMemoryManagerStatusProjectionBridgeResult/.test(runtimeContextPolicyCore) &&
-      /normalizeMemoryManagerValidationProjectionBridgeResult/.test(runtimeContextPolicyCore) &&
+      /normalizeMemoryManagerStatusProjectionResult/.test(runtimeContextPolicyCore) &&
+      /normalizeMemoryManagerValidationProjectionResult/.test(runtimeContextPolicyCore) &&
       /MemoryManagerStatusProjectionCore/.test(policyCore) &&
       /MemoryManagerValidationProjectionCore/.test(policyCore) &&
       /MEMORY_MANAGER_STATUS_PROJECTION_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
@@ -33491,21 +33568,21 @@ function runCompositor() {
       !/json_string_value\(paths,\s*"effectivePolicyId"\)/.test(policyCore) &&
       !/json_string_value\(policy,\s*"subagentInheritance"\)/.test(policyCore) &&
       /pub fn plan_memory_manager_status_projection_response/.test(policyMcpMemoryCore) &&
-      /rust_memory_manager_status_projection_command/.test(policyMcpMemoryCore) &&
-      /rust_policy_shapes_memory_manager_status_command_response/.test(policyMcpMemoryCore) &&
+      /rust_memory_manager_status_projection_api/.test(policyMcpMemoryCore) &&
+      /rust_policy_shapes_memory_manager_status_api_response/.test(policyMcpMemoryCore) &&
       !/plan_memory_manager_status_projection_response as plan_memory_manager_status_projection/.test(bridgeModule) &&
-      !/MemoryManagerStatusProjectionBridgeRequest/.test(bridgeModule) &&
+      !/MemoryManagerStatusProjectionApiRequest/.test(bridgeModule) &&
       /pub fn plan_memory_manager_validation_projection_response/.test(
         policyMcpMemoryCore,
       ) &&
-      /rust_memory_manager_validation_projection_command/.test(policyMcpMemoryCore) &&
-      /rust_policy_shapes_memory_manager_validation_command_response/.test(policyMcpMemoryCore) &&
+      /rust_memory_manager_validation_projection_api/.test(policyMcpMemoryCore) &&
+      /rust_policy_shapes_memory_manager_validation_api_response/.test(policyMcpMemoryCore) &&
       !/plan_memory_manager_validation_projection_response as plan_memory_manager_validation_projection/.test(bridgeModule) &&
-      !/MemoryManagerValidationProjectionBridgeRequest/.test(bridgeModule) &&
+      !/MemoryManagerValidationProjectionApiRequest/.test(bridgeModule) &&
       !/fn plan_memory_manager_status_projection/.test(bridgeModule) &&
-      !/struct MemoryManagerStatusProjectionBridgeRequest/.test(bridgeModule) &&
+      !/struct MemoryManagerStatusProjectionApiRequest/.test(bridgeModule) &&
       !/fn plan_memory_manager_validation_projection/.test(bridgeModule) &&
-      !/struct MemoryManagerValidationProjectionBridgeRequest/.test(bridgeModule) &&
+      !/struct MemoryManagerValidationProjectionApiRequest/.test(bridgeModule) &&
       !/PlanMemoryManagerStatusProjection/.test(commandProtocolCoreForCompositor) &&
       !/PlanMemoryManagerValidationProjection/.test(commandProtocolCoreForCompositor) &&
       !/plan_memory_manager_status_projection_response\(decode/.test(

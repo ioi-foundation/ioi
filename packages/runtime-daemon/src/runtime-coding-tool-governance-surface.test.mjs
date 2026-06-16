@@ -168,7 +168,7 @@ test("coding-tool governance budget block delegates to Rust planner without JS e
       planCodingToolBudgetBlock(request) {
         calls.push(request);
         return {
-          source: "rust_coding_tool_budget_block_command",
+          source: "rust_coding_tool_budget_block_api",
           backend: "rust_policy",
           status: "blocked",
           operation_kind: "coding_tool.budget.block",
@@ -223,7 +223,7 @@ test("coding-tool governance budget block delegates to Rust planner without JS e
     codingToolIdempotencyKey: "idempotent-budget-block",
   });
 
-  assert.equal(result.source, "rust_coding_tool_budget_block_command");
+  assert.equal(result.source, "rust_coding_tool_budget_block_api");
   assert.equal(result.operation_kind, "coding_tool.budget.block");
   assert.equal(result.event.payload_summary.rust_budget_block, true);
   assert.deepEqual(calls, [{

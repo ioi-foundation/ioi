@@ -67,12 +67,12 @@ pub enum CodingToolBudgetBlockError {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ContextPolicyCommandError {
+pub struct ContextPolicyApiError {
     code: &'static str,
     message: String,
 }
 
-impl ContextPolicyCommandError {
+impl ContextPolicyApiError {
     fn new(code: &'static str, message: String) -> Self {
         Self { code, message }
     }
@@ -497,35 +497,35 @@ pub struct ContextCompactionStateUpdateRecord {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct ContextBudgetPolicyBridgeRequest {
+pub struct ContextBudgetPolicyApiRequest {
     #[serde(default)]
     pub backend: Option<String>,
     pub request: ContextBudgetPolicyRequest,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct CompactionPolicyBridgeRequest {
+pub struct CompactionPolicyApiRequest {
     #[serde(default)]
     pub backend: Option<String>,
     pub request: CompactionPolicyRequest,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct ContextCompactionPlanBridgeRequest {
+pub struct ContextCompactionPlanApiRequest {
     #[serde(default)]
     pub backend: Option<String>,
     pub request: ContextCompactionPlanRequest,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct ContextCompactionStateUpdateBridgeRequest {
+pub struct ContextCompactionStateUpdateApiRequest {
     #[serde(default)]
     pub backend: Option<String>,
     pub request: ContextCompactionStateUpdateRequest,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct CodingToolBudgetBlockBridgeRequest {
+pub struct CodingToolBudgetBlockApiRequest {
     #[serde(default)]
     pub backend: Option<String>,
     pub request: CodingToolBudgetBlockRequest,
@@ -1236,36 +1236,36 @@ impl ContextCompactionStateUpdateCore {
 }
 
 pub fn evaluate_context_budget_policy_response(
-    request: ContextBudgetPolicyBridgeRequest,
-) -> Result<Value, ContextPolicyCommandError> {
+    request: ContextBudgetPolicyApiRequest,
+) -> Result<Value, ContextPolicyApiError> {
     evaluate_context_budget_policy_response_with(
         request,
-        "rust_context_budget_policy_command",
+        "rust_context_budget_policy_api",
         "context_budget_policy_invalid",
     )
 }
 
 pub fn evaluate_coding_tool_budget_policy_response(
-    request: ContextBudgetPolicyBridgeRequest,
-) -> Result<Value, ContextPolicyCommandError> {
+    request: ContextBudgetPolicyApiRequest,
+) -> Result<Value, ContextPolicyApiError> {
     evaluate_context_budget_policy_response_with(
         request,
-        "rust_coding_tool_budget_policy_command",
+        "rust_coding_tool_budget_policy_api",
         "coding_tool_budget_policy_invalid",
     )
 }
 
 pub fn plan_coding_tool_budget_block_response(
-    request: CodingToolBudgetBlockBridgeRequest,
-) -> Result<Value, ContextPolicyCommandError> {
+    request: CodingToolBudgetBlockApiRequest,
+) -> Result<Value, ContextPolicyApiError> {
     let record = CodingToolBudgetBlockCore
         .plan(&request.request)
         .map_err(|error| {
-            ContextPolicyCommandError::new("coding_tool_budget_block_invalid", format!("{error:?}"))
+            ContextPolicyApiError::new("coding_tool_budget_block_invalid", format!("{error:?}"))
         })?;
     let record_value = serde_json::to_value(record.clone()).unwrap_or(Value::Null);
     Ok(json!({
-        "source": "rust_coding_tool_budget_block_command",
+        "source": "rust_coding_tool_budget_block_api",
         "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
         "record": record_value,
         "status": record.status,
@@ -1288,13 +1288,13 @@ pub fn plan_coding_tool_budget_block_response(
 }
 
 fn evaluate_context_budget_policy_response_with(
-    request: ContextBudgetPolicyBridgeRequest,
+    request: ContextBudgetPolicyApiRequest,
     source: &'static str,
     error_code: &'static str,
-) -> Result<Value, ContextPolicyCommandError> {
+) -> Result<Value, ContextPolicyApiError> {
     let record = ContextBudgetPolicyCore
         .evaluate(&request.request)
-        .map_err(|error| ContextPolicyCommandError::new(error_code, format!("{error:?}")))?;
+        .map_err(|error| ContextPolicyApiError::new(error_code, format!("{error:?}")))?;
     Ok(policy_record_response(
         source,
         request.backend,
@@ -1321,15 +1321,15 @@ fn evaluate_context_budget_policy_response_with(
 }
 
 pub fn evaluate_compaction_policy_response(
-    request: CompactionPolicyBridgeRequest,
-) -> Result<Value, ContextPolicyCommandError> {
+    request: CompactionPolicyApiRequest,
+) -> Result<Value, ContextPolicyApiError> {
     let record = CompactionPolicyCore
         .evaluate(&request.request)
         .map_err(|error| {
-            ContextPolicyCommandError::new("compaction_policy_invalid", format!("{error:?}"))
+            ContextPolicyApiError::new("compaction_policy_invalid", format!("{error:?}"))
         })?;
     Ok(policy_record_response(
-        "rust_compaction_policy_command",
+        "rust_compaction_policy_api",
         request.backend,
         record,
         &[
@@ -1361,16 +1361,16 @@ pub fn evaluate_compaction_policy_response(
 }
 
 pub fn plan_context_compaction_response(
-    request: ContextCompactionPlanBridgeRequest,
-) -> Result<Value, ContextPolicyCommandError> {
+    request: ContextCompactionPlanApiRequest,
+) -> Result<Value, ContextPolicyApiError> {
     let record = ContextCompactionPlanCore
         .plan(&request.request)
         .map_err(|error| {
-            ContextPolicyCommandError::new("context_compaction_plan_invalid", format!("{error:?}"))
+            ContextPolicyApiError::new("context_compaction_plan_invalid", format!("{error:?}"))
         })?;
     let record_value = serde_json::to_value(record.clone()).unwrap_or(Value::Null);
-    let mut response = command_response_base(
-        "rust_context_compaction_plan_command",
+    let mut response = api_response_base(
+        "rust_context_compaction_plan_api",
         request.backend,
         record_value.clone(),
     );
@@ -1407,18 +1407,18 @@ pub fn plan_context_compaction_response(
 }
 
 pub fn plan_context_compaction_state_update_response(
-    request: ContextCompactionStateUpdateBridgeRequest,
-) -> Result<Value, ContextPolicyCommandError> {
+    request: ContextCompactionStateUpdateApiRequest,
+) -> Result<Value, ContextPolicyApiError> {
     let record = ContextCompactionStateUpdateCore
         .plan(&request.request)
         .map_err(|error| {
-            ContextPolicyCommandError::new(
+            ContextPolicyApiError::new(
                 "context_compaction_state_update_invalid",
                 format!("{error:?}"),
             )
         })?;
     Ok(policy_record_response(
-        "rust_context_compaction_state_update_command",
+        "rust_context_compaction_state_update_api",
         request.backend,
         record,
         &[
@@ -1444,12 +1444,12 @@ where
     T: Serialize + Clone,
 {
     let record_value = serde_json::to_value(record.clone()).unwrap_or(Value::Null);
-    let mut response = command_response_base(source, backend, record_value.clone());
+    let mut response = api_response_base(source, backend, record_value.clone());
     copy_fields(&mut response, &record_value, fields);
     Value::Object(response)
 }
 
-fn command_response_base(
+fn api_response_base(
     source: &'static str,
     backend: Option<String>,
     record_value: Value,
@@ -2158,19 +2158,19 @@ mod tests {
     }
 
     #[test]
-    fn rust_policy_shapes_context_budget_command_response() {
+    fn rust_policy_shapes_context_budget_api_response() {
         let mut request = budget_request();
         request.schema_version = CONTEXT_BUDGET_POLICY_REQUEST_SCHEMA_VERSION.to_string();
         request.tool_id = None;
         request.tool_call_id = None;
 
-        let response = evaluate_context_budget_policy_response(ContextBudgetPolicyBridgeRequest {
+        let response = evaluate_context_budget_policy_response(ContextBudgetPolicyApiRequest {
             backend: Some("rust_policy".to_string()),
             request,
         })
         .expect("context budget policy command response");
 
-        assert_eq!(response["source"], "rust_context_budget_policy_command");
+        assert_eq!(response["source"], "rust_context_budget_policy_api");
         assert_eq!(response["backend"], "rust_policy");
         assert_eq!(response["status"], "blocked");
         assert_eq!(
@@ -2206,15 +2206,15 @@ mod tests {
     }
 
     #[test]
-    fn rust_policy_shapes_coding_tool_budget_command_response() {
+    fn rust_policy_shapes_coding_tool_budget_api_response() {
         let response =
-            evaluate_coding_tool_budget_policy_response(ContextBudgetPolicyBridgeRequest {
+            evaluate_coding_tool_budget_policy_response(ContextBudgetPolicyApiRequest {
                 backend: Some("rust_policy".to_string()),
                 request: budget_request(),
             })
             .expect("coding-tool budget policy command response");
 
-        assert_eq!(response["source"], "rust_coding_tool_budget_policy_command");
+        assert_eq!(response["source"], "rust_coding_tool_budget_policy_api");
         assert_eq!(response["backend"], "rust_policy");
         assert_eq!(response["status"], "blocked");
         assert_eq!(response["usage_summary"]["total_tokens"], 120.0);
@@ -2270,14 +2270,14 @@ mod tests {
     }
 
     #[test]
-    fn rust_core_shapes_coding_tool_budget_block_command_response() {
-        let response = plan_coding_tool_budget_block_response(CodingToolBudgetBlockBridgeRequest {
+    fn rust_core_shapes_coding_tool_budget_block_api_response() {
+        let response = plan_coding_tool_budget_block_response(CodingToolBudgetBlockApiRequest {
             backend: Some("rust_policy".to_string()),
             request: budget_block_request(),
         })
         .expect("coding-tool budget block command response");
 
-        assert_eq!(response["source"], "rust_coding_tool_budget_block_command");
+        assert_eq!(response["source"], "rust_coding_tool_budget_block_api");
         assert_eq!(response["backend"], "rust_policy");
         assert_eq!(response["status"], "blocked");
         assert_eq!(response["operation_kind"], "coding_tool.budget.block");
@@ -2368,14 +2368,14 @@ mod tests {
     }
 
     #[test]
-    fn rust_policy_shapes_compaction_policy_command_response() {
-        let response = evaluate_compaction_policy_response(CompactionPolicyBridgeRequest {
+    fn rust_policy_shapes_compaction_policy_api_response() {
+        let response = evaluate_compaction_policy_response(CompactionPolicyApiRequest {
             backend: Some("rust_policy".to_string()),
             request: compaction_request(),
         })
         .expect("compaction policy command response");
 
-        assert_eq!(response["source"], "rust_compaction_policy_command");
+        assert_eq!(response["source"], "rust_compaction_policy_api");
         assert_eq!(response["backend"], "rust_policy");
         assert_eq!(response["status"], "waiting");
         assert_eq!(response["action"], "approval_required");
@@ -2463,14 +2463,14 @@ mod tests {
     }
 
     #[test]
-    fn rust_policy_shapes_context_compaction_command_response() {
-        let response = plan_context_compaction_response(ContextCompactionPlanBridgeRequest {
+    fn rust_policy_shapes_context_compaction_api_response() {
+        let response = plan_context_compaction_response(ContextCompactionPlanApiRequest {
             backend: Some("rust_policy".to_string()),
             request: context_compaction_plan_request(),
         })
         .expect("context compaction command response");
 
-        assert_eq!(response["source"], "rust_context_compaction_plan_command");
+        assert_eq!(response["source"], "rust_context_compaction_plan_api");
         assert_eq!(response["backend"], "rust_policy");
         assert_eq!(response["status"], "planned");
         assert_eq!(response["event_kind"], "context.compacted");
@@ -2562,9 +2562,9 @@ mod tests {
     }
 
     #[test]
-    fn rust_policy_shapes_context_compaction_state_update_command_response() {
+    fn rust_policy_shapes_context_compaction_state_update_api_response() {
         let response = plan_context_compaction_state_update_response(
-            ContextCompactionStateUpdateBridgeRequest {
+            ContextCompactionStateUpdateApiRequest {
                 backend: Some("rust_policy".to_string()),
                 request: context_compaction_state_update_request(),
             },
@@ -2573,7 +2573,7 @@ mod tests {
 
         assert_eq!(
             response["source"],
-            "rust_context_compaction_state_update_command"
+            "rust_context_compaction_state_update_api"
         );
         assert_eq!(response["backend"], "rust_policy");
         assert_eq!(response["status"], "planned");

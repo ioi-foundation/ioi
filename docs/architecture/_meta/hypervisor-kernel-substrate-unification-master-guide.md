@@ -11199,6 +11199,23 @@ and the JS protocol client uses `normalizeRuntimeLifecycleProjectionResult`.
 `normalizeRuntimeLifecycleProjectionBridgeResult` must not return as lifecycle
 projection compatibility aliases beside the Rust-owned replay projector.
 
+Slice 1342 hard-cuts context/memory policy bridge-shaped public API names.
+The context lifecycle and thread-memory policy families already enter Rust
+through typed daemon-core APIs; their remaining adapter request/error/result
+names no longer preserve bridge or command-transport shape. The Rust adapter
+requests are `ContextBudgetPolicyApiRequest`, `CodingToolBudgetBlockApiRequest`,
+`CompactionPolicyApiRequest`, `ContextCompactionPlanApiRequest`,
+`ContextCompactionStateUpdateApiRequest`,
+`MemoryManagerStatusProjectionApiRequest`,
+`MemoryManagerValidationProjectionApiRequest`, and
+`ThreadMemoryAgentStateUpdateApiRequest`; the shared adapter errors are
+`ContextPolicyApiError` and `McpMemoryApiError`; JS protocol-client
+normalizers use positive result names only. The retired bridge request,
+command-error, bridge-result normalizer, `*_command` source marker, and
+`*_command_response` helper/test names must not return for these Rust-owned
+context-policy, compaction, memory-manager, and thread-memory state-update
+surfaces.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

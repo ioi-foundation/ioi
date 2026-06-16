@@ -128,14 +128,14 @@ function budgetRunnerMock({ capture = null } = {}) {
   return {
     evaluateContextBudgetPolicy(request) {
       return resultForRequest(request, {
-        source: "rust_context_budget_policy_command",
+        source: "rust_context_budget_policy_api",
         event_kind: "RuntimeContextBudget.Evaluate",
         component_kind: "context_budget",
       });
     },
     evaluateCodingToolBudgetPolicy(request) {
       return resultForRequest(request, {
-        source: "rust_coding_tool_budget_policy_command",
+        source: "rust_coding_tool_budget_policy_api",
         event_kind: "RuntimeCodingToolBudget.Evaluate",
         component_kind: "coding_tool",
       });
@@ -174,7 +174,7 @@ function budgetRunnerMock({ capture = null } = {}) {
       return {
         schema_version: "ioi.runtime.compaction-policy.v1",
         object: "ioi.runtime_compaction_policy",
-        source: "rust_compaction_policy_command",
+        source: "rust_compaction_policy_api",
         backend: "rust_policy",
         status,
         action,

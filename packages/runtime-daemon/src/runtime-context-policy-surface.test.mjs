@@ -101,7 +101,7 @@ function compactHarness() {
       return {
         schema_version: "ioi.runtime.context-budget-policy.v1",
         object: "ioi.runtime_context_budget_policy",
-        source: "rust_context_budget_policy_command",
+        source: "rust_context_budget_policy_api",
         backend: "rust_policy",
         status,
         mode: request.mode,
@@ -146,7 +146,7 @@ function compactHarness() {
       return {
         schema_version: "ioi.runtime.compaction-policy.v1",
         object: "ioi.runtime_compaction_policy",
-        source: "rust_compaction_policy_command",
+        source: "rust_compaction_policy_api",
         backend: "rust_policy",
         status,
         action,
@@ -250,7 +250,7 @@ function compactHarness() {
         compacted_tokens: 0,
       };
       return {
-        source: "rust_context_compaction_state_update_command",
+        source: "rust_context_compaction_state_update_api",
         backend: "rust_policy",
         status: "planned",
         target_kind: request.target_kind,

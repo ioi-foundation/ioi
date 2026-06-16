@@ -610,12 +610,12 @@ pub struct ThreadMemoryAgentStateUpdateRecord {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct McpMemoryCommandError {
+pub struct McpMemoryApiError {
     code: &'static str,
     message: String,
 }
 
-impl McpMemoryCommandError {
+impl McpMemoryApiError {
     pub fn code(&self) -> &'static str {
         self.code
     }
@@ -633,36 +633,36 @@ impl McpMemoryCommandError {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct MemoryManagerStatusProjectionBridgeRequest {
+pub struct MemoryManagerStatusProjectionApiRequest {
     #[serde(default)]
     backend: Option<String>,
     request: MemoryManagerStatusProjectionRequest,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct MemoryManagerValidationProjectionBridgeRequest {
+pub struct MemoryManagerValidationProjectionApiRequest {
     #[serde(default)]
     backend: Option<String>,
     request: MemoryManagerValidationProjectionRequest,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct ThreadMemoryAgentStateUpdateBridgeRequest {
+pub struct ThreadMemoryAgentStateUpdateApiRequest {
     #[serde(default)]
     backend: Option<String>,
     request: ThreadMemoryAgentStateUpdateRequest,
 }
 
 pub fn plan_memory_manager_status_projection_response(
-    request: MemoryManagerStatusProjectionBridgeRequest,
-) -> Result<Value, McpMemoryCommandError> {
+    request: MemoryManagerStatusProjectionApiRequest,
+) -> Result<Value, McpMemoryApiError> {
     let record = MemoryManagerStatusProjectionCore
         .project(&request.request)
         .map_err(|error| {
-            McpMemoryCommandError::from_debug("memory_manager_status_projection_invalid", error)
+            McpMemoryApiError::from_debug("memory_manager_status_projection_invalid", error)
         })?;
     Ok(json!({
-        "source": "rust_memory_manager_status_projection_command",
+        "source": "rust_memory_manager_status_projection_api",
         "backend": mcp_policy_backend(request.backend),
         "record": record.clone(),
         "schema_version": record.schema_version.clone(),
@@ -689,15 +689,15 @@ pub fn plan_memory_manager_status_projection_response(
 }
 
 pub fn plan_memory_manager_validation_projection_response(
-    request: MemoryManagerValidationProjectionBridgeRequest,
-) -> Result<Value, McpMemoryCommandError> {
+    request: MemoryManagerValidationProjectionApiRequest,
+) -> Result<Value, McpMemoryApiError> {
     let record = MemoryManagerValidationProjectionCore
         .project(&request.request)
         .map_err(|error| {
-            McpMemoryCommandError::from_debug("memory_manager_validation_projection_invalid", error)
+            McpMemoryApiError::from_debug("memory_manager_validation_projection_invalid", error)
         })?;
     Ok(json!({
-        "source": "rust_memory_manager_validation_projection_command",
+        "source": "rust_memory_manager_validation_projection_api",
         "backend": mcp_policy_backend(request.backend),
         "record": record.clone(),
         "schema_version": record.schema_version.clone(),
@@ -717,15 +717,15 @@ pub fn plan_memory_manager_validation_projection_response(
 }
 
 pub fn plan_thread_memory_agent_state_update_response(
-    request: ThreadMemoryAgentStateUpdateBridgeRequest,
-) -> Result<Value, McpMemoryCommandError> {
+    request: ThreadMemoryAgentStateUpdateApiRequest,
+) -> Result<Value, McpMemoryApiError> {
     let record = ThreadMemoryAgentStateUpdateCore
         .plan(&request.request)
         .map_err(|error| {
-            McpMemoryCommandError::from_debug("thread_memory_agent_state_update_invalid", error)
+            McpMemoryApiError::from_debug("thread_memory_agent_state_update_invalid", error)
         })?;
     Ok(json!({
-        "source": "rust_thread_memory_agent_state_update_command",
+        "source": "rust_thread_memory_agent_state_update_api",
         "backend": mcp_policy_backend(request.backend),
         "record": record.clone(),
         "status": record.status.clone(),
@@ -4085,7 +4085,7 @@ fn memory_status_evidence_refs(policy: &Value, paths: &Value, records: &[Value])
     let mut refs = vec![
         "runtime_memory_manager",
         "memory.status",
-        "rust_memory_manager_status_projection_command",
+        "rust_memory_manager_status_projection_api",
     ]
     .into_iter()
     .map(str::to_string)
@@ -5616,9 +5616,9 @@ mod tests {
     }
 
     #[test]
-    fn rust_policy_shapes_memory_manager_validation_command_response() {
+    fn rust_policy_shapes_memory_manager_validation_api_response() {
         let response = plan_memory_manager_validation_projection_response(
-            MemoryManagerValidationProjectionBridgeRequest {
+            MemoryManagerValidationProjectionApiRequest {
                 backend: Some("rust_policy".to_string()),
                 request: MemoryManagerValidationProjectionRequest {
                     schema_version: MEMORY_MANAGER_VALIDATION_PROJECTION_REQUEST_SCHEMA_VERSION
@@ -5645,7 +5645,7 @@ mod tests {
 
         assert_eq!(
             response["source"],
-            "rust_memory_manager_validation_projection_command"
+            "rust_memory_manager_validation_projection_api"
         );
         assert_eq!(response["backend"], "rust_policy");
         assert_eq!(response["status"], "blocked");
@@ -5728,9 +5728,9 @@ mod tests {
     }
 
     #[test]
-    fn rust_policy_shapes_memory_manager_status_command_response() {
+    fn rust_policy_shapes_memory_manager_status_api_response() {
         let response = plan_memory_manager_status_projection_response(
-            MemoryManagerStatusProjectionBridgeRequest {
+            MemoryManagerStatusProjectionApiRequest {
                 backend: Some("rust_policy".to_string()),
                 request: MemoryManagerStatusProjectionRequest {
                     schema_version: MEMORY_MANAGER_STATUS_PROJECTION_REQUEST_SCHEMA_VERSION
@@ -5769,7 +5769,7 @@ mod tests {
 
         assert_eq!(
             response["source"],
-            "rust_memory_manager_status_projection_command"
+            "rust_memory_manager_status_projection_api"
         );
         assert_eq!(response["backend"], "rust_policy");
         assert_eq!(response["status"], "ready");
@@ -6179,9 +6179,9 @@ mod tests {
     }
 
     #[test]
-    fn rust_policy_shapes_thread_memory_agent_state_update_command_response() {
+    fn rust_policy_shapes_thread_memory_agent_state_update_api_response() {
         let response = plan_thread_memory_agent_state_update_response(
-            ThreadMemoryAgentStateUpdateBridgeRequest {
+            ThreadMemoryAgentStateUpdateApiRequest {
                 backend: Some("rust_policy".to_string()),
                 request: thread_memory_agent_state_update_request(),
             },
@@ -6190,7 +6190,7 @@ mod tests {
 
         assert_eq!(
             response["source"],
-            "rust_thread_memory_agent_state_update_command"
+            "rust_thread_memory_agent_state_update_api"
         );
         assert_eq!(response["backend"], "rust_policy");
         assert_eq!(response["status"], "planned");

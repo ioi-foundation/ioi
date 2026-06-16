@@ -324,7 +324,7 @@ export class RuntimeContextPolicyCore {
   }
 
   evaluateContextBudgetPolicy(request = {}) {
-    return normalizeContextBudgetPolicyBridgeResult(this.invokeContextLifecycleApi(
+    return normalizeContextBudgetPolicyResult(this.invokeContextLifecycleApi(
       CONTEXT_LIFECYCLE_CONTEXT_BUDGET_POLICY_API_METHOD,
       CONTEXT_BUDGET_POLICY_REQUEST_SCHEMA_VERSION,
       request,
@@ -332,7 +332,7 @@ export class RuntimeContextPolicyCore {
   }
 
   evaluateCodingToolBudgetPolicy(request = {}) {
-    return normalizeContextBudgetPolicyBridgeResult(this.invokeContextLifecycleApi(
+    return normalizeContextBudgetPolicyResult(this.invokeContextLifecycleApi(
       CONTEXT_LIFECYCLE_CODING_TOOL_BUDGET_POLICY_API_METHOD,
       CODING_TOOL_BUDGET_POLICY_REQUEST_SCHEMA_VERSION,
       request,
@@ -340,7 +340,7 @@ export class RuntimeContextPolicyCore {
   }
 
   planCodingToolBudgetBlock(request = {}) {
-    return normalizeCodingToolBudgetBlockBridgeResult(this.invokeContextLifecycleApi(
+    return normalizeCodingToolBudgetBlockResult(this.invokeContextLifecycleApi(
       CONTEXT_LIFECYCLE_CODING_TOOL_BUDGET_BLOCK_API_METHOD,
       CODING_TOOL_BUDGET_BLOCK_REQUEST_SCHEMA_VERSION,
       request,
@@ -348,7 +348,7 @@ export class RuntimeContextPolicyCore {
   }
 
   evaluateCompactionPolicy(request = {}) {
-    return normalizeCompactionPolicyBridgeResult(this.invokeContextLifecycleApi(
+    return normalizeCompactionPolicyResult(this.invokeContextLifecycleApi(
       CONTEXT_LIFECYCLE_COMPACTION_POLICY_API_METHOD,
       COMPACTION_POLICY_REQUEST_SCHEMA_VERSION,
       request,
@@ -356,7 +356,7 @@ export class RuntimeContextPolicyCore {
   }
 
   planContextCompaction(request = {}) {
-    return normalizeContextCompactionPlanBridgeResult(this.invokeContextLifecycleApi(
+    return normalizeContextCompactionPlanResult(this.invokeContextLifecycleApi(
       CONTEXT_LIFECYCLE_CONTEXT_COMPACTION_PLAN_API_METHOD,
       CONTEXT_COMPACTION_PLAN_REQUEST_SCHEMA_VERSION,
       request,
@@ -364,7 +364,7 @@ export class RuntimeContextPolicyCore {
   }
 
   planContextCompactionStateUpdate(request = {}) {
-    return normalizeContextCompactionStateUpdateBridgeResult(this.invokeContextLifecycleApi(
+    return normalizeContextCompactionStateUpdateResult(this.invokeContextLifecycleApi(
       CONTEXT_LIFECYCLE_CONTEXT_COMPACTION_STATE_UPDATE_API_METHOD,
       CONTEXT_COMPACTION_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
@@ -850,7 +850,7 @@ export class RuntimeContextPolicyCore {
   }
 
   planMemoryManagerValidationProjection(request = {}) {
-    return normalizeMemoryManagerValidationProjectionBridgeResult(this.invokeThreadMemoryApi(
+    return normalizeMemoryManagerValidationProjectionResult(this.invokeThreadMemoryApi(
       THREAD_MEMORY_MANAGER_VALIDATION_PROJECTION_API_METHOD,
       MEMORY_MANAGER_VALIDATION_PROJECTION_REQUEST_SCHEMA_VERSION,
       request,
@@ -858,7 +858,7 @@ export class RuntimeContextPolicyCore {
   }
 
   planMemoryManagerStatusProjection(request = {}) {
-    return normalizeMemoryManagerStatusProjectionBridgeResult(this.invokeThreadMemoryApi(
+    return normalizeMemoryManagerStatusProjectionResult(this.invokeThreadMemoryApi(
       THREAD_MEMORY_MANAGER_STATUS_PROJECTION_API_METHOD,
       MEMORY_MANAGER_STATUS_PROJECTION_REQUEST_SCHEMA_VERSION,
       request,
@@ -866,7 +866,7 @@ export class RuntimeContextPolicyCore {
   }
 
   planThreadMemoryAgentStateUpdate(request = {}) {
-    return normalizeThreadMemoryAgentStateUpdateBridgeResult(this.invokeThreadMemoryApi(
+    return normalizeThreadMemoryAgentStateUpdateResult(this.invokeThreadMemoryApi(
       THREAD_MEMORY_AGENT_STATE_UPDATE_API_METHOD,
       THREAD_MEMORY_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
@@ -1215,13 +1215,13 @@ function runtimeServiceAgentWithoutRetiredAliases(agent, { codePrefix, operation
   return record;
 }
 
-export function normalizeContextBudgetPolicyBridgeResult(value = {}) {
+export function normalizeContextBudgetPolicyResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   const enabledToolCount = numberValue(result.enabled_tool_count ?? record.enabled_tool_count);
   return {
     ...record,
-    source: result.source ?? record.source ?? "rust_context_budget_policy_command",
+    source: result.source ?? record.source ?? "rust_context_budget_policy_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
@@ -1250,12 +1250,12 @@ export function normalizeContextBudgetPolicyBridgeResult(value = {}) {
   };
 }
 
-export function normalizeCompactionPolicyBridgeResult(value = {}) {
+export function normalizeCompactionPolicyResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   return {
     ...record,
-    source: result.source ?? record.source ?? "rust_compaction_policy_command",
+    source: result.source ?? record.source ?? "rust_compaction_policy_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
@@ -1298,12 +1298,12 @@ export function normalizeCompactionPolicyBridgeResult(value = {}) {
   };
 }
 
-export function normalizeContextCompactionPlanBridgeResult(value = {}) {
+export function normalizeContextCompactionPlanResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   return {
     ...record,
-    source: result.source ?? record.source ?? "rust_context_compaction_plan_command",
+    source: result.source ?? record.source ?? "rust_context_compaction_plan_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
@@ -1334,12 +1334,12 @@ export function normalizeContextCompactionPlanBridgeResult(value = {}) {
   };
 }
 
-export function normalizeContextCompactionStateUpdateBridgeResult(value = {}) {
+export function normalizeContextCompactionStateUpdateResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   return {
     ...record,
-    source: result.source ?? record.source ?? "rust_context_compaction_state_update_command",
+    source: result.source ?? record.source ?? "rust_context_compaction_state_update_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
@@ -1381,7 +1381,7 @@ export function normalizeCodingToolBudgetRecoveryStateUpdateApiResult(value = {}
   };
 }
 
-export function normalizeCodingToolBudgetBlockBridgeResult(value = {}) {
+export function normalizeCodingToolBudgetBlockResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   return {
@@ -1389,7 +1389,7 @@ export function normalizeCodingToolBudgetBlockBridgeResult(value = {}) {
     source:
       result.source ??
       record.source ??
-      "rust_coding_tool_budget_block_command",
+      "rust_coding_tool_budget_block_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     record,
     object: optionalString(result.object ?? record.object) ?? null,
@@ -3091,7 +3091,7 @@ export function normalizeMcpManagerValidationProjectionApiResult(value = {}) {
   };
 }
 
-export function normalizeMemoryManagerStatusProjectionBridgeResult(value = {}) {
+export function normalizeMemoryManagerStatusProjectionResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   const evidenceRefs = stringArray(result.evidence_refs ?? record.evidence_refs);
@@ -3100,7 +3100,7 @@ export function normalizeMemoryManagerStatusProjectionBridgeResult(value = {}) {
     source:
       result.source ??
       record.source ??
-      "rust_memory_manager_status_projection_command",
+      "rust_memory_manager_status_projection_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     schema_version: optionalString(result.schema_version ?? record.schema_version) ?? null,
     object: optionalString(result.object ?? record.object) ?? null,
@@ -3127,7 +3127,7 @@ export function normalizeMemoryManagerStatusProjectionBridgeResult(value = {}) {
   };
 }
 
-export function normalizeMemoryManagerValidationProjectionBridgeResult(value = {}) {
+export function normalizeMemoryManagerValidationProjectionResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   const issues = arrayValue(result.issues ?? record.issues);
@@ -3138,7 +3138,7 @@ export function normalizeMemoryManagerValidationProjectionBridgeResult(value = {
     source:
       result.source ??
       record.source ??
-      "rust_memory_manager_validation_projection_command",
+      "rust_memory_manager_validation_projection_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     schema_version: optionalString(result.schema_version ?? record.schema_version) ?? null,
     object: optionalString(result.object ?? record.object) ?? null,
@@ -3282,7 +3282,7 @@ export function normalizeMcpToolFetchProjectionApiResult(value = {}) {
   };
 }
 
-export function normalizeThreadMemoryAgentStateUpdateBridgeResult(value = {}) {
+export function normalizeThreadMemoryAgentStateUpdateResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   return {
@@ -3290,7 +3290,7 @@ export function normalizeThreadMemoryAgentStateUpdateBridgeResult(value = {}) {
     source:
       result.source ??
       record.source ??
-      "rust_thread_memory_agent_state_update_command",
+      "rust_thread_memory_agent_state_update_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,

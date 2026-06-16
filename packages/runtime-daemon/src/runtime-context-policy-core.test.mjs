@@ -160,15 +160,15 @@ import {
   normalizeAgentCreateStateUpdateApiResult,
   normalizeAgentDeleteStateUpdateApiResult,
   normalizeAgentStatusStateUpdateApiResult,
-  normalizeCodingToolBudgetBlockBridgeResult,
+  normalizeCodingToolBudgetBlockResult,
   normalizeCodingToolBudgetRecoveryStateUpdateApiResult,
   normalizeCodingToolResultEnvelopePlanBridgeResult,
   normalizeRuntimeCodingToolArtifactDraftPlanBridgeResult,
   normalizeRuntimeCodingToolArtifactReadProjectionBridgeResult,
-  normalizeCompactionPolicyBridgeResult,
-  normalizeContextBudgetPolicyBridgeResult,
-  normalizeContextCompactionPlanBridgeResult,
-  normalizeContextCompactionStateUpdateBridgeResult,
+  normalizeCompactionPolicyResult,
+  normalizeContextBudgetPolicyResult,
+  normalizeContextCompactionPlanResult,
+  normalizeContextCompactionStateUpdateResult,
   normalizeDiagnosticsOperatorOverrideStateUpdateApiResult,
   normalizeMcpControlAgentStateUpdateApiResult,
   normalizeMcpLiveBackendExecutionApiResult,
@@ -178,8 +178,8 @@ import {
   normalizeMcpManagerValidationProjectionApiResult,
   normalizeMcpToolFetchProjectionApiResult,
   normalizeMcpToolSearchProjectionApiResult,
-  normalizeMemoryManagerStatusProjectionBridgeResult,
-  normalizeMemoryManagerValidationProjectionBridgeResult,
+  normalizeMemoryManagerStatusProjectionResult,
+  normalizeMemoryManagerValidationProjectionResult,
   normalizeOperatorInterruptStateUpdateApiResult,
   normalizeOperatorSteerStateUpdateApiResult,
   normalizePostEditDiagnosticsFeedbackPlanBridgeResult,
@@ -217,7 +217,7 @@ import {
   normalizeSubagentRecordStateUpdateApiResult,
   normalizeThreadCreateStateUpdateApiResult,
   normalizeThreadControlAgentStateUpdateApiResult,
-  normalizeThreadMemoryAgentStateUpdateBridgeResult,
+  normalizeThreadMemoryAgentStateUpdateResult,
   normalizeWorkspaceTrustControlStateUpdateBridgeResult,
 } from "./runtime-context-policy-core.mjs";
 
@@ -415,7 +415,7 @@ test("context budget policy core sends Rust policy through direct context lifecy
   const { calls, runner } = createContextLifecycleDirectCore(
     CONTEXT_LIFECYCLE_CONTEXT_BUDGET_POLICY_API_METHOD,
     () => ({
-            source: "rust_context_budget_policy_command",
+            source: "rust_context_budget_policy_api",
             backend: "rust_policy",
             status: "blocked",
             mode: "block",
@@ -451,7 +451,7 @@ test("context budget policy core sends Rust policy through direct context lifecy
   assert.equal(calls[0].request.usage_telemetry.total_tokens, 120);
   assert.equal(Object.hasOwn(calls[0].request, "operation"), false);
   assert.equal(Object.hasOwn(calls[0].request, "backend"), false);
-  assert.equal(result.source, "rust_context_budget_policy_command");
+  assert.equal(result.source, "rust_context_budget_policy_api");
   assert.equal(result.status, "blocked");
   assert.equal(result.runtime_event_kind, "policy.blocked");
   assert.equal(result.runtime_event_status, "blocked");
@@ -466,7 +466,7 @@ test("coding tool budget core sends Rust policy through direct context lifecycle
   const { calls, runner } = createContextLifecycleDirectCore(
     CONTEXT_LIFECYCLE_CODING_TOOL_BUDGET_POLICY_API_METHOD,
     () => ({
-            source: "rust_coding_tool_budget_policy_command",
+            source: "rust_coding_tool_budget_policy_api",
             backend: "rust_policy",
             status: "blocked",
             mode: "block",
@@ -496,7 +496,7 @@ test("coding tool budget core sends Rust policy through direct context lifecycle
   assert.equal(calls[0].request.usage_telemetry.total_tokens, 120);
   assert.equal(Object.hasOwn(calls[0].request, "operation"), false);
   assert.equal(Object.hasOwn(calls[0].request, "backend"), false);
-  assert.equal(result.source, "rust_coding_tool_budget_policy_command");
+  assert.equal(result.source, "rust_coding_tool_budget_policy_api");
   assert.equal(result.status, "blocked");
   assert.deepEqual(result.policy_decision_refs, ["policy_context_budget_thread_test_blocked"]);
 });
@@ -505,7 +505,7 @@ test("compaction policy core sends Rust policy through direct context lifecycle 
   const { calls, runner } = createContextLifecycleDirectCore(
     CONTEXT_LIFECYCLE_COMPACTION_POLICY_API_METHOD,
     () => ({
-            source: "rust_compaction_policy_command",
+            source: "rust_compaction_policy_api",
             backend: "rust_policy",
             status: "waiting",
             action: "approval_required",
@@ -548,7 +548,7 @@ test("compaction policy core sends Rust policy through direct context lifecycle 
   assert.equal(calls[0].request.context_budget.status, "blocked");
   assert.equal(Object.hasOwn(calls[0].request, "operation"), false);
   assert.equal(Object.hasOwn(calls[0].request, "backend"), false);
-  assert.equal(result.source, "rust_compaction_policy_command");
+  assert.equal(result.source, "rust_compaction_policy_api");
   assert.equal(result.action, "approval_required");
   assert.equal(result.approval_required, true);
   assert.equal(result.runtime_event_kind, "approval.required");
@@ -563,7 +563,7 @@ test("context compaction core sends Rust plan through direct context lifecycle A
   const { calls, runner } = createContextLifecycleDirectCore(
     CONTEXT_LIFECYCLE_CONTEXT_COMPACTION_PLAN_API_METHOD,
     () => ({
-            source: "rust_context_compaction_plan_command",
+            source: "rust_context_compaction_plan_api",
             backend: "rust_policy",
             status: "planned",
             item_id: "turn_1:item:context-compact:hash_one",
@@ -604,7 +604,7 @@ test("context compaction core sends Rust plan through direct context lifecycle A
   assert.equal(calls[0].request.thread_id, "thread_1");
   assert.equal(Object.hasOwn(calls[0].request, "operation"), false);
   assert.equal(Object.hasOwn(calls[0].request, "backend"), false);
-  assert.equal(result.source, "rust_context_compaction_plan_command");
+  assert.equal(result.source, "rust_context_compaction_plan_api");
   assert.equal(result.event_kind, "context.compacted");
   assert.equal(result.item_id, "turn_1:item:context-compact:hash_one");
   assert.deepEqual(result.receipt_refs, ["receipt_run_1_context_compaction_hash_one"]);
@@ -614,7 +614,7 @@ test("context compaction state update core sends Rust state update through direc
   const { calls, runner } = createContextLifecycleDirectCore(
     CONTEXT_LIFECYCLE_CONTEXT_COMPACTION_STATE_UPDATE_API_METHOD,
     () => ({
-            source: "rust_context_compaction_state_update_command",
+            source: "rust_context_compaction_state_update_api",
             backend: "rust_policy",
             status: "planned",
             target_kind: "run",
@@ -667,7 +667,7 @@ test("context compaction state update core sends Rust state update through direc
   assert.equal(calls[0].request.event_id, "event_1");
   assert.equal(Object.hasOwn(calls[0].request, "operation"), false);
   assert.equal(Object.hasOwn(calls[0].request, "backend"), false);
-  assert.equal(result.source, "rust_context_compaction_state_update_command");
+  assert.equal(result.source, "rust_context_compaction_state_update_api");
   assert.equal(result.target_kind, "run");
   assert.equal(result.operation_kind, "thread.compact");
   assert.equal(result.operator_control.event_id, "event_1");
@@ -680,8 +680,8 @@ test("context compaction state update core sends Rust state update through direc
 });
 
 test("runtime context lifecycle core does not synthesize Rust-owned public fields", () => {
-  const budget = normalizeContextBudgetPolicyBridgeResult({
-    source: "rust_context_budget_policy_command",
+  const budget = normalizeContextBudgetPolicyResult({
+    source: "rust_context_budget_policy_api",
     usage_telemetry: {},
     usage_summary: {},
   });
@@ -692,8 +692,8 @@ test("runtime context lifecycle core does not synthesize Rust-owned public field
   assert.equal(budget.runtime_event_kind, null);
   assert.equal(budget.runtime_event_status, null);
 
-  const policy = normalizeCompactionPolicyBridgeResult({
-    source: "rust_compaction_policy_command",
+  const policy = normalizeCompactionPolicyResult({
+    source: "rust_compaction_policy_api",
   });
   assert.equal(policy.object, null);
   assert.equal(policy.status, null);
@@ -712,8 +712,8 @@ test("runtime context lifecycle core does not synthesize Rust-owned public field
   assert.equal(policy.compact_workflow_node_id, null);
   assert.equal(policy.continuation_allowed, null);
 
-  const plan = normalizeContextCompactionPlanBridgeResult({
-    source: "rust_context_compaction_plan_command",
+  const plan = normalizeContextCompactionPlanResult({
+    source: "rust_context_compaction_plan_api",
   });
   assert.equal(plan.object, null);
   assert.equal(plan.status, null);
@@ -728,8 +728,8 @@ test("runtime context lifecycle core does not synthesize Rust-owned public field
   assert.equal(plan.requested_by, null);
   assert.equal(plan.previous_latest_seq, null);
 
-  const update = normalizeContextCompactionStateUpdateBridgeResult({
-    source: "rust_context_compaction_state_update_command",
+  const update = normalizeContextCompactionStateUpdateResult({
+    source: "rust_context_compaction_state_update_api",
     operation_kind: "thread.compact",
   });
   assert.equal(update.object, null);
@@ -790,9 +790,9 @@ test("runtime state-update core does not synthesize Rust-owned envelopes", () =>
       },
     ],
     [
-      normalizeThreadMemoryAgentStateUpdateBridgeResult,
+      normalizeThreadMemoryAgentStateUpdateResult,
       {
-        source: "rust_thread_memory_agent_state_update_command",
+        source: "rust_thread_memory_agent_state_update_api",
         operation_kind: "thread.memory_append",
       },
     ],
@@ -919,7 +919,7 @@ test("coding tool budget block core sends Rust block request through direct cont
   const { calls, runner } = createContextLifecycleDirectCore(
     CONTEXT_LIFECYCLE_CODING_TOOL_BUDGET_BLOCK_API_METHOD,
     () => ({
-        source: "rust_coding_tool_budget_block_command",
+        source: "rust_coding_tool_budget_block_api",
         backend: "rust_policy",
         status: "blocked",
         operation_kind: "coding_tool.budget.block",
@@ -979,7 +979,7 @@ test("coding tool budget block core sends Rust block request through direct cont
   assert.equal(calls[0].request.budget_policy.status, "blocked");
   assert.equal(Object.hasOwn(calls[0].request, "operation"), false);
   assert.equal(Object.hasOwn(calls[0].request, "backend"), false);
-  assert.equal(result.source, "rust_coding_tool_budget_block_command");
+  assert.equal(result.source, "rust_coding_tool_budget_block_api");
   assert.equal(result.operation_kind, "coding_tool.budget.block");
   assert.equal(result.reason, "coding_tool_budget_exceeded");
   assert.equal(result.context_budget_status, "blocked");
@@ -4897,7 +4897,7 @@ test("memory manager status projection core sends Rust projection through typed 
     (request) => {
       captured = request;
       return {
-            source: "rust_memory_manager_status_projection_command",
+            source: "rust_memory_manager_status_projection_api",
             backend: "rust_policy",
             schema_version: "ioi.runtime.memory-manager-status.v1",
             object: "ioi.runtime_memory_manager_status",
@@ -4938,7 +4938,7 @@ test("memory manager status projection core sends Rust projection through typed 
   assert.equal(Object.hasOwn(captured, "operation"), false);
   assert.equal(Object.hasOwn(captured, "backend"), false);
   assert.deepEqual(captured.projection, projection);
-  assert.equal(result.source, "rust_memory_manager_status_projection_command");
+  assert.equal(result.source, "rust_memory_manager_status_projection_api");
   assert.equal(result.status, "ready");
   assert.equal(result.write_requires_approval, true);
   assert.deepEqual(result.memory_keys, ["project"]);
@@ -4954,7 +4954,7 @@ test("memory manager validation projection core sends Rust projection through ty
     (request) => {
       captured = request;
       return {
-            source: "rust_memory_manager_validation_projection_command",
+            source: "rust_memory_manager_validation_projection_api",
             backend: "rust_policy",
             schema_version: "ioi.runtime.memory-manager-validation.v1",
             object: "ioi.runtime_memory_manager_validation",
@@ -4988,7 +4988,7 @@ test("memory manager validation projection core sends Rust projection through ty
   assert.equal(Object.hasOwn(captured, "operation"), false);
   assert.equal(Object.hasOwn(captured, "backend"), false);
   assert.deepEqual(captured.projection, projection);
-  assert.equal(result.source, "rust_memory_manager_validation_projection_command");
+  assert.equal(result.source, "rust_memory_manager_validation_projection_api");
   assert.equal(result.ok, false);
   assert.equal(result.issue_count, 1);
   assert.equal(result.issues[0].code, "memory_records_path_missing");
@@ -5180,7 +5180,7 @@ test("MCP and memory manager projection core does not synthesize Rust-owned proj
   assert.equal(mcpValidation.issue_count, null);
   assert.equal(mcpValidation.warning_count, null);
 
-  const memoryStatus = normalizeMemoryManagerStatusProjectionBridgeResult({
+  const memoryStatus = normalizeMemoryManagerStatusProjectionResult({
     source: "legacy_memory_status_projection_fixture",
     records: [{ id: "memory.one" }],
   });
@@ -5189,7 +5189,7 @@ test("MCP and memory manager projection core does not synthesize Rust-owned proj
   assert.equal(memoryStatus.injection_enabled, null);
   assert.equal(memoryStatus.record_count, null);
 
-  const memoryValidation = normalizeMemoryManagerValidationProjectionBridgeResult({
+  const memoryValidation = normalizeMemoryManagerValidationProjectionResult({
     source: "legacy_memory_validation_projection_fixture",
     ok: false,
     issues: [{ code: "invalid" }],
@@ -5246,7 +5246,7 @@ test("thread memory agent state update core sends Rust state update through type
     (request) => {
       captured = request;
       return {
-            source: "rust_thread_memory_agent_state_update_command",
+            source: "rust_thread_memory_agent_state_update_api",
             backend: "rust_policy",
             status: "planned",
             operation_kind: "thread.memory_status",
@@ -5281,7 +5281,7 @@ test("thread memory agent state update core sends Rust state update through type
   assert.equal(Object.hasOwn(captured, "operation"), false);
   assert.equal(Object.hasOwn(captured, "backend"), false);
   assert.equal(captured.control_kind, "memory_status");
-  assert.equal(result.source, "rust_thread_memory_agent_state_update_command");
+  assert.equal(result.source, "rust_thread_memory_agent_state_update_api");
   assert.equal(result.operation_kind, "thread.memory_status");
   assert.equal(result.control.control_kind, "memory_status");
   assert.equal(result.control.event_id, "event_memory_status");
@@ -5824,7 +5824,7 @@ test("runtime context lifecycle core fails closed without direct context lifecyc
 test("runtime context policy state-update core fails closed without Rust-planned operation kinds", () => {
   assert.throws(
     () =>
-      normalizeContextCompactionStateUpdateBridgeResult({
+      normalizeContextCompactionStateUpdateResult({
         status: "planned",
         target_kind: "agent",
         agent: { id: "agent_alpha" },
