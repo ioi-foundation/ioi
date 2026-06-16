@@ -321,7 +321,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
       body: { input: "blocked" },
     });
     assert.equal(unauthenticated.response.status, 401);
-    const unauthenticatedServerStart = await requestJson(daemon.endpoint, "/api/v1/server/start", {
+    const unauthenticatedServerStart = await requestJson(daemon.endpoint, "/v1/model-mount/server/start", {
       method: "POST",
     });
     assert.equal(unauthenticatedServerStart.response.status, 401);
@@ -405,13 +405,13 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.equal(vaultScopedGrant.vaultRefs.openai.redacted, true);
     assert.equal(JSON.stringify(vaultScopedGrant).includes("vault://fixture/provider/openai-api-key"), false);
 
-    const serverStop = await expectOk(daemon.endpoint, "/api/v1/server/stop", {
+    const serverStop = await expectOk(daemon.endpoint, "/v1/model-mount/server/stop", {
       method: "POST",
       token: grant.token,
     });
     assert.equal(serverStop.controlStatus, "stopped");
     assert.match(serverStop.receiptId, /^receipt_model_lifecycle_/);
-    const serverRestart = await expectOk(daemon.endpoint, "/api/v1/server/restart", {
+    const serverRestart = await expectOk(daemon.endpoint, "/v1/model-mount/server/restart", {
       method: "POST",
       token: grant.token,
     });

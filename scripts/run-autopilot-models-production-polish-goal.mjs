@@ -531,7 +531,7 @@ async function bootstrapDaemon(outputDir) {
       denied_providers: ["openai", "anthropic", "gemini"],
     },
   });
-  const server = await requestJson(daemon.endpoint, "/api/v1/models/server/start", {
+  const server = await requestJson(daemon.endpoint, "/v1/model-mount/server/start", {
     method: "POST",
     token: grant.token,
   });

@@ -2096,12 +2096,12 @@ test("model mounting native route does not expose retired receipt read aliases",
   assert.deepEqual(calls, []);
 });
 
-test("model mounting native route does not expose retired operational read aliases", async () => {
+test("model mounting native route does not expose retired operational read or server-control aliases", async () => {
   const { handleModelMountingNativeRoute } = routeHandlers();
   const calls = [];
   const failRetiredAlias = (name) => (...args) => {
     calls.push([name, ...args]);
-    throw new Error(`retired operational read alias ${name} must not be reached`);
+    throw new Error(`retired operational alias ${name} must not be reached`);
   };
   const store = {
     modelMounting: {
@@ -2113,14 +2113,22 @@ test("model mounting native route does not expose retired operational read alias
       runtimeEngine: failRetiredAlias("runtimeEngine"),
       serverEvents: failRetiredAlias("serverEvents"),
       serverLogs: failRetiredAlias("serverLogs"),
+      serverRestart: failRetiredAlias("serverRestart"),
+      serverStart: failRetiredAlias("serverStart"),
       serverStatus: failRetiredAlias("serverStatus"),
+      serverStop: failRetiredAlias("serverStop"),
     },
   };
   const cases = [
     "/api/v1/server/status",
     "/api/v1/server/logs",
     "/api/v1/server/events",
+    ["POST", "/api/v1/server/start"],
+    ["POST", "/api/v1/server/stop"],
+    ["POST", "/api/v1/server/restart"],
     "/api/v1/models/server",
+    ["POST", "/api/v1/models/server/start"],
+    ["POST", "/api/v1/models/server/stop"],
     "/api/v1/backends",
     "/api/v1/backends/backend.route/logs",
     "/api/v1/models/backends",
@@ -2132,10 +2140,11 @@ test("model mounting native route does not expose retired operational read alias
     "/api/v1/authority",
   ];
 
-  for (const path of cases) {
+  for (const entry of cases) {
+    const [method, path] = Array.isArray(entry) ? entry : ["GET", entry];
     await assert.rejects(
       () => handleModelMountingNativeRoute({
-        request: request({ url: path }),
+        request: request({ method, url: path }),
         response: responseRecorder(),
         store,
         url: new URL(path, "http://daemon.test"),

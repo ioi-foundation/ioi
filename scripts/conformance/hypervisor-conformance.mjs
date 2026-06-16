@@ -26183,7 +26183,7 @@ function runReceipts() {
       /\/v1\/model-mount\/runtime\/engines/.test(publicRuntimeRoutesTest) &&
       /\/v1\/model-mount\/instances\/loaded/.test(publicRuntimeRoutesTest) &&
       /\/v1\/model-mount\/authority/.test(publicRuntimeRoutesTest) &&
-      /model mounting native route does not expose retired operational read aliases/.test(runtimeRouteHandlersTest) &&
+      /model mounting native route does not expose retired operational read or server-control aliases/.test(runtimeRouteHandlersTest) &&
       !/\/api\/v1\/server\/status/.test(modelMountStableReadProtocolClientCorpus) &&
       !/\/api\/v1\/server\/logs/.test(modelMountStableReadProtocolClientCorpus) &&
       !/\/api\/v1\/server\/events/.test(modelMountStableReadProtocolClientCorpus) &&
@@ -26224,6 +26224,57 @@ function runReceipts() {
       "crates/cli/src/commands/routes.rs",
     ],
     "Stable model_mount read clients must use /v1 Rust projection APIs; migrated CLI/SDK read commands must not fall back through older /api/v1 model_mount read routes",
+  );
+  assertCheck(
+    result,
+    "model-mount-stable-server-control-protocol-clients",
+    /url\.pathname === "\/v1\/model-mount\/server\/start"[\s\S]*?store\.modelMounting\.authorize\(request\.headers\.authorization,\s*"server\.control:\*"\)[\s\S]*?store\.modelMounting\.serverStart\(baseUrlForRequest\(request\)\)/.test(
+      publicRuntimeRoutes,
+    ) &&
+      /url\.pathname === "\/v1\/model-mount\/server\/stop"[\s\S]*?store\.modelMounting\.authorize\(request\.headers\.authorization,\s*"server\.control:\*"\)[\s\S]*?store\.modelMounting\.serverStop\(baseUrlForRequest\(request\)\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /url\.pathname === "\/v1\/model-mount\/server\/restart"[\s\S]*?store\.modelMounting\.authorize\(request\.headers\.authorization,\s*"server\.control:\*"\)[\s\S]*?store\.modelMounting\.serverRestart\(baseUrlForRequest\(request\)\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      !/url\.pathname === "\/api\/v1\/server\/start"/.test(runtimeRouteHandlers) &&
+      !/url\.pathname === "\/api\/v1\/server\/stop"/.test(runtimeRouteHandlers) &&
+      !/url\.pathname === "\/api\/v1\/server\/restart"/.test(runtimeRouteHandlers) &&
+      !/url\.pathname === "\/api\/v1\/models\/server\/start"/.test(runtimeRouteHandlers) &&
+      !/url\.pathname === "\/api\/v1\/models\/server\/stop"/.test(runtimeRouteHandlers) &&
+      /POST \/v1\/model-mount\/server\/start/.test(publicRuntimeRoutesTest) &&
+      /POST \/v1\/model-mount\/server\/stop/.test(publicRuntimeRoutesTest) &&
+      /POST \/v1\/model-mount\/server\/restart/.test(publicRuntimeRoutesTest) &&
+      /serverStart\(baseUrl\)/.test(publicRuntimeRoutesTest) &&
+      /serverStop\(baseUrl\)/.test(publicRuntimeRoutesTest) &&
+      /serverRestart\(baseUrl\)/.test(publicRuntimeRoutesTest) &&
+      /model mounting native route does not expose retired operational read or server-control aliases/.test(
+        runtimeRouteHandlersTest,
+      ) &&
+      !/\/api\/v1\/server\/(?:start|stop|restart)/.test(modelMountStableReadProtocolClientCorpus) &&
+      !/\/api\/v1\/models\/server\/(?:start|stop)/.test(modelMountStableReadProtocolClientCorpus) &&
+      /ServerCommands::Start => \(Method::POST,\s*"\/v1\/model-mount\/server\/start"\.to_string\(\)\)/.test(
+        modelMountStableReadCliServer,
+      ) &&
+      /ServerCommands::Stop => \(Method::POST,\s*"\/v1\/model-mount\/server\/stop"\.to_string\(\)\)/.test(
+        modelMountStableReadCliServer,
+      ) &&
+      /ServerCommands::Restart => \(Method::POST,\s*"\/v1\/model-mount\/server\/restart"\.to_string\(\)\)/.test(
+        modelMountStableReadCliServer,
+      ) &&
+      /url\.pathname === "\/v1\/model-mount\/server\/start"/.test(read("scripts/run-autopilot-model-mounting-goal.mjs")) &&
+      /url\.pathname === "\/v1\/model-mount\/server\/stop"/.test(read("scripts/run-autopilot-model-mounting-goal.mjs")) &&
+      /Slice 1353 hard-cuts stable model_mount server-control protocol clients/.test(guide) &&
+      /Model_mount stable server-control protocol clients/.test(matrix) &&
+      /RuntimeDaemonCoreModelMountStableServerControlProtocolClients/.test(implementationMatrix),
+    [
+      "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.mjs",
+      "crates/cli/src/commands/server.rs",
+      "scripts/run-autopilot-model-mounting-goal.mjs",
+      "scripts/conformance/hypervisor-conformance.mjs",
+    ],
+    "Model_mount server-control clients must use the stable /v1/model-mount/server control protocol; retired /api/v1/server and /api/v1/models/server control aliases must not return",
   );
   assertCheck(
     result,

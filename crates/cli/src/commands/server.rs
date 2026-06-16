@@ -50,9 +50,9 @@ pub async fn run(args: ServerArgs) -> Result<()> {
     let token = args.token.as_deref();
     let (method, route) = match args.command {
         ServerCommands::Status => (Method::GET, "/v1/model-mount/server/status".to_string()),
-        ServerCommands::Start => (Method::POST, "/api/v1/server/start".to_string()),
-        ServerCommands::Stop => (Method::POST, "/api/v1/server/stop".to_string()),
-        ServerCommands::Restart => (Method::POST, "/api/v1/server/restart".to_string()),
+        ServerCommands::Start => (Method::POST, "/v1/model-mount/server/start".to_string()),
+        ServerCommands::Stop => (Method::POST, "/v1/model-mount/server/stop".to_string()),
+        ServerCommands::Restart => (Method::POST, "/v1/model-mount/server/restart".to_string()),
         ServerCommands::Logs { limit } => (
             Method::GET,
             format!("/v1/model-mount/server/logs?limit={}", limit.min(200)),

@@ -337,11 +337,11 @@ function checkDaemonRouteImplementation() {
     'url.pathname === "/v1/model-mount/runtime/engines"',
     'url.pathname === "/v1/model-mount/backends"',
     'url.pathname === "/v1/model-mount/authority"',
+    'url.pathname === "/v1/model-mount/server/start"',
+    'url.pathname === "/v1/model-mount/server/stop"',
   ];
   const requiredNativeControl = [
     'segments[3] === "mounts"',
-    'url.pathname === "/api/v1/models/server/start"',
-    'url.pathname === "/api/v1/models/server/stop"',
   ];
   const missing = [
     ...requiredPublic.filter((phrase) => !publicRoutes.includes(phrase)),
@@ -352,7 +352,7 @@ function checkDaemonRouteImplementation() {
     ok: missing.length === 0,
     summary:
       missing.length === 0
-        ? "Daemon exposes stable model read routes and workbench-facing control aliases"
+        ? "Daemon exposes stable model read routes and stable server-control routes"
         : "Daemon model mounting route aliases are incomplete",
     evidence: { missing },
   };
@@ -489,7 +489,7 @@ async function bootstrapDaemonModelRuntime(outputDir = null) {
       },
     },
   );
-  const server = await requestJson(daemon.endpoint, "/api/v1/models/server/start", {
+  const server = await requestJson(daemon.endpoint, "/v1/model-mount/server/start", {
     method: "POST",
     token: grant.token,
   });

@@ -373,6 +373,18 @@ test("public runtime model catalog routes use mounted model projection surface",
         calls.push({ method: "serverStatus", baseUrl });
         return { id: "server.status", baseUrl };
       },
+      serverStart(baseUrl) {
+        calls.push({ method: "serverStart", baseUrl });
+        return { id: "server.start", baseUrl };
+      },
+      serverStop(baseUrl) {
+        calls.push({ method: "serverStop", baseUrl });
+        return { id: "server.stop", baseUrl };
+      },
+      serverRestart(baseUrl) {
+        calls.push({ method: "serverRestart", baseUrl });
+        return { id: "server.restart", baseUrl };
+      },
       serverLogs(query) {
         calls.push({ method: "serverLogs", query });
         return { id: "server.logs", limit: query.limit };
@@ -448,6 +460,9 @@ test("public runtime model catalog routes use mounted model projection surface",
     ["/v1/models/routes", [{ id: "route.route" }]],
     ["/v1/models/catalog/search?query=qwen", [{ id: "catalog.route", query: "qwen" }]],
     ["/v1/model-mount/server/status", { id: "server.status", baseUrl: "http://daemon.test" }],
+    ["POST /v1/model-mount/server/start", { id: "server.start", baseUrl: "http://daemon.test" }],
+    ["POST /v1/model-mount/server/stop", { id: "server.stop", baseUrl: "http://daemon.test" }],
+    ["POST /v1/model-mount/server/restart", { id: "server.restart", baseUrl: "http://daemon.test" }],
     ["/v1/model-mount/server/logs?limit=5", { id: "server.logs", limit: "5" }],
     ["/v1/model-mount/server/events?limit=6", { id: "server.events", limit: "6" }],
     ["/v1/model-mount/backends", [{ id: "backend.route" }]],
@@ -461,8 +476,9 @@ test("public runtime model catalog routes use mounted model projection surface",
     ["/v1/model-mount/receipts/receipt.route", { id: "receipt.route" }],
     ["/v1/model-mount/receipts/receipt.route/replay", { receipt_id: "receipt.route", replayed: true }],
   ]) {
+    const [method, routePath] = path.startsWith("POST ") ? ["POST", path.slice("POST ".length)] : ["GET", path];
     const routeResponse = responseRecorder();
-    await handleRequest({ request: request({ url: path }), response: routeResponse, store });
+    await handleRequest({ request: request({ method, url: routePath }), response: routeResponse, store });
     assert.equal(routeResponse.statusCode, 200);
     assert.deepEqual(JSON.parse(routeResponse.body), expected);
   }
@@ -476,6 +492,12 @@ test("public runtime model catalog routes use mounted model projection surface",
     { method: "listRoutes" },
     { method: "catalogSearch", query: { query: "qwen" } },
     { method: "serverStatus", baseUrl: "http://daemon.test" },
+    { method: "authorize", authorization: undefined, scope: "server.control:*" },
+    { method: "serverStart", baseUrl: "http://daemon.test" },
+    { method: "authorize", authorization: undefined, scope: "server.control:*" },
+    { method: "serverStop", baseUrl: "http://daemon.test" },
+    { method: "authorize", authorization: undefined, scope: "server.control:*" },
+    { method: "serverRestart", baseUrl: "http://daemon.test" },
     { method: "authorize", authorization: undefined, scope: "server.logs:*" },
     { method: "serverLogs", query: { limit: "5" } },
     { method: "authorize", authorization: undefined, scope: "server.logs:*" },

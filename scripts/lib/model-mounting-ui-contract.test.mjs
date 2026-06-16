@@ -18,9 +18,9 @@ test("Autopilot Mounts workbench is wired to daemon API without persisting capab
   const source = fs.readFileSync(viewPath, "utf8");
   for (const route of [
     "/api/v1/models",
-    "/api/v1/server/start",
-    "/api/v1/server/stop",
-    "/api/v1/server/restart",
+    "/v1/model-mount/server/start",
+    "/v1/model-mount/server/stop",
+    "/v1/model-mount/server/restart",
     "/v1/model-mount/server/logs",
     "/v1/model-mount/server/events",
     "/v1/model-mount/backends",
@@ -745,7 +745,7 @@ test("model mounting CLI exposes vault-backed provider configuration flags", () 
     "/api/v1/runtime/survey",
     "/api/v1/runtime/select",
     "/v1/model-mount/runtime/engines",
-    "/api/v1/server/restart",
+    "/v1/model-mount/server/restart",
     "/v1/model-mount/server/logs",
     "/v1/model-mount/server/events",
     "estimate_only",

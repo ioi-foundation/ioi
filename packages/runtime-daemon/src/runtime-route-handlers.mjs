@@ -31,31 +31,6 @@ export function createRuntimeRouteHandlers(deps) {
     const mounts = store.modelMounting;
     const authorization = request.headers.authorization;
     const baseUrl = baseUrlForRequest(request);
-    if (request.method === "POST" && url.pathname === "/api/v1/server/start") {
-      mounts.authorize(authorization, "server.control:*");
-      writeJsonResponse(response, mounts.serverStart(baseUrl));
-      return;
-    }
-    if (request.method === "POST" && url.pathname === "/api/v1/server/stop") {
-      mounts.authorize(authorization, "server.control:*");
-      writeJsonResponse(response, mounts.serverStop(baseUrl));
-      return;
-    }
-    if (request.method === "POST" && url.pathname === "/api/v1/server/restart") {
-      mounts.authorize(authorization, "server.control:*");
-      writeJsonResponse(response, mounts.serverRestart(baseUrl));
-      return;
-    }
-    if (request.method === "POST" && url.pathname === "/api/v1/models/server/start") {
-      mounts.authorize(authorization, "server.control:*");
-      writeJsonResponse(response, mounts.serverStart(baseUrl));
-      return;
-    }
-    if (request.method === "POST" && url.pathname === "/api/v1/models/server/stop") {
-      mounts.authorize(authorization, "server.control:*");
-      writeJsonResponse(response, mounts.serverStop(baseUrl));
-      return;
-    }
     if (request.method === "POST" && segments[2] === "runtime" && segments[3] === "engines" && segments[4] && segments[5] === "select") {
       writeJsonResponse(response, mounts.selectRuntimeEngine({ engine_id: decodeURIComponent(segments[4]), ...(await readBody(request)) }));
       return;

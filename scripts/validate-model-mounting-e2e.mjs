@@ -529,9 +529,9 @@ async function main() {
     const token = mainGrant.token;
 
     const serverControlEvidence = await runStep(evidence, "server control and redacted log tail", async () => {
-      const stopped = await expectOk(daemon.endpoint, "/api/v1/server/stop", { method: "POST", token });
+      const stopped = await expectOk(daemon.endpoint, "/v1/model-mount/server/stop", { method: "POST", token });
       assert.equal(stopped.controlStatus, "stopped");
-      const restarted = await expectOk(daemon.endpoint, "/api/v1/server/restart", { method: "POST", token });
+      const restarted = await expectOk(daemon.endpoint, "/v1/model-mount/server/restart", { method: "POST", token });
       assert.equal(restarted.controlStatus, "running");
       const logs = await expectOk(daemon.endpoint, "/v1/model-mount/server/logs?limit=20", { token });
       assert.equal(logs.redaction, "redacted");

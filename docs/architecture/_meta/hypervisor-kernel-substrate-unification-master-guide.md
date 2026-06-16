@@ -11389,6 +11389,24 @@ hosted/provider transport, OAuth/auth-header materialization, invocation
 authority depth, and broader IDE/CLI/SDK control coverage still need terminal
 Rust-owned coverage.
 
+Slice 1353 hard-cuts stable model_mount server-control protocol clients and
+retires the native server-control aliases. Public server start/stop/restart now
+use `POST /v1/model-mount/server/start`, `POST /v1/model-mount/server/stop`,
+and `POST /v1/model-mount/server/restart`, authorize `server.control:*`, and
+return mounted Rust daemon-core server-control records through the same
+Agentgres-admitted server-control planner used by the prior record-state cut.
+CLI server controls, current proof scripts, product UI actions, and daemon
+contract tests moved off `POST /api/v1/server/start`,
+`POST /api/v1/server/stop`, `POST /api/v1/server/restart`,
+`POST /api/v1/models/server/start`, and `POST /api/v1/models/server/stop`.
+The daemon native handler no longer exposes those aliases, focused route tests
+assert they return `not_found` without calling server-control methods, and
+conformance scans client surfaces so the retired control compatibility path
+cannot return. This remains non-terminal because backend execution/
+materialization, hosted/provider transport, OAuth/auth-header materialization,
+invocation authority depth, and broader IDE/SDK control coverage still need
+terminal Rust-owned protocol coverage.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

@@ -2338,19 +2338,19 @@ function useModelMountsDaemon() {
       startServer: () =>
         runAction("server-start", async () => {
           const token = await ensureToken();
-          const result = await requestJson("/api/v1/server/start", { method: "POST", token });
+          const result = await requestJson("/v1/model-mount/server/start", { method: "POST", token });
           return `Local server control is ${stringValue(result?.controlStatus, "running")}; receipt ${stringValue(result?.receiptId, "none")}.`;
         }),
       stopServer: () =>
         runAction("server-stop", async () => {
           const token = await ensureToken();
-          const result = await requestJson("/api/v1/server/stop", { method: "POST", token });
+          const result = await requestJson("/v1/model-mount/server/stop", { method: "POST", token });
           return `Local server control is ${stringValue(result?.controlStatus, "stopped")}; receipt ${stringValue(result?.receiptId, "none")}.`;
         }),
       restartServer: () =>
         runAction("server-restart", async () => {
           const token = await ensureToken();
-          const result = await requestJson("/api/v1/server/restart", { method: "POST", token });
+          const result = await requestJson("/v1/model-mount/server/restart", { method: "POST", token });
           return `Local server restart recorded; receipt ${stringValue(result?.receiptId, "none")}.`;
         }),
       tailServerLogs: () =>
@@ -4555,9 +4555,9 @@ function ServerPanel({
       <div className="model-mounts-route-list" aria-label="Server routes">
         {[
           "GET /v1/model-mount/server/status",
-          "POST /api/v1/server/start",
-          "POST /api/v1/server/stop",
-          "POST /api/v1/server/restart",
+          "POST /v1/model-mount/server/start",
+          "POST /v1/model-mount/server/stop",
+          "POST /v1/model-mount/server/restart",
           "GET /v1/model-mount/server/logs",
           "GET /v1/model-mount/server/events",
           "GET /v1/model-mount/runtime/engines",

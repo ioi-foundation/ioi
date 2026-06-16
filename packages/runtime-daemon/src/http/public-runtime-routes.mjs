@@ -381,6 +381,21 @@ export function createPublicRuntimeRequestHandler(deps) {
         writeJsonResponse(response, store.modelMounting.serverStatus(baseUrlForRequest(request)));
         return;
       }
+      if (request.method === "POST" && url.pathname === "/v1/model-mount/server/start") {
+        store.modelMounting.authorize(request.headers.authorization, "server.control:*");
+        writeJsonResponse(response, store.modelMounting.serverStart(baseUrlForRequest(request)));
+        return;
+      }
+      if (request.method === "POST" && url.pathname === "/v1/model-mount/server/stop") {
+        store.modelMounting.authorize(request.headers.authorization, "server.control:*");
+        writeJsonResponse(response, store.modelMounting.serverStop(baseUrlForRequest(request)));
+        return;
+      }
+      if (request.method === "POST" && url.pathname === "/v1/model-mount/server/restart") {
+        store.modelMounting.authorize(request.headers.authorization, "server.control:*");
+        writeJsonResponse(response, store.modelMounting.serverRestart(baseUrlForRequest(request)));
+        return;
+      }
       if (request.method === "GET" && url.pathname === "/v1/model-mount/server/logs") {
         store.modelMounting.authorize(request.headers.authorization, "server.logs:*");
         writeJsonResponse(response, store.modelMounting.serverLogs(Object.fromEntries(url.searchParams.entries())));
