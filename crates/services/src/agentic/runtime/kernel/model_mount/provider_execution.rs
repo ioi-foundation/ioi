@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
-use serde_json::json;
+use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
+use std::time::Duration;
 
 use super::{
     require_non_empty, sha256_hex, validate_receipt_refs, ModelMountError,
@@ -449,12 +450,7 @@ pub(super) fn deterministic_provider_output(
         );
     }
     if is_hosted_provider_invocation_backend(request) {
-        return hosted_provider_transport_output(
-            &request.invocation_kind,
-            &request.input,
-            &request.model_ref,
-            &request.provider_kind,
-        );
+        return hosted_provider_transport_output(request);
     }
     deterministic_fixture_output(&request.invocation_kind, &request.input, &request.model_ref)
 }
@@ -496,23 +492,62 @@ pub(super) fn deterministic_native_local_output(
 }
 
 pub(super) fn hosted_provider_transport_output(
-    invocation_kind: &str,
-    input: &str,
-    model_ref: &str,
-    provider_kind: &str,
+    request: &ModelMountProviderInvocationRequest,
 ) -> Result<String, ModelMountError> {
-    let digest = sha256_hex(input.as_bytes())?;
-    let digest = &digest[..12];
-    if invocation_kind == "embeddings" {
-        return Ok(format!("hosted-provider-embedding:{model_ref}:{digest}"));
+    let base_url = request
+        .base_url
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or(ModelMountError::HostedProviderInvocationMissingEndpointUrl)?;
+    let path = hosted_provider_transport_path(&request.invocation_kind);
+    let url = hosted_provider_transport_url(base_url, path);
+    let provider_auth_ref = request
+        .provider_auth_materialization_ref
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or(ModelMountError::HostedProviderInvocationMissingAuthMaterialization)?;
+    let header_binding_ref = request
+        .outbound_header_binding_ref
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or(ModelMountError::HostedProviderInvocationMissingAuthMaterialization)?;
+    let client = reqwest::blocking::Client::builder()
+        .timeout(Duration::from_secs(30))
+        .build()
+        .map_err(|error| {
+            ModelMountError::HostedProviderTransportExecutionFailed(error.to_string())
+        })?;
+    let response = client
+        .post(url)
+        .header("content-type", "application/json")
+        .header("x-ioi-provider-auth-materialization-ref", provider_auth_ref)
+        .header("x-ioi-outbound-header-binding-ref", header_binding_ref)
+        .header(
+            "x-ioi-auth-header-materialization-status",
+            request
+                .auth_header_materialization_status
+                .as_deref()
+                .unwrap_or("rust_ctee_outbound_header_bound"),
+        )
+        .header("x-ioi-ctee-secret-custody", "no-plaintext")
+        .json(&hosted_provider_transport_request_body(request))
+        .send()
+        .map_err(|error| {
+            ModelMountError::HostedProviderTransportExecutionFailed(error.to_string())
+        })?;
+    let status = response.status();
+    let response_text = response.text().map_err(|error| {
+        ModelMountError::HostedProviderTransportExecutionFailed(error.to_string())
+    })?;
+    if !status.is_success() {
+        return Err(ModelMountError::HostedProviderTransportExecutionFailed(
+            format!("hosted provider transport returned HTTP {status}"),
+        ));
     }
-    if invocation_kind == "rerank" {
-        return Ok(format!("hosted-provider-rerank:{model_ref}:{digest}"));
-    }
-    Ok(format!(
-        "Rust hosted provider transport response from {} for {model_ref} via {provider_kind}. input_hash={digest}",
-        hosted_provider_transport_path(invocation_kind)
-    ))
+    hosted_provider_output_from_response(&response_text)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -567,6 +602,8 @@ pub(super) fn hosted_provider_transport_binding(
         "provider_auth_materialization_ref": auth_ref,
         "outbound_header_binding_ref": header_ref,
         "auth_header_materialization_status": request.auth_header_materialization_status,
+        "transport_execution_owner": "rust_daemon_core.model_mount.hosted_transport_executor",
+        "ctee_secret_injection": "outbound_header_binding_ref",
         "plaintext_secret_material_returned": false,
     });
     let request_hash = hash_json_ref(&request_seed)?;
@@ -577,6 +614,9 @@ pub(super) fn hosted_provider_transport_binding(
         "execution_backend": request.execution_backend,
         "output_hash": format!("sha256:{}", sha256_hex(output_text.as_bytes())?),
         "status": "rust_hosted_provider_transport_response_bound",
+        "transport_execution_owner": "rust_daemon_core.model_mount.hosted_transport_executor",
+        "live_network_io": true,
+        "ctee_secret_injection": "outbound_header_binding_ref",
         "plaintext_secret_material_returned": false,
     });
     let response_hash = hash_json_ref(&response_seed)?;
@@ -602,6 +642,78 @@ fn hosted_provider_transport_path(invocation_kind: &str) -> &'static str {
         "rerank" => "/rerank",
         _ => "/chat/completions",
     }
+}
+
+fn hosted_provider_transport_url(base_url: &str, path: &str) -> String {
+    format!(
+        "{}/{}",
+        base_url.trim_end_matches('/'),
+        path.trim_start_matches('/')
+    )
+}
+
+fn hosted_provider_transport_request_body(request: &ModelMountProviderInvocationRequest) -> Value {
+    let streaming = matches!(request.stream_status.as_deref(), Some("started"));
+    match request.invocation_kind.trim() {
+        "responses" => json!({
+            "model": request.model_ref,
+            "input": request.input,
+            "stream": streaming,
+        }),
+        "embeddings" => json!({
+            "model": request.model_ref,
+            "input": request.input,
+        }),
+        "rerank" => json!({
+            "model": request.model_ref,
+            "query": request.input,
+        }),
+        _ => json!({
+            "model": request.model_ref,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": request.input,
+                }
+            ],
+            "stream": streaming,
+        }),
+    }
+}
+
+fn hosted_provider_output_from_response(response_text: &str) -> Result<String, ModelMountError> {
+    let trimmed = response_text.trim();
+    if trimmed.is_empty() {
+        return Err(ModelMountError::HostedProviderTransportExecutionFailed(
+            "hosted provider transport returned an empty body".to_string(),
+        ));
+    }
+    let Ok(value) = serde_json::from_str::<Value>(trimmed) else {
+        return Ok(trimmed.to_string());
+    };
+    if let Some(output_text) = value.get("output_text").and_then(Value::as_str) {
+        return Ok(output_text.to_string());
+    }
+    if let Some(content) = value
+        .get("choices")
+        .and_then(Value::as_array)
+        .and_then(|choices| choices.first())
+        .and_then(|choice| choice.get("message"))
+        .and_then(|message| message.get("content"))
+        .and_then(Value::as_str)
+    {
+        return Ok(content.to_string());
+    }
+    if let Some(text) = value
+        .get("content")
+        .and_then(Value::as_array)
+        .and_then(|content| content.first())
+        .and_then(|part| part.get("text"))
+        .and_then(Value::as_str)
+    {
+        return Ok(text.to_string());
+    }
+    Ok(trimmed.to_string())
 }
 
 fn hash_json_ref(value: &serde_json::Value) -> Result<String, ModelMountError> {
@@ -734,12 +846,15 @@ pub(super) fn provider_invocation_evidence_refs(
     } else if is_hosted_provider_invocation_backend(request) {
         refs.push("rust_model_mount_hosted_provider_backend".to_string());
         refs.push("rust_hosted_provider_invocation_transport_materialized".to_string());
+        refs.push("rust_hosted_provider_live_network_io_executed".to_string());
+        refs.push("rust_hosted_provider_transport_executor_owned".to_string());
         refs.push("rust_hosted_provider_transport_request_bound".to_string());
         refs.push("rust_hosted_provider_transport_response_bound".to_string());
         refs.push("rust_hosted_provider_endpoint_url_bound".to_string());
         refs.push("wallet_network_provider_transport_authority_bound".to_string());
         refs.push("ctee_hosted_provider_secret_not_exposed".to_string());
         refs.push("ctee_outbound_header_binding_ref_bound".to_string());
+        refs.push("ctee_outbound_secret_injection_ref_bound".to_string());
         refs.push("rust_provider_auth_materialization_bound".to_string());
         refs.push("hosted_provider_auth_header_materialized_by_rust".to_string());
         refs.push("hosted_provider_auth_header_materialization_contract_bound".to_string());
@@ -787,10 +902,13 @@ pub(super) fn backend_evidence_refs(request: &ModelMountProviderInvocationReques
     } else if is_hosted_provider_invocation_backend(request) {
         refs.push("rust_model_mount_hosted_provider_backend".to_string());
         refs.push("rust_hosted_provider_invocation_transport_materialized".to_string());
+        refs.push("rust_hosted_provider_live_network_io_executed".to_string());
+        refs.push("rust_hosted_provider_transport_executor_owned".to_string());
         refs.push("rust_hosted_provider_transport_request_bound".to_string());
         refs.push("rust_hosted_provider_transport_response_bound".to_string());
         refs.push("rust_hosted_provider_endpoint_url_bound".to_string());
         refs.push("ctee_outbound_header_binding_ref_bound".to_string());
+        refs.push("ctee_outbound_secret_injection_ref_bound".to_string());
         refs.push("rust_provider_auth_materialization_bound".to_string());
         refs.push("hosted_provider_auth_header_materialized_by_rust".to_string());
         refs.push("hosted_provider_auth_header_materialization_contract_bound".to_string());
@@ -798,10 +916,13 @@ pub(super) fn backend_evidence_refs(request: &ModelMountProviderInvocationReques
     } else if is_hosted_provider_stream_invocation_backend(request) {
         refs.push("rust_model_mount_hosted_provider_stream_backend".to_string());
         refs.push("rust_hosted_provider_stream_transport_materialized".to_string());
+        refs.push("rust_hosted_provider_live_network_io_executed".to_string());
+        refs.push("rust_hosted_provider_transport_executor_owned".to_string());
         refs.push("rust_hosted_provider_transport_request_bound".to_string());
         refs.push("rust_hosted_provider_transport_response_bound".to_string());
         refs.push("rust_hosted_provider_endpoint_url_bound".to_string());
         refs.push("ctee_outbound_header_binding_ref_bound".to_string());
+        refs.push("ctee_outbound_secret_injection_ref_bound".to_string());
         refs.push("rust_provider_auth_materialization_bound".to_string());
         refs.push("hosted_provider_auth_header_materialized_by_rust".to_string());
         refs.push("hosted_provider_auth_header_materialization_contract_bound".to_string());
@@ -845,6 +966,30 @@ mod tests {
         MODEL_MOUNT_PROVIDER_EXECUTION_SCHEMA_VERSION,
         MODEL_MOUNT_PROVIDER_STREAM_INVOCATION_SCHEMA_VERSION,
     };
+    use std::io::{Read, Write};
+    use std::net::TcpListener;
+    use std::thread::{self, JoinHandle};
+
+    fn hosted_transport_server(response_body: &'static str) -> (String, JoinHandle<String>) {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("hosted test server binds");
+        let address = listener.local_addr().expect("hosted test server address");
+        let handle = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().expect("hosted request accepted");
+            let mut buffer = [0_u8; 8192];
+            let read = stream.read(&mut buffer).expect("hosted request read");
+            let request = String::from_utf8_lossy(&buffer[..read]).to_string();
+            let response = format!(
+                "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{}",
+                response_body.len(),
+                response_body
+            );
+            stream
+                .write_all(response.as_bytes())
+                .expect("hosted response written");
+            request
+        });
+        (format!("http://{address}"), handle)
+    }
 
     fn provider_execution_request() -> ModelMountProviderExecutionRequest {
         ModelMountProviderExecutionRequest {
@@ -1209,7 +1354,9 @@ mod tests {
             ModelMountError::HostedProviderInvocationMissingEndpointUrl
         );
 
-        request.base_url = Some("https://api.openai.example/v1".to_string());
+        let (base_url, hosted_request) =
+            hosted_transport_server(r#"{"output_text":"live hosted provider answer"}"#);
+        request.base_url = Some(format!("{base_url}/v1"));
 
         let error = invoke_provider(&request)
             .expect_err("hosted provider auth materialization refs are required");
@@ -1231,6 +1378,7 @@ mod tests {
 
         let result =
             invoke_provider(&request).expect("hosted provider invocation executes in Rust owner");
+        let raw_hosted_request = hosted_request.join().expect("hosted request captured");
 
         assert_eq!(result.execution_backend, "rust_model_mount_hosted_provider");
         assert_eq!(result.backend, "openai");
@@ -1238,15 +1386,26 @@ mod tests {
             result.provider_response_kind.as_deref(),
             Some("rust_model_mount.hosted_provider")
         );
-        assert!(result
-            .output_text
-            .starts_with("Rust hosted provider transport response from /responses"));
+        assert_eq!(result.output_text, "live hosted provider answer");
+        assert!(raw_hosted_request.contains("POST /v1/responses HTTP/1.1"));
+        assert!(raw_hosted_request
+            .to_ascii_lowercase()
+            .contains("x-ioi-outbound-header-binding-ref"));
+        assert!(raw_hosted_request
+            .to_ascii_lowercase()
+            .contains("x-ioi-ctee-secret-custody"));
         assert!(result
             .provider_auth_evidence_refs
             .contains(&"wallet_network_provider_vault_ref_bound".to_string()));
         assert!(result
             .backend_evidence_refs
             .contains(&"rust_hosted_provider_invocation_transport_materialized".to_string()));
+        assert!(result
+            .backend_evidence_refs
+            .contains(&"rust_hosted_provider_live_network_io_executed".to_string()));
+        assert!(result
+            .backend_evidence_refs
+            .contains(&"rust_hosted_provider_transport_executor_owned".to_string()));
         assert!(result
             .backend_evidence_refs
             .contains(&"rust_hosted_provider_transport_request_bound".to_string()));
@@ -1259,6 +1418,9 @@ mod tests {
         assert!(result
             .backend_evidence_refs
             .contains(&"ctee_outbound_header_binding_ref_bound".to_string()));
+        assert!(result
+            .backend_evidence_refs
+            .contains(&"ctee_outbound_secret_injection_ref_bound".to_string()));
         assert!(result
             .evidence_refs
             .contains(&"rust_model_mount_hosted_provider_backend".to_string()));

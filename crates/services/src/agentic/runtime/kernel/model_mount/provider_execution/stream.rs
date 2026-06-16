@@ -16,12 +16,7 @@ pub(super) fn invoke_provider_stream(
     request.validate_stream()?;
     let hosted_provider_stream = is_hosted_provider_stream_invocation_backend(request);
     let output_text = if hosted_provider_stream {
-        hosted_provider_transport_output(
-            &request.invocation_kind,
-            &request.input,
-            &request.model_ref,
-            &request.provider_kind,
-        )?
+        hosted_provider_transport_output(request)?
     } else {
         deterministic_native_local_output(
             &request.invocation_kind,
@@ -246,6 +241,34 @@ mod tests {
         MODEL_MOUNT_PROVIDER_EXECUTION_SCHEMA_VERSION,
         MODEL_MOUNT_PROVIDER_INVOCATION_SCHEMA_VERSION,
     };
+    use std::io::{Read, Write};
+    use std::net::TcpListener;
+    use std::thread::{self, JoinHandle};
+
+    fn hosted_transport_server(response_body: &'static str) -> (String, JoinHandle<String>) {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("hosted stream test server binds");
+        let address = listener
+            .local_addr()
+            .expect("hosted stream test server address");
+        let handle = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().expect("hosted stream request accepted");
+            let mut buffer = [0_u8; 8192];
+            let read = stream
+                .read(&mut buffer)
+                .expect("hosted stream request read");
+            let request = String::from_utf8_lossy(&buffer[..read]).to_string();
+            let response = format!(
+                "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{}",
+                response_body.len(),
+                response_body
+            );
+            stream
+                .write_all(response.as_bytes())
+                .expect("hosted stream response written");
+            request
+        });
+        (format!("http://{address}"), handle)
+    }
 
     fn provider_execution_request() -> ModelMountProviderExecutionRequest {
         ModelMountProviderExecutionRequest {
@@ -440,9 +463,15 @@ mod tests {
             ModelMountError::HostedProviderInvocationMissingAuthEvidence
         );
 
-        let request = hosted_provider_stream_invocation_request();
+        let (base_url, hosted_request) =
+            hosted_transport_server(r#"{"output_text":"live hosted stream answer"}"#);
+        let mut request = hosted_provider_stream_invocation_request();
+        request.base_url = Some(format!("{base_url}/v1"));
         let result =
             invoke_provider_stream(&request).expect("hosted provider stream executes in Rust");
+        let raw_hosted_request = hosted_request
+            .join()
+            .expect("hosted stream request captured");
 
         assert_eq!(
             result.execution_backend,
@@ -456,15 +485,23 @@ mod tests {
         assert_eq!(result.backend_id, "backend.openai-compatible");
         assert_eq!(result.stream_format, "ioi_jsonl");
         assert_eq!(result.stream_kind, "openai_responses_hosted_provider");
-        assert!(result
-            .output_text
-            .starts_with("Rust hosted provider transport response from /responses"));
+        assert_eq!(result.output_text, "live hosted stream answer");
+        assert!(raw_hosted_request.contains("POST /v1/responses HTTP/1.1"));
+        assert!(raw_hosted_request
+            .to_ascii_lowercase()
+            .contains("x-ioi-outbound-header-binding-ref"));
         assert!(result
             .provider_auth_evidence_refs
             .contains(&"wallet_network_provider_vault_ref_bound".to_string()));
         assert!(result
             .backend_evidence_refs
             .contains(&"rust_hosted_provider_stream_transport_materialized".to_string()));
+        assert!(result
+            .backend_evidence_refs
+            .contains(&"rust_hosted_provider_live_network_io_executed".to_string()));
+        assert!(result
+            .backend_evidence_refs
+            .contains(&"rust_hosted_provider_transport_executor_owned".to_string()));
         assert!(result
             .backend_evidence_refs
             .contains(&"rust_hosted_provider_transport_request_bound".to_string()));
@@ -477,6 +514,9 @@ mod tests {
         assert!(result
             .evidence_refs
             .contains(&"ctee_hosted_provider_secret_not_exposed".to_string()));
+        assert!(result
+            .backend_evidence_refs
+            .contains(&"ctee_outbound_secret_injection_ref_bound".to_string()));
         assert!(result.hosted_transport_request_ref.is_some());
         assert_eq!(result.hosted_transport_method.as_deref(), Some("POST"));
         assert_eq!(result.hosted_transport_path.as_deref(), Some("/responses"));

@@ -119,6 +119,7 @@ pub enum ModelMountError {
     HostedProviderInvocationMissingAuthEvidence,
     HostedProviderInvocationMissingEndpointUrl,
     HostedProviderInvocationMissingAuthMaterialization,
+    HostedProviderTransportExecutionFailed(String),
     UnsupportedProviderLifecycleAction,
     UnsupportedProviderLifecycleBackend,
     UnsupportedProviderInventoryAction,

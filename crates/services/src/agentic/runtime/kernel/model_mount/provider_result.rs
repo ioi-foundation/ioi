@@ -275,6 +275,18 @@ fn is_hosted_provider_result_backend(request: &ModelMountProviderResultAdmission
             &request.backend_evidence_refs,
             "rust_hosted_provider_transport_response_bound",
         )
+        && refs_contain(
+            &request.backend_evidence_refs,
+            "rust_hosted_provider_live_network_io_executed",
+        )
+        && refs_contain(
+            &request.backend_evidence_refs,
+            "rust_hosted_provider_transport_executor_owned",
+        )
+        && refs_contain(
+            &request.backend_evidence_refs,
+            "ctee_outbound_secret_injection_ref_bound",
+        )
         && request
             .hosted_transport_request_ref
             .as_deref()
@@ -555,8 +567,7 @@ mod tests {
         ];
         let admission = admit_provider_execution(&execution_request)
             .expect("hosted provider execution admitted");
-        let output_text =
-            "Rust hosted provider transport response from /chat/completions for model.openai.gpt-4.1".to_string();
+        let output_text = "live hosted provider answer".to_string();
         let output_hash = format!(
             "sha256:{}",
             sha256_hex(output_text.as_bytes()).expect("output hash")
@@ -599,8 +610,11 @@ mod tests {
             backend_evidence_refs: vec![
                 "rust_model_mount_hosted_provider_backend".to_string(),
                 "rust_hosted_provider_invocation_transport_materialized".to_string(),
+                "rust_hosted_provider_live_network_io_executed".to_string(),
+                "rust_hosted_provider_transport_executor_owned".to_string(),
                 "rust_hosted_provider_transport_request_bound".to_string(),
                 "rust_hosted_provider_transport_response_bound".to_string(),
+                "ctee_outbound_secret_injection_ref_bound".to_string(),
                 "hosted_provider_auth_header_materialization_contract_bound".to_string(),
             ],
             evidence_refs: vec![admission.provider_execution_ref.clone()],
@@ -617,6 +631,9 @@ mod tests {
         assert!(record
             .evidence_refs
             .contains(&"rust_hosted_provider_invocation_transport_materialized".to_string()));
+        assert!(record
+            .evidence_refs
+            .contains(&"rust_hosted_provider_live_network_io_executed".to_string()));
         assert_eq!(
             record.hosted_transport_status.as_deref(),
             Some("rust_hosted_provider_transport_response_bound")
@@ -656,8 +673,7 @@ mod tests {
         ];
         let admission = admit_provider_execution(&execution_request)
             .expect("hosted provider stream execution admitted");
-        let output_text =
-            "Rust hosted provider transport response from /responses for model.openai.gpt-4.1 stream".to_string();
+        let output_text = "live hosted stream answer".to_string();
         let output_hash = format!(
             "sha256:{}",
             sha256_hex(output_text.as_bytes()).expect("output hash")
@@ -704,8 +720,11 @@ mod tests {
             backend_evidence_refs: vec![
                 "rust_model_mount_hosted_provider_stream_backend".to_string(),
                 "rust_hosted_provider_stream_transport_materialized".to_string(),
+                "rust_hosted_provider_live_network_io_executed".to_string(),
+                "rust_hosted_provider_transport_executor_owned".to_string(),
                 "rust_hosted_provider_transport_request_bound".to_string(),
                 "rust_hosted_provider_transport_response_bound".to_string(),
+                "ctee_outbound_secret_injection_ref_bound".to_string(),
                 "hosted_provider_auth_header_materialization_contract_bound".to_string(),
             ],
             evidence_refs: vec![admission.provider_execution_ref.clone()],
@@ -727,6 +746,9 @@ mod tests {
         assert!(record
             .evidence_refs
             .contains(&"rust_hosted_provider_stream_transport_materialized".to_string()));
+        assert!(record
+            .evidence_refs
+            .contains(&"rust_hosted_provider_live_network_io_executed".to_string()));
         assert_eq!(
             record.hosted_transport_status.as_deref(),
             Some("rust_hosted_provider_transport_response_bound")

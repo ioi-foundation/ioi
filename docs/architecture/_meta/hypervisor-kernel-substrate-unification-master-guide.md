@@ -11846,10 +11846,31 @@ Agentgres `model-backend-lifecycle-controls` record/public response, and emits
 `backend_lifecycle_start_js_process_control_retired` evidence. Focused
 JS/Rust tests and conformance guard the two-record start path, the direct typed
 API normalizer, and the absence of restored JS process control. This remains
-non-terminal because live hosted network I/O, live cTEE secret injection into
-outbound hosted requests, live external backend binary process
-launch/supervision implementation, and deeper invocation authority still need
-terminal Rust-owned execution coverage.
+non-terminal because live external backend binary process launch/supervision
+implementation, true hosted streaming semantics, production cTEE egress resolver
+depth, and deeper invocation authority still need terminal Rust-owned execution
+coverage.
+
+Slice 1377 hard-cuts hosted provider invocation off the deterministic Rust
+transport-contract output and onto a Rust daemon-core live hosted transport
+executor. `provider_execution` now uses blocking Rust `reqwest` POST execution
+for hosted non-stream and hosted stream lanes, derives provider output from the
+live response body, and sends only `provider_auth_materialization_ref`,
+`outbound_header_binding_ref`, materialization status, and cTEE no-plaintext
+custody headers across the egress boundary. The old hosted success-text path is
+gone; focused Rust tests stand up a local HTTP server and assert the Rust core
+performs `POST /v1/responses` with the cTEE/header-binding refs instead of
+synthesizing output. Hosted result admission now requires
+`rust_hosted_provider_live_network_io_executed`,
+`rust_hosted_provider_transport_executor_owned`, and
+`ctee_outbound_secret_injection_ref_bound` evidence beside the existing
+transport request/response hashes, so evidence-only hosted result truth cannot
+return. Focused JS/Rust tests and conformance guard the live executor evidence,
+the cTEE ref-bound boundary, and the absence of the old deterministic hosted
+success text. This remains non-terminal because true provider streaming
+transport semantics, live external backend binary process launch/supervision,
+production cTEE egress resolver depth, and deeper invocation authority still
+need terminal Rust-owned execution coverage.
 
 ## Final Doctrine
 
