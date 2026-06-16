@@ -16278,6 +16278,16 @@ function runBridge() {
     /runtime workflow-edit control core sends Rust request through typed runtime-control API/.test(
       runtimeContextPolicyCoreTest,
     ) &&
+    /contextPolicyCore = null/.test(runtimeWorkflowEditSurface) &&
+    !/store\?\.contextPolicyCore|store\.contextPolicyCore|store\?\.contextPolicyCore\s*\?\?\s*null/.test(
+      runtimeWorkflowEditSurface + runtimeWorkflowEditSurfaceTest,
+    ) &&
+    /this\.workflowEditSurface = createRuntimeWorkflowEditSurface\(\{\s*contextPolicyCore:\s*this\.contextPolicyCore,/s.test(
+      runtimeDaemonIndex,
+    ) &&
+    /createSurface\(\{\s*contextPolicyCore: createWorkflowEditCore\(runnerCalls\),\s*\}\)/.test(
+      runtimeWorkflowEditSurfaceTest,
+    ) &&
     !/workflowEditRunner/.test(
       runtimeDaemonIndex + runtimeWorkflowEditSurface + runtimeWorkflowEditSurfaceTest,
     ) &&

@@ -9,6 +9,7 @@ const WORKFLOW_EDIT_CONTROL_EVENT_EVIDENCE_REFS = [
 
 export function createRuntimeWorkflowEditSurface(deps = {}) {
   const {
+    contextPolicyCore = null,
     eventStreamIdForThread: eventStreamIdForThreadDep = eventStreamIdForThread,
     runtimeError: runtimeErrorDep = runtimeError,
   } = deps;
@@ -40,7 +41,7 @@ export function createRuntimeWorkflowEditSurface(deps = {}) {
   }
 
   function workflowEditControlRunner(store, request = {}) {
-    const runner = store?.contextPolicyCore ?? null;
+    const runner = contextPolicyCore;
     if (
       runner?.planRuntimeWorkflowEditControl &&
       typeof store?.appendRuntimeEvent === "function"

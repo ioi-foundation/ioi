@@ -11,13 +11,12 @@ function runtimeError({ status, code, message, details }) {
   return error;
 }
 
-function createStore({ contextPolicyCore = null } = {}) {
+function createStore() {
   const events = [];
   const calls = [];
   return {
     events,
     calls,
-    contextPolicyCore,
     agentForThread(threadId) {
       calls.push({ name: "agentForThread", threadId });
       throw new Error("agentForThread must not be called by the Rust-owned workflow-edit surface");
@@ -106,8 +105,9 @@ function createWorkflowEditCore(calls = []) {
   };
 }
 
-function createSurface() {
+function createSurface({ contextPolicyCore = null } = {}) {
   return createRuntimeWorkflowEditSurface({
+    contextPolicyCore,
     eventStreamIdForThread: (threadId) => `event_stream_${threadId}`,
     runtimeError,
   });
@@ -132,8 +132,10 @@ function assertNoRetiredWorkflowEditDetailAliases(details) {
 
 test("workflow-edit proposal uses Rust planning and runtime event admission", () => {
   const runnerCalls = [];
-  const store = createStore({ contextPolicyCore: createWorkflowEditCore(runnerCalls) });
-  const surface = createSurface();
+  const store = createStore();
+  const surface = createSurface({
+    contextPolicyCore: createWorkflowEditCore(runnerCalls),
+  });
 
   const result = surface.proposeWorkflowEdit(store, "thread_alpha", {
     source: "agent_studio",
@@ -169,8 +171,10 @@ test("workflow-edit proposal uses Rust planning and runtime event admission", ()
 
 test("workflow-edit apply uses Rust planning and runtime event admission", () => {
   const runnerCalls = [];
-  const store = createStore({ contextPolicyCore: createWorkflowEditCore(runnerCalls) });
-  const surface = createSurface();
+  const store = createStore();
+  const surface = createSurface({
+    contextPolicyCore: createWorkflowEditCore(runnerCalls),
+  });
 
   const result = surface.applyWorkflowEditProposal(store, "thread_alpha", "proposal_one", {
     source: "agent_studio",

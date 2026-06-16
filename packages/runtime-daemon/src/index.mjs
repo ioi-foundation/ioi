@@ -753,6 +753,7 @@ export class AgentgresRuntimeStateStore {
       runtimeError,
     });
     this.workflowEditSurface = createRuntimeWorkflowEditSurface({
+      contextPolicyCore: this.contextPolicyCore,
       eventStreamIdForThread,
       notFound,
       policyError,

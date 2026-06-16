@@ -10622,6 +10622,19 @@ work is durable replay/projection depth, richer policy receipt/state-root
 binding, wallet/cTEE authority expansion, and stable protocol clients, not an
 alternate context-policy core mount.
 
+Slice 1317 hard-cuts the runtime workflow-edit surface store-core fallback.
+Workflow-edit proposal and apply controls now resolve only through the positive
+`contextPolicyCore` mount supplied to `createRuntimeWorkflowEditSurface()` by
+daemon startup. The workflow-edit surface and focused tests no longer read or
+model `store?.contextPolicyCore ?? null`, `store.contextPolicyCore`, or
+`store?.contextPolicyCore`, so workflow-edit proposal/apply event truth cannot
+return through a store-mounted planner fallback after Rust daemon-core parity is
+present. Conformance now guards the retired fallback, the daemon-mounted
+workflow-edit surface, and the focused harness mount. Remaining work is durable
+workflow-edit replay/projection depth, richer policy receipt/state-root
+binding, wallet/cTEE workflow authority expansion, and stable protocol clients,
+not an alternate workflow-edit core mount.
+
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,
 `/v1/memory/policy`, `/v1/memory/path`, or `/v1/memory/validate`; the daemon
