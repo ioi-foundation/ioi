@@ -51,8 +51,11 @@ Hypervisor Daemon
   Owns execution semantics, runtime-node profiles, effect boundaries,
   model/tool/worker/service execution, receipts, and replay hooks.
 
-Default Harness Profile
-  The daemon-executed loop-native orchestration profile, not a peer runtime.
+Harness Profiles and Default Harness Profile
+  HarnessProfiles are daemon-executed or daemon-mediated step-resolution
+  adapters. The Default Harness Profile is IOI's reference scaffold/fallback
+  HarnessProfile, not a peer runtime, not the only admissible harness, and not a
+  meta-harness.
 
 Rust/WASM workload/kernel substrate
   Target authoritative step/module execution backend underneath the daemon.
@@ -126,11 +129,12 @@ Top implementation-pressure discoveries:
 | Rank | Cleaner shape revealed by pressure | Why it matters |
 | --- | --- | --- |
 | 1 | Hypervisor needs the Core/client/surface/adapter taxonomy everywhere. | Prevents the old "Hypervisor IDE" or "CLI/TUI" framing from collapsing product clients, app surfaces, external harnesses, and runtime truth into one bucket. |
-| 2 | `WalletAuthorityCore` should become the reusable authority kernel; Wallet UI is one presentation. | Prevents all Web3/Web4 apps from inheriting a heavy finance console. |
-| 3 | Broad autonomous labor needs first-class ontology and integration-surface canon, not only a plan doc. | aiagent still reads as "portable digital workers" while edge cases include games, Discord, finance, robotics, and embodied systems. |
-| 4 | Physical/embodied action needs a canonical safety envelope owner. | `physical_action` appears as a risk class, but robotics-grade objects are still plan-level. |
-| 5 | cTEE must expose lane selection for user privacy, model-weight privacy, and provider trust separately. | Harness/workspace privacy is not the same as protecting proprietary model weights. |
-| 6 | Long-lived managed instances need lapse, archive, restore, and context-custody semantics. | Years-long agents and subscription lapses cannot rely on generic "persistent" wording. |
+| 2 | Hypervisor App should become the reference operator cockpit, not a VS Code/IDE shell. | The current UX opens into code-repository/OpenVSCode gravity; the target is one Core with sessions, projects, surfaces, adapters, model mounts, authority, privacy, and receipts. |
+| 3 | `WalletAuthorityCore` should become the reusable authority kernel; Wallet UI is one presentation. | Prevents all Web3/Web4 apps from inheriting a heavy finance console. |
+| 4 | Broad autonomous labor needs first-class ontology and integration-surface canon, not only a plan doc. | aiagent still reads as "portable digital workers" while edge cases include games, Discord, finance, robotics, and embodied systems. |
+| 5 | Physical/embodied action needs a canonical safety envelope owner. | `physical_action` appears as a risk class, but robotics-grade objects are still plan-level. |
+| 6 | cTEE must expose lane selection for user privacy, model-weight privacy, and provider trust separately. | Harness/workspace privacy is not the same as protecting proprietary model weights. |
+| 7 | Long-lived managed instances need lapse, archive, restore, and context-custody semantics. | Years-long agents and subscription lapses cannot rely on generic "persistent" wording. |
 
 The target is not more surface area. The target is sharper object ownership:
 
@@ -274,6 +278,18 @@ ExecutionPrivacyPosture for every model/provider route.
 | Recommended change | Add implementation object table for memory admission, memory refs, retrieval receipts, and restore projections. |
 | Fix type | Docs plus memory/Agentgres API implementation. |
 
+### 8A. Hypervisor App UX needs a master implementation plan
+
+| Field | Detail |
+| --- | --- |
+| Severity | High |
+| Current UX evidence | Screenshot shows the product inside OpenVSCode with tabs such as "Autopilot Workflow Composer", "Autopilot Models", "Autopilot Runs", "Autopilot Policy", "Autopilot Connectors", and "Autopilot Code"; the active surface is a code repository gate. |
+| Reference evidence | `internal-docs/reverse-engineering/ona` presents a clean operator shell with persistent left nav, New Session, Home, Projects, Automations, Insights, Sessions, settings, default editor selection, automations/templates, and session history. Playwright probes against the local mirror at `127.0.0.1:9225` confirmed Home and Automations flows. |
+| Issue | The current product reads like an IDE extension host with Autopilot tabs. The canon now says Hypervisor App/Web/CLI-headless are clients over Hypervisor Core, Workbench/Foundry/Fleet are application surfaces, editors are adapter targets, and external coding agents are Agent Harness Adapters. |
+| Why it matters | If the UX stays IDE-first, the architecture will keep drifting back toward "Hypervisor IDE" instead of "Hypervisor of IDEs / governed autonomous-work cockpit." |
+| Recommended change | Add a staged implementation plan that converts the app shell from Autopilot/OpenVSCode gravity into a Hypervisor Core cockpit with sessions, projects, application surfaces, adapter targets, model/harness/provider setup, cTEE/privacy posture, authority, and receipts. |
+| Fix type | Internal implementation plan now; UI/code migration next. |
+
 ### 9. Service composition needs nested contribution defaults
 
 | Field | Detail |
@@ -343,6 +359,7 @@ ExecutionPrivacyPosture for every model/provider route.
 | Concept | Current state | Needed owner |
 | --- | --- | --- |
 | Hypervisor client/surface/adapter taxonomy | Canon docs patched, implementation plans must stay aligned | `docs/architecture/components/hypervisor/core-clients-surfaces.md` |
+| Hypervisor App UX shell | Current app code exists but still carries Autopilot/OpenVSCode gravity | `internal-docs/implementation/refine-architecture.md` for implementation plan, then `apps/autopilot/src/windows/AutopilotShellWindow/*` or renamed Hypervisor shell modules for implementation |
 | Digital Worker Ontology | Plan doc only | `docs/architecture/domains/aiagent/digital-worker-ontology.md` |
 | Vertical Ontology Packs | Plan doc only | `docs/architecture/domains/aiagent/vertical-ontology-packs.md` |
 | Managed Worker Instance lifecycle | Partly in worker marketplace/endpoints | `docs/architecture/domains/aiagent/managed-worker-instance-lifecycle.md` |
@@ -366,8 +383,13 @@ HypervisorTui
 HypervisorApplicationSurface
 HypervisorWorkbench
 HypervisorSession
+HypervisorSurfaceId
+HypervisorSessionCard
+HypervisorSessionLaunchRecipe
+HypervisorShellNavigationModel
 HypervisorAdapterTarget
 AgentHarnessAdapter
+WorkbenchAdapterPreference
 VerticalOntologyPack
 IntegrationSurface
 ManagedWorkerInstanceLifecycle
@@ -410,6 +432,7 @@ Can a new engineer build from the canon today?
 
 ```text
 Core runtime/authority/state/storage stack: yes, with repo inspection.
+Hypervisor App UX: conceptually yes; shell IA and product naming migration needed.
 Wallet UX/authority packaging: conceptually yes, package implementation missing.
 Private Workspace cTEE: yes for architecture, partial for full conformance.
 Fleet/provider integrations: yes for boundary, provider adapters still needed.
@@ -422,6 +445,10 @@ Blocking object/API/schema gaps:
 
 ```text
 @ioi/wallet-protocol and @ioi/wallet-sdk
+HypervisorShellNavigationModel
+HypervisorSessionCard
+HypervisorSessionLaunchRecipe
+WorkbenchAdapterPreference
 AuthorityReview schema
 CapabilityLease schema
 ApprovalMode conformance
@@ -440,6 +467,7 @@ Docs that are too doctrinal and need implementation objects:
 
 ```text
 Hypervisor Core client/surface/adapter taxonomy
+Hypervisor App shell IA and session launcher
 aiagent broad labor plan
 physical/embodied work references
 Agent Wiki / ioi-memory boundary
@@ -465,6 +493,9 @@ cTEE candidate-lattice math
 | Doc | Anti-pattern |
 | --- | --- |
 | Hypervisor core/client/surface docs | Treating Hypervisor Workbench or a VS Code shell as the parent product/runtime. |
+| Hypervisor app implementation | Treating current Autopilot/OpenVSCode tabs as the target product IA. |
+| Hypervisor app implementation | Treating model mounting as the primary user job instead of global infrastructure plus contextual session setup. |
+| Hypervisor app implementation | Creating one separate GUI app per surface instead of one Core with App/Web/CLI-headless clients and application surfaces. |
 | Hypervisor core/client/surface docs | Treating TUI as a first-class runtime lane instead of optional CLI/headless presentation. |
 | Hypervisor core/client/surface docs | Treating Codex, Claude Code, Grok Build, OpenHands, Aider, shell/tmux agents, CI agents, or hosted coding agents as Hypervisor clients or runtime truth. |
 | aiagent worker marketplace | Treating categories as hardcoded verticals instead of ontology-pack indexed profiles. |
@@ -489,6 +520,288 @@ cTEE candidate-lattice math
 | Change | Ensure product APIs, schemas, and implementation plans preserve the distinction between Core, clients, application surfaces, adapter targets, and Agent Harness Adapters. |
 | Acceptance | No live implementation guide treats Hypervisor Workbench/IDE, VS Code shells, TUI, or external CLI agents as runtime truth. |
 | Verify | Run `rg -n "Hypervisor IDE|CLI/TUI|Electron/VS Code fork|Codex.*runtime truth|TUI = separate" docs/architecture internal-docs/implementation`; remaining hits must be deprecated, historical, or anti-pattern examples only. |
+
+### Phase 0A: Hypervisor App UX Master Plan
+
+Status: implementation leg for moving the current Autopilot/OpenVSCode-shaped
+UX into the Hypervisor Core product architecture.
+
+Reference inputs:
+
+```text
+Current screenshot:
+  OpenVSCode parent chrome
+  Autopilot Workflow Composer / Models / Runs / Policy / Connectors / Code tabs
+  active Code repositories surface
+
+ONA reference mirror:
+  internal-docs/reverse-engineering/ona
+  local mirror: http://127.0.0.1:9225
+  observed with Playwright:
+    Home: New Session, Home, Projects, Automations, Insights, Sessions,
+          project selector, model/mode controls, recent sessions
+    Automations: metrics, filters, run actions, suggested templates
+    Settings: default editor, embedded VS Code toggle, secrets, git auth,
+              tokens, integrations
+
+Current code anchors:
+  apps/autopilot/src/main.tsx
+  apps/autopilot/src/windows/AutopilotShellWindow/*
+  apps/autopilot/src/surfaces/Home/*
+  apps/autopilot/src/surfaces/Workspace/*
+  apps/autopilot/src/surfaces/MissionControl/*
+  apps/autopilot/src/surfaces/Policy/*
+  apps/autopilot/src/surfaces/Settings/*
+  apps/autopilot/src/surfaces/Capabilities/*
+  packages/agent-ide/src/features/*
+  packages/runtime-daemon/src/http/public-runtime-routes.mjs
+  packages/runtime-daemon/src/step-module-abi.test.mjs
+```
+
+Design thesis:
+
+```text
+Hypervisor App is not an IDE.
+Hypervisor App is the native operator cockpit over Hypervisor Core.
+
+Workbench is the code/systems surface inside Hypervisor.
+Editors are adapter targets inside Workbench.
+Model mounting is global infrastructure plus contextual setup.
+Workflow Compositor is the automation/recipe graph surface.
+Foundry is training/eval/worker-improvement.
+Fleet is infrastructure/provider/workspace estate.
+Authority, Privacy, and Receipts are always-visible governance rails.
+```
+
+Target information architecture:
+
+| Surface | User job | Runtime/canon owner |
+| --- | --- | --- |
+| Home | Start work, inspect active sessions, continue recents | Hypervisor Core session projection |
+| Sessions | Every live, idle, archived, blocked, or restorable run | Hypervisor Session + Agentgres receipts |
+| Projects | Workspace/project roots, private state, repos, environments | Hypervisor Project + Agentgres refs |
+| Missions | Goal-driven autonomous runs with acceptance criteria | Workflow Compositor + selected HarnessProfile |
+| Workbench | Code/systems workspace with editor/terminal/browser adapters | Hypervisor Workbench + Adapter Targets |
+| Automations / Recipes | Repeatable workflow templates and scheduled runs | Workflow Compositor |
+| Agents | Configured workers, harness adapters, skills, leases | aiagent + wallet.network authority |
+| Models | Model inventory, providers, endpoints, mounts, downloads | Model mounting daemon APIs |
+| Privacy / cTEE | Workspace privacy posture, cTEE lanes, unsafe mount warnings | Private Workspace / cTEE |
+| Authority | Approvals, capability leases, connector scopes, spend gates | wallet.network |
+| Receipts / Audit | Receipts, replay, artifacts, state roots, restore | Agentgres + receipts |
+| Foundry | Eval, distillation, training, benchmark, package promotion | Hypervisor Foundry |
+| Fleet | Local/cloud/DePIN/customer provider estate and persistent nodes | Hypervisor Fleet |
+| Settings | Identity, editor preference, secrets, git auth, integrations | Hypervisor client settings + wallet.network |
+
+Core UX decisions:
+
+```text
+1. Default screen becomes Hypervisor Home, not embedded OpenVSCode.
+2. "New Session" is the primary CTA.
+3. "Create Agent" and "Create Mission" are guided setup flows, not raw tabs.
+4. Model mounting appears in two places:
+   - global Models surface for inventory, providers, endpoints, downloads;
+   - contextual step inside New Session / Create Agent / Mission setup.
+5. Workbench owns editor choice:
+   VS Code, Cursor, Windsurf, JetBrains, browser IDE, terminal/tmux,
+   OpenVSCode direct surface, or substrate editor.
+6. Embedded VS Code is optional, not the product identity.
+7. ONA-like "Automations" maps to Hypervisor Recipes / Workflow Compositor,
+   not to a separate runtime.
+8. Every session row shows model, harness, authority, privacy posture, receipts,
+   project, environment, cost/budget, and restore state.
+9. Right-side inspectors should be contextual:
+   selected session -> receipts/privacy/authority/replay
+   selected model -> provider/custody/runtime health
+   selected workflow -> gates/receipts/versions
+10. App/Web/CLI-headless share the same surface contracts.
+```
+
+Target shell layout:
+
+```text
+Hypervisor App
+  left rail
+    New Session
+    Home
+    Projects
+    Sessions
+    Missions
+    Workbench
+    Automations / Recipes
+    Agents
+    Models
+    Privacy
+    Fleet
+    Foundry
+    Authority
+    Receipts
+    Settings
+
+  secondary session/project rail
+    active sessions
+    recent projects
+    pinned workspaces
+    blocked approvals
+
+  main canvas
+    selected application surface
+
+  right inspector
+    authority, privacy, receipts, model/harness/provider, artifact refs
+```
+
+New / refined implementation objects:
+
+```ts
+type HypervisorSurfaceId =
+  | "home"
+  | "sessions"
+  | "projects"
+  | "missions"
+  | "workbench"
+  | "recipes"
+  | "agents"
+  | "models"
+  | "privacy"
+  | "fleet"
+  | "foundry"
+  | "authority"
+  | "receipts"
+  | "settings";
+
+interface HypervisorSessionCard {
+  session_id: string;
+  title: string;
+  project_ref: string;
+  surface_hint: HypervisorSurfaceId;
+  status: "draft" | "running" | "blocked" | "review" | "idle" | "archived";
+  selected_harness_profile_ref?: string;
+  selected_model_mount_ref?: string;
+  authority_summary_ref?: string;
+  privacy_posture_ref?: string;
+  latest_receipt_refs: string[];
+  restore_state?: "hot" | "warm" | "zero_to_idle" | "archived" | "unavailable";
+}
+
+interface HypervisorSessionLaunchRecipe {
+  recipe_id: string;
+  label: string;
+  kind:
+    | "mission"
+    | "workbench"
+    | "agent"
+    | "automation"
+    | "foundry_job"
+    | "fleet_job"
+    | "privacy_workspace";
+  required_inputs: string[];
+  model_mount_policy: "inherit" | "select" | "required" | "forbidden";
+  harness_profile_policy: "default" | "select" | "external_adapter";
+  authority_scope_templates: string[];
+  privacy_posture_templates: string[];
+}
+
+interface WorkbenchAdapterPreference {
+  adapter_id:
+    | "vscode"
+    | "cursor"
+    | "windsurf"
+    | "jetbrains"
+    | "browser_ide"
+    | "openvscode_embedded"
+    | "terminal_tmux"
+    | "workspace_substrate";
+  launch_mode: "embedded" | "external" | "remote_url" | "headless";
+  default_for_project?: boolean;
+}
+```
+
+Implementation phases:
+
+| Phase | Objective | Main files | Acceptance |
+| --- | --- | --- | --- |
+| 0A.1 Product-shell rename and route map | Introduce Hypervisor naming without relying on old Autopilot tab semantics. | `apps/autopilot/src/main.tsx`, `AutopilotShellWindow/*`, CSS, tests | App copy says Hypervisor; compatibility names are implementation-only. |
+| 0A.2 App shell IA | Build ONA-like shell with left rail, New Session, sessions rail, main surface, right inspector. | `AutopilotShellContent.tsx`, `ChatLocalActivityBar.tsx`, `ChatLeftSidebarShell.tsx`, shell CSS | Home opens as app cockpit, not Code repositories/OpenVSCode. |
+| 0A.3 Session/project model | Add session cards, project cards, restore state, blocked approvals, recent sessions. | `autopilotShellModel.ts`, `operatorSubstrateModel.ts`, Home/Session services | Sessions persist visually and map to daemon/Agentgres refs where available. |
+| 0A.4 New Session flow | Create guided launch flow: Mission, Workbench, Agent, Automation, Foundry job, Fleet job, Private Workspace. | New surface or Home components; `workspaceRuntimeNavigation.ts`; runtime launch services | User can start a governed session with model/harness/privacy/authority summary. |
+| 0A.5 Workbench as adapter hub | Move "Code repositories" under Workbench and expose editor adapter preference. | `WorkspaceShell.tsx`, `WorkspaceRepositoryGate.tsx`, `workspaceWorkbenchHost.ts`, settings | VS Code/OpenVSCode is one adapter target; Cursor/Windsurf/JetBrains/browser IDE/terminal can be represented. |
+| 0A.6 Workflow Compositor / Recipes | Convert current workflow composer/runs into Recipes/Automations with templates, filters, run buttons, receipt state. | MissionControl workflow views, `packages/agent-ide/src/WorkflowComposer.tsx`, workbench webview | ONA-like templates become Hypervisor recipes backed by compositor objects. |
+| 0A.7 Models as infrastructure and setup | Keep a Models surface, but also embed model mounting into New Session/Create Agent/Mission setup. | `MissionControlMountsView.tsx`, model daemon actions, public `/v1/model-mount/*` clients | Model mounts are not a detached tab; each session shows selected model/provider/custody. |
+| 0A.8 Authority/privacy/receipts inspector | Add persistent contextual governance panel. | Policy, Capabilities, Settings, cTEE/private workspace services, receipt components | Selected session always reveals authority scope, privacy posture, latest receipts. |
+| 0A.9 Fleet and private workspace path | Surface direct providers, remote VM workspaces, DePIN nodes, zero-to-idle/restore. | Fleet surface, workspace host/session services, provider integrations | User can create persistent workspace/node route without treating provider as trusted. |
+| 0A.10 Visual and behavior conformance | Add Playwright smoke checks and source scans for naming/IA. | App tests, `scripts/conformance/hypervisor-conformance.mjs` | Checks prove no user-facing "Autopilot" tabs, no Workbench-as-parent, and Home/Sessions/Workbench flows work. |
+
+Code migration posture:
+
+```text
+Do not rewrite the app from scratch.
+Do create a new shell contract and progressively move existing surfaces under it.
+Do not delete model mounting, Workflow Composer, Policy, Settings, or
+WorkspaceShell; rehome them under the sharper IA.
+Do not make ONA the product; borrow its clarity:
+  New Session, persistent sessions rail, templates, settings, default editor.
+Do not make model mounting a lonely infra page; make it contextual in launch.
+Do not make Workbench the parent product; make it one surface.
+```
+
+First implementation slice:
+
+```text
+1. Add `HypervisorShellNavigationModel` and `HypervisorSurfaceId`.
+2. Replace visible Autopilot shell labels with Hypervisor labels.
+3. Make Home the default route and render a left rail:
+   New Session, Home, Projects, Sessions, Missions, Workbench, Recipes,
+   Agents, Models, Privacy, Fleet, Foundry, Authority, Receipts, Settings.
+4. Move Code repositories under Workbench.
+5. Add a New Session modal with fixture-backed choices and model/harness/privacy
+   summary rows.
+6. Add tests/source scans for:
+   - no "Autopilot Code" visible tab label;
+   - Workbench is a surface, not parent product;
+   - model mounting appears in session setup and Models surface;
+   - editor preference supports embedded and external adapter modes.
+```
+
+Verification ladder:
+
+```text
+npm run build --workspace=@ioi/agent-ide --if-present
+npm run build --workspace=@ioi/workspace-substrate --if-present
+npm run build --workspace=autopilot
+node --check touched .mjs files
+focused shell/navigation tests
+Playwright smoke:
+  / -> Hypervisor Home
+  New Session opens
+  Workbench opens repository gate/editor adapter selector
+  Models surface opens daemon model-mount projection
+  Authority/Privacy/Receipts inspector changes with selected session
+git diff --check -- apps/autopilot packages/agent-ide internal-docs/implementation docs/architecture
+```
+
+UX anti-patterns:
+
+```text
+Hypervisor = VS Code fork
+Hypervisor App = Workbench only
+Workbench = parent product
+Model mounting = primary user job
+Autopilot tabs = product IA
+One separate GUI app per surface
+New Session = raw prompt box without authority/privacy/model/harness setup
+External agent harness = trusted runtime
+Embedded VS Code = required
+Rented GPU workspace = trusted local desktop
+```
+
+Completion target:
+
+```text
+The user opens Hypervisor and sees an autonomous-work cockpit.
+They can start a mission, open a workbench in their preferred editor adapter,
+select or inherit a model mount, bind authority, see privacy posture, and inspect
+receipts without the app feeling like a VS Code tab collection.
+```
 
 ### Phase 1: Promote Broad Autonomous Labor Canon
 
@@ -598,6 +911,8 @@ This guide is complete when it contains:
 - an executive verdict;
 - at least ten edge-case stress tests;
 - at least ten coherence findings;
+- a Hypervisor App UX implementation plan from Autopilot/OpenVSCode gravity to
+  Hypervisor Core cockpit;
 - at least five simplification opportunities;
 - source-of-truth corrections;
 - vocabulary corrections;
@@ -611,4 +926,5 @@ Verification for this guide:
 ```text
 git diff --check -- internal-docs/implementation/refine-architecture.md
 rg -n "Executive Verdict|Edge-Case Stress Tests|Coherence Findings|Proposed Patch Plan|Final Doctrine Delta" internal-docs/implementation/refine-architecture.md
+rg -n "Hypervisor App UX Master Plan|HypervisorSessionLaunchRecipe|WorkbenchAdapterPreference" internal-docs/implementation/refine-architecture.md
 ```
