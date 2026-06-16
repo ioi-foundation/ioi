@@ -116,7 +116,7 @@ test("loadModelMountingMaps applies the canonical directory map table", () => {
   }
 });
 
-test("OAuth, catalog-provider, capability-token, runtime-engine JS cache maps stay retired; MCP JS cache maps stay retired; conversation JS cache maps stay retired", () => {
+test("OAuth, catalog-provider, capability-token, runtime-engine JS cache maps stay retired; MCP JS cache maps stay retired; conversation JS cache maps stay retired; vault-ref JS cache maps stay retired", () => {
   assert.equal(
     MODEL_MOUNTING_STATE_MAPS.some(([dir, property]) => dir === "oauth-sessions" || property === "oauthSessions"),
     false,
@@ -156,6 +156,12 @@ test("OAuth, catalog-provider, capability-token, runtime-engine JS cache maps st
   assert.equal(
     MODEL_MOUNTING_STATE_MAPS.some(
       ([dir, property]) => dir === "model-conversations" || property === "conversations",
+    ),
+    false,
+  );
+  assert.equal(
+    MODEL_MOUNTING_STATE_MAPS.some(
+      ([dir, property]) => dir === "vault-refs" || property === "vaultRefs",
     ),
     false,
   );
@@ -226,7 +232,7 @@ test("writeModelMountingVaultRefs retirement does not depend on Rust Agentgres c
     },
   );
 
-  assert.equal(state.vaultRefs.size, 0);
+  assert.equal(Object.hasOwn(state, "vaultRefs"), false);
   assert.deepEqual(state.writes, []);
 });
 

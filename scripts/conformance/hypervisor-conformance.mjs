@@ -26903,6 +26903,21 @@ function runReceipts() {
       !/this\.vault\.adapterStatus/.test(modelMountingState) &&
       !/this\.vault\.removeVaultRef/.test(modelMountingState) &&
       !/this\.vault\.health/.test(modelMountingState) &&
+      !/this\.vaultRefs\s*=/.test(modelMountingState) &&
+      !/this\.vault\.loadMetadata\(\[\.\.\.this\.vaultRefs\.values\(\)\]\)/.test(modelMountingState) &&
+      !/\["vault-refs",\s*"vaultRefs"\]/.test(
+        read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs"),
+      ) &&
+      !/state\?\.vaultRefs/.test(read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs")) &&
+      /vault-ref JS cache maps stay retired/.test(
+        read("packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs"),
+      ) &&
+      /Object\.hasOwn\(state,\s*"vaultRefs"\),\s*false/.test(
+        read("packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs"),
+      ) &&
+      /Slice 1334 hard-cuts the model_mount vault-ref JS cache substrate/.test(guide) &&
+      /Model_mount vault-ref JS cache retired/.test(matrix) &&
+      /RuntimeDaemonCoreModelMountVaultRefCacheRetired/.test(implementationMatrix) &&
       !/export function publicVaultRefs/.test(modelMountingIo) &&
       /MODEL_MOUNT_VAULT_CONTROL_SCHEMA_VERSION/.test(vaultControl) &&
       /state\.planVaultControl/.test(vaultControl) &&

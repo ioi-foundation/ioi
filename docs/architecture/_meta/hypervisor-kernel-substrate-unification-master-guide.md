@@ -11105,6 +11105,16 @@ catalog search remains Rust-owned through the `catalog_search` read projection
 over Agentgres provider-inventory replay; JS provider iteration, result
 aggregation, enrichment, and last-search cache compatibility must not return.
 
+Slice 1334 hard-cuts the model_mount vault-ref JS cache substrate.
+`ModelMountingState` no longer constructs `vaultRefs`, the state map loader no
+longer hydrates `vault-refs` into JS memory, and daemon startup no longer loads
+that map back into the local vault port as accepted metadata. Public vault
+bind/list/metadata/status/health/remove truth remains Rust-owned through
+`planModelMountVaultControl`, Agentgres `vault-refs` commits, wallet.network
+authority evidence, cTEE custody evidence, and Rust custody replay. The
+`vault-refs` record directory remains the admitted Agentgres substrate; the
+retired JS `vaultRefs` map must not return beside it.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

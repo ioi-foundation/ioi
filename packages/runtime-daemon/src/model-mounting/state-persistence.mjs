@@ -7,7 +7,6 @@ export const MODEL_MOUNTING_STATE_MAPS = [
   ["model-instances", "instances"],
   ["model-routes", "routes"],
   ["model-downloads", "downloads"],
-  ["vault-refs", "vaultRefs"],
 ];
 
 export function loadModelMountingMaps(state, deps = {}) {
@@ -60,7 +59,6 @@ export function writeModelMountingVaultRefs(state) {
     record_dir: "vault-refs",
     rust_core_api: "plan_model_mount_vault_control",
     canonical_persistence: "rust_agentgres_record_state_commit",
-    record_count: typeof state?.vaultRefs?.size === "number" ? state.vaultRefs.size : null,
   };
   throw error;
 }

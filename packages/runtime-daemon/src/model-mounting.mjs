@@ -432,10 +432,8 @@ export class ModelMountingState {
     this.instances = new Map();
     this.routes = new Map();
     this.downloads = new Map();
-    this.vaultRefs = new Map();
     this.ensureDirs();
     this.load();
-    this.vault.loadMetadata([...this.vaultRefs.values()]);
     this.seedDefaults();
     this.writeAll();
   }
