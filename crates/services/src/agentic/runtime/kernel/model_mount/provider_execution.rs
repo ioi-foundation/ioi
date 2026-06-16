@@ -36,6 +36,14 @@ pub struct ModelMountProviderInvocationRequest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub backend_ref: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub base_url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provider_auth_materialization_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub outbound_header_binding_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub auth_header_materialization_status: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stream_status: Option<String>,
     #[serde(default)]
     pub receipt_refs: Vec<String>,
@@ -74,6 +82,14 @@ pub struct ModelMountProviderInvocationResult {
     pub backend: String,
     pub backend_id: String,
     pub execution_backend: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub base_url_hash: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provider_auth_materialization_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub outbound_header_binding_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub auth_header_materialization_status: Option<String>,
     #[serde(default)]
     pub provider_auth_evidence_refs: Vec<String>,
     #[serde(default)]
@@ -103,6 +119,14 @@ pub struct ModelMountProviderStreamInvocationResult {
     pub backend: String,
     pub backend_id: String,
     pub execution_backend: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub base_url_hash: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provider_auth_materialization_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub outbound_header_binding_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub auth_header_materialization_status: Option<String>,
     pub stream_format: String,
     pub stream_kind: String,
     pub stream_chunks: Vec<String>,
@@ -313,6 +337,35 @@ fn validate_hosted_provider_invocation_gate(
     ) {
         return Err(ModelMountError::HostedProviderInvocationMissingAuthEvidence);
     }
+    if request
+        .base_url
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .is_none()
+    {
+        return Err(ModelMountError::HostedProviderInvocationMissingEndpointUrl);
+    }
+    if request
+        .provider_auth_materialization_ref
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .is_none()
+        || request
+            .outbound_header_binding_ref
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .is_none()
+        || request
+            .auth_header_materialization_status
+            .as_deref()
+            .map(str::trim)
+            != Some("rust_ctee_outbound_header_bound")
+    {
+        return Err(ModelMountError::HostedProviderInvocationMissingAuthMaterialization);
+    }
     Ok(())
 }
 
@@ -512,6 +565,25 @@ pub(super) fn provider_invocation_response_kind(
     "rust_model_mount.fixture".to_string()
 }
 
+pub(super) fn hosted_provider_base_url_hash(
+    request: &ModelMountProviderInvocationRequest,
+) -> Result<Option<String>, ModelMountError> {
+    if !is_hosted_provider_invocation_backend(request)
+        && !is_hosted_provider_stream_invocation_backend(request)
+    {
+        return Ok(None);
+    }
+    let Some(base_url) = request
+        .base_url
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    else {
+        return Err(ModelMountError::HostedProviderInvocationMissingEndpointUrl);
+    };
+    Ok(Some(format!("sha256:{}", sha256_hex(base_url.as_bytes())?)))
+}
+
 pub(super) fn estimate_tokens(input: &str, output: &str) -> ModelMountTokenCount {
     let prompt_tokens = estimated_token_count(input);
     let completion_tokens = estimated_token_count(output);
@@ -541,8 +613,10 @@ pub(super) fn provider_invocation_evidence_refs(
     } else if is_hosted_provider_invocation_backend(request) {
         refs.push("rust_model_mount_hosted_provider_backend".to_string());
         refs.push("rust_hosted_provider_invocation_transport_materialized".to_string());
+        refs.push("rust_hosted_provider_endpoint_url_bound".to_string());
         refs.push("wallet_network_provider_transport_authority_bound".to_string());
         refs.push("ctee_hosted_provider_secret_not_exposed".to_string());
+        refs.push("ctee_outbound_header_binding_ref_bound".to_string());
         refs.push("rust_provider_auth_materialization_bound".to_string());
         refs.push("hosted_provider_auth_header_materialized_by_rust".to_string());
         refs.push("hosted_provider_auth_header_materialization_contract_bound".to_string());
@@ -590,6 +664,8 @@ pub(super) fn backend_evidence_refs(request: &ModelMountProviderInvocationReques
     } else if is_hosted_provider_invocation_backend(request) {
         refs.push("rust_model_mount_hosted_provider_backend".to_string());
         refs.push("rust_hosted_provider_invocation_transport_materialized".to_string());
+        refs.push("rust_hosted_provider_endpoint_url_bound".to_string());
+        refs.push("ctee_outbound_header_binding_ref_bound".to_string());
         refs.push("rust_provider_auth_materialization_bound".to_string());
         refs.push("hosted_provider_auth_header_materialized_by_rust".to_string());
         refs.push("hosted_provider_auth_header_materialization_contract_bound".to_string());
@@ -597,6 +673,8 @@ pub(super) fn backend_evidence_refs(request: &ModelMountProviderInvocationReques
     } else if is_hosted_provider_stream_invocation_backend(request) {
         refs.push("rust_model_mount_hosted_provider_stream_backend".to_string());
         refs.push("rust_hosted_provider_stream_transport_materialized".to_string());
+        refs.push("rust_hosted_provider_endpoint_url_bound".to_string());
+        refs.push("ctee_outbound_header_binding_ref_bound".to_string());
         refs.push("rust_provider_auth_materialization_bound".to_string());
         refs.push("hosted_provider_auth_header_materialized_by_rust".to_string());
         refs.push("hosted_provider_auth_header_materialization_contract_bound".to_string());
@@ -696,6 +774,10 @@ mod tests {
             api_format: Some("ioi_fixture".to_string()),
             driver: Some("fixture".to_string()),
             backend_ref: Some("backend.fixture".to_string()),
+            base_url: None,
+            provider_auth_materialization_ref: None,
+            outbound_header_binding_ref: None,
+            auth_header_materialization_status: None,
             stream_status: None,
             receipt_refs: admission.receipt_refs.clone(),
             evidence_refs: vec![admission.provider_execution_ref.clone()],
@@ -727,6 +809,10 @@ mod tests {
             api_format: Some("ioi_native".to_string()),
             driver: Some("native_local".to_string()),
             backend_ref: Some("backend.autopilot.native-local.fixture".to_string()),
+            base_url: None,
+            provider_auth_materialization_ref: None,
+            outbound_header_binding_ref: None,
+            auth_header_materialization_status: None,
             stream_status: admission.stream_status.clone(),
             receipt_refs: admission.receipt_refs.clone(),
             evidence_refs: vec![admission.provider_execution_ref.clone()],
@@ -988,6 +1074,34 @@ mod tests {
         ];
         request.admitted_provider_execution = Some(admitted.clone());
 
+        let error =
+            invoke_provider(&request).expect_err("hosted provider endpoint URL is required");
+
+        assert_eq!(
+            error,
+            ModelMountError::HostedProviderInvocationMissingEndpointUrl
+        );
+
+        request.base_url = Some("https://api.openai.example/v1".to_string());
+
+        let error = invoke_provider(&request)
+            .expect_err("hosted provider auth materialization refs are required");
+
+        assert_eq!(
+            error,
+            ModelMountError::HostedProviderInvocationMissingAuthMaterialization
+        );
+
+        request.provider_auth_materialization_ref = Some(
+            "agentgres://model-mounting/model-provider-auth-materializations/provider.openai_auth_header"
+                .to_string(),
+        );
+        request.outbound_header_binding_ref = Some(
+            "provider_auth_header://provider.openai_auth_header#sha256:provider-auth".to_string(),
+        );
+        request.auth_header_materialization_status =
+            Some("rust_ctee_outbound_header_bound".to_string());
+
         let result =
             invoke_provider(&request).expect("hosted provider invocation executes in Rust owner");
 
@@ -1007,8 +1121,19 @@ mod tests {
             .backend_evidence_refs
             .contains(&"rust_hosted_provider_invocation_transport_materialized".to_string()));
         assert!(result
+            .backend_evidence_refs
+            .contains(&"rust_hosted_provider_endpoint_url_bound".to_string()));
+        assert!(result
+            .backend_evidence_refs
+            .contains(&"ctee_outbound_header_binding_ref_bound".to_string()));
+        assert!(result
             .evidence_refs
             .contains(&"rust_model_mount_hosted_provider_backend".to_string()));
+        assert!(result.base_url_hash.is_some());
+        assert_eq!(
+            result.auth_header_materialization_status.as_deref(),
+            Some("rust_ctee_outbound_header_bound")
+        );
 
         admitted.authority_grant_refs.clear();
         request.admitted_provider_execution = Some(admitted);

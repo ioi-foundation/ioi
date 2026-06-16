@@ -1,8 +1,9 @@
 use super::{
     backend_evidence_refs, deterministic_hosted_provider_output, deterministic_native_local_output,
-    estimate_tokens, is_hosted_provider_stream_invocation_backend, provider_auth_evidence_refs,
-    provider_stream_invocation_hash, ModelMountProviderInvocationRequest,
-    ModelMountProviderStreamInvocationResult, ModelMountTokenCount,
+    estimate_tokens, hosted_provider_base_url_hash, is_hosted_provider_stream_invocation_backend,
+    provider_auth_evidence_refs, provider_stream_invocation_hash,
+    ModelMountProviderInvocationRequest, ModelMountProviderStreamInvocationResult,
+    ModelMountTokenCount,
 };
 use crate::agentic::runtime::kernel::model_mount::{
     ModelMountError, MODEL_MOUNT_PROVIDER_STREAM_INVOCATION_SCHEMA_VERSION,
@@ -49,6 +50,10 @@ pub(super) fn invoke_provider_stream(
         backend: provider_stream_backend(request),
         backend_id: provider_stream_backend_id(request),
         execution_backend: request.execution_backend.clone(),
+        base_url_hash: hosted_provider_base_url_hash(request)?,
+        provider_auth_materialization_ref: request.provider_auth_materialization_ref.clone(),
+        outbound_header_binding_ref: request.outbound_header_binding_ref.clone(),
+        auth_header_materialization_status: request.auth_header_materialization_status.clone(),
         stream_format: "ioi_jsonl".to_string(),
         stream_kind: provider_stream_kind(request),
         stream_chunks,
@@ -183,8 +188,10 @@ fn provider_stream_invocation_evidence_refs(
     if is_hosted_provider_stream_invocation_backend(request) {
         refs.push("rust_model_mount_hosted_provider_stream_backend".to_string());
         refs.push("rust_hosted_provider_stream_transport_materialized".to_string());
+        refs.push("rust_hosted_provider_endpoint_url_bound".to_string());
         refs.push("wallet_network_provider_transport_authority_bound".to_string());
         refs.push("ctee_hosted_provider_secret_not_exposed".to_string());
+        refs.push("ctee_outbound_header_binding_ref_bound".to_string());
         refs.push("rust_provider_auth_materialization_bound".to_string());
         refs.push("hosted_provider_auth_header_materialized_by_rust".to_string());
         refs.push("hosted_provider_auth_header_materialization_contract_bound".to_string());
@@ -274,6 +281,10 @@ mod tests {
             api_format: Some("ioi_native".to_string()),
             driver: Some("native_local".to_string()),
             backend_ref: Some("backend.autopilot.native-local.fixture".to_string()),
+            base_url: None,
+            provider_auth_materialization_ref: None,
+            outbound_header_binding_ref: None,
+            auth_header_materialization_status: None,
             stream_status: admission.stream_status.clone(),
             receipt_refs: admission.receipt_refs.clone(),
             evidence_refs: vec![admission.provider_execution_ref.clone()],
@@ -315,6 +326,16 @@ mod tests {
             api_format: Some("openai".to_string()),
             driver: Some("openai_compatible".to_string()),
             backend_ref: Some("backend.openai-compatible".to_string()),
+            base_url: Some("https://api.openai.example/v1".to_string()),
+            provider_auth_materialization_ref: Some(
+                "agentgres://model-mounting/model-provider-auth-materializations/provider.openai_auth_header"
+                    .to_string(),
+            ),
+            outbound_header_binding_ref: Some(
+                "provider_auth_header://provider.openai_auth_header#sha256:provider-auth"
+                    .to_string(),
+            ),
+            auth_header_materialization_status: Some("rust_ctee_outbound_header_bound".to_string()),
             stream_status: admission.stream_status.clone(),
             receipt_refs: admission.receipt_refs.clone(),
             evidence_refs: vec![admission.provider_execution_ref.clone()],

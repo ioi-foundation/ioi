@@ -1208,7 +1208,16 @@ test("modelMountProviderInvocationRequestForExecution binds fixture execution to
     },
     selection: selection({
       endpoint: { api_format: "openai" },
-      provider: { id: "provider.openai", kind: "openai" },
+      provider: {
+        id: "provider.openai",
+        kind: "openai",
+        base_url: "https://api.openai.example/v1",
+        provider_auth_materialization_ref:
+          "agentgres://model-mounting/model-provider-auth-materializations/provider.openai_auth_header",
+        outbound_header_binding_ref:
+          "provider_auth_header://provider.openai_auth_header#sha256:provider-auth",
+        auth_header_materialization_status: "rust_ctee_outbound_header_bound",
+      },
     }),
   });
   assert.equal(hostedRequest.execution_backend, "rust_model_mount_hosted_provider");
@@ -1216,6 +1225,16 @@ test("modelMountProviderInvocationRequestForExecution binds fixture execution to
   assert.equal(hostedRequest.api_format, "openai");
   assert.equal(hostedRequest.driver, null);
   assert.equal(hostedRequest.backend_ref, "backend.openai-compatible");
+  assert.equal(hostedRequest.base_url, "https://api.openai.example/v1");
+  assert.equal(
+    hostedRequest.provider_auth_materialization_ref,
+    "agentgres://model-mounting/model-provider-auth-materializations/provider.openai_auth_header",
+  );
+  assert.equal(
+    hostedRequest.outbound_header_binding_ref,
+    "provider_auth_header://provider.openai_auth_header#sha256:provider-auth",
+  );
+  assert.equal(hostedRequest.auth_header_materialization_status, "rust_ctee_outbound_header_bound");
   assert.equal(hostedRequest.admitted_provider_execution.provider_ref, "provider.openai");
 });
 
@@ -1307,7 +1326,17 @@ test("modelMountProviderStreamInvocationRequestForExecution binds native-local s
     },
     selection: selection({
       endpoint: { api_format: "openai", driver: "openai_compatible" },
-      provider: { id: "provider.openai", kind: "openai", driver: "openai_compatible" },
+      provider: {
+        id: "provider.openai",
+        kind: "openai",
+        driver: "openai_compatible",
+        base_url: "https://api.openai.example/v1",
+        provider_auth_materialization_ref:
+          "agentgres://model-mounting/model-provider-auth-materializations/provider.openai_auth_header",
+        outbound_header_binding_ref:
+          "provider_auth_header://provider.openai_auth_header#sha256:provider-auth",
+        auth_header_materialization_status: "rust_ctee_outbound_header_bound",
+      },
     }),
   });
   assert.equal(hostedStreamRequest.execution_backend, "rust_model_mount_hosted_provider_stream");
@@ -1316,6 +1345,19 @@ test("modelMountProviderStreamInvocationRequestForExecution binds native-local s
   assert.equal(hostedStreamRequest.api_format, "openai");
   assert.equal(hostedStreamRequest.driver, "openai_compatible");
   assert.equal(hostedStreamRequest.backend_ref, "backend.openai-compatible");
+  assert.equal(hostedStreamRequest.base_url, "https://api.openai.example/v1");
+  assert.equal(
+    hostedStreamRequest.provider_auth_materialization_ref,
+    "agentgres://model-mounting/model-provider-auth-materializations/provider.openai_auth_header",
+  );
+  assert.equal(
+    hostedStreamRequest.outbound_header_binding_ref,
+    "provider_auth_header://provider.openai_auth_header#sha256:provider-auth",
+  );
+  assert.equal(
+    hostedStreamRequest.auth_header_materialization_status,
+    "rust_ctee_outbound_header_bound",
+  );
   assert.equal(
     hostedStreamRequest.admitted_provider_execution.provider_auth_evidence_refs.includes(
       "ctee_hosted_provider_secret_not_exposed",

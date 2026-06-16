@@ -11774,6 +11774,24 @@ injection into outbound hosted network requests, live external backend binary
 spawning/supervision, and deeper invocation authority still need terminal
 Rust-owned execution coverage.
 
+Slice 1373 hard-cuts hosted provider transport-input binding into the Rust
+provider-invocation request contract. Hosted non-stream and stream invocation
+requests now carry canonical `base_url`, `provider_auth_materialization_ref`,
+`outbound_header_binding_ref`, and
+`auth_header_materialization_status: "rust_ctee_outbound_header_bound"` fields
+from admitted provider/endpoint records into `ModelMountProviderInvocationRequest`.
+Rust `provider_execution` rejects hosted invocation before result materialization
+unless the endpoint URL, wallet/cTEE auth-materialization refs, and outbound
+header binding are present; Rust result hashes bind `base_url_hash` plus the
+auth materialization refs, and evidence now records
+`rust_hosted_provider_endpoint_url_bound` and
+`ctee_outbound_header_binding_ref_bound`. Focused JS/Rust tests and conformance
+guard that hosted invocation cannot rely on evidence-only auth claims or
+JS-implied endpoint transport inputs. This remains non-terminal because live
+hosted network I/O, live cTEE secret injection into outbound hosted requests,
+live external backend binary spawning/supervision, and deeper invocation
+authority still need terminal Rust-owned execution coverage.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

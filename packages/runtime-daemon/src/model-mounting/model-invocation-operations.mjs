@@ -277,6 +277,16 @@ export function modelMountProviderInvocationRequestForExecution({
     api_format: optionalRef(endpoint.api_format ?? provider.api_format),
     driver: explicitProviderDriver(selection),
     backend_ref: optionalRef(instance.backend_id ?? endpoint.backend_id),
+    base_url: optionalRef(endpoint.base_url ?? provider.base_url),
+    provider_auth_materialization_ref: optionalRef(
+      endpoint.provider_auth_materialization_ref ?? provider.provider_auth_materialization_ref,
+    ),
+    outbound_header_binding_ref: optionalRef(
+      endpoint.outbound_header_binding_ref ?? provider.outbound_header_binding_ref,
+    ),
+    auth_header_materialization_status: optionalRef(
+      endpoint.auth_header_materialization_status ?? provider.auth_header_materialization_status,
+    ),
     stream_status: optionalRef(record.stream_status),
     receipt_refs: modelMountProviderExecutionAdmission.receipt_refs ?? record.receipt_refs ?? [],
     evidence_refs: uniqueRefs([
@@ -323,6 +333,16 @@ export function modelMountProviderStreamInvocationRequestForExecution({
     api_format: optionalRef(endpoint.api_format ?? provider.api_format),
     driver: explicitProviderDriver(selection),
     backend_ref: optionalRef(instance.backend_id ?? endpoint.backend_id),
+    base_url: optionalRef(endpoint.base_url ?? provider.base_url),
+    provider_auth_materialization_ref: optionalRef(
+      endpoint.provider_auth_materialization_ref ?? provider.provider_auth_materialization_ref,
+    ),
+    outbound_header_binding_ref: optionalRef(
+      endpoint.outbound_header_binding_ref ?? provider.outbound_header_binding_ref,
+    ),
+    auth_header_materialization_status: optionalRef(
+      endpoint.auth_header_materialization_status ?? provider.auth_header_materialization_status,
+    ),
     stream_status: optionalRef(record.stream_status) ?? "started",
     receipt_refs: modelMountProviderExecutionAdmission.receipt_refs ?? record.receipt_refs ?? [],
     evidence_refs: uniqueRefs([
