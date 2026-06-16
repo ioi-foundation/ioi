@@ -3778,6 +3778,9 @@ function runBridge() {
         exists("crates/services/src/agentic/runtime/kernel/model_mount/provider_result.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/provider_result.rs")
           : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/invocation_authority.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/invocation_authority.rs")
+          : "",
       ].join("\n")
     : "";
   const modelMountCore = [modelMountDaemonCore, rustModelMountCore].join("\n");
@@ -3862,6 +3865,9 @@ function runBridge() {
     "";
   const modelStreamFacadeBlock =
     modelInvocationOps.match(/export async function startModelStream[\s\S]*?(?=\n\nexport function modelMountInvocationAdmissionRequestForReceipt)/)?.[0] ??
+    "";
+  const modelInvocationHotPathBlock =
+    modelInvocationOps.match(/async function executeModelInvocationThroughRustCore\([\s\S]*?(?=\n\nfunction modelMountInvocationAuthorityBaseRequest)/)?.[0] ??
     "";
   const retiredModelInvocationFacadeBodyPattern =
     /\b(?:state\.authorize|state\.selectRoute|state\.routeSelectionReceipt|state\.ensureLoaded|state\.compileEphemeralMcpIntegrations|state\.receipt|state\.admitModelMountInvocation|state\.bindModelMountInvocationReceipt|state\.inflightModelInvocations|state\.invokeModel|admitModelMountProviderExecution|admitModelMountProviderResult|executeModelProviderInvocation|executeModelMountProviderInvocation|executeModelMountProviderStreamInvocation|bindModelMountInvocationReceipt|invocationReceiptDetails|persistRouteSelection|rejectUnmigratedProviderInvocationExecution|rejectProviderCompatTranslation|withTextChunksReadableStream|model_mount_provider_invocation_backend_unmigrated|model_mount_provider_stream_invocation_backend_unmigrated|model_mount_native_stream_result_required|model_mount_native_stream_backend_required)\b/;
@@ -18507,6 +18513,41 @@ function runBridge() {
       "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
     ],
     "Receipt-gate validation must stay Rust-owned: JS may gather canonical receipt facts but must not evaluate gate failures or author workflow_receipt_gate receipts",
+  );
+  assertCheck(
+    result,
+    "model-mount-invocation-authority-rust-plan-hot-path",
+    /planModelMountInvocationAuthority\(state/.test(modelInvocationHotPathBlock) &&
+      /operation:\s*"provider_execution"/.test(modelInvocationHotPathBlock) &&
+      /operation:\s*stream \? "provider_stream_invocation" : "provider_invocation"/.test(
+        modelInvocationHotPathBlock,
+      ) &&
+      /operation:\s*"provider_result_admission"/.test(modelInvocationHotPathBlock) &&
+      /operation:\s*"invocation_admission"/.test(modelInvocationHotPathBlock) &&
+      /operation:\s*"accepted_receipt_transition"/.test(modelInvocationHotPathBlock) &&
+      /operation:\s*"receipt_binding"/.test(modelInvocationHotPathBlock) &&
+      !/modelMountProviderExecutionRequestForInvocation\(/.test(modelInvocationHotPathBlock) &&
+      !/modelMountProviderInvocationRequestForExecution\(/.test(modelInvocationHotPathBlock) &&
+      !/modelMountProviderStreamInvocationRequestForExecution\(/.test(modelInvocationHotPathBlock) &&
+      !/modelMountProviderResultAdmissionRequestForExecution\(/.test(modelInvocationHotPathBlock) &&
+      !/modelMountInvocationAdmissionRequestForReceipt\(/.test(modelInvocationHotPathBlock) &&
+      !/modelMountInvocationReceiptBindingRequestForReceipt\(/.test(modelInvocationHotPathBlock) &&
+      /plan_model_mount_invocation_authority/.test(modelMountCore) &&
+      /ModelMountInvocationAuthorityRequest/.test(modelMountCore) &&
+      /MODEL_MOUNT_INVOCATION_AUTHORITY_SCHEMA_VERSION/.test(modelMountCore) &&
+      /planInvocationAuthority\(request\)/.test(modelMountDaemonCore) &&
+      /planModelMountInvocationAuthority\(request\)/.test(modelMountingState) &&
+      /rust_plans_provider_execution_contract/.test(modelMountCore) &&
+      /rust_plans_receipt_binding_step_module_projection/.test(modelMountCore) &&
+      /authorityPlanRequests\.map\(\(request\) => request\.operation\)/.test(modelInvocationOpsTest),
+    [
+      "crates/services/src/agentic/runtime/kernel/model_mount/invocation_authority.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount.rs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-core.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs",
+    ],
+    "Model invocation hot path must consume a Rust daemon-core invocation authority plan instead of authoring provider execution, provider invocation, provider result, invocation admission, or receipt-binding contracts in JS",
   );
   assertCheck(
     result,

@@ -4,6 +4,10 @@ pub const MODEL_MOUNT_RUNTIME_SCHEMA_VERSION: &str = "ioi.model-mounting.runtime
 pub const MODEL_MOUNT_ROUTE_DECISION_SCHEMA_VERSION: &str = "ioi.model_mount.route_decision.v1";
 pub const MODEL_MOUNT_INVOCATION_ADMISSION_SCHEMA_VERSION: &str =
     "ioi.model_mount.invocation_admission.v1";
+pub const MODEL_MOUNT_INVOCATION_AUTHORITY_SCHEMA_VERSION: &str =
+    "ioi.model_mount.invocation_authority.v1";
+pub const MODEL_MOUNT_INVOCATION_AUTHORITY_PLAN_SCHEMA_VERSION: &str =
+    "ioi.model_mount.invocation_authority_plan.v1";
 pub const MODEL_MOUNT_PROVIDER_EXECUTION_SCHEMA_VERSION: &str =
     "ioi.model_mount.provider_execution.v1";
 pub const MODEL_MOUNT_PROVIDER_INVOCATION_SCHEMA_VERSION: &str =
@@ -116,6 +120,7 @@ pub enum ModelMountError {
     ProviderExecutionRefMismatch,
     ProviderResultOutputHashMismatch,
     UnsupportedProviderResultBackend,
+    UnsupportedInvocationAuthorityOperation,
     UnsupportedProviderInvocationBackend,
     HostedProviderInvocationMissingAuthority,
     HostedProviderInvocationMissingAuthEvidence,

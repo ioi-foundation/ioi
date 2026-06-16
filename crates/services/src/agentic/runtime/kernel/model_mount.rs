@@ -3,6 +3,10 @@ pub use admission::{
     ModelMountInvocationAdmissionRecord, ModelMountInvocationAdmissionRequest,
     ModelMountRouteDecisionRecord, ModelMountRouteDecisionRequest,
 };
+mod invocation_authority;
+pub use invocation_authority::{
+    plan_model_mount_invocation_authority, ModelMountInvocationAuthorityRequest,
+};
 mod accepted_receipt;
 pub use accepted_receipt::{
     ModelMountAcceptedReceiptHead, ModelMountAcceptedReceiptHeadRequest,
@@ -49,7 +53,9 @@ pub use common::{
     MODEL_MOUNT_CATALOG_PROVIDER_CONTROL_SCHEMA_VERSION,
     MODEL_MOUNT_CONVERSATION_STATE_PLAN_SCHEMA_VERSION,
     MODEL_MOUNT_CONVERSATION_STATE_SCHEMA_VERSION, MODEL_MOUNT_INSTANCE_LIFECYCLE_SCHEMA_VERSION,
-    MODEL_MOUNT_INVOCATION_ADMISSION_SCHEMA_VERSION, MODEL_MOUNT_MCP_WORKFLOW_PLAN_SCHEMA_VERSION,
+    MODEL_MOUNT_INVOCATION_ADMISSION_SCHEMA_VERSION,
+    MODEL_MOUNT_INVOCATION_AUTHORITY_PLAN_SCHEMA_VERSION,
+    MODEL_MOUNT_INVOCATION_AUTHORITY_SCHEMA_VERSION, MODEL_MOUNT_MCP_WORKFLOW_PLAN_SCHEMA_VERSION,
     MODEL_MOUNT_MCP_WORKFLOW_SCHEMA_VERSION,
     MODEL_MOUNT_PROVIDER_AUTH_MATERIALIZATION_PLAN_SCHEMA_VERSION,
     MODEL_MOUNT_PROVIDER_AUTH_MATERIALIZATION_SCHEMA_VERSION,
@@ -162,6 +168,13 @@ impl ModelMountCore {
         request: &ModelMountInvocationAdmissionRequest,
     ) -> Result<ModelMountInvocationAdmissionRecord, ModelMountError> {
         admission::admit_invocation(request)
+    }
+
+    pub fn plan_invocation_authority(
+        &self,
+        request: &ModelMountInvocationAuthorityRequest,
+    ) -> Result<serde_json::Value, ModelMountError> {
+        invocation_authority::plan_model_mount_invocation_authority(request)
     }
 
     pub fn admit_provider_execution(

@@ -132,8 +132,8 @@ use marketplace::{
 use model_mount::{
     plan_model_mount_backend_lifecycle, plan_model_mount_backend_process,
     plan_model_mount_backend_process_materialization, plan_model_mount_conversation_state,
-    plan_model_mount_route_control_required, plan_model_mount_stream_cancel,
-    plan_model_mount_stream_completion, plan_model_mount_tokenizer,
+    plan_model_mount_invocation_authority, plan_model_mount_route_control_required,
+    plan_model_mount_stream_cancel, plan_model_mount_stream_completion, plan_model_mount_tokenizer,
     plan_model_mount_tokenizer_required, supervise_model_mount_backend_process,
     ModelMountAcceptedReceiptHeadRequest, ModelMountAcceptedReceiptTransitionRequest,
     ModelMountArtifactEndpointPlan, ModelMountArtifactEndpointRequest,
@@ -145,7 +145,7 @@ use model_mount::{
     ModelMountConversationStateRequest, ModelMountCore, ModelMountError,
     ModelMountInstanceLifecycleRequest, ModelMountInstanceLifecycleResult,
     ModelMountInvocationAdmissionRecord, ModelMountInvocationAdmissionRequest,
-    ModelMountMcpWorkflowPlan, ModelMountMcpWorkflowRequest,
+    ModelMountInvocationAuthorityRequest, ModelMountMcpWorkflowPlan, ModelMountMcpWorkflowRequest,
     ModelMountProviderAuthMaterializationPlan, ModelMountProviderAuthMaterializationRequest,
     ModelMountProviderControlPlan, ModelMountProviderControlRequest,
     ModelMountProviderExecutionRecord, ModelMountProviderExecutionRequest,
@@ -1104,6 +1104,13 @@ impl RuntimeKernelService {
         request: &ModelMountInvocationAdmissionRequest,
     ) -> Result<ModelMountInvocationAdmissionRecord, ModelMountError> {
         ModelMountCore.admit_invocation(request)
+    }
+
+    pub fn plan_model_mount_invocation_authority(
+        &self,
+        request: &ModelMountInvocationAuthorityRequest,
+    ) -> Result<serde_json::Value, ModelMountError> {
+        plan_model_mount_invocation_authority(request)
     }
 
     pub fn admit_model_mount_provider_execution(

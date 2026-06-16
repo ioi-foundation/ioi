@@ -630,7 +630,6 @@ async function executeModelInvocationThroughRustCore(
 ) {
   const {
     inputText = modelInvocationInputText,
-    stableHash: hash = stableHash,
     supportsResponseState = modelInvocationSupportsResponseState,
   } = deps;
   const started = nowMs(state);
@@ -660,59 +659,54 @@ async function executeModelInvocationThroughRustCore(
   const ephemeralMcp = normalizeEphemeralMcp(
     state.compileEphemeralMcpIntegrations({ body: requestBody, input }),
   );
-  const providerBody = requestBody;
   const token = normalizeInvocationToken(null);
+  const authorityBase = modelMountInvocationAuthorityBaseRequest({
+    body: requestBody,
+    capability,
+    ephemeralMcp,
+    input,
+    instance,
+    kind,
+    previousResponseId,
+    responseId,
+    routeReceipt,
+    selection,
+    stream,
+    streamStatus: stream ? "started" : null,
+    token,
+  });
+  const providerExecutionAuthority = planModelMountInvocationAuthority(state, {
+    ...authorityBase,
+    operation: "provider_execution",
+  }, "provider_execution_request");
   const providerExecutionAdmission = admitModelMountProviderExecution(
     state,
-    modelMountProviderExecutionRequestForInvocation({
-      body: requestBody,
-      capability,
-      ephemeralMcp,
-      hash,
-      input,
-      instance,
-      kind,
-      previousResponseId,
-      providerBody,
-      responseId,
-      routeReceipt,
-      selection,
-      streamStatus: stream ? "started" : null,
-      token,
-    }),
+    providerExecutionAuthority.provider_execution_request,
   );
+  const providerInvocationAuthority = planModelMountInvocationAuthority(state, {
+    ...authorityBase,
+    operation: stream ? "provider_stream_invocation" : "provider_invocation",
+    provider_execution_admission: providerExecutionAdmission,
+  }, "provider_invocation_request");
   const providerInvocation = stream
     ? executeModelMountProviderStreamInvocation(
         state,
-        modelMountProviderStreamInvocationRequestForExecution({
-          input,
-          instance,
-          kind,
-          modelMountProviderExecutionAdmission: providerExecutionAdmission,
-          selection,
-        }),
+        providerInvocationAuthority.provider_invocation_request,
       )
     : executeModelMountProviderInvocation(
         state,
-        modelMountProviderInvocationRequestForExecution({
-          input,
-          instance,
-          kind,
-          modelMountProviderExecutionAdmission: providerExecutionAdmission,
-          selection,
-        }),
+        providerInvocationAuthority.provider_invocation_request,
       );
   const providerResultForAdmission = canonicalProviderResultForAdmission(providerInvocation);
+  const providerResultAuthority = planModelMountInvocationAuthority(state, {
+    ...authorityBase,
+    operation: "provider_result_admission",
+    provider_execution_admission: providerExecutionAdmission,
+    provider_result: providerResultForAdmission,
+  }, "provider_result_admission_request");
   const providerResultAdmission = admitModelMountProviderResult(
     state,
-    modelMountProviderResultAdmissionRequestForExecution({
-      input,
-      instance,
-      kind,
-      modelMountProviderExecutionAdmission: providerExecutionAdmission,
-      providerResult: providerResultForAdmission,
-      selection,
-    }),
+    providerResultAuthority.provider_result_admission_request,
   );
   const providerResult = withModelMountProviderResultAdmission(
     providerResultForAdmission,
@@ -723,56 +717,52 @@ async function executeModelInvocationThroughRustCore(
   const latencyMs = Math.max(1, nowMs(state) - started);
   const receiptKind = "model_invocation";
   const receiptId = nextInvocationReceiptId(state, receiptKind);
+  const invocationAuthority = planModelMountInvocationAuthority(state, {
+    ...authorityBase,
+    operation: "invocation_admission",
+    continuation: continuationSafety,
+    latency_ms: latencyMs,
+    provider_execution_admission: providerExecutionAdmission,
+    provider_result: providerResult,
+    provider_result_admission: providerResultAdmission,
+    receipt_id: receiptId,
+    receipt_kind: receiptKind,
+    required_scope: requiredScope ?? null,
+  }, "invocation_admission_request");
   const receiptDetails = withModelMountProviderExecutionAdmission(
-    invocationReceiptDetails({
-      body: requestBody,
-      continuationSafety,
-      ephemeralMcp,
-      hash,
-      input,
-      instance,
-      latencyMs,
-      outputText: providerResult.output_text,
-      previousResponseId,
-      providerResult,
-      requiredScope,
-      responseId,
-      routeReceipt,
-      selection,
-      token,
-      tokenCount,
-      stream,
-    }),
+    invocationAuthority.receipt_details,
     providerExecutionAdmission,
   );
-  const invocationAdmissionRequest = modelMountInvocationAdmissionRequestForReceipt({
-    body: requestBody,
-    capability,
-    kind,
-    receiptDetails,
-    receiptId,
-    receiptKind,
-    routeReceipt,
-    selection,
-    streamStatus: stream ? "started" : null,
-  });
+  const invocationAdmissionRequest = invocationAuthority.invocation_admission_request;
   const invocationAdmission = admitModelMountInvocation(state, invocationAdmissionRequest);
-  const agentgresTransition = modelMountInvocationAgentgresTransitionForReceipt(state, {
-    admission: invocationAdmission,
-    admissionRequest: invocationAdmissionRequest,
-    receiptDetails,
-    receiptId,
-    receiptKind,
-  });
+  const currentHead = normalizeAgentgresHeadForInvocationAuthority(state);
+  const transitionAuthority = planModelMountInvocationAuthority(state, {
+    ...authorityBase,
+    operation: "accepted_receipt_transition",
+    current_head: currentHead,
+    invocation_admission: invocationAdmission,
+    invocation_admission_request: invocationAdmissionRequest,
+    receipt_details: receiptDetails,
+    receipt_id: receiptId,
+    receipt_kind: receiptKind,
+  }, "accepted_receipt_transition_request");
+  const agentgresTransition = planModelMountAcceptedReceiptTransitionForInvocation(
+    state,
+    transitionAuthority.accepted_receipt_transition_request,
+  );
+  const receiptBindingAuthority = planModelMountInvocationAuthority(state, {
+    ...authorityBase,
+    operation: "receipt_binding",
+    agentgres_transition: agentgresTransition,
+    invocation_admission: invocationAdmission,
+    invocation_admission_request: invocationAdmissionRequest,
+    receipt_details: receiptDetails,
+    receipt_id: receiptId,
+    receipt_kind: receiptKind,
+  }, "receipt_binding_request");
   const receiptBinding = invokeRustModelMountReceiptBinding(
     state,
-    modelMountInvocationReceiptBindingRequestForReceipt({
-      admission: invocationAdmission,
-      admissionRequest: invocationAdmissionRequest,
-      agentgresTransition,
-      receiptDetails,
-      receiptId,
-    }),
+    receiptBindingAuthority.receipt_binding_request,
   );
   const receipt = persistModelInvocationReceipt(state, {
     details: withModelMountInvocationReceiptBinding(
@@ -822,6 +812,113 @@ async function executeModelInvocationThroughRustCore(
       streamKind:
         providerInvocation.stream_kind ?? providerInvocation.result?.stream_kind ?? null,
     },
+  };
+}
+
+function modelMountInvocationAuthorityBaseRequest({
+  body = {},
+  capability,
+  ephemeralMcp = {},
+  input,
+  instance = {},
+  kind,
+  previousResponseId = null,
+  responseId = null,
+  routeReceipt,
+  selection,
+  stream = false,
+  streamStatus = null,
+  token = {},
+} = {}) {
+  return {
+    schema_version: "ioi.model_mount.invocation_authority.v1",
+    body,
+    selection,
+    instance,
+    route_receipt: routeReceipt,
+    ephemeral_mcp: {
+      tool_receipt_ids: ephemeralMcp.toolReceiptIds ?? [],
+      server_ids: ephemeralMcp.serverIds ?? [],
+      evidence_refs: ephemeralMcp.evidenceRefs ?? [],
+    },
+    token,
+    input,
+    kind,
+    capability,
+    response_id: responseId,
+    previous_response_id: previousResponseId,
+    stream,
+    stream_status: streamStatus,
+  };
+}
+
+function planModelMountInvocationAuthority(state, request, requiredField) {
+  if (typeof state.planModelMountInvocationAuthority !== "function") {
+    const error = new Error("Model invocation authority requires Rust daemon-core model_mount invocation authority planning.");
+    error.status = 500;
+    error.code = "model_mount_invocation_authority_planner_required";
+    error.details = {
+      rust_core_boundary: "model_mount.invocation_authority",
+      required_field: requiredField,
+    };
+    throw error;
+  }
+  const plan = state.planModelMountInvocationAuthority(request);
+  assertRustModelMountInvocationAuthorityPlan(plan, requiredField);
+  return plan;
+}
+
+function assertRustModelMountInvocationAuthorityPlan(plan = {}, requiredField) {
+  const evidenceRefs = Array.isArray(plan.evidence_refs) ? plan.evidence_refs : [];
+  const missing = [];
+  if (plan.rust_core_boundary !== "model_mount.invocation_authority") missing.push("rust_core_boundary");
+  if (!evidenceRefs.includes("rust_daemon_core_model_mount_invocation_authority")) {
+    missing.push("evidence_refs.rust_daemon_core_model_mount_invocation_authority");
+  }
+  if (!evidenceRefs.includes("model_mount_invocation_contract_js_authoring_retired")) {
+    missing.push("evidence_refs.model_mount_invocation_contract_js_authoring_retired");
+  }
+  if (requiredField && !objectRecord(plan[requiredField])) missing.push(requiredField);
+  if (missing.length === 0) return;
+  const error = new Error("Model invocation authority requires a Rust-authored model_mount invocation authority plan.");
+  error.status = 502;
+  error.code = "model_mount_invocation_authority_plan_invalid";
+  error.details = {
+    missing,
+    source: plan.source ?? null,
+  };
+  throw error;
+}
+
+function normalizeAgentgresHeadForInvocationAuthority(state) {
+  if (typeof state.agentgresModelMountingHead !== "function") {
+    const error = new Error("Model invocation authority requires a current model-mounting operation head.");
+    error.status = 500;
+    error.code = "model_mount_agentgres_head_required";
+    throw error;
+  }
+  return normalizeAgentgresHead(state.agentgresModelMountingHead());
+}
+
+function planModelMountAcceptedReceiptTransitionForInvocation(state, transitionRequest) {
+  if (typeof state.planModelMountAcceptedReceiptTransition !== "function") {
+    const error = new Error("Model invocation Agentgres admission requires Rust model-mount accepted receipt transition planning.");
+    error.status = 500;
+    error.code = "model_mount_accepted_receipt_transition_planner_required";
+    throw error;
+  }
+  const transition = state.planModelMountAcceptedReceiptTransition(transitionRequest);
+  return {
+    operation_id: requiredStringRef("transition.operation_id", transition?.operation_id),
+    operation_ref: requiredStringRef("transition.operation_ref", transition?.operation_ref),
+    expected_heads: uniqueRefs(transition?.expected_heads ?? []),
+    state_root_before: requiredStringRef("transition.state_root_before", transition?.state_root_before),
+    state_root_after: requiredStringRef("transition.state_root_after", transition?.state_root_after),
+    resulting_head: requiredStringRef("transition.resulting_head", transition?.resulting_head),
+    projection_watermark: requiredStringRef("transition.projection_watermark", transition?.projection_watermark),
+    transition_hash: requiredStringRef("transition.transition_hash", transition?.transition_hash),
+    evidence_refs: uniqueRefs(transition?.evidence_refs ?? []),
+    acceptedReceiptTransition: objectRecord(transition?.transition),
   };
 }
 
@@ -985,6 +1082,16 @@ function canonicalEndpointRecord(endpoint = {}) {
     api_format: optionalRef(record.api_format),
     driver: optionalRef(record.driver),
     backend_id: optionalRef(record.backend_id),
+    base_url: optionalRef(record.base_url),
+    secret_ref: optionalRef(record.secret_ref ?? record.secretRef),
+    auth_vault_ref: optionalRef(record.auth_vault_ref),
+    api_key_vault_ref: optionalRef(record.api_key_vault_ref),
+    provider_auth_materialization_ref: optionalRef(record.provider_auth_materialization_ref),
+    outbound_header_binding_ref: optionalRef(record.outbound_header_binding_ref),
+    auth_header_materialization_status: optionalRef(record.auth_header_materialization_status),
+    ctee_egress_resolver_ref: optionalRef(record.ctee_egress_resolver_ref),
+    ctee_egress_resolver_hash: optionalRef(record.ctee_egress_resolver_hash),
+    ctee_egress_resolution_status: optionalRef(record.ctee_egress_resolution_status),
     custody_ref: optionalRef(record.custody_ref),
     node_plaintext_allowed: Boolean(record.node_plaintext_allowed ?? false),
     privacy_class: optionalRef(record.privacy_class),
@@ -1002,6 +1109,15 @@ function canonicalProviderRecord(provider = {}, endpoint = {}) {
     api_format: optionalRef(record.api_format),
     driver: optionalRef(record.driver),
     secret_ref: optionalRef(record.secret_ref ?? record.secretRef),
+    auth_vault_ref: optionalRef(record.auth_vault_ref),
+    api_key_vault_ref: optionalRef(record.api_key_vault_ref),
+    base_url: optionalRef(record.base_url),
+    provider_auth_materialization_ref: optionalRef(record.provider_auth_materialization_ref),
+    outbound_header_binding_ref: optionalRef(record.outbound_header_binding_ref),
+    auth_header_materialization_status: optionalRef(record.auth_header_materialization_status),
+    ctee_egress_resolver_ref: optionalRef(record.ctee_egress_resolver_ref),
+    ctee_egress_resolver_hash: optionalRef(record.ctee_egress_resolver_hash),
+    ctee_egress_resolution_status: optionalRef(record.ctee_egress_resolution_status),
     custody_ref: optionalRef(record.custody_ref),
     node_plaintext_allowed: Boolean(record.node_plaintext_allowed ?? false),
     privacy_class: optionalRef(record.privacy_class),
@@ -1089,6 +1205,34 @@ function canonicalProviderResultForAdmission(providerResult = {}) {
         result.execution_backend,
     ),
     backend_id: optionalRef(providerResult.backend_id ?? result.backend_id),
+    hosted_transport_request_ref: optionalRef(
+      providerResult.hosted_transport_request_ref ??
+        result.hosted_transport_request_ref,
+    ),
+    hosted_transport_request_hash: optionalRef(
+      providerResult.hosted_transport_request_hash ??
+        result.hosted_transport_request_hash,
+    ),
+    hosted_transport_response_hash: optionalRef(
+      providerResult.hosted_transport_response_hash ??
+        result.hosted_transport_response_hash,
+    ),
+    hosted_transport_status: optionalRef(
+      providerResult.hosted_transport_status ??
+        result.hosted_transport_status,
+    ),
+    ctee_egress_resolver_ref: optionalRef(
+      providerResult.ctee_egress_resolver_ref ??
+        result.ctee_egress_resolver_ref,
+    ),
+    ctee_egress_resolver_hash: optionalRef(
+      providerResult.ctee_egress_resolver_hash ??
+        result.ctee_egress_resolver_hash,
+    ),
+    ctee_egress_resolution_status: optionalRef(
+      providerResult.ctee_egress_resolution_status ??
+        result.ctee_egress_resolution_status,
+    ),
     provider_auth_evidence_refs: uniqueRefs(
       providerResult.provider_auth_evidence_refs ??
         result.provider_auth_evidence_refs ??

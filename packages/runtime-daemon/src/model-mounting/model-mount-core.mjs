@@ -10,6 +10,7 @@ export const RUST_MODEL_MOUNT_NATIVE_LOCAL_BACKEND = "rust_model_mount_native_lo
 export const RUST_MODEL_MOUNT_NATIVE_LOCAL_INVENTORY_BACKEND = "rust_model_mount_native_local_inventory";
 export const RUST_MODEL_MOUNT_NATIVE_LOCAL_LIFECYCLE_BACKEND = "rust_model_mount_native_local_lifecycle";
 export const MODEL_MOUNT_ROUTE_DECISION_API_METHOD = "admitModelMountRouteDecision";
+export const MODEL_MOUNT_INVOCATION_AUTHORITY_API_METHOD = "planModelMountInvocationAuthority";
 export const MODEL_MOUNT_INVOCATION_API_METHOD = "admitModelMountInvocation";
 export const MODEL_MOUNT_PROVIDER_EXECUTION_API_METHOD = "admitModelMountProviderExecution";
 export const MODEL_MOUNT_PROVIDER_INVOCATION_API_METHOD = "executeModelMountProviderInvocation";
@@ -76,6 +77,12 @@ export class ModelMountCore {
   admitRouteDecision(request) {
     return normalizeRouteDecisionApiResult(
       this.invokeModelMountApi(MODEL_MOUNT_ROUTE_DECISION_API_METHOD, request),
+    );
+  }
+
+  planInvocationAuthority(request) {
+    return normalizeInvocationAuthorityApiResult(
+      this.invokeModelMountApi(MODEL_MOUNT_INVOCATION_AUTHORITY_API_METHOD, request),
     );
   }
 
@@ -357,6 +364,33 @@ function normalizeRouteDecisionApiResult(value = {}) {
     accepted_receipt_record: result.accepted_receipt_record ?? null,
     evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : null,
   };
+}
+
+function normalizeInvocationAuthorityApiResult(value = {}) {
+  const result = objectRecord(value.result) ?? objectRecord(value) ?? {};
+  const evidenceRefs = arrayOfStrings(result.evidence_refs ?? result.evidenceRefs);
+  const normalized = {
+    ...result,
+    source: result.source ?? "rust_daemon_core.model_mount.invocation_authority",
+    rust_core_boundary: result.rust_core_boundary ?? "model_mount.invocation_authority",
+    operation: result.operation ?? null,
+    evidence_refs: evidenceRefs,
+  };
+  if (normalized.rust_core_boundary !== "model_mount.invocation_authority") {
+    throw new ModelMountCoreError(
+      "Rust model_mount invocation authority plan is incomplete.",
+      "model_mount_invocation_authority_plan_invalid",
+      { missing: ["rust_core_boundary"] },
+    );
+  }
+  if (!normalized.evidence_refs.includes("model_mount_invocation_contract_js_authoring_retired")) {
+    throw new ModelMountCoreError(
+      "Rust model_mount invocation authority plan must retire JS contract authorship.",
+      "model_mount_invocation_authority_plan_invalid",
+      { missing: ["evidence_refs.model_mount_invocation_contract_js_authoring_retired"] },
+    );
+  }
+  return normalized;
 }
 
 function normalizeInvocationApiResult(value = {}) {

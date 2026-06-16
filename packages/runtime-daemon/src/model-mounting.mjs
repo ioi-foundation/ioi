@@ -1126,6 +1126,10 @@ export class ModelMountingState {
     return this.modelMountCore.admitRouteDecision(request);
   }
 
+  planModelMountInvocationAuthority(request) {
+    return this.modelMountCore.planInvocationAuthority(request);
+  }
+
   admitModelMountInvocation(request) {
     return this.modelMountCore.admitInvocation(request);
   }

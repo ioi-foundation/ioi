@@ -24,6 +24,7 @@ function fakeState(overrides = {}) {
     receiptIdCounter: 0,
     receipts: [],
     receiptBindingRequests: [],
+    authorityPlanRequests: [],
     providerExecutionRequests: [],
     providerInvocationRequests: [],
     providerStreamInvocationRequests: [],
@@ -81,6 +82,172 @@ function fakeState(overrides = {}) {
     nextReceiptId(kind) {
       this.receiptIdCounter += 1;
       return `receipt.${this.receiptIdCounter}.${kind}`;
+    },
+    planModelMountInvocationAuthority(request) {
+      this.authorityPlanRequests.push(request);
+      const base = {
+        schema_version: "ioi.model_mount.invocation_authority_plan.v1",
+        source: "rust_daemon_core.model_mount.invocation_authority",
+        rust_core_boundary: "model_mount.invocation_authority",
+        operation: request.operation,
+        evidence_refs: [
+          "rust_daemon_core_model_mount_invocation_authority",
+          "model_mount_invocation_contract_js_authoring_retired",
+          "agentgres_model_invocation_truth_required",
+          `rust_model_mount_invocation_authority_${request.operation}`,
+        ],
+      };
+      const ephemeralMcp = {
+        toolReceiptIds: request.ephemeral_mcp?.tool_receipt_ids ?? [],
+        serverIds: request.ephemeral_mcp?.server_ids ?? [],
+        evidenceRefs: request.ephemeral_mcp?.evidence_refs ?? [],
+      };
+      const hash = (value) => `hash:${value}`;
+      if (request.operation === "provider_execution") {
+        return {
+          ...base,
+          provider_execution_request: modelMountProviderExecutionRequestForInvocation({
+            body: request.body,
+            capability: request.capability,
+            ephemeralMcp,
+            hash,
+            input: request.input,
+            instance: request.instance,
+            kind: request.kind,
+            previousResponseId: request.previous_response_id,
+            providerBody: request.body,
+            responseId: request.response_id,
+            routeReceipt: request.route_receipt,
+            selection: request.selection,
+            streamStatus: request.stream ? "started" : null,
+            token: request.token,
+          }),
+        };
+      }
+      if (request.operation === "provider_invocation" || request.operation === "provider_stream_invocation") {
+        const factory = request.operation === "provider_stream_invocation"
+          ? modelMountProviderStreamInvocationRequestForExecution
+          : modelMountProviderInvocationRequestForExecution;
+        return {
+          ...base,
+          provider_invocation_request: factory({
+            input: request.input,
+            instance: request.instance,
+            kind: request.kind,
+            modelMountProviderExecutionAdmission: request.provider_execution_admission,
+            selection: request.selection,
+          }),
+        };
+      }
+      if (request.operation === "provider_result_admission") {
+        return {
+          ...base,
+          provider_result_admission_request: modelMountProviderResultAdmissionRequestForExecution({
+            input: request.input,
+            instance: request.instance,
+            kind: request.kind,
+            modelMountProviderExecutionAdmission: request.provider_execution_admission,
+            providerResult: request.provider_result,
+            selection: request.selection,
+          }),
+        };
+      }
+      if (request.operation === "invocation_admission") {
+        const providerResult = request.provider_result ?? {};
+        const providerResultAdmission = request.provider_result_admission ?? {};
+        const backendId = providerResult.backend_id ?? request.instance?.backend_id ?? request.selection?.endpoint?.backend_id ?? null;
+        const receiptDetails = withTestProviderExecutionAdmission({
+          route_id: request.selection.route.id,
+          route_receipt_id: request.route_receipt.id,
+          selected_model: request.selection.endpoint.model_id,
+          endpoint_id: request.selection.endpoint.id,
+          provider_id: request.selection.provider.id,
+          instance_id: request.instance.id,
+          backend: providerResult.execution_backend ?? request.selection.endpoint.api_format,
+          backend_id: backendId,
+          selected_backend: backendId,
+          policy_hash: hash(request.body.model_policy ?? {}),
+          required_scope: request.required_scope ?? null,
+          grant_id: request.token?.grant_ref ?? null,
+          token_count: providerResult.token_count,
+          latency_ms: request.latency_ms,
+          input_hash: hash(request.input),
+          output_hash: hash(providerResult.output_text ?? ""),
+          provider_response_kind: providerResult.provider_response_kind ?? null,
+          backend_process: request.instance.backend_process ?? null,
+          backend_process_id: request.instance.backend_process_id ?? null,
+          backend_process_pid_hash: request.instance.backend_process_pid_hash ?? null,
+          backend_evidence_refs: providerResult.backend_evidence_refs ?? [],
+          provider_auth_evidence_refs: providerResult.provider_auth_evidence_refs ?? [],
+          provider_auth_header_names: [],
+          model_mount_route_decision_ref: request.route_receipt.details.model_mount_route_decision_ref,
+          model_mount_provider_result_admission_schema_version:
+            providerResult.model_mount_provider_result_admission_schema_version ?? "ioi.model_mount.provider_result.v1",
+          model_mount_provider_result_admission_ref: providerResultAdmission.provider_result_ref ?? null,
+          model_mount_provider_result_admission_hash: providerResultAdmission.provider_result_hash ?? null,
+          model_mount_provider_result_admission_source: providerResultAdmission.source ?? null,
+          model_mount_provider_result_admission_backend: providerResultAdmission.backend ?? null,
+          model_mount_provider_result_admission_receipt_refs: providerResultAdmission.receipt_refs ?? [],
+          model_mount_provider_result_admission_evidence_refs: providerResultAdmission.evidence_refs ?? [],
+          model_mount_provider_result_admission: providerResultAdmission.record ?? null,
+          tool_receipt_ids: ephemeralMcp.toolReceiptIds,
+          ephemeral_mcp_server_ids: ephemeralMcp.serverIds,
+          response_id: request.response_id,
+          previous_response_id: request.previous_response_id,
+          continuation: request.continuation,
+          invocation_kind: request.stream ? "model_mount.invocation.stream_start" : "model_mount.invocation.invoke",
+          stream_status: request.stream ? "started" : null,
+          stream_source: request.stream ? "provider_native" : null,
+          send_options: request.body.send_options ?? null,
+          memory: request.body.memory ?? request.body.send_options?.memory ?? null,
+        }, request.provider_execution_admission);
+        return {
+          ...base,
+          receipt_details: receiptDetails,
+          invocation_admission_request: modelMountInvocationAdmissionRequestForReceipt({
+            body: request.body,
+            capability: request.capability,
+            kind: request.kind,
+            receiptDetails,
+            receiptId: request.receipt_id,
+            receiptKind: request.receipt_kind,
+            routeReceipt: request.route_receipt,
+            selection: request.selection,
+            streamStatus: request.stream ? "started" : null,
+          }),
+        };
+      }
+      if (request.operation === "accepted_receipt_transition") {
+        return {
+          ...base,
+          accepted_receipt_transition_request: {
+            schema_version: "ioi.model_mount.accepted_receipt_transition.v1",
+            current_sequence: request.current_head.sequence,
+            current_head_ref: request.current_head.head_ref,
+            current_state_root: request.current_head.state_root,
+            receipt_id: request.receipt_id,
+            receipt_kind: request.receipt_kind,
+            route_decision_ref: request.invocation_admission_request.route_decision_ref,
+            invocation_admission_ref: request.invocation_admission.invocation_admission_ref,
+            invocation_admission_hash: request.invocation_admission.invocation_admission_hash,
+            input_hash: request.invocation_admission_request.input_hash,
+            output_hash: request.invocation_admission_request.output_hash,
+          },
+        };
+      }
+      if (request.operation === "receipt_binding") {
+        return {
+          ...base,
+          receipt_binding_request: modelMountInvocationReceiptBindingRequestForReceipt({
+            admission: request.invocation_admission,
+            admissionRequest: request.invocation_admission_request,
+            agentgresTransition: request.agentgres_transition,
+            receiptDetails: request.receipt_details,
+            receiptId: request.receipt_id,
+          }),
+        };
+      }
+      throw new Error(`unexpected authority operation ${request.operation}`);
     },
     admitModelMountInvocation(request) {
       return {
@@ -339,6 +506,19 @@ function deps(overrides = {}) {
     stableHash: (value) => `hash:${value}`,
     supportsResponseState: (kind) => kind === "responses",
     ...overrides,
+  };
+}
+
+function withTestProviderExecutionAdmission(details, admission) {
+  return {
+    ...details,
+    model_mount_provider_execution_schema_version: "ioi.model_mount.provider_execution.v1",
+    model_mount_provider_execution_ref: admission.provider_execution_ref,
+    model_mount_provider_execution_hash: admission.provider_execution_hash,
+    model_mount_provider_execution_source: admission.source,
+    model_mount_provider_execution_backend: admission.backend,
+    model_mount_provider_execution_receipt_refs: admission.receipt_refs ?? [],
+    model_mount_provider_execution: admission.record,
   };
 }
 
@@ -627,6 +807,14 @@ test("invokeModel public facade executes migrated fixture through Rust model_mou
   assert.equal(state.providerResultRequests.length, 1);
   assert.equal(state.receiptBindingRequests.length, 1);
   assert.equal(state.transitionRequests.length, 1);
+  assert.deepEqual(state.authorityPlanRequests.map((request) => request.operation), [
+    "provider_execution",
+    "provider_invocation",
+    "provider_result_admission",
+    "invocation_admission",
+    "accepted_receipt_transition",
+    "receipt_binding",
+  ]);
   assert.equal(state.receipts.length, 1);
   assert.deepEqual(state.recordedConversations, []);
   assert.deepEqual(state.recordStateCommits, []);
@@ -683,6 +871,14 @@ test("startModelStream public facade executes native-local stream through Rust m
   assert.equal(state.fallbackInvocationArgs, undefined);
   assert.equal(state.receiptBindingRequests.length, 1);
   assert.equal(state.transitionRequests.length, 1);
+  assert.deepEqual(state.authorityPlanRequests.map((request) => request.operation), [
+    "provider_execution",
+    "provider_stream_invocation",
+    "provider_result_admission",
+    "invocation_admission",
+    "accepted_receipt_transition",
+    "receipt_binding",
+  ]);
   assert.equal(state.receipts.length, 1);
   assert.deepEqual(state.appendOperations, []);
 });
