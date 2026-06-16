@@ -103,8 +103,6 @@ export class AgentgresModelMountingStore {
       "model-providers",
       "model-downloads",
       "model-catalog-providers",
-      "oauth-sessions",
-      "oauth-states",
       "runtime-preferences",
       "runtime-engine-profiles",
       "provider-health",

@@ -8,8 +8,6 @@ export const MODEL_MOUNTING_STATE_MAPS = [
   ["model-routes", "routes"],
   ["model-downloads", "downloads"],
   ["model-catalog-providers", "catalogProviderConfigs"],
-  ["oauth-sessions", "oauthSessions"],
-  ["oauth-states", "oauthStates"],
   ["runtime-preferences", "runtimeSelections"],
   ["runtime-engine-profiles", "runtimeEngineProfiles"],
   ["tokens", "tokens"],

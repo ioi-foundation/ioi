@@ -21,8 +21,6 @@ function fakeState() {
     recordStateCommits,
     catalogProviderConfigs: new Map(),
     catalogProviderRuntimeMaterials: new Map(),
-    oauthSessions: new Map(),
-    oauthStates: new Map(),
     oauthCredentialProvider: {
       startAuthorization() {
         throw new Error("oauth start should not run in JS");
@@ -183,8 +181,8 @@ test("catalog OAuth operations commit Rust catalog-provider-control records", as
   assert.equal(state.calls[0].request.custody_ref, "ctee://catalog-provider/huggingface");
   assert.deepEqual(state.calls[0].request.authority_grant_refs, ["grant://wallet/provider-write"]);
   assert.deepEqual(state.calls[0].request.authority_receipt_refs, ["receipt://wallet/provider-write"]);
-  assert.deepEqual(state.oauthSessions, new Map());
-  assert.deepEqual(state.oauthStates, new Map());
+  assert.equal(Object.hasOwn(state, "oauthSessions"), false);
+  assert.equal(Object.hasOwn(state, "oauthStates"), false);
 });
 
 test("catalog OAuth callback still validates required callback state before Rust boundary", async () => {

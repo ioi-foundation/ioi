@@ -116,6 +116,17 @@ test("loadModelMountingMaps applies the canonical directory map table", () => {
   }
 });
 
+test("OAuth session and state JS cache maps stay retired", () => {
+  assert.equal(
+    MODEL_MOUNTING_STATE_MAPS.some(([dir, property]) => dir === "oauth-sessions" || property === "oauthSessions"),
+    false,
+  );
+  assert.equal(
+    MODEL_MOUNTING_STATE_MAPS.some(([dir, property]) => dir === "oauth-states" || property === "oauthStates"),
+    false,
+  );
+});
+
 test("writeAllModelMountingMaps fails closed as a retired bulk persistence path", () => {
   const state = fakeState();
 

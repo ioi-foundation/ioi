@@ -67,6 +67,15 @@ function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, "utf8"));
 }
 
+test("store dirs do not recreate retired OAuth local cache storage", () => {
+  const { stateDir, store } = testStore();
+
+  store.ensureDirs();
+
+  assert.equal(fs.existsSync(path.join(stateDir, "oauth-sessions")), false);
+  assert.equal(fs.existsSync(path.join(stateDir, "oauth-states")), false);
+});
+
 function boundModelInvocationReceipt(overrides = {}) {
   const operationRef = "agentgres://model-mounting/accepted-receipts/op_00000001_model_invocation";
   const resultingHead = "agentgres://model-mounting/accepted-receipts/head/1";

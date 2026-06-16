@@ -1269,8 +1269,6 @@ function createState() {
         ],
       }],
     ]),
-    oauthSessions: new Map(),
-    oauthStates: new Map(),
     providers: new Map([["provider.local", {
       id: "provider.local",
       kind: "local",
@@ -4234,6 +4232,8 @@ test("read projection direct client delegates product-safe lists and capabilitie
     "catalog-provider-oauth:start",
   ]);
   assert.equal(oauthStates[0].rust_core_boundary, "model_mount.catalog_provider_oauth_projection");
+  assert.equal(Object.hasOwn(state, "oauthSessions"), false);
+  assert.equal(Object.hasOwn(state, "oauthStates"), false);
   const providerHealth = state.listProviderHealth();
   assert.equal(providerHealth.length, 1);
   assert.equal(providerHealth[0].schemaVersion, "ioi.model-mounting.runtime.v1");

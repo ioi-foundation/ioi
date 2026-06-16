@@ -18190,7 +18190,23 @@ function runBridge() {
       /assert\.equal\(state\.recordStateCommits\.length,\s*5\)/.test(catalogProviderOAuthOperationsTest) &&
       /ctee_catalog_provider_custody_enforced/.test(catalogProviderOAuthOperationsTest) &&
       !/model_mount\.catalog_provider_auth_header\.refresh/.test(catalogProviderConfig) &&
-      /assert\.deepEqual\(state\.oauthSessions,\s*new Map\(\)\)/.test(catalogProviderOAuthOperationsTest),
+      /Object\.hasOwn\(state,\s*"oauthSessions"\),\s*false/.test(catalogProviderOAuthOperationsTest) &&
+      /Object\.hasOwn\(state,\s*"oauthStates"\),\s*false/.test(catalogProviderOAuthOperationsTest) &&
+      !/this\.oauthSessions\s*=/.test(modelMountingState) &&
+      !/this\.oauthStates\s*=/.test(modelMountingState) &&
+      !/\["oauth-sessions",\s*"oauthSessions"\]/.test(read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs")) &&
+      !/\["oauth-states",\s*"oauthStates"\]/.test(read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs")) &&
+      !/"oauth-sessions"/.test(read("packages/runtime-daemon/src/model-mounting/store.mjs")) &&
+      !/"oauth-states"/.test(read("packages/runtime-daemon/src/model-mounting/store.mjs")) &&
+      /Slice 1327 hard-cuts the model_mount OAuth session\/state JS cache substrate/.test(
+        read("docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md"),
+      ) &&
+      /Model_mount OAuth session\/state JS cache retired/.test(
+        read("docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md"),
+      ) &&
+      /RuntimeDaemonCoreModelMountOAuthCacheRetired/.test(
+        read("docs/architecture/_meta/implementation-matrix.md"),
+      ),
     [
       "crates/services/src/agentic/runtime/kernel/model_mount/catalog_provider_control.rs",
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
@@ -25971,8 +25987,14 @@ function runReceipts() {
         catalogProviderOAuthTest,
       ) &&
       /assert\.equal\(state\.recordStateCommits\.length,\s*5\)/.test(catalogProviderOAuthTest) &&
-      /assert\.deepEqual\(state\.oauthSessions,\s*new Map\(\)\)/.test(catalogProviderOAuthTest) &&
-      /assert\.deepEqual\(state\.oauthStates,\s*new Map\(\)\)/.test(catalogProviderOAuthTest) &&
+      /Object\.hasOwn\(state,\s*"oauthSessions"\),\s*false/.test(catalogProviderOAuthTest) &&
+      /Object\.hasOwn\(state,\s*"oauthStates"\),\s*false/.test(catalogProviderOAuthTest) &&
+      !/this\.oauthSessions\s*=/.test(modelMountingState) &&
+      !/this\.oauthStates\s*=/.test(modelMountingState) &&
+      !/\["oauth-sessions",\s*"oauthSessions"\]/.test(read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs")) &&
+      !/\["oauth-states",\s*"oauthStates"\]/.test(read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs")) &&
+      !/"oauth-sessions"/.test(modelMountStore) &&
+      !/"oauth-states"/.test(modelMountStore) &&
       /"oauthSessions":\s*oauth::sessions\(request\)\?/.test(modelMountReadProjectionAggregate) &&
       /"oauthStates":\s*oauth::states\(request\)\?/.test(modelMountReadProjectionAggregate) &&
       !/"oauthSessions":\s*\[\]/.test(modelMountReadProjectionAggregate) &&
@@ -26098,8 +26120,12 @@ function runReceipts() {
       !/rust_daemon_core_backend_projection_required/.test(defaultRecords) &&
       !/\["model-backends",\s*"backends"\]/.test(read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs")) &&
       !/\["backend-processes",\s*"backendProcesses"\]/.test(read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs")) &&
+      !/\["oauth-sessions",\s*"oauthSessions"\]/.test(read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs")) &&
+      !/\["oauth-states",\s*"oauthStates"\]/.test(read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs")) &&
       !/"model-backends"/.test(modelMountStore) &&
       !/"backend-processes"/.test(modelMountStore) &&
+      !/"oauth-sessions"/.test(modelMountStore) &&
+      !/"oauth-states"/.test(modelMountStore) &&
       !/"backendProcesses"\s*:/.test(modelMountReadProjectionEvidence) &&
       /backendRegistry\(\)\s*\{[\s\S]*?return modelMountReadProjection\(this,\s*"backends"\)/.test(
         backendLifecycle,

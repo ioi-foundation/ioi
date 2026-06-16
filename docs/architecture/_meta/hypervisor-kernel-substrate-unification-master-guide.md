@@ -9486,10 +9486,10 @@ admission, backend-process planning, backend-lifecycle planning,
 artifact-endpoint planning, storage control, route-control planning, MCP
 workflow planning, server-control planning, read-projection planning, and
 conversation/stream planning. Remaining model_mount projection migration,
-hosted/provider transport, OAuth/materialization, invocation authority, and
-non-backend-process cache scaffolding still need direct Rust daemon-core
-protocol/API ownership; the read-projection, accepted-receipt, invocation
-receipt-binding, tokenizer/required-control, conversation/stream,
+hosted/provider transport, hosted OAuth/auth-header materialization, invocation
+authority, and remaining non-OAuth cache scaffolding still need direct Rust
+daemon-core protocol/API ownership; the read-projection, accepted-receipt,
+invocation receipt-binding, tokenizer/required-control, conversation/stream,
 backend-process, backend-lifecycle,
 catalog-provider/provider/capability-token/vault/receipt-gate command
 transports are retired.
@@ -9649,10 +9649,10 @@ Conformance guards the retired option, absence of generic invoker storage,
 absence of the direct-invoker fallback error, absence of the command schema
 marker, and the no-bridge/no-command-env source scan. This remains non-terminal
 because backend execution/materialization, hosted/provider transport,
-OAuth/materialization, invocation authority, remaining non-backend-process cache
-scaffolding, durable replay/storage, richer MCP runtime materialization, and
-stable IDE/CLI/SDK protocol APIs still need terminal Rust-owned materialization
-and projection/replay records.
+hosted OAuth/auth-header materialization, invocation authority, remaining
+non-OAuth cache scaffolding, durable replay/storage, richer MCP runtime
+materialization, and stable IDE/CLI/SDK protocol APIs still need terminal
+Rust-owned materialization and projection/replay records.
 
 Slice 1230 retires the run-cancel command-shaped Rust owner wrappers. The
 run-cancel policy child keeps only `RunCancelStateUpdateCore` and
@@ -10762,6 +10762,21 @@ map, store directory, Rust aggregate compatibility field, and focused absence
 assertions. Remaining work is actual Rust backend execution/materialization,
 hosted/provider transport, invocation authority depth, and stable SDK/IDE/CLI
 protocol APIs, not a JS backend-process cache fallback.
+
+Slice 1327 hard-cuts the model_mount OAuth session/state JS cache substrate.
+`ModelMountingState` no longer constructs `oauthSessions` or `oauthStates`, the
+`oauth-sessions` and `oauth-states` persistence map entries and store
+directories are gone, and focused OAuth/read-projection tests now assert those
+local map fields are absent instead of merely empty. Public
+`listOAuthSessions()`, `listOAuthStates()`, `snapshot()`, and `projection()`
+continue to return OAuth records through Rust Agentgres read-projection replay;
+the Rust aggregate keeps the protocol fields as Rust-authored output, not JS
+state. Conformance guards the absent daemon fields, persistence map entries,
+store directories, and focused absence assertions while preserving Rust replay
+coverage for OAuth session/state records. Remaining work is hosted OAuth/
+auth-header materialization, actual Rust backend execution/materialization,
+hosted/provider transport, invocation authority depth, and stable SDK/IDE/CLI
+protocol APIs, not a JS OAuth session/state cache fallback.
 
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,
