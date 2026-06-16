@@ -34402,12 +34402,6 @@ function runCompositor() {
   const runtimeThreadMemoryStateTest = exists("packages/runtime-daemon/src/threads/thread-memory-state.test.mjs")
     ? read("packages/runtime-daemon/src/threads/thread-memory-state.test.mjs")
     : "";
-  const runtimeMemoryManager = exists("packages/runtime-daemon/src/memory-manager.mjs")
-    ? read("packages/runtime-daemon/src/memory-manager.mjs")
-    : "";
-  const runtimeMemoryManagerTest = exists("packages/runtime-daemon/src/memory-manager.test.mjs")
-    ? read("packages/runtime-daemon/src/memory-manager.test.mjs")
-    : "";
   const runtimeMemoryHelpers = exists("packages/runtime-daemon/src/runtime-memory-helpers.mjs")
     ? read("packages/runtime-daemon/src/runtime-memory-helpers.mjs")
     : "";
@@ -34481,24 +34475,6 @@ function runCompositor() {
     'if (payloadEventKind === "SubagentMemoryInheritance")',
     "  return null;",
   );
-  const runtimeMemoryStatusForProjectionBlock =
-    runtimeMemoryManager.match(
-      /export function memoryStatusForProjection\(projection = \{\}, options = \{\}\) \{[\s\S]*?\n}\n\nexport function validateMemoryProjection/,
-    )?.[0] ?? "";
-  const runtimeValidateMemoryProjectionBlock =
-    runtimeMemoryManager.match(
-      /export function validateMemoryProjection\(projection = \{\}, options = \{\}\) \{[\s\S]*?\n}\n\nexport function memoryRowsForStatus/,
-    )?.[0] ?? "";
-  const runtimeMemoryRowsForStatusBlock =
-    runtimeMemoryManager.match(
-      /export function memoryRowsForStatus\(status = \{\}\) \{[\s\S]*?\n}\n\nfunction normalizeArray/,
-    )?.[0] ?? "";
-  const runtimeThreadMemoryMutationBlock =
-    runtimeThreadMemoryState.match(
-      /function recordThreadMemoryMutation\(store, threadId, mutation = \{\}, request = \{\}, operation = "write", schemaVersion\) \{[\s\S]*?\n  \}\n\n  function appendThreadMemoryControlEvent/,
-    )?.[0] ?? "";
-  const runtimeThreadMemoryMutationPayloadBlock =
-    runtimeThreadMemoryMutationBlock.match(/const payload = \{[\s\S]*?\n    \};/)?.[0] ?? "";
   const runtimeMemoryCommitControlBlock =
     runtimeThreadMemoryState.match(
       /function commitMemoryControl\(store, \{[\s\S]*?\n  \}\n\n  function memoryControlRecordsProjection/,
@@ -36204,17 +36180,15 @@ function runCompositor() {
   );
   assertCheck(
     result,
-    "runtime-memory-status-validation-output-aliases-retired",
-    /planMemoryManagerStatusProjection/.test(runtimeMemoryStatusForProjectionBlock) &&
-      /status_schema_version:\s*RUNTIME_MEMORY_MANAGER_STATUS_SCHEMA_VERSION/.test(
-        runtimeMemoryStatusForProjectionBlock,
-      ) &&
-      /validation_schema_version:\s*RUNTIME_MEMORY_MANAGER_VALIDATION_SCHEMA_VERSION/.test(
-        runtimeMemoryStatusForProjectionBlock,
-      ) &&
-      /planMemoryManagerValidationProjection/.test(runtimeValidateMemoryProjectionBlock) &&
-      /validation_schema_version:\s*RUNTIME_MEMORY_MANAGER_VALIDATION_SCHEMA_VERSION/.test(
-        runtimeValidateMemoryProjectionBlock,
+    "runtime-memory-manager-js-facade-deleted",
+    !exists("packages/runtime-daemon/src/memory-manager.mjs") &&
+      !exists("packages/runtime-daemon/src/memory-manager.test.mjs") &&
+      !/\.\/memory-manager\.mjs|memory-manager\.mjs/.test(runtimeDaemonIndex) &&
+      !/memoryRowsForStatus/.test(runtimeDaemonIndex) &&
+      !/memoryRowsForStatus/.test(runtimeThreadMemoryState) &&
+      !/memoryRowsForStatus/.test(runtimeThreadMemoryStateTest) &&
+      !/memoryStatusForProjection|validateMemoryProjection|requiredMemoryManagerContextPolicyCore|runtime_memory_manager_rust_core_required|RUNTIME_MEMORY_MANAGER_/.test(
+        `${runtimeDaemonIndex}\n${runtimeThreadMemoryState}\n${runtimeThreadMemoryStateTest}`,
       ) &&
       /THREAD_MEMORY_MANAGER_STATUS_PROJECTION_API_METHOD\s*=\s*"planMemoryManagerStatusProjection"/.test(
         runtimeContextPolicyCore,
@@ -36274,28 +36248,17 @@ function runCompositor() {
       /memory manager validation projection core sends Rust projection through typed Rust daemon-core thread-memory API/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /const threadId = status\.thread_id \?\? null;/.test(runtimeMemoryRowsForStatusBlock) &&
-      /const receiptRefs = normalizeArray\(status\.receipt_refs\);/.test(runtimeMemoryRowsForStatusBlock) &&
-      /thread_id: record\.thread_id \?\? threadId/.test(runtimeMemoryRowsForStatusBlock) &&
-      /memory_key: record\.memory_key \?\? null/.test(runtimeMemoryRowsForStatusBlock) &&
-      /workflow_node_id: record\.workflow_node_id \?\? "runtime\.memory"/.test(
-        runtimeMemoryRowsForStatusBlock,
+      /recordThreadMemoryStatus\(store, threadId, request = \{\}, schemaVersion\) \{[\s\S]*?projectPublicMemory\(store,\s*"status",\s*publicMemoryContextForThread\(store,\s*threadId,[\s\S]*?appendThreadMemoryControlEvent/.test(
+        runtimeThreadMemoryState,
       ) &&
-      /Object\.hasOwn\(status,\s*field\),\s*false/.test(runtimeMemoryManagerTest) &&
-      /Object\.hasOwn\(validation,\s*field\),\s*false/.test(runtimeMemoryManagerTest) &&
-      !/createRuntimeContextPolicyCore/.test(runtimeMemoryManager) &&
-      /requiredMemoryManagerContextPolicyCore/.test(runtimeMemoryManager) &&
-      /runtime_memory_manager_rust_core_required/.test(runtimeMemoryManager) &&
-      /memory manager projections require explicit daemon-mounted Rust core/.test(
-        runtimeMemoryManagerTest,
+      /validateThreadMemory\(store, threadId, request = \{\}, schemaVersion\) \{[\s\S]*?projectPublicMemory\(store,\s*"validation",\s*publicMemoryContextForThread\(store,\s*threadId,[\s\S]*?appendThreadMemoryControlEvent/.test(
+        runtimeThreadMemoryState,
       ) &&
-      /threadId: "thread\.retired"/.test(runtimeMemoryManagerTest) &&
-      /recordRow\.thread_id,\s*"thread\.canonical"/.test(runtimeMemoryManagerTest) &&
-      /recordRow\.memory_key,\s*null/.test(runtimeMemoryManagerTest) &&
-      /recordRow\.workflow_node_id,\s*"runtime\.memory"/.test(runtimeMemoryManagerTest) &&
-	      /Object\.hasOwn\(state,\s*"memoryProjectionForContext"\),\s*false/.test(
-	        runtimeThreadMemoryStateTest,
-	      ) &&
+      !/recordThreadMemoryMutation/.test(runtimeThreadMemoryState) &&
+      !/recordThreadMemoryMutation/.test(runtimeThreadMemoryStateTest) &&
+		      /Object\.hasOwn\(state,\s*"memoryProjectionForContext"\),\s*false/.test(
+		        runtimeThreadMemoryStateTest,
+		      ) &&
 	      /Object\.hasOwn\(state,\s*"memoryStatus"\),\s*false/.test(
 	        runtimeThreadMemoryStateTest,
 	      ) &&
@@ -36319,28 +36282,15 @@ function runCompositor() {
 	      !/projection: \{ records: \[\], threadId: "thread_retired" \}/.test(
 	        runtimeThreadMemoryStateTest,
 	      ) &&
-	      !/thread_id: "thread_x"/.test(runtimeThreadMemoryStateTest) &&
-	      !/agent_id: "agent_x"/.test(runtimeThreadMemoryStateTest) &&
-      !/^\s*(?:schemaVersion|injectionEnabled|readOnly|writeRequiresApproval|writeBlockedReason|recordCount|scopeCount|memoryKeyCount|memoryKeys|evidenceRefs)\s*:/m.test(
-        runtimeMemoryStatusForProjectionBlock,
-      ) &&
-      !/record\.memoryKey\b|record\.threadId\b|record\.workflowNodeId\b|status\.threadId\b|status\.receiptRefs\b|status\.policyDecisionRefs\b/.test(
-        runtimeMemoryRowsForStatusBlock,
-      ) &&
-      !/^\s*(?:schemaVersion|issueCount|warningCount|recordCount)\s*:/m.test(
-        runtimeValidateMemoryProjectionBlock,
-      ) &&
-      !/memoryRecordId|memoryScope/.test(
-        `${runtimeValidateMemoryProjectionBlock}\n${runtimeMemoryRowsForStatusBlock}`,
-      ) &&
+		      !/thread_id: "thread_x"/.test(runtimeThreadMemoryStateTest) &&
+		      !/agent_id: "agent_x"/.test(runtimeThreadMemoryStateTest) &&
       !/thread_id: projection\.threadId|agent_id: projection\.agentId|threadId: projection\.threadId|agentId: projection\.agentId/.test(runtimeThreadMemoryState),
     [
-      "packages/runtime-daemon/src/memory-manager.mjs",
-      "packages/runtime-daemon/src/memory-manager.test.mjs",
       "packages/runtime-daemon/src/threads/thread-memory-state.mjs",
       "packages/runtime-daemon/src/threads/thread-memory-state.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
     ],
-    "Phase 10/11 is pending: runtime memory status, validation, and rows must expose canonical snake_case fields without duplicate camelCase facade aliases",
+    "Runtime memory status and validation must enter through the Rust thread-memory projection/control surface with the standalone JS memory-manager facade and dead mutation shim deleted",
   );
   assertCheck(
     result,

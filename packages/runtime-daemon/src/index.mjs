@@ -33,9 +33,6 @@ import {
 } from "./runtime-tool-catalog.mjs";
 import { mcpRegistryForWorkspace } from "./mcp-manager.mjs";
 import {
-  memoryRowsForStatus,
-} from "./memory-manager.mjs";
-import {
   optionalPositiveInteger,
 } from "./subagent-manager.mjs";
 import {
@@ -256,7 +253,6 @@ const threadMemoryStateDeps = {
   memoryMutationSummary,
   memoryOperatorControlKind,
   memoryPolicyOverrides,
-  memoryRowsForStatus,
   memoryRuntimeEventKind,
   memoryWorkflowNodeId,
   memoryWriteBlockReason,

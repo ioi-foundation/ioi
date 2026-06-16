@@ -890,21 +890,10 @@ Slice 786 moved public memory manager status and validation projection into the
 Rust daemon-core migration transport. `MemoryManagerStatusProjectionCore` and
 `MemoryManagerValidationProjectionCore` now own canonical
 `ioi.runtime_memory_manager_status` / `ioi.runtime_memory_manager_validation`
-envelopes, while `memoryStatusForProjection()` and
-`validateMemoryProjection()` remain only thin JS transport wrappers around
-`contextPolicyCore.planMemoryManagerStatusProjection()` /
-`planMemoryManagerValidationProjection()`. Public memory status/validate routes
-therefore no longer calculate readiness, issue counts, memory-key counts,
-write-block reasons, routes, validation records, or evidence refs in JS. This
-still does not claim terminal memory migration: direct Rust daemon-core memory
-record truth, Agentgres admission/head/state-root binding, wallet authority,
-StepModuleRouter dispatch for admitted memory work, cTEE custody coupling,
-replay, SDK/later stable client protocol rows, and direct Rust API replacement for command
-transport still need ownership. The Slice 786 memory manager projection
-Rust-core matrix-compaction pass is complete. No matrix-compaction pass is
-pending until the next Rust-core extraction or facade-retirement seam lands; do
-not encode the command bridge or JS transport wrappers as terminal
-architecture.
+envelopes. This removed JS calculation of readiness, issue counts, memory-key
+counts, write-block reasons, routes, validation records, and evidence refs.
+Slice 1403 supersedes the transitional JS memory-manager wrapper that Slice 786
+left in place; do not restore it as terminal architecture.
 The current runtime-memory macro cut extends that boundary from status and
 validation envelopes to the route-facing public memory read family. Public
 memory list, policy, path, status, and validation now call Rust
@@ -12295,6 +12284,19 @@ guards the deleted facade/test/import, the missing JS record builders, the Rust
 materializer, retired-candidate rejection, and Rust-authored
 `runtime-task.json`, `runtime-job.json`, and `runtime-checklist.json` artifacts
 so this task/job truth path cannot fall back through JS projection authoring.
+
+Slice 1403 hard-cuts the remaining JS memory-manager projection facade and dead
+direct mutation shim. The daemon no longer imports `memory-manager.mjs`, the
+`memory-manager.mjs` facade and focused test are deleted, `thread-memory-state`
+no longer accepts `memoryRowsForStatus` or exposes `recordThreadMemoryMutation`,
+and the route-facing memory status/validation flow enters through the Rust
+thread-memory read projection plus Rust memory-control event planner only.
+Conformance now requires the deleted files/imports/shim to stay absent while
+preserving the typed Rust `planMemoryManagerStatusProjection`,
+`planMemoryManagerValidationProjection`, `projectRuntimeMemoryProjection`, and
+`planRuntimeMemoryControl` APIs, so status, validation, public memory reads, and
+public memory mutation cannot keep a standalone JS facade beside the Rust-owned
+thread-memory projection/control spine.
 
 ## Final Doctrine
 

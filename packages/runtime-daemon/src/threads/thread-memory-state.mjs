@@ -27,7 +27,6 @@ export function createThreadMemoryState({
   memoryMutationRowLabel,
   memoryMutationSummary,
   memoryOperatorControlKind,
-  memoryRowsForStatus,
   memoryRuntimeEventKind,
   memoryWorkflowNodeId,
   agentIdForThread,
@@ -632,14 +631,6 @@ export function createThreadMemoryState({
     });
   }
 
-  function recordThreadMemoryMutation(store, threadId, mutation = {}, request = {}, operation = "write", schemaVersion) {
-    void store;
-    void mutation;
-    void request;
-    void schemaVersion;
-    throwThreadMemoryRustCoreRequired({ operation, threadId });
-  }
-
   function appendThreadMemoryControlEvent(store, {
     threadId,
     agent,
@@ -686,7 +677,6 @@ export function createThreadMemoryState({
     publicMemoryPathForThread,
     publicMemoryPolicyForAgent,
     publicMemoryPolicyForThread,
-    recordThreadMemoryMutation,
     recordThreadMemoryStatus,
     rememberForAgent,
     rememberForAgentId,

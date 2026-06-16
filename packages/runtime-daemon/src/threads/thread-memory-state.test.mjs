@@ -181,16 +181,7 @@ function createHarness(options = {}) {
     memoryMutationSummary: (operation, { record } = {}) => `Memory ${operation} ${record?.id ?? "none"}.`,
     memoryOperatorControlKind: (operation) => `OperatorControl.Memory${operation}`,
     memoryPolicyOverrides: (policy = {}) => ({ ...policy, normalized: true }),
-    memoryRowsForStatus: (status = {}) => [
-      { row_kind: "memory_record", memory_record_id: status.records?.[0]?.id ?? null },
-    ],
     memoryRuntimeEventKind: (operation) => `memory.${operation}`,
-    memoryStatusForProjection: (projection = {}) => ({
-      status: projection.records?.length ? "ready" : "empty",
-      record_count: projection.records?.length ?? 0,
-      records: projection.records ?? [],
-      policy: { id: `policy_${projection.thread_id ?? "runtime"}` },
-    }),
     memoryWorkflowNodeId: (operation) => `runtime.memory.${operation}`,
     memoryWriteBlockReason: (policy = {}, options = {}) => (options.blockMemory ? "blocked_by_test" : null),
     normalizeArray: (values) => Array.isArray(values) ? values : values ? [values] : [],
@@ -205,10 +196,6 @@ function createHarness(options = {}) {
       Object.assign(new Error(message), { status, code, details }),
     safeId: (value) => String(value).replace(/[^a-z0-9]+/gi, "_"),
     threadIdForAgent: (agentId) => agentId.replace("agent_", "thread_"),
-    validateMemoryProjection: (projection = {}) => ({
-      ok: true,
-      record_count: projection.records?.length ?? 0,
-    }),
   });
   store = {
     agents,
@@ -221,9 +208,6 @@ function createHarness(options = {}) {
     getAgent(agentId) {
       calls.push({ type: "getAgent", agentId });
       return agents.get(agentId);
-    },
-    recordThreadMemoryMutation(threadId, mutation, body, operation) {
-      return state.recordThreadMemoryMutation(this, threadId, mutation, body, operation, "memory.mutation.v1");
     },
     appendThreadMemoryControlEvent(input) {
       return state.appendThreadMemoryControlEvent(this, input);
