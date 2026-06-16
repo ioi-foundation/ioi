@@ -24557,6 +24557,31 @@ function runReceipts() {
       !/state\.runtimeSelections\.set/.test(modelMountingState) &&
       !/state\.runtimeEngineProfiles\.set\(engineId/.test(modelMountingState) &&
       !/state\.runtimeEngineProfiles\.delete/.test(modelMountingState) &&
+      !/this\.runtimeSelections\s*=/.test(modelMountingState) &&
+      !/this\.runtimeEngineProfiles\s*=/.test(modelMountingState) &&
+      !/\["runtime-preferences",\s*"runtimeSelections"\]/.test(
+        read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs"),
+      ) &&
+      !/\["runtime-engine-profiles",\s*"runtimeEngineProfiles"\]/.test(
+        read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs"),
+      ) &&
+      !/"runtime-preferences"/.test(read("packages/runtime-daemon/src/model-mounting/store.mjs")) &&
+      !/"runtime-engine-profiles"/.test(read("packages/runtime-daemon/src/model-mounting/store.mjs")) &&
+      /Object\.hasOwn\(state,\s*"runtimeSelections"\),\s*false/.test(modelMountingReadProjectionDirectTest) &&
+      /Object\.hasOwn\(state,\s*"runtimeEngineProfiles"\),\s*false/.test(modelMountingReadProjectionDirectTest) &&
+      /runtime-engine JS cache maps stay retired/.test(
+        read("packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs"),
+      ) &&
+      /runtime local cache storage/.test(read("packages/runtime-daemon/src/model-mounting/store.test.mjs")) &&
+      /Slice 1330 hard-cuts the model_mount runtime preference\/profile JS cache\s+substrate/.test(
+        read("docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md"),
+      ) &&
+      /Model_mount runtime preference\/profile JS cache retired/.test(
+        read("docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md"),
+      ) &&
+      /RuntimeDaemonCoreModelMountRuntimeCacheRetired/.test(
+        read("docs/architecture/_meta/implementation-matrix.md"),
+      ) &&
       /mounted runtime-engine mutation facades commit Rust-authored records/.test(runtimeEngineMountedTest) &&
       /mounted runtime-engine mutation facades fail closed before JS writes when Rust planner is missing/.test(runtimeEngineMountedTest) &&
       /model_mount_runtime_engine_rust_core_required/.test(runtimeEngineMountedTest) &&

@@ -11060,6 +11060,18 @@ Rust Agentgres admission/protocol cores so `admitted_pending_rust_transport`
 cannot remain accepted live-result commit truth. Broader non-MCP SDK
 route-family protocol coverage over Rust replay records remains non-terminal.
 
+Slice 1330 hard-cuts the model_mount runtime preference/profile JS cache
+substrate. `ModelMountingState` no longer constructs `runtimeSelections` or
+`runtimeEngineProfiles`, `MODEL_MOUNTING_STATE_MAPS` no longer loads
+`runtime-preferences` or `runtime-engine-profiles`, the store no longer creates
+those local cache directories, and focused state/store/read-projection tests
+assert the cache fields and dirs are absent. Runtime-engine selection/profile
+truth remains Rust-owned through typed `planModelMountRuntimeEngine`, Agentgres
+`runtime-engine-controls` record commits, and Rust read-projection replay over
+runtime `state_dir`. Local runtime materialization and stable IDE/CLI/SDK
+runtime-engine APIs remain non-terminal; the retired JS preference/profile maps
+must not return as empty compatibility state or duplicate projection truth.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

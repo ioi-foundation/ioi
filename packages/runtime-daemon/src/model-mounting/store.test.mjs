@@ -67,7 +67,7 @@ function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, "utf8"));
 }
 
-test("store dirs do not recreate retired OAuth, catalog-provider, or capability-token local cache storage", () => {
+test("store dirs do not recreate retired OAuth, catalog-provider, capability-token, or runtime local cache storage", () => {
   const { stateDir, store } = testStore();
 
   store.ensureDirs();
@@ -76,6 +76,8 @@ test("store dirs do not recreate retired OAuth, catalog-provider, or capability-
   assert.equal(fs.existsSync(path.join(stateDir, "oauth-states")), false);
   assert.equal(fs.existsSync(path.join(stateDir, "tokens")), false);
   assert.equal(fs.existsSync(path.join(stateDir, "model-catalog-providers")), false);
+  assert.equal(fs.existsSync(path.join(stateDir, "runtime-preferences")), false);
+  assert.equal(fs.existsSync(path.join(stateDir, "runtime-engine-profiles")), false);
 });
 
 function boundModelInvocationReceipt(overrides = {}) {

@@ -1287,22 +1287,6 @@ function createState() {
       maxCostUsd: 0,
       maxLatencyMs: 1000,
     }]]),
-    runtimeEngineProfiles: new Map([["backend.llama-cpp", {
-      id: "backend.llama-cpp",
-      label: "llama.cpp",
-      priority: 1,
-      defaultLoadOptions: { gpu: "auto" },
-      updatedAt: "2026-06-03T00:00:00.000Z",
-      receiptId: "receipt-runtime",
-      source: "operator_runtime_engine_profile",
-    }]]),
-    runtimeSelections: new Map([["default", {
-      id: "default",
-      selectedEngineId: "backend.llama-cpp",
-      selectedAt: "2026-06-03T00:00:00.000Z",
-      receiptId: "receipt-runtime",
-      source: "operator_runtime_engine_preference",
-    }]]),
     vault: {
       vaultRefMetadata(secretRef) {
         return { secretRef, configured: true };
@@ -4444,6 +4428,9 @@ test("read projection direct client delegates catalog search through Rust provid
 
 test("read projection direct client delegates runtime-engine reads through Rust projections", () => {
   const { state, readProjectionRequests } = createState();
+
+  assert.equal(Object.hasOwn(state, "runtimeSelections"), false);
+  assert.equal(Object.hasOwn(state, "runtimeEngineProfiles"), false);
 
   const engines = state.listRuntimeEngines();
   assert.equal(engines.length, 1);

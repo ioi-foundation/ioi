@@ -80,22 +80,22 @@ test("loadModelMountingMap loads only records with string ids", () => {
 
 test("loadModelMountingMap applies Rust-admitted tombstone records", () => {
   const state = fakeState();
-  const target = new Map([["profile_a", { id: "profile_a", label: "old" }]]);
+  const target = new Map([["route_a", { id: "route_a", label: "old" }]]);
 
-  loadModelMountingMap(state, "runtime-engine-profiles", target, {
+  loadModelMountingMap(state, "model-routes", target, {
     listJson(dir) {
-      return [`${dir}/profile-a.json`];
+      return [`${dir}/route-a.json`];
     },
     readJson() {
       return {
-        id: "profile_a",
+        id: "route_a",
         deleted: true,
         receiptId: "receipt_remove",
       };
     },
   });
 
-  assert.equal(target.has("profile_a"), false);
+  assert.equal(target.has("route_a"), false);
 });
 
 test("loadModelMountingMaps applies the canonical directory map table", () => {
@@ -116,7 +116,7 @@ test("loadModelMountingMaps applies the canonical directory map table", () => {
   }
 });
 
-test("OAuth, catalog-provider, and capability-token JS cache maps stay retired", () => {
+test("OAuth, catalog-provider, capability-token, and runtime-engine JS cache maps stay retired", () => {
   assert.equal(
     MODEL_MOUNTING_STATE_MAPS.some(([dir, property]) => dir === "oauth-sessions" || property === "oauthSessions"),
     false,
@@ -132,6 +132,18 @@ test("OAuth, catalog-provider, and capability-token JS cache maps stay retired",
   assert.equal(
     MODEL_MOUNTING_STATE_MAPS.some(
       ([dir, property]) => dir === "model-catalog-providers" || property === "catalogProviderConfigs",
+    ),
+    false,
+  );
+  assert.equal(
+    MODEL_MOUNTING_STATE_MAPS.some(
+      ([dir, property]) => dir === "runtime-preferences" || property === "runtimeSelections",
+    ),
+    false,
+  );
+  assert.equal(
+    MODEL_MOUNTING_STATE_MAPS.some(
+      ([dir, property]) => dir === "runtime-engine-profiles" || property === "runtimeEngineProfiles",
     ),
     false,
   );

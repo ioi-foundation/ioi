@@ -433,8 +433,6 @@ export class ModelMountingState {
     this.routes = new Map();
     this.downloads = new Map();
     this.lastCatalogSearch = null;
-    this.runtimeSelections = new Map();
-    this.runtimeEngineProfiles = new Map();
     this.vaultRefs = new Map();
     this.mcpServers = new Map();
     this.conversations = new Map();
