@@ -51,20 +51,6 @@ export function createRuntimeRouteHandlers(deps) {
       writeJsonResponse(response, mounts.selectRuntimeEngine(await readBody(request)));
       return;
     }
-    if (request.method === "POST" && segments[2] === "backends" && segments[3] && segments[4] === "health") {
-      writeJsonResponse(response, mounts.backendHealth(decodeURIComponent(segments[3])));
-      return;
-    }
-    if (request.method === "POST" && segments[2] === "backends" && segments[3] && segments[4] === "start") {
-      mounts.authorize(authorization, `backend.control:${decodeURIComponent(segments[3])}`);
-      writeJsonResponse(response, mounts.startBackend(decodeURIComponent(segments[3]), await readBody(request)));
-      return;
-    }
-    if (request.method === "POST" && segments[2] === "backends" && segments[3] && segments[4] === "stop") {
-      mounts.authorize(authorization, `backend.control:${decodeURIComponent(segments[3])}`);
-      writeJsonResponse(response, mounts.stopBackend(decodeURIComponent(segments[3])));
-      return;
-    }
     if (request.method === "GET" && url.pathname === "/api/v1/models") {
       writeJsonResponse(response, mounts.snapshot(baseUrl));
       return;

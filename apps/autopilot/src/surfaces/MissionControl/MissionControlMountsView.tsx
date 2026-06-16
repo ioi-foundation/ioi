@@ -2362,7 +2362,7 @@ function useModelMountsDaemon() {
         }),
       probeNativeBackend: () =>
         runAction("backend-health", async () => {
-          await requestJson("/api/v1/backends/backend.autopilot.native-local.fixture/health", {
+          await requestJson("/v1/model-mount/backends/backend.autopilot.native-local.fixture/health", {
             method: "POST",
           });
           return "Native-local backend health receipt recorded.";
@@ -2370,7 +2370,7 @@ function useModelMountsDaemon() {
       startNativeBackend: () =>
         runAction("backend-start", async () => {
           const token = await ensureToken();
-          await requestJson("/api/v1/backends/backend.autopilot.native-local.fixture/start", {
+          await requestJson("/v1/model-mount/backends/backend.autopilot.native-local.fixture/start", {
             method: "POST",
             token,
           });
@@ -2379,7 +2379,7 @@ function useModelMountsDaemon() {
       stopNativeBackend: () =>
         runAction("backend-stop", async () => {
           const token = await ensureToken();
-          await requestJson("/api/v1/backends/backend.autopilot.native-local.fixture/stop", {
+          await requestJson("/v1/model-mount/backends/backend.autopilot.native-local.fixture/stop", {
             method: "POST",
             token,
           });
@@ -3014,7 +3014,7 @@ function useModelMountsDaemon() {
               requestJson(`/api/v1/providers/${encodeURIComponent(providerId)}/health`, { method: "POST" }),
             ),
             ...backendIds.map((backendId) =>
-              requestJson(`/api/v1/backends/${encodeURIComponent(backendId)}/health`, { method: "POST" }),
+              requestJson(`/v1/model-mount/backends/${encodeURIComponent(backendId)}/health`, { method: "POST" }),
             ),
           ];
           const results = await Promise.allSettled(probes);
@@ -4564,9 +4564,9 @@ function ServerPanel({
           "POST /api/v1/runtime/survey",
           "POST /api/v1/runtime/select",
           "GET /v1/model-mount/backends",
-          "POST /api/v1/backends/:id/health",
-          "POST /api/v1/backends/:id/start",
-          "POST /api/v1/backends/:id/stop",
+          "POST /v1/model-mount/backends/:id/health",
+          "POST /v1/model-mount/backends/:id/start",
+          "POST /v1/model-mount/backends/:id/stop",
           "GET /v1/model-mount/backends/:id/logs",
           "GET /api/v1/models",
           "POST /api/v1/models/load",

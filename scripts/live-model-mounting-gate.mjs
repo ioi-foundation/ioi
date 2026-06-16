@@ -1192,7 +1192,7 @@ async function runModelBackendsGate(evidence) {
     const backends = await expectOk(daemon.endpoint, "/v1/model-mount/backends");
     const checked = [];
     for (const backend of backends.filter((item) => ["llama_cpp", "ollama", "vllm"].includes(item.kind))) {
-      const health = await expectOk(daemon.endpoint, `/api/v1/backends/${backend.id}/health`, { method: "POST" });
+      const health = await expectOk(daemon.endpoint, `/v1/model-mount/backends/${backend.id}/health`, { method: "POST" });
       checked.push({ id: backend.id, kind: backend.kind, status: health.status });
     }
     const available = checked
@@ -1226,7 +1226,7 @@ async function runModelBackendsGate(evidence) {
         },
       });
       const ollamaBackendStart = configured.ollamaBinary
-        ? await expectOk(daemon.endpoint, "/api/v1/backends/backend.ollama/start", {
+        ? await expectOk(daemon.endpoint, "/v1/model-mount/backends/backend.ollama/start", {
             method: "POST",
             token: grant.token,
             body: { load_options: { identifier: "ollama-live-backend-gate" } },
@@ -1334,7 +1334,7 @@ async function runModelBackendsGate(evidence) {
       });
       assert.equal(chatUnloaded.status, "unloaded");
       const ollamaBackendStop = configured.ollamaBinary
-        ? await expectOk(daemon.endpoint, "/api/v1/backends/backend.ollama/stop", {
+        ? await expectOk(daemon.endpoint, "/v1/model-mount/backends/backend.ollama/stop", {
             method: "POST",
             token: grant.token,
           })
@@ -1380,7 +1380,7 @@ async function runModelBackendsGate(evidence) {
       const configuredModel = process.env.IOI_VLLM_MODEL ?? null;
       const vllmBackendStart =
         configured.vllmBinary && configuredModel
-          ? await expectOk(daemon.endpoint, "/api/v1/backends/backend.vllm/start", {
+          ? await expectOk(daemon.endpoint, "/v1/model-mount/backends/backend.vllm/start", {
               method: "POST",
               token: grant.token,
               body: {

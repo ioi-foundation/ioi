@@ -80,7 +80,7 @@ pub async fn run(args: BackendsArgs) -> Result<()> {
                 endpoint,
                 token,
                 Method::POST,
-                &format!("/api/v1/backends/{id}/health"),
+                &format!("/v1/model-mount/backends/{id}/health"),
                 None,
             )
             .await?
@@ -90,7 +90,7 @@ pub async fn run(args: BackendsArgs) -> Result<()> {
                 endpoint,
                 token,
                 Method::POST,
-                &format!("/api/v1/backends/{id}/start"),
+                &format!("/v1/model-mount/backends/{id}/start"),
                 None,
             )
             .await?
@@ -100,7 +100,7 @@ pub async fn run(args: BackendsArgs) -> Result<()> {
                 endpoint,
                 token,
                 Method::POST,
-                &format!("/api/v1/backends/{id}/stop"),
+                &format!("/v1/model-mount/backends/{id}/stop"),
                 None,
             )
             .await?

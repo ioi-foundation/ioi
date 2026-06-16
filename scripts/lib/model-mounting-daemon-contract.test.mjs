@@ -520,12 +520,12 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.equal(selectedRuntimeProfile.engine.operatorProfile.defaultLoadOptions.parallel, 3);
     const runtimeEngineDetail = await expectOk(daemon.endpoint, "/api/v1/runtime/engines/backend.autopilot.native-local.fixture");
     assert.equal(runtimeEngineDetail.profile.defaultLoadOptions.contextLength, 3072);
-    const backendHealth = await expectOk(daemon.endpoint, "/api/v1/backends/backend.autopilot.native-local.fixture/health", {
+    const backendHealth = await expectOk(daemon.endpoint, "/v1/model-mount/backends/backend.autopilot.native-local.fixture/health", {
       method: "POST",
     });
     assert.equal(backendHealth.status, "available");
     assert.equal(typeof backendHealth.lastReceiptId, "string");
-    const fixtureBackendStart = await expectOk(daemon.endpoint, "/api/v1/backends/backend.fixture/start", {
+    const fixtureBackendStart = await expectOk(daemon.endpoint, "/v1/model-mount/backends/backend.fixture/start", {
       method: "POST",
       token: grant.token,
     });
@@ -1036,13 +1036,13 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
       ),
     );
 
-    const nativeBackendStart = await expectOk(daemon.endpoint, "/api/v1/backends/backend.autopilot.native-local.fixture/start", {
+    const nativeBackendStart = await expectOk(daemon.endpoint, "/v1/model-mount/backends/backend.autopilot.native-local.fixture/start", {
       method: "POST",
       token: grant.token,
     });
     assert.equal(nativeBackendStart.status, "available");
     assert.equal(nativeBackendStart.processStatus, "started");
-    const nativeBackendStop = await expectOk(daemon.endpoint, "/api/v1/backends/backend.autopilot.native-local.fixture/stop", {
+    const nativeBackendStop = await expectOk(daemon.endpoint, "/v1/model-mount/backends/backend.autopilot.native-local.fixture/stop", {
       method: "POST",
       token: grant.token,
     });
@@ -2944,7 +2944,7 @@ setInterval(() => {}, 1000);
         ],
       },
     });
-    const backendStart = await expectOk(daemon.endpoint, "/api/v1/backends/backend.ollama/start", {
+    const backendStart = await expectOk(daemon.endpoint, "/v1/model-mount/backends/backend.ollama/start", {
       method: "POST",
       token: grant.token,
       body: { load_options: { identifier: "ollama-supervisor-test" } },
@@ -3011,7 +3011,7 @@ setInterval(() => {}, 1000);
     assert.equal(unloaded.status, "unloaded");
     const loadedAfterUnload = await expectOk(daemon.endpoint, "/api/v1/providers/provider.ollama/loaded");
     assert.equal(loadedAfterUnload.some((model) => model.modelId === "qwen3:8b"), false);
-    const backendStop = await expectOk(daemon.endpoint, "/api/v1/backends/backend.ollama/stop", {
+    const backendStop = await expectOk(daemon.endpoint, "/v1/model-mount/backends/backend.ollama/stop", {
       method: "POST",
       token: grant.token,
     });
@@ -3372,7 +3372,7 @@ setInterval(() => {}, 1000);
         ],
       },
     });
-    const backendStart = await expectOk(daemon.endpoint, "/api/v1/backends/backend.vllm/start", {
+    const backendStart = await expectOk(daemon.endpoint, "/v1/model-mount/backends/backend.vllm/start", {
       method: "POST",
       token: grant.token,
       body: { load_options: { model: "vllm-qwen", contextLength: 4096, parallel: 2, dtype: "auto", gpuMemoryUtilization: 0.42 } },

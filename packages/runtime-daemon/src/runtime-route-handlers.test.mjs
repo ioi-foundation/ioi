@@ -2096,7 +2096,7 @@ test("model mounting native route does not expose retired receipt read aliases",
   assert.deepEqual(calls, []);
 });
 
-test("model mounting native route does not expose retired operational read or server-control aliases", async () => {
+test("model mounting native route does not expose retired operational read, server-control, or backend-control aliases", async () => {
   const { handleModelMountingNativeRoute } = routeHandlers();
   const calls = [];
   const failRetiredAlias = (name) => (...args) => {
@@ -2106,6 +2106,7 @@ test("model mounting native route does not expose retired operational read or se
   const store = {
     modelMounting: {
       authoritySnapshot: failRetiredAlias("authoritySnapshot"),
+      backendHealth: failRetiredAlias("backendHealth"),
       backendLogs: failRetiredAlias("backendLogs"),
       listBackends: failRetiredAlias("listBackends"),
       listInstances: failRetiredAlias("listInstances"),
@@ -2117,6 +2118,8 @@ test("model mounting native route does not expose retired operational read or se
       serverStart: failRetiredAlias("serverStart"),
       serverStatus: failRetiredAlias("serverStatus"),
       serverStop: failRetiredAlias("serverStop"),
+      startBackend: failRetiredAlias("startBackend"),
+      stopBackend: failRetiredAlias("stopBackend"),
     },
   };
   const cases = [
@@ -2130,6 +2133,9 @@ test("model mounting native route does not expose retired operational read or se
     ["POST", "/api/v1/models/server/start"],
     ["POST", "/api/v1/models/server/stop"],
     "/api/v1/backends",
+    ["POST", "/api/v1/backends/backend.route/health"],
+    ["POST", "/api/v1/backends/backend.route/start"],
+    ["POST", "/api/v1/backends/backend.route/stop"],
     "/api/v1/backends/backend.route/logs",
     "/api/v1/models/backends",
     "/api/v1/runtime/engines",

@@ -208,7 +208,7 @@ def seed_model_mounting_state(endpoint: str) -> dict[str, Any]:
     token = str(grant["token"])
     backend_health = request_json(
         endpoint,
-        "/api/v1/backends/backend.autopilot.native-local.fixture/health",
+        "/v1/model-mount/backends/backend.autopilot.native-local.fixture/health",
         method="POST",
     )
     catalog_search = request_json(endpoint, "/v1/models/catalog/search?query=autopilot&format=gguf&limit=10")
@@ -392,7 +392,7 @@ def collect_live_provider_state(endpoint: str) -> dict[str, Any]:
     state: dict[str, Any] = {"backends": {}, "providers": {}}
     for backend_id in ["backend.lmstudio", "backend.ollama"]:
         try:
-            health = request_json(endpoint, f"/api/v1/backends/{backend_id}/health", method="POST", timeout=8.0)
+            health = request_json(endpoint, f"/v1/model-mount/backends/{backend_id}/health", method="POST", timeout=8.0)
             state["backends"][backend_id] = {
                 "kind": health.get("kind"),
                 "status": health.get("status"),

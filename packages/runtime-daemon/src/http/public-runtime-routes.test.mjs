@@ -397,6 +397,18 @@ test("public runtime model catalog routes use mounted model projection surface",
         calls.push({ method: "listBackends" });
         return [{ id: "backend.route" }];
       },
+      backendHealth(id) {
+        calls.push({ method: "backendHealth", id });
+        return { id, object: "backend.health" };
+      },
+      startBackend(id, body) {
+        calls.push({ method: "startBackend", id, body });
+        return { id, object: "backend.start" };
+      },
+      stopBackend(id) {
+        calls.push({ method: "stopBackend", id });
+        return { id, object: "backend.stop" };
+      },
       backendLogs(id) {
         calls.push({ method: "backendLogs", id });
         return { id, object: "backend.logs" };
@@ -466,6 +478,9 @@ test("public runtime model catalog routes use mounted model projection surface",
     ["/v1/model-mount/server/logs?limit=5", { id: "server.logs", limit: "5" }],
     ["/v1/model-mount/server/events?limit=6", { id: "server.events", limit: "6" }],
     ["/v1/model-mount/backends", [{ id: "backend.route" }]],
+    ["POST /v1/model-mount/backends/backend.route/health", { id: "backend.route", object: "backend.health" }],
+    ["POST /v1/model-mount/backends/backend.route/start", { id: "backend.route", object: "backend.start" }],
+    ["POST /v1/model-mount/backends/backend.route/stop", { id: "backend.route", object: "backend.stop" }],
     ["/v1/model-mount/backends/backend.route/logs", { id: "backend.route", object: "backend.logs" }],
     ["/v1/model-mount/runtime/engines", [{ id: "engine.route" }]],
     ["/v1/model-mount/runtime/engines/engine.route", { id: "engine.route", object: "runtime.engine" }],
@@ -503,6 +518,11 @@ test("public runtime model catalog routes use mounted model projection surface",
     { method: "authorize", authorization: undefined, scope: "server.logs:*" },
     { method: "serverEvents", query: { limit: "6" } },
     { method: "listBackends" },
+    { method: "backendHealth", id: "backend.route" },
+    { method: "authorize", authorization: undefined, scope: "backend.control:backend.route" },
+    { method: "startBackend", id: "backend.route", body: {} },
+    { method: "authorize", authorization: undefined, scope: "backend.control:backend.route" },
+    { method: "stopBackend", id: "backend.route" },
     { method: "backendLogs", id: "backend.route" },
     { method: "listRuntimeEngines" },
     { method: "runtimeEngine", id: "engine.route" },

@@ -339,6 +339,10 @@ function checkDaemonRouteImplementation() {
     'url.pathname === "/v1/model-mount/authority"',
     'url.pathname === "/v1/model-mount/server/start"',
     'url.pathname === "/v1/model-mount/server/stop"',
+    'segments[2] === "backends"',
+    'segments[4] === "health"',
+    'segments[4] === "start"',
+    'segments[4] === "stop"',
   ];
   const requiredNativeControl = [
     'segments[3] === "mounts"',

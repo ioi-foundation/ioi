@@ -11407,6 +11407,24 @@ materialization, hosted/provider transport, OAuth/auth-header materialization,
 invocation authority depth, and broader IDE/SDK control coverage still need
 terminal Rust-owned protocol coverage.
 
+Slice 1354 hard-cuts stable model_mount backend-control protocol clients and
+retires the native backend lifecycle control aliases. Public backend
+health/start/stop now use `POST /v1/model-mount/backends/{id}/health`,
+`POST /v1/model-mount/backends/{id}/start`, and
+`POST /v1/model-mount/backends/{id}/stop` over the mounted Rust daemon-core
+backend-lifecycle planner and Agentgres record-state commit path. CLI backend
+controls, current proof scripts, product UI/desktop probes, live-provider gates,
+and daemon contract tests moved off `POST /api/v1/backends/{id}/health`,
+`POST /api/v1/backends/{id}/start`, and
+`POST /api/v1/backends/{id}/stop`. The daemon native handler no longer exposes
+those aliases, focused route tests assert they return `not_found` without
+calling backend lifecycle methods, and conformance scans client surfaces so the
+retired backend-control compatibility path cannot return. This remains
+non-terminal because backend execution/materialization, hosted/provider
+transport, OAuth/auth-header materialization, invocation authority depth, and
+broader IDE/SDK control coverage still need terminal Rust-owned protocol
+coverage.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

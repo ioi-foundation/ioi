@@ -411,6 +411,41 @@ export function createPublicRuntimeRequestHandler(deps) {
         return;
       }
       if (
+        request.method === "POST" &&
+        segments[0] === "v1" &&
+        segments[1] === "model-mount" &&
+        segments[2] === "backends" &&
+        segments[3] &&
+        segments[4] === "health"
+      ) {
+        writeJsonResponse(response, store.modelMounting.backendHealth(decodeURIComponent(segments[3])));
+        return;
+      }
+      if (
+        request.method === "POST" &&
+        segments[0] === "v1" &&
+        segments[1] === "model-mount" &&
+        segments[2] === "backends" &&
+        segments[3] &&
+        segments[4] === "start"
+      ) {
+        store.modelMounting.authorize(request.headers.authorization, `backend.control:${decodeURIComponent(segments[3])}`);
+        writeJsonResponse(response, store.modelMounting.startBackend(decodeURIComponent(segments[3]), await readBody(request)));
+        return;
+      }
+      if (
+        request.method === "POST" &&
+        segments[0] === "v1" &&
+        segments[1] === "model-mount" &&
+        segments[2] === "backends" &&
+        segments[3] &&
+        segments[4] === "stop"
+      ) {
+        store.modelMounting.authorize(request.headers.authorization, `backend.control:${decodeURIComponent(segments[3])}`);
+        writeJsonResponse(response, store.modelMounting.stopBackend(decodeURIComponent(segments[3])));
+        return;
+      }
+      if (
         request.method === "GET" &&
         segments[0] === "v1" &&
         segments[1] === "model-mount" &&
