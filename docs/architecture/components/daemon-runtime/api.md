@@ -678,3 +678,7 @@ POST /v1/runtime/assignments/{assignment_id}/reject
 11. Authority Gateway adapters submit action requests and observations; they do
     not own policy, effects, secrets, receipts, replay, or durable runtime
     state, and they must not overclaim control over opaque third-party agents.
+12. Project, session, mission, adapter, environment-ops, access-token,
+    log-token, port, browser-open, and support-bundle APIs are daemon/Core
+    lifecycle APIs; product clients and agent harnesses must not invent private
+    lifecycle truth for them.

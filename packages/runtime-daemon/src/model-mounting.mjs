@@ -39,7 +39,6 @@ import {
 import {
   writeBackendLog as writeBackendLogState,
 } from "./model-mounting/backend-registry-state.mjs";
-import { llamaCppLibraryPathEnv } from "./model-mounting/local-runtime-engines.mjs";
 import {
   optionalString,
   requiredString,

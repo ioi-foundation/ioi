@@ -1811,11 +1811,11 @@ function runDocs() {
       /`provider-driver-helpers\.mjs` and `provider-driver-helpers\.test\.mjs` are absent/.test(guide) &&
       !exists("packages/runtime-daemon/src/model-mounting/provider-driver-helpers.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/provider-driver-helpers.test.mjs") &&
-      /Slice 901 deleted the unused local runtime-engine helper tail/.test(guide) &&
-      /it no longer exports `llamaCppGpuLayersArg\(\)` or\s+`backendBindAddress\(\)`/.test(guide) &&
-      !/export function llamaCppGpuLayersArg/.test(localRuntimeEngines) &&
-      !/export function backendBindAddress/.test(localRuntimeEngines) &&
-      !/llamaCppGpuLayersArg|backendBindAddress/.test(localRuntimeEnginesTest) &&
+      /Slice 1389 hard-deletes the remaining local runtime-engine helper module/.test(guide) &&
+      /`local-runtime-engines\.mjs` and `local-runtime-engines\.test\.mjs` are\s+absent/.test(guide) &&
+      !exists("packages/runtime-daemon/src/model-mounting/local-runtime-engines.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/local-runtime-engines.test.mjs") &&
+      !/local-runtime-engines/.test(modelMountingState) &&
       /Slice 902 deleted the retired catalog-entry materializer module/.test(guide) &&
       /`catalog-entries\.mjs` and `catalog-entries\.test\.mjs` are absent/.test(guide) &&
       !exists("packages/runtime-daemon/src/model-mounting/catalog-entries.mjs") &&
@@ -2263,10 +2263,10 @@ function runDocs() {
       /Slice 900 deleted the final standalone provider-driver helper module/.test(matrix) &&
       /`provider-driver-helpers\.mjs` and `provider-driver-helpers\.test\.mjs` are absent/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 900 is now satisfied/.test(matrix) &&
-      /Implementation Slice Evidence: 901/.test(matrix) &&
-      /Slice 901 deleted the unused local runtime-engine helper tail/.test(matrix) &&
-      /`local-runtime-engines\.mjs` no longer exports `llamaCppGpuLayersArg\(\)` or\s+`backendBindAddress\(\)`/.test(matrix) &&
-      /Scheduled matrix-compaction obligation from Slice 901 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 1389/.test(matrix) &&
+      /Slice 1389 hard-deletes the remaining\s+local runtime-engine helper module/.test(matrix) &&
+      /`local-runtime-engines\.mjs` and `local-runtime-engines\.test\.mjs` are absent/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 1389 is now satisfied/.test(matrix) &&
       /Implementation Slice Evidence: 902/.test(matrix) &&
       /Slice 902 deleted the retired catalog-entry materializer module/.test(matrix) &&
       /`catalog-entries\.mjs` and `catalog-entries\.test\.mjs` are absent/.test(matrix) &&
@@ -3030,7 +3030,7 @@ function runDocs() {
       /JS no longer sends provider-status summaries from `state\.providers\.values\(\)`\/`provider_statuses`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
       /derived backend registry records no longer read `state\.providers` or provider-map records\s+for LM Studio, OpenAI-compatible, Ollama, or vLLM status, base URL, or public-CLI binary path projection/.test(implementationMatrix) &&
-      /the local runtime-engine helper tail no longer exports `llamaCppGpuLayersArg\(\)` or `backendBindAddress\(\)`/.test(implementationMatrix) &&
+      /the local runtime-engine helper module and focused helper test are deleted/.test(implementationMatrix) &&
       /the orphan `workflow-node\.mjs` response helper\/test module is deleted/.test(implementationMatrix) &&
       /the standalone `server-control\.mjs` helper\/test module remains deleted/.test(implementationMatrix) &&
       /`recordServerOperation\(\)` now commits Rust server-control truth instead of delegating to a JS helper or required-record facade/.test(implementationMatrix) &&
@@ -25621,22 +25621,23 @@ function runReceipts() {
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
     ],
-    "Phase 9/11 remains non-terminal: runtime-engine mutation and read projection now use Rust daemon-core runtime-engine controls and admitted Agentgres replay; local runtime materialization, command-transport retirement, and stable API retirement still need completion",
+    "Phase 9/11 remains non-terminal: runtime-engine mutation/read projection and local runtime-engine helper retirement now use Rust daemon-core runtime-engine controls plus admitted Agentgres replay; command-transport retirement and stable API retirement still need completion",
   );
   assertCheck(
     result,
-    "model-mount-local-runtime-helper-tail-retired",
-    /export function discoverAutopilotLlamaServer/.test(localRuntimeEngines) &&
-      /export function llamaCppLibraryPathEnv/.test(localRuntimeEngines) &&
-      !/export function llamaCppGpuLayersArg/.test(localRuntimeEngines) &&
-      !/export function backendBindAddress/.test(localRuntimeEngines) &&
-      !/llamaCppGpuLayersArg|backendBindAddress/.test(localRuntimeEnginesTest) &&
-      /prefers accelerated native bundles/.test(localRuntimeEnginesTest),
+    "model-mount-local-runtime-helper-module-deleted",
+    !exists("packages/runtime-daemon/src/model-mounting/local-runtime-engines.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/local-runtime-engines.test.mjs") &&
+      !/local-runtime-engines/.test(modelMountingRoot) &&
+      /Slice 1389 hard-deletes the remaining local runtime-engine helper module/.test(guide) &&
+      /Slice 1389 hard-deletes the remaining\s+local runtime-engine helper module/.test(matrix) &&
+      /the local runtime-engine helper module and focused helper test are deleted/.test(implementationMatrix),
     [
       "packages/runtime-daemon/src/model-mounting/local-runtime-engines.mjs",
       "packages/runtime-daemon/src/model-mounting/local-runtime-engines.test.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
     ],
-    "Phase 9/11 is pending: local runtime-engine discovery must stay limited to migration-time binary/library materialization until Rust daemon-core owns runtime-engine process planning",
+    "Local runtime-engine discovery/library materialization must not retain a JS helper module once Rust daemon-core owns runtime-engine projection and backend-process planning",
   );
   assertCheck(
     result,

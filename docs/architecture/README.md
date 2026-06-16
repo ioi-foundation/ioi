@@ -136,7 +136,8 @@ Read the stack this way:
 - Hypervisor Workbench is the code/systems/workspace surface and may use VS
   Code, Cursor, Windsurf, JetBrains, browser IDEs, terminals, VMs, local apps,
   and HypervisorOS nodes as adapter targets; editor choice is a session
-  preference, not Hypervisor's product identity;
+  preference resolved through an `AdapterConnectionProfile`, not Hypervisor's
+  product identity;
 - IOI Authority Gateway is the daemon sidecar/adapter profile for existing IDE,
   CLI, browser, hosted-agent, and MCP/tool ecosystems: keep your IDE, keep your
   model, and put consequential execution behind IOI;
@@ -146,8 +147,9 @@ Read the stack this way:
   rather than runtime owners;
 - external CLI or hosted agent harnesses such as Codex, Claude Code, Grok Build,
   OpenHands, Aider, shell/tmux agents, and CI agents are Agent Harness Adapters:
-  they submit proposed work through Hypervisor Core and the daemon; they do not
-  become Hypervisor clients or runtime truth;
+  they operate through environment-ops profiles and submit proposed work through
+  Hypervisor Core and the daemon; they do not become Hypervisor clients or
+  runtime truth;
 - aiagent.xyz is a first-party protocol application that publishes,
   benchmarks, ranks, installs, initializes managed instances, and routes
   workers through AIIP and IOI settlement;
@@ -208,9 +210,9 @@ distilled back into this architecture pack or into an accepted decision record.
 - [`agentgres/artifact-ref-plane.md`](./components/agentgres/artifact-ref-plane.md) — ArtifactRef, PayloadRef, EvidenceBundle, DeliveryBundle, AgentStateArchive refs, lifecycle, authority, receipts, and restore validity.
 - [`agentgres/postgres-bridge-and-readiness-contract.md`](./components/agentgres/postgres-bridge-and-readiness-contract.md) — Postgres bridge posture, consistency levels, durability/readiness contract.
 - [`daemon-runtime/doctrine.md`](./components/daemon-runtime/doctrine.md) — universal execution endpoint for local, hosted, and DePIN nodes.
-- [`daemon-runtime/hypervisoros.md`](./components/daemon-runtime/hypervisoros.md) — bare-metal Hypervisor node profile, measured boot, daemon-rooted workload launch, node integrity receipts, and HypervisorOS conformance.
-- [`hypervisor/core-clients-surfaces.md`](./components/hypervisor/core-clients-surfaces.md) — Hypervisor Core, first-class clients, application surfaces, sessions, and adapters; App/Web/CLI-headless are clients, TUI is an optional CLI presentation, Workbench/Foundry/Fleet are application surfaces, and external CLI agents are harness adapters.
-- [`hypervisor/fleet.md`](./components/hypervisor/fleet.md) — Hypervisor Fleet as the general infrastructure manager whose first-class workload is autonomous systems, spanning machines, VMs, containers, microVMs, WASM workloads, DePIN, cloud, local, edge, customer, and bare-metal nodes, with Fleet surfaces in Hypervisor App, Hypervisor Web, CLI/headless projections, and console.ioi.ai.
+- [`daemon-runtime/hypervisoros.md`](./components/daemon-runtime/hypervisoros.md) — bare-metal Hypervisor node profile, measured boot, daemon-rooted workload launch, node enforcement profile, node integrity receipts, and HypervisorOS conformance.
+- [`hypervisor/core-clients-surfaces.md`](./components/hypervisor/core-clients-surfaces.md) — Hypervisor Core, first-class clients, application surfaces, projects, sessions, missions, adapter connection profiles, access/log/support policies, and harness environment-ops contracts; App/Web/CLI-headless are clients, TUI is an optional CLI presentation, Workbench/Foundry/Fleet are application surfaces, and external CLI agents are harness adapters.
+- [`hypervisor/fleet.md`](./components/hypervisor/fleet.md) — Hypervisor Fleet as the general infrastructure manager whose first-class workload is autonomous systems, spanning machines, VMs, containers, microVMs, WASM workloads, DePIN, cloud, local, edge, customer, and bare-metal nodes, with direct provider integrations such as Akash compute/GPU and Filecoin storage/retrieval, zero-to-idle/restore posture, warmup/cache posture, and Fleet surfaces in Hypervisor App, Hypervisor Web, CLI/headless projections, and console.ioi.ai.
 - [`daemon-runtime/private-workspace-ctee.md`](./components/daemon-runtime/private-workspace-ctee.md) — Private Workspace backed by cTEE for persistent rented GPU Hypervisor Nodes, Candidate-Lattice Private Decoding, private files/folders, private strategy execution, autonomy leases, declassification gates, and no-plaintext protected classes.
 - [`daemon-runtime/runtime-nodes-tee-depin.md`](./components/daemon-runtime/runtime-nodes-tee-depin.md) — local/hosted/DePIN/TEE execution modes.
 - [`wallet-network/doctrine.md`](./components/wallet-network/doctrine.md) — identity, secrets, authority scopes, approvals, payments, exchange/trade authority.
@@ -271,11 +273,11 @@ supporting file.
 | Domain Kernel | Application-domain authority/runtime deployment for Agentgres and routing. |
 | Agentgres | Per-domain canonical operational state, receipts, projections, quality, and contribution accounting. |
 | Hypervisor Daemon / Runtime Node | Hypervisor/control plane for autonomous execution across workflows, workers, tools, models, connectors, computer-use leases, artifacts, policy, receipts, and replay. |
-| HypervisorOS | Bare-metal Hypervisor node profile where the daemon is the node root; owns measured node boot, daemon-rooted workload launch, node integrity receipts, and bare-metal conformance without replacing cTEE privacy or wallet.network authority. |
+| HypervisorOS | Bare-metal Hypervisor node profile where the daemon is the node root; owns measured node boot, daemon-rooted workload launch, node enforcement posture, node integrity receipts, and bare-metal conformance without replacing cTEE privacy or wallet.network authority. |
 | Hypervisor Core | Shared product/runtime substrate used by Hypervisor clients and application surfaces; its execution owner is the Hypervisor Daemon and its step/module backend converges on the Rust/WASM workload/kernel substrate. |
 | Hypervisor App / Web / CLI-headless | First-class clients over Hypervisor Core for native desktop, browser/team/remote, and terminal/headless operation; TUI is an optional CLI presentation. |
 | Hypervisor Workbench / Foundry / Fleet | Application surfaces over Hypervisor Core for code/systems/workspace operation, worker/eval/training, and infrastructure/provider/node management. |
-| Hypervisor Fleet | General infrastructure manager whose first-class workload is autonomous systems; manages nodes, providers, VMs, containers, microVMs, WASM workloads, images, volumes, networks, GPU pools, DePIN/cloud/local/bare-metal runtime inventory, CloudRoute candidates, placement, health, cost, storage posture, cTEE posture, receipts, replay projections, and policy visibility; surfaces inside Hypervisor App, Hypervisor Web, CLI/headless projections, and console.ioi.ai without owning execution, authority, truth, or bytes. |
+| Hypervisor Fleet | General infrastructure manager whose first-class workload is autonomous systems; manages nodes, providers, VMs, containers, microVMs, WASM workloads, images, volumes, networks, GPU pools, DePIN/cloud/local/bare-metal runtime inventory, CloudRoute candidates, direct Akash/Filecoin-style provider/storage lanes, zero-to-idle/restore posture, warmup/cache posture, placement, health, cost, storage posture, cTEE posture, receipts, replay projections, and policy visibility; surfaces inside Hypervisor App, Hypervisor Web, CLI/headless projections, and console.ioi.ai without owning execution, authority, truth, or bytes. |
 | Wallet Lanes / Provider Integrations | Wallet is the authority cockpit. decentralized.exchange is a route-intelligence engine for liquidity, decentralized.trade is a venue/market-intelligence engine for exposure including prediction markets/event contracts, and Hypervisor integrates directly with compute, storage, GPU, confidential, DePIN, local, customer-cloud, and enterprise providers. Candidates propose; wallet.network authorizes; Hypervisor executes or deploys; venues/providers perform; Agentgres records; IOI L1 settles by trigger. |
 | Private Workspace backed by cTEE | User-facing private workspace and daemon execution profile for persistent rented GPU nodes that run useful compute without receiving protected plaintext by default; Plaintext-Free Runtime Mounting is the daemon boundary, CLPD is the default protected-agency strategy, Candidate Coverage Profile estimates proposal redundancy, Counterfactual Lattice Execution trades extra public token volume for lower online private-choice leakage, the Cryptographic Operator Plane handles protected private operators internally, External Model API Boundary distinguishes private-native/redacted-API/provider-trust/unsafe paths, and deterrence/detection receipts support canaries, watermarks, and disputes. |
 | IOI CLI/headless | Human terminal, scripting, CI, node-ops, and headless operator client over daemon/public runtime APIs; TUI is an optional interactive presentation of this client. |
@@ -356,14 +358,18 @@ Authority Plane
 13. decentralized.exchange/trade are route/venue intelligence engines that propose candidates for liquidity and exposure, and Hypervisor provider integrations propose routes for execution; they are not mandatory UIs, authority, custody, provider, venue, storage, or settlement owners. Parked future decentralized.cloud must not be treated as present canon or a mandatory gateway.
 14. CLI/headless, SDK, and ADK are separate surfaces: CLI/headless is the operator/scripting/CI client, TUI is an optional CLI presentation, SDK is the low-level client library, and ADK is the autonomous-system builder framework.
 15. Hypervisor App, Hypervisor Web, CLI/headless, agent-ide, SDK, ADK, agent harness adapters, benchmarks, and Workbench/Foundry/Fleet surfaces must share daemon/domain contracts rather than creating private runtime truth paths.
-16. Worker is the protocol actor; model is a cognition backend; agent is product-facing or colloquial language.
-17. MoW is labor routing across bounded workers, not a fifth Web primitive and not model-provider routing.
-18. Worker Training creates or improves capability but does not grant authority; wallet.network or equivalent authority grants power.
-19. Workers train on ontology-bound, policy-bound, and when useful distilled data, not raw blobs or ambient connector payloads.
-20. Models and agents may reason or propose; Hypervisor Daemon authority decides what crosses the deterministic execution boundary.
-21. IOI Authority Gateway, Hypervisor Guard, IDE extensions, CLI wrappers, MCP gateways, Git hooks, API proxies, browser adapters, and CI gates are mediation surfaces only. They must route consequential actions through daemon policy, authority, receipts, and replay, and they must not claim total interception of opaque third-party runtimes.
-22. IOI's alignment-security claim is execution-boundary alignment: it constrains consequential effects through bounded authority, policy, receipts, and verification; it must not be framed as proving every model's private cognition or goals are safe.
-23. Hypervisor Workbench, Hypervisor App, and Hypervisor Web are not the Hypervisor Node. They are clients or application surfaces; the Hypervisor Node is the local settlement and interop domain composed around Hypervisor Daemon, Agentgres, wallet.network authority paths, registries, receipts, and replay.
-24. Governed autonomous-system chains are system-local state machines, not necessarily standalone public blockchains or IOI L1s. IOI L1 anchors selected roots and settles global machine-economy rights, disputes, reputation, and economics.
-25. The marketplace is not the protocol. aiagent.xyz and sas.xyz are first-party applications of AIIP and IOI settlement, while IOI mainnet remains the generic settlement layer for autonomous systems.
-26. AIIP is the shared interop semantics for local microharness routing and external autonomous-system handoffs. Transports and settlement depth may vary; protocol grammar should not fragment.
+16. Adapter targets must resolve through connection profiles, external harnesses
+    must use environment-ops APIs, remote access/log/support tokens must be
+    short-lived and receipted, and background automations must be explicit
+    `HypervisorMission` objects rather than hidden interactive sessions.
+17. Worker is the protocol actor; model is a cognition backend; agent is product-facing or colloquial language.
+18. MoW is labor routing across bounded workers, not a fifth Web primitive and not model-provider routing.
+19. Worker Training creates or improves capability but does not grant authority; wallet.network or equivalent authority grants power.
+20. Workers train on ontology-bound, policy-bound, and when useful distilled data, not raw blobs or ambient connector payloads.
+21. Models and agents may reason or propose; Hypervisor Daemon authority decides what crosses the deterministic execution boundary.
+22. IOI Authority Gateway, Hypervisor Guard, IDE extensions, CLI wrappers, MCP gateways, Git hooks, API proxies, browser adapters, and CI gates are mediation surfaces only. They must route consequential actions through daemon policy, authority, receipts, and replay, and they must not claim total interception of opaque third-party runtimes.
+23. IOI's alignment-security claim is execution-boundary alignment: it constrains consequential effects through bounded authority, policy, receipts, and verification; it must not be framed as proving every model's private cognition or goals are safe.
+24. Hypervisor Workbench, Hypervisor App, and Hypervisor Web are not the Hypervisor Node. They are clients or application surfaces; the Hypervisor Node is the local settlement and interop domain composed around Hypervisor Daemon, Agentgres, wallet.network authority paths, registries, receipts, and replay.
+25. Governed autonomous-system chains are system-local state machines, not necessarily standalone public blockchains or IOI L1s. IOI L1 anchors selected roots and settles global machine-economy rights, disputes, reputation, and economics.
+26. The marketplace is not the protocol. aiagent.xyz and sas.xyz are first-party applications of AIIP and IOI settlement, while IOI mainnet remains the generic settlement layer for autonomous systems.
+27. AIIP is the shared interop semantics for local microharness routing and external autonomous-system handoffs. Transports and settlement depth may vary; protocol grammar should not fragment.

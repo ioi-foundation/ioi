@@ -1899,9 +1899,9 @@ requires `state_dir`, reads admitted `runtime-engine-controls/*.json` records,
 filters out JS-authored controls, materializes engine/profile/preference/default
 load projections from Rust-owned control records, and fails closed with
 `model_mount_runtime_engine_not_found` only when the requested engine has no
-admitted runtime-engine control truth. Command-transport replacement, stable
-protocol APIs, and local runtime-engine materialization retirement still remain
-before this surface reaches the pure Rust substrate target.
+admitted runtime-engine control truth. Command-transport replacement and stable
+protocol APIs remain open; local runtime-engine helper materialization is
+retired by Slice 1389.
 
 Slice 859 retired dedicated latest-runtime-survey JS primitive read-projection
 input, and the current receipt-replay authority cut removed the later JS receipt
@@ -3002,15 +3002,14 @@ provider/endpoint `driver` fields and no longer carries a reusable JS helper
 surface that could reintroduce hosted driver inference or retired camelCase
 coalescing behavior.
 
-Slice 901 deleted the unused local runtime-engine helper tail. The remaining
-`local-runtime-engines.mjs` module keeps only migration-time llama.cpp binary
-discovery and library-path materialization used by current backend registry
-seeding; it no longer exports `llamaCppGpuLayersArg()` or
-`backendBindAddress()`, and its focused test no longer preserves a public
-product GPU-mode-to-llama.cpp flag contract. Terminal runtime-engine migration
-still requires direct Rust daemon-core runtime-engine preference/profile,
-projection, process-planning, local runtime materialization, Agentgres replay,
-stable protocol APIs, and command-transport retirement.
+Slice 901 deleted the unused local runtime-engine helper tail. Slice 1389
+hard-deletes the remaining local runtime-engine helper module:
+`local-runtime-engines.mjs` and `local-runtime-engines.test.mjs` are absent,
+`model-mounting.mjs` no longer imports that module, and conformance now guards
+that JS-side llama.cpp binary discovery/library-path materialization cannot
+return beside Rust runtime-engine projection and backend-process planning.
+Terminal runtime-engine migration still requires stable protocol APIs and
+deeper replay/binding work, but not a JS local runtime materialization helper.
 
 Slice 902 deleted the retired catalog-entry materializer module.
 `catalog-entries.mjs` and `catalog-entries.test.mjs` are absent rather than
@@ -11114,9 +11113,10 @@ those local cache directories, and focused state/store/read-projection tests
 assert the cache fields and dirs are absent. Runtime-engine selection/profile
 truth remains Rust-owned through typed `planModelMountRuntimeEngine`, Agentgres
 `runtime-engine-controls` record commits, and Rust read-projection replay over
-runtime `state_dir`. Local runtime materialization and stable IDE/CLI/SDK
-runtime-engine APIs remain non-terminal; the retired JS preference/profile maps
-must not return as empty compatibility state or duplicate projection truth.
+runtime `state_dir`. Stable IDE/CLI/SDK runtime-engine APIs and deeper
+Rust-owned backend-process binding remain non-terminal; the retired JS
+preference/profile maps and local runtime-engine helper materialization must not
+return as empty compatibility state or duplicate projection truth.
 
 Slice 1331 hard-cuts the model_mount MCP server JS cache substrate.
 `ModelMountingState` no longer constructs `mcpServers`,
@@ -12077,6 +12077,15 @@ work for durable Agentgres-backed persistence/replay, wallet authority on
 external exits, receipt/state-root binding, and stable protocol APIs; this cut
 removes the duplicate JS projection truth path from the daemon hot run-create
 path.
+
+Slice 1389 hard-deletes the remaining local runtime-engine helper module.
+`packages/runtime-daemon/src/model-mounting/local-runtime-engines.mjs` and its
+focused test are absent, `model-mounting.mjs` has no local-runtime-engine import,
+and conformance now treats JS llama.cpp binary discovery/library-path
+materialization as retired. Runtime-engine public mutation/projection truth
+remains Rust-owned through `planModelMountRuntimeEngine`, Agentgres
+`runtime-engine-controls` replay, and Rust backend-process materialization /
+live-supervision records; JS may remain only a protocol client.
 
 ## Final Doctrine
 
