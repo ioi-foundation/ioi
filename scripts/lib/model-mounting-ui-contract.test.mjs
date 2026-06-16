@@ -17,7 +17,7 @@ const viewPath = path.join(
 test("Autopilot Mounts workbench is wired to daemon API without persisting capability tokens", () => {
   const source = fs.readFileSync(viewPath, "utf8");
   for (const route of [
-    "/api/v1/models",
+    "/v1/model-mount/snapshot",
     "/v1/model-mount/server/start",
     "/v1/model-mount/server/stop",
     "/v1/model-mount/server/restart",
@@ -52,13 +52,13 @@ test("Autopilot Mounts workbench is wired to daemon API without persisting capab
     "/api/v1/chat",
     "/api/v1/responses",
     "/api/v1/embeddings",
-    "/api/v1/mcp/import",
+    "/v1/model-mount/mcp/import",
     "/v1/model-mount/routes",
     "/v1/model-mount/routes/route.local-first/test",
     "/v1/model-mount/receipts",
     "/v1/model-mount/receipts/:id/replay",
-    "/api/v1/projections/model-mounting",
-    "/api/v1/workflows/nodes/execute",
+    "/v1/model-mount/projection",
+    "/v1/model-mount/workflows/nodes/execute",
   ]) {
     assert.match(source, new RegExp(route.replaceAll("/", "\\/")));
   }
@@ -583,8 +583,8 @@ test("model mounting end-to-end validation is wired as the acceptance gate", () 
   );
   for (const token of [
     "startRuntimeDaemonService",
-    "/api/v1/workflows/nodes/execute",
-    "/api/v1/workflows/receipt-gate",
+    "/v1/model-mount/workflows/nodes/execute",
+    "/v1/model-mount/workflows/receipt-gate",
     "/v1/chat/completions",
     "/v1/embeddings",
     "runCli",

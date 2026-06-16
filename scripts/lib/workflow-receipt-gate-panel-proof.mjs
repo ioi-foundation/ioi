@@ -51,7 +51,7 @@ try {
     },
   });
 
-  const workflowCall = await expectOk(daemon.endpoint, "/api/v1/workflows/nodes/execute", {
+  const workflowCall = await expectOk(daemon.endpoint, "/v1/model-mount/workflows/nodes/execute", {
     method: "POST",
     token: grant.token,
     body: {
@@ -66,7 +66,7 @@ try {
   assert.equal(workflowCall.receipt.kind, "model_invocation");
   assert.equal(workflowCall.receipt.details.routeId, "route.local-first");
 
-  const passedGate = await expectOk(daemon.endpoint, "/api/v1/workflows/receipt-gate", {
+  const passedGate = await expectOk(daemon.endpoint, "/v1/model-mount/workflows/receipt-gate", {
     method: "POST",
     body: {
       receipt_id: workflowCall.receipt.id,
@@ -80,7 +80,7 @@ try {
   assert.equal(passedGate.status, "passed");
   assert.equal(passedGate.gateReceipt.kind, "workflow_receipt_gate");
 
-  const blockedGate = await requestJson(daemon.endpoint, "/api/v1/workflows/receipt-gate", {
+  const blockedGate = await requestJson(daemon.endpoint, "/v1/model-mount/workflows/receipt-gate", {
     method: "POST",
     body: {
       receipt_id: workflowCall.receipt.id,

@@ -415,7 +415,7 @@ async function screenshot(page, outputDir, file, screenshots) {
 }
 
 async function projection(endpoint, token) {
-  return requestJson(endpoint, "/api/v1/projections/model-mounting", { token });
+  return requestJson(endpoint, "/v1/model-mount/projection", { token });
 }
 
 async function waitForLoaded(endpoint, token, expectedLoaded, timeoutMs = 45_000) {
@@ -534,7 +534,7 @@ async function bootstrapDaemon(outputDir) {
     method: "POST",
     token: grant.token,
   });
-  const invocation = await requestJson(daemon.endpoint, "/api/v1/workflows/nodes/execute", {
+  const invocation = await requestJson(daemon.endpoint, "/v1/model-mount/workflows/nodes/execute", {
     method: "POST",
     token: grant.token,
     body: {

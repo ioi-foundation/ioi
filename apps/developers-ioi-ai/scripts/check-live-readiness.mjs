@@ -80,7 +80,7 @@ assert(docs.includes("Agentgres v0 local store"), "Runtime docs must mention Age
 
 for (const apiNeedle of [
   "/v1/agents",
-  "/api/v1/models",
+  "/v1/model-mount/snapshot",
   "/v1/chat/completions",
   "/v1/mcp/tools",
   "/v1/memory",

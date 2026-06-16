@@ -276,7 +276,7 @@ def seed_model_mounting_state(endpoint: str) -> dict[str, Any]:
     )
     mcp_import = request_json(
         endpoint,
-        "/api/v1/mcp/import",
+        "/v1/model-mount/mcp/import",
         method="POST",
         token=token,
         body={
@@ -331,8 +331,8 @@ def seed_model_mounting_state(endpoint: str) -> dict[str, Any]:
             "model_policy": {"privacy": "local_only", "max_cost_usd": 0.05},
         },
     )
-    snapshot = request_json(endpoint, "/api/v1/models")
-    projection = request_json(endpoint, "/api/v1/projections/model-mounting")
+    snapshot = request_json(endpoint, "/v1/model-mount/snapshot")
+    projection = request_json(endpoint, "/v1/model-mount/projection")
     downloads = snapshot.get("downloads", [])
     catalog_results = snapshot.get("catalog", {}).get("results", [])
     return {
@@ -692,7 +692,7 @@ def wait_for_snapshot_condition(
     last_error: str | None = None
     while time.time() < deadline:
         try:
-            snapshot = request_json(endpoint, "/api/v1/models", timeout=6.0)
+            snapshot = request_json(endpoint, "/v1/model-mount/snapshot", timeout=6.0)
             last_snapshot = snapshot
             result = predicate(snapshot)
             if result is not None:
@@ -797,7 +797,7 @@ def exercise_download_row_actions(
     )
 
     activate_tab(window_id, "F5")
-    before_retry = request_json(endpoint, "/api/v1/models")
+    before_retry = request_json(endpoint, "/v1/model-mount/snapshot")
     before_retry_ids = {item.get("id") for item in before_retry.get("downloads", [])}
     press_action_shortcut(window_id, "F11")
 
@@ -1126,7 +1126,7 @@ def exercise_token_mcp_actions(
         )
     )
 
-    snapshot = request_json(endpoint, "/api/v1/models")
+    snapshot = request_json(endpoint, "/v1/model-mount/snapshot")
     receipts = request_json(endpoint, "/v1/model-mount/receipts")
     validation_tokens = [
         token for token in snapshot.get("tokens", [])
@@ -1239,7 +1239,7 @@ def exercise_routing_workflow_actions(
         lambda receipts: any(receipt.get("kind") == "workflow_receipt_gate_blocked" for receipt in receipts),
     )
 
-    snapshot = request_json(endpoint, "/api/v1/models")
+    snapshot = request_json(endpoint, "/v1/model-mount/snapshot")
     receipts = request_json(endpoint, "/v1/model-mount/receipts")
     route = next((item for item in snapshot.get("routes", []) if item.get("id") == "route.local-first"), {})
     route_receipt_id = route.get("receipt") or route.get("lastReceiptId")
@@ -1365,7 +1365,7 @@ def exercise_benchmark_observability_actions(
     )
     opened_receipt = request_json(endpoint, f"/v1/model-mount/receipts/{urllib.parse.quote(latest_benchmark_id)}") if latest_benchmark_id else {}
 
-    snapshot = request_json(endpoint, "/api/v1/models")
+    snapshot = request_json(endpoint, "/v1/model-mount/snapshot")
     receipts = request_json(endpoint, "/v1/model-mount/receipts")
     native_invocations = [receipt for receipt in receipts if native_benchmark_invocation(receipt)]
     chat_receipts = [receipt for receipt in native_invocations if str(receipt.get("summary") or "").startswith("chat invocation")]
@@ -1501,7 +1501,7 @@ def exercise_stream_lifecycle_observability_action(
         and receipt.get("id") in invocation_ids
         and (receipt.get("details") or {}).get("streamSource") == "provider_native"
     ]
-    snapshot = request_json(endpoint, "/api/v1/models")
+    snapshot = request_json(endpoint, "/v1/model-mount/snapshot")
     snapshot_text = json.dumps(snapshot, sort_keys=True)
     assertions = {
         "streamLifecycleGuiActionRecordedCompletion": len(completed_receipts) > 0,
@@ -1629,7 +1629,7 @@ def exercise_provider_backend_actions(
         )
         time.sleep(1.5)
 
-    snapshot = request_json(endpoint, "/api/v1/models")
+    snapshot = request_json(endpoint, "/v1/model-mount/snapshot")
     receipts = request_json(endpoint, "/v1/model-mount/receipts")
     backend = next((item for item in snapshot.get("backends", []) if item.get("id") == backend_id), None)
     provider = next((item for item in snapshot.get("providers", []) if item.get("id") == provider_id), None)

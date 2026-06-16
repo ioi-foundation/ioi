@@ -2111,7 +2111,7 @@ function workflowBindingsFromRust() {
     capability,
     receiptRequired: true,
     routeId: "route.local-first",
-    daemonApi: node === "Receipt Gate" ? "/api/v1/workflows/receipt-gate" : "/api/v1/workflows/nodes/execute",
+    daemonApi: node === "Receipt Gate" ? "/v1/model-mount/workflows/receipt-gate" : "/v1/model-mount/workflows/nodes/execute",
   }));
 }
 
@@ -4225,7 +4225,7 @@ test("read projection direct client delegates product-safe lists and capabilitie
   const workflowBindings = state.workflowNodeBindings();
   assert.equal(workflowBindings.find((binding) => binding.node === "Embedding").capability, "embeddings");
   assert.equal(workflowBindings.find((binding) => binding.node === "Reranker").capability, "rerank");
-  assert.equal(workflowBindings.find((binding) => binding.node === "Receipt Gate").daemonApi, "/api/v1/workflows/receipt-gate");
+  assert.equal(workflowBindings.find((binding) => binding.node === "Receipt Gate").daemonApi, "/v1/model-mount/workflows/receipt-gate");
   assert.equal(state.adapterBoundaries().agentgres.port, "AgentgresStorePort");
   assert.deepEqual(readProjectionRequests.map((request) => request.projection_kind), [
     "runtime_model_catalog",

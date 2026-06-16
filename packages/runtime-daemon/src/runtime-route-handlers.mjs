@@ -9,7 +9,6 @@ import {
 export function createRuntimeRouteHandlers(deps) {
   const {
     approvalModeForThreadMode = null,
-    baseUrlForRequest,
     buildRun = null,
     createLifecycleRun: createLifecycleRunDep = createLifecycleRun,
     deleteLifecycleAgent: deleteLifecycleAgentDep = deleteLifecycleAgent,
@@ -45,25 +44,6 @@ export function createRuntimeRouteHandlers(deps) {
   async function handleModelMountingNativeRoute({ request, response, store, url, segments }) {
     const mounts = store.modelMounting;
     const authorization = request.headers.authorization;
-    const baseUrl = baseUrlForRequest(request);
-    if (request.method === "GET" && url.pathname === "/api/v1/models") {
-      writeJsonResponse(response, mounts.snapshot(baseUrl));
-      return;
-    }
-    if (request.method === "GET" && url.pathname === "/api/v1/models/events") {
-      writeJsonResponse(response, mounts.projection().lifecycleEvents);
-      return;
-    }
-    if (
-      request.method === "GET" &&
-      segments[2] === "models" &&
-      segments[3] &&
-      !segments[4] &&
-      !["artifacts", "backends", "catalog", "download", "instances", "loaded", "routes", "runtime-engines", "server"].includes(segments[3])
-    ) {
-      writeJsonResponse(response, mounts.getModel(decodeURIComponent(segments[3])));
-      return;
-    }
     if (request.method === "POST" && url.pathname === "/api/v1/chat") {
       const invocation = await mounts.invokeModel({
         authorization,
@@ -125,18 +105,6 @@ export function createRuntimeRouteHandlers(deps) {
           body: await readBody(request),
         }),
       );
-      return;
-    }
-    if (request.method === "GET" && url.pathname === "/api/v1/projections/model-mounting") {
-      writeJsonResponse(response, mounts.projection());
-      return;
-    }
-    if (request.method === "POST" && url.pathname === "/api/v1/workflows/nodes/execute") {
-      writeJsonResponse(response, await mounts.executeWorkflowNode({ authorization, body: await readBody(request) }));
-      return;
-    }
-    if (request.method === "POST" && url.pathname === "/api/v1/workflows/receipt-gate") {
-      writeJsonResponse(response, mounts.validateReceiptGate(await readBody(request)));
       return;
     }
     throw notFound("Model mounting route not found.", {

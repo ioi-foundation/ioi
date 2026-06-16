@@ -272,7 +272,7 @@ async function daemonRunResult(workflow: any, path: string, options: Record<stri
       message: `${node.name ?? node.id} sent to daemon model runtime`,
     });
     const daemonState = daemonInitialState();
-    const result = await daemonRequest("/api/v1/workflows/nodes/execute", {
+    const result = await daemonRequest("/v1/model-mount/workflows/nodes/execute", {
       method: "POST",
       body: {
         node: workflowNodeKind(node),
@@ -696,7 +696,7 @@ export function createFixtureRuntime(getScenarioId: () => string, postBridge: Br
     },
     async getGraphModelBindingCatalog() {
       if (hasDaemonRuntime()) {
-        const projection = await daemonRequest("/api/v1/projections/model-mounting");
+        const projection = await daemonRequest("/v1/model-mount/projection");
         const catalog = daemonModelCatalogFromProjection(projection);
         postBridge("workflowCompositor.daemonModelCatalog", {
           modelCount: catalog.models.length,
@@ -877,7 +877,7 @@ export function createFixtureRuntime(getScenarioId: () => string, postBridge: Br
     },
     async loadWorkflowRuntimeThreadEvents(threadId: string) {
       if (hasDaemonRuntime()) {
-        const projection = await daemonRequest("/api/v1/projections/model-mounting");
+        const projection = await daemonRequest("/v1/model-mount/projection");
         const receipts = Array.isArray(projection?.receipts) ? projection.receipts.slice(-10) : [];
         return receipts.map((receipt: any, index: number) =>
           daemonThreadEvent(

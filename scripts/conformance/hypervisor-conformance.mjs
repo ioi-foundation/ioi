@@ -23055,6 +23055,16 @@ function runReceipts() {
       "apps/autopilot/openvscode-extension/ioi-workbench/commands",
       (file) => file.endsWith(".js") || file.endsWith(".mjs"),
     ).map((file) => read(file)),
+    ...collectFiles(
+      "apps/autopilot/openvscode-extension/ioi-workbench/bridge",
+      (file) => file.endsWith(".js") || file.endsWith(".mjs"),
+    ).map((file) => read(file)),
+    ...collectFiles(
+      "apps/autopilot/openvscode-extension/ioi-workbench/webview",
+      (file) =>
+        (file.endsWith(".ts") || file.endsWith(".tsx") || file.endsWith(".js") || file.endsWith(".jsx")) &&
+        !file.includes("/media/"),
+    ).map((file) => read(file)),
   ].join("\n");
   const modelMountStableLifecycleBoundaryClientCorpus = [
     modelMountStableReadCliModels,
@@ -23109,6 +23119,8 @@ function runReceipts() {
     modelMountStableReadCliModels.match(/ModelsCommands::Ls => \{[\s\S]*?\n        ModelsCommands::Capabilities/)?.[0] ?? "";
   const modelMountStableReadCliModelsCapabilitiesBlock =
     modelMountStableReadCliModels.match(/ModelsCommands::Capabilities => \{[\s\S]*?\n        ModelsCommands::Get/)?.[0] ?? "";
+  const modelMountStableReadCliModelsGetBlock =
+    modelMountStableReadCliModels.match(/ModelsCommands::Get \{ id \} => \{[\s\S]*?\n        ModelsCommands::CatalogSearch/)?.[0] ?? "";
   const modelMountStableReadCliModelsCatalogSearchBlock =
     modelMountStableReadCliModels.match(/ModelsCommands::CatalogSearch[\s\S]*?\n        ModelsCommands::CatalogImportUrl/)?.[0] ?? "";
   const modelMountStableReadCliRoutesLsBlock =
@@ -26806,9 +26818,36 @@ function runReceipts() {
       /url\.pathname === "\/v1\/models\/routes"[\s\S]*store\.modelMounting\.listRoutes\(\)/.test(
         publicRuntimeRoutes,
       ) &&
+      /segments\[0\] === "v1"[\s\S]*segments\[1\] === "models"[\s\S]*store\.modelMounting\.getModel\(decodeURIComponent\(segments\[2\]\)\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /url\.pathname === "\/v1\/model-mount\/snapshot"[\s\S]*store\.modelMounting\.snapshot\(baseUrlForRequest\(request\)\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /url\.pathname === "\/v1\/model-mount\/projection"[\s\S]*store\.modelMounting\.projection\(\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /url\.pathname === "\/v1\/model-mount\/mcp"[\s\S]*store\.modelMounting\.listMcpServers\(\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /url\.pathname === "\/v1\/model-mount\/mcp\/import"[\s\S]*store\.modelMounting\.importMcpJson\(await readBody\(request\)\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /url\.pathname === "\/v1\/model-mount\/mcp\/invoke"[\s\S]*store\.modelMounting\.invokeMcpTool\(\{[\s\S]*authorization: request\.headers\.authorization,[\s\S]*body: await readBody\(request\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /url\.pathname === "\/v1\/model-mount\/workflows\/nodes\/execute"[\s\S]*store\.modelMounting\.executeWorkflowNode\(\{[\s\S]*authorization: request\.headers\.authorization,[\s\S]*body: await readBody\(request\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /url\.pathname === "\/v1\/model-mount\/workflows\/receipt-gate"[\s\S]*store\.modelMounting\.validateReceiptGate\(await readBody\(request\)\)/.test(
+        publicRuntimeRoutes,
+      ) &&
       /url\.pathname === "\/v1\/models\/catalog\/search"[\s\S]*store\.modelMounting\.catalogSearch\(Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
         publicRuntimeRoutes,
       ) &&
+      !/request\.method === "GET" && url\.pathname === "\/api\/v1\/models"/.test(runtimeRouteHandlers) &&
+      !/url\.pathname === "\/api\/v1\/models\/events"/.test(runtimeRouteHandlers) &&
+      !/segments\[2\] === "models"[\s\S]*mounts\.getModel/.test(runtimeRouteHandlers) &&
       !/request\.method === "GET" && url\.pathname === "\/api\/v1\/model-capabilities"/.test(
         runtimeRouteHandlers,
       ) &&
@@ -26823,12 +26862,30 @@ function runReceipts() {
       ) &&
       !/request\.method === "GET" && url\.pathname === "\/api\/v1\/providers"/.test(runtimeRouteHandlers) &&
       !/request\.method === "GET" && url\.pathname === "\/api\/v1\/routes"/.test(runtimeRouteHandlers) &&
+      !/url\.pathname === "\/api\/v1\/projections\/model-mounting"/.test(runtimeRouteHandlers) &&
+      !/url\.pathname === "\/api\/v1\/workflows\/nodes\/execute"/.test(runtimeRouteHandlers) &&
+      !/url\.pathname === "\/api\/v1\/workflows\/receipt-gate"/.test(runtimeRouteHandlers) &&
       /public runtime model catalog routes use mounted model projection surface/.test(publicRuntimeRoutesTest) &&
       /model mounting native route does not expose retired stable read aliases/.test(runtimeRouteHandlersTest) &&
+      /\/v1\/model-mount\/snapshot/.test(publicRuntimeRoutesTest) &&
+      /\/v1\/model-mount\/projection/.test(publicRuntimeRoutesTest) &&
+      /\/v1\/model-mount\/mcp/.test(publicRuntimeRoutesTest) &&
+      /\/v1\/model-mount\/mcp\/import/.test(publicRuntimeRoutesTest) &&
+      /\/v1\/model-mount\/mcp\/invoke/.test(publicRuntimeRoutesTest) &&
+      /\/v1\/model-mount\/workflows\/nodes\/execute/.test(publicRuntimeRoutesTest) &&
+      /\/v1\/model-mount\/workflows\/receipt-gate/.test(publicRuntimeRoutesTest) &&
+      /"\/api\/v1\/models"/.test(runtimeRouteHandlersTest) &&
+      /"\/api\/v1\/models\/model\.route"/.test(runtimeRouteHandlersTest) &&
+      /"\/api\/v1\/models\/events"/.test(runtimeRouteHandlersTest) &&
+      /"\/api\/v1\/projections\/model-mounting"/.test(runtimeRouteHandlersTest) &&
+      /"\/api\/v1\/workflows\/nodes\/execute"/.test(runtimeRouteHandlersTest) &&
+      /"\/api\/v1\/workflows\/receipt-gate"/.test(runtimeRouteHandlersTest) &&
       /\/v1\/models\/artifacts/.test(publicRuntimeRoutesTest) &&
       /\/v1\/models\/endpoints/.test(publicRuntimeRoutesTest) &&
       /\/v1\/models\/providers/.test(publicRuntimeRoutesTest) &&
       /\/v1\/models\/routes/.test(publicRuntimeRoutesTest) &&
+      /\/v1\/models\/model\.route/.test(publicRuntimeRoutesTest) &&
+      /getModel\(id\)/.test(publicRuntimeRoutesTest) &&
       /\/v1\/models\/catalog\/search\?query=qwen/.test(publicRuntimeRoutesTest) &&
       /listModelArtifacts\(\): Promise<ModelArtifact\[]>/.test(modelMountStableReadAgentSdkSubstrateClient) &&
       /listModelEndpoints\(\): Promise<ModelEndpoint\[]>/.test(modelMountStableReadAgentSdkSubstrateClient) &&
@@ -26845,6 +26902,7 @@ function runReceipts() {
       /SDK lists model_mount Rust projection records through stable protocol routes/.test(modelMountStableReadAgentSdkTest) &&
       /url\.searchParams\.has\("q"\), false/.test(modelMountStableReadAgentSdkTest) &&
       /daemon_request\(endpoint, token, Method::GET, "\/v1\/models", None\)/.test(modelMountStableReadCliModelsLsBlock) &&
+      /&format!\("\/v1\/models\/\{id\}"\)/.test(modelMountStableReadCliModelsGetBlock) &&
       /daemon_request\([\s\S]*Method::GET,[\s\S]*"\/v1\/model-capabilities"/.test(
         modelMountStableReadCliModelsCapabilitiesBlock,
       ) &&
@@ -26854,13 +26912,25 @@ function runReceipts() {
         modelMountStableReadCliRoutesLsBlock,
       ) &&
       !/"\/api\/v1\/models"/.test(modelMountStableReadCliModelsLsBlock) &&
+      !/\/api\/v1\/models\/\{id\}/.test(modelMountStableReadCliModelsGetBlock) &&
       !/"\/api\/v1\/model-capabilities"/.test(modelMountStableReadCliModelsCapabilitiesBlock) &&
       !/"\/api\/v1\/models\/catalog\/search/.test(modelMountStableReadCliModelsCatalogSearchBlock) &&
       !/"\/api\/v1\/routes"/.test(modelMountStableReadCliRoutesLsBlock) &&
       !/\/api\/v1\/model-capabilities/.test(modelMountStableReadProtocolClientCorpus) &&
+      !/\/api\/v1\/models(?:\/[^"'`)]+)?(?:["'`),]|$)/.test(modelMountStableReadProtocolClientCorpus) &&
+      !/\/api\/v1\/models\/events/.test(modelMountStableReadProtocolClientCorpus) &&
       !/\/api\/v1\/models\/catalog\/search/.test(modelMountStableReadProtocolClientCorpus) &&
       !/\/api\/v1\/models\/artifacts/.test(modelMountStableReadProtocolClientCorpus) &&
       !/\/api\/v1\/models\/routes/.test(modelMountStableReadProtocolClientCorpus) &&
+      !/\/api\/v1\/projections\/model-mounting/.test(modelMountStableReadProtocolClientCorpus) &&
+      !/\/api\/v1\/workflows\/(?:nodes\/execute|receipt-gate)/.test(modelMountStableReadProtocolClientCorpus) &&
+      !/\/api\/v1\/mcp\/(?:import|invoke)/.test(modelMountStableReadProtocolClientCorpus) &&
+      /"daemonApi": if node == "Receipt Gate" \{[\s\S]*"\/v1\/model-mount\/workflows\/receipt-gate"[\s\S]*"\/v1\/model-mount\/workflows\/nodes\/execute"/.test(
+        modelMountCore,
+      ) &&
+      !/"daemonApi": if node == "Receipt Gate" \{[\s\S]*"\/api\/v1\/workflows\/receipt-gate"/.test(
+        modelMountCore,
+      ) &&
       /url\.pathname === "\/v1\/model-mount\/server\/status"[\s\S]*store\.modelMounting\.serverStatus\(baseUrlForRequest\(request\)\)/.test(
         publicRuntimeRoutes,
       ) &&
@@ -26943,12 +27013,15 @@ function runReceipts() {
       /Slice 1348 hard-cuts stable model_mount read protocol clients/.test(guide) &&
       /Slice 1349 retires the legacy model_mount native read aliases/.test(guide) &&
       /Slice 1351 hard-cuts stable model_mount read proof and IDE clients/.test(guide) &&
+      /Slice 1384 hard-cuts stable model_mount snapshot, projection, MCP workflow,\s+and workflow-node protocol clients/.test(guide) &&
       /Model_mount stable read protocol clients/.test(matrix) &&
       /Model_mount legacy native read aliases retired/.test(matrix) &&
       /Model_mount stable read proof and IDE clients/.test(matrix) &&
+      /Model_mount stable snapshot\/projection\/MCP\/workflow protocol clients/.test(matrix) &&
       /RuntimeDaemonCoreModelMountStableReadProtocolClients/.test(implementationMatrix) &&
       /RuntimeDaemonCoreModelMountLegacyReadAliasesRetired/.test(implementationMatrix) &&
-      /RuntimeDaemonCoreModelMountStableReadProofIdeClients/.test(implementationMatrix),
+      /RuntimeDaemonCoreModelMountStableReadProofIdeClients/.test(implementationMatrix) &&
+      /RuntimeDaemonCoreModelMountStableSnapshotWorkflowProtocolClients/.test(implementationMatrix),
     [
       "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
       "packages/agent-sdk/src/substrate-client.ts",

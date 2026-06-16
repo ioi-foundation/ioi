@@ -206,7 +206,7 @@ test("model capability projection exposes canonical readiness contracts", async 
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-model-capability-state-"));
   const daemon = await startRuntimeDaemonService({ cwd, stateDir });
   try {
-    const capabilities = await expectOk(daemon.endpoint, "/api/v1/model-capabilities");
+    const capabilities = await expectOk(daemon.endpoint, "/v1/model-capabilities");
     const publicCapabilities = await expectOk(daemon.endpoint, "/v1/model-capabilities");
     const localFirst = capabilities.find((capability) => capability.routeId === "route.local-first");
 
@@ -236,7 +236,7 @@ test("model=auto resolves to a canonical ModelRouteDecision before provider invo
       method: "POST",
       body: { allowed: ["model.chat:*", "route.use:*"] },
     });
-    const routerNode = await expectOk(daemon.endpoint, "/api/v1/workflows/nodes/execute", {
+    const routerNode = await expectOk(daemon.endpoint, "/v1/model-mount/workflows/nodes/execute", {
       method: "POST",
       token: grant.token,
       body: {
@@ -291,7 +291,7 @@ test("model=auto resolves to a canonical ModelRouteDecision before provider invo
     assert.equal(replay.modelRouteDecision.decisionId, chat.route_decision.decisionId);
     assert.equal(replay.modelRouteDecision.selectedModel, "autopilot:native-fixture");
 
-    const projection = await expectOk(daemon.endpoint, "/api/v1/projections/model-mounting");
+    const projection = await expectOk(daemon.endpoint, "/v1/model-mount/projection");
     assert.ok(
       projection.routeDecisions.some(
         (decision) =>
@@ -424,7 +424,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     const serverEvents = await expectOk(daemon.endpoint, "/v1/model-mount/server/events?limit=20", { token: grant.token });
     assert.ok(serverEvents.events.some((event) => event.event === "server_restart"));
 
-    const snapshot = await expectOk(daemon.endpoint, "/api/v1/models");
+    const snapshot = await expectOk(daemon.endpoint, "/v1/model-mount/snapshot");
     assert.equal(snapshot.server.controlStatus, "running");
     assert.equal(snapshot.server.lastServerOperation, "server_restart");
     assert.ok(snapshot.artifacts.some((model) => model.modelId === "local:auto"));
@@ -465,7 +465,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.equal(fixtureCatalogEntry.benchmarkReadiness.chat, true);
     assert.ok(fixtureCatalogEntry.selectionReceiptFields.includes("approval_decision"));
     assert.equal(JSON.stringify(catalog).includes("sk-"), false);
-    const snapshotAfterCatalogSearch = await expectOk(daemon.endpoint, "/api/v1/models");
+    const snapshotAfterCatalogSearch = await expectOk(daemon.endpoint, "/v1/model-mount/snapshot");
     assert.equal(snapshotAfterCatalogSearch.catalog.lastSearch.query, "autopilot");
     assert.ok(snapshotAfterCatalogSearch.catalog.results.some((entry) => entry.sourceUrl === "fixture://catalog/autopilot-native-3b-q4" && entry.recommendation?.primaryBackend));
 
@@ -615,7 +615,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
         provider_id: "provider.autopilot.local",
       },
     });
-    await expectOk(daemon.endpoint, "/api/v1/routes", {
+    await expectOk(daemon.endpoint, "/v1/model-mount/routes", {
       method: "POST",
       token: grant.token,
       body: {
@@ -1188,7 +1188,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     const continuedReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${continuedStatefulResponse.receipt_id}`);
     assert.equal(continuedReceipt.details.previousResponseId, firstStatefulResponse.id);
     assert.equal(continuedReceipt.details.continuation.mode, "matched");
-    const statefulProjection = await expectOk(daemon.endpoint, "/api/v1/projections/model-mounting");
+    const statefulProjection = await expectOk(daemon.endpoint, "/v1/model-mount/projection");
     assert.ok(statefulProjection.conversationStates.some((state) => state.id === firstStatefulResponse.id));
     assert.ok(statefulProjection.conversationStates.some((state) => state.id === continuedStatefulResponse.id));
     const continuedState = statefulProjection.conversationStates.find((state) => state.id === continuedStatefulResponse.id);
@@ -1357,7 +1357,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.equal(embeddings.data.length, 2);
     assert.equal(embeddings.data[0].embedding.length, 8);
 
-    const mcpImport = await expectOk(daemon.endpoint, "/api/v1/mcp/import", {
+    const mcpImport = await expectOk(daemon.endpoint, "/v1/model-mount/mcp/import", {
       method: "POST",
       token: grant.token,
       body: {
@@ -1374,7 +1374,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
 
     await expectMcpProjectionRustCoreRequired(daemon.endpoint, "/api/v1/mcp");
 
-    const tool = await expectOk(daemon.endpoint, "/api/v1/mcp/invoke", {
+    const tool = await expectOk(daemon.endpoint, "/v1/model-mount/mcp/invoke", {
       method: "POST",
       token: grant.token,
       body: { server_label: "huggingface", tool: "model_search", input: { q: "qwen" } },
@@ -1404,7 +1404,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.deepEqual(ephemeralReceipt.details.toolReceiptIds, ephemeralMcpResponse.tool_receipt_ids);
     assert.equal(JSON.stringify(ephemeralReceipt).includes("vault://fixture/mcp/ephemeral-huggingface"), false);
 
-    const routeTest = await expectOk(daemon.endpoint, "/api/v1/routes/route.local-first/test", {
+    const routeTest = await expectOk(daemon.endpoint, "/v1/model-mount/routes/route.local-first/test", {
       method: "POST",
       token: grant.token,
       body: { capability: "chat", model_policy: { privacy: "local_only" } },
@@ -1421,7 +1421,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
       token: grant.token,
       body: { model_id: "hosted:test", id: "endpoint.hosted.test", provider_id: "provider.openai" },
     });
-    await expectOk(daemon.endpoint, "/api/v1/routes", {
+    await expectOk(daemon.endpoint, "/v1/model-mount/routes", {
       method: "POST",
       token: grant.token,
       body: {
@@ -1433,14 +1433,14 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
         privacy: "local_or_enterprise",
       },
     });
-    const hostedBlocked = await requestJson(daemon.endpoint, "/api/v1/routes/route.hosted.blocked/test", {
+    const hostedBlocked = await requestJson(daemon.endpoint, "/v1/model-mount/routes/route.hosted.blocked/test", {
       method: "POST",
       token: grant.token,
       body: { capability: "chat", model_policy: { privacy: "local_or_enterprise" } },
     });
     assert.equal(hostedBlocked.response.status, 424);
 
-    const workflowCall = await expectOk(daemon.endpoint, "/api/v1/workflows/nodes/execute", {
+    const workflowCall = await expectOk(daemon.endpoint, "/v1/model-mount/workflows/nodes/execute", {
       method: "POST",
       token: grant.token,
       body: { node: "Model Call", input: "workflow probe", model_policy: { privacy: "local_only" } },
@@ -1448,7 +1448,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.equal(workflowCall.status, "executed");
     assert.equal(workflowCall.invocation.route_id, "route.local-first");
 
-    const workflowMemoryCall = await expectOk(daemon.endpoint, "/api/v1/workflows/nodes/execute", {
+    const workflowMemoryCall = await expectOk(daemon.endpoint, "/v1/model-mount/workflows/nodes/execute", {
       method: "POST",
       token: grant.token,
       body: {
@@ -1483,7 +1483,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.deepEqual(workflowMemoryReceipt.details.memory, workflowMemoryCall.invocation.memory_policy);
     assert.deepEqual(workflowMemoryReceipt.details.sendOptions.memory, workflowMemoryCall.invocation.memory_policy);
 
-    const workflowReadOnlyMemoryWrite = await requestJson(daemon.endpoint, "/api/v1/workflows/nodes/execute", {
+    const workflowReadOnlyMemoryWrite = await requestJson(daemon.endpoint, "/v1/model-mount/workflows/nodes/execute", {
       method: "POST",
       token: grant.token,
       body: {
@@ -1496,7 +1496,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.equal(workflowReadOnlyMemoryWrite.response.status, 403);
     assert.equal(workflowReadOnlyMemoryWrite.json.error.details.reason, "memory_read_only");
 
-    const workflowApprovalMemoryWrite = await requestJson(daemon.endpoint, "/api/v1/workflows/nodes/execute", {
+    const workflowApprovalMemoryWrite = await requestJson(daemon.endpoint, "/v1/model-mount/workflows/nodes/execute", {
       method: "POST",
       token: grant.token,
       body: {
@@ -1509,7 +1509,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.equal(workflowApprovalMemoryWrite.response.status, 403);
     assert.equal(workflowApprovalMemoryWrite.json.error.details.reason, "memory_write_requires_approval");
 
-    const workflowApprovedMemoryWrite = await expectOk(daemon.endpoint, "/api/v1/workflows/nodes/execute", {
+    const workflowApprovedMemoryWrite = await expectOk(daemon.endpoint, "/v1/model-mount/workflows/nodes/execute", {
       method: "POST",
       token: grant.token,
       body: {
@@ -1522,7 +1522,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.equal(workflowApprovedMemoryWrite.invocation.memory_policy.remember, "approved fact");
     assert.equal(workflowApprovedMemoryWrite.invocation.memory_policy.writeApproved, true);
 
-    const gate = await expectOk(daemon.endpoint, "/api/v1/workflows/receipt-gate", {
+    const gate = await expectOk(daemon.endpoint, "/v1/model-mount/workflows/receipt-gate", {
       method: "POST",
       body: {
         receipt_id: ephemeralMcpResponse.receipt_id,
@@ -1536,7 +1536,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     });
     assert.equal(gate.status, "passed");
 
-    const blockedGate = await requestJson(daemon.endpoint, "/api/v1/workflows/receipt-gate", {
+    const blockedGate = await requestJson(daemon.endpoint, "/v1/model-mount/workflows/receipt-gate", {
       method: "POST",
       body: {
         receipt_id: ephemeralMcpResponse.receipt_id,
@@ -1734,7 +1734,7 @@ test("model catalog provider ports unify fixture, manifest, custom HTTP, and Oll
     assert.equal(operatorCatalog.providers.find((provider) => provider.id === "catalog.local_manifest")?.runtimeMaterialStatus, "bound_runtime_session");
     assert.equal(JSON.stringify(operatorCatalog).includes(operatorManifestPath), false);
 
-    const projection = await expectOk(daemon.endpoint, "/api/v1/projections/model-mounting");
+    const projection = await expectOk(daemon.endpoint, "/v1/model-mount/projection");
     assert.equal(projection.catalog.providers.find((provider) => provider.id === "catalog.local_manifest")?.adapterPort, "ModelCatalogProviderPort");
     assert.equal(JSON.stringify(projection).includes(manifestPath), false);
     assert.equal(JSON.stringify(projection).includes(operatorManifestPath), false);
@@ -1823,7 +1823,7 @@ test("catalog source material persists through the encrypted vault adapter witho
     assert.equal(firstCatalog.providers.find((provider) => provider.id === "catalog.local_manifest")?.runtimeMaterialStatus, "bound_runtime_session");
     const firstCustomCatalog = await expectOk(daemon.endpoint, "/v1/models/catalog/search?q=custom&limit=5");
     assert.equal(firstCustomCatalog.results.find((entry) => entry.catalogProviderId === "catalog.custom_http")?.modelId, "custom/http-vllm-fixture");
-    const projection = await expectOk(daemon.endpoint, "/api/v1/projections/model-mounting");
+    const projection = await expectOk(daemon.endpoint, "/v1/model-mount/projection");
     assert.equal(JSON.stringify(projection).includes(manifestPath), false);
     assert.equal(JSON.stringify(projection).includes(customCatalogServer.endpoint), false);
 
@@ -2024,7 +2024,7 @@ test("catalog provider auth resolves vault-backed headers for custom and live ca
     assert.equal(importReceipt.details.catalogAuth.resolvedMaterial, true);
     const downloadReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${liveImport.download.receiptId}`);
     assert.equal(downloadReceipt.details.catalogAuth.resolvedMaterial, true);
-    const projection = await expectOk(daemon.endpoint, "/api/v1/projections/model-mounting");
+    const projection = await expectOk(daemon.endpoint, "/v1/model-mount/projection");
     assert.equal(JSON.stringify(projection).includes(customSecret), false);
     assert.equal(JSON.stringify(projection).includes(liveSecret), false);
     assert.equal(directoryContainsNeedle(stateDir, customSecret), false);
@@ -2115,7 +2115,7 @@ test("catalog provider OAuth sessions exchange, refresh, revoke, and keep tokens
     assert.equal(blockedProvider.catalogAuthResolved, false);
     assert.equal(blockedProvider.oauthBoundary.status, "revoked");
 
-    const projection = await expectOk(daemon.endpoint, "/api/v1/projections/model-mounting");
+    const projection = await expectOk(daemon.endpoint, "/v1/model-mount/projection");
     assert.ok(projection.oauthSessions.some((session) => session.status === "revoked"));
     for (const secret of [oauth.tokens.access, oauth.tokens.refresh, oauth.tokens.refreshedAccess, oauth.tokens.refreshedRefresh, oauth.endpoint, "valid-oauth-code"]) {
       assert.equal(JSON.stringify(projection).includes(secret), false);
@@ -2250,7 +2250,7 @@ test("catalog provider OAuth start and callback use PKCE state without persistin
     assert.ok(oauth.observed().some((entry) => entry.grantType === "authorization_start" && entry.method === "S256"));
     assert.ok(oauth.observed().some((entry) => entry.grantType === "authorization_code" && entry.codeVerifierHash));
 
-    const projection = await expectOk(daemon.endpoint, "/api/v1/projections/model-mounting");
+    const projection = await expectOk(daemon.endpoint, "/v1/model-mount/projection");
     assert.ok(projection.oauthStates.some((state) => state.status === "completed" && state.pkceRequired));
     for (const secret of [
       oauth.tokens.access,
@@ -2634,7 +2634,7 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
     assert.equal(replay.source, "agentgres_model_mounting_projection_replay");
     assert.ok(replay.projectionWatermark > 0);
 
-    const projection = await expectOk(daemon.endpoint, "/api/v1/projections/model-mounting");
+    const projection = await expectOk(daemon.endpoint, "/v1/model-mount/projection");
     assert.ok(projection.downloads.some((job) => job.id === completed.id));
     assert.ok(projection.artifacts.some((artifact) => artifact.modelId === "native:downloaded"));
     assert.equal(projection.adapterBoundaries.wallet.port, "WalletAuthorityPort");
@@ -2669,7 +2669,7 @@ test("Agentgres model mounting projection and receipt lookup survive daemon rest
       body: { route_id: "route.native-local", model: "autopilot:native-fixture", input: "restart replay" },
     });
     receiptId = chat.receipt_id;
-    const projection = await expectOk(daemon.endpoint, "/api/v1/projections/model-mounting");
+    const projection = await expectOk(daemon.endpoint, "/v1/model-mount/projection");
     assert.ok(projection.invocationReceipts.some((receipt) => receipt.id === receiptId));
     assert.ok(projection.backendProcesses.some((process) => process.backendId === "backend.autopilot.native-local.fixture"));
   } finally {
@@ -2685,7 +2685,7 @@ test("Agentgres model mounting projection and receipt lookup survive daemon rest
     assert.equal(replay.receipt.id, receiptId);
     assert.equal(replay.route.id, "route.native-local");
     assert.equal(replay.endpoint.modelId, "autopilot:native-fixture");
-    const restartedProjection = await expectOk(daemon.endpoint, "/api/v1/projections/model-mounting");
+    const restartedProjection = await expectOk(daemon.endpoint, "/v1/model-mount/projection");
     const restartedProcess = restartedProjection.backendProcesses.find((process) => process.backendId === "backend.autopilot.native-local.fixture");
     assert.equal(restartedProcess.status, "stale_recovered");
     assert.equal(restartedProcess.staleReason, "daemon_boot_mismatch");
@@ -2749,7 +2749,7 @@ test("Ollama provider adapter lists models, invokes through policy, and redacts 
     });
     assert.equal(mounted.backendId, "backend.ollama");
 
-    await expectOk(daemon.endpoint, "/api/v1/routes", {
+    await expectOk(daemon.endpoint, "/v1/model-mount/routes", {
       method: "POST",
       token: grant.token,
       body: {
@@ -2876,7 +2876,7 @@ test("Ollama provider adapter lists models, invokes through policy, and redacts 
         id: "endpoint.test.ollama-error",
       },
     });
-    await expectOk(daemon.endpoint, "/api/v1/routes", {
+    await expectOk(daemon.endpoint, "/v1/model-mount/routes", {
       method: "POST",
       token: grant.token,
       body: {
@@ -2983,7 +2983,7 @@ setInterval(() => {}, 1000);
     assert.ok(providerLoaded.some((model) => model.modelId === "qwen3:8b"));
     assert.equal(providerLoaded.find((model) => model.modelId === "qwen3:8b")?.backendProcess?.spawnStatus, "spawned");
 
-    await expectOk(daemon.endpoint, "/api/v1/routes", {
+    await expectOk(daemon.endpoint, "/v1/model-mount/routes", {
       method: "POST",
       token: grant.token,
       body: {
@@ -3126,7 +3126,7 @@ test("vLLM and OpenAI-compatible adapters support responses fallback, embeddings
         id: "endpoint.test.openai-compatible-stream",
       },
     });
-    await expectOk(daemon.endpoint, "/api/v1/routes", {
+    await expectOk(daemon.endpoint, "/v1/model-mount/routes", {
       method: "POST",
       token: grant.token,
       body: {
@@ -3224,7 +3224,7 @@ test("vLLM and OpenAI-compatible adapters support responses fallback, embeddings
     });
     assert.equal(mounted.backendId, "backend.vllm");
 
-    await expectOk(daemon.endpoint, "/api/v1/routes", {
+    await expectOk(daemon.endpoint, "/v1/model-mount/routes", {
       method: "POST",
       token: grant.token,
       body: {
@@ -3299,7 +3299,7 @@ test("vLLM and OpenAI-compatible adapters support responses fallback, embeddings
         id: "endpoint.test.openai-compatible-error",
       },
     });
-    await expectOk(daemon.endpoint, "/api/v1/routes", {
+    await expectOk(daemon.endpoint, "/v1/model-mount/routes", {
       method: "POST",
       token: grant.token,
       body: {
@@ -3415,7 +3415,7 @@ setInterval(() => {}, 1000);
     assert.equal(loaded.backendProcess.spawned, true);
     assert.equal(loaded.providerEvidenceRefs.includes("vllm_process_supervisor"), true);
 
-    await expectOk(daemon.endpoint, "/api/v1/routes", {
+    await expectOk(daemon.endpoint, "/v1/model-mount/routes", {
       method: "POST",
       token: grant.token,
       body: {
@@ -3567,7 +3567,7 @@ setInterval(() => {}, 1000);
         backend_id: "backend.llama-cpp",
       },
     });
-    await expectOk(daemon.endpoint, "/api/v1/routes", {
+    await expectOk(daemon.endpoint, "/v1/model-mount/routes", {
       method: "POST",
       token: grant.token,
       body: {
@@ -3847,7 +3847,7 @@ test("hosted and custom HTTP provider auth fails closed behind wallet vault refs
         id: "endpoint.test.custom-blocked",
       },
     });
-    await expectOk(daemon.endpoint, "/api/v1/routes", {
+    await expectOk(daemon.endpoint, "/v1/model-mount/routes", {
       method: "POST",
       token: grant.token,
       body: {
@@ -3953,9 +3953,9 @@ test("hosted and custom HTTP provider auth fails closed behind wallet vault refs
     assert.equal(publicProvider.authScheme, "api_key");
     assert.equal(publicProvider.authHeaderName, "x-api-key");
 
-    const snapshot = await expectOk(daemon.endpoint, "/api/v1/models");
+    const snapshot = await expectOk(daemon.endpoint, "/v1/model-mount/snapshot");
     assert.equal(JSON.stringify(snapshot.providers).includes(vaultRef), false);
-    const projection = await expectOk(daemon.endpoint, "/api/v1/projections/model-mounting");
+    const projection = await expectOk(daemon.endpoint, "/v1/model-mount/projection");
     assert.equal(JSON.stringify(projection.providers).includes(vaultRef), false);
 
     const health = await expectOk(daemon.endpoint, "/v1/model-mount/providers/provider.test.custom-vault/health", { method: "POST" });
@@ -3969,7 +3969,7 @@ test("hosted and custom HTTP provider auth fails closed behind wallet vault refs
     assert.equal(JSON.stringify(health).includes(vaultRef), false);
     assert.equal(JSON.stringify(health).includes(vaultMaterial), false);
     assert.equal(JSON.stringify(providerHealthReceipt).includes(vaultMaterial), false);
-    const projectionAfterHealth = await expectOk(daemon.endpoint, "/api/v1/projections/model-mounting");
+    const projectionAfterHealth = await expectOk(daemon.endpoint, "/v1/model-mount/projection");
     assert.ok(projectionAfterHealth.providerHealth.some((record) => record.receiptId === providerHealthReceipt.id));
     assert.ok(projectionAfterHealth.providerHealthReceipts.some((receipt) => receipt.id === providerHealthReceipt.id));
     assert.equal(JSON.stringify(projectionAfterHealth.providerHealth).includes(vaultRef), false);
@@ -3991,7 +3991,7 @@ test("hosted and custom HTTP provider auth fails closed behind wallet vault refs
         id: "endpoint.test.custom-vault",
       },
     });
-    await expectOk(daemon.endpoint, "/api/v1/routes", {
+    await expectOk(daemon.endpoint, "/v1/model-mount/routes", {
       method: "POST",
       token: grant.token,
       body: {
@@ -4017,14 +4017,14 @@ test("hosted and custom HTTP provider auth fails closed behind wallet vault refs
     assert.equal(JSON.stringify(receipt).includes(vaultRef), false);
     assert.equal(JSON.stringify(receipt).includes(vaultMaterial), false);
     assert.ok(providerServer.observedHeaders().some((headers) => headers["x-api-key"] === vaultMaterial));
-    const projectionAfterAuth = await expectOk(daemon.endpoint, "/api/v1/projections/model-mounting");
+    const projectionAfterAuth = await expectOk(daemon.endpoint, "/v1/model-mount/projection");
     assert.equal(projectionAfterAuth.adapterBoundaries.vault.port, "VaultPort");
     assert.equal(JSON.stringify(projectionAfterAuth).includes(vaultMaterial), false);
     assert.equal(directoryContainsNeedle(stateDir, vaultMaterial), false);
 
     await daemon.close();
     daemon = await startRuntimeDaemonService({ cwd, stateDir });
-    const restartedProjectionBeforeHealth = await expectOk(daemon.endpoint, "/api/v1/projections/model-mounting");
+    const restartedProjectionBeforeHealth = await expectOk(daemon.endpoint, "/v1/model-mount/projection");
     assert.ok(restartedProjectionBeforeHealth.providerHealth.some((record) => record.receiptId === providerHealthReceipt.id));
     assert.ok(restartedProjectionBeforeHealth.providerHealthReceipts.some((receipt) => receipt.id === providerHealthReceipt.id));
     const restartedVaultRefs = await expectOk(daemon.endpoint, "/v1/model-mount/vault/refs", { token: grant.token });
@@ -4142,7 +4142,7 @@ test("encrypted keychain vault adapter persists material across daemon restart w
     assert.equal(directoryContainsNeedle(keychainDir, vaultMaterial), false);
     const health = await expectOk(daemon.endpoint, "/v1/model-mount/providers/provider.test.keychain-vault/health", { method: "POST" });
     assert.equal(health.status, "available");
-    const projection = await expectOk(daemon.endpoint, "/api/v1/projections/model-mounting");
+    const projection = await expectOk(daemon.endpoint, "/v1/model-mount/projection");
     assert.equal(projection.adapterBoundaries.vault.materialAdapter.implementation, "encrypted_keychain_vault_adapter");
     assert.equal(projection.adapterBoundaries.vault.materialAdapter.configured, true);
     assert.equal(JSON.stringify(projection).includes(vaultMaterial), false);
@@ -4549,7 +4549,7 @@ test("model load records coalesce stale loaded instances per endpoint", async ()
     });
     assert.equal(second.status, "loaded");
 
-    const snapshot = await expectOk(daemon.endpoint, "/api/v1/models");
+    const snapshot = await expectOk(daemon.endpoint, "/v1/model-mount/snapshot");
     const localInstances = snapshot.instances.filter((instance) => instance.endpointId === "endpoint.local.auto");
     assert.equal(localInstances.filter((instance) => instance.status === "loaded").length, 1);
     assert.equal(localInstances.find((instance) => instance.id === first.id)?.status, "superseded");
@@ -4584,7 +4584,7 @@ exit 0
   delete process.env.IOI_ENABLE_LM_STUDIO_PUBLIC_RUNTIME_DISCOVERY;
   const daemon = await startRuntimeDaemonService({ cwd, stateDir, homeDir });
   try {
-    const snapshot = await expectOk(daemon.endpoint, "/api/v1/models");
+    const snapshot = await expectOk(daemon.endpoint, "/v1/model-mount/snapshot");
     const lmStudio = snapshot.providers.find((provider) => provider.kind === "lm_studio");
     assert.equal(lmStudio.status, "absent");
     assert.deepEqual(lmStudio.discovery.publicCli, null);
@@ -4640,7 +4640,7 @@ exit 0
   process.env.IOI_ENABLE_LM_STUDIO_PUBLIC_CLI = "1";
   const daemon = await startRuntimeDaemonService({ cwd, stateDir, homeDir });
   try {
-    const snapshot = await expectOk(daemon.endpoint, "/api/v1/models");
+    const snapshot = await expectOk(daemon.endpoint, "/v1/model-mount/snapshot");
     const lmStudio = snapshot.providers.find((provider) => provider.kind === "lm_studio");
     assert.equal(lmStudio.status, "running");
     assert.ok(lmStudio.discovery.publicCli.serverStatus.includes("Server:  ON"));

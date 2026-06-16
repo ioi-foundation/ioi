@@ -364,6 +364,38 @@ test("public runtime model catalog routes use mounted model projection surface",
         calls.push({ method: "listRoutes" });
         return [{ id: "route.route" }];
       },
+      getModel(id) {
+        calls.push({ method: "getModel", id });
+        return { id, object: "model.artifact" };
+      },
+      snapshot(baseUrl) {
+        calls.push({ method: "snapshot", baseUrl });
+        return { id: "snapshot.route", baseUrl };
+      },
+      projection() {
+        calls.push({ method: "projection" });
+        return { id: "projection.route" };
+      },
+      listMcpServers() {
+        calls.push({ method: "listMcpServers" });
+        return [{ id: "mcp.route" }];
+      },
+      importMcpJson(body) {
+        calls.push({ method: "importMcpJson", body });
+        return { id: "mcp.import", object: "mcp.import" };
+      },
+      invokeMcpTool({ authorization, body }) {
+        calls.push({ method: "invokeMcpTool", authorization, body });
+        return { id: "mcp.invoke", object: "mcp.invoke" };
+      },
+      executeWorkflowNode({ authorization, body }) {
+        calls.push({ method: "executeWorkflowNode", authorization, body });
+        return { id: "workflow.node", object: "workflow.node" };
+      },
+      validateReceiptGate(body) {
+        calls.push({ method: "validateReceiptGate", body });
+        return { id: "receipt.gate", object: "receipt.gate" };
+      },
       upsertRoute(body) {
         calls.push({ method: "upsertRoute", body });
         return { id: "route.write", object: "route.upsert" };
@@ -540,6 +572,14 @@ test("public runtime model catalog routes use mounted model projection surface",
     ["/v1/models/endpoints", [{ id: "endpoint.route" }]],
     ["/v1/models/providers", [{ id: "provider.route" }]],
     ["/v1/models/routes", [{ id: "route.route" }]],
+    ["/v1/models/model.route", { id: "model.route", object: "model.artifact" }],
+    ["/v1/model-mount/snapshot", { id: "snapshot.route", baseUrl: "http://daemon.test" }],
+    ["/v1/model-mount/projection", { id: "projection.route" }],
+    ["/v1/model-mount/mcp", [{ id: "mcp.route" }]],
+    ["POST /v1/model-mount/mcp/import", { id: "mcp.import", object: "mcp.import" }],
+    ["POST /v1/model-mount/mcp/invoke", { id: "mcp.invoke", object: "mcp.invoke" }],
+    ["POST /v1/model-mount/workflows/nodes/execute", { id: "workflow.node", object: "workflow.node" }],
+    ["POST /v1/model-mount/workflows/receipt-gate", { id: "receipt.gate", object: "receipt.gate" }],
     ["POST /v1/model-mount/routes", { id: "route.write", object: "route.upsert" }],
     ["POST /v1/model-mount/routes/route.route/test", { id: "route.route", object: "route.test" }],
     ["/v1/models/catalog/search?query=qwen", [{ id: "catalog.route", query: "qwen" }]],
@@ -590,6 +630,7 @@ test("public runtime model catalog routes use mounted model projection surface",
     const acceptedRoutes = new Set(["/v1/model-mount/catalog/import-url", "/v1/model-mount/downloads"]);
     const createdRoutes = new Set([
       "/v1/model-mount/routes",
+      "/v1/model-mount/mcp/import",
       "/v1/model-mount/artifacts/import",
       "/v1/model-mount/endpoints",
       "/v1/model-mount/endpoints/endpoint.route/load",
@@ -609,6 +650,14 @@ test("public runtime model catalog routes use mounted model projection surface",
     { method: "listEndpoints" },
     { method: "listProviders" },
     { method: "listRoutes" },
+    { method: "getModel", id: "model.route" },
+    { method: "snapshot", baseUrl: "http://daemon.test" },
+    { method: "projection" },
+    { method: "listMcpServers" },
+    { method: "importMcpJson", body: {} },
+    { method: "invokeMcpTool", authorization: undefined, body: {} },
+    { method: "executeWorkflowNode", authorization: undefined, body: {} },
+    { method: "validateReceiptGate", body: {} },
     { method: "authorize", authorization: undefined, scope: "route.write:*" },
     { method: "upsertRoute", body: {} },
     { method: "authorize", authorization: undefined, scope: "route.use:route.route" },

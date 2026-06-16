@@ -2030,15 +2030,22 @@ test("model mounting native route does not expose retired stable read aliases", 
       listModelCapabilities: failRetiredAlias("listModelCapabilities"),
       listProviders: failRetiredAlias("listProviders"),
       listRoutes: failRetiredAlias("listRoutes"),
+      getModel: failRetiredAlias("getModel"),
+      projection: failRetiredAlias("projection"),
+      snapshot: failRetiredAlias("snapshot"),
     },
   };
   const cases = [
+    "/api/v1/models",
+    "/api/v1/models/events",
     "/api/v1/model-capabilities",
     "/api/v1/models/catalog/search?query=qwen",
     "/api/v1/models/artifacts",
+    "/api/v1/models/model.route",
     "/api/v1/models/routes",
     "/api/v1/providers",
     "/api/v1/routes",
+    "/api/v1/projections/model-mounting",
   ];
 
   for (const path of cases) {
@@ -2138,6 +2145,8 @@ test("model mounting native route does not expose retired operational read, serv
       unmountEndpoint: failRetiredAlias("unmountEndpoint"),
       updateRuntimeEngine: failRetiredAlias("updateRuntimeEngine"),
       upsertRoute: failRetiredAlias("upsertRoute"),
+      executeWorkflowNode: failRetiredAlias("executeWorkflowNode"),
+      validateReceiptGate: failRetiredAlias("validateReceiptGate"),
     },
   };
   const cases = [
@@ -2165,6 +2174,8 @@ test("model mounting native route does not expose retired operational read, serv
     ["POST", "/api/v1/runtime/select"],
     ["POST", "/api/v1/routes"],
     ["POST", "/api/v1/routes/route.route/test"],
+    ["POST", "/api/v1/workflows/nodes/execute"],
+    ["POST", "/api/v1/workflows/receipt-gate"],
     ["POST", "/api/v1/models/import"],
     ["POST", "/api/v1/models/mount"],
     ["POST", "/api/v1/models/unmount"],

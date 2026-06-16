@@ -100,7 +100,7 @@ export async function loadAuthorityCenterRuntimeProjection({
       MODEL_CAPABILITY_BINDING_ENDPOINT,
       "/v1/model-capabilities",
     ]),
-    fetchAuthorityJson(endpoint, "/api/v1/models"),
+    fetchAuthorityJson(endpoint, "/v1/model-mount/snapshot"),
     fetchAuthorityJsonFirst(endpoint, [
       TOOL_CAPABILITY_BINDING_ENDPOINT,
       "/v1/tools",

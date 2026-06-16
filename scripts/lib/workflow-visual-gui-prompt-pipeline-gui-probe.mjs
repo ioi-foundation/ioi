@@ -110,7 +110,7 @@ function visualGuiPromptWorkflow() {
         modelPolicy: { privacy: "local_or_enterprise", quality: "adaptive" },
         capability: "chat",
         receiptRequired: true,
-        daemonApi: "/api/v1/workflows/nodes/execute",
+        daemonApi: "/v1/model-mount/workflows/nodes/execute",
         mockBinding: false,
         capabilityScope: ["chat", "computer_use.action_proposal"],
         argumentSchema: { type: "object" },

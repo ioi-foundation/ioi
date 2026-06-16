@@ -507,7 +507,7 @@ async function bootstrapDaemonModelRuntime(outputDir = null) {
     method: "POST",
     token: grant.token,
   });
-  const invocation = await requestJson(daemon.endpoint, "/api/v1/workflows/nodes/execute", {
+  const invocation = await requestJson(daemon.endpoint, "/v1/model-mount/workflows/nodes/execute", {
     method: "POST",
     token: grant.token,
     body: {
@@ -521,7 +521,7 @@ async function bootstrapDaemonModelRuntime(outputDir = null) {
       model_policy: { privacy: "local_only", reasoning_effort: "low" },
     },
   });
-  const projection = await requestJson(daemon.endpoint, "/api/v1/projections/model-mounting", {
+  const projection = await requestJson(daemon.endpoint, "/v1/model-mount/projection", {
     token: grant.token,
   });
   const receipts = await requestJson(daemon.endpoint, "/v1/model-mount/receipts", {
@@ -1027,7 +1027,7 @@ async function runGuiValidation(outputRoot) {
 
     const finalProjection = await requestJson(
       boot.daemon.endpoint,
-      "/api/v1/projections/model-mounting",
+      "/v1/model-mount/projection",
       { token: boot.token },
     );
     const finalReceipts = await requestJson(boot.daemon.endpoint, "/v1/model-mount/receipts", {

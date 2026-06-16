@@ -100,7 +100,7 @@ async function readDaemonModelSnapshot({ timeoutMs } = {}) {
   }
 
   try {
-    const snapshot = await requestJson(endpoint, "/api/v1/models", {
+    const snapshot = await requestJson(endpoint, "/v1/model-mount/snapshot", {
       timeoutMs,
     });
     return {

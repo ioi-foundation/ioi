@@ -1689,7 +1689,7 @@ async function runModelCatalogGate(evidence) {
       assert.equal(status.id, download.id);
       const replay = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${download.receiptId}/replay`);
       assert.equal(replay.receipt.id, download.receiptId);
-      const projection = await expectOk(daemon.endpoint, "/api/v1/projections/model-mounting");
+      const projection = await expectOk(daemon.endpoint, "/v1/model-mount/projection");
       assert.ok(projection.downloads.some((job) => job.id === download.id));
       assert.ok(projection.artifacts.some((artifact) => artifact.id === download.artifactId));
       result.download = {
@@ -2065,7 +2065,7 @@ async function runModelCatalogOAuthGate(evidence) {
     assert.equal(JSON.stringify(completed).includes(clientId), false);
     const completedReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${completed.receiptId}`);
     assert.equal(completedReceipt.kind, "catalog_oauth_callback");
-    const projection = await expectOk(daemon.endpoint, "/api/v1/projections/model-mounting");
+    const projection = await expectOk(daemon.endpoint, "/v1/model-mount/projection");
     assert.ok(projection.oauthStates.some((state) => state.status === "completed" && state.id === completed.oauthState.id));
     assert.ok(projection.oauthSessions.some((session) => session.status === "active" && session.id === completed.oauthSession.id));
     const secretScan = scanFilesForNeedles(stateDir, [
@@ -2164,7 +2164,7 @@ async function runWalletGate(evidence) {
         });
         assert.equal(denied.response.status, 403);
 
-        const badMcp = await requestJson(daemon.endpoint, "/api/v1/mcp/import", {
+        const badMcp = await requestJson(daemon.endpoint, "/v1/model-mount/mcp/import", {
           method: "POST",
           token: grant.token,
           body: {
@@ -2179,7 +2179,7 @@ async function runWalletGate(evidence) {
         });
         assert.equal(badMcp.response.status, 403);
 
-        const projection = await expectOk(daemon.endpoint, "/api/v1/projections/model-mounting");
+        const projection = await expectOk(daemon.endpoint, "/v1/model-mount/projection");
         assert.equal(projection.adapterBoundaries.wallet.remoteAdapter.configured, true);
         assert.equal(projection.adapterBoundaries.wallet.remoteAdapter.urlHash, stableHash(remoteUrl));
         const secretScan = scanFilesForNeedles(stateDir, [grant.token, deniedGrant.token, "Bearer plaintext-secret"]);
@@ -2248,7 +2248,7 @@ async function runAgentgresGate(evidence) {
         const replay = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${chat.receipt_id}/replay`);
         assert.equal(replay.receipt.id, chat.receipt_id);
         assert.equal(replay.source, "agentgres_model_mounting_projection_replay");
-        const projection = await expectOk(daemon.endpoint, "/api/v1/projections/model-mounting");
+        const projection = await expectOk(daemon.endpoint, "/v1/model-mount/projection");
         assert.equal(projection.adapterBoundaries.agentgres.remoteAdapter.configured, true);
         assert.equal(projection.adapterBoundaries.agentgres.remoteAdapter.urlHash, stableHash(remoteUrl));
         assert.ok(projection.watermark > 0);

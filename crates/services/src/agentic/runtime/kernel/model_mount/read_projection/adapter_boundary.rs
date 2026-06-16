@@ -78,9 +78,9 @@ pub(super) fn workflow_bindings() -> Value {
                 "receiptRequired": true,
                 "routeId": "route.local-first",
                 "daemonApi": if node == "Receipt Gate" {
-                    "/api/v1/workflows/receipt-gate"
+                    "/v1/model-mount/workflows/receipt-gate"
                 } else {
-                    "/api/v1/workflows/nodes/execute"
+                    "/v1/model-mount/workflows/nodes/execute"
                 },
             })
         })
@@ -130,7 +130,13 @@ mod tests {
         assert_eq!(bindings[0]["node"], "Model Call");
         assert_eq!(bindings[4]["capability"], "embeddings");
         assert_eq!(bindings[9]["node"], "Receipt Gate");
-        assert_eq!(bindings[9]["daemonApi"], "/api/v1/workflows/receipt-gate");
-        assert_eq!(bindings[0]["daemonApi"], "/api/v1/workflows/nodes/execute");
+        assert_eq!(
+            bindings[9]["daemonApi"],
+            "/v1/model-mount/workflows/receipt-gate"
+        );
+        assert_eq!(
+            bindings[0]["daemonApi"],
+            "/v1/model-mount/workflows/nodes/execute"
+        );
     }
 }

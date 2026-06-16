@@ -460,10 +460,10 @@ for await (const event of run.stream()) {
               isDark={isDark}
               headers={['Family', 'Representative routes']}
               rows={[
-                ['Catalog and inventory', <code>GET /api/v1/models, GET /api/v1/models/catalog/search</code>],
-                ['Download and storage', <code>POST /api/v1/models/download, POST /api/v1/models/storage/cleanup</code>],
-                ['Import and mount', <code>POST /api/v1/models/import, POST /api/v1/models/mount</code>],
-                ['Load and unload', <code>POST /api/v1/models/load, POST /api/v1/models/unload, GET /api/v1/models/loaded</code>],
+                ['Catalog and inventory', <code>GET /v1/model-mount/snapshot, GET /v1/models/catalog/search</code>],
+                ['Download and storage', <code>POST /v1/model-mount/downloads, POST /v1/model-mount/storage/cleanup</code>],
+                ['Import and mount', <code>POST /v1/model-mount/artifacts/import, POST /v1/model-mount/endpoints</code>],
+                ['Load and unload', <code>POST /v1/model-mount/instances/load, POST /v1/model-mount/instances/unload, GET /v1/model-mount/instances/loaded</code>],
                 ['Compatibility', <code>POST /v1/chat/completions</code>],
               ]}
             />
@@ -842,7 +842,7 @@ for await (const event of run.stream()) {
               rows={[
                 ['Chat workbench', 'Current local GUI with answer-first transcript, sources, artifacts, approvals, and runtime disclosures.'],
                 ['Workflow canvas', 'Current local workflow composition and harness proof path, with active preview areas for packaging/import review.'],
-                ['Model mounts', 'Current local/admin UI over /api/v1/models and /v1/chat/completions compatibility.'],
+                ['Model mounts', 'Current local/admin UI over /v1/model-mount/snapshot and /v1/chat/completions compatibility.'],
                 ['MCP tools', 'Current import/discovery/invocation paths in daemon and Autopilot surfaces.'],
                 ['Evidence harness', 'Current desktop probes capture screenshots, runtime artifacts, receipts, and logs.'],
               ]}
@@ -999,7 +999,7 @@ for await (const event of run.stream()) {
                 ['Agents/runs', <code>/v1/agents, /v1/runs/{'{run_id}'}/events, /v1/runs/{'{run_id}'}/trace</code>],
                 ['MCP', <code>/v1/mcp, /v1/mcp/tools, /v1/mcp/import, /v1/mcp/serve</code>],
                 ['Memory', <code>/v1/memory, /v1/memory/records, /v1/memory/validate</code>],
-                ['Models', <code>/api/v1/models, /api/v1/models/load, /v1/chat/completions</code>],
+                ['Models', <code>/v1/model-mount/snapshot, /v1/model-mount/instances/load, /v1/chat/completions</code>],
                 ['Artifacts/receipts', <code>/v1/runs/{'{run_id}'}/artifacts, /v1/runs/{'{run_id}'}/receipts</code>],
               ]}
             />
@@ -1041,12 +1041,12 @@ for await (const event of run.stream()) {
               isDark={isDark}
               headers={['Task', 'Route']}
               rows={[
-                ['List models', <code>GET /api/v1/models</code>],
-                ['Search catalog', <code>GET /api/v1/models/catalog/search</code>],
-                ['Download', <code>POST /api/v1/models/download</code>],
-                ['Import local artifact', <code>POST /api/v1/models/import</code>],
-                ['Mount or unmount', <code>POST /api/v1/models/mount, POST /api/v1/models/unmount</code>],
-                ['Load or unload', <code>POST /api/v1/models/load, POST /api/v1/models/unload</code>],
+                ['List models', <code>GET /v1/model-mount/snapshot</code>],
+                ['Search catalog', <code>GET /v1/models/catalog/search</code>],
+                ['Download', <code>POST /v1/model-mount/downloads</code>],
+                ['Import local artifact', <code>POST /v1/model-mount/artifacts/import</code>],
+                ['Mount or unmount', <code>POST /v1/model-mount/endpoints, DELETE /v1/model-mount/endpoints/:id</code>],
+                ['Load or unload', <code>POST /v1/model-mount/instances/load, POST /v1/model-mount/instances/unload</code>],
                 ['Use compatibility chat', <code>POST /v1/chat/completions</code>],
               ]}
             />

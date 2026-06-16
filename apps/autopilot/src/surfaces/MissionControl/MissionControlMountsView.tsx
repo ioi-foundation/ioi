@@ -2147,7 +2147,7 @@ function useModelMountsDaemon() {
   const refresh = useCallback(async () => {
     setConnectionState("loading");
     try {
-      const snapshot = await requestJson("/api/v1/models");
+      const snapshot = await requestJson("/v1/model-mount/snapshot");
       setData(normalizeSnapshot(snapshot, endpoint));
       const nextCatalogVariants = normalizeCatalogVariants(snapshot?.catalog?.results);
       setCatalogVariants((current) => (nextCatalogVariants.length > 0 ? nextCatalogVariants : current));
@@ -2327,7 +2327,7 @@ function useModelMountsDaemon() {
         }),
       revokeValidationToken: () =>
         runAction("token-revoke-validation", async () => {
-          const snapshot = normalizeSnapshot(await requestJson("/api/v1/models"), endpoint);
+          const snapshot = normalizeSnapshot(await requestJson("/v1/model-mount/snapshot"), endpoint);
           const token = snapshot.tokens
             .filter((candidate) => candidate.grantId === VALIDATION_TOKEN_GRANT_ID && candidate.state !== "revoked")
             .at(-1);
@@ -2658,7 +2658,7 @@ function useModelMountsDaemon() {
       unloadValidationModel: () =>
         runAction("model-unload-validation", async () => {
           const token = await ensureToken();
-          const snapshot = normalizeSnapshot(await requestJson("/api/v1/models"), endpoint);
+          const snapshot = normalizeSnapshot(await requestJson("/v1/model-mount/snapshot"), endpoint);
           const instance = snapshot.instances
             .filter((candidate) => candidate.modelId === VALIDATION_LIFECYCLE_MODEL_ID && candidate.status === "loaded")
             .at(-1);
@@ -2788,7 +2788,7 @@ function useModelMountsDaemon() {
       importMcpFixture: () =>
         runAction("mcp-import", async () => {
           const token = await ensureToken();
-          await requestJson("/api/v1/mcp/import", {
+          await requestJson("/v1/model-mount/mcp/import", {
             method: "POST",
             token,
             body: {
@@ -2851,7 +2851,7 @@ function useModelMountsDaemon() {
       workflowProbe: () =>
         runAction("workflow-probe", async () => {
           const token = await ensureToken();
-          await requestJson("/api/v1/mcp/import", {
+          await requestJson("/v1/model-mount/mcp/import", {
             method: "POST",
             token,
             body: {
@@ -2864,22 +2864,22 @@ function useModelMountsDaemon() {
               },
             },
           });
-          await requestJson("/api/v1/workflows/nodes/execute", {
+          await requestJson("/v1/model-mount/workflows/nodes/execute", {
             method: "POST",
             token,
             body: { node: "Model Router", model_policy: { privacy: "local_only" } },
           });
-          await requestJson("/api/v1/workflows/nodes/execute", {
+          await requestJson("/v1/model-mount/workflows/nodes/execute", {
             method: "POST",
             token,
             body: { node: "Model Call", input: "workflow model call probe", model_policy: { privacy: "local_only" } },
           });
-          await requestJson("/api/v1/workflows/nodes/execute", {
+          await requestJson("/v1/model-mount/workflows/nodes/execute", {
             method: "POST",
             token,
             body: { node: "Embedding", input: "workflow embedding probe", model_policy: { privacy: "local_only" } },
           });
-          await requestJson("/api/v1/workflows/nodes/execute", {
+          await requestJson("/v1/model-mount/workflows/nodes/execute", {
             method: "POST",
             token,
             body: {
@@ -2911,7 +2911,7 @@ function useModelMountsDaemon() {
               ],
             },
           });
-          const gate = await requestJson("/api/v1/workflows/receipt-gate", {
+          const gate = await requestJson("/v1/model-mount/workflows/receipt-gate", {
             method: "POST",
             body: {
               receipt_id: invocation?.receipt_id,
@@ -2936,7 +2936,7 @@ function useModelMountsDaemon() {
               messages: [{ role: "user", content: "Run a Receipt Gate block probe." }],
             },
           });
-          const blocked = await requestJson("/api/v1/workflows/receipt-gate", {
+          const blocked = await requestJson("/v1/model-mount/workflows/receipt-gate", {
             method: "POST",
             allowStatuses: [412],
             body: {
@@ -4568,7 +4568,7 @@ function ServerPanel({
           "POST /v1/model-mount/backends/:id/start",
           "POST /v1/model-mount/backends/:id/stop",
           "GET /v1/model-mount/backends/:id/logs",
-          "GET /api/v1/models",
+          "GET /v1/model-mount/snapshot",
           "POST /v1/model-mount/instances/load",
           "POST /v1/model-mount/instances/unload",
           "POST /v1/model-mount/downloads",
@@ -4589,11 +4589,11 @@ function ServerPanel({
           "POST /api/v1/chat",
           "GET /v1/models",
           "POST /v1/chat/completions",
-          "POST /api/v1/mcp/import",
-          "POST /api/v1/workflows/nodes/execute",
+          "POST /v1/model-mount/mcp/import",
+          "POST /v1/model-mount/workflows/nodes/execute",
           "GET /v1/model-mount/receipts",
           "GET /v1/model-mount/receipts/:id/replay",
-          "GET /api/v1/projections/model-mounting",
+          "GET /v1/model-mount/projection",
         ].map((routePath) => (
           <code key={routePath}>{routePath}</code>
         ))}

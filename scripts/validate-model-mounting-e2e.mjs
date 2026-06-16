@@ -548,7 +548,7 @@ async function main() {
     });
 
     await runStep(evidence, "discover providers and backends", async () => {
-      const snapshot = await expectOk(daemon.endpoint, "/api/v1/models");
+      const snapshot = await expectOk(daemon.endpoint, "/v1/model-mount/snapshot");
       const providerKinds = new Set(snapshot.providers.map((provider) => provider.kind));
       for (const kind of [
         "local_folder",
@@ -1076,13 +1076,13 @@ async function main() {
           2,
         ),
       );
-      const imported = await expectOk(daemon.endpoint, "/api/v1/mcp/import", {
+      const imported = await expectOk(daemon.endpoint, "/v1/model-mount/mcp/import", {
         method: "POST",
         token,
         body: JSON.parse(fs.readFileSync(mcpJsonPath, "utf8")),
       });
       assert.equal(imported.count, 1);
-      const tool = await expectOk(daemon.endpoint, "/api/v1/mcp/invoke", {
+      const tool = await expectOk(daemon.endpoint, "/v1/model-mount/mcp/invoke", {
         method: "POST",
         token,
         body: { server_label: "huggingface", tool: "model_search", input: { q: "qwen" } },
@@ -1141,28 +1141,28 @@ async function main() {
       });
       assert.equal(routeTest.selection.endpoint.id, "endpoint.e2e.native-local");
 
-      const routerNode = await expectOk(daemon.endpoint, "/api/v1/workflows/nodes/execute", {
+      const routerNode = await expectOk(daemon.endpoint, "/v1/model-mount/workflows/nodes/execute", {
         method: "POST",
         token,
         body: { node: "Model Router", route_id: "route.e2e.native", model_policy: { privacy: "local_only" } },
       });
       assert.equal(routerNode.status, "selected");
 
-      const modelCall = await expectOk(daemon.endpoint, "/api/v1/workflows/nodes/execute", {
+      const modelCall = await expectOk(daemon.endpoint, "/v1/model-mount/workflows/nodes/execute", {
         method: "POST",
         token,
         body: { node: "Model Call", route_id: "route.e2e.native", input: "workflow model call" },
       });
       assert.equal(modelCall.status, "executed");
 
-      const embedding = await expectOk(daemon.endpoint, "/api/v1/workflows/nodes/execute", {
+      const embedding = await expectOk(daemon.endpoint, "/v1/model-mount/workflows/nodes/execute", {
         method: "POST",
         token,
         body: { node: "Embedding", route_id: "route.e2e.native", input: "workflow embedding" },
       });
       assert.equal(embedding.status, "executed");
 
-      const localTool = await expectOk(daemon.endpoint, "/api/v1/workflows/nodes/execute", {
+      const localTool = await expectOk(daemon.endpoint, "/v1/model-mount/workflows/nodes/execute", {
         method: "POST",
         token,
         body: {
@@ -1172,12 +1172,12 @@ async function main() {
       });
       assert.equal(localTool.status, "executed");
 
-      const blockedGate = await requestJson(daemon.endpoint, "/api/v1/workflows/receipt-gate", {
+      const blockedGate = await requestJson(daemon.endpoint, "/v1/model-mount/workflows/receipt-gate", {
         method: "POST",
         body: { receipt_id: ephemeralReceiptId, route_id: "route.mismatch" },
       });
       assert.equal(blockedGate.response.status, 412);
-      const passedGate = await expectOk(daemon.endpoint, "/api/v1/workflows/receipt-gate", {
+      const passedGate = await expectOk(daemon.endpoint, "/v1/model-mount/workflows/receipt-gate", {
         method: "POST",
         body: {
           receipt_id: ephemeralReceiptId,
@@ -1509,7 +1509,7 @@ async function main() {
       const replay = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${nativeReceiptId}/replay`);
       assert.equal(replay.receipt.id, nativeReceiptId);
       assert.equal(replay.route.id, "route.native-local");
-      const projection = await expectOk(daemon.endpoint, "/api/v1/projections/model-mounting");
+      const projection = await expectOk(daemon.endpoint, "/v1/model-mount/projection");
       assert.ok(projection.artifacts.some((artifact) => artifact.modelId === "native:e2e"));
       assert.ok(projection.invocationReceipts.some((item) => item.id === nativeReceiptId));
       assert.ok(projection.receipts.some((item) => item.id === nativeStreamCompletionReceiptId));

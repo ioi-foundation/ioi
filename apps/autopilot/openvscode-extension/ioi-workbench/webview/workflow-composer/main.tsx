@@ -181,7 +181,7 @@ async function checkDaemonModelRouteReady() {
       ? initialState.daemonEndpoint.replace(/\/+$/, "")
       : "";
   if (!endpoint) return false;
-  const response = await fetch(`${endpoint}/api/v1/projections/model-mounting`, {
+  const response = await fetch(`${endpoint}/v1/model-mount/projection`, {
     headers: {
       accept: "application/json",
       ...(initialState.daemonToken

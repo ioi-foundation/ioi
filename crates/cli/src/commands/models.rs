@@ -199,7 +199,7 @@ pub async fn run(args: ModelsArgs) -> Result<()> {
                 endpoint,
                 token,
                 Method::GET,
-                &format!("/api/v1/models/{id}"),
+                &format!("/v1/models/{id}"),
                 None,
             )
             .await?

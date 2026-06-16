@@ -408,6 +408,57 @@ export function createPublicRuntimeRequestHandler(deps) {
         writeJsonResponse(response, store.modelMounting.listRoutes());
         return;
       }
+      if (
+        request.method === "GET" &&
+        segments[0] === "v1" &&
+        segments[1] === "models" &&
+        segments[2] &&
+        !segments[3] &&
+        !["artifacts", "catalog", "endpoints", "providers", "routes"].includes(segments[2])
+      ) {
+        writeJsonResponse(response, store.modelMounting.getModel(decodeURIComponent(segments[2])));
+        return;
+      }
+      if (request.method === "GET" && url.pathname === "/v1/model-mount/snapshot") {
+        writeJsonResponse(response, store.modelMounting.snapshot(baseUrlForRequest(request)));
+        return;
+      }
+      if (request.method === "GET" && url.pathname === "/v1/model-mount/projection") {
+        writeJsonResponse(response, store.modelMounting.projection());
+        return;
+      }
+      if (request.method === "GET" && url.pathname === "/v1/model-mount/mcp") {
+        writeJsonResponse(response, store.modelMounting.listMcpServers());
+        return;
+      }
+      if (request.method === "POST" && url.pathname === "/v1/model-mount/mcp/import") {
+        writeJsonResponse(response, await store.modelMounting.importMcpJson(await readBody(request)), 201);
+        return;
+      }
+      if (request.method === "POST" && url.pathname === "/v1/model-mount/mcp/invoke") {
+        writeJsonResponse(
+          response,
+          await store.modelMounting.invokeMcpTool({
+            authorization: request.headers.authorization,
+            body: await readBody(request),
+          }),
+        );
+        return;
+      }
+      if (request.method === "POST" && url.pathname === "/v1/model-mount/workflows/nodes/execute") {
+        writeJsonResponse(
+          response,
+          await store.modelMounting.executeWorkflowNode({
+            authorization: request.headers.authorization,
+            body: await readBody(request),
+          }),
+        );
+        return;
+      }
+      if (request.method === "POST" && url.pathname === "/v1/model-mount/workflows/receipt-gate") {
+        writeJsonResponse(response, store.modelMounting.validateReceiptGate(await readBody(request)));
+        return;
+      }
       if (request.method === "POST" && url.pathname === "/v1/model-mount/routes") {
         store.modelMounting.authorize(request.headers.authorization, "route.write:*");
         writeJsonResponse(response, store.modelMounting.upsertRoute(await readBody(request)), 201);

@@ -11331,14 +11331,16 @@ guards that the retired SDK query builder, query context merge, top-level serve
 transport, and raw JSON-RPC compatibility path cannot return.
 
 Slice 1348 hard-cuts stable model_mount read protocol clients. Public
-`/v1/models/artifacts`, `/v1/models/endpoints`, `/v1/models/providers`,
-`/v1/models/routes`, and `/v1/models/catalog/search` now call the mounted
-Rust-owned model_mount read projections for artifact, endpoint, provider,
-route, and catalog-search truth. SDK clients expose
+`/v1/models/{id}`, `/v1/models/artifacts`, `/v1/models/endpoints`,
+`/v1/models/providers`, `/v1/models/routes`, and
+`/v1/models/catalog/search` now call the mounted Rust-owned model_mount read
+projections for model-detail, artifact, endpoint, provider, route, and
+catalog-search truth. SDK clients expose
 `listModelArtifacts()`, `listModelEndpoints()`, `listModelProviders()`,
 `listModelRoutes()`, and `searchModelCatalog()` over those stable protocol
-routes, while CLI `models ls`, `models capabilities`, `models catalog-search`,
-and `routes ls` no longer use the older `/api/v1` model_mount read URLs.
+routes, while CLI `models ls`, `models get`, `models capabilities`,
+`models catalog-search`, and `routes ls` no longer use the older `/api/v1`
+model_mount read URLs.
 Conformance guards the stable route surface, SDK methods, CLI read-command
 URLs, and the absence of the retired client read fallbacks for migrated read
 commands. This remains non-terminal because hosted/provider materialization,
@@ -11348,14 +11350,13 @@ the invocation-authority blocker superseded by Slice 1381, later stable IDE and 
 Slice 1349 retires the legacy model_mount native read aliases for the migrated
 stable read family. The daemon no longer routes `GET /api/v1/model-capabilities`,
 `GET /api/v1/models/catalog/search`, `GET /api/v1/models/artifacts`,
-`GET /api/v1/models/routes`, `GET /api/v1/providers`, or `GET /api/v1/routes`
-to model_mount projection methods; those reads must use the stable `/v1`
-protocol routes from Slice 1348. Focused native-route tests assert the retired
-aliases return `not_found` without calling `catalogSearch()`, `listArtifacts()`,
-`listModelCapabilities()`, `listProviders()`, or `listRoutes()`, and
-the generic `/api/v1/models/:id` route fences collection-style retired aliases
-instead of treating them as model IDs. Conformance source-scans keep the removed
-GET handlers absent. This remains
+`GET /api/v1/models/routes`, `GET /api/v1/models/{id}`,
+`GET /api/v1/providers`, or `GET /api/v1/routes` to model_mount projection
+methods; those reads must use the stable `/v1` protocol routes from Slice 1348.
+Focused native-route tests assert the retired aliases return `not_found` without
+calling `catalogSearch()`, `getModel()`, `listArtifacts()`,
+`listModelCapabilities()`, `listProviders()`, or `listRoutes()`. Conformance
+source-scans keep the removed GET handlers absent. This remains
 non-terminal because mutation/control routes, live external backend binary spawning/supervision,
 hosted/provider transport, live cTEE secret injection into outbound hosted network requests, invocation
 authority depth, and later stable client protocol rows had not yet landed at that cut.
@@ -11402,9 +11403,9 @@ longer exposes `GET /api/v1/server/status`, `GET /api/v1/server/logs`,
 `GET /api/v1/models/backends`, `GET /api/v1/runtime/engines`,
 `GET /api/v1/runtime/engines/{id}`, `GET /api/v1/models/runtime-engines`,
 `GET /api/v1/models/instances`, `GET /api/v1/models/loaded`, or
-`GET /api/v1/authority` as native read aliases, and the generic
-`/api/v1/models/:id` handler fences retired collection-style segments instead
-of treating them as model ids. Conformance scans source-only clients and
+`GET /api/v1/authority` as native read aliases. The generic
+`GET /api/v1/models/:id` detail handler is retired as part of the stable
+`GET /v1/models/{id}` read protocol. Conformance scans source-only clients and
 focused route tests so these retired read aliases cannot return. This remains
 non-terminal because mutation/control routes, live external backend binary spawning/supervision,
 hosted/provider transport, live cTEE secret injection into outbound hosted network requests, invocation
@@ -11997,6 +11998,27 @@ supervisor, command-transport spawn, and binary-bridge spawn boundaries. Focused
 Rust and JS tests assert absence/rejection, and conformance guards that the
 old false-field compatibility proof cannot reappear beside the Rust
 backend-process owner.
+
+Slice 1384 hard-cuts stable model_mount snapshot, projection, MCP workflow,
+and workflow-node protocol clients. Public daemon routes now expose
+`GET /v1/model-mount/snapshot`, `GET /v1/model-mount/projection`,
+`GET /v1/model-mount/mcp`, `POST /v1/model-mount/mcp/import`,
+`POST /v1/model-mount/mcp/invoke`,
+`POST /v1/model-mount/workflows/nodes/execute`, and
+`POST /v1/model-mount/workflows/receipt-gate` over the mounted Rust-owned
+model_mount read projection, MCP workflow, StepModule dispatch, and receipt-gate
+planning surfaces. The older native aliases `GET /api/v1/models`,
+`GET /api/v1/models/events`, `GET /api/v1/projections/model-mounting`,
+`POST /api/v1/workflows/nodes/execute`,
+`POST /api/v1/workflows/receipt-gate`, `POST /api/v1/mcp/import`, and
+`POST /api/v1/mcp/invoke` no longer route through the daemon native handler or
+product/proof/IDE clients. Rust `workflowBindings` projection records now
+advertise the stable `/v1/model-mount/workflows/*` daemon API paths rather than
+the retired `/api/v1/workflows/*` paths. Focused route tests assert the stable
+routes call the Rust-owned model_mount methods and the retired aliases return
+`not_found` without touching snapshot, projection, MCP, workflow, or receipt-gate
+methods; conformance scans product/proof/SDK/CLI/IDE/workbench source clients so
+the old aliases cannot return as client fallbacks.
 
 ## Final Doctrine
 
