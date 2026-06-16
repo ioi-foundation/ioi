@@ -10661,6 +10661,18 @@ surface call. Remaining work is wallet/operator authority depth, durable
 cancellation replay/projection storage, direct Rust lifecycle APIs, and stable
 protocol clients, not an alternate state-mounted Rust core fallback.
 
+Slice 1320 hard-cuts the runtime MCP single-core mount fallback. Daemon startup
+now injects the same positive `contextPolicyCore` mount into MCP catalog,
+control, and serve surfaces; the catalog/control surfaces no longer instantiate
+their own `RuntimeContextPolicyCore`, and `mcp-manager.mjs` requires an explicit
+daemon-mounted core instead of self-creating one from `daemonCoreMcpApi`.
+Registry, validation, catalog, status, search/fetch, live-result, and serve
+truth therefore cannot return through a duplicate JS-side Rust-core instance
+after daemon parity is present. Conformance now guards daemon injection, the
+absence of MCP self-core defaults, and the manager's fail-closed explicit-core
+requirement. Remaining work is broader non-MCP SDK route-family protocol
+coverage and durable MCP replay/storage depth, not another MCP core fallback.
+
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,
 `/v1/memory/policy`, `/v1/memory/path`, or `/v1/memory/validate`; the daemon

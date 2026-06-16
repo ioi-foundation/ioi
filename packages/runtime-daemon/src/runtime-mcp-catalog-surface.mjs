@@ -21,7 +21,6 @@ import {
   normalizeArray,
   optionalString,
 } from "./runtime-value-helpers.mjs";
-import { createRuntimeContextPolicyCore } from "./runtime-context-policy-core.mjs";
 
 export function createRuntimeMcpCatalogSurface({
   RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION: statusSchemaVersion = RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION,
@@ -38,7 +37,7 @@ export function createRuntimeMcpCatalogSurface({
   normalizeArray: normalizeArrayDep = normalizeArray,
   optionalString: optionalStringDep = optionalString,
   pathResolve = path.resolve,
-  contextPolicyCore = createRuntimeContextPolicyCore(),
+  contextPolicyCore = null,
 } = {}) {
   return {
     listMcpServers(store, options = {}) {
@@ -82,9 +81,10 @@ export function createRuntimeMcpCatalogSurface({
       ).prompts;
     },
     mcpStatus(store, options = {}) {
+      const core = requiredRuntimeMcpCatalogCore("mcp_status");
       const servers = this.listMcpServers(store, options);
-      const catalog = contextPolicyCore.planMcpManagerCatalogProjection({ servers });
-      const validation = contextPolicyCore.validateMcpServers({ servers });
+      const catalog = core.planMcpManagerCatalogProjection({ servers });
+      const validation = core.validateMcpServers({ servers });
       const routes = {
         status: "/v1/threads/{thread_id}/mcp/status",
         servers: "/v1/threads/{thread_id}/mcp/servers",
@@ -100,7 +100,7 @@ export function createRuntimeMcpCatalogSurface({
         invoke_tool: "/v1/threads/{thread_id}/mcp/tools/{tool_id}/invoke",
         serve_for_thread: "/v1/threads/{thread_id}/mcp/serve",
       };
-      return contextPolicyCore.planMcpManagerStatusProjection({
+      return core.planMcpManagerStatusProjection({
         status_schema_version: statusSchemaVersion,
         validation,
         servers,
@@ -127,8 +127,9 @@ export function createRuntimeMcpCatalogSurface({
       });
     },
     async getMcpToolFromCatalog(store, toolId, request = {}) {
+      const core = requiredRuntimeMcpCatalogCore("mcp_tool_fetch");
       const requested = optionalStringDep(toolId ?? request.tool_id);
-      const result = contextPolicyCore.projectMcpToolFetchProjection({
+      const result = core.projectMcpToolFetchProjection({
         status_schema_version: toolSearchSchemaVersion,
         state_dir: optionalStringDep(request.state_dir) ?? optionalStringDep(store?.stateDir) ?? null,
         thread_id: optionalStringDep(request.thread_id) ?? null,
@@ -149,12 +150,13 @@ export function createRuntimeMcpCatalogSurface({
       return result;
     },
     async searchMcpToolCatalog(store, request = {}) {
+      const core = requiredRuntimeMcpCatalogCore("mcp_tool_search");
       const query = optionalStringDep(request.q ?? request.query ?? request.search) ?? "";
       const requestedToolId = optionalStringDep(request.tool_id);
       const exact = request.exact === true || request.exact === "true";
       const liveDiscovery = request.live_discovery !== false;
       const limit = mcpToolSearchLimitDep(request);
-      return contextPolicyCore.projectMcpToolSearchProjection({
+      return core.projectMcpToolSearchProjection({
         status_schema_version: toolSearchSchemaVersion,
         state_dir: optionalStringDep(request.state_dir) ?? optionalStringDep(store?.stateDir) ?? null,
         thread_id: optionalStringDep(request.thread_id) ?? null,
@@ -170,15 +172,16 @@ export function createRuntimeMcpCatalogSurface({
       });
     },
     validateMcp(store, input = {}) {
+      const core = requiredRuntimeMcpCatalogCore("mcp_validate");
       const workspaceRoot = pathResolve(
         input.cwd ?? input.workspace_root ?? store.defaultCwd,
       );
       const servers = mcpServerRecordsFromValidationInputDep(input, workspaceRoot, {
-        contextPolicyCore,
+        contextPolicyCore: core,
       });
-      const validation = contextPolicyCore.validateMcpServers({ servers });
-      const catalog = contextPolicyCore.planMcpManagerCatalogProjection({ servers });
-      return contextPolicyCore.planMcpManagerValidationProjection({
+      const validation = core.validateMcpServers({ servers });
+      const catalog = core.planMcpManagerCatalogProjection({ servers });
+      return core.planMcpManagerValidationProjection({
         validation_schema_version: validationSchemaVersion,
         validation,
         servers,
@@ -188,7 +191,8 @@ export function createRuntimeMcpCatalogSurface({
       });
     },
     mcpCatalogRowsForServers(servers = []) {
-      const catalog = contextPolicyCore.planMcpManagerCatalogProjection({ servers });
+      const core = requiredRuntimeMcpCatalogCore("mcp_catalog_rows");
+      const catalog = core.planMcpManagerCatalogProjection({ servers });
       return {
         ...catalog,
         tools: normalizeArrayDep(catalog.tools),
@@ -198,7 +202,8 @@ export function createRuntimeMcpCatalogSurface({
       };
     },
     mcpCatalogSummaryForRows(server, catalog = {}, options = {}) {
-      return contextPolicyCore.planMcpManagerCatalogSummaryProjection({
+      const core = requiredRuntimeMcpCatalogCore("mcp_catalog_summary");
+      return core.planMcpManagerCatalogSummaryProjection({
         server,
         tools: normalizeArrayDep(catalog.tools),
         resources: normalizeArrayDep(catalog.resources),
@@ -211,6 +216,7 @@ export function createRuntimeMcpCatalogSurface({
       });
     },
     mcpServersForContext(store, options = {}) {
+      const core = requiredRuntimeMcpCatalogCore("mcp_servers_for_context");
       const threadId = optionalStringDep(options.thread_id);
       const agentId = optionalStringDep(options.agent_id);
       const sourceMode = mcpConfigSourceModeForRequestDep(options);
@@ -219,11 +225,11 @@ export function createRuntimeMcpCatalogSurface({
         ? []
         : mcpRegistryForWorkspaceDep(store.defaultCwd, {
             ...options,
-            contextPolicyCore,
+            contextPolicyCore: core,
             homeDir: store.homeDir,
             mcp_config_source_mode: sourceMode,
           }).servers;
-      const catalog = contextPolicyCore.planMcpManagerCatalogProjection({
+      const catalog = core.planMcpManagerCatalogProjection({
         servers: normalizeArrayDep(workspaceServers),
         state_dir: stateDir ?? null,
         thread_id: threadId ?? null,
@@ -239,4 +245,21 @@ export function createRuntimeMcpCatalogSurface({
         .sort((left, right) => left.id.localeCompare(right.id));
     },
   };
+
+  function requiredRuntimeMcpCatalogCore(operation) {
+    if (contextPolicyCore && typeof contextPolicyCore === "object") return contextPolicyCore;
+    const error = new Error("Runtime MCP catalog requires the daemon-mounted Rust context policy core.");
+    error.code = "runtime_mcp_catalog_context_policy_core_required";
+    error.details = {
+      boundary: "runtime.mcp_catalog",
+      operation,
+      required_core: "rust_daemon_core",
+      required_mount: "contextPolicyCore",
+      evidence_refs: [
+        "runtime_mcp_catalog_single_context_policy_core_required",
+        "runtime_mcp_manager_self_core_fallback_retired",
+      ],
+    };
+    throw error;
+  }
 }

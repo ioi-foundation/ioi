@@ -763,11 +763,15 @@ export class AgentgresRuntimeStateStore {
       runtimeError,
       writeJson,
     });
-    this.mcpCatalogSurface = createRuntimeMcpCatalogSurface();
+    this.mcpCatalogSurface = createRuntimeMcpCatalogSurface({
+      contextPolicyCore: this.contextPolicyCore,
+    });
     this.mcpControlSurface = createRuntimeMcpControlSurface({
       contextPolicyCore: this.contextPolicyCore,
     });
-    this.mcpServeSurface = createRuntimeMcpServeSurface();
+    this.mcpServeSurface = createRuntimeMcpServeSurface({
+      contextPolicyCore: this.contextPolicyCore,
+    });
     this.repositorySurface = createRuntimeRepositorySurface({
       contextPolicyCore: this.contextPolicyCore,
     });

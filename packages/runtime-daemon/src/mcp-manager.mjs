@@ -1,7 +1,6 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { createRuntimeContextPolicyCore } from "./runtime-context-policy-core.mjs";
 
 export const RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION =
   "ioi.runtime.mcp-manager-status.v1";
@@ -14,11 +13,10 @@ export function mcpRegistryForWorkspace(cwd, options = {}) {
   const sourceMode = normalizeMcpConfigSourceMode(
     options.mcp_config_source_mode ?? options.config_source_mode,
   );
-  const contextPolicyCore =
-    options.contextPolicyCore ??
-    createRuntimeContextPolicyCore({
-      daemonCoreMcpApi: options.daemonCoreMcpApi,
-    });
+  const contextPolicyCore = requiredRuntimeMcpManagerContextPolicyCore(
+    options,
+    "mcpRegistryForWorkspace",
+  );
   const sources = [];
   if (sourceMode !== "workspace") {
     for (const source of loadGlobalMcpConfigSources(homeDir)) {
@@ -91,11 +89,10 @@ function mcpValidationInputForSource(source = {}) {
 }
 
 export function mcpServerRecordsFromValidationInput(input = {}, workspaceRoot, options = {}) {
-  const contextPolicyCore =
-    options.contextPolicyCore ??
-    createRuntimeContextPolicyCore({
-      daemonCoreMcpApi: options.daemonCoreMcpApi,
-    });
+  const contextPolicyCore = requiredRuntimeMcpManagerContextPolicyCore(
+    options,
+    "mcpServerRecordsFromValidationInput",
+  );
   const projection = contextPolicyCore.projectMcpServerValidationInput({
     input,
     workspace_root: workspaceRoot,
@@ -112,6 +109,25 @@ function loadGlobalMcpConfigSources(homeDir) {
       compatibility: "ioi",
     },
   ]);
+}
+
+function requiredRuntimeMcpManagerContextPolicyCore(options = {}, operation) {
+  if (options.contextPolicyCore && typeof options.contextPolicyCore === "object") {
+    return options.contextPolicyCore;
+  }
+  const error = new Error("Runtime MCP manager requires the daemon-mounted Rust context policy core.");
+  error.code = "runtime_mcp_manager_context_policy_core_required";
+  error.details = {
+    boundary: "runtime.mcp_manager",
+    operation,
+    required_core: "rust_daemon_core",
+    required_mount: "contextPolicyCore",
+    evidence_refs: [
+      "runtime_mcp_manager_single_context_policy_core_required",
+      "runtime_mcp_manager_self_core_fallback_retired",
+    ],
+  };
+  throw error;
 }
 
 function loadWorkspaceMcpConfigSources(workspaceRoot) {

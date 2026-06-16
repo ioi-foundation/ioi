@@ -214,7 +214,8 @@ test("MCP manager registry fails closed without Rust daemon-core projection", ()
       },
     }),
     (error) =>
-      error.code === "runtime_context_policy_core_direct_mcp_api_unconfigured" &&
-      error.details.boundary === "daemonCoreMcpApi.projectMcpServerValidationInput",
+      error.code === "runtime_mcp_manager_context_policy_core_required" &&
+      error.details.boundary === "runtime.mcp_manager" &&
+      error.details.required_mount === "contextPolicyCore",
   );
 });

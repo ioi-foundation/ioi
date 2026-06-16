@@ -18,7 +18,6 @@ import {
   MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   MCP_LIVE_BACKEND_EXECUTION_REQUEST_SCHEMA_VERSION,
   MCP_LIVE_RESULT_REPLAY_REQUEST_SCHEMA_VERSION,
-  createRuntimeContextPolicyCore,
 } from "./runtime-context-policy-core.mjs";
 
 const RUNTIME_RECEIPT_STATE_COMMIT_SCHEMA_VERSION = "ioi.runtime_receipt_state_commit.v1";
@@ -36,7 +35,7 @@ export function createRuntimeMcpControlSurface({
   optionalString: optionalStringDep = optionalString,
   runtimeError: runtimeErrorDep = runtimeError,
   safeId: safeIdDep = safeId,
-  contextPolicyCore = createRuntimeContextPolicyCore(),
+  contextPolicyCore = null,
   agentIdForThread: agentIdForThreadDep = agentIdForThread,
   eventStreamIdForThread: eventStreamIdForThreadDep = eventStreamIdForThread,
   mcpControlStateUpdateSchemaVersion = MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
@@ -69,13 +68,16 @@ export function createRuntimeMcpControlSurface({
       return this.invokeThreadMcpTool(store, threadId, request.tool_id, request);
     },
     mcpStatusForAgent(agent) {
+      const core = mcpControlProjectionCore("mcp_status_for_agent", "mcp.status", {
+        agent_id: optionalStringDep(agent && agent.id) ?? null,
+      });
       const registry = agent.mcpRegistry ?? mcpRegistryForWorkspaceDep(agent.cwd, {
-        contextPolicyCore,
+        contextPolicyCore: core,
       });
       const servers = normalizeArrayDep(registry.servers);
-      const catalog = contextPolicyCore.planMcpManagerCatalogProjection({ servers });
-      const validation = contextPolicyCore.validateMcpServers({ servers });
-      return contextPolicyCore.planMcpManagerStatusProjection({
+      const catalog = core.planMcpManagerCatalogProjection({ servers });
+      const validation = core.validateMcpServers({ servers });
+      return core.planMcpManagerStatusProjection({
         status_schema_version: statusSchemaVersion,
         validation,
         servers,
@@ -862,14 +864,26 @@ export function createRuntimeMcpControlSurface({
   }
 
   function mcpControlStateUpdatePlanner(operation, operationKind, details = {}) {
-    if (typeof contextPolicyCore?.planMcpControlAgentStateUpdate === "function") {
+    if (contextPolicyCore && typeof contextPolicyCore.planMcpControlAgentStateUpdate === "function") {
       return contextPolicyCore.planMcpControlAgentStateUpdate.bind(contextPolicyCore);
     }
     throwMcpControlRustCoreRequired(operation, operationKind, details);
   }
 
+  function mcpControlProjectionCore(operation, operationKind, details = {}) {
+    if (
+      contextPolicyCore &&
+      typeof contextPolicyCore.planMcpManagerCatalogProjection === "function" &&
+      typeof contextPolicyCore.validateMcpServers === "function" &&
+      typeof contextPolicyCore.planMcpManagerStatusProjection === "function"
+    ) {
+      return contextPolicyCore;
+    }
+    throwMcpControlRustCoreRequired(operation, operationKind, details);
+  }
+
   function mcpLiveResultReplayProjector(operation, operationKind, details = {}) {
-    if (typeof contextPolicyCore?.projectMcpLiveResultReplay === "function") {
+    if (contextPolicyCore && typeof contextPolicyCore.projectMcpLiveResultReplay === "function") {
       return contextPolicyCore.projectMcpLiveResultReplay.bind(contextPolicyCore);
     }
     throw runtimeErrorDep({
@@ -893,7 +907,7 @@ export function createRuntimeMcpControlSurface({
   }
 
   function mcpLiveBackendExecutor(operation, operationKind, details = {}) {
-    if (typeof contextPolicyCore?.executeRuntimeMcpLiveBackend === "function") {
+    if (contextPolicyCore && typeof contextPolicyCore.executeRuntimeMcpLiveBackend === "function") {
       return contextPolicyCore.executeRuntimeMcpLiveBackend.bind(contextPolicyCore);
     }
     throw runtimeErrorDep({

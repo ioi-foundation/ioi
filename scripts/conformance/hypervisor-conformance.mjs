@@ -14115,48 +14115,62 @@ function runBridge() {
       /MCP and memory manager projection core does not synthesize Rust-owned projection envelopes/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      (runtimeMcpCatalogSurface.match(/contextPolicyCore\.validateMcpServers\(\{ servers \}\)/g) ?? []).length === 2 &&
-      /contextPolicyCore\.planMcpManagerCatalogProjection\(\{ servers \}\)/.test(
-        runtimeMcpCatalogSurface,
-      ) &&
-      /contextPolicyCore\.planMcpManagerValidationProjection\(\{/.test(
-        runtimeMcpCatalogSurface,
-      ) &&
-      /contextPolicyCore\.planMcpManagerStatusProjection\(\{/.test(
-        runtimeMcpCatalogSurface,
-      ) &&
+	      /contextPolicyCore = null/.test(runtimeMcpCatalogSurface) &&
+	      /function requiredRuntimeMcpCatalogCore\(operation\)/.test(runtimeMcpCatalogSurface) &&
+	      (runtimeMcpCatalogSurface.match(/core\.validateMcpServers\(\{ servers \}\)/g) ?? []).length === 2 &&
+	      /core\.planMcpManagerCatalogProjection\(\{ servers \}\)/.test(
+	        runtimeMcpCatalogSurface,
+	      ) &&
+	      /core\.planMcpManagerValidationProjection\(\{/.test(
+	        runtimeMcpCatalogSurface,
+	      ) &&
+	      /core\.planMcpManagerStatusProjection\(\{/.test(
+	        runtimeMcpCatalogSurface,
+	      ) &&
       !/store\.modelMounting\.listMcpServers\(\)/.test(runtimeMcpCatalogSurface) &&
       /runtime MCP catalog must not read model-mounting MCP server maps/.test(
         runtimeMcpCatalogSurfaceTest,
       ) &&
-      /contextPolicyCore,/.test(runtimeMcpCatalogSurface) &&
-      /mcpRegistryForWorkspaceDep\(store\.defaultCwd,\s*\{[\s\S]*?contextPolicyCore,[\s\S]*?homeDir: store\.homeDir/.test(
-        runtimeMcpCatalogSurface,
-      ) &&
+	      /contextPolicyCore: core/.test(runtimeMcpCatalogSurface) &&
+	      /mcpRegistryForWorkspaceDep\(store\.defaultCwd,\s*\{[\s\S]*?contextPolicyCore: core,[\s\S]*?homeDir: store\.homeDir/.test(
+	        runtimeMcpCatalogSurface,
+	      ) &&
 	      /mcpCatalogRowsForServers\(servers = \[\]\)/.test(runtimeMcpCatalogSurface) &&
-	      /const catalog = contextPolicyCore\.planMcpManagerCatalogProjection\(\{ servers \}\)/.test(
-	        runtimeMcpCatalogSurface,
-	      ) &&
-	      /return this\.mcpCatalogRowsForServers\(/.test(runtimeMcpCatalogSurface) &&
-	      /contextPolicyCore\.projectMcpToolSearchProjection\(\{/.test(
-	        runtimeMcpCatalogSurface,
-	      ) &&
-	      /contextPolicyCore\.projectMcpToolFetchProjection\(\{/.test(
-	        runtimeMcpCatalogSurface,
-	      ) &&
+		      /const core = requiredRuntimeMcpCatalogCore\("mcp_catalog_rows"\)/.test(
+		        runtimeMcpCatalogSurface,
+		      ) &&
+		      /const catalog = core\.planMcpManagerCatalogProjection\(\{ servers \}\)/.test(
+		        runtimeMcpCatalogSurface,
+		      ) &&
+		      /return this\.mcpCatalogRowsForServers\(/.test(runtimeMcpCatalogSurface) &&
+		      /const core = requiredRuntimeMcpCatalogCore\("mcp_tool_search"\)/.test(
+		        runtimeMcpCatalogSurface,
+		      ) &&
+		      /core\.projectMcpToolSearchProjection\(\{/.test(
+		        runtimeMcpCatalogSurface,
+		      ) &&
+		      /const core = requiredRuntimeMcpCatalogCore\("mcp_tool_fetch"\)/.test(
+		        runtimeMcpCatalogSurface,
+		      ) &&
+		      /core\.projectMcpToolFetchProjection\(\{/.test(
+		        runtimeMcpCatalogSurface,
+		      ) &&
 	      !/discoverMcp(?:Stdio|Http)Catalog/.test(runtimeMcpCatalogSurface) &&
 	      /mcpCatalogSummaryForRows\(server, catalog = \{\}, options = \{\}\)/.test(
 	        runtimeMcpCatalogSurface,
 	      ) &&
-	      /contextPolicyCore\.planMcpManagerCatalogSummaryProjection\(\{/.test(
-	        runtimeMcpCatalogSurface,
-	      ) &&
-	      /contextPolicyCore\.projectMcpToolSearchProjection\(\{/.test(
-	        runtimeMcpCatalogSurface,
-	      ) &&
-	      /contextPolicyCore\.projectMcpToolFetchProjection\(\{/.test(
-	        runtimeMcpCatalogSurface,
-	      ) &&
+		      /const core = requiredRuntimeMcpCatalogCore\("mcp_catalog_summary"\)/.test(
+		        runtimeMcpCatalogSurface,
+		      ) &&
+		      /core\.planMcpManagerCatalogSummaryProjection\(\{/.test(
+		        runtimeMcpCatalogSurface,
+		      ) &&
+		      /core\.projectMcpToolSearchProjection\(\{/.test(
+		        runtimeMcpCatalogSurface,
+		      ) &&
+		      /core\.projectMcpToolFetchProjection\(\{/.test(
+		        runtimeMcpCatalogSurface,
+		      ) &&
 	      !/mcpToolMatchesQuery|mcpToolIdentityMatches|mcpToolKey|resolveMcpServerRecord|mcpLiveExecutionModeForServer/.test(
 	        runtimeMcpCatalogSurface,
 	      ) &&
@@ -14208,15 +14222,18 @@ function runBridge() {
         runtimeContextPolicyCoreTest,
       ) &&
       /mcpStatusForAgent/.test(runtimeMcpControlSurface) &&
-      /contextPolicyCore\.validateMcpServers\(\{ servers \}\)/.test(
-        runtimeMcpControlSurface,
-      ) &&
-      /contextPolicyCore\.planMcpManagerCatalogProjection\(\{ servers \}\)/.test(
-        runtimeMcpControlSurface,
-      ) &&
-      /contextPolicyCore\.planMcpManagerStatusProjection\(\{/.test(
-        runtimeMcpControlSurface,
-      ) &&
+	      /const core = mcpControlProjectionCore\("mcp_status_for_agent", "mcp\.status"/.test(
+	        runtimeMcpControlSurface,
+	      ) &&
+	      /core\.validateMcpServers\(\{ servers \}\)/.test(
+	        runtimeMcpControlSurface,
+	      ) &&
+	      /core\.planMcpManagerCatalogProjection\(\{ servers \}\)/.test(
+	        runtimeMcpControlSurface,
+	      ) &&
+	      /core\.planMcpManagerStatusProjection\(\{/.test(
+	        runtimeMcpControlSurface,
+	      ) &&
       !/validateMcpServerRecords/.test(runtimeMcpControlSurface) &&
       /status\.source,\s*"rust_mcp_manager_status_projection_api"/.test(
         runtimeMcpControlSurfaceTest,
@@ -31120,8 +31137,10 @@ function runCompositor() {
 	    /persistRuntimeMcpLiveReceipt/.test(runtimeMcpControlSurface) &&
 	    /persistRuntimeMcpLiveResult/.test(runtimeMcpControlSurface) &&
 	    /projectRuntimeMcpLiveResult/.test(runtimeMcpControlSurface) &&
-	    /contextPolicyCore\.projectMcpToolSearchProjection\(\{/.test(runtimeMcpSearchToolCatalogBlock) &&
-	    /contextPolicyCore\.projectMcpToolFetchProjection\(\{/.test(runtimeMcpGetToolFromCatalogBlock) &&
+		    /const core = requiredRuntimeMcpCatalogCore\("mcp_tool_search"\)/.test(runtimeMcpSearchToolCatalogBlock) &&
+		    /core\.projectMcpToolSearchProjection\(\{/.test(runtimeMcpSearchToolCatalogBlock) &&
+		    /const core = requiredRuntimeMcpCatalogCore\("mcp_tool_fetch"\)/.test(runtimeMcpGetToolFromCatalogBlock) &&
+		    /core\.projectMcpToolFetchProjection\(\{/.test(runtimeMcpGetToolFromCatalogBlock) &&
 	    !/mcpToolMatchesQuery|mcpToolIdentityMatches|mcpToolKey|resolveMcpServerRecord|mcpLiveExecutionModeForServer/.test(
 	      runtimeMcpCatalogSurface,
 	    ) &&
@@ -41630,11 +41649,23 @@ function runCompositor() {
       !/workflow_graph_id:\s*optionalString\(request\.workflow_graph_id\)/.test(
         runtimeMcpServeSurface,
       ) &&
-      !/workflow_node_id:\s*optionalString\(request\.workflow_node_id\)/.test(
-        runtimeMcpServeSurface,
-      ) &&
-      !/store\.agentForThread/.test(runtimeMcpServeSurface) &&
-      !/store\.invokeThreadTool(?:Async)?\(/.test(runtimeMcpServeSurface),
+	      !/workflow_node_id:\s*optionalString\(request\.workflow_node_id\)/.test(
+	        runtimeMcpServeSurface,
+	      ) &&
+	      !/store\.agentForThread/.test(runtimeMcpServeSurface) &&
+	      !/store\.invokeThreadTool(?:Async)?\(/.test(runtimeMcpServeSurface) &&
+	      /this\.mcpCatalogSurface = createRuntimeMcpCatalogSurface\(\{\s*contextPolicyCore: this\.contextPolicyCore,\s*\}\);/.test(
+	        runtimeDaemonIndex,
+	      ) &&
+	      /this\.mcpControlSurface = createRuntimeMcpControlSurface\(\{\s*contextPolicyCore: this\.contextPolicyCore,\s*\}\);/.test(
+	        runtimeDaemonIndex,
+	      ) &&
+	      /this\.mcpServeSurface = createRuntimeMcpServeSurface\(\{\s*contextPolicyCore: this\.contextPolicyCore,\s*\}\);/.test(
+	        runtimeDaemonIndex,
+	      ) &&
+	      !/contextPolicyCore = createRuntimeContextPolicyCore\(\)/.test(
+	        runtimeMcpCatalogSurface + runtimeMcpControlSurface,
+	      ),
     [
 	      "crates/services/src/agentic/runtime/kernel/runtime_mcp_serve.rs",
 	      "crates/services/src/agentic/runtime/kernel/policy/mcp_memory.rs",
@@ -41728,14 +41759,18 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-mcp-manager-registry-output-aliases-retired",
-    /schema_version:\s*RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION/.test(runtimeMcpManagerRegistryBlock) &&
-      /workspace_root:\s*workspaceRoot/.test(runtimeMcpManagerRegistryBlock) &&
-      /server_count:\s*normalizedServers\.length/.test(runtimeMcpManagerRegistryBlock) &&
-      /tool_count:\s*tools\.length/.test(runtimeMcpManagerRegistryBlock) &&
-      /createRuntimeContextPolicyCore\(\{\s*daemonCoreMcpApi: options\.daemonCoreMcpApi,\s*\}\)/.test(runtimeMcpManagerRegistryBlock) &&
-      !/daemonCoreInvoker: options\.daemonCoreInvoker|daemonCoreApi: options\.daemonCoreApi/.test(
-        runtimeMcpManagerRegistryBlock,
-      ) &&
+	    /schema_version:\s*RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION/.test(runtimeMcpManagerRegistryBlock) &&
+	      /workspace_root:\s*workspaceRoot/.test(runtimeMcpManagerRegistryBlock) &&
+	      /server_count:\s*normalizedServers\.length/.test(runtimeMcpManagerRegistryBlock) &&
+	      /tool_count:\s*tools\.length/.test(runtimeMcpManagerRegistryBlock) &&
+	      /const contextPolicyCore = requiredRuntimeMcpManagerContextPolicyCore\(\s*options,\s*"mcpRegistryForWorkspace",\s*\)/.test(runtimeMcpManagerRegistryBlock) &&
+	      /requiredRuntimeMcpManagerContextPolicyCore\(\s*options,\s*"mcpServerRecordsFromValidationInput",\s*\)/.test(runtimeMcpManagerValidationBlock) &&
+	      /function requiredRuntimeMcpManagerContextPolicyCore\(options = \{\}, operation\)/.test(runtimeMcpManager) &&
+	      /runtime_mcp_manager_context_policy_core_required/.test(runtimeMcpManager) &&
+	      !/createRuntimeContextPolicyCore/.test(runtimeMcpManager) &&
+	      !/daemonCoreInvoker: options\.daemonCoreInvoker|daemonCoreApi: options\.daemonCoreApi/.test(
+	        runtimeMcpManagerRegistryBlock,
+	      ) &&
       /mcpServerRecordsFromValidationInput\(\s*mcpValidationInputForSource\(source\),\s*workspaceRoot,\s*\{ contextPolicyCore \},\s*\)/.test(runtimeMcpManagerRegistryBlock) &&
       /contextPolicyCore\.planMcpManagerCatalogProjection\(\{\s*servers: \[\.\.\.byId\.values\(\)\],\s*\}\)/.test(runtimeMcpManagerRegistryBlock) &&
       /const tools = normalizeArray\(projected\.tools\)/.test(runtimeMcpManagerRegistryBlock) &&
@@ -41768,9 +41803,9 @@ function runCompositor() {
       /projectMcpServerValidationInput/.test(runtimeMcpManagerTest) &&
       /planMcpManagerCatalogProjection/.test(runtimeMcpManagerTest) &&
       /rust\.projected\.mcp\.docs\.search/.test(runtimeMcpManagerTest) &&
-      /MCP manager registry fails closed without Rust daemon-core projection/.test(runtimeMcpManagerTest) &&
-      /runtime_context_policy_core_direct_mcp_api_unconfigured/.test(runtimeMcpManagerTest) &&
-      /allowedTools:\s*\["retired\.invoke"\]/.test(runtimeMcpManagerTest) &&
+	      /MCP manager registry fails closed without Rust daemon-core projection/.test(runtimeMcpManagerTest) &&
+	      /runtime_mcp_manager_context_policy_core_required/.test(runtimeMcpManagerTest) &&
+	      /allowedTools:\s*\["retired\.invoke"\]/.test(runtimeMcpManagerTest) &&
       /MCP manager registry ignores retired top-level MCP config aliases/.test(runtimeMcpManagerTest) &&
       /const sourceScope = optionalString\(server\.source_scope\) \?\? "workspace";/.test(
         runtimeMcpServerSourceModeBlock,
@@ -41837,12 +41872,18 @@ function runCompositor() {
 	      !/async function withMcp(?:Remote|Http|Sse|Stdio)Session/.test(runtimeMcpManagerLiveOutputBlock) &&
 	      !/fetchMcpHttp|node:child_process|spawn\(command/.test(runtimeMcpManagerLiveOutputBlock) &&
 	      !/discoverMcp(?:Stdio|Http)Catalog|invokeMcp(?:Stdio|Http)Tool/.test(runtimeMcpManagerTest) &&
-	      /contextPolicyCore\.projectMcpToolSearchProjection\(\{/.test(
-	        runtimeMcpSearchToolCatalogBlock,
-	      ) &&
-	      /contextPolicyCore\.projectMcpToolFetchProjection\(\{/.test(
-	        runtimeMcpGetToolFromCatalogBlock,
-	      ) &&
+		      /const core = requiredRuntimeMcpCatalogCore\("mcp_tool_search"\)/.test(
+		        runtimeMcpSearchToolCatalogBlock,
+		      ) &&
+		      /core\.projectMcpToolSearchProjection\(\{/.test(
+		        runtimeMcpSearchToolCatalogBlock,
+		      ) &&
+		      /const core = requiredRuntimeMcpCatalogCore\("mcp_tool_fetch"\)/.test(
+		        runtimeMcpGetToolFromCatalogBlock,
+		      ) &&
+		      /core\.projectMcpToolFetchProjection\(\{/.test(
+		        runtimeMcpGetToolFromCatalogBlock,
+		      ) &&
 	      /state_dir:\s*stateDir \?\? null/.test(runtimeMcpCatalogSurface) &&
       /thread_id:\s*threadId \?\? null/.test(runtimeMcpCatalogSurface) &&
       /agent_id:\s*agentId \?\? null/.test(runtimeMcpCatalogSurface) &&
@@ -41906,8 +41947,9 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-mcp-catalog-surface-output-aliases-retired",
-    /contextPolicyCore\.planMcpManagerCatalogProjection\(\{ servers \}\)/.test(runtimeMcpStatusBlock) &&
-      /contextPolicyCore\.planMcpManagerStatusProjection\(\{/.test(runtimeMcpStatusBlock) &&
+	    /const core = requiredRuntimeMcpCatalogCore\("mcp_status"\)/.test(runtimeMcpStatusBlock) &&
+	      /core\.planMcpManagerCatalogProjection\(\{ servers \}\)/.test(runtimeMcpStatusBlock) &&
+	      /core\.planMcpManagerStatusProjection\(\{/.test(runtimeMcpStatusBlock) &&
       /status_schema_version:\s*statusSchemaVersion/.test(runtimeMcpStatusBlock) &&
       /validation,/.test(runtimeMcpStatusBlock) &&
       /servers,/.test(runtimeMcpStatusBlock) &&
@@ -41917,13 +41959,15 @@ function runCompositor() {
       /enabled_tools:\s*catalog\.enabled_tools/.test(runtimeMcpStatusBlock) &&
       /search_tools:\s*"\/v1\/threads\/\{thread_id\}\/mcp\/tools\/search"/.test(runtimeMcpStatusBlock) &&
       /serve_for_thread:\s*"\/v1\/threads\/\{thread_id\}\/mcp\/serve"/.test(runtimeMcpStatusBlock) &&
-      /contextPolicyCore\.planMcpManagerCatalogProjection\(\{ servers \}\)/.test(runtimeMcpValidateBlock) &&
-      /contextPolicyCore\.planMcpManagerValidationProjection\(\{/.test(runtimeMcpValidateBlock) &&
+	      /const core = requiredRuntimeMcpCatalogCore\("mcp_validate"\)/.test(runtimeMcpValidateBlock) &&
+	      /core\.planMcpManagerCatalogProjection\(\{ servers \}\)/.test(runtimeMcpValidateBlock) &&
+	      /core\.planMcpManagerValidationProjection\(\{/.test(runtimeMcpValidateBlock) &&
       /validation_schema_version:\s*validationSchemaVersion/.test(runtimeMcpValidateBlock) &&
       /tools:\s*catalog\.tools/.test(runtimeMcpValidateBlock) &&
       /resources:\s*catalog\.resources/.test(runtimeMcpValidateBlock) &&
       /prompts:\s*catalog\.prompts/.test(runtimeMcpValidateBlock) &&
-	      /contextPolicyCore\.projectMcpToolSearchProjection\(\{/.test(runtimeMcpSearchToolCatalogBlock) &&
+		      /const core = requiredRuntimeMcpCatalogCore\("mcp_tool_search"\)/.test(runtimeMcpSearchToolCatalogBlock) &&
+		      /core\.projectMcpToolSearchProjection\(\{/.test(runtimeMcpSearchToolCatalogBlock) &&
 	      /status_schema_version:\s*toolSearchSchemaVersion/.test(runtimeMcpSearchToolCatalogBlock) &&
 	      /state_dir:\s*optionalStringDep\(request\.state_dir\) \?\? optionalStringDep\(store\?\.stateDir\) \?\? null/.test(
 	        runtimeMcpSearchToolCatalogBlock,
@@ -41940,7 +41984,8 @@ function runCompositor() {
 	      !/mcpToolMatchesQuery|mcpToolIdentityMatches|mcpToolKey|resolveMcpServerRecord|mcpLiveExecutionModeForServer/.test(
 	        `${runtimeMcpSearchToolCatalogBlock}\n${runtimeMcpGetToolFromCatalogBlock}`,
 	      ) &&
-	      /contextPolicyCore\.projectMcpToolFetchProjection\(\{/.test(runtimeMcpGetToolFromCatalogBlock) &&
+		      /const core = requiredRuntimeMcpCatalogCore\("mcp_tool_fetch"\)/.test(runtimeMcpGetToolFromCatalogBlock) &&
+		      /core\.projectMcpToolFetchProjection\(\{/.test(runtimeMcpGetToolFromCatalogBlock) &&
 	      /tool_id:\s*requested \?\? null/.test(runtimeMcpGetToolFromCatalogBlock) &&
 	      /if \(result\.status === "not_found" \|\| !result\.tool\)/.test(
 	        runtimeMcpGetToolFromCatalogBlock,
@@ -41992,15 +42037,18 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-mcp-control-status-output-aliases-retired",
-    /contextPolicyCore\.validateMcpServers\(\{ servers \}\)/.test(
-      runtimeMcpControlStatusForAgentBlock,
-    ) &&
-      /contextPolicyCore\.planMcpManagerCatalogProjection\(\{ servers \}\)/.test(
-        runtimeMcpControlStatusForAgentBlock,
-      ) &&
-      /contextPolicyCore\.planMcpManagerStatusProjection\(\{/.test(
-        runtimeMcpControlStatusForAgentBlock,
-      ) &&
+	    /const core = mcpControlProjectionCore\("mcp_status_for_agent", "mcp\.status"/.test(
+	      runtimeMcpControlStatusForAgentBlock,
+	    ) &&
+	      /core\.validateMcpServers\(\{ servers \}\)/.test(
+	        runtimeMcpControlStatusForAgentBlock,
+	      ) &&
+	      /core\.planMcpManagerCatalogProjection\(\{ servers \}\)/.test(
+	        runtimeMcpControlStatusForAgentBlock,
+	      ) &&
+	      /core\.planMcpManagerStatusProjection\(\{/.test(
+	        runtimeMcpControlStatusForAgentBlock,
+	      ) &&
       /status_schema_version:\s*statusSchemaVersion/.test(runtimeMcpControlStatusForAgentBlock) &&
       /tools:\s*catalog\.tools/.test(runtimeMcpControlStatusForAgentBlock) &&
       /enabled_tools:\s*catalog\.enabled_tools/.test(runtimeMcpControlStatusForAgentBlock) &&
