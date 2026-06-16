@@ -14,12 +14,13 @@ import {
 
 const checkedAt = "2026-06-03T12:00:00.000Z";
 
-function hostedProvider(id, label, apiFormat, secret) {
+function hostedProvider(id, label, apiFormat, options = {}) {
   return {
     id,
     label,
     apiFormat,
-    status: secret ? "configured" : "needs_secret",
+    status: "blocked",
+    secretRef: options.secret_ref,
   };
 }
 
@@ -48,7 +49,8 @@ test("default model provider records preserve local and hosted boundaries", () =
   assert.equal(llama.status, "configured");
   assert.equal(llama.discovery.binaryPathHash, "hash:/opt/llama-server");
   assert.equal(vllm.status, "blocked");
-  assert.equal(openai.status, "needs_secret");
+  assert.equal(openai.status, "blocked");
+  assert.equal(openai.secretRef, "vault://provider.openai/api-key");
   assert.equal(depin.status, "future");
   assert.equal(depin.privacyClass, "remote_confidential");
 });

@@ -11580,6 +11580,25 @@ routes. This remains non-terminal because backend execution/materialization,
 hosted/provider transport, OAuth/auth-header materialization depth, and
 invocation authority depth still need terminal Rust-owned protocol coverage.
 
+Slice 1362 hard-cuts hosted provider env secret material fallback retirement.
+Hosted provider default records no longer read provider API-key environment
+variables to decide whether OpenAI, Anthropic, or Gemini providers are
+configured. They publish wallet.network vault refs only, and the provider
+registry rejects legacy plaintext secret arguments or camelCase `secretRef`
+option shims instead of treating them as configuration. `AgentgresVaultPort`
+no longer maps hosted provider vault refs to API-key environment aliases during
+secret resolution; an env var can no longer become request-time hosted provider
+material or a parallel custody truth path. Vault material must be explicitly
+bound through the vault/material-adapter boundary, with plaintext persistence
+remaining false and provider env fallback marked retired. Focused tests assert
+hosted defaults stay blocked on vault refs, legacy plaintext helper inputs fail
+closed, and env values do not resolve provider vault material. Conformance
+guards the absence of provider API-key env aliases in the model_mount hosted
+provider/vault path so the fallback cannot return. This remains non-terminal
+because backend execution/materialization, hosted/provider transport, direct
+Rust/vault auth-header materialization, and invocation authority depth still
+need terminal Rust-owned execution coverage.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

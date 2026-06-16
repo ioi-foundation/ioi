@@ -1,4 +1,14 @@
-export function hostedProvider(id, label, apiFormat, secret) {
+const HOSTED_PROVIDER_VAULT_EVIDENCE_REFS = [
+  "wallet.network.vault_ref_boundary",
+  "provider_request_time_secret_resolution",
+  "provider_env_secret_material_fallback_retired",
+];
+
+export function hostedProvider(id, label, apiFormat, options = {}) {
+  assertNoPlaintextHostedProviderSecretOptions(options);
+  const secretRef = typeof options.secret_ref === "string" && options.secret_ref.trim()
+    ? options.secret_ref.trim()
+    : `vault://${id}/api-key`;
   return {
     id,
     kind: apiFormat,
@@ -6,16 +16,38 @@ export function hostedProvider(id, label, apiFormat, secret) {
     apiFormat,
     driver: "openai_compatible",
     baseUrl: null,
-    status: secret ? "configured" : "blocked",
+    status: options.configured === true ? "configured" : "blocked",
     privacyClass: "hosted",
     capabilities: ["chat", "responses", "embeddings"],
     discovery: {
       checkedAt: new Date().toISOString(),
-      evidenceRefs: [`${label.toUpperCase().replace(/[^A-Z0-9]+/g, "_")}_API_KEY`],
+      evidenceRefs: HOSTED_PROVIDER_VAULT_EVIDENCE_REFS,
     },
-    secretRef: secret ? `vault://${id}/api-key` : null,
+    secretRef,
     estimatedCostUsd: 0.01,
   };
+}
+
+function assertNoPlaintextHostedProviderSecretOptions(options) {
+  if (typeof options === "string") {
+    throw Object.assign(
+      new Error("Hosted provider plaintext secret arguments are retired; bind wallet.network vault refs instead."),
+      {
+        code: "hosted_provider_plaintext_secret_argument_retired",
+      },
+    );
+  }
+  if (!options || typeof options !== "object" || Array.isArray(options)) return;
+  const retiredFields = ["secret", "secretRef", "apiKey", "api_key", "authorization", "bearerToken", "accessToken"]
+    .filter((field) => Object.hasOwn(options, field));
+  if (retiredFields.length === 0) return;
+  throw Object.assign(
+    new Error("Hosted provider plaintext secret options are retired; use canonical secret_ref vault refs."),
+    {
+      code: "hosted_provider_plaintext_secret_options_retired",
+      retiredFields,
+    },
+  );
 }
 
 export function requiredString(value, field, deps = {}) {

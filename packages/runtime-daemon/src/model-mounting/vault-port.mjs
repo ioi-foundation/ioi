@@ -264,14 +264,6 @@ export class AgentgresVaultPort {
         evidenceRefs: ["VaultMaterialAdapter.runtimeMemory", `vault_ref_${vaultRefHash.slice(0, 16)}`],
       };
     }
-    const envName = vaultRefEnvironmentAlias(vaultRef);
-    if (envName && process.env[envName]) {
-      return {
-        material: process.env[envName],
-        materialSource: "environment_alias",
-        evidenceRefs: ["VaultMaterialAdapter.environmentAlias", envName, `vault_ref_${vaultRefHash.slice(0, 16)}`],
-      };
-    }
     const adapterResult = this.materialAdapter?.resolve(vaultRef);
     if (adapterResult) return adapterResult;
     return {
@@ -476,7 +468,7 @@ export class AgentgresVaultPort {
       materialSources: {
         runtimeBoundCount: this.secrets.size,
         durableMetadataCount: this.metadata.size,
-        environmentAliases: ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GEMINI_API_KEY", "IOI_CUSTOM_MODEL_API_KEY"],
+        providerEnvSecretMaterialFallbackRetired: true,
         plaintextPersistence: false,
       },
       materialAdapter: this.materialAdapter?.status() ?? {
@@ -524,14 +516,4 @@ export function configuredVaultMaterialAdapter({ now }) {
     });
   }
   return null;
-}
-
-export function vaultRefEnvironmentAlias(vaultRef) {
-  const aliases = new Map([
-    ["vault://provider.openai/api-key", "OPENAI_API_KEY"],
-    ["vault://provider.anthropic/api-key", "ANTHROPIC_API_KEY"],
-    ["vault://provider.gemini/api-key", "GEMINI_API_KEY"],
-    ["vault://provider.custom-http/api-key", "IOI_CUSTOM_MODEL_API_KEY"],
-  ]);
-  return aliases.get(vaultRef) ?? null;
 }

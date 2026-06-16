@@ -39,11 +39,12 @@ export function runtimeProviderRecords({
   llamaBinary,
   stableHash = (value) => String(value),
   vllmBinary,
-  hostedProvider = (id, label, apiFormat, secret) => ({
+  hostedProvider = (id, label, apiFormat, { secret_ref = `vault://${id}/api-key` } = {}) => ({
     id,
     label,
     apiFormat,
-    status: secret ? "configured" : "needs_secret",
+    status: "blocked",
+    secretRef: secret_ref,
   }),
 } = {}) {
   return [
@@ -103,9 +104,15 @@ export function runtimeProviderRecords({
       capabilities: ["chat", "responses", "embeddings"],
       discovery: { checkedAt, evidenceRefs: ["OPENAI_COMPATIBLE_BASE_URL"] },
     },
-    hostedProvider("provider.openai", "OpenAI", "openai", process.env.OPENAI_API_KEY),
-    hostedProvider("provider.anthropic", "Anthropic", "anthropic", process.env.ANTHROPIC_API_KEY),
-    hostedProvider("provider.gemini", "Gemini", "gemini", process.env.GEMINI_API_KEY),
+    hostedProvider("provider.openai", "OpenAI", "openai", {
+      secret_ref: "vault://provider.openai/api-key",
+    }),
+    hostedProvider("provider.anthropic", "Anthropic", "anthropic", {
+      secret_ref: "vault://provider.anthropic/api-key",
+    }),
+    hostedProvider("provider.gemini", "Gemini", "gemini", {
+      secret_ref: "vault://provider.gemini/api-key",
+    }),
     {
       id: "provider.custom-http",
       kind: "custom_http",

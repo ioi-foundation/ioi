@@ -21882,6 +21882,12 @@ function runReceipts() {
   const defaultRecordsTest = exists("packages/runtime-daemon/src/model-mounting/default-records.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/default-records.test.mjs")
     : "";
+  const modelMountProviderRegistry = exists("packages/runtime-daemon/src/model-mounting/provider-registry.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/provider-registry.mjs")
+    : "";
+  const modelMountProviderRegistryTest = exists("packages/runtime-daemon/src/model-mounting/provider-registry.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/provider-registry.test.mjs")
+    : "";
   const localSystemProbes = exists("packages/runtime-daemon/src/model-mounting/local-system-probes.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/local-system-probes.mjs")
     : "";
@@ -28183,12 +28189,61 @@ function runReceipts() {
     result,
     "model-mount-vault-audit-append-retired",
     !/\bappendOperation\b/.test(vaultPort) &&
-      /vault port resolves environment aliases and keeps metadata public without local operation append/.test(vaultPortTest),
+      /vault port ignores provider credential env vars and keeps metadata public without local operation append/.test(
+        vaultPortTest,
+      ),
     [
       "packages/runtime-daemon/src/model-mounting/vault-port.mjs",
       "packages/runtime-daemon/src/model-mounting/vault-port.test.mjs",
     ],
     "Phase 7/11 is pending: vault audit mirroring must not append JS operation-like records outside wallet.network and admitted receipt paths",
+  );
+  const hostedProviderCredentialMaterialCorpus = [
+    defaultRecords,
+    modelMountProviderRegistry,
+    vaultPort,
+  ].join("\n");
+  assertCheck(
+    result,
+    "model-mount-hosted-provider-env-secret-material-fallback-retired",
+    !/(?:OPENAI_API_KEY|ANTHROPIC_API_KEY|GEMINI_API_KEY|IOI_CUSTOM_MODEL_API_KEY)/.test(
+      hostedProviderCredentialMaterialCorpus,
+    ) &&
+      !/vaultRefEnvironmentAlias|environmentAlias|environmentAliases/.test(
+        hostedProviderCredentialMaterialCorpus,
+      ) &&
+      /hostedProvider\("provider\.openai", "OpenAI", "openai", \{\s*secret_ref: "vault:\/\/provider\.openai\/api-key"/.test(
+        defaultRecords,
+      ) &&
+      /hostedProvider\("provider\.anthropic", "Anthropic", "anthropic", \{\s*secret_ref: "vault:\/\/provider\.anthropic\/api-key"/.test(
+        defaultRecords,
+      ) &&
+      /hostedProvider\("provider\.gemini", "Gemini", "gemini", \{\s*secret_ref: "vault:\/\/provider\.gemini\/api-key"/.test(
+        defaultRecords,
+      ) &&
+      /providerEnvSecretMaterialFallbackRetired:\s*true/.test(vaultPort) &&
+      /provider_env_secret_material_fallback_retired/.test(modelMountProviderRegistry) &&
+      /Hosted provider plaintext secret arguments are retired/.test(modelMountProviderRegistry) &&
+      /Hosted provider plaintext secret options are retired/.test(modelMountProviderRegistry) &&
+      /provider registry creates hosted provider records without exposing secrets/.test(modelMountProviderRegistryTest) &&
+      /plaintext secret arguments are retired/.test(modelMountProviderRegistryTest) &&
+      /plaintext secret options are retired/.test(modelMountProviderRegistryTest) &&
+      /vault port ignores provider credential env vars/.test(vaultPortTest) &&
+      /resolved\.materialSource,\s*"unbound"/.test(vaultPortTest) &&
+      /providerEnvSecretMaterialFallbackRetired,\s*true/.test(vaultPortTest) &&
+      /Slice 1362 hard-cuts hosted provider env secret material fallback retirement/.test(guide) &&
+      /Model_mount hosted provider env secret material fallback retired/.test(matrix) &&
+      /RuntimeDaemonCoreModelMountHostedProviderEnvSecretMaterialFallbackRetired/.test(implementationMatrix),
+    [
+      "packages/runtime-daemon/src/model-mounting/default-records.mjs",
+      "packages/runtime-daemon/src/model-mounting/provider-registry.mjs",
+      "packages/runtime-daemon/src/model-mounting/vault-port.mjs",
+      "packages/runtime-daemon/src/model-mounting/default-records.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/provider-registry.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/vault-port.test.mjs",
+      "scripts/conformance/hypervisor-conformance.mjs",
+    ],
+    "Hosted provider credential custody must not fall back to API-key environment aliases; hosted provider defaults must expose wallet.network vault refs only and fail closed until explicit vault material binding",
   );
   assertCheck(
     result,

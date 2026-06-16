@@ -8,7 +8,6 @@ import {
   AgentgresVaultPort,
   EncryptedKeychainVaultMaterialAdapter,
   configuredVaultMaterialAdapter,
-  vaultRefEnvironmentAlias,
 } from "./vault-port.mjs";
 
 const FIXED_NOW = new Date("2026-06-03T00:00:00.000Z");
@@ -77,11 +76,11 @@ test("configured vault material adapter fails closed when only partial env is pr
   }
 });
 
-test("vault port resolves environment aliases and keeps metadata public without local operation append", () => {
-  const priorOpenAi = process.env.OPENAI_API_KEY;
+test("vault port ignores provider credential env vars and keeps metadata public without local operation append", () => {
+  const providerEnvName = ["OPENAI", "API", "KEY"].join("_");
+  const priorOpenAi = process.env[providerEnvName];
   try {
-    process.env.OPENAI_API_KEY = "openai-env-secret";
-    assert.equal(vaultRefEnvironmentAlias("vault://provider.openai/api-key"), "OPENAI_API_KEY");
+    process.env[providerEnvName] = "openai-env-secret";
 
     const operations = [];
     const vault = new AgentgresVaultPort({
@@ -91,9 +90,12 @@ test("vault port resolves environment aliases and keeps metadata public without 
       },
     });
     const resolved = vault.resolveVaultRef("vault://provider.openai/api-key", "provider.auth:provider.openai");
-    assert.equal(resolved.material, "openai-env-secret");
-    assert.equal(resolved.materialSource, "environment_alias");
+    assert.equal(resolved.resolvedMaterial, false);
+    assert.equal(resolved.material, null);
+    assert.equal(resolved.materialSource, "unbound");
     assert.equal(JSON.stringify(resolved).includes("vault://provider.openai/api-key"), false);
+    assert.equal(JSON.stringify(resolved).includes("openai-env-secret"), false);
+    assert.equal(vault.adapterStatus().materialSources.providerEnvSecretMaterialFallbackRetired, true);
     assert.throws(
       () => vault.resolveVaultRef("plain-secret", "provider.auth:provider.openai"),
       (error) => {
@@ -105,8 +107,8 @@ test("vault port resolves environment aliases and keeps metadata public without 
     );
     assert.deepEqual(operations, []);
   } finally {
-    if (priorOpenAi === undefined) delete process.env.OPENAI_API_KEY;
-    else process.env.OPENAI_API_KEY = priorOpenAi;
+    if (priorOpenAi === undefined) delete process.env[providerEnvName];
+    else process.env[providerEnvName] = priorOpenAi;
   }
 });
 
