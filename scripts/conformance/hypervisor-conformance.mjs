@@ -17149,7 +17149,7 @@ function runBridge() {
       !/decisionId/.test(agentSdkModelRouteDecisionType) &&
       /"model_route_decision_id": record\.idempotency_key/.test(modelMountCore) &&
       /modelRouteDecision\?\.decision_id/.test(runtimeRecordProjections) &&
-      /modelRouteDecision\?\.decision_id/.test(threadTurnProjection) &&
+      !/modelRouteDecision/.test(threadTurnProjection) &&
       !/formatModelRouteDecision/.test(threadTurnProjection) &&
       !/^\s*(?:schemaVersion|eventKind|decisionId)\s*:/m.test(threadTurnProjection) &&
       /json_path_string\(value,\s*"\/decision_id"\)/.test(agentTuiCli) &&
@@ -17212,8 +17212,7 @@ function runBridge() {
       /^\s*fallback_model:\s*string \| null;/m.test(agentSdkModelRouteDecisionType) &&
       /^\s*fallback_endpoint_id:\s*string \| null;/m.test(agentSdkModelRouteDecisionType) &&
       !/^\s*(?:reasoningEffort|localRemotePlacement|privacyPosture|costEstimateUsd|costEstimateSource|fallbackModel|fallbackEndpointId)\s*[:?]/m.test(agentSdkModelRouteDecisionType) &&
-      /agent\.modelRouteDecision\?\.reasoning_effort/.test(threadTurnProjection) &&
-      !/agent\.modelRouteDecision\?\.reasoningEffort/.test(threadTurnProjection) &&
+      !/modelRouteDecision|reasoningEffort/.test(threadTurnProjection) &&
       !/request\.reasoningEffort/.test(modelRouteDecisionModule) &&
       !/request\.thinkingEffort/.test(modelRouteDecisionModule) &&
       !/policy\.reasoningEffort/.test(modelRouteDecisionModule) &&
@@ -17224,7 +17223,10 @@ function runBridge() {
         agentTuiCli,
       ) &&
       /tui_mode_status_reads_canonical_model_route_decision_reasoning/.test(agentTuiCli) &&
-      /modelRouteDecision:\s*\{\s*reasoning_effort:\s*"medium"\s*\}/.test(read("packages/runtime-daemon/src/threads/thread-turn-projection.test.mjs")),
+      /rust_projects_runtime_thread_record_from_state_dir_replay/.test(runtimeThreadEventCore) &&
+      /"model_route_decision":\s*\{\s*"reasoning_effort":\s*"medium"\s*\}/.test(runtimeThreadEventCore) &&
+      /assert_eq!\(record\.record\["reasoning_effort"\],\s*"medium"\)/.test(runtimeThreadEventCore) &&
+      !/modelRouteDecision|reasoningEffort/.test(read("packages/runtime-daemon/src/threads/thread-turn-projection.test.mjs")),
     [
       "packages/runtime-daemon/src/threads/thread-turn-projection.mjs",
       "packages/runtime-daemon/src/threads/thread-turn-projection.test.mjs",
@@ -27464,7 +27466,7 @@ function runReceipts() {
       !/function (?:listMemoryForThread|listMemoryForAgent|memoryPolicyForThread|memoryPolicyForAgent|memoryPathForThread|memoryPathForAgent)\(/.test(
         runtimeThreadMemoryState,
       ) &&
-      /thread projection memory count fails closed without Rust memory projection/.test(
+      /thread projection delegates a state-dir-only request to Rust replay/.test(
         read("packages/runtime-daemon/src/threads/thread-turn-projection.test.mjs"),
       ),
     [
@@ -27492,11 +27494,11 @@ function runReceipts() {
       !/function (?:listMemoryForThread|listMemoryForAgent|memoryPolicyForThread|memoryPolicyForAgent|memoryPathForThread|memoryPathForAgent)\(/.test(
         runtimeThreadMemoryState,
       ) &&
-      /memoryCount: memoryCountForThread\(store, agent, threadId\)/.test(
-        read("packages/runtime-daemon/src/threads/thread-turn-projection.mjs"),
+      !/threadMemorySurface|publicListMemoryForThread|memoryCountForThread|runtime_thread_turn_memory_projection_rust_core_required/.test(
+        runtimeThreadTurnProjection,
       ) &&
-      /runtime_thread_turn_memory_projection_rust_core_required/.test(
-        read("packages/runtime-daemon/src/threads/thread-turn-projection.mjs"),
+      /thread\/turn projection memory counts are derived inside Rust from Agentgres `memory-records\/\*\.json` state-dir replay/.test(
+        implementationMatrix,
       ),
     [
       "docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md",
@@ -35009,25 +35011,18 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-thread-turn-usage-aliases-retired",
-    !/^\s*usageTelemetry,?\s*$/m.test(threadTurnProjection) &&
-      !/^\s*runtime_usage:\s*usageTelemetry,?\s*$/m.test(threadTurnProjection) &&
-      !/^\s*runtimeUsage:\s*usageTelemetry,?\s*$/m.test(threadTurnProjection) &&
-      !/run\.(?:usageTelemetry|runtimeUsage)/.test(threadTurnProjection) &&
-      /record\.parent_thread_id === threadId/.test(threadTurnProjection) &&
-      !/record\.parentThreadId\b/.test(threadTurnProjection) &&
-      /agent\.runtimeControls\?\.approval_mode/.test(threadTurnProjection) &&
-      !/agent\.runtimeControls\?\.approvalMode/.test(threadTurnProjection) &&
-      !/run\.approvalMode\b/.test(threadTurnProjection) &&
-      /retiredUsageProjectionAliasKeys/.test(threadTurnProjectionTest) &&
-      /sub_retired/.test(threadTurnProjectionTest) &&
-      /turn projection ignores retired persisted approval mode aliases/.test(
+    !/usageTelemetry|runtime_usage:\s*usageTelemetry|runtimeUsage|run\.(?:usage|usageTelemetry|runtimeUsage)|parentThreadId|record\.parent_thread_id|runtimeControls|approvalMode/.test(
+      threadTurnProjection,
+    ) &&
+      /state_dir:\s*store\.stateDir\s*\?\?\s*null/.test(threadTurnProjection) &&
+      /thread projection delegates a state-dir-only request to Rust replay/.test(
         threadTurnProjectionTest,
       ) &&
-      /approvalMode: "retired_run_approval_mode"/.test(threadTurnProjectionTest) &&
-      /assert\.notEqual\(turn\.approval_mode,\s*"retired_run_approval_mode"\)/.test(
+      /turn projection delegates run and turn identity to Rust replay without JS event facts/.test(
         threadTurnProjectionTest,
       ) &&
-      /turn projection ignores retired run usage aliases/.test(threadTurnProjectionTest),
+      /usage_telemetry/.test(runtimeThreadEventCoreForCompositor) &&
+      /runtime_thread_turn_usage_for_thread/.test(runtimeThreadEventCoreForCompositor),
     [
       "packages/runtime-daemon/src/threads/thread-turn-projection.mjs",
       "packages/runtime-daemon/src/threads/thread-turn-projection.test.mjs",
@@ -35037,13 +35032,19 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-thread-projection-runtime-identity-aliases-retired",
-    /runtime_profile:\s*agent\.runtime_profile \?\? "fixture"/.test(threadTurnProjection) &&
-      /runtime_bridge_id:\s*agent\.runtime_bridge_id \?\? null/.test(threadTurnProjection) &&
-      /runtime_bridge_source:\s*agent\.runtime_bridge_source \?\? null/.test(threadTurnProjection) &&
-      /thread projection ignores retired runtime identity aliases/.test(threadTurnProjectionTest) &&
-      /runtimeProfile:\s*"runtime_alias"/.test(threadTurnProjectionTest) &&
-      /thread\.runtime_profile,\s*"fixture"/.test(threadTurnProjectionTest) &&
-      !/agent\.(?:runtimeProfile|runtimeBridgeId|runtimeBridgeSource)\b/.test(threadTurnProjection),
+    !/runtime_profile:\s*agent|runtime_bridge_id:\s*agent|runtime_bridge_source:\s*agent|runtimeProfile|runtimeBridgeId|runtimeBridgeSource/.test(
+      threadTurnProjection,
+    ) &&
+      /state_dir:\s*store\.stateDir\s*\?\?\s*null/.test(threadTurnProjection) &&
+      /RetiredThreadTurnProjectionFactTransport\([\s\S]*"runtime_profile"[\s\S]*\)/.test(
+        runtimeThreadEventCoreForCompositor,
+      ) &&
+      /RetiredThreadTurnProjectionFactTransport\([\s\S]*"runtime_bridge_id"[\s\S]*\)/.test(
+        runtimeThreadEventCoreForCompositor,
+      ) &&
+      /RetiredThreadTurnProjectionFactTransport\([\s\S]*"runtime_bridge_source"[\s\S]*\)/.test(
+        runtimeThreadEventCoreForCompositor,
+      ),
     [
       "packages/runtime-daemon/src/threads/thread-turn-projection.mjs",
       "packages/runtime-daemon/src/threads/thread-turn-projection.test.mjs",
@@ -40933,13 +40934,20 @@ function runCompositor() {
       /pub fn project_runtime_thread_turn_projection_response/.test(
         runtimeThreadEventCoreForCompositor,
       ) &&
-      /rust_projects_runtime_thread_record_from_canonical_facts/.test(
+      /rust_projects_runtime_thread_record_from_state_dir_replay/.test(
         runtimeThreadEventCoreForCompositor,
       ) &&
-      /rust_projects_runtime_turn_record_from_replay_events/.test(
+      /rust_projects_runtime_turn_record_from_state_dir_replay/.test(
         runtimeThreadEventCoreForCompositor,
       ) &&
       /rust_rejects_retired_runtime_thread_turn_projection_aliases/.test(
+        runtimeThreadEventCoreForCompositor,
+      ) &&
+      /rust_rejects_retired_runtime_thread_turn_projection_fact_transport/.test(
+        runtimeThreadEventCoreForCompositor,
+      ) &&
+      /RetiredThreadTurnProjectionFactTransport/.test(runtimeThreadEventCoreForCompositor) &&
+      /serde\(deny_unknown_fields\)[\s\S]*?pub struct RuntimeThreadTurnProjectionRequest/.test(
         runtimeThreadEventCoreForCompositor,
       ) &&
       /rust_core_shapes_runtime_thread_turn_projection_protocol_response/.test(
@@ -40977,8 +40985,25 @@ function runCompositor() {
       /store\.projectRuntimeThreadTurnProjectionForThread\(store,\s*request\)/.test(
         threadTurnProjection,
       ) &&
+      /state_dir:\s*store\.stateDir\s*\?\?\s*null/.test(threadTurnProjection) &&
       /runtime_thread_turn_projection_rust_core_required/.test(threadTurnProjection) &&
       /runtime_thread_turn_js_projection_retired/.test(threadTurnProjection) &&
+      !/store\.listRuns/.test(threadTurnProjection) &&
+      !/store\.projectThreadEvents/.test(threadTurnProjection) &&
+      !/store\.projectRunEvents/.test(threadTurnProjection) &&
+      !/store\.latestRuntimeEventSeq/.test(threadTurnProjection) &&
+      !/store\.runtimeEventsForTurn/.test(threadTurnProjection) &&
+      !/threadMemorySurface/.test(threadTurnProjection) &&
+      !/agentForRustProjection/.test(threadTurnProjection) &&
+      !/runForRustProjection/.test(threadTurnProjection) &&
+      !/runtimeControlsForRustProjection/.test(threadTurnProjection) &&
+      !/memoryCountForThread/.test(threadTurnProjection) &&
+      !/\bagent:\s*agentForRustProjection/.test(threadTurnProjection) &&
+      !/\bruns:\s*runs\.map/.test(threadTurnProjection) &&
+      !/\brun:\s*runForRustProjection/.test(threadTurnProjection) &&
+      !/\bevents:\s*turnEvents/.test(threadTurnProjection) &&
+      !/\blatest_seq:\s*latestSeq/.test(threadTurnProjection) &&
+      !/\bmemory_count:\s*memoryCount/.test(threadTurnProjection) &&
       !/return\s*\{\s*schema_version:\s*runtimeThreadSchemaVersion/.test(
         threadTurnProjection,
       ) &&

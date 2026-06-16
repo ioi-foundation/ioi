@@ -2207,12 +2207,11 @@ mod tests {
 
     #[test]
     fn rust_policy_shapes_coding_tool_budget_api_response() {
-        let response =
-            evaluate_coding_tool_budget_policy_response(ContextBudgetPolicyApiRequest {
-                backend: Some("rust_policy".to_string()),
-                request: budget_request(),
-            })
-            .expect("coding-tool budget policy command response");
+        let response = evaluate_coding_tool_budget_policy_response(ContextBudgetPolicyApiRequest {
+            backend: Some("rust_policy".to_string()),
+            request: budget_request(),
+        })
+        .expect("coding-tool budget policy command response");
 
         assert_eq!(response["source"], "rust_coding_tool_budget_policy_api");
         assert_eq!(response["backend"], "rust_policy");
@@ -2563,13 +2562,12 @@ mod tests {
 
     #[test]
     fn rust_policy_shapes_context_compaction_state_update_api_response() {
-        let response = plan_context_compaction_state_update_response(
-            ContextCompactionStateUpdateApiRequest {
+        let response =
+            plan_context_compaction_state_update_response(ContextCompactionStateUpdateApiRequest {
                 backend: Some("rust_policy".to_string()),
                 request: context_compaction_state_update_request(),
-            },
-        )
-        .expect("context compaction state update command response");
+            })
+            .expect("context compaction state update command response");
 
         assert_eq!(
             response["source"],

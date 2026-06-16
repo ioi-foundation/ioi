@@ -414,15 +414,11 @@ impl MemoryProjectionFilters {
     }
 }
 
-fn load_memory_records(
-    state_root: &Path,
-) -> Result<Vec<Value>, RuntimeMemoryProjectionApiError> {
+fn load_memory_records(state_root: &Path) -> Result<Vec<Value>, RuntimeMemoryProjectionApiError> {
     load_memory_state_dir_records(state_root.join("memory-records"), "memory records")
 }
 
-fn load_memory_policies(
-    state_root: &Path,
-) -> Result<Vec<Value>, RuntimeMemoryProjectionApiError> {
+fn load_memory_policies(state_root: &Path) -> Result<Vec<Value>, RuntimeMemoryProjectionApiError> {
     load_memory_state_dir_records(state_root.join("memory-policies"), "memory policies").map(
         |records| {
             records
@@ -788,10 +784,7 @@ mod tests {
     use super::*;
     use std::fs;
 
-    fn base_request(
-        projection_kind: &str,
-        state_dir: &Path,
-    ) -> RuntimeMemoryProjectionApiRequest {
+    fn base_request(projection_kind: &str, state_dir: &Path) -> RuntimeMemoryProjectionApiRequest {
         RuntimeMemoryProjectionApiRequest {
             operation: Some("runtime_memory_projection".to_string()),
             operation_kind: Some(format!("runtime.memory_projection.{projection_kind}")),

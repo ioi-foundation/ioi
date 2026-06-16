@@ -5,9 +5,7 @@ use std::{env, fs, path::Path};
 
 use super::{
     model_mount::{ModelMountCore, ModelMountReadProjectionRequest},
-    runtime_tool_catalog::{
-        RuntimeToolCatalogProjectionRequest, RuntimeToolCatalogProjectionCore,
-    },
+    runtime_tool_catalog::{RuntimeToolCatalogProjectionCore, RuntimeToolCatalogProjectionRequest},
     skill_hook_registry::{SkillHookRegistryProjectionCore, SkillHookRegistryProjectionRequest},
 };
 

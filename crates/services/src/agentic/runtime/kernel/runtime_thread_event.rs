@@ -45,6 +45,7 @@ pub enum RuntimeThreadEventAdmissionError {
     ReplayReadFailed(String),
     ReplayRecordInvalid(String),
     RetiredReplayEventTransport,
+    RetiredThreadTurnProjectionFactTransport(&'static str),
     CursorOutOfRange {
         event_stream_id: Option<String>,
         last_event_id: Option<String>,
@@ -205,6 +206,7 @@ pub struct RuntimeThreadEventReplayProtocolRequest {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct RuntimeThreadTurnProjectionRequest {
     pub schema_version: String,
     #[serde(default)]
@@ -219,6 +221,10 @@ pub struct RuntimeThreadTurnProjectionRequest {
     pub event_stream_id: String,
     #[serde(default)]
     pub turn_id: Option<String>,
+    #[serde(default)]
+    pub run_id: Option<String>,
+    #[serde(default)]
+    pub state_dir: Option<String>,
     #[serde(default)]
     pub session_id: Option<String>,
     #[serde(default)]
@@ -706,23 +712,24 @@ impl RuntimeThreadEventAdmissionCore {
         request: &RuntimeThreadTurnProjectionRequest,
     ) -> Result<RuntimeThreadTurnProjectionRecord, RuntimeThreadEventAdmissionError> {
         request.validate_thread_turn_projection()?;
-        let record = match request.projection_kind.as_str() {
-            "thread" => {
-                let agent = request
+        let derived = runtime_thread_turn_projection_request_from_state_dir(request)?;
+        let record = match derived.projection_kind.as_str() {
+            "thread" => thread_projection_record(
+                &derived,
+                derived
                     .agent
                     .as_ref()
                     .and_then(Value::as_object)
-                    .ok_or(RuntimeThreadEventAdmissionError::MissingField("agent"))?;
-                thread_projection_record(request, agent)?
-            }
-            "turn" => {
-                let run = request
+                    .ok_or(RuntimeThreadEventAdmissionError::MissingField("agent"))?,
+            )?,
+            "turn" => turn_projection_record(
+                &derived,
+                derived
                     .run
                     .as_ref()
                     .and_then(Value::as_object)
-                    .ok_or(RuntimeThreadEventAdmissionError::MissingField("run"))?;
-                turn_projection_record(request, run)?
-            }
+                    .ok_or(RuntimeThreadEventAdmissionError::MissingField("run"))?,
+            )?,
             other => {
                 return Err(
                     RuntimeThreadEventAdmissionError::InvalidThreadTurnProjectionKind(
@@ -736,12 +743,12 @@ impl RuntimeThreadEventAdmissionCore {
             object: "ioi.runtime_thread_turn_projection".to_string(),
             status: "projected".to_string(),
             operation_kind: "runtime.thread_turn_projection".to_string(),
-            projection_kind: request.projection_kind.clone(),
-            thread_id: request.thread_id.clone(),
-            turn_id: request.turn_id.clone(),
-            event_count: request.events.len(),
-            latest_seq: request.latest_seq.unwrap_or_else(|| {
-                request
+            projection_kind: derived.projection_kind.clone(),
+            thread_id: derived.thread_id.clone(),
+            turn_id: derived.turn_id.clone(),
+            event_count: derived.events.len(),
+            latest_seq: derived.latest_seq.unwrap_or_else(|| {
+                derived
                     .events
                     .iter()
                     .filter_map(|event| event.as_object().and_then(event_seq))
@@ -1030,8 +1037,7 @@ fn runtime_thread_projection_sources_from_state_dir(
             }
             optional_json_string(record, &["thread_id"]).as_deref()
                 == Some(request.thread_id.as_str())
-                || optional_json_string(record, &["agentId", "agent_id"]).as_deref()
-                    == Some(agent_id.as_str())
+                || optional_json_string(record, &["agent_id"]).as_deref() == Some(agent_id.as_str())
         })
         .collect::<Vec<_>>();
     if request.projection_kind == "run" && selected_runs.is_empty() {
@@ -1231,6 +1237,384 @@ fn runtime_thread_json_records_from_state_dir(
     Ok(records)
 }
 
+fn runtime_thread_turn_projection_request_from_state_dir(
+    request: &RuntimeThreadTurnProjectionRequest,
+) -> Result<RuntimeThreadTurnProjectionRequest, RuntimeThreadEventAdmissionError> {
+    let state_dir = optional_trimmed(request.state_dir.as_deref())
+        .ok_or(RuntimeThreadEventAdmissionError::ProjectionStateDirRequired)?;
+    let mut agent = runtime_thread_turn_agent_from_state_dir(&state_dir, &request.thread_id)?;
+    let agent_id = optional_json_string(&agent, &["id", "agent_id"])
+        .unwrap_or_else(|| agent_id_for_thread(&request.thread_id));
+    let mut runs =
+        runtime_thread_turn_runs_from_state_dir(&state_dir, &request.thread_id, &agent_id)?;
+    sort_thread_turn_runs(&mut runs);
+    let selected_run = if request.projection_kind == "turn" {
+        Some(runtime_thread_turn_selected_run(request, &runs)?)
+    } else {
+        None
+    };
+    let events = runtime_thread_turn_events_from_state_dir(request, selected_run.as_ref())?;
+    let latest_seq = events
+        .iter()
+        .filter_map(|event| event.as_object().and_then(event_seq))
+        .max()
+        .unwrap_or(0);
+    let runtime_controls = runtime_controls_for_thread_turn_agent(&agent);
+    let memory_count =
+        runtime_thread_turn_memory_count_from_state_dir(&state_dir, &request.thread_id, &agent_id)?;
+    let subagent_ids =
+        runtime_thread_turn_subagent_ids_from_state_dir(&state_dir, &request.thread_id)?;
+    let fixture_profile = optional_json_string(&agent, &["fixture_profile"])
+        .or_else(|| Some("local_daemon_agentgres_projection".to_string()));
+    let runtime_profile =
+        optional_json_string(&agent, &["runtime_profile"]).or_else(|| Some("fixture".to_string()));
+    let session_id = optional_json_string(&agent, &["session_id", "runtime_session_id"])
+        .or_else(|| Some(format!("session:{agent_id}")));
+    let runtime_bridge_id = optional_json_string(&agent, &["runtime_bridge_id"]);
+    let runtime_bridge_source = optional_json_string(&agent, &["runtime_bridge_source"]);
+    let latest_run = selected_run.as_ref().or_else(|| runs.last());
+    let created_at_ms = request.created_at_ms.or_else(|| {
+        optional_json_string(&agent, &["created_at"]).map(|value| timestamp_millis_hint(&value))
+    });
+    let updated_at_ms = request.updated_at_ms.or_else(|| {
+        latest_run
+            .and_then(|run| optional_json_string(run, &["updated_at"]))
+            .or_else(|| optional_json_string(&agent, &["updated_at"]))
+            .map(|value| timestamp_millis_hint(&value))
+    });
+    let usage_telemetry = match request.projection_kind.as_str() {
+        "turn" => selected_run
+            .as_ref()
+            .and_then(runtime_thread_turn_run_usage)
+            .unwrap_or_else(|| json!({})),
+        _ => runtime_thread_turn_usage_for_thread(&request.thread_id, &runs, &subagent_ids),
+    };
+    let (mode, approval_mode, status, completed_at) = if let Some(run) = selected_run.as_ref() {
+        let run_status = optional_json_string(run, &["turn_status", "status"])
+            .unwrap_or_else(|| "running".to_string());
+        let is_open = matches!(
+            run_status.as_str(),
+            "queued" | "running" | "waiting_for_approval" | "waiting_for_input"
+        );
+        (
+            runtime_thread_turn_mode(run, &runtime_controls),
+            Some(
+                optional_json_string(&runtime_controls, &["approval_mode"])
+                    .unwrap_or_else(|| "suggest".to_string()),
+            ),
+            Some(run_status),
+            if is_open {
+                None
+            } else {
+                optional_json_string(run, &["updated_at"])
+            },
+        )
+    } else {
+        (None, None, None, None)
+    };
+
+    agent.insert("agent_id".to_string(), Value::String(agent_id.clone()));
+    Ok(RuntimeThreadTurnProjectionRequest {
+        schema_version: request.schema_version.clone(),
+        projection_kind: request.projection_kind.clone(),
+        thread_schema_version: request.thread_schema_version.clone(),
+        turn_schema_version: request.turn_schema_version.clone(),
+        thread_id: request.thread_id.clone(),
+        event_stream_id: request.event_stream_id.clone(),
+        turn_id: selected_run
+            .as_ref()
+            .and_then(|run| optional_json_string(run, &["turn_id", "runtime_turn_id"]))
+            .or_else(|| request.turn_id.clone())
+            .or_else(|| request.run_id.as_deref().map(turn_id_for_run)),
+        run_id: request.run_id.clone(),
+        state_dir: request.state_dir.clone(),
+        session_id,
+        fixture_profile,
+        runtime_profile,
+        runtime_bridge_id,
+        runtime_bridge_source,
+        agent: Some(Value::Object(agent)),
+        runs: runs.into_iter().map(Value::Object).collect(),
+        run: selected_run.map(Value::Object),
+        events,
+        runtime_controls: Some(Value::Object(runtime_controls)),
+        usage_telemetry: Some(usage_telemetry),
+        memory_count: Some(memory_count),
+        subagent_ids,
+        latest_seq: Some(latest_seq),
+        created_at_ms,
+        updated_at_ms,
+        mode,
+        approval_mode,
+        status,
+        completed_at,
+    })
+}
+
+fn runtime_thread_turn_agent_from_state_dir(
+    state_dir: &str,
+    thread_id: &str,
+) -> Result<Map<String, Value>, RuntimeThreadEventAdmissionError> {
+    let agents =
+        runtime_thread_json_records_from_state_dir(state_dir, "agents", "thread-turn-projection")?;
+    let expected_agent_id = agent_id_for_thread(thread_id);
+    agents
+        .into_iter()
+        .filter_map(|value| value.as_object().cloned())
+        .find(|record| {
+            optional_json_string(record, &["thread_id"]).as_deref() == Some(thread_id)
+                || optional_json_string(record, &["id", "agent_id"]).as_deref()
+                    == Some(expected_agent_id.as_str())
+        })
+        .ok_or(RuntimeThreadEventAdmissionError::MissingField("agent"))
+}
+
+fn runtime_thread_turn_runs_from_state_dir(
+    state_dir: &str,
+    thread_id: &str,
+    agent_id: &str,
+) -> Result<Vec<Map<String, Value>>, RuntimeThreadEventAdmissionError> {
+    let runs =
+        runtime_thread_json_records_from_state_dir(state_dir, "runs", "thread-turn-projection")?;
+    Ok(runs
+        .into_iter()
+        .filter_map(|value| value.as_object().cloned())
+        .filter(|record| {
+            optional_json_string(record, &["thread_id"]).as_deref() == Some(thread_id)
+                || optional_json_string(record, &["agent_id"]).as_deref() == Some(agent_id)
+        })
+        .collect())
+}
+
+fn runtime_thread_turn_selected_run(
+    request: &RuntimeThreadTurnProjectionRequest,
+    runs: &[Map<String, Value>],
+) -> Result<Map<String, Value>, RuntimeThreadEventAdmissionError> {
+    let requested_run_id = optional_trimmed(request.run_id.as_deref());
+    let requested_turn_id = optional_trimmed(request.turn_id.as_deref());
+    runs.iter()
+        .find(|run| {
+            requested_run_id.as_deref().is_some_and(|run_id| {
+                optional_json_string(run, &["id", "run_id"]).as_deref() == Some(run_id)
+            }) || requested_turn_id.as_deref().is_some_and(|turn_id| {
+                optional_json_string(run, &["turn_id", "runtime_turn_id"]).as_deref()
+                    == Some(turn_id)
+                    || optional_json_string(run, &["id", "run_id"])
+                        .map(|run_id| turn_id_for_run(&run_id))
+                        .as_deref()
+                        == Some(turn_id)
+            })
+        })
+        .cloned()
+        .ok_or(RuntimeThreadEventAdmissionError::MissingField("run"))
+}
+
+fn runtime_thread_turn_events_from_state_dir(
+    request: &RuntimeThreadTurnProjectionRequest,
+    selected_run: Option<&Map<String, Value>>,
+) -> Result<Vec<Value>, RuntimeThreadEventAdmissionError> {
+    let mut events = runtime_thread_events_from_state_dir(
+        request.state_dir.as_deref(),
+        RuntimeThreadEventAdmissionError::ProjectionStateDirRequired,
+        "thread-turn-projection",
+    )?
+    .into_iter()
+    .filter(|event| {
+        event
+            .as_object()
+            .and_then(|record| optional_event_string(record, "event_stream_id"))
+            .as_deref()
+            == Some(request.event_stream_id.as_str())
+    })
+    .collect::<Vec<_>>();
+    let projection =
+        RuntimeThreadEventAdmissionCore.project(&RuntimeThreadEventProjectionRequest {
+            schema_version: RUNTIME_THREAD_EVENT_PROJECTION_REQUEST_SCHEMA_VERSION.to_string(),
+            projection_kind: if request.projection_kind == "turn" {
+                "run".to_string()
+            } else {
+                "thread".to_string()
+            },
+            thread_id: request.thread_id.clone(),
+            event_stream_id: request.event_stream_id.clone(),
+            run_id: selected_run
+                .and_then(|run| optional_json_string(run, &["id", "run_id"]))
+                .or_else(|| request.run_id.clone()),
+            state_dir: request.state_dir.clone(),
+        })?;
+    events.extend(projection.events);
+    if request.projection_kind == "turn" {
+        let turn_id = selected_run
+            .and_then(|run| optional_json_string(run, &["turn_id", "runtime_turn_id"]))
+            .or_else(|| request.turn_id.clone())
+            .or_else(|| request.run_id.as_deref().map(turn_id_for_run))
+            .unwrap_or_default();
+        events.retain(|event| {
+            event
+                .as_object()
+                .and_then(|record| optional_event_string(record, "turn_id"))
+                .as_deref()
+                == Some(turn_id.as_str())
+        });
+    }
+    dedupe_and_sort_runtime_thread_events(events)
+}
+
+fn dedupe_and_sort_runtime_thread_events(
+    events: Vec<Value>,
+) -> Result<Vec<Value>, RuntimeThreadEventAdmissionError> {
+    let mut deduped = Vec::new();
+    let mut seen = Vec::<String>::new();
+    for event in events {
+        let key = event
+            .as_object()
+            .and_then(|record| optional_event_string(record, "idempotency_key"))
+            .or_else(|| {
+                event
+                    .as_object()
+                    .and_then(|record| optional_event_string(record, "event_id"))
+            })
+            .unwrap_or_else(|| {
+                value_hash(&event).unwrap_or_else(|_| format!("event:{}", deduped.len()))
+            });
+        if seen.contains(&key) {
+            continue;
+        }
+        seen.push(key);
+        deduped.push(event);
+    }
+    deduped.sort_by_key(|event| event.as_object().and_then(event_seq).unwrap_or(0));
+    Ok(deduped)
+}
+
+fn runtime_controls_for_thread_turn_agent(agent: &Map<String, Value>) -> Map<String, Value> {
+    let mut controls = agent
+        .get("runtime_controls")
+        .and_then(Value::as_object)
+        .cloned()
+        .unwrap_or_default();
+    if !controls.contains_key("mode") {
+        controls.insert("mode".to_string(), Value::String("agent".to_string()));
+    }
+    if !controls.contains_key("approval_mode") {
+        controls.insert(
+            "approval_mode".to_string(),
+            Value::String("suggest".to_string()),
+        );
+    }
+    controls
+}
+
+fn runtime_thread_turn_memory_count_from_state_dir(
+    state_dir: &str,
+    thread_id: &str,
+    agent_id: &str,
+) -> Result<u64, RuntimeThreadEventAdmissionError> {
+    let records = runtime_thread_json_records_from_state_dir(
+        state_dir,
+        "memory-records",
+        "thread-turn-projection",
+    )?;
+    Ok(records
+        .into_iter()
+        .filter_map(|value| value.as_object().cloned())
+        .filter(|record| {
+            optional_json_string(record, &["thread_id"]).as_deref() == Some(thread_id)
+                || optional_json_string(record, &["agent_id"]).as_deref() == Some(agent_id)
+        })
+        .count() as u64)
+}
+
+fn runtime_thread_turn_subagent_ids_from_state_dir(
+    state_dir: &str,
+    thread_id: &str,
+) -> Result<Vec<String>, RuntimeThreadEventAdmissionError> {
+    let records = runtime_thread_json_records_from_state_dir(
+        state_dir,
+        "subagents",
+        "thread-turn-projection",
+    )?;
+    Ok(unique_trimmed_strings(
+        records
+            .into_iter()
+            .filter_map(|value| value.as_object().cloned())
+            .filter(|record| {
+                optional_json_string(record, &["parent_thread_id"]).as_deref() == Some(thread_id)
+            })
+            .filter_map(|record| optional_json_string(&record, &["subagent_id", "id"]))
+            .collect(),
+    ))
+}
+
+fn runtime_thread_turn_usage_for_thread(
+    thread_id: &str,
+    runs: &[Map<String, Value>],
+    subagent_ids: &[String],
+) -> Value {
+    json!({
+        "scope": "thread",
+        "thread_id": thread_id,
+        "run_ids": runs
+            .iter()
+            .filter_map(|run| optional_json_string(run, &["id", "run_id"]))
+            .collect::<Vec<_>>(),
+        "subagent_ids": subagent_ids,
+    })
+}
+
+fn runtime_thread_turn_run_usage(run: &Map<String, Value>) -> Option<Value> {
+    run.get("usage_telemetry")
+        .or_else(|| run.get("usage"))
+        .cloned()
+        .or_else(|| {
+            optional_json_string(run, &["id", "run_id"]).map(|run_id| {
+                json!({
+                    "scope": "run",
+                    "run_id": run_id,
+                    "thread_id": optional_json_string(run, &["thread_id"]),
+                })
+            })
+        })
+}
+
+fn runtime_thread_turn_memory_refs_for_run(run: &Map<String, Value>) -> Vec<String> {
+    json_string_array_from_map(run, "memory_refs")
+}
+
+fn runtime_thread_turn_memory_write_receipt_ids_for_run(run: &Map<String, Value>) -> Vec<String> {
+    json_string_array_from_map(run, "memory_write_receipt_ids")
+}
+
+fn runtime_thread_turn_mode(
+    run: &Map<String, Value>,
+    runtime_controls: &Map<String, Value>,
+) -> Option<String> {
+    optional_json_string(run, &["thread_mode"])
+        .or_else(|| optional_json_string(runtime_controls, &["mode"]))
+        .or_else(|| optional_json_string(run, &["mode"]))
+}
+
+fn sort_thread_turn_runs(runs: &mut [Map<String, Value>]) {
+    runs.sort_by(|left, right| {
+        runtime_thread_turn_run_sort_key(left).cmp(&runtime_thread_turn_run_sort_key(right))
+    });
+}
+
+fn runtime_thread_turn_run_sort_key(run: &Map<String, Value>) -> String {
+    format!(
+        "{}:{}:{}",
+        optional_json_string(run, &["updated_at"]).unwrap_or_default(),
+        optional_json_string(run, &["created_at"]).unwrap_or_default(),
+        optional_json_string(run, &["id", "run_id"]).unwrap_or_default()
+    )
+}
+
+fn timestamp_millis_hint(value: &str) -> u64 {
+    value.bytes().fold(0u64, |acc, byte| {
+        acc.wrapping_mul(31).wrapping_add(byte as u64)
+    })
+}
+
 impl RuntimeThreadTurnProjectionRequest {
     pub fn validate_thread_turn_projection(&self) -> Result<(), RuntimeThreadEventAdmissionError> {
         if self.schema_version != RUNTIME_THREAD_TURN_PROJECTION_REQUEST_SCHEMA_VERSION {
@@ -1239,8 +1623,148 @@ impl RuntimeThreadTurnProjectionRequest {
                 actual: self.schema_version.clone(),
             });
         }
+        if optional_trimmed(self.state_dir.as_deref()).is_none() {
+            return Err(RuntimeThreadEventAdmissionError::ProjectionStateDirRequired);
+        }
         if self.thread_id.trim().is_empty() {
             return Err(RuntimeThreadEventAdmissionError::MissingField("thread_id"));
+        }
+        if self.event_stream_id.trim().is_empty() {
+            return Err(RuntimeThreadEventAdmissionError::MissingField(
+                "event_stream_id",
+            ));
+        }
+        if self.agent.is_some() {
+            return Err(
+                RuntimeThreadEventAdmissionError::RetiredThreadTurnProjectionFactTransport("agent"),
+            );
+        }
+        if self.session_id.is_some() {
+            return Err(
+                RuntimeThreadEventAdmissionError::RetiredThreadTurnProjectionFactTransport(
+                    "session_id",
+                ),
+            );
+        }
+        if self.fixture_profile.is_some() {
+            return Err(
+                RuntimeThreadEventAdmissionError::RetiredThreadTurnProjectionFactTransport(
+                    "fixture_profile",
+                ),
+            );
+        }
+        if self.runtime_profile.is_some() {
+            return Err(
+                RuntimeThreadEventAdmissionError::RetiredThreadTurnProjectionFactTransport(
+                    "runtime_profile",
+                ),
+            );
+        }
+        if self.runtime_bridge_id.is_some() {
+            return Err(
+                RuntimeThreadEventAdmissionError::RetiredThreadTurnProjectionFactTransport(
+                    "runtime_bridge_id",
+                ),
+            );
+        }
+        if self.runtime_bridge_source.is_some() {
+            return Err(
+                RuntimeThreadEventAdmissionError::RetiredThreadTurnProjectionFactTransport(
+                    "runtime_bridge_source",
+                ),
+            );
+        }
+        if !self.runs.is_empty() {
+            return Err(
+                RuntimeThreadEventAdmissionError::RetiredThreadTurnProjectionFactTransport("runs"),
+            );
+        }
+        if self.run.is_some() {
+            return Err(
+                RuntimeThreadEventAdmissionError::RetiredThreadTurnProjectionFactTransport("run"),
+            );
+        }
+        if !self.events.is_empty() {
+            return Err(
+                RuntimeThreadEventAdmissionError::RetiredThreadTurnProjectionFactTransport(
+                    "events",
+                ),
+            );
+        }
+        if self.latest_seq.is_some() {
+            return Err(
+                RuntimeThreadEventAdmissionError::RetiredThreadTurnProjectionFactTransport(
+                    "latest_seq",
+                ),
+            );
+        }
+        if self.runtime_controls.is_some() {
+            return Err(
+                RuntimeThreadEventAdmissionError::RetiredThreadTurnProjectionFactTransport(
+                    "runtime_controls",
+                ),
+            );
+        }
+        if self.usage_telemetry.is_some() {
+            return Err(
+                RuntimeThreadEventAdmissionError::RetiredThreadTurnProjectionFactTransport(
+                    "usage_telemetry",
+                ),
+            );
+        }
+        if self.memory_count.is_some() {
+            return Err(
+                RuntimeThreadEventAdmissionError::RetiredThreadTurnProjectionFactTransport(
+                    "memory_count",
+                ),
+            );
+        }
+        if !self.subagent_ids.is_empty() {
+            return Err(
+                RuntimeThreadEventAdmissionError::RetiredThreadTurnProjectionFactTransport(
+                    "subagent_ids",
+                ),
+            );
+        }
+        if self.created_at_ms.is_some() {
+            return Err(
+                RuntimeThreadEventAdmissionError::RetiredThreadTurnProjectionFactTransport(
+                    "created_at_ms",
+                ),
+            );
+        }
+        if self.updated_at_ms.is_some() {
+            return Err(
+                RuntimeThreadEventAdmissionError::RetiredThreadTurnProjectionFactTransport(
+                    "updated_at_ms",
+                ),
+            );
+        }
+        if self.mode.is_some() {
+            return Err(
+                RuntimeThreadEventAdmissionError::RetiredThreadTurnProjectionFactTransport("mode"),
+            );
+        }
+        if self.approval_mode.is_some() {
+            return Err(
+                RuntimeThreadEventAdmissionError::RetiredThreadTurnProjectionFactTransport(
+                    "approval_mode",
+                ),
+            );
+        }
+        if self.status.is_some() {
+            return Err(
+                RuntimeThreadEventAdmissionError::RetiredThreadTurnProjectionFactTransport(
+                    "status",
+                ),
+            );
+        }
+        if self.completed_at.is_some() {
+            return Err(
+                RuntimeThreadEventAdmissionError::RetiredThreadTurnProjectionFactTransport(
+                    "completed_at",
+                ),
+            );
         }
         match self.projection_kind.as_str() {
             "thread" => Ok(()),
@@ -1253,6 +1777,15 @@ impl RuntimeThreadTurnProjectionRequest {
                     .is_none()
                 {
                     return Err(RuntimeThreadEventAdmissionError::MissingField("turn_id"));
+                }
+                if self
+                    .run_id
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|value| !value.is_empty())
+                    .is_none()
+                {
+                    return Err(RuntimeThreadEventAdmissionError::MissingField("run_id"));
                 }
                 Ok(())
             }
@@ -1353,7 +1886,7 @@ fn thread_projection_record(
         "mode": optional_json_string(&runtime_controls, &["mode"]).unwrap_or_else(|| "agent".to_string()),
         "approval_mode": optional_json_string(&runtime_controls, &["approval_mode"]).unwrap_or_else(|| "suggest".to_string()),
         "trust_profile": "local_private",
-        "model_route": optional_json_string(agent, &["model_route", "model_id", "modelId"]),
+        "model_route": optional_json_string(agent, &["model_route", "model_id"]),
         "status": status,
         "latest_turn_id": latest_turn_id,
         "latest_seq": request.latest_seq.unwrap_or(0),
@@ -1404,7 +1937,7 @@ fn turn_projection_record(
     let status = request
         .status
         .clone()
-        .or_else(|| optional_json_string(run, &["status"]))
+        .or_else(|| optional_json_string(run, &["turn_status", "status"]))
         .unwrap_or_else(|| "running".to_string());
     let is_open = matches!(
         status.as_str(),
@@ -1502,8 +2035,8 @@ fn turn_projection_record(
         "active_skill_hook_manifest_ref": optional_json_string(run, &["active_skill_hook_manifest_ref"]),
         "active_skill_set_hash": optional_json_string(run, &["active_skill_set_hash"]),
         "active_hook_set_hash": optional_json_string(run, &["active_hook_set_hash"]),
-        "memory_refs": json_string_array_from_map(run, "memory_refs"),
-        "memory_write_receipt_ids": json_string_array_from_map(run, "memory_write_receipt_ids"),
+        "memory_refs": runtime_thread_turn_memory_refs_for_run(run),
+        "memory_write_receipt_ids": runtime_thread_turn_memory_write_receipt_ids_for_run(run),
         "evidence_refs": unique_trimmed_strings(vec![
             "agentgres_canonical_state_projection".to_string(),
             format!("run:{run_id}"),
@@ -1654,8 +2187,8 @@ fn thread_started_event(
         thread_status_for_agent(optional_json_string(agent, &["status"]).as_deref());
     let workspace_root =
         optional_json_string(agent, &["workspace_root", "cwd"]).unwrap_or_default();
-    let created_at = optional_json_string(agent, &["created_at", "createdAt"])
-        .or_else(|| optional_json_string(agent, &["updated_at", "updatedAt"]))
+    let created_at = optional_json_string(agent, &["created_at"])
+        .or_else(|| optional_json_string(agent, &["updated_at"]))
         .unwrap_or_else(|| "rust_daemon_core".to_string());
     let receipt_refs = unique_trimmed_strings(
         json_string_array_from_map(agent, "receipt_refs")
@@ -1722,7 +2255,7 @@ fn run_thread_event(
 ) -> Result<Value, RuntimeThreadEventAdmissionError> {
     let run_id = optional_json_string(run, &["run_id", "id"])
         .ok_or(RuntimeThreadEventAdmissionError::MissingField("run_id"))?;
-    let turn_id = optional_json_string(run, &["turn_id", "runtime_turn_id", "runtimeTurnId"])
+    let turn_id = optional_json_string(run, &["turn_id", "runtime_turn_id"])
         .unwrap_or_else(|| turn_id_for_run(&run_id));
     let event_type = optional_json_string(event, &["type", "event_type", "event_kind"])
         .unwrap_or_else(|| "runtime_event".to_string());
@@ -1738,8 +2271,8 @@ fn run_thread_event(
             agent.and_then(|record| optional_json_string(record, &["workspace_root", "cwd"]))
         })
         .unwrap_or_default();
-    let created_at = optional_json_string(event, &["created_at", "createdAt"])
-        .or_else(|| optional_json_string(run, &["created_at", "createdAt"]))
+    let created_at = optional_json_string(event, &["created_at"])
+        .or_else(|| optional_json_string(run, &["created_at"]))
         .unwrap_or_else(|| "rust_daemon_core".to_string());
     let receipt_refs = unique_trimmed_strings(
         json_string_array_from_map(event, "receipt_refs")
@@ -2228,8 +2761,12 @@ mod tests {
         let state_dir = write_runtime_thread_event_state(label, events);
         let agents_dir = state_dir.join("agents");
         let runs_dir = state_dir.join("runs");
+        let memory_dir = state_dir.join("memory-records");
+        let subagents_dir = state_dir.join("subagents");
         std::fs::create_dir_all(&agents_dir).expect("agents dir");
         std::fs::create_dir_all(&runs_dir).expect("runs dir");
+        std::fs::create_dir_all(&memory_dir).expect("memory dir");
+        std::fs::create_dir_all(&subagents_dir).expect("subagents dir");
         std::fs::write(
             agents_dir.join("agent_1.json"),
             serde_json::to_string(&json!({
@@ -2238,7 +2775,20 @@ mod tests {
                 "thread_id": "thread_1",
                 "status": "active",
                 "created_at": "2026-06-12T00:00:00.000Z",
+                "updated_at": "2026-06-12T00:00:01.000Z",
                 "workspace_root": "/workspace",
+                "runtime_profile": "runtime_service",
+                "runtime_bridge_id": "bridge_runtime",
+                "runtime_bridge_source": "rust_core",
+                "fixture_profile": "fixture",
+                "runtime_controls": {
+                    "mode": "agent",
+                    "approval_mode": "suggest"
+                },
+                "model_id": "qwen",
+                "requested_model_id": "auto",
+                "model_route_id": "route.local-first",
+                "model_route_decision": { "reasoning_effort": "medium" },
                 "receipt_refs": ["receipt_agent_state"],
                 "model_route_receipt_id": "receipt_model_route"
             }))
@@ -2255,6 +2805,22 @@ mod tests {
                 "thread_id": "thread_1",
                 "turn_id": "turn_1",
                 "workspace_root": "/workspace",
+                "objective": "Latest",
+                "status": "completed",
+                "turn_status": "completed",
+                "result": "Done",
+                "mode": "send",
+                "created_at": "2026-06-12T00:00:01.000Z",
+                "updated_at": "2026-06-12T00:00:02.000Z",
+                "trace": {
+                    "stop_condition": { "reason": "final" },
+                    "quality_ledger": { "ledger_id": "ledger-one" }
+                },
+                "memory_refs": ["memory-one"],
+                "memory_write_receipt_ids": ["receipt-memory"],
+                "active_skill_hook_manifest_ref": "manifest-one",
+                "active_skill_set_hash": "skill-hash",
+                "active_hook_set_hash": "hook-hash",
                 "events": [
                     {
                         "id": "event_run_started",
@@ -2281,6 +2847,35 @@ mod tests {
             .expect("run json"),
         )
         .expect("write run record");
+        std::fs::write(
+            memory_dir.join("memory_1.json"),
+            serde_json::to_string(&json!({
+                "id": "memory-one",
+                "thread_id": "thread_1",
+                "agent_id": "agent_1"
+            }))
+            .expect("memory json"),
+        )
+        .expect("write memory record one");
+        std::fs::write(
+            memory_dir.join("memory_2.json"),
+            serde_json::to_string(&json!({
+                "id": "memory-two",
+                "thread_id": "thread_1",
+                "agent_id": "agent_1"
+            }))
+            .expect("memory json"),
+        )
+        .expect("write memory record two");
+        std::fs::write(
+            subagents_dir.join("sub_1.json"),
+            serde_json::to_string(&json!({
+                "subagent_id": "sub_one",
+                "parent_thread_id": "thread_1"
+            }))
+            .expect("subagent json"),
+        )
+        .expect("write subagent record");
         state_dir
     }
 
@@ -2297,19 +2892,7 @@ mod tests {
     }
 
     fn thread_turn_projection_request(projection_kind: &str) -> RuntimeThreadTurnProjectionRequest {
-        let event_projection = RuntimeThreadEventAdmissionCore
-            .project(&projection_request())
-            .expect("projection provides turn events");
-        let resulting_seq = event_projection.resulting_seq;
-        let events = if projection_kind == "turn" {
-            event_projection
-                .events
-                .into_iter()
-                .filter(|event| event["turn_id"].as_str() == Some("turn_1"))
-                .collect()
-        } else {
-            event_projection.events
-        };
+        let state_dir = write_runtime_thread_projection_state("thread-turn-projection", &[]);
         RuntimeThreadTurnProjectionRequest {
             schema_version: RUNTIME_THREAD_TURN_PROJECTION_REQUEST_SCHEMA_VERSION.to_string(),
             projection_kind: projection_kind.to_string(),
@@ -2317,69 +2900,37 @@ mod tests {
             turn_schema_version: Some("turn.schema".to_string()),
             thread_id: "thread_1".to_string(),
             event_stream_id: "thread_1:events".to_string(),
-            turn_id: Some("turn_1".to_string()),
-            session_id: Some("session:agent_1".to_string()),
-            fixture_profile: Some("fixture".to_string()),
-            runtime_profile: Some("runtime_service".to_string()),
-            runtime_bridge_id: Some("bridge_runtime".to_string()),
-            runtime_bridge_source: Some("rust_core".to_string()),
-            agent: Some(json!({
-                "agent_id": "agent_1",
-                "workspace_root": "/workspace",
-                "status": "active",
-                "model_id": "qwen",
-                "requested_model_id": "auto",
-                "model_route_id": "route.local-first",
-                "model_route_receipt_id": "receipt-route",
-                "model_route_decision": { "reasoning_effort": "medium" },
-                "created_at": "2026-06-12T00:00:00.000Z",
-                "updated_at": "2026-06-12T00:00:01.000Z"
-            })),
-            runs: vec![json!({
-                "run_id": "run_1",
-                "agent_id": "agent_1",
-                "turn_id": "turn_1",
-                "objective": "Latest",
-                "status": "completed",
-                "turn_status": "completed",
-                "result": "Done",
-                "created_at": "2026-06-12T00:00:01.000Z",
-                "updated_at": "2026-06-12T00:00:02.000Z"
-            })],
-            run: Some(json!({
-                "run_id": "run_1",
-                "agent_id": "agent_1",
-                "turn_id": "turn_1",
-                "status": "completed",
-                "result": "Done",
-                "created_at": "2026-06-12T00:00:01.000Z",
-                "updated_at": "2026-06-12T00:00:02.000Z",
-                "trace": {
-                    "stop_condition": { "reason": "final" },
-                    "quality_ledger": { "ledger_id": "ledger-one" }
-                },
-                "active_skill_hook_manifest_ref": "manifest-one",
-                "active_skill_set_hash": "skill-hash",
-                "active_hook_set_hash": "hook-hash",
-                "memory_refs": ["memory-one"],
-                "memory_write_receipt_ids": ["receipt-memory"]
-            })),
-            events,
-            runtime_controls: Some(json!({
-                "mode": "agent",
-                "approval_mode": "suggest",
-                "model": { "reasoning_effort": "low" }
-            })),
-            usage_telemetry: Some(json!({ "scope": projection_kind, "total_tokens": 12 })),
-            memory_count: Some(2),
-            subagent_ids: vec!["sub_one".to_string()],
-            latest_seq: Some(resulting_seq),
-            created_at_ms: Some(1000),
-            updated_at_ms: Some(2000),
-            mode: Some("agent".to_string()),
-            approval_mode: Some("suggest".to_string()),
-            status: Some("completed".to_string()),
-            completed_at: Some("2026-06-12T00:00:02.000Z".to_string()),
+            turn_id: if projection_kind == "turn" {
+                Some("turn_1".to_string())
+            } else {
+                None
+            },
+            run_id: if projection_kind == "turn" {
+                Some("run_1".to_string())
+            } else {
+                None
+            },
+            state_dir: Some(state_dir.to_string_lossy().to_string()),
+            session_id: None,
+            fixture_profile: None,
+            runtime_profile: None,
+            runtime_bridge_id: None,
+            runtime_bridge_source: None,
+            agent: None,
+            runs: vec![],
+            run: None,
+            events: vec![],
+            runtime_controls: None,
+            usage_telemetry: None,
+            memory_count: None,
+            subagent_ids: vec![],
+            latest_seq: None,
+            created_at_ms: None,
+            updated_at_ms: None,
+            mode: None,
+            approval_mode: None,
+            status: None,
+            completed_at: None,
         }
     }
 
@@ -2835,7 +3386,7 @@ mod tests {
     }
 
     #[test]
-    fn rust_projects_runtime_thread_record_from_canonical_facts() {
+    fn rust_projects_runtime_thread_record_from_state_dir_replay() {
         let record = RuntimeThreadEventAdmissionCore
             .project_thread_turn(&thread_turn_projection_request("thread"))
             .expect("thread projection is Rust-shaped");
@@ -2846,7 +3397,7 @@ mod tests {
         assert_eq!(record.record["thread_id"], "thread_1");
         assert_eq!(record.record["title"], "Latest");
         assert_eq!(record.record["latest_turn_id"], "turn_1");
-        assert_eq!(record.record["latest_seq"], json!(5));
+        assert_eq!(record.record["latest_seq"], json!(3));
         assert_eq!(record.record["memory_count"], json!(2));
         assert_eq!(record.record["reasoning_effort"], "medium");
         assert_eq!(record.record["runtime_profile"], "runtime_service");
@@ -2856,7 +3407,7 @@ mod tests {
     }
 
     #[test]
-    fn rust_projects_runtime_turn_record_from_replay_events() {
+    fn rust_projects_runtime_turn_record_from_state_dir_replay() {
         let record = RuntimeThreadEventAdmissionCore
             .project_thread_turn(&thread_turn_projection_request("turn"))
             .expect("turn projection is Rust-shaped");
@@ -2865,8 +3416,8 @@ mod tests {
         assert_eq!(record.turn_id.as_deref(), Some("turn_1"));
         assert_eq!(record.record["schema_version"], "turn.schema");
         assert_eq!(record.record["turn_id"], "turn_1");
-        assert_eq!(record.record["seq_start"], json!(4));
-        assert_eq!(record.record["seq_end"], json!(5));
+        assert_eq!(record.record["seq_start"], json!(1));
+        assert_eq!(record.record["seq_end"], json!(2));
         assert_eq!(
             record.record["input_item_ids"],
             json!(["turn_1:item:7c92601af0a0"])
@@ -2886,19 +3437,26 @@ mod tests {
 
     #[test]
     fn rust_rejects_retired_runtime_thread_turn_projection_aliases() {
-        let request: RuntimeThreadTurnProjectionRequest = serde_json::from_value(json!({
+        let error = serde_json::from_value::<RuntimeThreadTurnProjectionRequest>(json!({
             "schema_version": RUNTIME_THREAD_TURN_PROJECTION_REQUEST_SCHEMA_VERSION,
             "projectionKind": "thread",
             "threadId": "thread_1",
             "agent": { "agentId": "agent_1" }
         }))
-        .expect("request parses with retired aliases ignored");
+        .expect_err("retired aliases must not parse");
+        assert!(error.to_string().contains("unknown field"));
+    }
+
+    #[test]
+    fn rust_rejects_retired_runtime_thread_turn_projection_fact_transport() {
+        let mut request = thread_turn_projection_request("thread");
+        request.agent = Some(json!({ "agent_id": "agent_1" }));
         let error = RuntimeThreadEventAdmissionCore
             .project_thread_turn(&request)
-            .expect_err("retired aliases must not satisfy thread/turn projection");
+            .expect_err("retired caller facts must not satisfy thread/turn projection");
         assert_eq!(
             error,
-            RuntimeThreadEventAdmissionError::MissingField("thread_id")
+            RuntimeThreadEventAdmissionError::RetiredThreadTurnProjectionFactTransport("agent")
         );
     }
 

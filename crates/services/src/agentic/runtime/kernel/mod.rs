@@ -250,8 +250,8 @@ use receipt_binder::{
     StepModuleReceiptBinding,
 };
 use repository_workflow::{
-    RepositoryWorkflowProjectionRequest, RepositoryWorkflowProjectionError,
-    RepositoryWorkflowProjectionCore, RepositoryWorkflowProjectionRecord,
+    RepositoryWorkflowProjectionCore, RepositoryWorkflowProjectionError,
+    RepositoryWorkflowProjectionRecord, RepositoryWorkflowProjectionRequest,
 };
 use runtime_computer_use::{
     RuntimeComputerUseProjectionCommandError, RuntimeComputerUseProjectionCore,
@@ -286,8 +286,8 @@ use runtime_doctor_report::{
     RuntimeDoctorReportProjectionRecord, RuntimeDoctorReportProjectionRequest,
 };
 use runtime_lifecycle::{
-    RuntimeLifecycleProjectionRequest, RuntimeLifecycleProjectionError,
-    RuntimeLifecycleProjectionCore, RuntimeLifecycleProjectionRecord,
+    RuntimeLifecycleProjectionCore, RuntimeLifecycleProjectionError,
+    RuntimeLifecycleProjectionRecord, RuntimeLifecycleProjectionRequest,
 };
 use runtime_managed_session_control::{
     RuntimeManagedSessionCommandError, RuntimeManagedSessionControlCore,
@@ -301,11 +301,11 @@ use runtime_mcp_serve::{
     RuntimeMcpServeToolResultProjectionRequest,
 };
 use runtime_memory_control::{
-    RuntimeMemoryControlApiError, RuntimeMemoryControlCore, RuntimeMemoryControlRecord,
-    RuntimeMemoryControlApiRequest,
+    RuntimeMemoryControlApiError, RuntimeMemoryControlApiRequest, RuntimeMemoryControlCore,
+    RuntimeMemoryControlRecord,
 };
 use runtime_memory_projection::{
-    RuntimeMemoryProjectionApiRequest, RuntimeMemoryProjectionApiError,
+    RuntimeMemoryProjectionApiError, RuntimeMemoryProjectionApiRequest,
     RuntimeMemoryProjectionCore, RuntimeMemoryProjectionRecord,
 };
 use runtime_subagent_control::{
@@ -328,8 +328,8 @@ use runtime_thread_fork_control::{
     RuntimeThreadForkControlRequest,
 };
 use runtime_tool_catalog::{
-    RuntimeToolCatalogProjectionRequest, RuntimeToolCatalogProjectionError,
-    RuntimeToolCatalogProjectionCore, RuntimeToolCatalogProjectionRecord,
+    RuntimeToolCatalogProjectionCore, RuntimeToolCatalogProjectionError,
+    RuntimeToolCatalogProjectionRecord, RuntimeToolCatalogProjectionRequest,
 };
 use runtime_workflow_edit_control::{
     RuntimeWorkflowEditControlCommandError, RuntimeWorkflowEditControlCore,
@@ -347,7 +347,7 @@ use settlement::{
     SettlementReceiptBundleV2,
 };
 use skill_hook_registry::{
-    SkillHookRegistryProjectionError, SkillHookRegistryProjectionCore,
+    SkillHookRegistryProjectionCore, SkillHookRegistryProjectionError,
     SkillHookRegistryProjectionRecord, SkillHookRegistryProjectionRequest,
 };
 use step_module::{StepModuleInvocation, StepModuleResult, StepModuleValidationError};

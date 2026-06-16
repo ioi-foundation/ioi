@@ -1051,7 +1051,10 @@ export class AgentgresRuntimeStateStore {
 
   projectRuntimeThreadTurnProjectionForThread(store, request = {}) {
     void store;
-    const projection = this.runtimeAgentgresAdmissionCore.projectRuntimeThreadTurnProjection(request);
+    const projection = this.runtimeAgentgresAdmissionCore.projectRuntimeThreadTurnProjection({
+      ...request,
+      state_dir: this.stateDir,
+    });
     const record = objectRecord(projection?.record);
     if (projection?.projected !== true || !record) {
       throw runtimeError({

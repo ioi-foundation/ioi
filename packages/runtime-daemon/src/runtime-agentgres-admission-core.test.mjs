@@ -336,10 +336,12 @@ function runtimeThreadEventReplayRequest() {
 
 function runtimeThreadTurnProjectionRequest() {
   return {
-    projection_kind: "thread_turn",
+    projection_kind: "turn",
     thread_id: "thread_1",
     turn_id: "turn_1",
-    events: [{ event_id: "event_turn_1", seq: 1 }],
+    run_id: "run_1",
+    event_stream_id: "thread_1:events",
+    state_dir: "/tmp/ioi-state",
   };
 }
 
@@ -488,6 +490,12 @@ test("runtime Agentgres core projects runtime thread and turn records through ty
 
   assertTypedAgentgresRequest(calls[0], AGENTGRES_RUNTIME_THREAD_TURN_PROJECTION_API_METHOD);
   assert.equal(calls[0].request.request.schema_version, RUNTIME_THREAD_TURN_PROJECTION_REQUEST_SCHEMA_VERSION);
+  assert.equal(calls[0].request.request.state_dir, "/tmp/ioi-state");
+  assert.equal(Object.hasOwn(calls[0].request.request, "agent"), false);
+  assert.equal(Object.hasOwn(calls[0].request.request, "runs"), false);
+  assert.equal(Object.hasOwn(calls[0].request.request, "run"), false);
+  assert.equal(Object.hasOwn(calls[0].request.request, "events"), false);
+  assert.equal(Object.hasOwn(calls[0].request.request, "latest_seq"), false);
   assert.equal(result.record.turn_id, "turn_1");
 });
 

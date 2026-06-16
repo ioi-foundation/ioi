@@ -8982,9 +8982,11 @@ and JS replay-candidate collector are retired. Public thread/turn projection
 records now call Rust
 `project_runtime_thread_turn_projection`; Rust owns public thread/turn record
 shape, runtime identity fields, projection hashes, and event-derived seq/input/
-output fields over admitted replay events through typed
-`daemonCoreAgentgresApi.projectRuntimeThreadTurnProjection`, while JS only
-supplies canonical agent/run/event facts and a temporary hydration cache. Stable
+output fields through typed
+`daemonCoreAgentgresApi.projectRuntimeThreadTurnProjection`; JS now sends only
+projection kind, thread/run/turn identity, event stream, schema, and runtime
+`state_dir`, while Rust replays Agentgres `agents`, `runs`, event, memory, and
+subagent records and rejects caller fact transport. Stable
 Rust lifecycle projection protocol APIs remain non-terminal beyond that thin JS
 protocol-client scaffolding.
 
@@ -11253,11 +11255,27 @@ deleted, and the only remaining memory prompt parser lives in
 cache-backed list/policy/path helpers or refreshes `store.memory` after Rust
 Agentgres memory-state commits; public thread/agent list, policy, path, status,
 and validation readback stays on `projectRuntimeMemoryProjection`. Thread
-projection memory counts now call the mounted public Rust memory projection
-surface and fail closed without it. The retired `AgentMemoryStore`,
+projection no longer reads the mounted memory projection as a JS side channel;
+Slice 1346 moves memory counts into Rust state-dir replay. The retired `AgentMemoryStore`,
 `this.memory`, `store.memory.*`, private thread-memory list/policy/path readers,
 and temporary memory projection cache refresh must not return beside the
 Rust-owned memory projection/control hot path.
+
+Slice 1346 hard-cuts runtime thread/turn projection fact transport. Public
+`threadForAgent()` and `turnForRun()` now send only projection kind, thread/run/
+turn identity, event stream, schema, and runtime `state_dir` to
+`projectRuntimeThreadTurnProjection`; JS no longer enumerates runs, projects
+thread/run events, reads event replay caches, calculates latest sequence,
+queries memory counts, gathers subagent ids, or shapes agent/run/runtime-control/
+usage facts before Rust projection. Rust `RuntimeThreadTurnProjectionRequest`
+requires `state_dir`, denies retired caller fact fields and aliases, replays
+`agents/*.json`, `runs/*.json`, `memory-records/*.json`, `subagents/*.json`,
+and runtime event projection/replay state itself through canonical snake_case
+record fields only, then authors thread/turn records and projection hashes from
+that Agentgres substrate. The retired JS fact bundle, replay-cache latest
+sequence, memory-count side read, runtime identity override, camelCase replay
+fallback, and compatibility projection shapers must not return beside the
+Rust-owned thread/turn projection hot path.
 
 ## Final Doctrine
 
