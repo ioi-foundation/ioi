@@ -19,7 +19,7 @@ import {
 function fakeState(overrides = {}) {
   const state = {
     authorizationCalls: [],
-    conversations: new Map(),
+    agentgresConversationRecords: new Map(),
     nowMs: 1_000,
     receiptIdCounter: 0,
     receipts: [],
@@ -46,7 +46,7 @@ function fakeState(overrides = {}) {
       };
     },
     conversationState(responseId) {
-      return this.conversations.get(responseId);
+      return this.agentgresConversationRecords.get(responseId);
     },
     driverForProvider() {
       return this.driver;

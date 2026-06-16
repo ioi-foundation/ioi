@@ -5,7 +5,6 @@ import { ModelMountingState } from "../model-mounting.mjs";
 
 function fakeState() {
   const state = {
-    conversations: new Map(),
     agentgresConversationRecords: new Map(),
     stateDir: "/state",
     now: "2026-06-04T03:00:00.000Z",
@@ -20,6 +19,9 @@ function fakeState() {
     writes: [],
     nowIso() {
       return this.now;
+    },
+    listConversations() {
+      return [...this.agentgresConversationRecords.values()];
     },
     agentgresModelMountingHead() {
       const sequence = this.receipts.length;
@@ -379,9 +381,23 @@ function selection() {
   };
 }
 
+function admittedConversationRecord(id, overrides = {}) {
+  return {
+    id,
+    object: "ioi.model_mount_conversation_state",
+    rust_core_boundary: "model_mount.conversation",
+    conversation_hash: `sha256:${id}`,
+    evidence_refs: [
+      "model_mount_conversation_state_rust_owned",
+      "agentgres_model_conversation_truth_required",
+    ],
+    ...overrides,
+  };
+}
+
 test("nextResponseId uses requested ids, generates fallbacks, and rejects collisions", () => {
   const state = fakeState();
-  state.conversations.set("resp_existing", { id: "resp_existing" });
+  state.agentgresConversationRecords.set("resp_existing", admittedConversationRecord("resp_existing"));
 
   assert.equal(ModelMountingState.prototype.nextResponseId.call(state, "resp_requested"), "resp_requested");
   assert.match(ModelMountingState.prototype.nextResponseId.call(state, null), /^resp_[0-9a-f-]{36}$/);
@@ -393,7 +409,7 @@ test("nextResponseId uses requested ids, generates fallbacks, and rejects collis
 
 test("conversationState returns records and fails closed for missing previous responses", () => {
   const state = fakeState();
-  state.conversations.set("resp_1", { id: "resp_1" });
+  state.agentgresConversationRecords.set("resp_1", admittedConversationRecord("resp_1"));
 
   assert.equal(ModelMountingState.prototype.conversationState.call(state, "resp_1").id, "resp_1");
   assert.throws(
@@ -439,7 +455,8 @@ test("recordConversationState commits Rust-authored conversation state through A
   assert.equal(record.root_response_id, "resp_root");
   assert.equal(record.route_id, "route.local-first");
   assert.equal(record.selected_model, "llama-test");
-  assert.equal(state.conversations.get("resp_current"), record.record);
+  assert.equal(Object.hasOwn(state, "conversations"), false);
+  assert.equal(state.agentgresConversationRecords.get("resp_current"), record.record);
   assert.equal(state.conversationPlanRequests.length, 1);
   assert.equal(state.conversationPlanRequests[0].schema_version, "ioi.model_mount.conversation_state.v1");
   assert.equal(state.conversationPlanRequests[0].operation, "model_conversation_state_write");
@@ -513,7 +530,8 @@ test("recordModelStreamCompleted persists Rust-authored stream receipt and conve
   assert.equal(state.recordStateCommits.length, 1);
   assert.equal(state.recordStateCommits[0].record_dir, "model-conversations");
   assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.conversation.stream_completion");
-  assert.equal(state.conversations.get("resp_stream"), invocation.conversationState);
+  assert.equal(Object.hasOwn(state, "conversations"), false);
+  assert.equal(state.agentgresConversationRecords.get("resp_stream"), invocation.conversationState);
   assert.equal(invocation.streamCompletionReceipt.id, receipt.id);
   assert.deepEqual(state.receiptBindingRequests, []);
   assert.deepEqual(state.transitionRequests, []);

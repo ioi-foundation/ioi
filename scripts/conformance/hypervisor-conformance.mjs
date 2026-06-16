@@ -19132,6 +19132,12 @@ function runBridge() {
       /listConversations returns Rust-projected admitted conversation states/.test(
         modelConversationOpsTest,
       ) &&
+      /nextResponseId uses requested ids, generates fallbacks, and rejects collisions/.test(
+        modelConversationOpsTest,
+      ) &&
+      /conversationState returns records and fails closed for missing previous responses/.test(
+        modelConversationOpsTest,
+      ) &&
       /read projection direct client delegates product-safe lists and capabilities/.test(
         modelMountingReadProjectionDirectTest,
       ) &&
@@ -19143,7 +19149,31 @@ function runBridge() {
         modelInvocationOpsTest,
       ) &&
       /assert\.deepEqual\(state\.recordedConversations,\s*\[\]\)/.test(modelInvocationOpsTest) &&
-      /state\.conversations\?\.set/.test(modelConversationOps) &&
+      /nextResponseId\(requested\)\s*\{[\s\S]*?this\.listConversations\(\)\.some/.test(modelConversationOps) &&
+      /conversationState\(responseId\)\s*\{[\s\S]*?this\.listConversations\(\)\.find/.test(modelConversationOps) &&
+      !/this\.conversations\s*=/.test(modelConversationOps) &&
+      !/this\.conversations\.(?:has|get|set|values)/.test(modelConversationOps) &&
+      !/state\.conversations\?\.set/.test(modelConversationOps) &&
+      !/\["model-conversations",\s*"conversations"\]/.test(
+        read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs"),
+      ) &&
+      !/"model-conversations"/.test(read("packages/runtime-daemon/src/model-mounting/store.mjs")) &&
+      /Object\.hasOwn\(state,\s*"conversations"\),\s*false/.test(modelConversationOpsTest) &&
+      /agentgresConversationRecords\.set\("resp_existing"/.test(modelConversationOpsTest) &&
+      /agentgresConversationRecords\.set\("resp_1"/.test(modelConversationOpsTest) &&
+      /conversation JS cache maps stay retired/.test(
+        read("packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs"),
+      ) &&
+      /conversation local cache storage/.test(read("packages/runtime-daemon/src/model-mounting/store.test.mjs")) &&
+      /Slice 1332 hard-cuts the model_mount conversation JS cache substrate/.test(
+        read("docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md"),
+      ) &&
+      /Model_mount conversation JS cache retired/.test(
+        read("docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md"),
+      ) &&
+      /RuntimeDaemonCoreModelMountConversationCacheRetired/.test(
+        read("docs/architecture/_meta/implementation-matrix.md"),
+      ) &&
       !/state\.writeMap\("model-conversations"/.test(modelConversationOps) &&
       !/left\.created_at/.test(modelConversationOps) &&
       !/this\.conversations\.values\(\)/.test(modelConversationOps) &&

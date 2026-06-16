@@ -434,7 +434,6 @@ export class ModelMountingState {
     this.downloads = new Map();
     this.lastCatalogSearch = null;
     this.vaultRefs = new Map();
-    this.conversations = new Map();
     this.ensureDirs();
     this.load();
     this.vault.loadMetadata([...this.vaultRefs.values()]);
@@ -1404,7 +1403,7 @@ export class ModelMountingState {
 
   nextResponseId(requested) {
     const responseId = optionalString(requested) ?? `resp_${crypto.randomUUID()}`;
-    if (this.conversations.has(responseId)) {
+    if (this.listConversations().some((record) => record?.id === responseId || record?.response_id === responseId)) {
       throw runtimeError({
         status: 409,
         code: "continuation",
@@ -1416,7 +1415,7 @@ export class ModelMountingState {
   }
 
   conversationState(responseId) {
-    const record = this.conversations.get(responseId);
+    const record = this.listConversations().find((item) => item?.id === responseId || item?.response_id === responseId);
     if (!record) {
       throw runtimeError({
         status: 404,
@@ -3803,7 +3802,6 @@ function commitModelConversationPlanRecordState(
     unconfiguredMessage,
     invalidCode,
   });
-  state.conversations?.set?.(plan.record_id, plan.record);
   return {
     ...plan.record,
     object: plan.record.object ?? "ioi.model_mount_conversation_state",

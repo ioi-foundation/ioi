@@ -11085,6 +11085,18 @@ stable IDE/CLI/SDK MCP APIs remain non-terminal; the retired JS `mcpServers`
 map must not return as empty compatibility state or duplicate MCP projection
 truth.
 
+Slice 1332 hard-cuts the model_mount conversation JS cache substrate.
+`ModelMountingState` no longer constructs `conversations`,
+`MODEL_MOUNTING_STATE_MAPS` no longer loads `model-conversations`, response-id
+collision checks and previous-response lookup now read the Rust
+`model_conversation_states` projection, and Rust-authored conversation-state
+commits no longer repopulate a local JS map. Conversation truth remains
+Rust-owned through typed conversation/stream plans, Agentgres
+`model-conversations` commits, receipt/state-root binding, and Rust replay over
+runtime `state_dir`. Hosted/stream protocol parity and stable IDE/CLI/SDK
+conversation APIs remain non-terminal; the retired JS `conversations` map must
+not return as empty compatibility state or duplicate response-lineage truth.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

@@ -8,7 +8,6 @@ export const MODEL_MOUNTING_STATE_MAPS = [
   ["model-routes", "routes"],
   ["model-downloads", "downloads"],
   ["vault-refs", "vaultRefs"],
-  ["model-conversations", "conversations"],
 ];
 
 export function loadModelMountingMaps(state, deps = {}) {
