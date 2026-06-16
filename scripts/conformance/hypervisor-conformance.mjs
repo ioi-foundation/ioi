@@ -4901,6 +4901,20 @@ function runBridge() {
   const cliRuntime = exists("crates/cli/src/commands/runtime.rs")
     ? read("crates/cli/src/commands/runtime.rs")
     : "";
+  const modelMountCliModels = exists("crates/cli/src/commands/models.rs")
+    ? read("crates/cli/src/commands/models.rs")
+    : "";
+  const modelMountCliRoutes = exists("crates/cli/src/commands/routes.rs")
+    ? read("crates/cli/src/commands/routes.rs")
+    : "";
+  const modelMountCliModelsLsBlock =
+    modelMountCliModels.match(/ModelsCommands::Ls => \{[\s\S]*?\n        ModelsCommands::Capabilities/)?.[0] ?? "";
+  const modelMountCliModelsCapabilitiesBlock =
+    modelMountCliModels.match(/ModelsCommands::Capabilities => \{[\s\S]*?\n        ModelsCommands::Get/)?.[0] ?? "";
+  const modelMountCliModelsCatalogSearchBlock =
+    modelMountCliModels.match(/ModelsCommands::CatalogSearch[\s\S]*?\n        ModelsCommands::CatalogImportUrl/)?.[0] ?? "";
+  const modelMountCliRoutesLsBlock =
+    modelMountCliRoutes.match(/RoutesCommands::Ls => \{[\s\S]*?\n        RoutesCommands::Test/)?.[0] ?? "";
   const retiredCodingToolJsBodyPattern =
     /function (?:computerUseLeaseRequestTool|workspaceStatusTool|gitDiffTool|fileInspectTool|fileApplyPatchTool|testRunTool|lspDiagnosticsTool|artifactReadTool|toolRetrieveResultTool)\(/;
   const retiredCodingToolJsImportPattern =
@@ -22513,6 +22527,26 @@ function runReceipts() {
   const publicRuntimeRoutesTest = exists("packages/runtime-daemon/src/http/public-runtime-routes.test.mjs")
     ? read("packages/runtime-daemon/src/http/public-runtime-routes.test.mjs")
     : "";
+  const modelMountStableReadAgentSdkSubstrateClient = exists("packages/agent-sdk/src/substrate-client.ts")
+    ? read("packages/agent-sdk/src/substrate-client.ts")
+    : "";
+  const modelMountStableReadAgentSdkTest = exists("packages/agent-sdk/test/sdk.test.mjs")
+    ? read("packages/agent-sdk/test/sdk.test.mjs")
+    : "";
+  const modelMountStableReadCliModels = exists("crates/cli/src/commands/models.rs")
+    ? read("crates/cli/src/commands/models.rs")
+    : "";
+  const modelMountStableReadCliRoutes = exists("crates/cli/src/commands/routes.rs")
+    ? read("crates/cli/src/commands/routes.rs")
+    : "";
+  const modelMountStableReadCliModelsLsBlock =
+    modelMountStableReadCliModels.match(/ModelsCommands::Ls => \{[\s\S]*?\n        ModelsCommands::Capabilities/)?.[0] ?? "";
+  const modelMountStableReadCliModelsCapabilitiesBlock =
+    modelMountStableReadCliModels.match(/ModelsCommands::Capabilities => \{[\s\S]*?\n        ModelsCommands::Get/)?.[0] ?? "";
+  const modelMountStableReadCliModelsCatalogSearchBlock =
+    modelMountStableReadCliModels.match(/ModelsCommands::CatalogSearch[\s\S]*?\n        ModelsCommands::CatalogImportUrl/)?.[0] ?? "";
+  const modelMountStableReadCliRoutesLsBlock =
+    modelMountStableReadCliRoutes.match(/RoutesCommands::Ls => \{[\s\S]*?\n        RoutesCommands::Test/)?.[0] ?? "";
   const publicRuntimeDoctorRoute =
     publicRuntimeRoutes.match(/if \(request\.method === "GET" && url\.pathname === "\/v1\/doctor"\) \{[\s\S]*?return;\n      \}/)?.[0] ??
     "";
@@ -25964,6 +25998,68 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/catalog-operations.test.mjs",
     ],
     "Public catalog search must be a Rust read-projection over Agentgres provider-inventory records; JS provider iteration, enrichment, result aggregation, and last-search writes must stay retired",
+  );
+  assertCheck(
+    result,
+    "model-mount-stable-read-protocol-clients",
+    /url\.pathname === "\/v1\/models\/artifacts"[\s\S]*store\.modelMounting\.listArtifacts\(\)/.test(
+      publicRuntimeRoutes,
+    ) &&
+      /url\.pathname === "\/v1\/models\/endpoints"[\s\S]*store\.modelMounting\.listEndpoints\(\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /url\.pathname === "\/v1\/models\/providers"[\s\S]*store\.modelMounting\.listProviders\(\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /url\.pathname === "\/v1\/models\/routes"[\s\S]*store\.modelMounting\.listRoutes\(\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /url\.pathname === "\/v1\/models\/catalog\/search"[\s\S]*store\.modelMounting\.catalogSearch\(Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /public runtime model catalog routes use mounted model projection surface/.test(publicRuntimeRoutesTest) &&
+      /\/v1\/models\/artifacts/.test(publicRuntimeRoutesTest) &&
+      /\/v1\/models\/endpoints/.test(publicRuntimeRoutesTest) &&
+      /\/v1\/models\/providers/.test(publicRuntimeRoutesTest) &&
+      /\/v1\/models\/routes/.test(publicRuntimeRoutesTest) &&
+      /\/v1\/models\/catalog\/search\?query=qwen/.test(publicRuntimeRoutesTest) &&
+      /listModelArtifacts\(\): Promise<ModelArtifact\[]>/.test(modelMountStableReadAgentSdkSubstrateClient) &&
+      /listModelEndpoints\(\): Promise<ModelEndpoint\[]>/.test(modelMountStableReadAgentSdkSubstrateClient) &&
+      /listModelProviders\(\): Promise<ModelProviderProfile\[]>/.test(modelMountStableReadAgentSdkSubstrateClient) &&
+      /listModelRoutes\(\): Promise<ModelRoute\[]>/.test(modelMountStableReadAgentSdkSubstrateClient) &&
+      /searchModelCatalog\(options\?: RuntimeModelCatalogSearchOptions\): Promise<ModelCatalogEntry\[]>/.test(
+        modelMountStableReadAgentSdkSubstrateClient,
+      ) &&
+      /this\.request\("listModelArtifacts", "GET", "\/v1\/models\/artifacts"\)/.test(modelMountStableReadAgentSdkSubstrateClient) &&
+      /this\.request\("listModelEndpoints", "GET", "\/v1\/models\/endpoints"\)/.test(modelMountStableReadAgentSdkSubstrateClient) &&
+      /this\.request\("listModelProviders", "GET", "\/v1\/models\/providers"\)/.test(modelMountStableReadAgentSdkSubstrateClient) &&
+      /this\.request\("listModelRoutes", "GET", "\/v1\/models\/routes"\)/.test(modelMountStableReadAgentSdkSubstrateClient) &&
+      /\/v1\/models\/catalog\/search\$\{modelCatalogSearchQuery\(options\)\}/.test(modelMountStableReadAgentSdkSubstrateClient) &&
+      /SDK lists model_mount Rust projection records through stable protocol routes/.test(modelMountStableReadAgentSdkTest) &&
+      /url\.searchParams\.has\("q"\), false/.test(modelMountStableReadAgentSdkTest) &&
+      /daemon_request\(endpoint, token, Method::GET, "\/v1\/models", None\)/.test(modelMountStableReadCliModelsLsBlock) &&
+      /daemon_request\([\s\S]*Method::GET,[\s\S]*"\/v1\/model-capabilities"/.test(
+        modelMountStableReadCliModelsCapabilitiesBlock,
+      ) &&
+      /query=\{\}/.test(modelMountStableReadCliModelsCatalogSearchBlock) &&
+      /"\/v1\/models\/catalog\/search\?\{\}"/.test(modelMountStableReadCliModelsCatalogSearchBlock) &&
+      /daemon_request\(endpoint, token, Method::GET, "\/v1\/models\/routes", None\)/.test(
+        modelMountStableReadCliRoutesLsBlock,
+      ) &&
+      !/"\/api\/v1\/models"/.test(modelMountStableReadCliModelsLsBlock) &&
+      !/"\/api\/v1\/model-capabilities"/.test(modelMountStableReadCliModelsCapabilitiesBlock) &&
+      !/"\/api\/v1\/models\/catalog\/search/.test(modelMountStableReadCliModelsCatalogSearchBlock) &&
+      !/"\/api\/v1\/routes"/.test(modelMountStableReadCliRoutesLsBlock) &&
+      /Slice 1348 hard-cuts stable model_mount read protocol clients/.test(guide) &&
+      /Model_mount stable read protocol clients/.test(matrix) &&
+      /RuntimeDaemonCoreModelMountStableReadProtocolClients/.test(implementationMatrix),
+    [
+      "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
+      "packages/agent-sdk/src/substrate-client.ts",
+      "crates/cli/src/commands/models.rs",
+      "crates/cli/src/commands/routes.rs",
+    ],
+    "Stable model_mount read clients must use /v1 Rust projection APIs; migrated CLI/SDK read commands must not fall back through older /api/v1 model_mount read routes",
   );
   assertCheck(
     result,

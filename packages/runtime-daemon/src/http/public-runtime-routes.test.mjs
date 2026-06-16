@@ -346,6 +346,26 @@ test("public runtime model catalog routes use mounted model projection surface",
           capabilities: [{ model: "model.route", features: ["chat"] }],
         };
       },
+      listArtifacts() {
+        calls.push({ method: "listArtifacts" });
+        return [{ id: "artifact.route" }];
+      },
+      listEndpoints() {
+        calls.push({ method: "listEndpoints" });
+        return [{ id: "endpoint.route" }];
+      },
+      listProviders() {
+        calls.push({ method: "listProviders" });
+        return [{ id: "provider.route" }];
+      },
+      listRoutes() {
+        calls.push({ method: "listRoutes" });
+        return [{ id: "route.route" }];
+      },
+      catalogSearch(query) {
+        calls.push({ method: "catalogSearch", query });
+        return [{ id: "catalog.route", query: query.query }];
+      },
     },
     listModels: retiredRouteWrapper,
     listModelCapabilities: retiredRouteWrapper,
@@ -370,9 +390,27 @@ test("public runtime model catalog routes use mounted model projection surface",
     capabilities: [{ model: "model.route", features: ["chat"] }],
   });
 
+  for (const [path, expected] of [
+    ["/v1/models/artifacts", [{ id: "artifact.route" }]],
+    ["/v1/models/endpoints", [{ id: "endpoint.route" }]],
+    ["/v1/models/providers", [{ id: "provider.route" }]],
+    ["/v1/models/routes", [{ id: "route.route" }]],
+    ["/v1/models/catalog/search?query=qwen", [{ id: "catalog.route", query: "qwen" }]],
+  ]) {
+    const routeResponse = responseRecorder();
+    await handleRequest({ request: request({ url: path }), response: routeResponse, store });
+    assert.equal(routeResponse.statusCode, 200);
+    assert.deepEqual(JSON.parse(routeResponse.body), expected);
+  }
+
   assert.deepEqual(calls, [
     { method: "runtimeModelCatalogList" },
     { method: "listModelCapabilities" },
+    { method: "listArtifacts" },
+    { method: "listEndpoints" },
+    { method: "listProviders" },
+    { method: "listRoutes" },
+    { method: "catalogSearch", query: { query: "qwen" } },
   ]);
 });
 

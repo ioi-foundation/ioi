@@ -353,6 +353,26 @@ export function createPublicRuntimeRequestHandler(deps) {
         writeJsonResponse(response, store.modelMounting.runtimeModelCatalogList());
         return;
       }
+      if (request.method === "GET" && url.pathname === "/v1/models/artifacts") {
+        writeJsonResponse(response, store.modelMounting.listArtifacts());
+        return;
+      }
+      if (request.method === "GET" && url.pathname === "/v1/models/endpoints") {
+        writeJsonResponse(response, store.modelMounting.listEndpoints());
+        return;
+      }
+      if (request.method === "GET" && url.pathname === "/v1/models/providers") {
+        writeJsonResponse(response, store.modelMounting.listProviders());
+        return;
+      }
+      if (request.method === "GET" && url.pathname === "/v1/models/routes") {
+        writeJsonResponse(response, store.modelMounting.listRoutes());
+        return;
+      }
+      if (request.method === "GET" && url.pathname === "/v1/models/catalog/search") {
+        writeJsonResponse(response, await store.modelMounting.catalogSearch(Object.fromEntries(url.searchParams.entries())));
+        return;
+      }
       if (request.method === "GET" && url.pathname === "/v1/model-capabilities") {
         writeJsonResponse(response, store.modelMounting.listModelCapabilities());
         return;

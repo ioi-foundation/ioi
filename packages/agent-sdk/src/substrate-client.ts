@@ -45,7 +45,15 @@ import type {
   RuntimeTurnRecord,
   SubagentMemoryInheritanceProjection,
 } from "./messages.js";
-import type { ModelCapabilityContract, RuntimeModelCatalogEntry } from "./model-mounts.js";
+import type {
+  ModelArtifact,
+  ModelCatalogEntry,
+  ModelCapabilityContract,
+  ModelEndpoint,
+  ModelProviderProfile,
+  ModelRoute,
+  RuntimeModelCatalogEntry,
+} from "./model-mounts.js";
 
 export { runtimeThreadEventFromEnvelope } from "./runtime-events.js";
 
@@ -1345,6 +1353,13 @@ export interface RuntimeComputerUseProviderRegistryReport {
   fail_closed_when_unavailable: boolean;
 }
 
+export interface RuntimeModelCatalogSearchOptions {
+  query?: string;
+  format?: string;
+  quantization?: string;
+  limit?: number;
+}
+
 export interface RuntimeSubstrateClient {
   createThread(input?: RuntimeThreadCreateInput): Promise<RuntimeThreadRecord>;
   listThreads(): Promise<RuntimeThreadRecord[]>;
@@ -1467,6 +1482,11 @@ export interface RuntimeSubstrateClient {
   discoverComputerUseProviders(): Promise<RuntimeComputerUseProviderRegistryReport>;
   scorecard(runId: string): Promise<RuntimeScorecard>;
   listModels(): Promise<RuntimeModelCatalogEntry[]>;
+  listModelArtifacts(): Promise<ModelArtifact[]>;
+  listModelEndpoints(): Promise<ModelEndpoint[]>;
+  listModelProviders(): Promise<ModelProviderProfile[]>;
+  listModelRoutes(): Promise<ModelRoute[]>;
+  searchModelCatalog(options?: RuntimeModelCatalogSearchOptions): Promise<ModelCatalogEntry[]>;
   listModelCapabilities(): Promise<ModelCapabilityContract[]>;
   listRepositories(): Promise<Array<{ url: string; source: string; status: string }>>;
   getAccount(): Promise<RuntimeAccountProfile>;
@@ -2223,6 +2243,26 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
 
   async listModels(): Promise<RuntimeModelCatalogEntry[]> {
     return this.request("listModels", "GET", "/v1/models");
+  }
+
+  async listModelArtifacts(): Promise<ModelArtifact[]> {
+    return this.request("listModelArtifacts", "GET", "/v1/models/artifacts");
+  }
+
+  async listModelEndpoints(): Promise<ModelEndpoint[]> {
+    return this.request("listModelEndpoints", "GET", "/v1/models/endpoints");
+  }
+
+  async listModelProviders(): Promise<ModelProviderProfile[]> {
+    return this.request("listModelProviders", "GET", "/v1/models/providers");
+  }
+
+  async listModelRoutes(): Promise<ModelRoute[]> {
+    return this.request("listModelRoutes", "GET", "/v1/models/routes");
+  }
+
+  async searchModelCatalog(options: RuntimeModelCatalogSearchOptions = {}): Promise<ModelCatalogEntry[]> {
+    return this.request("searchModelCatalog", "GET", `/v1/models/catalog/search${modelCatalogSearchQuery(options)}`);
   }
 
   async listModelCapabilities(): Promise<ModelCapabilityContract[]> {
@@ -3017,6 +3057,16 @@ function memoryListQuery(options: MemoryListOptions = {}): string {
 function toolListQuery(options: RuntimeToolListOptions = {}): string {
   const params = new URLSearchParams();
   if (options.pack) params.set("pack", options.pack);
+  const text = params.toString();
+  return text ? `?${text}` : "";
+}
+
+function modelCatalogSearchQuery(options: RuntimeModelCatalogSearchOptions = {}): string {
+  const params = new URLSearchParams();
+  if (options.query) params.set("query", options.query);
+  if (options.format) params.set("format", options.format);
+  if (options.quantization) params.set("quantization", options.quantization);
+  if (options.limit !== undefined) params.set("limit", String(options.limit));
   const text = params.toString();
   return text ? `?${text}` : "";
 }

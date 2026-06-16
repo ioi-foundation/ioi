@@ -1240,6 +1240,70 @@ test("daemon SDK client uses the public substrate HTTP endpoint", async () => {
   }
 });
 
+test("SDK lists model_mount Rust projection records through stable protocol routes", async () => {
+  const requests = [];
+  const server = http.createServer(async (request, response) => {
+    const url = new URL(request.url ?? "/", "http://127.0.0.1");
+    requests.push(`${request.method} ${url.pathname}${url.search}`);
+    response.setHeader("content-type", "application/json");
+    if (request.method === "GET" && url.pathname === "/v1/models/artifacts") {
+      response.end(JSON.stringify([{ id: "artifact.sdk" }]));
+      return;
+    }
+    if (request.method === "GET" && url.pathname === "/v1/models/endpoints") {
+      response.end(JSON.stringify([{ id: "endpoint.sdk" }]));
+      return;
+    }
+    if (request.method === "GET" && url.pathname === "/v1/models/providers") {
+      response.end(JSON.stringify([{ id: "provider.sdk" }]));
+      return;
+    }
+    if (request.method === "GET" && url.pathname === "/v1/models/routes") {
+      response.end(JSON.stringify([{ id: "route.sdk" }]));
+      return;
+    }
+    if (request.method === "GET" && url.pathname === "/v1/models/catalog/search") {
+      assert.equal(url.searchParams.get("query"), "qwen local");
+      assert.equal(url.searchParams.get("format"), "gguf");
+      assert.equal(url.searchParams.get("quantization"), "q4");
+      assert.equal(url.searchParams.get("limit"), "2");
+      assert.equal(url.searchParams.has("q"), false);
+      response.end(JSON.stringify([{ id: "catalog.sdk" }]));
+      return;
+    }
+    response.statusCode = 404;
+    response.end(JSON.stringify({ error: { code: "not_found", message: "missing route" } }));
+  });
+  await listen(server);
+  try {
+    const address = server.address();
+    assert.ok(address && typeof address === "object");
+    const client = createRuntimeSubstrateClient({ endpoint: `http://127.0.0.1:${address.port}` });
+
+    assert.equal((await client.listModelArtifacts()).at(0)?.id, "artifact.sdk");
+    assert.equal((await client.listModelEndpoints()).at(0)?.id, "endpoint.sdk");
+    assert.equal((await client.listModelProviders()).at(0)?.id, "provider.sdk");
+    assert.equal((await client.listModelRoutes()).at(0)?.id, "route.sdk");
+    assert.equal(
+      (await client.searchModelCatalog({
+        query: "qwen local",
+        format: "gguf",
+        quantization: "q4",
+        limit: 2,
+      })).at(0)?.id,
+      "catalog.sdk",
+    );
+
+    assert.ok(requests.includes("GET /v1/models/artifacts"));
+    assert.ok(requests.includes("GET /v1/models/endpoints"));
+    assert.ok(requests.includes("GET /v1/models/providers"));
+    assert.ok(requests.includes("GET /v1/models/routes"));
+    assert.equal(requests.some((entry) => entry.startsWith("GET /api/v1/")), false);
+  } finally {
+    await close(server);
+  }
+});
+
 test("Thread and Turn wrappers project canonical daemon events into typed SDK runtime events", async () => {
   const now = new Date().toISOString();
   const threadRecord = {

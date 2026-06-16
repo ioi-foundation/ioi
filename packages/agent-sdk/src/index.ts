@@ -64,6 +64,7 @@ export type {
   RuntimeGovernedImprovementProposalAdmissionInput,
   RuntimeGovernedImprovementProposalAdmissionResult,
   RuntimeGovernedImprovementSurface,
+  RuntimeModelCatalogSearchOptions,
   RuntimeCteePrivateWorkspaceAction,
   RuntimeCteePrivateWorkspaceActionInput,
   RuntimeCteePrivateWorkspaceActionResult,

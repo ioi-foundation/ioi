@@ -182,14 +182,14 @@ pub async fn run(args: ModelsArgs) -> Result<()> {
     let token = args.token.as_deref();
     let value = match args.command {
         ModelsCommands::Ls => {
-            daemon_request(endpoint, token, Method::GET, "/api/v1/models", None).await?
+            daemon_request(endpoint, token, Method::GET, "/v1/models", None).await?
         }
         ModelsCommands::Capabilities => {
             daemon_request(
                 endpoint,
                 token,
                 Method::GET,
-                "/api/v1/model-capabilities",
+                "/v1/model-capabilities",
                 None,
             )
             .await?
@@ -210,7 +210,7 @@ pub async fn run(args: ModelsArgs) -> Result<()> {
             quantization,
             limit,
         } => {
-            let mut params = vec![format!("q={}", query.replace(' ', "%20"))];
+            let mut params = vec![format!("query={}", query.replace(' ', "%20"))];
             if let Some(format) = format {
                 params.push(format!("format={}", format.replace(' ', "%20")));
             }
@@ -224,7 +224,7 @@ pub async fn run(args: ModelsArgs) -> Result<()> {
                 endpoint,
                 token,
                 Method::GET,
-                &format!("/api/v1/models/catalog/search?{}", params.join("&")),
+                &format!("/v1/models/catalog/search?{}", params.join("&")),
                 None,
             )
             .await?

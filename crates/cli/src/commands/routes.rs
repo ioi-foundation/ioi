@@ -43,7 +43,7 @@ pub async fn run(args: RoutesArgs) -> Result<()> {
     let token = args.token.as_deref();
     let value = match args.command {
         RoutesCommands::Ls => {
-            daemon_request(endpoint, token, Method::GET, "/api/v1/routes", None).await?
+            daemon_request(endpoint, token, Method::GET, "/v1/models/routes", None).await?
         }
         RoutesCommands::Test {
             id,

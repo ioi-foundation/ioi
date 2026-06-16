@@ -11305,6 +11305,22 @@ through the same stable body envelope used for tool calls, and conformance
 guards that the retired SDK query builder, query context merge, top-level serve
 transport, and raw JSON-RPC compatibility path cannot return.
 
+Slice 1348 hard-cuts stable model_mount read protocol clients. Public
+`/v1/models/artifacts`, `/v1/models/endpoints`, `/v1/models/providers`,
+`/v1/models/routes`, and `/v1/models/catalog/search` now call the mounted
+Rust-owned model_mount read projections for artifact, endpoint, provider,
+route, and catalog-search truth. SDK clients expose
+`listModelArtifacts()`, `listModelEndpoints()`, `listModelProviders()`,
+`listModelRoutes()`, and `searchModelCatalog()` over those stable protocol
+routes, while CLI `models ls`, `models capabilities`, `models catalog-search`,
+and `routes ls` no longer use the older `/api/v1` model_mount read URLs.
+Conformance guards the stable route surface, SDK methods, CLI read-command
+URLs, and the absence of the retired client read fallbacks for migrated read
+commands. This remains non-terminal because hosted/provider materialization,
+OAuth/auth-header materialization, backend execution/materialization,
+invocation authority depth, IDE protocol coverage, and mutation/control SDK
+coverage still need terminal Rust-owned materialization and replay records.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The
