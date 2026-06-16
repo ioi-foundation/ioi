@@ -40,8 +40,6 @@ export const OPERATOR_STEER_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.operator-steer-state-update-request.v1";
 export const RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.run-cancel-state-update-request.v1";
-export const RUN_CANCEL_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION =
-  "ioi.runtime.run-cancel-admission-required-request.v1";
 export const RUNTIME_TASK_JOB_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.task-job-cancel-state-update-request.v1";
 export const RUNTIME_TASK_JOB_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
@@ -201,8 +199,6 @@ export const RUNTIME_CONTROL_OPERATOR_STEER_STATE_UPDATE_API_METHOD =
   "planOperatorSteerStateUpdate";
 export const RUNTIME_CONTROL_RUN_CANCEL_STATE_UPDATE_API_METHOD =
   "planRunCancelStateUpdate";
-export const RUNTIME_CONTROL_RUN_CANCEL_ADMISSION_REQUIRED_API_METHOD =
-  "planRunCancelAdmissionRequired";
 export const RUNTIME_CONTROL_TASK_JOB_CANCEL_STATE_UPDATE_API_METHOD =
   "planRuntimeTaskJobCancelStateUpdate";
 export const RUNTIME_CONTROL_TASK_JOB_CREATE_STATE_UPDATE_API_METHOD =
@@ -519,14 +515,6 @@ export class RuntimeContextPolicyCore {
       RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
     ));
-  }
-
-  planRunCancelAdmissionRequired(request = {}) {
-    return this.invokeRuntimeControlApi(
-      RUNTIME_CONTROL_RUN_CANCEL_ADMISSION_REQUIRED_API_METHOD,
-      RUN_CANCEL_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
-      request,
-    );
   }
 
   planRuntimeTaskJobCancelStateUpdate(request = {}) {

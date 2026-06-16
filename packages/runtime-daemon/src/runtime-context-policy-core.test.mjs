@@ -27,7 +27,6 @@ import {
   RUNTIME_CONTROL_OPERATOR_INTERRUPT_STATE_UPDATE_API_METHOD,
   RUNTIME_CONTROL_OPERATOR_STEER_STATE_UPDATE_API_METHOD,
   RUNTIME_CONTROL_OPERATOR_TURN_CONTROL_ADMISSION_REQUIRED_API_METHOD,
-  RUNTIME_CONTROL_RUN_CANCEL_ADMISSION_REQUIRED_API_METHOD,
   RUNTIME_CONTROL_RUN_CANCEL_STATE_UPDATE_API_METHOD,
   RUNTIME_CONTROL_TASK_JOB_CANCEL_STATE_UPDATE_API_METHOD,
   RUNTIME_CONTROL_TASK_JOB_CREATE_STATE_UPDATE_API_METHOD,
@@ -143,7 +142,6 @@ import {
   RUNTIME_BRIDGE_THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   RUNTIME_BRIDGE_TURN_RUN_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   RUN_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
-  RUN_CANCEL_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
   RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   RUNTIME_TASK_JOB_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   RUNTIME_TASK_JOB_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
@@ -2237,51 +2235,20 @@ test("run cancel state update core sends Rust state update through direct runtim
   assert.equal(result.run.events.at(-1).type, "canceled");
 });
 
-test("run cancel admission-required core sends Rust request through direct runtime-control API", () => {
-  const { calls, runner } = createRuntimeControlDirectCore(
-    RUNTIME_CONTROL_RUN_CANCEL_ADMISSION_REQUIRED_API_METHOD,
-    () => ({
-            source: "rust_run_cancel_admission_required_api",
-            backend: "rust_policy",
-            record: {
-              status_code: 501,
-              code: "runtime_run_cancel_rust_core_required",
-              message:
-                "Run cancellation requires direct Rust daemon-core state admission and persistence.",
-              details: {
-                rust_core_boundary: "runtime.run_cancel",
-                operation: "run_cancel",
-                operation_kind: "run.cancel",
-                run_id: "run_cancel_one",
-                run_status: "running",
-                evidence_refs: ["runtime_run_cancel_js_facade_retired"],
-              },
-            },
-          }),
-  );
-
-  const result = runner.planRunCancelAdmissionRequired({
-    operation: "run_cancel",
-    operation_kind: "run.cancel",
-    run_id: "run_cancel_one",
-    run_status: "running",
-    evidence_refs: ["runtime_run_cancel_js_facade_retired"],
+test("run cancel admission-required direct runtime-control API remains retired", () => {
+  const runner = createRuntimeContextPolicyCore({
+    daemonCoreRuntimeControlApi: {
+      invoke() {
+        assert.fail("Retired run-cancel admission-required API must not be invoked.");
+      },
+    },
   });
 
-  assert.equal(calls.length, 1);
-  assert.equal(calls[0].method, RUNTIME_CONTROL_RUN_CANCEL_ADMISSION_REQUIRED_API_METHOD);
   assert.equal(
-    calls[0].request.schema_version,
-    RUN_CANCEL_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
+    Object.hasOwn(RuntimeContextPolicyCore.prototype, "planRunCancelAdmissionRequired"),
+    false,
   );
-  assert.equal(calls[0].request.operation, "run_cancel");
-  assert.equal(calls[0].request.operation_kind, "run.cancel");
-  assert.equal(Object.hasOwn(calls[0].request, "backend"), false);
-  assert.equal(result.source, "rust_run_cancel_admission_required_api");
-  assert.equal(result.record.status_code, 501);
-  assert.equal(result.record.details.run_id, "run_cancel_one");
-  assert.equal(Object.hasOwn(result.record.details, "runId"), false);
-  assert.equal(Object.hasOwn(result.record.details, "runStatus"), false);
+  assert.equal(typeof runner.planRunCancelAdmissionRequired, "undefined");
 });
 
 test("runtime task job cancel core sends Rust state update through typed runtime-control API", () => {

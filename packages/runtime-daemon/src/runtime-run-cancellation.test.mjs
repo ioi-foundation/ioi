@@ -148,31 +148,12 @@ test("cancelRun facade fails closed when Rust state planner is missing", () => {
   assert.deepEqual(state.writes, []);
 });
 
-test("cancelRun facade uses explicit Rust daemon-core admission-required planner when state planner is absent", () => {
+test("cancelRun ignores retired admission-required fallback when state planner is absent", () => {
   const run = runFixture();
-  const runnerCalls = [];
   const state = fakeState(run);
   const contextPolicyCore = {
-    planRunCancelAdmissionRequired(request) {
-      runnerCalls.push(request);
-      return {
-        source: "rust_run_cancel_admission_required_api",
-        backend: "rust_policy",
-        record: {
-          status_code: 501,
-          code: "runtime_run_cancel_rust_core_required",
-          message:
-            "Run cancellation requires direct Rust daemon-core state admission and persistence.",
-          details: {
-            rust_core_boundary: "runtime.run_cancel",
-            operation: request.operation,
-            operation_kind: request.operation_kind,
-            run_id: request.run_id,
-            run_status: request.run_status,
-            evidence_refs: request.evidence_refs,
-          },
-        },
-      };
+    planRunCancelAdmissionRequired() {
+      assert.fail("Retired run-cancel admission-required fallback must not be invoked.");
     },
   };
 
@@ -197,18 +178,6 @@ test("cancelRun facade uses explicit Rust daemon-core admission-required planner
     },
   );
 
-  assert.deepEqual(runnerCalls, [{
-    operation: "run_cancel",
-    operation_kind: "run.cancel",
-    run_id: run.id,
-    run_status: "running",
-    source: undefined,
-    evidence_refs: [
-      "runtime_run_cancel_js_facade_retired",
-      "rust_daemon_core_run_cancel_required",
-      "agentgres_run_cancel_state_truth_required",
-    ],
-  }]);
   assert.equal(state.runs.get(run.id), run);
   assert.deepEqual(state.writes, []);
 });

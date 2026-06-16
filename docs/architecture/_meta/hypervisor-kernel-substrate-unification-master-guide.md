@@ -5278,7 +5278,7 @@ artifact helpers plus internal memory and conversation-artifact projection
 helpers are scaffolding only until Rust daemon-core catalog, lifecycle, agent/run
 admission, memory admission/projection, durable managed-session
 storage/replay/projection, workspace-change control, durable thread-fork
-storage/replay/projection, run-cancel admission, runtime thread/turn control, and
+storage/replay/projection, run-cancel replay/projection, runtime thread/turn control, and
 conversation-artifact projection over Agentgres-admitted truth,
 ArtifactRef/PayloadRef binding where needed, wallet/network and cTEE authority
 where required, receipt/state-root binding, replay, and stable IDE/CLI/SDK
@@ -9683,15 +9683,16 @@ materialization, and stable IDE/CLI/SDK protocol APIs still need terminal
 Rust-owned materialization and projection/replay records.
 
 Slice 1230 retires the run-cancel command-shaped Rust owner wrappers. The
-run-cancel policy child keeps only `RunCancelStateUpdateCore` and
-`RunCancelAdmissionRequiredCore` plus the direct `RuntimeKernelService`
-methods; `RunCancelCommandError`, `RunCancel*BridgeRequest`,
+run-cancel policy child keeps only `RunCancelStateUpdateCore` and the internal
+`RunCancelAdmissionRequiredCore` owner, while the direct public
+`RuntimeKernelService` hot path uses the positive state-update planner;
+`RunCancelCommandError`, `RunCancel*BridgeRequest`,
 `plan_run_cancel_*_response`, and `rust_run_cancel_*_command` source markers
-are deleted. `RuntimeContextPolicyCore` now normalizes run-cancel state updates
-as `rust_run_cancel_state_update_api`, admission-required refusals use
-`rust_run_cancel_admission_required_api`, and conformance fails if the old
-command wrappers, bridge request types, or command source markers return. This
-remains non-terminal because wallet/operator authority, cancellation
+are deleted. `RuntimeContextPolicyCore` normalizes run-cancel state updates as
+`rust_run_cancel_state_update_api`, and conformance fails if the old command
+wrappers, bridge request types, command source markers, or JS
+`planRunCancelAdmissionRequired` direct API return. This remains non-terminal
+because wallet/operator authority, cancellation
 replay/projection storage, direct lifecycle protocol APIs, durable
 replay/storage, and stable IDE/CLI/SDK protocol APIs still need terminal
 Rust-owned records.
@@ -10456,13 +10457,13 @@ ArtifactRef/PayloadRef binding where needed, and stable IDE/CLI/SDK
 workflow-edit clients, not a JS runner fallback.
 
 Slice 1299 hard-cuts run-cancel runner injection scaffolding. `cancelRun()` no
-longer reads `state.runCancelRunner`; cancellation state planning and
-admission-required refusal shaping now resolve through the Rust daemon-core
-mount that the auxiliary surface passes explicitly before Agentgres-backed
-`writeRun` persistence. Conformance guards that the retired runner alias cannot
-return. Remaining work is wallet/operator authority depth, cancellation
-replay/projection storage, and direct Rust lifecycle APIs, not a JS runner
-fallback.
+longer reads `state.runCancelRunner`; cancellation state planning now resolves
+through the Rust daemon-core mount that the auxiliary surface passes explicitly
+before Agentgres-backed `writeRun` persistence. Missing state planning fails
+closed without an alternate JS runner. Conformance guards that the retired
+runner alias cannot return. Remaining work is wallet/operator authority depth,
+cancellation replay/projection storage, and direct Rust lifecycle APIs, not a JS
+runner fallback.
 
 Slice 1300 hard-cuts coding-tool budget recovery runner injection scaffolding.
 `createRuntimeCodingToolBudgetRecoverySurface()` no longer accepts
@@ -10702,13 +10703,13 @@ Slice 1319 hard-cuts the run-cancel state-core fallback. `cancelRun()` now
 accepts the positive `contextPolicyCore` mount explicitly from
 `createRuntimeThreadAuxiliarySurface()` and from subagent cancellation
 composition; it no longer reads `state.contextPolicyCore` or
-`state?.contextPolicyCore` for state planning or admission-required refusal
-shaping. Focused cancellation tests mount fake Rust planners through the call
-dependency object, subagent cancellation tests assert that the mounted core is
-forwarded, and conformance guards the absent state lookup plus the auxiliary
-surface call. Remaining work is wallet/operator authority depth, durable
-cancellation replay/projection storage, direct Rust lifecycle APIs, and stable
-protocol clients, not an alternate state-mounted Rust core fallback.
+`state?.contextPolicyCore` for state planning, and missing state planning fails
+closed canonically. Focused cancellation tests mount fake Rust planners through
+the call dependency object, subagent cancellation tests assert that the mounted
+core is forwarded, and conformance guards the absent state lookup plus the
+auxiliary surface call. Remaining work is wallet/operator authority depth,
+durable cancellation replay/projection storage, direct Rust lifecycle APIs, and
+stable protocol clients, not an alternate state-mounted Rust core fallback.
 
 Slice 1320 hard-cuts the runtime MCP single-core mount fallback. Daemon startup
 now injects the same positive `contextPolicyCore` mount into MCP catalog,
@@ -12246,6 +12247,18 @@ serializes no `config_compatibility` output. Focused JS/Rust tests and
 conformance now require the field to be absent or fail-closed so MCP registry
 truth cannot preserve a config-source compatibility side channel beside the
 Rust-owned manager/catalog projection.
+
+Slice 1400 hard-cuts the run-cancel admission-required JS direct API. Public
+run cancellation now has one JS-facing Rust authority call:
+`daemonCoreRuntimeControlApi.planRunCancelStateUpdate`. When that positive
+state planner is missing, `cancelRun()` emits the canonical fail-closed
+`runtime_run_cancel_rust_core_required` error locally and no longer invokes a
+`planRunCancelAdmissionRequired` hook, shapes a returned refusal record, or
+keeps the retired request schema/API method on `RuntimeContextPolicyCore`.
+Focused cancellation tests prove the old hook is ignored, context-policy tests
+prove the direct API method is absent, and conformance now rejects the old JS
+method, schema, hot-path call, and positive admission-required test so this
+fallback cannot return beside the Rust-owned cancel state-update path.
 
 ## Final Doctrine
 

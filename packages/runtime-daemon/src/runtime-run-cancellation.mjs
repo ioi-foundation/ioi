@@ -12,16 +12,10 @@ export function cancelRun(state, runId, { contextPolicyCore = null } = {}) {
     run_status: run?.status ?? null,
   };
   if (!objectRecord(run)) {
-    throwRunCancelRustCoreRequired({
-      contextPolicyCore,
-      ...operationDetails,
-    });
+    throwRunCancelRustCoreRequired(operationDetails);
   }
   if (typeof contextPolicyCore?.planRunCancelStateUpdate !== "function") {
-    throwRunCancelRustCoreRequired({
-      contextPolicyCore,
-      ...operationDetails,
-    });
+    throwRunCancelRustCoreRequired(operationDetails);
   }
   if (typeof state.writeRun !== "function") {
     throwRunCancelStateUpdateError({
@@ -105,38 +99,12 @@ export function cancelRun(state, runId, { contextPolicyCore = null } = {}) {
 }
 
 function throwRunCancelRustCoreRequired(details = {}) {
-  const { contextPolicyCore = null, ...errorDetails } = details;
-  if (contextPolicyCore?.planRunCancelAdmissionRequired) {
-    const record = contextPolicyCore.planRunCancelAdmissionRequired({
-      operation: errorDetails.operation,
-      operation_kind: errorDetails.operation_kind,
-      run_id: errorDetails.run_id,
-      run_status: errorDetails.run_status,
-      source: errorDetails.source,
-      evidence_refs: runCancelEvidenceRefs(),
-    });
-    const planned = record?.record ?? record;
-    const error = new Error(
-      optionalString(planned?.message ?? record?.message) ??
-        "Run cancellation requires direct Rust daemon-core state admission and persistence.",
-    );
-    error.status = Number(planned?.status_code ?? record?.status_code ?? 501);
-    error.code =
-      optionalString(planned?.code ?? record?.code) ??
-      "runtime_run_cancel_rust_core_required";
-    error.details = planned?.details ?? record?.details ?? {
-      rust_core_boundary: "runtime.run_cancel",
-      ...errorDetails,
-      evidence_refs: runCancelEvidenceRefs(),
-    };
-    throw error;
-  }
   const error = new Error("Run cancellation requires direct Rust daemon-core state admission and persistence.");
   error.status = 501;
   error.code = "runtime_run_cancel_rust_core_required";
   error.details = {
     rust_core_boundary: "runtime.run_cancel",
-    ...errorDetails,
+    ...details,
     evidence_refs: runCancelEvidenceRefs(),
   };
   throw error;

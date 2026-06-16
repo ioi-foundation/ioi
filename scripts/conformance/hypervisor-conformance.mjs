@@ -13212,22 +13212,31 @@ function runBridge() {
       !/bridge_plans_run_cancel_admission_required_through_rust_core/.test(bridgeModule) &&
       !/fn plan_run_cancel_admission_required/.test(bridgeModule) &&
       !/struct RunCancelAdmissionRequiredBridgeRequest/.test(bridgeModule) &&
-      /RUNTIME_CONTROL_RUN_CANCEL_ADMISSION_REQUIRED_API_METHOD =\s*"planRunCancelAdmissionRequired"/.test(
-        runtimeContextPolicyCore,
-      ) &&
       !/operation:\s*"plan_run_cancel_admission_required"/.test(runtimeContextPolicyCore) &&
       !/CommandOperation::PlanRunCancelAdmissionRequired/.test(commandProtocolCore) &&
       !/"plan_run_cancel_admission_required"\s*=>/.test(commandProtocolCore) &&
       !/plan_run_cancel_admission_required_response\(decode\(raw_request\)\?\)/.test(
         coreCommandDispatch,
       ) &&
-      /planRunCancelAdmissionRequired\(request = \{\}\)/.test(
+      !/RUNTIME_CONTROL_RUN_CANCEL_ADMISSION_REQUIRED_API_METHOD/.test(
         runtimeContextPolicyCore,
       ) &&
-      /run cancel admission-required core sends Rust request through direct runtime-control API/.test(
+      !/RUN_CANCEL_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION/.test(
+        runtimeContextPolicyCore,
+      ) &&
+      !/planRunCancelAdmissionRequired\(request = \{\}\)/.test(
+        runtimeContextPolicyCore,
+      ) &&
+      /run cancel admission-required direct runtime-control API remains retired/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /rust_run_cancel_admission_required_api/.test(runtimeContextPolicyCoreTest) &&
+      /Object\.hasOwn\(RuntimeContextPolicyCore\.prototype,\s*"planRunCancelAdmissionRequired"\),\s*false/.test(
+        runtimeContextPolicyCoreTest,
+      ) &&
+      !/run cancel admission-required core sends Rust request through direct runtime-control API/.test(
+        runtimeContextPolicyCoreTest,
+      ) &&
+      !/rust_run_cancel_admission_required_api/.test(runtimeContextPolicyCoreTest) &&
       /runtime_run_cancel_rust_core_required/.test(runtimeRunCancellation) &&
       /rust_core_boundary:\s*"runtime\.run_cancel"/.test(runtimeRunCancellation) &&
       /runtime_run_cancel_js_facade_retired/.test(runtimeRunCancellation) &&
@@ -13235,6 +13244,7 @@ function runBridge() {
       /agentgres_run_cancel_state_truth_required/.test(runtimeRunCancellation) &&
       /operation_kind:\s*"run\.cancel"/.test(runtimeRunCancellation) &&
       /planRunCancelStateUpdate/.test(runtimeRunCancellation) &&
+      !/planRunCancelAdmissionRequired/.test(runtimeRunCancellation) &&
       !/runCancelRunner/.test(runtimeRunCancellation) &&
       !/state\??\.contextPolicyCore/.test(runtimeRunCancellation) &&
       /run_cancel_state_update_run_missing/.test(runtimeRunCancellation) &&
@@ -13254,7 +13264,10 @@ function runBridge() {
       /cancelRun facade fails closed when Rust state planner is missing/.test(
         runtimeRunCancellationTest,
       ) &&
-      /cancelRun facade uses explicit Rust daemon-core admission-required planner when state planner is absent/.test(
+      /cancelRun ignores retired admission-required fallback when state planner is absent/.test(
+        runtimeRunCancellationTest,
+      ) &&
+      /Retired run-cancel admission-required fallback must not be invoked/.test(
         runtimeRunCancellationTest,
       ) &&
       !/state\??\.contextPolicyCore/.test(runtimeRunCancellationTest) &&
