@@ -10,14 +10,22 @@ function resolveEnvPath(name, fallback) {
   return value ? resolve(value) : fallback;
 }
 
+function preferredLocalPath(targetPath, legacyPath) {
+  return existsSync(targetPath) ? targetPath : legacyPath;
+}
+
 function envFlag(name) {
   return ["1", "true", "yes"].includes(
     String(process.env[name] ?? "").toLowerCase(),
   );
 }
 
-const localizedPackagedRoot = resolve(repoRoot, "ide/builds/VSCode-linux-x64");
-const localizedForkRoot = resolve(repoRoot, "ide/vscode");
+const targetPackagedRoot = resolve(repoRoot, "workbench-adapters/builds/VSCode-linux-x64");
+const legacyPackagedRoot = resolve(repoRoot, "ide/builds/VSCode-linux-x64");
+const targetForkRoot = resolve(repoRoot, "workbench-adapters/vscode");
+const legacyForkRoot = resolve(repoRoot, "ide/vscode");
+const localizedPackagedRoot = preferredLocalPath(targetPackagedRoot, legacyPackagedRoot);
+const localizedForkRoot = preferredLocalPath(targetForkRoot, legacyForkRoot);
 
 const packagedRoot = resolveEnvPath(
   "AUTOPILOT_VSCODE_PACKAGED_ROOT",
@@ -46,6 +54,10 @@ export const AUTOPILOT_ELECTRON = {
   forkRoot,
   localizedPackagedRoot,
   localizedForkRoot,
+  targetPackagedRoot,
+  legacyPackagedRoot,
+  targetForkRoot,
+  legacyForkRoot,
   extensionSource,
   packagedWorkbenchTarget,
   forkWorkbenchTarget,

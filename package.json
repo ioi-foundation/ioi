@@ -8,8 +8,8 @@
   "scripts": {
     "install:all": "npm install",
     "inspect:traineddata": "node ./scripts/inspect-traineddata.mjs",
-    "dev:desktop": "node scripts/launch-autopilot-ide-fork.mjs",
-    "dev:desktop:wayland": "node scripts/launch-autopilot-ide-fork.mjs --ozone-platform=wayland",
+    "dev:desktop": "node scripts/launch-hypervisor-workbench-adapter-host.mjs",
+    "dev:desktop:wayland": "node scripts/launch-hypervisor-workbench-adapter-host.mjs --ozone-platform=wayland",
     "probe:desktop:workspace": "python3 apps/autopilot/scripts/desktop_workspace_probe.py",
     "probe:desktop:workspace:activity": "python3 apps/autopilot/scripts/desktop_workspace_activity_probe.py",
     "probe:desktop:workspace:toolbar": "python3 apps/autopilot/scripts/desktop_workspace_toolbar_probe.py",

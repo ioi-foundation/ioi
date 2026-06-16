@@ -320,7 +320,7 @@ async function discoverProviderModels(endpoint, token, providerId) {
     return Array.isArray(models) ? models : [];
   } catch (error) {
     console.warn(
-      `[Autopilot IDE] ${providerId} model discovery skipped: ${error?.message || String(error)}`,
+      `[Hypervisor Workbench Adapter] ${providerId} model discovery skipped: ${error?.message || String(error)}`,
     );
     return [];
   }
@@ -349,7 +349,7 @@ async function mountDiscoveredModels(endpoint, token, providerId, models, mounte
       mounted.push(endpointRecord);
     } catch (error) {
       console.warn(
-        `[Autopilot IDE] ${modelId} mount projection skipped: ${error?.message || String(error)}`,
+        `[Hypervisor Workbench Adapter] ${modelId} mount projection skipped: ${error?.message || String(error)}`,
       );
     }
   }
@@ -363,7 +363,7 @@ async function bootstrapConfiguredLlamaCppModel(endpoint, token, mountedCount) {
     return { mounted: [], route: null, loaded: null, reason: "No local GGUF model discovered for llama.cpp" };
   }
   if (!existsSync(modelPath)) {
-    console.warn(`[Autopilot IDE] llama.cpp model path does not exist: ${modelPath}`);
+    console.warn(`[Hypervisor Workbench Adapter] llama.cpp model path does not exist: ${modelPath}`);
     return { mounted: [], route: null, loaded: null, reason: "model_path_missing" };
   }
   if (!firstNonEmptyEnv(["IOI_LLAMA_CPP_MODEL_PATH"])) {
@@ -448,7 +448,7 @@ async function bootstrapConfiguredLlamaCppModel(endpoint, token, mountedCount) {
       },
     },
   }).catch((error) => {
-    console.warn(`[Autopilot IDE] configured llama.cpp pre-load skipped: ${error?.message || String(error)}`);
+    console.warn(`[Hypervisor Workbench Adapter] configured llama.cpp pre-load skipped: ${error?.message || String(error)}`);
     return null;
   });
 
@@ -494,7 +494,7 @@ async function bootstrapLocalModelDiscovery(endpoint, token) {
       },
     }).catch((error) => {
       console.warn(
-        `[Autopilot IDE] route.native-local projection skipped: ${error?.message || String(error)}`,
+        `[Hypervisor Workbench Adapter] route.native-local projection skipped: ${error?.message || String(error)}`,
       );
       return null;
     });
@@ -530,7 +530,7 @@ async function startManagedDaemon() {
     discovery,
   );
   const ready = {
-    schemaVersion: "ioi.autopilot-ide.daemon-ready.v1",
+    schemaVersion: "ioi.hypervisor-workbench-adapter-host.daemon-ready.v1",
     endpoint: daemon.endpoint,
     stateDir: daemon.stateDir,
     modelDiscovery: discovery,
@@ -541,18 +541,18 @@ async function startManagedDaemon() {
     generatedAt: new Date().toISOString(),
   };
   writeFileSync(
-    resolve(stateDir, "autopilot-ide-daemon-ready.json"),
+    resolve(stateDir, "hypervisor-workbench-adapter-host-daemon-ready.json"),
     `${JSON.stringify(ready, null, 2)}\n`,
   );
   console.log(
-    `[Autopilot IDE] IOI daemon ready at ${daemon.endpoint}; discovered ${discovery.mounted.length} local model mount(s).`,
+    `[Hypervisor Workbench Adapter] IOI daemon ready at ${daemon.endpoint}; discovered ${discovery.mounted.length} local model mount(s).`,
   );
   return { daemon, endpoint: daemon.endpoint, token: grant.token, discovery };
 }
 
 if (!existsSync(binary)) {
   console.error(
-    `Autopilot VS Code/Electron fork binary not found at ${binary}. Set AUTOPILOT_VSCODE_FORK_BIN to override.`,
+    `Hypervisor Workbench adapter host binary not found at ${binary}. Set AUTOPILOT_VSCODE_FORK_BIN to override.`,
   );
   process.exit(1);
 }
@@ -564,7 +564,7 @@ function syncWorkbenchExtension() {
   const copied = sync.copied.map((target) => target.kind).join(", ");
   const skipped = sync.skipped.map((target) => target.kind).join(", ");
   console.log(
-    `[Autopilot IDE] Synced ioi-workbench extension into ${copied}.` +
+    `[Hypervisor Workbench Adapter] Synced ioi-workbench extension into ${copied}.` +
       (skipped ? ` Skipped optional ${skipped}.` : "") +
       ` Installed Workbench shell patch at ${shellPatch.installedAt}.`,
   );
@@ -581,6 +581,7 @@ const child = spawn(binary, launchArgs, {
   cwd: repoRoot,
   env: {
     ...process.env,
+    IOI_HYPERVISOR_WORKBENCH_ADAPTER_HOST: "vscode-electron-packaged-host",
     IOI_AUTOPILOT_CANONICAL_SHELL: "vscode-electron-fork",
     IOI_WORKBENCH_NATIVE_SHELL: "1",
     ...(boot.endpoint ? { IOI_DAEMON_ENDPOINT: boot.endpoint } : {}),
@@ -624,5 +625,5 @@ child.on("exit", async (code, signal) => {
   if (!managedDaemon) {
     process.exit(code ?? 0);
   }
-  console.log("[Autopilot IDE] Electron fork handed off to the desktop session; daemon sidecar remains supervised. Press Ctrl+C to stop it.");
+  console.log("[Hypervisor Workbench Adapter] Electron host handed off to the desktop session; daemon sidecar remains supervised. Press Ctrl+C to stop it.");
 });

@@ -90,7 +90,7 @@ const rootMarkdownFiles = fs
   .readdirSync(architectureRoot, { withFileTypes: true })
   .filter((entry) => entry.isFile() && entry.name.endsWith(".md"))
   .map((entry) => entry.name);
-const allowedRootMarkdown = new Set(["README.md"]);
+const allowedRootMarkdown = new Set(["README.md", "START_HERE.md"]);
 for (const file of rootMarkdownFiles) {
   if (!allowedRootMarkdown.has(file)) {
     fail(`docs/architecture/${file} must live in a subject directory or be moved to README.md.`);
@@ -176,7 +176,8 @@ for (const required of [
   "components/agentgres/api-object-model.md",
   "components/daemon-runtime/events-receipts-delivery-bundles.md",
   "IOI daemon = hypervisor/control plane for autonomous execution",
-  "Autopilot Workbench = IDE-grade operator console",
+  "Hypervisor App/Web/CLI-headless = first-class clients over Hypervisor Core",
+  "Hypervisor Workbench/Foundry/Fleet = application surfaces over Hypervisor Core",
   "IOI Authority Gateway = compatibility adapter profile",
 ]) {
   if (!index.includes(required)) {
@@ -191,11 +192,12 @@ const sourceMap = fs.readFileSync(
 for (const required of [
   "`prim:*`",
   "`scope:*`",
-  "Autopilot Workbench is the IDE-grade operator console",
-  "the Electron/VS Code fork is the canonical Autopilot app shell",
+  "Hypervisor App, Hypervisor Web, and Hypervisor CLI/headless are",
+  "Hypervisor Workbench replaces \"Hypervisor IDE\" as the live code/systems",
+  "adapter targets, not Hypervisor's product identity",
   "IOI Authority Gateway is the daemon sidecar/compatibility profile",
   "the daemon authorizes anything",
-  "SDK, CLI, GUI, harness, benchmark, compositor boundaries",
+  "SDK, CLI/headless, GUI, harness, benchmark, compositor, and agent-harness-adapter boundaries",
   "Smarter-agent runtime loop",
   "Decision History Policy",
 ]) {
@@ -225,11 +227,11 @@ const vocabulary = fs.readFileSync(
   "utf8",
 );
 for (const required of [
-  "`AutopilotWorkbench`",
+  "`HypervisorWorkbench`",
   "`IOIAuthorityGateway`",
-  "`AutopilotGuard`",
+  "`HypervisorGuard`",
   "`CompatibilityAdapter`",
-  "`AutopilotAppShell`",
+  "`HypervisorAppShell`",
   "`GuestWorkload`",
   "`TrustAuditSubstrate`",
 ]) {

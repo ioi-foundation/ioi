@@ -697,7 +697,7 @@ test("model mounting live-provider gates are explicit and opt-in", () => {
 });
 
 test("Autopilot desktop bootstrap keeps product Studio routes on native llama.cpp", () => {
-  const source = fs.readFileSync(path.join(root, "scripts", "launch-autopilot-ide-fork.mjs"), "utf8");
+  const source = fs.readFileSync(path.join(root, "scripts", "launch-hypervisor-workbench-adapter-host.mjs"), "utf8");
   assert.match(source, /function isProductRuntimeEndpoint/);
   assert.match(source, /function discoverNativeLlamaServerPath/);
   assert.match(source, /function discoverNativeGgufModelPath/);

@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "ioi.hypervisor.workbench-adapter-host.manifest.v1",
+  "adapterHost": "vscode-electron-packaged-host",
+  "targetRoot": "workbench-adapters",
+  "legacyRoot": "ide",
+  "sourceFork": {
+    "defaultPath": "workbench-adapters/vscode",
+    "legacyPath": "ide/vscode",
+    "optionalForRuntimeLaunch": true,
+    "upstream": "https://github.com/microsoft/vscode.git",
+    "localBranchHint": "antigravity/main"
+  },
+  "packagedApp": {
+    "defaultPath": "workbench-adapters/builds/VSCode-linux-x64",
+    "legacyPath": "ide/builds/VSCode-linux-x64",
+    "binary": "workbench-adapters/builds/VSCode-linux-x64/bin/hypervisor",
+    "legacyBinary": "ide/builds/VSCode-linux-x64/bin/autopilot",
+    "requiredForRuntimeLaunch": true
+  },
+  "workbenchSource": "apps/autopilot/openvscode-extension/ioi-workbench",
+  "runtimeAuthority": "packages/runtime-daemon",
+  "doctrine": [
+    "Hypervisor App is the product client; Workbench is one application surface.",
+    "Electron/VS Code is one Workbench adapter host, not product identity or runtime truth.",
+    "ioi-workbench is the current Workbench extension/API layer.",
+    "IOI daemon is the runtime authority and durable execution boundary.",
+    "Tauri/OpenVSCode embedding is legacy extraction inventory and must not be revived.",
+    "The tracked adapter metadata lives under workbench-adapters/; ide/ is legacy local artifact storage only."
+  ]
+}

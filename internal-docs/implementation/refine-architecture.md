@@ -771,6 +771,7 @@ Implementation phases:
 | Phase | Objective | Main files | Acceptance |
 | --- | --- | --- | --- |
 | 0A.1 Product-shell rename and route map | Introduce Hypervisor naming without relying on old Autopilot tab semantics. | `apps/autopilot/src/main.tsx`, `AutopilotShellWindow/*`, CSS, tests | App copy says Hypervisor; compatibility names are implementation-only. |
+| 0A.1B Retire IDE-root naming | Rename launcher/script/docs away from `ide`/Electron-as-product language and move tracked adapter metadata to `workbench-adapters/`. | `workbench-adapters/`, launcher scripts, package scripts, conformance readers | Electron/VS Code is one Workbench adapter host; root `ide/` is legacy local artifact storage only. |
 | 0A.2 App shell IA | Build IOI-reference shell with left rail, New Session, sessions rail, main surface, right inspector, and bottom inspector. | `AutopilotShellContent.tsx`, `ChatLocalActivityBar.tsx`, `ChatLeftSidebarShell.tsx`, shell CSS | Home opens as app cockpit, not Code repositories/OpenVSCode. |
 | 0A.3 Session/project model | Add session cards, project cards, restore state, blocked approvals, recent sessions. | `autopilotShellModel.ts`, `operatorSubstrateModel.ts`, Home/Session services | Sessions persist visually and map to daemon/Agentgres refs where available. |
 | 0A.4 New Session flow | Create guided launch flow: Mission, Workbench, Agent, Automation, Foundry job, Fleet job, Private Workspace. | New surface or Home components; `workspaceRuntimeNavigation.ts`; runtime launch services | User can start a governed session with model/harness/privacy/authority summary. |
@@ -793,6 +794,11 @@ Do not clone the IOI mirror literally; translate it:
   ports/services/tasks/terminal, automations, settings, default editor.
 Do not make model mounting a lonely infra page; make it contextual in launch.
 Do not make Workbench the parent product; make it one surface.
+Do not let the legacy root `ide/` artifact path or Electron/VS Code packaged
+host define the product. Treat them as current Workbench adapter-host artifacts;
+tracked adapter metadata belongs under `workbench-adapters/`.
+Do not preserve Tauri compatibility shims in active app paths. Tauri is legacy
+extraction inventory only.
 Do not collapse Settings and Authority:
   Settings configures account/secrets/git/tokens/integrations/policy defaults.
   Authority governs live approvals, leases, grants, revocation, and review.

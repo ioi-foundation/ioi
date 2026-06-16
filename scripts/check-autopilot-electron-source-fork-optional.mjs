@@ -76,7 +76,7 @@ if (!existsSync(packagedExtension)) {
 }
 
 for (const script of [
-  "scripts/launch-autopilot-ide-fork.mjs",
+  "scripts/launch-hypervisor-workbench-adapter-host.mjs",
   "scripts/run-autopilot-ux-readiness-goal.mjs",
   "scripts/run-autopilot-workflow-compositor-parity-goal.mjs",
   "scripts/run-autopilot-model-mounting-goal.mjs",
@@ -86,7 +86,7 @@ for (const script of [
 }
 
 const launchScript = readFileSync(
-  join(repoRoot, "scripts/launch-autopilot-ide-fork.mjs"),
+  join(repoRoot, "scripts/launch-hypervisor-workbench-adapter-host.mjs"),
   "utf8",
 );
 const legacySiblingForkPath = ["..", "vscode"].join("/");

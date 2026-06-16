@@ -4591,8 +4591,8 @@ function runBridge() {
   const runtimeAgentServiceInferenceHelper = exists("scripts/lib/autopilot-runtime-agent-service-inference.mjs")
     ? read("scripts/lib/autopilot-runtime-agent-service-inference.mjs")
     : "";
-  const autopilotIdeLauncher = exists("scripts/launch-autopilot-ide-fork.mjs")
-    ? read("scripts/launch-autopilot-ide-fork.mjs")
+  const autopilotIdeLauncher = exists("scripts/launch-hypervisor-workbench-adapter-host.mjs")
+    ? read("scripts/launch-hypervisor-workbench-adapter-host.mjs")
     : "";
   const agentStudioLiveValidation = exists("scripts/run-autopilot-agent-studio-live-gui-validation.mjs")
     ? read("scripts/run-autopilot-agent-studio-live-gui-validation.mjs")
@@ -15824,7 +15824,7 @@ function runBridge() {
       "crates/node/Cargo.toml",
       "crates/services/src/agentic/runtime/service/policy.rs",
       "scripts/lib/autopilot-runtime-agent-service-inference.mjs",
-      "scripts/launch-autopilot-ide-fork.mjs",
+      "scripts/launch-hypervisor-workbench-adapter-host.mjs",
       "scripts/run-autopilot-agent-studio-live-gui-validation.mjs",
     ],
     "RuntimeAgentService command transport must stay retired: no JS adapter export, bridge helper, bridge env fallback, Cargo bridge binary, or runtimeBridge service option may return",
@@ -23299,8 +23299,8 @@ function runReceipts() {
     exists("scripts/lib/autopilot-runtime-agent-service-inference.mjs")
       ? read("scripts/lib/autopilot-runtime-agent-service-inference.mjs")
       : "",
-    exists("scripts/launch-autopilot-ide-fork.mjs")
-      ? read("scripts/launch-autopilot-ide-fork.mjs")
+    exists("scripts/launch-hypervisor-workbench-adapter-host.mjs")
+      ? read("scripts/launch-hypervisor-workbench-adapter-host.mjs")
       : "",
     exists("scripts/live-model-mounting-gate.mjs")
       ? read("scripts/live-model-mounting-gate.mjs")

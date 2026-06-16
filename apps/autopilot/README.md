@@ -1,31 +1,30 @@
-# Autopilot Workbench
+# Hypervisor App
 
-Autopilot Workbench is the canonical Electron/VS Code fork for IOI-governed
-autonomous systems. It is the IDE-grade operator console over the IOI daemon,
-not the runtime authority itself.
+Hypervisor App is the native operator cockpit for IOI-governed autonomous
+systems. It is a first-class client over Hypervisor Core and the IOI daemon,
+not the runtime authority itself and not a single-IDE product.
 
 The daemon owns execution, policy, approvals, model mounting, connector calls,
-secrets, receipts, replay, and workspace mutation. The Workbench projects state,
-sends typed requests, and gives the operator first-class surfaces for Agent
-Studio, Models, Workflow Composer, runs, policy, receipts, and evidence.
+secrets, receipts, replay, and workspace mutation. Hypervisor App projects
+state, sends typed requests, and gives the operator first-class surfaces for
+Sessions, Workbench, Automations, Insights, Agents, Models, Privacy, Fleet,
+Foundry, Authority, Receipts, and Settings.
 
 ## Architecture
 
 ```
-Autopilot Workbench
+Hypervisor App
 │
-├── Electron/VS Code fork
-│   ├── canonical app shell
-│   ├── Activity Bar surfaces
-│   ├── editor tabs, webviews, commands, menus, keybindings
-│   └── native shell affordances and daemon supervision
+├── Hypervisor shell
+│   ├── Home, Sessions, Projects, and New Session
+│   ├── application surfaces: Workbench, Automations, Agents, Models, Foundry, Fleet
+│   ├── governance surfaces: Privacy, Authority, Receipts, Settings
+│   └── inspectors for changes, ports/services, tasks, terminal, logs, and receipts
 │
-├── ioi-workbench
-│   ├── Agent Studio
-│   ├── Autopilot Models
-│   ├── Workflow Composer
-│   ├── policy, runs, receipts, replay, and evidence projections
-│   └── daemon request bridge
+├── Workbench adapter hosts
+│   ├── packaged Electron/VS Code host for the current development path
+│   ├── OpenVSCode, VS Code, Cursor, Windsurf, JetBrains, browser IDE, and terminal targets
+│   └── daemon request bridge and adapter capability boundary
 │
 └── IOI daemon
     ├── runtime authority and durable execution boundary
@@ -40,23 +39,28 @@ Canonical framing:
 
 ```text
 IOI daemon = hypervisor/control plane for autonomous execution
-Autopilot Workbench = IDE-grade operator console
-Electron/VS Code fork = canonical app shell
+Hypervisor App = native client over Hypervisor Core
+Hypervisor Workbench = code/systems surface inside Hypervisor App/Web
+Editor hosts = adapter targets, not product identity or runtime truth
 Workers/models/tools/connectors = guest workloads/capabilities
 Policy/receipts/replay = trust and audit substrate
 ```
 
-Tauri/OpenVSCode embedding is legacy extraction inventory. Do not add new
-runtime, shell, or validation work to the retired Tauri path.
+Tauri/OpenVSCode embedding is legacy extraction inventory. The active product
+path should not revive Tauri or present OpenVSCode, VS Code, or any other editor
+as the parent product.
 
 ## Development
 
 ### Prerequisites
 
 - [Node.js](https://nodejs.org/) (v20+ LTS recommended)
-- Packaged Electron/VS Code app at `ide/builds/VSCode-linux-x64`, or set
-  `AUTOPILOT_VSCODE_PACKAGED_ROOT`
-- Optional VS Code source checkout at `ide/vscode` for fork development
+- Packaged Electron/VS Code app at
+  `workbench-adapters/builds/VSCode-linux-x64`, or set
+  `AUTOPILOT_VSCODE_PACKAGED_ROOT`. Existing machines may temporarily use the
+  legacy `ide/builds/VSCode-linux-x64` artifact path.
+- Optional VS Code source checkout at `workbench-adapters/vscode` for adapter
+  development. Existing machines may temporarily use legacy `ide/vscode`.
 
 ### Setup
 
@@ -64,27 +68,32 @@ runtime, shell, or validation work to the retired Tauri path.
 # Install dependencies
 npm install
 
-# Run the Electron/VS Code fork in development.
+# Run the current Workbench editor host in development.
 # This also starts a supervised IOI daemon sidecar and projects discovered
-# local LM Studio/Ollama model artifacts into Autopilot Models.
+# local LM Studio/Ollama model artifacts into Models.
 npm run dev:desktop
 
 # Validate the direct Workspace shell and retain a GUI receipt bundle
 npm run probe:desktop:workspace
 ```
 
-`npm run dev:desktop` launches the canonical Electron/VS Code fork through
-`scripts/launch-autopilot-ide-fork.mjs`. If `IOI_DAEMON_ENDPOINT` is not already
-set, the launcher syncs the current `ioi-workbench` extension into the packaged
-fork, starts an IOI daemon sidecar, grants the workbench a scoped daemon token,
-asks the daemon to discover local model providers, mounts discovered local
-models as daemon endpoints, and passes the daemon endpoint/token to
-`ioi-workbench`. Set `AUTOPILOT_SKIP_EXTENSION_SYNC=1` to skip extension sync,
+`npm run dev:desktop` currently launches the packaged Electron/VS Code
+Workbench adapter host through
+`scripts/launch-hypervisor-workbench-adapter-host.mjs`. The launcher role is
+editor-host launch, not Hypervisor product identity. If `IOI_DAEMON_ENDPOINT`
+is not already set, the launcher syncs the current `ioi-workbench` extension
+into the packaged host, starts an IOI daemon sidecar, grants the workbench a
+scoped daemon token, asks the daemon to discover local model providers, mounts
+discovered local models as daemon endpoints, and passes the daemon
+endpoint/token to `ioi-workbench`. Set
+`AUTOPILOT_SKIP_EXTENSION_SYNC=1` to skip extension sync,
 `AUTOPILOT_SKIP_DAEMON=1` to opt out of daemon startup, or
 `AUTOPILOT_SKIP_MODEL_AUTODISCOVERY=1` to start the daemon without local model
-discovery. The `ide/vscode` source checkout is optional for this launch path;
-the required runtime artifact is the packaged Electron app at
-`ide/builds/VSCode-linux-x64` or `AUTOPILOT_VSCODE_PACKAGED_ROOT`.
+discovery. The `workbench-adapters/vscode` source checkout is optional for this
+launch path; the required editor-host artifact is the packaged Electron app at
+`workbench-adapters/builds/VSCode-linux-x64` or
+`AUTOPILOT_VSCODE_PACKAGED_ROOT`. The old `ide/` paths remain temporary local
+artifact fallbacks only.
 
 ### Project Structure
 
@@ -95,34 +104,39 @@ apps/autopilot/
 ├── package.json                         # Autopilot scripts
 └── README.md
 
-ide/
-├── builds/VSCode-linux-x64/             # packaged runnable Electron app
-└── vscode/                              # optional VS Code fork source checkout
+workbench-adapters/
+├── README.md                            # adapter-host ownership notes
+├── shell.manifest.json                  # adapter-host manifest
+├── builds/VSCode-linux-x64/             # ignored packaged runnable Electron app
+└── vscode/                              # ignored optional VS Code source checkout
 
 packages/
 ├── runtime-daemon/                      # IOI daemon authority boundary
-└── agent-ide/                           # Workflow Composer and agent-IDE surfaces
+└── agent-ide/                           # Workflow Composer and legacy package name
 ```
 
 ## Key Features
 
-### IDE-First Workbench
-- Agent Studio for agent/workflow intent.
-- Autopilot Models for daemon-owned local model discovery, load, unload, route,
-  server, log, receipt, and replay state.
-- Workflow Composer for IDE-native graph composition, readiness, timeline,
-  model binding, approvals, and evidence.
+### Hypervisor Surfaces
+- Sessions for live governed runs, approvals, blockers, receipts, and replay.
+- Workbench for code/systems work through editor, terminal, browser, and VM adapters.
+- Automations for workflow composition, templates, schedules, and reusable runs.
+- Models for daemon-owned local model discovery, load, unload, route, server,
+  log, receipt, and replay state.
+- Authority, Privacy, Fleet, Foundry, and Receipts as application surfaces over
+  the same daemon/Core contracts.
 
 ### Daemon-Owned Authority
-- The Workbench must not directly execute durable runtime work.
-- Extension-host and webview code are projection/request surfaces.
+- Hypervisor App and Workbench must not directly execute durable runtime work.
+- Editor hosts, extension-host code, and webviews are projection/request surfaces.
 - All consequential actions resolve through daemon/domain APIs.
 
 ### Validation
-- `npm run dev:desktop` launches the canonical Electron/VS Code fork with a
+- `npm run dev:desktop` launches the current packaged editor host with a
   supervised daemon sidecar by default.
-- GUI probes and goal scripts should target the Electron/VS Code fork path and
-  retain screenshots, logs, receipts, and proof JSON.
+- GUI probes and goal scripts should target Hypervisor App surfaces and may use
+  the packaged editor host as one Workbench adapter target while retaining
+  screenshots, logs, receipts, and proof JSON.
 
 ## License
 
