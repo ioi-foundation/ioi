@@ -4,7 +4,7 @@ import test from "node:test";
 import { ModelMountingState } from "../model-mounting.mjs";
 
 function fakeState() {
-  return {
+  const state = {
     artifacts: new Map(),
     downloads: new Map(),
     endpoints: new Map(),
@@ -15,24 +15,6 @@ function fakeState() {
     receipts: [],
     writes: [],
     projections: 0,
-    readProjectionFacade: {
-      downloadStatus(owner, jobId) {
-        owner.readProjectionCalls.push({ operation: "download_status", jobId });
-        if (jobId === "job.1") {
-          return {
-            id: "job.1",
-            status: "queued",
-            rust_core_boundary: "model_mount.storage_control",
-            storage_projection_boundary: "model_mount.storage_projection",
-          };
-        }
-        const error = new Error(`Download job not found: ${jobId}`);
-        error.status = 404;
-        error.code = "not_found";
-        error.details = { job_id: jobId };
-        throw error;
-      },
-    },
     getModel(id) {
       throw new Error(`artifact lookup should not run: ${id}`);
     },
@@ -132,6 +114,30 @@ function fakeState() {
       this.projections += 1;
     },
   };
+  state.modelMountCore = {
+    planReadProjection(request) {
+      state.readProjectionCalls.push({
+        operation: request.projection_kind,
+        jobId: request.download_id,
+      });
+      if (request.download_id === "job.1") {
+        return {
+          projection: {
+            id: "job.1",
+            status: "queued",
+            rust_core_boundary: "model_mount.storage_control",
+            storage_projection_boundary: "model_mount.storage_projection",
+          },
+        };
+      }
+      const error = new Error(`Download job not found: ${request.download_id}`);
+      error.status = 404;
+      error.code = "model_mount_download_not_found";
+      error.details = { job_id: request.download_id };
+      throw error;
+    },
+  };
+  return state;
 }
 
 function assertNoMutation(state) {

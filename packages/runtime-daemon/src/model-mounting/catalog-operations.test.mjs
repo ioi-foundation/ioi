@@ -16,7 +16,7 @@ function storageSummary(state) {
 }
 
 function fakeState() {
-  return {
+  const state = {
     artifacts: new Map(),
     lastCatalogSearch: null,
     modelRoot: null,
@@ -25,45 +25,6 @@ function fakeState() {
     enrichCatalogEntryCalls: 0,
     storageSummaryCalls: 0,
     readProjectionCalls: [],
-    readProjectionFacade: {
-      storageSummary(owner) {
-        owner.readProjectionCalls.push({ owner, operation: "storage_summary" });
-        return {
-          source: "rust_model_mount_storage_summary_projection",
-          rust_core_boundary: "model_mount.storage_projection",
-          filesystem_scanned: false,
-          record_counts: {
-            catalog_imports: 0,
-            downloads: 0,
-            storage_controls: 0,
-          },
-          evidence_refs: [
-            "rust_daemon_core_model_storage_projection",
-            "agentgres_model_storage_replay_required",
-            "model_mount_storage_summary_js_facade_retired",
-          ],
-        };
-      },
-      catalogSearch(owner, query) {
-        owner.readProjectionCalls.push({ owner, query });
-        return {
-          source: "rust_model_mount_catalog_search_projection",
-          rust_core_boundary: "model_mount.catalog_search",
-          result_count: 1,
-          results: [
-            {
-              model_ref: "model://fixture/qwen3",
-              inventory_record_id: "provider_inventory_fixture_list_models",
-            },
-          ],
-          evidence_refs: [
-            "rust_daemon_core_catalog_search_projection",
-            "agentgres_catalog_search_replay_required",
-            "model_catalog_search_js_orchestrator_retired",
-          ],
-        };
-      },
-    },
     catalogProviderPorts() {
       this.catalogProviderPortCalls += 1;
       return [
@@ -90,6 +51,53 @@ function fakeState() {
       return this.now;
     },
   };
+  state.modelMountCore = {
+    planReadProjection(request) {
+      if (request.projection_kind === "storage_summary") {
+        state.readProjectionCalls.push({ operation: "storage_summary" });
+        return {
+          projection: {
+            source: "rust_model_mount_storage_summary_projection",
+            rust_core_boundary: "model_mount.storage_projection",
+            filesystem_scanned: false,
+            record_counts: {
+              catalog_imports: 0,
+              downloads: 0,
+              storage_controls: 0,
+            },
+            evidence_refs: [
+              "rust_daemon_core_model_storage_projection",
+              "agentgres_model_storage_replay_required",
+              "model_mount_storage_summary_js_facade_retired",
+            ],
+          },
+        };
+      }
+      if (request.projection_kind === "catalog_search") {
+        state.readProjectionCalls.push({ query: request.state.catalog_search });
+        return {
+          projection: {
+            source: "rust_model_mount_catalog_search_projection",
+            rust_core_boundary: "model_mount.catalog_search",
+            result_count: 1,
+            results: [
+              {
+                model_ref: "model://fixture/qwen3",
+                inventory_record_id: "provider_inventory_fixture_list_models",
+              },
+            ],
+            evidence_refs: [
+              "rust_daemon_core_catalog_search_projection",
+              "agentgres_catalog_search_replay_required",
+              "model_catalog_search_js_orchestrator_retired",
+            ],
+          },
+        };
+      }
+      throw new Error(`unexpected read projection: ${request.projection_kind}`);
+    },
+  };
+  return state;
 }
 
 test("storage summary delegates to Rust projection before JS filesystem scanning", () => {
@@ -110,7 +118,7 @@ test("storage summary delegates to Rust projection before JS filesystem scanning
     downloads: 0,
     storage_controls: 0,
   });
-  assert.deepEqual(state.readProjectionCalls, [{ owner: state, operation: "storage_summary" }]);
+  assert.deepEqual(state.readProjectionCalls, [{ operation: "storage_summary" }]);
   assert.equal(state.artifacts.has("artifact.known"), true);
   assert.equal(state.storageSummaryCalls, 0);
 });
@@ -124,9 +132,8 @@ test("catalog search delegates to Rust projection before JS provider orchestrati
   assert.equal(search.rust_core_boundary, "model_mount.catalog_search");
   assert.equal(search.results[0].inventory_record_id, "provider_inventory_fixture_list_models");
   assert.equal(state.readProjectionCalls.length, 1);
-  assert.equal(state.readProjectionCalls[0].owner, state);
   assert.deepEqual(state.readProjectionCalls[0].query, {
-    query: "  qwen  ",
+    query: "qwen",
     format: "GGUF",
     quantization: "Q4",
     limit: 1,

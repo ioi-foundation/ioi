@@ -13,18 +13,23 @@ function fakeState() {
     recordStateCommits: [],
     readProjectionCalls: [],
     nowIso: () => "2026-06-13T12:00:00.000Z",
-    readProjectionFacade: {
-      serverLogs(target, query) {
-        state.readProjectionCalls.push({ projection_kind: "server_logs", query, sameState: target === state });
-        return serverProjectionResponse("server_logs", { records: [{ event: "server_restart" }] });
-      },
-      serverEvents(target, query) {
-        state.readProjectionCalls.push({ projection_kind: "server_events", query, sameState: target === state });
-        return serverProjectionResponse("server_events", { events: [{ event: "server_restart" }] });
-      },
-      serverLogRecords(target, query) {
-        state.readProjectionCalls.push({ projection_kind: "server_log_records", query, sameState: target === state });
-        return serverProjectionResponse("server_log_records", { records: [{ event: "server_restart" }] });
+    modelMountCore: {
+      planReadProjection(request) {
+        state.readProjectionCalls.push({
+          projection_kind: request.projection_kind,
+          query: request.state.server_log_query,
+          sameState: true,
+        });
+        if (request.projection_kind === "server_logs") {
+          return { projection: serverProjectionResponse("server_logs", { records: [{ event: "server_restart" }] }) };
+        }
+        if (request.projection_kind === "server_events") {
+          return { projection: serverProjectionResponse("server_events", { events: [{ event: "server_restart" }] }) };
+        }
+        if (request.projection_kind === "server_log_records") {
+          return { projection: serverProjectionResponse("server_log_records", { records: [{ event: "server_restart" }] }) };
+        }
+        throw new Error(`unexpected read projection: ${request.projection_kind}`);
       },
     },
     planServerControl(request) {
@@ -202,7 +207,7 @@ test("mounted server log and event reads use Rust read projection", () => {
     "server_log_records",
   ]);
   assert.equal(state.readProjectionCalls.every((call) => call.sameState), true);
-  assert.deepEqual(state.readProjectionCalls[0].query, { limit: "500", authorization: "Bearer secret-token" });
+  assert.deepEqual(state.readProjectionCalls[0].query, { limit: 500 });
   assert.equal(state.serverControlPlans.length, 0);
   assert.equal(state.recordStateCommits.length, 0);
 });

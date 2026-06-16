@@ -1482,7 +1482,7 @@ function runDocs() {
       /`admit_model_mount_route_decision` now returns an\s+`accepted_receipt_record` authored by Rust/.test(guide) &&
       /`receipt-operations\.mjs` now rejects generic JS model_mount receipt creation\s+with `model_mount_js_receipt_creation_retired`/.test(guide) &&
       /Slice 791\s+route-selection receipt Rust-authoring matrix-compaction pass is complete/.test(guide) &&
-      /Slice 792 moved model_mount read-projection authoring out of the JS\s+`read-projection-facade\.mjs` helper path/.test(guide) &&
+      /Slice 792 moved model_mount read-projection authoring out of the former JS\s+read-projection helper path/.test(guide) &&
       /`plan_model_mount_read_projection` now authors the canonical\s+model_mount projection/.test(guide) &&
       /`model_mount_read_projection_rust_core_required`/.test(guide) &&
       /Slice 792 model_mount read-projection Rust-authoring matrix-compaction pass is\s+complete/.test(guide) &&
@@ -3901,13 +3901,11 @@ function runBridge() {
   const modelMountingReadModelTest = exists("packages/runtime-daemon/src/model-mounting/read-model.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/read-model.test.mjs")
     : "";
-  const modelMountingReadProjectionFacade = exists("packages/runtime-daemon/src/model-mounting/read-projection-facade.mjs")
-    ? read("packages/runtime-daemon/src/model-mounting/read-projection-facade.mjs")
-    : "";
-  const modelMountingReadProjectionFacadeTest = exists(
-    "packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs",
+  const modelMountingReadProjectionDirectClient = modelMountingState;
+  const modelMountingReadProjectionDirectTest = exists(
+    "packages/runtime-daemon/src/model-mounting/read-projection-direct.test.mjs",
   )
-    ? read("packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/read-projection-direct.test.mjs")
     : "";
   const runtimeRecordProjections = exists("packages/runtime-daemon/src/runtime-record-projections.mjs")
     ? read("packages/runtime-daemon/src/runtime-record-projections.mjs")
@@ -17313,7 +17311,7 @@ function runBridge() {
         runtimeHttpUtilsBridge,
         modelRoutes,
         modelRouteDecisionModule,
-        modelMountingReadProjectionFacade,
+        modelMountingReadProjectionDirectClient,
         modelMountReceiptOperationsBridge,
       ].join("\n"),
     ) &&
@@ -17325,10 +17323,10 @@ function runBridge() {
       /invokeModelMountApi\(\s*MODEL_MOUNT_READ_PROJECTION_API_METHOD,\s*request\s*\)/.test(
         modelMountDaemonCore,
       ) &&
-      /model_mount_read_projection_rust_core_required/.test(modelMountingReadProjectionFacade) &&
+      /model_mount_read_projection_rust_core_required/.test(modelMountingReadProjectionDirectClient) &&
       !exists("packages/runtime-daemon/src/model-mounting/receipt-operations.mjs") &&
       !/return buildModelMountingProjection\(state,\s*\{ schemaVersion: modelMountSchemaVersion \}\);/.test(
-        modelMountingReadProjectionFacade,
+        modelMountingReadProjectionDirectClient,
       ) &&
       isModelMountReadProjectionTypedApiOwned({
         coreCommandDispatch,
@@ -17345,7 +17343,7 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-http-utils.mjs",
       "packages/runtime-daemon/src/model-mounting/routes.mjs",
       "packages/runtime-daemon/src/model-mounting/route-decision.mjs",
-      "packages/runtime-daemon/src/model-mounting/read-projection-facade.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
     ],
     "Phase 10/11 is pending: model-mounting read, receipt, route-decision, and HTTP error surfaces must not expose prototype-based camelCase compatibility wrappers",
@@ -17353,508 +17351,44 @@ function runBridge() {
   assertCheck(
     result,
     "model-mount-read-projection-rust-core",
-    /readProjectionPlanner:\s*this\.modelMountCore/.test(modelMountingState) &&
-      /function rustReadProjection/.test(modelMountingReadProjectionFacade) &&
-      !/function rustProjectionField/.test(modelMountingReadProjectionFacade) &&
-      !/function rustProjectionObjectField/.test(modelMountingReadProjectionFacade) &&
-      /readProjectionPlanner\.planReadProjection/.test(modelMountingReadProjectionFacade) &&
-      /model_mount_js_read_projection_authoring_retired/.test(modelMountingReadProjectionFacade) &&
-      !/buildAdapterBoundaries/.test(modelMountingReadProjectionFacade) &&
-      !/adapter_boundaries\s*:/.test(modelMountingReadProjectionFacade) &&
-      !/workflowNodeBindingsProjection/.test(modelMountingReadProjectionFacade) &&
-      !/workflow_bindings\s*:/.test(modelMountingReadProjectionFacade) &&
-      !/buildModelCapabilities/.test(modelMountingReadProjectionFacade) &&
-      !/model_capabilities\s*:/.test(modelMountingReadProjectionFacade) &&
-      !/productArtifactList/.test(modelMountingReadProjectionFacade) &&
-      !/runtimeModelCatalogListProjection/.test(modelMountingReadProjectionFacade) &&
-      !/openAiModelListProjection/.test(modelMountingReadProjectionFacade) &&
-      !/agentgres_store:\s*state\.store\.adapterStatus\(\)/.test(modelMountingReadProjectionFacade) &&
-      !/wallet:\s*state\.walletAuthority\.adapterStatus\(\)/.test(modelMountingReadProjectionFacade) &&
-      !/vault:\s*state\.vaultStatus\(\)/.test(modelMountingReadProjectionFacade) &&
-      /runtimeModelCatalogList\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"runtime_model_catalog"\)/.test(modelMountingReadProjectionFacade) &&
-      /openAiModelList\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"open_ai_model_list"\)/.test(modelMountingReadProjectionFacade) &&
-      /listProductArtifacts\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"product_artifacts"\)/.test(modelMountingReadProjectionFacade) &&
-      !/const productArtifactPolicy = \{[\s\S]*include_internal_fixtures/.test(modelMountingReadProjectionFacade) &&
-      !/product_artifact_policy:\s*productArtifactPolicy/.test(modelMountingReadProjectionFacade) &&
-      /snapshot\(state,\s*baseUrl\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"snapshot",\s*\{ baseUrl \}\)/.test(modelMountingReadProjectionFacade) &&
-      !/modelMountingSnapshot\(state,\s*baseUrl/.test(modelMountingReadProjectionFacade) &&
-      !exists("packages/runtime-daemon/src/model-mounting/read-model.mjs") &&
-      !exists("packages/runtime-daemon/src/model-mounting/read-model.test.mjs") &&
-      !exists(modelProjectionsPath) &&
-      !exists(modelProjectionsTestPath) &&
-      /serverStatus\(state,\s*baseUrl\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"server_status",\s*\{ baseUrl \}\)/.test(modelMountingReadProjectionFacade) &&
-      /serverLogs\(state,\s*query = \{\}\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"server_logs"/.test(modelMountingReadProjectionFacade) &&
-      /serverEvents\(state,\s*query = \{\}\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"server_events"/.test(modelMountingReadProjectionFacade) &&
-      /serverLogRecords\(state,\s*query = \{\}\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"server_log_records"/.test(modelMountingReadProjectionFacade) &&
-      /adapterBoundaries\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"adapter_boundaries"\)/.test(modelMountingReadProjectionFacade) &&
-      /workflowNodeBindings\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"workflow_bindings"\)/.test(modelMountingReadProjectionFacade) &&
-      /mcpServers\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"mcp_servers"\)/.test(modelMountingReadProjectionFacade) &&
-      /projectionKind === "workflow_bindings"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
-      /projectionKind === "adapter_boundaries"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
-      /modelRouteDecisions\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"model_route_decisions"\)/.test(modelMountingReadProjectionFacade) &&
-      /modelRouteEndpointResolutions\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"model_route_endpoint_resolutions"\)/.test(modelMountingReadProjectionFacade) &&
-      /providerInventoryRecords\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"provider_inventory_records"\)/.test(modelMountingReadProjectionFacade) &&
-      /catalogSearch\(state,\s*query = \{\}\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"catalog_search"/.test(modelMountingReadProjectionFacade) &&
-      /canonicalCatalogSearchQuery\(query\)/.test(modelMountingReadProjectionFacade) &&
-      /projectionKind === "catalog_search"[\s\S]*?catalog_search:\s*catalogQuery/.test(modelMountingReadProjectionFacade) &&
-      /modelTokenizerRecords\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"model_tokenizer_records"\)/.test(modelMountingReadProjectionFacade) &&
-      /projectionKind === "provider_inventory_records" \|\|[\s\S]*?projectionKind === "model_route_decisions" \|\|[\s\S]*?projectionKind === "model_route_endpoint_resolutions"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
-      /projectionKind === "projection_summary"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
-      !/projectionKind === "projection_summary"(?:(?!\n    if \(projectionKind|\n    return \{).)*state\.listReceipts\(\)/s.test(modelMountingReadProjectionFacade) &&
-      !/projectionKind === "model_route_decisions" \|\| projectionKind === "projection_summary"[\s\S]*?receipts:\s*state\.listReceipts\(\)/.test(modelMountingReadProjectionFacade) &&
-      /projectionKind === "latest_vault_health"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
-      !/projectionKind === "latest_vault_health"(?:(?!\n    if \(projectionKind|\n    return \{).)*state\.listReceipts\(\)/s.test(modelMountingReadProjectionFacade) &&
-      !/latestRuntimeSurveyProjectionInput/.test(modelMountingReadProjectionFacade) &&
-      !/latestRuntimeSurvey as latestRuntimeSurveyInput/.test(modelMountingReadProjectionFacade) &&
-      /projectionKind === "latest_runtime_survey"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
-      !/projectionKind === "latest_runtime_survey"(?:(?!\n    if \(projectionKind|\n    return \{).)*state\.listReceipts\(\)/s.test(modelMountingReadProjectionFacade) &&
-      !/serverStatusProjectionInput/.test(modelMountingReadProjectionFacade) &&
-      !/serverStatus as serverStatusInput/.test(modelMountingReadProjectionFacade) &&
-      /projectionKind === "server_status"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
-      /projectionKind === "server_logs" \|\|[\s\S]*?projectionKind === "server_events" \|\|[\s\S]*?projectionKind === "server_log_records"[\s\S]*?server_log_query:\s*serverLogQuery/.test(modelMountingReadProjectionFacade) &&
-      /catalogStatus\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"catalog_status"\)/.test(modelMountingReadProjectionFacade) &&
-      !/translateCatalogStatusError/.test(modelMountingReadProjectionFacade) &&
-      !/model_catalog_status_js_readback_retired/.test(modelMountingReadProjectionFacade) &&
-      !/retiredCatalogStatusReadback/.test(modelMountingReadProjectionFacade) &&
-      /projectionKind === "catalog_status"\) return \{\};/.test(modelMountingReadProjectionFacade) &&
-      !/catalogStatusProjectionInput/.test(modelMountingReadProjectionFacade) &&
-      !/catalogProviderStatus/.test(modelMountingReadProjectionFacade) &&
-      !/state\.vault\.vaultRefMetadata/.test(modelMountingReadModel) &&
-      !/publicProvider\(/.test(modelMountingReadModel) &&
-      !/export function publicProvider\b/.test(modelMountProviderRegistry) &&
-      !/publicProvider/.test(modelMountProviderRegistryTest) &&
-      !/publicProvider/.test(modelMountProviderOperationsTest) &&
-      !/publicProvider as publicProviderFromRegistry/.test(modelMountingState) &&
-      !/providerHasVaultRef/.test(modelMountingReadProjectionFacade) &&
-      !/publicProvider/.test(modelMountingReadProjectionFacade) &&
-      !/providerHasVaultRef,\s*publicOAuthSession/.test(modelMountingState) &&
-      !/publicProvider,\s*readJson/.test(modelMountingState) &&
-      !/providerHealthList/.test(modelMountingReadProjectionFacade) &&
-      /projectionKind === "latest_provider_health"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
-      !/projectionKind === "latest_provider_health"(?:(?!\n    if \(projectionKind|\n    return \{).)*state\.listReceipts\(\)/s.test(modelMountingReadProjectionFacade) &&
-      !/projectionKind === "latest_provider_health"(?:(?!\n\s+if \(projectionKind).)*providers:\s*providerList\(state\)/s.test(modelMountingReadProjectionFacade) &&
-      !/projectionKind === "latest_provider_health"(?:(?!\n\s+if \(projectionKind).)*provider_health:\s*providerHealthList/s.test(modelMountingReadProjectionFacade) &&
-      /projectionKind === "authority_snapshot"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
-      !/projectionKind === "authority_snapshot"(?:(?!\n    if \(projectionKind|\n    return \{).)*state\.listReceipts\(\)/s.test(modelMountingReadProjectionFacade) &&
-      !/projectionKind === "authority_snapshot"[\s\S]*?server_status_input:\s*serverStatusProjectionInput/.test(modelMountingReadProjectionFacade) &&
-      !/projectionKind === "authority_snapshot"[\s\S]*?grants:\s*state\.listTokens\(\)/.test(modelMountingReadProjectionFacade) &&
-      !/projectionKind === "authority_snapshot"[\s\S]*?vault_refs:\s*state\.listVaultRefs\(\)/.test(modelMountingReadProjectionFacade) &&
-      !/projectionKind === "authority_snapshot"[\s\S]*?wallet:\s*state\.walletAuthority\.adapterStatus\(\)/.test(modelMountingReadProjectionFacade) &&
-      !/projectionKind === "authority_snapshot"[\s\S]*?vault:\s*state\.vaultStatus\(\)/.test(modelMountingReadProjectionFacade) &&
-      /mod custody;/.test(modelMountCore) &&
-      /custody::capability_token_records\(request\)\?/.test(modelMountCore) &&
-      /custody::vault_ref_records\(request\)\?/.test(modelMountCore) &&
-      /agentgres_capability_token_replay_required/.test(modelMountCore) &&
-      /agentgres_vault_ref_replay_required/.test(modelMountCore) &&
-      /model_mount_wallet_custody_js_projection_retired/.test(modelMountCore) &&
-      /projectionKind === "receipt_replay"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
-      !/projectionKind === "receipt_replay"(?:(?!\n    if \(projectionKind|\n    return \{).)*state\.listReceipts\(\)/s.test(modelMountingReadProjectionFacade) &&
-      !/projectionKind === "receipt_replay"[\s\S]*?routes:\s*routeList\(state\)/.test(modelMountingReadProjectionFacade) &&
-      !/projectionKind === "receipt_replay"[\s\S]*?endpoints:\s*endpointList\(state\)/.test(modelMountingReadProjectionFacade) &&
-      !/projectionKind === "receipt_replay"[\s\S]*?instances:\s*instanceList\(state\)/.test(modelMountingReadProjectionFacade) &&
-      !/projectionKind === "receipt_replay"[\s\S]*?providers:\s*providerList\(state\)/.test(modelMountingReadProjectionFacade) &&
-      !/backends:\s*state\.listBackends\(\)/.test(modelMountingReadProjectionFacade) &&
-      !/backend_processes:\s*state\.listBackendProcesses\(\)/.test(modelMountingReadProjectionFacade) &&
-      !/runtime_engines:\s*state\.listRuntimeEngines\(\)/.test(modelMountingReadProjectionFacade) &&
-      !/runtime_engine_profiles:\s*state\.listRuntimeEngineProfiles\(\)/.test(modelMountingReadProjectionFacade) &&
-      !/runtime_preference:\s*state\.runtimePreference\(\)/.test(modelMountingReadProjectionFacade) &&
-      !/mcp_servers:\s*state\.listMcpServers\(\)/.test(modelMountingReadProjectionFacade) &&
-      !/conversation_states:\s*state\.listConversations\(\)/.test(modelMountingReadProjectionFacade) &&
-      !/conversation_states:\s*conversationStateRecordsForProjection\(state\)/.test(modelMountingReadProjectionFacade) &&
-      !/function conversationStateRecordsForProjection\(state\)/.test(modelMountingReadProjectionFacade) &&
-      /projectionKind === "snapshot" \|\| projectionKind === "projection"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
-      !/projectionKind === "snapshot" \|\| projectionKind === "projection"(?:(?!\n    return \{).)*state\.listReceipts\(\)/s.test(modelMountingReadProjectionFacade) &&
-      /state_dir:\s*readProjectionStateDir\(state,\s*projectionKind\)/.test(modelMountingReadProjectionFacade) &&
-      /projectionKind === "model_conversation_states"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
-      /function readProjectionStateDir\(state,\s*projectionKind\)/.test(modelMountingReadProjectionFacade) &&
-      /projectionKind !== "server_status" &&\s*projectionKind !== "server_logs" &&\s*projectionKind !== "server_events" &&\s*projectionKind !== "server_log_records" &&\s*projectionKind !== "backends" &&\s*projectionKind !== "mcp_servers" &&\s*projectionKind !== "oauth_sessions" &&\s*projectionKind !== "oauth_states" &&\s*projectionKind !== "runtime_engines"/.test(
-        modelMountingReadProjectionFacade,
-      ) &&
-      /projectionKind !== "model_conversation_states" &&\s*projectionKind !== "instances" &&\s*projectionKind !== "provider_inventory_records" &&\s*projectionKind !== "catalog_search" &&\s*projectionKind !== "catalog_status" &&\s*projectionKind !== "model_tokenizer_records" &&\s*projectionKind !== "routes" &&\s*projectionKind !== "model_capabilities" &&\s*projectionKind !== "model_route_decisions" &&\s*projectionKind !== "model_route_endpoint_resolutions" &&\s*projectionKind !== "artifacts" &&\s*projectionKind !== "product_artifacts" &&\s*projectionKind !== "providers" &&\s*projectionKind !== "endpoints" &&\s*projectionKind !== "runtime_model_catalog" &&\s*projectionKind !== "open_ai_model_list"/.test(
-        modelMountingReadProjectionFacade,
-      ) &&
-      /latestProviderHealth\(state,\s*providerId\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"latest_provider_health",\s*\{ providerId \}\)/.test(modelMountingReadProjectionFacade) &&
-      /latestVaultHealth\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"latest_vault_health"\)/.test(modelMountingReadProjectionFacade) &&
-      /latestRuntimeSurvey\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"latest_runtime_survey"\)/.test(modelMountingReadProjectionFacade) &&
-      !/latestProviderHealth\(state,\s*providerId\)\s*\{(?:(?!\n  function latestVaultHealth).)*state\.provider\(providerId\)/s.test(modelMountingReadProjectionFacade) &&
-      !/latestProviderHealth\(state,\s*providerId\)\s*\{(?:(?!\n  function latestVaultHealth).)*state\.listProviderHealth\(\)/s.test(modelMountingReadProjectionFacade) &&
-      !/latestVaultHealth\(state\)\s*\{(?:(?!\n  function workflowNodeBindings).)*state\.listReceipts\(\)/s.test(modelMountingReadProjectionFacade) &&
-      /translateLatestProviderHealthError/.test(modelMountingReadProjectionFacade) &&
-      /model_mount_provider_not_found/.test(modelMountingReadProjectionFacade) &&
-      /model_mount_provider_health_not_found/.test(modelMountingReadProjectionFacade) &&
-      /translateLatestVaultHealthError/.test(modelMountingReadProjectionFacade) &&
-      /model_mount_vault_health_not_found/.test(modelMountingReadProjectionFacade) &&
-      !/runtime_survey_input:\s*latestRuntimeSurveyProjectionInput/.test(modelMountingReadProjectionFacade) &&
-      !/server_status_input:\s*serverStatusProjectionInput/.test(modelMountingReadProjectionFacade) &&
-      !/catalog_status_input:\s*catalogStatusProjectionInput/.test(modelMountingReadProjectionFacade) &&
-      !/catalog_status_input:/.test(modelMountingReadProjectionFacade) &&
-      !/catalog:\s*state\.catalogStatus\(\)/.test(modelMountingReadProjectionFacade) &&
-      !/catalog_provider_configs:\s*state\.listCatalogProviderConfigs\(\)/.test(modelMountingReadProjectionFacade) &&
-      /provider_id:\s*providerId/.test(modelMountingReadProjectionFacade) &&
-      /listArtifacts\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"artifacts"\)/.test(modelMountingReadProjectionFacade) &&
-      /listProviders\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"providers"\)/.test(modelMountingReadProjectionFacade) &&
-      /listEndpoints\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"endpoints"\)/.test(modelMountingReadProjectionFacade) &&
-      /listInstances\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"instances"\)/.test(modelMountingReadProjectionFacade) &&
-      /providerInventoryRecords\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"provider_inventory_records"\)/.test(modelMountingReadProjectionFacade) &&
-      /catalogSearch\(state,\s*query = \{\}\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"catalog_search"/.test(modelMountingReadProjectionFacade) &&
-      /modelTokenizerRecords\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"model_tokenizer_records"\)/.test(modelMountingReadProjectionFacade) &&
-      /listRoutes\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"routes"\)/.test(modelMountingReadProjectionFacade) &&
-      /listModelCapabilities\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"model_capabilities"\)/.test(modelMountingReadProjectionFacade) &&
-      /listDownloads\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"downloads"\)/.test(modelMountingReadProjectionFacade) &&
-      /downloadStatus\(state,\s*jobId\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"download_status",\s*\{ downloadId: jobId \}\)/.test(modelMountingReadProjectionFacade) &&
-      /storageSummary\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"storage_summary"\)/.test(modelMountingReadProjectionFacade) &&
-      /translateDownloadStatusError/.test(modelMountingReadProjectionFacade) &&
-      /model_mount_download_not_found/.test(modelMountingReadProjectionFacade) &&
-      /download_id:\s*downloadId/.test(modelMountingReadProjectionFacade) &&
-      /listBackends\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"backends"\)/.test(modelMountingReadProjectionFacade) &&
-      /projectionKind === "artifacts"[\s\S]*?projectionKind === "providers"[\s\S]*?projectionKind === "endpoints"[\s\S]*?projectionKind === "instances"[\s\S]*?projectionKind === "provider_inventory_records"[\s\S]*?projectionKind === "model_tokenizer_records"[\s\S]*?projectionKind === "routes"[\s\S]*?projectionKind === "model_capabilities"[\s\S]*?projectionKind === "downloads"[\s\S]*?projectionKind === "download_status"[\s\S]*?projectionKind === "storage_summary"[\s\S]*?projectionKind === "backends"[\s\S]*?projectionKind === "mcp_servers"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
-      /projectionKind === "product_artifacts"[\s\S]*?projectionKind === "runtime_model_catalog"[\s\S]*?projectionKind === "open_ai_model_list"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
-      !/if \(projectionKind === "endpoints"\)[\s\S]*?return \{ endpoints \};/.test(modelMountingReadProjectionFacade) &&
-      !/if \(projectionKind === "providers"\)[\s\S]*?return \{ providers \};/.test(modelMountingReadProjectionFacade) &&
-      !/if \(projectionKind === "model_capabilities"\)[\s\S]*?return \{\s*artifacts,\s*endpoints,\s*instances,\s*providers,\s*routes,\s*\};/.test(modelMountingReadProjectionFacade) &&
-      /listOAuthSessions\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"oauth_sessions"\)/.test(modelMountingReadProjectionFacade) &&
-      /listOAuthStates\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"oauth_states"\)/.test(modelMountingReadProjectionFacade) &&
-      !/translateOAuthReadProjectionError/.test(modelMountingReadProjectionFacade) &&
-      /projectionKind === "oauth_sessions" \|\| projectionKind === "oauth_states"\) return \{\};/.test(modelMountingReadProjectionFacade) &&
-      !/publicOAuthSession/.test(modelMountingReadProjectionFacade) &&
-      !/publicOAuthState/.test(modelMountingReadProjectionFacade) &&
-      !/oauth_sessions:\s*oauthSessions/.test(modelMountingReadProjectionFacade) &&
-      !/oauth_states:\s*oauthStates/.test(modelMountingReadProjectionFacade) &&
-      !/oauthSessionList/.test(modelMountingReadModel) &&
-      !/oauthStateList/.test(modelMountingReadModel) &&
-      !/artifactList|productArtifactList|runtimeModelCatalogList|openAiModelList|providerList|endpointList|instanceList|routeList|modelCapabilityList|downloadList|providerHealthList/.test(modelMountingReadModel) &&
-      /listProviderHealth\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"provider_health"\)/.test(modelMountingReadProjectionFacade) &&
-      /runtimePreference\(\)\s*\{[\s\S]*?readProjectionFacade\.runtimePreferenceProjection\(this\)/.test(modelMountingState) &&
-      /runtimePreferenceForEndpoint\(endpoint = \{\}\)\s*\{[\s\S]*?readProjectionFacade\.runtimePreferenceForEndpointProjection\(this,\s*endpoint\)/.test(modelMountingState) &&
-      /runtimeEngineProfile\(engineId\)\s*\{[\s\S]*?readProjectionFacade\.runtimeEngineProfileList\(this\)/.test(modelMountingState) &&
-      /listRuntimeEngineProfiles\(\)\s*\{[\s\S]*?readProjectionFacade\.runtimeEngineProfileList\(this\)/.test(modelMountingState) &&
-      /runtimeDefaultLoadOptions\(engineId\)\s*\{[\s\S]*?readProjectionFacade\.runtimeDefaultLoadOptionsProjection\(this,\s*engineId\)/.test(modelMountingState) &&
-      /runtimeEngine\(engineId\)\s*\{[\s\S]*?readProjectionFacade\.runtimeEngineProjection\(this,\s*engineId\)/.test(modelMountingState) &&
-      /listRuntimeEngines\(\)\s*\{[\s\S]*?readProjectionFacade\.runtimeEngineList\(this\)/.test(modelMountingState) &&
-      /latestRuntimeSurvey\(\)\s*\{[\s\S]*?readProjectionFacade\.latestRuntimeSurvey\(this\)/.test(modelMountingState) &&
-      /serverStatus\(baseUrl\)\s*\{[\s\S]*?readProjectionFacade\.serverStatus\(this,\s*baseUrl\)/.test(modelMountingState) &&
-      /catalogStatus\(\)\s*\{[\s\S]*?readProjectionFacade\.catalogStatus\(this\)/.test(modelMountingState) &&
-      /runtimeEngineList\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"runtime_engines"\)/.test(modelMountingReadProjectionFacade) &&
-      /runtimeEngineProfileList\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"runtime_engine_profiles"\)/.test(modelMountingReadProjectionFacade) &&
-      /runtimePreferenceProjection\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"runtime_preference"\)/.test(modelMountingReadProjectionFacade) &&
-      /runtimePreferenceForEndpointProjection\(state,\s*endpoint = \{\}\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"runtime_preference_for_endpoint",\s*\{ endpoint \}\)/.test(modelMountingReadProjectionFacade) &&
-      /runtimeDefaultLoadOptionsProjection\(state,\s*engineId\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"runtime_default_load_options",\s*\{ engineId \}\)/.test(modelMountingReadProjectionFacade) &&
-      /runtimeEngineProjection\(state,\s*engineId\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"runtime_engine_detail",\s*\{ engineId \}\)/.test(modelMountingReadProjectionFacade) &&
-      /projectionKind === "runtime_engines"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
-      /projectionKind === "runtime_engine_profiles"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
-      /projectionKind === "runtime_preference"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
-      /projectionKind === "runtime_preference_for_endpoint"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
-      /projectionKind === "runtime_default_load_options"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
-      /projectionKind === "runtime_engine_detail"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
-      /projectionKind !== "runtime_engines" &&\s*projectionKind !== "runtime_engine_profiles" &&\s*projectionKind !== "runtime_preference" &&\s*projectionKind !== "runtime_preference_for_endpoint" &&\s*projectionKind !== "runtime_default_load_options" &&\s*projectionKind !== "runtime_engine_detail"/.test(modelMountingReadProjectionFacade) &&
-      /projectionKind === "provider_health"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
-      /projectionKind !== "authority_snapshot" &&\s*projectionKind !== "provider_health" &&\s*projectionKind !== "latest_provider_health"/.test(modelMountingReadProjectionFacade) &&
-      !/function runtimeEngineReadInput\(state,\s*engineId\)/.test(modelMountingReadProjectionFacade) &&
-      !/runtime_engine:\s*runtimeEngineReadInput/.test(modelMountingReadProjectionFacade) &&
-      !/listRuntimeEngineProfiles\(runtimeEngineProjectionState/.test(modelMountingReadProjectionFacade) &&
-      !/runtimeDefaultLoadOptions\(runtimeEngineProjectionState/.test(modelMountingReadProjectionFacade) &&
-      !/runtimePreferenceForEndpoint\(runtimeEngineProjectionState/.test(modelMountingReadProjectionFacade) &&
-      !/function runtimeEngineProjectionState\(state\)/.test(modelMountingReadProjectionFacade) &&
-      !/runtimeState\.listInstances = \(\) => instanceList\(state\)/.test(modelMountingReadProjectionFacade) &&
-      !/function runtimeSurveyProjectionState\(state\)/.test(modelMountingReadProjectionFacade) &&
-      !/runtimeState\.listRuntimeEngines = \(\) => listRuntimeEngines\(runtimeState\)/.test(modelMountingReadProjectionFacade) &&
-      !/runtimeState\.runtimePreference = \(\) => runtimePreference\(runtimeState\)/.test(modelMountingReadProjectionFacade) &&
-      /model_mount_runtime_engine_not_found/.test(modelMountingReadProjectionFacade) &&
-      /facade\.adapterBoundaries\(state\)\.agentgres\.port/.test(modelMountingReadProjectionFacadeTest) &&
-      /read projection facade delegates product-safe lists and capabilities/.test(modelMountingReadProjectionFacadeTest) &&
-      /facade\.providerInventoryRecords\(state\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /providerInventoryRequest\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
-      /read projection facade delegates catalog search through Rust provider inventory replay/.test(modelMountingReadProjectionFacadeTest) &&
-      /facade\.catalogSearch\(state/.test(modelMountingReadProjectionFacadeTest) &&
-      /readProjectionRequests\[0\]\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(readProjectionRequests\[0\]\.state\.catalog_search,\s*"providerRef"\),\s*false/.test(
-        modelMountingReadProjectionFacadeTest,
-      ) &&
-      /facade\.modelTokenizerRecords\(state\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /tokenizerRequest\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
-      /read projection facade delegates runtime-engine reads through Rust projections/.test(modelMountingReadProjectionFacadeTest) &&
-      /assert\.equal\(engines\.length,\s*1\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /engines\[0\]\.id,\s*"backend\.llama-cpp"/.test(modelMountingReadProjectionFacadeTest) &&
-      /engines\[0\]\.evidence_refs\.includes\("agentgres_runtime_engine_replay_required"\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /profiles\[0\]\.record_dir,\s*"runtime-engine-controls"/.test(modelMountingReadProjectionFacadeTest) &&
-      /preference\.selected_engine_id,\s*"backend\.llama-cpp"/.test(modelMountingReadProjectionFacadeTest) &&
-      /assert\.deepEqual\(defaultLoadOptions,\s*\{ gpu_layers: 4 \}\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /assert\.equal\(detail\.profile_record_id,\s*"runtime-engine-control:profile"\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /readProjectionRequests\.every\(\(request\) => request\.state_dir === state\.stateDir\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /read projection facade delegates server status through Rust projection/.test(modelMountingReadProjectionFacadeTest) &&
-      /read projection facade delegates server logs and events through Rust projection/.test(modelMountingReadProjectionFacadeTest) &&
-      /server_log_query:\s*\{[\s\S]*limit:\s*2[\s\S]*\}/.test(modelMountingReadProjectionFacadeTest) &&
-      /events\.events\.some\(\(event\) => event\.event === "server_events_read"\),\s*false/.test(
-        modelMountingReadProjectionFacadeTest,
-      ) &&
-      /read projection facade delegates catalog status through Rust projection/.test(
-        modelMountingReadProjectionFacadeTest,
-      ) &&
-      /assert\.equal\(status\.adapterBoundary\.port,\s*"ModelCatalogProviderPort"\)/.test(
-        modelMountingReadProjectionFacadeTest,
-      ) &&
-      /status\.providers\.map\(\(provider\) => provider\.provider_ref\)[\s\S]*"provider:\/\/fixture"[\s\S]*"provider:\/\/native"/.test(
-        modelMountingReadProjectionFacadeTest,
-      ) &&
-      /status\.providers\[0\]\.rust_core_boundary,\s*"model_mount\.catalog_status"/.test(
-        modelMountingReadProjectionFacadeTest,
-      ) &&
-      /assert\.equal\(status\.storage\.record_count,\s*2\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /assert\.equal\(status\.lastSearch\.result_count,\s*1\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /status\.results\.map\(\(result\) => result\.model_ref\),\s*\["model:\/\/fixture\/qwen3"\]/.test(
-        modelMountingReadProjectionFacadeTest,
-      ) &&
-      /status\.evidence_refs\.includes\("agentgres_catalog_status_replay_required"\)/.test(
-        modelMountingReadProjectionFacadeTest,
-      ) &&
-      /read projection facade delegates latest runtime survey through Rust projection/.test(modelMountingReadProjectionFacadeTest) &&
-      /readProjectionRequests\.map\(\(request\) => request\.projection_kind\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /readProjectionRequests\[0\]\.provider_id/.test(modelMountingReadProjectionFacadeTest) &&
-      /readProjectionRequests\[0\]\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
-      /workflowRequest\.state,\s*\{\}/.test(modelMountingReadProjectionFacadeTest) &&
-      /adapterRequest\.state,\s*\{\}/.test(modelMountingReadProjectionFacadeTest) &&
-      /assert\.deepEqual\(summaryRequest\.state,\s*\{\}\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /summaryRequest\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
-      /assert\.deepEqual\(replayRequest\.state,\s*\{\}\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /replayRequest\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
-      /replayRequest\.receipt_id,\s*"receipt-route"/.test(modelMountingReadProjectionFacadeTest) &&
-      /assert\.equal\(replay\.route,\s*null\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /assert\.equal\(replay\.endpoint,\s*null\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /assert\.equal\(replay\.provider,\s*null\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(replayRequest\.state,\s*"routes"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(replayRequest\.state,\s*"endpoints"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(replayRequest\.state,\s*"instances"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(replayRequest\.state,\s*"providers"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(replayRequest\.state,\s*"server"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(replayRequest\.state,\s*"artifacts"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /assert\.deepEqual\(routeDecisionRequest\.state,\s*\{\}\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /routeDecisionRequest\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(routeDecisionRequest\.state,\s*"receipts"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /assert\.deepEqual\(endpointResolutionRequest\.state,\s*\{\}\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /endpointResolutionRequest\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(endpointResolutionRequest\.state,\s*"receipts"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /assert\.deepEqual\(authorityRequest\.state,\s*\{\}\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /authorityRequest\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
-      /const grants = capabilityTokenRecordsFromAgentgresStateDir\(request\.state_dir\)/.test(
-        modelMountingReadProjectionFacadeTest,
-      ) &&
-      /const vaultRefs = vaultRefRecordsFromAgentgresStateDir\(request\.state_dir\)/.test(
-        modelMountingReadProjectionFacadeTest,
-      ) &&
-      /snapshot\.tokens\.map\(\(token\) => token\.token_id\),\s*\["capability_token:studio"\]/.test(
-        modelMountingReadProjectionFacadeTest,
-      ) &&
-      /projection\.grants\.map\(\(token\) => token\.token_id\),\s*\["capability_token:studio"\]/.test(
-        modelMountingReadProjectionFacadeTest,
-      ) &&
-      /authority\.summary\.activeGrants,\s*1/.test(modelMountingReadProjectionFacadeTest) &&
-      /authority\.grants\[0\]\.capability_token_projection_boundary[\s\S]*"model_mount\.capability_token_projection"/.test(
-        modelMountingReadProjectionFacadeTest,
-      ) &&
-      /authority\.vaultRefs\[0\]\.vault_projection_boundary,\s*"model_mount\.vault_projection"/.test(
-        modelMountingReadProjectionFacadeTest,
-      ) &&
-      /Object\.hasOwn\(authorityRequest\.state,\s*"server_status_input"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(authorityRequest\.state,\s*"grants"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(authorityRequest\.state,\s*"vault_refs"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(authorityRequest\.state,\s*"wallet"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(authorityRequest\.state,\s*"vault"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /const providerHealth = facade\.listProviderHealth\(state\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /providerHealth\[0\]\.source,\s*"agentgres_provider_lifecycle_health"/.test(modelMountingReadProjectionFacadeTest) &&
-      /providerHealth\[0\]\.record\.id,\s*"provider-lifecycle-health"/.test(modelMountingReadProjectionFacadeTest) &&
-      /providerHealth\[0\]\.receipt,\s*null/.test(modelMountingReadProjectionFacadeTest) &&
-      /providerHealth\[0\]\.projectionWatermark,\s*1/.test(modelMountingReadProjectionFacadeTest) &&
-      /providerHealthRequest\.state,\s*\{\}/.test(modelMountingReadProjectionFacadeTest) &&
-      /providerHealthRequest\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(providerHealthRequest\.state,\s*"provider_health"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(providerHealthRequest\.state,\s*"receipts"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /const artifacts = facade\.listArtifacts\(state\);[\s\S]*artifacts\.map\(\(artifact\) => artifact\.model_ref\),\s*\[\s*"model:\/\/fixture\/qwen3",\s*"model:\/\/operator\/qwen3-direct"/.test(modelMountingReadProjectionFacadeTest) &&
-      /directArtifact\.evidence_refs\.includes\("agentgres_artifact_endpoint_replay_required"\),\s*true/.test(modelMountingReadProjectionFacadeTest) &&
-      /runtimeCatalog\.map\(\(entry\) => entry\.id\),\s*\["qwen3"\]/.test(modelMountingReadProjectionFacadeTest) &&
-      /facade\.openAiModelList\(state\)\.data\.map\(\(entry\) => entry\.id\),\s*\["qwen3"\]/.test(modelMountingReadProjectionFacadeTest) &&
-      /facade\.listProductArtifacts\(state\)\.map\(\(artifact\) => artifact\.model_ref\),\s*\[\s*"model:\/\/fixture\/qwen3"/.test(modelMountingReadProjectionFacadeTest) &&
-      /const providers = facade\.listProviders\(state\);[\s\S]*providers\.map\(\(provider\) => provider\.provider_ref\),\s*\[\s*"provider:\/\/fixture",\s*"provider:\/\/native",\s*"provider:\/\/openai"/.test(modelMountingReadProjectionFacadeTest) &&
-      /endpoints\.map\(\(endpoint\) => endpoint\.id\),\s*\["endpoint\.direct",\s*"endpoint\.local"\]/.test(modelMountingReadProjectionFacadeTest) &&
-      /directEndpoint\.evidence_refs\.includes\("agentgres_artifact_endpoint_replay_required"\),\s*true/.test(modelMountingReadProjectionFacadeTest) &&
-      /routeEndpoint\.provider_id,\s*"provider\.local"/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(routeEndpoint,\s*"providerId"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /endpointRequests\.every\(\(request\) => request\.state_dir === state\.stateDir\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /facade\.listInstances\(state\)\.map\(\(instance\) => instance\.id\)[\s\S]*"instance\.loaded"[\s\S]*"instance\.old"/.test(
-        modelMountingReadProjectionFacadeTest,
-      ) &&
-      /instanceRequest\.state,\s*\{\}/.test(modelMountingReadProjectionFacadeTest) &&
-      /instanceRequest\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
-      /instanceRecordsFromAgentgresStateDir/.test(modelMountingReadProjectionFacadeTest) &&
-      /facade\.listRoutes\(state\)\.map\(\(route\) => route\.id\)[\s\S]*"route\.local-first"[\s\S]*"route\.research"/.test(
-        modelMountingReadProjectionFacadeTest,
-      ) &&
-      /routeRequest\.state,\s*\{\}/.test(modelMountingReadProjectionFacadeTest) &&
-      /routeRequest\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(routeRequest\.state,\s*"routes"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /routeRecordsFromAgentgresStateDir/.test(modelMountingReadProjectionFacadeTest) &&
-      /const modelCapabilities = facade\.listModelCapabilities\(state\)/.test(
-        modelMountingReadProjectionFacadeTest,
-      ) &&
-      /assert\.equal\(modelCapabilities\[0\]\.rust_core_boundary,\s*"model_mount\.model_capability_projection"\)/.test(
-        modelMountingReadProjectionFacadeTest,
-      ) &&
-      /modelCapabilitiesRequest\.state_dir,\s*state\.stateDir/.test(
-        modelMountingReadProjectionFacadeTest,
-      ) &&
-      /Object\.hasOwn\(modelCapabilitiesRequest\.state,\s*"model_capabilities"\),\s*false/.test(
-        modelMountingReadProjectionFacadeTest,
-      ) &&
-      /facade\.listDownloads\(state\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /downloads\.map\(\(download\) => download\.id\),\s*\["download\.qwen3"\]/.test(modelMountingReadProjectionFacadeTest) &&
-      /downloadRequest\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
-      /facade\.downloadStatus\(state,\s*"download\.qwen3"\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /downloadStatusRequests\.map\(\(request\) => request\.download_id\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /facade\.storageSummary\(state\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /storageSummaryRequest\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
-      /rust_model_mount_storage_summary_projection/.test(modelMountingReadProjectionFacadeTest) &&
-      /const backends = facade\.listBackends\(state\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /backends\.map\(\(record\) => record\.id\),\s*\["backend\.native",\s*"backend\.ollama"\]/.test(modelMountingReadProjectionFacadeTest) &&
-      /agentgres_backend_lifecycle_replay_required/.test(modelMountingReadProjectionFacadeTest) &&
-      /store\.modelMounting\.runtimeModelCatalogList\(\)/.test(publicRuntimeRoutes) &&
-      /store\.modelMounting\.listModelCapabilities\(\)/.test(publicRuntimeRoutes) &&
-      !/store\.listModels\(\)/.test(publicRuntimeRoutes) &&
-      !/store\.listModelCapabilities\(\)/.test(publicRuntimeRoutes) &&
-      !/^\s+(?:listModels|listModelCapabilities)\(/m.test(runtimeDaemonIndex) &&
-      /public runtime model catalog routes use mounted model projection surface/.test(
-        publicRuntimeRoutesTest,
-      ) &&
-      /topologyRequests\.every\(\(request\) => Object\.keys\(request\.state\)\.length === 0\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /assert\.deepEqual\(readProjectionRequests\[0\]\.state,\s*\{\}\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /readProjectionRequests\[0\]\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(readProjectionRequests\[0\]\.state,\s*"provider_health"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(readProjectionRequests\[0\]\.state,\s*"providers"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /providerHealth\.health\.provider_id,\s*"provider\.local"/.test(modelMountingReadProjectionFacadeTest) &&
-      /provider_id:\s*"provider\.local"/.test(modelMountingReadProjectionFacadeTest) &&
-      /assert\.deepEqual\(readProjectionRequests\[1\]\.state,\s*\{\}\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /readProjectionRequests\[1\]\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
-      /assert\.deepEqual\(readProjectionRequests\[0\]\.state,\s*\{\}\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(readProjectionRequests\[0\]\.state,\s*"server_status_input"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /readProjectionRequests\[0\]\.base_url,\s*"http:\/\/127\.0\.0\.1:3200"/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(snapshotRequest\.state,\s*"catalog"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(snapshotRequest\.state,\s*"backends"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(snapshotRequest\.state,\s*"backend_processes"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(snapshotRequest\.state,\s*"runtime_engines"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(snapshotRequest\.state,\s*"runtime_engine_profiles"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(snapshotRequest\.state,\s*"runtime_preference"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(snapshotRequest\.state,\s*"mcp_servers"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(snapshotRequest\.state,\s*"conversation_states"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(snapshotRequest\.state,\s*"grants"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(snapshotRequest\.state,\s*"vault_refs"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(snapshotRequest\.state,\s*"agentgres_store"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(snapshotRequest\.state,\s*"wallet"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(snapshotRequest\.state,\s*"vault"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(snapshotRequest\.state,\s*"provider_health"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(snapshotRequest\.state,\s*"runtime_survey_input"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(snapshotRequest\.state,\s*"server_status_input"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(snapshotRequest\.state,\s*"artifacts"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(snapshotRequest\.state,\s*"endpoints"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(snapshotRequest\.state,\s*"instances"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(snapshotRequest\.state,\s*"providers"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(snapshotRequest\.state,\s*"routes"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(snapshotRequest\.state,\s*"downloads"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(snapshotRequest\.state,\s*"product_artifact_policy"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(snapshotRequest\.state,\s*"catalog_status_input"\),\s*false/.test(
-        modelMountingReadProjectionFacadeTest,
-      ) &&
-      /Object\.hasOwn\(snapshotRequest\.state,\s*"catalog_provider_configs"\),\s*false/.test(
-        modelMountingReadProjectionFacadeTest,
-      ) &&
-      /Object\.hasOwn\(projectionRequest\.state,\s*"catalog_status_input"\),\s*false/.test(
-        modelMountingReadProjectionFacadeTest,
-      ) &&
-      /Object\.hasOwn\(projectionRequest\.state,\s*"backends"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(projectionRequest\.state,\s*"backend_processes"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(projectionRequest\.state,\s*"runtime_engines"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(projectionRequest\.state,\s*"runtime_engine_profiles"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(projectionRequest\.state,\s*"runtime_preference"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(projectionRequest\.state,\s*"mcp_servers"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(projectionRequest\.state,\s*"conversation_states"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(projectionRequest\.state,\s*"grants"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(projectionRequest\.state,\s*"vault_refs"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(projectionRequest\.state,\s*"agentgres_store"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(projectionRequest\.state,\s*"wallet"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(projectionRequest\.state,\s*"vault"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(projectionRequest\.state,\s*"provider_health"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(projectionRequest\.state,\s*"runtime_survey_input"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(projectionRequest\.state,\s*"server_status_input"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(projectionRequest\.state,\s*"artifacts"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(projectionRequest\.state,\s*"endpoints"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(projectionRequest\.state,\s*"instances"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(projectionRequest\.state,\s*"providers"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(projectionRequest\.state,\s*"routes"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(projectionRequest\.state,\s*"downloads"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(projectionRequest\.state,\s*"product_artifact_policy"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(projectionRequest\.state,\s*"catalog_provider_configs"\),\s*false/.test(
-        modelMountingReadProjectionFacadeTest,
-      ) &&
-      /Object\.hasOwn\(snapshot,\s*"catalogProviderConfigs"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(projection,\s*"catalogProviderConfigs"\),\s*false/.test(
-        modelMountingReadProjectionFacadeTest,
-      ) &&
-      /assert\.deepEqual\(readProjectionRequests\[0\]\.state,\s*\{\}\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /readProjectionRequests\[0\]\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(readProjectionRequests\[0\]\.state,\s*"runtime_survey_input"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /readProjectionRequests\.every\(\(request\) => !Object\.hasOwn\(request\.state,\s*"runtime_survey_input"\)\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /assert\.equal\(notChecked\.engineCount,\s*0\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /assert\.equal\(notChecked\.runtimePreference,\s*null\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /assert\.equal\(notChecked\.hardware,\s*null\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(request\.state,\s*"runtime_survey"\),\s*true/.test(modelMountingReadProjectionFacadeTest) === false &&
-      /Object\.hasOwn\(request\.state,\s*"adapter_boundaries"\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(request\.state,\s*"workflow_bindings"\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(request\.state,\s*"model_capabilities"\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /modelCapabilitiesRequest\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
-      /modelCapabilities\[0\]\.rust_core_boundary,\s*"model_mount\.model_capability_projection"/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.keys\(request\.state\)\.length === 0/.test(modelMountingReadProjectionFacadeTest) &&
-      /"runtime_model_catalog"[\s\S]*"open_ai_model_list"[\s\S]*"product_artifacts"/.test(modelMountingReadProjectionFacadeTest) &&
-      /"artifacts"[\s\S]*"providers"[\s\S]*"endpoints"[\s\S]*"instances"[\s\S]*"routes"[\s\S]*"model_capabilities"[\s\S]*"downloads"[\s\S]*"provider_health"/.test(modelMountingReadProjectionFacadeTest) &&
-      !/assertOAuthReadProjectionRetired/.test(modelMountingReadProjectionFacadeTest) &&
-      !/model_mount\.catalog_provider_oauth\.sessions/.test(modelMountingReadProjectionFacadeTest) &&
-      !/model_mount\.catalog_provider_oauth\.states/.test(modelMountingReadProjectionFacadeTest) &&
-      /assert\.deepEqual\(facade\.listOAuthSessions\(state\),\s*\[\]\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /assert\.deepEqual\(facade\.listOAuthStates\(state\),\s*\[\]\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /request\.projection_kind === "oauth_sessions" \|\| request\.projection_kind === "oauth_states"\) return \[\]/.test(modelMountingReadProjectionFacadeTest) &&
-      /"oauth_sessions"[\s\S]*"oauth_states"[\s\S]*"provider_health"/.test(modelMountingReadProjectionFacadeTest) &&
-      /request\.projection_kind === "oauth_sessions"[\s\S]*Object\.keys/.test(modelMountingReadProjectionFacadeTest) &&
-      /request\.projection_kind === "oauth_states"[\s\S]*Object\.keys/.test(modelMountingReadProjectionFacadeTest) &&
-      /request\.projection_kind === "oauth_sessions"\)\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
-      /request\.projection_kind === "oauth_states"\)\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(snapshotRequest\.state,\s*"oauth_sessions"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(projectionRequest\.state,\s*"oauth_states"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /"workflow_bindings"[\s\S]*"adapter_boundaries"/.test(modelMountingReadProjectionFacadeTest) &&
-      /"runtime_engines"[\s\S]*"runtime_engine_profiles"[\s\S]*"runtime_preference"[\s\S]*"runtime_preference_for_endpoint"[\s\S]*"runtime_default_load_options"[\s\S]*"runtime_engine_detail"/.test(modelMountingReadProjectionFacadeTest) &&
-      /"latest_runtime_survey"/.test(modelMountingReadProjectionFacadeTest) &&
-      /"server_status"/.test(modelMountingReadProjectionFacadeTest) &&
-      /"server_logs"/.test(modelMountingReadProjectionFacadeTest) &&
-      /"server_events"/.test(modelMountingReadProjectionFacadeTest) &&
-      /"server_log_records"/.test(modelMountingReadProjectionFacadeTest) &&
-      /assert\.equal\(engines\.length,\s*1\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /assert\.equal\(profiles\.length,\s*1\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /preference\.selected_engine_id,\s*"backend\.llama-cpp"/.test(modelMountingReadProjectionFacadeTest) &&
-      /endpointPreference\.selected_engine_id,\s*"backend\.llama-cpp"/.test(modelMountingReadProjectionFacadeTest) &&
-      /assert\.deepEqual\(defaultLoadOptions,\s*\{ gpu_layers: 4 \}\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /detail\.preference_record_id,\s*"runtime-engine-control:preference"/.test(modelMountingReadProjectionFacadeTest) &&
-      /error\.details\.engine_id === "backend\.missing"/.test(modelMountingReadProjectionFacadeTest) &&
-      /readProjectionRequests\.every\(\(request\) => Object\.keys\(request\.state\)\.length === 0\)/.test(modelMountingReadProjectionFacadeTest) &&
-      !/productArtifactsFromRustState/.test(modelMountingReadProjectionFacadeTest) &&
-      !/runtimeModelCatalogFromRustState/.test(modelMountingReadProjectionFacadeTest) &&
-      !/openAiModelListFromRustState/.test(modelMountingReadProjectionFacadeTest) &&
-      !/modelCapabilitiesFromRustState/.test(modelMountingReadProjectionFacadeTest) &&
-      !/artifactIsInternalFixture/.test(modelMountingReadProjectionFacadeTest) &&
-      /adapterBoundariesFromState/.test(modelMountingReadProjectionFacadeTest) &&
-      /workflowBindingsFromRust/.test(modelMountingReadProjectionFacadeTest) &&
-      /serverStatusFromRustRequest/.test(modelMountingReadProjectionFacadeTest) &&
-      /serverLogsFromRustRequest/.test(modelMountingReadProjectionFacadeTest) &&
-      /serverEventsFromRustRequest/.test(modelMountingReadProjectionFacadeTest) &&
-      /serverLogRecordsFromRustRequest/.test(modelMountingReadProjectionFacadeTest) &&
-      /catalogStatusFromAgentgresStateDir/.test(modelMountingReadProjectionFacadeTest) &&
-      /Reranker"\)\.capability,\s*"rerank"/.test(modelMountingReadProjectionFacadeTest) &&
-      /provider health has not been checked/.test(modelMountingReadProjectionFacadeTest) &&
-      /vault adapter health has not been checked/.test(modelMountingReadProjectionFacadeTest) &&
+    !/readProjectionFacade/.test(modelMountingState) &&
+      !/createModelMountingReadProjectionFacade/.test(modelMountingState) &&
+      !exists("packages/runtime-daemon/src/model-mounting/read-projection-facade.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs") &&
+      !/readProjectionClient/.test(modelMountingReadProjectionDirectTest) &&
+      !modelMountingReadProjectionDirectTest.includes("Object.fromEntries([") &&
+      modelMountingReadProjectionDirectTest.includes("Object.setPrototypeOf(state, ModelMountingState.prototype)") &&
+      /function modelMountReadProjection/.test(modelMountingReadProjectionDirectClient) &&
+      /function modelMountReadProjectionPlan/.test(modelMountingReadProjectionDirectClient) &&
+      /function modelMountReadProjectionInput/.test(modelMountingReadProjectionDirectClient) &&
+      /function modelMountReadProjectionStateDir/.test(modelMountingReadProjectionDirectClient) &&
+      modelMountingReadProjectionDirectClient.includes("const planner = state?.modelMountCore") &&
+      modelMountingReadProjectionDirectClient.includes("planner.planReadProjection") &&
+      /throwReadProjectionRustCoreRequired/.test(modelMountingReadProjectionDirectClient) &&
+      /model_mount_read_projection_rust_core_required/.test(modelMountingReadProjectionDirectClient) &&
+      /model_mount_js_read_projection_authoring_retired/.test(modelMountingReadProjectionDirectClient) &&
+      modelMountingReadProjectionDirectClient.includes("serverStatus(baseUrl)") &&
+      modelMountingReadProjectionDirectClient.includes('modelMountReadProjection(this, "server_status", { baseUrl })') &&
+      modelMountingReadProjectionDirectClient.includes("catalogSearch(query = {})") &&
+      modelMountingReadProjectionDirectClient.includes('modelMountReadProjection(this, "catalog_search"') &&
+      modelMountingReadProjectionDirectClient.includes("listArtifacts()") &&
+      modelMountingReadProjectionDirectClient.includes('modelMountReadProjection(this, "artifacts")') &&
+      modelMountingReadProjectionDirectClient.includes("listMcpServers()") &&
+      modelMountingReadProjectionDirectClient.includes('modelMountReadProjection(this, "mcp_servers")') &&
+      modelMountingReadProjectionDirectClient.includes("listConversations()") &&
+      modelMountingReadProjectionDirectClient.includes('modelMountReadProjection(this, "model_conversation_states")') &&
+      modelMountingReadProjectionDirectClient.includes("backendLogs(backendId, query = {})") &&
+      modelMountingReadProjectionDirectClient.includes('modelMountReadProjection(this, "backend_logs"') &&
+      modelMountingReadProjectionDirectClient.includes("runtimeEngine(engineId)") &&
+      modelMountingReadProjectionDirectClient.includes('modelMountReadProjection(this, "runtime_engine_detail", { engineId })') &&
+      modelMountingReadProjectionDirectClient.includes("canonicalProjectionWritePlan()") &&
+      modelMountingReadProjectionDirectClient.includes('modelMountReadProjectionPlan(this, "projection")') &&
+      modelMountingReadProjectionDirectClient.includes("this.canonicalProjectionWritePlan()") &&
+      modelMountingReadProjectionDirectTest.includes("state.catalogSearch({") &&
+      modelMountingReadProjectionDirectTest.includes("state.canonicalProjectionWritePlan()") &&
+      modelMountingReadProjectionDirectTest.includes('state.downloadStatus("download.qwen3")') &&
+      modelMountingReadProjectionDirectTest.includes("state.listOAuthSessions()") &&
+      /read projection direct client composes snapshots, projection, and receipt replay/.test(modelMountingReadProjectionDirectTest) &&
       /Rust model_mount core sends read projection through typed daemon-core API/.test(modelMountCoreTest) &&
       /planReadProjection\(request\)/.test(modelMountCore) &&
       /MODEL_MOUNT_READ_PROJECTION_API_METHOD = "planModelMountReadProjection"/.test(modelMountDaemonCore) &&
@@ -17942,10 +17476,10 @@ function runBridge() {
       /catalog_status_fails_closed_without_agentgres_state_dir/.test(modelMountReadProjectionEvidence) &&
       !/pub\(super\) fn status/.test(modelMountReadProjectionEvidence) &&
       !/direct_catalog_status_readback_fails_closed_in_rust_boundary/.test(modelMountReadProjectionEvidence) &&
-      !/model_catalog_status_js_readback_retired/.test(modelMountingReadProjectionFacade) &&
+      !/model_catalog_status_js_readback_retired/.test(modelMountingReadProjectionDirectClient) &&
       !/"catalog_status" => Err\(ModelMountReadProjectionError::new/.test(modelMountReadProjectionEvidence) &&
-      !/translateOAuthReadProjectionError/.test(modelMountingReadProjectionFacade) &&
-      !/model_mount_oauth_read_projection_js_retired/.test(modelMountingReadProjectionFacade) &&
+      !/translateOAuthReadProjectionError/.test(modelMountingReadProjectionDirectClient) &&
+      !/model_mount_oauth_read_projection_js_retired/.test(modelMountingReadProjectionDirectClient) &&
       /"latest_provider_health" => health::latest_provider_health\(request\)/.test(modelMountReadProjectionEvidence) &&
       /"latest_vault_health" => health::latest_vault_health\(request\)/.test(modelMountReadProjectionEvidence) &&
       /"latest_runtime_survey" => health::latest_runtime_survey\(request\)/.test(modelMountReadProjectionEvidence) &&
@@ -18169,14 +17703,14 @@ function runBridge() {
       /"loadedInstances": topology::instance_records\(request\)\.len\(\)/.test(modelMountReadProjectionEvidence) &&
       /"mountedEndpoints": topology::endpoint_records\(request\)\.len\(\)/.test(modelMountReadProjectionEvidence) &&
       !/fn model_mount_catalog_status(?:(?!\nfn ).)*request\.state\.get\("catalog_status_input"\)/s.test(modelMountReadProjectionEvidence) &&
-      /"runtime_model_catalog"/.test(modelMountingReadProjectionFacadeTest) &&
-      /"open_ai_model_list"/.test(modelMountingReadProjectionFacadeTest) &&
-      /"product_artifacts"/.test(modelMountingReadProjectionFacadeTest) &&
-      /runtimeCatalog\.map\(\(entry\) => entry\.id\),\s*\["qwen3"\]/.test(modelMountingReadProjectionFacadeTest) &&
-      /facade\.openAiModelList\(state\)\.data\.map\(\(entry\) => entry\.id\),\s*\["qwen3"\]/.test(modelMountingReadProjectionFacadeTest) &&
-      /facade\.listProductArtifacts\(state\)\.map\(\(artifact\) => artifact\.model_ref\),\s*\[\s*"model:\/\/fixture\/qwen3"/.test(modelMountingReadProjectionFacadeTest) &&
-      /const providers = facade\.listProviders\(state\);[\s\S]*providers\.map\(\(provider\) => provider\.provider_ref\),\s*\[\s*"provider:\/\/fixture",\s*"provider:\/\/native",\s*"provider:\/\/openai"/.test(modelMountingReadProjectionFacadeTest) &&
-      /materializationRequest\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
+      /"runtime_model_catalog"/.test(modelMountingReadProjectionDirectTest) &&
+      /"open_ai_model_list"/.test(modelMountingReadProjectionDirectTest) &&
+      /"product_artifacts"/.test(modelMountingReadProjectionDirectTest) &&
+      /runtimeCatalog\.map\(\(entry\) => entry\.id\),\s*\["qwen3"\]/.test(modelMountingReadProjectionDirectTest) &&
+      /state\.openAiModelList\(\)\.data\.map\(\(entry\) => entry\.id\),\s*\["qwen3"\]/.test(modelMountingReadProjectionDirectTest) &&
+      /state\.listProductArtifacts\(\)\.map\(\(artifact\) => artifact\.model_ref\),\s*\[\s*"model:\/\/fixture\/qwen3"/.test(modelMountingReadProjectionDirectTest) &&
+      /const providers = state\.listProviders\(\);[\s\S]*providers\.map\(\(provider\) => provider\.provider_ref\),\s*\[\s*"provider:\/\/fixture",\s*"provider:\/\/native",\s*"provider:\/\/openai"/.test(modelMountingReadProjectionDirectTest) &&
+      /materializationRequest\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionDirectTest) &&
       /response\.projection\["adapterBoundaries"\]\["agentgres"\]\["port"\]/.test(modelMountReadProjectionEvidence) &&
       /assert_eq!\(response\.projection\["routeDecisions"\], json!\(\[\]\)\)/.test(modelMountReadProjectionEvidence) &&
       /route_decisions_replay_agentgres_selection_records_and_filter_js_truth/.test(modelMountReadProjectionEvidence) &&
@@ -18185,8 +17719,8 @@ function runBridge() {
       /model_mount_js_read_projection_authoring_retired/.test(modelMountReadProjectionEvidence),
     [
       "packages/runtime-daemon/src/model-mounting.mjs",
-      "packages/runtime-daemon/src/model-mounting/read-projection-facade.mjs",
-      "packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
+      "packages/runtime-daemon/src/model-mounting/read-projection-direct.test.mjs",
       "packages/runtime-daemon/src/model-mounting/model-mount-core.mjs",
       "packages/runtime-daemon/src/model-mounting/model-mount-core.test.mjs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
@@ -18224,7 +17758,7 @@ function runBridge() {
       /routeControlPlans\[0\]\.operation_kind,\s*"model_mount\.route\.select"/.test(modelRoutesTest) &&
       /routeControlPlans\[1\]\.operation_kind,\s*"model_mount\.route\.explicit_model_endpoints"/.test(modelRoutesTest) &&
       /route-selection receipt helper is retired behind Rust core/.test(modelRoutesTest) &&
-      /assert\.equal\(replay\.model_route_decision\.selected_model/.test(modelMountingReadProjectionFacadeTest),
+      /assert\.equal\(replay\.model_route_decision\.selected_model/.test(modelMountingReadProjectionDirectTest),
     [
       "packages/runtime-daemon/src/model-mounting/routes.mjs",
       "packages/runtime-daemon/src/model-mounting/routes.test.mjs",
@@ -19480,21 +19014,21 @@ function runBridge() {
       /model_mount_conversation_state_rust_owned/.test(modelConversationOps) &&
       /agentgres_model_conversation_truth_required/.test(modelConversationOps) &&
       /model_conversation_state_write/.test(modelConversationOps) &&
-      /listConversations\(\)\s*\{\s*return this\.readProjectionFacade\.listConversations\(this\);/m.test(
+      /listConversations\(\)\s*\{\s*return modelMountReadProjection\(this,\s*"model_conversation_states"\);/m.test(
         modelConversationOps,
       ) &&
       !/modelConversationRustCoreRequiredError/.test(modelConversationOps) &&
       !/model_mount_conversation_rust_core_required/.test(modelConversationOps) &&
-      /function listConversations\(state\)/.test(modelMountingReadProjectionFacade) &&
-      /model_conversation_states/.test(modelMountingReadProjectionFacade) &&
-      /state_dir:\s*readProjectionStateDir\(state,\s*projectionKind\)/.test(
-        modelMountingReadProjectionFacade,
+      /listConversations\(\)\s*\{[\s\S]*?modelMountReadProjection\(this,\s*"model_conversation_states"\)/.test(modelMountingReadProjectionDirectClient) &&
+      /model_conversation_states/.test(modelMountingReadProjectionDirectClient) &&
+      /state_dir:\s*modelMountReadProjectionStateDir\(state,\s*projectionKind\)/.test(
+        modelMountingReadProjectionDirectClient,
       ) &&
       /projectionKind === "model_conversation_states"[\s\S]*?return \{\};/.test(
-        modelMountingReadProjectionFacade,
+        modelMountingReadProjectionDirectClient,
       ) &&
-      /function readProjectionStateDir\(state,\s*projectionKind\)/.test(modelMountingReadProjectionFacade) &&
-      !/conversationStateRecordsForProjection/.test(modelMountingReadProjectionFacade) &&
+      /function modelMountReadProjectionStateDir\(state,\s*projectionKind\)/.test(modelMountingReadProjectionDirectClient) &&
+      !/conversationStateRecordsForProjection/.test(modelMountingReadProjectionDirectClient) &&
       /MODEL_MOUNT_CONVERSATION_PROJECTION_KIND/.test(modelMountReadProjectionEvidence) &&
       /mod conversation;/.test(modelMountReadProjectionEvidence) &&
       /MODEL_MOUNT_CONVERSATION_PROJECTION_KIND => conversation::conversation_states\(request\)/.test(
@@ -19511,13 +19045,13 @@ function runBridge() {
       /listConversations returns Rust-projected admitted conversation states/.test(
         modelConversationOpsTest,
       ) &&
-      /read projection facade delegates product-safe lists and capabilities/.test(
-        modelMountingReadProjectionFacadeTest,
+      /read projection direct client delegates product-safe lists and capabilities/.test(
+        modelMountingReadProjectionDirectTest,
       ) &&
-      /model_conversation_states/.test(modelMountingReadProjectionFacadeTest) &&
-      /conversationRequest\.state,\s*\{\}/.test(modelMountingReadProjectionFacadeTest) &&
-      /conversationRequest\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
-      /conversationStatesFromAgentgresStateDir/.test(modelMountingReadProjectionFacadeTest) &&
+      /model_conversation_states/.test(modelMountingReadProjectionDirectTest) &&
+      /conversationRequest\.state,\s*\{\}/.test(modelMountingReadProjectionDirectTest) &&
+      /conversationRequest\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionDirectTest) &&
+      /conversationStatesFromAgentgresStateDir/.test(modelMountingReadProjectionDirectTest) &&
       /public facade executes migrated fixture through Rust model_mount core, provider execution, and receipt binding/.test(
         modelInvocationOpsTest,
       ) &&
@@ -19541,8 +19075,8 @@ function runBridge() {
       /assert\.deepEqual\(state\.writes,\s*\[\]\)/.test(modelConversationOpsTest),
     [
       "packages/runtime-daemon/src/model-mounting.mjs",
-      "packages/runtime-daemon/src/model-mounting/read-projection-facade.mjs",
-      "packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
+      "packages/runtime-daemon/src/model-mounting/read-projection-direct.test.mjs",
       "packages/runtime-daemon/src/model-mounting/conversation-operations.test.mjs",
       "crates/services/src/agentic/runtime/kernel/model_mount/read_projection.rs",
       "crates/services/src/agentic/runtime/kernel/model_mount/read_projection/conversation.rs",
@@ -20201,23 +19735,23 @@ function runBridge() {
         runtimeDaemonIndex,
         modelMountingState,
         modelMountingReadModel,
-        modelMountingReadProjectionFacade,
+        modelMountingReadProjectionDirectClient,
       ].join("\n"),
     ) &&
       /store\.modelMounting\.runtimeModelCatalogList\(\)/.test(publicRuntimeRoutes) &&
       !/^\s+(?:listModels|runtimeModelCatalogList)\(/m.test(runtimeDaemonIndex) &&
       /runtimeModelCatalogList/.test(modelMountingState) &&
-      /runtimeModelCatalogList/.test(modelMountingReadProjectionFacade) &&
+      /runtimeModelCatalogList/.test(modelMountingReadProjectionDirectClient) &&
       !exists("packages/runtime-daemon/src/model-mounting/read-model.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/read-model.test.mjs") &&
       !/provider\.autopilot\.local/.test(modelMountingReadModelTest) &&
       !/ioi-daemon-local/.test(modelMountingReadModelTest) &&
-      /runtimeModelCatalogList/.test(modelMountingReadProjectionFacadeTest),
+      /runtimeModelCatalogList/.test(modelMountingReadProjectionDirectTest),
     [
       "packages/runtime-daemon/src/index.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
-      "packages/runtime-daemon/src/model-mounting/read-projection-facade.mjs",
-      "packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
+      "packages/runtime-daemon/src/model-mounting/read-projection-direct.test.mjs",
     ],
     "Phase 11 is pending: public model listing must use the runtime model catalog projection instead of a legacy model-list facade name",
   );
@@ -22211,13 +21745,11 @@ function runReceipts() {
   const catalogOperationsTest = exists("packages/runtime-daemon/src/model-mounting/catalog-operations.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/catalog-operations.test.mjs")
     : "";
-  const modelMountingReadProjectionFacade = exists("packages/runtime-daemon/src/model-mounting/read-projection-facade.mjs")
-    ? read("packages/runtime-daemon/src/model-mounting/read-projection-facade.mjs")
-    : "";
-  const modelMountingReadProjectionFacadeTest = exists(
-    "packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs",
+  const modelMountingReadProjectionDirectClient = modelMountingState;
+  const modelMountingReadProjectionDirectTest = exists(
+    "packages/runtime-daemon/src/model-mounting/read-projection-direct.test.mjs",
   )
-    ? read("packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/read-projection-direct.test.mjs")
     : "";
   const catalogEntries = exists("packages/runtime-daemon/src/model-mounting/catalog-entries.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/catalog-entries.mjs")
@@ -23726,7 +23258,7 @@ function runReceipts() {
       !/tokenizerRequired\(operation,\s*details = \{\}\)/.test(modelMountingState) &&
       /planTokenizer\(request\)/.test(modelMountingState) &&
       /this\.modelMountCore\.planTokenizer\(request\)/.test(modelMountingState) &&
-      /modelTokenizerRecords\(\)\s*\{[\s\S]*?readProjectionFacade\.modelTokenizerRecords\(this\)/.test(modelMountingState) &&
+      /modelTokenizerRecords\(\)\s*\{[\s\S]*?modelMountReadProjection\(this,\s*"model_tokenizer_records"\)/.test(modelMountingState) &&
       /planTokenizer\(request\)/.test(modelMountCore) &&
       modelMountTokenizerRequiredControlTypedApiOwned &&
       /MODEL_MOUNT_TOKENIZER_API_METHOD = "planModelMountTokenizer"/.test(modelMountCore) &&
@@ -23809,8 +23341,8 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/model-mount-core.mjs",
       "packages/runtime-daemon/src/model-mounting/model-mount-core.test.mjs",
       "packages/runtime-daemon/src/model-mounting/tokenizer-operations.test.mjs",
-      "packages/runtime-daemon/src/model-mounting/read-projection-facade.mjs",
-      "packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
+      "packages/runtime-daemon/src/model-mounting/read-projection-direct.test.mjs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
       "crates/services/src/agentic/runtime/kernel/model_mount/tokenizer.rs",
@@ -23947,16 +23479,16 @@ function runReceipts() {
         modelMountCore,
       ) &&
       /artifactEndpointArtifactRecordsFromAgentgresStateDir/.test(
-        modelMountingReadProjectionFacadeTest,
+        modelMountingReadProjectionDirectTest,
       ) &&
       /artifactEndpointEndpointRecordsFromAgentgresStateDir/.test(
-        modelMountingReadProjectionFacadeTest,
+        modelMountingReadProjectionDirectTest,
       ) &&
       /directArtifact\.artifact_endpoint_projection_boundary,\s*"model_mount\.artifact_endpoint_projection"/.test(
-        modelMountingReadProjectionFacadeTest,
+        modelMountingReadProjectionDirectTest,
       ) &&
       /directEndpoint\.artifact_endpoint_projection_boundary,\s*"model_mount\.artifact_endpoint_projection"/.test(
-        modelMountingReadProjectionFacadeTest,
+        modelMountingReadProjectionDirectTest,
       ) &&
       /assert\.equal\(state\.recordStateCommits\.length,\s*1\)/.test(
         artifactEndpointOperationsTest,
@@ -24115,24 +23647,24 @@ function runReceipts() {
       /pub\(super\) fn plan_storage_control/.test(modelMountStorageControlEvidence) &&
       /"model-downloads"/.test(modelMountStorageControlEvidence) &&
       /"model-storage-controls"/.test(modelMountStorageControlEvidence) &&
-      /readProjectionFacade\.storageSummary\(this\)/.test(storageSummaryBlock) &&
-      /readProjectionFacade\.downloadStatus\(this,\s*jobId\)/.test(downloadStatusBlock) &&
+      /modelMountReadProjection\(this,\s*"storage_summary"\)/.test(storageSummaryBlock) &&
+      /modelMountReadProjection\(this,\s*"download_status",\s*\{ downloadId: jobId \}\)/.test(downloadStatusBlock) &&
       !/this\.downloads\.get/.test(downloadStatusBlock) &&
-      /storageSummary\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"storage_summary"\)/.test(
-        modelMountingReadProjectionFacade,
+      /storageSummary\(\)\s*\{[\s\S]*?modelMountReadProjection\(this,\s*"storage_summary"\)/.test(
+        modelMountingReadProjectionDirectClient,
       ) &&
-      /downloadStatus\(state,\s*jobId\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"download_status",\s*\{ downloadId: jobId \}\)/.test(
-        modelMountingReadProjectionFacade,
+      /downloadStatus\(jobId\)\s*\{[\s\S]*?modelMountReadProjection\(this,\s*"download_status",\s*\{ downloadId: jobId \}\)/.test(
+        modelMountingReadProjectionDirectClient,
       ) &&
-      /model_mount_download_not_found/.test(modelMountingReadProjectionFacade) &&
+      /model_mount_download_not_found/.test(modelMountingReadProjectionDirectClient) &&
       /MODEL_MOUNT_STORAGE_SUMMARY_PROJECTION_KIND => topology::storage_summary\(request\)/.test(
-        modelMountCore,
+        modelMountReadProjectionEvidence,
       ) &&
       /MODEL_MOUNT_DOWNLOAD_STATUS_PROJECTION_KIND => topology::download_status\(request\)/.test(
-        modelMountCore,
+        modelMountReadProjectionEvidence,
       ) &&
       /storage_download_projections_replay_agentgres_storage_control_records_and_filter_js_truth/.test(
-        modelMountCore,
+        modelMountReadProjectionEvidence,
       ) &&
       !/listModelFiles|fs\.readdirSync|fs\.statSync|orphanCount|quotaBytes|totalBytes/.test(
         storageSummaryBlock,
@@ -24151,8 +23683,8 @@ function runReceipts() {
       !/this\.downloads\.set/.test(modelMountingState) &&
       !/this\.artifacts\.delete/.test(modelMountingState) &&
       !/this\.endpoints\.set/.test(modelMountingState) &&
-      /notFoundDep\(`Download job not found: \$\{jobId\}`,\s*\{ job_id: jobId \}\)/.test(
-        modelMountingReadProjectionFacade,
+      /notFound\(`Download job not found: \$\{jobId\}`,\s*\{ job_id: jobId \}\)/.test(
+        modelMountingReadProjectionDirectClient,
       ) &&
       !/\S/.test(storageLifecycleReceiptBlocks) &&
       !/notFound\(`Download job not found: \$\{jobId\}`,\s*\{ jobId \}\)/.test(modelMountingState) &&
@@ -24318,11 +23850,8 @@ function runReceipts() {
       /unconfiguredCode:\s*"model_mount_mcp_workflow_record_state_commit_unconfigured"/.test(
         mcpWorkflowOperations,
       ) &&
-      /listMcpServers\(\)\s*\{[\s\S]*?readProjectionFacade\.mcpServers\(this\)/.test(
+      /listMcpServers\(\)\s*\{[\s\S]*?modelMountReadProjection\(this,\s*"mcp_servers"\)/.test(
         mcpWorkflowOperations,
-      ) &&
-      /mcpServers\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"mcp_servers"\)/.test(
-        modelMountingReadProjectionFacade,
       ) &&
       /MODEL_MOUNT_MCP_SERVERS_PROJECTION_KIND => mcp::mcp_servers\(request\)/.test(
         modelMountReadProjectionEvidence,
@@ -24431,7 +23960,7 @@ function runReceipts() {
       "crates/services/src/agentic/runtime/kernel/model_mount/read_projection/mcp.rs",
       "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/model-mount-core.mjs",
-      "packages/runtime-daemon/src/model-mounting/read-projection-facade.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.test.mjs",
       "packages/runtime-daemon/src/model-mounting/receipt-write-guards.mjs",
       "packages/runtime-daemon/src/model-mounting/store.test.mjs",
@@ -25122,16 +24651,16 @@ function runReceipts() {
     !exists("packages/runtime-daemon/src/model-mounting/server-control.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/server-control.test.mjs") &&
       !/from "\.\/model-mounting\/server-control\.mjs"/.test(modelMountingState) &&
-      !/from "\.\/server-control\.mjs"/.test(modelMountingReadProjectionFacade) &&
+      !/from "\.\/server-control\.mjs"/.test(modelMountingReadProjectionDirectClient) &&
       /SERVER_CONTROL_RECORD_ID\s*=\s*"server-control\.default"/.test(modelMountingState) &&
       /throwServerControlRustCoreRequired/.test(modelMountingState) &&
       /model_mount_server_control_rust_core_required/.test(modelMountingState) &&
       /commitServerControlForState\(this,\s*"model_mount\.server_control\.start"/.test(modelMountingState) &&
       /commitServerControlForState\(this,\s*"model_mount\.server_control\.stop"/.test(modelMountingState) &&
       /commitServerControlForState\(this,\s*"model_mount\.server_control\.restart"/.test(modelMountingState) &&
-      /serverLogs\(query = \{\}\)\s*\{[\s\S]*?readProjectionFacade\.serverLogs\(this,\s*query\)/.test(modelMountingState) &&
-      /serverEvents\(query = \{\}\)\s*\{[\s\S]*?readProjectionFacade\.serverEvents\(this,\s*query\)/.test(modelMountingState) &&
-      /serverLogRecords\(\{ limit = 80 \} = \{\}\)\s*\{[\s\S]*?readProjectionFacade\.serverLogRecords\(this,\s*\{ limit \}\)/.test(modelMountingState) &&
+      /serverLogs\(query = \{\}\)\s*\{[\s\S]*?modelMountReadProjection\(this,\s*"server_logs"/.test(modelMountingState) &&
+      /serverEvents\(query = \{\}\)\s*\{[\s\S]*?modelMountReadProjection\(this,\s*"server_events"/.test(modelMountingState) &&
+      /serverLogRecords\(\{ limit = 80 \} = \{\}\)\s*\{[\s\S]*?modelMountReadProjection\(this,\s*"server_log_records"/.test(modelMountingState) &&
       !/commitServerControlForState\(this,\s*"model_mount\.server_control\.logs_read"/.test(modelMountingState) &&
       !/commitServerControlForState\(this,\s*"model_mount\.server_control\.events_read"/.test(modelMountingState) &&
       !/commitServerControlForState\(this,\s*"model_mount\.server_control\.log_projection"/.test(modelMountingState) &&
@@ -25182,20 +24711,20 @@ function runReceipts() {
       /authorization/.test(serverControlMountedTest) &&
       /state\.serverControlPlans\.at\(-1\)\.body\.authorization,\s*undefined/.test(serverControlMountedTest) &&
       !/state\.lifecycleReceipt\("server_(?:start|stop|restart|logs_read|events_read)"/.test(modelMountingState) &&
-      !/function serverStatusProjectionInput/.test(modelMountingReadProjectionFacade) &&
-      !/function serverControlStateInput/.test(modelMountingReadProjectionFacade) &&
-      /serverLogs\(state,\s*query = \{\}\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"server_logs"/.test(
-        modelMountingReadProjectionFacade,
+      !/function serverStatusProjectionInput/.test(modelMountingReadProjectionDirectClient) &&
+      !/function serverControlStateInput/.test(modelMountingReadProjectionDirectClient) &&
+      /serverLogs\(query = \{\}\)\s*\{[\s\S]*?modelMountReadProjection\(this,\s*"server_logs"/.test(
+        modelMountingReadProjectionDirectClient,
       ) &&
-      /serverEvents\(state,\s*query = \{\}\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"server_events"/.test(
-        modelMountingReadProjectionFacade,
+      /serverEvents\(query = \{\}\)\s*\{[\s\S]*?modelMountReadProjection\(this,\s*"server_events"/.test(
+        modelMountingReadProjectionDirectClient,
       ) &&
-      /serverLogRecords\(state,\s*query = \{\}\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"server_log_records"/.test(
-        modelMountingReadProjectionFacade,
+      /serverLogRecords\(\{ limit = 80 \} = \{\}\)\s*\{[\s\S]*?modelMountReadProjection\(this,\s*"server_log_records"/.test(
+        modelMountingReadProjectionDirectClient,
       ) &&
-      /canonicalServerLogQuery/.test(modelMountingReadProjectionFacade) &&
-      /server_log_query: serverLogQuery/.test(modelMountingReadProjectionFacade) &&
-      /projectionKind !== "server_logs"/.test(modelMountingReadProjectionFacade) &&
+      /canonicalModelMountServerLogQuery/.test(modelMountingReadProjectionDirectClient) &&
+      /server_log_query: serverLogQuery/.test(modelMountingReadProjectionDirectClient) &&
+      /projectionKind !== "server_logs"/.test(modelMountingReadProjectionDirectClient) &&
       /MODEL_MOUNT_SERVER_LOGS_PROJECTION_KIND => status::server_logs\(request\)/.test(
         modelMountReadProjectionEvidence,
       ) &&
@@ -25209,10 +24738,10 @@ function runReceipts() {
         modelMountReadProjectionEvidence,
       ) &&
       /model_mount_server_log_read_js_control_path_retired/.test(modelMountReadProjectionEvidence) &&
-      !/state\.providers\.values\(\)/.test(modelMountingReadProjectionFacade) &&
-      !/provider_statuses/.test(modelMountingReadProjectionFacade) &&
-      !/state\.listBackends\(\)/.test(modelMountingReadProjectionFacade) &&
-      !/backend_statuses/.test(modelMountingReadProjectionFacade) &&
+      !/state\.providers\.values\(\)/.test(modelMountingReadProjectionDirectClient) &&
+      !/provider_statuses/.test(modelMountingReadProjectionDirectClient) &&
+      !/state\.listBackends\(\)/.test(modelMountingReadProjectionDirectClient) &&
+      !/backend_statuses/.test(modelMountingReadProjectionDirectClient) &&
       /mounted server control state is volatile input only/.test(serverControlMountedTest) &&
       /mounted server control mutation facades commit Rust-authored records/.test(serverControlMountedTest) &&
       /mounted server log and event reads use Rust read projection/.test(serverControlMountedTest) &&
@@ -25238,7 +24767,7 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/model-mount-core.mjs",
       "packages/runtime-daemon/src/model-mounting/model-mount-core.test.mjs",
-      "packages/runtime-daemon/src/model-mounting/read-projection-facade.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/record-state-commits.mjs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
@@ -25273,7 +24802,7 @@ function runReceipts() {
       /model_mount_provider_inventory_record_state_commit_unconfigured/.test(providerOperations) &&
       /recordDir:\s*plan\.record_dir/.test(providerOperations) &&
       /operation_kind:\s*plan\.operation_kind/.test(providerOperations) &&
-      /providerInventoryRecords\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"provider_inventory_records"\)/.test(modelMountingReadProjectionFacade) &&
+      /providerInventoryRecords\(\)\s*\{[\s\S]*?modelMountReadProjection\(this,\s*"provider_inventory_records"\)/.test(modelMountingReadProjectionDirectClient) &&
       /MODEL_MOUNT_PROVIDER_INVENTORY_PROJECTION_KIND/.test(modelMountCore) &&
       /provider_inventory_projection_replays_agentgres_records_and_filters_js_truth/.test(modelMountCore) &&
       !/providerInventoryReceiptFields/.test(providerOperations) &&
@@ -26055,20 +25584,20 @@ function runReceipts() {
       !/(?:state|this)\.lastCatalogSearch\s*=\s*search/.test(catalogOperations) &&
       !/providerResults/.test(catalogOperations) &&
       !/(?:state|this)\.enrichCatalogEntry/.test(catalogOperations) &&
-      /catalogSearch\(query = \{\}\)\s*\{[\s\S]*?return this\.readProjectionFacade\.catalogSearch\(this,\s*query\)/.test(
+      /catalogSearch\(query = \{\}\)\s*\{[\s\S]*?return modelMountReadProjection\(this,\s*"catalog_search"/.test(
         modelMountingState,
       ) &&
       !/catalogSearch\(query = \{\}\)\s*\{[\s\S]*?throw runtimeError\(\{[\s\S]*?model_catalog_search_js_orchestrator_retired/.test(
         modelMountingState,
       ) &&
-      /catalogSearch\(state,\s*query = \{\}\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"catalog_search"/.test(
-        modelMountingReadProjectionFacade,
+      /catalogSearch\(query = \{\}\)\s*\{[\s\S]*?modelMountReadProjection\(this,\s*"catalog_search"/.test(
+        modelMountingState,
       ) &&
       /projectionKind === "catalog_search"[\s\S]*?catalog_search:\s*catalogQuery/.test(
-        modelMountingReadProjectionFacade,
+        modelMountingReadProjectionDirectClient,
       ) &&
       /projectionKind !== "model_conversation_states" &&\s*projectionKind !== "instances" &&\s*projectionKind !== "provider_inventory_records" &&\s*projectionKind !== "catalog_search" &&\s*projectionKind !== "catalog_status" &&\s*projectionKind !== "model_tokenizer_records" &&\s*projectionKind !== "routes" &&\s*projectionKind !== "model_capabilities" &&\s*projectionKind !== "model_route_decisions" &&\s*projectionKind !== "model_route_endpoint_resolutions" &&\s*projectionKind !== "artifacts" &&\s*projectionKind !== "product_artifacts" &&\s*projectionKind !== "providers" &&\s*projectionKind !== "endpoints" &&\s*projectionKind !== "runtime_model_catalog" &&\s*projectionKind !== "open_ai_model_list"/.test(
-        modelMountingReadProjectionFacade,
+        modelMountingReadProjectionDirectClient,
       ) &&
       /MODEL_MOUNT_CATALOG_SEARCH_PROJECTION_KIND/.test(modelMountCore) &&
       /agentgres_catalog_search_replay_required/.test(modelMountCore) &&
@@ -26083,13 +25612,13 @@ function runReceipts() {
       /source:\s*"rust_model_mount_catalog_search_projection"/.test(catalogOperationsTest) &&
       /model_catalog_search_js_orchestrator_retired/.test(catalogOperationsTest) &&
       /readProjectionCalls/.test(catalogOperationsTest) &&
-      /read projection facade delegates catalog search through Rust provider inventory replay/.test(
-        modelMountingReadProjectionFacadeTest,
+      /read projection direct client delegates catalog search through Rust provider inventory replay/.test(
+        modelMountingReadProjectionDirectTest,
       ) &&
-      /facade\.catalogSearch\(state/.test(modelMountingReadProjectionFacadeTest) &&
-      /providerRef:\s*"provider:\/\/legacy"/.test(modelMountingReadProjectionFacadeTest) &&
+      /state\.catalogSearch\(\{/.test(modelMountingReadProjectionDirectTest) &&
+      /providerRef:\s*"provider:\/\/legacy"/.test(modelMountingReadProjectionDirectTest) &&
       /Object\.hasOwn\(readProjectionRequests\[0\]\.state\.catalog_search,\s*"providerRef"\),\s*false/.test(
-        modelMountingReadProjectionFacadeTest,
+        modelMountingReadProjectionDirectTest,
       ) &&
       /assert\.equal\(state\.catalogProviderPortCalls,\s*0\)/.test(catalogOperationsTest) &&
       /assert\.equal\(state\.enrichCatalogEntryCalls,\s*0\)/.test(catalogOperationsTest) &&
@@ -26103,15 +25632,15 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-catalog-status-positive-rust-projection",
-    /catalogStatus\(state\)\s*\{[\s\S]*?return rustReadProjection\(state,\s*"catalog_status"\)/.test(
-        modelMountingReadProjectionFacade,
+    /catalogStatus\(\)\s*\{[\s\S]*?return modelMountReadProjection\(this,\s*"catalog_status"\)/.test(
+        modelMountingReadProjectionDirectClient,
       ) &&
-      !/model_catalog_status_js_readback_retired/.test(modelMountingReadProjectionFacade) &&
-      !/model_catalog\.status/.test(modelMountingReadProjectionFacade) &&
-      !/rust_core_boundary:\s*"model_mount\.catalog_provider_status_projection"/.test(modelMountingReadProjectionFacade) &&
-      !/rust_daemon_core_catalog_status_projection_required/.test(modelMountingReadProjectionFacade) &&
-      !/translateCatalogStatusError/.test(modelMountingReadProjectionFacade) &&
-      !/retiredCatalogStatusReadback/.test(modelMountingReadProjectionFacade) &&
+      !/model_catalog_status_js_readback_retired/.test(modelMountingReadProjectionDirectClient) &&
+      !/model_catalog\.status/.test(modelMountingReadProjectionDirectClient) &&
+      !/rust_core_boundary:\s*"model_mount\.catalog_provider_status_projection"/.test(modelMountingReadProjectionDirectClient) &&
+      !/rust_daemon_core_catalog_status_projection_required/.test(modelMountingReadProjectionDirectClient) &&
+      !/translateCatalogStatusError/.test(modelMountingReadProjectionDirectClient) &&
+      !/retiredCatalogStatusReadback/.test(modelMountingReadProjectionDirectClient) &&
       !exists("packages/runtime-daemon/src/model-mounting/catalog-operations.mjs") &&
       !/catalogStatusProjectionInput/.test(catalogOperations) &&
       !/throwCatalogStatusReadbackRetired/.test(catalogOperations) &&
@@ -26122,32 +25651,32 @@ function runReceipts() {
       !/catalog status projection input fails closed before JS provider and storage materialization/.test(
         catalogOperationsTest,
       ) &&
-      /read projection facade delegates catalog status through Rust projection/.test(
-        modelMountingReadProjectionFacadeTest,
+      /read projection direct client delegates catalog status through Rust projection/.test(
+        modelMountingReadProjectionDirectTest,
       ) &&
       /assert\.equal\(status\.adapterBoundary\.port,\s*"ModelCatalogProviderPort"\)/.test(
-        modelMountingReadProjectionFacadeTest,
+        modelMountingReadProjectionDirectTest,
       ) &&
       /status\.providers\.map\(\(provider\) => provider\.provider_ref\)[\s\S]*"provider:\/\/fixture"[\s\S]*"provider:\/\/native"/.test(
-        modelMountingReadProjectionFacadeTest,
+        modelMountingReadProjectionDirectTest,
       ) &&
       /status\.providers\[0\]\.rust_core_boundary,\s*"model_mount\.catalog_status"/.test(
-        modelMountingReadProjectionFacadeTest,
+        modelMountingReadProjectionDirectTest,
       ) &&
-      /assert\.equal\(status\.storage\.record_count,\s*2\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /assert\.equal\(status\.lastSearch\.result_count,\s*1\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /assert\.equal\(status\.storage\.record_count,\s*2\)/.test(modelMountingReadProjectionDirectTest) &&
+      /assert\.equal\(status\.lastSearch\.result_count,\s*1\)/.test(modelMountingReadProjectionDirectTest) &&
       /status\.results\.map\(\(result\) => result\.model_ref\),\s*\["model:\/\/fixture\/qwen3"\]/.test(
-        modelMountingReadProjectionFacadeTest,
+        modelMountingReadProjectionDirectTest,
       ) &&
       /status\.evidence_refs\.includes\("agentgres_catalog_status_replay_required"\)/.test(
-        modelMountingReadProjectionFacadeTest,
+        modelMountingReadProjectionDirectTest,
       ) &&
       /assert\.deepEqual\(readProjectionRequests\.map\(\(request\) => request\.projection_kind\), \["catalog_status"\]\)/.test(
-        modelMountingReadProjectionFacadeTest,
+        modelMountingReadProjectionDirectTest,
       ) &&
-      /readProjectionRequests\[0\]\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
+      /readProjectionRequests\[0\]\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionDirectTest) &&
       /Object\.hasOwn\(readProjectionRequests\[0\]\.state,\s*"catalog_status_input"\),\s*false/.test(
-        modelMountingReadProjectionFacadeTest,
+        modelMountingReadProjectionDirectTest,
       ) &&
       !exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/catalog.rs") &&
       !/mod catalog;/.test(modelMountCore) &&
@@ -26162,8 +25691,8 @@ function runReceipts() {
         modelMountCore,
       ),
     [
-      "packages/runtime-daemon/src/model-mounting/read-projection-facade.mjs",
-      "packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
+      "packages/runtime-daemon/src/model-mounting/read-projection-direct.test.mjs",
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
     ],
     "Phase 7/11 is pending: public catalog status readback must be Rust-authored without JS provider iteration, storage summary, last-search reads, catalog-status input transport, or the retired refusal shim",
@@ -26447,7 +25976,7 @@ function runReceipts() {
       !/commitBackendLifecycleForState\(this,\s*"model_mount\.backend\.logs_read"/.test(
         backendLifecycle,
       ) &&
-      /backendLogs\(backendId,\s*query = \{\}\) \{[\s\S]*?return this\.readProjectionFacade\.backendLogs\(this,\s*resolvedBackendId,\s*query\)/.test(
+      /backendLogs\(backendId,\s*query = \{\}\) \{[\s\S]*?return modelMountReadProjection\(this,\s*"backend_logs"/.test(
         backendLifecycle,
       ) &&
       /schema_version:\s*"ioi\.model_mount\.backend_lifecycle\.v1"/.test(backendLifecycle) &&
@@ -26490,22 +26019,19 @@ function runReceipts() {
       !/rust_daemon_core_backend_projection_required/.test(defaultRecords) &&
       !/\["model-backends",\s*"backends"\]/.test(read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs")) &&
       !/"model-backends"/.test(modelMountStore) &&
-      /backendRegistry\(\)\s*\{[\s\S]*?return this\.readProjectionFacade\.listBackends\(this\)/.test(
+      /backendRegistry\(\)\s*\{[\s\S]*?return modelMountReadProjection\(this,\s*"backends"\)/.test(
         backendLifecycle,
       ) &&
       /backend\(backendId\)\s*\{[\s\S]*?this\.backendRegistry\(\)\.find/.test(
         backendLifecycle,
       ) &&
-      /listBackends\(\)\s*\{[\s\S]*?return this\.readProjectionFacade\.listBackends\(this\)/.test(
+      /listBackends\(\)\s*\{[\s\S]*?return modelMountReadProjection\(this,\s*"backends"\)/.test(
         backendLifecycle,
       ) &&
-      /listBackends\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"backends"\)/.test(
-        modelMountingReadProjectionFacade,
+      /backendLogs\(backendId,\s*query = \{\}\)\s*\{[\s\S]*?modelMountReadProjection\(this,\s*"backend_logs"/.test(
+        backendLifecycle,
       ) &&
-      /backendLogs\(state,\s*backendId,\s*query = \{\}\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"backend_logs"/.test(
-        modelMountingReadProjectionFacade,
-      ) &&
-      /backend_log_query:\s*backendLogQuery \?\? \{\}/.test(modelMountingReadProjectionFacade) &&
+      /backend_log_query:\s*backendLogQuery \?\? \{\}/.test(modelMountingReadProjectionDirectClient) &&
       /MODEL_MOUNT_BACKENDS_PROJECTION_KIND => topology::backends\(request\)/.test(modelMountCore) &&
       /MODEL_MOUNT_BACKEND_LOGS_PROJECTION_KIND => topology::backend_logs\(request\)/.test(modelMountCore) &&
       /backend_projection_replays_agentgres_lifecycle_records_and_filters_js_truth/.test(modelMountCore) &&
@@ -26570,14 +26096,14 @@ function runReceipts() {
       /public backend logs delegate to Rust projection without lifecycle control or local log reads/.test(
         backendLifecycleTest,
       ) &&
-      /read projection facade delegates backend logs through Rust replay only/.test(
-        modelMountingReadProjectionFacadeTest,
+      /read projection direct client delegates backend logs through Rust replay only/.test(
+        modelMountingReadProjectionDirectTest,
       ) &&
       /state\.backendLogProjectionRequests\[0\]\.backendId/.test(backendLifecycleTest) &&
       /assert\.equal\(state\.backendLifecyclePlans\.length,\s*0\)/.test(backendLifecycleTest) &&
       /assert\.equal\(state\.recordStateCommits\.length,\s*0\)/.test(backendLifecycleTest) &&
       /backend_log_query:\s*\{[\s\S]*backend_id:\s*"backend\.native"[\s\S]*limit:\s*4/.test(
-        modelMountingReadProjectionFacadeTest,
+        modelMountingReadProjectionDirectTest,
       ) &&
       /assert\.deepEqual\(state\.receipts,\s*\[\]\)/.test(backendLifecycleTest) &&
       /assert\.deepEqual\(state\.logs,\s*\[\]\)/.test(backendLifecycleTest) &&
@@ -26813,14 +26339,14 @@ function runReceipts() {
       !/state\.providers\.get\(providerId\)/.test(stateAccessors) &&
       /provider accessor uses Rust provider projection rather than JS provider map/.test(stateAccessorsTest) &&
       /provider_projection_boundary:\s*"model_mount\.provider_control_projection"/.test(stateAccessorsTest) &&
-      /writeProviderControlRecords/.test(modelMountingReadProjectionFacadeTest) &&
-      /providerControlRecordsFromAgentgresStateDir/.test(modelMountingReadProjectionFacadeTest) &&
-      /providerRecordFromProviderControl/.test(modelMountingReadProjectionFacadeTest) &&
+      /writeProviderControlRecords/.test(modelMountingReadProjectionDirectTest) &&
+      /providerControlRecordsFromAgentgresStateDir/.test(modelMountingReadProjectionDirectTest) &&
+      /providerRecordFromProviderControl/.test(modelMountingReadProjectionDirectTest) &&
       /providerControlProjection\.provider_projection_boundary,\s*"model_mount\.provider_control_projection"/.test(
-        modelMountingReadProjectionFacadeTest,
+        modelMountingReadProjectionDirectTest,
       ) &&
       /providerControlProjection\.evidence_refs\.includes\("model_mount_provider_map_lookup_js_retired"\),\s*true/.test(
-        modelMountingReadProjectionFacadeTest,
+        modelMountingReadProjectionDirectTest,
       ) &&
       /Rust read-projection kind `providers` now replays admitted `model-providers`\s+provider-control records/.test(
         implementationMatrix,
@@ -26834,7 +26360,7 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/state-accessors.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/state-accessors.test.mjs",
-      "packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/read-projection-direct.test.mjs",
       "docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md",
       "docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md",
       "docs/architecture/_meta/implementation-matrix.md",
@@ -26860,18 +26386,18 @@ function runReceipts() {
       /agentgres_provider_inventory_materialization_required/.test(modelMountCore) &&
       /model_mount_topology_js_materialization_retired/.test(modelMountCore) &&
       /runtimeCatalog\.map\(\(entry\) => entry\.id\),\s*\["qwen3"\]/.test(
-        modelMountingReadProjectionFacadeTest,
+        modelMountingReadProjectionDirectTest,
       ) &&
-      /const artifacts = facade\.listArtifacts\(state\);[\s\S]*artifacts\.map\(\(artifact\) => artifact\.model_ref\),\s*\[\s*"model:\/\/fixture\/qwen3",\s*"model:\/\/operator\/qwen3-direct"/.test(
-        modelMountingReadProjectionFacadeTest,
+      /const artifacts = state\.listArtifacts\(\);[\s\S]*artifacts\.map\(\(artifact\) => artifact\.model_ref\),\s*\[\s*"model:\/\/fixture\/qwen3",\s*"model:\/\/operator\/qwen3-direct"/.test(
+        modelMountingReadProjectionDirectTest,
       ) &&
       /directArtifact\.evidence_refs\.includes\("agentgres_artifact_endpoint_replay_required"\),\s*true/.test(
-        modelMountingReadProjectionFacadeTest,
+        modelMountingReadProjectionDirectTest,
       ) &&
-      /const providers = facade\.listProviders\(state\);[\s\S]*providers\.map\(\(provider\) => provider\.provider_ref\),\s*\[\s*"provider:\/\/fixture",\s*"provider:\/\/native",\s*"provider:\/\/openai"/.test(
-        modelMountingReadProjectionFacadeTest,
+      /const providers = state\.listProviders\(\);[\s\S]*providers\.map\(\(provider\) => provider\.provider_ref\),\s*\[\s*"provider:\/\/fixture",\s*"provider:\/\/native",\s*"provider:\/\/openai"/.test(
+        modelMountingReadProjectionDirectTest,
       ) &&
-      /materializationRequest\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionFacadeTest) &&
+      /materializationRequest\.state_dir,\s*state\.stateDir/.test(modelMountingReadProjectionDirectTest) &&
       !/commitModelArtifactRecordState/.test(providerOperations) &&
       !/model_mount\.artifact\.provider_inventory/.test(providerOperations) &&
       !exists("packages/runtime-daemon/src/model-mounting/model-artifact-record-state.mjs") &&
@@ -27437,13 +26963,10 @@ function runReceipts() {
     result,
     "model-mount-projection-persistence-rust-core",
     /canonicalProjectionWritePlan/.test(modelMountingState) &&
-      /this\.readProjectionFacade\.canonicalProjectionWritePlan\(this\)/.test(modelMountingState) &&
+      /this\.canonicalProjectionWritePlan\(\)/.test(modelMountingState) &&
       /rustProjection:\s*plan/.test(modelMountingState) &&
       !/store\.writeProjection\("model-mounting-canonical",\s*this\.projection\(\)\)/.test(modelMountingState) &&
-      /function canonicalProjectionWritePlan/.test(read("packages/runtime-daemon/src/model-mounting/read-projection-facade.mjs")) &&
-      /rustReadProjectionPlan\(state,\s*"projection"\)/.test(
-        read("packages/runtime-daemon/src/model-mounting/read-projection-facade.mjs"),
-      ) &&
+      /canonicalProjectionWritePlan\(\)\s*\{[\s\S]*modelMountReadProjectionPlan\(this,\s*"projection"\)/.test(modelMountingState) &&
       /assertRustAuthoredModelMountProjection/.test(modelMountStore) &&
       /model_mount_projection_direct_write_forbidden/.test(modelMountStore) &&
       /rust_daemon_core_model_mount_projection/.test(modelMountStore) &&
@@ -27451,13 +26974,13 @@ function runReceipts() {
       /model_mount_js_read_projection_authoring_retired/.test(modelMountStore) &&
       /canonical projection writes fail closed without Rust projection plan evidence/.test(modelMountStoreTest) &&
       /canonical projection writes persist only after Rust projection planning/.test(modelMountStoreTest) &&
-      /canonicalProjectionWritePlan\(state\)/.test(
-        read("packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs"),
+      /state\.canonicalProjectionWritePlan\(\)/.test(
+        modelMountingReadProjectionDirectTest,
       ),
     [
       "packages/runtime-daemon/src/model-mounting.mjs",
-      "packages/runtime-daemon/src/model-mounting/read-projection-facade.mjs",
-      "packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
+      "packages/runtime-daemon/src/model-mounting/read-projection-direct.test.mjs",
       "packages/runtime-daemon/src/model-mounting/store.mjs",
       "packages/runtime-daemon/src/model-mounting/store.test.mjs",
     ],
@@ -30643,7 +30166,7 @@ function runCompositor() {
     /Object\.hasOwn\(request,\s*"projection"\) === false/.test(
       runtimeSubagentSurfaceTest,
     ) &&
-    !/subagent read projection facades fail closed before JS subagent\/run reads/.test(
+    !/subagent read projection direct clients fail closed before JS subagent\/run reads/.test(
       runtimeSubagentSurfaceTest,
     );
   const runtimeSubagentWaitControlRustOwned =
@@ -32822,7 +32345,7 @@ function runCompositor() {
     /conversation artifact read projections fail closed before JS artifact reads without Rust/.test(
       runtimeConversationArtifactSurfaceTest,
     ) &&
-    !/conversation artifact read projection facades fail closed before JS artifact reads/.test(
+    !/conversation artifact read projection direct clients fail closed before JS artifact reads/.test(
       runtimeConversationArtifactSurfaceTest,
     );
   const conversationArtifactStoreJsWritersRetired =

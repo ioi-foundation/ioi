@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 
-import { createModelMountingReadProjectionFacade } from "./read-projection-facade.mjs";
+import { ModelMountingState } from "../model-mounting.mjs";
 
 function createState() {
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-model-mount-read-"));
@@ -1344,19 +1344,24 @@ function createState() {
       };
     },
   };
-  const facade = createModelMountingReadProjectionFacade({
-    modelMountSchemaVersion: "model.mount.schema",
-    readProjectionPlanner,
-    notFound: (message, details) => Object.assign(new Error(message), {
-      status: 404,
-      code: "not_found",
-      details,
-    }),
-  });
-  for (const key of Object.keys(facade)) {
-    state[key] = (...args) => facade[key](state, ...args);
+  state.modelMountCore = readProjectionPlanner;
+  for (const key of [
+    "backendRegistry",
+    "latestRuntimeSurvey",
+    "listBackends",
+    "listConversations",
+    "listMcpServers",
+    "listRuntimeEngineProfiles",
+    "listRuntimeEngines",
+    "runtimePreference",
+    "serverStatus",
+    "storageSummary",
+    "workflowNodeBindings",
+  ]) {
+    delete state[key];
   }
-  return { facade, state, readProjectionPlanner, readProjectionRequests };
+  Object.setPrototypeOf(state, ModelMountingState.prototype);
+  return { state, readProjectionPlanner, readProjectionRequests };
 }
 
 function rustProjectionFixture(request) {
@@ -3932,17 +3937,17 @@ function conversationStatesFromAgentgresStateDir(stateDir) {
       String(right.id ?? "").localeCompare(String(left.id ?? "")));
 }
 
-test("read projection facade delegates product-safe lists and capabilities", () => {
-  const { facade, state, readProjectionRequests } = createState();
+test("read projection direct client delegates product-safe lists and capabilities", () => {
+  const { state, readProjectionRequests } = createState();
 
-  const runtimeCatalog = facade.runtimeModelCatalogList(state);
+  const runtimeCatalog = state.runtimeModelCatalogList();
   assert.deepEqual(runtimeCatalog.map((entry) => entry.id), ["qwen3"]);
   assert.equal(runtimeCatalog[0].rust_core_boundary, "model_mount.provider_inventory.materialization");
-  assert.deepEqual(facade.openAiModelList(state).data.map((entry) => entry.id), ["qwen3"]);
-  assert.deepEqual(facade.listProductArtifacts(state).map((artifact) => artifact.model_ref), [
+  assert.deepEqual(state.openAiModelList().data.map((entry) => entry.id), ["qwen3"]);
+  assert.deepEqual(state.listProductArtifacts().map((artifact) => artifact.model_ref), [
     "model://fixture/qwen3",
   ]);
-  const artifacts = facade.listArtifacts(state);
+  const artifacts = state.listArtifacts();
   assert.deepEqual(artifacts.map((artifact) => artifact.model_ref), [
     "model://fixture/qwen3",
     "model://operator/qwen3-direct",
@@ -3951,7 +3956,7 @@ test("read projection facade delegates product-safe lists and capabilities", () 
   assert.equal(directArtifact.artifact_endpoint_projection_boundary, "model_mount.artifact_endpoint_projection");
   assert.equal(directArtifact.source, "agentgres_artifact_endpoint_record");
   assert.equal(directArtifact.evidence_refs.includes("agentgres_artifact_endpoint_replay_required"), true);
-  const providers = facade.listProviders(state);
+  const providers = state.listProviders();
   assert.deepEqual(providers.map((provider) => provider.provider_ref), [
     "provider://fixture",
     "provider://native",
@@ -3962,7 +3967,7 @@ test("read projection facade delegates product-safe lists and capabilities", () 
   assert.equal(providerControlProjection.record_dir, "model-providers");
   assert.equal(providerControlProjection.private_material_returned, false);
   assert.equal(providerControlProjection.evidence_refs.includes("model_mount_provider_map_lookup_js_retired"), true);
-  const endpoints = facade.listEndpoints(state);
+  const endpoints = state.listEndpoints();
   assert.deepEqual(endpoints.map((endpoint) => endpoint.id), ["endpoint.direct", "endpoint.local"]);
   const directEndpoint = endpoints.find((endpoint) => endpoint.id === "endpoint.direct");
   assert.equal(directEndpoint.provider_id, "provider://fixture");
@@ -3972,23 +3977,23 @@ test("read projection facade delegates product-safe lists and capabilities", () 
   const routeEndpoint = endpoints.find((endpoint) => endpoint.id === "endpoint.local");
   assert.equal(routeEndpoint.provider_id, "provider.local");
   assert.equal(Object.hasOwn(routeEndpoint, "providerId"), false);
-  assert.deepEqual(facade.listInstances(state).map((instance) => instance.id), [
+  assert.deepEqual(state.listInstances().map((instance) => instance.id), [
     "instance.loaded",
     "instance.old",
   ]);
-  assert.deepEqual(facade.providerInventoryRecords(state).map((record) => record.id), [
+  assert.deepEqual(state.providerInventoryRecords().map((record) => record.id), [
     "provider_inventory_fixture_list_models",
     "provider_inventory_native_list_loaded",
   ]);
-  assert.deepEqual(facade.modelTokenizerRecords(state).map((record) => record.id), [
+  assert.deepEqual(state.modelTokenizerRecords().map((record) => record.id), [
     "model_tokenizer:count_tokens:test",
     "model_tokenizer:tokenize:test",
   ]);
-  assert.deepEqual(facade.listRoutes(state).map((route) => route.id), [
+  assert.deepEqual(state.listRoutes().map((route) => route.id), [
     "route.local-first",
     "route.research",
   ]);
-  const modelCapabilities = facade.listModelCapabilities(state);
+  const modelCapabilities = state.listModelCapabilities();
   assert.deepEqual(modelCapabilities.map((capability) => capability.route_id), [
     "route.local-first",
     "route.research",
@@ -3998,16 +4003,16 @@ test("read projection facade delegates product-safe lists and capabilities", () 
   assert.equal(modelCapabilities[0].credential_readiness.status, "degraded");
   assert.equal(modelCapabilities[0].candidates[0].reason, "Endpoint provider is not registered.");
   assert.equal(Object.hasOwn(modelCapabilities[0], "routeId"), false);
-  const downloads = facade.listDownloads(state);
+  const downloads = state.listDownloads();
   assert.deepEqual(downloads.map((download) => download.id), ["download.qwen3"]);
   assert.equal(downloads[0].storage_projection_boundary, "model_mount.storage_projection");
   assert.equal(downloads[0].details.model_id, "qwen3");
   assert.equal(downloads.some((download) => download.id === "legacy-js-download"), false);
-  const downloadStatus = facade.downloadStatus(state, "download.qwen3");
+  const downloadStatus = state.downloadStatus("download.qwen3");
   assert.equal(downloadStatus.id, "download.qwen3");
   assert.equal(downloadStatus.details.bytes_total, 42);
   assert.throws(
-    () => facade.downloadStatus(state, "missing"),
+    () => state.downloadStatus("missing"),
     (error) => {
       assert.equal(error.status, 404);
       assert.equal(error.code, "not_found");
@@ -4015,7 +4020,7 @@ test("read projection facade delegates product-safe lists and capabilities", () 
       return true;
     },
   );
-  const storageSummary = facade.storageSummary(state);
+  const storageSummary = state.storageSummary();
   assert.equal(storageSummary.source, "rust_model_mount_storage_summary_projection");
   assert.equal(storageSummary.rust_core_boundary, "model_mount.storage_projection");
   assert.equal(storageSummary.filesystem_scanned, false);
@@ -4024,21 +4029,21 @@ test("read projection facade delegates product-safe lists and capabilities", () 
     downloads: 1,
     storage_controls: 1,
   });
-  const backends = facade.listBackends(state);
+  const backends = state.listBackends();
   assert.deepEqual(backends.map((record) => record.id), ["backend.native", "backend.ollama"]);
   assert.equal(backends[0].status, "start_planned");
   assert.equal(backends[0].backend_lifecycle_projection_boundary, "model_mount.backend_lifecycle_projection");
   assert.equal(backends[0].evidence_refs.includes("agentgres_backend_lifecycle_replay_required"), true);
   assert.equal(backends.some((record) => record.id === "backend.legacy"), false);
-  assert.deepEqual(facade.listConversations(state).map((record) => record.id), [
+  assert.deepEqual(state.listConversations().map((record) => record.id), [
     "resp-stream",
     "resp-state",
   ]);
-  assert.deepEqual(facade.listOAuthSessions(state), []);
-  assert.deepEqual(facade.listOAuthStates(state), []);
-  const providerHealth = facade.listProviderHealth(state);
+  assert.deepEqual(state.listOAuthSessions(), []);
+  assert.deepEqual(state.listOAuthStates(), []);
+  const providerHealth = state.listProviderHealth();
   assert.equal(providerHealth.length, 1);
-  assert.equal(providerHealth[0].schemaVersion, "model.mount.schema");
+  assert.equal(providerHealth[0].schemaVersion, "ioi.model-mounting.runtime.v1");
   assert.equal(providerHealth[0].source, "agentgres_provider_lifecycle_health");
   assert.equal(providerHealth[0].providerId, "provider.local");
   assert.equal(providerHealth[0].health.status, "healthy");
@@ -4046,11 +4051,11 @@ test("read projection facade delegates product-safe lists and capabilities", () 
   assert.equal(providerHealth[0].receipt, null);
   assert.equal(providerHealth[0].replay.record.id, "provider-lifecycle-health");
   assert.equal(providerHealth[0].projectionWatermark, 1);
-  const workflowBindings = facade.workflowNodeBindings(state);
+  const workflowBindings = state.workflowNodeBindings();
   assert.equal(workflowBindings.find((binding) => binding.node === "Embedding").capability, "embeddings");
   assert.equal(workflowBindings.find((binding) => binding.node === "Reranker").capability, "rerank");
   assert.equal(workflowBindings.find((binding) => binding.node === "Receipt Gate").daemonApi, "/api/v1/workflows/receipt-gate");
-  assert.equal(facade.adapterBoundaries(state).agentgres.port, "AgentgresStorePort");
+  assert.equal(state.adapterBoundaries().agentgres.port, "AgentgresStorePort");
   assert.deepEqual(readProjectionRequests.map((request) => request.projection_kind), [
     "runtime_model_catalog",
     "open_ai_model_list",
@@ -4178,11 +4183,11 @@ test("read projection facade delegates product-safe lists and capabilities", () 
   ]);
 });
 
-test("read projection facade delegates backend logs through Rust replay only", () => {
-  const { facade, state, readProjectionRequests } = createState();
+test("read projection direct client delegates backend logs through Rust replay only", () => {
+  const { state, readProjectionRequests } = createState();
   let listFilesCalled = false;
 
-  const logs = facade.backendLogs(state, "backend.native", {
+  const logs = state.backendLogs("backend.native", {
     limit: "4",
     authorization: "Bearer secret-token",
     listFiles() {
@@ -4212,10 +4217,10 @@ test("read projection facade delegates backend logs through Rust replay only", (
   assert.equal(readProjectionRequests[0].state_dir, state.stateDir);
 });
 
-test("read projection facade delegates catalog search through Rust provider inventory replay", () => {
-  const { facade, state, readProjectionRequests } = createState();
+test("read projection direct client delegates catalog search through Rust provider inventory replay", () => {
+  const { state, readProjectionRequests } = createState();
 
-  const search = facade.catalogSearch(state, {
+  const search = state.catalogSearch({
     query: " qwen ",
     provider_ref: "provider://fixture",
     providerRef: "provider://legacy",
@@ -4244,10 +4249,10 @@ test("read projection facade delegates catalog search through Rust provider inve
   assert.equal(Object.hasOwn(readProjectionRequests[0].state, "artifacts"), false);
 });
 
-test("read projection facade delegates runtime-engine reads through Rust projections", () => {
-  const { facade, state, readProjectionRequests } = createState();
+test("read projection direct client delegates runtime-engine reads through Rust projections", () => {
+  const { state, readProjectionRequests } = createState();
 
-  const engines = facade.runtimeEngineList(state);
+  const engines = state.listRuntimeEngines();
   assert.equal(engines.length, 1);
   assert.equal(engines[0].id, "backend.llama-cpp");
   assert.equal(engines[0].selected, true);
@@ -4257,32 +4262,32 @@ test("read projection facade delegates runtime-engine reads through Rust project
   assert.equal(engines.some((engine) => engine.id === "backend.legacy"), false);
   assert.equal(engines.some((engine) => engine.id === "backend.deleted"), false);
 
-  const profiles = facade.runtimeEngineProfileList(state);
+  const profiles = state.listRuntimeEngineProfiles();
   assert.equal(profiles.length, 1);
   assert.equal(profiles[0].engine_id, "backend.llama-cpp");
   assert.deepEqual(profiles[0].default_load_options, { gpu_layers: 4 });
   assert.equal(profiles[0].operator_label, "Native local");
   assert.equal(profiles[0].record_dir, "runtime-engine-controls");
 
-  const preference = facade.runtimePreferenceProjection(state);
+  const preference = state.runtimePreference();
   assert.equal(preference.selected_engine_id, "backend.llama-cpp");
   assert.equal(preference.record_id, "runtime-engine-control:preference");
 
-  const endpointPreference = facade.runtimePreferenceForEndpointProjection(state, {
+  const endpointPreference = state.runtimePreferenceForEndpoint({
     backendId: "backend.llama-cpp",
   });
   assert.equal(endpointPreference.selected_engine_id, "backend.llama-cpp");
 
-  const defaultLoadOptions = facade.runtimeDefaultLoadOptionsProjection(state, "backend.llama-cpp");
+  const defaultLoadOptions = state.runtimeDefaultLoadOptions("backend.llama-cpp");
   assert.deepEqual(defaultLoadOptions, { gpu_layers: 4 });
 
-  const detail = facade.runtimeEngineProjection(state, "backend.llama-cpp");
+  const detail = state.runtimeEngine("backend.llama-cpp");
   assert.equal(detail.id, "backend.llama-cpp");
   assert.equal(detail.profile_record_id, "runtime-engine-control:profile");
   assert.equal(detail.preference_record_id, "runtime-engine-control:preference");
 
   assert.throws(
-    () => facade.runtimeEngineProjection(state, "backend.missing"),
+    () => state.runtimeEngine("backend.missing"),
     (error) =>
       error.status === 404 &&
       error.code === "not_found" &&
@@ -4307,11 +4312,11 @@ test("read projection facade delegates runtime-engine reads through Rust project
   assert.equal(readProjectionRequests.every((request) => !Object.hasOwn(request.state, "projection")), true);
 });
 
-test("read projection facade composes snapshots, projection, and receipt replay", () => {
-  const { facade, state, readProjectionRequests } = createState();
+test("read projection direct client composes snapshots, projection, and receipt replay", () => {
+  const { state, readProjectionRequests } = createState();
 
-  const snapshot = facade.snapshot(state, "http://127.0.0.1:3200");
-  assert.equal(snapshot.schemaVersion, "model.mount.schema");
+  const snapshot = state.snapshot("http://127.0.0.1:3200");
+  assert.equal(snapshot.schemaVersion, "ioi.model-mounting.runtime.v1");
   assert.equal(snapshot.server.status, "blocked");
   assert.equal(snapshot.catalog.adapterBoundary.port, "ModelCatalogProviderPort");
   assert.equal(snapshot.catalog.lastSearch.result_count, 1);
@@ -4340,8 +4345,8 @@ test("read projection facade composes snapshots, projection, and receipt replay"
   assert.equal(snapshot.vaultRefs[0].vault_projection_boundary, "model_mount.vault_projection");
   assert.equal(snapshot.vaultRefs[0].plaintext_material_returned, false);
 
-  const projection = facade.projection(state);
-  assert.equal(projection.schemaVersion, "model.mount.schema");
+  const projection = state.projection();
+  assert.equal(projection.schemaVersion, "ioi.model-mounting.runtime.v1");
   assert.deepEqual(projection.artifacts.map((artifact) => artifact.model_ref), [
     "model://fixture/qwen3",
     "model://operator/qwen3-direct",
@@ -4380,36 +4385,36 @@ test("read projection facade composes snapshots, projection, and receipt replay"
   assert.deepEqual(projection.vaultRefs.map((vaultRef) => vaultRef.vault_ref_hash), ["vault-hash-openai"]);
   assert.equal(projection.vaultRefs[0].vault_projection_boundary, "model_mount.vault_projection");
 
-  const projectionWritePlan = facade.canonicalProjectionWritePlan(state);
+  const projectionWritePlan = state.canonicalProjectionWritePlan();
   assert.equal(projectionWritePlan.source, "rust_daemon_core.model_mount.read_projection");
   assert.equal(projectionWritePlan.projection_kind, "projection");
   assert.equal(projectionWritePlan.projection.source, "agentgres_model_mounting_projection");
   assert.equal(projectionWritePlan.evidence_refs.includes("agentgres_model_mount_read_truth"), true);
 
-  const summary = facade.projectionSummary(state);
-  assert.equal(summary.schemaVersion, "model.mount.schema");
+  const summary = state.projectionSummary();
+  assert.equal(summary.schemaVersion, "ioi.model-mounting.runtime.v1");
   assert.equal(summary.receiptCount, 5);
 
-  const replay = facade.receiptReplay(state, "receipt-route");
-  assert.equal(replay.schemaVersion, "model.mount.schema");
+  const replay = state.receiptReplay("receipt-route");
+  assert.equal(replay.schemaVersion, "ioi.model-mounting.runtime.v1");
   assert.equal(replay.route, null);
   assert.equal(replay.endpoint, null);
   assert.equal(replay.provider, null);
   assert.equal(replay.model_route_decision.selected_model, "model.local");
   assert.equal(Object.hasOwn(replay, "modelRouteDecision"), false);
 
-  const routeDecisions = facade.modelRouteDecisions(state);
+  const routeDecisions = state.modelRouteDecisions();
   assert.equal(routeDecisions[0].receipt_id, "receipt-route");
   assert.equal(routeDecisions[0].selected_model, "model.local");
   assert.equal(routeDecisions[0].record_dir, "model-route-selections");
   assert.equal(routeDecisions[0].record_id, "route_selection:route.local-first:test");
 
-  const endpointResolutions = facade.modelRouteEndpointResolutions(state);
+  const endpointResolutions = state.modelRouteEndpointResolutions();
   assert.equal(endpointResolutions[0].route_id, "route.local-first");
   assert.equal(endpointResolutions[0].model_id, "model.local");
   assert.equal(endpointResolutions[0].record_dir, "model-route-endpoint-resolutions");
 
-  const authority = facade.authoritySnapshot(state, "http://127.0.0.1:3200");
+  const authority = state.authoritySnapshot("http://127.0.0.1:3200");
   assert.equal(authority.schemaVersion, "ioi.wallet-core-lite.authority.v1");
   assert.equal(authority.wallet, null);
   assert.equal(authority.summary.activeGrants, 1);
@@ -4525,12 +4530,12 @@ test("read projection facade composes snapshots, projection, and receipt replay"
   assert.equal(Object.hasOwn(authorityRequest.state, "vault"), false);
 });
 
-test("read projection facade delegates server status through Rust projection", () => {
-  const { facade, state, readProjectionRequests } = createState();
+test("read projection direct client delegates server status through Rust projection", () => {
+  const { state, readProjectionRequests } = createState();
 
-  const status = facade.serverStatus(state, "http://127.0.0.1:3200");
+  const status = state.serverStatus("http://127.0.0.1:3200");
 
-  assert.equal(status.schemaVersion, "model.mount.schema");
+  assert.equal(status.schemaVersion, "ioi.model-mounting.runtime.v1");
   assert.equal(status.status, "blocked");
   assert.equal(status.gatewayStatus, "running");
   assert.equal(status.lastServerOperation, "server_stop");
@@ -4553,8 +4558,8 @@ test("read projection facade delegates server status through Rust projection", (
   assert.equal(Object.hasOwn(readProjectionRequests[0].state, "projection"), false);
 });
 
-test("read projection facade delegates server logs and events through Rust projection", () => {
-  const { facade, state, readProjectionRequests } = createState();
+test("read projection direct client delegates server logs and events through Rust projection", () => {
+  const { state, readProjectionRequests } = createState();
   writeServerControlRecords(state.stateDir, [
     {
       id: "server-control:restart",
@@ -4643,13 +4648,13 @@ test("read projection facade delegates server logs and events through Rust proje
     },
   ]);
 
-  const logs = facade.serverLogs(state, {
+  const logs = state.serverLogs({
     limit: "2",
     event: "server_restart",
     authorization: "Bearer secret-token",
   });
-  const events = facade.serverEvents(state, { limit: "2" });
-  const records = facade.serverLogRecords(state, { limit: 1 });
+  const events = state.serverEvents({ limit: "2" });
+  const records = state.serverLogRecords({ limit: 1 });
 
   assert.deepEqual(logs.records.map((record) => record.event), ["server_restart", "provider_probe"]);
   assert.deepEqual(events.events.map((event) => event.event), ["server_restart", "provider_probe"]);
@@ -4672,12 +4677,12 @@ test("read projection facade delegates server logs and events through Rust proje
   assert.equal(readProjectionRequests[0].state_dir, state.stateDir);
 });
 
-test("read projection facade delegates catalog status through Rust projection", () => {
-  const { facade, state, readProjectionRequests } = createState();
+test("read projection direct client delegates catalog status through Rust projection", () => {
+  const { state, readProjectionRequests } = createState();
 
-  const status = facade.catalogStatus(state);
+  const status = state.catalogStatus();
 
-  assert.equal(status.schemaVersion, "model.mount.schema");
+  assert.equal(status.schemaVersion, "ioi.model-mounting.runtime.v1");
   assert.equal(status.adapterBoundary.port, "ModelCatalogProviderPort");
   assert.deepEqual(status.providers.map((provider) => provider.provider_ref), [
     "provider://fixture",
@@ -4699,11 +4704,11 @@ test("read projection facade delegates catalog status through Rust projection", 
   assert.equal(Object.hasOwn(readProjectionRequests[0].state, "catalog_status_input"), false);
 });
 
-test("read projection facade projects latest provider and vault health envelopes", () => {
-  const { facade, state, readProjectionRequests } = createState();
+test("read projection direct client projects latest provider and vault health envelopes", () => {
+  const { state, readProjectionRequests } = createState();
 
-  const providerHealth = facade.latestProviderHealth(state, "provider.local");
-  assert.equal(providerHealth.schemaVersion, "model.mount.schema");
+  const providerHealth = state.latestProviderHealth("provider.local");
+  assert.equal(providerHealth.schemaVersion, "ioi.model-mounting.runtime.v1");
   assert.equal(providerHealth.source, "agentgres_provider_lifecycle_health_latest");
   assert.equal(providerHealth.providerId, "provider.local");
   assert.equal(providerHealth.health.status, "healthy");
@@ -4713,8 +4718,8 @@ test("read projection facade projects latest provider and vault health envelopes
   assert.equal(providerHealth.replay.record.id, "provider-lifecycle-health");
   assert.equal(providerHealth.projectionWatermark, 1);
 
-  const vaultHealth = facade.latestVaultHealth(state);
-  assert.equal(vaultHealth.schemaVersion, "model.mount.schema");
+  const vaultHealth = state.latestVaultHealth();
+  assert.equal(vaultHealth.schemaVersion, "ioi.model-mounting.runtime.v1");
   assert.equal(vaultHealth.source, "agentgres_vault_health_latest");
   assert.equal(vaultHealth.health.implementation, "runtime_memory_vault");
   assert.equal(vaultHealth.receipt.id, "receipt-vault-health");
@@ -4735,10 +4740,10 @@ test("read projection facade projects latest provider and vault health envelopes
   assert.equal(readProjectionRequests.every((request) => !Object.hasOwn(request.state, "artifacts")), true);
 });
 
-test("read projection facade delegates latest runtime survey through Rust projection", () => {
-  const { facade, state, readProjectionRequests } = createState();
+test("read projection direct client delegates latest runtime survey through Rust projection", () => {
+  const { state, readProjectionRequests } = createState();
 
-  const notChecked = facade.latestRuntimeSurvey(state);
+  const notChecked = state.latestRuntimeSurvey();
   assert.equal(notChecked.status, "not_checked");
   assert.equal(notChecked.receiptId, "none");
   assert.equal(notChecked.engineCount, 0);
@@ -4759,7 +4764,7 @@ test("read projection facade delegates latest runtime survey through Rust projec
       lm_studio: { status: "available" },
     },
   }]);
-  const checked = facade.latestRuntimeSurvey(state);
+  const checked = state.latestRuntimeSurvey();
   assert.equal(checked.status, "checked");
   assert.equal(checked.receiptId, "receipt-runtime-survey");
   assert.deepEqual(checked.selectedEngines, ["backend.llama-cpp"]);
@@ -4780,8 +4785,8 @@ test("read projection facade delegates latest runtime survey through Rust projec
   assert.equal(readProjectionRequests.every((request) => !Object.hasOwn(request.state, "runtime_survey_input")), true);
 });
 
-test("read projection facade preserves latest health not-found errors", () => {
-  const { facade, state, readProjectionPlanner, readProjectionRequests } = createState();
+test("read projection direct client preserves latest health not-found errors", () => {
+  const { state, readProjectionPlanner, readProjectionRequests } = createState();
 
   readProjectionPlanner.planReadProjection = (request) => {
     readProjectionRequests.push(request);
@@ -4803,7 +4808,7 @@ test("read projection facade preserves latest health not-found errors", () => {
   };
 
   assert.throws(
-    () => facade.latestProviderHealth(state, "provider.local"),
+    () => state.latestProviderHealth("provider.local"),
     (error) =>
       error.status === 404 &&
       error.code === "not_found" &&
@@ -4811,7 +4816,7 @@ test("read projection facade preserves latest health not-found errors", () => {
   );
 
   assert.throws(
-    () => facade.latestVaultHealth(state),
+    () => state.latestVaultHealth(),
     (error) =>
       error.status === 404 &&
       error.code === "not_found" &&

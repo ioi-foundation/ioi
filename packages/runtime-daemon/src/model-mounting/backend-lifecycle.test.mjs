@@ -123,33 +123,41 @@ function fakeState() {
       };
     },
   };
-  state.readProjectionFacade = {
-    backendLogs(projectionState, backendId, query = {}) {
-      state.backendLogProjectionRequests.push({ projectionState, backendId, query });
+  state.modelMountCore = {
+    planReadProjection(request) {
+      if (request.projection_kind === "backends") {
+        return { projection: state.projectedBackends ?? [] };
+      }
+      if (request.projection_kind !== "backend_logs") {
+        throw new Error(`unexpected read projection: ${request.projection_kind}`);
+      }
+      const backendId = request.state.backend_log_query?.backend_id;
+      const query = request.state.backend_log_query ?? {};
+      state.backendLogProjectionRequests.push({ projectionState: state, backendId, query });
       const record = {
         event: "backend_start",
         backend_id: backendId,
         rust_core_boundary: "model_mount.backend_lifecycle_log_projection",
       };
       return {
-        object: "ioi.model_mount_backend_logs",
-        status: "projected",
-        projectionKind: "backend_logs",
-        backend_id: backendId,
-        redaction: "redacted",
-        records: [record],
-        logs: [record],
-        count: 1,
-        rustCoreBoundary: "model_mount.backend_lifecycle_log_projection",
-        evidenceRefs: [
-          "rust_daemon_core_backend_lifecycle_log_projection",
-          "agentgres_backend_lifecycle_log_replay_required",
-          "model_mount_backend_log_read_js_control_path_retired",
-        ],
+        projection: {
+          object: "ioi.model_mount_backend_logs",
+          status: "projected",
+          projectionKind: "backend_logs",
+          backend_id: backendId,
+          redaction: "redacted",
+          records: [record],
+          logs: [record],
+          count: 1,
+          rustCoreBoundary: "model_mount.backend_lifecycle_log_projection",
+          evidenceRefs: [
+            "rust_daemon_core_backend_lifecycle_log_projection",
+            "agentgres_backend_lifecycle_log_replay_required",
+            "model_mount_backend_log_read_js_control_path_retired",
+          ],
+        },
       };
     },
-  };
-  state.modelMountCore = {
     planBackendLifecycle(request) {
       state.backendLifecyclePlans.push(request);
       const suffix = request.operation_kind.replace(/[^a-z0-9]+/gi, "-");
@@ -368,19 +376,12 @@ test("public backend lifecycle fails closed only when Rust positive planner is u
 
 test("public backend list delegates to Rust projection without JS backend registry input", () => {
   const state = fakeState();
-  const projectionRequests = [];
-  state.readProjectionFacade = {
-    listBackends(projectionState) {
-      projectionRequests.push(projectionState);
-      return [];
-    },
-  };
+  state.projectedBackends = [];
   state.backendRegistry = () => {
     throw new Error("Rust backend list projection must not read JS backend registry");
   };
 
   assert.deepEqual(listBackends(state), []);
-  assert.equal(projectionRequests.length, 1);
 });
 
 test("mounted backend registry delegates to Rust projection without JS registry derivation", () => {
@@ -393,14 +394,7 @@ test("mounted backend registry delegates to Rust projection without JS registry 
       rust_core_boundary: "model_mount.backend_lifecycle_projection",
     },
   ];
-  const projectionRequests = [];
-  state.readProjectionFacade = {
-    ...state.readProjectionFacade,
-    listBackends(projectionState) {
-      projectionRequests.push(projectionState);
-      return rustBackends;
-    },
-  };
+  state.projectedBackends = rustBackends;
   assert.equal(Object.hasOwn(ModelMountingState.prototype, "seedBackends"), false);
   assert.equal(Object.hasOwn(ModelMountingState.prototype, "deriveBackendRegistry"), false);
   state.deriveBackendRegistry = () => {
@@ -415,7 +409,6 @@ test("mounted backend registry delegates to Rust projection without JS registry 
   });
 
   assert.deepEqual(backendRegistry(state), rustBackends);
-  assert.deepEqual(projectionRequests, [state]);
 });
 
 test("blocked backend public lifecycle start still commits through Rust boundary before JS control", () => {
@@ -472,6 +465,6 @@ test("public backend logs delegate to Rust projection without lifecycle control 
   assert.deepEqual(state.receipts, []);
   assert.equal(state.backendLogProjectionRequests.length, 1);
   assert.equal(state.backendLogProjectionRequests[0].backendId, "backend.native");
-  assert.equal(state.backendLogProjectionRequests[0].query.limit, "1");
-  assert.equal(state.backendLogProjectionRequests[0].query.authorization, "Bearer secret-token");
+  assert.equal(state.backendLogProjectionRequests[0].query.limit, 1);
+  assert.equal(Object.hasOwn(state.backendLogProjectionRequests[0].query, "authorization"), false);
 });

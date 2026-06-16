@@ -33,7 +33,7 @@ function assertRetiredFieldsAbsent(value, fields) {
 }
 
 function fakeState() {
-  return {
+  const state = {
     authorizations: [],
     mcpServers: new Map(),
     mcpWorkflowRequests: [],
@@ -99,10 +99,12 @@ function fakeState() {
       this.mcpWorkflowRequests.push(JSON.parse(JSON.stringify(request)));
       return mcpWorkflowPlan(request);
     },
-    readProjectionFacade: {
-      mcpServers(state) {
-        state.readProjectionRequests.push({ projection_kind: "mcp_servers" });
-        return [{ id: "mcp.Projected", label: "Projected", status: "registered" }];
+    modelMountCore: {
+      planReadProjection(request) {
+        state.readProjectionRequests.push({ projection_kind: request.projection_kind });
+        return {
+          projection: [{ id: "mcp.Projected", label: "Projected", status: "registered" }],
+        };
       },
     },
     testRoute(routeId, body) {
@@ -131,6 +133,7 @@ function fakeState() {
       };
     },
   };
+  return state;
 }
 
 function mcpWorkflowPlan(request) {

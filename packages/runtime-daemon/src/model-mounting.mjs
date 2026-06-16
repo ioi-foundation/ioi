@@ -19,9 +19,6 @@ import {
   workflowMemoryWriteBlockReason,
 } from "./model-mounting/workflow-memory.mjs";
 import {
-  createModelMountingReadProjectionFacade,
-} from "./model-mounting/read-projection-facade.mjs";
-import {
   destructiveConfirmationState,
 } from "./model-mounting/catalog-helpers.mjs";
 import {
@@ -451,15 +448,6 @@ export class ModelMountingState {
     this.vaultRefs = new Map();
     this.mcpServers = new Map();
     this.conversations = new Map();
-    this.readProjectionFacade = createModelMountingReadProjectionFacade({
-      internalFixtureModelsEnabled,
-      listJson,
-      modelMountSchemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
-      hardwareSnapshot,
-      path,
-      readJson,
-      readProjectionPlanner: this.modelMountCore,
-    });
     this.ensureDirs();
     this.load();
     this.vault.loadMetadata([...this.vaultRefs.values()]);
@@ -539,7 +527,7 @@ export class ModelMountingState {
   }
 
   serverStatus(baseUrl) {
-    return this.readProjectionFacade.serverStatus(this, baseUrl);
+    return modelMountReadProjection(this, "server_status", { baseUrl });
   }
 
   serverControlState() {
@@ -595,15 +583,21 @@ export class ModelMountingState {
   }
 
   serverLogs(query = {}) {
-    return this.readProjectionFacade.serverLogs(this, query);
+    return modelMountReadProjection(this, "server_logs", {
+      serverLogQuery: canonicalModelMountServerLogQuery(query),
+    });
   }
 
   serverEvents(query = {}) {
-    return this.readProjectionFacade.serverEvents(this, query);
+    return modelMountReadProjection(this, "server_events", {
+      serverLogQuery: canonicalModelMountServerLogQuery(query),
+    });
   }
 
   serverLogRecords({ limit = 80 } = {}) {
-    return this.readProjectionFacade.serverLogRecords(this, { limit });
+    return modelMountReadProjection(this, "server_log_records", {
+      serverLogQuery: canonicalModelMountServerLogQuery({ limit }),
+    });
   }
 
   writeServerLog(event) {
@@ -613,82 +607,86 @@ export class ModelMountingState {
   }
 
   runtimeModelCatalogList() {
-    return this.readProjectionFacade.runtimeModelCatalogList(this);
+    return modelMountReadProjection(this, "runtime_model_catalog");
   }
 
   openAiModelList() {
-    return this.readProjectionFacade.openAiModelList(this);
+    return modelMountReadProjection(this, "open_ai_model_list");
   }
 
   listArtifacts() {
-    return this.readProjectionFacade.listArtifacts(this);
+    return modelMountReadProjection(this, "artifacts");
   }
 
   listProductArtifacts() {
-    return this.readProjectionFacade.listProductArtifacts(this);
+    return modelMountReadProjection(this, "product_artifacts");
   }
 
   listProviders() {
-    return this.readProjectionFacade.listProviders(this);
+    return modelMountReadProjection(this, "providers");
   }
 
   listEndpoints() {
-    return this.readProjectionFacade.listEndpoints(this);
+    return modelMountReadProjection(this, "endpoints");
   }
 
   listInstances() {
-    return this.readProjectionFacade.listInstances(this);
+    return modelMountReadProjection(this, "instances");
   }
 
   listRoutes() {
-    return this.readProjectionFacade.listRoutes(this);
+    return modelMountReadProjection(this, "routes");
   }
 
   listModelCapabilities() {
-    return this.readProjectionFacade.listModelCapabilities(this);
+    return modelMountReadProjection(this, "model_capabilities");
   }
 
   listDownloads() {
-    return this.readProjectionFacade.listDownloads(this);
+    return modelMountReadProjection(this, "downloads");
   }
 
   listOAuthSessions() {
-    return this.readProjectionFacade.listOAuthSessions(this);
+    return modelMountReadProjection(this, "oauth_sessions");
   }
 
   listOAuthStates() {
-    return this.readProjectionFacade.listOAuthStates(this);
+    return modelMountReadProjection(this, "oauth_states");
   }
 
   listProviderHealth() {
-    return this.readProjectionFacade.listProviderHealth(this);
+    return modelMountReadProjection(this, "provider_health");
   }
 
   snapshot(baseUrl) {
-    return this.readProjectionFacade.snapshot(this, baseUrl);
+    return modelMountReadProjection(this, "snapshot", { baseUrl });
   }
 
   authoritySnapshot(baseUrl) {
-    return this.readProjectionFacade.authoritySnapshot(this, baseUrl);
+    return modelMountReadProjection(this, "authority_snapshot", { baseUrl });
   }
 
   projectionSummary() {
-    return this.readProjectionFacade.projectionSummary(this);
+    return modelMountReadProjection(this, "projection_summary");
   }
 
   projection() {
-    return this.readProjectionFacade.projection(this);
+    return modelMountReadProjection(this, "projection");
+  }
+
+  canonicalProjectionWritePlan() {
+    return modelMountReadProjectionPlan(this, "projection");
   }
 
   adapterBoundaries() {
-    return this.readProjectionFacade.adapterBoundaries(this);
+    return modelMountReadProjection(this, "adapter_boundaries");
   }
 
   writeProjection() {
     if (this.writingProjection) return;
     this.writingProjection = true;
     try {
-      const plan = this.readProjectionFacade.canonicalProjectionWritePlan(this);
+      const plan = this.canonicalProjectionWritePlan();
       this.store.writeProjection("model-mounting-canonical", plan.projection, {
         rustProjection: plan,
       });
@@ -698,31 +696,43 @@ export class ModelMountingState {
   }
 
   receiptReplay(receiptId) {
-    return this.readProjectionFacade.receiptReplay(this, receiptId);
+    return modelMountReadProjection(this, "receipt_replay", { receiptId });
   }
 
   modelRouteDecisions() {
-    return this.readProjectionFacade.modelRouteDecisions(this);
+    return modelMountReadProjection(this, "model_route_decisions");
+  }
+
+  modelRouteEndpointResolutions() {
+    return modelMountReadProjection(this, "model_route_endpoint_resolutions");
   }
 
   providerInventoryRecords() {
-    return this.readProjectionFacade.providerInventoryRecords(this);
+    return modelMountReadProjection(this, "provider_inventory_records");
   }
 
   modelTokenizerRecords() {
-    return this.readProjectionFacade.modelTokenizerRecords(this);
+    return modelMountReadProjection(this, "model_tokenizer_records");
   }
 
   latestProviderHealth(providerId) {
-    return this.readProjectionFacade.latestProviderHealth(this, providerId);
+    try {
+      return modelMountReadProjection(this, "latest_provider_health", { providerId });
+    } catch (error) {
+      throw translateLatestProviderHealthError(error, providerId);
+    }
   }
 
   latestVaultHealth() {
-    return this.readProjectionFacade.latestVaultHealth(this);
+    try {
+      return modelMountReadProjection(this, "latest_vault_health");
+    } catch (error) {
+      throw translateLatestVaultHealthError(error);
+    }
   }
 
   workflowNodeBindings() {
-    return this.readProjectionFacade.workflowNodeBindings(this);
+    return modelMountReadProjection(this, "workflow_bindings");
   }
 
   getModel(id) {
@@ -737,7 +747,7 @@ export class ModelMountingState {
   }
 
   catalogStatus() {
-    return this.readProjectionFacade.catalogStatus(this);
+    return modelMountReadProjection(this, "catalog_status");
   }
 
   listCatalogProviderConfigs() {
@@ -821,11 +831,13 @@ export class ModelMountingState {
   }
 
   storageSummary() {
-    return this.readProjectionFacade.storageSummary(this);
+    return modelMountReadProjection(this, "storage_summary");
   }
 
-  async catalogSearch(query = {}) {
-    return this.readProjectionFacade.catalogSearch(this, query);
+  catalogSearch(query = {}) {
+    return modelMountReadProjection(this, "catalog_search", {
+      catalogQuery: canonicalModelMountCatalogSearchQuery(query),
+    });
   }
 
   enrichCatalogEntry(entry, options = {}) {
@@ -984,7 +996,11 @@ export class ModelMountingState {
   }
 
   downloadStatus(jobId) {
-    return this.readProjectionFacade.downloadStatus(this, jobId);
+    try {
+      return modelMountReadProjection(this, "download_status", { downloadId: jobId });
+    } catch (error) {
+      throw translateDownloadStatusError(error, jobId);
+    }
   }
 
   deleteModelArtifact(id, body = {}) {
@@ -1654,11 +1670,11 @@ export class ModelMountingState {
   }
 
   listMcpServers() {
-    return this.readProjectionFacade.mcpServers(this);
+    return modelMountReadProjection(this, "mcp_servers");
   }
 
   listConversations() {
-    return this.readProjectionFacade.listConversations(this);
+    return modelMountReadProjection(this, "model_conversation_states");
   }
 
   invokeMcpTool({ authorization, body = {} }) {
@@ -1854,11 +1870,11 @@ export class ModelMountingState {
   }
 
   backendRegistry() {
-    return this.readProjectionFacade.listBackends(this);
+    return modelMountReadProjection(this, "backends");
   }
 
   listBackends() {
-    return this.readProjectionFacade.listBackends(this);
+    return modelMountReadProjection(this, "backends");
   }
 
   listBackendProcesses() {
@@ -1874,28 +1890,32 @@ export class ModelMountingState {
   }
 
   runtimePreference() {
-    return this.readProjectionFacade.runtimePreferenceProjection(this);
+    return modelMountReadProjection(this, "runtime_preference");
   }
 
   runtimePreferenceForEndpoint(endpoint = {}) {
-    return this.readProjectionFacade.runtimePreferenceForEndpointProjection(this, endpoint);
+    return modelMountReadProjection(this, "runtime_preference_for_endpoint", { endpoint });
   }
 
   runtimeEngineProfile(engineId) {
-    return this.readProjectionFacade.runtimeEngineProfileList(this)
+    return modelMountReadProjection(this, "runtime_engine_profiles")
       .find((profile) => profile.id === engineId) ?? null;
   }
 
   listRuntimeEngineProfiles() {
-    return this.readProjectionFacade.runtimeEngineProfileList(this);
+    return modelMountReadProjection(this, "runtime_engine_profiles");
   }
 
   runtimeDefaultLoadOptions(engineId) {
-    return this.readProjectionFacade.runtimeDefaultLoadOptionsProjection(this, engineId);
+    return modelMountReadProjection(this, "runtime_default_load_options", { engineId });
   }
 
   runtimeEngine(engineId) {
-    return this.readProjectionFacade.runtimeEngineProjection(this, engineId);
+    try {
+      return modelMountReadProjection(this, "runtime_engine_detail", { engineId });
+    } catch (error) {
+      throw translateRuntimeEngineError(error, engineId);
+    }
   }
 
   selectRuntimeEngine(body = {}) {
@@ -1922,7 +1942,7 @@ export class ModelMountingState {
   }
 
   listRuntimeEngines() {
-    return this.readProjectionFacade.runtimeEngineList(this);
+    return modelMountReadProjection(this, "runtime_engines");
   }
 
   runtimeSurvey() {
@@ -1958,7 +1978,7 @@ export class ModelMountingState {
   }
 
   latestRuntimeSurvey() {
-    return this.readProjectionFacade.latestRuntimeSurvey(this);
+    return modelMountReadProjection(this, "latest_runtime_survey");
   }
 
   backend(backendId) {
@@ -2074,7 +2094,9 @@ export class ModelMountingState {
 
   backendLogs(backendId, query = {}) {
     const resolvedBackendId = requiredString(backendId, "backend_id");
-    return this.readProjectionFacade.backendLogs(this, resolvedBackendId, query);
+    return modelMountReadProjection(this, "backend_logs", {
+      backendLogQuery: canonicalModelMountBackendLogQuery(resolvedBackendId, query),
+    });
   }
 
   writeBackendLog(endpointId, event) {
@@ -4811,6 +4833,302 @@ function routeControlRouteForMountedState(state, routeId) {
 function modelMountProjectionRecords(state, methodName) {
   const records = typeof state?.[methodName] === "function" ? state[methodName]() : [];
   return Array.isArray(records) ? records : [];
+}
+
+function modelMountReadProjection(
+  state,
+  projectionKind,
+  {
+    backendLogQuery = null,
+    baseUrl = null,
+    catalogQuery = null,
+    downloadId = null,
+    engineId = null,
+    endpoint = null,
+    providerId = null,
+    receiptId = null,
+    serverLogQuery = null,
+  } = {},
+) {
+  const result = modelMountReadProjectionPlan(state, projectionKind, {
+    backendLogQuery,
+    baseUrl,
+    catalogQuery,
+    downloadId,
+    engineId,
+    endpoint,
+    providerId,
+    receiptId,
+    serverLogQuery,
+  });
+  return result.projection;
+}
+
+function modelMountReadProjectionPlan(
+  state,
+  projectionKind,
+  {
+    backendLogQuery = null,
+    baseUrl = null,
+    catalogQuery = null,
+    downloadId = null,
+    engineId = null,
+    endpoint = null,
+    providerId = null,
+    receiptId = null,
+    serverLogQuery = null,
+  } = {},
+) {
+  const planner = state?.modelMountCore;
+  if (!planner || typeof planner.planReadProjection !== "function") {
+    throwReadProjectionRustCoreRequired(projectionKind, {
+      base_url: baseUrl,
+      download_id: downloadId,
+      engine_id: engineId,
+      provider_id: providerId,
+      receipt_id: receiptId,
+    });
+  }
+  const result = planner.planReadProjection({
+    projection_kind: projectionKind,
+    schema_version: MODEL_MOUNT_SCHEMA_VERSION,
+    generated_at: state.nowIso(),
+    base_url: baseUrl,
+    download_id: downloadId,
+    engine_id: engineId,
+    provider_id: providerId,
+    receipt_id: receiptId,
+    state_dir: modelMountReadProjectionStateDir(state, projectionKind),
+    state: modelMountReadProjectionInput(state, baseUrl, projectionKind, {
+      backendLogQuery,
+      catalogQuery,
+      engineId,
+      endpoint,
+      serverLogQuery,
+    }),
+  });
+  if (!result || !Object.hasOwn(result, "projection")) {
+    throwReadProjectionRustCoreRequired(projectionKind, {
+      reason: "missing_rust_projection",
+      source: result?.source ?? null,
+      backend: result?.backend ?? null,
+    });
+  }
+  return result;
+}
+
+function canonicalModelMountCatalogSearchQuery(query = {}) {
+  const input = query && typeof query === "object" ? query : {};
+  const canonical = {};
+  for (const field of ["query", "format", "quantization", "provider_ref"]) {
+    const value = input[field];
+    if (typeof value === "string" && value.trim().length > 0) {
+      canonical[field] = value.trim();
+    }
+  }
+  const limit = Number.parseInt(String(input.limit ?? ""), 10);
+  if (Number.isSafeInteger(limit) && limit > 0) {
+    canonical.limit = Math.min(limit, 100);
+  }
+  return canonical;
+}
+
+function canonicalModelMountServerLogQuery(query = {}) {
+  const input = query && typeof query === "object" ? query : {};
+  const canonical = {};
+  const limit = Number.parseInt(String(input.limit ?? ""), 10);
+  if (Number.isSafeInteger(limit) && limit > 0) {
+    canonical.limit = Math.min(limit, 500);
+  }
+  return canonical;
+}
+
+function canonicalModelMountBackendLogQuery(backendId, query = {}) {
+  return {
+    ...canonicalModelMountServerLogQuery(query),
+    backend_id: backendId,
+  };
+}
+
+function modelMountReadProjectionInput(
+  state,
+  baseUrl = null,
+  projectionKind = "projection",
+  {
+    backendLogQuery = null,
+    catalogQuery = null,
+    engineId = null,
+    endpoint = null,
+    serverLogQuery = null,
+  } = {},
+) {
+  void baseUrl;
+  void engineId;
+  void endpoint;
+  if (
+    projectionKind === "workflow_bindings" ||
+    projectionKind === "runtime_engines" ||
+    projectionKind === "runtime_engine_profiles" ||
+    projectionKind === "runtime_preference" ||
+    projectionKind === "runtime_preference_for_endpoint" ||
+    projectionKind === "runtime_default_load_options" ||
+    projectionKind === "runtime_engine_detail" ||
+    projectionKind === "adapter_boundaries" ||
+    projectionKind === "provider_inventory_records" ||
+    projectionKind === "model_tokenizer_records" ||
+    projectionKind === "model_route_decisions" ||
+    projectionKind === "model_route_endpoint_resolutions" ||
+    projectionKind === "download_status" ||
+    projectionKind === "storage_summary" ||
+    projectionKind === "projection_summary" ||
+    projectionKind === "latest_vault_health" ||
+    projectionKind === "latest_runtime_survey" ||
+    projectionKind === "latest_provider_health" ||
+    projectionKind === "model_conversation_states" ||
+    projectionKind === "server_status" ||
+    projectionKind === "catalog_status" ||
+    projectionKind === "receipt_replay" ||
+    projectionKind === "artifacts" ||
+    projectionKind === "providers" ||
+    projectionKind === "endpoints" ||
+    projectionKind === "instances" ||
+    projectionKind === "routes" ||
+    projectionKind === "model_capabilities" ||
+    projectionKind === "downloads" ||
+    projectionKind === "backends" ||
+    projectionKind === "mcp_servers" ||
+    projectionKind === "product_artifacts" ||
+    projectionKind === "runtime_model_catalog" ||
+    projectionKind === "open_ai_model_list" ||
+    projectionKind === "oauth_sessions" ||
+    projectionKind === "oauth_states" ||
+    projectionKind === "provider_health" ||
+    projectionKind === "authority_snapshot" ||
+    projectionKind === "snapshot" ||
+    projectionKind === "projection"
+  ) {
+    return {};
+  }
+  if (
+    projectionKind === "server_logs" ||
+    projectionKind === "server_events" ||
+    projectionKind === "server_log_records"
+  ) {
+    return { server_log_query: serverLogQuery ?? {} };
+  }
+  if (projectionKind === "backend_logs") {
+    return { backend_log_query: backendLogQuery ?? {} };
+  }
+  if (projectionKind === "catalog_search") {
+    return { catalog_search: catalogQuery ?? {} };
+  }
+  return {
+    receipts: state.listReceipts(),
+  };
+}
+
+function modelMountReadProjectionStateDir(state, projectionKind) {
+  if (
+    projectionKind !== "model_conversation_states" &&
+    projectionKind !== "instances" &&
+    projectionKind !== "provider_inventory_records" &&
+    projectionKind !== "catalog_search" &&
+    projectionKind !== "catalog_status" &&
+    projectionKind !== "model_tokenizer_records" &&
+    projectionKind !== "routes" &&
+    projectionKind !== "model_capabilities" &&
+    projectionKind !== "model_route_decisions" &&
+    projectionKind !== "model_route_endpoint_resolutions" &&
+    projectionKind !== "artifacts" &&
+    projectionKind !== "product_artifacts" &&
+    projectionKind !== "providers" &&
+    projectionKind !== "endpoints" &&
+    projectionKind !== "runtime_model_catalog" &&
+    projectionKind !== "open_ai_model_list" &&
+    projectionKind !== "downloads" &&
+    projectionKind !== "download_status" &&
+    projectionKind !== "storage_summary" &&
+    projectionKind !== "backend_logs" &&
+    projectionKind !== "server_status" &&
+    projectionKind !== "server_logs" &&
+    projectionKind !== "server_events" &&
+    projectionKind !== "server_log_records" &&
+    projectionKind !== "backends" &&
+    projectionKind !== "mcp_servers" &&
+    projectionKind !== "oauth_sessions" &&
+    projectionKind !== "oauth_states" &&
+    projectionKind !== "runtime_engines" &&
+    projectionKind !== "runtime_engine_profiles" &&
+    projectionKind !== "runtime_preference" &&
+    projectionKind !== "runtime_preference_for_endpoint" &&
+    projectionKind !== "runtime_default_load_options" &&
+    projectionKind !== "runtime_engine_detail" &&
+    projectionKind !== "snapshot" &&
+    projectionKind !== "projection" &&
+    projectionKind !== "projection_summary" &&
+    projectionKind !== "receipt_replay" &&
+    projectionKind !== "authority_snapshot" &&
+    projectionKind !== "provider_health" &&
+    projectionKind !== "latest_provider_health" &&
+    projectionKind !== "latest_vault_health" &&
+    projectionKind !== "latest_runtime_survey"
+  ) return null;
+  return typeof state?.stateDir === "string" && state.stateDir.trim().length > 0
+    ? state.stateDir
+    : null;
+}
+
+function throwReadProjectionRustCoreRequired(projectionKind, details = {}) {
+  const error = new Error("Model-mount read projection requires Rust daemon-core projection ownership.");
+  error.status = 501;
+  error.code = "model_mount_read_projection_rust_core_required";
+  error.details = {
+    rust_core_boundary: "model_mount.projection",
+    projection_kind: projectionKind,
+    ...details,
+    evidence_refs: [
+      "model_mount_js_read_projection_authoring_retired",
+      "rust_daemon_core_model_mount_projection_required",
+      "agentgres_model_mount_read_truth_required",
+    ],
+  };
+  throw error;
+}
+
+function translateDownloadStatusError(error, jobId) {
+  if (
+    error?.code === "model_mount_download_not_found" ||
+    error?.code === "model_mount_download_id_required"
+  ) {
+    return notFound(`Download job not found: ${jobId}`, { job_id: jobId });
+  }
+  throw error;
+}
+
+function translateLatestProviderHealthError(error, providerId) {
+  if (
+    error?.code === "model_mount_provider_not_found" ||
+    error?.code === "model_mount_provider_health_not_found"
+  ) {
+    return notFound(`Provider health has not been checked: ${providerId}`, { providerId });
+  }
+  throw error;
+}
+
+function translateLatestVaultHealthError(error) {
+  if (error?.code === "model_mount_vault_health_not_found") {
+    return notFound("Vault adapter health has not been checked.", {
+      receiptKind: "vault_adapter_health",
+    });
+  }
+  throw error;
+}
+
+function translateRuntimeEngineError(error, engineId) {
+  if (error?.code === "model_mount_runtime_engine_not_found") {
+    return notFound(`Runtime engine not found: ${engineId}`, { engine_id: engineId });
+  }
+  throw error;
 }
 
 function modelMountProviderControlRustCoreRequired(provider, operation, details = {}) {

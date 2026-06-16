@@ -4,7 +4,7 @@ import test from "node:test";
 import { ModelMountingState } from "../model-mounting.mjs";
 
 function fakeState() {
-  return {
+  const state = {
     conversations: new Map(),
     agentgresConversationRecords: new Map(),
     stateDir: "/state",
@@ -302,20 +302,23 @@ function fakeState() {
       this.receipts.push(record);
       return record;
     },
-    readProjectionFacade: {
-      listConversations(state) {
+    modelMountCore: {
+      planReadProjection(request) {
         state.readProjectionRequests.push({
-          projection_kind: "model_conversation_states",
-          state_dir: state.stateDir,
-          state: {},
+          projection_kind: request.projection_kind,
+          state_dir: request.state_dir,
+          state: request.state,
         });
-        return rustConversationProjectionFixture([...state.agentgresConversationRecords.values()]);
+        return {
+          projection: rustConversationProjectionFixture([...state.agentgresConversationRecords.values()]),
+        };
       },
     },
     writeMap(name, map) {
       this.writes.push([name, [...map.values()].map((record) => ({ ...record }))]);
     },
   };
+  return state;
 }
 
 function rustConversationProjectionFixture(records = []) {

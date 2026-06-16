@@ -1054,12 +1054,12 @@ route-selection receipt Rust-authoring matrix-compaction pass is complete. No
 matrix-compaction pass is pending until the next Rust-core extraction or
 facade-retirement seam lands; do not encode the command bridge or JS transport
 wrappers as terminal architecture.
-Slice 792 moved model_mount read-projection authoring out of the JS
-`read-projection-facade.mjs` helper path and into Rust daemon-core projection
+Slice 792 moved model_mount read-projection authoring out of the former JS
+read-projection helper path and into Rust daemon-core projection
 planning. `plan_model_mount_read_projection` now authors the canonical
 model_mount projection, projection summary, route-decision projection, receipt
 replay, and wallet authority snapshot envelopes through the Rust command
-transport; the JS facade prepares current state input, calls
+transport; the direct mounted state client prepares current state input, calls
 `planReadProjection()`, and fails closed with
 `model_mount_read_projection_rust_core_required` when Rust projection planning
 is unavailable. This still does not claim terminal model_mount migration:
@@ -1700,7 +1700,7 @@ synthesis can become JS truth.
 
 Slice 839 retired JS-authored provider public/vault metadata projection from
 model_mount read-projection input. `providerList()` now returns sorted raw
-provider records only, and `read-projection-facade.mjs` no longer injects
+provider records only, and the direct model_mount read-projection client no longer injects
 `providerHasVaultRef` or `publicProvider` into provider, model-capability,
 receipt-replay, latest-provider-health, snapshot, or projection requests. Public
 provider envelope shaping and vault metadata redaction are therefore no longer
@@ -3035,7 +3035,7 @@ preserved as a server-state/log compatibility wrapper. Mounted
 `ModelMountingState` methods now own server-control Rust-core-required
 refusals directly, including the formerly dangling `recordServerOperation()`
 surface, while the dedicated `server_status` read projection keeps only its
-narrow primitive migration input inside `read-projection-facade.mjs`. JS still
+narrow primitive migration input inside the direct model_mount read-projection client. JS still
 does not write `server-state.json`, append local server logs, synthesize server
 control receipts, or project provider/backend status as server truth.
 
@@ -3117,7 +3117,7 @@ the public mutation refusal boundary onto `ModelMountingState` itself.
 runtime-engine receipts, mutate preference/profile maps, write projection state,
 or preserve helper-level readback builders. Public runtime-engine
 list/detail/default-load/preference/profile reads continue to call
-`plan_model_mount_read_projection` through `read-projection-facade.mjs` with
+`plan_model_mount_read_projection` through the direct model_mount read-projection client with
 narrow Rust-planned request state. Direct Rust daemon-core runtime-engine
 preference/profile/projection APIs, Agentgres-backed truth, receipt/state-root
 binding, replay, stable protocol APIs, and command-transport retirement remain
@@ -10702,6 +10702,20 @@ turn truth. Conformance guards the direct adapter calls and the absent
 constructor aliases. Remaining work is durable lifecycle replay/projection,
 wallet/cTEE runtime-service authority, and stable IDE/CLI/SDK lifecycle APIs,
 not another bridge-adapter injection path.
+
+Slice 1323 deletes the model_mount read-projection JS facade boundary.
+`ModelMountingState` now calls the mounted `modelMountCore.planReadProjection()`
+directly through `modelMountReadProjection()` for public model_mount readbacks,
+canonical projection persistence, runtime-engine/catalog/server/backend/MCP/
+conversation/topology projection reads, and not-found translations. The
+standalone helper module is absent, the focused proof moved to
+`read-projection-direct.test.mjs` and calls mounted state methods directly, and
+route-family tests mount fake Rust cores only through `modelMountCore`.
+Conformance guards the absent helper file/property plus direct
+`modelMountReadProjection()` calls. Remaining work is direct Rust Agentgres
+topology joins, hosted/provider materialization, backend execution
+materialization, and stable SDK/IDE protocol APIs, not a JS read-projection
+facade.
 
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,
