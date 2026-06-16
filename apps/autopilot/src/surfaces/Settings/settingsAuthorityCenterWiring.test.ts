@@ -34,6 +34,10 @@ const missionControlControlView = fs.readFileSync(
   new URL("../MissionControl/MissionControlControlView.tsx", import.meta.url),
   "utf8",
 );
+const retiredToolCatalogRoutePattern = new RegExp(
+  ["\\/api", "\\/v1\\/tools"].join(""),
+);
+const retiredAuthorityFetchHelper = ["fetchAuthorityJson", "First"].join("");
 
 test("settings authority section is wired to the canonical authority projection", () => {
   assert.match(settingsViewBody, /selectedSection === "authority"/);
@@ -88,7 +92,7 @@ test("authority center exposes canonical grant policy receipt posture", () => {
   assert.match(authorityCenterPanel, /Run-ready/);
 });
 
-test("settings authority runtime uses stable Rust lifecycle authority evidence protocol", () => {
+test("settings authority runtime uses stable Rust authority and tool catalog protocols", () => {
   assert.match(authorityRuntime, /MODEL_CAPABILITY_BINDING_ENDPOINT/);
   assert.match(authorityRuntime, /TOOL_CAPABILITY_BINDING_ENDPOINT/);
   assert.match(authorityRuntime, /MODEL_AUTHORITY_BINDING_ENDPOINT/);
@@ -100,12 +104,20 @@ test("settings authority runtime uses stable Rust lifecycle authority evidence p
     authorityRuntime,
     /authorityEvidenceSnapshot[\s\S]*buildAuthorityCenterProjection/,
   );
-  assert.match(authorityRuntime, new RegExp('"/v1/model-capabilities"'));
-  assert.match(authorityRuntime, new RegExp('"/v1/tools"'));
+  assert.match(
+    authorityRuntime,
+    /fetchAuthorityJson\(endpoint,\s*MODEL_CAPABILITY_BINDING_ENDPOINT\)/,
+  );
+  assert.match(
+    authorityRuntime,
+    /fetchAuthorityJson\(endpoint,\s*TOOL_CAPABILITY_BINDING_ENDPOINT\)/,
+  );
   assert.match(
     authorityRuntime,
     new RegExp('"/v1/authority-evidence"'),
   );
+  assert.doesNotMatch(authorityRuntime, new RegExp(retiredAuthorityFetchHelper));
+  assert.doesNotMatch(authorityRuntime, retiredToolCatalogRoutePattern);
   assert.doesNotMatch(authorityRuntime, /\/api\/v1\/authority-evidence/);
   assert.doesNotMatch(authorityRuntime, /\/api\/v1\/workflow-capability-preflight/);
 });

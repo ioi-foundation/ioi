@@ -12045,6 +12045,18 @@ Agentgres replay records instead of an alternate native evidence/preflight
 truth path. Conformance now scans the product runtime and wiring test so the
 retired fallback URLs cannot return.
 
+Slice 1387 hard-cuts runtime tool catalog product and IDE client fallbacks.
+The `@ioi/agent-ide` tool capability binding export now names only the
+canonical `/v1/tools` Rust runtime tool catalog projection protocol, workflow
+capability repair actions advertise `/v1/tools` instead of the retired
+`/api/v1/tools` native route, and the product Authority Center runtime calls the
+tool catalog directly through that stable protocol constant. The short-lived
+product fallback helper is deleted rather than retained as a compatibility
+chain, so model/tool catalog reads in the authority surface are protocol-client
+reads over Rust-owned projection records, not alternate native catalog truth.
+Focused IDE/product tests and conformance now reject restoring `/api/v1/tools`
+or the multi-path fetch helper beside `/v1/tools`.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

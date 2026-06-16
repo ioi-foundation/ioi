@@ -22967,6 +22967,22 @@ function runReceipts() {
   const authorityCenterWiringTest = exists("apps/autopilot/src/surfaces/Settings/settingsAuthorityCenterWiring.test.ts")
     ? read("apps/autopilot/src/surfaces/Settings/settingsAuthorityCenterWiring.test.ts")
     : "";
+  const workflowToolConnectorCapabilityBinding = exists(
+    "packages/agent-ide/src/runtime/workflow-tool-connector-capability-binding.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-tool-connector-capability-binding.ts")
+    : "";
+  const workflowToolConnectorCapabilityBindingTest = exists(
+    "packages/agent-ide/src/runtime/workflow-tool-connector-capability-binding.test.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-tool-connector-capability-binding.test.ts")
+    : "";
+  const workflowRunCapabilityReceipts = exists("packages/agent-ide/src/runtime/workflow-run-capability-receipts.ts")
+    ? read("packages/agent-ide/src/runtime/workflow-run-capability-receipts.ts")
+    : "";
+  const workflowRunHistoryModelTest = exists("packages/agent-ide/src/runtime/workflow-run-history-model.test.ts")
+    ? read("packages/agent-ide/src/runtime/workflow-run-history-model.test.ts")
+    : "";
   const runtimeDoctorReportRustCore = exists("crates/services/src/agentic/runtime/kernel/runtime_doctor_report.rs")
     ? read("crates/services/src/agentic/runtime/kernel/runtime_doctor_report.rs")
     : "";
@@ -30683,7 +30699,7 @@ function runReceipts() {
       !/\/api\/v1\/authority-evidence|\/api\/v1\/authority-evidence-summaries|\/api\/v1\/workflow-capability-preflight-evidence|\/api\/v1\/workflow-capability-preflight/.test(
         authorityCenterRuntime,
       ) &&
-      /settings authority runtime uses stable Rust lifecycle authority evidence protocol/.test(
+      /settings authority runtime uses stable Rust authority and tool catalog protocols/.test(
         authorityCenterWiringTest,
       ) &&
       /assert\.doesNotMatch\(authorityRuntime,\s*\/\\\/api\\\/v1\\\/authority-evidence\/\)/.test(
@@ -30703,6 +30719,62 @@ function runReceipts() {
       "docs/architecture/_meta/implementation-matrix.md",
     ],
     "Authority Center product clients must stay on /v1 authority-evidence lifecycle projection and cannot restore retired /api/v1 evidence/preflight fallbacks",
+  );
+  assertCheck(
+    result,
+    "runtime-tool-catalog-product-ide-stable-protocol-clients",
+    /TOOL_CAPABILITY_BINDING_ENDPOINT\s*=\s*"\/v1\/tools"/.test(
+      workflowToolConnectorCapabilityBinding,
+    ) &&
+      /catalogEndpoint:\s*"\/v1\/model-capabilities"\s*\|\s*"\/v1\/tools"\s*\|\s*null/.test(
+        workflowRunCapabilityReceipts,
+      ) &&
+      /:\s*"\/v1\/tools";/.test(workflowRunCapabilityReceipts) &&
+      !/\/api\/v1\/tools/.test(
+        [
+          authorityCenterRuntime,
+          authorityCenterWiringTest,
+          workflowToolConnectorCapabilityBinding,
+          workflowToolConnectorCapabilityBindingTest,
+          workflowRunCapabilityReceipts,
+          workflowRunHistoryModelTest,
+        ].join("\n"),
+      ) &&
+      /fetchAuthorityJson\(endpoint,\s*TOOL_CAPABILITY_BINDING_ENDPOINT\)/.test(
+        authorityCenterRuntime,
+      ) &&
+      !/fetchAuthorityJsonFirst/.test(authorityCenterRuntime) &&
+      /tool capability catalog uses stable Rust daemon protocol route/.test(
+        workflowToolConnectorCapabilityBindingTest,
+      ) &&
+      /settings authority runtime uses stable Rust authority and tool catalog protocols/.test(
+        authorityCenterWiringTest,
+      ) &&
+      /retiredToolCatalogRoutePattern/.test(authorityCenterWiringTest) &&
+      /assert\.doesNotMatch\(authorityRuntime,\s*retiredToolCatalogRoutePattern\)/.test(
+        authorityCenterWiringTest,
+      ) &&
+      /retiredToolCatalogRoute = \["\/api", "\/v1\/tools"\]\.join\(""\)/.test(
+        workflowRunHistoryModelTest,
+      ) &&
+      /row\?\.repairActions[\s\S]*"\/v1\/tools",\s*"\/v1\/tools"/.test(
+        workflowRunHistoryModelTest,
+      ) &&
+      /Slice 1387 hard-cuts runtime tool catalog product and IDE client fallbacks/.test(guide) &&
+      /Runtime tool catalog product and IDE protocol clients/.test(matrix) &&
+      /RuntimeToolCatalogProductIdeProtocolClients/.test(implementationMatrix),
+    [
+      "packages/agent-ide/src/runtime/workflow-tool-connector-capability-binding.ts",
+      "packages/agent-ide/src/runtime/workflow-run-capability-receipts.ts",
+      "packages/agent-ide/src/runtime/workflow-tool-connector-capability-binding.test.ts",
+      "packages/agent-ide/src/runtime/workflow-run-history-model.test.ts",
+      "apps/autopilot/src/surfaces/Policy/authorityCenterRuntime.ts",
+      "apps/autopilot/src/surfaces/Settings/settingsAuthorityCenterWiring.test.ts",
+      "docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md",
+      "docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md",
+      "docs/architecture/_meta/implementation-matrix.md",
+    ],
+    "Runtime tool catalog product and IDE clients must stay on /v1/tools and cannot restore retired /api/v1/tools compatibility metadata or fallback fetches",
   );
   assertCheck(
     result,

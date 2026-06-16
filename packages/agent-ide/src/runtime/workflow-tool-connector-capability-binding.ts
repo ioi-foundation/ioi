@@ -13,7 +13,7 @@ export type WorkflowCatalogBindingSelection =
   | { kind: "tool"; value: WorkflowToolBinding }
   | { kind: "connector"; value: WorkflowConnectorBinding };
 
-export const TOOL_CAPABILITY_BINDING_ENDPOINT = "/api/v1/tools";
+export const TOOL_CAPABILITY_BINDING_ENDPOINT = "/v1/tools";
 export const TOOL_AUTHORITY_BINDING_ENDPOINT = "/v1/model-mount/authority";
 export const CONNECTOR_AUTHORITY_BINDING_ENDPOINT = "/v1/model-mount/authority";
 

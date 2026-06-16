@@ -61,25 +61,6 @@ export async function fetchAuthorityJson(
   return value;
 }
 
-export async function fetchAuthorityJsonFirst(
-  endpoint: string,
-  paths: readonly string[],
-): Promise<unknown> {
-  const failures: string[] = [];
-  for (const path of paths) {
-    try {
-      return await fetchAuthorityJson(endpoint, path);
-    } catch (error) {
-      failures.push(
-        error instanceof Error
-          ? `${path}: ${error.message}`
-          : `${path}: ${String(error)}`,
-      );
-    }
-  }
-  throw new Error(failures.join(" / "));
-}
-
 export async function loadAuthorityCenterRuntimeProjection({
   policyState,
   connectors = [],
@@ -96,15 +77,9 @@ export async function loadAuthorityCenterRuntimeProjection({
     authorityResult,
     authorityEvidenceResult,
   ] = await Promise.allSettled([
-    fetchAuthorityJsonFirst(endpoint, [
-      MODEL_CAPABILITY_BINDING_ENDPOINT,
-      "/v1/model-capabilities",
-    ]),
+    fetchAuthorityJson(endpoint, MODEL_CAPABILITY_BINDING_ENDPOINT),
     fetchAuthorityJson(endpoint, "/v1/model-mount/snapshot"),
-    fetchAuthorityJsonFirst(endpoint, [
-      TOOL_CAPABILITY_BINDING_ENDPOINT,
-      "/v1/tools",
-    ]),
+    fetchAuthorityJson(endpoint, TOOL_CAPABILITY_BINDING_ENDPOINT),
     fetchAuthorityJson(endpoint, MODEL_AUTHORITY_BINDING_ENDPOINT),
     fetchAuthorityJson(endpoint, AUTHORITY_EVIDENCE_SUMMARIES_ENDPOINT),
   ]);

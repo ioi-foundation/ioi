@@ -14,6 +14,8 @@ import {
 } from "./workflow-runtime-live-telemetry";
 import type { WorkflowRuntimeThreadEventLike } from "./workflow-runtime-event-projection";
 
+const retiredToolCatalogRoute = ["/api", "/v1/tools"].join("");
+
 const workflow = {
   version: "1",
   nodes: [
@@ -593,6 +595,16 @@ test("workflow run history model marks unready live capability bindings fail clo
     "missing_policy_posture",
     "missing_receipt_behavior",
   ]);
+  assert.deepEqual(
+    row?.repairActions
+      .map((action) => action.catalogEndpoint)
+      .filter(Boolean),
+    ["/v1/tools", "/v1/tools"],
+  );
+  assert.equal(
+    row?.repairActions.some((action) => action.catalogEndpoint === retiredToolCatalogRoute),
+    false,
+  );
 });
 
 test("workflow run history model exposes computer-use prompt pipelines", () => {

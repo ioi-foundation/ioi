@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  TOOL_CAPABILITY_BINDING_ENDPOINT,
   normalizeWorkflowConnectorCatalog,
   normalizeWorkflowConnectorBinding,
   normalizeWorkflowToolCatalog,
@@ -14,6 +15,10 @@ import {
 } from "./workflow-tool-connector-capability-binding";
 import { makeDefaultWorkflow } from "./workflow-defaults";
 import { makeWorkflowNode } from "./workflow-node-registry";
+
+test("tool capability catalog uses stable Rust daemon protocol route", () => {
+  assert.equal(TOOL_CAPABILITY_BINDING_ENDPOINT, "/v1/tools");
+});
 
 test("legacy tool refs project to canonical tool capability contracts", () => {
   const binding = normalizeWorkflowToolBinding({
