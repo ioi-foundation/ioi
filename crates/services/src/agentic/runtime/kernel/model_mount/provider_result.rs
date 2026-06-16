@@ -40,6 +40,12 @@ pub struct ModelMountProviderResultAdmissionRequest {
     pub hosted_transport_response_hash: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hosted_transport_status: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ctee_egress_resolver_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ctee_egress_resolver_hash: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ctee_egress_resolution_status: Option<String>,
     #[serde(default)]
     pub receipt_refs: Vec<String>,
     #[serde(default)]
@@ -85,6 +91,12 @@ pub struct ModelMountProviderResultAdmissionRecord {
     pub hosted_transport_response_hash: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hosted_transport_status: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ctee_egress_resolver_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ctee_egress_resolver_hash: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ctee_egress_resolution_status: Option<String>,
     pub receipt_refs: Vec<String>,
     pub provider_auth_evidence_refs: Vec<String>,
     pub backend_evidence_refs: Vec<String>,
@@ -179,6 +191,9 @@ pub(super) fn admit_provider_result(
         hosted_transport_request_hash: request.hosted_transport_request_hash.clone(),
         hosted_transport_response_hash: request.hosted_transport_response_hash.clone(),
         hosted_transport_status: request.hosted_transport_status.clone(),
+        ctee_egress_resolver_ref: request.ctee_egress_resolver_ref.clone(),
+        ctee_egress_resolver_hash: request.ctee_egress_resolver_hash.clone(),
+        ctee_egress_resolution_status: request.ctee_egress_resolution_status.clone(),
         receipt_refs: request.receipt_refs.clone(),
         provider_auth_evidence_refs: request.provider_auth_evidence_refs.clone(),
         backend_evidence_refs: request.backend_evidence_refs.clone(),
@@ -302,6 +317,14 @@ fn is_hosted_provider_result_backend(request: &ModelMountProviderResultAdmission
             &request.backend_evidence_refs,
             "ctee_outbound_secret_injection_ref_bound",
         )
+        && refs_contain(
+            &request.backend_evidence_refs,
+            "rust_ctee_egress_resolver_bound",
+        )
+        && refs_contain(
+            &request.backend_evidence_refs,
+            "ctee_outbound_egress_resolver_depth_bound",
+        )
         && request
             .hosted_transport_request_ref
             .as_deref()
@@ -320,6 +343,23 @@ fn is_hosted_provider_result_backend(request: &ModelMountProviderResultAdmission
         && matches!(
             request.hosted_transport_status.as_deref().map(str::trim),
             Some("rust_hosted_provider_transport_response_bound")
+        )
+        && request
+            .ctee_egress_resolver_ref
+            .as_deref()
+            .map(str::trim)
+            .is_some_and(|value| value.starts_with("ctee://model-mount/egress-resolver/"))
+        && request
+            .ctee_egress_resolver_hash
+            .as_deref()
+            .map(str::trim)
+            .is_some_and(|value| value.starts_with("sha256:"))
+        && matches!(
+            request
+                .ctee_egress_resolution_status
+                .as_deref()
+                .map(str::trim),
+            Some("rust_ctee_outbound_egress_resolved")
         )
 }
 
@@ -437,6 +477,9 @@ mod tests {
             hosted_transport_request_hash: None,
             hosted_transport_response_hash: None,
             hosted_transport_status: None,
+            ctee_egress_resolver_ref: None,
+            ctee_egress_resolver_hash: None,
+            ctee_egress_resolution_status: None,
             receipt_refs: admission.receipt_refs.clone(),
             provider_auth_evidence_refs: vec![],
             backend_evidence_refs: vec!["rust_model_mount_fixture_backend".to_string()],
@@ -547,6 +590,9 @@ mod tests {
             hosted_transport_request_hash: None,
             hosted_transport_response_hash: None,
             hosted_transport_status: None,
+            ctee_egress_resolver_ref: None,
+            ctee_egress_resolver_hash: None,
+            ctee_egress_resolution_status: None,
             receipt_refs: admission.receipt_refs.clone(),
             provider_auth_evidence_refs: vec![],
             backend_evidence_refs: vec!["autopilot_native_local_provider_native_stream".to_string()],
@@ -620,6 +666,12 @@ mod tests {
             hosted_transport_status: Some(
                 "rust_hosted_provider_transport_response_bound".to_string(),
             ),
+            ctee_egress_resolver_ref: Some(
+                "ctee://model-mount/egress-resolver/provider.openai_auth_header#sha256:egress"
+                    .to_string(),
+            ),
+            ctee_egress_resolver_hash: Some("sha256:ctee-egress".to_string()),
+            ctee_egress_resolution_status: Some("rust_ctee_outbound_egress_resolved".to_string()),
             receipt_refs: admission.receipt_refs.clone(),
             provider_auth_evidence_refs: admission.provider_auth_evidence_refs.clone(),
             backend_evidence_refs: vec![
@@ -630,6 +682,8 @@ mod tests {
                 "rust_hosted_provider_transport_request_bound".to_string(),
                 "rust_hosted_provider_transport_response_bound".to_string(),
                 "ctee_outbound_secret_injection_ref_bound".to_string(),
+                "rust_ctee_egress_resolver_bound".to_string(),
+                "ctee_outbound_egress_resolver_depth_bound".to_string(),
                 "hosted_provider_auth_header_materialization_contract_bound".to_string(),
             ],
             evidence_refs: vec![admission.provider_execution_ref.clone()],
@@ -730,6 +784,12 @@ mod tests {
             hosted_transport_status: Some(
                 "rust_hosted_provider_transport_response_bound".to_string(),
             ),
+            ctee_egress_resolver_ref: Some(
+                "ctee://model-mount/egress-resolver/provider.openai_auth_header#sha256:egress"
+                    .to_string(),
+            ),
+            ctee_egress_resolver_hash: Some("sha256:ctee-egress".to_string()),
+            ctee_egress_resolution_status: Some("rust_ctee_outbound_egress_resolved".to_string()),
             receipt_refs: admission.receipt_refs.clone(),
             provider_auth_evidence_refs: admission.provider_auth_evidence_refs.clone(),
             backend_evidence_refs: vec![
@@ -743,6 +803,8 @@ mod tests {
                 "rust_hosted_provider_transport_request_bound".to_string(),
                 "rust_hosted_provider_transport_response_bound".to_string(),
                 "ctee_outbound_secret_injection_ref_bound".to_string(),
+                "rust_ctee_egress_resolver_bound".to_string(),
+                "ctee_outbound_egress_resolver_depth_bound".to_string(),
                 "hosted_provider_auth_header_materialization_contract_bound".to_string(),
             ],
             evidence_refs: vec![admission.provider_execution_ref.clone()],

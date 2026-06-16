@@ -42,6 +42,9 @@ pub(super) fn invoke_provider(
         provider_auth_materialization_ref: request.provider_auth_materialization_ref.clone(),
         outbound_header_binding_ref: request.outbound_header_binding_ref.clone(),
         auth_header_materialization_status: request.auth_header_materialization_status.clone(),
+        ctee_egress_resolver_ref: request.ctee_egress_resolver_ref.clone(),
+        ctee_egress_resolver_hash: request.ctee_egress_resolver_hash.clone(),
+        ctee_egress_resolution_status: request.ctee_egress_resolution_status.clone(),
         hosted_transport_request_ref: hosted_transport
             .as_ref()
             .map(|binding| binding.request_ref.clone()),
@@ -139,6 +142,9 @@ mod tests {
             provider_auth_materialization_ref: None,
             outbound_header_binding_ref: None,
             auth_header_materialization_status: None,
+            ctee_egress_resolver_ref: None,
+            ctee_egress_resolver_hash: None,
+            ctee_egress_resolution_status: None,
             stream_status: None,
             receipt_refs: admission.receipt_refs.clone(),
             evidence_refs: vec![admission.provider_execution_ref.clone()],

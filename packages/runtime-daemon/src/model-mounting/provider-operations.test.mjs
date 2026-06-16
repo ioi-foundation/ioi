@@ -50,6 +50,8 @@ function fakeState() {
         "hosted_provider_plaintext_secret_not_returned",
         "agentgres_provider_auth_materialization_truth_required",
         "public_provider_auth_header_js_facade_retired",
+        "rust_ctee_egress_resolver_bound",
+        "ctee_outbound_egress_resolver_depth_bound",
       ];
       const publicResponse = {
         object: "ioi.model_mount_provider_auth_materialization",
@@ -63,6 +65,10 @@ function fakeState() {
         outbound_header_binding_ref: `provider_auth_header://${recordId}#sha256:provider-auth-materialization`,
         provider_auth_materialization_ref:
           `agentgres://model-mounting/model-provider-auth-materializations/${recordId}`,
+        ctee_egress_resolver_ref:
+          `ctee://model-mount/egress-resolver/${recordId}#sha256:ctee-egress-resolver`,
+        ctee_egress_resolver_hash: "sha256:ctee-egress-resolver",
+        ctee_egress_resolution_status: "rust_ctee_outbound_egress_resolved",
         plaintext_secret_material_returned: false,
         auth_header_value_returned: false,
         auth_header_value_persisted: false,
@@ -81,6 +87,8 @@ function fakeState() {
           no_plaintext_custody: true,
           private_material_resolved_by: "rust_daemon_core_ctee",
           outbound_header_materialized_by: "rust_daemon_core.model_mount.provider_auth_materialization",
+          egress_resolver_owner: "rust_daemon_core.ctee.egress_resolver",
+          egress_resolution_status: "rust_ctee_outbound_egress_resolved",
           js_private_material_readback_retired: true,
         },
         public_response: publicResponse,
@@ -154,6 +162,9 @@ function fakeState() {
         provider_auth_materialization_ref: body.provider_auth_materialization_ref,
         outbound_header_binding_ref: body.outbound_header_binding_ref,
         auth_header_materialization_status: body.auth_header_materialization_status,
+        ctee_egress_resolver_ref: body.ctee_egress_resolver_ref,
+        ctee_egress_resolver_hash: body.ctee_egress_resolver_hash,
+        ctee_egress_resolution_status: body.ctee_egress_resolution_status,
         auth_material_status: body.auth_header_materialization_status ??
           (body.secret_ref ? "wallet_vault_ref_bound" : "not_required"),
         private_material_returned: false,
@@ -184,6 +195,9 @@ function fakeState() {
         provider_auth_materialization_ref: body.provider_auth_materialization_ref,
         outbound_header_binding_ref: body.outbound_header_binding_ref,
         auth_header_materialization_status: body.auth_header_materialization_status,
+        ctee_egress_resolver_ref: body.ctee_egress_resolver_ref,
+        ctee_egress_resolver_hash: body.ctee_egress_resolver_hash,
+        ctee_egress_resolution_status: body.ctee_egress_resolution_status,
         rust_core_boundary: "model_mount.provider_control",
         wallet_authority_boundary: "wallet.network.provider_control",
         ctee_custody_boundary: "ctee.provider_material",
@@ -708,6 +722,18 @@ test("provider upsert commits Rust provider-auth materialization and provider-co
     "rust_ctee_outbound_header_bound",
   );
   assert.equal(
+    state.modelMountProviderControlRequests[0].body.ctee_egress_resolver_ref,
+    "ctee://model-mount/egress-resolver/provider.openai_auth_header#sha256:ctee-egress-resolver",
+  );
+  assert.equal(
+    state.modelMountProviderControlRequests[0].body.ctee_egress_resolver_hash,
+    "sha256:ctee-egress-resolver",
+  );
+  assert.equal(
+    state.modelMountProviderControlRequests[0].body.ctee_egress_resolution_status,
+    "rust_ctee_outbound_egress_resolved",
+  );
+  assert.equal(
     state.modelMountProviderControlRequests[0].body.evidence_refs.includes(
       "rust_provider_auth_materialization_bound",
     ),
@@ -721,15 +747,31 @@ test("provider upsert commits Rust provider-auth materialization and provider-co
     "model_mount.provider_auth_materialization",
   );
   assert.equal(state.recordStateCommits[0].record.auth_header_value_returned, false);
+  assert.equal(
+    state.recordStateCommits[0].record.ctee_egress_resolution_status,
+    "rust_ctee_outbound_egress_resolved",
+  );
+  assert.equal(
+    state.recordStateCommits[0].record.evidence_refs.includes("rust_ctee_egress_resolver_bound"),
+    true,
+  );
   assert.equal(state.recordStateCommits[1].record_dir, "model-providers");
   assert.equal(state.recordStateCommits[1].record_id, "provider.openai");
   assert.equal(state.recordStateCommits[1].operation_kind, "model_mount.provider.write");
   assert.equal(state.recordStateCommits[1].record.rust_core_boundary, "model_mount.provider_control");
+  assert.equal(
+    state.recordStateCommits[1].record.ctee_egress_resolver_ref,
+    "ctee://model-mount/egress-resolver/provider.openai_auth_header#sha256:ctee-egress-resolver",
+  );
   assert.equal(state.recordStateCommits[1].record.plaintext_material_returned, false);
   assert.equal(result.rust_core_boundary, "model_mount.provider_control");
   assert.equal(result.record_dir, "model-providers");
   assert.equal(result.record_id, "provider.openai");
   assert.equal(result.auth_header_materialization_status, "rust_ctee_outbound_header_bound");
+  assert.equal(
+    result.ctee_egress_resolution_status,
+    "rust_ctee_outbound_egress_resolved",
+  );
   assert.equal(result.evidence_refs.includes("rust_daemon_core_provider_control"), true);
   assert.equal(result.private_material_returned, false);
   assert.equal(result.plaintext_material_persisted, false);

@@ -3369,6 +3369,10 @@ test("Rust model_mount core sends positive provider-auth materialization request
             "provider_auth_header://provider.openai_auth_header#sha256:provider-auth",
           provider_auth_materialization_ref:
             "agentgres://model-mounting/model-provider-auth-materializations/provider.openai_auth_header",
+          ctee_egress_resolver_ref:
+            "ctee://model-mount/egress-resolver/provider.openai_auth_header#sha256:egress",
+          ctee_egress_resolver_hash: "sha256:ctee-egress",
+          ctee_egress_resolution_status: "rust_ctee_outbound_egress_resolved",
           plaintext_secret_material_returned: false,
           auth_header_value_returned: false,
           auth_header_value_persisted: false,
@@ -3380,6 +3384,10 @@ test("Rust model_mount core sends positive provider-auth materialization request
               "provider_auth_header://provider.openai_auth_header#sha256:provider-auth",
             provider_auth_materialization_ref:
               "agentgres://model-mounting/model-provider-auth-materializations/provider.openai_auth_header",
+            ctee_egress_resolver_ref:
+              "ctee://model-mount/egress-resolver/provider.openai_auth_header#sha256:egress",
+            ctee_egress_resolver_hash: "sha256:ctee-egress",
+            ctee_egress_resolution_status: "rust_ctee_outbound_egress_resolved",
             auth_header_value_returned: false,
           },
           evidence_refs: [
@@ -3389,6 +3397,8 @@ test("Rust model_mount core sends positive provider-auth materialization request
             "ctee_provider_auth_header_custody_enforced",
             "agentgres_provider_auth_materialization_truth_required",
             "public_provider_auth_header_js_facade_retired",
+            "rust_ctee_egress_resolver_bound",
+            "ctee_outbound_egress_resolver_depth_bound",
           ],
         };
         return {
@@ -3441,7 +3451,9 @@ test("Rust model_mount core sends positive provider-auth materialization request
   assert.equal(result.record_dir, "model-provider-auth-materializations");
   assert.equal(result.rust_core_boundary, "model_mount.provider_auth_materialization");
   assert.equal(result.public_response.auth_header_value_returned, false);
+  assert.equal(result.record.ctee_egress_resolution_status, "rust_ctee_outbound_egress_resolved");
   assert.equal(result.evidence_refs.includes("rust_provider_auth_materialization_bound"), true);
+  assert.equal(result.evidence_refs.includes("rust_ctee_egress_resolver_bound"), true);
 });
 
 test("Rust model_mount core sends positive capability-token-control request", () => {

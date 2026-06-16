@@ -129,6 +129,9 @@ pub(super) fn plan_provider_control(
     let outbound_header_binding_ref = string_field(body, "outbound_header_binding_ref");
     let auth_header_materialization_status =
         string_field(body, "auth_header_materialization_status");
+    let ctee_egress_resolver_ref = string_field(body, "ctee_egress_resolver_ref");
+    let ctee_egress_resolver_hash = string_field(body, "ctee_egress_resolver_hash");
+    let ctee_egress_resolution_status = string_field(body, "ctee_egress_resolution_status");
     let capabilities = string_array_field(body, "capabilities");
     let request_evidence_refs = string_array_field(body, "evidence_refs");
     let source = source_for(request);
@@ -184,6 +187,9 @@ pub(super) fn plan_provider_control(
         "provider_auth_materialization_ref": provider_auth_materialization_ref,
         "outbound_header_binding_ref": outbound_header_binding_ref,
         "auth_header_materialization_status": auth_header_materialization_status,
+        "ctee_egress_resolver_ref": ctee_egress_resolver_ref,
+        "ctee_egress_resolver_hash": ctee_egress_resolver_hash,
+        "ctee_egress_resolution_status": ctee_egress_resolution_status,
         "auth_material_status": if auth_header_materialization_status.is_some() {
             "rust_ctee_outbound_header_bound"
         } else if secret_ref.is_some() { "wallet_vault_ref_bound" } else { "not_required" },
@@ -215,6 +221,9 @@ pub(super) fn plan_provider_control(
         "provider_auth_materialization_ref": provider_auth_materialization_ref,
         "outbound_header_binding_ref": outbound_header_binding_ref,
         "auth_header_materialization_status": auth_header_materialization_status,
+        "ctee_egress_resolver_ref": ctee_egress_resolver_ref,
+        "ctee_egress_resolver_hash": ctee_egress_resolver_hash,
+        "ctee_egress_resolution_status": ctee_egress_resolution_status,
         "body_hash": format!("sha256:{body_hash}"),
         "request_field_count": body.len(),
         "rust_core_boundary": "model_mount.provider_control",

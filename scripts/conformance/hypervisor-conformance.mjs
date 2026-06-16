@@ -20145,29 +20145,37 @@ function runBridge() {
 		      /provider_invocation_executes_hosted_transport_contract_in_rust_owner/.test(modelMountCore) &&
 		      /HostedProviderInvocationMissingAuthEvidence/.test(modelMountCore) &&
 		      /HostedProviderInvocationMissingEndpointUrl/.test(modelMountCore) &&
-		      /HostedProviderInvocationMissingAuthMaterialization/.test(modelMountCore) &&
-		      /HostedProviderInvocationMissingAuthority/.test(modelMountCore) &&
-		      !/HostedProviderInvocationTransportPending/.test(modelMountCore) &&
-		      /rust_hosted_provider_invocation_transport_materialized/.test(modelMountCore) &&
-		      /rust_hosted_provider_live_network_io_executed/.test(modelMountCore) &&
-		      /rust_hosted_provider_transport_executor_owned/.test(modelMountCore) &&
-		      /hosted_provider_transport_output/.test(modelMountCore) &&
-		      /hosted_provider_transport_binding/.test(modelMountCore) &&
-		      !/deterministic_hosted_provider_output/.test(modelMountCore) &&
-		      !/Rust hosted provider invocation contract/.test(modelMountCore) &&
-		      /rust_hosted_provider_endpoint_url_bound/.test(modelMountCore) &&
-		      /ctee_outbound_header_binding_ref_bound/.test(modelMountCore) &&
-		      /ctee_outbound_secret_injection_ref_bound/.test(modelMountCore) &&
-		      /rust_hosted_provider_transport_request_bound/.test(modelMountCore) &&
-		      /rust_hosted_provider_transport_response_bound/.test(modelMountCore) &&
-		      /base_url_hash/.test(modelMountCore) &&
+			      /HostedProviderInvocationMissingAuthMaterialization/.test(modelMountCore) &&
+			      /HostedProviderInvocationMissingCteeEgressResolver/.test(modelMountCore) &&
+			      /HostedProviderInvocationMissingAuthority/.test(modelMountCore) &&
+			      !/HostedProviderInvocationTransportPending/.test(modelMountCore) &&
+			      /rust_hosted_provider_invocation_transport_materialized/.test(modelMountCore) &&
+			      /rust_hosted_provider_live_network_io_executed/.test(modelMountCore) &&
+			      /rust_hosted_provider_transport_executor_owned/.test(modelMountCore) &&
+			      /hosted_provider_ctee_egress_resolution/.test(modelMountCore) &&
+			      /hosted_provider_transport_output/.test(modelMountCore) &&
+			      /hosted_provider_transport_binding/.test(modelMountCore) &&
+			      /x-ioi-ctee-egress-resolver-ref/.test(modelMountCore) &&
+			      !/deterministic_hosted_provider_output/.test(modelMountCore) &&
+			      !/Rust hosted provider invocation contract/.test(modelMountCore) &&
+			      /rust_hosted_provider_endpoint_url_bound/.test(modelMountCore) &&
+			      /ctee_outbound_header_binding_ref_bound/.test(modelMountCore) &&
+			      /ctee_outbound_secret_injection_ref_bound/.test(modelMountCore) &&
+			      /rust_ctee_egress_resolver_bound/.test(modelMountCore) &&
+			      /ctee_outbound_egress_resolver_depth_bound/.test(modelMountCore) &&
+			      /rust_hosted_provider_transport_request_bound/.test(modelMountCore) &&
+			      /rust_hosted_provider_transport_response_bound/.test(modelMountCore) &&
+			      /base_url_hash/.test(modelMountCore) &&
 		      /hosted_transport_request_hash/.test(modelMountCore) &&
 		      /hosted_transport_response_hash/.test(modelMountCore) &&
-		      /provider_auth_materialization_ref/.test(modelMountCore) &&
-		      /outbound_header_binding_ref/.test(modelMountCore) &&
-		      /rust_provider_auth_materialization_bound/.test(modelMountCore) &&
-		      /hosted_provider_auth_header_materialized_by_rust/.test(modelMountCore) &&
-		      /admits_hosted_provider_result_bound_to_rust_transport_contract/.test(modelMountCore) &&
+			      /provider_auth_materialization_ref/.test(modelMountCore) &&
+			      /outbound_header_binding_ref/.test(modelMountCore) &&
+			      /ctee_egress_resolver_ref/.test(modelInvocationOps) &&
+			      /ctee_egress_resolver_hash/.test(modelInvocationOps) &&
+			      /ctee_egress_resolution_status/.test(modelInvocationOps) &&
+			      /rust_provider_auth_materialization_bound/.test(modelMountCore) &&
+			      /hosted_provider_auth_header_materialized_by_rust/.test(modelMountCore) &&
+			      /admits_hosted_provider_result_bound_to_rust_transport_contract/.test(modelMountCore) &&
 		      /assert\.equal\(hostedRequest\.provider_response_kind,\s*"rust_model_mount\.hosted_provider"\)/.test(
 		        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
 		      ) &&
@@ -20183,12 +20191,21 @@ function runBridge() {
 		      /hostedRequest\.backend_evidence_refs\.includes\("rust_hosted_provider_transport_request_bound"\)/.test(
 		        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
 		      ) &&
-		      /hostedRequest\.backend_evidence_refs\.includes\("ctee_outbound_secret_injection_ref_bound"\)/.test(
-		        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
-		      ) &&
-		      /assert\.equal\(hostedRequest\.hosted_transport_request_hash,\s*"sha256:hosted-transport-request"\)/.test(
-		        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
-		      ) &&
+			      /hostedRequest\.backend_evidence_refs\.includes\("ctee_outbound_secret_injection_ref_bound"\)/.test(
+			        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
+			      ) &&
+			      /assert\.equal\(\s*hostedRequest\.ctee_egress_resolver_ref,\s*"ctee:\/\/model-mount\/egress-resolver\/provider\.openai_auth_header#sha256:egress"/.test(
+			        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
+			      ) &&
+			      /hostedRequest\.backend_evidence_refs\.includes\("rust_ctee_egress_resolver_bound"\)/.test(
+			        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
+			      ) &&
+			      /hostedRequest\.backend_evidence_refs\.includes\("ctee_outbound_egress_resolver_depth_bound"\)/.test(
+			        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
+			      ) &&
+			      /assert\.equal\(hostedRequest\.hosted_transport_request_hash,\s*"sha256:hosted-transport-request"\)/.test(
+			        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
+			      ) &&
 		      /assert\.equal\(hostedRequest\.base_url,\s*"https:\/\/api\.openai\.example\/v1"\)/.test(
 		        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
 		      ) &&
@@ -20219,12 +20236,21 @@ function runBridge() {
 		      /hostedStreamRequest\.backend_evidence_refs\.includes\("rust_hosted_provider_transport_response_bound"\)/.test(
 		        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
 		      ) &&
-		      /hostedStreamRequest\.backend_evidence_refs\.includes\("ctee_outbound_secret_injection_ref_bound"\)/.test(
-		        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
-		      ) &&
-		      /assert\.equal\(hostedStreamRequest\.hosted_transport_response_hash,\s*"sha256:hosted-stream-transport-response"\)/.test(
-		        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
-		      ) &&
+			      /hostedStreamRequest\.backend_evidence_refs\.includes\("ctee_outbound_secret_injection_ref_bound"\)/.test(
+			        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
+			      ) &&
+			      /assert\.equal\(\s*hostedStreamRequest\.ctee_egress_resolver_ref,\s*"ctee:\/\/model-mount\/egress-resolver\/provider\.openai_auth_header#sha256:egress"/.test(
+			        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
+			      ) &&
+			      /hostedStreamRequest\.backend_evidence_refs\.includes\("rust_ctee_egress_resolver_bound"\)/.test(
+			        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
+			      ) &&
+			      /hostedStreamRequest\.backend_evidence_refs\.includes\("ctee_outbound_egress_resolver_depth_bound"\)/.test(
+			        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
+			      ) &&
+			      /assert\.equal\(hostedStreamRequest\.hosted_transport_response_hash,\s*"sha256:hosted-stream-transport-response"\)/.test(
+			        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
+			      ) &&
 		      /assert\.equal\(hostedStreamRequest\.base_url,\s*"https:\/\/api\.openai\.example\/v1"\)/.test(
 		        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
 		      ) &&
@@ -20233,12 +20259,15 @@ function runBridge() {
 		      /live_hosted_provider_stream_chunks/.test(
 		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/stream.rs"),
 		      ) &&
-		      !/hosted_provider_transport_output\(request\)\?/.test(
-		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/stream.rs"),
-		      ) &&
-		      /error\.code === "model_mount_provider_result_rust_backend_required"/.test(
-		        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
-		      ) &&
+			      !/hosted_provider_transport_output\(request\)\?/.test(
+			        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/stream.rs"),
+			      ) &&
+		      /Slice 1380 hard-cuts hosted cTEE egress resolver binding/.test(read(GUIDE)) &&
+		      /Model_mount hosted cTEE egress resolver binding Rust contract/.test(read(MATRIX)) &&
+		      /RuntimeDaemonCoreModelMountHostedCteeEgressResolverBindingRustContract/.test(read(IMPLEMENTATION_MATRIX)) &&
+			      /error\.code === "model_mount_provider_result_rust_backend_required"/.test(
+			        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
+			      ) &&
       !/assert\.equal\(request\.provider_kind,\s*"openai"\)/.test(
         read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
       ) &&
@@ -23330,30 +23359,39 @@ function runReceipts() {
 		      /HostedProviderInvocationMissingEndpointUrl/.test(
 		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
 		      ) &&
-		      /HostedProviderInvocationMissingAuthMaterialization/.test(
-		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
-		      ) &&
-		      !/HostedProviderInvocationTransportPending/.test(
-		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
-		      ) &&
+			      /HostedProviderInvocationMissingAuthMaterialization/.test(
+			        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+			      ) &&
+			      /HostedProviderInvocationMissingCteeEgressResolver/.test(
+			        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+			      ) &&
+			      !/HostedProviderInvocationTransportPending/.test(
+			        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+			      ) &&
 		      /rust_hosted_provider_invocation_transport_materialized/.test(
 		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
 		      ) &&
 		      /rust_hosted_provider_live_network_io_executed/.test(
 		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
 		      ) &&
-		      /rust_hosted_provider_transport_executor_owned/.test(
-		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
-		      ) &&
-		      /hosted_provider_transport_output/.test(
-		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
-		      ) &&
-		      /hosted_provider_transport_binding/.test(
-		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
-		      ) &&
-		      !/deterministic_hosted_provider_output/.test(
-		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
-		      ) &&
+			      /rust_hosted_provider_transport_executor_owned/.test(
+			        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+			      ) &&
+			      /hosted_provider_ctee_egress_resolution/.test(
+			        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+			      ) &&
+			      /hosted_provider_transport_output/.test(
+			        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+			      ) &&
+			      /hosted_provider_transport_binding/.test(
+			        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+			      ) &&
+			      /x-ioi-ctee-egress-resolver-ref/.test(
+			        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+			      ) &&
+			      !/deterministic_hosted_provider_output/.test(
+			        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+			      ) &&
 		      !/Rust hosted provider invocation contract/.test(
 		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
 		      ) &&
@@ -23363,12 +23401,18 @@ function runReceipts() {
 		      /ctee_outbound_header_binding_ref_bound/.test(
 		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
 		      ) &&
-		      /ctee_outbound_secret_injection_ref_bound/.test(
-		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
-		      ) &&
-		      /rust_hosted_provider_transport_request_bound/.test(
-		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
-		      ) &&
+			      /ctee_outbound_secret_injection_ref_bound/.test(
+			        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+			      ) &&
+			      /rust_ctee_egress_resolver_bound/.test(
+			        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+			      ) &&
+			      /ctee_outbound_egress_resolver_depth_bound/.test(
+			        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+			      ) &&
+			      /rust_hosted_provider_transport_request_bound/.test(
+			        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+			      ) &&
 		      /rust_hosted_provider_transport_response_bound/.test(
 		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
 		      ) &&
@@ -23429,12 +23473,18 @@ function runReceipts() {
 		      /ctee_outbound_header_binding_ref_bound/.test(
 		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/stream.rs"),
 		      ) &&
-		      /ctee_outbound_secret_injection_ref_bound/.test(
-		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/stream.rs"),
+			      /ctee_outbound_secret_injection_ref_bound/.test(
+			        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/stream.rs"),
+			      ) &&
+			      /rust_ctee_egress_resolver_bound/.test(
+			        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/stream.rs"),
+			      ) &&
+			      /ctee_outbound_egress_resolver_depth_bound/.test(
+			        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/stream.rs"),
+			      ) &&
+		      /fixture_provider_invocation_requires_bound_provider_execution_in_owner/.test(
+		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/invocation.rs"),
 		      ) &&
-	      /fixture_provider_invocation_requires_bound_provider_execution_in_owner/.test(
-	        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/invocation.rs"),
-	      ) &&
       !/fn fixture_provider_invocation_executes_in_rust_model_mount/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
       ) &&
@@ -26054,27 +26104,40 @@ function runReceipts() {
 	      /hostedRequest\.backend_evidence_refs\.includes\("rust_hosted_provider_live_network_io_executed"\)/.test(
 	        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
 	      ) &&
-	      /hostedRequest\.backend_evidence_refs\.includes\("ctee_outbound_secret_injection_ref_bound"\)/.test(
-	        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
-	      ) &&
-		      /provider_invocation_executes_hosted_transport_contract_in_rust_owner/.test(
-		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+		      /hostedRequest\.backend_evidence_refs\.includes\("ctee_outbound_secret_injection_ref_bound"\)/.test(
+		        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
 		      ) &&
-		      /HostedProviderInvocationMissingAuthEvidence/.test(
-		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+		      /assert\.equal\(\s*hostedRequest\.ctee_egress_resolver_hash,\s*"sha256:ctee-egress"\)/.test(
+		        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
 		      ) &&
-		      !/HostedProviderInvocationTransportPending/.test(
-		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+		      /hostedRequest\.backend_evidence_refs\.includes\("rust_ctee_egress_resolver_bound"\)/.test(
+		        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
 		      ) &&
-		      /admits_hosted_provider_result_bound_to_rust_transport_contract/.test(modelMountCore) &&
-		      /hosted_transport_request_hash/.test(modelMountCore) &&
-		      /hosted_transport_response_hash/.test(modelMountCore) &&
-		      /rust_hosted_provider_transport_request_bound/.test(modelMountCore) &&
-		      /rust_hosted_provider_transport_response_bound/.test(modelMountCore) &&
-		      /rust_hosted_provider_live_network_io_executed/.test(modelMountCore) &&
-		      /ctee_outbound_secret_injection_ref_bound/.test(modelMountCore) &&
-		      !/Rust hosted provider invocation contract/.test(modelMountCore) &&
-		      /rust_provider_auth_materialization_bound/.test(modelMountCore) &&
+			      /provider_invocation_executes_hosted_transport_contract_in_rust_owner/.test(
+			        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+			      ) &&
+			      /HostedProviderInvocationMissingAuthEvidence/.test(
+			        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+			      ) &&
+			      /HostedProviderInvocationMissingCteeEgressResolver/.test(
+			        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+			      ) &&
+			      !/HostedProviderInvocationTransportPending/.test(
+			        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+			      ) &&
+			      /admits_hosted_provider_result_bound_to_rust_transport_contract/.test(modelMountCore) &&
+			      /hosted_transport_request_hash/.test(modelMountCore) &&
+			      /hosted_transport_response_hash/.test(modelMountCore) &&
+			      /ctee_egress_resolver_ref/.test(modelMountCore) &&
+			      /ctee_egress_resolution_status/.test(modelMountCore) &&
+			      /rust_hosted_provider_transport_request_bound/.test(modelMountCore) &&
+			      /rust_hosted_provider_transport_response_bound/.test(modelMountCore) &&
+			      /rust_hosted_provider_live_network_io_executed/.test(modelMountCore) &&
+			      /ctee_outbound_secret_injection_ref_bound/.test(modelMountCore) &&
+			      /rust_ctee_egress_resolver_bound/.test(modelMountCore) &&
+			      /ctee_outbound_egress_resolver_depth_bound/.test(modelMountCore) &&
+			      !/Rust hosted provider invocation contract/.test(modelMountCore) &&
+			      /rust_provider_auth_materialization_bound/.test(modelMountCore) &&
 		      /admits_hosted_provider_stream_result_bound_to_rust_transport_contract/.test(modelMountCore) &&
 		      /rust_hosted_provider_stream_live_chunks_executed/.test(
 		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_result.rs"),
@@ -28290,11 +28353,15 @@ function runReceipts() {
       /public_provider_control_js_facade_retired/.test(modelMountCore) &&
       /public_provider_auth_header_js_facade_retired/.test(modelMountCore) &&
       /rust_daemon_core_provider_control/.test(modelMountCore) &&
-      /rust_daemon_core_provider_auth_materialization/.test(modelMountCore) &&
-      /rust_provider_auth_materialization_bound/.test(modelMountCore) &&
-      /ctee_provider_custody_enforced/.test(modelMountCore) &&
-      /ctee_provider_auth_header_custody_enforced/.test(modelMountCore) &&
-      /agentgres_provider_control_truth_required/.test(modelMountCore) &&
+	      /rust_daemon_core_provider_auth_materialization/.test(modelMountCore) &&
+	      /rust_provider_auth_materialization_bound/.test(modelMountCore) &&
+	      /rust_ctee_egress_resolver_bound/.test(modelMountCore) &&
+	      /ctee_outbound_egress_resolver_depth_bound/.test(modelMountCore) &&
+	      /ctee_egress_resolver_ref/.test(modelMountCore) &&
+	      /ctee_egress_resolution_status/.test(modelMountCore) &&
+	      /ctee_provider_custody_enforced/.test(modelMountCore) &&
+	      /ctee_provider_auth_header_custody_enforced/.test(modelMountCore) &&
+	      /agentgres_provider_control_truth_required/.test(modelMountCore) &&
       /agentgres_provider_auth_materialization_truth_required/.test(modelMountCore) &&
       /wallet_network_vault_authority_required/.test(providerOperations) &&
       /planAndCommitProviderAuthMaterialization\(\s*this,\s*"model_mount\.provider_auth\.materialize"/.test(
@@ -28340,12 +28407,18 @@ function runReceipts() {
       ) &&
       /modelMountProviderControlRequests/.test(providerOperationsTest) &&
       /assert\.equal\(state\.modelMountProviderControlRequests\.length,\s*1\)/.test(providerOperationsTest) &&
-      /assert\.equal\(state\.modelMountProviderControlRequests\[0\]\.body\.secret_ref,\s*"vault:\/\/provider\/openai"\)/.test(
-        providerOperationsTest,
-      ) &&
-      /Object\.hasOwn\(state\.modelMountProviderControlRequests\[0\]\.body,\s*"api_key_vault_ref"\),\s*false/.test(
-        providerOperationsTest,
-      ) &&
+	      /assert\.equal\(state\.modelMountProviderControlRequests\[0\]\.body\.secret_ref,\s*"vault:\/\/provider\/openai"\)/.test(
+	        providerOperationsTest,
+	      ) &&
+	      /assert\.equal\(\s*state\.modelMountProviderControlRequests\[0\]\.body\.ctee_egress_resolution_status,\s*"rust_ctee_outbound_egress_resolved"/.test(
+	        providerOperationsTest,
+	      ) &&
+	      /state\.recordStateCommits\[0\]\.record\.evidence_refs\.includes\("rust_ctee_egress_resolver_bound"\)/.test(
+	        providerOperationsTest,
+	      ) &&
+	      /Object\.hasOwn\(state\.modelMountProviderControlRequests\[0\]\.body,\s*"api_key_vault_ref"\),\s*false/.test(
+	        providerOperationsTest,
+	      ) &&
       /recordStateCommits/.test(providerOperationsTest) &&
       /model_mount\.provider\.write/.test(providerOperationsTest) &&
       /model_mount\.provider_auth\.materialize/.test(providerOperationsTest) &&

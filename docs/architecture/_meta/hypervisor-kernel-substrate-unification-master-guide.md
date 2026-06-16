@@ -11868,9 +11868,8 @@ synthesizing output. Hosted result admission now requires
 transport request/response hashes, so evidence-only hosted result truth cannot
 return. Focused JS/Rust tests and conformance guard the live executor evidence,
 the cTEE ref-bound boundary, and the absence of the old deterministic hosted
-success text. This remains non-terminal because production cTEE egress resolver
-depth and deeper invocation authority still need terminal Rust-owned execution
-coverage.
+success text. The cTEE egress resolver blocker is superseded by Slice 1380;
+deeper invocation authority still needs terminal Rust-owned execution coverage.
 
 Slice 1378 hard-cuts hosted provider stream semantics into the Rust daemon-core
 transport owner. Hosted stream invocation no longer calls the non-stream hosted
@@ -11890,9 +11889,9 @@ Focused Rust tests stand up a local SSE server and assert `POST /v1/responses`,
 `Accept: text/event-stream`, cTEE/header-binding refs, live delta chunks, and
 the stream evidence; JS protocol tests and conformance guard the result
 admission shape and reject restoring `hosted_provider_transport_output(request)?`
-inside the stream owner. This remains non-terminal because production cTEE
-egress resolver depth and deeper invocation authority still need terminal
-Rust-owned execution coverage.
+inside the stream owner. The cTEE egress resolver blocker is superseded by Slice
+1380; deeper invocation authority still needs terminal Rust-owned execution
+coverage.
 
 Slice 1379 hard-cuts live backend-process launch and stop supervision into the
 Rust daemon-core model_mount backend-process owner. Rust now exposes
@@ -11911,9 +11910,31 @@ rejects start/stop lifecycle records without the live runtime
 stop a live child handle, focused JS tests assert the materialize -> supervise
 -> lifecycle commit order, and conformance rejects planner-only starts, JS
 child-process supervision, command-transport spawn, binary-bridge spawn, and
-compatibility-spawn fallback. This remains non-terminal because production cTEE
-egress resolver depth and deeper invocation authority still need terminal
-Rust-owned execution coverage.
+compatibility-spawn fallback. The cTEE egress resolver blocker is superseded by
+Slice 1380; deeper invocation authority still needs terminal Rust-owned
+execution coverage.
+
+Slice 1380 hard-cuts hosted cTEE egress resolver binding into the Rust
+daemon-core model_mount provider-auth and hosted transport owners. Rust
+`plan_model_mount_provider_auth_materialization` now emits a redacted
+`ctee_egress_resolver_ref`, `ctee_egress_resolver_hash`, and
+`ctee_egress_resolution_status: rust_ctee_outbound_egress_resolved` alongside
+the provider-auth materialization ref and outbound-header binding ref, records
+`rust_ctee_egress_resolver_bound` and
+`ctee_outbound_egress_resolver_depth_bound` evidence in the Agentgres
+provider-auth materialization record, and provider-control preserves those
+fields instead of re-materializing auth in JS. Rust hosted invocation and stream
+execution now reject `rust_model_mount_hosted_provider*` requests without the
+cTEE egress resolver binding, bind the resolver ref/hash/status into the hosted
+transport request/response hashes, and send resolver identity headers without
+returning plaintext secret material. Rust provider-result admission now requires
+the resolver ref/hash/status and resolver evidence before hosted non-stream or
+stream truth can be accepted. JS surfaces are only protocol shapers for these
+fields; focused Rust/JS tests and conformance guard the missing-resolver Rust
+error, hosted transport headers, provider-result admission fields, and the
+absence of command/env or JS provider-auth fallback. This remains non-terminal
+because deeper invocation authority still needs terminal Rust-owned execution
+coverage.
 
 ## Final Doctrine
 

@@ -49,6 +49,12 @@ pub struct ModelMountProviderInvocationRequest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub auth_header_materialization_status: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ctee_egress_resolver_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ctee_egress_resolver_hash: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ctee_egress_resolution_status: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stream_status: Option<String>,
     #[serde(default)]
     pub receipt_refs: Vec<String>,
@@ -95,6 +101,12 @@ pub struct ModelMountProviderInvocationResult {
     pub outbound_header_binding_ref: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub auth_header_materialization_status: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ctee_egress_resolver_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ctee_egress_resolver_hash: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ctee_egress_resolution_status: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hosted_transport_request_ref: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -144,6 +156,12 @@ pub struct ModelMountProviderStreamInvocationResult {
     pub outbound_header_binding_ref: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub auth_header_materialization_status: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ctee_egress_resolver_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ctee_egress_resolver_hash: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ctee_egress_resolution_status: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hosted_transport_request_ref: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -395,6 +413,26 @@ fn validate_hosted_provider_invocation_gate(
     {
         return Err(ModelMountError::HostedProviderInvocationMissingAuthMaterialization);
     }
+    if request
+        .ctee_egress_resolver_ref
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .is_none()
+        || request
+            .ctee_egress_resolver_hash
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .is_none()
+        || request
+            .ctee_egress_resolution_status
+            .as_deref()
+            .map(str::trim)
+            != Some("rust_ctee_outbound_egress_resolved")
+    {
+        return Err(ModelMountError::HostedProviderInvocationMissingCteeEgressResolver);
+    }
     Ok(())
 }
 
@@ -494,6 +532,44 @@ pub(super) fn deterministic_native_local_output(
     ))
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct HostedProviderCteeEgressResolution {
+    resolver_ref: String,
+    resolver_hash: String,
+    resolution_status: String,
+}
+
+fn hosted_provider_ctee_egress_resolution(
+    request: &ModelMountProviderInvocationRequest,
+) -> Result<HostedProviderCteeEgressResolution, ModelMountError> {
+    let resolver_ref = request
+        .ctee_egress_resolver_ref
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or(ModelMountError::HostedProviderInvocationMissingCteeEgressResolver)?;
+    let resolver_hash = request
+        .ctee_egress_resolver_hash
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or(ModelMountError::HostedProviderInvocationMissingCteeEgressResolver)?;
+    let resolution_status = request
+        .ctee_egress_resolution_status
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or(ModelMountError::HostedProviderInvocationMissingCteeEgressResolver)?;
+    if resolution_status != "rust_ctee_outbound_egress_resolved" {
+        return Err(ModelMountError::HostedProviderInvocationMissingCteeEgressResolver);
+    }
+    Ok(HostedProviderCteeEgressResolution {
+        resolver_ref: resolver_ref.to_string(),
+        resolver_hash: resolver_hash.to_string(),
+        resolution_status: resolution_status.to_string(),
+    })
+}
+
 pub(super) fn hosted_provider_transport_output(
     request: &ModelMountProviderInvocationRequest,
 ) -> Result<String, ModelMountError> {
@@ -517,6 +593,7 @@ pub(super) fn hosted_provider_transport_output(
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .ok_or(ModelMountError::HostedProviderInvocationMissingAuthMaterialization)?;
+    let egress_resolution = hosted_provider_ctee_egress_resolution(request)?;
     let client = reqwest::blocking::Client::builder()
         .timeout(Duration::from_secs(30))
         .build()
@@ -528,6 +605,18 @@ pub(super) fn hosted_provider_transport_output(
         .header("content-type", "application/json")
         .header("x-ioi-provider-auth-materialization-ref", provider_auth_ref)
         .header("x-ioi-outbound-header-binding-ref", header_binding_ref)
+        .header(
+            "x-ioi-ctee-egress-resolver-ref",
+            egress_resolution.resolver_ref,
+        )
+        .header(
+            "x-ioi-ctee-egress-resolver-hash",
+            egress_resolution.resolver_hash,
+        )
+        .header(
+            "x-ioi-ctee-egress-resolution-status",
+            egress_resolution.resolution_status,
+        )
         .header(
             "x-ioi-auth-header-materialization-status",
             request
@@ -582,6 +671,7 @@ pub(super) fn hosted_provider_stream_transport_output(
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .ok_or(ModelMountError::HostedProviderInvocationMissingAuthMaterialization)?;
+    let egress_resolution = hosted_provider_ctee_egress_resolution(request)?;
     let client = reqwest::blocking::Client::builder()
         .timeout(Duration::from_secs(30))
         .build()
@@ -594,6 +684,18 @@ pub(super) fn hosted_provider_stream_transport_output(
         .header("accept", "text/event-stream, application/x-ndjson")
         .header("x-ioi-provider-auth-materialization-ref", provider_auth_ref)
         .header("x-ioi-outbound-header-binding-ref", header_binding_ref)
+        .header(
+            "x-ioi-ctee-egress-resolver-ref",
+            egress_resolution.resolver_ref,
+        )
+        .header(
+            "x-ioi-ctee-egress-resolver-hash",
+            egress_resolution.resolver_hash,
+        )
+        .header(
+            "x-ioi-ctee-egress-resolution-status",
+            egress_resolution.resolution_status,
+        )
         .header(
             "x-ioi-auth-header-materialization-status",
             request
@@ -676,6 +778,10 @@ pub(super) fn hosted_provider_transport_binding(
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .ok_or(ModelMountError::HostedProviderInvocationMissingAuthMaterialization)?;
+    let egress_resolution = hosted_provider_ctee_egress_resolution(request)?;
+    let egress_resolver_ref = egress_resolution.resolver_ref;
+    let egress_resolver_hash = egress_resolution.resolver_hash;
+    let egress_resolution_status = egress_resolution.resolution_status;
     let request_seed = json!({
         "schema": "ioi.model_mount.hosted_transport_request.v1",
         "provider_execution_ref": request.provider_execution_ref,
@@ -693,8 +799,11 @@ pub(super) fn hosted_provider_transport_binding(
         "provider_auth_materialization_ref": auth_ref,
         "outbound_header_binding_ref": header_ref,
         "auth_header_materialization_status": request.auth_header_materialization_status,
+        "ctee_egress_resolver_ref": egress_resolver_ref,
+        "ctee_egress_resolver_hash": egress_resolver_hash.clone(),
+        "ctee_egress_resolution_status": egress_resolution_status.clone(),
         "transport_execution_owner": "rust_daemon_core.model_mount.hosted_transport_executor",
-        "ctee_secret_injection": "outbound_header_binding_ref",
+        "ctee_secret_injection": "ctee_egress_resolver_ref",
         "plaintext_secret_material_returned": false,
     });
     let request_hash = hash_json_ref(&request_seed)?;
@@ -707,7 +816,9 @@ pub(super) fn hosted_provider_transport_binding(
         "status": "rust_hosted_provider_transport_response_bound",
         "transport_execution_owner": "rust_daemon_core.model_mount.hosted_transport_executor",
         "live_network_io": true,
-        "ctee_secret_injection": "outbound_header_binding_ref",
+        "ctee_secret_injection": "ctee_egress_resolver_ref",
+        "ctee_egress_resolver_hash": egress_resolver_hash,
+        "ctee_egress_resolution_status": egress_resolution_status,
         "plaintext_secret_material_returned": false,
     });
     let response_hash = hash_json_ref(&response_seed)?;
@@ -1043,6 +1154,8 @@ pub(super) fn provider_invocation_evidence_refs(
         refs.push("ctee_hosted_provider_secret_not_exposed".to_string());
         refs.push("ctee_outbound_header_binding_ref_bound".to_string());
         refs.push("ctee_outbound_secret_injection_ref_bound".to_string());
+        refs.push("rust_ctee_egress_resolver_bound".to_string());
+        refs.push("ctee_outbound_egress_resolver_depth_bound".to_string());
         refs.push("rust_provider_auth_materialization_bound".to_string());
         refs.push("hosted_provider_auth_header_materialized_by_rust".to_string());
         refs.push("hosted_provider_auth_header_materialization_contract_bound".to_string());
@@ -1097,6 +1210,8 @@ pub(super) fn backend_evidence_refs(request: &ModelMountProviderInvocationReques
         refs.push("rust_hosted_provider_endpoint_url_bound".to_string());
         refs.push("ctee_outbound_header_binding_ref_bound".to_string());
         refs.push("ctee_outbound_secret_injection_ref_bound".to_string());
+        refs.push("rust_ctee_egress_resolver_bound".to_string());
+        refs.push("ctee_outbound_egress_resolver_depth_bound".to_string());
         refs.push("rust_provider_auth_materialization_bound".to_string());
         refs.push("hosted_provider_auth_header_materialized_by_rust".to_string());
         refs.push("hosted_provider_auth_header_materialization_contract_bound".to_string());
@@ -1114,6 +1229,8 @@ pub(super) fn backend_evidence_refs(request: &ModelMountProviderInvocationReques
         refs.push("rust_hosted_provider_endpoint_url_bound".to_string());
         refs.push("ctee_outbound_header_binding_ref_bound".to_string());
         refs.push("ctee_outbound_secret_injection_ref_bound".to_string());
+        refs.push("rust_ctee_egress_resolver_bound".to_string());
+        refs.push("ctee_outbound_egress_resolver_depth_bound".to_string());
         refs.push("rust_provider_auth_materialization_bound".to_string());
         refs.push("hosted_provider_auth_header_materialized_by_rust".to_string());
         refs.push("hosted_provider_auth_header_materialization_contract_bound".to_string());
@@ -1241,6 +1358,9 @@ mod tests {
             provider_auth_materialization_ref: None,
             outbound_header_binding_ref: None,
             auth_header_materialization_status: None,
+            ctee_egress_resolver_ref: None,
+            ctee_egress_resolver_hash: None,
+            ctee_egress_resolution_status: None,
             stream_status: None,
             receipt_refs: admission.receipt_refs.clone(),
             evidence_refs: vec![admission.provider_execution_ref.clone()],
@@ -1276,6 +1396,9 @@ mod tests {
             provider_auth_materialization_ref: None,
             outbound_header_binding_ref: None,
             auth_header_materialization_status: None,
+            ctee_egress_resolver_ref: None,
+            ctee_egress_resolver_hash: None,
+            ctee_egress_resolution_status: None,
             stream_status: admission.stream_status.clone(),
             receipt_refs: admission.receipt_refs.clone(),
             evidence_refs: vec![admission.provider_execution_ref.clone()],
@@ -1567,6 +1690,22 @@ mod tests {
         request.auth_header_materialization_status =
             Some("rust_ctee_outbound_header_bound".to_string());
 
+        let error = invoke_provider(&request)
+            .expect_err("hosted provider cTEE egress resolver is required");
+
+        assert_eq!(
+            error,
+            ModelMountError::HostedProviderInvocationMissingCteeEgressResolver
+        );
+
+        request.ctee_egress_resolver_ref = Some(
+            "ctee://model-mount/egress-resolver/provider.openai_auth_header#sha256:egress"
+                .to_string(),
+        );
+        request.ctee_egress_resolver_hash = Some("sha256:ctee-egress".to_string());
+        request.ctee_egress_resolution_status =
+            Some("rust_ctee_outbound_egress_resolved".to_string());
+
         let result =
             invoke_provider(&request).expect("hosted provider invocation executes in Rust owner");
         let raw_hosted_request = hosted_request.join().expect("hosted request captured");
@@ -1585,6 +1724,9 @@ mod tests {
         assert!(raw_hosted_request
             .to_ascii_lowercase()
             .contains("x-ioi-ctee-secret-custody"));
+        assert!(raw_hosted_request
+            .to_ascii_lowercase()
+            .contains("x-ioi-ctee-egress-resolver-ref"));
         assert!(result
             .provider_auth_evidence_refs
             .contains(&"wallet_network_provider_vault_ref_bound".to_string()));
@@ -1613,6 +1755,12 @@ mod tests {
             .backend_evidence_refs
             .contains(&"ctee_outbound_secret_injection_ref_bound".to_string()));
         assert!(result
+            .backend_evidence_refs
+            .contains(&"rust_ctee_egress_resolver_bound".to_string()));
+        assert!(result
+            .backend_evidence_refs
+            .contains(&"ctee_outbound_egress_resolver_depth_bound".to_string()));
+        assert!(result
             .evidence_refs
             .contains(&"rust_model_mount_hosted_provider_backend".to_string()));
         assert!(result.base_url_hash.is_some());
@@ -1628,6 +1776,10 @@ mod tests {
         assert_eq!(
             result.auth_header_materialization_status.as_deref(),
             Some("rust_ctee_outbound_header_bound")
+        );
+        assert_eq!(
+            result.ctee_egress_resolution_status.as_deref(),
+            Some("rust_ctee_outbound_egress_resolved")
         );
 
         admitted.authority_grant_refs.clear();

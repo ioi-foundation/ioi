@@ -287,6 +287,15 @@ export function modelMountProviderInvocationRequestForExecution({
     auth_header_materialization_status: optionalRef(
       endpoint.auth_header_materialization_status ?? provider.auth_header_materialization_status,
     ),
+    ctee_egress_resolver_ref: optionalRef(
+      endpoint.ctee_egress_resolver_ref ?? provider.ctee_egress_resolver_ref,
+    ),
+    ctee_egress_resolver_hash: optionalRef(
+      endpoint.ctee_egress_resolver_hash ?? provider.ctee_egress_resolver_hash,
+    ),
+    ctee_egress_resolution_status: optionalRef(
+      endpoint.ctee_egress_resolution_status ?? provider.ctee_egress_resolution_status,
+    ),
     stream_status: optionalRef(record.stream_status),
     receipt_refs: modelMountProviderExecutionAdmission.receipt_refs ?? record.receipt_refs ?? [],
     evidence_refs: uniqueRefs([
@@ -342,6 +351,15 @@ export function modelMountProviderStreamInvocationRequestForExecution({
     ),
     auth_header_materialization_status: optionalRef(
       endpoint.auth_header_materialization_status ?? provider.auth_header_materialization_status,
+    ),
+    ctee_egress_resolver_ref: optionalRef(
+      endpoint.ctee_egress_resolver_ref ?? provider.ctee_egress_resolver_ref,
+    ),
+    ctee_egress_resolver_hash: optionalRef(
+      endpoint.ctee_egress_resolver_hash ?? provider.ctee_egress_resolver_hash,
+    ),
+    ctee_egress_resolution_status: optionalRef(
+      endpoint.ctee_egress_resolution_status ?? provider.ctee_egress_resolution_status,
     ),
     stream_status: optionalRef(record.stream_status) ?? "started",
     receipt_refs: modelMountProviderExecutionAdmission.receipt_refs ?? record.receipt_refs ?? [],
@@ -414,6 +432,9 @@ export function modelMountProviderResultAdmissionRequestForExecution({
     hosted_transport_request_hash: optionalRef(providerResult.hosted_transport_request_hash),
     hosted_transport_response_hash: optionalRef(providerResult.hosted_transport_response_hash),
     hosted_transport_status: optionalRef(providerResult.hosted_transport_status),
+    ctee_egress_resolver_ref: optionalRef(providerResult.ctee_egress_resolver_ref),
+    ctee_egress_resolver_hash: optionalRef(providerResult.ctee_egress_resolver_hash),
+    ctee_egress_resolution_status: optionalRef(providerResult.ctee_egress_resolution_status),
     receipt_refs: modelMountProviderExecutionAdmission.receipt_refs ?? record.receipt_refs ?? [],
     provider_auth_evidence_refs: uniqueRefs(providerResult.provider_auth_evidence_refs ?? []),
     backend_evidence_refs: uniqueRefs(providerResult.backend_evidence_refs ?? []),
@@ -1317,6 +1338,8 @@ function hostedProviderAuthEvidenceRefs(selection = {}, hash = stableHash) {
     refs.push("wallet_network_provider_vault_ref_bound");
     refs.push("rust_provider_auth_materialization_bound");
     refs.push("hosted_provider_auth_header_materialized_by_rust");
+    refs.push("rust_ctee_egress_resolver_bound");
+    refs.push("ctee_outbound_egress_resolver_depth_bound");
     refs.push(`provider_vault_ref_hash:${hash(secretRef)}`);
   } else {
     refs.push("wallet_network_provider_vault_ref_required");

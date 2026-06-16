@@ -56,6 +56,9 @@ pub(super) fn invoke_provider_stream(
         provider_auth_materialization_ref: request.provider_auth_materialization_ref.clone(),
         outbound_header_binding_ref: request.outbound_header_binding_ref.clone(),
         auth_header_materialization_status: request.auth_header_materialization_status.clone(),
+        ctee_egress_resolver_ref: request.ctee_egress_resolver_ref.clone(),
+        ctee_egress_resolver_hash: request.ctee_egress_resolver_hash.clone(),
+        ctee_egress_resolution_status: request.ctee_egress_resolution_status.clone(),
         hosted_transport_request_ref: hosted_transport
             .as_ref()
             .map(|binding| binding.request_ref.clone()),
@@ -255,6 +258,8 @@ fn provider_stream_invocation_evidence_refs(
         refs.push("wallet_network_provider_transport_authority_bound".to_string());
         refs.push("ctee_hosted_provider_secret_not_exposed".to_string());
         refs.push("ctee_outbound_header_binding_ref_bound".to_string());
+        refs.push("rust_ctee_egress_resolver_bound".to_string());
+        refs.push("ctee_outbound_egress_resolver_depth_bound".to_string());
         refs.push("rust_provider_auth_materialization_bound".to_string());
         refs.push("hosted_provider_auth_header_materialized_by_rust".to_string());
         refs.push("hosted_provider_auth_header_materialization_contract_bound".to_string());
@@ -376,6 +381,9 @@ mod tests {
             provider_auth_materialization_ref: None,
             outbound_header_binding_ref: None,
             auth_header_materialization_status: None,
+            ctee_egress_resolver_ref: None,
+            ctee_egress_resolver_hash: None,
+            ctee_egress_resolution_status: None,
             stream_status: admission.stream_status.clone(),
             receipt_refs: admission.receipt_refs.clone(),
             evidence_refs: vec![admission.provider_execution_ref.clone()],
@@ -427,6 +435,12 @@ mod tests {
                     .to_string(),
             ),
             auth_header_materialization_status: Some("rust_ctee_outbound_header_bound".to_string()),
+            ctee_egress_resolver_ref: Some(
+                "ctee://model-mount/egress-resolver/provider.openai_auth_header#sha256:egress"
+                    .to_string(),
+            ),
+            ctee_egress_resolver_hash: Some("sha256:ctee-egress".to_string()),
+            ctee_egress_resolution_status: Some("rust_ctee_outbound_egress_resolved".to_string()),
             stream_status: admission.stream_status.clone(),
             receipt_refs: admission.receipt_refs.clone(),
             evidence_refs: vec![admission.provider_execution_ref.clone()],
@@ -542,6 +556,9 @@ mod tests {
         assert!(raw_hosted_request
             .to_ascii_lowercase()
             .contains("x-ioi-outbound-header-binding-ref"));
+        assert!(raw_hosted_request
+            .to_ascii_lowercase()
+            .contains("x-ioi-ctee-egress-resolver-ref"));
         assert!(result
             .provider_auth_evidence_refs
             .contains(&"wallet_network_provider_vault_ref_bound".to_string()));
@@ -565,6 +582,12 @@ mod tests {
             .contains(&"rust_hosted_provider_transport_executor_owned".to_string()));
         assert!(result
             .backend_evidence_refs
+            .contains(&"rust_ctee_egress_resolver_bound".to_string()));
+        assert!(result
+            .backend_evidence_refs
+            .contains(&"ctee_outbound_egress_resolver_depth_bound".to_string()));
+        assert!(result
+            .backend_evidence_refs
             .contains(&"rust_hosted_provider_transport_request_bound".to_string()));
         assert!(result
             .backend_evidence_refs
@@ -578,6 +601,10 @@ mod tests {
         assert!(result
             .backend_evidence_refs
             .contains(&"ctee_outbound_secret_injection_ref_bound".to_string()));
+        assert_eq!(
+            result.ctee_egress_resolution_status.as_deref(),
+            Some("rust_ctee_outbound_egress_resolved")
+        );
         assert!(result.hosted_transport_request_ref.is_some());
         assert_eq!(result.hosted_transport_method.as_deref(), Some("POST"));
         assert_eq!(result.hosted_transport_path.as_deref(), Some("/responses"));

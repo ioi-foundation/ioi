@@ -1033,6 +1033,9 @@ export class ModelMountingState {
       controlBody.outbound_header_binding_ref = authMaterialization.outbound_header_binding_ref;
       controlBody.auth_header_materialization_status =
         authMaterialization.auth_header_materialization_status;
+      controlBody.ctee_egress_resolver_ref = authMaterialization.ctee_egress_resolver_ref;
+      controlBody.ctee_egress_resolver_hash = authMaterialization.ctee_egress_resolver_hash;
+      controlBody.ctee_egress_resolution_status = authMaterialization.ctee_egress_resolution_status;
       controlBody.evidence_refs = uniqueModelMountRefs([
         ...(Array.isArray(controlBody.evidence_refs) ? controlBody.evidence_refs : []),
         ...(Array.isArray(authMaterialization.evidence_refs) ? authMaterialization.evidence_refs : []),
@@ -3086,6 +3089,15 @@ function providerControlBody(body = {}, existing = {}, { id, kind } = {}) {
     auth_header_materialization_status: optionalString(
       body.auth_header_materialization_status ?? existing.auth_header_materialization_status,
     ),
+    ctee_egress_resolver_ref: optionalString(
+      body.ctee_egress_resolver_ref ?? existing.ctee_egress_resolver_ref,
+    ),
+    ctee_egress_resolver_hash: optionalString(
+      body.ctee_egress_resolver_hash ?? existing.ctee_egress_resolver_hash,
+    ),
+    ctee_egress_resolution_status: optionalString(
+      body.ctee_egress_resolution_status ?? existing.ctee_egress_resolution_status,
+    ),
     evidence_refs: normalizeScopes(body.evidence_refs, existing.discovery?.evidenceRefs ?? []),
   };
 }
@@ -3110,6 +3122,9 @@ function providerControlCanonicalBody(value = {}) {
     "provider_auth_materialization_ref",
     "outbound_header_binding_ref",
     "auth_header_materialization_status",
+    "ctee_egress_resolver_ref",
+    "ctee_egress_resolver_hash",
+    "ctee_egress_resolution_status",
     "api_key_vault_ref",
     "auth_vault_ref",
     "evidence_refs",
@@ -3251,11 +3266,18 @@ function assertRustAuthoredProviderAuthMaterializationPlan(plan = {}, options = 
   }
   if (!record.outbound_header_binding_ref) missing.push("record.outbound_header_binding_ref");
   if (!record.provider_auth_materialization_ref) missing.push("record.provider_auth_materialization_ref");
+  if (!record.ctee_egress_resolver_ref) missing.push("record.ctee_egress_resolver_ref");
+  if (!record.ctee_egress_resolver_hash) missing.push("record.ctee_egress_resolver_hash");
+  if (record.ctee_egress_resolution_status !== "rust_ctee_outbound_egress_resolved") {
+    missing.push("record.ctee_egress_resolution_status");
+  }
   for (const ref of [
     "rust_daemon_core_provider_auth_materialization",
     "rust_provider_auth_materialization_bound",
     "wallet_network_provider_vault_ref_bound",
     "ctee_provider_auth_header_custody_enforced",
+    "rust_ctee_egress_resolver_bound",
+    "ctee_outbound_egress_resolver_depth_bound",
     "agentgres_provider_auth_materialization_truth_required",
   ]) {
     if (!evidenceRefs.includes(ref)) missing.push(`evidence_refs.${ref}`);

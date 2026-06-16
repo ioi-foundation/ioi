@@ -1927,6 +1927,8 @@ function normalizeProviderAuthMaterializationApiResult(value = {}) {
     "rust_provider_auth_materialization_bound",
     "wallet_network_provider_vault_ref_bound",
     "ctee_provider_auth_header_custody_enforced",
+    "rust_ctee_egress_resolver_bound",
+    "ctee_outbound_egress_resolver_depth_bound",
     "agentgres_provider_auth_materialization_truth_required",
     "public_provider_auth_header_js_facade_retired",
   ]) {
@@ -1957,6 +1959,15 @@ function normalizeProviderAuthMaterializationApiResult(value = {}) {
   }
   if (!record?.provider_auth_materialization_ref) {
     missing.push("record.provider_auth_materialization_ref");
+  }
+  if (!record?.ctee_egress_resolver_ref) {
+    missing.push("record.ctee_egress_resolver_ref");
+  }
+  if (!record?.ctee_egress_resolver_hash) {
+    missing.push("record.ctee_egress_resolver_hash");
+  }
+  if (record?.ctee_egress_resolution_status !== "rust_ctee_outbound_egress_resolved") {
+    missing.push("record.ctee_egress_resolution_status");
   }
   if (missing.length > 0) {
     const error = new Error("Rust model_mount provider-auth materialization plan is incomplete.");

@@ -1217,6 +1217,10 @@ test("modelMountProviderInvocationRequestForExecution binds fixture execution to
         outbound_header_binding_ref:
           "provider_auth_header://provider.openai_auth_header#sha256:provider-auth",
         auth_header_materialization_status: "rust_ctee_outbound_header_bound",
+        ctee_egress_resolver_ref:
+          "ctee://model-mount/egress-resolver/provider.openai_auth_header#sha256:egress",
+        ctee_egress_resolver_hash: "sha256:ctee-egress",
+        ctee_egress_resolution_status: "rust_ctee_outbound_egress_resolved",
       },
     }),
   });
@@ -1235,6 +1239,12 @@ test("modelMountProviderInvocationRequestForExecution binds fixture execution to
     "provider_auth_header://provider.openai_auth_header#sha256:provider-auth",
   );
   assert.equal(hostedRequest.auth_header_materialization_status, "rust_ctee_outbound_header_bound");
+  assert.equal(
+    hostedRequest.ctee_egress_resolver_ref,
+    "ctee://model-mount/egress-resolver/provider.openai_auth_header#sha256:egress",
+  );
+  assert.equal(hostedRequest.ctee_egress_resolver_hash, "sha256:ctee-egress");
+  assert.equal(hostedRequest.ctee_egress_resolution_status, "rust_ctee_outbound_egress_resolved");
   assert.equal(hostedRequest.admitted_provider_execution.provider_ref, "provider.openai");
 });
 
@@ -1336,6 +1346,10 @@ test("modelMountProviderStreamInvocationRequestForExecution binds native-local s
         outbound_header_binding_ref:
           "provider_auth_header://provider.openai_auth_header#sha256:provider-auth",
         auth_header_materialization_status: "rust_ctee_outbound_header_bound",
+        ctee_egress_resolver_ref:
+          "ctee://model-mount/egress-resolver/provider.openai_auth_header#sha256:egress",
+        ctee_egress_resolver_hash: "sha256:ctee-egress",
+        ctee_egress_resolution_status: "rust_ctee_outbound_egress_resolved",
       },
     }),
   });
@@ -1357,6 +1371,15 @@ test("modelMountProviderStreamInvocationRequestForExecution binds native-local s
   assert.equal(
     hostedStreamRequest.auth_header_materialization_status,
     "rust_ctee_outbound_header_bound",
+  );
+  assert.equal(
+    hostedStreamRequest.ctee_egress_resolver_ref,
+    "ctee://model-mount/egress-resolver/provider.openai_auth_header#sha256:egress",
+  );
+  assert.equal(hostedStreamRequest.ctee_egress_resolver_hash, "sha256:ctee-egress");
+  assert.equal(
+    hostedStreamRequest.ctee_egress_resolution_status,
+    "rust_ctee_outbound_egress_resolved",
   );
   assert.equal(
     hostedStreamRequest.admitted_provider_execution.provider_auth_evidence_refs.includes(
@@ -1468,6 +1491,10 @@ test("modelMountProviderResultAdmissionRequestForExecution binds Rust provider r
       hosted_transport_request_hash: "sha256:hosted-transport-request",
       hosted_transport_response_hash: "sha256:hosted-transport-response",
       hosted_transport_status: "rust_hosted_provider_transport_response_bound",
+      ctee_egress_resolver_ref:
+        "ctee://model-mount/egress-resolver/provider.openai_auth_header#sha256:egress",
+      ctee_egress_resolver_hash: "sha256:ctee-egress",
+      ctee_egress_resolution_status: "rust_ctee_outbound_egress_resolved",
       provider_auth_evidence_refs: [
         "rust_model_mount_hosted_provider_auth_gate",
         "wallet_network_provider_vault_ref_bound",
@@ -1482,6 +1509,8 @@ test("modelMountProviderResultAdmissionRequestForExecution binds Rust provider r
         "rust_hosted_provider_transport_request_bound",
         "rust_hosted_provider_transport_response_bound",
         "ctee_outbound_secret_injection_ref_bound",
+        "rust_ctee_egress_resolver_bound",
+        "ctee_outbound_egress_resolver_depth_bound",
         "hosted_provider_auth_header_materialization_contract_bound",
       ],
     },
@@ -1497,6 +1526,12 @@ test("modelMountProviderResultAdmissionRequestForExecution binds Rust provider r
   assert.equal(hostedRequest.hosted_transport_request_hash, "sha256:hosted-transport-request");
   assert.equal(hostedRequest.hosted_transport_response_hash, "sha256:hosted-transport-response");
   assert.equal(hostedRequest.hosted_transport_status, "rust_hosted_provider_transport_response_bound");
+  assert.equal(
+    hostedRequest.ctee_egress_resolver_ref,
+    "ctee://model-mount/egress-resolver/provider.openai_auth_header#sha256:egress",
+  );
+  assert.equal(hostedRequest.ctee_egress_resolver_hash, "sha256:ctee-egress");
+  assert.equal(hostedRequest.ctee_egress_resolution_status, "rust_ctee_outbound_egress_resolved");
   assert.equal(hostedRequest.provider_auth_evidence_refs.includes("wallet_network_provider_vault_ref_bound"), true);
   assert.equal(hostedRequest.backend_evidence_refs.includes("rust_hosted_provider_invocation_transport_materialized"), true);
   assert.equal(hostedRequest.backend_evidence_refs.includes("rust_hosted_provider_live_network_io_executed"), true);
@@ -1504,6 +1539,8 @@ test("modelMountProviderResultAdmissionRequestForExecution binds Rust provider r
   assert.equal(hostedRequest.backend_evidence_refs.includes("rust_hosted_provider_transport_request_bound"), true);
   assert.equal(hostedRequest.backend_evidence_refs.includes("rust_hosted_provider_transport_response_bound"), true);
   assert.equal(hostedRequest.backend_evidence_refs.includes("ctee_outbound_secret_injection_ref_bound"), true);
+  assert.equal(hostedRequest.backend_evidence_refs.includes("rust_ctee_egress_resolver_bound"), true);
+  assert.equal(hostedRequest.backend_evidence_refs.includes("ctee_outbound_egress_resolver_depth_bound"), true);
   const hostedStreamRequest = modelMountProviderResultAdmissionRequestForExecution({
     input: "user: hosted stream",
     instance: { backend_id: "backend.openai-compatible" },
@@ -1537,6 +1574,10 @@ test("modelMountProviderResultAdmissionRequestForExecution binds Rust provider r
       hosted_transport_request_hash: "sha256:hosted-stream-transport-request",
       hosted_transport_response_hash: "sha256:hosted-stream-transport-response",
       hosted_transport_status: "rust_hosted_provider_transport_response_bound",
+      ctee_egress_resolver_ref:
+        "ctee://model-mount/egress-resolver/provider.openai_auth_header#sha256:egress",
+      ctee_egress_resolver_hash: "sha256:ctee-egress",
+      ctee_egress_resolution_status: "rust_ctee_outbound_egress_resolved",
       provider_auth_evidence_refs: [
         "rust_model_mount_hosted_provider_auth_gate",
         "wallet_network_provider_vault_ref_bound",
@@ -1554,6 +1595,8 @@ test("modelMountProviderResultAdmissionRequestForExecution binds Rust provider r
         "rust_hosted_provider_transport_request_bound",
         "rust_hosted_provider_transport_response_bound",
         "ctee_outbound_secret_injection_ref_bound",
+        "rust_ctee_egress_resolver_bound",
+        "ctee_outbound_egress_resolver_depth_bound",
         "hosted_provider_auth_header_materialization_contract_bound",
       ],
     },
@@ -1570,6 +1613,15 @@ test("modelMountProviderResultAdmissionRequestForExecution binds Rust provider r
   assert.equal(hostedStreamRequest.hosted_transport_request_hash, "sha256:hosted-stream-transport-request");
   assert.equal(hostedStreamRequest.hosted_transport_response_hash, "sha256:hosted-stream-transport-response");
   assert.equal(hostedStreamRequest.hosted_transport_status, "rust_hosted_provider_transport_response_bound");
+  assert.equal(
+    hostedStreamRequest.ctee_egress_resolver_ref,
+    "ctee://model-mount/egress-resolver/provider.openai_auth_header#sha256:egress",
+  );
+  assert.equal(hostedStreamRequest.ctee_egress_resolver_hash, "sha256:ctee-egress");
+  assert.equal(
+    hostedStreamRequest.ctee_egress_resolution_status,
+    "rust_ctee_outbound_egress_resolved",
+  );
   assert.equal(hostedStreamRequest.provider_auth_evidence_refs.includes("wallet_network_provider_vault_ref_bound"), true);
   assert.equal(hostedStreamRequest.backend_evidence_refs.includes("rust_hosted_provider_stream_transport_materialized"), true);
   assert.equal(hostedStreamRequest.backend_evidence_refs.includes("rust_hosted_provider_stream_live_chunks_executed"), true);
@@ -1580,6 +1632,8 @@ test("modelMountProviderResultAdmissionRequestForExecution binds Rust provider r
   assert.equal(hostedStreamRequest.backend_evidence_refs.includes("rust_hosted_provider_transport_request_bound"), true);
   assert.equal(hostedStreamRequest.backend_evidence_refs.includes("rust_hosted_provider_transport_response_bound"), true);
   assert.equal(hostedStreamRequest.backend_evidence_refs.includes("ctee_outbound_secret_injection_ref_bound"), true);
+  assert.equal(hostedStreamRequest.backend_evidence_refs.includes("rust_ctee_egress_resolver_bound"), true);
+  assert.equal(hostedStreamRequest.backend_evidence_refs.includes("ctee_outbound_egress_resolver_depth_bound"), true);
   assert.throws(
     () =>
       modelMountProviderResultAdmissionRequestForExecution({

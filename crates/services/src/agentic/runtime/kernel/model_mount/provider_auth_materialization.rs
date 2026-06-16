@@ -164,6 +164,22 @@ pub(super) fn plan_provider_auth_materialization(
         format!("provider_auth_header://{record_id}#sha256:{materialization_hash}");
     let provider_auth_materialization_ref =
         format!("agentgres://model-mounting/model-provider-auth-materializations/{record_id}");
+    let ctee_egress_resolver_seed = json!({
+        "schema": "ioi.model_mount.ctee_egress_resolver.v1",
+        "provider_id": provider_id,
+        "provider_ref": provider_ref,
+        "vault_ref_hash": vault_ref_hash,
+        "auth_header_name_hash": auth_header_name_hash,
+        "provider_auth_materialization_ref": provider_auth_materialization_ref,
+        "outbound_header_binding_ref": outbound_header_binding_ref,
+        "authority_hash": authority_hash,
+        "custody_ref": request.custody_ref,
+        "containment_ref": request.containment_ref,
+        "plaintext_secret_material_returned": false,
+    });
+    let ctee_egress_resolver_hash = format!("sha256:{}", hash_json(&ctee_egress_resolver_seed)?);
+    let ctee_egress_resolver_ref =
+        format!("ctee://model-mount/egress-resolver/{record_id}#{ctee_egress_resolver_hash}");
     let public_response = json!({
         "object": "ioi.model_mount_provider_auth_materialization",
         "id": record_id,
@@ -179,6 +195,9 @@ pub(super) fn plan_provider_auth_materialization(
         "auth_header_materialization_status": "rust_ctee_outbound_header_bound",
         "outbound_header_binding_ref": outbound_header_binding_ref,
         "provider_auth_materialization_ref": provider_auth_materialization_ref,
+        "ctee_egress_resolver_ref": ctee_egress_resolver_ref,
+        "ctee_egress_resolver_hash": ctee_egress_resolver_hash,
+        "ctee_egress_resolution_status": "rust_ctee_outbound_egress_resolved",
         "plaintext_secret_material_returned": false,
         "auth_header_value_returned": false,
         "auth_header_value_persisted": false,
@@ -205,6 +224,9 @@ pub(super) fn plan_provider_auth_materialization(
         "auth_header_materialization_status": "rust_ctee_outbound_header_bound",
         "outbound_header_binding_ref": outbound_header_binding_ref,
         "provider_auth_materialization_ref": provider_auth_materialization_ref,
+        "ctee_egress_resolver_ref": ctee_egress_resolver_ref,
+        "ctee_egress_resolver_hash": ctee_egress_resolver_hash,
+        "ctee_egress_resolution_status": "rust_ctee_outbound_egress_resolved",
         "rust_core_boundary": "model_mount.provider_auth_materialization",
         "wallet_authority_boundary": "wallet.network.provider_auth",
         "ctee_custody_boundary": "ctee.provider_auth_header",
@@ -215,6 +237,8 @@ pub(super) fn plan_provider_auth_materialization(
             "no_plaintext_custody": true,
             "private_material_resolved_by": "rust_daemon_core_ctee",
             "outbound_header_materialized_by": "rust_daemon_core.model_mount.provider_auth_materialization",
+            "egress_resolver_owner": "rust_daemon_core.ctee.egress_resolver",
+            "egress_resolution_status": "rust_ctee_outbound_egress_resolved",
             "js_private_material_readback_retired": true,
             "custody_ref": request.custody_ref,
             "containment_ref": request.containment_ref,
@@ -307,6 +331,8 @@ fn provider_auth_materialization_evidence_refs() -> Vec<String> {
         "rust_provider_auth_materialization_bound".to_string(),
         "wallet_network_provider_vault_ref_bound".to_string(),
         "ctee_provider_auth_header_custody_enforced".to_string(),
+        "rust_ctee_egress_resolver_bound".to_string(),
+        "ctee_outbound_egress_resolver_depth_bound".to_string(),
         "hosted_provider_auth_header_materialized_by_rust".to_string(),
         "hosted_provider_plaintext_secret_not_returned".to_string(),
         "agentgres_provider_auth_materialization_truth_required".to_string(),
@@ -448,6 +474,10 @@ mod tests {
             plan.record["auth_header_materialization_status"],
             "rust_ctee_outbound_header_bound"
         );
+        assert_eq!(
+            plan.record["ctee_egress_resolution_status"],
+            "rust_ctee_outbound_egress_resolved"
+        );
         assert_eq!(plan.record["plaintext_secret_material_returned"], false);
         assert_eq!(plan.record["auth_header_value_returned"], false);
         assert_eq!(plan.record["auth_header_value_persisted"], false);
@@ -461,10 +491,24 @@ mod tests {
         assert!(plan
             .evidence_refs
             .contains(&"ctee_provider_auth_header_custody_enforced".to_string()));
+        assert!(plan
+            .evidence_refs
+            .contains(&"rust_ctee_egress_resolver_bound".to_string()));
+        assert!(plan
+            .evidence_refs
+            .contains(&"ctee_outbound_egress_resolver_depth_bound".to_string()));
         assert!(plan.record["outbound_header_binding_ref"]
             .as_str()
             .unwrap()
             .starts_with("provider_auth_header://provider.openai_auth_header#sha256:"));
+        assert!(plan.record["ctee_egress_resolver_ref"]
+            .as_str()
+            .unwrap()
+            .starts_with("ctee://model-mount/egress-resolver/provider.openai_auth_header#sha256:"));
+        assert!(plan.record["ctee_egress_resolver_hash"]
+            .as_str()
+            .unwrap()
+            .starts_with("sha256:"));
     }
 
     #[test]
