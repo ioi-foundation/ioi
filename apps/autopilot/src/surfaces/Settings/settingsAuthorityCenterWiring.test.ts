@@ -88,7 +88,7 @@ test("authority center exposes canonical grant policy receipt posture", () => {
   assert.match(authorityCenterPanel, /Run-ready/);
 });
 
-test("settings authority runtime uses workflow capability endpoints with compatibility fallback", () => {
+test("settings authority runtime uses stable Rust lifecycle authority evidence protocol", () => {
   assert.match(authorityRuntime, /MODEL_CAPABILITY_BINDING_ENDPOINT/);
   assert.match(authorityRuntime, /TOOL_CAPABILITY_BINDING_ENDPOINT/);
   assert.match(authorityRuntime, /MODEL_AUTHORITY_BINDING_ENDPOINT/);
@@ -104,8 +104,10 @@ test("settings authority runtime uses workflow capability endpoints with compati
   assert.match(authorityRuntime, new RegExp('"/v1/tools"'));
   assert.match(
     authorityRuntime,
-    new RegExp('"/api/v1/authority-evidence"'),
+    new RegExp('"/v1/authority-evidence"'),
   );
+  assert.doesNotMatch(authorityRuntime, /\/api\/v1\/authority-evidence/);
+  assert.doesNotMatch(authorityRuntime, /\/api\/v1\/workflow-capability-preflight/);
 });
 
 test("environment settings are labeled as compatibility, not authority truth", () => {

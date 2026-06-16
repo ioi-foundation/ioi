@@ -12033,6 +12033,18 @@ workbench bundle, sourcemap, and available agent-IDE dist artifacts alongside
 source clients, and it requires the stable generated bundle routes while
 rejecting the retired aliases.
 
+Slice 1386 hard-cuts the Authority Center product evidence client fallback.
+The product Authority Center runtime now calls the canonical
+`/v1/authority-evidence` Rust lifecycle projection protocol directly and no
+longer tries the retired `/api/v1/authority-evidence`,
+`/api/v1/authority-evidence-summaries`,
+`/api/v1/workflow-capability-preflight-evidence`, or
+`/api/v1/workflow-capability-preflight` compatibility chain. This keeps the
+product surface as a non-authoritative protocol client over Rust-owned
+Agentgres replay records instead of an alternate native evidence/preflight
+truth path. Conformance now scans the product runtime and wiring test so the
+retired fallback URLs cannot return.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

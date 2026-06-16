@@ -14,7 +14,7 @@ export const DEFAULT_AUTHORITY_DAEMON_ENDPOINT = "http://127.0.0.1:8765";
 export const AUTHORITY_DAEMON_ENDPOINT_STORAGE_KEY =
   "ioi.modelMounts.daemonEndpoint";
 export const AUTHORITY_EVIDENCE_SUMMARIES_ENDPOINT =
-  "/api/v1/authority-evidence";
+  "/v1/authority-evidence";
 
 export interface AuthorityCenterRuntimeProjectionResult {
   endpoint: string;
@@ -106,13 +106,7 @@ export async function loadAuthorityCenterRuntimeProjection({
       "/v1/tools",
     ]),
     fetchAuthorityJson(endpoint, MODEL_AUTHORITY_BINDING_ENDPOINT),
-    fetchAuthorityJsonFirst(endpoint, [
-      AUTHORITY_EVIDENCE_SUMMARIES_ENDPOINT,
-      "/api/v1/authority-evidence-summaries",
-      "/api/v1/workflow-capability-preflight-evidence",
-      "/api/v1/workflow-capability-preflight",
-      "/v1/workflow-capability-preflights",
-    ]),
+    fetchAuthorityJson(endpoint, AUTHORITY_EVIDENCE_SUMMARIES_ENDPOINT),
   ]);
   const modelCapabilities =
     modelCapabilitiesResult.status === "fulfilled"

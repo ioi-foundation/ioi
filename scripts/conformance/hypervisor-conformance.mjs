@@ -22961,6 +22961,12 @@ function runReceipts() {
   const authorityEvidenceSummaryTest = exists("packages/runtime-daemon/src/authority-evidence-summary.test.mjs")
     ? read("packages/runtime-daemon/src/authority-evidence-summary.test.mjs")
     : "";
+  const authorityCenterRuntime = exists("apps/autopilot/src/surfaces/Policy/authorityCenterRuntime.ts")
+    ? read("apps/autopilot/src/surfaces/Policy/authorityCenterRuntime.ts")
+    : "";
+  const authorityCenterWiringTest = exists("apps/autopilot/src/surfaces/Settings/settingsAuthorityCenterWiring.test.ts")
+    ? read("apps/autopilot/src/surfaces/Settings/settingsAuthorityCenterWiring.test.ts")
+    : "";
   const runtimeDoctorReportRustCore = exists("crates/services/src/agentic/runtime/kernel/runtime_doctor_report.rs")
     ? read("crates/services/src/agentic/runtime/kernel/runtime_doctor_report.rs")
     : "";
@@ -30664,6 +30670,39 @@ function runReceipts() {
       "crates/services/src/agentic/runtime/kernel/runtime_lifecycle.rs",
     ],
     "Phase 10/11 is pending: authority evidence summaries must remain Rust lifecycle state-dir projections with the retired JS helper absent",
+  );
+  assertCheck(
+    result,
+    "authority-evidence-product-client-stable-protocol",
+    /AUTHORITY_EVIDENCE_SUMMARIES_ENDPOINT\s*=\s*\n\s*"\/v1\/authority-evidence"/.test(
+      authorityCenterRuntime,
+    ) &&
+      /fetchAuthorityJson\(endpoint,\s*AUTHORITY_EVIDENCE_SUMMARIES_ENDPOINT\)/.test(
+        authorityCenterRuntime,
+      ) &&
+      !/\/api\/v1\/authority-evidence|\/api\/v1\/authority-evidence-summaries|\/api\/v1\/workflow-capability-preflight-evidence|\/api\/v1\/workflow-capability-preflight/.test(
+        authorityCenterRuntime,
+      ) &&
+      /settings authority runtime uses stable Rust lifecycle authority evidence protocol/.test(
+        authorityCenterWiringTest,
+      ) &&
+      /assert\.doesNotMatch\(authorityRuntime,\s*\/\\\/api\\\/v1\\\/authority-evidence\/\)/.test(
+        authorityCenterWiringTest,
+      ) &&
+      /assert\.doesNotMatch\(authorityRuntime,\s*\/\\\/api\\\/v1\\\/workflow-capability-preflight\/\)/.test(
+        authorityCenterWiringTest,
+      ) &&
+      /Slice 1386 hard-cuts the Authority Center product evidence client fallback/.test(guide) &&
+      /Runtime lifecycle authority-evidence product protocol client/.test(matrix) &&
+      /RuntimeLifecycleAuthorityEvidenceProductProtocolClient/.test(implementationMatrix),
+    [
+      "apps/autopilot/src/surfaces/Policy/authorityCenterRuntime.ts",
+      "apps/autopilot/src/surfaces/Settings/settingsAuthorityCenterWiring.test.ts",
+      "docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md",
+      "docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md",
+      "docs/architecture/_meta/implementation-matrix.md",
+    ],
+    "Authority Center product clients must stay on /v1 authority-evidence lifecycle projection and cannot restore retired /api/v1 evidence/preflight fallbacks",
   );
   assertCheck(
     result,
