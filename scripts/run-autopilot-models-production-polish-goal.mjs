@@ -432,7 +432,7 @@ async function bootstrapDaemon(outputDir) {
   const cwd = mkdtempSync("/tmp/autopilot-models-prod-ws-");
   const stateDir = mkdtempSync("/tmp/autopilot-models-prod-state-");
   const daemon = await startRuntimeDaemonService({ cwd, stateDir });
-  const grant = await requestJson(daemon.endpoint, "/api/v1/tokens", {
+  const grant = await requestJson(daemon.endpoint, "/v1/model-mount/tokens", {
     method: "POST",
     body: {
       allowed: [
@@ -455,7 +455,7 @@ async function bootstrapDaemon(outputDir) {
   });
   const providerModels = await requestJson(
     daemon.endpoint,
-    `/api/v1/providers/${encodeURIComponent(PROVIDER_ID)}/models`,
+    `/v1/model-mount/providers/${encodeURIComponent(PROVIDER_ID)}/models`,
     { token: grant.token },
   );
   if (!providerModels.some((model) => model.modelId === MODEL_ID)) {
@@ -466,7 +466,7 @@ async function bootstrapDaemon(outputDir) {
   }
   const providerStart = await requestJson(
     daemon.endpoint,
-    `/api/v1/providers/${encodeURIComponent(PROVIDER_ID)}/start`,
+    `/v1/model-mount/providers/${encodeURIComponent(PROVIDER_ID)}/start`,
     { method: "POST", token: grant.token },
   );
   const mounted = await requestJson(daemon.endpoint, "/v1/model-mount/endpoints", {

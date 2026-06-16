@@ -11526,6 +11526,30 @@ controls, backend execution/materialization, hosted/provider transport,
 OAuth/auth-header materialization, invocation authority depth, and broader
 IDE/SDK control coverage still need terminal Rust-owned protocol coverage.
 
+Slice 1359 hard-cuts stable model_mount provider-vault-token-catalog protocol
+clients and retires the native provider, vault, token, and catalog-provider
+control aliases. Public catalog-provider config and OAuth controls now use
+`/v1/model-mount/catalog/providers/{id}` and
+`/v1/model-mount/catalog/providers/{id}/oauth/{start,callback,exchange,refresh,revoke}`;
+provider list/upsert/health/models/loaded/start/stop controls now use
+`/v1/model-mount/providers*`; wallet vault refs/status/health controls now use
+`/v1/model-mount/vault/*`; and capability-token list/create/revoke plus token
+count now use `/v1/model-mount/tokens*`. These stable protocol routes preserve
+the provider, vault, provider-control, and tokenizer authority gates at the
+daemon protocol edge while forwarding into the mounted Rust daemon-core
+model_mount control/projection APIs and Agentgres record-state truth. CLI
+provider/vault/token commands, validation proofs, live-provider gates, product
+UI actions, IDE workbench actions, and OAuth callback proofs moved off
+`/api/v1/models/catalog/providers*`, `/api/v1/providers*`,
+`/api/v1/vault*`, and `/api/v1/tokens*`. The daemon native handler no longer
+exposes those aliases, focused route tests assert they return `not_found`
+without calling provider/vault/token/catalog methods, and conformance scans
+source clients so the retired compatibility path cannot return. This remains
+non-terminal because backend execution/materialization, hosted/provider
+transport, OAuth/auth-header materialization depth, invocation authority depth,
+and broader SDK/IDE control coverage still need terminal Rust-owned protocol
+coverage.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

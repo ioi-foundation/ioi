@@ -22548,6 +22548,15 @@ function runReceipts() {
   const modelMountStableReadCliBackends = exists("crates/cli/src/commands/backends.rs")
     ? read("crates/cli/src/commands/backends.rs")
     : "";
+  const modelMountStableReadCliVault = exists("crates/cli/src/commands/vault.rs")
+    ? read("crates/cli/src/commands/vault.rs")
+    : "";
+  const modelMountStableReadCliTokens = exists("crates/cli/src/commands/tokens.rs")
+    ? read("crates/cli/src/commands/tokens.rs")
+    : "";
+  const modelMountWorkbenchExtension = exists("apps/autopilot/openvscode-extension/ioi-workbench/extension.js")
+    ? read("apps/autopilot/openvscode-extension/ioi-workbench/extension.js")
+    : "";
   const modelMountStableReadProtocolClientCorpus = [
     modelMountStableReadAgentSdkSubstrateClient,
     modelMountStableReadAgentSdkTest,
@@ -22555,6 +22564,9 @@ function runReceipts() {
     modelMountStableReadCliRoutes,
     modelMountStableReadCliServer,
     modelMountStableReadCliBackends,
+    modelMountStableReadCliVault,
+    modelMountStableReadCliTokens,
+    modelMountWorkbenchExtension,
     ...collectFiles(
       "scripts",
       (file) =>
@@ -26563,6 +26575,128 @@ function runReceipts() {
       "scripts/conformance/hypervisor-conformance.mjs",
     ],
     "Model_mount catalog import-url, download queue/status/cancel, storage cleanup, and artifact delete clients must use stable /v1/model-mount storage/download protocol routes; retired /api/v1 storage aliases must not return",
+  );
+  assertCheck(
+    result,
+    "model-mount-stable-provider-vault-token-catalog-protocol-clients",
+    /segments\[2\] === "catalog"[\s\S]*?segments\[3\] === "providers"[\s\S]*?store\.modelMounting\.getCatalogProviderConfig\(providerId\)/.test(
+      publicRuntimeRoutes,
+    ) &&
+      /store\.modelMounting\.configureCatalogProvider\(providerId,\s*await readBody\(request\)\)/.test(publicRuntimeRoutes) &&
+      /segments\[5\] === "oauth"[\s\S]*?segments\[6\] === "start"[\s\S]*?store\.modelMounting\.startCatalogProviderOAuth\(providerId,\s*await readBody\(request\)\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /segments\[6\] === "callback"[\s\S]*?store\.modelMounting\.completeCatalogProviderOAuth\(providerId,\s*await readBody\(request\)\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /segments\[6\] === "exchange"[\s\S]*?store\.modelMounting\.exchangeCatalogProviderOAuth\(providerId,\s*await readBody\(request\)\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /segments\[6\] === "refresh"[\s\S]*?store\.modelMounting\.refreshCatalogProviderOAuth\(providerId\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /segments\[6\] === "revoke"[\s\S]*?store\.modelMounting\.revokeCatalogProviderOAuth\(providerId\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /url\.pathname === "\/v1\/model-mount\/tokens"[\s\S]*?store\.modelMounting\.listTokens\(\)/.test(publicRuntimeRoutes) &&
+      /url\.pathname === "\/v1\/model-mount\/tokens"[\s\S]*?store\.modelMounting\.createToken\(await readBody\(request\)\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /url\.pathname === "\/v1\/model-mount\/tokens\/count"[\s\S]*?store\.modelMounting\.countModelTokens/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /segments\[2\] === "tokens"[\s\S]*?store\.modelMounting\.revokeToken\(decodeURIComponent\(segments\[3\]\)\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /url\.pathname === "\/v1\/model-mount\/vault\/refs"[\s\S]*?store\.modelMounting\.listVaultRefs\(\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /url\.pathname === "\/v1\/model-mount\/vault\/refs"[\s\S]*?store\.modelMounting\.bindVaultRef\(await readBody\(request\)\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /url\.pathname === "\/v1\/model-mount\/vault\/refs"[\s\S]*?store\.modelMounting\.removeVaultRef\(await readBody\(request\)\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /url\.pathname === "\/v1\/model-mount\/vault\/refs\/meta"[\s\S]*?store\.modelMounting\.vaultRefMetadata\(await readBody\(request\)\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /url\.pathname === "\/v1\/model-mount\/vault\/status"[\s\S]*?store\.modelMounting\.vaultStatus\(\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /url\.pathname === "\/v1\/model-mount\/vault\/health"[\s\S]*?store\.modelMounting\.vaultHealth\(\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /url\.pathname === "\/v1\/model-mount\/vault\/health\/latest"[\s\S]*?store\.modelMounting\.latestVaultHealth\(\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /url\.pathname === "\/v1\/model-mount\/providers"[\s\S]*?store\.modelMounting\.listProviders\(\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /url\.pathname === "\/v1\/model-mount\/providers"[\s\S]*?store\.modelMounting\.upsertProvider\(await readBody\(request\)\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /segments\[2\] === "providers"[\s\S]*?store\.modelMounting\.upsertProvider\(\{ \.\.\.\(await readBody\(request\)\), id: providerId \}\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /segments\[4\] === "health"[\s\S]*?segments\[5\] === "latest"[\s\S]*?store\.modelMounting\.latestProviderHealth\(providerId\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /segments\[4\] === "health"[\s\S]*?store\.modelMounting\.providerHealth\(providerId\)/.test(publicRuntimeRoutes) &&
+      /segments\[4\] === "models"[\s\S]*?store\.modelMounting\.listProviderModels\(providerId\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /segments\[4\] === "loaded"[\s\S]*?store\.modelMounting\.listProviderLoaded\(providerId\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /segments\[4\] === "start"[\s\S]*?store\.modelMounting\.startProvider\(providerId\)/.test(publicRuntimeRoutes) &&
+      /segments\[4\] === "stop"[\s\S]*?store\.modelMounting\.stopProvider\(providerId\)/.test(publicRuntimeRoutes) &&
+      !/\/api\/v1\/models\/catalog\/providers/.test(runtimeRouteHandlers) &&
+      !/\/api\/v1\/providers/.test(runtimeRouteHandlers) &&
+      !/\/api\/v1\/vault/.test(runtimeRouteHandlers) &&
+      !/\/api\/v1\/tokens/.test(runtimeRouteHandlers) &&
+      /public runtime provider vault token and catalog controls use stable model mount protocol routes/.test(
+        publicRuntimeRoutesTest,
+      ) &&
+      /\/v1\/model-mount\/catalog\/providers\/catalog\.route\/oauth\/start/.test(publicRuntimeRoutesTest) &&
+      /\/v1\/model-mount\/providers\/provider\.route\/models/.test(publicRuntimeRoutesTest) &&
+      /\/v1\/model-mount\/vault\/refs/.test(publicRuntimeRoutesTest) &&
+      /\/v1\/model-mount\/tokens\/count/.test(publicRuntimeRoutesTest) &&
+      /model mounting native route does not expose retired provider vault token or catalog control aliases/.test(
+        runtimeRouteHandlersTest,
+      ) &&
+      /\/api\/v1\/models\/catalog\/providers\/catalog\.route\/oauth\/start/.test(runtimeRouteHandlersTest) &&
+      /\/api\/v1\/providers\/provider\.route\/health/.test(runtimeRouteHandlersTest) &&
+      /\/api\/v1\/vault\/refs/.test(runtimeRouteHandlersTest) &&
+      /\/api\/v1\/tokens\/count/.test(runtimeRouteHandlersTest) &&
+      !/\/api\/v1\/(?:models\/catalog\/providers|providers|vault|tokens)/.test(modelMountStableReadProtocolClientCorpus) &&
+      /\/v1\/model-mount\/providers\/\{provider_id\}\/models/.test(modelMountStableReadCliModels) &&
+      /\/v1\/model-mount\/providers\/\{provider_id\}\/health/.test(modelMountStableReadCliModels) &&
+      /\/v1\/model-mount\/providers/.test(modelMountStableReadCliModels) &&
+      /\/v1\/model-mount\/vault\/refs/.test(modelMountStableReadCliVault) &&
+      /\/v1\/model-mount\/vault\/health\/latest/.test(modelMountStableReadCliVault) &&
+      /\/v1\/model-mount\/tokens/.test(modelMountStableReadCliTokens) &&
+      /\/v1\/model-mount\/tokens\/count/.test(modelMountStableReadCliTokens) &&
+      /\/v1\/model-mount\/catalog\/providers\/\$\{encodeURIComponent\(draft\.providerId\)\}\/oauth\/start/.test(
+        read("apps/autopilot/src/surfaces/MissionControl/MissionControlMountsView.tsx"),
+      ) &&
+      /\/v1\/model-mount\/catalog\/providers\/\$\{encodeURIComponent\(providerId\)\}\/oauth\/callback/.test(
+        read("scripts/live-model-mounting-gate.mjs"),
+      ) &&
+      /\/v1\/model-mount\/tokens/.test(read("scripts/run-autopilot-model-mounting-goal.mjs")) &&
+      /Slice 1359 hard-cuts stable model_mount provider-vault-token-catalog protocol/.test(guide) &&
+      /Model_mount stable provider-vault-token-catalog protocol clients/.test(matrix) &&
+      /RuntimeDaemonCoreModelMountStableProviderVaultTokenCatalogProtocolClients/.test(implementationMatrix),
+    [
+      "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.mjs",
+      "crates/cli/src/commands/models.rs",
+      "crates/cli/src/commands/vault.rs",
+      "crates/cli/src/commands/tokens.rs",
+      "apps/autopilot/src/surfaces/MissionControl/MissionControlMountsView.tsx",
+      "scripts/live-model-mounting-gate.mjs",
+      "scripts/conformance/hypervisor-conformance.mjs",
+    ],
+    "Model_mount provider, vault, token, and catalog-provider clients must use stable /v1/model-mount protocol routes; retired /api/v1 provider/vault/token/catalog aliases must not return",
   );
   assertCheck(
     result,

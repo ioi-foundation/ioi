@@ -123,7 +123,7 @@ function createModelDaemonActions({
     } else {
       body.base_url = pickPayloadString(payload, "baseUrl") || pickPayloadString(payload, "url") || "https://huggingface.co";
     }
-    return requestJson(endpoint, `/api/v1/models/catalog/providers/${encodeURIComponent(providerId)}`, {
+    return requestJson(endpoint, `/v1/model-mount/catalog/providers/${encodeURIComponent(providerId)}`, {
       method: "PATCH",
       token,
       payload: body,

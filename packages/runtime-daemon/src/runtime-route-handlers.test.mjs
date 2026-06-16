@@ -2206,6 +2206,91 @@ test("model mounting native route does not expose retired operational read, serv
   assert.deepEqual(calls, []);
 });
 
+test("model mounting native route does not expose retired provider vault token or catalog control aliases", async () => {
+  const { handleModelMountingNativeRoute } = routeHandlers();
+  const calls = [];
+  const failRetiredAlias = (name) => (...args) => {
+    calls.push([name, ...args]);
+    throw new Error(`retired provider/vault/token alias ${name} must not be reached`);
+  };
+  const store = {
+    modelMounting: {
+      bindVaultRef: failRetiredAlias("bindVaultRef"),
+      completeCatalogProviderOAuth: failRetiredAlias("completeCatalogProviderOAuth"),
+      configureCatalogProvider: failRetiredAlias("configureCatalogProvider"),
+      countModelTokens: failRetiredAlias("countModelTokens"),
+      createToken: failRetiredAlias("createToken"),
+      exchangeCatalogProviderOAuth: failRetiredAlias("exchangeCatalogProviderOAuth"),
+      getCatalogProviderConfig: failRetiredAlias("getCatalogProviderConfig"),
+      latestProviderHealth: failRetiredAlias("latestProviderHealth"),
+      latestVaultHealth: failRetiredAlias("latestVaultHealth"),
+      listProviderLoaded: failRetiredAlias("listProviderLoaded"),
+      listProviderModels: failRetiredAlias("listProviderModels"),
+      listTokens: failRetiredAlias("listTokens"),
+      listVaultRefs: failRetiredAlias("listVaultRefs"),
+      providerHealth: failRetiredAlias("providerHealth"),
+      refreshCatalogProviderOAuth: failRetiredAlias("refreshCatalogProviderOAuth"),
+      removeVaultRef: failRetiredAlias("removeVaultRef"),
+      revokeCatalogProviderOAuth: failRetiredAlias("revokeCatalogProviderOAuth"),
+      revokeToken: failRetiredAlias("revokeToken"),
+      startCatalogProviderOAuth: failRetiredAlias("startCatalogProviderOAuth"),
+      startProvider: failRetiredAlias("startProvider"),
+      stopProvider: failRetiredAlias("stopProvider"),
+      upsertProvider: failRetiredAlias("upsertProvider"),
+      vaultHealth: failRetiredAlias("vaultHealth"),
+      vaultRefMetadata: failRetiredAlias("vaultRefMetadata"),
+      vaultStatus: failRetiredAlias("vaultStatus"),
+    },
+  };
+  const cases = [
+    "/api/v1/models/catalog/providers/catalog.route",
+    ["PATCH", "/api/v1/models/catalog/providers/catalog.route"],
+    ["POST", "/api/v1/models/catalog/providers/catalog.route/oauth/start"],
+    ["POST", "/api/v1/models/catalog/providers/catalog.route/oauth/callback"],
+    ["POST", "/api/v1/models/catalog/providers/catalog.route/oauth/exchange"],
+    ["POST", "/api/v1/models/catalog/providers/catalog.route/oauth/refresh"],
+    ["POST", "/api/v1/models/catalog/providers/catalog.route/oauth/revoke"],
+    "/api/v1/vault/refs",
+    ["POST", "/api/v1/vault/refs"],
+    ["DELETE", "/api/v1/vault/refs"],
+    ["POST", "/api/v1/vault/refs/meta"],
+    "/api/v1/vault/status",
+    ["POST", "/api/v1/vault/health"],
+    "/api/v1/vault/health/latest",
+    "/api/v1/providers",
+    ["POST", "/api/v1/providers"],
+    ["PATCH", "/api/v1/providers/provider.route"],
+    "/api/v1/providers/provider.route/health/latest",
+    ["POST", "/api/v1/providers/provider.route/health"],
+    "/api/v1/providers/provider.route/models",
+    "/api/v1/providers/provider.route/loaded",
+    ["POST", "/api/v1/providers/provider.route/start"],
+    ["POST", "/api/v1/providers/provider.route/stop"],
+    "/api/v1/tokens",
+    ["POST", "/api/v1/tokens"],
+    ["DELETE", "/api/v1/tokens/token.route"],
+    ["POST", "/api/v1/tokens/count"],
+  ];
+
+  for (const entry of cases) {
+    const [method, path] = Array.isArray(entry) ? entry : ["GET", entry];
+    await assert.rejects(
+      () => handleModelMountingNativeRoute({
+        request: request({ method, url: path }),
+        response: responseRecorder(),
+        store,
+        url: new URL(path, "http://daemon.test"),
+        segments: new URL(path, "http://daemon.test").pathname.split("/").filter(Boolean),
+      }),
+      (error) =>
+        error.code === "not_found" &&
+        error.details.path === new URL(path, "http://daemon.test").pathname,
+    );
+  }
+
+  assert.deepEqual(calls, []);
+});
+
 test("model mounting native route does not expose retired MCP aliases", async () => {
   const { handleModelMountingNativeRoute } = routeHandlers();
   const calls = [];

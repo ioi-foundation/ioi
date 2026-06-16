@@ -419,7 +419,7 @@ async function bootstrapDaemonModelRuntime(outputDir = null) {
   const cwd = mkdtempSync("/tmp/autopilot-model-workspace-");
   const stateDir = mkdtempSync("/tmp/autopilot-model-state-");
   const daemon = await startRuntimeDaemonService({ cwd, stateDir });
-  const grant = await requestJson(daemon.endpoint, "/api/v1/tokens", {
+  const grant = await requestJson(daemon.endpoint, "/v1/model-mount/tokens", {
     method: "POST",
     body: {
       allowed: [

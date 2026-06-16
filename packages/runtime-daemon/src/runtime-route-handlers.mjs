@@ -35,91 +35,6 @@ export function createRuntimeRouteHandlers(deps) {
       writeJsonResponse(response, mounts.snapshot(baseUrl));
       return;
     }
-    if (request.method === "GET" && segments[2] === "models" && segments[3] === "catalog" && segments[4] === "providers" && segments[5]) {
-      writeJsonResponse(response, mounts.getCatalogProviderConfig(decodeURIComponent(segments[5])));
-      return;
-    }
-    if (request.method === "PATCH" && segments[2] === "models" && segments[3] === "catalog" && segments[4] === "providers" && segments[5]) {
-      const providerId = decodeURIComponent(segments[5]);
-      mounts.authorize(authorization, `provider.write:${providerId}`);
-      writeJsonResponse(response, mounts.configureCatalogProvider(providerId, await readBody(request)));
-      return;
-    }
-    if (
-      request.method === "POST" &&
-      segments[2] === "models" &&
-      segments[3] === "catalog" &&
-      segments[4] === "providers" &&
-      segments[5] &&
-      segments[6] === "oauth" &&
-      segments[7] === "start"
-    ) {
-      const providerId = decodeURIComponent(segments[5]);
-      mounts.authorize(authorization, `provider.write:${providerId}`);
-      mounts.authorize(authorization, "vault.write:*");
-      writeJsonResponse(response, mounts.startCatalogProviderOAuth(providerId, await readBody(request)), 201);
-      return;
-    }
-    if (
-      request.method === "POST" &&
-      segments[2] === "models" &&
-      segments[3] === "catalog" &&
-      segments[4] === "providers" &&
-      segments[5] &&
-      segments[6] === "oauth" &&
-      segments[7] === "callback"
-    ) {
-      const providerId = decodeURIComponent(segments[5]);
-      mounts.authorize(authorization, `provider.write:${providerId}`);
-      mounts.authorize(authorization, "vault.write:*");
-      writeJsonResponse(response, await mounts.completeCatalogProviderOAuth(providerId, await readBody(request)), 201);
-      return;
-    }
-    if (
-      request.method === "POST" &&
-      segments[2] === "models" &&
-      segments[3] === "catalog" &&
-      segments[4] === "providers" &&
-      segments[5] &&
-      segments[6] === "oauth" &&
-      segments[7] === "exchange"
-    ) {
-      const providerId = decodeURIComponent(segments[5]);
-      mounts.authorize(authorization, `provider.write:${providerId}`);
-      mounts.authorize(authorization, "vault.write:*");
-      writeJsonResponse(response, await mounts.exchangeCatalogProviderOAuth(providerId, await readBody(request)), 201);
-      return;
-    }
-    if (
-      request.method === "POST" &&
-      segments[2] === "models" &&
-      segments[3] === "catalog" &&
-      segments[4] === "providers" &&
-      segments[5] &&
-      segments[6] === "oauth" &&
-      segments[7] === "refresh"
-    ) {
-      const providerId = decodeURIComponent(segments[5]);
-      mounts.authorize(authorization, `provider.write:${providerId}`);
-      mounts.authorize(authorization, "vault.write:*");
-      writeJsonResponse(response, await mounts.refreshCatalogProviderOAuth(providerId));
-      return;
-    }
-    if (
-      request.method === "POST" &&
-      segments[2] === "models" &&
-      segments[3] === "catalog" &&
-      segments[4] === "providers" &&
-      segments[5] &&
-      segments[6] === "oauth" &&
-      segments[7] === "revoke"
-    ) {
-      const providerId = decodeURIComponent(segments[5]);
-      mounts.authorize(authorization, `provider.write:${providerId}`);
-      mounts.authorize(authorization, "vault.delete:*");
-      writeJsonResponse(response, mounts.revokeCatalogProviderOAuth(providerId));
-      return;
-    }
     if (request.method === "GET" && url.pathname === "/api/v1/models/events") {
       writeJsonResponse(response, mounts.projection().lifecycleEvents);
       return;
@@ -132,77 +47,6 @@ export function createRuntimeRouteHandlers(deps) {
       !["artifacts", "backends", "catalog", "download", "instances", "loaded", "routes", "runtime-engines", "server"].includes(segments[3])
     ) {
       writeJsonResponse(response, mounts.getModel(decodeURIComponent(segments[3])));
-      return;
-    }
-    if (request.method === "GET" && url.pathname === "/api/v1/vault/refs") {
-      mounts.authorize(authorization, "vault.read:*");
-      writeJsonResponse(response, mounts.listVaultRefs());
-      return;
-    }
-    if (request.method === "GET" && url.pathname === "/api/v1/vault/status") {
-      mounts.authorize(authorization, "vault.read:*");
-      writeJsonResponse(response, mounts.vaultStatus());
-      return;
-    }
-    if (request.method === "GET" && url.pathname === "/api/v1/vault/health/latest") {
-      mounts.authorize(authorization, "vault.read:*");
-      writeJsonResponse(response, mounts.latestVaultHealth());
-      return;
-    }
-    if (request.method === "POST" && url.pathname === "/api/v1/vault/health") {
-      mounts.authorize(authorization, "vault.read:*");
-      writeJsonResponse(response, mounts.vaultHealth());
-      return;
-    }
-    if (request.method === "POST" && url.pathname === "/api/v1/vault/refs") {
-      mounts.authorize(authorization, "vault.write:*");
-      writeJsonResponse(response, mounts.bindVaultRef(await readBody(request)), 201);
-      return;
-    }
-    if (request.method === "POST" && url.pathname === "/api/v1/vault/refs/meta") {
-      mounts.authorize(authorization, "vault.read:*");
-      writeJsonResponse(response, mounts.vaultRefMetadata(await readBody(request)));
-      return;
-    }
-    if (request.method === "DELETE" && url.pathname === "/api/v1/vault/refs") {
-      mounts.authorize(authorization, "vault.delete:*");
-      writeJsonResponse(response, mounts.removeVaultRef(await readBody(request)));
-      return;
-    }
-    if (request.method === "POST" && url.pathname === "/api/v1/providers") {
-      mounts.authorize(authorization, "provider.write:*");
-      writeJsonResponse(response, mounts.upsertProvider(await readBody(request)), 201);
-      return;
-    }
-    if (request.method === "PATCH" && segments[2] === "providers" && segments[3]) {
-      mounts.authorize(authorization, `provider.write:${decodeURIComponent(segments[3])}`);
-      writeJsonResponse(response, mounts.upsertProvider({ ...(await readBody(request)), id: decodeURIComponent(segments[3]) }));
-      return;
-    }
-    if (request.method === "GET" && segments[2] === "providers" && segments[3] && segments[4] === "health" && segments[5] === "latest") {
-      writeJsonResponse(response, mounts.latestProviderHealth(decodeURIComponent(segments[3])));
-      return;
-    }
-    if (request.method === "POST" && segments[2] === "providers" && segments[3] && segments[4] === "health") {
-      writeJsonResponse(response, await mounts.providerHealth(decodeURIComponent(segments[3])));
-      return;
-    }
-    if (request.method === "GET" && segments[2] === "providers" && segments[3] && segments[4] === "models") {
-      writeJsonResponse(response, await mounts.listProviderModels(decodeURIComponent(segments[3])));
-      return;
-    }
-    if (request.method === "GET" && segments[2] === "providers" && segments[3] && segments[4] === "loaded") {
-      writeJsonResponse(response, await mounts.listProviderLoaded(decodeURIComponent(segments[3])));
-      return;
-    }
-    if (request.method === "POST" && segments[2] === "providers" && segments[3] && segments[4] === "start") {
-      mounts.authorize(authorization, `provider.control:${decodeURIComponent(segments[3])}`);
-      writeJsonResponse(response, await mounts.startProvider(decodeURIComponent(segments[3])));
-      return;
-    }
-    if (request.method === "POST" && segments[2] === "providers" && segments[3] && segments[4] === "stop") {
-      mounts.authorize(authorization, `provider.control:${decodeURIComponent(segments[3])}`);
-      writeJsonResponse(response, await mounts.stopProvider(decodeURIComponent(segments[3])));
       return;
     }
     if (request.method === "POST" && url.pathname === "/api/v1/chat") {
@@ -257,17 +101,6 @@ export function createRuntimeRouteHandlers(deps) {
       );
       return;
     }
-    if (request.method === "POST" && url.pathname === "/api/v1/tokens/count") {
-      writeJsonResponse(
-        response,
-        mounts.countModelTokens({
-          authorization,
-          requiredScope: "model.tokenize:*",
-          body: await readBody(request),
-        }),
-      );
-      return;
-    }
     if (request.method === "POST" && url.pathname === "/api/v1/context/fit") {
       writeJsonResponse(
         response,
@@ -277,18 +110,6 @@ export function createRuntimeRouteHandlers(deps) {
           body: await readBody(request),
         }),
       );
-      return;
-    }
-    if (request.method === "GET" && url.pathname === "/api/v1/tokens") {
-      writeJsonResponse(response, mounts.listTokens());
-      return;
-    }
-    if (request.method === "POST" && url.pathname === "/api/v1/tokens") {
-      writeJsonResponse(response, mounts.createToken(await readBody(request)), 201);
-      return;
-    }
-    if (request.method === "DELETE" && segments[2] === "tokens" && segments[3]) {
-      writeJsonResponse(response, mounts.revokeToken(decodeURIComponent(segments[3])));
       return;
     }
     if (request.method === "GET" && url.pathname === "/api/v1/projections/model-mounting") {

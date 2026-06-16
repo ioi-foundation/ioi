@@ -3894,7 +3894,7 @@ async function ensureStudioModelInvocationToken(output) {
   if (!endpoint) {
     throw new Error("IOI daemon endpoint is not configured.");
   }
-  const grant = await requestJson(endpoint, "/api/v1/tokens", {
+  const grant = await requestJson(endpoint, "/v1/model-mount/tokens", {
     method: "POST",
     payload: {
       audience: "autopilot-agent-studio",

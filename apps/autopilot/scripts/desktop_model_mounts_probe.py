@@ -183,7 +183,7 @@ await new Promise(() => {});
 def seed_model_mounting_state(endpoint: str) -> dict[str, Any]:
     grant = request_json(
         endpoint,
-        "/api/v1/tokens",
+        "/v1/model-mount/tokens",
         method="POST",
         body={
             "audience": "autopilot-local-server",
@@ -405,7 +405,7 @@ def collect_live_provider_state(endpoint: str) -> dict[str, Any]:
     for provider_id in ["provider.lmstudio", "provider.ollama"]:
         provider_summary: dict[str, Any] = {}
         try:
-            health = request_json(endpoint, f"/api/v1/providers/{provider_id}/health", method="POST", timeout=8.0)
+            health = request_json(endpoint, f"/v1/model-mount/providers/{provider_id}/health", method="POST", timeout=8.0)
             provider_summary.update(
                 {
                     "kind": health.get("kind"),
@@ -416,7 +416,7 @@ def collect_live_provider_state(endpoint: str) -> dict[str, Any]:
         except Exception as error:
             provider_summary.update({"status": "error", "errorClass": type(error).__name__})
         try:
-            models = request_json(endpoint, f"/api/v1/providers/{provider_id}/models", timeout=8.0)
+            models = request_json(endpoint, f"/v1/model-mount/providers/{provider_id}/models", timeout=8.0)
             provider_summary["modelCount"] = len(models) if isinstance(models, list) else 0
             provider_summary["modelIds"] = [
                 str(model.get("modelId") or model.get("id"))
@@ -426,7 +426,7 @@ def collect_live_provider_state(endpoint: str) -> dict[str, Any]:
         except Exception as error:
             provider_summary["modelsErrorClass"] = type(error).__name__
         try:
-            loaded = request_json(endpoint, f"/api/v1/providers/{provider_id}/loaded", timeout=8.0)
+            loaded = request_json(endpoint, f"/v1/model-mount/providers/{provider_id}/loaded", timeout=8.0)
             provider_summary["loadedCount"] = len(loaded) if isinstance(loaded, list) else 0
             provider_summary["loadedModelIds"] = [
                 str(model.get("modelId") or model.get("id"))
@@ -1114,7 +1114,7 @@ def exercise_token_mcp_actions(
 
     press_action_shortcut(window_id, "F15")
     time.sleep(1.5)
-    latest_vault = request_json(endpoint, "/api/v1/vault/health/latest", token=str(seed.get("token") or ""))
+    latest_vault = request_json(endpoint, "/v1/model-mount/vault/health/latest", token=str(seed.get("token") or ""))
     action_screenshots.append(
         capture_action_state(
             window_id,

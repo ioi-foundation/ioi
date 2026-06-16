@@ -26,7 +26,7 @@ test("Autopilot Mounts workbench is wired to daemon API without persisting capab
     "/v1/model-mount/backends",
     "/v1/models/catalog/search",
     "/v1/model-mount/catalog/import-url",
-    "/api/v1/models/catalog/providers/",
+    "/v1/model-mount/catalog/providers/",
     "/v1/model-mount/storage/cleanup",
     "/v1/model-mount/artifacts/:id",
     "/v1/model-mount/runtime/engines",
@@ -36,19 +36,19 @@ test("Autopilot Mounts workbench is wired to daemon API without persisting capab
     "/v1/model-mount/backends/:id/start",
     "/v1/model-mount/backends/:id/stop",
     "/v1/model-mount/backends/:id/logs",
-    "/api/v1/tokens",
+    "/v1/model-mount/tokens",
     "/v1/model-mount/instances/load",
     "/v1/model-mount/instances/unload",
     "/v1/model-mount/downloads",
     "/v1/model-mount/downloads/:id/cancel",
-    "/api/v1/providers/:id/models",
-    "/api/v1/providers/:id/loaded",
-    "/api/v1/providers/:id/health/latest",
-    "/api/v1/providers",
-    "/api/v1/vault/refs",
-    "/api/v1/vault/status",
-    "/api/v1/vault/health",
-    "/api/v1/vault/health/latest",
+    "/v1/model-mount/providers/:id/models",
+    "/v1/model-mount/providers/:id/loaded",
+    "/v1/model-mount/providers/:id/health/latest",
+    "/v1/model-mount/providers",
+    "/v1/model-mount/vault/refs",
+    "/v1/model-mount/vault/status",
+    "/v1/model-mount/vault/health",
+    "/v1/model-mount/vault/health/latest",
     "/api/v1/chat",
     "/api/v1/responses",
     "/api/v1/embeddings",
@@ -169,8 +169,8 @@ test("Autopilot Mounts workbench is wired to daemon API without persisting capab
   assert.match(source, /onOpenUrl/);
   assert.match(source, /completeCatalogProviderOAuthCallback/);
   assert.match(source, /catalog-oauth-deeplink-callback/);
-  assert.match(source, /\/api\/v1\/models\/catalog\/providers\/\$\{encodeURIComponent\(draft\.providerId\)\}\/oauth\/start/);
-  assert.match(source, /\/api\/v1\/models\/catalog\/providers\/\$\{encodeURIComponent\(draft\.providerId\)\}\/oauth\/callback/);
+  assert.match(source, /\/v1\/model-mount\/catalog\/providers\/\$\{encodeURIComponent\(draft\.providerId\)\}\/oauth\/start/);
+  assert.match(source, /\/v1\/model-mount\/catalog\/providers\/\$\{encodeURIComponent\(draft\.providerId\)\}\/oauth\/callback/);
   assert.match(source, /Start OAuth/);
   assert.match(source, /Open authorization URL/);
   assert.match(source, /Copy authorization URL/);
@@ -262,7 +262,7 @@ test("Autopilot Mounts workbench is wired to daemon API without persisting capab
   assert.match(source, /grant hash only/);
   assert.match(source, /createTokenFromDraft/);
   assert.match(source, /revokeTokenGrant/);
-  assert.match(source, /\/api\/v1\/tokens\/\$\{encodeURIComponent\(tokenId\)\}/);
+  assert.match(source, /\/v1\/model-mount\/tokens\/\$\{encodeURIComponent\(tokenId\)\}/);
   assert.match(source, /tokenDraftPayload/);
   assert.match(source, /model-mounts-token-editor/);
   assert.match(source, /Revoke/);
@@ -456,6 +456,7 @@ test("Mounts OAuth callback is daemon-owned and not packaged as a Tauri deep lin
   const daemonSource = [
     "index.mjs",
     "runtime-route-handlers.mjs",
+    "http/public-runtime-routes.mjs",
   ].map((fileName) =>
     fs.readFileSync(path.join(root, "packages", "runtime-daemon", "src", fileName), "utf8"),
   ).join("\n");
@@ -473,15 +474,15 @@ test("Mounts OAuth callback is daemon-owned and not packaged as a Tauri deep lin
   );
 
   assert.equal(fs.existsSync(srcTauriPath), false);
-  assert.match(daemonSource, /segments\[6\] === "oauth"/);
-  assert.match(daemonSource, /segments\[7\] === "start"/);
-  assert.match(daemonSource, /segments\[7\] === "callback"/);
-  assert.match(daemonSource, /segments\[7\] === "exchange"/);
-  assert.match(daemonSource, /segments\[7\] === "refresh"/);
-  assert.match(daemonSource, /segments\[7\] === "revoke"/);
+  assert.match(daemonSource, /segments\[5\] === "oauth"/);
+  assert.match(daemonSource, /segments\[6\] === "start"/);
+  assert.match(daemonSource, /segments\[6\] === "callback"/);
+  assert.match(daemonSource, /segments\[6\] === "exchange"/);
+  assert.match(daemonSource, /segments\[6\] === "refresh"/);
+  assert.match(daemonSource, /segments\[6\] === "revoke"/);
   assert.match(liveGate, /ioi:\/\/mounts\/oauth\/callback/);
   assert.match(liveGate, /IOI_MODEL_CATALOG_OAUTH_LOCAL_CALLBACK/);
-  assert.match(liveGate, /\/api\/v1\/models\/catalog\/providers\/\$\{encodeURIComponent\(providerId\)\}\/oauth\/callback/);
+  assert.match(liveGate, /\/v1\/model-mount\/catalog\/providers\/\$\{encodeURIComponent\(providerId\)\}\/oauth\/callback/);
   assert.match(workbenchExtension, /IOI_DAEMON_ENDPOINT/);
   assert.match(workbenchExtension, /ioi\.models\.open/);
   assert.ok(
@@ -721,14 +722,14 @@ test("model mounting CLI exposes vault-backed provider configuration flags", () 
   for (const token of [
     "ProviderSet",
     "VaultCommands",
-    "/api/v1/providers",
+    "/v1/model-mount/providers",
     "/v1/models/catalog/search",
     "/v1/model-mount/catalog/import-url",
     "/v1/model-mount/storage/cleanup",
-    "/api/v1/vault/refs",
-    "/api/v1/vault/status",
-    "/api/v1/vault/health",
-    "/api/v1/vault/health/latest",
+    "/v1/model-mount/vault/refs",
+    "/v1/model-mount/vault/status",
+    "/v1/model-mount/vault/health",
+    "/v1/model-mount/vault/health/latest",
     "/health/latest",
     "secret_ref",
     "auth_scheme",
@@ -767,7 +768,7 @@ test("model mounting CLI exposes vault-backed provider configuration flags", () 
     "Events",
     "Raw keys are rejected by the daemon",
     "/api/v1/tokenize",
-    "/api/v1/tokens/count",
+    "/v1/model-mount/tokens/count",
     "/api/v1/context/fit",
   ]) {
     assert.match(combinedSource, new RegExp(token.replaceAll("/", "\\/")));

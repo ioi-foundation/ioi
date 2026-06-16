@@ -446,7 +446,7 @@ async function main() {
       });
       assert.equal(unauthenticated.response.status, 401);
 
-      const deniedGrant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+      const deniedGrant = await expectOk(daemon.endpoint, "/v1/model-mount/tokens", {
         method: "POST",
         body: { allowed: ["model.chat:*"], denied: ["model.chat:*"] },
       });
@@ -458,7 +458,7 @@ async function main() {
       });
       assert.equal(denied.response.status, 403);
 
-      const expiredGrant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+      const expiredGrant = await expectOk(daemon.endpoint, "/v1/model-mount/tokens", {
         method: "POST",
         body: { allowed: ["model.chat:*"], expiresAt: "2000-01-01T00:00:00.000Z" },
       });
@@ -470,12 +470,12 @@ async function main() {
       });
       assert.equal(expired.response.status, 403);
 
-      const revokedGrant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+      const revokedGrant = await expectOk(daemon.endpoint, "/v1/model-mount/tokens", {
         method: "POST",
         body: { allowed: ["model.chat:*"] },
       });
       secretNeedles.push(revokedGrant.token);
-      await expectOk(daemon.endpoint, `/api/v1/tokens/${revokedGrant.id}`, { method: "DELETE" });
+      await expectOk(daemon.endpoint, `/v1/model-mount/tokens/${revokedGrant.id}`, { method: "DELETE" });
       const revoked = await requestJson(daemon.endpoint, "/api/v1/chat", {
         method: "POST",
         token: revokedGrant.token,
@@ -491,7 +491,7 @@ async function main() {
     });
 
     mainGrant = await runStep(evidence, "create scoped capability token", async () => {
-      const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+      const grant = await expectOk(daemon.endpoint, "/v1/model-mount/tokens", {
         method: "POST",
         body: {
           audience: "autopilot-local-server",
@@ -804,7 +804,7 @@ async function main() {
       assert.equal(tokenizationReceipt.details.operation, "tokenize");
       assert.equal(tokenizationReceipt.details.selectedModel, "native:e2e");
 
-      const counted = await expectOk(daemon.endpoint, "/api/v1/tokens/count", {
+      const counted = await expectOk(daemon.endpoint, "/v1/model-mount/tokens/count", {
         method: "POST",
         token,
         body: { route_id: "route.native-local", model: "native:e2e", input: "count these e2e tokens" },
@@ -1571,7 +1571,7 @@ async function main() {
       assert.equal(restartedProcess.staleReason, "daemon_boot_mismatch");
       const runtimeSurveyReplay = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${runtimeSurveyReceiptId}/replay`);
       assert.equal(runtimeSurveyReplay.receipt.id, runtimeSurveyReceiptId);
-      const vaultMeta = await expectOk(daemon.endpoint, "/api/v1/vault/refs/meta", {
+      const vaultMeta = await expectOk(daemon.endpoint, "/v1/model-mount/vault/refs/meta", {
         method: "POST",
         token,
         body: { vault_ref: cliVaultRef },

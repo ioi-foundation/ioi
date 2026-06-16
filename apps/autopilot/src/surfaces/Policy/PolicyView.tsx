@@ -384,7 +384,7 @@ export function PolicyView({
       const endpoint = readAuthorityDaemonEndpoint();
       setAuthorityBusyAction(`grant:${capability.id}`);
       try {
-        const result = await fetchAuthorityJson(endpoint, "/api/v1/tokens", {
+        const result = await fetchAuthorityJson(endpoint, "/v1/model-mount/tokens", {
           method: "POST",
           body: buildAuthorityGrantRequestPayload(capability),
         });
@@ -453,7 +453,7 @@ export function PolicyView({
       try {
         const result = await fetchAuthorityJson(
           endpoint,
-          `/api/v1/tokens/${encodeURIComponent(grant.id)}`,
+          `/v1/model-mount/tokens/${encodeURIComponent(grant.id)}`,
           { method: "DELETE" },
         );
         const revoked = authorityRecord(result);

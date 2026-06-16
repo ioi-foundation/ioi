@@ -78,7 +78,7 @@ pub async fn run(args: VaultArgs) -> Result<()> {
                 endpoint,
                 token,
                 Method::POST,
-                "/api/v1/vault/refs",
+                "/v1/model-mount/vault/refs",
                 Some(json!({
                     "vault_ref": vault_ref,
                     "material": material,
@@ -89,10 +89,10 @@ pub async fn run(args: VaultArgs) -> Result<()> {
             .await?
         }
         VaultCommands::Ls => {
-            daemon_request(endpoint, token, Method::GET, "/api/v1/vault/refs", None).await?
+            daemon_request(endpoint, token, Method::GET, "/v1/model-mount/vault/refs", None).await?
         }
         VaultCommands::Status => {
-            daemon_request(endpoint, token, Method::GET, "/api/v1/vault/status", None).await?
+            daemon_request(endpoint, token, Method::GET, "/v1/model-mount/vault/status", None).await?
         }
         VaultCommands::Health { latest } => {
             if latest {
@@ -100,12 +100,12 @@ pub async fn run(args: VaultArgs) -> Result<()> {
                     endpoint,
                     token,
                     Method::GET,
-                    "/api/v1/vault/health/latest",
+                    "/v1/model-mount/vault/health/latest",
                     None,
                 )
                 .await?
             } else {
-                daemon_request(endpoint, token, Method::POST, "/api/v1/vault/health", None).await?
+                daemon_request(endpoint, token, Method::POST, "/v1/model-mount/vault/health", None).await?
             }
         }
         VaultCommands::GetMeta { vault_ref } => {
@@ -113,7 +113,7 @@ pub async fn run(args: VaultArgs) -> Result<()> {
                 endpoint,
                 token,
                 Method::POST,
-                "/api/v1/vault/refs/meta",
+                "/v1/model-mount/vault/refs/meta",
                 Some(json!({ "vault_ref": vault_ref })),
             )
             .await?
@@ -123,7 +123,7 @@ pub async fn run(args: VaultArgs) -> Result<()> {
                 endpoint,
                 token,
                 Method::DELETE,
-                "/api/v1/vault/refs",
+                "/v1/model-mount/vault/refs",
                 Some(json!({ "vault_ref": vault_ref })),
             )
             .await?

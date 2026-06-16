@@ -314,7 +314,7 @@ async function discoverProviderModels(endpoint, token, providerId) {
   try {
     const models = await requestJson(
       endpoint,
-      `/api/v1/providers/${encodeURIComponent(providerId)}/models`,
+      `/v1/model-mount/providers/${encodeURIComponent(providerId)}/models`,
       { token },
     );
     return Array.isArray(models) ? models : [];
@@ -519,7 +519,7 @@ async function startManagedDaemon() {
   mkdirSync(stateDir, { recursive: true });
   configureNativeLlamaCppEnvDefaults();
   const daemon = await startRuntimeDaemonService({ cwd: repoRoot, stateDir });
-  const grant = await requestJson(daemon.endpoint, "/api/v1/tokens", {
+  const grant = await requestJson(daemon.endpoint, "/v1/model-mount/tokens", {
     method: "POST",
     body: { allowed: DAEMON_SCOPES },
   });

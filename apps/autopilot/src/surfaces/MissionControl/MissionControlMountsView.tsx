@@ -2183,7 +2183,7 @@ function useModelMountsDaemon() {
   );
 
   const issueToken = useCallback(async () => {
-    const grant = await requestJson("/api/v1/tokens", {
+    const grant = await requestJson("/v1/model-mount/tokens", {
       method: "POST",
       body: {
         audience: "autopilot-local-server",
@@ -2297,7 +2297,7 @@ function useModelMountsDaemon() {
         }),
       createTokenFromDraft: (draft: TokenDraft) =>
         runAction("token-create", async () => {
-          const grant = await requestJson("/api/v1/tokens", {
+          const grant = await requestJson("/v1/model-mount/tokens", {
             method: "POST",
             body: tokenDraftPayload(draft),
           });
@@ -2310,12 +2310,12 @@ function useModelMountsDaemon() {
         }),
       revokeTokenGrant: (tokenId: string) =>
         runAction("token-revoke", async () => {
-          await requestJson(`/api/v1/tokens/${encodeURIComponent(tokenId)}`, { method: "DELETE" });
+          await requestJson(`/v1/model-mount/tokens/${encodeURIComponent(tokenId)}`, { method: "DELETE" });
           return `${tokenId} revoked through the wallet authority boundary.`;
         }),
       createValidationToken: () =>
         runAction("token-create-validation", async () => {
-          const grant = await requestJson("/api/v1/tokens", {
+          const grant = await requestJson("/v1/model-mount/tokens", {
             method: "POST",
             body: tokenDraftPayload({
               ...defaultTokenDraft,
@@ -2332,7 +2332,7 @@ function useModelMountsDaemon() {
             .filter((candidate) => candidate.grantId === VALIDATION_TOKEN_GRANT_ID && candidate.state !== "revoked")
             .at(-1);
           if (!token) throw new Error("No active validation token grant is projected yet.");
-          await requestJson(`/api/v1/tokens/${encodeURIComponent(token.id)}`, { method: "DELETE" });
+          await requestJson(`/v1/model-mount/tokens/${encodeURIComponent(token.id)}`, { method: "DELETE" });
           return `${token.id} validation grant revoked.`;
         }),
       startServer: () =>
@@ -2471,7 +2471,7 @@ function useModelMountsDaemon() {
 		                  auth_scheme: draft.authScheme,
 		                  auth_header_name: draft.authHeaderName,
 		                };
-	          const result = await requestJson(`/api/v1/models/catalog/providers/${encodeURIComponent(draft.providerId)}`, {
+	          const result = await requestJson(`/v1/model-mount/catalog/providers/${encodeURIComponent(draft.providerId)}`, {
 	            method: "PATCH",
 	            token,
 	            body,
@@ -2505,7 +2505,7 @@ function useModelMountsDaemon() {
       startCatalogProviderOAuth: (draft: CatalogOAuthDraft) =>
         runAction("catalog-oauth-start", async () => {
           const token = await ensureToken();
-          const result = await requestJson(`/api/v1/models/catalog/providers/${encodeURIComponent(draft.providerId)}/oauth/start`, {
+          const result = await requestJson(`/v1/model-mount/catalog/providers/${encodeURIComponent(draft.providerId)}/oauth/start`, {
             method: "POST",
             token,
             body: catalogOAuthStartPayload(draft),
@@ -2518,7 +2518,7 @@ function useModelMountsDaemon() {
         runAction("catalog-oauth-callback", async () => {
           const token = await ensureToken();
           const callback = catalogOAuthCallbackPayload(draft, catalogOAuthAuthorization);
-          const result = await requestJson(`/api/v1/models/catalog/providers/${encodeURIComponent(draft.providerId)}/oauth/callback`, {
+          const result = await requestJson(`/v1/model-mount/catalog/providers/${encodeURIComponent(draft.providerId)}/oauth/callback`, {
             method: "POST",
             token,
             body: callback,
@@ -2529,7 +2529,7 @@ function useModelMountsDaemon() {
       completeCatalogProviderOAuthCallback: (providerId: string, callback: CatalogOAuthCallbackDeepLink) =>
         runAction("catalog-oauth-deeplink-callback", async () => {
           const token = await ensureToken();
-          const result = await requestJson(`/api/v1/models/catalog/providers/${encodeURIComponent(providerId)}/oauth/callback`, {
+          const result = await requestJson(`/v1/model-mount/catalog/providers/${encodeURIComponent(providerId)}/oauth/callback`, {
             method: "POST",
             token,
             body: {
@@ -2952,7 +2952,7 @@ function useModelMountsDaemon() {
       configureProvider: (draft: ProviderDraft) =>
         runAction("provider-configure", async () => {
           const token = await ensureToken();
-          await requestJson("/api/v1/providers", {
+          await requestJson("/v1/model-mount/providers", {
             method: "POST",
             token,
             body: providerDraftPayload(draft),
@@ -2962,7 +2962,7 @@ function useModelMountsDaemon() {
       bindVaultSecret: (draft: ProviderDraft) =>
         runAction("vault-bind", async () => {
           const token = await ensureToken();
-          await requestJson("/api/v1/vault/refs", {
+          await requestJson("/v1/model-mount/vault/refs", {
             method: "POST",
             token,
             body: {
@@ -2977,7 +2977,7 @@ function useModelMountsDaemon() {
       checkVaultAdapter: () =>
         runAction("vault-health", async () => {
           const token = await ensureToken();
-          const health = await requestJson("/api/v1/vault/health", {
+          const health = await requestJson("/v1/model-mount/vault/health", {
             method: "POST",
             token,
           });
@@ -2986,19 +2986,19 @@ function useModelMountsDaemon() {
       latestVaultHealth: () =>
         runAction("vault-health-latest", async () => {
           const token = await ensureToken();
-          const latest = await requestJson("/api/v1/vault/health/latest", { token });
+          const latest = await requestJson("/v1/model-mount/vault/health/latest", { token });
           const status = stringValue(latest?.health?.status, "unknown");
           const receiptId = stringValue(latest?.receipt?.id, "no receipt");
           return `Latest vault adapter health is ${status}; receipt ${receiptId}.`;
         }),
       testProviderHealth: (providerId: string) =>
         runAction("provider-health", async () => {
-          await requestJson(`/api/v1/providers/${encodeURIComponent(providerId)}/health`, { method: "POST" });
+          await requestJson(`/v1/model-mount/providers/${encodeURIComponent(providerId)}/health`, { method: "POST" });
           return `${providerId} health probe completed.`;
         }),
       latestProviderHealth: (providerId: string) =>
         runAction("provider-health-latest", async () => {
-          const latest = await requestJson(`/api/v1/providers/${encodeURIComponent(providerId)}/health/latest`);
+          const latest = await requestJson(`/v1/model-mount/providers/${encodeURIComponent(providerId)}/health/latest`);
           const status = stringValue(latest?.health?.status, "unknown");
           const receiptId = stringValue(latest?.receipt?.id, "no receipt");
           return `${providerId} latest health is ${status}; receipt ${receiptId}.`;
@@ -3009,9 +3009,9 @@ function useModelMountsDaemon() {
           const providerIds = healthSweepProviderTargets(data.providers);
           const backendIds = healthSweepBackendTargets(data.backends);
           const probes = [
-            requestJson("/api/v1/vault/health", { method: "POST", token }),
+            requestJson("/v1/model-mount/vault/health", { method: "POST", token }),
             ...providerIds.map((providerId) =>
-              requestJson(`/api/v1/providers/${encodeURIComponent(providerId)}/health`, { method: "POST" }),
+              requestJson(`/v1/model-mount/providers/${encodeURIComponent(providerId)}/health`, { method: "POST" }),
             ),
             ...backendIds.map((backendId) =>
               requestJson(`/v1/model-mount/backends/${encodeURIComponent(backendId)}/health`, { method: "POST" }),
@@ -3111,20 +3111,20 @@ function useModelMountsDaemon() {
         }),
       listProviderModels: (providerId: string) =>
         runAction("provider-models", async () => {
-          const models = await requestJson(`/api/v1/providers/${encodeURIComponent(providerId)}/models`);
+          const models = await requestJson(`/v1/model-mount/providers/${encodeURIComponent(providerId)}/models`);
           const count = Array.isArray(models) ? models.length : 0;
           return `${providerId} returned ${count} provider model${count === 1 ? "" : "s"}.`;
         }),
       listProviderLoaded: (providerId: string) =>
         runAction("provider-loaded", async () => {
-          const loaded = await requestJson(`/api/v1/providers/${encodeURIComponent(providerId)}/loaded`);
+          const loaded = await requestJson(`/v1/model-mount/providers/${encodeURIComponent(providerId)}/loaded`);
           const count = Array.isArray(loaded) ? loaded.length : 0;
           return `${providerId} returned ${count} loaded provider model${count === 1 ? "" : "s"}.`;
         }),
       startProvider: (providerId: string) =>
         runAction("provider-start", async () => {
           const token = await ensureToken();
-          const result = await requestJson(`/api/v1/providers/${encodeURIComponent(providerId)}/start`, {
+          const result = await requestJson(`/v1/model-mount/providers/${encodeURIComponent(providerId)}/start`, {
             method: "POST",
             token,
           });
@@ -3133,7 +3133,7 @@ function useModelMountsDaemon() {
       stopProvider: (providerId: string) =>
         runAction("provider-stop", async () => {
           const token = await ensureToken();
-          const result = await requestJson(`/api/v1/providers/${encodeURIComponent(providerId)}/stop`, {
+          const result = await requestJson(`/v1/model-mount/providers/${encodeURIComponent(providerId)}/stop`, {
             method: "POST",
             token,
           });
@@ -4578,14 +4578,14 @@ function ServerPanel({
           "DELETE /v1/model-mount/artifacts/:id",
           "GET /v1/model-mount/downloads/:id/status",
           "POST /v1/model-mount/downloads/:id/cancel",
-          "GET /api/v1/vault/refs",
-          "GET /api/v1/vault/status",
-          "POST /api/v1/vault/health",
-          "GET /api/v1/vault/health/latest",
-          "POST /api/v1/vault/refs",
-          "GET /api/v1/providers/:id/models",
-          "GET /api/v1/providers/:id/loaded",
-          "GET /api/v1/providers/:id/health/latest",
+          "GET /v1/model-mount/vault/refs",
+          "GET /v1/model-mount/vault/status",
+          "POST /v1/model-mount/vault/health",
+          "GET /v1/model-mount/vault/health/latest",
+          "POST /v1/model-mount/vault/refs",
+          "GET /v1/model-mount/providers/:id/models",
+          "GET /v1/model-mount/providers/:id/loaded",
+          "GET /v1/model-mount/providers/:id/health/latest",
           "POST /api/v1/chat",
           "GET /v1/models",
           "POST /v1/chat/completions",

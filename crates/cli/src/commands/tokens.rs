@@ -52,7 +52,7 @@ pub async fn run(args: TokensArgs) -> Result<()> {
     let token = args.token.as_deref();
     let value = match args.command {
         TokensCommands::Ls => {
-            daemon_request(endpoint, token, Method::GET, "/api/v1/tokens", None).await?
+            daemon_request(endpoint, token, Method::GET, "/v1/model-mount/tokens", None).await?
         }
         TokensCommands::Create {
             audience,
@@ -71,7 +71,7 @@ pub async fn run(args: TokensArgs) -> Result<()> {
                 endpoint,
                 token,
                 Method::POST,
-                "/api/v1/tokens",
+                "/v1/model-mount/tokens",
                 Some(Value::Object(body)),
             )
             .await?
@@ -81,7 +81,7 @@ pub async fn run(args: TokensArgs) -> Result<()> {
                 endpoint,
                 token,
                 Method::DELETE,
-                &format!("/api/v1/tokens/{id}"),
+                &format!("/v1/model-mount/tokens/{id}"),
                 None,
             )
             .await?
@@ -95,7 +95,7 @@ pub async fn run(args: TokensArgs) -> Result<()> {
                 endpoint,
                 token,
                 Method::POST,
-                "/api/v1/tokens/count",
+                "/v1/model-mount/tokens/count",
                 Some(json!({
                     "model": model,
                     "route_id": route_id,

@@ -395,7 +395,7 @@ pub async fn run(args: ModelsArgs) -> Result<()> {
                 endpoint,
                 token,
                 Method::GET,
-                &format!("/api/v1/providers/{provider_id}/models"),
+                &format!("/v1/model-mount/providers/{provider_id}/models"),
                 None,
             )
             .await?
@@ -405,7 +405,7 @@ pub async fn run(args: ModelsArgs) -> Result<()> {
                 endpoint,
                 token,
                 Method::GET,
-                &format!("/api/v1/providers/{provider_id}/loaded"),
+                &format!("/v1/model-mount/providers/{provider_id}/loaded"),
                 None,
             )
             .await?
@@ -459,7 +459,7 @@ pub async fn run(args: ModelsArgs) -> Result<()> {
                     endpoint,
                     token,
                     Method::GET,
-                    &format!("/api/v1/providers/{provider_id}/health/latest"),
+                    &format!("/v1/model-mount/providers/{provider_id}/health/latest"),
                     None,
                 )
                 .await?
@@ -468,7 +468,7 @@ pub async fn run(args: ModelsArgs) -> Result<()> {
                     endpoint,
                     token,
                     Method::POST,
-                    &format!("/api/v1/providers/{provider_id}/health"),
+                    &format!("/v1/model-mount/providers/{provider_id}/health"),
                     None,
                 )
                 .await?
@@ -491,7 +491,7 @@ pub async fn run(args: ModelsArgs) -> Result<()> {
                 endpoint,
                 token,
                 Method::POST,
-                "/api/v1/providers",
+                "/v1/model-mount/providers",
                 Some(json!({
                     "id": id,
                     "kind": kind,

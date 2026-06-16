@@ -101,7 +101,7 @@ test("catalog search and provider configuration preserve daemon route envelopes"
   assert.equal(requests[0].options.method, "GET");
   assert.equal(
     requests[1].route,
-    "/api/v1/models/catalog/providers/catalog.local_manifest",
+    "/v1/model-mount/catalog/providers/catalog.local_manifest",
   );
   assert.deepEqual(requests[1].options.payload, {
     enabled: false,

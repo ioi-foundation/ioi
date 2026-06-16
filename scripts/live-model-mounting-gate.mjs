@@ -781,7 +781,7 @@ async function runLmStudioGate(evidence) {
   await withDaemon(async ({ daemon, stateDir }) => {
     evidence.details.daemonEndpoint = daemon.endpoint;
     evidence.details.stateDir = stateDir;
-    const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+    const grant = await expectOk(daemon.endpoint, "/v1/model-mount/tokens", {
       method: "POST",
       body: {
         allowed: [
@@ -796,8 +796,8 @@ async function runLmStudioGate(evidence) {
         denied: ["filesystem.write", "shell.exec"],
       },
     });
-    const providerModels = await expectOk(daemon.endpoint, "/api/v1/providers/provider.lmstudio/models");
-    const providerLoaded = await expectOk(daemon.endpoint, "/api/v1/providers/provider.lmstudio/loaded");
+    const providerModels = await expectOk(daemon.endpoint, "/v1/model-mount/providers/provider.lmstudio/models");
+    const providerLoaded = await expectOk(daemon.endpoint, "/v1/model-mount/providers/provider.lmstudio/loaded");
     const providerModelIds = new Set(providerModels.map((model) => model.modelId));
     const loadedModelIds = providerLoaded
       .filter((model) => model.capabilities?.includes?.("chat"))
@@ -949,7 +949,7 @@ async function runLlamaCppGate(evidence) {
         evidence.details.llamaCpp.baseUrlHash = stableHash(baseUrl);
         evidence.details.llamaCpp.modelId = modelId;
 
-        const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+        const grant = await expectOk(daemon.endpoint, "/v1/model-mount/tokens", {
           method: "POST",
           body: {
             allowed: [
@@ -1134,7 +1134,7 @@ async function waitForProviderModels(endpoint, providerId, timeoutMs) {
   let lastError = null;
   while (Date.now() < deadline) {
     try {
-      const models = await expectOk(endpoint, `/api/v1/providers/${providerId}/models`);
+      const models = await expectOk(endpoint, `/v1/model-mount/providers/${providerId}/models`);
       if (Array.isArray(models) && models.length > 0) return models;
     } catch (error) {
       lastError = error;
@@ -1150,7 +1150,7 @@ async function waitForProviderHealth(endpoint, providerId, timeoutMs) {
   let lastError = null;
   while (Date.now() < deadline) {
     try {
-      const health = await expectOk(endpoint, `/api/v1/providers/${providerId}/health`, { method: "POST" });
+      const health = await expectOk(endpoint, `/v1/model-mount/providers/${providerId}/health`, { method: "POST" });
       lastHealth = health;
       if (health.status === "available") return health;
     } catch (error) {
@@ -1209,7 +1209,7 @@ async function runModelBackendsGate(evidence) {
     }
     const result = { checked, available };
     if (wants("ollama") && available.some((backend) => backend.kind === "ollama")) {
-      const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+      const grant = await expectOk(daemon.endpoint, "/v1/model-mount/tokens", {
         method: "POST",
         body: {
           allowed: [
@@ -1232,7 +1232,7 @@ async function runModelBackendsGate(evidence) {
             body: { load_options: { identifier: "ollama-live-backend-gate" } },
           })
         : null;
-      const providerModels = await expectOk(daemon.endpoint, "/api/v1/providers/provider.ollama/models");
+      const providerModels = await expectOk(daemon.endpoint, "/v1/model-mount/providers/provider.ollama/models");
       const configuredChatModel = process.env.IOI_OLLAMA_CHAT_MODEL;
       const chatModel =
         providerModels.find((model) => configuredChatModel && model.modelId === configuredChatModel)?.modelId ??
@@ -1268,7 +1268,7 @@ async function runModelBackendsGate(evidence) {
         body: { endpoint_id: chatEndpoint.id, load_policy: { mode: "manual", autoEvict: false } },
       });
       assert.equal(chatLoaded.backend, "ollama");
-      const providerLoaded = await expectOk(daemon.endpoint, "/api/v1/providers/provider.ollama/loaded");
+      const providerLoaded = await expectOk(daemon.endpoint, "/v1/model-mount/providers/provider.ollama/loaded");
       assert.ok(providerLoaded.some((model) => model.modelId === chatModel));
       const chat = await expectOk(daemon.endpoint, "/api/v1/chat", {
         method: "POST",
@@ -1358,7 +1358,7 @@ async function runModelBackendsGate(evidence) {
       };
     }
     if (wants("vllm") && available.some((backend) => backend.kind === "vllm")) {
-      const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+      const grant = await expectOk(daemon.endpoint, "/v1/model-mount/tokens", {
         method: "POST",
         body: {
           allowed: [
@@ -1406,7 +1406,7 @@ async function runModelBackendsGate(evidence) {
       try {
         providerModels = configuredModel
           ? await waitForProviderModels(daemon.endpoint, "provider.vllm", liveTimeoutMs)
-          : await expectOk(daemon.endpoint, "/api/v1/providers/provider.vllm/models");
+          : await expectOk(daemon.endpoint, "/v1/model-mount/providers/provider.vllm/models");
       } catch (error) {
         providerModelErrorHash = stableHash(String(error?.message ?? error));
       }
@@ -1478,7 +1478,7 @@ async function runModelBackendsGate(evidence) {
         });
         assert.equal(loaded.backend, "vllm");
         assert.equal(loaded.backendId, "backend.vllm");
-        const health = await expectOk(daemon.endpoint, "/api/v1/providers/provider.vllm/health", { method: "POST" });
+        const health = await expectOk(daemon.endpoint, "/v1/model-mount/providers/provider.vllm/health", { method: "POST" });
         assert.equal(health.status, "available");
         const responses = await expectOk(daemon.endpoint, "/api/v1/responses", {
           method: "POST",
@@ -1527,7 +1527,7 @@ async function runModelBackendsGate(evidence) {
           embeddingStatus = "unsupported_or_failed";
           embeddingErrorHash = stableHash(String(error?.message ?? error));
         }
-        const providerLoaded = await expectOk(daemon.endpoint, "/api/v1/providers/provider.vllm/loaded");
+        const providerLoaded = await expectOk(daemon.endpoint, "/v1/model-mount/providers/provider.vllm/loaded");
         assert.ok(providerLoaded.some((model) => model.modelId === selectedModel));
         const unloaded = await expectOk(daemon.endpoint, "/v1/model-mount/instances/unload", {
           method: "POST",
@@ -1656,7 +1656,7 @@ async function runModelCatalogGate(evidence) {
         };
         return;
       }
-      const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+      const grant = await expectOk(daemon.endpoint, "/v1/model-mount/tokens", {
         method: "POST",
         body: {
           allowed: ["model.download:*", "model.import:*"],
@@ -1868,7 +1868,7 @@ async function runModelCatalogOAuthGate(evidence) {
     await withDaemon(async ({ daemon, stateDir }) => {
     evidence.details.daemonEndpoint = daemon.endpoint;
     evidence.details.stateDir = stateDir;
-    const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+    const grant = await expectOk(daemon.endpoint, "/v1/model-mount/tokens", {
       method: "POST",
       body: {
         audience: "autopilot-local-server",
@@ -1878,7 +1878,7 @@ async function runModelCatalogOAuthGate(evidence) {
     });
 
     if (providerId === "catalog.custom_http" && customBaseUrl) {
-      await expectOk(daemon.endpoint, `/api/v1/models/catalog/providers/${encodeURIComponent(providerId)}`, {
+      await expectOk(daemon.endpoint, `/v1/model-mount/catalog/providers/${encodeURIComponent(providerId)}`, {
         method: "PATCH",
         token: grant.token,
         body: {
@@ -1890,7 +1890,7 @@ async function runModelCatalogOAuthGate(evidence) {
       });
     }
 
-    const started = await expectOk(daemon.endpoint, `/api/v1/models/catalog/providers/${encodeURIComponent(providerId)}/oauth/start`, {
+    const started = await expectOk(daemon.endpoint, `/v1/model-mount/catalog/providers/${encodeURIComponent(providerId)}/oauth/start`, {
       method: "POST",
       token: grant.token,
       body: {
@@ -2048,7 +2048,7 @@ async function runModelCatalogOAuthGate(evidence) {
       return;
     }
 
-    const completed = await expectOk(daemon.endpoint, `/api/v1/models/catalog/providers/${encodeURIComponent(providerId)}/oauth/callback`, {
+    const completed = await expectOk(daemon.endpoint, `/v1/model-mount/catalog/providers/${encodeURIComponent(providerId)}/oauth/callback`, {
       method: "POST",
       token: grant.token,
       body: {
@@ -2136,7 +2136,7 @@ async function runWalletGate(evidence) {
       await withDaemon(async ({ daemon, stateDir }) => {
         evidence.details.daemonEndpoint = daemon.endpoint;
         evidence.details.stateDir = stateDir;
-        const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+        const grant = await expectOk(daemon.endpoint, "/v1/model-mount/tokens", {
           method: "POST",
           body: {
             audience: "autopilot-local-server",
@@ -2145,12 +2145,12 @@ async function runWalletGate(evidence) {
             vault_refs: { provider_key: "vault://wallet.fake/provider-key" },
           },
         });
-        const listedTokens = await expectOk(daemon.endpoint, "/api/v1/tokens", { token: grant.token });
+        const listedTokens = await expectOk(daemon.endpoint, "/v1/model-mount/tokens", { token: grant.token });
         const listedGrant = listedTokens.find((token) => token.id === grant.id);
         assert.equal(listedGrant.vaultRefs.provider_key.redacted, true);
         assert.equal(JSON.stringify(listedGrant).includes("vault://wallet.fake/provider-key"), false);
 
-        const deniedGrant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+        const deniedGrant = await expectOk(daemon.endpoint, "/v1/model-mount/tokens", {
           method: "POST",
           body: {
             allowed: ["model.chat:*"],
@@ -2219,7 +2219,7 @@ async function runAgentgresGate(evidence) {
       await withDaemon(async ({ daemon, stateDir }) => {
         evidence.details.daemonEndpoint = daemon.endpoint;
         evidence.details.stateDir = stateDir;
-        const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+        const grant = await expectOk(daemon.endpoint, "/v1/model-mount/tokens", {
           method: "POST",
           body: {
             allowed: ["model.chat:*", "model.download:*"],

@@ -43,7 +43,7 @@ async function fetchSseEvents(url, options = {}) {
 }
 
 async function createDaemonModelInvocationToken(endpoint) {
-  const response = await fetch(`${endpoint}/api/v1/tokens`, {
+  const response = await fetch(`${endpoint}/v1/model-mount/tokens`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({

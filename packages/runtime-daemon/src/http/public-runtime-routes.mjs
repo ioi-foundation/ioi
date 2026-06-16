@@ -390,6 +390,56 @@ export function createPublicRuntimeRequestHandler(deps) {
         writeJsonResponse(response, await store.modelMounting.catalogSearch(Object.fromEntries(url.searchParams.entries())));
         return;
       }
+      if (
+        segments[0] === "v1" &&
+        segments[1] === "model-mount" &&
+        segments[2] === "catalog" &&
+        segments[3] === "providers" &&
+        segments[4]
+      ) {
+        const providerId = decodeURIComponent(segments[4]);
+        if (request.method === "GET" && !segments[5]) {
+          writeJsonResponse(response, store.modelMounting.getCatalogProviderConfig(providerId));
+          return;
+        }
+        if (request.method === "PATCH" && !segments[5]) {
+          store.modelMounting.authorize(request.headers.authorization, `provider.write:${providerId}`);
+          writeJsonResponse(response, store.modelMounting.configureCatalogProvider(providerId, await readBody(request)));
+          return;
+        }
+        if (segments[5] === "oauth" && segments[6]) {
+          if (request.method === "POST" && segments[6] === "start") {
+            store.modelMounting.authorize(request.headers.authorization, `provider.write:${providerId}`);
+            store.modelMounting.authorize(request.headers.authorization, "vault.write:*");
+            writeJsonResponse(response, store.modelMounting.startCatalogProviderOAuth(providerId, await readBody(request)), 201);
+            return;
+          }
+          if (request.method === "POST" && segments[6] === "callback") {
+            store.modelMounting.authorize(request.headers.authorization, `provider.write:${providerId}`);
+            store.modelMounting.authorize(request.headers.authorization, "vault.write:*");
+            writeJsonResponse(response, await store.modelMounting.completeCatalogProviderOAuth(providerId, await readBody(request)), 201);
+            return;
+          }
+          if (request.method === "POST" && segments[6] === "exchange") {
+            store.modelMounting.authorize(request.headers.authorization, `provider.write:${providerId}`);
+            store.modelMounting.authorize(request.headers.authorization, "vault.write:*");
+            writeJsonResponse(response, await store.modelMounting.exchangeCatalogProviderOAuth(providerId, await readBody(request)), 201);
+            return;
+          }
+          if (request.method === "POST" && segments[6] === "refresh") {
+            store.modelMounting.authorize(request.headers.authorization, `provider.write:${providerId}`);
+            store.modelMounting.authorize(request.headers.authorization, "vault.write:*");
+            writeJsonResponse(response, await store.modelMounting.refreshCatalogProviderOAuth(providerId));
+            return;
+          }
+          if (request.method === "POST" && segments[6] === "revoke") {
+            store.modelMounting.authorize(request.headers.authorization, `provider.write:${providerId}`);
+            store.modelMounting.authorize(request.headers.authorization, "vault.delete:*");
+            writeJsonResponse(response, store.modelMounting.revokeCatalogProviderOAuth(providerId));
+            return;
+          }
+        }
+      }
       if (request.method === "POST" && url.pathname === "/v1/model-mount/catalog/import-url") {
         store.modelMounting.authorize(request.headers.authorization, "model.download:*");
         store.modelMounting.authorize(request.headers.authorization, "model.import:*");
@@ -443,6 +493,119 @@ export function createPublicRuntimeRequestHandler(deps) {
         store.modelMounting.authorize(request.headers.authorization, "model.delete:*");
         writeJsonResponse(response, store.modelMounting.cleanupModelStorage(await readBody(request)));
         return;
+      }
+      if (request.method === "GET" && url.pathname === "/v1/model-mount/tokens") {
+        writeJsonResponse(response, store.modelMounting.listTokens());
+        return;
+      }
+      if (request.method === "POST" && url.pathname === "/v1/model-mount/tokens") {
+        writeJsonResponse(response, store.modelMounting.createToken(await readBody(request)), 201);
+        return;
+      }
+      if (request.method === "POST" && url.pathname === "/v1/model-mount/tokens/count") {
+        writeJsonResponse(
+          response,
+          store.modelMounting.countModelTokens({
+            authorization: request.headers.authorization,
+            requiredScope: "model.tokenize:*",
+            body: await readBody(request),
+          }),
+        );
+        return;
+      }
+      if (
+        request.method === "DELETE" &&
+        segments[0] === "v1" &&
+        segments[1] === "model-mount" &&
+        segments[2] === "tokens" &&
+        segments[3] &&
+        !segments[4]
+      ) {
+        writeJsonResponse(response, store.modelMounting.revokeToken(decodeURIComponent(segments[3])));
+        return;
+      }
+      if (request.method === "GET" && url.pathname === "/v1/model-mount/vault/refs") {
+        store.modelMounting.authorize(request.headers.authorization, "vault.read:*");
+        writeJsonResponse(response, store.modelMounting.listVaultRefs());
+        return;
+      }
+      if (request.method === "POST" && url.pathname === "/v1/model-mount/vault/refs") {
+        store.modelMounting.authorize(request.headers.authorization, "vault.write:*");
+        writeJsonResponse(response, store.modelMounting.bindVaultRef(await readBody(request)), 201);
+        return;
+      }
+      if (request.method === "DELETE" && url.pathname === "/v1/model-mount/vault/refs") {
+        store.modelMounting.authorize(request.headers.authorization, "vault.delete:*");
+        writeJsonResponse(response, store.modelMounting.removeVaultRef(await readBody(request)));
+        return;
+      }
+      if (request.method === "POST" && url.pathname === "/v1/model-mount/vault/refs/meta") {
+        store.modelMounting.authorize(request.headers.authorization, "vault.read:*");
+        writeJsonResponse(response, store.modelMounting.vaultRefMetadata(await readBody(request)));
+        return;
+      }
+      if (request.method === "GET" && url.pathname === "/v1/model-mount/vault/status") {
+        store.modelMounting.authorize(request.headers.authorization, "vault.read:*");
+        writeJsonResponse(response, store.modelMounting.vaultStatus());
+        return;
+      }
+      if (request.method === "POST" && url.pathname === "/v1/model-mount/vault/health") {
+        store.modelMounting.authorize(request.headers.authorization, "vault.read:*");
+        writeJsonResponse(response, store.modelMounting.vaultHealth());
+        return;
+      }
+      if (request.method === "GET" && url.pathname === "/v1/model-mount/vault/health/latest") {
+        store.modelMounting.authorize(request.headers.authorization, "vault.read:*");
+        writeJsonResponse(response, store.modelMounting.latestVaultHealth());
+        return;
+      }
+      if (request.method === "GET" && url.pathname === "/v1/model-mount/providers") {
+        writeJsonResponse(response, store.modelMounting.listProviders());
+        return;
+      }
+      if (request.method === "POST" && url.pathname === "/v1/model-mount/providers") {
+        store.modelMounting.authorize(request.headers.authorization, "provider.write:*");
+        writeJsonResponse(response, store.modelMounting.upsertProvider(await readBody(request)), 201);
+        return;
+      }
+      if (
+        segments[0] === "v1" &&
+        segments[1] === "model-mount" &&
+        segments[2] === "providers" &&
+        segments[3]
+      ) {
+        const providerId = decodeURIComponent(segments[3]);
+        if (request.method === "PATCH" && !segments[4]) {
+          store.modelMounting.authorize(request.headers.authorization, `provider.write:${providerId}`);
+          writeJsonResponse(response, store.modelMounting.upsertProvider({ ...(await readBody(request)), id: providerId }));
+          return;
+        }
+        if (request.method === "GET" && segments[4] === "health" && segments[5] === "latest") {
+          writeJsonResponse(response, store.modelMounting.latestProviderHealth(providerId));
+          return;
+        }
+        if (request.method === "POST" && segments[4] === "health") {
+          writeJsonResponse(response, await store.modelMounting.providerHealth(providerId));
+          return;
+        }
+        if (request.method === "GET" && segments[4] === "models") {
+          writeJsonResponse(response, await store.modelMounting.listProviderModels(providerId));
+          return;
+        }
+        if (request.method === "GET" && segments[4] === "loaded") {
+          writeJsonResponse(response, await store.modelMounting.listProviderLoaded(providerId));
+          return;
+        }
+        if (request.method === "POST" && segments[4] === "start") {
+          store.modelMounting.authorize(request.headers.authorization, `provider.control:${providerId}`);
+          writeJsonResponse(response, await store.modelMounting.startProvider(providerId));
+          return;
+        }
+        if (request.method === "POST" && segments[4] === "stop") {
+          store.modelMounting.authorize(request.headers.authorization, `provider.control:${providerId}`);
+          writeJsonResponse(response, await store.modelMounting.stopProvider(providerId));
+          return;
+        }
       }
       if (
         (request.method === "POST" || request.method === "DELETE") &&

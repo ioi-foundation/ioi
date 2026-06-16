@@ -43,7 +43,7 @@ const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-stage23-state-"));
 const daemon = await startRuntimeDaemonService({ cwd, stateDir });
 
 try {
-  const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+  const grant = await expectOk(daemon.endpoint, "/v1/model-mount/tokens", {
     method: "POST",
     body: {
       audience: "autopilot-local-server",

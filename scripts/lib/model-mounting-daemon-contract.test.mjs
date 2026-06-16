@@ -232,7 +232,7 @@ test("model=auto resolves to a canonical ModelRouteDecision before provider invo
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-model-route-decision-state-"));
   const daemon = await startRuntimeDaemonService({ cwd, stateDir });
   try {
-    const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+    const grant = await expectOk(daemon.endpoint, "/v1/model-mount/tokens", {
       method: "POST",
       body: { allowed: ["model.chat:*", "route.use:*"] },
     });
@@ -326,7 +326,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     });
     assert.equal(unauthenticatedServerStart.response.status, 401);
 
-    const blockedGrant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+    const blockedGrant = await expectOk(daemon.endpoint, "/v1/model-mount/tokens", {
       method: "POST",
       body: {
         allowed: ["model.chat:*"],
@@ -346,7 +346,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     });
     assert.equal(deniedMessages.response.status, 403);
 
-    const expiredGrant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+    const expiredGrant = await expectOk(daemon.endpoint, "/v1/model-mount/tokens", {
       method: "POST",
       body: {
         allowed: ["model.chat:*"],
@@ -365,7 +365,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     });
     assert.equal(unauthenticatedMessages.response.status, 401);
 
-    const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+    const grant = await expectOk(daemon.endpoint, "/v1/model-mount/tokens", {
       method: "POST",
       body: {
         audience: "autopilot-local-server",
@@ -395,7 +395,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     });
     assert.match(grant.token, /^ioi_mnt_/);
 
-    const vaultScopedGrant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+    const vaultScopedGrant = await expectOk(daemon.endpoint, "/v1/model-mount/tokens", {
       method: "POST",
       body: {
         allowed: ["route.use:*"],
@@ -440,18 +440,18 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.ok(snapshot.workflowNodes.every((node) => node.receiptRequired));
     assert.equal(snapshot.adapterBoundaries.vault.materialAdapter.implementation, "runtime_memory");
 
-    const vaultStatus = await expectOk(daemon.endpoint, "/api/v1/vault/status", { token: grant.token });
+    const vaultStatus = await expectOk(daemon.endpoint, "/v1/model-mount/vault/status", { token: grant.token });
     assert.equal(vaultStatus.materialAdapter.implementation, "runtime_memory");
-    const vaultHealth = await expectOk(daemon.endpoint, "/api/v1/vault/health", { method: "POST", token: grant.token });
+    const vaultHealth = await expectOk(daemon.endpoint, "/v1/model-mount/vault/health", { method: "POST", token: grant.token });
     assert.equal(vaultHealth.status, "session_only");
     assert.equal(vaultHealth.materialAdapter.writeAvailable, true);
     assert.equal(vaultHealth.materialAdapter.plaintextPersistence, false);
-    const latestVaultHealth = await expectOk(daemon.endpoint, "/api/v1/vault/health/latest", { token: grant.token });
+    const latestVaultHealth = await expectOk(daemon.endpoint, "/v1/model-mount/vault/health/latest", { token: grant.token });
     assert.equal(latestVaultHealth.receipt.id, vaultHealth.receiptId);
     assert.equal(latestVaultHealth.health.status, "session_only");
     assert.equal(latestVaultHealth.replay.receipt.id, vaultHealth.receiptId);
 
-    const nativeProviderModels = await expectOk(daemon.endpoint, "/api/v1/providers/provider.autopilot.local/models");
+    const nativeProviderModels = await expectOk(daemon.endpoint, "/v1/model-mount/providers/provider.autopilot.local/models");
     assert.ok(nativeProviderModels.some((model) => model.modelId === "autopilot:native-fixture"));
     const catalog = await expectOk(daemon.endpoint, "/v1/models/catalog/search?q=autopilot");
     assert.equal(catalog.providers.find((provider) => provider.id === "catalog.fixture")?.status, "available");
@@ -576,7 +576,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     });
     assert.equal(chat.route_id, "route.local-first");
     assert.match(chat.output_text, /IOI model router fixture response/);
-    const tokenListAfterUse = await expectOk(daemon.endpoint, "/api/v1/tokens");
+    const tokenListAfterUse = await expectOk(daemon.endpoint, "/v1/model-mount/tokens");
     const usedGrant = tokenListAfterUse.find((token) => token.id === grant.id);
     assert.equal(typeof usedGrant.lastUsedAt, "string");
     assert.equal(JSON.stringify(tokenListAfterUse).includes(grant.token), false);
@@ -744,7 +744,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.equal(tokenizedReceipt.details.grantId, grant.grantId);
     assert.equal(tokenizedReceipt.details.selectedModel, "native:imported");
 
-    const counted = await expectOk(daemon.endpoint, "/api/v1/tokens/count", {
+    const counted = await expectOk(daemon.endpoint, "/v1/model-mount/tokens/count", {
       method: "POST",
       token: grant.token,
       body: { route_id: "route.native-local", model: "native:imported", input: "count this native context" },
@@ -774,7 +774,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.equal(fittedReceipt.kind, "model_context_fit");
     assert.equal(fittedReceipt.details.operation, "context_fit");
 
-    const deniedTokenizerGrant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+    const deniedTokenizerGrant = await expectOk(daemon.endpoint, "/v1/model-mount/tokens", {
       method: "POST",
       body: {
         allowed: ["model.chat:*"],
@@ -1545,7 +1545,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     });
     assert.equal(blockedGate.response.status, 412);
 
-    const revoked = await expectOk(daemon.endpoint, `/api/v1/tokens/${grant.id}`, {
+    const revoked = await expectOk(daemon.endpoint, `/v1/model-mount/tokens/${grant.id}`, {
       method: "DELETE",
     });
     assert.equal(typeof revoked.revokedAt, "string");
@@ -1651,7 +1651,7 @@ test("model catalog provider ports unify fixture, manifest, custom HTTP, and Oll
   process.env.OLLAMA_HOST = ollamaServer.endpoint;
   const daemon = await startRuntimeDaemonService({ cwd, stateDir });
   try {
-    const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+    const grant = await expectOk(daemon.endpoint, "/v1/model-mount/tokens", {
       method: "POST",
       body: { allowed: ["model.download:*", "model.import:*", "provider.write:*"] },
     });
@@ -1693,7 +1693,7 @@ test("model catalog provider ports unify fixture, manifest, custom HTTP, and Oll
     assert.equal(customImport.download.variant.catalogProviderId, "catalog.custom_http");
     assert.equal(customImport.download.variant.format, "safetensors");
 
-    const configuredManifest = await expectOk(daemon.endpoint, "/api/v1/models/catalog/providers/catalog.local_manifest", {
+    const configuredManifest = await expectOk(daemon.endpoint, "/v1/model-mount/catalog/providers/catalog.local_manifest", {
       method: "PATCH",
       token: grant.token,
       body: { enabled: true, manifest_path: operatorManifestPath },
@@ -1707,7 +1707,7 @@ test("model catalog provider ports unify fixture, manifest, custom HTTP, and Oll
     assert.equal(directoryContainsNeedle(stateDir, operatorManifestPath), false);
 
     const catalogVaultRef = "vault://catalog/custom-http/header";
-    const configuredCustom = await expectOk(daemon.endpoint, "/api/v1/models/catalog/providers/catalog.custom_http", {
+    const configuredCustom = await expectOk(daemon.endpoint, "/v1/model-mount/catalog/providers/catalog.custom_http", {
       method: "PATCH",
       token: grant.token,
       body: { enabled: true, base_url: customCatalogServer.endpoint, auth_vault_ref: catalogVaultRef },
@@ -1722,7 +1722,7 @@ test("model catalog provider ports unify fixture, manifest, custom HTTP, and Oll
     assert.equal(JSON.stringify(configuredCustom).includes(catalogVaultRef), false);
     assert.equal(directoryContainsNeedle(stateDir, customCatalogServer.endpoint), false);
 
-    const configuredCustomGet = await expectOk(daemon.endpoint, "/api/v1/models/catalog/providers/catalog.custom_http");
+    const configuredCustomGet = await expectOk(daemon.endpoint, "/v1/model-mount/catalog/providers/catalog.custom_http");
     assert.equal(configuredCustomGet.id, "catalog.custom_http");
     assert.equal(configuredCustomGet.provider.status, "configured");
     assert.equal(JSON.stringify(configuredCustomGet).includes(customCatalogServer.endpoint), false);
@@ -1788,11 +1788,11 @@ test("catalog source material persists through the encrypted vault adapter witho
   delete process.env.IOI_MODEL_CATALOG_CUSTOM_BASE_URL;
   let daemon = await startRuntimeDaemonService({ cwd, stateDir });
   try {
-    const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+    const grant = await expectOk(daemon.endpoint, "/v1/model-mount/tokens", {
       method: "POST",
       body: { allowed: ["model.download:*", "model.import:*", "provider.write:*", "vault.read:*"] },
     });
-    const configuredManifest = await expectOk(daemon.endpoint, "/api/v1/models/catalog/providers/catalog.local_manifest", {
+    const configuredManifest = await expectOk(daemon.endpoint, "/v1/model-mount/catalog/providers/catalog.local_manifest", {
       method: "PATCH",
       token: grant.token,
       body: { enabled: true, manifest_path: manifestPath },
@@ -1805,7 +1805,7 @@ test("catalog source material persists through the encrypted vault adapter witho
     assert.equal(directoryContainsNeedle(stateDir, manifestPath), false);
     assert.equal(directoryContainsNeedle(keychainDir, manifestPath), false);
 
-    const configuredCustom = await expectOk(daemon.endpoint, "/api/v1/models/catalog/providers/catalog.custom_http", {
+    const configuredCustom = await expectOk(daemon.endpoint, "/v1/model-mount/catalog/providers/catalog.custom_http", {
       method: "PATCH",
       token: grant.token,
       body: { enabled: true, base_url: customCatalogServer.endpoint },
@@ -1829,12 +1829,12 @@ test("catalog source material persists through the encrypted vault adapter witho
 
     await daemon.close();
     daemon = await startRuntimeDaemonService({ cwd, stateDir });
-    const restartedManifest = await expectOk(daemon.endpoint, "/api/v1/models/catalog/providers/catalog.local_manifest");
+    const restartedManifest = await expectOk(daemon.endpoint, "/v1/model-mount/catalog/providers/catalog.local_manifest");
     assert.equal(restartedManifest.materialPersistence, "vault_material_adapter");
     assert.equal(restartedManifest.runtimeMaterialStatus, "resolved_from_vault");
     assert.equal(restartedManifest.vaultMaterialSource, "encrypted_keychain_vault_adapter");
     assert.equal(restartedManifest.materialVaultRefHash, configuredManifest.materialVaultRefHash);
-    const restartedCustom = await expectOk(daemon.endpoint, "/api/v1/models/catalog/providers/catalog.custom_http");
+    const restartedCustom = await expectOk(daemon.endpoint, "/v1/model-mount/catalog/providers/catalog.custom_http");
     assert.equal(restartedCustom.materialPersistence, "vault_material_adapter");
     assert.equal(restartedCustom.runtimeMaterialStatus, "resolved_from_vault");
     assert.equal(restartedCustom.vaultMaterialSource, "encrypted_keychain_vault_adapter");
@@ -1843,7 +1843,7 @@ test("catalog source material persists through the encrypted vault adapter witho
     assert.equal(restartedCatalog.results.find((entry) => entry.catalogProviderId === "catalog.local_manifest")?.modelId, "keychain/local-catalog-2b");
     const restartedCustomCatalog = await expectOk(daemon.endpoint, "/v1/models/catalog/search?q=custom&limit=5");
     assert.equal(restartedCustomCatalog.results.find((entry) => entry.catalogProviderId === "catalog.custom_http")?.modelId, "custom/http-vllm-fixture");
-    const restartedVaultRefs = await expectOk(daemon.endpoint, "/api/v1/vault/refs", { token: grant.token });
+    const restartedVaultRefs = await expectOk(daemon.endpoint, "/v1/model-mount/vault/refs", { token: grant.token });
     assert.ok(restartedVaultRefs.some((ref) => ref.vaultRefHash === configuredManifest.materialVaultRefHash && ref.resolvedMaterial === true));
     assert.ok(restartedVaultRefs.some((ref) => ref.vaultRefHash === configuredCustom.materialVaultRefHash && ref.resolvedMaterial === true));
     assert.equal(JSON.stringify(restartedVaultRefs).includes(manifestPath), false);
@@ -1895,11 +1895,11 @@ test("catalog source material fails closed after restart when only session-bound
   delete process.env.IOI_MODEL_CATALOG_MANIFEST_PATH;
   let daemon = await startRuntimeDaemonService({ cwd, stateDir });
   try {
-    const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+    const grant = await expectOk(daemon.endpoint, "/v1/model-mount/tokens", {
       method: "POST",
       body: { allowed: ["provider.write:*"] },
     });
-    const configured = await expectOk(daemon.endpoint, "/api/v1/models/catalog/providers/catalog.local_manifest", {
+    const configured = await expectOk(daemon.endpoint, "/v1/model-mount/catalog/providers/catalog.local_manifest", {
       method: "PATCH",
       token: grant.token,
       body: { enabled: true, manifest_path: manifestPath },
@@ -1913,7 +1913,7 @@ test("catalog source material fails closed after restart when only session-bound
 
     await daemon.close();
     daemon = await startRuntimeDaemonService({ cwd, stateDir });
-    const restarted = await expectOk(daemon.endpoint, "/api/v1/models/catalog/providers/catalog.local_manifest");
+    const restarted = await expectOk(daemon.endpoint, "/v1/model-mount/catalog/providers/catalog.local_manifest");
     assert.equal(restarted.materialPersistence, "runtime_vault_binding");
     assert.equal(restarted.runtimeMaterialStatus, "missing_runtime_material");
     assert.equal(restarted.vaultMaterialSource, "unbound");
@@ -1946,11 +1946,11 @@ test("catalog provider auth resolves vault-backed headers for custom and live ca
   process.env.IOI_MODEL_CATALOG_HF_BASE_URL = liveCatalogServer.endpoint;
   const daemon = await startRuntimeDaemonService({ cwd, stateDir });
   try {
-    const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+    const grant = await expectOk(daemon.endpoint, "/v1/model-mount/tokens", {
       method: "POST",
       body: { allowed: ["provider.write:*", "vault.write:*", "vault.read:*", "model.download:*", "model.import:*"] },
     });
-    const configuredCustom = await expectOk(daemon.endpoint, "/api/v1/models/catalog/providers/catalog.custom_http", {
+    const configuredCustom = await expectOk(daemon.endpoint, "/v1/model-mount/catalog/providers/catalog.custom_http", {
       method: "PATCH",
       token: grant.token,
       body: {
@@ -1973,7 +1973,7 @@ test("catalog provider auth resolves vault-backed headers for custom and live ca
     assert.equal(blockedCustomProvider.catalogAuthResolved, false);
     assert.equal(blockedCustom.results.some((entry) => entry.catalogProviderId === "catalog.custom_http"), false);
 
-    await expectOk(daemon.endpoint, "/api/v1/vault/refs", {
+    await expectOk(daemon.endpoint, "/v1/model-mount/vault/refs", {
       method: "POST",
       token: grant.token,
       body: { vault_ref: customVaultRef, material: customSecret, purpose: "catalog.auth:catalog.custom_http", label: "Custom catalog auth" },
@@ -1988,7 +1988,7 @@ test("catalog provider auth resolves vault-backed headers for custom and live ca
     assert.equal(JSON.stringify(customCatalog).includes(customSecret), false);
     assert.equal(JSON.stringify(customCatalog).includes(customVaultRef), false);
 
-    const configuredLive = await expectOk(daemon.endpoint, "/api/v1/models/catalog/providers/catalog.huggingface", {
+    const configuredLive = await expectOk(daemon.endpoint, "/v1/model-mount/catalog/providers/catalog.huggingface", {
       method: "PATCH",
       token: grant.token,
       body: {
@@ -2001,7 +2001,7 @@ test("catalog provider auth resolves vault-backed headers for custom and live ca
     assert.equal(configuredLive.catalogAuthConfigured, true);
     assert.equal(configuredLive.catalogAuthScheme, "bearer");
     assert.equal(JSON.stringify(configuredLive).includes(liveVaultRef), false);
-    await expectOk(daemon.endpoint, "/api/v1/vault/refs", {
+    await expectOk(daemon.endpoint, "/v1/model-mount/vault/refs", {
       method: "POST",
       token: grant.token,
       body: { vault_ref: liveVaultRef, material: liveSecret, purpose: "catalog.auth:catalog.huggingface", label: "Live catalog auth" },
@@ -2048,11 +2048,11 @@ test("catalog provider OAuth sessions exchange, refresh, revoke, and keep tokens
   });
   const daemon = await startRuntimeDaemonService({ cwd, stateDir });
   try {
-    const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+    const grant = await expectOk(daemon.endpoint, "/v1/model-mount/tokens", {
       method: "POST",
       body: { allowed: ["provider.write:*", "vault.write:*", "vault.read:*", "vault.delete:*"] },
     });
-    const configuredCustom = await expectOk(daemon.endpoint, "/api/v1/models/catalog/providers/catalog.custom_http", {
+    const configuredCustom = await expectOk(daemon.endpoint, "/v1/model-mount/catalog/providers/catalog.custom_http", {
       method: "PATCH",
       token: grant.token,
       body: {
@@ -2065,7 +2065,7 @@ test("catalog provider OAuth sessions exchange, refresh, revoke, and keep tokens
     assert.equal(configuredCustom.catalogAuthScheme, "oauth2");
     assert.equal(configuredCustom.oauthBoundary.status, "requires_oauth_exchange");
 
-    const exchanged = await expectOk(daemon.endpoint, "/api/v1/models/catalog/providers/catalog.custom_http/oauth/exchange", {
+    const exchanged = await expectOk(daemon.endpoint, "/v1/model-mount/catalog/providers/catalog.custom_http/oauth/exchange", {
       method: "POST",
       token: grant.token,
       body: {
@@ -2090,7 +2090,7 @@ test("catalog provider OAuth sessions exchange, refresh, revoke, and keep tokens
     assert.ok(customCatalogServer.observedHeaders().some((headers) => headers.authorization === `Bearer ${oauth.tokens.access}`));
     assert.equal(JSON.stringify(searched).includes(oauth.tokens.access), false);
 
-    const refreshed = await expectOk(daemon.endpoint, "/api/v1/models/catalog/providers/catalog.custom_http/oauth/refresh", {
+    const refreshed = await expectOk(daemon.endpoint, "/v1/model-mount/catalog/providers/catalog.custom_http/oauth/refresh", {
       method: "POST",
       token: grant.token,
       body: {},
@@ -2103,7 +2103,7 @@ test("catalog provider OAuth sessions exchange, refresh, revoke, and keep tokens
     assert.ok(customCatalogServer.observedHeaders().some((headers) => headers.authorization === `Bearer ${oauth.tokens.refreshedAccess}`));
     assert.equal(searchedAfterRefresh.providers.find((provider) => provider.id === "catalog.custom_http").oauthBoundary.refreshCount, 1);
 
-    const revoked = await expectOk(daemon.endpoint, "/api/v1/models/catalog/providers/catalog.custom_http/oauth/revoke", {
+    const revoked = await expectOk(daemon.endpoint, "/v1/model-mount/catalog/providers/catalog.custom_http/oauth/revoke", {
       method: "POST",
       token: grant.token,
       body: {},
@@ -2139,11 +2139,11 @@ test("catalog provider OAuth start and callback use PKCE state without persistin
   });
   const daemon = await startRuntimeDaemonService({ cwd, stateDir });
   try {
-    const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+    const grant = await expectOk(daemon.endpoint, "/v1/model-mount/tokens", {
       method: "POST",
       body: { allowed: ["provider.write:*", "vault.write:*", "vault.read:*"] },
     });
-    await expectOk(daemon.endpoint, "/api/v1/models/catalog/providers/catalog.custom_http", {
+    await expectOk(daemon.endpoint, "/v1/model-mount/catalog/providers/catalog.custom_http", {
       method: "PATCH",
       token: grant.token,
       body: {
@@ -2154,7 +2154,7 @@ test("catalog provider OAuth start and callback use PKCE state without persistin
       },
     });
 
-    const started = await expectOk(daemon.endpoint, "/api/v1/models/catalog/providers/catalog.custom_http/oauth/start", {
+    const started = await expectOk(daemon.endpoint, "/v1/model-mount/catalog/providers/catalog.custom_http/oauth/start", {
       method: "POST",
       token: grant.token,
       body: {
@@ -2179,7 +2179,7 @@ test("catalog provider OAuth start and callback use PKCE state without persistin
     assert.equal(started.authorizationUrlRedacted.includes(authorizationUrl.searchParams.get("code_challenge")), false);
     await fetch(started.authorizationUrl);
 
-    const mismatch = await requestJson(daemon.endpoint, "/api/v1/models/catalog/providers/catalog.custom_http/oauth/callback", {
+    const mismatch = await requestJson(daemon.endpoint, "/v1/model-mount/catalog/providers/catalog.custom_http/oauth/callback", {
       method: "POST",
       token: grant.token,
       body: {
@@ -2191,7 +2191,7 @@ test("catalog provider OAuth start and callback use PKCE state without persistin
     assert.equal(mismatch.response.status, 403);
     assert.equal(JSON.stringify(mismatch.json).includes("wrong-oauth-state"), false);
 
-    const expired = await expectOk(daemon.endpoint, "/api/v1/models/catalog/providers/catalog.custom_http/oauth/start", {
+    const expired = await expectOk(daemon.endpoint, "/v1/model-mount/catalog/providers/catalog.custom_http/oauth/start", {
       method: "POST",
       token: grant.token,
       body: {
@@ -2204,7 +2204,7 @@ test("catalog provider OAuth start and callback use PKCE state without persistin
       },
     });
     const expiredUrl = new URL(expired.authorizationUrl);
-    const expiredCallback = await requestJson(daemon.endpoint, "/api/v1/models/catalog/providers/catalog.custom_http/oauth/callback", {
+    const expiredCallback = await requestJson(daemon.endpoint, "/v1/model-mount/catalog/providers/catalog.custom_http/oauth/callback", {
       method: "POST",
       token: grant.token,
       body: {
@@ -2216,7 +2216,7 @@ test("catalog provider OAuth start and callback use PKCE state without persistin
     assert.equal(expiredCallback.response.status, 403);
     assert.equal(JSON.stringify(expiredCallback.json).includes(expiredUrl.searchParams.get("state")), false);
 
-    const noVerifier = await requestJson(daemon.endpoint, "/api/v1/models/catalog/providers/catalog.custom_http/oauth/exchange", {
+    const noVerifier = await requestJson(daemon.endpoint, "/v1/model-mount/catalog/providers/catalog.custom_http/oauth/exchange", {
       method: "POST",
       token: grant.token,
       body: {
@@ -2228,7 +2228,7 @@ test("catalog provider OAuth start and callback use PKCE state without persistin
     });
     assert.equal(noVerifier.response.status, 403);
 
-    const callback = await expectOk(daemon.endpoint, "/api/v1/models/catalog/providers/catalog.custom_http/oauth/callback", {
+    const callback = await expectOk(daemon.endpoint, "/v1/model-mount/catalog/providers/catalog.custom_http/oauth/callback", {
       method: "POST",
       token: grant.token,
       body: {
@@ -2279,7 +2279,7 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
   const priorLiveDownload = process.env.IOI_LIVE_MODEL_DOWNLOAD;
   const priorCatalogBase = process.env.IOI_MODEL_CATALOG_HF_BASE_URL;
   try {
-    const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+    const grant = await expectOk(daemon.endpoint, "/v1/model-mount/tokens", {
       method: "POST",
       body: { allowed: ["model.download:*", "model.import:*", "model.delete:*", "model.chat:*", "route.use:*"] },
     });
@@ -2322,7 +2322,7 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
     assert.equal(liveImport.download.downloadPolicy.externalTransferApproved, true);
     assert.equal(liveImport.download.downloadPolicy.status, "ready");
 
-    const downloadOnlyGrant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+    const downloadOnlyGrant = await expectOk(daemon.endpoint, "/v1/model-mount/tokens", {
       method: "POST",
       body: { allowed: ["model.download:*"] },
     });
@@ -2659,7 +2659,7 @@ test("Agentgres model mounting projection and receipt lookup survive daemon rest
   let daemon = await startRuntimeDaemonService({ cwd, stateDir });
   let receiptId;
   try {
-    const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+    const grant = await expectOk(daemon.endpoint, "/v1/model-mount/tokens", {
       method: "POST",
       body: { allowed: ["model.chat:*", "route.use:*"] },
     });
@@ -2701,7 +2701,7 @@ test("Ollama provider adapter lists models, invokes through policy, and redacts 
   const errorServer = await startFakeOllamaServer({ chatStatus: 500, secret: "ollama-provider-secret-token" });
   const daemon = await startRuntimeDaemonService({ cwd, stateDir });
   try {
-    const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+    const grant = await expectOk(daemon.endpoint, "/v1/model-mount/tokens", {
       method: "POST",
       body: {
         allowed: [
@@ -2718,7 +2718,7 @@ test("Ollama provider adapter lists models, invokes through policy, and redacts 
       },
     });
 
-    await expectOk(daemon.endpoint, "/api/v1/providers", {
+    await expectOk(daemon.endpoint, "/v1/model-mount/providers", {
       method: "POST",
       token: grant.token,
       body: {
@@ -2732,11 +2732,11 @@ test("Ollama provider adapter lists models, invokes through policy, and redacts 
         capabilities: ["chat", "responses", "embeddings"],
       },
     });
-    const health = await expectOk(daemon.endpoint, "/api/v1/providers/provider.test.ollama/health", { method: "POST" });
+    const health = await expectOk(daemon.endpoint, "/v1/model-mount/providers/provider.test.ollama/health", { method: "POST" });
     assert.equal(health.status, "available");
     assert.equal(health.discovery.lastHealthCheck.httpStatus, 200);
 
-    const providerModels = await expectOk(daemon.endpoint, "/api/v1/providers/provider.test.ollama/models");
+    const providerModels = await expectOk(daemon.endpoint, "/v1/model-mount/providers/provider.test.ollama/models");
     assert.ok(providerModels.some((model) => model.modelId === "qwen3:8b"));
     const mounted = await expectOk(daemon.endpoint, "/v1/model-mount/endpoints", {
       method: "POST",
@@ -2848,7 +2848,7 @@ test("Ollama provider adapter lists models, invokes through policy, and redacts 
     assert.equal(invocation.details.backend, "ollama");
     assert.equal(invocation.details.backendId, "backend.ollama");
 
-    await expectOk(daemon.endpoint, "/api/v1/providers", {
+    await expectOk(daemon.endpoint, "/v1/model-mount/providers", {
       method: "POST",
       token: grant.token,
       body: {
@@ -2930,7 +2930,7 @@ setInterval(() => {}, 1000);
   process.env.IOI_FAKE_OLLAMA_CALLS = callsPath;
   const daemon = await startRuntimeDaemonService({ cwd, stateDir });
   try {
-    const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+    const grant = await expectOk(daemon.endpoint, "/v1/model-mount/tokens", {
       method: "POST",
       body: {
         allowed: [
@@ -2955,7 +2955,7 @@ setInterval(() => {}, 1000);
     assert.equal(calls.includes('"serve"'), true);
     assert.equal(calls.includes(providerServer.endpoint), true);
 
-    const providerModels = await expectOk(daemon.endpoint, "/api/v1/providers/provider.ollama/models");
+    const providerModels = await expectOk(daemon.endpoint, "/v1/model-mount/providers/provider.ollama/models");
     assert.ok(providerModels.some((model) => model.modelId === "qwen3:8b"));
     const mounted = await expectOk(daemon.endpoint, "/v1/model-mount/endpoints", {
       method: "POST",
@@ -2979,7 +2979,7 @@ setInterval(() => {}, 1000);
     assert.equal(loaded.backendProcess.spawned, true);
     assert.equal(loaded.providerEvidenceRefs.includes("ollama_generate_keep_alive_load"), true);
 
-    const providerLoaded = await expectOk(daemon.endpoint, "/api/v1/providers/provider.ollama/loaded");
+    const providerLoaded = await expectOk(daemon.endpoint, "/v1/model-mount/providers/provider.ollama/loaded");
     assert.ok(providerLoaded.some((model) => model.modelId === "qwen3:8b"));
     assert.equal(providerLoaded.find((model) => model.modelId === "qwen3:8b")?.backendProcess?.spawnStatus, "spawned");
 
@@ -3009,7 +3009,7 @@ setInterval(() => {}, 1000);
       body: { instance_id: loaded.id },
     });
     assert.equal(unloaded.status, "unloaded");
-    const loadedAfterUnload = await expectOk(daemon.endpoint, "/api/v1/providers/provider.ollama/loaded");
+    const loadedAfterUnload = await expectOk(daemon.endpoint, "/v1/model-mount/providers/provider.ollama/loaded");
     assert.equal(loadedAfterUnload.some((model) => model.modelId === "qwen3:8b"), false);
     const backendStop = await expectOk(daemon.endpoint, "/v1/model-mount/backends/backend.ollama/stop", {
       method: "POST",
@@ -3045,7 +3045,7 @@ test("vLLM and OpenAI-compatible adapters support responses fallback, embeddings
     vaultSecrets: { [optionalAuthVaultRef]: optionalAuthMaterial },
   });
   try {
-    const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+    const grant = await expectOk(daemon.endpoint, "/v1/model-mount/tokens", {
       method: "POST",
       body: {
         allowed: [
@@ -3062,7 +3062,7 @@ test("vLLM and OpenAI-compatible adapters support responses fallback, embeddings
       },
     });
 
-    await expectOk(daemon.endpoint, "/api/v1/providers", {
+    await expectOk(daemon.endpoint, "/v1/model-mount/providers", {
       method: "POST",
       token: grant.token,
       body: {
@@ -3076,13 +3076,13 @@ test("vLLM and OpenAI-compatible adapters support responses fallback, embeddings
         capabilities: ["chat", "responses", "embeddings"],
       },
     });
-    const health = await expectOk(daemon.endpoint, "/api/v1/providers/provider.test.vllm/health", { method: "POST" });
+    const health = await expectOk(daemon.endpoint, "/v1/model-mount/providers/provider.test.vllm/health", { method: "POST" });
     assert.equal(health.status, "available");
 
-    const providerModels = await expectOk(daemon.endpoint, "/api/v1/providers/provider.test.vllm/models");
+    const providerModels = await expectOk(daemon.endpoint, "/v1/model-mount/providers/provider.test.vllm/models");
     assert.ok(providerModels.some((model) => model.modelId === "vllm-qwen"));
 
-    await expectOk(daemon.endpoint, "/api/v1/providers", {
+    await expectOk(daemon.endpoint, "/v1/model-mount/providers", {
       method: "POST",
       token: grant.token,
       body: {
@@ -3097,13 +3097,13 @@ test("vLLM and OpenAI-compatible adapters support responses fallback, embeddings
         secret_ref: optionalAuthVaultRef,
       },
     });
-    const optionalAuthModels = await expectOk(daemon.endpoint, "/api/v1/providers/provider.test.openai-compatible-auth/models");
+    const optionalAuthModels = await expectOk(daemon.endpoint, "/v1/model-mount/providers/provider.test.openai-compatible-auth/models");
     assert.ok(optionalAuthModels.some((model) => model.modelId === "vllm-qwen"));
     assert.ok(optionalAuthServer.observedHeaders().some((headers) => headers.authorization === `Bearer ${optionalAuthMaterial}`));
     assert.equal(JSON.stringify(optionalAuthModels).includes(optionalAuthVaultRef), false);
     assert.equal(JSON.stringify(optionalAuthModels).includes(optionalAuthMaterial), false);
 
-    await expectOk(daemon.endpoint, "/api/v1/providers", {
+    await expectOk(daemon.endpoint, "/v1/model-mount/providers", {
       method: "POST",
       token: grant.token,
       body: {
@@ -3266,7 +3266,7 @@ test("vLLM and OpenAI-compatible adapters support responses fallback, embeddings
     assert.equal(invocation.details.backendId, "backend.vllm");
     assert.equal(invocation.details.providerResponseKind, "chat.completions");
 
-    await expectOk(daemon.endpoint, "/api/v1/providers", {
+    await expectOk(daemon.endpoint, "/v1/model-mount/providers", {
       method: "POST",
       token: grant.token,
       body: {
@@ -3355,7 +3355,7 @@ setInterval(() => {}, 1000);
   process.env.IOI_FAKE_VLLM_CALLS = callsPath;
   const daemon = await startRuntimeDaemonService({ cwd, stateDir });
   try {
-    const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+    const grant = await expectOk(daemon.endpoint, "/v1/model-mount/tokens", {
       method: "POST",
       body: {
         allowed: [
@@ -3386,7 +3386,7 @@ setInterval(() => {}, 1000);
     assert.equal(calls.includes("--tensor-parallel-size"), true);
     assert.equal(calls.includes("--gpu-memory-utilization"), true);
 
-    const providerModels = await expectOk(daemon.endpoint, "/api/v1/providers/provider.vllm/models");
+    const providerModels = await expectOk(daemon.endpoint, "/v1/model-mount/providers/provider.vllm/models");
     assert.ok(providerModels.some((model) => model.modelId === "vllm-qwen"));
     await expectOk(daemon.endpoint, "/v1/model-mount/artifacts/import", {
       method: "POST",
@@ -3476,7 +3476,7 @@ setInterval(() => {}, 1000);
     assert.equal(streamedChatCompleteReceipt.details.invocationReceiptId, streamedChatMetadata.receipt_id);
     assert.equal(streamedChatCompleteReceipt.details.outputHash, crypto.createHash("sha256").update(streamedChatText).digest("hex"));
 
-    const providerLoaded = await expectOk(daemon.endpoint, "/api/v1/providers/provider.vllm/loaded");
+    const providerLoaded = await expectOk(daemon.endpoint, "/v1/model-mount/providers/provider.vllm/loaded");
     assert.ok(providerLoaded.some((model) => model.modelId === "vllm-qwen"));
     const unloaded = await expectOk(daemon.endpoint, "/v1/model-mount/instances/unload", {
       method: "POST",
@@ -3523,7 +3523,7 @@ setInterval(() => {}, 1000);
   process.env.IOI_FAKE_LLAMA_CALLS = callsPath;
   const daemon = await startRuntimeDaemonService({ cwd, stateDir });
   try {
-    const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+    const grant = await expectOk(daemon.endpoint, "/v1/model-mount/tokens", {
       method: "POST",
       body: {
         allowed: [
@@ -3539,9 +3539,9 @@ setInterval(() => {}, 1000);
         ],
       },
     });
-    const providerHealth = await expectOk(daemon.endpoint, "/api/v1/providers/provider.llama-cpp/health", { method: "POST" });
+    const providerHealth = await expectOk(daemon.endpoint, "/v1/model-mount/providers/provider.llama-cpp/health", { method: "POST" });
     assert.equal(providerHealth.status, "available");
-    const providerModels = await expectOk(daemon.endpoint, "/api/v1/providers/provider.llama-cpp/models");
+    const providerModels = await expectOk(daemon.endpoint, "/v1/model-mount/providers/provider.llama-cpp/models");
     assert.ok(providerModels.some((model) => model.modelId === "llama-cpp-qwen"));
 
     const modelPath = path.join(cwd, "llama-cpp-fixture.Q4_K_M.gguf");
@@ -3742,7 +3742,7 @@ test("hosted and custom HTTP provider auth fails closed behind wallet vault refs
     stateDir,
   });
   try {
-    const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+    const grant = await expectOk(daemon.endpoint, "/v1/model-mount/tokens", {
       method: "POST",
       body: {
         allowed: [
@@ -3761,7 +3761,7 @@ test("hosted and custom HTTP provider auth fails closed behind wallet vault refs
     });
 
     const plaintextSecret = "sk-provider-plaintext-secret";
-    const rejectedPlaintext = await requestJson(daemon.endpoint, "/api/v1/providers", {
+    const rejectedPlaintext = await requestJson(daemon.endpoint, "/v1/model-mount/providers", {
       method: "POST",
       token: grant.token,
       body: {
@@ -3775,7 +3775,7 @@ test("hosted and custom HTTP provider auth fails closed behind wallet vault refs
     assert.equal(rejectedPlaintext.response.status, 403);
     assert.equal(JSON.stringify(rejectedPlaintext.json).includes(plaintextSecret), false);
 
-    const rejectedMalformedVault = await requestJson(daemon.endpoint, "/api/v1/providers", {
+    const rejectedMalformedVault = await requestJson(daemon.endpoint, "/v1/model-mount/providers", {
       method: "POST",
       token: grant.token,
       body: {
@@ -3789,7 +3789,7 @@ test("hosted and custom HTTP provider auth fails closed behind wallet vault refs
     assert.equal(rejectedMalformedVault.response.status, 403);
     assert.equal(JSON.stringify(rejectedMalformedVault.json).includes("plain-secret-value"), false);
 
-    const blocked = await expectOk(daemon.endpoint, "/api/v1/providers", {
+    const blocked = await expectOk(daemon.endpoint, "/v1/model-mount/providers", {
       method: "POST",
       token: grant.token,
       body: {
@@ -3807,12 +3807,12 @@ test("hosted and custom HTTP provider auth fails closed behind wallet vault refs
     assert.equal(blocked.secretConfigured, false);
     assert.equal(blocked.vaultBoundary.failClosed, true);
 
-    const blockedHealth = await requestJson(daemon.endpoint, "/api/v1/providers/provider.test.custom-blocked/health", {
+    const blockedHealth = await requestJson(daemon.endpoint, "/v1/model-mount/providers/provider.test.custom-blocked/health", {
       method: "POST",
     });
     assert.equal(blockedHealth.response.status, 403);
 
-    const rejectedForbiddenAuthHeader = await requestJson(daemon.endpoint, "/api/v1/providers", {
+    const rejectedForbiddenAuthHeader = await requestJson(daemon.endpoint, "/v1/model-mount/providers", {
       method: "POST",
       token: grant.token,
       body: {
@@ -3867,7 +3867,7 @@ test("hosted and custom HTTP provider auth fails closed behind wallet vault refs
     assert.equal(blockedChat.response.status, 403);
     assert.equal(blockedChat.json.error.details.vaultRefConfigured, false);
 
-    const configured = await expectOk(daemon.endpoint, "/api/v1/providers", {
+    const configured = await expectOk(daemon.endpoint, "/v1/model-mount/providers", {
       method: "POST",
       token: grant.token,
       body: {
@@ -3891,7 +3891,7 @@ test("hosted and custom HTTP provider auth fails closed behind wallet vault refs
     assert.equal(configured.authHeaderName, "x-api-key");
     assert.equal(JSON.stringify(configured).includes(vaultRef), false);
 
-    const unresolvedHealth = await requestJson(daemon.endpoint, "/api/v1/providers/provider.test.custom-vault/health", { method: "POST" });
+    const unresolvedHealth = await requestJson(daemon.endpoint, "/v1/model-mount/providers/provider.test.custom-vault/health", { method: "POST" });
     assert.equal(unresolvedHealth.response.status, 403);
     assert.equal(unresolvedHealth.json.error.details.resolvedMaterial, false);
     assert.equal(unresolvedHealth.json.error.details.providerHealthStatus, "blocked");
@@ -3905,14 +3905,14 @@ test("hosted and custom HTTP provider auth fails closed behind wallet vault refs
     assert.equal(unresolvedHealthReceipt.kind, "provider_health");
     assert.equal(unresolvedHealthReceipt.details.status, "blocked");
     assert.equal(JSON.stringify(unresolvedHealthReceipt).includes(vaultRef), false);
-    const providerAfterBlockedHealth = (await expectOk(daemon.endpoint, "/api/v1/providers")).find(
+    const providerAfterBlockedHealth = (await expectOk(daemon.endpoint, "/v1/model-mount/providers")).find(
       (provider) => provider.id === "provider.test.custom-vault",
     );
     assert.equal(providerAfterBlockedHealth.status, "blocked");
     assert.equal(providerAfterBlockedHealth.discovery.lastHealthCheck.status, "blocked");
     assert.equal(providerAfterBlockedHealth.discovery.lastHealthCheck.receiptId, unresolvedHealthReceipt.id);
 
-    const bound = await expectOk(daemon.endpoint, "/api/v1/vault/refs", {
+    const bound = await expectOk(daemon.endpoint, "/v1/model-mount/vault/refs", {
       method: "POST",
       token: grant.token,
       body: {
@@ -3929,12 +3929,12 @@ test("hosted and custom HTTP provider auth fails closed behind wallet vault refs
     assert.equal(JSON.stringify(bound).includes(vaultRef), false);
     assert.equal(JSON.stringify(bound).includes(vaultMaterial), false);
 
-    const vaultRefs = await expectOk(daemon.endpoint, "/api/v1/vault/refs", { token: grant.token });
+    const vaultRefs = await expectOk(daemon.endpoint, "/v1/model-mount/vault/refs", { token: grant.token });
     assert.ok(vaultRefs.some((ref) => ref.vaultRefHash === bound.vaultRefHash));
     assert.equal(JSON.stringify(vaultRefs).includes(vaultRef), false);
     assert.equal(JSON.stringify(vaultRefs).includes(vaultMaterial), false);
 
-    const vaultMeta = await expectOk(daemon.endpoint, "/api/v1/vault/refs/meta", {
+    const vaultMeta = await expectOk(daemon.endpoint, "/v1/model-mount/vault/refs/meta", {
       method: "POST",
       token: grant.token,
       body: { vault_ref: vaultRef },
@@ -3945,7 +3945,7 @@ test("hosted and custom HTTP provider auth fails closed behind wallet vault refs
     assert.equal(JSON.stringify(vaultMeta).includes(vaultMaterial), false);
     assert.equal(directoryContainsNeedle(stateDir, vaultMaterial), false);
 
-    const providers = await expectOk(daemon.endpoint, "/api/v1/providers");
+    const providers = await expectOk(daemon.endpoint, "/v1/model-mount/providers");
     assert.equal(JSON.stringify(providers).includes(vaultRef), false);
     const publicProvider = providers.find((provider) => provider.id === "provider.test.custom-vault");
     assert.equal(publicProvider.secretConfigured, true);
@@ -3958,7 +3958,7 @@ test("hosted and custom HTTP provider auth fails closed behind wallet vault refs
     const projection = await expectOk(daemon.endpoint, "/api/v1/projections/model-mounting");
     assert.equal(JSON.stringify(projection.providers).includes(vaultRef), false);
 
-    const health = await expectOk(daemon.endpoint, "/api/v1/providers/provider.test.custom-vault/health", { method: "POST" });
+    const health = await expectOk(daemon.endpoint, "/v1/model-mount/providers/provider.test.custom-vault/health", { method: "POST" });
     assert.equal(health.status, "available");
     assert.equal(health.vaultBoundary.runtimeBound, true);
     assert.equal(typeof health.discovery.lastHealthCheck.authVaultRefHash, "string");
@@ -3973,13 +3973,13 @@ test("hosted and custom HTTP provider auth fails closed behind wallet vault refs
     assert.ok(projectionAfterHealth.providerHealth.some((record) => record.receiptId === providerHealthReceipt.id));
     assert.ok(projectionAfterHealth.providerHealthReceipts.some((receipt) => receipt.id === providerHealthReceipt.id));
     assert.equal(JSON.stringify(projectionAfterHealth.providerHealth).includes(vaultRef), false);
-    const latestProviderHealth = await expectOk(daemon.endpoint, "/api/v1/providers/provider.test.custom-vault/health/latest");
+    const latestProviderHealth = await expectOk(daemon.endpoint, "/v1/model-mount/providers/provider.test.custom-vault/health/latest");
     assert.equal(latestProviderHealth.receipt.id, providerHealthReceipt.id);
     assert.equal(latestProviderHealth.health.status, "available");
     assert.equal(latestProviderHealth.replay.receipt.id, providerHealthReceipt.id);
     assert.equal(JSON.stringify(latestProviderHealth).includes(vaultMaterial), false);
 
-    const providerModels = await expectOk(daemon.endpoint, "/api/v1/providers/provider.test.custom-vault/models");
+    const providerModels = await expectOk(daemon.endpoint, "/v1/model-mount/providers/provider.test.custom-vault/models");
     assert.ok(providerModels.some((model) => model.modelId === "vllm-qwen"));
     assert.ok(providerServer.observedHeaders().some((headers) => headers["x-api-key"] === vaultMaterial));
     await expectOk(daemon.endpoint, "/v1/model-mount/endpoints", {
@@ -4027,7 +4027,7 @@ test("hosted and custom HTTP provider auth fails closed behind wallet vault refs
     const restartedProjectionBeforeHealth = await expectOk(daemon.endpoint, "/api/v1/projections/model-mounting");
     assert.ok(restartedProjectionBeforeHealth.providerHealth.some((record) => record.receiptId === providerHealthReceipt.id));
     assert.ok(restartedProjectionBeforeHealth.providerHealthReceipts.some((receipt) => receipt.id === providerHealthReceipt.id));
-    const restartedVaultRefs = await expectOk(daemon.endpoint, "/api/v1/vault/refs", { token: grant.token });
+    const restartedVaultRefs = await expectOk(daemon.endpoint, "/v1/model-mount/vault/refs", { token: grant.token });
     const restartedMeta = restartedVaultRefs.find((ref) => ref.vaultRefHash === bound.vaultRefHash);
     assert.equal(restartedMeta.configured, true);
     assert.equal(restartedMeta.resolvedMaterial, false);
@@ -4035,15 +4035,15 @@ test("hosted and custom HTTP provider auth fails closed behind wallet vault refs
     assert.equal(JSON.stringify(restartedVaultRefs).includes(vaultRef), false);
     assert.equal(JSON.stringify(restartedVaultRefs).includes(vaultMaterial), false);
     assert.equal(directoryContainsNeedle(stateDir, vaultMaterial), false);
-    const restartedProviders = await expectOk(daemon.endpoint, "/api/v1/providers");
+    const restartedProviders = await expectOk(daemon.endpoint, "/v1/model-mount/providers");
     const restartedProvider = restartedProviders.find((provider) => provider.id === "provider.test.custom-vault");
     assert.equal(restartedProvider.secretConfigured, true);
     assert.equal(restartedProvider.vaultBoundary.requiresRuntimeBinding, true);
-    const restartedHealth = await requestJson(daemon.endpoint, "/api/v1/providers/provider.test.custom-vault/health", { method: "POST" });
+    const restartedHealth = await requestJson(daemon.endpoint, "/v1/model-mount/providers/provider.test.custom-vault/health", { method: "POST" });
     assert.equal(restartedHealth.response.status, 403);
     assert.equal(restartedHealth.json.error.details.resolvedMaterial, false);
     assert.equal(JSON.stringify(restartedHealth.json).includes(vaultMaterial), false);
-    const rebound = await expectOk(daemon.endpoint, "/api/v1/vault/refs", {
+    const rebound = await expectOk(daemon.endpoint, "/v1/model-mount/vault/refs", {
       method: "POST",
       token: grant.token,
       body: {
@@ -4055,10 +4055,10 @@ test("hosted and custom HTTP provider auth fails closed behind wallet vault refs
     });
     assert.equal(rebound.configured, true);
     assert.equal(rebound.resolvedMaterial, true);
-    const reboundHealth = await expectOk(daemon.endpoint, "/api/v1/providers/provider.test.custom-vault/health", { method: "POST" });
+    const reboundHealth = await expectOk(daemon.endpoint, "/v1/model-mount/providers/provider.test.custom-vault/health", { method: "POST" });
     assert.equal(reboundHealth.status, "available");
 
-    const removed = await expectOk(daemon.endpoint, "/api/v1/vault/refs", {
+    const removed = await expectOk(daemon.endpoint, "/v1/model-mount/vault/refs", {
       method: "DELETE",
       token: grant.token,
       body: { vault_ref: vaultRef },
@@ -4066,7 +4066,7 @@ test("hosted and custom HTTP provider auth fails closed behind wallet vault refs
     assert.equal(removed.configured, false);
     assert.equal(JSON.stringify(removed).includes(vaultRef), false);
     assert.equal(JSON.stringify(removed).includes(vaultMaterial), false);
-    const removedHealth = await requestJson(daemon.endpoint, "/api/v1/providers/provider.test.custom-vault/health", { method: "POST" });
+    const removedHealth = await requestJson(daemon.endpoint, "/v1/model-mount/providers/provider.test.custom-vault/health", { method: "POST" });
     assert.equal(removedHealth.response.status, 403);
     assert.equal(removedHealth.json.error.details.resolvedMaterial, false);
   } finally {
@@ -4092,7 +4092,7 @@ test("encrypted keychain vault adapter persists material across daemon restart w
   process.env.IOI_KEYCHAIN_VAULT_KEY = crypto.randomBytes(32).toString("base64url");
   let daemon = await startRuntimeDaemonService({ cwd, stateDir });
   try {
-    const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+    const grant = await expectOk(daemon.endpoint, "/v1/model-mount/tokens", {
       method: "POST",
       body: {
         allowed: [
@@ -4108,7 +4108,7 @@ test("encrypted keychain vault adapter persists material across daemon restart w
         ],
       },
     });
-    await expectOk(daemon.endpoint, "/api/v1/providers", {
+    await expectOk(daemon.endpoint, "/v1/model-mount/providers", {
       method: "POST",
       token: grant.token,
       body: {
@@ -4125,7 +4125,7 @@ test("encrypted keychain vault adapter persists material across daemon restart w
         auth_header_name: "x-api-key",
       },
     });
-    const bound = await expectOk(daemon.endpoint, "/api/v1/vault/refs", {
+    const bound = await expectOk(daemon.endpoint, "/v1/model-mount/vault/refs", {
       method: "POST",
       token: grant.token,
       body: {
@@ -4140,13 +4140,13 @@ test("encrypted keychain vault adapter persists material across daemon restart w
     assert.equal(JSON.stringify(bound).includes(vaultMaterial), false);
     assert.equal(directoryContainsNeedle(stateDir, vaultMaterial), false);
     assert.equal(directoryContainsNeedle(keychainDir, vaultMaterial), false);
-    const health = await expectOk(daemon.endpoint, "/api/v1/providers/provider.test.keychain-vault/health", { method: "POST" });
+    const health = await expectOk(daemon.endpoint, "/v1/model-mount/providers/provider.test.keychain-vault/health", { method: "POST" });
     assert.equal(health.status, "available");
     const projection = await expectOk(daemon.endpoint, "/api/v1/projections/model-mounting");
     assert.equal(projection.adapterBoundaries.vault.materialAdapter.implementation, "encrypted_keychain_vault_adapter");
     assert.equal(projection.adapterBoundaries.vault.materialAdapter.configured, true);
     assert.equal(JSON.stringify(projection).includes(vaultMaterial), false);
-    const adapterHealth = await expectOk(daemon.endpoint, "/api/v1/vault/health", { method: "POST", token: grant.token });
+    const adapterHealth = await expectOk(daemon.endpoint, "/v1/model-mount/vault/health", { method: "POST", token: grant.token });
     assert.equal(adapterHealth.status, "healthy");
     assert.equal(adapterHealth.materialAdapter.readAvailable, true);
     assert.equal(adapterHealth.materialAdapter.writeAvailable, true);
@@ -4155,10 +4155,10 @@ test("encrypted keychain vault adapter persists material across daemon restart w
 
     await daemon.close();
     daemon = await startRuntimeDaemonService({ cwd, stateDir });
-    const restartedHealth = await expectOk(daemon.endpoint, "/api/v1/providers/provider.test.keychain-vault/health", { method: "POST" });
+    const restartedHealth = await expectOk(daemon.endpoint, "/v1/model-mount/providers/provider.test.keychain-vault/health", { method: "POST" });
     assert.equal(restartedHealth.status, "available");
     assert.ok(providerServer.observedHeaders().some((headers) => headers["x-api-key"] === vaultMaterial));
-    const restartedMeta = await expectOk(daemon.endpoint, "/api/v1/vault/refs/meta", {
+    const restartedMeta = await expectOk(daemon.endpoint, "/v1/model-mount/vault/refs/meta", {
       method: "POST",
       token: grant.token,
       body: { vault_ref: vaultRef },
@@ -4189,11 +4189,11 @@ test("configured keychain vault adapter fails closed when unavailable", async ()
   process.env.IOI_KEYCHAIN_VAULT_KEY = crypto.randomBytes(32).toString("base64url");
   const daemon = await startRuntimeDaemonService({ cwd, stateDir });
   try {
-    const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+    const grant = await expectOk(daemon.endpoint, "/v1/model-mount/tokens", {
       method: "POST",
       body: { allowed: ["provider.write:*", "vault.read:*"] },
     });
-    await expectOk(daemon.endpoint, "/api/v1/providers", {
+    await expectOk(daemon.endpoint, "/v1/model-mount/providers", {
       method: "POST",
       token: grant.token,
       body: {
@@ -4208,11 +4208,11 @@ test("configured keychain vault adapter fails closed when unavailable", async ()
         secret_ref: vaultRef,
       },
     });
-    const health = await requestJson(daemon.endpoint, "/api/v1/providers/provider.test.keychain-unavailable/health", { method: "POST" });
+    const health = await requestJson(daemon.endpoint, "/v1/model-mount/providers/provider.test.keychain-unavailable/health", { method: "POST" });
     assert.equal(health.response.status, 424);
     assert.equal(health.json.error.details.adapter, "encrypted_keychain_vault_adapter");
     assert.equal(JSON.stringify(health.json).includes(vaultRef), false);
-    const adapterHealth = await requestJson(daemon.endpoint, "/api/v1/vault/health", { method: "POST", token: grant.token });
+    const adapterHealth = await requestJson(daemon.endpoint, "/v1/model-mount/vault/health", { method: "POST", token: grant.token });
     assert.equal(adapterHealth.response.status, 424);
     assert.equal(adapterHealth.json.error.details.adapter, "encrypted_keychain_vault_adapter");
   } finally {
@@ -4287,7 +4287,7 @@ exit 0
   process.env.IOI_ENABLE_LM_STUDIO_PUBLIC_RUNTIME_DISCOVERY = "1";
   const daemon = await startRuntimeDaemonService({ cwd, stateDir, homeDir });
   try {
-    const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+    const grant = await expectOk(daemon.endpoint, "/v1/model-mount/tokens", {
       method: "POST",
       body: {
         allowed: [
@@ -4303,10 +4303,10 @@ exit 0
       },
     });
 
-    const providerModels = await expectOk(daemon.endpoint, "/api/v1/providers/provider.lmstudio/models");
+    const providerModels = await expectOk(daemon.endpoint, "/v1/model-mount/providers/provider.lmstudio/models");
     assert.ok(providerModels.some((model) => model.modelId === "qwen/qwen3.5-9b"));
 
-    const providerLoaded = await expectOk(daemon.endpoint, "/api/v1/providers/provider.lmstudio/loaded");
+    const providerLoaded = await expectOk(daemon.endpoint, "/v1/model-mount/providers/provider.lmstudio/loaded");
     assert.ok(providerLoaded.some((model) => model.modelId === "qwen/qwen3.5-9b"));
 
     const runtimeEngines = await expectOk(daemon.endpoint, "/v1/model-mount/runtime/engines");
@@ -4456,7 +4456,7 @@ exit 0
   process.env.IOI_ENABLE_LM_STUDIO_PUBLIC_CLI = "1";
   const daemon = await startRuntimeDaemonService({ cwd, stateDir, homeDir });
   try {
-    const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+    const grant = await expectOk(daemon.endpoint, "/v1/model-mount/tokens", {
       method: "POST",
       body: {
         allowed: ["model.load:*", "model.mount:*"],
@@ -4524,7 +4524,7 @@ test("model load records coalesce stale loaded instances per endpoint", async ()
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-loaded-coalesce-state-"));
   const daemon = await startRuntimeDaemonService({ cwd, stateDir });
   try {
-    const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+    const grant = await expectOk(daemon.endpoint, "/v1/model-mount/tokens", {
       method: "POST",
       body: { allowed: ["model.load:*"], denied: ["filesystem.write", "shell.exec"] },
     });

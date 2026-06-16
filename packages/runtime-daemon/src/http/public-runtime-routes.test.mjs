@@ -674,6 +674,212 @@ test("public runtime model catalog routes use mounted model projection surface",
   ]);
 });
 
+test("public runtime provider vault token and catalog controls use stable model mount protocol routes", async () => {
+  const { handleRequest } = routeHarness();
+  const calls = [];
+  const store = {
+    modelMounting: {
+      authorize(authorization, scope) {
+        calls.push({ method: "authorize", authorization, scope });
+      },
+      getCatalogProviderConfig(id) {
+        calls.push({ method: "getCatalogProviderConfig", id });
+        return { id, object: "catalog.provider" };
+      },
+      configureCatalogProvider(id, body) {
+        calls.push({ method: "configureCatalogProvider", id, body });
+        return { id, object: "catalog.provider.configured" };
+      },
+      startCatalogProviderOAuth(id, body) {
+        calls.push({ method: "startCatalogProviderOAuth", id, body });
+        return { id, object: "catalog.oauth.start" };
+      },
+      completeCatalogProviderOAuth(id, body) {
+        calls.push({ method: "completeCatalogProviderOAuth", id, body });
+        return { id, object: "catalog.oauth.callback" };
+      },
+      exchangeCatalogProviderOAuth(id, body) {
+        calls.push({ method: "exchangeCatalogProviderOAuth", id, body });
+        return { id, object: "catalog.oauth.exchange" };
+      },
+      refreshCatalogProviderOAuth(id) {
+        calls.push({ method: "refreshCatalogProviderOAuth", id });
+        return { id, object: "catalog.oauth.refresh" };
+      },
+      revokeCatalogProviderOAuth(id) {
+        calls.push({ method: "revokeCatalogProviderOAuth", id });
+        return { id, object: "catalog.oauth.revoke" };
+      },
+      listTokens() {
+        calls.push({ method: "listTokens" });
+        return [{ id: "token.route" }];
+      },
+      createToken(body) {
+        calls.push({ method: "createToken", body });
+        return { id: "token.created", object: "token" };
+      },
+      countModelTokens({ authorization, requiredScope, body }) {
+        calls.push({ method: "countModelTokens", authorization, requiredScope, body });
+        return { token_count: 7 };
+      },
+      revokeToken(id) {
+        calls.push({ method: "revokeToken", id });
+        return { id, revoked: true };
+      },
+      listVaultRefs() {
+        calls.push({ method: "listVaultRefs" });
+        return [{ vault_ref: "vault://route" }];
+      },
+      bindVaultRef(body) {
+        calls.push({ method: "bindVaultRef", body });
+        return { vault_ref: "vault://route", bound: true };
+      },
+      removeVaultRef(body) {
+        calls.push({ method: "removeVaultRef", body });
+        return { vault_ref: body.vault_ref, removed: true };
+      },
+      vaultRefMetadata(body) {
+        calls.push({ method: "vaultRefMetadata", body });
+        return { vault_ref: body.vault_ref, redacted: true };
+      },
+      vaultStatus() {
+        calls.push({ method: "vaultStatus" });
+        return { status: "ready" };
+      },
+      vaultHealth() {
+        calls.push({ method: "vaultHealth" });
+        return { status: "healthy" };
+      },
+      latestVaultHealth() {
+        calls.push({ method: "latestVaultHealth" });
+        return { status: "latest" };
+      },
+      listProviders() {
+        calls.push({ method: "listProviders" });
+        return [{ id: "provider.route" }];
+      },
+      upsertProvider(body) {
+        calls.push({ method: "upsertProvider", body });
+        return { id: body.id ?? "provider.created", object: "provider" };
+      },
+      latestProviderHealth(id) {
+        calls.push({ method: "latestProviderHealth", id });
+        return { id, status: "latest" };
+      },
+      providerHealth(id) {
+        calls.push({ method: "providerHealth", id });
+        return { id, status: "healthy" };
+      },
+      listProviderModels(id) {
+        calls.push({ method: "listProviderModels", id });
+        return [{ id: "provider.model", provider_id: id }];
+      },
+      listProviderLoaded(id) {
+        calls.push({ method: "listProviderLoaded", id });
+        return [{ id: "provider.loaded", provider_id: id }];
+      },
+      startProvider(id) {
+        calls.push({ method: "startProvider", id });
+        return { id, status: "started" };
+      },
+      stopProvider(id) {
+        calls.push({ method: "stopProvider", id });
+        return { id, status: "stopped" };
+      },
+    },
+  };
+
+  for (const [path, expected, status = 200] of [
+    ["/v1/model-mount/catalog/providers/catalog.route", { id: "catalog.route", object: "catalog.provider" }],
+    ["PATCH /v1/model-mount/catalog/providers/catalog.route", { id: "catalog.route", object: "catalog.provider.configured" }],
+    ["POST /v1/model-mount/catalog/providers/catalog.route/oauth/start", { id: "catalog.route", object: "catalog.oauth.start" }, 201],
+    ["POST /v1/model-mount/catalog/providers/catalog.route/oauth/callback", { id: "catalog.route", object: "catalog.oauth.callback" }, 201],
+    ["POST /v1/model-mount/catalog/providers/catalog.route/oauth/exchange", { id: "catalog.route", object: "catalog.oauth.exchange" }, 201],
+    ["POST /v1/model-mount/catalog/providers/catalog.route/oauth/refresh", { id: "catalog.route", object: "catalog.oauth.refresh" }],
+    ["POST /v1/model-mount/catalog/providers/catalog.route/oauth/revoke", { id: "catalog.route", object: "catalog.oauth.revoke" }],
+    ["/v1/model-mount/tokens", [{ id: "token.route" }]],
+    ["POST /v1/model-mount/tokens", { id: "token.created", object: "token" }, 201],
+    ["POST /v1/model-mount/tokens/count", { token_count: 7 }],
+    ["DELETE /v1/model-mount/tokens/token.route", { id: "token.route", revoked: true }],
+    ["/v1/model-mount/vault/refs", [{ vault_ref: "vault://route" }]],
+    ["POST /v1/model-mount/vault/refs", { vault_ref: "vault://route", bound: true }, 201],
+    ["DELETE /v1/model-mount/vault/refs", { vault_ref: "vault://route", removed: true }],
+    ["POST /v1/model-mount/vault/refs/meta", { vault_ref: "vault://route", redacted: true }],
+    ["/v1/model-mount/vault/status", { status: "ready" }],
+    ["POST /v1/model-mount/vault/health", { status: "healthy" }],
+    ["/v1/model-mount/vault/health/latest", { status: "latest" }],
+    ["/v1/model-mount/providers", [{ id: "provider.route" }]],
+    ["POST /v1/model-mount/providers", { id: "provider.created", object: "provider" }, 201],
+    ["PATCH /v1/model-mount/providers/provider.route", { id: "provider.route", object: "provider" }],
+    ["/v1/model-mount/providers/provider.route/health/latest", { id: "provider.route", status: "latest" }],
+    ["POST /v1/model-mount/providers/provider.route/health", { id: "provider.route", status: "healthy" }],
+    ["/v1/model-mount/providers/provider.route/models", [{ id: "provider.model", provider_id: "provider.route" }]],
+    ["/v1/model-mount/providers/provider.route/loaded", [{ id: "provider.loaded", provider_id: "provider.route" }]],
+    ["POST /v1/model-mount/providers/provider.route/start", { id: "provider.route", status: "started" }],
+    ["POST /v1/model-mount/providers/provider.route/stop", { id: "provider.route", status: "stopped" }],
+  ]) {
+    const methodMatch = path.match(/^(GET|POST|PATCH|DELETE) (.+)$/);
+    const [method, routePath] = methodMatch ? [methodMatch[1], methodMatch[2]] : ["GET", path];
+    const body = routePath.includes("/vault/") ? { vault_ref: "vault://route" } : {};
+    const routeResponse = responseRecorder();
+    await handleRequest({ request: request({ method, url: routePath, body }), response: routeResponse, store });
+    assert.equal(routeResponse.statusCode, status);
+    assert.deepEqual(JSON.parse(routeResponse.body), expected);
+  }
+
+  assert.deepEqual(calls, [
+    { method: "getCatalogProviderConfig", id: "catalog.route" },
+    { method: "authorize", authorization: undefined, scope: "provider.write:catalog.route" },
+    { method: "configureCatalogProvider", id: "catalog.route", body: {} },
+    { method: "authorize", authorization: undefined, scope: "provider.write:catalog.route" },
+    { method: "authorize", authorization: undefined, scope: "vault.write:*" },
+    { method: "startCatalogProviderOAuth", id: "catalog.route", body: {} },
+    { method: "authorize", authorization: undefined, scope: "provider.write:catalog.route" },
+    { method: "authorize", authorization: undefined, scope: "vault.write:*" },
+    { method: "completeCatalogProviderOAuth", id: "catalog.route", body: {} },
+    { method: "authorize", authorization: undefined, scope: "provider.write:catalog.route" },
+    { method: "authorize", authorization: undefined, scope: "vault.write:*" },
+    { method: "exchangeCatalogProviderOAuth", id: "catalog.route", body: {} },
+    { method: "authorize", authorization: undefined, scope: "provider.write:catalog.route" },
+    { method: "authorize", authorization: undefined, scope: "vault.write:*" },
+    { method: "refreshCatalogProviderOAuth", id: "catalog.route" },
+    { method: "authorize", authorization: undefined, scope: "provider.write:catalog.route" },
+    { method: "authorize", authorization: undefined, scope: "vault.delete:*" },
+    { method: "revokeCatalogProviderOAuth", id: "catalog.route" },
+    { method: "listTokens" },
+    { method: "createToken", body: {} },
+    { method: "countModelTokens", authorization: undefined, requiredScope: "model.tokenize:*", body: {} },
+    { method: "revokeToken", id: "token.route" },
+    { method: "authorize", authorization: undefined, scope: "vault.read:*" },
+    { method: "listVaultRefs" },
+    { method: "authorize", authorization: undefined, scope: "vault.write:*" },
+    { method: "bindVaultRef", body: { vault_ref: "vault://route" } },
+    { method: "authorize", authorization: undefined, scope: "vault.delete:*" },
+    { method: "removeVaultRef", body: { vault_ref: "vault://route" } },
+    { method: "authorize", authorization: undefined, scope: "vault.read:*" },
+    { method: "vaultRefMetadata", body: { vault_ref: "vault://route" } },
+    { method: "authorize", authorization: undefined, scope: "vault.read:*" },
+    { method: "vaultStatus" },
+    { method: "authorize", authorization: undefined, scope: "vault.read:*" },
+    { method: "vaultHealth" },
+    { method: "authorize", authorization: undefined, scope: "vault.read:*" },
+    { method: "latestVaultHealth" },
+    { method: "listProviders" },
+    { method: "authorize", authorization: undefined, scope: "provider.write:*" },
+    { method: "upsertProvider", body: {} },
+    { method: "authorize", authorization: undefined, scope: "provider.write:provider.route" },
+    { method: "upsertProvider", body: { id: "provider.route" } },
+    { method: "latestProviderHealth", id: "provider.route" },
+    { method: "providerHealth", id: "provider.route" },
+    { method: "listProviderModels", id: "provider.route" },
+    { method: "listProviderLoaded", id: "provider.route" },
+    { method: "authorize", authorization: undefined, scope: "provider.control:provider.route" },
+    { method: "startProvider", id: "provider.route" },
+    { method: "authorize", authorization: undefined, scope: "provider.control:provider.route" },
+    { method: "stopProvider", id: "provider.route" },
+  ]);
+});
+
 test("public runtime studio intent route uses Rust daemon-core projection", async () => {
   const calls = [];
   const { handleRequest } = routeHarness();

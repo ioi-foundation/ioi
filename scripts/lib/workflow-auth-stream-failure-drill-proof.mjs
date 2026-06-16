@@ -125,7 +125,7 @@ try {
   assert.equal(missingAuth.response.status, 401);
   assert.equal(JSON.stringify(missingAuth.json).includes("sk-"), false);
 
-  const grant = await expectOk(daemon.endpoint, "/api/v1/tokens", {
+  const grant = await expectOk(daemon.endpoint, "/v1/model-mount/tokens", {
     method: "POST",
     body: {
       audience: "autopilot-local-server",
