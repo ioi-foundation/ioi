@@ -298,7 +298,7 @@ def seed_model_mounting_state(endpoint: str) -> dict[str, Any]:
     )
     route_test = request_json(
         endpoint,
-        "/api/v1/routes/route.native-local/test",
+        "/v1/model-mount/routes/route.native-local/test",
         method="POST",
         token=token,
         body={

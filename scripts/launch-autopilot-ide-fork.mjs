@@ -402,7 +402,7 @@ async function bootstrapConfiguredLlamaCppModel(endpoint, token, mountedCount) {
       load_policy: { mode: "on_demand", idleTtlSeconds: 900, autoEvict: false },
     },
   });
-  const route = await requestJson(endpoint, "/api/v1/routes", {
+  const route = await requestJson(endpoint, "/v1/model-mount/routes", {
     method: "POST",
     token,
     body: {
@@ -417,7 +417,7 @@ async function bootstrapConfiguredLlamaCppModel(endpoint, token, mountedCount) {
       max_cost_usd: 0,
     },
   });
-  await requestJson(endpoint, "/api/v1/routes", {
+  await requestJson(endpoint, "/v1/model-mount/routes", {
     method: "POST",
     token,
     body: {
@@ -480,7 +480,7 @@ async function bootstrapLocalModelDiscovery(endpoint, token) {
   let route = configuredLlamaCpp.route;
   const productMounted = mounted.find((endpointRecord) => isProductRuntimeEndpoint(endpointRecord));
   if (productMounted?.id && configuredLlamaCpp.mounted.length === 0) {
-    route = await requestJson(endpoint, "/api/v1/routes", {
+    route = await requestJson(endpoint, "/v1/model-mount/routes", {
       method: "POST",
       token,
       body: {

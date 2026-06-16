@@ -55,7 +55,7 @@ pub async fn run(args: RoutesArgs) -> Result<()> {
                 endpoint,
                 token,
                 Method::POST,
-                &format!("/api/v1/routes/{id}/test"),
+                &format!("/v1/model-mount/routes/{id}/test"),
                 Some(json!({
                     "capability": capability,
                     "model": model,

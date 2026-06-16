@@ -1119,7 +1119,7 @@ async function main() {
     });
 
     await runStep(evidence, "route policy and workflow node execution", async () => {
-      const route = await expectOk(daemon.endpoint, "/api/v1/routes", {
+      const route = await expectOk(daemon.endpoint, "/v1/model-mount/routes", {
         method: "POST",
         token,
         body: {
@@ -1134,7 +1134,7 @@ async function main() {
       });
       assert.equal(route.id, "route.e2e.native");
 
-      const routeTest = await expectOk(daemon.endpoint, "/api/v1/routes/route.e2e.native/test", {
+      const routeTest = await expectOk(daemon.endpoint, "/v1/model-mount/routes/route.e2e.native/test", {
         method: "POST",
         token,
         body: { capability: "chat", model_policy: { privacy: "local_only" } },

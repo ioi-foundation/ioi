@@ -2096,7 +2096,7 @@ test("model mounting native route does not expose retired receipt read aliases",
   assert.deepEqual(calls, []);
 });
 
-test("model mounting native route does not expose retired operational read, server-control, backend-control, or runtime-control aliases", async () => {
+test("model mounting native route does not expose retired operational read, server-control, backend-control, runtime-control, or route-control aliases", async () => {
   const { handleModelMountingNativeRoute } = routeHandlers();
   const calls = [];
   const failRetiredAlias = (name) => (...args) => {
@@ -2123,7 +2123,9 @@ test("model mounting native route does not expose retired operational read, serv
       serverStop: failRetiredAlias("serverStop"),
       startBackend: failRetiredAlias("startBackend"),
       stopBackend: failRetiredAlias("stopBackend"),
+      testRoute: failRetiredAlias("testRoute"),
       updateRuntimeEngine: failRetiredAlias("updateRuntimeEngine"),
+      upsertRoute: failRetiredAlias("upsertRoute"),
     },
   };
   const cases = [
@@ -2149,6 +2151,8 @@ test("model mounting native route does not expose retired operational read, serv
     ["DELETE", "/api/v1/runtime/engines/engine.route"],
     ["POST", "/api/v1/runtime/survey"],
     ["POST", "/api/v1/runtime/select"],
+    ["POST", "/api/v1/routes"],
+    ["POST", "/api/v1/routes/route.route/test"],
     "/api/v1/models/runtime-engines",
     "/api/v1/models/instances",
     "/api/v1/models/loaded",

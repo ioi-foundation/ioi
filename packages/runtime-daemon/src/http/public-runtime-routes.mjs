@@ -369,6 +369,23 @@ export function createPublicRuntimeRequestHandler(deps) {
         writeJsonResponse(response, store.modelMounting.listRoutes());
         return;
       }
+      if (request.method === "POST" && url.pathname === "/v1/model-mount/routes") {
+        store.modelMounting.authorize(request.headers.authorization, "route.write:*");
+        writeJsonResponse(response, store.modelMounting.upsertRoute(await readBody(request)), 201);
+        return;
+      }
+      if (
+        request.method === "POST" &&
+        segments[0] === "v1" &&
+        segments[1] === "model-mount" &&
+        segments[2] === "routes" &&
+        segments[3] &&
+        segments[4] === "test"
+      ) {
+        store.modelMounting.authorize(request.headers.authorization, `route.use:${decodeURIComponent(segments[3])}`);
+        writeJsonResponse(response, store.modelMounting.testRoute(decodeURIComponent(segments[3]), await readBody(request)));
+        return;
+      }
       if (request.method === "GET" && url.pathname === "/v1/models/catalog/search") {
         writeJsonResponse(response, await store.modelMounting.catalogSearch(Object.fromEntries(url.searchParams.entries())));
         return;

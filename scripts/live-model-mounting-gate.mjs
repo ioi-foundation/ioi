@@ -988,7 +988,7 @@ async function runLlamaCppGate(evidence) {
             backend_id: "backend.llama-cpp",
           },
         });
-        await expectOk(daemon.endpoint, "/api/v1/routes", {
+        await expectOk(daemon.endpoint, "/v1/model-mount/routes", {
           method: "POST",
           token: grant.token,
           body: {
@@ -1249,7 +1249,7 @@ async function runModelBackendsGate(evidence) {
         },
       });
       const chatRouteId = `route.live.ollama.${safeLiveId(chatModel)}`;
-      await expectOk(daemon.endpoint, "/api/v1/routes", {
+      await expectOk(daemon.endpoint, "/v1/model-mount/routes", {
         method: "POST",
         token: grant.token,
         body: {
@@ -1442,7 +1442,7 @@ async function runModelBackendsGate(evidence) {
             backend_id: "backend.vllm",
           },
         });
-        await expectOk(daemon.endpoint, "/api/v1/routes", {
+        await expectOk(daemon.endpoint, "/v1/model-mount/routes", {
           method: "POST",
           token: grant.token,
           body: {

@@ -2716,7 +2716,7 @@ function useModelMountsDaemon() {
             max_cost_usd: Number(draft.maxCostUsd || 0.05),
           };
           const receiptIds: string[] = [];
-          const routeTest = await requestJson(`/api/v1/routes/${encodeURIComponent(routeId)}/test`, {
+          const routeTest = await requestJson(`/v1/model-mount/routes/${encodeURIComponent(routeId)}/test`, {
             method: "POST",
             token,
             body: { capability: "chat", model: modelId, model_policy: modelPolicy },
@@ -2806,7 +2806,7 @@ function useModelMountsDaemon() {
       testRoute: () =>
         runAction("route-test", async () => {
           const token = await ensureToken();
-          await requestJson("/api/v1/routes/route.local-first/test", {
+          await requestJson("/v1/model-mount/routes/route.local-first/test", {
             method: "POST",
             token,
             body: { capability: "chat", model_policy: { privacy: "local_only" } },
@@ -2816,7 +2816,7 @@ function useModelMountsDaemon() {
       saveRouteDraft: (draft: RouteDraft) =>
         runAction("route-save", async () => {
           const token = await ensureToken();
-          const routeResult = await requestJson("/api/v1/routes", {
+          const routeResult = await requestJson("/v1/model-mount/routes", {
             method: "POST",
             token,
             body: routeDraftPayload(draft),
@@ -2827,12 +2827,12 @@ function useModelMountsDaemon() {
         runAction("route-editor-test", async () => {
           const token = await ensureToken();
           const routeId = draft.id.trim() || "route.local-first";
-          await requestJson("/api/v1/routes", {
+          await requestJson("/v1/model-mount/routes", {
             method: "POST",
             token,
             body: routeDraftPayload(draft),
           });
-          const result = await requestJson(`/api/v1/routes/${encodeURIComponent(routeId)}/test`, {
+          const result = await requestJson(`/v1/model-mount/routes/${encodeURIComponent(routeId)}/test`, {
             method: "POST",
             token,
             body: {

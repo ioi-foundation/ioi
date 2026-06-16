@@ -362,6 +362,14 @@ test("public runtime model catalog routes use mounted model projection surface",
         calls.push({ method: "listRoutes" });
         return [{ id: "route.route" }];
       },
+      upsertRoute(body) {
+        calls.push({ method: "upsertRoute", body });
+        return { id: "route.write", object: "route.upsert" };
+      },
+      testRoute(id, body) {
+        calls.push({ method: "testRoute", id, body });
+        return { id, object: "route.test" };
+      },
       catalogSearch(query) {
         calls.push({ method: "catalogSearch", query });
         return [{ id: "catalog.route", query: query.query }];
@@ -486,6 +494,8 @@ test("public runtime model catalog routes use mounted model projection surface",
     ["/v1/models/endpoints", [{ id: "endpoint.route" }]],
     ["/v1/models/providers", [{ id: "provider.route" }]],
     ["/v1/models/routes", [{ id: "route.route" }]],
+    ["POST /v1/model-mount/routes", { id: "route.write", object: "route.upsert" }],
+    ["POST /v1/model-mount/routes/route.route/test", { id: "route.route", object: "route.test" }],
     ["/v1/models/catalog/search?query=qwen", [{ id: "catalog.route", query: "qwen" }]],
     ["/v1/model-mount/server/status", { id: "server.status", baseUrl: "http://daemon.test" }],
     ["POST /v1/model-mount/server/start", { id: "server.start", baseUrl: "http://daemon.test" }],
@@ -517,7 +527,7 @@ test("public runtime model catalog routes use mounted model projection surface",
     const body = method === "PATCH" ? { label: "Engine route" } : {};
     const routeResponse = responseRecorder();
     await handleRequest({ request: request({ method, url: routePath, body }), response: routeResponse, store });
-    assert.equal(routeResponse.statusCode, 200);
+    assert.equal(routeResponse.statusCode, routePath === "/v1/model-mount/routes" ? 201 : 200);
     assert.deepEqual(JSON.parse(routeResponse.body), expected);
   }
 
@@ -528,6 +538,10 @@ test("public runtime model catalog routes use mounted model projection surface",
     { method: "listEndpoints" },
     { method: "listProviders" },
     { method: "listRoutes" },
+    { method: "authorize", authorization: undefined, scope: "route.write:*" },
+    { method: "upsertRoute", body: {} },
+    { method: "authorize", authorization: undefined, scope: "route.use:route.route" },
+    { method: "testRoute", id: "route.route", body: {} },
     { method: "catalogSearch", query: { query: "qwen" } },
     { method: "serverStatus", baseUrl: "http://daemon.test" },
     { method: "authorize", authorization: undefined, scope: "server.control:*" },

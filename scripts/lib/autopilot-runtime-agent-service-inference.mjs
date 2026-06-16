@@ -158,7 +158,7 @@ export async function bootstrapNativeRuntimeModelRoute({
         },
       },
     });
-    const route = await requestJson(daemonEndpoint, "/api/v1/routes", {
+    const route = await requestJson(daemonEndpoint, "/v1/model-mount/routes", {
       method: "POST",
       token,
       body: {
@@ -184,7 +184,7 @@ export async function bootstrapNativeRuntimeModelRoute({
         ],
       },
     });
-    const routeTest = await requestJson(daemonEndpoint, `/api/v1/routes/${llamaRouteId}/test`, {
+    const routeTest = await requestJson(daemonEndpoint, `/v1/model-mount/routes/${llamaRouteId}/test`, {
       method: "POST",
       token,
       body: {
@@ -285,7 +285,7 @@ export async function bootstrapNativeRuntimeModelRoute({
       },
     },
   });
-  const route = await requestJson(daemonEndpoint, "/api/v1/routes", {
+  const route = await requestJson(daemonEndpoint, "/v1/model-mount/routes", {
     method: "POST",
     token,
     body: {
@@ -307,7 +307,7 @@ export async function bootstrapNativeRuntimeModelRoute({
       ],
     },
   });
-  const routeTest = await requestJson(daemonEndpoint, `/api/v1/routes/${routeId}/test`, {
+  const routeTest = await requestJson(daemonEndpoint, `/v1/model-mount/routes/${routeId}/test`, {
     method: "POST",
     token,
     body: { capability: "chat", model_policy: { privacy: "local_only" } },

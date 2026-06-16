@@ -11449,6 +11449,25 @@ transport, OAuth/auth-header materialization, invocation authority depth, and
 broader IDE/SDK control coverage still need terminal Rust-owned protocol
 coverage.
 
+Slice 1356 hard-cuts stable model_mount route-control protocol clients and
+retires the native route write/test control aliases. Public route upsert and
+route test now use `POST /v1/model-mount/routes` and
+`POST /v1/model-mount/routes/{id}/test` over the mounted Rust daemon-core
+route-control planner and Agentgres record-state commit path, preserving
+`route.write:*` and `route.use:{id}` authority gates at the stable protocol
+edge. CLI route tests, live/provider gates, desktop probes, validation proofs,
+production polish and IDE-launch scripts, product UI route actions, and
+inference harnesses moved off `POST /api/v1/routes` and
+`POST /api/v1/routes/{id}/test`. The daemon native handler no longer exposes
+those aliases, focused route tests assert they return `not_found` without
+calling route-control methods, and conformance scans source clients so the
+retired route-control compatibility path cannot return. This remains
+non-terminal because model import/download/mount/load/unload, provider/vault/
+catalog OAuth controls, backend execution/materialization, hosted/provider
+transport, OAuth/auth-header materialization, invocation authority depth, and
+broader IDE/SDK control coverage still need terminal Rust-owned protocol
+coverage.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

@@ -337,6 +337,7 @@ function checkDaemonRouteImplementation() {
     'url.pathname === "/v1/model-mount/runtime/engines"',
     'url.pathname === "/v1/model-mount/runtime/survey"',
     'url.pathname === "/v1/model-mount/runtime/select"',
+    'url.pathname === "/v1/model-mount/routes"',
     'url.pathname === "/v1/model-mount/backends"',
     'url.pathname === "/v1/model-mount/authority"',
     'url.pathname === "/v1/model-mount/server/start"',
@@ -345,6 +346,7 @@ function checkDaemonRouteImplementation() {
     'segments[4] === "health"',
     'segments[4] === "start"',
     'segments[4] === "stop"',
+    'segments[2] === "routes"',
     'segments[5] === "select"',
   ];
   const requiredNativeControl = [

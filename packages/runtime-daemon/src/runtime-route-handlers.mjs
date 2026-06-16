@@ -332,16 +332,6 @@ export function createRuntimeRouteHandlers(deps) {
       writeJsonResponse(response, await mounts.stopProvider(decodeURIComponent(segments[3])));
       return;
     }
-    if (request.method === "POST" && url.pathname === "/api/v1/routes") {
-      mounts.authorize(authorization, "route.write:*");
-      writeJsonResponse(response, mounts.upsertRoute(await readBody(request)), 201);
-      return;
-    }
-    if (request.method === "POST" && segments[2] === "routes" && segments[3] && segments[4] === "test") {
-      mounts.authorize(authorization, `route.use:${decodeURIComponent(segments[3])}`);
-      writeJsonResponse(response, mounts.testRoute(decodeURIComponent(segments[3]), await readBody(request)));
-      return;
-    }
     if (request.method === "POST" && url.pathname === "/api/v1/chat") {
       const invocation = await mounts.invokeModel({
         authorization,

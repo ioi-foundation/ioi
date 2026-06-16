@@ -518,7 +518,7 @@ async function bootstrapDaemon(outputDir) {
       },
     },
   });
-  const route = await requestJson(daemon.endpoint, "/api/v1/routes", {
+  const route = await requestJson(daemon.endpoint, "/v1/model-mount/routes", {
     method: "POST",
     token: grant.token,
     body: {
