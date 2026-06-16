@@ -63,12 +63,6 @@ function harness() {
       error.details = details;
       return error;
     },
-    runtimeChecklistRecordForRun(input) {
-      return { checklistId: `checklist-${input.id}` };
-    },
-    runtimeJobRecordForRun(input) {
-      return { jobId: `job-${input.id}` };
-    },
     runtimeUsageTelemetryForRun({ run, agent, threadId }) {
       return { scope: "run", runId: run.id, agentId: agent?.id, threadId };
     },
@@ -135,8 +129,8 @@ test("runtime run read surface keeps authority evidence retired and projects tra
     paths: {
       run: "runs/run-one.json",
       task: "tasks/run-one.json",
-      job: "jobs/job-run-one.json",
-      checklist: "checklists/checklist-run-one.json",
+      job: "jobs/job_run-one.json",
+      checklist: "checklists/checklist_run-one.json",
       quality: "quality/run-one.json",
     },
     terminalState: "completed",
@@ -162,15 +156,11 @@ test("runtime run read surface default job sidecar path ignores retired job id f
       return ["/state", ...segments].join("/");
     },
   };
-  const surface = createRuntimeRunReadSurface({
-    runtimeChecklistRecordForRun(input) {
-      return { checklistId: `checklist-${input.id}` };
-    },
-  });
+  const surface = createRuntimeRunReadSurface();
 
   assert.equal(
     surface.canonicalProjection(store, "run-canonical").paths.job,
-    "jobs/run-canonical.json",
+    "jobs/job_run-canonical.json",
   );
 });
 
@@ -195,6 +185,6 @@ test("runtime run read surface default checklist sidecar path ignores retired ch
 
   assert.equal(
     surface.canonicalProjection(store, "run-canonical").paths.checklist,
-    "checklists/run-canonical.json",
+    "checklists/checklist_run-canonical.json",
   );
 });

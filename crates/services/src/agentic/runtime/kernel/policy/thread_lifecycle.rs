@@ -95,6 +95,7 @@ pub enum RunCreateStateUpdateError {
     MissingField(&'static str),
     RetiredComputerUseProjectionCandidate,
     RetiredSkillHookMaterializationCandidate,
+    RetiredRuntimeTaskJobProjectionCandidate,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -786,6 +787,7 @@ impl RunCreateStateUpdateCore {
         let mut run =
             object_value(&request.run).ok_or(RunCreateStateUpdateError::MissingField("run"))?;
         materialize_computer_use_run(&mut run)?;
+        materialize_runtime_task_job_run(&mut run)?;
         materialize_skill_hook_run(&mut run)?;
         let run_value = Value::Object(run.clone());
         let run_id = optional_json_string(&run_value, "id")
@@ -2719,6 +2721,795 @@ fn sha256_text(value: &str) -> String {
     hex::encode(Sha256::digest(value.as_bytes()))
 }
 
+fn materialize_runtime_task_job_run(
+    run: &mut serde_json::Map<String, Value>,
+) -> Result<(), RunCreateStateUpdateError> {
+    if runtime_task_job_candidate_present(run) {
+        return Err(RunCreateStateUpdateError::RetiredRuntimeTaskJobProjectionCandidate);
+    }
+    let run_value = Value::Object(run.clone());
+    let run_id = optional_json_string(&run_value, "id")
+        .ok_or(RunCreateStateUpdateError::MissingField("run.id"))?;
+    let agent_id = optional_json_string(&run_value, "agentId")
+        .ok_or(RunCreateStateUpdateError::MissingField("run.agentId"))?;
+    let mode = optional_json_string(&run_value, "mode")
+        .ok_or(RunCreateStateUpdateError::MissingField("run.mode"))?;
+    let created_at = optional_json_string(&run_value, "createdAt")
+        .ok_or(RunCreateStateUpdateError::MissingField("run.createdAt"))?;
+    let updated_at = optional_json_string(&run_value, "updatedAt")
+        .ok_or(RunCreateStateUpdateError::MissingField("run.updatedAt"))?;
+    let status = runtime_task_job_status(json_string_value(&run_value, "status").as_deref());
+    let task_family = trace_quality_string(&run_value, "taskFamily")
+        .unwrap_or_else(|| runtime_task_family_for_mode(&mode).to_string());
+    let selected_strategy = trace_quality_string(&run_value, "selectedStrategy")
+        .unwrap_or_else(|| runtime_strategy_for_mode(&mode).to_string());
+    let runtime_task = runtime_task_record(
+        &run_value,
+        &run_id,
+        &agent_id,
+        &mode,
+        &status,
+        &task_family,
+        &selected_strategy,
+        &created_at,
+        &updated_at,
+    );
+    let mut runtime_job =
+        runtime_job_record(&run_value, &runtime_task, &status, &created_at, &updated_at);
+    let runtime_checklist = runtime_checklist_record(
+        &runtime_task,
+        &runtime_job,
+        &status,
+        &created_at,
+        &updated_at,
+    );
+    runtime_job = attach_runtime_checklist_to_job(runtime_job, &runtime_checklist);
+
+    let receipts =
+        runtime_task_job_receipts(&run_id, &runtime_task, &runtime_job, &runtime_checklist);
+    let events = runtime_task_job_events(
+        &run_id,
+        &agent_id,
+        &runtime_task,
+        &runtime_job,
+        &runtime_checklist,
+        &receipts,
+    );
+    let artifacts = vec![
+        json_artifact(&run_id, "runtime-task.json", &receipts[0], &runtime_task),
+        json_artifact(&run_id, "runtime-job.json", &receipts[1], &runtime_job),
+        json_artifact(
+            &run_id,
+            "runtime-checklist.json",
+            &receipts[2],
+            &runtime_checklist,
+        ),
+    ];
+
+    run.insert("runtimeTask".to_string(), runtime_task.clone());
+    run.insert("runtimeJob".to_string(), runtime_job.clone());
+    run.insert("runtimeChecklist".to_string(), runtime_checklist.clone());
+    append_array_field(run, "receipts", receipts.clone());
+    append_array_field(run, "events", events.clone());
+    append_array_field(run, "artifacts", artifacts.clone());
+
+    if let Some(trace) = run.get_mut("trace").and_then(Value::as_object_mut) {
+        trace.insert("runtimeTask".to_string(), runtime_task.clone());
+        trace.insert("runtimeJob".to_string(), runtime_job.clone());
+        trace.insert("runtimeChecklist".to_string(), runtime_checklist.clone());
+        append_array_field(trace, "receipts", receipts);
+        append_array_field(trace, "events", events);
+        append_array_field(trace, "artifacts", artifacts);
+        if let Some(task_state) = trace.get_mut("taskState").and_then(Value::as_object_mut) {
+            append_string_array_field(
+                task_state,
+                "knownFacts",
+                vec![
+                    format!(
+                        "Rust daemon-core runtime task: id={}, family={}, status={}",
+                        runtime_task["taskId"].as_str().unwrap_or_default(),
+                        task_family,
+                        status,
+                    ),
+                    format!(
+                        "Rust daemon-core runtime job: id={}, status={}, queue={}",
+                        runtime_job["jobId"].as_str().unwrap_or_default(),
+                        status,
+                        runtime_job["queueName"].as_str().unwrap_or_default(),
+                    ),
+                    format!(
+                        "Rust daemon-core runtime checklist: id={}, status={}, items={}/{}",
+                        runtime_checklist["checklistId"]
+                            .as_str()
+                            .unwrap_or_default(),
+                        status,
+                        runtime_checklist["completedItemCount"]
+                            .as_u64()
+                            .unwrap_or_default(),
+                        runtime_checklist["itemCount"].as_u64().unwrap_or_default(),
+                    ),
+                ],
+            );
+            append_string_array_field(
+                task_state,
+                "evidenceRefs",
+                vec![
+                    runtime_task["taskId"]
+                        .as_str()
+                        .unwrap_or_default()
+                        .to_string(),
+                    runtime_job["jobId"]
+                        .as_str()
+                        .unwrap_or_default()
+                        .to_string(),
+                    runtime_checklist["checklistId"]
+                        .as_str()
+                        .unwrap_or_default()
+                        .to_string(),
+                    "rust_daemon_core_runtime_task_job_materialization".to_string(),
+                ],
+            );
+        }
+        if let Some(prompt_audit) = trace.get_mut("promptAudit").and_then(Value::as_object_mut) {
+            prompt_audit.insert("runtimeTaskId".to_string(), runtime_task["taskId"].clone());
+            prompt_audit.insert("runtimeJobId".to_string(), runtime_job["jobId"].clone());
+            prompt_audit.insert(
+                "runtimeChecklistId".to_string(),
+                runtime_checklist["checklistId"].clone(),
+            );
+            append_string_array_field(
+                prompt_audit,
+                "evidenceRefs",
+                vec![
+                    runtime_task["taskId"]
+                        .as_str()
+                        .unwrap_or_default()
+                        .to_string(),
+                    runtime_job["jobId"]
+                        .as_str()
+                        .unwrap_or_default()
+                        .to_string(),
+                    runtime_checklist["checklistId"]
+                        .as_str()
+                        .unwrap_or_default()
+                        .to_string(),
+                    "rust_daemon_core_runtime_task_job_materialization".to_string(),
+                ],
+            );
+        }
+    }
+
+    Ok(())
+}
+
+fn runtime_task_job_candidate_present(run: &serde_json::Map<String, Value>) -> bool {
+    ["runtimeTask", "runtimeJob", "runtimeChecklist"]
+        .iter()
+        .any(|field| run.get(*field).is_some())
+        || run
+            .get("trace")
+            .and_then(Value::as_object)
+            .is_some_and(|trace| {
+                ["runtimeTask", "runtimeJob", "runtimeChecklist"]
+                    .iter()
+                    .any(|field| trace.get(*field).is_some())
+            })
+}
+
+fn runtime_task_record(
+    run: &Value,
+    run_id: &str,
+    agent_id: &str,
+    mode: &str,
+    status: &str,
+    task_family: &str,
+    selected_strategy: &str,
+    created_at: &str,
+    updated_at: &str,
+) -> Value {
+    let prompt = json_string_value(run, "objective").unwrap_or_default();
+    let model_route_decision = run.get("modelRouteDecision").or_else(|| {
+        run.get("trace")
+            .and_then(|trace| trace.get("modelRouteDecision"))
+    });
+    json!({
+        "schemaVersion": "ioi.agent-runtime.task-record.v1",
+        "object": "ioi.runtime_task",
+        "taskId": format!("task_{run_id}"),
+        "runId": run_id,
+        "agentId": agent_id,
+        "threadId": thread_id_for_agent(agent_id),
+        "turnId": turn_id_for_run(run_id),
+        "status": status,
+        "mode": mode,
+        "taskFamily": task_family,
+        "selectedStrategy": selected_strategy,
+        "summary": format!("Runtime task for {task_family} is {status}."),
+        "promptHash": sha256_text(&prompt),
+        "promptIncluded": false,
+        "objectivePreviewIncluded": false,
+        "modelRouteDecisionId": model_route_decision
+            .and_then(|value| json_string_value(value, "decision_id"))
+            .map(Value::String)
+            .unwrap_or(Value::Null),
+        "activeSkillHookManifestId": Value::Null,
+        "createdAt": created_at,
+        "updatedAt": updated_at,
+        "durable": true,
+        "replayable": true,
+        "cancelable": status != "canceled",
+        "cancelEndpoint": format!("/v1/tasks/task_{run_id}/cancel"),
+        "endpoints": {
+            "self": format!("/v1/tasks/task_{run_id}"),
+            "cancel": format!("/v1/tasks/task_{run_id}/cancel"),
+            "run": format!("/v1/runs/{run_id}"),
+            "job": format!("/v1/jobs/job_{run_id}"),
+            "events": format!("/v1/runs/{run_id}/events"),
+            "trace": format!("/v1/runs/{run_id}/trace"),
+        },
+        "workflowNodeId": "runtime.runtime-task",
+        "redaction": {
+            "profile": "runtime_task_safe",
+            "promptIncluded": false,
+            "secretValuesIncluded": false,
+        },
+        "evidenceRefs": [
+            "runtime_task",
+            "runtime.tasks.durable_projection",
+            "RuntimeTaskNode",
+            format!("run:{run_id}"),
+            "rust_daemon_core_runtime_task_job_materialization",
+        ],
+    })
+}
+
+fn runtime_job_record(
+    run: &Value,
+    runtime_task: &Value,
+    status: &str,
+    created_at: &str,
+    updated_at: &str,
+) -> Value {
+    let run_id = runtime_task["runId"].as_str().unwrap_or_default();
+    let job_id = format!("job_{run_id}");
+    let terminal = matches!(status, "completed" | "failed" | "canceled");
+    let progress = json!({
+        "completedSteps": if terminal { 1 } else { 0 },
+        "totalSteps": 1,
+        "percent": if terminal { 100 } else if status == "running" { 50 } else { 0 },
+    });
+    let failure = if status == "failed" {
+        json!({ "reason": "runtime_failed", "message": "Runtime job failed." })
+    } else {
+        Value::Null
+    };
+    let cancellation = if status == "canceled" {
+        json!({ "reason": "operator_cancel" })
+    } else {
+        Value::Null
+    };
+    let endpoints = json!({
+        "self": format!("/v1/jobs/{job_id}"),
+        "cancel": format!("/v1/jobs/{job_id}/cancel"),
+        "run": format!("/v1/runs/{run_id}"),
+        "events": format!("/v1/runs/{run_id}/events"),
+        "trace": format!("/v1/runs/{run_id}/trace"),
+    });
+    let redaction = json!({
+        "profile": "runtime_job_safe",
+        "promptIncluded": false,
+        "secretValuesIncluded": false,
+    });
+    let evidence_refs = json!([
+        "runtime_job",
+        "runtime.jobs.durable_projection",
+        "RuntimeJobNode",
+        runtime_task["taskId"],
+        format!("run:{run_id}"),
+        "rust_daemon_core_runtime_task_job_materialization",
+    ]);
+    json!({
+        "schemaVersion": "ioi.agent-runtime.job-record.v1",
+        "object": "ioi.runtime_job",
+        "jobId": job_id,
+        "taskId": runtime_task["taskId"],
+        "runId": run_id,
+        "agentId": runtime_task["agentId"],
+        "threadId": runtime_task["threadId"],
+        "turnId": runtime_task["turnId"],
+        "status": status,
+        "lifecycle": runtime_job_lifecycle_for_status(status),
+        "summary": format!("Runtime job job_{run_id} is {status}."),
+        "queueName": "local-agentgres",
+        "runner": "local-daemon-agentgres",
+        "jobType": "agent_run",
+        "priority": "normal",
+        "background": true,
+        "durable": true,
+        "replayable": true,
+        "createdAt": created_at,
+        "updatedAt": updated_at,
+        "queuedAt": created_at,
+        "startedAt": created_at,
+        "completedAt": if terminal { Value::String(updated_at.to_string()) } else { Value::Null },
+        "progress": progress,
+        "eventCount": json_array(run.get("events").unwrap_or(&Value::Null)).len(),
+        "terminalEventCount": Value::Null,
+        "artifactNames": [
+            "runtime-task.json",
+            "runtime-job.json",
+            "runtime-checklist.json",
+            "trace.json",
+            "agentgres-projection.json",
+        ],
+        "receiptKinds": [
+            "runtime_task",
+            "runtime_job",
+            "runtime_checklist",
+            "agentgres_canonical_write",
+        ],
+        "checklistId": Value::Null,
+        "checklistStatus": Value::Null,
+        "checklistItemCount": Value::Null,
+        "checklistCompletedItemCount": Value::Null,
+        "failure": failure,
+        "cancellation": cancellation,
+        "retryCount": 0,
+        "cancelable": status != "canceled",
+        "cancelEndpoint": format!("/v1/jobs/{job_id}/cancel"),
+        "endpoints": endpoints,
+        "workflowNodeId": "runtime.runtime-job",
+        "redaction": redaction,
+        "evidenceRefs": evidence_refs,
+    })
+}
+
+fn runtime_checklist_record(
+    runtime_task: &Value,
+    runtime_job: &Value,
+    status: &str,
+    created_at: &str,
+    updated_at: &str,
+) -> Value {
+    let run_id = runtime_task["runId"].as_str().unwrap_or_default();
+    let task_id = runtime_task["taskId"].as_str().unwrap_or_default();
+    let job_id = runtime_job["jobId"].as_str().unwrap_or_default();
+    let checklist_id = format!("checklist_{run_id}");
+    let (terminal_label, terminal_kind, terminal_status) = match status {
+        "canceled" => ("Job canceled event emitted", "JobCanceled", "canceled"),
+        "failed" => ("Job failed event emitted", "JobFailed", "failed"),
+        "blocked" => ("Job blocked by policy gate", "PolicyBlocked", "blocked"),
+        _ => ("Job completed event emitted", "JobCompleted", "passed"),
+    };
+    let items = vec![
+        checklist_item(
+            &checklist_id,
+            "task_record",
+            "Runtime task record durable",
+            "passed",
+            vec![
+                task_id,
+                "RuntimeTaskNode",
+                "runtime.tasks.durable_projection",
+            ],
+        ),
+        checklist_item(
+            &checklist_id,
+            "job_record",
+            "Runtime job record durable",
+            "passed",
+            vec![job_id, "RuntimeJobNode", "runtime.jobs.durable_projection"],
+        ),
+        checklist_item(
+            &checklist_id,
+            "job_queued",
+            "Job queued event emitted",
+            "passed",
+            vec!["JobQueued"],
+        ),
+        checklist_item(
+            &checklist_id,
+            "job_started",
+            "Job started event emitted",
+            "passed",
+            vec!["JobStarted"],
+        ),
+        checklist_item(
+            &checklist_id,
+            "job_terminal",
+            terminal_label,
+            terminal_status,
+            vec![terminal_kind],
+        ),
+        checklist_item(
+            &checklist_id,
+            "artifacts",
+            "Runtime task/job/checklist artifacts attached",
+            "passed",
+            vec![
+                "runtime-task.json",
+                "runtime-job.json",
+                "runtime-checklist.json",
+            ],
+        ),
+    ];
+    let completed = items
+        .iter()
+        .filter(|item| json_string_value(item, "status").as_deref() == Some("passed"))
+        .count();
+    let canceled = items
+        .iter()
+        .filter(|item| json_string_value(item, "status").as_deref() == Some("canceled"))
+        .count();
+    let failed = items
+        .iter()
+        .filter(|item| json_string_value(item, "status").as_deref() == Some("failed"))
+        .count();
+    let blocked = items
+        .iter()
+        .filter(|item| json_string_value(item, "status").as_deref() == Some("blocked"))
+        .count();
+    json!({
+        "schemaVersion": "ioi.agent-runtime.checklist-record.v1",
+        "object": "ioi.runtime_checklist",
+        "checklistId": checklist_id,
+        "taskId": task_id,
+        "jobId": job_id,
+        "runId": run_id,
+        "agentId": runtime_task["agentId"],
+        "threadId": runtime_task["threadId"],
+        "turnId": runtime_task["turnId"],
+        "status": status,
+        "summary": format!("Runtime checklist for {job_id} is {status}."),
+        "durable": true,
+        "replayable": true,
+        "readOnly": true,
+        "itemCount": items.len(),
+        "completedItemCount": completed,
+        "canceledItemCount": canceled,
+        "failedItemCount": failed,
+        "blockedItemCount": blocked,
+        "items": items,
+        "requiredItemIds": [
+            format!("{checklist_id}:task_record"),
+            format!("{checklist_id}:job_record"),
+            format!("{checklist_id}:job_queued"),
+            format!("{checklist_id}:job_started"),
+            format!("{checklist_id}:job_terminal"),
+            format!("{checklist_id}:artifacts"),
+        ],
+        "createdAt": created_at,
+        "updatedAt": updated_at,
+        "workflowNodeId": "runtime.runtime-checklist",
+        "redaction": {
+            "profile": "runtime_checklist_safe",
+            "promptIncluded": false,
+            "secretValuesIncluded": false,
+        },
+        "evidenceRefs": [
+            "runtime_checklist",
+            "runtime.checklists.durable_projection",
+            "RuntimeChecklistNode",
+            task_id,
+            job_id,
+            format!("run:{run_id}"),
+            "rust_daemon_core_runtime_task_job_materialization",
+        ],
+    })
+}
+
+fn checklist_item(
+    checklist_id: &str,
+    suffix: &str,
+    label: &str,
+    status: &str,
+    evidence_refs: Vec<&str>,
+) -> Value {
+    json!({
+        "itemId": format!("{checklist_id}:{suffix}"),
+        "label": label,
+        "status": status,
+        "evidenceRefs": evidence_refs,
+    })
+}
+
+fn attach_runtime_checklist_to_job(mut runtime_job: Value, runtime_checklist: &Value) -> Value {
+    if let Some(job) = runtime_job.as_object_mut() {
+        job.insert(
+            "checklistId".to_string(),
+            runtime_checklist["checklistId"].clone(),
+        );
+        job.insert(
+            "checklistStatus".to_string(),
+            runtime_checklist["status"].clone(),
+        );
+        job.insert(
+            "checklistItemCount".to_string(),
+            runtime_checklist["itemCount"].clone(),
+        );
+        job.insert(
+            "checklistCompletedItemCount".to_string(),
+            runtime_checklist["completedItemCount"].clone(),
+        );
+        append_string_array_field(
+            job,
+            "artifactNames",
+            vec!["runtime-checklist.json".to_string()],
+        );
+        append_string_array_field(job, "receiptKinds", vec!["runtime_checklist".to_string()]);
+        append_string_array_field(
+            job,
+            "evidenceRefs",
+            vec![
+                runtime_checklist["checklistId"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .to_string(),
+                "runtime_checklist".to_string(),
+            ],
+        );
+    }
+    runtime_job
+}
+
+fn runtime_task_job_receipts(
+    run_id: &str,
+    runtime_task: &Value,
+    runtime_job: &Value,
+    runtime_checklist: &Value,
+) -> Vec<Value> {
+    vec![
+        json!({
+            "id": format!("receipt_{run_id}_runtime_task"),
+            "kind": "runtime_task",
+            "summary": runtime_task["summary"],
+            "redaction": "redacted",
+            "evidenceRefs": [
+                runtime_task["taskId"].as_str().unwrap_or_default(),
+                runtime_task["threadId"].as_str().unwrap_or_default(),
+                runtime_task["turnId"].as_str().unwrap_or_default(),
+                "RuntimeTaskNode",
+                "runtime.tasks.durable_projection",
+                "rust_daemon_core_runtime_task_job_materialization",
+            ],
+        }),
+        json!({
+            "id": format!("receipt_{run_id}_runtime_job"),
+            "kind": "runtime_job",
+            "summary": runtime_job["summary"],
+            "redaction": "redacted",
+            "evidenceRefs": [
+                runtime_job["jobId"].as_str().unwrap_or_default(),
+                runtime_task["taskId"].as_str().unwrap_or_default(),
+                format!("run:{run_id}"),
+                "RuntimeJobNode",
+                "runtime.jobs.durable_projection",
+                "rust_daemon_core_runtime_task_job_materialization",
+            ],
+        }),
+        json!({
+            "id": format!("receipt_{run_id}_runtime_checklist"),
+            "kind": "runtime_checklist",
+            "summary": runtime_checklist["summary"],
+            "redaction": "redacted",
+            "evidenceRefs": [
+                runtime_checklist["checklistId"].as_str().unwrap_or_default(),
+                runtime_task["taskId"].as_str().unwrap_or_default(),
+                runtime_job["jobId"].as_str().unwrap_or_default(),
+                "RuntimeChecklistNode",
+                "runtime.checklists.durable_projection",
+                "rust_daemon_core_runtime_task_job_materialization",
+            ],
+        }),
+    ]
+}
+
+fn runtime_task_job_events(
+    run_id: &str,
+    agent_id: &str,
+    runtime_task: &Value,
+    runtime_job: &Value,
+    runtime_checklist: &Value,
+    receipts: &[Value],
+) -> Vec<Value> {
+    let mut events = vec![
+        json!({
+            "id": format!("{run_id}:event:rust-runtime-ledger:000:runtime_task"),
+            "run_id": run_id,
+            "agent_id": agent_id,
+            "type": "runtime_task",
+            "cursor": format!("{run_id}:rust-runtime-ledger:0"),
+            "created_at": "rust_policy_core",
+            "summary": "Runtime task record written by Rust daemon-core",
+            "data": {
+                "event_kind": "RuntimeTaskRecord",
+                "task_id": runtime_task["taskId"],
+                "run_id": runtime_task["runId"],
+                "agent_id": runtime_task["agentId"],
+                "thread_id": runtime_task["threadId"],
+                "turn_id": runtime_task["turnId"],
+                "status": runtime_task["status"],
+                "mode": runtime_task["mode"],
+                "task_family": runtime_task["taskFamily"],
+                "selected_strategy": runtime_task["selectedStrategy"],
+                "durable": true,
+                "replayable": true,
+                "prompt_included": false,
+                "receipt_id": receipts[0]["id"],
+                "workflow_node_id": "runtime.runtime-task",
+                "redaction": runtime_task["redaction"],
+                "rust_daemon_core_materialized": true,
+            },
+        }),
+        json!({
+            "id": format!("{run_id}:event:rust-runtime-ledger:001:job_queued"),
+            "run_id": run_id,
+            "agent_id": agent_id,
+            "type": "job_queued",
+            "cursor": format!("{run_id}:rust-runtime-ledger:1"),
+            "created_at": "rust_policy_core",
+            "summary": "Runtime job queued by Rust daemon-core",
+            "data": runtime_job_event_data("JobQueued", "queued", runtime_job, &receipts[1]),
+        }),
+        json!({
+            "id": format!("{run_id}:event:rust-runtime-ledger:002:job_started"),
+            "run_id": run_id,
+            "agent_id": agent_id,
+            "type": "job_started",
+            "cursor": format!("{run_id}:rust-runtime-ledger:2"),
+            "created_at": "rust_policy_core",
+            "summary": "Runtime job started by Rust daemon-core",
+            "data": runtime_job_event_data("JobStarted", "started", runtime_job, &receipts[1]),
+        }),
+        json!({
+            "id": format!("{run_id}:event:rust-runtime-ledger:003:runtime_checklist"),
+            "run_id": run_id,
+            "agent_id": agent_id,
+            "type": "runtime_checklist",
+            "cursor": format!("{run_id}:rust-runtime-ledger:3"),
+            "created_at": "rust_policy_core",
+            "summary": "Runtime checklist recorded by Rust daemon-core",
+            "data": {
+                "event_kind": "RuntimeChecklistRecord",
+                "checklist_id": runtime_checklist["checklistId"],
+                "task_id": runtime_checklist["taskId"],
+                "job_id": runtime_checklist["jobId"],
+                "run_id": runtime_checklist["runId"],
+                "status": runtime_checklist["status"],
+                "item_count": runtime_checklist["itemCount"],
+                "completed_item_count": runtime_checklist["completedItemCount"],
+                "failed_item_count": runtime_checklist["failedItemCount"],
+                "canceled_item_count": runtime_checklist["canceledItemCount"],
+                "blocked_item_count": runtime_checklist["blockedItemCount"],
+                "required_item_ids": runtime_checklist["requiredItemIds"],
+                "durable": true,
+                "replayable": true,
+                "receipt_id": receipts[2]["id"],
+                "workflow_node_id": "runtime.runtime-checklist",
+                "redaction": runtime_checklist["redaction"],
+                "rust_daemon_core_materialized": true,
+            },
+        }),
+    ];
+    if runtime_job["status"] == "completed" || runtime_job["status"] == "failed" {
+        let status = runtime_job["status"].as_str().unwrap_or("completed");
+        events.push(json!({
+            "id": format!("{run_id}:event:rust-runtime-ledger:004:job_{status}"),
+            "run_id": run_id,
+            "agent_id": agent_id,
+            "type": if status == "failed" { "job_failed" } else { "job_completed" },
+            "cursor": format!("{run_id}:rust-runtime-ledger:4"),
+            "created_at": "rust_policy_core",
+            "summary": format!("Runtime job {status} by Rust daemon-core"),
+            "data": runtime_job_event_data(
+                if status == "failed" { "JobFailed" } else { "JobCompleted" },
+                status,
+                runtime_job,
+                &receipts[1],
+            ),
+        }));
+    }
+    events
+}
+
+fn runtime_job_event_data(
+    event_kind: &str,
+    lifecycle_status: &str,
+    runtime_job: &Value,
+    receipt: &Value,
+) -> Value {
+    json!({
+        "event_kind": event_kind,
+        "job_id": runtime_job["jobId"],
+        "task_id": runtime_job["taskId"],
+        "run_id": runtime_job["runId"],
+        "agent_id": runtime_job["agentId"],
+        "thread_id": runtime_job["threadId"],
+        "turn_id": runtime_job["turnId"],
+        "status": runtime_job["status"],
+        "lifecycle_status": lifecycle_status,
+        "queue_name": runtime_job["queueName"],
+        "runner": runtime_job["runner"],
+        "job_type": runtime_job["jobType"],
+        "background": true,
+        "durable": true,
+        "replayable": true,
+        "queued_at": runtime_job["queuedAt"],
+        "started_at": runtime_job["startedAt"],
+        "completed_at": runtime_job["completedAt"],
+        "progress": runtime_job["progress"],
+        "receipt_id": receipt["id"],
+        "workflow_node_id": "runtime.runtime-job",
+        "redaction": runtime_job["redaction"],
+        "rust_daemon_core_materialized": true,
+    })
+}
+
+fn runtime_task_job_status(status: Option<&str>) -> String {
+    match status {
+        Some("canceled") => "canceled",
+        Some("failed") | Some("error") => "failed",
+        Some("blocked") => "blocked",
+        Some("running") | Some("active") => "running",
+        Some("queued") | Some("pending") => "queued",
+        _ => "completed",
+    }
+    .to_string()
+}
+
+fn runtime_job_lifecycle_for_status(status: &str) -> Vec<&'static str> {
+    match status {
+        "queued" => vec!["queued"],
+        "running" => vec!["queued", "started"],
+        "failed" => vec!["queued", "started", "failed"],
+        "canceled" => vec!["queued", "started", "canceled"],
+        "blocked" => vec!["queued", "started", "blocked"],
+        _ => vec!["queued", "started", "completed"],
+    }
+}
+
+fn runtime_task_family_for_mode(mode: &str) -> &'static str {
+    match mode {
+        "plan" => "planning",
+        "dry_run" => "safety_preview",
+        "handoff" => "delegation",
+        "learn" => "learning",
+        _ => "local_daemon_agentgres",
+    }
+}
+
+fn runtime_strategy_for_mode(mode: &str) -> &'static str {
+    match mode {
+        "plan" => "daemon_plan_with_postconditions",
+        "dry_run" => "daemon_dry_run_before_effect",
+        "handoff" => "daemon_handoff_with_state_preservation",
+        "learn" => "daemon_bounded_learning_gate",
+        _ => "local_daemon_agentgres_execution",
+    }
+}
+
+fn trace_quality_string(run: &Value, key: &str) -> Option<String> {
+    run.get("trace")
+        .and_then(|trace| trace.get("qualityLedger"))
+        .and_then(|ledger| ledger.get(key))
+        .and_then(Value::as_str)
+        .and_then(|value| optional_trimmed(Some(value)))
+}
+
+fn thread_id_for_agent(agent_id: &str) -> String {
+    agent_id
+        .strip_prefix("agent_")
+        .map(|suffix| format!("thread_{suffix}"))
+        .unwrap_or_else(|| format!("thread_{agent_id}"))
+}
+
+fn turn_id_for_run(run_id: &str) -> String {
+    run_id
+        .strip_prefix("run_")
+        .map(|suffix| format!("turn_{suffix}"))
+        .unwrap_or_else(|| format!("turn_{run_id}"))
+}
+
 fn materialize_computer_use_run(
     run: &mut serde_json::Map<String, Value>,
 ) -> Result<(), RunCreateStateUpdateError> {
@@ -4250,6 +5041,32 @@ mod tests {
         assert_eq!(record.created_at, "2026-06-06T05:16:00.000Z");
         assert_eq!(record.run["usage_telemetry"]["total_tokens"], 7);
         assert_eq!(record.run["trace"]["usage_telemetry"]["total_tokens"], 7);
+        assert_eq!(record.run["runtimeTask"]["taskId"], "task_run_create_one");
+        assert_eq!(record.run["runtimeJob"]["jobId"], "job_run_create_one");
+        assert_eq!(
+            record.run["runtimeChecklist"]["checklistId"],
+            "checklist_run_create_one"
+        );
+        assert_eq!(
+            record.run["trace"]["runtimeTask"]["taskId"],
+            "task_run_create_one"
+        );
+        assert!(record.run["events"]
+            .as_array()
+            .expect("events")
+            .iter()
+            .any(|event| event["type"] == "runtime_task"
+                && event["data"]["rust_daemon_core_materialized"] == true));
+        assert!(record.run["receipts"]
+            .as_array()
+            .expect("receipts")
+            .iter()
+            .any(|receipt| receipt["kind"] == "runtime_checklist"));
+        assert!(record.run["artifacts"]
+            .as_array()
+            .expect("artifacts")
+            .iter()
+            .any(|artifact| artifact["name"] == "runtime-checklist.json"));
     }
 
     #[test]
@@ -4377,11 +5194,6 @@ mod tests {
         .unwrap();
 
         let mut request = run_create_state_update_request();
-        request.run["runtimeTask"] = json!({
-            "taskId": "task_run_create_one",
-            "evidenceRefs": []
-        });
-        request.run["trace"]["runtimeTask"] = request.run["runtimeTask"].clone();
         request.run["trace"]["taskState"] = json!({
             "knownFacts": [],
             "evidenceRefs": []
@@ -4411,6 +5223,15 @@ mod tests {
             .run
             .get("skill_hook_materialization_request")
             .is_none());
+        assert_eq!(
+            record.run["runtimeTask"]["activeSkillHookManifestId"],
+            "skill_hook_manifest_run_create_one"
+        );
+        assert!(record.run["runtimeTask"]["evidenceRefs"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|value| value == "rust_daemon_core_runtime_task_job_materialization"));
         assert_eq!(
             record.run["activeSkillHookManifest"]["schemaVersion"],
             "ioi.agent-runtime.active-skill-hook-manifest.v1"
@@ -4476,6 +5297,37 @@ mod tests {
         assert_eq!(
             error,
             RunCreateStateUpdateError::RetiredSkillHookMaterializationCandidate
+        );
+    }
+
+    #[test]
+    fn rust_policy_rejects_js_runtime_task_job_projection_candidate() {
+        let mut request = run_create_state_update_request();
+        request.run["runtimeTask"] = json!({
+            "source": "js_runtime_record_projection"
+        });
+
+        let error = RunCreateStateUpdateCore
+            .plan(&request)
+            .expect_err("retired JS runtime task/job projection candidate rejected");
+
+        assert_eq!(
+            error,
+            RunCreateStateUpdateError::RetiredRuntimeTaskJobProjectionCandidate
+        );
+
+        let mut trace_request = run_create_state_update_request();
+        trace_request.run["trace"]["runtimeJob"] = json!({
+            "source": "js_trace_runtime_job_projection"
+        });
+
+        let trace_error = RunCreateStateUpdateCore
+            .plan(&trace_request)
+            .expect_err("retired trace runtime task/job projection candidate rejected");
+
+        assert_eq!(
+            trace_error,
+            RunCreateStateUpdateError::RetiredRuntimeTaskJobProjectionCandidate
         );
     }
 

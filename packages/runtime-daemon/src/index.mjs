@@ -46,7 +46,6 @@ import {
 } from "./usage-telemetry.mjs";
 import { ConversationArtifactStore } from "./conversation-artifacts.mjs";
 import { createRuntimeRouteHandlers } from "./runtime-route-handlers.mjs";
-import { createRuntimeRecordProjections } from "./runtime-record-projections.mjs";
 import { artifact } from "./runtime-artifacts.mjs";
 import { createCodingToolApprovalPolicy } from "./runtime-coding-tool-approval.mjs";
 import { createRuntimeInvocationResultProjections } from "./runtime-invocation-results.mjs";
@@ -369,7 +368,6 @@ const {
 
 const {
   codingToolResultWithoutDrafts,
-  terminalCount,
 } = createRuntimeCodingToolResultHelpers({
   CODING_TOOL_ARTIFACT_SCHEMA_VERSION,
   CODING_TOOL_RESULT_SCHEMA_VERSION,
@@ -378,30 +376,6 @@ const {
   normalizeArray,
   optionalString,
   safeId,
-  uniqueStrings,
-});
-
-const {
-  attachChecklistToRuntimeJob,
-  runtimeChecklistRecord,
-  runtimeChecklistRecordForRun,
-  runtimeJobRecord,
-  runtimeJobRecordForRun,
-  runtimeTaskRecord,
-} = createRuntimeRecordProjections({
-  doctorHash,
-  eventStreamIdForThread,
-  isComputerUseRunEventType,
-  normalizeArray,
-  optionalString,
-  runtimeSessionIdForAgent,
-  runtimeUsageTelemetryForRun,
-  safeId,
-  strategyForMode,
-  taskFamilyForMode,
-  terminalCount,
-  threadIdForAgent,
-  turnIdForRun,
   uniqueStrings,
 });
 
@@ -746,8 +720,6 @@ export class AgentgresRuntimeStateStore {
     });
     this.runReadSurface = createRuntimeRunReadSurface({
       notFound,
-      runtimeChecklistRecordForRun,
-      runtimeJobRecordForRun,
       runtimeUsageTelemetryForRun,
       runtimeUsageTelemetryForThread,
       threadIdForAgent,
@@ -1837,37 +1809,9 @@ function buildRun({
   const subagentMemoryReceipt = subagentMemoryInheritance
     ? subagentMemoryInheritanceReceipt(runId, subagentMemoryInheritance)
     : null;
-  const runtimeTask = runtimeTaskRecord({
-    runId,
-    agent,
-    prompt,
-    mode,
-    taskFamily,
-    selectedStrategy,
-    modelRouteDecision,
-    createdAt,
-    updatedAt: createdAt,
-    status: runStatus,
-  });
-  let runtimeJob = runtimeJobRecord({
-    runtimeTask,
-    agent,
-    status: runStatus,
-    createdAt,
-    updatedAt: createdAt,
-    queuedAt: createdAt,
-    startedAt: createdAt,
-    completedAt: diagnosticsBlockingGate ? null : createdAt,
-    lifecycle: diagnosticsBlockingGate ? ["queued", "started", "blocked"] : ["queued", "started", "completed"],
-  });
-  const runtimeChecklist = runtimeChecklistRecord({
-    runtimeTask,
-    runtimeJob,
-    status: runStatus,
-    createdAt,
-    updatedAt: createdAt,
-  });
-  runtimeJob = attachChecklistToRuntimeJob(runtimeJob, runtimeChecklist);
+  const runtimeTaskId = `task_${runId}`;
+  const runtimeJobId = `job_${runId}`;
+  const runtimeChecklistId = `checklist_${runId}`;
   const {
     repositoryContext,
     branchPolicy,
@@ -1888,9 +1832,7 @@ function buildRun({
       "Run entered the live local IOI daemon public runtime API",
       "Agentgres v0 is the canonical owner for this run state",
       `Selected model profile: ${selectedModel}`,
-      `Runtime task: id=${runtimeTask.taskId}, family=${runtimeTask.taskFamily}, status=${runtimeTask.status}`,
-      `Runtime job: id=${runtimeJob.jobId}, status=${runtimeJob.status}, queue=${runtimeJob.queueName}`,
-      `Runtime checklist: id=${runtimeChecklist.checklistId}, status=${runtimeChecklist.status}, items=${runtimeChecklist.completedItemCount}/${runtimeChecklist.itemCount}`,
+      `Runtime task/job/checklist ledger is delegated to Rust daemon-core materialization for task=${runtimeTaskId}, job=${runtimeJobId}, checklist=${runtimeChecklistId}`,
       `Repository context: ${repositoryContext.isGitRepository ? "git" : "workspace"} root=${repositoryContext.repoRoot ?? repositoryContext.workspaceRoot}, branch=${repositoryContext.branch ?? "none"}, dirty=${repositoryContext.status.isDirty}`,
       `Branch policy: status=${branchPolicy.status}, protected=${branchPolicy.protectedBranch}, mutationAllowed=${branchPolicy.mutationAllowed}`,
       `GitHub context: status=${githubContext.status}, repo=${githubContext.repoFullName ?? "none"}, prEligible=${githubContext.prCreationEligible}`,
@@ -1933,9 +1875,10 @@ function buildRun({
     evidenceRefs: [
       "ioi_daemon_public_runtime_api",
       "agentgres_canonical_state_projection",
-      runtimeTask.taskId,
-      runtimeJob.jobId,
-      runtimeChecklist.checklistId,
+      runtimeTaskId,
+      runtimeJobId,
+      runtimeChecklistId,
+      "rust_daemon_core_runtime_task_job_materialization_request",
       repositoryContext.contextId,
       branchPolicy.policyId,
       githubContext.contextId,
@@ -2261,45 +2204,6 @@ function buildRun({
     redaction: "none",
     evidenceRefs: ["wallet.network", "authority.no_external_scope"],
   };
-  const runtimeTaskReceipt = {
-    id: `receipt_${runId}_runtime_task`,
-    kind: "runtime_task",
-    summary: runtimeTask.summary,
-    redaction: "redacted",
-    evidenceRefs: [
-      runtimeTask.taskId,
-      runtimeTask.threadId,
-      runtimeTask.turnId,
-      "RuntimeTaskNode",
-      "runtime.tasks.durable_projection",
-    ].filter(Boolean),
-  };
-  const runtimeJobReceipt = {
-    id: `receipt_${runId}_runtime_job`,
-    kind: "runtime_job",
-    summary: runtimeJob.summary,
-    redaction: "redacted",
-    evidenceRefs: [
-      runtimeJob.jobId,
-      runtimeTask.taskId,
-      `run:${runId}`,
-      "RuntimeJobNode",
-      "runtime.jobs.durable_projection",
-    ].filter(Boolean),
-  };
-  const runtimeChecklistReceipt = {
-    id: `receipt_${runId}_runtime_checklist`,
-    kind: "runtime_checklist",
-    summary: runtimeChecklist.summary,
-    redaction: "redacted",
-    evidenceRefs: [
-      runtimeChecklist.checklistId,
-      runtimeTask.taskId,
-      runtimeJob.jobId,
-      "RuntimeChecklistNode",
-      "runtime.checklists.durable_projection",
-    ].filter(Boolean),
-  };
   const repositoryContextReceipt = {
     id: `receipt_${runId}_repository_context`,
     kind: "repository_context",
@@ -2451,9 +2355,6 @@ function buildRun({
   const receipts = [
     modelRouteReceipt,
     subagentMemoryReceipt,
-    runtimeTaskReceipt,
-    runtimeJobReceipt,
-    runtimeChecklistReceipt,
     repositoryContextReceipt,
     branchPolicyReceipt,
     githubContextReceipt,
@@ -2501,91 +2402,6 @@ function buildRun({
   const startedEvent = addEvent("run_started", "Run entered local IOI daemon", {
     taskFamily,
     selectedStrategy,
-  });
-  addEvent("runtime_task", "Runtime task record written", {
-    event_kind: "RuntimeTaskRecord",
-    task_id: runtimeTask.taskId ?? null,
-    run_id: runtimeTask.runId ?? null,
-    agent_id: runtimeTask.agentId ?? null,
-    thread_id: runtimeTask.threadId ?? null,
-    turn_id: runtimeTask.turnId ?? null,
-    status: runtimeTask.status ?? null,
-    mode: runtimeTask.mode ?? null,
-    task_family: runtimeTask.taskFamily ?? null,
-    selected_strategy: runtimeTask.selectedStrategy ?? null,
-    durable: Boolean(runtimeTask.durable),
-    replayable: Boolean(runtimeTask.replayable),
-    prompt_included: Boolean(runtimeTask.promptIncluded),
-    receipt_id: runtimeTaskReceipt.id,
-    workflow_node_id: "runtime.runtime-task",
-    redaction: runtimeTask.redaction,
-  });
-  addEvent("job_queued", "Runtime job queued", {
-    event_kind: "JobQueued",
-    job_id: runtimeJob.jobId ?? null,
-    task_id: runtimeJob.taskId ?? null,
-    run_id: runtimeJob.runId ?? null,
-    agent_id: runtimeJob.agentId ?? null,
-    thread_id: runtimeJob.threadId ?? null,
-    turn_id: runtimeJob.turnId ?? null,
-    status: "queued",
-    lifecycle_status: "queued",
-    queue_name: runtimeJob.queueName ?? null,
-    runner: runtimeJob.runner ?? null,
-    job_type: runtimeJob.jobType ?? null,
-    background: Boolean(runtimeJob.background),
-    durable: Boolean(runtimeJob.durable),
-    replayable: Boolean(runtimeJob.replayable),
-    queued_at: runtimeJob.queuedAt ?? null,
-    started_at: runtimeJob.startedAt ?? null,
-    completed_at: null,
-    progress: runtimeJob.progress,
-    receipt_id: runtimeJobReceipt.id,
-    workflow_node_id: "runtime.runtime-job",
-    redaction: runtimeJob.redaction,
-  });
-  addEvent("job_started", "Runtime job started", {
-    event_kind: "JobStarted",
-    job_id: runtimeJob.jobId ?? null,
-    task_id: runtimeJob.taskId ?? null,
-    run_id: runtimeJob.runId ?? null,
-    agent_id: runtimeJob.agentId ?? null,
-    thread_id: runtimeJob.threadId ?? null,
-    turn_id: runtimeJob.turnId ?? null,
-    status: "running",
-    lifecycle_status: "started",
-    queue_name: runtimeJob.queueName ?? null,
-    runner: runtimeJob.runner ?? null,
-    job_type: runtimeJob.jobType ?? null,
-    background: Boolean(runtimeJob.background),
-    durable: Boolean(runtimeJob.durable),
-    replayable: Boolean(runtimeJob.replayable),
-    queued_at: runtimeJob.queuedAt ?? null,
-    started_at: runtimeJob.startedAt ?? null,
-    completed_at: null,
-    progress: runtimeJob.progress,
-    receipt_id: runtimeJobReceipt.id,
-    workflow_node_id: "runtime.runtime-job",
-    redaction: runtimeJob.redaction,
-  });
-  addEvent("runtime_checklist", "Runtime checklist recorded", {
-    event_kind: "RuntimeChecklistRecord",
-    checklist_id: runtimeChecklist.checklistId ?? null,
-    task_id: runtimeChecklist.taskId ?? null,
-    job_id: runtimeChecklist.jobId ?? null,
-    run_id: runtimeChecklist.runId ?? null,
-    status: runtimeChecklist.status ?? null,
-    item_count: runtimeChecklist.itemCount ?? 0,
-    completed_item_count: runtimeChecklist.completedItemCount ?? 0,
-    failed_item_count: runtimeChecklist.failedItemCount ?? 0,
-    canceled_item_count: runtimeChecklist.canceledItemCount ?? 0,
-    blocked_item_count: runtimeChecklist.blockedItemCount ?? 0,
-    required_item_ids: normalizeArray(runtimeChecklist.requiredItemIds),
-    durable: Boolean(runtimeChecklist.durable),
-    replayable: Boolean(runtimeChecklist.replayable),
-    receipt_id: runtimeChecklistReceipt.id,
-    workflow_node_id: "runtime.runtime-checklist",
-    redaction: runtimeChecklist.redaction,
   });
   addEvent("repository_context", "Repository context recorded", {
     event_kind: "RepositoryContext",
@@ -2872,32 +2688,6 @@ function buildRun({
   });
   addEvent("stop_condition", "Stop condition recorded", stopCondition);
   addEvent("quality_ledger", "Quality ledger recorded", qualityLedger);
-  if (!diagnosticsBlockingGate) {
-    addEvent("job_completed", "Runtime job completed", {
-      event_kind: "JobCompleted",
-      job_id: runtimeJob.jobId ?? null,
-      task_id: runtimeJob.taskId ?? null,
-      run_id: runtimeJob.runId ?? null,
-      agent_id: runtimeJob.agentId ?? null,
-      thread_id: runtimeJob.threadId ?? null,
-      turn_id: runtimeJob.turnId ?? null,
-      status: runtimeJob.status ?? null,
-      lifecycle_status: "completed",
-      queue_name: runtimeJob.queueName ?? null,
-      runner: runtimeJob.runner ?? null,
-      job_type: runtimeJob.jobType ?? null,
-      background: Boolean(runtimeJob.background),
-      durable: Boolean(runtimeJob.durable),
-      replayable: Boolean(runtimeJob.replayable),
-      queued_at: runtimeJob.queuedAt ?? null,
-      started_at: runtimeJob.startedAt ?? null,
-      completed_at: runtimeJob.completedAt ?? null,
-      progress: runtimeJob.progress,
-      receipt_id: runtimeJobReceipt.id,
-      workflow_node_id: "runtime.runtime-job",
-      redaction: runtimeJob.redaction,
-    });
-  }
   addEvent("artifact", "Trace and scorecard artifacts recorded", {
     artifact_names: [
       "trace.json",
@@ -2935,9 +2725,6 @@ function buildRun({
     postconditions,
     semanticImpact,
     modelRouteDecision,
-    runtimeTask,
-    runtimeJob,
-    runtimeChecklist,
     repositoryContext,
     branchPolicy,
     githubContext,
@@ -2949,9 +2736,9 @@ function buildRun({
       schemaVersion: "ioi.agent-runtime.prompt-audit.v1",
       runId,
       promptHash: doctorHash(prompt),
-      runtimeTaskId: runtimeTask.taskId,
-      runtimeJobId: runtimeJob.jobId,
-      runtimeChecklistId: runtimeChecklist.checklistId,
+      runtimeTaskId,
+      runtimeJobId,
+      runtimeChecklistId,
       repositoryContextId: repositoryContext.contextId,
       branchPolicyId: branchPolicy.policyId,
       githubContextId: githubContext.contextId,
@@ -2965,9 +2752,10 @@ function buildRun({
       },
       evidenceRefs: [
         "prompt_audit",
-        runtimeTask.taskId,
-        runtimeJob.jobId,
-        runtimeChecklist.checklistId,
+        runtimeTaskId,
+        runtimeJobId,
+        runtimeChecklistId,
+        "rust_daemon_core_runtime_task_job_materialization_request",
         repositoryContext.contextId,
         branchPolicy.policyId,
         githubContext.contextId,
@@ -2992,30 +2780,6 @@ function buildRun({
   };
   const artifacts = [
     artifact(runId, "trace.json", "application/json", traceReceipt.id, trace, "redacted"),
-    artifact(
-      runId,
-      "runtime-task.json",
-      "application/json",
-      runtimeTaskReceipt.id,
-      runtimeTask,
-      "redacted",
-    ),
-    artifact(
-      runId,
-      "runtime-job.json",
-      "application/json",
-      runtimeJobReceipt.id,
-      runtimeJob,
-      "redacted",
-    ),
-    artifact(
-      runId,
-      "runtime-checklist.json",
-      "application/json",
-      runtimeChecklistReceipt.id,
-      runtimeChecklist,
-      "redacted",
-    ),
     artifact(
       runId,
       "repository-context.json",
@@ -3135,9 +2899,6 @@ function buildRun({
     trace,
     modelRouteDecision,
     modelRouteReceiptId,
-    runtimeTask,
-    runtimeJob,
-    runtimeChecklist,
     repositoryContext,
     branchPolicy,
     githubContext,

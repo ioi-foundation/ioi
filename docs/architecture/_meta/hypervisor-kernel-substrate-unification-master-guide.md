@@ -3,7 +3,7 @@
 Status: implementation master guide.
 Canonical intent: resolve the current Hypervisor daemon and Rust/WASM kernel/workload split brain without introducing a new runtime beside the daemon.
 Primary owner candidate: architecture meta until promoted into component canon.
-Last alignment pass: 2026-06-15.
+Last alignment pass: 2026-06-16.
 Last pruning alignment: 2026-06-12. The migration matrix is now a compact macro
 ledger; future guide updates should steer macro authority cuts instead of
 per-slice evidence accumulation.
@@ -6322,13 +6322,14 @@ filename cannot return as a compatibility shim.
 
 Slice 1093 retires the stale JS runtime-service bridge projection authoring
 that survived after the command adapter and runtime bridge facades were made
-fail-closed. `runtime-record-projections.mjs` no longer exports
+fail-closed. At that stage, `runtime-record-projections.mjs` stopped exporting
 `runtimeBridgeRunRecord()`, `runtimeBridgeMessagesForProjection()`, or
-`runtimeBridgeComputerUseTrace()`, and `runtime-event-envelopes.mjs` no longer
-derives action-proposal or commit-gate events from bridge readback. The daemon
-index no longer wires these helpers into the runtime bridge turn path; Slice
+`runtimeBridgeComputerUseTrace()`, and `runtime-event-envelopes.mjs` stopped
+deriving action-proposal or commit-gate events from bridge readback. The daemon
+index no longer wired these helpers into the runtime bridge turn path; Slice
 1094 then deletes the remaining JS bridge-thread facade rather than preserving
-it as a fail-closed wrapper.
+it as a fail-closed wrapper, and Slice 1402 later deletes
+`runtime-record-projections.mjs` outright.
 
 Conformance now proves these projection builders and derived-event injector
 stay absent instead of merely proving their output uses canonical field names.
@@ -12275,6 +12276,25 @@ the retired JS authoring path cannot return as a compatibility fallback.
 Conformance now guards the deleted JS files/imports/event builders plus the
 Rust materializer, retired-candidate rejection, and Rust-authored
 manifest/dry-run/invocation artifact outputs.
+
+Slice 1402 hard-cuts runtime task/job/checklist run materialization into Rust
+daemon core. Run creation now sends only deterministic ids plus
+`rust_daemon_core_runtime_task_job_materialization_request` evidence refs into
+`RunCreateStateUpdateCore`; Rust derives the `runtimeTask`, `runtimeJob`, and
+`runtimeChecklist` records, receipts, events, artifacts, trace bindings,
+task-state facts, and prompt-audit refs during run-create planning. The daemon
+`buildRun()` path no longer imports or calls `runtime-record-projections.mjs`,
+no longer emits JS-authored runtime task/job/checklist records, receipts,
+events, artifacts, or trace truth, and the `runtime-record-projections.mjs`
+facade plus focused test are deleted instead of preserved as fail-closed
+compatibility scaffolding. Rust rejects prebuilt top-level or trace
+`runtimeTask`, `runtimeJob`, and `runtimeChecklist` candidates, while the
+run-read projection client uses canonical Rust sidecar ids (`job_${run.id}` and
+`checklist_${run.id}`) rather than injected JS record builders. Conformance now
+guards the deleted facade/test/import, the missing JS record builders, the Rust
+materializer, retired-candidate rejection, and Rust-authored
+`runtime-task.json`, `runtime-job.json`, and `runtime-checklist.json` artifacts
+so this task/job truth path cannot fall back through JS projection authoring.
 
 ## Final Doctrine
 

@@ -15,13 +15,16 @@ test("runtime daemon entrypoint delegates constants and HTTP helpers to focused 
   const httpUtils = read("packages/runtime-daemon/src/runtime-http-utils.mjs");
   const openAiCompat = read("packages/runtime-daemon/src/openai-compat-routes.mjs");
   const routeHandlers = read("packages/runtime-daemon/src/runtime-route-handlers.mjs");
-  const recordProjections = read("packages/runtime-daemon/src/runtime-record-projections.mjs");
 
   assert.match(index, /from "\.\/runtime-contract-constants\.mjs"/);
   assert.match(index, /from "\.\/runtime-http-utils\.mjs"/);
   assert.match(index, /from "\.\/openai-compat-routes\.mjs"/);
   assert.match(index, /from "\.\/runtime-route-handlers\.mjs"/);
-  assert.match(index, /from "\.\/runtime-record-projections\.mjs"/);
+  assert.equal(
+    fs.existsSync(path.join(repoRoot, "packages/runtime-daemon/src/runtime-record-projections.mjs")),
+    false,
+  );
+  assert.doesNotMatch(index, /from "\.\/runtime-record-projections\.mjs"/);
   assert.doesNotMatch(index, /const RUN_EVENT_TO_TTI_EVENT = \{/);
   assert.doesNotMatch(index, /async function readBody\(request\)/);
   assert.doesNotMatch(index, /async function handleOpenAiCompatibilityRoute/);
@@ -41,8 +44,4 @@ test("runtime daemon entrypoint delegates constants and HTTP helpers to focused 
   assert.match(routeHandlers, /async function handleModelMountingNativeRoute/);
   assert.match(routeHandlers, /async function handleThreadRoute/);
   assert.match(routeHandlers, /async function handleRunRoute/);
-  assert.match(recordProjections, /export function createRuntimeRecordProjections/);
-  assert.match(recordProjections, /function runtimeTaskRecord\(\{/);
-  assert.doesNotMatch(recordProjections, /function runtimeBridgeRunRecord/);
-  assert.match(recordProjections, /function runtimeChecklistRecord/);
 });

@@ -12,12 +12,12 @@ import {
 } from "./usage-telemetry.mjs";
 import { threadIdForAgent } from "./runtime-identifiers.mjs";
 
-function defaultRuntimeJobRecordForRun(run = {}) {
-  return { jobId: run.id };
+function runtimeJobSidecarForRun(run = {}) {
+  return { jobId: `job_${run.id}` };
 }
 
-function defaultRuntimeChecklistRecordForRun(run = {}) {
-  return { checklistId: run.id };
+function runtimeChecklistSidecarForRun(run = {}) {
+  return { checklistId: `checklist_${run.id}` };
 }
 
 function runStateProjectionWatermark(store) {
@@ -28,8 +28,6 @@ export function createRuntimeRunReadSurface({
   getRun: getRunDep = getRunState,
   listRuns: listRunsDep = listRunsState,
   relative: relativeDep = relative,
-  runtimeChecklistRecordForRun,
-  runtimeJobRecordForRun,
   runtimeUsageTelemetryForRun: runtimeUsageTelemetryForRunDep = runtimeUsageTelemetryForRun,
   runtimeUsageTelemetryForThread: runtimeUsageTelemetryForThreadDep = runtimeUsageTelemetryForThread,
   threadIdForAgent: threadIdForAgentDep = threadIdForAgent,
@@ -37,10 +35,8 @@ export function createRuntimeRunReadSurface({
   usageForThread: usageForThreadDep = usageForThreadState,
   notFound,
 } = {}) {
-  const runtimeJobRecordForRunDep =
-    runtimeJobRecordForRun ?? defaultRuntimeJobRecordForRun;
-  const runtimeChecklistRecordForRunDep =
-    runtimeChecklistRecordForRun ?? defaultRuntimeChecklistRecordForRun;
+  const runtimeJobSidecarForRunDep = runtimeJobSidecarForRun;
+  const runtimeChecklistSidecarForRunDep = runtimeChecklistSidecarForRun;
 
   return {
     getRun(store, runId) {
@@ -79,8 +75,8 @@ export function createRuntimeRunReadSurface({
         paths: {
           run: relativeDep(store.stateDir, store.pathFor("runs", `${run.id}.json`)),
           task: relativeDep(store.stateDir, store.pathFor("tasks", `${run.id}.json`)),
-          job: relativeDep(store.stateDir, store.pathFor("jobs", `${runtimeJobRecordForRunDep(run).jobId}.json`)),
-          checklist: relativeDep(store.stateDir, store.pathFor("checklists", `${runtimeChecklistRecordForRunDep(run).checklistId}.json`)),
+          job: relativeDep(store.stateDir, store.pathFor("jobs", `${runtimeJobSidecarForRunDep(run).jobId}.json`)),
+          checklist: relativeDep(store.stateDir, store.pathFor("checklists", `${runtimeChecklistSidecarForRunDep(run).checklistId}.json`)),
           quality: relativeDep(store.stateDir, store.pathFor("quality", `${run.id}.json`)),
         },
         terminalState: run.status,

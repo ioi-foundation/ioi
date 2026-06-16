@@ -17449,7 +17449,7 @@ function runBridge() {
       !/eventKind/.test(agentSdkModelRouteDecisionType) &&
       !/decisionId/.test(agentSdkModelRouteDecisionType) &&
       /"model_route_decision_id": record\.idempotency_key/.test(modelMountCore) &&
-      /modelRouteDecision\?\.decision_id/.test(runtimeRecordProjections) &&
+      /json_string_value\(value,\s*"decision_id"\)/.test(policyThreadLifecycleCore) &&
       !/modelRouteDecision/.test(threadTurnProjection) &&
       !/formatModelRouteDecision/.test(threadTurnProjection) &&
       !/^\s*(?:schemaVersion|eventKind|decisionId)\s*:/m.test(threadTurnProjection) &&
@@ -17460,7 +17460,7 @@ function runBridge() {
     [
       "packages/runtime-daemon/src/model-mounting/routes.mjs",
       "packages/runtime-daemon/src/model-mounting/routes.test.mjs",
-      "packages/runtime-daemon/src/runtime-record-projections.mjs",
+      "crates/services/src/agentic/runtime/kernel/policy/thread_lifecycle.rs",
       "packages/runtime-daemon/src/threads/thread-turn-projection.mjs",
       "packages/agent-sdk/src/messages.ts",
       "crates/cli/src/commands/agent_tui.rs",
@@ -36730,8 +36730,10 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-run-job-id-projection-aliases-retired",
-    /return \{ jobId: run\.id \};/.test(runtimeRunReadSurface) &&
-      /return \{ checklistId: run\.id \};/.test(runtimeRunReadSurface) &&
+    /return \{ jobId: `job_\$\{run\.id\}` \};/.test(runtimeRunReadSurface) &&
+      /return \{ checklistId: `checklist_\$\{run\.id\}` \};/.test(runtimeRunReadSurface) &&
+      !/runtimeJobRecordForRun/.test(runtimeRunReadSurface) &&
+      !/runtimeChecklistRecordForRun/.test(runtimeRunReadSurface) &&
       !/runtimeJob\?\.jobId/.test(runtimeRunReadSurface) &&
       !/run\.jobId\b/.test(runtimeRunReadSurface) &&
       !/runtimeChecklist\?\.checklistId/.test(runtimeRunReadSurface) &&
@@ -36742,8 +36744,8 @@ function runCompositor() {
       /runtime run read surface default checklist sidecar path ignores retired checklist id fallbacks/.test(
         runtimeRunReadSurfaceTest,
       ) &&
-      /jobs\/run-canonical\.json/.test(runtimeRunReadSurfaceTest) &&
-      /checklists\/run-canonical\.json/.test(runtimeRunReadSurfaceTest) &&
+      /jobs\/job_run-canonical\.json/.test(runtimeRunReadSurfaceTest) &&
+      /checklists\/checklist_run-canonical\.json/.test(runtimeRunReadSurfaceTest) &&
       /job-retired-nested/.test(runtimeRunReadSurfaceTest) &&
       /job-retired-top/.test(runtimeRunReadSurfaceTest) &&
       /checklist-retired-nested/.test(runtimeRunReadSurfaceTest) &&
@@ -37066,37 +37068,28 @@ function runCompositor() {
       !/event\.data\?\.(?:eventKind|jobId|taskId|runId|agentId|threadId|turnId|lifecycleStatus|queueName|jobType|queuedAt|startedAt|completedAt|workflowNodeId)\b/.test(
         runtimeJobPayloadSummaryBlock,
       ) &&
-      runtimeTaskEventProducerBlock.length > 0 &&
-      /event_kind:\s*"RuntimeTaskRecord"/.test(runtimeTaskEventProducerBlock) &&
-      /task_id:\s*runtimeTask\.taskId \?\? null/.test(runtimeTaskEventProducerBlock) &&
-      /workflow_node_id:\s*"runtime\.runtime-task"/.test(runtimeTaskEventProducerBlock) &&
-      !/\.\.\.runtimeTask|^\s*(?:receiptId|eventKind|workflowNodeId)\s*:/m.test(
-        runtimeTaskEventProducerBlock,
+      runtimeTaskEventProducerBlock.length === 0 &&
+      runtimeChecklistEventProducerBlock.length === 0 &&
+      runtimeJobQueuedEventProducerBlock.length === 0 &&
+      runtimeJobCompletedEventProducerBlock.length === 0 &&
+      /fn runtime_task_job_events/.test(policyThreadLifecycleCore) &&
+      /"event_kind": "RuntimeTaskRecord"/.test(policyThreadLifecycleCore) &&
+      /"task_id": runtime_task\["taskId"\]/.test(policyThreadLifecycleCore) &&
+      /"workflow_node_id": "runtime\.runtime-task"/.test(policyThreadLifecycleCore) &&
+      /"event_kind": "RuntimeChecklistRecord"/.test(policyThreadLifecycleCore) &&
+      /"checklist_id": runtime_checklist\["checklistId"\]/.test(policyThreadLifecycleCore) &&
+      /"workflow_node_id": "runtime\.runtime-checklist"/.test(
+        policyThreadLifecycleCore,
       ) &&
-      runtimeChecklistEventProducerBlock.length > 0 &&
-      /event_kind:\s*"RuntimeChecklistRecord"/.test(runtimeChecklistEventProducerBlock) &&
-      /checklist_id:\s*runtimeChecklist\.checklistId \?\? null/.test(
-        runtimeChecklistEventProducerBlock,
+      /runtime_job_event_data\("JobQueued", "queued", runtime_job, &receipts\[1\]\)/.test(
+        policyThreadLifecycleCore,
       ) &&
-      /workflow_node_id:\s*"runtime\.runtime-checklist"/.test(
-        runtimeChecklistEventProducerBlock,
+      /if status == "failed" \{ "JobFailed" \} else \{ "JobCompleted" \}/.test(
+        policyThreadLifecycleCore,
       ) &&
-      !/\.\.\.runtimeChecklist|^\s*(?:receiptId|eventKind|workflowNodeId)\s*:/m.test(
-        runtimeChecklistEventProducerBlock,
-      ) &&
-      runtimeJobQueuedEventProducerBlock.length > 0 &&
-      /event_kind:\s*"JobQueued"/.test(runtimeJobQueuedEventProducerBlock) &&
-      /job_id:\s*runtimeJob\.jobId \?\? null/.test(runtimeJobQueuedEventProducerBlock) &&
-      /lifecycle_status:\s*"queued"/.test(runtimeJobQueuedEventProducerBlock) &&
-      !/\.\.\.runtimeJob|^\s*(?:receiptId|eventKind|workflowNodeId|lifecycleStatus|completedAt)\s*:/m.test(
-        runtimeJobQueuedEventProducerBlock,
-      ) &&
-      runtimeJobCompletedEventProducerBlock.length > 0 &&
-      /event_kind:\s*"JobCompleted"/.test(runtimeJobCompletedEventProducerBlock) &&
-      /lifecycle_status:\s*"completed"/.test(runtimeJobCompletedEventProducerBlock) &&
-      !/\.\.\.runtimeJob|^\s*(?:receiptId|eventKind|workflowNodeId|lifecycleStatus|completedAt)\s*:/m.test(
-        runtimeJobCompletedEventProducerBlock,
-      ) &&
+      /"job_id": runtime_job\["jobId"\]/.test(policyThreadLifecycleCore) &&
+      /"lifecycle_status": lifecycle_status/.test(policyThreadLifecycleCore) &&
+      /"workflow_node_id": "runtime\.runtime-job"/.test(policyThreadLifecycleCore) &&
       runtimeRepositoryContextEventProducerBlock.length > 0 &&
       /event_kind:\s*"RepositoryContext"/.test(runtimeRepositoryContextEventProducerBlock) &&
       /context_id:\s*repositoryContext\.contextId \?\? null/.test(
@@ -37634,29 +37627,32 @@ function runCompositor() {
   );
   assertCheck(
     result,
-    "runtime-record-sidecar-embedded-identity-aliases-retired",
-    runtimeTaskRecordForRunBlock.length > 0 &&
-      runtimeJobRecordForRunBlock.length > 0 &&
-      runtimeChecklistRecordForRunBlock.length > 0 &&
-      !/return run\.runtimeTask/.test(runtimeTaskRecordForRunBlock) &&
-      !/return run\.runtimeJob/.test(runtimeJobRecordForRunBlock) &&
-      !/return run\.runtimeChecklist/.test(runtimeChecklistRecordForRunBlock) &&
-      /runtime task job checklist records for run ignore embedded sidecar identity aliases/.test(
-        runtimeRecordProjectionsTest,
+    "runtime-record-projection-js-facade-retired",
+    !exists("packages/runtime-daemon/src/runtime-record-projections.mjs") &&
+      !exists("packages/runtime-daemon/src/runtime-record-projections.test.mjs") &&
+      !/from "\.\/runtime-record-projections\.mjs"/.test(runtimeDaemonIndex) &&
+      !/runtimeTaskRecord|runtimeJobRecord|runtimeChecklistRecord/.test(
+        runtimeDaemonIndex,
       ) &&
-      /task_retired_embedded/.test(runtimeRecordProjectionsTest) &&
-      /job_retired_embedded/.test(runtimeRecordProjectionsTest) &&
-      /checklist_retired_embedded/.test(runtimeRecordProjectionsTest) &&
-      /task\.taskId,\s*"task_run_canonical"/.test(runtimeRecordProjectionsTest) &&
-      /job\.jobId,\s*"job_run_canonical"/.test(runtimeRecordProjectionsTest) &&
-      /checklist\.checklistId,\s*"checklist_run_canonical"/.test(
-        runtimeRecordProjectionsTest,
-      ),
+      /rust_daemon_core_runtime_task_job_materialization_request/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /fn materialize_runtime_task_job_run/.test(policyThreadLifecycleCore) &&
+      /RetiredRuntimeTaskJobProjectionCandidate/.test(policyThreadLifecycleCore) &&
+      /rust_policy_rejects_js_runtime_task_job_projection_candidate/.test(
+        policyThreadLifecycleCore,
+      ) &&
+      /rust_policy_plans_run_create_state_update/.test(policyThreadLifecycleCore) &&
+      /runtime-task\.json/.test(policyThreadLifecycleCore) &&
+      /runtime-job\.json/.test(policyThreadLifecycleCore) &&
+      /runtime-checklist\.json/.test(policyThreadLifecycleCore),
     [
       "packages/runtime-daemon/src/runtime-record-projections.mjs",
       "packages/runtime-daemon/src/runtime-record-projections.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
+      "crates/services/src/agentic/runtime/kernel/policy/thread_lifecycle.rs",
     ],
-    "Phase 10/11 is pending: runtime task/job/checklist record projections must rebuild canonical sidecar identity instead of trusting embedded JS runtime sidecar records",
+    "Runtime task/job/checklist run materialization must be Rust-owned, with the old JS record projection facade deleted and JS-authored candidates rejected.",
   );
   assertCheck(
     result,
