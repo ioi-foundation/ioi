@@ -19315,6 +19315,8 @@ function runBridge() {
 	      /rust_model_mount_hosted_provider/.test(modelInvocationOps) &&
 	      /provider_auth_evidence_refs:\s*hostedProviderAuthEvidenceRefs\(selection,\s*hash\)/.test(modelInvocationOps) &&
 	      /function hostedProviderAuthEvidenceRefs\(selection = \{\},\s*hash = stableHash\)/.test(modelInvocationOps) &&
+	      /rust_provider_auth_materialization_bound/.test(modelInvocationOps) &&
+	      /hosted_provider_auth_header_materialized_by_rust/.test(modelInvocationOps) &&
 	      /secret_ref:\s*optionalRef\(record\.secret_ref \?\? record\.secretRef\)/.test(modelInvocationOps) &&
 	      /model_mount_provider_invocation_rust_backend_required/.test(modelInvocationOps) &&
 	      /modelMountProviderInvocationRequiresRust\(\{ provider: \{ kind: "openai" \}, endpoint: \{\} \}\), true/.test(
@@ -19860,6 +19862,9 @@ function runBridge() {
 	      /provider_auth_evidence_refs\.includes\("rust_model_mount_hosted_provider_auth_gate"\)/.test(
 	        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
 	      ) &&
+	      /provider_auth_evidence_refs\.includes\("rust_provider_auth_materialization_bound"\)/.test(
+	        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
+	      ) &&
 	      /provider_auth_evidence_refs\.some\(\(ref\) => ref\.includes\("vault:\/\/"\)\),\s*false/.test(
 	        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
 	      ) &&
@@ -19868,6 +19873,8 @@ function runBridge() {
 		      /HostedProviderInvocationMissingAuthority/.test(modelMountCore) &&
 		      !/HostedProviderInvocationTransportPending/.test(modelMountCore) &&
 		      /rust_hosted_provider_invocation_transport_materialized/.test(modelMountCore) &&
+		      /rust_provider_auth_materialization_bound/.test(modelMountCore) &&
+		      /hosted_provider_auth_header_materialized_by_rust/.test(modelMountCore) &&
 		      /admits_hosted_provider_result_bound_to_rust_transport_contract/.test(modelMountCore) &&
 		      /assert\.equal\(hostedRequest\.provider_response_kind,\s*"rust_model_mount\.hosted_provider"\)/.test(
 		        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
@@ -22979,6 +22986,12 @@ function runReceipts() {
 		      /rust_hosted_provider_invocation_transport_materialized/.test(
 		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
 		      ) &&
+		      /rust_provider_auth_materialization_bound/.test(
+		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+		      ) &&
+		      /hosted_provider_auth_header_materialized_by_rust/.test(
+		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+		      ) &&
 		      /hosted_provider_stream_invocation_executes_transport_contract_in_rust_owner/.test(
 		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/stream.rs"),
 		      ) &&
@@ -25595,6 +25608,9 @@ function runReceipts() {
 	      /assert\.equal\(hostedRequest\.execution_backend,\s*"rust_model_mount_hosted_provider"\)/.test(
 	        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
 	      ) &&
+	      /rust_provider_auth_materialization_bound/.test(
+	        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
+	      ) &&
 		      /provider_invocation_executes_hosted_transport_contract_in_rust_owner/.test(
 		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
 		      ) &&
@@ -25605,6 +25621,7 @@ function runReceipts() {
 		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
 		      ) &&
 		      /admits_hosted_provider_result_bound_to_rust_transport_contract/.test(modelMountCore) &&
+		      /rust_provider_auth_materialization_bound/.test(modelMountCore) &&
 		      /admits_hosted_provider_stream_result_bound_to_rust_transport_contract/.test(modelMountCore) &&
 	      !/assert\.equal\(request\.provider_kind,\s*"openai"\)/.test(
 	        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
@@ -27725,40 +27742,77 @@ function runReceipts() {
       /planModelMountProviderControl\(request\)\s*\{\s*return this\.modelMountCore\.planProviderControl\(request\);/.test(
         providerOperations,
       ) &&
+      /planModelMountProviderAuthMaterialization\(request\)\s*\{\s*return this\.modelMountCore\.planProviderAuthMaterialization\(request\);/.test(
+        providerOperations,
+      ) &&
       /MODEL_MOUNT_PROVIDER_CONTROL_API_METHOD = "planModelMountProviderControl"/.test(
+        modelMountDaemonCore,
+      ) &&
+      /MODEL_MOUNT_PROVIDER_AUTH_MATERIALIZATION_API_METHOD = "planModelMountProviderAuthMaterialization"/.test(
         modelMountDaemonCore,
       ) &&
       /planProviderControl\(request\)\s*\{[\s\S]*invokeModelMountApi\(MODEL_MOUNT_PROVIDER_CONTROL_API_METHOD, request\)/.test(
         modelMountDaemonCore,
       ) &&
+      /planProviderAuthMaterialization\(request\)\s*\{[\s\S]*invokeModelMountApi\(MODEL_MOUNT_PROVIDER_AUTH_MATERIALIZATION_API_METHOD, request\)/.test(
+        modelMountDaemonCore,
+      ) &&
       !/operation:\s*"plan_model_mount_provider_control"/.test(modelMountDaemonCore) &&
+      !/operation:\s*"plan_model_mount_provider_auth_materialization"/.test(modelMountDaemonCore) &&
       /normalizeProviderControlApiResult/.test(modelMountDaemonCore) &&
+      /normalizeProviderAuthMaterializationApiResult/.test(modelMountDaemonCore) &&
       /model_mount_provider_control_plan_invalid/.test(modelMountCore) &&
+      /model_mount_provider_auth_materialization_plan_invalid/.test(modelMountCore) &&
       /model_mount_catalog_provider_vault_receipt_gate_command_transport_is_retired/.test(
         coreCommandProtocol,
       ) &&
       !/PlanModelMountProviderControl/.test(coreCommandProtocol) &&
+      !/PlanModelMountProviderAuthMaterialization/.test(coreCommandProtocol) &&
       !/plan_model_mount_provider_control_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      !/plan_model_mount_provider_auth_materialization_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
       !/model_mount_provider_control_invalid/.test(coreCommandDispatch) &&
+      !/model_mount_provider_auth_materialization_invalid/.test(coreCommandDispatch) &&
       /mod provider_control;/.test(modelMountCore) &&
+      /mod provider_auth_materialization;/.test(modelMountCore) &&
       !/plan_model_mount_provider_control_response/.test(modelMountCore) &&
+      !/plan_model_mount_provider_auth_materialization_response/.test(modelMountCore) &&
       /MODEL_MOUNT_PROVIDER_CONTROL_SCHEMA_VERSION/.test(modelMountCore) &&
       /MODEL_MOUNT_PROVIDER_CONTROL_PLAN_SCHEMA_VERSION/.test(modelMountCore) &&
+      /MODEL_MOUNT_PROVIDER_AUTH_MATERIALIZATION_SCHEMA_VERSION/.test(modelMountCore) &&
+      /MODEL_MOUNT_PROVIDER_AUTH_MATERIALIZATION_PLAN_SCHEMA_VERSION/.test(modelMountCore) &&
       /rust_core_plans_provider_control_direct_api/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount/provider_control.rs"),
       ) &&
+      /rust_core_plans_provider_auth_materialization_direct_api/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_auth_materialization.rs"),
+      ) &&
       /pub fn plan_model_mount_provider_control/.test(
+        read("crates/services/src/agentic/runtime/kernel/mod.rs"),
+      ) &&
+      /pub fn plan_model_mount_provider_auth_materialization/.test(
         read("crates/services/src/agentic/runtime/kernel/mod.rs"),
       ) &&
       /ProviderControlPlaintextMaterial/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount/provider_control.rs"),
       ) &&
+      /ProviderAuthMaterializationPlaintextMaterial/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_auth_materialization.rs"),
+      ) &&
       /rust_core_boundary:\s*"model_mount\.provider_control"/.test(providerOperations) &&
+      /rust_core_boundary:\s*"model_mount\.provider_auth_materialization"/.test(providerOperations) &&
       /public_provider_control_js_facade_retired/.test(modelMountCore) &&
+      /public_provider_auth_header_js_facade_retired/.test(modelMountCore) &&
       /rust_daemon_core_provider_control/.test(modelMountCore) &&
+      /rust_daemon_core_provider_auth_materialization/.test(modelMountCore) &&
+      /rust_provider_auth_materialization_bound/.test(modelMountCore) &&
       /ctee_provider_custody_enforced/.test(modelMountCore) &&
+      /ctee_provider_auth_header_custody_enforced/.test(modelMountCore) &&
       /agentgres_provider_control_truth_required/.test(modelMountCore) &&
+      /agentgres_provider_auth_materialization_truth_required/.test(modelMountCore) &&
       /wallet_network_vault_authority_required/.test(providerOperations) &&
+      /planAndCommitProviderAuthMaterialization\(\s*this,\s*"model_mount\.provider_auth\.materialize"/.test(
+        providerUpsertBlock,
+      ) &&
       /"model_mount\.provider\.write"/.test(providerUpsertBlock) &&
       !/modelMountProviderControlRustCoreRequired/.test(providerUpsertBlock) &&
       !/state\.normalizeProviderSecretRef/.test(
@@ -27783,12 +27837,18 @@ function runReceipts() {
       !/body\.(?:authScheme|authHeaderName|apiFormat|baseUrl|privacyClass|evidenceRefs)\b/.test(
         providerUpsertBlock,
       ) &&
-      /provider upsert commits Rust provider-control record without vault resolution or provider mutation/.test(
+      /provider upsert commits Rust provider-auth materialization and provider-control records without JS vault resolution or provider mutation/.test(
         providerOperationsTest,
       ) &&
-      /provider upsert fails closed without Rust Agentgres provider record-state commit/.test(providerOperationsTest) &&
+      /provider upsert fails closed without Rust Agentgres provider-auth materialization record-state commit/.test(providerOperationsTest) &&
       /Rust model_mount core sends positive provider-control request/.test(modelMountCoreTest) &&
+      /Rust model_mount core sends positive provider-auth materialization request/.test(modelMountCoreTest) &&
       /provider upsert rejects retired request aliases before vault resolution or state write/.test(
+        providerOperationsTest,
+      ) &&
+      /modelMountProviderAuthMaterializationRequests/.test(providerOperationsTest) &&
+      /assert\.equal\(state\.modelMountProviderAuthMaterializationRequests\.length,\s*1\)/.test(providerOperationsTest) &&
+      /assert\.equal\(state\.modelMountProviderAuthMaterializationRequests\[0\]\.vault_ref,\s*"vault:\/\/provider\/openai"\)/.test(
         providerOperationsTest,
       ) &&
       /modelMountProviderControlRequests/.test(providerOperationsTest) &&
@@ -27801,9 +27861,11 @@ function runReceipts() {
       ) &&
       /recordStateCommits/.test(providerOperationsTest) &&
       /model_mount\.provider\.write/.test(providerOperationsTest) &&
-      /assert\.equal\(state\.recordStateCommits\.length,\s*1\)/.test(providerOperationsTest) &&
-      /assert\.equal\(state\.recordStateCommits\[0\]\.record_dir,\s*"model-providers"\)/.test(providerOperationsTest) &&
-      /model_mount_provider_control_record_state_commit_unconfigured/.test(providerOperationsTest) &&
+      /model_mount\.provider_auth\.materialize/.test(providerOperationsTest) &&
+      /assert\.equal\(state\.recordStateCommits\.length,\s*2\)/.test(providerOperationsTest) &&
+      /assert\.equal\(state\.recordStateCommits\[0\]\.record_dir,\s*"model-provider-auth-materializations"\)/.test(providerOperationsTest) &&
+      /assert\.equal\(state\.recordStateCommits\[1\]\.record_dir,\s*"model-providers"\)/.test(providerOperationsTest) &&
+      /model_mount_provider_auth_materialization_record_state_commit_unconfigured/.test(providerOperationsTest) &&
       /hosted provider start and stop commit Rust metadata lifecycle records without JS driver execution/.test(providerOperationsTest) &&
       /rust_model_mount_hosted_provider_lifecycle/.test(providerOperationsTest) &&
       /retired_aliases,\s*\[\s*"authScheme"\s*,\s*"authHeaderName"\s*,\s*"apiFormat"\s*,\s*"baseUrl"\s*,\s*"privacyClass"\s*,\s*"evidenceRefs"\s*,?\s*\]/.test(

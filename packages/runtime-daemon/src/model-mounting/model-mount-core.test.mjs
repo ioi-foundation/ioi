@@ -14,6 +14,7 @@ import {
   MODEL_MOUNT_INVOCATION_RECEIPT_BINDING_API_METHOD,
   MODEL_MOUNT_INVOCATION_API_METHOD,
   MODEL_MOUNT_MCP_WORKFLOW_API_METHOD,
+  MODEL_MOUNT_PROVIDER_AUTH_MATERIALIZATION_API_METHOD,
   MODEL_MOUNT_PROVIDER_CONTROL_API_METHOD,
   MODEL_MOUNT_PROVIDER_EXECUTION_API_METHOD,
   MODEL_MOUNT_PROVIDER_INVENTORY_API_METHOD,
@@ -508,6 +509,26 @@ function providerControlRequest() {
     authority_receipt_refs: ["receipt://wallet/provider-write"],
     custody_ref: "ctee://provider/openai",
     required_scope: "provider.write:provider.openai",
+  };
+}
+
+function providerAuthMaterializationRequest() {
+  return {
+    schema_version: "ioi.model_mount.provider_auth_materialization.v1",
+    operation_kind: "model_mount.provider_auth.materialize",
+    provider_id: "provider.openai",
+    provider_ref: "provider://provider.openai",
+    provider_kind: "openai",
+    auth_scheme: "bearer",
+    auth_header_name: "authorization",
+    vault_ref: "vault://provider/openai",
+    source: "runtime-daemon.model_mounting.provider_auth_materialization",
+    generated_at: "2026-06-16T00:00:00.000Z",
+    receipt_refs: ["receipt://provider-control"],
+    authority_grant_refs: ["grant://wallet/provider-auth"],
+    authority_receipt_refs: ["receipt://wallet/provider-auth"],
+    custody_ref: "ctee://provider/openai",
+    required_scope: "provider.auth:provider.openai",
   };
 }
 
@@ -2978,6 +2999,102 @@ test("Rust model_mount core sends positive provider-control request", () => {
   assert.equal(result.evidence_refs.includes("ctee_provider_custody_enforced"), true);
 });
 
+test("Rust model_mount core sends positive provider-auth materialization request", () => {
+  const calls = [];
+  const runner = new ModelMountCore({
+    daemonCoreModelMountApi: {
+      planModelMountProviderAuthMaterialization(request) {
+        calls.push({ method: MODEL_MOUNT_PROVIDER_AUTH_MATERIALIZATION_API_METHOD, request });
+        const record = {
+          id: "provider.openai_auth_header",
+          record_id: "provider.openai_auth_header",
+          object: "ioi.model_mount_provider_auth_materialization",
+          schema_version: "ioi.model_mount.provider_auth_materialization.v1",
+          status: "materialized",
+          operation_kind: request.operation_kind,
+          provider_id: request.provider_id,
+          provider_ref: request.provider_ref,
+          rust_core_boundary: "model_mount.provider_auth_materialization",
+          auth_header_materialization_status: "rust_ctee_outbound_header_bound",
+          outbound_header_binding_ref:
+            "provider_auth_header://provider.openai_auth_header#sha256:provider-auth",
+          provider_auth_materialization_ref:
+            "agentgres://model-mounting/model-provider-auth-materializations/provider.openai_auth_header",
+          plaintext_secret_material_returned: false,
+          auth_header_value_returned: false,
+          auth_header_value_persisted: false,
+          public_response: {
+            object: "ioi.model_mount_provider_auth_materialization",
+            id: "provider.openai_auth_header",
+            auth_header_materialization_status: "rust_ctee_outbound_header_bound",
+            outbound_header_binding_ref:
+              "provider_auth_header://provider.openai_auth_header#sha256:provider-auth",
+            provider_auth_materialization_ref:
+              "agentgres://model-mounting/model-provider-auth-materializations/provider.openai_auth_header",
+            auth_header_value_returned: false,
+          },
+          evidence_refs: [
+            "rust_daemon_core_provider_auth_materialization",
+            "rust_provider_auth_materialization_bound",
+            "wallet_network_provider_vault_ref_bound",
+            "ctee_provider_auth_header_custody_enforced",
+            "agentgres_provider_auth_materialization_truth_required",
+            "public_provider_auth_header_js_facade_retired",
+          ],
+        };
+        return {
+          source: "rust_daemon_core.model_mount.provider_auth_materialization",
+          plan: {
+            schema_version: "ioi.model_mount.provider_auth_materialization_plan.v1",
+            object: "ioi.model_mount_provider_auth_materialization_plan",
+            status: "planned",
+            rust_core_boundary: "model_mount.provider_auth_materialization",
+            operation_kind: request.operation_kind,
+            source: request.source,
+            record_dir: "model-provider-auth-materializations",
+            record_id: record.id,
+            record,
+            public_response: record.public_response,
+            receipt_refs: ["receipt://provider-control"],
+            authority_grant_refs: ["grant://wallet/provider-auth"],
+            authority_receipt_refs: ["receipt://wallet/provider-auth"],
+            evidence_refs: record.evidence_refs,
+            materialization_hash: "sha256:provider-auth",
+            authority_hash: "sha256:provider-auth-authority",
+          },
+          record_dir: "model-provider-auth-materializations",
+          record_id: record.id,
+          record,
+          public_response: record.public_response,
+          operation_kind: request.operation_kind,
+          rust_core_boundary: "model_mount.provider_auth_materialization",
+          receipt_refs: ["receipt://provider-control"],
+          authority_grant_refs: ["grant://wallet/provider-auth"],
+          authority_receipt_refs: ["receipt://wallet/provider-auth"],
+          evidence_refs: record.evidence_refs,
+          materialization_hash: "sha256:provider-auth",
+          authority_hash: "sha256:provider-auth-authority",
+        };
+      },
+    },
+  });
+
+  const result = runner.planProviderAuthMaterialization(providerAuthMaterializationRequest());
+
+  assert.equal(calls.length, 1);
+  assertDirectModelMountApiCall(
+    calls[0],
+    MODEL_MOUNT_PROVIDER_AUTH_MATERIALIZATION_API_METHOD,
+    "ioi.model_mount.provider_auth_materialization.v1",
+  );
+  assert.equal(calls[0].request.operation_kind, "model_mount.provider_auth.materialize");
+  assert.equal(calls[0].request.vault_ref, "vault://provider/openai");
+  assert.equal(result.record_dir, "model-provider-auth-materializations");
+  assert.equal(result.rust_core_boundary, "model_mount.provider_auth_materialization");
+  assert.equal(result.public_response.auth_header_value_returned, false);
+  assert.equal(result.evidence_refs.includes("rust_provider_auth_materialization_bound"), true);
+});
+
 test("Rust model_mount core sends positive capability-token-control request", () => {
   const calls = [];
   const runner = new ModelMountCore({
@@ -3314,6 +3431,7 @@ test("Rust model_mount core rejects command-shaped backend/catalog/provider/vaul
     [MODEL_MOUNT_BACKEND_LIFECYCLE_API_METHOD, () => runner.planBackendLifecycle(backendLifecycleRequest())],
     [MODEL_MOUNT_CATALOG_PROVIDER_CONTROL_API_METHOD, () => runner.planCatalogProviderControl(catalogProviderControlRequest())],
     [MODEL_MOUNT_PROVIDER_CONTROL_API_METHOD, () => runner.planProviderControl(providerControlRequest())],
+    [MODEL_MOUNT_PROVIDER_AUTH_MATERIALIZATION_API_METHOD, () => runner.planProviderAuthMaterialization(providerAuthMaterializationRequest())],
     [MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_API_METHOD, () => runner.planCapabilityTokenControl(capabilityTokenControlRequest())],
     [MODEL_MOUNT_VAULT_CONTROL_API_METHOD, () => runner.planVaultControl(vaultControlRequest())],
     [MODEL_MOUNT_RECEIPT_GATE_API_METHOD, () => runner.planReceiptGate(receiptGateRequest())],

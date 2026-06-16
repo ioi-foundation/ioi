@@ -141,19 +141,21 @@ use model_mount::{
     ModelMountCatalogProviderControlRequest, ModelMountConversationStateRequest, ModelMountCore,
     ModelMountError, ModelMountInstanceLifecycleRequest, ModelMountInstanceLifecycleResult,
     ModelMountInvocationAdmissionRecord, ModelMountInvocationAdmissionRequest,
-    ModelMountMcpWorkflowPlan, ModelMountMcpWorkflowRequest, ModelMountProviderControlPlan,
-    ModelMountProviderControlRequest, ModelMountProviderExecutionRecord,
-    ModelMountProviderExecutionRequest, ModelMountProviderInventoryRequest,
-    ModelMountProviderInventoryResult, ModelMountProviderInvocationRequest,
-    ModelMountProviderInvocationResult, ModelMountProviderLifecycleRequest,
-    ModelMountProviderLifecycleResult, ModelMountProviderResultAdmissionRecord,
-    ModelMountProviderResultAdmissionRequest, ModelMountProviderStreamInvocationResult,
-    ModelMountReadProjectionError, ModelMountReadProjectionPlan, ModelMountReadProjectionRequest,
-    ModelMountReceiptGatePlan, ModelMountReceiptGateRequest, ModelMountRouteControlPlan,
-    ModelMountRouteControlRequest, ModelMountRouteControlRequiredRequest,
-    ModelMountRouteDecisionRecord, ModelMountRouteDecisionRequest, ModelMountRuntimeEnginePlan,
-    ModelMountRuntimeEngineRequest, ModelMountRuntimeSurveyPlan, ModelMountRuntimeSurveyRequest,
-    ModelMountStorageControlPlan, ModelMountStorageControlRequest, ModelMountStreamCancelRequest,
+    ModelMountMcpWorkflowPlan, ModelMountMcpWorkflowRequest,
+    ModelMountProviderAuthMaterializationPlan, ModelMountProviderAuthMaterializationRequest,
+    ModelMountProviderControlPlan, ModelMountProviderControlRequest,
+    ModelMountProviderExecutionRecord, ModelMountProviderExecutionRequest,
+    ModelMountProviderInventoryRequest, ModelMountProviderInventoryResult,
+    ModelMountProviderInvocationRequest, ModelMountProviderInvocationResult,
+    ModelMountProviderLifecycleRequest, ModelMountProviderLifecycleResult,
+    ModelMountProviderResultAdmissionRecord, ModelMountProviderResultAdmissionRequest,
+    ModelMountProviderStreamInvocationResult, ModelMountReadProjectionError,
+    ModelMountReadProjectionPlan, ModelMountReadProjectionRequest, ModelMountReceiptGatePlan,
+    ModelMountReceiptGateRequest, ModelMountRouteControlPlan, ModelMountRouteControlRequest,
+    ModelMountRouteControlRequiredRequest, ModelMountRouteDecisionRecord,
+    ModelMountRouteDecisionRequest, ModelMountRuntimeEnginePlan, ModelMountRuntimeEngineRequest,
+    ModelMountRuntimeSurveyPlan, ModelMountRuntimeSurveyRequest, ModelMountStorageControlPlan,
+    ModelMountStorageControlRequest, ModelMountStreamCancelRequest,
     ModelMountStreamCompletionRequest, ModelMountTokenizerRequest,
     ModelMountTokenizerRequiredRequest, ModelMountVaultControlPlan, ModelMountVaultControlRequest,
 };
@@ -1266,6 +1268,13 @@ impl RuntimeKernelService {
         request: &ModelMountProviderControlRequest,
     ) -> Result<ModelMountProviderControlPlan, ModelMountError> {
         ModelMountCore.plan_provider_control(request)
+    }
+
+    pub fn plan_model_mount_provider_auth_materialization(
+        &self,
+        request: &ModelMountProviderAuthMaterializationRequest,
+    ) -> Result<ModelMountProviderAuthMaterializationPlan, ModelMountError> {
+        ModelMountCore.plan_provider_auth_materialization(request)
     }
 
     pub fn plan_model_mount_capability_token_control(

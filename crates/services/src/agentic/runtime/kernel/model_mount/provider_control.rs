@@ -125,6 +125,10 @@ pub(super) fn plan_provider_control(
     let base_url = string_field(body, "base_url");
     let auth_scheme = string_field(body, "auth_scheme");
     let auth_header_name = string_field(body, "auth_header_name");
+    let provider_auth_materialization_ref = string_field(body, "provider_auth_materialization_ref");
+    let outbound_header_binding_ref = string_field(body, "outbound_header_binding_ref");
+    let auth_header_materialization_status =
+        string_field(body, "auth_header_materialization_status");
     let capabilities = string_array_field(body, "capabilities");
     let request_evidence_refs = string_array_field(body, "evidence_refs");
     let source = source_for(request);
@@ -177,7 +181,12 @@ pub(super) fn plan_provider_control(
         "auth_scheme": auth_scheme,
         "auth_header_name": auth_header_name,
         "secret_ref": secret_ref,
-        "auth_material_status": if secret_ref.is_some() { "wallet_vault_ref_bound" } else { "not_required" },
+        "provider_auth_materialization_ref": provider_auth_materialization_ref,
+        "outbound_header_binding_ref": outbound_header_binding_ref,
+        "auth_header_materialization_status": auth_header_materialization_status,
+        "auth_material_status": if auth_header_materialization_status.is_some() {
+            "rust_ctee_outbound_header_bound"
+        } else if secret_ref.is_some() { "wallet_vault_ref_bound" } else { "not_required" },
         "private_material_returned": false,
         "plaintext_material_persisted": false,
         "authority_hash": authority_hash,
@@ -203,6 +212,9 @@ pub(super) fn plan_provider_control(
         "auth_scheme": auth_scheme,
         "auth_header_name": auth_header_name,
         "secret_ref": secret_ref,
+        "provider_auth_materialization_ref": provider_auth_materialization_ref,
+        "outbound_header_binding_ref": outbound_header_binding_ref,
+        "auth_header_materialization_status": auth_header_materialization_status,
         "body_hash": format!("sha256:{body_hash}"),
         "request_field_count": body.len(),
         "rust_core_boundary": "model_mount.provider_control",
@@ -405,6 +417,9 @@ mod tests {
                 "label": "OpenAI",
                 "api_key_vault_ref": "vault://provider/openai",
                 "auth_header_name": "authorization",
+                "provider_auth_materialization_ref": "agentgres://model-mounting/model-provider-auth-materializations/provider.openai_auth_header",
+                "outbound_header_binding_ref": "provider_auth_header://provider.openai_auth_header#sha256:provider-auth",
+                "auth_header_materialization_status": "rust_ctee_outbound_header_bound",
                 "api_format": "openai",
                 "base_url": "https://api.openai.example/v1",
                 "privacy_class": "hosted_private",
@@ -459,6 +474,14 @@ mod tests {
         assert_eq!(
             plan.record["public_response"]["plaintext_material_persisted"],
             false
+        );
+        assert_eq!(
+            plan.record["public_response"]["auth_header_materialization_status"],
+            "rust_ctee_outbound_header_bound"
+        );
+        assert_eq!(
+            plan.record["provider_auth_materialization_ref"],
+            "agentgres://model-mounting/model-provider-auth-materializations/provider.openai_auth_header"
         );
     }
 

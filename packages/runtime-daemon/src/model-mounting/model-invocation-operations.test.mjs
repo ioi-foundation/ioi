@@ -906,6 +906,8 @@ test("modelMountProviderExecutionRequestForInvocation gates provider driver exec
   assert.equal(hostedRequest.provider_auth_evidence_refs.includes("rust_model_mount_hosted_provider_auth_gate"), true);
   assert.equal(hostedRequest.provider_auth_evidence_refs.includes("wallet_network_provider_vault_ref_bound"), true);
   assert.equal(hostedRequest.provider_auth_evidence_refs.includes("ctee_hosted_provider_secret_not_exposed"), true);
+  assert.equal(hostedRequest.provider_auth_evidence_refs.includes("rust_provider_auth_materialization_bound"), true);
+  assert.equal(hostedRequest.provider_auth_evidence_refs.includes("hosted_provider_auth_header_materialized_by_rust"), true);
   assert.equal(hostedRequest.provider_auth_evidence_refs.includes("provider_vault_ref_hash:vault-hash"), true);
   assert.equal(hostedRequest.provider_auth_evidence_refs.some((ref) => ref.includes("vault://")), false);
 });
@@ -1297,6 +1299,7 @@ test("modelMountProviderStreamInvocationRequestForExecution binds native-local s
           "rust_model_mount_hosted_provider_auth_gate",
           "wallet_network_provider_vault_ref_bound",
           "ctee_hosted_provider_secret_not_exposed",
+          "rust_provider_auth_materialization_bound",
         ],
       },
       provider_execution_ref: admission.provider_execution_ref,
@@ -1316,6 +1319,12 @@ test("modelMountProviderStreamInvocationRequestForExecution binds native-local s
   assert.equal(
     hostedStreamRequest.admitted_provider_execution.provider_auth_evidence_refs.includes(
       "ctee_hosted_provider_secret_not_exposed",
+    ),
+    true,
+  );
+  assert.equal(
+    hostedStreamRequest.admitted_provider_execution.provider_auth_evidence_refs.includes(
+      "rust_provider_auth_materialization_bound",
     ),
     true,
   );
@@ -1400,6 +1409,7 @@ test("modelMountProviderResultAdmissionRequestForExecution binds Rust provider r
           "rust_model_mount_hosted_provider_auth_gate",
           "wallet_network_provider_vault_ref_bound",
           "ctee_hosted_provider_secret_not_exposed",
+          "rust_provider_auth_materialization_bound",
         ],
       },
       provider_execution_ref: admission.provider_execution_ref,
@@ -1416,6 +1426,7 @@ test("modelMountProviderResultAdmissionRequestForExecution binds Rust provider r
         "rust_model_mount_hosted_provider_auth_gate",
         "wallet_network_provider_vault_ref_bound",
         "ctee_hosted_provider_secret_not_exposed",
+        "rust_provider_auth_materialization_bound",
       ],
       backend_evidence_refs: [
         "rust_model_mount_hosted_provider_backend",
@@ -1449,6 +1460,7 @@ test("modelMountProviderResultAdmissionRequestForExecution binds Rust provider r
           "rust_model_mount_hosted_provider_auth_gate",
           "wallet_network_provider_vault_ref_bound",
           "ctee_hosted_provider_secret_not_exposed",
+          "rust_provider_auth_materialization_bound",
         ],
       },
       provider_execution_ref: admission.provider_execution_ref,
@@ -1465,6 +1477,7 @@ test("modelMountProviderResultAdmissionRequestForExecution binds Rust provider r
         "rust_model_mount_hosted_provider_auth_gate",
         "wallet_network_provider_vault_ref_bound",
         "ctee_hosted_provider_secret_not_exposed",
+        "rust_provider_auth_materialization_bound",
       ],
       backend_evidence_refs: [
         "rust_model_mount_hosted_provider_stream_backend",

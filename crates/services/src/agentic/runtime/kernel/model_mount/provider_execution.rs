@@ -307,6 +307,9 @@ fn validate_hosted_provider_invocation_gate(
     ) || !refs_contain(
         &admission.provider_auth_evidence_refs,
         "ctee_hosted_provider_secret_not_exposed",
+    ) || !refs_contain(
+        &admission.provider_auth_evidence_refs,
+        "rust_provider_auth_materialization_bound",
     ) {
         return Err(ModelMountError::HostedProviderInvocationMissingAuthEvidence);
     }
@@ -540,6 +543,8 @@ pub(super) fn provider_invocation_evidence_refs(
         refs.push("rust_hosted_provider_invocation_transport_materialized".to_string());
         refs.push("wallet_network_provider_transport_authority_bound".to_string());
         refs.push("ctee_hosted_provider_secret_not_exposed".to_string());
+        refs.push("rust_provider_auth_materialization_bound".to_string());
+        refs.push("hosted_provider_auth_header_materialized_by_rust".to_string());
         refs.push("hosted_provider_auth_header_materialization_contract_bound".to_string());
     } else {
         refs.push("rust_model_mount_fixture_backend".to_string());
@@ -585,11 +590,15 @@ pub(super) fn backend_evidence_refs(request: &ModelMountProviderInvocationReques
     } else if is_hosted_provider_invocation_backend(request) {
         refs.push("rust_model_mount_hosted_provider_backend".to_string());
         refs.push("rust_hosted_provider_invocation_transport_materialized".to_string());
+        refs.push("rust_provider_auth_materialization_bound".to_string());
+        refs.push("hosted_provider_auth_header_materialized_by_rust".to_string());
         refs.push("hosted_provider_auth_header_materialization_contract_bound".to_string());
         refs.push("hosted_provider_plaintext_secret_not_returned".to_string());
     } else if is_hosted_provider_stream_invocation_backend(request) {
         refs.push("rust_model_mount_hosted_provider_stream_backend".to_string());
         refs.push("rust_hosted_provider_stream_transport_materialized".to_string());
+        refs.push("rust_provider_auth_materialization_bound".to_string());
+        refs.push("hosted_provider_auth_header_materialized_by_rust".to_string());
         refs.push("hosted_provider_auth_header_materialization_contract_bound".to_string());
         refs.push("hosted_provider_plaintext_secret_not_returned".to_string());
     } else {
@@ -975,6 +984,7 @@ mod tests {
             "rust_model_mount_hosted_provider_auth_gate".to_string(),
             "wallet_network_provider_vault_ref_bound".to_string(),
             "ctee_hosted_provider_secret_not_exposed".to_string(),
+            "rust_provider_auth_materialization_bound".to_string(),
         ];
         request.admitted_provider_execution = Some(admitted.clone());
 

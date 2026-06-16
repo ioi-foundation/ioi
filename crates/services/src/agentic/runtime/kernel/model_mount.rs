@@ -43,9 +43,12 @@ pub use common::{
     MODEL_MOUNT_CONVERSATION_STATE_PLAN_SCHEMA_VERSION,
     MODEL_MOUNT_CONVERSATION_STATE_SCHEMA_VERSION, MODEL_MOUNT_INSTANCE_LIFECYCLE_SCHEMA_VERSION,
     MODEL_MOUNT_INVOCATION_ADMISSION_SCHEMA_VERSION, MODEL_MOUNT_MCP_WORKFLOW_PLAN_SCHEMA_VERSION,
-    MODEL_MOUNT_MCP_WORKFLOW_SCHEMA_VERSION, MODEL_MOUNT_PROVIDER_CONTROL_PLAN_SCHEMA_VERSION,
-    MODEL_MOUNT_PROVIDER_CONTROL_SCHEMA_VERSION, MODEL_MOUNT_PROVIDER_EXECUTION_SCHEMA_VERSION,
-    MODEL_MOUNT_PROVIDER_INVENTORY_SCHEMA_VERSION, MODEL_MOUNT_PROVIDER_INVOCATION_SCHEMA_VERSION,
+    MODEL_MOUNT_MCP_WORKFLOW_SCHEMA_VERSION,
+    MODEL_MOUNT_PROVIDER_AUTH_MATERIALIZATION_PLAN_SCHEMA_VERSION,
+    MODEL_MOUNT_PROVIDER_AUTH_MATERIALIZATION_SCHEMA_VERSION,
+    MODEL_MOUNT_PROVIDER_CONTROL_PLAN_SCHEMA_VERSION, MODEL_MOUNT_PROVIDER_CONTROL_SCHEMA_VERSION,
+    MODEL_MOUNT_PROVIDER_EXECUTION_SCHEMA_VERSION, MODEL_MOUNT_PROVIDER_INVENTORY_SCHEMA_VERSION,
+    MODEL_MOUNT_PROVIDER_INVOCATION_SCHEMA_VERSION,
     MODEL_MOUNT_PROVIDER_LIFECYCLE_PLAN_SCHEMA_VERSION,
     MODEL_MOUNT_PROVIDER_LIFECYCLE_SCHEMA_VERSION, MODEL_MOUNT_PROVIDER_RESULT_SCHEMA_VERSION,
     MODEL_MOUNT_PROVIDER_STREAM_INVOCATION_SCHEMA_VERSION,
@@ -75,6 +78,10 @@ pub use catalog_provider_control::{
 };
 mod provider_control;
 pub use provider_control::{ModelMountProviderControlPlan, ModelMountProviderControlRequest};
+mod provider_auth_materialization;
+pub use provider_auth_materialization::{
+    ModelMountProviderAuthMaterializationPlan, ModelMountProviderAuthMaterializationRequest,
+};
 mod conversation;
 pub use conversation::{
     plan_model_mount_conversation_state, plan_model_mount_stream_cancel,
@@ -267,6 +274,13 @@ impl ModelMountCore {
         request: &ModelMountProviderControlRequest,
     ) -> Result<ModelMountProviderControlPlan, ModelMountError> {
         provider_control::plan_provider_control(request)
+    }
+
+    pub fn plan_provider_auth_materialization(
+        &self,
+        request: &ModelMountProviderAuthMaterializationRequest,
+    ) -> Result<ModelMountProviderAuthMaterializationPlan, ModelMountError> {
+        provider_auth_materialization::plan_provider_auth_materialization(request)
     }
 
     pub fn plan_capability_token_control(

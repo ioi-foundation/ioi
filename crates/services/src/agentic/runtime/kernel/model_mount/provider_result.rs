@@ -242,6 +242,10 @@ fn is_hosted_provider_result_backend(request: &ModelMountProviderResultAdmission
             &request.provider_auth_evidence_refs,
             "ctee_hosted_provider_secret_not_exposed",
         )
+        && refs_contain(
+            &request.provider_auth_evidence_refs,
+            "rust_provider_auth_materialization_bound",
+        )
         && refs_contain(&request.backend_evidence_refs, expected_transport_evidence)
 }
 
@@ -491,6 +495,7 @@ mod tests {
             "rust_model_mount_hosted_provider_auth_gate".to_string(),
             "wallet_network_provider_vault_ref_bound".to_string(),
             "ctee_hosted_provider_secret_not_exposed".to_string(),
+            "rust_provider_auth_materialization_bound".to_string(),
             "provider_vault_ref_hash:sha256-vault".to_string(),
         ];
         let admission = admit_provider_execution(&execution_request)
@@ -569,6 +574,7 @@ mod tests {
             "rust_model_mount_hosted_provider_auth_gate".to_string(),
             "wallet_network_provider_vault_ref_bound".to_string(),
             "ctee_hosted_provider_secret_not_exposed".to_string(),
+            "rust_provider_auth_materialization_bound".to_string(),
             "provider_vault_ref_hash:sha256-vault".to_string(),
         ];
         let admission = admit_provider_execution(&execution_request)

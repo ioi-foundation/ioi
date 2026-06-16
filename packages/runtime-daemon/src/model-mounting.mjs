@@ -126,6 +126,8 @@ import {
 const MODEL_MOUNT_SCHEMA_VERSION = "ioi.model-mounting.runtime.v1", SECRET_REDACTION = "[REDACTED]";
 const MODEL_MOUNT_ROUTE_CONTROL_SCHEMA_VERSION = "ioi.model_mount.route_control.v1";
 const MODEL_MOUNT_PROVIDER_CONTROL_SCHEMA_VERSION = "ioi.model_mount.provider_control.v1";
+const MODEL_MOUNT_PROVIDER_AUTH_MATERIALIZATION_SCHEMA_VERSION =
+  "ioi.model_mount.provider_auth_materialization.v1";
 const MODEL_MOUNT_PROVIDER_LIFECYCLE_SCHEMA_VERSION = "ioi.model_mount.provider_lifecycle.v1";
 const MODEL_MOUNT_PROVIDER_INVENTORY_SCHEMA_VERSION = "ioi.model_mount.provider_inventory.v1";
 const MODEL_MOUNT_INSTANCE_LIFECYCLE_SCHEMA_VERSION = "ioi.model_mount.instance_lifecycle.v1";
@@ -997,9 +999,30 @@ export class ModelMountingState {
     const id = optionalString(body.id) ?? `provider.${safeId(body.kind ?? body.label ?? "custom")}`;
     const existing = optionalProviderState(this, id) ?? {};
     const kind = optionalString(body.kind) ?? optionalString(existing.kind) ?? "custom_http";
+    const controlBody = providerControlBody(body, existing, { id, kind });
+    const authMaterialization = planAndCommitProviderAuthMaterialization(
+      this,
+      "model_mount.provider_auth.materialize",
+      {
+        providerId: id,
+        body: controlBody,
+        custodyRef: optionalString(body.custody_ref) ?? optionalString(providerSecretInput(body)),
+        requiredScope: `provider.auth:${id}`,
+      },
+    );
+    if (authMaterialization) {
+      controlBody.provider_auth_materialization_ref = authMaterialization.provider_auth_materialization_ref;
+      controlBody.outbound_header_binding_ref = authMaterialization.outbound_header_binding_ref;
+      controlBody.auth_header_materialization_status =
+        authMaterialization.auth_header_materialization_status;
+      controlBody.evidence_refs = uniqueModelMountRefs([
+        ...(Array.isArray(controlBody.evidence_refs) ? controlBody.evidence_refs : []),
+        ...(Array.isArray(authMaterialization.evidence_refs) ? authMaterialization.evidence_refs : []),
+      ]);
+    }
     return planAndCommitProviderControl(this, "model_mount.provider.write", {
       providerId: id,
-      body: providerControlBody(body, existing, { id, kind }),
+      body: controlBody,
       custodyRef: optionalString(body.custody_ref) ?? optionalString(providerSecretInput(body)),
       requiredScope: `provider.write:${id}`,
     });
@@ -1108,6 +1131,10 @@ export class ModelMountingState {
 
   planModelMountProviderControl(request) {
     return this.modelMountCore.planProviderControl(request);
+  }
+
+  planModelMountProviderAuthMaterialization(request) {
+    return this.modelMountCore.planProviderAuthMaterialization(request);
   }
 
   planProviderLifecycle(provider, options = {}) {
@@ -2529,6 +2556,70 @@ function planAndCommitProviderControl(state, operation_kind, options = {}) {
   return providerControlResponse(plan, commit);
 }
 
+function planAndCommitProviderAuthMaterialization(state, operation_kind, options = {}) {
+  const body = options.body && typeof options.body === "object" && !Array.isArray(options.body)
+    ? options.body
+    : {};
+  const secretRef = optionalString(options.vaultRef) ?? optionalString(body.secret_ref);
+  if (!secretRef) return null;
+  if (typeof state.planModelMountProviderAuthMaterialization !== "function") {
+    throw runtimeError({
+      status: 501,
+      code: "model_mount_provider_auth_materialization_rust_core_required",
+      message: "Provider auth materialization requires Rust daemon-core wallet/cTEE custody ownership.",
+      details: {
+        provider_id: options.providerId ?? body.id ?? null,
+        operation_kind,
+        rust_core_boundary: "model_mount.provider_auth_materialization",
+        rust_core_api: "daemonCoreModelMountApi.planModelMountProviderAuthMaterialization",
+      },
+    });
+  }
+  const plan = state.planModelMountProviderAuthMaterialization({
+    schema_version: MODEL_MOUNT_PROVIDER_AUTH_MATERIALIZATION_SCHEMA_VERSION,
+    operation_kind,
+    provider_id: optionalString(options.providerId) ?? optionalString(body.id),
+    provider_ref: optionalString(body.provider_ref) ??
+      (optionalString(options.providerId) ? `provider://${optionalString(options.providerId)}` : null),
+    provider_kind: optionalString(body.kind),
+    auth_scheme: optionalString(body.auth_scheme),
+    auth_header_name: optionalString(body.auth_header_name),
+    vault_ref: secretRef,
+    source: "runtime-daemon.model_mounting.provider_auth_materialization",
+    generated_at: typeof state.nowIso === "function" ? state.nowIso() : null,
+    receipt_refs: uniqueModelMountRefs([
+      body.receipt_id,
+      ...(Array.isArray(body.receipt_refs) ? body.receipt_refs : []),
+    ]),
+    authority_grant_refs: uniqueModelMountRefs(
+      Array.isArray(body.authority_grant_refs) ? body.authority_grant_refs : [],
+    ),
+    authority_receipt_refs: uniqueModelMountRefs(
+      Array.isArray(body.authority_receipt_refs) ? body.authority_receipt_refs : [],
+    ),
+    custody_ref: optionalString(options.custodyRef) ?? optionalString(body.custody_ref) ?? secretRef,
+    containment_ref: optionalString(options.containmentRef) ?? optionalString(body.containment_ref),
+    required_scope: optionalString(options.requiredScope),
+  });
+  assertRustAuthoredProviderAuthMaterializationPlan(plan, { operation_kind });
+  const commit = commitModelMountRecordState(state, {
+    recordDir: plan.record_dir,
+    record: plan.record,
+    operation_kind: plan.operation_kind,
+    receipt_refs: plan.receipt_refs,
+    unconfiguredCode: "model_mount_provider_auth_materialization_record_state_commit_unconfigured",
+    unconfiguredMessage:
+      "Provider auth materialization requires Rust Agentgres record-state commit before provider truth can return.",
+    unconfiguredDetails: {
+      rust_core_boundary: plan.rust_core_boundary ?? "model_mount.provider_auth_materialization",
+      operation_kind: plan.operation_kind ?? operation_kind,
+      materialization_hash: plan.materialization_hash ?? null,
+    },
+    invalidCode: "model_mount_provider_auth_materialization_record_state_commit_invalid",
+  });
+  return providerAuthMaterializationResponse(plan, commit);
+}
+
 function providerControlBody(body = {}, existing = {}, { id, kind } = {}) {
   const secretInput = providerSecretInput(body);
   const secretRef = secretInput === undefined
@@ -2558,6 +2649,15 @@ function providerControlBody(body = {}, existing = {}, { id, kind } = {}) {
     auth_scheme: optionalString(body.auth_scheme ?? existing.auth_scheme ?? existing.authScheme),
     auth_header_name: optionalString(body.auth_header_name ?? existing.auth_header_name ?? existing.authHeaderName),
     secret_ref: secretRef,
+    provider_auth_materialization_ref: optionalString(
+      body.provider_auth_materialization_ref ?? existing.provider_auth_materialization_ref,
+    ),
+    outbound_header_binding_ref: optionalString(
+      body.outbound_header_binding_ref ?? existing.outbound_header_binding_ref,
+    ),
+    auth_header_materialization_status: optionalString(
+      body.auth_header_materialization_status ?? existing.auth_header_materialization_status,
+    ),
     evidence_refs: normalizeScopes(body.evidence_refs, existing.discovery?.evidenceRefs ?? []),
   };
 }
@@ -2579,6 +2679,9 @@ function providerControlCanonicalBody(value = {}) {
     "auth_scheme",
     "auth_header_name",
     "secret_ref",
+    "provider_auth_materialization_ref",
+    "outbound_header_binding_ref",
+    "auth_header_materialization_status",
     "api_key_vault_ref",
     "auth_vault_ref",
     "evidence_refs",
@@ -2679,6 +2782,97 @@ function providerControlResponse(plan, commit) {
     js_provider_map_write: false,
     js_vault_resolution: false,
     js_write_map: false,
+  };
+}
+
+function assertRustAuthoredProviderAuthMaterializationPlan(plan = {}, options = {}) {
+  const record = plan.record && typeof plan.record === "object" && !Array.isArray(plan.record)
+    ? plan.record
+    : {};
+  const publicResponse = plan.public_response && typeof plan.public_response === "object" && !Array.isArray(plan.public_response)
+    ? plan.public_response
+    : record.public_response && typeof record.public_response === "object" && !Array.isArray(record.public_response)
+      ? record.public_response
+      : {};
+  const evidenceRefs = Array.isArray(plan.evidence_refs) ? plan.evidence_refs : [];
+  const recordEvidenceRefs = Array.isArray(record.evidence_refs) ? record.evidence_refs : [];
+  const missing = [];
+  const mismatches = [];
+  if (plan.record_dir !== "model-provider-auth-materializations") missing.push("record_dir");
+  if (!plan.record_id) missing.push("record_id");
+  if (record.id !== plan.record_id) mismatches.push("record.id");
+  if (record.record_id !== plan.record_id) mismatches.push("record.record_id");
+  if (record.object !== "ioi.model_mount_provider_auth_materialization") missing.push("record.object");
+  if (record.schema_version !== MODEL_MOUNT_PROVIDER_AUTH_MATERIALIZATION_SCHEMA_VERSION) {
+    missing.push("record.schema_version");
+  }
+  if (plan.operation_kind !== options.operation_kind) mismatches.push("operation_kind");
+  if (plan.rust_core_boundary !== "model_mount.provider_auth_materialization") missing.push("rust_core_boundary");
+  if (!plan.materialization_hash) missing.push("materialization_hash");
+  if (!plan.authority_hash) missing.push("authority_hash");
+  if (record.auth_header_materialization_status !== "rust_ctee_outbound_header_bound") {
+    missing.push("record.auth_header_materialization_status");
+  }
+  if (record.plaintext_secret_material_returned !== false) {
+    missing.push("record.plaintext_secret_material_returned_false");
+  }
+  if (record.auth_header_value_returned !== false) missing.push("record.auth_header_value_returned_false");
+  if (record.auth_header_value_persisted !== false) missing.push("record.auth_header_value_persisted_false");
+  if (publicResponse.auth_header_value_returned !== false) {
+    missing.push("public_response.auth_header_value_returned_false");
+  }
+  if (!record.outbound_header_binding_ref) missing.push("record.outbound_header_binding_ref");
+  if (!record.provider_auth_materialization_ref) missing.push("record.provider_auth_materialization_ref");
+  for (const ref of [
+    "rust_daemon_core_provider_auth_materialization",
+    "rust_provider_auth_materialization_bound",
+    "wallet_network_provider_vault_ref_bound",
+    "ctee_provider_auth_header_custody_enforced",
+    "agentgres_provider_auth_materialization_truth_required",
+  ]) {
+    if (!evidenceRefs.includes(ref)) missing.push(`evidence_refs.${ref}`);
+    if (!recordEvidenceRefs.includes(ref)) missing.push(`record.evidence_refs.${ref}`);
+  }
+  if (missing.length === 0 && mismatches.length === 0) return;
+  throw runtimeError({
+    status: 502,
+    code: "model_mount_provider_auth_materialization_plan_invalid",
+    message:
+      "Provider auth materialization facade requires a Rust-authored wallet/cTEE outbound-header plan.",
+    details: {
+      operation_kind: options.operation_kind ?? null,
+      missing,
+      mismatches,
+    },
+  });
+}
+
+function providerAuthMaterializationResponse(plan, commit) {
+  const record = plan.record && typeof plan.record === "object" && !Array.isArray(plan.record)
+    ? plan.record
+    : {};
+  const publicResponse = plan.public_response && typeof plan.public_response === "object" && !Array.isArray(plan.public_response)
+    ? plan.public_response
+    : record.public_response && typeof record.public_response === "object" && !Array.isArray(record.public_response)
+      ? record.public_response
+      : {};
+  return {
+    ...publicResponse,
+    status: publicResponse.status ?? "materialized",
+    operation_kind: plan.operation_kind,
+    rust_core_boundary: plan.rust_core_boundary,
+    record_dir: plan.record_dir,
+    record_id: plan.record_id,
+    record,
+    commit,
+    receipt_refs: plan.receipt_refs,
+    authority_grant_refs: plan.authority_grant_refs,
+    authority_receipt_refs: plan.authority_receipt_refs,
+    evidence_refs: plan.evidence_refs,
+    materialization_hash: plan.materialization_hash,
+    authority_hash: plan.authority_hash,
+    js_auth_header_materialization: false,
+    js_vault_resolution: false,
   };
 }
 

@@ -1291,6 +1291,8 @@ function hostedProviderAuthEvidenceRefs(selection = {}, hash = stableHash) {
   ];
   if (secretRef?.startsWith("vault://")) {
     refs.push("wallet_network_provider_vault_ref_bound");
+    refs.push("rust_provider_auth_materialization_bound");
+    refs.push("hosted_provider_auth_header_materialized_by_rust");
     refs.push(`provider_vault_ref_hash:${hash(secretRef)}`);
   } else {
     refs.push("wallet_network_provider_vault_ref_required");

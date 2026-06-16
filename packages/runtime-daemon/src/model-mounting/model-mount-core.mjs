@@ -39,6 +39,7 @@ export const MODEL_MOUNT_ACCEPTED_RECEIPT_TRANSITION_API_METHOD = "planModelMoun
 export const MODEL_MOUNT_INVOCATION_RECEIPT_BINDING_API_METHOD = "bindModelMountInvocationReceipt";
 export const MODEL_MOUNT_CATALOG_PROVIDER_CONTROL_API_METHOD = "planModelMountCatalogProviderControl";
 export const MODEL_MOUNT_PROVIDER_CONTROL_API_METHOD = "planModelMountProviderControl";
+export const MODEL_MOUNT_PROVIDER_AUTH_MATERIALIZATION_API_METHOD = "planModelMountProviderAuthMaterialization";
 export const MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_API_METHOD = "planModelMountCapabilityTokenControl";
 export const MODEL_MOUNT_VAULT_CONTROL_API_METHOD = "planModelMountVaultControl";
 export const MODEL_MOUNT_RECEIPT_GATE_API_METHOD = "planModelMountReceiptGate";
@@ -221,6 +222,12 @@ export class ModelMountCore {
   planProviderControl(request) {
     return normalizeProviderControlApiResult(
       this.invokeModelMountApi(MODEL_MOUNT_PROVIDER_CONTROL_API_METHOD, request),
+    );
+  }
+
+  planProviderAuthMaterialization(request) {
+    return normalizeProviderAuthMaterializationApiResult(
+      this.invokeModelMountApi(MODEL_MOUNT_PROVIDER_AUTH_MATERIALIZATION_API_METHOD, request),
     );
   }
 
@@ -1488,6 +1495,91 @@ function normalizeProviderControlApiResult(value = {}) {
     const error = new Error("Rust model_mount provider-control plan is incomplete.");
     error.status = 502;
     error.code = "model_mount_provider_control_plan_invalid";
+    error.details = {
+      missing,
+      source: normalized.source,
+      operation_kind: normalized.operation_kind,
+    };
+    throw error;
+  }
+  return normalized;
+}
+
+function normalizeProviderAuthMaterializationApiResult(value = {}) {
+  const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const plan = result.plan && typeof result.plan === "object" && !Array.isArray(result.plan)
+    ? result.plan
+    : {};
+  const record = result.record && typeof result.record === "object" && !Array.isArray(result.record)
+    ? result.record
+    : plan.record && typeof plan.record === "object" && !Array.isArray(plan.record)
+      ? plan.record
+      : null;
+  const publicResponse = result.public_response ?? plan.public_response ?? record?.public_response ?? null;
+  const normalized = {
+    source: result.source ?? "rust_daemon_core.model_mount.provider_auth_materialization",
+    plan,
+    record_dir: result.record_dir ?? plan.record_dir ?? null,
+    record_id: result.record_id ?? plan.record_id ?? null,
+    record,
+    public_response: publicResponse,
+    operation_kind: result.operation_kind ?? plan.operation_kind ?? null,
+    rust_core_boundary: result.rust_core_boundary ?? plan.rust_core_boundary ?? null,
+    receipt_refs: arrayOrNull(result.receipt_refs) ?? arrayOrNull(plan.receipt_refs) ?? [],
+    authority_grant_refs: arrayOrNull(result.authority_grant_refs) ?? arrayOrNull(plan.authority_grant_refs) ?? [],
+    authority_receipt_refs:
+      arrayOrNull(result.authority_receipt_refs) ?? arrayOrNull(plan.authority_receipt_refs) ?? [],
+    evidence_refs: arrayOrNull(result.evidence_refs) ?? arrayOrNull(plan.evidence_refs),
+    materialization_hash: result.materialization_hash ?? plan.materialization_hash ?? null,
+    authority_hash: result.authority_hash ?? plan.authority_hash ?? null,
+  };
+  const missing = [];
+  for (const field of ["record_dir", "record_id", "record", "operation_kind", "materialization_hash", "authority_hash"]) {
+    if (!normalized[field]) missing.push(field);
+  }
+  if (normalized.rust_core_boundary !== "model_mount.provider_auth_materialization") {
+    missing.push("rust_core_boundary");
+  }
+  for (const ref of [
+    "rust_daemon_core_provider_auth_materialization",
+    "rust_provider_auth_materialization_bound",
+    "wallet_network_provider_vault_ref_bound",
+    "ctee_provider_auth_header_custody_enforced",
+    "agentgres_provider_auth_materialization_truth_required",
+    "public_provider_auth_header_js_facade_retired",
+  ]) {
+    if (!Array.isArray(normalized.evidence_refs) || !normalized.evidence_refs.includes(ref)) {
+      missing.push(`evidence_refs.${ref}`);
+    }
+  }
+  if (record?.id !== normalized.record_id) {
+    missing.push("record.id");
+  }
+  if (record?.auth_header_materialization_status !== "rust_ctee_outbound_header_bound") {
+    missing.push("record.auth_header_materialization_status");
+  }
+  if (record?.plaintext_secret_material_returned !== false) {
+    missing.push("record.plaintext_secret_material_returned_false");
+  }
+  if (record?.auth_header_value_returned !== false) {
+    missing.push("record.auth_header_value_returned_false");
+  }
+  if (record?.auth_header_value_persisted !== false) {
+    missing.push("record.auth_header_value_persisted_false");
+  }
+  if (publicResponse?.auth_header_value_returned !== false) {
+    missing.push("public_response.auth_header_value_returned_false");
+  }
+  if (!record?.outbound_header_binding_ref) {
+    missing.push("record.outbound_header_binding_ref");
+  }
+  if (!record?.provider_auth_materialization_ref) {
+    missing.push("record.provider_auth_materialization_ref");
+  }
+  if (missing.length > 0) {
+    const error = new Error("Rust model_mount provider-auth materialization plan is incomplete.");
+    error.status = 502;
+    error.code = "model_mount_provider_auth_materialization_plan_invalid";
     error.details = {
       missing,
       source: normalized.source,

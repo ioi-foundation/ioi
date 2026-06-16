@@ -185,6 +185,8 @@ fn provider_stream_invocation_evidence_refs(
         refs.push("rust_hosted_provider_stream_transport_materialized".to_string());
         refs.push("wallet_network_provider_transport_authority_bound".to_string());
         refs.push("ctee_hosted_provider_secret_not_exposed".to_string());
+        refs.push("rust_provider_auth_materialization_bound".to_string());
+        refs.push("hosted_provider_auth_header_materialized_by_rust".to_string());
         refs.push("hosted_provider_auth_header_materialization_contract_bound".to_string());
     } else {
         refs.push("rust_model_mount_native_local_stream_backend".to_string());
@@ -288,6 +290,7 @@ mod tests {
             "rust_model_mount_hosted_provider_auth_gate".to_string(),
             "wallet_network_provider_vault_ref_bound".to_string(),
             "ctee_hosted_provider_secret_not_exposed".to_string(),
+            "rust_provider_auth_materialization_bound".to_string(),
             "provider_vault_ref_hash:sha256-vault".to_string(),
         ];
         let admission = ModelMountCore

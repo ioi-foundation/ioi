@@ -69,6 +69,10 @@ pub const MODEL_MOUNT_CATALOG_PROVIDER_CONTROL_PLAN_SCHEMA_VERSION: &str =
 pub const MODEL_MOUNT_PROVIDER_CONTROL_SCHEMA_VERSION: &str = "ioi.model_mount.provider_control.v1";
 pub const MODEL_MOUNT_PROVIDER_CONTROL_PLAN_SCHEMA_VERSION: &str =
     "ioi.model_mount.provider_control_plan.v1";
+pub const MODEL_MOUNT_PROVIDER_AUTH_MATERIALIZATION_SCHEMA_VERSION: &str =
+    "ioi.model_mount.provider_auth_materialization.v1";
+pub const MODEL_MOUNT_PROVIDER_AUTH_MATERIALIZATION_PLAN_SCHEMA_VERSION: &str =
+    "ioi.model_mount.provider_auth_materialization_plan.v1";
 pub const MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_SCHEMA_VERSION: &str =
     "ioi.model_mount.capability_token_control.v1";
 pub const MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_PLAN_SCHEMA_VERSION: &str =
@@ -122,8 +126,10 @@ pub enum ModelMountError {
     UnsupportedConversationOperation,
     UnsupportedCatalogProviderControlOperation,
     UnsupportedProviderControlOperation,
+    UnsupportedProviderAuthMaterializationOperation,
     ProviderControlRetiredAlias,
     ProviderControlPlaintextMaterial,
+    ProviderAuthMaterializationPlaintextMaterial,
     UnsupportedCapabilityTokenControlOperation,
     UnsupportedVaultControlOperation,
     UnsupportedServerControlOperation,
