@@ -57,8 +57,6 @@ function fakeState() {
     bootId: "boot-a",
     cwd: "/workspace",
     stateDir: "/state",
-    backendProcesses: new Map(),
-    backendChildProcesses: new Map(),
     backends,
     logs: [],
     receipts: [],
@@ -69,9 +67,6 @@ function fakeState() {
     recordStateCommits: [],
     backend(backendId) {
       return this.backends.get(backendId);
-    },
-    backendProcessForBackend(backendId) {
-      return [...this.backendProcesses.values()].filter((record) => record.backendId === backendId).at(-1) ?? null;
     },
     backendSupportsSupervision(backend) {
       return ["native_local", "llama_cpp", "ollama", "vllm"].includes(backend.kind);
@@ -89,9 +84,6 @@ function fakeState() {
     },
     planBackendLifecycle(request) {
       return ModelMountingState.prototype.planBackendLifecycle.call(this, request);
-    },
-    reconciledBackendProcess(record) {
-      return { stale: false, ...record };
     },
     spawnBackendChildProcess(backend, details) {
       return spawnBackendChildProcess(this, backend, details, deps);
@@ -258,21 +250,21 @@ function assertBackendProcessSupervisorRetired(error, operationKind) {
 
 test("backend process supervisor entrypoints fail closed before JS process authority", () => {
   const state = fakeState();
-  state.backendProcesses.set("process-a", {
+  const processRecord = {
     id: "process-a",
     backendId: "backend.native",
     backendKind: "native_local",
     status: "started",
     stale: true,
     evidenceRefs: ["existing"],
-  });
+  };
 
   assert.throws(
     () => ensureBackendProcess(state, "backend.native", { reason: "health_probe" }),
     (error) => assertBackendProcessSupervisorRetired(error, "model_mount.backend_process.ensure"),
   );
   assert.throws(
-    () => touchBackendProcess(state, state.backendProcesses.get("process-a"), { reason: "health_probe" }, deps),
+    () => touchBackendProcess(state, processRecord, { reason: "health_probe" }, deps),
     (error) => assertBackendProcessSupervisorRetired(error, "model_mount.backend_process.touch"),
   );
   assert.throws(
@@ -288,7 +280,8 @@ test("backend process supervisor entrypoints fail closed before JS process autho
     (error) => assertBackendProcessSupervisorRetired(error, "model_mount.backend_process.stop"),
   );
 
-  assert.equal(state.backendProcesses.get("process-a").status, "started");
+  assert.equal(Object.hasOwn(state, "backendChildProcesses"), false);
+  assert.equal(Object.hasOwn(state, "backendProcesses"), false);
   assert.deepEqual(state.logs, []);
   assert.deepEqual(state.writes, []);
 });

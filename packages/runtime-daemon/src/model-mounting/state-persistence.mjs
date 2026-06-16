@@ -2,7 +2,6 @@ import path from "node:path";
 
 export const MODEL_MOUNTING_STATE_MAPS = [
   ["model-providers", "providers"],
-  ["backend-processes", "backendProcesses"],
   ["model-artifacts", "artifacts"],
   ["model-endpoints", "endpoints"],
   ["model-instances", "instances"],

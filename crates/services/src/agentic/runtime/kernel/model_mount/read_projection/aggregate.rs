@@ -4,8 +4,8 @@ use super::common::{
     model_mount_projection_generated_at, model_mount_projection_schema_version, receipts_by_kind,
 };
 use super::{
-    adapter_boundary, conversation, custody, health, receipt, route_decision, status, topology,
-    ModelMountReadProjectionError, ModelMountReadProjectionRequest,
+    adapter_boundary, conversation, custody, health, oauth, receipt, route_decision, status,
+    topology, ModelMountReadProjectionError, ModelMountReadProjectionRequest,
 };
 
 pub(super) fn snapshot(
@@ -18,12 +18,11 @@ pub(super) fn snapshot(
         "schemaVersion": model_mount_projection_schema_version(request),
         "server": status::server_status_or_default(request),
         "catalog": status::catalog_status_or_default(request),
-        "oauthSessions": [],
-        "oauthStates": [],
+        "oauthSessions": oauth::sessions(request)?,
+        "oauthStates": oauth::states(request)?,
         "artifacts": topology::artifact_records(request),
         "productArtifacts": topology::product_artifact_records(request),
         "backends": topology::backend_records(request).unwrap_or_default(),
-        "backendProcesses": [],
         "endpoints": topology::endpoint_records(request),
         "instances": topology::instance_records(request),
         "providers": topology::provider_records(request),
@@ -68,11 +67,10 @@ pub(super) fn projection(
         "runtimeModelCatalog": topology::runtime_model_catalog_records(request).unwrap_or_default(),
         "openAiModelList": topology::open_ai_model_list_value(request),
         "backends": topology::backend_records(request).unwrap_or_default(),
-        "backendProcesses": [],
         "providers": topology::provider_records(request),
         "catalog": status::catalog_status_or_default(request),
-        "oauthSessions": [],
-        "oauthStates": [],
+        "oauthSessions": oauth::sessions(request)?,
+        "oauthStates": oauth::states(request)?,
         "downloads": topology::download_records(request),
         "providerHealth": health::provider_health(request)?,
         "runtimeEngines": [],
@@ -274,6 +272,64 @@ mod tests {
                 "planned_at": "2026-06-11T00:00:03.000Z"
             })],
         );
+        write_records(
+            temp.path(),
+            "model-catalog-provider-controls",
+            &[
+                json!({
+                    "id": "oauth-exchange",
+                    "record_id": "oauth-exchange",
+                    "object": "ioi.model_mount_catalog_provider_control",
+                    "operation_kind": "model_mount.catalog_provider_oauth.exchange",
+                    "provider_id": "catalog.huggingface",
+                    "body_hash": "sha256:oauth-exchange",
+                    "control_hash": "hash-oauth-exchange",
+                    "rust_core_boundary": "model_mount.catalog_provider_control",
+                    "wallet_authority_boundary": "wallet.network.catalog_provider_control",
+                    "ctee_custody_boundary": "ctee.catalog_provider_material",
+                    "authority": {
+                        "authority_hash": "sha256:oauth-exchange-authority",
+                        "authority_grant_refs": ["wallet.network://grant/catalog-provider"],
+                        "authority_receipt_refs": ["receipt://wallet/catalog-provider"]
+                    },
+                    "public_response": {
+                        "authority_hash": "sha256:oauth-exchange-authority",
+                        "token_material": "ctee_custody_sealed"
+                    },
+                    "receipt_refs": ["receipt://catalog-provider-control"],
+                    "evidence_refs": [
+                        "rust_daemon_core_catalog_provider_control",
+                        "agentgres_catalog_provider_control_truth_required",
+                        "public_catalog_provider_control_js_facade_retired"
+                    ]
+                }),
+                json!({
+                    "id": "oauth-start",
+                    "record_id": "oauth-start",
+                    "object": "ioi.model_mount_catalog_provider_control",
+                    "operation_kind": "model_mount.catalog_provider_oauth.start",
+                    "provider_id": "catalog.huggingface",
+                    "body_hash": "sha256:oauth-start",
+                    "control_hash": "hash-oauth-start",
+                    "rust_core_boundary": "model_mount.catalog_provider_control",
+                    "wallet_authority_boundary": "wallet.network.catalog_provider_control",
+                    "ctee_custody_boundary": "ctee.catalog_provider_material",
+                    "authority": {"authority_hash": "sha256:oauth-start-authority"},
+                    "public_response": {
+                        "authority_hash": "sha256:oauth-start-authority",
+                        "oauth_state_material": "ctee_custody_sealed",
+                        "authorization_url_material": "ctee_custody_sealed",
+                        "state_present": true
+                    },
+                    "receipt_refs": ["receipt://catalog-provider-control"],
+                    "evidence_refs": [
+                        "rust_daemon_core_catalog_provider_control",
+                        "agentgres_catalog_provider_control_truth_required",
+                        "public_catalog_provider_control_js_facade_retired"
+                    ]
+                }),
+            ],
+        );
         let projection = projection(&request(
             Some(temp.path().to_string_lossy().to_string()),
             json!({
@@ -306,6 +362,13 @@ mod tests {
         assert_eq!(projection["grants"][0].get("token"), None);
         assert_eq!(projection["vaultRefs"].as_array().unwrap().len(), 1);
         assert_eq!(projection["vaultRefs"][0]["vault_ref_hash"], "vault-hash");
+        assert_eq!(projection["oauthSessions"].as_array().unwrap().len(), 1);
+        assert_eq!(
+            projection["oauthSessions"][0]["record_id"],
+            "oauth-exchange"
+        );
+        assert_eq!(projection["oauthStates"].as_array().unwrap().len(), 1);
+        assert_eq!(projection["oauthStates"][0]["record_id"], "oauth-start");
         assert_eq!(projection.get("providerHealthReceipts"), None);
         assert_eq!(projection["routes"], json!([]));
         assert_eq!(projection["providers"], json!([]));
@@ -356,6 +419,34 @@ mod tests {
                 "planned_at": "2026-06-11T00:00:32.000Z"
             })],
         );
+        write_records(
+            temp.path(),
+            "model-catalog-provider-controls",
+            &[json!({
+                "id": "snapshot-oauth-start",
+                "record_id": "snapshot-oauth-start",
+                "object": "ioi.model_mount_catalog_provider_control",
+                "operation_kind": "model_mount.catalog_provider_oauth.start",
+                "provider_id": "catalog.snapshot",
+                "body_hash": "sha256:snapshot-oauth-start",
+                "control_hash": "hash-snapshot-oauth-start",
+                "rust_core_boundary": "model_mount.catalog_provider_control",
+                "wallet_authority_boundary": "wallet.network.catalog_provider_control",
+                "ctee_custody_boundary": "ctee.catalog_provider_material",
+                "authority": {"authority_hash": "sha256:snapshot-oauth-authority"},
+                "public_response": {
+                    "authority_hash": "sha256:snapshot-oauth-authority",
+                    "oauth_state_material": "ctee_custody_sealed",
+                    "authorization_url_material": "ctee_custody_sealed",
+                    "state_present": true
+                },
+                "evidence_refs": [
+                    "rust_daemon_core_catalog_provider_control",
+                    "agentgres_catalog_provider_control_truth_required",
+                    "public_catalog_provider_control_js_facade_retired"
+                ]
+            })],
+        );
         let snapshot = snapshot(&request(
             Some(temp.path().to_string_lossy().to_string()),
             json!({
@@ -380,6 +471,12 @@ mod tests {
         );
         assert_eq!(snapshot["vaultRefs"].as_array().unwrap().len(), 1);
         assert_eq!(snapshot["vaultRefs"][0]["vault_ref_hash"], "vault-snapshot");
+        assert_eq!(snapshot["oauthSessions"], json!([]));
+        assert_eq!(snapshot["oauthStates"].as_array().unwrap().len(), 1);
+        assert_eq!(
+            snapshot["oauthStates"][0]["record_id"],
+            "snapshot-oauth-start"
+        );
         assert_eq!(snapshot["workflowNodes"].as_array().unwrap().len(), 10);
         assert_eq!(snapshot["runtimeModelCatalog"], json!([]));
         assert_eq!(snapshot["openAiModelList"]["data"], json!([]));

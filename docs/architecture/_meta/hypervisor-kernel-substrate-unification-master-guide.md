@@ -2004,8 +2004,9 @@ with empty request state plus runtime `state_dir`; Rust
 `model_mount/read_projection/oauth.rs` replays admitted
 `model-catalog-provider-controls/*.json` records, filters out legacy JS OAuth
 truth, returns redacted wallet/cTEE custody rows for OAuth sessions and states,
-and keeps broad `snapshot`/`projection` OAuth fields schema-stable empty arrays.
-The JS edge no longer translates the Rust refusal or reads local OAuth maps.
+and the broad Rust `snapshot`/`projection` envelopes now call the same OAuth
+replay instead of preserving empty compatibility slots. The JS edge no longer
+translates the Rust refusal or reads local OAuth maps.
 Command transport and richer wallet/cTEE OAuth execution/projection remain
 non-terminal, but public OAuth readback is no longer fail-closed scaffolding.
 
@@ -9486,11 +9487,12 @@ artifact-endpoint planning, storage control, route-control planning, MCP
 workflow planning, server-control planning, read-projection planning, and
 conversation/stream planning. Remaining model_mount projection migration,
 hosted/provider transport, OAuth/materialization, invocation authority, and
-local cache scaffolding still need direct Rust daemon-core protocol/API
-ownership; the read-projection, accepted-receipt, invocation receipt-binding,
-tokenizer/required-control, conversation/stream, backend-process,
-backend-lifecycle, catalog-provider/provider/capability-token/vault/receipt-gate
-command transports are retired.
+non-backend-process cache scaffolding still need direct Rust daemon-core
+protocol/API ownership; the read-projection, accepted-receipt, invocation
+receipt-binding, tokenizer/required-control, conversation/stream,
+backend-process, backend-lifecycle,
+catalog-provider/provider/capability-token/vault/receipt-gate command
+transports are retired.
 
 Backend-process/backend-lifecycle planning also now uses typed
 `daemonCoreModelMountApi.planModelMountBackendProcess` and
@@ -9646,11 +9648,11 @@ reports `rust_model_mount_api` instead of a command-transport marker.
 Conformance guards the retired option, absence of generic invoker storage,
 absence of the direct-invoker fallback error, absence of the command schema
 marker, and the no-bridge/no-command-env source scan. This remains non-terminal
-because backend supervision/execution materialization, hosted/provider
-transport, OAuth/materialization, invocation authority, local cache scaffolding,
-durable replay/storage, richer MCP runtime materialization, and stable
-IDE/CLI/SDK protocol APIs still need terminal Rust-owned materialization and
-projection/replay records.
+because backend execution/materialization, hosted/provider transport,
+OAuth/materialization, invocation authority, remaining non-backend-process cache
+scaffolding, durable replay/storage, richer MCP runtime materialization, and
+stable IDE/CLI/SDK protocol APIs still need terminal Rust-owned materialization
+and projection/replay records.
 
 Slice 1230 retires the run-cancel command-shaped Rust owner wrappers. The
 run-cancel policy child keeps only `RunCancelStateUpdateCore` and
@@ -10743,6 +10745,23 @@ conformance guards the helper, surface, and lifecycle fallback against restoring
 the alias fields. Remaining work is wallet/model-route authority depth, durable
 replay/projection binding, and stable IDE/CLI/SDK lifecycle APIs, not a
 thread-control top-level alias truth path.
+
+Slice 1326 hard-cuts the model_mount backend-process JS cache substrate.
+`ModelMountingState` no longer constructs `backendProcesses` or
+`backendChildProcesses`, no longer exposes `listBackendProcesses()`,
+`backendProcessForBackend()`, or `reconciledBackendProcess()`, the
+`backend-processes` persistence map and store directory are gone, and
+`backend-registry-state.mjs` no longer exports backend-process list/lookup/
+reconcile helpers. Rust aggregate `snapshot` and `projection` outputs also no
+longer emit the empty `backendProcesses` compatibility slot. Backend-process
+and backend-lifecycle planning remain typed Rust daemon-core APIs, backend list
+and log readbacks remain Rust read-projection/replay records, and JS process
+supervisor entrypoints remain fail-closed before any subprocess authority.
+Conformance now guards the absent daemon fields, helper exports, persistence
+map, store directory, Rust aggregate compatibility field, and focused absence
+assertions. Remaining work is actual Rust backend execution/materialization,
+hosted/provider transport, invocation authority depth, and stable SDK/IDE/CLI
+protocol APIs, not a JS backend-process cache fallback.
 
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,

@@ -37,9 +37,6 @@ import {
   route as routeState,
 } from "./model-mounting/state-accessors.mjs";
 import {
-  backendProcessForBackend as backendProcessForBackendState,
-  listBackendProcesses as listBackendProcessesState,
-  reconciledBackendProcess as reconciledBackendProcessState,
   writeBackendLog as writeBackendLogState,
 } from "./model-mounting/backend-registry-state.mjs";
 import { discoverAutopilotLlamaServer, llamaCppLibraryPathEnv } from "./model-mounting/local-runtime-engines.mjs";
@@ -430,8 +427,6 @@ export class ModelMountingState {
       materialAdapter: configuredVaultMaterialAdapter({ now: this.now }),
     });
     this.providers = new Map();
-    this.backendChildProcesses = new Map();
-    this.backendProcesses = new Map();
     this.artifacts = new Map();
     this.endpoints = new Map();
     this.instances = new Map();
@@ -455,16 +450,7 @@ export class ModelMountingState {
     this.writeAll();
   }
 
-  close() {
-    for (const [processId, child] of this.backendChildProcesses.entries()) {
-      try {
-        if (!child.killed) child.kill("SIGTERM");
-      } catch {
-        // Best-effort cleanup for subprocesses owned by this daemon boot.
-      }
-      this.backendChildProcesses.delete(processId);
-    }
-  }
+  close() {}
 
   ensureDirs() {
     this.store.ensureDirs();
@@ -1875,18 +1861,6 @@ export class ModelMountingState {
 
   listBackends() {
     return modelMountReadProjection(this, "backends");
-  }
-
-  listBackendProcesses() {
-    return listBackendProcessesState(this);
-  }
-
-  backendProcessForBackend(backendId) {
-    return backendProcessForBackendState(this, backendId);
-  }
-
-  reconciledBackendProcess(processRecord) {
-    return reconciledBackendProcessState(this, processRecord, { normalizeScopes });
   }
 
   runtimePreference() {

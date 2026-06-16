@@ -2543,6 +2543,7 @@ function runDocs() {
       /broad snapshot\/projection requests also no longer send `runtime_engines: state\.listRuntimeEngines\(\)`, `runtime_engine_profiles: state\.listRuntimeEngineProfiles\(\)`, or `runtime_preference: state\.runtimePreference\(\)`/.test(implementationMatrix) &&
       /Rust bridge direct arms ignore caller-supplied runtime-engine arrays, profiles, preferences, default-load options, and detail objects/.test(implementationMatrix) &&
       /OAuth session\/state readback now routes through Rust `oauth_sessions`\/`oauth_states` read-projection kinds with empty JS request state/.test(implementationMatrix) &&
+      /broad Rust `snapshot` and `projection` envelopes now call the same OAuth replay instead of preserving schema-stable empty compatibility arrays/.test(implementationMatrix) &&
       /no longer imports the dead `oauthSessionList\(\)`\/`oauthStateList\(\)` helpers/.test(implementationMatrix) &&
       /broad snapshot\/projection requests also no longer send `mcp_servers: state\.listMcpServers\(\)` or `conversation_states: state\.listConversations\(\)`/.test(implementationMatrix) &&
       /broad snapshot\/projection requests also no longer send `grants: state\.listTokens\(\)`, `vault_refs: state\.listVaultRefs\(\)`, `agentgres_store: state\.store\.adapterStatus\(\)`, `wallet: state\.walletAuthority\.adapterStatus\(\)`, or `vault: state\.vaultStatus\(\)`/.test(implementationMatrix) &&
@@ -3728,6 +3729,11 @@ function runBridge() {
   const modelMountCore = [modelMountDaemonCore, rustModelMountCore].join("\n");
   const modelMountCommandSurface = [bridgeModule, modelMountCommandBridge, modelMountReceiptCommandBridge].join("\n");
   const modelMountReadProjectionEvidence = [modelMountCommandSurface, modelMountCore].join("\n");
+  const modelMountReadProjectionAggregate = exists(
+    "crates/services/src/agentic/runtime/kernel/model_mount/read_projection/aggregate.rs",
+  )
+    ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/aggregate.rs")
+    : "";
   const modelMountArtifactEndpointCore = exists(
     "crates/services/src/agentic/runtime/kernel/model_mount/artifact_endpoint.rs",
   )
@@ -22297,6 +22303,11 @@ function runReceipts() {
       daemonCoreDirectInvokerServiceTest,
     });
   const modelMountReadProjectionEvidence = [modelMountCommandSurface, modelMountCore].join("\n");
+  const modelMountReadProjectionAggregate = exists(
+    "crates/services/src/agentic/runtime/kernel/model_mount/read_projection/aggregate.rs",
+  )
+    ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/aggregate.rs")
+    : "";
   const modelMountArtifactEndpointCore = exists(
     "crates/services/src/agentic/runtime/kernel/model_mount/artifact_endpoint.rs",
   )
@@ -25961,7 +25972,23 @@ function runReceipts() {
       ) &&
       /assert\.equal\(state\.recordStateCommits\.length,\s*5\)/.test(catalogProviderOAuthTest) &&
       /assert\.deepEqual\(state\.oauthSessions,\s*new Map\(\)\)/.test(catalogProviderOAuthTest) &&
-      /assert\.deepEqual\(state\.oauthStates,\s*new Map\(\)\)/.test(catalogProviderOAuthTest),
+      /assert\.deepEqual\(state\.oauthStates,\s*new Map\(\)\)/.test(catalogProviderOAuthTest) &&
+      /"oauthSessions":\s*oauth::sessions\(request\)\?/.test(modelMountReadProjectionAggregate) &&
+      /"oauthStates":\s*oauth::states\(request\)\?/.test(modelMountReadProjectionAggregate) &&
+      !/"oauthSessions":\s*\[\]/.test(modelMountReadProjectionAggregate) &&
+      !/"oauthStates":\s*\[\]/.test(modelMountReadProjectionAggregate) &&
+      /if \(request\.projection_kind === "oauth_sessions"\) return oauthSessionRecordsFromAgentgresStateDir/.test(
+        modelMountingReadProjectionDirectTest,
+      ) &&
+      /if \(request\.projection_kind === "oauth_states"\) return oauthStateRecordsFromAgentgresStateDir/.test(
+        modelMountingReadProjectionDirectTest,
+      ) &&
+      /snapshot\.oauthSessions\.map\(\(record\) => record\.record_id\)[\s\S]*"catalog-provider-oauth:exchange"/.test(
+        modelMountingReadProjectionDirectTest,
+      ) &&
+      /projection\.oauthSessions\.map\(\(record\) => record\.record_id\)[\s\S]*"catalog-provider-oauth:exchange"/.test(
+        modelMountingReadProjectionDirectTest,
+      ),
     [
       "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-provider-oauth.test.mjs",
@@ -26040,11 +26067,19 @@ function runReceipts() {
       !/model_mount\.backend_process\.exit/.test(backendLifecycle) &&
       !/model_mount_backend_process_state_commit_unconfigured/.test(backendLifecycle) &&
       !/model_mount_backend_state_commit_unconfigured/.test(backendLifecycle) &&
+      !/this\.backendProcesses\s*=/.test(modelMountingState) &&
+      !/this\.backendChildProcesses\s*=/.test(modelMountingState) &&
+      !/listBackendProcesses\(\)/.test(modelMountingState) &&
+      !/backendProcessForBackend\(backendId\)/.test(modelMountingState) &&
+      !/reconciledBackendProcess\(processRecord\)/.test(modelMountingState) &&
       !/state\.backendProcesses\.set/.test(backendLifecycle) &&
       !/state\.backendChildProcesses/.test(backendLifecycle) &&
       /model_mount_backend_log_js_writer_retired/.test(backendRegistryState) &&
       !/export function seedBackends/.test(backendRegistryState) &&
       !/export function deriveBackendRegistry/.test(backendRegistryState) &&
+      !/export function listBackendProcesses/.test(backendRegistryState) &&
+      !/export function backendProcessForBackend/.test(backendRegistryState) &&
+      !/export function reconciledBackendProcess/.test(backendRegistryState) &&
       !/backendRegistryRecords/.test(backendRegistryState) &&
       /persistenceStatus:\s*"not_persisted"/.test(backendRegistryState) &&
       !/from "node:fs"|from "node:path"|appendFileSync|backend-logs/.test(backendRegistryState) &&
@@ -26062,7 +26097,10 @@ function runReceipts() {
       !/backend_registry_provider_map_readback_retired/.test(defaultRecords) &&
       !/rust_daemon_core_backend_projection_required/.test(defaultRecords) &&
       !/\["model-backends",\s*"backends"\]/.test(read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs")) &&
+      !/\["backend-processes",\s*"backendProcesses"\]/.test(read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs")) &&
       !/"model-backends"/.test(modelMountStore) &&
+      !/"backend-processes"/.test(modelMountStore) &&
+      !/"backendProcesses"\s*:/.test(modelMountReadProjectionEvidence) &&
       /backendRegistry\(\)\s*\{[\s\S]*?return modelMountReadProjection\(this,\s*"backends"\)/.test(
         backendLifecycle,
       ) &&
@@ -26097,8 +26135,13 @@ function runReceipts() {
       ) &&
       /Object\.hasOwn\(backendRegistryState,\s*"deriveBackendRegistry"\),\s*false/.test(backendRegistryStateTest) &&
       /Object\.hasOwn\(backendRegistryState,\s*"seedBackends"\),\s*false/.test(backendRegistryStateTest) &&
+      /Object\.hasOwn\(backendRegistryState,\s*"listBackendProcesses"\),\s*false/.test(backendRegistryStateTest) &&
+      /Object\.hasOwn\(backendRegistryState,\s*"backendProcessForBackend"\),\s*false/.test(backendRegistryStateTest) &&
+      /Object\.hasOwn\(backendRegistryState,\s*"reconciledBackendProcess"\),\s*false/.test(backendRegistryStateTest) &&
       /Object\.hasOwn\(ModelMountingState\.prototype,\s*"seedBackends"\),\s*false/.test(backendLifecycleTest) &&
       /Object\.hasOwn\(ModelMountingState\.prototype,\s*"deriveBackendRegistry"\),\s*false/.test(backendLifecycleTest) &&
+      /Object\.hasOwn\(state,\s*"backendProcesses"\),\s*false/.test(backendLifecycleTest) &&
+      /Object\.hasOwn\(state,\s*"backendChildProcesses"\),\s*false/.test(backendLifecycleTest) &&
       /writeBackendLog returns redacted telemetry without local backend log files/.test(backendRegistryStateTest) &&
       /existsSync\(endpointLog\),\s*false/.test(backendRegistryStateTest) &&
       /existsSync\(backendLog\),\s*false/.test(backendRegistryStateTest) &&

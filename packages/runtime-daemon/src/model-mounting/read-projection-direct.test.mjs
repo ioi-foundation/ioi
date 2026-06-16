@@ -957,6 +957,73 @@ function createState() {
       ],
     },
   ]);
+  writeCatalogProviderControlRecords(stateDir, [
+    {
+      id: "legacy-js-oauth-exchange",
+      record_id: "legacy-js-oauth-exchange",
+      object: "ioi.model_mount_catalog_provider_control",
+      operation_kind: "model_mount.catalog_provider_oauth.exchange",
+      provider_id: "catalog.legacy",
+      rust_core_boundary: "daemon_js",
+      evidence_refs: ["legacy_js_oauth_session"],
+    },
+    {
+      id: "catalog-provider-oauth:start",
+      record_id: "catalog-provider-oauth:start",
+      object: "ioi.model_mount_catalog_provider_control",
+      operation_kind: "model_mount.catalog_provider_oauth.start",
+      provider_id: "catalog.huggingface",
+      body_hash: "sha256:oauth-start",
+      control_hash: "sha256:oauth-start-control",
+      rust_core_boundary: "model_mount.catalog_provider_control",
+      wallet_authority_boundary: "wallet.network.catalog_provider_control",
+      ctee_custody_boundary: "ctee.catalog_provider_material",
+      authority: {
+        authority_hash: "sha256:oauth-start-authority",
+        authority_grant_refs: ["wallet.network://grant/catalog-provider"],
+        authority_receipt_refs: ["receipt://wallet/catalog-provider"],
+      },
+      public_response: {
+        authority_hash: "sha256:oauth-start-authority",
+        oauth_state_material: "ctee_custody_sealed",
+        authorization_url_material: "ctee_custody_sealed",
+        state_present: true,
+      },
+      receipt_refs: ["receipt://catalog-provider-control/start"],
+      evidence_refs: [
+        "rust_daemon_core_catalog_provider_control",
+        "agentgres_catalog_provider_control_truth_required",
+        "public_catalog_provider_control_js_facade_retired",
+      ],
+    },
+    {
+      id: "catalog-provider-oauth:exchange",
+      record_id: "catalog-provider-oauth:exchange",
+      object: "ioi.model_mount_catalog_provider_control",
+      operation_kind: "model_mount.catalog_provider_oauth.exchange",
+      provider_id: "catalog.huggingface",
+      body_hash: "sha256:oauth-exchange",
+      control_hash: "sha256:oauth-exchange-control",
+      rust_core_boundary: "model_mount.catalog_provider_control",
+      wallet_authority_boundary: "wallet.network.catalog_provider_control",
+      ctee_custody_boundary: "ctee.catalog_provider_material",
+      authority: {
+        authority_hash: "sha256:oauth-exchange-authority",
+        authority_grant_refs: ["wallet.network://grant/catalog-provider"],
+        authority_receipt_refs: ["receipt://wallet/catalog-provider"],
+      },
+      public_response: {
+        authority_hash: "sha256:oauth-exchange-authority",
+        token_material: "ctee_custody_sealed",
+      },
+      receipt_refs: ["receipt://catalog-provider-control/exchange"],
+      evidence_refs: [
+        "rust_daemon_core_catalog_provider_control",
+        "agentgres_catalog_provider_control_truth_required",
+        "public_catalog_provider_control_js_facade_retired",
+      ],
+    },
+  ]);
   writeProviderLifecycleRecords(stateDir, [
     {
       id: "provider-lifecycle-health",
@@ -1424,7 +1491,8 @@ function rustProjectionFixture(request) {
   }
   if (request.projection_kind === "backends") return backendRecordsFromAgentgresStateDir(request.state_dir);
   if (request.projection_kind === "backend_logs") return backendLogsFromRustRequest(request);
-  if (request.projection_kind === "oauth_sessions" || request.projection_kind === "oauth_states") return [];
+  if (request.projection_kind === "oauth_sessions") return oauthSessionRecordsFromAgentgresStateDir(request.state_dir);
+  if (request.projection_kind === "oauth_states") return oauthStateRecordsFromAgentgresStateDir(request.state_dir);
   if (request.projection_kind === "provider_health") {
     return providerHealthFromLifecycleRecords(request);
   }
@@ -1479,11 +1547,10 @@ function rustProjectionFixture(request) {
     runtimeModelCatalog: runtimeModelCatalogFromAgentgresStateDir(request.state_dir),
     openAiModelList: openAiModelListFromAgentgresStateDir(request.state_dir),
     backends: backendRecordsFromAgentgresStateDir(request.state_dir),
-    backendProcesses: [],
     providers: providerRecordsFromAgentgresStateDir(request.state_dir),
     catalog: catalogStatusFromAgentgresStateDir(request.state_dir, request.schema_version, request.generated_at),
-    oauthSessions: [],
-    oauthStates: [],
+    oauthSessions: oauthSessionRecordsFromAgentgresStateDir(request.state_dir),
+    oauthStates: oauthStateRecordsFromAgentgresStateDir(request.state_dir),
     downloads: downloadRecordsFromAgentgresStateDir(request.state_dir),
     providerHealth: providerHealthFromLifecycleRecords(request),
     runtimeEngines: [],
@@ -1510,12 +1577,11 @@ function rustProjectionFixture(request) {
       schemaVersion: request.schema_version,
       server: serverStatusFromRustRequest(request),
       catalog: catalogStatusFromAgentgresStateDir(request.state_dir, request.schema_version, request.generated_at),
-      oauthSessions: [],
-      oauthStates: [],
+      oauthSessions: oauthSessionRecordsFromAgentgresStateDir(request.state_dir),
+      oauthStates: oauthStateRecordsFromAgentgresStateDir(request.state_dir),
       artifacts: [],
       productArtifacts: [],
       backends: [],
-      backendProcesses: [],
       endpoints: [],
       instances: [],
       providers: [],
@@ -2227,6 +2293,17 @@ function writeServerControlRecords(stateDir, records = []) {
   }
 }
 
+function writeCatalogProviderControlRecords(stateDir, records = []) {
+  const recordDir = path.join(stateDir, "model-catalog-provider-controls");
+  fs.mkdirSync(recordDir, { recursive: true });
+  for (const record of records) {
+    fs.writeFileSync(
+      path.join(recordDir, `${record.id}.json`),
+      `${JSON.stringify(record, null, 2)}\n`,
+    );
+  }
+}
+
 function writeCustodyControlRecords(stateDir, recordDirName, records = []) {
   const recordDir = path.join(stateDir, recordDirName);
   fs.mkdirSync(recordDir, { recursive: true });
@@ -2606,6 +2683,114 @@ function vaultRefRecordFromControl(record) {
       "model_mount_vault_ref_js_projection_retired",
     ),
   });
+}
+
+function oauthSessionRecordsFromAgentgresStateDir(stateDir) {
+  return catalogProviderControlRecordsFromAgentgresStateDir(stateDir)
+    .filter((record) => [
+      "model_mount.catalog_provider_oauth.callback",
+      "model_mount.catalog_provider_oauth.exchange",
+      "model_mount.catalog_provider_oauth.refresh",
+      "model_mount.catalog_provider_oauth.revoke",
+    ].includes(record.operation_kind))
+    .map((record) => {
+      const publicResponse = record.public_response ?? {};
+      return {
+        object: "ioi.model_catalog_provider_oauth_session",
+        status: "projected",
+        session_status: record.operation_kind === "model_mount.catalog_provider_oauth.revoke" ? "revoked" : "active",
+        provider_id: record.provider_id,
+        operation_kind: record.operation_kind,
+        record_id: record.record_id,
+        record_dir: "model-catalog-provider-controls",
+        control_hash: record.control_hash,
+        authority_hash: publicResponse.authority_hash ?? record.authority?.authority_hash ?? "",
+        token_material: publicResponse.token_material ?? publicResponse.revoked_material ?? "",
+        private_material_returned: false,
+        plaintext_material_returned: false,
+        ctee_custody_boundary: record.ctee_custody_boundary ?? "",
+        wallet_authority_boundary: record.wallet_authority_boundary ?? "",
+        receipt_refs: Array.isArray(record.receipt_refs) ? record.receipt_refs : [],
+        authority_grant_refs: Array.isArray(record.authority?.authority_grant_refs)
+          ? record.authority.authority_grant_refs
+          : [],
+        authority_receipt_refs: Array.isArray(record.authority?.authority_receipt_refs)
+          ? record.authority.authority_receipt_refs
+          : [],
+        source: "agentgres_catalog_provider_control",
+        rust_core_boundary: "model_mount.catalog_provider_oauth_projection",
+        evidence_refs: oauthProjectionEvidenceRefs(),
+      };
+    });
+}
+
+function oauthStateRecordsFromAgentgresStateDir(stateDir) {
+  return catalogProviderControlRecordsFromAgentgresStateDir(stateDir)
+    .filter((record) => [
+      "model_mount.catalog_provider_oauth.start",
+      "model_mount.catalog_provider_oauth.callback",
+    ].includes(record.operation_kind))
+    .map((record) => {
+      const publicResponse = record.public_response ?? {};
+      return {
+        object: "ioi.model_catalog_provider_oauth_state",
+        status: "projected",
+        state_status: record.operation_kind === "model_mount.catalog_provider_oauth.callback" ? "completed" : "pending",
+        provider_id: record.provider_id,
+        operation_kind: record.operation_kind,
+        record_id: record.record_id,
+        record_dir: "model-catalog-provider-controls",
+        control_hash: record.control_hash,
+        state_hash: record.body_hash ?? "",
+        authority_hash: publicResponse.authority_hash ?? record.authority?.authority_hash ?? "",
+        oauth_state_material: publicResponse.oauth_state_material ?? "",
+        authorization_url_material: publicResponse.authorization_url_material ?? "",
+        state_present: Boolean(publicResponse.state_present),
+        private_material_returned: false,
+        plaintext_material_returned: false,
+        ctee_custody_boundary: record.ctee_custody_boundary ?? "",
+        wallet_authority_boundary: record.wallet_authority_boundary ?? "",
+        receipt_refs: Array.isArray(record.receipt_refs) ? record.receipt_refs : [],
+        authority_grant_refs: Array.isArray(record.authority?.authority_grant_refs)
+          ? record.authority.authority_grant_refs
+          : [],
+        authority_receipt_refs: Array.isArray(record.authority?.authority_receipt_refs)
+          ? record.authority.authority_receipt_refs
+          : [],
+        source: "agentgres_catalog_provider_control",
+        rust_core_boundary: "model_mount.catalog_provider_oauth_projection",
+        evidence_refs: oauthProjectionEvidenceRefs(),
+      };
+    });
+}
+
+function catalogProviderControlRecordsFromAgentgresStateDir(stateDir) {
+  if (!stateDir) return [];
+  const recordDir = path.join(stateDir, "model-catalog-provider-controls");
+  if (!fs.existsSync(recordDir)) return [];
+  return fs.readdirSync(recordDir)
+    .filter((file) => file.endsWith(".json"))
+    .map((file) => JSON.parse(fs.readFileSync(path.join(recordDir, file), "utf8")))
+    .filter((record) =>
+      record?.object === "ioi.model_mount_catalog_provider_control" &&
+      record?.rust_core_boundary === "model_mount.catalog_provider_control" &&
+      typeof record?.operation_kind === "string" &&
+      record.operation_kind.startsWith("model_mount.catalog_provider_oauth.") &&
+      Array.isArray(record.evidence_refs) &&
+      record.evidence_refs.includes("public_catalog_provider_control_js_facade_retired"))
+    .sort((left, right) =>
+      String(left.provider_id ?? "").localeCompare(String(right.provider_id ?? "")) ||
+      String(left.operation_kind ?? "").localeCompare(String(right.operation_kind ?? "")) ||
+      String(left.record_id ?? "").localeCompare(String(right.record_id ?? "")));
+}
+
+function oauthProjectionEvidenceRefs() {
+  return [
+    "rust_daemon_core_catalog_provider_oauth_projection",
+    "agentgres_catalog_provider_control_replay_required",
+    "rust_daemon_core_wallet_ctee_custody_required",
+    "model_mount_oauth_read_projection_js_facade_retired",
+  ];
 }
 
 function custodyControlRecordsFromAgentgresStateDir(stateDir, recordDirName) {
@@ -4039,8 +4224,16 @@ test("read projection direct client delegates product-safe lists and capabilitie
     "resp-stream",
     "resp-state",
   ]);
-  assert.deepEqual(state.listOAuthSessions(), []);
-  assert.deepEqual(state.listOAuthStates(), []);
+  const oauthSessions = state.listOAuthSessions();
+  const oauthStates = state.listOAuthStates();
+  assert.deepEqual(oauthSessions.map((record) => record.record_id), [
+    "catalog-provider-oauth:exchange",
+  ]);
+  assert.equal(oauthSessions[0].rust_core_boundary, "model_mount.catalog_provider_oauth_projection");
+  assert.deepEqual(oauthStates.map((record) => record.record_id), [
+    "catalog-provider-oauth:start",
+  ]);
+  assert.equal(oauthStates[0].rust_core_boundary, "model_mount.catalog_provider_oauth_projection");
   const providerHealth = state.listProviderHealth();
   assert.equal(providerHealth.length, 1);
   assert.equal(providerHealth[0].schemaVersion, "ioi.model-mounting.runtime.v1");
@@ -4344,6 +4537,12 @@ test("read projection direct client composes snapshots, projection, and receipt 
   assert.deepEqual(snapshot.vaultRefs.map((vaultRef) => vaultRef.vault_ref_hash), ["vault-hash-openai"]);
   assert.equal(snapshot.vaultRefs[0].vault_projection_boundary, "model_mount.vault_projection");
   assert.equal(snapshot.vaultRefs[0].plaintext_material_returned, false);
+  assert.deepEqual(snapshot.oauthSessions.map((record) => record.record_id), [
+    "catalog-provider-oauth:exchange",
+  ]);
+  assert.deepEqual(snapshot.oauthStates.map((record) => record.record_id), [
+    "catalog-provider-oauth:start",
+  ]);
 
   const projection = state.projection();
   assert.equal(projection.schemaVersion, "ioi.model-mounting.runtime.v1");
@@ -4384,6 +4583,12 @@ test("read projection direct client composes snapshots, projection, and receipt 
   );
   assert.deepEqual(projection.vaultRefs.map((vaultRef) => vaultRef.vault_ref_hash), ["vault-hash-openai"]);
   assert.equal(projection.vaultRefs[0].vault_projection_boundary, "model_mount.vault_projection");
+  assert.deepEqual(projection.oauthSessions.map((record) => record.record_id), [
+    "catalog-provider-oauth:exchange",
+  ]);
+  assert.deepEqual(projection.oauthStates.map((record) => record.record_id), [
+    "catalog-provider-oauth:start",
+  ]);
 
   const projectionWritePlan = state.canonicalProjectionWritePlan();
   assert.equal(projectionWritePlan.source, "rust_daemon_core.model_mount.read_projection");
