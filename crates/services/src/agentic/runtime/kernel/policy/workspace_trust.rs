@@ -37,12 +37,12 @@ pub enum WorkspaceTrustControlStateUpdateError {
 }
 
 #[derive(Debug, Clone)]
-pub struct WorkspaceTrustControlCommandError {
+pub struct WorkspaceTrustControlApiError {
     code: &'static str,
     message: String,
 }
 
-impl WorkspaceTrustControlCommandError {
+impl WorkspaceTrustControlApiError {
     fn from_debug(code: &'static str, error: WorkspaceTrustControlStateUpdateError) -> Self {
         Self {
             code,
@@ -136,25 +136,25 @@ pub struct WorkspaceTrustControlStateUpdateRecord {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct WorkspaceTrustControlStateUpdateBridgeRequest {
+pub struct WorkspaceTrustControlStateUpdateApiRequest {
     #[serde(default)]
     backend: Option<String>,
     request: WorkspaceTrustControlStateUpdateRequest,
 }
 
 pub fn plan_workspace_trust_control_state_update_response(
-    request: WorkspaceTrustControlStateUpdateBridgeRequest,
-) -> Result<Value, WorkspaceTrustControlCommandError> {
+    request: WorkspaceTrustControlStateUpdateApiRequest,
+) -> Result<Value, WorkspaceTrustControlApiError> {
     let record = WorkspaceTrustControlStateUpdateCore
         .plan(&request.request)
         .map_err(|error| {
-            WorkspaceTrustControlCommandError::from_debug(
+            WorkspaceTrustControlApiError::from_debug(
                 "workspace_trust_control_state_update_invalid",
                 error,
             )
         })?;
     Ok(json!({
-        "source": "rust_workspace_trust_control_state_update_command",
+        "source": "rust_workspace_trust_control_state_update_api",
         "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
         "record": record.clone(),
         "status": record.status.clone(),
@@ -1065,9 +1065,9 @@ mod tests {
     }
 
     #[test]
-    fn rust_policy_shapes_workspace_trust_command_response() {
+    fn rust_policy_shapes_workspace_trust_api_response() {
         let response = plan_workspace_trust_control_state_update_response(
-            WorkspaceTrustControlStateUpdateBridgeRequest {
+            WorkspaceTrustControlStateUpdateApiRequest {
                 backend: Some("rust_policy".to_string()),
                 request: warning_request("review"),
             },
@@ -1076,7 +1076,7 @@ mod tests {
 
         assert_eq!(
             response["source"],
-            "rust_workspace_trust_control_state_update_command"
+            "rust_workspace_trust_control_state_update_api"
         );
         assert_eq!(response["operation_kind"], "workspace_trust.warning");
         assert_eq!(response["event"]["event_kind"], "workspace.trust_warning");

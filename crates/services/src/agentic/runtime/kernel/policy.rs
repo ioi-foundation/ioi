@@ -203,8 +203,8 @@ pub use thread_lifecycle::{
     ThreadTurnAdmissionRequiredRecord, ThreadTurnAdmissionRequiredRequest,
 };
 pub use workspace_trust::{
-    plan_workspace_trust_control_state_update_response, WorkspaceTrustControlCommandError,
-    WorkspaceTrustControlStateUpdateBridgeRequest, WorkspaceTrustControlStateUpdateCore,
+    plan_workspace_trust_control_state_update_response, WorkspaceTrustControlApiError,
+    WorkspaceTrustControlStateUpdateApiRequest, WorkspaceTrustControlStateUpdateCore,
     WorkspaceTrustControlStateUpdateError, WorkspaceTrustControlStateUpdateRecord,
     WorkspaceTrustControlStateUpdateRequest,
 };

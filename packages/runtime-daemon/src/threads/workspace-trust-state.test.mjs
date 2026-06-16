@@ -76,7 +76,7 @@ function createHarness({ planner } = {}) {
 
 function rustWarningPlan(request) {
   return {
-    source: "rust_workspace_trust_control_state_update_command",
+    source: "rust_workspace_trust_control_state_update_api",
     backend: "rust_policy",
     status: "planned",
     operation_kind: "workspace_trust.warning",
@@ -110,7 +110,7 @@ function rustAckPlan(request) {
   assert.equal(Object.hasOwn(request, "events"), false);
   assert.equal(Object.hasOwn(request, "seq"), false);
   return {
-    source: "rust_workspace_trust_control_state_update_command",
+    source: "rust_workspace_trust_control_state_update_api",
     backend: "rust_policy",
     status: "planned",
     operation_kind: "workspace_trust.acknowledge",

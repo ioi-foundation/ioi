@@ -11232,6 +11232,20 @@ The retired runtime memory `BridgeRequest`, `CommandError`,
 `*_command_response` helper/test names must not return as compatibility aliases
 beside the Rust-owned memory projection/control route family.
 
+Slice 1344 hard-cuts workspace-trust control bridge-shaped public API names.
+Workspace trust warning/acknowledgement control already enters Rust through the
+typed `daemonCoreWorkspaceTrustApi.planWorkspaceTrustControlStateUpdate` API,
+with Rust `state_dir` replay, event planning, and Agentgres runtime-event
+admission before public truth can return. The remaining adapter request/error,
+JS normalizer, and source-marker names now expose positive Rust daemon-core API
+shape: `WorkspaceTrustControlStateUpdateApiRequest`,
+`WorkspaceTrustControlApiError`,
+`normalizeWorkspaceTrustControlStateUpdateResult`, and
+`rust_workspace_trust_control_state_update_api`. The retired workspace-trust
+`BridgeRequest`, `CommandError`, `normalize*BridgeResult`, `_command` source
+marker, and `*_command_response` helper/test names must not return beside this
+Rust-owned workspace-trust control route family.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

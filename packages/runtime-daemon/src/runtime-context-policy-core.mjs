@@ -738,7 +738,7 @@ export class RuntimeContextPolicyCore {
   }
 
   planWorkspaceTrustControlStateUpdate(request = {}) {
-    return normalizeWorkspaceTrustControlStateUpdateBridgeResult(this.invokeWorkspaceTrustApi(
+    return normalizeWorkspaceTrustControlStateUpdateResult(this.invokeWorkspaceTrustApi(
       WORKSPACE_TRUST_CONTROL_STATE_UPDATE_API_METHOD,
       WORKSPACE_TRUST_CONTROL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
@@ -2863,7 +2863,7 @@ export function normalizeThreadControlAgentStateUpdateApiResult(value = {}) {
   };
 }
 
-export function normalizeWorkspaceTrustControlStateUpdateBridgeResult(value = {}) {
+export function normalizeWorkspaceTrustControlStateUpdateResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   return {
@@ -2871,7 +2871,7 @@ export function normalizeWorkspaceTrustControlStateUpdateBridgeResult(value = {}
     source:
       result.source ??
       record.source ??
-      "rust_workspace_trust_control_state_update_command",
+      "rust_workspace_trust_control_state_update_api",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,

@@ -218,7 +218,7 @@ import {
   normalizeThreadCreateStateUpdateApiResult,
   normalizeThreadControlAgentStateUpdateApiResult,
   normalizeThreadMemoryAgentStateUpdateResult,
-  normalizeWorkspaceTrustControlStateUpdateBridgeResult,
+  normalizeWorkspaceTrustControlStateUpdateResult,
 } from "./runtime-context-policy-core.mjs";
 
 function assertNoRetiredOperationKindDetailAliases(details) {
@@ -4092,7 +4092,7 @@ test("workspace trust control state update core sends Rust state update through 
     (request) => {
       captured = request;
       return {
-        source: "rust_workspace_trust_control_state_update_command",
+        source: "rust_workspace_trust_control_state_update_api",
         backend: "rust_policy",
         status: "planned",
         operation_kind: "workspace_trust.acknowledge",
@@ -4144,7 +4144,7 @@ test("workspace trust control state update core sends Rust state update through 
   assert.equal(Object.hasOwn(captured, "backend"), false);
   assert.equal(captured.operation_kind, "workspace_trust.acknowledge");
   assert.equal(captured.warning_id, "workspace_trust_warning_1");
-  assert.equal(result.source, "rust_workspace_trust_control_state_update_command");
+  assert.equal(result.source, "rust_workspace_trust_control_state_update_api");
   assert.equal(result.operation_kind, "workspace_trust.acknowledge");
   assert.equal(result.workspace_trust_acknowledgement.status, "acknowledged");
   assert.equal(result.event.event_kind, "workspace.trust_acknowledged");
@@ -5870,7 +5870,7 @@ test("runtime context policy state-update core fails closed without Rust-planned
   );
   assert.throws(
     () =>
-      normalizeWorkspaceTrustControlStateUpdateBridgeResult({
+      normalizeWorkspaceTrustControlStateUpdateResult({
         status: "planned",
         operation_kind: "thread.mode",
         event: { event_kind: "workspace.trust_warning" },

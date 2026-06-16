@@ -28031,6 +28031,51 @@ function runReceipts() {
     ],
     "Runtime memory projection/control APIs must not preserve bridge-shaped request/error/result aliases or command source markers beside positive Rust daemon-core memory APIs",
   );
+  const workspaceTrustPolicyCoreForBridgeShape = exists(
+    "crates/services/src/agentic/runtime/kernel/policy/workspace_trust.rs",
+  )
+    ? read("crates/services/src/agentic/runtime/kernel/policy/workspace_trust.rs")
+    : "";
+  const workspaceTrustBridgeShapeSources = [
+    workspaceTrustPolicyCoreForBridgeShape,
+    read("crates/services/src/agentic/runtime/kernel/policy.rs"),
+    runtimeContextPolicyCoreForState,
+    runtimeContextPolicyCoreTestForState,
+    read("packages/runtime-daemon/src/threads/workspace-trust-state.test.mjs"),
+  ].join("\n");
+  assertCheck(
+    result,
+    "workspace-trust-bridge-shaped-api-names-retired",
+    !/(?:WorkspaceTrustControlStateUpdateBridgeRequest|WorkspaceTrustControlCommandError|normalizeWorkspaceTrustControlStateUpdateBridgeResult|rust_workspace_trust_control_state_update_command|rust_policy_shapes_workspace_trust_command_response)/.test(
+      workspaceTrustBridgeShapeSources,
+    ) &&
+      /pub struct WorkspaceTrustControlStateUpdateApiRequest/.test(
+        workspaceTrustPolicyCoreForBridgeShape,
+      ) &&
+      /pub struct WorkspaceTrustControlApiError/.test(workspaceTrustPolicyCoreForBridgeShape) &&
+      /normalizeWorkspaceTrustControlStateUpdateResult/.test(
+        runtimeContextPolicyCoreForState,
+      ) &&
+      /rust_workspace_trust_control_state_update_api/.test(
+        workspaceTrustPolicyCoreForBridgeShape,
+      ) &&
+      /Slice 1344 hard-cuts workspace-trust control bridge-shaped public API names/.test(
+        guide,
+      ) &&
+      /Workspace-trust control bridge-shaped API names retired/.test(matrix) &&
+      /RuntimeDaemonCoreWorkspaceTrustBridgeShapeRetired/.test(implementationMatrix),
+    [
+      "crates/services/src/agentic/runtime/kernel/policy/workspace_trust.rs",
+      "crates/services/src/agentic/runtime/kernel/policy.rs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
+      "packages/runtime-daemon/src/threads/workspace-trust-state.test.mjs",
+      "docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md",
+      "docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md",
+      "docs/architecture/_meta/implementation-matrix.md",
+    ],
+    "Workspace-trust control APIs must not preserve bridge-shaped request/error/result aliases or command source markers beside the positive Rust daemon-core control API",
+  );
   assertCheck(
     result,
     "runtime-tool-catalog-public-js-projection-retired",
@@ -38857,7 +38902,7 @@ function runCompositor() {
       /pub fn plan_workspace_trust_control_state_update_response/.test(
         policyWorkspaceTrustCore,
       ) &&
-      /rust_workspace_trust_control_state_update_command/.test(
+      /rust_workspace_trust_control_state_update_api/.test(
         policyWorkspaceTrustCore,
       ) &&
       /rust_policy_plans_workspace_trust_warning_event/.test(
@@ -38906,7 +38951,7 @@ function runCompositor() {
       !/operation:\s*"plan_workspace_trust_control_state_update"/.test(
         runtimeContextPolicyCore,
       ) &&
-      /normalizeWorkspaceTrustControlStateUpdateBridgeResult/.test(
+      /normalizeWorkspaceTrustControlStateUpdateResult/.test(
         runtimeContextPolicyCore,
       ) &&
       /expectedOperationKinds:\s*\["workspace_trust\.warning",\s*"workspace_trust\.acknowledge"\]/.test(
