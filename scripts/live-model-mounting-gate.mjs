@@ -832,7 +832,7 @@ async function runLmStudioGate(evidence) {
     const loaded = await expectOk(daemon.endpoint, "/v1/model-mount/instances/load", {
       method: "POST",
       token: grant.token,
-      body: { endpoint_id: mounted.id, load_policy: { mode: "manual", autoEvict: false } },
+      body: { endpoint_id: mounted.id, load_policy: { mode: "manual", auto_evict: false } },
     });
     assert.equal(loaded.backend, "lm_studio");
 
@@ -1007,12 +1007,12 @@ async function runLlamaCppGate(evidence) {
           token: grant.token,
           body: {
             endpoint_id: mounted.id,
-            load_policy: { mode: "manual", autoEvict: false },
+            load_policy: { mode: "manual", auto_evict: false },
             load_options: {
               gpu: process.env.IOI_LLAMA_CPP_GPU ?? "off",
-              contextLength: Number(process.env.IOI_LLAMA_CPP_CONTEXT_LENGTH ?? imported.contextWindow ?? 2048),
+              context_length: Number(process.env.IOI_LLAMA_CPP_CONTEXT_LENGTH ?? imported.contextWindow ?? 2048),
               parallel: Number(process.env.IOI_LLAMA_CPP_PARALLEL ?? 1),
-              ttlSeconds: Number(process.env.IOI_LLAMA_CPP_TTL_SECONDS ?? 900),
+              ttl_seconds: Number(process.env.IOI_LLAMA_CPP_TTL_SECONDS ?? 900),
               identifier: "llama-cpp-live-gate",
               embeddings: true,
             },
@@ -1265,7 +1265,7 @@ async function runModelBackendsGate(evidence) {
       const chatLoaded = await expectOk(daemon.endpoint, "/v1/model-mount/instances/load", {
         method: "POST",
         token: grant.token,
-        body: { endpoint_id: chatEndpoint.id, load_policy: { mode: "manual", autoEvict: false } },
+        body: { endpoint_id: chatEndpoint.id, load_policy: { mode: "manual", auto_evict: false } },
       });
       assert.equal(chatLoaded.backend, "ollama");
       const providerLoaded = await expectOk(daemon.endpoint, "/v1/model-mount/providers/provider.ollama/loaded");
@@ -1315,7 +1315,7 @@ async function runModelBackendsGate(evidence) {
         await expectOk(daemon.endpoint, "/v1/model-mount/instances/load", {
           method: "POST",
           token: grant.token,
-          body: { endpoint_id: embeddingEndpoint.id, load_policy: { mode: "manual", autoEvict: false } },
+          body: { endpoint_id: embeddingEndpoint.id, load_policy: { mode: "manual", auto_evict: false } },
         });
         const embeddings = await expectOk(daemon.endpoint, "/v1/embeddings", {
           method: "POST",
@@ -1388,14 +1388,14 @@ async function runModelBackendsGate(evidence) {
                   model: configuredModel,
                   identifier: "vllm-live-backend-gate",
                   ...(process.env.IOI_VLLM_CONTEXT_LENGTH
-                    ? { contextLength: Number(process.env.IOI_VLLM_CONTEXT_LENGTH) }
+                    ? { context_length: Number(process.env.IOI_VLLM_CONTEXT_LENGTH) }
                     : {}),
                   ...(process.env.IOI_VLLM_TENSOR_PARALLEL_SIZE
-                    ? { tensorParallelSize: Number(process.env.IOI_VLLM_TENSOR_PARALLEL_SIZE) }
+                    ? { tensor_parallel_size: Number(process.env.IOI_VLLM_TENSOR_PARALLEL_SIZE) }
                     : {}),
                   ...(process.env.IOI_VLLM_DTYPE ? { dtype: process.env.IOI_VLLM_DTYPE } : {}),
                   ...(process.env.IOI_VLLM_GPU_MEMORY_UTILIZATION
-                    ? { gpuMemoryUtilization: Number(process.env.IOI_VLLM_GPU_MEMORY_UTILIZATION) }
+                    ? { gpu_memory_utilization: Number(process.env.IOI_VLLM_GPU_MEMORY_UTILIZATION) }
                     : {}),
                 },
               },
@@ -1460,18 +1460,18 @@ async function runModelBackendsGate(evidence) {
           token: grant.token,
           body: {
             endpoint_id: mounted.id,
-            load_policy: { mode: "manual", autoEvict: false },
+            load_policy: { mode: "manual", auto_evict: false },
             load_options: {
               identifier: "vllm-live-load",
               ...(process.env.IOI_VLLM_CONTEXT_LENGTH
-                ? { contextLength: Number(process.env.IOI_VLLM_CONTEXT_LENGTH) }
+                ? { context_length: Number(process.env.IOI_VLLM_CONTEXT_LENGTH) }
                 : {}),
               ...(process.env.IOI_VLLM_TENSOR_PARALLEL_SIZE
-                ? { tensorParallelSize: Number(process.env.IOI_VLLM_TENSOR_PARALLEL_SIZE) }
+                ? { tensor_parallel_size: Number(process.env.IOI_VLLM_TENSOR_PARALLEL_SIZE) }
                 : {}),
               ...(process.env.IOI_VLLM_DTYPE ? { dtype: process.env.IOI_VLLM_DTYPE } : {}),
               ...(process.env.IOI_VLLM_GPU_MEMORY_UTILIZATION
-                ? { gpuMemoryUtilization: Number(process.env.IOI_VLLM_GPU_MEMORY_UTILIZATION) }
+                ? { gpu_memory_utilization: Number(process.env.IOI_VLLM_GPU_MEMORY_UTILIZATION) }
                 : {}),
             },
           },

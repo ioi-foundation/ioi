@@ -476,7 +476,7 @@ async function bootstrapDaemon(outputDir) {
       id: ENDPOINT_ID,
       model_id: MODEL_ID,
       provider_id: PROVIDER_ID,
-      load_policy: { mode: "manual", idleTtlSeconds: 900, autoEvict: false },
+      load_policy: { mode: "manual", idle_ttl_seconds: 900, auto_evict: false },
     },
   });
   const secondaryMounted = await requestJson(daemon.endpoint, "/v1/model-mount/endpoints", {
@@ -486,20 +486,19 @@ async function bootstrapDaemon(outputDir) {
       id: SECONDARY_ENDPOINT_ID,
       model_id: SECONDARY_MODEL_ID,
       provider_id: PROVIDER_ID,
-      load_policy: { mode: "manual", idleTtlSeconds: 900, autoEvict: false },
+      load_policy: { mode: "manual", idle_ttl_seconds: 900, auto_evict: false },
     },
   });
-  const estimate = await requestJson(daemon.endpoint, "/api/v1/models/estimate-load", {
+  const estimate = await requestJson(daemon.endpoint, `/v1/model-mount/endpoints/${encodeURIComponent(ENDPOINT_ID)}/load`, {
     method: "POST",
     token: grant.token,
     body: {
-      endpoint_id: ENDPOINT_ID,
       load_options: {
-        estimateOnly: true,
+        estimate_only: true,
         gpu: "0",
-        contextLength: 2048,
+        context_length: 2048,
         parallel: 1,
-        ttlSeconds: 900,
+        ttl_seconds: 900,
         identifier: MODEL_ID,
       },
     },
@@ -511,9 +510,9 @@ async function bootstrapDaemon(outputDir) {
       endpoint_id: ENDPOINT_ID,
       load_options: {
         gpu: "0",
-        contextLength: 2048,
+        context_length: 2048,
         parallel: 1,
-        ttlSeconds: 900,
+        ttl_seconds: 900,
         identifier: MODEL_ID,
       },
     },

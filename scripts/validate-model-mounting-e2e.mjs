@@ -668,13 +668,13 @@ async function main() {
         token,
         body: {
           endpoint_id: mounted.id,
-          load_policy: { mode: "on_demand", idleTtlSeconds: 600, autoEvict: true },
+          load_policy: { mode: "on_demand", idle_ttl_seconds: 600, auto_evict: true },
           load_options: {
-            estimateOnly: true,
+            estimate_only: true,
             gpu: "auto",
-            contextLength: 4096,
+            context_length: 4096,
             parallel: 2,
-            ttlSeconds: 600,
+            ttl_seconds: 600,
             identifier: "e2e-estimate",
           },
         },
@@ -686,12 +686,12 @@ async function main() {
         token,
         body: {
           endpoint_id: mounted.id,
-          load_policy: { mode: "on_demand", idleTtlSeconds: 900, autoEvict: true },
+          load_policy: { mode: "on_demand", idle_ttl_seconds: 900, auto_evict: true },
           load_options: {
             gpu: "max",
-            contextLength: 4096,
+            context_length: 4096,
             parallel: 2,
-            ttlSeconds: 900,
+            ttl_seconds: 900,
             identifier: "e2e-native-load",
           },
         },

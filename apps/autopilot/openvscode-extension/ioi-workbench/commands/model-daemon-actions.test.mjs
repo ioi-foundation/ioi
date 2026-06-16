@@ -40,15 +40,17 @@ test("model workbench estimate and load use daemon-owned mount payloads", async 
     gpu: "24",
   });
 
-  assert.equal(requests[0].route, "/api/v1/models/estimate-load");
+  assert.equal(
+    requests[0].route,
+    "/v1/model-mount/endpoints/endpoint.local%2Fmodel%20one/load",
+  );
   assert.deepEqual(requests[0].options.payload, {
-    endpoint_id: "endpoint.local/model one",
     load_options: {
-      estimateOnly: true,
+      estimate_only: true,
       gpu: "0",
-      contextLength: 8192,
+      context_length: 8192,
       parallel: 3,
-      ttlSeconds: 1200,
+      ttl_seconds: 1200,
       identifier: "electron-model-workbench",
     },
   });
@@ -58,10 +60,11 @@ test("model workbench estimate and load use daemon-owned mount payloads", async 
   );
   assert.deepEqual(requests[1].options.payload.load_policy, {
     mode: "on_demand",
-    idleTtlSeconds: 900,
-    autoEvict: true,
+    idle_ttl_seconds: 900,
+    auto_evict: true,
   });
   assert.equal(requests[1].options.payload.load_options.gpu, "24");
+  assert.equal(requests[1].options.payload.load_options.context_length, 4096);
 });
 
 test("model workbench unload prefers instance route when present", async () => {

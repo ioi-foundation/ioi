@@ -2397,7 +2397,7 @@ function useModelMountsDaemon() {
           await requestJson("/v1/model-mount/instances/load", {
             method: "POST",
             token,
-            body: { model_id: "local:auto", load_policy: { mode: "on_demand", idleTtlSeconds: 900, autoEvict: true } },
+            body: { model_id: "local:auto", load_policy: { mode: "on_demand", idle_ttl_seconds: 900, auto_evict: true } },
           });
           return "local:auto loaded through the governed model path.";
         }),
@@ -2409,7 +2409,7 @@ function useModelMountsDaemon() {
             token,
             body: {
               model_id: "autopilot:native-fixture",
-              load_policy: { mode: "on_demand", idleTtlSeconds: 900, autoEvict: true },
+              load_policy: { mode: "on_demand", idle_ttl_seconds: 900, auto_evict: true },
             },
           });
           return "Autopilot native-local fixture loaded without LM Studio.";
@@ -2629,7 +2629,7 @@ function useModelMountsDaemon() {
               backend_id: "backend.autopilot.native-local.fixture",
               base_url: "local://ioi-daemon/gui-lifecycle-validation",
               capabilities: ["chat", "embeddings"],
-              load_policy: { mode: "on_demand", idleTtlSeconds: 900, autoEvict: true },
+              load_policy: { mode: "on_demand", idle_ttl_seconds: 900, auto_evict: true },
             },
           });
           return `${stringValue(endpointResult?.id, VALIDATION_LIFECYCLE_ENDPOINT_ID)} mounted for model lifecycle validation.`;
@@ -2644,12 +2644,12 @@ function useModelMountsDaemon() {
               model_id: VALIDATION_LIFECYCLE_MODEL_ID,
               endpoint_id: VALIDATION_LIFECYCLE_ENDPOINT_ID,
               route_id: "route.native-local",
-              load_policy: { mode: "on_demand", idleTtlSeconds: 900, autoEvict: true },
+              load_policy: { mode: "on_demand", idle_ttl_seconds: 900, auto_evict: true },
               load_options: {
                 identifier: VALIDATION_LIFECYCLE_IDENTIFIER,
-                contextLength: 4096,
+                context_length: 4096,
                 parallel: 1,
-                ttlSeconds: 900,
+                ttl_seconds: 900,
               },
             },
           });
@@ -3087,7 +3087,7 @@ function useModelMountsDaemon() {
               model_id: selection.modelId,
               endpoint_id: selection.endpointId || undefined,
               route_id: selection.routeId || undefined,
-              load_policy: { mode: "on_demand", idleTtlSeconds: 900, autoEvict: true },
+              load_policy: { mode: "on_demand", idle_ttl_seconds: 900, auto_evict: true },
               load_options: { identifier: selection.modelId ? `${selection.modelId}-picker` : "picker-load" },
             },
           });
@@ -3994,15 +3994,15 @@ function loadDraftBody(draft: ModelLoadDraft) {
     model_id: draft.modelId || "autopilot:native-fixture",
     load_policy: {
       mode: draft.mode || "on_demand",
-      idleTtlSeconds: ttlSeconds,
-      autoEvict: true,
+      idle_ttl_seconds: ttlSeconds,
+      auto_evict: true,
     },
     load_options: {
-      estimateOnly: draft.estimateOnly,
+      estimate_only: draft.estimateOnly,
       gpu: draft.gpu || null,
-      contextLength: draft.contextLength ? Number(draft.contextLength) : null,
+      context_length: draft.contextLength ? Number(draft.contextLength) : null,
       parallel: draft.parallel ? Number(draft.parallel) : null,
-      ttlSeconds,
+      ttl_seconds: ttlSeconds,
       identifier: draft.identifier || null,
     },
   };

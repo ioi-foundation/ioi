@@ -139,7 +139,7 @@ export async function bootstrapNativeRuntimeModelRoute({
         model_id: llamaModelId,
         provider_id: "provider.llama-cpp",
         backend_id: "backend.llama-cpp",
-        load_policy: { mode: "on_demand", idleTtlSeconds: 900, autoEvict: false },
+        load_policy: { mode: "on_demand", idle_ttl_seconds: 900, auto_evict: false },
       },
     });
     const loaded = await requestJson(daemonEndpoint, "/v1/model-mount/instances/load", {
@@ -147,12 +147,12 @@ export async function bootstrapNativeRuntimeModelRoute({
       token,
       body: {
         endpoint_id: mounted.id,
-        load_policy: { mode: "manual", autoEvict: false },
+        load_policy: { mode: "manual", auto_evict: false },
         load_options: {
           gpu,
-          contextLength,
+          context_length: contextLength,
           parallel,
-          ttlSeconds: 900,
+          ttl_seconds: 900,
           identifier: "autopilot-native-llama-cpp-validation",
           embeddings: process.env.IOI_LLAMA_CPP_ENABLE_EMBEDDINGS === "1",
         },
@@ -259,13 +259,13 @@ export async function bootstrapNativeRuntimeModelRoute({
     body: {
       endpoint_id: endpointId,
       estimate_only: true,
-      load_policy: { mode: "on_demand", idleTtlSeconds: 900, autoEvict: true },
+      load_policy: { mode: "on_demand", idle_ttl_seconds: 900, auto_evict: true },
       load_options: {
-        estimateOnly: true,
+        estimate_only: true,
         gpu: "auto",
-        contextLength: 4096,
+        context_length: 4096,
         parallel: 2,
-        ttlSeconds: 900,
+        ttl_seconds: 900,
         identifier: modelId,
       },
     },
@@ -275,12 +275,12 @@ export async function bootstrapNativeRuntimeModelRoute({
     token,
     body: {
       endpoint_id: endpointId,
-      load_policy: { mode: "on_demand", idleTtlSeconds: 900, autoEvict: true },
+      load_policy: { mode: "on_demand", idle_ttl_seconds: 900, auto_evict: true },
       load_options: {
         gpu: "auto",
-        contextLength: 4096,
+        context_length: 4096,
         parallel: 2,
-        ttlSeconds: 900,
+        ttl_seconds: 900,
         identifier: modelId,
       },
     },

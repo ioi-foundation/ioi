@@ -41,17 +41,16 @@ function createModelDaemonActions({
       requestedGpu = "0";
     }
     if (action === "estimate") {
-      return requestJson(endpoint, "/api/v1/models/estimate-load", {
+      return requestJson(endpoint, `/v1/model-mount/endpoints/${encodeURIComponent(targetEndpointId)}/load`, {
         method: "POST",
         token,
         payload: {
-          endpoint_id: targetEndpointId,
           load_options: {
-            estimateOnly: true,
+            estimate_only: true,
             gpu: requestedGpu,
-            contextLength: Number(pickPayloadString(payload, "contextLength") || 4096),
+            context_length: Number(pickPayloadString(payload, "contextLength") || 4096),
             parallel: Number(pickPayloadString(payload, "parallel") || 2),
-            ttlSeconds: Number(pickPayloadString(payload, "ttlSeconds") || 900),
+            ttl_seconds: Number(pickPayloadString(payload, "ttlSeconds") || 900),
             identifier: pickPayloadString(payload, "identifier") || "electron-model-workbench",
           },
         },
@@ -62,12 +61,12 @@ function createModelDaemonActions({
         method: "POST",
         token,
         payload: {
-          load_policy: { mode: "on_demand", idleTtlSeconds: 900, autoEvict: true },
+          load_policy: { mode: "on_demand", idle_ttl_seconds: 900, auto_evict: true },
           load_options: {
             gpu: requestedGpu,
-            contextLength: Number(pickPayloadString(payload, "contextLength") || 4096),
+            context_length: Number(pickPayloadString(payload, "contextLength") || 4096),
             parallel: Number(pickPayloadString(payload, "parallel") || 2),
-            ttlSeconds: Number(pickPayloadString(payload, "ttlSeconds") || 900),
+            ttl_seconds: Number(pickPayloadString(payload, "ttlSeconds") || 900),
             identifier: pickPayloadString(payload, "identifier") || "electron-model-workbench",
           },
         },

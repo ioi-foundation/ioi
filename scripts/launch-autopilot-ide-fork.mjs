@@ -343,7 +343,7 @@ async function mountDiscoveredModels(endpoint, token, providerId, models, mounte
           id: endpointId,
           model_id: modelId,
           provider_id: providerId,
-          load_policy: { mode: "manual", idleTtlSeconds: 900, autoEvict: false },
+          load_policy: { mode: "manual", idle_ttl_seconds: 900, auto_evict: false },
         },
       });
       mounted.push(endpointRecord);
@@ -399,7 +399,7 @@ async function bootstrapConfiguredLlamaCppModel(endpoint, token, mountedCount) {
       model_id: modelId,
       provider_id: "provider.llama-cpp",
       backend_id: "backend.llama-cpp",
-      load_policy: { mode: "on_demand", idleTtlSeconds: 900, autoEvict: false },
+      load_policy: { mode: "on_demand", idle_ttl_seconds: 900, auto_evict: false },
     },
   });
   const route = await requestJson(endpoint, "/v1/model-mount/routes", {
@@ -437,12 +437,12 @@ async function bootstrapConfiguredLlamaCppModel(endpoint, token, mountedCount) {
     token,
     body: {
       endpoint_id: mounted.id,
-      load_policy: { mode: "manual", autoEvict: false },
+      load_policy: { mode: "manual", auto_evict: false },
       load_options: {
         gpu,
-        contextLength,
+        context_length: contextLength,
         parallel,
-        ttlSeconds: 900,
+        ttl_seconds: 900,
         identifier: "autopilot-ide-configured-llama-cpp",
         embeddings: process.env.IOI_LLAMA_CPP_ENABLE_EMBEDDINGS === "1",
       },

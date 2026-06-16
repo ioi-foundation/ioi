@@ -11477,14 +11477,17 @@ load/unload, and endpoint unmount now use `POST /v1/model-mount/endpoints`,
 `DELETE /v1/model-mount/endpoints/{id}`; instance load/unload now use
 `POST /v1/model-mount/instances/load`,
 `POST /v1/model-mount/instances/unload`, and
-`POST /v1/model-mount/instances/{id}/unload`. These stable protocol routes run
-over the mounted Rust daemon-core artifact-endpoint and instance-lifecycle
-planners, preserve the `model.import:*`, `model.mount:*`, `model.unmount:*`,
-`model.load:*`, and `model.unload:*` authority gates, and return Agentgres
-record-state truth. CLI lifecycle commands, IDE workbench actions, validation
-proofs, live-provider gates, production-polish scripts, product UI lifecycle
-actions, and inference harnesses moved off `POST /api/v1/models/import`,
-`POST /api/v1/models/mount`, `POST /api/v1/models/mounts`,
+`POST /v1/model-mount/instances/{id}/unload`; estimate-only model load now uses
+the same stable endpoint/instance load routes with canonical
+`load_options.estimate_only`. These stable protocol routes run over the mounted
+Rust daemon-core artifact-endpoint and instance-lifecycle planners, preserve
+the `model.import:*`, `model.mount:*`, `model.unmount:*`, `model.load:*`, and
+`model.unload:*` authority gates, and return Agentgres record-state truth. CLI
+lifecycle commands, IDE workbench actions, validation proofs, live-provider
+gates, production-polish scripts, product UI lifecycle actions, and inference
+harnesses moved off `POST /api/v1/models/import`,
+`POST /api/v1/models/mount`, `POST /api/v1/models/estimate-load`,
+`POST /api/v1/models/mounts`,
 `POST /api/v1/models/mounts/{id}/load`,
 `POST /api/v1/models/mounts/{id}/unload`,
 `DELETE /api/v1/models/mounts/{id}`,
@@ -11492,7 +11495,8 @@ actions, and inference harnesses moved off `POST /api/v1/models/import`,
 `POST /api/v1/models/load`, and `POST /api/v1/models/unload`. The daemon native
 handler no longer exposes those aliases, focused route tests assert they return
 `not_found` without calling lifecycle methods, and conformance scans source
-clients so the retired lifecycle compatibility path cannot return. This remains
+clients so the retired lifecycle compatibility path plus retired camelCase
+load-policy/load-option request selectors cannot return. This remains
 non-terminal because model download/storage controls, provider/vault/catalog
 OAuth controls, backend execution/materialization, hosted/provider transport,
 OAuth/auth-header materialization, invocation authority depth, and broader

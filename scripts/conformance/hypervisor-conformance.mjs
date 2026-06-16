@@ -22591,6 +22591,33 @@ function runReceipts() {
       (file) => file.endsWith(".js") || file.endsWith(".mjs"),
     ).map((file) => read(file)),
   ].join("\n");
+  const modelMountStableLifecycleBoundaryClientCorpus = [
+    modelMountStableReadCliModels,
+    exists("apps/autopilot/openvscode-extension/ioi-workbench/commands/model-daemon-actions.js")
+      ? read("apps/autopilot/openvscode-extension/ioi-workbench/commands/model-daemon-actions.js")
+      : "",
+    exists("apps/autopilot/src/surfaces/MissionControl/MissionControlMountsView.tsx")
+      ? read("apps/autopilot/src/surfaces/MissionControl/MissionControlMountsView.tsx")
+      : "",
+    exists("scripts/run-autopilot-model-mounting-goal.mjs")
+      ? read("scripts/run-autopilot-model-mounting-goal.mjs")
+      : "",
+    exists("scripts/run-autopilot-models-production-polish-goal.mjs")
+      ? read("scripts/run-autopilot-models-production-polish-goal.mjs")
+      : "",
+    exists("scripts/validate-model-mounting-e2e.mjs")
+      ? read("scripts/validate-model-mounting-e2e.mjs")
+      : "",
+    exists("scripts/lib/autopilot-runtime-agent-service-inference.mjs")
+      ? read("scripts/lib/autopilot-runtime-agent-service-inference.mjs")
+      : "",
+    exists("scripts/launch-autopilot-ide-fork.mjs")
+      ? read("scripts/launch-autopilot-ide-fork.mjs")
+      : "",
+    exists("scripts/live-model-mounting-gate.mjs")
+      ? read("scripts/live-model-mounting-gate.mjs")
+      : "",
+  ].join("\n");
   const modelMountReceiptProtocolClients = [
     modelMountStableReadCliReceipts,
     ...collectFiles(
@@ -26487,6 +26514,16 @@ function runReceipts() {
       !/\/api\/v1\/models\/(?:import|mounts?(?:\/|["'`])|unmount|load|unload|instances\/[^"'`)]+\/unload)/.test(
         modelMountStableReadProtocolClientCorpus,
       ) &&
+      !/\/api\/v1\/models\/estimate-load/.test(modelMountStableLifecycleBoundaryClientCorpus) &&
+      !/load_policy:\s*\{[^}]*\b(?:idleTtlSeconds|autoEvict)\b/.test(
+        modelMountStableLifecycleBoundaryClientCorpus,
+      ) &&
+      !/load_options:\s*\{[^}]*\b(?:estimateOnly|contextLength|ttlSeconds|tensorParallelSize|gpuMemoryUtilization)\s*:/.test(
+        modelMountStableLifecycleBoundaryClientCorpus,
+      ) &&
+      /estimate_only/.test(modelMountStableLifecycleBoundaryClientCorpus) &&
+      /context_length/.test(modelMountStableLifecycleBoundaryClientCorpus) &&
+      /idle_ttl_seconds/.test(modelMountStableLifecycleBoundaryClientCorpus) &&
       /"\/v1\/model-mount\/artifacts\/import"/.test(modelMountStableReadCliModels) &&
       /"\/v1\/model-mount\/endpoints"/.test(modelMountStableReadCliModels) &&
       /"\/v1\/model-mount\/instances\/load"/.test(modelMountStableReadCliModels) &&
@@ -26502,6 +26539,8 @@ function runReceipts() {
       "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.mjs",
       "crates/cli/src/commands/models.rs",
+      "apps/autopilot/openvscode-extension/ioi-workbench/commands/model-daemon-actions.js",
+      "apps/autopilot/src/surfaces/MissionControl/MissionControlMountsView.tsx",
       "scripts/run-autopilot-model-mounting-goal.mjs",
       "scripts/conformance/hypervisor-conformance.mjs",
     ],

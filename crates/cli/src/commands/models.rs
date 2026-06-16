@@ -354,15 +354,15 @@ pub async fn run(args: ModelsArgs) -> Result<()> {
                     "model_id": model_id,
                     "load_policy": {
                         "mode": mode,
-                        "idleTtlSeconds": ttl,
-                        "autoEvict": true
+                        "idle_ttl_seconds": ttl,
+                        "auto_evict": true
                     },
                     "load_options": {
-                        "estimateOnly": estimate_only,
+                        "estimate_only": estimate_only,
                         "gpu": gpu,
-                        "contextLength": context_length,
+                        "context_length": context_length,
                         "parallel": parallel,
-                        "ttlSeconds": ttl,
+                        "ttl_seconds": ttl,
                         "identifier": identifier
                     }
                 })),

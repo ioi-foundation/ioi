@@ -468,20 +468,19 @@ async function bootstrapDaemonModelRuntime(outputDir = null) {
       model_id: MODEL_ID,
       provider_id: "provider.autopilot.local",
       backend_id: "backend.autopilot.native-local.fixture",
-      load_policy: { mode: "on_demand", idleTtlSeconds: 900, autoEvict: true },
+      load_policy: { mode: "on_demand", idle_ttl_seconds: 900, auto_evict: true },
     },
   });
-  const estimate = await requestJson(daemon.endpoint, "/api/v1/models/estimate-load", {
+  const estimate = await requestJson(daemon.endpoint, `/v1/model-mount/endpoints/${encodeURIComponent(ENDPOINT_ID)}/load`, {
     method: "POST",
     token: grant.token,
     body: {
-      endpoint_id: ENDPOINT_ID,
       load_options: {
-        estimateOnly: true,
+        estimate_only: true,
         gpu: "auto",
-        contextLength: 4096,
+        context_length: 4096,
         parallel: 2,
-        ttlSeconds: 900,
+        ttl_seconds: 900,
         identifier: "electron-gui-model-estimate",
       },
     },
@@ -496,9 +495,9 @@ async function bootstrapDaemonModelRuntime(outputDir = null) {
         id: "instance.electron-gui-model",
         load_options: {
           gpu: "auto",
-          contextLength: 4096,
+          context_length: 4096,
           parallel: 2,
-          ttlSeconds: 900,
+          ttl_seconds: 900,
           identifier: "electron-gui-model-live",
         },
       },
