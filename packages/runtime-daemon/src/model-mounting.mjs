@@ -1159,6 +1159,10 @@ export class ModelMountingState {
     return this.modelMountCore.planBackendProcessMaterialization(request);
   }
 
+  superviseModelMountBackendProcess(request) {
+    return this.modelMountCore.superviseBackendProcess(request);
+  }
+
   planProviderLifecycle(provider, options = {}) {
     return planProviderLifecycle(this, provider, options);
   }
@@ -1887,6 +1891,7 @@ export class ModelMountingState {
       base_url: backend.baseUrl ?? null,
       model_ref: endpoint?.modelId ?? loadOptions.model ?? null,
       artifact_path: endpoint?.artifactPath ?? null,
+      binary_path: backend.binaryPath ?? null,
       binary_configured: Boolean(backend.binaryPath),
       load_options: {
         context_length: loadOptions.context_length ?? defaults.context_length ?? null,
@@ -1940,8 +1945,25 @@ export class ModelMountingState {
         backendId: resolvedBackendId,
         backendKind: backendDescriptor.backend_kind,
         baseUrl: lifecycleBody.base_url ?? backendDescriptor.base_url,
+        binaryPath: lifecycleBody.binary_path ?? backendDescriptor.binary_path,
         binaryConfigured: backendDescriptor.binary_configured,
         loadOptions: lifecycleBody.load_options ?? {},
+        receipt_id: lifecycleBody.receipt_id,
+        receipt_refs: lifecycleBody.receipt_refs,
+        requiredScope: `backend.process:${resolvedBackendId}`,
+      },
+    );
+    const backendProcessSupervision = planAndCommitBackendProcessSupervision(
+      this,
+      "model_mount.backend_process.start",
+      {
+        backendId: resolvedBackendId,
+        backendKind: backendDescriptor.backend_kind,
+        baseUrl: lifecycleBody.base_url ?? backendDescriptor.base_url,
+        binaryPath: lifecycleBody.binary_path ?? backendDescriptor.binary_path,
+        binaryConfigured: backendDescriptor.binary_configured,
+        loadOptions: lifecycleBody.load_options ?? {},
+        materialization: backendProcessMaterialization,
         receipt_id: lifecycleBody.receipt_id,
         receipt_refs: lifecycleBody.receipt_refs,
         requiredScope: `backend.process:${resolvedBackendId}`,
@@ -1954,14 +1976,33 @@ export class ModelMountingState {
         backend_id: resolvedBackendId,
         backend_kind: backendDescriptor.backend_kind,
         ...backendProcessLifecycleBindingBody(backendProcessMaterialization),
+        ...backendProcessRuntimeLifecycleBindingBody(backendProcessSupervision),
       }),
     });
   }
 
   stopBackend(backendId) {
     const resolvedBackendId = requiredString(backendId, "backend_id");
+    const backendDescriptor = backendLifecycleStartBackendDescriptor(this, resolvedBackendId, {});
+    const backendProcessSupervision = planAndCommitBackendProcessSupervision(
+      this,
+      "model_mount.backend_process.stop",
+      {
+        backendId: resolvedBackendId,
+        backendKind: backendDescriptor.backend_kind,
+        baseUrl: backendDescriptor.base_url,
+        binaryPath: backendDescriptor.binary_path,
+        binaryConfigured: backendDescriptor.binary_configured,
+        requiredScope: `backend.process:${resolvedBackendId}`,
+      },
+    );
     return commitBackendLifecycleForState(this, "model_mount.backend.stop", {
       backend_id: resolvedBackendId,
+      body: backendLifecycleControlBody({
+        backend_id: resolvedBackendId,
+        backend_kind: backendDescriptor.backend_kind,
+        ...backendProcessRuntimeLifecycleBindingBody(backendProcessSupervision),
+      }),
     });
   }
 
@@ -2179,8 +2220,11 @@ function backendLifecycleStartBackendDescriptor(state, backendId, body = {}) {
       "backend_kind",
     ),
     base_url: optionalString(body.base_url ?? projectedBackend?.base_url ?? projectedBackend?.baseUrl),
+    binary_path: optionalString(body.binary_path ?? body.binaryPath ?? projectedBackend?.binary_path ?? projectedBackend?.binaryPath),
     binary_configured: Boolean(
       body.binary_configured ??
+        body.binary_path ??
+        body.binaryPath ??
         projectedBackend?.binary_configured ??
         projectedBackend?.binaryConfigured ??
         projectedBackend?.binary_path ??
@@ -2225,6 +2269,49 @@ function backendProcessLifecycleBindingBody(materialization = {}) {
   };
 }
 
+function backendProcessRuntimeLifecycleBindingBody(supervision = {}) {
+  const record = supervision.record && typeof supervision.record === "object" && !Array.isArray(supervision.record)
+    ? supervision.record
+    : {};
+  const processSupervisionOwner =
+    supervision.process_supervision_owner ??
+    record.process_supervision_owner ??
+    record.public_response?.process_supervision_owner ??
+    null;
+  if (processSupervisionOwner !== "rust_daemon_core.model_mount.backend_process_supervisor") {
+    throw runtimeError({
+      status: 502,
+      code: "model_mount_backend_lifecycle_backend_process_runtime_supervision_owner_required",
+      message: "Backend lifecycle requires a Rust live backend-process supervision owner.",
+      details: {
+        rust_core_boundary: "model_mount.backend_lifecycle",
+        backend_process_supervision_source: supervision.source ?? null,
+      },
+    });
+  }
+  return {
+    backend_process_runtime_ref: requiredString(
+      supervision.runtime_ref ??
+      record.backend_process_runtime_ref ??
+      supervision.public_response?.backend_process_runtime_ref,
+      "backend_process_runtime_ref",
+    ),
+    backend_process_runtime_hash: requiredString(
+      supervision.runtime_hash ??
+      record.backend_process_runtime_hash ??
+      supervision.public_response?.backend_process_runtime_hash,
+      "backend_process_runtime_hash",
+    ),
+    backend_process_runtime_status: requiredString(
+      supervision.runtime_status ??
+      record.backend_process_runtime_status ??
+      supervision.public_response?.backend_process_runtime_status,
+      "backend_process_runtime_status",
+    ),
+    process_supervision_owner: processSupervisionOwner,
+  };
+}
+
 function backendLifecycleControlBody(value = {}) {
   const source = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   const body = {};
@@ -2233,6 +2320,7 @@ function backendLifecycleControlBody(value = {}) {
     "backend_kind",
     "receipt_id",
     "base_url",
+    "binary_path",
     "binary_configured",
     "status",
     "reason",
@@ -2244,6 +2332,9 @@ function backendLifecycleControlBody(value = {}) {
     "backend_supervision_ref",
     "backend_supervision_hash",
     "backend_supervision_status",
+    "backend_process_runtime_ref",
+    "backend_process_runtime_hash",
+    "backend_process_runtime_status",
     "process_supervision_owner",
     "receipt_refs",
   ]) {
@@ -2775,8 +2866,16 @@ function planAndCommitBackendProcessMaterialization(state, operation_kind, optio
       endpoint.modelId,
     ),
     artifact_path: optionalString(options.artifactPath ?? endpoint.artifact_path ?? endpoint.artifactPath),
+    binary_path: optionalString(
+      options.binaryPath ??
+      provider.binary_path ??
+      provider.binaryPath ??
+      endpoint.binary_path ??
+      endpoint.binaryPath,
+    ),
     binary_configured: Boolean(
       options.binaryConfigured ??
+      options.binaryPath ??
       provider.binary_configured ??
       provider.binaryConfigured ??
       provider.binary_path ??
@@ -2827,6 +2926,95 @@ function planAndCommitBackendProcessMaterialization(state, operation_kind, optio
     invalidCode: "model_mount_backend_process_materialization_record_state_commit_invalid",
   });
   return backendProcessMaterializationResponse(plan, commit);
+}
+
+function planAndCommitBackendProcessSupervision(state, operation_kind, options = {}) {
+  const materialization = options.materialization && typeof options.materialization === "object" && !Array.isArray(options.materialization)
+    ? options.materialization
+    : {};
+  const materializationRecord = materialization.record && typeof materialization.record === "object" && !Array.isArray(materialization.record)
+    ? materialization.record
+    : {};
+  const backendRef = requiredString(options.backendId ?? materializationRecord.backend_ref, "backend_ref");
+  const backendKind = requiredString(options.backendKind ?? materializationRecord.backend_kind, "backend_kind");
+  if (typeof state.superviseModelMountBackendProcess !== "function") {
+    throw runtimeError({
+      status: 501,
+      code: "model_mount_backend_process_supervision_rust_core_required",
+      message: "Backend process start/stop requires Rust daemon-core live supervision.",
+      details: {
+        backend_ref: backendRef,
+        backend_kind: backendKind,
+        operation_kind,
+        rust_core_boundary: "model_mount.backend_process_supervision",
+        rust_core_api: "daemonCoreModelMountApi.superviseModelMountBackendProcess",
+      },
+    });
+  }
+  const plan = state.superviseModelMountBackendProcess({
+    schema_version: "ioi.model_mount.backend_process_supervision.v1",
+    operation_kind,
+    backend_ref: backendRef,
+    backend_kind: backendKind,
+    base_url: optionalString(options.baseUrl ?? materializationRecord.base_url),
+    model_ref: optionalString(options.modelRef),
+    artifact_path: optionalString(options.artifactPath),
+    binary_path: optionalString(options.binaryPath),
+    binary_configured: Boolean(options.binaryConfigured ?? options.binaryPath),
+    load_options: backendProcessMaterializationLoadOptions(options.loadOptions ?? {}),
+    backend_process_ref: optionalString(materialization.backend_process_ref ?? materializationRecord.backend_process_ref),
+    backend_process_materialization_hash: optionalString(
+      materialization.materialization_hash ??
+      materializationRecord.materialization_hash ??
+      materializationRecord.backend_process_materialization_hash,
+    ),
+    backend_supervision_ref: optionalString(
+      materialization.backend_supervision_ref ?? materializationRecord.backend_supervision_ref,
+    ),
+    backend_supervision_hash: optionalString(
+      materialization.backend_supervision_hash ?? materializationRecord.backend_supervision_hash,
+    ),
+    backend_supervision_status: optionalString(
+      materialization.backend_supervision_status ?? materializationRecord.backend_supervision_status,
+    ),
+    process_supervision_owner: optionalString(
+      materialization.process_supervision_owner ??
+      materializationRecord.process_supervision_owner ??
+      materializationRecord.supervision_contract?.process_supervision_owner,
+    ),
+    source: "runtime-daemon.model_mounting.backend_process_supervision",
+    generated_at: typeof state.nowIso === "function" ? state.nowIso() : null,
+    receipt_refs: uniqueModelMountRefs([
+      options.receipt_id,
+      ...(Array.isArray(options.receipt_refs) ? options.receipt_refs : []),
+    ]),
+    authority_grant_refs: uniqueModelMountRefs(
+      Array.isArray(options.authority_grant_refs) ? options.authority_grant_refs : [],
+    ),
+    authority_receipt_refs: uniqueModelMountRefs(
+      Array.isArray(options.authority_receipt_refs) ? options.authority_receipt_refs : [],
+    ),
+    custody_ref: optionalString(options.custodyRef) ?? `ctee://backend-process/${safeId(backendRef)}`,
+    containment_ref: optionalString(options.containmentRef),
+    required_scope: optionalString(options.requiredScope) ?? `backend.process:${backendRef}`,
+  });
+  assertRustAuthoredBackendProcessSupervisionPlan(plan, { operation_kind });
+  const commit = commitModelMountRecordState(state, {
+    recordDir: plan.record_dir,
+    record: plan.record,
+    operation_kind: plan.operation_kind,
+    receipt_refs: plan.receipt_refs,
+    unconfiguredCode: "model_mount_backend_process_supervision_record_state_commit_unconfigured",
+    unconfiguredMessage:
+      "Backend process supervision requires Rust Agentgres record-state commit before backend lifecycle truth can return.",
+    unconfiguredDetails: {
+      rust_core_boundary: plan.rust_core_boundary ?? "model_mount.backend_process_supervision",
+      operation_kind: plan.operation_kind ?? operation_kind,
+      runtime_hash: plan.runtime_hash ?? null,
+    },
+    invalidCode: "model_mount_backend_process_supervision_record_state_commit_invalid",
+  });
+  return backendProcessSupervisionResponse(plan, commit);
 }
 
 function backendProcessKindForLoad(provider = {}, providerLifecycle = {}) {
@@ -3257,6 +3445,127 @@ function backendProcessMaterializationResponse(plan, commit) {
     backend_supervision_ref: record.backend_supervision_ref ?? publicResponse.backend_supervision_ref ?? null,
     backend_supervision_hash: record.backend_supervision_hash ?? publicResponse.backend_supervision_hash ?? null,
     backend_supervision_status: record.backend_supervision_status ?? publicResponse.backend_supervision_status ?? null,
+    js_process_supervisor: false,
+    command_transport_spawn: false,
+    binary_bridge_spawn: false,
+    compatibility_spawn_fallback: false,
+  };
+}
+
+function assertRustAuthoredBackendProcessSupervisionPlan(plan = {}, options = {}) {
+  const record = plan.record && typeof plan.record === "object" && !Array.isArray(plan.record)
+    ? plan.record
+    : {};
+  const publicResponse = plan.public_response && typeof plan.public_response === "object" && !Array.isArray(plan.public_response)
+    ? plan.public_response
+    : record.public_response && typeof record.public_response === "object" && !Array.isArray(record.public_response)
+      ? record.public_response
+      : {};
+  const evidenceRefs = Array.isArray(plan.evidence_refs) ? plan.evidence_refs : [];
+  const recordEvidenceRefs = Array.isArray(record.evidence_refs) ? record.evidence_refs : [];
+  const missing = [];
+  const mismatches = [];
+  if (plan.record_dir !== "model-backend-process-supervisions") missing.push("record_dir");
+  if (!plan.record_id) missing.push("record_id");
+  if (record.id !== plan.record_id) mismatches.push("record.id");
+  if (record.object !== "ioi.model_mount_backend_process_supervision") missing.push("record.object");
+  if (record.schema_version !== "ioi.model_mount.backend_process_supervision.v1") {
+    missing.push("record.schema_version");
+  }
+  if (plan.operation_kind !== options.operation_kind) mismatches.push("operation_kind");
+  if (plan.rust_core_boundary !== "model_mount.backend_process_supervision") {
+    missing.push("rust_core_boundary");
+  }
+  if (!plan.runtime_ref) missing.push("runtime_ref");
+  if (!plan.runtime_hash) missing.push("runtime_hash");
+  if (!plan.runtime_status) missing.push("runtime_status");
+  if (!record.backend_process_runtime_ref) missing.push("record.backend_process_runtime_ref");
+  if (!record.backend_process_runtime_hash) missing.push("record.backend_process_runtime_hash");
+  if (!record.backend_process_runtime_status) missing.push("record.backend_process_runtime_status");
+  if (record.process_execution_owner !== "rust_daemon_core.model_mount.backend_process_supervisor") {
+    missing.push("record.process_execution_owner");
+  }
+  if (record.process_supervision_owner !== "rust_daemon_core.model_mount.backend_process_supervisor") {
+    missing.push("record.process_supervision_owner");
+  }
+  if (record.spawn_contract?.spawn_args_returned !== false) {
+    missing.push("record.spawn_contract.spawn_args_returned_false");
+  }
+  if (record.spawn_contract?.executable_path_returned !== false) {
+    missing.push("record.spawn_contract.executable_path_returned_false");
+  }
+  if (record.spawn_contract?.pid_returned !== false) {
+    missing.push("record.spawn_contract.pid_returned_false");
+  }
+  for (const field of [
+    "js_process_supervisor",
+    "command_transport_spawn",
+    "binary_bridge_spawn",
+    "compatibility_spawn_fallback",
+  ]) {
+    if (record.retired_paths?.[field] !== false) missing.push(`record.retired_paths.${field}_false`);
+    if (publicResponse[field] !== false) missing.push(`public_response.${field}_false`);
+  }
+  for (const ref of [
+    "rust_daemon_core_backend_process_supervision",
+    "rust_backend_process_live_supervision_owned",
+    "wallet_network_backend_process_authority_bound",
+    "ctee_backend_process_custody_enforced",
+    "agentgres_backend_process_supervision_truth_required",
+    "js_backend_process_supervisor_retired",
+    "command_transport_backend_process_spawn_retired",
+    "binary_bridge_backend_process_spawn_retired",
+  ]) {
+    if (!evidenceRefs.includes(ref)) missing.push(`evidence_refs.${ref}`);
+    if (!recordEvidenceRefs.includes(ref)) missing.push(`record.evidence_refs.${ref}`);
+  }
+  if (options.operation_kind === "model_mount.backend_process.start" &&
+    !evidenceRefs.includes("rust_backend_process_live_start_executed")) {
+    missing.push("evidence_refs.rust_backend_process_live_start_executed");
+  }
+  if (options.operation_kind === "model_mount.backend_process.stop" &&
+    !evidenceRefs.includes("rust_backend_process_live_stop_executed")) {
+    missing.push("evidence_refs.rust_backend_process_live_stop_executed");
+  }
+  if (missing.length === 0 && mismatches.length === 0) return;
+  throw runtimeError({
+    status: 502,
+    code: "model_mount_backend_process_supervision_result_invalid",
+    message: "Backend lifecycle facade requires a Rust-authored live backend-process supervision record.",
+    details: {
+      operation_kind: options.operation_kind ?? null,
+      missing,
+      mismatches,
+    },
+  });
+}
+
+function backendProcessSupervisionResponse(plan, commit) {
+  const record = plan.record && typeof plan.record === "object" && !Array.isArray(plan.record)
+    ? plan.record
+    : {};
+  const publicResponse = plan.public_response && typeof plan.public_response === "object" && !Array.isArray(plan.public_response)
+    ? plan.public_response
+    : record.public_response && typeof record.public_response === "object" && !Array.isArray(record.public_response)
+      ? record.public_response
+      : {};
+  return {
+    ...publicResponse,
+    status: publicResponse.status ?? "supervised",
+    operation_kind: plan.operation_kind,
+    rust_core_boundary: plan.rust_core_boundary,
+    record_dir: plan.record_dir,
+    record_id: plan.record_id,
+    record,
+    commit,
+    receipt_refs: plan.receipt_refs,
+    authority_grant_refs: plan.authority_grant_refs,
+    authority_receipt_refs: plan.authority_receipt_refs,
+    evidence_refs: plan.evidence_refs,
+    runtime_ref: plan.runtime_ref ?? record.backend_process_runtime_ref ?? null,
+    runtime_hash: plan.runtime_hash ?? record.backend_process_runtime_hash ?? null,
+    runtime_status: plan.runtime_status ?? record.backend_process_runtime_status ?? null,
+    authority_hash: plan.authority_hash,
     js_process_supervisor: false,
     command_transport_spawn: false,
     binary_bridge_spawn: false,

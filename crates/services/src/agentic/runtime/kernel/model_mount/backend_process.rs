@@ -1,6 +1,13 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
+use std::{
+    collections::HashMap,
+    process::{Child, Command, Stdio},
+    sync::Mutex,
+};
+
+use once_cell::sync::Lazy;
 
 use super::{
     non_empty_string, option_trimmed, push_unique_ref, require_non_empty, sha256_hex,
@@ -8,7 +15,21 @@ use super::{
     MODEL_MOUNT_BACKEND_PROCESS_MATERIALIZATION_PLAN_SCHEMA_VERSION,
     MODEL_MOUNT_BACKEND_PROCESS_MATERIALIZATION_SCHEMA_VERSION,
     MODEL_MOUNT_BACKEND_PROCESS_PLAN_SCHEMA_VERSION,
+    MODEL_MOUNT_BACKEND_PROCESS_SUPERVISION_SCHEMA_VERSION,
 };
+
+const RUST_BACKEND_PROCESS_SUPERVISION_OWNER: &str =
+    "rust_daemon_core.model_mount.backend_process_supervisor";
+
+static BACKEND_PROCESS_SUPERVISOR: Lazy<Mutex<HashMap<String, BackendProcessSupervisorEntry>>> =
+    Lazy::new(|| Mutex::new(HashMap::new()));
+
+struct BackendProcessSupervisorEntry {
+    child: Child,
+    runtime_ref: String,
+    runtime_hash: String,
+    pid_hash: String,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct ModelMountBackendProcessLoadOptions {
@@ -36,6 +57,76 @@ pub struct ModelMountBackendProcessLoadOptions {
     pub model: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ModelMountBackendProcessSupervisionRequest {
+    pub schema_version: String,
+    pub operation_kind: String,
+    pub backend_ref: String,
+    pub backend_kind: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub base_url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub artifact_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub binary_path: Option<String>,
+    #[serde(default)]
+    pub binary_configured: bool,
+    #[serde(default)]
+    pub load_options: ModelMountBackendProcessLoadOptions,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub backend_process_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub backend_process_materialization_hash: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub backend_supervision_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub backend_supervision_hash: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub backend_supervision_status: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub process_supervision_owner: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub generated_at: Option<String>,
+    #[serde(default)]
+    pub receipt_refs: Vec<String>,
+    #[serde(default)]
+    pub authority_grant_refs: Vec<String>,
+    #[serde(default)]
+    pub authority_receipt_refs: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub custody_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub containment_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub required_scope: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ModelMountBackendProcessSupervisionPlan {
+    pub schema_version: String,
+    pub object: String,
+    pub status: String,
+    pub rust_core_boundary: String,
+    pub operation_kind: String,
+    pub source: String,
+    pub record_dir: String,
+    pub record_id: String,
+    pub record: Value,
+    pub public_response: Value,
+    pub receipt_refs: Vec<String>,
+    pub authority_grant_refs: Vec<String>,
+    pub authority_receipt_refs: Vec<String>,
+    pub evidence_refs: Vec<String>,
+    pub runtime_ref: String,
+    pub runtime_hash: String,
+    pub runtime_status: String,
+    pub authority_hash: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ModelMountBackendProcessPlanRequest {
     pub schema_version: String,
@@ -47,6 +138,8 @@ pub struct ModelMountBackendProcessPlanRequest {
     pub model_ref: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub artifact_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub binary_path: Option<String>,
     #[serde(default)]
     pub binary_configured: bool,
     #[serde(default)]
@@ -80,6 +173,8 @@ pub struct ModelMountBackendProcessMaterializationRequest {
     pub model_ref: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub artifact_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub binary_path: Option<String>,
     #[serde(default)]
     pub binary_configured: bool,
     #[serde(default)]
@@ -163,6 +258,56 @@ impl ModelMountBackendProcessMaterializationRequest {
     }
 }
 
+impl ModelMountBackendProcessSupervisionRequest {
+    pub fn validate(&self) -> Result<(), ModelMountError> {
+        if self.schema_version != MODEL_MOUNT_BACKEND_PROCESS_SUPERVISION_SCHEMA_VERSION {
+            return Err(ModelMountError::InvalidSchemaVersion {
+                expected: MODEL_MOUNT_BACKEND_PROCESS_SUPERVISION_SCHEMA_VERSION,
+                actual: self.schema_version.clone(),
+            });
+        }
+        require_non_empty("operation_kind", &self.operation_kind)?;
+        require_non_empty("backend_ref", &self.backend_ref)?;
+        require_non_empty("backend_kind", &self.backend_kind)?;
+        if !matches!(
+            self.operation_kind.as_str(),
+            "model_mount.backend_process.start" | "model_mount.backend_process.stop"
+        ) {
+            return Err(ModelMountError::UnsupportedBackendProcessSupervisionOperation);
+        }
+        if self.operation_kind == "model_mount.backend_process.start" {
+            require_non_empty(
+                "backend_process_ref",
+                self.backend_process_ref.as_deref().unwrap_or(""),
+            )?;
+            require_non_empty(
+                "backend_process_materialization_hash",
+                self.backend_process_materialization_hash
+                    .as_deref()
+                    .unwrap_or(""),
+            )?;
+            require_non_empty(
+                "backend_supervision_ref",
+                self.backend_supervision_ref.as_deref().unwrap_or(""),
+            )?;
+            require_non_empty(
+                "backend_supervision_hash",
+                self.backend_supervision_hash.as_deref().unwrap_or(""),
+            )?;
+            require_non_empty(
+                "backend_supervision_status",
+                self.backend_supervision_status.as_deref().unwrap_or(""),
+            )?;
+            if self.process_supervision_owner.as_deref()
+                != Some(RUST_BACKEND_PROCESS_SUPERVISION_OWNER)
+            {
+                return Err(ModelMountError::BackendProcessSupervisionNotReady);
+            }
+        }
+        Ok(())
+    }
+}
+
 pub(super) fn plan_backend_process(
     request: &ModelMountBackendProcessPlanRequest,
 ) -> Result<ModelMountBackendProcessPlan, ModelMountError> {
@@ -196,6 +341,7 @@ pub(super) fn plan_backend_process_materialization(
         base_url: request.base_url.clone(),
         model_ref: request.model_ref.clone(),
         artifact_path: request.artifact_path.clone(),
+        binary_path: request.binary_path.clone(),
         binary_configured: request.binary_configured,
         load_options: request.load_options.clone(),
     })?;
@@ -226,6 +372,12 @@ pub(super) fn plan_backend_process_materialization(
     let authority_receipt_refs = non_empty_vec(&request.authority_receipt_refs);
     let spawn_args_hash = format!("sha256:{}", hash_json(&json!(process_plan.spawn_args))?);
     let public_args_hash = format!("sha256:{}", hash_json(&json!(process_plan.public_args))?);
+    let executable_hash = request
+        .binary_path
+        .as_deref()
+        .and_then(|value| non_empty_string(value))
+        .map(|value| sha256_hex(value.as_bytes()).map(|hash| format!("sha256:{hash}")))
+        .transpose()?;
     let materialization_status = backend_process_materialization_status(&process_plan);
     let record_id = format!("{}_process", safe_segment(&backend_ref));
     let backend_process_ref = format!(
@@ -246,8 +398,9 @@ pub(super) fn plan_backend_process_materialization(
         "spawn_required": process_plan.spawn_required,
         "spawn_status": process_plan.spawn_status,
         "spawn_args_hash": spawn_args_hash,
+        "executable_hash": executable_hash,
         "backend_supervision_status": backend_supervision_status,
-        "process_supervision_owner": "rust_daemon_core.model_mount.backend_process_supervisor",
+        "process_supervision_owner": RUST_BACKEND_PROCESS_SUPERVISION_OWNER,
         "retired_paths": {
             "js_process_supervisor": false,
             "command_transport_spawn": false,
@@ -279,6 +432,7 @@ pub(super) fn plan_backend_process_materialization(
         "plan_hash": process_plan.plan_hash,
         "spawn_args_hash": spawn_args_hash,
         "public_args_hash": public_args_hash,
+        "executable_hash": executable_hash,
         "materialization_status": materialization_status,
         "backend_supervision_ref": backend_supervision_ref,
         "backend_supervision_hash": backend_supervision_hash,
@@ -300,7 +454,7 @@ pub(super) fn plan_backend_process_materialization(
         "process_materialization_status": materialization_status,
         "rust_core_boundary": "model_mount.backend_process_materialization",
         "process_execution_owner": "rust_daemon_core.model_mount.backend_process_materialization",
-        "process_supervision_owner": "rust_daemon_core.model_mount.backend_process_supervisor",
+        "process_supervision_owner": RUST_BACKEND_PROCESS_SUPERVISION_OWNER,
         "supervisor_kind": process_plan.supervisor_kind,
         "supports_supervision": process_plan.supports_supervision,
         "spawn_required": process_plan.spawn_required,
@@ -309,7 +463,9 @@ pub(super) fn plan_backend_process_materialization(
         "public_args": process_plan.public_args,
         "public_args_hash": public_args_hash,
         "spawn_args_hash": spawn_args_hash,
+        "executable_hash": executable_hash,
         "spawn_args_returned": false,
+        "executable_path_returned": false,
         "pid_returned": false,
         "plaintext_process_material_returned": false,
         "js_process_supervisor": false,
@@ -337,7 +493,7 @@ pub(super) fn plan_backend_process_materialization(
         "wallet_authority_boundary": "wallet.network.backend_process",
         "ctee_custody_boundary": "ctee.backend_process",
         "process_execution_owner": "rust_daemon_core.model_mount.backend_process_materialization",
-        "process_supervision_owner": "rust_daemon_core.model_mount.backend_process_supervisor",
+        "process_supervision_owner": RUST_BACKEND_PROCESS_SUPERVISION_OWNER,
         "process_materialization_status": materialization_status,
         "backend_lifecycle_ref": request.backend_lifecycle_ref,
         "backend_lifecycle_hash": request.backend_lifecycle_hash,
@@ -355,8 +511,10 @@ pub(super) fn plan_backend_process_materialization(
         },
         "spawn_contract": {
             "spawn_args_hash": spawn_args_hash,
+            "executable_hash": executable_hash,
             "spawn_args_redacted": true,
             "spawn_args_returned": false,
+            "executable_path_returned": false,
             "pid_returned": false,
             "plaintext_process_material_returned": false,
             "ctee_custody_required": true,
@@ -367,12 +525,13 @@ pub(super) fn plan_backend_process_materialization(
             "backend_supervision_ref": backend_supervision_ref,
             "backend_supervision_hash": backend_supervision_hash,
             "backend_supervision_status": backend_supervision_status,
-            "process_supervision_owner": "rust_daemon_core.model_mount.backend_process_supervisor",
+            "process_supervision_owner": RUST_BACKEND_PROCESS_SUPERVISION_OWNER,
             "supervisor_kind": process_plan.supervisor_kind,
             "supports_supervision": process_plan.supports_supervision,
             "spawn_required": process_plan.spawn_required,
             "spawn_status": process_plan.spawn_status,
             "spawn_args_hash": spawn_args_hash,
+            "executable_hash": executable_hash,
             "js_process_supervisor": false,
             "command_transport_spawn": false,
             "binary_bridge_spawn": false,
@@ -426,6 +585,438 @@ pub fn plan_model_mount_backend_process_materialization(
     request: &ModelMountBackendProcessMaterializationRequest,
 ) -> Result<ModelMountBackendProcessMaterializationPlan, ModelMountError> {
     plan_backend_process_materialization(request)
+}
+
+pub(super) fn supervise_backend_process(
+    request: &ModelMountBackendProcessSupervisionRequest,
+) -> Result<ModelMountBackendProcessSupervisionPlan, ModelMountError> {
+    request.validate()?;
+    match request.operation_kind.as_str() {
+        "model_mount.backend_process.start" => start_backend_process_supervision(request),
+        "model_mount.backend_process.stop" => stop_backend_process_supervision(request),
+        _ => Err(ModelMountError::UnsupportedBackendProcessSupervisionOperation),
+    }
+}
+
+pub fn supervise_model_mount_backend_process(
+    request: &ModelMountBackendProcessSupervisionRequest,
+) -> Result<ModelMountBackendProcessSupervisionPlan, ModelMountError> {
+    supervise_backend_process(request)
+}
+
+fn start_backend_process_supervision(
+    request: &ModelMountBackendProcessSupervisionRequest,
+) -> Result<ModelMountBackendProcessSupervisionPlan, ModelMountError> {
+    let binary_configured =
+        request.binary_configured || option_trimmed(&request.binary_path).is_some();
+    let process_plan = plan_backend_process(&ModelMountBackendProcessPlanRequest {
+        schema_version: MODEL_MOUNT_BACKEND_PROCESS_PLAN_SCHEMA_VERSION.to_string(),
+        backend_ref: request.backend_ref.clone(),
+        backend_kind: request.backend_kind.clone(),
+        base_url: request.base_url.clone(),
+        model_ref: request.model_ref.clone(),
+        artifact_path: request.artifact_path.clone(),
+        binary_path: request.binary_path.clone(),
+        binary_configured,
+        load_options: request.load_options.clone(),
+    })?;
+    let backend_ref = trimmed_string(&request.backend_ref, "backend_ref")?;
+    let runtime_status;
+    let runtime_ref;
+    let runtime_hash;
+    let pid_hash;
+    let spawn_args_hash = format!("sha256:{}", hash_json(&json!(process_plan.spawn_args))?);
+    let executable_hash = request
+        .binary_path
+        .as_deref()
+        .and_then(non_empty_string)
+        .map(|value| sha256_hex(value.as_bytes()).map(|hash| format!("sha256:{hash}")))
+        .transpose()?;
+
+    if request.backend_kind.trim() == "native_local" {
+        pid_hash = None;
+        runtime_status = "rust_fixture_process_live_bound".to_string();
+        runtime_hash = runtime_hash_for_supervision(
+            request,
+            &runtime_status,
+            &spawn_args_hash,
+            executable_hash.as_deref(),
+            None,
+        )?;
+        runtime_ref = format!(
+            "backend_process_runtime://{}#{}",
+            safe_segment(&backend_ref),
+            runtime_hash.trim_start_matches("sha256:")
+        );
+    } else {
+        if !process_plan.spawn_required || process_plan.spawn_status != "spawn_ready" {
+            return Err(ModelMountError::BackendProcessSupervisionNotReady);
+        }
+        let executable = request
+            .binary_path
+            .as_deref()
+            .and_then(non_empty_string)
+            .ok_or(ModelMountError::MissingField("binary_path"))?;
+        let mut supervisor = BACKEND_PROCESS_SUPERVISOR
+            .lock()
+            .map_err(|_| ModelMountError::BackendProcessSupervisorLockFailed)?;
+        if let Some(entry) = supervisor.get_mut(&backend_ref) {
+            if entry
+                .child
+                .try_wait()
+                .map_err(|error| {
+                    ModelMountError::BackendProcessSupervisorLaunchFailed(error.to_string())
+                })?
+                .is_none()
+            {
+                runtime_status = "rust_external_process_live_already_running".to_string();
+                runtime_ref = entry.runtime_ref.clone();
+                runtime_hash = entry.runtime_hash.clone();
+                pid_hash = Some(entry.pid_hash.clone());
+                return supervision_plan(
+                    request,
+                    &runtime_status,
+                    runtime_ref,
+                    runtime_hash,
+                    pid_hash,
+                    spawn_args_hash,
+                    executable_hash,
+                    true,
+                );
+            }
+        }
+        supervisor.remove(&backend_ref);
+        let mut command = Command::new(&executable);
+        command
+            .args(&process_plan.spawn_args)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null());
+        let child = command.spawn().map_err(|error| {
+            ModelMountError::BackendProcessSupervisorLaunchFailed(error.to_string())
+        })?;
+        let pid = child.id().to_string();
+        pid_hash = Some(format!("sha256:{}", sha256_hex(pid.as_bytes())?));
+        runtime_status = "rust_external_process_live_started".to_string();
+        runtime_hash = runtime_hash_for_supervision(
+            request,
+            &runtime_status,
+            &spawn_args_hash,
+            executable_hash.as_deref(),
+            pid_hash.as_deref(),
+        )?;
+        runtime_ref = format!(
+            "backend_process_runtime://{}#{}",
+            safe_segment(&backend_ref),
+            runtime_hash.trim_start_matches("sha256:")
+        );
+        supervisor.insert(
+            backend_ref,
+            BackendProcessSupervisorEntry {
+                child,
+                runtime_ref: runtime_ref.clone(),
+                runtime_hash: runtime_hash.clone(),
+                pid_hash: pid_hash.clone().unwrap_or_default(),
+            },
+        );
+    }
+
+    supervision_plan(
+        request,
+        &runtime_status,
+        runtime_ref,
+        runtime_hash,
+        pid_hash,
+        spawn_args_hash,
+        executable_hash,
+        true,
+    )
+}
+
+fn stop_backend_process_supervision(
+    request: &ModelMountBackendProcessSupervisionRequest,
+) -> Result<ModelMountBackendProcessSupervisionPlan, ModelMountError> {
+    let backend_ref = trimmed_string(&request.backend_ref, "backend_ref")?;
+    let spawn_args_hash = format!("sha256:{}", hash_json(&json!([]))?);
+    let executable_hash = request
+        .binary_path
+        .as_deref()
+        .and_then(non_empty_string)
+        .map(|value| sha256_hex(value.as_bytes()).map(|hash| format!("sha256:{hash}")))
+        .transpose()?;
+    let mut pid_hash = None;
+    let runtime_status;
+    let runtime_ref;
+    let runtime_hash;
+
+    if request.backend_kind.trim() == "native_local" {
+        runtime_status = "rust_fixture_process_stop_bound".to_string();
+        runtime_hash = runtime_hash_for_supervision(
+            request,
+            &runtime_status,
+            &spawn_args_hash,
+            executable_hash.as_deref(),
+            None,
+        )?;
+        runtime_ref = format!(
+            "backend_process_runtime://{}#{}",
+            safe_segment(&backend_ref),
+            runtime_hash.trim_start_matches("sha256:")
+        );
+    } else {
+        let mut supervisor = BACKEND_PROCESS_SUPERVISOR
+            .lock()
+            .map_err(|_| ModelMountError::BackendProcessSupervisorLockFailed)?;
+        if let Some(mut entry) = supervisor.remove(&backend_ref) {
+            let _ = entry.child.kill();
+            let _ = entry.child.wait();
+            pid_hash = Some(entry.pid_hash);
+            runtime_status = "rust_external_process_live_stopped".to_string();
+            runtime_hash = entry.runtime_hash;
+            runtime_ref = entry.runtime_ref;
+        } else {
+            runtime_status = "rust_external_process_live_not_running".to_string();
+            runtime_hash = runtime_hash_for_supervision(
+                request,
+                &runtime_status,
+                &spawn_args_hash,
+                executable_hash.as_deref(),
+                None,
+            )?;
+            runtime_ref = format!(
+                "backend_process_runtime://{}#{}",
+                safe_segment(&backend_ref),
+                runtime_hash.trim_start_matches("sha256:")
+            );
+        }
+    }
+
+    supervision_plan(
+        request,
+        &runtime_status,
+        runtime_ref,
+        runtime_hash,
+        pid_hash,
+        spawn_args_hash,
+        executable_hash,
+        false,
+    )
+}
+
+fn runtime_hash_for_supervision(
+    request: &ModelMountBackendProcessSupervisionRequest,
+    runtime_status: &str,
+    spawn_args_hash: &str,
+    executable_hash: Option<&str>,
+    pid_hash: Option<&str>,
+) -> Result<String, ModelMountError> {
+    let seed = json!({
+        "schema_version": request.schema_version,
+        "operation_kind": request.operation_kind,
+        "backend_ref": request.backend_ref,
+        "backend_kind": request.backend_kind,
+        "backend_process_ref": request.backend_process_ref,
+        "backend_process_materialization_hash": request.backend_process_materialization_hash,
+        "backend_supervision_ref": request.backend_supervision_ref,
+        "backend_supervision_hash": request.backend_supervision_hash,
+        "backend_supervision_status": request.backend_supervision_status,
+        "process_supervision_owner": RUST_BACKEND_PROCESS_SUPERVISION_OWNER,
+        "runtime_status": runtime_status,
+        "spawn_args_hash": spawn_args_hash,
+        "executable_hash": executable_hash,
+        "pid_hash": pid_hash,
+    });
+    Ok(format!("sha256:{}", hash_json(&seed)?))
+}
+
+fn supervision_plan(
+    request: &ModelMountBackendProcessSupervisionRequest,
+    runtime_status: &str,
+    runtime_ref: String,
+    runtime_hash: String,
+    pid_hash: Option<String>,
+    spawn_args_hash: String,
+    executable_hash: Option<String>,
+    live_started: bool,
+) -> Result<ModelMountBackendProcessSupervisionPlan, ModelMountError> {
+    let operation_kind = trimmed_string(&request.operation_kind, "operation_kind")?;
+    let backend_ref = trimmed_string(&request.backend_ref, "backend_ref")?;
+    let backend_kind = trimmed_string(&request.backend_kind, "backend_kind")?;
+    let source = request
+        .source
+        .as_ref()
+        .and_then(|value| non_empty_string(value))
+        .unwrap_or_else(|| "rust_model_mount_core".to_string());
+    let generated_at = request
+        .generated_at
+        .as_ref()
+        .and_then(|value| non_empty_string(value))
+        .unwrap_or_else(|| "rust_model_mount_core".to_string());
+    let receipt_refs = receipt_refs_for_supervision(request);
+    let authority_grant_refs = non_empty_vec(&request.authority_grant_refs);
+    let authority_receipt_refs = non_empty_vec(&request.authority_receipt_refs);
+    let authority_seed = json!({
+        "operation_kind": operation_kind,
+        "backend_ref": backend_ref,
+        "backend_kind": backend_kind,
+        "runtime_ref": runtime_ref,
+        "runtime_hash": runtime_hash,
+        "required_scope": request.required_scope,
+        "authority_grant_refs": authority_grant_refs,
+        "authority_receipt_refs": authority_receipt_refs,
+        "custody_ref": request.custody_ref,
+        "containment_ref": request.containment_ref,
+    });
+    let authority_hash = format!("sha256:{}", hash_json(&authority_seed)?);
+    let record_id = format!(
+        "{}_{}",
+        safe_segment(&backend_ref),
+        if live_started {
+            "process_start"
+        } else {
+            "process_stop"
+        }
+    );
+    let evidence_refs = backend_process_supervision_evidence_refs(&operation_kind, runtime_status);
+    let public_response = json!({
+        "object": "ioi.model_mount_backend_process_supervision",
+        "id": record_id,
+        "backend_ref": backend_ref,
+        "backend_kind": backend_kind,
+        "backend_process_ref": request.backend_process_ref,
+        "backend_process_materialization_hash": request.backend_process_materialization_hash,
+        "backend_supervision_ref": request.backend_supervision_ref,
+        "backend_supervision_hash": request.backend_supervision_hash,
+        "backend_supervision_status": request.backend_supervision_status,
+        "backend_process_runtime_ref": runtime_ref,
+        "backend_process_runtime_hash": runtime_hash,
+        "backend_process_runtime_status": runtime_status,
+        "process_supervision_owner": RUST_BACKEND_PROCESS_SUPERVISION_OWNER,
+        "process_execution_owner": "rust_daemon_core.model_mount.backend_process_supervisor",
+        "rust_core_boundary": "model_mount.backend_process_supervision",
+        "spawn_args_hash": spawn_args_hash,
+        "executable_hash": executable_hash,
+        "spawn_args_returned": false,
+        "executable_path_returned": false,
+        "pid_returned": false,
+        "pid_hash": pid_hash,
+        "js_process_supervisor": false,
+        "command_transport_spawn": false,
+        "binary_bridge_spawn": false,
+        "compatibility_spawn_fallback": false,
+        "supervision_hash": runtime_hash,
+        "authority_hash": authority_hash,
+    });
+    let record = json!({
+        "id": record_id,
+        "record_id": record_id,
+        "schema_version": MODEL_MOUNT_BACKEND_PROCESS_SUPERVISION_SCHEMA_VERSION,
+        "object": "ioi.model_mount_backend_process_supervision",
+        "status": "supervised",
+        "operation_kind": operation_kind,
+        "source": source,
+        "backend_ref": backend_ref,
+        "backend_kind": backend_kind,
+        "backend_process_ref": request.backend_process_ref,
+        "backend_process_materialization_hash": request.backend_process_materialization_hash,
+        "backend_supervision_ref": request.backend_supervision_ref,
+        "backend_supervision_hash": request.backend_supervision_hash,
+        "backend_supervision_status": request.backend_supervision_status,
+        "backend_process_runtime_ref": runtime_ref,
+        "backend_process_runtime_hash": runtime_hash,
+        "backend_process_runtime_status": runtime_status,
+        "rust_core_boundary": "model_mount.backend_process_supervision",
+        "wallet_authority_boundary": "wallet.network.backend_process",
+        "ctee_custody_boundary": "ctee.backend_process",
+        "process_execution_owner": "rust_daemon_core.model_mount.backend_process_supervisor",
+        "process_supervision_owner": RUST_BACKEND_PROCESS_SUPERVISION_OWNER,
+        "spawn_contract": {
+            "spawn_args_hash": spawn_args_hash,
+            "executable_hash": executable_hash,
+            "spawn_args_redacted": true,
+            "spawn_args_returned": false,
+            "executable_path_returned": false,
+            "pid_returned": false,
+            "pid_hash": pid_hash,
+            "ctee_custody_required": true,
+            "custody_ref": request.custody_ref,
+            "containment_ref": request.containment_ref,
+        },
+        "retired_paths": {
+            "js_process_supervisor": false,
+            "command_transport_spawn": false,
+            "binary_bridge_spawn": false,
+            "compatibility_spawn_fallback": false,
+        },
+        "authority": {
+            "authority_hash": authority_hash,
+            "required_scope": request.required_scope,
+            "authority_grant_refs": authority_grant_refs,
+            "authority_receipt_refs": authority_receipt_refs,
+        },
+        "public_response": public_response,
+        "receipt_refs": receipt_refs,
+        "evidence_refs": evidence_refs,
+        "supervision_hash": runtime_hash,
+        "authority_hash": authority_hash,
+        "planned_at": generated_at,
+    });
+    Ok(ModelMountBackendProcessSupervisionPlan {
+        schema_version: MODEL_MOUNT_BACKEND_PROCESS_SUPERVISION_SCHEMA_VERSION.to_string(),
+        object: "ioi.model_mount_backend_process_supervision_plan".to_string(),
+        status: "supervised".to_string(),
+        rust_core_boundary: "model_mount.backend_process_supervision".to_string(),
+        operation_kind,
+        source,
+        record_dir: "model-backend-process-supervisions".to_string(),
+        record_id,
+        record,
+        public_response,
+        receipt_refs,
+        authority_grant_refs,
+        authority_receipt_refs,
+        evidence_refs,
+        runtime_ref,
+        runtime_hash,
+        runtime_status: runtime_status.to_string(),
+        authority_hash,
+    })
+}
+
+fn receipt_refs_for_supervision(
+    request: &ModelMountBackendProcessSupervisionRequest,
+) -> Vec<String> {
+    let mut refs = Vec::new();
+    for value in &request.receipt_refs {
+        push_unique_ref(&mut refs, value);
+    }
+    for value in &request.authority_receipt_refs {
+        push_unique_ref(&mut refs, value);
+    }
+    refs
+}
+
+fn backend_process_supervision_evidence_refs(
+    operation_kind: &str,
+    runtime_status: &str,
+) -> Vec<String> {
+    let mut refs = vec![
+        "rust_daemon_core_backend_process_supervision".to_string(),
+        "rust_backend_process_live_supervision_owned".to_string(),
+        "wallet_network_backend_process_authority_bound".to_string(),
+        "ctee_backend_process_custody_enforced".to_string(),
+        "agentgres_backend_process_supervision_truth_required".to_string(),
+        "js_backend_process_supervisor_retired".to_string(),
+        "command_transport_backend_process_spawn_retired".to_string(),
+        "binary_bridge_backend_process_spawn_retired".to_string(),
+    ];
+    if operation_kind == "model_mount.backend_process.start" {
+        refs.push("rust_backend_process_live_start_executed".to_string());
+    } else {
+        refs.push("rust_backend_process_live_stop_executed".to_string());
+    }
+    refs.push(runtime_status.to_string());
+    refs
 }
 
 pub fn plan_model_mount_backend_process(
@@ -838,6 +1429,7 @@ mod tests {
             base_url: Some("http://127.0.0.1:8091/v1".to_string()),
             model_ref: Some("model://qwen/qwen3.5-9b".to_string()),
             artifact_path: Some("/models/private/model.gguf".to_string()),
+            binary_path: Some("/bin/llama-server".to_string()),
             binary_configured: true,
             load_options: ModelMountBackendProcessLoadOptions {
                 context_length: Some(4096),
@@ -859,6 +1451,7 @@ mod tests {
             base_url: Some("http://127.0.0.1:8091/v1".to_string()),
             model_ref: Some("model://qwen/qwen3.5-9b".to_string()),
             artifact_path: Some("/models/private/model.gguf".to_string()),
+            binary_path: Some("/bin/llama-server".to_string()),
             binary_configured: true,
             load_options: ModelMountBackendProcessLoadOptions {
                 context_length: Some(4096),
@@ -881,6 +1474,46 @@ mod tests {
             ),
             backend_lifecycle_hash: Some("sha256:backend-lifecycle".to_string()),
             body: Value::Null,
+        }
+    }
+
+    fn backend_process_supervision_request(
+        operation_kind: &str,
+    ) -> ModelMountBackendProcessSupervisionRequest {
+        ModelMountBackendProcessSupervisionRequest {
+            schema_version: MODEL_MOUNT_BACKEND_PROCESS_SUPERVISION_SCHEMA_VERSION.to_string(),
+            operation_kind: operation_kind.to_string(),
+            backend_ref: "backend.sleep.supervisor".to_string(),
+            backend_kind: "ollama".to_string(),
+            base_url: Some("http://127.0.0.1:11434/v1".to_string()),
+            model_ref: None,
+            artifact_path: None,
+            binary_path: Some("/bin/sleep".to_string()),
+            binary_configured: true,
+            load_options: ModelMountBackendProcessLoadOptions {
+                model: Some("30".to_string()),
+                ..Default::default()
+            },
+            backend_process_ref: Some("backend_process://backend.sleep.supervisor".to_string()),
+            backend_process_materialization_hash: Some(
+                "sha256:backend-process-materialization".to_string(),
+            ),
+            backend_supervision_ref: Some(
+                "backend_supervision://backend.sleep.supervisor#sha256:plan".to_string(),
+            ),
+            backend_supervision_hash: Some("sha256:backend-supervision".to_string()),
+            backend_supervision_status: Some(
+                "rust_external_process_supervision_contract_bound".to_string(),
+            ),
+            process_supervision_owner: Some(RUST_BACKEND_PROCESS_SUPERVISION_OWNER.to_string()),
+            source: Some("test.backend_process_supervision".to_string()),
+            generated_at: Some("2026-06-16T12:00:00.000Z".to_string()),
+            receipt_refs: vec!["receipt://backend-supervision".to_string()],
+            authority_grant_refs: vec!["grant://wallet/backend-process".to_string()],
+            authority_receipt_refs: vec!["receipt://wallet/backend-process".to_string()],
+            custody_ref: Some("ctee://backend/backend.sleep.supervisor".to_string()),
+            containment_ref: Some("ctee://workspace/private".to_string()),
+            required_scope: Some("backend.process:backend.sleep.supervisor".to_string()),
         }
     }
 
@@ -1041,7 +1674,16 @@ mod tests {
         );
         assert_eq!(plan.record["retired_paths"]["binary_bridge_spawn"], false);
         assert_eq!(plan.record["spawn_contract"]["spawn_args_returned"], false);
+        assert_eq!(
+            plan.record["spawn_contract"]["executable_path_returned"],
+            false
+        );
+        assert!(plan.record["spawn_contract"]["executable_hash"]
+            .as_str()
+            .expect("executable hash")
+            .starts_with("sha256:"));
         assert_eq!(plan.public_response["spawn_args_returned"], false);
+        assert_eq!(plan.public_response["executable_path_returned"], false);
         assert_eq!(
             plan.public_response["process_execution_owner"],
             "rust_daemon_core.model_mount.backend_process_materialization"
@@ -1096,5 +1738,55 @@ mod tests {
         assert!(plan
             .evidence_refs
             .contains(&"js_backend_process_supervisor_retired".to_string()));
+    }
+
+    #[test]
+    fn rust_core_starts_and_stops_live_backend_process_supervision() {
+        let start = supervise_backend_process(&backend_process_supervision_request(
+            "model_mount.backend_process.start",
+        ))
+        .expect("backend process supervision started");
+
+        assert_eq!(
+            start.rust_core_boundary,
+            "model_mount.backend_process_supervision"
+        );
+        assert_eq!(start.record_dir, "model-backend-process-supervisions");
+        assert_eq!(start.runtime_status, "rust_external_process_live_started");
+        assert_eq!(start.public_response["spawn_args_returned"], false);
+        assert_eq!(start.public_response["executable_path_returned"], false);
+        assert_eq!(start.public_response["pid_returned"], false);
+        assert!(start
+            .evidence_refs
+            .contains(&"rust_backend_process_live_start_executed".to_string()));
+        assert!(start
+            .evidence_refs
+            .contains(&"rust_backend_process_live_supervision_owned".to_string()));
+
+        let stop = supervise_backend_process(&backend_process_supervision_request(
+            "model_mount.backend_process.stop",
+        ))
+        .expect("backend process supervision stopped");
+
+        assert_eq!(
+            stop.rust_core_boundary,
+            "model_mount.backend_process_supervision"
+        );
+        assert_eq!(stop.runtime_status, "rust_external_process_live_stopped");
+        assert_eq!(stop.public_response["pid_returned"], false);
+        assert!(stop
+            .evidence_refs
+            .contains(&"rust_backend_process_live_stop_executed".to_string()));
+    }
+
+    #[test]
+    fn rust_core_rejects_backend_process_start_without_supervision_binding() {
+        let mut request = backend_process_supervision_request("model_mount.backend_process.start");
+        request.backend_supervision_hash = None;
+
+        assert_eq!(
+            supervise_backend_process(&request).unwrap_err(),
+            ModelMountError::MissingField("backend_supervision_hash")
+        );
     }
 }

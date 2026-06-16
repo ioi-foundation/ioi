@@ -339,6 +339,94 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
         authority_hash: record.authority_hash,
       };
     },
+    superviseModelMountBackendProcess(request) {
+      modelMountCalls.push({ method: "superviseModelMountBackendProcess", request });
+      const evidenceRefs = [
+        "rust_daemon_core_backend_process_supervision",
+        "rust_backend_process_live_supervision_owned",
+        "wallet_network_backend_process_authority_bound",
+        "ctee_backend_process_custody_enforced",
+        "agentgres_backend_process_supervision_truth_required",
+        "js_backend_process_supervisor_retired",
+        "command_transport_backend_process_spawn_retired",
+        "binary_bridge_backend_process_spawn_retired",
+        "rust_backend_process_live_start_executed",
+      ];
+      const publicResponse = {
+        object: "ioi.model_mount_backend_process_supervision",
+        id: "backend.llama.process.start",
+        backend_ref: request.backend_ref,
+        backend_kind: request.backend_kind,
+        backend_process_ref: request.backend_process_ref,
+        backend_process_materialization_hash: request.backend_process_materialization_hash,
+        backend_supervision_ref: request.backend_supervision_ref,
+        backend_supervision_hash: request.backend_supervision_hash,
+        backend_supervision_status: request.backend_supervision_status,
+        backend_process_runtime_ref: "backend_process_runtime://backend.llama#runtime",
+        backend_process_runtime_hash: "sha256:direct-backend-process-runtime",
+        backend_process_runtime_status: "rust_external_process_live_started",
+        rust_core_boundary: "model_mount.backend_process_supervision",
+        process_execution_owner: "rust_daemon_core.model_mount.backend_process_supervisor",
+        process_supervision_owner: "rust_daemon_core.model_mount.backend_process_supervisor",
+        spawn_args_returned: false,
+        executable_path_returned: false,
+        pid_returned: false,
+        js_process_supervisor: false,
+        command_transport_spawn: false,
+        binary_bridge_spawn: false,
+        compatibility_spawn_fallback: false,
+      };
+      const record = {
+        id: publicResponse.id,
+        record_id: publicResponse.id,
+        schema_version: "ioi.model_mount.backend_process_supervision.v1",
+        object: "ioi.model_mount_backend_process_supervision",
+        operation_kind: request.operation_kind,
+        backend_ref: request.backend_ref,
+        backend_kind: request.backend_kind,
+        backend_process_ref: request.backend_process_ref,
+        backend_process_materialization_hash: request.backend_process_materialization_hash,
+        backend_supervision_ref: request.backend_supervision_ref,
+        backend_supervision_hash: request.backend_supervision_hash,
+        backend_supervision_status: request.backend_supervision_status,
+        backend_process_runtime_ref: publicResponse.backend_process_runtime_ref,
+        backend_process_runtime_hash: publicResponse.backend_process_runtime_hash,
+        backend_process_runtime_status: publicResponse.backend_process_runtime_status,
+        rust_core_boundary: "model_mount.backend_process_supervision",
+        process_execution_owner: "rust_daemon_core.model_mount.backend_process_supervisor",
+        process_supervision_owner: "rust_daemon_core.model_mount.backend_process_supervisor",
+        spawn_contract: {
+          spawn_args_returned: false,
+          executable_path_returned: false,
+          pid_returned: false,
+        },
+        retired_paths: {
+          js_process_supervisor: false,
+          command_transport_spawn: false,
+          binary_bridge_spawn: false,
+          compatibility_spawn_fallback: false,
+        },
+        public_response: publicResponse,
+        evidence_refs: evidenceRefs,
+      };
+      return {
+        source: "rust_daemon_core.model_mount.backend_process_supervision",
+        record_dir: "model-backend-process-supervisions",
+        record_id: record.id,
+        record,
+        public_response: publicResponse,
+        operation_kind: request.operation_kind,
+        rust_core_boundary: "model_mount.backend_process_supervision",
+        receipt_refs: request.receipt_refs,
+        authority_grant_refs: request.authority_grant_refs,
+        authority_receipt_refs: request.authority_receipt_refs,
+        evidence_refs: evidenceRefs,
+        runtime_ref: publicResponse.backend_process_runtime_ref,
+        runtime_hash: publicResponse.backend_process_runtime_hash,
+        runtime_status: publicResponse.backend_process_runtime_status,
+        authority_hash: "sha256:direct-backend-process-supervision-authority",
+      };
+    },
     planModelMountBackendLifecycle(request) {
       modelMountCalls.push({ method: "planModelMountBackendLifecycle", request });
       const evidenceRefs = [
@@ -350,6 +438,7 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
         evidenceRefs.push(
           "rust_backend_lifecycle_backend_process_materialization_bound",
           "rust_backend_lifecycle_backend_process_supervision_bound",
+          "rust_backend_lifecycle_backend_process_live_start_bound",
           "backend_lifecycle_start_js_process_control_retired",
         );
       }
@@ -367,6 +456,9 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
               backend_supervision_ref: request.body?.backend_supervision_ref ?? null,
               backend_supervision_hash: request.body?.backend_supervision_hash ?? null,
               backend_supervision_status: request.body?.backend_supervision_status ?? null,
+              backend_process_runtime_ref: request.body?.backend_process_runtime_ref ?? null,
+              backend_process_runtime_hash: request.body?.backend_process_runtime_hash ?? null,
+              backend_process_runtime_status: request.body?.backend_process_runtime_status ?? null,
               process_supervision_owner: request.body?.process_supervision_owner ?? null,
             }
           : {}),
@@ -388,6 +480,9 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
               backend_supervision_ref: request.body?.backend_supervision_ref ?? null,
               backend_supervision_hash: request.body?.backend_supervision_hash ?? null,
               backend_supervision_status: request.body?.backend_supervision_status ?? null,
+              backend_process_runtime_ref: request.body?.backend_process_runtime_ref ?? null,
+              backend_process_runtime_hash: request.body?.backend_process_runtime_hash ?? null,
+              backend_process_runtime_status: request.body?.backend_process_runtime_status ?? null,
               process_supervision_owner: request.body?.process_supervision_owner ?? null,
             }
           : {}),
@@ -1334,6 +1429,9 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
       planBackendProcessMaterialization(request) {
         return directModelMountCore.planBackendProcessMaterialization(request);
       },
+      superviseBackendProcess(request) {
+        return directModelMountCore.superviseBackendProcess(request);
+      },
       planBackendLifecycle(request) {
         return directModelMountCore.planBackendLifecycle(request);
       },
@@ -2246,6 +2344,32 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
     backendProcessMaterialization.materialization_hash,
     "sha256:direct-backend-process-materialization",
   );
+  const backendProcessSupervision = store.modelMounting.superviseModelMountBackendProcess({
+    schema_version: "ioi.model_mount.backend_process_supervision.v1",
+    operation_kind: "model_mount.backend_process.start",
+    backend_ref: "backend.llama",
+    backend_kind: "llama_cpp",
+    binary_path: "/bin/llama-server",
+    binary_configured: true,
+    load_options: { context_length: 4096 },
+    backend_process_ref: backendProcessMaterialization.backend_process_ref,
+    backend_process_materialization_hash: backendProcessMaterialization.materialization_hash,
+    backend_supervision_ref: backendProcessMaterialization.backend_supervision_ref,
+    backend_supervision_hash: backendProcessMaterialization.backend_supervision_hash,
+    backend_supervision_status: backendProcessMaterialization.backend_supervision_status,
+    process_supervision_owner: backendProcessMaterialization.record.process_supervision_owner,
+    receipt_refs: ["receipt://backend-process-supervision/direct"],
+  });
+  assert.equal(calls.length, 0);
+  assertModelMountDirectApiCall(
+    modelMountCalls.at(-1),
+    "superviseModelMountBackendProcess",
+    "ioi.model_mount.backend_process_supervision.v1",
+  );
+  assert.equal(
+    backendProcessSupervision.runtime_hash,
+    "sha256:direct-backend-process-runtime",
+  );
   const backendLifecycle = store.modelMounting.planBackendLifecycle({
     schema_version: "ioi.model_mount.backend_lifecycle.v1",
     operation_kind: "model_mount.backend.start",
@@ -2260,6 +2384,9 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
       backend_supervision_ref: backendProcessMaterialization.backend_supervision_ref,
       backend_supervision_hash: backendProcessMaterialization.backend_supervision_hash,
       backend_supervision_status: backendProcessMaterialization.backend_supervision_status,
+      backend_process_runtime_ref: backendProcessSupervision.runtime_ref,
+      backend_process_runtime_hash: backendProcessSupervision.runtime_hash,
+      backend_process_runtime_status: backendProcessSupervision.runtime_status,
       process_supervision_owner: backendProcessMaterialization.record.process_supervision_owner,
     },
     receipt_refs: ["receipt://backend-lifecycle/direct"],

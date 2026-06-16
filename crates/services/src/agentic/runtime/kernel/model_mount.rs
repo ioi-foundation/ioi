@@ -11,9 +11,10 @@ pub use accepted_receipt::{
 mod backend_process;
 pub use backend_process::{
     plan_model_mount_backend_process, plan_model_mount_backend_process_materialization,
-    ModelMountBackendProcessLoadOptions, ModelMountBackendProcessMaterializationPlan,
-    ModelMountBackendProcessMaterializationRequest, ModelMountBackendProcessPlan,
-    ModelMountBackendProcessPlanRequest,
+    supervise_model_mount_backend_process, ModelMountBackendProcessLoadOptions,
+    ModelMountBackendProcessMaterializationPlan, ModelMountBackendProcessMaterializationRequest,
+    ModelMountBackendProcessPlan, ModelMountBackendProcessPlanRequest,
+    ModelMountBackendProcessSupervisionPlan, ModelMountBackendProcessSupervisionRequest,
 };
 mod backend_lifecycle;
 pub use backend_lifecycle::{
@@ -41,6 +42,7 @@ pub use common::{
     MODEL_MOUNT_BACKEND_PROCESS_MATERIALIZATION_PLAN_SCHEMA_VERSION,
     MODEL_MOUNT_BACKEND_PROCESS_MATERIALIZATION_SCHEMA_VERSION,
     MODEL_MOUNT_BACKEND_PROCESS_PLAN_SCHEMA_VERSION,
+    MODEL_MOUNT_BACKEND_PROCESS_SUPERVISION_SCHEMA_VERSION,
     MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_PLAN_SCHEMA_VERSION,
     MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_SCHEMA_VERSION,
     MODEL_MOUNT_CATALOG_PROVIDER_CONTROL_PLAN_SCHEMA_VERSION,
@@ -223,6 +225,13 @@ impl ModelMountCore {
         request: &ModelMountBackendProcessMaterializationRequest,
     ) -> Result<ModelMountBackendProcessMaterializationPlan, ModelMountError> {
         backend_process::plan_backend_process_materialization(request)
+    }
+
+    pub fn supervise_backend_process(
+        &self,
+        request: &ModelMountBackendProcessSupervisionRequest,
+    ) -> Result<ModelMountBackendProcessSupervisionPlan, ModelMountError> {
+        backend_process::supervise_backend_process(request)
     }
 
     pub fn plan_backend_lifecycle(

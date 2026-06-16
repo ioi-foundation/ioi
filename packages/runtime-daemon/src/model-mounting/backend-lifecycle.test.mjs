@@ -39,6 +39,7 @@ function fakeState() {
     status: backend.status,
     base_url: backend.baseUrl ?? null,
     binary_configured: Boolean(backend.binaryPath),
+    binary_path: backend.binaryPath ?? null,
   }));
   const state = {
     bootId: "boot-a",
@@ -51,6 +52,7 @@ function fakeState() {
     now: "2026-06-03T20:00:00.000Z",
     backendLifecyclePlans: [],
     backendProcessMaterializationPlans: [],
+    backendProcessSupervisionPlans: [],
     backendLogProjectionRequests: [],
     recordStateCommits: [],
     projectedBackends,
@@ -162,6 +164,102 @@ function fakeState() {
         authority_hash: "sha256:backend-process-authority",
       };
     },
+    superviseModelMountBackendProcess(request) {
+      this.backendProcessSupervisionPlans.push(request);
+      const suffix = request.backend_ref.replace(/[^a-z0-9]+/gi, "-");
+      const recordId = `backend-process-supervision:${suffix}:${request.operation_kind.endsWith(".stop") ? "stop" : "start"}`;
+      const evidenceRefs = [
+        "rust_daemon_core_backend_process_supervision",
+        "rust_backend_process_live_supervision_owned",
+        "wallet_network_backend_process_authority_bound",
+        "ctee_backend_process_custody_enforced",
+        "agentgres_backend_process_supervision_truth_required",
+        "js_backend_process_supervisor_retired",
+        "command_transport_backend_process_spawn_retired",
+        "binary_bridge_backend_process_spawn_retired",
+        request.operation_kind === "model_mount.backend_process.stop"
+          ? "rust_backend_process_live_stop_executed"
+          : "rust_backend_process_live_start_executed",
+      ];
+      const runtimeStatus = request.operation_kind === "model_mount.backend_process.stop"
+        ? "rust_external_process_live_stopped"
+        : "rust_external_process_live_started";
+      const publicResponse = {
+        object: "ioi.model_mount_backend_process_supervision",
+        id: recordId,
+        backend_ref: request.backend_ref,
+        backend_kind: request.backend_kind,
+        backend_process_ref: request.backend_process_ref ?? null,
+        backend_process_materialization_hash: request.backend_process_materialization_hash ?? null,
+        backend_supervision_ref: request.backend_supervision_ref ?? null,
+        backend_supervision_hash: request.backend_supervision_hash ?? null,
+        backend_supervision_status: request.backend_supervision_status ?? null,
+        backend_process_runtime_ref: `backend_process_runtime://${request.backend_ref}#runtime`,
+        backend_process_runtime_hash: `sha256:${request.operation_kind.endsWith(".stop") ? "stop" : "start"}-runtime`,
+        backend_process_runtime_status: runtimeStatus,
+        process_execution_owner: "rust_daemon_core.model_mount.backend_process_supervisor",
+        process_supervision_owner: "rust_daemon_core.model_mount.backend_process_supervisor",
+        rust_core_boundary: "model_mount.backend_process_supervision",
+        spawn_args_returned: false,
+        executable_path_returned: false,
+        pid_returned: false,
+        js_process_supervisor: false,
+        command_transport_spawn: false,
+        binary_bridge_spawn: false,
+        compatibility_spawn_fallback: false,
+      };
+      const record = {
+        id: recordId,
+        record_id: recordId,
+        object: "ioi.model_mount_backend_process_supervision",
+        schema_version: "ioi.model_mount.backend_process_supervision.v1",
+        backend_ref: request.backend_ref,
+        backend_kind: request.backend_kind,
+        backend_process_ref: request.backend_process_ref ?? null,
+        backend_process_materialization_hash: request.backend_process_materialization_hash ?? null,
+        backend_supervision_ref: request.backend_supervision_ref ?? null,
+        backend_supervision_hash: request.backend_supervision_hash ?? null,
+        backend_supervision_status: request.backend_supervision_status ?? null,
+        backend_process_runtime_ref: publicResponse.backend_process_runtime_ref,
+        backend_process_runtime_hash: publicResponse.backend_process_runtime_hash,
+        backend_process_runtime_status: runtimeStatus,
+        rust_core_boundary: "model_mount.backend_process_supervision",
+        process_execution_owner: "rust_daemon_core.model_mount.backend_process_supervisor",
+        process_supervision_owner: "rust_daemon_core.model_mount.backend_process_supervisor",
+        spawn_contract: {
+          spawn_args_returned: false,
+          executable_path_returned: false,
+          pid_returned: false,
+        },
+        retired_paths: {
+          js_process_supervisor: false,
+          command_transport_spawn: false,
+          binary_bridge_spawn: false,
+          compatibility_spawn_fallback: false,
+        },
+        public_response: publicResponse,
+        receipt_refs: [...(request.receipt_refs ?? []), publicResponse.backend_process_runtime_hash],
+        evidence_refs: evidenceRefs,
+      };
+      return {
+        source: "rust_daemon_core.model_mount.backend_process_supervision",
+        status: "supervised",
+        rust_core_boundary: "model_mount.backend_process_supervision",
+        record_dir: "model-backend-process-supervisions",
+        record_id: recordId,
+        record,
+        public_response: publicResponse,
+        operation_kind: request.operation_kind,
+        receipt_refs: request.receipt_refs ?? [],
+        authority_grant_refs: request.authority_grant_refs ?? [],
+        authority_receipt_refs: request.authority_receipt_refs ?? [],
+        evidence_refs: evidenceRefs,
+        runtime_ref: publicResponse.backend_process_runtime_ref,
+        runtime_hash: publicResponse.backend_process_runtime_hash,
+        runtime_status: runtimeStatus,
+        authority_hash: "sha256:backend-process-supervision-authority",
+      };
+    },
     writeBackendLog(backendId, event) {
       this.logs.push({ backendId, ...event });
     },
@@ -229,7 +327,13 @@ function fakeState() {
         evidenceRefs.push(
           "rust_backend_lifecycle_backend_process_materialization_bound",
           "rust_backend_lifecycle_backend_process_supervision_bound",
+          "rust_backend_lifecycle_backend_process_live_start_bound",
           "backend_lifecycle_start_js_process_control_retired",
+        );
+      } else if (request.operation_kind === "model_mount.backend.stop") {
+        evidenceRefs.push(
+          "rust_backend_lifecycle_backend_process_live_stop_bound",
+          "backend_lifecycle_stop_js_process_control_retired",
         );
       }
       const publicResponse = {
@@ -253,6 +357,9 @@ function fakeState() {
           "backend_supervision_ref",
           "backend_supervision_hash",
           "backend_supervision_status",
+          "backend_process_runtime_ref",
+          "backend_process_runtime_hash",
+          "backend_process_runtime_status",
           "process_supervision_owner",
         ]) {
           publicResponse[field] = request.body?.[field] ?? null;
@@ -261,6 +368,14 @@ function fakeState() {
         publicResponse.backend_status = "health_planned";
       } else if (request.operation_kind === "model_mount.backend.stop") {
         publicResponse.backend_status = "stop_planned";
+        for (const field of [
+          "backend_process_runtime_ref",
+          "backend_process_runtime_hash",
+          "backend_process_runtime_status",
+          "process_supervision_owner",
+        ]) {
+          publicResponse[field] = request.body?.[field] ?? null;
+        }
       }
       return {
         source: "rust_daemon_core.model_mount.backend_lifecycle",
@@ -282,9 +397,19 @@ function fakeState() {
                 backend_supervision_ref: request.body?.backend_supervision_ref ?? null,
                 backend_supervision_hash: request.body?.backend_supervision_hash ?? null,
                 backend_supervision_status: request.body?.backend_supervision_status ?? null,
+                backend_process_runtime_ref: request.body?.backend_process_runtime_ref ?? null,
+                backend_process_runtime_hash: request.body?.backend_process_runtime_hash ?? null,
+                backend_process_runtime_status: request.body?.backend_process_runtime_status ?? null,
                 process_supervision_owner: request.body?.process_supervision_owner ?? null,
               }
-            : {}),
+            : request.operation_kind === "model_mount.backend.stop"
+              ? {
+                  backend_process_runtime_ref: request.body?.backend_process_runtime_ref ?? null,
+                  backend_process_runtime_hash: request.body?.backend_process_runtime_hash ?? null,
+                  backend_process_runtime_status: request.body?.backend_process_runtime_status ?? null,
+                  process_supervision_owner: request.body?.process_supervision_owner ?? null,
+                }
+              : {}),
           receipt_refs: [...receiptRefs, "sha256:backend-lifecycle-control"],
           evidence_refs: evidenceRefs,
         },
@@ -337,10 +462,16 @@ test("public backend lifecycle facades commit Rust-authored records", () => {
   assert.deepEqual(state.backendProcessMaterializationPlans.map((request) => request.operation_kind), [
     "model_mount.backend_process.materialize",
   ]);
+  assert.deepEqual(state.backendProcessSupervisionPlans.map((request) => request.operation_kind), [
+    "model_mount.backend_process.start",
+    "model_mount.backend_process.stop",
+  ]);
   assert.deepEqual(state.recordStateCommits.map((request) => request.operation_kind), [
     "model_mount.backend.health",
     "model_mount.backend_process.materialize",
+    "model_mount.backend_process.start",
     "model_mount.backend.start",
+    "model_mount.backend_process.stop",
     "model_mount.backend.stop",
   ]);
   assert.equal(state.backendLifecyclePlans[0].schema_version, "ioi.model_mount.backend_lifecycle.v1");
@@ -364,6 +495,14 @@ test("public backend lifecycle facades commit Rust-authored records", () => {
     state.backendLifecyclePlans[1].body.process_supervision_owner,
     "rust_daemon_core.model_mount.backend_process_supervisor",
   );
+  assert.equal(
+    state.backendLifecyclePlans[1].body.backend_process_runtime_hash,
+    "sha256:start-runtime",
+  );
+  assert.equal(
+    state.backendLifecyclePlans[2].body.backend_process_runtime_hash,
+    "sha256:stop-runtime",
+  );
   assert.deepEqual(state.backendLifecyclePlans[1].body.load_options, { contextLength: 1024 });
   assert.equal(Object.hasOwn(state.backendLifecyclePlans[1].body, "loadOptions"), false);
 
@@ -380,8 +519,12 @@ test("public backend lifecycle facades commit Rust-authored records", () => {
   assert.equal(started.backend_status, "start_planned");
   assert.equal(started.backend_process_materialization_hash, "sha256:backend-process-materialization");
   assert.equal(started.backend_supervision_status, "rust_external_process_supervision_contract_bound");
+  assert.equal(started.backend_process_runtime_status, "rust_external_process_live_started");
+  assert.ok(started.evidence_refs.includes("rust_backend_lifecycle_backend_process_live_start_bound"));
   assert.deepEqual(started.load_options, { contextLength: 1024 });
   assert.equal(stopped.backend_status, "stop_planned");
+  assert.equal(stopped.backend_process_runtime_status, "rust_external_process_live_stopped");
+  assert.ok(stopped.evidence_refs.includes("rust_backend_lifecycle_backend_process_live_stop_bound"));
 
   assert.deepEqual(state.receipts, []);
   assert.deepEqual(state.logs, []);
@@ -464,13 +607,18 @@ test("blocked backend public lifecycle start still commits through Rust boundary
   assert.equal(response.rust_core_boundary, "model_mount.backend_lifecycle");
   assert.equal(state.backendLifecyclePlans.length, 1);
   assert.equal(state.backendProcessMaterializationPlans.length, 1);
+  assert.equal(state.backendProcessSupervisionPlans.length, 1);
   assert.equal(state.backendLifecyclePlans[0].backend_id, "backend.blocked");
   assert.equal(state.backendLifecyclePlans[0].backend_kind, "llama_cpp");
   assert.equal(
     state.backendLifecyclePlans[0].body.backend_process_materialization_hash,
     "sha256:backend-process-materialization",
   );
-  assert.equal(state.recordStateCommits.length, 2);
+  assert.equal(
+    state.backendLifecyclePlans[0].body.backend_process_runtime_hash,
+    "sha256:start-runtime",
+  );
+  assert.equal(state.recordStateCommits.length, 3);
 });
 
 test("public backend logs delegate to Rust projection without lifecycle control or local log reads", () => {

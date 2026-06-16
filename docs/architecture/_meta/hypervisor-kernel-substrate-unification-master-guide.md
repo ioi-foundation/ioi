@@ -11825,10 +11825,11 @@ fail closed unless they bind the backend supervision ref/hash/status beside
 JS/Rust tests and conformance guard that a model load cannot fall back to the
 old process-hash-only boundary or reintroduce JS child-process supervisor,
 command-transport spawn, binary-bridge spawn, or compatibility-spawn truth.
-This remains non-terminal because live hosted network I/O, live cTEE secret
-injection into outbound hosted requests, live external backend binary process
-launch/supervision implementation, and deeper invocation authority still need
-terminal Rust-owned execution coverage.
+This remained non-terminal at the cut because live hosted network I/O, live
+cTEE secret injection into outbound hosted requests, backend launch/supervision
+implementation, and deeper invocation authority still needed terminal
+Rust-owned execution coverage; backend launch/supervision is superseded by
+Slice 1379 below.
 
 Slice 1376 hard-cuts public backend lifecycle start onto the Rust
 backend-process materialization/supervision contract. `startBackend()` now
@@ -11845,10 +11846,11 @@ Agentgres `model-backend-lifecycle-controls` record/public response, and emits
 `rust_backend_lifecycle_backend_process_supervision_bound`, and
 `backend_lifecycle_start_js_process_control_retired` evidence. Focused
 JS/Rust tests and conformance guard the two-record start path, the direct typed
-API normalizer, and the absence of restored JS process control. This remains
-non-terminal because live external backend binary process launch/supervision
-implementation, production cTEE egress resolver depth, and deeper invocation
-authority still need terminal Rust-owned execution coverage.
+API normalizer, and the absence of restored JS process control. This remained
+non-terminal at the cut because backend launch/supervision implementation,
+production cTEE egress resolver depth, and deeper invocation authority still
+needed terminal Rust-owned execution coverage; backend launch/supervision is
+superseded by Slice 1379 below.
 
 Slice 1377 hard-cuts hosted provider invocation off the deterministic Rust
 transport-contract output and onto a Rust daemon-core live hosted transport
@@ -11866,9 +11868,9 @@ synthesizing output. Hosted result admission now requires
 transport request/response hashes, so evidence-only hosted result truth cannot
 return. Focused JS/Rust tests and conformance guard the live executor evidence,
 the cTEE ref-bound boundary, and the absence of the old deterministic hosted
-success text. This remains non-terminal because live external backend binary
-process launch/supervision, production cTEE egress resolver depth, and deeper
-invocation authority still need terminal Rust-owned execution coverage.
+success text. This remains non-terminal because production cTEE egress resolver
+depth and deeper invocation authority still need terminal Rust-owned execution
+coverage.
 
 Slice 1378 hard-cuts hosted provider stream semantics into the Rust daemon-core
 transport owner. Hosted stream invocation no longer calls the non-stream hosted
@@ -11888,9 +11890,30 @@ Focused Rust tests stand up a local SSE server and assert `POST /v1/responses`,
 `Accept: text/event-stream`, cTEE/header-binding refs, live delta chunks, and
 the stream evidence; JS protocol tests and conformance guard the result
 admission shape and reject restoring `hosted_provider_transport_output(request)?`
-inside the stream owner. This remains non-terminal because live external backend
-binary process launch/supervision, production cTEE egress resolver depth, and
-deeper invocation authority still need terminal Rust-owned execution coverage.
+inside the stream owner. This remains non-terminal because production cTEE
+egress resolver depth and deeper invocation authority still need terminal
+Rust-owned execution coverage.
+
+Slice 1379 hard-cuts live backend-process launch and stop supervision into the
+Rust daemon-core model_mount backend-process owner. Rust now exposes
+`supervise_model_mount_backend_process` /
+`daemonCoreModelMountApi.superviseModelMountBackendProcess` beside the existing
+materialization API, keeps a Rust-owned child-process registry, launches
+external backend binaries with `std::process::Command`, stops them through the
+same Rust registry, and records no raw executable path, spawn args, or pid in
+public protocol responses. Backend process materialization now binds the
+executable hash, public `startBackend()` commits a Rust
+`model-backend-process-supervisions` Agentgres record before lifecycle truth can
+commit, public `stopBackend()` commits the Rust stop-supervision record before
+backend lifecycle stop truth, and Rust `plan_model_mount_backend_lifecycle`
+rejects start/stop lifecycle records without the live runtime
+`backend_process_runtime_ref/hash/status` binding. Focused Rust tests start and
+stop a live child handle, focused JS tests assert the materialize -> supervise
+-> lifecycle commit order, and conformance rejects planner-only starts, JS
+child-process supervision, command-transport spawn, binary-bridge spawn, and
+compatibility-spawn fallback. This remains non-terminal because production cTEE
+egress resolver depth and deeper invocation authority still need terminal
+Rust-owned execution coverage.
 
 ## Final Doctrine
 

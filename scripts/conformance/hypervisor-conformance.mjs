@@ -694,17 +694,20 @@ function isModelMountBackendTypedApiOwned({
   return (
     !/plan_model_mount_backend_process_response/.test(retiredBridgeSurface) &&
     !/plan_model_mount_backend_process_materialization_response/.test(retiredBridgeSurface) &&
+    !/supervise_model_mount_backend_process_response/.test(retiredBridgeSurface) &&
     !/plan_model_mount_backend_lifecycle_response/.test(retiredBridgeSurface) &&
     !/ModelMountBackendProcessPlanBridgeRequest/.test(rustModelMountCore) &&
     !/ModelMountBackendProcessMaterializationBridgeRequest/.test(rustModelMountCore) &&
     !/ModelMountBackendLifecycleBridgeRequest/.test(rustModelMountCore) &&
     !/rust_model_mount_backend_process_command/.test(retiredBridgeSurface) &&
     !/rust_model_mount_backend_process_materialization_command/.test(retiredBridgeSurface) &&
+    !/rust_model_mount_backend_process_supervision_command/.test(retiredBridgeSurface) &&
     !/rust_model_mount_backend_lifecycle_command/.test(retiredBridgeSurface) &&
     !/RUST_MODEL_MOUNT_BACKEND_PROCESS_BACKEND/.test(modelMountDaemonCore) &&
     !/RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_BACKEND/.test(modelMountDaemonCore) &&
     !/operation:\s*"plan_model_mount_backend_process"/.test(modelMountDaemonCore) &&
     !/operation:\s*"plan_model_mount_backend_process_materialization"/.test(modelMountDaemonCore) &&
+    !/operation:\s*"supervise_model_mount_backend_process"/.test(modelMountDaemonCore) &&
     !/operation:\s*"plan_model_mount_backend_lifecycle"/.test(modelMountDaemonCore) &&
     !/backend:\s*"rust_model_mount_backend_process"/.test(modelMountDaemonCore) &&
     !/backend:\s*"rust_model_mount_backend_lifecycle"/.test(modelMountDaemonCore) &&
@@ -716,6 +719,9 @@ function isModelMountBackendTypedApiOwned({
     /MODEL_MOUNT_BACKEND_PROCESS_MATERIALIZATION_API_METHOD\s*=\s*"planModelMountBackendProcessMaterialization"/.test(
       modelMountDaemonCore,
     ) &&
+    /MODEL_MOUNT_BACKEND_PROCESS_SUPERVISION_API_METHOD\s*=\s*"superviseModelMountBackendProcess"/.test(
+      modelMountDaemonCore,
+    ) &&
     /MODEL_MOUNT_BACKEND_LIFECYCLE_API_METHOD = "planModelMountBackendLifecycle"/.test(
       modelMountDaemonCore,
     ) &&
@@ -725,16 +731,23 @@ function isModelMountBackendTypedApiOwned({
     /invokeModelMountApi\(\s*MODEL_MOUNT_BACKEND_PROCESS_MATERIALIZATION_API_METHOD,\s*request\s*\)/.test(
       modelMountDaemonCore,
     ) &&
+    /invokeModelMountApi\(\s*MODEL_MOUNT_BACKEND_PROCESS_SUPERVISION_API_METHOD,\s*request\s*\)/.test(
+      modelMountDaemonCore,
+    ) &&
     /invokeModelMountApi\(\s*MODEL_MOUNT_BACKEND_LIFECYCLE_API_METHOD,\s*request\s*\)/.test(
       modelMountDaemonCore,
     ) &&
     /normalizeBackendProcessPlanApiResult/.test(modelMountDaemonCore) &&
     /normalizeBackendProcessMaterializationApiResult/.test(modelMountDaemonCore) &&
+    /normalizeBackendProcessSupervisionApiResult/.test(modelMountDaemonCore) &&
     /normalizeBackendLifecycleApiResult/.test(modelMountDaemonCore) &&
     /rust_daemon_core\.model_mount\.backend_process/.test(
       modelMountDaemonCore + rustModelMountCore,
     ) &&
     /rust_daemon_core\.model_mount\.backend_process_materialization/.test(
+      modelMountDaemonCore + rustModelMountCore,
+    ) &&
+    /rust_daemon_core\.model_mount\.backend_process_supervision/.test(
       modelMountDaemonCore + rustModelMountCore,
     ) &&
     /rust_daemon_core\.model_mount\.backend_lifecycle/.test(
@@ -745,17 +758,25 @@ function isModelMountBackendTypedApiOwned({
     !/CommandOperation::PlanModelMountBackendProcessMaterialization/.test(
       coreCommandDispatch + commandProtocolCore,
     ) &&
+    !/CommandOperation::SuperviseModelMountBackendProcess/.test(
+      coreCommandDispatch + commandProtocolCore,
+    ) &&
     !/CommandOperation::PlanModelMountBackendLifecycle/.test(coreCommandDispatch + commandProtocolCore) &&
     /pub fn plan_model_mount_backend_process/.test(rustModelMountCore) &&
     /pub fn plan_model_mount_backend_process_materialization/.test(rustModelMountCore) &&
+    /pub fn supervise_model_mount_backend_process/.test(rustModelMountCore) &&
     /pub fn plan_model_mount_backend_lifecycle/.test(rustModelMountCore) &&
     /pub fn plan_model_mount_backend_process\([\s\S]*?&self/.test(runtimeKernelModule) &&
     /pub fn plan_model_mount_backend_process_materialization\([\s\S]*?&self/.test(
       runtimeKernelModule,
     ) &&
+    /pub fn supervise_model_mount_backend_process\([\s\S]*?&self/.test(
+      runtimeKernelModule,
+    ) &&
     /pub fn plan_model_mount_backend_lifecycle\([\s\S]*?&self/.test(runtimeKernelModule) &&
     /rust_core_shapes_model_mount_backend_process_direct_api/.test(rustModelMountCore) &&
     /rust_core_plans_backend_process_materialization_direct_api/.test(rustModelMountCore) &&
+    /rust_core_starts_and_stops_live_backend_process_supervision/.test(rustModelMountCore) &&
     /rust_core_shapes_model_mount_backend_lifecycle_direct_api/.test(rustModelMountCore) &&
     /Rust model_mount core sends backend process plan request through typed Rust daemon-core API/.test(
       modelMountCoreTest,
@@ -763,9 +784,13 @@ function isModelMountBackendTypedApiOwned({
     /Rust model_mount core sends backend process materialization through typed Rust daemon-core API/.test(
       modelMountCoreTest,
     ) &&
+    /Rust model_mount core sends backend process live supervision through typed Rust daemon-core API/.test(
+      modelMountCoreTest,
+    ) &&
     /Rust model_mount core sends positive backend lifecycle request/.test(modelMountCoreTest) &&
     /planModelMountBackendProcess/.test(directInvokerServiceTest) &&
     /planModelMountBackendProcessMaterialization/.test(directInvokerServiceTest) &&
+    /superviseModelMountBackendProcess/.test(directInvokerServiceTest) &&
     /planModelMountBackendLifecycle/.test(directInvokerServiceTest)
   );
 }
@@ -3620,6 +3645,9 @@ function runBridge() {
     : "";
   const modelMountCoreTest = exists("packages/runtime-daemon/src/model-mounting/model-mount-core.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/model-mount-core.test.mjs")
+    : "";
+  const backendLifecycleTest = exists("packages/runtime-daemon/src/model-mounting/backend-lifecycle.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/backend-lifecycle.test.mjs")
     : "";
   const rustModelMountCore = exists("crates/services/src/agentic/runtime/kernel/model_mount.rs")
     ? [
@@ -19558,7 +19586,10 @@ function runBridge() {
         /process_execution_owner":\s*"rust_daemon_core\.model_mount\.backend_process_materialization"/.test(
           backendProcessMaterializationBlock,
         ) &&
-        /"process_supervision_owner":\s*"rust_daemon_core\.model_mount\.backend_process_supervisor"/.test(
+        /const RUST_BACKEND_PROCESS_SUPERVISION_OWNER:\s*&str\s*=\s*"rust_daemon_core\.model_mount\.backend_process_supervisor"/.test(
+          modelMountCore,
+        ) &&
+        /"process_supervision_owner":\s*RUST_BACKEND_PROCESS_SUPERVISION_OWNER/.test(
           backendProcessMaterializationBlock,
         ) &&
         /"supervision_contract":\s*\{[\s\S]*?"backend_supervision_ref"/.test(
@@ -19654,6 +19685,101 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-daemon-core-direct-invoker-service.test.mjs",
     ],
     "Model load must bind a Rust daemon-core backend-process materialization record before instance truth can commit, with JS process supervision, command-transport spawn, binary-bridge spawn, and compatibility fallback paths retired",
+  );
+  assertCheck(
+    result,
+    "model-mount-backend-process-live-supervision-rust-owner",
+    (() => {
+      const backendProcessSupervisionCoreBlock =
+        modelMountCore.match(/pub\(super\) fn supervise_backend_process[\s\S]*?(?=\n\npub fn plan_model_mount_backend_process)/)?.[0] ?? "";
+      const backendProcessSupervisionRunnerBlock =
+        modelMountDaemonCore.match(/function normalizeBackendProcessSupervisionApiResult[\s\S]*?(?=\n\nfunction normalizeBackendLifecycleApiResult)/)?.[0] ?? "";
+      return modelMountBackendTypedApiOwned &&
+        /MODEL_MOUNT_BACKEND_PROCESS_SUPERVISION_SCHEMA_VERSION/.test(modelMountCore) &&
+        /ModelMountBackendProcessSupervisionRequest/.test(modelMountCore) &&
+        /ModelMountBackendProcessSupervisionPlan/.test(modelMountCore) &&
+        /static BACKEND_PROCESS_SUPERVISOR:\s*Lazy<Mutex<HashMap<String,\s*BackendProcessSupervisorEntry>>>/.test(
+          modelMountCore,
+        ) &&
+        /Command::new\(&executable\)/.test(modelMountCore) &&
+        /\.spawn\(\)/.test(modelMountCore) &&
+        /entry\.child\.kill\(\)/.test(modelMountCore) &&
+        /entry\.child\.wait\(\)/.test(modelMountCore) &&
+        /pub fn supervise_model_mount_backend_process/.test(modelMountCore) &&
+        /pub fn supervise_model_mount_backend_process\([\s\S]*?&self/.test(
+          kernelModuleForBridgeChecks,
+        ) &&
+        /rust_core_starts_and_stops_live_backend_process_supervision/.test(modelMountCore) &&
+        /rust_core_rejects_backend_process_start_without_supervision_binding/.test(modelMountCore) &&
+        /rust_backend_process_live_supervision_owned/.test(modelMountCore) &&
+        /rust_backend_process_live_start_executed/.test(modelMountCore) &&
+        /rust_backend_process_live_stop_executed/.test(modelMountCore) &&
+        /"executable_path_returned":\s*false/.test(backendProcessSupervisionCoreBlock) &&
+        /"pid_returned":\s*false/.test(backendProcessSupervisionCoreBlock) &&
+        /"js_process_supervisor":\s*false/.test(backendProcessSupervisionCoreBlock) &&
+        /"command_transport_spawn":\s*false/.test(backendProcessSupervisionCoreBlock) &&
+        /"binary_bridge_spawn":\s*false/.test(backendProcessSupervisionCoreBlock) &&
+        /MODEL_MOUNT_BACKEND_PROCESS_SUPERVISION_API_METHOD\s*=\s*"superviseModelMountBackendProcess"/.test(
+          modelMountDaemonCore,
+        ) &&
+        /superviseBackendProcess\(request\)\s*\{[\s\S]*invokeModelMountApi\(MODEL_MOUNT_BACKEND_PROCESS_SUPERVISION_API_METHOD,\s*request\)/.test(
+          modelMountDaemonCore,
+        ) &&
+        /model_mount_backend_process_supervision_result_invalid/.test(modelMountDaemonCore) &&
+        /agentgres_backend_process_supervision_truth_required/.test(
+          backendProcessSupervisionRunnerBlock,
+        ) &&
+        /backend_process_runtime_ref/.test(backendProcessSupervisionRunnerBlock) &&
+        /backend_process_runtime_hash/.test(backendProcessSupervisionRunnerBlock) &&
+        /backend_process_runtime_status/.test(backendProcessSupervisionRunnerBlock) &&
+        /rust_backend_process_live_start_executed/.test(backendProcessSupervisionRunnerBlock) &&
+        /rust_backend_process_live_stop_executed/.test(backendProcessSupervisionRunnerBlock) &&
+        /superviseModelMountBackendProcess\(request\)\s*\{\s*return this\.modelMountCore\.superviseBackendProcess\(request\);/.test(
+          modelMountingState,
+        ) &&
+        /planAndCommitBackendProcessSupervision\(\s*this,\s*"model_mount\.backend_process\.start"/.test(
+          modelMountingState,
+        ) &&
+        /planAndCommitBackendProcessSupervision\(\s*this,\s*"model_mount\.backend_process\.stop"/.test(
+          modelMountingState,
+        ) &&
+        /model_mount_backend_process_supervision_record_state_commit_unconfigured/.test(
+          modelMountingState,
+        ) &&
+        /backendProcessRuntimeLifecycleBindingBody\(backendProcessSupervision\)/.test(
+          modelMountingState,
+        ) &&
+        /backend_process_runtime_hash/.test(modelMountingState) &&
+        /rust_backend_lifecycle_backend_process_live_start_bound/.test(modelMountDaemonCore) &&
+        /rust_backend_lifecycle_backend_process_live_stop_bound/.test(modelMountDaemonCore) &&
+        /Rust model_mount core sends backend process live supervision through typed Rust daemon-core API/.test(
+          modelMountCoreTest,
+        ) &&
+        /state\.backendProcessSupervisionPlans\.map/.test(backendLifecycleTest) &&
+        /state\.recordStateCommits\.map\(\(request\) => request\.operation_kind\)[\s\S]*"model_mount\.backend_process\.start"[\s\S]*"model_mount\.backend_process\.stop"/.test(
+          backendLifecycleTest,
+        ) &&
+        /started\.backend_process_runtime_status/.test(backendLifecycleTest) &&
+        /stopped\.backend_process_runtime_status/.test(backendLifecycleTest) &&
+        /superviseModelMountBackendProcess/.test(daemonCoreDirectInvokerServiceTest) &&
+        !/from "node:child_process"|childProcess\.spawn|spawn\(backend\.binaryPath/.test(
+          modelMountingState,
+        ) &&
+        !/CommandOperation::SuperviseModelMountBackendProcess/.test(
+          coreCommandDispatch + commandProtocolCore,
+        );
+    })(),
+    [
+      "crates/services/src/agentic/runtime/kernel/model_mount/backend_process.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount/backend_lifecycle.rs",
+      "crates/services/src/agentic/runtime/kernel/mod.rs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-core.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-core.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/backend-lifecycle.test.mjs",
+      "packages/runtime-daemon/src/runtime-daemon-core-direct-invoker-service.test.mjs",
+    ],
+    "Backend lifecycle start/stop must bind a Rust daemon-core live backend-process supervision record before lifecycle truth can commit, with JS child-process, command-transport, and binary-bridge spawn paths retired",
   );
   assertCheck(
     result,

@@ -21,6 +21,8 @@ export const MODEL_MOUNT_PROVIDER_RESULT_API_METHOD = "admitModelMountProviderRe
 export const MODEL_MOUNT_BACKEND_PROCESS_API_METHOD = "planModelMountBackendProcess";
 export const MODEL_MOUNT_BACKEND_PROCESS_MATERIALIZATION_API_METHOD =
   "planModelMountBackendProcessMaterialization";
+export const MODEL_MOUNT_BACKEND_PROCESS_SUPERVISION_API_METHOD =
+  "superviseModelMountBackendProcess";
 export const MODEL_MOUNT_BACKEND_LIFECYCLE_API_METHOD = "planModelMountBackendLifecycle";
 export const MODEL_MOUNT_ARTIFACT_ENDPOINT_API_METHOD = "planModelMountArtifactEndpoint";
 export const MODEL_MOUNT_STORAGE_CONTROL_API_METHOD = "planModelMountStorageControl";
@@ -134,6 +136,12 @@ export class ModelMountCore {
   planBackendProcessMaterialization(request) {
     return normalizeBackendProcessMaterializationApiResult(
       this.invokeModelMountApi(MODEL_MOUNT_BACKEND_PROCESS_MATERIALIZATION_API_METHOD, request),
+    );
+  }
+
+  superviseBackendProcess(request) {
+    return normalizeBackendProcessSupervisionApiResult(
+      this.invokeModelMountApi(MODEL_MOUNT_BACKEND_PROCESS_SUPERVISION_API_METHOD, request),
     );
   }
 
@@ -805,6 +813,120 @@ function normalizeBackendProcessMaterializationApiResult(value = {}) {
   return normalized;
 }
 
+function normalizeBackendProcessSupervisionApiResult(value = {}) {
+  const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const plan = result.plan && typeof result.plan === "object" && !Array.isArray(result.plan)
+    ? result.plan
+    : {};
+  const record = result.record && typeof result.record === "object" && !Array.isArray(result.record)
+    ? result.record
+    : plan.record && typeof plan.record === "object" && !Array.isArray(plan.record)
+      ? plan.record
+      : null;
+  const publicResponse = result.public_response ?? plan.public_response ?? record?.public_response ?? null;
+  const normalized = {
+    source: result.source ?? plan.source ?? "rust_daemon_core.model_mount.backend_process_supervision",
+    plan,
+    record_dir: result.record_dir ?? plan.record_dir ?? null,
+    record_id: result.record_id ?? plan.record_id ?? null,
+    record,
+    public_response: publicResponse,
+    operation_kind: result.operation_kind ?? plan.operation_kind ?? record?.operation_kind ?? null,
+    rust_core_boundary: result.rust_core_boundary ?? plan.rust_core_boundary ?? record?.rust_core_boundary ?? null,
+    receipt_refs: arrayOrNull(result.receipt_refs) ?? arrayOrNull(plan.receipt_refs) ?? [],
+    authority_grant_refs: arrayOrNull(result.authority_grant_refs) ?? arrayOrNull(plan.authority_grant_refs) ?? [],
+    authority_receipt_refs:
+      arrayOrNull(result.authority_receipt_refs) ?? arrayOrNull(plan.authority_receipt_refs) ?? [],
+    evidence_refs: arrayOrNull(result.evidence_refs) ?? arrayOrNull(plan.evidence_refs) ?? arrayOrNull(record?.evidence_refs),
+    runtime_ref:
+      result.runtime_ref ??
+      plan.runtime_ref ??
+      record?.backend_process_runtime_ref ??
+      publicResponse?.backend_process_runtime_ref ??
+      null,
+    runtime_hash:
+      result.runtime_hash ??
+      plan.runtime_hash ??
+      record?.backend_process_runtime_hash ??
+      publicResponse?.backend_process_runtime_hash ??
+      null,
+    runtime_status:
+      result.runtime_status ??
+      plan.runtime_status ??
+      record?.backend_process_runtime_status ??
+      publicResponse?.backend_process_runtime_status ??
+      null,
+    authority_hash: result.authority_hash ?? plan.authority_hash ?? record?.authority_hash ?? null,
+  };
+  const missing = [];
+  for (const field of ["record_dir", "record_id", "record", "operation_kind", "runtime_ref", "runtime_hash", "runtime_status"]) {
+    if (!normalized[field]) missing.push(field);
+  }
+  if (normalized.record_dir !== "model-backend-process-supervisions") missing.push("record_dir.model-backend-process-supervisions");
+  if (normalized.rust_core_boundary !== "model_mount.backend_process_supervision") {
+    missing.push("rust_core_boundary");
+  }
+  if (record?.id !== normalized.record_id) missing.push("record.id");
+  if (record?.process_execution_owner !== "rust_daemon_core.model_mount.backend_process_supervisor") {
+    missing.push("record.process_execution_owner");
+  }
+  if (record?.process_supervision_owner !== "rust_daemon_core.model_mount.backend_process_supervisor") {
+    missing.push("record.process_supervision_owner");
+  }
+  if (record?.spawn_contract?.spawn_args_returned !== false) {
+    missing.push("record.spawn_contract.spawn_args_returned_false");
+  }
+  if (record?.spawn_contract?.executable_path_returned !== false) {
+    missing.push("record.spawn_contract.executable_path_returned_false");
+  }
+  if (record?.spawn_contract?.pid_returned !== false) {
+    missing.push("record.spawn_contract.pid_returned_false");
+  }
+  for (const field of [
+    "js_process_supervisor",
+    "command_transport_spawn",
+    "binary_bridge_spawn",
+    "compatibility_spawn_fallback",
+  ]) {
+    if (record?.retired_paths?.[field] !== false) missing.push(`record.retired_paths.${field}_false`);
+    if (publicResponse?.[field] !== false) missing.push(`public_response.${field}_false`);
+  }
+  for (const ref of [
+    "rust_daemon_core_backend_process_supervision",
+    "rust_backend_process_live_supervision_owned",
+    "wallet_network_backend_process_authority_bound",
+    "ctee_backend_process_custody_enforced",
+    "agentgres_backend_process_supervision_truth_required",
+    "js_backend_process_supervisor_retired",
+    "command_transport_backend_process_spawn_retired",
+    "binary_bridge_backend_process_spawn_retired",
+  ]) {
+    if (!Array.isArray(normalized.evidence_refs) || !normalized.evidence_refs.includes(ref)) {
+      missing.push(`evidence_refs.${ref}`);
+    }
+  }
+  if (normalized.operation_kind === "model_mount.backend_process.start" &&
+    !normalized.evidence_refs?.includes("rust_backend_process_live_start_executed")) {
+    missing.push("evidence_refs.rust_backend_process_live_start_executed");
+  }
+  if (normalized.operation_kind === "model_mount.backend_process.stop" &&
+    !normalized.evidence_refs?.includes("rust_backend_process_live_stop_executed")) {
+    missing.push("evidence_refs.rust_backend_process_live_stop_executed");
+  }
+  if (missing.length > 0) {
+    const error = new Error("Rust model_mount backend-process supervision result is incomplete.");
+    error.status = 502;
+    error.code = "model_mount_backend_process_supervision_result_invalid";
+    error.details = {
+      missing,
+      source: normalized.source,
+      operation_kind: normalized.operation_kind,
+    };
+    throw error;
+  }
+  return normalized;
+}
+
 function normalizeBackendLifecycleApiResult(value = {}) {
   const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   const plan = result.plan && typeof result.plan === "object" && !Array.isArray(result.plan)
@@ -843,6 +965,21 @@ function normalizeBackendLifecycleApiResult(value = {}) {
       record?.backend_supervision_status ??
       publicResponse?.backend_supervision_status ??
       null,
+    backend_process_runtime_ref:
+      result.backend_process_runtime_ref ??
+      record?.backend_process_runtime_ref ??
+      publicResponse?.backend_process_runtime_ref ??
+      null,
+    backend_process_runtime_hash:
+      result.backend_process_runtime_hash ??
+      record?.backend_process_runtime_hash ??
+      publicResponse?.backend_process_runtime_hash ??
+      null,
+    backend_process_runtime_status:
+      result.backend_process_runtime_status ??
+      record?.backend_process_runtime_status ??
+      publicResponse?.backend_process_runtime_status ??
+      null,
   };
   const missing = [];
   for (const field of ["record_dir", "record_id", "record", "operation_kind", "control_hash"]) {
@@ -870,6 +1007,9 @@ function normalizeBackendLifecycleApiResult(value = {}) {
       "backend_supervision_ref",
       "backend_supervision_hash",
       "backend_supervision_status",
+      "backend_process_runtime_ref",
+      "backend_process_runtime_hash",
+      "backend_process_runtime_status",
     ]) {
       if (!normalized[field]) missing.push(field);
       if (!record?.[field]) missing.push(`record.${field}`);
@@ -884,7 +1024,33 @@ function normalizeBackendLifecycleApiResult(value = {}) {
     for (const ref of [
       "rust_backend_lifecycle_backend_process_materialization_bound",
       "rust_backend_lifecycle_backend_process_supervision_bound",
+      "rust_backend_lifecycle_backend_process_live_start_bound",
       "backend_lifecycle_start_js_process_control_retired",
+    ]) {
+      if (!Array.isArray(normalized.evidence_refs) || !normalized.evidence_refs.includes(ref)) {
+        missing.push(`evidence_refs.${ref}`);
+      }
+    }
+  }
+  if (normalized.operation_kind === "model_mount.backend.stop") {
+    for (const field of [
+      "backend_process_runtime_ref",
+      "backend_process_runtime_hash",
+      "backend_process_runtime_status",
+    ]) {
+      if (!normalized[field]) missing.push(field);
+      if (!record?.[field]) missing.push(`record.${field}`);
+      if (!publicResponse?.[field]) missing.push(`public_response.${field}`);
+    }
+    if (record?.process_supervision_owner !== "rust_daemon_core.model_mount.backend_process_supervisor") {
+      missing.push("record.process_supervision_owner");
+    }
+    if (publicResponse?.process_supervision_owner !== "rust_daemon_core.model_mount.backend_process_supervisor") {
+      missing.push("public_response.process_supervision_owner");
+    }
+    for (const ref of [
+      "rust_backend_lifecycle_backend_process_live_stop_bound",
+      "backend_lifecycle_stop_js_process_control_retired",
     ]) {
       if (!Array.isArray(normalized.evidence_refs) || !normalized.evidence_refs.includes(ref)) {
         missing.push(`evidence_refs.${ref}`);

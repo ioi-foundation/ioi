@@ -12,11 +12,14 @@ const RUST_BACKEND_PROCESS_SUPERVISION_OWNER: &str =
 
 #[derive(Debug, Clone, PartialEq)]
 struct BackendStartProcessBinding {
-    backend_process_ref: String,
-    backend_process_materialization_hash: String,
-    backend_supervision_ref: String,
-    backend_supervision_hash: String,
-    backend_supervision_status: String,
+    backend_process_ref: Option<String>,
+    backend_process_materialization_hash: Option<String>,
+    backend_supervision_ref: Option<String>,
+    backend_supervision_hash: Option<String>,
+    backend_supervision_status: Option<String>,
+    backend_process_runtime_ref: String,
+    backend_process_runtime_hash: String,
+    backend_process_runtime_status: String,
     process_supervision_owner: String,
 }
 
@@ -129,8 +132,11 @@ pub(super) fn plan_backend_lifecycle(
         .as_ref()
         .and_then(|value| non_empty_string(value))
         .or_else(|| string_field(body, "backend_kind"));
-    let backend_start_process_binding = if operation_kind == "model_mount.backend.start" {
-        Some(backend_start_process_binding(body)?)
+    let backend_start_process_binding = if matches!(
+        operation_kind.as_str(),
+        "model_mount.backend.start" | "model_mount.backend.stop"
+    ) {
+        Some(backend_start_process_binding(body, &operation_kind)?)
     } else {
         None
     };
@@ -255,6 +261,9 @@ fn public_response_for(
                 "backend_status".to_string(),
                 Value::String("stop_planned".to_string()),
             );
+            if let Some(binding) = backend_start_process_binding {
+                insert_backend_start_process_binding(&mut response, binding);
+            }
         }
         _ => {}
     }
@@ -277,27 +286,46 @@ fn backend_lifecycle_evidence_refs(operation_kind: &str) -> Vec<String> {
     if operation_kind == "model_mount.backend.start" {
         refs.push("rust_backend_lifecycle_backend_process_materialization_bound".to_string());
         refs.push("rust_backend_lifecycle_backend_process_supervision_bound".to_string());
+        refs.push("rust_backend_lifecycle_backend_process_live_start_bound".to_string());
         refs.push("backend_lifecycle_start_js_process_control_retired".to_string());
+    }
+    if operation_kind == "model_mount.backend.stop" {
+        refs.push("rust_backend_lifecycle_backend_process_live_stop_bound".to_string());
+        refs.push("backend_lifecycle_stop_js_process_control_retired".to_string());
     }
     refs
 }
 
 fn backend_start_process_binding(
     body: &Map<String, Value>,
+    operation_kind: &str,
 ) -> Result<BackendStartProcessBinding, ModelMountError> {
     let process_supervision_owner = required_string_field(body, "process_supervision_owner")?;
     if process_supervision_owner != RUST_BACKEND_PROCESS_SUPERVISION_OWNER {
         return Err(ModelMountError::MissingField("process_supervision_owner"));
     }
+    if operation_kind == "model_mount.backend.start" {
+        required_string_field(body, "backend_process_ref")?;
+        required_string_field(body, "backend_process_materialization_hash")?;
+        required_string_field(body, "backend_supervision_ref")?;
+        required_string_field(body, "backend_supervision_hash")?;
+        required_string_field(body, "backend_supervision_status")?;
+    }
     Ok(BackendStartProcessBinding {
-        backend_process_ref: required_string_field(body, "backend_process_ref")?,
-        backend_process_materialization_hash: required_string_field(
+        backend_process_ref: string_field(body, "backend_process_ref"),
+        backend_process_materialization_hash: string_field(
             body,
             "backend_process_materialization_hash",
+        ),
+        backend_supervision_ref: string_field(body, "backend_supervision_ref"),
+        backend_supervision_hash: string_field(body, "backend_supervision_hash"),
+        backend_supervision_status: string_field(body, "backend_supervision_status"),
+        backend_process_runtime_ref: required_string_field(body, "backend_process_runtime_ref")?,
+        backend_process_runtime_hash: required_string_field(body, "backend_process_runtime_hash")?,
+        backend_process_runtime_status: required_string_field(
+            body,
+            "backend_process_runtime_status",
         )?,
-        backend_supervision_ref: required_string_field(body, "backend_supervision_ref")?,
-        backend_supervision_hash: required_string_field(body, "backend_supervision_hash")?,
-        backend_supervision_status: required_string_field(body, "backend_supervision_status")?,
         process_supervision_owner,
     })
 }
@@ -306,25 +334,47 @@ fn insert_backend_start_process_binding(
     target: &mut Map<String, Value>,
     binding: &BackendStartProcessBinding,
 ) {
+    if let Some(value) = &binding.backend_process_ref {
+        target.insert(
+            "backend_process_ref".to_string(),
+            Value::String(value.clone()),
+        );
+    }
+    if let Some(value) = &binding.backend_process_materialization_hash {
+        target.insert(
+            "backend_process_materialization_hash".to_string(),
+            Value::String(value.clone()),
+        );
+    }
+    if let Some(value) = &binding.backend_supervision_ref {
+        target.insert(
+            "backend_supervision_ref".to_string(),
+            Value::String(value.clone()),
+        );
+    }
+    if let Some(value) = &binding.backend_supervision_hash {
+        target.insert(
+            "backend_supervision_hash".to_string(),
+            Value::String(value.clone()),
+        );
+    }
+    if let Some(value) = &binding.backend_supervision_status {
+        target.insert(
+            "backend_supervision_status".to_string(),
+            Value::String(value.clone()),
+        );
+    }
     target.insert(
-        "backend_process_ref".to_string(),
-        Value::String(binding.backend_process_ref.clone()),
+        "backend_process_runtime_ref".to_string(),
+        Value::String(binding.backend_process_runtime_ref.clone()),
     );
     target.insert(
-        "backend_process_materialization_hash".to_string(),
-        Value::String(binding.backend_process_materialization_hash.clone()),
+        "backend_process_runtime_hash".to_string(),
+        Value::String(binding.backend_process_runtime_hash.clone()),
     );
     target.insert(
-        "backend_supervision_ref".to_string(),
-        Value::String(binding.backend_supervision_ref.clone()),
-    );
-    target.insert(
-        "backend_supervision_hash".to_string(),
-        Value::String(binding.backend_supervision_hash.clone()),
-    );
-    target.insert(
-        "backend_supervision_status".to_string(),
-        Value::String(binding.backend_supervision_status.clone()),
+        "backend_process_runtime_status".to_string(),
+        Value::String(binding.backend_process_runtime_status.clone()),
     );
     target.insert(
         "process_supervision_owner".to_string(),
@@ -381,29 +431,46 @@ mod tests {
             "backend_kind": "llama_cpp",
             "load_options": { "context_length": 4096 },
         });
-        if operation_kind == "model_mount.backend.start" {
+        if matches!(
+            operation_kind,
+            "model_mount.backend.start" | "model_mount.backend.stop"
+        ) {
             let body = body.as_object_mut().expect("request body");
+            if operation_kind == "model_mount.backend.start" {
+                body.insert(
+                    "backend_process_ref".to_string(),
+                    Value::String("backend_process://backend.llama_cpp.process".to_string()),
+                );
+                body.insert(
+                    "backend_process_materialization_hash".to_string(),
+                    Value::String("sha256:backend-process-materialization".to_string()),
+                );
+                body.insert(
+                    "backend_supervision_ref".to_string(),
+                    Value::String(
+                        "backend_supervision://backend.llama_cpp.process#sha256:plan".to_string(),
+                    ),
+                );
+                body.insert(
+                    "backend_supervision_hash".to_string(),
+                    Value::String("sha256:backend-supervision".to_string()),
+                );
+                body.insert(
+                    "backend_supervision_status".to_string(),
+                    Value::String("rust_external_process_supervision_contract_bound".to_string()),
+                );
+            }
             body.insert(
-                "backend_process_ref".to_string(),
-                Value::String("backend_process://backend.llama_cpp.process".to_string()),
+                "backend_process_runtime_ref".to_string(),
+                Value::String("backend_process_runtime://backend.llama_cpp#runtime".to_string()),
             );
             body.insert(
-                "backend_process_materialization_hash".to_string(),
-                Value::String("sha256:backend-process-materialization".to_string()),
+                "backend_process_runtime_hash".to_string(),
+                Value::String("sha256:backend-process-runtime".to_string()),
             );
             body.insert(
-                "backend_supervision_ref".to_string(),
-                Value::String(
-                    "backend_supervision://backend.llama_cpp.process#sha256:plan".to_string(),
-                ),
-            );
-            body.insert(
-                "backend_supervision_hash".to_string(),
-                Value::String("sha256:backend-supervision".to_string()),
-            );
-            body.insert(
-                "backend_supervision_status".to_string(),
-                Value::String("rust_external_process_supervision_contract_bound".to_string()),
+                "backend_process_runtime_status".to_string(),
+                Value::String("rust_external_process_live_started".to_string()),
             );
             body.insert(
                 "process_supervision_owner".to_string(),
@@ -450,6 +517,10 @@ mod tests {
             "sha256:backend-supervision"
         );
         assert_eq!(
+            plan.public_response["backend_process_runtime_hash"],
+            "sha256:backend-process-runtime"
+        );
+        assert_eq!(
             plan.public_response["process_supervision_owner"],
             RUST_BACKEND_PROCESS_SUPERVISION_OWNER
         );
@@ -473,6 +544,13 @@ mod tests {
         let stop = plan_backend_lifecycle(&request("model_mount.backend.stop"))
             .expect("backend lifecycle stop plan");
         assert_eq!(stop.public_response["backend_status"], "stop_planned");
+        assert_eq!(
+            stop.public_response["backend_process_runtime_hash"],
+            "sha256:backend-process-runtime"
+        );
+        assert!(stop
+            .evidence_refs
+            .contains(&"rust_backend_lifecycle_backend_process_live_stop_bound".to_string()));
     }
 
     #[test]

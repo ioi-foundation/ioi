@@ -134,14 +134,16 @@ use model_mount::{
     plan_model_mount_backend_process_materialization, plan_model_mount_conversation_state,
     plan_model_mount_route_control_required, plan_model_mount_stream_cancel,
     plan_model_mount_stream_completion, plan_model_mount_tokenizer,
-    plan_model_mount_tokenizer_required, ModelMountAcceptedReceiptHeadRequest,
-    ModelMountAcceptedReceiptTransitionRequest, ModelMountArtifactEndpointPlan,
-    ModelMountArtifactEndpointRequest, ModelMountBackendLifecycleRequest,
-    ModelMountBackendProcessMaterializationPlan, ModelMountBackendProcessMaterializationRequest,
-    ModelMountBackendProcessPlanRequest, ModelMountCapabilityTokenControlPlan,
-    ModelMountCapabilityTokenControlRequest, ModelMountCatalogProviderControlPlan,
-    ModelMountCatalogProviderControlRequest, ModelMountConversationStateRequest, ModelMountCore,
-    ModelMountError, ModelMountInstanceLifecycleRequest, ModelMountInstanceLifecycleResult,
+    plan_model_mount_tokenizer_required, supervise_model_mount_backend_process,
+    ModelMountAcceptedReceiptHeadRequest, ModelMountAcceptedReceiptTransitionRequest,
+    ModelMountArtifactEndpointPlan, ModelMountArtifactEndpointRequest,
+    ModelMountBackendLifecycleRequest, ModelMountBackendProcessMaterializationPlan,
+    ModelMountBackendProcessMaterializationRequest, ModelMountBackendProcessPlanRequest,
+    ModelMountBackendProcessSupervisionPlan, ModelMountBackendProcessSupervisionRequest,
+    ModelMountCapabilityTokenControlPlan, ModelMountCapabilityTokenControlRequest,
+    ModelMountCatalogProviderControlPlan, ModelMountCatalogProviderControlRequest,
+    ModelMountConversationStateRequest, ModelMountCore, ModelMountError,
+    ModelMountInstanceLifecycleRequest, ModelMountInstanceLifecycleResult,
     ModelMountInvocationAdmissionRecord, ModelMountInvocationAdmissionRequest,
     ModelMountMcpWorkflowPlan, ModelMountMcpWorkflowRequest,
     ModelMountProviderAuthMaterializationPlan, ModelMountProviderAuthMaterializationRequest,
@@ -1165,6 +1167,13 @@ impl RuntimeKernelService {
         request: &ModelMountBackendProcessMaterializationRequest,
     ) -> Result<ModelMountBackendProcessMaterializationPlan, ModelMountError> {
         plan_model_mount_backend_process_materialization(request)
+    }
+
+    pub fn supervise_model_mount_backend_process(
+        &self,
+        request: &ModelMountBackendProcessSupervisionRequest,
+    ) -> Result<ModelMountBackendProcessSupervisionPlan, ModelMountError> {
+        supervise_model_mount_backend_process(request)
     }
 
     pub fn plan_model_mount_backend_lifecycle(
