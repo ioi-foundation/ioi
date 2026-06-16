@@ -73,7 +73,7 @@ export function createRuntimeContextPolicySurface({
 
   return {
     compactThread(store, threadId, request = {}) {
-      const runner = store?.contextPolicyCore ?? contextPolicyCore;
+      const runner = contextPolicyCore;
       if (
         typeof runner?.planContextCompaction !== "function" ||
         typeof runner?.planContextCompactionStateUpdate !== "function" ||
@@ -314,7 +314,7 @@ export function createRuntimeContextPolicySurface({
       const requestedRunId = optionalStringDep(canonicalRequest.run_id) ?? runId;
       const requestedThreadId = optionalStringDep(canonicalRequest.thread_id) ?? threadId;
       if (requestedThreadId || requestedRunId) {
-        const runner = store?.contextPolicyCore ?? contextPolicyCore;
+        const runner = contextPolicyCore;
         if (
           typeof runner?.evaluateContextBudgetPolicy !== "function" ||
           typeof store?.appendRuntimeEvent !== "function"
@@ -402,7 +402,7 @@ export function createRuntimeContextPolicySurface({
           message: "Compaction policy evaluation requires a thread id.",
         });
       }
-      const runner = store?.contextPolicyCore ?? contextPolicyCore;
+      const runner = contextPolicyCore;
       if (
         typeof runner?.evaluateCompactionPolicy !== "function" ||
         typeof store?.appendRuntimeEvent !== "function"

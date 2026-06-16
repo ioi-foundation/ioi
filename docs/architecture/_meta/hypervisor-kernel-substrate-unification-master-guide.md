@@ -10608,6 +10608,20 @@ core dependency. Remaining work is durable replay/projection depth,
 wallet/cTEE authority expansion, StepModuleRouter delegation execution, and
 stable protocol clients, not an alternate auxiliary core mount.
 
+Slice 1316 hard-cuts the runtime context-policy surface store-core fallback.
+`compactThread()`, thread/run context-budget event planning, and
+thread compaction-policy event planning now resolve only through the positive
+`contextPolicyCore` mount supplied to `createRuntimeContextPolicySurface()` by
+daemon startup. The surface and focused tests no longer read or model
+`store?.contextPolicyCore ?? contextPolicyCore`, `store.contextPolicyCore`, or
+`store?.contextPolicyCore`, so context compaction, context-budget event truth,
+and compaction-policy event truth cannot return through a store-mounted
+planner/projector fallback. Conformance now guards the retired fallback, the
+daemon-mounted context-policy surface, and the focused harness mount. Remaining
+work is durable replay/projection depth, richer policy receipt/state-root
+binding, wallet/cTEE authority expansion, and stable protocol clients, not an
+alternate context-policy core mount.
+
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,
 `/v1/memory/policy`, `/v1/memory/path`, or `/v1/memory/validate`; the daemon

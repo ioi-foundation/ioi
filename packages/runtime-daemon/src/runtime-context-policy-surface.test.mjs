@@ -279,7 +279,6 @@ function compactHarness() {
   };
   const store = {
     stateDir: "/runtime-state",
-    contextPolicyCore: runner,
     agentForThread(threadId) {
       calls.push({ name: "agentForThread", threadId });
       return agent;
@@ -327,6 +326,7 @@ function compactHarness() {
     },
   };
   const surface = createRuntimeContextPolicySurface({
+    contextPolicyCore: runner,
     eventStreamIdForThread: (threadId) => `event_stream_${threadId}`,
     runtimeError,
   });

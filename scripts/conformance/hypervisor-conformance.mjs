@@ -11382,6 +11382,18 @@ function runBridge() {
       /context_budget_evaluation_rust_owned/.test(runtimeContextPolicySurface) &&
       /rust_daemon_core_context_budget_event/.test(runtimeContextPolicySurface) &&
       /agentgres_context_budget_event_truth_required/.test(runtimeContextPolicySurface) &&
+      !/store\?\.contextPolicyCore\s*\?\?\s*contextPolicyCore|store\?\.contextPolicyCore|store\.contextPolicyCore/.test(
+        runtimeContextPolicySurface,
+      ) &&
+      !/stateDir:\s*"\/runtime-state",\s*\n\s*contextPolicyCore:\s*runner/.test(
+        runtimeContextPolicySurfaceTest,
+      ) &&
+      /createRuntimeContextPolicySurface\(\{[\s\S]*?contextPolicyCore:\s*runner/.test(
+        runtimeContextPolicySurfaceTest,
+      ) &&
+      /this\.contextPolicySurface = createRuntimeContextPolicySurface\(\{\s*contextPolicyCore:\s*this\.contextPolicyCore,/s.test(
+        runtimeDaemonIndex,
+      ) &&
       /runner\?\.evaluateContextBudgetPolicy/.test(runtimeContextPolicySurface) &&
       /evaluateContextBudgetPolicyDep\(\{[\s\S]*?budgetRunner:\s*runner/.test(
         runtimeContextPolicySurface,
@@ -16070,6 +16082,18 @@ function runBridge() {
       /compaction_policy_evaluation_rust_owned/.test(runtimeContextPolicySurface) &&
       /rust_daemon_core_compaction_policy_event/.test(runtimeContextPolicySurface) &&
       /agentgres_compaction_policy_event_truth_required/.test(runtimeContextPolicySurface) &&
+      !/store\?\.contextPolicyCore\s*\?\?\s*contextPolicyCore|store\?\.contextPolicyCore|store\.contextPolicyCore/.test(
+        runtimeContextPolicySurface,
+      ) &&
+      !/stateDir:\s*"\/runtime-state",\s*\n\s*contextPolicyCore:\s*runner/.test(
+        runtimeContextPolicySurfaceTest,
+      ) &&
+      /createRuntimeContextPolicySurface\(\{[\s\S]*?contextPolicyCore:\s*runner/.test(
+        runtimeContextPolicySurfaceTest,
+      ) &&
+      /this\.contextPolicySurface = createRuntimeContextPolicySurface\(\{\s*contextPolicyCore:\s*this\.contextPolicyCore,/s.test(
+        runtimeDaemonIndex,
+      ) &&
       /runner\?\.evaluateCompactionPolicy/.test(runtimeContextPolicySurface) &&
       /evaluateCompactionPolicyDecisionDep\(\{[\s\S]*?policyRunner:\s*runner/.test(
         runtimeContextPolicySurface,
@@ -16125,6 +16149,9 @@ function runBridge() {
     /for \(const retiredField of \[[\s\S]*?"eventKind"[\s\S]*?"workflowNodeId"[\s\S]*?\]\)/.test(
       runtimeContextPolicySurface,
     ) &&
+      !/store\?\.contextPolicyCore\s*\?\?\s*contextPolicyCore|store\?\.contextPolicyCore|store\.contextPolicyCore/.test(
+        runtimeContextPolicySurface,
+      ) &&
       /compactThread uses Rust compaction planning, event admission, and run persistence/.test(
         runtimeContextPolicySurfaceTest,
       ) &&
@@ -16473,6 +16500,18 @@ function runBridge() {
       /context_compaction_rust_owned/.test(runtimeContextPolicySurface) &&
       /rust_daemon_core_context_compaction_plan/.test(runtimeContextPolicySurface) &&
       /agentgres_runtime_thread_event_truth_required/.test(runtimeContextPolicySurface) &&
+      !/store\?\.contextPolicyCore\s*\?\?\s*contextPolicyCore|store\?\.contextPolicyCore|store\.contextPolicyCore/.test(
+        runtimeContextPolicySurface,
+      ) &&
+      !/stateDir:\s*"\/runtime-state",\s*\n\s*contextPolicyCore:\s*runner/.test(
+        runtimeContextPolicySurfaceTest,
+      ) &&
+      /createRuntimeContextPolicySurface\(\{[\s\S]*?contextPolicyCore:\s*runner/.test(
+        runtimeContextPolicySurfaceTest,
+      ) &&
+      /this\.contextPolicySurface = createRuntimeContextPolicySurface\(\{\s*contextPolicyCore:\s*this\.contextPolicyCore,/s.test(
+        runtimeDaemonIndex,
+      ) &&
       /runner\.planContextCompaction\(\{/.test(runtimeContextPolicySurface) &&
       /store\.appendRuntimeEvent\(plannedEvent\)/.test(runtimeContextPolicySurface) &&
       /runtime_context_compaction_run_unavailable/.test(runtimeContextPolicySurface) &&
@@ -16587,6 +16626,9 @@ function runBridge() {
       /rust_daemon_core_context_compaction_required/.test(runtimeContextPolicySurface) &&
       /rust_daemon_core_context_compaction_state_update/.test(runtimeContextPolicySurface) &&
       /agentgres_context_compaction_state_truth_required/.test(runtimeContextPolicySurface) &&
+      !/store\?\.contextPolicyCore\s*\?\?\s*contextPolicyCore|store\?\.contextPolicyCore|store\.contextPolicyCore/.test(
+        runtimeContextPolicySurface,
+      ) &&
       /runner\.planContextCompactionStateUpdate\(\{/.test(runtimeContextPolicySurface) &&
       /const admittedEventId = optionalStringDep\(admittedEvent\?\.event_id\);/.test(
         runtimeContextPolicySurface,
