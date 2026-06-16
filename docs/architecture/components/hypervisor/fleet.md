@@ -159,6 +159,26 @@ Fleet may route workloads through:
 - provider-specific GPU or storage markets;
 - user-specified provider routes.
 
+Provider integrations should preserve provider-specific semantics instead of
+flattening everything into a fake generic cloud. For example:
+
+```text
+Akash
+  direct DePIN compute/GPU provider lane with SDL/deployment, provider-bid,
+  lease, GPU attribute, persistent-volume, IP lease, log/event, shell/exec,
+  stop/close, and redeploy semantics
+
+Filecoin
+  decentralized storage-backend lane for content-addressed encrypted archives,
+  payloads, evidence bundles, retrieval, replication, renewal, and repair
+  posture
+```
+
+Akash can run compute, GPUs, model servers, public trunks, and cTEE split-path
+workloads when policy allows. Filecoin can hold encrypted payload/archive bytes
+and retrieval commitments. Neither owns Hypervisor execution, wallet authority,
+Agentgres artifact meaning, private plaintext, or restore validity.
+
 `decentralized.cloud` is parked future product space, not present Fleet canon.
 It may later become a public provider catalog, P2P/PQ-aware cloud routing layer,
 compute/storage receipt explorer, provider reputation surface, or infrastructure
@@ -258,6 +278,12 @@ Fleet may own or coordinate:
 - runtime assignment visibility and placement recommendations;
 - cost, quota, lease, entitlement, and utilization projections;
 - node health, heartbeat, version, upgrade, and maintenance windows;
+- workspace persistence, zero-to-idle, archive, unarchive, delete, rebuild,
+  redeploy, and retention posture;
+- prebuild, warm-pool, dependency-cache, model-cache, and index-warmup
+  visibility;
+- port exposure, browser-open, log export, support-bundle, and short-lived
+  access-token posture;
 - cTEE posture, Private Workspace status, custody-profile visibility, and
   declassification posture projections;
 - model-mount inventory and route posture;
@@ -328,6 +354,32 @@ agent, workflow, service, or operator requests infrastructure
      restore/replay metadata
   -> Fleet updates placement, cost, risk, receipt, and replay projections
 ```
+
+Zero-to-idle and restore lifecycle:
+
+```text
+session or mission becomes idle
+  -> daemon closes or stops compute according to WorkspacePersistenceProfile
+  -> Agentgres records archive/checkpoint/artifact refs, state roots, receipts,
+     and restore metadata
+  -> encrypted payload/archive bytes remain in allowed storage backends such as
+     local disk, S3/object stores, Filecoin, CAS/IPFS, or customer blob stores
+  -> Fleet marks compute idle/terminated and restore_available
+  -> later operator, mission, or policy requests resume
+  -> Fleet selects a provider lane such as local, customer cloud, Akash,
+     hyperscaler GPU, HypervisorOS, or enterprise cluster
+  -> daemon retrieves payload bytes through Agentgres-governed artifact refs,
+     verifies hashes/CIDs/lifecycle state, replays operations/receipts, and
+     rehydrates the workspace/session
+  -> wallet.network reissues only the required short-lived access, secret,
+     spend, and declassification leases
+```
+
+Key invariant:
+
+> **Zero-to-idle turns off compute; it does not turn storage backends into
+> operational truth. Restore is valid only through Agentgres refs, receipts,
+> state roots, authority context, and payload verification.**
 
 ## Minimal Implementation Objects
 
@@ -407,6 +459,72 @@ FleetStoragePosture:
 ```
 
 ```yaml
+WorkspacePersistenceProfile:
+  profile_id: workspace_persistence://...
+  workspace_ref: workspace://... | null
+  project_ref: project:... | null
+  persistence_mode:
+    ephemeral | session | zero_to_idle | persistent | archive_only
+  compute_idle_policy:
+    idle_after: duration | null
+    stop_compute: true | false
+    close_provider_lease: true | false
+    keep_warm_pool: true | false
+  state_commit_policy:
+    agentgres_operation_required: true
+    state_root_required: true
+    archive_ref_required: true
+    receipt_required: true
+  storage_backends_allowed:
+    - local_disk
+    - s3
+    - filecoin
+    - cas
+    - ipfs
+    - provider_blob
+    - customer_vpc_blob
+  retrieval_policy:
+    verify_payload_hash: true
+    verify_cid_or_commitment: true
+    require_agentgres_lifecycle_active: true
+    fallback_backend_allowed: true
+  restore_policy:
+    require_wallet_reauth: true
+    require_revocation_epoch_check: true
+    require_ctee_or_plaintext_policy_check: true
+  retention_policy_ref: policy://...
+  receipt_refs:
+    - receipt://...
+```
+
+```yaml
+EnvironmentWarmupProfile:
+  profile_id: environment_warmup://...
+  project_ref: project:... | null
+  runtime_class_ref: runtime_profile://... | null
+  warmup_kind:
+    prebuild | dependency_cache | model_cache | index_warmup |
+    image_pull | provider_warm_pool
+  provider_refs:
+    - provider://...
+  storage_refs:
+    - storage_posture://...
+  privacy_posture:
+    public_only | redacted_only | encrypted_refs_only |
+    customer_controlled | local_only
+  authority_refs:
+    - grant://...
+  invalidation_triggers:
+    - dependency_hash_changed
+    - policy_hash_changed
+    - base_image_changed
+    - model_mount_changed
+    - revocation_epoch_changed
+  receipt_refs:
+    - receipt://...
+```
+
+```yaml
 CloudRoute:
   route_id: cloud_route://...
   workload_id: workload://...
@@ -470,7 +588,8 @@ CloudCandidate:
     provider_connector | hyperscaler | cloud_gpu_provider |
     user_specified | local_inventory | customer_cloud |
     depin_compute_market |
-    decentralized_storage_network | enterprise_cluster
+    decentralized_storage_network | akash | filecoin |
+    enterprise_cluster
   provider_ref: provider://...
   resource_type:
     gpu | cpu | storage | enclave | vm | container |
@@ -488,6 +607,10 @@ CloudCandidate:
     descriptor_ref: attestation://... | null
   storage_persistence:
     ephemeral | persistent | archive | unknown
+  zero_to_idle_support:
+    stop_compute: true | false
+    preserve_provider_volume: true | false
+    restore_from_agentgres_archive: true | false
   network_profile: network_profile://...
   reputation_score: number | null
   risk_labels:
@@ -596,6 +719,12 @@ Agentgres operations, receipt refs, artifact refs, and projection watermarks.
   unless policy explicitly allows plaintext custody.
 - Fleet cannot treat a CloudRoute candidate as authority, proof of
   provider privacy, or permission to spend funds or release secrets.
+- Fleet cannot treat Akash persistent volumes, Filecoin deals, CIDs, or
+  provider logs as restore validity without Agentgres state roots, artifact
+  refs, lifecycle state, and receipts.
+- Fleet cannot treat zero-to-idle as simple container sleep when protected
+  state, access tokens, provider leases, or private workspace custody are in
+  scope.
 - Fleet cannot compare provider candidates on price alone when privacy posture,
   attestation, jurisdiction, persistence, storage locality, or cTEE posture
   materially affects the workload.
@@ -633,6 +762,9 @@ Reject these:
 14. Treating cheap DePIN GPU availability as a privacy guarantee.
 15. Treating confidential compute as magic without attestation, key-release,
     workload-design, cTEE, side-channel, and provider assumptions.
+16. Treating provider persistent volumes as canonical application state.
+17. Restoring from Filecoin/CAS/S3/local bytes without Agentgres-backed
+    restore/import operations and payload verification.
 
 ## Related Canon
 
