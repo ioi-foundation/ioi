@@ -3228,22 +3228,22 @@ function runDocs() {
       /Slices\s+1377-1383 moved those authority boundaries into Rust daemon-core ownership/.test(
         terminalBlockers,
       ) &&
-      /Remaining model_mount blockers are live external hosted catalog\s+discovery\/materialization, deeper wallet\/cTEE route authority and revocation policy/.test(
+      /Remaining model_mount blockers are cTEE secret-injection depth for\s+outbound hosted catalog\/download edges, hosted endpoint\/download\s+materialization, deeper wallet\/cTEE route authority and revocation policy/.test(
         terminalBlockers,
       ) &&
-      !/live external backend binary spawning\/supervision|hosted\/provider transport|live cTEE secret injection into outbound hosted network requests|live external hosted API execution|actual external MCP transport\s+execution\/backend discovery/.test(
+      !/live external backend binary spawning\/supervision|hosted\/provider transport|live cTEE secret injection into outbound hosted network requests|live external hosted API execution|live external hosted catalog\s+discovery\/materialization|actual external MCP transport\s+execution\/backend discovery/.test(
         terminalBlockers,
       ),
     [MATRIX, IMPLEMENTATION_MATRIX, GUIDE],
-    "migration matrix terminal blockers must not relist model_mount live transport, backend supervision, cTEE egress, or invocation-authority cuts after Slices 1377-1383",
+    "migration matrix terminal blockers must not relist model_mount live transport, backend supervision, cTEE egress, invocation-authority, or hosted catalog transport cuts after Slices 1377-1383 and 1405",
   );
   assertCheck(
     result,
     "matrix-model-mount-route-row-current-blockers-reconciled",
-    /Move remaining live external hosted catalog\/discovery materialization, deeper wallet\/cTEE route authority and revocation policy, conversation\/provider\/instance replay depth where still adapter-shaped, and stable SDK\/IDE\/CLI protocol APIs over Rust records/.test(
+    /Move remaining cTEE secret-injection depth for hosted catalog\/download edges, hosted endpoint\/download materialization, deeper wallet\/cTEE route authority and revocation policy, conversation\/provider\/instance replay depth where still adapter-shaped, and stable SDK\/IDE\/CLI protocol APIs over Rust records/.test(
       modelMountingRouteRow,
     ) &&
-      /Move remaining live external hosted catalog\/discovery materialization, deeper wallet\/cTEE route authority and revocation policy, conversation\/provider\/instance replay depth where still adapter-shaped, and stable IDE\/CLI\/SDK protocol APIs over Rust records/.test(
+      /Move remaining cTEE secret-injection depth for hosted catalog\/download edges, hosted endpoint\/download materialization, deeper wallet\/cTEE route authority and revocation policy, conversation\/provider\/instance replay depth where still adapter-shaped, and stable IDE\/CLI\/SDK protocol APIs over Rust records/.test(
         modelMountingCoreBoundaryRow,
       ) &&
       !/Move remaining live external backend binary spawning\/supervision, hosted\/provider transport, OAuth execution\/materialization, hosted catalog materialization, invocation authority/.test(
@@ -24019,7 +24019,13 @@ function runReceipts() {
         read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/inventory.rs"),
       ) &&
       /plan_provider_inventory/.test(read("crates/services/src/agentic/runtime/kernel/model_mount.rs")) &&
-      /provider_inventory_item_refs/.test(
+      /provider_inventory_materialization/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/inventory.rs"),
+      ) &&
+      /hosted_provider_catalog_transport/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/inventory.rs"),
+      ) &&
+      /rust_hosted_provider_catalog_live_network_io_executed/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/inventory.rs"),
       ) &&
       /provider_inventory_evidence_refs/.test(
@@ -26121,15 +26127,38 @@ function runReceipts() {
 	      ) &&
 	      /rust_model_mount_hosted_provider_inventory/.test(providerOperationsTest) &&
 	      /rust_hosted_provider_metadata_transport_materialized/.test(providerOperationsTest) &&
-	      /assert\.equal\(models\.evidence_refs\.includes\("hosted_provider_transport_not_executed"\),\s*false\)/.test(
-	        providerOperationsTest,
-	      ) &&
+      /assert\.equal\(models\.evidence_refs\.includes\("rust_hosted_provider_catalog_live_network_io_executed"\),\s*true\)/.test(
+        providerOperationsTest,
+      ) &&
+      /assert\.equal\(models\.transport_contract\.live_network_io,\s*true\)/.test(
+        providerOperationsTest,
+      ) &&
+      /hosted_catalog_transport_request_hash/.test(providerOperations) &&
+      /hosted_catalog_transport_response_hash/.test(providerOperations) &&
+      /assert\.equal\(models\.evidence_refs\.includes\("hosted_provider_transport_not_executed"\),\s*false\)/.test(
+        providerOperationsTest,
+      ) &&
 	      /hosted_provider_inventory_materializes_contained_metadata_transport_in_rust/.test(
 	        modelMountCore,
 	      ) &&
-	      !/"(?:js_transport_invocation|command_transport_fallback|binary_bridge_fallback|compatibility_fallback)": false/.test(
-	        modelMountCore,
-	      ) &&
+      /hosted_provider_catalog_transport/.test(modelMountCore) &&
+      /rust_hosted_provider_catalog_live_network_io_executed/.test(modelMountCore) &&
+      /hosted_catalog_transport_request_hash/.test(modelMountCore) &&
+      /Slice 1405 hard-cuts hosted provider `list_models` catalog execution into Rust\s+daemon core/.test(
+        guide,
+      ) &&
+      /Slice 1405 hard-cuts hosted provider catalog `list_models` live transport/.test(
+        matrix,
+      ) &&
+      /Rust-contained live hosted catalog transport contract/.test(
+        implementationMatrix,
+      ) &&
+      !/Live external hosted catalog API execution, hosted\/provider endpoint discovery/.test(
+        matrix,
+      ) &&
+		      !/"(?:js_transport_invocation|command_transport_fallback|binary_bridge_fallback|compatibility_fallback)": false/.test(
+		        modelMountCore,
+		      ) &&
 	      /assertRetiredProviderTransportProofFieldsAbsent/.test(providerOperations) &&
 	      /hosted provider inventory rejects retired transport fallback proof fields/.test(
 	        providerOperationsTest,
@@ -26159,13 +26188,16 @@ function runReceipts() {
       ),
     [
       "packages/runtime-daemon/src/model-mounting/provider-operations.mjs",
-      "packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs",
-      "packages/runtime-daemon/src/model-mounting/store.mjs",
-      "packages/runtime-daemon/src/model-mounting/receipt-write-guards.mjs",
-      "packages/runtime-daemon/src/model-mounting/store.test.mjs",
-    ],
-    "Phase 9/10 is pending: public provider inventory list APIs must be Rust-owned for fixture/native-local and hosted metadata providers before JS driver, receipt, or local fallback truth paths can return",
-  );
+	      "packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs",
+	      "packages/runtime-daemon/src/model-mounting/store.mjs",
+	      "packages/runtime-daemon/src/model-mounting/receipt-write-guards.mjs",
+	      "packages/runtime-daemon/src/model-mounting/store.test.mjs",
+	      GUIDE,
+	      MATRIX,
+	      IMPLEMENTATION_MATRIX,
+	    ],
+	    "Phase 9/10 is pending: public provider inventory list APIs must be Rust-owned for fixture/native-local and hosted live catalog providers before JS driver, receipt, or local fallback truth paths can return",
+	  );
   assertCheck(
     result,
     "model-mount-provider-health-js-facade-retired",

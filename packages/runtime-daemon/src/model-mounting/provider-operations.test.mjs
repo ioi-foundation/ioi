@@ -462,6 +462,15 @@ function fakeState() {
               : "hosted_provider_catalog_metadata_recorded",
           ]
           : []),
+        ...(hostedProvider && request.action === "list_models"
+          ? [
+            "rust_hosted_provider_catalog_live_network_io_executed",
+            "rust_hosted_provider_catalog_transport_executor_owned",
+            "rust_hosted_provider_catalog_transport_request_bound",
+            "rust_hosted_provider_catalog_transport_response_bound",
+            "rust_hosted_provider_endpoint_url_bound",
+          ]
+          : []),
       ];
       const transportContract = {
         transport_execution_status: "rust_materialized",
@@ -472,8 +481,22 @@ function fakeState() {
             ? "native_local_inventory"
             : "fixture_inventory",
         metadata_item_refs: itemRefs,
+        live_network_io: hostedProvider && request.action === "list_models",
         plaintext_secret_material_returned: false,
       };
+      if (hostedProvider && request.action === "list_models") {
+        Object.assign(transportContract, {
+          method: "GET",
+          path: request.api_format === "ollama" || request.provider_kind === "ollama" ? "/api/tags" : "/models",
+          base_url_hash: "sha256:hosted-catalog-base-url",
+          hosted_catalog_transport_request_ref:
+            "model_mount://hosted_catalog_transport_request/fake-hosted-catalog",
+          hosted_catalog_transport_request_hash: "sha256:hosted-catalog-request",
+          hosted_catalog_transport_response_hash: "sha256:hosted-catalog-response",
+          hosted_catalog_transport_status: "rust_hosted_provider_catalog_transport_response_bound",
+          ctee_secret_injection: "ctee_egress_resolver_ref",
+        });
+      }
       const inventoryHash = `sha256:${request.provider_ref}:${request.action}`;
       const recordId = `provider_inventory_${request.provider_ref.replace(/[^a-z0-9._-]+/gi, "_").replace(/^_+|_+$/g, "")}_${request.action}_test`;
       const providerInventoryRecord = {
@@ -499,6 +522,14 @@ function fakeState() {
         transport_execution_status: "rust_materialized",
         transport_execution_owner: "rust_daemon_core.model_mount.provider_inventory",
         transport_materialization_kind: transportContract.transport_materialization_kind,
+        live_network_io: transportContract.live_network_io,
+        method: transportContract.method ?? null,
+        path: transportContract.path ?? null,
+        base_url_hash: transportContract.base_url_hash ?? null,
+        hosted_catalog_transport_request_ref: transportContract.hosted_catalog_transport_request_ref ?? null,
+        hosted_catalog_transport_request_hash: transportContract.hosted_catalog_transport_request_hash ?? null,
+        hosted_catalog_transport_response_hash: transportContract.hosted_catalog_transport_response_hash ?? null,
+        hosted_catalog_transport_status: transportContract.hosted_catalog_transport_status ?? null,
         plaintext_secret_material_returned: false,
         inventory_hash: inventoryHash,
         record_dir: "model-provider-inventory",
@@ -1387,6 +1418,16 @@ test("hosted provider inventory commits Rust metadata records without JS driver 
     kind: "custom_http",
     label: "Remote",
     status: "available",
+    base_url: "http://127.0.0.1:9999/v1",
+    provider_auth_materialization_ref:
+      "agentgres://model-mounting/model-provider-auth-materializations/provider.remote",
+    outbound_header_binding_ref:
+      "provider_auth_header://provider.remote#sha256:provider-auth",
+    auth_header_materialization_status: "rust_ctee_outbound_header_bound",
+    ctee_egress_resolver_ref:
+      "ctee://model-mount/egress-resolver/provider.remote#sha256:ctee-egress",
+    ctee_egress_resolver_hash: "sha256:ctee-egress",
+    ctee_egress_resolution_status: "rust_ctee_outbound_egress_resolved",
     item_refs: ["model://remote/configured"],
     loaded_item_refs: ["model_instance://remote/configured"],
     discovery: { evidenceRefs: ["remote_provider"] },
@@ -1410,6 +1451,19 @@ test("hosted provider inventory commits Rust metadata records without JS driver 
   assert.equal(state.modelMountInventoryRequests.length, 2);
   assert.equal(state.modelMountInventoryRequests[0].provider_ref, "provider://provider.remote");
   assert.equal(state.modelMountInventoryRequests[0].provider_kind, "custom_http");
+  assert.equal(state.modelMountInventoryRequests[0].base_url, "http://127.0.0.1:9999/v1");
+  assert.equal(
+    state.modelMountInventoryRequests[0].provider_auth_materialization_ref,
+    "agentgres://model-mounting/model-provider-auth-materializations/provider.remote",
+  );
+  assert.equal(
+    state.modelMountInventoryRequests[0].outbound_header_binding_ref,
+    "provider_auth_header://provider.remote#sha256:provider-auth",
+  );
+  assert.equal(
+    state.modelMountInventoryRequests[0].ctee_egress_resolution_status,
+    "rust_ctee_outbound_egress_resolved",
+  );
   assert.equal(
     state.modelMountInventoryRequests[0].execution_backend,
     "rust_model_mount_hosted_provider_inventory",
@@ -1427,9 +1481,19 @@ test("hosted provider inventory commits Rust metadata records without JS driver 
   assert.equal(models.record.rust_core_boundary, "model_mount.provider_inventory");
   assert.equal(models.evidence_refs.includes("rust_model_mount_hosted_provider_inventory_backend"), true);
   assert.equal(models.evidence_refs.includes("rust_hosted_provider_metadata_transport_materialized"), true);
+  assert.equal(models.evidence_refs.includes("rust_hosted_provider_catalog_live_network_io_executed"), true);
+  assert.equal(models.evidence_refs.includes("rust_hosted_provider_catalog_transport_request_bound"), true);
+  assert.equal(models.evidence_refs.includes("rust_hosted_provider_catalog_transport_response_bound"), true);
   assert.equal(models.evidence_refs.includes("hosted_provider_transport_not_executed"), false);
   assert.equal(models.transport_execution_status, "rust_materialized");
+  assert.equal(models.transport_contract.live_network_io, true);
+  assert.equal(
+    models.transport_contract.hosted_catalog_transport_status,
+    "rust_hosted_provider_catalog_transport_response_bound",
+  );
   assert.equal(models.record.transport_execution_owner, "rust_daemon_core.model_mount.provider_inventory");
+  assert.equal(models.record.live_network_io, true);
+  assert.equal(models.record.hosted_catalog_transport_request_hash, "sha256:hosted-catalog-request");
   assert.equal(Object.hasOwn(models.record, "command_transport_fallback"), false);
   assert.equal(Object.hasOwn(models.record.transport_contract, "command_transport_fallback"), false);
   assert.equal(models.commit.record_id, models.record_id);

@@ -9287,12 +9287,12 @@ hosted metadata providers has moved from fail-closed JS list facades to the Rust
 envelopes, receive Rust-authored `model-provider-inventory` records, and commit
 only those records through Rust Agentgres model_mount record-state admission
 before inventory truth can return. Hosted/nonlocal provider inventory uses the
-Rust `rust_model_mount_hosted_provider_inventory` metadata backend, records only
-canonical provider metadata/item refs, carries a Rust-contained metadata
-transport contract with `rust_materialized` execution status, cTEE
-no-plaintext custody evidence, wallet.network transport authority evidence, and
-no retired JS/command/binary-bridge/compatibility fallback proof fields, and still
-avoids JS driver/network execution. `providerInventoryRecords()` now
+Rust `rust_model_mount_hosted_provider_inventory` backend, records canonical
+provider metadata/item refs from the Rust-owned hosted catalog executor, carries
+a live hosted catalog transport contract with request/response hashes, endpoint
+hashes, cTEE no-plaintext custody evidence, wallet.network transport authority
+evidence, and no retired JS/command/binary-bridge/compatibility fallback proof
+fields, and still avoids JS driver/network execution. `providerInventoryRecords()` now
 calls Rust read-projection kind `provider_inventory_records` with runtime
 `state_dir`; Rust replays persisted `model-provider-inventory/*.json` Agentgres
 records and filters public truth to Rust-authored provider inventory records.
@@ -9330,10 +9330,10 @@ Rust read-projection kinds with runtime `state_dir`; Rust filters out
 JS-authored inventory, materializes only Rust fixture/native-local
 provider/artifact/runtime-catalog/OpenAI-list records, and the dedicated JS
 request state stays empty so JS topology maps cannot return as provider or
-catalog truth. Hosted/provider endpoint discovery and materialization remain
-open because current provider inventory records do not yet carry hosted
-endpoint truth; public endpoint-list truth is now Rust-owned from route-control
-endpoint-resolution replay.
+catalog truth. Hosted endpoint discovery and materialization remain open because
+current provider inventory records carry live hosted model catalog truth but not
+hosted endpoint truth; public endpoint-list truth is now Rust-owned from
+route-control endpoint-resolution replay.
 Public catalog search now consumes that Rust-owned inventory truth through Rust
 read-projection kind `catalog_search`. `catalogSearch()` sends only canonical
 query facts plus runtime `state_dir`; Rust replays admitted
@@ -9350,10 +9350,14 @@ and returns catalog provider status, storage status, last-search summary, and
 result rows with catalog-status evidence. JS `catalog_status_input`, provider
 port iteration, storage summarization, `lastCatalogSearch` readback, and status
 aggregation stay retired.
-Live external hosted catalog API execution and dynamic hosted catalog
-materialization remain non-terminal, but the public hosted inventory facade no
-longer fails closed, returns the retired hosted-transport-not-executed marker, or
-returns through JS driver execution. Public
+Live external hosted catalog API execution for provider inventory is now
+Rust-owned: hosted `list_models` requires a canonical endpoint, executes the
+catalog request in Rust, and binds request/response hashes before Agentgres
+record-state commit. Remaining hosted materialization work is cTEE
+secret-injection depth, hosted endpoint/download materialization, and richer
+replay/protocol coverage; the public hosted inventory facade no longer fails
+closed, returns the retired hosted-transport-not-executed marker, or returns
+through JS driver execution. Public
 provider upsert now moves through Rust daemon-core
 `plan_model_mount_provider_control`: the mounted daemon facade sends canonical
 provider facts, never resolves vault material, receives a Rust-authored
@@ -10841,10 +10845,10 @@ and OAuth start/callback/exchange/refresh/revoke still enter Rust
 `plan_model_mount_catalog_provider_control` and commit
 `model-catalog-provider-controls` records through Agentgres before public
 truth returns. Conformance guards the absent daemon fields, persistence map
-entry, store directory, and focused absence assertions. Remaining work is
-live cTEE secret injection into outbound hosted network requests, richer hosted catalog transport/materialization,
-and stable SDK/IDE/CLI catalog-provider APIs, not a JS catalog-provider config
-or runtime-material cache fallback.
+entry, store directory, and focused absence assertions. Remaining work is cTEE
+secret-injection depth for hosted catalog/download edges, hosted endpoint/download
+materialization, and stable SDK/IDE/CLI catalog-provider APIs, not a JS
+catalog-provider config or runtime-material cache fallback.
 
 Slice 1330 hard-cuts the model_mount invocation helper compatibility-alias
 path. Migrated model invocation, provider execution, and provider-result helper
@@ -12308,9 +12312,27 @@ set, writes those refs into the transport contract and Agentgres
 evidence as retired truth transport. The deleted JS `providerInventoryItemRefs`
 and `providerInventoryEvidenceRefs` helpers cannot return as compatibility
 scaffolding, while conformance guards both the Rust rejection and the JS
-request-field absence. Live external hosted catalog API execution remains a
-separate non-terminal transport/materialization blocker; this cut removes the
-duplicate JS catalog/evidence authoring path from the migrated hot path.
+request-field absence. This cut removes the duplicate JS catalog/evidence
+authoring path from the migrated hot path; Slice 1405 moves hosted `list_models`
+live catalog transport itself into Rust.
+
+Slice 1405 hard-cuts hosted provider `list_models` catalog execution into Rust
+daemon core. Hosted provider inventory requests now forward only canonical
+endpoint, provider-auth materialization, outbound header binding, and cTEE egress
+resolver refs; Rust requires a hosted `base_url`, executes the live catalog GET
+(`/models` for OpenAI-compatible endpoints and `/api/tags` for Ollama), parses
+provider model ids, binds the request/response hashes plus endpoint hash into
+the transport contract and `model-provider-inventory` Agentgres record, and
+emits live-network and cTEE custody evidence before public inventory truth can
+return. The JS edge cannot provide hosted model refs, evidence refs, fallback
+proof fields, or deterministic placeholder catalog truth, and conformance now
+guards the Rust transport executor, live network evidence, request/response hash
+binding, missing-endpoint failure, and JS request-field absence. Remaining
+model_mount blockers for this lane are cTEE secret-injection depth for outbound
+hosted catalog/download edges, hosted endpoint/download materialization, deeper
+wallet/cTEE route authority and revocation policy, richer provider/instance
+replay joins, and stable IDE/CLI/SDK protocol coverage over the admitted Rust
+records.
 
 ## Final Doctrine
 

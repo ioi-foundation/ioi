@@ -5110,6 +5110,25 @@ function modelMountProviderInventoryRequest(provider, options = {}) {
     driver: provider?.driver ?? null,
     backend_ref: provider?.backend_ref ?? provider?.backend_id ?? provider?.backendId ?? null,
     provider_status: provider?.status ?? null,
+    base_url: optionalString(provider?.base_url ?? provider?.baseUrl),
+    provider_auth_materialization_ref: optionalString(
+      provider?.provider_auth_materialization_ref ?? provider?.providerAuthMaterializationRef,
+    ),
+    outbound_header_binding_ref: optionalString(
+      provider?.outbound_header_binding_ref ?? provider?.outboundHeaderBindingRef,
+    ),
+    auth_header_materialization_status: optionalString(
+      provider?.auth_header_materialization_status ?? provider?.authHeaderMaterializationStatus,
+    ),
+    ctee_egress_resolver_ref: optionalString(
+      provider?.ctee_egress_resolver_ref ?? provider?.cteeEgressResolverRef,
+    ),
+    ctee_egress_resolver_hash: optionalString(
+      provider?.ctee_egress_resolver_hash ?? provider?.cteeEgressResolverHash,
+    ),
+    ctee_egress_resolution_status: optionalString(
+      provider?.ctee_egress_resolution_status ?? provider?.cteeEgressResolutionStatus,
+    ),
   };
 }
 
@@ -5184,6 +5203,8 @@ function assertRustAuthoredProviderInventoryResult(result = {}, options = {}) {
   const recordId = result.record_id ?? inventoryRecord.id ?? inventoryRecord.record_id;
   const operationKind = result.operation_kind ?? record.operation_kind ?? inventoryRecord.operation_kind;
   const rustCoreBoundary = result.rust_core_boundary ?? record.rust_core_boundary ?? inventoryRecord.rust_core_boundary;
+  const executionBackend =
+    result.executionBackend ?? result.execution_backend ?? record.execution_backend ?? inventoryRecord.execution_backend;
   const transportContract =
     result.transport_contract && typeof result.transport_contract === "object" && !Array.isArray(result.transport_contract)
       ? result.transport_contract
@@ -5238,6 +5259,43 @@ function assertRustAuthoredProviderInventoryResult(result = {}, options = {}) {
       missing.push("transport_contract.plaintext_secret_material_returned_false");
     }
     assertRetiredProviderTransportProofFieldsAbsent(transportContract, "transport_contract", missing);
+  }
+  const hostedCatalogList =
+    executionBackend === RUST_MODEL_MOUNT_HOSTED_PROVIDER_INVENTORY_BACKEND &&
+    record.action === "list_models";
+  if (hostedCatalogList && transportContract) {
+    for (const field of [
+      "hosted_catalog_transport_request_ref",
+      "hosted_catalog_transport_request_hash",
+      "hosted_catalog_transport_response_hash",
+      "hosted_catalog_transport_status",
+      "base_url_hash",
+    ]) {
+      if (!transportContract[field]) missing.push(`transport_contract.${field}`);
+      if (!inventoryRecord[field]) missing.push(`record.${field}`);
+    }
+    if (transportContract.live_network_io !== true) {
+      missing.push("transport_contract.live_network_io_true");
+    }
+    if (inventoryRecord.live_network_io !== true) {
+      missing.push("record.live_network_io_true");
+    }
+    if (transportContract.hosted_catalog_transport_status !== "rust_hosted_provider_catalog_transport_response_bound") {
+      missing.push("transport_contract.hosted_catalog_transport_status");
+    }
+    if (inventoryRecord.hosted_catalog_transport_status !== "rust_hosted_provider_catalog_transport_response_bound") {
+      missing.push("record.hosted_catalog_transport_status");
+    }
+    for (const ref of [
+      "rust_hosted_provider_catalog_live_network_io_executed",
+      "rust_hosted_provider_catalog_transport_executor_owned",
+      "rust_hosted_provider_catalog_transport_request_bound",
+      "rust_hosted_provider_catalog_transport_response_bound",
+      "rust_hosted_provider_endpoint_url_bound",
+    ]) {
+      if (!evidenceRefs.includes(ref)) missing.push(`evidence_refs.${ref}`);
+      if (!recordEvidenceRefs.includes(ref)) missing.push(`record.evidence_refs.${ref}`);
+    }
   }
   assertRetiredProviderTransportProofFieldsAbsent(result, "result", missing);
   assertRetiredProviderTransportProofFieldsAbsent(record, "result", missing);

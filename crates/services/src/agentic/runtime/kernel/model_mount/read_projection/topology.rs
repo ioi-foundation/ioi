@@ -2590,6 +2590,16 @@ fn catalog_search_limit(input: &Value) -> usize {
 }
 
 fn model_id_from_item_ref(item_ref: &str) -> String {
+    for prefix in ["model://", "model_instance://"] {
+        if let Some(rest) = item_ref.strip_prefix(prefix) {
+            return rest
+                .split_once('/')
+                .map(|(_, model_id)| model_id)
+                .filter(|model_id| !model_id.trim().is_empty())
+                .unwrap_or(rest)
+                .to_string();
+        }
+    }
     item_ref
         .rsplit(|ch| matches!(ch, '/' | ':'))
         .find(|segment| !segment.trim().is_empty())

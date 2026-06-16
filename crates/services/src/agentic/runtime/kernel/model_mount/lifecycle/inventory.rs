@@ -1,9 +1,10 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
+use std::time::Duration;
 
 use super::super::{
-    require_non_empty, ModelMountError, MODEL_MOUNT_PROVIDER_INVENTORY_SCHEMA_VERSION,
+    require_non_empty, sha256_hex, ModelMountError, MODEL_MOUNT_PROVIDER_INVENTORY_SCHEMA_VERSION,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -21,6 +22,20 @@ pub struct ModelMountProviderInventoryRequest {
     pub backend_ref: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub provider_status: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub base_url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provider_auth_materialization_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub outbound_header_binding_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub auth_header_materialization_status: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ctee_egress_resolver_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ctee_egress_resolver_hash: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ctee_egress_resolution_status: Option<String>,
     #[serde(default)]
     pub item_refs: Vec<String>,
     #[serde(default)]
@@ -83,7 +98,10 @@ pub(super) fn plan_provider_inventory(
     request: &ModelMountProviderInventoryRequest,
 ) -> Result<ModelMountProviderInventoryResult, ModelMountError> {
     request.validate()?;
-    let item_refs = provider_inventory_item_refs(request);
+    let ProviderInventoryMaterialization {
+        item_refs,
+        transport,
+    } = provider_inventory_materialization(request)?;
     let mut result = ModelMountProviderInventoryResult {
         schema_version: MODEL_MOUNT_PROVIDER_INVENTORY_SCHEMA_VERSION.to_string(),
         provider_ref: request.provider_ref.clone(),
@@ -97,8 +115,12 @@ pub(super) fn plan_provider_inventory(
         execution_backend: request.execution_backend.clone(),
         item_refs: item_refs.clone(),
         item_count: item_refs.len(),
-        evidence_refs: provider_inventory_evidence_refs(request),
-        transport_contract: provider_inventory_transport_contract(request, &item_refs),
+        evidence_refs: provider_inventory_evidence_refs(request, transport.as_ref()),
+        transport_contract: provider_inventory_transport_contract(
+            request,
+            &item_refs,
+            transport.as_ref(),
+        ),
         inventory_hash: String::new(),
         rust_core_boundary: "model_mount.provider_inventory".to_string(),
         record_dir: "model-provider-inventory".to_string(),
@@ -110,6 +132,24 @@ pub(super) fn plan_provider_inventory(
     result.record_id = provider_inventory_record_id(&result);
     result.record = provider_inventory_record(&result);
     Ok(result)
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ProviderInventoryMaterialization {
+    item_refs: Vec<String>,
+    transport: Option<HostedProviderCatalogTransportBinding>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct HostedProviderCatalogTransportBinding {
+    request_ref: String,
+    method: String,
+    path: String,
+    base_url_hash: String,
+    request_hash: String,
+    response_hash: String,
+    status: String,
+    auth_bound: bool,
 }
 
 fn provider_inventory_operation_kind(request: &ModelMountProviderInventoryRequest) -> String {
@@ -169,45 +209,45 @@ fn is_hosted_provider_inventory_backend(request: &ModelMountProviderInventoryReq
     )
 }
 
-fn provider_inventory_item_refs(request: &ModelMountProviderInventoryRequest) -> Vec<String> {
+fn provider_inventory_materialization(
+    request: &ModelMountProviderInventoryRequest,
+) -> Result<ProviderInventoryMaterialization, ModelMountError> {
     if is_native_local_provider_inventory_backend(request) {
-        if request.action.trim() == "list_loaded" {
+        let item_refs = if request.action.trim() == "list_loaded" {
             vec!["model_instance://native/qwen3".to_string()]
         } else {
             vec!["model://native/qwen3".to_string()]
-        }
+        };
+        Ok(ProviderInventoryMaterialization {
+            item_refs,
+            transport: None,
+        })
     } else if is_hosted_provider_inventory_backend(request) {
         hosted_provider_inventory_item_refs(request)
     } else if request.action.trim() == "list_loaded" {
-        vec!["model_instance://fixture/qwen3".to_string()]
+        Ok(ProviderInventoryMaterialization {
+            item_refs: vec!["model_instance://fixture/qwen3".to_string()],
+            transport: None,
+        })
     } else {
-        vec!["model://fixture/qwen3".to_string()]
+        Ok(ProviderInventoryMaterialization {
+            item_refs: vec!["model://fixture/qwen3".to_string()],
+            transport: None,
+        })
     }
 }
 
 fn hosted_provider_inventory_item_refs(
     request: &ModelMountProviderInventoryRequest,
-) -> Vec<String> {
+) -> Result<ProviderInventoryMaterialization, ModelMountError> {
     let provider = hosted_provider_catalog_segment(request);
     if request.action.trim() == "list_loaded" {
-        return vec![format!("model_instance://{provider}/hosted-active")];
+        return Ok(ProviderInventoryMaterialization {
+            item_refs: vec![format!("model_instance://{provider}/hosted-active")],
+            transport: None,
+        });
     }
-    match provider.as_str() {
-        "openai" => vec![
-            "model://openai/hosted-chat".to_string(),
-            "model://openai/hosted-embeddings".to_string(),
-        ],
-        "anthropic" => vec!["model://anthropic/hosted-chat".to_string()],
-        "gemini" => vec!["model://gemini/hosted-chat".to_string()],
-        "depin_tee" => vec!["model://depin_tee/confidential-hosted-catalog".to_string()],
-        "custom_http" | "openai_compatible" => {
-            vec![format!("model://{provider}/hosted-compatible")]
-        }
-        "ollama" | "vllm" | "llama_cpp" | "lm_studio" => {
-            vec![format!("model://{provider}/hosted-runtime-catalog")]
-        }
-        _ => vec![format!("model://{provider}/hosted-catalog")],
-    }
+    hosted_provider_catalog_transport(request, &provider)
 }
 
 fn hosted_provider_catalog_segment(request: &ModelMountProviderInventoryRequest) -> String {
@@ -224,6 +264,204 @@ fn hosted_provider_catalog_segment(request: &ModelMountProviderInventoryRequest)
         return record_id_segment(driver, "hosted_provider");
     }
     "hosted_provider".to_string()
+}
+
+fn hosted_provider_catalog_transport(
+    request: &ModelMountProviderInventoryRequest,
+    provider: &str,
+) -> Result<ProviderInventoryMaterialization, ModelMountError> {
+    let base_url = request
+        .base_url
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or(ModelMountError::HostedProviderInvocationMissingEndpointUrl)?;
+    let path = hosted_provider_catalog_path(request);
+    let url = hosted_provider_catalog_url(base_url, path);
+    let client = reqwest::blocking::Client::builder()
+        .timeout(Duration::from_secs(30))
+        .build()
+        .map_err(|error| {
+            ModelMountError::HostedProviderTransportExecutionFailed(error.to_string())
+        })?;
+    let mut builder = client
+        .get(url)
+        .header("accept", "application/json")
+        .header("x-ioi-ctee-secret-custody", "no-plaintext");
+    if let Some(value) = trimmed_option(&request.provider_auth_materialization_ref) {
+        builder = builder.header("x-ioi-provider-auth-materialization-ref", value);
+    }
+    if let Some(value) = trimmed_option(&request.outbound_header_binding_ref) {
+        builder = builder.header("x-ioi-outbound-header-binding-ref", value);
+    }
+    if let Some(value) = trimmed_option(&request.auth_header_materialization_status) {
+        builder = builder.header("x-ioi-auth-header-materialization-status", value);
+    }
+    if let Some(value) = trimmed_option(&request.ctee_egress_resolver_ref) {
+        builder = builder.header("x-ioi-ctee-egress-resolver-ref", value);
+    }
+    if let Some(value) = trimmed_option(&request.ctee_egress_resolver_hash) {
+        builder = builder.header("x-ioi-ctee-egress-resolver-hash", value);
+    }
+    if let Some(value) = trimmed_option(&request.ctee_egress_resolution_status) {
+        builder = builder.header("x-ioi-ctee-egress-resolution-status", value);
+    }
+    let response = builder.send().map_err(|error| {
+        ModelMountError::HostedProviderTransportExecutionFailed(error.to_string())
+    })?;
+    let status = response.status();
+    let response_text = response.text().map_err(|error| {
+        ModelMountError::HostedProviderTransportExecutionFailed(error.to_string())
+    })?;
+    if !status.is_success() {
+        return Err(ModelMountError::HostedProviderTransportExecutionFailed(
+            format!("hosted provider catalog transport returned HTTP {status}"),
+        ));
+    }
+    let item_refs = hosted_provider_catalog_item_refs(request, provider, &response_text)?;
+    let transport =
+        hosted_provider_catalog_transport_binding(request, base_url, path, &response_text)?;
+    Ok(ProviderInventoryMaterialization {
+        item_refs,
+        transport: Some(transport),
+    })
+}
+
+fn hosted_provider_catalog_path(request: &ModelMountProviderInventoryRequest) -> &'static str {
+    let provider_kind = request.provider_kind.trim();
+    let api_format = request.api_format.as_deref().unwrap_or("").trim();
+    let driver = request.driver.as_deref().unwrap_or("").trim();
+    if provider_kind == "ollama" || api_format == "ollama" || driver == "ollama" {
+        "/api/tags"
+    } else {
+        "/models"
+    }
+}
+
+fn hosted_provider_catalog_url(base_url: &str, path: &str) -> String {
+    format!(
+        "{}/{}",
+        base_url.trim_end_matches('/'),
+        path.trim_start_matches('/')
+    )
+}
+
+fn hosted_provider_catalog_item_refs(
+    request: &ModelMountProviderInventoryRequest,
+    provider: &str,
+    response_text: &str,
+) -> Result<Vec<String>, ModelMountError> {
+    let value = serde_json::from_str::<Value>(response_text).map_err(|error| {
+        ModelMountError::HostedProviderTransportExecutionFailed(error.to_string())
+    })?;
+    let ids = if hosted_provider_catalog_path(request) == "/api/tags" {
+        value
+            .get("models")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(|model| {
+                string_value_any(model, &["name", "model", "id"]).map(str::to_string)
+            })
+            .collect::<Vec<_>>()
+    } else {
+        value
+            .get("data")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(|model| {
+                string_value_any(model, &["id", "model", "name"]).map(str::to_string)
+            })
+            .collect::<Vec<_>>()
+    };
+    if ids.is_empty() {
+        return Err(ModelMountError::HostedProviderTransportExecutionFailed(
+            "hosted provider catalog transport returned no model ids".to_string(),
+        ));
+    }
+    Ok(ids
+        .into_iter()
+        .map(|id| format!("model://{provider}/{id}"))
+        .collect())
+}
+
+fn hosted_provider_catalog_transport_binding(
+    request: &ModelMountProviderInventoryRequest,
+    base_url: &str,
+    path: &str,
+    response_text: &str,
+) -> Result<HostedProviderCatalogTransportBinding, ModelMountError> {
+    let base_url_hash = format!("sha256:{}", sha256_hex(base_url.as_bytes())?);
+    let method = "GET".to_string();
+    let auth_bound = trimmed_option(&request.provider_auth_materialization_ref).is_some()
+        || trimmed_option(&request.outbound_header_binding_ref).is_some()
+        || trimmed_option(&request.ctee_egress_resolver_ref).is_some();
+    let request_seed = json!({
+        "schema": "ioi.model_mount.hosted_catalog_transport_request.v1",
+        "provider_ref": request.provider_ref,
+        "provider_kind": request.provider_kind,
+        "action": request.action,
+        "method": method,
+        "path": path,
+        "base_url_hash": base_url_hash,
+        "provider_auth_materialization_ref": trimmed_option(&request.provider_auth_materialization_ref),
+        "outbound_header_binding_ref": trimmed_option(&request.outbound_header_binding_ref),
+        "auth_header_materialization_status": trimmed_option(&request.auth_header_materialization_status),
+        "ctee_egress_resolver_ref": trimmed_option(&request.ctee_egress_resolver_ref),
+        "ctee_egress_resolver_hash": trimmed_option(&request.ctee_egress_resolver_hash),
+        "ctee_egress_resolution_status": trimmed_option(&request.ctee_egress_resolution_status),
+        "transport_execution_owner": "rust_daemon_core.model_mount.provider_inventory",
+        "ctee_secret_injection": "ctee_egress_resolver_ref",
+        "plaintext_secret_material_returned": false,
+    });
+    let request_hash = hash_json_ref(&request_seed)?;
+    let response_hash = hash_json_ref(&json!({
+        "schema": "ioi.model_mount.hosted_catalog_transport_response.v1",
+        "transport_request_hash": request_hash,
+        "provider_ref": request.provider_ref,
+        "action": request.action,
+        "response_body_hash": format!("sha256:{}", sha256_hex(response_text.as_bytes())?),
+        "status": "rust_hosted_provider_catalog_transport_response_bound",
+        "transport_execution_owner": "rust_daemon_core.model_mount.provider_inventory",
+        "live_network_io": true,
+        "plaintext_secret_material_returned": false,
+    }))?;
+    let suffix = request_hash
+        .trim_start_matches("sha256:")
+        .chars()
+        .take(24)
+        .collect::<String>();
+    Ok(HostedProviderCatalogTransportBinding {
+        request_ref: format!("model_mount://hosted_catalog_transport_request/{suffix}"),
+        method,
+        path: path.to_string(),
+        base_url_hash,
+        request_hash,
+        response_hash,
+        status: "rust_hosted_provider_catalog_transport_response_bound".to_string(),
+        auth_bound,
+    })
+}
+
+fn string_value_any<'a>(value: &'a Value, fields: &[&str]) -> Option<&'a str> {
+    fields
+        .iter()
+        .find_map(|field| value.get(*field).and_then(Value::as_str).map(str::trim))
+        .filter(|value| !value.is_empty())
+}
+
+fn trimmed_option(value: &Option<String>) -> Option<&str> {
+    value
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+}
+
+fn hash_json_ref(value: &Value) -> Result<String, ModelMountError> {
+    let bytes = serde_json::to_vec(value)
+        .map_err(|error| ModelMountError::HashFailed(error.to_string()))?;
+    Ok(format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
 }
 
 fn provider_inventory_backend(request: &ModelMountProviderInventoryRequest) -> String {
@@ -285,7 +523,10 @@ fn provider_inventory_driver(request: &ModelMountProviderInventoryRequest) -> St
     }
 }
 
-fn provider_inventory_evidence_refs(request: &ModelMountProviderInventoryRequest) -> Vec<String> {
+fn provider_inventory_evidence_refs(
+    request: &ModelMountProviderInventoryRequest,
+    transport: Option<&HostedProviderCatalogTransportBinding>,
+) -> Vec<String> {
     let mut refs = vec![
         "rust_model_mount_provider_inventory".to_string(),
         "agentgres_provider_inventory_truth_required".to_string(),
@@ -308,6 +549,16 @@ fn provider_inventory_evidence_refs(request: &ModelMountProviderInventoryRequest
             refs.push("hosted_provider_loaded_instance_replay_required".to_string());
         } else {
             refs.push("hosted_provider_catalog_metadata_recorded".to_string());
+            refs.push("rust_hosted_provider_catalog_live_network_io_executed".to_string());
+            refs.push("rust_hosted_provider_catalog_transport_executor_owned".to_string());
+            refs.push("rust_hosted_provider_catalog_transport_request_bound".to_string());
+            refs.push("rust_hosted_provider_catalog_transport_response_bound".to_string());
+            refs.push("rust_hosted_provider_endpoint_url_bound".to_string());
+            if transport.map(|binding| binding.auth_bound).unwrap_or(false) {
+                refs.push("rust_ctee_egress_resolver_bound".to_string());
+                refs.push("ctee_outbound_secret_injection_ref_bound".to_string());
+                refs.push("ctee_outbound_egress_resolver_depth_bound".to_string());
+            }
         }
     } else {
         refs.push("rust_model_mount_fixture_inventory_backend".to_string());
@@ -323,6 +574,7 @@ fn provider_inventory_evidence_refs(request: &ModelMountProviderInventoryRequest
 fn provider_inventory_transport_contract(
     request: &ModelMountProviderInventoryRequest,
     item_refs: &[String],
+    transport: Option<&HostedProviderCatalogTransportBinding>,
 ) -> Value {
     let (status, materialization_kind, containment_ref) =
         if is_hosted_provider_inventory_backend(request) {
@@ -344,7 +596,7 @@ fn provider_inventory_transport_contract(
                 "ctee://model_mount/fixture_inventory",
             )
         };
-    json!({
+    let mut contract = json!({
         "transport_execution_status": status,
         "transport_execution_owner": "rust_daemon_core.model_mount.provider_inventory",
         "transport_materialization_kind": materialization_kind,
@@ -352,8 +604,37 @@ fn provider_inventory_transport_contract(
         "provider_ref": &request.provider_ref,
         "action": &request.action,
         "metadata_item_refs": item_refs,
+        "live_network_io": transport.is_some(),
         "plaintext_secret_material_returned": false,
-    })
+    });
+    if let Some(transport) = transport {
+        if let Some(object) = contract.as_object_mut() {
+            object.insert("method".to_string(), json!(&transport.method));
+            object.insert("path".to_string(), json!(&transport.path));
+            object.insert("base_url_hash".to_string(), json!(&transport.base_url_hash));
+            object.insert(
+                "hosted_catalog_transport_request_ref".to_string(),
+                json!(&transport.request_ref),
+            );
+            object.insert(
+                "hosted_catalog_transport_request_hash".to_string(),
+                json!(&transport.request_hash),
+            );
+            object.insert(
+                "hosted_catalog_transport_response_hash".to_string(),
+                json!(&transport.response_hash),
+            );
+            object.insert(
+                "hosted_catalog_transport_status".to_string(),
+                json!(&transport.status),
+            );
+            object.insert(
+                "ctee_secret_injection".to_string(),
+                json!("ctee_egress_resolver_ref"),
+            );
+        }
+    }
+    contract
 }
 
 fn provider_inventory_hash(
@@ -448,6 +729,46 @@ fn provider_inventory_record(result: &ModelMountProviderInventoryResult) -> Valu
             .get("transport_materialization_kind")
             .cloned()
             .unwrap_or(Value::Null),
+        "live_network_io": result
+            .transport_contract
+            .get("live_network_io")
+            .cloned()
+            .unwrap_or(Value::Bool(false)),
+        "method": result
+            .transport_contract
+            .get("method")
+            .cloned()
+            .unwrap_or(Value::Null),
+        "path": result
+            .transport_contract
+            .get("path")
+            .cloned()
+            .unwrap_or(Value::Null),
+        "base_url_hash": result
+            .transport_contract
+            .get("base_url_hash")
+            .cloned()
+            .unwrap_or(Value::Null),
+        "hosted_catalog_transport_request_ref": result
+            .transport_contract
+            .get("hosted_catalog_transport_request_ref")
+            .cloned()
+            .unwrap_or(Value::Null),
+        "hosted_catalog_transport_request_hash": result
+            .transport_contract
+            .get("hosted_catalog_transport_request_hash")
+            .cloned()
+            .unwrap_or(Value::Null),
+        "hosted_catalog_transport_response_hash": result
+            .transport_contract
+            .get("hosted_catalog_transport_response_hash")
+            .cloned()
+            .unwrap_or(Value::Null),
+        "hosted_catalog_transport_status": result
+            .transport_contract
+            .get("hosted_catalog_transport_status")
+            .cloned()
+            .unwrap_or(Value::Null),
         "plaintext_secret_material_returned": false,
         "inventory_hash": &result.inventory_hash,
         "record_dir": &result.record_dir,
@@ -462,6 +783,33 @@ fn provider_inventory_record(result: &ModelMountProviderInventoryResult) -> Valu
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::{Read, Write};
+    use std::net::TcpListener;
+    use std::thread::{self, JoinHandle};
+
+    fn start_catalog_server(path: &'static str, body: &'static str) -> (String, JoinHandle<()>) {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("catalog fixture listener");
+        let address = listener.local_addr().expect("catalog fixture address");
+        let handle = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().expect("catalog fixture request");
+            let mut buffer = [0_u8; 2048];
+            let bytes = stream.read(&mut buffer).expect("read catalog request");
+            let request = String::from_utf8_lossy(&buffer[..bytes]);
+            assert!(
+                request.starts_with(&format!("GET {path} HTTP/1.1")),
+                "catalog fixture expected GET {path}, got {request}"
+            );
+            let response = format!(
+                "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\n\r\n{}",
+                body.len(),
+                body
+            );
+            stream
+                .write_all(response.as_bytes())
+                .expect("write catalog response");
+        });
+        (format!("http://{address}"), handle)
+    }
 
     fn provider_inventory_request() -> ModelMountProviderInventoryRequest {
         ModelMountProviderInventoryRequest {
@@ -474,6 +822,13 @@ mod tests {
             driver: Some("native_local".to_string()),
             backend_ref: Some("backend.autopilot.native-local.fixture".to_string()),
             provider_status: Some("configured".to_string()),
+            base_url: None,
+            provider_auth_materialization_ref: None,
+            outbound_header_binding_ref: None,
+            auth_header_materialization_status: None,
+            ctee_egress_resolver_ref: None,
+            ctee_egress_resolver_hash: None,
+            ctee_egress_resolution_status: None,
             item_refs: vec![],
             evidence_refs: vec![],
         }
@@ -490,6 +845,13 @@ mod tests {
             driver: Some("fixture".to_string()),
             backend_ref: Some("backend.fixture".to_string()),
             provider_status: Some("configured".to_string()),
+            base_url: None,
+            provider_auth_materialization_ref: None,
+            outbound_header_binding_ref: None,
+            auth_header_materialization_status: None,
+            ctee_egress_resolver_ref: None,
+            ctee_egress_resolver_hash: None,
+            ctee_egress_resolution_status: None,
             item_refs: vec![],
             evidence_refs: vec![],
         }
@@ -506,6 +868,20 @@ mod tests {
             driver: Some("openai_compatible".to_string()),
             backend_ref: None,
             provider_status: Some("configured".to_string()),
+            base_url: None,
+            provider_auth_materialization_ref: Some(
+                "agentgres://model-mounting/model-provider-auth-materializations/provider.openai"
+                    .to_string(),
+            ),
+            outbound_header_binding_ref: Some(
+                "provider_auth_header://provider.openai#sha256:provider-auth".to_string(),
+            ),
+            auth_header_materialization_status: Some("rust_ctee_outbound_header_bound".to_string()),
+            ctee_egress_resolver_ref: Some(
+                "ctee://model-mount/egress-resolver/provider.openai#sha256:egress".to_string(),
+            ),
+            ctee_egress_resolver_hash: Some("sha256:ctee-egress".to_string()),
+            ctee_egress_resolution_status: Some("rust_ctee_outbound_egress_resolved".to_string()),
             item_refs: vec![],
             evidence_refs: vec![],
         }
@@ -623,9 +999,15 @@ mod tests {
     #[test]
     fn hosted_provider_inventory_materializes_contained_metadata_transport_in_rust() {
         let mut request = hosted_provider_inventory_request();
+        let (base_url, handle) = start_catalog_server(
+            "/v1/models",
+            r#"{"object":"list","data":[{"id":"hosted-chat"},{"id":"hosted-embeddings"}]}"#,
+        );
+        request.base_url = Some(format!("{base_url}/v1"));
 
         let result = plan_provider_inventory(&request)
             .expect("hosted provider metadata inventory planned in Rust");
+        handle.join().expect("catalog fixture joined");
 
         assert_eq!(result.action, "list_models");
         assert_eq!(
@@ -672,6 +1054,25 @@ mod tests {
             result.transport_contract["transport_materialization_kind"],
             "hosted_provider_metadata"
         );
+        assert_eq!(result.transport_contract["live_network_io"], true);
+        assert_eq!(result.transport_contract["method"], "GET");
+        assert_eq!(result.transport_contract["path"], "/models");
+        assert_eq!(
+            result.transport_contract["hosted_catalog_transport_status"],
+            "rust_hosted_provider_catalog_transport_response_bound"
+        );
+        assert!(result
+            .transport_contract
+            .get("hosted_catalog_transport_request_hash")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .starts_with("sha256:"));
+        assert!(result
+            .transport_contract
+            .get("hosted_catalog_transport_response_hash")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .starts_with("sha256:"));
         for retired_field in [
             "js_transport_invocation",
             "command_transport_fallback",
@@ -690,6 +1091,21 @@ mod tests {
         assert!(result
             .evidence_refs
             .contains(&"hosted_provider_catalog_metadata_recorded".to_string()));
+        assert!(result
+            .evidence_refs
+            .contains(&"rust_hosted_provider_catalog_live_network_io_executed".to_string()));
+        assert!(result
+            .evidence_refs
+            .contains(&"rust_hosted_provider_catalog_transport_executor_owned".to_string()));
+        assert!(result
+            .evidence_refs
+            .contains(&"rust_hosted_provider_catalog_transport_request_bound".to_string()));
+        assert!(result
+            .evidence_refs
+            .contains(&"rust_hosted_provider_catalog_transport_response_bound".to_string()));
+        assert!(result
+            .evidence_refs
+            .contains(&"rust_ctee_egress_resolver_bound".to_string()));
         assert_eq!(
             result.transport_contract["metadata_item_refs"],
             json!(result.item_refs)
@@ -708,6 +1124,11 @@ mod tests {
             result.record["transport_execution_owner"],
             "rust_daemon_core.model_mount.provider_inventory"
         );
+        assert_eq!(result.record["live_network_io"], true);
+        assert_eq!(
+            result.record["hosted_catalog_transport_status"],
+            "rust_hosted_provider_catalog_transport_response_bound"
+        );
 
         request.action = "list_loaded".to_string();
         let result = plan_provider_inventory(&request)
@@ -720,6 +1141,19 @@ mod tests {
         assert!(result
             .evidence_refs
             .contains(&"hosted_provider_loaded_instance_replay_required".to_string()));
+    }
+
+    #[test]
+    fn hosted_provider_inventory_requires_live_catalog_endpoint_for_model_list() {
+        let request = hosted_provider_inventory_request();
+
+        let error = plan_provider_inventory(&request)
+            .expect_err("hosted provider catalog listing requires a Rust-bound endpoint URL");
+
+        assert_eq!(
+            error,
+            ModelMountError::HostedProviderInvocationMissingEndpointUrl
+        );
     }
 
     #[test]
