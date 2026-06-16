@@ -198,7 +198,7 @@ test("thread control request kind and model input infer compact operator updates
         allow_hosted_fallback: true,
       },
     },
-    { model: { workflowNodeId: "existing-node" } },
+    { model: { workflow_node_id: "existing-node" } },
     {},
   );
   assert.deepEqual(input, {
@@ -216,11 +216,23 @@ test("thread control request kind and model input infer compact operator updates
 
   const retiredAliasInput = threadRuntimeControlModelInput(
     { model: { allowHostedFallback: true }, workflowNodeId: "node-retired" },
-    { model: {} },
+    {
+      model: {
+        routeId: "route.retired",
+        reasoningEffort: "high",
+        maxCostUsd: 99,
+        workflowGraphId: "graph.retired",
+        workflowNodeId: "node.retired",
+      },
+    },
     {},
   );
   assert.equal(Object.hasOwn(retiredAliasInput.model, "allow_hosted_fallback"), false);
   assert.equal(Object.hasOwn(retiredAliasInput.model, "allowHostedFallback"), false);
+  assert.equal(Object.hasOwn(retiredAliasInput.model, "max_cost_usd"), false);
+  assert.equal(Object.hasOwn(retiredAliasInput.model, "workflow_graph_id"), false);
+  assert.equal(retiredAliasInput.model.route_id, "route.local-first");
+  assert.equal(Object.hasOwn(retiredAliasInput.model, "reasoning_effort"), false);
   assert.equal(retiredAliasInput.workflowNodeId, "runtime.model-router");
 });
 
@@ -262,7 +274,7 @@ test("thread runtime control helpers ignore retired request aliases", () => {
       routeId: "route.alias",
       reasoningEffort: "high",
     },
-    { model: { id: "existing-model", routeId: "route.existing" } },
+    { model: { id: "existing-model", route_id: "route.existing", routeId: "route.retired" } },
     {},
   );
   assert.equal(modelInput.model.id, "existing-model");

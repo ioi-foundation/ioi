@@ -10717,6 +10717,17 @@ topology joins, hosted/provider materialization, backend execution
 materialization, and stable SDK/IDE protocol APIs, not a JS read-projection
 facade.
 
+Slice 1324 hard-cuts the runtime thread-control existing-model compatibility
+fallback. `threadRuntimeControlModelInput()` no longer accepts persisted
+camelCase `existingModel` aliases (`routeId`, `reasoningEffort`, `maxCostUsd`,
+`workflowGraphId`, or `workflowNodeId`) as model-route truth when building
+canonical model-control input for Rust route selection. Focused tests keep the
+canonical `route_id` / `workflow_node_id` path live while poisoning the retired
+aliases to prove they cannot override the Rust-bound request, and conformance
+guards the absence of the `existingModel.*` fallback reads. Remaining work is
+wallet/model-route authority depth, durable replay/projection binding, and
+stable IDE/CLI/SDK lifecycle APIs, not a thread-control compatibility fallback.
+
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,
 `/v1/memory/policy`, `/v1/memory/path`, or `/v1/memory/validate`; the daemon

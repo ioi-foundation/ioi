@@ -162,7 +162,6 @@ export function threadRuntimeControlModelInput(request = {}, controls = {}, agen
   const routeId =
     optionalString(bodyModel.route_id ?? bodyModel.route) ??
     optionalString(request.route_id ?? request.route) ??
-    existingModel.routeId ??
     existingModel.route_id ??
     agent.modelRouteId ??
     "route.local-first";
@@ -172,7 +171,6 @@ export function threadRuntimeControlModelInput(request = {}, controls = {}, agen
       request.reasoning_effort ??
       request.thinking ??
       request.effort ??
-      existingModel.reasoningEffort ??
       existingModel.reasoning_effort ??
       agent.modelRouteDecision?.reasoning_effort ??
       null,
@@ -183,7 +181,6 @@ export function threadRuntimeControlModelInput(request = {}, controls = {}, agen
       bodyModel.workflow_node_id ??
         request.workflow_node_id,
     ) ??
-    existingModel.workflowNodeId ??
     existingModel.workflow_node_id ??
     "runtime.model-router";
   const model = {
@@ -195,9 +192,9 @@ export function threadRuntimeControlModelInput(request = {}, controls = {}, agen
   if (reasoningEffort) model.reasoning_effort = reasoningEffort;
   for (const [key, snakeKey, outputKey] of [
     ["privacy", "privacy", "privacy"],
-    ["maxCostUsd", "max_cost_usd", "max_cost_usd"],
+    ["max_cost_usd", "max_cost_usd", "max_cost_usd"],
     ["allow_hosted_fallback", "allow_hosted_fallback", "allow_hosted_fallback"],
-    ["workflowGraphId", "workflow_graph_id", "workflow_graph_id"],
+    ["workflow_graph_id", "workflow_graph_id", "workflow_graph_id"],
   ]) {
     const value = bodyModel[snakeKey] ?? request[snakeKey] ?? existingModel[key] ?? existingModel[snakeKey];
     if (value !== undefined && value !== null) model[outputKey] = value;

@@ -18816,6 +18816,9 @@ function runBridge() {
       !/bodyModel\.(?:modelId|routeId|reasoningEffort|maxCostUsd|workflowGraphId|workflowNodeId)/.test(
         threadRuntimeControls,
       ) &&
+      !/existingModel\.(?:routeId|reasoningEffort|maxCostUsd|workflowGraphId|workflowNodeId)/.test(
+        threadRuntimeControls,
+      ) &&
       !/modelRoute\.decision\?\.(?:reasoningEffort|workflowNodeId)/.test(
         runtimeThreadControlSurface,
       ) &&
@@ -18835,6 +18838,12 @@ function runBridge() {
       /routeId: "route\.retired"/.test(threadRuntimeControlsTest) &&
       /threadRuntimeControlModelForOptions/.test(threadRuntimeControlsTest) &&
       /assert\.equal\(input\.model\.route_id,\s*"route\.canonical"\)/.test(
+        threadRuntimeControlsTest,
+      ) &&
+      /assert\.equal\(retiredAliasInput\.model\.route_id,\s*"route\.local-first"\)/.test(
+        threadRuntimeControlsTest,
+      ) &&
+      /Object\.hasOwn\(retiredAliasInput\.model,\s*"reasoning_effort"\),\s*false/.test(
         threadRuntimeControlsTest,
       ) &&
       /assert\.equal\(store\.routeRequests\[0\]\.context\.workflow_node_id,\s*"runtime\.model-router\.custom"\)/.test(
