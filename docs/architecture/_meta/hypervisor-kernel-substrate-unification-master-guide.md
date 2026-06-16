@@ -11165,6 +11165,17 @@ Rust-owned through typed read-projection APIs over runtime `state_dir` and
 Agentgres replay; the deleted local projection cache must not return as a
 Rust-gated compatibility substrate, duplicate truth file, or diagnostic path.
 
+Slice 1339 hard-cuts the model_mount local materialization cache directories.
+`AgentgresModelMountingStore.ensureDirs()` no longer precreates local
+`provider-health`, `backend-logs`, `server-logs`, `lifecycle-events`, or
+`workflow-bindings` directories. Public provider-health, backend lifecycle/log,
+server-control, lifecycle, and workflow-binding readback remains Rust-owned
+through typed read-projection APIs over runtime `state_dir` plus Agentgres
+record replay. The admitted Rust Agentgres record writers may still materialize
+canonical record directories when committing records; the deleted JS-created
+local materialization caches must not return beside Rust replay as duplicate
+health, log, lifecycle, server, or workflow-binding truth.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

@@ -25754,6 +25754,28 @@ function runReceipts() {
   );
   assertCheck(
     result,
+    "model-mount-local-materialization-cache-dirs-retired",
+    !/"(?:provider-health|backend-logs|server-logs|lifecycle-events|workflow-bindings)"/.test(modelMountStore) &&
+      /local materialization cache storage/.test(modelMountStoreTest) &&
+      /path\.join\(stateDir,\s*"provider-health"\)\),\s*false/.test(modelMountStoreTest) &&
+      /path\.join\(stateDir,\s*"backend-logs"\)\),\s*false/.test(modelMountStoreTest) &&
+      /path\.join\(stateDir,\s*"server-logs"\)\),\s*false/.test(modelMountStoreTest) &&
+      /path\.join\(stateDir,\s*"lifecycle-events"\)\),\s*false/.test(modelMountStoreTest) &&
+      /path\.join\(stateDir,\s*"workflow-bindings"\)\),\s*false/.test(modelMountStoreTest) &&
+      /Slice 1339 hard-cuts the model_mount local materialization cache directories/.test(guide) &&
+      /Model_mount local materialization cache dirs retired/.test(matrix) &&
+      /RuntimeDaemonCoreModelMountLocalMaterializationDirsRetired/.test(implementationMatrix),
+    [
+      "packages/runtime-daemon/src/model-mounting/store.mjs",
+      "packages/runtime-daemon/src/model-mounting/store.test.mjs",
+      "docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md",
+      "docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md",
+      "docs/architecture/_meta/implementation-matrix.md",
+    ],
+    "Model-mount provider-health, backend-log, server-log, lifecycle-event, and workflow-binding truth must not re-enter through JS store-created local materialization cache directories",
+  );
+  assertCheck(
+    result,
     "model-mount-instance-maintenance-rust-projection-selection",
     /for \(const instance of projectionRecords\(state,\s*"listInstances"\)\)/.test(loadedInstances) &&
       /const instances = projectionRecords\(state,\s*"listInstances"\)/.test(loadedInstances) &&

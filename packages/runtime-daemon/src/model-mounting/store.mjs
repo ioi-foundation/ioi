@@ -87,13 +87,8 @@ export class AgentgresModelMountingStore {
 
   ensureDirs() {
     for (const dir of [
-      "provider-health",
       "models",
-      "backend-logs",
-      "server-logs",
-      "lifecycle-events",
       "vault-refs",
-      "workflow-bindings",
       "receipts",
     ]) {
       fs.mkdirSync(path.join(this.stateDir, dir), { recursive: true });
