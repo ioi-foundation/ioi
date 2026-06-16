@@ -10635,6 +10635,21 @@ workflow-edit replay/projection depth, richer policy receipt/state-root
 binding, wallet/cTEE workflow authority expansion, and stable protocol clients,
 not an alternate workflow-edit core mount.
 
+Slice 1318 hard-cuts the thread-memory/lifecycle store-core fallback cluster.
+The thread-memory surface is now constructed per daemon instance with the
+positive `contextPolicyCore` mount supplied by startup, so public memory
+projection/control and memory status/validation event planning resolve only the
+constructor-mounted Rust core. `updateAgent()` and `deleteAgent()` now default
+their status/delete runners to `null` instead of `store.contextPolicyCore ??
+null`; route and focused tests pass the Rust core explicitly. The source and
+focused tests no longer model `store?.contextPolicyCore ?? contextPolicyCore`,
+`store.contextPolicyCore ?? null`, or store-mounted lifecycle helper planner
+fallbacks, and conformance guards the instance-owned memory surface plus null
+lifecycle helper defaults. Remaining work is wallet/policy authority depth,
+cTEE private-memory custody, durable memory/lifecycle replay and projection,
+receipt/state-root binding, and stable IDE/CLI/SDK protocol clients, not an
+alternate store-mounted Rust core fallback.
+
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,
 `/v1/memory/policy`, `/v1/memory/path`, or `/v1/memory/validate`; the daemon

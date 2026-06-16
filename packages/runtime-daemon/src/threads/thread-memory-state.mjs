@@ -272,7 +272,7 @@ export function createThreadMemoryState({
   }
 
   function publicMemoryProjectionRunner(store, request = {}) {
-    const runner = store?.contextPolicyCore ?? contextPolicyCore;
+    const runner = contextPolicyCore;
     if (runner?.projectRuntimeMemoryProjection) return runner;
     throw memoryRuntimeError({
       status: 501,
@@ -294,7 +294,7 @@ export function createThreadMemoryState({
   }
 
   function memoryControlRunner(store, request = {}) {
-    const runner = store?.contextPolicyCore ?? contextPolicyCore;
+    const runner = contextPolicyCore;
     if (
       runner?.planRuntimeMemoryControl &&
       runner?.projectRuntimeMemoryProjection &&
@@ -312,7 +312,7 @@ export function createThreadMemoryState({
   }
 
   function memoryControlEventRunner(store, request = {}) {
-    const runner = store?.contextPolicyCore ?? contextPolicyCore;
+    const runner = contextPolicyCore;
     if (runner?.planRuntimeMemoryControl && typeof store?.appendRuntimeEvent === "function") {
       return runner;
     }

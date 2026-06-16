@@ -261,7 +261,7 @@ const {
   optionalString,
   safeId,
 });
-const threadMemoryState = createThreadMemoryState({
+const threadMemoryStateDeps = {
   agentIdForThread,
   doctorHash,
   eventStreamIdForThread,
@@ -285,7 +285,7 @@ const threadMemoryState = createThreadMemoryState({
   runtimeError,
   safeId,
   threadIdForAgent,
-});
+};
 const {
   capabilitySequenceForMode,
   makeEvent,
@@ -650,7 +650,10 @@ export class AgentgresRuntimeStateStore {
       subagentReceiverForRequest,
       threadIdForAgent,
     });
-    this.threadMemorySurface = threadMemoryState;
+    this.threadMemorySurface = createThreadMemoryState({
+      ...threadMemoryStateDeps,
+      contextPolicyCore: this.contextPolicyCore,
+    });
     this.threadAuxiliarySurface = createRuntimeThreadAuxiliarySurface({
       contextPolicyCore: this.contextPolicyCore,
     });

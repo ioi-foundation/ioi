@@ -120,6 +120,21 @@ function fakeStore(options = {}) {
   };
 }
 
+function statusControlDeps(store, overrides = {}) {
+  return {
+    statusStateUpdateRunner: store.contextPolicyCore,
+    ...overrides,
+  };
+}
+
+function deleteControlDeps(store, overrides = {}) {
+  return {
+    ...deps(store.calls),
+    deleteStateUpdateRunner: store.contextPolicyCore,
+    ...overrides,
+  };
+}
+
 function lifecycleRequiredRecord(request) {
   const isDelete = request.operation === "agent_delete";
   return {
@@ -237,7 +252,7 @@ test("thread store updates agent status through Rust state planning and Agentgre
   const store = fakeStore();
   store.agents.set("agent_1", { id: "agent_1", status: "active", createdAt: "2026-06-03T00:00:00.000Z" });
 
-  const agent = updateAgent(store, "agent_1", "archived", "agent.archive");
+  const agent = updateAgent(store, "agent_1", "archived", "agent.archive", statusControlDeps(store));
 
   assert.equal(agent.status, "archived");
   assert.equal(store.agents.get("agent_1").status, "archived");
@@ -270,11 +285,16 @@ test("thread store updates agent status through Rust state planning and Agentgre
 
 test("thread store agent status control fails closed without Rust status planner", () => {
   const store = fakeStore();
-  store.contextPolicyCore = {};
   store.agents.set("agent_1", { id: "agent_1", status: "active" });
 
   assert.throws(
-    () => updateAgent(store, "agent_1", "archived", "agent.archive"),
+    () => updateAgent(
+      store,
+      "agent_1",
+      "archived",
+      "agent.archive",
+      statusControlDeps(store, { statusStateUpdateRunner: {} }),
+    ),
     (error) => {
       assert.equal(error.status, 501);
       assert.equal(error.code, "runtime_agent_status_control_rust_core_required");
@@ -305,7 +325,7 @@ test("thread store agent status control rejects missing Rust-planned agent", () 
   store.agents.set("agent_1", { id: "agent_1", status: "active" });
 
   assert.throws(
-    () => updateAgent(store, "agent_1", "archived", "agent.archive"),
+    () => updateAgent(store, "agent_1", "archived", "agent.archive", statusControlDeps(store)),
     (error) => {
       assert.equal(error.status, 502);
       assert.equal(error.code, "agent_status_state_update_agent_missing");
@@ -329,7 +349,7 @@ test("thread store agent status control rejects mismatched Rust operation kind",
   store.agents.set("agent_1", { id: "agent_1", status: "active" });
 
   assert.throws(
-    () => updateAgent(store, "agent_1", "archived", "agent.archive"),
+    () => updateAgent(store, "agent_1", "archived", "agent.archive", statusControlDeps(store)),
     (error) => {
       assert.equal(error.status, 502);
       assert.equal(error.code, "agent_status_state_update_operation_kind_mismatch");
@@ -347,7 +367,7 @@ test("thread store permanent delete commits Rust tombstone through Agentgres", (
   store.agents.set("agent_1", { id: "agent_1", status: "active", createdAt: "2026-06-03T00:00:00.000Z" });
   store.runs.set("run_1", { id: "run_1", agentId: "agent_1" });
 
-  const agent = deleteAgent(store, "agent_1", deps(store.calls));
+  const agent = deleteAgent(store, "agent_1", deleteControlDeps(store));
 
   assert.equal(agent.status, "deleted");
   assert.equal(store.agents.get("agent_1").status, "deleted");
@@ -381,11 +401,10 @@ test("thread store permanent delete commits Rust tombstone through Agentgres", (
 
 test("thread store permanent delete fails closed without Rust delete planner", () => {
   const store = fakeStore();
-  store.contextPolicyCore = {};
   store.agents.set("agent_1", { id: "agent_1", status: "active" });
 
   assert.throws(
-    () => deleteAgent(store, "agent_1", deps(store.calls)),
+    () => deleteAgent(store, "agent_1", deleteControlDeps(store, { deleteStateUpdateRunner: {} })),
     (error) => {
       assert.equal(error.status, 501);
       assert.equal(error.code, "runtime_agent_delete_rust_core_required");
@@ -413,7 +432,7 @@ test("thread store permanent delete rejects missing Rust tombstone agent", () =>
   store.agents.set("agent_1", { id: "agent_1", status: "active" });
 
   assert.throws(
-    () => deleteAgent(store, "agent_1", deps(store.calls)),
+    () => deleteAgent(store, "agent_1", deleteControlDeps(store)),
     (error) => {
       assert.equal(error.status, 502);
       assert.equal(error.code, "agent_delete_state_update_agent_missing");
@@ -436,7 +455,7 @@ test("thread store permanent delete rejects mismatched Rust operation kind", () 
   store.agents.set("agent_1", { id: "agent_1", status: "active" });
 
   assert.throws(
-    () => deleteAgent(store, "agent_1", deps(store.calls)),
+    () => deleteAgent(store, "agent_1", deleteControlDeps(store)),
     (error) => {
       assert.equal(error.status, 502);
       assert.equal(error.code, "agent_delete_state_update_operation_kind_mismatch");
@@ -460,7 +479,7 @@ test("thread store permanent delete rejects incomplete Rust tombstone", () => {
   store.agents.set("agent_1", { id: "agent_1", status: "active" });
 
   assert.throws(
-    () => deleteAgent(store, "agent_1", deps(store.calls)),
+    () => deleteAgent(store, "agent_1", deleteControlDeps(store)),
     (error) => {
       assert.equal(error.status, 502);
       assert.equal(error.code, "agent_delete_state_update_tombstone_missing");

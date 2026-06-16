@@ -65,8 +65,108 @@ function createHarness(options = {}) {
   const agents = new Map([
     ["agent_a", { id: "agent_a", cwd: "/workspace" }],
   ]);
+  let store;
+  const contextPolicyCore =
+    Object.hasOwn(options, "contextPolicyCore")
+      ? options.contextPolicyCore
+      : {
+          planThreadMemoryAgentStateUpdate(request = {}) {
+            calls.push({ type: "planThreadMemoryAgentStateUpdate", input: request });
+            return {
+              status: "planned",
+              operation_kind: `thread.${request.control_kind}`,
+              agent: { ...request.agent, updatedAt: request.created_at },
+            };
+          },
+          planRuntimeMemoryControl(request = {}) {
+            calls.push({ type: "planRuntimeMemoryControl", input: request });
+            const isPolicy = request.operation_kind === "memory.policy";
+            const isEvent = ["memory.status", "memory.validate"].includes(request.operation_kind);
+            const stateId =
+              request.memory_id ??
+              (isEvent
+                ? `event_${request.operation}`
+                : isPolicy ? "memory_policy_thread_a" : "memory_new");
+            const payload = isEvent
+              ? {
+                  event_id: stateId,
+                  event_stream_id: request.request?.event_stream_id,
+                  thread_id: request.thread_id,
+                  agent_id: request.agent_id,
+                  turn_id: request.request?.turn_id ?? null,
+                  item_id: `turn_latest:item:memory:${request.operation}`,
+                  idempotency_key: `thread:${request.thread_id}:${request.operation_kind}:test`,
+                  source: request.source,
+                  source_event_kind: request.request?.source_event_kind,
+                  event_kind: request.request?.event_kind,
+                  status: request.request?.status,
+                  component_kind: request.request?.component_kind,
+                  workflow_node_id: request.request?.workflow_node_id,
+                  payload_schema_version: request.request?.payload_schema_version,
+                  payload: {
+                    ...(request.request?.payload ?? {}),
+                    operation: request.operation,
+                    control_kind: request.request?.control_kind,
+                  },
+                  receipt_refs: [`receipt_${stateId}`],
+                  policy_decision_refs: request.request?.policy_decision_refs ?? [],
+                  evidence_refs: request.evidence_refs,
+                }
+              : isPolicy
+                ? {
+                    schema_version: "ioi.agent-runtime.memory-policy.v1",
+                    object: "ioi.agent_memory_policy",
+                    id: stateId,
+                    target_type: request.target_type ?? "thread",
+                    target_id: request.target_id ?? request.thread_id,
+                    thread_id: request.thread_id,
+                    agent_id: request.agent_id,
+                    read_only: request.request?.policy?.read_only ?? request.request?.read_only ?? false,
+                    receipt_refs: [`receipt_${stateId}`],
+                  }
+                : {
+                    schema_version: "ioi.agent-runtime.memory.v1",
+                    object: "ioi.agent_memory_record",
+                    id: stateId,
+                    thread_id: request.thread_id,
+                    agent_id: request.agent_id,
+                    workspace: request.workspace_root,
+                    fact: request.request?.text ?? "",
+                    status: request.operation_kind === "memory.delete" ? "deleted" : "active",
+                    deleted_at: request.operation_kind === "memory.delete" ? request.now : null,
+                    receipt_refs: [`receipt_${stateId}`],
+                  };
+            return {
+              source: "rust_runtime_memory_control_command",
+              status: "planned",
+              operation: request.operation,
+              operation_kind: request.operation_kind,
+              memory_state_kind: isEvent ? "event" : isPolicy ? "policy" : "record",
+              state_id: stateId,
+              thread_id: request.thread_id,
+              agent_id: request.agent_id,
+              workspace_root: request.workspace_root,
+              payload,
+              receipt_refs: [`receipt_${stateId}`],
+              evidence_refs: ["runtime_memory_control_rust_owned"],
+            };
+          },
+          projectRuntimeMemoryProjection(request = {}) {
+            calls.push({ type: "projectRuntimeMemoryProjection", input: request });
+            return {
+              source: "rust_runtime_memory_projection_command",
+              projection_kind: request.projection_kind,
+              operation_kind: request.operation_kind,
+              projection: publicMemoryProjectionForRequest(request, store),
+              record_count: 1,
+              evidence_refs: ["runtime_memory_public_projection_rust_owned"],
+              receipt_refs: [`receipt_runtime_memory_projection_${request.projection_kind}`],
+            };
+          },
+        };
   const state = createThreadMemoryState({
     agentIdForThread: (threadId) => threadId.replace("thread_", "agent_"),
+    contextPolicyCore,
     doctorHash: () => "abcdef1234567890",
     eventStreamIdForThread: (threadId) => `stream_${threadId}`,
     fixtureProfileForAgent: () => "fixture.test",
@@ -110,108 +210,9 @@ function createHarness(options = {}) {
       record_count: projection.records?.length ?? 0,
     }),
   });
-  let store;
   store = {
     agents,
     stateDir: "/runtime-state",
-    contextPolicyCore:
-      Object.hasOwn(options, "contextPolicyCore")
-        ? options.contextPolicyCore
-        : {
-            planThreadMemoryAgentStateUpdate(request = {}) {
-              calls.push({ type: "planThreadMemoryAgentStateUpdate", input: request });
-              return {
-                status: "planned",
-                operation_kind: `thread.${request.control_kind}`,
-                agent: { ...request.agent, updatedAt: request.created_at },
-              };
-            },
-            planRuntimeMemoryControl(request = {}) {
-              calls.push({ type: "planRuntimeMemoryControl", input: request });
-              const isPolicy = request.operation_kind === "memory.policy";
-              const isEvent = ["memory.status", "memory.validate"].includes(request.operation_kind);
-              const stateId =
-                request.memory_id ??
-                (isEvent
-                  ? `event_${request.operation}`
-                  : isPolicy ? "memory_policy_thread_a" : "memory_new");
-              const payload = isEvent
-                ? {
-                    event_id: stateId,
-                    event_stream_id: request.request?.event_stream_id,
-                    thread_id: request.thread_id,
-                    agent_id: request.agent_id,
-                    turn_id: request.request?.turn_id ?? null,
-                    item_id: `turn_latest:item:memory:${request.operation}`,
-                    idempotency_key: `thread:${request.thread_id}:${request.operation_kind}:test`,
-                    source: request.source,
-                    source_event_kind: request.request?.source_event_kind,
-                    event_kind: request.request?.event_kind,
-                    status: request.request?.status,
-                    component_kind: request.request?.component_kind,
-                    workflow_node_id: request.request?.workflow_node_id,
-                    payload_schema_version: request.request?.payload_schema_version,
-                    payload: {
-                      ...(request.request?.payload ?? {}),
-                      operation: request.operation,
-                      control_kind: request.request?.control_kind,
-                    },
-                    receipt_refs: [`receipt_${stateId}`],
-                    policy_decision_refs: request.request?.policy_decision_refs ?? [],
-                    evidence_refs: request.evidence_refs,
-                  }
-                : isPolicy
-                  ? {
-                      schema_version: "ioi.agent-runtime.memory-policy.v1",
-                      object: "ioi.agent_memory_policy",
-                    id: stateId,
-                    target_type: request.target_type ?? "thread",
-                    target_id: request.target_id ?? request.thread_id,
-                    thread_id: request.thread_id,
-                    agent_id: request.agent_id,
-                    read_only: request.request?.policy?.read_only ?? request.request?.read_only ?? false,
-                    receipt_refs: [`receipt_${stateId}`],
-                  }
-                : {
-                    schema_version: "ioi.agent-runtime.memory.v1",
-                    object: "ioi.agent_memory_record",
-                    id: stateId,
-                    thread_id: request.thread_id,
-                    agent_id: request.agent_id,
-                    workspace: request.workspace_root,
-                    fact: request.request?.text ?? "",
-                    status: request.operation_kind === "memory.delete" ? "deleted" : "active",
-                    deleted_at: request.operation_kind === "memory.delete" ? request.now : null,
-                    receipt_refs: [`receipt_${stateId}`],
-                  };
-              return {
-                source: "rust_runtime_memory_control_command",
-                status: "planned",
-                operation: request.operation,
-                operation_kind: request.operation_kind,
-                memory_state_kind: isEvent ? "event" : isPolicy ? "policy" : "record",
-                state_id: stateId,
-                thread_id: request.thread_id,
-                agent_id: request.agent_id,
-                workspace_root: request.workspace_root,
-                payload,
-                receipt_refs: [`receipt_${stateId}`],
-                evidence_refs: ["runtime_memory_control_rust_owned"],
-              };
-            },
-            projectRuntimeMemoryProjection(request = {}) {
-              calls.push({ type: "projectRuntimeMemoryProjection", input: request });
-              return {
-                source: "rust_runtime_memory_projection_command",
-                projection_kind: request.projection_kind,
-                operation_kind: request.operation_kind,
-                projection: publicMemoryProjectionForRequest(request, store),
-                record_count: 1,
-                evidence_refs: ["runtime_memory_public_projection_rust_owned"],
-                receipt_refs: [`receipt_runtime_memory_projection_${request.projection_kind}`],
-              };
-            },
-          },
     defaultCwd: "/default",
     agentForThread(threadId) {
       calls.push({ type: "agentForThread", threadId });

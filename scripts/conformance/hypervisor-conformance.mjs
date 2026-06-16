@@ -14434,6 +14434,16 @@ function runBridge() {
     /RUST_AGENTGRES_STORAGE_BACKEND/.test(runtimeThreadMemoryState) &&
     /runtime_memory_state_store_js_mutation_retired/.test(runtimeThreadMemoryState) &&
     /agentgres_thread_memory_state_truth_required/.test(runtimeThreadMemoryState) &&
+    !/store\?\.contextPolicyCore|store\.contextPolicyCore/.test(runtimeThreadMemoryState) &&
+    /contextPolicyCore,/.test(runtimeThreadMemoryState) &&
+    /const contextPolicyCore =\s*\n\s*Object\.hasOwn\(options,\s*"contextPolicyCore"\)/.test(
+      runtimeThreadMemoryStateTest,
+    ) &&
+    !/store\?\.contextPolicyCore|store\.contextPolicyCore/.test(runtimeThreadMemoryState) &&
+    /contextPolicyCore,/.test(runtimeThreadMemoryState) &&
+    /const contextPolicyCore =\s*\n\s*Object\.hasOwn\(options,\s*"contextPolicyCore"\)/.test(
+      runtimeThreadMemoryStateTest,
+    ) &&
     !/store\.memory\.(?:remember|setPolicy|updateRecord|deleteRecord)\(/.test(
       runtimeThreadMemoryState,
     ) &&
@@ -14652,12 +14662,13 @@ function runBridge() {
       /runtime_memory_status_validation_js_facade_retired/.test(
         runtimeThreadMemoryState,
       ) &&
-      /runtime_memory_state_store_js_mutation_retired/.test(runtimeThreadMemoryState) &&
-      /rust_daemon_core_thread_memory_control_required/.test(runtimeThreadMemoryState) &&
-      /agentgres_thread_memory_state_truth_required/.test(runtimeThreadMemoryState) &&
-      !/contextPolicyCore\.planThreadMemoryAgentStateUpdate/.test(
-        runtimeThreadMemoryState,
-      ) &&
+	      /runtime_memory_state_store_js_mutation_retired/.test(runtimeThreadMemoryState) &&
+	      /rust_daemon_core_thread_memory_control_required/.test(runtimeThreadMemoryState) &&
+	      /agentgres_thread_memory_state_truth_required/.test(runtimeThreadMemoryState) &&
+	      !/store\?\.contextPolicyCore|store\.contextPolicyCore/.test(runtimeThreadMemoryState) &&
+	      !/contextPolicyCore\.planThreadMemoryAgentStateUpdate/.test(
+	        runtimeThreadMemoryState,
+	      ) &&
       runtimeThreadMemoryStatusValidationControlRustOwned &&
       !/store\.agents\.set\(updatedAgent\.id,\s*updatedAgent\)/.test(
         runtimeThreadMemoryState,
@@ -15732,9 +15743,14 @@ function runBridge() {
       !/stateUpdate\.operation_kind\s*\?\?\s*"agent\.create"/.test(runtimeAgentRunLifecycle) &&
       !/stateUpdate\.operation_kind\s*\?\?\s*"thread\.create"/.test(runtimeAgentRunLifecycle) &&
       !/stateUpdate\.operation_kind\s*\?\?\s*"run\.create"/.test(runtimeAgentRunLifecycle) &&
-      /runtime_agent_status_control_rust_core_required/.test(threadStore) &&
-      /statusStateUpdateRunner/.test(threadStore) &&
-      /planAgentStatusStateUpdate/.test(threadStore) &&
+	      /runtime_agent_status_control_rust_core_required/.test(threadStore) &&
+	      /statusStateUpdateRunner/.test(threadStore) &&
+	      /statusStateUpdateRunner = null/.test(threadStore) &&
+	      /deleteStateUpdateRunner = null/.test(threadStore) &&
+	      !/statusStateUpdateRunner\s*=\s*store\.contextPolicyCore|deleteStateUpdateRunner\s*=\s*store\.contextPolicyCore/.test(
+	        threadStore,
+	      ) &&
+	      /planAgentStatusStateUpdate/.test(threadStore) &&
       /rust_core_boundary:\s*"runtime\.agent_status_control"/.test(threadStore) &&
       /operation:\s*"agent_status_control"/.test(threadStore) &&
       /operation_kind:\s*"agent_status_update"/.test(threadStore) &&
@@ -15751,9 +15767,11 @@ function runBridge() {
       /store\.writeAgent\(plannedAgent,\s*plannedOperationKind\)/.test(threadStore) &&
       /agent_status_state_update_agent_missing/.test(threadStore) &&
       /agent_status_state_update_operation_kind_mismatch/.test(threadStore) &&
-      /thread store updates agent status through Rust state planning and Agentgres commit/.test(
-        threadStoreTest,
-      ) &&
+	      /thread store updates agent status through Rust state planning and Agentgres commit/.test(
+	        threadStoreTest,
+	      ) &&
+	      /statusControlDeps\(store/.test(threadStoreTest) &&
+	      /deleteControlDeps\(store/.test(threadStoreTest) &&
       /thread store agent status control fails closed without Rust status planner/.test(
         threadStoreTest,
       ) &&
@@ -15990,9 +16008,11 @@ function runBridge() {
   assertCheck(
     result,
     "thread-agent-status-control-rust-positive-api",
-    /runtime_agent_status_control_rust_core_required/.test(threadStore) &&
-      /statusStateUpdateRunner/.test(threadStore) &&
-      /planAgentStatusStateUpdate/.test(threadStore) &&
+	    /runtime_agent_status_control_rust_core_required/.test(threadStore) &&
+	      /statusStateUpdateRunner/.test(threadStore) &&
+	      /statusStateUpdateRunner = null/.test(threadStore) &&
+	      !/statusStateUpdateRunner\s*=\s*store\.contextPolicyCore/.test(threadStore) &&
+	      /planAgentStatusStateUpdate/.test(threadStore) &&
       /runtime_agent_status_control_js_facade_retired/.test(threadStore) &&
       /runtime_agent_archive_js_facade_retired/.test(threadStore) &&
       /runtime_agent_unarchive_js_facade_retired/.test(threadStore) &&
@@ -27681,9 +27701,11 @@ function runReceipts() {
   assertCheck(
     result,
     "thread-agent-delete-rust-positive-api",
-    /runtime_agent_delete_rust_core_required/.test(threadStore) &&
-      /deleteStateUpdateRunner/.test(threadStore) &&
-      /planAgentDeleteStateUpdate/.test(threadStore) &&
+	    /runtime_agent_delete_rust_core_required/.test(threadStore) &&
+	      /deleteStateUpdateRunner/.test(threadStore) &&
+	      /deleteStateUpdateRunner = null/.test(threadStore) &&
+	      !/deleteStateUpdateRunner\s*=\s*store\.contextPolicyCore/.test(threadStore) &&
+	      /planAgentDeleteStateUpdate/.test(threadStore) &&
       /runtime_agent_delete_js_facade_retired/.test(threadStore) &&
       /rust_daemon_core_agent_delete_required/.test(threadStore) &&
       /agentgres_agent_delete_state_truth_required/.test(threadStore) &&
@@ -32975,10 +32997,13 @@ function runCompositor() {
     ],
     "Conversation artifact list/get/revision public projections must be Rust daemon-core projected through the mounted artifact surface and must fail closed before JS artifact-store readback when Rust projection is missing",
   );
-	  assertCheck(
-	    result,
-	    "runtime-memory-route-read-projections-rust-owned",
-	    /this\.threadMemorySurface = threadMemoryState/.test(runtimeDaemonIndex) &&
+		  assertCheck(
+		    result,
+		    "runtime-memory-route-read-projections-rust-owned",
+		    /const threadMemoryStateDeps = \{/.test(runtimeDaemonIndex) &&
+		      /this\.threadMemorySurface = createThreadMemoryState\(\{\s*\.\.\.threadMemoryStateDeps,\s*contextPolicyCore:\s*this\.contextPolicyCore,\s*\}\)/s.test(
+		        runtimeDaemonIndex,
+		      ) &&
 	      /publicListMemoryForThread/.test(runtimeThreadMemoryState) &&
 	      /publicMemoryPolicyForThread/.test(runtimeThreadMemoryState) &&
 	      /publicMemoryPathForThread/.test(runtimeThreadMemoryState) &&

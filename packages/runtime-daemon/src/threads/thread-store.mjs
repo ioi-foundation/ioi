@@ -20,7 +20,7 @@ export function getAgent(store, agentId, deps = {}) {
 
 export function updateAgent(store, agentId, status, operationKind, deps = {}) {
   const {
-    statusStateUpdateRunner = store.contextPolicyCore ?? null,
+    statusStateUpdateRunner = null,
     runtimeError = ({ status: errorStatus = 500, code = "agent_status_control_error", message, details }) =>
       Object.assign(new Error(message), { status: errorStatus, code, details }),
   } = deps;
@@ -104,7 +104,7 @@ export function updateAgent(store, agentId, status, operationKind, deps = {}) {
 
 export function deleteAgent(store, agentId, deps = {}) {
   const {
-    deleteStateUpdateRunner = store.contextPolicyCore ?? null,
+    deleteStateUpdateRunner = null,
     runtimeError = ({ status: errorStatus = 500, code = "agent_delete_control_error", message, details }) =>
       Object.assign(new Error(message), { status: errorStatus, code, details }),
   } = deps;
