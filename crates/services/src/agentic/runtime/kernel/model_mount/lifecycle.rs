@@ -104,9 +104,7 @@ mod tests {
             "execution_backend": "rust_model_mount_native_local_inventory",
             "api_format": "ioi_native",
             "driver": "native_local",
-            "backend_ref": "backend.autopilot.native-local.fixture",
-            "item_refs": ["model_instance://native/qwen3"],
-            "evidence_refs": ["daemon_native_local_list_loaded_request"]
+            "backend_ref": "backend.autopilot.native-local.fixture"
         }))
         .expect("native-local inventory request");
 
@@ -120,6 +118,10 @@ mod tests {
         assert_eq!(response.backend, "autopilot.native_local.fixture");
         assert_eq!(response.driver, "native_local");
         assert_eq!(response.item_count, 1);
+        assert_eq!(
+            response.item_refs,
+            vec!["model_instance://native/qwen3".to_string()]
+        );
         assert_eq!(
             response.operation_kind,
             "model_mount.provider.inventory.list_loaded"

@@ -3228,7 +3228,7 @@ function runDocs() {
       /Slices\s+1377-1383 moved those authority boundaries into Rust daemon-core ownership/.test(
         terminalBlockers,
       ) &&
-      /Remaining model_mount blockers are richer hosted catalog\/discovery\s+materialization, deeper wallet\/cTEE route authority and revocation policy/.test(
+      /Remaining model_mount blockers are live external hosted catalog\s+discovery\/materialization, deeper wallet\/cTEE route authority and revocation policy/.test(
         terminalBlockers,
       ) &&
       !/live external backend binary spawning\/supervision|hosted\/provider transport|live cTEE secret injection into outbound hosted network requests|live external hosted API execution|actual external MCP transport\s+execution\/backend discovery/.test(
@@ -3240,10 +3240,10 @@ function runDocs() {
   assertCheck(
     result,
     "matrix-model-mount-route-row-current-blockers-reconciled",
-    /Move remaining richer hosted catalog\/discovery materialization, deeper wallet\/cTEE route authority and revocation policy, conversation\/provider\/instance replay depth where still adapter-shaped, and stable SDK\/IDE\/CLI protocol APIs over Rust records/.test(
+    /Move remaining live external hosted catalog\/discovery materialization, deeper wallet\/cTEE route authority and revocation policy, conversation\/provider\/instance replay depth where still adapter-shaped, and stable SDK\/IDE\/CLI protocol APIs over Rust records/.test(
       modelMountingRouteRow,
     ) &&
-      /Move remaining richer hosted catalog\/discovery materialization, deeper wallet\/cTEE route authority and revocation policy, conversation\/provider\/instance replay depth where still adapter-shaped, and stable IDE\/CLI\/SDK protocol APIs over Rust records/.test(
+      /Move remaining live external hosted catalog\/discovery materialization, deeper wallet\/cTEE route authority and revocation policy, conversation\/provider\/instance replay depth where still adapter-shaped, and stable IDE\/CLI\/SDK protocol APIs over Rust records/.test(
         modelMountingCoreBoundaryRow,
       ) &&
       !/Move remaining live external backend binary spawning\/supervision, hosted\/provider transport, OAuth execution\/materialization, hosted catalog materialization, invocation authority/.test(
@@ -23994,6 +23994,9 @@ function runReceipts() {
       /native_local_provider_inventory_rejects_unsupported_backend_and_action/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/inventory.rs"),
       ) &&
+      /provider_inventory_rejects_caller_authored_item_refs_and_evidence_refs/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/inventory.rs"),
+      ) &&
       !/fn native_local_provider_inventory_is_planned_in_rust_model_mount/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
       ) &&
@@ -24006,6 +24009,9 @@ function runReceipts() {
       /UnsupportedProviderInventoryAction/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/inventory.rs"),
       ) &&
+      /ProviderInventoryCallerAuthoredTruthRetired/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/inventory.rs"),
+      ) &&
       /rust_model_mount_fixture_inventory/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/inventory.rs"),
       ) &&
@@ -24013,7 +24019,16 @@ function runReceipts() {
         read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/inventory.rs"),
       ) &&
       /plan_provider_inventory/.test(read("crates/services/src/agentic/runtime/kernel/model_mount.rs")) &&
+      /provider_inventory_item_refs/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/inventory.rs"),
+      ) &&
       /provider_inventory_evidence_refs/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/inventory.rs"),
+      ) &&
+      !/request\.item_refs\.clone\(\)/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/inventory.rs"),
+      ) &&
+      !/for evidence_ref in &request\.evidence_refs/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/inventory.rs"),
       ) &&
       /plan_model_mount_provider_inventory/.test(
@@ -26045,7 +26060,10 @@ function runReceipts() {
       /RUST_MODEL_MOUNT_FIXTURE_INVENTORY_BACKEND/.test(providerOperations) &&
       /RUST_MODEL_MOUNT_HOSTED_PROVIDER_INVENTORY_BACKEND/.test(providerOperations) &&
       /hostedProviderMetadata/.test(providerOperations) &&
-      /providerInventoryItemRefs/.test(providerOperations) &&
+      !/providerInventoryItemRefs/.test(providerOperations) &&
+      !/providerInventoryEvidenceRefs/.test(providerOperations) &&
+      !/item_refs:\s*providerInventoryItemRefs/.test(providerOperations) &&
+      !/evidence_refs:\s*providerInventoryEvidenceRefs/.test(providerOperations) &&
       /assertRustAuthoredProviderInventoryResult/.test(providerOperations) &&
       /model_mount_provider_inventory_rust_result_required/.test(providerOperations) &&
       /rust_core_api:\s*"plan_model_mount_provider_inventory"/.test(providerOperations) &&
@@ -26088,6 +26106,12 @@ function runReceipts() {
       ) &&
       /provider inventory list routes through Rust inventory planner without JS driver or local fallback reads/.test(
         read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
+      ) &&
+      /Object\.hasOwn\(state\.modelMountInventoryRequests\[0\],\s*"item_refs"\),\s*false/.test(
+        providerOperationsTest,
+      ) &&
+      /Object\.hasOwn\(state\.modelMountInventoryRequests\[0\],\s*"evidence_refs"\),\s*false/.test(
+        providerOperationsTest,
       ) &&
       /local provider inventory uses Rust native-local inventory planner without JS driver/.test(
         read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),

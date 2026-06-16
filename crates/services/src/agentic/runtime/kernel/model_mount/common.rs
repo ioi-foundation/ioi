@@ -132,6 +132,7 @@ pub enum ModelMountError {
     UnsupportedProviderLifecycleBackend,
     UnsupportedProviderInventoryAction,
     UnsupportedProviderInventoryBackend,
+    ProviderInventoryCallerAuthoredTruthRetired,
     UnsupportedInstanceLifecycleAction,
     UnsupportedInstanceLifecycleBackend,
     UnsupportedBackendProcessKind,

@@ -3,6 +3,34 @@ import test from "node:test";
 
 import { ModelMountingState } from "../model-mounting.mjs";
 
+function fakeProviderInventoryItemRefs(request = {}) {
+  const nativeLocal = request.execution_backend === "rust_model_mount_native_local_inventory";
+  const hostedProvider = request.execution_backend === "rust_model_mount_hosted_provider_inventory";
+  if (nativeLocal) {
+    return request.action === "list_loaded"
+      ? ["model_instance://native/qwen3"]
+      : ["model://native/qwen3"];
+  }
+  if (!hostedProvider) {
+    return request.action === "list_loaded"
+      ? ["model_instance://fixture/qwen3"]
+      : ["model://fixture/qwen3"];
+  }
+  const provider = String(request.provider_kind || request.api_format || request.driver || "hosted_provider")
+    .replace(/[^a-z0-9._-]+/gi, "_")
+    .replace(/^_+|_+$/g, "") || "hosted_provider";
+  if (request.action === "list_loaded") {
+    return [`model_instance://${provider}/hosted-active`];
+  }
+  if (provider === "openai") return ["model://openai/hosted-chat", "model://openai/hosted-embeddings"];
+  if (provider === "anthropic") return ["model://anthropic/hosted-chat"];
+  if (provider === "gemini") return ["model://gemini/hosted-chat"];
+  if (provider === "custom_http" || provider === "openai_compatible") {
+    return [`model://${provider}/hosted-compatible`];
+  }
+  return [`model://${provider}/hosted-catalog`];
+}
+
 function fakeState() {
   const state = {
     artifacts: new Map(),
@@ -401,7 +429,7 @@ function fakeState() {
       this.modelMountInventoryRequests.push(JSON.parse(JSON.stringify(request)));
       const nativeLocal = request.execution_backend === "rust_model_mount_native_local_inventory";
       const hostedProvider = request.execution_backend === "rust_model_mount_hosted_provider_inventory";
-      const itemRefs = Array.isArray(request.item_refs) ? request.item_refs : [];
+      const itemRefs = fakeProviderInventoryItemRefs(request);
       const backendId = request.backend_ref ?? (nativeLocal
         ? "backend.autopilot.native-local.fixture"
         : hostedProvider
@@ -413,6 +441,7 @@ function fakeState() {
       const evidenceRefs = [
         "rust_model_mount_provider_inventory",
         "agentgres_provider_inventory_truth_required",
+        "rust_provider_inventory_item_refs_materialized",
         nativeLocal
           ? "rust_model_mount_native_local_inventory_backend"
           : hostedProvider
@@ -426,6 +455,13 @@ function fakeState() {
             "wallet_network_provider_secret_boundary",
           ]
           : []),
+        ...(hostedProvider
+          ? [
+            request.action === "list_loaded"
+              ? "hosted_provider_loaded_instance_replay_required"
+              : "hosted_provider_catalog_metadata_recorded",
+          ]
+          : []),
       ];
       const transportContract = {
         transport_execution_status: "rust_materialized",
@@ -435,6 +471,7 @@ function fakeState() {
           : nativeLocal
             ? "native_local_inventory"
             : "fixture_inventory",
+        metadata_item_refs: itemRefs,
         plaintext_secret_material_returned: false,
       };
       const inventoryHash = `sha256:${request.provider_ref}:${request.action}`;
@@ -1300,14 +1337,17 @@ test("provider inventory list routes through Rust inventory planner without JS d
   assert.equal(state.modelMountInventoryRequests[0].provider_kind, "local_folder");
   assert.equal(state.modelMountInventoryRequests[0].action, "list_models");
   assert.equal(state.modelMountInventoryRequests[0].execution_backend, "rust_model_mount_fixture_inventory");
-  assert.deepEqual(state.modelMountInventoryRequests[0].item_refs, []);
+  assert.equal(Object.hasOwn(state.modelMountInventoryRequests[0], "item_refs"), false);
+  assert.equal(Object.hasOwn(state.modelMountInventoryRequests[0], "evidence_refs"), false);
   assert.equal(state.modelMountInventoryRequests[1].action, "list_loaded");
   assert.equal(state.modelMountInventoryRequests[1].execution_backend, "rust_model_mount_fixture_inventory");
+  assert.equal(Object.hasOwn(state.modelMountInventoryRequests[1], "item_refs"), false);
+  assert.equal(Object.hasOwn(state.modelMountInventoryRequests[1], "evidence_refs"), false);
   assert.equal(models.status, "listed");
   assert.equal(models.result.action, "list_models");
   assert.equal(models.executionBackend, "rust_model_mount_fixture_inventory");
-  assert.deepEqual(models.itemRefs, []);
-  assert.equal(models.itemCount, 0);
+  assert.deepEqual(models.itemRefs, ["model://fixture/qwen3"]);
+  assert.equal(models.itemCount, 1);
   assert.equal(models.evidence_refs.includes("rust_model_mount_provider_inventory"), true);
   assert.equal(models.evidence_refs.includes("agentgres_provider_inventory_truth_required"), true);
   assert.equal(models.record_dir, "model-provider-inventory");
@@ -1374,12 +1414,15 @@ test("hosted provider inventory commits Rust metadata records without JS driver 
     state.modelMountInventoryRequests[0].execution_backend,
     "rust_model_mount_hosted_provider_inventory",
   );
-  assert.deepEqual(state.modelMountInventoryRequests[0].item_refs, ["model://remote/configured"]);
+  assert.equal(Object.hasOwn(state.modelMountInventoryRequests[0], "item_refs"), false);
+  assert.equal(Object.hasOwn(state.modelMountInventoryRequests[0], "evidence_refs"), false);
   assert.equal(state.modelMountInventoryRequests[1].action, "list_loaded");
-  assert.deepEqual(state.modelMountInventoryRequests[1].item_refs, ["model_instance://remote/configured"]);
+  assert.equal(Object.hasOwn(state.modelMountInventoryRequests[1], "item_refs"), false);
+  assert.equal(Object.hasOwn(state.modelMountInventoryRequests[1], "evidence_refs"), false);
   assert.equal(models.status, "listed");
   assert.equal(models.executionBackend, "rust_model_mount_hosted_provider_inventory");
   assert.equal(models.result.driver, "hosted_provider_metadata");
+  assert.deepEqual(models.itemRefs, ["model://custom_http/hosted-compatible"]);
   assert.equal(models.itemCount, 1);
   assert.equal(models.record.rust_core_boundary, "model_mount.provider_inventory");
   assert.equal(models.evidence_refs.includes("rust_model_mount_hosted_provider_inventory_backend"), true);
@@ -1392,6 +1435,7 @@ test("hosted provider inventory commits Rust metadata records without JS driver 
   assert.equal(models.commit.record_id, models.record_id);
   assert.equal(loaded.status, "listed");
   assert.equal(loaded.operation_kind, "model_mount.provider.inventory.list_loaded");
+  assert.deepEqual(loaded.itemRefs, ["model_instance://custom_http/hosted-active"]);
   assert.equal(loaded.evidence_refs.includes("wallet_network_provider_secret_boundary"), true);
   assert.deepEqual(state.receipts, []);
   assert.equal(state.recordStateCommits.length, 2);
@@ -1481,8 +1525,12 @@ test("local provider inventory uses Rust native-local inventory planner without 
   assert.equal(state.modelMountInventoryRequests.length, 2);
   assert.equal(state.modelMountInventoryRequests[0].action, "list_models");
   assert.equal(state.modelMountInventoryRequests[0].execution_backend, "rust_model_mount_native_local_inventory");
+  assert.equal(Object.hasOwn(state.modelMountInventoryRequests[0], "item_refs"), false);
+  assert.equal(Object.hasOwn(state.modelMountInventoryRequests[0], "evidence_refs"), false);
   assert.equal(state.modelMountInventoryRequests[1].action, "list_loaded");
   assert.equal(state.modelMountInventoryRequests[1].execution_backend, "rust_model_mount_native_local_inventory");
+  assert.equal(Object.hasOwn(state.modelMountInventoryRequests[1], "item_refs"), false);
+  assert.equal(Object.hasOwn(state.modelMountInventoryRequests[1], "evidence_refs"), false);
   assert.equal(models.status, "listed");
   assert.equal(models.executionBackend, "rust_model_mount_native_local_inventory");
   assert.equal(models.result.driver, "native_local");

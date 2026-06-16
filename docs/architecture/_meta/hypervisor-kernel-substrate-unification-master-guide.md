@@ -12298,6 +12298,20 @@ preserving the typed Rust `planMemoryManagerStatusProjection`,
 public memory mutation cannot keep a standalone JS facade beside the Rust-owned
 thread-memory projection/control spine.
 
+Slice 1404 hard-cuts provider-inventory catalog/evidence materialization out of
+the JS request facade. Public provider inventory still enters through the
+typed Rust daemon-core `plan_model_mount_provider_inventory` API, but the daemon
+request no longer carries `item_refs` or `evidence_refs`; Rust now derives
+native-local, fixture, and hosted metadata item refs, owns the inventory evidence
+set, writes those refs into the transport contract and Agentgres
+`model-provider-inventory` record, and rejects caller-authored inventory refs or
+evidence as retired truth transport. The deleted JS `providerInventoryItemRefs`
+and `providerInventoryEvidenceRefs` helpers cannot return as compatibility
+scaffolding, while conformance guards both the Rust rejection and the JS
+request-field absence. Live external hosted catalog API execution remains a
+separate non-terminal transport/materialization blocker; this cut removes the
+duplicate JS catalog/evidence authoring path from the migrated hot path.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

@@ -5110,8 +5110,6 @@ function modelMountProviderInventoryRequest(provider, options = {}) {
     driver: provider?.driver ?? null,
     backend_ref: provider?.backend_ref ?? provider?.backend_id ?? provider?.backendId ?? null,
     provider_status: provider?.status ?? null,
-    item_refs: providerInventoryItemRefs(provider, action),
-    evidence_refs: providerInventoryEvidenceRefs(provider, operation),
   };
 }
 
@@ -5154,24 +5152,6 @@ function hostedProviderMetadata(provider = {}) {
   ].includes(providerKind) ||
     ["openai", "anthropic", "gemini", "custom", "openai_compatible", "ollama"].includes(apiFormat) ||
     ["openai_compatible", "hosted_provider", "hosted_provider_metadata"].includes(driver);
-}
-
-function providerInventoryItemRefs(provider = {}, action = "list_models") {
-  const refs = action === "list_loaded"
-    ? provider?.loaded_item_refs
-    : provider?.item_refs;
-  if (!Array.isArray(refs)) return [];
-  return refs
-    .map((value) => (typeof value === "string" ? value.trim() : ""))
-    .filter(Boolean);
-}
-
-function providerInventoryEvidenceRefs(provider = {}, operation) {
-  return [
-    "public_provider_inventory_rust_facade",
-    ...(Array.isArray(provider?.discovery?.evidenceRefs) ? provider.discovery.evidenceRefs : []),
-    operation,
-  ].filter(Boolean);
 }
 
 function assertRustAuthoredProviderInventoryResult(result = {}, options = {}) {

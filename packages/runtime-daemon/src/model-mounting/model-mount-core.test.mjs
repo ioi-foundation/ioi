@@ -204,8 +204,6 @@ function providerInventoryRequest() {
     api_format: "ioi_native",
     driver: "native_local",
     backend_ref: "backend.autopilot.native-local.fixture",
-    item_refs: ["model_instance://native/qwen3"],
-    evidence_refs: ["daemon_native_local_list_loaded_request"],
   };
 }
 
@@ -1395,6 +1393,8 @@ test("Rust model_mount core sends local provider inventory through typed daemon-
     "ioi.model_mount.provider_inventory.v1",
   );
   assert.equal(calls[0].request.action, "list_loaded");
+  assert.equal(Object.hasOwn(calls[0].request, "item_refs"), false);
+  assert.equal(Object.hasOwn(calls[0].request, "evidence_refs"), false);
   assert.equal(result.status, "listed");
   assert.equal(result.providerBackend, "autopilot.native_local.fixture");
   assert.equal(result.backendId, "backend.autopilot.native-local.fixture");
