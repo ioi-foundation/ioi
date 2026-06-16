@@ -4,7 +4,7 @@ import test from "node:test";
 import { createThreadMemoryState } from "./thread-memory-state.mjs";
 
 function publicMemoryProjectionForRequest(request = {}, store = {}) {
-  const records = [...(store.memory?.records?.values?.() ?? [])].filter(
+  const records = [...(store.memoryRecords?.values?.() ?? [])].filter(
     (record) =>
       record.status !== "deleted" &&
       (!request.thread_id || record.thread_id === request.thread_id) &&
@@ -222,12 +222,6 @@ function createHarness(options = {}) {
       calls.push({ type: "getAgent", agentId });
       return agents.get(agentId);
     },
-    listMemoryForThread(threadId, options) {
-      return state.listMemoryForThread(this, threadId, options);
-    },
-    listMemoryForAgent(agentId, options) {
-      return state.listMemoryForAgent(this, agentId, options);
-    },
     recordThreadMemoryMutation(threadId, mutation, body, operation) {
       return state.recordThreadMemoryMutation(this, threadId, mutation, body, operation, "memory.mutation.v1");
     },
@@ -246,9 +240,9 @@ function createHarness(options = {}) {
     commitRuntimeMemoryState(request) {
       calls.push({ type: "commitRuntimeMemoryState", input: request });
       if (request.memory_state_kind === "record") {
-        this.memory.records.set(request.state_id, request.payload);
+        this.memoryRecords.set(request.state_id, request.payload);
       } else {
-        this.memory.policies.set(request.state_id, request.payload);
+        this.memoryPolicies.set(request.state_id, request.payload);
       }
       return {
         source: "rust_agentgres_runtime_memory_state_commit_protocol",
@@ -279,82 +273,20 @@ function createHarness(options = {}) {
       calls.push({ type: "writeAgent", agent, operationKind });
       agents.set(agent.id, agent);
     },
-    memory: {
-      records: new Map([
-        [
-          "memory_1",
-          {
-            id: "memory_1",
-            thread_id: "thread_a",
-            agent_id: "agent_a",
-            workspace: "/workspace",
-            fact: "Remember deploy",
-            status: "active",
-          },
-        ],
-      ]),
-      policies: new Map(),
-      load() {
-        calls.push({ type: "memoryLoad" });
-      },
-      effectivePolicy({ agent, threadId, workspace, overrides }) {
-        calls.push({ type: "effectivePolicy", agentId: agent?.id, threadId, workspace, overrides });
-        return { id: `policy_${threadId}`, overrides };
-      },
-      pathProjection({ agent, threadId, workspace }) {
-        calls.push({ type: "pathProjection", agentId: agent?.id, threadId, workspace });
-        return { records_path: `${workspace}/${threadId}/memory` };
-      },
-      projection({ agent, threadId, workspace, filters }) {
-        calls.push({ type: "projection", agentId: agent?.id, threadId, workspace, filters });
-        const records = [...this.records.values()].filter(
-          (record) =>
-            record.status !== "deleted" &&
-            (!threadId || record.thread_id === threadId) &&
-            (!agent?.id || record.agent_id === agent.id),
-        ).map((record) => ({ id: record.id }));
-        return {
-          schema_version: "ioi.agent-runtime.memory.v1",
-          object: "ioi.agent_memory_projection",
-          agent_id: agent?.id ?? null,
-          thread_id: threadId ?? null,
-          workspace,
-          policy: { id: `policy_${threadId ?? "runtime"}`, injection_enabled: true },
-          paths: { records_path: `${workspace}/${threadId ?? "runtime"}/memory` },
-          records,
-          filters,
-          total_matches: records.length,
-        };
-      },
-      setPolicy(input) {
-        calls.push({ type: "setPolicy", input });
-        return { policy: { id: `policy_${input.target_id}` } };
-      },
-      deleteRecord(input) {
-        calls.push({ type: "deleteRecord", input });
-        return { record: { id: input.id }, receipt: { id: `receipt_${input.id}` } };
-      },
-      remember(input) {
-        calls.push({ type: "remember", input });
-        return {
-          record: {
-            id: "memory_new",
-            workflow_node_id: "runtime.memory.canonical",
-          },
-          receipt: { id: "receipt_memory_new" },
-        };
-      },
-      updateRecord(input) {
-        calls.push({ type: "updateRecord", input });
-        return {
-          record: {
-            id: input.id,
-            workflow_node_id: "runtime.memory.edit.canonical",
-          },
-          receipt: { id: `receipt_${input.id}` },
-        };
-      },
-    },
+    memoryRecords: new Map([
+      [
+        "memory_1",
+        {
+          id: "memory_1",
+          thread_id: "thread_a",
+          agent_id: "agent_a",
+          workspace: "/workspace",
+          fact: "Remember deploy",
+          status: "active",
+        },
+      ],
+    ]),
+    memoryPolicies: new Map(),
   };
   return { agents, calls, state, store };
 }
@@ -390,25 +322,30 @@ function assertThreadMemoryRustCoreRequired(error, expected = {}) {
 test("thread memory state projects thread and agent memory", () => {
   const { calls, state, store } = createHarness();
 
-  assert.deepEqual(state.listMemoryForThread(store, "thread_a", { query: "deploy" }), {
+  assert.deepEqual(state.publicListMemoryForThread(store, "thread_a", { query: "deploy" }), {
     schema_version: "ioi.agent-runtime.memory.v1",
     object: "ioi.agent_memory_projection",
     agent_id: "agent_a",
     thread_id: "thread_a",
     workspace: "/workspace",
     policy: { id: "policy_thread_a", injection_enabled: true },
-    paths: { records_path: "/workspace/thread_a/memory" },
-    records: [{ id: "memory_1" }],
+    paths: {
+      records_path: "/runtime-state/memory-records",
+      policies_path: "/runtime-state/memory-policies",
+      effective_policy_id: "policy_thread_a",
+    },
+    records: [{ id: "memory_1", fact: "Remember deploy" }],
     filters: { query: "deploy", scope: null },
     total_matches: 1,
+    state_dir_replay_required: true,
   });
-  assert.deepEqual(state.listMemoryForAgent(store, "agent_a", { scope: "workspace" }).filters, {
+  assert.deepEqual(state.publicListMemoryForAgent(store, "agent_a", { scope: "workspace" }).filters, {
     query: null,
     scope: "workspace",
   });
-  assert.equal(state.listMemoryForAgent(store, "agent_a", { thread_id: "thread_custom" }).thread_id, "thread_custom");
-  assert.equal(state.listMemoryForAgent(store, "agent_a", { threadId: "thread_retired" }).thread_id, "thread_a");
-  assert.deepEqual(calls.filter((call) => call.type === "projection").map((call) => call.threadId), [
+  assert.equal(state.publicListMemoryForAgent(store, "agent_a", { thread_id: "thread_custom" }).thread_id, "thread_custom");
+  assert.equal(state.publicListMemoryForAgent(store, "agent_a", { threadId: "thread_retired" }).thread_id, "thread_a");
+  assert.deepEqual(calls.filter((call) => call.type === "projectRuntimeMemoryProjection").map((call) => call.input.thread_id), [
     "thread_a",
     "thread_a",
     "thread_custom",
@@ -419,18 +356,28 @@ test("thread memory state projects thread and agent memory", () => {
 test("thread memory state handles policies, paths, status, and validation", () => {
   const { state, store } = createHarness();
 
-  assert.equal(state.memoryPolicyForThread(store, "thread_a").id, "policy_thread_a");
-  assert.equal(state.memoryPolicyForAgent(store, "agent_a", { thread_id: "thread_custom" }).id, "policy_thread_custom");
-  assert.equal(state.memoryPolicyForAgent(store, "agent_a", { threadId: "thread_retired" }).id, "policy_thread_a");
-  assert.equal(state.memoryPathForAgent(store, "agent_a").records_path, "/workspace/thread_a/memory");
+  assert.equal(state.publicMemoryPolicyForThread(store, "thread_a").id, "policy_thread_a");
+  assert.equal(state.publicMemoryPolicyForAgent(store, "agent_a", { thread_id: "thread_custom" }).id, "policy_thread_custom");
+  assert.equal(state.publicMemoryPolicyForAgent(store, "agent_a", { threadId: "thread_retired" }).id, "policy_thread_a");
+  assert.equal(state.publicMemoryPathForAgent(store, "agent_a").records_path, "/runtime-state/memory-records");
   assert.equal(
-    state.memoryPathForAgent(store, "agent_a", { thread_id: "thread_custom" }).records_path,
-    "/workspace/thread_custom/memory",
+    state.publicMemoryPathForAgent(store, "agent_a", { thread_id: "thread_custom" }).effective_policy_id,
+    "policy_thread_custom",
   );
   assert.equal(
-    state.memoryPathForAgent(store, "agent_a", { threadId: "thread_retired" }).records_path,
-    "/workspace/thread_a/memory",
+    state.publicMemoryPathForAgent(store, "agent_a", { threadId: "thread_retired" }).effective_policy_id,
+    "policy_thread_a",
   );
+  for (const key of [
+    "listMemoryForAgent",
+    "listMemoryForThread",
+    "memoryPathForAgent",
+    "memoryPathForThread",
+    "memoryPolicyForAgent",
+    "memoryPolicyForThread",
+  ]) {
+    assert.equal(Object.hasOwn(state, key), false);
+  }
   assert.equal(Object.hasOwn(state, "memoryProjectionForContext"), false);
   assert.equal(Object.hasOwn(state, "memoryStatus"), false);
   assert.equal(Object.hasOwn(state, "validateMemory"), false);

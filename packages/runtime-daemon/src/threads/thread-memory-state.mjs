@@ -104,21 +104,6 @@ export function createThreadMemoryState({
     });
   }
 
-  function listMemoryForThread(store, threadId, options = {}) {
-    const agent = store.agentForThread(threadId);
-    return store.memory.projection({
-      agent,
-      threadId,
-      workspace: agent.cwd,
-      filters: memoryListFilters(options),
-    });
-  }
-
-  function memoryPolicyForThread(store, threadId) {
-    const agent = store.agentForThread(threadId);
-    return store.memory.effectivePolicy({ agent, threadId, workspace: agent.cwd });
-  }
-
   function setMemoryPolicyForThread(store, threadId, body = {}) {
     const agent = store.agentForThread(threadId);
     return commitMemoryControl(store, {
@@ -131,11 +116,6 @@ export function createThreadMemoryState({
       targetId: threadId,
       request: body,
     });
-  }
-
-  function memoryPathForThread(store, threadId) {
-    const agent = store.agentForThread(threadId);
-    return store.memory.pathProjection({ agent, threadId, workspace: agent.cwd });
   }
 
   function updateMemoryForThread(store, threadId, memoryId, body = {}) {
@@ -177,23 +157,6 @@ export function createThreadMemoryState({
     });
   }
 
-  function listMemoryForAgent(store, agentId, options = {}) {
-    const agent = store.getAgent(agentId);
-    const threadId = options.thread_id ?? threadIdForAgent(agent.id);
-    return store.memory.projection({
-      agent,
-      threadId,
-      workspace: agent.cwd,
-      filters: memoryListFilters(options),
-    });
-  }
-
-  function memoryPolicyForAgent(store, agentId, options = {}) {
-    const agent = store.getAgent(agentId);
-    const threadId = options.thread_id ?? threadIdForAgent(agent.id);
-    return store.memory.effectivePolicy({ agent, threadId, workspace: agent.cwd });
-  }
-
   function setMemoryPolicyForAgent(store, agentId, body = {}) {
     const agent = store.getAgent(agentId);
     const threadId = optionalString(body.thread_id) ?? threadIdForAgent(agent.id);
@@ -207,12 +170,6 @@ export function createThreadMemoryState({
       targetId: optionalString(body.target_id) ?? agentId,
       request: body,
     });
-  }
-
-  function memoryPathForAgent(store, agentId, options = {}) {
-    const agent = store.getAgent(agentId);
-    const threadId = options.thread_id ?? threadIdForAgent(agent.id);
-    return store.memory.pathProjection({ agent, threadId, workspace: agent.cwd });
   }
 
   function updateMemoryForAgentId(store, agentId, memoryId, body = {}) {
@@ -469,7 +426,6 @@ export function createThreadMemoryState({
       payload: planned.payload,
       receipt_refs: planned.receipt_refs,
     });
-    store.memory?.load?.();
     const projection =
       planned.memory_state_kind === "policy"
         ? memoryControlPolicyProjection(store, planned)
@@ -583,7 +539,7 @@ export function createThreadMemoryState({
   }
 
   function memoryProjectionStateDir(store) {
-    return optionalString(store?.stateDir) ?? optionalString(store?.memory?.stateDir) ?? null;
+    return optionalString(store?.stateDir) ?? null;
   }
 
   function publicMemoryContextForThread(store, threadId, options = {}) {
@@ -724,12 +680,6 @@ export function createThreadMemoryState({
     deleteMemoryForAgentId,
     deleteMemoryForThread,
     deleteMemoryRecord,
-    listMemoryForAgent,
-    listMemoryForThread,
-    memoryPathForAgent,
-    memoryPathForThread,
-    memoryPolicyForAgent,
-    memoryPolicyForThread,
     publicListMemoryForAgent,
     publicListMemoryForThread,
     publicMemoryPathForAgent,

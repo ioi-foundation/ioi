@@ -14527,6 +14527,7 @@ function runBridge() {
     /RUST_AGENTGRES_STORAGE_BACKEND/.test(runtimeThreadMemoryState) &&
     /runtime_memory_state_store_js_mutation_retired/.test(runtimeThreadMemoryState) &&
     /agentgres_thread_memory_state_truth_required/.test(runtimeThreadMemoryState) &&
+    !/store\.memory\b|store\.memory\?/.test(runtimeThreadMemoryState) &&
     !/store\?\.contextPolicyCore|store\.contextPolicyCore/.test(runtimeThreadMemoryState) &&
     /contextPolicyCore,/.test(runtimeThreadMemoryState) &&
     /const contextPolicyCore =\s*\n\s*Object\.hasOwn\(options,\s*"contextPolicyCore"\)/.test(
@@ -22199,6 +22200,12 @@ function runReceipts() {
   const memoryStore = exists("packages/runtime-daemon/src/memory-store.mjs")
     ? read("packages/runtime-daemon/src/memory-store.mjs")
     : "";
+  const runtimeThreadMemoryState = exists("packages/runtime-daemon/src/threads/thread-memory-state.mjs")
+    ? read("packages/runtime-daemon/src/threads/thread-memory-state.mjs")
+    : "";
+  const runtimeThreadTurnProjection = exists("packages/runtime-daemon/src/threads/thread-turn-projection.mjs")
+    ? read("packages/runtime-daemon/src/threads/thread-turn-projection.mjs")
+    : "";
   const runtimeBridgeThread = exists("packages/runtime-daemon/src/threads/runtime-bridge-thread.mjs")
     ? read("packages/runtime-daemon/src/threads/runtime-bridge-thread.mjs")
     : "";
@@ -27449,20 +27456,58 @@ function runReceipts() {
   assertCheck(
     result,
     "agent-memory-operation-append-retired",
-    !/\bappendOperation\b/.test(memoryStore) &&
-      /this\.memory = new AgentMemoryStore\(this\.stateDir\);/.test(runtimeDaemonIndex) &&
-      !/new AgentMemoryStore\(this\.stateDir,\s*\{[\s\S]*?commitRuntimeMemoryState/.test(runtimeDaemonIndex) &&
-      /agent memory store direct mutation writers fail closed before JS memory-state writes/.test(
-        read("packages/runtime-daemon/src/memory-store.test.mjs"),
+    !exists("packages/runtime-daemon/src/memory-store.mjs") &&
+      !exists("packages/runtime-daemon/src/memory-store.test.mjs") &&
+      /from "\.\/memory-command-parser\.mjs"/.test(runtimeDaemonIndex) &&
+      !/AgentMemoryStore|this\.memory|from "\.\/memory-store\.mjs"/.test(runtimeDaemonIndex) &&
+      !/store\.memory\b|store\.memory\?/.test(runtimeThreadMemoryState) &&
+      !/function (?:listMemoryForThread|listMemoryForAgent|memoryPolicyForThread|memoryPolicyForAgent|memoryPathForThread|memoryPathForAgent)\(/.test(
+        runtimeThreadMemoryState,
       ) &&
-      /runtime_memory_state_store_rust_core_required/.test(memoryStore) &&
-      /agent_memory_store_write_js_writer_retired/.test(memoryStore),
+      /thread projection memory count fails closed without Rust memory projection/.test(
+        read("packages/runtime-daemon/src/threads/thread-turn-projection.test.mjs"),
+      ),
     [
-      "packages/runtime-daemon/src/memory-store.mjs",
-      "packages/runtime-daemon/src/memory-store.test.mjs",
+      "packages/runtime-daemon/src/memory-command-parser.mjs",
       "packages/runtime-daemon/src/index.mjs",
+      "packages/runtime-daemon/src/threads/thread-memory-state.mjs",
+      "packages/runtime-daemon/src/threads/thread-turn-projection.mjs",
+      "packages/runtime-daemon/src/threads/thread-turn-projection.test.mjs",
     ],
-    "Phase 5/11 is pending: memory record and policy updates must not mirror daemon-local operation-log records outside admitted receipt/Agentgres paths",
+    "Phase 5/11 is pending: daemon-local AgentMemoryStore and memory cache readback must stay deleted after Rust memory projection/control owns the hot path",
+  );
+  assertCheck(
+    result,
+    "runtime-memory-local-cache-substrate-retired",
+    /Slice 1345 hard-cuts the runtime memory local cache substrate/.test(guide) &&
+      /Public memory mutation\/control positive API and local cache substrate retired/.test(matrix) &&
+      /`RuntimeThreadMemoryControl`[\s\S]*memory-command-parser\.mjs/.test(
+        implementationMatrix,
+      ) &&
+      !exists("packages/runtime-daemon/src/memory-store.mjs") &&
+      !exists("packages/runtime-daemon/src/memory-store.test.mjs") &&
+      /from "\.\/memory-command-parser\.mjs"/.test(runtimeDaemonIndex) &&
+      !/AgentMemoryStore|this\.memory|from "\.\/memory-store\.mjs"/.test(runtimeDaemonIndex) &&
+      !/store\.memory\b|store\.memory\?/.test(runtimeThreadMemoryState) &&
+      !/function (?:listMemoryForThread|listMemoryForAgent|memoryPolicyForThread|memoryPolicyForAgent|memoryPathForThread|memoryPathForAgent)\(/.test(
+        runtimeThreadMemoryState,
+      ) &&
+      /memoryCount: memoryCountForThread\(store, agent, threadId\)/.test(
+        read("packages/runtime-daemon/src/threads/thread-turn-projection.mjs"),
+      ) &&
+      /runtime_thread_turn_memory_projection_rust_core_required/.test(
+        read("packages/runtime-daemon/src/threads/thread-turn-projection.mjs"),
+      ),
+    [
+      "docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md",
+      "docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md",
+      "docs/architecture/_meta/implementation-matrix.md",
+      "packages/runtime-daemon/src/memory-command-parser.mjs",
+      "packages/runtime-daemon/src/index.mjs",
+      "packages/runtime-daemon/src/threads/thread-memory-state.mjs",
+      "packages/runtime-daemon/src/threads/thread-turn-projection.mjs",
+    ],
+    "Runtime memory local cache substrate must stay deleted after Rust memory projection/control owns daemon memory hot-path reads",
   );
   assertCheck(
     result,
@@ -27495,32 +27540,23 @@ function runReceipts() {
         read("packages/runtime-daemon/src/runtime-agentgres-admission-core.test.mjs"),
       ) &&
       /commitRuntimeMemoryState\(request\)/.test(runtimeDaemonIndex) &&
-      /this\.memory = new AgentMemoryStore\(this\.stateDir\);/.test(runtimeDaemonIndex) &&
+      !/this\.memory = new AgentMemoryStore\(this\.stateDir\);/.test(runtimeDaemonIndex) &&
+      !/AgentMemoryStore|from "\.\/memory-store\.mjs"/.test(runtimeDaemonIndex) &&
+      !exists("packages/runtime-daemon/src/memory-store.mjs") &&
+      !exists("packages/runtime-daemon/src/memory-store.test.mjs") &&
       !/commitRuntimeMemoryState:\s*\(request\) => this\.commitRuntimeMemoryState/.test(runtimeDaemonIndex) &&
-      /commitMemoryState\(\{ memory_state_kind, state_id, operation_kind, payload, receipt_refs = \[\] \} = \{\}\)/.test(memoryStore) &&
-      /runtime_memory_state_store_rust_core_required/.test(memoryStore) &&
-      /runtime_memory_state_store_js_mutation_retired/.test(memoryStore) &&
-      !/RUNTIME_MEMORY_STATE_COMMIT_SCHEMA_VERSION/.test(memoryStore) &&
-      !/Memory persistence requires Rust Agentgres memory-state commit/.test(memoryStore) &&
-      !/this\.commitRuntimeMemoryState/.test(memoryStore) &&
-      !/\b(?:operationKind|receiptRefs|memoryStateKind|stateId)\b/.test(memoryStore) &&
-      !/\bfs\.writeFileSync\(path\.join\(this\.memoryDir/.test(memoryStore) &&
-      !/\bfs\.writeFileSync\(path\.join\(this\.policyDir/.test(memoryStore) &&
-      /agent memory store direct mutation writers fail closed before JS memory-state writes/.test(
-        read("packages/runtime-daemon/src/memory-store.test.mjs"),
-      ) &&
-      /commitRuntimeMemoryState must not be reached/.test(read("packages/runtime-daemon/src/memory-store.test.mjs")),
+      !/store\.memory\?\.load\?\.\(/.test(runtimeThreadMemoryState) &&
+      !/store\.memory\b|store\.memory\?/.test(runtimeThreadMemoryState),
     [
       "crates/services/src/agentic/runtime/kernel/agentgres_admission.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/runtime-agentgres-admission-core.mjs",
       "packages/runtime-daemon/src/runtime-agentgres-admission-core.test.mjs",
-      "packages/runtime-daemon/src/memory-store.mjs",
-      "packages/runtime-daemon/src/memory-store.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
+      "packages/runtime-daemon/src/threads/thread-memory-state.mjs",
     ],
-    "Phase 5/11 is pending: memory record and policy files must be persisted through Rust Agentgres storage admission instead of direct JS file writes",
+    "Phase 5/11 is pending: memory record and policy files must be persisted through Rust Agentgres storage admission with the daemon-local memory cache substrate deleted",
   );
   assertCheck(
     result,
@@ -31964,6 +32000,7 @@ function runCompositor() {
     /RUST_AGENTGRES_STORAGE_BACKEND/.test(runtimeThreadMemoryState) &&
     /runtime_memory_state_store_js_mutation_retired/.test(runtimeThreadMemoryState) &&
     /agentgres_thread_memory_state_truth_required/.test(runtimeThreadMemoryState) &&
+    !/store\.memory\b|store\.memory\?/.test(runtimeThreadMemoryState) &&
     !/store\.memory\.(?:remember|setPolicy|updateRecord|deleteRecord)\(/.test(
       runtimeThreadMemoryState,
     ) &&
@@ -33472,19 +33509,19 @@ function runCompositor() {
   assertCheck(
     result,
     "agent-memory-read-query-alias-retired",
-    /const threadId = options\.thread_id \?\? threadIdForAgent\(agent\.id\)/.test(
+    /threadId: optionalString\(options\.thread_id\) \?\? threadIdForAgent\(agent\?\.id \?\? agentId\)/.test(
       runtimeThreadMemoryState,
     ) &&
-      /state\.listMemoryForAgent\(store, "agent_a", \{ thread_id: "thread_custom" \}\)/.test(
+      /state\.publicListMemoryForAgent\(store, "agent_a", \{ thread_id: "thread_custom" \}\)/.test(
         runtimeThreadMemoryStateTest,
       ) &&
-      /state\.listMemoryForAgent\(store, "agent_a", \{ threadId: "thread_retired" \}\)/.test(
+      /state\.publicListMemoryForAgent\(store, "agent_a", \{ threadId: "thread_retired" \}\)/.test(
         runtimeThreadMemoryStateTest,
       ) &&
-      /state\.memoryPolicyForAgent\(store, "agent_a", \{ thread_id: "thread_custom" \}\)/.test(
+      /state\.publicMemoryPolicyForAgent\(store, "agent_a", \{ thread_id: "thread_custom" \}\)/.test(
         runtimeThreadMemoryStateTest,
       ) &&
-      /state\.memoryPathForAgent\(store, "agent_a", \{ thread_id: "thread_custom" \}\)/.test(
+      /state\.publicMemoryPathForAgent\(store, "agent_a", \{ thread_id: "thread_custom" \}\)/.test(
         runtimeThreadMemoryStateTest,
       ) &&
       /^\s*thread_id\?: string;/m.test(agentMemorySdkListOptionsBlock) &&
@@ -33516,6 +33553,10 @@ function runCompositor() {
       !/function memoryPathForAgent(?:(?!\n  function updateMemoryForAgentId)[\s\S])*options\.threadId\b/.test(
         runtimeThreadMemoryState,
       ) &&
+      !/function (?:listMemoryForThread|listMemoryForAgent|memoryPolicyForThread|memoryPolicyForAgent|memoryPathForThread|memoryPathForAgent)\(/.test(
+        runtimeThreadMemoryState,
+      ) &&
+      /Object\.hasOwn\(state,\s*key\),\s*false/.test(runtimeThreadMemoryStateTest) &&
       !/^\s*threadId\?: string;/m.test(agentMemorySdkListOptionsBlock) &&
       !/^\s*(?:schemaVersion|threadId|agentId|totalMatches)\??:/m.test(
         agentMemorySdkProjectionBlock,
@@ -33839,33 +33880,25 @@ function runCompositor() {
       /optionalString\(options\.memory_key\)/.test(runtimeMemoryExplicitSelectorBlock) &&
       /optionalString\(options\.query\)/.test(runtimeMemoryExplicitSelectorBlock) &&
       /optionalString\(options\.scope\)/.test(runtimeMemoryExplicitSelectorBlock) &&
-      /list\(\{ agent, threadId, workspace, includeGlobal = true, scope, memory_key, query, limit, redaction \} = \{\}\)/.test(
-        runtimeMemoryStoreListBlock,
+      !exists("packages/runtime-daemon/src/memory-store.mjs") &&
+      !exists("packages/runtime-daemon/src/memory-store.test.mjs") &&
+      /publicListMemoryForThread\(store, threadId, options = \{\}\) \{[\s\S]*?projectPublicMemory\(store,\s*"records"/.test(
+        runtimeThreadMemoryState,
       ) &&
-      /memoryListFilters\(\{ scope, memory_key, query, limit, redaction \}\)/.test(
-        runtimeMemoryStoreListBlock,
+      /publicListMemoryForAgent\(store, agentId, options = \{\}\) \{[\s\S]*?projectPublicMemory\(store,\s*"records"/.test(
+        runtimeThreadMemoryState,
       ) &&
-      /!filters\.memory_key \|\| record\.memory_key === filters\.memory_key/.test(
-        runtimeMemoryStoreListBlock,
+      /publicMemoryPathForAgent\(store, agentId, options = \{\}\) \{[\s\S]*?projectPublicMemory\(store,\s*"path"/.test(
+        runtimeThreadMemoryState,
       ) &&
-      /memory_key:\s*optionalMemoryString\(memory_key\)/.test(runtimeMemoryStoreListFiltersBlock) &&
-      /memory\.retired\.alias/.test(runtimeMemoryStoreTest) &&
-      /schema_version:\s*AGENT_MEMORY_SCHEMA_VERSION/.test(runtimeMemoryStore) &&
-      /thread_id:\s*threadId \?\? null/.test(runtimeMemoryStore) &&
-      /agent_id:\s*agent\?\.id \?\? null/.test(runtimeMemoryStore) &&
-      /total_matches:\s*records\.length/.test(runtimeMemoryStore) &&
-      /projection\.schema_version,\s*"ioi\.agent-runtime\.memory\.v1"/.test(runtimeMemoryStoreTest) &&
-      /projection\.thread_id,\s*"thread\.memory"/.test(runtimeMemoryStoreTest) &&
-      /projection\.agent_id,\s*"agent\.memory"/.test(runtimeMemoryStoreTest) &&
-      /projection\.total_matches,\s*1/.test(runtimeMemoryStoreTest) &&
-      /projection\.records\[0\]\.id,\s*record\.id/.test(runtimeMemoryStoreTest) &&
-      /Object\.hasOwn\(projection,\s*key\),\s*false,\s*`retired memory projection alias/.test(
-        runtimeMemoryStoreTest,
+      /state\.publicListMemoryForThread\(store, "thread_a", \{ query: "deploy" \}\)/.test(
+        runtimeThreadMemoryStateTest,
       ) &&
-      /Object\.hasOwn\(projection\.records\[0\],\s*key\),\s*false,\s*`retired memory record alias/.test(
-        runtimeMemoryStoreTest,
+      /Object\.hasOwn\(state,\s*key\),\s*false/.test(runtimeThreadMemoryStateTest) &&
+      !/function (?:listMemoryForThread|listMemoryForAgent|memoryPolicyForThread|memoryPolicyForAgent|memoryPathForThread|memoryPathForAgent)\(/.test(
+        runtimeThreadMemoryState,
       ) &&
-      /query: "node\.retired"/.test(runtimeMemoryStoreTest) &&
+      !/store\.memory\b|store\.memory\?/.test(runtimeThreadMemoryState) &&
       /runtime\.hasExplicitSubagentMemorySelector\(\{ memoryKey: "project" \}\), false/.test(
         runtimeMemoryHelpersTest,
       ) &&
@@ -33873,39 +33906,20 @@ function runCompositor() {
         runtimeMemoryHelpersTest,
       ) &&
       /memory_key: "project"/.test(runtimeMemoryHelpersTest) &&
-      /store\.list\(\{ agent, threadId: "thread\.memory", memory_key: "launch" \}\)\.length, 1/.test(
-        runtimeMemoryStoreTest,
-      ) &&
-      /store\.list\(\{ agent, threadId: "thread\.memory", memoryKey: "launch" \}\)\.length, 2/.test(
-        runtimeMemoryStoreTest,
-      ) &&
-      /Object\.hasOwn\(projection\.filters,\s*"memoryKey"\),\s*false/.test(
-        runtimeMemoryStoreTest,
-      ) &&
-      /projection\.paths\.records_path/.test(runtimeMemoryStoreTest) &&
-      /projection\.paths\.policies_path/.test(runtimeMemoryStoreTest) &&
-      /projection\.paths\.effective_policy_id/.test(runtimeMemoryStoreTest) &&
-      /retired memory path alias/.test(runtimeMemoryStoreTest) &&
-      /records_path:\s*this\.memoryDir/.test(runtimeMemoryStore) &&
-      /policies_path:\s*this\.policyDir/.test(runtimeMemoryStore) &&
-      /effective_policy_id:\s*policyId/.test(runtimeMemoryStore) &&
-      !/record\.(?:threadId|agentId|memoryKey|workflowGraphId|workflowNodeId|workflowNodeType|createdAt|updatedAt|evidenceRefs)\b/.test(
-        runtimeMemoryStore,
-      ) &&
-      !/\b(?:schemaVersion|threadId|agentId|totalMatches)\s*:/.test(runtimeMemoryStore) &&
-      !/\b(?:recordsPath|policiesPath|effectivePolicyId)\s*:/.test(runtimeMemoryStore) &&
       !/\boptions\.(?:memoryKey|memoryQuery|memoryScope|memoryLimit|memoryRedaction|q)\b/.test(
         `${runtimeMemoryListFiltersBlock}\n${runtimeMemoryExplicitSelectorBlock}`,
       ) &&
       !/^\s*memoryKey\s*:/.test(runtimeMemoryListFiltersBlock) &&
-      !/\{ scope, memoryKey, query, q, limit, redaction \}/.test(runtimeMemoryStore),
+      !/store\.memory\b|AgentMemoryStore|memory-store\.mjs/.test(
+        `${runtimeThreadMemoryState}\n${runtimeDaemonIndex}`,
+      ),
     [
       "packages/runtime-daemon/src/runtime-memory-helpers.mjs",
       "packages/runtime-daemon/src/runtime-memory-helpers.test.mjs",
-      "packages/runtime-daemon/src/memory-store.mjs",
-      "packages/runtime-daemon/src/memory-store.test.mjs",
+      "packages/runtime-daemon/src/threads/thread-memory-state.mjs",
+      "packages/runtime-daemon/src/threads/thread-memory-state.test.mjs",
     ],
-    "Phase 10/11 is pending: runtime memory filter helpers and store projections must use canonical memory_key/query fields without retired camelCase filter aliases",
+    "Phase 10/11 is pending: runtime memory filters must stay canonical while the deleted JS memory-store projection cache remains absent",
   );
   assertCheck(
     result,

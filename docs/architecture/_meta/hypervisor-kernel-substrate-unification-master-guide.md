@@ -11246,6 +11246,19 @@ shape: `WorkspaceTrustControlStateUpdateApiRequest`,
 marker, and `*_command_response` helper/test names must not return beside this
 Rust-owned workspace-trust control route family.
 
+Slice 1345 hard-cuts the runtime memory local cache substrate. Daemon startup no
+longer constructs `AgentMemoryStore`, `memory-store.mjs` and its tests are
+deleted, and the only remaining memory prompt parser lives in
+`memory-command-parser.mjs`. Thread-memory state no longer exports private
+cache-backed list/policy/path helpers or refreshes `store.memory` after Rust
+Agentgres memory-state commits; public thread/agent list, policy, path, status,
+and validation readback stays on `projectRuntimeMemoryProjection`. Thread
+projection memory counts now call the mounted public Rust memory projection
+surface and fail closed without it. The retired `AgentMemoryStore`,
+`this.memory`, `store.memory.*`, private thread-memory list/policy/path readers,
+and temporary memory projection cache refresh must not return beside the
+Rust-owned memory projection/control hot path.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

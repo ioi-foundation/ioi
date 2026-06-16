@@ -41,11 +41,7 @@ export function createThreadTurnProjection({
       eventStreamId: eventStreamIdForThread(threadId),
       runtimeControls,
       usage_telemetry,
-      memoryCount: store.memory.list({
-        agent,
-        threadId,
-        workspace: agent.cwd,
-      }).length,
+      memoryCount: memoryCountForThread(store, agent, threadId),
       subagent_ids: [...store.subagents.values()]
         .filter((record) => record.parent_thread_id === threadId)
         .map((record) => record.id),
@@ -118,6 +114,33 @@ export function createThreadTurnProjection({
     threadForAgent,
     turnForRun,
   };
+
+  function memoryCountForThread(store, agent, threadId) {
+    const projection = store.threadMemorySurface?.publicListMemoryForThread?.(store, threadId, {});
+    if (!projection || typeof projection !== "object") {
+      const errorFactory = typeof runtimeError === "function"
+        ? runtimeError
+        : (input) => Object.assign(new Error(input.message), input);
+      throw errorFactory({
+        status: 501,
+        code: "runtime_thread_turn_memory_projection_rust_core_required",
+        message: "Runtime thread projection memory counts require Rust daemon-core memory projection.",
+        details: {
+          rust_core_boundary: "runtime.memory_projection",
+          operation: "runtime_thread_turn_memory_count",
+          thread_id: threadId ?? null,
+          agent_id: agent?.id ?? null,
+          evidence_refs: [
+            "runtime_thread_turn_memory_count_js_cache_retired",
+            "runtime_memory_public_projection_rust_owned",
+            "agentgres_thread_memory_projection_truth_required",
+          ],
+        },
+      });
+    }
+    if (Number.isFinite(projection.total_matches)) return projection.total_matches;
+    return Array.isArray(projection.records) ? projection.records.length : 0;
+  }
 }
 
 function threadForRustProjection({

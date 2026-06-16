@@ -37,13 +37,24 @@ function createStore({ agent, runs = [], events = [] }) {
     agents: new Map([[agent.id, agent]]),
     runs,
     projectionRequests: [],
+    memoryProjectionRequests: [],
     subagents: new Map([
       ["sub_one", { id: "sub_one", parent_thread_id: `thread_${agent.id.replace(/^agent_/, "")}` }],
       ["sub_retired", { id: "sub_retired", parentThreadId: `thread_${agent.id.replace(/^agent_/, "")}` }],
       ["sub_other", { id: "sub_other", parent_thread_id: "thread_other" }],
     ]),
-    memory: {
-      list: () => [{ id: "memory_one" }, { id: "memory_two" }],
+    threadMemorySurface: {
+      publicListMemoryForThread(_store, threadId) {
+        _store.memoryProjectionRequests.push({ threadId });
+        return {
+          schema_version: "ioi.agent-runtime.memory.v1",
+          object: "ioi.agent_memory_projection",
+          thread_id: threadId,
+          records: [{ id: "memory_one" }, { id: "memory_two" }],
+          total_matches: 2,
+          evidence_refs: ["runtime_memory_public_projection_rust_owned"],
+        };
+      },
     },
     getAgent(agentId) {
       return this.agents.get(agentId);
@@ -229,6 +240,7 @@ test("thread projection includes latest run, usage, memory, and interrupted stat
   assert.equal(thread.latest_turn_id, "turn_two");
   assert.equal(thread.latest_seq, 7);
   assert.equal(thread.memory_count, 2);
+  assert.deepEqual(store.memoryProjectionRequests, [{ threadId: "thread_one" }]);
   assert.equal(thread.reasoning_effort, "medium");
   assert.equal(thread.runtime_profile, "runtime_service");
   assert.equal(thread.runtime_bridge_id, "bridge_runtime");
@@ -237,6 +249,29 @@ test("thread projection includes latest run, usage, memory, and interrupted stat
   assert.equal(thread.usage_telemetry, thread.usage);
   assertMissingKeys(thread, retiredUsageProjectionAliasKeys);
   assert.equal(store.projectThreadEventsCalled, true);
+});
+
+test("thread projection memory count fails closed without Rust memory projection", () => {
+  const agent = {
+    id: "agent_one",
+    cwd: "/workspace",
+    status: "active",
+    createdAt: "2026-06-03T00:00:00.000Z",
+    updatedAt: "2026-06-03T00:00:01.000Z",
+  };
+  const store = createStore({ agent });
+  delete store.threadMemorySurface;
+
+  assert.throws(
+    () => createProjection().threadForAgent(store, agent),
+    (error) => {
+      assert.equal(error.code, "runtime_thread_turn_memory_projection_rust_core_required");
+      assert.equal(error.details.rust_core_boundary, "runtime.memory_projection");
+      assert.equal(error.details.thread_id, "thread_one");
+      assert.equal(error.details.agent_id, "agent_one");
+      return true;
+    },
+  );
 });
 
 test("thread projection ignores retired runtime identity aliases", () => {

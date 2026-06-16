@@ -9,7 +9,7 @@ import {
   computerUseSourceEventKind,
   isComputerUseRunEventType,
 } from "./computer-use-event-contracts.mjs";
-import { AgentMemoryStore, parseMemoryCommand } from "./memory-store.mjs";
+import { parseMemoryCommand } from "./memory-command-parser.mjs";
 import {
   CODING_TOOL_PACK_ID,
   CODING_TOOL_RESULT_SCHEMA_VERSION,
@@ -866,7 +866,6 @@ export class AgentgresRuntimeStateStore {
       threadTurnProjection: this.threadTurnProjection,
       turnIdForRun,
     });
-    this.memory = new AgentMemoryStore(this.stateDir);
     this.writeSchema();
     this.load();
   }
