@@ -1,3 +1,8 @@
+import {
+  HYPERVISOR_HARNESS_SELECTION_OPTIONS,
+  type HypervisorHarnessSelectionOption,
+} from "./harnessAdapterModel";
+
 export type HypervisorClientKind =
   | "app"
   | "web"
@@ -22,6 +27,15 @@ export type HypervisorSurfaceId =
   | "settings";
 
 export type HypervisorShellActionId = "new_session";
+
+export type HypervisorNewSessionSetupSectionId =
+  | "intent"
+  | "project"
+  | "harness"
+  | "model_route"
+  | "privacy_posture"
+  | "authority"
+  | "receipt_preview";
 
 export type HypervisorSurfaceKind =
   | "core"
@@ -66,12 +80,78 @@ export interface HypervisorShellAction {
   description: string;
 }
 
+export interface HypervisorNewSessionSetupSection {
+  id: HypervisorNewSessionSetupSectionId;
+  label: string;
+  description: string;
+  required: boolean;
+}
+
+export interface HypervisorNewSessionSetupModel {
+  action: HypervisorShellAction;
+  sections: HypervisorNewSessionSetupSection[];
+  harnessOptions: HypervisorHarnessSelectionOption[];
+  runtimeTruthSource: "daemon-runtime";
+}
+
 export const HYPERVISOR_PRIMARY_ACTION: HypervisorShellAction = {
   id: "new_session",
   label: "New Session",
   description:
     "Launch a governed mission, workbench, agent, automation, foundry, fleet, or private workspace session.",
 };
+
+export const HYPERVISOR_NEW_SESSION_SETUP_MODEL: HypervisorNewSessionSetupModel =
+  {
+    action: HYPERVISOR_PRIMARY_ACTION,
+    sections: [
+      {
+        id: "intent",
+        label: "Intent",
+        description: "Goal, acceptance criteria, task type, and operator notes.",
+        required: true,
+      },
+      {
+        id: "project",
+        label: "Project",
+        description: "Workspace/project root, state refs, and restore posture.",
+        required: true,
+      },
+      {
+        id: "harness",
+        label: "Harness",
+        description:
+          "Default Harness Profile or daemon-mediated AgentHarnessAdapter.",
+        required: true,
+      },
+      {
+        id: "model_route",
+        label: "Model Route",
+        description: "Hypervisor model mount, adapter-native route, or provider-trust route.",
+        required: true,
+      },
+      {
+        id: "privacy_posture",
+        label: "Privacy",
+        description: "Public trunk, redacted projection, cTEE private workspace, or explicit unsafe mount.",
+        required: true,
+      },
+      {
+        id: "authority",
+        label: "Authority",
+        description: "wallet.network scopes, approvals, leases, and connector capabilities.",
+        required: true,
+      },
+      {
+        id: "receipt_preview",
+        label: "Receipt Preview",
+        description: "Expected receipt, Agentgres operation, artifact, and replay refs.",
+        required: false,
+      },
+    ],
+    harnessOptions: HYPERVISOR_HARNESS_SELECTION_OPTIONS,
+    runtimeTruthSource: "daemon-runtime",
+  };
 
 export const HYPERVISOR_PRIMARY_SURFACES: HypervisorShellNavigationItem[] = [
   {

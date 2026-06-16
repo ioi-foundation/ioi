@@ -40,6 +40,10 @@ test("hypervisor shell keeps application surfaces separate from clients", () => 
 
 test("hypervisor shell models IOI-reference session detail and inspectors", () => {
   assert.match(source, /HYPERVISOR_PRIMARY_ACTION[\s\S]*New Session/);
+  assert.match(source, /HYPERVISOR_NEW_SESSION_SETUP_MODEL/);
+  assert.match(source, /Default Harness Profile or daemon-mediated AgentHarnessAdapter/);
+  assert.match(source, /harnessOptions: HYPERVISOR_HARNESS_SELECTION_OPTIONS/);
+  assert.match(source, /runtimeTruthSource: "daemon-runtime"/);
   assert.match(source, /HYPERVISOR_SECONDARY_SESSION_RAIL_MODEL/);
   assert.match(source, /HYPERVISOR_SESSION_DETAIL_TABS/);
   assert.match(source, /"agent"[\s\S]*"workbench"[\s\S]*"environment"[\s\S]*"changes"[\s\S]*"receipts"[\s\S]*"replay"/);

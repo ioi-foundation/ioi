@@ -469,6 +469,15 @@ compliance acronyms for hidden audit material.
   coding agents. These harnesses may propose work through Hypervisor Core and
   the Hypervisor Daemon, but they are not Hypervisor clients and not runtime
   truth.
+- `HypervisorHarnessSelectionOption`: New Session selection object for either
+  a selected `HarnessProfile` or a selected `AgentHarnessAdapter`. It is the
+  app/API-facing object that keeps Default Harness Profile as IOI's reference
+  scaffold/fallback while exposing external harnesses as daemon-mediated
+  proposal sources.
+- `HarnessAdapterReceipt`: receipt envelope for an external harness run. It
+  binds selection ref, execution lane, model route ref when present, workspace
+  mount policy, authority scope refs, privacy posture ref, Agentgres operation
+  refs, artifact refs, and daemon-runtime truth source.
 - `AgentHarnessEnvironmentOpsProfile`: stable environment-operations contract
   for external harnesses. It covers project/runtime discovery, create from
   project or context URL, readiness polling, structured command execution,

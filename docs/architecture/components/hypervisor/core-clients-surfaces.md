@@ -313,6 +313,50 @@ Keep your agent harness.
 Put consequential execution behind Hypervisor.
 ```
 
+Implementation-facing selection contract:
+
+```text
+HypervisorHarnessSelectionOption
+  selection_kind:
+    harness_profile | agent_harness_adapter
+
+Default Harness Profile
+  selection_kind: harness_profile
+  role: reference_scaffold_fallback
+  model route: Hypervisor model mount by default
+  runtime truth: daemon-runtime
+
+AgentHarnessAdapterProfile
+  selection_kind: agent_harness_adapter
+  examples:
+    Codex CLI
+    Codex Desktop Linux
+    Claude Code CLI
+    DeepSeek TUI
+    Aider CLI
+    OpenHands
+    generic CLI
+  truth boundary:
+    proposal_source_only
+  required bindings:
+    execution lane
+    model route policy
+    workspace mount policy
+    authority scopes
+    receipt policy
+```
+
+The New Session flow should expose the selected harness beside the selected
+model route, privacy posture, authority scope, and receipt preview. External
+harnesses must not silently fall back from a local/private model route to a
+provider-trust model route; provider-trust or adapter-native routes are explicit
+privacy posture states.
+
+Every external harness run should produce a `HarnessAdapterReceipt` binding the
+selection ref, execution lane, model route ref, workspace mount policy,
+authority scope refs, privacy posture ref, Agentgres operation refs, and
+artifact refs.
+
 Adapter doctrine:
 
 ```text
