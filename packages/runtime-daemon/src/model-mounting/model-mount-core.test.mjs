@@ -1532,13 +1532,32 @@ test("Rust model_mount core sends backend process materialization through typed 
           backend_ref: request.backend_ref,
           backend_kind: request.backend_kind,
           backend_process_ref: "backend_process://backend.llama.process#sha256:plan",
+          backend_supervision_ref: "backend_supervision://backend.llama.process#sha256:plan",
+          backend_supervision_hash: "sha256:backend-supervision",
+          backend_supervision_status: "rust_external_process_supervision_contract_bound",
           process_materialization_status: "rust_spawn_contract_bound",
           rust_core_boundary: "model_mount.backend_process_materialization",
           process_execution_owner: "rust_daemon_core.model_mount.backend_process_materialization",
+          process_supervision_owner: "rust_daemon_core.model_mount.backend_process_supervisor",
           spawn_contract: {
             spawn_args_returned: false,
             pid_returned: false,
             plaintext_process_material_returned: false,
+          },
+          supervision_contract: {
+            backend_supervision_ref: "backend_supervision://backend.llama.process#sha256:plan",
+            backend_supervision_hash: "sha256:backend-supervision",
+            backend_supervision_status: "rust_external_process_supervision_contract_bound",
+            process_supervision_owner: "rust_daemon_core.model_mount.backend_process_supervisor",
+            supervisor_kind: "external_process",
+            supports_supervision: true,
+            spawn_required: true,
+            spawn_status: "spawn_ready",
+            spawn_args_hash: "sha256:redacted-spawn-args",
+            js_process_supervisor: false,
+            command_transport_spawn: false,
+            binary_bridge_spawn: false,
+            compatibility_spawn_fallback: false,
           },
           retired_paths: {
             js_process_supervisor: false,
@@ -1552,6 +1571,7 @@ test("Rust model_mount core sends backend process materialization through typed 
             "wallet_network_backend_process_authority_bound",
             "ctee_backend_process_custody_enforced",
             "agentgres_backend_process_materialization_truth_required",
+            "rust_backend_process_supervision_bound",
             "js_backend_process_supervisor_retired",
             "command_transport_backend_process_spawn_retired",
             "binary_bridge_backend_process_spawn_retired",
@@ -1565,9 +1585,13 @@ test("Rust model_mount core sends backend process materialization through typed 
           backend_ref: request.backend_ref,
           backend_kind: request.backend_kind,
           backend_process_ref: record.backend_process_ref,
+          backend_supervision_ref: record.backend_supervision_ref,
+          backend_supervision_hash: record.backend_supervision_hash,
+          backend_supervision_status: record.backend_supervision_status,
           process_materialization_status: record.process_materialization_status,
           rust_core_boundary: "model_mount.backend_process_materialization",
           process_execution_owner: "rust_daemon_core.model_mount.backend_process_materialization",
+          process_supervision_owner: "rust_daemon_core.model_mount.backend_process_supervisor",
           spawn_args_returned: false,
           pid_returned: false,
           plaintext_process_material_returned: false,
@@ -1609,6 +1633,8 @@ test("Rust model_mount core sends backend process materialization through typed 
   assert.equal(result.rust_core_boundary, "model_mount.backend_process_materialization");
   assert.equal(result.record_dir, "model-backend-process-materializations");
   assert.equal(result.record.process_execution_owner, "rust_daemon_core.model_mount.backend_process_materialization");
+  assert.equal(result.record.process_supervision_owner, "rust_daemon_core.model_mount.backend_process_supervisor");
+  assert.equal(result.backend_supervision_hash, "sha256:backend-supervision");
   assert.equal(result.public_response.spawn_args_returned, false);
   assert.equal(result.public_response.js_process_supervisor, false);
   assert.equal(result.public_response.command_transport_spawn, false);

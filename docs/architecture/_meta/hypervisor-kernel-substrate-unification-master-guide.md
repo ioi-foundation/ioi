@@ -11810,6 +11810,26 @@ into outbound hosted requests, live external backend binary
 spawning/supervision, and deeper invocation authority still need terminal
 Rust-owned execution coverage.
 
+Slice 1375 hard-cuts backend-process supervision binding into the Rust
+backend-process materialization and instance-lifecycle contract. Rust
+`planModelMountBackendProcessMaterialization` now emits
+`backend_supervision_ref`, `backend_supervision_hash`,
+`backend_supervision_status`, `process_supervision_owner:
+"rust_daemon_core.model_mount.backend_process_supervisor"`, and a
+`supervision_contract` inside the Agentgres
+`model-backend-process-materializations` record and public response. The
+daemon facade validates those Rust-owned fields, requires
+`rust_backend_process_supervision_bound`, and model-instance `load` requests now
+fail closed unless they bind the backend supervision ref/hash/status beside
+`backend_process_ref` and `backend_process_materialization_hash`. Focused
+JS/Rust tests and conformance guard that a model load cannot fall back to the
+old process-hash-only boundary or reintroduce JS child-process supervisor,
+command-transport spawn, binary-bridge spawn, or compatibility-spawn truth.
+This remains non-terminal because live hosted network I/O, live cTEE secret
+injection into outbound hosted requests, live external backend binary process
+launch/supervision implementation, and deeper invocation authority still need
+terminal Rust-owned execution coverage.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

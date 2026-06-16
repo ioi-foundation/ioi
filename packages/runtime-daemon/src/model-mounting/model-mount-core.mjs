@@ -579,6 +579,9 @@ function normalizeInstanceLifecycleApiResult(value = {}) {
       result.backend_process_materialization_hash ??
       record.backend_process_materialization_hash ??
       null,
+    backend_supervision_ref: result.backend_supervision_ref ?? record.backend_supervision_ref ?? null,
+    backend_supervision_hash: result.backend_supervision_hash ?? record.backend_supervision_hash ?? null,
+    backend_supervision_status: result.backend_supervision_status ?? record.backend_supervision_status ?? null,
     instance_lifecycle_hash: result.instance_lifecycle_hash ?? record.instance_lifecycle_hash ?? null,
     evidence_refs: Array.isArray(result.evidence_refs)
       ? result.evidence_refs
@@ -674,6 +677,24 @@ function normalizeBackendProcessMaterializationApiResult(value = {}) {
     evidence_refs: arrayOrNull(result.evidence_refs) ?? arrayOrNull(plan.evidence_refs),
     materialization_hash: result.materialization_hash ?? plan.materialization_hash ?? null,
     authority_hash: result.authority_hash ?? plan.authority_hash ?? null,
+    backend_supervision_ref:
+      result.backend_supervision_ref ??
+      plan.backend_supervision_ref ??
+      record?.backend_supervision_ref ??
+      publicResponse?.backend_supervision_ref ??
+      null,
+    backend_supervision_hash:
+      result.backend_supervision_hash ??
+      plan.backend_supervision_hash ??
+      record?.backend_supervision_hash ??
+      publicResponse?.backend_supervision_hash ??
+      null,
+    backend_supervision_status:
+      result.backend_supervision_status ??
+      plan.backend_supervision_status ??
+      record?.backend_supervision_status ??
+      publicResponse?.backend_supervision_status ??
+      null,
   };
   const missing = [];
   for (const field of ["record_dir", "record_id", "record", "operation_kind", "materialization_hash", "authority_hash"]) {
@@ -688,6 +709,7 @@ function normalizeBackendProcessMaterializationApiResult(value = {}) {
     "wallet_network_backend_process_authority_bound",
     "ctee_backend_process_custody_enforced",
     "agentgres_backend_process_materialization_truth_required",
+    "rust_backend_process_supervision_bound",
     "js_backend_process_supervisor_retired",
     "command_transport_backend_process_spawn_retired",
     "binary_bridge_backend_process_spawn_retired",
@@ -699,6 +721,30 @@ function normalizeBackendProcessMaterializationApiResult(value = {}) {
   if (record?.id !== normalized.record_id) missing.push("record.id");
   if (record?.process_materialization_status == null) {
     missing.push("record.process_materialization_status");
+  }
+  if (!normalized.backend_supervision_ref) {
+    missing.push("backend_supervision_ref");
+  }
+  if (!normalized.backend_supervision_hash) {
+    missing.push("backend_supervision_hash");
+  }
+  if (!normalized.backend_supervision_status) {
+    missing.push("backend_supervision_status");
+  }
+  if (record?.process_supervision_owner !== "rust_daemon_core.model_mount.backend_process_supervisor") {
+    missing.push("record.process_supervision_owner");
+  }
+  if (record?.supervision_contract?.process_supervision_owner !== "rust_daemon_core.model_mount.backend_process_supervisor") {
+    missing.push("record.supervision_contract.process_supervision_owner");
+  }
+  if (!record?.supervision_contract?.backend_supervision_ref) {
+    missing.push("record.supervision_contract.backend_supervision_ref");
+  }
+  if (!record?.supervision_contract?.backend_supervision_hash) {
+    missing.push("record.supervision_contract.backend_supervision_hash");
+  }
+  if (!record?.supervision_contract?.backend_supervision_status) {
+    missing.push("record.supervision_contract.backend_supervision_status");
   }
   if (record?.spawn_contract?.spawn_args_returned !== false) {
     missing.push("record.spawn_contract.spawn_args_returned_false");
@@ -717,6 +763,18 @@ function normalizeBackendProcessMaterializationApiResult(value = {}) {
   }
   if (publicResponse?.spawn_args_returned !== false) {
     missing.push("public_response.spawn_args_returned_false");
+  }
+  if (!publicResponse?.backend_supervision_ref) {
+    missing.push("public_response.backend_supervision_ref");
+  }
+  if (!publicResponse?.backend_supervision_hash) {
+    missing.push("public_response.backend_supervision_hash");
+  }
+  if (!publicResponse?.backend_supervision_status) {
+    missing.push("public_response.backend_supervision_status");
+  }
+  if (publicResponse?.process_supervision_owner !== "rust_daemon_core.model_mount.backend_process_supervisor") {
+    missing.push("public_response.process_supervision_owner");
   }
   if (publicResponse?.js_process_supervisor !== false) {
     missing.push("public_response.js_process_supervisor_false");

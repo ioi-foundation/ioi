@@ -25,6 +25,12 @@ pub struct ModelMountInstanceLifecycleRequest {
     pub backend_process_ref: String,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub backend_process_materialization_hash: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub backend_supervision_ref: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub backend_supervision_hash: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub backend_supervision_status: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -58,6 +64,12 @@ pub struct ModelMountInstanceLifecycleResult {
     pub backend_process_ref: String,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub backend_process_materialization_hash: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub backend_supervision_ref: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub backend_supervision_hash: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub backend_supervision_status: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -97,6 +109,12 @@ impl ModelMountInstanceLifecycleRequest {
             require_non_empty(
                 "backend_process_materialization_hash",
                 &self.backend_process_materialization_hash,
+            )?;
+            require_non_empty("backend_supervision_ref", &self.backend_supervision_ref)?;
+            require_non_empty("backend_supervision_hash", &self.backend_supervision_hash)?;
+            require_non_empty(
+                "backend_supervision_status",
+                &self.backend_supervision_status,
             )?;
         }
         if self.execution_backend.trim() != "rust_model_mount_instance_lifecycle" {
@@ -144,6 +162,9 @@ pub(super) fn plan_instance_lifecycle(
         provider_lifecycle_hash: provider_lifecycle_hash(request)?,
         backend_process_ref: request.backend_process_ref.clone(),
         backend_process_materialization_hash: request.backend_process_materialization_hash.clone(),
+        backend_supervision_ref: request.backend_supervision_ref.clone(),
+        backend_supervision_hash: request.backend_supervision_hash.clone(),
+        backend_supervision_status: request.backend_supervision_status.clone(),
         reason: request.reason.clone(),
         superseded_by: request.superseded_by.clone(),
         runtime_engine_id: request.runtime_engine_ref.clone(),
@@ -168,6 +189,7 @@ fn instance_lifecycle_evidence_refs(request: &ModelMountInstanceLifecycleRequest
     } else {
         refs.push("rust_model_mount_provider_lifecycle_bound".to_string());
         refs.push("rust_model_mount_backend_process_materialization_bound".to_string());
+        refs.push("rust_model_mount_backend_process_supervision_bound".to_string());
     }
     for evidence_ref in &request.evidence_refs {
         push_unique_ref(&mut refs, evidence_ref);
@@ -261,6 +283,10 @@ mod tests {
             backend_process_ref: "backend_process://backend.native_process#sha256:plan".to_string(),
             backend_process_materialization_hash: "sha256:backend-process-materialization"
                 .to_string(),
+            backend_supervision_ref: "backend_supervision://backend.native_process#sha256:plan"
+                .to_string(),
+            backend_supervision_hash: "sha256:backend-supervision".to_string(),
+            backend_supervision_status: "rust_fixture_supervision_bound".to_string(),
             reason: None,
             superseded_by: None,
             runtime_engine_ref: None,
@@ -297,6 +323,21 @@ mod tests {
         assert!(result
             .evidence_refs
             .contains(&"rust_model_mount_provider_lifecycle_bound".to_string()));
+        assert_eq!(
+            result.backend_supervision_ref,
+            "backend_supervision://backend.native_process#sha256:plan"
+        );
+        assert_eq!(
+            result.backend_supervision_hash,
+            "sha256:backend-supervision"
+        );
+        assert_eq!(
+            result.backend_supervision_status,
+            "rust_fixture_supervision_bound"
+        );
+        assert!(result
+            .evidence_refs
+            .contains(&"rust_model_mount_backend_process_supervision_bound".to_string()));
         assert!(result.instance_lifecycle_hash.starts_with("sha256:"));
     }
 

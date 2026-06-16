@@ -127,6 +127,9 @@ pub struct ModelMountBackendProcessMaterializationPlan {
     pub evidence_refs: Vec<String>,
     pub materialization_hash: String,
     pub authority_hash: String,
+    pub backend_supervision_ref: String,
+    pub backend_supervision_hash: String,
+    pub backend_supervision_status: String,
 }
 
 impl ModelMountBackendProcessPlanRequest {
@@ -229,12 +232,38 @@ pub(super) fn plan_backend_process_materialization(
         "backend_process://{record_id}#{}",
         process_plan.plan_hash.trim()
     );
+    let backend_supervision_ref = format!(
+        "backend_supervision://{record_id}#{}",
+        process_plan.plan_hash.trim()
+    );
+    let backend_supervision_status = backend_process_supervision_status(&process_plan);
+    let backend_supervision_seed = json!({
+        "backend_process_ref": backend_process_ref,
+        "backend_ref": backend_ref,
+        "backend_kind": backend_kind,
+        "supervisor_kind": process_plan.supervisor_kind,
+        "supports_supervision": process_plan.supports_supervision,
+        "spawn_required": process_plan.spawn_required,
+        "spawn_status": process_plan.spawn_status,
+        "spawn_args_hash": spawn_args_hash,
+        "backend_supervision_status": backend_supervision_status,
+        "process_supervision_owner": "rust_daemon_core.model_mount.backend_process_supervisor",
+        "retired_paths": {
+            "js_process_supervisor": false,
+            "command_transport_spawn": false,
+            "binary_bridge_spawn": false,
+            "compatibility_spawn_fallback": false,
+        },
+    });
+    let backend_supervision_hash = format!("sha256:{}", hash_json(&backend_supervision_seed)?);
     let authority_seed = json!({
         "operation_kind": operation_kind,
         "backend_ref": backend_ref,
         "backend_kind": backend_kind,
         "plan_hash": process_plan.plan_hash,
         "spawn_args_hash": spawn_args_hash,
+        "backend_supervision_ref": backend_supervision_ref,
+        "backend_supervision_hash": backend_supervision_hash,
         "required_scope": request.required_scope,
         "authority_grant_refs": authority_grant_refs,
         "authority_receipt_refs": authority_receipt_refs,
@@ -251,6 +280,9 @@ pub(super) fn plan_backend_process_materialization(
         "spawn_args_hash": spawn_args_hash,
         "public_args_hash": public_args_hash,
         "materialization_status": materialization_status,
+        "backend_supervision_ref": backend_supervision_ref,
+        "backend_supervision_hash": backend_supervision_hash,
+        "backend_supervision_status": backend_supervision_status,
         "authority_hash": authority_hash,
         "receipt_refs": receipt_refs,
     });
@@ -262,9 +294,13 @@ pub(super) fn plan_backend_process_materialization(
         "backend_ref": backend_ref,
         "backend_kind": backend_kind,
         "backend_process_ref": backend_process_ref,
+        "backend_supervision_ref": backend_supervision_ref,
+        "backend_supervision_hash": backend_supervision_hash,
+        "backend_supervision_status": backend_supervision_status,
         "process_materialization_status": materialization_status,
         "rust_core_boundary": "model_mount.backend_process_materialization",
         "process_execution_owner": "rust_daemon_core.model_mount.backend_process_materialization",
+        "process_supervision_owner": "rust_daemon_core.model_mount.backend_process_supervisor",
         "supervisor_kind": process_plan.supervisor_kind,
         "supports_supervision": process_plan.supports_supervision,
         "spawn_required": process_plan.spawn_required,
@@ -294,10 +330,14 @@ pub(super) fn plan_backend_process_materialization(
         "backend_ref": backend_ref,
         "backend_kind": backend_kind,
         "backend_process_ref": backend_process_ref,
+        "backend_supervision_ref": backend_supervision_ref,
+        "backend_supervision_hash": backend_supervision_hash,
+        "backend_supervision_status": backend_supervision_status,
         "rust_core_boundary": "model_mount.backend_process_materialization",
         "wallet_authority_boundary": "wallet.network.backend_process",
         "ctee_custody_boundary": "ctee.backend_process",
         "process_execution_owner": "rust_daemon_core.model_mount.backend_process_materialization",
+        "process_supervision_owner": "rust_daemon_core.model_mount.backend_process_supervisor",
         "process_materialization_status": materialization_status,
         "backend_lifecycle_ref": request.backend_lifecycle_ref,
         "backend_lifecycle_hash": request.backend_lifecycle_hash,
@@ -322,6 +362,21 @@ pub(super) fn plan_backend_process_materialization(
             "ctee_custody_required": true,
             "custody_ref": request.custody_ref,
             "containment_ref": request.containment_ref,
+        },
+        "supervision_contract": {
+            "backend_supervision_ref": backend_supervision_ref,
+            "backend_supervision_hash": backend_supervision_hash,
+            "backend_supervision_status": backend_supervision_status,
+            "process_supervision_owner": "rust_daemon_core.model_mount.backend_process_supervisor",
+            "supervisor_kind": process_plan.supervisor_kind,
+            "supports_supervision": process_plan.supports_supervision,
+            "spawn_required": process_plan.spawn_required,
+            "spawn_status": process_plan.spawn_status,
+            "spawn_args_hash": spawn_args_hash,
+            "js_process_supervisor": false,
+            "command_transport_spawn": false,
+            "binary_bridge_spawn": false,
+            "compatibility_spawn_fallback": false,
         },
         "retired_paths": {
             "js_process_supervisor": false,
@@ -361,6 +416,9 @@ pub(super) fn plan_backend_process_materialization(
         evidence_refs,
         materialization_hash,
         authority_hash,
+        backend_supervision_ref,
+        backend_supervision_hash,
+        backend_supervision_status,
     })
 }
 
@@ -400,6 +458,18 @@ fn backend_process_materialization_status(plan: &ModelMountBackendProcessPlan) -
     }
 }
 
+fn backend_process_supervision_status(plan: &ModelMountBackendProcessPlan) -> String {
+    if plan.backend_kind.trim() == "native_local" {
+        "rust_fixture_supervision_bound".to_string()
+    } else if plan.supports_supervision && plan.spawn_status == "spawn_ready" {
+        "rust_external_process_supervision_contract_bound".to_string()
+    } else if plan.supports_supervision {
+        format!("rust_external_process_supervision_{}", plan.spawn_status)
+    } else {
+        "rust_process_supervision_not_required".to_string()
+    }
+}
+
 fn backend_process_materialization_evidence_refs(
     plan: &ModelMountBackendProcessPlan,
 ) -> Vec<String> {
@@ -409,6 +479,7 @@ fn backend_process_materialization_evidence_refs(
         "wallet_network_backend_process_authority_bound".to_string(),
         "ctee_backend_process_custody_enforced".to_string(),
         "agentgres_backend_process_materialization_truth_required".to_string(),
+        "rust_backend_process_supervision_bound".to_string(),
         "js_backend_process_supervisor_retired".to_string(),
         "command_transport_backend_process_spawn_retired".to_string(),
         "binary_bridge_backend_process_spawn_retired".to_string(),
@@ -947,6 +1018,22 @@ mod tests {
             plan.record["process_materialization_status"],
             "rust_spawn_contract_bound"
         );
+        assert_eq!(
+            plan.record["backend_supervision_status"],
+            "rust_external_process_supervision_contract_bound"
+        );
+        assert_eq!(
+            plan.record["process_supervision_owner"],
+            "rust_daemon_core.model_mount.backend_process_supervisor"
+        );
+        assert_eq!(
+            plan.record["supervision_contract"]["process_supervision_owner"],
+            "rust_daemon_core.model_mount.backend_process_supervisor"
+        );
+        assert_eq!(
+            plan.public_response["backend_supervision_hash"],
+            plan.record["backend_supervision_hash"]
+        );
         assert_eq!(plan.record["retired_paths"]["js_process_supervisor"], false);
         assert_eq!(
             plan.record["retired_paths"]["command_transport_spawn"],
@@ -965,6 +1052,9 @@ mod tests {
         assert!(plan
             .evidence_refs
             .contains(&"agentgres_backend_process_materialization_truth_required".to_string()));
+        assert!(plan
+            .evidence_refs
+            .contains(&"rust_backend_process_supervision_bound".to_string()));
         assert!(plan
             .evidence_refs
             .contains(&"command_transport_backend_process_spawn_retired".to_string()));
@@ -996,6 +1086,10 @@ mod tests {
         assert_eq!(
             plan.record["process_materialization_status"],
             "rust_fixture_process_materialized"
+        );
+        assert_eq!(
+            plan.record["backend_supervision_status"],
+            "rust_fixture_supervision_bound"
         );
         assert_eq!(plan.record["retired_paths"]["js_process_supervisor"], false);
         assert_eq!(plan.public_response["command_transport_spawn"], false);

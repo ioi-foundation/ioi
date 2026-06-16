@@ -256,6 +256,9 @@ function fakeState() {
           : request.provider_lifecycle_hash,
         backend_process_ref: request.backend_process_ref ?? "",
         backend_process_materialization_hash: request.backend_process_materialization_hash ?? "",
+        backend_supervision_ref: request.backend_supervision_ref ?? "",
+        backend_supervision_hash: request.backend_supervision_hash ?? "",
+        backend_supervision_status: request.backend_supervision_status ?? "",
         runtime_engine_id: request.runtime_engine_ref,
         load_options: request.load_options,
         load_estimate: estimate
@@ -285,6 +288,7 @@ function fakeState() {
             : [
               "rust_model_mount_provider_lifecycle_bound",
               "rust_model_mount_backend_process_materialization_bound",
+              "rust_model_mount_backend_process_supervision_bound",
             ]),
           ...request.evidence_refs,
         ],
@@ -314,6 +318,7 @@ function fakeState() {
         "wallet_network_backend_process_authority_bound",
         "ctee_backend_process_custody_enforced",
         "agentgres_backend_process_materialization_truth_required",
+        "rust_backend_process_supervision_bound",
         "js_backend_process_supervisor_retired",
         "command_transport_backend_process_spawn_retired",
         "binary_bridge_backend_process_spawn_retired",
@@ -324,9 +329,13 @@ function fakeState() {
         backend_ref: request.backend_ref,
         backend_kind: request.backend_kind,
         backend_process_ref: `backend_process://${recordId}#sha256:plan`,
+        backend_supervision_ref: `backend_supervision://${recordId}#sha256:plan`,
+        backend_supervision_hash: "sha256:backend-supervision",
+        backend_supervision_status: "rust_fixture_supervision_bound",
         process_materialization_status: "rust_fixture_process_materialized",
         rust_core_boundary: "model_mount.backend_process_materialization",
         process_execution_owner: "rust_daemon_core.model_mount.backend_process_materialization",
+        process_supervision_owner: "rust_daemon_core.model_mount.backend_process_supervisor",
         spawn_args_returned: false,
         pid_returned: false,
         plaintext_process_material_returned: false,
@@ -347,13 +356,32 @@ function fakeState() {
         backend_ref: request.backend_ref,
         backend_kind: request.backend_kind,
         backend_process_ref: publicResponse.backend_process_ref,
+        backend_supervision_ref: publicResponse.backend_supervision_ref,
+        backend_supervision_hash: publicResponse.backend_supervision_hash,
+        backend_supervision_status: publicResponse.backend_supervision_status,
         process_materialization_status: publicResponse.process_materialization_status,
         rust_core_boundary: "model_mount.backend_process_materialization",
         process_execution_owner: "rust_daemon_core.model_mount.backend_process_materialization",
+        process_supervision_owner: "rust_daemon_core.model_mount.backend_process_supervisor",
         spawn_contract: {
           spawn_args_returned: false,
           pid_returned: false,
           plaintext_process_material_returned: false,
+        },
+        supervision_contract: {
+          backend_supervision_ref: publicResponse.backend_supervision_ref,
+          backend_supervision_hash: publicResponse.backend_supervision_hash,
+          backend_supervision_status: publicResponse.backend_supervision_status,
+          process_supervision_owner: "rust_daemon_core.model_mount.backend_process_supervisor",
+          supervisor_kind: "deterministic_fixture_process",
+          supports_supervision: true,
+          spawn_required: false,
+          spawn_status: "not_required",
+          spawn_args_hash: "sha256:redacted-spawn-args",
+          js_process_supervisor: false,
+          command_transport_spawn: false,
+          binary_bridge_spawn: false,
+          compatibility_spawn_fallback: false,
         },
         retired_paths: {
           js_process_supervisor: false,
@@ -611,6 +639,12 @@ test("loadModel commits Rust-planned instance lifecycle without mutating JS inst
     "backend_process://backend.autopilot.native-local.fixture.process#sha256:plan",
   );
   assert.equal(loaded.backend_process_materialization_hash, "sha256:backend-process-materialization");
+  assert.equal(
+    loaded.backend_supervision_ref,
+    "backend_supervision://backend.autopilot.native-local.fixture.process#sha256:plan",
+  );
+  assert.equal(loaded.backend_supervision_hash, "sha256:backend-supervision");
+  assert.equal(loaded.backend_supervision_status, "rust_fixture_supervision_bound");
   assert.equal(loaded.instance_lifecycle_hash, "sha256:instance:instance.explicit:load");
   assert.equal(
     loaded.backend_process_materialization.process_execution_owner,
@@ -647,15 +681,26 @@ test("loadModel commits Rust-planned instance lifecycle without mutating JS inst
     state.instanceLifecycleRequests[0].backend_process_materialization_hash,
     "sha256:backend-process-materialization",
   );
+  assert.equal(
+    state.instanceLifecycleRequests[0].backend_supervision_hash,
+    "sha256:backend-supervision",
+  );
+  assert.equal(
+    state.instanceLifecycleRequests[0].backend_supervision_status,
+    "rust_fixture_supervision_bound",
+  );
   assert.equal(state.recordStateCommits.length, 2);
   assert.equal(state.recordStateCommits[0].record_dir, "model-backend-process-materializations");
   assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.backend_process.materialize");
   assert.equal(state.recordStateCommits[0].record.process_execution_owner, "rust_daemon_core.model_mount.backend_process_materialization");
+  assert.equal(state.recordStateCommits[0].record.process_supervision_owner, "rust_daemon_core.model_mount.backend_process_supervisor");
+  assert.equal(state.recordStateCommits[0].record.backend_supervision_hash, "sha256:backend-supervision");
   assert.equal(state.recordStateCommits[1].record_dir, "model-instances");
   assert.equal(state.recordStateCommits[1].record_id, "instance.explicit");
   assert.equal(state.recordStateCommits[1].operation_kind, "model_mount.instance.load");
   assert.equal(state.recordStateCommits[1].record.status, "loaded");
   assert.equal(state.recordStateCommits[1].record.action, "load");
+  assert.equal(state.recordStateCommits[1].record.backend_supervision_hash, "sha256:backend-supervision");
   assert.deepEqual(state.recordStateCommits[1].receipt_refs, []);
   assert.deepEqual(state.superseded, []);
   assert.deepEqual(state.writes, []);

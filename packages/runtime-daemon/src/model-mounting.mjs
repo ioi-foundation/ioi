@@ -3061,9 +3061,27 @@ function assertRustAuthoredBackendProcessMaterializationPlan(plan = {}, options 
   if (!plan.materialization_hash) missing.push("materialization_hash");
   if (!plan.authority_hash) missing.push("authority_hash");
   if (!record.backend_process_ref) missing.push("record.backend_process_ref");
+  if (!record.backend_supervision_ref) missing.push("record.backend_supervision_ref");
+  if (!record.backend_supervision_hash) missing.push("record.backend_supervision_hash");
+  if (!record.backend_supervision_status) missing.push("record.backend_supervision_status");
   if (!record.process_materialization_status) missing.push("record.process_materialization_status");
   if (record.process_execution_owner !== "rust_daemon_core.model_mount.backend_process_materialization") {
     missing.push("record.process_execution_owner");
+  }
+  if (record.process_supervision_owner !== "rust_daemon_core.model_mount.backend_process_supervisor") {
+    missing.push("record.process_supervision_owner");
+  }
+  if (record.supervision_contract?.process_supervision_owner !== "rust_daemon_core.model_mount.backend_process_supervisor") {
+    missing.push("record.supervision_contract.process_supervision_owner");
+  }
+  if (!record.supervision_contract?.backend_supervision_ref) {
+    missing.push("record.supervision_contract.backend_supervision_ref");
+  }
+  if (!record.supervision_contract?.backend_supervision_hash) {
+    missing.push("record.supervision_contract.backend_supervision_hash");
+  }
+  if (!record.supervision_contract?.backend_supervision_status) {
+    missing.push("record.supervision_contract.backend_supervision_status");
   }
   if (record.spawn_contract?.spawn_args_returned !== false) {
     missing.push("record.spawn_contract.spawn_args_returned_false");
@@ -3086,12 +3104,25 @@ function assertRustAuthoredBackendProcessMaterializationPlan(plan = {}, options 
   if (publicResponse.spawn_args_returned !== false) {
     missing.push("public_response.spawn_args_returned_false");
   }
+  if (!publicResponse.backend_supervision_ref) {
+    missing.push("public_response.backend_supervision_ref");
+  }
+  if (!publicResponse.backend_supervision_hash) {
+    missing.push("public_response.backend_supervision_hash");
+  }
+  if (!publicResponse.backend_supervision_status) {
+    missing.push("public_response.backend_supervision_status");
+  }
+  if (publicResponse.process_supervision_owner !== "rust_daemon_core.model_mount.backend_process_supervisor") {
+    missing.push("public_response.process_supervision_owner");
+  }
   for (const ref of [
     "rust_daemon_core_backend_process_materialization",
     "rust_backend_process_materialization_bound",
     "wallet_network_backend_process_authority_bound",
     "ctee_backend_process_custody_enforced",
     "agentgres_backend_process_materialization_truth_required",
+    "rust_backend_process_supervision_bound",
     "js_backend_process_supervisor_retired",
     "command_transport_backend_process_spawn_retired",
     "binary_bridge_backend_process_spawn_retired",
@@ -3138,6 +3169,9 @@ function backendProcessMaterializationResponse(plan, commit) {
     materialization_hash: plan.materialization_hash,
     authority_hash: plan.authority_hash,
     backend_process_ref: record.backend_process_ref ?? publicResponse.backend_process_ref ?? null,
+    backend_supervision_ref: record.backend_supervision_ref ?? publicResponse.backend_supervision_ref ?? null,
+    backend_supervision_hash: record.backend_supervision_hash ?? publicResponse.backend_supervision_hash ?? null,
+    backend_supervision_status: record.backend_supervision_status ?? publicResponse.backend_supervision_status ?? null,
     js_process_supervisor: false,
     command_transport_spawn: false,
     binary_bridge_spawn: false,
@@ -4802,6 +4836,15 @@ function modelMountInstanceLifecycleRequest({
   const backend_process_materialization_hash = action === "load"
     ? requiredBackendProcessMaterializationHash(backendProcessMaterialization)
     : optionalBackendProcessMaterializationHash(backendProcessMaterialization);
+  const backend_supervision_ref = action === "load"
+    ? requiredBackendProcessSupervisionRef(backendProcessMaterialization)
+    : optionalBackendProcessSupervisionRef(backendProcessMaterialization);
+  const backend_supervision_hash = action === "load"
+    ? requiredBackendProcessSupervisionHash(backendProcessMaterialization)
+    : optionalBackendProcessSupervisionHash(backendProcessMaterialization);
+  const backend_supervision_status = action === "load"
+    ? requiredBackendProcessSupervisionStatus(backendProcessMaterialization)
+    : optionalBackendProcessSupervisionStatus(backendProcessMaterialization);
   const request = {
     schema_version: MODEL_MOUNT_INSTANCE_LIFECYCLE_SCHEMA_VERSION,
     instance_ref: resolvedInstanceId,
@@ -4816,6 +4859,9 @@ function modelMountInstanceLifecycleRequest({
     provider_lifecycle_hash,
     backend_process_ref,
     backend_process_materialization_hash,
+    backend_supervision_ref,
+    backend_supervision_hash,
+    backend_supervision_status,
     evidence_refs: [
       ...new Set([
         "public_model_loading_rust_facade",
@@ -4858,6 +4904,48 @@ function requiredBackendProcessMaterializationHash(materialization = {}) {
   });
 }
 
+function requiredBackendProcessSupervisionRef(materialization = {}) {
+  const ref = optionalBackendProcessSupervisionRef(materialization);
+  if (ref) return ref;
+  throw runtimeError({
+    status: 502,
+    code: "model_mount_instance_lifecycle_backend_supervision_ref_required",
+    message: "Model instance lifecycle requires a Rust backend-process supervision ref.",
+    details: {
+      rust_core_boundary: "model_mount.instance_lifecycle",
+      backend_process_materialization_source: materialization.source ?? null,
+    },
+  });
+}
+
+function requiredBackendProcessSupervisionHash(materialization = {}) {
+  const hash = optionalBackendProcessSupervisionHash(materialization);
+  if (hash) return hash;
+  throw runtimeError({
+    status: 502,
+    code: "model_mount_instance_lifecycle_backend_supervision_hash_required",
+    message: "Model instance lifecycle requires a Rust backend-process supervision hash.",
+    details: {
+      rust_core_boundary: "model_mount.instance_lifecycle",
+      backend_process_materialization_source: materialization.source ?? null,
+    },
+  });
+}
+
+function requiredBackendProcessSupervisionStatus(materialization = {}) {
+  const status = optionalBackendProcessSupervisionStatus(materialization);
+  if (status) return status;
+  throw runtimeError({
+    status: 502,
+    code: "model_mount_instance_lifecycle_backend_supervision_status_required",
+    message: "Model instance lifecycle requires a Rust backend-process supervision status.",
+    details: {
+      rust_core_boundary: "model_mount.instance_lifecycle",
+      backend_process_materialization_source: materialization.source ?? null,
+    },
+  });
+}
+
 function optionalBackendProcessMaterializationRef(materialization = {}) {
   const record = materialization.record && typeof materialization.record === "object" && !Array.isArray(materialization.record)
     ? materialization.record
@@ -4878,6 +4966,54 @@ function optionalBackendProcessMaterializationHash(materialization = {}) {
     ? materialization.record
     : {};
   return materialization.materialization_hash ?? record.materialization_hash ?? "";
+}
+
+function optionalBackendProcessSupervisionRef(materialization = {}) {
+  const record = materialization.record && typeof materialization.record === "object" && !Array.isArray(materialization.record)
+    ? materialization.record
+    : {};
+  const publicResponse = materialization.public_response &&
+    typeof materialization.public_response === "object" &&
+    !Array.isArray(materialization.public_response)
+    ? materialization.public_response
+    : {};
+  return materialization.backend_supervision_ref ??
+    publicResponse.backend_supervision_ref ??
+    record.backend_supervision_ref ??
+    record.supervision_contract?.backend_supervision_ref ??
+    "";
+}
+
+function optionalBackendProcessSupervisionHash(materialization = {}) {
+  const record = materialization.record && typeof materialization.record === "object" && !Array.isArray(materialization.record)
+    ? materialization.record
+    : {};
+  const publicResponse = materialization.public_response &&
+    typeof materialization.public_response === "object" &&
+    !Array.isArray(materialization.public_response)
+    ? materialization.public_response
+    : {};
+  return materialization.backend_supervision_hash ??
+    publicResponse.backend_supervision_hash ??
+    record.backend_supervision_hash ??
+    record.supervision_contract?.backend_supervision_hash ??
+    "";
+}
+
+function optionalBackendProcessSupervisionStatus(materialization = {}) {
+  const record = materialization.record && typeof materialization.record === "object" && !Array.isArray(materialization.record)
+    ? materialization.record
+    : {};
+  const publicResponse = materialization.public_response &&
+    typeof materialization.public_response === "object" &&
+    !Array.isArray(materialization.public_response)
+    ? materialization.public_response
+    : {};
+  return materialization.backend_supervision_status ??
+    publicResponse.backend_supervision_status ??
+    record.backend_supervision_status ??
+    record.supervision_contract?.backend_supervision_status ??
+    "";
 }
 
 function requiredProviderLifecycleHash(providerLifecycle = {}) {
@@ -4921,8 +5057,14 @@ function assertRustAuthoredModelInstanceLifecycleResult(result = {}, options = {
     if (!record.backend_process_materialization_hash) {
       missing.push("result.backend_process_materialization_hash");
     }
+    if (!record.backend_supervision_ref) missing.push("result.backend_supervision_ref");
+    if (!record.backend_supervision_hash) missing.push("result.backend_supervision_hash");
+    if (!record.backend_supervision_status) missing.push("result.backend_supervision_status");
     if (!evidenceRefs.includes("rust_model_mount_backend_process_materialization_bound")) {
       missing.push("evidence_refs.rust_model_mount_backend_process_materialization_bound");
+    }
+    if (!evidenceRefs.includes("rust_model_mount_backend_process_supervision_bound")) {
+      missing.push("evidence_refs.rust_model_mount_backend_process_supervision_bound");
     }
   }
   if (options.action && record.action !== options.action) mismatches.push("result.action");
@@ -5000,6 +5142,24 @@ function modelInstanceLifecycleResponse(
       lifecycle.backend_process_materialization_hash ??
       record.backend_process_materialization_hash ??
       backendProcessMaterialization.materialization_hash ??
+      null,
+    backend_supervision_ref:
+      lifecycle.backend_supervision_ref ??
+      record.backend_supervision_ref ??
+      backendProcessMaterialization.backend_supervision_ref ??
+      backendProcessMaterialization.record?.backend_supervision_ref ??
+      null,
+    backend_supervision_hash:
+      lifecycle.backend_supervision_hash ??
+      record.backend_supervision_hash ??
+      backendProcessMaterialization.backend_supervision_hash ??
+      backendProcessMaterialization.record?.backend_supervision_hash ??
+      null,
+    backend_supervision_status:
+      lifecycle.backend_supervision_status ??
+      record.backend_supervision_status ??
+      backendProcessMaterialization.backend_supervision_status ??
+      backendProcessMaterialization.record?.backend_supervision_status ??
       null,
     instance_lifecycle_hash: lifecycle.instance_lifecycle_hash ?? record.instance_lifecycle_hash ?? null,
     evidence_refs: lifecycle.evidence_refs ?? record.evidence_refs ?? [],

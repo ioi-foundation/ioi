@@ -19558,6 +19558,16 @@ function runBridge() {
         /process_execution_owner":\s*"rust_daemon_core\.model_mount\.backend_process_materialization"/.test(
           backendProcessMaterializationBlock,
         ) &&
+        /"process_supervision_owner":\s*"rust_daemon_core\.model_mount\.backend_process_supervisor"/.test(
+          backendProcessMaterializationBlock,
+        ) &&
+        /"supervision_contract":\s*\{[\s\S]*?"backend_supervision_ref"/.test(
+          backendProcessMaterializationBlock,
+        ) &&
+        /"backend_supervision_hash":\s*backend_supervision_hash/.test(
+          backendProcessMaterializationBlock,
+        ) &&
+        /rust_backend_process_supervision_bound/.test(modelMountCore) &&
         /"js_process_supervisor":\s*false/.test(backendProcessMaterializationBlock) &&
         /"command_transport_spawn":\s*false/.test(backendProcessMaterializationBlock) &&
         /"binary_bridge_spawn":\s*false/.test(backendProcessMaterializationBlock) &&
@@ -19573,6 +19583,10 @@ function runBridge() {
         /agentgres_backend_process_materialization_truth_required/.test(
           backendProcessMaterializationRunnerBlock,
         ) &&
+        /backend_supervision_ref/.test(backendProcessMaterializationRunnerBlock) &&
+        /process_supervision_owner/.test(backendProcessMaterializationRunnerBlock) &&
+        /supervision_contract/.test(backendProcessMaterializationRunnerBlock) &&
+        /rust_backend_process_supervision_bound/.test(backendProcessMaterializationRunnerBlock) &&
         /js_backend_process_supervisor_retired/.test(backendProcessMaterializationRunnerBlock) &&
         /command_transport_backend_process_spawn_retired/.test(
           backendProcessMaterializationRunnerBlock,
@@ -19591,7 +19605,13 @@ function runBridge() {
         ) &&
         /backend_process_ref/.test(modelMountingState) &&
         /backend_process_materialization_hash/.test(modelMountingState) &&
+        /backend_supervision_ref/.test(modelMountingState) &&
+        /backend_supervision_hash/.test(modelMountingState) &&
+        /model_mount_instance_lifecycle_backend_supervision_hash_required/.test(
+          modelMountingState,
+        ) &&
         /rust_model_mount_backend_process_materialization_bound/.test(modelMountingState) &&
+        /rust_model_mount_backend_process_supervision_bound/.test(modelMountingState) &&
         /loadModel commits Rust-planned instance lifecycle without mutating JS instance cache/.test(
           modelLoadingOperationsTest,
         ) &&
@@ -19603,6 +19623,8 @@ function runBridge() {
         /model_mount_backend_process_materialization_record_state_commit_unconfigured/.test(
           modelLoadingOperationsTest,
         ) &&
+        /backend_supervision_hash/.test(modelLoadingOperationsTest) &&
+        /rust_model_mount_backend_process_supervision_bound/.test(modelLoadingOperationsTest) &&
         /Rust model_mount core sends backend process materialization through typed Rust daemon-core API/.test(
           modelMountCoreTest,
         ) &&

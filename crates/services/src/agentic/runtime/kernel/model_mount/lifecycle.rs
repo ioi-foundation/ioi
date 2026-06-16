@@ -162,6 +162,9 @@ mod tests {
             "provider_lifecycle_hash": "sha256:provider-lifecycle",
             "backend_process_ref": "backend_process://backend.autopilot.native-local.fixture_process#sha256:plan",
             "backend_process_materialization_hash": "sha256:backend-process-materialization",
+            "backend_supervision_ref": "backend_supervision://backend.autopilot.native-local.fixture_process#sha256:plan",
+            "backend_supervision_hash": "sha256:backend-supervision",
+            "backend_supervision_status": "rust_fixture_supervision_bound",
             "evidence_refs": ["rust_model_mount_provider_lifecycle"]
         }))
         .expect("instance lifecycle request");
@@ -182,6 +185,10 @@ mod tests {
             response.backend_process_materialization_hash,
             "sha256:backend-process-materialization"
         );
+        assert_eq!(
+            response.backend_supervision_hash,
+            "sha256:backend-supervision"
+        );
         assert!(response.instance_lifecycle_hash.starts_with("sha256:"));
         assert!(response
             .evidence_refs
@@ -189,5 +196,8 @@ mod tests {
         assert!(response
             .evidence_refs
             .contains(&"rust_model_mount_backend_process_materialization_bound".to_string()));
+        assert!(response
+            .evidence_refs
+            .contains(&"rust_model_mount_backend_process_supervision_bound".to_string()));
     }
 }
