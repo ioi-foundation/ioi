@@ -709,7 +709,7 @@ update this module to follow the canonical doctrine above.
 2.  **`wallet-connector-*`**
     *   Provider OAuth + API adapters; token brokerage; provider-specific schemas.
 3.  **`wallet-sdk`**
-    *   Client library for external domains, wrapped apps, and Agent IDEs to request capabilities and handle receipts/errors.
+    *   Client library for external domains, wrapped apps, Hypervisor Workbench / Workflow Compositor surfaces, marketplace clients, and agent harness adapters to request capabilities and handle receipts/errors.
 4.  **UI shells**
     *   Desktop/Extension/Mobile — all consume the same core API and policy semantics.
 
@@ -724,7 +724,7 @@ It functions as a secure **Cryptographic Superset** that manages the pillars of 
 1.  **Native Hybrid Custody:** Natively holds legacy assets (ETH/SOL) and Web4 assets (Service NFTs, Labor Gas).
 2.  **Session Authority:** Issuing bounded, automated permissions so agents can operate without constant human clicks.
 3.  **Secret Injection (and Authority-Scope Execution):** Securely storing non-blockchain credentials (API keys, OAuth tokens) and injecting them via policy. The AI model never sees the raw secret.
-4.  **Future-Proof Identity:** Establishing a **Hybrid hybrid classical + post-quantum** root of trust while bridging to legacy EOAs.
+4.  **Future-Proof Identity:** Establishing a **hybrid classical + post-quantum** root of trust while bridging to legacy EOAs.
 5.  **Policy-Locked Autonomy + Recursive Delegation:** Humans approve power (policy); agents spend power (sessions) and may re-delegate downward (sub-grants) without expanding scope.
 
 ### 1.1 Value Proposition
@@ -891,7 +891,7 @@ To ensure interoperability and security, the following fields are mandatory for 
 
 ### 5.3 `wallet-sdk` (Client Capability Interface)
 
-*   **Role:** Used by wrapped apps / Agent IDE / marketplace clients.
+*   **Role:** Used by wrapped apps, Hypervisor Workbench / Workflow Compositor surfaces, marketplace clients, and agent harness adapters.
 *   **Responsibilities:** Request capabilities and sessions, handle interception/step-up responses, enforce “no raw secret visibility” in the client API design.
 
 ### 5.4 UI Shells
