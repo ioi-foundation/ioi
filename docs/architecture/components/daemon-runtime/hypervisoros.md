@@ -307,6 +307,34 @@ all node measurements produce NodeMeasurementReceipt
 all protected runs emit required cTEE receipts
 ```
 
+## Node Enforcement Profile
+
+HypervisorOS should expose a `NodeEnforcementProfile` for below-harness control
+and detection. This profile constrains ordinary workloads, model servers,
+tools, shells, browser automation, and adapters before they become durable
+effects.
+
+The profile may include:
+
+```text
+daemon gates
+sandbox profiles
+seccomp / syscall filters
+LSM / eBPF detection hooks where available
+network proxy and egress policy
+executable allow/deny policy
+hash/signature/path policy
+datawall / leakage detectors
+log and support-bundle redaction
+cTEE / Private Workspace custody checks
+hardware TEE attestation checks where available
+```
+
+This is not a privacy substitute for cTEE. It is the node-control and evidence
+layer that blocks, detects, records, and receipts unsafe behavior such as
+unmanaged executable launches, unscoped egress, private-data leakage attempts,
+or daemon-bypass attempts.
+
 ## Minimal Implementation Objects
 
 ```yaml
@@ -318,6 +346,7 @@ HypervisorOSNode:
   boot_profile_ref: boot_profile://...
   measurement_policy_ref: measurement_policy://...
   ctee_policy_ref: policy://...
+  node_enforcement_profile_ref: node_enforcement://... | null
   agentgres_domain_ref: agentgres://domain/...
   supported_worker_substrates:
     - microvm
@@ -341,6 +370,8 @@ HypervisorOSNode:
     - ModelMountReceipt
     - PrivateInferenceReceipt
     - CapabilityExitReceipt
+    - ExecutableDeniedReceipt
+    - EgressDetectionReceipt
 ```
 
 ```yaml
@@ -381,6 +412,47 @@ HypervisorOSBootReceipt:
     none | no_plaintext_custody | tee_attested
   note: "Boot measurement is an integrity receipt, not a consumer-GPU plaintext privacy guarantee."
   signature: ...
+```
+
+```yaml
+NodeEnforcementProfile:
+  profile_id: node_enforcement://...
+  node_id: runtime://...
+  enforcement_layers:
+    - daemon_gate
+    - sandbox
+    - seccomp
+    - ebpf
+    - lsm
+    - network_proxy
+    - datawall
+    - ctee_policy
+    - tee_attestation
+  executable_policy:
+    mode:
+      allowlist | denylist | signed_only | policy_declared
+    allowed_hashes:
+      - sha256:...
+    denied_hashes:
+      - sha256:...
+    rename_resistant: true
+  egress_policy:
+    default: deny | policy_declared | allow
+    allowed_destinations:
+      - destination://...
+    private_subnet_block: true
+    dns_rebinding_guard: true
+    receipt_required: true
+  datawall_policy:
+    protected_classes:
+      - pii
+      - strategy_source
+      - broker_credentials
+      - private_memory
+    detection_only: true | false
+    block_on_match: true | false
+  receipt_refs:
+    - receipt://...
 ```
 
 ## Daemon Root Rule
@@ -560,6 +632,9 @@ hypervisoros.node.ready
 hypervisoros.node.quarantined
 hypervisoros.workload.blocked
 hypervisoros.egress.blocked
+hypervisoros.egress.detected
+hypervisoros.executable.denied
+hypervisoros.datawall.detected
 ```
 
 Required receipt families:
@@ -572,6 +647,9 @@ PrivateInferenceReceipt
 CapabilityExitReceipt
 AutonomyLeaseReceipt
 DeterrenceDetectionReceipt
+ExecutableDeniedReceipt
+EgressDetectionReceipt
+DataLeakageIncidentReceipt
 ```
 
 ## Conformance Checks
@@ -591,6 +669,8 @@ A HypervisorOS implementation conforms when:
 10. Unsafe plaintext paths are blocked or visibly marked Unsafe.
 11. cTEE privacy claims are not made from boot measurement alone.
 12. IOI settlement receives sparse commitments and receipts, not private payloads.
+13. Node enforcement profiles are declared for executable launch, egress,
+    datawall, log/export, and daemon-bypass detection on managed nodes.
 ```
 
 ## Anti-Patterns
@@ -606,6 +686,9 @@ mount private repos as plaintext on provider nodes
 let nodes self-grant authority
 let providers disable receipt sinks
 settle work with no input/output commitments
+let renamed binaries bypass executable policy
+treat unscoped outbound network access as ordinary shell behavior
+treat datawall detections as optional debug logs
 treat HypervisorOS as requiring a custom hardware hypervisor from day one
 treat HypervisorOS as permanently unrelated to VM/container/microVM/WASM estate management
 collapse guardian, wallet authority, and untrusted GPU node into one root-controlled provider box
