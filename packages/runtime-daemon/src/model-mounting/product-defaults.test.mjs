@@ -161,7 +161,7 @@ test("backend process planning is delegated to Rust model_mount", () => {
   }
 });
 
-test("backend process facade owns missing lookup and snapshot normalization without helper module", () => {
+test("backend process facade owns missing lookup and deletes snapshot normalization", () => {
   withModelState((state) => {
     assert.throws(
       () => state.backend("backend.missing"),
@@ -173,28 +173,8 @@ test("backend process facade owns missing lookup and snapshot normalization with
       },
     );
 
-    assert.deepEqual(state.backendProcessSnapshot(null), {
-      status: "not_started",
-      processStatus: "not_started",
-      evidenceRefs: ["supervisor_process_not_started"],
-    });
-
-    const snapshot = state.backendProcessSnapshot({
-      id: "process_a",
-      backendId: "backend.llama",
-      backendKind: "llama_cpp",
-      status: "started",
-      spawned: true,
-      stale: true,
-      evidenceRefs: ["started"],
-    });
-
-    assert.equal(snapshot.processStatus, "started");
-    assert.equal(snapshot.pidTracked, "process_ref_hash");
-    assert.equal(snapshot.spawned, true);
-    assert.equal(snapshot.stale, true);
-    assert.deepEqual(snapshot.argsRedacted, []);
-    assert.deepEqual(snapshot.evidenceRefs, ["started"]);
+    assert.equal(Object.hasOwn(ModelMountingState.prototype, "backendProcessSnapshot"), false);
+    assert.equal(Object.hasOwn(state, "backendProcessSnapshot"), false);
   });
 });
 

@@ -19,32 +19,12 @@ function listBackends(state) {
   return ModelMountingState.prototype.listBackends.call(state);
 }
 
-function ensureBackendProcess(state, backendId, details = {}) {
-  return ModelMountingState.prototype.ensureBackendProcess.call(state, backendId, details);
-}
-
-function spawnBackendChildProcess(state, backend, details = {}) {
-  return ModelMountingState.prototype.spawnBackendChildProcess.call(state, backend, details);
-}
-
 function startBackend(state, backendId, body = {}) {
   return ModelMountingState.prototype.startBackend.call(state, backendId, body);
 }
 
-function startBackendProcess(state, backend, details = {}) {
-  return ModelMountingState.prototype.startBackendProcess.call(state, backend, details);
-}
-
 function stopBackend(state, backendId) {
   return ModelMountingState.prototype.stopBackend.call(state, backendId);
-}
-
-function stopBackendProcess(state, backend, details = {}) {
-  return ModelMountingState.prototype.stopBackendProcess.call(state, backend, details);
-}
-
-function touchBackendProcess(state, processRecord, details = {}) {
-  return ModelMountingState.prototype.touchBackendProcess.call(state, processRecord, details);
 }
 
 function fakeState() {
@@ -68,12 +48,6 @@ function fakeState() {
     backend(backendId) {
       return this.backends.get(backendId);
     },
-    backendSupportsSupervision(backend) {
-      return ["native_local", "llama_cpp", "ollama", "vllm"].includes(backend.kind);
-    },
-    ensureBackendProcess(backendId, details) {
-      return ensureBackendProcess(this, backendId, details);
-    },
     lifecycleReceipt(kind, details) {
       const receipt = { id: `receipt.${kind}.${this.receipts.length + 1}`, kind, details };
       this.receipts.push(receipt);
@@ -84,18 +58,6 @@ function fakeState() {
     },
     planBackendLifecycle(request) {
       return ModelMountingState.prototype.planBackendLifecycle.call(this, request);
-    },
-    spawnBackendChildProcess(backend, details) {
-      return spawnBackendChildProcess(this, backend, details, deps);
-    },
-    startBackendProcess(backend, details) {
-      return startBackendProcess(this, backend, details, deps);
-    },
-    stopBackendProcess(backend, details) {
-      return stopBackendProcess(this, backend, details, deps);
-    },
-    touchBackendProcess(record, details) {
-      return touchBackendProcess(this, record, details, deps);
     },
     writeBackendLog(backendId, event) {
       this.logs.push({ backendId, ...event });
@@ -207,92 +169,24 @@ function fakeState() {
   return state;
 }
 
-const deps = {
-  hardwareSnapshot: () => ({ cpu: "test-cpu" }),
-  llamaCppLibraryPathEnv: (binaryPath, existing) => `${binaryPath}:lib:${existing ?? ""}`,
-  normalizeLoadOptions: (value) => ({ ...value, normalized: true }),
-  normalizeScopes: (value, fallback = []) => (Array.isArray(value) ? value : fallback),
-  processEnv: {
-    IOI_MODEL_BACKEND_STARTUP_TIMEOUT_MS: "1234",
-    LD_LIBRARY_PATH: "/system/lib",
-  },
-  redact: (value) => ({ ...value, redacted: true }),
-  runtimeError({ status, code, message, details }) {
-    const error = new Error(message);
-    error.status = status;
-    error.code = code;
-    error.details = details;
-    return error;
-  },
-  safeId: (value) => String(value).replace(/[^a-z0-9]+/gi, "_"),
-  stableHash: (value) => `hash_${String(value).replace(/[^a-z0-9]+/gi, "_")}`,
-};
-
-function assertBackendProcessSupervisorRetired(error, operationKind) {
-  assert.equal(error.status, 501);
-  assert.equal(error.code, "model_mount_backend_process_supervisor_retired");
-  assert.equal(error.details.backend_id, "backend.native");
-  assert.equal(error.details.backend_kind, "native_local");
-  assert.equal(error.details.operation_kind, operationKind);
-  assert.equal(error.details.rust_core_boundary, "model_mount.backend_lifecycle");
-  assert.deepEqual(error.details.evidence_refs, [
-    "js_backend_process_supervisor_retired",
-    "rust_daemon_core_backend_process_required",
-    "agentgres_backend_process_truth_required",
-  ]);
-  assert.equal(Object.hasOwn(error.details, "backendId"), false);
-  assert.equal(Object.hasOwn(error.details, "backendKind"), false);
-  assert.equal(Object.hasOwn(error.details, "operationKind"), false);
-  assert.equal(Object.hasOwn(error.details, "rustCoreBoundary"), false);
-  assert.equal(Object.hasOwn(error.details, "evidenceRefs"), false);
-  return true;
-}
-
-test("backend process supervisor entrypoints fail closed before JS process authority", () => {
+test("backend process supervisor entrypoints are deleted from the mounted facade", () => {
   const state = fakeState();
-  const processRecord = {
-    id: "process-a",
-    backendId: "backend.native",
-    backendKind: "native_local",
-    status: "started",
-    stale: true,
-    evidenceRefs: ["existing"],
-  };
 
-  assert.throws(
-    () => ensureBackendProcess(state, "backend.native", { reason: "health_probe" }),
-    (error) => assertBackendProcessSupervisorRetired(error, "model_mount.backend_process.ensure"),
-  );
-  assert.throws(
-    () => touchBackendProcess(state, processRecord, { reason: "health_probe" }, deps),
-    (error) => assertBackendProcessSupervisorRetired(error, "model_mount.backend_process.touch"),
-  );
-  assert.throws(
-    () => startBackendProcess(state, state.backend("backend.native"), { loadOptions: { startupTimeoutMs: 10 } }, deps),
-    (error) => assertBackendProcessSupervisorRetired(error, "model_mount.backend_process.start"),
-  );
-  assert.throws(
-    () => spawnBackendChildProcess(state, state.backend("backend.native"), { processRef: "supervised://native/process" }, deps),
-    (error) => assertBackendProcessSupervisorRetired(error, "model_mount.backend_process.spawn"),
-  );
-  assert.throws(
-    () => stopBackendProcess(state, state.backend("backend.native"), { reason: "operator_stop" }, deps),
-    (error) => assertBackendProcessSupervisorRetired(error, "model_mount.backend_process.stop"),
-  );
-
+  for (const method of [
+    "ensureBackendProcess",
+    "touchBackendProcess",
+    "startBackendProcess",
+    "spawnBackendChildProcess",
+    "stopBackendProcess",
+    "backendProcessSnapshot",
+  ]) {
+    assert.equal(Object.hasOwn(ModelMountingState.prototype, method), false);
+    assert.equal(Object.hasOwn(state, method), false);
+  }
   assert.equal(Object.hasOwn(state, "backendChildProcesses"), false);
   assert.equal(Object.hasOwn(state, "backendProcesses"), false);
   assert.deepEqual(state.logs, []);
   assert.deepEqual(state.writes, []);
-});
-
-test("backend process supervisor retired error uses canonical Rust-boundary metadata", () => {
-  const state = fakeState();
-
-  assert.throws(
-    () => startBackendProcess(state, state.backend("backend.native")),
-    (error) => assertBackendProcessSupervisorRetired(error, "model_mount.backend_process.start"),
-  );
 });
 
 test("public backend lifecycle facades commit Rust-authored records", () => {

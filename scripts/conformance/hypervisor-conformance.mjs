@@ -21995,8 +21995,8 @@ function runReceipts() {
     modelMountingState.match(/\n\s+backendRegistry\(\) \{[\s\S]*?\n\s+\}/)?.[0] ?? "",
     modelMountingState.match(/\n\s+backend\(backendId\) \{[\s\S]*?\n\s+\}/)?.[0] ?? "",
     modelMountingState.match(/\n\s+listBackends\(\) \{[\s\S]*?\n\s+\}/)?.[0] ?? "",
-    modelMountingState.match(/\n\s+ensureBackendProcess\(backendId,[\s\S]*?\n\s+writeBackendLog\(endpointId, event\) \{/)?.[0] ?? "",
-    modelMountingState.match(/function throwBackendLifecycleRustCoreRequired\(record = \{\}\) \{[\s\S]*?\n\}\n\nfunction commitBackendLifecycleForState\(state, operation_kind, details = \{\}\) \{[\s\S]*?\n\}\n\nfunction backendLifecycleControlBody\(value = \{\}\) \{[\s\S]*?\n\}\n\nfunction backendProcessSupervisorRetiredError\(operation_kind, backend = \{\}, details = \{\}\) \{[\s\S]*?\n\}\n\nfunction throwBackendProcessSupervisorRetired\(operation_kind, backend, details = \{\}\) \{[\s\S]*?\n\}/)?.[0] ?? "",
+    modelMountingState.match(/\n\s+backendHealth\(backendId\) \{[\s\S]*?\n\s+writeBackendLog\(endpointId, event\) \{/)?.[0] ?? "",
+    modelMountingState.match(/function throwBackendLifecycleRustCoreRequired\(record = \{\}\) \{[\s\S]*?\n\}\n\nfunction commitBackendLifecycleForState\(state, operation_kind, details = \{\}\) \{[\s\S]*?\n\}\n\nfunction backendLifecycleControlBody\(value = \{\}\) \{[\s\S]*?\n\}/)?.[0] ?? "",
   ].join("\n");
   const backendLifecycleTest = exists("packages/runtime-daemon/src/model-mounting/backend-lifecycle.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/backend-lifecycle.test.mjs")
@@ -27327,15 +27327,15 @@ function runReceipts() {
       /schema_version:\s*"ioi\.model_mount\.backend_lifecycle\.v1"/.test(backendLifecycle) &&
       /commitModelMountRecordState\(state,\s*\{/.test(backendLifecycle) &&
       /model_mount_backend_lifecycle_record_state_commit_unconfigured/.test(backendLifecycle) &&
-      /model_mount_backend_process_supervisor_retired/.test(backendLifecycle) &&
-      /throwBackendProcessSupervisorRetired\("model_mount\.backend_process\.ensure"/.test(backendLifecycle) &&
-      /throwBackendProcessSupervisorRetired\("model_mount\.backend_process\.touch"/.test(backendLifecycle) &&
-      /throwBackendProcessSupervisorRetired\("model_mount\.backend_process\.start"/.test(backendLifecycle) &&
-      /throwBackendProcessSupervisorRetired\("model_mount\.backend_process\.spawn"/.test(backendLifecycle) &&
-      /throwBackendProcessSupervisorRetired\("model_mount\.backend_process\.stop"/.test(backendLifecycle) &&
-      /js_backend_process_supervisor_retired/.test(backendLifecycle) &&
-      /rust_daemon_core_backend_process_required/.test(backendLifecycle) &&
-      /agentgres_backend_process_truth_required/.test(backendLifecycle) &&
+      !/model_mount_backend_process_supervisor_retired/.test(backendLifecycle) &&
+      !/throwBackendProcessSupervisorRetired/.test(backendLifecycle) &&
+      !/backendProcessSupervisorRetiredError/.test(backendLifecycle) &&
+      !/js_backend_process_supervisor_retired/.test(backendLifecycle) &&
+      !/rust_daemon_core_backend_process_required/.test(backendLifecycle) &&
+      !/agentgres_backend_process_truth_required/.test(backendLifecycle) &&
+      !/\b(?:ensureBackendProcess|touchBackendProcess|startBackendProcess|spawnBackendChildProcess|stopBackendProcess|backendProcessSnapshot)\s*\(/.test(
+        modelMountingState,
+      ) &&
       !/from "node:child_process"|childProcess\.spawn|spawn\(backend\.binaryPath/.test(backendLifecycle) &&
       !/commitBackendProcessRecordState|commitBackendRecordState/.test(backendLifecycle) &&
       !/model_mount\.backend_process\.exit/.test(backendLifecycle) &&
@@ -27438,8 +27438,8 @@ function runReceipts() {
         backendLifecycle,
       ) &&
       !/state\.stopBackendProcess\(backend,\s*\{ reason:\s*"backend_stop"/.test(backendLifecycle) &&
-      /backend process supervisor entrypoints fail closed before JS process authority/.test(backendLifecycleTest) &&
-      /backend process supervisor retired error uses canonical Rust-boundary metadata/.test(backendLifecycleTest) &&
+      /backend process supervisor entrypoints are deleted from the mounted facade/.test(backendLifecycleTest) &&
+      /Object\.hasOwn\(ModelMountingState\.prototype,\s*method\),\s*false/.test(backendLifecycleTest) &&
       /public backend lifecycle facades commit Rust-authored records/.test(
         backendLifecycleTest,
       ) &&
@@ -27480,11 +27480,11 @@ function runReceipts() {
       /assert\.deepEqual\(state\.receipts,\s*\[\]\)/.test(backendLifecycleTest) &&
       /assert\.deepEqual\(state\.logs,\s*\[\]\)/.test(backendLifecycleTest) &&
       /assert\.equal\(listFilesCalled,\s*false\)/.test(backendLifecycleTest) &&
-      /model_mount\.backend_process\.ensure/.test(backendLifecycleTest) &&
-      /model_mount\.backend_process\.touch/.test(backendLifecycleTest) &&
-      /model_mount\.backend_process\.start/.test(backendLifecycleTest) &&
-      /model_mount\.backend_process\.spawn/.test(backendLifecycleTest) &&
-      /model_mount\.backend_process\.stop/.test(backendLifecycleTest) &&
+      /"ensureBackendProcess"/.test(backendLifecycleTest) &&
+      /"touchBackendProcess"/.test(backendLifecycleTest) &&
+      /"startBackendProcess"/.test(backendLifecycleTest) &&
+      /"spawnBackendChildProcess"/.test(backendLifecycleTest) &&
+      /"stopBackendProcess"/.test(backendLifecycleTest) &&
       !exists("packages/runtime-daemon/src/model-mounting/receipt-operations.mjs") &&
       /assertNoRetiredLifecycleSubjectAliases\(details\)/.test(modelMountReceiptOperations) &&
       /model_lifecycle_receipt_detail_aliases_retired/.test(modelMountReceiptOperations) &&
@@ -27504,11 +27504,9 @@ function runReceipts() {
       /assert\.deepEqual\(created,\s*\[\]\)/.test(modelMountReceiptOperationsTest) &&
       /retired_aliases\.includes\("modelId"\)/.test(modelMountReceiptOperationsTest) &&
       /retired_aliases\.includes\("endpointId"\)/.test(modelMountReceiptOperationsTest) &&
-      /Object\.hasOwn\(error\.details,\s*"backendId"\),\s*false/.test(backendLifecycleTest) &&
-      /Object\.hasOwn\(error\.details,\s*"backendKind"\),\s*false/.test(backendLifecycleTest) &&
-      /Object\.hasOwn\(error\.details,\s*"operationKind"\),\s*false/.test(backendLifecycleTest) &&
-      /Object\.hasOwn\(error\.details,\s*"rustCoreBoundary"\),\s*false/.test(backendLifecycleTest) &&
-      /Object\.hasOwn\(error\.details,\s*"evidenceRefs"\),\s*false/.test(backendLifecycleTest),
+      /Slice 1363 deletes the backend-process supervisor facade stubs/.test(guide) &&
+      /Model_mount backend-process supervisor facade stubs deleted/.test(matrix) &&
+      /RuntimeDaemonCoreModelMountBackendProcessSupervisorFacadeDeleted/.test(implementationMatrix),
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
@@ -27536,7 +27534,7 @@ function runReceipts() {
         modelMountingState,
       ) &&
       !/notFound\(`Model backend not found: \$\{backendId\}`,\s*\{ backendId \}\)/.test(modelMountingState) &&
-      /backend process facade owns missing lookup and snapshot normalization without helper module/.test(
+      /backend process facade owns missing lookup and deletes snapshot normalization/.test(
         read("packages/runtime-daemon/src/model-mounting/product-defaults.test.mjs"),
       ) &&
       /assert\.equal\(error\.details\.backend_id,\s*"backend\.missing"\)/.test(
@@ -27544,12 +27542,40 @@ function runReceipts() {
       ) &&
       /Object\.hasOwn\(error\.details,\s*"backendId"\),\s*false/.test(
         read("packages/runtime-daemon/src/model-mounting/product-defaults.test.mjs"),
+      ) &&
+      /Object\.hasOwn\(ModelMountingState\.prototype,\s*"backendProcessSnapshot"\),\s*false/.test(
+        read("packages/runtime-daemon/src/model-mounting/product-defaults.test.mjs"),
       ),
     [
       "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/product-defaults.test.mjs",
     ],
     "Phase 10/11 is pending: backend process lookup fail-closed errors must stay owned by the mounted facade with canonical snake_case metadata and no helper module",
+  );
+  assertCheck(
+    result,
+    "model-mount-backend-process-supervisor-facade-deleted",
+    !/\b(?:ensureBackendProcess|touchBackendProcess|startBackendProcess|spawnBackendChildProcess|stopBackendProcess|backendProcessSnapshot)\s*\(/.test(
+      modelMountingState,
+    ) &&
+      !/model_mount_backend_process_supervisor_retired|throwBackendProcessSupervisorRetired|backendProcessSupervisorRetiredError/.test(
+        modelMountingState,
+      ) &&
+      /backend process supervisor entrypoints are deleted from the mounted facade/.test(backendLifecycleTest) &&
+      /Object\.hasOwn\(ModelMountingState\.prototype,\s*method\),\s*false/.test(backendLifecycleTest) &&
+      /Object\.hasOwn\(ModelMountingState\.prototype,\s*"backendProcessSnapshot"\),\s*false/.test(
+        read("packages/runtime-daemon/src/model-mounting/product-defaults.test.mjs"),
+      ) &&
+      /Slice 1363 deletes the backend-process supervisor facade stubs/.test(guide) &&
+      /Model_mount backend-process supervisor facade stubs deleted/.test(matrix) &&
+      /RuntimeDaemonCoreModelMountBackendProcessSupervisorFacadeDeleted/.test(implementationMatrix),
+    [
+      "packages/runtime-daemon/src/model-mounting.mjs",
+      "packages/runtime-daemon/src/model-mounting/backend-lifecycle.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/product-defaults.test.mjs",
+      "scripts/conformance/hypervisor-conformance.mjs",
+    ],
+    "Backend process supervision must not keep fail-closed JS facade stubs; process execution remains unavailable until a positive Rust daemon-core materialization API owns it",
   );
   assertCheck(
     result,

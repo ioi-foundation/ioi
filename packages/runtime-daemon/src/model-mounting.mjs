@@ -1855,10 +1855,6 @@ export class ModelMountingState {
     return record;
   }
 
-  backendProcessSnapshot(processRecord) {
-    return backendProcessSnapshot(processRecord);
-  }
-
   backendProcessPlan(backend, { endpoint = null, loadOptions = {} } = {}) {
     const defaults = this.runtimeDefaultLoadOptions(backend.id);
     const request = {
@@ -1894,43 +1890,8 @@ export class ModelMountingState {
     return this.backendProcessPlan(backend, options).spawn_args;
   }
 
-  ensureBackendProcess(backendId, { endpoint = null, loadOptions = {}, reason = "runtime_control" } = {}) {
-    const backend = this.backend(backendId);
-    void endpoint;
-    void loadOptions;
-    throwBackendProcessSupervisorRetired("model_mount.backend_process.ensure", backend, { reason });
-  }
-
   backendSupportsSupervision(backend) {
     return this.backendProcessPlan(backend).supports_supervision;
-  }
-
-  touchBackendProcess(processRecord, { endpoint = null, loadOptions = {}, reason = "health_probe" } = {}) {
-    const backend = this.backend(processRecord.backendId);
-    void endpoint;
-    void loadOptions;
-    throwBackendProcessSupervisorRetired("model_mount.backend_process.touch", backend, {
-      process_id: processRecord?.id ?? null,
-      reason,
-    });
-  }
-
-  startBackendProcess(backend, { endpoint = null, loadOptions = {}, reason = "runtime_control" } = {}) {
-    void endpoint;
-    void loadOptions;
-    throwBackendProcessSupervisorRetired("model_mount.backend_process.start", backend, { reason });
-  }
-
-  spawnBackendChildProcess(backend, { endpoint = null, loadOptions = {}, reason = "runtime_control", processRef, argsRedacted = [] } = {}) {
-    void endpoint;
-    void loadOptions;
-    void processRef;
-    void argsRedacted;
-    throwBackendProcessSupervisorRetired("model_mount.backend_process.spawn", backend, { reason });
-  }
-
-  stopBackendProcess(backend, { reason = "runtime_control" } = {}) {
-    throwBackendProcessSupervisorRetired("model_mount.backend_process.stop", backend, { reason });
   }
 
   backendHealth(backendId) {
@@ -2393,61 +2354,6 @@ function runtimeEngineControlBody(value = {}) {
     if (Object.hasOwn(source, field) && source[field] !== undefined) body[field] = source[field];
   }
   return body;
-}
-
-function backendProcessSupervisorRetiredError(operation_kind, backend = {}, details = {}) {
-  const error = new Error("Backend process supervision requires Rust daemon-core model_mount lifecycle ownership.");
-  error.status = 501;
-  error.code = "model_mount_backend_process_supervisor_retired";
-  error.details = {
-    backend_id: backend?.id ?? null,
-    backend_kind: backend?.kind ?? null,
-    operation_kind,
-    rust_core_boundary: "model_mount.backend_lifecycle",
-    ...details,
-    evidence_refs: [
-      "js_backend_process_supervisor_retired",
-      "rust_daemon_core_backend_process_required",
-      "agentgres_backend_process_truth_required",
-    ],
-  };
-  return error;
-}
-
-function throwBackendProcessSupervisorRetired(operation_kind, backend, details = {}) {
-  throw backendProcessSupervisorRetiredError(operation_kind, backend, details);
-}
-
-function backendProcessSnapshot(processRecord) {
-  if (!processRecord) {
-    return {
-      status: "not_started",
-      processStatus: "not_started",
-      evidenceRefs: ["supervisor_process_not_started"],
-    };
-  }
-  return {
-    id: processRecord.id,
-    backendId: processRecord.backendId,
-    backendKind: processRecord.backendKind,
-    status: processRecord.status,
-    processStatus: processRecord.processStatus ?? processRecord.status,
-    pidHash: processRecord.pidHash ?? null,
-    pidTracked: processRecord.pidTracked ?? "process_ref_hash",
-    supervisorKind: processRecord.supervisorKind ?? null,
-    spawned: Boolean(processRecord.spawned),
-    spawnStatus: processRecord.spawnStatus ?? null,
-    startedAt: processRecord.startedAt ?? null,
-    stoppedAt: processRecord.stoppedAt ?? null,
-    lastHealthAt: processRecord.lastHealthAt ?? null,
-    argsHash: processRecord.argsHash ?? null,
-    argsRedacted: processRecord.argsRedacted ?? [],
-    startupTimeoutMs: processRecord.startupTimeoutMs ?? null,
-    healthProbe: processRecord.healthProbe ?? null,
-    stale: Boolean(processRecord.stale),
-    staleReason: processRecord.staleReason ?? null,
-    evidenceRefs: processRecord.evidenceRefs ?? [],
-  };
 }
 
 function throwProviderDriverFactoryRetired(provider = {}) {

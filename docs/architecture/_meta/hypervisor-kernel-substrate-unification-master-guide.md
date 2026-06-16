@@ -11599,6 +11599,24 @@ because backend execution/materialization, hosted/provider transport, direct
 Rust/vault auth-header materialization, and invocation authority depth still
 need terminal Rust-owned execution coverage.
 
+Slice 1363 deletes the backend-process supervisor facade stubs. The mounted
+model_mount state no longer exposes `ensureBackendProcess()`,
+`touchBackendProcess()`, `startBackendProcess()`,
+`spawnBackendChildProcess()`, `stopBackendProcess()`, or
+`backendProcessSnapshot()` as fail-closed JS compatibility surfaces. Public
+backend health/start/stop/log/list paths already go through Rust daemon-core
+backend-lifecycle planning, Agentgres record-state commits, and Rust
+read-projection replay; this cut removes the leftover JS process-supervisor
+method names and the `model_mount_backend_process_supervisor_retired` error
+shim rather than preserving them as terminal scaffolding. Focused tests assert
+the supervisor/snapshot methods are absent from the mounted facade while backend
+lifecycle still commits Rust-authored records and backend logs still project
+through Rust replay. Conformance now rejects restoring those method names or the
+retired supervisor shim. This remains non-terminal because actual Rust backend
+process execution/materialization, hosted/provider transport, direct Rust/vault
+auth-header materialization, and invocation authority depth still need terminal
+Rust-owned execution coverage.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The
