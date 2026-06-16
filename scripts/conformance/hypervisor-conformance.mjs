@@ -25748,6 +25748,9 @@ function runReceipts() {
     !exists("packages/runtime-daemon/src/model-mounting/catalog-operations.mjs") &&
       !/for \(const port of (?:state|this)\.catalogProviderPorts\(\)\)/.test(catalogOperations) &&
       !/(?:state|this)\.lastCatalogSearch\s*=\s*search/.test(catalogOperations) &&
+      !/this\.lastCatalogSearch\s*=/.test(modelMountingState) &&
+      !/lastCatalogSearch:/.test(catalogOperationsTest) &&
+      !/lastCatalogSearch:/.test(modelMountingReadProjectionDirectTest) &&
       !/providerResults/.test(catalogOperations) &&
       !/(?:state|this)\.enrichCatalogEntry/.test(catalogOperations) &&
       /catalogSearch\(query = \{\}\)\s*\{[\s\S]*?return modelMountReadProjection\(this,\s*"catalog_search"/.test(
@@ -25788,7 +25791,10 @@ function runReceipts() {
       ) &&
       /assert\.equal\(state\.catalogProviderPortCalls,\s*0\)/.test(catalogOperationsTest) &&
       /assert\.equal\(state\.enrichCatalogEntryCalls,\s*0\)/.test(catalogOperationsTest) &&
-      /assert\.equal\(state\.lastCatalogSearch,\s*null\)/.test(catalogOperationsTest),
+      /Object\.hasOwn\(state,\s*"lastCatalogSearch"\),\s*false/.test(catalogOperationsTest) &&
+      /Slice 1333 hard-cuts the model_mount catalog-search last-search JS cache slot/.test(guide) &&
+      /Model_mount catalog-search last-search JS cache retired/.test(matrix) &&
+      /RuntimeDaemonCoreModelMountCatalogSearchCacheRetired/.test(implementationMatrix),
     [
       "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-operations.test.mjs",

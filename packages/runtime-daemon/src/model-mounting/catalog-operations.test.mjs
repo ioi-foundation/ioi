@@ -18,7 +18,6 @@ function storageSummary(state) {
 function fakeState() {
   const state = {
     artifacts: new Map(),
-    lastCatalogSearch: null,
     modelRoot: null,
     now: "2026-06-03T23:00:00.000Z",
     catalogProviderPortCalls: 0,
@@ -140,7 +139,7 @@ test("catalog search delegates to Rust projection before JS provider orchestrati
   });
   assert.equal(state.catalogProviderPortCalls, 0);
   assert.equal(state.enrichCatalogEntryCalls, 0);
-  assert.equal(state.lastCatalogSearch, null);
+  assert.equal(Object.hasOwn(state, "lastCatalogSearch"), false);
 });
 
 test("catalog entry enrichment fails closed before JS storage and artifact materialization", () => {

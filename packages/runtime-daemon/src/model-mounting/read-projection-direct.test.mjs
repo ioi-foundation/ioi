@@ -1309,12 +1309,6 @@ function createState() {
     coalesceLoadedInstances() {},
     nowIso: () => "2026-06-03T00:00:00.000Z",
     serverStatus: () => ({ status: "running" }),
-    lastCatalogSearch: {
-      searchedAt: "2026-06-03T00:00:00.000Z",
-      query: "local",
-      filters: { limit: 2 },
-      results: [{ id: "catalog.local", modelId: "model.local" }],
-    },
     catalogProviderPorts: () => [{
       id: "catalog.fixture",
       label: "Fixture catalog",

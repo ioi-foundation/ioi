@@ -432,7 +432,6 @@ export class ModelMountingState {
     this.instances = new Map();
     this.routes = new Map();
     this.downloads = new Map();
-    this.lastCatalogSearch = null;
     this.vaultRefs = new Map();
     this.ensureDirs();
     this.load();

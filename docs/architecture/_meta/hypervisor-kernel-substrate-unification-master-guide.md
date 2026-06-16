@@ -11097,6 +11097,14 @@ runtime `state_dir`. Hosted/stream protocol parity and stable IDE/CLI/SDK
 conversation APIs remain non-terminal; the retired JS `conversations` map must
 not return as empty compatibility state or duplicate response-lineage truth.
 
+Slice 1333 hard-cuts the model_mount catalog-search last-search JS cache slot.
+`ModelMountingState` no longer constructs `lastCatalogSearch`, catalog-search
+tests no longer preserve a null or fixture cache slot, and the direct
+read-projection fixture no longer transports stale last-search state. Public
+catalog search remains Rust-owned through the `catalog_search` read projection
+over Agentgres provider-inventory replay; JS provider iteration, result
+aggregation, enrichment, and last-search cache compatibility must not return.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The
