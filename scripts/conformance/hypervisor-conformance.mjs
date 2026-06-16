@@ -23973,6 +23973,25 @@ function runReceipts() {
       !/commitMcpServerRecordState/.test(mcpImportJsonBlock) &&
       !/commitMcpServerRecordState/.test(mcpCompileEphemeralBlock) &&
       !/state\.mcpServers\.set/.test(mcpWorkflowOperations) &&
+      !/this\.mcpServers\s*=/.test(modelMountingState) &&
+      !/\["mcp-servers",\s*"mcpServers"\]/.test(
+        read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs"),
+      ) &&
+      !/"mcp-servers"/.test(read("packages/runtime-daemon/src/model-mounting/store.mjs")) &&
+      /Object\.hasOwn\(state,\s*"mcpServers"\),\s*false/.test(mcpWorkflowOperationsTest) &&
+      /MCP JS cache maps stay retired/.test(
+        read("packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs"),
+      ) &&
+      /MCP local cache storage/.test(read("packages/runtime-daemon/src/model-mounting/store.test.mjs")) &&
+      /Slice 1331 hard-cuts the model_mount MCP server JS cache substrate/.test(
+        read("docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md"),
+      ) &&
+      /Model_mount MCP server JS cache retired/.test(
+        read("docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md"),
+      ) &&
+      /RuntimeDaemonCoreModelMountMcpCacheRetired/.test(
+        read("docs/architecture/_meta/implementation-matrix.md"),
+      ) &&
       !/state\.authorize\(/.test(mcpWorkflowOperations) &&
       !/state\.invokeModel/.test(mcpWorkflowOperations) &&
       !/state\.testRoute/.test(mcpWorkflowOperations) &&

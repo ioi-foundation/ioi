@@ -35,7 +35,6 @@ function assertRetiredFieldsAbsent(value, fields) {
 function fakeState() {
   const state = {
     authorizations: [],
-    mcpServers: new Map(),
     mcpWorkflowRequests: [],
     modelInvocations: [],
     readProjectionRequests: [],
@@ -466,7 +465,7 @@ test("normalizeMcpServer rejects retired config aliases before vault resolution"
 });
 
 function assertNoMcpWorkflowMutation(state) {
-  assert.equal(state.mcpServers.size, 0);
+  assert.equal(Object.hasOwn(state, "mcpServers"), false);
   assert.deepEqual(state.authorizations, []);
   assert.deepEqual(state.mcpWorkflowRequests, []);
   assert.deepEqual(state.modelInvocations, []);
@@ -526,7 +525,7 @@ test("importMcpJson uses Rust MCP workflow planning, record-state commit, and Ru
   assert.deepEqual(state.receipts, []);
   assert.deepEqual(state.writes, []);
 
-  state.mcpServers.set("mcp.Projected", { id: "mcp.Projected", label: "Projected", status: "registered" });
+  assert.equal(Object.hasOwn(state, "mcpServers"), false);
   assert.deepEqual(listMcpServers(state), [
     { id: "mcp.Projected", label: "Projected", status: "registered" },
   ]);
@@ -556,7 +555,7 @@ test("importMcpJson rejects retired request aliases before state mutation", () =
       return true;
     },
   );
-  assert.equal(state.mcpServers.size, 0);
+  assert.equal(Object.hasOwn(state, "mcpServers"), false);
   assert.deepEqual(state.receipts, []);
   assert.deepEqual(state.writes, []);
 
@@ -575,18 +574,13 @@ test("importMcpJson rejects retired request aliases before state mutation", () =
       return true;
     },
   );
-  assert.equal(state.mcpServers.size, 0);
+  assert.equal(Object.hasOwn(state, "mcpServers"), false);
   assert.deepEqual(state.receipts, []);
   assert.deepEqual(state.writes, []);
 });
 
 test("invokeMcpTool uses Rust MCP workflow admission and rejects JS or command fallback", () => {
   const state = fakeState();
-  state.mcpServers.set("mcp.Local", {
-    id: "mcp.Local",
-    label: "Local",
-    allowedTools: ["run"],
-  });
 
   const result = invokeMcpTool(
     state,
@@ -802,11 +796,6 @@ test("invokeMcpTool fails closed without custody and containment refs", () => {
 
 test("invokeMcpTool rejects retired request aliases before authorization", () => {
   const state = fakeState();
-  state.mcpServers.set("mcp.Local", {
-    id: "mcp.Local",
-    label: "Local",
-    allowedTools: ["run"],
-  });
 
   assert.throws(
     () =>
@@ -916,7 +905,7 @@ test("compileEphemeralMcpIntegrations rejects retired integration aliases before
       return true;
     },
   );
-  assert.equal(state.mcpServers.size, 0);
+  assert.equal(Object.hasOwn(state, "mcpServers"), false);
   assert.deepEqual(state.receipts, []);
   assert.deepEqual(state.writes, []);
   assert.deepEqual(state.authorizations, []);
@@ -924,11 +913,6 @@ test("compileEphemeralMcpIntegrations rejects retired integration aliases before
 
 test("executeWorkflowNode uses Rust StepModule dispatch admission and rejects JS fallback", async () => {
   const state = fakeState();
-  state.mcpServers.set("mcp.Local", {
-    id: "mcp.Local",
-    label: "Local",
-    allowedTools: ["run"],
-  });
 
   const result = await executeWorkflowNode(
     state,
@@ -1007,7 +991,7 @@ test("executeWorkflowNode uses Rust StepModule dispatch admission and rejects JS
   );
   assert.equal(state.receiptStateCommits.length, 1);
   assert.equal(state.receiptStateCommits[0].receipt_id, result.content_receipt_id);
-  assert.equal(state.mcpServers.size, 1);
+  assert.equal(Object.hasOwn(state, "mcpServers"), false);
   assert.deepEqual(state.authorizations, []);
   assert.deepEqual(state.routeTests, []);
   assert.deepEqual(state.modelInvocations, []);

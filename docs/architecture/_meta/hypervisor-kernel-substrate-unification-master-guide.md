@@ -11072,6 +11072,19 @@ runtime `state_dir`. Local runtime materialization and stable IDE/CLI/SDK
 runtime-engine APIs remain non-terminal; the retired JS preference/profile maps
 must not return as empty compatibility state or duplicate projection truth.
 
+Slice 1331 hard-cuts the model_mount MCP server JS cache substrate.
+`ModelMountingState` no longer constructs `mcpServers`,
+`MODEL_MOUNTING_STATE_MAPS` no longer loads `mcp-servers`, the store no longer
+creates that local cache directory, and focused MCP/state/store tests assert
+the cache field and dir are absent. MCP import, ephemeral registration, tool
+invoke, workflow-node execution, and server list truth remain Rust-owned through
+typed `planModelMountMcpWorkflow`, Agentgres `mcp-servers` record commits,
+materialized MCP workflow receipts, and Rust `mcp_servers` read-projection
+replay over runtime `state_dir`. Live external MCP transport/discovery and
+stable IDE/CLI/SDK MCP APIs remain non-terminal; the retired JS `mcpServers`
+map must not return as empty compatibility state or duplicate MCP projection
+truth.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

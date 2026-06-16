@@ -116,7 +116,7 @@ test("loadModelMountingMaps applies the canonical directory map table", () => {
   }
 });
 
-test("OAuth, catalog-provider, capability-token, and runtime-engine JS cache maps stay retired", () => {
+test("OAuth, catalog-provider, capability-token, runtime-engine JS cache maps stay retired; MCP JS cache maps stay retired", () => {
   assert.equal(
     MODEL_MOUNTING_STATE_MAPS.some(([dir, property]) => dir === "oauth-sessions" || property === "oauthSessions"),
     false,
@@ -144,6 +144,12 @@ test("OAuth, catalog-provider, capability-token, and runtime-engine JS cache map
   assert.equal(
     MODEL_MOUNTING_STATE_MAPS.some(
       ([dir, property]) => dir === "runtime-engine-profiles" || property === "runtimeEngineProfiles",
+    ),
+    false,
+  );
+  assert.equal(
+    MODEL_MOUNTING_STATE_MAPS.some(
+      ([dir, property]) => dir === "mcp-servers" || property === "mcpServers",
     ),
     false,
   );

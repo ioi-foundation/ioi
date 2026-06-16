@@ -434,7 +434,6 @@ export class ModelMountingState {
     this.downloads = new Map();
     this.lastCatalogSearch = null;
     this.vaultRefs = new Map();
-    this.mcpServers = new Map();
     this.conversations = new Map();
     this.ensureDirs();
     this.load();

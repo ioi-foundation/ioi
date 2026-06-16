@@ -109,7 +109,6 @@ export class AgentgresModelMountingStore {
       "projections",
       "lifecycle-events",
       "vault-refs",
-      "mcp-servers",
       "workflow-bindings",
       "receipts",
     ]) {

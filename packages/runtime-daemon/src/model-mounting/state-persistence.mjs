@@ -8,7 +8,6 @@ export const MODEL_MOUNTING_STATE_MAPS = [
   ["model-routes", "routes"],
   ["model-downloads", "downloads"],
   ["vault-refs", "vaultRefs"],
-  ["mcp-servers", "mcpServers"],
   ["model-conversations", "conversations"],
 ];
 
