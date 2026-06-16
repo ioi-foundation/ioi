@@ -11792,6 +11792,24 @@ hosted network I/O, live cTEE secret injection into outbound hosted requests,
 live external backend binary spawning/supervision, and deeper invocation
 authority still need terminal Rust-owned execution coverage.
 
+Slice 1374 hard-cuts hosted provider transport result binding into the Rust
+provider-invocation and provider-result contract. Hosted non-stream and stream
+provider results now carry Rust-authored `hosted_transport_request_ref`,
+`hosted_transport_request_hash`, `hosted_transport_response_hash`, and
+`hosted_transport_status: "rust_hosted_provider_transport_response_bound"`
+fields, and Rust provider-result admission rejects hosted truth unless those
+hashes and `rust_hosted_provider_transport_{request,response}_bound` evidence
+are present beside the wallet/cTEE auth materialization evidence. The old
+`deterministic_hosted_provider_output` helper and "Rust hosted provider
+invocation contract" success text are retired from the Rust model_mount core, so
+hosted success can no longer be proven by a loose deterministic message without
+the Rust transport request/response binding. Focused JS/Rust tests and
+conformance guard the hash fields, evidence refs, and retired helper/text. This
+remains non-terminal because live hosted network I/O, live cTEE secret injection
+into outbound hosted requests, live external backend binary
+spawning/supervision, and deeper invocation authority still need terminal
+Rust-owned execution coverage.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

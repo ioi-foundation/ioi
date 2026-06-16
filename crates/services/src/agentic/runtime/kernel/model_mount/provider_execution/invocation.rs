@@ -1,9 +1,9 @@
 use super::{
     backend_evidence_refs, deterministic_provider_output, estimate_tokens,
-    hosted_provider_base_url_hash, provider_auth_evidence_refs, provider_invocation_backend,
-    provider_invocation_backend_id, provider_invocation_evidence_refs, provider_invocation_hash,
-    provider_invocation_response_kind, ModelMountProviderInvocationRequest,
-    ModelMountProviderInvocationResult,
+    hosted_provider_base_url_hash, hosted_provider_transport_binding, provider_auth_evidence_refs,
+    provider_invocation_backend, provider_invocation_backend_id, provider_invocation_evidence_refs,
+    provider_invocation_hash, provider_invocation_response_kind,
+    ModelMountProviderInvocationRequest, ModelMountProviderInvocationResult,
 };
 use crate::agentic::runtime::kernel::model_mount::{
     ModelMountError, MODEL_MOUNT_PROVIDER_INVOCATION_SCHEMA_VERSION,
@@ -14,6 +14,7 @@ pub(super) fn invoke_provider(
 ) -> Result<ModelMountProviderInvocationResult, ModelMountError> {
     request.validate()?;
     let output_text = deterministic_provider_output(request)?;
+    let hosted_transport = hosted_provider_transport_binding(request, &output_text)?;
     let token_count = estimate_tokens(&request.input, &output_text);
     let backend = provider_invocation_backend(request);
     let backend_id = provider_invocation_backend_id(request);
@@ -41,6 +42,24 @@ pub(super) fn invoke_provider(
         provider_auth_materialization_ref: request.provider_auth_materialization_ref.clone(),
         outbound_header_binding_ref: request.outbound_header_binding_ref.clone(),
         auth_header_materialization_status: request.auth_header_materialization_status.clone(),
+        hosted_transport_request_ref: hosted_transport
+            .as_ref()
+            .map(|binding| binding.request_ref.clone()),
+        hosted_transport_method: hosted_transport
+            .as_ref()
+            .map(|binding| binding.method.clone()),
+        hosted_transport_path: hosted_transport
+            .as_ref()
+            .map(|binding| binding.path.clone()),
+        hosted_transport_request_hash: hosted_transport
+            .as_ref()
+            .map(|binding| binding.request_hash.clone()),
+        hosted_transport_response_hash: hosted_transport
+            .as_ref()
+            .map(|binding| binding.response_hash.clone()),
+        hosted_transport_status: hosted_transport
+            .as_ref()
+            .map(|binding| binding.status.clone()),
         provider_auth_evidence_refs: provider_auth_evidence_refs(request),
         backend_evidence_refs: backend_evidence_refs(request),
         evidence_refs: provider_invocation_evidence_refs(request),

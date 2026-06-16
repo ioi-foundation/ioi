@@ -20001,9 +20001,17 @@ function runBridge() {
 		      /HostedProviderInvocationMissingAuthority/.test(modelMountCore) &&
 		      !/HostedProviderInvocationTransportPending/.test(modelMountCore) &&
 		      /rust_hosted_provider_invocation_transport_materialized/.test(modelMountCore) &&
+		      /hosted_provider_transport_output/.test(modelMountCore) &&
+		      /hosted_provider_transport_binding/.test(modelMountCore) &&
+		      !/deterministic_hosted_provider_output/.test(modelMountCore) &&
+		      !/Rust hosted provider invocation contract/.test(modelMountCore) &&
 		      /rust_hosted_provider_endpoint_url_bound/.test(modelMountCore) &&
 		      /ctee_outbound_header_binding_ref_bound/.test(modelMountCore) &&
+		      /rust_hosted_provider_transport_request_bound/.test(modelMountCore) &&
+		      /rust_hosted_provider_transport_response_bound/.test(modelMountCore) &&
 		      /base_url_hash/.test(modelMountCore) &&
+		      /hosted_transport_request_hash/.test(modelMountCore) &&
+		      /hosted_transport_response_hash/.test(modelMountCore) &&
 		      /provider_auth_materialization_ref/.test(modelMountCore) &&
 		      /outbound_header_binding_ref/.test(modelMountCore) &&
 		      /rust_provider_auth_materialization_bound/.test(modelMountCore) &&
@@ -20013,6 +20021,12 @@ function runBridge() {
 		        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
 		      ) &&
 		      /hostedRequest\.backend_evidence_refs\.includes\("rust_hosted_provider_invocation_transport_materialized"\)/.test(
+		        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
+		      ) &&
+		      /hostedRequest\.backend_evidence_refs\.includes\("rust_hosted_provider_transport_request_bound"\)/.test(
+		        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
+		      ) &&
+		      /assert\.equal\(hostedRequest\.hosted_transport_request_hash,\s*"sha256:hosted-transport-request"\)/.test(
 		        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
 		      ) &&
 		      /assert\.equal\(hostedRequest\.base_url,\s*"https:\/\/api\.openai\.example\/v1"\)/.test(
@@ -20025,6 +20039,12 @@ function runBridge() {
 		        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
 		      ) &&
 		      /hostedStreamRequest\.backend_evidence_refs\.includes\("rust_hosted_provider_stream_transport_materialized"\)/.test(
+		        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
+		      ) &&
+		      /hostedStreamRequest\.backend_evidence_refs\.includes\("rust_hosted_provider_transport_response_bound"\)/.test(
+		        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
+		      ) &&
+		      /assert\.equal\(hostedStreamRequest\.hosted_transport_response_hash,\s*"sha256:hosted-stream-transport-response"\)/.test(
 		        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
 		      ) &&
 		      /assert\.equal\(hostedStreamRequest\.base_url,\s*"https:\/\/api\.openai\.example\/v1"\)/.test(
@@ -23134,13 +23154,37 @@ function runReceipts() {
 		      /rust_hosted_provider_invocation_transport_materialized/.test(
 		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
 		      ) &&
+		      /hosted_provider_transport_output/.test(
+		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+		      ) &&
+		      /hosted_provider_transport_binding/.test(
+		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+		      ) &&
+		      !/deterministic_hosted_provider_output/.test(
+		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+		      ) &&
+		      !/Rust hosted provider invocation contract/.test(
+		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+		      ) &&
 		      /rust_hosted_provider_endpoint_url_bound/.test(
 		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
 		      ) &&
 		      /ctee_outbound_header_binding_ref_bound/.test(
 		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
 		      ) &&
+		      /rust_hosted_provider_transport_request_bound/.test(
+		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+		      ) &&
+		      /rust_hosted_provider_transport_response_bound/.test(
+		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+		      ) &&
 		      /base_url_hash/.test(
+		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+		      ) &&
+		      /hosted_transport_request_hash/.test(
+		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+		      ) &&
+		      /hosted_transport_response_hash/.test(
 		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
 		      ) &&
 		      /outbound_header_binding_ref/.test(
@@ -23156,6 +23200,12 @@ function runReceipts() {
 		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/stream.rs"),
 		      ) &&
 		      /rust_hosted_provider_stream_transport_materialized/.test(
+		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/stream.rs"),
+		      ) &&
+		      /rust_hosted_provider_transport_request_bound/.test(
+		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/stream.rs"),
+		      ) &&
+		      /rust_hosted_provider_transport_response_bound/.test(
 		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/stream.rs"),
 		      ) &&
 		      /rust_hosted_provider_endpoint_url_bound/.test(
@@ -25777,6 +25827,12 @@ function runReceipts() {
 	      /rust_provider_auth_materialization_bound/.test(
 	        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
 	      ) &&
+	      /assert\.equal\(hostedRequest\.hosted_transport_request_hash,\s*"sha256:hosted-transport-request"\)/.test(
+	        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
+	      ) &&
+	      /assert\.equal\(hostedRequest\.hosted_transport_status,\s*"rust_hosted_provider_transport_response_bound"\)/.test(
+	        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
+	      ) &&
 		      /provider_invocation_executes_hosted_transport_contract_in_rust_owner/.test(
 		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
 		      ) &&
@@ -25787,6 +25843,11 @@ function runReceipts() {
 		        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
 		      ) &&
 		      /admits_hosted_provider_result_bound_to_rust_transport_contract/.test(modelMountCore) &&
+		      /hosted_transport_request_hash/.test(modelMountCore) &&
+		      /hosted_transport_response_hash/.test(modelMountCore) &&
+		      /rust_hosted_provider_transport_request_bound/.test(modelMountCore) &&
+		      /rust_hosted_provider_transport_response_bound/.test(modelMountCore) &&
+		      !/Rust hosted provider invocation contract/.test(modelMountCore) &&
 		      /rust_provider_auth_materialization_bound/.test(modelMountCore) &&
 		      /admits_hosted_provider_stream_result_bound_to_rust_transport_contract/.test(modelMountCore) &&
 	      !/assert\.equal\(request\.provider_kind,\s*"openai"\)/.test(

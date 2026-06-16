@@ -1,6 +1,7 @@
 use super::{
-    backend_evidence_refs, deterministic_hosted_provider_output, deterministic_native_local_output,
-    estimate_tokens, hosted_provider_base_url_hash, is_hosted_provider_stream_invocation_backend,
+    backend_evidence_refs, deterministic_native_local_output, estimate_tokens,
+    hosted_provider_base_url_hash, hosted_provider_transport_binding,
+    hosted_provider_transport_output, is_hosted_provider_stream_invocation_backend,
     provider_auth_evidence_refs, provider_stream_invocation_hash,
     ModelMountProviderInvocationRequest, ModelMountProviderStreamInvocationResult,
     ModelMountTokenCount,
@@ -15,7 +16,7 @@ pub(super) fn invoke_provider_stream(
     request.validate_stream()?;
     let hosted_provider_stream = is_hosted_provider_stream_invocation_backend(request);
     let output_text = if hosted_provider_stream {
-        deterministic_hosted_provider_output(
+        hosted_provider_transport_output(
             &request.invocation_kind,
             &request.input,
             &request.model_ref,
@@ -28,6 +29,7 @@ pub(super) fn invoke_provider_stream(
             &request.model_ref,
         )?
     };
+    let hosted_transport = hosted_provider_transport_binding(request, &output_text)?;
     let token_count = estimate_tokens(&request.input, &output_text);
     let stream_chunks = deterministic_stream_chunks(&output_text, &token_count)?;
     let mut result = ModelMountProviderStreamInvocationResult {
@@ -54,6 +56,24 @@ pub(super) fn invoke_provider_stream(
         provider_auth_materialization_ref: request.provider_auth_materialization_ref.clone(),
         outbound_header_binding_ref: request.outbound_header_binding_ref.clone(),
         auth_header_materialization_status: request.auth_header_materialization_status.clone(),
+        hosted_transport_request_ref: hosted_transport
+            .as_ref()
+            .map(|binding| binding.request_ref.clone()),
+        hosted_transport_method: hosted_transport
+            .as_ref()
+            .map(|binding| binding.method.clone()),
+        hosted_transport_path: hosted_transport
+            .as_ref()
+            .map(|binding| binding.path.clone()),
+        hosted_transport_request_hash: hosted_transport
+            .as_ref()
+            .map(|binding| binding.request_hash.clone()),
+        hosted_transport_response_hash: hosted_transport
+            .as_ref()
+            .map(|binding| binding.response_hash.clone()),
+        hosted_transport_status: hosted_transport
+            .as_ref()
+            .map(|binding| binding.status.clone()),
         stream_format: "ioi_jsonl".to_string(),
         stream_kind: provider_stream_kind(request),
         stream_chunks,
@@ -188,6 +208,8 @@ fn provider_stream_invocation_evidence_refs(
     if is_hosted_provider_stream_invocation_backend(request) {
         refs.push("rust_model_mount_hosted_provider_stream_backend".to_string());
         refs.push("rust_hosted_provider_stream_transport_materialized".to_string());
+        refs.push("rust_hosted_provider_transport_request_bound".to_string());
+        refs.push("rust_hosted_provider_transport_response_bound".to_string());
         refs.push("rust_hosted_provider_endpoint_url_bound".to_string());
         refs.push("wallet_network_provider_transport_authority_bound".to_string());
         refs.push("ctee_hosted_provider_secret_not_exposed".to_string());
@@ -436,7 +458,7 @@ mod tests {
         assert_eq!(result.stream_kind, "openai_responses_hosted_provider");
         assert!(result
             .output_text
-            .starts_with("Rust hosted provider invocation contract"));
+            .starts_with("Rust hosted provider transport response from /responses"));
         assert!(result
             .provider_auth_evidence_refs
             .contains(&"wallet_network_provider_vault_ref_bound".to_string()));
@@ -444,11 +466,26 @@ mod tests {
             .backend_evidence_refs
             .contains(&"rust_hosted_provider_stream_transport_materialized".to_string()));
         assert!(result
+            .backend_evidence_refs
+            .contains(&"rust_hosted_provider_transport_request_bound".to_string()));
+        assert!(result
+            .backend_evidence_refs
+            .contains(&"rust_hosted_provider_transport_response_bound".to_string()));
+        assert!(result
             .evidence_refs
             .contains(&"rust_model_mount_hosted_provider_stream_backend".to_string()));
         assert!(result
             .evidence_refs
             .contains(&"ctee_hosted_provider_secret_not_exposed".to_string()));
+        assert!(result.hosted_transport_request_ref.is_some());
+        assert_eq!(result.hosted_transport_method.as_deref(), Some("POST"));
+        assert_eq!(result.hosted_transport_path.as_deref(), Some("/responses"));
+        assert!(result.hosted_transport_request_hash.is_some());
+        assert!(result.hosted_transport_response_hash.is_some());
+        assert_eq!(
+            result.hosted_transport_status.as_deref(),
+            Some("rust_hosted_provider_transport_response_bound")
+        );
         assert!(result.stream_chunks.len() >= 2);
         assert!(result.invocation_hash.starts_with("sha256:"));
 

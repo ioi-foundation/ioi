@@ -1460,10 +1460,14 @@ test("modelMountProviderResultAdmissionRequestForExecution binds Rust provider r
       evidence_refs: ["rust_model_mount_core"],
     },
     providerResult: {
-      output_text: "Rust hosted provider invocation contract for model.openai",
+      output_text: "Rust hosted provider transport response from /chat/completions for model.openai",
       provider_response_kind: "rust_model_mount.hosted_provider",
       execution_backend: "rust_model_mount_hosted_provider",
       token_count: { prompt_tokens: 2, completion_tokens: 8, total_tokens: 10 },
+      hosted_transport_request_ref: "model_mount://hosted_transport_request/js-provider-result",
+      hosted_transport_request_hash: "sha256:hosted-transport-request",
+      hosted_transport_response_hash: "sha256:hosted-transport-response",
+      hosted_transport_status: "rust_hosted_provider_transport_response_bound",
       provider_auth_evidence_refs: [
         "rust_model_mount_hosted_provider_auth_gate",
         "wallet_network_provider_vault_ref_bound",
@@ -1473,6 +1477,8 @@ test("modelMountProviderResultAdmissionRequestForExecution binds Rust provider r
       backend_evidence_refs: [
         "rust_model_mount_hosted_provider_backend",
         "rust_hosted_provider_invocation_transport_materialized",
+        "rust_hosted_provider_transport_request_bound",
+        "rust_hosted_provider_transport_response_bound",
         "hosted_provider_auth_header_materialization_contract_bound",
       ],
     },
@@ -1484,8 +1490,14 @@ test("modelMountProviderResultAdmissionRequestForExecution binds Rust provider r
 
   assert.equal(hostedRequest.execution_backend, "rust_model_mount_hosted_provider");
   assert.equal(hostedRequest.provider_response_kind, "rust_model_mount.hosted_provider");
+  assert.equal(hostedRequest.hosted_transport_request_ref, "model_mount://hosted_transport_request/js-provider-result");
+  assert.equal(hostedRequest.hosted_transport_request_hash, "sha256:hosted-transport-request");
+  assert.equal(hostedRequest.hosted_transport_response_hash, "sha256:hosted-transport-response");
+  assert.equal(hostedRequest.hosted_transport_status, "rust_hosted_provider_transport_response_bound");
   assert.equal(hostedRequest.provider_auth_evidence_refs.includes("wallet_network_provider_vault_ref_bound"), true);
   assert.equal(hostedRequest.backend_evidence_refs.includes("rust_hosted_provider_invocation_transport_materialized"), true);
+  assert.equal(hostedRequest.backend_evidence_refs.includes("rust_hosted_provider_transport_request_bound"), true);
+  assert.equal(hostedRequest.backend_evidence_refs.includes("rust_hosted_provider_transport_response_bound"), true);
   const hostedStreamRequest = modelMountProviderResultAdmissionRequestForExecution({
     input: "user: hosted stream",
     instance: { backend_id: "backend.openai-compatible" },
@@ -1511,10 +1523,14 @@ test("modelMountProviderResultAdmissionRequestForExecution binds Rust provider r
       evidence_refs: ["rust_model_mount_core"],
     },
     providerResult: {
-      output_text: "Rust hosted provider invocation contract for model.openai stream",
+      output_text: "Rust hosted provider transport response from /responses for model.openai stream",
       provider_response_kind: "rust_model_mount.hosted_provider.stream",
       execution_backend: "rust_model_mount_hosted_provider_stream",
       token_count: { prompt_tokens: 2, completion_tokens: 8, total_tokens: 10 },
+      hosted_transport_request_ref: "model_mount://hosted_transport_request/js-provider-stream-result",
+      hosted_transport_request_hash: "sha256:hosted-stream-transport-request",
+      hosted_transport_response_hash: "sha256:hosted-stream-transport-response",
+      hosted_transport_status: "rust_hosted_provider_transport_response_bound",
       provider_auth_evidence_refs: [
         "rust_model_mount_hosted_provider_auth_gate",
         "wallet_network_provider_vault_ref_bound",
@@ -1524,6 +1540,8 @@ test("modelMountProviderResultAdmissionRequestForExecution binds Rust provider r
       backend_evidence_refs: [
         "rust_model_mount_hosted_provider_stream_backend",
         "rust_hosted_provider_stream_transport_materialized",
+        "rust_hosted_provider_transport_request_bound",
+        "rust_hosted_provider_transport_response_bound",
         "hosted_provider_auth_header_materialization_contract_bound",
       ],
     },
@@ -1536,8 +1554,14 @@ test("modelMountProviderResultAdmissionRequestForExecution binds Rust provider r
   assert.equal(hostedStreamRequest.execution_backend, "rust_model_mount_hosted_provider_stream");
   assert.equal(hostedStreamRequest.provider_response_kind, "rust_model_mount.hosted_provider.stream");
   assert.equal(hostedStreamRequest.stream_status, "started");
+  assert.equal(hostedStreamRequest.hosted_transport_request_ref, "model_mount://hosted_transport_request/js-provider-stream-result");
+  assert.equal(hostedStreamRequest.hosted_transport_request_hash, "sha256:hosted-stream-transport-request");
+  assert.equal(hostedStreamRequest.hosted_transport_response_hash, "sha256:hosted-stream-transport-response");
+  assert.equal(hostedStreamRequest.hosted_transport_status, "rust_hosted_provider_transport_response_bound");
   assert.equal(hostedStreamRequest.provider_auth_evidence_refs.includes("wallet_network_provider_vault_ref_bound"), true);
   assert.equal(hostedStreamRequest.backend_evidence_refs.includes("rust_hosted_provider_stream_transport_materialized"), true);
+  assert.equal(hostedStreamRequest.backend_evidence_refs.includes("rust_hosted_provider_transport_request_bound"), true);
+  assert.equal(hostedStreamRequest.backend_evidence_refs.includes("rust_hosted_provider_transport_response_bound"), true);
   assert.throws(
     () =>
       modelMountProviderResultAdmissionRequestForExecution({

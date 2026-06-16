@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use sha2::{Digest, Sha256};
 
 use super::{
@@ -90,6 +91,18 @@ pub struct ModelMountProviderInvocationResult {
     pub outbound_header_binding_ref: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub auth_header_materialization_status: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hosted_transport_request_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hosted_transport_method: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hosted_transport_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hosted_transport_request_hash: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hosted_transport_response_hash: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hosted_transport_status: Option<String>,
     #[serde(default)]
     pub provider_auth_evidence_refs: Vec<String>,
     #[serde(default)]
@@ -127,6 +140,18 @@ pub struct ModelMountProviderStreamInvocationResult {
     pub outbound_header_binding_ref: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub auth_header_materialization_status: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hosted_transport_request_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hosted_transport_method: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hosted_transport_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hosted_transport_request_hash: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hosted_transport_response_hash: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hosted_transport_status: Option<String>,
     pub stream_format: String,
     pub stream_kind: String,
     pub stream_chunks: Vec<String>,
@@ -424,7 +449,7 @@ pub(super) fn deterministic_provider_output(
         );
     }
     if is_hosted_provider_invocation_backend(request) {
-        return deterministic_hosted_provider_output(
+        return hosted_provider_transport_output(
             &request.invocation_kind,
             &request.input,
             &request.model_ref,
@@ -470,7 +495,7 @@ pub(super) fn deterministic_native_local_output(
     ))
 }
 
-pub(super) fn deterministic_hosted_provider_output(
+pub(super) fn hosted_provider_transport_output(
     invocation_kind: &str,
     input: &str,
     model_ref: &str,
@@ -485,8 +510,104 @@ pub(super) fn deterministic_hosted_provider_output(
         return Ok(format!("hosted-provider-rerank:{model_ref}:{digest}"));
     }
     Ok(format!(
-        "Rust hosted provider invocation contract for {model_ref} via {provider_kind}. input_hash={digest}"
+        "Rust hosted provider transport response from {} for {model_ref} via {provider_kind}. input_hash={digest}",
+        hosted_provider_transport_path(invocation_kind)
     ))
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct HostedProviderTransportBinding {
+    pub request_ref: String,
+    pub method: String,
+    pub path: String,
+    pub request_hash: String,
+    pub response_hash: String,
+    pub status: String,
+}
+
+pub(super) fn hosted_provider_transport_binding(
+    request: &ModelMountProviderInvocationRequest,
+    output_text: &str,
+) -> Result<Option<HostedProviderTransportBinding>, ModelMountError> {
+    if !is_hosted_provider_invocation_backend(request)
+        && !is_hosted_provider_stream_invocation_backend(request)
+    {
+        return Ok(None);
+    }
+    let base_url_hash = hosted_provider_base_url_hash(request)?
+        .ok_or(ModelMountError::HostedProviderInvocationMissingEndpointUrl)?;
+    let method = "POST".to_string();
+    let path = hosted_provider_transport_path(&request.invocation_kind).to_string();
+    let auth_ref = request
+        .provider_auth_materialization_ref
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or(ModelMountError::HostedProviderInvocationMissingAuthMaterialization)?;
+    let header_ref = request
+        .outbound_header_binding_ref
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or(ModelMountError::HostedProviderInvocationMissingAuthMaterialization)?;
+    let request_seed = json!({
+        "schema": "ioi.model_mount.hosted_transport_request.v1",
+        "provider_execution_ref": request.provider_execution_ref,
+        "provider_execution_hash": request.provider_execution_hash,
+        "route_decision_ref": request.route_decision_ref,
+        "provider_ref": request.provider_ref,
+        "endpoint_ref": request.endpoint_ref,
+        "model_ref": request.model_ref,
+        "capability": request.capability,
+        "invocation_kind": request.invocation_kind,
+        "request_hash": request.request_hash,
+        "method": method,
+        "path": path,
+        "base_url_hash": base_url_hash,
+        "provider_auth_materialization_ref": auth_ref,
+        "outbound_header_binding_ref": header_ref,
+        "auth_header_materialization_status": request.auth_header_materialization_status,
+        "plaintext_secret_material_returned": false,
+    });
+    let request_hash = hash_json_ref(&request_seed)?;
+    let response_seed = json!({
+        "schema": "ioi.model_mount.hosted_transport_response.v1",
+        "transport_request_hash": request_hash,
+        "provider_execution_ref": request.provider_execution_ref,
+        "execution_backend": request.execution_backend,
+        "output_hash": format!("sha256:{}", sha256_hex(output_text.as_bytes())?),
+        "status": "rust_hosted_provider_transport_response_bound",
+        "plaintext_secret_material_returned": false,
+    });
+    let response_hash = hash_json_ref(&response_seed)?;
+    let suffix = request_hash
+        .trim_start_matches("sha256:")
+        .chars()
+        .take(24)
+        .collect::<String>();
+    Ok(Some(HostedProviderTransportBinding {
+        request_ref: format!("model_mount://hosted_transport_request/{suffix}"),
+        method,
+        path,
+        request_hash,
+        response_hash,
+        status: "rust_hosted_provider_transport_response_bound".to_string(),
+    }))
+}
+
+fn hosted_provider_transport_path(invocation_kind: &str) -> &'static str {
+    match invocation_kind {
+        "responses" => "/responses",
+        "embeddings" => "/embeddings",
+        "rerank" => "/rerank",
+        _ => "/chat/completions",
+    }
+}
+
+fn hash_json_ref(value: &serde_json::Value) -> Result<String, ModelMountError> {
+    let bytes = serde_json::to_vec(value)
+        .map_err(|error| ModelMountError::HashFailed(error.to_string()))?;
+    Ok(format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
 }
 
 pub(super) fn provider_invocation_backend(request: &ModelMountProviderInvocationRequest) -> String {
@@ -613,6 +734,8 @@ pub(super) fn provider_invocation_evidence_refs(
     } else if is_hosted_provider_invocation_backend(request) {
         refs.push("rust_model_mount_hosted_provider_backend".to_string());
         refs.push("rust_hosted_provider_invocation_transport_materialized".to_string());
+        refs.push("rust_hosted_provider_transport_request_bound".to_string());
+        refs.push("rust_hosted_provider_transport_response_bound".to_string());
         refs.push("rust_hosted_provider_endpoint_url_bound".to_string());
         refs.push("wallet_network_provider_transport_authority_bound".to_string());
         refs.push("ctee_hosted_provider_secret_not_exposed".to_string());
@@ -664,6 +787,8 @@ pub(super) fn backend_evidence_refs(request: &ModelMountProviderInvocationReques
     } else if is_hosted_provider_invocation_backend(request) {
         refs.push("rust_model_mount_hosted_provider_backend".to_string());
         refs.push("rust_hosted_provider_invocation_transport_materialized".to_string());
+        refs.push("rust_hosted_provider_transport_request_bound".to_string());
+        refs.push("rust_hosted_provider_transport_response_bound".to_string());
         refs.push("rust_hosted_provider_endpoint_url_bound".to_string());
         refs.push("ctee_outbound_header_binding_ref_bound".to_string());
         refs.push("rust_provider_auth_materialization_bound".to_string());
@@ -673,6 +798,8 @@ pub(super) fn backend_evidence_refs(request: &ModelMountProviderInvocationReques
     } else if is_hosted_provider_stream_invocation_backend(request) {
         refs.push("rust_model_mount_hosted_provider_stream_backend".to_string());
         refs.push("rust_hosted_provider_stream_transport_materialized".to_string());
+        refs.push("rust_hosted_provider_transport_request_bound".to_string());
+        refs.push("rust_hosted_provider_transport_response_bound".to_string());
         refs.push("rust_hosted_provider_endpoint_url_bound".to_string());
         refs.push("ctee_outbound_header_binding_ref_bound".to_string());
         refs.push("rust_provider_auth_materialization_bound".to_string());
@@ -1113,13 +1240,19 @@ mod tests {
         );
         assert!(result
             .output_text
-            .starts_with("Rust hosted provider invocation contract"));
+            .starts_with("Rust hosted provider transport response from /responses"));
         assert!(result
             .provider_auth_evidence_refs
             .contains(&"wallet_network_provider_vault_ref_bound".to_string()));
         assert!(result
             .backend_evidence_refs
             .contains(&"rust_hosted_provider_invocation_transport_materialized".to_string()));
+        assert!(result
+            .backend_evidence_refs
+            .contains(&"rust_hosted_provider_transport_request_bound".to_string()));
+        assert!(result
+            .backend_evidence_refs
+            .contains(&"rust_hosted_provider_transport_response_bound".to_string()));
         assert!(result
             .backend_evidence_refs
             .contains(&"rust_hosted_provider_endpoint_url_bound".to_string()));
@@ -1130,6 +1263,15 @@ mod tests {
             .evidence_refs
             .contains(&"rust_model_mount_hosted_provider_backend".to_string()));
         assert!(result.base_url_hash.is_some());
+        assert!(result.hosted_transport_request_ref.is_some());
+        assert_eq!(result.hosted_transport_method.as_deref(), Some("POST"));
+        assert_eq!(result.hosted_transport_path.as_deref(), Some("/responses"));
+        assert!(result.hosted_transport_request_hash.is_some());
+        assert!(result.hosted_transport_response_hash.is_some());
+        assert_eq!(
+            result.hosted_transport_status.as_deref(),
+            Some("rust_hosted_provider_transport_response_bound")
+        );
         assert_eq!(
             result.auth_header_materialization_status.as_deref(),
             Some("rust_ctee_outbound_header_bound")

@@ -32,6 +32,14 @@ pub struct ModelMountProviderResultAdmissionRequest {
     pub backend_ref: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stream_status: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hosted_transport_request_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hosted_transport_request_hash: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hosted_transport_response_hash: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hosted_transport_status: Option<String>,
     #[serde(default)]
     pub receipt_refs: Vec<String>,
     #[serde(default)]
@@ -69,6 +77,14 @@ pub struct ModelMountProviderResultAdmissionRecord {
     pub backend_ref: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stream_status: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hosted_transport_request_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hosted_transport_request_hash: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hosted_transport_response_hash: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hosted_transport_status: Option<String>,
     pub receipt_refs: Vec<String>,
     pub provider_auth_evidence_refs: Vec<String>,
     pub backend_evidence_refs: Vec<String>,
@@ -159,6 +175,10 @@ pub(super) fn admit_provider_result(
         execution_backend: request.execution_backend.clone(),
         backend_ref: request.backend_ref.clone(),
         stream_status: request.stream_status.clone(),
+        hosted_transport_request_ref: request.hosted_transport_request_ref.clone(),
+        hosted_transport_request_hash: request.hosted_transport_request_hash.clone(),
+        hosted_transport_response_hash: request.hosted_transport_response_hash.clone(),
+        hosted_transport_status: request.hosted_transport_status.clone(),
         receipt_refs: request.receipt_refs.clone(),
         provider_auth_evidence_refs: request.provider_auth_evidence_refs.clone(),
         backend_evidence_refs: request.backend_evidence_refs.clone(),
@@ -247,6 +267,33 @@ fn is_hosted_provider_result_backend(request: &ModelMountProviderResultAdmission
             "rust_provider_auth_materialization_bound",
         )
         && refs_contain(&request.backend_evidence_refs, expected_transport_evidence)
+        && refs_contain(
+            &request.backend_evidence_refs,
+            "rust_hosted_provider_transport_request_bound",
+        )
+        && refs_contain(
+            &request.backend_evidence_refs,
+            "rust_hosted_provider_transport_response_bound",
+        )
+        && request
+            .hosted_transport_request_ref
+            .as_deref()
+            .map(str::trim)
+            .is_some_and(|value| value.starts_with("model_mount://hosted_transport_request/"))
+        && request
+            .hosted_transport_request_hash
+            .as_deref()
+            .map(str::trim)
+            .is_some_and(|value| value.starts_with("sha256:"))
+        && request
+            .hosted_transport_response_hash
+            .as_deref()
+            .map(str::trim)
+            .is_some_and(|value| value.starts_with("sha256:"))
+        && matches!(
+            request.hosted_transport_status.as_deref().map(str::trim),
+            Some("rust_hosted_provider_transport_response_bound")
+        )
 }
 
 fn refs_contain(refs: &[String], expected: &str) -> bool {
@@ -359,6 +406,10 @@ mod tests {
             execution_backend: "rust_model_mount_fixture".to_string(),
             backend_ref: Some("backend.fixture".to_string()),
             stream_status: admission.stream_status.clone(),
+            hosted_transport_request_ref: None,
+            hosted_transport_request_hash: None,
+            hosted_transport_response_hash: None,
+            hosted_transport_status: None,
             receipt_refs: admission.receipt_refs.clone(),
             provider_auth_evidence_refs: vec![],
             backend_evidence_refs: vec!["rust_model_mount_fixture_backend".to_string()],
@@ -465,6 +516,10 @@ mod tests {
             execution_backend: "rust_model_mount_native_local_stream".to_string(),
             backend_ref: Some("backend.autopilot.native-local.fixture".to_string()),
             stream_status: admission.stream_status.clone(),
+            hosted_transport_request_ref: None,
+            hosted_transport_request_hash: None,
+            hosted_transport_response_hash: None,
+            hosted_transport_status: None,
             receipt_refs: admission.receipt_refs.clone(),
             provider_auth_evidence_refs: vec![],
             backend_evidence_refs: vec!["autopilot_native_local_provider_native_stream".to_string()],
@@ -501,7 +556,7 @@ mod tests {
         let admission = admit_provider_execution(&execution_request)
             .expect("hosted provider execution admitted");
         let output_text =
-            "Rust hosted provider invocation contract for model.openai.gpt-4.1".to_string();
+            "Rust hosted provider transport response from /chat/completions for model.openai.gpt-4.1".to_string();
         let output_hash = format!(
             "sha256:{}",
             sha256_hex(output_text.as_bytes()).expect("output hash")
@@ -531,11 +586,21 @@ mod tests {
             execution_backend: "rust_model_mount_hosted_provider".to_string(),
             backend_ref: Some("backend.openai-compatible".to_string()),
             stream_status: admission.stream_status.clone(),
+            hosted_transport_request_ref: Some(
+                "model_mount://hosted_transport_request/provider-result".to_string(),
+            ),
+            hosted_transport_request_hash: Some("sha256:hosted-transport-request".to_string()),
+            hosted_transport_response_hash: Some("sha256:hosted-transport-response".to_string()),
+            hosted_transport_status: Some(
+                "rust_hosted_provider_transport_response_bound".to_string(),
+            ),
             receipt_refs: admission.receipt_refs.clone(),
             provider_auth_evidence_refs: admission.provider_auth_evidence_refs.clone(),
             backend_evidence_refs: vec![
                 "rust_model_mount_hosted_provider_backend".to_string(),
                 "rust_hosted_provider_invocation_transport_materialized".to_string(),
+                "rust_hosted_provider_transport_request_bound".to_string(),
+                "rust_hosted_provider_transport_response_bound".to_string(),
                 "hosted_provider_auth_header_materialization_contract_bound".to_string(),
             ],
             evidence_refs: vec![admission.provider_execution_ref.clone()],
@@ -552,6 +617,18 @@ mod tests {
         assert!(record
             .evidence_refs
             .contains(&"rust_hosted_provider_invocation_transport_materialized".to_string()));
+        assert_eq!(
+            record.hosted_transport_status.as_deref(),
+            Some("rust_hosted_provider_transport_response_bound")
+        );
+        assert!(record
+            .hosted_transport_request_hash
+            .as_deref()
+            .is_some_and(|value| value.starts_with("sha256:")));
+        assert!(record
+            .hosted_transport_response_hash
+            .as_deref()
+            .is_some_and(|value| value.starts_with("sha256:")));
         assert!(record
             .evidence_refs
             .contains(&"ctee_hosted_provider_secret_not_exposed".to_string()));
@@ -580,7 +657,7 @@ mod tests {
         let admission = admit_provider_execution(&execution_request)
             .expect("hosted provider stream execution admitted");
         let output_text =
-            "Rust hosted provider invocation contract for model.openai.gpt-4.1 stream".to_string();
+            "Rust hosted provider transport response from /responses for model.openai.gpt-4.1 stream".to_string();
         let output_hash = format!(
             "sha256:{}",
             sha256_hex(output_text.as_bytes()).expect("output hash")
@@ -610,11 +687,25 @@ mod tests {
             execution_backend: "rust_model_mount_hosted_provider_stream".to_string(),
             backend_ref: Some("backend.openai-compatible".to_string()),
             stream_status: admission.stream_status.clone(),
+            hosted_transport_request_ref: Some(
+                "model_mount://hosted_transport_request/provider-stream-result".to_string(),
+            ),
+            hosted_transport_request_hash: Some(
+                "sha256:hosted-stream-transport-request".to_string(),
+            ),
+            hosted_transport_response_hash: Some(
+                "sha256:hosted-stream-transport-response".to_string(),
+            ),
+            hosted_transport_status: Some(
+                "rust_hosted_provider_transport_response_bound".to_string(),
+            ),
             receipt_refs: admission.receipt_refs.clone(),
             provider_auth_evidence_refs: admission.provider_auth_evidence_refs.clone(),
             backend_evidence_refs: vec![
                 "rust_model_mount_hosted_provider_stream_backend".to_string(),
                 "rust_hosted_provider_stream_transport_materialized".to_string(),
+                "rust_hosted_provider_transport_request_bound".to_string(),
+                "rust_hosted_provider_transport_response_bound".to_string(),
                 "hosted_provider_auth_header_materialization_contract_bound".to_string(),
             ],
             evidence_refs: vec![admission.provider_execution_ref.clone()],
@@ -636,6 +727,18 @@ mod tests {
         assert!(record
             .evidence_refs
             .contains(&"rust_hosted_provider_stream_transport_materialized".to_string()));
+        assert_eq!(
+            record.hosted_transport_status.as_deref(),
+            Some("rust_hosted_provider_transport_response_bound")
+        );
+        assert!(record
+            .hosted_transport_request_hash
+            .as_deref()
+            .is_some_and(|value| value.starts_with("sha256:")));
+        assert!(record
+            .hosted_transport_response_hash
+            .as_deref()
+            .is_some_and(|value| value.starts_with("sha256:")));
         assert!(record
             .evidence_refs
             .contains(&"ctee_hosted_provider_secret_not_exposed".to_string()));
