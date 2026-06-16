@@ -6,7 +6,7 @@ use std::{env, fs, path::Path};
 use super::{
     model_mount::{ModelMountCore, ModelMountReadProjectionRequest},
     runtime_tool_catalog::{
-        RuntimeToolCatalogProjectionBridgeRequest, RuntimeToolCatalogProjectionCore,
+        RuntimeToolCatalogProjectionRequest, RuntimeToolCatalogProjectionCore,
     },
     skill_hook_registry::{SkillHookRegistryProjectionCore, SkillHookRegistryProjectionRequest},
 };
@@ -112,7 +112,7 @@ impl RuntimeDoctorReportProjectionCore {
         let artifacts = model_mount_projection("artifacts", &state_dir)?;
         let mcp_servers = model_mount_projection("mcp_servers", &state_dir)?;
         let tools = RuntimeToolCatalogProjectionCore::default()
-            .project(RuntimeToolCatalogProjectionBridgeRequest {
+            .project(RuntimeToolCatalogProjectionRequest {
                 operation: Some("runtime_tool_catalog".to_string()),
                 operation_kind: Some("runtime.tool_catalog.projection.tools".to_string()),
                 projection_kind: Some("tools".to_string()),
@@ -123,13 +123,13 @@ impl RuntimeDoctorReportProjectionCore {
                     "IOI_AGENT_SDK_SELF_HOSTED_ENDPOINT",
                 ),
                 source: Some("runtime.doctor_report".to_string()),
-                ..RuntimeToolCatalogProjectionBridgeRequest::default()
+                ..RuntimeToolCatalogProjectionRequest::default()
             })
             .map_err(|error| {
                 RuntimeDoctorReportProjectionCommandError::new(error.code(), error.message())
             })?;
         let runtime_nodes = RuntimeToolCatalogProjectionCore::default()
-            .project(RuntimeToolCatalogProjectionBridgeRequest {
+            .project(RuntimeToolCatalogProjectionRequest {
                 operation: Some("runtime_tool_catalog".to_string()),
                 operation_kind: Some("runtime.tool_catalog.projection.runtime_nodes".to_string()),
                 projection_kind: Some("runtime_nodes".to_string()),
@@ -139,7 +139,7 @@ impl RuntimeDoctorReportProjectionCore {
                     "IOI_AGENT_SDK_SELF_HOSTED_ENDPOINT",
                 ),
                 source: Some("runtime.doctor_report".to_string()),
-                ..RuntimeToolCatalogProjectionBridgeRequest::default()
+                ..RuntimeToolCatalogProjectionRequest::default()
             })
             .map_err(|error| {
                 RuntimeDoctorReportProjectionCommandError::new(error.code(), error.message())

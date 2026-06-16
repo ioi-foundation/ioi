@@ -250,7 +250,7 @@ use receipt_binder::{
     StepModuleReceiptBinding,
 };
 use repository_workflow::{
-    RepositoryWorkflowProjectionBridgeRequest, RepositoryWorkflowProjectionCommandError,
+    RepositoryWorkflowProjectionRequest, RepositoryWorkflowProjectionError,
     RepositoryWorkflowProjectionCore, RepositoryWorkflowProjectionRecord,
 };
 use runtime_computer_use::{
@@ -328,7 +328,7 @@ use runtime_thread_fork_control::{
     RuntimeThreadForkControlRequest,
 };
 use runtime_tool_catalog::{
-    RuntimeToolCatalogProjectionBridgeRequest, RuntimeToolCatalogProjectionCommandError,
+    RuntimeToolCatalogProjectionRequest, RuntimeToolCatalogProjectionError,
     RuntimeToolCatalogProjectionCore, RuntimeToolCatalogProjectionRecord,
 };
 use runtime_workflow_edit_control::{
@@ -347,7 +347,7 @@ use settlement::{
     SettlementReceiptBundleV2,
 };
 use skill_hook_registry::{
-    SkillHookRegistryProjectionCommandError, SkillHookRegistryProjectionCore,
+    SkillHookRegistryProjectionError, SkillHookRegistryProjectionCore,
     SkillHookRegistryProjectionRecord, SkillHookRegistryProjectionRequest,
 };
 use step_module::{StepModuleInvocation, StepModuleResult, StepModuleValidationError};
@@ -679,21 +679,21 @@ impl RuntimeKernelService {
     pub fn project_skill_hook_registry(
         &self,
         request: &SkillHookRegistryProjectionRequest,
-    ) -> Result<SkillHookRegistryProjectionRecord, SkillHookRegistryProjectionCommandError> {
+    ) -> Result<SkillHookRegistryProjectionRecord, SkillHookRegistryProjectionError> {
         SkillHookRegistryProjectionCore::default().project(request.clone())
     }
 
     pub fn project_repository_workflow(
         &self,
-        request: &RepositoryWorkflowProjectionBridgeRequest,
-    ) -> Result<RepositoryWorkflowProjectionRecord, RepositoryWorkflowProjectionCommandError> {
+        request: &RepositoryWorkflowProjectionRequest,
+    ) -> Result<RepositoryWorkflowProjectionRecord, RepositoryWorkflowProjectionError> {
         RepositoryWorkflowProjectionCore::default().project(request.clone())
     }
 
     pub fn project_runtime_tool_catalog(
         &self,
-        request: &RuntimeToolCatalogProjectionBridgeRequest,
-    ) -> Result<RuntimeToolCatalogProjectionRecord, RuntimeToolCatalogProjectionCommandError> {
+        request: &RuntimeToolCatalogProjectionRequest,
+    ) -> Result<RuntimeToolCatalogProjectionRecord, RuntimeToolCatalogProjectionError> {
         RuntimeToolCatalogProjectionCore::default().project(request.clone())
     }
 

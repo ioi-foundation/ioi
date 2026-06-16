@@ -11176,6 +11176,18 @@ canonical record directories when committing records; the deleted JS-created
 local materialization caches must not return beside Rust replay as duplicate
 health, log, lifecycle, server, or workflow-binding truth.
 
+Slice 1340 hard-cuts runtime projection bridge-shaped public API names.
+Runtime tool catalog, repository workflow, and skill/hook registry projection
+cores now expose positive Rust daemon-core request/error/result surfaces without
+the old `BridgeRequest`, `CommandError`, or JS `BridgeResult` normalizer names.
+`RuntimeToolCatalogProjectionRequest`, `RepositoryWorkflowProjectionRequest`,
+and `SkillHookRegistryProjectionRequest` remain the public Rust projection
+requests; `RuntimeToolCatalogProjectionError`, `RepositoryWorkflowProjectionError`,
+and `SkillHookRegistryProjectionError` are the direct Rust errors; and the JS
+policy client normalizers use positive projection-result names only. The retired
+bridge-shaped request, command-error, and bridge-result names must not return as
+compatibility aliases for these Rust-owned public projection families.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

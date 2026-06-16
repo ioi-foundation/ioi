@@ -11,7 +11,7 @@ pub const REPOSITORY_WORKFLOW_PROJECTION_RESULT_SCHEMA_VERSION: &str =
     "ioi.runtime.repository-workflow-projection.v1";
 
 #[derive(Debug, Clone, Deserialize, Default)]
-pub struct RepositoryWorkflowProjectionBridgeRequest {
+pub struct RepositoryWorkflowProjectionRequest {
     #[serde(default)]
     pub operation: Option<String>,
     #[serde(default)]
@@ -29,12 +29,12 @@ pub struct RepositoryWorkflowProjectionBridgeRequest {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RepositoryWorkflowProjectionCommandError {
+pub struct RepositoryWorkflowProjectionError {
     code: &'static str,
     message: String,
 }
 
-impl RepositoryWorkflowProjectionCommandError {
+impl RepositoryWorkflowProjectionError {
     fn new(code: &'static str, message: impl Into<String>) -> Self {
         Self {
             code,
@@ -78,8 +78,8 @@ pub struct RepositoryWorkflowProjectionRecord {
 impl RepositoryWorkflowProjectionCore {
     pub fn project(
         &self,
-        request: RepositoryWorkflowProjectionBridgeRequest,
-    ) -> Result<RepositoryWorkflowProjectionRecord, RepositoryWorkflowProjectionCommandError> {
+        request: RepositoryWorkflowProjectionRequest,
+    ) -> Result<RepositoryWorkflowProjectionRecord, RepositoryWorkflowProjectionError> {
         let projection_kind = normalized_projection_kind(&request)?;
         let workspace_root = absolute_path(
             optional_trimmed(request.workspace_root.as_deref()).unwrap_or_else(|| ".".to_string()),
@@ -151,7 +151,7 @@ impl RepositoryWorkflowProjectionCore {
             "review_gate" => review_gate.clone(),
             "github_pr_create_plan" => github_pr_create_plan.clone(),
             _ => {
-                return Err(RepositoryWorkflowProjectionCommandError::new(
+                return Err(RepositoryWorkflowProjectionError::new(
                     "repository_workflow_projection_kind_invalid",
                     format!("unsupported repository workflow projection kind {projection_kind}"),
                 ));
@@ -1524,8 +1524,8 @@ fn repository_ahead_behind(branch_status: &str) -> (usize, usize) {
 }
 
 fn normalized_projection_kind(
-    request: &RepositoryWorkflowProjectionBridgeRequest,
-) -> Result<String, RepositoryWorkflowProjectionCommandError> {
+    request: &RepositoryWorkflowProjectionRequest,
+) -> Result<String, RepositoryWorkflowProjectionError> {
     if let Some(value) = optional_trimmed_lower(request.projection_kind.as_deref()) {
         return Ok(value);
     }
@@ -1544,7 +1544,7 @@ fn normalized_projection_kind(
             return Ok(kind.to_string());
         }
     }
-    Err(RepositoryWorkflowProjectionCommandError::new(
+    Err(RepositoryWorkflowProjectionError::new(
         "repository_workflow_projection_kind_required",
         "repository workflow projection kind is required",
     ))
@@ -1853,7 +1853,7 @@ mod tests {
     #[test]
     fn rust_projects_repository_workflow_context_and_policy() {
         let record = RepositoryWorkflowProjectionCore::default()
-            .project(RepositoryWorkflowProjectionBridgeRequest {
+            .project(RepositoryWorkflowProjectionRequest {
                 operation: Some("repository_workflow_repository_context".to_string()),
                 operation_kind: Some(
                     "repository_workflow.projection.repository_context".to_string(),
@@ -1881,7 +1881,7 @@ mod tests {
     #[test]
     fn rust_projects_repository_workflow_pr_family_shapes() {
         let record = RepositoryWorkflowProjectionCore::default()
-            .project(RepositoryWorkflowProjectionBridgeRequest {
+            .project(RepositoryWorkflowProjectionRequest {
                 operation: Some("repository_workflow_github_pr_create_plan".to_string()),
                 operation_kind: Some(
                     "repository_workflow.projection.github_pr_create_plan".to_string(),
@@ -1913,7 +1913,7 @@ mod tests {
     #[test]
     fn rust_shapes_repository_workflow_direct_record() {
         let record = RepositoryWorkflowProjectionCore::default()
-            .project(RepositoryWorkflowProjectionBridgeRequest {
+            .project(RepositoryWorkflowProjectionRequest {
                 operation_kind: Some("repository_workflow.projection.pr_attempts".to_string()),
                 projection_kind: Some("pr_attempts".to_string()),
                 workspace_root: Some("/workspace/project".to_string()),

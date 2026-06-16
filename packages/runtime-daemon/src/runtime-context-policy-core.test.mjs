@@ -187,7 +187,7 @@ import {
   normalizeRuntimeTaskJobCancelStateUpdateBridgeResult,
   normalizeRuntimeTaskJobCreateStateUpdateBridgeResult,
   normalizeRuntimeTaskJobProjectionBridgeResult,
-  normalizeRuntimeToolCatalogProjectionBridgeResult,
+  normalizeRuntimeToolCatalogProjectionResult,
   normalizeRuntimeLifecycleProjectionBridgeResult,
   normalizeRuntimeDoctorReportProjectionBridgeResult,
   normalizeRuntimeComputerUseProjectionBridgeResult,
@@ -208,8 +208,8 @@ import {
   normalizeRuntimeConversationArtifactProjectionBridgeResult,
   normalizeRuntimeSubagentControlBridgeResult,
   normalizeRuntimeSubagentProjectionBridgeResult,
-  normalizeRepositoryWorkflowProjectionBridgeResult,
-  normalizeSkillHookRegistryProjectionBridgeResult,
+  normalizeRepositoryWorkflowProjectionResult,
+  normalizeSkillHookRegistryProjectionResult,
   normalizeRunCreateStateUpdateApiResult,
   normalizeRuntimeBridgeThreadStartAgentStateUpdateApiResult,
   normalizeRuntimeBridgeThreadControlAgentStateUpdateApiResult,
@@ -2593,7 +2593,7 @@ test("skill hook registry projection core sends Rust daemon-core request", () =>
 
   assert.throws(
     () =>
-      normalizeSkillHookRegistryProjectionBridgeResult({
+      normalizeSkillHookRegistryProjectionResult({
         record: {
           operation_kind: "skill_hook.registry.retired",
           registry_kind: "skills",
@@ -2679,7 +2679,7 @@ test("repository workflow projection core sends Rust daemon-core request", () =>
 
   assert.throws(
     () =>
-      normalizeRepositoryWorkflowProjectionBridgeResult({
+      normalizeRepositoryWorkflowProjectionResult({
         record: {
           operation_kind: "repository_workflow.projection.retired",
           projection_kind: "pr_attempts",
@@ -2745,7 +2745,7 @@ test("runtime tool catalog projection core sends Rust daemon-core request", () =
 
   assert.throws(
     () =>
-      normalizeRuntimeToolCatalogProjectionBridgeResult({
+      normalizeRuntimeToolCatalogProjectionResult({
         record: {
           operation_kind: "runtime.tool_catalog.projection.retired",
           projection_kind: "tools",

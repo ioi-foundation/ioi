@@ -550,7 +550,7 @@ export class RuntimeContextPolicyCore {
   }
 
   projectSkillHookRegistry(request = {}) {
-    return normalizeSkillHookRegistryProjectionBridgeResult(this.invokeRuntimeProjectionApi(
+    return normalizeSkillHookRegistryProjectionResult(this.invokeRuntimeProjectionApi(
       RUNTIME_PROJECTION_SKILL_HOOK_REGISTRY_API_METHOD,
       SKILL_HOOK_REGISTRY_PROJECTION_REQUEST_SCHEMA_VERSION,
       request,
@@ -558,7 +558,7 @@ export class RuntimeContextPolicyCore {
   }
 
   projectRepositoryWorkflow(request = {}) {
-    return normalizeRepositoryWorkflowProjectionBridgeResult(this.invokeRuntimeProjectionApi(
+    return normalizeRepositoryWorkflowProjectionResult(this.invokeRuntimeProjectionApi(
       RUNTIME_PROJECTION_REPOSITORY_WORKFLOW_API_METHOD,
       REPOSITORY_WORKFLOW_PROJECTION_REQUEST_SCHEMA_VERSION,
       request,
@@ -566,7 +566,7 @@ export class RuntimeContextPolicyCore {
   }
 
   projectRuntimeToolCatalog(request = {}) {
-    return normalizeRuntimeToolCatalogProjectionBridgeResult(this.invokeRuntimeProjectionApi(
+    return normalizeRuntimeToolCatalogProjectionResult(this.invokeRuntimeProjectionApi(
       RUNTIME_PROJECTION_TOOL_CATALOG_API_METHOD,
       RUNTIME_TOOL_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION,
       request,
@@ -2016,7 +2016,7 @@ export function normalizeRuntimeTaskJobProjectionBridgeResult(value = {}) {
   };
 }
 
-export function normalizeSkillHookRegistryProjectionBridgeResult(value = {}) {
+export function normalizeSkillHookRegistryProjectionResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   const { operation: _retiredOperation, ...recordWithoutRetiredOperation } = record;
@@ -2055,7 +2055,7 @@ export function normalizeSkillHookRegistryProjectionBridgeResult(value = {}) {
   };
 }
 
-export function normalizeRepositoryWorkflowProjectionBridgeResult(value = {}) {
+export function normalizeRepositoryWorkflowProjectionResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   const projectionKind = optionalString(result.projection_kind ?? record.projection_kind);
@@ -2116,7 +2116,7 @@ export function normalizeRepositoryWorkflowProjectionBridgeResult(value = {}) {
   };
 }
 
-export function normalizeRuntimeToolCatalogProjectionBridgeResult(value = {}) {
+export function normalizeRuntimeToolCatalogProjectionResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   const runtimeNodes = arrayValue(result.runtime_nodes ?? record.runtime_nodes);

@@ -13216,6 +13216,10 @@ function runBridge() {
       !/SkillHookRegistryProjectionBridgeRequest/.test(
         `${skillHookRegistryRustCore}\n${kernelModuleForBridgeChecks}\n${runtimeDoctorReportRustCore}`,
       ) &&
+      /pub struct SkillHookRegistryProjectionError/.test(skillHookRegistryRustCore) &&
+      !/SkillHookRegistryProjectionCommandError/.test(
+        `${skillHookRegistryRustCore}\n${kernelModuleForBridgeChecks}`,
+      ) &&
       !/pub operation: Option<String>|pub operation: String|"operation": self\.operation/.test(
         skillHookRegistryRustCore,
       ) &&
@@ -13257,8 +13261,11 @@ function runBridge() {
       !/operation:\s*"skill_hook_registry_(?:catalog|skills|hooks)"/.test(
         runtimeContextPolicyCore,
       ) &&
-      /normalizeSkillHookRegistryProjectionBridgeResult/.test(
+      /normalizeSkillHookRegistryProjectionResult/.test(
         runtimeContextPolicyCore,
+      ) &&
+      !/normalizeSkillHookRegistryProjectionBridgeResult/.test(
+        `${runtimeContextPolicyCore}\n${runtimeContextPolicyCoreTest}`,
       ) &&
       /recordWithoutRetiredOperation/.test(runtimeContextPolicyCore) &&
       !/planSkillHookRegistryProjectionRequired/.test(runtimeContextPolicyCore) &&
@@ -13344,6 +13351,18 @@ function runBridge() {
       /pub const REPOSITORY_WORKFLOW_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
         repositoryWorkflowRustCore,
       ) &&
+      /pub struct RepositoryWorkflowProjectionRequest/.test(
+        repositoryWorkflowRustCore,
+      ) &&
+      !/RepositoryWorkflowProjectionBridgeRequest/.test(
+        `${repositoryWorkflowRustCore}\n${kernelModuleForBridgeChecks}`,
+      ) &&
+      /pub struct RepositoryWorkflowProjectionError/.test(
+        repositoryWorkflowRustCore,
+      ) &&
+      !/RepositoryWorkflowProjectionCommandError/.test(
+        `${repositoryWorkflowRustCore}\n${kernelModuleForBridgeChecks}`,
+      ) &&
       !/pub fn project_repository_workflow_response/.test(
         repositoryWorkflowRustCore,
       ) &&
@@ -13393,8 +13412,11 @@ function runBridge() {
         runtimeContextPolicyCore,
       ) &&
       !/operation:\s*"project_repository_workflow"/.test(runtimeContextPolicyCore) &&
-      /normalizeRepositoryWorkflowProjectionBridgeResult/.test(
+      /normalizeRepositoryWorkflowProjectionResult/.test(
         runtimeContextPolicyCore,
+      ) &&
+      !/normalizeRepositoryWorkflowProjectionBridgeResult/.test(
+        `${runtimeContextPolicyCore}\n${runtimeContextPolicyCoreTest}`,
       ) &&
       !/planRepositoryWorkflowProjectionRequired/.test(runtimeContextPolicyCore) &&
       /repository workflow projection core sends Rust daemon-core request/.test(
@@ -27807,12 +27829,54 @@ function runReceipts() {
   )
     ? read("crates/services/src/agentic/runtime/kernel/runtime_lifecycle.rs")
     : "";
+  const runtimeProjectionBridgeShapeSources = [
+    runtimeToolCatalogRustCore,
+    read("crates/services/src/agentic/runtime/kernel/repository_workflow.rs"),
+    read("crates/services/src/agentic/runtime/kernel/skill_hook_registry.rs"),
+    runtimeKernelModule,
+    read("crates/services/src/agentic/runtime/kernel/runtime_doctor_report.rs"),
+    read("packages/runtime-daemon/src/runtime-context-policy-core.mjs"),
+    read("packages/runtime-daemon/src/runtime-context-policy-core.test.mjs"),
+  ].join("\n");
+  assertCheck(
+    result,
+    "runtime-projection-bridge-shaped-api-names-retired",
+    !/(?:RuntimeToolCatalogProjectionBridgeRequest|RepositoryWorkflowProjectionBridgeRequest|RuntimeToolCatalogProjectionCommandError|RepositoryWorkflowProjectionCommandError|SkillHookRegistryProjectionCommandError|normalizeSkillHookRegistryProjectionBridgeResult|normalizeRepositoryWorkflowProjectionBridgeResult|normalizeRuntimeToolCatalogProjectionBridgeResult)/.test(
+      runtimeProjectionBridgeShapeSources,
+    ) &&
+      /Slice 1340 hard-cuts runtime projection bridge-shaped public API names/.test(guide) &&
+      /Runtime projection bridge-shaped API names retired/.test(matrix) &&
+      /RuntimeDaemonCoreProjectionBridgeShapeRetired/.test(implementationMatrix),
+    [
+      "crates/services/src/agentic/runtime/kernel/runtime_tool_catalog.rs",
+      "crates/services/src/agentic/runtime/kernel/repository_workflow.rs",
+      "crates/services/src/agentic/runtime/kernel/skill_hook_registry.rs",
+      "crates/services/src/agentic/runtime/kernel/mod.rs",
+      "crates/services/src/agentic/runtime/kernel/runtime_doctor_report.rs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
+      "docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md",
+      "docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md",
+      "docs/architecture/_meta/implementation-matrix.md",
+    ],
+    "Runtime tool catalog, repository workflow, and skill/hook registry projection APIs must not preserve bridge-shaped request/error/result aliases beside positive Rust daemon-core projection APIs",
+  );
   assertCheck(
     result,
     "runtime-tool-catalog-public-js-projection-retired",
     /pub const RUNTIME_TOOL_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
       runtimeToolCatalogRustCore,
     ) &&
+      /pub struct RuntimeToolCatalogProjectionRequest/.test(
+        runtimeToolCatalogRustCore,
+      ) &&
+      !/RuntimeToolCatalogProjectionBridgeRequest/.test(
+        `${runtimeToolCatalogRustCore}\n${runtimeKernelModule}`,
+      ) &&
+      /pub struct RuntimeToolCatalogProjectionError/.test(runtimeToolCatalogRustCore) &&
+      !/RuntimeToolCatalogProjectionCommandError/.test(
+        `${runtimeToolCatalogRustCore}\n${runtimeKernelModule}`,
+      ) &&
       !/pub fn project_runtime_tool_catalog_response/.test(runtimeToolCatalogRustCore) &&
       /pub fn project_runtime_tool_catalog\(/.test(runtimeKernelModule) &&
       /pub struct RuntimeToolCatalogProjectionCore/.test(runtimeToolCatalogRustCore) &&
@@ -27839,8 +27903,11 @@ function runReceipts() {
       !/operation:\s*"project_runtime_tool_catalog"/.test(
         runtimeContextPolicyCoreForState,
       ) &&
-      /normalizeRuntimeToolCatalogProjectionBridgeResult/.test(
+      /normalizeRuntimeToolCatalogProjectionResult/.test(
         runtimeContextPolicyCoreForState,
+      ) &&
+      !/normalizeRuntimeToolCatalogProjectionBridgeResult/.test(
+        `${runtimeContextPolicyCoreForState}\n${runtimeContextPolicyCoreTestForState}`,
       ) &&
       /runtime tool catalog projection core sends Rust daemon-core request/.test(
         runtimeContextPolicyCoreTestForState,

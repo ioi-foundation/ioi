@@ -24,12 +24,12 @@ pub struct SkillHookRegistryProjectionRequest {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SkillHookRegistryProjectionCommandError {
+pub struct SkillHookRegistryProjectionError {
     code: &'static str,
     message: String,
 }
 
-impl SkillHookRegistryProjectionCommandError {
+impl SkillHookRegistryProjectionError {
     fn new(code: &'static str, message: impl Into<String>) -> Self {
         Self {
             code,
@@ -69,7 +69,7 @@ impl SkillHookRegistryProjectionCore {
     pub fn project(
         &self,
         request: SkillHookRegistryProjectionRequest,
-    ) -> Result<SkillHookRegistryProjectionRecord, SkillHookRegistryProjectionCommandError> {
+    ) -> Result<SkillHookRegistryProjectionRecord, SkillHookRegistryProjectionError> {
         let registry_kind = normalized_registry_kind(&request)?;
         let workspace_root = absolute_path(
             optional_trimmed(request.workspace_root.as_deref()).unwrap_or_else(|| ".".to_string()),
@@ -99,7 +99,7 @@ impl SkillHookRegistryProjectionCore {
             "skills" => skill_projection(&catalog, &skills, &sources),
             "hooks" => hook_projection(&catalog, &hooks, &sources),
             _ => {
-                return Err(SkillHookRegistryProjectionCommandError::new(
+                return Err(SkillHookRegistryProjectionError::new(
                     "skill_hook_registry_projection_kind_invalid",
                     format!("unsupported skill hook registry kind {registry_kind}"),
                 ));
@@ -778,7 +778,7 @@ fn hook_record_from_definition(
 
 fn normalized_registry_kind(
     request: &SkillHookRegistryProjectionRequest,
-) -> Result<String, SkillHookRegistryProjectionCommandError> {
+) -> Result<String, SkillHookRegistryProjectionError> {
     if let Some(value) = optional_trimmed_lower(request.registry_kind.as_deref()) {
         return Ok(value);
     }
@@ -792,7 +792,7 @@ fn normalized_registry_kind(
     if operation_kind.ends_with(".hooks") {
         return Ok("hooks".to_string());
     }
-    Err(SkillHookRegistryProjectionCommandError::new(
+    Err(SkillHookRegistryProjectionError::new(
         "skill_hook_registry_projection_kind_required",
         "skill hook registry projection kind is required",
     ))

@@ -7,7 +7,7 @@ pub const RUNTIME_TOOL_CATALOG_PROJECTION_RESULT_SCHEMA_VERSION: &str =
     "ioi.runtime.tool-catalog-projection.v1";
 
 #[derive(Debug, Clone, Deserialize, Default)]
-pub struct RuntimeToolCatalogProjectionBridgeRequest {
+pub struct RuntimeToolCatalogProjectionRequest {
     #[serde(default)]
     pub operation: Option<String>,
     #[serde(default)]
@@ -29,12 +29,12 @@ pub struct RuntimeToolCatalogProjectionBridgeRequest {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RuntimeToolCatalogProjectionCommandError {
+pub struct RuntimeToolCatalogProjectionError {
     code: &'static str,
     message: String,
 }
 
-impl RuntimeToolCatalogProjectionCommandError {
+impl RuntimeToolCatalogProjectionError {
     fn new(code: &'static str, message: impl Into<String>) -> Self {
         Self {
             code,
@@ -74,8 +74,8 @@ pub struct RuntimeToolCatalogProjectionRecord {
 impl RuntimeToolCatalogProjectionCore {
     pub fn project(
         &self,
-        request: RuntimeToolCatalogProjectionBridgeRequest,
-    ) -> Result<RuntimeToolCatalogProjectionRecord, RuntimeToolCatalogProjectionCommandError> {
+        request: RuntimeToolCatalogProjectionRequest,
+    ) -> Result<RuntimeToolCatalogProjectionRecord, RuntimeToolCatalogProjectionError> {
         let projection_kind = normalized_projection_kind(&request)?;
         let operation_kind =
             request
@@ -130,7 +130,7 @@ impl RuntimeToolCatalogProjectionCore {
                 record.record_count = record.tools.len();
             }
             _ => {
-                return Err(RuntimeToolCatalogProjectionCommandError::new(
+                return Err(RuntimeToolCatalogProjectionError::new(
                     "runtime_tool_catalog_projection_kind_invalid",
                     format!("unsupported runtime tool catalog projection kind {projection_kind}"),
                 ));
@@ -162,8 +162,8 @@ impl RuntimeToolCatalogProjectionRecord {
 }
 
 fn normalized_projection_kind(
-    request: &RuntimeToolCatalogProjectionBridgeRequest,
-) -> Result<String, RuntimeToolCatalogProjectionCommandError> {
+    request: &RuntimeToolCatalogProjectionRequest,
+) -> Result<String, RuntimeToolCatalogProjectionError> {
     if let Some(value) = optional_trimmed_lower(request.projection_kind.as_deref()) {
         return Ok(value);
     }
@@ -177,7 +177,7 @@ fn normalized_projection_kind(
     if operation_kind.ends_with(".tools") {
         return Ok("tools".to_string());
     }
-    Err(RuntimeToolCatalogProjectionCommandError::new(
+    Err(RuntimeToolCatalogProjectionError::new(
         "runtime_tool_catalog_projection_kind_required",
         "runtime tool catalog projection kind is required",
     ))
@@ -503,13 +503,13 @@ fn optional_trimmed_lower(value: Option<&str>) -> Option<String> {
 mod tests {
     use super::*;
 
-    fn base_request(projection_kind: &str) -> RuntimeToolCatalogProjectionBridgeRequest {
-        RuntimeToolCatalogProjectionBridgeRequest {
+    fn base_request(projection_kind: &str) -> RuntimeToolCatalogProjectionRequest {
+        RuntimeToolCatalogProjectionRequest {
             operation: Some("runtime_tool_catalog".to_string()),
             operation_kind: Some(format!("runtime.tool_catalog.projection.{projection_kind}")),
             projection_kind: Some(projection_kind.to_string()),
             workspace_root: Some("/workspace/project".to_string()),
-            ..RuntimeToolCatalogProjectionBridgeRequest::default()
+            ..RuntimeToolCatalogProjectionRequest::default()
         }
     }
 
@@ -562,10 +562,10 @@ mod tests {
     #[test]
     fn rust_shapes_runtime_tool_catalog_direct_record() {
         let record = RuntimeToolCatalogProjectionCore::default()
-            .project(RuntimeToolCatalogProjectionBridgeRequest {
+            .project(RuntimeToolCatalogProjectionRequest {
                 projection_kind: Some("tools".to_string()),
                 pack: Some("runtime".to_string()),
-                ..RuntimeToolCatalogProjectionBridgeRequest::default()
+                ..RuntimeToolCatalogProjectionRequest::default()
             })
             .expect("runtime tool catalog direct record");
         let record = record.to_value();
