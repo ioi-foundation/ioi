@@ -732,14 +732,26 @@ mod tests {
     }
 
     #[test]
-    fn provider_invocation_rejects_unmigrated_or_stream_backends() {
+    fn provider_invocation_reaches_rust_owner_for_hosted_and_rejects_pending_transport() {
         let mut request = provider_invocation_request();
+        request.execution_backend = "rust_model_mount_hosted_provider".to_string();
         request.provider_kind = "openai".to_string();
         request.driver = Some("openai_compatible".to_string());
         request.api_format = Some("openai".to_string());
 
         let error =
-            invoke_provider(&request).expect_err("only migrated provider backends execute in Rust");
+            invoke_provider(&request).expect_err("hosted provider transport must fail closed in Rust");
+
+        assert_eq!(error, ModelMountError::UnsupportedProviderInvocationBackend);
+    }
+
+    #[test]
+    fn provider_invocation_rejects_unmigrated_or_stream_backends() {
+        let mut request = provider_invocation_request();
+        request.execution_backend = "js_provider_driver_observation".to_string();
+
+        let error =
+            invoke_provider(&request).expect_err("only Rust provider backends execute in Rust");
 
         assert_eq!(error, ModelMountError::UnsupportedProviderInvocationBackend);
 

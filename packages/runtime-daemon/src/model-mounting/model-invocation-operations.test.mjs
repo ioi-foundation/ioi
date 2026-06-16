@@ -1141,33 +1141,31 @@ test("modelMountProviderInvocationRequestForExecution binds fixture execution to
     true,
   );
   assert.equal(modelMountProviderInvocationRequiresRust({ provider: { kind: "openai" }, endpoint: {} }), true);
-  assert.throws(
-    () =>
-      modelMountProviderInvocationRequestForExecution({
-        input: "user: hosted",
-        instance: { backend_id: "backend.openai-compatible" },
-        kind: "chat.completions",
-        modelMountProviderExecutionAdmission: {
-          record: {
-            ...admission.record,
-            provider_ref: "provider.openai",
-            endpoint_ref: "endpoint.openai",
-            model_ref: "model.openai",
-          },
-          provider_execution_ref: admission.provider_execution_ref,
-          provider_execution_hash: admission.provider_execution_hash,
-        },
-        selection: selection({
-          endpoint: { api_format: "openai" },
-          provider: { id: "provider.openai", kind: "openai" },
-        }),
-      }),
-    (error) =>
-      error.code === "model_mount_provider_invocation_rust_backend_required" &&
-      error.details.provider_kind === "openai" &&
-      error.details.provider_driver === null &&
-      error.details.stream === false,
-  );
+  const hostedRequest = modelMountProviderInvocationRequestForExecution({
+    input: "user: hosted",
+    instance: { backend_id: "backend.openai-compatible" },
+    kind: "chat.completions",
+    modelMountProviderExecutionAdmission: {
+      record: {
+        ...admission.record,
+        provider_ref: "provider.openai",
+        endpoint_ref: "endpoint.openai",
+        model_ref: "model.openai",
+      },
+      provider_execution_ref: admission.provider_execution_ref,
+      provider_execution_hash: admission.provider_execution_hash,
+    },
+    selection: selection({
+      endpoint: { api_format: "openai" },
+      provider: { id: "provider.openai", kind: "openai" },
+    }),
+  });
+  assert.equal(hostedRequest.execution_backend, "rust_model_mount_hosted_provider");
+  assert.equal(hostedRequest.provider_kind, "openai");
+  assert.equal(hostedRequest.api_format, "openai");
+  assert.equal(hostedRequest.driver, null);
+  assert.equal(hostedRequest.backend_ref, "backend.openai-compatible");
+  assert.equal(hostedRequest.admitted_provider_execution.provider_ref, "provider.openai");
 });
 
 test("modelMountProviderStreamInvocationRequestForExecution binds native-local stream execution to provider admission", () => {

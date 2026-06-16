@@ -11660,6 +11660,23 @@ provider transport, actual Rust backend process execution/materialization,
 direct Rust/vault auth-header materialization, and invocation authority depth
 still need terminal Rust-owned execution coverage.
 
+Slice 1367 hard-cuts the hosted provider invocation JS backend predicate for
+non-stream model invocation. `modelMountProviderInvocationRequestForExecution()`
+now builds a canonical `ioi.model_mount.provider_invocation.v1` request with
+`execution_backend: "rust_model_mount_hosted_provider"` for hosted provider
+kinds such as OpenAI, Anthropic, Gemini, OpenAI-compatible, Ollama, vLLM,
+llama.cpp, LM Studio, custom HTTP, and depin TEE instead of returning through the
+JS `model_mount_provider_invocation_rust_backend_required` decision path. The
+Rust `provider_execution` owner now receives that hosted request and rejects it
+with `UnsupportedProviderInvocationBackend` until direct Rust hosted transport
+and vault-backed auth materialization exist; focused JS/Rust tests and
+conformance guard that the hosted non-stream request reaches the Rust direct API
+boundary, while hosted stream remains blocked before unsupported stream
+transport can masquerade as migrated execution. This remains non-terminal
+because live external hosted API execution, direct Rust/vault auth-header
+materialization, actual Rust backend process execution/materialization, and
+invocation authority depth still need terminal Rust-owned execution coverage.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

@@ -1219,6 +1219,9 @@ function modelMountProviderInvocationExecutionBackend(selection = {}) {
   if (fixtureProviderInvocationSelected(selection)) {
     return "rust_model_mount_fixture";
   }
+  if (hostedProviderInvocationSelected(selection)) {
+    return "rust_model_mount_hosted_provider";
+  }
   throw unsupportedProviderInvocationRustBackend(selection, { stream: false });
 }
 
@@ -1241,6 +1244,26 @@ function nativeLocalProviderInvocationSelected(selection = {}) {
   const endpoint = selection.endpoint ?? {};
   const driver = explicitProviderDriver(selection);
   return provider.kind === "ioi_native_local" || driver === "native_local" || endpoint.api_format === "ioi_native";
+}
+
+function hostedProviderInvocationSelected(selection = {}) {
+  const provider = selection.provider ?? {};
+  const endpoint = selection.endpoint ?? {};
+  const driver = explicitProviderDriver(selection);
+  return [
+    "openai",
+    "anthropic",
+    "gemini",
+    "custom_http",
+    "openai_compatible",
+    "ollama",
+    "vllm",
+    "llama_cpp",
+    "lm_studio",
+    "depin_tee",
+  ].includes(provider.kind) ||
+    ["openai", "anthropic", "gemini", "custom", "openai_compatible", "ollama"].includes(endpoint.api_format ?? provider.api_format) ||
+    ["openai_compatible", "hosted_provider"].includes(driver);
 }
 
 function unsupportedProviderInvocationRustBackend(selection = {}, { stream = false } = {}) {

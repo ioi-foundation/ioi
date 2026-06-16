@@ -18559,11 +18559,11 @@ function runBridge() {
       /function defaultBackendForProvider\(provider = \{\}\)/.test(modelMountingState) &&
       /return "backend\.openai-compatible"/.test(modelMountingState) &&
       !/driverForProviderKind|driverNameForProvider/.test(modelMountingState) &&
-      !/driverNameForProvider|provider\.driver \?\? driver|endpoint\.driver \?\? provider\.driver \?\?/.test(
-        modelInvocationOps,
-      ) &&
-      /return optionalRef\(endpoint\.driver \?\? provider\.driver\)/.test(modelInvocationOps) &&
-      /error\.details\.provider_driver === null/.test(modelInvocationOpsTest),
+	      !/driverNameForProvider|provider\.driver \?\? driver|endpoint\.driver \?\? provider\.driver \?\?/.test(
+	        modelInvocationOps,
+	      ) &&
+	      /return optionalRef\(endpoint\.driver \?\? provider\.driver\)/.test(modelInvocationOps) &&
+	      /assert\.equal\(hostedRequest\.driver,\s*null\)/.test(modelInvocationOpsTest),
     [
       "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
@@ -19309,13 +19309,14 @@ function runBridge() {
       /MODEL_MOUNT_PROVIDER_INVOCATION_API_METHOD/.test(modelMountCore) &&
       /executeModelMountProviderInvocation/.test(modelMountingState) &&
       /modelMountProviderInvocationRequestForExecution/.test(modelInvocationOps) &&
-      /modelMountProviderInvocationRequiresRust/.test(modelInvocationOps) &&
-      /export function modelMountProviderInvocationRequiresRust\([\s\S]*?\)\s*\{[\s\S]*?return true;\s*\}/.test(modelInvocationOps) &&
-      /rust_model_mount_native_local/.test(modelInvocationOps) &&
-      /model_mount_provider_invocation_rust_backend_required/.test(modelInvocationOps) &&
-      /modelMountProviderInvocationRequiresRust\(\{ provider: \{ kind: "openai" \}, endpoint: \{\} \}\), true/.test(
-        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
-      ) &&
+	      /modelMountProviderInvocationRequiresRust/.test(modelInvocationOps) &&
+	      /export function modelMountProviderInvocationRequiresRust\([\s\S]*?\)\s*\{[\s\S]*?return true;\s*\}/.test(modelInvocationOps) &&
+	      /rust_model_mount_native_local/.test(modelInvocationOps) &&
+	      /rust_model_mount_hosted_provider/.test(modelInvocationOps) &&
+	      /model_mount_provider_invocation_rust_backend_required/.test(modelInvocationOps) &&
+	      /modelMountProviderInvocationRequiresRust\(\{ provider: \{ kind: "openai" \}, endpoint: \{\} \}\), true/.test(
+	        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
+	      ) &&
       !retiredModelInvocationFacadeBodyPattern.test(modelInvokeFacadeBlock) &&
       !/model_mount_provider_invocation_execution_required/.test(modelInvocationOps),
     [
@@ -19836,15 +19837,16 @@ function runBridge() {
       /invokeModel public facade executes migrated fixture through Rust model_mount core, provider execution, and receipt binding/.test(
         read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
       ) &&
-      /startModelStream public facade executes native-local stream through Rust model_mount without JS fallback/.test(
-        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
-      ) &&
-      /error\.details\.stream === false/.test(
-        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
-      ) &&
-      /error\.code === "model_mount_provider_result_rust_backend_required"/.test(
-        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
-      ) &&
+	      /startModelStream public facade executes native-local stream through Rust model_mount without JS fallback/.test(
+	        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
+	      ) &&
+	      /assert\.equal\(hostedRequest\.execution_backend,\s*"rust_model_mount_hosted_provider"\)/.test(
+	        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
+	      ) &&
+	      /provider_invocation_reaches_rust_owner_for_hosted_and_rejects_pending_transport/.test(modelMountCore) &&
+	      /error\.code === "model_mount_provider_result_rust_backend_required"/.test(
+	        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
+	      ) &&
       !/assert\.equal\(request\.provider_kind,\s*"openai"\)/.test(
         read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
       ) &&
@@ -22924,12 +22926,15 @@ function runReceipts() {
       /fixture_provider_invocation_executes_in_dedicated_rust_owner/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/invocation.rs"),
       ) &&
-      /native_local_provider_invocation_executes_in_dedicated_rust_owner/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/invocation.rs"),
-      ) &&
-      /fixture_provider_invocation_requires_bound_provider_execution_in_owner/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/invocation.rs"),
-      ) &&
+	      /native_local_provider_invocation_executes_in_dedicated_rust_owner/.test(
+	        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/invocation.rs"),
+	      ) &&
+	      /provider_invocation_reaches_rust_owner_for_hosted_and_rejects_pending_transport/.test(
+	        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+	      ) &&
+	      /fixture_provider_invocation_requires_bound_provider_execution_in_owner/.test(
+	        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/invocation.rs"),
+	      ) &&
       !/fn fixture_provider_invocation_executes_in_rust_model_mount/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
       ) &&
@@ -25531,15 +25536,18 @@ function runReceipts() {
       /Object\.hasOwn\(result,\s*"providerResultRef"\),\s*false/.test(
         modelMountCoreTest,
       ) &&
-      /modelMountProviderResultAdmissionRequestForExecution/.test(modelInvocationOps) &&
-      /model_mount_provider_result_js_observation_retired/.test(modelInvocationOps) &&
-      /model_mount_provider_result_rust_backend_required/.test(modelInvocationOps) &&
-      /error\.code === "model_mount_provider_result_rust_backend_required"/.test(
-        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
-      ) &&
-      !/assert\.equal\(request\.provider_kind,\s*"openai"\)/.test(
-        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
-      ) &&
+	      /modelMountProviderResultAdmissionRequestForExecution/.test(modelInvocationOps) &&
+	      /model_mount_provider_result_js_observation_retired/.test(modelInvocationOps) &&
+	      /model_mount_provider_result_rust_backend_required/.test(modelInvocationOps) &&
+	      /assert\.equal\(hostedRequest\.execution_backend,\s*"rust_model_mount_hosted_provider"\)/.test(
+	        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
+	      ) &&
+	      /provider_invocation_reaches_rust_owner_for_hosted_and_rejects_pending_transport/.test(
+	        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+	      ) &&
+	      !/assert\.equal\(request\.provider_kind,\s*"openai"\)/.test(
+	        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
+	      ) &&
       /schema_version:\s*"ioi\.model_mount\.provider_result\.v1"/.test(modelInvocationOps),
     [
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
