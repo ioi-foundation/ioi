@@ -96,10 +96,6 @@ export class AgentgresModelMountingStore {
 
   ensureDirs() {
     for (const dir of [
-      "model-artifacts",
-      "model-endpoints",
-      "model-instances",
-      "model-providers",
       "provider-health",
       "models",
       "backend-logs",

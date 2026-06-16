@@ -3,8 +3,6 @@ import test from "node:test";
 
 import {
   MODEL_MOUNTING_STATE_MAPS,
-  loadModelMountingMap,
-  loadModelMountingMaps,
   writeAllModelMountingMaps,
   writeModelMountingMap,
   writeModelMountingVaultRefs,
@@ -19,6 +17,7 @@ function fakeState() {
       writeMap: (dir, map) => state.writes.push([dir, [...map.keys()]]),
     },
     recordStateCommits: [],
+    providers: new Map(),
     vault: {
       metadataRecords: () => [
         { id: "vault_a", configured: true },
@@ -53,70 +52,31 @@ function fakeState() {
       writeModelMountingVaultRefs(this);
     },
   };
-  for (const [, property] of MODEL_MOUNTING_STATE_MAPS) {
-    state[property] = new Map();
-  }
   return state;
 }
 
-test("loadModelMountingMap loads only records with string ids", () => {
-  const state = fakeState();
-  const loaded = [];
-  const target = new Map();
-
-  loadModelMountingMap(state, "model-providers", target, {
-    listJson(dir) {
-      loaded.push(dir);
-      return ["/state/model-providers/provider-a.json", "/state/model-providers/bad.json"];
-    },
-    readJson(filePath) {
-      return filePath.endsWith("bad.json") ? { id: 12 } : { id: "provider_a", label: "A" };
-    },
-  });
-
-  assert.deepEqual(loaded, ["/state/model-providers"]);
-  assert.deepEqual([...target.entries()], [["provider_a", { id: "provider_a", label: "A" }]]);
-});
-
-test("loadModelMountingMap applies Rust-admitted tombstone records", () => {
-  const state = fakeState();
-  const target = new Map([["instance_a", { id: "instance_a", label: "old" }]]);
-
-  loadModelMountingMap(state, "model-instances", target, {
-    listJson(dir) {
-      return [`${dir}/instance-a.json`];
-    },
-    readJson() {
-      return {
-        id: "instance_a",
-        deleted: true,
-        receiptId: "receipt_remove",
-      };
-    },
-  });
-
-  assert.equal(target.has("instance_a"), false);
-});
-
-test("loadModelMountingMaps applies the canonical directory map table", () => {
+test("retired JS topology map loader table stays empty", () => {
   const state = fakeState();
 
-  loadModelMountingMaps(state, {
-    listJson(dir) {
-      return [`${dir}/record.json`];
-    },
-    readJson(filePath) {
-      const dir = filePath.split("/").at(-2);
-      return { id: `${dir}.record` };
-    },
-  });
-
-  for (const [dir, property] of MODEL_MOUNTING_STATE_MAPS) {
-    assert.equal(state[property].has(`${dir}.record`), true);
-  }
+  assert.deepEqual(MODEL_MOUNTING_STATE_MAPS, []);
+  assert.equal(Object.hasOwn(state, "artifacts"), false);
+  assert.equal(Object.hasOwn(state, "endpoints"), false);
+  assert.equal(Object.hasOwn(state, "instances"), false);
 });
 
-test("OAuth, catalog-provider, capability-token, runtime-engine JS cache maps stay retired; MCP JS cache maps stay retired; conversation JS cache maps stay retired; vault-ref JS cache maps stay retired; route JS cache maps stay retired; download JS cache maps stay retired", () => {
+test("topology, OAuth, catalog-provider, capability-token, runtime-engine, MCP, conversation, vault-ref, route, and download JS cache maps stay retired", () => {
+  assert.deepEqual(MODEL_MOUNTING_STATE_MAPS, []);
+  assert.equal(
+    MODEL_MOUNTING_STATE_MAPS.some(
+      ([dir, property]) =>
+        dir === "model-providers" ||
+        dir === "model-artifacts" ||
+        dir === "model-endpoints" ||
+        dir === "model-instances" ||
+        ["providers", "artifacts", "endpoints", "instances"].includes(property),
+    ),
+    false,
+  );
   assert.equal(
     MODEL_MOUNTING_STATE_MAPS.some(([dir, property]) => dir === "oauth-sessions" || property === "oauthSessions"),
     false,
@@ -250,7 +210,6 @@ test("writeModelMountingVaultRefs retirement does not depend on Rust Agentgres c
 
 test("model instance map writes fail closed through the retired per-map persistence path", () => {
   const state = fakeState();
-  state.providers.set("provider.local", { id: "provider.local", kind: "ioi_native_local" });
   const map = new Map([
     ["instance.local", {
       id: "instance.local",
@@ -271,8 +230,6 @@ test("model instance map writes fail closed through the retired per-map persiste
 
 test("model instance map writes reject Rust-bound records through the retired per-map persistence path", () => {
   const state = fakeState();
-  state.providers.set("provider.local", { id: "provider.local", kind: "local_folder" });
-  state.providers.set("provider.remote", { id: "provider.remote", kind: "openai_compatible" });
   const map = new Map([
     ["instance.local", {
       id: "instance.local",
@@ -304,7 +261,6 @@ test("model instance map writes reject Rust-bound records through the retired pe
 
 test("model instance map writes reject lifecycle action/status drift through retired per-map persistence", () => {
   const state = fakeState();
-  state.providers.set("provider.local", { id: "provider.local", kind: "ioi_native_local" });
   const map = new Map([
     ["instance.local", {
       id: "instance.local",

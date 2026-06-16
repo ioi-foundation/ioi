@@ -39,9 +39,8 @@ import {
 import {
   writeBackendLog as writeBackendLogState,
 } from "./model-mounting/backend-registry-state.mjs";
-import { discoverAutopilotLlamaServer, llamaCppLibraryPathEnv } from "./model-mounting/local-runtime-engines.mjs";
+import { llamaCppLibraryPathEnv } from "./model-mounting/local-runtime-engines.mjs";
 import {
-  hostedProvider,
   optionalString,
   requiredString,
 } from "./model-mounting/provider-registry.mjs";
@@ -66,7 +65,6 @@ import {
   vaultControlResponse,
 } from "./model-mounting/vault-control.mjs";
 import {
-  findExecutable,
   hardwareSnapshot,
 } from "./model-mounting/local-system-probes.mjs";
 import {
@@ -88,9 +86,7 @@ import {
 } from "./model-mounting/vault-port.mjs";
 import {
   isExecutable,
-  listJson,
   notFound,
-  readJson,
   runtimeError,
   safeFileName,
   safeId,
@@ -108,24 +104,6 @@ import {
   normalizeScopes,
 } from "./model-mounting/io.mjs";
 import {
-  internalFixtureModelsEnabled,
-} from "./model-mounting/environment.mjs";
-import {
-  localFixtureArtifactRecords,
-  localFixtureEndpointRecord,
-  localFolderProviderRecord,
-  nativeFixtureEndpointRecord,
-  nativeLocalProviderRecord,
-  runtimeProviderRecords,
-} from "./model-mounting/default-records.mjs";
-import {
-  ensureNativeLocalFixtureArtifact as ensureNativeLocalFixtureArtifactState,
-  pruneInternalFixtureProjectionRecords as pruneInternalFixtureProjectionRecordsState,
-} from "./model-mounting/default-discovery.mjs";
-import { seedModelMountingDefaults } from "./model-mounting/state-seeding.mjs";
-import {
-  loadModelMountingMap,
-  loadModelMountingMaps,
   writeModelMountingMap,
   writeModelMountingVaultRefs,
 } from "./model-mounting/state-persistence.mjs";
@@ -425,13 +403,7 @@ export class ModelMountingState {
       secrets: vaultSecrets,
       materialAdapter: configuredVaultMaterialAdapter({ now: this.now }),
     });
-    this.providers = new Map();
-    this.artifacts = new Map();
-    this.endpoints = new Map();
-    this.instances = new Map();
     this.ensureDirs();
-    this.load();
-    this.seedDefaults();
     this.writeAll();
   }
 
@@ -443,45 +415,6 @@ export class ModelMountingState {
 
   writeSchemaRelationSchemas() {
     return modelMountingRelationSchemas();
-  }
-
-  load() {
-    return loadModelMountingMaps(this, { listJson, readJson });
-  }
-
-  loadMap(dir, map) {
-    return loadModelMountingMap(this, dir, map, { listJson, readJson });
-  }
-
-  seedDefaults() {
-    return seedModelMountingDefaults(this, {
-      discoverAutopilotLlamaServer,
-      env: process.env,
-      findExecutable,
-      hostedProvider,
-      internalFixtureModelsEnabled,
-      localFixtureArtifactRecords,
-      localFixtureEndpointRecord,
-      localFolderProviderRecord,
-      nativeFixtureEndpointRecord,
-      nativeLocalProviderRecord,
-      runtimeProviderRecords,
-      stableHash,
-    });
-  }
-
-  ensureNativeLocalFixtureArtifact(checkedAt) {
-    return ensureNativeLocalFixtureArtifactState(this, checkedAt);
-  }
-
-  upsertDefault(map, record) {
-    if (!map.has(record.id)) {
-      map.set(record.id, record);
-    }
-  }
-
-  pruneInternalFixtureProjectionRecords() {
-    return pruneInternalFixtureProjectionRecordsState(this);
   }
 
   writeAll() {

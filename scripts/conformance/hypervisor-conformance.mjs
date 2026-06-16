@@ -2534,7 +2534,7 @@ function runDocs() {
       /`catalog-provider-config\.test\.mjs`, `oauth-boundary\.mjs`, and `oauth-boundary\.test\.mjs` are absent/.test(implementationMatrix) &&
       /the catalog-provider port\/registry helper surface is deleted/.test(implementationMatrix) &&
       /mounted `catalogProviderPorts\(\)`, provider-port ordering, health-status merge/.test(implementationMatrix) &&
-      /default seeding no longer calls `state\.discoverLmStudioProvider\(checkedAt\)` or inserts `provider\.lmstudio` into `state\.providers`/.test(implementationMatrix) &&
+      /default topology seeding no longer exists to call `state\.discoverLmStudioProvider\(checkedAt\)` or insert `provider\.lmstudio` into `state\.providers`/.test(implementationMatrix) &&
       /the retired LM Studio default-discovery exports, mounted pass-through methods, local-system public-CLI parsers\/artifact projector, and `lmStudioPublicCliEnabled\(\)` toggle are deleted/.test(implementationMatrix) &&
       /backend-status summaries from `state\.listBackends\(\)`\/`backend_statuses`/.test(implementationMatrix) &&
       /the leftover `backend-processes\.mjs` lookup\/snapshot helper module and test are deleted/.test(implementationMatrix) &&
@@ -17918,7 +17918,7 @@ function runBridge() {
       !/persistModelRouteSelectionState/.test(modelInvocationOps) &&
       !/this\.routes\s*=/.test(modelMountingState) &&
       !/\["model-routes",\s*"routes"\]/.test(read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs")) &&
-      !/state\.upsertDefault\(state\.routes/.test(read("packages/runtime-daemon/src/model-mounting/state-seeding.mjs")) &&
+      !exists("packages/runtime-daemon/src/model-mounting/state-seeding.mjs") &&
       !/"model-routes"/.test(read("packages/runtime-daemon/src/model-mounting/store.mjs")) &&
       !/state\.writeMap\("model-routes"/.test(modelRoutes) &&
       !/state\.writeMap\("model-routes"/.test(modelMountingState) &&
@@ -17936,8 +17936,8 @@ function runBridge() {
       /listRoutes\(\)\s*\{/.test(modelRoutesTest) &&
       /listEndpoints\(\)\s*\{/.test(modelRoutesTest) &&
       /listProviders\(\)\s*\{/.test(modelRoutesTest) &&
-      /route JS cache maps stay retired/.test(read("packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs")) &&
-      /without route cache seeding/.test(read("packages/runtime-daemon/src/model-mounting/state-seeding.test.mjs")) &&
+      /topology, OAuth, catalog-provider, capability-token, runtime-engine, MCP, conversation, vault-ref, route, and download JS cache maps stay retired/.test(read("packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs")) &&
+      !exists("packages/runtime-daemon/src/model-mounting/state-seeding.test.mjs") &&
       /route local cache storage/.test(read("packages/runtime-daemon/src/model-mounting/store.test.mjs")) &&
       /Slice 1336 hard-cuts the model_mount route JS cache substrate/.test(
         read("docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md"),
@@ -19177,7 +19177,7 @@ function runBridge() {
       /Object\.hasOwn\(state,\s*"conversations"\),\s*false/.test(modelConversationOpsTest) &&
       /agentgresConversationRecords\.set\("resp_existing"/.test(modelConversationOpsTest) &&
       /agentgresConversationRecords\.set\("resp_1"/.test(modelConversationOpsTest) &&
-      /conversation JS cache maps stay retired/.test(
+      /topology, OAuth, catalog-provider, capability-token, runtime-engine, MCP, conversation, vault-ref, route, and download JS cache maps stay retired/.test(
         read("packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs"),
       ) &&
       /conversation local cache storage/.test(read("packages/runtime-daemon/src/model-mounting/store.test.mjs")) &&
@@ -23793,7 +23793,7 @@ function runReceipts() {
         read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs"),
       ) &&
       !/"model-downloads"/.test(read("packages/runtime-daemon/src/model-mounting/store.mjs")) &&
-      /download JS cache maps stay retired/.test(
+      /topology, OAuth, catalog-provider, capability-token, runtime-engine, MCP, conversation, vault-ref, route, and download JS cache maps stay retired/.test(
         read("packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs"),
       ) &&
       /download local cache storage/.test(read("packages/runtime-daemon/src/model-mounting/store.test.mjs")) &&
@@ -24038,7 +24038,7 @@ function runReceipts() {
       ) &&
       !/"mcp-servers"/.test(read("packages/runtime-daemon/src/model-mounting/store.mjs")) &&
       /Object\.hasOwn\(state,\s*"mcpServers"\),\s*false/.test(mcpWorkflowOperationsTest) &&
-      /MCP JS cache maps stay retired/.test(
+      /topology, OAuth, catalog-provider, capability-token, runtime-engine, MCP, conversation, vault-ref, route, and download JS cache maps stay retired/.test(
         read("packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs"),
       ) &&
       /MCP local cache storage/.test(read("packages/runtime-daemon/src/model-mounting/store.test.mjs")) &&
@@ -24647,7 +24647,7 @@ function runReceipts() {
       !/"runtime-engine-profiles"/.test(read("packages/runtime-daemon/src/model-mounting/store.mjs")) &&
       /Object\.hasOwn\(state,\s*"runtimeSelections"\),\s*false/.test(modelMountingReadProjectionDirectTest) &&
       /Object\.hasOwn\(state,\s*"runtimeEngineProfiles"\),\s*false/.test(modelMountingReadProjectionDirectTest) &&
-      /runtime-engine JS cache maps stay retired/.test(
+      /topology, OAuth, catalog-provider, capability-token, runtime-engine, MCP, conversation, vault-ref, route, and download JS cache maps stay retired/.test(
         read("packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs"),
       ) &&
       /runtime local cache storage/.test(read("packages/runtime-daemon/src/model-mounting/store.test.mjs")) &&
@@ -24678,10 +24678,10 @@ function runReceipts() {
       /MODEL_MOUNT_RUNTIME_ENGINE_API_METHOD/.test(modelMountCoreTest) &&
       /assertDirectModelMountApiCall\(calls\[0\],\s*MODEL_MOUNT_RUNTIME_ENGINE_API_METHOD/.test(modelMountCoreTest) &&
       /Rust model_mount core rejects command-shaped runtime-engine fallback/.test(modelMountCoreTest) &&
-      /loadModelMountingMap applies Rust-admitted tombstone records/.test(
+      /retired JS topology map loader table stays empty/.test(
         read("packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs"),
       ) &&
-      /record\?\.deleted === true/.test(
+      !/loadModelMountingMap/.test(
         read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs"),
       ) &&
       runtimeEngineReceiptBlocks === "" &&
@@ -25508,9 +25508,12 @@ function runReceipts() {
       !/pruneLmStudioPublicProjectionRecords/.test(stateSeeding) &&
       !/state\.providers\.set\(lmStudioProvider\.id/.test(stateSeeding) &&
       !/state\.providers\.get\(lmStudioProvider\.id\)/.test(stateSeeding) &&
+      !exists("packages/runtime-daemon/src/model-mounting/state-seeding.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/state-seeding.test.mjs") &&
       /LM Studio default discovery helpers are deleted instead of inert compatibility exports/.test(defaultDiscoveryTest) &&
-      /state seeding prunes disabled fixtures without JS LM Studio artifact fallback/.test(stateSeedingTest) &&
-      /state seeding has no JS LM Studio discovery or projection-prune hooks/.test(stateSeedingTest),
+      /Object\.hasOwn\(defaultDiscovery,\s*"pruneInternalFixtureProjectionRecords"\),\s*false/.test(
+        defaultDiscoveryTest,
+      ),
     [
       "packages/runtime-daemon/src/model-mounting/default-discovery.mjs",
       "packages/runtime-daemon/src/model-mounting/default-discovery.test.mjs",
@@ -25526,9 +25529,9 @@ function runReceipts() {
     "model-mount-fixture-policy-wrapper-retired",
     !exists("packages/runtime-daemon/src/model-mounting/fixture-policy.mjs") &&
       !/from "\.\/model-mounting\/fixture-policy\.mjs"/.test(modelMountingRoot) &&
-      /function isFixtureEndpointCandidate/.test(defaultDiscovery) &&
-      /function isFixtureModelRecord/.test(defaultDiscovery) &&
-      /pruneInternalFixtureProjectionRecords\(state\)/.test(defaultDiscovery) &&
+      !/function isFixtureEndpointCandidate/.test(defaultDiscovery) &&
+      !/function isFixtureModelRecord/.test(defaultDiscovery) &&
+      !/pruneInternalFixtureProjectionRecords/.test(defaultDiscovery) &&
       !/from "node:fs"|from "node:path"|fs\.(?:mkdirSync|writeFileSync|statSync|existsSync)/.test(defaultDiscovery) &&
       !/artifactPath:\s*fixturePath|parseLocalModelMetadata|fileSha256|IOI deterministic native-local model fixture/.test(
         defaultDiscovery,
@@ -25538,6 +25541,8 @@ function runReceipts() {
       !/backendRegistry:\s*state\.backendRegistry\(\)/.test(defaultDiscovery) &&
       !/backendRegistry:\s*state\.backendRegistry\(\)/.test(stateSeeding) &&
       !/nativeFixtureEndpointRecord\(\{[\s\S]*backendRegistry:\s*state\.backendRegistry\(\)/.test(stateSeeding) &&
+      !exists("packages/runtime-daemon/src/model-mounting/state-seeding.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/state-seeding.test.mjs") &&
       !/backendRegistry,/.test(
         defaultRecords.match(/export function nativeFixtureEndpointRecord\([\s\S]*?\n\}/)?.[0] ?? "",
       ) &&
@@ -25546,9 +25551,8 @@ function runReceipts() {
       /Object\.hasOwn\(artifact,\s*"artifactPath"\),\s*false/.test(defaultDiscoveryTest) &&
       /Object\.hasOwn\(artifact,\s*"backendRegistry"\),\s*false/.test(defaultDiscoveryTest) &&
       /native fixture artifact must not read JS backend registry/.test(defaultDiscoveryTest) &&
-      /fixture seeding must not read JS backend registry/.test(stateSeedingTest) &&
-      /Object\.hasOwn\(state\.endpoints\.get\("endpoint\.native"\),\s*"backendCount"\),\s*false/.test(
-        stateSeedingTest,
+      /Object\.hasOwn\(defaultDiscovery,\s*"pruneInternalFixtureProjectionRecords"\),\s*false/.test(
+        defaultDiscoveryTest,
       ) &&
       /Object\.hasOwn\(nativeEndpoint,\s*"backendRegistry"\),\s*false/.test(defaultRecordsTest) &&
       /Slice 921 deleted the standalone JS fixture-policy compatibility wrapper/.test(guide) &&
@@ -25557,7 +25561,7 @@ function runReceipts() {
         (/standalone JS fixture-policy compatibility wrapper/.test(matrix) &&
           /`packages\/runtime-daemon\/src\/model-mounting\/fixture-policy\.mjs`/.test(matrix) &&
           /`fixture-policy\.mjs` is absent/.test(matrix) &&
-          /disabled-internal-fixture cleanup remains\s+private inside `default-discovery\.mjs`/.test(
+          /disabled-internal-fixture cleanup no longer remains as a JS topology-map prune helper/.test(
             matrix,
           ))),
     [
@@ -25687,6 +25691,67 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/loaded-instances.test.mjs",
     ],
     "Model-mount endpoint, route, instance, artifact, and loaded-instance accessors must use Rust read projections and reject JS map-only topology truth",
+  );
+  assertCheck(
+    result,
+    "model-mount-topology-js-cache-substrate-retired",
+    !/this\.(?:providers|artifacts|endpoints|instances)\s*=/.test(modelMountingRoot) &&
+      !/this\.load\(\)/.test(modelMountingRoot) &&
+      !/\n\s+load\(\)\s*\{/.test(modelMountingRoot) &&
+      !/\n\s+loadMap\(/.test(modelMountingRoot) &&
+      !/seedDefaults\(/.test(modelMountingRoot) &&
+      !/ensureNativeLocalFixtureArtifact\(/.test(modelMountingRoot) &&
+      !exists("packages/runtime-daemon/src/model-mounting/state-seeding.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/state-seeding.test.mjs") &&
+      /export const MODEL_MOUNTING_STATE_MAPS = \[\s*\];/.test(
+        read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs"),
+      ) &&
+      !/loadModelMountingMap/.test(read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs")) &&
+      !/loadModelMountingMaps/.test(read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs")) &&
+      !/\["model-(?:providers|artifacts|endpoints|instances)",\s*"(?:providers|artifacts|endpoints|instances)"\]/.test(
+        read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs"),
+      ) &&
+      !/"model-(?:providers|artifacts|endpoints|instances)"/.test(modelMountStore) &&
+      !/function isFixtureEndpointCandidate/.test(defaultDiscovery) &&
+      !/function isFixtureModelRecord/.test(defaultDiscovery) &&
+      !/pruneInternalFixtureProjectionRecords/.test(defaultDiscovery) &&
+      /retired JS topology map loader table stays empty/.test(
+        read("packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs"),
+      ) &&
+      /Object\.hasOwn\(state,\s*"artifacts"\),\s*false/.test(
+        read("packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs"),
+      ) &&
+      /Object\.hasOwn\(state,\s*"endpoints"\),\s*false/.test(
+        read("packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs"),
+      ) &&
+      /Object\.hasOwn\(state,\s*"instances"\),\s*false/.test(
+        read("packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs"),
+      ) &&
+      /store dirs do not recreate retired topology/.test(modelMountStoreTest) &&
+      /model-providers/.test(modelMountStoreTest) &&
+      /model-artifacts/.test(modelMountStoreTest) &&
+      /model-endpoints/.test(modelMountStoreTest) &&
+      /model-instances/.test(modelMountStoreTest) &&
+      /Object\.hasOwn\(defaultDiscovery,\s*"pruneInternalFixtureProjectionRecords"\),\s*false/.test(
+        defaultDiscoveryTest,
+      ) &&
+      /Slice 1337 hard-cuts the remaining model_mount topology JS cache substrate/.test(guide) &&
+      /Model_mount topology JS cache retired/.test(matrix) &&
+      /RuntimeDaemonCoreModelMountTopologyCacheRetired/.test(implementationMatrix),
+    [
+      "packages/runtime-daemon/src/model-mounting.mjs",
+      "packages/runtime-daemon/src/model-mounting/default-discovery.mjs",
+      "packages/runtime-daemon/src/model-mounting/state-persistence.mjs",
+      "packages/runtime-daemon/src/model-mounting/state-seeding.mjs",
+      "packages/runtime-daemon/src/model-mounting/store.mjs",
+      "packages/runtime-daemon/src/model-mounting/default-discovery.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/store.test.mjs",
+      "docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md",
+      "docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md",
+      "docs/architecture/_meta/implementation-matrix.md",
+    ],
+    "Model-mount topology truth must not re-enter through JS topology maps, local topology loaders/seeders, fixture-prune helpers, or store-created local topology cache directories",
   );
   assertCheck(
     result,
@@ -26938,7 +27003,7 @@ function runReceipts() {
         read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs"),
       ) &&
       !/state\?\.vaultRefs/.test(read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs")) &&
-      /vault-ref JS cache maps stay retired/.test(
+      /topology, OAuth, catalog-provider, capability-token, runtime-engine, MCP, conversation, vault-ref, route, and download JS cache maps stay retired/.test(
         read("packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs"),
       ) &&
       /Object\.hasOwn\(state,\s*"vaultRefs"\),\s*false/.test(

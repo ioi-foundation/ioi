@@ -11138,6 +11138,21 @@ admitted Agentgres substrate created by record-state commits; the retired JS
 `routes` map must not return beside it as empty compatibility state or duplicate
 route truth.
 
+Slice 1337 hard-cuts the remaining model_mount topology JS cache substrate.
+`ModelMountingState` no longer constructs `providers`, `artifacts`,
+`endpoints`, or `instances`; startup no longer calls a local topology loader or
+default topology seeder; `state-seeding.mjs` and its test are deleted;
+`MODEL_MOUNTING_STATE_MAPS` is empty; the generic `loadModelMountingMap()`
+loader is gone; the store no longer precreates local `model-providers`,
+`model-artifacts`, `model-endpoints`, or `model-instances` cache directories;
+and disabled-fixture cleanup no longer remains as JS topology-map pruning.
+Public topology truth remains Rust-owned through typed
+provider/artifact-endpoint/instance lifecycle plans, Agentgres record-state
+commits, and Rust read-projection replay over runtime `state_dir`. The
+`model-*` record directories remain admitted Agentgres substrates created by
+record-state commits; local JS topology maps, default seeding, loader
+compatibility, and fixture-prune truth must not return beside Rust replay.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

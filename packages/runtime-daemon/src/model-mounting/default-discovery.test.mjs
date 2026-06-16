@@ -3,7 +3,6 @@ import test from "node:test";
 
 import {
   ensureNativeLocalFixtureArtifact,
-  pruneInternalFixtureProjectionRecords,
 } from "./default-discovery.mjs";
 import * as defaultDiscovery from "./default-discovery.mjs";
 
@@ -11,13 +10,6 @@ function fakeState() {
   return {
     homeDir: "/home/ioi",
     modelRoot: "/tmp/ioi-model-root",
-    artifacts: new Map(),
-    endpoints: new Map(),
-    instances: new Map(),
-    providers: new Map([
-      ["provider.fixture", { id: "provider.fixture" }],
-      ["provider.lmstudio", { id: "provider.lmstudio" }],
-    ]),
     backendRegistry() {
       throw new Error("native fixture artifact must not read JS backend registry");
     },
@@ -43,20 +35,5 @@ test("LM Studio default discovery helpers are deleted instead of inert compatibi
   assert.equal(Object.hasOwn(defaultDiscovery, "discoverLmStudioProvider"), false);
   assert.equal(Object.hasOwn(defaultDiscovery, "discoverLmStudioArtifacts"), false);
   assert.equal(Object.hasOwn(defaultDiscovery, "pruneLmStudioPublicProjectionRecords"), false);
-});
-
-test("internal fixture pruning removes fixture artifacts, endpoints, and dependent instances", () => {
-  const state = fakeState();
-  state.artifacts.set("artifact.fixture", { id: "artifact.fixture", modelId: "local:auto", family: "fixture" });
-  state.artifacts.set("artifact.real", { id: "artifact.real", modelId: "real:model", family: "real" });
-  state.endpoints.set("endpoint.fixture", { id: "endpoint.fixture", providerId: "provider.fixture", modelId: "local:auto" });
-  state.endpoints.set("endpoint.real", { id: "endpoint.real", providerId: "provider.real", modelId: "real:model" });
-  state.instances.set("instance.fixture", { id: "instance.fixture", endpointId: "endpoint.fixture", modelId: "local:auto" });
-  state.instances.set("instance.real", { id: "instance.real", endpointId: "endpoint.real", modelId: "real:model" });
-
-  pruneInternalFixtureProjectionRecords(state);
-
-  assert.deepEqual([...state.artifacts.keys()], ["artifact.real"]);
-  assert.deepEqual([...state.endpoints.keys()], ["endpoint.real"]);
-  assert.deepEqual([...state.instances.keys()], ["instance.real"]);
+  assert.equal(Object.hasOwn(defaultDiscovery, "pruneInternalFixtureProjectionRecords"), false);
 });
