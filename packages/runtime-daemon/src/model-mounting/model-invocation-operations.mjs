@@ -1230,6 +1230,9 @@ function modelMountProviderStreamInvocationExecutionBackend(selection = {}) {
   if (nativeLocalProviderInvocationSelected(selection)) {
     return "rust_model_mount_native_local_stream";
   }
+  if (hostedProviderInvocationSelected(selection)) {
+    return "rust_model_mount_hosted_provider_stream";
+  }
   throw unsupportedProviderInvocationRustBackend(selection, { stream: true });
 }
 

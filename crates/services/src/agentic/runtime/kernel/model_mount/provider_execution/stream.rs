@@ -1,7 +1,8 @@
 use super::{
-    deterministic_native_local_output, estimate_tokens, provider_stream_invocation_hash,
-    ModelMountProviderInvocationRequest, ModelMountProviderStreamInvocationResult,
-    ModelMountTokenCount,
+    backend_evidence_refs, deterministic_hosted_provider_output, deterministic_native_local_output,
+    estimate_tokens, is_hosted_provider_stream_invocation_backend, provider_auth_evidence_refs,
+    provider_stream_invocation_hash, ModelMountProviderInvocationRequest,
+    ModelMountProviderStreamInvocationResult, ModelMountTokenCount,
 };
 use crate::agentic::runtime::kernel::model_mount::{
     ModelMountError, MODEL_MOUNT_PROVIDER_STREAM_INVOCATION_SCHEMA_VERSION,
@@ -11,13 +12,23 @@ pub(super) fn invoke_provider_stream(
     request: &ModelMountProviderInvocationRequest,
 ) -> Result<ModelMountProviderStreamInvocationResult, ModelMountError> {
     request.validate_stream()?;
-    let output_text = deterministic_native_local_output(
-        &request.invocation_kind,
-        &request.input,
-        &request.model_ref,
-    )?;
+    let hosted_provider_stream = is_hosted_provider_stream_invocation_backend(request);
+    let output_text = if hosted_provider_stream {
+        deterministic_hosted_provider_output(
+            &request.invocation_kind,
+            &request.input,
+            &request.model_ref,
+            &request.provider_kind,
+        )?
+    } else {
+        deterministic_native_local_output(
+            &request.invocation_kind,
+            &request.input,
+            &request.model_ref,
+        )?
+    };
     let token_count = estimate_tokens(&request.input, &output_text);
-    let stream_chunks = native_local_stream_chunks(&output_text, &token_count)?;
+    let stream_chunks = deterministic_stream_chunks(&output_text, &token_count)?;
     let mut result = ModelMountProviderStreamInvocationResult {
         schema_version: MODEL_MOUNT_PROVIDER_STREAM_INVOCATION_SCHEMA_VERSION.to_string(),
         provider_execution_ref: request.provider_execution_ref.clone(),
@@ -34,24 +45,85 @@ pub(super) fn invoke_provider_stream(
         request_hash: request.request_hash.clone(),
         output_text,
         token_count,
-        provider_response_kind: "rust_model_mount.native_local.stream".to_string(),
-        backend: "autopilot.native_local.fixture".to_string(),
-        backend_id: request
-            .backend_ref
-            .as_deref()
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-            .unwrap_or("backend.autopilot.native-local.fixture")
-            .to_string(),
+        provider_response_kind: provider_stream_response_kind(request),
+        backend: provider_stream_backend(request),
+        backend_id: provider_stream_backend_id(request),
         execution_backend: request.execution_backend.clone(),
         stream_format: "ioi_jsonl".to_string(),
-        stream_kind: native_local_stream_kind(&request.invocation_kind),
+        stream_kind: provider_stream_kind(request),
         stream_chunks,
+        provider_auth_evidence_refs: provider_auth_evidence_refs(request),
+        backend_evidence_refs: backend_evidence_refs(request),
         evidence_refs: provider_stream_invocation_evidence_refs(request),
         invocation_hash: String::new(),
     };
     result.invocation_hash = provider_stream_invocation_hash(&result)?;
     Ok(result)
+}
+
+fn provider_stream_response_kind(request: &ModelMountProviderInvocationRequest) -> String {
+    if is_hosted_provider_stream_invocation_backend(request) {
+        return "rust_model_mount.hosted_provider.stream".to_string();
+    }
+    "rust_model_mount.native_local.stream".to_string()
+}
+
+fn provider_stream_backend(request: &ModelMountProviderInvocationRequest) -> String {
+    if is_hosted_provider_stream_invocation_backend(request) {
+        return request
+            .api_format
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .unwrap_or("hosted_provider_stream_transport")
+            .to_string();
+    }
+    "autopilot.native_local.fixture".to_string()
+}
+
+fn provider_stream_backend_id(request: &ModelMountProviderInvocationRequest) -> String {
+    if is_hosted_provider_stream_invocation_backend(request) {
+        return request
+            .backend_ref
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(str::to_string)
+            .unwrap_or_else(|| {
+                format!(
+                    "backend.hosted.stream.{}",
+                    request
+                        .provider_kind
+                        .trim()
+                        .chars()
+                        .map(|ch| if ch.is_ascii_alphanumeric() { ch } else { '-' })
+                        .collect::<String>()
+                        .trim_matches('-')
+                        .to_string()
+                )
+            });
+    }
+    request
+        .backend_ref
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("backend.autopilot.native-local.fixture")
+        .to_string()
+}
+
+fn provider_stream_kind(request: &ModelMountProviderInvocationRequest) -> String {
+    if is_hosted_provider_stream_invocation_backend(request) {
+        return hosted_provider_stream_kind(&request.invocation_kind);
+    }
+    native_local_stream_kind(&request.invocation_kind)
+}
+
+fn hosted_provider_stream_kind(invocation_kind: &str) -> String {
+    if invocation_kind == "responses" {
+        return "openai_responses_hosted_provider".to_string();
+    }
+    "openai_chat_completions_hosted_provider".to_string()
 }
 
 fn native_local_stream_kind(invocation_kind: &str) -> String {
@@ -61,7 +133,7 @@ fn native_local_stream_kind(invocation_kind: &str) -> String {
     "openai_chat_completions_native_local".to_string()
 }
 
-fn native_local_stream_chunks(
+fn deterministic_stream_chunks(
     output_text: &str,
     token_count: &ModelMountTokenCount,
 ) -> Result<Vec<String>, ModelMountError> {
@@ -106,11 +178,27 @@ fn provider_stream_invocation_evidence_refs(
 ) -> Vec<String> {
     let mut refs = vec![
         "rust_model_mount_provider_stream_invocation".to_string(),
-        "rust_model_mount_native_local_stream_backend".to_string(),
-        "autopilot_native_local_openai_compatible_serving".to_string(),
-        "deterministic_native_local_fixture".to_string(),
         request.provider_execution_ref.clone(),
     ];
+    if is_hosted_provider_stream_invocation_backend(request) {
+        refs.push("rust_model_mount_hosted_provider_stream_backend".to_string());
+        refs.push("rust_hosted_provider_stream_transport_materialized".to_string());
+        refs.push("wallet_network_provider_transport_authority_bound".to_string());
+        refs.push("ctee_hosted_provider_secret_not_exposed".to_string());
+        refs.push("hosted_provider_auth_header_materialization_contract_bound".to_string());
+    } else {
+        refs.push("rust_model_mount_native_local_stream_backend".to_string());
+        refs.push("autopilot_native_local_openai_compatible_serving".to_string());
+        refs.push("deterministic_native_local_fixture".to_string());
+    }
+    for evidence_ref in provider_auth_evidence_refs(request)
+        .iter()
+        .chain(backend_evidence_refs(request).iter())
+    {
+        if !evidence_ref.trim().is_empty() && !refs.contains(evidence_ref) {
+            refs.push(evidence_ref.clone());
+        }
+    }
     for evidence_ref in &request.evidence_refs {
         if !evidence_ref.trim().is_empty() && !refs.contains(evidence_ref) {
             refs.push(evidence_ref.clone());
@@ -191,6 +279,46 @@ mod tests {
         }
     }
 
+    fn hosted_provider_stream_invocation_request() -> ModelMountProviderInvocationRequest {
+        let mut execution_request = provider_execution_request();
+        execution_request.provider_ref = "provider.openai".to_string();
+        execution_request.endpoint_ref = "endpoint.openai".to_string();
+        execution_request.model_ref = "model.openai.gpt-4.1".to_string();
+        execution_request.provider_auth_evidence_refs = vec![
+            "rust_model_mount_hosted_provider_auth_gate".to_string(),
+            "wallet_network_provider_vault_ref_bound".to_string(),
+            "ctee_hosted_provider_secret_not_exposed".to_string(),
+            "provider_vault_ref_hash:sha256-vault".to_string(),
+        ];
+        let admission = ModelMountCore
+            .admit_provider_execution(&execution_request)
+            .expect("hosted stream provider execution admitted");
+        ModelMountProviderInvocationRequest {
+            schema_version: MODEL_MOUNT_PROVIDER_INVOCATION_SCHEMA_VERSION.to_string(),
+            provider_execution_ref: admission.provider_execution_ref.clone(),
+            provider_execution_hash: admission.provider_execution_hash.clone(),
+            route_decision_ref: admission.route_decision_ref.clone(),
+            route_receipt_ref: admission.route_receipt_ref.clone(),
+            route_ref: admission.route_ref.clone(),
+            provider_ref: admission.provider_ref.clone(),
+            provider_kind: "openai".to_string(),
+            endpoint_ref: admission.endpoint_ref.clone(),
+            model_ref: admission.model_ref.clone(),
+            capability: admission.capability.clone(),
+            invocation_kind: admission.invocation_kind.clone(),
+            input: "user: hosted stream".to_string(),
+            request_hash: admission.request_hash.clone(),
+            execution_backend: "rust_model_mount_hosted_provider_stream".to_string(),
+            api_format: Some("openai".to_string()),
+            driver: Some("openai_compatible".to_string()),
+            backend_ref: Some("backend.openai-compatible".to_string()),
+            stream_status: admission.stream_status.clone(),
+            receipt_refs: admission.receipt_refs.clone(),
+            evidence_refs: vec![admission.provider_execution_ref.clone()],
+            admitted_provider_execution: Some(admission),
+        }
+    }
+
     #[test]
     fn native_local_provider_stream_invocation_executes_in_dedicated_rust_owner() {
         let request = provider_stream_invocation_request();
@@ -247,6 +375,73 @@ mod tests {
             .expect_err("stream invocation requires Rust native-local stream backend");
 
         assert_eq!(error, ModelMountError::UnsupportedProviderInvocationBackend);
+    }
+
+    #[test]
+    fn hosted_provider_stream_invocation_executes_transport_contract_in_rust_owner() {
+        let mut missing_auth = hosted_provider_stream_invocation_request();
+        missing_auth
+            .admitted_provider_execution
+            .as_mut()
+            .expect("admission")
+            .provider_auth_evidence_refs
+            .clear();
+        let error = invoke_provider_stream(&missing_auth)
+            .expect_err("hosted provider stream requires auth evidence");
+
+        assert_eq!(
+            error,
+            ModelMountError::HostedProviderInvocationMissingAuthEvidence
+        );
+
+        let request = hosted_provider_stream_invocation_request();
+        let result =
+            invoke_provider_stream(&request).expect("hosted provider stream executes in Rust");
+
+        assert_eq!(
+            result.execution_backend,
+            "rust_model_mount_hosted_provider_stream"
+        );
+        assert_eq!(
+            result.provider_response_kind,
+            "rust_model_mount.hosted_provider.stream"
+        );
+        assert_eq!(result.backend, "openai");
+        assert_eq!(result.backend_id, "backend.openai-compatible");
+        assert_eq!(result.stream_format, "ioi_jsonl");
+        assert_eq!(result.stream_kind, "openai_responses_hosted_provider");
+        assert!(result
+            .output_text
+            .starts_with("Rust hosted provider invocation contract"));
+        assert!(result
+            .provider_auth_evidence_refs
+            .contains(&"wallet_network_provider_vault_ref_bound".to_string()));
+        assert!(result
+            .backend_evidence_refs
+            .contains(&"rust_hosted_provider_stream_transport_materialized".to_string()));
+        assert!(result
+            .evidence_refs
+            .contains(&"rust_model_mount_hosted_provider_stream_backend".to_string()));
+        assert!(result
+            .evidence_refs
+            .contains(&"ctee_hosted_provider_secret_not_exposed".to_string()));
+        assert!(result.stream_chunks.len() >= 2);
+        assert!(result.invocation_hash.starts_with("sha256:"));
+
+        let mut missing_authority = hosted_provider_stream_invocation_request();
+        missing_authority
+            .admitted_provider_execution
+            .as_mut()
+            .expect("admission")
+            .authority_grant_refs
+            .clear();
+        let error = invoke_provider_stream(&missing_authority)
+            .expect_err("hosted provider stream requires wallet authority");
+
+        assert_eq!(
+            error,
+            ModelMountError::HostedProviderInvocationMissingAuthority
+        );
     }
 
     #[test]

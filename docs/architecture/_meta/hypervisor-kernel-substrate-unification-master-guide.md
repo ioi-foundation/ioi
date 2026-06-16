@@ -1416,8 +1416,8 @@ hosted/non-migrated providers. `modelMountProviderInvocationRequiresRust()` and
 provider invocation path requires Rust `model_mount` ownership, while the
 request builders fail closed with
 `model_mount_provider_invocation_rust_backend_required` when a provider kind
-does not yet have a Rust execution backend. This prevents hosted/OpenAI,
-fixture-stream, or other unsupported provider paths from being represented as
+does not yet have a Rust execution backend. This prevents unknown or
+unsupported provider paths from being represented as
 JS-compatible escape hatches while the public invocation facades remain
 fail-closed. This still does not claim terminal provider migration: direct Rust
 daemon-core hosted/provider transports, provider request shaping, projection,
@@ -1429,19 +1429,21 @@ now derives the expected Rust provider invocation backend from the selected
 provider and stream status, rejects unsupported selections with
 `model_mount_provider_result_rust_backend_required`, and rejects mismatched
 `providerResult.execution_backend` before an `ioi.model_mount.provider_result.v1`
-request can be assembled. Fixture/local-folder and native-local Rust-backed
-outputs remain admissible; hosted/OpenAI output text can no longer be wrapped
-as a Rust provider result by JS. This still does not claim terminal provider
-migration: direct Rust daemon-core hosted/provider transports, provider request
-shaping, projection, Agentgres-backed reads, and command-transport retirement
-remain required.
+request can be assembled. Fixture/local-folder, native-local, and hosted
+Rust-backed outputs remain admissible only with the matching Rust backend,
+response kind, and evidence; hosted/OpenAI output text can no longer be wrapped
+as a Rust provider result by JS without Rust-hosted transport evidence. This
+still does not claim terminal provider migration: direct Rust daemon-core
+hosted/provider transports, provider request shaping, projection,
+Agentgres-backed reads, and command-transport retirement remain required.
 
 Slice 822 moved the provider-result backend invariant into the Rust
 `model_mount` core. `ModelMountProviderResultAdmissionRequest::validate()` no
 longer accepts `js_provider_driver_observation`; provider-result admission now
 requires one of the Rust-owned provider result backends
 (`rust_model_mount_fixture`, `rust_model_mount_native_local`, or
-`rust_model_mount_native_local_stream`) and binds the record with
+`rust_model_mount_native_local_stream`, plus the Rust-hosted provider backends
+when wallet/vault/cTEE and hosted transport evidence are present) and binds the record with
 `rust_model_mount_provider_result_backend_bound` evidence. The
 `ioi-step-module-bridge` command path now proves fixture provider-result
 admission through Rust and also proves the retired JS observation backend fails
@@ -1451,7 +1453,8 @@ provider request shaping, projection, Agentgres-backed reads, and
 command-transport retirement remain required.
 
 Current public model invocation cut: public fixture/local-folder non-stream
-invocation and native-local stream invocation now run through the Rust
+invocation, native-local stream invocation, hosted non-stream invocation, and
+hosted stream invocation now run through the Rust
 `model_mount` route-selection receipt, provider-execution admission, provider
 invocation/stream execution, provider-result admission, accepted-receipt
 transition, receipt binding, StepModule projection, Agentgres state-root
@@ -1460,8 +1463,8 @@ public path is marked by `model_mount_invocation_positive_rust_path` and
 `rust_daemon_core_model_invocation_receipt`, and no longer uses JS provider
 drivers, JS invocation receipt creation, route-state persistence,
 provider-native request-shaping hooks, or stream downgrade fallback. This still
-does not claim terminal model invocation migration: hosted/provider transports,
-model loading and instance lifecycle truth, conversation-state and
+does not claim terminal model invocation migration: live hosted/provider
+transports, model loading and instance lifecycle truth, conversation-state and
 stream-completion projection, durable projection/replay, deeper wallet/cTEE
 invocation policy, and stable SDK/IDE invocation
 APIs remain required.
@@ -2211,8 +2214,8 @@ records, filters the public list to Rust-authored conversation records with
 conversation hashes, conversation/stream evidence, and Agentgres
 conversation-truth evidence, and returns projection truth without public-list
 JS record candidates. This does not claim terminal conversation migration:
-deeper wallet/cTEE authority, hosted stream parity, and stable protocol APIs
-remain required.
+deeper wallet/cTEE authority, live hosted stream completion/finalization
+materialization, and stable protocol APIs remain required.
 
 Slice 881 retired the fail-closed `provider-operations.mjs` helper module after
 provider upsert, health, inventory, and start/stop control had already been
@@ -9466,9 +9469,9 @@ old fail-closed JS list facade and public-list `conversation_states` request
 input are deleted. Slice 1221 later retired conversation/stream command
 transport by moving conversation-state, stream-completion, and stream-cancel
 planning to typed `daemonCoreModelMountApi` methods backed by
-`RuntimeKernelService`. This remains non-terminal because hosted stream parity,
-deeper wallet/cTEE conversation authority, and stable IDE/CLI/SDK APIs still
-need direct Rust ownership.
+`RuntimeKernelService`. This remains non-terminal because live hosted stream
+completion/finalization materialization, deeper wallet/cTEE conversation
+authority, and stable IDE/CLI/SDK APIs still need direct Rust ownership.
 
 Model-mount route-decision admission now uses the typed Rust daemon-core
 `daemonCoreModelMountApi.admitModelMountRouteDecision` surface instead of the
@@ -11689,9 +11692,9 @@ lane, validates the bound provider-execution record, requires wallet authority
 grant/receipt refs plus hosted auth/cTEE evidence, and fails missing authority or
 auth evidence with named Rust errors before execution. This remains
 non-terminal because direct Rust/vault auth-header materialization, live
-external hosted API execution, hosted stream parity, actual Rust backend process
-execution/materialization, and deeper invocation authority still need terminal
-Rust-owned execution coverage.
+external hosted API execution, live hosted streaming network I/O, actual Rust
+backend process execution/materialization, and deeper invocation authority still
+need terminal Rust-owned execution coverage.
 
 Slice 1369 hard-cuts the hosted provider invocation temporary transport
 boundary. The Rust `provider_execution` owner no longer returns a temporary
@@ -11708,9 +11711,31 @@ provider-result backends fail closed before accepted truth. Focused JS/Rust
 tests and conformance require the positive hosted transport-contract path and
 reject restoring the retired pending error. This remains non-terminal because
 direct live external provider network I/O, direct Rust/vault secret
-materialization into outbound auth headers, hosted stream parity, actual Rust
-backend process execution/materialization, and deeper invocation authority still
-need terminal Rust-owned execution coverage.
+materialization into outbound auth headers, live hosted streaming network I/O,
+actual Rust backend process execution/materialization, and deeper invocation
+authority still need terminal Rust-owned execution coverage.
+
+Slice 1370 hard-cuts hosted provider stream invocation out of the fail-closed
+JS stream scaffold. Hosted stream request shaping now selects
+`rust_model_mount_hosted_provider_stream` instead of returning
+`model_mount_provider_invocation_rust_backend_required`; the Rust
+`provider_execution/stream` owner validates the bound provider-execution
+admission, wallet authority refs, and redacted vault/cTEE auth evidence before
+materializing a Rust-owned hosted stream result contract. The stream result
+binds output text, token accounting, stream chunks, invocation hash, provider
+auth evidence refs, backend evidence refs, `rust_model_mount.hosted_provider.stream`,
+and `rust_hosted_provider_stream_transport_materialized` evidence without
+returning through JS provider drivers. Rust provider-result admission now
+accepts hosted stream starts only when the execution backend is
+`rust_model_mount_hosted_provider_stream`, `stream_status` is `started`, and the
+wallet/vault/cTEE plus hosted stream transport materialization evidence is
+present; JS-observed provider-result backends or missing hosted stream evidence
+fail closed before accepted truth. Focused JS/Rust tests and conformance now
+require the positive hosted stream path and reject restoring the old hosted
+stream Rust-required fallback. This remains non-terminal because live hosted
+network I/O, direct Rust/vault secret materialization into outbound auth
+headers, actual Rust backend process execution/materialization, and deeper
+invocation authority still need terminal Rust-owned execution coverage.
 
 ## Final Doctrine
 

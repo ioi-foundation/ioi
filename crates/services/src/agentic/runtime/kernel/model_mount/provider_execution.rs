@@ -106,6 +106,10 @@ pub struct ModelMountProviderStreamInvocationResult {
     pub stream_format: String,
     pub stream_kind: String,
     pub stream_chunks: Vec<String>,
+    #[serde(default)]
+    pub provider_auth_evidence_refs: Vec<String>,
+    #[serde(default)]
+    pub backend_evidence_refs: Vec<String>,
     pub evidence_refs: Vec<String>,
     pub invocation_hash: String,
 }
@@ -142,6 +146,10 @@ impl ModelMountProviderInvocationRequest {
         validate_provider_invocation_common(self)?;
         if !matches!(self.stream_status.as_deref(), Some("started")) {
             return Err(ModelMountError::StreamProviderInvocationUnsupported);
+        }
+        if is_hosted_provider_stream_invocation_backend(self) {
+            validate_provider_execution_binding(self, true)?;
+            return validate_hosted_provider_invocation_gate(self);
         }
         if !is_native_local_provider_stream_invocation_backend(self) {
             return Err(ModelMountError::UnsupportedProviderInvocationBackend);
@@ -231,6 +239,33 @@ pub(super) fn is_hosted_provider_invocation_backend(
     request: &ModelMountProviderInvocationRequest,
 ) -> bool {
     if request.execution_backend.trim() != "rust_model_mount_hosted_provider" {
+        return false;
+    }
+    let provider_kind = request.provider_kind.trim();
+    let api_format = request.api_format.as_deref().unwrap_or("").trim();
+    let driver = request.driver.as_deref().unwrap_or("").trim();
+    matches!(
+        provider_kind,
+        "openai"
+            | "anthropic"
+            | "gemini"
+            | "custom_http"
+            | "openai_compatible"
+            | "ollama"
+            | "vllm"
+            | "llama_cpp"
+            | "lm_studio"
+            | "depin_tee"
+    ) || matches!(
+        api_format,
+        "openai" | "anthropic" | "gemini" | "custom" | "openai_compatible" | "ollama"
+    ) || matches!(driver, "openai_compatible" | "hosted_provider")
+}
+
+pub(super) fn is_hosted_provider_stream_invocation_backend(
+    request: &ModelMountProviderInvocationRequest,
+) -> bool {
+    if request.execution_backend.trim() != "rust_model_mount_hosted_provider_stream" {
         return false;
     }
     let provider_kind = request.provider_kind.trim();
@@ -529,7 +564,9 @@ pub(super) fn provider_invocation_evidence_refs(
 pub(super) fn provider_auth_evidence_refs(
     request: &ModelMountProviderInvocationRequest,
 ) -> Vec<String> {
-    if !is_hosted_provider_invocation_backend(request) {
+    if !is_hosted_provider_invocation_backend(request)
+        && !is_hosted_provider_stream_invocation_backend(request)
+    {
         return Vec::new();
     }
     request
@@ -548,6 +585,11 @@ pub(super) fn backend_evidence_refs(request: &ModelMountProviderInvocationReques
     } else if is_hosted_provider_invocation_backend(request) {
         refs.push("rust_model_mount_hosted_provider_backend".to_string());
         refs.push("rust_hosted_provider_invocation_transport_materialized".to_string());
+        refs.push("hosted_provider_auth_header_materialization_contract_bound".to_string());
+        refs.push("hosted_provider_plaintext_secret_not_returned".to_string());
+    } else if is_hosted_provider_stream_invocation_backend(request) {
+        refs.push("rust_model_mount_hosted_provider_stream_backend".to_string());
+        refs.push("rust_hosted_provider_stream_transport_materialized".to_string());
         refs.push("hosted_provider_auth_header_materialization_contract_bound".to_string());
         refs.push("hosted_provider_plaintext_secret_not_returned".to_string());
     } else {

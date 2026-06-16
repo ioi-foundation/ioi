@@ -194,7 +194,9 @@ fn is_rust_provider_result_backend(request: &ModelMountProviderResultAdmissionRe
             request.provider_kind.trim() == "ioi_native_local"
                 && matches!(request.stream_status.as_deref(), Some("started"))
         }
-        "rust_model_mount_hosted_provider" => is_hosted_provider_result_backend(request),
+        "rust_model_mount_hosted_provider" | "rust_model_mount_hosted_provider_stream" => {
+            is_hosted_provider_result_backend(request)
+        }
         _ => false,
     }
 }
@@ -214,10 +216,23 @@ fn is_hosted_provider_result_backend(request: &ModelMountProviderResultAdmission
             | "lm_studio"
             | "depin_tee"
     );
+    let hosted_provider_stream =
+        request.execution_backend.trim() == "rust_model_mount_hosted_provider_stream";
+    let expected_response_kind = if hosted_provider_stream {
+        "rust_model_mount.hosted_provider.stream"
+    } else {
+        "rust_model_mount.hosted_provider"
+    };
+    let expected_transport_evidence = if hosted_provider_stream {
+        "rust_hosted_provider_stream_transport_materialized"
+    } else {
+        "rust_hosted_provider_invocation_transport_materialized"
+    };
     hosted_provider_kind
+        && (!hosted_provider_stream || matches!(request.stream_status.as_deref(), Some("started")))
         && matches!(
             request.provider_response_kind.as_deref().map(str::trim),
-            Some("rust_model_mount.hosted_provider")
+            Some(kind) if kind == expected_response_kind
         )
         && refs_contain(
             &request.provider_auth_evidence_refs,
@@ -227,10 +242,7 @@ fn is_hosted_provider_result_backend(request: &ModelMountProviderResultAdmission
             &request.provider_auth_evidence_refs,
             "ctee_hosted_provider_secret_not_exposed",
         )
-        && refs_contain(
-            &request.backend_evidence_refs,
-            "rust_hosted_provider_invocation_transport_materialized",
-        )
+        && refs_contain(&request.backend_evidence_refs, expected_transport_evidence)
 }
 
 fn refs_contain(refs: &[String], expected: &str) -> bool {
@@ -542,6 +554,89 @@ mod tests {
         request.provider_auth_evidence_refs.clear();
         let error = admit_provider_result(&request)
             .expect_err("hosted provider result requires Rust auth evidence");
+        assert_eq!(error, ModelMountError::UnsupportedProviderResultBackend);
+    }
+
+    #[test]
+    fn admits_hosted_provider_stream_result_bound_to_rust_transport_contract() {
+        let mut execution_request = provider_execution_request();
+        execution_request.provider_ref = "provider.openai".to_string();
+        execution_request.endpoint_ref = "endpoint.openai".to_string();
+        execution_request.model_ref = "model.openai.gpt-4.1".to_string();
+        execution_request.invocation_kind = "responses".to_string();
+        execution_request.stream_status = Some("started".to_string());
+        execution_request.provider_auth_evidence_refs = vec![
+            "rust_model_mount_hosted_provider_auth_gate".to_string(),
+            "wallet_network_provider_vault_ref_bound".to_string(),
+            "ctee_hosted_provider_secret_not_exposed".to_string(),
+            "provider_vault_ref_hash:sha256-vault".to_string(),
+        ];
+        let admission = admit_provider_execution(&execution_request)
+            .expect("hosted provider stream execution admitted");
+        let output_text =
+            "Rust hosted provider invocation contract for model.openai.gpt-4.1 stream".to_string();
+        let output_hash = format!(
+            "sha256:{}",
+            sha256_hex(output_text.as_bytes()).expect("output hash")
+        );
+        let mut request = ModelMountProviderResultAdmissionRequest {
+            schema_version: MODEL_MOUNT_PROVIDER_RESULT_SCHEMA_VERSION.to_string(),
+            provider_execution_ref: admission.provider_execution_ref.clone(),
+            provider_execution_hash: admission.provider_execution_hash.clone(),
+            route_decision_ref: admission.route_decision_ref.clone(),
+            route_receipt_ref: admission.route_receipt_ref.clone(),
+            route_ref: admission.route_ref.clone(),
+            provider_ref: admission.provider_ref.clone(),
+            provider_kind: "openai".to_string(),
+            endpoint_ref: admission.endpoint_ref.clone(),
+            model_ref: admission.model_ref.clone(),
+            capability: admission.capability.clone(),
+            invocation_kind: admission.invocation_kind.clone(),
+            request_hash: admission.request_hash.clone(),
+            output_text,
+            output_hash,
+            token_count: ModelMountTokenCount {
+                prompt_tokens: 2,
+                completion_tokens: 6,
+                total_tokens: 8,
+            },
+            provider_response_kind: Some("rust_model_mount.hosted_provider.stream".to_string()),
+            execution_backend: "rust_model_mount_hosted_provider_stream".to_string(),
+            backend_ref: Some("backend.openai-compatible".to_string()),
+            stream_status: admission.stream_status.clone(),
+            receipt_refs: admission.receipt_refs.clone(),
+            provider_auth_evidence_refs: admission.provider_auth_evidence_refs.clone(),
+            backend_evidence_refs: vec![
+                "rust_model_mount_hosted_provider_stream_backend".to_string(),
+                "rust_hosted_provider_stream_transport_materialized".to_string(),
+                "hosted_provider_auth_header_materialization_contract_bound".to_string(),
+            ],
+            evidence_refs: vec![admission.provider_execution_ref.clone()],
+            admitted_provider_execution: Some(admission),
+        };
+
+        let record =
+            admit_provider_result(&request).expect("hosted Rust stream provider result admitted");
+
+        assert_eq!(
+            record.execution_backend,
+            "rust_model_mount_hosted_provider_stream"
+        );
+        assert_eq!(
+            record.provider_response_kind.as_deref(),
+            Some("rust_model_mount.hosted_provider.stream")
+        );
+        assert_eq!(record.stream_status.as_deref(), Some("started"));
+        assert!(record
+            .evidence_refs
+            .contains(&"rust_hosted_provider_stream_transport_materialized".to_string()));
+        assert!(record
+            .evidence_refs
+            .contains(&"ctee_hosted_provider_secret_not_exposed".to_string()));
+
+        request.backend_evidence_refs.clear();
+        let error = admit_provider_result(&request)
+            .expect_err("hosted stream result requires Rust stream transport evidence");
         assert_eq!(error, ModelMountError::UnsupportedProviderResultBackend);
     }
 
