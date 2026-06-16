@@ -418,6 +418,10 @@ test("agent lifecycle mutation routes use direct Rust lifecycle APIs", async () 
   assert.equal(calls.every((call) => call.deps.lifecycleAdmissionRunner === contextPolicyCore ||
     call.deps.statusStateUpdateRunner === contextPolicyCore ||
     call.deps.deleteStateUpdateRunner === contextPolicyCore), true);
+  assert.equal(
+    calls.find((call) => call.method === "createRun").deps.repositoryWorkflowProjector,
+    contextPolicyCore,
+  );
   assert.equal(Object.hasOwn(store, "agentRunLifecycleSurface"), false);
   assert.deepEqual(
     calls.map(({ method, agentId, status, operationKind, input }) => ({

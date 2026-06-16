@@ -108,6 +108,7 @@ export function createRuntimeRouteHandlers(deps) {
         buildRun,
         ensureProviderAvailable,
         lifecycleAdmissionRunner: routeContextPolicyCore,
+        repositoryWorkflowProjector: routeContextPolicyCore,
         runtimeError: lifecycleRuntimeError,
         threadModeForRunMode,
       }));

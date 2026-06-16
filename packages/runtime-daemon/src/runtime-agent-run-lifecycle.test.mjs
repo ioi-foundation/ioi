@@ -56,6 +56,7 @@ function fakeStore({
     lifecycleAdmissionRequiredCalls: [],
     routeCalls: [],
     memoryCalls: [],
+    repositoryProjectionCalls: [],
     getAgentCalls: [],
     providerCalls: [],
     runBuildCalls: [],
@@ -84,6 +85,10 @@ function fakeStore({
       };
     },
     contextPolicyCore: {
+      projectRepositoryWorkflow(request) {
+        store.repositoryProjectionCalls.push(request);
+        return repositoryWorkflowProjectionForRequest(request);
+      },
       planLifecycleAdmissionRequired(request) {
         store.lifecycleAdmissionRequiredCalls.push(request);
         const profile = lifecycleRequiredProfile(request);
@@ -314,6 +319,37 @@ function defaultRuntimeBridgeTurnRunStateUpdatePlan(request) {
   };
 }
 
+function repositoryWorkflowProjectionForRequest(request = {}) {
+  const projectionKind = request.projection_kind;
+  const projection = repositoryWorkflowProjectionRecord(projectionKind);
+  return {
+    source: "rust_repository_workflow_projection_api",
+    projection_kind: projectionKind,
+    projection,
+    evidence_refs: ["runtime_repository_workflow_rust_projection"],
+  };
+}
+
+function repositoryWorkflowProjectionRecord(projectionKind) {
+  if (projectionKind === "pr_attempts") {
+    return [{
+      schemaVersion: "ioi.agent-runtime.pr-attempt.v1",
+      object: "ioi.pr_attempt",
+      attemptId: "pr_attempt_test",
+      status: "preview",
+      outcome: "dry_run",
+      mutationExecuted: false,
+    }];
+  }
+  return {
+    schemaVersion: `ioi.agent-runtime.${projectionKind}.v1`,
+    object: `ioi.${projectionKind}`,
+    [`${projectionKind}_id`]: `${projectionKind}_test`,
+    status: "projected",
+    mutationExecuted: false,
+  };
+}
+
 function lifecycleRequiredProfile(request) {
   if (request.operation === "agent_create") {
     return {
@@ -403,6 +439,7 @@ function threadCreateDeps(store) {
 function runCreateDeps(store) {
   return {
     lifecycleAdmissionRunner: store.contextPolicyCore,
+    repositoryWorkflowProjector: store.contextPolicyCore,
     ensureProviderAvailable(runtime, options) {
       store.providerCalls.push({ runtime, options });
     },
@@ -441,6 +478,14 @@ function runCreateDeps(store) {
       return mode === "review" ? "human_required" : "suggest";
     },
   };
+}
+
+function runCreateDepsWithoutRepositoryProjector(store) {
+  const {
+    repositoryWorkflowProjector: _repositoryWorkflowProjector,
+    ...deps
+  } = runCreateDeps(store);
+  return deps;
 }
 
 function assertNoRetiredLifecycleDetailAliases(details) {
@@ -672,12 +717,52 @@ test("createRun commits Rust-planned run projection through Agentgres", () => {
   assert.equal(store.runBuildCalls.length, 1);
   assert.equal(store.runBuildCalls[0].mode, "learn");
   assert.equal(store.runBuildCalls[0].diagnosticsFeedback.diagnostic_status, "snake");
+  assert.equal(store.runBuildCalls[0].repositoryWorkflowProjector, store.contextPolicyCore);
   assert.equal(store.plannerCalls.length, 1);
   assert.equal(store.plannerCalls[0].run.id, "run_uuid-run");
   assert.equal(store.plannerCalls[0].run.thread_mode, "agent");
   assert.equal(store.plannerCalls[0].run.approval_mode, "suggest");
   assert.deepEqual(store.writes, [{ kind: "run", operationKind: "run.create", run }]);
   assert.deepEqual(store.lifecycleAdmissionRequiredCalls, []);
+});
+
+test("createRun requires explicit repository workflow projector instead of lifecycle-runner fallback", () => {
+  const store = fakeStore();
+  const deps = runCreateDepsWithoutRepositoryProjector(store);
+  deps.buildRun = (args) => {
+    store.runBuildCalls.push(args);
+    if (typeof args.repositoryWorkflowProjector?.projectRepositoryWorkflow !== "function") {
+      const error = new Error("missing explicit repository workflow projector");
+      error.code = "test_missing_repository_workflow_projector";
+      throw error;
+    }
+    return {
+      id: "run_uuid-run",
+      agentId: args.agent.id,
+      status: "completed",
+      mode: args.mode,
+      objective: args.prompt,
+      createdAt: "2026-06-12T12:00:00.000Z",
+      updatedAt: "2026-06-12T12:00:00.000Z",
+    };
+  };
+
+  assert.throws(
+    () => createRun(store, "agent_existing", {
+      mode: "learn",
+      prompt: "Require repository workflow projector",
+    }, deps),
+    (error) => {
+      assert.equal(error.code, "test_missing_repository_workflow_projector");
+      return true;
+    },
+  );
+
+  assert.equal(store.runBuildCalls.length, 1);
+  assert.equal(store.runBuildCalls[0].repositoryWorkflowProjector, undefined);
+  assert.equal(typeof store.contextPolicyCore.projectRepositoryWorkflow, "function");
+  assert.deepEqual(store.repositoryProjectionCalls, []);
+  assert.deepEqual(store.writes, []);
 });
 
 test("createRun fails closed before lookup, route, memory, or persistence when Rust planner is missing", () => {
@@ -1180,6 +1265,7 @@ test("createRuntimeBridgeTurn commits Rust-planned runtime bridge run and return
   assert.equal(store.runBuildCalls.length, 1);
   assert.equal(store.runBuildCalls[0].agent.id, "agent_runtime");
   assert.equal(store.runBuildCalls[0].request.prompt, "Ship the runtime turn");
+  assert.equal(store.runBuildCalls[0].repositoryWorkflowProjector, store.contextPolicyCore);
   assert.equal(store.plannerCalls.length, 1);
   assert.equal(store.plannerCalls[0].thread_id, "thread_runtime");
   assert.equal(store.plannerCalls[0].agent.id, "agent_runtime");
@@ -1219,6 +1305,54 @@ test("createRuntimeBridgeTurn commits Rust-planned runtime bridge run and return
   }]);
   assert.equal(store.turnProjectionCalls.length, 1);
   assert.equal(store.turnProjectionCalls[0].rust_runtime_bridge_submitted, true);
+});
+
+test("createRuntimeBridgeTurnRun requires explicit repository workflow projector instead of bridge-turn runner fallback", () => {
+  const store = fakeStore();
+  const agent = store.agents.get("agent_runtime");
+  const deps = runCreateDepsWithoutRepositoryProjector(store);
+  deps.lifecycleAdmissionRunner = store.contextPolicyCore;
+  deps.buildRun = (args) => {
+    store.runBuildCalls.push(args);
+    if (typeof args.repositoryWorkflowProjector?.projectRepositoryWorkflow !== "function") {
+      const error = new Error("missing explicit runtime bridge repository workflow projector");
+      error.code = "test_missing_runtime_bridge_repository_workflow_projector";
+      throw error;
+    }
+    return {
+      id: "run_uuid-run",
+      agentId: args.agent.id,
+      status: "completed",
+      mode: args.mode,
+      objective: args.prompt,
+      createdAt: "2026-06-12T12:00:00.000Z",
+      updatedAt: "2026-06-12T12:00:00.000Z",
+    };
+  };
+
+  assert.throws(
+    () => createRuntimeBridgeTurnRun(
+      store,
+      "thread_runtime",
+      agent,
+      {
+        mode: "send",
+        prompt: "Require runtime bridge repository workflow projector",
+      },
+      deps,
+    ),
+    (error) => {
+      assert.equal(error.code, "test_missing_runtime_bridge_repository_workflow_projector");
+      return true;
+    },
+  );
+
+  assert.equal(store.runBuildCalls.length, 1);
+  assert.equal(store.runBuildCalls[0].repositoryWorkflowProjector, undefined);
+  assert.equal(typeof store.contextPolicyCore.projectRepositoryWorkflow, "function");
+  assert.deepEqual(store.repositoryProjectionCalls, []);
+  assert.deepEqual(store.writes, []);
+  assert.deepEqual(store.turnProjectionCalls, []);
 });
 
 test("createRuntimeBridgeTurn fails closed before route, memory, or persistence when Rust bridge-turn planner is missing", () => {

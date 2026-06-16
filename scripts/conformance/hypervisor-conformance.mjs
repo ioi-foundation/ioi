@@ -13626,15 +13626,31 @@ function runBridge() {
       !/repositoryContextForWorkspace|branchPolicyForRepositoryContext|githubContextForRepository|prAttemptForRepository|reviewGateForPrAttempt|githubPrCreatePlanForReviewGate|issueContextForGithub|createRepositoryWorkflowProjections/.test(
         runtimeDaemonIndex,
       ) &&
-      /deps\.repositoryWorkflowProjector\s*\?\?\s*runCreateStateUpdateRunner/.test(
+      !/deps\.repositoryWorkflowProjector\s*\?\?\s*runCreateStateUpdateRunner/.test(
         runtimeAgentRunLifecycle,
       ) &&
-      /deps\.repositoryWorkflowProjector\s*\?\?\s*runtimeBridgeTurnRunStateUpdateRunner/.test(
+      !/deps\.repositoryWorkflowProjector\s*\?\?\s*runtimeBridgeTurnRunStateUpdateRunner/.test(
         runtimeAgentRunLifecycle,
+      ) &&
+      /repositoryWorkflowProjector:\s*deps\.repositoryWorkflowProjector/.test(
+        runtimeAgentRunLifecycle,
+      ) &&
+      /createRun requires explicit repository workflow projector instead of lifecycle-runner fallback/.test(
+        runtimeAgentRunLifecycleTest,
+      ) &&
+      /createRuntimeBridgeTurnRun requires explicit repository workflow projector instead of bridge-turn runner fallback/.test(
+        runtimeAgentRunLifecycleTest,
       ) &&
       /repositoryWorkflowProjector:\s*contextPolicyCore/.test(
         runtimeThreadTurnSurface,
       ) &&
+      /repositoryWorkflowProjector:\s*routeContextPolicyCore/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /deps\.repositoryWorkflowProjector/.test(runtimeRouteHandlersTest) &&
+      /Slice 1394 hard-cuts repository workflow lifecycle-runner projector fallback/.test(read(GUIDE)) &&
+      /Runtime repository workflow lifecycle-runner projector fallback retired/.test(read(MATRIX)) &&
+      /RuntimeRepositoryWorkflowLifecycleProjectorFallbackRetired/.test(read(IMPLEMENTATION_MATRIX)) &&
       !/schemaVersion:\s*"ioi\.agent-runtime\.(?:repository-context|issue-context|pr-attempt|review-gate|github-pr-create-plan)\.v1"/.test(
         runtimeRepositorySurface,
       ) &&
@@ -13679,7 +13695,7 @@ function runBridge() {
       "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
     ],
-    "Phase 6/10/11 remains non-terminal: public repository workflow routes must return Rust daemon-core projections and keep the retired projection-required path absent while broader run-trace repository workflow truth is migrated separately",
+    "Repository workflow run creation and runtime-service turn submission must require the explicit Rust repository workflow projector and must not fall back through lifecycle runners",
   );
   assertCheck(
     result,

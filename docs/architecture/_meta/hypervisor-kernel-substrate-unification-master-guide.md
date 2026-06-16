@@ -12150,6 +12150,23 @@ vault refs, and cTEE outbound-header custody. Remaining hosted-provider work is
 deeper live transport/cTEE egress and durable protocol API depth, not camelCase
 vault-ref compatibility.
 
+Slice 1394 hard-cuts repository workflow lifecycle-runner projector fallback.
+Run creation and runtime-service turn submission now pass only an explicit
+`repositoryWorkflowProjector` into run candidate construction, and public
+agent-run routes inject the mounted `contextPolicyCore` repository workflow
+projection API directly. The lifecycle state-update runners no longer double as
+repository workflow projectors through `deps.repositoryWorkflowProjector ?? ...`
+fallbacks, so repository context, branch policy, GitHub context, PR attempt,
+issue context, review gate, and GitHub PR create-plan truth cannot return
+through the run-create or runtime-bridge lifecycle runner boundary. Focused
+tests prove a lifecycle runner with `projectRepositoryWorkflow()` is ignored
+unless it is explicitly passed as the repository workflow projector, and
+conformance rejects restoring the fallback beside the Rust
+`project_repository_workflow` API. Repository workflow remains non-terminal for
+durable Agentgres-backed persistence/replay, wallet authority on external
+exits, receipt/state-root binding, and broader stable clients; the retired path
+is the lifecycle-runner compatibility projector.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The
