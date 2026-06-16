@@ -3,7 +3,7 @@ set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 REPO_ROOT=$(CDPATH= cd -- "${SCRIPT_DIR}/.." && pwd)
-BACKEND_START="${REPO_ROOT}/apps/autopilot/src-tauri/dev/local-backends/ollama-openai/start.sh"
+BACKEND_START="${AUTOPILOT_OLLAMA_OPENAI_BACKEND_START:-${REPO_ROOT}/internal-docs/legacy/autopilot-tauri-src/dev/local-backends/ollama-openai/start.sh}"
 
 EIGHT_GB_CLASS_MAX_MIB=9000
 

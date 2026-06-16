@@ -7,6 +7,7 @@ if [[ $# -gt 0 ]]; then
   shift
 fi
 EXTRA_TAURI_ARGS=("$@")
+LEGACY_LOCAL_BACKENDS_DIR="${ROOT_DIR}/internal-docs/legacy/autopilot-tauri-src/dev/local-backends"
 
 default_local_gpu_dev_artifact_specialist_model() {
   local runtime_model="${1:-}"
@@ -340,7 +341,7 @@ stop_stale_local_dev_stack() {
   fi
 
   if [[ "${AUTOPILOT_LOCAL_DEV_PRESET:-}" == "ollama-openai" ]]; then
-    local backend_pattern="${ROOT_DIR}/apps/autopilot/src-tauri/dev/local-backends/ollama-openai/start.sh"
+    local backend_pattern="${LEGACY_LOCAL_BACKENDS_DIR}/ollama-openai/start.sh"
     stop_processes_matching "$backend_pattern" "local runtime preset"
   fi
 }
@@ -432,7 +433,7 @@ start_local_backend() {
     return
   fi
 
-  local backend_entrypoint="${ROOT_DIR}/apps/autopilot/src-tauri/dev/local-backends/${AUTOPILOT_LOCAL_DEV_PRESET}/start.sh"
+  local backend_entrypoint="${LEGACY_LOCAL_BACKENDS_DIR}/${AUTOPILOT_LOCAL_DEV_PRESET}/start.sh"
   if [[ ! -f "$backend_entrypoint" ]]; then
     echo "Local runtime preset entrypoint missing: ${backend_entrypoint}"
     exit 1
