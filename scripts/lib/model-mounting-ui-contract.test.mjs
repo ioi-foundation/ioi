@@ -49,9 +49,9 @@ test("Autopilot Mounts workbench is wired to daemon API without persisting capab
     "/v1/model-mount/vault/status",
     "/v1/model-mount/vault/health",
     "/v1/model-mount/vault/health/latest",
-    "/api/v1/chat",
-    "/api/v1/responses",
-    "/api/v1/embeddings",
+    "/v1/chat/completions",
+    "/v1/responses",
+    "/v1/embeddings",
     "/v1/model-mount/mcp/import",
     "/v1/model-mount/routes",
     "/v1/model-mount/routes/route.local-first/test",
@@ -792,6 +792,6 @@ test("workflow canvas model mounting contract is represented in Agent IDE node s
     assert.match(graphTypes, new RegExp(token));
   }
   assert.match(registry, /route\.local-first/);
-  assert.match(registry, /\/api\/v1\/workflows\/nodes\/execute/);
+  assert.match(registry, /\/v1\/model-mount\/workflows\/nodes\/execute/);
   assert.match(registry, /receiptRequired:\s*true/);
 });

@@ -1515,10 +1515,3 @@ export function nativeInvocationResponse(invocation) {
     usage: invocation.tokenCount,
   };
 }
-
-export function nativeEmbeddingResponse(invocation, body = {}) {
-  return {
-    ...nativeInvocationResponse(invocation),
-    embeddings: openAiEmbedding(invocation, body).data,
-  };
-}

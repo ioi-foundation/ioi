@@ -836,7 +836,7 @@ async function runLmStudioGate(evidence) {
     });
     assert.equal(loaded.backend, "lm_studio");
 
-    const response = await expectOk(daemon.endpoint, "/api/v1/responses", {
+    const response = await expectOk(daemon.endpoint, "/v1/responses", {
       method: "POST",
       token: grant.token,
       body: {
@@ -1028,7 +1028,7 @@ async function runLlamaCppGate(evidence) {
         const health = await waitForProviderHealth(daemon.endpoint, "provider.llama-cpp", liveTimeoutMs);
         assert.equal(health.status, "available");
 
-        const chat = await expectOk(daemon.endpoint, "/api/v1/chat", {
+        const chat = await expectOk(daemon.endpoint, "/v1/chat/completions", {
           method: "POST",
           token: grant.token,
           body: { route_id: routeId, input: "Reply exactly with: ok", max_tokens: 8 },
@@ -1043,7 +1043,7 @@ async function runLlamaCppGate(evidence) {
             max_tokens: 8,
           },
         });
-        const responses = await expectOk(daemon.endpoint, "/api/v1/responses", {
+        const responses = await expectOk(daemon.endpoint, "/v1/responses", {
           method: "POST",
           token: grant.token,
           body: { route_id: routeId, input: "Reply exactly with: ok", max_output_tokens: 8 },
@@ -1270,7 +1270,7 @@ async function runModelBackendsGate(evidence) {
       assert.equal(chatLoaded.backend, "ollama");
       const providerLoaded = await expectOk(daemon.endpoint, "/v1/model-mount/providers/provider.ollama/loaded");
       assert.ok(providerLoaded.some((model) => model.modelId === chatModel));
-      const chat = await expectOk(daemon.endpoint, "/api/v1/chat", {
+      const chat = await expectOk(daemon.endpoint, "/v1/chat/completions", {
         method: "POST",
         token: grant.token,
         body: {
@@ -1480,7 +1480,7 @@ async function runModelBackendsGate(evidence) {
         assert.equal(loaded.backendId, "backend.vllm");
         const health = await expectOk(daemon.endpoint, "/v1/model-mount/providers/provider.vllm/health", { method: "POST" });
         assert.equal(health.status, "available");
-        const responses = await expectOk(daemon.endpoint, "/api/v1/responses", {
+        const responses = await expectOk(daemon.endpoint, "/v1/responses", {
           method: "POST",
           token: grant.token,
           body: { route_id: routeId, input: "Reply exactly with: ok", max_output_tokens: 8 },
@@ -2157,7 +2157,7 @@ async function runWalletGate(evidence) {
             denied: ["model.chat:*"],
           },
         });
-        const denied = await requestJson(daemon.endpoint, "/api/v1/chat", {
+        const denied = await requestJson(daemon.endpoint, "/v1/chat/completions", {
           method: "POST",
           token: deniedGrant.token,
           body: { model: "local:auto", input: "must fail closed" },
@@ -2236,7 +2236,7 @@ async function runAgentgresGate(evidence) {
             fixture_content: "family=agentgres-boundary\ncontext=1024\nquantization=Q4_K_M\n",
           },
         });
-        const chat = await expectOk(daemon.endpoint, "/api/v1/chat", {
+        const chat = await expectOk(daemon.endpoint, "/v1/chat/completions", {
           method: "POST",
           token: grant.token,
           body: {

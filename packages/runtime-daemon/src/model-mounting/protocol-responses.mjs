@@ -1,15 +1,41 @@
 import crypto from "node:crypto";
 
+function invocationProtocolMetadata(invocation, extra = {}) {
+  const details = invocation.receipt?.details && typeof invocation.receipt.details === "object"
+    ? invocation.receipt.details
+    : {};
+  const routeDecision = invocation.routeReceipt?.details?.model_route_decision ?? details.model_route_decision ?? null;
+  const endpointId = invocation.endpoint?.id ?? details.endpoint_id ?? details.endpointId ?? null;
+  const instanceId = invocation.instance?.id ?? details.instance_id ?? details.instanceId ?? null;
+  const backendId =
+    invocation.instance?.backendId ??
+    invocation.instance?.backend_id ??
+    invocation.backendId ??
+    invocation.backend_id ??
+    details.backend_id ??
+    details.backendId ??
+    null;
+  return {
+    receipt_id: invocation.receipt?.id ?? null,
+    route_id: invocation.route?.id ?? null,
+    endpoint_id: endpointId,
+    instance_id: instanceId,
+    backend_id: backendId,
+    route_receipt_id: invocation.routeReceipt?.id ?? details.route_receipt_id ?? details.routeReceiptId ?? null,
+    route_decision: routeDecision,
+    tool_receipt_ids: invocation.toolReceiptIds ?? [],
+    response_id: invocation.responseId ?? null,
+    previous_response_id: invocation.previousResponseId ?? null,
+    output_text: invocation.outputText ?? "",
+    ...extra,
+  };
+}
+
 export function openAiChatCompletion(invocation, body = {}) {
   if (invocation.providerResponseKind === "chat.completions" && invocation.providerResponse) {
     return {
       ...invocation.providerResponse,
-      receipt_id: invocation.receipt.id,
-      route_id: invocation.route.id,
-      tool_receipt_ids: invocation.toolReceiptIds ?? [],
-      response_id: invocation.responseId ?? null,
-      previous_response_id: invocation.previousResponseId ?? null,
-      request_model: body.model ?? null,
+      ...invocationProtocolMetadata(invocation, { request_model: body.model ?? null }),
     };
   }
   return {
@@ -25,12 +51,7 @@ export function openAiChatCompletion(invocation, body = {}) {
       },
     ],
     usage: invocation.tokenCount,
-    receipt_id: invocation.receipt.id,
-    route_id: invocation.route.id,
-    tool_receipt_ids: invocation.toolReceiptIds ?? [],
-    response_id: invocation.responseId ?? null,
-    previous_response_id: invocation.previousResponseId ?? null,
-    request_model: body.model ?? null,
+    ...invocationProtocolMetadata(invocation, { request_model: body.model ?? null }),
   };
 }
 
@@ -39,10 +60,7 @@ export function openAiResponse(invocation) {
     return {
       ...invocation.providerResponse,
       id: invocation.responseId ?? invocation.providerResponse.id,
-      receipt_id: invocation.receipt.id,
-      route_id: invocation.route.id,
-      tool_receipt_ids: invocation.toolReceiptIds ?? [],
-      previous_response_id: invocation.previousResponseId ?? null,
+      ...invocationProtocolMetadata(invocation),
     };
   }
   return {
@@ -60,10 +78,7 @@ export function openAiResponse(invocation) {
       },
     ],
     usage: invocation.tokenCount,
-    receipt_id: invocation.receipt.id,
-    route_id: invocation.route.id,
-    tool_receipt_ids: invocation.toolReceiptIds ?? [],
-    previous_response_id: invocation.previousResponseId ?? null,
+    ...invocationProtocolMetadata(invocation),
   };
 }
 
@@ -71,11 +86,7 @@ export function openAiEmbedding(invocation, body = {}) {
   if (invocation.providerResponseKind === "embeddings" && invocation.providerResponse) {
     return {
       ...invocation.providerResponse,
-      receipt_id: invocation.receipt.id,
-      route_id: invocation.route.id,
-      tool_receipt_ids: invocation.toolReceiptIds ?? [],
-      response_id: invocation.responseId ?? null,
-      previous_response_id: invocation.previousResponseId ?? null,
+      ...invocationProtocolMetadata(invocation),
     };
   }
   void body;
@@ -90,10 +101,7 @@ export function openAiCompletion(invocation) {
     model: invocation.model,
     choices: [{ text: invocation.outputText, index: 0, finish_reason: "stop" }],
     usage: invocation.tokenCount,
-    receipt_id: invocation.receipt.id,
-    route_id: invocation.route.id,
-    response_id: invocation.responseId ?? null,
-    previous_response_id: invocation.previousResponseId ?? null,
+    ...invocationProtocolMetadata(invocation),
   };
 }
 
@@ -111,11 +119,7 @@ export function anthropicMessage(invocation) {
       output_tokens: Number(invocation.tokenCount?.completion_tokens ?? 0),
       cache_read_input_tokens: 0,
     },
-    receipt_id: invocation.receipt.id,
-    route_id: invocation.route.id,
-    tool_receipt_ids: invocation.toolReceiptIds ?? [],
-    response_id: invocation.responseId ?? null,
-    previous_response_id: invocation.previousResponseId ?? null,
+    ...invocationProtocolMetadata(invocation),
   };
 }
 

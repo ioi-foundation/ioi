@@ -13,7 +13,6 @@ export function createRuntimeRouteHandlers(deps) {
     createLifecycleRun: createLifecycleRunDep = createLifecycleRun,
     deleteLifecycleAgent: deleteLifecycleAgentDep = deleteLifecycleAgent,
     ensureProviderAvailable = null,
-    nativeEmbeddingResponse,
     nativeInvocationResponse,
     notFound,
     readBody,
@@ -44,37 +43,6 @@ export function createRuntimeRouteHandlers(deps) {
   async function handleModelMountingNativeRoute({ request, response, store, url, segments }) {
     const mounts = store.modelMounting;
     const authorization = request.headers.authorization;
-    if (request.method === "POST" && url.pathname === "/api/v1/chat") {
-      const invocation = await mounts.invokeModel({
-        authorization,
-        requiredScope: "model.chat:*",
-        kind: "chat",
-        body: await readBody(request),
-      });
-      writeJsonResponse(response, nativeInvocationResponse(invocation));
-      return;
-    }
-    if (request.method === "POST" && url.pathname === "/api/v1/responses") {
-      const invocation = await mounts.invokeModel({
-        authorization,
-        requiredScope: "model.responses:*",
-        kind: "responses",
-        body: await readBody(request),
-      });
-      writeJsonResponse(response, nativeInvocationResponse(invocation));
-      return;
-    }
-    if (request.method === "POST" && url.pathname === "/api/v1/embeddings") {
-      const body = await readBody(request);
-      const invocation = await mounts.invokeModel({
-        authorization,
-        requiredScope: "model.embeddings:*",
-        kind: "embeddings",
-        body,
-      });
-      writeJsonResponse(response, nativeEmbeddingResponse(invocation, body));
-      return;
-    }
     if (request.method === "POST" && url.pathname === "/api/v1/rerank") {
       const invocation = await mounts.invokeModel({
         authorization,

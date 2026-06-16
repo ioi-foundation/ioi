@@ -440,7 +440,7 @@ async function main() {
       const status = await expectOk(daemon.endpoint, "/v1/model-mount/server/status");
       assert.equal(status.schemaVersion, "ioi.model-mounting.runtime.v1");
 
-      const unauthenticated = await requestJson(daemon.endpoint, "/api/v1/chat", {
+      const unauthenticated = await requestJson(daemon.endpoint, "/v1/chat/completions", {
         method: "POST",
         body: { input: "blocked" },
       });
@@ -451,7 +451,7 @@ async function main() {
         body: { allowed: ["model.chat:*"], denied: ["model.chat:*"] },
       });
       secretNeedles.push(deniedGrant.token);
-      const denied = await requestJson(daemon.endpoint, "/api/v1/chat", {
+      const denied = await requestJson(daemon.endpoint, "/v1/chat/completions", {
         method: "POST",
         token: deniedGrant.token,
         body: { input: "blocked by deny" },
@@ -463,7 +463,7 @@ async function main() {
         body: { allowed: ["model.chat:*"], expiresAt: "2000-01-01T00:00:00.000Z" },
       });
       secretNeedles.push(expiredGrant.token);
-      const expired = await requestJson(daemon.endpoint, "/api/v1/chat", {
+      const expired = await requestJson(daemon.endpoint, "/v1/chat/completions", {
         method: "POST",
         token: expiredGrant.token,
         body: { input: "expired" },
@@ -476,7 +476,7 @@ async function main() {
       });
       secretNeedles.push(revokedGrant.token);
       await expectOk(daemon.endpoint, `/v1/model-mount/tokens/${revokedGrant.id}`, { method: "DELETE" });
-      const revoked = await requestJson(daemon.endpoint, "/api/v1/chat", {
+      const revoked = await requestJson(daemon.endpoint, "/v1/chat/completions", {
         method: "POST",
         token: revokedGrant.token,
         body: { input: "revoked" },
@@ -718,7 +718,7 @@ async function main() {
     });
 
     await runStep(evidence, "exercise native and OpenAI-compatible inference APIs", async () => {
-      const chat = await expectOk(daemon.endpoint, "/api/v1/chat", {
+      const chat = await expectOk(daemon.endpoint, "/v1/chat/completions", {
         method: "POST",
         token,
         body: { route_id: "route.native-local", model: "native:e2e", input: "native chat e2e" },
@@ -737,7 +737,7 @@ async function main() {
       });
       assert.equal(compatChat.choices[0].message.role, "assistant");
 
-      const responses = await expectOk(daemon.endpoint, "/api/v1/responses", {
+      const responses = await expectOk(daemon.endpoint, "/v1/responses", {
         method: "POST",
         token,
         body: { route_id: "route.native-local", model: "native:e2e", input: "responses e2e" },
@@ -1088,7 +1088,7 @@ async function main() {
         body: { server_label: "huggingface", tool: "model_search", input: { q: "qwen" } },
       });
       assert.equal(tool.receipt.kind, "mcp_tool_invocation");
-      const response = await expectOk(daemon.endpoint, "/api/v1/responses", {
+      const response = await expectOk(daemon.endpoint, "/v1/responses", {
         method: "POST",
         token,
         body: {

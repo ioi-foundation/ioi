@@ -22719,6 +22719,12 @@ function runReceipts() {
   const openAiCompatRoutesTest = exists("packages/runtime-daemon/src/openai-compat-routes.test.mjs")
     ? read("packages/runtime-daemon/src/openai-compat-routes.test.mjs")
     : "";
+  const modelMountProtocolResponses = exists("packages/runtime-daemon/src/model-mounting/protocol-responses.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/protocol-responses.mjs")
+    : "";
+  const modelMountProtocolResponsesTest = exists("packages/runtime-daemon/src/model-mounting/protocol-responses.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/protocol-responses.test.mjs")
+    : "";
   const memoryStore = exists("packages/runtime-daemon/src/memory-store.mjs")
     ? read("packages/runtime-daemon/src/memory-store.mjs")
     : "";
@@ -23134,6 +23140,24 @@ function runReceipts() {
         (file.endsWith(".ts") || file.endsWith(".tsx") || file.endsWith(".js") || file.endsWith(".jsx")) &&
         !file.includes("/media/"),
     ).map((file) => read(file)),
+  ].join("\n");
+  const modelMountStableInvocationProofClientCorpus = [
+    modelMountStableReadProtocolClientCorpus,
+    exists("scripts/lib/model-mounting-daemon-contract.test.mjs")
+      ? read("scripts/lib/model-mounting-daemon-contract.test.mjs")
+      : "",
+    exists("scripts/lib/model-mounting-ui-contract.test.mjs")
+      ? read("scripts/lib/model-mounting-ui-contract.test.mjs")
+      : "",
+    exists("scripts/validate-model-mounting-e2e.mjs")
+      ? read("scripts/validate-model-mounting-e2e.mjs")
+      : "",
+    exists("scripts/live-model-mounting-gate.mjs")
+      ? read("scripts/live-model-mounting-gate.mjs")
+      : "",
+    exists("apps/autopilot/scripts/desktop_model_mounts_probe.py")
+      ? read("apps/autopilot/scripts/desktop_model_mounts_probe.py")
+      : "",
   ].join("\n");
   const modelMountStableLifecycleBoundaryClientCorpus = [
     modelMountStableReadCliModels,
@@ -27577,6 +27601,51 @@ function runReceipts() {
       "scripts/conformance/hypervisor-conformance.mjs",
     ],
     "Model_mount provider, vault, token, and catalog-provider clients must use stable /v1/model-mount protocol routes; retired /api/v1 provider/vault/token/catalog aliases must not return",
+  );
+  assertCheck(
+    result,
+    "model-mount-stable-invocation-protocol-clients",
+    /url\.pathname === "\/v1\/chat\/completions"[\s\S]*kind:\s*"chat\.completions"/.test(
+      openAiCompatRoutes,
+    ) &&
+      /url\.pathname === "\/v1\/responses"[\s\S]*kind:\s*"responses"/.test(openAiCompatRoutes) &&
+      /url\.pathname === "\/v1\/embeddings"[\s\S]*kind:\s*"embeddings"/.test(openAiCompatRoutes) &&
+      /function invocationProtocolMetadata\(invocation/.test(modelMountProtocolResponses) &&
+      /route_receipt_id:\s*invocation\.routeReceipt\?\.id/.test(modelMountProtocolResponses) &&
+      /route_decision:\s*routeDecision/.test(modelMountProtocolResponses) &&
+      /endpoint_id:\s*endpointId/.test(modelMountProtocolResponses) &&
+      /backend_id:\s*backendId/.test(modelMountProtocolResponses) &&
+      /output_text:\s*invocation\.outputText/.test(modelMountProtocolResponses) &&
+      /OpenAI chat completion preserves provider responses with receipt metadata/.test(modelMountProtocolResponsesTest) &&
+      /assert\.equal\(response\.endpoint_id,\s*"endpoint-1"\)/.test(modelMountProtocolResponsesTest) &&
+      /assert\.equal\(response\.route_receipt_id,\s*"route-receipt-1"\)/.test(modelMountProtocolResponsesTest) &&
+      !/nativeEmbeddingResponse/.test(`${openAiCompatRoutes}\n${runtimeRouteHandlers}\n${read("packages/runtime-daemon/src/index.mjs")}`) &&
+      !/url\.pathname === "\/api\/v1\/chat"/.test(runtimeRouteHandlers) &&
+      !/url\.pathname === "\/api\/v1\/responses"/.test(runtimeRouteHandlers) &&
+      !/url\.pathname === "\/api\/v1\/embeddings"/.test(runtimeRouteHandlers) &&
+      /native chat, responses, and embeddings invocation aliases are retired/.test(runtimeRouteHandlersTest) &&
+      /"\/api\/v1\/chat"/.test(runtimeRouteHandlersTest) &&
+      /"\/api\/v1\/responses"/.test(runtimeRouteHandlersTest) &&
+      /"\/api\/v1\/embeddings"/.test(runtimeRouteHandlersTest) &&
+      /\/v1\/chat\/completions/.test(modelMountStableInvocationProofClientCorpus) &&
+      /\/v1\/responses/.test(modelMountStableInvocationProofClientCorpus) &&
+      /\/v1\/embeddings/.test(modelMountStableInvocationProofClientCorpus) &&
+      !/\/api\/v1\/(?:chat|responses|embeddings)/.test(modelMountStableInvocationProofClientCorpus) &&
+      /Slice 1390 hard-cuts stable model_mount invocation protocol clients/.test(guide) &&
+      /Model_mount stable invocation protocol clients/.test(matrix) &&
+      /RuntimeDaemonCoreModelMountStableInvocationProtocolClients/.test(implementationMatrix),
+    [
+      "packages/runtime-daemon/src/openai-compat-routes.mjs",
+      "packages/runtime-daemon/src/model-mounting/protocol-responses.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.test.mjs",
+      "scripts/lib/model-mounting-daemon-contract.test.mjs",
+      "apps/autopilot/src/surfaces/MissionControl/MissionControlMountsView.tsx",
+      "scripts/validate-model-mounting-e2e.mjs",
+      "scripts/live-model-mounting-gate.mjs",
+      "apps/autopilot/scripts/desktop_model_mounts_probe.py",
+    ],
+    "Model_mount invocation clients must use stable /v1 chat, responses, and embeddings protocol routes; retired /api/v1 invocation aliases and native embedding response shims must not return",
   );
 	  assertCheck(
 	    result,

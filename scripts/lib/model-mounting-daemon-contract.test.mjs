@@ -265,7 +265,7 @@ test("model=auto resolves to a canonical ModelRouteDecision before provider invo
     assert.equal(routerDecision.workflowNodeId, "node.model-router");
     assert.equal(routerDecision.workflowNodeType, "Model Router");
 
-    const chat = await expectOk(daemon.endpoint, "/api/v1/chat", {
+    const chat = await expectOk(daemon.endpoint, "/v1/chat/completions", {
       method: "POST",
       token: grant.token,
       body: {
@@ -316,7 +316,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.equal(status.nativeBaseUrl, `${daemon.endpoint}/api/v1`);
     assert.equal(status.openAiCompatibleBaseUrl, `${daemon.endpoint}/v1`);
 
-    const unauthenticated = await requestJson(daemon.endpoint, "/api/v1/chat", {
+    const unauthenticated = await requestJson(daemon.endpoint, "/v1/chat/completions", {
       method: "POST",
       body: { input: "blocked" },
     });
@@ -333,7 +333,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
         denied: ["model.chat:*"],
       },
     });
-    const denied = await requestJson(daemon.endpoint, "/api/v1/chat", {
+    const denied = await requestJson(daemon.endpoint, "/v1/chat/completions", {
       method: "POST",
       token: blockedGrant.token,
       body: { input: "blocked by deny scope" },
@@ -353,7 +353,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
         expiresAt: "2000-01-01T00:00:00.000Z",
       },
     });
-    const expired = await requestJson(daemon.endpoint, "/api/v1/chat", {
+    const expired = await requestJson(daemon.endpoint, "/v1/chat/completions", {
       method: "POST",
       token: expiredGrant.token,
       body: { input: "expired token" },
@@ -569,7 +569,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     const loadedAfterTtl = await expectOk(daemon.endpoint, "/v1/model-mount/instances/loaded");
     assert.equal(loadedAfterTtl.length, 0);
 
-    const chat = await expectOk(daemon.endpoint, "/api/v1/chat", {
+    const chat = await expectOk(daemon.endpoint, "/v1/chat/completions", {
       method: "POST",
       token: grant.token,
       body: { model: "local:auto", input: "hello native" },
@@ -627,7 +627,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
         privacy: "local_only",
       },
     });
-    const collisionChat = await expectOk(daemon.endpoint, "/api/v1/chat", {
+    const collisionChat = await expectOk(daemon.endpoint, "/v1/chat/completions", {
       method: "POST",
       token: grant.token,
       body: {
@@ -709,7 +709,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.ok(nativeLoaded.backendProcess.evidenceRefs.includes("ModelBackendDriver.process_supervision"));
     const nativeBackends = await expectOk(daemon.endpoint, "/v1/model-mount/backends");
     assert.ok(nativeBackends.some((backend) => backend.id === "backend.autopilot.native-local.fixture"));
-    const nativeChat = await expectOk(daemon.endpoint, "/api/v1/chat", {
+    const nativeChat = await expectOk(daemon.endpoint, "/v1/chat/completions", {
       method: "POST",
       token: grant.token,
       body: { route_id: "route.native-local", model: "native:imported", input: "hello autopilot native local" },
@@ -1382,7 +1382,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.equal(tool.result.ok, true);
     assert.equal(tool.receipt.kind, "mcp_tool_invocation");
 
-    const ephemeralMcpResponse = await expectOk(daemon.endpoint, "/api/v1/responses", {
+    const ephemeralMcpResponse = await expectOk(daemon.endpoint, "/v1/responses", {
       method: "POST",
       token: grant.token,
       body: {
@@ -1549,7 +1549,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
       method: "DELETE",
     });
     assert.equal(typeof revoked.revokedAt, "string");
-    const revokedUse = await requestJson(daemon.endpoint, "/api/v1/chat", {
+    const revokedUse = await requestJson(daemon.endpoint, "/v1/chat/completions", {
       method: "POST",
       token: grant.token,
       body: { input: "after revoke" },
@@ -2663,7 +2663,7 @@ test("Agentgres model mounting projection and receipt lookup survive daemon rest
       method: "POST",
       body: { allowed: ["model.chat:*", "route.use:*"] },
     });
-    const chat = await expectOk(daemon.endpoint, "/api/v1/chat", {
+    const chat = await expectOk(daemon.endpoint, "/v1/chat/completions", {
       method: "POST",
       token: grant.token,
       body: { route_id: "route.native-local", model: "autopilot:native-fixture", input: "restart replay" },
@@ -2763,7 +2763,7 @@ test("Ollama provider adapter lists models, invokes through policy, and redacts 
       },
     });
 
-    const chat = await expectOk(daemon.endpoint, "/api/v1/chat", {
+    const chat = await expectOk(daemon.endpoint, "/v1/chat/completions", {
       method: "POST",
       token: grant.token,
       body: { route_id: "route.test.ollama", input: "hello ollama" },
@@ -2831,12 +2831,12 @@ test("Ollama provider adapter lists models, invokes through policy, and redacts 
     assert.equal(streamedResponseCompleteReceipt.details.invocationReceiptId, streamedResponseCompleted.receipt_id);
     assert.equal(streamedResponseCompleteReceipt.details.outputHash, crypto.createHash("sha256").update(streamedResponseText).digest("hex"));
 
-    const embeddings = await expectOk(daemon.endpoint, "/api/v1/embeddings", {
+    const embeddings = await expectOk(daemon.endpoint, "/v1/embeddings", {
       method: "POST",
       token: grant.token,
       body: { route_id: "route.test.ollama", input: "embed ollama" },
     });
-    assert.deepEqual(embeddings.embeddings[0].embedding, [0.12, 0.34, 0.56]);
+    assert.deepEqual(embeddings.data[0].embedding, [0.12, 0.34, 0.56]);
 
     const receipts = await expectOk(daemon.endpoint, "/v1/model-mount/receipts");
     const invocation = receipts.find(
@@ -2888,7 +2888,7 @@ test("Ollama provider adapter lists models, invokes through policy, and redacts 
         denied_providers: [],
       },
     });
-    const failed = await requestJson(daemon.endpoint, "/api/v1/chat", {
+    const failed = await requestJson(daemon.endpoint, "/v1/chat/completions", {
       method: "POST",
       token: grant.token,
       body: { route_id: "route.test.ollama-error", input: "trigger provider failure" },
@@ -2994,7 +2994,7 @@ setInterval(() => {}, 1000);
         provider_eligibility: ["ollama"],
       },
     });
-    const chat = await expectOk(daemon.endpoint, "/api/v1/chat", {
+    const chat = await expectOk(daemon.endpoint, "/v1/chat/completions", {
       method: "POST",
       token: grant.token,
       body: { route_id: "route.test.ollama.supervised", input: "hello supervised ollama" },
@@ -3238,7 +3238,7 @@ test("vLLM and OpenAI-compatible adapters support responses fallback, embeddings
       },
     });
 
-    const response = await expectOk(daemon.endpoint, "/api/v1/responses", {
+    const response = await expectOk(daemon.endpoint, "/v1/responses", {
       method: "POST",
       token: grant.token,
       body: { route_id: "route.test.vllm", input: "fallback from responses" },
@@ -3311,7 +3311,7 @@ test("vLLM and OpenAI-compatible adapters support responses fallback, embeddings
         denied_providers: [],
       },
     });
-    const failed = await requestJson(daemon.endpoint, "/api/v1/chat", {
+    const failed = await requestJson(daemon.endpoint, "/v1/chat/completions", {
       method: "POST",
       token: grant.token,
       body: { route_id: "route.test.openai-compatible-error", input: "trigger provider failure" },
@@ -3426,7 +3426,7 @@ setInterval(() => {}, 1000);
         provider_eligibility: ["vllm"],
       },
     });
-    const response = await expectOk(daemon.endpoint, "/api/v1/responses", {
+    const response = await expectOk(daemon.endpoint, "/v1/responses", {
       method: "POST",
       token: grant.token,
       body: { route_id: "route.test.vllm.supervised", input: "hello supervised vllm" },
@@ -3599,7 +3599,7 @@ setInterval(() => {}, 1000);
     assert.equal(llamaCalls.includes(modelPath), true);
     assert.equal(llamaCalls.includes("--ctx-size"), true);
 
-    const chat = await expectOk(daemon.endpoint, "/api/v1/chat", {
+    const chat = await expectOk(daemon.endpoint, "/v1/chat/completions", {
       method: "POST",
       token: grant.token,
       body: { route_id: "route.test.llama-cpp", input: "hello llama cpp" },
@@ -3859,7 +3859,7 @@ test("hosted and custom HTTP provider auth fails closed behind wallet vault refs
         denied_providers: [],
       },
     });
-    const blockedChat = await requestJson(daemon.endpoint, "/api/v1/chat", {
+    const blockedChat = await requestJson(daemon.endpoint, "/v1/chat/completions", {
       method: "POST",
       token: grant.token,
       body: { route_id: "route.test.custom-blocked", input: "must fail closed" },
@@ -4003,7 +4003,7 @@ test("hosted and custom HTTP provider auth fails closed behind wallet vault refs
         denied_providers: [],
       },
     });
-    const chat = await expectOk(daemon.endpoint, "/api/v1/chat", {
+    const chat = await expectOk(daemon.endpoint, "/v1/chat/completions", {
       method: "POST",
       token: grant.token,
       body: { route_id: "route.test.custom-vault", input: "vault backed custom provider" },
@@ -4344,7 +4344,7 @@ exit 0
     assert.equal(loadReceipt.details.commandArgsHash.length > 0, true);
     assert.equal(loadReceipt.details.loadOptions.identifier, "qwen-dev");
 
-    const response = await expectOk(daemon.endpoint, "/api/v1/responses", {
+    const response = await expectOk(daemon.endpoint, "/v1/responses", {
       method: "POST",
       token: grant.token,
       body: { model: "qwen/qwen3.5-9b", input: "fallback please" },

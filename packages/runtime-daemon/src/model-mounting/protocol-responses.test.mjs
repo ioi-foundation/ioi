@@ -14,8 +14,16 @@ function invocation(overrides = {}) {
     model: "route.local-first",
     outputText: "done",
     tokenCount: { prompt_tokens: 2, completion_tokens: 1, total_tokens: 3 },
-    receipt: { id: "receipt-1" },
+    receipt: { id: "receipt-1", details: { backend_id: "backend-1" } },
     route: { id: "route-1" },
+    endpoint: { id: "endpoint-1" },
+    instance: { id: "instance-1", backendId: "backend-1" },
+    routeReceipt: {
+      id: "route-receipt-1",
+      details: {
+        model_route_decision: { route_id: "route-1", selected_model: "model-1" },
+      },
+    },
     toolReceiptIds: ["tool-1"],
     responseId: "resp-1",
     previousResponseId: "resp-0",
@@ -32,8 +40,14 @@ test("OpenAI chat completion preserves provider responses with receipt metadata"
   assert.equal(response.id, "provider-chat");
   assert.equal(response.receipt_id, "receipt-1");
   assert.equal(response.route_id, "route-1");
+  assert.equal(response.endpoint_id, "endpoint-1");
+  assert.equal(response.instance_id, "instance-1");
+  assert.equal(response.backend_id, "backend-1");
+  assert.equal(response.route_receipt_id, "route-receipt-1");
+  assert.deepEqual(response.route_decision, { route_id: "route-1", selected_model: "model-1" });
   assert.equal(response.response_id, "resp-1");
   assert.equal(response.previous_response_id, "resp-0");
+  assert.equal(response.output_text, "done");
   assert.equal(response.request_model, "requested-model");
   assert.deepEqual(response.tool_receipt_ids, ["tool-1"]);
 });
@@ -44,6 +58,8 @@ test("OpenAI response and Anthropic message wrappers expose stable public metada
   assert.equal(response.object, "response");
   assert.equal(response.output_text, "done");
   assert.equal(response.receipt_id, "receipt-1");
+  assert.equal(response.backend_id, "backend-1");
+  assert.equal(response.route_receipt_id, "route-receipt-1");
 
   const anthropic = anthropicMessage(invocation());
   assert.equal(anthropic.type, "message");

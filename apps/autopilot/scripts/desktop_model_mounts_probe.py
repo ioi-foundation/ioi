@@ -291,7 +291,7 @@ def seed_model_mounting_state(endpoint: str) -> dict[str, Any]:
     )
     chat = request_json(
         endpoint,
-        "/api/v1/chat",
+        "/v1/chat/completions",
         method="POST",
         token=token,
         body={"route_id": "route.native-local", "model": "autopilot:native-fixture", "input": "GUI validation probe"},
@@ -309,7 +309,7 @@ def seed_model_mounting_state(endpoint: str) -> dict[str, Any]:
     )
     response = request_json(
         endpoint,
-        "/api/v1/responses",
+        "/v1/responses",
         method="POST",
         token=token,
         body={
@@ -321,7 +321,7 @@ def seed_model_mounting_state(endpoint: str) -> dict[str, Any]:
     )
     embedding = request_json(
         endpoint,
-        "/api/v1/embeddings",
+        "/v1/embeddings",
         method="POST",
         token=token,
         body={

@@ -12087,6 +12087,23 @@ remains Rust-owned through `planModelMountRuntimeEngine`, Agentgres
 `runtime-engine-controls` replay, and Rust backend-process materialization /
 live-supervision records; JS may remain only a protocol client.
 
+Slice 1390 hard-cuts stable model_mount invocation protocol clients. Product,
+proof, desktop, live-gate, and daemon-contract callers now use
+`POST /v1/chat/completions`, `POST /v1/responses`, and
+`POST /v1/embeddings` for admitted model invocation work instead of the retired
+daemon-native `POST /api/v1/chat`, `POST /api/v1/responses`, and
+`POST /api/v1/embeddings` aliases. The stable protocol response helpers expose
+Rust-authored receipt, route, endpoint, backend, route-decision, response,
+tool-receipt, and output metadata so replay/projection and receipt-gate probes
+do not need the native invocation shape. The native alias handlers and native
+embedding response shim are absent, focused route tests require the aliases to
+return `not_found` without invoking model execution, and conformance scans the
+product/proof/live validation corpus so those compatibility paths cannot return.
+Rerank/tokenize/context-fit native utilities, live external backend
+spawning/supervision, hosted/provider transport materialization, and live cTEE
+outbound secret injection remain non-terminal; do not restore `/api/v1`
+invocation aliases beside the stable Rust-owned invocation protocol.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

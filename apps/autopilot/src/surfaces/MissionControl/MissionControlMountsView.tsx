@@ -2673,7 +2673,7 @@ function useModelMountsDaemon() {
       nativeChatProbe: () =>
         runAction("native-chat", async () => {
           const token = await ensureToken();
-          await requestJson("/api/v1/chat", {
+          await requestJson("/v1/chat/completions", {
             method: "POST",
             token,
             body: { model: "local:auto", input: "Autopilot Mounts workbench probe" },
@@ -2723,7 +2723,7 @@ function useModelMountsDaemon() {
           });
           receiptIds.push(stringValue(routeTest?.receipt?.id, "route receipt"));
           for (let index = 0; index < samples; index += 1) {
-            const chat = await requestJson("/api/v1/chat", {
+            const chat = await requestJson("/v1/chat/completions", {
               method: "POST",
               token,
               body: {
@@ -2736,7 +2736,7 @@ function useModelMountsDaemon() {
             receiptIds.push(stringValue(chat?.receipt_id, "chat receipt"));
           }
           if (draft.includeResponses) {
-            const response = await requestJson("/api/v1/responses", {
+            const response = await requestJson("/v1/responses", {
               method: "POST",
               token,
               body: {
@@ -2749,7 +2749,7 @@ function useModelMountsDaemon() {
             receiptIds.push(stringValue(response?.receipt_id, "responses receipt"));
           }
           if (draft.includeEmbeddings) {
-            const embedding = await requestJson("/api/v1/embeddings", {
+            const embedding = await requestJson("/v1/embeddings", {
               method: "POST",
               token,
               body: {
@@ -2766,7 +2766,7 @@ function useModelMountsDaemon() {
       ephemeralMcpProbe: () =>
         runAction("ephemeral-mcp", async () => {
           const token = await ensureToken();
-          await requestJson("/api/v1/responses", {
+          await requestJson("/v1/responses", {
             method: "POST",
             token,
             body: {
@@ -2894,7 +2894,7 @@ function useModelMountsDaemon() {
       receiptGatePassProbe: () =>
         runAction("receipt-gate-pass", async () => {
           const token = await ensureToken();
-          const invocation = await requestJson("/api/v1/responses", {
+          const invocation = await requestJson("/v1/responses", {
             method: "POST",
             token,
             body: {
@@ -2928,7 +2928,7 @@ function useModelMountsDaemon() {
       receiptGateBlockProbe: () =>
         runAction("receipt-gate-block", async () => {
           const token = await ensureToken();
-          const invocation = await requestJson("/api/v1/chat", {
+          const invocation = await requestJson("/v1/chat/completions", {
             method: "POST",
             token,
             body: {
@@ -4586,7 +4586,6 @@ function ServerPanel({
           "GET /v1/model-mount/providers/:id/models",
           "GET /v1/model-mount/providers/:id/loaded",
           "GET /v1/model-mount/providers/:id/health/latest",
-          "POST /api/v1/chat",
           "GET /v1/models",
           "POST /v1/chat/completions",
           "POST /v1/model-mount/mcp/import",

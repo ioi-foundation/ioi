@@ -33,7 +33,6 @@ function retiredRouteWrapper() {
 function routeHandlers(overrides = {}) {
   return createRuntimeRouteHandlers({
     baseUrlForRequest: () => "http://daemon.test",
-    nativeEmbeddingResponse: () => ({}),
     nativeInvocationResponse: () => ({}),
     notFound(message, details) {
       const error = new Error(message);
@@ -101,6 +100,44 @@ test("native authority evidence compatibility routes are retired", async () => {
         response,
         store,
         url: new URL(`${path}?thread_id=thread_route`, "http://daemon.test"),
+        segments: path.split("/").filter(Boolean),
+      }),
+      (error) =>
+        error.code === "not_found" &&
+        error.details?.path === path,
+    );
+  }
+
+  assert.deepEqual(calls, []);
+});
+
+test("native chat, responses, and embeddings invocation aliases are retired", async () => {
+  const { handleModelMountingNativeRoute } = routeHandlers({
+    nativeInvocationResponse: retiredRouteWrapper,
+  });
+  const calls = [];
+  const store = {
+    modelMounting: {
+      invokeModel(payload) {
+        calls.push(payload);
+        return {};
+      },
+    },
+  };
+  const paths = [
+    "/api/v1/chat",
+    "/api/v1/responses",
+    "/api/v1/embeddings",
+  ];
+
+  for (const path of paths) {
+    const response = responseRecorder();
+    await assert.rejects(
+      handleModelMountingNativeRoute({
+        request: request({ method: "POST", url: path, body: { input: "retired alias" } }),
+        response,
+        store,
+        url: new URL(path, "http://daemon.test"),
         segments: path.split("/").filter(Boolean),
       }),
       (error) =>
