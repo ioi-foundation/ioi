@@ -32,7 +32,10 @@ The Hypervisor/autonomous-execution canon is:
 Hypervisor Daemon = hypervisor/control plane for autonomous execution
 IOI daemon = hypervisor/control plane for autonomous execution
 HypervisorOS = bare-metal node profile where daemon is node root
-Default Harness Profile = daemon-executed loop-native orchestration profile
+Workflow Compositor = high-level directed workflow/service graph surface
+HarnessProfile = daemon-executed or daemon-mediated step-resolution adapter
+Default Harness Profile = reference scaffold/fallback HarnessProfile
+Persistent workspace intelligence = workspace/project/domain skills and memory
 Hypervisor Core = shared product/runtime substrate whose execution owner is the daemon
 Hypervisor App/Web/CLI-headless = first-class clients over Hypervisor Core
 TUI = optional presentation of CLI/headless client
@@ -141,10 +144,15 @@ Read the stack this way:
 - IOI Authority Gateway is the daemon sidecar/adapter profile for existing IDE,
   CLI, browser, hosted-agent, and MCP/tool ecosystems: keep your IDE, keep your
   model, and put consequential execution behind IOI;
-- agent-ide and the workflow compositor render typed recipes over the shared
-  builder substrate; CLI/headless, SDK, ADK, harnesses, benchmarks, and IDE
+- Workflow Compositor renders typed recipes, services, workflows, and directed
+  step contracts over the shared builder substrate; selected HarnessProfiles
+  resolve scoped steps. CLI/headless, SDK, ADK, harnesses, benchmarks, and IDE
   extensions are clients, builder frameworks, projections, or adapter targets
   rather than runtime owners;
+- skills, Agent Wiki / `ioi-memory`, wiki facts, learned tool affordances, and
+  durable behavior-affecting context are persistent workspace/project/domain
+  intelligence and should survive model or harness swaps under compatibility,
+  provenance, policy, and authority;
 - external CLI or hosted agent harnesses such as Codex, Claude Code, Grok Build,
   OpenHands, Aider, shell/tmux agents, and CI agents are Agent Harness Adapters:
   they operate through environment-ops profiles and submit proposed work through
@@ -284,7 +292,10 @@ supporting file.
 | IOI SDK | Low-level protocol/client library over daemon, Agentgres, wallet.network, AIIP, and IOI L1 contracts; never the canonical execution owner. |
 | IOI ADK | Autonomous development kit for building workers, service modules, harnesses, evals, manifests, receipts, deployment profiles, and governed autonomous systems. |
 | Shared Builder Substrate | Shared graph model, typed node contracts, schemas, recipes, daemon execution path, and receipt model used by Hypervisor builder lenses. |
-| agent-ide / Workflow Compositor | GUI/workflow projection that renders typed recipes and workflows over the shared builder substrate. |
+| Workflow Compositor | High-level directed workflow/service graph surface over Hypervisor Core and the shared builder substrate. It owns graph shape, step contracts, dependencies, review points, delivery contracts, and selection hints; selected HarnessProfiles resolve scoped steps. |
+| HarnessProfile | Daemon-executed or daemon-mediated step-resolution adapter/profile. |
+| Default Harness Profile | IOI reference scaffold/fallback HarnessProfile, not the only admissible harness and not a meta-harness. |
+| Persistent workspace intelligence | Workspace/project/domain skills, Agent Wiki / `ioi-memory`, wiki facts, tool affordances, route preferences, and failure lessons that persist across model/harness swaps when allowed. |
 | Hypervisor Workbench | Code/systems/workspace surface for autonomous systems; observes, requests, approves, interrupts, debugs, and explains daemon-governed work without owning runtime truth. |
 | Hypervisor Adapters | Mediated bridges from Hypervisor Sessions to VS Code, Cursor, Windsurf, JetBrains, browser IDEs, terminals, Git, browsers, VMs, local OS surfaces, cloud resources, and HypervisorOS nodes. |
 | Agent Harness Adapters | Mediated bridges for external CLI/hosted agent harnesses such as Codex, Claude Code, Grok Build, OpenHands, Aider, shell/tmux agents, CI agents, and hosted coding agents. |
@@ -332,7 +343,7 @@ Hypervisor Node / Local Settlement Domain
   local registries, receipts, replay, interop, and local settlement
 
 Client Surfaces
-  Hypervisor App, Hypervisor Web, Hypervisor CLI/headless, Workbench/Foundry/Fleet surfaces, agent-ide, IOI Authority Gateway adapters, @ioi/agent-sdk, IOI ADK, browser apps, agent harness adapters, benchmarks
+  Hypervisor App, Hypervisor Web, Hypervisor CLI/headless, Workbench/Foundry/Fleet surfaces, Workflow Compositor, IOI Authority Gateway adapters, @ioi/agent-sdk, IOI ADK, browser apps, agent harness adapters, benchmarks
 
 Storage Plane
   local disk, S3/object stores, Filecoin, CAS/IPFS, provider/customer blob stores for payload bytes
@@ -347,7 +358,10 @@ Authority Plane
 2. aiagent.xyz and sas.xyz are not separate chains by default. They are canonical Web4 application domains with their own Agentgres backends and IOI L1 smart-contract settlement rails.
 3. IOI L1 is not the operational notebook. It stores registry, rights, economic commitments, disputes, and sparse roots.
 4. IOI gas is consumed at coordination and settlement boundaries, not per model thought, tool call, or workflow node.
-5. The Default Harness Profile must be daemon-executed, marketplace-neutral, and must not cannibalize worker/service markets through silent appropriation.
+5. HarnessProfiles must be daemon-executed or daemon-mediated,
+   marketplace-neutral, and must not cannibalize worker/service markets through
+   silent appropriation; the Default Harness Profile is the reference
+   scaffold/fallback, not the only admissible harness or a meta-harness.
 6. wallet.network is the authority plane. Agents and runtimes receive authority scopes, not raw secrets.
 7. DePIN nodes are execution venues; Web4 apps define state, rights, UX, contracts, and outcomes.
 8. Storage backends store payloads; trust comes from Agentgres refs, manifests, hashes, signatures, receipts, policy, authority, and settlement roots when applicable.
@@ -357,7 +371,10 @@ Authority Plane
 12. Hypervisor Fleet is a general infrastructure manager whose first-class workload is autonomous systems, not a peer runtime, wallet, Agentgres domain, storage authority, or L1 settlement layer. Fleet manages machines and workload posture while coordinating governance; Hypervisor Daemon executes; wallet.network authorizes; Agentgres records truth; storage backends hold bytes.
 13. decentralized.exchange/trade are route/venue intelligence engines that propose candidates for liquidity and exposure, and Hypervisor provider integrations propose routes for execution; they are not mandatory UIs, authority, custody, provider, venue, storage, or settlement owners. Parked future decentralized.cloud must not be treated as present canon or a mandatory gateway.
 14. CLI/headless, SDK, and ADK are separate surfaces: CLI/headless is the operator/scripting/CI client, TUI is an optional CLI presentation, SDK is the low-level client library, and ADK is the autonomous-system builder framework.
-15. Hypervisor App, Hypervisor Web, CLI/headless, agent-ide, SDK, ADK, agent harness adapters, benchmarks, and Workbench/Foundry/Fleet surfaces must share daemon/domain contracts rather than creating private runtime truth paths.
+15. Hypervisor App, Hypervisor Web, CLI/headless, SDK, ADK, Workflow
+    Compositor, agent harness adapters, benchmarks, and
+    Workbench/Foundry/Fleet surfaces must share daemon/domain contracts rather
+    than creating private runtime truth paths.
 16. Adapter targets must resolve through connection profiles, external harnesses
     must use environment-ops APIs, remote access/log/support tokens must be
     short-lived and receipted, and background automations must be explicit

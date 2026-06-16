@@ -25,7 +25,9 @@ bundled defaults, Sparse Worker Categories stop rewarding real utility.
 
 Therefore:
 
-> **The Default Harness Profile must be a neutral daemon-executed orchestration profile, not the privileged competitor to every worker or service.**
+> **HarnessProfiles must be neutral daemon-executed or daemon-mediated
+> step-resolution contracts. The Default Harness Profile is the reference
+> scaffold/fallback, not the privileged competitor to every worker or service.**
 
 ## Neutral Routing Doctrine
 

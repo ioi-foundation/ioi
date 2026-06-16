@@ -43,7 +43,8 @@ Hypervisor Core includes or coordinates:
 
 - session orchestration;
 - daemon API boundary;
-- Default Harness Profile execution path;
+- Workflow Compositor graph projection and HarnessProfile selection/mediation
+  path;
 - model, worker, service, tool, connector, browser, terminal, and
   computer-use routing;
 - adapter registry and adapter-target mediation;
@@ -88,6 +89,10 @@ Hypervisor
       shared substrate and stable contracts
   -> Hypervisor Daemon
       execution owner
+  -> Workflow Compositor
+      high-level directed workflow/service graph projection over Core
+  -> Harness Profiles
+      selected step-resolution adapters, including Default Harness Profile
   -> Rust/WASM workload/kernel substrate
       step/module execution backend
 ```
@@ -163,6 +168,52 @@ Workbench may appear in:
 
 Workbench can open and operate sessions through many editors. The editor is an
 adapter target, not the product identity.
+
+## Workflow Compositor
+
+**Workflow Compositor** is the high-level directed-work surface over Hypervisor
+Core. It is a shared graph/projection model used by Workbench, Foundry, Fleet,
+Agents, Services, and SDK/ADK clients when work needs explicit structure.
+
+The compositor owns:
+
+- service and workflow graph shape;
+- typed step contracts;
+- dependencies and handoff edges;
+- acceptance criteria and review points;
+- delivery contract and reusable templates;
+- harness, model, worker, provider, and verifier selection hints;
+- replay, receipt, authority, cTEE, and context-topology projections for the
+  graph.
+
+It does not own:
+
+- execution semantics;
+- wallet.network authority;
+- Agentgres truth;
+- model private reasoning;
+- persistent workspace memory;
+- Foundry training or distillation;
+- the selected harness's internal loop.
+
+For each executable step, the compositor selects or recommends a path such as:
+
+```text
+direct daemon-native tool
+Rust/WASM service module
+workload container job
+model or inference mount
+Private Workspace / cTEE action
+verifier step
+external AIIP/capability exit
+selected HarnessProfile
+```
+
+The selected `HarnessProfile` resolves the scoped step. The Default Harness
+Profile is the reference scaffold/fallback profile. External harnesses such as
+Codex, Claude Code, Grok Build, OpenHands, Aider, DeepSeek TUI-like runtimes,
+or Hermes-like runtimes may be mediated as harness profiles or agent harness
+adapters when they produce the common boundary objects and obey daemon gates.
 
 ## Hypervisor Sessions
 
@@ -389,7 +440,9 @@ receipted when they affect privacy, authority, dispute, or restore.
 operator opens Hypervisor App, Hypervisor Web, CLI, or headless client
   -> client requests or resumes a Hypervisor Session
   -> Hypervisor Core resolves surface, adapter target, policy, and runtime posture
-  -> Hypervisor Daemon evaluates proposed actions under Default Harness Profile or direct tool/module policy
+  -> Workflow Compositor shapes directed work when needed
+  -> selected HarnessProfile, service module, tool, model, or verifier resolves scoped steps
+  -> Hypervisor Daemon evaluates proposed actions under policy and authority gates
   -> wallet.network authorizes scopes, spend, secrets, capability leases, or declassification
   -> adapter target, runtime node, tool, model, worker, or service performs approved work
   -> raw results normalize into observations

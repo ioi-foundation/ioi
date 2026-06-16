@@ -45,8 +45,20 @@ Hypervisor Fleet
   projections, and policy visibility without owning execution or authority;
   Fleet is an application surface over Hypervisor Core, not a separate runtime
 
-Default Harness Profile
-  orchestrates loop-native autonomous work inside the daemon
+Workflow Compositor
+  shapes high-level directed workflows, services, dependencies, step contracts,
+  review points, and delivery contracts over Hypervisor Core
+
+Harness Profiles
+  resolve scoped steps through selected model/tool/worker/service/harness paths;
+  the Default Harness Profile is the reference scaffold/fallback profile, not a
+  meta-harness and not the only admissible harness
+
+Persistent workspace intelligence
+  skills, Agent Wiki / ioi-memory, wiki facts, learned tool affordances, and
+  durable behavior-affecting context persist at workspace/project/domain level
+  across model or harness swaps when compatibility, provenance, policy, and
+  authority allow
 
 wallet.network
   authorizes identity, secrets, approvals, payments, exchanges, scopes,
@@ -126,7 +138,9 @@ Hypervisor Core coordinates clients, surfaces, sessions, and adapters.
 Hypervisor Daemon executes.
 HypervisorOS roots serious nodes.
 Hypervisor Fleet manages infrastructure for autonomous systems.
-Default Harness Profile orchestrates.
+Workflow Compositor shapes directed work.
+HarnessProfiles resolve scoped steps.
+Default Harness Profile is the reference scaffold/fallback.
 wallet.network authorizes, risk-labels, approves/denies, revokes, protects, and receipts.
 decentralized.exchange/trade expose route/venue intelligence for liquidity, exposure, and event markets.
 Hypervisor provider integrations propose execution routes.
@@ -147,8 +161,9 @@ Intent
   -> Hypervisor client or application surface
   -> Hypervisor Core session / adapter boundary
   -> Hypervisor Daemon
-  -> Default Harness Profile
-  -> model/tool/result/model loop
+  -> Workflow Compositor when work needs directed graph structure
+  -> selected HarnessProfile, service module, tool, worker, verifier, or model path
+  -> scoped model/tool/result/model or deterministic step loop
   -> receipts + normalized observations
   -> Agentgres operations + artifact refs
   -> storage backend payload bytes
@@ -321,6 +336,9 @@ Avoid these models:
 
 ```text
 Default Harness Profile = a peer runtime beside the daemon
+Default Harness Profile = the only admissible autonomous harness
+Default Harness Profile = a meta-harness above other harnesses
+selected harness/model = owner of workspace memory or skills
 Hypervisor App/Web/CLI-headless = runtime truth
 TUI = separate first-class client lane
 external CLI agent harness = Hypervisor runtime truth
@@ -356,7 +374,10 @@ TUI is an optional CLI presentation
 Hypervisor Workbench/Foundry/Fleet are application surfaces over Core
 External agent harnesses are mediated through Agent Harness Adapters
 Hypervisor Fleet manages infrastructure for autonomous systems
-Default Harness Profile orchestrates inside the daemon
+Workflow Compositor shapes high-level directed work
+selected HarnessProfiles resolve scoped steps
+Default Harness Profile is the reference scaffold/fallback HarnessProfile
+workspace skills and Agent Wiki / ioi-memory persist across harness/model swaps
 Agentgres admits operational truth
 Agent Wiki / ioi-memory remembers and retrieves
 artifact refs bind payload meaning

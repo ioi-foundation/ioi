@@ -1,30 +1,36 @@
 # Default Harness Profile
 
-Status: canonical implementation profile.
-Canonical owner: this file for the default daemon-executed harness profile, loop-native orchestration, context topology, output ownership, and implementation-stage object boundaries.
+Status: canonical reference harness profile.
+Canonical owner: this file for HarnessProfile semantics, the Default Harness Profile reference scaffold/fallback, loop-native step resolution, context topology, output ownership, and implementation-stage object boundaries.
 Supersedes: standalone "Default Harness Runtime" wording when that wording implies a peer runtime beside the Hypervisor Daemon.
 Superseded by: none.
 Last alignment pass: 2026-06-01.
 
 ## Canonical Definition
 
-The **Default Harness Profile** is the standard daemon-executed orchestration
-profile for bounded autonomous work.
+The **Default Harness Profile** is IOI's built-in reference
+`HarnessProfile` for scoped autonomous step resolution.
 
 It is not a separate runtime beside the daemon. The Hypervisor Daemon owns execution
-semantics; the Default Harness Profile configures how intent becomes
-loop-native work under authority, receipts, Agentgres state, artifact refs, and
-verification.
+semantics. The Workflow Compositor owns high-level workflow/service shape.
+Harness profiles configure how scoped steps are resolved under authority,
+receipts, Agentgres state, artifact refs, and verification.
 
 Use this doctrine:
 
-> **The Default Harness Profile is a daemon-executed, wallet-authorized, Agentgres-backed, AIIP-speaking, loop-native orchestration profile for bounded autonomous work.**
+> **Workflow Compositor shapes work. HarnessProfiles resolve steps. The Default
+> Harness Profile is IOI's reference scaffold and fallback profile, not a
+> meta-harness and not the only admissible harness.**
 
 It is not:
 
 ```text
 a fixed swarm
 a separate execution daemon
+a meta-harness above other harnesses
+the owner of high-level workflow composition
+the owner of persistent skills or memory
+the only admissible agent harness
 a chatbot loop
 a blockchain-first execution model
 a CAS/Filecoin blob runtime
@@ -42,8 +48,13 @@ Hypervisor clients and surfaces
 Hypervisor Daemon
   execution owner and policy/authority/effect boundary
 
-Default Harness Profile
-  loop-native orchestration profile executed by the daemon
+Workflow Compositor
+  high-level service/workflow graph, dependencies, review points, acceptance
+  criteria, delivery contract, and harness selection hints
+
+Harness Profiles
+  daemon-executed or daemon-mediated step-resolution profiles and adapters,
+  including Default Harness Profile as the reference scaffold/fallback
 
 Private Workspace backed by cTEE
   optional daemon workspace/execution profile for persistent rented GPU nodes
@@ -78,19 +89,61 @@ delegating authority monotonically, routing context selectively, recording
 operational truth in Agentgres, storing payload bytes behind Agentgres-governed
 artifact refs, and verifying claims according to risk.
 
-The harness profile exists to make that thesis implementable without requiring
-every worker, service, app, or marketplace to invent a private loop.
+Harness profiles exist to make scoped step resolution portable across many
+models, tools, workers, service engines, and external agent harnesses. The
+Default Harness Profile is the built-in reference implementation and scaffold
+for that contract. It is useful as a fallback and as a template for custom
+profiles, but it does not own high-level workflow composition and should not
+make IOI hostile to other credible harnesses.
+
+Persistent workspace intelligence is separate from any selected model or
+harness. Skills, memory, wiki state, learned tool affordances, and durable
+behavior-affecting context belong to the workspace/project/domain through
+Agent Wiki / `ioi-memory`, Agentgres-admitted mutations, receipts, provenance,
+and policy. Swapping from one model or harness to another should not discard
+that intelligence when workspace identity, compatibility, and authority remain
+valid.
 
 ## Profile Record
 
-Implementations should expose the active harness profile through runtime
-manifest, event, trace, or Agentgres projection metadata.
+Implementations should expose the active `HarnessProfile` through runtime
+manifest, event, trace, receipt, or Agentgres projection metadata.
 
 ```yaml
+HarnessProfile:
+  profile_id: harness_profile:...
+  profile_family:
+    default_ioi | hermes | deepseek_tui | openhands |
+    codex_adapter | claude_code_adapter | service_engine |
+    deterministic_only | custom
+  profile_version: string
+  daemon_executed_or_mediated: true
+  step_resolution_contract_required: true
+  produces_boundary_objects:
+    - ActionProposal
+    - GateResult
+    - ExecutionResult
+    - NormalizedObservation
+    - Receipt
+    - ArtifactRef
+    - PayloadRef
+    - AgentgresOperationRef
+  authority_model: wallet.network
+  state_substrate: Agentgres
+  persistent_workspace_intelligence:
+    reads_agent_wiki: policy_selected
+    writes_memory_via_agentgres_admission: required_for_durable_changes
+  workflow_compositor_role:
+    consumes_step_contracts: true
+    owns_high_level_graph: false
+
 DefaultHarnessProfile:
   profile_id: default-harness-profile
   profile_version: 2026.05.default-harness-profile.v1
   daemon_executed: true
+  reference_profile: true
+  scaffold_profile: true
+  fallback_profile: true
   daemon_runtime_api_required: true
   execution_modes:
     - projection
@@ -116,13 +169,72 @@ DefaultHarnessProfile:
     - CEC
 ```
 
-The profile may be implemented by a lower-level runtime service, but the public
-ownership boundary stays with the daemon.
+A harness profile may be implemented by a lower-level runtime service, external
+agent harness, deterministic service module, or Rust/WASM workload substrate,
+but the public ownership boundary stays with the daemon.
+
+## Compositor And Harness Boundary
+
+The clean architecture is:
+
+```text
+Workflow Compositor
+  owns high-level directed work:
+    service graph
+    dependencies
+    typed steps
+    step contracts
+    acceptance criteria
+    review points
+    delivery contract
+    reusable workflow/service templates
+    harness/model/provider selection hints
+
+Selected HarnessProfile
+  resolves one scoped step:
+    local loop policy
+    model/tool/worker/service call planning
+    context chamber usage
+    action proposal production
+    observation normalization
+    stop/blocker/final-output conditions
+
+Hypervisor Daemon
+  owns gates and effects:
+    policy
+    authority
+    execution boundary
+    receipts
+    Agentgres admission
+    artifact refs
+    replay/restore
+
+Workspace Intelligence
+  persists across harness/model swaps:
+    skills
+    memory
+    wiki facts
+    tool affordances
+    correction patterns
+    routing preferences
+    provenance
+```
+
+The compositor may choose the Default Harness Profile for ordinary steps, but
+it may also choose another harness profile or a deterministic service module
+when that is a better fit. The selected profile is a step-resolution adapter,
+not the owner of the workflow graph.
+
+Setup flows such as downloading models, configuring providers, selecting local
+versus remote compute, creating capability leases, or initializing a private
+workspace should be represented as **Workspace Bootstrap Recipes** or
+**Hypervisor Setup Profiles** executed through the Workflow Compositor and
+daemon gates. They are not the Default Harness Profile.
 
 ## Normative Lifecycle
 
-Every serious run under the profile follows this lifecycle. Small local tasks
-may collapse steps, but they must not bypass policy, authority, receipts,
+Every serious run using a harness profile follows this lifecycle. Small local
+tasks may collapse steps, but they must not bypass policy, authority, receipts,
 verification, or terminal-state gates when those gates apply.
 
 ```text
@@ -134,9 +246,11 @@ verification, or terminal-state gates when those gates apply.
 6. Choose fulfillment mode.
 7. Forecast authority, resources, artifacts, and receipts.
 8. Request preflight grants or approval when needed.
-9. Compile an initial WorkGraph or single Task.
-10. Route workers, tools, models, service engines, or packages.
-11. Execute loop-native actors.
+9. Compile or select an initial WorkGraph, service graph, or single Task
+   through the Workflow Compositor when the work is multi-step.
+10. Select a HarnessProfile, deterministic service module, worker, tool, model,
+   or service engine for each executable step.
+11. Resolve scoped steps through the selected HarnessProfile or module path.
 12. Normalize raw results into observations.
 13. Record receipts, traces, Agentgres operations, and artifact refs.
 14. Re-enter model loop when more action or synthesis is needed.
@@ -748,6 +862,12 @@ Do not model the Default Harness Profile as:
 
 ```text
 a peer runtime beside the Hypervisor Daemon
+a meta-harness that owns or supervises all other harnesses
+the high-level Workflow Compositor
+the only admissible harness for autonomous work
+the owner of workspace skills, memory, wiki state, or learned tool affordances
+a Foundry training/distillation/post-training pipeline
+a setup assistant for model downloads and provider configuration
 a chatbot loop with receipts added afterward
 a fixed swarm topology
 a deterministic workflow that calls a model only at the end
@@ -762,7 +882,10 @@ Correct model:
 
 ```text
 daemon executes
-harness profile orchestrates
+Workflow Compositor shapes high-level workflows and services
+selected HarnessProfiles resolve scoped steps
+Default Harness Profile is the reference scaffold/fallback HarnessProfile
+Agent Wiki / ioi-memory and skills persist at workspace/project/domain level
 wallet.network authorizes
 Agentgres admits serious truth
 artifact refs bind payload meaning
@@ -798,39 +921,49 @@ verifiable private-compute guarantee accepted by policy.
 Implementation tests should be organized around these profile checks:
 
 ```text
-DHP-1 Daemon ownership
+HP-1 Daemon ownership
   Clients, adapters, harnesses, and benchmarks cannot own private effect truth.
 
-DHP-2 Proposal-gate-execute
+HP-2 Proposal-gate-execute
   Consequential actions are proposed, policy/authority gated, then executed.
 
-DHP-3 Receipt-backed terminal
+HP-3 Receipt-backed terminal
   Terminal success requires typed receipts, observations, postconditions,
   verification state, and completion gate success.
 
-DHP-4 Context topology
+HP-4 Context topology
   Work splits across context, authority, privacy, risk, service, or
   verification boundaries without dumping global context.
 
-DHP-5 Artifact refs
+HP-5 Artifact refs
   Large payloads are stored behind Agentgres-governed ArtifactRefs/PayloadRefs.
 
-DHP-6 Output ownership
+HP-6 Output ownership
   Final cognitive output is produced after evidence, receipts, observations,
   verification, and uncertainty have been ingested.
 
-DHP-7 Local-first settlement
+HP-7 Local-first settlement
   Ordinary runs settle in Agentgres/receipts; L1 commitment happens only by
   trigger.
 
-DHP-8 Marketplace neutrality
-  The default profile does not silently absorb worker/service internals or
-  privilege itself over routed workers by platform fiat.
+HP-8 Marketplace neutrality
+  Harness profiles do not silently absorb worker/service internals or privilege
+  themselves over routed workers by platform fiat.
+
+HP-9 Harness interoperability
+  Any selected harness profile must produce the common boundary objects:
+  ActionProposal, GateResult, ExecutionResult, NormalizedObservation,
+  Receipt, ArtifactRef/PayloadRef, Agentgres refs, and terminal/blocker state.
+
+HP-10 Workspace intelligence portability
+  Persistent skills and memory survive model/harness swaps when workspace
+  identity, compatibility, provenance, policy, and authority remain valid.
 ```
 
 CEC remains the post-resolution execution-collapse contract. CIRC remains the
-intent-resolution contract. The Default Harness Profile composes those
-contracts into an end-to-end daemon orchestration profile.
+intent-resolution contract. Harness profiles compose those contracts into
+step-resolution behavior under the daemon. The Workflow Compositor composes
+steps into service and workflow graphs.
 
 ## Implementation Phases
 
@@ -904,35 +1037,45 @@ optional L1 settlement hooks
 ## Non-Negotiables
 
 1. The Hypervisor Daemon owns execution semantics.
-2. The Default Harness Profile is daemon-executed; it is not a peer runtime.
-3. The profile is loop-native by default.
-4. Tool calls, worker calls, service calls, file changes, browser actions,
+2. Harness profiles are daemon-executed or daemon-mediated; they are not peer
+   runtimes.
+3. The Default Harness Profile is the reference scaffold/fallback
+   HarnessProfile; it is not the only admissible harness and not a meta-harness.
+4. The Workflow Compositor owns high-level workflow/service shape; selected
+   harness profiles resolve scoped steps.
+5. The reference profile is loop-native by default.
+6. Tool calls, worker calls, service calls, file changes, browser actions,
    connector calls, payments, deploys, and Agentgres writes are proposals until
    policy and authority admit them.
-5. Raw model output is never authority.
-6. Deterministic infrastructure gates, executes, records, normalizes, verifies,
+7. Raw model output is never authority.
+8. Deterministic infrastructure gates, executes, records, normalizes, verifies,
    and settles. It does not replace iterative cognition.
-7. Cognitive final output requires an output ownership pass after evidence and
+9. Cognitive final output requires an output ownership pass after evidence and
    verification have returned, unless the package is explicitly
    deterministic-only.
-8. Authority is monotonic top-down.
-9. Context may move bottom-up and laterally, but cannot grant authority.
-10. Context topology is planned where possible and repaired when telemetry
+10. Authority is monotonic top-down.
+11. Context may move bottom-up and laterally, but cannot grant authority.
+12. Context topology is planned where possible and repaired when telemetry
     proves it wrong.
-11. Compaction preserves provenance, refs, uncertainty, and loop state.
-12. Agentgres owns canonical operational truth.
-13. Agentgres owns artifact identity, refs, lifecycle, policy linkage, receipt
+13. Compaction preserves provenance, refs, uncertainty, and loop state.
+14. Agentgres owns canonical operational truth.
+15. Agentgres owns artifact identity, refs, lifecycle, policy linkage, receipt
     linkage, restore validity, and state-root validity.
-14. Storage backends hold bytes; they do not define runtime truth.
-15. Most local/domain runs do not require L1 settlement.
-16. Verification depth scales with risk.
-17. No actor needs global knowledge.
-18. The profile is marketplace-neutral.
-19. Worker packages and service packages remain portable outside their first
+16. Storage backends hold bytes; they do not define runtime truth.
+17. Persistent skills, memory, wiki state, and durable behavior-affecting
+    context are workspace/project/domain intelligence, not private property of
+    the selected harness or model.
+18. Most local/domain runs do not require L1 settlement.
+19. Verification depth scales with risk.
+20. No actor needs global knowledge.
+21. Harness profiles are marketplace-neutral.
+22. Worker packages and service packages remain portable outside their first
     party marketplace surfaces.
-20. Restore and import are operation-backed through Agentgres, not silent local
+23. Restore and import are operation-backed through Agentgres, not silent local
     mutation.
 
 ## One-Line Doctrine
 
-> **The Default Harness Profile thinks through loops, acts through daemon gates, remembers through admitted state, proves through receipts, stores bytes through artifact refs, and settles only what matters.**
+> **Workflow Compositor shapes work; HarnessProfiles resolve steps; the Default
+> Harness Profile is IOI's reference scaffold; workspace intelligence persists
+> through skills, memory, receipts, provenance, and policy.**

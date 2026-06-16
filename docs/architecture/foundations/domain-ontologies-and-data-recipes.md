@@ -160,7 +160,7 @@ Hypervisor Foundry is the primary local product surface for authoring and
 inspecting ontologies, data recipes, connector mappings, evaluation datasets,
 and ontology-to-worker plans. It should expose guided views first, then allow
 advanced users to open the same data, training, evaluation, benchmark,
-deployment, or outcome recipe in the standard workflow compositor.
+deployment, or outcome recipe in the Workflow Compositor.
 
 aiagent.xyz uses this layer to evaluate, rank, and route workers inside Sparse
 Worker Categories. A worker category should declare the ontology, object models,

@@ -134,17 +134,24 @@ compliance acronyms for hidden audit material.
   authority, execution, storage truth, or privacy proof until selected into an
   approved CloudRoute and executed through the daemon/provider boundary with
   receipts.
-- `DefaultHarnessProfile`: the standard daemon-executed, wallet-authorized,
-  Agentgres-backed, loop-native orchestration profile for bounded autonomous
-  work. It is not a peer runtime beside the daemon; it configures how daemon
-  runs move through intent contracts, context topology, action proposals,
-  policy/authority gates, execution, normalization, receipts, Agentgres state,
-  artifact refs, verification, and output ownership.
-- `LoopNativeExecution`: the Default Harness Profile execution discipline in which
-  scoped work advances by model pass, action proposal, authority/policy gate,
-  execution, result normalization, receipt/Agentgres/context update, and model
-  re-entry until completion, blocker, budget, verification, or delivery state
-  resolves the task.
+- `HarnessProfile`: a daemon-executed or daemon-mediated step-resolution
+  profile/adapter. A selected harness profile resolves a scoped step under
+  daemon gates and must produce common boundary objects such as
+  `ActionProposal`, `GateResult`, `ExecutionResult`, `NormalizedObservation`,
+  receipts, artifact refs, Agentgres refs, and terminal/blocker state. It is
+  not a peer runtime, not high-level workflow composition, and not the owner of
+  persistent workspace memory.
+- `DefaultHarnessProfile`: IOI's reference scaffold/fallback
+  `HarnessProfile` for loop-native scoped step resolution. It is useful as a
+  template for custom profiles and as the ordinary fallback, but it is not the
+  only admissible harness, not a meta-harness above external harnesses, and not
+  the Workflow Compositor.
+- `LoopNativeExecution`: the execution discipline in which scoped work advances
+  by model pass, action proposal, authority/policy gate, execution, result
+  normalization, receipt/Agentgres/context update, and model re-entry until
+  completion, blocker, budget, verification, or delivery state resolves the
+  task. It is the reference behavior of the Default Harness Profile and may be
+  adopted by other HarnessProfiles.
 - `ContextTopology`: the planning and repair surface that partitions a run into
   context-resolution boundaries such as semantic domain, authority, privacy,
   verification, service step, loop depth, artifact locality, or Agentgres
@@ -578,6 +585,12 @@ compliance acronyms for hidden audit material.
   agents can know, remember, and retrieve. Agentgres governs which context
   changes are canonical, replayable, portable, shared, policy-relevant, or
   settlement-relevant.
+- `PersistentWorkspaceIntelligence`: workspace-, project-, org-, or
+  domain-bound skills, Agent Wiki / `ioi-memory` facts, learned tool
+  affordances, route preferences, failure lessons, and durable
+  behavior-affecting context. It should survive model and harness swaps when
+  workspace identity, compatibility, provenance, policy, and authority remain
+  valid. It is not owned by the selected model or harness.
 - `RuntimeSubscription`: an entitlement or billing object that keeps a managed
   worker instance available by per-invocation use, warm runtime allocation, or
   zero-to-idle restore policy. It does not make aiagent.xyz or ioi.ai the
@@ -656,7 +669,7 @@ compliance acronyms for hidden audit material.
 - `HypervisorFoundry`: the Hypervisor application surface for creating, training,
   configuring, evaluating, packaging, deploying, and improving workers through
   the Worker Training lifecycle. It can project recipes into the standard
-  workflow compositor, but it is not a separate canvas environment or runtime.
+  Workflow Compositor, but it is not a separate canvas environment or runtime.
 - `HypervisorFleetSurface`: the Fleet application surface in Hypervisor App,
   Hypervisor Web, CLI/headless projections, optional TUI views, or
   console.ioi.ai for hands-on management of attached nodes, persistent
@@ -668,10 +681,25 @@ compliance acronyms for hidden audit material.
   accounts, devices, entitlements, node registry, provider integrations, fleet
   status, billing, remote access, restore routing, and org policy visibility.
   It is an ioi.ai control-plane surface over Hypervisor Fleet, not the daemon.
-- `WorkflowCompositor`: the standard graph authoring projection over the
-  SharedBuilderSubstrate. It may render outcome workflows, data recipes,
-  training recipes, evaluation recipes, benchmark recipes, or deployment
-  recipes with lens-specific palettes and inspectors.
+- `WorkflowCompositor`: the high-level directed-work surface over Hypervisor
+  Core and the SharedBuilderSubstrate. It owns workflow/service graph shape,
+  typed step contracts, dependencies, acceptance criteria, review points,
+  delivery contracts, reusable templates, and harness/model/provider/verifier
+  selection hints. It does not own execution semantics, wallet authority,
+  Agentgres truth, persistent workspace memory, Foundry training, or the
+  selected harness's internal loop.
+- `ImprovementProposalPlane`: the governed proposal path for runtime
+  improvement. It turns traces, failures, corrections, evals, and receipts into
+  proposed `SkillCandidate`, `MemoryCandidate`, `ToolCallRefinement`,
+  `WorkflowPatch`, `HarnessProfilePatch`, `RoutingPolicyPatch`,
+  `VerifierCandidate`, or `FoundryJobRequest` objects. It is not a
+  self-modifying meta-harness and does not make improvements canonical without
+  evaluation, policy, authority, receipts, and Agentgres admission.
+- `WorkspaceBootstrapRecipe`: a compositor-executed setup recipe for
+  downloading models, configuring provider integrations, setting local/remote
+  compute preferences, creating capability leases, initializing cTEE/private
+  workspace posture, and selecting defaults. It is not the Default Harness
+  Profile.
 - `TaskCapsule`: a minimized, policy-bound execution packet given to a runtime
   node. It carries visible context, hidden context classes, allowed/forbidden
   actions, output contract, TTL, and authority bindings.
@@ -710,9 +738,11 @@ compliance acronyms for hidden audit material.
   systems, workers, service modules, harnesses, evals, manifests, receipts, and
   deployment profiles. It may be built on top of SDK clients, but it is a
   builder framework, not an operator shell and not the daemon/runtime owner.
-- `AgentIde`: the GUI/workflow-composer projection over shared
-  contracts. It authors and inspects workflows, but canonical run/session/task
-  truth remains in daemon/Agentgres state.
+- `AgentIde`: deprecated live product/surface wording. Use
+  `HypervisorWorkbench` for the code/systems/workspace surface and
+  `WorkflowCompositor` for high-level directed workflow/service graph
+  authoring. Historical package names may remain as implementation anchors, but
+  canonical run/session/task truth remains in daemon/Agentgres state.
 - `CompatibilityAdapter`: an IDE extension, CLI wrapper, MCP gateway, shell
   shim, Git hook, workspace watcher, API proxy, browser/cloud connector, or
   CI/CD gate that observes or submits proposed actions to the daemon. It is a

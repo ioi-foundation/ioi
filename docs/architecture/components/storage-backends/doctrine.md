@@ -159,4 +159,5 @@ Do not:
 - [`../agentgres/doctrine.md`](../agentgres/doctrine.md): Agentgres operational
   state substrate.
 - [`../daemon-runtime/default-harness-profile.md`](../daemon-runtime/default-harness-profile.md):
-  daemon-executed orchestration profile that creates refs and receipts.
+  HarnessProfile semantics and Default Harness Profile reference
+  scaffold/fallback behavior for step resolution that emits refs and receipts.

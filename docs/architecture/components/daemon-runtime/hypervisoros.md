@@ -737,8 +737,9 @@ Rent the node. Keep the alpha.
 - [`private-workspace-ctee.md`](./private-workspace-ctee.md): Private
   Workspace backed by cTEE, no-plaintext-custody, private strategy execution,
   and capability exits.
-- [`default-harness-profile.md`](./default-harness-profile.md): daemon-executed
-  loop-native orchestration profile.
+- [`default-harness-profile.md`](./default-harness-profile.md):
+  HarnessProfile semantics and Default Harness Profile reference
+  scaffold/fallback behavior.
 - [`../wallet-network/doctrine.md`](../wallet-network/doctrine.md):
   wallet.network authority, decryption, approvals, and leases.
 - [`../agentgres/doctrine.md`](../agentgres/doctrine.md): canonical operational

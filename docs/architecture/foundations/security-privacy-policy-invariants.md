@@ -17,9 +17,9 @@ This document defines the non-negotiable authority, security, privacy, and execu
 2. Models, agents, and workers may reason or propose; consequential effects
    cross reality only through daemon-mediated policy, authority, receipts, and
    verification.
-3. Worker self-improvement must not self-grant broader authority. Policy
-   widening requires an external authority path such as wallet.network,
-   organization policy, domain governance, or IOI L1 governance.
+3. Improvement proposals must not self-grant broader authority. Policy widening
+   requires an external authority path such as wallet.network, organization
+   policy, domain governance, or IOI L1 governance.
 4. Autonomous-system upgrades are proposal-mediated. Agents may propose changes
    to governed modules, workflows, policies, tool bindings, model routes,
    schemas, and settlement rules, but only policy-bound governance may commit

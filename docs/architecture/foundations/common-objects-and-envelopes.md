@@ -8,7 +8,12 @@ Last alignment pass: 2026-06-03.
 
 ## Purpose
 
-This file defines the shared low-level objects that every IOI/Web4 component must understand. The goal is to prevent split-brain API design between `@ioi/agent-sdk`, IOI ADK, IOI CLI/headless, optional TUI, agent-ide, Hypervisor, Hypervisor Daemon, Agentgres, wallet.network, aiagent.xyz, sas.xyz, workflow compositor, harnesses, benchmarks, hosted/self-hosted workers, and IOI L1 contracts.
+This file defines the shared low-level objects that every IOI/Web4 component
+must understand. The goal is to prevent split-brain API design between
+`@ioi/agent-sdk`, IOI ADK, IOI CLI/headless, optional TUI, Hypervisor
+Workbench, Workflow Compositor, Hypervisor, Hypervisor Daemon, Agentgres,
+wallet.network, aiagent.xyz, sas.xyz, harness profiles, benchmarks,
+hosted/self-hosted workers, and IOI L1 contracts.
 
 ## Canonical Envelope Types
 

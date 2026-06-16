@@ -248,7 +248,7 @@ Hypervisor is optional local execution, not required for all marketplace use.
 The web console is a client surface, not a private runtime. It can expose chat,
 forms, approvals, receipts, spend controls, pause/resume/archive, API keys, and
 webhooks over the same daemon/domain contracts used by Hypervisor,
-CLI/headless, optional TUI views, SDK, ADK, and agent-ide.
+CLI/headless, optional TUI views, SDK, ADK, Workbench, and Workflow Compositor.
 
 ## Sparse Worker Categories
 

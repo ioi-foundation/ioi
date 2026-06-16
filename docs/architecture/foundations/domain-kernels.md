@@ -54,7 +54,8 @@ Execution worker nodes
   run Hypervisor Daemon runtime-node profiles and execute work
 
 Client surfaces
-  Hypervisor App, Hypervisor Web, IOI CLI/headless, optional TUI, @ioi/agent-sdk, IOI ADK, agent-ide, browser apps
+  Hypervisor App, Hypervisor Web, IOI CLI/headless, optional TUI, @ioi/agent-sdk,
+  IOI ADK, Workbench, Workflow Compositor, browser apps
   submit, inspect, scaffold, and control work through stable domain/runtime contracts
 
 Hypervisor application surfaces
@@ -297,7 +298,7 @@ It synchronizes with IOI L1 only for:
 4. Domain kernels must not create split-brain state separate from Agentgres.
 5. All surfaces must use stable runtime/substrate envelopes.
 6. Client surfaces such as Hypervisor App, Hypervisor Web, CLI/headless,
-   optional TUI, SDK, ADK, agent-ide, Workbench, Foundry, and Fleet
+   optional TUI, SDK, ADK, Workbench, Workflow Compositor, Foundry, and Fleet
    must not bypass domain kernels or daemon runtime contracts for canonical
    work.
 

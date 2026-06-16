@@ -92,16 +92,18 @@ Compute-node rule:
 > **Runtime and compute nodes initialize Hypervisor Daemon runtime-node profiles. The
 > SDK is a client over that substrate, not the substrate booted on the node.**
 
-Default harness rule:
+Harness profile rule:
 
-> **The Default Harness Profile is the daemon-executed orchestration profile for
-> bounded autonomous work. It is not a peer runtime beside the daemon.**
+> **HarnessProfiles are daemon-executed or daemon-mediated step-resolution
+> contracts. The Default Harness Profile is IOI's reference scaffold/fallback,
+> not a peer runtime, not the only admissible harness, and not a meta-harness.**
 
 The implementation-grade profile contract lives in
 [`default-harness-profile.md`](./default-harness-profile.md). It defines the
+HarnessProfile boundary, Default Harness Profile reference behavior,
 loop-native lifecycle, context topology, action proposal and gate path,
 Agentgres admission rules, artifact/ref boundary, output ownership pass, and
-conformance phases used by the Default Harness Profile.
+conformance phases used by selected harness profiles.
 
 ## Hypervisor Node Boundary
 
@@ -333,7 +335,7 @@ GET  /v1/deliveries/{id}
 ```
 
 Interactive clients and builder frameworks such as Hypervisor App/Web,
-CLI/headless, optional TUI views, SDK, ADK, agent-ide, and
+CLI/headless, optional TUI views, SDK, ADK, Workflow Compositor, and
 Workbench/Foundry/Fleet surfaces also use the thread/turn control substrate:
 
 ```http
@@ -413,8 +415,8 @@ These envelopes must be stable across local, hosted, marketplace, CLI, UI, workf
 The implementation may bridge the daemon API into a lower-level
 `RuntimeAgentService` or other runtime service loop. That bridge is behind the
 daemon/runtime-node profile. It does not change client ownership: SDK, ADK,
-CLI/headless, optional TUI views, agent-ide, Hypervisor App/Web clients,
-Workbench/Foundry/Fleet surfaces, harnesses, and benchmarks remain
+CLI/headless, optional TUI views, Workflow Compositor, Hypervisor App/Web
+clients, Workbench/Foundry/Fleet surfaces, harnesses, and benchmarks remain
 clients, builder frameworks, or projections.
 
 ## Event Model
@@ -493,7 +495,8 @@ Codex/Claude Code/Grok Build = runtime truth
 Hypervisor App/Web/CLI-headless = runtime truth
 Hypervisor Workbench/Foundry/Fleet = runtime truth
 Hypervisor Core = peer runtime beside the daemon
-Default Harness Profile = peer daemon
+Default Harness Profile = peer daemon, only admissible harness, or meta-harness
+selected harness/model = owner of workspace skills or memory
 Authority Gateway adapter = total control over opaque third-party agents
 runtime node = application-domain truth store
 model reply = completed run proof
@@ -505,7 +508,10 @@ Correct model:
 daemon owns execution semantics
 Hypervisor Core coordinates clients, surfaces, sessions, and adapters
 clients request, inspect, steer, and approve
-profiles configure daemon-executed behavior
+Workflow Compositor shapes high-level directed work
+selected HarnessProfiles resolve scoped steps
+Default Harness Profile is the reference scaffold/fallback profile
+workspace skills and Agent Wiki / ioi-memory persist outside selected harnesses
 Agentgres records operational truth
 wallet.network authorizes effects
 receipts and replay make work accountable
@@ -513,8 +519,9 @@ receipts and replay make work accountable
 
 ## Related Canon
 
-- [`default-harness-profile.md`](./default-harness-profile.md): default
-  daemon-executed loop-native orchestration profile.
+- [`default-harness-profile.md`](./default-harness-profile.md):
+  HarnessProfile semantics and Default Harness Profile reference
+  scaffold/fallback behavior.
 - [`api.md`](./api.md): public daemon/runtime API endpoints and action
   mediation.
 - [`events-receipts-delivery-bundles.md`](./events-receipts-delivery-bundles.md):

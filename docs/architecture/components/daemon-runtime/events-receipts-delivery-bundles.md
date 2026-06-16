@@ -674,7 +674,8 @@ archival checkpoint files.
 3. Delivery requires outputs plus evidence, not just files.
 4. Quality/reputation roots should be aggregated before L1 commitment.
 5. Private traces must support redacted export.
-6. Optional TUI, SDK, ADK, agent-ide, and Hypervisor controls must leave the
-   same event and receipt trail when they mutate runtime state.
+6. Optional TUI, SDK, ADK, Workflow Compositor, Workbench, and Hypervisor
+   controls must leave the same event and receipt trail when they mutate
+   runtime state.
 7. Private Workspace cTEE receipts must never reveal protected plaintext merely
    to prove that private work occurred.

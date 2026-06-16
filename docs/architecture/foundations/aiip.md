@@ -210,16 +210,20 @@ Enterprise Profile
 Profiles preserve one semantic protocol while allowing local, marketplace,
 enterprise, and inter-system variants.
 
-## Hypervisor As Meta-Harness
+## Hypervisor As Coordination Substrate
 
-Hypervisor is the reference meta-harness, router, governance surface, local
-control plane, and receipt aggregator for AIIP-powered autonomous work.
+Hypervisor is the reference coordination substrate, router, governance surface,
+local control plane, and receipt aggregator for AIIP-powered autonomous work.
+It is not a global meta-harness above every agent runtime. Hypervisor Core,
+the Workflow Compositor, selected HarnessProfiles, agent harness adapters, and
+daemon gates let heterogeneous harnesses interoperate without becoming runtime
+truth.
 
 Canonical formulation:
 
 ```text
 Hypervisor routes.
-Microharnesses execute.
+Selected harnesses, workers, services, and modules execute under daemon gates.
 AIIP hands off.
 Receipts prove.
 IOI settles.
@@ -293,8 +297,8 @@ sas.xyz
   first-party marketplace for outcomes, services, acceptance, escrow, and disputes
 
 Hypervisor
-  first-party Hypervisor Core clients, application surfaces, meta-harness,
-  router, and governance substrate
+  first-party Hypervisor Core clients, application surfaces, workflow
+  compositor, harness-profile mediation, router, and governance substrate
 
 Third-party systems
   any custom autonomous system that wants to settle receipts, authority, payments,

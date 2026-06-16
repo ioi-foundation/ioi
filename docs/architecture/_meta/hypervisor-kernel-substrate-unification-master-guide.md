@@ -38,7 +38,7 @@ One-Page Doctrine
   -> target ownership model
   -> Step/Module ABI
   -> truth, receipts, replay, and projections
-  -> workflow compositor and governed self-improvement
+  -> workflow compositor and Improvement Proposal Plane
   -> migration program and anti-patterns
 ```
 
@@ -84,7 +84,9 @@ Short form:
 
 ```text
 Hypervisor Daemon owns execution semantics.
-Default Harness Profile configures loop-native orchestration.
+Workflow Compositor shapes directed work.
+Selected HarnessProfiles resolve scoped steps.
+Default Harness Profile is reference/fallback.
 Rust/WASM workload/kernel executes admitted step modules.
 Agentgres admits and proves operational truth.
 wallet.network authorizes.
@@ -111,8 +113,12 @@ Hypervisor Daemon
   execution owner, authority/effect boundary
         |
         v
-Default Harness Profile
-  daemon-executed loop-native orchestration profile
+Workflow Compositor
+  high-level directed workflow/service graph and step contracts
+        |
+        v
+Selected HarnessProfile
+  step-resolution adapter; Default Harness Profile is reference/fallback
         |
         v
 StepModuleRouter
@@ -136,7 +142,8 @@ Agentgres + receipts + artifact refs + state roots
 | Invariant | Meaning |
 | --- | --- |
 | One execution owner | Hypervisor Daemon owns execution semantics and effect boundaries. |
-| One orchestration profile | Default Harness Profile configures daemon-executed loop-native work. |
+| One directed-work surface | Workflow Compositor owns high-level workflow/service graph shape and step contracts. |
+| One step-resolution contract | HarnessProfiles resolve scoped steps under daemon gates; Default Harness Profile is the reference/fallback. |
 | One step/module contract | Every serious step is represented as a `StepModuleInvocation` and result. |
 | One admitted truth path | Agentgres admits meaningful operations, receipts, refs, heads, and state roots. |
 | One migration direction | JS product paths converge into a Rust daemon core and Rust/WASM backend; obsolete shims are deleted after verification. |
@@ -147,7 +154,8 @@ Agentgres + receipts + artifact refs + state roots
 | --- | --- | --- | --- |
 | Product surface | Workbench/App/Web/CLI/SDK workflow | workflow graph, approvals, replay, package UX | product requests and inspection only |
 | Daemon authority | a run that can act safely | gates, leases, StepModuleRouter, cTEE checks | execution semantics live here |
-| Harness profile | loop-native autonomous work | ActionProposal -> GateResult -> module execution -> observation | Default Harness Profile configures, does not replace daemon |
+| Workflow Compositor | directed workflow/service graph | step contracts, dependencies, review points, selection hints | high-level graph shape, not execution truth |
+| Harness profile | scoped autonomous step | ActionProposal -> GateResult -> module execution -> observation | selected HarnessProfile resolves a step; DHP is reference/fallback |
 | Execution backend | tool/model/worker/service progress | Rust/WASM service modules, workload jobs, model mounts, verifiers | backend executes admitted steps |
 | Truth substrate | receipts, evidence, restore/replay | Agentgres operations, refs, heads, state roots | admitted operational truth |
 | Settlement surface | marketplace/public/cross-domain proof when needed | L1/app-chain commitments by trigger | not default runtime settlement |
@@ -191,7 +199,7 @@ The architecture docs already name the intended boundaries:
 
 | Canon doc | Current doctrine |
 | --- | --- |
-| `docs/architecture/components/daemon-runtime/default-harness-profile.md` | The Default Harness Profile is daemon-executed, not a separate runtime beside the daemon. |
+| `docs/architecture/components/daemon-runtime/default-harness-profile.md` | HarnessProfiles resolve scoped steps under daemon gates; Default Harness Profile is the reference scaffold/fallback. |
 | `docs/architecture/foundations/domain-kernels.md` | IOI kernel / L0 substrate creates and operates many domain kernels and governed chains. |
 | `docs/architecture/foundations/governed-autonomous-systems.md` | Serious autonomous systems are governed execution objects whose service modules produce receipted transitions. |
 | `docs/architecture/components/daemon-runtime/private-workspace-ctee.md` | Private Workspace backed by cTEE is the daemon profile for no-plaintext-custody work on rented GPU nodes. |
@@ -202,7 +210,7 @@ The architecture docs already name the intended boundaries:
 Live product runtime today is primarily:
 
 ```text
-Hypervisor Workbench / Hypervisor App/Web / agent-ide surfaces
+Hypervisor Workbench / Hypervisor App/Web / Workflow Compositor surfaces
   -> @ioi/runtime-daemon HTTP routes
   -> JS state store / thread store / model-mounting store
   -> JS direct tool dispatch for local coding tools
@@ -245,7 +253,7 @@ These pieces are conceptually aligned but not fully wired end to end:
 | Agentgres operation/state-root unification across daemon local state and domain-kernel state | In migration. Runtime run-state persistence now commits through Rust Agentgres admission with expected heads, state roots, materialized records, storage admissions, and projection watermarks; remaining JS receipt/cache persistence must continue demoting behind Rust binding/admission. |
 | Workflow compositor as live graph controller over the same runtime substrate | In migration. Rust projection records and accepted-truth guards exist, and IDE/SDK/daemon projection aliases are being retired; deeper live package/review UI remains ordinary product work on top of admitted projection APIs. |
 | cTEE Private Workspace as concrete workload/module path | Implemented at the admission path: Rust validation/execution/admission/projection bundle, daemon runner, product/API route, SDK/IDE/CLI clients, and plaintext negative conformance exist. Deeper private workspace UI/replay remains product work. |
-| Meta self-improvement as proposal-mediated module/profile/schema changes | Implemented at the admission path: governed proposal admission requires eval/verifier receipts, approval, rollback, Agentgres binding, expected heads, and state roots; full IDE review UI and live mutation commit remain product/runtime evolution. |
+| Improvement Proposal Plane for module/profile/schema/skill/memory changes | Implemented at the admission path: governed proposal admission requires eval/verifier receipts, approval, rollback, Agentgres binding, expected heads, and state roots; full review UI and live mutation commit remain product/runtime evolution. |
 
 ### Where the split brain lives
 
@@ -3299,8 +3307,11 @@ Hypervisor Daemon
   implementation may begin as Node/JS facade, but mature daemon core should
   consolidate in Rust once the ABI and workload bridge prove parity
 
-Default Harness Profile
-  daemon-executed loop-native orchestration profile
+Workflow Compositor
+  high-level directed workflow/service graph and step contracts
+
+Selected HarnessProfile
+  step-resolution adapter; Default Harness Profile is reference/fallback
 
 StepModuleRouter
   canonical bridge from daemon steps to execution backends
@@ -3335,7 +3346,8 @@ IOI L1 / compatible app chains
 | --- | --- | --- |
 | User/operator UX | Hypervisor App / Web / CLI / SDK and Workbench surfaces | Requests, displays, composes, steers, inspects. Does not own execution semantics. |
 | Execution semantics | Hypervisor Daemon | The daemon decides what can cross an effect boundary. |
-| Orchestration profile | Default Harness Profile | Configures loop-native work under daemon ownership. |
+| Directed-work surface | Workflow Compositor | Shapes high-level workflow/service graphs, dependencies, review points, and step contracts. |
+| Step-resolution profile | Selected HarnessProfile | Resolves scoped steps under daemon ownership; Default Harness Profile is reference/fallback. |
 | Step/module execution backend | Rust/WASM workload/kernel substrate | Authoritative backend for admitted module execution after migration. |
 | Tool approval and effect gate | Hypervisor Daemon + wallet.network | Daemon gates; wallet.network issues authority grants/approval receipts. |
 | Canonical operational truth | Agentgres | Accepted operations, refs, heads, state roots, projections, replay/restore truth. |
@@ -3851,16 +3863,18 @@ successful repeated trace
 | Replay view | deterministic replay sources, artifact refs, state roots, projection watermarks. |
 | Package view | worker/service/module candidate, benchmark status, marketplace readiness. |
 
-## Part VI: Governed Meta-Improvement
+## Part VI: Improvement Proposal Plane
 
-This part defines how the harness becomes self-improving without becoming
-self-mutating. Runtime learning produces candidates and proposals; authority,
-evaluation, receipts, and Agentgres admission decide what becomes live.
+This part defines how runtime learning becomes governable without becoming
+direct self-mutation. Traces, failures, corrections, evals, receipts, and human
+edits produce candidates and proposals; authority, evaluation, receipts, and
+Agentgres admission decide what becomes live.
 
 ### Principle
 
-The Default Harness Profile and agent runtime may improve themselves, but only
-through proposal-mediated governance.
+The runtime may improve skills, memory, workflow graphs, harness profiles,
+routes, verifiers, and modules, but only through the Improvement Proposal Plane
+and proposal-mediated governance.
 
 Forbidden:
 
@@ -3948,7 +3962,7 @@ RuntimeImprovementProposal:
 
 ### Required gates
 
-No self-improvement candidate becomes live until:
+No improvement proposal candidate becomes live until:
 
 - schema validation passes;
 - deterministic tests or simulation pass;
@@ -3967,8 +3981,8 @@ out the master guide means completing this program through terminal conformance.
 
 The program keeps the migration staged, testable, and reviewable: inventory
 first, ABI second, bridge third, one shadowed tool fourth, then receipts,
-compositor, cTEE, packages, self-improvement, Rust core, facade retirement, and
-full conformance.
+compositor, cTEE, packages, the Improvement Proposal Plane, Rust core, facade
+retirement, and full conformance.
 
 ### Current sprint lane
 
@@ -4282,7 +4296,8 @@ Implementation work:
   routes, IDE workflow compositor projections, Agentgres refs, and cTEE docs.
 - Add a "live vs target" annotation to any docs that imply Rust/WASM already
   executes all Hypervisor steps.
-- Confirm naming uses Hypervisor and Default Harness Profile.
+- Confirm naming uses Hypervisor, Workflow Compositor, HarnessProfile, and
+  Default Harness Profile only as the reference/fallback profile.
 
 Likely files/modules:
 
@@ -4677,7 +4692,7 @@ Tests/proofs:
 
 Risks:
 
-- "self-improvement" becomes ungoverned prompt editing.
+- Improvement Proposal Plane becomes ungoverned prompt editing.
 
 Acceptance criteria:
 
@@ -12194,15 +12209,18 @@ behavior beside Rust-owned protocol projections.
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The
-Hypervisor Daemon owns execution semantics and authority boundaries. The Default
-Harness Profile is the daemon-executed loop-native orchestration profile. The
-existing Rust/WASM workload/kernel substrate should become the authoritative
-backend for admitted step and module execution. Agentgres records admitted
-truth. wallet.network authorizes secrets, scopes, approvals, leases, and
-declassification. Private Workspace backed by cTEE keeps protected plaintext out
-of untrusted compute by default. Hypervisor Workbench composes, governs, and replays
-the same graph the daemon and kernel execute. IOI L1 receives only selected
-public, economic, rights, dispute, registry, or cross-domain commitments.
+Hypervisor Daemon owns execution semantics and authority boundaries. Workflow
+Compositor shapes high-level workflow/service graphs and step contracts.
+Selected HarnessProfiles resolve scoped steps; the Default Harness Profile is
+the reference/fallback profile, not the only admissible harness or a
+meta-harness. The existing Rust/WASM workload/kernel substrate should become
+the authoritative backend for admitted step and module execution. Agentgres
+records admitted truth. wallet.network authorizes secrets, scopes, approvals,
+leases, and declassification. Private Workspace backed by cTEE keeps protected
+plaintext out of untrusted compute by default. Hypervisor Workbench composes,
+governs, and replays the same graph the daemon and kernel execute. IOI L1
+receives only selected public, economic, rights, dispute, registry, or
+cross-domain commitments.
 
 In one line:
 

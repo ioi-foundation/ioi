@@ -1812,8 +1812,9 @@ Cloud persistence without handing the provider your private context.
 
 - [`runtime-nodes-tee-depin.md`](./runtime-nodes-tee-depin.md): runtime node,
   DePIN, TEE, and execution privacy taxonomy.
-- [`default-harness-profile.md`](./default-harness-profile.md): daemon-executed
-  loop-native orchestration profile.
+- [`default-harness-profile.md`](./default-harness-profile.md):
+  HarnessProfile semantics and Default Harness Profile reference
+  scaffold/fallback behavior.
 - [`../wallet-network/doctrine.md`](../wallet-network/doctrine.md):
   authority, keys, declassification, and action power.
 - [`../agentgres/artifact-ref-plane.md`](../agentgres/artifact-ref-plane.md):

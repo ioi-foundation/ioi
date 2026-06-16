@@ -118,8 +118,37 @@ Agentgres receipt model. Different lenses may expose different palettes,
 inspectors, run panels, templates, and validation rules.
 
 The default product should be a guided Foundry experience. Advanced users may
-open the same recipe in the standard workflow compositor for inspection,
+open the same recipe in the Workflow Compositor for inspection,
 customization, reuse, or composition.
+
+## Foundry Versus Runtime Improvement
+
+Foundry is not the meta-harness for Hypervisor. It is the training,
+distillation, evaluation, benchmarking, packaging, and publishing surface for
+workers, models, recipes, datasets, and gates.
+
+The live runtime improvement path is the governed Improvement Proposal Plane:
+
+```text
+trace / failure / correction / eval / receipt
+  -> SkillCandidate | MemoryCandidate | ToolCallRefinement |
+     WorkflowPatch | HarnessProfilePatch | RoutingPolicyPatch |
+     VerifierCandidate | ContextTopologyPatch | FoundryJobRequest
+  -> simulation / eval / verifier checks
+  -> policy and authority decision
+  -> Agentgres admission and receipts
+```
+
+Only some proposals need Foundry. A small tool-call refinement, workspace skill,
+Agent Wiki memory, route preference, verifier rule, or workflow patch may be
+admitted directly through governance. Model training, distillation, dataset
+curation, benchmark publication, or worker-package promotion should route
+through Foundry.
+
+This keeps scalable improvement practical: ordinary services can use one
+workflow, one selected HarnessProfile, one model route, and persistent
+workspace intelligence; specialized improvements escalate into Foundry only
+when training or packaging is actually needed.
 
 ## Hypervisor Foundry Product Doctrine
 

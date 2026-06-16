@@ -185,20 +185,26 @@ Examples:
 | Memory write | State projection module |
 | Self-improvement diff | Upgrade proposal module |
 
-## Governed Recursive Improvement
+## Improvement Proposal Plane
 
-Bounded recursive improvement is proposal-mediated self-improvement.
+Bounded recursive improvement is proposal-mediated improvement. IOI does not
+need a global "meta harness" that owns every model, tool, memory, workflow, and
+runtime. It needs an **Improvement Proposal Plane** that converts evidence into
+governable patches.
 
 The dangerous version is:
 
 ```text
 agent modifies itself directly
+selected harness writes durable skills/memory by itself
+Foundry training silently mutates live runtime behavior
 ```
 
 The IOI version is:
 
 ```text
-agent or worker proposes an upgrade
+trace, failure, correction, receipt, or eval reveals an improvement opportunity
+-> worker, harness, compositor, verifier, or human proposes a patch
 -> daemon runs simulation, evaluation, and policy checks
 -> wallet.network or governance path approves, rejects, or escalates
 -> Agentgres records the accepted operation and receipts
@@ -207,9 +213,9 @@ agent or worker proposes an upgrade
 
 Canonical invariant:
 
-> **Agents do not self-modify directly. Autonomous systems propose upgrades to
-> governed modules, and only policy-bound, receipted governance makes those
-> upgrades canonical.**
+> **Agents and harnesses do not self-modify directly. Autonomous systems propose
+> improvements to governed objects, and only policy-bound, receipted governance
+> makes those improvements canonical.**
 
 Mutable units should be concrete governable objects:
 
@@ -219,10 +225,40 @@ Mutable units should be concrete governable objects:
 - contracts;
 - tool bindings;
 - model routes;
+- skills;
+- Agent Wiki / `ioi-memory` entries;
 - memory or projection schemas;
 - settlement rules;
 - dispute rules;
 - authority envelopes.
+
+Improvement candidates may include:
+
+```text
+SkillCandidate
+MemoryCandidate
+ToolCallRefinement
+WorkflowPatch
+HarnessProfilePatch
+RoutingPolicyPatch
+VerifierCandidate
+ContextTopologyPatch
+AdapterPatch
+PackageUpgrade
+FoundryJobRequest
+```
+
+Foundry is separate. Foundry creates, trains, evaluates, packages, benchmarks,
+and publishes workers or models when that is the right improvement path. The
+Improvement Proposal Plane may request a Foundry job, but it is not Foundry,
+and Foundry outputs still require deployment, eval, authority, receipt, and
+Agentgres admission before they alter live behavior.
+
+Default use should remain simple: many services will run one workflow, one
+selected model route, one selected HarnessProfile, and a few skills/memory
+projections. Distributed recursive improvement should add skills, memory,
+tool-call refinements, route policies, verifiers, or workflow patches only
+where evidence shows value.
 
 The agent should be intelligent upstream of the boundary and deterministic at
 the commitment boundary.
@@ -289,7 +325,8 @@ The coherent product and protocol roles are:
 2. Do not imply every governed autonomous system is a standalone blockchain L1.
 3. Do not use IOI L1 for every module invocation, workflow node, tool call,
    memory update, or local receipt.
-4. Do not let an agent self-grant authority through self-improvement.
+4. Do not let an agent self-grant authority through the Improvement Proposal
+   Plane.
 5. Do not let service modules mutate canonical state without typed operations,
    policy, authority, receipts, and replay.
 6. Do not let local Hypervisor Node settlement masquerade as public economic
