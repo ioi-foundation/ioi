@@ -4493,6 +4493,12 @@ function runBridge() {
   const runtimeRunCancellationTest = exists("packages/runtime-daemon/src/runtime-run-cancellation.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-run-cancellation.test.mjs")
     : "";
+  const runtimeSubagentSurfaceForRunCancel = exists("packages/runtime-daemon/src/runtime-subagent-surface.mjs")
+    ? read("packages/runtime-daemon/src/runtime-subagent-surface.mjs")
+    : "";
+  const runtimeSubagentSurfaceTestForRunCancel = exists("packages/runtime-daemon/src/runtime-subagent-surface.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-subagent-surface.test.mjs")
+    : "";
   const runtimeSkillHookSurface = exists("packages/runtime-daemon/src/runtime-skill-hook-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-skill-hook-surface.mjs")
     : "";
@@ -13033,6 +13039,7 @@ function runBridge() {
       /operation_kind:\s*"run\.cancel"/.test(runtimeRunCancellation) &&
       /planRunCancelStateUpdate/.test(runtimeRunCancellation) &&
       !/runCancelRunner/.test(runtimeRunCancellation) &&
+      !/state\??\.contextPolicyCore/.test(runtimeRunCancellation) &&
       /run_cancel_state_update_run_missing/.test(runtimeRunCancellation) &&
       /run_cancel_state_update_operation_kind_mismatch/.test(runtimeRunCancellation) &&
       /run_cancel_state_update_projection_incomplete/.test(runtimeRunCancellation) &&
@@ -13044,15 +13051,16 @@ function runBridge() {
       ) &&
       !/stateUpdate\.run\s*\?\?\s*run/.test(runtimeRunCancellation) &&
       !/stateUpdate\.operation_kind\s*\?\?\s*"run\.cancel"/.test(runtimeRunCancellation) &&
-      /cancelRun facade commits only Rust-planned cancellation through Agentgres writeRun/.test(
+      /cancelRun facade commits only explicit Rust-planned cancellation through Agentgres writeRun/.test(
         runtimeRunCancellationTest,
       ) &&
       /cancelRun facade fails closed when Rust state planner is missing/.test(
         runtimeRunCancellationTest,
       ) &&
-      /cancelRun facade uses Rust daemon-core admission-required planner when state planner is absent/.test(
+      /cancelRun facade uses explicit Rust daemon-core admission-required planner when state planner is absent/.test(
         runtimeRunCancellationTest,
       ) &&
+      !/state\??\.contextPolicyCore/.test(runtimeRunCancellationTest) &&
       /cancelRun missing-run failure remains canonical and does not write/.test(runtimeRunCancellationTest) &&
       /cancelRun rejects Rust state update without canceled run projection/.test(
         runtimeRunCancellationTest,
@@ -13067,7 +13075,7 @@ function runBridge() {
       /planRunCancelStateUpdate/.test(runtimeRunCancellationTest) &&
       /Object\.hasOwn\(error\.details,\s*"runId"\),\s*false/.test(runtimeRunCancellationTest) &&
       /createRuntimeThreadAuxiliarySurface/.test(runtimeThreadAuxiliarySurface) &&
-      /cancelRun\(store, runId\)/.test(runtimeThreadAuxiliarySurface) &&
+      /cancelRun\(store, runId, coreDeps\)/.test(runtimeThreadAuxiliarySurface) &&
       /this\.threadAuxiliarySurface = createRuntimeThreadAuxiliarySurface\(\{\s*contextPolicyCore:\s*this\.contextPolicyCore,\s*\}\)/.test(
         runtimeDaemonIndex,
       ) &&
@@ -13077,6 +13085,12 @@ function runBridge() {
       ) &&
       /thread auxiliary and run cancel routes use mounted auxiliary surface/.test(
         runtimeRouteHandlersTest,
+      ) &&
+      /cancelRunDep\(store,\s*record\.run_id,\s*\{\s*contextPolicyCore\s*\}\)/.test(
+        runtimeSubagentSurfaceForRunCancel,
+      ) &&
+      /typeof deps\.contextPolicyCore\?\.planRuntimeSubagentControl/.test(
+        runtimeSubagentSurfaceTestForRunCancel,
       ) &&
       !/store\.cancelRun\(runId\)/.test(runtimeRouteHandlers) &&
       !/cancelRunState\(this,\s*runId,\s*\{/.test(runtimeDaemonIndex),
@@ -13089,6 +13103,8 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-run-cancellation.mjs",
       "packages/runtime-daemon/src/runtime-run-cancellation.test.mjs",
       "packages/runtime-daemon/src/runtime-thread-auxiliary-surface.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.test.mjs",
@@ -30662,12 +30678,12 @@ function runCompositor() {
     /runtime_subagent_cancel_run_rust_owned/.test(runtimeSubagentSurface) &&
     /subagentControlEvidenceRefs/.test(runtimeSubagentSurface) &&
     /commitSubagentControlRecord/.test(runtimeSubagentSurface) &&
-    /cancelRunDep\(store,\s*record\.run_id\)/.test(runtimeSubagentSurface) &&
+    /cancelRunDep\(store,\s*record\.run_id,\s*\{\s*contextPolicyCore\s*\}\)/.test(runtimeSubagentSurface) &&
     !/store\.cancelRun\(/.test(runtimeSubagentSurface) &&
     /assignSubagent\(store, threadId, subagentId, request = \{\}\) \{[\s\S]*?commitSubagentControlRecord[\s\S]*?operation:\s*"assign"[\s\S]*?operationKind/.test(
       runtimeSubagentSurface,
     ) &&
-    /cancelSubagent\(store, threadId, subagentId, request = \{\}\) \{[\s\S]*?cancelRunDep\(store,\s*record\.run_id\)[\s\S]*?commitSubagentControlRecord[\s\S]*?operation:\s*"cancel"[\s\S]*?operationKind/.test(
+    /cancelSubagent\(store, threadId, subagentId, request = \{\}\) \{[\s\S]*?cancelRunDep\(store,\s*record\.run_id,\s*\{\s*contextPolicyCore\s*\}\)[\s\S]*?commitSubagentControlRecord[\s\S]*?operation:\s*"cancel"[\s\S]*?operationKind/.test(
       runtimeSubagentSurface,
     ) &&
     !/throwRuntimeSubagentRustCoreRequired/.test(runtimeSubagentAssignBlock) &&
@@ -30695,7 +30711,7 @@ function runCompositor() {
     );
   const runtimeSubagentPropagationControlRustOwned =
     /runtime_subagent_cancel_propagation_rust_owned/.test(runtimeSubagentSurface) &&
-    /propagateSubagentCancellation\(store, threadId, request = \{\}\) \{[\s\S]*?requireSubagentControlCore[\s\S]*?this\.listSubagents\(store,\s*threadId\)[\s\S]*?cancelRunDep\(store,\s*record\.run_id\)[\s\S]*?commitSubagentControlRecord[\s\S]*?operation:\s*"cancel"[\s\S]*?operationKind/.test(
+    /propagateSubagentCancellation\(store, threadId, request = \{\}\) \{[\s\S]*?requireSubagentControlCore[\s\S]*?this\.listSubagents\(store,\s*threadId\)[\s\S]*?cancelRunDep\(store,\s*record\.run_id,\s*\{\s*contextPolicyCore\s*\}\)[\s\S]*?commitSubagentControlRecord[\s\S]*?operation:\s*"cancel"[\s\S]*?operationKind/.test(
       runtimeSubagentSurface,
     ) &&
     !/throwRuntimeSubagentRustCoreRequired/.test(runtimeSubagentPropagationEnvelopeBlock) &&

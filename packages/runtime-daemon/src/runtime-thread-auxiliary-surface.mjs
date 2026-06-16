@@ -31,7 +31,7 @@ export function createRuntimeThreadAuxiliarySurface({
       return threadForkState.forkThread(store, threadId, request, coreDeps);
     },
     cancelRun(store, runId) {
-      return cancelRun(store, runId);
+      return cancelRun(store, runId, coreDeps);
     },
   };
 }

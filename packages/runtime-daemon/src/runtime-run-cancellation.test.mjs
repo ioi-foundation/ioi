@@ -77,22 +77,20 @@ function canceledRunProjection(request, overrides = {}) {
   };
 }
 
-test("cancelRun facade commits only Rust-planned cancellation through Agentgres writeRun", () => {
+test("cancelRun facade commits only explicit Rust-planned cancellation through Agentgres writeRun", () => {
   const run = runFixture();
-  const state = {
-    ...fakeState(run),
-    contextPolicyCore: {
-      planRunCancelStateUpdate(request) {
-        state.runnerCalls.push(request);
-        return canceledRunProjection(request);
-      },
-      planRunCancelAdmissionRequired() {
-        throw new Error("Positive run cancellation must not ask for admission-required refusal.");
-      },
+  const state = fakeState(run);
+  const contextPolicyCore = {
+    planRunCancelStateUpdate(request) {
+      state.runnerCalls.push(request);
+      return canceledRunProjection(request);
+    },
+    planRunCancelAdmissionRequired() {
+      throw new Error("Positive run cancellation must not ask for admission-required refusal.");
     },
   };
 
-  const result = cancelRun(state, run.id);
+  const result = cancelRun(state, run.id, { contextPolicyCore });
 
   assert.equal(state.runnerCalls.length, 1);
   assert.deepEqual(state.runnerCalls[0], {
@@ -150,38 +148,36 @@ test("cancelRun facade fails closed when Rust state planner is missing", () => {
   assert.deepEqual(state.writes, []);
 });
 
-test("cancelRun facade uses Rust daemon-core admission-required planner when state planner is absent", () => {
+test("cancelRun facade uses explicit Rust daemon-core admission-required planner when state planner is absent", () => {
   const run = runFixture();
   const runnerCalls = [];
-  const state = {
-    ...fakeState(run),
-    contextPolicyCore: {
-      planRunCancelAdmissionRequired(request) {
-        runnerCalls.push(request);
-        return {
-          source: "rust_run_cancel_admission_required_api",
-          backend: "rust_policy",
-          record: {
-            status_code: 501,
-            code: "runtime_run_cancel_rust_core_required",
-            message:
-              "Run cancellation requires direct Rust daemon-core state admission and persistence.",
-            details: {
-              rust_core_boundary: "runtime.run_cancel",
-              operation: request.operation,
-              operation_kind: request.operation_kind,
-              run_id: request.run_id,
-              run_status: request.run_status,
-              evidence_refs: request.evidence_refs,
-            },
+  const state = fakeState(run);
+  const contextPolicyCore = {
+    planRunCancelAdmissionRequired(request) {
+      runnerCalls.push(request);
+      return {
+        source: "rust_run_cancel_admission_required_api",
+        backend: "rust_policy",
+        record: {
+          status_code: 501,
+          code: "runtime_run_cancel_rust_core_required",
+          message:
+            "Run cancellation requires direct Rust daemon-core state admission and persistence.",
+          details: {
+            rust_core_boundary: "runtime.run_cancel",
+            operation: request.operation,
+            operation_kind: request.operation_kind,
+            run_id: request.run_id,
+            run_status: request.run_status,
+            evidence_refs: request.evidence_refs,
           },
-        };
-      },
+        },
+      };
     },
   };
 
   assert.throws(
-    () => cancelRun(state, run.id),
+    () => cancelRun(state, run.id, { contextPolicyCore }),
     (error) => {
       assert.equal(error.code, "runtime_run_cancel_rust_core_required");
       assert.equal(error.status, 501);
@@ -242,19 +238,17 @@ test("cancelRun missing-run failure remains canonical and does not write", () =>
 
 test("cancelRun rejects Rust state update without canceled run projection", () => {
   const run = runFixture();
-  const state = {
-    ...fakeState(run),
-    contextPolicyCore: {
-      planRunCancelStateUpdate(request) {
-        return canceledRunProjection(request, {
-          run: { ...request.run, status: "running" },
-        });
-      },
+  const state = fakeState(run);
+  const contextPolicyCore = {
+    planRunCancelStateUpdate(request) {
+      return canceledRunProjection(request, {
+        run: { ...request.run, status: "running" },
+      });
     },
   };
 
   assert.throws(
-    () => cancelRun(state, run.id),
+    () => cancelRun(state, run.id, { contextPolicyCore }),
     (error) => {
       assert.equal(error.code, "run_cancel_state_update_projection_incomplete");
       assert.equal(error.status, 502);
@@ -269,19 +263,17 @@ test("cancelRun rejects Rust state update without canceled run projection", () =
 
 test("cancelRun rejects Rust state update with wrong operation kind", () => {
   const run = runFixture();
-  const state = {
-    ...fakeState(run),
-    contextPolicyCore: {
-      planRunCancelStateUpdate(request) {
-        return canceledRunProjection(request, {
-          operation_kind: "run.create",
-        });
-      },
+  const state = fakeState(run);
+  const contextPolicyCore = {
+    planRunCancelStateUpdate(request) {
+      return canceledRunProjection(request, {
+        operation_kind: "run.create",
+      });
     },
   };
 
   assert.throws(
-    () => cancelRun(state, run.id),
+    () => cancelRun(state, run.id, { contextPolicyCore }),
     (error) => {
       assert.equal(error.code, "run_cancel_state_update_operation_kind_mismatch");
       assert.equal(error.status, 502);

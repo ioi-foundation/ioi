@@ -1165,7 +1165,8 @@ test("subagent assign and cancel controls use Rust control, state planning, and 
   const canceledRuns = [];
   const store = createStore();
   const surface = createRuntimeSubagentSurface({
-    cancelRun(state, runId) {
+    cancelRun(state, runId, deps = {}) {
+      assert.equal(typeof deps.contextPolicyCore?.planRuntimeSubagentControl, "function");
       canceledRuns.push(runId);
       const current = state.getRun(runId);
       const canceled = {
@@ -1274,7 +1275,8 @@ test("subagent cancellation propagation uses Rust projection, propagated cancel 
   const canceledRuns = [];
   const store = createStore();
   const surface = createRuntimeSubagentSurface({
-    cancelRun(state, runId) {
+    cancelRun(state, runId, deps = {}) {
+      assert.equal(typeof deps.contextPolicyCore?.planRuntimeSubagentControl, "function");
       canceledRuns.push(runId);
       const current = state.getRun(runId);
       const canceled = {

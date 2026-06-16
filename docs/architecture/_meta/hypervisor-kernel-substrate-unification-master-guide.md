@@ -10408,11 +10408,10 @@ workflow-edit clients, not a JS runner fallback.
 
 Slice 1299 hard-cuts run-cancel runner injection scaffolding. `cancelRun()` no
 longer reads `state.runCancelRunner`; cancellation state planning and
-admission-required refusal shaping resolve only `state.contextPolicyCore`
-before Rust daemon-core run-cancel planning and Agentgres-backed `writeRun`
-persistence. Focused tests already mount fake Rust planners only under
-`state.contextPolicyCore`, and conformance guards that the retired runner alias
-cannot return. Remaining work is wallet/operator authority depth, cancellation
+admission-required refusal shaping now resolve through the Rust daemon-core
+mount that the auxiliary surface passes explicitly before Agentgres-backed
+`writeRun` persistence. Conformance guards that the retired runner alias cannot
+return. Remaining work is wallet/operator authority depth, cancellation
 replay/projection storage, and direct Rust lifecycle APIs, not a JS runner
 fallback.
 
@@ -10649,6 +10648,18 @@ lifecycle helper defaults. Remaining work is wallet/policy authority depth,
 cTEE private-memory custody, durable memory/lifecycle replay and projection,
 receipt/state-root binding, and stable IDE/CLI/SDK protocol clients, not an
 alternate store-mounted Rust core fallback.
+
+Slice 1319 hard-cuts the run-cancel state-core fallback. `cancelRun()` now
+accepts the positive `contextPolicyCore` mount explicitly from
+`createRuntimeThreadAuxiliarySurface()` and from subagent cancellation
+composition; it no longer reads `state.contextPolicyCore` or
+`state?.contextPolicyCore` for state planning or admission-required refusal
+shaping. Focused cancellation tests mount fake Rust planners through the call
+dependency object, subagent cancellation tests assert that the mounted core is
+forwarded, and conformance guards the absent state lookup plus the auxiliary
+surface call. Remaining work is wallet/operator authority depth, durable
+cancellation replay/projection storage, direct Rust lifecycle APIs, and stable
+protocol clients, not an alternate state-mounted Rust core fallback.
 
 Slice 1250 retires the top-level runtime memory context route family. The
 public daemon no longer handles `/v1/memory`, `/v1/memory/records`,

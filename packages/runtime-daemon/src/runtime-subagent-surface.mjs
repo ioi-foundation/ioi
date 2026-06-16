@@ -1117,7 +1117,7 @@ export function createRuntimeSubagentSurface({
         optionalString(request.reason ?? request.cancellation_reason) ??
         "operator_cancel";
       const canceledAt = nowIso();
-      const run = cancelRunDep(store, record.run_id);
+      const run = cancelRunDep(store, record.run_id, { contextPolicyCore });
       const output = subagentContractOutputForRunDep(run, record.output_contract);
       const outputContractStatus = validateSubagentOutputContractDep(
         output,
@@ -1197,7 +1197,7 @@ export function createRuntimeSubagentSurface({
         const record = this.getSubagent(store, threadId, subagentId);
         const previousStatus = record.lifecycle_status ?? record.status ?? null;
         const canceledAt = nowIso();
-        const run = cancelRunDep(store, record.run_id);
+        const run = cancelRunDep(store, record.run_id, { contextPolicyCore });
         const output = subagentContractOutputForRunDep(run, record.output_contract);
         const outputContractStatus = validateSubagentOutputContractDep(
           output,

@@ -3,9 +3,8 @@ import {
   optionalString,
 } from "./runtime-value-helpers.mjs";
 
-export function cancelRun(state, runId) {
+export function cancelRun(state, runId, { contextPolicyCore = null } = {}) {
   const run = state.getRun(runId);
-  const contextPolicyCore = state?.contextPolicyCore ?? null;
   const operationDetails = {
     operation: "run_cancel",
     operation_kind: "run.cancel",
