@@ -6,11 +6,15 @@ import {
   inspectWorkspaceChangeReviewsForThread,
 } from "./workspace-change-state.mjs";
 
-function fakeStore({ appendRuntimeEvent = null } = {}) {
+function fakeStore({
+  appendRuntimeEvent = null,
+  stateDir = "/runtime-state",
+  workspaceChangeStateDir = null,
+} = {}) {
   const calls = [];
-  return {
+  const store = {
     calls,
-    stateDir: "/runtime-state",
+    stateDir,
     workspaceChangesForThread(thread_id) {
       assert.fail(`workspace change control must not read JS change candidates: ${thread_id}`);
     },
@@ -23,6 +27,10 @@ function fakeStore({ appendRuntimeEvent = null } = {}) {
       assert.fail(`workspace change state must not read JS agent truth: ${thread_id}`);
     },
   };
+  if (workspaceChangeStateDir !== null) {
+    store.workspaceChanges = { stateDir: workspaceChangeStateDir };
+  }
+  return store;
 }
 
 function assertNoRetiredWorkspaceChangeDetailAliases(details = {}) {
@@ -110,6 +118,42 @@ test("workspace change inspection fails closed before JS fallback projection whe
       return true;
     },
   );
+  assert.deepEqual(store.calls, []);
+});
+
+test("workspace change inspection rejects retired per-family state_dir fallback before Rust projection", async () => {
+  let projected = false;
+  const contextPolicyCore = {
+    projectRuntimeWorkspaceChangeProjection() {
+      projected = true;
+      assert.fail("workspace-change projection must not use per-family state_dir fallback");
+    },
+  };
+  const store = fakeStore({
+    stateDir: null,
+    workspaceChangeStateDir: "/retired-workspace-change-state",
+  });
+
+  await assert.rejects(
+    inspectWorkspaceChangeReviewsForThread(store, "thread_runtime", {
+      projection_kind: "list",
+    }, { contextPolicyCore }),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "runtime_workspace_change_daemon_state_dir_required");
+      assert.equal(error.details.rust_core_boundary, "runtime.workspace_change_control");
+      assert.equal(error.details.operation, "workspace_change_inspection");
+      assert.equal(error.details.operation_kind, "workspace_change.inspect");
+      assert.equal(error.details.thread_id, "thread_runtime");
+      assert.equal(
+        error.details.evidence_refs.includes("runtime_workspace_change_family_state_dir_fallback_retired"),
+        true,
+      );
+      assertNoRetiredWorkspaceChangeDetailAliases(error.details);
+      return true;
+    },
+  );
+  assert.equal(projected, false);
   assert.deepEqual(store.calls, []);
 });
 
@@ -205,6 +249,44 @@ test("workspace change control fails closed before Rust planning or event append
       return true;
     },
   );
+  assert.deepEqual(store.calls, []);
+});
+
+test("workspace change control rejects retired per-family state_dir fallback before Rust planning", async () => {
+  let planned = false;
+  const contextPolicyCore = {
+    planRuntimeWorkspaceChangeControl() {
+      planned = true;
+      assert.fail("workspace-change control must not use per-family state_dir fallback");
+    },
+  };
+  const store = fakeStore({
+    stateDir: null,
+    workspaceChangeStateDir: "/retired-workspace-change-state",
+  });
+
+  await assert.rejects(
+    controlWorkspaceChangeForThread(store, "thread_runtime", {
+      workspace_change_id: "workspace_change:file:1",
+      control_state: "accept",
+    }, { contextPolicyCore }),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "runtime_workspace_change_daemon_state_dir_required");
+      assert.equal(error.details.rust_core_boundary, "runtime.workspace_change_control");
+      assert.equal(error.details.operation, "workspace_change_control");
+      assert.equal(error.details.operation_kind, "workspace_change.control");
+      assert.equal(error.details.thread_id, "thread_runtime");
+      assert.equal(error.details.workspace_change_id, "workspace_change:file:1");
+      assert.equal(
+        error.details.evidence_refs.includes("runtime_workspace_change_family_state_dir_fallback_retired"),
+        true,
+      );
+      assertNoRetiredWorkspaceChangeDetailAliases(error.details);
+      return true;
+    },
+  );
+  assert.equal(planned, false);
   assert.deepEqual(store.calls, []);
 });
 

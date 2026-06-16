@@ -35268,7 +35268,14 @@ function runCompositor() {
     /planRuntimeConversationArtifactControl\(request\)/.test(
       runtimeConversationArtifactSurface,
     ) &&
-    /state_dir:\s*conversationArtifactProjectionStateDir\(store\)/.test(
+    /state_dir:\s*requireConversationArtifactDaemonStateDir\(store,/.test(
+      runtimeConversationArtifactSurface,
+    ) &&
+    /requireConversationArtifactDaemonStateDir/.test(runtimeConversationArtifactSurface) &&
+    !/store\?\.conversationArtifacts\?\.stateDir/.test(
+      runtimeConversationArtifactSurface,
+    ) &&
+    /runtime_conversation_artifact_store_state_dir_fallback_retired/.test(
       runtimeConversationArtifactSurface,
     ) &&
     !/candidateConversationArtifacts/.test(runtimeConversationArtifactSurface) &&
@@ -35296,6 +35303,9 @@ function runCompositor() {
       runtimeConversationArtifactSurfaceTest,
     ) &&
     /conversation artifact mutation fails before artifact lookup without Agentgres commit/.test(
+      runtimeConversationArtifactSurfaceTest,
+    ) &&
+    /conversation artifact mutation rejects ConversationArtifactStore state_dir fallback before Rust planning/.test(
       runtimeConversationArtifactSurfaceTest,
     ) &&
     /conversation artifact mutation rejects invalid Rust plans before commit/.test(
@@ -35328,8 +35338,11 @@ function runCompositor() {
     !/conversationArtifact(?:Control|Projection)Runner|store\?\.contextPolicyCore\s*\?\?\s*contextPolicyCore/.test(
       runtimeConversationArtifactSurface + runtimeConversationArtifactSurfaceTest,
     ) &&
-    /state_dir:\s*conversationArtifactProjectionStateDir\(store\)/.test(
+    /state_dir:\s*requireConversationArtifactDaemonStateDir\(store,/.test(
       runtimeConversationArtifactProjectReadBlock,
+    ) &&
+    /conversation artifact read rejects ConversationArtifactStore state_dir fallback before Rust projection/.test(
+      runtimeConversationArtifactSurfaceTest,
     ) &&
     !/^\s*projection\s*:/m.test(runtimeConversationArtifactProjectReadBlock) &&
     /projectRuntimeConversationArtifactProjection\(request\)/.test(
@@ -40694,9 +40707,17 @@ function runCompositor() {
       /managedSessionControlRunner/.test(managedSessionState) &&
       !/managedSessionCandidatesForThread/.test(managedSessionState) &&
       /projectRuntimeManagedSessionProjection/.test(managedSessionState) &&
-      /managedSessionProjectionStateDir/.test(managedSessionState) &&
-      /state_dir:\s*managedSessionProjectionStateDir\(store\)/.test(
+      /requireManagedSessionDaemonStateDir/.test(managedSessionState) &&
+      /state_dir:\s*requireManagedSessionDaemonStateDir\(store,/.test(
         managedSessionState,
+      ) &&
+      !/store\?\.managedSessions\?\.stateDir/.test(managedSessionState) &&
+      /runtime_managed_session_family_state_dir_fallback_retired/.test(managedSessionState) &&
+      /managed session inspection rejects retired per-family state_dir fallback before Rust projection/.test(
+        managedSessionStateTest,
+      ) &&
+      /managed session control rejects retired per-family state_dir fallback before Rust planning/.test(
+        managedSessionStateTest,
       ) &&
       !/projection:\s*\{\s*sessions\s*:/.test(managedSessionState) &&
       !/managed_session:\s*currentSession/.test(managedSessionState) &&
@@ -41068,9 +41089,19 @@ function runCompositor() {
         workspaceChangeState,
       ) &&
       /projectRuntimeWorkspaceChangeProjection/.test(workspaceChangeState) &&
-      /workspaceChangeProjectionStateDir/.test(workspaceChangeState) &&
-      /state_dir:\s*workspaceChangeProjectionStateDir\(store\)/.test(
+      /requireWorkspaceChangeDaemonStateDir/.test(workspaceChangeState) &&
+      /state_dir:\s*requireWorkspaceChangeDaemonStateDir\(store,/.test(
         workspaceChangeState,
+      ) &&
+      !/store\?\.workspaceChanges\?\.stateDir/.test(workspaceChangeState) &&
+      /runtime_workspace_change_family_state_dir_fallback_retired/.test(
+        workspaceChangeState,
+      ) &&
+      /workspace change inspection rejects retired per-family state_dir fallback before Rust projection/.test(
+        workspaceChangeStateTest,
+      ) &&
+      /workspace change control rejects retired per-family state_dir fallback before Rust planning/.test(
+        workspaceChangeStateTest,
       ) &&
       !/projection:\s*\{\s*changes\s*:/.test(workspaceChangeState) &&
       !/workspaceChangeCandidatesForThread/.test(workspaceChangeState) &&

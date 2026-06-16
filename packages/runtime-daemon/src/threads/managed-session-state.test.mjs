@@ -6,11 +6,15 @@ import {
   inspectManagedSessionsForThread,
 } from "./managed-session-state.mjs";
 
-function fakeStore({ appendRuntimeEvent = null } = {}) {
+function fakeStore({
+  appendRuntimeEvent = null,
+  stateDir = "/runtime-state",
+  managedSessionStateDir = null,
+} = {}) {
   const calls = [];
-  return {
+  const store = {
     calls,
-    stateDir: "/runtime-state",
+    stateDir,
     managedSessionsForThread(thread_id) {
       assert.fail(`managed session control must not read JS session candidates: ${thread_id}`);
     },
@@ -23,6 +27,10 @@ function fakeStore({ appendRuntimeEvent = null } = {}) {
       assert.fail(`managed session state must not read JS agent truth: ${thread_id}`);
     },
   };
+  if (managedSessionStateDir !== null) {
+    store.managedSessions = { stateDir: managedSessionStateDir };
+  }
+  return store;
 }
 
 function assertNoRetiredManagedSessionDetailAliases(details = {}) {
@@ -109,6 +117,42 @@ test("managed session inspection fails closed before JS fallback projection when
       return true;
     },
   );
+  assert.deepEqual(store.calls, []);
+});
+
+test("managed session inspection rejects retired per-family state_dir fallback before Rust projection", async () => {
+  let projected = false;
+  const contextPolicyCore = {
+    projectRuntimeManagedSessionProjection() {
+      projected = true;
+      assert.fail("managed-session projection must not use per-family state_dir fallback");
+    },
+  };
+  const store = fakeStore({
+    stateDir: null,
+    managedSessionStateDir: "/retired-managed-session-state",
+  });
+
+  await assert.rejects(
+    inspectManagedSessionsForThread(store, "thread_runtime", {
+      projection_kind: "list",
+    }, { contextPolicyCore }),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "runtime_managed_session_daemon_state_dir_required");
+      assert.equal(error.details.rust_core_boundary, "runtime.managed_session_control");
+      assert.equal(error.details.operation, "managed_session_inspection");
+      assert.equal(error.details.operation_kind, "managed_session.inspect");
+      assert.equal(error.details.thread_id, "thread_runtime");
+      assert.equal(
+        error.details.evidence_refs.includes("runtime_managed_session_family_state_dir_fallback_retired"),
+        true,
+      );
+      assertNoRetiredManagedSessionDetailAliases(error.details);
+      return true;
+    },
+  );
+  assert.equal(projected, false);
   assert.deepEqual(store.calls, []);
 });
 
@@ -200,6 +244,44 @@ test("managed session control fails closed before Rust planning or event append 
       return true;
     },
   );
+  assert.deepEqual(store.calls, []);
+});
+
+test("managed session control rejects retired per-family state_dir fallback before Rust planning", async () => {
+  let planned = false;
+  const contextPolicyCore = {
+    planRuntimeManagedSessionControl() {
+      planned = true;
+      assert.fail("managed-session control must not use per-family state_dir fallback");
+    },
+  };
+  const store = fakeStore({
+    stateDir: null,
+    managedSessionStateDir: "/retired-managed-session-state",
+  });
+
+  await assert.rejects(
+    controlManagedSessionForThread(store, "thread_runtime", {
+      managed_session_id: "sandbox_browser:1",
+      control_state: "take_over",
+    }, { contextPolicyCore }),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "runtime_managed_session_daemon_state_dir_required");
+      assert.equal(error.details.rust_core_boundary, "runtime.managed_session_control");
+      assert.equal(error.details.operation, "managed_session_control");
+      assert.equal(error.details.operation_kind, "managed_session.control");
+      assert.equal(error.details.thread_id, "thread_runtime");
+      assert.equal(error.details.managed_session_id, "sandbox_browser:1");
+      assert.equal(
+        error.details.evidence_refs.includes("runtime_managed_session_family_state_dir_fallback_retired"),
+        true,
+      );
+      assertNoRetiredManagedSessionDetailAliases(error.details);
+      return true;
+    },
+  );
+  assert.equal(planned, false);
   assert.deepEqual(store.calls, []);
 });
 

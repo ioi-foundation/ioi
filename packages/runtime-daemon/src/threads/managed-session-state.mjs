@@ -60,8 +60,32 @@ function managedSessionControlRunner(store, request = {}, deps = {}) {
   });
 }
 
-function managedSessionProjectionStateDir(store) {
-  return optionalString(store?.stateDir) ?? optionalString(store?.managedSessions?.stateDir);
+function requireManagedSessionDaemonStateDir(store, {
+  operation,
+  operationKind,
+  threadId,
+  selectedManagedSessionId = null,
+}) {
+  const stateDir = optionalString(store?.stateDir);
+  if (stateDir) return stateDir;
+  throw runtimeError({
+    status: 501,
+    code: "runtime_managed_session_daemon_state_dir_required",
+    message:
+      "Managed session projection and control require the daemon Agentgres state_dir; per-family JS state_dir fallbacks are retired.",
+    details: {
+      rust_core_boundary: "runtime.managed_session_control",
+      operation,
+      operation_kind: operationKind,
+      thread_id: threadId,
+      managed_session_id: selectedManagedSessionId,
+      evidence_refs: [
+        ...MANAGED_SESSION_INSPECTION_EVIDENCE_REFS,
+        ...MANAGED_SESSION_CONTROL_EVIDENCE_REFS,
+        "runtime_managed_session_family_state_dir_fallback_retired",
+      ],
+    },
+  });
 }
 
 function managedSessionControlRequestPayload(request = {}) {
@@ -183,7 +207,11 @@ export async function inspectManagedSessionsForThread(store, threadId, request =
     operation_kind: "managed_session.inspect",
     projection_kind: projectionKind,
     thread_id: threadId,
-    state_dir: managedSessionProjectionStateDir(store),
+    state_dir: requireManagedSessionDaemonStateDir(store, {
+      operation: "managed_session_inspection",
+      operationKind: "managed_session.inspect",
+      threadId,
+    }),
     source: "runtime.managed_session_state",
     evidence_refs: MANAGED_SESSION_INSPECTION_EVIDENCE_REFS,
   });
@@ -213,7 +241,12 @@ export async function controlManagedSessionForThread(store, threadId, request = 
     operation_kind: "managed_session.control",
     thread_id: threadId,
     event_stream_id: eventStreamIdForThread(threadId),
-    state_dir: managedSessionProjectionStateDir(store),
+    state_dir: requireManagedSessionDaemonStateDir(store, {
+      operation: "managed_session_control",
+      operationKind: "managed_session.control",
+      threadId,
+      selectedManagedSessionId: selectedId,
+    }),
     managed_session_id: selectedId,
     control_state: optionalString(normalizedRequest.control_state) ?? null,
     reason: optionalString(normalizedRequest.reason) ?? null,

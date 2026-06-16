@@ -13,7 +13,7 @@ function harness(options = {}) {
     contextPolicyCore: options.contextPolicyCore,
   });
   const store = {
-    stateDir: "/runtime-state",
+    stateDir: options.stateDir === undefined ? "/runtime-state" : options.stateDir,
     commitRuntimeArtifactState(request) {
       calls.push({ name: "commitRuntimeArtifactState", request });
       return {
@@ -56,6 +56,9 @@ function harness(options = {}) {
       },
     },
   };
+  if (options.conversationArtifactStateDir) {
+    store.conversationArtifacts.stateDir = options.conversationArtifactStateDir;
+  }
   return { calls, store, surface };
 }
 
@@ -307,6 +310,39 @@ test("conversation artifact mutation rejects invalid Rust plans before commit", 
   assert.deepEqual(calls, []);
 });
 
+test("conversation artifact mutation rejects ConversationArtifactStore state_dir fallback before Rust planning", () => {
+  let planned = false;
+  const { calls, store, surface } = harness({
+    stateDir: null,
+    conversationArtifactStateDir: "/retired-conversation-artifact-state",
+    contextPolicyCore: {
+      planRuntimeConversationArtifactControl() {
+        planned = true;
+        assert.fail("conversation artifact control must not use store-local state_dir fallback");
+      },
+    },
+  });
+
+  assert.throws(
+    () => surface.createConversationArtifact(store, "thread-one", { title: "Draft" }),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "runtime_conversation_artifact_daemon_state_dir_required");
+      assert.equal(error.details.rust_core_boundary, "runtime.conversation_artifact_control");
+      assert.equal(error.details.operation, "conversation_artifact_create");
+      assert.equal(error.details.operation_kind, "artifact.conversation.create");
+      assert.equal(error.details.thread_id, "thread-one");
+      assert.equal(
+        error.details.evidence_refs.includes("runtime_conversation_artifact_store_state_dir_fallback_retired"),
+        true,
+      );
+      return true;
+    },
+  );
+  assert.equal(planned, false);
+  assert.deepEqual(calls, []);
+});
+
 test("conversation artifact read projections fail closed before JS artifact reads without Rust", () => {
   const { calls, store, surface } = harness();
   const cases = [
@@ -413,4 +449,38 @@ test("conversation artifact read projections return Rust daemon-core projections
     projectionCalls[0].evidence_refs.includes("conversation_artifact_read_projection_js_facade_retired"),
     true,
   );
+});
+
+test("conversation artifact read rejects ConversationArtifactStore state_dir fallback before Rust projection", () => {
+  let projected = false;
+  const { calls, store, surface } = harness({
+    stateDir: null,
+    conversationArtifactStateDir: "/retired-conversation-artifact-state",
+    contextPolicyCore: {
+      projectRuntimeConversationArtifactProjection() {
+        projected = true;
+        assert.fail("conversation artifact projection must not use store-local state_dir fallback");
+      },
+    },
+  });
+
+  assert.throws(
+    () => surface.listConversationArtifacts(store, { thread_id: "thread-one" }),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "runtime_conversation_artifact_daemon_state_dir_required");
+      assert.equal(error.details.rust_core_boundary, "runtime.conversation_artifact_projection");
+      assert.equal(error.details.operation, "runtime_conversation_artifact_projection");
+      assert.equal(error.details.operation_kind, "runtime.conversation_artifact_projection.list");
+      assert.equal(error.details.projection_kind, "list");
+      assert.equal(error.details.thread_id, "thread-one");
+      assert.equal(
+        error.details.evidence_refs.includes("runtime_conversation_artifact_store_state_dir_fallback_retired"),
+        true,
+      );
+      return true;
+    },
+  );
+  assert.equal(projected, false);
+  assert.deepEqual(calls, []);
 });

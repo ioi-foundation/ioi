@@ -109,8 +109,29 @@ export function createRuntimeConversationArtifactSurface({
     });
   }
 
-  function conversationArtifactProjectionStateDir(store) {
-    return optionalString(store?.stateDir) ?? optionalString(store?.conversationArtifacts?.stateDir);
+  function requireConversationArtifactDaemonStateDir(store, request = {}) {
+    const stateDir = optionalString(store?.stateDir);
+    if (stateDir) return stateDir;
+    throw runtimeError({
+      status: 501,
+      code: "runtime_conversation_artifact_daemon_state_dir_required",
+      message:
+        "Runtime conversation artifact projection and control require the daemon Agentgres state_dir; ConversationArtifactStore state_dir fallbacks are retired.",
+      details: {
+        rust_core_boundary: request.rust_core_boundary ?? "runtime.conversation_artifact_projection",
+        operation: request.operation ?? null,
+        operation_kind: request.operation_kind ?? null,
+        projection_kind: request.projection_kind ?? null,
+        thread_id: request.thread_id ?? null,
+        artifact_id: request.artifact_id ?? null,
+        source: request.source ?? "runtime.conversation_artifact_surface",
+        evidence_refs: [
+          ...conversationArtifactControlEvidenceRefs,
+          ...conversationArtifactReadProjectionEvidenceRefs,
+          "runtime_conversation_artifact_store_state_dir_fallback_retired",
+        ],
+      },
+    });
   }
 
   function conversationArtifactControlRequestPayload(input = {}) {
@@ -166,7 +187,14 @@ export function createRuntimeConversationArtifactSurface({
       operation_kind: operationKind,
       thread_id: threadId,
       artifact_id: artifactId,
-      state_dir: conversationArtifactProjectionStateDir(store),
+      state_dir: requireConversationArtifactDaemonStateDir(store, {
+        rust_core_boundary: "runtime.conversation_artifact_control",
+        operation,
+        operation_kind: operationKind,
+        thread_id: threadId,
+        artifact_id: artifactId,
+        source: "runtime.conversation_artifact_surface.control",
+      }),
       request: conversationArtifactControlRequestPayload(input),
       evidence_refs: [
         ...conversationArtifactControlEvidenceRefs,
@@ -277,7 +305,15 @@ export function createRuntimeConversationArtifactSurface({
       projection_kind: projectionKind,
       thread_id: threadId,
       artifact_id: artifactId,
-      state_dir: conversationArtifactProjectionStateDir(store),
+      state_dir: requireConversationArtifactDaemonStateDir(store, {
+        rust_core_boundary: "runtime.conversation_artifact_projection",
+        operation: "runtime_conversation_artifact_projection",
+        operation_kind: operationKind,
+        projection_kind: projectionKind,
+        thread_id: threadId,
+        artifact_id: artifactId,
+        source: "runtime.conversation_artifact_surface.read_projection",
+      }),
       source: "runtime.conversation_artifact_surface.read_projection",
       evidence_refs: conversationArtifactReadProjectionEvidenceRefs,
     };

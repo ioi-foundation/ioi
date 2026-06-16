@@ -60,8 +60,32 @@ function workspaceChangeControlRunner(store, request = {}, deps = {}) {
   });
 }
 
-function workspaceChangeProjectionStateDir(store) {
-  return optionalString(store?.stateDir) ?? optionalString(store?.workspaceChanges?.stateDir);
+function requireWorkspaceChangeDaemonStateDir(store, {
+  operation,
+  operationKind,
+  threadId,
+  workspaceChangeId = null,
+}) {
+  const stateDir = optionalString(store?.stateDir);
+  if (stateDir) return stateDir;
+  throw runtimeError({
+    status: 501,
+    code: "runtime_workspace_change_daemon_state_dir_required",
+    message:
+      "Workspace-change projection and control require the daemon Agentgres state_dir; per-family JS state_dir fallbacks are retired.",
+    details: {
+      rust_core_boundary: "runtime.workspace_change_control",
+      operation,
+      operation_kind: operationKind,
+      thread_id: threadId,
+      workspace_change_id: workspaceChangeId,
+      evidence_refs: [
+        ...WORKSPACE_CHANGE_INSPECTION_EVIDENCE_REFS,
+        ...WORKSPACE_CHANGE_CONTROL_EVIDENCE_REFS,
+        "runtime_workspace_change_family_state_dir_fallback_retired",
+      ],
+    },
+  });
 }
 
 function workspaceChangeControlRequestPayload(request = {}) {
@@ -186,7 +210,11 @@ export async function inspectWorkspaceChangeReviewsForThread(store, threadId, re
     operation_kind: "workspace_change.inspect",
     projection_kind: projectionKind,
     thread_id: threadId,
-    state_dir: workspaceChangeProjectionStateDir(store),
+    state_dir: requireWorkspaceChangeDaemonStateDir(store, {
+      operation: "workspace_change_inspection",
+      operationKind: "workspace_change.inspect",
+      threadId,
+    }),
     source: "runtime.workspace_change_state",
     evidence_refs: WORKSPACE_CHANGE_INSPECTION_EVIDENCE_REFS,
   });
@@ -216,7 +244,12 @@ export async function controlWorkspaceChangeForThread(store, threadId, request =
     operation_kind: "workspace_change.control",
     thread_id: threadId,
     event_stream_id: eventStreamIdForThread(threadId),
-    state_dir: workspaceChangeProjectionStateDir(store),
+    state_dir: requireWorkspaceChangeDaemonStateDir(store, {
+      operation: "workspace_change_control",
+      operationKind: "workspace_change.control",
+      threadId,
+      workspaceChangeId: selectedId,
+    }),
     workspace_change_id: selectedId,
     control_state: optionalString(normalizedRequest.control_state) ?? null,
     reason: optionalString(normalizedRequest.reason) ?? null,

@@ -12167,6 +12167,20 @@ durable Agentgres-backed persistence/replay, wallet authority on external
 exits, receipt/state-root binding, and broader stable clients; the retired path
 is the lifecycle-runner compatibility projector.
 
+Slice 1395 hard-cuts migrated runtime replay state-dir fallback.
+Managed-session projection/control, workspace-change projection/control, and
+conversation-artifact projection/control now require the daemon Agentgres
+`store.stateDir` before Rust planning or projection can run. They no longer
+derive `state_dir` from per-family JS stores such as
+`store.managedSessions.stateDir`, `store.workspaceChanges.stateDir`, or
+`store.conversationArtifacts.stateDir`, so migrated Rust replay/admission
+families cannot use a local JS store as a compatibility replay root when the
+daemon state root is absent. Focused tests seed those retired per-family
+state-dir handles and prove projection/control fails before Rust invocation,
+event admission, artifact commit, or JS candidate readback. Conformance guards
+the daemon-only state-dir helpers and rejects restoring the per-family fallback
+beside Rust Agentgres replay.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The
