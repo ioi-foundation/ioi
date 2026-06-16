@@ -12124,6 +12124,20 @@ non-terminal; do not restore `/api/v1` utility aliases, JS ranking fallbacks, or
 native invocation response helpers beside stable Rust-owned daemon protocol
 routes.
 
+Slice 1392 hard-cuts runtime context-policy adapter bridge-result normalizer
+names. `RuntimeContextPolicyCore` no longer exports or calls
+`normalize*BridgeResult` JS protocol normalizers for migrated coding-tool,
+diagnostics, task/job, doctor/computer-use/studio, MCP serve, workflow-edit,
+managed-session, workspace-change, thread-fork, conversation-artifact, or
+subagent runtime families; the shared helper is
+`requiredContextPolicyOperationKind` instead of
+`requiredContextPolicyBridgeOperationKind`. The adapter remains a typed protocol
+client over Rust-owned direct daemon-core control/projection APIs, and
+conformance rejects restoring the old bridge-shaped normalizer names beside
+those APIs. Remaining work is durable replay/projection/storage depth and stable
+IDE/CLI/SDK coverage for non-terminal route families, not a JS bridge-result
+compatibility layer.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

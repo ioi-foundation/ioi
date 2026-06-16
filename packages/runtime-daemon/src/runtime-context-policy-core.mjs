@@ -388,7 +388,7 @@ export class RuntimeContextPolicyCore {
   }
 
   planCodingToolResultEnvelope(request = {}) {
-    return normalizeCodingToolResultEnvelopePlanBridgeResult(this.invokeRuntimeControlApi(
+    return normalizeCodingToolResultEnvelopePlanResult(this.invokeRuntimeControlApi(
       RUNTIME_CONTROL_CODING_TOOL_RESULT_ENVELOPE_API_METHOD,
       CODING_TOOL_RESULT_ENVELOPE_PLAN_REQUEST_SCHEMA_VERSION,
       request,
@@ -396,7 +396,7 @@ export class RuntimeContextPolicyCore {
   }
 
   planRuntimeCodingToolArtifactDrafts(request = {}) {
-    return normalizeRuntimeCodingToolArtifactDraftPlanBridgeResult(this.invokeRuntimeControlApi(
+    return normalizeRuntimeCodingToolArtifactDraftPlanResult(this.invokeRuntimeControlApi(
       RUNTIME_CONTROL_CODING_TOOL_ARTIFACT_DRAFTS_API_METHOD,
       RUNTIME_CODING_TOOL_ARTIFACT_DRAFT_PLAN_REQUEST_SCHEMA_VERSION,
       request,
@@ -404,7 +404,7 @@ export class RuntimeContextPolicyCore {
   }
 
   projectRuntimeCodingToolArtifactRead(request = {}) {
-    return normalizeRuntimeCodingToolArtifactReadProjectionBridgeResult(this.invokeRuntimeProjectionApi(
+    return normalizeRuntimeCodingToolArtifactReadProjectionResult(this.invokeRuntimeProjectionApi(
       RUNTIME_PROJECTION_CODING_TOOL_ARTIFACT_READ_API_METHOD,
       RUNTIME_CODING_TOOL_ARTIFACT_READ_PROJECTION_REQUEST_SCHEMA_VERSION,
       request,
@@ -428,7 +428,7 @@ export class RuntimeContextPolicyCore {
   }
 
   planRuntimeDiagnosticsRepairControl(request = {}) {
-    return normalizeRuntimeDiagnosticsRepairControlBridgeResult(this.invokeRuntimeControlApi(
+    return normalizeRuntimeDiagnosticsRepairControlResult(this.invokeRuntimeControlApi(
       RUNTIME_CONTROL_DIAGNOSTICS_REPAIR_CONTROL_API_METHOD,
       RUNTIME_DIAGNOSTICS_REPAIR_CONTROL_REQUEST_SCHEMA_VERSION,
       request,
@@ -436,7 +436,7 @@ export class RuntimeContextPolicyCore {
   }
 
   planRuntimeDiagnosticsRepairRetryRun(request = {}) {
-    return normalizeRuntimeDiagnosticsRepairRetryRunBridgeResult(this.invokeRuntimeControlApi(
+    return normalizeRuntimeDiagnosticsRepairRetryRunResult(this.invokeRuntimeControlApi(
       RUNTIME_CONTROL_DIAGNOSTICS_REPAIR_RETRY_RUN_API_METHOD,
       RUNTIME_DIAGNOSTICS_REPAIR_RETRY_RUN_REQUEST_SCHEMA_VERSION,
       request,
@@ -444,7 +444,7 @@ export class RuntimeContextPolicyCore {
   }
 
   projectRuntimeDiagnosticsRepairRetryResult(request = {}) {
-    return normalizeRuntimeDiagnosticsRepairRetryResultProjectionBridgeResult(
+    return normalizeRuntimeDiagnosticsRepairRetryResultProjectionResult(
       this.invokeRuntimeProjectionApi(
         RUNTIME_PROJECTION_DIAGNOSTICS_REPAIR_RETRY_RESULT_API_METHOD,
         RUNTIME_DIAGNOSTICS_REPAIR_RETRY_RESULT_PROJECTION_REQUEST_SCHEMA_VERSION,
@@ -454,7 +454,7 @@ export class RuntimeContextPolicyCore {
   }
 
   projectRuntimeDiagnosticsRepairProjection(request = {}) {
-    return normalizeRuntimeDiagnosticsRepairProjectionBridgeResult(this.invokeRuntimeProjectionApi(
+    return normalizeRuntimeDiagnosticsRepairProjectionResult(this.invokeRuntimeProjectionApi(
       RUNTIME_PROJECTION_DIAGNOSTICS_REPAIR_PROJECTION_API_METHOD,
       RUNTIME_DIAGNOSTICS_REPAIR_PROJECTION_REQUEST_SCHEMA_VERSION,
       request,
@@ -462,7 +462,7 @@ export class RuntimeContextPolicyCore {
   }
 
   projectRuntimeDiagnosticsRepairPolicy(request = {}) {
-    return normalizeRuntimeDiagnosticsRepairPolicyBridgeResult(this.invokeRuntimeProjectionApi(
+    return normalizeRuntimeDiagnosticsRepairPolicyResult(this.invokeRuntimeProjectionApi(
       RUNTIME_PROJECTION_DIAGNOSTICS_REPAIR_POLICY_API_METHOD,
       RUNTIME_DIAGNOSTICS_REPAIR_POLICY_REQUEST_SCHEMA_VERSION,
       request,
@@ -478,7 +478,7 @@ export class RuntimeContextPolicyCore {
   }
 
   planPostEditDiagnosticsFeedback(request = {}) {
-    return normalizePostEditDiagnosticsFeedbackPlanBridgeResult(this.invokeRuntimeControlApi(
+    return normalizePostEditDiagnosticsFeedbackPlanResult(this.invokeRuntimeControlApi(
       RUNTIME_CONTROL_POST_EDIT_DIAGNOSTICS_FEEDBACK_API_METHOD,
       POST_EDIT_DIAGNOSTICS_FEEDBACK_PLAN_REQUEST_SCHEMA_VERSION,
       request,
@@ -526,7 +526,7 @@ export class RuntimeContextPolicyCore {
   }
 
   planRuntimeTaskJobCancelStateUpdate(request = {}) {
-    return normalizeRuntimeTaskJobCancelStateUpdateBridgeResult(this.invokeRuntimeControlApi(
+    return normalizeRuntimeTaskJobCancelStateUpdateResult(this.invokeRuntimeControlApi(
       RUNTIME_CONTROL_TASK_JOB_CANCEL_STATE_UPDATE_API_METHOD,
       RUNTIME_TASK_JOB_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
@@ -534,7 +534,7 @@ export class RuntimeContextPolicyCore {
   }
 
   planRuntimeTaskJobCreateStateUpdate(request = {}) {
-    return normalizeRuntimeTaskJobCreateStateUpdateBridgeResult(this.invokeRuntimeControlApi(
+    return normalizeRuntimeTaskJobCreateStateUpdateResult(this.invokeRuntimeControlApi(
       RUNTIME_CONTROL_TASK_JOB_CREATE_STATE_UPDATE_API_METHOD,
       RUNTIME_TASK_JOB_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
@@ -542,7 +542,7 @@ export class RuntimeContextPolicyCore {
   }
 
   projectRuntimeTaskJobProjection(request = {}) {
-    return normalizeRuntimeTaskJobProjectionBridgeResult(this.invokeRuntimeProjectionApi(
+    return normalizeRuntimeTaskJobProjectionResult(this.invokeRuntimeProjectionApi(
       RUNTIME_PROJECTION_TASK_JOB_API_METHOD,
       RUNTIME_TASK_JOB_PROJECTION_REQUEST_SCHEMA_VERSION,
       request,
@@ -582,7 +582,7 @@ export class RuntimeContextPolicyCore {
   }
 
   projectRuntimeDoctorReport(request = {}) {
-    return normalizeRuntimeDoctorReportProjectionBridgeResult(this.invokeRuntimeProjectionApi(
+    return normalizeRuntimeDoctorReportProjectionResult(this.invokeRuntimeProjectionApi(
       RUNTIME_PROJECTION_DOCTOR_REPORT_API_METHOD,
       RUNTIME_DOCTOR_REPORT_PROJECTION_REQUEST_SCHEMA_VERSION,
       request,
@@ -599,7 +599,7 @@ export class RuntimeContextPolicyCore {
       sessionMode: _retiredSessionMode,
       ...requestWithoutRetiredAliases
     } = canonicalRequest;
-    return normalizeRuntimeComputerUseProjectionBridgeResult(this.invokeRuntimeProjectionApi(
+    return normalizeRuntimeComputerUseProjectionResult(this.invokeRuntimeProjectionApi(
       RUNTIME_PROJECTION_COMPUTER_USE_API_METHOD,
       RUNTIME_COMPUTER_USE_PROJECTION_REQUEST_SCHEMA_VERSION,
       requestWithoutRetiredAliases,
@@ -610,7 +610,7 @@ export class RuntimeContextPolicyCore {
     const canonicalRequest = objectRecord(request) ?? {};
     const { executionMode: _retiredExecutionMode, ...requestWithoutRetiredAliases } =
       canonicalRequest;
-    return normalizeStudioIntentFrameProjectionBridgeResult(this.invokeRuntimeProjectionApi(
+    return normalizeStudioIntentFrameProjectionResult(this.invokeRuntimeProjectionApi(
       RUNTIME_PROJECTION_STUDIO_INTENT_FRAME_API_METHOD,
       STUDIO_INTENT_FRAME_PROJECTION_REQUEST_SCHEMA_VERSION,
       requestWithoutRetiredAliases,
@@ -634,7 +634,7 @@ export class RuntimeContextPolicyCore {
   }
 
   planRuntimeMcpServeToolCall(request = {}) {
-    return normalizeRuntimeMcpServeToolCallPlanBridgeResult(this.invokeMcpApi(
+    return normalizeRuntimeMcpServeToolCallPlanResult(this.invokeMcpApi(
       MCP_SERVE_TOOL_CALL_PLAN_API_METHOD,
       RUNTIME_MCP_SERVE_TOOL_CALL_PLAN_REQUEST_SCHEMA_VERSION,
       request,
@@ -642,7 +642,7 @@ export class RuntimeContextPolicyCore {
   }
 
   projectRuntimeMcpServeToolResult(request = {}) {
-    return normalizeRuntimeMcpServeToolResultProjectionBridgeResult(this.invokeMcpApi(
+    return normalizeRuntimeMcpServeToolResultProjectionResult(this.invokeMcpApi(
       MCP_SERVE_TOOL_RESULT_PROJECTION_API_METHOD,
       RUNTIME_MCP_SERVE_TOOL_RESULT_PROJECTION_REQUEST_SCHEMA_VERSION,
       request,
@@ -650,7 +650,7 @@ export class RuntimeContextPolicyCore {
   }
 
   planRuntimeWorkflowEditControl(request = {}) {
-    return normalizeRuntimeWorkflowEditControlBridgeResult(this.invokeRuntimeControlApi(
+    return normalizeRuntimeWorkflowEditControlResult(this.invokeRuntimeControlApi(
       RUNTIME_CONTROL_WORKFLOW_EDIT_CONTROL_API_METHOD,
       RUNTIME_WORKFLOW_EDIT_CONTROL_REQUEST_SCHEMA_VERSION,
       request,
@@ -658,7 +658,7 @@ export class RuntimeContextPolicyCore {
   }
 
   projectRuntimeManagedSessionProjection(request = {}) {
-    return normalizeRuntimeManagedSessionProjectionBridgeResult(this.invokeRuntimeProjectionApi(
+    return normalizeRuntimeManagedSessionProjectionResult(this.invokeRuntimeProjectionApi(
       RUNTIME_PROJECTION_MANAGED_SESSION_API_METHOD,
       RUNTIME_MANAGED_SESSION_PROJECTION_REQUEST_SCHEMA_VERSION,
       request,
@@ -666,7 +666,7 @@ export class RuntimeContextPolicyCore {
   }
 
   planRuntimeManagedSessionControl(request = {}) {
-    return normalizeRuntimeManagedSessionControlBridgeResult(this.invokeRuntimeControlApi(
+    return normalizeRuntimeManagedSessionControlResult(this.invokeRuntimeControlApi(
       RUNTIME_CONTROL_MANAGED_SESSION_API_METHOD,
       RUNTIME_MANAGED_SESSION_CONTROL_REQUEST_SCHEMA_VERSION,
       request,
@@ -674,7 +674,7 @@ export class RuntimeContextPolicyCore {
   }
 
   projectRuntimeWorkspaceChangeProjection(request = {}) {
-    return normalizeRuntimeWorkspaceChangeProjectionBridgeResult(this.invokeRuntimeProjectionApi(
+    return normalizeRuntimeWorkspaceChangeProjectionResult(this.invokeRuntimeProjectionApi(
       RUNTIME_PROJECTION_WORKSPACE_CHANGE_API_METHOD,
       RUNTIME_WORKSPACE_CHANGE_PROJECTION_REQUEST_SCHEMA_VERSION,
       request,
@@ -682,7 +682,7 @@ export class RuntimeContextPolicyCore {
   }
 
   planRuntimeWorkspaceChangeControl(request = {}) {
-    return normalizeRuntimeWorkspaceChangeControlBridgeResult(this.invokeRuntimeControlApi(
+    return normalizeRuntimeWorkspaceChangeControlResult(this.invokeRuntimeControlApi(
       RUNTIME_CONTROL_WORKSPACE_CHANGE_API_METHOD,
       RUNTIME_WORKSPACE_CHANGE_CONTROL_REQUEST_SCHEMA_VERSION,
       request,
@@ -690,7 +690,7 @@ export class RuntimeContextPolicyCore {
   }
 
   planRuntimeThreadForkControl(request = {}) {
-    return normalizeRuntimeThreadForkControlBridgeResult(this.invokeRuntimeControlApi(
+    return normalizeRuntimeThreadForkControlResult(this.invokeRuntimeControlApi(
       RUNTIME_CONTROL_THREAD_FORK_API_METHOD,
       RUNTIME_THREAD_FORK_CONTROL_REQUEST_SCHEMA_VERSION,
       request,
@@ -698,7 +698,7 @@ export class RuntimeContextPolicyCore {
   }
 
   planRuntimeConversationArtifactControl(request = {}) {
-    return normalizeRuntimeConversationArtifactControlBridgeResult(this.invokeRuntimeControlApi(
+    return normalizeRuntimeConversationArtifactControlResult(this.invokeRuntimeControlApi(
       RUNTIME_CONTROL_CONVERSATION_ARTIFACT_API_METHOD,
       RUNTIME_CONVERSATION_ARTIFACT_CONTROL_REQUEST_SCHEMA_VERSION,
       request,
@@ -706,7 +706,7 @@ export class RuntimeContextPolicyCore {
   }
 
   projectRuntimeConversationArtifactProjection(request = {}) {
-    return normalizeRuntimeConversationArtifactProjectionBridgeResult(this.invokeRuntimeProjectionApi(
+    return normalizeRuntimeConversationArtifactProjectionResult(this.invokeRuntimeProjectionApi(
       RUNTIME_PROJECTION_CONVERSATION_ARTIFACT_API_METHOD,
       RUNTIME_CONVERSATION_ARTIFACT_PROJECTION_REQUEST_SCHEMA_VERSION,
       request,
@@ -714,7 +714,7 @@ export class RuntimeContextPolicyCore {
   }
 
   projectRuntimeSubagentProjection(request = {}) {
-    return normalizeRuntimeSubagentProjectionBridgeResult(this.invokeRuntimeProjectionApi(
+    return normalizeRuntimeSubagentProjectionResult(this.invokeRuntimeProjectionApi(
       RUNTIME_PROJECTION_SUBAGENT_API_METHOD,
       RUNTIME_SUBAGENT_PROJECTION_REQUEST_SCHEMA_VERSION,
       request,
@@ -722,7 +722,7 @@ export class RuntimeContextPolicyCore {
   }
 
   planRuntimeSubagentControl(request = {}) {
-    return normalizeRuntimeSubagentControlBridgeResult(this.invokeRuntimeControlApi(
+    return normalizeRuntimeSubagentControlResult(this.invokeRuntimeControlApi(
       RUNTIME_CONTROL_SUBAGENT_API_METHOD,
       RUNTIME_SUBAGENT_CONTROL_REQUEST_SCHEMA_VERSION,
       request,
@@ -1146,7 +1146,7 @@ export class RuntimeContextPolicyCoreError extends Error {
   }
 }
 
-function requiredContextPolicyBridgeOperationKind(result, record, options = {}) {
+function requiredContextPolicyOperationKind(result, record, options = {}) {
   const {
     codePrefix,
     expectedOperationKind = null,
@@ -1344,7 +1344,7 @@ export function normalizeContextCompactionStateUpdateResult(value = {}) {
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
     target_kind: optionalString(result.target_kind ?? record.target_kind) ?? null,
-    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+    operation_kind: requiredContextPolicyOperationKind(result, record, {
       codePrefix: "context_compaction_state_update",
       expectedOperationKind: "thread.compact",
     }),
@@ -1370,7 +1370,7 @@ export function normalizeCodingToolBudgetRecoveryStateUpdateApiResult(value = {}
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
-    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+    operation_kind: requiredContextPolicyOperationKind(result, record, {
       codePrefix: "coding_tool_budget_recovery_state_update",
       expectedOperationKind: "workflow.run.retry_completed",
     }),
@@ -1394,7 +1394,7 @@ export function normalizeCodingToolBudgetBlockResult(value = {}) {
     record,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? "blocked",
-    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+    operation_kind: requiredContextPolicyOperationKind(result, record, {
       codePrefix: "coding_tool_budget_block",
       expectedOperationKind: "coding_tool.budget.block",
     }),
@@ -1424,7 +1424,7 @@ export function normalizeCodingToolBudgetBlockResult(value = {}) {
   };
 }
 
-export function normalizeCodingToolResultEnvelopePlanBridgeResult(value = {}) {
+export function normalizeCodingToolResultEnvelopePlanResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   return {
@@ -1440,7 +1440,7 @@ export function normalizeCodingToolResultEnvelopePlanBridgeResult(value = {}) {
     record,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
-    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+    operation_kind: requiredContextPolicyOperationKind(result, record, {
       codePrefix: "coding_tool_result_envelope_plan",
       expectedOperationKind: "runtime.coding_tool.result_envelope",
     }),
@@ -1463,7 +1463,7 @@ export function normalizeCodingToolResultEnvelopePlanBridgeResult(value = {}) {
   };
 }
 
-export function normalizeRuntimeCodingToolArtifactDraftPlanBridgeResult(value = {}) {
+export function normalizeRuntimeCodingToolArtifactDraftPlanResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   const artifactRecords = arrayValue(result.artifact_records ?? record.artifact_records)
@@ -1486,7 +1486,7 @@ export function normalizeRuntimeCodingToolArtifactDraftPlanBridgeResult(value = 
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
     operation: optionalString(result.operation ?? record.operation) ?? null,
-    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+    operation_kind: requiredContextPolicyOperationKind(result, record, {
       codePrefix: "runtime_coding_tool_artifact_draft_plan",
       expectedOperationKind: "artifact.coding_tool_draft",
     }),
@@ -1503,7 +1503,7 @@ export function normalizeRuntimeCodingToolArtifactDraftPlanBridgeResult(value = 
   };
 }
 
-export function normalizeRuntimeCodingToolArtifactReadProjectionBridgeResult(value = {}) {
+export function normalizeRuntimeCodingToolArtifactReadProjectionResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   const projectedResult = objectRecord(result.result ?? record.result);
@@ -1525,7 +1525,7 @@ export function normalizeRuntimeCodingToolArtifactReadProjectionBridgeResult(val
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
     operation: optionalString(result.operation ?? record.operation) ?? null,
-    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+    operation_kind: requiredContextPolicyOperationKind(result, record, {
       codePrefix: "runtime_coding_tool_artifact_read_projection",
       expectedOperationKinds: ["artifact.read_projection", "tool.retrieve_result_projection"],
     }),
@@ -1551,7 +1551,7 @@ export function normalizeDiagnosticsOperatorOverrideStateUpdateApiResult(value =
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
-    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+    operation_kind: requiredContextPolicyOperationKind(result, record, {
       codePrefix: "diagnostics_operator_override_state_update",
       expectedOperationKind: "diagnostics.operator_override.event",
     }),
@@ -1574,7 +1574,7 @@ export function normalizeOperatorInterruptStateUpdateApiResult(value = {}) {
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
-    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+    operation_kind: requiredContextPolicyOperationKind(result, record, {
       codePrefix: "operator_interrupt_state_update",
       expectedOperationKind: "turn.interrupt",
     }),
@@ -1599,7 +1599,7 @@ export function normalizeOperatorSteerStateUpdateApiResult(value = {}) {
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
-    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+    operation_kind: requiredContextPolicyOperationKind(result, record, {
       codePrefix: "operator_steer_state_update",
       expectedOperationKind: "turn.steer",
     }),
@@ -1610,7 +1610,7 @@ export function normalizeOperatorSteerStateUpdateApiResult(value = {}) {
   };
 }
 
-export function normalizePostEditDiagnosticsFeedbackPlanBridgeResult(value = {}) {
+export function normalizePostEditDiagnosticsFeedbackPlanResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   return {
@@ -1625,7 +1625,7 @@ export function normalizePostEditDiagnosticsFeedbackPlanBridgeResult(value = {})
       "rust_runtime_diagnostics_feedback",
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
-    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+    operation_kind: requiredContextPolicyOperationKind(result, record, {
       codePrefix: "post_edit_diagnostics_feedback_plan",
       expectedOperationKind: "runtime.post_edit_diagnostics_feedback",
     }),
@@ -1647,7 +1647,7 @@ export function normalizePostEditDiagnosticsFeedbackPlanBridgeResult(value = {})
   };
 }
 
-export function normalizeRuntimeDiagnosticsRepairControlBridgeResult(value = {}) {
+export function normalizeRuntimeDiagnosticsRepairControlResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   return {
@@ -1660,7 +1660,7 @@ export function normalizeRuntimeDiagnosticsRepairControlBridgeResult(value = {})
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
     operation: optionalString(result.operation ?? record.operation) ?? null,
-    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+    operation_kind: requiredContextPolicyOperationKind(result, record, {
       codePrefix: "runtime_diagnostics_repair_control",
       expectedOperationKinds: [
         "diagnostics.repair_decision.execute",
@@ -1683,7 +1683,7 @@ export function normalizeRuntimeDiagnosticsRepairControlBridgeResult(value = {})
   };
 }
 
-export function normalizeRuntimeDiagnosticsRepairRetryRunBridgeResult(value = {}) {
+export function normalizeRuntimeDiagnosticsRepairRetryRunResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   const runRequest = objectRecord(result.run_request ?? record.run_request);
@@ -1708,7 +1708,7 @@ export function normalizeRuntimeDiagnosticsRepairRetryRunBridgeResult(value = {}
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
     operation: optionalString(result.operation ?? record.operation) ?? null,
-    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+    operation_kind: requiredContextPolicyOperationKind(result, record, {
       codePrefix: "runtime_diagnostics_repair_retry_run",
       expectedOperationKind: "diagnostics.repair_retry.run_create",
     }),
@@ -1725,7 +1725,7 @@ export function normalizeRuntimeDiagnosticsRepairRetryRunBridgeResult(value = {}
   };
 }
 
-export function normalizeRuntimeDiagnosticsRepairRetryResultProjectionBridgeResult(value = {}) {
+export function normalizeRuntimeDiagnosticsRepairRetryResultProjectionResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   const status = optionalString(result.status ?? record.status);
@@ -1789,7 +1789,7 @@ export function normalizeRuntimeDiagnosticsRepairRetryResultProjectionBridgeResu
       "ioi.runtime_diagnostics_repair_retry",
     status: optionalString(result.status ?? record.status) ?? null,
     operation: optionalString(result.operation ?? record.operation) ?? null,
-    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+    operation_kind: requiredContextPolicyOperationKind(result, record, {
       codePrefix: "runtime_diagnostics_repair_retry_result_projection",
       expectedOperationKind: "runtime.diagnostics_repair_retry.result",
     }),
@@ -1808,7 +1808,7 @@ export function normalizeRuntimeDiagnosticsRepairRetryResultProjectionBridgeResu
   };
 }
 
-export function normalizeRuntimeDiagnosticsRepairProjectionBridgeResult(value = {}) {
+export function normalizeRuntimeDiagnosticsRepairProjectionResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   const projectionKind = optionalString(result.projection_kind ?? record.projection_kind);
@@ -1827,7 +1827,7 @@ export function normalizeRuntimeDiagnosticsRepairProjectionBridgeResult(value = 
     status: optionalString(result.status ?? record.status) ?? null,
     operation: optionalString(result.operation ?? record.operation) ?? null,
     operation_kind: expectedOperationKind
-      ? requiredContextPolicyBridgeOperationKind(result, record, {
+      ? requiredContextPolicyOperationKind(result, record, {
           codePrefix: "runtime_diagnostics_repair_projection",
           expectedOperationKind,
         })
@@ -1845,7 +1845,7 @@ export function normalizeRuntimeDiagnosticsRepairProjectionBridgeResult(value = 
   };
 }
 
-export function normalizeRuntimeDiagnosticsRepairPolicyBridgeResult(value = {}) {
+export function normalizeRuntimeDiagnosticsRepairPolicyResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   return {
@@ -1858,7 +1858,7 @@ export function normalizeRuntimeDiagnosticsRepairPolicyBridgeResult(value = {}) 
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
     operation: optionalString(result.operation ?? record.operation) ?? null,
-    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+    operation_kind: requiredContextPolicyOperationKind(result, record, {
       codePrefix: "runtime_diagnostics_repair_policy",
       expectedOperationKind: "runtime.diagnostics_repair_policy.projection",
     }),
@@ -1898,7 +1898,7 @@ export function normalizeRunCancelStateUpdateApiResult(value = {}) {
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
-    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+    operation_kind: requiredContextPolicyOperationKind(result, record, {
       codePrefix: "run_cancel_state_update",
       expectedOperationKind: "run.cancel",
     }),
@@ -1915,7 +1915,7 @@ export function normalizeRunCancelStateUpdateApiResult(value = {}) {
   };
 }
 
-export function normalizeRuntimeTaskJobCancelStateUpdateBridgeResult(value = {}) {
+export function normalizeRuntimeTaskJobCancelStateUpdateResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   return {
@@ -1927,7 +1927,7 @@ export function normalizeRuntimeTaskJobCancelStateUpdateBridgeResult(value = {})
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
-    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+    operation_kind: requiredContextPolicyOperationKind(result, record, {
       codePrefix: "runtime_task_job_cancel_state_update",
       expectedOperationKinds: ["task.cancel", "job.cancel"],
     }),
@@ -1948,7 +1948,7 @@ export function normalizeRuntimeTaskJobCancelStateUpdateBridgeResult(value = {})
   };
 }
 
-export function normalizeRuntimeTaskJobCreateStateUpdateBridgeResult(value = {}) {
+export function normalizeRuntimeTaskJobCreateStateUpdateResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   return {
@@ -1960,7 +1960,7 @@ export function normalizeRuntimeTaskJobCreateStateUpdateBridgeResult(value = {})
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
-    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+    operation_kind: requiredContextPolicyOperationKind(result, record, {
       codePrefix: "runtime_task_job_create_state_update",
       expectedOperationKind: "task.create",
     }),
@@ -1982,7 +1982,7 @@ export function normalizeRuntimeTaskJobCreateStateUpdateBridgeResult(value = {})
   };
 }
 
-export function normalizeRuntimeTaskJobProjectionBridgeResult(value = {}) {
+export function normalizeRuntimeTaskJobProjectionResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   const records = arrayValue(result.records ?? record.records);
@@ -1995,7 +1995,7 @@ export function normalizeRuntimeTaskJobProjectionBridgeResult(value = {}) {
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
-    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+    operation_kind: requiredContextPolicyOperationKind(result, record, {
       codePrefix: "runtime_task_job_projection",
       expectedOperationKinds: ["task.list", "task.get", "job.list", "job.get"],
     }),
@@ -2036,7 +2036,7 @@ export function normalizeSkillHookRegistryProjectionResult(value = {}) {
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
     operation_kind: expectedOperationKind
-      ? requiredContextPolicyBridgeOperationKind(result, record, {
+      ? requiredContextPolicyOperationKind(result, record, {
           codePrefix: "skill_hook_registry_projection",
           expectedOperationKind,
         })
@@ -2080,7 +2080,7 @@ export function normalizeRepositoryWorkflowProjectionResult(value = {}) {
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
     operation_kind: expectedOperationKind
-      ? requiredContextPolicyBridgeOperationKind(result, record, {
+      ? requiredContextPolicyOperationKind(result, record, {
           codePrefix: "repository_workflow_projection",
           expectedOperationKind,
         })
@@ -2130,7 +2130,7 @@ export function normalizeRuntimeToolCatalogProjectionResult(value = {}) {
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
-    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+    operation_kind: requiredContextPolicyOperationKind(result, record, {
       codePrefix: "runtime_tool_catalog_projection",
       expectedOperationKinds: [
         "runtime.tool_catalog.projection.account",
@@ -2172,7 +2172,7 @@ export function normalizeRuntimeLifecycleProjectionResult(value = {}) {
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
     operation_kind: expectedOperationKind
-      ? requiredContextPolicyBridgeOperationKind(result, record, {
+      ? requiredContextPolicyOperationKind(result, record, {
           codePrefix: "runtime_lifecycle_projection",
           expectedOperationKind,
         })
@@ -2194,7 +2194,7 @@ export function normalizeRuntimeLifecycleProjectionResult(value = {}) {
   };
 }
 
-export function normalizeRuntimeDoctorReportProjectionBridgeResult(value = {}) {
+export function normalizeRuntimeDoctorReportProjectionResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   const report = objectRecord(result.report) ?? objectRecord(record.report);
@@ -2207,7 +2207,7 @@ export function normalizeRuntimeDoctorReportProjectionBridgeResult(value = {}) {
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
-    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+    operation_kind: requiredContextPolicyOperationKind(result, record, {
       codePrefix: "runtime_doctor_report_projection",
       expectedOperationKind: "runtime.doctor_report.projection",
     }),
@@ -2222,7 +2222,7 @@ export function normalizeRuntimeDoctorReportProjectionBridgeResult(value = {}) {
   };
 }
 
-export function normalizeRuntimeComputerUseProjectionBridgeResult(value = {}) {
+export function normalizeRuntimeComputerUseProjectionResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   const projectionKind = optionalString(result.projection_kind ?? record.projection_kind);
@@ -2243,11 +2243,11 @@ export function normalizeRuntimeComputerUseProjectionBridgeResult(value = {}) {
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
     operation_kind: expectedOperationKind
-      ? requiredContextPolicyBridgeOperationKind(result, record, {
+      ? requiredContextPolicyOperationKind(result, record, {
           codePrefix: "runtime_computer_use_projection",
           expectedOperationKind,
         })
-      : requiredContextPolicyBridgeOperationKind(result, record, {
+      : requiredContextPolicyOperationKind(result, record, {
           codePrefix: "runtime_computer_use_projection",
           expectedOperationKinds: [
             "runtime.computer_use.projection.provider_registry",
@@ -2269,7 +2269,7 @@ export function normalizeRuntimeComputerUseProjectionBridgeResult(value = {}) {
   };
 }
 
-export function normalizeStudioIntentFrameProjectionBridgeResult(value = {}) {
+export function normalizeStudioIntentFrameProjectionResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   const frame = objectRecord(result.frame) ?? objectRecord(record.frame);
@@ -2282,7 +2282,7 @@ export function normalizeStudioIntentFrameProjectionBridgeResult(value = {}) {
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
-    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+    operation_kind: requiredContextPolicyOperationKind(result, record, {
       codePrefix: "studio_intent_frame_projection",
       expectedOperationKind: "studio.intent_frame.projection",
     }),
@@ -2312,7 +2312,7 @@ export function normalizeRuntimeMemoryProjectionResult(value = {}) {
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
     operation_kind: expectedOperationKind
-      ? requiredContextPolicyBridgeOperationKind(result, record, {
+      ? requiredContextPolicyOperationKind(result, record, {
           codePrefix: "runtime_memory_projection",
           expectedOperationKind,
         })
@@ -2342,7 +2342,7 @@ export function normalizeRuntimeMemoryControlResult(value = {}) {
       { operation_kind: optionalString(result.operation_kind ?? record.operation_kind) },
     );
   }
-  const operationKind = requiredContextPolicyBridgeOperationKind(result, record, {
+  const operationKind = requiredContextPolicyOperationKind(result, record, {
     codePrefix: "runtime_memory_control",
     expectedPrefix: "memory.",
   });
@@ -2371,7 +2371,7 @@ export function normalizeRuntimeMemoryControlResult(value = {}) {
   };
 }
 
-export function normalizeRuntimeMcpServeToolCallPlanBridgeResult(value = {}) {
+export function normalizeRuntimeMcpServeToolCallPlanResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   const request = objectRecord(result.request) ?? objectRecord(record.request);
@@ -2392,7 +2392,7 @@ export function normalizeRuntimeMcpServeToolCallPlanBridgeResult(value = {}) {
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
     operation: optionalString(result.operation ?? record.operation) ?? null,
-    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+    operation_kind: requiredContextPolicyOperationKind(result, record, {
       codePrefix: "runtime_mcp_serve_tool_call_plan",
       expectedOperationKind: "mcp.serve.tools.call",
     }),
@@ -2415,7 +2415,7 @@ export function normalizeRuntimeMcpServeToolCallPlanBridgeResult(value = {}) {
   };
 }
 
-export function normalizeRuntimeMcpServeToolResultProjectionBridgeResult(value = {}) {
+export function normalizeRuntimeMcpServeToolResultProjectionResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   const toolResult = objectRecord(result.result) ?? objectRecord(record.result);
@@ -2436,7 +2436,7 @@ export function normalizeRuntimeMcpServeToolResultProjectionBridgeResult(value =
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
     operation: optionalString(result.operation ?? record.operation) ?? null,
-    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+    operation_kind: requiredContextPolicyOperationKind(result, record, {
       codePrefix: "runtime_mcp_serve_tool_result_projection",
       expectedOperationKind: "mcp.serve.tools.result",
     }),
@@ -2458,7 +2458,7 @@ export function normalizeRuntimeMcpServeToolResultProjectionBridgeResult(value =
   };
 }
 
-export function normalizeRuntimeWorkflowEditControlBridgeResult(value = {}) {
+export function normalizeRuntimeWorkflowEditControlResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   const event = objectRecord(result.event) ?? objectRecord(record.event);
@@ -2479,7 +2479,7 @@ export function normalizeRuntimeWorkflowEditControlBridgeResult(value = {}) {
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
     operation: optionalString(result.operation ?? record.operation) ?? null,
-    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+    operation_kind: requiredContextPolicyOperationKind(result, record, {
       codePrefix: "runtime_workflow_edit_control",
       expectedPrefix: "workflow.edit",
     }),
@@ -2494,7 +2494,7 @@ export function normalizeRuntimeWorkflowEditControlBridgeResult(value = {}) {
   };
 }
 
-export function normalizeRuntimeConversationArtifactProjectionBridgeResult(value = {}) {
+export function normalizeRuntimeConversationArtifactProjectionResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   const projectionKind = optionalString(result.projection_kind ?? record.projection_kind);
@@ -2512,7 +2512,7 @@ export function normalizeRuntimeConversationArtifactProjectionBridgeResult(value
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
     operation_kind: expectedOperationKind
-      ? requiredContextPolicyBridgeOperationKind(result, record, {
+      ? requiredContextPolicyOperationKind(result, record, {
           codePrefix: "runtime_conversation_artifact_projection",
           expectedOperationKind,
         })
@@ -2529,7 +2529,7 @@ export function normalizeRuntimeConversationArtifactProjectionBridgeResult(value
   };
 }
 
-export function normalizeRuntimeConversationArtifactControlBridgeResult(value = {}) {
+export function normalizeRuntimeConversationArtifactControlResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   const artifact = objectRecord(result.artifact) ?? objectRecord(record.artifact);
@@ -2558,7 +2558,7 @@ export function normalizeRuntimeConversationArtifactControlBridgeResult(value = 
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
     operation: optionalString(result.operation ?? record.operation) ?? null,
-    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+    operation_kind: requiredContextPolicyOperationKind(result, record, {
       codePrefix: "runtime_conversation_artifact_control",
       expectedOperationKinds: [
         "artifact.conversation.create",
@@ -2578,7 +2578,7 @@ export function normalizeRuntimeConversationArtifactControlBridgeResult(value = 
   };
 }
 
-export function normalizeRuntimeSubagentProjectionBridgeResult(value = {}) {
+export function normalizeRuntimeSubagentProjectionResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   const projectionKind = optionalString(result.projection_kind ?? record.projection_kind);
@@ -2596,7 +2596,7 @@ export function normalizeRuntimeSubagentProjectionBridgeResult(value = {}) {
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
     operation_kind: expectedOperationKind
-      ? requiredContextPolicyBridgeOperationKind(result, record, {
+      ? requiredContextPolicyOperationKind(result, record, {
           codePrefix: "runtime_subagent_projection",
           expectedOperationKind,
         })
@@ -2614,7 +2614,7 @@ export function normalizeRuntimeSubagentProjectionBridgeResult(value = {}) {
   };
 }
 
-export function normalizeRuntimeSubagentControlBridgeResult(value = {}) {
+export function normalizeRuntimeSubagentControlResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   const event = objectRecord(result.event) ?? objectRecord(record.event);
@@ -2635,7 +2635,7 @@ export function normalizeRuntimeSubagentControlBridgeResult(value = {}) {
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
     operation: optionalString(result.operation ?? record.operation) ?? null,
-    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+    operation_kind: requiredContextPolicyOperationKind(result, record, {
       codePrefix: "runtime_subagent_control",
       expectedPrefix: "subagent.",
     }),
@@ -2650,7 +2650,7 @@ export function normalizeRuntimeSubagentControlBridgeResult(value = {}) {
   };
 }
 
-export function normalizeRuntimeManagedSessionProjectionBridgeResult(value = {}) {
+export function normalizeRuntimeManagedSessionProjectionResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   const projectionKind = optionalString(result.projection_kind ?? record.projection_kind);
@@ -2664,7 +2664,7 @@ export function normalizeRuntimeManagedSessionProjectionBridgeResult(value = {})
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
-    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+    operation_kind: requiredContextPolicyOperationKind(result, record, {
       codePrefix: "runtime_managed_session_projection",
       expectedOperationKind: "managed_session.inspect",
     }),
@@ -2679,7 +2679,7 @@ export function normalizeRuntimeManagedSessionProjectionBridgeResult(value = {})
   };
 }
 
-export function normalizeRuntimeManagedSessionControlBridgeResult(value = {}) {
+export function normalizeRuntimeManagedSessionControlResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   const event = objectRecord(result.event) ?? objectRecord(record.event);
@@ -2700,7 +2700,7 @@ export function normalizeRuntimeManagedSessionControlBridgeResult(value = {}) {
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
     operation: optionalString(result.operation ?? record.operation) ?? null,
-    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+    operation_kind: requiredContextPolicyOperationKind(result, record, {
       codePrefix: "runtime_managed_session_control",
       expectedOperationKind: "managed_session.control",
     }),
@@ -2715,7 +2715,7 @@ export function normalizeRuntimeManagedSessionControlBridgeResult(value = {}) {
   };
 }
 
-export function normalizeRuntimeWorkspaceChangeProjectionBridgeResult(value = {}) {
+export function normalizeRuntimeWorkspaceChangeProjectionResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   const projectionKind = optionalString(result.projection_kind ?? record.projection_kind);
@@ -2729,7 +2729,7 @@ export function normalizeRuntimeWorkspaceChangeProjectionBridgeResult(value = {}
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
-    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+    operation_kind: requiredContextPolicyOperationKind(result, record, {
       codePrefix: "runtime_workspace_change_projection",
       expectedOperationKind: "workspace_change.inspect",
     }),
@@ -2744,7 +2744,7 @@ export function normalizeRuntimeWorkspaceChangeProjectionBridgeResult(value = {}
   };
 }
 
-export function normalizeRuntimeWorkspaceChangeControlBridgeResult(value = {}) {
+export function normalizeRuntimeWorkspaceChangeControlResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   const event = objectRecord(result.event) ?? objectRecord(record.event);
@@ -2765,7 +2765,7 @@ export function normalizeRuntimeWorkspaceChangeControlBridgeResult(value = {}) {
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
     operation: optionalString(result.operation ?? record.operation) ?? null,
-    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+    operation_kind: requiredContextPolicyOperationKind(result, record, {
       codePrefix: "runtime_workspace_change_control",
       expectedOperationKind: "workspace_change.control",
     }),
@@ -2780,7 +2780,7 @@ export function normalizeRuntimeWorkspaceChangeControlBridgeResult(value = {}) {
   };
 }
 
-export function normalizeRuntimeThreadForkControlBridgeResult(value = {}) {
+export function normalizeRuntimeThreadForkControlResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
   const event = objectRecord(result.event) ?? objectRecord(record.event);
@@ -2817,7 +2817,7 @@ export function normalizeRuntimeThreadForkControlBridgeResult(value = {}) {
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
     operation: optionalString(result.operation ?? record.operation) ?? null,
-    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+    operation_kind: requiredContextPolicyOperationKind(result, record, {
       codePrefix: "runtime_thread_fork_control",
       expectedOperationKind: "thread.fork",
     }),
@@ -2849,7 +2849,7 @@ export function normalizeThreadControlAgentStateUpdateApiResult(value = {}) {
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
-    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+    operation_kind: requiredContextPolicyOperationKind(result, record, {
       codePrefix: "thread_control_agent_state_update",
       expectedPrefix: "thread.",
     }),
@@ -2875,7 +2875,7 @@ export function normalizeWorkspaceTrustControlStateUpdateResult(value = {}) {
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
-    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+    operation_kind: requiredContextPolicyOperationKind(result, record, {
       codePrefix: "workspace_trust_control_state_update",
       expectedOperationKinds: ["workspace_trust.warning", "workspace_trust.acknowledge"],
     }),
@@ -2919,7 +2919,7 @@ export function normalizeMcpControlAgentStateUpdateApiResult(value = {}) {
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
-    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+    operation_kind: requiredContextPolicyOperationKind(result, record, {
       codePrefix: "mcp_control_agent_state_update",
       expectedPrefix: "thread.",
     }),
@@ -3294,7 +3294,7 @@ export function normalizeThreadMemoryAgentStateUpdateResult(value = {}) {
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
-    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+    operation_kind: requiredContextPolicyOperationKind(result, record, {
       codePrefix: "thread_memory_agent_state_update",
       expectedPrefix: "thread.",
     }),
@@ -3308,7 +3308,7 @@ export function normalizeThreadMemoryAgentStateUpdateResult(value = {}) {
 export function normalizeRuntimeBridgeThreadStartAgentStateUpdateApiResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
-  const operationKind = requiredContextPolicyBridgeOperationKind(result, record, {
+  const operationKind = requiredContextPolicyOperationKind(result, record, {
     codePrefix: "runtime_bridge_thread_start_agent_state_update",
     expectedOperationKind: "thread.runtime_bridge.start",
   });
@@ -3338,7 +3338,7 @@ export function normalizeRuntimeBridgeThreadStartAgentStateUpdateApiResult(value
 export function normalizeRuntimeBridgeThreadControlAgentStateUpdateApiResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
-  const operationKind = requiredContextPolicyBridgeOperationKind(result, record, {
+  const operationKind = requiredContextPolicyOperationKind(result, record, {
     codePrefix: "runtime_bridge_thread_control_agent_state_update",
     expectedOperationKind: "thread.runtime_bridge.control",
   });
@@ -3377,7 +3377,7 @@ export function normalizeRuntimeBridgeTurnRunStateUpdateApiResult(value = {}) {
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
-    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+    operation_kind: requiredContextPolicyOperationKind(result, record, {
       codePrefix: "runtime_bridge_turn_run_state_update",
       expectedOperationKind: "turn.runtime_bridge.submit",
     }),
@@ -3398,7 +3398,7 @@ export function normalizeSubagentRecordStateUpdateApiResult(value = {}) {
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
-    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+    operation_kind: requiredContextPolicyOperationKind(result, record, {
       codePrefix: "subagent_record_state_update",
       expectedPrefix: "subagent.",
     }),
@@ -3419,7 +3419,7 @@ export function normalizeAgentCreateStateUpdateApiResult(value = {}) {
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
-    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+    operation_kind: requiredContextPolicyOperationKind(result, record, {
       codePrefix: "agent_create_state_update",
       expectedOperationKind: "agent.create",
     }),
@@ -3441,7 +3441,7 @@ export function normalizeThreadCreateStateUpdateApiResult(value = {}) {
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
-    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+    operation_kind: requiredContextPolicyOperationKind(result, record, {
       codePrefix: "thread_create_state_update",
       expectedOperationKind: "thread.create",
     }),
@@ -3466,7 +3466,7 @@ export function normalizeRunCreateStateUpdateApiResult(value = {}) {
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
-    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+    operation_kind: requiredContextPolicyOperationKind(result, record, {
       codePrefix: "run_create_state_update",
       expectedOperationKind: "run.create",
     }),
@@ -3488,7 +3488,7 @@ export function normalizeAgentStatusStateUpdateApiResult(value = {}) {
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
-    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+    operation_kind: requiredContextPolicyOperationKind(result, record, {
       codePrefix: "agent_status_state_update",
       expectedPrefix: "agent.",
     }),
@@ -3509,7 +3509,7 @@ export function normalizeAgentDeleteStateUpdateApiResult(value = {}) {
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     object: optionalString(result.object ?? record.object) ?? null,
     status: optionalString(result.status ?? record.status) ?? null,
-    operation_kind: requiredContextPolicyBridgeOperationKind(result, record, {
+    operation_kind: requiredContextPolicyOperationKind(result, record, {
       codePrefix: "agent_delete_state_update",
       expectedOperationKind: "agent.delete",
     }),

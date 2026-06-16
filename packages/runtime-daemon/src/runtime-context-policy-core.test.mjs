@@ -162,9 +162,9 @@ import {
   normalizeAgentStatusStateUpdateApiResult,
   normalizeCodingToolBudgetBlockResult,
   normalizeCodingToolBudgetRecoveryStateUpdateApiResult,
-  normalizeCodingToolResultEnvelopePlanBridgeResult,
-  normalizeRuntimeCodingToolArtifactDraftPlanBridgeResult,
-  normalizeRuntimeCodingToolArtifactReadProjectionBridgeResult,
+  normalizeCodingToolResultEnvelopePlanResult,
+  normalizeRuntimeCodingToolArtifactDraftPlanResult,
+  normalizeRuntimeCodingToolArtifactReadProjectionResult,
   normalizeCompactionPolicyResult,
   normalizeContextBudgetPolicyResult,
   normalizeContextCompactionPlanResult,
@@ -182,32 +182,32 @@ import {
   normalizeMemoryManagerValidationProjectionResult,
   normalizeOperatorInterruptStateUpdateApiResult,
   normalizeOperatorSteerStateUpdateApiResult,
-  normalizePostEditDiagnosticsFeedbackPlanBridgeResult,
+  normalizePostEditDiagnosticsFeedbackPlanResult,
   normalizeRunCancelStateUpdateApiResult,
-  normalizeRuntimeTaskJobCancelStateUpdateBridgeResult,
-  normalizeRuntimeTaskJobCreateStateUpdateBridgeResult,
-  normalizeRuntimeTaskJobProjectionBridgeResult,
+  normalizeRuntimeTaskJobCancelStateUpdateResult,
+  normalizeRuntimeTaskJobCreateStateUpdateResult,
+  normalizeRuntimeTaskJobProjectionResult,
   normalizeRuntimeToolCatalogProjectionResult,
   normalizeRuntimeLifecycleProjectionResult,
-  normalizeRuntimeDoctorReportProjectionBridgeResult,
-  normalizeRuntimeComputerUseProjectionBridgeResult,
-  normalizeStudioIntentFrameProjectionBridgeResult,
+  normalizeRuntimeDoctorReportProjectionResult,
+  normalizeRuntimeComputerUseProjectionResult,
+  normalizeStudioIntentFrameProjectionResult,
   normalizeRuntimeMemoryControlResult,
-  normalizeRuntimeMcpServeToolCallPlanBridgeResult,
-  normalizeRuntimeMcpServeToolResultProjectionBridgeResult,
+  normalizeRuntimeMcpServeToolCallPlanResult,
+  normalizeRuntimeMcpServeToolResultProjectionResult,
   normalizeRuntimeMemoryProjectionResult,
-  normalizeRuntimeDiagnosticsRepairProjectionBridgeResult,
-  normalizeRuntimeDiagnosticsRepairPolicyBridgeResult,
-  normalizeRuntimeWorkflowEditControlBridgeResult,
-  normalizeRuntimeManagedSessionControlBridgeResult,
-  normalizeRuntimeManagedSessionProjectionBridgeResult,
-  normalizeRuntimeWorkspaceChangeControlBridgeResult,
-  normalizeRuntimeWorkspaceChangeProjectionBridgeResult,
-  normalizeRuntimeThreadForkControlBridgeResult,
-  normalizeRuntimeConversationArtifactControlBridgeResult,
-  normalizeRuntimeConversationArtifactProjectionBridgeResult,
-  normalizeRuntimeSubagentControlBridgeResult,
-  normalizeRuntimeSubagentProjectionBridgeResult,
+  normalizeRuntimeDiagnosticsRepairProjectionResult,
+  normalizeRuntimeDiagnosticsRepairPolicyResult,
+  normalizeRuntimeWorkflowEditControlResult,
+  normalizeRuntimeManagedSessionControlResult,
+  normalizeRuntimeManagedSessionProjectionResult,
+  normalizeRuntimeWorkspaceChangeControlResult,
+  normalizeRuntimeWorkspaceChangeProjectionResult,
+  normalizeRuntimeThreadForkControlResult,
+  normalizeRuntimeConversationArtifactControlResult,
+  normalizeRuntimeConversationArtifactProjectionResult,
+  normalizeRuntimeSubagentControlResult,
+  normalizeRuntimeSubagentProjectionResult,
   normalizeRepositoryWorkflowProjectionResult,
   normalizeSkillHookRegistryProjectionResult,
   normalizeRunCreateStateUpdateApiResult,
@@ -1461,7 +1461,7 @@ test("runtime diagnostics repair projection core sends Rust daemon-core request"
 
   assert.throws(
     () =>
-      normalizeRuntimeDiagnosticsRepairProjectionBridgeResult({
+      normalizeRuntimeDiagnosticsRepairProjectionResult({
         record: {
           operation_kind: "runtime.diagnostics_repair_projection.retired",
           projection_kind: "decision",
@@ -1556,7 +1556,7 @@ test("runtime diagnostics repair policy core sends Rust daemon-core request", ()
 
   assert.throws(
     () =>
-      normalizeRuntimeDiagnosticsRepairPolicyBridgeResult({
+      normalizeRuntimeDiagnosticsRepairPolicyResult({
         record: {
           operation_kind: "runtime.diagnostics_repair_policy.retired",
         },
@@ -1814,7 +1814,7 @@ test("coding-tool artifact draft core sends Rust daemon-core plan request", () =
 test("coding-tool artifact draft normalizer rejects missing Rust records", () => {
   assert.throws(
     () =>
-      normalizeRuntimeCodingToolArtifactDraftPlanBridgeResult({
+      normalizeRuntimeCodingToolArtifactDraftPlanResult({
         record: {
           operation_kind: "artifact.coding_tool_draft",
           artifact_records: [],
@@ -1891,7 +1891,7 @@ test("coding-tool artifact read projection core sends Rust daemon-core request",
 test("coding-tool artifact read projection normalizer rejects missing Rust result", () => {
   assert.throws(
     () =>
-      normalizeRuntimeCodingToolArtifactReadProjectionBridgeResult({
+      normalizeRuntimeCodingToolArtifactReadProjectionResult({
         record: {
           operation_kind: "artifact.read_projection",
           artifact_refs: ["artifact_rust"],
@@ -1908,7 +1908,7 @@ test("coding-tool artifact read projection normalizer rejects missing Rust resul
 test("coding-tool result envelope normalizer rejects wrong operation kind", () => {
   assert.throws(
     () =>
-      normalizeCodingToolResultEnvelopePlanBridgeResult({
+      normalizeCodingToolResultEnvelopePlanResult({
         operation_kind: "runtime.coding_tool.result_event_compat",
         record: {
           operation_kind: "runtime.coding_tool.result_event_compat",
@@ -1975,7 +1975,7 @@ test("post-edit diagnostics feedback core sends Rust daemon-core plan request", 
 });
 
 test("post-edit diagnostics feedback plan normalizer preserves Rust-owned request envelope", () => {
-  const result = normalizePostEditDiagnosticsFeedbackPlanBridgeResult({
+  const result = normalizePostEditDiagnosticsFeedbackPlanResult({
     source: "rust_post_edit_diagnostics_feedback_plan_command",
     record: {
       status: "planned",
@@ -2345,7 +2345,7 @@ test("runtime task job cancel core sends Rust state update through typed runtime
 });
 
 test("runtime task job cancel normalizer accepts job cancel operation kind", () => {
-  const result = normalizeRuntimeTaskJobCancelStateUpdateBridgeResult({
+  const result = normalizeRuntimeTaskJobCancelStateUpdateResult({
     source: "rust_runtime_task_job_cancel_state_update_api",
     backend: "rust_policy",
     record: {
@@ -2425,7 +2425,7 @@ test("runtime task job create core sends Rust state update through typed runtime
 });
 
 test("runtime task job create normalizer requires task create operation kind", () => {
-  const result = normalizeRuntimeTaskJobCreateStateUpdateBridgeResult({
+  const result = normalizeRuntimeTaskJobCreateStateUpdateResult({
     source: "rust_runtime_task_job_create_state_update_api",
     backend: "rust_policy",
     record: {
@@ -2500,7 +2500,7 @@ test("runtime task job projection core sends Rust projection through typed runti
 });
 
 test("runtime task job projection normalizer accepts get operation kinds", () => {
-  const taskResult = normalizeRuntimeTaskJobProjectionBridgeResult({
+  const taskResult = normalizeRuntimeTaskJobProjectionResult({
     source: "rust_runtime_task_job_projection_api",
     backend: "rust_policy",
     record: {
@@ -2513,7 +2513,7 @@ test("runtime task job projection normalizer accepts get operation kinds", () =>
       record_count: 1,
     },
   });
-  const jobResult = normalizeRuntimeTaskJobProjectionBridgeResult({
+  const jobResult = normalizeRuntimeTaskJobProjectionResult({
     source: "rust_runtime_task_job_projection_api",
     backend: "rust_policy",
     record: {
@@ -2907,7 +2907,7 @@ test("runtime doctor report projection core sends Rust daemon-core request", () 
 
   assert.throws(
     () =>
-      normalizeRuntimeDoctorReportProjectionBridgeResult({
+      normalizeRuntimeDoctorReportProjectionResult({
         record: {
           operation_kind: "runtime.doctor_report.retired_js_aggregate",
           report: {},
@@ -2986,7 +2986,7 @@ test("runtime computer-use projection core sends Rust daemon-core request", () =
 
   assert.throws(
     () =>
-      normalizeRuntimeComputerUseProjectionBridgeResult({
+      normalizeRuntimeComputerUseProjectionResult({
         record: {
           operation_kind: "runtime.computer_use.retired_js_browser_discovery",
           projection_kind: "browser_discovery",
@@ -3063,7 +3063,7 @@ test("studio intent frame projection core sends Rust daemon-core request", () =>
 
   assert.throws(
     () =>
-      normalizeStudioIntentFrameProjectionBridgeResult({
+      normalizeStudioIntentFrameProjectionResult({
         record: {
           operation_kind: "studio.intent_frame.retired_js_resolver",
           frame: {},
@@ -3307,7 +3307,7 @@ test("runtime workflow-edit control core sends Rust request through typed runtim
 
   assert.throws(
     () =>
-      normalizeRuntimeWorkflowEditControlBridgeResult({
+      normalizeRuntimeWorkflowEditControlResult({
         record: {
           operation_kind: "workflow.edit_proposed",
         },
@@ -3374,7 +3374,7 @@ test("runtime managed-session projection core sends Rust request through typed r
 
   assert.throws(
     () =>
-      normalizeRuntimeManagedSessionProjectionBridgeResult({
+      normalizeRuntimeManagedSessionProjectionResult({
         record: {
           operation_kind: "managed_session.retired",
           projection_kind: "list",
@@ -3454,7 +3454,7 @@ test("runtime managed-session control core sends Rust request through typed runt
 
   assert.throws(
     () =>
-      normalizeRuntimeManagedSessionControlBridgeResult({
+      normalizeRuntimeManagedSessionControlResult({
         record: {
           operation_kind: "managed_session.control",
         },
@@ -3521,7 +3521,7 @@ test("runtime workspace-change projection core sends Rust request through typed 
 
   assert.throws(
     () =>
-      normalizeRuntimeWorkspaceChangeProjectionBridgeResult({
+      normalizeRuntimeWorkspaceChangeProjectionResult({
         record: {
           operation_kind: "workspace_change.retired",
           projection_kind: "list",
@@ -3601,7 +3601,7 @@ test("runtime workspace-change control core sends Rust request through typed run
 
   assert.throws(
     () =>
-      normalizeRuntimeWorkspaceChangeControlBridgeResult({
+      normalizeRuntimeWorkspaceChangeControlResult({
         record: {
           operation_kind: "workspace_change.control",
         },
@@ -3689,7 +3689,7 @@ test("runtime thread-fork control core sends Rust request through typed runtime-
 
   assert.throws(
     () =>
-      normalizeRuntimeThreadForkControlBridgeResult({
+      normalizeRuntimeThreadForkControlResult({
         record: {
           operation_kind: "thread.fork",
           agent: { id: "agent_fork_123" },
@@ -3763,7 +3763,7 @@ test("runtime conversation artifact projection core sends Rust request through t
 
   assert.throws(
     () =>
-      normalizeRuntimeConversationArtifactProjectionBridgeResult({
+      normalizeRuntimeConversationArtifactProjectionResult({
         record: {
           operation_kind: "runtime.conversation_artifact_projection.retired",
           projection_kind: "list",
@@ -3846,7 +3846,7 @@ test("runtime conversation artifact control core sends Rust request through type
 
   assert.throws(
     () =>
-      normalizeRuntimeConversationArtifactControlBridgeResult({
+      normalizeRuntimeConversationArtifactControlResult({
         record: {
           operation_kind: "artifact.conversation.create",
           result: { status: "created" },
@@ -3919,7 +3919,7 @@ test("runtime subagent projection core sends Rust request through typed runtime-
 
   assert.throws(
     () =>
-      normalizeRuntimeSubagentProjectionBridgeResult({
+      normalizeRuntimeSubagentProjectionResult({
         record: {
           operation_kind: "runtime.subagent_projection.retired",
           projection_kind: "list",
@@ -3992,7 +3992,7 @@ test("runtime subagent wait control core sends Rust request through typed runtim
 
   assert.throws(
     () =>
-      normalizeRuntimeSubagentControlBridgeResult({
+      normalizeRuntimeSubagentControlResult({
         record: {
           operation_kind: "subagent.wait",
         },
@@ -4737,7 +4737,7 @@ test("runtime MCP serve tool-call planner sends Rust daemon-core request", () =>
 test("runtime MCP serve tool-call planner rejects missing Rust request envelope", () => {
   assert.throws(
     () =>
-      normalizeRuntimeMcpServeToolCallPlanBridgeResult({
+      normalizeRuntimeMcpServeToolCallPlanResult({
         source: "rust_runtime_mcp_serve_tool_call_plan_api",
         operation_kind: "mcp.serve.tools.call",
       }),
@@ -4819,7 +4819,7 @@ test("runtime MCP serve tool-result projector sends Rust daemon-core projection 
 test("runtime MCP serve tool-result projector rejects missing Rust result envelope", () => {
   assert.throws(
     () =>
-      normalizeRuntimeMcpServeToolResultProjectionBridgeResult({
+      normalizeRuntimeMcpServeToolResultProjectionResult({
         source: "rust_runtime_mcp_serve_tool_result_projection_api",
         operation_kind: "mcp.serve.tools.result",
       }),

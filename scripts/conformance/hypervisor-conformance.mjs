@@ -6322,7 +6322,7 @@ function runBridge() {
       /planCodingToolResultEnvelope\(request = \{\}\)/.test(runtimeContextPolicyCore) &&
       /RUNTIME_CONTROL_CODING_TOOL_RESULT_ENVELOPE_API_METHOD,[\s\S]*?CODING_TOOL_RESULT_ENVELOPE_PLAN_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyCore) &&
       !/operation:\s*"plan_coding_tool_result_envelope"/.test(runtimeContextPolicyCore) &&
-      /normalizeCodingToolResultEnvelopePlanBridgeResult/.test(runtimeContextPolicyCore) &&
+      /normalizeCodingToolResultEnvelopePlanResult/.test(runtimeContextPolicyCore) &&
       /coding-tool result envelope core sends Rust daemon-core plan request/.test(
         runtimeContextPolicyCoreTest,
       ) &&
@@ -7453,7 +7453,7 @@ function runBridge() {
       /RUNTIME_CODING_TOOL_ARTIFACT_READ_PROJECTION_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyCore) &&
       /RUNTIME_PROJECTION_CODING_TOOL_ARTIFACT_READ_API_METHOD/.test(runtimeContextPolicyCore) &&
       /projectRuntimeCodingToolArtifactRead/.test(runtimeContextPolicyCore) &&
-      /normalizeRuntimeCodingToolArtifactReadProjectionBridgeResult/.test(runtimeContextPolicyCore) &&
+      /normalizeRuntimeCodingToolArtifactReadProjectionResult/.test(runtimeContextPolicyCore) &&
       !/operation:\s*"project_runtime_coding_tool_artifact_read"/.test(runtimeContextPolicyCore) &&
       /coding-tool artifact read projection core sends Rust daemon-core request/.test(runtimeContextPolicyCoreTest) &&
       /coding-tool artifact read projection normalizer rejects missing Rust result/.test(runtimeContextPolicyCoreTest) &&
@@ -7693,7 +7693,7 @@ function runBridge() {
       /RUNTIME_CODING_TOOL_ARTIFACT_DRAFT_PLAN_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyCore) &&
       /RUNTIME_CONTROL_CODING_TOOL_ARTIFACT_DRAFTS_API_METHOD/.test(runtimeContextPolicyCore) &&
       /planRuntimeCodingToolArtifactDrafts/.test(runtimeContextPolicyCore) &&
-      /normalizeRuntimeCodingToolArtifactDraftPlanBridgeResult/.test(runtimeContextPolicyCore) &&
+      /normalizeRuntimeCodingToolArtifactDraftPlanResult/.test(runtimeContextPolicyCore) &&
       !/operation:\s*"plan_runtime_coding_tool_artifact_drafts"/.test(runtimeContextPolicyCore) &&
       /coding-tool artifact draft core sends Rust daemon-core plan request/.test(runtimeContextPolicyCoreTest) &&
       /RUNTIME_CONTROL_CODING_TOOL_ARTIFACT_DRAFTS_API_METHOD/.test(runtimeContextPolicyCoreTest) &&
@@ -8398,7 +8398,7 @@ function runBridge() {
       ) &&
       /RUNTIME_COMPUTER_USE_PROJECTION_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyCore) &&
       /projectRuntimeComputerUse\(request = \{\}\)/.test(runtimeContextPolicyCore) &&
-      /normalizeRuntimeComputerUseProjectionBridgeResult/.test(runtimeContextPolicyCore) &&
+      /normalizeRuntimeComputerUseProjectionResult/.test(runtimeContextPolicyCore) &&
       /runtime computer-use projection core sends Rust daemon-core request/.test(
         runtimeContextPolicyCoreTest,
       ) &&
@@ -15107,7 +15107,7 @@ function runBridge() {
     /RUNTIME_THREAD_FORK_CONTROL_REQUEST_SCHEMA_VERSION/.test(
       runtimeContextPolicyCore,
     ) &&
-    /normalizeRuntimeThreadForkControlBridgeResult/.test(
+    /normalizeRuntimeThreadForkControlResult/.test(
       runtimeContextPolicyCore,
     ) &&
     /expectedOperationKind:\s*"thread\.fork"/.test(runtimeContextPolicyCore) &&
@@ -16559,7 +16559,7 @@ function runBridge() {
       /error\.details\.expected_operation_kinds/.test(runtimeContextPolicyCoreTest) &&
       /error\.details\.expected_prefix/.test(runtimeContextPolicyCoreTest) &&
       !/\b(?:operationKind|expectedOperationKind|expectedOperationKinds|expectedPrefix)\s*:/.test(
-        runtimeContextPolicyCore.match(/function requiredContextPolicyBridgeOperationKind[\s\S]*?\n\}/)?.[0] ?? "",
+        runtimeContextPolicyCore.match(/function requiredContextPolicyOperationKind[\s\S]*?\n\}/)?.[0] ?? "",
       ) &&
       !/error\.details\.(?:operationKind|expectedOperationKind|expectedOperationKinds|expectedPrefix)\b/.test(
         runtimeContextPolicyCoreTest,
@@ -16597,7 +16597,7 @@ function runBridge() {
     /invokeRuntimeControlApi\(\s*RUNTIME_CONTROL_WORKFLOW_EDIT_CONTROL_API_METHOD/.test(
       runtimeContextPolicyCore,
     ) &&
-    /normalizeRuntimeWorkflowEditControlBridgeResult/.test(runtimeContextPolicyCore) &&
+    /normalizeRuntimeWorkflowEditControlResult/.test(runtimeContextPolicyCore) &&
     /runtime workflow-edit control core sends Rust request through typed runtime-control API/.test(
       runtimeContextPolicyCoreTest,
     ) &&
@@ -16948,7 +16948,7 @@ function runBridge() {
       /Object\.hasOwn\(result\.context_compaction,\s*"compactedTokens"\),\s*false/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /requiredContextPolicyBridgeOperationKind/.test(runtimeContextPolicyCore) &&
+      /requiredContextPolicyOperationKind/.test(runtimeContextPolicyCore) &&
       /runtime context policy state-update core fails closed without Rust-planned operation kinds/.test(
         runtimeContextPolicyCoreTest,
       ) &&
@@ -30274,6 +30274,46 @@ function runReceipts() {
     ],
     "Workspace-trust control APIs must not preserve bridge-shaped request/error/result aliases or command source markers beside the positive Rust daemon-core control API",
   );
+  const runtimeContextPolicyAdapterBridgeResultSources = [
+    runtimeContextPolicyCoreForState,
+    runtimeContextPolicyCoreTestForState,
+  ].join("\n");
+  assertCheck(
+    result,
+    "runtime-context-policy-adapter-bridge-result-normalizers-retired",
+    !/(?:normalizeCodingToolResultEnvelopePlanBridgeResult|normalizeRuntimeCodingToolArtifactDraftPlanBridgeResult|normalizeRuntimeCodingToolArtifactReadProjectionBridgeResult|normalizeRuntimeDiagnosticsRepairControlBridgeResult|normalizeRuntimeDiagnosticsRepairRetryRunBridgeResult|normalizeRuntimeDiagnosticsRepairRetryResultProjectionBridgeResult|normalizeRuntimeDiagnosticsRepairProjectionBridgeResult|normalizeRuntimeDiagnosticsRepairPolicyBridgeResult|normalizePostEditDiagnosticsFeedbackPlanBridgeResult|normalizeRuntimeTaskJobCancelStateUpdateBridgeResult|normalizeRuntimeTaskJobCreateStateUpdateBridgeResult|normalizeRuntimeTaskJobProjectionBridgeResult|normalizeRuntimeDoctorReportProjectionBridgeResult|normalizeRuntimeComputerUseProjectionBridgeResult|normalizeStudioIntentFrameProjectionBridgeResult|normalizeRuntimeMcpServeToolCallPlanBridgeResult|normalizeRuntimeMcpServeToolResultProjectionBridgeResult|normalizeRuntimeWorkflowEditControlBridgeResult|normalizeRuntimeManagedSessionProjectionBridgeResult|normalizeRuntimeManagedSessionControlBridgeResult|normalizeRuntimeWorkspaceChangeProjectionBridgeResult|normalizeRuntimeWorkspaceChangeControlBridgeResult|normalizeRuntimeThreadForkControlBridgeResult|normalizeRuntimeConversationArtifactControlBridgeResult|normalizeRuntimeConversationArtifactProjectionBridgeResult|normalizeRuntimeSubagentProjectionBridgeResult|normalizeRuntimeSubagentControlBridgeResult|requiredContextPolicyBridgeOperationKind)/.test(
+      runtimeContextPolicyAdapterBridgeResultSources,
+    ) &&
+      /normalizeCodingToolResultEnvelopePlanResult/.test(runtimeContextPolicyCoreForState) &&
+      /normalizeRuntimeTaskJobProjectionResult/.test(runtimeContextPolicyCoreForState) &&
+      /normalizeRuntimeDiagnosticsRepairControlResult/.test(runtimeContextPolicyCoreForState) &&
+      /normalizeRuntimeMcpServeToolCallPlanResult/.test(runtimeContextPolicyCoreForState) &&
+      /normalizeRuntimeManagedSessionProjectionResult/.test(runtimeContextPolicyCoreForState) &&
+      /normalizeRuntimeWorkspaceChangeProjectionResult/.test(runtimeContextPolicyCoreForState) &&
+      /normalizeRuntimeThreadForkControlResult/.test(runtimeContextPolicyCoreForState) &&
+      /normalizeRuntimeConversationArtifactControlResult/.test(
+        runtimeContextPolicyCoreForState,
+      ) &&
+      /normalizeRuntimeSubagentControlResult/.test(runtimeContextPolicyCoreForState) &&
+      /requiredContextPolicyOperationKind/.test(runtimeContextPolicyCoreForState) &&
+      /Slice 1392 hard-cuts runtime context-policy adapter bridge-result normalizer\s+names/.test(
+        guide,
+      ) &&
+      /Runtime context-policy adapter bridge-result normalizer names retired/.test(
+        matrix,
+      ) &&
+      /RuntimeDaemonCoreContextPolicyAdapterBridgeResultNamesRetired/.test(
+        implementationMatrix,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
+      "docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md",
+      "docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md",
+      "docs/architecture/_meta/implementation-matrix.md",
+    ],
+    "Runtime context-policy protocol adapters must not preserve bridge-shaped JS normalizer names beside typed Rust daemon-core APIs",
+  );
   assertCheck(
     result,
     "runtime-tool-catalog-public-js-projection-retired",
@@ -30373,7 +30413,7 @@ function runReceipts() {
       /projectRuntimeDoctorReport\(request = \{\}\)/.test(
         runtimeContextPolicyCoreForState,
       ) &&
-      /normalizeRuntimeDoctorReportProjectionBridgeResult/.test(
+      /normalizeRuntimeDoctorReportProjectionResult/.test(
         runtimeContextPolicyCoreForState,
       ) &&
       /runtime doctor report projection core sends Rust daemon-core request/.test(
@@ -33096,7 +33136,7 @@ function runCompositor() {
       runtimeContextPolicyCore,
     ) &&
     /RUNTIME_SUBAGENT_PROJECTION_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyCore) &&
-    /normalizeRuntimeSubagentProjectionBridgeResult/.test(runtimeContextPolicyCore) &&
+    /normalizeRuntimeSubagentProjectionResult/.test(runtimeContextPolicyCore) &&
     /runtime subagent projection core sends Rust request through typed runtime-projection API/.test(
       runtimeContextPolicyCoreTest,
     ) &&
@@ -33160,7 +33200,7 @@ function runCompositor() {
       runtimeContextPolicyCore,
     ) &&
     /RUNTIME_SUBAGENT_CONTROL_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyCore) &&
-    /normalizeRuntimeSubagentControlBridgeResult/.test(runtimeContextPolicyCore) &&
+    /normalizeRuntimeSubagentControlResult/.test(runtimeContextPolicyCore) &&
     /runtime subagent wait control core sends Rust request through typed runtime-control API/.test(
       runtimeContextPolicyCoreTest,
     ) &&
@@ -34664,7 +34704,7 @@ function runCompositor() {
       runtimeContextPolicyCore,
     ) &&
     /RUNTIME_TASK_JOB_PROJECTION_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyCore) &&
-    /normalizeRuntimeTaskJobProjectionBridgeResult/.test(runtimeContextPolicyCore) &&
+    /normalizeRuntimeTaskJobProjectionResult/.test(runtimeContextPolicyCore) &&
     /expectedOperationKinds:\s*\["task\.list",\s*"task\.get",\s*"job\.list",\s*"job\.get"\]/.test(
       runtimeContextPolicyCore,
     ) &&
@@ -34769,7 +34809,7 @@ function runCompositor() {
     /RUNTIME_TASK_JOB_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
       runtimeContextPolicyCore,
     ) &&
-    /normalizeRuntimeTaskJobCreateStateUpdateBridgeResult/.test(
+    /normalizeRuntimeTaskJobCreateStateUpdateResult/.test(
       runtimeContextPolicyCore,
     ) &&
     /expectedOperationKind:\s*"task\.create"/.test(runtimeContextPolicyCore) &&
@@ -34827,7 +34867,7 @@ function runCompositor() {
     /RUNTIME_TASK_JOB_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
       runtimeContextPolicyCore,
     ) &&
-    /normalizeRuntimeTaskJobCancelStateUpdateBridgeResult/.test(
+    /normalizeRuntimeTaskJobCancelStateUpdateResult/.test(
       runtimeContextPolicyCore,
     ) &&
     /expectedOperationKinds:\s*\["task\.cancel",\s*"job\.cancel"\]/.test(
@@ -35134,7 +35174,7 @@ function runCompositor() {
     /invokeRuntimeControlApi\(\s*RUNTIME_CONTROL_CONVERSATION_ARTIFACT_API_METHOD/.test(
       runtimeContextPolicyCore,
     ) &&
-    /normalizeRuntimeConversationArtifactControlBridgeResult/.test(
+    /normalizeRuntimeConversationArtifactControlResult/.test(
       runtimeContextPolicyCore,
     ) &&
     /runtime_conversation_artifact_control_artifact_missing/.test(
@@ -35246,7 +35286,7 @@ function runCompositor() {
     /RUNTIME_CONVERSATION_ARTIFACT_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
       runtimeContextPolicyCore,
     ) &&
-    /normalizeRuntimeConversationArtifactProjectionBridgeResult/.test(
+    /normalizeRuntimeConversationArtifactProjectionResult/.test(
       runtimeContextPolicyCore,
     ) &&
     /runtime conversation artifact projection core sends Rust request through typed runtime-projection API/.test(
@@ -40074,7 +40114,7 @@ function runCompositor() {
       /RUNTIME_PROJECTION_STUDIO_INTENT_FRAME_API_METHOD/.test(runtimeContextPolicyCoreForState) &&
       /projectStudioIntentFrame\(request = \{\}\)/.test(runtimeContextPolicyCoreForState) &&
       /executionMode:\s*_retiredExecutionMode/.test(runtimeContextPolicyCoreForState) &&
-      /normalizeStudioIntentFrameProjectionBridgeResult/.test(runtimeContextPolicyCoreForState) &&
+      /normalizeStudioIntentFrameProjectionResult/.test(runtimeContextPolicyCoreForState) &&
       /STUDIO_INTENT_FRAME_PROJECTION_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyCoreTestForState) &&
       /studio intent frame projection core sends Rust daemon-core request/.test(runtimeContextPolicyCoreTestForState) &&
       /Object\.hasOwn\(captured,\s*"executionMode"\),\s*false/.test(runtimeContextPolicyCoreTestForState) &&
@@ -40605,10 +40645,10 @@ function runCompositor() {
       /RUNTIME_MANAGED_SESSION_CONTROL_REQUEST_SCHEMA_VERSION/.test(
         runtimeContextPolicyCore,
       ) &&
-      /normalizeRuntimeManagedSessionProjectionBridgeResult/.test(
+      /normalizeRuntimeManagedSessionProjectionResult/.test(
         runtimeContextPolicyCore,
       ) &&
-      /normalizeRuntimeManagedSessionControlBridgeResult/.test(
+      /normalizeRuntimeManagedSessionControlResult/.test(
         runtimeContextPolicyCore,
       ) &&
       /runtime managed-session projection core sends Rust request through typed runtime-projection API/.test(
@@ -40919,10 +40959,10 @@ function runCompositor() {
       /RUNTIME_WORKSPACE_CHANGE_CONTROL_REQUEST_SCHEMA_VERSION/.test(
         runtimeContextPolicyCore,
       ) &&
-      /normalizeRuntimeWorkspaceChangeProjectionBridgeResult/.test(
+      /normalizeRuntimeWorkspaceChangeProjectionResult/.test(
         runtimeContextPolicyCore,
       ) &&
-      /normalizeRuntimeWorkspaceChangeControlBridgeResult/.test(
+      /normalizeRuntimeWorkspaceChangeControlResult/.test(
         runtimeContextPolicyCore,
       ) &&
       /expectedOperationKind:\s*"workspace_change\.inspect"/.test(
@@ -41107,7 +41147,7 @@ function runCompositor() {
       /RUNTIME_THREAD_FORK_CONTROL_REQUEST_SCHEMA_VERSION/.test(
         runtimeContextPolicyCore,
       ) &&
-      /normalizeRuntimeThreadForkControlBridgeResult/.test(
+      /normalizeRuntimeThreadForkControlResult/.test(
         runtimeContextPolicyCore,
       ) &&
       /runtime thread-fork control core sends Rust request through typed runtime-control API/.test(
@@ -41630,10 +41670,10 @@ function runCompositor() {
     /planRuntimeDiagnosticsRepairRetryRun\(request = \{\}\)/.test(
       runtimeContextPolicyCore,
     ) &&
-    /normalizeRuntimeDiagnosticsRepairControlBridgeResult/.test(
+    /normalizeRuntimeDiagnosticsRepairControlResult/.test(
       runtimeContextPolicyCore,
     ) &&
-    /normalizeRuntimeDiagnosticsRepairRetryRunBridgeResult/.test(
+    /normalizeRuntimeDiagnosticsRepairRetryRunResult/.test(
       runtimeContextPolicyCore,
     ) &&
     /runtime diagnostics repair control core sends Rust daemon-core request/.test(
@@ -41787,7 +41827,7 @@ function runCompositor() {
     /RUNTIME_DIAGNOSTICS_REPAIR_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
       runtimeContextPolicyCore,
     ) &&
-    /normalizeRuntimeDiagnosticsRepairProjectionBridgeResult/.test(
+    /normalizeRuntimeDiagnosticsRepairProjectionResult/.test(
       runtimeContextPolicyCore,
     ) &&
     /runtime diagnostics repair projection core sends Rust daemon-core request/.test(
@@ -42141,7 +42181,7 @@ function runCompositor() {
       !/operation:\s*"plan_post_edit_diagnostics_feedback"/.test(
         runtimeContextPolicyCoreForDiagnosticsFeedback,
       ) &&
-      /normalizePostEditDiagnosticsFeedbackPlanBridgeResult/.test(
+      /normalizePostEditDiagnosticsFeedbackPlanResult/.test(
         runtimeContextPolicyCoreForDiagnosticsFeedback,
       ) &&
       /post-edit diagnostics feedback core sends Rust daemon-core plan request/.test(
@@ -42363,7 +42403,7 @@ function runCompositor() {
       /RUNTIME_PROJECTION_DIAGNOSTICS_REPAIR_POLICY_API_METHOD/.test(
         runtimeContextPolicyCore,
       ) &&
-      /normalizeRuntimeDiagnosticsRepairPolicyBridgeResult/.test(
+      /normalizeRuntimeDiagnosticsRepairPolicyResult/.test(
         runtimeContextPolicyCore,
       ) &&
       /runtime diagnostics repair policy core sends Rust daemon-core request/.test(
@@ -44024,8 +44064,8 @@ function runCompositor() {
       ) &&
       /RUNTIME_MCP_SERVE_TOOL_CALL_PLAN_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyCore) &&
       /RUNTIME_MCP_SERVE_TOOL_RESULT_PROJECTION_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyCore) &&
-      /normalizeRuntimeMcpServeToolCallPlanBridgeResult/.test(runtimeContextPolicyCore) &&
-      /normalizeRuntimeMcpServeToolResultProjectionBridgeResult/.test(runtimeContextPolicyCore) &&
+      /normalizeRuntimeMcpServeToolCallPlanResult/.test(runtimeContextPolicyCore) &&
+      /normalizeRuntimeMcpServeToolResultProjectionResult/.test(runtimeContextPolicyCore) &&
       /runtime MCP serve tool-call planner sends Rust daemon-core request/.test(
         runtimeContextPolicyCoreTest,
       ) &&
