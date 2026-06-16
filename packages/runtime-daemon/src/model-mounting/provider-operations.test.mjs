@@ -890,7 +890,7 @@ test("provider health commits Rust provider-lifecycle record without JS driver, 
     apiFormat: "ioi_fixture",
     label: "Fixture",
     status: "configured",
-    secretRef: "vault://provider/fixture",
+    secret_ref: "vault://provider/fixture",
     discovery: { evidenceRefs: ["operator_provider_config"] },
   });
   state.endpoints.set("endpoint.fixture", {

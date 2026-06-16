@@ -550,6 +550,7 @@ function normalizeModelMountSelection(selection = {}) {
 
 function canonicalEndpointRecord(endpoint = {}) {
   const record = objectRecord(endpoint) ?? {};
+  assertNoRetiredProviderVaultRecordAliases(record, "endpoint");
   return {
     id: optionalRef(record.id),
     model_id: optionalRef(record.model_id),
@@ -558,7 +559,7 @@ function canonicalEndpointRecord(endpoint = {}) {
     driver: optionalRef(record.driver),
     backend_id: optionalRef(record.backend_id),
     base_url: optionalRef(record.base_url),
-    secret_ref: optionalRef(record.secret_ref ?? record.secretRef),
+    secret_ref: optionalRef(record.secret_ref),
     auth_vault_ref: optionalRef(record.auth_vault_ref),
     api_key_vault_ref: optionalRef(record.api_key_vault_ref),
     provider_auth_materialization_ref: optionalRef(record.provider_auth_materialization_ref),
@@ -578,12 +579,13 @@ function canonicalEndpointRecord(endpoint = {}) {
 
 function canonicalProviderRecord(provider = {}, endpoint = {}) {
   const record = objectRecord(provider) ?? {};
+  assertNoRetiredProviderVaultRecordAliases(record, "provider");
   return {
     id: optionalRef(record.id ?? endpoint.provider_id),
     kind: optionalRef(record.kind),
     api_format: optionalRef(record.api_format),
     driver: optionalRef(record.driver),
-    secret_ref: optionalRef(record.secret_ref ?? record.secretRef),
+    secret_ref: optionalRef(record.secret_ref),
     auth_vault_ref: optionalRef(record.auth_vault_ref),
     api_key_vault_ref: optionalRef(record.api_key_vault_ref),
     base_url: optionalRef(record.base_url),
@@ -599,6 +601,22 @@ function canonicalProviderRecord(provider = {}, endpoint = {}) {
     status: optionalRef(record.status),
     capabilities: arrayOfStrings(record.capabilities),
   };
+}
+
+function assertNoRetiredProviderVaultRecordAliases(record = {}, subject) {
+  const retiredAliases = ["secretRef", "authVaultRef", "apiKeyVaultRef"].filter((field) =>
+    Object.hasOwn(record, field),
+  );
+  if (retiredAliases.length === 0) return;
+  const error = new Error("Model provider vault-ref record aliases are retired.");
+  error.status = 400;
+  error.code = "model_mount_provider_vault_record_aliases_retired";
+  error.details = {
+    subject,
+    retired_aliases: retiredAliases,
+    canonical_fields: ["secret_ref", "auth_vault_ref", "api_key_vault_ref"],
+  };
+  throw error;
 }
 
 function canonicalRouteReceiptRecord(receipt = {}) {

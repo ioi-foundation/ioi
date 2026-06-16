@@ -12138,6 +12138,18 @@ those APIs. Remaining work is durable replay/projection/storage depth and stable
 IDE/CLI/SDK coverage for non-terminal route families, not a JS bridge-result
 compatibility layer.
 
+Slice 1393 hard-cuts hosted provider vault-ref record alias fallback. Hosted
+provider defaults and provider-registry records now publish canonical
+`secret_ref` only, while model invocation and provider-control canonicalization
+read only `secret_ref`, `auth_vault_ref`, and `api_key_vault_ref`; stale
+provider or endpoint records carrying `secretRef`, `authVaultRef`, or
+`apiKeyVaultRef` fail closed before Rust provider-execution admission or
+provider-control truth can be planned. This removes the leftover JS record-shape
+compatibility path beside Rust provider-auth materialization, wallet.network
+vault refs, and cTEE outbound-header custody. Remaining hosted-provider work is
+deeper live transport/cTEE egress and durable protocol API depth, not camelCase
+vault-ref compatibility.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

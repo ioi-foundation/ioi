@@ -3076,7 +3076,7 @@ function backendProcessMaterializationLoadOptions(loadOptions = {}) {
 function providerControlBody(body = {}, existing = {}, { id, kind } = {}) {
   const secretInput = providerSecretInput(body);
   const secretRef = secretInput === undefined
-    ? optionalString(existing.secret_ref ?? existing.secretRef)
+    ? optionalString(existing.secret_ref)
     : optionalString(secretInput);
   const apiFormat = optionalString(body.api_format ?? existing.api_format ?? existing.apiFormat) ??
     providerControlDefaultApiFormat(kind);

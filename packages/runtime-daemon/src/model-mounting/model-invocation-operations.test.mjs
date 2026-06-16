@@ -1187,6 +1187,77 @@ test("model invocations reject retired authority request aliases before authoriz
   assert.deepEqual(state.authorizationCalls, []);
 });
 
+test("model invocations reject retired provider vault-ref record aliases before Rust planning", async () => {
+  const providerAliasState = fakeState({
+    routeSelection: selection({
+      endpoint: { api_format: "openai" },
+      provider: {
+        id: "provider.openai",
+        kind: "openai",
+        secretRef: "vault://provider.openai/api-key",
+      },
+    }),
+  });
+
+  await assert.rejects(
+    () =>
+      invokeModel(
+        providerAliasState,
+        {
+          requiredScope: "model.chat:*",
+          kind: "responses",
+          body: { model: "model.local", response_id: "resp.provider-alias" },
+        },
+        deps(),
+      ),
+    (error) => {
+      assert.equal(error.code, "model_mount_provider_vault_record_aliases_retired");
+      assert.equal(error.details.subject, "provider");
+      assert.deepEqual(error.details.retired_aliases, ["secretRef"]);
+      assert.deepEqual(error.details.canonical_fields, [
+        "secret_ref",
+        "auth_vault_ref",
+        "api_key_vault_ref",
+      ]);
+      return true;
+    },
+  );
+  assert.equal(providerAliasState.providerExecutionRequests.length, 0);
+
+  const endpointAliasState = fakeState({
+    routeSelection: selection({
+      endpoint: {
+        api_format: "openai",
+        secretRef: "vault://endpoint.openai/api-key",
+      },
+      provider: {
+        id: "provider.openai",
+        kind: "openai",
+      },
+    }),
+  });
+
+  await assert.rejects(
+    () =>
+      invokeModel(
+        endpointAliasState,
+        {
+          requiredScope: "model.chat:*",
+          kind: "responses",
+          body: { model: "model.local", response_id: "resp.endpoint-alias" },
+        },
+        deps(),
+      ),
+    (error) => {
+      assert.equal(error.code, "model_mount_provider_vault_record_aliases_retired");
+      assert.equal(error.details.subject, "endpoint");
+      assert.deepEqual(error.details.retired_aliases, ["secretRef"]);
+      return true;
+    },
+  );
+  assert.equal(endpointAliasState.providerExecutionRequests.length, 0);
+});
+
 test("invokeModel public facade executes migrated fixture through Rust model_mount core, provider execution, and receipt binding", async () => {
   const state = fakeState();
 

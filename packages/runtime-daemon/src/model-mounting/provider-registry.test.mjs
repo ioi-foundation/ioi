@@ -10,7 +10,8 @@ import {
 test("provider registry creates hosted provider records without exposing secrets", () => {
   const configured = hostedProvider("provider.openai", "OpenAI", "openai", { configured: true });
   assert.equal(configured.status, "configured");
-  assert.equal(configured.secretRef, "vault://provider.openai/api-key");
+  assert.equal(configured.secret_ref, "vault://provider.openai/api-key");
+  assert.equal(Object.hasOwn(configured, "secretRef"), false);
   assert.deepEqual(configured.discovery.evidenceRefs, [
     "wallet.network.vault_ref_boundary",
     "provider_request_time_secret_resolution",
@@ -19,7 +20,8 @@ test("provider registry creates hosted provider records without exposing secrets
 
   const blocked = hostedProvider("provider.gemini", "Gemini", "gemini");
   assert.equal(blocked.status, "blocked");
-  assert.equal(blocked.secretRef, "vault://provider.gemini/api-key");
+  assert.equal(blocked.secret_ref, "vault://provider.gemini/api-key");
+  assert.equal(Object.hasOwn(blocked, "secretRef"), false);
   assert.throws(
     () => hostedProvider("provider.openai", "OpenAI", "openai", "sk-test"),
     /plaintext secret arguments are retired/,

@@ -19515,7 +19515,12 @@ function runBridge() {
 	      /rust_model_mount_hosted_provider/.test(modelMountCore) &&
 	      /rust_provider_auth_materialization_bound/.test(modelMountCore) &&
 	      /hosted_provider_auth_header_materialized_by_rust/.test(modelMountCore) &&
-	      /secret_ref:\s*optionalRef\(record\.secret_ref \?\? record\.secretRef\)/.test(modelInvocationOps) &&
+	      /secret_ref:\s*optionalRef\(record\.secret_ref\)/.test(modelInvocationOps) &&
+	      !/record\.secretRef|record\.authVaultRef|record\.apiKeyVaultRef/.test(modelInvocationOps) &&
+	      /model_mount_provider_vault_record_aliases_retired/.test(modelInvocationOps) &&
+	      /model invocations reject retired provider vault-ref record aliases before Rust planning/.test(
+	        modelInvocationOpsTest,
+	      ) &&
 	      !/model_mount_provider_invocation_rust_backend_required/.test(modelInvocationOps) &&
 	      /retired model invocation JS contract helper exports are deleted/.test(modelInvocationOpsTest) &&
       !retiredModelInvocationFacadeBodyPattern.test(modelInvokeFacadeBlock) &&
@@ -29349,6 +29354,62 @@ function runReceipts() {
       "scripts/conformance/hypervisor-conformance.mjs",
     ],
     "Hosted provider credential custody must not fall back to API-key environment aliases; hosted provider defaults must expose wallet.network vault refs only and fail closed until explicit vault material binding",
+  );
+  const hostedProviderVaultRefAliasCorpus = [
+    defaultRecords,
+    defaultRecordsTest,
+    modelMountProviderRegistry,
+    modelMountProviderRegistryTest,
+    modelInvocationOps,
+    modelInvocationOpsTest,
+    modelMountingState,
+  ].join("\n");
+  assertCheck(
+    result,
+    "model-mount-hosted-provider-vault-ref-record-aliases-retired",
+    /status:\s*"blocked",\s*secret_ref,/s.test(defaultRecords) &&
+      /secret_ref:\s*secretRef/.test(modelMountProviderRegistry) &&
+      /openai\.secret_ref,\s*"vault:\/\/provider\.openai\/api-key"/.test(defaultRecordsTest) &&
+      /configured\.secret_ref,\s*"vault:\/\/provider\.openai\/api-key"/.test(
+        modelMountProviderRegistryTest,
+      ) &&
+      /blocked\.secret_ref,\s*"vault:\/\/provider\.gemini\/api-key"/.test(
+        modelMountProviderRegistryTest,
+      ) &&
+      /Object\.hasOwn\(openai,\s*"secretRef"\),\s*false/.test(defaultRecordsTest) &&
+      /Object\.hasOwn\(configured,\s*"secretRef"\),\s*false/.test(
+        modelMountProviderRegistryTest,
+      ) &&
+      /Object\.hasOwn\(blocked,\s*"secretRef"\),\s*false/.test(
+        modelMountProviderRegistryTest,
+      ) &&
+      /secret_ref:\s*optionalRef\(record\.secret_ref\)/.test(modelInvocationOps) &&
+      /existing\.secret_ref/.test(modelMountingState) &&
+      !/record\.secretRef|existing\.secretRef|secretRef:\s*secret_ref|secretRef:\s*secretRef/.test(
+        hostedProviderVaultRefAliasCorpus,
+      ) &&
+      /model_mount_provider_vault_record_aliases_retired/.test(modelInvocationOps) &&
+      /model invocations reject retired provider vault-ref record aliases before Rust planning/.test(
+        modelInvocationOpsTest,
+      ) &&
+      /Slice 1393 hard-cuts hosted provider vault-ref record alias fallback/.test(guide) &&
+      /Model_mount hosted provider vault-ref record aliases retired/.test(matrix) &&
+      /RuntimeDaemonCoreModelMountHostedProviderVaultRefRecordAliasesRetired/.test(
+        implementationMatrix,
+      ),
+    [
+      "packages/runtime-daemon/src/model-mounting/default-records.mjs",
+      "packages/runtime-daemon/src/model-mounting/provider-registry.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
+      "packages/runtime-daemon/src/model-mounting/default-records.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/provider-registry.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs",
+      "docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md",
+      "docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md",
+      "docs/architecture/_meta/implementation-matrix.md",
+    ],
+    "Hosted provider vault refs must stay canonical snake_case records and must not feed invocation/provider-control truth through retired secretRef compatibility aliases",
   );
   assertCheck(
     result,

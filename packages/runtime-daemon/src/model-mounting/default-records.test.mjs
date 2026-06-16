@@ -20,7 +20,7 @@ function hostedProvider(id, label, apiFormat, options = {}) {
     label,
     apiFormat,
     status: "blocked",
-    secretRef: options.secret_ref,
+    secret_ref: options.secret_ref,
   };
 }
 
@@ -50,7 +50,8 @@ test("default model provider records preserve local and hosted boundaries", () =
   assert.equal(llama.discovery.binaryPathHash, "hash:/opt/llama-server");
   assert.equal(vllm.status, "blocked");
   assert.equal(openai.status, "blocked");
-  assert.equal(openai.secretRef, "vault://provider.openai/api-key");
+  assert.equal(openai.secret_ref, "vault://provider.openai/api-key");
+  assert.equal(Object.hasOwn(openai, "secretRef"), false);
   assert.equal(depin.status, "future");
   assert.equal(depin.privacyClass, "remote_confidential");
 });

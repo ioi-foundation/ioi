@@ -1273,7 +1273,7 @@ function createState() {
       id: "provider.local",
       kind: "local",
       status: "running",
-      secretRef: "vault://provider.local/api-key",
+      secret_ref: "vault://provider.local/api-key",
       lastReceiptId: "receipt-provider",
     }]]),
     routes: new Map([["route.local-first", {

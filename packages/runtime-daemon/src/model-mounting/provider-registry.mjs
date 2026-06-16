@@ -23,7 +23,7 @@ export function hostedProvider(id, label, apiFormat, options = {}) {
       checkedAt: new Date().toISOString(),
       evidenceRefs: HOSTED_PROVIDER_VAULT_EVIDENCE_REFS,
     },
-    secretRef,
+    secret_ref: secretRef,
     estimatedCostUsd: 0.01,
   };
 }

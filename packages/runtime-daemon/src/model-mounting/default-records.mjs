@@ -44,7 +44,7 @@ export function runtimeProviderRecords({
     label,
     apiFormat,
     status: "blocked",
-    secretRef: secret_ref,
+    secret_ref,
   }),
 } = {}) {
   return [
