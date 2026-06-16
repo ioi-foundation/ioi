@@ -1480,7 +1480,7 @@ function runDocs() {
       /Slice 790\s+model-capability protocol alias-retirement matrix-compaction pass is complete/.test(guide) &&
       /Slice 791 moved route-selection receipt authoring out of the JS\s+model_mount facade/.test(guide) &&
       /`admit_model_mount_route_decision` now returns an\s+`accepted_receipt_record` authored by Rust/.test(guide) &&
-      /`receipt-operations\.mjs` now rejects generic JS model_mount receipt creation\s+with `model_mount_js_receipt_creation_retired`/.test(guide) &&
+      /temporary\s+`receipt-operations\.mjs` generic JS receipt-creation refusal was later\s+superseded by mounted receipt-authoring facade deletion/.test(guide) &&
       /Slice 791\s+route-selection receipt Rust-authoring matrix-compaction pass is complete/.test(guide) &&
       /Slice 792 moved model_mount read-projection authoring out of the former JS\s+read-projection helper path/.test(guide) &&
       /`plan_model_mount_read_projection` now authors the canonical\s+model_mount projection/.test(guide) &&
@@ -16972,7 +16972,9 @@ function runBridge() {
       /accepted_receipt_record/.test(modelMountCore) &&
       /persistRustAuthoredReceipt/.test(modelMountingState) &&
       !exists("packages/runtime-daemon/src/model-mounting/receipt-operations.mjs") &&
-      /model_mount_js_receipt_creation_retired/.test(modelMountReceiptOperationsBridge) &&
+      !/^\s+lifecycleReceipt\(/m.test(modelMountReceiptOperationsBridge) &&
+      !/^\s+receipt\(/m.test(modelMountReceiptOperationsBridge) &&
+      !/model_mount_js_receipt_creation_retired/.test(modelMountReceiptOperationsBridge) &&
       !/modelMountRouteDecision(?:SchemaVersion|Ref|Hash|Source|Backend|ReceiptRefs)?\s*:/.test(modelRoutes) &&
       /model_route_decision_schema_version/.test(modelRoutes + modelMountCore) &&
       /model_route_decision_event_kind/.test(modelRoutes + modelMountCore) &&
@@ -23472,20 +23474,28 @@ function runReceipts() {
       !/providerLifecycleHash/.test(
         modelMountingState,
       ) &&
-      !/modelMountInstanceLifecycle(?:Action|Status|Hash|EvidenceRefs)/.test(
-        modelMountReceiptWriteGuards,
-      ) &&
-      /model_mount_provider_lifecycle_hash/.test(
-        read("packages/runtime-daemon/src/model-mounting/receipt-operations.test.mjs"),
-      ) &&
-      /provider_kind:\s*provider\?\.kind/.test(modelMountReceiptOperations) &&
-      /public_model_instance_maintenance_rust_facade/.test(loadedInstances) &&
-      /model instance lifecycle receipt helper fails closed even with Rust binding details/.test(
-        read("packages/runtime-daemon/src/model-mounting/receipt-operations.test.mjs"),
-      ) &&
-      /model lifecycle receipt writes fail closed without provider kind/.test(
-        read("packages/runtime-daemon/src/model-mounting/store.test.mjs"),
-      ),
+	      !/modelMountInstanceLifecycle(?:Action|Status|Hash|EvidenceRefs)/.test(
+	        modelMountReceiptWriteGuards,
+	      ) &&
+	      /model_mount_provider_lifecycle_hash/.test(
+	        modelMountReceiptWriteGuards,
+	      ) &&
+	      /provider_kind:\s*provider\?\.kind/.test(modelMountReceiptOperations) &&
+	      /public_model_instance_maintenance_rust_facade/.test(loadedInstances) &&
+	      !/^\s+lifecycleReceipt\(/m.test(modelMountReceiptOperations) &&
+	      !/^\s+receipt\(/m.test(modelMountReceiptOperations) &&
+	      /mounted receipt authoring facades are deleted before JS receipt creation/.test(
+	        modelMountReceiptOperationsTest,
+	      ) &&
+	      /Object\.hasOwn\(ModelMountingState\.prototype,\s*"lifecycleReceipt"\),\s*false/.test(
+	        modelMountReceiptOperationsTest,
+	      ) &&
+	      /Object\.hasOwn\(ModelMountingState\.prototype,\s*"receipt"\),\s*false/.test(
+	        modelMountReceiptOperationsTest,
+	      ) &&
+	      /model lifecycle receipt writes fail closed without provider kind and Rust instance lifecycle binding/.test(
+	        read("packages/runtime-daemon/src/model-mounting/store.test.mjs"),
+	      ),
     [
       "packages/runtime-daemon/src/model-mounting/store.mjs",
       "packages/runtime-daemon/src/model-mounting/receipt-write-guards.mjs",
@@ -23511,34 +23521,39 @@ function runReceipts() {
       /assert\.equal\(estimate\.endpoint_id,\s*"endpoint\.local\.llama"\)/.test(modelLoadingOperationsTest) &&
       /assert\.equal\(estimate\.model_id,\s*"llama-test"\)/.test(modelLoadingOperationsTest) &&
       /assert\.equal\(estimate\.provider_id,\s*"provider\.local"\)/.test(modelLoadingOperationsTest) &&
-      /provider_kind:\s*provider\?\.kind/.test(modelMountReceiptOperations) &&
-      /instance_id:\s*instance\?\.id/.test(loadedInstances) &&
-      /notFound\(`No loaded model instance for endpoint: \$\{endpointId\}`,\s*\{ endpoint_id: endpointId \}\)/.test(
-        loadedInstances,
-      ) &&
-      /superseded_by:\s*superseded_by/.test(loadedInstances) &&
-      !exists("packages/runtime-daemon/src/model-mounting/receipt-operations.mjs") &&
-      /modelLifecycleReceiptRustCoreRequiredError/.test(modelMountReceiptOperations) &&
-      /model_mount_lifecycle_receipt_rust_core_required/.test(modelMountReceiptOperations) &&
-      /provider_id:\s*details\.provider_id \?\? null/.test(modelMountReceiptOperations) &&
-      !/const providerId = details\.provider_id;/.test(modelMountReceiptOperations) &&
-      /const providerKind = optionalNonEmptyString\(details\.provider_kind\)/.test(modelMountReceiptWriteGuards) &&
-      /provider_kind:\s*providerKind/.test(modelMountReceiptWriteGuards) &&
-      /assertNoRetiredProviderDetailAliases/.test(modelMountReceiptWriteGuards) &&
-      /retiredProviderDetailAliases/.test(modelMountReceiptWriteGuards) &&
-      !/details\.providerId \?\? details\.provider_id/.test(modelMountReceiptWriteGuards) &&
-      !/details\.providerKind \?\? details\.provider_kind/.test(modelMountReceiptWriteGuards) &&
-      !/\b(?:instanceId|endpointId|modelId|providerId|providerKind|backendId|runtimeEngineId|providerEvidenceRefs|backendProcess|commandArgsHash|supersededBy)\s*:/.test(
-        modelInstanceLifecycleReceiptBlocks,
-      ) &&
-      !/notFound\(`No loaded model instance for endpoint: \$\{endpointId\}`,\s*\{ endpointId \}\)/.test(
-        loadedInstances,
-      ) &&
-      /Object\.hasOwn\(error\.details,\s*"providerId"\),\s*false/.test(modelLoadingOperationsTest) &&
-      /assert\.equal\(error\.details\.endpoint_id,\s*"endpoint_missing"\)/.test(loadedInstancesTest) &&
-      /Object\.hasOwn\(error\.details,\s*"endpointId"\),\s*false/.test(loadedInstancesTest) &&
-      /(?:Object\.hasOwn\(error\.details,\s*"providerId"\),\s*false\)|Object\.hasOwn\(error\.details,\s*"providerId"\) === false)/.test(modelMountReceiptOperationsTest) &&
-      /receipt\.legacy-model-lifecycle/.test(modelMountStoreTest) &&
+	      /provider_kind:\s*provider\?\.kind/.test(modelMountReceiptOperations) &&
+	      /instance_id:\s*instance\?\.id/.test(loadedInstances) &&
+	      /notFound\(`No loaded model instance for endpoint: \$\{endpointId\}`,\s*\{ endpoint_id: endpointId \}\)/.test(
+	        loadedInstances,
+	      ) &&
+	      /superseded_by:\s*superseded_by/.test(loadedInstances) &&
+	      !exists("packages/runtime-daemon/src/model-mounting/receipt-operations.mjs") &&
+	      !/^\s+lifecycleReceipt\(/m.test(modelMountReceiptOperations) &&
+	      !/modelLifecycleReceiptRustCoreRequiredError/.test(modelMountReceiptOperations) &&
+	      !/model_mount_lifecycle_receipt_rust_core_required/.test(modelMountReceiptOperations) &&
+	      /mounted receipt authoring facades are deleted before JS receipt creation/.test(
+	        modelMountReceiptOperationsTest,
+	      ) &&
+	      !/const providerId = details\.provider_id;/.test(modelMountReceiptOperations) &&
+	      /const providerKind = optionalNonEmptyString\(details\.provider_kind\)/.test(modelMountReceiptWriteGuards) &&
+	      /provider_kind:\s*providerKind/.test(modelMountReceiptWriteGuards) &&
+	      /assertNoRetiredProviderDetailAliases/.test(modelMountReceiptWriteGuards) &&
+	      /retiredProviderDetailAliases/.test(modelMountReceiptWriteGuards) &&
+	      !/details\.providerId \?\? details\.provider_id/.test(modelMountReceiptWriteGuards) &&
+	      !/details\.providerKind \?\? details\.provider_kind/.test(modelMountReceiptWriteGuards) &&
+	      !/\b(?:instanceId|endpointId|modelId|providerId|providerKind|backendId|runtimeEngineId|providerEvidenceRefs|backendProcess|commandArgsHash|supersededBy)\s*:/.test(
+	        modelInstanceLifecycleReceiptBlocks,
+	      ) &&
+	      !/notFound\(`No loaded model instance for endpoint: \$\{endpointId\}`,\s*\{ endpointId \}\)/.test(
+	        loadedInstances,
+	      ) &&
+	      /Object\.hasOwn\(error\.details,\s*"providerId"\),\s*false/.test(modelLoadingOperationsTest) &&
+	      /assert\.equal\(error\.details\.endpoint_id,\s*"endpoint_missing"\)/.test(loadedInstancesTest) &&
+	      /Object\.hasOwn\(error\.details,\s*"endpointId"\),\s*false/.test(loadedInstancesTest) &&
+	      /Object\.hasOwn\(ModelMountingState\.prototype,\s*"lifecycleReceipt"\),\s*false/.test(
+	        modelMountReceiptOperationsTest,
+	      ) &&
+	      /receipt\.legacy-model-lifecycle/.test(modelMountStoreTest) &&
       /retired_aliases\.includes\("providerKind"\)/.test(modelMountStoreTest) &&
       /Object\.hasOwn\(error\.details,\s*"providerKind"\) === false/.test(modelMountStoreTest),
     [
@@ -27488,29 +27503,37 @@ function runReceipts() {
       /"touchBackendProcess"/.test(backendLifecycleTest) &&
       /"startBackendProcess"/.test(backendLifecycleTest) &&
       /"spawnBackendChildProcess"/.test(backendLifecycleTest) &&
-      /"stopBackendProcess"/.test(backendLifecycleTest) &&
-      !exists("packages/runtime-daemon/src/model-mounting/receipt-operations.mjs") &&
-      /assertNoRetiredLifecycleSubjectAliases\(details\)/.test(modelMountReceiptOperations) &&
-      /model_lifecycle_receipt_detail_aliases_retired/.test(modelMountReceiptOperations) &&
-      /modelLifecycleReceiptRustCoreRequiredError/.test(modelMountReceiptOperations) &&
-      /model_mount_lifecycle_receipt_rust_core_required/.test(modelMountReceiptOperations) &&
-      /rust_core_boundary:\s*"model_mount\.lifecycle_receipt"/.test(modelMountReceiptOperations) &&
-      /model_mount_lifecycle_receipt_js_facade_retired/.test(modelMountReceiptOperations) &&
-      /rust_daemon_core_model_lifecycle_receipt_required/.test(modelMountReceiptOperations) &&
-      /agentgres_model_lifecycle_receipt_truth_required/.test(modelMountReceiptOperations) &&
-      !/state\.receipt\("model_lifecycle"/.test(modelMountReceiptOperations) &&
-      !/details\.model_id\s*\?\?\s*details\.modelId/.test(modelMountReceiptOperations) &&
-      !/details\.endpoint_id\s*\?\?\s*details\.endpointId/.test(modelMountReceiptOperations) &&
-      /lifecycleReceipt fails closed before JS model_lifecycle receipt creation/.test(modelMountReceiptOperationsTest) &&
-      /lifecycleReceipt fails closed for canonical backend lifecycle receipt details/.test(modelMountReceiptOperationsTest) &&
-      /lifecycle receipt subject aliases are retired/.test(modelMountReceiptOperationsTest) &&
-      /model instance lifecycle receipt helper fails closed even with Rust binding details/.test(modelMountReceiptOperationsTest) &&
-      /assert\.deepEqual\(created,\s*\[\]\)/.test(modelMountReceiptOperationsTest) &&
-      /retired_aliases\.includes\("modelId"\)/.test(modelMountReceiptOperationsTest) &&
-      /retired_aliases\.includes\("endpointId"\)/.test(modelMountReceiptOperationsTest) &&
-      /Slice 1363 deletes the backend-process supervisor facade stubs/.test(guide) &&
-      /Model_mount backend-process supervisor facade stubs deleted/.test(matrix) &&
-      /RuntimeDaemonCoreModelMountBackendProcessSupervisorFacadeDeleted/.test(implementationMatrix),
+	      /"stopBackendProcess"/.test(backendLifecycleTest) &&
+	      !exists("packages/runtime-daemon/src/model-mounting/receipt-operations.mjs") &&
+	      !/^\s+lifecycleReceipt\(/m.test(modelMountReceiptOperations) &&
+	      !/^\s+receipt\(/m.test(modelMountReceiptOperations) &&
+	      !/assertNoRetiredLifecycleSubjectAliases/.test(modelMountReceiptOperations) &&
+	      !/model_lifecycle_receipt_detail_aliases_retired/.test(modelMountReceiptOperations) &&
+	      !/modelLifecycleReceiptRustCoreRequiredError/.test(modelMountReceiptOperations) &&
+	      !/model_mount_lifecycle_receipt_rust_core_required/.test(modelMountReceiptOperations) &&
+	      !/modelMountJsReceiptCreationRetiredError/.test(modelMountReceiptOperations) &&
+	      !/model_mount_js_receipt_creation_retired/.test(modelMountReceiptOperations) &&
+	      !/model_mount_lifecycle_receipt_js_facade_retired/.test(modelMountReceiptOperations) &&
+	      !/state\.receipt\("model_lifecycle"/.test(modelMountReceiptOperations) &&
+	      !/details\.model_id\s*\?\?\s*details\.modelId/.test(modelMountReceiptOperations) &&
+	      !/details\.endpoint_id\s*\?\?\s*details\.endpointId/.test(modelMountReceiptOperations) &&
+	      /mounted receipt authoring facades are deleted before JS receipt creation/.test(
+	        modelMountReceiptOperationsTest,
+	      ) &&
+	      /Object\.hasOwn\(ModelMountingState\.prototype,\s*"lifecycleReceipt"\),\s*false/.test(
+	        modelMountReceiptOperationsTest,
+	      ) &&
+	      /Object\.hasOwn\(ModelMountingState\.prototype,\s*"receipt"\),\s*false/.test(
+	        modelMountReceiptOperationsTest,
+	      ) &&
+	      /persistRustAuthoredReceiptWithCommit/.test(modelMountReceiptOperations) &&
+	      /receipt operations reject non-Rust-authored receipt persistence/.test(modelMountReceiptOperationsTest) &&
+	      /Slice 1363 deletes the backend-process supervisor facade stubs/.test(guide) &&
+	      /Model_mount backend-process supervisor facade stubs deleted/.test(matrix) &&
+	      /RuntimeDaemonCoreModelMountBackendProcessSupervisorFacadeDeleted/.test(implementationMatrix) &&
+	      /Slice 1365 deletes the mounted receipt-authoring facade stubs/.test(guide) &&
+	      /Model_mount receipt-authoring facade stubs deleted/.test(matrix) &&
+	      /RuntimeDaemonCoreModelMountReceiptAuthoringFacadeDeleted/.test(implementationMatrix),
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
@@ -28402,13 +28425,13 @@ function runReceipts() {
       !/agentgres_canonical_operation_log/.test(modelMountReceiptOperations) &&
       /Model-mount receipt persistence requires Rust Agentgres receipt-state commit/.test(modelMountStore) &&
       /commitModelMountReceiptState\(receipt\)/.test(modelMountStore) &&
-      !/writeJson\(path\.join\(this\.stateDir,\s*"receipts"/.test(modelMountStore) &&
-      /rust_agentgres_receipt_state_adapter/.test(modelMountStore) &&
-      !/local_receipt_projection_store/.test(modelMountStore) &&
-      /notFound\(`Receipt not found: \$\{receiptId\}`,\s*\{ receipt_id: receiptId \}\)/.test(modelMountStore) &&
-      !/notFound\(`Receipt not found: \$\{receiptId\}`,\s*\{ receiptId \}\)/.test(modelMountStore) &&
-      /model_mount_lifecycle_receipt_js_facade_retired/.test(modelMountReceiptOperations) &&
-      /model invocation receipt writes persist only after Rust receipt and Agentgres admission without operation append/.test(
+	      !/writeJson\(path\.join\(this\.stateDir,\s*"receipts"/.test(modelMountStore) &&
+	      /rust_agentgres_receipt_state_adapter/.test(modelMountStore) &&
+	      !/local_receipt_projection_store/.test(modelMountStore) &&
+	      /notFound\(`Receipt not found: \$\{receiptId\}`,\s*\{ receipt_id: receiptId \}\)/.test(modelMountStore) &&
+	      !/notFound\(`Receipt not found: \$\{receiptId\}`,\s*\{ receiptId \}\)/.test(modelMountStore) &&
+	      !/model_mount_lifecycle_receipt_js_facade_retired/.test(modelMountReceiptOperations) &&
+	      /model invocation receipt writes persist only after Rust receipt and Agentgres admission without operation append/.test(
         read("packages/runtime-daemon/src/model-mounting/store.test.mjs"),
       ) &&
       /model invocation receipt writes fail closed without Rust receipt-state commit/.test(

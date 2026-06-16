@@ -136,11 +136,6 @@ const MODEL_MOUNT_CONVERSATION_STATE_SCHEMA_VERSION = "ioi.model_mount.conversat
 const MODEL_MOUNT_STREAM_COMPLETION_SCHEMA_VERSION = "ioi.model_mount.stream_completion.v1";
 const MODEL_MOUNT_STREAM_CANCEL_SCHEMA_VERSION = "ioi.model_mount.stream_cancel.v1";
 const SERVER_CONTROL_RECORD_ID = "server-control.default";
-const MODEL_LIFECYCLE_RECEIPT_RUST_CORE_REQUIRED_EVIDENCE_REFS = [
-  "model_mount_lifecycle_receipt_js_facade_retired",
-  "rust_daemon_core_model_lifecycle_receipt_required",
-  "agentgres_model_lifecycle_receipt_truth_required",
-];
 const MCP_WORKFLOW_RUST_CORE_EVIDENCE_REFS = [
   "rust_daemon_core_model_mount_mcp_workflow",
   "agentgres_mcp_workflow_truth_required",
@@ -1595,27 +1590,6 @@ export class ModelMountingState {
 
   getReceipt(receiptId) {
     return this.store.getReceipt(receiptId);
-  }
-
-  lifecycleReceipt(operation, details) {
-    assertNoRetiredLifecycleSubjectAliases(details);
-    throw modelLifecycleReceiptRustCoreRequiredError({
-      operation,
-      model_id: details.model_id ?? null,
-      endpoint_id: details.endpoint_id ?? null,
-      provider_id: details.provider_id ?? null,
-      backend_id: details.backend_id ?? null,
-    });
-  }
-
-  receipt(kind, { id, summary, redaction, evidenceRefs, details }) {
-    void kind;
-    void id;
-    void summary;
-    void redaction;
-    void evidenceRefs;
-    void details;
-    throw modelMountJsReceiptCreationRetiredError();
   }
 
   persistRustAuthoredReceipt(record) {
@@ -3261,16 +3235,6 @@ function assertCanonicalModelTokenizerRequestBody(body = {}) {
   throw error;
 }
 
-function assertNoRetiredLifecycleSubjectAliases(details = {}) {
-  const retiredAliases = ["modelId", "endpointId"].filter((field) => Object.hasOwn(details, field));
-  if (retiredAliases.length === 0) return;
-  const error = new Error("Model lifecycle receipt details must use canonical snake_case subject fields.");
-  error.status = 409;
-  error.code = "model_lifecycle_receipt_detail_aliases_retired";
-  error.details = { retired_aliases: retiredAliases };
-  throw error;
-}
-
 function assertRustAuthoredReceiptRecord(record = {}) {
   const evidenceRefs = Array.isArray(record.evidenceRefs) ? record.evidenceRefs : [];
   const details = record.details && typeof record.details === "object" ? record.details : {};
@@ -3303,35 +3267,6 @@ function assertRustAuthoredReceiptRecord(record = {}) {
   error.code = "model_mount_rust_authored_receipt_required";
   error.details = { missing };
   throw error;
-}
-
-function modelMountJsReceiptCreationRetiredError() {
-  const error = new Error("Model-mount receipt creation in JS is retired; Rust daemon core must author receipt records.");
-  error.status = 501;
-  error.code = "model_mount_js_receipt_creation_retired";
-  error.details = {
-    rust_core_boundary: "model_mount.receipt_authoring",
-    evidence_refs: [
-      "model_mount_js_receipt_creation_retired",
-      "rust_daemon_core_model_mount_receipt_authoring_required",
-      "agentgres_model_mount_receipt_truth_required",
-    ],
-  };
-  return error;
-}
-
-function modelLifecycleReceiptRustCoreRequiredError(details = {}) {
-  const error = new Error(
-    "Model lifecycle receipts require direct Rust daemon-core admission, binding, and projection.",
-  );
-  error.status = 501;
-  error.code = "model_mount_lifecycle_receipt_rust_core_required";
-  error.details = {
-    rust_core_boundary: "model_mount.lifecycle_receipt",
-    ...details,
-    evidence_refs: MODEL_LIFECYCLE_RECEIPT_RUST_CORE_REQUIRED_EVIDENCE_REFS,
-  };
-  return error;
 }
 
 function modelConversationStateRequestForMountedState(

@@ -1041,10 +1041,10 @@ model_mount facade and into the Rust daemon-core route-decision admission
 boundary. `admit_model_mount_route_decision` now returns an
 `accepted_receipt_record` authored by Rust from the admitted
 `ModelMountRouteDecisionRecord`; the JS `routeSelectionReceipt()` path fails
-closed unless that Rust-authored receipt is present, and
-`receipt-operations.mjs` now rejects generic JS model_mount receipt creation
-with `model_mount_js_receipt_creation_retired`. JS may still persist the
-Rust-authored receipt through the existing Agentgres receipt-state commit gate,
+closed unless that Rust-authored receipt is present, and the temporary
+`receipt-operations.mjs` generic JS receipt-creation refusal was later
+superseded by mounted receipt-authoring facade deletion. JS may still persist
+the Rust-authored receipt through the existing Agentgres receipt-state commit gate,
 but it no longer synthesizes the accepted `model_route_selection` receipt. This
 still does not claim terminal model_mount migration: direct Rust daemon-core
 route-control/projection APIs, Agentgres route truth beyond the current commit
@@ -11629,6 +11629,21 @@ provider-driver helper shim. This remains non-terminal because hosted/provider
 transport, actual Rust backend process execution/materialization, direct
 Rust/vault auth-header materialization, and invocation authority depth still
 need terminal Rust-owned execution coverage.
+
+Slice 1365 deletes the mounted receipt-authoring facade stubs. The mounted
+model_mount state no longer exposes `lifecycleReceipt()` or `receipt()` as
+fail-closed JS receipt-authoring compatibility surfaces. Rust-authored receipt
+persistence remains available only through `persistRustAuthoredReceipt()` and
+`persistRustAuthoredReceiptWithCommit()`, which require Rust receipt-author
+markers plus Agentgres receipt-state commit before receipt truth can return.
+Focused receipt tests assert the old authoring methods are absent while receipt
+reads still delegate to the canonical store and non-Rust receipt persistence
+still fails closed. Conformance now rejects restoring those method names,
+`model_mount_js_receipt_creation_retired`, or the lifecycle receipt JS facade
+evidence shim. This remains non-terminal because hosted/provider transport,
+actual Rust backend process execution/materialization, direct Rust/vault
+auth-header materialization, and invocation authority depth still need terminal
+Rust-owned execution coverage.
 
 ## Final Doctrine
 
