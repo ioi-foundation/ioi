@@ -118,6 +118,11 @@ impl ModelMountProviderInvocationRequest {
         if matches!(self.stream_status.as_deref(), Some(value) if !value.trim().is_empty()) {
             return Err(ModelMountError::StreamProviderInvocationUnsupported);
         }
+        if is_hosted_provider_invocation_backend(self) {
+            validate_provider_execution_binding(self, false)?;
+            validate_hosted_provider_invocation_gate(self)?;
+            return Err(ModelMountError::HostedProviderInvocationTransportPending);
+        }
         if !is_migrated_provider_invocation_backend(self) {
             return Err(ModelMountError::UnsupportedProviderInvocationBackend);
         }
@@ -216,6 +221,65 @@ pub(super) fn is_migrated_provider_invocation_backend(
 ) -> bool {
     is_fixture_provider_invocation_backend(request)
         || is_native_local_provider_invocation_backend(request)
+}
+
+pub(super) fn is_hosted_provider_invocation_backend(
+    request: &ModelMountProviderInvocationRequest,
+) -> bool {
+    if request.execution_backend.trim() != "rust_model_mount_hosted_provider" {
+        return false;
+    }
+    let provider_kind = request.provider_kind.trim();
+    let api_format = request.api_format.as_deref().unwrap_or("").trim();
+    let driver = request.driver.as_deref().unwrap_or("").trim();
+    matches!(
+        provider_kind,
+        "openai"
+            | "anthropic"
+            | "gemini"
+            | "custom_http"
+            | "openai_compatible"
+            | "ollama"
+            | "vllm"
+            | "llama_cpp"
+            | "lm_studio"
+            | "depin_tee"
+    ) || matches!(
+        api_format,
+        "openai" | "anthropic" | "gemini" | "custom" | "openai_compatible" | "ollama"
+    ) || matches!(driver, "openai_compatible" | "hosted_provider")
+}
+
+fn validate_hosted_provider_invocation_gate(
+    request: &ModelMountProviderInvocationRequest,
+) -> Result<(), ModelMountError> {
+    let admission = request
+        .admitted_provider_execution
+        .as_ref()
+        .ok_or(ModelMountError::MissingProviderExecutionAdmission)?;
+    if refs_missing(&admission.authority_grant_refs)
+        || refs_missing(&admission.authority_receipt_refs)
+    {
+        return Err(ModelMountError::HostedProviderInvocationMissingAuthority);
+    }
+    if !refs_contain(
+        &admission.provider_auth_evidence_refs,
+        "wallet_network_provider_vault_ref_bound",
+    ) || !refs_contain(
+        &admission.provider_auth_evidence_refs,
+        "ctee_hosted_provider_secret_not_exposed",
+    ) {
+        return Err(ModelMountError::HostedProviderInvocationMissingAuthEvidence);
+    }
+    Ok(())
+}
+
+fn refs_missing(refs: &[String]) -> bool {
+    refs.iter().all(|value| value.trim().is_empty())
+}
+
+fn refs_contain(refs: &[String], expected: &str) -> bool {
+    refs.iter().any(|value| value.trim() == expected)
 }
 
 pub(super) fn is_fixture_provider_invocation_backend(
@@ -740,9 +804,41 @@ mod tests {
         request.api_format = Some("openai".to_string());
 
         let error =
-            invoke_provider(&request).expect_err("hosted provider transport must fail closed in Rust");
+            invoke_provider(&request).expect_err("hosted provider auth evidence is required first");
 
-        assert_eq!(error, ModelMountError::UnsupportedProviderInvocationBackend);
+        assert_eq!(
+            error,
+            ModelMountError::HostedProviderInvocationMissingAuthEvidence
+        );
+
+        let mut admitted = request
+            .admitted_provider_execution
+            .clone()
+            .expect("provider execution admission");
+        admitted.provider_auth_evidence_refs = vec![
+            "rust_model_mount_hosted_provider_auth_gate".to_string(),
+            "wallet_network_provider_vault_ref_bound".to_string(),
+            "ctee_hosted_provider_secret_not_exposed".to_string(),
+        ];
+        request.admitted_provider_execution = Some(admitted.clone());
+
+        let error = invoke_provider(&request)
+            .expect_err("hosted provider transport must fail closed in Rust");
+
+        assert_eq!(
+            error,
+            ModelMountError::HostedProviderInvocationTransportPending
+        );
+
+        admitted.authority_grant_refs.clear();
+        request.admitted_provider_execution = Some(admitted);
+        let error =
+            invoke_provider(&request).expect_err("hosted provider authority is required in Rust");
+
+        assert_eq!(
+            error,
+            ModelMountError::HostedProviderInvocationMissingAuthority
+        );
     }
 
     #[test]

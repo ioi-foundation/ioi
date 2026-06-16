@@ -209,7 +209,7 @@ export function modelMountProviderExecutionRequestForInvocation({
     authority_receipt_refs: uniqueRefs([
       ...(Array.isArray(body.authority_receipt_refs) ? body.authority_receipt_refs : []),
     ]),
-    provider_auth_evidence_refs: [],
+    provider_auth_evidence_refs: hostedProviderAuthEvidenceRefs(selection, hash),
     backend_evidence_refs: uniqueRefs([
       instance.backend_id,
       selection?.endpoint?.backend_id,
@@ -956,6 +956,7 @@ function canonicalProviderRecord(provider = {}, endpoint = {}) {
     kind: optionalRef(record.kind),
     api_format: optionalRef(record.api_format),
     driver: optionalRef(record.driver),
+    secret_ref: optionalRef(record.secret_ref ?? record.secretRef),
     custody_ref: optionalRef(record.custody_ref),
     node_plaintext_allowed: Boolean(record.node_plaintext_allowed ?? false),
     privacy_class: optionalRef(record.privacy_class),
@@ -1264,6 +1265,34 @@ function hostedProviderInvocationSelected(selection = {}) {
   ].includes(provider.kind) ||
     ["openai", "anthropic", "gemini", "custom", "openai_compatible", "ollama"].includes(endpoint.api_format ?? provider.api_format) ||
     ["openai_compatible", "hosted_provider"].includes(driver);
+}
+
+function hostedProviderAuthEvidenceRefs(selection = {}, hash = stableHash) {
+  if (fixtureProviderInvocationSelected(selection) || nativeLocalProviderInvocationSelected(selection)) return [];
+  if (!hostedProviderInvocationSelected(selection)) return [];
+  const provider = selection.provider ?? {};
+  const endpoint = selection.endpoint ?? {};
+  const secretRef = optionalRef(
+    provider.secret_ref ??
+      endpoint.secret_ref ??
+      provider.auth_vault_ref ??
+      endpoint.auth_vault_ref ??
+      provider.api_key_vault_ref ??
+      endpoint.api_key_vault_ref,
+  );
+  const refs = [
+    "rust_model_mount_hosted_provider_auth_gate",
+    "wallet_network_provider_transport_authority_bound",
+    "ctee_hosted_provider_secret_not_exposed",
+    "provider_env_secret_material_fallback_retired",
+  ];
+  if (secretRef?.startsWith("vault://")) {
+    refs.push("wallet_network_provider_vault_ref_bound");
+    refs.push(`provider_vault_ref_hash:${hash(secretRef)}`);
+  } else {
+    refs.push("wallet_network_provider_vault_ref_required");
+  }
+  return uniqueRefs(refs);
 }
 
 function unsupportedProviderInvocationRustBackend(selection = {}, { stream = false } = {}) {

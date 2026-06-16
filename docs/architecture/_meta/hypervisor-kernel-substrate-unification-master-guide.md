@@ -11677,6 +11677,23 @@ because live external hosted API execution, direct Rust/vault auth-header
 materialization, actual Rust backend process execution/materialization, and
 invocation authority depth still need terminal Rust-owned execution coverage.
 
+Slice 1368 hard-cuts hosted provider invocation out of the generic unsupported
+backend lane and into a Rust-owned wallet/vault/cTEE transport gate. Hosted
+provider execution admission now carries redacted auth evidence from canonical
+vault-ref configuration (`rust_model_mount_hosted_provider_auth_gate`,
+`wallet_network_provider_vault_ref_bound`,
+`ctee_hosted_provider_secret_not_exposed`, and a vault-ref hash) without
+materializing plaintext or leaking the vault ref. Rust `provider_execution`
+recognizes `rust_model_mount_hosted_provider` as a first-class hosted invocation
+lane, validates the bound provider-execution record, requires wallet authority
+grant/receipt refs plus hosted auth/cTEE evidence, fails missing authority or
+auth evidence with named Rust errors, and only then rejects live execution at
+`HostedProviderInvocationTransportPending`. This remains non-terminal because
+direct Rust/vault auth-header materialization, live external hosted API
+execution, hosted stream parity, actual Rust backend process execution/
+materialization, and deeper invocation authority still need terminal Rust-owned
+execution coverage.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

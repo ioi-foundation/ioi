@@ -854,11 +854,60 @@ test("modelMountProviderExecutionRequestForInvocation gates provider driver exec
   assert.deepEqual(request.receipt_refs, ["receipt://receipt.route", "receipt://receipt.tool"]);
   assert.deepEqual(request.authority_grant_refs, ["grant://wallet/model-chat"]);
   assert.deepEqual(request.authority_receipt_refs, ["receipt://wallet/model-chat"]);
+  assert.deepEqual(request.provider_auth_evidence_refs, []);
   assert.deepEqual(request.backend_evidence_refs, ["backend.local", "backend.endpoint"]);
   assert.equal(request.custody_ref, "ctee://custody/private-workspace");
   assert.equal(request.privacy_profile, "private_workspace_ctee");
   assert.equal(request.response_ref, "resp.1");
   assert.equal(request.previous_response_ref, "resp.previous");
+
+  const hostedRequest = modelMountProviderExecutionRequestForInvocation({
+    body: {
+      authority_receipt_refs: ["receipt://wallet/hosted-model"],
+      model_policy: { privacy_profile: "hosted" },
+    },
+    capability: "chat",
+    hash: (value) => (typeof value === "string" ? "vault-hash" : `hash:${JSON.stringify(value)}`),
+    input: "hello hosted",
+    instance: {
+      id: "instance.hosted",
+      backend_id: "backend.openai-compatible",
+    },
+    kind: "responses",
+    providerBody: { model: "gpt-4.1" },
+    routeReceipt: {
+      id: "receipt.route",
+      details: {
+        model_mount_route_decision_ref: "model_mount://route_decision/test",
+      },
+    },
+    selection: selection({
+      endpoint: {
+        id: "endpoint.openai",
+        model_id: "gpt-4.1",
+        provider_id: "provider.openai",
+        api_format: "openai",
+        backend_id: "backend.openai-compatible",
+      },
+      provider: {
+        id: "provider.openai",
+        kind: "openai",
+        api_format: "openai",
+        secret_ref: "vault://provider.openai/api-key",
+      },
+    }),
+    token: {
+      grant_ref: "grant://wallet/hosted-model",
+    },
+  });
+
+  assert.deepEqual(hostedRequest.authority_grant_refs, ["grant://wallet/hosted-model"]);
+  assert.deepEqual(hostedRequest.authority_receipt_refs, ["receipt://wallet/hosted-model"]);
+  assert.equal(hostedRequest.provider_auth_evidence_refs.includes("rust_model_mount_hosted_provider_auth_gate"), true);
+  assert.equal(hostedRequest.provider_auth_evidence_refs.includes("wallet_network_provider_vault_ref_bound"), true);
+  assert.equal(hostedRequest.provider_auth_evidence_refs.includes("ctee_hosted_provider_secret_not_exposed"), true);
+  assert.equal(hostedRequest.provider_auth_evidence_refs.includes("provider_vault_ref_hash:vault-hash"), true);
+  assert.equal(hostedRequest.provider_auth_evidence_refs.some((ref) => ref.includes("vault://")), false);
 });
 
 test("model invocation migration helpers reject retired camelCase helper aliases", () => {

@@ -19313,6 +19313,9 @@ function runBridge() {
 	      /export function modelMountProviderInvocationRequiresRust\([\s\S]*?\)\s*\{[\s\S]*?return true;\s*\}/.test(modelInvocationOps) &&
 	      /rust_model_mount_native_local/.test(modelInvocationOps) &&
 	      /rust_model_mount_hosted_provider/.test(modelInvocationOps) &&
+	      /provider_auth_evidence_refs:\s*hostedProviderAuthEvidenceRefs\(selection,\s*hash\)/.test(modelInvocationOps) &&
+	      /function hostedProviderAuthEvidenceRefs\(selection = \{\},\s*hash = stableHash\)/.test(modelInvocationOps) &&
+	      /secret_ref:\s*optionalRef\(record\.secret_ref \?\? record\.secretRef\)/.test(modelInvocationOps) &&
 	      /model_mount_provider_invocation_rust_backend_required/.test(modelInvocationOps) &&
 	      /modelMountProviderInvocationRequiresRust\(\{ provider: \{ kind: "openai" \}, endpoint: \{\} \}\), true/.test(
 	        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
@@ -19843,7 +19846,16 @@ function runBridge() {
 	      /assert\.equal\(hostedRequest\.execution_backend,\s*"rust_model_mount_hosted_provider"\)/.test(
 	        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
 	      ) &&
+	      /provider_auth_evidence_refs\.includes\("rust_model_mount_hosted_provider_auth_gate"\)/.test(
+	        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
+	      ) &&
+	      /provider_auth_evidence_refs\.some\(\(ref\) => ref\.includes\("vault:\/\/"\)\),\s*false/.test(
+	        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
+	      ) &&
 	      /provider_invocation_reaches_rust_owner_for_hosted_and_rejects_pending_transport/.test(modelMountCore) &&
+	      /HostedProviderInvocationMissingAuthEvidence/.test(modelMountCore) &&
+	      /HostedProviderInvocationMissingAuthority/.test(modelMountCore) &&
+	      /HostedProviderInvocationTransportPending/.test(modelMountCore) &&
 	      /error\.code === "model_mount_provider_result_rust_backend_required"/.test(
 	        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
 	      ) &&
@@ -22932,6 +22944,12 @@ function runReceipts() {
 	      /provider_invocation_reaches_rust_owner_for_hosted_and_rejects_pending_transport/.test(
 	        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
 	      ) &&
+	      /validate_hosted_provider_invocation_gate/.test(
+	        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+	      ) &&
+	      /HostedProviderInvocationTransportPending/.test(
+	        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+	      ) &&
 	      /fixture_provider_invocation_requires_bound_provider_execution_in_owner/.test(
 	        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/invocation.rs"),
 	      ) &&
@@ -25543,6 +25561,12 @@ function runReceipts() {
 	        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
 	      ) &&
 	      /provider_invocation_reaches_rust_owner_for_hosted_and_rejects_pending_transport/.test(
+	        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+	      ) &&
+	      /HostedProviderInvocationMissingAuthEvidence/.test(
+	        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+	      ) &&
+	      /HostedProviderInvocationTransportPending/.test(
 	        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
 	      ) &&
 	      !/assert\.equal\(request\.provider_kind,\s*"openai"\)/.test(
