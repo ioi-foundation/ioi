@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
@@ -17,6 +17,18 @@ const PROJECT: ProjectScope = {
   environment: "Production",
   rootPath: ".",
 };
+
+const ACTIVE_TAURI_APP_PATH = "apps/autopilot/src-tauri";
+const LEGACY_TAURI_SRC_PATH = "internal-docs/legacy/autopilot-tauri-src/src";
+
+test("active Tauri app path stays retired", () => {
+  assert.equal(existsSync(ACTIVE_TAURI_APP_PATH), false);
+  assert.equal(existsSync(`${LEGACY_TAURI_SRC_PATH}/workspace_ide.rs`), true);
+  assert.equal(
+    existsSync(`${LEGACY_TAURI_SRC_PATH}/workspace_direct_webview.rs`),
+    true,
+  );
+});
 
 test("operator command center is a daemon-runtime projection", () => {
   const model: OperatorCommandCenterModel = buildOperatorCommandCenterModel({
@@ -162,11 +174,11 @@ test("workspace embedding defers global command center to ChatIdeHeader", () => 
     "utf8",
   );
   const workspaceDirectWebview = readFileSync(
-    "apps/autopilot/src-tauri/src/workspace_direct_webview.rs",
+    `${LEGACY_TAURI_SRC_PATH}/workspace_direct_webview.rs`,
     "utf8",
   );
   const workspaceIde = readFileSync(
-    "apps/autopilot/src-tauri/src/workspace_ide.rs",
+    `${LEGACY_TAURI_SRC_PATH}/workspace_ide.rs`,
     "utf8",
   );
   const workspaceRuntimeNavigation = readFileSync(
@@ -417,9 +429,9 @@ test("workspace docked chat is real operator chrome, not screenshot hitboxes", (
   assert.doesNotMatch(workspaceHost, /workbenchDockBodyStrip/);
 });
 
-test("embedded OpenVSCode defers global search to Autopilot chrome", () => {
+test("embedded OpenVSCode defers global search to Hypervisor chrome", () => {
   const workspaceIde = readFileSync(
-    "apps/autopilot/src-tauri/src/workspace_ide.rs",
+    `${LEGACY_TAURI_SRC_PATH}/workspace_ide.rs`,
     "utf8",
   );
   const homeView = readFileSync(
