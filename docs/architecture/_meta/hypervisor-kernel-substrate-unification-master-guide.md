@@ -11847,10 +11847,10 @@ Agentgres `model-backend-lifecycle-controls` record/public response, and emits
 `backend_lifecycle_start_js_process_control_retired` evidence. Focused
 JS/Rust tests and conformance guard the two-record start path, the direct typed
 API normalizer, and the absence of restored JS process control. This remained
-non-terminal at the cut because backend launch/supervision implementation,
-production cTEE egress resolver depth, and deeper invocation authority still
-needed terminal Rust-owned execution coverage; backend launch/supervision is
-superseded by Slice 1379 below.
+non-terminal at the cut because backend launch/supervision implementation and
+deeper invocation authority still needed terminal Rust-owned execution coverage;
+backend launch/supervision is superseded by Slice 1379 below, and the cTEE
+egress resolver blocker is superseded by Slice 1380.
 
 Slice 1377 hard-cuts hosted provider invocation off the deterministic Rust
 transport-contract output and onto a Rust daemon-core live hosted transport
