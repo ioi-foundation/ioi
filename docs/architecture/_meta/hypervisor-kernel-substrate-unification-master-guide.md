@@ -12020,6 +12020,19 @@ routes call the Rust-owned model_mount methods and the retired aliases return
 methods; conformance scans product/proof/SDK/CLI/IDE/workbench source clients so
 the old aliases cannot return as client fallbacks.
 
+Slice 1385 hard-cuts shipped workbench workflow-composer generated media. The
+tracked `ioi-workbench` workflow-composer bundle and sourcemap have been
+regenerated from the stable protocol client sources and refreshed
+`@ioi/agent-ide` build output, so the shipped webview media now carries
+`/v1/model-mount/projection` and
+`/v1/model-mount/workflows/nodes/execute` instead of the retired
+`/api/v1/projections/model-mounting` or `/api/v1/workflows/*` aliases. This
+closes the stale generated-JS facade that could preserve split-brain route
+behavior after source parity was verified. Conformance now scans the generated
+workbench bundle, sourcemap, and available agent-IDE dist artifacts alongside
+source clients, and it requires the stable generated bundle routes while
+rejecting the retired aliases.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

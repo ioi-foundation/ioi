@@ -23022,6 +23022,20 @@ function runReceipts() {
   const modelMountWorkbenchExtension = exists("apps/autopilot/openvscode-extension/ioi-workbench/extension.js")
     ? read("apps/autopilot/openvscode-extension/ioi-workbench/extension.js")
     : "";
+  const modelMountWorkbenchWorkflowComposerBundle = exists(
+    "apps/autopilot/openvscode-extension/ioi-workbench/media/workflow-composer/workflow-composer.js",
+  )
+    ? read("apps/autopilot/openvscode-extension/ioi-workbench/media/workflow-composer/workflow-composer.js")
+    : "";
+  const modelMountWorkbenchWorkflowComposerMap = exists(
+    "apps/autopilot/openvscode-extension/ioi-workbench/media/workflow-composer/workflow-composer.js.map",
+  )
+    ? read("apps/autopilot/openvscode-extension/ioi-workbench/media/workflow-composer/workflow-composer.js.map")
+    : "";
+  const modelMountAgentIdeDist = [
+    exists("packages/agent-ide/dist/index.es.js") ? read("packages/agent-ide/dist/index.es.js") : "",
+    exists("packages/agent-ide/dist/index.umd.js") ? read("packages/agent-ide/dist/index.umd.js") : "",
+  ].join("\n");
   const modelMountStableReadProtocolClientCorpus = [
     modelMountStableReadAgentSdkSubstrateClient,
     modelMountStableReadAgentSdkTest,
@@ -23032,6 +23046,9 @@ function runReceipts() {
     modelMountStableReadCliVault,
     modelMountStableReadCliTokens,
     modelMountWorkbenchExtension,
+    modelMountWorkbenchWorkflowComposerBundle,
+    modelMountWorkbenchWorkflowComposerMap,
+    modelMountAgentIdeDist,
     ...collectFiles(
       "scripts",
       (file) =>
@@ -26925,6 +26942,10 @@ function runReceipts() {
       !/\/api\/v1\/projections\/model-mounting/.test(modelMountStableReadProtocolClientCorpus) &&
       !/\/api\/v1\/workflows\/(?:nodes\/execute|receipt-gate)/.test(modelMountStableReadProtocolClientCorpus) &&
       !/\/api\/v1\/mcp\/(?:import|invoke)/.test(modelMountStableReadProtocolClientCorpus) &&
+      /\/v1\/model-mount\/projection/.test(modelMountWorkbenchWorkflowComposerBundle) &&
+      /\/v1\/model-mount\/workflows\/nodes\/execute/.test(modelMountWorkbenchWorkflowComposerBundle) &&
+      !/\/api\/v1\/projections\/model-mounting/.test(modelMountWorkbenchWorkflowComposerBundle) &&
+      !/\/api\/v1\/workflows\/(?:nodes\/execute|receipt-gate)/.test(modelMountWorkbenchWorkflowComposerBundle) &&
       /"daemonApi": if node == "Receipt Gate" \{[\s\S]*"\/v1\/model-mount\/workflows\/receipt-gate"[\s\S]*"\/v1\/model-mount\/workflows\/nodes\/execute"/.test(
         modelMountCore,
       ) &&
@@ -27014,14 +27035,17 @@ function runReceipts() {
       /Slice 1349 retires the legacy model_mount native read aliases/.test(guide) &&
       /Slice 1351 hard-cuts stable model_mount read proof and IDE clients/.test(guide) &&
       /Slice 1384 hard-cuts stable model_mount snapshot, projection, MCP workflow,\s+and workflow-node protocol clients/.test(guide) &&
+      /Slice 1385 hard-cuts shipped workbench workflow-composer generated media/.test(guide) &&
       /Model_mount stable read protocol clients/.test(matrix) &&
       /Model_mount legacy native read aliases retired/.test(matrix) &&
       /Model_mount stable read proof and IDE clients/.test(matrix) &&
       /Model_mount stable snapshot\/projection\/MCP\/workflow protocol clients/.test(matrix) &&
+      /Model_mount workbench workflow-composer generated media protocol clients/.test(matrix) &&
       /RuntimeDaemonCoreModelMountStableReadProtocolClients/.test(implementationMatrix) &&
       /RuntimeDaemonCoreModelMountLegacyReadAliasesRetired/.test(implementationMatrix) &&
       /RuntimeDaemonCoreModelMountStableReadProofIdeClients/.test(implementationMatrix) &&
-      /RuntimeDaemonCoreModelMountStableSnapshotWorkflowProtocolClients/.test(implementationMatrix),
+      /RuntimeDaemonCoreModelMountStableSnapshotWorkflowProtocolClients/.test(implementationMatrix) &&
+      /RuntimeDaemonCoreModelMountWorkbenchWorkflowComposerGeneratedMediaClients/.test(implementationMatrix),
     [
       "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
       "packages/agent-sdk/src/substrate-client.ts",
