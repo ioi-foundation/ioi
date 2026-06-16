@@ -11321,6 +11321,22 @@ OAuth/auth-header materialization, backend execution/materialization,
 invocation authority depth, IDE protocol coverage, and mutation/control SDK
 coverage still need terminal Rust-owned materialization and replay records.
 
+Slice 1349 retires the legacy model_mount native read aliases for the migrated
+stable read family. The daemon no longer routes `GET /api/v1/model-capabilities`,
+`GET /api/v1/models/catalog/search`, `GET /api/v1/models/artifacts`,
+`GET /api/v1/models/routes`, `GET /api/v1/providers`, or `GET /api/v1/routes`
+to model_mount projection methods; those reads must use the stable `/v1`
+protocol routes from Slice 1348. Focused native-route tests assert the retired
+aliases return `not_found` without calling `catalogSearch()`, `listArtifacts()`,
+`listModelCapabilities()`, `listProviders()`, or `listRoutes()`, and
+the generic `/api/v1/models/:id` route fences collection-style retired aliases
+instead of treating them as model IDs. Conformance source-scans keep the removed
+GET handlers absent. This remains
+non-terminal because mutation/control routes, backend execution/materialization,
+hosted/provider transport, OAuth/auth-header materialization, invocation
+authority depth, and IDE protocol coverage still need terminal Rust-owned
+coverage.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

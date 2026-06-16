@@ -26017,7 +26017,22 @@ function runReceipts() {
       /url\.pathname === "\/v1\/models\/catalog\/search"[\s\S]*store\.modelMounting\.catalogSearch\(Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
         publicRuntimeRoutes,
       ) &&
+      !/request\.method === "GET" && url\.pathname === "\/api\/v1\/model-capabilities"/.test(
+        runtimeRouteHandlers,
+      ) &&
+      !/request\.method === "GET" && url\.pathname === "\/api\/v1\/models\/catalog\/search"/.test(
+        runtimeRouteHandlers,
+      ) &&
+      !/request\.method === "GET" && url\.pathname === "\/api\/v1\/models\/artifacts"/.test(
+        runtimeRouteHandlers,
+      ) &&
+      !/request\.method === "GET" && url\.pathname === "\/api\/v1\/models\/routes"/.test(
+        runtimeRouteHandlers,
+      ) &&
+      !/request\.method === "GET" && url\.pathname === "\/api\/v1\/providers"/.test(runtimeRouteHandlers) &&
+      !/request\.method === "GET" && url\.pathname === "\/api\/v1\/routes"/.test(runtimeRouteHandlers) &&
       /public runtime model catalog routes use mounted model projection surface/.test(publicRuntimeRoutesTest) &&
+      /model mounting native route does not expose retired stable read aliases/.test(runtimeRouteHandlersTest) &&
       /\/v1\/models\/artifacts/.test(publicRuntimeRoutesTest) &&
       /\/v1\/models\/endpoints/.test(publicRuntimeRoutesTest) &&
       /\/v1\/models\/providers/.test(publicRuntimeRoutesTest) &&
@@ -26051,8 +26066,11 @@ function runReceipts() {
       !/"\/api\/v1\/models\/catalog\/search/.test(modelMountStableReadCliModelsCatalogSearchBlock) &&
       !/"\/api\/v1\/routes"/.test(modelMountStableReadCliRoutesLsBlock) &&
       /Slice 1348 hard-cuts stable model_mount read protocol clients/.test(guide) &&
+      /Slice 1349 retires the legacy model_mount native read aliases/.test(guide) &&
       /Model_mount stable read protocol clients/.test(matrix) &&
-      /RuntimeDaemonCoreModelMountStableReadProtocolClients/.test(implementationMatrix),
+      /Model_mount legacy native read aliases retired/.test(matrix) &&
+      /RuntimeDaemonCoreModelMountStableReadProtocolClients/.test(implementationMatrix) &&
+      /RuntimeDaemonCoreModelMountLegacyReadAliasesRetired/.test(implementationMatrix),
     [
       "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
       "packages/agent-sdk/src/substrate-client.ts",

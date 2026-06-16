@@ -2015,6 +2015,49 @@ test("model mounting native route does not expose retired estimate-load endpoint
   assert.deepEqual(calls, []);
 });
 
+test("model mounting native route does not expose retired stable read aliases", async () => {
+  const { handleModelMountingNativeRoute } = routeHandlers();
+  const calls = [];
+  const failRetiredAlias = (name) => (...args) => {
+    calls.push([name, ...args]);
+    throw new Error(`retired stable read alias ${name} must not be reached`);
+  };
+  const store = {
+    modelMounting: {
+      catalogSearch: failRetiredAlias("catalogSearch"),
+      listArtifacts: failRetiredAlias("listArtifacts"),
+      listModelCapabilities: failRetiredAlias("listModelCapabilities"),
+      listProviders: failRetiredAlias("listProviders"),
+      listRoutes: failRetiredAlias("listRoutes"),
+    },
+  };
+  const cases = [
+    "/api/v1/model-capabilities",
+    "/api/v1/models/catalog/search?query=qwen",
+    "/api/v1/models/artifacts",
+    "/api/v1/models/routes",
+    "/api/v1/providers",
+    "/api/v1/routes",
+  ];
+
+  for (const path of cases) {
+    await assert.rejects(
+      () => handleModelMountingNativeRoute({
+        request: request({ url: path }),
+        response: responseRecorder(),
+        store,
+        url: new URL(path, "http://daemon.test"),
+        segments: new URL(path, "http://daemon.test").pathname.split("/").filter(Boolean),
+      }),
+      (error) =>
+        error.code === "not_found" &&
+        error.details.path === new URL(path, "http://daemon.test").pathname,
+    );
+  }
+
+  assert.deepEqual(calls, []);
+});
+
 test("model mounting native route does not expose retired MCP aliases", async () => {
   const { handleModelMountingNativeRoute } = routeHandlers();
   const calls = [];

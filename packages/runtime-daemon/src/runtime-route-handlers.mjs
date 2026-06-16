@@ -140,14 +140,6 @@ export function createRuntimeRouteHandlers(deps) {
       writeJsonResponse(response, mounts.authoritySnapshot(baseUrl));
       return;
     }
-    if (request.method === "GET" && url.pathname === "/api/v1/model-capabilities") {
-      writeJsonResponse(response, mounts.listModelCapabilities());
-      return;
-    }
-    if (request.method === "GET" && url.pathname === "/api/v1/models/catalog/search") {
-      writeJsonResponse(response, await mounts.catalogSearch(Object.fromEntries(url.searchParams.entries())));
-      return;
-    }
     if (request.method === "POST" && url.pathname === "/api/v1/models/catalog/import-url") {
       mounts.authorize(authorization, "model.download:*");
       mounts.authorize(authorization, "model.import:*");
@@ -244,16 +236,8 @@ export function createRuntimeRouteHandlers(deps) {
       writeJsonResponse(response, mounts.cleanupModelStorage(await readBody(request)));
       return;
     }
-    if (request.method === "GET" && url.pathname === "/api/v1/models/artifacts") {
-      writeJsonResponse(response, mounts.listArtifacts());
-      return;
-    }
     if (request.method === "GET" && url.pathname === "/api/v1/models/instances") {
       writeJsonResponse(response, mounts.listInstances());
-      return;
-    }
-    if (request.method === "GET" && url.pathname === "/api/v1/models/routes") {
-      writeJsonResponse(response, mounts.listRoutes());
       return;
     }
     if (request.method === "GET" && url.pathname === "/api/v1/models/events") {
@@ -313,7 +297,8 @@ export function createRuntimeRouteHandlers(deps) {
       request.method === "GET" &&
       segments[2] === "models" &&
       segments[3] &&
-      !["download", "loaded"].includes(segments[3])
+      !segments[4] &&
+      !["artifacts", "catalog", "download", "loaded", "routes"].includes(segments[3])
     ) {
       writeJsonResponse(response, mounts.getModel(decodeURIComponent(segments[3])));
       return;
@@ -389,10 +374,6 @@ export function createRuntimeRouteHandlers(deps) {
       writeJsonResponse(response, mounts.listInstances().filter((instance) => instance.status === "loaded"));
       return;
     }
-    if (request.method === "GET" && url.pathname === "/api/v1/providers") {
-      writeJsonResponse(response, mounts.listProviders());
-      return;
-    }
     if (request.method === "GET" && url.pathname === "/api/v1/vault/refs") {
       mounts.authorize(authorization, "vault.read:*");
       writeJsonResponse(response, mounts.listVaultRefs());
@@ -462,10 +443,6 @@ export function createRuntimeRouteHandlers(deps) {
     if (request.method === "POST" && segments[2] === "providers" && segments[3] && segments[4] === "stop") {
       mounts.authorize(authorization, `provider.control:${decodeURIComponent(segments[3])}`);
       writeJsonResponse(response, await mounts.stopProvider(decodeURIComponent(segments[3])));
-      return;
-    }
-    if (request.method === "GET" && url.pathname === "/api/v1/routes") {
-      writeJsonResponse(response, mounts.listRoutes());
       return;
     }
     if (request.method === "POST" && url.pathname === "/api/v1/routes") {
