@@ -6339,8 +6339,9 @@ Slice 1251 hard-retires the remaining RuntimeAgentService bridge substrate.
 `RuntimeApiBridge` no longer exports an adapter class/factory, the
 `ioi-runtime-bridge` binary and Cargo bin entry are deleted, the daemon and
 service reject `runtimeBridge` options, Rust service policy no longer reads
-bridge allow-command envs, Autopilot uses an inference/model-route helper
-instead of a bridge helper, and bridge-backed live proof scripts/tests are
+bridge allow-command envs, the legacy `apps/autopilot` implementation path uses
+an inference/model-route helper instead of a bridge helper, and bridge-backed
+live proof scripts/tests are
 removed. Conformance now fails if the JS adapter export, bridge helper,
 command/env fallback, Cargo bridge binary, or runtimeBridge service option
 returns.
@@ -10889,8 +10890,9 @@ substrate and Slice 1272 deletes the bridge-named JS profile helper module.
 `runtime-api-bridge.mjs` is absent, runtime profile normalization lives in
 `runtime-profile.mjs`, the `ioi-runtime-bridge` binary and Cargo bin entry are deleted, daemon startup
 rejects `runtimeBridge`, Rust service policy no longer reads bridge command-env
-overrides, Autopilot uses the renamed inference/model-route helper instead of a
-bridge helper, and stale bridge-backed live proof scripts/tests are removed.
+overrides, the legacy `apps/autopilot` implementation path uses the renamed
+inference/model-route helper instead of a bridge helper, and stale
+bridge-backed live proof scripts/tests are removed.
 Conformance now guards that the JS adapter export, bridge helper, bridge env
 fallback, deleted bridge module path, Cargo bridge binary, and service
 `runtimeBridge` option cannot return.
@@ -11309,8 +11311,8 @@ Rust-owned workspace-trust control route family.
 
 Slice 1345 hard-cuts the runtime memory local cache substrate. Daemon startup no
 longer constructs `AgentMemoryStore`, `memory-store.mjs` and its tests are
-deleted, and the only remaining memory prompt parser lives in
-`memory-command-parser.mjs`. Thread-memory state no longer exports private
+deleted, and the retired JS memory prompt parser must not return beside the
+Rust-owned memory projection/control hot path. Thread-memory state no longer exports private
 cache-backed list/policy/path helpers or refreshes `store.memory` after Rust
 Agentgres memory-state commits; public thread/agent list, policy, path, status,
 and validation readback stays on `projectRuntimeMemoryProjection`. Thread
@@ -12214,6 +12216,22 @@ derive `/api/v1` from server metadata. The daemon proof now asserts the retired
 field is absent while preserving the stable `/v1` OpenAI-compatible protocol
 base, and conformance scans Rust producers plus product/proof clients so retired
 native endpoint breadcrumbs cannot return as discoverable split-brain metadata.
+
+Slice 1398 hard-cuts run-memory command parsing into Rust daemon core.
+`#remember`, `/memory`, `/memory show`, `/memory enable`, `/memory disable`,
+`/memory path`, `/memory edit`, and `/memory delete/remove/forget` command
+classification now enters Rust through
+`daemonCoreThreadMemoryApi.planRuntimeMemoryCommand` and
+`RuntimeKernelService::plan_runtime_memory_command` before run-memory
+resolution can read policy, write records, edit/delete memory, or inject
+records. The daemon resolver calls `planRunMemoryCommand()` and fails closed
+with `memory_command_plan` if the Rust planner is missing; daemon startup no
+longer imports or injects `memory-command-parser.mjs`, and the file is deleted.
+JS remains a protocol client for the Rust-planned command record plus the
+existing Rust memory projection/control surfaces. Conformance guards the typed
+thread-memory API, Rust parser tests, resolver fail-closed behavior, and parser
+file/import absence so the JS grammar facade cannot return as a duplicate truth
+path.
 
 ## Final Doctrine
 

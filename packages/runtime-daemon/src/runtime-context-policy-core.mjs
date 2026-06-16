@@ -64,6 +64,8 @@ export const STUDIO_INTENT_FRAME_PROJECTION_REQUEST_SCHEMA_VERSION =
   "ioi.studio.intent-frame-projection-request.v1";
 export const RUNTIME_MEMORY_PROJECTION_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.memory-projection-request.v1";
+export const RUNTIME_MEMORY_COMMAND_PLAN_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.memory-command-plan-request.v1";
 export const RUNTIME_MEMORY_CONTROL_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.memory-control-request.v1";
 export const RUNTIME_MCP_SERVE_TOOL_CALL_PLAN_REQUEST_SCHEMA_VERSION =
@@ -265,6 +267,8 @@ export const MCP_SERVE_TOOL_RESULT_PROJECTION_API_METHOD =
   "projectRuntimeMcpServeToolResult";
 export const THREAD_MEMORY_RUNTIME_MEMORY_PROJECTION_API_METHOD =
   "projectRuntimeMemoryProjection";
+export const THREAD_MEMORY_RUNTIME_MEMORY_COMMAND_API_METHOD =
+  "planRuntimeMemoryCommand";
 export const THREAD_MEMORY_RUNTIME_MEMORY_CONTROL_API_METHOD =
   "planRuntimeMemoryControl";
 export const THREAD_MEMORY_MANAGER_VALIDATION_PROJECTION_API_METHOD =
@@ -621,6 +625,14 @@ export class RuntimeContextPolicyCore {
     return normalizeRuntimeMemoryProjectionResult(this.invokeThreadMemoryApi(
       THREAD_MEMORY_RUNTIME_MEMORY_PROJECTION_API_METHOD,
       RUNTIME_MEMORY_PROJECTION_REQUEST_SCHEMA_VERSION,
+      request,
+    ));
+  }
+
+  planRuntimeMemoryCommand(request = {}) {
+    return normalizeRuntimeMemoryCommandPlanResult(this.invokeThreadMemoryApi(
+      THREAD_MEMORY_RUNTIME_MEMORY_COMMAND_API_METHOD,
+      RUNTIME_MEMORY_COMMAND_PLAN_REQUEST_SCHEMA_VERSION,
       request,
     ));
   }
@@ -2325,6 +2337,52 @@ export function normalizeRuntimeMemoryProjectionResult(value = {}) {
     projection:
       objectRecord(projection) ?? (Array.isArray(projection) ? projection : projection ?? null),
     record_count: numberValue(result.record_count ?? record.record_count),
+    evidence_refs: stringArray(result.evidence_refs ?? record.evidence_refs),
+    receipt_refs: stringArray(result.receipt_refs ?? record.receipt_refs),
+    record,
+  };
+}
+
+export function normalizeRuntimeMemoryCommandPlanResult(value = {}) {
+  const result = objectRecord(value) ?? {};
+  const record = objectRecord(result.record) ?? result;
+  const command = objectRecord(result.command) ?? objectRecord(record.command);
+  if (!command) {
+    throw new RuntimeContextPolicyCoreError(
+      "Rust memory command planner did not return a command record.",
+      "runtime_memory_command_plan_command_missing",
+      { operation_kind: optionalString(result.operation_kind ?? record.operation_kind) },
+    );
+  }
+  const commandKind = optionalString(result.command_kind ?? record.command_kind ?? command.kind);
+  if (!commandKind) {
+    throw new RuntimeContextPolicyCoreError(
+      "Rust memory command planner did not return a command kind.",
+      "runtime_memory_command_plan_command_kind_missing",
+      { operation_kind: optionalString(result.operation_kind ?? record.operation_kind) },
+    );
+  }
+  return {
+    ...record,
+    source:
+      result.source ??
+      record.source ??
+      "rust_runtime_memory_command_plan_api",
+    backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
+    object: optionalString(result.object ?? record.object) ?? null,
+    status: optionalString(result.status ?? record.status) ?? null,
+    operation: optionalString(result.operation ?? record.operation) ?? null,
+    operation_kind: requiredContextPolicyOperationKind(result, record, {
+      codePrefix: "runtime_memory_command_plan",
+      expectedOperationKind: "memory.run_command.plan",
+    }),
+    command_kind: commandKind,
+    thread_id: optionalString(result.thread_id ?? record.thread_id) ?? null,
+    agent_id: optionalString(result.agent_id ?? record.agent_id) ?? null,
+    command: {
+      ...command,
+      kind: commandKind,
+    },
     evidence_refs: stringArray(result.evidence_refs ?? record.evidence_refs),
     receipt_refs: stringArray(result.receipt_refs ?? record.receipt_refs),
     record,

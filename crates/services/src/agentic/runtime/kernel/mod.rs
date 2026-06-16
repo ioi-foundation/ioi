@@ -42,6 +42,7 @@ pub mod runtime_doctor_report;
 pub mod runtime_lifecycle;
 pub mod runtime_managed_session_control;
 pub mod runtime_mcp_serve;
+pub mod runtime_memory_command;
 pub mod runtime_memory_control;
 pub mod runtime_memory_projection;
 pub mod runtime_subagent_control;
@@ -305,6 +306,10 @@ use runtime_mcp_serve::{
     RuntimeMcpServeError, RuntimeMcpServeToolCallPlanCore, RuntimeMcpServeToolCallPlanRecord,
     RuntimeMcpServeToolCallPlanRequest, RuntimeMcpServeToolResultProjectionRecord,
     RuntimeMcpServeToolResultProjectionRequest,
+};
+use runtime_memory_command::{
+    RuntimeMemoryCommandPlanCore, RuntimeMemoryCommandPlanError, RuntimeMemoryCommandPlanRecord,
+    RuntimeMemoryCommandPlanRequest,
 };
 use runtime_memory_control::{
     RuntimeMemoryControlApiError, RuntimeMemoryControlApiRequest, RuntimeMemoryControlCore,
@@ -737,6 +742,13 @@ impl RuntimeKernelService {
         request: &RuntimeMemoryProjectionApiRequest,
     ) -> Result<RuntimeMemoryProjectionRecord, RuntimeMemoryProjectionApiError> {
         RuntimeMemoryProjectionCore.project(request)
+    }
+
+    pub fn plan_runtime_memory_command(
+        &self,
+        request: &RuntimeMemoryCommandPlanRequest,
+    ) -> Result<RuntimeMemoryCommandPlanRecord, RuntimeMemoryCommandPlanError> {
+        RuntimeMemoryCommandPlanCore.plan(request)
     }
 
     pub fn plan_runtime_memory_control(

@@ -5,7 +5,6 @@ export function createRunMemoryResolution({
   memoryWriteBlockReason,
   normalizeSubagentInheritanceMode,
   optionalString,
-  parseMemoryCommand,
   shouldInheritSubagentMemory,
   subagentMemoryPolicy,
   subagentReceiverForRequest,
@@ -54,7 +53,7 @@ export function createRunMemoryResolution({
   function resolveRunMemory(store, agent, request = {}, prompt = "") {
     const memoryOptions = memoryOptionsForRequest(request);
     const threadId = memoryOptions.thread_id ?? threadIdForAgent(agent.id);
-    const command = parseMemoryCommand(prompt);
+    const command = planRunMemoryCommand(store, agent, threadId, prompt);
     const surface = runMemorySurface(store, {
       operation: "memory_projection",
       threadId,
@@ -194,6 +193,30 @@ export function createRunMemoryResolution({
     resolveRunMemory,
     resolveSubagentMemoryInheritance,
   };
+
+  function planRunMemoryCommand(store, agent, threadId, prompt = "") {
+    const plan = store?.contextPolicyCore?.planRuntimeMemoryCommand?.({
+      operation: "runtime_memory_command_plan",
+      operation_kind: "memory.run_command.plan",
+      prompt,
+      thread_id: threadId,
+      agent_id: agent?.id ?? null,
+      source: "runtime_run_memory_resolution",
+    });
+    const command = objectRecord(plan?.command);
+    const kind = optionalString(plan?.command_kind ?? command?.kind);
+    if (!command || !kind) {
+      throwRunMemoryRustCoreRequired({
+        operation: "memory_command_plan",
+        threadId,
+        agentId: agent?.id ?? null,
+      });
+    }
+    return {
+      ...command,
+      kind,
+    };
+  }
 
   function commitRunMemoryWrite(surface, store, agent, threadId, text, memoryOptions = {}) {
     return runMemoryMutationFromResult(

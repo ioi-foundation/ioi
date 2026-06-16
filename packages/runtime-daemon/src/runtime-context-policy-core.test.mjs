@@ -58,6 +58,7 @@ import {
   THREAD_MEMORY_AGENT_STATE_UPDATE_API_METHOD,
   THREAD_MEMORY_MANAGER_STATUS_PROJECTION_API_METHOD,
   THREAD_MEMORY_MANAGER_VALIDATION_PROJECTION_API_METHOD,
+  THREAD_MEMORY_RUNTIME_MEMORY_COMMAND_API_METHOD,
   THREAD_MEMORY_RUNTIME_MEMORY_CONTROL_API_METHOD,
   THREAD_MEMORY_RUNTIME_MEMORY_PROJECTION_API_METHOD,
   THREAD_LIFECYCLE_AGENT_CREATE_STATE_UPDATE_API_METHOD,
@@ -123,6 +124,7 @@ import {
   RUNTIME_DOCTOR_REPORT_PROJECTION_REQUEST_SCHEMA_VERSION,
   RUNTIME_COMPUTER_USE_PROJECTION_REQUEST_SCHEMA_VERSION,
   STUDIO_INTENT_FRAME_PROJECTION_REQUEST_SCHEMA_VERSION,
+  RUNTIME_MEMORY_COMMAND_PLAN_REQUEST_SCHEMA_VERSION,
   RUNTIME_MEMORY_CONTROL_REQUEST_SCHEMA_VERSION,
   RUNTIME_MEMORY_PROJECTION_REQUEST_SCHEMA_VERSION,
   RUNTIME_MCP_SERVE_TOOL_CALL_PLAN_REQUEST_SCHEMA_VERSION,
@@ -192,6 +194,7 @@ import {
   normalizeRuntimeDoctorReportProjectionResult,
   normalizeRuntimeComputerUseProjectionResult,
   normalizeStudioIntentFrameProjectionResult,
+  normalizeRuntimeMemoryCommandPlanResult,
   normalizeRuntimeMemoryControlResult,
   normalizeRuntimeMcpServeToolCallPlanResult,
   normalizeRuntimeMcpServeToolResultProjectionResult,
@@ -3157,6 +3160,84 @@ test("runtime memory projection core sends Rust projection through typed Rust da
         error.code,
         "runtime_memory_projection_operation_kind_mismatch",
       );
+      assertNoRetiredOperationKindDetailAliases(error.details);
+      return true;
+    },
+  );
+});
+
+test("runtime memory command planner sends Rust command grammar through typed Rust daemon-core thread-memory API", () => {
+  let captured = null;
+  const { calls, runner } = createThreadMemoryDirectCore(
+    THREAD_MEMORY_RUNTIME_MEMORY_COMMAND_API_METHOD,
+    (request) => {
+      captured = request;
+      return {
+        source: "rust_runtime_memory_command_plan_api",
+        backend: "rust_policy",
+        record: {
+          object: "ioi.runtime_memory_command_plan",
+          status: "planned",
+          operation: "runtime_memory_command_plan",
+          operation_kind: "memory.run_command.plan",
+          command_kind: "remember",
+          thread_id: "thread_123",
+          agent_id: "agent_123",
+          command: {
+            kind: "remember",
+            text: "Remember release window",
+          },
+          evidence_refs: [
+            "rust_daemon_core_memory_command_parser",
+            "runtime_memory_command_parser_js_retired",
+          ],
+          receipt_refs: ["receipt_runtime_memory_command_plan"],
+        },
+      };
+    },
+  );
+
+  const result = runner.planRuntimeMemoryCommand({
+    operation: "runtime_memory_command_plan",
+    operation_kind: "memory.run_command.plan",
+    prompt: "#remember Remember release window",
+    thread_id: "thread_123",
+    agent_id: "agent_123",
+    source: "runtime_run_memory_resolution",
+  });
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, THREAD_MEMORY_RUNTIME_MEMORY_COMMAND_API_METHOD);
+  assert.equal(
+    captured.schema_version,
+    RUNTIME_MEMORY_COMMAND_PLAN_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(Object.hasOwn(captured, "backend"), false);
+  assert.equal(captured.operation, "runtime_memory_command_plan");
+  assert.equal(captured.operation_kind, "memory.run_command.plan");
+  assert.equal(captured.prompt, "#remember Remember release window");
+  assert.equal(result.source, "rust_runtime_memory_command_plan_api");
+  assert.equal(result.command_kind, "remember");
+  assert.deepEqual(result.command, {
+    kind: "remember",
+    text: "Remember release window",
+  });
+  assert.equal(
+    result.evidence_refs.includes("runtime_memory_command_parser_js_retired"),
+    true,
+  );
+  assert.equal(Object.hasOwn(result, "commandKind"), false);
+
+  assert.throws(
+    () =>
+      normalizeRuntimeMemoryCommandPlanResult({
+        record: {
+          operation_kind: "memory.run_command.plan",
+        },
+      }),
+    (error) => {
+      assert.equal(error.code, "runtime_memory_command_plan_command_missing");
+      assert.equal(error.details.operation_kind, "memory.run_command.plan");
       assertNoRetiredOperationKindDetailAliases(error.details);
       return true;
     },

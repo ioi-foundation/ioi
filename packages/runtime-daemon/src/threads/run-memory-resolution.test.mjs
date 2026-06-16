@@ -9,6 +9,7 @@ function createHarness({
   command = { kind: "none" },
 } = {}) {
   const agent = { id: "agent-one", cwd: "/workspace" };
+  const calls = [];
   const memoryOptionsForRequest = (request = {}) => request.memory ?? request.options?.memory ?? {};
   const helper = createRunMemoryResolution({
     memoryListFilters: (options = {}) => ({ query: options.query, redaction: options.redaction }),
@@ -27,7 +28,6 @@ function createHarness({
       const text = String(value).trim();
       return text ? text : undefined;
     },
-    parseMemoryCommand: () => command,
     shouldInheritSubagentMemory: (mode, options = {}) => mode !== "none" && (mode !== "explicit" || Boolean(options.query)),
     subagentMemoryPolicy: ({ agent: policyAgent, threadId, parentPolicy, receiver, mode }) => {
       const {
@@ -51,7 +51,6 @@ function createHarness({
     subagentReceiverForRequest: (request = {}) => request.receiver ?? request.options?.receiver ?? null,
     threadIdForAgent: (agentId) => `thread-${agentId}`,
   });
-  const calls = [];
   const writes = [];
   const mutations = [];
   let policyState = { ...policy };
@@ -75,6 +74,29 @@ function createHarness({
     },
   });
   const store = {
+    contextPolicyCore: {
+      planRuntimeMemoryCommand(input = {}) {
+        calls.push({ method: "planRuntimeMemoryCommand", input });
+        return {
+          source: "rust_runtime_memory_command_plan_api",
+          backend: "rust_policy",
+          object: "ioi.runtime_memory_command_plan",
+          status: "planned",
+          operation: "runtime_memory_command_plan",
+          operation_kind: "memory.run_command.plan",
+          command_kind: command.kind,
+          thread_id: input.thread_id,
+          agent_id: input.agent_id,
+          command: { ...command },
+          evidence_refs: [
+            "rust_daemon_core_memory_command_parser",
+            "runtime_memory_command_parser_js_retired",
+            "run_memory_command_grammar_rust_owned",
+          ],
+          receipt_refs: ["receipt_runtime_memory_command_plan"],
+        };
+      },
+    },
     memory: {
       pathProjection: () => {
         throw new Error("run memory resolution must use Rust publicMemoryPathForThread");
@@ -234,6 +256,7 @@ test("run memory resolution injects matching records without writes", () => {
   assert.equal(result.paths.memoryPath, "/state/memory");
   assert.deepEqual(result.writes, []);
   assert.deepEqual(calls.map((call) => call.method), [
+    "planRuntimeMemoryCommand",
     "publicMemoryPathForThread",
     "publicMemoryPolicyForThread",
     "publicListMemoryForThread",
@@ -360,6 +383,16 @@ test("run memory resolution fails closed before JS cache reads when Rust memory 
   assert.throws(
     () => helper.resolveRunMemory(store, agent, {}, "hello"),
     (error) => assertRunMemoryRustCoreRequired(error, { operation: "memory_projection" }),
+  );
+});
+
+test("run memory resolution fails closed before JS command parsing when Rust command planner is missing", () => {
+  const { agent, helper, store } = createHarness();
+  store.contextPolicyCore = null;
+
+  assert.throws(
+    () => helper.resolveRunMemory(store, agent, {}, "hello"),
+    (error) => assertRunMemoryRustCoreRequired(error, { operation: "memory_command_plan" }),
   );
 });
 

@@ -3428,6 +3428,9 @@ function runAbi() {
 
 function runBridge() {
   const result = createTierResult("bridge");
+  const guide = read(GUIDE);
+  const matrix = read(MATRIX);
+  const implementationMatrix = read(IMPLEMENTATION_MATRIX);
   const bridgeBin = exists("crates/node/src/bin/ioi-step-module-bridge.rs")
     ? read("crates/node/src/bin/ioi-step-module-bridge.rs")
     : "";
@@ -4130,6 +4133,11 @@ function runBridge() {
   )
     ? read("crates/services/src/agentic/runtime/kernel/runtime_memory_projection.rs")
     : "";
+  const runtimeMemoryCommandCore = exists(
+    "crates/services/src/agentic/runtime/kernel/runtime_memory_command.rs",
+  )
+    ? read("crates/services/src/agentic/runtime/kernel/runtime_memory_command.rs")
+    : "";
   const runtimeMemoryControlCore = exists(
     "crates/services/src/agentic/runtime/kernel/runtime_memory_control.rs",
   )
@@ -4546,6 +4554,12 @@ function runBridge() {
     : "";
   const runtimeThreadMemoryStateTest = exists("packages/runtime-daemon/src/threads/thread-memory-state.test.mjs")
     ? read("packages/runtime-daemon/src/threads/thread-memory-state.test.mjs")
+    : "";
+  const runtimeRunMemoryResolution = exists("packages/runtime-daemon/src/threads/run-memory-resolution.mjs")
+    ? read("packages/runtime-daemon/src/threads/run-memory-resolution.mjs")
+    : "";
+  const runtimeRunMemoryResolutionTest = exists("packages/runtime-daemon/src/threads/run-memory-resolution.test.mjs")
+    ? read("packages/runtime-daemon/src/threads/run-memory-resolution.test.mjs")
     : "";
   const runtimeThreadForkState = exists("packages/runtime-daemon/src/threads/thread-fork-state.mjs")
     ? read("packages/runtime-daemon/src/threads/thread-fork-state.mjs")
@@ -14818,6 +14832,39 @@ function runBridge() {
     /state\.deleteMemoryForAgentId\(store, "agent_a",/.test(
       runtimeThreadMemoryStateTest,
     );
+  const runtimeRunMemoryCommandParserRustOwned =
+    !exists("packages/runtime-daemon/src/memory-command-parser.mjs") &&
+    !/memory-command-parser|parseMemoryCommand/.test(runtimeDaemonIndex) &&
+    !/parseMemoryCommand/.test(runtimeRunMemoryResolution) &&
+    /planRunMemoryCommand/.test(runtimeRunMemoryResolution) &&
+    /planRuntimeMemoryCommand/.test(runtimeRunMemoryResolution) &&
+    /memory_command_plan/.test(runtimeRunMemoryResolution) &&
+    /runtime_memory_command_parser_js_retired/.test(runtimeRunMemoryResolutionTest) &&
+    /run memory resolution fails closed before JS command parsing when Rust command planner is missing/.test(
+      runtimeRunMemoryResolutionTest,
+    ) &&
+    /RUNTIME_MEMORY_COMMAND_PLAN_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyCore) &&
+    /THREAD_MEMORY_RUNTIME_MEMORY_COMMAND_API_METHOD\s*=\s*"planRuntimeMemoryCommand"/.test(
+      runtimeContextPolicyCore,
+    ) &&
+    /planRuntimeMemoryCommand\(request/.test(runtimeContextPolicyCore) &&
+    /normalizeRuntimeMemoryCommandPlanResult/.test(runtimeContextPolicyCore) &&
+    /runtime_memory_command_plan_command_missing/.test(runtimeContextPolicyCore) &&
+    /runtime memory command planner sends Rust command grammar through typed Rust daemon-core thread-memory API/.test(
+      runtimeContextPolicyCoreTest,
+    ) &&
+    /pub mod runtime_memory_command;/.test(kernelModuleForBridgeChecks) &&
+    /pub fn plan_runtime_memory_command/.test(kernelModuleForBridgeChecks) &&
+    /pub struct RuntimeMemoryCommandPlanCore;/.test(runtimeMemoryCommandCore) &&
+    /plan_runtime_memory_command_plan_api_response/.test(runtimeMemoryCommandCore) &&
+    /rust_plans_run_memory_command_grammar/.test(runtimeMemoryCommandCore) &&
+    /rust_rejects_unowned_run_memory_command_plan_transport/.test(
+      runtimeMemoryCommandCore,
+    ) &&
+    /runtime_memory_command_parser_js_retired/.test(runtimeMemoryCommandCore) &&
+    /Run-memory command parser Rust-owned/.test(matrix) &&
+    /RuntimeDaemonCoreRunMemoryCommandParserRustOwned/.test(implementationMatrix) &&
+    /Slice 1398 hard-cuts run-memory command parsing/.test(guide);
   const runtimeThreadMemoryStatusValidationControlRustOwned =
     /runtime_memory_control_event_rust_owned/.test(runtimeThreadMemoryState) &&
     /runtime_memory_status_validation_control_rust_owned/.test(runtimeThreadMemoryState) &&
@@ -14866,6 +14913,23 @@ function runBridge() {
       "packages/runtime-daemon/src/threads/thread-memory-state.test.mjs",
     ],
     "Public thread/agent memory write/edit/delete/policy controls must use Rust daemon-core planning plus Rust Agentgres memory-state commits, and must not return through direct JS AgentMemoryStore writers",
+  );
+  assertCheck(
+    result,
+    "runtime-run-memory-command-parser-rust-owned",
+    runtimeRunMemoryCommandParserRustOwned,
+    [
+      "crates/services/src/agentic/runtime/kernel/runtime_memory_command.rs",
+      "crates/services/src/agentic/runtime/kernel/mod.rs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
+      "packages/runtime-daemon/src/threads/run-memory-resolution.mjs",
+      "packages/runtime-daemon/src/threads/run-memory-resolution.test.mjs",
+      "docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md",
+      "docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md",
+      "docs/architecture/_meta/implementation-matrix.md",
+    ],
+    "Run-memory command classification must be Rust daemon-core planned through the typed thread-memory API, with the JS parser file/import/injection path absent",
   );
   assertCheck(
     result,
@@ -29725,7 +29789,14 @@ function runReceipts() {
     "agent-memory-operation-append-retired",
     !exists("packages/runtime-daemon/src/memory-store.mjs") &&
       !exists("packages/runtime-daemon/src/memory-store.test.mjs") &&
-      /from "\.\/memory-command-parser\.mjs"/.test(runtimeDaemonIndex) &&
+      !exists("packages/runtime-daemon/src/memory-command-parser.mjs") &&
+      !/memory-command-parser|parseMemoryCommand/.test(runtimeDaemonIndex) &&
+      /planRuntimeMemoryCommand/.test(
+        read("packages/runtime-daemon/src/threads/run-memory-resolution.mjs"),
+      ) &&
+      /runtime_memory_command_parser_js_retired/.test(
+        read("crates/services/src/agentic/runtime/kernel/runtime_memory_command.rs"),
+      ) &&
       !/AgentMemoryStore|this\.memory|from "\.\/memory-store\.mjs"/.test(runtimeDaemonIndex) &&
       !/store\.memory\b|store\.memory\?/.test(runtimeThreadMemoryState) &&
       !/function (?:listMemoryForThread|listMemoryForAgent|memoryPolicyForThread|memoryPolicyForAgent|memoryPathForThread|memoryPathForAgent)\(/.test(
@@ -29735,8 +29806,9 @@ function runReceipts() {
         read("packages/runtime-daemon/src/threads/thread-turn-projection.test.mjs"),
       ),
     [
-      "packages/runtime-daemon/src/memory-command-parser.mjs",
+      "crates/services/src/agentic/runtime/kernel/runtime_memory_command.rs",
       "packages/runtime-daemon/src/index.mjs",
+      "packages/runtime-daemon/src/threads/run-memory-resolution.mjs",
       "packages/runtime-daemon/src/threads/thread-memory-state.mjs",
       "packages/runtime-daemon/src/threads/thread-turn-projection.mjs",
       "packages/runtime-daemon/src/threads/thread-turn-projection.test.mjs",
@@ -29748,12 +29820,14 @@ function runReceipts() {
     "runtime-memory-local-cache-substrate-retired",
     /Slice 1345 hard-cuts the runtime memory local cache substrate/.test(guide) &&
       /Public memory mutation\/control positive API and local cache substrate retired/.test(matrix) &&
-      /`RuntimeThreadMemoryControl`[\s\S]*memory-command-parser\.mjs/.test(
-        implementationMatrix,
-      ) &&
+      /RuntimeDaemonCoreRunMemoryCommandParserRustOwned/.test(implementationMatrix) &&
       !exists("packages/runtime-daemon/src/memory-store.mjs") &&
       !exists("packages/runtime-daemon/src/memory-store.test.mjs") &&
-      /from "\.\/memory-command-parser\.mjs"/.test(runtimeDaemonIndex) &&
+      !exists("packages/runtime-daemon/src/memory-command-parser.mjs") &&
+      !/memory-command-parser|parseMemoryCommand/.test(runtimeDaemonIndex) &&
+      /planRuntimeMemoryCommand/.test(
+        read("packages/runtime-daemon/src/threads/run-memory-resolution.mjs"),
+      ) &&
       !/AgentMemoryStore|this\.memory|from "\.\/memory-store\.mjs"/.test(runtimeDaemonIndex) &&
       !/store\.memory\b|store\.memory\?/.test(runtimeThreadMemoryState) &&
       !/function (?:listMemoryForThread|listMemoryForAgent|memoryPolicyForThread|memoryPolicyForAgent|memoryPathForThread|memoryPathForAgent)\(/.test(
@@ -29769,8 +29843,9 @@ function runReceipts() {
       "docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md",
       "docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md",
       "docs/architecture/_meta/implementation-matrix.md",
-      "packages/runtime-daemon/src/memory-command-parser.mjs",
+      "crates/services/src/agentic/runtime/kernel/runtime_memory_command.rs",
       "packages/runtime-daemon/src/index.mjs",
+      "packages/runtime-daemon/src/threads/run-memory-resolution.mjs",
       "packages/runtime-daemon/src/threads/thread-memory-state.mjs",
       "packages/runtime-daemon/src/threads/thread-turn-projection.mjs",
     ],
