@@ -1,6 +1,5 @@
 export function seedModelMountingDefaults(state, deps = {}) {
   const {
-    defaultRouteRecords,
     discoverAutopilotLlamaServer,
     env = process.env,
     findExecutable,
@@ -55,9 +54,5 @@ export function seedModelMountingDefaults(state, deps = {}) {
       artifact: nativeFixtureArtifact,
       checkedAt,
     }));
-  }
-
-  for (const route of defaultRouteRecords()) {
-    state.upsertDefault(state.routes, route);
   }
 }

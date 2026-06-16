@@ -111,7 +111,6 @@ import {
   internalFixtureModelsEnabled,
 } from "./model-mounting/environment.mjs";
 import {
-  defaultRouteRecords,
   localFixtureArtifactRecords,
   localFixtureEndpointRecord,
   localFolderProviderRecord,
@@ -430,7 +429,6 @@ export class ModelMountingState {
     this.artifacts = new Map();
     this.endpoints = new Map();
     this.instances = new Map();
-    this.routes = new Map();
     this.ensureDirs();
     this.load();
     this.seedDefaults();
@@ -457,7 +455,6 @@ export class ModelMountingState {
 
   seedDefaults() {
     return seedModelMountingDefaults(this, {
-      defaultRouteRecords,
       discoverAutopilotLlamaServer,
       env: process.env,
       findExecutable,

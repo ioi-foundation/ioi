@@ -11125,6 +11125,19 @@ and Rust storage read-projection replay. The `model-downloads` record directory
 remains an admitted Agentgres substrate created by record-state commits; the
 retired JS `downloads` map must not return beside it.
 
+Slice 1336 hard-cuts the model_mount route JS cache substrate.
+`ModelMountingState` no longer constructs `routes`,
+`MODEL_MOUNTING_STATE_MAPS` no longer hydrates `model-routes` into JS memory,
+default route templates are no longer seeded into a local JS route map, and the
+store no longer precreates a local `model-routes` cache directory. Public route
+write/test/selection truth remains Rust-owned through `planModelMountRouteControl`,
+Agentgres `model-routes`, `model-route-selections`, and
+`model-route-endpoint-resolutions` commits, plus Rust read-projection replay
+over runtime `state_dir`. The `model-routes` record directory remains an
+admitted Agentgres substrate created by record-state commits; the retired JS
+`routes` map must not return beside it as empty compatibility state or duplicate
+route truth.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

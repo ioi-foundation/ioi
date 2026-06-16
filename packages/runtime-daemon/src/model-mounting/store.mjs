@@ -99,7 +99,6 @@ export class AgentgresModelMountingStore {
       "model-artifacts",
       "model-endpoints",
       "model-instances",
-      "model-routes",
       "model-providers",
       "provider-health",
       "models",

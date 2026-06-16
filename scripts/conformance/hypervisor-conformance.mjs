@@ -17916,6 +17916,10 @@ function runBridge() {
       !/normalizeModelRouteRecordStateCommit/.test(modelRoutes) &&
       !/persistModelRouteSelectionState/.test(modelMountingState) &&
       !/persistModelRouteSelectionState/.test(modelInvocationOps) &&
+      !/this\.routes\s*=/.test(modelMountingState) &&
+      !/\["model-routes",\s*"routes"\]/.test(read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs")) &&
+      !/state\.upsertDefault\(state\.routes/.test(read("packages/runtime-daemon/src/model-mounting/state-seeding.mjs")) &&
+      !/"model-routes"/.test(read("packages/runtime-daemon/src/model-mounting/store.mjs")) &&
       !/state\.writeMap\("model-routes"/.test(modelRoutes) &&
       !/state\.writeMap\("model-routes"/.test(modelMountingState) &&
       !/state\.writeMap\("model-routes"/.test(modelInvocationOps) &&
@@ -17924,14 +17928,26 @@ function runBridge() {
       ) &&
       /route upsert rejects retired request aliases before Rust-required boundary/.test(modelRoutesTest) &&
       /route upsert commits Rust-planned route record without JS normalization/.test(modelRoutesTest) &&
-      /assert\.equal\(routes\.has\("route:Research Route"\),\s*false\)/.test(modelRoutesTest) &&
+      (modelRoutesTest.match(/Object\.hasOwn\(state,\s*"routes"\),\s*false/g) ?? []).length >= 3 &&
       /assert\.equal\(routeControlPlans\[0\]\.current_route,\s*null\)/.test(modelRoutesTest) &&
       /model mounting public route control uses Rust planning and Agentgres record commits/.test(modelRoutesTest) &&
-      /assert\.equal\(routes\.has\("route:Review"\),\s*false\)/.test(modelRoutesTest) &&
       /assert\.equal\(routeControlPlans\[1\]\.current_route,\s*null\)/.test(modelRoutesTest) &&
+      /routeProjectionRows/.test(modelRoutesTest) &&
       /listRoutes\(\)\s*\{/.test(modelRoutesTest) &&
       /listEndpoints\(\)\s*\{/.test(modelRoutesTest) &&
       /listProviders\(\)\s*\{/.test(modelRoutesTest) &&
+      /route JS cache maps stay retired/.test(read("packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs")) &&
+      /without route cache seeding/.test(read("packages/runtime-daemon/src/model-mounting/state-seeding.test.mjs")) &&
+      /route local cache storage/.test(read("packages/runtime-daemon/src/model-mounting/store.test.mjs")) &&
+      /Slice 1336 hard-cuts the model_mount route JS cache substrate/.test(
+        read("docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md"),
+      ) &&
+      /Model_mount route JS cache retired/.test(
+        read("docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md"),
+      ) &&
+      /RuntimeDaemonCoreModelMountRouteCacheRetired/.test(
+        read("docs/architecture/_meta/implementation-matrix.md"),
+      ) &&
       /route-selection receipt helper is retired behind Rust core/.test(modelRoutesTest) &&
       /recordStateCommits\[0\]\.record_dir/.test(modelRoutesTest) &&
       /modelTokenizerUtility uses Rust tokenizer planning and Agentgres commit without JS tokenization receipt/.test(modelTokenizerOperationsTest) &&

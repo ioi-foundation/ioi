@@ -208,7 +208,6 @@ function recordStateCommitForTest(commits = []) {
 test("model mounting route upsert rejects retired request aliases before Rust-required boundary", () => {
   const calls = [];
   const state = {
-    routes: new Map(),
     writeMap(...args) {
       calls.push(["writeMap", ...args]);
     },
@@ -259,24 +258,23 @@ test("model mounting route upsert rejects retired request aliases before Rust-re
   assert.equal(Object.hasOwn(error.details, "maxCostUsd"), false);
   assert.equal(Object.hasOwn(error.details, "providerEligibility"), false);
   assert.deepEqual(calls, []);
-  assert.equal(state.routes.size, 0);
+  assert.equal(Object.hasOwn(state, "routes"), false);
 });
 
 test("model mounting route upsert commits Rust-planned route record without JS normalization", () => {
   const calls = [];
-  const routes = new Map();
   const routeControlPlans = [];
   const recordStateCommits = [];
-  const result = upsertRoute(
-    {
-      routes,
-      nowIso: () => "2026-06-13T00:00:00.000Z",
-      planRouteControl: routeControlPlannerForTest(routeControlPlans),
-      commitRuntimeModelMountRecordState: recordStateCommitForTest(recordStateCommits),
-      writeMap(...args) {
-        calls.push(["writeMap", ...args]);
-      },
+  const state = {
+    nowIso: () => "2026-06-13T00:00:00.000Z",
+    planRouteControl: routeControlPlannerForTest(routeControlPlans),
+    commitRuntimeModelMountRecordState: recordStateCommitForTest(recordStateCommits),
+    writeMap(...args) {
+      calls.push(["writeMap", ...args]);
     },
+  };
+  const result = upsertRoute(
+    state,
     {
       role: "Research Route",
       fallback: ["endpoint.local"],
@@ -300,7 +298,7 @@ test("model mounting route upsert commits Rust-planned route record without JS n
   assert.equal(result.route.id, "route:Research Route");
   assert.equal(result.route.fallback[0], "endpoint.local");
   assert.deepEqual(calls, []);
-  assert.equal(routes.has("route:Research Route"), false);
+  assert.equal(Object.hasOwn(state, "routes"), false);
   assert.equal(routeControlPlans.length, 1);
   assert.equal(routeControlPlans[0].operation_kind, "model_mount.route.write");
   assert.equal(routeControlPlans[0].body.role, "Research Route");
@@ -387,33 +385,21 @@ test("mounted route selection uses Rust planning and Agentgres commits before JS
       receiptCommits.push(receipt);
       return { id: receipt.id, committed: true };
     },
-    routes: new Map([["route.local-first", {
+    routeProjectionRows: [{
       id: "route.local-first",
       fallback: ["endpoint.local"],
       providerEligibility: ["local_folder"],
-    }]]),
-    endpoints: new Map([["endpoint.local", endpoint]]),
-    providers: new Map([["provider.local", provider]]),
+    }],
+    endpointProjectionRows: [endpoint],
+    providerProjectionRows: [provider],
     listRoutes() {
-      return [...this.routes.values()];
+      return this.routeProjectionRows.map((record) => ({ ...record }));
     },
     listEndpoints() {
-      return [...this.endpoints.values()];
+      return this.endpointProjectionRows.map((record) => ({ ...record }));
     },
     listProviders() {
-      return [...this.providers.values()];
-    },
-    route(routeId) {
-      calls.push(["route", routeId]);
-      return this.routes.get(routeId);
-    },
-    endpoint(endpointId) {
-      calls.push(["endpoint", endpointId]);
-      return this.endpoints.get(endpointId);
-    },
-    provider(providerId) {
-      calls.push(["provider", providerId]);
-      return this.providers.get(providerId);
+      return this.providerProjectionRows.map((record) => ({ ...record }));
     },
     mountEndpoint(body) {
       calls.push(["mountEndpoint", body]);
@@ -464,23 +450,10 @@ test("model mounting public route control uses Rust planning and Agentgres recor
   const calls = [];
   const routeControlPlans = [];
   const recordStateCommits = [];
-  const routes = new Map([["route.local-first", {
-    id: "route.local-first",
-    fallback: ["endpoint.local"],
-    deniedProviders: [],
-    providerEligibility: [],
-    privacy: "local_or_enterprise",
-    maxCostUsd: 1,
-  }]]);
   const state = {
-    routes,
     nowIso: () => "2026-06-13T00:00:00.000Z",
     planRouteControl: routeControlPlannerForTest(routeControlPlans),
     commitRuntimeModelMountRecordState: recordStateCommitForTest(recordStateCommits),
-    route(routeId) {
-      calls.push(["route", routeId]);
-      return routes.get(routeId);
-    },
     selectRoute() {
       calls.push(["selectRoute"]);
     },
@@ -499,7 +472,7 @@ test("model mounting public route control uses Rust planning and Agentgres recor
   assert.equal(upsertResult.status, "committed");
   assert.equal(upsertResult.operation_kind, "model_mount.route.write");
   assert.equal(upsertResult.route.id, "route:Review");
-  assert.equal(routes.has("route:Review"), false);
+  assert.equal(Object.hasOwn(state, "routes"), false);
 
   const testResult = testRoute(state, "route.local-first", {
     model: "model.local",
@@ -510,8 +483,7 @@ test("model mounting public route control uses Rust planning and Agentgres recor
   assert.equal(testResult.route_test.route_id, "route.local-first");
   assert.equal(testResult.route_test.model, "model.local");
   assert.deepEqual(calls, []);
-  assert.equal(routes.has("route:Review"), false);
-  assert.equal(routes.get("route.local-first").lastReceiptId, undefined);
+  assert.equal(Object.hasOwn(state, "routes"), false);
   assert.equal(routeControlPlans.length, 2);
   assert.equal(routeControlPlans[0].operation_kind, "model_mount.route.write");
   assert.equal(routeControlPlans[0].current_route, null);

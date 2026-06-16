@@ -8,7 +8,6 @@ function fakeState() {
     artifacts: new Map(),
     endpoints: new Map(),
     providers: new Map(),
-    routes: new Map(),
     homeDir: "/home/ioi",
     calls: [],
     backendRegistry() {
@@ -38,7 +37,6 @@ function fakeState() {
 
 function deps({ fixturesEnabled = true } = {}) {
   return {
-    defaultRouteRecords: () => [{ id: "route.local-first" }],
     discoverAutopilotLlamaServer: (homeDir) => `${homeDir}/llama-server`,
     env: {},
     findExecutable: (name) => `/bin/${name}`,
@@ -59,7 +57,7 @@ function deps({ fixturesEnabled = true } = {}) {
   };
 }
 
-test("state seeding preserves default providers, routes, and native fixture records", () => {
+test("state seeding preserves default providers and native fixture records without route cache seeding", () => {
   const state = fakeState();
 
   seedModelMountingDefaults(state, deps());
@@ -72,7 +70,7 @@ test("state seeding preserves default providers, routes, and native fixture reco
   ]);
   assert.deepEqual([...state.artifacts.keys()], ["artifact.fixture", "artifact.native"]);
   assert.deepEqual([...state.endpoints.keys()], ["endpoint.fixture", "endpoint.native"]);
-  assert.deepEqual([...state.routes.keys()], ["route.local-first"]);
+  assert.equal(Object.hasOwn(state, "routes"), false);
   assert.equal(state.providers.get("provider.llama-cpp").llamaBinary, "/home/ioi/llama-server");
   assert.equal(state.providers.get("provider.vllm").vllmBinary, "/bin/vllm");
   assert.equal(Object.hasOwn(state.endpoints.get("endpoint.native"), "backendCount"), false);

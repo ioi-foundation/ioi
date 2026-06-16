@@ -80,22 +80,22 @@ test("loadModelMountingMap loads only records with string ids", () => {
 
 test("loadModelMountingMap applies Rust-admitted tombstone records", () => {
   const state = fakeState();
-  const target = new Map([["route_a", { id: "route_a", label: "old" }]]);
+  const target = new Map([["instance_a", { id: "instance_a", label: "old" }]]);
 
-  loadModelMountingMap(state, "model-routes", target, {
+  loadModelMountingMap(state, "model-instances", target, {
     listJson(dir) {
-      return [`${dir}/route-a.json`];
+      return [`${dir}/instance-a.json`];
     },
     readJson() {
       return {
-        id: "route_a",
+        id: "instance_a",
         deleted: true,
         receiptId: "receipt_remove",
       };
     },
   });
 
-  assert.equal(target.has("route_a"), false);
+  assert.equal(target.has("instance_a"), false);
 });
 
 test("loadModelMountingMaps applies the canonical directory map table", () => {
@@ -116,7 +116,7 @@ test("loadModelMountingMaps applies the canonical directory map table", () => {
   }
 });
 
-test("OAuth, catalog-provider, capability-token, runtime-engine JS cache maps stay retired; MCP JS cache maps stay retired; conversation JS cache maps stay retired; vault-ref JS cache maps stay retired; download JS cache maps stay retired", () => {
+test("OAuth, catalog-provider, capability-token, runtime-engine JS cache maps stay retired; MCP JS cache maps stay retired; conversation JS cache maps stay retired; vault-ref JS cache maps stay retired; route JS cache maps stay retired; download JS cache maps stay retired", () => {
   assert.equal(
     MODEL_MOUNTING_STATE_MAPS.some(([dir, property]) => dir === "oauth-sessions" || property === "oauthSessions"),
     false,
@@ -162,6 +162,12 @@ test("OAuth, catalog-provider, capability-token, runtime-engine JS cache maps st
   assert.equal(
     MODEL_MOUNTING_STATE_MAPS.some(
       ([dir, property]) => dir === "vault-refs" || property === "vaultRefs",
+    ),
+    false,
+  );
+  assert.equal(
+    MODEL_MOUNTING_STATE_MAPS.some(
+      ([dir, property]) => dir === "model-routes" || property === "routes",
     ),
     false,
   );
