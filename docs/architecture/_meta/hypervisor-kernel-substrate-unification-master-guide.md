@@ -12061,6 +12061,23 @@ reads over Rust-owned projection records, not alternate native catalog truth.
 Focused IDE/product tests and conformance now reject restoring `/api/v1/tools`
 or the multi-path fetch helper beside `/v1/tools`.
 
+Slice 1388 hard-cuts the run-create repository workflow JS projection facade.
+Run creation and runtime-service turn submission now require the explicit Rust
+repository workflow projector and call `projectRepositoryWorkflow` for
+repository context, branch policy, GitHub context, PR attempts, issue context,
+review gate, and GitHub PR create-plan truth before the run candidate can be
+planned through the Rust lifecycle API. The old JS repository context,
+projection, and workflow projection modules and tests are deleted rather than
+kept as fail-closed compatibility shells. PR branch/diff run artifacts now bind
+to Rust-authored artifact metadata and hashes instead of reading the retired JS
+`artifactContents` side channel. Conformance tombstones the deleted files,
+requires the explicit projector wiring, and rejects restoring the old helper
+names beside the Rust projection path. Repository workflow still has terminal
+work for durable Agentgres-backed persistence/replay, wallet authority on
+external exits, receipt/state-root binding, and stable protocol APIs; this cut
+removes the duplicate JS projection truth path from the daemon hot run-create
+path.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

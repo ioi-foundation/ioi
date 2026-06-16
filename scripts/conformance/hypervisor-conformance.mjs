@@ -4669,6 +4669,13 @@ function runBridge() {
   const runtimeRepositorySurfaceTest = exists("packages/runtime-daemon/src/runtime-repository-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-repository-surface.test.mjs")
     : "";
+  const runtimeRepositoryLegacyProjectionFilesAbsent = [
+    "packages/runtime-daemon/src/repository-context.mjs",
+    "packages/runtime-daemon/src/repository-context.test.mjs",
+    "packages/runtime-daemon/src/repository-projections.mjs",
+    "packages/runtime-daemon/src/repository-projections.test.mjs",
+    "packages/runtime-daemon/src/repository-workflow-projections.mjs",
+  ].every((file) => !exists(file));
   const runtimeAgentRunLifecycle = exists("packages/runtime-daemon/src/runtime-agent-run-lifecycle.mjs")
     ? read("packages/runtime-daemon/src/runtime-agent-run-lifecycle.mjs")
     : "";
@@ -13599,6 +13606,29 @@ function runBridge() {
         runtimeRepositorySurface,
       ) &&
       !/createRepositoryWorkflowProjections/.test(runtimeRepositorySurface) &&
+      runtimeRepositoryLegacyProjectionFilesAbsent &&
+      /repositoryWorkflowProjectionsForRun/.test(runtimeDaemonIndex) &&
+      /repositoryWorkflowProjector\.projectRepositoryWorkflow/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /runtime_run_create_repository_workflow_rust_projection_missing/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /runtime_repository_workflow_js_projection_facade_retired/.test(
+        runtimeDaemonIndex,
+      ) &&
+      !/repositoryContextForWorkspace|branchPolicyForRepositoryContext|githubContextForRepository|prAttemptForRepository|reviewGateForPrAttempt|githubPrCreatePlanForReviewGate|issueContextForGithub|createRepositoryWorkflowProjections/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /deps\.repositoryWorkflowProjector\s*\?\?\s*runCreateStateUpdateRunner/.test(
+        runtimeAgentRunLifecycle,
+      ) &&
+      /deps\.repositoryWorkflowProjector\s*\?\?\s*runtimeBridgeTurnRunStateUpdateRunner/.test(
+        runtimeAgentRunLifecycle,
+      ) &&
+      /repositoryWorkflowProjector:\s*contextPolicyCore/.test(
+        runtimeThreadTurnSurface,
+      ) &&
       !/schemaVersion:\s*"ioi\.agent-runtime\.(?:repository-context|issue-context|pr-attempt|review-gate|github-pr-create-plan)\.v1"/.test(
         runtimeRepositorySurface,
       ) &&

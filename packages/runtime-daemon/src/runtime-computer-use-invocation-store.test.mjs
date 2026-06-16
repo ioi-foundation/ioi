@@ -107,6 +107,323 @@ function modelMountCoreForComputerUseTest() {
   };
 }
 
+function memoryProjectionApiForComputerUseTest() {
+  return {
+    projectRuntimeMemoryProjection(request = {}) {
+      return {
+        source: "rust_runtime_memory_projection_api",
+        projection_kind: request.projection_kind,
+        operation_kind: request.operation_kind,
+        projection: memoryProjectionForComputerUseRequest(request),
+        record_count: 0,
+        evidence_refs: ["runtime_memory_public_projection_rust_owned"],
+        receipt_refs: [`receipt_runtime_memory_projection_${request.projection_kind}`],
+      };
+    },
+  };
+}
+
+function memoryProjectionForComputerUseRequest(request = {}) {
+  const projection = {
+    schema_version: "ioi.agent-runtime.memory.v1",
+    object: "ioi.agent_memory_projection",
+    agent_id: request.agent_id ?? null,
+    thread_id: request.thread_id ?? null,
+    workspace: request.workspace_root ?? null,
+    policy: {
+      id: `policy_${request.thread_id ?? "runtime"}`,
+      injection_enabled: true,
+      read_only: false,
+      write_requires_approval: false,
+    },
+    paths: {
+      records_path: `${request.state_dir}/memory-records`,
+      policies_path: `${request.state_dir}/memory-policies`,
+      effective_policy_id: `policy_${request.thread_id ?? "runtime"}`,
+    },
+    filters: request.filters ?? {},
+    records: [],
+    total_matches: 0,
+    state_dir_replay_required: true,
+  };
+  switch (request.projection_kind) {
+    case "records":
+      return projection;
+    case "policy":
+      return projection.policy;
+    case "path":
+      return projection.paths;
+    case "status":
+      return {
+        object: "ioi.runtime_memory_manager_status",
+        status: "ready",
+        record_count: 0,
+        thread_id: request.thread_id ?? null,
+        agent_id: request.agent_id ?? null,
+        workspace: request.workspace_root ?? null,
+      };
+    case "validation":
+      return {
+        object: "ioi.runtime_memory_manager_validation",
+        ok: true,
+        record_count: 0,
+        thread_id: request.thread_id ?? null,
+        agent_id: request.agent_id ?? null,
+        workspace: request.workspace_root ?? null,
+      };
+    default:
+      return {};
+  }
+}
+
+function repositoryWorkflowProjectionApiForComputerUseTest() {
+  return {
+    projectRepositoryWorkflow(request = {}) {
+      return repositoryWorkflowProjectionResultForComputerUseRequest(request);
+    },
+  };
+}
+
+function repositoryWorkflowProjectionResultForComputerUseRequest(request = {}) {
+  const workspaceRoot = request.workspace_root ?? "/workspace";
+  const generatedAt = "2026-06-15T18:00:00.000Z";
+  const repositoryContext = {
+    schemaVersion: "ioi.agent-runtime.repository-context.v1",
+    object: "ioi.repository_context",
+    contextId: "repoctx_computer_use",
+    generatedAt,
+    workspaceRoot,
+    workspaceRootHash: "hash_workspace",
+    provider: "git",
+    readOnly: true,
+    mutationExecuted: false,
+    status: {
+      isDirty: false,
+      counts: {
+        staged: 0,
+        unstaged: 0,
+        untracked: 0,
+        conflicted: 0,
+      },
+    },
+    isGitRepository: false,
+    repoRoot: null,
+    repoRootHash: null,
+    branch: null,
+    defaultBranch: null,
+    detachedHead: false,
+    headShortSha: null,
+    upstream: null,
+    remoteCount: 0,
+    redaction: { profile: "repository_context_safe" },
+  };
+  const branchPolicy = {
+    schemaVersion: "ioi.agent-runtime.branch-policy.v1",
+    object: "ioi.branch_policy",
+    policyId: "branch_policy_computer_use",
+    repositoryContextId: repositoryContext.contextId,
+    generatedAt,
+    status: "blocked",
+    branch: null,
+    defaultBranch: null,
+    protectedBranch: false,
+    detachedHead: false,
+    dirty: false,
+    upstream: null,
+    ahead: 0,
+    behind: 0,
+    blockers: ["not_git_repository"],
+    warnings: [],
+    mutationAllowed: false,
+    prCreationAllowed: false,
+    reviewRequired: true,
+    mutationExecuted: false,
+    summary: "Repository workflow projection is blocked outside a Git repository.",
+    redaction: { profile: "branch_policy_safe" },
+  };
+  const githubContext = {
+    schemaVersion: "ioi.agent-runtime.github-context.v1",
+    object: "ioi.github_context",
+    contextId: "github_context_computer_use",
+    repositoryContextId: repositoryContext.contextId,
+    branchPolicyId: branchPolicy.policyId,
+    generatedAt,
+    status: "unavailable",
+    githubRemotePresent: false,
+    defaultRemoteName: null,
+    owner: null,
+    repo: null,
+    repoFullName: null,
+    branch: null,
+    defaultBranch: null,
+    branchPolicyStatus: branchPolicy.status,
+    credentials: { tokenAvailable: false },
+    prCreationEligible: false,
+    networkLookupPerformed: false,
+    mutationExecuted: false,
+    summary: "No GitHub remote is available.",
+    redaction: { profile: "github_context_safe" },
+  };
+  const prAttempt = {
+    schemaVersion: "ioi.agent-runtime.pr-attempt.v1",
+    object: "ioi.pr_attempt",
+    attemptId: "pr_attempt_computer_use",
+    repositoryContextId: repositoryContext.contextId,
+    branchPolicyId: branchPolicy.policyId,
+    githubContextId: githubContext.contextId,
+    generatedAt,
+    status: "blocked",
+    outcome: "failed_precondition",
+    repoFullName: null,
+    branch: null,
+    defaultBranch: null,
+    headShortSha: null,
+    blockers: ["not_git_repository"],
+    warnings: ["pr_attempt_preview_only"],
+    authority: {
+      requiredScopes: ["github.pr.create"],
+      missingScopes: ["github.pr.create"],
+      scopeGranted: false,
+    },
+    branchArtifact: {
+      artifactName: "pr-branch.json",
+      mediaType: "application/json",
+      artifactHash: "hash_pr_branch",
+    },
+    diffArtifact: {
+      artifactName: "pr-diff.patch",
+      mediaType: "text/x-diff",
+      artifactHash: "hash_pr_diff",
+      diffHash: "hash_pr_diff",
+      fileCount: 0,
+    },
+    mutationAttempted: false,
+    mutationExecuted: false,
+    networkLookupPerformed: false,
+    summary: "PR attempt was not ready; no mutation was executed.",
+    redaction: { profile: "pr_attempt_safe", diffContentInProjection: false },
+  };
+  const issueContext = {
+    schemaVersion: "ioi.agent-runtime.issue-context.v1",
+    object: "ioi.issue_context",
+    contextId: "issue_context_computer_use",
+    repositoryContextId: repositoryContext.contextId,
+    githubContextId: githubContext.contextId,
+    prAttemptId: prAttempt.attemptId,
+    reviewGateId: "review_gate_computer_use",
+    generatedAt,
+    status: "unbound",
+    repoFullName: null,
+    bound: false,
+    issueProvided: false,
+    issueNumber: null,
+    sourceKind: "none",
+    warnings: [],
+    networkLookupPerformed: false,
+    mutationExecuted: false,
+    summary: "No issue context is bound.",
+    redaction: { profile: "issue_context_safe" },
+  };
+  const reviewGate = {
+    schemaVersion: "ioi.agent-runtime.review-gate.v1",
+    object: "ioi.review_gate",
+    gateId: "review_gate_computer_use",
+    repositoryContextId: repositoryContext.contextId,
+    branchPolicyId: branchPolicy.policyId,
+    githubContextId: githubContext.contextId,
+    prAttemptId: prAttempt.attemptId,
+    generatedAt,
+    status: "blocked",
+    decision: "blocked",
+    repoFullName: null,
+    branch: null,
+    defaultBranch: null,
+    reviewRequired: true,
+    reviewSatisfied: false,
+    approvalRequired: true,
+    approvalSatisfied: false,
+    requiredReviewers: [],
+    requiredChecks: [],
+    blockers: ["pr_attempt_not_ready"],
+    warnings: [],
+    mutationAllowed: false,
+    prCreationAllowed: false,
+    mutationExecuted: false,
+    networkLookupPerformed: false,
+    summary: "Review gate blocked PR creation.",
+    redaction: { profile: "review_gate_safe" },
+  };
+  const githubPrCreatePlan = {
+    schemaVersion: "ioi.agent-runtime.github-pr-create-plan.v1",
+    object: "ioi.github_pr_create_plan",
+    planId: "github_pr_create_plan_computer_use",
+    repositoryContextId: repositoryContext.contextId,
+    branchPolicyId: branchPolicy.policyId,
+    githubContextId: githubContext.contextId,
+    issueContextId: issueContext.contextId,
+    prAttemptId: prAttempt.attemptId,
+    reviewGateId: reviewGate.gateId,
+    generatedAt,
+    status: "blocked",
+    decision: "blocked",
+    dryRun: true,
+    toolName: "github.create_pull_request",
+    repoFullName: null,
+    baseBranch: null,
+    headBranch: null,
+    issueNumber: null,
+    reviewGateStatus: reviewGate.status,
+    reviewSatisfied: false,
+    request: {
+      payloadHash: "hash_pr_payload",
+      bodyIncluded: false,
+      tokenIncluded: false,
+    },
+    authority: {
+      requiredScopes: ["github.pr.create"],
+      missingScopes: ["github.pr.create"],
+      scopeGranted: false,
+    },
+    blockers: ["pr_attempt_not_ready"],
+    warnings: [],
+    mutationAttempted: false,
+    mutationExecuted: false,
+    networkLookupPerformed: false,
+    summary: "GitHub PR create plan is blocked and remains dry-run only.",
+    redaction: { profile: "github_pr_create_plan_safe" },
+  };
+  reviewGate.issueContextId = issueContext.contextId;
+  const projectionByKind = {
+    repository_context: repositoryContext,
+    branch_policy: branchPolicy,
+    github_context: githubContext,
+    pr_attempts: [prAttempt],
+    issue_context: issueContext,
+    review_gate: reviewGate,
+    github_pr_create_plan: githubPrCreatePlan,
+  };
+  return {
+    source: "rust_repository_workflow_projection_api",
+    status: "projected",
+    operation: request.operation,
+    operation_kind: request.operation_kind,
+    projection_kind: request.projection_kind,
+    workspace_root: workspaceRoot,
+    projection: projectionByKind[request.projection_kind] ?? {},
+    repository_context: repositoryContext,
+    branch_policy: branchPolicy,
+    github_context: githubContext,
+    pr_attempt: prAttempt,
+    issue_context: issueContext,
+    review_gate: reviewGate,
+    github_pr_create_plan: githubPrCreatePlan,
+    repositories: [],
+    record_count: 1,
+    evidence_refs: ["runtime_repository_workflow_rust_projection"],
+    receipt_refs: [`receipt_repository_workflow_projection_${request.projection_kind}`],
+  };
+}
+
 function poisonJsComputerUseTruthPaths(store) {
   store.agentForThread = () => {
     throw new Error("agentForThread must not be called by computer-use public Rust lease adapter");
@@ -359,5 +676,9 @@ test("computer-use run materialization is delegated to Rust run-create planning"
     assert.ok(run.receipts.some((receipt) => receipt.kind === "computer_use_trace"));
     assert.ok(run.artifacts.some((artifact) => artifact.name === "computer-use-trace.json"));
     assert.deepEqual(writes, [{ run, operationKind: "run.create" }]);
-  }, { daemonCoreThreadLifecycleApi });
+  }, {
+    daemonCoreRuntimeProjectionApi: repositoryWorkflowProjectionApiForComputerUseTest(),
+    daemonCoreThreadLifecycleApi,
+    daemonCoreThreadMemoryApi: memoryProjectionApiForComputerUseTest(),
+  });
 });

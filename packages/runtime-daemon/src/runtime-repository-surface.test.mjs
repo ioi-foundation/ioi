@@ -33,9 +33,6 @@ test("runtime repository surface returns Rust-owned repository workflow projecti
         };
       },
     },
-    repositoryContextProjection() {
-      throw new Error("JS repository projection must not author public truth");
-    },
   });
   const store = { defaultCwd: "/workspace/project" };
 

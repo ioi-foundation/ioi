@@ -119,14 +119,6 @@ import { createRuntimeWorkspaceRestoreCore } from "./runtime-workspace-restore-c
 import { createRuntimeRepositorySurface } from "./runtime-repository-surface.mjs";
 import { startRuntimeDaemonServiceWithStore } from "./service/runtime-daemon-service.mjs";
 import {
-  branchPolicyForRepositoryContext,
-  emptyToNull,
-  githubContextForRepository,
-  gitOutput,
-  repositoryContextForWorkspace,
-} from "./repository-context.mjs";
-import { createRepositoryWorkflowProjections } from "./repository-workflow-projections.mjs";
-import {
   approvalModeForThreadMode,
   initialThreadRuntimeControls,
   normalizeThreadApprovalMode,
@@ -335,22 +327,6 @@ const {
   objectRecord,
   optionalString,
   safeId,
-  uniqueStrings,
-});
-
-const {
-  githubPrCreatePlanForReviewGate,
-  issueContextForGithub,
-  prAttemptForRepository,
-  reviewGateForPrAttempt,
-} = createRepositoryWorkflowProjections({
-  branchPolicyForRepositoryContext,
-  doctorHash,
-  emptyToNull,
-  githubContextForRepository,
-  gitOutput,
-  normalizeArray,
-  repositoryContextForWorkspace,
   uniqueStrings,
 });
 
@@ -1625,6 +1601,176 @@ function canonicalSubagentMemoryInheritanceEventPayload(value = {}) {
   };
 }
 
+const RUN_REPOSITORY_WORKFLOW_PROJECTIONS = {
+  repository_context: {
+    operation: "repository_workflow_repository_context",
+    operation_kind: "repository_workflow.projection.repository_context",
+  },
+  branch_policy: {
+    operation: "repository_workflow_branch_policy",
+    operation_kind: "repository_workflow.projection.branch_policy",
+  },
+  github_context: {
+    operation: "repository_workflow_github_context",
+    operation_kind: "repository_workflow.projection.github_context",
+  },
+  pr_attempts: {
+    operation: "repository_workflow_pr_attempts",
+    operation_kind: "repository_workflow.projection.pr_attempts",
+  },
+  issue_context: {
+    operation: "repository_workflow_issue_context",
+    operation_kind: "repository_workflow.projection.issue_context",
+  },
+  review_gate: {
+    operation: "repository_workflow_review_gate",
+    operation_kind: "repository_workflow.projection.review_gate",
+  },
+  github_pr_create_plan: {
+    operation: "repository_workflow_github_pr_create_plan",
+    operation_kind: "repository_workflow.projection.github_pr_create_plan",
+  },
+};
+
+const RUN_REPOSITORY_WORKFLOW_EVIDENCE_REFS = [
+  "runtime_run_create_repository_workflow_rust_projection",
+  "runtime_repository_workflow_js_projection_facade_retired",
+  "agentgres_repository_workflow_truth_required",
+];
+
+function repositoryWorkflowProjectionForRun({
+  repositoryWorkflowProjector,
+  projectionKind,
+  workspaceRoot,
+  prompt,
+  issue,
+}) {
+  const projection = RUN_REPOSITORY_WORKFLOW_PROJECTIONS[projectionKind];
+  if (!projection || typeof repositoryWorkflowProjector?.projectRepositoryWorkflow !== "function") {
+    throwRepositoryWorkflowProjectionError({
+      code: "runtime_run_create_repository_workflow_rust_projection_missing",
+      message: "Run creation requires Rust daemon-core repository workflow projections.",
+      projection_kind: projectionKind,
+      workspace_root: workspaceRoot,
+    });
+  }
+  const result = repositoryWorkflowProjector.projectRepositoryWorkflow({
+    ...projection,
+    projection_kind: projectionKind,
+    workspace_root: workspaceRoot,
+    prompt,
+    issue,
+    source: "runtime.build_run.repository_workflow",
+    evidence_refs: RUN_REPOSITORY_WORKFLOW_EVIDENCE_REFS,
+  });
+  if (result?.projection_kind !== projectionKind) {
+    throwRepositoryWorkflowProjectionError({
+      code: "runtime_run_create_repository_workflow_projection_mismatch",
+      message: "Rust repository workflow projection returned the wrong projection kind during run creation.",
+      projection_kind: projectionKind,
+      workspace_root: workspaceRoot,
+      actual_projection_kind: result?.projection_kind ?? null,
+    });
+  }
+  return result?.projection;
+}
+
+function repositoryWorkflowProjectionsForRun({
+  repositoryWorkflowProjector,
+  agent,
+  prompt,
+  request,
+}) {
+  const workspaceRoot = optionalString(agent?.cwd) ?? null;
+  const issue = objectRecord(request?.issue) ?? objectRecord(request?.options?.issue) ?? null;
+  const project = (projectionKind) =>
+    repositoryWorkflowProjectionForRun({
+      repositoryWorkflowProjector,
+      projectionKind,
+      workspaceRoot,
+      prompt,
+      issue,
+    });
+  const repositoryContext = requiredRepositoryWorkflowObject(project("repository_context"), "repository_context");
+  const branchPolicy = requiredRepositoryWorkflowObject(project("branch_policy"), "branch_policy");
+  const githubContext = requiredRepositoryWorkflowObject(project("github_context"), "github_context");
+  const prAttempts = project("pr_attempts");
+  const prAttempt = requiredRepositoryWorkflowObject(
+    Array.isArray(prAttempts) ? prAttempts[0] : null,
+    "pr_attempts",
+  );
+  const issueContext = requiredRepositoryWorkflowObject(project("issue_context"), "issue_context");
+  const reviewGate = requiredRepositoryWorkflowObject(project("review_gate"), "review_gate");
+  const githubPrCreatePlan = requiredRepositoryWorkflowObject(
+    project("github_pr_create_plan"),
+    "github_pr_create_plan",
+  );
+  return {
+    repositoryContext,
+    branchPolicy,
+    githubContext,
+    prAttempt,
+    issueContext,
+    reviewGate,
+    githubPrCreatePlan,
+  };
+}
+
+function requiredRepositoryWorkflowObject(value, projectionKind) {
+  const record = objectRecord(value);
+  if (record) return record;
+  throwRepositoryWorkflowProjectionError({
+    code: "runtime_run_create_repository_workflow_projection_invalid",
+    message: "Rust repository workflow projection returned an invalid record during run creation.",
+    projection_kind: projectionKind,
+  });
+}
+
+function throwRepositoryWorkflowProjectionError(details) {
+  const error = new Error(details.message);
+  error.status = details.code === "runtime_run_create_repository_workflow_rust_projection_missing" ? 501 : 502;
+  error.code = details.code;
+  error.details = {
+    rust_core_boundary: "runtime.repository_workflow_projection",
+    operation: "run_create_repository_workflow_projection",
+    operation_kind: "run.create.repository_workflow_projection",
+    evidence_refs: RUN_REPOSITORY_WORKFLOW_EVIDENCE_REFS,
+    ...details,
+  };
+  throw error;
+}
+
+function rustRepositoryArtifactPayload(kind, metadata = {}) {
+  const record = objectRecord(metadata) ?? {};
+  return {
+    schemaVersion: "ioi.runtime.rust-repository-workflow-artifact-binding.v1",
+    object: "ioi.rust_repository_workflow_artifact_binding",
+    artifactName: record.artifactName ?? null,
+    mediaType: record.mediaType ?? null,
+    artifactHash: record.artifactHash ?? null,
+    diffHash: record.diffHash ?? null,
+    byteLength: record.byteLength ?? null,
+    retainedByteLength: record.retainedByteLength ?? null,
+    truncated: Boolean(record.truncated),
+    fileCount: record.fileCount ?? null,
+    hasDiff: record.hasDiff ?? null,
+    kind,
+    source: "rust_daemon_core_repository_workflow_projection",
+    contentIncluded: false,
+    redaction: {
+      profile: "rust_repository_workflow_projection_artifact_binding",
+      privateContentIncluded: false,
+      jsArtifactContentSideChannelRetired: true,
+    },
+    evidenceRefs: [
+      "runtime_run_create_repository_workflow_rust_projection",
+      "runtime_repository_workflow_js_projection_facade_retired",
+      record.artifactHash,
+      record.diffHash,
+    ].filter(Boolean),
+  };
+}
+
 function buildRun({
   agent,
   mode,
@@ -1633,6 +1779,7 @@ function buildRun({
   source,
   modelRoute,
   memory = {},
+  repositoryWorkflowProjector = null,
   skillHookCatalog = null,
   diagnosticsFeedback = null,
 }) {
@@ -1719,55 +1866,19 @@ function buildRun({
     manifest: activeSkillHookManifest,
     dryRunPlan: hookDryRunPlan,
   });
-  const repositoryContext = repositoryContextForWorkspace({
-    cwd: agent.cwd,
-    contextId: `repoctx_${runId}`,
-    generatedAt: createdAt,
-  });
-  const branchPolicy = branchPolicyForRepositoryContext({
-    runId,
-    repositoryContext,
-    generatedAt: createdAt,
-  });
-  const githubContext = githubContextForRepository({
-    runId,
-    repositoryContext,
-    branchPolicy,
-    generatedAt: createdAt,
-  });
-  const prAttempt = prAttemptForRepository({
-    runId,
-    repositoryContext,
-    branchPolicy,
-    githubContext,
-    generatedAt: createdAt,
-    prompt,
-  });
-  const reviewGate = reviewGateForPrAttempt({
-    runId,
+  const {
     repositoryContext,
     branchPolicy,
     githubContext,
     prAttempt,
-    generatedAt: createdAt,
-  });
-  const issueContext = issueContextForGithub({
-    runId,
-    repositoryContext,
-    githubContext,
-    prAttempt,
-    reviewGate,
-    generatedAt: createdAt,
-  });
-  const githubPrCreatePlan = githubPrCreatePlanForReviewGate({
-    runId,
-    repositoryContext,
-    branchPolicy,
-    githubContext,
     issueContext,
-    prAttempt,
     reviewGate,
-    generatedAt: createdAt,
+    githubPrCreatePlan,
+  } = repositoryWorkflowProjectionsForRun({
+    repositoryWorkflowProjector,
+    agent,
+    prompt,
+    request,
   });
   const taskState = {
     currentObjective: prompt,
@@ -3110,7 +3221,7 @@ function buildRun({
       prAttempt.branchArtifact.artifactName,
       prAttempt.branchArtifact.mediaType,
       prAttemptReceipt.id,
-      prAttempt.artifactContents.branch,
+      rustRepositoryArtifactPayload("branch", prAttempt.branchArtifact),
       "redacted",
     ),
     artifact(
@@ -3118,7 +3229,7 @@ function buildRun({
       prAttempt.diffArtifact.artifactName,
       prAttempt.diffArtifact.mediaType,
       prAttemptReceipt.id,
-      prAttempt.artifactContents.diff,
+      rustRepositoryArtifactPayload("diff", prAttempt.diffArtifact),
       "redacted",
     ),
     artifact(

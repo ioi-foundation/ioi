@@ -130,6 +130,7 @@ export function createRuntimeThreadTurnSurface(deps = {}) {
             buildRun,
             ensureProviderAvailable,
             lifecycleAdmissionRunner: contextPolicyCore,
+            repositoryWorkflowProjector: contextPolicyCore,
             runtimeError: runtimeErrorDep,
             threadModeForRunMode,
           },
@@ -202,6 +203,7 @@ export function createRuntimeThreadTurnSurface(deps = {}) {
         buildRun,
         ensureProviderAvailable,
         lifecycleAdmissionRunner: contextPolicyCore,
+        repositoryWorkflowProjector: contextPolicyCore,
         runtimeError: runtimeErrorDep,
         threadModeForRunMode,
       });
