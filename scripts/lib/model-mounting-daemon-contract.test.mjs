@@ -1675,7 +1675,7 @@ test("model catalog provider ports unify fixture, manifest, custom HTTP, and Oll
     assert.equal(ollamaEntry?.format, "ollama");
     assert.ok(ollamaEntry?.backendCompatibility.some((backend) => backend.backendKind === "ollama" && backend.status === "ready"));
 
-    const manifestImport = await expectOk(daemon.endpoint, "/api/v1/models/catalog/import-url", {
+    const manifestImport = await expectOk(daemon.endpoint, "/v1/model-mount/catalog/import-url", {
       method: "POST",
       token: grant.token,
       body: { source_url: manifestEntry.sourceUrl, model_id: "native:manifest-catalog-import" },
@@ -1684,7 +1684,7 @@ test("model catalog provider ports unify fixture, manifest, custom HTTP, and Oll
     assert.equal(manifestImport.download.variant.catalogProviderId, "catalog.local_manifest");
     assert.equal(manifestImport.download.variant.architecture, "qwen");
 
-    const customImport = await expectOk(daemon.endpoint, "/api/v1/models/catalog/import-url", {
+    const customImport = await expectOk(daemon.endpoint, "/v1/model-mount/catalog/import-url", {
       method: "POST",
       token: grant.token,
       body: { source_url: customEntry.sourceUrl, model_id: "native:custom-catalog-import" },
@@ -2013,7 +2013,7 @@ test("catalog provider auth resolves vault-backed headers for custom and live ca
     const liveEntry = liveCatalog.results.find((entry) => entry.catalogProviderId === "catalog.huggingface");
     assert.equal(liveEntry?.catalogAuth.resolvedMaterial, true);
     assert.ok(liveCatalogServer.observedHeaders().some((headers) => headers.authorization === `Bearer ${liveSecret}`));
-    const liveImport = await expectOk(daemon.endpoint, "/api/v1/models/catalog/import-url", {
+    const liveImport = await expectOk(daemon.endpoint, "/v1/model-mount/catalog/import-url", {
       method: "POST",
       token: grant.token,
       body: { source_url: liveEntry.sourceUrl, model_id: "native:auth-live-catalog", max_bytes: liveEntry.sizeBytes, transfer_approved: true },
@@ -2303,7 +2303,7 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
     assert.ok(liveEntry.recommendation.score >= 80);
     assert.equal(liveEntry.benchmarkReadiness.chat, true);
     assert.match(liveEntry.sourceUrl, /\/resolve\/main\/qwen-3b-Q4_K_M\.gguf$/);
-    const liveImport = await expectOk(daemon.endpoint, "/api/v1/models/catalog/import-url", {
+    const liveImport = await expectOk(daemon.endpoint, "/v1/model-mount/catalog/import-url", {
       method: "POST",
       token: grant.token,
       body: { source_url: liveEntry.sourceUrl, model_id: "native:hf-live", format: "gguf", quantization: "Q4_K_M", max_bytes: liveEntry.sizeBytes, transfer_approved: true },
@@ -2326,7 +2326,7 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
       method: "POST",
       body: { allowed: ["model.download:*"] },
     });
-    const deniedCatalogImport = await requestJson(daemon.endpoint, "/api/v1/models/catalog/import-url", {
+    const deniedCatalogImport = await requestJson(daemon.endpoint, "/v1/model-mount/catalog/import-url", {
       method: "POST",
       token: downloadOnlyGrant.token,
       body: { source_url: "fixture://catalog/autopilot-native-3b-q4", model_id: "native:catalog-denied-import-scope" },
@@ -2334,7 +2334,7 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
     assert.equal(deniedCatalogImport.response.status, 403);
 
     delete process.env.IOI_LIVE_MODEL_DOWNLOAD;
-    const gatedLiveImport = await requestJson(daemon.endpoint, "/api/v1/models/catalog/import-url", {
+    const gatedLiveImport = await requestJson(daemon.endpoint, "/v1/model-mount/catalog/import-url", {
       method: "POST",
       token: grant.token,
       body: { source_url: liveEntry.sourceUrl, model_id: "native:hf-gated" },
@@ -2342,7 +2342,7 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
     assert.equal(gatedLiveImport.response.status, 424);
     process.env.IOI_LIVE_MODEL_DOWNLOAD = "1";
 
-    const unapprovedLiveDownload = await requestJson(daemon.endpoint, "/api/v1/models/download", {
+    const unapprovedLiveDownload = await requestJson(daemon.endpoint, "/v1/model-mount/downloads", {
       method: "POST",
       token: grant.token,
       body: {
@@ -2357,7 +2357,7 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
     assert.equal(unapprovedLiveDownload.json.error.code, "external_transfer_approval_required");
 
     const secretSource = `${liveEntry.sourceUrl}?api_key=hf-live-secret-token`;
-    const liveSecretDownload = await expectOk(daemon.endpoint, "/api/v1/models/download", {
+    const liveSecretDownload = await expectOk(daemon.endpoint, "/v1/model-mount/downloads", {
       method: "POST",
       token: grant.token,
       body: {
@@ -2378,7 +2378,7 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
     assert.equal(JSON.stringify(liveSecretDownload).includes("hf-live-secret-token"), false);
 
     const retriedSource = `${liveEntry.sourceUrl}?drop_once_after=12&attempt_key=retry-in-job`;
-    const retriedDownload = await expectOk(daemon.endpoint, "/api/v1/models/download", {
+    const retriedDownload = await expectOk(daemon.endpoint, "/v1/model-mount/downloads", {
       method: "POST",
       token: grant.token,
       body: {
@@ -2399,7 +2399,7 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
     assert.equal(retriedDownload.transfer.resumed, true);
 
     const interruptedSecretSource = `${liveEntry.sourceUrl}?drop_once_after=13&attempt_key=resume-later&api_key=hf-partial-secret-token`;
-    const interruptedDownload = await expectOk(daemon.endpoint, "/api/v1/models/download", {
+    const interruptedDownload = await expectOk(daemon.endpoint, "/v1/model-mount/downloads", {
       method: "POST",
       token: grant.token,
       body: {
@@ -2419,7 +2419,7 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
     assert.equal(fs.existsSync(`${interruptedDownload.targetPath}.part`), true);
     assert.equal(fs.existsSync(`${interruptedDownload.targetPath}.part.json`), true);
     assert.equal(fs.readFileSync(`${interruptedDownload.targetPath}.part.json`, "utf8").includes("hf-partial-secret-token"), false);
-    const resumedDownload = await expectOk(daemon.endpoint, "/api/v1/models/download", {
+    const resumedDownload = await expectOk(daemon.endpoint, "/v1/model-mount/downloads", {
       method: "POST",
       token: grant.token,
       body: {
@@ -2438,7 +2438,7 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
     assert.equal(fs.existsSync(`${resumedDownload.targetPath}.part`), false);
     assert.equal(fs.existsSync(`${resumedDownload.targetPath}.part.json`), false);
 
-    const retryExhausted = await expectOk(daemon.endpoint, "/api/v1/models/download", {
+    const retryExhausted = await expectOk(daemon.endpoint, "/v1/model-mount/downloads", {
       method: "POST",
       token: grant.token,
       body: {
@@ -2457,7 +2457,7 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
     assert.equal(retryExhausted.attemptCount, 2);
     assert.equal(retryExhausted.retryCount, 1);
 
-    const checksumMismatch = await expectOk(daemon.endpoint, "/api/v1/models/download", {
+    const checksumMismatch = await expectOk(daemon.endpoint, "/v1/model-mount/downloads", {
       method: "POST",
       token: grant.token,
       body: {
@@ -2476,7 +2476,7 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
     assert.equal(checksumMismatch.attemptCount, 1);
     assert.equal(fs.existsSync(checksumMismatch.targetPath), false);
 
-    const oversizedLiveDownload = await expectOk(daemon.endpoint, "/api/v1/models/download", {
+    const oversizedLiveDownload = await expectOk(daemon.endpoint, "/v1/model-mount/downloads", {
       method: "POST",
       token: grant.token,
       body: {
@@ -2492,7 +2492,7 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
     assert.equal(oversizedLiveDownload.status, "failed");
     assert.equal(oversizedLiveDownload.failureReason, "size_limit_exceeded");
 
-    const catalogImport = await expectOk(daemon.endpoint, "/api/v1/models/catalog/import-url", {
+    const catalogImport = await expectOk(daemon.endpoint, "/v1/model-mount/catalog/import-url", {
       method: "POST",
       token: grant.token,
       body: { source_url: "fixture://catalog/autopilot-native-3b-q4", model_id: "native:catalog-imported" },
@@ -2501,7 +2501,7 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
     assert.match(catalogImport.catalogReceiptId, /^receipt_model_lifecycle_/);
     assert.equal(catalogImport.download.variant.quantization, "Q4_K_M");
 
-    const completed = await expectOk(daemon.endpoint, "/api/v1/models/download", {
+    const completed = await expectOk(daemon.endpoint, "/v1/model-mount/downloads", {
       method: "POST",
       token: grant.token,
       body: {
@@ -2518,10 +2518,10 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
     assert.equal(completed.receiptIds.length, 3);
     assert.equal(fs.existsSync(completed.targetPath), true);
 
-    const completedStatus = await expectOk(daemon.endpoint, `/api/v1/models/download/status/${completed.id}`);
+    const completedStatus = await expectOk(daemon.endpoint, `/v1/model-mount/downloads/${completed.id}/status`);
     assert.equal(completedStatus.status, "completed");
 
-    const failed = await expectOk(daemon.endpoint, "/api/v1/models/download", {
+    const failed = await expectOk(daemon.endpoint, "/v1/model-mount/downloads", {
       method: "POST",
       token: grant.token,
       body: {
@@ -2552,7 +2552,7 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
     assert.equal(copied.artifactPath.startsWith(stateDir), true);
     assert.equal(fs.existsSync(copied.artifactPath), true);
 
-    const queued = await expectOk(daemon.endpoint, "/api/v1/models/download", {
+    const queued = await expectOk(daemon.endpoint, "/v1/model-mount/downloads", {
       method: "POST",
       token: grant.token,
       body: {
@@ -2563,7 +2563,7 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
       },
     });
     assert.equal(queued.status, "queued");
-    const canceled = await expectOk(daemon.endpoint, `/api/v1/models/download/cancel/${queued.id}`, {
+    const canceled = await expectOk(daemon.endpoint, `/v1/model-mount/downloads/${queued.id}/cancel`, {
       method: "POST",
       token: grant.token,
       body: { cleanup_partial: true, confirm_destructive: true },
@@ -2577,7 +2577,7 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
     const orphanPath = path.join(orphanDir, "unused.Q4_K_M.gguf");
     fs.writeFileSync(orphanPath, "orphan bytes");
 
-    const cleanup = await expectOk(daemon.endpoint, "/api/v1/models/storage/cleanup", {
+    const cleanup = await expectOk(daemon.endpoint, "/v1/model-mount/storage/cleanup", {
       method: "POST",
       token: grant.token,
     });
@@ -2586,14 +2586,14 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
     assert.equal(cleanup.cleanupState, "scan_only");
     assert.match(cleanup.receiptId, /^receipt_model_lifecycle_/);
 
-    const cleanupDenied = await requestJson(daemon.endpoint, "/api/v1/models/storage/cleanup", {
+    const cleanupDenied = await requestJson(daemon.endpoint, "/v1/model-mount/storage/cleanup", {
       method: "POST",
       token: grant.token,
       body: { remove_orphans: true },
     });
     assert.equal(cleanupDenied.response.status, 409);
 
-    const cleanupRemoved = await expectOk(daemon.endpoint, "/api/v1/models/storage/cleanup", {
+    const cleanupRemoved = await expectOk(daemon.endpoint, "/v1/model-mount/storage/cleanup", {
       method: "POST",
       token: grant.token,
       body: { remove_orphans: true, confirm_destructive: true },
@@ -2603,7 +2603,7 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
     assert.equal(cleanupRemoved.cleanedBytes > 0, true);
     assert.equal(fs.existsSync(orphanPath), false);
 
-    const deleted = await expectOk(daemon.endpoint, `/api/v1/models/${encodeURIComponent(copied.id)}`, {
+    const deleted = await expectOk(daemon.endpoint, `/v1/model-mount/artifacts/${encodeURIComponent(copied.id)}`, {
       method: "DELETE",
       token: grant.token,
       body: { confirm_destructive: true },

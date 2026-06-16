@@ -214,7 +214,7 @@ def seed_model_mounting_state(endpoint: str) -> dict[str, Any]:
     catalog_search = request_json(endpoint, "/v1/models/catalog/search?query=autopilot&format=gguf&limit=10")
     download = request_json(
         endpoint,
-        "/api/v1/models/download",
+        "/v1/model-mount/downloads",
         method="POST",
         token=token,
         body={
@@ -227,7 +227,7 @@ def seed_model_mounting_state(endpoint: str) -> dict[str, Any]:
     )
     action_queued_download = request_json(
         endpoint,
-        "/api/v1/models/download",
+        "/v1/model-mount/downloads",
         method="POST",
         token=token,
         body={
@@ -241,7 +241,7 @@ def seed_model_mounting_state(endpoint: str) -> dict[str, Any]:
     )
     queued_download = request_json(
         endpoint,
-        "/api/v1/models/download",
+        "/v1/model-mount/downloads",
         method="POST",
         token=token,
         body={
@@ -255,13 +255,13 @@ def seed_model_mounting_state(endpoint: str) -> dict[str, Any]:
     )
     canceled_download = request_json(
         endpoint,
-        f"/api/v1/models/download/cancel/{queued_download['id']}",
+        f"/v1/model-mount/downloads/{queued_download['id']}/cancel",
         method="POST",
         token=token,
     )
     failed_download = request_json(
         endpoint,
-        "/api/v1/models/download",
+        "/v1/model-mount/downloads",
         method="POST",
         token=token,
         body={

@@ -238,7 +238,7 @@ pub async fn run(args: ModelsArgs) -> Result<()> {
                 endpoint,
                 token,
                 Method::POST,
-                "/api/v1/models/catalog/import-url",
+                "/v1/model-mount/catalog/import-url",
                 Some(json!({
                     "source_url": source_url,
                     "model_id": model_id,
@@ -277,7 +277,7 @@ pub async fn run(args: ModelsArgs) -> Result<()> {
                 endpoint,
                 token,
                 Method::POST,
-                "/api/v1/models/download",
+                "/v1/model-mount/downloads",
                 Some(json!({
                     "model_id": model_id,
                     "provider_id": provider_id,
@@ -292,7 +292,7 @@ pub async fn run(args: ModelsArgs) -> Result<()> {
                 endpoint,
                 token,
                 Method::POST,
-                &format!("/api/v1/models/download/{job_id}/cancel"),
+                &format!("/v1/model-mount/downloads/{job_id}/cancel"),
                 None,
             )
             .await?
@@ -302,7 +302,7 @@ pub async fn run(args: ModelsArgs) -> Result<()> {
                 endpoint,
                 token,
                 Method::DELETE,
-                &format!("/api/v1/models/{id}"),
+                &format!("/v1/model-mount/artifacts/{id}"),
                 None,
             )
             .await?
@@ -312,7 +312,7 @@ pub async fn run(args: ModelsArgs) -> Result<()> {
                 endpoint,
                 token,
                 Method::POST,
-                "/api/v1/models/storage/cleanup",
+                "/v1/model-mount/storage/cleanup",
                 None,
             )
             .await?

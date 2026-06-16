@@ -122,7 +122,7 @@ test("catalog download requires source url and gates external network by daemon 
     catalogEntryId: "catalog.1",
   });
 
-  assert.equal(requests[0].route, "/api/v1/models/download");
+  assert.equal(requests[0].route, "/v1/model-mount/downloads");
   assert.deepEqual(requests[0].options.payload, {
     source_url: "https://huggingface.co/example/model.gguf",
     model_id: "qwen",

@@ -374,13 +374,37 @@ test("public runtime model catalog routes use mounted model projection surface",
         calls.push({ method: "catalogSearch", query });
         return [{ id: "catalog.route", query: query.query }];
       },
+      catalogImportUrl(body) {
+        calls.push({ method: "catalogImportUrl", body });
+        return { id: "catalog.import", object: "catalog.import" };
+      },
       importModel(body) {
         calls.push({ method: "importModel", body });
         return { id: "artifact.imported", object: "model.artifact" };
       },
+      deleteModelArtifact(id, body) {
+        calls.push({ method: "deleteModelArtifact", id, body });
+        return { id, object: "model.artifact.deleted" };
+      },
       mountEndpoint(body) {
         calls.push({ method: "mountEndpoint", body });
         return { id: "endpoint.route", object: "model.endpoint" };
+      },
+      downloadModel(body) {
+        calls.push({ method: "downloadModel", body });
+        return { id: "download.route", object: "model.download" };
+      },
+      downloadStatus(id) {
+        calls.push({ method: "downloadStatus", id });
+        return { id, status: "completed" };
+      },
+      cancelDownload(id, body) {
+        calls.push({ method: "cancelDownload", id, body });
+        return { id, status: "canceled" };
+      },
+      cleanupModelStorage(body) {
+        calls.push({ method: "cleanupModelStorage", body });
+        return { status: "cleaned" };
       },
       unmountEndpoint(body) {
         calls.push({ method: "unmountEndpoint", body });
@@ -517,8 +541,14 @@ test("public runtime model catalog routes use mounted model projection surface",
     ["POST /v1/model-mount/routes", { id: "route.write", object: "route.upsert" }],
     ["POST /v1/model-mount/routes/route.route/test", { id: "route.route", object: "route.test" }],
     ["/v1/models/catalog/search?query=qwen", [{ id: "catalog.route", query: "qwen" }]],
+    ["POST /v1/model-mount/catalog/import-url", { id: "catalog.import", object: "catalog.import" }],
     ["POST /v1/model-mount/artifacts/import", { id: "artifact.imported", object: "model.artifact" }],
+    ["DELETE /v1/model-mount/artifacts/artifact.route", { id: "artifact.route", object: "model.artifact.deleted" }],
     ["POST /v1/model-mount/endpoints", { id: "endpoint.route", object: "model.endpoint" }],
+    ["POST /v1/model-mount/downloads", { id: "download.route", object: "model.download" }],
+    ["/v1/model-mount/downloads/download.route/status", { id: "download.route", status: "completed" }],
+    ["POST /v1/model-mount/downloads/download.route/cancel", { id: "download.route", status: "canceled" }],
+    ["POST /v1/model-mount/storage/cleanup", { status: "cleaned" }],
     ["POST /v1/model-mount/endpoints/endpoint.route/load", { id: "instance.loaded", object: "model.instance.loaded", endpoint_id: "endpoint.route" }],
     ["POST /v1/model-mount/endpoints/endpoint.route/unload", { id: "endpoint.route", object: "model.instance.unloaded" }],
     ["DELETE /v1/model-mount/endpoints/endpoint.route", { id: "endpoint.route", object: "model.endpoint.unmounted" }],
@@ -555,17 +585,17 @@ test("public runtime model catalog routes use mounted model projection surface",
     const body = method === "PATCH" ? { label: "Engine route" } : {};
     const routeResponse = responseRecorder();
     await handleRequest({ request: request({ method, url: routePath, body }), response: routeResponse, store });
+    const acceptedRoutes = new Set(["/v1/model-mount/catalog/import-url", "/v1/model-mount/downloads"]);
+    const createdRoutes = new Set([
+      "/v1/model-mount/routes",
+      "/v1/model-mount/artifacts/import",
+      "/v1/model-mount/endpoints",
+      "/v1/model-mount/endpoints/endpoint.route/load",
+      "/v1/model-mount/instances/load",
+    ]);
     assert.equal(
       routeResponse.statusCode,
-      [
-        "/v1/model-mount/routes",
-        "/v1/model-mount/artifacts/import",
-        "/v1/model-mount/endpoints",
-        "/v1/model-mount/endpoints/endpoint.route/load",
-        "/v1/model-mount/instances/load",
-      ].includes(routePath)
-        ? 201
-        : 200,
+      acceptedRoutes.has(routePath) ? 202 : createdRoutes.has(routePath) ? 201 : 200,
     );
     assert.deepEqual(JSON.parse(routeResponse.body), expected);
   }
@@ -582,10 +612,22 @@ test("public runtime model catalog routes use mounted model projection surface",
     { method: "authorize", authorization: undefined, scope: "route.use:route.route" },
     { method: "testRoute", id: "route.route", body: {} },
     { method: "catalogSearch", query: { query: "qwen" } },
+    { method: "authorize", authorization: undefined, scope: "model.download:*" },
+    { method: "authorize", authorization: undefined, scope: "model.import:*" },
+    { method: "catalogImportUrl", body: {} },
     { method: "authorize", authorization: undefined, scope: "model.import:*" },
     { method: "importModel", body: {} },
+    { method: "authorize", authorization: undefined, scope: "model.delete:*" },
+    { method: "deleteModelArtifact", id: "artifact.route", body: {} },
     { method: "authorize", authorization: undefined, scope: "model.mount:*" },
     { method: "mountEndpoint", body: {} },
+    { method: "authorize", authorization: undefined, scope: "model.download:*" },
+    { method: "downloadModel", body: {} },
+    { method: "downloadStatus", id: "download.route" },
+    { method: "authorize", authorization: undefined, scope: "model.download:*" },
+    { method: "cancelDownload", id: "download.route", body: {} },
+    { method: "authorize", authorization: undefined, scope: "model.delete:*" },
+    { method: "cleanupModelStorage", body: {} },
     { method: "authorize", authorization: undefined, scope: "model.load:*" },
     { method: "loadModel", body: { endpoint_id: "endpoint.route" } },
     { method: "authorize", authorization: undefined, scope: "model.unload:*" },

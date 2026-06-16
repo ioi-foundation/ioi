@@ -2096,7 +2096,7 @@ test("model mounting native route does not expose retired receipt read aliases",
   assert.deepEqual(calls, []);
 });
 
-test("model mounting native route does not expose retired operational read, server-control, backend-control, runtime-control, route-control, or lifecycle-control aliases", async () => {
+test("model mounting native route does not expose retired operational read, server-control, backend-control, runtime-control, route-control, lifecycle-control, or storage-control aliases", async () => {
   const { handleModelMountingNativeRoute } = routeHandlers();
   const calls = [];
   const failRetiredAlias = (name) => (...args) => {
@@ -2108,6 +2108,12 @@ test("model mounting native route does not expose retired operational read, serv
       authoritySnapshot: failRetiredAlias("authoritySnapshot"),
       backendHealth: failRetiredAlias("backendHealth"),
       backendLogs: failRetiredAlias("backendLogs"),
+      cancelDownload: failRetiredAlias("cancelDownload"),
+      catalogImportUrl: failRetiredAlias("catalogImportUrl"),
+      cleanupModelStorage: failRetiredAlias("cleanupModelStorage"),
+      deleteModelArtifact: failRetiredAlias("deleteModelArtifact"),
+      downloadModel: failRetiredAlias("downloadModel"),
+      downloadStatus: failRetiredAlias("downloadStatus"),
       importModel: failRetiredAlias("importModel"),
       listBackends: failRetiredAlias("listBackends"),
       listInstances: failRetiredAlias("listInstances"),
@@ -2168,6 +2174,13 @@ test("model mounting native route does not expose retired operational read, serv
     ["POST", "/api/v1/models/mounts/endpoint.route/unload"],
     ["DELETE", "/api/v1/models/mounts/endpoint.route"],
     ["POST", "/api/v1/models/instances/instance.route/unload"],
+    ["POST", "/api/v1/models/catalog/import-url"],
+    ["POST", "/api/v1/models/download"],
+    "/api/v1/models/download/status/download.route",
+    ["POST", "/api/v1/models/download/download.route/cancel"],
+    ["POST", "/api/v1/models/download/cancel/download.route"],
+    ["POST", "/api/v1/models/storage/cleanup"],
+    ["DELETE", "/api/v1/models/artifact.route"],
     "/api/v1/models/runtime-engines",
     "/api/v1/models/instances",
     "/api/v1/models/loaded",

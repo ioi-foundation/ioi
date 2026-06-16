@@ -11498,6 +11498,34 @@ OAuth controls, backend execution/materialization, hosted/provider transport,
 OAuth/auth-header materialization, invocation authority depth, and broader
 IDE/SDK control coverage still need terminal Rust-owned protocol coverage.
 
+Slice 1358 hard-cuts stable model_mount storage-download protocol clients and
+retires the native catalog import-url, model download, artifact delete, and
+storage cleanup aliases. Public catalog import-url now uses
+`POST /v1/model-mount/catalog/import-url`; model download queue/status/cancel
+now uses `POST /v1/model-mount/downloads`,
+`GET /v1/model-mount/downloads/{id}/status`, and
+`POST /v1/model-mount/downloads/{id}/cancel`; storage cleanup now uses
+`POST /v1/model-mount/storage/cleanup`; artifact delete now uses
+`DELETE /v1/model-mount/artifacts/{id}`. These stable protocol routes run over
+the mounted Rust daemon-core storage-control planner and Agentgres record-state
+commit path, preserving `model.download:*`, `model.import:*`, and
+`model.delete:*` gates at the stable protocol edge. CLI storage/download
+commands, validation proofs, live-provider gates, desktop probes, daemon
+contract tests, product UI storage/download actions, and workbench command
+tests moved off `POST /api/v1/models/catalog/import-url`,
+`POST /api/v1/models/download`, `GET /api/v1/models/download/status/{id}`,
+`POST /api/v1/models/download/{id}/cancel`,
+`POST /api/v1/models/download/cancel/{id}`,
+`POST /api/v1/models/storage/cleanup`, and
+`DELETE /api/v1/models/{id}` for artifact delete. The daemon native handler no
+longer exposes those aliases, focused route tests assert they return
+`not_found` without calling storage/download methods, and conformance scans
+source clients so the retired storage/download compatibility path cannot
+return. This remains non-terminal because provider/vault/catalog OAuth
+controls, backend execution/materialization, hosted/provider transport,
+OAuth/auth-header materialization, invocation authority depth, and broader
+IDE/SDK control coverage still need terminal Rust-owned protocol coverage.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

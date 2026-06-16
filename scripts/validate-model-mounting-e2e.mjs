@@ -988,7 +988,7 @@ async function main() {
     await runStep(evidence, "catalog search, import modes, cleanup, and download lifecycle", async () => {
       const catalog = await expectOk(daemon.endpoint, "/v1/models/catalog/search?query=autopilot");
       assert.ok(catalog.results.some((entry) => entry.sourceUrl === "fixture://catalog/autopilot-native-3b-q4"));
-      const catalogImport = await expectOk(daemon.endpoint, "/api/v1/models/catalog/import-url", {
+      const catalogImport = await expectOk(daemon.endpoint, "/v1/model-mount/catalog/import-url", {
         method: "POST",
         token,
         body: { source_url: "fixture://catalog/autopilot-native-3b-q4", model_id: "native:e2e-catalog" },
@@ -1009,7 +1009,7 @@ async function main() {
         body: { model_id: "native:e2e-copied", path: dryRunPath, import_mode: "copy" },
       });
       assert.equal(copied.importMode, "copy");
-      const queued = await expectOk(daemon.endpoint, "/api/v1/models/download", {
+      const queued = await expectOk(daemon.endpoint, "/v1/model-mount/downloads", {
         method: "POST",
         token,
         body: {
@@ -1019,12 +1019,12 @@ async function main() {
           queued_only: true,
         },
       });
-      const canceled = await expectOk(daemon.endpoint, `/api/v1/models/download/${queued.id}/cancel`, {
+      const canceled = await expectOk(daemon.endpoint, `/v1/model-mount/downloads/${queued.id}/cancel`, {
         method: "POST",
         token,
       });
       assert.equal(canceled.status, "canceled");
-      const completed = await expectOk(daemon.endpoint, "/api/v1/models/download", {
+      const completed = await expectOk(daemon.endpoint, "/v1/model-mount/downloads", {
         method: "POST",
         token,
         body: {
@@ -1036,9 +1036,9 @@ async function main() {
       });
       assert.equal(completed.status, "completed");
       assert.equal(completed.progress, 1);
-      const cleanup = await expectOk(daemon.endpoint, "/api/v1/models/storage/cleanup", { method: "POST", token });
+      const cleanup = await expectOk(daemon.endpoint, "/v1/model-mount/storage/cleanup", { method: "POST", token });
       assert.equal(cleanup.status, "scanned");
-      const deleted = await expectOk(daemon.endpoint, `/api/v1/models/${encodeURIComponent(copied.id)}`, {
+      const deleted = await expectOk(daemon.endpoint, `/v1/model-mount/artifacts/${encodeURIComponent(copied.id)}`, {
         method: "DELETE",
         token,
       });

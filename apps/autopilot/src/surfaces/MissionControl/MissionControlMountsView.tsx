@@ -2417,7 +2417,7 @@ function useModelMountsDaemon() {
       downloadFixture: () =>
         runAction("download-fixture", async () => {
           const token = await ensureToken();
-          await requestJson("/api/v1/models/download", {
+          await requestJson("/v1/model-mount/downloads", {
             method: "POST",
             token,
             body: {
@@ -2495,7 +2495,7 @@ function useModelMountsDaemon() {
                 retry_limit: parseByteLimit(payload.retryLimit ?? "") || undefined,
                 resume_download: payload.resumeDownload ?? true,
               };
-          const result = await requestJson("/api/v1/models/catalog/import-url", {
+          const result = await requestJson("/v1/model-mount/catalog/import-url", {
             method: "POST",
             token,
             body,
@@ -2543,7 +2543,7 @@ function useModelMountsDaemon() {
       downloadCatalogVariant: (variant: CatalogVariantPreview, maxBytes?: string, transferApproved = false, policy: CatalogTransferPolicyDraft = { bandwidthBps: "", retryLimit: "0", resumeDownload: true }) =>
         runAction("catalog-download-selected", async () => {
           const token = await ensureToken();
-          const result = await requestJson("/api/v1/models/download", {
+          const result = await requestJson("/v1/model-mount/downloads", {
             method: "POST",
             token,
             body: catalogVariantPayload(variant, maxBytes, {
@@ -2558,7 +2558,7 @@ function useModelMountsDaemon() {
       cancelDownload: (download: DownloadPreview, confirmed = true) =>
         runAction("download-cancel", async () => {
           const token = await ensureToken();
-          const result = await requestJson(`/api/v1/models/download/${encodeURIComponent(download.id)}/cancel`, {
+          const result = await requestJson(`/v1/model-mount/downloads/${encodeURIComponent(download.id)}/cancel`, {
             method: "POST",
             token,
             body: { cleanup_partial: true, confirm_destructive: confirmed },
@@ -2568,7 +2568,7 @@ function useModelMountsDaemon() {
       retryDownload: (download: DownloadPreview) =>
         runAction("download-retry", async () => {
           const token = await ensureToken();
-          const result = await requestJson("/api/v1/models/download", {
+          const result = await requestJson("/v1/model-mount/downloads", {
             method: "POST",
             token,
             body: retryDownloadPayload(download),
@@ -2578,7 +2578,7 @@ function useModelMountsDaemon() {
       cleanupStorage: (options: { removeOrphans?: boolean; confirmDestructive?: boolean } = {}) =>
         runAction("storage-cleanup", async () => {
           const token = await ensureToken();
-          const result = await requestJson("/api/v1/models/storage/cleanup", {
+          const result = await requestJson("/v1/model-mount/storage/cleanup", {
             method: "POST",
             token,
             body: { remove_orphans: Boolean(options.removeOrphans), confirm_destructive: Boolean(options.confirmDestructive) },
@@ -2588,7 +2588,7 @@ function useModelMountsDaemon() {
       deleteArtifact: (artifact: ModelArtifact, confirmed = true) =>
         runAction("model-artifact-delete", async () => {
           const token = await ensureToken();
-          const result = await requestJson(`/api/v1/models/${encodeURIComponent(artifact.id)}`, {
+          const result = await requestJson(`/v1/model-mount/artifacts/${encodeURIComponent(artifact.id)}`, {
             method: "DELETE",
             token,
             body: { confirm_destructive: confirmed },
@@ -4571,13 +4571,13 @@ function ServerPanel({
           "GET /api/v1/models",
           "POST /v1/model-mount/instances/load",
           "POST /v1/model-mount/instances/unload",
-          "POST /api/v1/models/download",
+          "POST /v1/model-mount/downloads",
           "GET /v1/models/catalog/search",
-          "POST /api/v1/models/catalog/import-url",
-          "POST /api/v1/models/storage/cleanup",
-          "DELETE /api/v1/models/:id",
-          "POST /api/v1/models/download/cancel/:job_id",
-          "POST /api/v1/models/download/:job_id/cancel",
+          "POST /v1/model-mount/catalog/import-url",
+          "POST /v1/model-mount/storage/cleanup",
+          "DELETE /v1/model-mount/artifacts/:id",
+          "GET /v1/model-mount/downloads/:id/status",
+          "POST /v1/model-mount/downloads/:id/cancel",
           "GET /api/v1/vault/refs",
           "GET /api/v1/vault/status",
           "POST /api/v1/vault/health",

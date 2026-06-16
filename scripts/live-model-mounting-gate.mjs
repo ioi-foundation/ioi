@@ -1663,7 +1663,7 @@ async function runModelCatalogGate(evidence) {
           denied: ["filesystem.write", "shell.exec"],
         },
       });
-      const imported = await expectOk(daemon.endpoint, "/api/v1/models/catalog/import-url", {
+      const imported = await expectOk(daemon.endpoint, "/v1/model-mount/catalog/import-url", {
         method: "POST",
         token: grant.token,
         body: {
@@ -1684,7 +1684,7 @@ async function runModelCatalogGate(evidence) {
       assert.equal(imported.status, "completed");
       const download = imported.download;
       assert.equal(download.status, "completed");
-      const status = await expectOk(daemon.endpoint, `/api/v1/models/download/status/${download.id}`);
+      const status = await expectOk(daemon.endpoint, `/v1/model-mount/downloads/${download.id}/status`);
       assert.equal(status.status, "completed");
       assert.equal(status.id, download.id);
       const replay = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${download.receiptId}/replay`);
@@ -2226,7 +2226,7 @@ async function runAgentgresGate(evidence) {
             denied: ["filesystem.write", "shell.exec"],
           },
         });
-        const download = await expectOk(daemon.endpoint, "/api/v1/models/download", {
+        const download = await expectOk(daemon.endpoint, "/v1/model-mount/downloads", {
           method: "POST",
           token: grant.token,
           body: {

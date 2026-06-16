@@ -390,14 +390,58 @@ export function createPublicRuntimeRequestHandler(deps) {
         writeJsonResponse(response, await store.modelMounting.catalogSearch(Object.fromEntries(url.searchParams.entries())));
         return;
       }
+      if (request.method === "POST" && url.pathname === "/v1/model-mount/catalog/import-url") {
+        store.modelMounting.authorize(request.headers.authorization, "model.download:*");
+        store.modelMounting.authorize(request.headers.authorization, "model.import:*");
+        writeJsonResponse(response, await store.modelMounting.catalogImportUrl(await readBody(request)), 202);
+        return;
+      }
       if (request.method === "POST" && url.pathname === "/v1/model-mount/artifacts/import") {
         store.modelMounting.authorize(request.headers.authorization, "model.import:*");
         writeJsonResponse(response, store.modelMounting.importModel(await readBody(request)), 201);
         return;
       }
+      if (
+        request.method === "DELETE" &&
+        segments[0] === "v1" &&
+        segments[1] === "model-mount" &&
+        segments[2] === "artifacts" &&
+        segments[3] &&
+        !segments[4]
+      ) {
+        store.modelMounting.authorize(request.headers.authorization, "model.delete:*");
+        writeJsonResponse(response, store.modelMounting.deleteModelArtifact(decodeURIComponent(segments[3]), await readBody(request)));
+        return;
+      }
       if (request.method === "POST" && url.pathname === "/v1/model-mount/endpoints") {
         store.modelMounting.authorize(request.headers.authorization, "model.mount:*");
         writeJsonResponse(response, store.modelMounting.mountEndpoint(await readBody(request)), 201);
+        return;
+      }
+      if (request.method === "POST" && url.pathname === "/v1/model-mount/downloads") {
+        store.modelMounting.authorize(request.headers.authorization, "model.download:*");
+        writeJsonResponse(response, await store.modelMounting.downloadModel(await readBody(request)), 202);
+        return;
+      }
+      if (
+        segments[0] === "v1" &&
+        segments[1] === "model-mount" &&
+        segments[2] === "downloads" &&
+        segments[3]
+      ) {
+        if (request.method === "GET" && segments[4] === "status") {
+          writeJsonResponse(response, store.modelMounting.downloadStatus(decodeURIComponent(segments[3])));
+          return;
+        }
+        if (request.method === "POST" && segments[4] === "cancel") {
+          store.modelMounting.authorize(request.headers.authorization, "model.download:*");
+          writeJsonResponse(response, store.modelMounting.cancelDownload(decodeURIComponent(segments[3]), await readBody(request)));
+          return;
+        }
+      }
+      if (request.method === "POST" && url.pathname === "/v1/model-mount/storage/cleanup") {
+        store.modelMounting.authorize(request.headers.authorization, "model.delete:*");
+        writeJsonResponse(response, store.modelMounting.cleanupModelStorage(await readBody(request)));
         return;
       }
       if (

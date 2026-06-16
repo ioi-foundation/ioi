@@ -35,12 +35,6 @@ export function createRuntimeRouteHandlers(deps) {
       writeJsonResponse(response, mounts.snapshot(baseUrl));
       return;
     }
-    if (request.method === "POST" && url.pathname === "/api/v1/models/catalog/import-url") {
-      mounts.authorize(authorization, "model.download:*");
-      mounts.authorize(authorization, "model.import:*");
-      writeJsonResponse(response, await mounts.catalogImportUrl(await readBody(request)), 202);
-      return;
-    }
     if (request.method === "GET" && segments[2] === "models" && segments[3] === "catalog" && segments[4] === "providers" && segments[5]) {
       writeJsonResponse(response, mounts.getCatalogProviderConfig(decodeURIComponent(segments[5])));
       return;
@@ -126,11 +120,6 @@ export function createRuntimeRouteHandlers(deps) {
       writeJsonResponse(response, mounts.revokeCatalogProviderOAuth(providerId));
       return;
     }
-    if (request.method === "POST" && url.pathname === "/api/v1/models/storage/cleanup") {
-      mounts.authorize(authorization, "model.delete:*");
-      writeJsonResponse(response, mounts.cleanupModelStorage(await readBody(request)));
-      return;
-    }
     if (request.method === "GET" && url.pathname === "/api/v1/models/events") {
       writeJsonResponse(response, mounts.projection().lifecycleEvents);
       return;
@@ -143,55 +132,6 @@ export function createRuntimeRouteHandlers(deps) {
       !["artifacts", "backends", "catalog", "download", "instances", "loaded", "routes", "runtime-engines", "server"].includes(segments[3])
     ) {
       writeJsonResponse(response, mounts.getModel(decodeURIComponent(segments[3])));
-      return;
-    }
-    if (
-      request.method === "DELETE" &&
-      segments[2] === "models" &&
-      segments[3] &&
-      !["artifacts", "backends", "catalog", "download", "instances", "loaded", "mounts", "routes", "runtime-engines", "server"].includes(
-        segments[3],
-      )
-    ) {
-      mounts.authorize(authorization, "model.delete:*");
-      writeJsonResponse(response, mounts.deleteModelArtifact(decodeURIComponent(segments[3]), await readBody(request)));
-      return;
-    }
-    if (request.method === "POST" && url.pathname === "/api/v1/models/download") {
-      mounts.authorize(authorization, "model.download:*");
-      writeJsonResponse(response, await mounts.downloadModel(await readBody(request)), 202);
-      return;
-    }
-    if (
-      request.method === "GET" &&
-      segments[2] === "models" &&
-      segments[3] === "download" &&
-      segments[4] === "status" &&
-      segments[5]
-    ) {
-      writeJsonResponse(response, mounts.downloadStatus(decodeURIComponent(segments[5])));
-      return;
-    }
-    if (
-      request.method === "POST" &&
-      segments[2] === "models" &&
-      segments[3] === "download" &&
-      segments[4] === "cancel" &&
-      segments[5]
-    ) {
-      mounts.authorize(authorization, "model.download:*");
-      writeJsonResponse(response, mounts.cancelDownload(decodeURIComponent(segments[5]), await readBody(request)));
-      return;
-    }
-    if (
-      request.method === "POST" &&
-      segments[2] === "models" &&
-      segments[3] === "download" &&
-      segments[4] &&
-      segments[5] === "cancel"
-    ) {
-      mounts.authorize(authorization, "model.download:*");
-      writeJsonResponse(response, mounts.cancelDownload(decodeURIComponent(segments[4]), await readBody(request)));
       return;
     }
     if (request.method === "GET" && url.pathname === "/api/v1/vault/refs") {

@@ -137,7 +137,7 @@ function createModelDaemonActions({
     if (!sourceUrl) {
       throw new Error("A daemon catalog source URL is required for model download.");
     }
-    return requestJson(endpoint, "/api/v1/models/download", {
+    return requestJson(endpoint, "/v1/model-mount/downloads", {
       method: "POST",
       token,
       payload: {

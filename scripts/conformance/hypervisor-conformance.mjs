@@ -26183,7 +26183,7 @@ function runReceipts() {
       /\/v1\/model-mount\/runtime\/engines/.test(publicRuntimeRoutesTest) &&
       /\/v1\/model-mount\/instances\/loaded/.test(publicRuntimeRoutesTest) &&
       /\/v1\/model-mount\/authority/.test(publicRuntimeRoutesTest) &&
-      /model mounting native route does not expose retired operational read, server-control, backend-control, runtime-control, route-control, or lifecycle-control aliases/.test(
+      /model mounting native route does not expose retired operational read, server-control, backend-control, runtime-control, route-control, lifecycle-control, or storage-control aliases/.test(
         runtimeRouteHandlersTest,
       ) &&
       !/\/api\/v1\/server\/status/.test(modelMountStableReadProtocolClientCorpus) &&
@@ -26250,7 +26250,7 @@ function runReceipts() {
       /serverStart\(baseUrl\)/.test(publicRuntimeRoutesTest) &&
       /serverStop\(baseUrl\)/.test(publicRuntimeRoutesTest) &&
       /serverRestart\(baseUrl\)/.test(publicRuntimeRoutesTest) &&
-      /model mounting native route does not expose retired operational read, server-control, backend-control, runtime-control, route-control, or lifecycle-control aliases/.test(
+      /model mounting native route does not expose retired operational read, server-control, backend-control, runtime-control, route-control, lifecycle-control, or storage-control aliases/.test(
         runtimeRouteHandlersTest,
       ) &&
       !/\/api\/v1\/server\/(?:start|stop|restart)/.test(modelMountStableReadProtocolClientCorpus) &&
@@ -26305,7 +26305,7 @@ function runReceipts() {
       /backendHealth\(id\)/.test(publicRuntimeRoutesTest) &&
       /startBackend\(id, body\)/.test(publicRuntimeRoutesTest) &&
       /stopBackend\(id\)/.test(publicRuntimeRoutesTest) &&
-      /model mounting native route does not expose retired operational read, server-control, backend-control, runtime-control, route-control, or lifecycle-control aliases/.test(
+      /model mounting native route does not expose retired operational read, server-control, backend-control, runtime-control, route-control, lifecycle-control, or storage-control aliases/.test(
         runtimeRouteHandlersTest,
       ) &&
       !/\/api\/v1\/backends\/[^"'`)]+\/(?:health|start|stop)/.test(modelMountStableReadProtocolClientCorpus) &&
@@ -26365,7 +26365,7 @@ function runReceipts() {
       /selectRuntimeEngine\(body\)/.test(publicRuntimeRoutesTest) &&
       /updateRuntimeEngine\(id, body\)/.test(publicRuntimeRoutesTest) &&
       /removeRuntimeEngineOverride\(id\)/.test(publicRuntimeRoutesTest) &&
-      /model mounting native route does not expose retired operational read, server-control, backend-control, runtime-control, route-control, or lifecycle-control aliases/.test(
+      /model mounting native route does not expose retired operational read, server-control, backend-control, runtime-control, route-control, lifecycle-control, or storage-control aliases/.test(
         runtimeRouteHandlersTest,
       ) &&
       /\/api\/v1\/runtime\/survey/.test(runtimeRouteHandlersTest) &&
@@ -26405,7 +26405,7 @@ function runReceipts() {
       /POST \/v1\/model-mount\/routes\/route\.route\/test/.test(publicRuntimeRoutesTest) &&
       /upsertRoute\(body\)/.test(publicRuntimeRoutesTest) &&
       /testRoute\(id, body\)/.test(publicRuntimeRoutesTest) &&
-      /model mounting native route does not expose retired operational read, server-control, backend-control, runtime-control, route-control, or lifecycle-control aliases/.test(
+      /model mounting native route does not expose retired operational read, server-control, backend-control, runtime-control, route-control, lifecycle-control, or storage-control aliases/.test(
         runtimeRouteHandlersTest,
       ) &&
       /\/api\/v1\/routes\/route\.route\/test/.test(runtimeRouteHandlersTest) &&
@@ -26467,7 +26467,7 @@ function runReceipts() {
       /POST \/v1\/model-mount\/instances\/load/.test(publicRuntimeRoutesTest) &&
       /POST \/v1\/model-mount\/instances\/unload/.test(publicRuntimeRoutesTest) &&
       /POST \/v1\/model-mount\/instances\/instance\.loaded\/unload/.test(publicRuntimeRoutesTest) &&
-      /model mounting native route does not expose retired operational read, server-control, backend-control, runtime-control, route-control, or lifecycle-control aliases/.test(
+      /model mounting native route does not expose retired operational read, server-control, backend-control, runtime-control, route-control, lifecycle-control, or storage-control aliases/.test(
         runtimeRouteHandlersTest,
       ) &&
       /\/api\/v1\/models\/mounts\/endpoint\.route\/load/.test(runtimeRouteHandlersTest) &&
@@ -26494,6 +26494,75 @@ function runReceipts() {
       "scripts/conformance/hypervisor-conformance.mjs",
     ],
     "Model_mount import/mount/load/unload clients must use stable /v1/model-mount lifecycle protocol routes; retired /api/v1 model lifecycle aliases must not return",
+  );
+  assertCheck(
+    result,
+    "model-mount-stable-storage-download-protocol-clients",
+    /url\.pathname === "\/v1\/model-mount\/catalog\/import-url"[\s\S]*?store\.modelMounting\.authorize\(request\.headers\.authorization,\s*"model\.download:\*"\)[\s\S]*?store\.modelMounting\.authorize\(request\.headers\.authorization,\s*"model\.import:\*"\)[\s\S]*?store\.modelMounting\.catalogImportUrl\(await readBody\(request\)\)/.test(
+      publicRuntimeRoutes,
+    ) &&
+      /segments\[2\] === "artifacts"[\s\S]*?store\.modelMounting\.authorize\(request\.headers\.authorization,\s*"model\.delete:\*"\)[\s\S]*?store\.modelMounting\.deleteModelArtifact\(decodeURIComponent\(segments\[3\]\),\s*await readBody\(request\)\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /url\.pathname === "\/v1\/model-mount\/downloads"[\s\S]*?store\.modelMounting\.authorize\(request\.headers\.authorization,\s*"model\.download:\*"\)[\s\S]*?store\.modelMounting\.downloadModel\(await readBody\(request\)\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /segments\[2\] === "downloads"[\s\S]*?segments\[4\] === "status"[\s\S]*?store\.modelMounting\.downloadStatus\(decodeURIComponent\(segments\[3\]\)\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /segments\[2\] === "downloads"[\s\S]*?segments\[4\] === "cancel"[\s\S]*?store\.modelMounting\.authorize\(request\.headers\.authorization,\s*"model\.download:\*"\)[\s\S]*?store\.modelMounting\.cancelDownload\(decodeURIComponent\(segments\[3\]\),\s*await readBody\(request\)\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /url\.pathname === "\/v1\/model-mount\/storage\/cleanup"[\s\S]*?store\.modelMounting\.authorize\(request\.headers\.authorization,\s*"model\.delete:\*"\)[\s\S]*?store\.modelMounting\.cleanupModelStorage\(await readBody\(request\)\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      !/url\.pathname === "\/api\/v1\/models\/catalog\/import-url"/.test(runtimeRouteHandlers) &&
+      !/url\.pathname === "\/api\/v1\/models\/storage\/cleanup"/.test(runtimeRouteHandlers) &&
+      !/url\.pathname === "\/api\/v1\/models\/download"/.test(runtimeRouteHandlers) &&
+      !/segments\[3\] === "download"/.test(runtimeRouteHandlers) &&
+      !/deleteModelArtifact\(decodeURIComponent\(segments\[3\]\)/.test(runtimeRouteHandlers) &&
+      /POST \/v1\/model-mount\/catalog\/import-url/.test(publicRuntimeRoutesTest) &&
+      /DELETE \/v1\/model-mount\/artifacts\/artifact\.route/.test(publicRuntimeRoutesTest) &&
+      /POST \/v1\/model-mount\/downloads/.test(publicRuntimeRoutesTest) &&
+      /\/v1\/model-mount\/downloads\/download\.route\/status/.test(publicRuntimeRoutesTest) &&
+      /POST \/v1\/model-mount\/downloads\/download\.route\/cancel/.test(publicRuntimeRoutesTest) &&
+      /POST \/v1\/model-mount\/storage\/cleanup/.test(publicRuntimeRoutesTest) &&
+      /catalogImportUrl\(body\)/.test(publicRuntimeRoutesTest) &&
+      /downloadModel\(body\)/.test(publicRuntimeRoutesTest) &&
+      /downloadStatus\(id\)/.test(publicRuntimeRoutesTest) &&
+      /cancelDownload\(id, body\)/.test(publicRuntimeRoutesTest) &&
+      /cleanupModelStorage\(body\)/.test(publicRuntimeRoutesTest) &&
+      /deleteModelArtifact\(id, body\)/.test(publicRuntimeRoutesTest) &&
+      /model mounting native route does not expose retired operational read, server-control, backend-control, runtime-control, route-control, lifecycle-control, or storage-control aliases/.test(
+        runtimeRouteHandlersTest,
+      ) &&
+      /\/api\/v1\/models\/catalog\/import-url/.test(runtimeRouteHandlersTest) &&
+      /\/api\/v1\/models\/download\/download\.route\/cancel/.test(runtimeRouteHandlersTest) &&
+      /\/api\/v1\/models\/download\/cancel\/download\.route/.test(runtimeRouteHandlersTest) &&
+      /\/api\/v1\/models\/storage\/cleanup/.test(runtimeRouteHandlersTest) &&
+      /\/api\/v1\/models\/artifact\.route/.test(runtimeRouteHandlersTest) &&
+      !/\/api\/v1\/models\/(?:catalog\/import-url|download|storage\/cleanup)/.test(modelMountStableReadProtocolClientCorpus) &&
+      !/\/api\/v1\/models\/\$\{encodeURIComponent/.test(modelMountStableReadProtocolClientCorpus) &&
+      /"\/v1\/model-mount\/catalog\/import-url"/.test(modelMountStableReadCliModels) &&
+      /"\/v1\/model-mount\/downloads"/.test(modelMountStableReadCliModels) &&
+      /"\/v1\/model-mount\/downloads\/\{job_id\}\/cancel"/.test(modelMountStableReadCliModels) &&
+      /"\/v1\/model-mount\/storage\/cleanup"/.test(modelMountStableReadCliModels) &&
+      /"\/v1\/model-mount\/artifacts\/\{id\}"/.test(modelMountStableReadCliModels) &&
+      /url\.pathname === "\/v1\/model-mount\/catalog\/import-url"/.test(read("scripts/run-autopilot-model-mounting-goal.mjs")) &&
+      /url\.pathname === "\/v1\/model-mount\/downloads"/.test(read("scripts/run-autopilot-model-mounting-goal.mjs")) &&
+      /url\.pathname === "\/v1\/model-mount\/storage\/cleanup"/.test(read("scripts/run-autopilot-model-mounting-goal.mjs")) &&
+      /segments\[2\] === "downloads"/.test(read("scripts/run-autopilot-model-mounting-goal.mjs")) &&
+      /Slice 1358 hard-cuts stable model_mount storage-download protocol clients/.test(guide) &&
+      /Model_mount stable storage-download protocol clients/.test(matrix) &&
+      /RuntimeDaemonCoreModelMountStableStorageDownloadProtocolClients/.test(implementationMatrix),
+    [
+      "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.mjs",
+      "crates/cli/src/commands/models.rs",
+      "scripts/run-autopilot-model-mounting-goal.mjs",
+      "scripts/conformance/hypervisor-conformance.mjs",
+    ],
+    "Model_mount catalog import-url, download queue/status/cancel, storage cleanup, and artifact delete clients must use stable /v1/model-mount storage/download protocol routes; retired /api/v1 storage aliases must not return",
   );
   assertCheck(
     result,
