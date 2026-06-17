@@ -7326,7 +7326,8 @@ including `invocation_admitted`, `thread_id`, `agent_id`, package refs,
 StepModuleRouter admission, receipt binding, accepted-receipt append,
 Agentgres admission, projection record, receipt refs, artifact refs, payload
 refs, and authority grant refs. The internal worker/service package
-product-route API now only extracts the canonical `invocation` body, rejects retired request/truth fields,
+product-route API now only extracts the canonical `invocation` body, rejects
+retired request/truth fields,
 looks up the thread agent, and forwards context to the mounted core; it no
 longer mints the public package-admission response locally. The mounted core now
 requires typed `daemonCoreWorkerServiceApi.admitWorkerServicePackageInvocation`,
@@ -7337,10 +7338,9 @@ This remains non-terminal because richer package projection/replay records,
 Agentgres receipt/state-root binding, and stable Workbench/CLI/SDK package admission
 read APIs still need direct Rust ownership. The deleted JS-side worker/service
 package response-envelope authorship and command-envelope operation must not be
-recreated or treated as canonical. The next larger cuts should continue
-removing JS product-route envelope authorship where Rust already owns the
-admission/receipt context, then replace the shared command runner/caller path
-and broad bridge transport with direct Rust daemon-core protocol APIs.
+recreated or treated as canonical. The next larger cuts should continue moving
+package projection/replay records and stable read APIs into direct Rust
+daemon-core protocol APIs.
 
 Slice 1145 moves cTEE Private Workspace product-route admission envelope
 authorship out of the JS surface and into Rust `governed_receipt.rs`. The Rust
@@ -7402,8 +7402,9 @@ This remains non-terminal because richer authority replay/projection records,
 Agentgres receipt/state-root binding, and stable Workbench/CLI/SDK authority
 read APIs still need direct Rust ownership. The deleted JS-side external
 capability authority response-envelope authorship and route-visible surface
-shape must not be recreated or treated as canonical,
-then continue facade retirement for the remaining JS product/readback surfaces.
+shape must not be recreated or treated as canonical. The next larger cuts
+should continue moving authority projection/replay records and stable read APIs
+into direct Rust daemon-core protocol APIs.
 
 Slice 1148 removed the remaining JS-side defaulting for the external
 capability authority product-route envelope from the daemon runner normalizer.
