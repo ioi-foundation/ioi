@@ -279,11 +279,16 @@ Start here:
 1. [`foundations/mixture-of-workers.md`](../foundations/mixture-of-workers.md)
 2. [`domains/marketplace-neutrality.md`](../domains/marketplace-neutrality.md)
 3. [`domains/aiagent/worker-marketplace.md`](../domains/aiagent/worker-marketplace.md)
-4. [`domains/sas/service-marketplace.md`](../domains/sas/service-marketplace.md)
-5. [`components/daemon-runtime/events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md)
+4. [`domains/aiagent/digital-worker-ontology.md`](../domains/aiagent/digital-worker-ontology.md)
+5. [`domains/aiagent/vertical-ontology-packs.md`](../domains/aiagent/vertical-ontology-packs.md)
+6. [`domains/aiagent/integration-surface-taxonomy.md`](../domains/aiagent/integration-surface-taxonomy.md)
+7. [`domains/aiagent/managed-worker-instance-lifecycle.md`](../domains/aiagent/managed-worker-instance-lifecycle.md)
+8. [`domains/sas/service-marketplace.md`](../domains/sas/service-marketplace.md)
+9. [`components/daemon-runtime/events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md)
 
 Build for: worker packages, service packages, MoW routing, contribution
-receipts, routing receipts, marketplace neutrality, and optional L1 settlement
+receipts, routing receipts, ontology-bound digital and embodied workers,
+managed worker lifecycles, marketplace neutrality, and optional L1 settlement
 for listings, escrows, disputes, rights, and reputation.
 
 ### Implementing Product UX

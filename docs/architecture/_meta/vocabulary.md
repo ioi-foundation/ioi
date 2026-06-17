@@ -596,6 +596,23 @@ compliance acronyms for hidden audit material.
   worker has a manifest, policy envelope, capability surface, receipt
   obligations, runtime requirements, contribution terms, and settlement
   identity.
+- `DigitalWorkerOntology`: the aiagent.xyz base ontology for broad autonomous
+  labor. It defines shared worker/package/instance/capability/task/action/
+  integration/policy/receipt/evidence/runtime/memory/persistence primitives for
+  software workers and becomes embodied work when a vertical pack binds
+  physical-action safety objects.
+- `VerticalOntologyPack`: a versioned domain extension over
+  `DigitalWorkerOntology`. It can define domain objects, action vocabulary,
+  integration mappings, risks, policy profiles, receipt schemas, evidence
+  requirements, benchmarks, UI projections, forbidden actions, and physical
+  safety bindings without forking the daemon, wallet, Agentgres, or settlement
+  model.
+- `IntegrationSurface`: the class of external environment a worker can observe
+  or act within, such as chat/community, game/platform, browser/SaaS,
+  developer/code, commerce, finance/trading, local computer-use, enterprise
+  VPC, webhook/API, voice/SMS, robotics/physical, embodied humanoid,
+  vehicle-adjacent, field service, education, creative/media, or support/ops.
+  It is a policy/evidence profile, not an authority grant.
 - `Agent`: product-facing or colloquial language for an autonomous assistant,
   delegated actor, or user-facing worker experience. New protocol prose should
   use `Worker` when referring to the accountable execution actor. When an agent
@@ -606,6 +623,15 @@ compliance acronyms for hidden audit material.
   state should bind it to a worker manifest, install/license right, runtime
   assignment, persistence profile, authority policy, memory/archive policy, and
   subscription or entitlement.
+- `ManagedWorkerInstanceLifecycle`: the admitted lifecycle for a managed worker
+  instance, including install, initialize, grant authority, assign runtime,
+  active, idle, zero-to-idle, suspend, payment past due, archive, restore,
+  migrate, export, delete, and forget. Payment lapse may remove compute
+  entitlement, but it must not silently delete user-owned context.
+- `ManagedAgentConsole`: a web projection over a managed worker instance. It
+  can show chat, sessions, approvals, receipts, usage, memory summaries,
+  runtime status, and archive/restore controls, but it does not execute work,
+  hold wallet authority, or own Agentgres truth.
 - `AgentWiki`: the user-facing and agent-facing semantic memory surface for
   preferences, procedures, doctrine, route notes, failure lessons, source-backed
   claims, and project knowledge. It may hold draft or local memory, but durable

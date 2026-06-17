@@ -1,8 +1,19 @@
 # aiagent.xyz Broad Autonomous Labor Canon Plan
 
-Status: implementation plan for canon-doc refactor.
+Status: supporting implementation context; canonical outcomes promoted into owner docs.
 Owner target: `docs/architecture/domains/aiagent/`.
 Related canon: [`worker-marketplace.md`](./worker-marketplace.md), [`worker-endpoints.md`](./worker-endpoints.md), [`../../foundations/common-objects-and-envelopes.md`](../../foundations/common-objects-and-envelopes.md), [`../../foundations/domain-ontologies-and-data-recipes.md`](../../foundations/domain-ontologies-and-data-recipes.md), [`../../components/daemon-runtime/api.md`](../../components/daemon-runtime/api.md), [`../../components/wallet-network/doctrine.md`](../../components/wallet-network/doctrine.md), [`../../components/agentgres/artifact-ref-plane.md`](../../components/agentgres/artifact-ref-plane.md).
+
+Canonical owner docs created from this plan:
+
+- [`digital-worker-ontology.md`](./digital-worker-ontology.md)
+- [`vertical-ontology-packs.md`](./vertical-ontology-packs.md)
+- [`integration-surface-taxonomy.md`](./integration-surface-taxonomy.md)
+- [`managed-worker-instance-lifecycle.md`](./managed-worker-instance-lifecycle.md)
+- [`managed-agent-console-contract.md`](./managed-agent-console-contract.md)
+
+Use this file only for historical implementation context where it adds detail
+not yet needed in the canonical owner docs.
 
 ## Objective
 

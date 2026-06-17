@@ -51,3 +51,12 @@ Current Wallet/provider integration addition:
 > infrastructure. Candidates propose; wallet.network authorizes; Hypervisor
 > executes or deploys; venues and providers perform; Agentgres records; IOI L1
 > settles by trigger.**
+
+Current aiagent broad-labor addition:
+
+> **aiagent.xyz is the discovery, procurement, installation, initialization, and
+> routing layer for ontology-bound digital and embodied workers. The marketplace
+> indexes WorkerPackages and ManagedWorkerInstances through
+> DigitalWorkerOntology, VerticalOntologyPacks, IntegrationSurfaces, lifecycle
+> policy, receipts, benchmarks, authority requirements, runtime posture, and
+> safety posture instead of hardcoded vertical directories.**

@@ -116,6 +116,12 @@ Conflict rule:
      GPUs, confidential compute, DePIN, local machines, customer cloud,
      enterprise infrastructure, decentralized storage, and user-specified
      provider routes;
+   - aiagent.xyz is the discovery, procurement, installation, initialization,
+     and routing layer for ontology-bound digital and embodied workers; it
+     indexes workers through `DigitalWorkerOntology`, `VerticalOntologyPack`,
+     `IntegrationSurface`, managed-instance lifecycle, receipts, benchmarks,
+     authority, runtime posture, and safety posture instead of hardcoded
+     vertical directories;
    - `decentralized.cloud` is parked future product space for a possible public
      provider catalog, P2P/PQ-aware cloud routing layer, compute/storage receipt
      explorer, provider reputation surface, or infrastructure marketplace; it
@@ -239,7 +245,7 @@ Conflict rule:
 | wallet.network authority, low-assurance access points, SMS/challenge escalation, step-up grants, repo/product split, protocol package target, SDK package target, and generated schema boundary | [`wallet-network-authority-layer.md`](../components/wallet-network/doctrine.md) | [`wallet-network-api-and-authority-scopes.md`](../components/wallet-network/api-authority-scopes.md), [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md), [`implementation-matrix.md`](./implementation-matrix.md), [`wallet-protocol-sdk-packaging-plan.md`](./wallet-protocol-sdk-packaging-plan.md) | CIRC/CEC, access-point bindings, step-up challenges, guardian/auth surface boundary; IOI monorepo owns Rust wallet types, service transitions, generated protocol/SDK/OpenAPI/JSON Schema targets, receipt fixtures, and conformance; wallet-network product repos consume those contracts and own UI/design/prototype state only |
 | wallet.network product doctrine, reusable authority UX model, presentation profiles, approval modes, cockpit role, exchange authority, trade authority, prediction authority, route-source boundaries, `ExchangeIntent`, `RouteCandidate`, `TradeIntent`, `PredictionIntent`, `PositionReceipt`, `PredictionReceipt`, `CapabilityLease`, risk coverage states, asset exposure, protection actions, approval inbox, wallet receipts, and wallet SDK events | [`wallet-network/product-exchange-risk.md`](../components/wallet-network/product-exchange-risk.md) | [`exchange.md`](../domains/decentralized/exchange.md), [`trade.md`](../domains/decentralized/trade.md), [`wallet-network-api-and-authority-scopes.md`](../components/wallet-network/api-authority-scopes.md), [`wallet-network-authority-layer.md`](../components/wallet-network/doctrine.md), [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md), [`agentgres-state-substrate.md`](../components/agentgres/doctrine.md), [`ioi-l1-mainnet.md`](../foundations/ioi-l1-mainnet.md) | Wallet authority pipeline is reusable infrastructure; Wallet console is one high-trust presentation, while embedded dapps, mobile, CLI, and advanced consoles use lighter or denser shells over the same review contract; decentralized.exchange and decentralized.trade are non-custodial route/venue intelligence engines consumed by Wallet through API/RPC/SDK boundaries; direct pools, DEX routers, solvers, quote APIs, bridge routers, venue adapters, perps/margin/prediction-market policy, route-risk, position-risk, event-risk disclosure, protection center, Activity receipts |
 | Capability and authority ontology | [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md) | [`conformance/CIRC.md`](../../conformance/agentic-runtime/CIRC.md), [`wallet-network-api-and-authority-scopes.md`](../components/wallet-network/api-authority-scopes.md) | agent tool vocabulary plan |
-| aiagent.xyz worker marketplace and managed instances | [`aiagent-xyz-worker-marketplace.md`](../domains/aiagent/worker-marketplace.md) | [`aiagent-xyz-worker-and-inter-agent-endpoints.md`](../domains/aiagent/worker-endpoints.md) | product context module inside canonical owner, marketplace neutrality doc |
+| aiagent.xyz worker marketplace and managed instances | [`aiagent-xyz-worker-marketplace.md`](../domains/aiagent/worker-marketplace.md) | [`aiagent-xyz-worker-and-inter-agent-endpoints.md`](../domains/aiagent/worker-endpoints.md), [`digital-worker-ontology.md`](../domains/aiagent/digital-worker-ontology.md), [`vertical-ontology-packs.md`](../domains/aiagent/vertical-ontology-packs.md), [`integration-surface-taxonomy.md`](../domains/aiagent/integration-surface-taxonomy.md), [`managed-worker-instance-lifecycle.md`](../domains/aiagent/managed-worker-instance-lifecycle.md), [`managed-agent-console-contract.md`](../domains/aiagent/managed-agent-console-contract.md) | ontology-bound digital and embodied worker substrate, product context module inside canonical owner, marketplace neutrality doc |
 | sas.xyz service marketplace | [`sas-xyz-service-marketplace.md`](../domains/sas/service-marketplace.md) | [`sas-xyz-service-endpoints.md`](../domains/sas/service-endpoints.md) | product context module inside canonical owner, service settlement docs |
 | ioi.ai control plane | [`ioi-ai-control-plane.md`](../domains/ioi-ai/control-plane.md) | [`runtime-nodes-tee-depin.md`](../components/daemon-runtime/runtime-nodes-tee-depin.md), [`agentgres-api-and-object-model.md`](../components/agentgres/api-object-model.md), [`wallet-network-api-and-authority-scopes.md`](../components/wallet-network/api-authority-scopes.md) | product context in marketplace/CLI/litepaper docs |
 | Storage backends | [`storage-backends-doctrine.md`](../components/storage-backends/doctrine.md) | [`filecoin-cas-backend-profile.md`](../components/storage-backends/filecoin-cas.md), [`agentgres-artifact-ref-plane.md`](../components/agentgres/artifact-ref-plane.md) | deprecated `components/filecoin-cas/*` redirect stubs |
@@ -307,6 +313,15 @@ Conflict rule:
   doctrine to [`mixture-of-workers.md`](../foundations/mixture-of-workers.md)
   and [`worker-training-lifecycle.md`](../foundations/worker-training-lifecycle.md)
   before product/domain docs rely on it.
+- Add new aiagent broad autonomous labor, digital/embodied worker ontology,
+  vertical ontology pack, integration surface, managed worker lifecycle, or
+  managed agent console language to the aiagent owner docs first:
+  [`digital-worker-ontology.md`](../domains/aiagent/digital-worker-ontology.md),
+  [`vertical-ontology-packs.md`](../domains/aiagent/vertical-ontology-packs.md),
+  [`integration-surface-taxonomy.md`](../domains/aiagent/integration-surface-taxonomy.md),
+  [`managed-worker-instance-lifecycle.md`](../domains/aiagent/managed-worker-instance-lifecycle.md),
+  and [`managed-agent-console-contract.md`](../domains/aiagent/managed-agent-console-contract.md).
+  Do not define bespoke vertical runtimes or authority paths in product docs.
 - Add new ontology, DataRecipe, CanonicalObjectModel, ConnectorMapping,
   PolicyBoundDataView, DistilledOntologyDataset, EvaluationDataset,
   OntologyProjection, or

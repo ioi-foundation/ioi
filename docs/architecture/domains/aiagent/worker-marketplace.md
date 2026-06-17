@@ -8,7 +8,7 @@ Last alignment pass: 2026-06-01.
 
 ## Canonical Definition
 
-**aiagent.xyz is the first-party Web4 marketplace application for portable digital workers, managed worker/agent instances, benchmark profiles, Sparse Worker Categories, installs, and MoW routing eligibility, built on AIIP and IOI settlement.**
+**aiagent.xyz is the first-party Web4 marketplace application for ontology-bound digital and embodied workers, managed worker/agent instances, benchmark profiles, Sparse Worker Categories, installs, and MoW routing eligibility, built on AIIP and IOI settlement.**
 
 It discovers, compares, benchmarks, ranks, installs, invokes, meters, licenses,
 settles, and initializes worker packages. It is an application domain with its
@@ -17,6 +17,11 @@ smart-contract settlement rails. A user may consume a worker as an API/workflow
 primitive, install it into Hypervisor, route to it through AIIP, or initialize a
 managed web-accessible instance backed by hosted, provider, DePIN, Private
 Workspace cTEE, TEE, customer, or local Hypervisor Daemon runtime-node profiles.
+Worker definitions are indexed through the shared
+[`DigitalWorkerOntology`](./digital-worker-ontology.md), extended through
+[`VerticalOntologyPacks`](./vertical-ontology-packs.md), and bound to
+[`IntegrationSurfaces`](./integration-surface-taxonomy.md) and managed-instance
+lifecycles rather than hardcoded marketplace verticals.
 
 aiagent.xyz is not the protocol. It is a first-party protocol client, demand
 generator, and proof surface for AIIP and IOI autonomous-system settlement.
@@ -58,6 +63,9 @@ aiagent.xyz owns:
 
 - worker listings;
 - worker manifests;
+- ontology profile refs;
+- vertical ontology pack refs;
+- integration surface refs;
 - publisher profiles;
 - worker versions;
 - responsibility and requirement descriptions;
@@ -70,6 +78,7 @@ aiagent.xyz owns:
 - contribution records;
 - install records;
 - managed worker/agent instance records;
+- managed worker instance lifecycle records;
 - runtime assignment and lifecycle records;
 - runtime subscription and usage metadata;
 - browser console projections over daemon thread/run APIs;
@@ -106,10 +115,14 @@ benchmark profile refs
 sparse worker category, when submitted
 primitive capability requirements
 authority scope requirements
+ontology profile refs
+vertical ontology pack refs
+integration surface refs
 model policy
 tool requirements
 connector requirements
 memory schema
+memory and archive policy
 artifact schema
 receipt policy
 pricing/license terms
@@ -147,6 +160,12 @@ This distinction lets the same marketplace listing support both primitive MoW
 invocation and direct user-facing operation. A code-review worker may be used as
 a workflow node by Hypervisor, called through an API by another worker, or
 initialized as a persistent cloud agent with a browser chat console.
+
+Managed instances follow the lifecycle in
+[`managed-worker-instance-lifecycle.md`](./managed-worker-instance-lifecycle.md).
+Payment lapse, provider exit, archive, restore, export, delete, and forget
+states are first-class lifecycle transitions; they cannot be hidden behind
+generic billing or console state.
 
 ## Marketplace Contracts on IOI L1
 

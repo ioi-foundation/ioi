@@ -14,6 +14,13 @@ managed worker/agent instances, web-mounted consoles, runtime subscriptions,
 Sparse Worker Categories, benchmark submissions, routing eligibility, and
 inter-agent calls.
 
+Endpoint metadata should reference
+[`digital-worker-ontology.md`](./digital-worker-ontology.md),
+[`vertical-ontology-packs.md`](./vertical-ontology-packs.md),
+[`integration-surface-taxonomy.md`](./integration-surface-taxonomy.md), and
+[`managed-worker-instance-lifecycle.md`](./managed-worker-instance-lifecycle.md)
+when behavior depends on ontology, vertical, integration, or lifecycle state.
+
 These surfaces are opt-in. A worker publisher declares which invocation modes a
 worker supports, and a user chooses whether to run once, route through MoW,
 initialize a managed instance, install locally, call by API, or compose into a
@@ -35,12 +42,13 @@ Artifacts and receipts
 Admin/observability
 ```
 
-A worker may implement these directly, or a compatible Hypervisor Daemon may expose them on the worker's behalf.
+A worker may implement these directly, or a compatible Hypervisor Daemon may
+expose them on the worker's behalf.
 
 When a worker runs on hosted, provider, DePIN, TEE, customer, or local compute,
-the execution venue should be modeled as a Hypervisor Daemon runtime node. SDK helpers
-may wrap the endpoint contract, but they do not replace daemon ownership of
-runtime execution.
+the execution venue should be modeled as a Hypervisor Daemon runtime node. SDK
+helpers may wrap the endpoint contract, but they do not replace daemon
+ownership of runtime execution.
 
 ## Discovery and Manifest
 
@@ -90,6 +98,12 @@ GET /v1/agent/quality
     "evaluation_rubric_ref": "rubric://ioi/runtime_audit/v1",
     "routing_eligibility_status": "eligible",
     "training_lineage_ref": "agentgres://training/train_123"
+  },
+  "ontology": {
+    "base_ontology_ref": "ontology:aiagent.base.v1",
+    "vertical_pack_refs": ["vertical_pack:coding.review.v1"],
+    "integration_surface_refs": ["integration_surface:developer_code"],
+    "lifecycle_profile_ref": "lifecycle:managed-worker/default"
   }
 }
 ```
