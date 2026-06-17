@@ -146,7 +146,7 @@ const paths = {
     "workbench-adapters/ioi-workbench/commands/workflow.js",
   packageJson: "workbench-adapters/ioi-workbench/package.json",
   launcher: "scripts/launch-hypervisor-workbench-adapter-host.mjs",
-  shellPatch: "scripts/lib/autopilot-workbench-shell-patch.mjs",
+  shellPatch: "scripts/lib/hypervisor-workbench-shell-patch.mjs",
 };
 
 async function read(path) {

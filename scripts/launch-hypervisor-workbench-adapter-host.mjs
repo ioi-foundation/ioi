@@ -16,7 +16,7 @@ import {
   envFlag,
   syncWorkbenchExtensionTargets,
 } from "./lib/hypervisor-workbench-adapter-host-paths.mjs";
-import { applyAutopilotWorkbenchShellPatch } from "./lib/autopilot-workbench-shell-patch.mjs";
+import { applyHypervisorWorkbenchShellPatch } from "./lib/hypervisor-workbench-shell-patch.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
@@ -661,7 +661,7 @@ if (!existsSync(binary)) {
 function syncWorkbenchExtension() {
   if (!extensionSyncEnabled) return;
   const sync = syncWorkbenchExtensionTargets();
-  const shellPatch = applyAutopilotWorkbenchShellPatch();
+  const shellPatch = applyHypervisorWorkbenchShellPatch();
   const copied = sync.copied.map((target) => target.kind).join(", ");
   const skipped = sync.skipped.map((target) => target.kind).join(", ");
   console.log(

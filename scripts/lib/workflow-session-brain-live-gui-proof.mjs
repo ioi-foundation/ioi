@@ -20,7 +20,7 @@ import {
   HYPERVISOR_WORKBENCH_ADAPTER_HOST,
   syncWorkbenchExtensionTargets,
 } from "./hypervisor-workbench-adapter-host-paths.mjs";
-import { applyAutopilotWorkbenchShellPatch } from "./autopilot-workbench-shell-patch.mjs";
+import { applyHypervisorWorkbenchShellPatch } from "./hypervisor-workbench-shell-patch.mjs";
 import {
   bootstrapNativeRuntimeModelRoute,
   configureRuntimeAgentServiceInferenceEnv,
@@ -159,7 +159,7 @@ async function createDaemonModelInvocationToken(endpoint) {
 
 function bridgeState({ daemonEndpoint, runtimeModelRoute }) {
   const routeId = runtimeModelRoute?.routeId || "route.local-first";
-  const modelId = runtimeModelRoute?.modelId || "autopilot-native-fixture";
+  const modelId = runtimeModelRoute?.modelId || "hypervisor-native-fixture";
   const endpointId = runtimeModelRoute?.endpointId || "endpoint.agent-studio.native";
   return {
     schemaVersion: "ioi.workbench-bridge-state.v1",
@@ -359,7 +359,7 @@ function domReady(evidence) {
 async function runProof(outputDir) {
   ensureDir(outputDir);
   const sync = syncWorkbenchExtensionTargets();
-  const shellPatch = applyAutopilotWorkbenchShellPatch();
+  const shellPatch = applyHypervisorWorkbenchShellPatch();
   writeFileSync(join(outputDir, "extension-sync.json"), `${JSON.stringify(sync, null, 2)}\n`);
   writeFileSync(join(outputDir, "shell-patch.json"), `${JSON.stringify(shellPatch, null, 2)}\n`);
 

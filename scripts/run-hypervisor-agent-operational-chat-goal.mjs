@@ -21,7 +21,7 @@ import {
   HYPERVISOR_WORKBENCH_ADAPTER_HOST,
   syncWorkbenchExtensionTargets,
 } from "./lib/hypervisor-workbench-adapter-host-paths.mjs";
-import { applyAutopilotWorkbenchShellPatch } from "./lib/autopilot-workbench-shell-patch.mjs";
+import { applyHypervisorWorkbenchShellPatch } from "./lib/hypervisor-workbench-shell-patch.mjs";
 
 const repoRoot = HYPERVISOR_WORKBENCH_ADAPTER_HOST.repoRoot;
 const MASTER_GUIDE = ".internal/plans/autopilot-electron-agent-studio-operational-chat-master-guide.md";
@@ -177,7 +177,7 @@ function preflightChecks() {
     {
       id: "electron:binary",
       ok: existsSync(HYPERVISOR_WORKBENCH_ADAPTER_HOST.binary),
-      summary: "Electron Autopilot binary exists",
+      summary: "Electron Hypervisor Workbench adapter binary exists",
       evidence: { binary: HYPERVISOR_WORKBENCH_ADAPTER_HOST.binary },
     },
   ];
@@ -283,7 +283,7 @@ function bridgeState() {
     modelMounting: {
       artifacts: [
         {
-          id: "autopilot-native-fixture",
+          id: "hypervisor-native-fixture",
           modelId: "autopilot:native-fixture",
           name: "Autopilot native local fixture",
           publisher: "provider.autopilot.local",
@@ -295,7 +295,7 @@ function bridgeState() {
       endpoints: [
         {
           id: "endpoint.agent-studio.native",
-          modelId: "autopilot-native-fixture",
+          modelId: "hypervisor-native-fixture",
           status: "ready",
         },
       ],
@@ -311,7 +311,7 @@ function bridgeState() {
           id: "route.local-first",
           routeId: "route.local-first",
           status: "ready",
-          modelId: "autopilot-native-fixture",
+          modelId: "hypervisor-native-fixture",
           endpointId: "endpoint.agent-studio.native",
         },
       ],
@@ -494,7 +494,7 @@ async function runValidation(outputDir) {
   ensureDir(outputDir);
   await cleanupValidationProcesses({ outputDir, phase: "before-launch" });
   const sync = syncWorkbenchExtensionTargets();
-  const shellPatch = applyAutopilotWorkbenchShellPatch();
+  const shellPatch = applyHypervisorWorkbenchShellPatch();
   writeFileSync(join(outputDir, "extension-sync.json"), `${JSON.stringify(sync, null, 2)}\n`);
   writeFileSync(join(outputDir, "shell-patch.json"), `${JSON.stringify(shellPatch, null, 2)}\n`);
 

@@ -3,10 +3,10 @@ import { dirname, join, resolve } from "node:path";
 
 import { HYPERVISOR_WORKBENCH_ADAPTER_HOST } from "./hypervisor-workbench-adapter-host-paths.mjs";
 
-const JS_START = "// IOI_AUTOPILOT_WORKBENCH_SHELL_PATCH_START";
-const JS_END = "// IOI_AUTOPILOT_WORKBENCH_SHELL_PATCH_END";
-const CSS_START = "/* IOI_AUTOPILOT_WORKBENCH_SHELL_PATCH_START */";
-const CSS_END = "/* IOI_AUTOPILOT_WORKBENCH_SHELL_PATCH_END */";
+const JS_START = "// IOI_HYPERVISOR_WORKBENCH_SHELL_PATCH_START";
+const JS_END = "// IOI_HYPERVISOR_WORKBENCH_SHELL_PATCH_END";
+const CSS_START = "/* IOI_HYPERVISOR_WORKBENCH_SHELL_PATCH_START */";
+const CSS_END = "/* IOI_HYPERVISOR_WORKBENCH_SHELL_PATCH_END */";
 const ELECTRON_MAIN_MENU_VISIBILITY_PATCH =
   "        if (process.env.IOI_WORKBENCH_NATIVE_SHELL === '1') {\n            return 'hidden';\n        }\n";
 const ELECTRON_MAIN_APPLICATION_MENU_PATCH =
@@ -14,7 +14,7 @@ const ELECTRON_MAIN_APPLICATION_MENU_PATCH =
 const ELECTRON_MAIN_CUSTOM_TITLEBAR_PATCH_LEGACY =
   "        if (process.env.IOI_WORKBENCH_NATIVE_SHELL === '1') {\n            return TitlebarStyle.CUSTOM;\n        }\n";
 const ELECTRON_MAIN_CUSTOM_TITLEBAR_PATCH =
-  "        return TitlebarStyle.CUSTOM; // Autopilot shell uses VS Code's custom titlebar/menubar substrate.\n";
+  "        return TitlebarStyle.CUSTOM; // Hypervisor shell uses VS Code's custom titlebar/menubar substrate.\n";
 
 function upsertMarkedBlock(filePath, startMarker, endMarker, block) {
   const existing = existsSync(filePath) ? readFileSync(filePath, "utf8") : "";
@@ -35,13 +35,13 @@ function upsertMarkedBlock(filePath, startMarker, endMarker, block) {
 
 function workbenchShellCss() {
   return `${CSS_START}
-.monaco-workbench.ioi-autopilot-native-shell {
+.monaco-workbench.ioi-hypervisor-native-shell {
   --ioi-shell-header-height: 0px;
   --ioi-shell-code-menu-height: 30px;
   --ioi-shell-rail-width: 48px;
 }
 
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-primary-rail {
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-primary-rail {
   position: fixed;
   top: var(--ioi-shell-header-top, 35px);
   left: 0;
@@ -59,7 +59,7 @@ function workbenchShellCss() {
   pointer-events: auto;
 }
 
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-primary-rail .ioi-native-rail-button {
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-primary-rail .ioi-native-rail-button {
   width: 48px;
   height: 46px;
   flex: 0 0 46px;
@@ -73,40 +73,40 @@ function workbenchShellCss() {
   font: inherit;
 }
 
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-primary-rail .ioi-native-rail-button .codicon {
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-primary-rail .ioi-native-rail-button .codicon {
   font-size: 22px;
 }
 
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-primary-rail .ioi-native-rail-svg {
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-primary-rail .ioi-native-rail-svg {
   width: 24px;
   height: 24px;
   display: block;
   background: currentColor;
 }
 
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-primary-rail .ioi-native-rail-workflows {
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-primary-rail .ioi-native-rail-workflows {
   mask: url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 4.5a2 2 0 1 1 0 4 2 2 0 0 1 0-4Zm14 0a2 2 0 1 1 0 4 2 2 0 0 1 0-4ZM5 15.5a2 2 0 1 1 0 4 2 2 0 0 1 0-4Zm14 0a2 2 0 1 1 0 4 2 2 0 0 1 0-4ZM7.2 6.5h9.6v1.5H7.2V6.5Zm10.4 2.1 1.2.8-3.8 5.7-1.2-.8 3.8-5.7Zm-11.2 0 3.8 5.7-1.2.8-3.8-5.7 1.2-.8Zm1 8.2h9.2v1.5H7.4v-1.5Z' fill='currentColor'/%3E%3C/svg%3E") center / 24px 24px no-repeat;
   -webkit-mask: url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 4.5a2 2 0 1 1 0 4 2 2 0 0 1 0-4Zm14 0a2 2 0 1 1 0 4 2 2 0 0 1 0-4ZM5 15.5a2 2 0 1 1 0 4 2 2 0 0 1 0-4Zm14 0a2 2 0 1 1 0 4 2 2 0 0 1 0-4ZM7.2 6.5h9.6v1.5H7.2V6.5Zm10.4 2.1 1.2.8-3.8 5.7-1.2-.8 3.8-5.7Zm-11.2 0 3.8 5.7-1.2.8-3.8-5.7 1.2-.8Zm1 8.2h9.2v1.5H7.4v-1.5Z' fill='currentColor'/%3E%3C/svg%3E") center / 24px 24px no-repeat;
 }
 
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-primary-rail .ioi-native-rail-button:hover,
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-primary-rail .ioi-native-rail-button.is-active {
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-primary-rail .ioi-native-rail-button:hover,
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-primary-rail .ioi-native-rail-button.is-active {
   color: var(--vscode-activityBar-foreground, #fff);
 }
 
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-primary-rail .ioi-native-rail-button.is-active {
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-primary-rail .ioi-native-rail-button.is-active {
   border-left-color: var(--vscode-activityBar-activeBorder, var(--vscode-focusBorder, #0078d4));
 }
 
-.monaco-workbench.ioi-autopilot-native-shell.ioi-shell-code-mode #ioi-autopilot-primary-rail {
+.monaco-workbench.ioi-hypervisor-native-shell.ioi-shell-code-mode #ioi-hypervisor-primary-rail {
   display: none;
 }
 
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-workbench-native-header {
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-workbench-native-header {
   display: none !important;
 }
 
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-workbench-code-menu {
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-workbench-code-menu {
   position: fixed;
   top: calc(var(--ioi-shell-header-top, 35px) + var(--ioi-shell-header-height));
   left: var(--ioi-shell-header-left, 48px);
@@ -124,11 +124,11 @@ function workbenchShellCss() {
   pointer-events: auto;
 }
 
-.monaco-workbench.ioi-autopilot-native-shell.ioi-shell-code-mode #ioi-autopilot-workbench-code-menu {
+.monaco-workbench.ioi-hypervisor-native-shell.ioi-shell-code-mode #ioi-hypervisor-workbench-code-menu {
   display: none !important;
 }
 
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-workbench-code-menu .ioi-code-menu-button {
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-workbench-code-menu .ioi-code-menu-button {
   height: 24px;
   min-width: 0;
   display: inline-flex;
@@ -145,14 +145,14 @@ function workbenchShellCss() {
   cursor: pointer;
 }
 
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-workbench-code-menu .ioi-code-menu-button:hover,
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-workbench-code-menu .ioi-code-menu-button:focus-visible,
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-workbench-code-menu .ioi-code-menu-button.is-open {
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-workbench-code-menu .ioi-code-menu-button:hover,
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-workbench-code-menu .ioi-code-menu-button:focus-visible,
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-workbench-code-menu .ioi-code-menu-button.is-open {
   background: var(--vscode-toolbar-hoverBackground, rgba(255,255,255,.10));
   outline: none;
 }
 
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-workbench-code-menu-dropdown {
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-workbench-code-menu-dropdown {
   position: fixed;
   top: calc(var(--ioi-shell-header-top, 35px) + var(--ioi-shell-header-height) + var(--ioi-shell-code-menu-height));
   left: var(--ioi-code-menu-dropdown-left, var(--ioi-shell-header-left, 48px));
@@ -170,12 +170,12 @@ function workbenchShellCss() {
   pointer-events: auto;
 }
 
-.monaco-workbench.ioi-autopilot-native-shell.ioi-shell-code-mode #ioi-autopilot-workbench-code-menu-dropdown.is-open {
+.monaco-workbench.ioi-hypervisor-native-shell.ioi-shell-code-mode #ioi-hypervisor-workbench-code-menu-dropdown.is-open {
   display: grid;
   gap: 1px;
 }
 
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-workbench-code-menu-dropdown .ioi-code-menu-item {
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-workbench-code-menu-dropdown .ioi-code-menu-item {
   width: 100%;
   min-height: 28px;
   display: grid;
@@ -193,26 +193,26 @@ function workbenchShellCss() {
   cursor: pointer;
 }
 
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-workbench-code-menu-dropdown .ioi-code-menu-item:hover,
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-workbench-code-menu-dropdown .ioi-code-menu-item:focus-visible {
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-workbench-code-menu-dropdown .ioi-code-menu-item:hover,
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-workbench-code-menu-dropdown .ioi-code-menu-item:focus-visible {
   background: var(--vscode-menu-selectionBackground, #094771);
   color: var(--vscode-menu-selectionForeground, #fff);
   outline: none;
 }
 
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-workbench-code-menu-dropdown .ioi-code-menu-shortcut {
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-workbench-code-menu-dropdown .ioi-code-menu-shortcut {
   color: var(--vscode-descriptionForeground, #a8a8a8);
   font-size: 11px;
   white-space: nowrap;
 }
 
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-workbench-code-menu-dropdown .ioi-code-menu-separator {
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-workbench-code-menu-dropdown .ioi-code-menu-separator {
   height: 1px;
   margin: 4px 8px;
   background: var(--vscode-menu-separatorBackground, var(--vscode-panel-border, rgba(255,255,255,.14)));
 }
 
-.monaco-workbench.ioi-autopilot-native-shell.ioi-shell-autopilot-mode .part.titlebar .menubar {
+.monaco-workbench.ioi-hypervisor-native-shell.ioi-shell-hypervisor-mode .part.titlebar .menubar {
   opacity: 0 !important;
   width: 0 !important;
   min-width: 0 !important;
@@ -220,7 +220,7 @@ function workbenchShellCss() {
   pointer-events: none !important;
 }
 
-.monaco-workbench.ioi-autopilot-native-shell.ioi-shell-code-mode .part.titlebar .menubar {
+.monaco-workbench.ioi-hypervisor-native-shell.ioi-shell-code-mode .part.titlebar .menubar {
   opacity: 1 !important;
   width: auto !important;
   min-width: revert !important;
@@ -228,35 +228,35 @@ function workbenchShellCss() {
   pointer-events: auto !important;
 }
 
-.monaco-workbench.ioi-autopilot-native-shell.ioi-shell-code-mode #ioi-autopilot-workbench-native-header,
-.monaco-workbench.ioi-autopilot-native-shell.ioi-shell-code-mode #ioi-autopilot-workbench-code-menu,
-.monaco-workbench.ioi-autopilot-native-shell.ioi-shell-code-mode #ioi-autopilot-workbench-code-menu-dropdown {
+.monaco-workbench.ioi-hypervisor-native-shell.ioi-shell-code-mode #ioi-hypervisor-workbench-native-header,
+.monaco-workbench.ioi-hypervisor-native-shell.ioi-shell-code-mode #ioi-hypervisor-workbench-code-menu,
+.monaco-workbench.ioi-hypervisor-native-shell.ioi-shell-code-mode #ioi-hypervisor-workbench-code-menu-dropdown {
   display: none !important;
 }
 
-.monaco-workbench.ioi-autopilot-native-shell .part.editor > .content {
+.monaco-workbench.ioi-hypervisor-native-shell .part.editor > .content {
   padding-top: 0 !important;
   box-sizing: border-box !important;
 }
 
-.monaco-workbench.ioi-autopilot-native-shell.ioi-shell-code-mode .part.editor > .content {
+.monaco-workbench.ioi-hypervisor-native-shell.ioi-shell-code-mode .part.editor > .content {
   padding-top: 0 !important;
 }
 
-.monaco-workbench.ioi-autopilot-native-shell.ioi-shell-autopilot-mode .part.editor .editor-group-container > .title,
-.monaco-workbench.ioi-autopilot-native-shell.ioi-shell-autopilot-mode .part.editor .tabs-and-actions-container {
+.monaco-workbench.ioi-hypervisor-native-shell.ioi-shell-hypervisor-mode .part.editor .editor-group-container > .title,
+.monaco-workbench.ioi-hypervisor-native-shell.ioi-shell-hypervisor-mode .part.editor .tabs-and-actions-container {
   display: none !important;
   height: 0 !important;
   min-height: 0 !important;
   overflow: hidden !important;
 }
 
-.monaco-workbench.ioi-autopilot-native-shell.ioi-shell-code-mode .part.editor .editor-group-container > .title,
-.monaco-workbench.ioi-autopilot-native-shell.ioi-shell-code-mode .part.editor .tabs-and-actions-container {
+.monaco-workbench.ioi-hypervisor-native-shell.ioi-shell-code-mode .part.editor .editor-group-container > .title,
+.monaco-workbench.ioi-hypervisor-native-shell.ioi-shell-code-mode .part.editor .tabs-and-actions-container {
   display: flex !important;
 }
 
-.monaco-workbench.ioi-autopilot-native-shell.ioi-shell-autopilot-mode .part.sidebar {
+.monaco-workbench.ioi-hypervisor-native-shell.ioi-shell-hypervisor-mode .part.sidebar {
   display: none !important;
   width: 0 !important;
   min-width: 0 !important;
@@ -264,31 +264,31 @@ function workbenchShellCss() {
   pointer-events: none !important;
 }
 
-.monaco-workbench.ioi-autopilot-native-shell.ioi-shell-autopilot-mode .part.activitybar .action-item {
+.monaco-workbench.ioi-hypervisor-native-shell.ioi-shell-hypervisor-mode .part.activitybar .action-item {
   visibility: hidden !important;
   pointer-events: none !important;
 }
 
-.monaco-workbench.ioi-autopilot-native-shell.ioi-shell-autopilot-mode .part.activitybar .action-item.ioi-vscode-substrate-action,
-.monaco-workbench.ioi-autopilot-native-shell.ioi-shell-autopilot-mode .part.activitybar .action-item.ioi-vscode-global-action {
+.monaco-workbench.ioi-hypervisor-native-shell.ioi-shell-hypervisor-mode .part.activitybar .action-item.ioi-vscode-substrate-action,
+.monaco-workbench.ioi-hypervisor-native-shell.ioi-shell-hypervisor-mode .part.activitybar .action-item.ioi-vscode-global-action {
   display: none !important;
 }
 
-.monaco-workbench.ioi-autopilot-native-shell.ioi-shell-code-mode .part.activitybar .action-item.ioi-autopilot-mode-action:not(.ioi-code-action) {
+.monaco-workbench.ioi-hypervisor-native-shell.ioi-shell-code-mode .part.activitybar .action-item.ioi-hypervisor-mode-action:not(.ioi-code-action) {
   display: none !important;
 }
 
-.monaco-workbench.ioi-autopilot-native-shell.ioi-shell-code-mode .part.activitybar .action-item.ioi-code-action {
+.monaco-workbench.ioi-hypervisor-native-shell.ioi-shell-code-mode .part.activitybar .action-item.ioi-code-action {
   display: none !important;
 }
 
-.monaco-workbench.ioi-autopilot-native-shell.ioi-shell-code-mode .part.activitybar .action-item.ioi-vscode-substrate-action,
-.monaco-workbench.ioi-autopilot-native-shell.ioi-shell-code-mode .part.activitybar .action-item.ioi-vscode-global-action {
+.monaco-workbench.ioi-hypervisor-native-shell.ioi-shell-code-mode .part.activitybar .action-item.ioi-vscode-substrate-action,
+.monaco-workbench.ioi-hypervisor-native-shell.ioi-shell-code-mode .part.activitybar .action-item.ioi-vscode-global-action {
   visibility: visible !important;
   pointer-events: auto !important;
 }
 
-#ioi-autopilot-back-rail {
+#ioi-hypervisor-back-rail {
   display: none;
   width: 48px;
   height: 48px;
@@ -303,19 +303,19 @@ function workbenchShellCss() {
   font-size: 20px;
 }
 
-#ioi-autopilot-back-rail:hover {
+#ioi-hypervisor-back-rail:hover {
   color: var(--vscode-activityBar-foreground, #fff);
 }
 
-.monaco-workbench.ioi-autopilot-native-shell.ioi-shell-code-mode #ioi-autopilot-back-rail {
+.monaco-workbench.ioi-hypervisor-native-shell.ioi-shell-code-mode #ioi-hypervisor-back-rail {
   display: flex;
 }
 
-.monaco-workbench.ioi-autopilot-native-shell.ioi-shell-autopilot-mode #ioi-autopilot-back-rail {
+.monaco-workbench.ioi-hypervisor-native-shell.ioi-shell-hypervisor-mode #ioi-hypervisor-back-rail {
   display: none;
 }
 
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-quickinput-backdrop {
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-quickinput-backdrop {
   position: fixed;
   inset: 0;
   z-index: 100019;
@@ -323,7 +323,7 @@ function workbenchShellCss() {
   pointer-events: auto;
 }
 
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-quickinput-host {
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-quickinput-host {
   position: fixed;
   z-index: 100020;
   width: min(620px, calc(100vw - 64px));
@@ -334,25 +334,25 @@ function workbenchShellCss() {
   pointer-events: auto;
 }
 
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-quickinput-host.ioi-quickinput--tools {
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-quickinput-host.ioi-quickinput--tools {
   top: calc(var(--ioi-shell-header-top, 35px) + 7px);
   left: 50%;
   transform: translateX(-50%);
 }
 
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-quickinput-host.ioi-quickinput--context {
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-quickinput-host.ioi-quickinput--context {
   left: 50%;
   bottom: 126px;
   transform: translateX(-50%);
 }
 
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-quickinput-host.ioi-quickinput--target,
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-quickinput-host.ioi-quickinput--agentmode,
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-quickinput-host.ioi-quickinput--modelroute {
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-quickinput-host.ioi-quickinput--target,
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-quickinput-host.ioi-quickinput--agentmode,
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-quickinput-host.ioi-quickinput--modelroute {
   width: min(260px, calc(100vw - 32px));
 }
 
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-quickinput-host .ioi-quickinput-widget {
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-quickinput-host .ioi-quickinput-widget {
   overflow: hidden;
   border: 1px solid var(--vscode-quickInput-border, var(--vscode-widget-border, rgba(255,255,255,.16)));
   border-radius: 6px;
@@ -361,7 +361,7 @@ function workbenchShellCss() {
   box-shadow: 0 18px 42px rgba(0,0,0,.48);
 }
 
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-quickinput-host .ioi-quickinput-titlebar {
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-quickinput-host .ioi-quickinput-titlebar {
   min-height: 26px;
   display: grid;
   grid-template-columns: 1fr auto 1fr;
@@ -374,19 +374,19 @@ function workbenchShellCss() {
   text-align: center;
 }
 
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-quickinput-host .ioi-quickinput-titlebar strong {
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-quickinput-host .ioi-quickinput-titlebar strong {
   font-weight: 500;
   justify-self: center;
 }
 
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-quickinput-host .ioi-quickinput-titlebar-actions {
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-quickinput-host .ioi-quickinput-titlebar-actions {
   display: inline-flex;
   align-items: center;
   gap: 6px;
 }
 
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-quickinput-host .ioi-quickinput-icon-action,
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-quickinput-host .ioi-quickinput-ok {
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-quickinput-host .ioi-quickinput-icon-action,
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-quickinput-host .ioi-quickinput-ok {
   min-width: 0;
   border: 0;
   border-radius: 4px;
@@ -395,7 +395,7 @@ function workbenchShellCss() {
   font: inherit;
 }
 
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-quickinput-host .ioi-quickinput-icon-action {
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-quickinput-host .ioi-quickinput-icon-action {
   width: 18px;
   height: 18px;
   display: grid;
@@ -403,18 +403,18 @@ function workbenchShellCss() {
   padding: 0;
 }
 
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-quickinput-host .ioi-quickinput-icon-action .codicon {
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-quickinput-host .ioi-quickinput-icon-action .codicon {
   font-size: 14px;
 }
 
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-quickinput-host .ioi-quickinput-ok {
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-quickinput-host .ioi-quickinput-ok {
   height: 24px;
   padding: 0 9px;
   background: var(--vscode-button-background, #0e639c);
   color: var(--vscode-button-foreground, #fff);
 }
 
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-quickinput-host .ioi-quickinput-search-row {
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-quickinput-host .ioi-quickinput-search-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
@@ -422,7 +422,7 @@ function workbenchShellCss() {
   padding: 6px 6px 4px;
 }
 
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-quickinput-host .ioi-quickinput-input {
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-quickinput-host .ioi-quickinput-input {
   height: 28px;
   width: 100%;
   box-sizing: border-box;
@@ -434,11 +434,11 @@ function workbenchShellCss() {
   color: var(--vscode-input-foreground, #cccccc);
 }
 
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-quickinput-host .ioi-quickinput-input:focus {
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-quickinput-host .ioi-quickinput-input:focus {
   border-color: var(--vscode-focusBorder, #007fd4);
 }
 
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-quickinput-host .ioi-quickinput-selected-count {
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-quickinput-host .ioi-quickinput-selected-count {
   height: 22px;
   min-width: 68px;
   display: inline-grid;
@@ -451,29 +451,29 @@ function workbenchShellCss() {
   white-space: nowrap;
 }
 
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-quickinput-host .ioi-quickinput-description {
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-quickinput-host .ioi-quickinput-description {
   padding: 8px 12px 6px;
   color: var(--vscode-foreground, #d4d4d4);
 }
 
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-quickinput-host .ioi-quickinput-list {
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-quickinput-host .ioi-quickinput-list {
   max-height: min(520px, calc(100vh - 140px));
   overflow: auto;
   padding: 2px 0 8px;
 }
 
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-quickinput-host.ioi-quickinput--context .ioi-quickinput-list {
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-quickinput-host.ioi-quickinput--context .ioi-quickinput-list {
   max-height: 210px;
   padding: 3px 7px 7px;
 }
 
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-quickinput-host .ioi-quickinput-compact-list {
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-quickinput-host .ioi-quickinput-compact-list {
   max-height: min(260px, calc(100vh - 96px));
   overflow: auto;
   padding: 4px;
 }
 
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-quickinput-host .ioi-quickinput-row {
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-quickinput-host .ioi-quickinput-row {
   min-height: 24px;
   display: grid;
   grid-template-columns: 20px minmax(0, auto) minmax(0, 1fr) auto;
@@ -487,45 +487,45 @@ function workbenchShellCss() {
   text-align: left;
 }
 
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-quickinput-host .ioi-quickinput-row.is-active,
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-quickinput-host .ioi-quickinput-row:hover,
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-quickinput-host .ioi-quickinput-row:focus-visible {
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-quickinput-host .ioi-quickinput-row.is-active,
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-quickinput-host .ioi-quickinput-row:hover,
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-quickinput-host .ioi-quickinput-row:focus-visible {
   background: var(--vscode-quickInputList-focusBackground, var(--vscode-list-activeSelectionBackground, #04395e));
   color: var(--vscode-quickInputList-focusForeground, var(--vscode-list-activeSelectionForeground, #fff));
   outline: none;
 }
 
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-quickinput-host .ioi-quickinput-row-label {
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-quickinput-host .ioi-quickinput-row-label {
   font-weight: 600;
   color: inherit;
 }
 
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-quickinput-host .ioi-quickinput-row.is-disabled {
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-quickinput-host .ioi-quickinput-row.is-disabled {
   opacity: 0.58;
   cursor: default;
 }
 
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-quickinput-host .ioi-quickinput-row.is-disabled.is-active,
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-quickinput-host .ioi-quickinput-row.is-disabled:hover,
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-quickinput-host .ioi-quickinput-row.is-disabled:focus-visible {
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-quickinput-host .ioi-quickinput-row.is-disabled.is-active,
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-quickinput-host .ioi-quickinput-row.is-disabled:hover,
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-quickinput-host .ioi-quickinput-row.is-disabled:focus-visible {
   background: transparent;
   color: inherit;
 }
 
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-quickinput-host .ioi-quickinput-row-detail {
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-quickinput-host .ioi-quickinput-row-detail {
   overflow: hidden;
   color: var(--vscode-descriptionForeground, #a8a8a8);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-quickinput-host .ioi-quickinput-row-meta {
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-quickinput-host .ioi-quickinput-row-meta {
   color: var(--vscode-descriptionForeground, #a8a8a8);
   font-size: 12px;
   white-space: nowrap;
 }
 
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-quickinput-host .ioi-quickinput-twistie {
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-quickinput-host .ioi-quickinput-twistie {
   width: 18px;
   height: 18px;
   display: grid;
@@ -536,30 +536,30 @@ function workbenchShellCss() {
   padding: 0;
 }
 
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-quickinput-host .ioi-quickinput-twistie .codicon {
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-quickinput-host .ioi-quickinput-twistie .codicon {
   font-size: 14px;
 }
 
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-quickinput-host .ioi-quickinput-checkbox {
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-quickinput-host .ioi-quickinput-checkbox {
   width: 14px;
   height: 14px;
   margin: 0;
   accent-color: var(--vscode-checkbox-selectBackground, var(--vscode-focusBorder, #007fd4));
 }
 
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-quickinput-host .ioi-quickinput-children {
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-quickinput-host .ioi-quickinput-children {
   display: grid;
 }
 
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-quickinput-host .ioi-quickinput-children[hidden] {
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-quickinput-host .ioi-quickinput-children[hidden] {
   display: none;
 }
 
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-quickinput-host .ioi-quickinput-child {
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-quickinput-host .ioi-quickinput-child {
   padding-left: 30px;
 }
 
-.monaco-workbench.ioi-autopilot-native-shell #ioi-autopilot-quickinput-host .ioi-quickinput-compact-list .ioi-quickinput-row {
+.monaco-workbench.ioi-hypervisor-native-shell #ioi-hypervisor-quickinput-host .ioi-quickinput-compact-list .ioi-quickinput-row {
   grid-template-columns: 20px minmax(0, 1fr) auto;
   gap: 5px;
   padding: 0 7px;
@@ -1030,9 +1030,9 @@ function workbenchShellJs() {
   function applyClasses() {
     const wb = workbench();
     if (!wb) return;
-    updateClass(wb, "ioi-autopilot-native-shell", true);
+    updateClass(wb, "ioi-hypervisor-native-shell", true);
     updateClass(wb, "ioi-shell-code-mode", shellMode === "code");
-    updateClass(wb, "ioi-shell-autopilot-mode", shellMode !== "code");
+    updateClass(wb, "ioi-shell-hypervisor-mode", shellMode !== "code");
     setDataset(wb, "ioiShellMode", shellMode);
     setDataset(wb, "ioiActiveMode", shellMode === "code" ? "code" : activeAutopilotMode);
 
@@ -1072,7 +1072,7 @@ function workbenchShellJs() {
   }
 
   function renderHeader() {
-    document.getElementById("ioi-autopilot-workbench-native-header")?.remove();
+    document.getElementById("ioi-hypervisor-workbench-native-header")?.remove();
     lastHeaderMarkup = "";
   }
 
@@ -1102,7 +1102,7 @@ function workbenchShellJs() {
 
   function closeCodeMenu() {
     openCodeMenuLabel = "";
-    const dropdown = document.getElementById("ioi-autopilot-workbench-code-menu-dropdown");
+    const dropdown = document.getElementById("ioi-hypervisor-workbench-code-menu-dropdown");
     dropdown?.classList.remove("is-open");
     dropdown?.replaceChildren();
     for (const button of document.querySelectorAll("[data-ioi-code-menu-label]")) {
@@ -1126,10 +1126,10 @@ function workbenchShellJs() {
   }
 
   function ensureCodeMenuDropdown(wb) {
-    let dropdown = document.getElementById("ioi-autopilot-workbench-code-menu-dropdown");
+    let dropdown = document.getElementById("ioi-hypervisor-workbench-code-menu-dropdown");
     if (!dropdown) {
       dropdown = document.createElement("div");
-      dropdown.id = "ioi-autopilot-workbench-code-menu-dropdown";
+      dropdown.id = "ioi-hypervisor-workbench-code-menu-dropdown";
       dropdown.dataset.testid = "code-mode-local-menu-dropdown";
       dropdown.dataset.workbenchOwned = "true";
       dropdown.setAttribute("role", "menu");
@@ -1202,18 +1202,18 @@ function workbenchShellJs() {
 
   function renderCodeMenu() {
     closeCodeMenu();
-    document.getElementById("ioi-autopilot-workbench-code-menu")?.remove();
-    document.getElementById("ioi-autopilot-workbench-code-menu-dropdown")?.remove();
+    document.getElementById("ioi-hypervisor-workbench-code-menu")?.remove();
+    document.getElementById("ioi-hypervisor-workbench-code-menu-dropdown")?.remove();
     lastCodeMenuMarkup = "";
   }
 
   function renderPrimaryRail() {
     const wb = workbench();
     if (!wb) return;
-    let rail = document.getElementById("ioi-autopilot-primary-rail");
+    let rail = document.getElementById("ioi-hypervisor-primary-rail");
     if (!rail) {
       rail = document.createElement("nav");
-      rail.id = "ioi-autopilot-primary-rail";
+      rail.id = "ioi-hypervisor-primary-rail";
       rail.dataset.testid = "autopilot-primary-rail";
       rail.setAttribute("aria-label", "Autopilot primary modes");
       rail.addEventListener("click", (event) => {
@@ -1356,13 +1356,13 @@ function workbenchShellJs() {
 
   function postForkQuickInputResult(result) {
     const message = {
-      source: "ioi-autopilot-fork-quickinput",
+      source: "ioi-hypervisor-workbench-quickinput",
       type: "ioi.quickInput.result",
       result: {
         nativeForkContributionUsed: true,
         extensionQuickPickFallbackUsed: false,
         runtimeAuthority: "daemon-owned",
-        projectionOwner: "autopilot-workbench-fork-quickinput",
+        projectionOwner: "hypervisor-workbench-quickinput",
         ...result,
       },
     };
@@ -1393,13 +1393,13 @@ function workbenchShellJs() {
       context: {
         source: "fork-quickinput-workbench",
         runtimeAuthority: "daemon-owned",
-        projectionOwner: "autopilot-workbench-fork-quickinput",
+        projectionOwner: "hypervisor-workbench-quickinput",
       },
       payload: {
         nativeForkContributionUsed: true,
         extensionQuickPickFallbackUsed: false,
         runtimeAuthority: "daemon-owned",
-        projectionOwner: "autopilot-workbench-fork-quickinput",
+        projectionOwner: "hypervisor-workbench-quickinput",
         ...payload,
       },
       timestampMs: Date.now(),
@@ -1505,7 +1505,7 @@ function workbenchShellJs() {
     const wb = workbench();
     if (!wb) return null;
     const backdrop = element("div", {
-      id: "ioi-autopilot-quickinput-backdrop",
+      id: "ioi-hypervisor-quickinput-backdrop",
       testId: "fork-quickinput-backdrop",
       attrs: {
         "aria-hidden": "true",
@@ -1526,7 +1526,7 @@ function workbenchShellJs() {
       closeForkQuickInput();
     }, true);
     const host = element("div", {
-      id: "ioi-autopilot-quickinput-host",
+      id: "ioi-hypervisor-quickinput-host",
       className: "ioi-quickinput--" + kind,
       testId,
       role: "dialog",
@@ -2088,10 +2088,10 @@ function workbenchShellJs() {
   function installBackRail() {
     const content = document.querySelector(".part.activitybar .content");
     if (!content) return;
-    let back = document.getElementById("ioi-autopilot-back-rail");
+    let back = document.getElementById("ioi-hypervisor-back-rail");
     if (!back) {
       back = document.createElement("button");
-      back.id = "ioi-autopilot-back-rail";
+      back.id = "ioi-hypervisor-back-rail";
       back.type = "button";
       back.title = "Back to Autopilot";
       back.setAttribute("aria-label", "Back to Autopilot");
@@ -2113,7 +2113,7 @@ function workbenchShellJs() {
       const isAutopilot = Boolean(autopilotMode);
       const isSubstrate = !isAutopilot && substratePatterns.some((pattern) => pattern.test(label));
       const isGlobal = !isAutopilot && !isSubstrate && globalPatterns.some((pattern) => pattern.test(label));
-      updateClass(action, "ioi-autopilot-mode-action", isAutopilot);
+      updateClass(action, "ioi-hypervisor-mode-action", isAutopilot);
       updateClass(action, "ioi-code-action", autopilotMode?.id === "code");
       updateClass(action, "ioi-vscode-substrate-action", isSubstrate);
       updateClass(action, "ioi-vscode-global-action", isGlobal);
@@ -2178,8 +2178,8 @@ function workbenchShellJs() {
     const target = event.target;
     if (!(target instanceof Element)) return;
     if (
-      target.closest("#ioi-autopilot-workbench-code-menu") ||
-      target.closest("#ioi-autopilot-workbench-code-menu-dropdown")
+      target.closest("#ioi-hypervisor-workbench-code-menu") ||
+      target.closest("#ioi-hypervisor-workbench-code-menu-dropdown")
     ) {
       return;
     }
@@ -2357,7 +2357,7 @@ function patchWorkbenchCspForLocalBridge(workbenchHtmlPath) {
   return true;
 }
 
-export function applyAutopilotWorkbenchShellPatch({
+export function applyHypervisorWorkbenchShellPatch({
   packagedRoot = HYPERVISOR_WORKBENCH_ADAPTER_HOST.packagedRoot,
 } = {}) {
   const workbenchDir = resolve(packagedRoot, "resources/app/out/vs/workbench");
@@ -2388,11 +2388,11 @@ export function applyAutopilotWorkbenchShellPatch({
 
   const metadataPath = resolve(
     packagedRoot,
-    "resources/app/out/ioi/autopilot-workbench-shell-patch.json",
+    "resources/app/out/ioi/hypervisor-workbench-shell-patch.json",
   );
   mkdirSync(dirname(metadataPath), { recursive: true });
   const metadata = {
-    schemaVersion: "ioi.autopilot-workbench-shell-patch.v1",
+    schemaVersion: "ioi.hypervisor-workbench-shell-patch.v1",
     packagedRoot,
     cssPath,
     jsPath,

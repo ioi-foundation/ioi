@@ -21,7 +21,7 @@ import {
   HYPERVISOR_WORKBENCH_ADAPTER_HOST,
   syncWorkbenchExtensionTargets,
 } from "./hypervisor-workbench-adapter-host-paths.mjs";
-import { applyAutopilotWorkbenchShellPatch } from "./autopilot-workbench-shell-patch.mjs";
+import { applyHypervisorWorkbenchShellPatch } from "./hypervisor-workbench-shell-patch.mjs";
 
 const repoRoot = HYPERVISOR_WORKBENCH_ADAPTER_HOST.repoRoot;
 const evidenceRoot =
@@ -142,7 +142,7 @@ function bridgeState(daemonEndpoint) {
           id: "route.local-first",
           routeId: "route.local-first",
           status: "ready",
-          modelId: "autopilot-native-fixture",
+          modelId: "hypervisor-native-fixture",
           endpointId: "endpoint.agent-studio.native",
           capabilities: ["chat", "responses", "structured_output"],
         },
@@ -401,7 +401,7 @@ async function runProof(outputDir) {
   const crashProofPath = join(outputDir, "workflow-crash-restart-timeline-resume-proof.json");
   const reportCardProofPath = join(outputDir, "workflow-crash-recovery-report-card-proof.json");
   const sync = syncWorkbenchExtensionTargets();
-  const shellPatch = applyAutopilotWorkbenchShellPatch();
+  const shellPatch = applyHypervisorWorkbenchShellPatch();
   writeFileSync(join(outputDir, "extension-sync.json"), `${JSON.stringify(sync, null, 2)}\n`);
   writeFileSync(join(outputDir, "shell-patch.json"), `${JSON.stringify(shellPatch, null, 2)}\n`);
   runProofScript({

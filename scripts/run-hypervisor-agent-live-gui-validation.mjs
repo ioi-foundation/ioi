@@ -44,7 +44,7 @@ import {
   bootstrapNativeRuntimeModelRoute,
   configureRuntimeAgentServiceInferenceEnv,
 } from "./lib/autopilot-runtime-agent-service-inference.mjs";
-import { applyAutopilotWorkbenchShellPatch } from "./lib/autopilot-workbench-shell-patch.mjs";
+import { applyHypervisorWorkbenchShellPatch } from "./lib/hypervisor-workbench-shell-patch.mjs";
 
 const repoRoot = HYPERVISOR_WORKBENCH_ADAPTER_HOST.repoRoot;
 const MASTER_GUIDE =
@@ -56,7 +56,7 @@ const EVIDENCE_ROOT =
 const UPDATE_MASTER_GUIDE = process.env.AUTOPILOT_AGENT_STUDIO_UPDATE_GUIDE !== "0";
 const EXTENSION_JS = "workbench-adapters/ioi-workbench/extension.js";
 const STATIC_TEST = "workbench-adapters/ioi-workbench/extension.static.test.mjs";
-const SHELL_PATCH = "scripts/lib/autopilot-workbench-shell-patch.mjs";
+const SHELL_PATCH = "scripts/lib/hypervisor-workbench-shell-patch.mjs";
 const STUDIO_SOURCE_PARTS = [
   EXTENSION_JS,
   "workbench-adapters/ioi-workbench/studio/studio-panel-html.js",
@@ -594,7 +594,7 @@ function preflightChecks() {
     {
       id: "electron:binary",
       ok: existsSync(HYPERVISOR_WORKBENCH_ADAPTER_HOST.binary),
-      summary: "Electron Autopilot binary exists",
+      summary: "Electron Hypervisor Workbench adapter binary exists",
       evidence: { binary: HYPERVISOR_WORKBENCH_ADAPTER_HOST.binary },
     },
   ];
@@ -904,7 +904,7 @@ function createBridge({ requests, commands, deliveredCommands }) {
             args: [{
               source: "fork-native-quickinput",
               runtimeAuthority: "daemon-owned",
-              projectionOwner: "autopilot-workbench-fork-quickinput",
+              projectionOwner: "hypervisor-workbench-quickinput",
             }],
           });
         }
@@ -916,7 +916,7 @@ function createBridge({ requests, commands, deliveredCommands }) {
               ...(body.payload && typeof body.payload === "object" ? body.payload : {}),
               source: "fork-native-quickinput",
               runtimeAuthority: "daemon-owned",
-              projectionOwner: "autopilot-workbench-fork-quickinput",
+              projectionOwner: "hypervisor-workbench-quickinput",
             }],
           });
         }
@@ -928,7 +928,7 @@ function createBridge({ requests, commands, deliveredCommands }) {
               ...(body.payload && typeof body.payload === "object" ? body.payload : {}),
               source: "fork-native-quickinput",
               runtimeAuthority: "daemon-owned",
-              projectionOwner: "autopilot-workbench-fork-quickinput",
+              projectionOwner: "hypervisor-workbench-quickinput",
             }],
           });
         }
@@ -1808,7 +1808,7 @@ async function runValidation(outputDir, { scenario = resolveAgentStudioChatScena
   studioFrameCache = null;
   await cleanupValidationProcesses({ outputDir, phase: "before-launch" });
   const sync = syncWorkbenchExtensionTargets();
-  const shellPatch = applyAutopilotWorkbenchShellPatch();
+  const shellPatch = applyHypervisorWorkbenchShellPatch();
   writeFileSync(join(outputDir, "extension-sync.json"), `${JSON.stringify(sync, null, 2)}\n`);
   writeFileSync(join(outputDir, "shell-patch.json"), `${JSON.stringify(shellPatch, null, 2)}\n`);
 

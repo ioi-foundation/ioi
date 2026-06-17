@@ -21,14 +21,14 @@ import {
   HYPERVISOR_WORKBENCH_ADAPTER_HOST,
   syncWorkbenchExtensionTargets,
 } from "./lib/hypervisor-workbench-adapter-host-paths.mjs";
-import { applyAutopilotWorkbenchShellPatch } from "./lib/autopilot-workbench-shell-patch.mjs";
+import { applyHypervisorWorkbenchShellPatch } from "./lib/hypervisor-workbench-shell-patch.mjs";
 
 const repoRoot = HYPERVISOR_WORKBENCH_ADAPTER_HOST.repoRoot;
 const MASTER_GUIDE = ".internal/plans/autopilot-electron-agent-studio-runtime-ux-denoising-tracing-separation-master-guide.md";
 const EVIDENCE_ROOT = "docs/evidence/autopilot-agent-studio-runtime-ux-denoising-tracing-separation";
 const EXTENSION_JS = "workbench-adapters/ioi-workbench/extension.js";
 const STATIC_TEST = "workbench-adapters/ioi-workbench/extension.static.test.mjs";
-const SHELL_PATCH = "scripts/lib/autopilot-workbench-shell-patch.mjs";
+const SHELL_PATCH = "scripts/lib/hypervisor-workbench-shell-patch.mjs";
 const PROCESS_PATTERN = "/tmp/autopilot-agent-studio-runtime-ux-denoising-user-";
 const VALIDATION_TIMEOUT_MS = 180_000;
 
@@ -235,7 +235,7 @@ function preflightChecks() {
     {
       id: "electron:binary",
       ok: existsSync(HYPERVISOR_WORKBENCH_ADAPTER_HOST.binary),
-      summary: "Electron Autopilot binary exists",
+      summary: "Electron Hypervisor Workbench adapter binary exists",
       evidence: { binary: HYPERVISOR_WORKBENCH_ADAPTER_HOST.binary },
     },
   ];
@@ -506,7 +506,7 @@ function createBridge({ requests, commands, deliveredCommands }) {
             args: [{
               source: "fork-native-quickinput",
               runtimeAuthority: "daemon-owned",
-              projectionOwner: "autopilot-workbench-fork-quickinput",
+              projectionOwner: "hypervisor-workbench-quickinput",
             }],
           });
         }
@@ -960,7 +960,7 @@ async function runValidation(outputDir) {
   ensureDir(outputDir);
   await cleanupValidationProcesses({ outputDir, phase: "before-launch" });
   const sync = syncWorkbenchExtensionTargets();
-  const shellPatch = applyAutopilotWorkbenchShellPatch();
+  const shellPatch = applyHypervisorWorkbenchShellPatch();
   writeFileSync(join(outputDir, "extension-sync.json"), `${JSON.stringify(sync, null, 2)}\n`);
   writeFileSync(join(outputDir, "shell-patch.json"), `${JSON.stringify(shellPatch, null, 2)}\n`);
 

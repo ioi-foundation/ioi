@@ -35,6 +35,7 @@ const readme = read("README.md");
 const developersDocs = read("apps/developers-ioi-ai/src/content/docs.tsx");
 const refineArchitectureGuide = read("internal-docs/implementation/refine-architecture.md");
 const workbenchAdapterLauncher = read("scripts/launch-hypervisor-workbench-adapter-host.mjs");
+const workbenchShellPatch = read("scripts/lib/hypervisor-workbench-shell-patch.mjs");
 const hypervisorShellNavigationSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorShellNavigationModel.ts",
 );
@@ -254,6 +255,23 @@ assert(
     "scripts/launch-hypervisor-workbench-adapter-host.mjs",
   ],
   "Active product docs and model preload identifiers must use Hypervisor client/Workbench taxonomy, not Autopilot IDE or Tauri product language.",
+);
+assert(
+  "workbench-shell-patch-hypervisor-named",
+  exists("scripts/lib/hypervisor-workbench-shell-patch.mjs") &&
+    !exists("scripts/lib/autopilot-workbench-shell-patch.mjs") &&
+    workbenchShellPatch.includes("applyHypervisorWorkbenchShellPatch") &&
+    workbenchShellPatch.includes("ioi-hypervisor-native-shell") &&
+    workbenchShellPatch.includes("ioi-hypervisor-workbench-quickinput") &&
+    workbenchShellPatch.includes("ioi.hypervisor-workbench-shell-patch.v1") &&
+    !/applyAutopilotWorkbenchShellPatch|ioi-autopilot-native-shell|ioi-autopilot-fork-quickinput|ioi\.autopilot-workbench-shell-patch/.test(
+      workbenchShellPatch,
+    ),
+  [
+    "scripts/lib/hypervisor-workbench-shell-patch.mjs",
+    "scripts/lib/autopilot-workbench-shell-patch.mjs",
+  ],
+  "Workbench adapter shell patch helper must use Hypervisor naming; the retired Autopilot helper path/function/source ids must not return.",
 );
 assert(
   "home-onboarding-hypervisor-taxonomy",

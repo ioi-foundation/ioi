@@ -21,15 +21,15 @@ import {
   HYPERVISOR_WORKBENCH_ADAPTER_HOST,
   syncWorkbenchExtensionTargets,
 } from "./lib/hypervisor-workbench-adapter-host-paths.mjs";
-import { applyAutopilotWorkbenchShellPatch } from "./lib/autopilot-workbench-shell-patch.mjs";
+import { applyHypervisorWorkbenchShellPatch } from "./lib/hypervisor-workbench-shell-patch.mjs";
 
 const repoRoot = HYPERVISOR_WORKBENCH_ADAPTER_HOST.repoRoot;
 const MASTER_GUIDE = ".internal/plans/autopilot-electron-fork-level-quickinput-parity-master-guide.md";
-const EVIDENCE_ROOT = "docs/evidence/autopilot-fork-quickinput-parity";
+const EVIDENCE_ROOT = "docs/evidence/hypervisor-workbench-quickinput-parity";
 const EXTENSION_JS = "workbench-adapters/ioi-workbench/extension.js";
 const STATIC_TEST = "workbench-adapters/ioi-workbench/extension.static.test.mjs";
-const SHELL_PATCH = "scripts/lib/autopilot-workbench-shell-patch.mjs";
-const PROCESS_PATTERN = "/tmp/autopilot-fork-quickinput-user-";
+const SHELL_PATCH = "scripts/lib/hypervisor-workbench-shell-patch.mjs";
+const PROCESS_PATTERN = "/tmp/hypervisor-workbench-quickinput-user-";
 
 const REQUIRED_SCREENSHOTS = [
   "fork-add-context-quickinput.png",
@@ -133,7 +133,7 @@ function checkSource() {
     'window.parent?.postMessage(message, "*")',
     'window.top.postMessage(message, "*")',
     'source: "ioi-workbench-agent-studio"',
-    'message.source !== "ioi-autopilot-fork-quickinput"',
+    'message.source !== "ioi-hypervisor-workbench-quickinput"',
     "nativeForkContributionUsed: true",
     "extensionQuickPickFallbackUsed: false",
   ];
@@ -194,12 +194,12 @@ function preflightChecks() {
     {
       id: "electron:binary",
       ok: existsSync(HYPERVISOR_WORKBENCH_ADAPTER_HOST.binary),
-      summary: "Electron Autopilot binary exists",
+      summary: "Electron Hypervisor Workbench adapter binary exists",
       evidence: { binary: HYPERVISOR_WORKBENCH_ADAPTER_HOST.binary },
     },
   ];
   return {
-    schemaVersion: "ioi.autopilot-fork-quickinput-parity.preflight.v1",
+    schemaVersion: "ioi.hypervisor-workbench-quickinput-parity.preflight.v1",
     ok: checks.every((check) => check.ok),
     checks,
   };
@@ -306,7 +306,7 @@ function bridgeState() {
           id: "route.local-first",
           routeId: "route.local-first",
           status: "ready",
-          modelId: "autopilot-native-fixture",
+          modelId: "hypervisor-native-fixture",
         },
       ],
     },
@@ -352,7 +352,7 @@ function createBridge({ requests, commands, deliveredCommands }) {
             args: [{
               source: "fork-native-quickinput",
               runtimeAuthority: "daemon-owned",
-              projectionOwner: "autopilot-workbench-fork-quickinput",
+              projectionOwner: "hypervisor-workbench-quickinput",
             }],
           });
         }
@@ -490,7 +490,7 @@ async function cleanupValidationProcesses({ outputDir, phase }) {
   const termination = before.length > 0 ? await terminateProcesses(before) : { signaled: [], forceKilled: [] };
   const after = listProcessesContaining(PROCESS_PATTERN);
   const cleanup = {
-    schemaVersion: "ioi.autopilot-fork-quickinput-parity.process-cleanup.v1",
+    schemaVersion: "ioi.hypervisor-workbench-quickinput-parity.process-cleanup.v1",
     phase,
     pattern: PROCESS_PATTERN,
     before,
@@ -506,11 +506,11 @@ async function runValidation(outputDir) {
   ensureDir(outputDir);
   await cleanupValidationProcesses({ outputDir, phase: "before-launch" });
   const sync = syncWorkbenchExtensionTargets();
-  const shellPatch = applyAutopilotWorkbenchShellPatch();
+  const shellPatch = applyHypervisorWorkbenchShellPatch();
   writeFileSync(join(outputDir, "extension-sync.json"), `${JSON.stringify(sync, null, 2)}\n`);
   writeFileSync(join(outputDir, "shell-patch.json"), `${JSON.stringify(shellPatch, null, 2)}\n`);
 
-  const daemonStateDir = mkdtempSync(join(tmpdir(), "autopilot-fork-quickinput-daemon-"));
+  const daemonStateDir = mkdtempSync(join(tmpdir(), "hypervisor-workbench-quickinput-daemon-"));
   const daemon = await startRuntimeDaemonService({ cwd: repoRoot, stateDir: daemonStateDir });
   daemonEndpointForBridge = daemon.endpoint;
 
@@ -535,7 +535,7 @@ async function runValidation(outputDir) {
     const bridgeUrl = `http://127.0.0.1:${bridgeAddress.port}`;
     const cdpPort = await getFreePort();
     userDataDir = mkdtempSync(PROCESS_PATTERN);
-    const extensionsDir = mkdtempSync(join(tmpdir(), "autopilot-fork-quickinput-ext-"));
+    const extensionsDir = mkdtempSync(join(tmpdir(), "hypervisor-workbench-quickinput-ext-"));
     writeFileSync(join(outputDir, "bridge-url"), `${bridgeUrl}\n`);
     writeFileSync(join(outputDir, "daemon-endpoint"), `${daemon.endpoint}\n`);
     writeFileSync(join(outputDir, "user-data-dir"), `${userDataDir}\n`);
@@ -709,7 +709,7 @@ async function runValidation(outputDir) {
     const composerFocusRestored = Boolean(composerFocusAfterContext && composerFocusAfterTools);
 
     const proof = {
-      schemaVersion: "ioi.autopilot-fork-quickinput-parity.proof.v1",
+      schemaVersion: "ioi.hypervisor-workbench-quickinput-parity.proof.v1",
       targetForkQuickInputParityAchieved: Boolean(
         collapsibleParentChildRowsVerified &&
           checkboxSemanticsVerified &&

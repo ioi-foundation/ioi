@@ -1399,7 +1399,7 @@ function createStudioPanelHtml({
           handleStudioRuntimeMessage(message);
           return;
         }
-        if (message.source !== "ioi-autopilot-fork-quickinput" || message.type !== "ioi.quickInput.result") {
+        if (message.source !== "ioi-hypervisor-workbench-quickinput" || message.type !== "ioi.quickInput.result") {
           return;
         }
         const result = message.result || {};

@@ -843,10 +843,13 @@ Current implementation cut:
 0A.1D active command-surface cleanup is implemented:
   the active Tauri app and root `ide/` product path are retired, and root
   `package.json` now exposes Hypervisor/App/Workbench command names instead of
-  retired Autopilot-prefixed goal, validation, or test product aliases. The
-  proof-runner filenames may remain historical internals until their code is
-  refactored or deleted, but the public command surface must not advertise
-  Autopilot as the product.
+  retired Autopilot-prefixed goal, validation, or test product aliases.
+  the active Workbench adapter shell patch helper is
+  `scripts/lib/hypervisor-workbench-shell-patch.mjs` with
+  `applyHypervisorWorkbenchShellPatch`, `ioi-hypervisor-native-shell`, and
+  `ioi-hypervisor-workbench-quickinput`; `check:runtime-layout` rejects the
+  retired `scripts/lib/autopilot-workbench-shell-patch.mjs` helper path,
+  function, schema id, and quickinput source id.
   the Workflow Composer webview build command is
   `build:hypervisor-workbench-composer`; the `ioi-workbench` directory name is
   an adapter-extension implementation detail, not the public script/product

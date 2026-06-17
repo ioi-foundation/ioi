@@ -18,7 +18,7 @@ import {
   HYPERVISOR_WORKBENCH_ADAPTER_HOST,
   syncWorkbenchExtensionTargets,
 } from "./lib/hypervisor-workbench-adapter-host-paths.mjs";
-import { applyAutopilotWorkbenchShellPatch } from "./lib/autopilot-workbench-shell-patch.mjs";
+import { applyHypervisorWorkbenchShellPatch } from "./lib/hypervisor-workbench-shell-patch.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -244,7 +244,7 @@ function checkPackageScripts() {
 
 function checkExtensionShape() {
   const source = read(`${EXTENSION_ROOT}/extension.js`);
-  const shellPatchSource = read("scripts/lib/autopilot-workbench-shell-patch.mjs");
+  const shellPatchSource = read("scripts/lib/hypervisor-workbench-shell-patch.mjs");
   const manifest = readJson(`${EXTENSION_ROOT}/package.json`);
   const activityContainers = new Set(
     (manifest.contributes?.viewsContainers?.activitybar || []).map(
@@ -762,7 +762,7 @@ async function inspectWorkbenchChrome(page) {
       visibleGlobalLabels: visibleActions
         .filter((action) => action.railKind === "global")
         .map((action) => action.label),
-      bodyHasNativeShell: Boolean(workbench?.classList?.contains("ioi-autopilot-native-shell")),
+      bodyHasNativeShell: Boolean(workbench?.classList?.contains("ioi-hypervisor-native-shell")),
     };
   });
   const webviewLocalHeaderCount = await countFramesWithTestId(
@@ -1058,7 +1058,7 @@ async function openModeAndCapture({
 function syncExtension() {
   try {
     const targets = syncWorkbenchExtensionTargets();
-    const shellPatch = applyAutopilotWorkbenchShellPatch();
+    const shellPatch = applyHypervisorWorkbenchShellPatch();
     return {
       ok: true,
       targets,
