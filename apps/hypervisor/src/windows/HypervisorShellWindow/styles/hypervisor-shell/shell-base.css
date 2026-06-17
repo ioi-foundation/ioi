@@ -3094,9 +3094,15 @@
 }
 
 /* Phase 0A hard cut: Sessions mirrors the IOI reference environment cockpit. */
+.chat-content-main:has(.hypervisor-session-operations--ioi-reference-session) {
+  overflow: clip;
+}
+
 .hypervisor-session-operations--ioi-reference-session {
   width: 100%;
-  min-height: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: auto;
   margin: 0;
   border: 0;
   border-radius: 0;
@@ -3157,6 +3163,22 @@
   font-size: 0.9rem;
 }
 
+.hypervisor-session-operations--ioi-reference-session .hypervisor-session-operations__header code {
+  width: fit-content;
+  max-width: min(100%, 720px);
+  display: inline-block;
+  overflow: hidden;
+  color: #5c616b;
+  font-family:
+    "ABC Diatype Mono",
+    "SFMono-Regular",
+    Consolas,
+    monospace;
+  font-size: 0.76rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .hypervisor-session-operations--ioi-reference-session .hypervisor-session-operations__launches {
   grid-area: launches;
   margin: 0;
@@ -3200,11 +3222,13 @@
 
 .hypervisor-session-operations--ioi-reference-session .hypervisor-session-operations__actions {
   grid-area: actions;
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: 1fr;
   align-content: start;
-  gap: 8px;
+  gap: 6px;
   margin: 0;
+  border-right: 1px solid #e6e8eb;
+  padding-right: 10px;
 }
 
 .hypervisor-session-operations--ioi-reference-session .hypervisor-session-operations__bottom {
@@ -3307,6 +3331,21 @@
   font: inherit;
 }
 
+.hypervisor-session-operations--ioi-reference-session .hypervisor-session-operations__actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 0 9px;
+  text-align: left;
+}
+
+.hypervisor-session-operations__actions-heading {
+  color: #72757e;
+  font-size: 0.72rem;
+  font-weight: 650;
+  text-transform: uppercase;
+}
+
 @media (max-width: 1220px) {
   .hypervisor-session-operations--ioi-reference-session {
     grid-template-columns: minmax(160px, 210px) minmax(0, 1fr);
@@ -3348,6 +3387,570 @@
   .hypervisor-session-operations--ioi-reference-session .hypervisor-session-operations__tabs,
   .hypervisor-session-operations--ioi-reference-session .hypervisor-session-operations__bottom {
     grid-template-columns: 1fr;
+  }
+}
+
+/* Phase 0A hard cut: Sessions uses the IOI reference environment detail view. */
+.hypervisor-session-detail-shell {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  display: block;
+  overflow: hidden;
+  padding: 0;
+  background: #ffffff;
+  color: #171719;
+}
+
+.hypervisor-session-detail-shell > .hypervisor-session-operations__header,
+.hypervisor-session-detail-shell > .hypervisor-session-operations__rail,
+.hypervisor-session-detail-shell > .hypervisor-session-operations__reference-detail,
+.hypervisor-session-detail-shell > .hypervisor-session-operations__tabs,
+.hypervisor-session-detail-shell > .hypervisor-session-operations__grid,
+.hypervisor-session-detail-shell > .hypervisor-session-operations__actions,
+.hypervisor-session-detail-shell > .hypervisor-session-operations__bottom,
+.hypervisor-session-detail-shell > .hypervisor-session-operations__metadata {
+  display: none;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__metadata {
+  display: none;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__reference-page {
+  height: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: 52px 43px minmax(0, 1fr) auto;
+  background: #ffffff;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__session-topbar {
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 24px;
+  border-bottom: 1px solid #e7e7e5;
+  background: #ffffff;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__branch-picker,
+.hypervisor-session-detail-shell .hypervisor-session-operations__top-actions button,
+.hypervisor-session-detail-shell .hypervisor-session-operations__session-title,
+.hypervisor-session-detail-shell .hypervisor-session-operations__workspace-modes button,
+.hypervisor-session-detail-shell .hypervisor-session-operations__detail-tabs button,
+.hypervisor-session-detail-shell .hypervisor-session-operations__change-inspector button,
+.hypervisor-session-detail-shell .hypervisor-session-operations__bottom-tabs button,
+.hypervisor-session-detail-shell .hypervisor-session-operations__row button {
+  min-height: 32px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #171719;
+  font: inherit;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__branch-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 8px;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #00a316;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__top-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__top-actions button {
+  padding: 0 10px;
+  border: 1px solid #e7e7e5;
+  background: #fbfbfa;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__top-actions button:hover,
+.hypervisor-session-detail-shell .hypervisor-session-operations__branch-picker:hover,
+.hypervisor-session-detail-shell .hypervisor-session-operations__session-title:hover,
+.hypervisor-session-detail-shell .hypervisor-session-operations__workspace-modes button:hover,
+.hypervisor-session-detail-shell .hypervisor-session-operations__detail-tabs button:hover,
+.hypervisor-session-detail-shell .hypervisor-session-operations__change-inspector button:hover,
+.hypervisor-session-detail-shell .hypervisor-session-operations__bottom-tabs button:hover,
+.hypervisor-session-detail-shell .hypervisor-session-operations__row button:hover {
+  background: #ececeb;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__session-tabs {
+  min-height: 43px;
+  display: grid;
+  grid-template-columns: auto minmax(180px, max-content) minmax(0, 1fr) auto;
+  align-items: stretch;
+  gap: 14px;
+  padding: 0 24px;
+  border-bottom: 1px solid #e7e7e5;
+  background: #ffffff;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__workspace-modes,
+.hypervisor-session-detail-shell .hypervisor-session-operations__detail-tabs,
+.hypervisor-session-detail-shell .hypervisor-session-operations__change-inspector,
+.hypervisor-session-detail-shell .hypervisor-session-operations__bottom-tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  border: 0;
+  background: transparent;
+  overflow: visible;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__workspace-modes button,
+.hypervisor-session-detail-shell .hypervisor-session-operations__detail-tabs button {
+  position: relative;
+  flex: 0 0 auto;
+  min-height: 43px;
+  padding: 0 10px;
+  border-radius: 0;
+  color: #3f3f46;
+  white-space: nowrap;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__workspace-modes button[aria-selected="true"],
+.hypervisor-session-detail-shell .hypervisor-session-operations__detail-tabs button[aria-selected="true"] {
+  color: #111113;
+  background: transparent;
+  box-shadow: inset 0 -2px 0 #111113;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__top-actions button:first-child {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 220px;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__top-actions button:first-child strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__session-title {
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  max-width: 340px;
+  padding: 0 8px;
+  text-align: left;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__session-title strong,
+.hypervisor-session-detail-shell .hypervisor-session-operations__session-title code {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__session-title code {
+  color: #7a7a80;
+  font-family: "ABC Diatype Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 11px;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__body {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__environment {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  padding: 40px 28px 28px;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__environment-header {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(360px, max-content);
+  align-items: center;
+  gap: 24px;
+  padding-bottom: 28px;
+  border-bottom: 1px solid #e7e7e5;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__environment-header > div:first-child {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__environment-header h2 {
+  margin: 0;
+  color: #111113;
+  font-size: 22px;
+  font-weight: 650;
+  line-height: 28px;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__toggle {
+  width: 34px;
+  height: 20px;
+  border-radius: 999px;
+  background: #00a316;
+  box-shadow: inset 14px 0 0 #00a316;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__toggle::after {
+  content: "";
+  width: 16px;
+  height: 16px;
+  display: block;
+  margin: 2px 2px 2px auto;
+  border-radius: 999px;
+  background: #ffffff;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__environment-header dl {
+  display: grid;
+  grid-template-columns: repeat(4, max-content);
+  gap: 26px;
+  margin: 0;
+}
+
+.hypervisor-session-detail-shell dt,
+.hypervisor-session-detail-shell .hypervisor-session-operations__folder {
+  display: block;
+  color: #7a7a80;
+  font-size: 12px;
+  font-weight: 450;
+  line-height: 16px;
+}
+
+.hypervisor-session-detail-shell dd {
+  margin: 4px 0 0;
+  color: #111113;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__health-pill {
+  display: inline-flex;
+  min-height: 22px;
+  align-items: center;
+  border-radius: 999px;
+  background: #defbd9;
+  color: #087a12;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__startup-list {
+  max-width: 720px;
+  display: grid;
+  gap: 0;
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__startup-list li {
+  position: relative;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 16px;
+  padding: 14px 0;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__startup-list li::before {
+  content: "";
+  position: absolute;
+  left: 12px;
+  top: 34px;
+  bottom: -14px;
+  width: 1px;
+  background: #d9d9d7;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__startup-list li:last-child::before {
+  display: none;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__check-dot {
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: start;
+  border-radius: 999px;
+  background: #00a316;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__startup-list strong,
+.hypervisor-session-detail-shell .hypervisor-session-operations__startup-list span {
+  display: block;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__startup-list strong {
+  color: #111113;
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 20px;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__startup-list div span {
+  color: #5f6067;
+  font-size: 13px;
+  line-height: 19px;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__right-pane {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: 52px 44px minmax(0, 1fr) minmax(224px, 32vh);
+  border-left: 1px solid #e2e2df;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__right-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 16px;
+  border-bottom: 1px solid #e7e7e5;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__right-header h3,
+.hypervisor-session-detail-shell .hypervisor-session-operations__panel h3 {
+  margin: 0;
+  color: #111113;
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__change-inspector button,
+.hypervisor-session-detail-shell .hypervisor-session-operations__bottom-tabs button {
+  min-height: 32px;
+  padding: 0 8px;
+  border-radius: 0;
+  color: #3f3f46;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__change-inspector button[aria-pressed="true"],
+.hypervisor-session-detail-shell .hypervisor-session-operations__bottom-tabs button[aria-selected="true"] {
+  box-shadow: inset 0 -2px 0 #111113;
+  color: #111113;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__search {
+  display: grid;
+  grid-template-columns: 1fr;
+  align-items: center;
+  padding: 6px 16px;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__search span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__search input {
+  width: 100%;
+  min-height: 32px;
+  border: 1px solid #dededc;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #171719;
+  padding: 0 11px;
+  font: inherit;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__search input::placeholder {
+  color: #7a7a80;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__change-list {
+  min-height: 0;
+  overflow: auto;
+  padding: 8px 16px 14px;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__change-list > div {
+  display: grid;
+  gap: 5px;
+  margin-bottom: 14px;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__change-list button {
+  min-height: 28px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #171719;
+  padding: 0 4px;
+  font: inherit;
+  text-align: left;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__change-list button:hover {
+  background: #ececeb;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__change-list code,
+.hypervisor-session-detail-shell .hypervisor-session-operations__change-list strong {
+  min-width: 0;
+  overflow: hidden;
+  color: #171719;
+  font-family: "ABC Diatype Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 12px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__change-list button span {
+  color: #00a316;
+  font-size: 12px;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__bottom-dock {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: 40px minmax(0, 1fr);
+  border-top: 1px solid #e2e2df;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__bottom-tabs {
+  padding: 0 16px;
+  border-bottom: 1px solid #e7e7e5;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__bottom-content {
+  min-height: 0;
+  overflow: auto;
+  padding: 16px;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__panel {
+  display: grid;
+  gap: 8px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0 0 14px;
+  box-shadow: none;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__panel + .hypervisor-session-operations__panel {
+  padding-top: 14px;
+  border-top: 1px solid #eeeeec;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px 8px;
+  min-height: 34px;
+  border: 1px solid #eeeeec;
+  border-radius: 8px;
+  background: #fbfbfa;
+  padding: 8px;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__row strong,
+.hypervisor-session-detail-shell .hypervisor-session-operations__row span,
+.hypervisor-session-detail-shell .hypervisor-session-operations__row em {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__row strong {
+  color: #171719;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__row span,
+.hypervisor-session-detail-shell .hypervisor-session-operations__row em {
+  color: #6f737b;
+  font-size: 12px;
+  font-style: normal;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__row button {
+  justify-self: end;
+  grid-row: span 2;
+  min-height: 28px;
+  border: 1px solid #dededc;
+  padding: 0 10px;
+  background: #ffffff;
+  font-size: 13px;
+}
+
+@media (max-width: 1180px) {
+  .hypervisor-session-detail-shell .hypervisor-session-operations__body {
+    grid-template-columns: minmax(0, 1fr) 320px;
+  }
+
+  .hypervisor-session-detail-shell .hypervisor-session-operations__environment-header {
+    grid-template-columns: 1fr;
+  }
+
+  .hypervisor-session-detail-shell .hypervisor-session-operations__environment-header dl {
+    grid-template-columns: repeat(2, max-content);
+  }
+}
+
+@media (max-width: 860px) {
+  .hypervisor-session-detail-shell .hypervisor-session-operations__reference-page {
+    grid-template-rows: auto auto minmax(0, 1fr);
+  }
+
+  .hypervisor-session-detail-shell .hypervisor-session-operations__session-topbar,
+  .hypervisor-session-detail-shell .hypervisor-session-operations__session-tabs {
+    padding-inline: 14px;
+  }
+
+  .hypervisor-session-detail-shell .hypervisor-session-operations__session-tabs,
+  .hypervisor-session-detail-shell .hypervisor-session-operations__body {
+    grid-template-columns: 1fr;
+  }
+
+  .hypervisor-session-detail-shell .hypervisor-session-operations__right-pane {
+    min-height: 420px;
+    border-left: 0;
+    border-top: 1px solid #e2e2df;
   }
 }
 

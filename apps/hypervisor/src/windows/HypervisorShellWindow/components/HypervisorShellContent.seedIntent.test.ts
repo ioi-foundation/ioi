@@ -22,10 +22,10 @@ const homeCss = fs.readFileSync(
   "utf8",
 );
 
-assert.match(
+assert.doesNotMatch(
   source,
-  /<ChatCopilotView[\s\S]*seedIntent=\{controller\.chat\.seedIntent\}[\s\S]*onConsumeSeedIntent=\{controller\.chat\.consumeSeedIntent\}/,
-  "the primary chat copilot surface should remain the only seed-intent consumer",
+  /<ChatCopilotView/,
+  "Sessions should not mount the legacy chat pane underneath the IOI-reference cockpit",
 );
 
 assert.match(
@@ -109,8 +109,14 @@ assert.match(
 
 assert.match(
   source,
-  /className="hypervisor-session-operations hypervisor-session-operations--ioi-reference-session"[\s\S]*data-ioi-reference-session-cockpit="true"/,
+  /className="hypervisor-session-operations hypervisor-session-operations--ioi-reference-session hypervisor-session-detail-shell"[\s\S]*data-ioi-reference-session-cockpit="true"/,
   "Sessions should use the IOI-reference session cockpit shell",
+);
+
+assert.match(
+  source,
+  /function formatSessionDisplayTitle[\s\S]*function formatSessionOperationLabel[\s\S]*function formatSessionLifecycleLabel[\s\S]*data-session-reference-page="environment-detail"[\s\S]*className="hypervisor-session-operations__session-title"[\s\S]*<strong>\{formatSessionDisplayTitle\(projection\.selected_session_ref\)\}<\/strong>[\s\S]*<code>\{projection\.selected_session_ref\}<\/code>[\s\S]*Environment \{formatSessionLifecycleLabel\(projection\.lifecycle_state\)\}[\s\S]*\{formatSessionOperationLabel\(operationKind\)\}/,
+  "Sessions should render the IOI reference environment detail page with human title, raw refs, lifecycle status, and operation actions",
 );
 
 assert.match(
@@ -163,14 +169,26 @@ assert.match(
 
 assert.match(
   shellCss,
-  /Phase 0A hard cut: Sessions mirrors the IOI reference environment cockpit[\s\S]*\.hypervisor-session-operations--ioi-reference-session\s*\{[\s\S]*background: #ffffff;[\s\S]*grid-template-areas:[\s\S]*"rail reference grid"/,
-  "Sessions should use the IOI-reference light cockpit with rail, center workplane, and inspector regions",
+  /Phase 0A hard cut: Sessions uses the IOI reference environment detail view[\s\S]*\.hypervisor-session-detail-shell\s*\{[\s\S]*height: 100%;[\s\S]*overflow: hidden;[\s\S]*background: #ffffff;[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__reference-page\s*\{[\s\S]*grid-template-rows: 52px 43px minmax\(0, 1fr\) auto;/,
+  "Sessions should use the IOI-reference environment detail page instead of the stale dashboard grid",
 );
 
 assert.match(
   shellCss,
-  /\.hypervisor-session-operations--ioi-reference-session \.hypervisor-session-operations__bottom\s*\{[\s\S]*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\);[\s\S]*border-top: 1px solid #e6e8eb;/,
-  "Sessions should keep ports/services, tasks, and terminal as bottom inspectors",
+  /\.hypervisor-session-detail-shell \.hypervisor-session-operations__right-pane\s*\{[\s\S]*grid-template-rows: 52px 44px minmax\(0, 1fr\) minmax\(224px, 32vh\);[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__bottom-dock\s*\{[\s\S]*border-top: 1px solid #e2e2df;/,
+  "Sessions should keep changes and Ports/Tasks/Terminal in the right inspector dock",
+);
+
+assert.match(
+  shellCss,
+  /\.hypervisor-session-detail-shell \.hypervisor-session-operations__session-title code\s*\{[\s\S]*text-overflow: ellipsis;[\s\S]*white-space: nowrap;/,
+  "Sessions should keep raw refs visible as compact session-title metadata",
+);
+
+assert.match(
+  shellCss,
+  /\.hypervisor-session-detail-shell > \.hypervisor-session-operations__actions[\s\S]*display: none;[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__top-actions\s*\{[\s\S]*display: flex;/,
+  "Sessions should move operation proposals into the reference top action strip and hide the stale action rail",
 );
 
 assert.match(
