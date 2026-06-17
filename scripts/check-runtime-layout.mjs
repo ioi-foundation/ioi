@@ -57,6 +57,9 @@ const hypervisorShellNavigationSource = read(
 const workbenchAdapterPreferencesSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/workbenchAdapterPreferences.ts",
 );
+const workspaceEditorAdapterBridgeSource = read(
+  "apps/hypervisor/src/services/workspaceEditorAdapterBridge.ts",
+);
 const hypervisorHarnessAdapterModelSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/harnessAdapterModel.ts",
 );
@@ -351,6 +354,23 @@ assert(
     ),
   ["apps/hypervisor/src/services/HypervisorClientRuntime.ts"],
   "Hypervisor client runtime must emit Hypervisor-named host events and commands, not retired Autopilot bridge names.",
+);
+assert(
+  "workbench-adapter-bridge-command-names",
+  workspaceEditorAdapterBridgeSource.includes('"ensure_workbench_adapter_session"') &&
+    workspaceEditorAdapterBridgeSource.includes('"stop_workbench_adapter_session"') &&
+    workspaceEditorAdapterBridgeSource.includes(
+      '"write_workbench_adapter_bridge_state"',
+    ) &&
+    workspaceEditorAdapterBridgeSource.includes(
+      '"enqueue_workbench_adapter_bridge_command"',
+    ) &&
+    workspaceEditorAdapterBridgeSource.includes(
+      '"take_workbench_adapter_bridge_requests"',
+    ) &&
+    !/workspace_ide|Workspace IDE/.test(workspaceEditorAdapterBridgeSource),
+  ["apps/hypervisor/src/services/workspaceEditorAdapterBridge.ts"],
+  "Workbench adapter bridge commands must use Workbench adapter protocol names, not retired workspace_ide command ids.",
 );
 assert(
   "runtime-module-map",

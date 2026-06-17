@@ -979,6 +979,10 @@ Current implementation cut:
 0A.1B is partially implemented:
   ChatIdeHeader.tsx -> HypervisorClientHeader.tsx
   workspaceIde.ts -> workspaceEditorAdapterBridge.ts
+  workspace adapter host bridge commands now use `workbench_adapter` protocol
+    names (`ensure_workbench_adapter_session`,
+    `write_workbench_adapter_bridge_state`, etc.), and
+    `check:runtime-layout` rejects the retired `workspace_ide` command ids
   scripts/lib/autopilot-electron-app-paths.mjs ->
     scripts/lib/hypervisor-workbench-adapter-host-paths.mjs
   check:autopilot-electron-source-fork-optional ->

@@ -24,23 +24,21 @@ export interface WorkspaceEditorAdapterBridgeCommand {
 export async function ensureWorkspaceEditorAdapterSession(
   root: string,
 ): Promise<WorkspaceEditorAdapterSessionInfo> {
-  // Host command ids retain their legacy names until the host bridge protocol
-  // itself is renamed; this facade is the active Hypervisor adapter boundary.
   return invoke<WorkspaceEditorAdapterSessionInfo>(
-    "ensure_workspace_ide_session",
+    "ensure_workbench_adapter_session",
     { root },
   );
 }
 
 export async function stopWorkspaceEditorAdapterSession(): Promise<void> {
-  await invoke("stop_workspace_ide_session");
+  await invoke("stop_workbench_adapter_session");
 }
 
 export async function writeWorkspaceEditorAdapterBridgeState(
   root: string,
   state: Record<string, unknown>,
 ): Promise<void> {
-  await invoke("write_workspace_ide_bridge_state", { root, state });
+  await invoke("write_workbench_adapter_bridge_state", { root, state });
 }
 
 export async function enqueueWorkspaceEditorAdapterBridgeCommand(params: {
@@ -53,7 +51,7 @@ export async function enqueueWorkspaceEditorAdapterBridgeCommand(params: {
       ? crypto.randomUUID()
       : `workspace-command-${Date.now()}-${Math.random().toString(16).slice(2)}`;
   return invoke<WorkspaceEditorAdapterBridgeCommand>(
-    "enqueue_workspace_ide_bridge_command",
+    "enqueue_workbench_adapter_bridge_command",
     {
       root: params.root,
       commandId,
@@ -67,7 +65,7 @@ export async function takeWorkspaceEditorAdapterBridgeRequests(
   root: string,
 ): Promise<WorkspaceBridgeRouteRequest[]> {
   return invoke<WorkspaceBridgeRouteRequest[]>(
-    "take_workspace_ide_bridge_requests",
+    "take_workbench_adapter_bridge_requests",
     {
       root,
     },
