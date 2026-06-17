@@ -1148,6 +1148,18 @@ Current implementation cut:
   lanes. Remaining work is live admission hydration from daemon model-mount
   routes, provider leases, wallet declassification policy, and Agentgres
   privacy receipts.
+
+0A.3 first Projects state surface is implemented:
+  `hypervisorProjectStateModel.ts` defines `HypervisorProjectStateProjection`
+  for project/workspace refs, current session refs, environment/provider refs,
+  adapter preference, custody posture, restore state, Agentgres object heads,
+  state roots, artifact refs, archive refs, restore refs, and latest receipts.
+  `HypervisorShellContent` now renders Projects as a project-state and restore
+  posture surface instead of a placeholder. The surface keeps the boundary
+  explicit: Hypervisor clients inspect project state; Agentgres admits project
+  truth; storage backends hold bytes only. Remaining work is live project
+  projection hydration, project selection actions, archive/restore operation
+  buttons, and paginated project receipt history.
 ```
 
 Code migration posture:

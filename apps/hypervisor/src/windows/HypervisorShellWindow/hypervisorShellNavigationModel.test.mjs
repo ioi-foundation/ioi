@@ -46,6 +46,10 @@ const privacyPostureModel = readFileSync(
   new URL("./hypervisorPrivacyPostureModel.ts", import.meta.url),
   "utf8",
 );
+const projectStateModel = readFileSync(
+  new URL("./hypervisorProjectStateModel.ts", import.meta.url),
+  "utf8",
+);
 const receiptEvidenceModel = readFileSync(
   new URL("./hypervisorReceiptEvidenceModel.ts", import.meta.url),
   "utf8",
@@ -279,6 +283,26 @@ test("Sessions surface renders session tabs and operations inspectors from daemo
   assert.match(shellContent, /data-session-task/);
   assert.match(shellContent, /data-session-terminal-event/);
   assert.match(shellContent, /activeView === "sessions"/);
+});
+
+test("Projects surface renders workspace, restore, artifact, and state-root projection", () => {
+  assert.match(projectStateModel, /HypervisorProjectStateProjection/);
+  assert.match(projectStateModel, /HYPERVISOR_PROJECT_STATE_PROJECTION_FIXTURE/);
+  assert.match(projectStateModel, /agentgres_object_head_ref/);
+  assert.match(projectStateModel, /state_root_ref/);
+  assert.match(projectStateModel, /artifact_refs/);
+  assert.match(projectStateModel, /archive_ref/);
+  assert.match(projectStateModel, /restore_ref/);
+  assert.match(projectStateModel, /Agentgres admits project truth/);
+  assert.match(projectStateModel, /storage backends only hold bytes/);
+  assert.match(shellContent, /HypervisorProjectStateSurface/);
+  assert.match(shellContent, /data-hypervisor-project-state/);
+  assert.match(shellContent, /data-project-state-record/);
+  assert.match(shellContent, /data-project-restore-state/);
+  assert.match(shellContent, /data-project-custody-posture/);
+  assert.match(shellContent, /activeView === "projects"/);
+  assert.match(shellContent, /activeView !== "projects"/);
+  assert.doesNotMatch(shellContent, /projects: \{\s*eyebrow: "Project state"/);
 });
 
 test("Providers and Environments surfaces are direct integrations, not Fleet placeholders", () => {

@@ -31,6 +31,7 @@ import { materializeWorkflowProject } from "../../../services/workflowProjectMat
 import type { PrimaryView } from "../hypervisorShellModel";
 import { HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE } from "../harnessAdapterModel";
 import { HYPERVISOR_PRIVACY_POSTURE_PROJECTION_FIXTURE } from "../hypervisorPrivacyPostureModel";
+import { HYPERVISOR_PROJECT_STATE_PROJECTION_FIXTURE } from "../hypervisorProjectStateModel";
 import { HYPERVISOR_PROVIDER_PLACEMENT_PROJECTION_FIXTURE } from "../hypervisorProviderPlacementModel";
 import { HYPERVISOR_RECEIPT_EVIDENCE_PROJECTION_FIXTURE } from "../hypervisorReceiptEvidenceModel";
 import { HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE } from "../hypervisorSessionOperationsModel";
@@ -43,13 +44,6 @@ interface HypervisorShellContentProps {
 const PLACEHOLDER_SURFACE_COPY: Partial<
   Record<PrimaryView, { eyebrow: string; title: string; body: string; tags: string[] }>
 > = {
-  projects: {
-    eyebrow: "Project state",
-    title: "Projects will bind repos, workspace state, and restore posture.",
-    body:
-      "This surface is where Hypervisor will group local folders, remote workspaces, Agentgres state refs, encrypted artifact refs, and zero-to-idle restore material without making any editor the parent product.",
-    tags: ["Workspace refs", "Restore posture", "Artifact refs"],
-  },
   providers: {
     eyebrow: "Provider posture",
     title: "Providers manage direct compute, storage, model, and node integrations.",
@@ -332,6 +326,102 @@ function HypervisorSessionOperationsCockpit() {
             </div>
           ))}
         </div>
+      </div>
+    </section>
+  );
+}
+
+function HypervisorProjectStateSurface({
+  selectedProjectId,
+}: {
+  selectedProjectId: string;
+}) {
+  const projection = HYPERVISOR_PROJECT_STATE_PROJECTION_FIXTURE;
+  return (
+    <section
+      className="hypervisor-project-state"
+      aria-label="Project state surface"
+      data-hypervisor-project-state={projection.projection_id}
+      data-runtime-truth-source={projection.runtimeTruthSource}
+    >
+      <div className="hypervisor-project-state__header">
+        <span>Projects</span>
+        <h2>Workspace refs, sessions, restore posture, and state roots.</h2>
+        <p>{projection.project_boundary_invariant}</p>
+      </div>
+
+      <div className="hypervisor-project-state__grid">
+        {projection.records.map((project) => {
+          const selected = project.project_id === selectedProjectId;
+          return (
+            <article
+              key={project.project_id}
+              className={clsx(
+                "hypervisor-project-state__card",
+                selected && "is-selected",
+              )}
+              data-project-state-record={project.project_id}
+              data-project-restore-state={project.restore_state}
+              data-project-custody-posture={project.custody_posture}
+            >
+              <div className="hypervisor-project-state__card-head">
+                <span>{project.environment}</span>
+                <strong>{project.restore_state.split("_").join(" ")}</strong>
+              </div>
+              <h3>{project.name}</h3>
+              <p>{project.description}</p>
+              <dl>
+                <div>
+                  <dt>Workspace</dt>
+                  <dd>{project.workspace_ref}</dd>
+                </div>
+                <div>
+                  <dt>Root</dt>
+                  <dd>{project.root_path}</dd>
+                </div>
+                <div>
+                  <dt>Session</dt>
+                  <dd>{project.current_session_ref ?? "idle"}</dd>
+                </div>
+                <div>
+                  <dt>Environment</dt>
+                  <dd>{project.environment_ref ?? "not attached"}</dd>
+                </div>
+                <div>
+                  <dt>Provider</dt>
+                  <dd>{project.provider_candidate_ref ?? "not selected"}</dd>
+                </div>
+                <div>
+                  <dt>Adapter</dt>
+                  <dd>{project.adapter_preference_ref}</dd>
+                </div>
+                <div>
+                  <dt>Object Head</dt>
+                  <dd>{project.agentgres_object_head_ref}</dd>
+                </div>
+                <div>
+                  <dt>State Root</dt>
+                  <dd>{project.state_root_ref}</dd>
+                </div>
+                <div>
+                  <dt>Archive</dt>
+                  <dd>{project.archive_ref}</dd>
+                </div>
+                <div>
+                  <dt>Restore</dt>
+                  <dd>{project.restore_ref}</dd>
+                </div>
+              </dl>
+              <div className="hypervisor-project-state__refs" aria-label="Project artifact and receipt refs">
+                {[...project.artifact_refs, ...project.latest_receipt_refs].map(
+                  (ref) => (
+                    <span key={ref}>{ref}</span>
+                  ),
+                )}
+              </div>
+            </article>
+          );
+        })}
       </div>
     </section>
   );
@@ -789,6 +879,12 @@ export function HypervisorShellContent({
                     </>
                   ) : null}
 
+                  {activeView === "projects" ? (
+                    <HypervisorProjectStateSurface
+                      selectedProjectId={currentProject.id}
+                    />
+                  ) : null}
+
                   {activeView === "automations" ? (
                     <MissionControlWorkflowsView
                       runtime={runtime}
@@ -981,6 +1077,7 @@ export function HypervisorShellContent({
                   ) : null}
 
                   {isPlaceholderSurface(activeView) &&
+                  activeView !== "projects" &&
                   activeView !== "foundry" &&
                   activeView !== "privacy" &&
                   activeView !== "providers" &&
