@@ -34,6 +34,10 @@ const shellContent = readFileSync(
   new URL("./components/HypervisorShellContent.tsx", import.meta.url),
   "utf8",
 );
+const sessionOperationsModel = readFileSync(
+  new URL("./hypervisorSessionOperationsModel.ts", import.meta.url),
+  "utf8",
+);
 
 test("hypervisor shell exposes the canonical core client and surface taxonomy", () => {
   assert.match(source, /export type HypervisorClientKind/);
@@ -240,6 +244,29 @@ test("Foundry exposes harness comparison as a daemon-runtime dashboard", () => {
   assert.match(shellContent, /verification_status/);
   assert.match(shellContent, /receipt_ref/);
   assert.match(shellContent, /activeView === "foundry"/);
+});
+
+test("Sessions surface renders session tabs and operations inspectors from daemon projections", () => {
+  assert.match(sessionOperationsModel, /HypervisorSessionOperationsProjection/);
+  assert.match(sessionOperationsModel, /HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE/);
+  assert.match(sessionOperationsModel, /HYPERVISOR_SESSION_DETAIL_TABS/);
+  assert.match(sessionOperationsModel, /HYPERVISOR_RIGHT_INSPECTOR_PANELS/);
+  assert.match(sessionOperationsModel, /HYPERVISOR_BOTTOM_INSPECTOR_PANELS/);
+  assert.match(sessionOperationsModel, /access_lease_ref/);
+  assert.match(sessionOperationsModel, /log_lease_ref/);
+  assert.match(sessionOperationsModel, /archive_ref/);
+  assert.match(sessionOperationsModel, /restore_ref/);
+  assert.match(sessionOperationsModel, /ports_services/);
+  assert.match(sessionOperationsModel, /terminal_events/);
+  assert.match(shellContent, /HypervisorSessionOperationsCockpit/);
+  assert.match(shellContent, /data-hypervisor-session-operations/);
+  assert.match(shellContent, /data-runtime-truth-source/);
+  assert.match(shellContent, /data-session-detail-tab/);
+  assert.match(shellContent, /data-right-inspector-panel/);
+  assert.match(shellContent, /data-session-port-service/);
+  assert.match(shellContent, /data-session-task/);
+  assert.match(shellContent, /data-session-terminal-event/);
+  assert.match(shellContent, /activeView === "sessions"/);
 });
 
 console.log("hypervisorShellNavigationModel.test.mjs: ok");

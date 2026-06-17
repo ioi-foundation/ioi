@@ -2649,3 +2649,184 @@
     grid-template-columns: 1fr;
   }
 }
+
+.hypervisor-session-operations {
+  width: min(1180px, calc(100vw - 112px));
+  margin: 28px auto 18px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.8);
+  color: #e5edf7;
+  padding: 22px;
+  box-shadow: 0 20px 70px rgba(2, 6, 23, 0.26);
+}
+
+.hypervisor-session-operations__header {
+  display: grid;
+  gap: 8px;
+  max-width: 820px;
+}
+
+.hypervisor-session-operations__header span,
+.hypervisor-session-operations__rail-item span,
+.hypervisor-session-operations__panel dt,
+.hypervisor-session-operations__row em {
+  color: #94a3b8;
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0;
+}
+
+.hypervisor-session-operations__header h2,
+.hypervisor-session-operations__panel h3 {
+  margin: 0;
+}
+
+.hypervisor-session-operations__header h2 {
+  font-size: clamp(1.35rem, 1.8vw, 1.85rem);
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.hypervisor-session-operations__header p {
+  margin: 0;
+  color: #cbd5e1;
+  line-height: 1.52;
+}
+
+.hypervisor-session-operations__rail {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.hypervisor-session-operations__rail-item,
+.hypervisor-session-operations__inspector,
+.hypervisor-session-operations__row,
+.hypervisor-session-operations__panel dl div {
+  min-width: 0;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.52);
+  padding: 10px;
+}
+
+.hypervisor-session-operations__rail-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.hypervisor-session-operations__rail-item.is-selected {
+  border-color: rgba(96, 165, 250, 0.5);
+  background: rgba(30, 64, 175, 0.28);
+}
+
+.hypervisor-session-operations__tabs {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.hypervisor-session-operations__tabs button {
+  min-height: 92px;
+  border: 1px solid rgba(148, 163, 184, 0.17);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.48);
+  color: #e5edf7;
+  padding: 12px;
+  text-align: left;
+}
+
+.hypervisor-session-operations__tabs button[aria-selected="true"] {
+  border-color: rgba(34, 197, 94, 0.5);
+  background: rgba(20, 83, 45, 0.28);
+}
+
+.hypervisor-session-operations__tabs strong,
+.hypervisor-session-operations__tabs span,
+.hypervisor-session-operations__row strong,
+.hypervisor-session-operations__row span,
+.hypervisor-session-operations__row em,
+.hypervisor-session-operations__inspector strong,
+.hypervisor-session-operations__inspector span {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.hypervisor-session-operations__tabs span,
+.hypervisor-session-operations__inspector span,
+.hypervisor-session-operations__row span,
+.hypervisor-session-operations__panel dd {
+  color: #cbd5e1;
+  font-size: 0.84rem;
+  line-height: 1.42;
+}
+
+.hypervisor-session-operations__grid,
+.hypervisor-session-operations__bottom {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.hypervisor-session-operations__grid {
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+}
+
+.hypervisor-session-operations__bottom {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.hypervisor-session-operations__panel {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 12px;
+  background: rgba(2, 6, 23, 0.2);
+  padding: 14px;
+}
+
+.hypervisor-session-operations__panel dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.hypervisor-session-operations__panel dd {
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.hypervisor-session-operations__row {
+  display: grid;
+  gap: 4px;
+}
+
+@media (max-width: 1080px) {
+  .hypervisor-session-operations {
+    width: calc(100vw - 32px);
+  }
+
+  .hypervisor-session-operations__tabs {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .hypervisor-session-operations__grid,
+  .hypervisor-session-operations__bottom {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .hypervisor-session-operations__rail,
+  .hypervisor-session-operations__tabs,
+  .hypervisor-session-operations__panel dl {
+    grid-template-columns: 1fr;
+  }
+}

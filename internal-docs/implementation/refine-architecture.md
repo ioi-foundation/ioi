@@ -1056,9 +1056,13 @@ Current implementation cut:
 0A.2 remaining visual implementation:
   Home still needs to become the full IOI-reference cockpit view
   the secondary session/project rail still needs the live session projection
-  the main canvas still needs richer session detail tabs and inspectors
-  right and bottom inspectors still need to be actual runtime panels, not only
-  navigation metadata
+  the main canvas now has a first read-only Sessions operations cockpit backed
+  by `HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE`, but live daemon
+  projection hydration remains follow-up work
+  right and bottom inspectors now render the first session operations panels
+  for changes/authority/privacy/receipts/model-provider and
+  ports/services/tasks/terminal/logs shape, but they still need live runtime
+  data and interactive lease/action flows
 
 0A.5 Workbench adapter-hub landing is partially implemented:
   `WorkspaceRepositoryGate` now opens as a Workbench adapter hub over
@@ -1085,6 +1089,21 @@ Current implementation cut:
   the activity rail and Home dashboard open the shell-level New Session modal
   modal launch routes through the Hypervisor shell controller to the selected
   canonical surface and seeds Sessions when the recipe is a Mission
+
+0A.8 first session operations cockpit is implemented:
+  `hypervisorSessionOperationsModel.ts` defines
+  `HypervisorSessionOperationsProjection` and a daemon-runtime fixture binding
+  the canonical session rail, session detail tabs, right inspector panels,
+  bottom inspector panels, provider/environment refs, access/log leases,
+  archive/restore refs, services, tasks, terminal events, authority scopes, and
+  latest receipt refs.
+  `HypervisorShellContent` renders that projection in the Sessions surface as
+  a read-only operations cockpit before the chat/work session view. This makes
+  the IOI-reference session-detail tabs and ports/services/tasks/terminal
+  inspector implementation-visible without making the client runtime truth.
+  Focused model and shell source tests guard the tab/inspector arrays, lease
+  refs, restore refs, port/service rows, task rows, terminal events, and
+  `runtimeTruthSource: "daemon-runtime"` boundary.
 ```
 
 Code migration posture:

@@ -29,6 +29,7 @@ import { buildOperatorCommandCenterModel } from "../operatorSubstrateModel";
 import { materializeWorkflowProject } from "../../../services/workflowProjectMaterialization";
 import type { PrimaryView } from "../hypervisorShellModel";
 import { HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE } from "../harnessAdapterModel";
+import { HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE } from "../hypervisorSessionOperationsModel";
 
 interface HypervisorShellContentProps {
   controller: ReturnType<typeof useHypervisorShellController>;
@@ -179,6 +180,161 @@ function HypervisorHarnessComparisonDashboard() {
             <span role="cell">{candidate.receipt_ref}</span>
           </div>
         ))}
+      </div>
+    </section>
+  );
+}
+
+function HypervisorSessionOperationsCockpit() {
+  const projection = HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE;
+  return (
+    <section
+      className="hypervisor-session-operations"
+      aria-label="Session operations cockpit"
+      data-hypervisor-session-operations={projection.projection_id}
+      data-runtime-truth-source={projection.runtimeTruthSource}
+    >
+      <div className="hypervisor-session-operations__header">
+        <span>Sessions</span>
+        <h2>{projection.selected_session_ref}</h2>
+        <p>
+          Session state, environment posture, leases, ports, tasks, terminal
+          events, receipts, and restore refs are projected from Hypervisor Core
+          and Agentgres. The client can inspect them, not become runtime truth.
+        </p>
+      </div>
+
+      <div className="hypervisor-session-operations__rail" aria-label="Session rail">
+        {projection.session_rail.map((railItem) => (
+          <div
+            key={railItem.state}
+            className={clsx(
+              "hypervisor-session-operations__rail-item",
+              railItem.selected && "is-selected",
+            )}
+            data-session-rail-state={railItem.state}
+          >
+            <span>{railItem.state.split("_").join(" ")}</span>
+            <strong>{railItem.count}</strong>
+          </div>
+        ))}
+      </div>
+
+      <div className="hypervisor-session-operations__tabs" role="tablist" aria-label="Session detail tabs">
+        {projection.detail_tabs.map((tab) => (
+          <button
+            key={tab.tab_id}
+            type="button"
+            role="tab"
+            aria-selected={tab.tab_id === "environment"}
+            data-session-detail-tab={tab.tab_id}
+          >
+            <strong>{tab.label}</strong>
+            <span>{tab.summary}</span>
+          </button>
+        ))}
+      </div>
+
+      <div className="hypervisor-session-operations__grid">
+        <div className="hypervisor-session-operations__panel" aria-label="Right inspectors">
+          <h3>Right Inspector</h3>
+          {projection.right_inspector_panels.map((panel) => (
+            <div
+              key={panel.panel_id}
+              className="hypervisor-session-operations__inspector"
+              data-right-inspector-panel={panel.panel_id}
+              data-panel-status={panel.status}
+            >
+              <strong>{panel.label}</strong>
+              <span>{panel.summary}</span>
+            </div>
+          ))}
+        </div>
+
+        <div className="hypervisor-session-operations__panel" aria-label="Environment and restore">
+          <h3>Environment</h3>
+          <dl>
+            <div>
+              <dt>Lifecycle</dt>
+              <dd>{projection.lifecycle_state}</dd>
+            </div>
+            <div>
+              <dt>Environment</dt>
+              <dd>{projection.environment_ref}</dd>
+            </div>
+            <div>
+              <dt>Provider</dt>
+              <dd>{projection.provider_candidate_ref}</dd>
+            </div>
+            <div>
+              <dt>Adapter</dt>
+              <dd>{projection.selected_adapter_ref}</dd>
+            </div>
+            <div>
+              <dt>Access Lease</dt>
+              <dd>{projection.access_lease_ref}</dd>
+            </div>
+            <div>
+              <dt>Log Lease</dt>
+              <dd>{projection.log_lease_ref}</dd>
+            </div>
+            <div>
+              <dt>Archive</dt>
+              <dd>{projection.archive_ref}</dd>
+            </div>
+            <div>
+              <dt>Restore</dt>
+              <dd>{projection.restore_ref}</dd>
+            </div>
+          </dl>
+        </div>
+      </div>
+
+      <div className="hypervisor-session-operations__bottom" aria-label="Bottom inspectors">
+        <div className="hypervisor-session-operations__panel">
+          <h3>Ports & Services</h3>
+          {projection.ports_services.map((service) => (
+            <div
+              key={service.service_ref}
+              className="hypervisor-session-operations__row"
+              data-session-port-service={service.service_ref}
+            >
+              <strong>{service.label}</strong>
+              <span>{service.protocol}:{service.port}</span>
+              <em>{service.status}</em>
+            </div>
+          ))}
+        </div>
+
+        <div className="hypervisor-session-operations__panel">
+          <h3>Tasks</h3>
+          {projection.tasks.map((task) => (
+            <div
+              key={task.task_ref}
+              className="hypervisor-session-operations__row"
+              data-session-task={task.task_ref}
+            >
+              <strong>{task.label}</strong>
+              <span>{task.status}</span>
+              <em>{task.receipt_ref}</em>
+            </div>
+          ))}
+        </div>
+
+        <div className="hypervisor-session-operations__panel">
+          <h3>Terminal</h3>
+          {projection.terminal_events.map((event) => (
+            <div
+              key={event.event_ref}
+              className="hypervisor-session-operations__row"
+              data-session-terminal-event={event.event_ref}
+            >
+              <strong>{event.command_summary}</strong>
+              <span>{event.status}</span>
+              <em>{event.receipt_ref}</em>
+            </div>
+          ))}
+        </div>
       </div>
     </section>
   );
@@ -344,13 +500,16 @@ export function HypervisorShellContent({
                   ) : null}
 
                   {activeView === "sessions" ? (
-                    <ChatCopilotView
-                      seedIntent={controller.chat.seedIntent}
-                      onConsumeSeedIntent={controller.chat.consumeSeedIntent}
-                      sessionRuntime={runtime}
-                      workspaceRootHint={currentProject.rootPath}
-                      workspaceNameHint={currentProject.name}
-                    />
+                    <>
+                      <HypervisorSessionOperationsCockpit />
+                      <ChatCopilotView
+                        seedIntent={controller.chat.seedIntent}
+                        onConsumeSeedIntent={controller.chat.consumeSeedIntent}
+                        sessionRuntime={runtime}
+                        workspaceRootHint={currentProject.rootPath}
+                        workspaceNameHint={currentProject.name}
+                      />
+                    </>
                   ) : null}
 
                   {activeView === "automations" ? (
