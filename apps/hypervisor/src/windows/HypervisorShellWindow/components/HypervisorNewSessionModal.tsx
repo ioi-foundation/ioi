@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   DEFAULT_WORKBENCH_ADAPTER_PREFERENCE_REF,
@@ -34,6 +34,7 @@ interface HypervisorNewSessionModalProps {
   projects: ProjectScope[];
   modelMountInventory?: HypervisorModelMountInventorySnapshot;
   initialSeedIntent?: string | null;
+  initialRecipeId?: string | null;
   onClose: () => void;
   onLaunch: (request: HypervisorNewSessionLaunchRequest) => void;
 }
@@ -111,17 +112,30 @@ function harnessOptionLabel(option: HypervisorHarnessSelectionOption): string {
     : `${option.label} - ${option.execution_lane}`;
 }
 
+function initialRecipeSelectionRef(initialRecipeId: string | null | undefined): string {
+  if (
+    initialRecipeId &&
+    HYPERVISOR_SESSION_LAUNCH_RECIPES.some(
+      (recipe) => recipe.recipe_id === initialRecipeId,
+    )
+  ) {
+    return initialRecipeId;
+  }
+  return HYPERVISOR_SESSION_LAUNCH_RECIPES[0]?.recipe_id ?? "mission.default";
+}
+
 export function HypervisorNewSessionModal({
   isOpen,
   currentProject,
   projects,
   modelMountInventory = HYPERVISOR_NEW_SESSION_MODEL_MOUNT_INVENTORY_FIXTURE,
   initialSeedIntent = null,
+  initialRecipeId = null,
   onClose,
   onLaunch,
 }: HypervisorNewSessionModalProps) {
   const [recipeId, setRecipeId] = useState(
-    HYPERVISOR_SESSION_LAUNCH_RECIPES[0]?.recipe_id ?? "mission.default",
+    () => initialRecipeSelectionRef(initialRecipeId),
   );
   const [projectId, setProjectId] = useState(currentProject.id);
   const [adapterPreferenceRef, setAdapterPreferenceRef] = useState(
@@ -137,6 +151,14 @@ export function HypervisorNewSessionModal({
   const [seedIntent, setSeedIntent] = useState(
     () => initialSeedIntent?.trim() ?? "",
   );
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+    setRecipeId(initialRecipeSelectionRef(initialRecipeId));
+    setSeedIntent(initialSeedIntent?.trim() ?? "");
+  }, [initialRecipeId, initialSeedIntent, isOpen]);
 
   const recipe =
     HYPERVISOR_SESSION_LAUNCH_RECIPES.find(

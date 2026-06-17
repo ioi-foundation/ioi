@@ -72,6 +72,11 @@ test("home dashboard exposes the New Session setup contract", () => {
   assert.match(homeView, /data-home-intent-model="default-model-route"/);
   assert.match(homeView, /data-home-intent-privacy="privacy:ctee-private-workspace"/);
   assert.match(homeView, /data-home-intent-submit="new-session"/);
+  assert.match(homeView, /HOME_INTENT_QUICKSTARTS/);
+  assert.match(homeView, /data-home-intent-recipe=\{quickstart\.recipeId\}/);
+  assert.match(homeView, /recipeId: "automation\.default"/);
+  assert.match(homeView, /recipeId: "workbench\.default"/);
+  assert.match(homeView, /recipeId: "foundry\.eval"/);
   assert.match(homeView, /data-home-new-session-contract="daemon-runtime"/);
   assert.match(homeView, /newSessionRequiredSections/);
   assert.match(homeView, /newSessionHarnessOptions/);
@@ -80,9 +85,9 @@ test("home dashboard exposes the New Session setup contract", () => {
   assert.match(homeView, /Harness comparison preview/);
   assert.match(homeView, /buildHarnessCompatibilityVerdict/);
   assert.match(homeView, /getHarnessSelectionRef/);
-  assert.match(homeView, /onOpenNewSession: \(seedIntent\?: string \| null\) => void/);
-  assert.match(homeView, /onOpenNewSession\(intentDraft\)/);
-  assert.match(homeView, /onClick=\{\(\) => onOpenNewSession\(intentDraft\)\}/);
+  assert.match(homeView, /onOpenNewSession: \(seed\?: string \| HomeNewSessionSeed \| null\) => void/);
+  assert.match(homeView, /seedIntent: intentDraft/);
+  assert.match(homeView, /recipeId: intentRecipeId/);
   assert.match(homeView, /onClick=\{\(\) => onOpenNewSession\(\)\}/);
   assert.match(homeView, /Start New Session/);
   assert.match(homeView, /Configure Models/);

@@ -67,6 +67,14 @@ type ToastCandidate = Pick<
 
 type ChatSurface = "chat" | "reply-composer" | "meeting-prep";
 type WorkflowSurface = "home" | "canvas" | "agents" | "catalog";
+type NewSessionModalSeed =
+  | string
+  | {
+      seedIntent?: string | null;
+      recipeId?: string | null;
+    }
+  | null
+  | undefined;
 type RuntimeCatalogStageEntry = {
   id: string;
   name: string;
@@ -309,6 +317,9 @@ export function useHypervisorShellController() {
   const [newSessionSeedIntent, setNewSessionSeedIntent] = useState<string | null>(
     null,
   );
+  const [newSessionRecipeId, setNewSessionRecipeId] = useState<string | null>(
+    null,
+  );
   const [launchedSessionProjections, setLaunchedSessionProjections] = useState<
     HypervisorLaunchedSessionProjection[]
   >([]);
@@ -447,6 +458,7 @@ export function useHypervisorShellController() {
     setCurrentProjectId(project.id);
     setNewSessionModalOpen(false);
     setNewSessionSeedIntent(null);
+    setNewSessionRecipeId(null);
     setLaunchedSessionProjections((current) => [
       launchedSession,
       ...current.filter(
@@ -1076,17 +1088,25 @@ export function useHypervisorShellController() {
       closeCommandPalette: () => setCommandPaletteOpen(false),
       newSessionModalOpen,
       newSessionSeedIntent,
-      openNewSessionModal: (seedIntent?: string | null) => {
+      newSessionRecipeId,
+      openNewSessionModal: (seed?: NewSessionModalSeed) => {
+        const seedIntent =
+          typeof seed === "string" ? seed : seed?.seedIntent ?? null;
+        const recipeId = typeof seed === "object" ? seed?.recipeId ?? null : null;
         setNewSessionSeedIntent(
           typeof seedIntent === "string" && seedIntent.trim()
             ? seedIntent.trim()
             : null,
+        );
+        setNewSessionRecipeId(
+          typeof recipeId === "string" && recipeId.trim() ? recipeId.trim() : null,
         );
         setNewSessionModalOpen(true);
       },
       closeNewSessionModal: () => {
         setNewSessionModalOpen(false);
         setNewSessionSeedIntent(null);
+        setNewSessionRecipeId(null);
       },
       launchNewSession,
       catalogStageModalOpen,

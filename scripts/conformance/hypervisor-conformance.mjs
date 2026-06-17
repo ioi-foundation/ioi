@@ -1048,9 +1048,11 @@ function runApp() {
     "hypervisor-app-shell-smoke-covers-core-flow",
     /\[data-home-dashboard-variant="hypervisor-zero-state"\]/.test(appSmokeScript) &&
       /\[data-home-intent-submit="new-session"\]/.test(appSmokeScript) &&
+      /\[data-home-intent-recipe="automation.default"\]/.test(appSmokeScript) &&
       /\[data-new-session-field="seed-intent"\]/.test(appSmokeScript) &&
       /\[data-new-session-seed-intent\]/.test(appSmokeScript) &&
       /home_seed_intent_reaches_new_session/.test(appSmokeScript) &&
+      /home_quickstart_recipe_reaches_new_session/.test(appSmokeScript) &&
       /\[data-new-session-field="harness"\]/.test(appSmokeScript) &&
       /agent-harness-adapter:codex_cli/.test(appSmokeScript) &&
       /privacy:ctee-private-workspace/.test(appSmokeScript) &&

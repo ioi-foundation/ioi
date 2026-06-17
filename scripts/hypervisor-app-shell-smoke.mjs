@@ -183,13 +183,21 @@ async function main() {
     await page.waitForSelector('[data-home-intent-composer="ioi-reference-primary"]');
     await page.waitForSelector('[data-home-intent-submit="new-session"]');
 
-    const seededIntent = "Fix flaky receipt pagination";
+    const seededIntent = "Automate env setup";
     await page
-      .locator('[data-home-intent-composer="ioi-reference-primary"] textarea')
-      .fill(seededIntent);
+      .locator('[data-home-intent-recipe="automation.default"]')
+      .click();
     await page.locator('[data-home-intent-submit="new-session"]').click();
     await page.waitForSelector(".hypervisor-new-session-modal");
     await page.waitForSelector('[data-new-session-launch-summary="ioi.hypervisor.new_session_launch_summary.v1"]');
+    const recipeSelection = await page
+      .locator('button:has-text("Automation")')
+      .first()
+      .getAttribute("class");
+    assert(
+      recipeSelection?.includes("is-selected"),
+      "New Session did not receive the Home quickstart recipe destination.",
+    );
     const modalSeedIntent = await page
       .locator('[data-new-session-field="seed-intent"]')
       .inputValue();
@@ -258,6 +266,7 @@ async function main() {
       checks: [
         "home_intent_composer_rendered",
         "home_seed_intent_reaches_new_session",
+        "home_quickstart_recipe_reaches_new_session",
         "home_cockpit_rendered",
         "new_session_launch_summary_rendered",
         "external_harness_ctee_blocked",

@@ -963,6 +963,12 @@ assert(
       '[data-home-intent-submit="new-session"]',
     ) &&
     hypervisorAppShellSmokeSource.includes(
+      '[data-home-intent-recipe="automation.default"]',
+    ) &&
+    hypervisorAppShellSmokeSource.includes(
+      "New Session did not receive the Home quickstart recipe destination.",
+    ) &&
+    hypervisorAppShellSmokeSource.includes(
       '[data-new-session-field="seed-intent"]',
     ) &&
     hypervisorAppShellSmokeSource.includes(

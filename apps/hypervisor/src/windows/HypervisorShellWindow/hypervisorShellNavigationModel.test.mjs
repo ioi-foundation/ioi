@@ -247,6 +247,11 @@ test("new session modal is a shell-level governed launch flow", () => {
   assert.match(newSessionModal, /buildHarnessCompatibilityVerdict/);
   assert.match(newSessionModal, /buildHypervisorNewSessionLaunchSummary/);
   assert.match(newSessionModal, /initialSeedIntent/);
+  assert.match(newSessionModal, /initialRecipeId/);
+  assert.match(newSessionModal, /initialRecipeSelectionRef/);
+  assert.match(newSessionModal, /useEffect/);
+  assert.match(newSessionModal, /setRecipeId\(initialRecipeSelectionRef\(initialRecipeId\)\)/);
+  assert.match(newSessionModal, /setSeedIntent\(initialSeedIntent\?\.trim\(\) \?\? ""\)/);
   assert.match(newSessionModal, /data-new-session-field="seed-intent"/);
   assert.match(newSessionModal, /seedIntent/);
   assert.match(newSessionModal, /seed_intent: launchSummary\.seed_intent/);
@@ -273,8 +278,11 @@ test("new session modal is a shell-level governed launch flow", () => {
   assert.match(newSessionModal, /Launch governed session/);
   assert.match(controller, /newSessionModalOpen/);
   assert.match(controller, /newSessionSeedIntent/);
-  assert.match(controller, /openNewSessionModal: \(seedIntent\?: string \| null\)/);
-  assert.match(controller, /typeof seedIntent === "string"/);
+  assert.match(controller, /newSessionRecipeId/);
+  assert.match(controller, /type NewSessionModalSeed/);
+  assert.match(controller, /openNewSessionModal: \(seed\?: NewSessionModalSeed\)/);
+  assert.match(controller, /typeof seed === "string"/);
+  assert.match(controller, /recipeId/);
   assert.match(controller, /launchNewSession/);
   assert.match(source, /HypervisorLaunchedSessionProjection/);
   assert.match(source, /buildHypervisorLaunchedSessionProjection/);
@@ -293,6 +301,7 @@ test("new session modal is a shell-level governed launch flow", () => {
   assert.match(shellWindow, /setModelMountInventory/);
   assert.match(shellWindow, /<HypervisorNewSessionModal/);
   assert.match(shellWindow, /initialSeedIntent=\{controller\.modals\.newSessionSeedIntent\}/);
+  assert.match(shellWindow, /initialRecipeId=\{controller\.modals\.newSessionRecipeId\}/);
   assert.match(shellWindow, /modelMountInventory=\{modelMountInventory\}/);
   assert.match(shellWindow, /onLaunch=\{controller\.modals\.launchNewSession\}/);
 });

@@ -1321,8 +1321,11 @@ Current implementation cut:
   shown in the modal setup/summary, and carried into session launch seeding when
   the chosen recipe opens Sessions. This preserves the boundary that Home
   supplies operator intent while New Session binds the governed launch contract.
-  Remaining work is live projection hydration and destination-surface selection
-  once daemon projections provide durable selected-target parameters.
+  Home quickstart templates also seed the initial New Session recipe destination
+  for automation, workbench, and Foundry jobs; the modal validates the recipe
+  against `HYPERVISOR_SESSION_LAUNCH_RECIPES` before selecting it. Remaining
+  work is live projection hydration and durable selected-target parameters once
+  daemon projections provide real project/session destinations.
 
 0A.10 first Playwright shell smoke is implemented:
   `scripts/hypervisor-app-shell-smoke.mjs` serves the built

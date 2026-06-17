@@ -68,12 +68,17 @@ interface ProjectScope {
   rootPath: string;
 }
 
+interface HomeNewSessionSeed {
+  seedIntent?: string | null;
+  recipeId?: string | null;
+}
+
 interface HomeViewProps {
   currentProject: ProjectScope;
   projects: ProjectScope[];
   notificationCount: number;
   onOpenChat: () => void;
-  onOpenNewSession: (seedIntent?: string | null) => void;
+  onOpenNewSession: (seed?: string | HomeNewSessionSeed | null) => void;
   onOpenWorkspace: () => void;
   onOpenRuns: () => void;
   onOpenModels: () => void;
@@ -245,6 +250,28 @@ function completionPercent(
 
 type RecentMode = "files" | "projects";
 
+const HOME_INTENT_QUICKSTARTS: Array<{
+  label: string;
+  seedIntent: string;
+  recipeId: string;
+}> = [
+  {
+    label: "Automate env setup",
+    seedIntent: "Automate env setup",
+    recipeId: "automation.default",
+  },
+  {
+    label: "Fix a bug",
+    seedIntent: "Fix a bug",
+    recipeId: "workbench.default",
+  },
+  {
+    label: "Boost your test coverage",
+    seedIntent: "Boost your test coverage",
+    recipeId: "foundry.eval",
+  },
+];
+
 interface HomeDashboardViewProps {
   currentProject: ProjectScope;
   projects: ProjectScope[];
@@ -255,7 +282,7 @@ interface HomeDashboardViewProps {
   recentMode: RecentMode;
   onRecentModeChange: (mode: RecentMode) => void;
   onOpenChat: () => void;
-  onOpenNewSession: (seedIntent?: string | null) => void;
+  onOpenNewSession: (seed?: string | HomeNewSessionSeed | null) => void;
   onOpenWorkspace: () => void;
   onOpenRuns: () => void;
   onOpenModels: () => void;
@@ -345,6 +372,7 @@ function HomeDashboardView({
   const harnessComparison = HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE;
   const defaultHarnessLabel = newSessionHarnessOptions[0]?.label ?? "Default Harness Profile";
   const [intentDraft, setIntentDraft] = useState("");
+  const [intentRecipeId, setIntentRecipeId] = useState<string | null>(null);
   const [cockpitProjection, setCockpitProjection] = useState(
     HYPERVISOR_HOME_COCKPIT_PROJECTION,
   );
@@ -483,12 +511,18 @@ function HomeDashboardView({
               className="chat-home-zero-intent-composer__box"
               onSubmit={(event) => {
                 event.preventDefault();
-                onOpenNewSession(intentDraft);
+                onOpenNewSession({
+                  seedIntent: intentDraft,
+                  recipeId: intentRecipeId,
+                });
               }}
             >
               <textarea
                 value={intentDraft}
-                onChange={(event) => setIntentDraft(event.currentTarget.value)}
+                onChange={(event) => {
+                  setIntentDraft(event.currentTarget.value);
+                  setIntentRecipeId(null);
+                }}
                 aria-label="Describe your task or type slash for commands"
                 placeholder="Describe your task or type / for commands"
                 rows={4}
@@ -504,7 +538,12 @@ function HomeDashboardView({
                 <button
                   type="button"
                   data-home-intent-harness={defaultHarnessLabel}
-                  onClick={() => onOpenNewSession(intentDraft)}
+                  onClick={() =>
+                    onOpenNewSession({
+                      seedIntent: intentDraft,
+                      recipeId: intentRecipeId,
+                    })
+                  }
                 >
                   {defaultHarnessLabel}
                 </button>
@@ -536,17 +575,17 @@ function HomeDashboardView({
               className="chat-home-zero-intent-composer__quickstarts"
               aria-label="Suggested intent templates"
             >
-              {[
-                "Automate env setup",
-                "Fix a bug",
-                "Boost your test coverage",
-              ].map((prompt) => (
+              {HOME_INTENT_QUICKSTARTS.map((quickstart) => (
                 <button
                   type="button"
-                  key={prompt}
-                  onClick={() => setIntentDraft(prompt)}
+                  key={quickstart.label}
+                  data-home-intent-recipe={quickstart.recipeId}
+                  onClick={() => {
+                    setIntentDraft(quickstart.seedIntent);
+                    setIntentRecipeId(quickstart.recipeId);
+                  }}
                 >
-                  {prompt}
+                  {quickstart.label}
                 </button>
               ))}
             </div>
