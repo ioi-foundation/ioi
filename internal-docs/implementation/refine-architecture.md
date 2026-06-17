@@ -1217,7 +1217,8 @@ Current implementation cut:
   summary, external-harness plus cTEE privacy blocking, redacted-projection
   harness allowance, Providers navigation, and provider operation proposal
   rendering. The command is exposed as `npm run smoke:hypervisor-app-shell` and
-  guarded by `check:runtime-layout`.
+  guarded by `check:runtime-layout` plus the lightweight
+  `npm run hypervisor-conformance:app` tier.
 ```
 
 Code migration posture:

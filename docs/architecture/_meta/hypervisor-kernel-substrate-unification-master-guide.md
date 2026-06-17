@@ -4077,6 +4077,10 @@ hypervisor-conformance:ctee
   proves private workspace custody, declassification, leakage, and plaintext
   mount failure behavior
 
+hypervisor-conformance:app
+  proves the Hypervisor app shell smoke, New Session harness/privacy gating,
+  and provider operation proposal contract stay wired
+
 hypervisor-conformance:compositor
   proves IDE workflow projections, replay metadata, and route-family status
 

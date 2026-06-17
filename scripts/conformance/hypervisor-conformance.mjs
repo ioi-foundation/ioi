@@ -11,7 +11,7 @@ const MATRIX = "docs/architecture/_meta/hypervisor-kernel-substrate-migration-ma
 const IMPLEMENTATION_MATRIX = "docs/architecture/_meta/implementation-matrix.md";
 const SOURCE_OF_TRUTH = "docs/architecture/_meta/source-of-truth-map.md";
 
-const TIERS = ["docs", "abi", "bridge", "receipts", "ctee", "compositor", "negative"];
+const TIERS = ["docs", "abi", "bridge", "receipts", "ctee", "app", "compositor", "negative"];
 const COMMANDS = [
   "hypervisor-conformance",
   ...TIERS.map((tier) => `hypervisor-conformance:${tier}`),
@@ -1011,6 +1011,79 @@ function checkStaleLiveTerminology(result) {
   );
 }
 
+function runApp() {
+  const result = createTierResult("app");
+  const rootPackageJson = JSON.parse(read("package.json"));
+  const appSmokeScript = exists("scripts/hypervisor-app-shell-smoke.mjs")
+    ? read("scripts/hypervisor-app-shell-smoke.mjs")
+    : "";
+  const runtimeLayoutCheck = exists("scripts/check-runtime-layout.mjs")
+    ? read("scripts/check-runtime-layout.mjs")
+    : "";
+  const newSessionModal = exists(
+    "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorNewSessionModal.tsx",
+  )
+    ? read(
+        "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorNewSessionModal.tsx",
+      )
+    : "";
+  const refineArchitectureGuide = exists("internal-docs/implementation/refine-architecture.md")
+    ? read("internal-docs/implementation/refine-architecture.md")
+    : "";
+
+  assertCheck(
+    result,
+    "hypervisor-app-shell-smoke-script-wired",
+    rootPackageJson.scripts?.["smoke:hypervisor-app-shell"] ===
+      "node scripts/hypervisor-app-shell-smoke.mjs" &&
+      rootPackageJson.scripts?.["hypervisor-conformance:app"] ===
+        "node scripts/conformance/hypervisor-conformance.mjs app" &&
+      /ioi\.hypervisor\.app_shell_smoke\.v1/.test(appSmokeScript) &&
+      /apps\/hypervisor\/dist\/index\.html is missing/.test(appSmokeScript),
+    ["package.json", "scripts/hypervisor-app-shell-smoke.mjs"],
+    "Hypervisor app shell smoke must be an explicit package script with a typed evidence schema and built-app preflight.",
+  );
+  assertCheck(
+    result,
+    "hypervisor-app-shell-smoke-covers-core-flow",
+    /\[data-home-dashboard-variant="hypervisor-zero-state"\]/.test(appSmokeScript) &&
+      /\[data-window-surface="new-session"\]/.test(appSmokeScript) &&
+      /\[data-new-session-field="harness"\]/.test(appSmokeScript) &&
+      /agent-harness-adapter:codex_cli/.test(appSmokeScript) &&
+      /privacy:ctee-private-workspace/.test(appSmokeScript) &&
+      /privacy:redacted-projection/.test(appSmokeScript) &&
+      /\[data-window-surface="providers"\]/.test(appSmokeScript) &&
+      /\[data-provider-operation-kind="archive"\]/.test(appSmokeScript) &&
+      /ready_for_daemon_admission/.test(appSmokeScript),
+    ["scripts/hypervisor-app-shell-smoke.mjs"],
+    "Hypervisor app shell smoke must cover Home, New Session harness/privacy gating, Providers navigation, and provider operation admission posture.",
+  );
+  assertCheck(
+    result,
+    "hypervisor-new-session-has-smoke-hooks",
+    /data-new-session-field="project"/.test(newSessionModal) &&
+      /data-new-session-field="workbench-adapter"/.test(newSessionModal) &&
+      /data-new-session-field="harness"/.test(newSessionModal) &&
+      /data-new-session-field="model-route"/.test(newSessionModal) &&
+      /data-new-session-field="privacy"/.test(newSessionModal) &&
+      /data-new-session-action="launch"/.test(newSessionModal),
+    [
+      "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorNewSessionModal.tsx",
+    ],
+    "New Session must expose stable smoke hooks for governed launch fields and the launch action.",
+  );
+  assertCheck(
+    result,
+    "hypervisor-app-smoke-layout-guarded",
+    /hypervisor-app-shell-playwright-smoke/.test(runtimeLayoutCheck) &&
+      /scripts\/hypervisor-app-shell-smoke\.mjs/.test(runtimeLayoutCheck) &&
+      /0A\.10 first Playwright shell smoke is implemented/.test(refineArchitectureGuide),
+    ["scripts/check-runtime-layout.mjs", "internal-docs/implementation/refine-architecture.md"],
+    "Runtime layout and the implementation ledger must guard the Phase 0A.10 app-shell smoke contract.",
+  );
+  return result;
+}
+
 function runDocs() {
   const result = createTierResult("docs");
   const requiredFiles = [
@@ -1206,6 +1279,7 @@ function runDocs() {
     ["hypervisor-conformance:bridge", "node scripts/conformance/hypervisor-conformance.mjs bridge"],
     ["hypervisor-conformance:receipts", "node scripts/conformance/hypervisor-conformance.mjs receipts"],
     ["hypervisor-conformance:ctee", "node scripts/conformance/hypervisor-conformance.mjs ctee"],
+    ["hypervisor-conformance:app", "node scripts/conformance/hypervisor-conformance.mjs app"],
     ["hypervisor-conformance:compositor", "node scripts/conformance/hypervisor-conformance.mjs compositor"],
     ["hypervisor-conformance:negative", "node scripts/conformance/hypervisor-conformance.mjs negative"],
   ]);
@@ -48757,6 +48831,8 @@ function runTier(tier) {
       return runReceipts();
     case "ctee":
       return runCtee();
+    case "app":
+      return runApp();
     case "compositor":
       return runCompositor();
     case "negative":

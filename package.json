@@ -107,6 +107,7 @@
     "hypervisor-conformance:bridge": "node scripts/conformance/hypervisor-conformance.mjs bridge",
     "hypervisor-conformance:receipts": "node scripts/conformance/hypervisor-conformance.mjs receipts",
     "hypervisor-conformance:ctee": "node scripts/conformance/hypervisor-conformance.mjs ctee",
+    "hypervisor-conformance:app": "node scripts/conformance/hypervisor-conformance.mjs app",
     "hypervisor-conformance:compositor": "node scripts/conformance/hypervisor-conformance.mjs compositor",
     "hypervisor-conformance:negative": "node scripts/conformance/hypervisor-conformance.mjs negative",
     "check:runtime-layout": "node scripts/check-runtime-layout.mjs",
