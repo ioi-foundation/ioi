@@ -137,6 +137,15 @@ test("hypervisor shell binds Phase 0A to the IOI reference cockpit contract", ()
     assert.match(source, new RegExp(`"${settingsSection}"`));
   }
   assert.match(source, /Codex CLI[\s\S]*Claude Code[\s\S]*DeepSeek TUI[\s\S]*Grok Build/);
+  assert.match(source, /HYPERVISOR_REFERENCE_LEFT_NAV_SURFACE_IDS/);
+  assert.match(
+    source,
+    /HYPERVISOR_REFERENCE_LEFT_NAV_SURFACE_IDS = \[[\s\S]*"home"[\s\S]*"projects"[\s\S]*"automations"[\s\S]*"insights"[\s\S]*"sessions"[\s\S]*\]/,
+  );
+  assert.match(
+    source,
+    /leftNavSurfaceIds: HYPERVISOR_REFERENCE_LEFT_NAV_SURFACE_IDS/,
+  );
   assert.match(source, /HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES/);
   assert.match(workbenchAdapterPreferences, /WorkbenchAdapterPreference/);
   assert.match(workbenchAdapterPreferences, /WorkbenchAdapterLaunchPlan/);
@@ -154,8 +163,12 @@ test("hypervisor shell binds Phase 0A to the IOI reference cockpit contract", ()
   assert.match(activityBar, /HYPERVISOR_IOI_REFERENCE_SHELL_REQUIREMENTS/);
   assert.match(
     activityBar,
-    /HYPERVISOR_IOI_REFERENCE_SHELL_REQUIREMENTS\.leftNavSurfaceIds\.slice\(0, 9\)/,
+    /\[\.\.\.HYPERVISOR_IOI_REFERENCE_SHELL_REQUIREMENTS\.leftNavSurfaceIds\]/,
   );
+  assert.match(activityBar, /hypervisor\.primaryRailCollapsed\.v2/);
+  assert.doesNotMatch(activityBar, /hypervisor\.activityBarCollapsed/);
+  assert.match(activityBar, /return stored === "true"/);
+  assert.doesNotMatch(activityBar, /stored === null \? true : stored === "true"/);
 });
 
 test("hypervisor shell keeps application surfaces separate from clients", () => {
@@ -230,6 +243,10 @@ test("visible shell chrome uses Hypervisor labels over compatibility route keys"
     /Search Hypervisor, sessions, workbench, automations, and commands/,
   );
   assert.match(activityBar, /aria-label="Hypervisor navigation"/);
+  assert.match(activityBar, /data-ioi-reference-primary-rail="true"/);
+  assert.match(activityBar, /data-left-nav-surfaces=\{referenceLeftNavSurfaceIds\.join\(" "\)\}/);
+  assert.match(activityBar, /referenceLeftNavSurfaceIds\.flatMap/);
+  assert.match(activityBar, /referenceLeftNavSurfaceIdSet\.has/);
   assert.match(activityBar, /chat-activity-button--new-session/);
   assert.match(activityBar, /HYPERVISOR_PRIMARY_ACTION/);
   assert.match(activityBar, /aria-label="Applications"/);

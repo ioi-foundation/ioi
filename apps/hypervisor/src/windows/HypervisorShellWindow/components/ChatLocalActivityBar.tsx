@@ -48,10 +48,10 @@ interface SearchButtonProps {
 }
 
 const CHAT_ACTIVITY_BAR_COLLAPSED_KEY =
-  "hypervisor.activityBarCollapsed";
+  "hypervisor.primaryRailCollapsed.v2";
 
 const KEYBOARD_NAV_VIEWS: PrimaryView[] =
-  HYPERVISOR_IOI_REFERENCE_SHELL_REQUIREMENTS.leftNavSurfaceIds.slice(0, 9);
+  [...HYPERVISOR_IOI_REFERENCE_SHELL_REQUIREMENTS.leftNavSurfaceIds];
 
 const NAV_ICON_BY_SURFACE: Record<string, ReactNode> = {
   home: <HomeIcon />,
@@ -215,7 +215,7 @@ export function ChatLocalActivityBar({
   const [collapsed, setCollapsed] = useState(() => {
     if (typeof window === "undefined") return false;
     const stored = window.localStorage.getItem(CHAT_ACTIVITY_BAR_COLLAPSED_KEY);
-    return stored === null ? true : stored === "true";
+    return stored === "true";
   });
 
   useEffect(() => {
@@ -249,11 +249,21 @@ export function ChatLocalActivityBar({
   const searchItem = railModel.items.find(
     (item) => item.dataWindowSurface === "search",
   );
-  const primaryNavItems = railModel.items.filter(
-    (item) => item.group === "primary",
+  const referenceLeftNavSurfaceIds =
+    HYPERVISOR_IOI_REFERENCE_SHELL_REQUIREMENTS.leftNavSurfaceIds;
+  const referenceLeftNavSurfaceIdSet = new Set<string>(
+    referenceLeftNavSurfaceIds,
   );
+  const primaryNavItems = referenceLeftNavSurfaceIds.flatMap((surfaceId) => {
+    const item = railModel.items.find(
+      (candidate) => candidate.hypervisorSurfaceId === surfaceId,
+    );
+    return item ? [item] : [];
+  });
   const applicationNavItems = railModel.items.filter(
-    (item) => item.group === "applications",
+    (item) =>
+      item.group === "applications" &&
+      !referenceLeftNavSurfaceIdSet.has(item.hypervisorSurfaceId ?? ""),
   );
   const governanceNavItems = railModel.items.filter(
     (item) => item.group === "governance",
@@ -291,6 +301,8 @@ export function ChatLocalActivityBar({
       data-collapsed={collapsed ? "true" : "false"}
       data-inspection-target="operator-activity-rail"
       data-operator-activity-rail={railModel.projectionId}
+      data-ioi-reference-primary-rail="true"
+      data-left-nav-surfaces={referenceLeftNavSurfaceIds.join(" ")}
     >
       <div className="chat-activity-brand-row">
         <span className="chat-activity-brand" aria-hidden="true">

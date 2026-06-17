@@ -755,6 +755,14 @@ export const HYPERVISOR_BOTTOM_INSPECTOR_PANELS: HypervisorInspectorPanelId[] = 
   "logs",
 ];
 
+export const HYPERVISOR_REFERENCE_LEFT_NAV_SURFACE_IDS = [
+  "home",
+  "projects",
+  "automations",
+  "insights",
+  "sessions",
+] as const satisfies readonly HypervisorSurfaceId[];
+
 export const HYPERVISOR_IOI_REFERENCE_SHELL_REQUIREMENTS: HypervisorIoiReferenceShellRequirements =
   {
     primaryReference: "internal-docs/reverse-engineering/ioi",
@@ -788,24 +796,7 @@ export const HYPERVISOR_IOI_REFERENCE_SHELL_REQUIREMENTS: HypervisorIoiReference
       "receipts",
       "settings",
     ],
-    leftNavSurfaceIds: [
-      "home",
-      "sessions",
-      "projects",
-      "missions",
-      "workbench",
-      "automations",
-      "insights",
-      "agents",
-      "models",
-      "privacy",
-      "providers",
-      "environments",
-      "foundry",
-      "authority",
-      "receipts",
-      "settings",
-    ],
+    leftNavSurfaceIds: HYPERVISOR_REFERENCE_LEFT_NAV_SURFACE_IDS,
     shellRegions: [
       "left_nav",
       "new_session",

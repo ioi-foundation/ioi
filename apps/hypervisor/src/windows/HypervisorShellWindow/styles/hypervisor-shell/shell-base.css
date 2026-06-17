@@ -230,7 +230,7 @@
   --chat-activity-avatar-bg: var(--chat-bg-surface);
   --chat-activity-avatar-text: var(--chat-text);
 
-  width: 230px;
+  width: 206px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -311,7 +311,7 @@
 .chat-activity-button {
   position: relative;
   width: 100%;
-  min-height: 34px;
+  min-height: 32px;
   display: grid;
   grid-template-columns: 20px minmax(0, 1fr) auto;
   align-items: center;
@@ -460,7 +460,7 @@
 }
 
 .chat-activity-section-label {
-  margin: 2px 16px 6px;
+  margin: 6px 16px 6px;
   color: var(--chat-activity-text);
   font-size: 11px;
   font-weight: 700;
