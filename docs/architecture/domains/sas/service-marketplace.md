@@ -217,6 +217,28 @@ refs that let payouts, royalties, and reputation updates flow by verified
 contribution instead of raw token usage, attention, popularity, or hidden
 platform preference.
 
+Composed services should emit a `ServiceCompositionReceiptBundle` when a
+delivery depends on nested workers, service modules, provider jobs, private
+workspace execution, or verifier graphs. The bundle must bind:
+
+```text
+composition graph ref
+routing receipts
+worker/service/provider contribution receipts
+verifier and quality receipts
+policy and approval receipts
+private-data posture
+artifact and evidence refs
+dispute evidence refs
+Agentgres operation refs and state root
+```
+
+This makes contribution, privacy posture, verification, acceptance, dispute,
+and settlement inspectable without making sas.xyz the execution runtime or
+storage backend. The bundle is evidence for the delivery; Agentgres remains the
+operational truth substrate, wallet.network remains the authority layer, and
+storage backends hold payload bytes.
+
 ## Delivery Bundle
 
 A service delivery should include:
@@ -225,10 +247,15 @@ A service delivery should include:
 output artifacts
 evidence bundle
 execution receipts
+service composition receipt bundle, when nested workers/providers are used
+worker contribution refs
+verifier refs
+private-data posture
 validation results
 policy/capability summary
 quality summary
 acceptance/dispute metadata
+dispute evidence refs
 ```
 
 ## Anti-Patterns
@@ -243,6 +270,8 @@ a raw software-tool marketplace
 a model-checkpoint storefront
 a replacement for daemon authority, Agentgres truth, or wallet.network approvals
 a privacy authority layer for rented GPU nodes
+a contribution oracle based on token usage or hidden platform preference
+a dispute process based on provider logs instead of receipt/evidence refs
 ```
 
 Correct model:

@@ -177,6 +177,19 @@ POST /v1/deliveries/{delivery_id}/reject
     }
   ],
   "evidence_bundle": ["receipt://execution_1", "receipt://validation_1"],
+  "service_composition": {
+    "service_composition_receipt_bundle_ref": "service_comp_bundle_123",
+    "composition_graph_ref": "workflow://graph_123",
+    "routing_receipts": ["receipt://route_123"],
+    "contribution_receipts": ["receipt://contribution_worker_1"],
+    "verifier_receipts": ["receipt://validation_1", "receipt://quality_1"],
+    "policy_receipts": ["receipt://policy_1", "receipt://approval_1"],
+    "private_data_posture": "none | public_only | redacted_projection | ctee_private_workspace | tee_or_customer_cloud | customer_vpc | unsafe_plaintext_exception",
+    "custody_proof_refs": ["receipt://model_mount_1"],
+    "dispute_evidence": ["evidence://dispute_ready_123"],
+    "agentgres_operation_refs": ["agentgres://operation/op_789"],
+    "state_root": "sha256:..."
+  },
   "training_delivery": {
     "output_manifest_ref": "optional",
     "training_receipts": ["receipt://training_1"],
@@ -249,6 +262,8 @@ POST /v1/disputes/{dispute_id}/accept-resolution
 2. Every service order must have an explicit output contract and acceptance criteria.
 3. Escrow/payout lives on IOI L1 contracts; operational order state lives in sas.xyz Agentgres.
 4. Delivery must include artifacts, evidence, receipts, and settlement state.
+   Composed delivery must also include worker contribution refs, verifier refs,
+   private-data posture, and dispute evidence refs.
 5. Managed services may run without user-local Hypervisor, through hosted/provider/DePIN/TEE Hypervisor Daemon nodes.
 6. A service order that spawns remote work must bind the order to an
    OutcomeWorkspace, RuntimeAssignment, ComputeSession, daemon profile,

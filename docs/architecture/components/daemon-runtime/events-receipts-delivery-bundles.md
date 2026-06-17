@@ -556,6 +556,70 @@ them.
 }
 ```
 
+## ServiceCompositionReceiptBundle
+
+`ServiceCompositionReceiptBundle` is the default evidence profile for
+service-order deliveries that route through nested workers, service modules,
+external providers, verifiers, private workspaces, or MoW compositions. It is
+not a new authority layer and it is not a replacement for `DeliveryBundle`.
+It is the receipt graph that lets a marketplace, buyer, provider, verifier, or
+dispute process understand who contributed, what was verified, what private
+data posture applied, and which evidence refs support settlement.
+
+```json
+{
+  "service_composition_receipt_bundle_id": "service_comp_bundle_123",
+  "delivery_bundle_ref": "delivery://delivery_123",
+  "service_order_ref": "order://order_123",
+  "outcome_workspace_ref": "agentgres://sas/outcome-workspaces/order_123",
+  "service_package_ref": "service://sas/runtime-audit-weekly@1.0.0",
+  "composition_graph_ref": "workflow://graph_123",
+  "routing_receipt_refs": ["receipt://route_123"],
+  "contribution_receipt_refs": ["receipt://contribution_worker_1"],
+  "verifier_receipt_refs": ["receipt://validation_1", "receipt://quality_1"],
+  "policy_receipt_refs": ["receipt://policy_1", "receipt://approval_1"],
+  "private_data_posture": {
+    "posture": "none | public_only | redacted_projection | ctee_private_workspace | tee_or_customer_cloud | customer_vpc | unsafe_plaintext_exception",
+    "custody_proof_refs": ["receipt://model_mount_1"],
+    "declassification_receipt_refs": ["receipt://declassification_1"],
+    "plaintext_sensitive_classes_on_provider": ["none"]
+  },
+  "artifact_refs": ["artifact://report"],
+  "evidence_bundle_refs": ["evidence://bundle_123"],
+  "dispute_evidence_refs": ["evidence://dispute_ready_123"],
+  "acceptance_criteria_refs": ["criteria://runtime-audit/v1"],
+  "settlement_refs": ["settlement://order_123"],
+  "agentgres_operation_refs": ["agentgres://operation/op_789"],
+  "state_root": "sha256:...",
+  "status": "draft | submitted | accepted | rejected | disputed | remediated"
+}
+```
+
+`ContributionReceipt` entries should name the contributing worker, service
+module, package, provider, harness adapter, or verifier role; bind the claimed
+contribution to receipts and artifacts; and state whether the contribution is
+relevant to payout, royalty, reputation, warranty, or dispute handling. Raw
+token usage, popularity, opaque provider logs, or hidden platform preference
+must not be treated as contribution truth.
+
+`private_data_posture` is evidence about custody and execution posture, not a
+privacy authority by itself. wallet.network owns secret/declassification
+authority, Private Workspace cTEE owns no-plaintext-custody execution posture,
+the Hypervisor Daemon emits runtime receipts, and Agentgres admits the delivery
+truth. An `unsafe_plaintext_exception` must be explicit, policy-approved, and
+dispute-visible.
+
+Anti-patterns:
+
+```text
+delivery bundle as a raw ZIP without contribution and verifier refs
+token usage as contribution truth
+provider logs as dispute truth
+privacy posture implied by marketing copy instead of receipts
+disputes opened without durable dispute evidence refs
+L1 settlement for every nested service step by default
+```
+
 ## DeliveryBundle
 
 ```json
@@ -594,7 +658,11 @@ them.
     "denied_actions": []
   },
   "routing_refs": ["receipt://route_123"],
-  "contribution_refs": ["contrib_123"],
+  "contribution_refs": ["receipt://contribution_worker_1"],
+  "service_composition_receipt_bundle_ref": "service_comp_bundle_123",
+  "verifier_receipt_refs": ["receipt://validation_1", "receipt://quality_1"],
+  "private_data_posture": "public_only | redacted_projection | ctee_private_workspace | tee_or_customer_cloud | customer_vpc | unsafe_plaintext_exception",
+  "dispute_evidence_refs": ["evidence://dispute_ready_123"],
   "settlement": {
     "l1_contract": "0x...",
     "status": "pending_acceptance"

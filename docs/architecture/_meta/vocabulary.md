@@ -398,6 +398,13 @@ compliance acronyms for hidden audit material.
   validity layer for payload bytes. It owns `ArtifactRef`, `PayloadRef`,
   `EvidenceBundle`, `DeliveryBundle` artifact linkage, and `AgentStateArchive`
   refs; storage backends hold the bytes.
+- `ServiceCompositionReceiptBundle`: the receipt-bundle profile for composed
+  service deliveries. It binds composition graph refs, routing receipts,
+  contribution receipts, verifier refs, policy receipts, private-data posture,
+  dispute evidence refs, Agentgres operation refs, and state roots so nested
+  workers, providers, verifiers, and private workspace posture are attributable
+  without making sas.xyz a runtime, wallet, storage backend, or hidden
+  contribution oracle.
 - `StorageBackend`: a payload byte store below Agentgres-governed artifact refs,
   such as local disk, S3/object stores, Filecoin, CAS/IPFS, provider blob
   stores, customer VPC blob stores, or storage engines used as payload engines.

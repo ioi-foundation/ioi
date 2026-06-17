@@ -68,6 +68,7 @@
     "check:wallet-protocol": "node scripts/check-wallet-protocol-generated.mjs",
     "check:wallet-packaging": "npm run check:wallet-protocol && npm run test:wallet-protocol && npm run test:wallet-sdk && npm run build:wallet-protocol && npm run build:wallet-sdk",
     "check:candidate-evidence": "node scripts/check-candidate-evidence-conformance.mjs",
+    "check:service-composition-evidence": "node scripts/check-service-composition-evidence.mjs",
     "test:cursor-sdk-reference": "node --test scripts/lib/cursor-sdk-reference-contract.test.mjs",
     "test:cursor-sdk-parity": "npm run build:agent-sdk && node --test scripts/lib/cursor-sdk-reference-contract.test.mjs scripts/lib/cursor-sdk-parity-contract.test.mjs",
     "validate:cursor-sdk-parity": "node scripts/run-cursor-sdk-parity-validation.mjs",

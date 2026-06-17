@@ -1489,10 +1489,11 @@ git diff --check -- internal-docs/implementation docs/architecture apps/hypervis
 
 | Field | Detail |
 | --- | --- |
+| Status | Canonized and guarded on 2026-06-17. SAS API/runtime implementation remains follow-up work. |
 | Files | sas marketplace/endpoints, daemon receipts, marketplace neutrality |
-| Change | Add nested contribution and dispute evidence defaults for service outcomes. |
+| Change | Add `ServiceCompositionReceiptBundle` defaults for nested contribution, verifier refs, private-data posture, and dispute evidence in service outcomes. |
 | Acceptance | Delivery bundle includes worker contribution refs, verifier refs, private-data posture, and dispute evidence. |
-| Verify | `rg -n "ServiceCompositionReceiptBundle|ContributionReceipt|delivery bundle|dispute evidence" docs/architecture/domains/sas docs/architecture/components/daemon-runtime` |
+| Verify | `npm run check:service-composition-evidence`; `rg -n "ServiceCompositionReceiptBundle|ContributionReceipt|delivery bundle|dispute evidence" docs/architecture/domains/sas docs/architecture/components/daemon-runtime` |
 
 ### Phase 8: Add Artifact Availability Incident Flow
 
