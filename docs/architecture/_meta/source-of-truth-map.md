@@ -160,6 +160,11 @@ Conflict rule:
      workers may reason or propose probabilistically, but consequential effects
      cross reality only through bounded authority, policy, receipts, and
      verification;
+   - `physical_action` is a high-risk effect class, not a generic tool-call
+     variant; actuator-affecting work must bind to Physical Action Safety
+     objects such as `PhysicalActionPolicy`, `SafetyEnvelope`,
+     `EmergencyStopAuthority`, `SensorEvidenceReceipt`, and
+     `ActuatorCommandReceipt` before execution;
    - workers, models, tools, connectors, browsers, shells, and computer-use
      providers are guest workloads/capabilities leased through daemon
      authority;
@@ -207,6 +212,7 @@ Conflict rule:
 | Web4 category and IOI stack | [`web4-and-ioi-stack.md`](../foundations/web4-and-ioi-stack.md) | [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md) | architectural-improvements plans |
 | decentralized.* domain pack, decentralized.exchange, decentralized.trade, parked future decentralized.cloud, route/venue-intelligence engine boundaries, prediction markets/event contracts, trade/cloud non-ownership, and proposal/authority/execution/truth/settlement split | [`domains/decentralized/README.md`](../domains/decentralized/README.md) | [`exchange.md`](../domains/decentralized/exchange.md), [`trade.md`](../domains/decentralized/trade.md), [`cloud-parked-future.md`](../domains/decentralized/cloud-parked-future.md), [`wallet-network/product-exchange-risk.md`](../components/wallet-network/product-exchange-risk.md), [`hypervisor/fleet.md`](../components/hypervisor/fleet.md), [`wallet-network-api-and-authority-scopes.md`](../components/wallet-network/api-authority-scopes.md), [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md) | Wallet is the cockpit; decentralized.exchange is a route-intelligence engine for liquidity; decentralized.trade is a venue/market-intelligence engine for exposure including prediction markets/event contracts; Hypervisor integrates directly with compute/storage/GPU/confidential/DePIN/local/customer providers; decentralized.cloud is parked future product space, not present canon spine or mandatory gateway; candidates propose, Wallet authorizes, Hypervisor executes/deploys, venues/providers perform, Agentgres records, IOI settles by trigger |
 | AIIP, bounded execution domains, work interop, and cross-system handoffs | [`aiip.md`](../foundations/aiip.md) | [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md), [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md), [`ioi-l1-mainnet.md`](../foundations/ioi-l1-mainnet.md) | autonomous-system settlement layer synthesis, IBC comparison notes, marketplace interop docs |
+| Physical action safety, embodied workers, robot fleets, actuator commands, human supervision, emergency stop, sensor evidence, physical-action receipts, and incidents | [`physical-action-safety.md`](../foundations/physical-action-safety.md) | [`aiip.md`](../foundations/aiip.md), [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md), [`default-harness-profile.md`](../components/daemon-runtime/default-harness-profile.md), [`wallet-network-api-and-authority-scopes.md`](../components/wallet-network/api-authority-scopes.md), [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md) | `physical_action` is not a generic tool call; robot fleets and actuator APIs must bind safety envelopes, supervision, e-stop authority, sensor evidence, actuator receipts, and incident state before execution |
 | Governed autonomous-system chains, Hypervisor Nodes, and machine-economy stack | [`governed-autonomous-systems.md`](../foundations/governed-autonomous-systems.md) | [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md), [`ioi-cli-daemon-runtime.md`](../components/daemon-runtime/doctrine.md), [`agentgres-state-substrate.md`](../components/agentgres/doctrine.md), [`ioi-l1-mainnet.md`](../foundations/ioi-l1-mainnet.md) | Hypervisor Node, local settlement, interop, and machine-economy strategy docs |
 | Verifiable bounded agency and execution-boundary alignment | [`verifiable-bounded-agency.md`](../foundations/verifiable-bounded-agency.md) | [`security-privacy-and-policy-invariants.md`](../foundations/security-privacy-policy-invariants.md), [`ioi-cli-daemon-runtime.md`](../components/daemon-runtime/doctrine.md), [`events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md), [`wallet-network-api-and-authority-scopes.md`](../components/wallet-network/api-authority-scopes.md) | bounded-agency thesis, conformance contracts, investor/product framing |
 | Mixture of Workers and worker routing | [`mixture-of-workers.md`](../foundations/mixture-of-workers.md) | [`common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md), [`marketplace-neutrality-and-contribution-accounting.md`](../domains/marketplace-neutrality.md) | aiagent/sas routing docs |
@@ -261,6 +267,12 @@ Conflict rule:
   to [`aiip.md`](../foundations/aiip.md) first. Do not create separate bespoke
   interop protocols for Hypervisor, aiagent.xyz, sas.xyz, or external systems
   when AIIP semantics apply.
+- Add new physical-action, robot fleet, actuator, embodied-worker, human
+  supervision, emergency stop, sensor evidence, incident, or physical-liability
+  language to [`physical-action-safety.md`](../foundations/physical-action-safety.md)
+  first. Do not let embodied work execute as generic `tool.invoke`,
+  `connector.call`, shell, robot-controller, or AIIP traffic without safety
+  envelope semantics.
 - Add new governed-autonomous-system-chain, Hypervisor Node, local settlement,
   autonomous-system interop, service-module invocation, or machine-economy stack
   language to

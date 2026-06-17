@@ -511,6 +511,33 @@ compliance acronyms for hidden audit material.
   worker, service, microharness, third-party, or AS-L1 domain that performs
   scoped autonomous work under declared capabilities, policy, authority
   requirements, receipt schemas, runtime boundaries, and settlement behavior.
+- `PhysicalActionIntent`: the proposed action object for embodied work that can
+  affect actuators, physical systems, facilities, vehicles, drones, robots, or
+  safety-relevant devices. It must carry `risk_class = physical_action`,
+  authority refs, safety policy refs, and expected receipt schemas before the
+  daemon can consider execution.
+- `PhysicalActionPolicy`: the policy object that declares which physical action
+  kinds, scopes, supervision modes, sensor evidence, and emergency-stop
+  requirements apply to an embodied worker or domain.
+- `SafetyEnvelope`: the bounded physical operating envelope for an actuator or
+  embodied worker. It declares allowed and forbidden actions, physical zones,
+  limits, preflight checks, stop conditions, sensor requirements, and operator
+  contact refs.
+- `EmergencyStopAuthority`: the authority object that names who or what can
+  halt a physical-action domain, through which trigger channels, with what
+  latency expectation, and under which revocation epoch.
+- `HumanSupervisionPolicy`: the supervision policy for physical action,
+  ranging from autonomous to monitored, human-on-loop, human-in-loop, or manual
+  confirmation for each action.
+- `SensorEvidenceReceipt`: the receipt that binds the sensor snapshot,
+  observation hashes, artifacts, capture time, confidence, and redaction policy
+  used to justify or audit a physical action.
+- `ActuatorCommandReceipt`: the receipt that binds a physical command hash,
+  actuator ref, issuing daemon, authority ref, safety envelope ref, sensor
+  evidence receipt refs, and command result.
+- `PhysicalActionIncident`: the admitted incident object for safety-envelope
+  violations, emergency stops, sensor disagreement, actuator failure,
+  supervision failure, policy violation, disputed outcome, or remediation.
 - `AIIPEnvelope`: the signed, sequenced packet envelope for AIIP messages. It
   binds sender/receiver systems, channel, profile, policy hash, authority ref,
   payload hash, receipt obligations, settlement terms, and signature.

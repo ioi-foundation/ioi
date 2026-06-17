@@ -179,6 +179,7 @@ for (const required of [
   "Hypervisor App/Web/CLI-headless = first-class clients over Hypervisor Core",
   "Hypervisor Workbench/Foundry/Fleet = application surfaces over Hypervisor Core",
   "IOI Authority Gateway = compatibility adapter profile",
+  "physical-action-safety.md",
 ]) {
   if (!index.includes(required)) {
     fail(`README.md must link ${required}.`);
@@ -197,6 +198,8 @@ for (const required of [
   "adapter targets, not Hypervisor's product identity",
   "IOI Authority Gateway is the daemon sidecar/compatibility profile",
   "the daemon authorizes anything",
+  "PhysicalActionPolicy",
+  "ActuatorCommandReceipt",
   "SDK, CLI/headless, GUI, harness, benchmark, compositor, and agent-harness-adapter boundaries",
   "Smarter-agent runtime loop",
   "Decision History Policy",
@@ -238,6 +241,10 @@ for (const required of [
   "`HypervisorAppShell`",
   "`GuestWorkload`",
   "`TrustAuditSubstrate`",
+  "`PhysicalActionPolicy`",
+  "`SafetyEnvelope`",
+  "`EmergencyStopAuthority`",
+  "`ActuatorCommandReceipt`",
 ]) {
   if (!vocabulary.includes(required)) {
     fail(`_meta/vocabulary.md missing ${required}.`);

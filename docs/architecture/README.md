@@ -113,6 +113,10 @@ Read the stack this way:
 - AIIP is the RPC-shaped, receipt-native interop protocol for bounded
   autonomous work across microharnesses, workers, services, marketplaces,
   enterprises, third-party autonomous systems, and AS-L1s;
+- Physical Action Safety governs embodied workers, robot fleets, actuator
+  commands, human supervision, emergency stop, sensor evidence, incidents, and
+  physical-action receipts; actuator-affecting actions must not execute as
+  generic tool calls;
 - wallet.network authorizes identity, secrets, approvals, payments, exchanges,
   data use, decryption, revocation, and protection actions; route sources
   produce exchange candidates but do not become authority;
@@ -207,6 +211,7 @@ distilled back into this architecture pack or into an accepted decision record.
 - [`web4-and-ioi-stack.md`](./foundations/web4-and-ioi-stack.md) — category definition and stack map.
 - [`domains/decentralized/README.md`](./domains/decentralized/README.md) — active decentralized.exchange and decentralized.trade doctrine for routing liquidity and exposure without becoming authority or trust roots, plus a parked future decentralized.cloud boundary note; Hypervisor provider integrations remain direct and are covered by Fleet.
 - [`aiip.md`](./foundations/aiip.md) — AIIP work interop protocol, bounded execution domains, profiles, packets, and handoff semantics.
+- [`physical-action-safety.md`](./foundations/physical-action-safety.md) — physical-action safety envelopes, human supervision, emergency stop, sensor evidence, actuator command receipts, and incident hooks for embodied workers.
 - [`governed-autonomous-systems.md`](./foundations/governed-autonomous-systems.md) — governed autonomous-system chains, Hypervisor Nodes, local settlement domains, and the coherent machine-economy stack.
 - [`verifiable-bounded-agency.md`](./foundations/verifiable-bounded-agency.md) — alignment-security thesis, bounded agency, and execution-boundary alignment.
 - [`mixture-of-workers.md`](./foundations/mixture-of-workers.md) — MoW labor-routing doctrine, sparse worker categories, routing receipts, and router neutrality.

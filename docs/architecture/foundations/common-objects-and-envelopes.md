@@ -502,6 +502,32 @@ BoundedExecutionDomainEnvelope:
   status: draft | active | suspended | revoked | archived
 ```
 
+Robot fleets, robot controllers, drones, vehicles, facility systems, IoT
+actuators, and other embodied domains are allowed bounded execution domains,
+but they must not treat actuator effects as ordinary tool traffic. When a
+domain can perform `physical_action`, its envelope should bind physical-action
+safety posture explicitly:
+
+```yaml
+physical_action_safety:
+  physical_action_policy_refs:
+    - policy:...
+  safety_envelope_refs:
+    - safety:...
+  emergency_stop_authority_ref: estop:...
+  human_supervision_policy_ref: supervision:... | null
+  incident_policy_ref: policy:...
+  required_receipt_schema_refs:
+    - schema:SensorEvidenceReceipt
+    - schema:ActuatorCommandReceipt
+```
+
+The canonical owner for these objects is
+[`physical-action-safety.md`](./physical-action-safety.md). AIIP may carry
+handoffs and command envelopes, but actuator-affecting actions still require
+safety envelope semantics, wallet.network authority, daemon gating, evidence,
+and receipts.
+
 ```yaml
 AIIPChannelEnvelope:
   channel_id: aiip://channel/...

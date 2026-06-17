@@ -70,6 +70,15 @@ Examples:
 AIIP lets bounded execution domains talk. IOI mainnet lets their consequential
 records settle.
 
+Robot fleets, robot controllers, drones, vehicles, facility systems, and other
+embodied domains are valid AIIP participants, but actuator-affecting work is
+not ordinary AIIP traffic. Any handoff or command envelope that can produce a
+`physical_action` must bind `PhysicalActionPolicy`, `SafetyEnvelope`,
+`EmergencyStopAuthority`, required supervision policy, sensor evidence
+obligations, and `ActuatorCommandReceipt` obligations before execution. The
+canonical owner for those objects is
+[`physical-action-safety.md`](./physical-action-safety.md).
+
 ## Same Semantic Protocol, Different Modes
 
 Hypervisor internal routing and external autonomous-system handoffs should use

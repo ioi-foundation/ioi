@@ -1163,10 +1163,11 @@ git diff --check -- internal-docs/implementation docs/architecture apps/hypervis
 
 | Field | Detail |
 | --- | --- |
-| Files | new `foundations/physical-action-safety.md` or `domains/aiagent/physical-action-safety.md`, common objects, DHP, wallet scopes, source map, vocabulary |
-| Change | Canonize safety envelopes, supervision, emergency stop, sensor/actuator receipts, incident/dispute hooks. |
+| Status | Implemented as a canonical docs slice on 2026-06-17. |
+| Files | `foundations/physical-action-safety.md`, common objects, AIIP, DHP, source map, implementation matrix, vocabulary, README, architecture-doc checks |
+| Change | Canonized `PhysicalActionPolicy`, `SafetyEnvelope`, `EmergencyStopAuthority`, `HumanSupervisionPolicy`, `SensorEvidenceReceipt`, `ActuatorCommandReceipt`, and `PhysicalActionIncident` as the safety owner for embodied work. |
 | Acceptance | Physical and embodied workers have explicit safety semantics and cannot execute actuator commands as generic tool calls. |
-| Verify | `rg -n "PhysicalActionPolicy|SafetyEnvelope|ActuatorCommandReceipt|EmergencyStopAuthority" docs/architecture` |
+| Verify | `rg -n "PhysicalActionPolicy|SafetyEnvelope|ActuatorCommandReceipt|EmergencyStopAuthority" docs/architecture`; `npm run check:architecture-docs`; `npm run hypervisor-conformance:docs` |
 
 ### Phase 3: Execute Wallet Protocol Packaging Plan
 

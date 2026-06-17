@@ -341,6 +341,7 @@ needs justify object heads.
 | `PrivateWorkspaceCapsule` | daemon profile payload plus Agentgres artifact/receipt refs | rented or provider GPU work touches protected classes |
 | `AutonomyLease` | wallet.network grant plus receipt | remote persistent work continues while the user is offline |
 | `DeclassificationReceipt` | wallet.network + Agentgres receipt | protected output becomes visible, exportable, or actionable |
+| `PhysicalActionIntent` / `SafetyEnvelope` / `ActuatorCommandReceipt` | safety refs plus receipt-backed physical action record | embodied work can affect actuators or safety-relevant devices |
 | `Blocker` | event plus task state | user/operator action or long-lived wait is needed |
 
 ## Core Schemas
@@ -580,6 +581,15 @@ ActionProposal:
 
 Use `prim:*` for primitive execution capabilities and `scope:*` for authority
 scopes. Do not introduce a third generic authority vocabulary.
+
+A `physical_action` proposal that can affect actuators, robots, vehicles,
+drones, facilities, access control, machines, or safety-relevant devices is not
+a generic tool call. The proposal must carry refs to `PhysicalActionPolicy`,
+`SafetyEnvelope`, `EmergencyStopAuthority`, and any required
+`HumanSupervisionPolicy`, plus expected `SensorEvidenceReceipt` and
+`ActuatorCommandReceipt` schemas. The daemon must block the proposal when those
+refs are missing or stale. The canonical owner for that object family is
+[`physical-action-safety.md`](../../foundations/physical-action-safety.md).
 
 ### GateResult
 
