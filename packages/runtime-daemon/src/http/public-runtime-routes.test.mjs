@@ -994,6 +994,83 @@ test("public runtime service composition route blocks unsafe plaintext settlemen
   });
 });
 
+test("public runtime routes expose artifact availability incident admissions", async () => {
+  const { handleRequest } = routeHarness();
+  const response = responseRecorder();
+  const store = {
+    defaultCwd: "/workspace",
+    stateDir: "/state",
+    projectRuntimeLifecycleProjection: retiredRouteWrapper,
+  };
+
+  await handleRequest({
+    request: request({
+      method: "POST",
+      url: "/v1/hypervisor/artifact-availability-incidents",
+      body: {
+        artifact_ref: "artifact://evidence/report",
+        payload_ref: "payload://evidence/report/bytes",
+        backend_ref: "storage://filecoin/mainnet",
+        incident_kind: "invalid_hash",
+        lifecycle_state: "opened",
+        expected_hash: "sha256:expected",
+        observed_hash: "sha256:observed",
+        agentgres_operation_refs: [
+          "agentgres://operation/artifact-incident/open",
+        ],
+        incident_receipt_refs: ["receipt://artifact-incident/open"],
+        affected_object_refs: ["agentgres://object/delivery/report"],
+      },
+    }),
+    response,
+    store,
+  });
+
+  const payload = JSON.parse(response.body);
+  assert.equal(response.statusCode, 202);
+  assert.equal(
+    payload.schema_version,
+    "ioi.runtime.artifact_availability_incident.v1",
+  );
+  assert.equal(payload.artifact_ref, "artifact://evidence/report");
+  assert.equal(payload.incident_kind, "invalid_hash");
+  assert.equal(payload.expected_hash, "sha256:expected");
+  assert.equal(payload.observed_hash, "sha256:observed");
+  assert.equal(payload.runtimeTruthSource, "daemon-runtime");
+});
+
+test("public runtime artifact availability route blocks silent payload mutation", async () => {
+  const { handleRequest } = routeHarness();
+  const response = responseRecorder();
+
+  await handleRequest({
+    request: request({
+      method: "POST",
+      url: "/v1/hypervisor/artifact-availability-incidents",
+      body: {
+        artifact_ref: "artifact://evidence/report",
+        payload_ref: "payload://evidence/report/bytes",
+        backend_ref: "storage://filecoin/mainnet",
+        incident_kind: "missing",
+        lifecycle_state: "opened",
+        agentgres_operation_refs: [
+          "agentgres://operation/artifact-incident/open",
+        ],
+        incident_receipt_refs: ["receipt://artifact-incident/open"],
+        affected_object_refs: ["agentgres://object/delivery/report"],
+        payload_bytes_mutated: true,
+      },
+    }),
+    response,
+    store: { defaultCwd: "/workspace", stateDir: "/state" },
+  });
+
+  assert.equal(response.statusCode, 403);
+  assert.deepEqual(JSON.parse(response.body), {
+    error: "artifact_availability_silent_payload_mutation_blocked",
+  });
+});
+
 test("public runtime computer-use routes dispatch through Rust daemon-core projection", async () => {
   const { handleRequest } = routeHarness();
   const calls = [];

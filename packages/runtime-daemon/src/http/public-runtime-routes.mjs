@@ -4,6 +4,7 @@ import {
   createAgent as createLifecycleAgent,
   createThread as createLifecycleThread,
 } from "../runtime-agent-run-lifecycle.mjs";
+import { admitArtifactAvailabilityIncident } from "../runtime-artifact-availability-incident.mjs";
 import { planHarnessAdapterContainerLane } from "../runtime-harness-container-lane.mjs";
 import { runHarnessPublicSmokeTask } from "../runtime-harness-public-smoke-task.mjs";
 import { admitManagedWorkerInstanceLifecycleTransition } from "../runtime-managed-worker-instance-lifecycle-admission.mjs";
@@ -319,6 +320,23 @@ export function createPublicRuntimeRequestHandler(deps) {
             source:
               optionalString(body.source) ??
               "public_runtime_routes./v1/hypervisor/service-composition-receipt-bundles",
+          }),
+          202,
+        );
+        return;
+      }
+      if (
+        request.method === "POST" &&
+        url.pathname === "/v1/hypervisor/artifact-availability-incidents"
+      ) {
+        const body = await readBody(request);
+        writeJsonResponse(
+          response,
+          admitArtifactAvailabilityIncident({
+            ...body,
+            source:
+              optionalString(body.source) ??
+              "public_runtime_routes./v1/hypervisor/artifact-availability-incidents",
           }),
           202,
         );

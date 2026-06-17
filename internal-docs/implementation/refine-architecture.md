@@ -1774,7 +1774,7 @@ public route alongside the SAS and daemon-runtime canon.
 
 | Field | Detail |
 | --- | --- |
-| Status | Canonized and guarded on 2026-06-17; first daemon-side `ArtifactAvailabilityIncident` admission contract implemented and guarded. Live Agentgres artifact endpoint integration remains follow-up hardening. |
+| Status | Canonized and guarded on 2026-06-17; daemon-side `ArtifactAvailabilityIncident` admission contract implemented, guarded, and exposed through the public Hypervisor daemon route. Live Agentgres artifact endpoint integration remains follow-up hardening. |
 | Files | Agentgres artifact-ref plane, storage backend doctrine, receipts docs |
 | Change | Define incident when payload bytes are missing, corrupt, stale, or unavailable. |
 | Acceptance | Agentgres lifecycle and repair receipts govern backend failure. |
@@ -1790,7 +1790,8 @@ operation refs, and repair/verification/restore refs for fallback, quarantine,
 repair, and close flows. It fails closed for missing integrity evidence on
 hash/CID failures and blocks silent payload-byte mutation without repair
 receipts. `check:artifact-availability-incident` guards the runtime contract
-beside the Agentgres artifact plane and storage-backend canon.
+and `/v1/hypervisor/artifact-availability-incidents` public route beside the
+Agentgres artifact plane and storage-backend canon.
 ```
 
 ### Phase 9: Update Start Here and Readability Entry Points

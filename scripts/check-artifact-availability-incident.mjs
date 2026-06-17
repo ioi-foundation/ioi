@@ -65,4 +65,14 @@ requireAll("packages/runtime-daemon/src/runtime-artifact-availability-incident.t
   "blocks silent payload mutation",
 ]);
 
+requireAll("packages/runtime-daemon/src/http/public-runtime-routes.mjs", [
+  "/v1/hypervisor/artifact-availability-incidents",
+  "admitArtifactAvailabilityIncident",
+]);
+
+requireAll("packages/runtime-daemon/src/http/public-runtime-routes.test.mjs", [
+  "expose artifact availability incident admissions",
+  "blocks silent payload mutation",
+]);
+
 console.log("artifact availability incident conformance passed");
