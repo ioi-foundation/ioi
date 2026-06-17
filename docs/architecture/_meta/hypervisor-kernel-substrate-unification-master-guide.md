@@ -2487,18 +2487,19 @@ cTEE custody enforcement, StepModuleRouter dispatch, Agentgres
 expected-head/state-root binding, receipt/event materialization, replay,
 projection, and stable SDK/IDE/CLI protocol APIs remain required before
 terminal pure Rust substrate conformance.
-Slice 961 retired the daemon-store route pass-through wrappers for workflow
-edit apply, diagnostics repair decision execution, workspace snapshot list, and
-workspace restore preview/apply. Those public thread routes now call the
-mounted workflow-edit, diagnostics-repair, and workspace-snapshot surfaces
-directly, so JS no longer preserves `applyWorkflowEditProposal()`,
-`executeDiagnosticsRepairDecision()`, `listWorkspaceSnapshots()`,
-`previewWorkspaceSnapshotRestore()`, or `applyWorkspaceSnapshotRestore()` as
-daemon-store compatibility wrappers. This does not claim terminal workflow,
-diagnostics, or workspace-snapshot migration: direct Rust daemon-core route
-admission, wallet/cTEE authority where applicable, Agentgres
-expected-head/state-root binding, receipt/artifact materialization, replay,
-projection, and stable SDK/IDE/CLI protocol APIs
+Slice 961 retired the original daemon-store route pass-through wrappers for
+workflow edit apply, diagnostics repair decision execution, workspace snapshot
+list, and workspace restore preview/apply. Slice 1431 later supersedes that
+temporary route-visible shape: workflow-edit proposal/apply, diagnostics repair
+decision execution, workspace snapshot list, and workspace restore
+preview/apply public thread routes enter through store-owned daemon methods
+over internal Rust-backed delegate APIs. The mounted workflow-edit,
+diagnostics-repair, and workspace-snapshot delegates are not public route
+facades, and route handlers no longer call them directly. This does not claim
+terminal workflow, diagnostics, or workspace-snapshot migration: deeper
+workflow mutation custody, diagnostics/workspace replay and projection depth,
+wallet/cTEE authority where applicable, Agentgres expected-head/state-root
+binding, receipt/artifact materialization, and stable SDK/IDE/CLI protocol APIs
 remain required before terminal pure Rust substrate conformance.
 Slice 962 retired the daemon-store approval route pass-through wrappers. At
 that stage the public approval request, decision, approve/reject shortcut, and
@@ -12711,6 +12712,23 @@ calls into mounted approval delegates from returning. Remaining blockers stay
 wallet.network grant issuance/signature semantics, richer durable approval
 authority projection/replay storage, receipt/state-root binding, and stable
 Workbench/CLI/SDK approval clients over Rust-owned records.
+
+Slice 1431 hard-cuts the workflow/diagnostics/workspace route-visible JS
+surface shape. Daemon startup now mounts workflow edit, diagnostics repair, and
+workspace snapshot delegates as internal `workflowEditApi`,
+`diagnosticsRepairApi`, and `workspaceSnapshotApi` members. Public thread
+workflow-edit proposal/apply, diagnostics repair decision execution, workspace
+snapshot list, and workspace restore preview/apply routes enter through
+store-owned daemon methods instead of `store.*Surface` or direct mounted API
+calls, and `file.apply_patch` snapshot capture also enters through
+`prepareWorkspaceSnapshotForPatch()` on the store. Focused tests poison the
+internal delegates and prove the route family uses the store-owned API, while
+conformance guards the old route-visible surface references, direct mounted API
+route calls, and workspace-snapshot capture surface call from returning.
+Remaining blockers stay durable workflow mutation custody, diagnostics and
+workspace replay/projection depth, wallet/cTEE authority expansion where
+applicable, receipt/state-root binding, and stable Workbench/CLI/SDK protocol
+clients over Rust-owned records.
 
 ## Final Doctrine
 
