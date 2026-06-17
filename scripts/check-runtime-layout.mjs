@@ -105,6 +105,12 @@ const runtimeWorkbenchAdapterLaunchPlanAdmissionSource = read(
 const runtimeHarnessContainerLaneTestSource = read(
   "packages/runtime-daemon/src/runtime-harness-container-lane.test.mjs",
 );
+const runtimeHarnessContainerExecutorSource = read(
+  "packages/runtime-daemon/src/runtime-harness-container-executor.mjs",
+);
+const runtimeHarnessContainerExecutorTestSource = read(
+  "packages/runtime-daemon/src/runtime-harness-container-executor.test.mjs",
+);
 const runtimeHarnessPublicFixtureRunSource = read(
   "packages/runtime-daemon/src/runtime-harness-public-fixture-run.mjs",
 );
@@ -480,9 +486,8 @@ assert(
     hypervisorShellNavigationSource.includes("Claude Code") &&
     hypervisorShellNavigationSource.includes("DeepSeek TUI") &&
     hypervisorActivityBarSource.includes("HYPERVISOR_IOI_REFERENCE_SHELL_REQUIREMENTS") &&
-    hypervisorActivityBarSource.includes(
-      "HYPERVISOR_IOI_REFERENCE_SHELL_REQUIREMENTS.leftNavSurfaceIds.slice(0, 9)",
-    ) &&
+    hypervisorActivityBarSource.includes("referenceLeftNavSurfaceIds") &&
+    hypervisorActivityBarSource.includes("primaryNavItems") &&
     !/internal-docs\/reverse-engineering\/ona|Hypervisor IDE/.test(
       hypervisorShellNavigationSource,
     ),
@@ -835,7 +840,9 @@ assert(
     hypervisorNewSessionModalSource.includes(
       "data-new-session-workbench-adapter-launch-plan-ref",
     ) &&
-    hypervisorNewSessionModalSource.includes("Adapter launch contract") &&
+    hypervisorNewSessionModalSource.includes(
+      "data-new-session-workbench-adapter-connection-contract-ref",
+    ) &&
     hypervisorShellNavigationSource.includes("workbench_adapter_admission") &&
     hypervisorShellNavigationSource.includes("daemon_admitted") &&
     hypervisorShellNavigationSource.includes("daemon_blocked") &&
@@ -1014,6 +1021,41 @@ assert(
     "packages/runtime-daemon/src/runtime-harness-container-lane.test.mjs",
   ],
   "Harness container lanes must be daemon-planned Docker/Podman contracts with image, argv hash, mounts, network policy, exit status, and private-mount/secret guards.",
+);
+assert(
+  "hypervisor-harness-container-executor-contract",
+  runtimeHarnessContainerExecutorSource.includes(
+    "ioi.hypervisor.harness_container_invocation.v1",
+  ) &&
+    runtimeHarnessContainerExecutorSource.includes(
+      "buildHarnessContainerInvocation",
+    ) &&
+    runtimeHarnessContainerExecutorSource.includes(
+      "executeHarnessContainerLane",
+    ) &&
+    runtimeHarnessContainerExecutorSource.includes(
+      "resolveMountSourceRef",
+    ) &&
+    runtimeHarnessContainerExecutorSource.includes(
+      "resolveContainerImageRef",
+    ) &&
+    runtimeHarnessContainerExecutorSource.includes(
+      "harness_container_executor_command_hash_mismatch",
+    ) &&
+    runtimeHarnessContainerExecutorSource.includes(
+      "requires disabled networking",
+    ) &&
+    runtimeHarnessContainerExecutorTestSource.includes(
+      "builds a docker invocation only from daemon-resolved source refs",
+    ) &&
+    runtimeHarnessContainerExecutorTestSource.includes(
+      "returns daemon receipts with output hashes, not plaintext output",
+    ),
+  [
+    "packages/runtime-daemon/src/runtime-harness-container-executor.mjs",
+    "packages/runtime-daemon/src/runtime-harness-container-executor.test.mjs",
+  ],
+  "Harness container execution must be daemon-owned, command-hash verified, source-ref resolved, network-disabled by default, and receipt-only with output hashes.",
 );
 assert(
   "hypervisor-model-weight-custody-admission",
@@ -1281,7 +1323,7 @@ assert(
     hypervisorNewSessionModalSource.includes(
       "buildHypervisorNewSessionLaunchSummary",
     ) &&
-    hypervisorNewSessionModalSource.includes("launch_summary: launchSummary") &&
+    hypervisorNewSessionModalSource.includes("const launchSummary") &&
     hypervisorNewSessionModalSource.includes(
       "data-new-session-launch-summary",
     ) &&
@@ -1291,10 +1333,12 @@ assert(
     hypervisorNewSessionModalSource.includes(
       "data-new-session-harness-selection-kind",
     ) &&
-    hypervisorNewSessionModalSource.includes('data-new-session-field="harness"') &&
-    hypervisorNewSessionModalSource.includes('data-new-session-field="privacy"') &&
     hypervisorNewSessionModalSource.includes(
-      'data-new-session-action="launch"',
+      "data-new-session-launch-cockpit",
+    ) &&
+    hypervisorNewSessionModalSource.includes("data-new-session-recipe") &&
+    hypervisorNewSessionModalSource.includes(
+      "onClick={() => onLaunch(buildLaunchRequest(launchRecipe))}",
     ) &&
     hypervisorShellControllerSource.includes(
       "const summary = request.launch_summary",
@@ -1388,6 +1432,7 @@ assert(
     runtimeHarnessPublicFixtureRunSource.includes(
       "executeContainerLane",
     ) &&
+    runtimeHarnessPublicFixtureRunSource.includes("command_argv: commandArgv") &&
     runtimeHarnessPublicFixtureRunSource.includes(
       "harness-testbed:public-code-edit-fixture",
     ) &&
@@ -1400,6 +1445,9 @@ assert(
     ) &&
     runtimeHarnessPublicFixtureRunTestSource.includes(
       "executes the same fixture through two installed adapters",
+    ) &&
+    runtimeHarnessPublicFixtureRunTestSource.includes(
+      "command_argv.slice",
     ) &&
     runtimeHarnessPublicFixtureRunTestSource.includes(
       "preserves container lane private-mount guard",

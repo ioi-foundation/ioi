@@ -1709,21 +1709,35 @@ Current implementation cut:
   tests in `runtime-harness-container-lane.test.mjs` and `check:runtime-layout`
   guard this boundary. The public daemon route
   `/v1/hypervisor/harness-container-lanes` now exposes the same plan and
-  not-executed receipt contract for governed adapter launch proposals. Real
-  external process spawning remains executor-mounted follow-up work.
+  not-executed receipt contract for governed adapter launch proposals.
+
+  The executor seam is also mounted at the daemon boundary:
+  `packages/runtime-daemon/src/runtime-harness-container-executor.mjs` defines
+  `HarnessContainerInvocation` and `executeHarnessContainerLane`. It refuses to
+  execute unless the caller supplies the canonical container-lane plan plus the
+  exact `command_argv` whose hash matches the admitted plan. It resolves
+  container images and workspace mount `source_ref`s through daemon-provided
+  resolvers, blocks root paths and host container sockets, requires disabled
+  networking for live execution, launches Docker/Podman with no inherited env
+  or stdin, and records stdout/stderr only as hashed artifact refs in the
+  daemon receipt. This makes the first live process seam implementation-grade
+  without turning external harnesses into runtime truth.
 
   0B.5's first public fixture runner is implemented as a daemon-side contract:
   `packages/runtime-daemon/src/runtime-harness-public-fixture-run.mjs` compares
   installed adapter candidates against the same non-sensitive fixture through
-  daemon-planned container lanes. It accepts an injected `executeContainerLane`
-  executor for live runs, produces dry-run receipts before executor wiring, and
+  daemon-planned container lanes. It now passes the planned fixture command argv
+  into the executor seam so the executor can verify the admitted command hash
+  before launch. It still accepts an injected `executeContainerLane` executor
+  for live runs, produces dry-run receipts when no executor is mounted, and
   preserves the container lane private-mount guard. Focused tests prove two
   installed adapters receive the same public fixture, success receipts bind
-  Agentgres/artifact refs, insufficient installs block comparison, and cTEE or
-  plaintext private workspace custody remains blocked. The public daemon route
-  `/v1/hypervisor/harness-public-fixture-runs` now exposes that comparison contract
-  under daemon gates and accepts an injected executor when the daemon has a live
-  container lane runner mounted.
+  Agentgres/artifact refs, insufficient installs block comparison, command hashes
+  are preserved into the executor call, and cTEE or plaintext private workspace
+  custody remains blocked. The public daemon route
+  `/v1/hypervisor/harness-public-fixture-runs` now exposes that comparison
+  contract under daemon gates and accepts an injected executor when the daemon
+  has a live container lane runner mounted.
 
   0B.6's first private-workspace guard is implemented at New Session
   selection time: `buildHarnessCompatibilityVerdict` now receives the selected
@@ -1754,8 +1768,8 @@ First implementation slice:
 
 ```text
 1. Define `AgentHarnessAdapterProfile`, `HarnessAdapterReceipt`, and
-   `HarnessComparisonRun` fixtures. Done for static manifests and public
-   fixture; real adapter execution remains later.
+   `HarnessComparisonRun` fixtures. Done for static manifests, public fixture,
+   daemon-planned container lanes, and the first daemon-owned executor seam.
 2. Add adapter choices to New Session:
    Default Harness Profile, Codex CLI, codex-desktop-linux, Claude Code,
    Grok Build, DeepSeek TUI, Aider, OpenHands, shell/tmux agent, and Generic
@@ -1774,14 +1788,17 @@ First implementation slice:
 6. Add first public fixture comparison. Done for daemon-side injected execution:
    the fixture runner can compare two installed container adapters against the
    same public fixture through the public daemon route and return success or
-   dry-run receipts without bypassing daemon gates.
+   dry-run receipts without bypassing daemon gates. The live executor seam now
+   verifies command hashes, resolves image/mount refs through the daemon, blocks
+   unsafe mount/network cases, and stores output as artifact hashes.
 7. Add cTEE/private workspace guard. Done at New Session compatibility level
    for the default external-adapter path; daemon container lanes also continue
    to reject cTEE/private and plaintext workspace mounts.
 8. Add comparison dashboard. Done for the first read-only Foundry dashboard:
    Home exposes the compact preview, while Foundry renders output, cost,
    verification, receipts, and evidence from the same `HarnessComparisonRun`
-   fixture. Live comparison execution remains daemon-side follow-up hardening.
+   fixture. Product wiring from the dashboard into the daemon executor remains
+   follow-up hardening.
 9. Add source scans proving no external harness bypasses daemon gates. Done for
    static model and runtime-layout guard.
 ```
@@ -1809,6 +1826,7 @@ node --check touched adapter .mjs files
 focused adapter manifest tests
 focused model-mount compatibility tests
 container dry-run receipt test
+container executor seam test
 git diff --check -- internal-docs/implementation docs/architecture apps/hypervisor packages/runtime-daemon
 ```
 

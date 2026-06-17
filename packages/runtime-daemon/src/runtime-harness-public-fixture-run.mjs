@@ -44,10 +44,11 @@ export async function runHarnessPublicFixtureRun(request = {}, deps = {}) {
     `harness-public-fixture-runs:${safeId(fixtureId)}:${createdAt.replace(/[^0-9a-z]+/gi, "").slice(0, 14)}`;
   const attempts = [];
   for (const candidate of installedCandidates.slice(0, minInstalledAdapters)) {
+    const commandArgv = commandArgvForFixture(candidate, fixtureId);
     const plan = planHarnessAdapterContainerLane(
       {
         ...candidate,
-        command_argv: commandArgvForFixture(candidate, fixtureId),
+        command_argv: commandArgv,
         mounts: candidate.mounts ?? publicFixtureMounts(),
         network_policy: candidate.network_policy ?? "disabled",
         env_policy_ref:
@@ -66,7 +67,12 @@ export async function runHarnessPublicFixtureRun(request = {}, deps = {}) {
     );
 
     const outcome = deps.executeContainerLane
-      ? await deps.executeContainerLane({ plan, fixture_id: fixtureId, task_ref: taskRef })
+      ? await deps.executeContainerLane({
+          plan,
+          command_argv: commandArgv,
+          fixture_id: fixtureId,
+          task_ref: taskRef,
+        })
       : { exit_status: "not_executed", exit_code: null };
     const receipt = buildHarnessContainerLaneReceipt(plan, {
       exit_status: outcome.exit_status,

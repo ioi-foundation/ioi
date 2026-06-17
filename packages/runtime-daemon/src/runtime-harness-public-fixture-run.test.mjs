@@ -37,8 +37,8 @@ test("public fixture run executes the same fixture through two installed adapter
   const executed = [];
   const run = await runHarnessPublicFixtureRun(fixtureRequest(), {
     nowIso: () => "2026-06-17T13:00:00.000Z",
-    executeContainerLane: async ({ plan, fixture_id, task_ref }) => {
-      executed.push({ plan, fixture_id, task_ref });
+    executeContainerLane: async ({ plan, command_argv, fixture_id, task_ref }) => {
+      executed.push({ plan, command_argv, fixture_id, task_ref });
       return {
         exit_status: "success",
         exit_code: 0,
@@ -67,6 +67,17 @@ test("public fixture run executes the same fixture through two installed adapter
       "harness-testbed:public-code-edit-fixture",
       "harness-testbed:public-code-edit-fixture",
     ],
+  );
+  assert.deepEqual(
+    executed.map((item) => item.command_argv.slice(-2)),
+    [
+      ["--fixture", "harness-testbed:public-code-edit-fixture"],
+      ["--fixture", "harness-testbed:public-code-edit-fixture"],
+    ],
+  );
+  assert.deepEqual(
+    executed.map((item) => item.plan.command_argv_hash),
+    run.attempts.map((attempt) => attempt.command_argv_hash),
   );
   assert.deepEqual(
     run.attempts.map((attempt) => attempt.exit_status),

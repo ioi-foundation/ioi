@@ -22,7 +22,7 @@ export function planHarnessAdapterContainerLane(request = {}, deps = {}) {
   const runtime = normalizeRuntime(request.runtime);
   const containerImageRef = requiredString(request.container_image_ref, "container_image_ref");
   const commandArgv = normalizeCommandArgv(request.command_argv);
-  const commandArgvHash = hashCommandArgv(commandArgv);
+  const commandArgvHash = hashHarnessCommandArgv(commandArgv);
   const mounts = normalizeMounts(request.mounts);
   const networkPolicy = normalizeNetworkPolicy(request.network_policy);
   const envPolicyRef = requiredString(request.env_policy_ref, "env_policy_ref");
@@ -298,7 +298,7 @@ function uniqueStringRefs(values) {
   return [...new Set(normalizeArray(values).map((value) => String(value)).filter(Boolean))];
 }
 
-function hashCommandArgv(argv) {
+export function hashHarnessCommandArgv(argv) {
   return `sha256:${crypto.createHash("sha256").update(JSON.stringify(argv)).digest("hex")}`;
 }
 
