@@ -15283,6 +15283,16 @@ function runBridge() {
     /agentgres_thread_fork_state_truth_required/.test(
       runtimeThreadForkControlCore,
     ) &&
+    /thread_fork_agent_from_state_dir/.test(runtimeThreadForkControlCore) &&
+    /runtime_thread_fork_control_state_dir_required/.test(
+      runtimeThreadForkControlCore,
+    ) &&
+    /runtime_thread_fork_control_candidate_transport_retired/.test(
+      runtimeThreadForkControlCore,
+    ) &&
+    /runtime_thread_fork_control_agent_replay_required/.test(
+      runtimeThreadForkControlCore,
+    ) &&
     /rust_plans_thread_fork_agent_thread_and_event/.test(
       runtimeThreadForkControlCore,
     ) &&
@@ -15293,6 +15303,15 @@ function runBridge() {
       runtimeThreadForkControlCore,
     ) &&
     /rust_rejects_invalid_thread_fork_schema/.test(runtimeThreadForkControlCore) &&
+    /rust_rejects_thread_fork_candidate_transport/.test(
+      runtimeThreadForkControlCore,
+    ) &&
+    /rust_requires_state_dir_for_thread_fork_replay/.test(
+      runtimeThreadForkControlCore,
+    ) &&
+    /rust_requires_replayed_source_agent_for_thread_fork/.test(
+      runtimeThreadForkControlCore,
+    ) &&
     /runtime_compositor_command_transport_is_retired/.test(commandProtocolCore) &&
     !/PlanRuntimeThreadForkControl/.test(commandProtocolCore) &&
     !/CommandOperation::PlanRuntimeThreadForkControl/.test(coreCommandDispatch) &&
@@ -15332,16 +15351,30 @@ function runBridge() {
     /runtime_thread_fork_rust_core_required/.test(runtimeThreadForkState) &&
     /runtime_thread_fork_control_rust_owned/.test(runtimeThreadForkState) &&
     /runtime_thread_fork_event_rust_owned/.test(runtimeThreadForkState) &&
+    /runtime_thread_fork_state_dir_replay_required/.test(runtimeThreadForkState) &&
+    /requireThreadForkDaemonStateDir/.test(runtimeThreadForkState) &&
+    /runtime_thread_fork_daemon_state_dir_required/.test(
+      runtimeThreadForkState,
+    ) &&
+    /runtime_thread_fork_source_candidate_transport_retired/.test(
+      runtimeThreadForkState,
+    ) &&
     /runtime_thread_fork_js_facade_retired/.test(runtimeThreadForkState) &&
     /agentgres_thread_fork_state_truth_required/.test(runtimeThreadForkState) &&
     !/rust_daemon_core_thread_fork_required/.test(runtimeThreadForkState) &&
     !/store\.createAgent\(/.test(runtimeThreadForkState) &&
     !/store\.runtimeEventStream\(/.test(runtimeThreadForkState) &&
+    !/agentForThread\(|sourceAgentForThread|sourceThreadForAgent|source_agent:\s*|source_thread:\s*/.test(
+      runtimeThreadForkState,
+    ) &&
     !/source_event_kind:\s*"OperatorControl\.Fork"/.test(runtimeThreadForkState) &&
     /thread fork uses Rust planning, Agentgres write, runtime-event admission, and Rust projection/.test(
       runtimeThreadForkStateTest,
     ) &&
     /thread fork fails closed before source lookup when Rust planner is absent/.test(
+      runtimeThreadForkStateTest,
+    ) &&
+    /thread fork requires daemon state_dir before Rust planning or source lookup/.test(
       runtimeThreadForkStateTest,
     ) &&
     /thread fork rejects invalid Rust plans before Agentgres write or runtime-event admission/.test(
@@ -15371,6 +15404,12 @@ function runBridge() {
     ) &&
     !/store\.forkThread\(threadId,/.test(runtimeRouteHandlers) &&
     /assertNoRetiredThreadForkDetailAliases/.test(runtimeThreadForkStateTest) &&
+    /Object\.hasOwn\(plannedRequest,\s*"source_agent"\),\s*false/.test(
+      runtimeThreadForkStateTest,
+    ) &&
+    /Object\.hasOwn\(plannedRequest,\s*"source_thread"\),\s*false/.test(
+      runtimeThreadForkStateTest,
+    ) &&
     /assert\.deepEqual\(calls,\s*\[\]\)/.test(runtimeThreadForkStateTest);
   assertCheck(
     result,
@@ -15385,6 +15424,9 @@ function runBridge() {
       /workflowNodeId: "node_retired"/.test(runtimeThreadForkStateTest) &&
       /requestedBy: "operator_retired"/.test(runtimeThreadForkStateTest) &&
       /plannedRequest\.request\.idempotency_key, "fork-key"/.test(
+        runtimeThreadForkStateTest,
+      ) &&
+      /plannedRequest\.state_dir, "\/tmp\/ioi-agentgres-thread-fork"/.test(
         runtimeThreadForkStateTest,
       ) &&
       !/request\.(?:workflowGraphId|workflowNodeId|idempotencyKey|requestedBy)\b/.test(
@@ -41653,6 +41695,16 @@ function runCompositor() {
       /thread\.forked/.test(runtimeThreadForkControlCore) &&
       /runtime_thread_fork_control_rust_owned/.test(runtimeThreadForkControlCore) &&
       /runtime_thread_fork_event_rust_owned/.test(runtimeThreadForkControlCore) &&
+      /thread_fork_agent_from_state_dir/.test(runtimeThreadForkControlCore) &&
+      /runtime_thread_fork_control_state_dir_required/.test(
+        runtimeThreadForkControlCore,
+      ) &&
+      /runtime_thread_fork_control_candidate_transport_retired/.test(
+        runtimeThreadForkControlCore,
+      ) &&
+      /runtime_thread_fork_control_agent_replay_required/.test(
+        runtimeThreadForkControlCore,
+      ) &&
       /runtime_compositor_command_transport_is_retired/.test(commandProtocolCoreForCompositor) &&
       !/PlanRuntimeThreadForkControl/.test(commandProtocolCoreForCompositor) &&
       !/CommandOperation::PlanRuntimeThreadForkControl/.test(
@@ -41689,12 +41741,20 @@ function runCompositor() {
       /assertThreadForkProjection/.test(runtimeThreadForkState) &&
       /runtime_thread_fork_control_rust_owned/.test(runtimeThreadForkState) &&
       /runtime_thread_fork_event_rust_owned/.test(runtimeThreadForkState) &&
+      /runtime_thread_fork_state_dir_replay_required/.test(runtimeThreadForkState) &&
+      /requireThreadForkDaemonStateDir/.test(runtimeThreadForkState) &&
+      /runtime_thread_fork_daemon_state_dir_required/.test(
+        runtimeThreadForkState,
+      ) &&
       /runtime_thread_fork_js_facade_retired/.test(runtimeThreadForkState) &&
       /agentgres_thread_fork_state_truth_required/.test(runtimeThreadForkState) &&
       /thread fork uses Rust planning, Agentgres write, runtime-event admission, and Rust projection/.test(
         runtimeThreadForkStateTest,
       ) &&
       /thread fork fails closed before source lookup when Rust planner is absent/.test(
+        runtimeThreadForkStateTest,
+      ) &&
+      /thread fork requires daemon state_dir before Rust planning or source lookup/.test(
         runtimeThreadForkStateTest,
       ) &&
       !/deps\.contextPolicyCore\s*\?\?\s*store\?\.contextPolicyCore|store\?\.contextPolicyCore|store\.contextPolicyCore/.test(
@@ -41714,6 +41774,9 @@ function runCompositor() {
       ) &&
       !/store\.createAgent\(/.test(runtimeThreadForkState) &&
       !/store\.runtimeEventStream\(/.test(runtimeThreadForkState) &&
+      !/agentForThread\(|sourceAgentForThread|sourceThreadForAgent|source_agent:\s*|source_thread:\s*/.test(
+        runtimeThreadForkState,
+      ) &&
       !/rust_daemon_core_thread_fork_required/.test(runtimeThreadForkState) &&
       /await store\.threadAuxiliarySurface\.forkThread\(store, threadId,/.test(
         runtimeRouteHandlers,

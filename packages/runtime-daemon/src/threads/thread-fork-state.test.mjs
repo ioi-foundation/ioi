@@ -38,6 +38,7 @@ function plannedForkRecord() {
     evidence_refs: [
       "runtime_thread_fork_control_rust_owned",
       "runtime_thread_fork_event_rust_owned",
+      "runtime_thread_fork_state_dir_replay_required",
       "agentgres_thread_fork_state_truth_required",
     ],
     receipt_refs: ["receipt_thread_fork_control"],
@@ -56,6 +57,7 @@ function createHarness({ plan = () => plannedForkRecord(), contextPolicyCore } =
       },
     };
   const store = {
+    stateDir: "/tmp/ioi-agentgres-thread-fork",
     agentForThread(threadId) {
       calls.push({ type: "agentForThread", threadId });
       return {
@@ -140,8 +142,6 @@ test("thread fork uses Rust planning, Agentgres write, runtime-event admission, 
     event_stream_id: "thread_fork_123:events",
   });
   assert.deepEqual(calls.map((call) => call.type), [
-    "agentForThread",
-    "threadForAgent",
     "planRuntimeThreadForkControl",
     "writeAgent",
     "ensureThreadStartedEvent",
@@ -153,8 +153,9 @@ test("thread fork uses Rust planning, Agentgres write, runtime-event admission, 
   assert.equal(plannedRequest.operation_kind, "thread.fork");
   assert.equal(plannedRequest.thread_id, "thread_a");
   assert.equal(plannedRequest.event_stream_id, "thread_a:events");
-  assert.equal(plannedRequest.source_agent.id, "agent_a");
-  assert.equal(plannedRequest.source_thread.thread_id, "thread_a");
+  assert.equal(plannedRequest.state_dir, "/tmp/ioi-agentgres-thread-fork");
+  assert.equal(Object.hasOwn(plannedRequest, "source_agent"), false);
+  assert.equal(Object.hasOwn(plannedRequest, "source_thread"), false);
   assert.equal(plannedRequest.request.idempotency_key, "fork-key");
   assert.equal(plannedRequest.request.workflow_graph_id, "graph");
   assert.equal(plannedRequest.request.workflow_node_id, "node.fork");
@@ -189,6 +190,8 @@ test("thread fork request aliases stay retired after Rust planning", async () =>
   assert.equal(plannedRequest.request.workflow_graph_id, "graph");
   assert.equal(plannedRequest.request.workflow_node_id, "node.fork");
   assert.equal(plannedRequest.request.requested_by, "operator");
+  assert.equal(Object.hasOwn(plannedRequest, "source_agent"), false);
+  assert.equal(Object.hasOwn(plannedRequest, "source_thread"), false);
   assertNoRetiredThreadForkRequestAliases(plannedRequest.request);
 });
 
@@ -231,9 +234,38 @@ test("thread fork fails closed before source lookup when Rust planner is absent"
       assert.deepEqual(error.details.evidence_refs, [
         "runtime_thread_fork_control_rust_owned",
         "runtime_thread_fork_event_rust_owned",
+        "runtime_thread_fork_state_dir_replay_required",
         "runtime_thread_fork_js_facade_retired",
         "agentgres_thread_fork_state_truth_required",
       ]);
+      assertNoRetiredThreadForkDetailAliases(error.details);
+      return true;
+    },
+  );
+
+  assert.deepEqual(calls, []);
+});
+
+test("thread fork requires daemon state_dir before Rust planning or source lookup", async () => {
+  const { calls, contextPolicyCore, state, store } = createHarness();
+  delete store.stateDir;
+
+  await assert.rejects(
+    () =>
+      state.forkThread(store, "thread_a", {
+        idempotency_key: "fork-key",
+      }, { contextPolicyCore }),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "runtime_thread_fork_daemon_state_dir_required");
+      assert.equal(error.details.rust_core_boundary, "runtime.thread_fork_control");
+      assert.equal(error.details.thread_id, "thread_a");
+      assert.equal(error.details.idempotency_key, "fork-key");
+      assert.ok(
+        error.details.evidence_refs.includes(
+          "runtime_thread_fork_source_candidate_transport_retired",
+        ),
+      );
       assertNoRetiredThreadForkDetailAliases(error.details);
       return true;
     },
@@ -262,8 +294,6 @@ test("thread fork rejects invalid Rust plans before Agentgres write or runtime-e
     },
   );
   assert.deepEqual(calls.map((call) => call.type), [
-    "agentForThread",
-    "threadForAgent",
     "planRuntimeThreadForkControl",
   ]);
 });

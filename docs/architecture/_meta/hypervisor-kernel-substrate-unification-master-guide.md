@@ -12454,6 +12454,21 @@ model_mount truth cannot return through a false-valued fallback-proof schema
 beside Rust-owned admission, receipt/state-root binding, Agentgres commit, and
 replay.
 
+Slice 1414 hard-cuts runtime thread-fork source candidate transport. Public
+thread fork still enters through the daemon-mounted auxiliary protocol client,
+but JS now sends only `thread_id`, `event_stream_id`, daemon `state_dir`, and
+canonical operator request facts to `plan_runtime_thread_fork_control`. Rust
+`runtime_thread_fork_control.rs` replays the source agent from admitted
+`agents/*.json`, derives the source thread association from canonical Agentgres
+state, rejects restored `source_agent`/`source_thread` candidate transport, and
+fails closed without `state_dir` or a replayed source agent before planning a
+forked agent, thread projection, and `thread.forked` runtime event. The JS
+thread-fork state helper no longer calls `agentForThread()` or builds a
+source-thread candidate before Rust planning, and focused JS/Rust tests plus
+conformance guard the state-dir replay requirement and retired candidate
+transport so thread-fork truth cannot return through JS agent/thread lookup
+beside Rust-owned Agentgres replay, event admission, and projection.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

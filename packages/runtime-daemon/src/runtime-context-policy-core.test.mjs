@@ -3711,8 +3711,7 @@ test("runtime thread-fork control core sends Rust request through typed runtime-
     operation_kind: "thread.fork",
     thread_id: "thread_123",
     event_stream_id: "thread_123:events",
-    source_thread: { thread_id: "thread_123", agent_id: "agent_123" },
-    source_agent: { id: "agent_123", cwd: "/workspace" },
+    state_dir: "/tmp/ioi-agentgres-thread-fork",
     request: { idempotency_key: "fork-key" },
   });
 
@@ -3724,7 +3723,9 @@ test("runtime thread-fork control core sends Rust request through typed runtime-
   );
   assert.equal(captured.operation_kind, "thread.fork");
   assert.equal(captured.thread_id, "thread_123");
-  assert.equal(captured.source_agent.id, "agent_123");
+  assert.equal(captured.state_dir, "/tmp/ioi-agentgres-thread-fork");
+  assert.equal(Object.hasOwn(captured, "source_agent"), false);
+  assert.equal(Object.hasOwn(captured, "source_thread"), false);
   assert.equal(captured.request.idempotency_key, "fork-key");
   assert.equal(Object.hasOwn(captured, "backend"), false);
   assert.equal(result.source, "rust_runtime_thread_fork_control_api");

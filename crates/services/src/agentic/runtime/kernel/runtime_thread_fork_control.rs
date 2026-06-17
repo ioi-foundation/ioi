@@ -1,6 +1,8 @@
 use serde::Deserialize;
 use serde_json::{json, Map, Value};
 use sha2::{Digest, Sha256};
+use std::fs;
+use std::path::{Path, PathBuf};
 
 pub const RUNTIME_THREAD_FORK_CONTROL_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.thread-fork-control-request.v1";
@@ -19,6 +21,8 @@ pub struct RuntimeThreadForkControlRequest {
     pub thread_id: Option<String>,
     #[serde(default)]
     pub event_stream_id: Option<String>,
+    #[serde(default)]
+    pub state_dir: Option<String>,
     #[serde(default)]
     pub source_thread: Value,
     #[serde(default)]
@@ -113,22 +117,9 @@ impl RuntimeThreadForkControlCore {
                     "thread fork requires event_stream_id",
                 )
             })?;
-        if let Some(source_thread_id) = string_field(&request.source_thread, "thread_id") {
-            if source_thread_id != thread_id {
-                return Err(RuntimeThreadForkCommandError::new(
-                    "runtime_thread_fork_control_source_thread_mismatch",
-                    format!(
-                        "source thread {source_thread_id} does not match requested thread {thread_id}"
-                    ),
-                ));
-            }
-        }
-        let source_agent = object_map(&request.source_agent).ok_or_else(|| {
-            RuntimeThreadForkCommandError::new(
-                "runtime_thread_fork_control_source_agent_required",
-                "thread fork requires a source agent candidate",
-            )
-        })?;
+        reject_retired_candidate_transport(request)?;
+        let source_agent =
+            thread_fork_agent_from_state_dir(request.state_dir.as_deref(), &thread_id)?;
         let source_agent_value = Value::Object(source_agent.clone());
         let source_agent_id = string_field(&source_agent_value, "id").ok_or_else(|| {
             RuntimeThreadForkCommandError::new(
@@ -204,8 +195,7 @@ impl RuntimeThreadForkControlCore {
         agent.insert("options".to_string(), Value::Object(options));
 
         let thread = json!({
-            "schema_version": string_field(&request.source_thread, "schema_version")
-                .unwrap_or_else(|| "ioi.runtime.thread.v1".to_string()),
+            "schema_version": "ioi.runtime.thread.v1",
             "thread_id": forked_thread_id,
             "agent_id": agent_id,
             "event_stream_id": format!("{forked_thread_id}:events"),
@@ -270,6 +260,125 @@ impl RuntimeThreadForkControlCore {
     }
 }
 
+fn reject_retired_candidate_transport(
+    request: &RuntimeThreadForkControlRequest,
+) -> Result<(), RuntimeThreadForkCommandError> {
+    if !request.source_agent.is_null() || !request.source_thread.is_null() {
+        return Err(RuntimeThreadForkCommandError::new(
+            "runtime_thread_fork_control_candidate_transport_retired",
+            "thread fork source_agent/source_thread candidate transport is retired; provide state_dir for Agentgres replay",
+        ));
+    }
+    if object_map(&request.request).is_some_and(|body| {
+        body.contains_key("source_agent")
+            || body.contains_key("sourceAgent")
+            || body.contains_key("source_thread")
+            || body.contains_key("sourceThread")
+    }) {
+        return Err(RuntimeThreadForkCommandError::new(
+            "runtime_thread_fork_control_candidate_transport_retired",
+            "thread fork request candidate transport is retired; provide state_dir for Agentgres replay",
+        ));
+    }
+    Ok(())
+}
+
+fn thread_fork_agent_from_state_dir(
+    state_dir: Option<&str>,
+    thread_id: &str,
+) -> Result<Map<String, Value>, RuntimeThreadForkCommandError> {
+    let state_root = optional_trimmed(state_dir).ok_or_else(|| {
+        RuntimeThreadForkCommandError::new(
+            "runtime_thread_fork_control_state_dir_required",
+            "thread fork requires Agentgres state_dir replay",
+        )
+    })?;
+    let agents_dir = PathBuf::from(state_root).join("agents");
+    let mut candidate_ids = vec![agent_id_for_thread(thread_id), thread_id.to_string()];
+    candidate_ids.dedup();
+
+    for candidate_id in &candidate_ids {
+        let path = agents_dir.join(format!("{}.json", safe_component(candidate_id)));
+        if path.exists() {
+            let record = read_thread_fork_agent_record(&path)?;
+            if thread_fork_agent_matches_thread(&record, thread_id) {
+                return Ok(record);
+            }
+        }
+    }
+
+    if agents_dir.exists() {
+        let entries = fs::read_dir(&agents_dir).map_err(|error| {
+            RuntimeThreadForkCommandError::new(
+                "runtime_thread_fork_control_state_dir_read_failed",
+                format!("could not inspect Agentgres agents directory: {error}"),
+            )
+        })?;
+        for entry in entries {
+            let entry = entry.map_err(|error| {
+                RuntimeThreadForkCommandError::new(
+                    "runtime_thread_fork_control_state_dir_read_failed",
+                    format!("could not inspect Agentgres agent entry: {error}"),
+                )
+            })?;
+            let path = entry.path();
+            if path.extension().and_then(|value| value.to_str()) != Some("json") {
+                continue;
+            }
+            let record = read_thread_fork_agent_record(&path)?;
+            if thread_fork_agent_matches_thread(&record, thread_id) {
+                return Ok(record);
+            }
+        }
+    }
+
+    Err(RuntimeThreadForkCommandError::new(
+        "runtime_thread_fork_control_agent_replay_required",
+        format!("thread fork requires replayed Agentgres source agent for {thread_id}"),
+    ))
+}
+
+fn read_thread_fork_agent_record(
+    path: &Path,
+) -> Result<Map<String, Value>, RuntimeThreadForkCommandError> {
+    let body = fs::read_to_string(path).map_err(|error| {
+        RuntimeThreadForkCommandError::new(
+            "runtime_thread_fork_control_state_dir_read_failed",
+            format!(
+                "could not read Agentgres agent record {}: {error}",
+                path.display()
+            ),
+        )
+    })?;
+    let value: Value = serde_json::from_str(&body).map_err(|error| {
+        RuntimeThreadForkCommandError::new(
+            "runtime_thread_fork_control_state_dir_record_invalid",
+            format!("invalid Agentgres agent record {}: {error}", path.display()),
+        )
+    })?;
+    object_map(&value).ok_or_else(|| {
+        RuntimeThreadForkCommandError::new(
+            "runtime_thread_fork_control_state_dir_record_invalid",
+            format!("Agentgres agent record {} is not an object", path.display()),
+        )
+    })
+}
+
+fn thread_fork_agent_matches_thread(agent: &Map<String, Value>, thread_id: &str) -> bool {
+    let value = Value::Object(agent.clone());
+    let expected_agent_id = agent_id_for_thread(thread_id);
+    string_field(&value, "id").as_deref() == Some(expected_agent_id.as_str())
+        || string_field(&value, "thread_id").as_deref() == Some(thread_id)
+        || json_path_string(&value, &["thread", "thread_id"]).as_deref() == Some(thread_id)
+}
+
+fn agent_id_for_thread(thread_id: &str) -> String {
+    thread_id
+        .strip_prefix("thread_")
+        .map(|suffix| format!("agent_{suffix}"))
+        .unwrap_or_else(|| thread_id.to_string())
+}
+
 fn thread_fork_receipt_refs(
     request: &RuntimeThreadForkControlRequest,
     fork_hash: &str,
@@ -317,6 +426,18 @@ fn string_field(value: &Value, field: &str) -> Option<String> {
         .map(str::to_string)
 }
 
+fn json_path_string(value: &Value, path: &[&str]) -> Option<String> {
+    let mut current = value;
+    for segment in path {
+        current = current.get(*segment)?;
+    }
+    current
+        .as_str()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+}
+
 fn string_array_field(value: &Value, field: &str) -> Vec<String> {
     value
         .get(field)
@@ -346,6 +467,24 @@ fn short_hash(value: String) -> String {
     hex::encode(digest)[..12].to_string()
 }
 
+fn safe_component(value: &str) -> String {
+    let safe = value
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || matches!(ch, '_' | '-' | '.') {
+                ch
+            } else {
+                '_'
+            }
+        })
+        .collect::<String>();
+    if safe.is_empty() {
+        "runtime".to_string()
+    } else {
+        safe
+    }
+}
+
 fn unique_strings(values: Vec<String>) -> Vec<String> {
     let mut unique = Vec::new();
     for value in values {
@@ -359,21 +498,26 @@ fn unique_strings(values: Vec<String>) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
-    fn control_request() -> RuntimeThreadForkControlRequest {
-        RuntimeThreadForkControlRequest {
-            schema_version: Some(RUNTIME_THREAD_FORK_CONTROL_REQUEST_SCHEMA_VERSION.to_string()),
-            operation: Some("thread_fork".to_string()),
-            operation_kind: Some("thread.fork".to_string()),
-            thread_id: Some("thread_source".to_string()),
-            event_stream_id: Some("thread_source:events".to_string()),
-            source_thread: json!({
-                "schema_version": "ioi.runtime.thread.v1",
-                "thread_id": "thread_source",
-                "agent_id": "agent_source",
-                "event_stream_id": "thread_source:events",
-            }),
-            source_agent: json!({
+    fn temp_thread_fork_state_dir(label: &str) -> PathBuf {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system time")
+            .as_nanos();
+        let state_dir = std::env::temp_dir().join(format!(
+            "ioi_runtime_thread_fork_{label}_{}_{}",
+            std::process::id(),
+            nonce
+        ));
+        fs::create_dir_all(state_dir.join("agents")).expect("create temp agents dir");
+        state_dir
+    }
+
+    fn seed_source_agent(state_dir: &Path) {
+        fs::write(
+            state_dir.join("agents").join("agent_source.json"),
+            serde_json::to_vec_pretty(&json!({
                 "id": "agent_source",
                 "status": "active",
                 "runtime": "local",
@@ -385,7 +529,24 @@ mod tests {
                     "model": { "selected_model": "model.local" }
                 },
                 "modelId": "model.local"
-            }),
+            }))
+            .expect("serialize source agent"),
+        )
+        .expect("seed source agent");
+    }
+
+    fn control_request() -> RuntimeThreadForkControlRequest {
+        let state_dir = temp_thread_fork_state_dir("control");
+        seed_source_agent(&state_dir);
+        RuntimeThreadForkControlRequest {
+            schema_version: Some(RUNTIME_THREAD_FORK_CONTROL_REQUEST_SCHEMA_VERSION.to_string()),
+            operation: Some("thread_fork".to_string()),
+            operation_kind: Some("thread.fork".to_string()),
+            thread_id: Some("thread_source".to_string()),
+            event_stream_id: Some("thread_source:events".to_string()),
+            state_dir: Some(state_dir.to_string_lossy().to_string()),
+            source_thread: Value::Null,
+            source_agent: Value::Null,
             request: json!({
                 "idempotency_key": "fork-key",
                 "source": "agent_studio",
@@ -458,15 +619,42 @@ mod tests {
     }
 
     #[test]
-    fn rust_rejects_mismatched_source_thread() {
+    fn rust_rejects_thread_fork_candidate_transport() {
         let mut request = control_request();
-        request.source_thread = json!({ "thread_id": "thread_other" });
+        request.source_thread = json!({ "thread_id": "thread_source" });
         let error = RuntimeThreadForkControlCore
             .plan(&request)
-            .expect_err("source mismatch should fail");
+            .expect_err("source candidate transport should fail");
         assert_eq!(
             error.code(),
-            "runtime_thread_fork_control_source_thread_mismatch"
+            "runtime_thread_fork_control_candidate_transport_retired"
+        );
+    }
+
+    #[test]
+    fn rust_requires_state_dir_for_thread_fork_replay() {
+        let mut request = control_request();
+        request.state_dir = None;
+        let error = RuntimeThreadForkControlCore
+            .plan(&request)
+            .expect_err("state_dir should be required");
+        assert_eq!(
+            error.code(),
+            "runtime_thread_fork_control_state_dir_required"
+        );
+    }
+
+    #[test]
+    fn rust_requires_replayed_source_agent_for_thread_fork() {
+        let mut request = control_request();
+        let state_dir = temp_thread_fork_state_dir("missing-agent");
+        request.state_dir = Some(state_dir.to_string_lossy().to_string());
+        let error = RuntimeThreadForkControlCore
+            .plan(&request)
+            .expect_err("source agent replay should be required");
+        assert_eq!(
+            error.code(),
+            "runtime_thread_fork_control_agent_replay_required"
         );
     }
 }

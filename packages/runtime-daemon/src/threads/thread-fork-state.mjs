@@ -5,6 +5,7 @@ import { normalizeArray, objectRecord, optionalString } from "../runtime-value-h
 const THREAD_FORK_CONTROL_EVIDENCE_REFS = [
   "runtime_thread_fork_control_rust_owned",
   "runtime_thread_fork_event_rust_owned",
+  "runtime_thread_fork_state_dir_replay_required",
   "runtime_thread_fork_js_facade_retired",
   "agentgres_thread_fork_state_truth_required",
 ];
@@ -35,6 +36,31 @@ function threadForkRunner(store, request = {}, deps = {}) {
       thread_id: request.thread_id ?? null,
       idempotency_key: request.idempotency_key ?? null,
       evidence_refs: THREAD_FORK_CONTROL_EVIDENCE_REFS,
+    },
+  });
+}
+
+function requireThreadForkDaemonStateDir(store, {
+  threadId,
+  idempotencyKey = null,
+}) {
+  const stateDir = optionalString(store?.stateDir);
+  if (stateDir) return stateDir;
+  throw runtimeError({
+    status: 501,
+    code: "runtime_thread_fork_daemon_state_dir_required",
+    message:
+      "Runtime thread fork requires daemon Agentgres state_dir replay; JS source candidate transport is retired.",
+    details: {
+      rust_core_boundary: "runtime.thread_fork_control",
+      operation: "thread_fork",
+      operation_kind: "thread.fork",
+      thread_id: threadId,
+      idempotency_key: idempotencyKey,
+      evidence_refs: [
+        ...THREAD_FORK_CONTROL_EVIDENCE_REFS,
+        "runtime_thread_fork_source_candidate_transport_retired",
+      ],
     },
   });
 }
@@ -159,60 +185,24 @@ function assertThreadForkProjection(projection, plannedThread, { threadId }) {
   return projected;
 }
 
-async function sourceAgentForThread(store, threadId) {
-  if (typeof store?.agentForThread !== "function") return null;
-  return objectRecord(await store.agentForThread(threadId));
-}
-
-async function sourceThreadForAgent(store, sourceAgent, threadId) {
-  if (typeof store?.threadForAgent === "function") {
-    const projected = objectRecord(await store.threadForAgent(sourceAgent));
-    if (projected) return projected;
-  }
-  return {
-    thread_id: threadId,
-    agent_id: sourceAgent.id,
-    event_stream_id: eventStreamIdForThread(threadId),
-  };
-}
-
 export function createThreadForkState() {
   async function forkThread(store, threadId, request = {}, deps = {}) {
     const normalizedRequest = objectRecord(request) ?? {};
+    const idempotencyKey = optionalString(normalizedRequest.idempotency_key) ?? null;
     const runner = threadForkRunner(store, {
       thread_id: threadId,
-      idempotency_key: optionalString(normalizedRequest.idempotency_key) ?? null,
+      idempotency_key: idempotencyKey,
     }, deps);
-    const sourceAgent = await sourceAgentForThread(store, threadId);
-    if (!sourceAgent) {
-      throw runtimeError({
-        status: 404,
-        code: "runtime_thread_fork_source_agent_not_found",
-        message: "Runtime thread fork could not find the source thread agent.",
-        details: {
-          rust_core_boundary: "runtime.thread_fork_control",
-          operation: "thread_fork",
-          operation_kind: "thread.fork",
-          thread_id: threadId,
-          evidence_refs: THREAD_FORK_CONTROL_EVIDENCE_REFS,
-        },
-      });
-    }
-    const sourceThread = await sourceThreadForAgent(store, sourceAgent, threadId);
     const requestPayload = threadForkRequestPayload(normalizedRequest);
-    const eventStreamId = optionalString(sourceThread.event_stream_id) ?? eventStreamIdForThread(threadId);
     const planned = await runner.planRuntimeThreadForkControl({
       operation: "thread_fork",
       operation_kind: "thread.fork",
       thread_id: threadId,
-      event_stream_id: eventStreamId,
-      source_thread: {
-        ...sourceThread,
-        thread_id: optionalString(sourceThread.thread_id) ?? threadId,
-        agent_id: optionalString(sourceThread.agent_id) ?? sourceAgent.id,
-        event_stream_id: eventStreamId,
-      },
-      source_agent: sourceAgent,
+      event_stream_id: eventStreamIdForThread(threadId),
+      state_dir: requireThreadForkDaemonStateDir(store, {
+        threadId,
+        idempotencyKey,
+      }),
       request: requestPayload,
       receipt_refs: stringRefs(normalizedRequest.receipt_refs),
       policy_decision_refs: stringRefs(normalizedRequest.policy_decision_refs),
