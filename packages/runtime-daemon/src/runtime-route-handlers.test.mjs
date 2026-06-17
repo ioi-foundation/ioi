@@ -77,9 +77,6 @@ test("native authority evidence compatibility routes are retired", async () => {
         filters: facts,
       };
     },
-    runReadSurface: {
-      authorityEvidenceSummary: retiredRouteWrapper,
-    },
     authorityEvidenceSummary: retiredRouteWrapper,
   };
   const paths = [

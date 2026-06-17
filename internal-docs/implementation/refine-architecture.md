@@ -1417,6 +1417,7 @@ git diff --check -- internal-docs/implementation docs/architecture apps/hypervis
 
 | Field | Detail |
 | --- | --- |
+| Status | Implemented as a canonical docs slice on 2026-06-17. Runtime/API implementation remains follow-up hardening. |
 | Files | new `aiagent/managed-worker-instance-lifecycle.md`, worker endpoints, Agentgres artifact refs, wallet APIs |
 | Change | Define install, initialize, active, idle, zero-to-idle, suspended, lapsed, archived, restored, exported, deleted. |
 | Acceptance | Payment lapse and restore/export/delete behavior are explicit. |
@@ -1426,10 +1427,11 @@ git diff --check -- internal-docs/implementation docs/architecture apps/hypervis
 
 | Field | Detail |
 | --- | --- |
+| Status | Canonized and guarded on 2026-06-17. Route/trade API validation remains follow-up implementation. |
 | Files | decentralized exchange/trade docs, Wallet product risk, API scopes, conformance docs |
 | Change | Require source, adapter, timestamp, expiry, evidence refs, coverage state, failure conditions for route/trade candidates. |
 | Acceptance | Candidate services cannot be hidden trust roots. |
-| Verify | `rg -n "CandidateEvidence|coverage_state|expiry|adapter_id" docs/architecture/domains/decentralized docs/architecture/components/wallet-network` |
+| Verify | `npm run check:candidate-evidence`; `rg -n "CandidateEvidence|coverage_state|expires_at|adapter_id" docs/architecture/domains/decentralized docs/architecture/components/wallet-network packages/wallet-protocol` |
 
 ### Phase 7: Harden Service Composition Delivery
 

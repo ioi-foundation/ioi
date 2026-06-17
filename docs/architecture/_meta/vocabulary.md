@@ -294,6 +294,12 @@ compliance acronyms for hidden audit material.
   eligibility label. Values include `Assessed`, `Unknown`, `Unassessed`,
   `Stale`, `Partially Covered`, and `Conflicting Sources`. Absence of a risk
   label is never safety.
+- `CandidateEvidence`: evidence metadata attached to route, venue, market,
+  provider, connector, app, or workload candidates. It binds candidate id,
+  source, adapter id, observed time, expiry, coverage state, evidence refs,
+  risk labels, eligibility labels, and claims. It is not authority; it makes
+  candidate provenance inspectable before Wallet, Hypervisor, or policy can
+  approve a consequential action.
 - `CapabilityLease`: a scoped, expiring wallet.network lease that lets an app,
   agent, service, or runtime exercise a capability such as `scope:gmail.send`,
   `scope:broker.place_order`, or `scope:cloud.deploy` without receiving

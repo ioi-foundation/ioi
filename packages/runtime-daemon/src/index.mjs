@@ -72,7 +72,6 @@ import { createRuntimeApprovalStateCore } from "./runtime-approval-state-core.mj
 import { createRuntimeMcpCatalogApi } from "./runtime-mcp-catalog-api.mjs";
 import { createRuntimeMcpControlApi } from "./runtime-mcp-control-api.mjs";
 import { createRuntimeMcpServeApi } from "./runtime-mcp-serve-api.mjs";
-import { createRuntimeRunReadSurface } from "./runtime-run-read-surface.mjs";
 import { createRuntimeLifecycleProjectionApi } from "./runtime-lifecycle-projection-api.mjs";
 import { createRuntimeSkillHookApi } from "./runtime-skill-hook-api.mjs";
 import { createRuntimeTaskJobApi } from "./runtime-task-job-api.mjs";
@@ -130,12 +129,16 @@ import {
   agentForThread as agentForThreadState,
   deleteAgent as deleteAgentState,
   getAgent as getAgentState,
+  getRun as getRunState,
   inFlightRuntimeTurnKey as inFlightRuntimeTurnKeyState,
   listAgents as listAgentsState,
+  listRuns as listRunsState,
   registerInFlightRuntimeTurn as registerInFlightRuntimeTurnState,
   resolveRunForThreadTurn as resolveRunForThreadTurnState,
   unregisterInFlightRuntimeTurn as unregisterInFlightRuntimeTurnState,
   updateAgent as updateAgentState,
+  usageForRun as usageForRunState,
+  usageForThread as usageForThreadState,
 } from "./threads/thread-store.mjs";
 import { createRuntimeThreadAuxiliaryApi } from "./runtime-thread-auxiliary-api.mjs";
 import { createModelRouteSelection } from "./threads/model-route-selection.mjs";
@@ -216,6 +219,53 @@ const {
   optionalString,
   safeId,
 });
+
+function runtimeJobSidecarForRun(run = {}) {
+  return { jobId: `job_${run.id}` };
+}
+
+function runtimeChecklistSidecarForRun(run = {}) {
+  return { checklistId: `checklist_${run.id}` };
+}
+
+function runStateProjectionWatermark(store) {
+  return store.runs instanceof Map ? store.runs.size : 0;
+}
+
+function runStateCommitProjection(store, runId) {
+  const run = getRunState(store, runId, { notFound });
+  const watermark = runStateProjectionWatermark(store);
+  return {
+    schemaVersion: store.schemaVersion,
+    runId,
+    source: "agentgres_run_state_commit_projection",
+    watermark,
+    freshness: {
+      source: "local-agentgres-run-state-commit",
+      runStateWatermark: watermark,
+      generatedAt: new Date().toISOString(),
+    },
+    paths: {
+      run: path.relative(store.stateDir, store.pathFor("runs", `${run.id}.json`)),
+      task: path.relative(store.stateDir, store.pathFor("tasks", `${run.id}.json`)),
+      job: path.relative(
+        store.stateDir,
+        store.pathFor("jobs", `${runtimeJobSidecarForRun(run).jobId}.json`),
+      ),
+      checklist: path.relative(
+        store.stateDir,
+        store.pathFor(
+          "checklists",
+          `${runtimeChecklistSidecarForRun(run).checklistId}.json`,
+        ),
+      ),
+      quality: path.relative(store.stateDir, store.pathFor("quality", `${run.id}.json`)),
+    },
+    terminalState: run.status,
+    stopCondition: run.trace?.stopCondition ?? null,
+    scorecard: run.trace?.scorecard ?? null,
+  };
+}
 const {
   hasExplicitSubagentMemorySelector,
   memoryControlKind,
@@ -714,12 +764,6 @@ export class AgentgresRuntimeStateStore {
     });
     this.repositoryApi = createRuntimeRepositoryApi({
       contextPolicyCore: this.contextPolicyCore,
-    });
-    this.runReadSurface = createRuntimeRunReadSurface({
-      notFound,
-      runtimeUsageTelemetryForRun,
-      runtimeUsageTelemetryForThread,
-      threadIdForAgent,
     });
     this.lifecycleProjectionApi = createRuntimeLifecycleProjectionApi({
       contextPolicyCore: this.contextPolicyCore,
@@ -1332,19 +1376,24 @@ export class AgentgresRuntimeStateStore {
   }
 
   getRun(runId) {
-    return this.runReadSurface.getRun(this, runId);
+    return getRunState(this, runId, { notFound });
   }
 
   listRuns(agentId) {
-    return this.runReadSurface.listRuns(this, agentId);
+    return listRunsState(this, agentId);
   }
 
   usageForRun(runId) {
-    return this.runReadSurface.usageForRun(this, runId);
+    return usageForRunState(this, runId, {
+      runtimeUsageTelemetryForRun,
+      threadIdForAgent,
+    });
   }
 
   usageForThread(threadId) {
-    return this.runReadSurface.usageForThread(this, threadId);
+    return usageForThreadState(this, threadId, {
+      runtimeUsageTelemetryForThread,
+    });
   }
 
   listUsage(options = {}) {
@@ -1356,11 +1405,11 @@ export class AgentgresRuntimeStateStore {
   }
 
   traceFromCanonicalState(runId) {
-    return this.runReadSurface.traceFromCanonicalState(this, runId);
+    return this.projectRuntimeLifecycleProjection("run_trace", { run_id: runId });
   }
 
   canonicalProjection(runId) {
-    return this.runReadSurface.canonicalProjection(this, runId);
+    return runStateCommitProjection(this, runId);
   }
 
   resumeThread(threadId, request = {}) {

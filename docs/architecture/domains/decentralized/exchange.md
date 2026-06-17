@@ -113,6 +113,68 @@ user-specified paths.
 It is not authority and cannot execute until selected into an approved
 `ExchangeIntent`.
 
+Every `RouteCandidate` must carry `CandidateEvidence`. A route candidate without
+candidate evidence is an untrusted suggestion, not an approval candidate.
+
+```rust
+struct CandidateEvidence {
+    candidate_id: Hash,
+    source: RouteSourceRef,
+    adapter_id: AdapterRef,
+    observed_at: Timestamp,
+    expires_at: Timestamp,
+    coverage_state: RiskCoverageState, // assessed | unknown | unassessed |
+                                      // stale | conflicting_sources
+    evidence_refs: Vec<EvidenceRef>,
+    risk_labels: Vec<RiskLabel>,
+    eligibility_labels: Vec<EligibilityLabel>,
+    claims: Vec<CandidateClaim>
+}
+```
+
+Required candidate failure behavior:
+
+```text
+missing CandidateEvidence
+  -> reject as not approval-eligible
+
+missing adapter_id, observed_at, expires_at, evidence_refs, or coverage_state
+  -> reject as malformed
+
+expired candidate
+  -> require requote or resimulation
+
+unknown, unassessed, stale, or conflicting_sources coverage_state
+  -> cannot execute silently; requires Wallet caution state, simulation,
+     policy review, or denial
+```
+
+`RouteCandidate` shape:
+
+```rust
+struct RouteCandidate {
+    route_id: Hash,
+    candidate_evidence: CandidateEvidence,
+    source: RouteSourceRef,
+    adapter_id: AdapterRef,
+    source_kind: RouteSourceKind,    // decentralized_exchange | direct_pool |
+                                     // dex_router | bridge_router | solver |
+                                     // quote_api | user_specified
+    path: Vec<RouteHop>,
+    expected_amount_out: Amount,
+    min_amount_out: Amount,
+    calldata_commitment: Hash,
+    quote_hash: Hash,
+    observed_at: Timestamp,
+    expires_at: Timestamp,
+    risk_labels: Vec<RiskLabel>,
+    eligibility_labels: Vec<EligibilityLabel>,
+    economics: ExchangeEconomics,
+    evidence_refs: Vec<EvidenceRef>,
+    route_receipt_ref: Option<ReceiptRef>
+}
+```
+
 ### ExchangeIntent
 
 `ExchangeIntent` is owned in detail by
@@ -154,6 +216,12 @@ Receipts should bind:
 
 - initiator;
 - selected route or denied route;
+- candidate evidence;
+- adapter id;
+- observed timestamp;
+- expiry;
+- coverage state;
+- evidence refs;
 - policy hash;
 - authority refs;
 - revocation epoch;
@@ -168,6 +236,9 @@ Receipts should bind:
 - A quote is not authority.
 - A route candidate is not approval.
 - A route source is not a trust root.
+- Route candidates must include `CandidateEvidence`.
+- Missing, expired, stale, unknown, unassessed, or conflicting candidate
+  evidence cannot execute silently.
 - Final execution requires wallet.network intent binding.
 - Bridge, admin-key, oracle, unlimited-approval, and unknown-contract risks
   must not be hidden behind a "best route" label.

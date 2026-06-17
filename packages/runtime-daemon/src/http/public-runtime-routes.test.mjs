@@ -1214,10 +1214,6 @@ test("public runtime usage and authority evidence routes use store-owned lifecyc
       }
       return null;
     },
-    runReadSurface: {
-      listUsage: retiredRouteWrapper,
-      authorityEvidenceSummary: retiredRouteWrapper,
-    },
     listUsage: retiredRouteWrapper,
     authorityEvidenceSummary: retiredRouteWrapper,
   };

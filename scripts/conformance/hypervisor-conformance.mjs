@@ -23822,6 +23822,12 @@ function runReceipts() {
   const publicRuntimeRoutesTest = exists("packages/runtime-daemon/src/http/public-runtime-routes.test.mjs")
     ? read("packages/runtime-daemon/src/http/public-runtime-routes.test.mjs")
     : "";
+  const runtimeRunReadSurfaceRetired =
+    !exists("packages/runtime-daemon/src/runtime-run-read-surface.mjs") &&
+    !exists("packages/runtime-daemon/src/runtime-run-read-surface.test.mjs") &&
+    !/createRuntimeRunReadSurface|runtime-run-read-surface|runReadSurface/.test(
+      `${runtimeDaemonIndex}\n${runtimeRouteHandlers}\n${publicRuntimeRoutes}`,
+    );
   const modelMountStableReadAgentSdkSubstrateClient = exists("packages/agent-sdk/src/substrate-client.ts")
     ? read("packages/agent-sdk/src/substrate-client.ts")
     : "";
@@ -31187,8 +31193,10 @@ function runReceipts() {
       /thread persistence writes run projections without operation entries/.test(
         read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
       ) &&
-      /agentgres_canonical_state_projection/.test(runtimeRunReadSurface) &&
-      /runStateWatermark/.test(runtimeRunReadSurface) &&
+      runtimeRunReadSurfaceRetired &&
+      /function runStateCommitProjection\(store, runId\)/.test(runtimeDaemonIndex) &&
+      /agentgres_run_state_commit_projection/.test(runtimeDaemonIndex) &&
+      /runStateProjectionWatermark/.test(runtimeDaemonIndex) &&
       /agentgres_canonical_state_projection/.test(runtimeDoctorReportRustCore) &&
       /runStateWatermark/.test(runtimeDoctorReportRustCore) &&
       /stable_tool_id/.test(runtimeDoctorReportRustCore) &&
@@ -31199,7 +31207,6 @@ function runReceipts() {
     [
       "packages/runtime-daemon/src/threads/thread-persistence.mjs",
       "packages/runtime-daemon/src/threads/thread-persistence.test.mjs",
-      "packages/runtime-daemon/src/runtime-run-read-surface.mjs",
       "crates/services/src/agentic/runtime/kernel/runtime_doctor_report.rs",
       "packages/runtime-daemon/src/runtime-tool-catalog.mjs",
       "packages/runtime-daemon/src/threads/thread-turn-projection.mjs",
@@ -32132,10 +32139,10 @@ function runReceipts() {
       /native authority evidence compatibility routes are retired/.test(
         runtimeRouteHandlersTest,
       ) &&
+      runtimeRunReadSurfaceRetired &&
       !/authorityEvidenceSummaryForEvents/.test(
-        `${runtimeDaemonIndex}\n${runtimeRunReadSurface}\n${publicRuntimeRoutes}\n${runtimeRouteHandlers}`,
+        `${runtimeDaemonIndex}\n${publicRuntimeRoutes}\n${runtimeRouteHandlers}`,
       ) &&
-      !/authorityEvidenceSummary\(store, options/.test(runtimeRunReadSurface) &&
       !/store\.runReadSurface\.authorityEvidenceSummary\(store, Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
         `${publicRuntimeRoutes}\n${runtimeRouteHandlers}`,
       ) &&
@@ -32145,7 +32152,6 @@ function runReceipts() {
     [
       "packages/runtime-daemon/src/authority-evidence-summary.mjs",
       "packages/runtime-daemon/src/authority-evidence-summary.test.mjs",
-      "packages/runtime-daemon/src/runtime-run-read-surface.mjs",
       "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
       "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.mjs",
@@ -33854,6 +33860,12 @@ function runCompositor() {
   const runtimeRunReadSurfaceTest = exists("packages/runtime-daemon/src/runtime-run-read-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-run-read-surface.test.mjs")
     : "";
+  const runtimeRunReadSurfaceRetired =
+    !exists("packages/runtime-daemon/src/runtime-run-read-surface.mjs") &&
+    !exists("packages/runtime-daemon/src/runtime-run-read-surface.test.mjs") &&
+    !/createRuntimeRunReadSurface|runtime-run-read-surface|runReadSurface/.test(
+      `${runtimeDaemonIndex}\n${runtimeRouteHandlers}\n${publicRuntimeRoutes}`,
+    );
   const runtimeLifecycleProjectionApi = exists("packages/runtime-daemon/src/runtime-lifecycle-projection-api.mjs")
     ? read("packages/runtime-daemon/src/runtime-lifecycle-projection-api.mjs")
     : "";
@@ -37805,10 +37817,35 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "runtime-run-read-surface-retired",
+    runtimeRunReadSurfaceRetired &&
+      /getRun\(runId\)\s*\{[\s\S]*?return getRunState\(this, runId, \{ notFound \}\);/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /listRuns\(agentId\)\s*\{[\s\S]*?return listRunsState\(this, agentId\);/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /usageForRun\(runId\)\s*\{[\s\S]*?usageForRunState\(this, runId/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /projectRuntimeLifecycleProjection\(projectionKind, facts = \{\}\)\s*\{[\s\S]*?this\.lifecycleProjectionApi\.project\(this, projectionKind, facts\)/.test(
+        runtimeDaemonIndex,
+      ),
+    [
+      "packages/runtime-daemon/src/index.mjs",
+      "packages/runtime-daemon/src/runtime-lifecycle-projection-api.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.mjs",
+      "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
+    ],
+    "Phase 10/11 is pending: daemon run reads must not remount runtime-run-read-surface as a duplicate route truth facade",
+  );
+  assertCheck(
+    result,
     "runtime-run-legacy-event-read-alias-retired",
-    !/legacyEventsForRun/.test(`${runtimeDaemonIndex}\n${runtimeRunReadSurface}`) &&
+    runtimeRunReadSurfaceRetired &&
+      !/legacyEventsForRun/.test(runtimeDaemonIndex) &&
       !/replayFromCanonicalState/.test(
-        `${runtimeDaemonIndex}\n${runtimeRunReadSurface}\n${runtimeLifecycleProjectionSurface}`,
+        `${runtimeDaemonIndex}\n${runtimeLifecycleProjectionSurface}`,
       ) &&
       /replayRun\(store,\s*runId\)\s*\{[\s\S]*?run_id:\s*optionalString\(runId\)/.test(
         runtimeLifecycleProjectionSurface,
@@ -37821,16 +37858,12 @@ function runCompositor() {
       ) &&
       !/eventsForRun/.test(runtimeLifecycleProjectionSurface) &&
       !/callStore\(/.test(runtimeLifecycleProjectionSurface) &&
-      /canonicalProjection/.test(runtimeRunReadSurface) &&
-      /Object\.hasOwn\(surface,\s*"legacyEventsForRun"\),\s*false/.test(runtimeRunReadSurfaceTest) &&
-      /Object\.hasOwn\(surface,\s*"replayFromCanonicalState"\),\s*false/.test(
-        runtimeRunReadSurfaceTest,
+      /canonicalProjection\(runId\)\s*\{[\s\S]*?return runStateCommitProjection\(this, runId\);/.test(
+        runtimeDaemonIndex,
       ),
     [
       "packages/runtime-daemon/src/index.mjs",
-      "packages/runtime-daemon/src/runtime-run-read-surface.mjs",
       "packages/runtime-daemon/src/runtime-lifecycle-projection-api.mjs",
-      "packages/runtime-daemon/src/runtime-run-read-surface.test.mjs",
     ],
     "Phase 10/11 is pending: runtime run reads must retire JS replay aliases and use Rust thread-event replay through lifecycle projection",
   );
@@ -37858,9 +37891,7 @@ function runCompositor() {
       /store\.projectRuntimeLifecycleProjection\("usage_list", Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
         publicRuntimeRoutes,
       ) &&
-      /Object\.hasOwn\(surface,\s*"listUsage"\),\s*false/.test(
-        runtimeRunReadSurfaceTest,
-      ) &&
+      runtimeRunReadSurfaceRetired &&
       !/listUsage\(store, options = \{\}\)/.test(runtimeRunReadSurface) &&
       !/runtimeUsageTelemetryListDep/.test(runtimeRunReadSurface) &&
       !/options\.(?:groupBy|agentId)\b/.test(runtimeRunReadSurface) &&
@@ -37869,8 +37900,7 @@ function runCompositor() {
         publicRuntimeRoutes,
       ),
     [
-      "packages/runtime-daemon/src/runtime-run-read-surface.mjs",
-      "packages/runtime-daemon/src/runtime-run-read-surface.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
       "packages/runtime-daemon/src/runtime-lifecycle-projection-api.mjs",
       "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
       "crates/services/src/agentic/runtime/kernel/runtime_lifecycle.rs",
@@ -37880,29 +37910,17 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-run-job-id-projection-aliases-retired",
-    /return \{ jobId: `job_\$\{run\.id\}` \};/.test(runtimeRunReadSurface) &&
-      /return \{ checklistId: `checklist_\$\{run\.id\}` \};/.test(runtimeRunReadSurface) &&
-      !/runtimeJobRecordForRun/.test(runtimeRunReadSurface) &&
-      !/runtimeChecklistRecordForRun/.test(runtimeRunReadSurface) &&
-      !/runtimeJob\?\.jobId/.test(runtimeRunReadSurface) &&
-      !/run\.jobId\b/.test(runtimeRunReadSurface) &&
-      !/runtimeChecklist\?\.checklistId/.test(runtimeRunReadSurface) &&
-      !/run\.checklistId\b/.test(runtimeRunReadSurface) &&
-      /runtime run read API default job sidecar path ignores retired job id fallbacks/.test(
-        runtimeRunReadSurfaceTest,
-      ) &&
-      /runtime run read API default checklist sidecar path ignores retired checklist id fallbacks/.test(
-        runtimeRunReadSurfaceTest,
-      ) &&
-      /jobs\/job_run-canonical\.json/.test(runtimeRunReadSurfaceTest) &&
-      /checklists\/checklist_run-canonical\.json/.test(runtimeRunReadSurfaceTest) &&
-      /job-retired-nested/.test(runtimeRunReadSurfaceTest) &&
-      /job-retired-top/.test(runtimeRunReadSurfaceTest) &&
-      /checklist-retired-nested/.test(runtimeRunReadSurfaceTest) &&
-      /checklist-retired-top/.test(runtimeRunReadSurfaceTest),
+    runtimeRunReadSurfaceRetired &&
+      /return \{ jobId: `job_\$\{run\.id\}` \};/.test(runtimeDaemonIndex) &&
+      /return \{ checklistId: `checklist_\$\{run\.id\}` \};/.test(runtimeDaemonIndex) &&
+      !/runtimeJobRecordForRun/.test(runtimeDaemonIndex) &&
+      !/runtimeChecklistRecordForRun/.test(runtimeDaemonIndex) &&
+      !/runtimeJob\?\.jobId/.test(runtimeDaemonIndex) &&
+      !/run\.jobId\b/.test(runtimeDaemonIndex) &&
+      !/runtimeChecklist\?\.checklistId/.test(runtimeDaemonIndex) &&
+      !/run\.checklistId\b/.test(runtimeDaemonIndex),
     [
-      "packages/runtime-daemon/src/runtime-run-read-surface.mjs",
-      "packages/runtime-daemon/src/runtime-run-read-surface.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
     ],
     "Phase 10/11 is pending: runtime run read projections must derive job/checklist sidecar identity from canonical run id instead of retired sidecar id aliases",
   );

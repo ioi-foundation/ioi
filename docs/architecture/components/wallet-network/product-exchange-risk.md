@@ -331,17 +331,39 @@ Candidate claims should include:
 ```text
 source
 adapter_id
-timestamp
-expiry
+observed_at
+expires_at
 contracts_or_venues
 calldata_or_action_template
 simulation_ref
 risk_labels
 eligibility_labels
+coverage_state
 evidence_refs
 confidence
 failure_conditions
 ```
+
+Canonical evidence envelope:
+
+```rust
+struct CandidateEvidence {
+    candidate_id: Hash,
+    source: CandidateSourceRef,
+    adapter_id: AdapterRef,
+    observed_at: Timestamp,
+    expires_at: Timestamp,
+    coverage_state: RiskCoverageState,
+    evidence_refs: Vec<EvidenceRef>,
+    risk_labels: Vec<RiskLabel>,
+    eligibility_labels: Vec<EligibilityLabel>,
+    claims: Vec<CandidateClaim>
+}
+```
+
+Wallet must treat stale, unknown, unassessed, conflicting-source, expired, or
+evidence-missing candidates as caution or denial states. They cannot be silently
+promoted into `ExchangeIntent`, `TradeIntent`, or `PredictionIntent`.
 
 Canonical invariant:
 
@@ -600,7 +622,9 @@ struct ExchangeIntent {
 ```rust
 struct RouteCandidate {
     route_id: Hash,
+    candidate_evidence: CandidateEvidence,
     source: RouteSourceRef,
+    adapter_id: AdapterRef,
     source_kind: RouteSourceKind,    // decentralized_exchange | direct_pool |
                                      // dex_router | bridge_router | solver |
                                      // quote_api | user_specified
@@ -609,8 +633,11 @@ struct RouteCandidate {
     min_amount_out: Amount,
     calldata_commitment: Hash,
     quote_hash: Hash,
-    quote_expires_at: Timestamp,
+    observed_at: Timestamp,
+    expires_at: Timestamp,
     risk_labels: Vec<RiskLabel>,
+    eligibility_labels: Vec<EligibilityLabel>,
+    evidence_refs: Vec<EvidenceRef>,
     economics: ExchangeEconomics,
     route_receipt_ref: Option<ReceiptRef>
 }

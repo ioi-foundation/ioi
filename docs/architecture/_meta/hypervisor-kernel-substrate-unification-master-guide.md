@@ -10980,12 +10980,12 @@ usage rows and authority/preflight evidence from admitted Agentgres
 `runs/*.json` and `events/*.jsonl` records, and keeps the projection source
 bound to `rust_runtime_lifecycle_state_dir_replay`. Public `/v1/usage`,
 `/v1/authority-evidence`, and `/v1/workflow-capability-preflights` call the
-store-owned lifecycle projection API; the run-read surface no longer exposes
-`listUsage` or `authorityEvidenceSummary`, and the old JS
-`authority-evidence-summary.mjs` helper/test are deleted. Conformance now
-guards the Rust projection kinds, lifecycle route calls, absent helper files,
-and absent run-read usage/evidence facade. This removes the last public
-lifecycle read exception that still returned through JS run-read authority;
+store-owned lifecycle projection API; the run-read surface is later deleted,
+and the old JS `authority-evidence-summary.mjs` helper/test are deleted.
+Conformance now guards the Rust projection kinds, lifecycle route calls,
+absent helper files, and absent run-read usage/evidence facade. This removes
+the last public lifecycle read exception that still returned through JS
+run-read authority;
 broader lifecycle completion still depends on wallet/cTEE authority for
 lifecycle exits, complete receipt/state-root binding for every lifecycle read
 projection, and stable Workbench/CLI/SDK protocol APIs over the Rust-owned Agentgres
@@ -12656,6 +12656,19 @@ projection or registry kind before route truth can return. The former
 Surface-named files, tests, factories, store properties, and route calls are
 absent, and conformance rejects their return as a compatibility anchor beside
 Rust-owned Agentgres projection/replay records.
+
+Slice 1437 hard-deletes the runtime run-read JS surface. Daemon startup no
+longer imports or mounts `runtime-run-read-surface.mjs`, its focused test is
+absent, and `AgentgresRuntimeStateStore` no longer exposes a `runReadSurface`
+property or `createRuntimeRunReadSurface()` factory. Public run, usage,
+authority-evidence, replay, trace, scorecard, and artifact reads remain on the
+Rust lifecycle projection API over daemon `state_dir`; internal run-state
+mutation plumbing calls explicit thread-store helpers for admitted state
+records, and the only local canonical projection helper left is a private
+Agentgres run-state commit payload builder that derives task/job/checklist
+sidecar paths from the canonical run id. Conformance now guards that the
+deleted surface file, factory, daemon property, and public route calls cannot
+return beside the Rust-owned lifecycle projection path.
 
 Slice 1424 hardens the active Hypervisor client/product vocabulary boundary.
 Developer-facing app docs now describe Hypervisor as a native operator client

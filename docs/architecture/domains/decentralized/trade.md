@@ -135,6 +135,74 @@ user, agent, app, or service requests event exposure
 
 ## Minimal Implementation Objects
 
+### CandidateEvidence
+
+Every trade, venue, position, and prediction candidate must carry
+`CandidateEvidence`. A candidate without source, adapter, timestamp, expiry,
+coverage state, and evidence refs is not approval-eligible.
+
+```rust
+struct CandidateEvidence {
+    candidate_id: Hash,
+    source: CandidateSourceRef,
+    adapter_id: AdapterRef,
+    observed_at: Timestamp,
+    expires_at: Timestamp,
+    coverage_state: RiskCoverageState, // assessed | unknown | unassessed |
+                                      // stale | conflicting_sources
+    evidence_refs: Vec<EvidenceRef>,
+    risk_labels: Vec<RiskLabel>,
+    eligibility_labels: Vec<EligibilityLabel>,
+    claims: Vec<CandidateClaim>
+}
+```
+
+Failure behavior:
+
+```text
+missing CandidateEvidence
+  -> reject as not approval-eligible
+
+missing adapter_id, observed_at, expires_at, evidence_refs, or coverage_state
+  -> reject as malformed
+
+expired venue, quote, liquidity, funding, or oracle snapshot
+  -> require refresh or resimulation
+
+unknown, unassessed, stale, or conflicting_sources coverage_state
+  -> cannot execute silently; requires Wallet caution state, policy review,
+     step-up, paper mode, or denial
+```
+
+### TradeCandidate
+
+`TradeCandidate` is a proposed venue/order/position action from
+`decentralized.trade`, a venue adapter, a paper venue, or user-specified route.
+It is not authority and cannot execute until selected into an approved
+`TradeIntent`.
+
+```rust
+struct TradeCandidate {
+    trade_candidate_id: Hash,
+    candidate_evidence: CandidateEvidence,
+    venue_candidate_id: Hash,
+    market: MarketRef,
+    side: TradeSide,
+    collateral: Money,
+    leverage: Option<Decimal>,
+    margin_mode: Option<MarginMode>,
+    order_template: VenueOrderTemplate,
+    liquidation_price_estimate: Option<Price>,
+    funding_rate_snapshot: Option<FundingRate>,
+    oracle_source: Option<OracleRef>,
+    observed_at: Timestamp,
+    expires_at: Timestamp,
+    evidence_refs: Vec<EvidenceRef>,
+    risk_labels: Vec<RiskLabel>,
+    eligibility_labels: Vec<EligibilityLabel>
+}
+```
+
 ### TradeIntent
 
 ```rust
@@ -202,6 +270,33 @@ struct PositionReceipt {
 
 `PredictionIntent` is the semantic wallet object for event exposure. It is a
 specialized trade intent, not a separate authority system.
+
+### PredictionCandidate
+
+`PredictionCandidate` is a proposed event-market action. It is not authority
+and cannot execute until selected into an approved `PredictionIntent`.
+
+```rust
+struct PredictionCandidate {
+    prediction_candidate_id: Hash,
+    candidate_evidence: CandidateEvidence,
+    venue_candidate_id: Hash,
+    market_id: MarketRef,
+    question: String,
+    outcome: OutcomeRef,
+    resolution_source: ResolutionSourceRef,
+    market_rules_hash: Hash,
+    liquidity_snapshot: LiquiditySnapshot,
+    price_snapshot: Price,
+    max_loss: Money,
+    max_payout: Money,
+    observed_at: Timestamp,
+    expires_at: Timestamp,
+    evidence_refs: Vec<EvidenceRef>,
+    risk_labels: Vec<PredictionRiskLabel>,
+    eligibility_labels: Vec<EligibilityLabel>
+}
+```
 
 ```rust
 struct PredictionIntent {
@@ -349,6 +444,7 @@ Meaningful trade transitions should emit receipts:
 
 ```text
 TradeCandidateReceipt
+PredictionCandidateReceipt
 TradeIntentReceipt
 OrderReceipt
 PositionReceipt
@@ -370,6 +466,9 @@ DisputeReceipt
   not swaps.
 - Agent live prediction-market authority must be denied by default or
   explicitly bounded.
+- TradeCandidate and PredictionCandidate must include `CandidateEvidence`.
+- Missing, expired, stale, unknown, unassessed, or conflicting candidate
+  evidence cannot execute silently.
 - TradeIntent must bind venue, market, side, collateral, leverage, margin mode,
   liquidation/funding assumptions, simulation, policy, risk labels, grant,
   lease, revocation epoch, and exact venue/order records.
