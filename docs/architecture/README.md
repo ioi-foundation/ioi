@@ -260,8 +260,9 @@ distilled back into this architecture pack or into an accepted decision record.
 ## Boundary And Generated References
 
 - [`vocabulary.md`](./_meta/vocabulary.md) — runtime, audit, substrate, projection, and legacy naming vocabulary.
-- [`CIRC.md`](../conformance/agentic-runtime/CIRC.md) — hidden intent-resolution conformance invariant.
-- [`CEC.md`](../conformance/agentic-runtime/CEC.md) — hidden completion-evidence conformance invariant.
+- [`intent-resolution.md`](../conformance/hypervisor-core/intent-resolution.md) — CIRC intent-resolution conformance invariant.
+- [`effect-execution.md`](../conformance/hypervisor-core/effect-execution.md) — CEC effect-execution and completion-evidence conformance invariant.
+- [`harness-profile-adapter.md`](../conformance/hypervisor-core/harness-profile-adapter.md) — adapter conformance for heterogeneous harnesses and worker/module profiles.
 
 ## Source Of Truth By Subject
 

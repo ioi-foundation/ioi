@@ -240,7 +240,8 @@ IOI settles.
 
 Hypervisor should use AIIP internally for local microharness routing and
 externally for worker, service, and peer autonomous-system handoffs. Hypervisor
-IDE remains an operator console; it is not the protocol and not IOI L1.
+clients and application surfaces remain operator views over Hypervisor Core;
+they are not the protocol and not IOI L1.
 
 ## Routing Receipts
 

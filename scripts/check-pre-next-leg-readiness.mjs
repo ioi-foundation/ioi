@@ -180,7 +180,7 @@ for (const required of [
   assert(boundaryDoc.includes(required), `Runtime package boundary doc missing ${required}.`);
 }
 
-const circ = read("docs/conformance/agentic-runtime/CIRC.md");
+const circ = read("docs/conformance/hypervisor-core/intent-resolution.md");
 assert(
   circ.includes("prim:sys.exec") && circ.includes("scope:*"),
   "CIRC must keep primitive capabilities separate from authority scopes.",

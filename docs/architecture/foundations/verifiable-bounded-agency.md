@@ -181,10 +181,11 @@ admission:
 
 This aligns with the conformance split:
 
-- [`CIRC`](../../conformance/agentic-runtime/CIRC.md) collapses semantic
-  uncertainty into deterministic intent state.
-- [`CEC`](../../conformance/agentic-runtime/CEC.md) governs deterministic
-  execution, evidence, verification, and terminal completion.
+- [`CIRC`](../../conformance/hypervisor-core/intent-resolution.md) collapses
+  semantic uncertainty into deterministic intent state.
+- [`CEC`](../../conformance/hypervisor-core/effect-execution.md) governs
+  deterministic effect execution, evidence, verification, remediation
+  boundaries, and terminal completion.
 
 ### Evidence-First Irreversibility
 

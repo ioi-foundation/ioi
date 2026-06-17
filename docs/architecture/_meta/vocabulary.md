@@ -947,8 +947,8 @@ compliance acronyms for hidden audit material.
 
 - `receipt`: an immutable audit event emitted for hidden traces or bundles.
 - `contract`: a spec-level requirement set, not product UI copy.
-- `CIRC`: the intent-resolution compliance specification label.
-- `CEC`: the execution-completion compliance specification label.
+- `CIRC`: stable label for the Hypervisor Core Intent Resolution Contract.
+- `CEC`: stable label for the Hypervisor Core Effect Execution Contract.
 
 `CIRC` and `CEC` may appear in specs, trace schema values, evidence bundle
 paths, and architecture guard tests. They should not appear in ordinary runtime

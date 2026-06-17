@@ -188,8 +188,8 @@ Start here:
 8. [`components/daemon-runtime/doctrine.md`](../components/daemon-runtime/doctrine.md)
 9. [`components/daemon-runtime/api.md`](../components/daemon-runtime/api.md)
 10. [`components/daemon-runtime/events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md)
-11. [`../conformance/agentic-runtime/CIRC.md`](../../conformance/agentic-runtime/CIRC.md)
-12. [`../conformance/agentic-runtime/CEC.md`](../../conformance/agentic-runtime/CEC.md)
+11. [`../conformance/hypervisor-core/intent-resolution.md`](../../conformance/hypervisor-core/intent-resolution.md)
+12. [`../conformance/hypervisor-core/effect-execution.md`](../../conformance/hypervisor-core/effect-execution.md)
 
 Build for: intent resolution, action proposals, policy/authority gates,
 execution, normalized observations, receipts, context topology, output

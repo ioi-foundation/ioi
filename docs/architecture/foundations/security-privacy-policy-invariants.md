@@ -1,7 +1,9 @@
 # Security, Privacy, and Policy Invariants
 
 Status: canonical architecture authority.
-Canonical owner: this file for public security/privacy/policy invariants; hidden conformance details live in [`../../conformance/agentic-runtime/`](../../conformance/agentic-runtime/).
+Canonical owner: this file for public security/privacy/policy invariants;
+conformance details live in
+[`../../conformance/hypervisor-core/`](../../conformance/hypervisor-core/).
 Supersedes: overlapping plan prose when invariants conflict.
 Superseded by: none.
 Last alignment pass: 2026-05-25.
