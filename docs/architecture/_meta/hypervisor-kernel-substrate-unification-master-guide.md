@@ -2515,8 +2515,9 @@ stable SDK/IDE/CLI protocol APIs remain required before terminal pure Rust
 substrate conformance.
 Slice 963 retired the daemon-store context-policy route pass-through wrappers.
 The public workflow-only context-budget, thread context-budget, thread
-compaction-policy, thread compact, and run context-budget routes now call the
-mounted context-policy surface directly, so JS no longer preserves
+compaction-policy, thread compact, and run context-budget routes now enter
+through store-owned context-policy API methods over the internal Rust-backed
+delegate, so JS no longer preserves
 `evaluateContextBudget()`, `evaluateCompactionPolicy()`, or `compactThread()`
 as daemon-store compatibility wrappers. Public `compactThread()` has since
 moved to Rust-planned event and state-update ownership with Rust Agentgres
@@ -10678,16 +10679,17 @@ Remaining work is durable replay/projection depth,
 wallet/cTEE authority expansion, StepModuleRouter delegation execution, and
 stable protocol clients, not an alternate auxiliary core mount.
 
-Slice 1316 hard-cuts the runtime context-policy surface store-core fallback.
+Slice 1316 hard-cuts the runtime context-policy API store-core fallback.
 `compactThread()`, thread/run context-budget event planning, and
 thread compaction-policy event planning now resolve only through the positive
-`contextPolicyCore` mount supplied to `createRuntimeContextPolicySurface()` by
-daemon startup. The surface and focused tests no longer read or model
+`contextPolicyCore` mount supplied to `createRuntimeContextPolicyApi()` by
+daemon startup. The internal API and focused tests no longer read or model
 `store?.contextPolicyCore ?? contextPolicyCore`, `store.contextPolicyCore`, or
 `store?.contextPolicyCore`, so context compaction, context-budget event truth,
 and compaction-policy event truth cannot return through a store-mounted
 planner/projector fallback. Conformance now guards the retired fallback, the
-daemon-mounted context-policy surface, and the focused harness mount. Remaining
+deleted route-visible surface, store-owned route entry points, the internal
+context-policy API, and the focused harness mount. Remaining
 work is durable replay/projection depth, richer policy receipt/state-root
 binding, wallet/cTEE authority expansion, and stable protocol clients, not an
 alternate context-policy core mount.

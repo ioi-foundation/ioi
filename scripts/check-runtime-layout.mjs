@@ -57,6 +57,9 @@ const hypervisorShellNavigationSource = read(
 const hypervisorHarnessAdapterModelSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/harnessAdapterModel.ts",
 );
+const hypervisorNewSessionModalSource = read(
+  "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorNewSessionModal.tsx",
+);
 const hypervisorActivityBarSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/components/ChatLocalActivityBar.tsx",
 );
@@ -471,6 +474,27 @@ assert(
     ),
   ["apps/hypervisor/src/windows/HypervisorShellWindow/harnessAdapterModel.ts"],
   "AgentHarnessAdapter fixtures must list external harnesses as daemon-gated proposal sources with public testbed custody, comparison receipts, and no runtime-truth shortcut.",
+);
+assert(
+  "hypervisor-new-session-model-route-compatibility",
+  hypervisorNewSessionModalSource.includes("modelRouteSupportsHypervisorMount") &&
+    hypervisorNewSessionModalSource.includes(
+      'selectedModelRoute.ref === "model-route:hypervisor/default-local"',
+    ) &&
+    hypervisorNewSessionModalSource.includes("launchBlockedByHarnessVerdict") &&
+    hypervisorNewSessionModalSource.includes(
+      "disabled={launchBlockedByHarnessVerdict}",
+    ) &&
+    hypervisorNewSessionModalSource.includes(
+      "data-new-session-harness-verdict",
+    ) &&
+    !hypervisorNewSessionModalSource.includes(
+      'modelRouteRef !== "model-route:none"',
+    ),
+  [
+    "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorNewSessionModal.tsx",
+  ],
+  "New Session must treat only verified Hypervisor model mounts as local model routes and block harness launches that would otherwise silently fall back.",
 );
 assert(
   "contract-family-modules",

@@ -64,7 +64,7 @@ import { createRuntimeWorkspaceSnapshotApi } from "./runtime-workspace-snapshot-
 import { createRuntimeCodingToolGovernanceSurface } from "./runtime-coding-tool-governance-surface.mjs";
 import { createRuntimeCodingToolBudgetRecoverySurface } from "./runtime-coding-tool-budget-recovery-surface.mjs";
 import { createRuntimeConversationArtifactApi } from "./runtime-conversation-artifact-api.mjs";
-import { createRuntimeContextPolicySurface } from "./runtime-context-policy-surface.mjs";
+import { createRuntimeContextPolicyApi } from "./runtime-context-policy-api.mjs";
 import { createRuntimeContextPolicyCore } from "./runtime-context-policy-core.mjs";
 import { createRuntimeWorkflowEditApi } from "./runtime-workflow-edit-api.mjs";
 import { createRuntimeApprovalApi } from "./runtime-approval-api.mjs";
@@ -754,7 +754,7 @@ export class AgentgresRuntimeStateStore {
       contextPolicyCore: this.contextPolicyCore,
       runtimeError,
     });
-    this.contextPolicySurface = createRuntimeContextPolicySurface({
+    this.contextPolicyApi = createRuntimeContextPolicyApi({
       contextPolicyCore: this.contextPolicyCore,
       runtimeError,
     });
@@ -1458,6 +1458,18 @@ export class AgentgresRuntimeStateStore {
 
   steerTurn(threadId, turnId, request = {}) {
     return this.threadTurnApi.steerTurn(this, threadId, turnId, request);
+  }
+
+  evaluateContextBudget(input = {}) {
+    return this.contextPolicyApi.evaluateContextBudget(this, input);
+  }
+
+  evaluateCompactionPolicy(input = {}) {
+    return this.contextPolicyApi.evaluateCompactionPolicy(this, input);
+  }
+
+  compactThread(threadId, request = {}) {
+    return this.contextPolicyApi.compactThread(this, threadId, request);
   }
 
   proposeWorkflowEdit(threadId, request = {}) {

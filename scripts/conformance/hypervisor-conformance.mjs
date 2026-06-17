@@ -4506,11 +4506,11 @@ function runBridge() {
   const runtimeDiagnosticsRepairPolicyCore = exists("crates/services/src/agentic/runtime/kernel/runtime_diagnostics_repair_policy.rs")
     ? read("crates/services/src/agentic/runtime/kernel/runtime_diagnostics_repair_policy.rs")
     : "";
-  const runtimeContextPolicySurface = exists("packages/runtime-daemon/src/runtime-context-policy-surface.mjs")
-    ? read("packages/runtime-daemon/src/runtime-context-policy-surface.mjs")
+  const runtimeContextPolicyApi = exists("packages/runtime-daemon/src/runtime-context-policy-api.mjs")
+    ? read("packages/runtime-daemon/src/runtime-context-policy-api.mjs")
     : "";
-  const runtimeContextPolicySurfaceTest = exists("packages/runtime-daemon/src/runtime-context-policy-surface.test.mjs")
-    ? read("packages/runtime-daemon/src/runtime-context-policy-surface.test.mjs")
+  const runtimeContextPolicyApiTest = exists("packages/runtime-daemon/src/runtime-context-policy-api.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-context-policy-api.test.mjs")
     : "";
   const runtimeWorkflowEditSurface = exists("packages/runtime-daemon/src/runtime-workflow-edit-api.mjs")
     ? read("packages/runtime-daemon/src/runtime-workflow-edit-api.mjs")
@@ -11897,7 +11897,7 @@ function runBridge() {
     "Phase 10/11 is pending: approval facade failure details must expose canonical snake_case fields without duplicate camelCase aliases",
   );
   const runtimeContextBudgetEvaluationBlock =
-    runtimeContextPolicySurface.match(
+    runtimeContextPolicyApi.match(
       /    evaluateContextBudget\(store, \{ threadId = null, runId = null, request = \{\} \} = \{\}\) \{[\s\S]*?(?=\n\n    evaluateCompactionPolicy)/,
     )?.[0] ?? "";
   assertCheck(
@@ -11997,60 +11997,60 @@ function runBridge() {
       /Object\.hasOwn\(calls\[0\]\.request,\s*"operation"\),\s*false/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /runtime_context_policy_rust_core_required/.test(runtimeContextPolicySurface) &&
-      /rust_core_boundary:\s*"runtime\.context_policy"/.test(runtimeContextPolicySurface) &&
-      /context_budget_evaluation_js_event_facade_retired/.test(runtimeContextPolicySurface) &&
-      /context_budget_evaluation_rust_owned/.test(runtimeContextPolicySurface) &&
-      /rust_daemon_core_context_budget_event/.test(runtimeContextPolicySurface) &&
-      /agentgres_context_budget_event_truth_required/.test(runtimeContextPolicySurface) &&
+      /runtime_context_policy_rust_core_required/.test(runtimeContextPolicyApi) &&
+      /rust_core_boundary:\s*"runtime\.context_policy"/.test(runtimeContextPolicyApi) &&
+      /context_budget_evaluation_js_event_facade_retired/.test(runtimeContextPolicyApi) &&
+      /context_budget_evaluation_rust_owned/.test(runtimeContextPolicyApi) &&
+      /rust_daemon_core_context_budget_event/.test(runtimeContextPolicyApi) &&
+      /agentgres_context_budget_event_truth_required/.test(runtimeContextPolicyApi) &&
       !/store\?\.contextPolicyCore\s*\?\?\s*contextPolicyCore|store\?\.contextPolicyCore|store\.contextPolicyCore/.test(
-        runtimeContextPolicySurface,
+        runtimeContextPolicyApi,
       ) &&
       !/stateDir:\s*"\/runtime-state",\s*\n\s*contextPolicyCore:\s*runner/.test(
-        runtimeContextPolicySurfaceTest,
+        runtimeContextPolicyApiTest,
       ) &&
-      /createRuntimeContextPolicySurface\(\{[\s\S]*?contextPolicyCore:\s*runner/.test(
-        runtimeContextPolicySurfaceTest,
+      /createRuntimeContextPolicyApi\(\{[\s\S]*?contextPolicyCore:\s*runner/.test(
+        runtimeContextPolicyApiTest,
       ) &&
-      /this\.contextPolicySurface = createRuntimeContextPolicySurface\(\{\s*contextPolicyCore:\s*this\.contextPolicyCore,/s.test(
+      /this\.contextPolicyApi = createRuntimeContextPolicyApi\(\{\s*contextPolicyCore:\s*this\.contextPolicyCore,/s.test(
         runtimeDaemonIndex,
       ) &&
-      /runner\?\.evaluateContextBudgetPolicy/.test(runtimeContextPolicySurface) &&
+      /runner\?\.evaluateContextBudgetPolicy/.test(runtimeContextPolicyApi) &&
       /evaluateContextBudgetPolicyDep\(\{[\s\S]*?budgetRunner:\s*runner/.test(
-        runtimeContextPolicySurface,
+        runtimeContextPolicyApi,
       ) &&
       /admitContextPolicyRuntimeEvent\(store,\s*\{[\s\S]*?componentKind:\s*"context_budget"/.test(
-        runtimeContextPolicySurface,
+        runtimeContextPolicyApi,
       ) &&
-      /store\.appendRuntimeEvent\(event\)/.test(runtimeContextPolicySurface) &&
-      /runtime_context_budget_event_plan_incomplete/.test(runtimeContextPolicySurface) &&
-      /runtime_context_policy_event_admission_incomplete/.test(runtimeContextPolicySurface) &&
-      /store\.contextPolicySurface\.evaluateContextBudget\(store,\s*\{ request: await readBody\(request\) \}\)/.test(
+      /store\.appendRuntimeEvent\(event\)/.test(runtimeContextPolicyApi) &&
+      /runtime_context_budget_event_plan_incomplete/.test(runtimeContextPolicyApi) &&
+      /runtime_context_policy_event_admission_incomplete/.test(runtimeContextPolicyApi) &&
+      /store\.evaluateContextBudget\(\{ request: await readBody\(request\) \}\)/.test(
         publicRuntimeRoutes,
       ) &&
-      /store\.contextPolicySurface\.evaluateContextBudget\(store,\s*\{ threadId,\s*request: await readBody\(request\) \}\)/.test(
+      /store\.evaluateContextBudget\(\{ threadId, request: await readBody\(request\) \}\)/.test(
         runtimeRouteHandlers,
       ) &&
-      /store\.contextPolicySurface\.evaluateContextBudget\(store,\s*\{ runId,\s*request: await readBody\(request\) \}\)/.test(
+      /store\.evaluateContextBudget\(\{ runId, request: await readBody\(request\) \}\)/.test(
         runtimeRouteHandlers,
       ) &&
-      /public runtime context budget route uses context policy surface directly/.test(
+      /public runtime context budget route uses store-owned context policy API/.test(
         publicRuntimeRoutesTest,
       ) &&
-      /thread and run routes send context policy controls through mounted context policy surface/.test(
+      /thread and run routes use store-owned context policy API methods/.test(
         runtimeRouteHandlersTest,
       ) &&
       /workflow-only context budget remains projection-only and ignores retired request aliases/.test(
-        runtimeContextPolicySurfaceTest,
+        runtimeContextPolicyApiTest,
       ) &&
       /thread-bound context budget uses Rust policy planning and event admission/.test(
-        runtimeContextPolicySurfaceTest,
+        runtimeContextPolicyApiTest,
       ) &&
       /run context budget uses Rust policy planning and admitted thread event/.test(
-        runtimeContextPolicySurfaceTest,
+        runtimeContextPolicyApiTest,
       ) &&
       /thread-bound context budget fails closed before usage lookup or event append without Rust planning/.test(
-        runtimeContextPolicySurfaceTest,
+        runtimeContextPolicyApiTest,
       ) &&
       !/(?:\.|\b)(?:agentForThread|getRun|writeRun|writeAgent)\s*\(/.test(
         runtimeContextBudgetEvaluationBlock,
@@ -12082,8 +12082,8 @@ function runBridge() {
       ) &&
       /workflowNodeId:\s*"node-retired"/.test(codingToolBudgetPolicySurfaceTest) &&
       /eventKind:\s*"RuntimeContextBudget\.Retired"/.test(codingToolBudgetPolicySurfaceTest) &&
-      /budgetRunner:\s*runner/.test(runtimeContextPolicySurface) &&
-      /policyInput\.budgetRunner,\s*contextPolicyCore/.test(runtimeContextPolicySurfaceTest) &&
+      /budgetRunner:\s*runner/.test(runtimeContextPolicyApi) &&
+      /policyInput\.budgetRunner,\s*contextPolicyCore/.test(runtimeContextPolicyApiTest) &&
       !/request\.(?:workflowNodeId|workflowGraphId|threadId|runId|turnId|eventKind)\b/.test(
         codingToolBudgetPolicySurface,
       ) &&
@@ -12104,10 +12104,30 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
       "packages/runtime-daemon/src/threads/context-budget-policy.mjs",
       "packages/runtime-daemon/src/threads/context-budget-policy.test.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-surface.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-api.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-api.test.mjs",
     ],
     "Thread/run context-budget policy routes must use Rust daemon-core policy planning plus Rust runtime-event admission before returning route truth",
+  );
+  assertCheck(
+    result,
+    "runtime-context-policy-surface-retired",
+    !exists("packages/runtime-daemon/src/runtime-context-policy-surface.mjs") &&
+      !exists("packages/runtime-daemon/src/runtime-context-policy-surface.test.mjs") &&
+      /this\.contextPolicyApi = createRuntimeContextPolicyApi/.test(runtimeDaemonIndex) &&
+      !/this\.contextPolicySurface/.test(runtimeDaemonIndex) &&
+      !/store\.contextPolicySurface/.test(`${runtimeRouteHandlers}\n${publicRuntimeRoutes}`) &&
+      /store\.evaluateContextBudget/.test(`${runtimeRouteHandlers}\n${publicRuntimeRoutes}`) &&
+      /store\.evaluateCompactionPolicy/.test(runtimeRouteHandlers) &&
+      /store\.compactThread/.test(runtimeRouteHandlers),
+    [
+      "packages/runtime-daemon/src/index.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.mjs",
+      "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-api.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-api.test.mjs",
+    ],
+    "The route-visible runtime context-policy JS surface must stay deleted; public routes must enter through store-owned context policy APIs over the internal Rust-backed delegate",
   );
   assertCheck(
     result,
@@ -17076,56 +17096,56 @@ function runBridge() {
       /compaction policy core sends Rust policy through direct context lifecycle API/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /runtime_context_policy_rust_core_required/.test(runtimeContextPolicySurface) &&
-      /compaction_policy_evaluation_js_event_facade_retired/.test(runtimeContextPolicySurface) &&
-      /compaction_policy_evaluation_rust_owned/.test(runtimeContextPolicySurface) &&
-      /rust_daemon_core_compaction_policy_event/.test(runtimeContextPolicySurface) &&
-      /agentgres_compaction_policy_event_truth_required/.test(runtimeContextPolicySurface) &&
+      /runtime_context_policy_rust_core_required/.test(runtimeContextPolicyApi) &&
+      /compaction_policy_evaluation_js_event_facade_retired/.test(runtimeContextPolicyApi) &&
+      /compaction_policy_evaluation_rust_owned/.test(runtimeContextPolicyApi) &&
+      /rust_daemon_core_compaction_policy_event/.test(runtimeContextPolicyApi) &&
+      /agentgres_compaction_policy_event_truth_required/.test(runtimeContextPolicyApi) &&
       !/store\?\.contextPolicyCore\s*\?\?\s*contextPolicyCore|store\?\.contextPolicyCore|store\.contextPolicyCore/.test(
-        runtimeContextPolicySurface,
+        runtimeContextPolicyApi,
       ) &&
       !/stateDir:\s*"\/runtime-state",\s*\n\s*contextPolicyCore:\s*runner/.test(
-        runtimeContextPolicySurfaceTest,
+        runtimeContextPolicyApiTest,
       ) &&
-      /createRuntimeContextPolicySurface\(\{[\s\S]*?contextPolicyCore:\s*runner/.test(
-        runtimeContextPolicySurfaceTest,
+      /createRuntimeContextPolicyApi\(\{[\s\S]*?contextPolicyCore:\s*runner/.test(
+        runtimeContextPolicyApiTest,
       ) &&
-      /this\.contextPolicySurface = createRuntimeContextPolicySurface\(\{\s*contextPolicyCore:\s*this\.contextPolicyCore,/s.test(
+      /this\.contextPolicyApi = createRuntimeContextPolicyApi\(\{\s*contextPolicyCore:\s*this\.contextPolicyCore,/s.test(
         runtimeDaemonIndex,
       ) &&
-      /runner\?\.evaluateCompactionPolicy/.test(runtimeContextPolicySurface) &&
+      /runner\?\.evaluateCompactionPolicy/.test(runtimeContextPolicyApi) &&
       /evaluateCompactionPolicyDecisionDep\(\{[\s\S]*?policyRunner:\s*runner/.test(
-        runtimeContextPolicySurface,
+        runtimeContextPolicyApi,
       ) &&
       /admitContextPolicyRuntimeEvent\(store,\s*\{[\s\S]*?componentKind:\s*"compaction_policy"/.test(
-        runtimeContextPolicySurface,
+        runtimeContextPolicyApi,
       ) &&
-      /this\.compactThread\(store,\s*requestedThreadId/.test(runtimeContextPolicySurface) &&
-      /runtime_compaction_policy_event_plan_incomplete/.test(runtimeContextPolicySurface) &&
-      /store\.contextPolicySurface\.evaluateCompactionPolicy\(store,\s*\{ threadId,\s*request: await readBody\(request\) \}\)/.test(
+      /this\.compactThread\(store,\s*requestedThreadId/.test(runtimeContextPolicyApi) &&
+      /runtime_compaction_policy_event_plan_incomplete/.test(runtimeContextPolicyApi) &&
+      /store\.evaluateCompactionPolicy\(\{ threadId, request: await readBody\(request\) \}\)/.test(
         runtimeRouteHandlers,
       ) &&
-      /thread and run routes send context policy controls through mounted context policy surface/.test(
+      /thread and run routes use store-owned context policy API methods/.test(
         runtimeRouteHandlersTest,
       ) &&
       /compaction policy uses Rust planning and event admission before returning route truth/.test(
-        runtimeContextPolicySurfaceTest,
+        runtimeContextPolicyApiTest,
       ) &&
       /compaction policy executes Rust-owned compactThread when Rust requests compaction/.test(
-        runtimeContextPolicySurfaceTest,
+        runtimeContextPolicyApiTest,
       ) &&
       /compaction policy fails closed before event append, compaction execution, or JS persistence without Rust planning/.test(
-        runtimeContextPolicySurfaceTest,
+        runtimeContextPolicyApiTest,
       ) &&
       /compaction policy still rejects missing thread id as a request error/.test(
-        runtimeContextPolicySurfaceTest,
+        runtimeContextPolicyApiTest,
       ) &&
       /runner\.evaluateCompactionPolicy/.test(codingToolBudgetPolicySurface) &&
       /capturedRequest\.schema_version,\s*"ioi\.runtime\.compaction-policy-request\.v1"/.test(
         codingToolBudgetPolicySurfaceTest,
       ) &&
       !/compactionExecuted|compactionEventId|compactionSeq|approvalId/.test(
-        `${codingToolBudgetPolicySurface}\n${runtimeContextPolicySurface}`,
+        `${codingToolBudgetPolicySurface}\n${runtimeContextPolicyApi}`,
       ) &&
       !/^\s*evaluateCompactionPolicy\(\{ threadId, request = \{\} \} = \{\}\) \{/m.test(
         runtimeDaemonIndex,
@@ -17138,7 +17158,7 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
       "packages/runtime-daemon/src/threads/context-budget-policy.mjs",
       "packages/runtime-daemon/src/threads/context-budget-policy.test.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-surface.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-api.mjs",
     ],
     "Thread compaction-policy route must use Rust daemon-core policy planning plus Rust runtime-event admission and compose approved execution through Rust-owned compactThread",
   );
@@ -17146,72 +17166,72 @@ function runBridge() {
     result,
     "context-policy-request-aliases-retired",
     /for \(const retiredField of \[[\s\S]*?"eventKind"[\s\S]*?"workflowNodeId"[\s\S]*?\]\)/.test(
-      runtimeContextPolicySurface,
+      runtimeContextPolicyApi,
     ) &&
       !/store\?\.contextPolicyCore\s*\?\?\s*contextPolicyCore|store\?\.contextPolicyCore|store\.contextPolicyCore/.test(
-        runtimeContextPolicySurface,
+        runtimeContextPolicyApi,
       ) &&
       /compactThread uses Rust compaction planning, event admission, and run persistence/.test(
-        runtimeContextPolicySurfaceTest,
+        runtimeContextPolicyApiTest,
       ) &&
       /compactThread uses Rust runless agent update when no run is targeted/.test(
-        runtimeContextPolicySurfaceTest,
+        runtimeContextPolicyApiTest,
       ) &&
       /compactThread fails closed when targeted run has no admitted record/.test(
-        runtimeContextPolicySurfaceTest,
+        runtimeContextPolicyApiTest,
       ) &&
       /compactThread fails closed when Rust event admission omits admitted identity/.test(
-        runtimeContextPolicySurfaceTest,
+        runtimeContextPolicyApiTest,
       ) &&
       /compactThread fails closed before lookup or event append without Rust planning/.test(
-        runtimeContextPolicySurfaceTest,
+        runtimeContextPolicyApiTest,
       ) &&
       /workflow-only context budget remains projection-only and ignores retired request aliases/.test(
-        runtimeContextPolicySurfaceTest,
+        runtimeContextPolicyApiTest,
       ) &&
-      /turnId:\s*"turn_retired"/.test(runtimeContextPolicySurfaceTest) &&
-      /workflowGraphId:\s*"graph_retired"/.test(runtimeContextPolicySurfaceTest) &&
-      /workflowNodeId:\s*"node_retired"/.test(runtimeContextPolicySurfaceTest) &&
+      /turnId:\s*"turn_retired"/.test(runtimeContextPolicyApiTest) &&
+      /workflowGraphId:\s*"graph_retired"/.test(runtimeContextPolicyApiTest) &&
+      /workflowNodeId:\s*"node_retired"/.test(runtimeContextPolicyApiTest) &&
       /idempotencyKey: "context_budget_idempotency_retired"/.test(
-        runtimeContextPolicySurfaceTest,
+        runtimeContextPolicyApiTest,
       ) &&
       /idempotencyKey: "context_compaction_idempotency_retired"/.test(
-        runtimeContextPolicySurfaceTest,
+        runtimeContextPolicyApiTest,
       ) &&
       /compactIdempotencyKey: "compaction_execute_idempotency_retired"/.test(
-        runtimeContextPolicySurfaceTest,
+        runtimeContextPolicyApiTest,
       ) &&
-      /eventKind: "RuntimeCompactionPolicy\.Retired"/.test(runtimeContextPolicySurfaceTest) &&
+      /eventKind: "RuntimeCompactionPolicy\.Retired"/.test(runtimeContextPolicyApiTest) &&
       !/request\.(?:turnId|workflowNodeId|workflowGraphId|threadId|requestedBy|eventKind|idempotencyKey|compactIdempotencyKey)\b/.test(
-        runtimeContextPolicySurface,
+        runtimeContextPolicyApi,
       ) &&
       !/request\.(?:turn_id|workflow_node_id|workflow_graph_id|thread_id|event_kind|idempotency_key|compact_idempotency_key)\s*\?\?\s*request\./.test(
-        runtimeContextPolicySurface,
+        runtimeContextPolicyApi,
       ),
     [
-      "packages/runtime-daemon/src/runtime-context-policy-surface.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-api.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-api.test.mjs",
     ],
     "Context policy facades must ignore retired JS facade identity/event aliases while compactThread uses Rust planning, Rust event admission, and Rust-planned persistence",
   );
   assertCheck(
     result,
     "context-policy-error-detail-aliases-retired",
-    /runtime_context_policy_rust_core_required/.test(runtimeContextPolicySurface) &&
-      /rust_core_boundary:\s*"runtime\.context_policy"/.test(runtimeContextPolicySurface) &&
-      /thread_id:\s*threadId/.test(runtimeContextPolicySurface) &&
-      /run_id:\s*requestedRunId/.test(runtimeContextPolicySurface) &&
+    /runtime_context_policy_rust_core_required/.test(runtimeContextPolicyApi) &&
+      /rust_core_boundary:\s*"runtime\.context_policy"/.test(runtimeContextPolicyApi) &&
+      /thread_id:\s*threadId/.test(runtimeContextPolicyApi) &&
+      /run_id:\s*requestedRunId/.test(runtimeContextPolicyApi) &&
       /assertNoRetiredContextPolicyDetailAliases\(error\.details\)/.test(
-        runtimeContextPolicySurfaceTest,
+        runtimeContextPolicyApiTest,
       ) &&
-      /error\.details\.thread_id/.test(runtimeContextPolicySurfaceTest) &&
-      /error\.details\.operation_kind/.test(runtimeContextPolicySurfaceTest) &&
+      /error\.details\.thread_id/.test(runtimeContextPolicyApiTest) &&
+      /error\.details\.operation_kind/.test(runtimeContextPolicyApiTest) &&
       !/details:\s*\{[^}\n]*\b(?:threadId|runId|agentId|targetId|targetKind|operationKind|expectedOperationKind)\s*:/.test(
-        runtimeContextPolicySurface,
+        runtimeContextPolicyApi,
       ),
     [
-      "packages/runtime-daemon/src/runtime-context-policy-surface.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-api.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-api.test.mjs",
     ],
     "Phase 10/11 is pending: context policy facade fail-closed details must expose canonical snake_case fields without duplicate camelCase aliases",
   );
@@ -17492,62 +17512,64 @@ function runBridge() {
       /context compaction core sends Rust plan through direct context lifecycle API/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /runtime_context_policy_rust_core_required/.test(runtimeContextPolicySurface) &&
-      /context_compaction_js_facade_retired/.test(runtimeContextPolicySurface) &&
-      /context_compaction_rust_owned/.test(runtimeContextPolicySurface) &&
-      /rust_daemon_core_context_compaction_plan/.test(runtimeContextPolicySurface) &&
-      /agentgres_runtime_thread_event_truth_required/.test(runtimeContextPolicySurface) &&
+      /runtime_context_policy_rust_core_required/.test(runtimeContextPolicyApi) &&
+      /context_compaction_js_facade_retired/.test(runtimeContextPolicyApi) &&
+      /context_compaction_rust_owned/.test(runtimeContextPolicyApi) &&
+      /rust_daemon_core_context_compaction_plan/.test(runtimeContextPolicyApi) &&
+      /agentgres_runtime_thread_event_truth_required/.test(runtimeContextPolicyApi) &&
       !/store\?\.contextPolicyCore\s*\?\?\s*contextPolicyCore|store\?\.contextPolicyCore|store\.contextPolicyCore/.test(
-        runtimeContextPolicySurface,
+        runtimeContextPolicyApi,
       ) &&
       !/stateDir:\s*"\/runtime-state",\s*\n\s*contextPolicyCore:\s*runner/.test(
-        runtimeContextPolicySurfaceTest,
+        runtimeContextPolicyApiTest,
       ) &&
-      /createRuntimeContextPolicySurface\(\{[\s\S]*?contextPolicyCore:\s*runner/.test(
-        runtimeContextPolicySurfaceTest,
+      /createRuntimeContextPolicyApi\(\{[\s\S]*?contextPolicyCore:\s*runner/.test(
+        runtimeContextPolicyApiTest,
       ) &&
-      /this\.contextPolicySurface = createRuntimeContextPolicySurface\(\{\s*contextPolicyCore:\s*this\.contextPolicyCore,/s.test(
+      /this\.contextPolicyApi = createRuntimeContextPolicyApi\(\{\s*contextPolicyCore:\s*this\.contextPolicyCore,/s.test(
         runtimeDaemonIndex,
       ) &&
-      /runner\.planContextCompaction\(\{/.test(runtimeContextPolicySurface) &&
-      /store\.appendRuntimeEvent\(plannedEvent\)/.test(runtimeContextPolicySurface) &&
-      /runtime_context_compaction_run_unavailable/.test(runtimeContextPolicySurface) &&
-      /runtime_context_compaction_event_admission_incomplete/.test(runtimeContextPolicySurface) &&
-      /eventStreamIdForThread/.test(runtimeContextPolicySurface) &&
-      /store\.contextPolicySurface\.compactThread\(store,\s*threadId,\s*await readBody\(request\)\)/.test(
+      /runner\.planContextCompaction\(\{/.test(runtimeContextPolicyApi) &&
+      /store\.appendRuntimeEvent\(plannedEvent\)/.test(runtimeContextPolicyApi) &&
+      /runtime_context_compaction_run_unavailable/.test(runtimeContextPolicyApi) &&
+      /runtime_context_compaction_event_admission_incomplete/.test(runtimeContextPolicyApi) &&
+      /eventStreamIdForThread/.test(runtimeContextPolicyApi) &&
+      /store\.compactThread\(threadId, await readBody\(request\)\)/.test(
         runtimeRouteHandlers,
       ) &&
-      /thread and run routes send context policy controls through mounted context policy surface/.test(
+      /thread and run routes use store-owned context policy API methods/.test(
         runtimeRouteHandlersTest,
       ) &&
       /compactThread uses Rust compaction planning, event admission, and run persistence/.test(
-        runtimeContextPolicySurfaceTest,
+        runtimeContextPolicyApiTest,
       ) &&
       /compactThread uses Rust runless agent update when no run is targeted/.test(
-        runtimeContextPolicySurfaceTest,
+        runtimeContextPolicyApiTest,
       ) &&
       /compactThread fails closed when targeted run has no admitted record/.test(
-        runtimeContextPolicySurfaceTest,
+        runtimeContextPolicyApiTest,
       ) &&
       /compactThread fails closed when Rust event admission omits admitted identity/.test(
-        runtimeContextPolicySurfaceTest,
+        runtimeContextPolicyApiTest,
       ) &&
       /compactThread fails closed before lookup or event append without Rust planning/.test(
-        runtimeContextPolicySurfaceTest,
+        runtimeContextPolicyApiTest,
       ) &&
       /calls\.map\(\(call\) => call\.name\), \[[\s\S]*?"planContextCompaction"[\s\S]*?"appendRuntimeEvent"[\s\S]*?\]/.test(
-        runtimeContextPolicySurfaceTest,
+        runtimeContextPolicyApiTest,
       ) &&
-      !/^\s*compactThread\(threadId, request = \{\}\) \{/m.test(runtimeDaemonIndex) &&
-      !/compactHash|createHash/.test(runtimeContextPolicySurface),
+      /compactThread\(threadId, request = \{\}\) \{\s*return this\.contextPolicyApi\.compactThread\(this, threadId, request\);\s*\}/.test(
+        runtimeDaemonIndex,
+      ) &&
+      !/compactHash|createHash/.test(runtimeContextPolicyApi),
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs",
       "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-surface.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-api.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-api.test.mjs",
     ],
     "Public compactThread must use Rust daemon-core context-compaction event planning and Rust runtime-event admission before returning route truth",
   );
@@ -17619,64 +17641,66 @@ function runBridge() {
       !/operation_kind:\s*optionalString\(result\.operation_kind\s*\?\?\s*record\.operation_kind\)\s*\?\?/.test(
         runtimeContextPolicyCore,
       ) &&
-      /runtime_context_policy_rust_core_required/.test(runtimeContextPolicySurface) &&
-      /rust_daemon_core_context_compaction_required/.test(runtimeContextPolicySurface) &&
-      /rust_daemon_core_context_compaction_state_update/.test(runtimeContextPolicySurface) &&
-      /agentgres_context_compaction_state_truth_required/.test(runtimeContextPolicySurface) &&
+      /runtime_context_policy_rust_core_required/.test(runtimeContextPolicyApi) &&
+      /rust_daemon_core_context_compaction_required/.test(runtimeContextPolicyApi) &&
+      /rust_daemon_core_context_compaction_state_update/.test(runtimeContextPolicyApi) &&
+      /agentgres_context_compaction_state_truth_required/.test(runtimeContextPolicyApi) &&
       !/store\?\.contextPolicyCore\s*\?\?\s*contextPolicyCore|store\?\.contextPolicyCore|store\.contextPolicyCore/.test(
-        runtimeContextPolicySurface,
+        runtimeContextPolicyApi,
       ) &&
-      /runner\.planContextCompactionStateUpdate\(\{/.test(runtimeContextPolicySurface) &&
+      /runner\.planContextCompactionStateUpdate\(\{/.test(runtimeContextPolicyApi) &&
       /const admittedEventId = optionalStringDep\(admittedEvent\?\.event_id\);/.test(
-        runtimeContextPolicySurface,
+        runtimeContextPolicyApi,
       ) &&
       /const admittedSeq = positiveInteger\(admittedEvent\?\.seq\);/.test(
-        runtimeContextPolicySurface,
+        runtimeContextPolicyApi,
       ) &&
       /commitContextCompactionRun\(store,\s*plannedRun,\s*runId,\s*operationKind\)/.test(
-        runtimeContextPolicySurface,
+        runtimeContextPolicyApi,
       ) &&
       /commitContextCompactionAgent\(store,\s*plannedAgent,\s*agentId,\s*operationKind\)/.test(
-        runtimeContextPolicySurface,
+        runtimeContextPolicyApi,
       ) &&
-      /store\.writeRun\(plannedRun,\s*operationKind\)/.test(runtimeContextPolicySurface) &&
-      /store\.writeAgent\(plannedAgent,\s*operationKind\)/.test(runtimeContextPolicySurface) &&
-      /store\.contextPolicySurface\.compactThread\(store,\s*threadId,\s*await readBody\(request\)\)/.test(
+      /store\.writeRun\(plannedRun,\s*operationKind\)/.test(runtimeContextPolicyApi) &&
+      /store\.writeAgent\(plannedAgent,\s*operationKind\)/.test(runtimeContextPolicyApi) &&
+      /store\.compactThread\(threadId, await readBody\(request\)\)/.test(
         runtimeRouteHandlers,
       ) &&
-      /thread and run routes send context policy controls through mounted context policy surface/.test(
+      /thread and run routes use store-owned context policy API methods/.test(
         runtimeRouteHandlersTest,
       ) &&
       /compactThread uses Rust compaction planning, event admission, and run persistence/.test(
-        runtimeContextPolicySurfaceTest,
+        runtimeContextPolicyApiTest,
       ) &&
       /compactThread uses Rust runless agent update when no run is targeted/.test(
-        runtimeContextPolicySurfaceTest,
+        runtimeContextPolicyApiTest,
       ) &&
       /compactThread fails closed when targeted run has no admitted record/.test(
-        runtimeContextPolicySurfaceTest,
+        runtimeContextPolicyApiTest,
       ) &&
       /compactThread fails closed when Rust event admission omits admitted identity/.test(
-        runtimeContextPolicySurfaceTest,
+        runtimeContextPolicyApiTest,
       ) &&
       /compactThread fails closed before lookup or event append without Rust planning/.test(
-        runtimeContextPolicySurfaceTest,
+        runtimeContextPolicyApiTest,
       ) &&
-      /calls\[4\]\.request\.target_kind,\s*"run"/.test(runtimeContextPolicySurfaceTest) &&
-      /calls\[3\]\.request\.target_kind,\s*"agent"/.test(runtimeContextPolicySurfaceTest) &&
-      !/^\s*compactThread\(threadId, request = \{\}\) \{/m.test(runtimeDaemonIndex) &&
+      /calls\[4\]\.request\.target_kind,\s*"run"/.test(runtimeContextPolicyApiTest) &&
+      /calls\[3\]\.request\.target_kind,\s*"agent"/.test(runtimeContextPolicyApiTest) &&
+      /compactThread\(threadId, request = \{\}\) \{\s*return this\.contextPolicyApi\.compactThread\(this, threadId, request\);\s*\}/.test(
+        runtimeDaemonIndex,
+      ) &&
       !/plannedContextCompactionRunRecord|plannedContextCompactionAgentRecord|plannedContextCompactionOperationKind/.test(
-        runtimeContextPolicySurface,
+        runtimeContextPolicyApi,
       ) &&
       !/appendOperatorControlDep|contextCompaction:\s*\{|\.runs\.set|\.agents\.set/.test(
-        runtimeContextPolicySurface,
+        runtimeContextPolicyApi,
       ) &&
-      !/stateUpdate\.run\s*\?\?\s*latestRun/.test(runtimeContextPolicySurface) &&
+      !/stateUpdate\.run\s*\?\?\s*latestRun/.test(runtimeContextPolicyApi) &&
       !/admittedEventId\s*=\s*optionalStringDep\(admittedEvent\?\.event_id\)\s*\?\?\s*eventId/.test(
-        runtimeContextPolicySurface,
+        runtimeContextPolicyApi,
       ) &&
       !/stateUpdate\.operation_kind\s*\?\?\s*"thread\.compact"/.test(
-        runtimeContextPolicySurface,
+        runtimeContextPolicyApi,
       ),
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
@@ -17684,8 +17708,8 @@ function runBridge() {
       "crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs",
       "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-surface.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-api.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-api.test.mjs",
     ],
     "Public compactThread must bind Rust-planned context compaction state updates to Agentgres-backed run or agent persistence without restoring JS map mutation",
   );
@@ -31335,7 +31359,7 @@ function runReceipts() {
     read("crates/services/src/agentic/runtime/kernel/policy.rs"),
     runtimeContextPolicyCoreForState,
     runtimeContextPolicyCoreTestForState,
-    read("packages/runtime-daemon/src/runtime-context-policy-surface.test.mjs"),
+    read("packages/runtime-daemon/src/runtime-context-policy-api.test.mjs"),
     read("packages/runtime-daemon/src/threads/context-budget-policy.test.mjs"),
     read("packages/runtime-daemon/src/runtime-coding-tool-governance-surface.test.mjs"),
   ].join("\n");
@@ -33745,11 +33769,11 @@ function runCompositor() {
   const runtimeContextPolicyCoreTest = exists("packages/runtime-daemon/src/runtime-context-policy-core.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-context-policy-core.test.mjs")
     : "";
-  const runtimeContextPolicySurface = exists("packages/runtime-daemon/src/runtime-context-policy-surface.mjs")
-    ? read("packages/runtime-daemon/src/runtime-context-policy-surface.mjs")
+  const runtimeContextPolicyApi = exists("packages/runtime-daemon/src/runtime-context-policy-api.mjs")
+    ? read("packages/runtime-daemon/src/runtime-context-policy-api.mjs")
     : "";
-  const runtimeContextPolicySurfaceTest = exists("packages/runtime-daemon/src/runtime-context-policy-surface.test.mjs")
-    ? read("packages/runtime-daemon/src/runtime-context-policy-surface.test.mjs")
+  const runtimeContextPolicyApiTest = exists("packages/runtime-daemon/src/runtime-context-policy-api.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-context-policy-api.test.mjs")
     : "";
   const runtimeMcpLiveBackendService = exists(
     "crates/services/src/agentic/runtime/service/mcp_live_backend.rs",
@@ -42871,7 +42895,7 @@ function runCompositor() {
   const runtimeControlSeqCacheTransportSources = [
     runtimeThreadControlSurface,
     runtimeThreadTurnSurface,
-    runtimeContextPolicySurface,
+    runtimeContextPolicyApi,
     runtimeMcpControlSurface,
   ].join("\n");
   assertCheck(
@@ -42922,7 +42946,7 @@ function runCompositor() {
         policyMcpMemoryCore,
       ) &&
       !/latestRuntimeEventSeq/.test(runtimeControlSeqCacheTransportSources) &&
-      !/previousLatestSeq|previous_latest_seq/.test(runtimeContextPolicySurface) &&
+      !/previousLatestSeq|previous_latest_seq/.test(runtimeContextPolicyApi) &&
       !/seq:\s*Number\.isFinite|seq:\s*latestSeq|seq:\s*previousLatestSeq/.test(
         runtimeControlSeqCacheTransportSources,
       ) &&
@@ -42935,7 +42959,7 @@ function runCompositor() {
       ) &&
       /event_stream_id:\s*streamId/.test(runtimeThreadTurnSurface) &&
       /state_dir:\s*optionalStringDep\(store\?\.stateDir\)\s*\?\?\s*null/.test(
-        runtimeContextPolicySurface,
+        runtimeContextPolicyApi,
       ) &&
       /state_dir:\s*optionalStringDep\(request\.state_dir\)\s*\?\?\s*optionalStringDep\(store\?\.stateDir\)\s*\?\?\s*null/.test(
         runtimeMcpControlSurface,
@@ -42953,13 +42977,13 @@ function runCompositor() {
         runtimeOperatorTurnControlFacadeTest,
       ) &&
       /latestRuntimeEventSeq:\s*failIfCalled\("latestRuntimeEventSeq"\)/.test(
-        runtimeContextPolicySurfaceTest,
+        runtimeContextPolicyApiTest,
       ) &&
       /assert\.equal\(request\.state_dir,\s*"\/runtime-state"\)/.test(
-        runtimeContextPolicySurfaceTest,
+        runtimeContextPolicyApiTest,
       ) &&
       /assert\.equal\(Object\.hasOwn\(request,\s*"previous_latest_seq"\),\s*false\)/.test(
-        runtimeContextPolicySurfaceTest,
+        runtimeContextPolicyApiTest,
       ) &&
       /latestRuntimeEventSeq:\s*failIfCalled\("latestRuntimeEventSeq"\)/.test(
         runtimeMcpControlSurfaceTest,
@@ -42976,11 +43000,11 @@ function runCompositor() {
       "crates/services/src/agentic/runtime/kernel/policy/mcp_memory.rs",
       "packages/runtime-daemon/src/runtime-thread-control-surface.mjs",
       "packages/runtime-daemon/src/runtime-thread-turn-api.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-surface.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-api.mjs",
       "packages/runtime-daemon/src/runtime-mcp-control-api.mjs",
       "packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs",
       "packages/runtime-daemon/src/runtime-operator-turn-control-facade.test.mjs",
-      "packages/runtime-daemon/src/runtime-context-policy-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-api.test.mjs",
       "packages/runtime-daemon/src/runtime-mcp-control-api.test.mjs",
     ],
     "Runtime-control/context/MCP state-event planning must derive sequence authority from Rust state_dir replay; JS latest-sequence cache transport and caller-supplied seq/previous_latest_seq fields must stay retired",

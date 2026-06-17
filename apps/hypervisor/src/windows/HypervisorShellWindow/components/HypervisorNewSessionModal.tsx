@@ -145,10 +145,15 @@ export function HypervisorNewSessionModal({
   const selectedPrivacy =
     PRIVACY_OPTIONS.find((option) => option.ref === privacyPostureRef) ??
     PRIVACY_OPTIONS[0];
+  const modelRouteSupportsHypervisorMount =
+    selectedModelRoute.ref === "model-route:hypervisor/default-local";
   const harnessVerdict = buildHarnessCompatibilityVerdict(
     selectedHarness,
-    modelRouteRef !== "model-route:none",
+    modelRouteSupportsHypervisorMount,
   );
+  const launchBlockedByHarnessVerdict =
+    harnessVerdict.state === "blocked" ||
+    harnessVerdict.state === "local_route_unavailable";
   const receiptPreviewRef = useMemo(
     () =>
       [
@@ -307,6 +312,8 @@ export function HypervisorNewSessionModal({
           className="hypervisor-new-session-modal__summary"
           aria-label="Receipt preview"
           data-new-session-receipt-preview={receiptPreviewRef}
+          data-new-session-harness-verdict={harnessVerdict.state}
+          data-new-session-model-route-ref={selectedModelRoute.ref}
         >
           <div>
             <span>Required inputs</span>
@@ -321,6 +328,9 @@ export function HypervisorNewSessionModal({
             <span>Harness verdict</span>
             <strong>{harnessVerdict.state.split("_").join(" ")}</strong>
             <em>{harnessVerdict.summary}</em>
+            {harnessVerdict.privacyWarning ? (
+              <em>{harnessVerdict.privacyWarning}</em>
+            ) : null}
           </div>
           <div>
             <span>Model route</span>
@@ -346,7 +356,12 @@ export function HypervisorNewSessionModal({
           <button type="button" onClick={onClose}>
             Cancel
           </button>
-          <button type="button" className="primary" onClick={launch}>
+          <button
+            type="button"
+            className="primary"
+            disabled={launchBlockedByHarnessVerdict}
+            onClick={launch}
+          >
             Launch governed session
           </button>
         </footer>

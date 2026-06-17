@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createRuntimeContextPolicySurface } from "./runtime-context-policy-surface.mjs";
+import { createRuntimeContextPolicyApi } from "./runtime-context-policy-api.mjs";
 
 function runtimeError(input) {
   const error = new Error(input.message);
@@ -56,7 +56,7 @@ function harness({ contextPolicyCore = null } = {}) {
       throw new Error("Thread-bound context policy facade must not persist run state in JS.");
     },
   };
-  const surface = createRuntimeContextPolicySurface({
+  const surface = createRuntimeContextPolicyApi({
     contextPolicyCore,
     contextBudgetUsageTelemetryFromRequest(request) {
       calls.push({ name: "contextBudgetUsageTelemetryFromRequest", request });
@@ -326,7 +326,7 @@ function compactHarness() {
       };
     },
   };
-  const surface = createRuntimeContextPolicySurface({
+  const surface = createRuntimeContextPolicyApi({
     contextPolicyCore: runner,
     eventStreamIdForThread: (threadId) => `event_stream_${threadId}`,
     runtimeError,

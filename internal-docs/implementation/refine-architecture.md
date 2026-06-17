@@ -1365,9 +1365,16 @@ Current implementation cut:
   preview. Compatibility verdicts expose provider-trust, adapter-native-only,
   local-route-unavailable, compatible, and blocked states.
 
+  0B.3's first app-side guard is implemented: New Session treats only
+  `model-route:hypervisor/default-local` as satisfying
+  `hypervisor_model_mount` compatibility. Adapter-native, provider-trust, and
+  no-model routes no longer count as local Hypervisor model availability, and
+  blocked/local-route-unavailable verdicts disable launch instead of silently
+  falling back.
+
   `harnessAdapterModel.test.ts` and `check:runtime-layout` guard the adapter
-  inventory, daemon-truth boundary, public testbed custody, receipt schema, and
-  anti-patterns.
+  inventory, daemon-truth boundary, public testbed custody, receipt schema,
+  model-route compatibility rule, and anti-patterns.
 ```
 
 First implementation slice:
@@ -1381,8 +1388,9 @@ First implementation slice:
    Grok Build, DeepSeek TUI, Aider, OpenHands, shell/tmux agent, and Generic
    CLI. Done for shell/New Session selection.
 3. Add model route choices from the daemon model-mount inventory. Partial:
-   New Session has route options, but live daemon inventory probing remains
-   0B.3.
+   New Session has route options and blocks local-route claims unless
+   `model-route:hypervisor/default-local` is selected; live `/v1/model-mount/*`
+   inventory probing remains 0B.3 follow-up.
 4. Add compatibility states:
    compatible, adapter-native only, provider-trust, local-route unavailable.
    Done at static verdict level.

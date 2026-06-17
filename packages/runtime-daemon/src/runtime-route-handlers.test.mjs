@@ -1023,11 +1023,11 @@ test("thread route sends approvals through store-owned approval API", async () =
   }
 });
 
-test("thread and run routes send context policy controls through mounted context policy surface", async () => {
+test("thread and run routes use store-owned context policy API methods", async () => {
   const { handleThreadRoute, handleRunRoute } = routeHandlers();
   const calls = [];
   const body = { request_id: "context-policy-route-test" };
-  const surfaceResult = (operation, args) => ({
+  const apiResult = (operation, args) => ({
     status: "rust_core_required",
     operation,
     args,
@@ -1035,22 +1035,22 @@ test("thread and run routes send context policy controls through mounted context
   });
   const store = {
     contextPolicySurface: {
-      evaluateContextBudget(surfaceStore, input) {
-        calls.push({ operation: "evaluateContextBudget", surfaceStore, args: [input] });
-        return surfaceResult("evaluateContextBudget", [input]);
-      },
-      evaluateCompactionPolicy(surfaceStore, input) {
-        calls.push({ operation: "evaluateCompactionPolicy", surfaceStore, args: [input] });
-        return surfaceResult("evaluateCompactionPolicy", [input]);
-      },
-      compactThread(surfaceStore, threadId, requestBody) {
-        calls.push({ operation: "compactThread", surfaceStore, args: [threadId, requestBody] });
-        return surfaceResult("compactThread", [threadId, requestBody]);
-      },
+      evaluateContextBudget: retiredRouteWrapper,
+      evaluateCompactionPolicy: retiredRouteWrapper,
+      compactThread: retiredRouteWrapper,
     },
-    evaluateContextBudget: retiredRouteWrapper,
-    evaluateCompactionPolicy: retiredRouteWrapper,
-    compactThread: retiredRouteWrapper,
+    evaluateContextBudget(input) {
+      calls.push({ operation: "evaluateContextBudget", args: [input] });
+      return apiResult("evaluateContextBudget", [input]);
+    },
+    evaluateCompactionPolicy(input) {
+      calls.push({ operation: "evaluateCompactionPolicy", args: [input] });
+      return apiResult("evaluateCompactionPolicy", [input]);
+    },
+    compactThread(threadId, requestBody) {
+      calls.push({ operation: "compactThread", args: [threadId, requestBody] });
+      return apiResult("compactThread", [threadId, requestBody]);
+    },
   };
   const cases = [
     {
@@ -1099,7 +1099,6 @@ test("thread and run routes send context policy controls through mounted context
     const call = calls.pop();
     assert.equal(response.statusCode, 200);
     assert.equal(call.operation, testCase.operation);
-    assert.equal(call.surfaceStore, store);
     assert.deepEqual(call.args, testCase.args);
     assert.deepEqual(JSON.parse(response.body), {
       status: "rust_core_required",

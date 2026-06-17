@@ -245,7 +245,7 @@ export function createPublicRuntimeRequestHandler(deps) {
       if (request.method === "POST" && url.pathname === "/v1/context-budget") {
         writeJsonResponse(
           response,
-          store.contextPolicySurface.evaluateContextBudget(store, { request: await readBody(request) }),
+          store.evaluateContextBudget({ request: await readBody(request) }),
         );
         return;
       }

@@ -48,7 +48,7 @@ const COMPACTION_POLICY_REQUIRED_EVIDENCE_REFS = [
   "agentgres_compaction_policy_event_truth_required",
 ];
 
-export function createRuntimeContextPolicySurface({
+export function createRuntimeContextPolicyApi({
   contextBudgetUsageTelemetryFromRequest: contextBudgetUsageTelemetryFromRequestDep = contextBudgetUsageTelemetryFromRequest,
   contextPolicyCore = null,
   evaluateCompactionPolicyDecision: evaluateCompactionPolicyDecisionDep = evaluateCompactionPolicyDecision,
