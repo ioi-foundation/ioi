@@ -2,7 +2,7 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 
-import { cleanupAutopilotCampaignProcesses } from "./lib/autopilot-gui-chat-ux-campaign-processes.mjs";
+import { cleanupHypervisorCampaignProcesses } from "./lib/hypervisor-campaign-processes.mjs";
 import {
   BASELINE_VERDICTS,
   CURSOR_EVIDENCE_ROOT,
@@ -174,7 +174,7 @@ function buildStages(campaignDir) {
     "integrated_soak",
     async (dir, results) => {
       const soak = runIntegratedSoakProof(dir, results);
-      const cleanup = await cleanupAutopilotCampaignProcesses({
+      const cleanup = await cleanupHypervisorCampaignProcesses({
         outputDir: dir,
         phase: "cursor-substrate-absorption-final",
       });

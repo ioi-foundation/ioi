@@ -153,7 +153,7 @@ export async function bootstrapNativeRuntimeModelRoute({
           context_length: contextLength,
           parallel,
           ttl_seconds: 900,
-          identifier: "autopilot-native-llama-cpp-validation",
+          identifier: "hypervisor-native-llama-cpp-validation",
           embeddings: process.env.IOI_LLAMA_CPP_ENABLE_EMBEDDINGS === "1",
         },
       },
@@ -164,7 +164,7 @@ export async function bootstrapNativeRuntimeModelRoute({
       body: {
         id: llamaRouteId,
         role: "agent",
-        description: "Autopilot-native local route backed by configured llama.cpp runtime.",
+        description: "Hypervisor-native local route backed by configured llama.cpp runtime.",
         privacy: "local_only",
         quality: "local_native",
         max_cost_usd: 0,
@@ -215,7 +215,7 @@ export async function bootstrapNativeRuntimeModelRoute({
       routeDeniedProviders: route.denied_providers || route.deniedProviders,
       routeTestEndpointId: routeTest.selection?.endpoint?.id,
       routeTestBackendId: routeTest.selection?.backend?.id,
-      runtimeEngine: "autopilot_native_llama_cpp",
+      runtimeEngine: "hypervisor_native_llama_cpp",
       fixtureFree: true,
     };
   }

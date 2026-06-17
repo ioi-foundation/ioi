@@ -5,14 +5,14 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import {
-  AUTOPILOT_GUI_HARNESS_LAUNCH_COMMAND,
-  AUTOPILOT_PROVIDER_GATED_VISIBLE_OUTPUT_REQUIRED_SCENARIOS,
-  AUTOPILOT_READ_ONLY_CAPABILITY_ROUTING_REQUIRED_SCENARIOS,
+  HYPERVISOR_GUI_HARNESS_LAUNCH_COMMAND,
+  HYPERVISOR_PROVIDER_GATED_VISIBLE_OUTPUT_REQUIRED_SCENARIOS,
+  HYPERVISOR_READ_ONLY_CAPABILITY_ROUTING_REQUIRED_SCENARIOS,
   DEFAULT_LIVE_PROMOTION_INVARIANTS,
-  autopilotGuiHarnessContract,
-  buildBlockedAutopilotGuiHarnessResult,
+  hypervisorGuiHarnessContract,
+  buildBlockedHypervisorGuiHarnessResult,
   retainedQueryByScenario,
-  validateAutopilotGuiHarnessResult,
+  validateHypervisorGuiHarnessResult,
   validateDefaultLivePromotionInvariants,
 } from "./hypervisor-app-harness-contract.mjs";
 
@@ -250,14 +250,14 @@ function promotionInvariantUiAssertions(proof = reviewedImportActivationApplyPro
 }
 
 test("Hypervisor app harness contract preserves retained query pack", () => {
-  const contract = autopilotGuiHarnessContract();
-  assert.equal(contract.launchCommand, AUTOPILOT_GUI_HARNESS_LAUNCH_COMMAND);
+  const contract = hypervisorGuiHarnessContract();
+  assert.equal(contract.launchCommand, HYPERVISOR_GUI_HARNESS_LAUNCH_COMMAND);
   assert.equal(contract.requiredEnv.AUTOPILOT_LOCAL_GPU_DEV, "1");
   assert.equal(contract.requiredEnv.AUTOPILOT_HARNESS_DEFAULT_PROMOTION, "1");
   assert.equal(contract.requiredEnv.AUTOPILOT_WORKFLOW_PROVIDER_GATED_VISIBLE_OUTPUT, "1");
   assert.equal(contract.retainedQueries.length, 8);
   assert.deepEqual(contract.providerGatedVisibleOutputRequiredScenarios, [
-    ...AUTOPILOT_PROVIDER_GATED_VISIBLE_OUTPUT_REQUIRED_SCENARIOS,
+    ...HYPERVISOR_PROVIDER_GATED_VISIBLE_OUTPUT_REQUIRED_SCENARIOS,
   ]);
   assert.deepEqual(contract.providerGatedVisibleOutputRequiredScenarios, [
     "retained_no_tool_answer",
@@ -269,7 +269,7 @@ test("Hypervisor app harness contract preserves retained query pack", () => {
     "retained_harness_dogfooding",
   ]);
   assert.deepEqual(contract.readOnlyCapabilityRoutingRequiredScenarios, [
-    ...AUTOPILOT_READ_ONLY_CAPABILITY_ROUTING_REQUIRED_SCENARIOS,
+    ...HYPERVISOR_READ_ONLY_CAPABILITY_ROUTING_REQUIRED_SCENARIOS,
   ]);
   assert.deepEqual(contract.readOnlyCapabilityRoutingRequiredScenarios, [
     "retained_repo_grounded_answer",
@@ -289,7 +289,7 @@ test("Hypervisor app harness contract preserves retained query pack", () => {
 });
 
 test("clean chat UX contract forbids crude default evidence surfaces", () => {
-  const contract = autopilotGuiHarnessContract();
+  const contract = hypervisorGuiHarnessContract();
   assert.ok(contract.cleanChatUxRequirements.includes("no_raw_receipt_dump"));
   assert.ok(contract.cleanChatUxRequirements.includes("no_default_facts_dashboard"));
   assert.ok(contract.cleanChatUxRequirements.includes("no_default_evidence_drawer"));
@@ -299,7 +299,7 @@ test("clean chat UX contract forbids crude default evidence surfaces", () => {
 });
 
 test("runtime consistency contract requires harness shadow proof", () => {
-  const contract = autopilotGuiHarnessContract();
+  const contract = hypervisorGuiHarnessContract();
   assert.ok(contract.requiredArtifacts.includes("harness_shadow_run"));
   assert.ok(contract.requiredArtifacts.includes("harness_gated_cognition"));
   assert.ok(contract.requiredArtifacts.includes("harness_cognition_node_authority"));
@@ -791,7 +791,7 @@ test("runtime consistency contract requires harness shadow proof", () => {
 });
 
 test("GUI automation contract stays composer-only and forbids activity-bar clicks", () => {
-  const contract = autopilotGuiHarnessContract();
+  const contract = hypervisorGuiHarnessContract();
   assert.equal(contract.guiAutomationClickPolicy.mode, "same-session-composer-only");
   assert.ok(contract.guiAutomationClickPolicy.safeZone.minWindowX >= 300);
   assert.ok(contract.guiAutomationClickPolicy.safeZone.minWindowY >= 120);
@@ -801,7 +801,7 @@ test("GUI automation contract stays composer-only and forbids activity-bar click
 });
 
 test("complete GUI harness result validates only when UI and runtime evidence agree", () => {
-  const contract = autopilotGuiHarnessContract();
+  const contract = hypervisorGuiHarnessContract();
   const passing = {
     schemaVersion: contract.schemaVersion,
     launchCommand: contract.launchCommand,
@@ -824,7 +824,7 @@ test("complete GUI harness result validates only when UI and runtime evidence ag
     uiAssertions: promotionInvariantUiAssertions(),
   };
 
-  assert.deepEqual(validateAutopilotGuiHarnessResult(passing), {
+  assert.deepEqual(validateHypervisorGuiHarnessResult(passing), {
     ok: true,
     failures: [],
   });
@@ -836,7 +836,7 @@ test("complete GUI harness result validates only when UI and runtime evidence ag
       visible_output_matches_trace: false,
     },
   };
-  const validation = validateAutopilotGuiHarnessResult(failing);
+  const validation = validateHypervisorGuiHarnessResult(failing);
   assert.equal(validation.ok, false);
   assert.ok(
     validation.failures.includes(
@@ -914,7 +914,7 @@ test("default-live promotion requires reviewed import activation apply proof", (
 });
 
 test("complete GUI harness result rejects claimed promotion without embedded apply proof", () => {
-  const contract = autopilotGuiHarnessContract();
+  const contract = hypervisorGuiHarnessContract();
   const claimed = {
     schemaVersion: contract.schemaVersion,
     launchCommand: contract.launchCommand,
@@ -936,7 +936,7 @@ test("complete GUI harness result rejects claimed promotion without embedded app
     ),
   };
 
-  const validation = validateAutopilotGuiHarnessResult(claimed);
+  const validation = validateHypervisorGuiHarnessResult(claimed);
   assert.equal(validation.ok, false);
   assert.ok(
     validation.failures.includes(
@@ -946,7 +946,7 @@ test("complete GUI harness result rejects claimed promotion without embedded app
 });
 
 test("GUI harness rejects screenshot-only false positives", () => {
-  const contract = autopilotGuiHarnessContract();
+  const contract = hypervisorGuiHarnessContract();
   const result = {
     schemaVersion: contract.schemaVersion,
     launchCommand: contract.launchCommand,
@@ -968,7 +968,7 @@ test("GUI harness rejects screenshot-only false positives", () => {
     ),
   };
 
-  const validation = validateAutopilotGuiHarnessResult(result);
+  const validation = validateHypervisorGuiHarnessResult(result);
   assert.equal(validation.ok, false);
   assert.ok(
     validation.failures.includes(
@@ -986,11 +986,11 @@ test("GUI harness rejects screenshot-only false positives", () => {
 });
 
 test("blocked result records external blocker without pretending validation passed", () => {
-  const blocked = buildBlockedAutopilotGuiHarnessResult({
+  const blocked = buildBlockedHypervisorGuiHarnessResult({
     reason: "missing xdotool",
     evidence: ["xdotool not found on PATH"],
   });
-  const validation = validateAutopilotGuiHarnessResult(blocked);
+  const validation = validateHypervisorGuiHarnessResult(blocked);
   assert.equal(blocked.blocked, true);
   assert.equal(validation.ok, false);
   assert.ok(validation.failures.some((failure) => failure.includes("missing retained query")));

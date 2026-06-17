@@ -1,10 +1,10 @@
-export const AUTOPILOT_GUI_HARNESS_SCHEMA_VERSION =
-  "ioi.autopilot.gui-harness-validation.v1";
+export const HYPERVISOR_GUI_HARNESS_SCHEMA_VERSION =
+  "ioi.hypervisor.gui-harness-validation.v1";
 
-export const AUTOPILOT_GUI_HARNESS_LAUNCH_COMMAND =
+export const HYPERVISOR_GUI_HARNESS_LAUNCH_COMMAND =
   "AUTOPILOT_LOCAL_GPU_DEV=1 AUTOPILOT_HARNESS_DEFAULT_PROMOTION=1 AUTOPILOT_WORKFLOW_PROVIDER_GATED_VISIBLE_OUTPUT=1 npm run dev:hypervisor-app";
 
-export const AUTOPILOT_REQUIRED_ENV = Object.freeze({
+export const HYPERVISOR_REQUIRED_ENV = Object.freeze({
   AUTOPILOT_LOCAL_GPU_DEV: "1",
   AUTOPILOT_HARNESS_DEFAULT_PROMOTION: "1",
   AUTOPILOT_WORKFLOW_PROVIDER_GATED_VISIBLE_OUTPUT: "1",
@@ -34,7 +34,7 @@ export const DEFAULT_LIVE_PROMOTION_INVARIANTS = Object.freeze([
   }),
 ]);
 
-export const AUTOPILOT_RETAINED_QUERIES = Object.freeze([
+export const HYPERVISOR_RETAINED_QUERIES = Object.freeze([
   {
     scenario: "no_tool_answer",
     query: "Explain what this workspace is for in two concise paragraphs.",
@@ -44,7 +44,7 @@ export const AUTOPILOT_RETAINED_QUERIES = Object.freeze([
   },
   {
     scenario: "repo_grounded_answer",
-    query: "Where is Autopilot chat task state defined? Cite the files you used.",
+    query: "Where is Hypervisor chat task state defined? Cite the files you used.",
     expectedEvidence: ["file_sources", "accurate_citations"],
     expectedChatUx: ["collapsible_explored_files"],
     providerGatedVisibleOutputRequired: true,
@@ -98,13 +98,13 @@ export const AUTOPILOT_RETAINED_QUERIES = Object.freeze([
   },
 ]);
 
-export const AUTOPILOT_PROVIDER_GATED_VISIBLE_OUTPUT_REQUIRED_SCENARIOS = Object.freeze(
-  AUTOPILOT_RETAINED_QUERIES.filter(
+export const HYPERVISOR_PROVIDER_GATED_VISIBLE_OUTPUT_REQUIRED_SCENARIOS = Object.freeze(
+  HYPERVISOR_RETAINED_QUERIES.filter(
     (query) => query.providerGatedVisibleOutputRequired === true,
   ).map((query) => `retained_${query.scenario}`),
 );
 
-export const AUTOPILOT_READ_ONLY_CAPABILITY_ROUTING_REQUIRED_SCENARIOS = Object.freeze([
+export const HYPERVISOR_READ_ONLY_CAPABILITY_ROUTING_REQUIRED_SCENARIOS = Object.freeze([
   "retained_repo_grounded_answer",
   "retained_source_heavy_synthesis",
   "retained_probe_behavior",
@@ -316,21 +316,21 @@ export const RUNTIME_CONSISTENCY_REQUIREMENTS = Object.freeze([
   "workflow_coding_route_promotion_loop_proof_present",
 ]);
 
-export function autopilotGuiHarnessContract() {
+export function hypervisorGuiHarnessContract() {
   return {
-    schemaVersion: AUTOPILOT_GUI_HARNESS_SCHEMA_VERSION,
-    launchCommand: AUTOPILOT_GUI_HARNESS_LAUNCH_COMMAND,
-    requiredEnv: { ...AUTOPILOT_REQUIRED_ENV },
-    retainedQueries: AUTOPILOT_RETAINED_QUERIES.map((query) => ({
+    schemaVersion: HYPERVISOR_GUI_HARNESS_SCHEMA_VERSION,
+    launchCommand: HYPERVISOR_GUI_HARNESS_LAUNCH_COMMAND,
+    requiredEnv: { ...HYPERVISOR_REQUIRED_ENV },
+    retainedQueries: HYPERVISOR_RETAINED_QUERIES.map((query) => ({
       ...query,
       expectedEvidence: [...query.expectedEvidence],
       expectedChatUx: [...query.expectedChatUx],
     })),
     providerGatedVisibleOutputRequiredScenarios: [
-      ...AUTOPILOT_PROVIDER_GATED_VISIBLE_OUTPUT_REQUIRED_SCENARIOS,
+      ...HYPERVISOR_PROVIDER_GATED_VISIBLE_OUTPUT_REQUIRED_SCENARIOS,
     ],
     readOnlyCapabilityRoutingRequiredScenarios: [
-      ...AUTOPILOT_READ_ONLY_CAPABILITY_ROUTING_REQUIRED_SCENARIOS,
+      ...HYPERVISOR_READ_ONLY_CAPABILITY_ROUTING_REQUIRED_SCENARIOS,
     ],
     requiredArtifacts: [...REQUIRED_GUI_ARTIFACTS],
     cleanChatUxRequirements: [...CLEAN_CHAT_UX_REQUIREMENTS],
@@ -347,7 +347,7 @@ export function autopilotGuiHarnessContract() {
 }
 
 export function retainedQueryByScenario(scenario) {
-  return AUTOPILOT_RETAINED_QUERIES.find((query) => query.scenario === scenario) ?? null;
+  return HYPERVISOR_RETAINED_QUERIES.find((query) => query.scenario === scenario) ?? null;
 }
 
 function isNonEmptyString(value) {
@@ -740,8 +740,8 @@ export function validateDefaultLivePromotionInvariants(result) {
   };
 }
 
-export function validateAutopilotGuiHarnessResult(result) {
-  const contract = autopilotGuiHarnessContract();
+export function validateHypervisorGuiHarnessResult(result) {
+  const contract = hypervisorGuiHarnessContract();
   const failures = [];
 
   if (!result || typeof result !== "object") {
@@ -806,10 +806,10 @@ export function validateAutopilotGuiHarnessResult(result) {
   };
 }
 
-export function buildBlockedAutopilotGuiHarnessResult({ reason, evidence }) {
+export function buildBlockedHypervisorGuiHarnessResult({ reason, evidence }) {
   return {
-    schemaVersion: AUTOPILOT_GUI_HARNESS_SCHEMA_VERSION,
-    launchCommand: AUTOPILOT_GUI_HARNESS_LAUNCH_COMMAND,
+    schemaVersion: HYPERVISOR_GUI_HARNESS_SCHEMA_VERSION,
+    launchCommand: HYPERVISOR_GUI_HARNESS_LAUNCH_COMMAND,
     blocked: true,
     blockReason: reason,
     blockEvidence: evidence,

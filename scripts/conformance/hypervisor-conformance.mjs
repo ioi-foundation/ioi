@@ -1101,7 +1101,6 @@ function runDocs() {
     "docs/architecture/components/daemon-runtime/default-harness-profile.md",
     "docs/architecture/components/daemon-runtime/doctrine.md",
     "docs/architecture/components/daemon-runtime/private-workspace-ctee.md",
-    "docs/architecture/components/hypervisor/fleet.md",
     "docs/architecture/components/hypervisor/providers-and-environments.md",
     "docs/architecture/components/agentgres/doctrine.md",
     "docs/architecture/components/agentgres/artifact-ref-plane.md",
@@ -1148,7 +1147,6 @@ function runDocs() {
     : "";
   const sourceMap = read(SOURCE_OF_TRUTH);
   const startShim = read("docs/architecture/START_HERE.md");
-  const fleetDoc = read("docs/architecture/components/hypervisor/fleet.md");
   const providersEnvironmentsDoc = read(
     "docs/architecture/components/hypervisor/providers-and-environments.md",
   );
@@ -1210,51 +1208,49 @@ function runDocs() {
   );
   assertCheck(
     result,
-    "source-map-hypervisor-fleet",
+    "hypervisor-legacy-shims-absent",
+    !exists("docs/architecture/components/hypervisor/fleet.md") &&
+      !exists("docs/architecture/components/hypervisor/outcome-rooms.md") &&
+      !/\bfleet\.md\b|outcome-rooms\.md/.test(sourceMap),
+    [
+      SOURCE_OF_TRUTH,
+      "docs/architecture/components/hypervisor/providers-and-environments.md",
+      "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md",
+    ],
+    "legacy Hypervisor terminology shim docs must stay deleted from live canon",
+  );
+  assertCheck(
+    result,
+    "source-map-hypervisor-providers-environments",
     /Hypervisor provider\/environment management/.test(sourceMap) &&
       /direct provider integrations/.test(sourceMap) &&
       /\[`providers-and-environments\.md`\]\(\.\.\/components\/hypervisor\/providers-and-environments\.md\)/.test(
         sourceMap,
       ) &&
-      /\[`fleet\.md`\]\(\.\.\/components\/hypervisor\/fleet\.md\)/.test(sourceMap) &&
-      /`fleet\.md` is a deprecated terminology stub/.test(sourceMap),
+      /Hypervisor App\/Web provider views/.test(sourceMap),
     [
       SOURCE_OF_TRUTH,
       "docs/architecture/components/hypervisor/providers-and-environments.md",
-      "docs/architecture/components/hypervisor/fleet.md",
     ],
-    "source-of-truth map must name Hypervisor provider/environment ownership and keep Fleet deprecated",
+    "source-of-truth map must name Hypervisor provider/environment ownership without a legacy shim",
   );
   assertCheck(
     result,
-    "implementation-matrix-hypervisor-fleet",
+    "implementation-matrix-hypervisor-providers-environments",
     /`HypervisorCoreClientSurfaceSessionAdapterTaxonomy`/.test(implementationMatrix) &&
       /provider\/environment posture is a default Hypervisor session\/project\/provider view/.test(
         implementationMatrix,
       ) &&
       /`HypervisorOperationalProfiles`/.test(implementationMatrix) &&
       /`HypervisorEnvironmentOpsProfile`/.test(implementationMatrix) &&
-      /`HypervisorSessionAccessLease`/.test(implementationMatrix) &&
-      /do not create Fleet-specific aliases/.test(implementationMatrix),
+      /`HypervisorSessionAccessLease`/.test(implementationMatrix),
     [IMPLEMENTATION_MATRIX],
-    "implementation matrix must keep provider/environment objects under Hypervisor profiles and reject Fleet aliases",
+    "implementation matrix must keep provider/environment objects under Hypervisor profiles",
   );
   assertCheck(
     result,
-    "hypervisor-fleet-boundary-doctrine",
-    /Status: deprecated terminology stub\./.test(fleetDoc) &&
-      /Superseded by: \[`providers-and-environments\.md`\]/.test(fleetDoc) &&
-      /Do not model Fleet as:/.test(fleetDoc) &&
-      /a separate source of environment truth/.test(fleetDoc) &&
-      /Hypervisor Daemon executes lifecycle operations\./.test(fleetDoc) &&
-      /wallet\.network authorizes spend, access, secrets, SCM auth, and declassification\./.test(
-        fleetDoc,
-      ) &&
-      /Agentgres records admitted truth, receipts, state roots, archive refs, and\s+restore validity\./.test(
-        fleetDoc,
-      ) &&
-      /Storage backends hold payload bytes\./.test(fleetDoc) &&
-      /Status: canonical architecture authority\./.test(providersEnvironmentsDoc) &&
+    "hypervisor-provider-environment-boundary-doctrine",
+    /Status: canonical architecture authority\./.test(providersEnvironmentsDoc) &&
       /Hypervisor Daemon executes lifecycle operations\./.test(
         providersEnvironmentsDoc,
       ) &&
@@ -1271,11 +1267,8 @@ function runDocs() {
       /Encrypted archive blobs are restore material\. They are not restore truth/.test(
         providersEnvironmentsDoc,
       ),
-    [
-      "docs/architecture/components/hypervisor/fleet.md",
-      "docs/architecture/components/hypervisor/providers-and-environments.md",
-    ],
-    "Hypervisor provider/environment canon must preserve daemon execution, wallet authority, Agentgres truth, and storage-byte boundaries while Fleet stays deprecated",
+    ["docs/architecture/components/hypervisor/providers-and-environments.md"],
+    "Hypervisor provider/environment canon must preserve daemon execution, wallet authority, Agentgres truth, and storage-byte boundaries",
   );
 
   const expectedScripts = new Map([
@@ -4741,8 +4734,8 @@ function runBridge() {
   const runtimeProfileHelperTest = exists("packages/runtime-daemon/src/runtime-profile.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-profile.test.mjs")
     : "";
-  const runtimeAgentServiceInferenceHelper = exists("scripts/lib/autopilot-runtime-agent-service-inference.mjs")
-    ? read("scripts/lib/autopilot-runtime-agent-service-inference.mjs")
+  const runtimeAgentServiceInferenceHelper = exists("scripts/lib/hypervisor-runtime-agent-service-inference.mjs")
+    ? read("scripts/lib/hypervisor-runtime-agent-service-inference.mjs")
     : "";
   const workbenchAdapterHostLauncher = exists("scripts/launch-hypervisor-workbench-adapter-host.mjs")
     ? read("scripts/launch-hypervisor-workbench-adapter-host.mjs")
@@ -16574,7 +16567,7 @@ function runBridge() {
       !exists("crates/node/src/bin/ioi-runtime-bridge.rs") &&
       !exists("scripts/run-hypervisor-rust-agentic-runtime-parity-goal.mjs") &&
       !exists("scripts/lib/autopilot-runtime-agent-service-bridge.mjs") &&
-      exists("scripts/lib/autopilot-runtime-agent-service-inference.mjs") &&
+      exists("scripts/lib/hypervisor-runtime-agent-service-inference.mjs") &&
       !exists("packages/runtime-daemon/src/runtime-api-bridge.mjs") &&
       !exists("packages/runtime-daemon/src/runtime-api-bridge.test.mjs") &&
       !/runtime-agent-service-adapter\.mjs/.test(runtimeProfileHelper) &&
@@ -16614,7 +16607,7 @@ function runBridge() {
       "packages/runtime-daemon/src/service/runtime-daemon-service.mjs",
       "crates/node/Cargo.toml",
       "crates/services/src/agentic/runtime/service/policy.rs",
-      "scripts/lib/autopilot-runtime-agent-service-inference.mjs",
+      "scripts/lib/hypervisor-runtime-agent-service-inference.mjs",
       "scripts/launch-hypervisor-workbench-adapter-host.mjs",
       "scripts/run-hypervisor-agent-live-gui-validation.mjs",
     ],
@@ -24169,8 +24162,8 @@ function runReceipts() {
     exists("scripts/validate-model-mounting-e2e.mjs")
       ? read("scripts/validate-model-mounting-e2e.mjs")
       : "",
-    exists("scripts/lib/autopilot-runtime-agent-service-inference.mjs")
-      ? read("scripts/lib/autopilot-runtime-agent-service-inference.mjs")
+    exists("scripts/lib/hypervisor-runtime-agent-service-inference.mjs")
+      ? read("scripts/lib/hypervisor-runtime-agent-service-inference.mjs")
       : "",
     exists("scripts/launch-hypervisor-workbench-adapter-host.mjs")
       ? read("scripts/launch-hypervisor-workbench-adapter-host.mjs")

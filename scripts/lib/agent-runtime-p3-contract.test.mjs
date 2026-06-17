@@ -37,7 +37,7 @@ test("runtime scorecard preserves GUI, cognitive, learning, substrate, and dogfo
     "Dry-run",
     "Stop",
     "Handoff",
-    "Autopilot GUI",
+    "Hypervisor GUI",
     "Chat UX",
     "GUI/runtime consistency",
     "Learning",

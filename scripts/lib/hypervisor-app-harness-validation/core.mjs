@@ -75,15 +75,15 @@ export {
 } from "./retained-query-evidence.mjs";
 
 import {
-  AUTOPILOT_GUI_HARNESS_LAUNCH_COMMAND,
-  AUTOPILOT_PROVIDER_GATED_VISIBLE_OUTPUT_REQUIRED_SCENARIOS,
-  AUTOPILOT_READ_ONLY_CAPABILITY_ROUTING_REQUIRED_SCENARIOS,
-  AUTOPILOT_RETAINED_QUERIES,
+  HYPERVISOR_GUI_HARNESS_LAUNCH_COMMAND,
+  HYPERVISOR_PROVIDER_GATED_VISIBLE_OUTPUT_REQUIRED_SCENARIOS,
+  HYPERVISOR_READ_ONLY_CAPABILITY_ROUTING_REQUIRED_SCENARIOS,
+  HYPERVISOR_RETAINED_QUERIES,
   DEFAULT_LIVE_PROMOTION_INVARIANTS,
   GUI_AUTOMATION_CLICK_POLICY,
-  autopilotGuiHarnessContract,
-  buildBlockedAutopilotGuiHarnessResult,
-  validateAutopilotGuiHarnessResult,
+  hypervisorGuiHarnessContract,
+  buildBlockedHypervisorGuiHarnessResult,
+  validateHypervisorGuiHarnessResult,
 } from "../hypervisor-app-harness-contract.mjs";
 
 const repoRoot = resolve(new URL("../../..", import.meta.url).pathname);
@@ -2867,7 +2867,7 @@ export async function collectRuntimeArtifacts(outputRoot, logPath) {
             dispatch.modelProviderGatedVisibleOutputEnabled === true &&
             dispatch.modelProviderGatedVisibleOutputReady === true &&
             dispatch.modelProviderGatedVisibleOutputSelected === true &&
-            AUTOPILOT_PROVIDER_GATED_VISIBLE_OUTPUT_REQUIRED_SCENARIOS.includes(
+            HYPERVISOR_PROVIDER_GATED_VISIBLE_OUTPUT_REQUIRED_SCENARIOS.includes(
               dispatch.modelProviderGatedVisibleOutputScenario,
             ) &&
             dispatch.modelProviderGatedVisibleOutputCohort ===
@@ -2877,7 +2877,7 @@ export async function collectRuntimeArtifacts(outputRoot, logPath) {
             Array.isArray(
               dispatch.modelProviderGatedVisibleOutputRequiredScenarioSet,
             ) &&
-            AUTOPILOT_PROVIDER_GATED_VISIBLE_OUTPUT_REQUIRED_SCENARIOS.every(
+            HYPERVISOR_PROVIDER_GATED_VISIBLE_OUTPUT_REQUIRED_SCENARIOS.every(
               (scenario) =>
                 dispatch.modelProviderGatedVisibleOutputRequiredScenarioSet.includes(
                   scenario,
@@ -3499,7 +3499,7 @@ export async function collectRuntimeArtifacts(outputRoot, logPath) {
             dispatch.readOnlyCapabilityRoutingSelected === true &&
             dispatch.readOnlyCapabilityRoutingNoMutationReady === true &&
             dispatch.readOnlyCapabilityRoutingSourceMaterialReady === true &&
-            AUTOPILOT_READ_ONLY_CAPABILITY_ROUTING_REQUIRED_SCENARIOS.includes(
+            HYPERVISOR_READ_ONLY_CAPABILITY_ROUTING_REQUIRED_SCENARIOS.includes(
               readOnlyRoutingScenario,
             ) &&
             dispatch.readOnlyCapabilityRoutingScenarioCoverageKey ===
@@ -5843,7 +5843,7 @@ export function buildGuiEvidenceAssessment({
   workflowCodingRoutePromotionLoopProof,
 }) {
   const allScreenshotsCaptured =
-    queryResults.length === AUTOPILOT_RETAINED_QUERIES.length &&
+    queryResults.length === HYPERVISOR_RETAINED_QUERIES.length &&
     queryResults.every((result) => result.passed === true);
   const summary = runtimeArtifacts.summary;
   const hasTranscript = summary.transcriptCount > 0;
@@ -6827,14 +6827,14 @@ export function buildGuiEvidenceAssessment({
     hasHarnessDefaultRuntimeDispatch &&
     summary.harnessAuthorityToolingWalletCapabilityLiveDryRunCount > 0;
   const providerGatedVisibleOutputScenarioCoverage =
-    AUTOPILOT_PROVIDER_GATED_VISIBLE_OUTPUT_REQUIRED_SCENARIOS.every(
+    HYPERVISOR_PROVIDER_GATED_VISIBLE_OUTPUT_REQUIRED_SCENARIOS.every(
       (scenario) =>
         summary.harnessModelProviderGatedVisibleOutputScenarios.includes(
           scenario,
         ),
     );
   const providerGatedVisibleOutputRollbackDrillScenarioCoverage =
-    AUTOPILOT_PROVIDER_GATED_VISIBLE_OUTPUT_REQUIRED_SCENARIOS.every(
+    HYPERVISOR_PROVIDER_GATED_VISIBLE_OUTPUT_REQUIRED_SCENARIOS.every(
       (scenario) =>
         summary.harnessModelProviderGatedVisibleOutputRollbackDrillScenarios.includes(
           scenario,
@@ -6849,12 +6849,12 @@ export function buildGuiEvidenceAssessment({
     summary.harnessModelProviderGatedVisibleOutputRollbackDrillCount > 0 &&
     providerGatedVisibleOutputRollbackDrillScenarioCoverage;
   const readOnlyCapabilityRoutingScenarioCoverage =
-    AUTOPILOT_READ_ONLY_CAPABILITY_ROUTING_REQUIRED_SCENARIOS.every(
+    HYPERVISOR_READ_ONLY_CAPABILITY_ROUTING_REQUIRED_SCENARIOS.every(
       (scenario) =>
         summary.harnessReadOnlyCapabilityRoutingScenarios.includes(scenario),
     );
   const readOnlyCapabilityRoutingNoMutationScenarioCoverage =
-    AUTOPILOT_READ_ONLY_CAPABILITY_ROUTING_REQUIRED_SCENARIOS.every(
+    HYPERVISOR_READ_ONLY_CAPABILITY_ROUTING_REQUIRED_SCENARIOS.every(
       (scenario) =>
         summary.harnessReadOnlyCapabilityRoutingNoMutationScenarios.includes(
           scenario,
@@ -7204,12 +7204,12 @@ export function buildGuiEvidenceAssessment({
       computerUseTriLaneScorecardSummaryPath:
         workflowComputerUseTriLaneScorecard?.summaryPath ?? null,
       providerGatedVisibleOutputRequiredScenarios: [
-        ...AUTOPILOT_PROVIDER_GATED_VISIBLE_OUTPUT_REQUIRED_SCENARIOS,
+        ...HYPERVISOR_PROVIDER_GATED_VISIBLE_OUTPUT_REQUIRED_SCENARIOS,
       ],
       providerGatedVisibleOutputScenarioCoverage,
       providerGatedVisibleOutputRollbackDrillScenarioCoverage,
       readOnlyCapabilityRoutingRequiredScenarios: [
-        ...AUTOPILOT_READ_ONLY_CAPABILITY_ROUTING_REQUIRED_SCENARIOS,
+        ...HYPERVISOR_READ_ONLY_CAPABILITY_ROUTING_REQUIRED_SCENARIOS,
       ],
       readOnlyCapabilityRoutingScenarioCoverage,
       readOnlyCapabilityRoutingNoMutationScenarioCoverage,
@@ -10993,8 +10993,8 @@ async function runGuiValidation(args, outputRoot) {
   try {
     const queryResults = [];
     const screenshots = {};
-    for (let index = 0; index < AUTOPILOT_RETAINED_QUERIES.length; index += 1) {
-      const retainedQuery = AUTOPILOT_RETAINED_QUERIES[index];
+    for (let index = 0; index < HYPERVISOR_RETAINED_QUERIES.length; index += 1) {
+      const retainedQuery = HYPERVISOR_RETAINED_QUERIES[index];
       const {
         windowId,
         screenshot,
@@ -11118,8 +11118,8 @@ async function runGuiValidation(args, outputRoot) {
           ?.packageImportActivationApplyProof?.review,
       );
     return {
-      schemaVersion: autopilotGuiHarnessContract().schemaVersion,
-      launchCommand: AUTOPILOT_GUI_HARNESS_LAUNCH_COMMAND,
+      schemaVersion: hypervisorGuiHarnessContract().schemaVersion,
+      launchCommand: HYPERVISOR_GUI_HARNESS_LAUNCH_COMMAND,
       blocked: false,
       windowId: lastWindowId,
       queryResults,
@@ -11530,7 +11530,7 @@ async function runGuiValidation(args, outputRoot) {
         harness_model_provider_gated_visible_output:
           runtimeArtifacts.summary.harnessModelProviderGatedVisibleOutputCount >
             0 &&
-          AUTOPILOT_PROVIDER_GATED_VISIBLE_OUTPUT_REQUIRED_SCENARIOS.every(
+          HYPERVISOR_PROVIDER_GATED_VISIBLE_OUTPUT_REQUIRED_SCENARIOS.every(
             (scenario) =>
               runtimeArtifacts.summary.harnessModelProviderGatedVisibleOutputScenarios.includes(
                 scenario,
@@ -11541,7 +11541,7 @@ async function runGuiValidation(args, outputRoot) {
         harness_model_provider_gated_visible_output_rollback_drill:
           runtimeArtifacts.summary
             .harnessModelProviderGatedVisibleOutputRollbackDrillCount > 0 &&
-          AUTOPILOT_PROVIDER_GATED_VISIBLE_OUTPUT_REQUIRED_SCENARIOS.every(
+          HYPERVISOR_PROVIDER_GATED_VISIBLE_OUTPUT_REQUIRED_SCENARIOS.every(
             (scenario) =>
               runtimeArtifacts.summary.harnessModelProviderGatedVisibleOutputRollbackDrillScenarios.includes(
                 scenario,
@@ -11552,13 +11552,13 @@ async function runGuiValidation(args, outputRoot) {
         harness_read_only_capability_routing:
           runtimeArtifacts.summary.harnessDefaultRuntimeDispatchReadonlyCount >
             0 &&
-          AUTOPILOT_READ_ONLY_CAPABILITY_ROUTING_REQUIRED_SCENARIOS.every(
+          HYPERVISOR_READ_ONLY_CAPABILITY_ROUTING_REQUIRED_SCENARIOS.every(
             (scenario) =>
               runtimeArtifacts.summary.harnessReadOnlyCapabilityRoutingScenarios.includes(
                 scenario,
               ),
           ) &&
-          AUTOPILOT_READ_ONLY_CAPABILITY_ROUTING_REQUIRED_SCENARIOS.every(
+          HYPERVISOR_READ_ONLY_CAPABILITY_ROUTING_REQUIRED_SCENARIOS.every(
             (scenario) =>
               runtimeArtifacts.summary.harnessReadOnlyCapabilityRoutingNoMutationScenarios.includes(
                 scenario,
@@ -11674,7 +11674,7 @@ export async function main() {
   const args = parseArgs(process.argv.slice(2));
   const outputRoot = resolve(repoRoot, args.outputRoot, timestamp());
   if (args.contractOnly) {
-    console.log(JSON.stringify(autopilotGuiHarnessContract(), null, 2));
+    console.log(JSON.stringify(hypervisorGuiHarnessContract(), null, 2));
     return 0;
   }
 
@@ -11683,12 +11683,12 @@ export async function main() {
     const result =
       preflightFailures.length === 0
         ? {
-            schemaVersion: autopilotGuiHarnessContract().schemaVersion,
-            launchCommand: AUTOPILOT_GUI_HARNESS_LAUNCH_COMMAND,
+            schemaVersion: hypervisorGuiHarnessContract().schemaVersion,
+            launchCommand: HYPERVISOR_GUI_HARNESS_LAUNCH_COMMAND,
             preflightPassed: true,
-            retainedQueryCount: AUTOPILOT_RETAINED_QUERIES.length,
+            retainedQueryCount: HYPERVISOR_RETAINED_QUERIES.length,
           }
-        : buildBlockedAutopilotGuiHarnessResult({
+        : buildBlockedHypervisorGuiHarnessResult({
             reason: "preflight failed",
             evidence: preflightFailures,
           });
@@ -11698,7 +11698,7 @@ export async function main() {
   }
 
   if (preflightFailures.length > 0) {
-    const blocked = buildBlockedAutopilotGuiHarnessResult({
+    const blocked = buildBlockedHypervisorGuiHarnessResult({
       reason: "preflight failed",
       evidence: preflightFailures,
     });
@@ -11708,7 +11708,7 @@ export async function main() {
   }
 
   const result = await runGuiValidation(args, outputRoot);
-  const validation = validateAutopilotGuiHarnessResult(result);
+  const validation = validateHypervisorGuiHarnessResult(result);
   result.validation = validation;
   const resultPath = writeBundle(outputRoot, result);
   console.log(resultPath);

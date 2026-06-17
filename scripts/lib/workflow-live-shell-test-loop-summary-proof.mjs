@@ -51,7 +51,7 @@ assert.ok(includesAll(observedToolNames, ["shell__run", "chat__reply"]));
 assert.ok(includesAll(completedToolNames, ["shell__run", "chat__reply"]));
 assert.deepEqual(failedToolNames, []);
 assert.deepEqual(unexpectedToolNames, []);
-assert.match(queries[0].assistantText, /node --check scripts\/lib\/autopilot-agent-studio-chat-scenarios\.mjs/);
+assert.match(queries[0].assistantText, /node --check scripts\/lib\/hypervisor-agent-chat-scenarios\.mjs/);
 assert.match(queries[0].assistantText, /exit(?:ed)? with code 0/i);
 assert.match(queries[1].assistantText, /non_browser_tool_history_is_prefixed_for_next_model_turn/);
 assert.match(queries[1].assistantText, /exit(?:ed)? with code 0/i);

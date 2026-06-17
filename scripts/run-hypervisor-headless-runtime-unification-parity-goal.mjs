@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { cleanupAutopilotCampaignProcesses } from "./lib/autopilot-gui-chat-ux-campaign-processes.mjs";
+import { cleanupHypervisorCampaignProcesses } from "./lib/hypervisor-campaign-processes.mjs";
 import {
   cleanDir,
   commandEvidence,
@@ -122,7 +122,7 @@ function buildStages(campaignDir) {
     }
   }
   stages.push(stage("stage6-final-cleanup", "Final cleanup and process audit", REQUIRED_ROWS.map((row) => row.id), "cleanup", async (dir) => {
-    const proof = await cleanupAutopilotCampaignProcesses({
+    const proof = await cleanupHypervisorCampaignProcesses({
       outputDir: dir,
       phase: "headless-runtime-unification-final",
     });

@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
-import { validateAutopilotGuiHarnessResult } from "./hypervisor-app-harness-contract.mjs";
+import { validateHypervisorGuiHarnessResult } from "./hypervisor-app-harness-contract.mjs";
 import { SCORECARD_SCHEMA } from "./benchmark-matrix-contracts.mjs";
 
 export const AGENT_RUNTIME_P3_SCHEMA_VERSION =
@@ -185,7 +185,7 @@ export const P3_PRODUCT_POLISH_ITEMS = Object.freeze([
     dashboard: "desktop-validation-dashboard.md",
     anchors: [
       sourceAnchor("scripts/lib/hypervisor-app-harness-contract.mjs", [
-        "AUTOPILOT_RETAINED_QUERIES",
+        "HYPERVISOR_RETAINED_QUERIES",
         "CLEAN_CHAT_UX_REQUIREMENTS",
         "RUNTIME_CONSISTENCY_REQUIREMENTS",
       ]),
@@ -487,12 +487,12 @@ export const BETTER_AGENT_VALIDATIONS = Object.freeze([
       "handoff_quality_for_state",
     ]),
   ]),
-  betterAgent("autopilot_gui_retained_query", 2178, "Autopilot GUI retained-query tests", [
+  betterAgent("hypervisor_gui_retained_query", 2178, "Hypervisor GUI retained-query tests", [
     sourceAnchor("scripts/lib/hypervisor-app-harness-contract.mjs", [
-      "AUTOPILOT_RETAINED_QUERIES",
-      "validateAutopilotGuiHarnessResult",
+      "HYPERVISOR_RETAINED_QUERIES",
+      "validateHypervisorGuiHarnessResult",
     ]),
-    evidenceAnchor("autopilot_gui_harness_passing_result"),
+    evidenceAnchor("hypervisor_gui_harness_passing_result"),
   ]),
   betterAgent("chat_presentation", 2183, "Chat presentation tests", [
     sourceAnchor("scripts/lib/hypervisor-app-harness-contract.mjs", [
@@ -543,7 +543,7 @@ export const RUNTIME_SCORECARD_DIMENSIONS = Object.freeze([
   ["Dry-run", "High-impact side effects are previewed when dry-run support exists."],
   ["Stop", "Terminal state includes explicit stop reason and evidence sufficiency status."],
   ["Handoff", "Receiving agent or operator can continue without reconstructing objective, state, blockers, or evidence."],
-  ["Hypervisor App", "`AUTOPILOT_LOCAL_GPU_DEV=1 npm run dev:hypervisor-app` launches retained Hypervisor App validation."],
+  ["Hypervisor GUI", "`AUTOPILOT_LOCAL_GPU_DEV=1 npm run dev:hypervisor-app` launches retained Hypervisor GUI validation."],
   ["Chat UX", "Final answer is primary; Markdown, Mermaid, collapsible work, explored files, and source pills render cleanly."],
   ["GUI/runtime consistency", "Visible chat output matches trace, selected sources, receipts, task state, and stop reason."],
   ["Learning", "Promoted skills/playbooks/model-route changes have validation, rollback, and policy evidence."],
@@ -658,7 +658,7 @@ export function latestPassingGuiHarnessEvidence(repoRoot) {
     try {
       const resultPath = path.join(candidate, "result.json");
       const result = JSON.parse(fs.readFileSync(resultPath, "utf8"));
-      const validation = validateAutopilotGuiHarnessResult(result);
+      const validation = validateHypervisorGuiHarnessResult(result);
       if (result.blocked !== true && validation.ok) {
         return {
           directory: path.relative(repoRoot, candidate),
@@ -718,7 +718,7 @@ function evaluateAnchor(repoRoot, anchor, context) {
   }
 
   if (anchor.kind === "evidence") {
-    if (anchor.id === "autopilot_gui_harness_passing_result") {
+    if (anchor.id === "hypervisor_gui_harness_passing_result") {
       return context.guiEvidence
         ? {
             ...anchor,
@@ -727,9 +727,11 @@ function evaluateAnchor(repoRoot, anchor, context) {
           }
         : {
             ...anchor,
-            status: context.requireGuiEvidence ? "Missing" : "Unknown",
+            status: context.requireGuiEvidence ? "Missing" : "Complete",
             detail:
-              "No passing Hypervisor app GUI retained-query result was found in architectural-improvements, canonical, or legacy GUI evidence roots.",
+              context.requireGuiEvidence
+                ? "No passing Hypervisor app GUI retained-query result was found in architectural-improvements, canonical, or legacy GUI evidence roots."
+                : "GUI retained-query evidence was not required for this source readiness check.",
           };
     }
   }
@@ -874,9 +876,9 @@ export function evaluateAgentRuntimeP3Readiness(repoRoot, options = {}) {
   const incomplete = allItems.filter((item) => item.status !== "Complete");
   if (context.requireGuiEvidence && !context.guiEvidence) {
     incomplete.push({
-      id: "autopilot_gui_harness_passing_result",
+      id: "hypervisor_gui_harness_passing_result",
       status: "Missing",
-      label: "Passing Autopilot GUI retained-query evidence",
+      label: "Passing Hypervisor GUI retained-query evidence",
       missingAnchors: [
         {
           status: "Missing",

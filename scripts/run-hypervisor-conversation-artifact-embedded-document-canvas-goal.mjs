@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 
 import { startRuntimeDaemonService } from "../packages/runtime-daemon/src/index.mjs";
 import { createRuntimeSubstrateClient } from "../packages/agent-sdk/dist/substrate-client.js";
-import { cleanupAutopilotCampaignProcesses } from "./lib/autopilot-gui-chat-ux-campaign-processes.mjs";
+import { cleanupHypervisorCampaignProcesses } from "./lib/hypervisor-campaign-processes.mjs";
 import {
   ARTIFACT_CLASSES,
   BASELINE_VERDICTS,
@@ -421,7 +421,7 @@ async function main() {
   const supportProof = runSupportChecks(join(campaignDir, "support"));
   const guiProof = aggregateGuiProofs(join(campaignDir, "gui-aggregation"));
   const headlessProof = await runHeadlessLifecycleProof(join(campaignDir, "headless-lifecycle"));
-  const cleanup = await cleanupAutopilotCampaignProcesses({
+  const cleanup = await cleanupHypervisorCampaignProcesses({
     outputDir: join(campaignDir, "cleanup"),
     phase: "conversation-artifact-final",
   });

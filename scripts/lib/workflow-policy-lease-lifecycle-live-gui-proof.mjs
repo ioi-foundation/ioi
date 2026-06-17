@@ -24,7 +24,7 @@ import { applyHypervisorWorkbenchShellPatch } from "./hypervisor-workbench-shell
 import {
   bootstrapNativeRuntimeModelRoute,
   configureRuntimeAgentServiceInferenceEnv,
-} from "./autopilot-runtime-agent-service-inference.mjs";
+} from "./hypervisor-runtime-agent-service-inference.mjs";
 
 const repoRoot = HYPERVISOR_WORKBENCH_ADAPTER_HOST.repoRoot;
 const evidenceRoot =

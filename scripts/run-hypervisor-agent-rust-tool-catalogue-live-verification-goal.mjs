@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { cleanupAutopilotCampaignProcesses } from "./lib/autopilot-gui-chat-ux-campaign-processes.mjs";
+import { cleanupHypervisorCampaignProcesses } from "./lib/hypervisor-campaign-processes.mjs";
 
 const repoRoot = process.cwd();
 const MASTER_GUIDE =
@@ -408,17 +408,17 @@ async function main() {
   );
 
   const scenarioResults = [];
-  await cleanupAutopilotCampaignProcesses({ outputDir: campaignDir, phase: "campaign-before" });
+  await cleanupHypervisorCampaignProcesses({ outputDir: campaignDir, phase: "campaign-before" });
   for (const scenarioId of SCENARIOS) {
-    await cleanupAutopilotCampaignProcesses({ outputDir: campaignDir, phase: `before-${scenarioId}` });
+    await cleanupHypervisorCampaignProcesses({ outputDir: campaignDir, phase: `before-${scenarioId}` });
     const result = runScenario({ scenarioId, campaignDir });
     scenarioResults.push(result);
-    await cleanupAutopilotCampaignProcesses({ outputDir: campaignDir, phase: `after-${scenarioId}` });
+    await cleanupHypervisorCampaignProcesses({ outputDir: campaignDir, phase: `after-${scenarioId}` });
     writeFileSync(join(campaignDir, "campaign-progress.json"), `${JSON.stringify({ scenarioResults }, null, 2)}\n`);
   }
 
   await enforceTwelveHourFloor({ campaignDir, startedAtMs });
-  await cleanupAutopilotCampaignProcesses({ outputDir: campaignDir, phase: "campaign-final" });
+  await cleanupHypervisorCampaignProcesses({ outputDir: campaignDir, phase: "campaign-final" });
 
   const toolClassifications = buildToolClassifications(scenarioResults);
   const counts = toolClassifications.reduce((acc, row) => {
@@ -455,7 +455,7 @@ main().catch(async (error) => {
     error: String(error?.stack || error?.message || error),
     timestamp: new Date().toISOString(),
   }, null, 2)}\n`);
-  await cleanupAutopilotCampaignProcesses({ outputDir: fallbackDir, phase: "campaign-error" }).catch(() => undefined);
+  await cleanupHypervisorCampaignProcesses({ outputDir: fallbackDir, phase: "campaign-error" }).catch(() => undefined);
   console.error(error?.stack || error?.message || String(error));
   process.exitCode = 1;
 });

@@ -177,7 +177,7 @@ for (const required of [
   "components/daemon-runtime/events-receipts-delivery-bundles.md",
   "IOI daemon = hypervisor/control plane for autonomous execution",
   "Hypervisor App/Web/CLI-headless = first-class clients over Hypervisor Core",
-  "Hypervisor Workbench/Foundry = application surfaces over Hypervisor Core",
+  "Hypervisor Workbench/Automations/Foundry = application surfaces over Hypervisor Core",
   "IOI Authority Gateway = compatibility adapter profile",
   "physical-action-safety.md",
 ]) {
@@ -206,7 +206,7 @@ for (const required of [
   "`prim:*`",
   "`scope:*`",
   "Hypervisor App, Hypervisor Web, and Hypervisor CLI/headless are",
-  "Hypervisor Workbench replaces \"Hypervisor IDE\" as the live code/systems",
+  "Hypervisor Workbench is the live code/systems surface term",
   "adapter targets, not Hypervisor's product identity",
   "IOI Authority Gateway is the daemon sidecar/compatibility profile",
   "the daemon authorizes anything",

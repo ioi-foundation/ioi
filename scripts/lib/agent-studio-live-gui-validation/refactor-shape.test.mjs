@@ -17,7 +17,7 @@ test("live Agent Studio GUI validation runner is split from historical hardening
   const runner = read("scripts/run-hypervisor-agent-live-gui-validation.mjs");
   const wrapper = read("scripts/run-hypervisor-agent-chat-ux-hardening-goal.mjs");
   const promptSubmit = read("scripts/lib/agent-studio-live-gui-validation/prompt-submit.mjs");
-  const scenarioRegistry = read("scripts/lib/autopilot-agent-studio-chat-scenarios.mjs");
+  const scenarioRegistry = read("scripts/lib/hypervisor-agent-chat-scenarios.mjs");
   const lmStudioScenarios = read("scripts/lib/agent-studio-scenarios/lm-studio-parity-prompts.mjs");
   const edgeSearch = read("crates/services/src/agentic/web/search/orchestration/edge_search.rs");
   const edgeRead = read("crates/services/src/agentic/web/readability.rs");

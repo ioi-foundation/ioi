@@ -341,7 +341,7 @@ const STAGE6_SHELL_TEST_LOOP_PROMPTS = [
   {
     kind: "agent shell quick node check",
     executionMode: "agent",
-    prompt: "Run `node --check scripts/lib/autopilot-agent-studio-chat-scenarios.mjs` and summarize the exit code.",
+    prompt: "Run `node --check scripts/lib/hypervisor-agent-chat-scenarios.mjs` and summarize the exit code.",
     mustMentionAny: ["node --check", "exit code 0", "shell__run"],
     mustNotMentionAny: ["Hello! I am a local assistant", "Waiting for approval"],
   },

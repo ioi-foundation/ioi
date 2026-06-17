@@ -10,7 +10,7 @@ import {
 } from "node:fs";
 import { dirname, join, relative } from "node:path";
 
-import { cleanupAutopilotCampaignProcesses } from "./lib/autopilot-gui-chat-ux-campaign-processes.mjs";
+import { cleanupHypervisorCampaignProcesses } from "./lib/hypervisor-campaign-processes.mjs";
 
 const repoRoot = process.cwd();
 const evidenceRoot = "docs/evidence/autopilot-antigravity-harness-parity-plus";
@@ -430,7 +430,7 @@ async function runProofScenario(campaignDir, scenario) {
       : outputPath;
   const proofBody = proofPath ? maybeReadJson(proofPath) : null;
   const passed = result.status === 0 && (proofBody?.passed !== false);
-  const cleanup = await cleanupAutopilotCampaignProcesses({
+  const cleanup = await cleanupHypervisorCampaignProcesses({
     outputDir: scenarioDir,
     phase: `after-${scenario.id}`,
   });
@@ -693,7 +693,7 @@ async function runCampaign() {
       `${JSON.stringify({ finalManifestPath, resumedScenarioIds: [...resumedScenarioIds] }, null, 2)}\n`,
     );
   }
-  await cleanupAutopilotCampaignProcesses({ outputDir: campaignDir, phase: "before-campaign" });
+  await cleanupHypervisorCampaignProcesses({ outputDir: campaignDir, phase: "before-campaign" });
   for (const scenario of proofPlan) {
     if (resumedScenarioIds.has(scenario.id)) {
       continue;
@@ -708,7 +708,7 @@ async function runCampaign() {
       break;
     }
   }
-  await cleanupAutopilotCampaignProcesses({ outputDir: campaignDir, phase: "after-campaign" });
+  await cleanupHypervisorCampaignProcesses({ outputDir: campaignDir, phase: "after-campaign" });
   const manifest = buildManifest(campaignDir, scenarioVerdicts);
   writeFileSync(join(campaignDir, "antigravity-harness-parity-plus-final-manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
   writeFileSync(finalManifestPath, `${JSON.stringify(manifest, null, 2)}\n`);

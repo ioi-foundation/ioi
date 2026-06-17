@@ -25,7 +25,7 @@ import { applyHypervisorWorkbenchShellPatch } from "./lib/hypervisor-workbench-s
 import {
   bootstrapNativeRuntimeModelRoute,
   configureRuntimeAgentServiceInferenceEnv,
-} from "./lib/autopilot-runtime-agent-service-inference.mjs";
+} from "./lib/hypervisor-runtime-agent-service-inference.mjs";
 
 const repoRoot = HYPERVISOR_WORKBENCH_ADAPTER_HOST.repoRoot;
 const MASTER_GUIDE = ".internal/plans/autopilot-electron-agent-studio-runtime-cockpit-parity-master-guide.md";

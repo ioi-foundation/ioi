@@ -3,7 +3,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-export const AUTOPILOT_CAMPAIGN_PROCESS_PATTERN =
+export const HYPERVISOR_CAMPAIGN_PROCESS_PATTERN =
   "[n]pm run dev:hypervisor-app|[l]aunch-hypervisor-workbench-adapter-host|scripts/[i]oi-local-runtime-daemon\\.mjs|workbench-adapters/builds/VSCode-linux-x64/bin/[h]ypervisor|[i]oi-runtime-bridge|[s]tartRuntimeDaemonService|packages/runtime-daemon/src/[i]ndex.mjs";
 
 function sleep(ms) {
@@ -34,7 +34,7 @@ function ancestorPids(pid = process.pid) {
   return protectedPids;
 }
 
-export function listAutopilotCampaignProcesses(pattern = AUTOPILOT_CAMPAIGN_PROCESS_PATTERN) {
+export function listHypervisorCampaignProcesses(pattern = HYPERVISOR_CAMPAIGN_PROCESS_PATTERN) {
   const protectedPids = ancestorPids();
   try {
     const raw = execFileSync("pgrep", ["-af", pattern], { encoding: "utf8" });
@@ -62,21 +62,21 @@ function killProcesses(processes, signal) {
   }
 }
 
-export async function cleanupAutopilotCampaignProcesses({
+export async function cleanupHypervisorCampaignProcesses({
   outputDir = null,
   phase = "manual",
-  pattern = AUTOPILOT_CAMPAIGN_PROCESS_PATTERN,
+  pattern = HYPERVISOR_CAMPAIGN_PROCESS_PATTERN,
   graceMs = 2000,
 } = {}) {
-  const before = listAutopilotCampaignProcesses(pattern);
+  const before = listHypervisorCampaignProcesses(pattern);
   killProcesses(before, "SIGTERM");
   await sleep(graceMs);
-  const stubborn = listAutopilotCampaignProcesses(pattern);
+  const stubborn = listHypervisorCampaignProcesses(pattern);
   killProcesses(stubborn, "SIGKILL");
   await sleep(250);
-  const after = listAutopilotCampaignProcesses(pattern);
+  const after = listHypervisorCampaignProcesses(pattern);
   const proof = {
-    schemaVersion: "ioi.autopilot.gui-chat-ux-campaign.process-cleanup.v1",
+    schemaVersion: "ioi.hypervisor.campaign.process-cleanup.v1",
     phase,
     pattern,
     before,
@@ -101,12 +101,12 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     outputDirArgIndex >= 0 ? process.argv[outputDirArgIndex + 1] : null;
   const phase = phaseArgIndex >= 0 ? process.argv[phaseArgIndex + 1] : command;
   if (command === "list") {
-    const processes = listAutopilotCampaignProcesses();
+    const processes = listHypervisorCampaignProcesses();
     process.stdout.write(`${JSON.stringify({ processes }, null, 2)}\n`);
     process.exit(0);
   }
   if (command === "cleanup") {
-    const proof = await cleanupAutopilotCampaignProcesses({
+    const proof = await cleanupHypervisorCampaignProcesses({
       outputDir: outputDir && existsSync(outputDir) ? outputDir : outputDir,
       phase,
     });

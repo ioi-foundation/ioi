@@ -9,7 +9,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join, relative, resolve } from "node:path";
-import { cleanupAutopilotCampaignProcesses } from "./lib/autopilot-gui-chat-ux-campaign-processes.mjs";
+import { cleanupHypervisorCampaignProcesses } from "./lib/hypervisor-campaign-processes.mjs";
 
 const repoRoot = resolve(process.cwd());
 const evidenceRoot = process.env.AUTOPILOT_CLAUDE_CODE_SUBSTRATE_EVIDENCE_ROOT ||
@@ -276,7 +276,7 @@ async function runProofScenario(campaignDir, scenario) {
       : outputPath;
   const proofBody = proofPath ? maybeReadJson(proofPath) : null;
   const passed = result.status === 0 && (proofBody?.passed !== false);
-  await cleanupAutopilotCampaignProcesses({
+  await cleanupHypervisorCampaignProcesses({
     outputDir: scenarioDir,
     phase: `after-${scenario.id}`,
   });
@@ -477,7 +477,7 @@ function implementationRefsFor(rowId) {
       "scripts/lib/workflow-delegation-matrix-proof.mjs",
     ],
     "CC-HARNESS-007": [
-      "scripts/lib/autopilot-agent-studio-chat-scenarios.mjs",
+      "scripts/lib/hypervisor-agent-chat-scenarios.mjs",
       "scripts/run-hypervisor-agent-live-gui-validation.mjs",
     ],
     "CC-HARNESS-011": [
@@ -606,7 +606,7 @@ async function runCampaign() {
       `${JSON.stringify({ finalManifestPath, resumedScenarioIds: [...resumedScenarioIds] }, null, 2)}\n`,
     );
   }
-  await cleanupAutopilotCampaignProcesses({ outputDir: campaignDir, phase: "before-campaign" });
+  await cleanupHypervisorCampaignProcesses({ outputDir: campaignDir, phase: "before-campaign" });
   for (const scenario of proofPlan) {
     if (resumedScenarioIds.has(scenario.id)) continue;
     const verdict = await runProofScenario(campaignDir, scenario);
@@ -614,7 +614,7 @@ async function runCampaign() {
     writeFileSync(join(campaignDir, "campaign-progress.json"), `${JSON.stringify({ scenarioVerdicts }, null, 2)}\n`);
     if (verdict.status !== "passed") break;
   }
-  await cleanupAutopilotCampaignProcesses({ outputDir: campaignDir, phase: "after-campaign" });
+  await cleanupHypervisorCampaignProcesses({ outputDir: campaignDir, phase: "after-campaign" });
   const manifest = buildManifest(campaignDir, scenarioVerdicts);
   writeFileSync(join(campaignDir, "claude-code-substrate-absorption-final-manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
   writeFileSync(finalManifestPath, `${JSON.stringify(manifest, null, 2)}\n`);

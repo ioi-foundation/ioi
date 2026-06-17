@@ -35,7 +35,7 @@ import {
 import {
   DEFAULT_AGENT_STUDIO_CHAT_SCENARIO,
   resolveAgentStudioChatScenario,
-} from "./lib/autopilot-agent-studio-chat-scenarios.mjs";
+} from "./lib/hypervisor-agent-chat-scenarios.mjs";
 import {
   HYPERVISOR_WORKBENCH_ADAPTER_HOST,
   syncWorkbenchExtensionTargets,
@@ -43,7 +43,7 @@ import {
 import {
   bootstrapNativeRuntimeModelRoute,
   configureRuntimeAgentServiceInferenceEnv,
-} from "./lib/autopilot-runtime-agent-service-inference.mjs";
+} from "./lib/hypervisor-runtime-agent-service-inference.mjs";
 import { applyHypervisorWorkbenchShellPatch } from "./lib/hypervisor-workbench-shell-patch.mjs";
 
 const repoRoot = HYPERVISOR_WORKBENCH_ADAPTER_HOST.repoRoot;

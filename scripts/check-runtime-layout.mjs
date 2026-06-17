@@ -37,7 +37,7 @@ const refineArchitectureGuide = read("internal-docs/implementation/refine-archit
 const hypervisorCoreClientsSurfacesDoc = read(
   "docs/architecture/components/hypervisor/core-clients-surfaces.md",
 );
-const hypervisorFleetDoc = read("docs/architecture/components/hypervisor/fleet.md");
+const retiredHypervisorFleetDoc = "docs/architecture/components/hypervisor/fleet.md";
 const hypervisorProvidersEnvironmentsDoc = read(
   "docs/architecture/components/hypervisor/providers-and-environments.md",
 );
@@ -170,6 +170,8 @@ const activeHypervisorPackageScriptValues = [
   "goal:hypervisor-app-ux-readiness",
   "goal:hypervisor-app-ux-readiness:run",
 ].map((scriptName) => packageJson.scripts?.[scriptName] ?? "");
+const hypervisorAppHarnessContractSource = read("scripts/lib/hypervisor-app-harness-contract.mjs");
+const hypervisorCampaignProcessesSource = read("scripts/lib/hypervisor-campaign-processes.mjs");
 const daemonSource = read("packages/runtime-daemon/src/index.mjs");
 const sdkSubstrate = read("packages/agent-sdk/src/substrate-client.ts");
 const sdkIndex = read("packages/agent-sdk/src/index.ts");
@@ -267,6 +269,35 @@ assert(
     !packageJson.scripts["build:ioi-workbench-composer"],
   ["package.json"],
   "root package scripts must expose Hypervisor command names, not retired Autopilot product aliases",
+);
+assert(
+  "autopilot-proof-helper-names-retired",
+  exists("scripts/lib/hypervisor-campaign-processes.mjs") &&
+    exists("scripts/lib/hypervisor-runtime-agent-service-inference.mjs") &&
+    exists("scripts/lib/hypervisor-agent-chat-scenarios.mjs") &&
+    !exists("scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs") &&
+    !exists("scripts/lib/autopilot-runtime-agent-service-inference.mjs") &&
+    !exists("scripts/lib/autopilot-agent-studio-chat-scenarios.mjs") &&
+    hypervisorCampaignProcessesSource.includes("cleanupHypervisorCampaignProcesses") &&
+    hypervisorCampaignProcessesSource.includes("HYPERVISOR_CAMPAIGN_PROCESS_PATTERN") &&
+    hypervisorCampaignProcessesSource.includes("ioi.hypervisor.campaign.process-cleanup.v1") &&
+    hypervisorAppHarnessContractSource.includes("hypervisorGuiHarnessContract") &&
+    hypervisorAppHarnessContractSource.includes("validateHypervisorGuiHarnessResult") &&
+    hypervisorAppHarnessContractSource.includes("buildBlockedHypervisorGuiHarnessResult") &&
+    hypervisorAppHarnessContractSource.includes("HYPERVISOR_RETAINED_QUERIES") &&
+    !/cleanupAutopilotCampaignProcesses|listAutopilotCampaignProcesses|AUTOPILOT_CAMPAIGN_PROCESS_PATTERN|ioi\.autopilot\.gui-chat-ux-campaign/.test(
+      hypervisorCampaignProcessesSource,
+    ) &&
+    !/autopilotGuiHarnessContract|validateAutopilotGuiHarnessResult|buildBlockedAutopilotGuiHarnessResult|AUTOPILOT_(?:GUI_HARNESS|REQUIRED|RETAINED|PROVIDER_GATED|READ_ONLY)/.test(
+      hypervisorAppHarnessContractSource,
+    ),
+  [
+    "scripts/lib/hypervisor-campaign-processes.mjs",
+    "scripts/lib/hypervisor-runtime-agent-service-inference.mjs",
+    "scripts/lib/hypervisor-agent-chat-scenarios.mjs",
+    "scripts/lib/hypervisor-app-harness-contract.mjs",
+  ],
+  "active proof helper modules must use Hypervisor filenames, exports, and schema names; retired Autopilot helper paths must stay absent",
 );
 assert(
   "runtime-module-map",
@@ -561,14 +592,13 @@ assert(
     hypervisorProvidersEnvironmentsDoc.includes("A blob can be necessary restore material without") &&
     daemonRuntimeApiDoc.includes("Provider lifecycle state may be evidence, but it is not") &&
     architectureVocabulary.includes("derived token material under a `HypervisorSessionAccessLease`") &&
-    hypervisorFleetDoc.includes("Status: deprecated terminology stub") &&
-    hypervisorFleetDoc.includes("`Hypervisor Fleet` is deprecated live canon") &&
-    hypervisorProvidersEnvironmentsDoc.includes("There is no separate Fleet product") &&
+    !exists(retiredHypervisorFleetDoc) &&
+    (hypervisorProvidersEnvironmentsDoc.includes("There is no separate Fleet product") ||
+      hypervisorProvidersEnvironmentsDoc.includes("They are not a separate product")) &&
     !/\bGitpod\b|gitpod/i.test(
       [
         hypervisorCoreClientsSurfacesDoc,
         hypervisorProvidersEnvironmentsDoc,
-        hypervisorFleetDoc,
         daemonRuntimeApiDoc,
         architectureSourceOfTruthMap,
         architectureImplementationMatrix,
@@ -578,7 +608,7 @@ assert(
   [
     "docs/architecture/components/hypervisor/core-clients-surfaces.md",
     "docs/architecture/components/hypervisor/providers-and-environments.md",
-    "docs/architecture/components/hypervisor/fleet.md",
+    retiredHypervisorFleetDoc,
     "docs/architecture/components/daemon-runtime/api.md",
     "docs/architecture/_meta/source-of-truth-map.md",
     "docs/architecture/_meta/implementation-matrix.md",

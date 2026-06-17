@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 
-import { AUTOPILOT_RETAINED_QUERIES } from "../hypervisor-app-harness-contract.mjs";
+import { HYPERVISOR_RETAINED_QUERIES } from "../hypervisor-app-harness-contract.mjs";
 import { typeQuery } from "./desktop.mjs";
 
 function sleep(ms) {
@@ -65,7 +65,7 @@ export async function retainedQueryRuntimeEvidence(query, startedAtMs) {
       .all(startedAtMs);
     const normalizedQuery = normalizeText(query);
     const retainedQueries = new Set(
-      AUTOPILOT_RETAINED_QUERIES.map((item) => normalizeText(item.query)),
+      HYPERVISOR_RETAINED_QUERIES.map((item) => normalizeText(item.query)),
     );
     for (let index = 0; index < rows.length; index += 1) {
       const row = rows[index];

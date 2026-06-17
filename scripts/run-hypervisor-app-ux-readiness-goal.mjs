@@ -11,7 +11,7 @@ import {
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { AUTOPILOT_RETAINED_QUERIES } from "./lib/hypervisor-app-harness-contract.mjs";
+import { HYPERVISOR_RETAINED_QUERIES } from "./lib/hypervisor-app-harness-contract.mjs";
 import {
   HYPERVISOR_WORKBENCH_ADAPTER_HOST,
   syncWorkbenchAdapterHostMetadata,
@@ -729,7 +729,7 @@ async function runCanonicalControlRoomValidation(outputRoot) {
         if (body?.requestType === "chat.submit") {
           const prompt = String(body?.payload?.prompt ?? "").trim();
           const scenario =
-            AUTOPILOT_RETAINED_QUERIES.find((item) => item.query === prompt)
+            HYPERVISOR_RETAINED_QUERIES.find((item) => item.query === prompt)
               ?.scenario ?? "manual";
           const runId = `fork-control-room-run:${scenario}`;
           const receiptId = `fork-control-room-receipt:${scenario}`;
@@ -844,7 +844,7 @@ async function runCanonicalControlRoomValidation(outputRoot) {
       500,
     );
 
-    for (const retainedQuery of AUTOPILOT_RETAINED_QUERIES) {
+    for (const retainedQuery of HYPERVISOR_RETAINED_QUERIES) {
       const commandId = `fork-retained-query:${retainedQuery.scenario}`;
       const beforeRequests = requests.length;
       commands.push({
@@ -995,7 +995,7 @@ async function runCanonicalControlRoomValidation(outputRoot) {
     const proofPath = join(outputDir, "canonical-fork-control-room-proof.json");
     writeFileSync(proofPath, `${JSON.stringify(proof, null, 2)}\n`);
     const ok =
-      queryResults.length === AUTOPILOT_RETAINED_QUERIES.length &&
+      queryResults.length === HYPERVISOR_RETAINED_QUERIES.length &&
       queryResults.every(
         (result) =>
           result.commandDelivered &&
