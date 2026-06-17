@@ -72,6 +72,12 @@ const runtimeHarnessContainerLaneSource = read(
 const runtimeHarnessContainerLaneTestSource = read(
   "packages/runtime-daemon/src/runtime-harness-container-lane.test.mjs",
 );
+const runtimeHarnessPublicSmokeTaskSource = read(
+  "packages/runtime-daemon/src/runtime-harness-public-smoke-task.mjs",
+);
+const runtimeHarnessPublicSmokeTaskTestSource = read(
+  "packages/runtime-daemon/src/runtime-harness-public-smoke-task.test.mjs",
+);
 const hypervisorActivityBarSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/components/ChatLocalActivityBar.tsx",
 );
@@ -572,6 +578,32 @@ assert(
     "apps/hypervisor/src/windows/HypervisorShellWindow/modelMountInventoryModel.ts",
   ],
   "New Session must treat only verified Hypervisor model mounts as local model routes and block harness launches that would otherwise silently fall back.",
+);
+assert(
+  "hypervisor-harness-public-smoke-task",
+  runtimeHarnessPublicSmokeTaskSource.includes(
+    "ioi.hypervisor.harness_public_smoke_run.v1",
+  ) &&
+    runtimeHarnessPublicSmokeTaskSource.includes(
+      "runHarnessPublicSmokeTask",
+    ) &&
+    runtimeHarnessPublicSmokeTaskSource.includes(
+      "executeContainerLane",
+    ) &&
+    runtimeHarnessPublicSmokeTaskSource.includes(
+      "harness-testbed:public-code-edit-smoke",
+    ) &&
+    runtimeHarnessPublicSmokeTaskTestSource.includes(
+      "runs the same fixture through two installed adapters",
+    ) &&
+    runtimeHarnessPublicSmokeTaskTestSource.includes(
+      "preserves container lane private-mount guard",
+    ),
+  [
+    "packages/runtime-daemon/src/runtime-harness-public-smoke-task.mjs",
+    "packages/runtime-daemon/src/runtime-harness-public-smoke-task.test.mjs",
+  ],
+  "Harness public smoke runs must compare installed adapters against the same public fixture through daemon-gated container receipts.",
 );
 assert(
   "contract-family-modules",

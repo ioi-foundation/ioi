@@ -1391,7 +1391,18 @@ Current implementation cut:
   paths, host container sockets, plaintext env maps, secret argv, plaintext
   workspace custody, and cTEE private workspace custody by default. Focused
   tests in `runtime-harness-container-lane.test.mjs` and `check:runtime-layout`
-  guard this boundary. Real adapter execution remains 0B.5.
+  guard this boundary. Route-handler wiring and real external process spawning
+  remain follow-up work beyond the standalone smoke runner.
+
+  0B.5's first public smoke runner is implemented as a daemon-side contract:
+  `packages/runtime-daemon/src/runtime-harness-public-smoke-task.mjs` compares
+  installed adapter candidates against the same non-sensitive fixture through
+  daemon-planned container lanes. It accepts an injected `executeContainerLane`
+  executor for live runs, produces dry-run receipts before executor wiring, and
+  preserves the container lane private-mount guard. Focused tests prove two
+  installed adapters receive the same public fixture, success receipts bind
+  Agentgres/artifact refs, insufficient installs block comparison, and cTEE or
+  plaintext private workspace custody remains blocked.
 ```
 
 First implementation slice:
@@ -1413,9 +1424,12 @@ First implementation slice:
    compatible, adapter-native only, provider-trust, local-route unavailable.
    Done at static verdict level.
 5. Add container lane dry-run receipt for a public fixture workspace. Done for
-   the daemon-side Docker/Podman plan and not-executed receipt contract; real
-   adapter execution remains 0B.5.
-6. Add source scans proving no external harness bypasses daemon gates. Done for
+   the daemon-side Docker/Podman plan and not-executed receipt contract.
+6. Add first public smoke comparison. Done for daemon-side injected execution:
+   the smoke runner can compare two installed container adapters against the
+   same public fixture and return success or dry-run receipts without bypassing
+   daemon gates.
+7. Add source scans proving no external harness bypasses daemon gates. Done for
    static model and runtime-layout guard.
 ```
 
