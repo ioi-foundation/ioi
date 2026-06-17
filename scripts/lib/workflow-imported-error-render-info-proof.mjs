@@ -9,7 +9,7 @@ if (!outputPath) {
 }
 
 const { buildWorkflowImportedErrorRenderInfoPanel } = await import(
-  "../../packages/agent-ide/src/runtime/workflow-imported-error-render-info.ts"
+  "../../packages/hypervisor-workbench/src/runtime/workflow-imported-error-render-info.ts"
 );
 
 const panel = buildWorkflowImportedErrorRenderInfoPanel({

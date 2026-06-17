@@ -26,7 +26,7 @@ test("workflow run capability receipt probe renders canonical run inspector evid
           ...process.env,
           TSX_TSCONFIG_PATH: resolve(
             repoRoot,
-            "packages/agent-ide/tsconfig.json",
+            "packages/hypervisor-workbench/tsconfig.json",
           ),
         },
         timeout: 60_000,

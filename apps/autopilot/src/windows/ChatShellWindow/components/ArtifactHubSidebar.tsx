@@ -1,7 +1,7 @@
 import {
   buildSessionReplTargets,
   useAssistantWorkbenchState,
-} from "@ioi/agent-ide";
+} from "@ioi/hypervisor-workbench";
 import { invoke } from "../../../services/hypervisorHostBridge";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { openUrl } from "../../../services/hypervisorHostBridge";

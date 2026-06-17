@@ -3163,7 +3163,7 @@ function runDocs() {
       /JS-authored StepModule context, JS-authored result payload summary\/source-event kind\/result-event candidate/.test(
         matrix,
       ) &&
-	      /Move remaining diagnostics repair approval authority, durable replay\/storage, MCP\/model_mount materialization, and stable IDE\/CLI\/SDK protocol APIs into the Rust-owned execution spine without restoring StepModule command transport/.test(
+	      /Move remaining diagnostics repair approval authority, durable replay\/storage, MCP\/model_mount materialization, and stable Workbench\/CLI\/SDK protocol APIs into the Rust-owned execution spine without restoring StepModule command transport/.test(
 	        matrix,
 	      ) &&
       /Public workspace snapshot\/restore API Rust-owned/.test(matrix) &&
@@ -3246,7 +3246,7 @@ function runDocs() {
     /Move remaining cTEE secret-injection depth for hosted catalog\/download edges, deeper wallet\/cTEE route authority and revocation policy, conversation\/provider\/instance replay depth where still adapter-shaped, and stable SDK\/IDE\/CLI protocol APIs over Rust records/.test(
       modelMountingRouteRow,
     ) &&
-      /Move remaining cTEE secret-injection depth for hosted catalog\/download edges, deeper wallet\/cTEE route authority and revocation policy, conversation\/provider\/instance replay depth where still adapter-shaped, and stable IDE\/CLI\/SDK protocol APIs over Rust records/.test(
+      /Move remaining cTEE secret-injection depth for hosted catalog\/download edges, deeper wallet\/cTEE route authority and revocation policy, conversation\/provider\/instance replay depth where still adapter-shaped, and stable Workbench\/CLI\/SDK protocol APIs over Rust records/.test(
         modelMountingCoreBoundaryRow,
       ) &&
       /Hosted download materialization is Rust-owned/.test(
@@ -3272,7 +3272,7 @@ function runDocs() {
         terminalBlockers,
       ) &&
       /production cores reject `command`, `args`, `daemonCoreApi`,\s+and `daemonCoreInvoker`/.test(terminalBlockers) &&
-      /Remaining blockers in these\s+families are richer projection\/replay records, deeper Agentgres\s+receipt\/state-root binding, and stable IDE\/CLI\/SDK read APIs/.test(
+      /Remaining blockers in these\s+families are richer projection\/replay records, deeper Agentgres\s+receipt\/state-root binding, and stable Workbench\/CLI\/SDK read APIs/.test(
         terminalBlockers,
       ) &&
       !/temporary\s+command-envelope request builders/.test(terminalBlockers),
@@ -4800,24 +4800,24 @@ function runBridge() {
   const agentSdkModelConversationStateType =
     agentSdkModelMounts.match(/export interface ModelConversationState \{[\s\S]*?\n}\n\nexport interface TokenizerToken/)?.[0] ?? "";
   const workflowStructuredPolicyComposer = exists(
-    "packages/agent-ide/src/runtime/workflow-structured-policy-composer.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-structured-policy-composer.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-structured-policy-composer.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-structured-policy-composer.ts")
     : "";
   const workflowStructuredPolicyComposerTest = exists(
-    "packages/agent-ide/src/runtime/workflow-structured-policy-composer.test.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-structured-policy-composer.test.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-structured-policy-composer.test.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-structured-policy-composer.test.ts")
     : "";
   const workflowModelCapabilityBinding = exists(
-    "packages/agent-ide/src/runtime/workflow-model-capability-binding.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-model-capability-binding.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-model-capability-binding.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-model-capability-binding.ts")
     : "";
   const workflowModelCapabilityBindingTest = exists(
-    "packages/agent-ide/src/runtime/workflow-model-capability-binding.test.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-model-capability-binding.test.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-model-capability-binding.test.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-model-capability-binding.test.ts")
     : "";
   const workerServicePackageAdmissionResultType =
     agentSdkSubstrateClient.match(
@@ -4945,14 +4945,14 @@ function runBridge() {
     workspaceRestoreApplyInputType,
   ].join("\n");
   const workflowRuntimeControlNodes = exists(
-    "packages/agent-ide/src/runtime/workflow-runtime-control-nodes.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-control-nodes.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-runtime-control-nodes.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-runtime-control-nodes.ts")
     : "";
   const workflowRuntimeControlNodesTest = exists(
-    "packages/agent-ide/src/runtime/workflow-runtime-control-nodes.test.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-control-nodes.test.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-runtime-control-nodes.test.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-runtime-control-nodes.test.ts")
     : "";
   const runtimeRestoreGateControlRequestBody =
     workflowRuntimeControlNodes.match(
@@ -4973,24 +4973,24 @@ function runBridge() {
   const agentSdkTest = exists("packages/agent-sdk/test/sdk.test.mjs")
     ? read("packages/agent-sdk/test/sdk.test.mjs")
     : "";
-  const agentIdeIndex = exists("packages/agent-ide/src/index.ts")
-    ? read("packages/agent-ide/src/index.ts")
+  const agentIdeIndex = exists("packages/hypervisor-workbench/src/index.ts")
+    ? read("packages/hypervisor-workbench/src/index.ts")
     : "";
-  const agentIdeWorkflowNodeRegistry = exists("packages/agent-ide/src/runtime/workflow-node-registry.ts")
-    ? read("packages/agent-ide/src/runtime/workflow-node-registry.ts")
+  const agentIdeWorkflowNodeRegistry = exists("packages/hypervisor-workbench/src/runtime/workflow-node-registry.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-node-registry.ts")
     : "";
-  const graphRuntimeTypes = exists("packages/agent-ide/src/runtime/graph-runtime-types.ts")
-    ? read("packages/agent-ide/src/runtime/graph-runtime-types.ts")
+  const graphRuntimeTypes = exists("packages/hypervisor-workbench/src/runtime/graph-runtime-types.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/graph-runtime-types.ts")
     : "";
   const governedImprovementControlNodes = exists(
-    "packages/agent-ide/src/runtime/workflow-runtime-governed-improvement-control-nodes.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-governed-improvement-control-nodes.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-runtime-governed-improvement-control-nodes.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-runtime-governed-improvement-control-nodes.ts")
     : "";
   const governedImprovementControlNodesTest = exists(
-    "packages/agent-ide/src/runtime/workflow-runtime-governed-improvement-control-nodes.test.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-governed-improvement-control-nodes.test.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-runtime-governed-improvement-control-nodes.test.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-runtime-governed-improvement-control-nodes.test.ts")
     : "";
   const governedImprovementControlRequestInputType =
     governedImprovementControlNodes.match(
@@ -5001,14 +5001,14 @@ function runBridge() {
       /export interface RuntimeGovernedImprovementWorkflowNodeOptions[\s\S]*?\n}\n/,
     )?.[0] ?? "";
   const workerServicePackageControlNodes = exists(
-    "packages/agent-ide/src/runtime/workflow-runtime-worker-service-package-control-nodes.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-worker-service-package-control-nodes.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-runtime-worker-service-package-control-nodes.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-runtime-worker-service-package-control-nodes.ts")
     : "";
   const workerServicePackageControlNodesTest = exists(
-    "packages/agent-ide/src/runtime/workflow-runtime-worker-service-package-control-nodes.test.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-worker-service-package-control-nodes.test.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-runtime-worker-service-package-control-nodes.test.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-runtime-worker-service-package-control-nodes.test.ts")
     : "";
   const workerServicePackageControlRequestInputType =
     workerServicePackageControlNodes.match(
@@ -5034,14 +5034,14 @@ function runBridge() {
     ? read("packages/runtime-daemon/src/runtime-l1-settlement-surface.test.mjs")
     : "";
   const l1SettlementControlNodes = exists(
-    "packages/agent-ide/src/runtime/workflow-runtime-l1-settlement-control-nodes.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-l1-settlement-control-nodes.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-runtime-l1-settlement-control-nodes.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-runtime-l1-settlement-control-nodes.ts")
     : "";
   const l1SettlementControlNodesTest = exists(
-    "packages/agent-ide/src/runtime/workflow-runtime-l1-settlement-control-nodes.test.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-l1-settlement-control-nodes.test.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-runtime-l1-settlement-control-nodes.test.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-runtime-l1-settlement-control-nodes.test.ts")
     : "";
   const l1SettlementControlRequestInputType =
     l1SettlementControlNodes.match(
@@ -7395,7 +7395,7 @@ function runBridge() {
       "packages/runtime-daemon/src/index.mjs",
       "packages/agent-sdk/src/substrate-client.ts",
       "packages/agent-sdk/test/computer-use.test.mjs",
-      "packages/agent-ide/src/runtime/workflow-node-registry.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-node-registry.ts",
     ],
     "Phase 10/11 is pending: browser-discovery JS request construction must stay retired while SDK/IDE contracts use canonical snake_case tab options",
   );
@@ -19351,8 +19351,8 @@ function runBridge() {
       "packages/agent-sdk/src/substrate-client.ts",
       "packages/agent-sdk/src/messages.ts",
       "packages/agent-sdk/src/options.ts",
-      "packages/agent-ide/src/runtime/workflow-structured-policy-composer.ts",
-      "packages/agent-ide/src/runtime/workflow-structured-policy-composer.test.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-structured-policy-composer.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-structured-policy-composer.test.ts",
     ],
     "Phase 10 is pending: SDK/IDE model policy helper types must use canonical allow_hosted_fallback without the retired allowHostedFallback alias",
   );
@@ -19372,8 +19372,8 @@ function runBridge() {
       ) &&
       /workflowModelBindingIsReady\(binding\),\s*false/.test(workflowModelCapabilityBindingTest),
     [
-      "packages/agent-ide/src/runtime/workflow-model-capability-binding.ts",
-      "packages/agent-ide/src/runtime/workflow-model-capability-binding.test.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-model-capability-binding.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-model-capability-binding.test.ts",
     ],
     "Phase 10/11 is pending: IDE model capability binding must not mint executable capability refs or readiness from raw legacy model ids",
   );
@@ -21193,8 +21193,8 @@ function runBridge() {
         workflowRuntimeControlNodesTest,
       ),
     [
-      "packages/agent-ide/src/runtime/workflow-runtime-control-nodes.ts",
-      "packages/agent-ide/src/runtime/workflow-runtime-control-nodes.test.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-control-nodes.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-control-nodes.test.ts",
       "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs",
     ],
     "Phase 10/11 is pending: IDE restore-gate control nodes must call daemon workspace restore routes with canonical request bodies only",
@@ -21287,8 +21287,8 @@ function runBridge() {
         workflowRuntimeControlNodesTest,
       ),
     [
-      "packages/agent-ide/src/runtime/workflow-runtime-control-nodes.ts",
-      "packages/agent-ide/src/runtime/workflow-runtime-control-nodes.test.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-control-nodes.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-control-nodes.test.ts",
       "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.mjs",
       "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs",
     ],
@@ -21409,10 +21409,10 @@ function runBridge() {
     [
       "packages/runtime-daemon/src/runtime-worker-service-package-surface.mjs",
       "packages/runtime-daemon/src/runtime-worker-service-package-surface.test.mjs",
-      "packages/agent-ide/src/runtime/workflow-runtime-worker-service-package-control-nodes.ts",
-      "packages/agent-ide/src/runtime/workflow-runtime-worker-service-package-control-nodes.test.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-worker-service-package-control-nodes.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-worker-service-package-control-nodes.test.ts",
     ],
-    "Phase 8/11 is pending: worker/service package admission requests must fail closed on retired invocation wrapper aliases and IDE clients must emit canonical request bodies",
+    "Phase 8/11 is pending: worker/service package admission requests must fail closed on retired invocation wrapper aliases and Workbench clients must emit canonical request bodies",
   );
   assertCheck(
     result,
@@ -21505,10 +21505,10 @@ function runBridge() {
     [
       "packages/agent-sdk/src/substrate-client.ts",
       "packages/agent-sdk/test/sdk.test.mjs",
-      "packages/agent-ide/src/runtime/workflow-runtime-worker-service-package-control-nodes.ts",
-      "packages/agent-ide/src/runtime/workflow-runtime-worker-service-package-control-nodes.test.ts",
-      "packages/agent-ide/src/runtime/graph-runtime-types.ts",
-      "packages/agent-ide/src/index.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-worker-service-package-control-nodes.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-worker-service-package-control-nodes.test.ts",
+      "packages/hypervisor-workbench/src/runtime/graph-runtime-types.ts",
+      "packages/hypervisor-workbench/src/index.ts",
     ],
     "Phase 8 is pending: SDK and IDE worker-service package clients must consume the package route without exposing a JS apply shortcut",
   );
@@ -21746,10 +21746,10 @@ function runBridge() {
     [
       "packages/runtime-daemon/src/runtime-l1-settlement-surface.mjs",
       "packages/runtime-daemon/src/runtime-l1-settlement-surface.test.mjs",
-      "packages/agent-ide/src/runtime/workflow-runtime-l1-settlement-control-nodes.ts",
-      "packages/agent-ide/src/runtime/workflow-runtime-l1-settlement-control-nodes.test.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-l1-settlement-control-nodes.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-l1-settlement-control-nodes.test.ts",
     ],
-    "Phase 8/11 is pending: L1 settlement admission requests must fail closed on retired attempt wrapper aliases and IDE clients must emit canonical request bodies",
+    "Phase 8/11 is pending: L1 settlement admission requests must fail closed on retired attempt wrapper aliases and Workbench clients must emit canonical request bodies",
   );
   assertCheck(
     result,
@@ -21872,10 +21872,10 @@ function runBridge() {
     [
       "packages/agent-sdk/src/substrate-client.ts",
       "packages/agent-sdk/test/sdk.test.mjs",
-      "packages/agent-ide/src/runtime/workflow-runtime-l1-settlement-control-nodes.ts",
-      "packages/agent-ide/src/runtime/workflow-runtime-l1-settlement-control-nodes.test.ts",
-      "packages/agent-ide/src/runtime/graph-runtime-types.ts",
-      "packages/agent-ide/src/index.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-l1-settlement-control-nodes.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-l1-settlement-control-nodes.test.ts",
+      "packages/hypervisor-workbench/src/runtime/graph-runtime-types.ts",
+      "packages/hypervisor-workbench/src/index.ts",
     ],
     "Phase 8/11 is pending: SDK and IDE L1 settlement clients must consume the L1 route without exposing a JS apply shortcut",
   );
@@ -22160,10 +22160,10 @@ function runBridge() {
     [
       "packages/runtime-daemon/src/runtime-governed-improvement-surface.mjs",
       "packages/runtime-daemon/src/runtime-governed-improvement-surface.test.mjs",
-      "packages/agent-ide/src/runtime/workflow-runtime-governed-improvement-control-nodes.ts",
-      "packages/agent-ide/src/runtime/workflow-runtime-governed-improvement-control-nodes.test.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-governed-improvement-control-nodes.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-governed-improvement-control-nodes.test.ts",
     ],
-    "Phase 9/11 is pending: governed-improvement admission requests must fail closed on retired proposal wrapper aliases and IDE clients must emit canonical request bodies",
+    "Phase 9/11 is pending: governed-improvement admission requests must fail closed on retired proposal wrapper aliases and Workbench clients must emit canonical request bodies",
   );
   assertCheck(
     result,
@@ -22190,10 +22190,10 @@ function runBridge() {
         governedImprovementControlNodesTest,
       ),
     [
-      "packages/agent-ide/src/runtime/workflow-runtime-governed-improvement-control-nodes.ts",
-      "packages/agent-ide/src/runtime/workflow-runtime-governed-improvement-control-nodes.test.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-governed-improvement-control-nodes.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-governed-improvement-control-nodes.test.ts",
     ],
-    "Phase 10/11 is pending: governed-improvement IDE clients must not preserve retired proposal input wrapper fallbacks after canonical request bodies are verified",
+    "Phase 10/11 is pending: governed-improvement Workbench clients must not preserve retired proposal input wrapper fallbacks after canonical request bodies are verified",
   );
   assertCheck(
     result,
@@ -22251,8 +22251,8 @@ function runBridge() {
         governedImprovementControlNodesTest,
       ),
     [
-      "packages/agent-ide/src/runtime/workflow-runtime-governed-improvement-control-nodes.ts",
-      "packages/agent-ide/src/runtime/workflow-runtime-governed-improvement-control-nodes.test.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-governed-improvement-control-nodes.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-governed-improvement-control-nodes.test.ts",
     ],
     "Phase 10/11 is pending: governed-improvement IDE proposal payloads must fail closed on retired camelCase aliases instead of forwarding them inside canonical proposal requests",
   );
@@ -22282,8 +22282,8 @@ function runBridge() {
       ) &&
       /proposal:\s*proposal\(\)/.test(governedImprovementControlNodesTest),
     [
-      "packages/agent-ide/src/runtime/workflow-runtime-governed-improvement-control-nodes.ts",
-      "packages/agent-ide/src/runtime/workflow-runtime-governed-improvement-control-nodes.test.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-governed-improvement-control-nodes.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-governed-improvement-control-nodes.test.ts",
     ],
     "Phase 10/11 is pending: governed-improvement workflow nodes must use canonical proposal and workflow_node_id logic fields without retired governedImprovement/runtimeImprovementProposal/workflowNodeId fallbacks",
   );
@@ -22351,10 +22351,10 @@ function runBridge() {
     [
       "packages/agent-sdk/src/substrate-client.ts",
       "packages/agent-sdk/test/sdk.test.mjs",
-      "packages/agent-ide/src/runtime/workflow-runtime-governed-improvement-control-nodes.ts",
-      "packages/agent-ide/src/runtime/workflow-runtime-governed-improvement-control-nodes.test.ts",
-      "packages/agent-ide/src/runtime/graph-runtime-types.ts",
-      "packages/agent-ide/src/index.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-governed-improvement-control-nodes.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-governed-improvement-control-nodes.test.ts",
+      "packages/hypervisor-workbench/src/runtime/graph-runtime-types.ts",
+      "packages/hypervisor-workbench/src/index.ts",
     ],
     "Phase 9 is pending: SDK and IDE review clients must consume the governed-improvement proposal route without exposing a JS apply shortcut",
   );
@@ -23133,20 +23133,20 @@ function runReceipts() {
     ? read("apps/autopilot/src/surfaces/Settings/settingsAuthorityCenterWiring.test.ts")
     : "";
   const workflowToolConnectorCapabilityBinding = exists(
-    "packages/agent-ide/src/runtime/workflow-tool-connector-capability-binding.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-tool-connector-capability-binding.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-tool-connector-capability-binding.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-tool-connector-capability-binding.ts")
     : "";
   const workflowToolConnectorCapabilityBindingTest = exists(
-    "packages/agent-ide/src/runtime/workflow-tool-connector-capability-binding.test.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-tool-connector-capability-binding.test.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-tool-connector-capability-binding.test.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-tool-connector-capability-binding.test.ts")
     : "";
-  const workflowRunCapabilityReceipts = exists("packages/agent-ide/src/runtime/workflow-run-capability-receipts.ts")
-    ? read("packages/agent-ide/src/runtime/workflow-run-capability-receipts.ts")
+  const workflowRunCapabilityReceipts = exists("packages/hypervisor-workbench/src/runtime/workflow-run-capability-receipts.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-run-capability-receipts.ts")
     : "";
-  const workflowRunHistoryModelTest = exists("packages/agent-ide/src/runtime/workflow-run-history-model.test.ts")
-    ? read("packages/agent-ide/src/runtime/workflow-run-history-model.test.ts")
+  const workflowRunHistoryModelTest = exists("packages/hypervisor-workbench/src/runtime/workflow-run-history-model.test.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-run-history-model.test.ts")
     : "";
   const runtimeDoctorReportRustCore = exists("crates/services/src/agentic/runtime/kernel/runtime_doctor_report.rs")
     ? read("crates/services/src/agentic/runtime/kernel/runtime_doctor_report.rs")
@@ -23225,8 +23225,8 @@ function runReceipts() {
     ? read("apps/autopilot/openvscode-extension/ioi-workbench/media/workflow-composer/workflow-composer.js.map")
     : "";
   const modelMountAgentIdeDist = [
-    exists("packages/agent-ide/dist/index.es.js") ? read("packages/agent-ide/dist/index.es.js") : "",
-    exists("packages/agent-ide/dist/index.umd.js") ? read("packages/agent-ide/dist/index.umd.js") : "",
+    exists("packages/hypervisor-workbench/dist/index.es.js") ? read("packages/hypervisor-workbench/dist/index.es.js") : "",
+    exists("packages/hypervisor-workbench/dist/index.umd.js") ? read("packages/hypervisor-workbench/dist/index.umd.js") : "",
   ].join("\n");
   const modelMountStableReadProtocolClientCorpus = [
     modelMountStableReadAgentSdkSubstrateClient,
@@ -23250,7 +23250,7 @@ function runReceipts() {
         file !== "scripts/conformance/hypervisor-conformance.mjs",
     ).map((file) => read(file)),
     ...collectFiles(
-      "packages/agent-ide/src",
+      "packages/hypervisor-workbench/src",
       (file) => file.endsWith(".ts") || file.endsWith(".tsx") || file.endsWith(".js") || file.endsWith(".jsx"),
     ).map((file) => read(file)),
     ...collectFiles(
@@ -27402,14 +27402,14 @@ function runReceipts() {
       /RuntimeDaemonCoreModelMountStableOperationalReadClients/.test(implementationMatrix) &&
       /Slice 1348 hard-cuts stable model_mount read protocol clients/.test(guide) &&
       /Slice 1349 retires the legacy model_mount native read aliases/.test(guide) &&
-      /Slice 1351 hard-cuts stable model_mount read proof and IDE clients/.test(guide) &&
+      /Slice 1351 hard-cuts stable model_mount read proof and Workbench clients/.test(guide) &&
       /Slice 1384 hard-cuts stable model_mount snapshot, projection, MCP workflow,\s+and workflow-node protocol clients/.test(guide) &&
       /Slice 1385 hard-cuts shipped workbench workflow-composer generated media/.test(guide) &&
       /Slice 1396 hard-cuts proof contract native route fallbacks/.test(guide) &&
       /Slice 1397 hard-cuts model_mount native API metadata/.test(guide) &&
       /Model_mount stable read protocol clients/.test(matrix) &&
       /Model_mount legacy native read aliases retired/.test(matrix) &&
-      /Model_mount stable read proof and IDE clients/.test(matrix) &&
+      /Model_mount stable read proof and Workbench clients/.test(matrix) &&
       /Model_mount stable snapshot\/projection\/MCP\/workflow protocol clients/.test(matrix) &&
       /Proof contract stable protocol clients/.test(matrix) &&
       /Model_mount native API metadata retired/.test(matrix) &&
@@ -28119,68 +28119,68 @@ function runReceipts() {
     ],
 	    "Model_mount SDK control clients must use stable /v1/model-mount protocol APIs for route, server, backend, runtime, lifecycle, storage, provider, vault, token, and catalog controls; SDK requests must not reintroduce /api/v1 control paths",
 	  );
-  const modelMountStableIdeControlNodes = exists(
-    "packages/agent-ide/src/runtime/workflow-model-mount-control-nodes.ts",
+  const modelMountStableWorkbenchControlNodes = exists(
+    "packages/hypervisor-workbench/src/runtime/workflow-model-mount-control-nodes.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-model-mount-control-nodes.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-model-mount-control-nodes.ts")
     : "";
-  const modelMountStableIdeControlNodesTest = exists(
-    "packages/agent-ide/src/runtime/workflow-model-mount-control-nodes.test.ts",
+  const modelMountStableWorkbenchControlNodesTest = exists(
+    "packages/hypervisor-workbench/src/runtime/workflow-model-mount-control-nodes.test.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-model-mount-control-nodes.test.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-model-mount-control-nodes.test.ts")
     : "";
   const modelMountWorkbenchActions = exists(
     "apps/autopilot/openvscode-extension/ioi-workbench/commands/model-daemon-actions.js",
   )
     ? read("apps/autopilot/openvscode-extension/ioi-workbench/commands/model-daemon-actions.js")
     : "";
-  const modelMountStableIdeIndex = exists("packages/agent-ide/src/index.ts")
-    ? read("packages/agent-ide/src/index.ts")
+  const modelMountStableWorkbenchIndex = exists("packages/hypervisor-workbench/src/index.ts")
+    ? read("packages/hypervisor-workbench/src/index.ts")
     : "";
 	  assertCheck(
 	    result,
-	    "model-mount-stable-ide-control-protocol-clients",
-    /WORKFLOW_MODEL_MOUNT_IDE_CONTROL_SCHEMA_VERSION/.test(
-      modelMountStableIdeControlNodes,
+	    "model-mount-stable-workbench-control-protocol-clients",
+    /WORKFLOW_MODEL_MOUNT_WORKBENCH_CONTROL_SCHEMA_VERSION/.test(
+      modelMountStableWorkbenchControlNodes,
     ) &&
-      /MODEL_MOUNT_IDE_CONTROL_ROUTES = \[/.test(modelMountStableIdeControlNodes) &&
-      /"route\.upsert"/.test(modelMountStableIdeControlNodes) &&
-      /"server\.restart"/.test(modelMountStableIdeControlNodes) &&
-      /"backend\.health"/.test(modelMountStableIdeControlNodes) &&
-      /"runtime\.engine\.update"/.test(modelMountStableIdeControlNodes) &&
-      /"lifecycle\.instance\.unload_by_id"/.test(modelMountStableIdeControlNodes) &&
-      /"storage\.download\.cancel"/.test(modelMountStableIdeControlNodes) &&
-      /"catalog_provider\.oauth\.refresh"/.test(modelMountStableIdeControlNodes) &&
-      /"token\.count"/.test(modelMountStableIdeControlNodes) &&
-      /"vault\.health\.latest"/.test(modelMountStableIdeControlNodes) &&
-      /"provider\.stop"/.test(modelMountStableIdeControlNodes) &&
-      /createModelMountIdeControlRequest/.test(modelMountStableIdeControlNodes) &&
-      /renderModelMountIdeControlEndpoint/.test(modelMountStableIdeControlNodes) &&
-      /assertStableModelMountIdeControlEndpoint/.test(modelMountStableIdeControlNodes) &&
+      /MODEL_MOUNT_WORKBENCH_CONTROL_ROUTES = \[/.test(modelMountStableWorkbenchControlNodes) &&
+      /"route\.upsert"/.test(modelMountStableWorkbenchControlNodes) &&
+      /"server\.restart"/.test(modelMountStableWorkbenchControlNodes) &&
+      /"backend\.health"/.test(modelMountStableWorkbenchControlNodes) &&
+      /"runtime\.engine\.update"/.test(modelMountStableWorkbenchControlNodes) &&
+      /"lifecycle\.instance\.unload_by_id"/.test(modelMountStableWorkbenchControlNodes) &&
+      /"storage\.download\.cancel"/.test(modelMountStableWorkbenchControlNodes) &&
+      /"catalog_provider\.oauth\.refresh"/.test(modelMountStableWorkbenchControlNodes) &&
+      /"token\.count"/.test(modelMountStableWorkbenchControlNodes) &&
+      /"vault\.health\.latest"/.test(modelMountStableWorkbenchControlNodes) &&
+      /"provider\.stop"/.test(modelMountStableWorkbenchControlNodes) &&
+      /createModelMountWorkbenchControlRequest/.test(modelMountStableWorkbenchControlNodes) &&
+      /renderModelMountWorkbenchControlEndpoint/.test(modelMountStableWorkbenchControlNodes) &&
+      /assertStableModelMountWorkbenchControlEndpoint/.test(modelMountStableWorkbenchControlNodes) &&
       /assertNoRetiredModelMountControlInputAliases/.test(
-        modelMountStableIdeControlNodes,
+        modelMountStableWorkbenchControlNodes,
       ) &&
-      /Retired model_mount IDE control input alias/.test(
-        modelMountStableIdeControlNodes,
+      /Retired model_mount Workbench control input alias/.test(
+        modelMountStableWorkbenchControlNodes,
       ) &&
-      /IDE controls model_mount through stable daemon protocol routes/.test(
-        modelMountStableIdeControlNodesTest,
+      /Workbench controls model_mount through stable daemon protocol routes/.test(
+        modelMountStableWorkbenchControlNodesTest,
       ) &&
-      /POST \/v1\/model-mount\/catalog\/providers\/catalog\.ide\/oauth\/start/.test(
-        modelMountStableIdeControlNodesTest,
+      /POST \/v1\/model-mount\/catalog\/providers\/catalog\.workbench\/oauth\/start/.test(
+        modelMountStableWorkbenchControlNodesTest,
       ) &&
-      /GET \/v1\/model-mount\/providers\/provider\.ide\/loaded/.test(
-        modelMountStableIdeControlNodesTest,
+      /GET \/v1\/model-mount\/providers\/provider\.workbench\/loaded/.test(
+        modelMountStableWorkbenchControlNodesTest,
       ) &&
       /assert\.equal\(requests\.some\(\(entry\) => entry\.endpoint\.includes\("\/api\/v1\/"\)\), false\)/.test(
-        modelMountStableIdeControlNodesTest,
+        modelMountStableWorkbenchControlNodesTest,
       ) &&
-      /assert\.throws\(\s*\(\)\s*=>\s*createModelMountIdeControlRequest/.test(
-        modelMountStableIdeControlNodesTest,
+      /assert\.throws\(\s*\(\)\s*=>\s*createModelMountWorkbenchControlRequest/.test(
+        modelMountStableWorkbenchControlNodesTest,
       ) &&
-      /MODEL_MOUNT_IDE_CONTROL_ROUTES/.test(modelMountStableIdeIndex) &&
-      /createModelMountIdeControlRequest/.test(modelMountStableIdeIndex) &&
-      /ModelMountIdeControlRequest/.test(modelMountStableIdeIndex) &&
+      /MODEL_MOUNT_WORKBENCH_CONTROL_ROUTES/.test(modelMountStableWorkbenchIndex) &&
+      /createModelMountWorkbenchControlRequest/.test(modelMountStableWorkbenchIndex) &&
+      /ModelMountWorkbenchControlRequest/.test(modelMountStableWorkbenchIndex) &&
       /\/v1\/model-mount\/endpoints\/\$\{encodeURIComponent\(targetEndpointId\)\}\/load/.test(
         modelMountWorkbenchActions,
       ) &&
@@ -28188,21 +28188,21 @@ function runReceipts() {
         modelMountWorkbenchActions,
       ) &&
       !/requestJson\([^)]*\/api\/v1\//.test(modelMountWorkbenchActions) &&
-      /Slice 1361 hard-cuts stable model_mount IDE control protocol clients/.test(
+      /Slice 1361 hard-cuts stable model_mount Workbench control protocol clients/.test(
         guide,
       ) &&
-      /Model_mount stable IDE control protocol clients/.test(matrix) &&
-      /RuntimeDaemonCoreModelMountStableIdeControlProtocolClients/.test(
+      /Model_mount stable Workbench control protocol clients/.test(matrix) &&
+      /RuntimeDaemonCoreModelMountStableWorkbenchControlProtocolClients/.test(
         implementationMatrix,
       ),
 	    [
-      "packages/agent-ide/src/runtime/workflow-model-mount-control-nodes.ts",
-      "packages/agent-ide/src/runtime/workflow-model-mount-control-nodes.test.ts",
-      "packages/agent-ide/src/index.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-model-mount-control-nodes.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-model-mount-control-nodes.test.ts",
+      "packages/hypervisor-workbench/src/index.ts",
       "apps/autopilot/openvscode-extension/ioi-workbench/commands/model-daemon-actions.js",
 	      "scripts/conformance/hypervisor-conformance.mjs",
 	    ],
-	    "Model_mount IDE control clients must use stable /v1/model-mount protocol APIs for route, server, backend, runtime, lifecycle, storage, provider, vault, token, and catalog controls; IDE clients must not reintroduce /api/v1 control paths or retired camelCase request aliases",
+	    "Model_mount Workbench control clients must use stable /v1/model-mount protocol APIs for route, server, backend, runtime, lifecycle, storage, provider, vault, token, and catalog controls; Workbench clients must not reintroduce /api/v1 control paths or retired camelCase request aliases",
 	  );
 	  assertCheck(
 	    result,
@@ -31367,17 +31367,17 @@ function runReceipts() {
       /Runtime tool catalog product and IDE protocol clients/.test(matrix) &&
       /RuntimeToolCatalogProductIdeProtocolClients/.test(implementationMatrix),
     [
-      "packages/agent-ide/src/runtime/workflow-tool-connector-capability-binding.ts",
-      "packages/agent-ide/src/runtime/workflow-run-capability-receipts.ts",
-      "packages/agent-ide/src/runtime/workflow-tool-connector-capability-binding.test.ts",
-      "packages/agent-ide/src/runtime/workflow-run-history-model.test.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-tool-connector-capability-binding.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-run-capability-receipts.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-tool-connector-capability-binding.test.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-run-history-model.test.ts",
       "apps/autopilot/src/surfaces/Policy/authorityCenterRuntime.ts",
       "apps/autopilot/src/surfaces/Settings/settingsAuthorityCenterWiring.test.ts",
       "docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md",
       "docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md",
       "docs/architecture/_meta/implementation-matrix.md",
     ],
-    "Runtime tool catalog product and IDE clients must stay on /v1/tools and cannot restore retired /api/v1/tools compatibility metadata or fallback fetches",
+    "Runtime tool catalog product and Workbench clients must stay on /v1/tools and cannot restore retired /api/v1/tools compatibility metadata or fallback fetches",
   );
   assertCheck(
     result,
@@ -32376,21 +32376,21 @@ function runCtee() {
   const agentSdkTest = exists("packages/agent-sdk/test/sdk.test.mjs")
     ? read("packages/agent-sdk/test/sdk.test.mjs")
     : "";
-  const agentIdeIndex = exists("packages/agent-ide/src/index.ts")
-    ? read("packages/agent-ide/src/index.ts")
+  const agentIdeIndex = exists("packages/hypervisor-workbench/src/index.ts")
+    ? read("packages/hypervisor-workbench/src/index.ts")
     : "";
-  const graphRuntimeTypes = exists("packages/agent-ide/src/runtime/graph-runtime-types.ts")
-    ? read("packages/agent-ide/src/runtime/graph-runtime-types.ts")
+  const graphRuntimeTypes = exists("packages/hypervisor-workbench/src/runtime/graph-runtime-types.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/graph-runtime-types.ts")
     : "";
   const cteePrivateWorkspaceControlNodes = exists(
-    "packages/agent-ide/src/runtime/workflow-runtime-ctee-private-workspace-control-nodes.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-ctee-private-workspace-control-nodes.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-runtime-ctee-private-workspace-control-nodes.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-runtime-ctee-private-workspace-control-nodes.ts")
     : "";
   const cteePrivateWorkspaceControlNodesTest = exists(
-    "packages/agent-ide/src/runtime/workflow-runtime-ctee-private-workspace-control-nodes.test.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-ctee-private-workspace-control-nodes.test.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-runtime-ctee-private-workspace-control-nodes.test.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-runtime-ctee-private-workspace-control-nodes.test.ts")
     : "";
   const cteePrivateWorkspaceControlRequestInputType =
     cteePrivateWorkspaceControlNodes.match(
@@ -32702,10 +32702,10 @@ function runCtee() {
     [
       "packages/runtime-daemon/src/runtime-ctee-private-workspace-surface.mjs",
       "packages/runtime-daemon/src/runtime-ctee-private-workspace-surface.test.mjs",
-      "packages/agent-ide/src/runtime/workflow-runtime-ctee-private-workspace-control-nodes.ts",
-      "packages/agent-ide/src/runtime/workflow-runtime-ctee-private-workspace-control-nodes.test.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-ctee-private-workspace-control-nodes.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-ctee-private-workspace-control-nodes.test.ts",
     ],
-    "Phase 7/11 is pending: cTEE Private Workspace admission requests must fail closed on retired action wrapper aliases and IDE clients must emit canonical request bodies",
+    "Phase 7/11 is pending: cTEE Private Workspace admission requests must fail closed on retired action wrapper aliases and Workbench clients must emit canonical request bodies",
   );
   assertCheck(
     result,
@@ -32797,10 +32797,10 @@ function runCtee() {
     [
       "packages/agent-sdk/src/substrate-client.ts",
       "packages/agent-sdk/test/sdk.test.mjs",
-      "packages/agent-ide/src/runtime/workflow-runtime-ctee-private-workspace-control-nodes.ts",
-      "packages/agent-ide/src/runtime/workflow-runtime-ctee-private-workspace-control-nodes.test.ts",
-      "packages/agent-ide/src/runtime/graph-runtime-types.ts",
-      "packages/agent-ide/src/index.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-ctee-private-workspace-control-nodes.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-ctee-private-workspace-control-nodes.test.ts",
+      "packages/hypervisor-workbench/src/runtime/graph-runtime-types.ts",
+      "packages/hypervisor-workbench/src/index.ts",
     ],
     "Phase 7 is pending: SDK and IDE cTEE Private Workspace clients must consume the cTEE route without exposing a JS apply shortcut",
   );
@@ -34189,19 +34189,19 @@ function runCompositor() {
     !/invokeMcp(?:Stdio|Http)ToolDep/.test(runtimeMcpControlSurface) &&
     !/discoverMcp(?:Stdio|Http)CatalogDep/.test(runtimeMcpControlSurface);
   const agentIdeTerminalRunLaunch = exists(
-    "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-run-launch.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-terminal-coding-loop-run-launch.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-run-launch.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-runtime-terminal-coding-loop-run-launch.ts")
     : "";
   const agentIdeTerminalRunLaunchTest = exists(
-    "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-run-launch.test.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-terminal-coding-loop-run-launch.test.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-run-launch.test.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-runtime-terminal-coding-loop-run-launch.test.ts")
     : "";
   const agentIdeComputerUseReplayTimeline = exists(
-    "packages/agent-ide/src/runtime/workflow-computer-use-replay-timeline.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-computer-use-replay-timeline.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-computer-use-replay-timeline.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-computer-use-replay-timeline.ts")
     : "";
   const computerUseReplayTimelineProof = exists(
     "scripts/lib/workflow-computer-use-replay-timeline-proof.mjs",
@@ -34209,54 +34209,54 @@ function runCompositor() {
     ? read("scripts/lib/workflow-computer-use-replay-timeline-proof.mjs")
     : "";
   const agentIdeEventIdentity = exists(
-    "packages/agent-ide/src/runtime/workflow-runtime-event-identity.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-event-identity.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-runtime-event-identity.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-runtime-event-identity.ts")
     : "";
   const agentIdeEventIdentityTest = exists(
-    "packages/agent-ide/src/runtime/workflow-runtime-event-identity.test.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-event-identity.test.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-runtime-event-identity.test.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-runtime-event-identity.test.ts")
     : "";
   const agentIdeHunkDecisionReceiptPanel = exists(
-    "packages/agent-ide/src/runtime/workflow-hunk-decision-receipt-panel.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-hunk-decision-receipt-panel.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-hunk-decision-receipt-panel.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-hunk-decision-receipt-panel.ts")
     : "";
   const agentIdeHunkDecisionReceiptPanelTest = exists(
-    "packages/agent-ide/src/runtime/workflow-hunk-decision-receipt-panel.test.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-hunk-decision-receipt-panel.test.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-hunk-decision-receipt-panel.test.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-hunk-decision-receipt-panel.test.ts")
     : "";
   const agentIdeReceiptGatePanel = exists(
-    "packages/agent-ide/src/runtime/workflow-receipt-gate-panel.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-receipt-gate-panel.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-receipt-gate-panel.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-receipt-gate-panel.ts")
     : "";
   const agentIdeReceiptGatePanelTest = exists(
-    "packages/agent-ide/src/runtime/workflow-receipt-gate-panel.test.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-receipt-gate-panel.test.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-receipt-gate-panel.test.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-receipt-gate-panel.test.ts")
     : "";
   const agentIdeAuthStreamFailurePanel = exists(
-    "packages/agent-ide/src/runtime/workflow-auth-stream-failure-panel.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-auth-stream-failure-panel.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-auth-stream-failure-panel.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-auth-stream-failure-panel.ts")
     : "";
   const agentIdeAuthStreamFailurePanelTest = exists(
-    "packages/agent-ide/src/runtime/workflow-auth-stream-failure-panel.test.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-auth-stream-failure-panel.test.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-auth-stream-failure-panel.test.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-auth-stream-failure-panel.test.ts")
     : "";
   const agentIdeCrashRecoveryReportCard = exists(
-    "packages/agent-ide/src/runtime/workflow-crash-recovery-report-card.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-crash-recovery-report-card.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-crash-recovery-report-card.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-crash-recovery-report-card.ts")
     : "";
   const agentIdeCrashRecoveryReportCardTest = exists(
-    "packages/agent-ide/src/runtime/workflow-crash-recovery-report-card.test.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-crash-recovery-report-card.test.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-crash-recovery-report-card.test.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-crash-recovery-report-card.test.ts")
     : "";
   const workflowCrashRestartTimelineProof = exists(
     "scripts/lib/workflow-crash-restart-timeline-resume-proof.mjs",
@@ -34269,14 +34269,14 @@ function runCompositor() {
     ? read("scripts/lib/workflow-crash-restart-replay-live-gui-proof.mjs")
     : "";
   const agentIdeAuthorityBoundaryVisualizer = exists(
-    "packages/agent-ide/src/runtime/workflow-authority-boundary-visualizer.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-authority-boundary-visualizer.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-authority-boundary-visualizer.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-authority-boundary-visualizer.ts")
     : "";
   const agentIdeAuthorityBoundaryVisualizerTest = exists(
-    "packages/agent-ide/src/runtime/workflow-authority-boundary-visualizer.test.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-authority-boundary-visualizer.test.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-authority-boundary-visualizer.test.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-authority-boundary-visualizer.test.ts")
     : "";
   const workflowSandboxBoundaryProof = exists(
     "scripts/lib/workflow-sandbox-boundary-proof.mjs",
@@ -34289,211 +34289,211 @@ function runCompositor() {
     ? read("scripts/lib/workflow-authority-boundary-visualizer-proof.mjs")
     : "";
   const agentIdeRuntimeEventProjection = exists(
-    "packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-event-projection.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-runtime-event-projection.ts")
     : "";
   const agentIdeRuntimeEventProjectionTest = exists(
-    "packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-event-projection.test.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-runtime-event-projection.test.ts")
     : "";
   const agentIdeDiagnosticsRepairActions = exists(
-    "packages/agent-ide/src/runtime/workflow-runtime-diagnostics-repair-actions.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-diagnostics-repair-actions.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-runtime-diagnostics-repair-actions.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-runtime-diagnostics-repair-actions.ts")
     : "";
   const agentIdeDiagnosticsRepairActionsTest = exists(
-    "packages/agent-ide/src/runtime/workflow-runtime-diagnostics-repair-actions.test.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-diagnostics-repair-actions.test.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-runtime-diagnostics-repair-actions.test.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-runtime-diagnostics-repair-actions.test.ts")
     : "";
   const agentIdeTerminalStreamCard = exists(
-    "packages/agent-ide/src/runtime/workflow-terminal-stream-card.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-terminal-stream-card.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-terminal-stream-card.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-terminal-stream-card.ts")
     : "";
   const agentIdeTerminalStreamCardTest = exists(
-    "packages/agent-ide/src/runtime/workflow-terminal-stream-card.test.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-terminal-stream-card.test.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-terminal-stream-card.test.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-terminal-stream-card.test.ts")
     : "";
   const agentIdeContextBudgetControlNodes = exists(
-    "packages/agent-ide/src/runtime/workflow-runtime-context-budget-control-nodes.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-context-budget-control-nodes.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-runtime-context-budget-control-nodes.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-runtime-context-budget-control-nodes.ts")
     : "";
   const agentIdeContextBudgetControlNodesTest = exists(
-    "packages/agent-ide/src/runtime/workflow-runtime-context-budget-control-nodes.test.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-context-budget-control-nodes.test.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-runtime-context-budget-control-nodes.test.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-runtime-context-budget-control-nodes.test.ts")
     : "";
   const agentIdeCodingToolControlNodes = exists(
-    "packages/agent-ide/src/runtime/workflow-runtime-coding-tool-control-nodes.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-coding-tool-control-nodes.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-runtime-coding-tool-control-nodes.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-runtime-coding-tool-control-nodes.ts")
     : "";
   const agentIdeCodingToolControlNodesTest = exists(
-    "packages/agent-ide/src/runtime/workflow-runtime-coding-tool-control-nodes.test.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-coding-tool-control-nodes.test.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-runtime-coding-tool-control-nodes.test.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-runtime-coding-tool-control-nodes.test.ts")
     : "";
   const agentIdeSubagentControlNodes = exists(
-    "packages/agent-ide/src/runtime/workflow-runtime-subagent-control-nodes.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-subagent-control-nodes.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-runtime-subagent-control-nodes.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-runtime-subagent-control-nodes.ts")
     : "";
   const agentIdeSubagentControlNodesTest = exists(
-    "packages/agent-ide/src/runtime/workflow-runtime-subagent-control-nodes.test.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-subagent-control-nodes.test.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-runtime-subagent-control-nodes.test.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-runtime-subagent-control-nodes.test.ts")
     : "";
   const agentIdeRuntimeControlNodes = exists(
-    "packages/agent-ide/src/runtime/workflow-runtime-control-nodes.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-control-nodes.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-runtime-control-nodes.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-runtime-control-nodes.ts")
     : "";
   const agentIdeRuntimeControlNodesTest = exists(
-    "packages/agent-ide/src/runtime/workflow-runtime-control-nodes.test.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-control-nodes.test.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-runtime-control-nodes.test.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-runtime-control-nodes.test.ts")
     : "";
   const agentIdeEditProposalControlNodes = exists(
-    "packages/agent-ide/src/runtime/workflow-runtime-edit-proposal-control-nodes.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-edit-proposal-control-nodes.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-runtime-edit-proposal-control-nodes.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-runtime-edit-proposal-control-nodes.ts")
     : "";
   const agentIdeEditProposalControlNodesTest = exists(
-    "packages/agent-ide/src/runtime/workflow-runtime-edit-proposal-control-nodes.test.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-edit-proposal-control-nodes.test.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-runtime-edit-proposal-control-nodes.test.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-runtime-edit-proposal-control-nodes.test.ts")
     : "";
   const runtimeWorkspaceTrustAcknowledgementControlRequestBody =
     agentIdeRuntimeControlNodes.match(
       /export interface RuntimeWorkspaceTrustAcknowledgementControlRequestBody \{[\s\S]*?\n\}/,
     )?.[0] ?? "";
   const agentIdeDelegationMatrix = exists(
-    "packages/agent-ide/src/runtime/workflow-runtime-delegation-matrix.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-delegation-matrix.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-runtime-delegation-matrix.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-runtime-delegation-matrix.ts")
     : "";
   const agentIdeDelegationMatrixTest = exists(
-    "packages/agent-ide/src/runtime/workflow-runtime-delegation-matrix.test.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-delegation-matrix.test.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-runtime-delegation-matrix.test.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-runtime-delegation-matrix.test.ts")
     : "";
   const agentIdeTelemetrySourceBinding = exists(
-    "packages/agent-ide/src/runtime/workflow-runtime-telemetry-source-binding.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-telemetry-source-binding.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-runtime-telemetry-source-binding.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-runtime-telemetry-source-binding.ts")
     : "";
   const agentIdeTelemetryBudgetChainSubflow = exists(
-    "packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-subflow.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-telemetry-budget-chain-subflow.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-subflow.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-runtime-telemetry-budget-chain-subflow.ts")
     : "";
   const agentIdeTelemetryBudgetChainMaterialization = exists(
-    "packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-materialization.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-telemetry-budget-chain-materialization.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-materialization.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-runtime-telemetry-budget-chain-materialization.ts")
     : "";
   const agentIdeTelemetryBudgetChainMaterializationTest = exists(
-    "packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-materialization.test.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-telemetry-budget-chain-materialization.test.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-materialization.test.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-runtime-telemetry-budget-chain-materialization.test.ts")
     : "";
   const agentIdePolicyLeasePanel = exists(
-    "packages/agent-ide/src/runtime/workflow-runtime-policy-lease-panel.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-policy-lease-panel.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-runtime-policy-lease-panel.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-runtime-policy-lease-panel.ts")
     : "";
   const agentIdePolicyLeasePanelTest = exists(
-    "packages/agent-ide/src/runtime/workflow-runtime-policy-lease-panel.test.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-policy-lease-panel.test.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-runtime-policy-lease-panel.test.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-runtime-policy-lease-panel.test.ts")
     : "";
   const agentIdeRuntimePolicyStack = exists(
-    "packages/agent-ide/src/runtime/workflow-runtime-policy-stack.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-policy-stack.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-runtime-policy-stack.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-runtime-policy-stack.ts")
     : "";
   const agentIdeRuntimePolicyStackTest = exists(
-    "packages/agent-ide/src/runtime/workflow-runtime-policy-stack.test.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-policy-stack.test.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-runtime-policy-stack.test.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-runtime-policy-stack.test.ts")
     : "";
   const agentIdeRuntimeEditProposalPolicy = exists(
-    "packages/agent-ide/src/runtime/workflow-runtime-edit-proposal-policy.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-edit-proposal-policy.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-runtime-edit-proposal-policy.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-runtime-edit-proposal-policy.ts")
     : "";
   const agentIdeRuntimeEditProposalPolicyTest = exists(
-    "packages/agent-ide/src/runtime/workflow-runtime-edit-proposal-policy.test.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-edit-proposal-policy.test.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-runtime-edit-proposal-policy.test.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-runtime-edit-proposal-policy.test.ts")
     : "";
   const agentIdeGoalVerificationPanel = exists(
-    "packages/agent-ide/src/runtime/workflow-runtime-goal-verification-panel.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-goal-verification-panel.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-runtime-goal-verification-panel.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-runtime-goal-verification-panel.ts")
     : "";
   const agentIdeGoalVerificationPanelTest = exists(
-    "packages/agent-ide/src/runtime/workflow-runtime-goal-verification-panel.test.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-goal-verification-panel.test.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-runtime-goal-verification-panel.test.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-runtime-goal-verification-panel.test.ts")
     : "";
   const agentIdeReceiptFirstToolTimeline = exists(
-    "packages/agent-ide/src/runtime/workflow-runtime-receipt-first-tool-timeline.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-receipt-first-tool-timeline.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-runtime-receipt-first-tool-timeline.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-runtime-receipt-first-tool-timeline.ts")
     : "";
   const agentIdeReceiptFirstToolTimelineTest = exists(
-    "packages/agent-ide/src/runtime/workflow-runtime-receipt-first-tool-timeline.test.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-receipt-first-tool-timeline.test.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-runtime-receipt-first-tool-timeline.test.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-runtime-receipt-first-tool-timeline.test.ts")
     : "";
   const agentIdeSignedReplayNotebook = exists(
-    "packages/agent-ide/src/runtime/workflow-signed-replay-notebook.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-signed-replay-notebook.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-signed-replay-notebook.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-signed-replay-notebook.ts")
     : "";
   const agentIdeSignedReplayNotebookTest = exists(
-    "packages/agent-ide/src/runtime/workflow-signed-replay-notebook.test.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-signed-replay-notebook.test.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-signed-replay-notebook.test.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-signed-replay-notebook.test.ts")
     : "";
   const workspaceSubstrateNotebook = exists("packages/workspace-substrate/src/notebook.ts")
     ? read("packages/workspace-substrate/src/notebook.ts")
     : "";
   const agentIdeWorkerContributionTrace = exists(
-    "packages/agent-ide/src/runtime/workflow-worker-contribution-trace.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-worker-contribution-trace.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-worker-contribution-trace.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-worker-contribution-trace.ts")
     : "";
   const agentIdeWorkerContributionTraceTest = exists(
-    "packages/agent-ide/src/runtime/workflow-worker-contribution-trace.test.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-worker-contribution-trace.test.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-worker-contribution-trace.test.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-worker-contribution-trace.test.ts")
     : "";
   const agentIdeContextLifecyclePanel = exists(
-    "packages/agent-ide/src/runtime/workflow-context-lifecycle-panel.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-context-lifecycle-panel.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-context-lifecycle-panel.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-context-lifecycle-panel.ts")
     : "";
   const agentIdeContextLifecyclePanelTest = exists(
-    "packages/agent-ide/src/runtime/workflow-context-lifecycle-panel.test.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-context-lifecycle-panel.test.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-context-lifecycle-panel.test.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-context-lifecycle-panel.test.ts")
     : "";
   const agentIdeRuntimeTelemetrySummary = exists(
-    "packages/agent-ide/src/runtime/workflow-runtime-telemetry-summary.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-telemetry-summary.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-runtime-telemetry-summary.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-runtime-telemetry-summary.ts")
     : "";
   const agentIdeRuntimeTelemetrySummaryTest = exists(
-    "packages/agent-ide/src/runtime/workflow-runtime-telemetry-summary.test.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-telemetry-summary.test.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-runtime-telemetry-summary.test.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-runtime-telemetry-summary.test.ts")
     : "";
   const agentIdeRuntimeTelemetrySummaryUsageTelemetryInterfaceBlock =
     agentIdeRuntimeTelemetrySummary.match(
@@ -34512,33 +34512,33 @@ function runCompositor() {
       .map((pattern) => agentIdeRuntimeTelemetrySummary.match(pattern)?.[0] ?? "")
       .join("\n");
   const agentIdeMixedRuntimePanels = [
-    "packages/agent-ide/src/runtime/workflow-runtime-goal-verification-panel.ts",
-    "packages/agent-ide/src/runtime/workflow-runtime-policy-lease-panel.ts",
-    "packages/agent-ide/src/runtime/workflow-runtime-receipt-first-tool-timeline.ts",
-    "packages/agent-ide/src/runtime/workflow-runtime-delegation-matrix.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-goal-verification-panel.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-policy-lease-panel.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-receipt-first-tool-timeline.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-delegation-matrix.ts",
   ]
     .filter((file) => exists(file))
     .map((file) => read(file))
     .join("\n");
   const agentIdeTypedRuntimePanels = [
-    "packages/agent-ide/src/runtime/workflow-workspace-trust-gate.ts",
-    "packages/agent-ide/src/runtime/workflow-hunk-decision-receipt-panel.ts",
-    "packages/agent-ide/src/runtime/workflow-signed-replay-notebook.ts",
-    "packages/agent-ide/src/runtime/workflow-context-lifecycle-panel.ts",
-    "packages/agent-ide/src/runtime/workflow-worker-contribution-trace.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-workspace-trust-gate.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-hunk-decision-receipt-panel.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-signed-replay-notebook.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-context-lifecycle-panel.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-worker-contribution-trace.ts",
   ]
     .filter((file) => exists(file))
     .map((file) => read(file))
     .join("\n");
   const agentIdeWorkspaceTrustGate = exists(
-    "packages/agent-ide/src/runtime/workflow-workspace-trust-gate.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-workspace-trust-gate.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-workspace-trust-gate.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-workspace-trust-gate.ts")
     : "";
   const agentIdeWorkspaceTrustGateTest = exists(
-    "packages/agent-ide/src/runtime/workflow-workspace-trust-gate.test.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-workspace-trust-gate.test.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-workspace-trust-gate.test.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-workspace-trust-gate.test.ts")
     : "";
   const agentSdkRuntimeEvents = exists("packages/agent-sdk/src/runtime-events.ts")
     ? read("packages/agent-sdk/src/runtime-events.ts")
@@ -34773,25 +34773,25 @@ function runCompositor() {
     ? read("packages/agent-sdk/test/sdk.test.mjs")
     : "";
   const agentIdeWorkflowRuntimeMcpControlNodes = exists(
-    "packages/agent-ide/src/runtime/workflow-runtime-mcp-control-nodes.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-mcp-control-nodes.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-runtime-mcp-control-nodes.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-runtime-mcp-control-nodes.ts")
     : "";
   const agentIdeWorkflowRuntimeMcpControlNodesTest = exists(
-    "packages/agent-ide/src/runtime/workflow-runtime-mcp-control-nodes.test.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-mcp-control-nodes.test.ts",
   )
-    ? read("packages/agent-ide/src/runtime/workflow-runtime-mcp-control-nodes.test.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-runtime-mcp-control-nodes.test.ts")
     : "";
-  const agentIdeWorkflowNodeRegistry = exists("packages/agent-ide/src/runtime/workflow-node-registry.ts")
-    ? read("packages/agent-ide/src/runtime/workflow-node-registry.ts")
+  const agentIdeWorkflowNodeRegistry = exists("packages/hypervisor-workbench/src/runtime/workflow-node-registry.ts")
+    ? read("packages/hypervisor-workbench/src/runtime/workflow-node-registry.ts")
     : "";
   const agentIdeWorkflowNodeBindingEditorSections = exists(
-    "packages/agent-ide/src/features/Workflows/WorkflowNodeBindingEditor/sections.tsx",
+    "packages/hypervisor-workbench/src/features/Workflows/WorkflowNodeBindingEditor/sections.tsx",
   )
-    ? read("packages/agent-ide/src/features/Workflows/WorkflowNodeBindingEditor/sections.tsx")
+    ? read("packages/hypervisor-workbench/src/features/Workflows/WorkflowNodeBindingEditor/sections.tsx")
     : "";
-  const agentIdeGraphTypes = exists("packages/agent-ide/src/types/graph.ts")
-    ? read("packages/agent-ide/src/types/graph.ts")
+  const agentIdeGraphTypes = exists("packages/hypervisor-workbench/src/types/graph.ts")
+    ? read("packages/hypervisor-workbench/src/types/graph.ts")
     : "";
   const agentTuiCli = exists("crates/cli/src/commands/agent_tui.rs")
     ? read("crates/cli/src/commands/agent_tui.rs")
@@ -36764,7 +36764,7 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-memory-helpers.mjs",
       "packages/runtime-daemon/src/runtime-event-payloads.mjs",
       "packages/agent-sdk/src/messages.ts",
-      "packages/agent-ide/src/runtime/workflow-runtime-delegation-matrix.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-delegation-matrix.ts",
     ],
     "Phase 10/11 is pending: subagent memory inheritance projections must expose canonical snake_case fields without duplicate camelCase facade aliases",
   );
@@ -38134,7 +38134,7 @@ function runCompositor() {
     [
       "packages/runtime-daemon/src/subagent-manager.mjs",
       "packages/runtime-daemon/src/subagent-manager.test.mjs",
-      "packages/agent-ide/src/runtime/workflow-runtime-delegation-matrix.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-delegation-matrix.ts",
       "scripts/lib/live-runtime-daemon-contract.test.mjs",
     ],
     "Phase 10/11 is pending: subagent manager event payloads must expose canonical snake_case fields only and IDE/SDK proofs must not consume retired raw payload aliases",
@@ -39277,12 +39277,12 @@ function runCompositor() {
         agentIdeTelemetryBudgetChainMaterializationTest,
       ),
     [
-      "packages/agent-ide/src/runtime/workflow-runtime-context-budget-control-nodes.ts",
-      "packages/agent-ide/src/runtime/workflow-runtime-context-budget-control-nodes.test.ts",
-      "packages/agent-ide/src/runtime/workflow-runtime-telemetry-source-binding.ts",
-      "packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-subflow.ts",
-      "packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-materialization.ts",
-      "packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-materialization.test.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-context-budget-control-nodes.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-context-budget-control-nodes.test.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-telemetry-source-binding.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-telemetry-budget-chain-subflow.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-telemetry-budget-chain-materialization.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-telemetry-budget-chain-materialization.test.ts",
     ],
     "Phase 10/11 is pending: IDE context-budget control nodes must send canonical usage_telemetry without retired usage request aliases",
   );
@@ -39302,8 +39302,8 @@ function runCompositor() {
         agentIdeCodingToolControlNodesTest,
       ),
     [
-      "packages/agent-ide/src/runtime/workflow-runtime-coding-tool-control-nodes.ts",
-      "packages/agent-ide/src/runtime/workflow-runtime-coding-tool-control-nodes.test.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-coding-tool-control-nodes.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-coding-tool-control-nodes.test.ts",
     ],
     "Phase 10/11 is pending: IDE coding-tool control request bodies must emit canonical budget_usage_telemetry without duplicate budgetUsageTelemetry",
   );
@@ -39323,8 +39323,8 @@ function runCompositor() {
         agentIdeSubagentControlNodesTest,
       ),
     [
-      "packages/agent-ide/src/runtime/workflow-runtime-subagent-control-nodes.ts",
-      "packages/agent-ide/src/runtime/workflow-runtime-subagent-control-nodes.test.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-subagent-control-nodes.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-subagent-control-nodes.test.ts",
     ],
     "Phase 10/11 is pending: IDE subagent control request bodies must emit canonical budget_usage_telemetry without duplicate budgetUsageTelemetry",
   );
@@ -39405,8 +39405,8 @@ function runCompositor() {
         agentIdeEditProposalControlNodes,
       ),
     [
-      "packages/agent-ide/src/runtime/workflow-runtime-edit-proposal-control-nodes.ts",
-      "packages/agent-ide/src/runtime/workflow-runtime-edit-proposal-control-nodes.test.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-edit-proposal-control-nodes.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-edit-proposal-control-nodes.test.ts",
     ],
     "Phase 10/11 is pending: IDE workflow edit proposal control nodes must send canonical daemon request bodies and ignore retired raw input aliases",
   );
@@ -39533,8 +39533,8 @@ function runCompositor() {
         agentIdeDiagnosticsRepairActions,
       ),
     [
-      "packages/agent-ide/src/runtime/workflow-runtime-diagnostics-repair-actions.ts",
-      "packages/agent-ide/src/runtime/workflow-runtime-diagnostics-repair-actions.test.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-diagnostics-repair-actions.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-diagnostics-repair-actions.test.ts",
     ],
     "Phase 10/11 is pending: IDE diagnostics repair action descriptors must ignore retired camelCase policy and decision aliases",
   );
@@ -41720,8 +41720,8 @@ function runCompositor() {
       "crates/services/src/agentic/runtime/kernel/mod.rs",
       "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
       "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
-      "packages/agent-ide/src/runtime/workflow-runtime-control-nodes.ts",
-      "packages/agent-ide/src/runtime/workflow-runtime-control-nodes.test.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-control-nodes.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-control-nodes.test.ts",
     ],
     "Phase 10/11 is pending: workspace-trust warning and acknowledgement controls must be Rust-planned, Rust event-admitted, replay-bound, and guarded against the retired JS payload path",
   );
@@ -44028,11 +44028,11 @@ function runCompositor() {
         agentIdeWorkflowRuntimeMcpControlNodes,
       ),
     [
-      "packages/agent-ide/src/runtime/workflow-runtime-mcp-control-nodes.ts",
-      "packages/agent-ide/src/runtime/workflow-runtime-mcp-control-nodes.test.ts",
-      "packages/agent-ide/src/features/Workflows/WorkflowNodeBindingEditor/sections.tsx",
-      "packages/agent-ide/src/runtime/workflow-node-registry.ts",
-      "packages/agent-ide/src/types/graph.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-mcp-control-nodes.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-mcp-control-nodes.test.ts",
+      "packages/hypervisor-workbench/src/features/Workflows/WorkflowNodeBindingEditor/sections.tsx",
+      "packages/hypervisor-workbench/src/runtime/workflow-node-registry.ts",
+      "packages/hypervisor-workbench/src/types/graph.ts",
     ],
     "Phase 10/11 is pending: IDE MCP serve nodes must be stable daemon protocol clients with body-carried admission refs, no endpoint override, and no duplicate camelCase protocol body",
   );
@@ -45138,8 +45138,8 @@ function runCompositor() {
       /legacy-nested-event-id/.test(agentIdeTerminalRunLaunchTest) &&
       /runtimeThreadEvents\?\s*\.length,\s*0/.test(agentIdeTerminalRunLaunchTest),
     [
-      "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-run-launch.ts",
-      "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-run-launch.test.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-terminal-coding-loop-run-launch.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-terminal-coding-loop-run-launch.test.ts",
     ],
     "Phase 10/11 is pending: IDE terminal coding-loop run launch must ignore retired runtime event id aliases",
   );
@@ -45157,7 +45157,7 @@ function runCompositor() {
         computerUseReplayTimelineProof,
       ),
     [
-      "packages/agent-ide/src/runtime/workflow-computer-use-replay-timeline.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-computer-use-replay-timeline.ts",
       "scripts/lib/workflow-computer-use-replay-timeline-proof.mjs",
     ],
     "Phase 10/11 is pending: IDE computer-use replay timeline must ignore retired runtime event id aliases",
@@ -45205,7 +45205,7 @@ function runCompositor() {
         computerUseReplayTimelineProof,
       ),
     [
-      "packages/agent-ide/src/runtime/workflow-computer-use-replay-timeline.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-computer-use-replay-timeline.ts",
       "scripts/lib/workflow-computer-use-replay-timeline-proof.mjs",
     ],
     "Phase 10/11 is pending: IDE computer-use replay timeline must ignore retired receipt, policy, and artifact evidence aliases",
@@ -45264,7 +45264,7 @@ function runCompositor() {
         computerUseReplayTimelineProof,
       ),
     [
-      "packages/agent-ide/src/runtime/workflow-computer-use-replay-timeline.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-computer-use-replay-timeline.ts",
       "scripts/lib/workflow-computer-use-replay-timeline-proof.mjs",
     ],
     "Phase 10/11 is pending: IDE computer-use replay timeline must ignore retired runtime identity aliases",
@@ -45345,7 +45345,7 @@ function runCompositor() {
         computerUseReplayTimelineProof,
       ),
     [
-      "packages/agent-ide/src/runtime/workflow-computer-use-replay-timeline.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-computer-use-replay-timeline.ts",
       "scripts/lib/workflow-computer-use-replay-timeline-proof.mjs",
     ],
     "Phase 10/11 is pending: IDE computer-use replay timeline must ignore retired computer-use artifact and ref aliases",
@@ -45414,7 +45414,7 @@ function runCompositor() {
         computerUseReplayTimelineProof,
       ),
     [
-      "packages/agent-ide/src/runtime/workflow-computer-use-replay-timeline.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-computer-use-replay-timeline.ts",
       "scripts/lib/workflow-computer-use-replay-timeline-proof.mjs",
     ],
     "Phase 10/11 is pending: IDE computer-use replay timeline must ignore retired computer-use control and lifecycle aliases",
@@ -45436,12 +45436,12 @@ function runCompositor() {
         agentIdeMixedRuntimePanels,
       ),
     [
-      "packages/agent-ide/src/runtime/workflow-runtime-event-identity.ts",
-      "packages/agent-ide/src/runtime/workflow-runtime-event-identity.test.ts",
-      "packages/agent-ide/src/runtime/workflow-runtime-goal-verification-panel.ts",
-      "packages/agent-ide/src/runtime/workflow-runtime-policy-lease-panel.ts",
-      "packages/agent-ide/src/runtime/workflow-runtime-receipt-first-tool-timeline.ts",
-      "packages/agent-ide/src/runtime/workflow-runtime-delegation-matrix.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-event-identity.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-event-identity.test.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-goal-verification-panel.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-policy-lease-panel.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-receipt-first-tool-timeline.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-delegation-matrix.ts",
     ],
     "Phase 10/11 is pending: mixed IDE runtime panels must share canonical event identity handling and ignore raw retired id/event aliases",
   );
@@ -45486,8 +45486,8 @@ function runCompositor() {
         agentIdeDelegationMatrixTest,
       ),
     [
-      "packages/agent-ide/src/runtime/workflow-runtime-delegation-matrix.ts",
-      "packages/agent-ide/src/runtime/workflow-runtime-delegation-matrix.test.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-delegation-matrix.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-delegation-matrix.test.ts",
     ],
     "Phase 10/11 is pending: IDE delegation matrix must ignore retired camelCase event identity and evidence aliases",
   );
@@ -45556,8 +45556,8 @@ function runCompositor() {
       ) &&
       /assert\.equal\(panel\.rows\.length,\s*0\)/.test(agentIdePolicyLeasePanelTest),
     [
-      "packages/agent-ide/src/runtime/workflow-runtime-policy-lease-panel.ts",
-      "packages/agent-ide/src/runtime/workflow-runtime-policy-lease-panel.test.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-policy-lease-panel.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-policy-lease-panel.test.ts",
     ],
     "Phase 10/11 is pending: IDE policy lease panel must ignore retired camelCase lease payload and evidence aliases",
   );
@@ -45644,8 +45644,8 @@ function runCompositor() {
       ) &&
       /assert\.equal\(panel\.status,\s*"failed"\)/.test(agentIdeGoalVerificationPanelTest),
     [
-      "packages/agent-ide/src/runtime/workflow-runtime-goal-verification-panel.ts",
-      "packages/agent-ide/src/runtime/workflow-runtime-goal-verification-panel.test.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-goal-verification-panel.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-goal-verification-panel.test.ts",
     ],
     "Phase 10/11 is pending: IDE goal verification panel must ignore retired camelCase diagnostic, completion, and evidence aliases",
   );
@@ -45737,8 +45737,8 @@ function runCompositor() {
       ) &&
       /assert\.equal\(timeline\.status,\s*"empty"\)/.test(agentIdeReceiptFirstToolTimelineTest),
     [
-      "packages/agent-ide/src/runtime/workflow-runtime-receipt-first-tool-timeline.ts",
-      "packages/agent-ide/src/runtime/workflow-runtime-receipt-first-tool-timeline.test.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-receipt-first-tool-timeline.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-receipt-first-tool-timeline.test.ts",
     ],
     "Phase 10/11 is pending: IDE receipt-first tool timeline must ignore retired camelCase tool, receipt, artifact, and output aliases",
   );
@@ -45802,8 +45802,8 @@ function runCompositor() {
         agentIdeRuntimeEventProjectionTest,
       ),
     [
-      "packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts",
-      "packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-event-projection.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-event-projection.test.ts",
     ],
     "Phase 10/11 is pending: IDE TUI control model-route rows must consume canonical snake_case route/model/reasoning fields without retired camelCase protocol aliases",
   );
@@ -45874,8 +45874,8 @@ function runCompositor() {
         agentIdeRuntimeEventProjectionTest,
       ),
     [
-      "packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts",
-      "packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-event-projection.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-event-projection.test.ts",
     ],
     "Phase 10/11 is pending: IDE computer-use projections must ignore retired top-level control aliases",
   );
@@ -45931,8 +45931,8 @@ function runCompositor() {
         agentIdeRuntimeEventProjectionTest,
       ),
     [
-      "packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts",
-      "packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-event-projection.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-event-projection.test.ts",
     ],
     "Phase 10/11 is pending: IDE computer-use projections must ignore retired top-level artifact and ref aliases",
   );
@@ -46002,8 +46002,8 @@ function runCompositor() {
         agentIdeRuntimeEventProjectionTest,
       ),
     [
-      "packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts",
-      "packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-event-projection.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-event-projection.test.ts",
     ],
     "Phase 10/11 is pending: IDE computer-use projections must ignore retired top-level lifecycle ref aliases",
   );
@@ -46063,8 +46063,8 @@ function runCompositor() {
         agentIdeRuntimeEventProjection,
       ),
     [
-      "packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts",
-      "packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-event-projection.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-event-projection.test.ts",
     ],
     "Phase 10/11 is pending: IDE computer-use browser discovery projections must ignore retired camelCase discovery payload aliases",
   );
@@ -46077,11 +46077,11 @@ function runCompositor() {
         agentIdeTypedRuntimePanels,
       ),
     [
-      "packages/agent-ide/src/runtime/workflow-workspace-trust-gate.ts",
-      "packages/agent-ide/src/runtime/workflow-hunk-decision-receipt-panel.ts",
-      "packages/agent-ide/src/runtime/workflow-signed-replay-notebook.ts",
-      "packages/agent-ide/src/runtime/workflow-context-lifecycle-panel.ts",
-      "packages/agent-ide/src/runtime/workflow-worker-contribution-trace.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-workspace-trust-gate.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-hunk-decision-receipt-panel.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-signed-replay-notebook.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-context-lifecycle-panel.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-worker-contribution-trace.ts",
     ],
     "Phase 10/11 is pending: typed IDE runtime panels must use the shared event identity helper instead of local id fallbacks",
   );
@@ -46125,8 +46125,8 @@ function runCompositor() {
         agentIdeWorkspaceTrustGateTest,
       ),
     [
-      "packages/agent-ide/src/runtime/workflow-workspace-trust-gate.ts",
-      "packages/agent-ide/src/runtime/workflow-workspace-trust-gate.test.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-workspace-trust-gate.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-workspace-trust-gate.test.ts",
     ],
     "Phase 10/11 is pending: IDE workspace trust gate payload parsing must ignore retired camelCase workflow node, warning, and source-event aliases",
   );
@@ -46172,8 +46172,8 @@ function runCompositor() {
         agentIdeContextLifecyclePanelTest,
       ),
     [
-      "packages/agent-ide/src/runtime/workflow-context-lifecycle-panel.ts",
-      "packages/agent-ide/src/runtime/workflow-context-lifecycle-panel.test.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-context-lifecycle-panel.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-context-lifecycle-panel.test.ts",
     ],
     "Phase 10/11 is pending: IDE context lifecycle usage snapshots must ignore retired camelCase identity and evidence aliases",
   );
@@ -46206,8 +46206,8 @@ function runCompositor() {
         agentIdeRuntimeTelemetrySummaryTest,
       ),
     [
-      "packages/agent-ide/src/runtime/workflow-runtime-telemetry-summary.ts",
-      "packages/agent-ide/src/runtime/workflow-runtime-telemetry-summary.test.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-telemetry-summary.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-telemetry-summary.test.ts",
     ],
     "Phase 10/11 is pending: IDE runtime telemetry summaries must ignore retired camelCase runtime payload aliases and emit canonical daemon-bound usage telemetry fields only",
   );
@@ -46262,8 +46262,8 @@ function runCompositor() {
         agentIdeContextLifecyclePanelTest,
       ),
     [
-      "packages/agent-ide/src/runtime/workflow-context-lifecycle-panel.ts",
-      "packages/agent-ide/src/runtime/workflow-context-lifecycle-panel.test.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-context-lifecycle-panel.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-context-lifecycle-panel.test.ts",
     ],
     "Phase 10/11 is pending: IDE context lifecycle rows must ignore retired camelCase event identity aliases",
   );
@@ -46328,8 +46328,8 @@ function runCompositor() {
         agentIdeContextLifecyclePanelTest,
       ),
     [
-      "packages/agent-ide/src/runtime/workflow-context-lifecycle-panel.ts",
-      "packages/agent-ide/src/runtime/workflow-context-lifecycle-panel.test.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-context-lifecycle-panel.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-context-lifecycle-panel.test.ts",
     ],
     "Phase 10/11 is pending: IDE context lifecycle compaction policy rows must ignore retired camelCase policy payload aliases",
   );
@@ -46381,8 +46381,8 @@ function runCompositor() {
         agentIdeContextLifecyclePanelTest,
       ),
     [
-      "packages/agent-ide/src/runtime/workflow-context-lifecycle-panel.ts",
-      "packages/agent-ide/src/runtime/workflow-context-lifecycle-panel.test.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-context-lifecycle-panel.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-context-lifecycle-panel.test.ts",
     ],
     "Phase 10/11 is pending: IDE context lifecycle budget rows must ignore retired camelCase usage and threshold aliases",
   );
@@ -46401,8 +46401,8 @@ function runCompositor() {
         agentIdeContextLifecyclePanelTest,
       ),
     [
-      "packages/agent-ide/src/runtime/workflow-context-lifecycle-panel.ts",
-      "packages/agent-ide/src/runtime/workflow-context-lifecycle-panel.test.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-context-lifecycle-panel.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-context-lifecycle-panel.test.ts",
     ],
     "Phase 10/11 is pending: IDE context lifecycle compaction rows must ignore retired camelCase compaction payload aliases",
   );
@@ -46428,8 +46428,8 @@ function runCompositor() {
         agentIdeContextLifecyclePanelTest,
       ),
     [
-      "packages/agent-ide/src/runtime/workflow-context-lifecycle-panel.ts",
-      "packages/agent-ide/src/runtime/workflow-context-lifecycle-panel.test.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-context-lifecycle-panel.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-context-lifecycle-panel.test.ts",
     ],
     "Phase 10/11 is pending: IDE context lifecycle rows must ignore retired camelCase event evidence aliases",
   );
@@ -46628,8 +46628,8 @@ function runCompositor() {
         workspaceSubstrateNotebook,
       ),
     [
-      "packages/agent-ide/src/runtime/workflow-signed-replay-notebook.ts",
-      "packages/agent-ide/src/runtime/workflow-signed-replay-notebook.test.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-signed-replay-notebook.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-signed-replay-notebook.test.ts",
       "packages/workspace-substrate/src/notebook.ts",
     ],
     "Phase 10/11 is pending: IDE signed replay notebook must ignore retired camelCase evidence aliases",
@@ -46807,8 +46807,8 @@ function runCompositor() {
         agentIdeWorkerContributionTraceTest,
       ),
     [
-      "packages/agent-ide/src/runtime/workflow-worker-contribution-trace.ts",
-      "packages/agent-ide/src/runtime/workflow-worker-contribution-trace.test.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-worker-contribution-trace.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-worker-contribution-trace.test.ts",
     ],
     "Phase 10/11 is pending: IDE worker contribution trace must ignore retired camelCase event identity and evidence aliases",
   );
@@ -46880,8 +46880,8 @@ function runCompositor() {
         agentIdeReceiptGatePanelTest,
       ),
     [
-      "packages/agent-ide/src/runtime/workflow-receipt-gate-panel.ts",
-      "packages/agent-ide/src/runtime/workflow-receipt-gate-panel.test.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-receipt-gate-panel.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-receipt-gate-panel.test.ts",
     ],
     "Phase 10/11 is pending: IDE receipt gate panel must ignore retired camelCase receipt, route, backend, tool-receipt, and evidence aliases",
   );
@@ -46917,8 +46917,8 @@ function runCompositor() {
         agentIdeAuthStreamFailurePanelTest,
       ),
     [
-      "packages/agent-ide/src/runtime/workflow-auth-stream-failure-panel.ts",
-      "packages/agent-ide/src/runtime/workflow-auth-stream-failure-panel.test.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-auth-stream-failure-panel.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-auth-stream-failure-panel.test.ts",
     ],
     "Phase 10/11 is pending: IDE auth stream failure panel must ignore retired camelCase stream receipt route/model/detail aliases",
   );
@@ -46982,8 +46982,8 @@ function runCompositor() {
         agentIdeCrashRecoveryReportCardTest,
       ),
     [
-      "packages/agent-ide/src/runtime/workflow-crash-recovery-report-card.ts",
-      "packages/agent-ide/src/runtime/workflow-crash-recovery-report-card.test.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-crash-recovery-report-card.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-crash-recovery-report-card.test.ts",
       "scripts/lib/workflow-crash-restart-timeline-resume-proof.mjs",
       "scripts/lib/workflow-crash-restart-replay-live-gui-proof.mjs",
     ],
@@ -47066,8 +47066,8 @@ function runCompositor() {
         agentIdeAuthorityBoundaryVisualizerTest,
       ),
     [
-      "packages/agent-ide/src/runtime/workflow-authority-boundary-visualizer.ts",
-      "packages/agent-ide/src/runtime/workflow-authority-boundary-visualizer.test.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-authority-boundary-visualizer.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-authority-boundary-visualizer.test.ts",
       "scripts/lib/workflow-sandbox-boundary-proof.mjs",
       "scripts/lib/workflow-authority-boundary-visualizer-proof.mjs",
     ],
@@ -47123,8 +47123,8 @@ function runCompositor() {
         agentIdeRuntimePolicyStack,
       ),
     [
-      "packages/agent-ide/src/runtime/workflow-runtime-policy-stack.ts",
-      "packages/agent-ide/src/runtime/workflow-runtime-policy-stack.test.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-policy-stack.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-policy-stack.test.ts",
     ],
     "Phase 10/11 is pending: IDE runtime policy stack must ignore retired camelCase approval, warning, source-event, and retry aliases",
   );
@@ -47188,8 +47188,8 @@ function runCompositor() {
         agentIdeRuntimeEditProposalPolicy,
       ),
     [
-      "packages/agent-ide/src/runtime/workflow-runtime-edit-proposal-policy.ts",
-      "packages/agent-ide/src/runtime/workflow-runtime-edit-proposal-policy.test.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-edit-proposal-policy.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-edit-proposal-policy.test.ts",
     ],
     "Phase 10/11 is pending: IDE runtime edit-proposal policy must ignore retired camelCase proposal, approval, target, source-event, and mutation aliases",
   );
@@ -47236,8 +47236,8 @@ function runCompositor() {
         agentIdeHunkDecisionReceiptPanel,
       ),
     [
-      "packages/agent-ide/src/runtime/workflow-hunk-decision-receipt-panel.ts",
-      "packages/agent-ide/src/runtime/workflow-hunk-decision-receipt-panel.test.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-hunk-decision-receipt-panel.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-hunk-decision-receipt-panel.test.ts",
     ],
     "Phase 10/11 is pending: IDE hunk-decision receipt evidence must ignore retired camelCase receipt/policy aliases",
   );
@@ -47325,8 +47325,8 @@ function runCompositor() {
       /requestType: "chat\.hunkDecision"/.test(agentIdeHunkDecisionReceiptPanelTest) &&
       /assert\.equal\(panel\.hunkCount,\s*0\)/.test(agentIdeHunkDecisionReceiptPanelTest),
     [
-      "packages/agent-ide/src/runtime/workflow-hunk-decision-receipt-panel.ts",
-      "packages/agent-ide/src/runtime/workflow-hunk-decision-receipt-panel.test.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-hunk-decision-receipt-panel.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-hunk-decision-receipt-panel.test.ts",
     ],
     "Phase 10/11 is pending: IDE hunk-decision receipt panel proposal and bridge metadata must ignore retired camelCase aliases",
   );
@@ -47366,8 +47366,8 @@ function runCompositor() {
         agentIdeTerminalStreamCard,
       ),
     [
-      "packages/agent-ide/src/runtime/workflow-terminal-stream-card.ts",
-      "packages/agent-ide/src/runtime/workflow-terminal-stream-card.test.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-terminal-stream-card.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-terminal-stream-card.test.ts",
     ],
     "Phase 10/11 is pending: IDE terminal stream cards must ignore retired camelCase command-stream aliases",
   );

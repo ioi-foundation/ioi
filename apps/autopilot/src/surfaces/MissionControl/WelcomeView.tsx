@@ -186,7 +186,7 @@ export function WelcomeView({
             </span>
             <div className="chat-welcome-hero-copy">
               <span className="chat-welcome-eyebrow">
-                Operator shell + agent IDE layer
+                Operator shell + Hypervisor Workbench layer
               </span>
               <h1>Build durable digital workers without losing the operator shell.</h1>
               <p>

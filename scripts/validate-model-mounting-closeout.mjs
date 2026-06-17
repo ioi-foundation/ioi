@@ -89,8 +89,8 @@ const deterministicGates = [
     category: "build",
   },
   {
-    id: "agent-ide-build",
-    command: "npm run build --workspace=@ioi/agent-ide",
+    id: "hypervisor-workbench-build",
+    command: "npm run build --workspace=@ioi/hypervisor-workbench",
     required: true,
     category: "build",
   },

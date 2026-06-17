@@ -1,5 +1,5 @@
 import { invoke } from "../../services/hypervisorHostBridge";
-import type { WorkflowComposerPreflightSeed } from "@ioi/agent-ide";
+import type { WorkflowComposerPreflightSeed } from "@ioi/hypervisor-workbench";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { HypervisorClientRuntime } from "../../services/HypervisorClientRuntime";
 import {

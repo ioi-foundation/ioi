@@ -12,18 +12,18 @@ function read(relativePath) {
 
 test("React Flow coding tool pack exposes restore and diagnostics repair policy controls", () => {
   const sections = read(
-    "packages/agent-ide/src/features/Workflows/WorkflowNodeBindingEditor/sections.tsx",
+    "packages/hypervisor-workbench/src/features/Workflows/WorkflowNodeBindingEditor/sections.tsx",
   );
-  const graphTypes = read("packages/agent-ide/src/types/graph.ts");
+  const graphTypes = read("packages/hypervisor-workbench/src/types/graph.ts");
   const nodeRegistry = read(
-    "packages/agent-ide/src/runtime/workflow-node-registry.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-node-registry.ts",
   );
   const codingTools = read("packages/runtime-daemon/src/coding-tools.mjs");
   const runtimeDaemon = read("packages/runtime-daemon/src/index.mjs");
   const agentSdk = read("packages/agent-sdk/src/substrate-client.ts");
-  const runtimeProjection = read("packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts");
+  const runtimeProjection = read("packages/hypervisor-workbench/src/runtime/workflow-runtime-event-projection.ts");
   const codingToolControlNodes = read(
-    "packages/agent-ide/src/runtime/workflow-runtime-coding-tool-control-nodes.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-coding-tool-control-nodes.ts",
   );
 
   for (const field of [

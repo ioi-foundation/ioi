@@ -12,7 +12,7 @@ if (!outputPath) {
 }
 
 const { buildWorkflowRuntimeDelegationMatrix } = await import(
-  "../../packages/agent-ide/src/runtime/workflow-runtime-delegation-matrix.ts"
+  "../../packages/hypervisor-workbench/src/runtime/workflow-runtime-delegation-matrix.ts"
 );
 
 async function fetchJson(url, options) {

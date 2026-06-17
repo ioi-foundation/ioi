@@ -3,7 +3,7 @@ import type {
   SessionClarificationRequest as SharedSessionClarificationRequest,
   SessionCredentialRequest as SharedSessionCredentialRequest,
   SessionGateInfo as SharedSessionGateInfo,
-} from "./agent-ide";
+} from "./hypervisor-workbench";
 import type { Artifact } from "./artifacts";
 import type { ChatMessage, LiabilityLevel } from "./base";
 import type {

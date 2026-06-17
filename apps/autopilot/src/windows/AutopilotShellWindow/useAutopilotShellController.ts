@@ -12,8 +12,8 @@ import type {
   ProjectFile,
   RuntimeCatalogEntry,
   WorkflowComposerPreflightSeed,
-} from "@ioi/agent-ide";
-import { useAssistantWorkbenchState } from "@ioi/agent-ide";
+} from "@ioi/hypervisor-workbench";
+import { useAssistantWorkbenchState } from "@ioi/hypervisor-workbench";
 import { bootstrapAgentSession, useAgentStore } from "../../session/autopilotSession";
 import { listenForAutopilotDataReset } from "../../services/autopilotReset";
 import { safelyDisposeHostListener } from "../../services/hostListeners";

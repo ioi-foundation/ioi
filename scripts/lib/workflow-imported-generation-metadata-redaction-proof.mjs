@@ -9,7 +9,7 @@ if (!outputPath) {
 }
 
 const { buildWorkflowImportedGenerationMetadataPanel } = await import(
-  "../../packages/agent-ide/src/runtime/workflow-imported-generation-metadata.ts"
+  "../../packages/hypervisor-workbench/src/runtime/workflow-imported-generation-metadata.ts"
 );
 
 const panel = buildWorkflowImportedGenerationMetadataPanel({

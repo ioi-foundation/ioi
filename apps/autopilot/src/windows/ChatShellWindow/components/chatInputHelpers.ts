@@ -4,7 +4,7 @@ import type {
   SessionSummary,
   SkillCatalogEntry,
 } from "../../../types";
-import type { ConnectorSummary } from "@ioi/agent-ide";
+import type { ConnectorSummary } from "@ioi/hypervisor-workbench";
 
 export type SlashTokenContext = {
   query: string;

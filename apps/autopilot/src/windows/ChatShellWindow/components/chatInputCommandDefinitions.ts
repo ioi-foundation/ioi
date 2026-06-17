@@ -1,4 +1,4 @@
-import { formatSessionTimeAgo } from "@ioi/agent-ide";
+import { formatSessionTimeAgo } from "@ioi/hypervisor-workbench";
 import type { DropdownOption } from "../../../components/ui/Dropdown";
 import type { CommandMenuItem } from "../../../components/ui/CommandMenu";
 import { icons } from "../../../components/ui/icons";

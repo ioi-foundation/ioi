@@ -96,10 +96,10 @@ assert(
   "Active Autopilot Tauri runtime projection must stay retired; legacy extraction inventory lives under internal-docs/legacy.",
 );
 
-const tsSubstrate = read("packages/agent-ide/src/runtime/runtime-projection-adapter.ts");
+const tsSubstrate = read("packages/hypervisor-workbench/src/runtime/runtime-projection-adapter.ts");
 const rustSubstrate = read("internal-docs/legacy/autopilot-tauri-src/src/runtime_projection.rs");
 const actionSchema = readJson("internal-docs/implementation/runtime-action-schema.json");
-const generatedTsActionSchema = read("packages/agent-ide/src/runtime/generated/action-schema.ts");
+const generatedTsActionSchema = read("packages/hypervisor-workbench/src/runtime/generated/action-schema.ts");
 const generatedRustActionSchema = read(
   "internal-docs/legacy/autopilot-tauri-src/src/generated/runtime_action_schema.rs",
 );
@@ -112,7 +112,7 @@ for (const nodeKind of actionSchema.actionKinds) {
     generatedRustActionSchema.includes(`"${nodeKind}"`),
     `Generated Rust action schema missing ${nodeKind}.`,
   );
-  assert(tsSubstrate.includes(`"${nodeKind}"`), `Agent IDE action schema missing ${nodeKind}.`);
+  assert(tsSubstrate.includes(`"${nodeKind}"`), `Hypervisor Workbench action schema missing ${nodeKind}.`);
   const rustActiveEvidence =
     nodeKind === "source_input"
       ? rustSubstrate.includes("SourceInput")
@@ -127,27 +127,27 @@ assert(
   "Generated runtime action contracts must carry the shared schema version.",
 );
 
-const workflowComposer = read("packages/agent-ide/src/runtime/workflow-composer-model.ts");
-const workflowController = read("packages/agent-ide/src/WorkflowComposer/controller.tsx");
+const workflowComposer = read("packages/hypervisor-workbench/src/runtime/workflow-composer-model.ts");
+const workflowController = read("packages/hypervisor-workbench/src/WorkflowComposer/controller.tsx");
 assert(
   workflowComposer.includes("non-canonical") &&
     workflowComposer.includes("createSubstrateProjectionProposal") &&
     workflowComposer.includes("createSubstrateProjectionRunSummary") &&
     workflowComposer.includes("createSubstrateProjectionTestResult"),
-  "Agent IDE fallback helpers must be named and documented as non-canonical substrate projections.",
+  "Hypervisor Workbench fallback helpers must be named and documented as non-canonical substrate projections.",
 );
 assert(
   !workflowComposer.includes("createLocalProposal") &&
     !workflowComposer.includes("createLocalRunSummary") &&
     !workflowComposer.includes("createLocalTestResult"),
-  "Agent IDE must not keep local helper names that imply canonical runtime ownership.",
+  "Hypervisor Workbench must not keep local helper names that imply canonical runtime ownership.",
 );
 assert(
   !workflowController.includes("} catch {\n          const proposal = createSubstrateProjectionProposal") &&
     !workflowController.includes("} catch (error) {\n        const proposal = createSubstrateProjectionProposal") &&
     workflowController.includes("Proposal blocked by runtime substrate") &&
     workflowController.includes("Run blocked by runtime substrate"),
-  "Agent IDE must not create local durable proposal/run projections when a runtime adapter exists but fails.",
+  "Hypervisor Workbench must not create local durable proposal/run projections when a runtime adapter exists but fails.",
 );
 
 const cliAgent = read("crates/cli/src/commands/agent.rs");
@@ -178,7 +178,7 @@ const boundaryDoc = read("internal-docs/implementation/runtime-package-boundarie
 for (const required of [
   "ioi-daemon",
   "@ioi/agent-sdk",
-  "@ioi/agent-ide",
+  "@ioi/hypervisor-workbench",
   "Agentgres",
   "wallet.network",
   "Primitive execution capabilities",
@@ -236,14 +236,14 @@ if (fs.existsSync(path.join(root, preLegChecklistPath))) {
   );
 }
 
-const workflowValidation = read("packages/agent-ide/src/runtime/workflow-validation.ts");
+const workflowValidation = read("packages/hypervisor-workbench/src/runtime/workflow-validation.ts");
 assert(
   workflowValidation.includes("mock_binding_active") &&
     workflowValidation.includes("Switch to live credentials before activation"),
   "Workflow validation must block explicit mock bindings when production readiness requires it.",
 );
 
-for (const productFile of allFiles("packages/agent-ide/src", (file) => /\.(ts|tsx)$/.test(file)).concat(
+for (const productFile of allFiles("packages/hypervisor-workbench/src", (file) => /\.(ts|tsx)$/.test(file)).concat(
   allFiles("packages/agent-sdk/src", (file) => /\.(ts|tsx)$/.test(file)),
 )) {
   const content = read(productFile);

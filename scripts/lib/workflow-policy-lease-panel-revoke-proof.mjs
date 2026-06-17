@@ -12,7 +12,7 @@ if (!outputPath) {
 }
 
 const { buildWorkflowRuntimePolicyLeasePanel } = await import(
-  "../../packages/agent-ide/src/runtime/workflow-runtime-policy-lease-panel.ts"
+  "../../packages/hypervisor-workbench/src/runtime/workflow-runtime-policy-lease-panel.ts"
 );
 
 async function fetchJson(url, options) {

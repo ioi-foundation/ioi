@@ -1,4 +1,4 @@
-import type { WorkflowProjectMaterializationRequest } from "@ioi/agent-ide";
+import type { WorkflowProjectMaterializationRequest } from "@ioi/hypervisor-workbench";
 
 export interface WorkflowProjectMaterializationFile {
   path: string;

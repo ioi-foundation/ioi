@@ -1,7 +1,7 @@
 import type {
   WorkflowProjectMaterializationRequest,
   WorkflowProjectMaterializationResult,
-} from "@ioi/agent-ide";
+} from "@ioi/hypervisor-workbench";
 
 import { hostWorkspaceAdapter } from "./workspaceAdapter";
 import {

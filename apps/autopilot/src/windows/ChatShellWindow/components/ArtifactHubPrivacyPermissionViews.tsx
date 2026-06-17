@@ -1,4 +1,4 @@
-import { formatSessionTimeAgo } from "@ioi/agent-ide";
+import { formatSessionTimeAgo } from "@ioi/hypervisor-workbench";
 import { useEffect } from "react";
 import {
   openReviewConnectorPolicy,

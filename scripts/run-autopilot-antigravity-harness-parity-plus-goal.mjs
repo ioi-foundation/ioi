@@ -576,11 +576,11 @@ function buildManifest(campaignDir, scenarioVerdicts) {
 function implementationRefsFor(rowId) {
   const refs = {
     "AG-HARNESS-001": [
-      "packages/agent-ide/src/runtime/workflow-trajectory-import-audit.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-trajectory-import-audit.ts",
       "scripts/lib/workflow-trajectory-sqlite-blob-ingest-proof.mjs",
     ],
     "AG-HARNESS-006": [
-      "packages/agent-ide/src/runtime/workflow-session-brain-panel.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-session-brain-panel.ts",
       "scripts/lib/workflow-session-brain-panel-proof.mjs",
     ],
     "AG-HARNESS-014": [
@@ -588,11 +588,11 @@ function implementationRefsFor(rowId) {
       "scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs",
     ],
     "AG-HARNESS-017": [
-      "packages/agent-ide/src/runtime/workflow-structured-policy-composer.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-structured-policy-composer.ts",
       "scripts/lib/workflow-structured-policy-composer-proof.mjs",
     ],
     "AG-HARNESS-018": [
-      "packages/agent-ide/src/runtime/workflow-signed-replay-notebook.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-signed-replay-notebook.ts",
       "scripts/lib/workflow-signed-replay-notebook-proof.mjs",
     ],
   };

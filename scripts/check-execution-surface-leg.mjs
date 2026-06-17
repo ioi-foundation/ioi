@@ -54,7 +54,7 @@ const runtimeContracts = read("crates/types/src/app/runtime_contracts.rs");
 const toolContracts = read("crates/services/src/agentic/runtime/tools/contracts.rs");
 const chatTypes = read("crates/types/src/app/chat.rs");
 const developerDocs = read("apps/developers-ioi-ai/src/content/docs.tsx");
-const workflowController = read("packages/agent-ide/src/WorkflowComposer/controller.tsx");
+const workflowController = read("packages/hypervisor-workbench/src/WorkflowComposer/controller.tsx");
 
 assertText(
   "A1",
@@ -245,7 +245,7 @@ assertLane(
   "GUI and workflow substrate guardrails",
   workflowController.includes("Proposal blocked by runtime substrate") &&
     workflowController.includes("Run blocked by runtime substrate"),
-  ["packages/agent-ide/src/WorkflowComposer/controller.tsx"],
+  ["packages/hypervisor-workbench/src/WorkflowComposer/controller.tsx"],
   "workflow compositor can still fabricate durable truth after substrate adapter failure",
 );
 

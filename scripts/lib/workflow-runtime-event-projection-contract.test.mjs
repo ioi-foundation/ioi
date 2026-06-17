@@ -12,38 +12,38 @@ function read(relativePath) {
 
 test("React Flow runtime event projection consumes canonical Thread.events shape", () => {
   const projection = read(
-    "packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-event-projection.ts",
   );
-  const exports = read("packages/agent-ide/src/index.ts");
+  const exports = read("packages/hypervisor-workbench/src/index.ts");
   const typeTest = read(
-    "packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-event-projection.test.ts",
   );
   const controlNodes = read(
-    "packages/agent-ide/src/runtime/workflow-runtime-control-nodes.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-control-nodes.ts",
   );
   const usageControlNodes = read(
-    "packages/agent-ide/src/runtime/workflow-runtime-usage-control-nodes.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-usage-control-nodes.ts",
   );
   const contextBudgetControlNodes = read(
-    "packages/agent-ide/src/runtime/workflow-runtime-context-budget-control-nodes.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-context-budget-control-nodes.ts",
   );
   const codingToolControlNodes = read(
-    "packages/agent-ide/src/runtime/workflow-runtime-coding-tool-control-nodes.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-coding-tool-control-nodes.ts",
   );
   const codingToolBudgetRecoveryPolicy = read(
-    "packages/agent-ide/src/runtime/workflow-runtime-coding-tool-budget-recovery-policy.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-coding-tool-budget-recovery-policy.ts",
   );
   const codingToolBudgetRecoveryBinding = read(
-    "packages/agent-ide/src/runtime/workflow-runtime-coding-tool-budget-recovery-binding.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-coding-tool-budget-recovery-binding.ts",
   );
   const telemetryBudgetChainSubflow = read(
-    "packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-subflow.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-telemetry-budget-chain-subflow.ts",
   );
   const telemetryBudgetChainMaterialization = read(
-    "packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-materialization.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-telemetry-budget-chain-materialization.ts",
   );
   const telemetryBudgetChainMaterializationTest = read(
-    "packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-materialization.test.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-telemetry-budget-chain-materialization.test.ts",
   );
   const telemetryBudgetChainCreatorGuiProbe = read(
     "scripts/lib/workflow-telemetry-budget-chain-creator-gui-probe.mjs",
@@ -52,34 +52,34 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
     "scripts/lib/workflow-telemetry-budget-chain-run-inspector-probe.mjs",
   );
   const terminalCodingLoopSubflow = read(
-    "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-subflow.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-terminal-coding-loop-subflow.ts",
   );
   const terminalCodingLoopMaterialization = read(
-    "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-materialization.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-terminal-coding-loop-materialization.ts",
   );
   const terminalCodingLoopExecution = read(
-    "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-execution.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-terminal-coding-loop-execution.ts",
   );
   const terminalCodingLoopRunLaunch = read(
-    "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-run-launch.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-terminal-coding-loop-run-launch.ts",
   );
   const terminalCodingLoopSubflowTest = read(
-    "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-subflow.test.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-terminal-coding-loop-subflow.test.ts",
   );
   const terminalCodingLoopMaterializationTest = read(
-    "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-materialization.test.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-terminal-coding-loop-materialization.test.ts",
   );
   const terminalCodingLoopExecutionTest = read(
-    "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-execution.test.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-terminal-coding-loop-execution.test.ts",
   );
   const terminalCodingLoopRunLaunchTest = read(
-    "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-run-launch.test.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-terminal-coding-loop-run-launch.test.ts",
   );
   const terminalCodingLoopRunActivation = read(
-    "packages/agent-ide/src/WorkflowComposer/terminalCodingLoopRunActivation.ts",
+    "packages/hypervisor-workbench/src/WorkflowComposer/terminalCodingLoopRunActivation.ts",
   );
   const terminalCodingLoopRunActivationTest = read(
-    "packages/agent-ide/src/WorkflowComposer/terminalCodingLoopRunActivation.test.ts",
+    "packages/hypervisor-workbench/src/WorkflowComposer/terminalCodingLoopRunActivation.test.ts",
   );
   const terminalCodingLoopCreatorGuiProbe = read(
     "scripts/lib/workflow-terminal-coding-loop-creator-gui-probe.mjs",
@@ -106,7 +106,7 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
     "scripts/lib/workflow-computer-use-tri-lane-scorecard.test.mjs",
   );
   const telemetryBudgetChainRuntimeSubflowInsertion = read(
-    "packages/agent-ide/src/WorkflowComposer/runtimeSubflowInsertion.ts",
+    "packages/hypervisor-workbench/src/WorkflowComposer/runtimeSubflowInsertion.ts",
   );
   const guiHarnessContract = read(
     "scripts/lib/autopilot-gui-harness-contract.mjs",
@@ -118,74 +118,74 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
     "scripts/lib/live-runtime-daemon-contract.test.mjs",
   );
   const compactionPolicyControlNodes = read(
-    "packages/agent-ide/src/runtime/workflow-runtime-compaction-policy-control-nodes.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-compaction-policy-control-nodes.ts",
   );
   const controlNodesTest = read(
-    "packages/agent-ide/src/runtime/workflow-runtime-control-nodes.test.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-control-nodes.test.ts",
   );
   const usageControlNodesTest = read(
-    "packages/agent-ide/src/runtime/workflow-runtime-usage-control-nodes.test.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-usage-control-nodes.test.ts",
   );
   const contextBudgetControlNodesTest = read(
-    "packages/agent-ide/src/runtime/workflow-runtime-context-budget-control-nodes.test.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-context-budget-control-nodes.test.ts",
   );
   const codingToolControlNodesTest = read(
-    "packages/agent-ide/src/runtime/workflow-runtime-coding-tool-control-nodes.test.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-coding-tool-control-nodes.test.ts",
   );
   const compactionPolicyControlNodesTest = read(
-    "packages/agent-ide/src/runtime/workflow-runtime-compaction-policy-control-nodes.test.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-compaction-policy-control-nodes.test.ts",
   );
   const runHistoryModel = read(
-    "packages/agent-ide/src/runtime/workflow-run-history-model.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-run-history-model.ts",
   );
   const telemetrySummary = read(
-    "packages/agent-ide/src/runtime/workflow-runtime-telemetry-summary.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-telemetry-summary.ts",
   );
   const telemetrySourceBinding = read(
-    "packages/agent-ide/src/runtime/workflow-runtime-telemetry-source-binding.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-telemetry-source-binding.ts",
   );
   const telemetrySummaryTest = read(
-    "packages/agent-ide/src/runtime/workflow-runtime-telemetry-summary.test.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-telemetry-summary.test.ts",
   );
   const telemetrySourceBindingTest = read(
-    "packages/agent-ide/src/runtime/workflow-runtime-telemetry-source-binding.test.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-telemetry-source-binding.test.ts",
   );
   const runHistoryModelTest = read(
-    "packages/agent-ide/src/runtime/workflow-run-history-model.test.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-run-history-model.test.ts",
   );
   const readinessModel = read(
-    "packages/agent-ide/src/runtime/workflow-readiness-model.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-readiness-model.ts",
   );
   const readinessModelTest = read(
-    "packages/agent-ide/src/runtime/workflow-readiness-model.test.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-readiness-model.test.ts",
   );
   const codingToolBudgetRecoveryBindingTest = read(
-    "packages/agent-ide/src/runtime/workflow-runtime-coding-tool-budget-recovery-binding.test.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-coding-tool-budget-recovery-binding.test.ts",
   );
   const telemetryBudgetChainSubflowTest = read(
-    "packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-subflow.test.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-telemetry-budget-chain-subflow.test.ts",
   );
   const workflowValidation = read(
-    "packages/agent-ide/src/runtime/workflow-validation.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-validation.ts",
   );
   const readinessPanel = read(
-    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/readinessPanel.tsx",
+    "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/readinessPanel.tsx",
   );
   const runsPanel = read(
-    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx",
+    "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx",
   );
   const railPanel = read(
-    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/core.tsx",
+    "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/core.tsx",
   );
   const composerController = read(
-    "packages/agent-ide/src/WorkflowComposer/controller.tsx",
+    "packages/hypervisor-workbench/src/WorkflowComposer/controller.tsx",
   );
-  const composerView = read("packages/agent-ide/src/WorkflowComposer/view.tsx");
+  const composerView = read("packages/hypervisor-workbench/src/WorkflowComposer/view.tsx");
   const composerSupport = read(
-    "packages/agent-ide/src/WorkflowComposer/support.tsx",
+    "packages/hypervisor-workbench/src/WorkflowComposer/support.tsx",
   );
   const graphRuntimeTypes = read(
-    "packages/agent-ide/src/runtime/graph-runtime-types.ts",
+    "packages/hypervisor-workbench/src/runtime/graph-runtime-types.ts",
   );
   const tauriRuntime = read("apps/autopilot/src/services/TauriRuntime.ts");
 
@@ -1168,9 +1168,9 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(compactionPolicyControlNodes, /runtime_compaction_policy/);
   assert.match(compactionPolicyControlNodes, /\/v1\/threads\/\{threadId\}\/compaction-policy/);
   assert.match(compactionPolicyControlNodes, /RuntimeCompactionPolicy\.Evaluate/);
-  assert.match(read("packages/agent-ide/src/runtime/workflow-node-registry.ts"), /creatorId: "usage\.meter"/);
-  assert.match(read("packages/agent-ide/src/runtime/workflow-node-registry.ts"), /creatorId: "context\.budget"/);
-  assert.match(read("packages/agent-ide/src/runtime/workflow-node-registry.ts"), /creatorId: "compaction\.policy"/);
+  assert.match(read("packages/hypervisor-workbench/src/runtime/workflow-node-registry.ts"), /creatorId: "usage\.meter"/);
+  assert.match(read("packages/hypervisor-workbench/src/runtime/workflow-node-registry.ts"), /creatorId: "context\.budget"/);
+  assert.match(read("packages/hypervisor-workbench/src/runtime/workflow-node-registry.ts"), /creatorId: "compaction\.policy"/);
   assert.match(controlNodesTest, /React Flow daemon request/);
   assert.match(usageControlNodesTest, /workflow\.react-flow\.usage-meter-proof/);
   assert.match(contextBudgetControlNodesTest, /workflow\.react-flow\.context-budget-proof/);

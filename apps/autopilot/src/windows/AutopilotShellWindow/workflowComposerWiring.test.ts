@@ -39,72 +39,72 @@ const workflowsView = fs.readFileSync(
   "utf8",
 );
 const composer = [
-  "../../../../../packages/agent-ide/src/WorkflowComposer.tsx",
-  "../../../../../packages/agent-ide/src/WorkflowComposer/content.tsx",
-  "../../../../../packages/agent-ide/src/WorkflowComposer/support.tsx",
-  "../../../../../packages/agent-ide/src/WorkflowComposer/controller.tsx",
-  "../../../../../packages/agent-ide/src/WorkflowComposer/view.tsx",
+  "../../../../../packages/hypervisor-workbench/src/WorkflowComposer.tsx",
+  "../../../../../packages/hypervisor-workbench/src/WorkflowComposer/content.tsx",
+  "../../../../../packages/hypervisor-workbench/src/WorkflowComposer/support.tsx",
+  "../../../../../packages/hypervisor-workbench/src/WorkflowComposer/controller.tsx",
+  "../../../../../packages/hypervisor-workbench/src/WorkflowComposer/view.tsx",
 ]
   .map((path) => fs.readFileSync(new URL(path, import.meta.url), "utf8"))
   .join("\n");
 const workflowBottomShelf = fs.readFileSync(
   new URL(
-    "../../../../../packages/agent-ide/src/features/Workflows/WorkflowBottomShelf.tsx",
+    "../../../../../packages/hypervisor-workbench/src/features/Workflows/WorkflowBottomShelf.tsx",
     import.meta.url,
   ),
   "utf8",
 );
 const workflowNodeConfigModal = fs.readFileSync(
   new URL(
-    "../../../../../packages/agent-ide/src/features/Workflows/WorkflowNodeConfigModal.tsx",
+    "../../../../../packages/hypervisor-workbench/src/features/Workflows/WorkflowNodeConfigModal.tsx",
     import.meta.url,
   ),
   "utf8",
 );
 const workflowNodeConfigTypes = fs.readFileSync(
   new URL(
-    "../../../../../packages/agent-ide/src/features/Workflows/WorkflowNodeConfigTypes.ts",
+    "../../../../../packages/hypervisor-workbench/src/features/Workflows/WorkflowNodeConfigTypes.ts",
     import.meta.url,
   ),
   "utf8",
 );
 const workflowComposerModals = fs.readFileSync(
   new URL(
-    "../../../../../packages/agent-ide/src/features/Workflows/WorkflowComposerModals.tsx",
+    "../../../../../packages/hypervisor-workbench/src/features/Workflows/WorkflowComposerModals.tsx",
     import.meta.url,
   ),
   "utf8",
 );
 const workflowNodeBindingEditor = fs.readFileSync(
   new URL(
-    "../../../../../packages/agent-ide/src/features/Workflows/WorkflowNodeBindingEditor.tsx",
+    "../../../../../packages/hypervisor-workbench/src/features/Workflows/WorkflowNodeBindingEditor.tsx",
     import.meta.url,
   ),
   "utf8",
 );
 const workflowNodeBindingEditorSections = fs.readFileSync(
   new URL(
-    "../../../../../packages/agent-ide/src/features/Workflows/WorkflowNodeBindingEditor/sections.tsx",
+    "../../../../../packages/hypervisor-workbench/src/features/Workflows/WorkflowNodeBindingEditor/sections.tsx",
     import.meta.url,
   ),
   "utf8",
 );
 const workflowFunctionBindingEditor = fs.readFileSync(
   new URL(
-    "../../../../../packages/agent-ide/src/features/Workflows/WorkflowFunctionBindingEditor.tsx",
+    "../../../../../packages/hypervisor-workbench/src/features/Workflows/WorkflowFunctionBindingEditor.tsx",
     import.meta.url,
   ),
   "utf8",
 );
 const workflowNodeDetailGrid = fs.readFileSync(
   new URL(
-    "../../../../../packages/agent-ide/src/features/Workflows/WorkflowNodeDetailGrid.tsx",
+    "../../../../../packages/hypervisor-workbench/src/features/Workflows/WorkflowNodeDetailGrid.tsx",
     import.meta.url,
   ),
   "utf8",
 );
 const workflowRailPanelDir = new URL(
-  "../../../../../packages/agent-ide/src/features/Workflows/WorkflowRailPanel/",
+  "../../../../../packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/",
   import.meta.url,
 );
 const workflowRailPanel = fs
@@ -117,7 +117,7 @@ const workflowRailPanel = fs
   .join("\n");
 const workflowRailRunsPanel = fs.readFileSync(
   new URL(
-    "../../../../../packages/agent-ide/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx",
+    "../../../../../packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx",
     import.meta.url,
   ),
   "utf8",
@@ -131,23 +131,23 @@ const workflowRunCapabilityReceiptsProbe = fs.readFileSync(
 );
 const workflowRailReadinessPanel = fs.readFileSync(
   new URL(
-    "../../../../../packages/agent-ide/src/features/Workflows/WorkflowRailPanel/readinessPanel.tsx",
+    "../../../../../packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/readinessPanel.tsx",
     import.meta.url,
   ),
   "utf8",
 );
 const workflowComposerTypes = fs.readFileSync(
   new URL(
-    "../../../../../packages/agent-ide/src/WorkflowComposer/types.ts",
+    "../../../../../packages/hypervisor-workbench/src/WorkflowComposer/types.ts",
     import.meta.url,
   ),
   "utf8",
 );
 const workflowComposerCss = [
-  "../../../../../packages/agent-ide/src/WorkflowComposer.css",
-  "../../../../../packages/agent-ide/src/WorkflowComposer/styles/composer-shell.css",
-  "../../../../../packages/agent-ide/src/WorkflowComposer/styles/composer-panels.css",
-  "../../../../../packages/agent-ide/src/WorkflowComposer/styles/composer-modals.css",
+  "../../../../../packages/hypervisor-workbench/src/WorkflowComposer.css",
+  "../../../../../packages/hypervisor-workbench/src/WorkflowComposer/styles/composer-shell.css",
+  "../../../../../packages/hypervisor-workbench/src/WorkflowComposer/styles/composer-panels.css",
+  "../../../../../packages/hypervisor-workbench/src/WorkflowComposer/styles/composer-modals.css",
 ]
   .map((path) => fs.readFileSync(new URL(path, import.meta.url), "utf8"))
   .join("\n");
@@ -217,154 +217,154 @@ const autopilotMain = fs.readFileSync(
 const workflowComposerUi = `${composer}\n${workflowComposerModals}\n${workflowNodeConfigModal}\n${workflowNodeBindingEditor}\n${workflowNodeBindingEditorSections}\n${workflowFunctionBindingEditor}\n${workflowNodeDetailGrid}\n${workflowRailPanel}\n${workflowRailRunsPanel}\n${workflowRailReadinessPanel}\n${workflowBottomShelf}`;
 const templates = fs.readFileSync(
   new URL(
-    "../../../../../packages/agent-ide/src/workflowTemplates.ts",
+    "../../../../../packages/hypervisor-workbench/src/workflowTemplates.ts",
     import.meta.url,
   ),
   "utf8",
 );
 const harnessTools = fs.readFileSync(
   new URL(
-    "../../../../../packages/agent-ide/src/runtime/workflow-harness-tools.ts",
+    "../../../../../packages/hypervisor-workbench/src/runtime/workflow-harness-tools.ts",
     import.meta.url,
   ),
   "utf8",
 );
 const nodeRegistry = fs.readFileSync(
   new URL(
-    "../../../../../packages/agent-ide/src/runtime/workflow-node-registry.ts",
+    "../../../../../packages/hypervisor-workbench/src/runtime/workflow-node-registry.ts",
     import.meta.url,
   ),
   "utf8",
 );
 const scratchBlueprints = fs.readFileSync(
   new URL(
-    "../../../../../packages/agent-ide/src/runtime/workflow-scratch-blueprints.ts",
+    "../../../../../packages/hypervisor-workbench/src/runtime/workflow-scratch-blueprints.ts",
     import.meta.url,
   ),
   "utf8",
 );
 const workflowValidation = fs.readFileSync(
   new URL(
-    "../../../../../packages/agent-ide/src/runtime/workflow-validation.ts",
+    "../../../../../packages/hypervisor-workbench/src/runtime/workflow-validation.ts",
     import.meta.url,
   ),
   "utf8",
 );
 const workflowRailModel = fs.readFileSync(
   new URL(
-    "../../../../../packages/agent-ide/src/runtime/workflow-rail-model.ts",
+    "../../../../../packages/hypervisor-workbench/src/runtime/workflow-rail-model.ts",
     import.meta.url,
   ),
   "utf8",
 );
 const workflowSettingsModel = fs.readFileSync(
   new URL(
-    "../../../../../packages/agent-ide/src/runtime/workflow-settings-model.ts",
+    "../../../../../packages/hypervisor-workbench/src/runtime/workflow-settings-model.ts",
     import.meta.url,
   ),
   "utf8",
 );
 const workflowEntrypointsModel = fs.readFileSync(
   new URL(
-    "../../../../../packages/agent-ide/src/runtime/workflow-entrypoints-model.ts",
+    "../../../../../packages/hypervisor-workbench/src/runtime/workflow-entrypoints-model.ts",
     import.meta.url,
   ),
   "utf8",
 );
 const workflowFileBundleModel = fs.readFileSync(
   new URL(
-    "../../../../../packages/agent-ide/src/runtime/workflow-file-bundle-model.ts",
+    "../../../../../packages/hypervisor-workbench/src/runtime/workflow-file-bundle-model.ts",
     import.meta.url,
   ),
   "utf8",
 );
 const workflowReadinessModel = fs.readFileSync(
   new URL(
-    "../../../../../packages/agent-ide/src/runtime/workflow-readiness-model.ts",
+    "../../../../../packages/hypervisor-workbench/src/runtime/workflow-readiness-model.ts",
     import.meta.url,
   ),
   "utf8",
 );
 const workflowRunHistoryModel = fs.readFileSync(
   new URL(
-    "../../../../../packages/agent-ide/src/runtime/workflow-run-history-model.ts",
+    "../../../../../packages/hypervisor-workbench/src/runtime/workflow-run-history-model.ts",
     import.meta.url,
   ),
   "utf8",
 );
 const workflowRunCapabilityReceipts = fs.readFileSync(
   new URL(
-    "../../../../../packages/agent-ide/src/runtime/workflow-run-capability-receipts.ts",
+    "../../../../../packages/hypervisor-workbench/src/runtime/workflow-run-capability-receipts.ts",
     import.meta.url,
   ),
   "utf8",
 );
 const workflowModelInvocationTrace = fs.readFileSync(
   new URL(
-    "../../../../../packages/agent-ide/src/runtime/workflow-model-invocation-trace.ts",
+    "../../../../../packages/hypervisor-workbench/src/runtime/workflow-model-invocation-trace.ts",
     import.meta.url,
   ),
   "utf8",
 );
 const workflowComposerModel = fs.readFileSync(
   new URL(
-    "../../../../../packages/agent-ide/src/runtime/workflow-composer-model.ts",
+    "../../../../../packages/hypervisor-workbench/src/runtime/workflow-composer-model.ts",
     import.meta.url,
   ),
   "utf8",
 );
 const workflowBottomPanelModel = fs.readFileSync(
   new URL(
-    "../../../../../packages/agent-ide/src/runtime/workflow-bottom-panel-model.ts",
+    "../../../../../packages/hypervisor-workbench/src/runtime/workflow-bottom-panel-model.ts",
     import.meta.url,
   ),
   "utf8",
 );
 const workflowSchema = fs.readFileSync(
   new URL(
-    "../../../../../packages/agent-ide/src/runtime/workflow-schema.ts",
+    "../../../../../packages/hypervisor-workbench/src/runtime/workflow-schema.ts",
     import.meta.url,
   ),
   "utf8",
 );
 const workflowCodingRoutes = fs.readFileSync(
   new URL(
-    "../../../../../packages/agent-ide/src/runtime/workflow-coding-routes.ts",
+    "../../../../../packages/hypervisor-workbench/src/runtime/workflow-coding-routes.ts",
     import.meta.url,
   ),
   "utf8",
 );
 const workflowDefaults = fs.readFileSync(
   new URL(
-    "../../../../../packages/agent-ide/src/runtime/workflow-defaults.ts",
+    "../../../../../packages/hypervisor-workbench/src/runtime/workflow-defaults.ts",
     import.meta.url,
   ),
   "utf8",
 );
 const harnessWorkflow = fs.readFileSync(
   new URL(
-    "../../../../../packages/agent-ide/src/runtime/harness-workflow/core.ts",
+    "../../../../../packages/hypervisor-workbench/src/runtime/harness-workflow/core.ts",
     import.meta.url,
   ),
   "utf8",
 );
 const workflowFixtureModel = fs.readFileSync(
   new URL(
-    "../../../../../packages/agent-ide/src/runtime/workflow-fixture-model.ts",
+    "../../../../../packages/hypervisor-workbench/src/runtime/workflow-fixture-model.ts",
     import.meta.url,
   ),
   "utf8",
 );
 const graphTypes = fs.readFileSync(
   new URL(
-    "../../../../../packages/agent-ide/src/types/graph.ts",
+    "../../../../../packages/hypervisor-workbench/src/types/graph.ts",
     import.meta.url,
   ),
   "utf8",
 );
 const graphRuntimeTypes = fs.readFileSync(
   new URL(
-    "../../../../../packages/agent-ide/src/runtime/graph-runtime-types.ts",
+    "../../../../../packages/hypervisor-workbench/src/runtime/graph-runtime-types.ts",
     import.meta.url,
   ),
   "utf8",
@@ -430,49 +430,49 @@ const projectRuntime = [
   .join("\n");
 const graphState = fs.readFileSync(
   new URL(
-    "../../../../../packages/agent-ide/src/hooks/useGraphState.ts",
+    "../../../../../packages/hypervisor-workbench/src/hooks/useGraphState.ts",
     import.meta.url,
   ),
   "utf8",
 );
 const executionSubstrate = fs.readFileSync(
   new URL(
-    "../../../../../packages/agent-ide/src/runtime/runtime-projection-adapter.ts",
+    "../../../../../packages/hypervisor-workbench/src/runtime/runtime-projection-adapter.ts",
     import.meta.url,
   ),
   "utf8",
 );
 const canvasNode = fs.readFileSync(
   new URL(
-    "../../../../../packages/agent-ide/src/features/Editor/Canvas/Nodes/CanvasNode.tsx",
+    "../../../../../packages/hypervisor-workbench/src/features/Editor/Canvas/Nodes/CanvasNode.tsx",
     import.meta.url,
   ),
   "utf8",
 );
 const canvasNodeCss = fs.readFileSync(
   new URL(
-    "../../../../../packages/agent-ide/src/features/Editor/Canvas/Nodes/CanvasNode.css",
+    "../../../../../packages/hypervisor-workbench/src/features/Editor/Canvas/Nodes/CanvasNode.css",
     import.meta.url,
   ),
   "utf8",
 );
 const canvasEdge = fs.readFileSync(
   new URL(
-    "../../../../../packages/agent-ide/src/features/Editor/Canvas/Edges/CanvasEdge.tsx",
+    "../../../../../packages/hypervisor-workbench/src/features/Editor/Canvas/Edges/CanvasEdge.tsx",
     import.meta.url,
   ),
   "utf8",
 );
 const canvasEdgeCss = fs.readFileSync(
   new URL(
-    "../../../../../packages/agent-ide/src/features/Editor/Canvas/Edges/CanvasEdge.css",
+    "../../../../../packages/hypervisor-workbench/src/features/Editor/Canvas/Edges/CanvasEdge.css",
     import.meta.url,
   ),
   "utf8",
 );
 const graphExecution = fs.readFileSync(
   new URL(
-    "../../../../../packages/agent-ide/src/hooks/useGraphExecution.ts",
+    "../../../../../packages/hypervisor-workbench/src/hooks/useGraphExecution.ts",
     import.meta.url,
   ),
   "utf8",
@@ -496,8 +496,8 @@ const escapeRegExp = (value: string) =>
 
 assert.match(
   operatorSubstrateModel,
-  /RAIL_VIEW_ORDER: PrimaryView\[\] = \[[\s\S]*"workspace"[\s\S]*"workflows"[\s\S]*"runs"/,
-  "Workflows should sit after Workspace and before Runs in the activity bar",
+  /HYPERVISOR_SURFACE_PRIMARY_VIEW_ROUTES[\s\S]*workbench: "workspace"[\s\S]*automations: "workflows"[\s\S]*insights: "runs"/,
+  "Automations should sit after Workbench and before Insights in the activity bar",
 );
 
 assert.match(
@@ -1478,7 +1478,7 @@ assert.match(
 );
 
 assert.match(
-  `${workflowRailModel}\n${fs.readFileSync(new URL("../../../../../packages/agent-ide/src/runtime/workflow-rail-search-model.ts", import.meta.url), "utf8")}`,
+  `${workflowRailModel}\n${fs.readFileSync(new URL("../../../../../packages/hypervisor-workbench/src/runtime/workflow-rail-search-model.ts", import.meta.url), "utf8")}`,
   /workflowRailSearchResults[\s\S]*workflowSelectedNodeBindingSummary[\s\S]*resultKind: "Node"[\s\S]*resultKind: "Test"[\s\S]*resultKind: "Output"[\s\S]*workflowRailSearchModel[\s\S]*actionable/,
   "Search rail indexing should live in the extracted rail model",
 );

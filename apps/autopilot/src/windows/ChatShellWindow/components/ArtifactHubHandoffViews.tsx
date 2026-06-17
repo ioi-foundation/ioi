@@ -2,7 +2,7 @@ import {
   formatSessionTimeAgo,
   type AssistantWorkbenchActivity,
   type AssistantWorkbenchSession,
-} from "@ioi/agent-ide";
+} from "@ioi/hypervisor-workbench";
 import type {
   WorkspaceCommitResult,
   WorkspaceSourceControlState,

@@ -2,7 +2,7 @@ import {
   type ConnectorActionDefinition,
   type ConnectorSummary,
   type RuntimeCatalogEntry,
-} from "@ioi/agent-ide";
+} from "@ioi/hypervisor-workbench";
 import { listenIfHostBridge as listen } from "../../../services/hostListeners";
 import {
   useCallback,

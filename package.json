@@ -109,7 +109,7 @@
     "verify:benchmarks-generated": "node ./scripts/verify-benchmarks-generated.mjs",
     "verify:benchmarks": "npm run test:benchmarks && npm run typecheck:benchmarks && npm run verify:benchmarks-generated",
     "typecheck:benchmarks": "npm run typecheck --workspace=apps/benchmarks",
-    "build:workbench": "npm run build --workspace=@ioi/agent-ide",
+    "build:workbench": "npm run build --workspace=@ioi/hypervisor-workbench",
     "build:workspace-substrate": "npm run build --workspace=@ioi/workspace-substrate",
     "build:all": "npm run build --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",

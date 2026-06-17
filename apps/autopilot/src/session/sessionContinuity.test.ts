@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import type { SessionControllerReplTarget } from "@ioi/agent-ide";
+import type { SessionControllerReplTarget } from "@ioi/hypervisor-workbench";
 import type { AgentTask } from "../types";
 import {
   buildSessionContinuityOverview,

@@ -4,7 +4,7 @@ import {
   type ConnectorActionDefinition,
   type ConnectorSummary,
   type RuntimeCatalogEntry,
-} from "@ioi/agent-ide";
+} from "@ioi/hypervisor-workbench";
 import {
   openCompanionAutopilotIntent,
   openCompanionCapabilityActions,

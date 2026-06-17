@@ -10,7 +10,7 @@ if (!outputPath || !sourceProofPath) {
 }
 
 const { buildWorkflowAuthorityBoundaryVisualizer } = await import(
-  "../../packages/agent-ide/src/runtime/workflow-authority-boundary-visualizer.ts"
+  "../../packages/hypervisor-workbench/src/runtime/workflow-authority-boundary-visualizer.ts"
 );
 
 const sandboxProof = JSON.parse(fs.readFileSync(sourceProofPath, "utf8"));

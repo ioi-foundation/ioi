@@ -1,6 +1,6 @@
 import {
   createNormalizedChatSessionStore,
-} from "@ioi/agent-ide";
+} from "@ioi/hypervisor-workbench";
 import type {
   AgentTask,
   AgentEvent,

@@ -9,7 +9,7 @@ if (!outputPath) {
 }
 
 const { buildWorkflowMigrationAssistantPlan } = await import(
-  "../../packages/agent-ide/src/runtime/workflow-migration-assistant.ts"
+  "../../packages/hypervisor-workbench/src/runtime/workflow-migration-assistant.ts"
 );
 
 const packageJsonPath = "apps/autopilot/openvscode-extension/ioi-workbench/package.json";

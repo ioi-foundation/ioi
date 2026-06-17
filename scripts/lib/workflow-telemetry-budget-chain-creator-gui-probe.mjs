@@ -2,23 +2,23 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-import { workflowRuntimeSubflowReactFlowElements } from "../../packages/agent-ide/src/WorkflowComposer/runtimeSubflowInsertion.ts";
-import { makeDefaultWorkflow } from "../../packages/agent-ide/src/runtime/workflow-defaults.ts";
+import { workflowRuntimeSubflowReactFlowElements } from "../../packages/hypervisor-workbench/src/WorkflowComposer/runtimeSubflowInsertion.ts";
+import { makeDefaultWorkflow } from "../../packages/hypervisor-workbench/src/runtime/workflow-defaults.ts";
 import {
   evaluateWorkflowActivationReadiness,
   validateWorkflowProject,
-} from "../../packages/agent-ide/src/runtime/workflow-validation.ts";
-import { createRuntimeCodingToolControlRequestFromWorkflowNode } from "../../packages/agent-ide/src/runtime/workflow-runtime-coding-tool-control-nodes.ts";
-import { createRuntimeCompactionPolicyControlRequestFromWorkflowNode } from "../../packages/agent-ide/src/runtime/workflow-runtime-compaction-policy-control-nodes.ts";
-import { createRuntimeContextBudgetControlRequestFromWorkflowNode } from "../../packages/agent-ide/src/runtime/workflow-runtime-context-budget-control-nodes.ts";
+} from "../../packages/hypervisor-workbench/src/runtime/workflow-validation.ts";
+import { createRuntimeCodingToolControlRequestFromWorkflowNode } from "../../packages/hypervisor-workbench/src/runtime/workflow-runtime-coding-tool-control-nodes.ts";
+import { createRuntimeCompactionPolicyControlRequestFromWorkflowNode } from "../../packages/hypervisor-workbench/src/runtime/workflow-runtime-compaction-policy-control-nodes.ts";
+import { createRuntimeContextBudgetControlRequestFromWorkflowNode } from "../../packages/hypervisor-workbench/src/runtime/workflow-runtime-context-budget-control-nodes.ts";
 import {
   createWorkflowRuntimeTelemetryBudgetChainTemplateSubflow,
-} from "../../packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-subflow.ts";
+} from "../../packages/hypervisor-workbench/src/runtime/workflow-runtime-telemetry-budget-chain-subflow.ts";
 import {
   bindWorkflowRuntimeTelemetrySourceToWorkflow,
   workflowRuntimeTelemetrySourceBindingIssue,
-} from "../../packages/agent-ide/src/runtime/workflow-runtime-telemetry-source-binding.ts";
-import { createRuntimeUsageMeterControlRequestFromWorkflowNode } from "../../packages/agent-ide/src/runtime/workflow-runtime-usage-control-nodes.ts";
+} from "../../packages/hypervisor-workbench/src/runtime/workflow-runtime-telemetry-source-binding.ts";
+import { createRuntimeUsageMeterControlRequestFromWorkflowNode } from "../../packages/hypervisor-workbench/src/runtime/workflow-runtime-usage-control-nodes.ts";
 
 const outputPath = process.argv[2];
 if (!outputPath) {
@@ -155,11 +155,11 @@ function requestCompilationChecks(subflow) {
   };
 }
 
-const controller = read("packages/agent-ide/src/WorkflowComposer/controller.tsx");
-const view = read("packages/agent-ide/src/WorkflowComposer/view.tsx");
-const insertion = read("packages/agent-ide/src/WorkflowComposer/runtimeSubflowInsertion.ts");
+const controller = read("packages/hypervisor-workbench/src/WorkflowComposer/controller.tsx");
+const view = read("packages/hypervisor-workbench/src/WorkflowComposer/view.tsx");
+const insertion = read("packages/hypervisor-workbench/src/WorkflowComposer/runtimeSubflowInsertion.ts");
 const compositionHelpers = read(
-  "packages/agent-ide/src/runtime/workflow-composition-helpers.ts",
+  "packages/hypervisor-workbench/src/runtime/workflow-composition-helpers.ts",
 );
 
 const subflow = createWorkflowRuntimeTelemetryBudgetChainTemplateSubflow({
@@ -328,13 +328,13 @@ const proof = {
     })),
   },
   sourceRefs: [
-    "packages/agent-ide/src/WorkflowComposer/view.tsx",
-    "packages/agent-ide/src/WorkflowComposer/controller.tsx",
-    "packages/agent-ide/src/WorkflowComposer/runtimeSubflowInsertion.ts",
-    "packages/agent-ide/src/runtime/workflow-composition-helpers.ts",
-    "packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-subflow.ts",
-    "packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-subflow.test.ts",
-    "packages/agent-ide/src/runtime/workflow-validation.ts",
+    "packages/hypervisor-workbench/src/WorkflowComposer/view.tsx",
+    "packages/hypervisor-workbench/src/WorkflowComposer/controller.tsx",
+    "packages/hypervisor-workbench/src/WorkflowComposer/runtimeSubflowInsertion.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-composition-helpers.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-telemetry-budget-chain-subflow.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-telemetry-budget-chain-subflow.test.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-validation.ts",
   ],
 };
 

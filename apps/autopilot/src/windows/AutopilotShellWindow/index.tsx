@@ -17,7 +17,7 @@ import { markAutopilotMetric } from "../../services/workspacePerf";
 import { AutopilotShellContent } from "./components/AutopilotShellContent";
 import { useAutopilotShellController } from "./useAutopilotShellController";
 
-import "@ioi/agent-ide/dist/style.css";
+import "@ioi/hypervisor-workbench/dist/style.css";
 import "../shared/AssistantWorkbench.css";
 import "./AutopilotShellWindow.css";
 

@@ -226,7 +226,7 @@ Objects:
 ## Phase 7.5 — Daemon-backed CLI/headless Operator Controls
 
 Goal: the terminal/headless operator client can control the same daemon
-substrate as SDK, agent-ide, Hypervisor App/Web, application surfaces,
+substrate as SDK, hypervisor-workbench, Hypervisor App/Web, application surfaces,
 harnesses, and benchmarks. TUI is an optional presentation over this client,
 not a separate runtime lane.
 

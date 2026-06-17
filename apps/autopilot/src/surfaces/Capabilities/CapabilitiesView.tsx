@@ -1,6 +1,6 @@
 import type {
   ConnectorSummary,
-} from "@ioi/agent-ide";
+} from "@ioi/hypervisor-workbench";
 import type { ChatCapabilityDetailSection } from "../../types";
 import { useEffect } from "react";
 import { type HypervisorClientRuntime } from "../../services/HypervisorClientRuntime";

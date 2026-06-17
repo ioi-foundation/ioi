@@ -2,17 +2,17 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-import { workflowRuntimeSubflowReactFlowElements } from "../../packages/agent-ide/src/WorkflowComposer/runtimeSubflowInsertion.ts";
-import { makeDefaultWorkflow } from "../../packages/agent-ide/src/runtime/workflow-defaults.ts";
+import { workflowRuntimeSubflowReactFlowElements } from "../../packages/hypervisor-workbench/src/WorkflowComposer/runtimeSubflowInsertion.ts";
+import { makeDefaultWorkflow } from "../../packages/hypervisor-workbench/src/runtime/workflow-defaults.ts";
 import {
   evaluateWorkflowActivationReadiness,
   validateWorkflowProject,
-} from "../../packages/agent-ide/src/runtime/workflow-validation.ts";
-import { createRuntimeCodingToolControlRequestFromWorkflowNode } from "../../packages/agent-ide/src/runtime/workflow-runtime-coding-tool-control-nodes.ts";
+} from "../../packages/hypervisor-workbench/src/runtime/workflow-validation.ts";
+import { createRuntimeCodingToolControlRequestFromWorkflowNode } from "../../packages/hypervisor-workbench/src/runtime/workflow-runtime-coding-tool-control-nodes.ts";
 import {
   WORKFLOW_RUNTIME_TERMINAL_CODING_LOOP_STEPS,
   createWorkflowRuntimeTerminalCodingLoopTemplateSubflow,
-} from "../../packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-subflow.ts";
+} from "../../packages/hypervisor-workbench/src/runtime/workflow-runtime-terminal-coding-loop-subflow.ts";
 
 const outputPath = process.argv[2];
 if (!outputPath) {
@@ -87,11 +87,11 @@ function requestCompilationChecks(subflow) {
   };
 }
 
-const controller = read("packages/agent-ide/src/WorkflowComposer/controller.tsx");
-const view = read("packages/agent-ide/src/WorkflowComposer/view.tsx");
-const insertion = read("packages/agent-ide/src/WorkflowComposer/runtimeSubflowInsertion.ts");
+const controller = read("packages/hypervisor-workbench/src/WorkflowComposer/controller.tsx");
+const view = read("packages/hypervisor-workbench/src/WorkflowComposer/view.tsx");
+const insertion = read("packages/hypervisor-workbench/src/WorkflowComposer/runtimeSubflowInsertion.ts");
 const compositionHelpers = read(
-  "packages/agent-ide/src/runtime/workflow-composition-helpers.ts",
+  "packages/hypervisor-workbench/src/runtime/workflow-composition-helpers.ts",
 );
 
 const subflow = createWorkflowRuntimeTerminalCodingLoopTemplateSubflow({
@@ -187,12 +187,12 @@ const proof = {
   requestChecks,
   checks,
   sourceRefs: [
-    "packages/agent-ide/src/WorkflowComposer/view.tsx",
-    "packages/agent-ide/src/WorkflowComposer/controller.tsx",
-    "packages/agent-ide/src/WorkflowComposer/runtimeSubflowInsertion.ts",
-    "packages/agent-ide/src/runtime/workflow-composition-helpers.ts",
-    "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-subflow.ts",
-    "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-subflow.test.ts",
+    "packages/hypervisor-workbench/src/WorkflowComposer/view.tsx",
+    "packages/hypervisor-workbench/src/WorkflowComposer/controller.tsx",
+    "packages/hypervisor-workbench/src/WorkflowComposer/runtimeSubflowInsertion.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-composition-helpers.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-terminal-coding-loop-subflow.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-terminal-coding-loop-subflow.test.ts",
   ],
 };
 

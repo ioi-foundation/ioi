@@ -638,11 +638,11 @@ test("controlled substrate surfaces expose inspection target attributes", () => 
     "utf8",
   );
   const composer = readFileSync(
-    "packages/agent-ide/src/WorkflowComposer/view.tsx",
+    "packages/hypervisor-workbench/src/WorkflowComposer/view.tsx",
     "utf8",
   );
   const canvasNode = readFileSync(
-    "packages/agent-ide/src/features/Editor/Canvas/Nodes/CanvasNode.tsx",
+    "packages/hypervisor-workbench/src/features/Editor/Canvas/Nodes/CanvasNode.tsx",
     "utf8",
   );
 

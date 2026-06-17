@@ -11,7 +11,7 @@ import {
   openChatSettings,
   openChatShellView,
 } from "./chatShellNavigation";
-import { showGateShell } from "@ioi/agent-ide";
+import { showGateShell } from "@ioi/hypervisor-workbench";
 
 export async function openCompanionChat() {
   await openChatShell();

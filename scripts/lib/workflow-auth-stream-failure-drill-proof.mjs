@@ -12,7 +12,7 @@ if (!outputPath) {
 }
 
 const { buildWorkflowAuthStreamFailurePanel } = await import(
-  "../../packages/agent-ide/src/runtime/workflow-auth-stream-failure-panel.ts"
+  "../../packages/hypervisor-workbench/src/runtime/workflow-auth-stream-failure-panel.ts"
 );
 
 async function requestJson(endpoint, route, { method = "GET", body, token, headers = {} } = {}) {

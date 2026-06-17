@@ -9,7 +9,7 @@ if (!outputPath) {
 }
 
 const { buildWorkflowCodeExecutionCardPanel } = await import(
-  "../../packages/agent-ide/src/runtime/workflow-code-execution-card.ts"
+  "../../packages/hypervisor-workbench/src/runtime/workflow-code-execution-card.ts"
 );
 
 const extensionSource = fs.readFileSync(

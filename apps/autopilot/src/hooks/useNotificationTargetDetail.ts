@@ -2,7 +2,7 @@ import { invoke } from "../services/hypervisorHostBridge";
 import type {
   ConnectorActionResult,
   ConnectorSubscriptionSummary,
-} from "@ioi/agent-ide";
+} from "@ioi/hypervisor-workbench";
 import { useEffect, useState } from "react";
 import {
   notificationTargetCalendarId,

@@ -35,7 +35,7 @@ function collectProbeProof(
         ...process.env,
         TSX_TSCONFIG_PATH: resolve(
           repoRoot,
-          "packages/agent-ide/tsconfig.json",
+          "packages/hypervisor-workbench/tsconfig.json",
         ),
       },
       timeout,
@@ -231,11 +231,11 @@ export function collectWorkflowComputerUseTriLaneScorecard(
 
 export function collectWorkflowSkillContextProof(outputRoot) {
   const files = {
-    graphTypes: "packages/agent-ide/src/types/graph.ts",
-    nodeRegistry: "packages/agent-ide/src/runtime/workflow-node-registry.ts",
+    graphTypes: "packages/hypervisor-workbench/src/types/graph.ts",
+    nodeRegistry: "packages/hypervisor-workbench/src/runtime/workflow-node-registry.ts",
     bindingSections:
-      "packages/agent-ide/src/features/Workflows/WorkflowNodeBindingEditor/sections.tsx",
-    harnessTools: "packages/agent-ide/src/runtime/workflow-harness-tools.ts",
+      "packages/hypervisor-workbench/src/features/Workflows/WorkflowNodeBindingEditor/sections.tsx",
+    harnessTools: "packages/hypervisor-workbench/src/runtime/workflow-harness-tools.ts",
     tauriRuntime: "apps/autopilot/src/services/TauriRuntime.ts",
     projectRuntime: "apps/autopilot/src-tauri/src/project/runtime.rs",
     projectWorkflowSchedulerLane:
@@ -312,10 +312,10 @@ export function collectWorkflowSkillContextProof(outputRoot) {
 
 export function collectWorkflowCodingRouteProof(outputRoot) {
   const files = {
-    graphTypes: "packages/agent-ide/src/types/graph.ts",
-    graphRuntimeTypes: "packages/agent-ide/src/runtime/graph-runtime-types.ts",
-    routeCatalog: "packages/agent-ide/src/runtime/workflow-coding-routes.ts",
-    harnessTools: "packages/agent-ide/src/runtime/workflow-harness-tools.ts",
+    graphTypes: "packages/hypervisor-workbench/src/types/graph.ts",
+    graphRuntimeTypes: "packages/hypervisor-workbench/src/runtime/graph-runtime-types.ts",
+    routeCatalog: "packages/hypervisor-workbench/src/runtime/workflow-coding-routes.ts",
+    harnessTools: "packages/hypervisor-workbench/src/runtime/workflow-harness-tools.ts",
     tauriRuntime: "apps/autopilot/src/services/TauriRuntime.ts",
     projectTemplates: "apps/autopilot/src-tauri/src/project/templates.rs",
     projectRuntime: "apps/autopilot/src-tauri/src/project/runtime.rs",
@@ -413,9 +413,9 @@ export function collectWorkflowCodingRouteProof(outputRoot) {
 
 export function collectWorkflowCodingRoutePromotionLoopProof(outputRoot) {
   const files = {
-    graphTypes: "packages/agent-ide/src/types/graph.ts",
-    routeCatalog: "packages/agent-ide/src/runtime/workflow-coding-routes.ts",
-    bottomShelf: "packages/agent-ide/src/features/Workflows/WorkflowBottomShelf.tsx",
+    graphTypes: "packages/hypervisor-workbench/src/types/graph.ts",
+    routeCatalog: "packages/hypervisor-workbench/src/runtime/workflow-coding-routes.ts",
+    bottomShelf: "packages/hypervisor-workbench/src/features/Workflows/WorkflowBottomShelf.tsx",
     tauriRuntime: "apps/autopilot/src/services/TauriRuntime.ts",
     projectTemplates: "apps/autopilot/src-tauri/src/project/templates.rs",
     projectRuntime: "apps/autopilot/src-tauri/src/project/runtime.rs",

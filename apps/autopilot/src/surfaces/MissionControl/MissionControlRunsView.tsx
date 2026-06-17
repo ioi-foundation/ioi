@@ -1,4 +1,4 @@
-import { FleetView } from "@ioi/agent-ide";
+import { FleetView } from "@ioi/hypervisor-workbench";
 import { HypervisorClientRuntime } from "../../services/HypervisorClientRuntime";
 
 interface MissionControlRunsViewProps {

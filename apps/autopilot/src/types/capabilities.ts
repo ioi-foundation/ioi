@@ -1,4 +1,4 @@
-import type { ConnectorSummary } from "./agent-ide";
+import type { ConnectorSummary } from "./hypervisor-workbench";
 import type { SkillCatalogEntry } from "./generated";
 import type {
   SkillSourceDiscoveredSkill,

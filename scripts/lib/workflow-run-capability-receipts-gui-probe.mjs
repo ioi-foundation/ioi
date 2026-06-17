@@ -5,8 +5,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 globalThis.React = React;
 
-import { WorkflowRunsPanel } from "../../packages/agent-ide/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx";
-import { workflowRunHistoryModel } from "../../packages/agent-ide/src/runtime/workflow-run-history-model.ts";
+import { WorkflowRunsPanel } from "../../packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx";
+import { workflowRunHistoryModel } from "../../packages/hypervisor-workbench/src/runtime/workflow-run-history-model.ts";
 
 const outputPath = process.argv[2];
 if (!outputPath) {

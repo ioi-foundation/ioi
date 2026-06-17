@@ -22,18 +22,18 @@ import {
   syncWorkbenchExtensionTargets,
 } from "./autopilot-electron-app-paths.mjs";
 import { applyAutopilotWorkbenchShellPatch } from "./autopilot-workbench-shell-patch.mjs";
-import { buildWorkflowSafeModeToolSuppressionPanel } from "../../packages/agent-ide/src/runtime/workflow-safe-mode-tool-suppression.ts";
-import { buildWorkflowOnboardingDiagnosticsChecklist } from "../../packages/agent-ide/src/runtime/workflow-onboarding-diagnostics-checklist.ts";
-import { buildWorkflowGatewayTokenHygienePanel } from "../../packages/agent-ide/src/runtime/workflow-gateway-token-hygiene.ts";
-import { buildWorkflowSandboxResourceLimitPanel } from "../../packages/agent-ide/src/runtime/workflow-sandbox-resource-limits.ts";
-import { buildWorkflowParentTrajectoryLinkagePanel } from "../../packages/agent-ide/src/runtime/workflow-parent-trajectory-linkage.ts";
-import { buildWorkflowBattleModePermissionImportPanel } from "../../packages/agent-ide/src/runtime/workflow-battle-mode-permission-import.ts";
-import { buildWorkflowImportedStopHookGatePanel } from "../../packages/agent-ide/src/runtime/workflow-imported-stop-hook-gates.ts";
-import { buildWorkflowImportedBrowserActionEvidencePanel } from "../../packages/agent-ide/src/runtime/workflow-imported-browser-action-evidence.ts";
-import { buildWorkflowImportedExecutorConfigPanel } from "../../packages/agent-ide/src/runtime/workflow-imported-executor-config.ts";
-import { buildWorkflowImportedPolicyDraft } from "../../packages/agent-ide/src/runtime/workflow-imported-policy-draft.ts";
-import { buildWorkflowImportedGenerationMetadataPanel } from "../../packages/agent-ide/src/runtime/workflow-imported-generation-metadata.ts";
-import { buildWorkflowImportedErrorRenderInfoPanel } from "../../packages/agent-ide/src/runtime/workflow-imported-error-render-info.ts";
+import { buildWorkflowSafeModeToolSuppressionPanel } from "../../packages/hypervisor-workbench/src/runtime/workflow-safe-mode-tool-suppression.ts";
+import { buildWorkflowOnboardingDiagnosticsChecklist } from "../../packages/hypervisor-workbench/src/runtime/workflow-onboarding-diagnostics-checklist.ts";
+import { buildWorkflowGatewayTokenHygienePanel } from "../../packages/hypervisor-workbench/src/runtime/workflow-gateway-token-hygiene.ts";
+import { buildWorkflowSandboxResourceLimitPanel } from "../../packages/hypervisor-workbench/src/runtime/workflow-sandbox-resource-limits.ts";
+import { buildWorkflowParentTrajectoryLinkagePanel } from "../../packages/hypervisor-workbench/src/runtime/workflow-parent-trajectory-linkage.ts";
+import { buildWorkflowBattleModePermissionImportPanel } from "../../packages/hypervisor-workbench/src/runtime/workflow-battle-mode-permission-import.ts";
+import { buildWorkflowImportedStopHookGatePanel } from "../../packages/hypervisor-workbench/src/runtime/workflow-imported-stop-hook-gates.ts";
+import { buildWorkflowImportedBrowserActionEvidencePanel } from "../../packages/hypervisor-workbench/src/runtime/workflow-imported-browser-action-evidence.ts";
+import { buildWorkflowImportedExecutorConfigPanel } from "../../packages/hypervisor-workbench/src/runtime/workflow-imported-executor-config.ts";
+import { buildWorkflowImportedPolicyDraft } from "../../packages/hypervisor-workbench/src/runtime/workflow-imported-policy-draft.ts";
+import { buildWorkflowImportedGenerationMetadataPanel } from "../../packages/hypervisor-workbench/src/runtime/workflow-imported-generation-metadata.ts";
+import { buildWorkflowImportedErrorRenderInfoPanel } from "../../packages/hypervisor-workbench/src/runtime/workflow-imported-error-render-info.ts";
 
 const repoRoot = AUTOPILOT_ELECTRON.repoRoot;
 const evidenceRoot =

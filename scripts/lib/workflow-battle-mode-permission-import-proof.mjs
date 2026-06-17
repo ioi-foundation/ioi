@@ -9,7 +9,7 @@ if (!outputPath) {
 }
 
 const { buildWorkflowBattleModePermissionImportPanel } = await import(
-  "../../packages/agent-ide/src/runtime/workflow-battle-mode-permission-import.ts"
+  "../../packages/hypervisor-workbench/src/runtime/workflow-battle-mode-permission-import.ts"
 );
 
 const panel = buildWorkflowBattleModePermissionImportPanel({

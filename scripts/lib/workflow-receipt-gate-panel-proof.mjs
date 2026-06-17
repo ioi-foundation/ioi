@@ -12,7 +12,7 @@ if (!outputPath) {
 }
 
 const { buildWorkflowReceiptGatePanel } = await import(
-  "../../packages/agent-ide/src/runtime/workflow-receipt-gate-panel.ts"
+  "../../packages/hypervisor-workbench/src/runtime/workflow-receipt-gate-panel.ts"
 );
 
 async function requestJson(baseUrl, route, { method = "GET", token, body } = {}) {

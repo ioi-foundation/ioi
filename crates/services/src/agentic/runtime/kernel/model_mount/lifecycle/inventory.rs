@@ -149,7 +149,25 @@ struct HostedProviderCatalogTransportBinding {
     request_hash: String,
     response_hash: String,
     status: String,
-    auth_bound: bool,
+    provider_auth_materialization_ref: String,
+    outbound_header_binding_ref: String,
+    auth_header_materialization_status: String,
+    ctee_egress_resolver_ref: String,
+    ctee_egress_resolver_hash: String,
+    ctee_egress_resolution_status: String,
+    ctee_outbound_secret_injection_ref: String,
+    ctee_outbound_secret_injection_hash: String,
+    ctee_outbound_secret_injection_status: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct HostedProviderCatalogSecretInjectionBinding {
+    provider_auth_materialization_ref: String,
+    outbound_header_binding_ref: String,
+    auth_header_materialization_status: String,
+    ctee_egress_resolver_ref: String,
+    ctee_egress_resolver_hash: String,
+    ctee_egress_resolution_status: String,
 }
 
 fn provider_inventory_operation_kind(request: &ModelMountProviderInventoryRequest) -> String {
@@ -278,34 +296,45 @@ fn hosted_provider_catalog_transport(
         .ok_or(ModelMountError::HostedProviderInvocationMissingEndpointUrl)?;
     let path = hosted_provider_catalog_path(request);
     let url = hosted_provider_catalog_url(base_url, path);
+    let secret_injection = hosted_provider_catalog_secret_injection_binding(request)?;
     let client = reqwest::blocking::Client::builder()
         .timeout(Duration::from_secs(30))
         .build()
         .map_err(|error| {
             ModelMountError::HostedProviderTransportExecutionFailed(error.to_string())
         })?;
-    let mut builder = client
+    let builder = client
         .get(url)
         .header("accept", "application/json")
-        .header("x-ioi-ctee-secret-custody", "no-plaintext");
-    if let Some(value) = trimmed_option(&request.provider_auth_materialization_ref) {
-        builder = builder.header("x-ioi-provider-auth-materialization-ref", value);
-    }
-    if let Some(value) = trimmed_option(&request.outbound_header_binding_ref) {
-        builder = builder.header("x-ioi-outbound-header-binding-ref", value);
-    }
-    if let Some(value) = trimmed_option(&request.auth_header_materialization_status) {
-        builder = builder.header("x-ioi-auth-header-materialization-status", value);
-    }
-    if let Some(value) = trimmed_option(&request.ctee_egress_resolver_ref) {
-        builder = builder.header("x-ioi-ctee-egress-resolver-ref", value);
-    }
-    if let Some(value) = trimmed_option(&request.ctee_egress_resolver_hash) {
-        builder = builder.header("x-ioi-ctee-egress-resolver-hash", value);
-    }
-    if let Some(value) = trimmed_option(&request.ctee_egress_resolution_status) {
-        builder = builder.header("x-ioi-ctee-egress-resolution-status", value);
-    }
+        .header("x-ioi-ctee-secret-custody", "no-plaintext")
+        .header(
+            "x-ioi-provider-auth-materialization-ref",
+            &secret_injection.provider_auth_materialization_ref,
+        )
+        .header(
+            "x-ioi-outbound-header-binding-ref",
+            &secret_injection.outbound_header_binding_ref,
+        )
+        .header(
+            "x-ioi-auth-header-materialization-status",
+            &secret_injection.auth_header_materialization_status,
+        )
+        .header(
+            "x-ioi-ctee-egress-resolver-ref",
+            &secret_injection.ctee_egress_resolver_ref,
+        )
+        .header(
+            "x-ioi-ctee-egress-resolver-hash",
+            &secret_injection.ctee_egress_resolver_hash,
+        )
+        .header(
+            "x-ioi-ctee-egress-resolution-status",
+            &secret_injection.ctee_egress_resolution_status,
+        )
+        .header(
+            "x-ioi-ctee-outbound-secret-injection-status",
+            "rust_ctee_outbound_secret_injection_bound",
+        );
     let response = builder.send().map_err(|error| {
         ModelMountError::HostedProviderTransportExecutionFailed(error.to_string())
     })?;
@@ -319,8 +348,13 @@ fn hosted_provider_catalog_transport(
         ));
     }
     let item_refs = hosted_provider_catalog_item_refs(request, provider, &response_text)?;
-    let transport =
-        hosted_provider_catalog_transport_binding(request, base_url, path, &response_text)?;
+    let transport = hosted_provider_catalog_transport_binding(
+        request,
+        base_url,
+        path,
+        &response_text,
+        &secret_injection,
+    )?;
     Ok(ProviderInventoryMaterialization {
         item_refs,
         transport: Some(transport),
@@ -391,12 +425,10 @@ fn hosted_provider_catalog_transport_binding(
     base_url: &str,
     path: &str,
     response_text: &str,
+    secret_injection: &HostedProviderCatalogSecretInjectionBinding,
 ) -> Result<HostedProviderCatalogTransportBinding, ModelMountError> {
     let base_url_hash = format!("sha256:{}", sha256_hex(base_url.as_bytes())?);
     let method = "GET".to_string();
-    let auth_bound = trimmed_option(&request.provider_auth_materialization_ref).is_some()
-        || trimmed_option(&request.outbound_header_binding_ref).is_some()
-        || trimmed_option(&request.ctee_egress_resolver_ref).is_some();
     let request_seed = json!({
         "schema": "ioi.model_mount.hosted_catalog_transport_request.v1",
         "provider_ref": request.provider_ref,
@@ -405,14 +437,18 @@ fn hosted_provider_catalog_transport_binding(
         "method": method,
         "path": path,
         "base_url_hash": base_url_hash,
-        "provider_auth_materialization_ref": trimmed_option(&request.provider_auth_materialization_ref),
-        "outbound_header_binding_ref": trimmed_option(&request.outbound_header_binding_ref),
-        "auth_header_materialization_status": trimmed_option(&request.auth_header_materialization_status),
-        "ctee_egress_resolver_ref": trimmed_option(&request.ctee_egress_resolver_ref),
-        "ctee_egress_resolver_hash": trimmed_option(&request.ctee_egress_resolver_hash),
-        "ctee_egress_resolution_status": trimmed_option(&request.ctee_egress_resolution_status),
+        "provider_auth_materialization_ref": &secret_injection.provider_auth_materialization_ref,
+        "outbound_header_binding_ref": &secret_injection.outbound_header_binding_ref,
+        "auth_header_materialization_status": &secret_injection.auth_header_materialization_status,
+        "ctee_egress_resolver_ref": &secret_injection.ctee_egress_resolver_ref,
+        "ctee_egress_resolver_hash": &secret_injection.ctee_egress_resolver_hash,
+        "ctee_egress_resolution_status": &secret_injection.ctee_egress_resolution_status,
         "transport_execution_owner": "rust_daemon_core.model_mount.provider_inventory",
         "ctee_secret_injection": "ctee_egress_resolver_ref",
+        "ctee_outbound_secret_injection_ref": &secret_injection.ctee_egress_resolver_ref,
+        "ctee_outbound_secret_injection_hash": &secret_injection.ctee_egress_resolver_hash,
+        "ctee_outbound_secret_injection_status": "rust_ctee_outbound_secret_injection_bound",
+        "secret_injection_owner": "rust_daemon_core.ctee.egress_resolver",
         "plaintext_secret_material_returned": false,
     });
     let request_hash = hash_json_ref(&request_seed)?;
@@ -440,7 +476,53 @@ fn hosted_provider_catalog_transport_binding(
         request_hash,
         response_hash,
         status: "rust_hosted_provider_catalog_transport_response_bound".to_string(),
-        auth_bound,
+        provider_auth_materialization_ref: secret_injection
+            .provider_auth_materialization_ref
+            .clone(),
+        outbound_header_binding_ref: secret_injection.outbound_header_binding_ref.clone(),
+        auth_header_materialization_status: secret_injection
+            .auth_header_materialization_status
+            .clone(),
+        ctee_egress_resolver_ref: secret_injection.ctee_egress_resolver_ref.clone(),
+        ctee_egress_resolver_hash: secret_injection.ctee_egress_resolver_hash.clone(),
+        ctee_egress_resolution_status: secret_injection.ctee_egress_resolution_status.clone(),
+        ctee_outbound_secret_injection_ref: secret_injection.ctee_egress_resolver_ref.clone(),
+        ctee_outbound_secret_injection_hash: secret_injection.ctee_egress_resolver_hash.clone(),
+        ctee_outbound_secret_injection_status: "rust_ctee_outbound_secret_injection_bound"
+            .to_string(),
+    })
+}
+
+fn hosted_provider_catalog_secret_injection_binding(
+    request: &ModelMountProviderInventoryRequest,
+) -> Result<HostedProviderCatalogSecretInjectionBinding, ModelMountError> {
+    let provider_auth_materialization_ref =
+        trimmed_option(&request.provider_auth_materialization_ref)
+            .ok_or(ModelMountError::HostedProviderInvocationMissingAuthMaterialization)?;
+    let outbound_header_binding_ref = trimmed_option(&request.outbound_header_binding_ref)
+        .ok_or(ModelMountError::HostedProviderInvocationMissingAuthMaterialization)?;
+    let auth_header_materialization_status =
+        trimmed_option(&request.auth_header_materialization_status)
+            .ok_or(ModelMountError::HostedProviderInvocationMissingAuthMaterialization)?;
+    if auth_header_materialization_status != "rust_ctee_outbound_header_bound" {
+        return Err(ModelMountError::HostedProviderInvocationMissingAuthMaterialization);
+    }
+    let ctee_egress_resolver_ref = trimmed_option(&request.ctee_egress_resolver_ref)
+        .ok_or(ModelMountError::HostedProviderInvocationMissingCteeEgressResolver)?;
+    let ctee_egress_resolver_hash = trimmed_option(&request.ctee_egress_resolver_hash)
+        .ok_or(ModelMountError::HostedProviderInvocationMissingCteeEgressResolver)?;
+    let ctee_egress_resolution_status = trimmed_option(&request.ctee_egress_resolution_status)
+        .ok_or(ModelMountError::HostedProviderInvocationMissingCteeEgressResolver)?;
+    if ctee_egress_resolution_status != "rust_ctee_outbound_egress_resolved" {
+        return Err(ModelMountError::HostedProviderInvocationMissingCteeEgressResolver);
+    }
+    Ok(HostedProviderCatalogSecretInjectionBinding {
+        provider_auth_materialization_ref: provider_auth_materialization_ref.to_string(),
+        outbound_header_binding_ref: outbound_header_binding_ref.to_string(),
+        auth_header_materialization_status: auth_header_materialization_status.to_string(),
+        ctee_egress_resolver_ref: ctee_egress_resolver_ref.to_string(),
+        ctee_egress_resolver_hash: ctee_egress_resolver_hash.to_string(),
+        ctee_egress_resolution_status: ctee_egress_resolution_status.to_string(),
     })
 }
 
@@ -525,7 +607,7 @@ fn provider_inventory_driver(request: &ModelMountProviderInventoryRequest) -> St
 
 fn provider_inventory_evidence_refs(
     request: &ModelMountProviderInventoryRequest,
-    transport: Option<&HostedProviderCatalogTransportBinding>,
+    _transport: Option<&HostedProviderCatalogTransportBinding>,
 ) -> Vec<String> {
     let mut refs = vec![
         "rust_model_mount_provider_inventory".to_string(),
@@ -554,11 +636,13 @@ fn provider_inventory_evidence_refs(
             refs.push("rust_hosted_provider_catalog_transport_request_bound".to_string());
             refs.push("rust_hosted_provider_catalog_transport_response_bound".to_string());
             refs.push("rust_hosted_provider_endpoint_url_bound".to_string());
-            if transport.map(|binding| binding.auth_bound).unwrap_or(false) {
-                refs.push("rust_ctee_egress_resolver_bound".to_string());
-                refs.push("ctee_outbound_secret_injection_ref_bound".to_string());
-                refs.push("ctee_outbound_egress_resolver_depth_bound".to_string());
-            }
+            refs.push("rust_provider_auth_materialization_bound".to_string());
+            refs.push("hosted_provider_auth_header_materialized_by_rust".to_string());
+            refs.push("hosted_provider_auth_header_materialization_contract_bound".to_string());
+            refs.push("rust_ctee_egress_resolver_bound".to_string());
+            refs.push("ctee_outbound_secret_injection_ref_bound".to_string());
+            refs.push("ctee_outbound_egress_resolver_depth_bound".to_string());
+            refs.push("ctee_hosted_catalog_secret_injection_bound".to_string());
         }
     } else {
         refs.push("rust_model_mount_fixture_inventory_backend".to_string());
@@ -632,6 +716,42 @@ fn provider_inventory_transport_contract(
                 "ctee_secret_injection".to_string(),
                 json!("ctee_egress_resolver_ref"),
             );
+            object.insert(
+                "provider_auth_materialization_ref".to_string(),
+                json!(&transport.provider_auth_materialization_ref),
+            );
+            object.insert(
+                "outbound_header_binding_ref".to_string(),
+                json!(&transport.outbound_header_binding_ref),
+            );
+            object.insert(
+                "auth_header_materialization_status".to_string(),
+                json!(&transport.auth_header_materialization_status),
+            );
+            object.insert(
+                "ctee_egress_resolver_ref".to_string(),
+                json!(&transport.ctee_egress_resolver_ref),
+            );
+            object.insert(
+                "ctee_egress_resolver_hash".to_string(),
+                json!(&transport.ctee_egress_resolver_hash),
+            );
+            object.insert(
+                "ctee_egress_resolution_status".to_string(),
+                json!(&transport.ctee_egress_resolution_status),
+            );
+            object.insert(
+                "ctee_outbound_secret_injection_ref".to_string(),
+                json!(&transport.ctee_outbound_secret_injection_ref),
+            );
+            object.insert(
+                "ctee_outbound_secret_injection_hash".to_string(),
+                json!(&transport.ctee_outbound_secret_injection_hash),
+            );
+            object.insert(
+                "ctee_outbound_secret_injection_status".to_string(),
+                json!(&transport.ctee_outbound_secret_injection_status),
+            );
         }
     }
     contract
@@ -698,7 +818,7 @@ fn record_id_segment(value: &str, fallback: &str) -> String {
 }
 
 fn provider_inventory_record(result: &ModelMountProviderInventoryResult) -> Value {
-    json!({
+    let mut record = json!({
         "id": &result.record_id,
         "object": "ioi.model_mount_provider_inventory",
         "schema_version": &result.schema_version,
@@ -777,7 +897,30 @@ fn provider_inventory_record(result: &ModelMountProviderInventoryResult) -> Valu
         "rust_core_boundary": &result.rust_core_boundary,
         "source": "rust_model_mount_provider_inventory_api",
         "evidence_refs": &result.evidence_refs,
-    })
+    });
+    if let Some(object) = record.as_object_mut() {
+        for field in [
+            "provider_auth_materialization_ref",
+            "outbound_header_binding_ref",
+            "auth_header_materialization_status",
+            "ctee_egress_resolver_ref",
+            "ctee_egress_resolver_hash",
+            "ctee_egress_resolution_status",
+            "ctee_outbound_secret_injection_ref",
+            "ctee_outbound_secret_injection_hash",
+            "ctee_outbound_secret_injection_status",
+        ] {
+            object.insert(
+                field.to_string(),
+                result
+                    .transport_contract
+                    .get(field)
+                    .cloned()
+                    .unwrap_or(Value::Null),
+            );
+        }
+    }
+    record
 }
 
 #[cfg(test)]
@@ -1061,6 +1204,42 @@ mod tests {
             result.transport_contract["hosted_catalog_transport_status"],
             "rust_hosted_provider_catalog_transport_response_bound"
         );
+        assert_eq!(
+            result.transport_contract["provider_auth_materialization_ref"],
+            "agentgres://model-mounting/model-provider-auth-materializations/provider.openai"
+        );
+        assert_eq!(
+            result.transport_contract["outbound_header_binding_ref"],
+            "provider_auth_header://provider.openai#sha256:provider-auth"
+        );
+        assert_eq!(
+            result.transport_contract["auth_header_materialization_status"],
+            "rust_ctee_outbound_header_bound"
+        );
+        assert_eq!(
+            result.transport_contract["ctee_egress_resolver_ref"],
+            "ctee://model-mount/egress-resolver/provider.openai#sha256:egress"
+        );
+        assert_eq!(
+            result.transport_contract["ctee_egress_resolver_hash"],
+            "sha256:ctee-egress"
+        );
+        assert_eq!(
+            result.transport_contract["ctee_egress_resolution_status"],
+            "rust_ctee_outbound_egress_resolved"
+        );
+        assert_eq!(
+            result.transport_contract["ctee_outbound_secret_injection_ref"],
+            "ctee://model-mount/egress-resolver/provider.openai#sha256:egress"
+        );
+        assert_eq!(
+            result.transport_contract["ctee_outbound_secret_injection_hash"],
+            "sha256:ctee-egress"
+        );
+        assert_eq!(
+            result.transport_contract["ctee_outbound_secret_injection_status"],
+            "rust_ctee_outbound_secret_injection_bound"
+        );
         assert!(result
             .transport_contract
             .get("hosted_catalog_transport_request_hash")
@@ -1106,6 +1285,15 @@ mod tests {
         assert!(result
             .evidence_refs
             .contains(&"rust_ctee_egress_resolver_bound".to_string()));
+        assert!(result
+            .evidence_refs
+            .contains(&"rust_provider_auth_materialization_bound".to_string()));
+        assert!(result
+            .evidence_refs
+            .contains(&"ctee_outbound_secret_injection_ref_bound".to_string()));
+        assert!(result
+            .evidence_refs
+            .contains(&"ctee_hosted_catalog_secret_injection_bound".to_string()));
         assert_eq!(
             result.transport_contract["metadata_item_refs"],
             json!(result.item_refs)
@@ -1128,6 +1316,18 @@ mod tests {
         assert_eq!(
             result.record["hosted_catalog_transport_status"],
             "rust_hosted_provider_catalog_transport_response_bound"
+        );
+        assert_eq!(
+            result.record["provider_auth_materialization_ref"],
+            "agentgres://model-mounting/model-provider-auth-materializations/provider.openai"
+        );
+        assert_eq!(
+            result.record["ctee_outbound_secret_injection_ref"],
+            "ctee://model-mount/egress-resolver/provider.openai#sha256:egress"
+        );
+        assert_eq!(
+            result.record["ctee_outbound_secret_injection_status"],
+            "rust_ctee_outbound_secret_injection_bound"
         );
 
         request.action = "list_loaded".to_string();
@@ -1153,6 +1353,32 @@ mod tests {
         assert_eq!(
             error,
             ModelMountError::HostedProviderInvocationMissingEndpointUrl
+        );
+    }
+
+    #[test]
+    fn hosted_provider_inventory_requires_rust_auth_and_ctee_secret_injection_before_transport() {
+        let mut missing_auth = hosted_provider_inventory_request();
+        missing_auth.base_url = Some("http://127.0.0.1:9/v1".to_string());
+        missing_auth.provider_auth_materialization_ref = None;
+
+        let error = plan_provider_inventory(&missing_auth)
+            .expect_err("hosted catalog inventory must reject missing Rust auth before network");
+        assert_eq!(
+            error,
+            ModelMountError::HostedProviderInvocationMissingAuthMaterialization
+        );
+
+        let mut missing_ctee = hosted_provider_inventory_request();
+        missing_ctee.base_url = Some("http://127.0.0.1:9/v1".to_string());
+        missing_ctee.ctee_egress_resolver_ref = None;
+
+        let error = plan_provider_inventory(&missing_ctee).expect_err(
+            "hosted catalog inventory must reject missing cTEE resolver before network",
+        );
+        assert_eq!(
+            error,
+            ModelMountError::HostedProviderInvocationMissingCteeEgressResolver
         );
     }
 

@@ -2,7 +2,7 @@ import React, { useMemo } from "react";
 import {
   useSessionRuntimePresentation,
   type SessionGateChatEvent as ChatEvent,
-} from "@ioi/agent-ide";
+} from "@ioi/hypervisor-workbench";
 import type { AgentEvent, ChatMessage } from "../../../types";
 import { MarkdownMessage } from "../../ChatShellWindow/components/MarkdownMessage";
 import { MessageActions } from "../../ChatShellWindow/components/MessageActions";

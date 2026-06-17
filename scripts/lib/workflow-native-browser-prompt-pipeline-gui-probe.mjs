@@ -5,14 +5,14 @@ import { resolve } from "node:path";
 import {
   mergeWorkflowComposerComputerUseRunOptions,
   workflowComposerComputerUseRunOptions,
-} from "../../packages/agent-ide/src/WorkflowComposer/computerUseRunOptions.ts";
-import { makeDefaultWorkflow } from "../../packages/agent-ide/src/runtime/workflow-defaults.ts";
+} from "../../packages/hypervisor-workbench/src/WorkflowComposer/computerUseRunOptions.ts";
+import { makeDefaultWorkflow } from "../../packages/hypervisor-workbench/src/runtime/workflow-defaults.ts";
 import {
   makeWorkflowEdge,
   makeWorkflowNode,
   workflowNodeCreatorDefinitions,
-} from "../../packages/agent-ide/src/runtime/workflow-node-registry.ts";
-import { workflowRunHistoryModel } from "../../packages/agent-ide/src/runtime/workflow-run-history-model.ts";
+} from "../../packages/hypervisor-workbench/src/runtime/workflow-node-registry.ts";
+import { workflowRunHistoryModel } from "../../packages/hypervisor-workbench/src/runtime/workflow-run-history-model.ts";
 
 const outputPath = process.argv[2];
 if (!outputPath) {
@@ -633,16 +633,16 @@ function nativeBrowserPipelineEvents({ metadata }) {
   ];
 }
 
-const controller = read("packages/agent-ide/src/WorkflowComposer/controller.tsx");
-const view = read("packages/agent-ide/src/WorkflowComposer/view.tsx");
+const controller = read("packages/hypervisor-workbench/src/WorkflowComposer/controller.tsx");
+const view = read("packages/hypervisor-workbench/src/WorkflowComposer/view.tsx");
 const runOptionsSource = read(
-  "packages/agent-ide/src/WorkflowComposer/computerUseRunOptions.ts",
+  "packages/hypervisor-workbench/src/WorkflowComposer/computerUseRunOptions.ts",
 );
 const runHistoryModelSource = read(
-  "packages/agent-ide/src/runtime/workflow-run-history-model.ts",
+  "packages/hypervisor-workbench/src/runtime/workflow-run-history-model.ts",
 );
 const runsPanelSource = read(
-  "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx",
+  "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx",
 );
 
 const workflow = nativeBrowserPromptWorkflow();
@@ -836,7 +836,7 @@ const checks = {
     ),
   noCanvasLocalRuntimeTruth:
     !/from "@xyflow\/react"/.test(
-      read("packages/agent-ide/src/WorkflowComposer/computerUseRunOptions.ts"),
+      read("packages/hypervisor-workbench/src/WorkflowComposer/computerUseRunOptions.ts"),
     ) &&
     /workflowModelInvocationTraces/.test(runHistoryModelSource) &&
     /workflowRunComputerUseWorkbench/.test(runHistoryModelSource),
@@ -875,14 +875,14 @@ const proof = {
   },
   checks,
   sourceRefs: [
-    "packages/agent-ide/src/WorkflowComposer/view.tsx",
-    "packages/agent-ide/src/WorkflowComposer/controller.tsx",
-    "packages/agent-ide/src/WorkflowComposer/computerUseRunOptions.ts",
-    "packages/agent-ide/src/runtime/workflow-node-registry.ts",
-    "packages/agent-ide/src/runtime/workflow-model-invocation-trace.ts",
-    "packages/agent-ide/src/runtime/workflow-run-history-model.ts",
-    "packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts",
-    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx",
+    "packages/hypervisor-workbench/src/WorkflowComposer/view.tsx",
+    "packages/hypervisor-workbench/src/WorkflowComposer/controller.tsx",
+    "packages/hypervisor-workbench/src/WorkflowComposer/computerUseRunOptions.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-node-registry.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-model-invocation-trace.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-run-history-model.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-event-projection.ts",
+    "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx",
   ],
 };
 

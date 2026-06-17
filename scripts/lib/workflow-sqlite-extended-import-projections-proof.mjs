@@ -10,10 +10,10 @@ if (!outputPath) {
 }
 
 const { buildWorkflowImportedGenerationMetadataPanel } = await import(
-  "../../packages/agent-ide/src/runtime/workflow-imported-generation-metadata.ts"
+  "../../packages/hypervisor-workbench/src/runtime/workflow-imported-generation-metadata.ts"
 );
 const { buildWorkflowImportedErrorRenderInfoPanel } = await import(
-  "../../packages/agent-ide/src/runtime/workflow-imported-error-render-info.ts"
+  "../../packages/hypervisor-workbench/src/runtime/workflow-imported-error-render-info.ts"
 );
 
 const outputDir = path.dirname(outputPath);

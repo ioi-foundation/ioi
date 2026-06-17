@@ -5140,24 +5140,12 @@ function modelMountProviderInventoryRequest(provider, options = {}) {
     backend_ref: provider?.backend_ref ?? provider?.backend_id ?? provider?.backendId ?? null,
     provider_status: provider?.status ?? null,
     base_url: optionalString(provider?.base_url ?? provider?.baseUrl),
-    provider_auth_materialization_ref: optionalString(
-      provider?.provider_auth_materialization_ref ?? provider?.providerAuthMaterializationRef,
-    ),
-    outbound_header_binding_ref: optionalString(
-      provider?.outbound_header_binding_ref ?? provider?.outboundHeaderBindingRef,
-    ),
-    auth_header_materialization_status: optionalString(
-      provider?.auth_header_materialization_status ?? provider?.authHeaderMaterializationStatus,
-    ),
-    ctee_egress_resolver_ref: optionalString(
-      provider?.ctee_egress_resolver_ref ?? provider?.cteeEgressResolverRef,
-    ),
-    ctee_egress_resolver_hash: optionalString(
-      provider?.ctee_egress_resolver_hash ?? provider?.cteeEgressResolverHash,
-    ),
-    ctee_egress_resolution_status: optionalString(
-      provider?.ctee_egress_resolution_status ?? provider?.cteeEgressResolutionStatus,
-    ),
+    provider_auth_materialization_ref: optionalString(provider?.provider_auth_materialization_ref),
+    outbound_header_binding_ref: optionalString(provider?.outbound_header_binding_ref),
+    auth_header_materialization_status: optionalString(provider?.auth_header_materialization_status),
+    ctee_egress_resolver_ref: optionalString(provider?.ctee_egress_resolver_ref),
+    ctee_egress_resolver_hash: optionalString(provider?.ctee_egress_resolver_hash),
+    ctee_egress_resolution_status: optionalString(provider?.ctee_egress_resolution_status),
   };
 }
 
@@ -5299,9 +5287,29 @@ function assertRustAuthoredProviderInventoryResult(result = {}, options = {}) {
       "hosted_catalog_transport_response_hash",
       "hosted_catalog_transport_status",
       "base_url_hash",
+      "provider_auth_materialization_ref",
+      "outbound_header_binding_ref",
+      "ctee_egress_resolver_ref",
+      "ctee_egress_resolver_hash",
+      "ctee_outbound_secret_injection_ref",
+      "ctee_outbound_secret_injection_hash",
     ]) {
       if (!transportContract[field]) missing.push(`transport_contract.${field}`);
       if (!inventoryRecord[field]) missing.push(`record.${field}`);
+      if (transportContract[field] && inventoryRecord[field] && transportContract[field] !== inventoryRecord[field]) {
+        mismatches.push(`record.${field}`);
+      }
+    }
+    for (const [field, expected] of [
+      ["auth_header_materialization_status", "rust_ctee_outbound_header_bound"],
+      ["ctee_egress_resolution_status", "rust_ctee_outbound_egress_resolved"],
+      ["ctee_outbound_secret_injection_status", "rust_ctee_outbound_secret_injection_bound"],
+    ]) {
+      if (transportContract[field] !== expected) missing.push(`transport_contract.${field}`);
+      if (inventoryRecord[field] !== expected) missing.push(`record.${field}`);
+    }
+    if (transportContract.ctee_secret_injection !== "ctee_egress_resolver_ref") {
+      missing.push("transport_contract.ctee_secret_injection");
     }
     if (transportContract.live_network_io !== true) {
       missing.push("transport_contract.live_network_io_true");
@@ -5321,6 +5329,13 @@ function assertRustAuthoredProviderInventoryResult(result = {}, options = {}) {
       "rust_hosted_provider_catalog_transport_request_bound",
       "rust_hosted_provider_catalog_transport_response_bound",
       "rust_hosted_provider_endpoint_url_bound",
+      "rust_provider_auth_materialization_bound",
+      "hosted_provider_auth_header_materialized_by_rust",
+      "hosted_provider_auth_header_materialization_contract_bound",
+      "rust_ctee_egress_resolver_bound",
+      "ctee_outbound_secret_injection_ref_bound",
+      "ctee_outbound_egress_resolver_depth_bound",
+      "ctee_hosted_catalog_secret_injection_bound",
     ]) {
       if (!evidenceRefs.includes(ref)) missing.push(`evidence_refs.${ref}`);
       if (!recordEvidenceRefs.includes(ref)) missing.push(`record.evidence_refs.${ref}`);

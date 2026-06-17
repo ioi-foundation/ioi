@@ -5,7 +5,7 @@ import {
   useAssistantWorkbenchState,
   useSessionApprovalState,
   useSessionInterruptionActions,
-} from "@ioi/agent-ide";
+} from "@ioi/hypervisor-workbench";
 import { OperatorInboxQueueColumns } from "../../components/OperatorInboxQueueColumns";
 import "../../components/OperatorInboxQueueColumns.css";
 import { useNotificationTargetDetail } from "../../hooks/useNotificationTargetDetail";

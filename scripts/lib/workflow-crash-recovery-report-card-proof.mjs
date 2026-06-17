@@ -13,7 +13,7 @@ const sourceProofPath =
   "docs/evidence/autopilot-agent-studio-gui-chat-ux-compositor-harness-parity-plus/2026-05-25T06-06-18-786Z-stage12-crash-restart-resume/workflow-crash-restart-timeline-resume-proof.json";
 
 const { buildWorkflowCrashRecoveryReportCard } = await import(
-  "../../packages/agent-ide/src/runtime/workflow-crash-recovery-report-card.ts"
+  "../../packages/hypervisor-workbench/src/runtime/workflow-crash-recovery-report-card.ts"
 );
 
 const sourceProof = JSON.parse(fs.readFileSync(sourceProofPath, "utf8"));

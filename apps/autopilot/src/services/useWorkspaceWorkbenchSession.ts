@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   workflowRuntimeUnavailableCopy,
   type WorkflowRuntimeUnavailableCopy,
-} from "@ioi/agent-ide";
+} from "@ioi/hypervisor-workbench";
 
 import type { HypervisorClientRuntime } from "./HypervisorClientRuntime";
 import { markWorkspaceMetric } from "./workspacePerf";

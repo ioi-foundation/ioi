@@ -10,7 +10,7 @@ if (!outputPath) {
 }
 
 const { buildWorkflowTrajectoryImportAudit } = await import(
-  "../../packages/agent-ide/src/runtime/workflow-trajectory-import-audit.ts"
+  "../../packages/hypervisor-workbench/src/runtime/workflow-trajectory-import-audit.ts"
 );
 
 const outputDir = path.dirname(outputPath);
@@ -19,7 +19,7 @@ fs.mkdirSync(outputDir, { recursive: true });
 const fixtureDbPath = path.join(outputDir, "antigravity-trajectory-fixture.db");
 fs.rmSync(fixtureDbPath, { force: true });
 
-const workspaceUri = `file://${process.cwd()}/packages/agent-ide/src/runtime/workflow-trajectory-import-audit.ts`;
+const workspaceUri = `file://${process.cwd()}/packages/hypervisor-workbench/src/runtime/workflow-trajectory-import-audit.ts`;
 const stepMetadataBlob = message([
   fieldVarint(3, 1),
   fieldBytes(12, stringBytes("cascade-stage43")),

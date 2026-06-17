@@ -2,24 +2,24 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-import { makeDefaultWorkflow } from "../../packages/agent-ide/src/runtime/workflow-defaults.ts";
+import { makeDefaultWorkflow } from "../../packages/hypervisor-workbench/src/runtime/workflow-defaults.ts";
 import {
   makeWorkflowNode,
-} from "../../packages/agent-ide/src/runtime/workflow-node-registry.ts";
+} from "../../packages/hypervisor-workbench/src/runtime/workflow-node-registry.ts";
 import {
   evaluateWorkflowActivationReadiness,
   validateWorkflowProject,
-} from "../../packages/agent-ide/src/runtime/workflow-validation.ts";
+} from "../../packages/hypervisor-workbench/src/runtime/workflow-validation.ts";
 import {
   normalizeWorkflowConnectorBinding,
   normalizeWorkflowConnectorCatalog,
   normalizeWorkflowToolBinding,
   normalizeWorkflowToolCatalog,
   workflowWithCatalogBinding,
-} from "../../packages/agent-ide/src/runtime/workflow-tool-connector-capability-binding.ts";
+} from "../../packages/hypervisor-workbench/src/runtime/workflow-tool-connector-capability-binding.ts";
 import {
   workflowBindingRegistryRows,
-} from "../../packages/agent-ide/src/runtime/workflow-rail-model.ts";
+} from "../../packages/hypervisor-workbench/src/runtime/workflow-rail-model.ts";
 
 const outputPath = process.argv[2];
 if (!outputPath) {
@@ -144,15 +144,15 @@ function selectConnectorCatalogBinding() {
 }
 
 const modalSource = read(
-  "packages/agent-ide/src/features/Workflows/WorkflowComposerModals.tsx",
+  "packages/hypervisor-workbench/src/features/Workflows/WorkflowComposerModals.tsx",
 );
-const controllerSource = read("packages/agent-ide/src/WorkflowComposer/controller.tsx");
-const viewSource = read("packages/agent-ide/src/WorkflowComposer/view.tsx");
+const controllerSource = read("packages/hypervisor-workbench/src/WorkflowComposer/controller.tsx");
+const viewSource = read("packages/hypervisor-workbench/src/WorkflowComposer/view.tsx");
 const bindingSource = read(
-  "packages/agent-ide/src/runtime/workflow-tool-connector-capability-binding.ts",
+  "packages/hypervisor-workbench/src/runtime/workflow-tool-connector-capability-binding.ts",
 );
 const validationSource = read(
-  "packages/agent-ide/src/runtime/workflow-validation.ts",
+  "packages/hypervisor-workbench/src/runtime/workflow-validation.ts",
 );
 
 const baseWorkflow = workflowFixture();

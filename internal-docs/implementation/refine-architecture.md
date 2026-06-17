@@ -560,7 +560,7 @@ Current code anchors:
   apps/autopilot/src/surfaces/Policy/*
   apps/autopilot/src/surfaces/Settings/*
   apps/autopilot/src/surfaces/Capabilities/*
-  packages/agent-ide/src/features/*
+  packages/hypervisor-workbench/src/features/*
   packages/runtime-daemon/src/http/public-runtime-routes.mjs
   packages/runtime-daemon/src/step-module-abi.test.mjs
 ```
@@ -777,7 +777,7 @@ Implementation phases:
 | 0A.3 Session/project model | Add session cards, project cards, restore state, blocked approvals, recent sessions. | `autopilotShellModel.ts`, `operatorSubstrateModel.ts`, Home/Session services | Sessions persist visually and map to daemon/Agentgres refs where available. |
 | 0A.4 New Session flow | Create guided launch flow: Mission, Workbench, Agent, Automation, Foundry job, Fleet job, Private Workspace. | New surface or Home components; `workspaceRuntimeNavigation.ts`; runtime launch services | User can start a governed session with model/harness/privacy/authority summary. |
 | 0A.5 Workbench as adapter hub | Move "Code repositories" under Workbench and expose editor adapter preference. | `WorkspaceShell.tsx`, `WorkspaceRepositoryGate.tsx`, `workspaceWorkbenchHost.ts`, settings | VS Code/OpenVSCode is one adapter target; Cursor/Windsurf/JetBrains/browser IDE/terminal can be represented. |
-| 0A.6 Automations / Workflow Compositor | Convert current workflow composer/runs into Automations/Workflows with templates, filters, run buttons, graph editing, receipt state. | MissionControl workflow views, `packages/agent-ide/src/WorkflowComposer.tsx`, workbench webview | IOI-reference automations become Hypervisor compositor graphs and reusable recipes. |
+| 0A.6 Automations / Workflow Compositor | Convert current workflow composer/runs into Automations/Workflows with templates, filters, run buttons, graph editing, receipt state. | MissionControl workflow views, `packages/hypervisor-workbench/src/WorkflowComposer.tsx`, workbench webview | IOI-reference automations become Hypervisor compositor graphs and reusable recipes. |
 | 0A.7 Models as infrastructure and setup | Keep a Models surface, but also embed model mounting into New Session/Create Agent/Mission setup. | `MissionControlMountsView.tsx`, model daemon actions, public `/v1/model-mount/*` clients | Model mounts are not a detached tab; each session shows selected model/provider/custody. |
 | 0A.8 Authority/privacy/receipts inspectors | Add persistent contextual right/bottom governance and environment panels. | Policy, Capabilities, Settings, cTEE/private workspace services, receipt components | Selected session reveals changes, authority scope, privacy posture, latest receipts, ports/services, tasks, terminal/logs. |
 | 0A.9 Fleet and private workspace path | Surface direct providers, remote VM workspaces, DePIN nodes, zero-to-idle/restore. | Fleet surface, workspace host/session services, provider integrations | User can create persistent workspace/node route without treating provider as trusted. |
@@ -829,7 +829,7 @@ First implementation slice:
 Verification ladder:
 
 ```text
-npm run build --workspace=@ioi/agent-ide --if-present
+npm run build --workspace=@ioi/hypervisor-workbench --if-present
 npm run build --workspace=@ioi/workspace-substrate --if-present
 npm run build --workspace=autopilot
 node --check touched .mjs files
@@ -842,7 +842,7 @@ Playwright smoke:
   Models surface opens daemon model-mount projection
   Changes/Authority/Privacy/Receipts inspector changes with selected session
   Ports & Services / Tasks / Terminal inspector renders for environment session
-git diff --check -- apps/autopilot packages/agent-ide internal-docs/implementation docs/architecture
+git diff --check -- apps/autopilot packages/hypervisor-workbench internal-docs/implementation docs/architecture
 ```
 
 UX anti-patterns:

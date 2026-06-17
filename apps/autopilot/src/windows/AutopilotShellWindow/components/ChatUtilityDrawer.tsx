@@ -1,4 +1,4 @@
-import { buildSessionReplTargets } from "@ioi/agent-ide";
+import { buildSessionReplTargets } from "@ioi/hypervisor-workbench";
 import { useEffect, useMemo, useState } from "react";
 import {
   countActiveOverrides,

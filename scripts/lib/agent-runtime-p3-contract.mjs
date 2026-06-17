@@ -759,7 +759,7 @@ export function scanImportBoundaries(repoRoot) {
     "crates/types/src/app",
     "apps/autopilot/src/windows/ChatShellWindow",
     "apps/autopilot/src/windows/AutopilotShellWindow",
-    "packages/agent-ide/src",
+    "packages/hypervisor-workbench/src",
   ];
   const forbiddenPatterns = [
     /from\s+["'][^"']*scripts\/lib/i,

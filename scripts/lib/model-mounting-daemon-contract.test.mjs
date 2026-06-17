@@ -167,7 +167,7 @@ test("model mounting daemon keeps Agentgres store adapter extracted from the fac
 
 test("model routing parity keeps canonical route decisions Rust-owned and workflow-addressable", () => {
   const facade = readRepoFile("packages/runtime-daemon/src/model-mounting.mjs");
-  const workflow = readRepoFile("packages/agent-ide/src/runtime/harness-workflow/core.ts");
+  const workflow = readRepoFile("packages/hypervisor-workbench/src/runtime/harness-workflow/core.ts");
   const sdkModelMounts = readRepoFile("packages/agent-sdk/src/model-mounts.ts");
   const modelCapabilityContract =
     sdkModelMounts.match(/export interface ModelCapabilityContract \{[\s\S]*?\n}\n\nexport interface ModelLifecycleEvent/)?.[0] ?? "";

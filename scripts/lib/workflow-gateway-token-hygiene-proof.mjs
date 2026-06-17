@@ -9,7 +9,7 @@ if (!outputPath) {
 }
 
 const { buildWorkflowGatewayTokenHygienePanel } = await import(
-  "../../packages/agent-ide/src/runtime/workflow-gateway-token-hygiene.ts"
+  "../../packages/hypervisor-workbench/src/runtime/workflow-gateway-token-hygiene.ts"
 );
 
 const panel = buildWorkflowGatewayTokenHygienePanel({

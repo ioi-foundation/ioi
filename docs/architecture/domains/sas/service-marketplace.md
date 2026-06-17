@@ -562,7 +562,7 @@ These remain important, but should live in docs, deep dives, or enterprise/secur
 
 This remains a key correction.
 
-The underlying shared package may still be implemented as `agent-ide`, but public product language for `sas.xyz` should lead with **Builder** or **Shared Builder Engine**, not “Agent IDE.”
+The underlying shared package may still be implemented as `hypervisor-workbench`, but public product language for `sas.xyz` should lead with **Builder** or **Shared Builder Engine**, not “Hypervisor Workbench.”
 
 ### Builder
 
@@ -758,7 +758,7 @@ The product model should favor self-serve or low-friction onboarding, tenant-sco
 
 There is one shared **Builder engine**.
 
-The implementation substrate may still be the shared `agent-ide` package, but the `sas.xyz` lens should present it as a Builder for packaging worker services.
+The implementation substrate may still be the shared `hypervisor-workbench` package, but the `sas.xyz` lens should present it as a Builder for packaging worker services.
 
 It supports:
 

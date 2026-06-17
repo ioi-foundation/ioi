@@ -213,6 +213,7 @@ fn hosted_download_materialization(
     if !hosted_download_materialization_requested(body) {
         return Ok(None);
     }
+    let secret_injection = hosted_download_secret_injection_binding(body)?;
     let source_url = required_body_string(body, "source_url")?;
     if !source_url.starts_with("https://") && !source_url.starts_with("http://") {
         return Err(ModelMountError::HostedProviderTransportExecutionFailed(
@@ -233,21 +234,22 @@ fn hosted_download_materialization(
         "model_mount://hosted_download_transport_request/{}",
         safe_segment(record_id)
     );
-    let ctee_egress_resolver_ref = string_field(body, "ctee_egress_resolver_ref");
-    let ctee_egress_resolver_hash = string_field(body, "ctee_egress_resolver_hash");
-    let ctee_egress_resolution_status = string_field(body, "ctee_egress_resolution_status");
     let source_url_hash = hash_text(&source_url)?;
     let request_hash = hash_json(&json!({
         "schema": "ioi.model_mount.hosted_download_request.v1",
         "method": "GET",
         "record_id": record_id,
         "source_url_hash": source_url_hash,
-        "provider_auth_materialization_ref": string_field(body, "provider_auth_materialization_ref"),
-        "outbound_header_binding_ref": string_field(body, "outbound_header_binding_ref"),
-        "auth_header_materialization_status": string_field(body, "auth_header_materialization_status"),
-        "ctee_egress_resolver_ref": ctee_egress_resolver_ref,
-        "ctee_egress_resolver_hash": ctee_egress_resolver_hash,
-        "ctee_egress_resolution_status": ctee_egress_resolution_status,
+        "provider_auth_materialization_ref": &secret_injection.provider_auth_materialization_ref,
+        "outbound_header_binding_ref": &secret_injection.outbound_header_binding_ref,
+        "auth_header_materialization_status": &secret_injection.auth_header_materialization_status,
+        "ctee_egress_resolver_ref": &secret_injection.ctee_egress_resolver_ref,
+        "ctee_egress_resolver_hash": &secret_injection.ctee_egress_resolver_hash,
+        "ctee_egress_resolution_status": &secret_injection.ctee_egress_resolution_status,
+        "ctee_secret_injection": "ctee_egress_resolver_ref",
+        "ctee_outbound_secret_injection_ref": &secret_injection.ctee_egress_resolver_ref,
+        "ctee_outbound_secret_injection_hash": &secret_injection.ctee_egress_resolver_hash,
+        "ctee_outbound_secret_injection_status": "rust_ctee_outbound_secret_injection_bound",
         "plaintext_source_url_returned": false,
     }))?;
     let response = client.get(&source_url).send().map_err(|error| {
@@ -332,27 +334,43 @@ fn hosted_download_materialization(
     materialization.insert("artifact_bytes_returned".to_string(), json!(false));
     materialization.insert(
         "provider_auth_materialization_ref".to_string(),
-        json!(string_field(body, "provider_auth_materialization_ref")),
+        json!(&secret_injection.provider_auth_materialization_ref),
     );
     materialization.insert(
         "outbound_header_binding_ref".to_string(),
-        json!(string_field(body, "outbound_header_binding_ref")),
+        json!(&secret_injection.outbound_header_binding_ref),
     );
     materialization.insert(
         "auth_header_materialization_status".to_string(),
-        json!(string_field(body, "auth_header_materialization_status")),
+        json!(&secret_injection.auth_header_materialization_status),
     );
     materialization.insert(
         "ctee_egress_resolver_ref".to_string(),
-        json!(ctee_egress_resolver_ref),
+        json!(&secret_injection.ctee_egress_resolver_ref),
     );
     materialization.insert(
         "ctee_egress_resolver_hash".to_string(),
-        json!(ctee_egress_resolver_hash),
+        json!(&secret_injection.ctee_egress_resolver_hash),
     );
     materialization.insert(
         "ctee_egress_resolution_status".to_string(),
-        json!(ctee_egress_resolution_status),
+        json!(&secret_injection.ctee_egress_resolution_status),
+    );
+    materialization.insert(
+        "ctee_secret_injection".to_string(),
+        json!("ctee_egress_resolver_ref"),
+    );
+    materialization.insert(
+        "ctee_outbound_secret_injection_ref".to_string(),
+        json!(&secret_injection.ctee_egress_resolver_ref),
+    );
+    materialization.insert(
+        "ctee_outbound_secret_injection_hash".to_string(),
+        json!(&secret_injection.ctee_egress_resolver_hash),
+    );
+    materialization.insert(
+        "ctee_outbound_secret_injection_status".to_string(),
+        json!("rust_ctee_outbound_secret_injection_bound"),
     );
     materialization.insert(
         "custody_policy".to_string(),
@@ -361,9 +379,54 @@ fn hosted_download_materialization(
             "download_bytes_returned_to_js": false,
             "private_material_resolved_by": "rust_daemon_core_ctee",
             "download_materialized_by": "rust_daemon_core.model_mount.storage_control",
+            "secret_injection_required": true,
+            "secret_injection_owner": "rust_daemon_core.ctee.egress_resolver",
+            "secret_injection_status": "rust_ctee_outbound_secret_injection_bound",
         }),
     );
     Ok(Some(materialization))
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct HostedDownloadSecretInjectionBinding {
+    provider_auth_materialization_ref: String,
+    outbound_header_binding_ref: String,
+    auth_header_materialization_status: String,
+    ctee_egress_resolver_ref: String,
+    ctee_egress_resolver_hash: String,
+    ctee_egress_resolution_status: String,
+}
+
+fn hosted_download_secret_injection_binding(
+    body: &Map<String, Value>,
+) -> Result<HostedDownloadSecretInjectionBinding, ModelMountError> {
+    let provider_auth_materialization_ref = string_field(body, "provider_auth_materialization_ref")
+        .ok_or(ModelMountError::HostedProviderInvocationMissingAuthMaterialization)?;
+    let outbound_header_binding_ref = string_field(body, "outbound_header_binding_ref")
+        .ok_or(ModelMountError::HostedProviderInvocationMissingAuthMaterialization)?;
+    let auth_header_materialization_status =
+        string_field(body, "auth_header_materialization_status")
+            .ok_or(ModelMountError::HostedProviderInvocationMissingAuthMaterialization)?;
+    if auth_header_materialization_status != "rust_ctee_outbound_header_bound" {
+        return Err(ModelMountError::HostedProviderInvocationMissingAuthMaterialization);
+    }
+    let ctee_egress_resolver_ref = string_field(body, "ctee_egress_resolver_ref")
+        .ok_or(ModelMountError::HostedProviderInvocationMissingCteeEgressResolver)?;
+    let ctee_egress_resolver_hash = string_field(body, "ctee_egress_resolver_hash")
+        .ok_or(ModelMountError::HostedProviderInvocationMissingCteeEgressResolver)?;
+    let ctee_egress_resolution_status = string_field(body, "ctee_egress_resolution_status")
+        .ok_or(ModelMountError::HostedProviderInvocationMissingCteeEgressResolver)?;
+    if ctee_egress_resolution_status != "rust_ctee_outbound_egress_resolved" {
+        return Err(ModelMountError::HostedProviderInvocationMissingCteeEgressResolver);
+    }
+    Ok(HostedDownloadSecretInjectionBinding {
+        provider_auth_materialization_ref,
+        outbound_header_binding_ref,
+        auth_header_materialization_status,
+        ctee_egress_resolver_ref,
+        ctee_egress_resolver_hash,
+        ctee_egress_resolution_status,
+    })
 }
 
 fn hosted_download_materialization_requested(body: &Map<String, Value>) -> bool {
@@ -742,11 +805,15 @@ fn evidence_refs_for(operation_kind: &str, details: &Value) -> Vec<String> {
                     "rust_hosted_download_transport_request_bound",
                     "rust_hosted_download_transport_response_bound",
                     "ctee_hosted_download_no_plaintext_custody",
+                    "rust_provider_auth_materialization_bound",
+                    "hosted_provider_auth_header_materialized_by_rust",
+                    "hosted_provider_auth_header_materialization_contract_bound",
+                    "rust_ctee_egress_resolver_bound",
+                    "ctee_outbound_secret_injection_ref_bound",
+                    "ctee_outbound_egress_resolver_depth_bound",
+                    "ctee_hosted_download_secret_injection_bound",
                 ] {
                     push_unique_ref(&mut refs, evidence_ref);
-                }
-                if string_field(object_or_empty(details), "ctee_egress_resolver_ref").is_some() {
-                    push_unique_ref(&mut refs, "rust_ctee_egress_resolver_bound");
                 }
             }
         }
@@ -1049,6 +1116,34 @@ mod tests {
             "rust_hosted_download_transport_response_bound"
         );
         assert_eq!(
+            plan.record["details"]["provider_auth_materialization_ref"],
+            "agentgres://model-mounting/model-provider-auth-materializations/provider_openai_auth_header"
+        );
+        assert_eq!(
+            plan.record["details"]["outbound_header_binding_ref"],
+            "provider_auth_header://provider_openai_auth_header#sha256:auth"
+        );
+        assert_eq!(
+            plan.record["details"]["auth_header_materialization_status"],
+            "rust_ctee_outbound_header_bound"
+        );
+        assert_eq!(
+            plan.record["details"]["ctee_egress_resolver_ref"],
+            "ctee://model-mount/egress-resolver/provider_openai_auth_header#sha256:egress"
+        );
+        assert_eq!(
+            plan.record["details"]["ctee_outbound_secret_injection_ref"],
+            "ctee://model-mount/egress-resolver/provider_openai_auth_header#sha256:egress"
+        );
+        assert_eq!(
+            plan.record["details"]["ctee_outbound_secret_injection_hash"],
+            "sha256:egress"
+        );
+        assert_eq!(
+            plan.record["details"]["ctee_outbound_secret_injection_status"],
+            "rust_ctee_outbound_secret_injection_bound"
+        );
+        assert_eq!(
             plan.record["details"]["download_content_hash"],
             expected_checksum
         );
@@ -1067,6 +1162,51 @@ mod tests {
         assert!(plan
             .evidence_refs
             .contains(&"rust_ctee_egress_resolver_bound".to_string()));
+        assert!(plan
+            .evidence_refs
+            .contains(&"rust_provider_auth_materialization_bound".to_string()));
+        assert!(plan
+            .evidence_refs
+            .contains(&"ctee_outbound_secret_injection_ref_bound".to_string()));
+        assert!(plan
+            .evidence_refs
+            .contains(&"ctee_hosted_download_secret_injection_bound".to_string()));
+    }
+
+    #[test]
+    fn hosted_download_requires_rust_auth_and_ctee_secret_injection_before_transport() {
+        let missing_auth = plan_storage_control(&request(
+            "model_mount.download.queue",
+            json!({
+                "model_id": "hosted-qwen",
+                "source_url": "http://127.0.0.1:9/models/qwen-test.gguf",
+                "max_bytes": 1024,
+                "download_materialization_kind": "hosted_download",
+            }),
+        ))
+        .expect_err("hosted download must reject missing Rust auth materialization before network");
+        assert_eq!(
+            missing_auth,
+            ModelMountError::HostedProviderInvocationMissingAuthMaterialization
+        );
+
+        let missing_ctee = plan_storage_control(&request(
+            "model_mount.download.queue",
+            json!({
+                "model_id": "hosted-qwen",
+                "source_url": "http://127.0.0.1:9/models/qwen-test.gguf",
+                "max_bytes": 1024,
+                "download_materialization_kind": "hosted_download",
+                "provider_auth_materialization_ref": "agentgres://model-mounting/model-provider-auth-materializations/provider_openai_auth_header",
+                "outbound_header_binding_ref": "provider_auth_header://provider_openai_auth_header#sha256:auth",
+                "auth_header_materialization_status": "rust_ctee_outbound_header_bound",
+            }),
+        ))
+        .expect_err("hosted download must reject missing cTEE egress resolver before network");
+        assert_eq!(
+            missing_ctee,
+            ModelMountError::HostedProviderInvocationMissingCteeEgressResolver
+        );
     }
 
     #[test]

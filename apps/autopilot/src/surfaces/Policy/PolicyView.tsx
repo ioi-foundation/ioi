@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { AgentWorkbenchRuntime, ConnectorSummary } from "@ioi/agent-ide";
-import type { WorkflowComposerPreflightSeed } from "@ioi/agent-ide";
+import type { AgentWorkbenchRuntime, ConnectorSummary } from "@ioi/hypervisor-workbench";
+import type { WorkflowComposerPreflightSeed } from "@ioi/hypervisor-workbench";
 import {
   AuthorityCenterPanel,
   type AuthorityCenterReceiptPreview,

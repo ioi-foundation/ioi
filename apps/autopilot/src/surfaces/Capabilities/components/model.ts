@@ -2,7 +2,7 @@ import type {
   ConnectorActionDefinition,
   ConnectorConfigureResult,
   ConnectorSummary,
-} from "@ioi/agent-ide";
+} from "@ioi/hypervisor-workbench";
 import type {
   ExtensionManifestRecord,
   SkillSourceRecord,

@@ -12,7 +12,7 @@ if (!outputPath) {
 }
 
 const { buildWorkflowModelCapabilitySelector } = await import(
-  "../../packages/agent-ide/src/runtime/workflow-model-capability-selector.ts"
+  "../../packages/hypervisor-workbench/src/runtime/workflow-model-capability-selector.ts"
 );
 
 async function fetchJson(url, options) {

@@ -24,7 +24,7 @@ test("workflow model invocation trace renders the prompt pipeline in the run she
         encoding: "utf8",
         env: {
           ...process.env,
-          TSX_TSCONFIG_PATH: resolve(repoRoot, "packages/agent-ide/tsconfig.json"),
+          TSX_TSCONFIG_PATH: resolve(repoRoot, "packages/hypervisor-workbench/tsconfig.json"),
         },
         timeout: 60_000,
         maxBuffer: 8 * 1024 * 1024,

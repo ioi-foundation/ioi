@@ -1,4 +1,4 @@
-import type { SessionControllerReplTarget } from "@ioi/agent-ide";
+import type { SessionControllerReplTarget } from "@ioi/hypervisor-workbench";
 import type { AgentTask } from "../types";
 
 export interface SessionContinuityOverview {

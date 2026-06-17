@@ -5,7 +5,7 @@ import type {
   ChatMessage,
   RunPresentation,
 } from "../../../types";
-import { buildSessionRunPresentation } from "@ioi/agent-ide";
+import { buildSessionRunPresentation } from "@ioi/hypervisor-workbench";
 import {
   classifyActivityEvent,
   buildSemanticDedupKey,

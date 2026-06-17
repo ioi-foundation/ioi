@@ -34,7 +34,7 @@ const packageJson = JSON.parse(read("package.json"));
 const daemonSource = read("packages/runtime-daemon/src/index.mjs");
 const sdkSubstrate = read("packages/agent-sdk/src/substrate-client.ts");
 const sdkIndex = read("packages/agent-sdk/src/index.ts");
-const ideRuntimeFiles = allFiles("packages/agent-ide/src/runtime", (file) => /\.(ts|tsx)$/.test(file));
+const ideRuntimeFiles = allFiles("packages/hypervisor-workbench/src/runtime", (file) => /\.(ts|tsx)$/.test(file));
 const activeTauriSrc = "apps/autopilot/src-tauri/src";
 const legacyTauriSrc = "internal-docs/legacy/autopilot-tauri-src/src";
 const autopilotRootProofFiles = allFiles(legacyTauriSrc, (file) =>
@@ -59,7 +59,7 @@ const allowedSwarmCompatibilityFiles = new Set([
   "crates/services/src/agentic/runtime/types.rs",
   "crates/types/src/app/chat.rs",
 ]);
-const generatedTs = read("packages/agent-ide/src/runtime/generated/action-schema.ts");
+const generatedTs = read("packages/hypervisor-workbench/src/runtime/generated/action-schema.ts");
 const generatedRust = read(`${legacyTauriSrc}/generated/runtime_action_schema.rs`);
 const actionSchema = JSON.parse(read("internal-docs/implementation/runtime-action-schema.json"));
 
@@ -174,19 +174,19 @@ assert(
 );
 assert(
   "sdk-no-gui-harness-imports",
-  !/apps\/autopilot|agent-ide|scripts\/lib|benchmarks/.test(sdkSubstrate + sdkIndex),
+  !/apps\/autopilot|hypervisor-workbench|scripts\/lib|benchmarks/.test(sdkSubstrate + sdkIndex),
   ["packages/agent-sdk/src"],
   "SDK must not import GUI, harness, benchmark, or script internals",
 );
 assert(
   "projection-adapter-names",
-  exists("packages/agent-ide/src/runtime/runtime-projection-adapter.ts") &&
-    !exists("packages/agent-ide/src/runtime/agent-execution-substrate.ts") &&
+  exists("packages/hypervisor-workbench/src/runtime/runtime-projection-adapter.ts") &&
+    !exists("packages/hypervisor-workbench/src/runtime/agent-execution-substrate.ts") &&
     !exists(`${activeTauriSrc}/runtime_projection.rs`) &&
     exists(`${legacyTauriSrc}/runtime_projection.rs`) &&
     !exists(`${activeTauriSrc}/agent_runtime_substrate.rs`),
   [
-    "packages/agent-ide/src/runtime/runtime-projection-adapter.ts",
+    "packages/hypervisor-workbench/src/runtime/runtime-projection-adapter.ts",
     `${activeTauriSrc}/runtime_projection.rs`,
     `${legacyTauriSrc}/runtime_projection.rs`,
   ],
@@ -195,9 +195,9 @@ assert(
 assert(
   "ide-projection-boundary",
   ideRuntimeFiles.every((file) => !read(file).includes("AgentgresRuntimeStateStore")) &&
-    read("packages/agent-ide/src/runtime/workflow-composer-model.ts").includes("non-canonical"),
-  ["packages/agent-ide/src/runtime"],
-  "agent-ide runtime helpers must remain non-canonical projections",
+    read("packages/hypervisor-workbench/src/runtime/workflow-composer-model.ts").includes("non-canonical"),
+  ["packages/hypervisor-workbench/src/runtime"],
+  "hypervisor-workbench runtime helpers must remain non-canonical projections",
 );
 assert(
   "capability-tiers",
@@ -213,7 +213,7 @@ assert(
   actionSchema.actionKinds.every((kind) => generatedTs.includes(`"${kind}"`) && generatedRust.includes(`"${kind}"`)),
   [
     "internal-docs/implementation/runtime-action-schema.json",
-    "packages/agent-ide/src/runtime/generated/action-schema.ts",
+    "packages/hypervisor-workbench/src/runtime/generated/action-schema.ts",
     `${legacyTauriSrc}/generated/runtime_action_schema.rs`,
   ],
   "generated action schema projections must match shared runtime-action-schema.json",

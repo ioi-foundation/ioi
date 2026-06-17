@@ -247,7 +247,7 @@ function checkExtensionImplementation() {
     webviewPanel: extensionSource.includes("createWebviewPanel"),
     bridgeRequests: extensionSource.includes("workflowCompositor.proof"),
     realWorkflowComposerImport: webviewSource.includes(
-      'import { WorkflowComposer } from "@ioi/agent-ide"',
+      'import { WorkflowComposer } from "@ioi/hypervisor-workbench"',
     ),
     fixtureRuntimeBoundary: runtimeSource.includes("externalAction: false"),
     noTauriFallback: !/src-tauri|@tauri-apps|tauri:\/\/|tauri\./i.test(

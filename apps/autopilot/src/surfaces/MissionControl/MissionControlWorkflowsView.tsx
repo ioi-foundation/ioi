@@ -10,7 +10,7 @@ import {
   type WorkflowProjectMaterializationResult,
   RuntimeCatalogView,
   WorkflowComposer,
-} from "@ioi/agent-ide";
+} from "@ioi/hypervisor-workbench";
 import { WelcomeView } from "./WelcomeView";
 
 interface ProjectScope {

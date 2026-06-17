@@ -5,13 +5,13 @@ import { resolve } from "node:path";
 import {
   runWorkflowComposerTerminalCodingLoopActivation,
   workflowComposerTerminalCodingLoopRunLaunchEligible,
-} from "../../packages/agent-ide/src/WorkflowComposer/terminalCodingLoopRunActivation.ts";
-import { makeDefaultWorkflow } from "../../packages/agent-ide/src/runtime/workflow-defaults.ts";
-import { workflowRunHistoryModel } from "../../packages/agent-ide/src/runtime/workflow-run-history-model.ts";
+} from "../../packages/hypervisor-workbench/src/WorkflowComposer/terminalCodingLoopRunActivation.ts";
+import { makeDefaultWorkflow } from "../../packages/hypervisor-workbench/src/runtime/workflow-defaults.ts";
+import { workflowRunHistoryModel } from "../../packages/hypervisor-workbench/src/runtime/workflow-run-history-model.ts";
 import {
   WORKFLOW_RUNTIME_TERMINAL_CODING_LOOP_STEPS,
   createWorkflowRuntimeTerminalCodingLoopTemplateSubflow,
-} from "../../packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-subflow.ts";
+} from "../../packages/hypervisor-workbench/src/runtime/workflow-runtime-terminal-coding-loop-subflow.ts";
 
 const outputPath = process.argv[2];
 if (!outputPath) {
@@ -200,10 +200,10 @@ function expectedCommandOrder() {
   );
 }
 
-const controller = read("packages/agent-ide/src/WorkflowComposer/controller.tsx");
-const view = read("packages/agent-ide/src/WorkflowComposer/view.tsx");
+const controller = read("packages/hypervisor-workbench/src/WorkflowComposer/controller.tsx");
+const view = read("packages/hypervisor-workbench/src/WorkflowComposer/view.tsx");
 const runHistoryModelSource = read(
-  "packages/agent-ide/src/runtime/workflow-run-history-model.ts",
+  "packages/hypervisor-workbench/src/runtime/workflow-run-history-model.ts",
 );
 
 const subflow = createWorkflowRuntimeTerminalCodingLoopTemplateSubflow({
@@ -541,7 +541,7 @@ const checks = {
   noCanvasLocalRuntimeTruth:
     !/from "@xyflow\/react"/.test(
       read(
-        "packages/agent-ide/src/WorkflowComposer/terminalCodingLoopRunActivation.ts",
+        "packages/hypervisor-workbench/src/WorkflowComposer/terminalCodingLoopRunActivation.ts",
       ),
     ) && /runtimeThreadEventsForRunResult/.test(runHistoryModelSource),
   composerActivationRun:
@@ -602,11 +602,11 @@ const proof = {
   },
   checks,
   sourceRefs: [
-    "packages/agent-ide/src/WorkflowComposer/view.tsx",
-    "packages/agent-ide/src/WorkflowComposer/controller.tsx",
-    "packages/agent-ide/src/WorkflowComposer/terminalCodingLoopRunActivation.ts",
-    "packages/agent-ide/src/runtime/workflow-run-history-model.ts",
-    "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-subflow.ts",
+    "packages/hypervisor-workbench/src/WorkflowComposer/view.tsx",
+    "packages/hypervisor-workbench/src/WorkflowComposer/controller.tsx",
+    "packages/hypervisor-workbench/src/WorkflowComposer/terminalCodingLoopRunActivation.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-run-history-model.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-terminal-coding-loop-subflow.ts",
     "scripts/lib/live-runtime-daemon-contract.test.mjs",
   ],
 };

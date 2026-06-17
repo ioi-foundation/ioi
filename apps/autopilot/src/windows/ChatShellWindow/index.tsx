@@ -16,7 +16,7 @@ import {
   useSessionDisplayState,
   useSessionShellShortcuts,
   useSessionChatArtifactDrawer,
-} from "@ioi/agent-ide";
+} from "@ioi/hypervisor-workbench";
 import { bootstrapAgentSession, useAgentStore } from "../../session/autopilotSession";
 import { listenForAutopilotDataReset } from "../../services/autopilotReset";
 import { recordChatLaunchReceipt } from "../../services/chatLaunchState";

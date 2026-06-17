@@ -1,5 +1,5 @@
 import type { Dispatch, ReactNode, SetStateAction } from "react";
-import type { WorkflowComposerPreflightSeed } from "@ioi/agent-ide";
+import type { WorkflowComposerPreflightSeed } from "@ioi/hypervisor-workbench";
 import type {
   AssistantUserProfile,
   SessionHookSnapshot,

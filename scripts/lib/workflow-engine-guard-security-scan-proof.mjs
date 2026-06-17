@@ -12,7 +12,7 @@ if (!outputPath) {
 }
 
 const { buildWorkflowEngineGuardSecurityScanPanel } = await import(
-  "../../packages/agent-ide/src/runtime/workflow-engine-guard-security-scan.ts"
+  "../../packages/hypervisor-workbench/src/runtime/workflow-engine-guard-security-scan.ts"
 );
 
 async function fetchJson(url, options) {

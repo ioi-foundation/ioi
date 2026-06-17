@@ -9,7 +9,7 @@ if (!outputPath) {
 }
 
 const { buildWorkflowParentTrajectoryLinkagePanel } = await import(
-  "../../packages/agent-ide/src/runtime/workflow-parent-trajectory-linkage.ts"
+  "../../packages/hypervisor-workbench/src/runtime/workflow-parent-trajectory-linkage.ts"
 );
 
 const panel = buildWorkflowParentTrajectoryLinkagePanel({

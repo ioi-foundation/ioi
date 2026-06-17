@@ -1,7 +1,7 @@
 import type {
   AssistantWorkbenchActivity,
   AssistantWorkbenchSession,
-} from "@ioi/agent-ide";
+} from "@ioi/hypervisor-workbench";
 import type {
   WorkspaceCommitResult,
   WorkspaceSourceControlState,

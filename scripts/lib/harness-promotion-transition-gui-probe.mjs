@@ -6,14 +6,14 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 globalThis.React = React;
 
-import { WorkflowRailPanel } from "../../packages/agent-ide/src/features/Workflows/WorkflowRailPanel.tsx";
+import { WorkflowRailPanel } from "../../packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel.tsx";
 import {
   executeWorkflowHarnessPromotionTransition,
   executeWorkflowHarnessReplayGate,
   forkDefaultAgentHarnessWorkflow,
   makeHarnessCanaryExecutionBoundaries,
   workflowHarnessPromotionTransitionEligibility,
-} from "../../packages/agent-ide/src/runtime/harness-workflow.ts";
+} from "../../packages/hypervisor-workbench/src/runtime/harness-workflow.ts";
 
 const outputPath = process.argv[2];
 if (!outputPath) {
@@ -646,11 +646,11 @@ const proof = {
       "workflow-selected-node-github-pr-create-output-summary",
   },
   sourceRefs: [
-    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel.tsx",
-    "packages/agent-ide/src/WorkflowComposer/controller.tsx",
-    "packages/agent-ide/src/WorkflowComposer/view.tsx",
-    "packages/agent-ide/src/runtime/harness-workflow.ts",
-    "packages/agent-ide/src/types/graph.ts",
+    "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel.tsx",
+    "packages/hypervisor-workbench/src/WorkflowComposer/controller.tsx",
+    "packages/hypervisor-workbench/src/WorkflowComposer/view.tsx",
+    "packages/hypervisor-workbench/src/runtime/harness-workflow.ts",
+    "packages/hypervisor-workbench/src/types/graph.ts",
   ],
 };
 

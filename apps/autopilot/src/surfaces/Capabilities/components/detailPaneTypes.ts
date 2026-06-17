@@ -1,4 +1,4 @@
-import type { ConnectorSummary } from "@ioi/agent-ide";
+import type { ConnectorSummary } from "@ioi/hypervisor-workbench";
 import type { CapabilityTrustProfile } from "./model";
 import { type CapabilitiesController } from "./useCapabilitiesController";
 

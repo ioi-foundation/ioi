@@ -1,4 +1,4 @@
-import type { ConnectorSummary } from "@ioi/agent-ide";
+import type { ConnectorSummary } from "@ioi/hypervisor-workbench";
 import type { ShieldPolicyState } from "./policyCenter";
 
 export type AuthorityCenterTone = "ready" | "warning" | "blocked" | "idle";

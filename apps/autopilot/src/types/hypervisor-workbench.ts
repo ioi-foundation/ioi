@@ -1,0 +1,20 @@
+// Re-export shared Hypervisor Workbench contracts through the Autopilot type domain.
+export type {
+  Node,
+  Edge,
+  NodeLogic,
+  FirewallPolicy,
+  GraphGlobalConfig,
+  AgentConfiguration,
+  AssistantWorkbenchSession,
+  CalendarAttendeeDetail,
+  CalendarEventDetail,
+  ConnectorSummary,
+  GmailThreadDetail,
+  GmailThreadMessageDetail,
+  SessionClarificationOption,
+  SessionClarificationRequest,
+  SessionCredentialRequest,
+  SessionGateInfo,
+  ChatCapabilityDetailSection,
+} from "@ioi/hypervisor-workbench";

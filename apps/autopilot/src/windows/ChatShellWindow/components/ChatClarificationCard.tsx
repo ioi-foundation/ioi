@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import type { SessionClarificationRequest as ClarificationRequest } from "@ioi/agent-ide";
+import type { SessionClarificationRequest as ClarificationRequest } from "@ioi/hypervisor-workbench";
 import { icons } from "../../../components/ui/icons";
 import "../../ChatShellWindow/styles/Chat.css";
 

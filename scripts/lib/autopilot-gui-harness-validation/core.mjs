@@ -4074,98 +4074,98 @@ export async function collectRuntimeArtifacts(outputRoot, logPath) {
 
 export function collectRollbackRestoreCanaryUiProof(outputRoot) {
   const railPath =
-    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/core.tsx";
+    "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/core.tsx";
   const railOutputSummaryCardsPath =
-    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/outputSummaryCards.tsx";
+    "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/outputSummaryCards.tsx";
   const searchPanelPath =
-    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/searchPanel.tsx";
+    "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/searchPanel.tsx";
   const railSearchModelPath =
-    "packages/agent-ide/src/runtime/workflow-rail-search-model.ts";
+    "packages/hypervisor-workbench/src/runtime/workflow-rail-search-model.ts";
   const entrypointsPanelPath =
-    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/entrypointsPanel.tsx";
+    "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/entrypointsPanel.tsx";
   const entrypointsModelPath =
-    "packages/agent-ide/src/runtime/workflow-entrypoints-model.ts";
+    "packages/hypervisor-workbench/src/runtime/workflow-entrypoints-model.ts";
   const filesPanelPath =
-    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/filesPanel.tsx";
+    "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/filesPanel.tsx";
   const fileBundleModelPath =
-    "packages/agent-ide/src/runtime/workflow-file-bundle-model.ts";
+    "packages/hypervisor-workbench/src/runtime/workflow-file-bundle-model.ts";
   const settingsPanelPath =
-    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsPanel.tsx";
+    "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/settingsPanel.tsx";
   const settingsModelPath =
-    "packages/agent-ide/src/runtime/workflow-settings-model.ts";
+    "packages/hypervisor-workbench/src/runtime/workflow-settings-model.ts";
   const settingsHarnessPanelPath =
-    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPanel.tsx";
+    "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/settingsHarnessPanel.tsx";
   const settingsHarnessTypesPath =
-    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessTypes.ts";
+    "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/settingsHarnessTypes.ts";
   const settingsHarnessRailTypesPath =
-    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/types.ts";
+    "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/types.ts";
   const settingsHarnessStatusPrimitivesPath =
-    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/statusPrimitives.tsx";
+    "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/statusPrimitives.tsx";
   const settingsHarnessActivationPanelPath =
-    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationPanel.tsx";
+    "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationPanel.tsx";
   const settingsHarnessActivationActionsPath =
-    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationActions.tsx";
+    "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationActions.tsx";
   const settingsHarnessActivationWizardDetailsPath =
-    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationWizardDetails.tsx";
+    "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationWizardDetails.tsx";
   const settingsHarnessActivationGatePanelPath =
-    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationGatePanel.tsx";
+    "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationGatePanel.tsx";
   const settingsHarnessActivationGateRefsPanelPath =
-    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationGateRefsPanel.tsx";
+    "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationGateRefsPanel.tsx";
   const settingsHarnessActivationGateTimelinePanelPath =
-    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationGateTimelinePanel.tsx";
+    "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationGateTimelinePanel.tsx";
   const settingsHarnessPackageEvidencePanelPath =
-    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPackageEvidencePanel.tsx";
+    "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/settingsHarnessPackageEvidencePanel.tsx";
   const settingsHarnessPackageEvidenceRowsPanelPath =
-    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPackageEvidenceRowsPanel.tsx";
+    "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/settingsHarnessPackageEvidenceRowsPanel.tsx";
   const settingsHarnessPackageImportReviewPanelPath =
-    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPackageImportReviewPanel.tsx";
+    "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/settingsHarnessPackageImportReviewPanel.tsx";
   const settingsHarnessWorkerBindingPanelPath =
-    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessWorkerBindingPanel.tsx";
+    "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/settingsHarnessWorkerBindingPanel.tsx";
   const settingsHarnessActiveRuntimeRollbackPanelPath =
-    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActiveRuntimeRollbackPanel.tsx";
+    "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/settingsHarnessActiveRuntimeRollbackPanel.tsx";
   const settingsHarnessActiveRuntimeBindingPanelPath =
-    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActiveRuntimeBindingPanel.tsx";
+    "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/settingsHarnessActiveRuntimeBindingPanel.tsx";
   const settingsHarnessActiveRuntimeBindingSummaryPath =
-    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActiveRuntimeBindingSummary.tsx";
+    "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/settingsHarnessActiveRuntimeBindingSummary.tsx";
   const settingsHarnessActiveRuntimeBindingDeepLinksPath =
-    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActiveRuntimeBindingDeepLinks.tsx";
+    "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/settingsHarnessActiveRuntimeBindingDeepLinks.tsx";
   const settingsHarnessRollbackRestoreProofPanelPath =
-    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessRollbackRestoreProofPanel.tsx";
+    "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/settingsHarnessRollbackRestoreProofPanel.tsx";
   const settingsHarnessPromotionPanelPath =
-    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPromotionPanel.tsx";
+    "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/settingsHarnessPromotionPanel.tsx";
   const settingsHarnessPromotionReadinessPanelPath =
-    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPromotionReadinessPanel.tsx";
+    "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/settingsHarnessPromotionReadinessPanel.tsx";
   const settingsHarnessPromotionReadinessSummaryPath =
-    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPromotionReadinessSummary.tsx";
+    "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/settingsHarnessPromotionReadinessSummary.tsx";
   const settingsHarnessPromotionReadinessRoutingCanaryPath =
-    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPromotionReadinessRoutingCanary.tsx";
+    "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/settingsHarnessPromotionReadinessRoutingCanary.tsx";
   const settingsHarnessModelPath =
-    "packages/agent-ide/src/runtime/workflow-settings-harness-model.ts";
+    "packages/hypervisor-workbench/src/runtime/workflow-settings-harness-model.ts";
   const readinessPanelPath =
-    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/readinessPanel.tsx";
+    "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/readinessPanel.tsx";
   const readinessModelPath =
-    "packages/agent-ide/src/runtime/workflow-readiness-model.ts";
+    "packages/hypervisor-workbench/src/runtime/workflow-readiness-model.ts";
   const unitTestsPanelPath =
-    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/unitTestsPanel.tsx";
+    "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/unitTestsPanel.tsx";
   const testReadinessModelPath =
-    "packages/agent-ide/src/runtime/workflow-test-readiness-model.ts";
+    "packages/hypervisor-workbench/src/runtime/workflow-test-readiness-model.ts";
   const runsPanelPath =
-    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx";
+    "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx";
   const runHistoryModelPath =
-    "packages/agent-ide/src/runtime/workflow-run-history-model.ts";
+    "packages/hypervisor-workbench/src/runtime/workflow-run-history-model.ts";
   const validationPath =
-    "packages/agent-ide/src/runtime/workflow-validation.ts";
+    "packages/hypervisor-workbench/src/runtime/workflow-validation.ts";
   const schedulerLaneReadinessPath =
-    "packages/agent-ide/src/runtime/workflow-scheduler-lane-readiness.ts";
+    "packages/hypervisor-workbench/src/runtime/workflow-scheduler-lane-readiness.ts";
   const harnessWorkflowPath =
-    "packages/agent-ide/src/runtime/harness-workflow/core.ts";
-  const railModelPath = "packages/agent-ide/src/runtime/workflow-rail-model.ts";
+    "packages/hypervisor-workbench/src/runtime/harness-workflow/core.ts";
+  const railModelPath = "packages/hypervisor-workbench/src/runtime/workflow-rail-model.ts";
   const controllerPath =
-    "packages/agent-ide/src/WorkflowComposer/controller.tsx";
-  const viewPath = "packages/agent-ide/src/WorkflowComposer/view.tsx";
+    "packages/hypervisor-workbench/src/WorkflowComposer/controller.tsx";
+  const viewPath = "packages/hypervisor-workbench/src/WorkflowComposer/view.tsx";
   const bottomShelfPath =
-    "packages/agent-ide/src/features/Workflows/WorkflowBottomShelf.tsx";
-  const graphPath = "packages/agent-ide/src/types/graph.ts";
+    "packages/hypervisor-workbench/src/features/Workflows/WorkflowBottomShelf.tsx";
+  const graphPath = "packages/hypervisor-workbench/src/types/graph.ts";
   const restoreCommandPath = "apps/autopilot/src-tauri/src/project/commands.rs";
   const projectPackagePath = "apps/autopilot/src-tauri/src/project/package.rs";
   const projectRustValidationPath =
@@ -5775,7 +5775,7 @@ export function collectPromotionTransitionGuiBehaviorProof(outputRoot) {
         ...process.env,
         TSX_TSCONFIG_PATH: resolve(
           repoRoot,
-          "packages/agent-ide/tsconfig.json",
+          "packages/hypervisor-workbench/tsconfig.json",
         ),
       },
       timeout: 60_000,
@@ -10951,27 +10951,27 @@ export async function collectPromotionTransitionLiveGuiInteractionProof(
             }
           : null,
 	      sourceRefs: [
-	        "packages/agent-ide/src/WorkflowComposer/controller.tsx",
-	        "packages/agent-ide/src/WorkflowComposer/support.tsx",
-	        "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/core.tsx",
-	        "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/searchPanel.tsx",
-	        "packages/agent-ide/src/runtime/workflow-rail-search-model.ts",
-	        "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/entrypointsPanel.tsx",
-	        "packages/agent-ide/src/runtime/workflow-entrypoints-model.ts",
-	        "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/filesPanel.tsx",
-	        "packages/agent-ide/src/runtime/workflow-file-bundle-model.ts",
-	        "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsPanel.tsx",
-	        "packages/agent-ide/src/runtime/workflow-settings-model.ts",
-	        "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPanel.tsx", "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessTypes.ts",
-	        "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationPanel.tsx", "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationGatePanel.tsx", "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationGateRefsPanel.tsx", "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationGateTimelinePanel.tsx", "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPackageEvidencePanel.tsx", "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPackageEvidenceRowsPanel.tsx", "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPackageImportReviewPanel.tsx", "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessWorkerBindingPanel.tsx", "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActiveRuntimeRollbackPanel.tsx", "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActiveRuntimeBindingPanel.tsx", "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessRollbackRestoreProofPanel.tsx", "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPromotionPanel.tsx", "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPromotionReadinessPanel.tsx",
-	        "packages/agent-ide/src/runtime/workflow-settings-harness-model.ts",
-	        "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/readinessPanel.tsx",
-	        "packages/agent-ide/src/runtime/workflow-readiness-model.ts",
-	        "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/unitTestsPanel.tsx",
-	        "packages/agent-ide/src/runtime/workflow-test-readiness-model.ts",
-	        "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx",
-	        "packages/agent-ide/src/runtime/workflow-run-history-model.ts",
-	        "packages/agent-ide/src/runtime/harness-workflow/index.ts",
+	        "packages/hypervisor-workbench/src/WorkflowComposer/controller.tsx",
+	        "packages/hypervisor-workbench/src/WorkflowComposer/support.tsx",
+	        "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/core.tsx",
+	        "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/searchPanel.tsx",
+	        "packages/hypervisor-workbench/src/runtime/workflow-rail-search-model.ts",
+	        "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/entrypointsPanel.tsx",
+	        "packages/hypervisor-workbench/src/runtime/workflow-entrypoints-model.ts",
+	        "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/filesPanel.tsx",
+	        "packages/hypervisor-workbench/src/runtime/workflow-file-bundle-model.ts",
+	        "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/settingsPanel.tsx",
+	        "packages/hypervisor-workbench/src/runtime/workflow-settings-model.ts",
+	        "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/settingsHarnessPanel.tsx", "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/settingsHarnessTypes.ts",
+	        "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationPanel.tsx", "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationGatePanel.tsx", "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationGateRefsPanel.tsx", "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationGateTimelinePanel.tsx", "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/settingsHarnessPackageEvidencePanel.tsx", "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/settingsHarnessPackageEvidenceRowsPanel.tsx", "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/settingsHarnessPackageImportReviewPanel.tsx", "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/settingsHarnessWorkerBindingPanel.tsx", "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/settingsHarnessActiveRuntimeRollbackPanel.tsx", "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/settingsHarnessActiveRuntimeBindingPanel.tsx", "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/settingsHarnessRollbackRestoreProofPanel.tsx", "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/settingsHarnessPromotionPanel.tsx", "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/settingsHarnessPromotionReadinessPanel.tsx",
+	        "packages/hypervisor-workbench/src/runtime/workflow-settings-harness-model.ts",
+	        "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/readinessPanel.tsx",
+	        "packages/hypervisor-workbench/src/runtime/workflow-readiness-model.ts",
+	        "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/unitTestsPanel.tsx",
+	        "packages/hypervisor-workbench/src/runtime/workflow-test-readiness-model.ts",
+	        "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx",
+	        "packages/hypervisor-workbench/src/runtime/workflow-run-history-model.ts",
+	        "packages/hypervisor-workbench/src/runtime/harness-workflow/index.ts",
 	      ],
     };
     writeFileSync(proofPath, `${JSON.stringify(proof, null, 2)}\n`, "utf8");

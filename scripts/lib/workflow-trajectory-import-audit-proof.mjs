@@ -9,11 +9,11 @@ if (!outputPath) {
 }
 
 const { buildWorkflowTrajectoryImportAudit } = await import(
-  "../../packages/agent-ide/src/runtime/workflow-trajectory-import-audit.ts"
+  "../../packages/hypervisor-workbench/src/runtime/workflow-trajectory-import-audit.ts"
 );
 
 const workspaceRoot = process.cwd();
-const workspaceUri = `file://${workspaceRoot}/packages/agent-ide/src/index.ts`;
+const workspaceUri = `file://${workspaceRoot}/packages/hypervisor-workbench/src/index.ts`;
 
 const panel = buildWorkflowTrajectoryImportAudit({
   currentWorkspaceRoot: workspaceRoot,

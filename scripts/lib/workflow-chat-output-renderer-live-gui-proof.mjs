@@ -17,7 +17,7 @@ import { join } from "node:path";
 import { chromium } from "playwright";
 
 import { startRuntimeDaemonService } from "../../packages/runtime-daemon/src/index.mjs";
-import { buildWorkflowChatOutputRendererPanel } from "../../packages/agent-ide/src/runtime/workflow-chat-output-renderer.ts";
+import { buildWorkflowChatOutputRendererPanel } from "../../packages/hypervisor-workbench/src/runtime/workflow-chat-output-renderer.ts";
 import {
   AUTOPILOT_ELECTRON,
   syncWorkbenchExtensionTargets,

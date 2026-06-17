@@ -14,9 +14,9 @@ if (!outputPath) {
 const {
   compileWorkflowStructuredPolicy,
   createPolicyBoundRuntimeCodingToolControlRequest,
-} = await import("../../packages/agent-ide/src/runtime/workflow-structured-policy-composer.ts");
+} = await import("../../packages/hypervisor-workbench/src/runtime/workflow-structured-policy-composer.ts");
 const { buildWorkflowRuntimePolicyLeasePanel } = await import(
-  "../../packages/agent-ide/src/runtime/workflow-runtime-policy-lease-panel.ts"
+  "../../packages/hypervisor-workbench/src/runtime/workflow-runtime-policy-lease-panel.ts"
 );
 
 async function fetchJson(url, options) {

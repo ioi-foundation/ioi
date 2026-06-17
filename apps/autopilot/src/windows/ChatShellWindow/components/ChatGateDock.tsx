@@ -2,7 +2,7 @@ import type {
   SessionClarificationRequest as ClarificationRequest,
   SessionCredentialRequest as CredentialRequest,
   SessionGateInfo as GateInfo,
-} from "@ioi/agent-ide";
+} from "@ioi/hypervisor-workbench";
 import { ChatApprovalCard } from "./ChatApprovalCard";
 import { ChatPasswordCard } from "./ChatPasswordCard";
 import { ChatClarificationCard } from "./ChatClarificationCard";

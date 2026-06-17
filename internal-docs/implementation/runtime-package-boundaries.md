@@ -21,7 +21,7 @@ benchmark, compositor, or GUI code.
 | wallet.network | Identity, secrets, authority scopes, data-use permissions, leases, approvals, revocation, payments | Rich workflow state, run traces, training datasets, or artifact payload bytes |
 | `ioi-cli` / headless | Human terminal, scripting, CI, node-ops, and headless client over daemon/public runtime APIs, including training runs, benchmark jobs, receipts, and routing inspection; TUI is an optional presentation over this client | Agent runtime semantics, hidden TUI-only state transitions, or a private execution loop |
 | `@ioi/agent-sdk` | Developer SDK client over the daemon/substrate | Synthetic runtime as canonical default |
-| `@ioi/agent-ide` | UI/workbench/workflow composer client over shared contracts | Canonical run/session/proposal/task truth |
+| `@ioi/hypervisor-workbench` | UI/workbench/workflow composer client over shared contracts | Canonical run/session/proposal/task truth |
 | Hypervisor Core | Shared product/runtime substrate used by first-class clients and application surfaces; execution owner is the Hypervisor Daemon | Peer runtime beside the daemon, wallet authority, Agentgres truth, or storage authority |
 | Hypervisor App / Web | Native and browser/team/remote first-class clients over Hypervisor Core | Runtime truth, policy truth, receipts, replay, or connector secrets |
 | Hypervisor Workbench | Code/systems/workspace surface over Hypervisor Core; observes, requests, approves, interrupts, debugs, and explains daemon-governed work while mediating editor/terminal/browser targets | Execution authority, connector secrets, durable run truth, or extension-host runtime loops |

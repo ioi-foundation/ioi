@@ -29,14 +29,14 @@ function readRustHarnessContract() {
 }
 
 function readTsHarnessWorkflow() {
-  return read("packages/agent-ide/src/runtime/harness-workflow/core.ts");
+  return read("packages/hypervisor-workbench/src/runtime/harness-workflow/core.ts");
 }
 
 function readWorkflowRailPanel() {
   return readMany([
-    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/core.tsx",
-    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationWizardDetails.tsx",
-    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActiveRuntimeBindingSummary.tsx",
+    "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/core.tsx",
+    "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationWizardDetails.tsx",
+    "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/settingsHarnessActiveRuntimeBindingSummary.tsx",
   ]);
 }
 
@@ -72,7 +72,7 @@ function tsUnionValues(source, typeName) {
 
 test("TS harness component and mode unions match Rust canonical contract", () => {
   const rust = readRustHarnessContract();
-  const graph = read("packages/agent-ide/src/types/graph.ts");
+  const graph = read("packages/hypervisor-workbench/src/types/graph.ts");
 
   assert.deepEqual(
     tsUnionValues(graph, "WorkflowHarnessComponentKind"),
@@ -141,10 +141,10 @@ test("TS harness projection carries canonical mode, readiness, replay, clusters,
 });
 
 test("TS harness fork activation contract records blocked and canary-validated paths", () => {
-  const graph = read("packages/agent-ide/src/types/graph.ts");
+  const graph = read("packages/hypervisor-workbench/src/types/graph.ts");
   const workflow = readTsHarnessWorkflow();
   const validation = read(
-    "packages/agent-ide/src/runtime/workflow-validation.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-validation.ts",
   );
   const guiValidation = readGuiHarnessValidation();
   const rail = readWorkflowRailPanel();

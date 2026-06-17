@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { ConnectorSummary } from "@ioi/agent-ide";
+import type { ConnectorSummary } from "@ioi/hypervisor-workbench";
 import {
   buildAuthorityCenterProjection,
   buildAuthorityGrantRequestPayload,

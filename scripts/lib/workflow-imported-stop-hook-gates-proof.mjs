@@ -9,7 +9,7 @@ if (!outputPath) {
 }
 
 const { buildWorkflowImportedStopHookGatePanel } = await import(
-  "../../packages/agent-ide/src/runtime/workflow-imported-stop-hook-gates.ts"
+  "../../packages/hypervisor-workbench/src/runtime/workflow-imported-stop-hook-gates.ts"
 );
 
 const panel = buildWorkflowImportedStopHookGatePanel({

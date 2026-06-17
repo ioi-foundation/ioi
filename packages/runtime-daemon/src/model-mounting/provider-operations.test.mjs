@@ -469,6 +469,13 @@ function fakeState() {
             "rust_hosted_provider_catalog_transport_request_bound",
             "rust_hosted_provider_catalog_transport_response_bound",
             "rust_hosted_provider_endpoint_url_bound",
+            "rust_provider_auth_materialization_bound",
+            "hosted_provider_auth_header_materialized_by_rust",
+            "hosted_provider_auth_header_materialization_contract_bound",
+            "rust_ctee_egress_resolver_bound",
+            "ctee_outbound_secret_injection_ref_bound",
+            "ctee_outbound_egress_resolver_depth_bound",
+            "ctee_hosted_catalog_secret_injection_bound",
           ]
           : []),
       ];
@@ -495,6 +502,17 @@ function fakeState() {
           hosted_catalog_transport_response_hash: "sha256:hosted-catalog-response",
           hosted_catalog_transport_status: "rust_hosted_provider_catalog_transport_response_bound",
           ctee_secret_injection: "ctee_egress_resolver_ref",
+          provider_auth_materialization_ref: request.provider_auth_materialization_ref ?? null,
+          outbound_header_binding_ref: request.outbound_header_binding_ref ?? null,
+          auth_header_materialization_status: request.auth_header_materialization_status ?? null,
+          ctee_egress_resolver_ref: request.ctee_egress_resolver_ref ?? null,
+          ctee_egress_resolver_hash: request.ctee_egress_resolver_hash ?? null,
+          ctee_egress_resolution_status: request.ctee_egress_resolution_status ?? null,
+          ctee_outbound_secret_injection_ref: request.ctee_egress_resolver_ref ?? null,
+          ctee_outbound_secret_injection_hash: request.ctee_egress_resolver_hash ?? null,
+          ctee_outbound_secret_injection_status: request.ctee_egress_resolver_ref
+            ? "rust_ctee_outbound_secret_injection_bound"
+            : null,
         });
       }
       const inventoryHash = `sha256:${request.provider_ref}:${request.action}`;
@@ -530,6 +548,15 @@ function fakeState() {
         hosted_catalog_transport_request_hash: transportContract.hosted_catalog_transport_request_hash ?? null,
         hosted_catalog_transport_response_hash: transportContract.hosted_catalog_transport_response_hash ?? null,
         hosted_catalog_transport_status: transportContract.hosted_catalog_transport_status ?? null,
+        provider_auth_materialization_ref: transportContract.provider_auth_materialization_ref ?? null,
+        outbound_header_binding_ref: transportContract.outbound_header_binding_ref ?? null,
+        auth_header_materialization_status: transportContract.auth_header_materialization_status ?? null,
+        ctee_egress_resolver_ref: transportContract.ctee_egress_resolver_ref ?? null,
+        ctee_egress_resolver_hash: transportContract.ctee_egress_resolver_hash ?? null,
+        ctee_egress_resolution_status: transportContract.ctee_egress_resolution_status ?? null,
+        ctee_outbound_secret_injection_ref: transportContract.ctee_outbound_secret_injection_ref ?? null,
+        ctee_outbound_secret_injection_hash: transportContract.ctee_outbound_secret_injection_hash ?? null,
+        ctee_outbound_secret_injection_status: transportContract.ctee_outbound_secret_injection_status ?? null,
         plaintext_secret_material_returned: false,
         inventory_hash: inventoryHash,
         record_dir: "model-provider-inventory",
@@ -1465,6 +1492,11 @@ test("hosted provider inventory commits Rust metadata records without JS driver 
     "rust_ctee_outbound_egress_resolved",
   );
   assert.equal(
+    state.modelMountInventoryRequests[0].ctee_egress_resolver_ref,
+    "ctee://model-mount/egress-resolver/provider.remote#sha256:ctee-egress",
+  );
+  assert.equal(state.modelMountInventoryRequests[0].ctee_egress_resolver_hash, "sha256:ctee-egress");
+  assert.equal(
     state.modelMountInventoryRequests[0].execution_backend,
     "rust_model_mount_hosted_provider_inventory",
   );
@@ -1484,6 +1516,10 @@ test("hosted provider inventory commits Rust metadata records without JS driver 
   assert.equal(models.evidence_refs.includes("rust_hosted_provider_catalog_live_network_io_executed"), true);
   assert.equal(models.evidence_refs.includes("rust_hosted_provider_catalog_transport_request_bound"), true);
   assert.equal(models.evidence_refs.includes("rust_hosted_provider_catalog_transport_response_bound"), true);
+  assert.equal(models.evidence_refs.includes("rust_provider_auth_materialization_bound"), true);
+  assert.equal(models.evidence_refs.includes("rust_ctee_egress_resolver_bound"), true);
+  assert.equal(models.evidence_refs.includes("ctee_outbound_secret_injection_ref_bound"), true);
+  assert.equal(models.evidence_refs.includes("ctee_hosted_catalog_secret_injection_bound"), true);
   assert.equal(models.evidence_refs.includes("hosted_provider_transport_not_executed"), false);
   assert.equal(models.transport_execution_status, "rust_materialized");
   assert.equal(models.transport_contract.live_network_io, true);
@@ -1491,9 +1527,29 @@ test("hosted provider inventory commits Rust metadata records without JS driver 
     models.transport_contract.hosted_catalog_transport_status,
     "rust_hosted_provider_catalog_transport_response_bound",
   );
+  assert.equal(
+    models.transport_contract.provider_auth_materialization_ref,
+    "agentgres://model-mounting/model-provider-auth-materializations/provider.remote",
+  );
+  assert.equal(
+    models.transport_contract.ctee_outbound_secret_injection_ref,
+    "ctee://model-mount/egress-resolver/provider.remote#sha256:ctee-egress",
+  );
+  assert.equal(
+    models.transport_contract.ctee_outbound_secret_injection_status,
+    "rust_ctee_outbound_secret_injection_bound",
+  );
   assert.equal(models.record.transport_execution_owner, "rust_daemon_core.model_mount.provider_inventory");
   assert.equal(models.record.live_network_io, true);
   assert.equal(models.record.hosted_catalog_transport_request_hash, "sha256:hosted-catalog-request");
+  assert.equal(
+    models.record.provider_auth_materialization_ref,
+    "agentgres://model-mounting/model-provider-auth-materializations/provider.remote",
+  );
+  assert.equal(
+    models.record.ctee_outbound_secret_injection_status,
+    "rust_ctee_outbound_secret_injection_bound",
+  );
   assert.equal(Object.hasOwn(models.record, "command_transport_fallback"), false);
   assert.equal(Object.hasOwn(models.record.transport_contract, "command_transport_fallback"), false);
   assert.equal(models.commit.record_id, models.record_id);
@@ -1525,6 +1581,16 @@ test("hosted provider inventory rejects retired transport fallback proof fields"
     kind: "custom_http",
     label: "Remote",
     status: "available",
+    base_url: "http://127.0.0.1:9999/v1",
+    provider_auth_materialization_ref:
+      "agentgres://model-mounting/model-provider-auth-materializations/provider.remote",
+    outbound_header_binding_ref:
+      "provider_auth_header://provider.remote#sha256:provider-auth",
+    auth_header_materialization_status: "rust_ctee_outbound_header_bound",
+    ctee_egress_resolver_ref:
+      "ctee://model-mount/egress-resolver/provider.remote#sha256:ctee-egress",
+    ctee_egress_resolver_hash: "sha256:ctee-egress",
+    ctee_egress_resolution_status: "rust_ctee_outbound_egress_resolved",
     item_refs: ["model://remote/configured"],
     loaded_item_refs: ["model_instance://remote/configured"],
     discovery: { evidenceRefs: ["remote_provider"] },
@@ -1539,6 +1605,44 @@ test("hosted provider inventory rejects retired transport fallback proof fields"
       return true;
     },
   );
+});
+
+test("hosted provider inventory does not translate retired camelCase cTEE auth fields", async () => {
+  const state = fakeState();
+  state.providers.set("provider.remote", {
+    id: "provider.remote",
+    kind: "custom_http",
+    label: "Remote",
+    status: "available",
+    base_url: "http://127.0.0.1:9999/v1",
+    providerAuthMaterializationRef:
+      "agentgres://model-mounting/model-provider-auth-materializations/provider.remote",
+    outboundHeaderBindingRef:
+      "provider_auth_header://provider.remote#sha256:provider-auth",
+    authHeaderMaterializationStatus: "rust_ctee_outbound_header_bound",
+    cteeEgressResolverRef:
+      "ctee://model-mount/egress-resolver/provider.remote#sha256:ctee-egress",
+    cteeEgressResolverHash: "sha256:ctee-egress",
+    cteeEgressResolutionStatus: "rust_ctee_outbound_egress_resolved",
+  });
+
+  await assert.rejects(
+    () => listProviderModels(state, "provider.remote"),
+    (error) => {
+      assert.equal(error.code, "model_mount_provider_inventory_rust_result_required");
+      assert.equal(
+        error.details.missing.includes("transport_contract.provider_auth_materialization_ref"),
+        true,
+      );
+      assert.equal(error.details.missing.includes("transport_contract.ctee_egress_resolver_ref"), true);
+      return true;
+    },
+  );
+
+  assert.equal(state.modelMountInventoryRequests.length, 1);
+  assert.equal(state.modelMountInventoryRequests[0].provider_auth_materialization_ref, null);
+  assert.equal(state.modelMountInventoryRequests[0].ctee_egress_resolver_ref, null);
+  assert.deepEqual(state.recordStateCommits, []);
 });
 
 test("local provider inventory uses Rust native-local inventory planner without JS driver", async () => {

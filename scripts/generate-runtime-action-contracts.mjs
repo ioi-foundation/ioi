@@ -15,7 +15,7 @@ const schema = JSON.parse(fs.readFileSync(schemaPath, "utf8"));
 const tsPath = path.join(
   root,
   "packages",
-  "agent-ide",
+  "hypervisor-workbench",
   "src",
   "runtime",
   "generated",

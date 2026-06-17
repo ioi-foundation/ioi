@@ -9,7 +9,7 @@ if (!outputPath) {
 }
 
 const { buildWorkflowSignedReplayNotebook } = await import(
-  "../../packages/agent-ide/src/runtime/workflow-signed-replay-notebook.ts"
+  "../../packages/hypervisor-workbench/src/runtime/workflow-signed-replay-notebook.ts"
 );
 const {
   isWorkspaceNotebookPath,
@@ -17,16 +17,16 @@ const {
   updateWorkspaceNotebookCellSource,
 } = await import("../../packages/workspace-substrate/src/notebook.ts");
 const { buildWorkflowImportedGenerationMetadataPanel } = await import(
-  "../../packages/agent-ide/src/runtime/workflow-imported-generation-metadata.ts"
+  "../../packages/hypervisor-workbench/src/runtime/workflow-imported-generation-metadata.ts"
 );
 const { buildWorkflowImportedErrorRenderInfoPanel } = await import(
-  "../../packages/agent-ide/src/runtime/workflow-imported-error-render-info.ts"
+  "../../packages/hypervisor-workbench/src/runtime/workflow-imported-error-render-info.ts"
 );
 const { buildWorkflowImportedExecutorConfigPanel } = await import(
-  "../../packages/agent-ide/src/runtime/workflow-imported-executor-config.ts"
+  "../../packages/hypervisor-workbench/src/runtime/workflow-imported-executor-config.ts"
 );
 const { buildWorkflowImportedPolicyDraft } = await import(
-  "../../packages/agent-ide/src/runtime/workflow-imported-policy-draft.ts"
+  "../../packages/hypervisor-workbench/src/runtime/workflow-imported-policy-draft.ts"
 );
 
 const outputDir = path.dirname(outputPath);

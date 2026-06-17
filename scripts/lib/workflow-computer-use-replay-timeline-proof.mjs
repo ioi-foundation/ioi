@@ -9,7 +9,7 @@ if (!outputPath) {
 }
 
 const { buildWorkflowComputerUseReplayTimeline } = await import(
-  "../../packages/agent-ide/src/runtime/workflow-computer-use-replay-timeline.ts"
+  "../../packages/hypervisor-workbench/src/runtime/workflow-computer-use-replay-timeline.ts"
 );
 
 const workflowGraphId = "workflow.react-flow.computer-use-replay-timeline";

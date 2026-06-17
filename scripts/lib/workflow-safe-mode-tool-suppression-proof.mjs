@@ -9,7 +9,7 @@ if (!outputPath) {
 }
 
 const { buildWorkflowSafeModeToolSuppressionPanel } = await import(
-  "../../packages/agent-ide/src/runtime/workflow-safe-mode-tool-suppression.ts"
+  "../../packages/hypervisor-workbench/src/runtime/workflow-safe-mode-tool-suppression.ts"
 );
 
 const controls = [

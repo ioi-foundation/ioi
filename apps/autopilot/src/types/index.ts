@@ -18,7 +18,7 @@ export type {
   SessionCredentialRequest,
   SessionGateInfo,
   ChatCapabilityDetailSection,
-} from "./agent-ide";
+} from "./hypervisor-workbench";
 
 export type {
   ExecutionMode,

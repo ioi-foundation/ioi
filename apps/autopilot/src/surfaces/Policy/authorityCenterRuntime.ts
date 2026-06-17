@@ -1,9 +1,9 @@
-import type { ConnectorSummary } from "@ioi/agent-ide";
+import type { ConnectorSummary } from "@ioi/hypervisor-workbench";
 import {
   MODEL_AUTHORITY_BINDING_ENDPOINT,
   MODEL_CAPABILITY_BINDING_ENDPOINT,
   TOOL_CAPABILITY_BINDING_ENDPOINT,
-} from "@ioi/agent-ide";
+} from "@ioi/hypervisor-workbench";
 import {
   buildAuthorityCenterProjection,
   type AuthorityCenterProjection,

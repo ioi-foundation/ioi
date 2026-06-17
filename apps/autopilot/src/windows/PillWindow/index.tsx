@@ -3,7 +3,7 @@ import {
   AssistantWorkbenchView,
   hidePillShell,
   useAssistantWorkbenchState,
-} from "@ioi/agent-ide";
+} from "@ioi/hypervisor-workbench";
 import { useRetainedWorkbenchTrace } from "../../hooks/useRetainedWorkbenchTrace";
 import { buildAssistantWorkbenchSummary } from "../../lib/assistantWorkbenchSummary";
 import { useNotificationTargetDetail } from "../../hooks/useNotificationTargetDetail";

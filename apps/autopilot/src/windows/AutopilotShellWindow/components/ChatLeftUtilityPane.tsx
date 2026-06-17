@@ -1,7 +1,7 @@
 import type {
   AgentWorkbenchRuntime,
   AssistantSessionRuntime,
-} from "@ioi/agent-ide";
+} from "@ioi/hypervisor-workbench";
 import { Codicon } from "@ioi/workspace-substrate";
 import type { AssistantWorkbenchSession } from "../../../types";
 import { MissionControlChatView } from "../../../surfaces/MissionControl";

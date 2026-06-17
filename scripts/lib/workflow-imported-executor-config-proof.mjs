@@ -9,7 +9,7 @@ if (!outputPath) {
 }
 
 const { buildWorkflowImportedExecutorConfigPanel } = await import(
-  "../../packages/agent-ide/src/runtime/workflow-imported-executor-config.ts"
+  "../../packages/hypervisor-workbench/src/runtime/workflow-imported-executor-config.ts"
 );
 
 const panel = buildWorkflowImportedExecutorConfigPanel({

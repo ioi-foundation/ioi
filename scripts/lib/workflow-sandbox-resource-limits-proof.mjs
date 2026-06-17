@@ -9,7 +9,7 @@ if (!outputPath) {
 }
 
 const { buildWorkflowSandboxResourceLimitPanel } = await import(
-  "../../packages/agent-ide/src/runtime/workflow-sandbox-resource-limits.ts"
+  "../../packages/hypervisor-workbench/src/runtime/workflow-sandbox-resource-limits.ts"
 );
 
 const panel = buildWorkflowSandboxResourceLimitPanel({

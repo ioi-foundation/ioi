@@ -1,4 +1,4 @@
-import type { ConnectorSubscriptionSummary } from "@ioi/agent-ide";
+import type { ConnectorSubscriptionSummary } from "@ioi/hypervisor-workbench";
 import { buildOperatorWorkbenchSummary } from "../lib/operatorWorkbenchSummary";
 import { notificationTargetConnectorId } from "../lib/notificationTargets";
 import type {

@@ -1,4 +1,4 @@
-import { formatSessionTimeAgo } from "@ioi/agent-ide";
+import { formatSessionTimeAgo } from "@ioi/hypervisor-workbench";
 import { useMemo, useState } from "react";
 import type {
   ArtifactHubViewKey,

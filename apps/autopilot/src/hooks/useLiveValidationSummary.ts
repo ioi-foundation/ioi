@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   formatSessionTimeAgo,
   type AssistantWorkbenchActivity,
-} from "@ioi/agent-ide";
+} from "@ioi/hypervisor-workbench";
 import type { RuntimeValidationStatus } from "../services/runtimeInspection";
 import type { AgentEvent, AgentTask, Artifact, SessionSummary } from "../types";
 

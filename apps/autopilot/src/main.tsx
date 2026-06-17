@@ -3,7 +3,7 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { useEffect } from "react";
 
-import "@ioi/agent-ide/dist/style.css"; // Use shared theme
+import "@ioi/hypervisor-workbench/dist/style.css"; // Use shared theme
 import "@ioi/workspace-substrate/style.css";
 import "./styles/global.css"; // Autopilot theme overrides
 import "./services/sessionRuntime";
@@ -16,7 +16,7 @@ import { markAutopilotMetric } from "./services/workspacePerf";
 import { GateWindow } from "./windows/GateWindow/index";
 import { AutopilotShellWindow } from "./windows/AutopilotShellWindow";
 import { WorkspaceWorkbenchPreview } from "./dev/WorkspaceWorkbenchPreview";
-import { hideChatSessionShell, hidePillShell, showChatShell } from "@ioi/agent-ide";
+import { hideChatSessionShell, hidePillShell, showChatShell } from "@ioi/hypervisor-workbench";
 
 applyAutopilotAppearance(loadAutopilotAppearance());
 

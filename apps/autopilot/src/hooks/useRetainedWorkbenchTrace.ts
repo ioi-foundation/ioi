@@ -3,7 +3,7 @@ import {
   loadAssistantSessionArtifacts,
   loadAssistantSessionEvents,
   type AssistantWorkbenchActivity,
-} from "@ioi/agent-ide";
+} from "@ioi/hypervisor-workbench";
 import type { AgentEvent, Artifact } from "../types";
 
 interface RetainedWorkbenchTraceState {

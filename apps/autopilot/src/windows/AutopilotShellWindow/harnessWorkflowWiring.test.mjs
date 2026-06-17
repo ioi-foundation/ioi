@@ -3,29 +3,29 @@ import fs from "node:fs";
 
 const graphTypes = fs.readFileSync(
   new URL(
-    "../../../../../packages/agent-ide/src/types/graph.ts",
+    "../../../../../packages/hypervisor-workbench/src/types/graph.ts",
     import.meta.url,
   ),
   "utf8",
 );
 const harnessWorkflow = fs.readFileSync(
   new URL(
-    "../../../../../packages/agent-ide/src/runtime/harness-workflow/core.ts",
+    "../../../../../packages/hypervisor-workbench/src/runtime/harness-workflow/core.ts",
     import.meta.url,
   ),
   "utf8",
 );
 const workflowComposer = [
-  "../../../../../packages/agent-ide/src/WorkflowComposer.tsx",
-  "../../../../../packages/agent-ide/src/WorkflowComposer/content.tsx",
-  "../../../../../packages/agent-ide/src/WorkflowComposer/support.tsx",
-  "../../../../../packages/agent-ide/src/WorkflowComposer/controller.tsx",
-  "../../../../../packages/agent-ide/src/WorkflowComposer/view.tsx",
+  "../../../../../packages/hypervisor-workbench/src/WorkflowComposer.tsx",
+  "../../../../../packages/hypervisor-workbench/src/WorkflowComposer/content.tsx",
+  "../../../../../packages/hypervisor-workbench/src/WorkflowComposer/support.tsx",
+  "../../../../../packages/hypervisor-workbench/src/WorkflowComposer/controller.tsx",
+  "../../../../../packages/hypervisor-workbench/src/WorkflowComposer/view.tsx",
 ]
   .map((path) => fs.readFileSync(new URL(path, import.meta.url), "utf8"))
   .join("\n");
 const workflowRailPanelDir = new URL(
-  "../../../../../packages/agent-ide/src/features/Workflows/WorkflowRailPanel/",
+  "../../../../../packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/",
   import.meta.url,
 );
 const workflowRailPanel = fs
@@ -35,14 +35,14 @@ const workflowRailPanel = fs
   .join("\n");
 const workflowRailModel = fs.readFileSync(
   new URL(
-    "../../../../../packages/agent-ide/src/runtime/workflow-rail-model.ts",
+    "../../../../../packages/hypervisor-workbench/src/runtime/workflow-rail-model.ts",
     import.meta.url,
   ),
   "utf8",
 );
 const workflowValidation = fs.readFileSync(
   new URL(
-    "../../../../../packages/agent-ide/src/runtime/workflow-validation.ts",
+    "../../../../../packages/hypervisor-workbench/src/runtime/workflow-validation.ts",
     import.meta.url,
   ),
   "utf8",

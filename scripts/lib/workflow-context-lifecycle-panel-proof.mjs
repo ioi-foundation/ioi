@@ -13,7 +13,7 @@ if (!outputPath) {
 }
 
 const { buildWorkflowContextLifecyclePanel } = await import(
-  "../../packages/agent-ide/src/runtime/workflow-context-lifecycle-panel.ts"
+  "../../packages/hypervisor-workbench/src/runtime/workflow-context-lifecycle-panel.ts"
 );
 
 async function fetchJson(url, options) {

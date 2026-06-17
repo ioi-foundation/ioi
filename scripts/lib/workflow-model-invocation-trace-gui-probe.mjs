@@ -4,9 +4,9 @@ import { writeFileSync } from "node:fs";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { WorkflowBottomShelf } from "../../packages/agent-ide/src/features/Workflows/WorkflowBottomShelf.tsx";
-import { WorkflowRunsPanel } from "../../packages/agent-ide/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx";
-import { workflowRunHistoryModel } from "../../packages/agent-ide/src/runtime/workflow-run-history-model.ts";
+import { WorkflowBottomShelf } from "../../packages/hypervisor-workbench/src/features/Workflows/WorkflowBottomShelf.tsx";
+import { WorkflowRunsPanel } from "../../packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx";
+import { workflowRunHistoryModel } from "../../packages/hypervisor-workbench/src/runtime/workflow-run-history-model.ts";
 
 const outputPath = process.argv[2];
 if (!outputPath) {
@@ -248,11 +248,11 @@ const proof = {
   railTraceStepCount,
   checks,
   sourceRefs: [
-    "packages/agent-ide/src/features/Workflows/WorkflowBottomShelf.tsx",
-    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx",
-    "packages/agent-ide/src/runtime/workflow-model-invocation-trace.ts",
-    "packages/agent-ide/src/runtime/workflow-run-history-model.ts",
-    "packages/agent-ide/src/types/graph.ts",
+    "packages/hypervisor-workbench/src/features/Workflows/WorkflowBottomShelf.tsx",
+    "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx",
+    "packages/hypervisor-workbench/src/runtime/workflow-model-invocation-trace.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-run-history-model.ts",
+    "packages/hypervisor-workbench/src/types/graph.ts",
   ],
 };
 

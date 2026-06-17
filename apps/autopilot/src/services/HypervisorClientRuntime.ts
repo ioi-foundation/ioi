@@ -87,7 +87,7 @@ import {
   WorkflowSkillPackImportResult,
   createAssistantWorkbenchActivity,
   WORKFLOW_CODING_ROUTE_CONTRACTS,
-} from "@ioi/agent-ide";
+} from "@ioi/hypervisor-workbench";
 import type {
   ActiveContextSnapshot,
   AtlasNeighborhood,

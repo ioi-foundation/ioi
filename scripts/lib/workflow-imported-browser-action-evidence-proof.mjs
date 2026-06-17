@@ -9,7 +9,7 @@ if (!outputPath) {
 }
 
 const { buildWorkflowImportedBrowserActionEvidencePanel } = await import(
-  "../../packages/agent-ide/src/runtime/workflow-imported-browser-action-evidence.ts"
+  "../../packages/hypervisor-workbench/src/runtime/workflow-imported-browser-action-evidence.ts"
 );
 
 const panel = buildWorkflowImportedBrowserActionEvidencePanel({

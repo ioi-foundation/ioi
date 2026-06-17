@@ -2,7 +2,7 @@ import {
   buildSessionReplTargets,
   formatSessionTimeAgo,
   selectPrimarySessionReplTarget,
-} from "@ioi/agent-ide";
+} from "@ioi/hypervisor-workbench";
 import {
   useWorkspaceTerminalSession,
   WorkspaceTerminalView,

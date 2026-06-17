@@ -14,7 +14,7 @@ import {
   useSessionInterruptionActions,
   useSessionShellActions,
   useSessionUiState,
-} from "@ioi/agent-ide";
+} from "@ioi/hypervisor-workbench";
 import type {
   AgentTask,
   ArtifactHubViewKey,

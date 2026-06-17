@@ -1,6 +1,6 @@
 import clsx from "clsx";
 import { ArrowLeft } from "lucide-react";
-import { workflowRuntimeUnavailableCopy } from "@ioi/agent-ide";
+import { workflowRuntimeUnavailableCopy } from "@ioi/hypervisor-workbench";
 import {
   createElement,
   useCallback,

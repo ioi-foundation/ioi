@@ -2,7 +2,7 @@ import { invoke } from "./hypervisorHostBridge";
 import type {
   AssistantWorkbenchSession,
   ChatViewTarget,
-} from "@ioi/agent-ide";
+} from "@ioi/hypervisor-workbench";
 import type { ChatCapabilityDetailSection } from "../types";
 
 const STORAGE_KEY = "autopilot.pending_chat_launch.v1";

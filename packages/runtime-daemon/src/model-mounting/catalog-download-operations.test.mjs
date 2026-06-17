@@ -226,6 +226,11 @@ test("downloadModel forwards hosted download materialization contract to Rust st
     state.planRequests[0].body.ctee_egress_resolution_status,
     "rust_ctee_outbound_egress_resolved",
   );
+  assert.equal(
+    state.planRequests[0].body.ctee_egress_resolver_ref,
+    "ctee://model-mount/egress-resolver/provider_openai_auth_header#sha256:egress",
+  );
+  assert.equal(state.planRequests[0].body.ctee_egress_resolver_hash, "sha256:egress");
   assert.equal(state.planRequests[0].body.containment_ref, "ctee://containment/hosted-download");
   assert.equal(state.planRequests[0].containment_ref, "ctee://containment/hosted-download");
   assertOnlyRustStorageControl(state, 1);

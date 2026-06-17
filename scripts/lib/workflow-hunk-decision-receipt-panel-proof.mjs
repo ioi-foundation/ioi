@@ -12,7 +12,7 @@ if (!outputPath) {
 }
 
 const { buildWorkflowHunkDecisionReceiptPanel } = await import(
-  "../../packages/agent-ide/src/runtime/workflow-hunk-decision-receipt-panel.ts"
+  "../../packages/hypervisor-workbench/src/runtime/workflow-hunk-decision-receipt-panel.ts"
 );
 
 async function fetchJson(url, options) {

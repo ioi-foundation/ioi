@@ -13,7 +13,7 @@ if (!outputPath) {
 }
 
 const { buildWorkflowSessionBrainPanel } = await import(
-  "../../packages/agent-ide/src/runtime/workflow-session-brain-panel.ts"
+  "../../packages/hypervisor-workbench/src/runtime/workflow-session-brain-panel.ts"
 );
 
 async function fetchJson(url, options) {

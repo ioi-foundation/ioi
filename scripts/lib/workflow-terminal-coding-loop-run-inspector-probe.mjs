@@ -2,13 +2,13 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-import { makeDefaultWorkflow } from "../../packages/agent-ide/src/runtime/workflow-defaults.ts";
-import { createRuntimeCodingToolControlRequestFromWorkflowNode } from "../../packages/agent-ide/src/runtime/workflow-runtime-coding-tool-control-nodes.ts";
-import { createWorkflowRuntimeTerminalCodingLoopTemplateSubflow } from "../../packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-subflow.ts";
+import { makeDefaultWorkflow } from "../../packages/hypervisor-workbench/src/runtime/workflow-defaults.ts";
+import { createRuntimeCodingToolControlRequestFromWorkflowNode } from "../../packages/hypervisor-workbench/src/runtime/workflow-runtime-coding-tool-control-nodes.ts";
+import { createWorkflowRuntimeTerminalCodingLoopTemplateSubflow } from "../../packages/hypervisor-workbench/src/runtime/workflow-runtime-terminal-coding-loop-subflow.ts";
 import {
   materializeWorkflowRuntimeTerminalCodingLoopFromTuiRow,
   workflowRuntimeTerminalCodingLoopIdsFromWorkflow,
-} from "../../packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-materialization.ts";
+} from "../../packages/hypervisor-workbench/src/runtime/workflow-runtime-terminal-coding-loop-materialization.ts";
 
 const outputPath = process.argv[2];
 if (!outputPath) {
@@ -86,16 +86,16 @@ function workflowWithExistingLoop() {
   };
 }
 
-const controller = read("packages/agent-ide/src/WorkflowComposer/controller.tsx");
-const view = read("packages/agent-ide/src/WorkflowComposer/view.tsx");
+const controller = read("packages/hypervisor-workbench/src/WorkflowComposer/controller.tsx");
+const view = read("packages/hypervisor-workbench/src/WorkflowComposer/view.tsx");
 const runsPanel = read(
-  "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx",
+  "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx",
 );
 const railPanel = read(
-  "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/core.tsx",
+  "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/core.tsx",
 );
 const materialization = read(
-  "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-materialization.ts",
+  "packages/hypervisor-workbench/src/runtime/workflow-runtime-terminal-coding-loop-materialization.ts",
 );
 
 const row = codingToolRow();
@@ -194,12 +194,12 @@ const proof = {
   },
   checks,
   sourceRefs: [
-    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx",
-    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/core.tsx",
-    "packages/agent-ide/src/WorkflowComposer/view.tsx",
-    "packages/agent-ide/src/WorkflowComposer/controller.tsx",
-    "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-materialization.ts",
-    "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-materialization.test.ts",
+    "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx",
+    "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/core.tsx",
+    "packages/hypervisor-workbench/src/WorkflowComposer/view.tsx",
+    "packages/hypervisor-workbench/src/WorkflowComposer/controller.tsx",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-terminal-coding-loop-materialization.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-terminal-coding-loop-materialization.test.ts",
   ],
 };
 

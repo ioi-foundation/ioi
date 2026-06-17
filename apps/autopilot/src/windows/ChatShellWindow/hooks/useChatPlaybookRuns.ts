@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { listenIfHostBridge as listen } from "../../../services/hostListeners";
-import { submitAssistantSessionInput } from "@ioi/agent-ide";
+import { submitAssistantSessionInput } from "@ioi/hypervisor-workbench";
 import {
   getSessionOperatorRuntime,
   type SessionOperatorRuntime,

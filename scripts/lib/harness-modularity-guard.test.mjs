@@ -79,12 +79,12 @@ const harnessAuthorityTokens = [
 const harnessAuthorityAllowlist = [
   "crates/services/src/agentic/runtime/README.md",
   "crates/services/src/agentic/runtime/harness.rs",
-  "packages/agent-ide/src/WorkflowComposer/controller.tsx",
-  "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessTypes.ts",
-  "packages/agent-ide/src/runtime/harness-workflow/core.ts",
-  "packages/agent-ide/src/runtime/workflow-rail-model.ts",
-  "packages/agent-ide/src/runtime/workflow-run-history-model.ts",
-  "packages/agent-ide/src/types/graph.ts",
+  "packages/hypervisor-workbench/src/WorkflowComposer/controller.tsx",
+  "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/settingsHarnessTypes.ts",
+  "packages/hypervisor-workbench/src/runtime/harness-workflow/core.ts",
+  "packages/hypervisor-workbench/src/runtime/workflow-rail-model.ts",
+  "packages/hypervisor-workbench/src/runtime/workflow-run-history-model.ts",
+  "packages/hypervisor-workbench/src/types/graph.ts",
   "scripts/lib/autopilot-gui-harness-validation/core.mjs",
   "scripts/lib/harness-contract-consistency.test.mjs",
   "scripts/lib/harness-modularity-guard.test.mjs",
@@ -122,7 +122,7 @@ function readRustHarnessContract() {
 }
 
 function readTsHarnessWorkflow() {
-  return read("packages/agent-ide/src/runtime/harness-workflow/core.ts");
+  return read("packages/hypervisor-workbench/src/runtime/harness-workflow/core.ts");
 }
 
 function readGuiHarnessValidation() {
@@ -212,7 +212,7 @@ test("runtime README carries the default harness modularity contract", () => {
 
 test("Rust and TS retain the guarded P0 harness component surface", () => {
   const rust = readRustHarnessContract();
-  const graph = read("packages/agent-ide/src/types/graph.ts");
+  const graph = read("packages/hypervisor-workbench/src/types/graph.ts");
   const rustKinds = rustAsStrValues(rust, "HarnessComponentKind");
   const tsKinds = tsUnionValues(graph, "WorkflowHarnessComponentKind");
 
@@ -248,7 +248,7 @@ test("Rust and TS retain the guarded P0 harness component surface", () => {
 
 test("adapter contracts expose action frame, node attempt, readiness, receipts, replay, and slots", () => {
   const rust = readRustHarnessContract();
-  const graph = read("packages/agent-ide/src/types/graph.ts");
+  const graph = read("packages/hypervisor-workbench/src/types/graph.ts");
 
   const tsActionFrame = tsInterfaceBlock(graph, "WorkflowHarnessActionFrame");
   for (const field of [
@@ -316,7 +316,7 @@ test("adapter contracts expose action frame, node attempt, readiness, receipts, 
 });
 
 test("P0 clusters keep explicit workflow component adapter proof", () => {
-  const graph = read("packages/agent-ide/src/types/graph.ts");
+  const graph = read("packages/hypervisor-workbench/src/types/graph.ts");
   const workflow = readTsHarnessWorkflow();
   const guiValidation = readGuiHarnessValidation();
 
@@ -371,7 +371,7 @@ test("P0 clusters keep explicit workflow component adapter proof", () => {
 test("harness authority tokens only appear in approved substrate surfaces", () => {
   const sourceRoots = [
     "crates/services/src/agentic/runtime",
-    "packages/agent-ide/src",
+    "packages/hypervisor-workbench/src",
     "scripts/lib",
   ];
   const sourceFiles = sourceRoots.flatMap(walkSourceFiles);
@@ -388,7 +388,7 @@ test("active harness sources do not reintroduce retired runtime fallback authori
     "crates/services/src/agentic/runtime",
     "crates/types/src/app",
     "apps/autopilot/src/windows/AutopilotShellWindow",
-    "packages/agent-ide/src",
+    "packages/hypervisor-workbench/src",
     "scripts/lib",
     ".internal/plans",
   ];

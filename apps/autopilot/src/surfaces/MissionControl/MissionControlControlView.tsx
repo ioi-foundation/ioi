@@ -2,7 +2,7 @@ import { SettingsView } from "../Settings";
 import { PolicyView } from "../Policy";
 import { HypervisorClientRuntime } from "../../services/HypervisorClientRuntime";
 import type { AssistantUserProfile } from "../../types";
-import type { WorkflowComposerPreflightSeed } from "@ioi/agent-ide";
+import type { WorkflowComposerPreflightSeed } from "@ioi/hypervisor-workbench";
 import type {
   CapabilityGovernanceRequest,
   ShieldPolicyState,

@@ -12,7 +12,7 @@ if (!outputPath) {
 }
 
 const { buildWorkflowTerminalStreamCard } = await import(
-  "../../packages/agent-ide/src/runtime/workflow-terminal-stream-card.ts"
+  "../../packages/hypervisor-workbench/src/runtime/workflow-terminal-stream-card.ts"
 );
 
 async function fetchJson(url, options) {

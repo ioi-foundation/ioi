@@ -12,7 +12,7 @@ if (!outputPath) {
 }
 
 const { buildWorkflowRuntimeReceiptFirstToolTimeline } = await import(
-  "../../packages/agent-ide/src/runtime/workflow-runtime-receipt-first-tool-timeline.ts"
+  "../../packages/hypervisor-workbench/src/runtime/workflow-runtime-receipt-first-tool-timeline.ts"
 );
 
 async function fetchJson(url, options) {

@@ -10,7 +10,7 @@ if (!outputPath) {
 }
 
 const { buildWorkflowOnboardingDiagnosticsChecklist } = await import(
-  "../../packages/agent-ide/src/runtime/workflow-onboarding-diagnostics-checklist.ts"
+  "../../packages/hypervisor-workbench/src/runtime/workflow-onboarding-diagnostics-checklist.ts"
 );
 
 const observedChecks = [

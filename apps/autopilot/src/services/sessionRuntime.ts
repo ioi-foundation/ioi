@@ -1,9 +1,9 @@
-import type { AgentWorkbenchRuntime, AssistantSessionRuntime } from "@ioi/agent-ide";
+import type { AgentWorkbenchRuntime, AssistantSessionRuntime } from "@ioi/hypervisor-workbench";
 import {
   getAssistantSessionRuntime as getSharedSessionRuntime,
   setActiveAssistantSessionRuntime,
   setDefaultAssistantSessionRuntime,
-} from "@ioi/agent-ide";
+} from "@ioi/hypervisor-workbench";
 import type { LocalEngineSnapshot } from "../types";
 import { HypervisorClientRuntime, type WorkspaceWorkflowSummary } from "./HypervisorClientRuntime";
 

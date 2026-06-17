@@ -28,10 +28,10 @@ parallel execution path.
 | --- | --- | --- |
 | `@ioi/agent-sdk` | `packages/agent-sdk/` | Developer client over daemon/substrate contracts. |
 | `ioi-cli` / headless | `crates/cli/` | Terminal, scripting, CI, node-ops, and headless client over daemon/public runtime APIs, including training, benchmark, receipt, and routing inspection controls; TUI is an optional presentation over this client. |
-| `@ioi/agent-ide` | `packages/agent-ide/` | Workbench and workflow-composer projection over shared contracts. |
+| `@ioi/hypervisor-workbench` | `packages/hypervisor-workbench/` | Workbench and workflow-composer projection over shared contracts. |
 | Hypervisor App/Web | `apps/autopilot/` today, future Hypervisor app/web homes as code is renamed | First-class product clients over Hypervisor Core; product shell over Workbench, Foundry, Fleet, chat/assistant surfaces, and daemon/runtime projections. |
-| Shared builder substrate | `packages/agent-ide/src/types/graph.ts`, `packages/agent-ide/src/runtime/workflow-schema.ts`, workflow runtime models | Typed graph, schema, and recipe contracts consumed by multiple builder lenses. |
-| Workflow compositor | `packages/agent-ide/src/WorkflowComposer/` | Standard graph projection over the shared builder substrate; submits to daemon/domain contracts and never owns canonical run truth. |
+| Shared builder substrate | `packages/hypervisor-workbench/src/types/graph.ts`, `packages/hypervisor-workbench/src/runtime/workflow-schema.ts`, workflow runtime models | Typed graph, schema, and recipe contracts consumed by multiple builder lenses. |
+| Workflow compositor | `packages/hypervisor-workbench/src/WorkflowComposer/` | Standard graph projection over the shared builder substrate; submits to daemon/domain contracts and never owns canonical run truth. |
 
 ## Validation Surfaces
 

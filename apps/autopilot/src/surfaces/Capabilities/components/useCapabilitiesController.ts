@@ -11,7 +11,7 @@ import {
   type ConnectorSummary,
   useMailConnectorActions,
   workflowRuntimeUnavailableCopy,
-} from "@ioi/agent-ide";
+} from "@ioi/hypervisor-workbench";
 import {
   listenIfHostBridge,
   safelyDisposeHostListener,

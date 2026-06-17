@@ -12,7 +12,7 @@ if (!outputPath) {
 }
 
 const { buildWorkflowRuntimeGoalVerificationPanel } = await import(
-  "../../packages/agent-ide/src/runtime/workflow-runtime-goal-verification-panel.ts"
+  "../../packages/hypervisor-workbench/src/runtime/workflow-runtime-goal-verification-panel.ts"
 );
 
 async function fetchJson(url, options) {

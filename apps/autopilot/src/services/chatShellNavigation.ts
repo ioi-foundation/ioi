@@ -6,7 +6,7 @@ import {
   openChatSessionTarget as openAgentIdeChatSessionTarget,
   openChatShellView as openAgentIdeChatShellView,
   showChatSessionShell as showAgentIdeChatShell,
-} from "@ioi/agent-ide";
+} from "@ioi/hypervisor-workbench";
 
 export type ChatAssistantWorkbenchSession = Parameters<
   typeof openAgentIdeChatAssistantWorkbench

@@ -13,7 +13,7 @@ if (!outputPath) {
 }
 
 const { buildWorkflowChatResponsibilityContract } = await import(
-  "../../packages/agent-ide/src/runtime/workflow-chat-responsibility-contract.ts"
+  "../../packages/hypervisor-workbench/src/runtime/workflow-chat-responsibility-contract.ts"
 );
 
 async function createToken(endpoint) {

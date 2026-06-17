@@ -42,39 +42,39 @@ async function importSdk() {
 }
 
 async function importAgentIde() {
-  const bundle = path.join(root, "packages/agent-ide/dist/index.es.js");
+  const bundle = path.join(root, "packages/hypervisor-workbench/dist/index.es.js");
   const sources = [
-    "packages/agent-ide/src/index.ts",
-    "packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts",
-    "packages/agent-ide/src/runtime/workflow-runtime-control-nodes.ts",
-    "packages/agent-ide/src/runtime/workflow-runtime-coding-tool-control-nodes.ts",
-    "packages/agent-ide/src/runtime/workflow-runtime-usage-control-nodes.ts",
-    "packages/agent-ide/src/runtime/workflow-runtime-context-budget-control-nodes.ts",
-    "packages/agent-ide/src/runtime/workflow-runtime-compaction-policy-control-nodes.ts",
-    "packages/agent-ide/src/runtime/workflow-runtime-policy-stack.ts",
-    "packages/agent-ide/src/runtime/workflow-runtime-edit-proposal-policy.ts",
-    "packages/agent-ide/src/runtime/workflow-runtime-telemetry-summary.ts",
-    "packages/agent-ide/src/runtime/workflow-runtime-telemetry-source-binding.ts",
-    "packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-subflow.ts",
-    "packages/agent-ide/src/runtime/workflow-runtime-telemetry-budget-chain-materialization.ts",
-    "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-subflow.ts",
-    "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-materialization.ts",
-    "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-execution.ts",
-    "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-run-launch.ts",
-    "packages/agent-ide/src/WorkflowComposer/terminalCodingLoopRunActivation.ts",
-    "packages/agent-ide/src/runtime/workflow-runtime-edit-proposal-control-nodes.ts",
-    "packages/agent-ide/src/runtime/workflow-runtime-mcp-control-nodes.ts",
-    "packages/agent-ide/src/runtime/workflow-runtime-subagent-control-nodes.ts",
-    "packages/agent-ide/src/runtime/workflow-runtime-diagnostics-repair-actions.ts",
-    "packages/agent-ide/src/runtime/workflow-runtime-coding-tool-budget-recovery-subflow.ts",
-    "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx",
+    "packages/hypervisor-workbench/src/index.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-event-projection.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-control-nodes.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-coding-tool-control-nodes.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-usage-control-nodes.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-context-budget-control-nodes.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-compaction-policy-control-nodes.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-policy-stack.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-edit-proposal-policy.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-telemetry-summary.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-telemetry-source-binding.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-telemetry-budget-chain-subflow.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-telemetry-budget-chain-materialization.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-terminal-coding-loop-subflow.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-terminal-coding-loop-materialization.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-terminal-coding-loop-execution.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-terminal-coding-loop-run-launch.ts",
+    "packages/hypervisor-workbench/src/WorkflowComposer/terminalCodingLoopRunActivation.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-edit-proposal-control-nodes.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-mcp-control-nodes.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-subagent-control-nodes.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-diagnostics-repair-actions.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-runtime-coding-tool-budget-recovery-subflow.ts",
+    "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx",
   ].map((file) => path.join(root, file));
   const bundleMtime = fs.existsSync(bundle) ? fs.statSync(bundle).mtimeMs : 0;
   const sourceIsNewer = sources.some(
     (source) => fs.existsSync(source) && fs.statSync(source).mtimeMs > bundleMtime,
   );
   if (!fs.existsSync(bundle) || sourceIsNewer) {
-    execFileSync("npm", ["run", "build", "--workspace=@ioi/agent-ide"], {
+    execFileSync("npm", ["run", "build", "--workspace=@ioi/hypervisor-workbench"], {
       cwd: root,
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
@@ -11055,86 +11055,86 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     "utf8",
   );
   const workflowContracts = fs.readFileSync(
-    path.join(root, "packages/agent-ide/src/runtime/deepseek-parity-workflow-contracts.ts"),
+    path.join(root, "packages/hypervisor-workbench/src/runtime/deepseek-parity-workflow-contracts.ts"),
     "utf8",
   );
   const graphTypes = fs.readFileSync(
-    path.join(root, "packages/agent-ide/src/types/graph.ts"),
+    path.join(root, "packages/hypervisor-workbench/src/types/graph.ts"),
     "utf8",
   );
   const workflowDefaults = fs.readFileSync(
-    path.join(root, "packages/agent-ide/src/runtime/workflow-defaults.ts"),
+    path.join(root, "packages/hypervisor-workbench/src/runtime/workflow-defaults.ts"),
     "utf8",
   );
   const harnessWorkflow = fs.readFileSync(
-    path.join(root, "packages/agent-ide/src/runtime/harness-workflow/core.ts"),
+    path.join(root, "packages/hypervisor-workbench/src/runtime/harness-workflow/core.ts"),
     "utf8",
   );
   const nodeRegistry = fs.readFileSync(
-    path.join(root, "packages/agent-ide/src/runtime/workflow-node-registry.ts"),
+    path.join(root, "packages/hypervisor-workbench/src/runtime/workflow-node-registry.ts"),
     "utf8",
   );
   const workflowRuntimeControlNodes = fs.readFileSync(
-    path.join(root, "packages/agent-ide/src/runtime/workflow-runtime-control-nodes.ts"),
+    path.join(root, "packages/hypervisor-workbench/src/runtime/workflow-runtime-control-nodes.ts"),
     "utf8",
   );
   const workflowRuntimeCodingToolControlNodes = fs.readFileSync(
     path.join(
       root,
-      "packages/agent-ide/src/runtime/workflow-runtime-coding-tool-control-nodes.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-coding-tool-control-nodes.ts",
     ),
     "utf8",
   );
   const workflowRuntimeCodingToolBudgetRecoveryControlNodes = fs.readFileSync(
     path.join(
       root,
-      "packages/agent-ide/src/runtime/workflow-runtime-coding-tool-budget-recovery-control-nodes.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-coding-tool-budget-recovery-control-nodes.ts",
     ),
     "utf8",
   );
   const workflowRuntimeCodingToolBudgetRecoverySubflow = fs.readFileSync(
     path.join(
       root,
-      "packages/agent-ide/src/runtime/workflow-runtime-coding-tool-budget-recovery-subflow.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-coding-tool-budget-recovery-subflow.ts",
     ),
     "utf8",
   );
   const workflowRuntimeEditProposalControlNodes = fs.readFileSync(
     path.join(
       root,
-      "packages/agent-ide/src/runtime/workflow-runtime-edit-proposal-control-nodes.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-edit-proposal-control-nodes.ts",
     ),
     "utf8",
   );
   const workflowRuntimeMcpControlNodes = fs.readFileSync(
-    path.join(root, "packages/agent-ide/src/runtime/workflow-runtime-mcp-control-nodes.ts"),
+    path.join(root, "packages/hypervisor-workbench/src/runtime/workflow-runtime-mcp-control-nodes.ts"),
     "utf8",
   );
   const workflowRuntimeSubagentControlNodes = fs.readFileSync(
     path.join(
       root,
-      "packages/agent-ide/src/runtime/workflow-runtime-subagent-control-nodes.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-subagent-control-nodes.ts",
     ),
     "utf8",
   );
   const workflowRuntimeUsageControlNodes = fs.readFileSync(
     path.join(
       root,
-      "packages/agent-ide/src/runtime/workflow-runtime-usage-control-nodes.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-usage-control-nodes.ts",
     ),
     "utf8",
   );
   const workflowRuntimeContextBudgetControlNodes = fs.readFileSync(
     path.join(
       root,
-      "packages/agent-ide/src/runtime/workflow-runtime-context-budget-control-nodes.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-context-budget-control-nodes.ts",
     ),
     "utf8",
   );
   const workflowRuntimeCompactionPolicyControlNodes = fs.readFileSync(
     path.join(
       root,
-      "packages/agent-ide/src/runtime/workflow-runtime-compaction-policy-control-nodes.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-compaction-policy-control-nodes.ts",
     ),
     "utf8",
   );
@@ -11201,298 +11201,298 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   const workflowNodeBindingEditorSections = fs.readFileSync(
     path.join(
       root,
-      "packages/agent-ide/src/features/Workflows/WorkflowNodeBindingEditor/sections.tsx",
+      "packages/hypervisor-workbench/src/features/Workflows/WorkflowNodeBindingEditor/sections.tsx",
     ),
     "utf8",
   );
   const workflowNodeBindingEditorSubagentFields = fs.readFileSync(
     path.join(
       root,
-      "packages/agent-ide/src/features/Workflows/WorkflowNodeBindingEditor/subagentFields.tsx",
+      "packages/hypervisor-workbench/src/features/Workflows/WorkflowNodeBindingEditor/subagentFields.tsx",
     ),
     "utf8",
   );
   const workflowRuntimeUiStrings = fs.readFileSync(
-    path.join(root, "packages/agent-ide/src/runtime/workflow-runtime-ui-strings.ts"),
+    path.join(root, "packages/hypervisor-workbench/src/runtime/workflow-runtime-ui-strings.ts"),
     "utf8",
   );
   const canvasNode = fs.readFileSync(
-    path.join(root, "packages/agent-ide/src/features/Editor/Canvas/Nodes/CanvasNode.tsx"),
+    path.join(root, "packages/hypervisor-workbench/src/features/Editor/Canvas/Nodes/CanvasNode.tsx"),
     "utf8",
   );
   const graphConfigView = fs.readFileSync(
-    path.join(root, "packages/agent-ide/src/features/Editor/Inspector/views/GraphConfigView.tsx"),
+    path.join(root, "packages/hypervisor-workbench/src/features/Editor/Inspector/views/GraphConfigView.tsx"),
     "utf8",
   );
   const agentEditor = fs.readFileSync(
-    path.join(root, "packages/agent-ide/src/AgentEditor.tsx"),
+    path.join(root, "packages/hypervisor-workbench/src/AgentEditor.tsx"),
     "utf8",
   );
   const workflowComposerView = fs.readFileSync(
-    path.join(root, "packages/agent-ide/src/WorkflowComposer/view.tsx"),
+    path.join(root, "packages/hypervisor-workbench/src/WorkflowComposer/view.tsx"),
     "utf8",
   );
   const workflowComposerController = fs.readFileSync(
-    path.join(root, "packages/agent-ide/src/WorkflowComposer/controller.tsx"),
+    path.join(root, "packages/hypervisor-workbench/src/WorkflowComposer/controller.tsx"),
     "utf8",
   );
   const canvas = fs.readFileSync(
-    path.join(root, "packages/agent-ide/src/features/Editor/Canvas/Canvas.tsx"),
+    path.join(root, "packages/hypervisor-workbench/src/features/Editor/Canvas/Canvas.tsx"),
     "utf8",
   );
   const canvasNodeStyles = fs.readFileSync(
-    path.join(root, "packages/agent-ide/src/features/Editor/Canvas/Nodes/CanvasNode.css"),
+    path.join(root, "packages/hypervisor-workbench/src/features/Editor/Canvas/Nodes/CanvasNode.css"),
     "utf8",
   );
   const inspector = fs.readFileSync(
-    path.join(root, "packages/agent-ide/src/features/Editor/Inspector/Inspector.tsx"),
+    path.join(root, "packages/hypervisor-workbench/src/features/Editor/Inspector/Inspector.tsx"),
     "utf8",
   );
   const workflowRailPanel = fs.readFileSync(
-    path.join(root, "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/core.tsx"),
+    path.join(root, "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/core.tsx"),
     "utf8",
   );
   const workflowSearchPanel = fs.readFileSync(
     path.join(
       root,
-      "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/searchPanel.tsx",
+      "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/searchPanel.tsx",
     ),
     "utf8",
   );
   const workflowRailSearchModel = fs.readFileSync(
-    path.join(root, "packages/agent-ide/src/runtime/workflow-rail-search-model.ts"),
+    path.join(root, "packages/hypervisor-workbench/src/runtime/workflow-rail-search-model.ts"),
     "utf8",
   );
   const workflowEntrypointsPanel = fs.readFileSync(
     path.join(
       root,
-      "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/entrypointsPanel.tsx",
+      "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/entrypointsPanel.tsx",
     ),
     "utf8",
   );
   const workflowEntrypointsModel = fs.readFileSync(
-    path.join(root, "packages/agent-ide/src/runtime/workflow-entrypoints-model.ts"),
+    path.join(root, "packages/hypervisor-workbench/src/runtime/workflow-entrypoints-model.ts"),
     "utf8",
   );
   const workflowFilesPanel = fs.readFileSync(
     path.join(
       root,
-      "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/filesPanel.tsx",
+      "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/filesPanel.tsx",
     ),
     "utf8",
   );
   const workflowFileBundleModel = fs.readFileSync(
-    path.join(root, "packages/agent-ide/src/runtime/workflow-file-bundle-model.ts"),
+    path.join(root, "packages/hypervisor-workbench/src/runtime/workflow-file-bundle-model.ts"),
     "utf8",
   );
   const workflowSettingsPanel = fs.readFileSync(
     path.join(
       root,
-      "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsPanel.tsx",
+      "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/settingsPanel.tsx",
     ),
     "utf8",
   );
   const workflowSettingsModel = fs.readFileSync(
-    path.join(root, "packages/agent-ide/src/runtime/workflow-settings-model.ts"),
+    path.join(root, "packages/hypervisor-workbench/src/runtime/workflow-settings-model.ts"),
     "utf8",
   );
   const workflowSettingsHarnessPanel = fs.readFileSync(
     path.join(
       root,
-      "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPanel.tsx",
+      "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/settingsHarnessPanel.tsx",
     ),
     "utf8",
   );
   const workflowSettingsHarnessTypes = fs.readFileSync(
     path.join(
       root,
-      "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessTypes.ts",
+      "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/settingsHarnessTypes.ts",
     ),
     "utf8",
   );
   const workflowSettingsHarnessActivationPanel = fs.readFileSync(
     path.join(
       root,
-      "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationPanel.tsx",
+      "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationPanel.tsx",
     ),
     "utf8",
   );
   const workflowSettingsHarnessActivationGatePanel = fs.readFileSync(
     path.join(
       root,
-      "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationGatePanel.tsx",
+      "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationGatePanel.tsx",
     ),
     "utf8",
   );
   const workflowSettingsHarnessActivationGateRefsPanel = fs.readFileSync(
     path.join(
       root,
-      "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationGateRefsPanel.tsx",
+      "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationGateRefsPanel.tsx",
     ),
     "utf8",
   );
   const workflowSettingsHarnessActivationGateTimelinePanel = fs.readFileSync(
     path.join(
       root,
-      "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationGateTimelinePanel.tsx",
+      "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/settingsHarnessActivationGateTimelinePanel.tsx",
     ),
     "utf8",
   );
   const workflowSettingsHarnessPackageEvidencePanel = fs.readFileSync(
     path.join(
       root,
-      "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPackageEvidencePanel.tsx",
+      "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/settingsHarnessPackageEvidencePanel.tsx",
     ),
     "utf8",
   );
   const workflowSettingsHarnessPackageEvidenceRowsPanel = fs.readFileSync(
     path.join(
       root,
-      "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPackageEvidenceRowsPanel.tsx",
+      "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/settingsHarnessPackageEvidenceRowsPanel.tsx",
     ),
     "utf8",
   );
   const workflowSettingsHarnessPackageImportReviewPanel = fs.readFileSync(
     path.join(
       root,
-      "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPackageImportReviewPanel.tsx",
+      "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/settingsHarnessPackageImportReviewPanel.tsx",
     ),
     "utf8",
   );
   const workflowSettingsHarnessWorkerBindingPanel = fs.readFileSync(
     path.join(
       root,
-      "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessWorkerBindingPanel.tsx",
+      "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/settingsHarnessWorkerBindingPanel.tsx",
     ),
     "utf8",
   );
   const workflowSettingsHarnessActiveRuntimeRollbackPanel = fs.readFileSync(
     path.join(
       root,
-      "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActiveRuntimeRollbackPanel.tsx",
+      "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/settingsHarnessActiveRuntimeRollbackPanel.tsx",
     ),
     "utf8",
   );
   const workflowSettingsHarnessActiveRuntimeBindingPanel = fs.readFileSync(
     path.join(
       root,
-      "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessActiveRuntimeBindingPanel.tsx",
+      "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/settingsHarnessActiveRuntimeBindingPanel.tsx",
     ),
     "utf8",
   );
   const workflowSettingsHarnessRollbackRestoreProofPanel = fs.readFileSync(
     path.join(
       root,
-      "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessRollbackRestoreProofPanel.tsx",
+      "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/settingsHarnessRollbackRestoreProofPanel.tsx",
     ),
     "utf8",
   );
   const workflowSettingsHarnessPromotionPanel = fs.readFileSync(
     path.join(
       root,
-      "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPromotionPanel.tsx",
+      "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/settingsHarnessPromotionPanel.tsx",
     ),
     "utf8",
   );
   const workflowSettingsHarnessPromotionReadinessPanel = fs.readFileSync(
     path.join(
       root,
-      "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/settingsHarnessPromotionReadinessPanel.tsx",
+      "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/settingsHarnessPromotionReadinessPanel.tsx",
     ),
     "utf8",
   );
   const workflowSettingsHarnessModel = fs.readFileSync(
-    path.join(root, "packages/agent-ide/src/runtime/workflow-settings-harness-model.ts"),
+    path.join(root, "packages/hypervisor-workbench/src/runtime/workflow-settings-harness-model.ts"),
     "utf8",
   );
   const workflowReadinessPanel = fs.readFileSync(
     path.join(
       root,
-      "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/readinessPanel.tsx",
+      "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/readinessPanel.tsx",
     ),
     "utf8",
   );
   const workflowReadinessModel = fs.readFileSync(
-    path.join(root, "packages/agent-ide/src/runtime/workflow-readiness-model.ts"),
+    path.join(root, "packages/hypervisor-workbench/src/runtime/workflow-readiness-model.ts"),
     "utf8",
   );
   const workflowUnitTestsPanel = fs.readFileSync(
     path.join(
       root,
-      "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/unitTestsPanel.tsx",
+      "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/unitTestsPanel.tsx",
     ),
     "utf8",
   );
   const workflowTestReadinessModel = fs.readFileSync(
     path.join(
       root,
-      "packages/agent-ide/src/runtime/workflow-test-readiness-model.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-test-readiness-model.ts",
     ),
     "utf8",
   );
   const workflowRunsPanel = fs.readFileSync(
     path.join(
       root,
-      "packages/agent-ide/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx",
+      "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/runsPanel.tsx",
     ),
     "utf8",
   );
   const workflowRunHistoryModel = fs.readFileSync(
-    path.join(root, "packages/agent-ide/src/runtime/workflow-run-history-model.ts"),
+    path.join(root, "packages/hypervisor-workbench/src/runtime/workflow-run-history-model.ts"),
     "utf8",
   );
   const workflowRuntimeEventProjection = fs.readFileSync(
-    path.join(root, "packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts"),
+    path.join(root, "packages/hypervisor-workbench/src/runtime/workflow-runtime-event-projection.ts"),
     "utf8",
   );
   const workflowRuntimePolicyStack = fs.readFileSync(
-    path.join(root, "packages/agent-ide/src/runtime/workflow-runtime-policy-stack.ts"),
+    path.join(root, "packages/hypervisor-workbench/src/runtime/workflow-runtime-policy-stack.ts"),
     "utf8",
   );
   const workflowRuntimeEditProposalPolicy = fs.readFileSync(
     path.join(
       root,
-      "packages/agent-ide/src/runtime/workflow-runtime-edit-proposal-policy.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-edit-proposal-policy.ts",
     ),
     "utf8",
   );
   const workflowRuntimeTelemetrySummary = fs.readFileSync(
     path.join(
       root,
-      "packages/agent-ide/src/runtime/workflow-runtime-telemetry-summary.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-telemetry-summary.ts",
     ),
     "utf8",
   );
   const workflowRuntimeTelemetrySourceBinding = fs.readFileSync(
     path.join(
       root,
-      "packages/agent-ide/src/runtime/workflow-runtime-telemetry-source-binding.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-telemetry-source-binding.ts",
     ),
     "utf8",
   );
   const workflowRuntimeDiagnosticsRepairActions = fs.readFileSync(
     path.join(
       root,
-      "packages/agent-ide/src/runtime/workflow-runtime-diagnostics-repair-actions.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-diagnostics-repair-actions.ts",
     ),
     "utf8",
   );
   const workflowRuntimeCodingToolBudgetRecoveryPolicy = fs.readFileSync(
     path.join(
       root,
-      "packages/agent-ide/src/runtime/workflow-runtime-coding-tool-budget-recovery-policy.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-coding-tool-budget-recovery-policy.ts",
     ),
     "utf8",
   );
   const workflowRuntimeCodingToolBudgetRecoveryBinding = fs.readFileSync(
     path.join(
       root,
-      "packages/agent-ide/src/runtime/workflow-runtime-coding-tool-budget-recovery-binding.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-runtime-coding-tool-budget-recovery-binding.ts",
     ),
     "utf8",
   );
   const graphRuntimeTypes = fs.readFileSync(
-    path.join(root, "packages/agent-ide/src/runtime/graph-runtime-types.ts"),
+    path.join(root, "packages/hypervisor-workbench/src/runtime/graph-runtime-types.ts"),
     "utf8",
   );
   const tauriRuntime = fs.readFileSync(
@@ -11508,29 +11508,29 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     "utf8",
   );
   const workflowRailModel = fs.readFileSync(
-    path.join(root, "packages/agent-ide/src/runtime/workflow-rail-model.ts"),
+    path.join(root, "packages/hypervisor-workbench/src/runtime/workflow-rail-model.ts"),
     "utf8",
   );
   const workflowBottomShelf = fs.readFileSync(
-    path.join(root, "packages/agent-ide/src/features/Workflows/WorkflowBottomShelf.tsx"),
+    path.join(root, "packages/hypervisor-workbench/src/features/Workflows/WorkflowBottomShelf.tsx"),
     "utf8",
   );
   const composerPanelStyles = fs.readFileSync(
-    path.join(root, "packages/agent-ide/src/WorkflowComposer/styles/composer-panels.css"),
+    path.join(root, "packages/hypervisor-workbench/src/WorkflowComposer/styles/composer-panels.css"),
     "utf8",
   );
   const composerShellStyles = fs.readFileSync(
-    path.join(root, "packages/agent-ide/src/WorkflowComposer/styles/composer-shell.css"),
+    path.join(root, "packages/hypervisor-workbench/src/WorkflowComposer/styles/composer-shell.css"),
     "utf8",
   );
   const workflowValidation = fs.readFileSync(
-    path.join(root, "packages/agent-ide/src/runtime/workflow-validation.ts"),
+    path.join(root, "packages/hypervisor-workbench/src/runtime/workflow-validation.ts"),
     "utf8",
   );
   const workflowSchedulerLaneReadiness = fs.readFileSync(
     path.join(
       root,
-      "packages/agent-ide/src/runtime/workflow-scheduler-lane-readiness.ts",
+      "packages/hypervisor-workbench/src/runtime/workflow-scheduler-lane-readiness.ts",
     ),
     "utf8",
   );
@@ -11766,11 +11766,11 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     "utf8",
   );
   const workflowHarnessTools = fs.readFileSync(
-    path.join(root, "packages/agent-ide/src/runtime/workflow-harness-tools.ts"),
+    path.join(root, "packages/hypervisor-workbench/src/runtime/workflow-harness-tools.ts"),
     "utf8",
   );
   const runtimeProjectionAdapter = fs.readFileSync(
-    path.join(root, "packages/agent-ide/src/runtime/runtime-projection-adapter.ts"),
+    path.join(root, "packages/hypervisor-workbench/src/runtime/runtime-projection-adapter.ts"),
     "utf8",
   );
   const runtimeActionSchema = fs.readFileSync(
@@ -11778,7 +11778,7 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     "utf8",
   );
   const generatedActionSchema = fs.readFileSync(
-    path.join(root, "packages/agent-ide/src/runtime/generated/action-schema.ts"),
+    path.join(root, "packages/hypervisor-workbench/src/runtime/generated/action-schema.ts"),
     "utf8",
   );
   const generatedRustActionSchema = fs.readFileSync(

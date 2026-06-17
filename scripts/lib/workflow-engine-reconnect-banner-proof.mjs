@@ -12,7 +12,7 @@ if (!outputPath) {
 }
 
 const { buildWorkflowEngineReconnectBanner } = await import(
-  "../../packages/agent-ide/src/runtime/workflow-engine-reconnect-banner.ts"
+  "../../packages/hypervisor-workbench/src/runtime/workflow-engine-reconnect-banner.ts"
 );
 
 function sleep(ms) {

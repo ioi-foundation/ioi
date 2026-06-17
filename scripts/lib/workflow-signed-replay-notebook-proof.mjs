@@ -12,7 +12,7 @@ if (!outputPath) {
 }
 
 const { buildWorkflowSignedReplayNotebook } = await import(
-  "../../packages/agent-ide/src/runtime/workflow-signed-replay-notebook.ts"
+  "../../packages/hypervisor-workbench/src/runtime/workflow-signed-replay-notebook.ts"
 );
 
 async function fetchJson(url, options) {

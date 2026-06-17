@@ -12,7 +12,7 @@ if (!outputPath) {
 }
 
 const { buildWorkflowWorkerContributionTrace } = await import(
-  "../../packages/agent-ide/src/runtime/workflow-worker-contribution-trace.ts"
+  "../../packages/hypervisor-workbench/src/runtime/workflow-worker-contribution-trace.ts"
 );
 
 async function fetchJson(url, options) {

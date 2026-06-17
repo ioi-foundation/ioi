@@ -2,7 +2,7 @@ import {
   useSessionTurnContexts,
   type SessionConversationTurn,
   type SessionTurnContext,
-} from "@ioi/agent-ide";
+} from "@ioi/hypervisor-workbench";
 import type {
   ActivityEventRef,
   AgentEvent,

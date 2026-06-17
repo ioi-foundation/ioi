@@ -1,6 +1,6 @@
 // Compatibility aliases remain so the shared chat shell can re-export this view.
 import type { ReactNode } from "react";
-import type { AssistantSessionRuntime } from "@ioi/agent-ide";
+import type { AssistantSessionRuntime } from "@ioi/hypervisor-workbench";
 import { ChatShellWindow } from "../../ChatShellWindow";
 
 interface ChatCopilotViewProps {

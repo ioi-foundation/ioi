@@ -779,13 +779,13 @@ test("model mounting CLI exposes vault-backed provider configuration flags", () 
   }
 });
 
-test("workflow canvas model mounting contract is represented in Agent IDE node schemas", () => {
+test("workflow canvas model mounting contract is represented in Hypervisor Workbench node schemas", () => {
   const graphTypes = fs.readFileSync(
-    path.join(root, "packages", "agent-ide", "src", "types", "graph.ts"),
+    path.join(root, "packages", "hypervisor-workbench", "src", "types", "graph.ts"),
     "utf8",
   );
   const registry = fs.readFileSync(
-    path.join(root, "packages", "agent-ide", "src", "runtime", "workflow-node-registry.ts"),
+    path.join(root, "packages", "hypervisor-workbench", "src", "runtime", "workflow-node-registry.ts"),
     "utf8",
   );
   for (const token of ["routeId", "modelPolicy", "capability", "receiptRequired", "selectedEndpointId", "requiredToolReceiptIds"]) {

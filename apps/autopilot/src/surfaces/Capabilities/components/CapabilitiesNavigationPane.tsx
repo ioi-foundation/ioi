@@ -1,4 +1,4 @@
-import type { ConnectorSummary } from "@ioi/agent-ide";
+import type { ConnectorSummary } from "@ioi/hypervisor-workbench";
 import {
   buildExtensionTrustProfile,
   connectorStatusLabel,
