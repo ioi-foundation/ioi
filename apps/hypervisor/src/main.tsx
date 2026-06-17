@@ -5,7 +5,7 @@ import { useEffect } from "react";
 
 import "@ioi/hypervisor-workbench/dist/style.css"; // Use shared theme
 import "@ioi/workspace-substrate/style.css";
-import "./styles/global.css"; // Autopilot theme overrides
+import "./styles/global.css"; // Hypervisor client theme overrides
 import "./services/sessionRuntime";
 import {
   applyAutopilotAppearance,
@@ -14,7 +14,7 @@ import {
 import { markAutopilotMetric } from "./services/workspacePerf";
 
 import { GateWindow } from "./windows/GateWindow/index";
-import { AutopilotShellWindow } from "./windows/AutopilotShellWindow";
+import { HypervisorShellWindow } from "./windows/HypervisorShellWindow";
 import { WorkspaceWorkbenchPreview } from "./dev/WorkspaceWorkbenchPreview";
 import { hideChatSessionShell, hidePillShell, showChatShell } from "@ioi/hypervisor-workbench";
 
@@ -61,9 +61,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         <Route path="/workspace-preview" element={<WorkspaceWorkbenchPreview />} />
         <Route path="/chat-session" element={<LegacyChatSessionRedirect />} />
         <Route path="/gate" element={<GateWindow />} />
-        <Route path="/chat" element={<AutopilotShellWindow />} />
-        <Route path="/" element={<AutopilotShellWindow />} />
-        <Route path="*" element={<AutopilotShellWindow />} />
+        <Route path="/chat" element={<HypervisorShellWindow />} />
+        <Route path="/" element={<HypervisorShellWindow />} />
+        <Route path="*" element={<HypervisorShellWindow />} />
       </Routes>
     </BrowserRouter>
   </React.StrictMode>

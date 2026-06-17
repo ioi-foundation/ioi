@@ -3,9 +3,6 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
 
-// @ts-expect-error process is a nodejs global
-const host = process.env.TAURI_DEV_HOST;
-
 // https://vite.dev/config/
 export default defineConfig(async () => ({
   plugins: [react()],
@@ -20,27 +17,12 @@ export default defineConfig(async () => ({
     },
   },
 
-  // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
-  //
-  // 1. prevent Vite from obscuring rust errors
+  // Keep the Hypervisor client server stable for local app shells and adapters.
   clearScreen: false,
-  // 2. tauri expects a fixed port, fail if that port is not available
   server: {
     port: 1420,
     strictPort: true,
-    // [FIX] Force binding to 127.0.0.1 (IPv4) to avoid localhost IPv6 resolution issues on Linux
-    host: host || "127.0.0.1",
-    hmr: host
-      ? {
-        protocol: "ws",
-        host,
-        port: 1421,
-      }
-      : undefined,
-    watch: {
-      // 3. tell Vite to ignore watching `src-tauri`
-      ignored: ["**/src-tauri/**"],
-    },
+    host: "127.0.0.1",
     fs: {
       // Allow serving shared workspace packages (e.g. @ioi/agent-ide built CSS).
       allow: [path.resolve(__dirname, "../..")],

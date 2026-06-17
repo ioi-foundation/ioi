@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const source = readFileSync(
-  resolve(__dirname, "useAutopilotShellController.ts"),
+  resolve(__dirname, "useHypervisorShellController.ts"),
   "utf8",
 );
 const mainSource = readFileSync(
@@ -72,4 +72,4 @@ assert.doesNotMatch(
   "the pill React component must not be routed as an active window",
 );
 
-console.log("useAutopilotShellController.seedIntent.test.ts: ok");
+console.log("useHypervisorShellController.seedIntent.test.ts: ok");

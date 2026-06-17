@@ -11,7 +11,7 @@ import type { WorkspaceWorkbenchOpenVsCodeDirectModel } from "../../services/wor
 import {
   buildWorkspaceSubstrateTargetIndex,
   type WorkspaceSubstrateTargetIndex,
-} from "../../windows/AutopilotShellWindow/operatorSubstrateModel";
+} from "../../windows/HypervisorShellWindow/operatorSubstrateModel";
 import {
   destroyWorkspaceDirectWebview,
   focusWorkspaceDirectWebview,

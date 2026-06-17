@@ -397,7 +397,7 @@ export const SMARTER_AGENT_SUPERIORITY_SCENARIOS = Object.freeze([
         "harness_trace_adapter_for_surface",
         "workflow_envelope_adapter_for_surface",
       ]),
-      sourceAnchor("apps/hypervisor/src/windows/AutopilotShellWindow/workflowComposerWiring.test.ts", [
+      sourceAnchor("apps/hypervisor/src/windows/HypervisorShellWindow/workflowComposerWiring.test.ts", [
         "substrate",
       ]),
       evidenceAnchor("gui_query:harness_dogfooding", ["Validate this answer path"]),

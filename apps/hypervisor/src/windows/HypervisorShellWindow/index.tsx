@@ -14,12 +14,12 @@ import {
 import { HypervisorClientRuntime } from "../../services/HypervisorClientRuntime";
 import { isBenignHostListenerCleanupError } from "../../services/hostListeners";
 import { markAutopilotMetric } from "../../services/workspacePerf";
-import { AutopilotShellContent } from "./components/AutopilotShellContent";
-import { useAutopilotShellController } from "./useAutopilotShellController";
+import { HypervisorShellContent } from "./components/HypervisorShellContent";
+import { useHypervisorShellController } from "./useHypervisorShellController";
 
 import "@ioi/hypervisor-workbench/dist/style.css";
 import "../shared/AssistantWorkbench.css";
-import "./AutopilotShellWindow.css";
+import "./HypervisorShellWindow.css";
 
 const runtime = new HypervisorClientRuntime("chat");
 
@@ -98,7 +98,7 @@ function shouldIgnoreChatRuntimeError(value: unknown): boolean {
   return isBenignHostListenerCleanupError(value);
 }
 
-function AutopilotShellWindowCrashScreen({
+function HypervisorShellWindowCrashScreen({
   error,
 }: {
   error: ChatCrashReport;
@@ -141,7 +141,7 @@ function AutopilotShellWindowCrashScreen({
   );
 }
 
-class AutopilotShellWindowRenderBoundary extends React.Component<
+class HypervisorShellWindowRenderBoundary extends React.Component<
   {
     children: ReactNode;
     externalError: ChatCrashReport | null;
@@ -181,13 +181,13 @@ class AutopilotShellWindowRenderBoundary extends React.Component<
   render() {
     const crash = this.state.renderError || this.props.externalError;
     if (crash) {
-      return <AutopilotShellWindowCrashScreen error={crash} />;
+      return <HypervisorShellWindowCrashScreen error={crash} />;
     }
     return this.props.children;
   }
 }
 
-function AutopilotShellWindowCrashGuard({
+function HypervisorShellWindowCrashGuard({
   children,
 }: {
   children: ReactNode;
@@ -229,14 +229,14 @@ function AutopilotShellWindowCrashGuard({
   }, []);
 
   return (
-    <AutopilotShellWindowRenderBoundary externalError={runtimeError}>
+    <HypervisorShellWindowRenderBoundary externalError={runtimeError}>
       {children}
-    </AutopilotShellWindowRenderBoundary>
+    </HypervisorShellWindowRenderBoundary>
   );
 }
 
-function AutopilotShellWindowLoaded() {
-  const controller = useAutopilotShellController();
+function HypervisorShellWindowLoaded() {
+  const controller = useHypervisorShellController();
 
   useEffect(() => {
     markAutopilotMetric("chat_window_loaded");
@@ -266,7 +266,7 @@ function AutopilotShellWindowLoaded() {
 
   return (
     <div className="chat-window">
-      <AutopilotShellContent controller={controller} runtime={runtime} />
+      <HypervisorShellContent controller={controller} runtime={runtime} />
 
       {controller.modals.commandPaletteOpen ? (
         <CommandPalette
@@ -301,10 +301,10 @@ function AutopilotShellWindowLoaded() {
   );
 }
 
-export function AutopilotShellWindow() {
+export function HypervisorShellWindow() {
   return (
-    <AutopilotShellWindowCrashGuard>
-      <AutopilotShellWindowLoaded />
-    </AutopilotShellWindowCrashGuard>
+    <HypervisorShellWindowCrashGuard>
+      <HypervisorShellWindowLoaded />
+    </HypervisorShellWindowCrashGuard>
   );
 }

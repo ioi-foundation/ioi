@@ -24,7 +24,7 @@ import {
   SparklesIcon,
   XIcon,
 } from "./ui";
-import { ChatLeftSidebarShell } from "../../../windows/AutopilotShellWindow/components/ChatLeftSidebarShell";
+import { ChatLeftSidebarShell } from "../../../windows/HypervisorShellWindow/components/ChatLeftSidebarShell";
 
 function renderTreeEntries(entries: CapabilityTreeEntry[]) {
   return (

@@ -45,8 +45,8 @@ class MemoryStorage implements Storage {
 
 const seedProjects = [
   {
-    id: "autopilot-core",
-    name: "Autopilot Core",
+    id: "hypervisor-core",
+    name: "Hypervisor Core",
     description: "Main repository",
     environment: "Local",
     rootPath: ".",
@@ -54,7 +54,7 @@ const seedProjects = [
   {
     id: "capability-lab",
     name: "Capability Lab",
-    description: "Autopilot application",
+    description: "Hypervisor application",
     environment: "Local",
     rootPath: "apps/hypervisor",
   },
@@ -114,14 +114,14 @@ test("formatWorkspaceRepositoryMutationError hides raw host bridge invoke failur
 
 test("loadWorkspaceRepositories repairs invalid localStorage payloads", () => {
   const storage = installMemoryStorage();
-  storage.setItem("autopilot.workspace-repositories.v1", "not-json");
+  storage.setItem("hypervisor.workspace-repositories.v1", "not-json");
 
   const repositories = loadWorkspaceRepositories(seedProjects);
 
-  assert.equal(storage.getItem("autopilot.workspace-repositories.v1"), null);
+  assert.equal(storage.getItem("hypervisor.workspace-repositories.v1"), null);
   assert.deepEqual(
     repositories.map((repository) => repository.id).sort(),
-    ["autopilot-core", "capability-lab"],
+    ["capability-lab", "hypervisor-core"],
   );
 });
 
@@ -140,17 +140,17 @@ test("loadWorkspaceRepositories includes created repositories and orders recents
 test("toggleWorkspaceRepositoryFavorite persists favorite state", () => {
   installMemoryStorage();
 
-  assert.equal(toggleWorkspaceRepositoryFavorite("autopilot-core"), true);
+  assert.equal(toggleWorkspaceRepositoryFavorite("hypervisor-core"), true);
   assert.equal(
     loadWorkspaceRepositories(seedProjects).find(
-      (repository) => repository.id === "autopilot-core",
+      (repository) => repository.id === "hypervisor-core",
     )?.favorite,
     true,
   );
-  assert.equal(toggleWorkspaceRepositoryFavorite("autopilot-core"), false);
+  assert.equal(toggleWorkspaceRepositoryFavorite("hypervisor-core"), false);
   assert.equal(
     loadWorkspaceRepositories(seedProjects).find(
-      (repository) => repository.id === "autopilot-core",
+      (repository) => repository.id === "hypervisor-core",
     )?.favorite,
     false,
   );

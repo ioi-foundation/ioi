@@ -228,7 +228,7 @@ function sdkDoesNotImportGuiInternals(repoRoot) {
   const sources = walk(srcDir).filter((filePath) => filePath.endsWith(".ts"));
   return sources.every((filePath) => {
     const source = fs.readFileSync(filePath, "utf8");
-    return !source.includes("ChatShellWindow") && !source.includes("AutopilotShellWindow");
+    return !source.includes("ChatShellWindow") && !source.includes("HypervisorShellWindow");
   });
 }
 

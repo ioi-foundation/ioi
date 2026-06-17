@@ -1,9 +1,9 @@
-import type { PrimaryView, ProjectScope } from "./autopilotShellModel";
+import type { PrimaryView, ProjectScope } from "./hypervisorShellModel.ts";
 import {
   HYPERVISOR_PRIMARY_SURFACES,
   type HypervisorSurfaceId,
   type HypervisorSurfaceKind,
-} from "./hypervisorShellNavigationModel";
+} from "./hypervisorShellNavigationModel.ts";
 
 export type OperatorChromeMode =
   | "full"

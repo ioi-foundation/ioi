@@ -6,7 +6,7 @@ import {
   ComposeIcon,
   IntegrationsIcon,
   NotificationsIcon,
-} from "../../windows/AutopilotShellWindow/components/ChatActivityBarIcons";
+} from "../../windows/HypervisorShellWindow/components/ChatActivityBarIcons";
 
 interface ProjectScope {
   id: string;

@@ -6,7 +6,7 @@ import {
   isHypervisorClientRuntime,
   startHostWindowDrag,
 } from "../../shared/hostWindowDrag";
-import type { PrimaryView } from "../autopilotShellModel";
+import type { PrimaryView } from "../hypervisorShellModel";
 import type { OperatorCommandCenterModel } from "../operatorSubstrateModel";
 
 interface HypervisorClientHeaderProps {

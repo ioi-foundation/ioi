@@ -123,7 +123,7 @@ test("receipt drafts bind adapter execution through daemon truth and workspace p
 
 test("source text rejects legacy external-harness-as-runtime shortcuts", () => {
   const source = readFileSync(
-    "apps/hypervisor/src/windows/AutopilotShellWindow/harnessAdapterModel.ts",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/harnessAdapterModel.ts",
     "utf8",
   );
 

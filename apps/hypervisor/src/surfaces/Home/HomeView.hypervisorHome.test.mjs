@@ -9,7 +9,7 @@ const homeView = readFileSync(
 const homeCss = readFileSync(new URL("./Home.css", import.meta.url), "utf8");
 const shellContent = readFileSync(
   new URL(
-    "../../windows/AutopilotShellWindow/components/AutopilotShellContent.tsx",
+    "../../windows/HypervisorShellWindow/components/HypervisorShellContent.tsx",
     import.meta.url,
   ),
   "utf8",

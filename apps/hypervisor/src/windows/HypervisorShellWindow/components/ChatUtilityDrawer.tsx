@@ -4,7 +4,7 @@ import {
   countActiveOverrides,
   type ShieldPolicyState,
 } from "../../../surfaces/Policy";
-import type { PrimaryView } from "../autopilotShellModel";
+import type { PrimaryView } from "../hypervisorShellModel";
 import { type HypervisorClientRuntime } from "../../../services/HypervisorClientRuntime";
 import {
   openArtifactReviewTarget,

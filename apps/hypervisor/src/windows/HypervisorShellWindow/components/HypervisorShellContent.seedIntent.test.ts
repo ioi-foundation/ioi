@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 
 const source = fs.readFileSync(
-  new URL("./AutopilotShellContent.tsx", import.meta.url),
+  new URL("./HypervisorShellContent.tsx", import.meta.url),
   "utf8",
 );
 
@@ -69,14 +69,14 @@ assert.match(
 
 assert.match(
   chatConversationSurfaceSource,
-  /id: "more"[\s\S]*label: "More chat actions"[\s\S]*onClick: onOpenCommandPalette/,
+  /id: "more"[\s\S]*label: "Views and More Actions\.\.\."[\s\S]*onClick: onOpenCommandPalette/,
   "sidebar chat should expose command actions through the substrate-style overflow control rather than a second search button",
 );
 
 assert.doesNotMatch(
   chatConversationSurfaceSource,
   /id: "search"/,
-  "sidebar chat should not add a separate search control that competes with the Autopilot command center",
+  "sidebar chat should not add a separate search control that competes with the Hypervisor command center",
 );
 
-console.log("AutopilotShellContent.seedIntent.test.ts: ok");
+console.log("HypervisorShellContent.seedIntent.test.ts: ok");

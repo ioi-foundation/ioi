@@ -18,8 +18,8 @@ cargo test -p ioi-services sudo_retry_restores_install_from_incident_when_pendin
 cargo test -p ioi-services reset_for_new_user_goal_refreshes_target_and_intent_state
 cargo test -p ioi-services --test pii_hard_gates
 npm run test:harness-contract
-node apps/hypervisor/src/windows/AutopilotShellWindow/harnessWorkflowWiring.test.mjs
-node apps/hypervisor/src/windows/AutopilotShellWindow/workflowComposerWiring.test.ts
+node apps/hypervisor/src/windows/HypervisorShellWindow/harnessWorkflowWiring.test.mjs
+node apps/hypervisor/src/windows/HypervisorShellWindow/workflowComposerWiring.test.ts
 npm run test:autopilot-gui-harness
 npm run validate:autopilot-gui-harness
 npm run test:agent-runtime-p3

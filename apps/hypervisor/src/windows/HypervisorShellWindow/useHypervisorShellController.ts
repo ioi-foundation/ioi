@@ -43,7 +43,7 @@ import {
   DEFAULT_PROFILE,
   PROJECT_SCOPES,
   type PrimaryView,
-} from "./autopilotShellModel";
+} from "./hypervisorShellModel";
 import type { CapabilitySurface } from "../../surfaces/Capabilities";
 import type { SettingsSection } from "../../surfaces/Settings/settingsViewShared";
 
@@ -94,7 +94,7 @@ function resolveInitialPrimaryView(): PrimaryView {
     }
   }
 
-  const envRequestedView = (import.meta.env.VITE_AUTOPILOT_INITIAL_VIEW ?? "")
+  const envRequestedView = (import.meta.env.VITE_HYPERVISOR_INITIAL_VIEW ?? "")
     .toString()
     .trim()
     .toLowerCase();
@@ -254,7 +254,7 @@ function isHypervisorClientRuntime(): boolean {
   return typeof window !== "undefined" && "__HYPERVISOR_HOST_BRIDGE__" in window;
 }
 
-export function useAutopilotShellController() {
+export function useHypervisorShellController() {
   const [activeView, setActiveView] = useState<PrimaryView>(resolveInitialPrimaryView);
   const [chatSurface, setChatSurface] = useState<ChatSurface>("chat");
   const [chatPaneVisible, setChatPaneVisible] = useState(true);
@@ -280,7 +280,7 @@ export function useAutopilotShellController() {
   const [profileError, setProfileError] = useState<string | null>(null);
   const [shieldPolicyHydrated, setShieldPolicyHydrated] = useState(false);
   const [currentProjectId, setCurrentProjectId] = useState(
-    PROJECT_SCOPES[0]?.id ?? "autopilot-core",
+    PROJECT_SCOPES[0]?.id ?? "hypervisor-core",
   );
   const [editingAgent, setEditingAgent] = useState<AgentSummary | null>(null);
   const [selectedCatalogEntry, setSelectedCatalogEntry] =

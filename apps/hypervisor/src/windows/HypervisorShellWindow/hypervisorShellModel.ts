@@ -36,9 +36,9 @@ export const WORKSPACE_NAME = "IOI Workspace";
 
 export const PROJECT_SCOPES: ProjectScope[] = [
   {
-    id: "autopilot-core",
-    name: "Autopilot Core",
-    description: "Worker control plane and operator shell.",
+    id: "hypervisor-core",
+    name: "Hypervisor Core",
+    description: "Shared substrate for governed sessions, adapters, and operator surfaces.",
     environment: "Production",
     rootPath: ".",
   },

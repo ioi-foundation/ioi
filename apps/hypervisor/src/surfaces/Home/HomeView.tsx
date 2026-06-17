@@ -25,11 +25,11 @@ import {
   SquareTerminal,
 } from "lucide-react";
 import "./Home.css";
-import { HYPERVISOR_NEW_SESSION_SETUP_MODEL } from "../../windows/AutopilotShellWindow/hypervisorShellNavigationModel";
+import { HYPERVISOR_NEW_SESSION_SETUP_MODEL } from "../../windows/HypervisorShellWindow/hypervisorShellNavigationModel";
 import {
   buildHarnessCompatibilityVerdict,
   getHarnessSelectionRef,
-} from "../../windows/AutopilotShellWindow/harnessAdapterModel";
+} from "../../windows/HypervisorShellWindow/harnessAdapterModel";
 import {
   applyAutopilotAppearance,
   getAutopilotThemeOption,

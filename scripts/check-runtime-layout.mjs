@@ -40,6 +40,7 @@ const workbenchRuntimeFiles = allFiles("packages/hypervisor-workbench/src/runtim
 const activeTauriSrc = "apps/hypervisor/src-tauri/src";
 const legacyTauriSrc = "internal-docs/legacy/autopilot-tauri-src/src";
 const rootIdeDir = "ide";
+const retiredAutopilotShellWindow = "apps/hypervisor/src/windows/AutopilotShellWindow";
 const autopilotRootProofFiles = allFiles(legacyTauriSrc, (file) =>
   /_proof\.rs$/.test(file) && !file.includes(`${path.sep}bin${path.sep}`) && !file.includes(`${path.sep}proofs${path.sep}`),
 );
@@ -173,16 +174,18 @@ assert(
   "proofs-isolated",
   !exists(activeTauriSrc) &&
   !exists(rootIdeDir) &&
+  !exists(retiredAutopilotShellWindow) &&
   autopilotRootProofFiles.length === 0 &&
     exists(`${legacyTauriSrc}/proofs/mod.rs`) &&
     read(`${legacyTauriSrc}/lib.rs`).includes("pub mod proofs;"),
   [
     activeTauriSrc,
     rootIdeDir,
+    retiredAutopilotShellWindow,
     `${legacyTauriSrc}/proofs/mod.rs`,
     `${legacyTauriSrc}/lib.rs`,
   ],
-  "Active Tauri Rust and root ide/ must stay retired from active app paths; legacy proof modules must remain isolated under proofs/",
+  "Active Tauri Rust, root ide/, and the old AutopilotShellWindow root must stay retired from active app paths; legacy proof modules must remain isolated under proofs/",
 );
 assert(
   "sdk-no-gui-harness-imports",

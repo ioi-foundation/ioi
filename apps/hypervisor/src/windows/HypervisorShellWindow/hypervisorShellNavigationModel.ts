@@ -1,7 +1,7 @@
 import {
   HYPERVISOR_HARNESS_SELECTION_OPTIONS,
   type HypervisorHarnessSelectionOption,
-} from "./harnessAdapterModel";
+} from "./harnessAdapterModel.ts";
 
 export type HypervisorClientKind =
   | "app"

@@ -359,7 +359,7 @@ ExecutionPrivacyPosture for every model/provider route.
 | Concept | Current state | Needed owner |
 | --- | --- | --- |
 | Hypervisor client/surface/adapter taxonomy | Canon docs patched, implementation plans must stay aligned | `docs/architecture/components/hypervisor/core-clients-surfaces.md` |
-| Hypervisor App UX shell | Current app code exists but still carries Autopilot/OpenVSCode gravity | `internal-docs/implementation/refine-architecture.md` for implementation plan, then `apps/hypervisor/src/windows/AutopilotShellWindow/*` or renamed Hypervisor shell modules for implementation |
+| Hypervisor App UX shell | Current app code exists but still carries Autopilot/OpenVSCode gravity | `internal-docs/implementation/refine-architecture.md` for implementation plan, then `apps/hypervisor/src/windows/HypervisorShellWindow/*` or renamed Hypervisor shell modules for implementation |
 | Digital Worker Ontology | Plan doc only | `docs/architecture/domains/aiagent/digital-worker-ontology.md` |
 | Vertical Ontology Packs | Plan doc only | `docs/architecture/domains/aiagent/vertical-ontology-packs.md` |
 | Managed Worker Instance lifecycle | Partly in worker marketplace/endpoints | `docs/architecture/domains/aiagent/managed-worker-instance-lifecycle.md` |
@@ -553,7 +553,7 @@ Primary IOI reference mirror:
 
 Current code anchors:
   apps/hypervisor/src/main.tsx
-  apps/hypervisor/src/windows/AutopilotShellWindow/*
+  apps/hypervisor/src/windows/HypervisorShellWindow/*
   apps/hypervisor/src/surfaces/Home/*
   apps/hypervisor/src/surfaces/Workspace/*
   apps/hypervisor/src/surfaces/MissionControl/*
@@ -770,11 +770,11 @@ Implementation phases:
 
 | Phase | Objective | Main files | Acceptance |
 | --- | --- | --- | --- |
-| 0A.1 Product-shell rename and route map | Introduce Hypervisor naming without relying on old Autopilot tab semantics. | `apps/hypervisor/src/main.tsx`, `AutopilotShellWindow/*`, CSS, tests | App copy says Hypervisor; compatibility names are implementation-only. |
+| 0A.1 Product-shell rename and route map | Introduce Hypervisor naming without relying on old Autopilot tab semantics. | `apps/hypervisor/src/main.tsx`, `HypervisorShellWindow/*`, CSS, tests | App copy says Hypervisor; compatibility names are implementation-only. |
 | 0A.1B Retire IDE-root naming | Rename launcher/script/docs away from `ide`/Electron-as-product language and move tracked adapter metadata and ignored local adapter artifacts to `workbench-adapters/`. | `workbench-adapters/`, launcher scripts, package scripts, conformance readers | Electron/VS Code is one Workbench adapter host; root `ide/` is retired and must not be used as a product or artifact path. |
 | 0A.1C Retire Tauri app shims | Replace active `@tauri-apps/*` imports and `TauriRuntime` service naming with Hypervisor client bridge APIs; keep archived Tauri code only under `internal-docs/legacy`. | `apps/hypervisor/src/services/*`, shell hooks/components, package deps, validation scripts | Active app code no longer depends on Tauri APIs or `apps/hypervisor/src-tauri`; legacy Tauri references are historical only. |
-| 0A.2 App shell IA | Build IOI-reference shell with left rail, New Session, sessions rail, main surface, right inspector, and bottom inspector. | `AutopilotShellContent.tsx`, `ChatLocalActivityBar.tsx`, `ChatLeftSidebarShell.tsx`, shell CSS | Home opens as app cockpit, not Code repositories/OpenVSCode. |
-| 0A.3 Session/project model | Add session cards, project cards, restore state, blocked approvals, recent sessions. | `autopilotShellModel.ts`, `operatorSubstrateModel.ts`, Home/Session services | Sessions persist visually and map to daemon/Agentgres refs where available. |
+| 0A.2 App shell IA | Build IOI-reference shell with left rail, New Session, sessions rail, main surface, right inspector, and bottom inspector. | `HypervisorShellContent.tsx`, `ChatLocalActivityBar.tsx`, `ChatLeftSidebarShell.tsx`, shell CSS | Home opens as app cockpit, not Code repositories/OpenVSCode. |
+| 0A.3 Session/project model | Add session cards, project cards, restore state, blocked approvals, recent sessions. | `hypervisorShellModel.ts`, `operatorSubstrateModel.ts`, Home/Session services | Sessions persist visually and map to daemon/Agentgres refs where available. |
 | 0A.4 New Session flow | Create guided launch flow: Mission, Workbench, Agent, Automation, Foundry job, Fleet job, Private Workspace. | New surface or Home components; `workspaceRuntimeNavigation.ts`; runtime launch services | User can start a governed session with model/harness/privacy/authority summary. |
 | 0A.5 Workbench as adapter hub | Move "Code repositories" under Workbench and expose editor adapter preference. | `WorkspaceShell.tsx`, `WorkspaceRepositoryGate.tsx`, `workspaceWorkbenchHost.ts`, settings | VS Code/OpenVSCode is one adapter target; Cursor/Windsurf/JetBrains/browser IDE/terminal can be represented. |
 | 0A.6 Automations / Workflow Compositor | Convert current workflow composer/runs into Automations/Workflows with templates, filters, run buttons, graph editing, receipt state. | MissionControl workflow views, `packages/hypervisor-workbench/src/WorkflowComposer.tsx`, workbench webview | IOI-reference automations become Hypervisor compositor graphs and reusable recipes. |
@@ -786,6 +786,17 @@ Implementation phases:
 Current implementation cut:
 
 ```text
+0A.1 is implemented as the active shell identity cut:
+  apps/hypervisor/src/main.tsx routes to HypervisorShellWindow
+  apps/hypervisor/src/windows/HypervisorShellWindow/* is the active product shell
+  HypervisorShellContent, HypervisorShellModel, and useHypervisorShellController
+    replace the previous shell-facing Autopilot names
+  the default project seed is Hypervisor Core
+  VITE_HYPERVISOR_INITIAL_VIEW replaces the old initial-view flag
+  workspace repository storage keys use the hypervisor.* namespace
+  apps/hypervisor/vite.config.ts no longer carries Tauri dev host or src-tauri
+    watch configuration
+
 0A.1B is partially implemented:
   ChatIdeHeader.tsx -> HypervisorClientHeader.tsx
   workspaceIde.ts -> workspaceEditorAdapterBridge.ts

@@ -8,12 +8,12 @@ import {
   buildWorkspaceSubstrateTargetIndex,
   type OperatorCommandCenterModel,
 } from "./operatorSubstrateModel.ts";
-import type { ProjectScope } from "./autopilotShellModel.ts";
+import type { ProjectScope } from "./hypervisorShellModel.ts";
 
 const PROJECT: ProjectScope = {
-  id: "autopilot-core",
-  name: "Autopilot Core",
-  description: "Worker control plane and operator shell.",
+  id: "hypervisor-core",
+  name: "Hypervisor Core",
+  description: "Shared substrate for governed sessions, adapters, and operator surfaces.",
   environment: "Production",
   rootPath: ".",
 };
@@ -49,7 +49,7 @@ test("operator command center is a daemon-runtime projection", () => {
   });
 
   assert.equal(model.runtimeTruthSource, "daemon-runtime");
-  assert.equal(model.scopeLabel, "Autopilot Core / Workbench");
+  assert.equal(model.scopeLabel, "Hypervisor Core / Workbench");
   assert.equal(model.shortcutLabel, "Ctrl+K");
   assert.deepEqual(model.evidenceRefs.receiptIds, ["receipt-1"]);
   assert.ok(
@@ -133,7 +133,7 @@ test("operator activity rail is a shell projection with deterministic surfaces",
 
 test("operator substrate code does not introduce runtime ownership", () => {
   const source = readFileSync(
-    "apps/hypervisor/src/windows/AutopilotShellWindow/operatorSubstrateModel.ts",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/operatorSubstrateModel.ts",
     "utf8",
   );
 
@@ -216,19 +216,19 @@ test("workspace embedding defers global command center to HypervisorClientHeader
     "utf8",
   );
   const chatHeader = readFileSync(
-    "apps/hypervisor/src/windows/AutopilotShellWindow/components/HypervisorClientHeader.tsx",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorClientHeader.tsx",
     "utf8",
   );
   const shellContent = readFileSync(
-    "apps/hypervisor/src/windows/AutopilotShellWindow/components/AutopilotShellContent.tsx",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorShellContent.tsx",
     "utf8",
   );
   const shellWindow = readFileSync(
-    "apps/hypervisor/src/windows/AutopilotShellWindow/index.tsx",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/index.tsx",
     "utf8",
   );
   const shellController = readFileSync(
-    "apps/hypervisor/src/windows/AutopilotShellWindow/useAutopilotShellController.ts",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/useHypervisorShellController.ts",
     "utf8",
   );
   assert.match(workspaceHost, /hideGlobalCommandCenter\?: boolean/);
@@ -304,7 +304,7 @@ test("direct OpenVSCode workspace failures stay in integrated surface chrome", (
     "utf8",
   );
   const workspaceStyles = readFileSync(
-    "apps/hypervisor/src/windows/AutopilotShellWindow/styles/autopilot-shell/trace-and-welcome.css",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/styles/autopilot-shell/trace-and-welcome.css",
     "utf8",
   );
 
@@ -359,7 +359,7 @@ test("workspace docked chat is real operator chrome, not screenshot hitboxes", (
     "utf8",
   );
   const chatLeftUtilityPane = readFileSync(
-    "apps/hypervisor/src/windows/AutopilotShellWindow/components/ChatLeftUtilityPane.tsx",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/components/ChatLeftUtilityPane.tsx",
     "utf8",
   );
 
@@ -600,7 +600,7 @@ test("embedded OpenVSCode defers global search to Hypervisor chrome", () => {
   );
 });
 
-test("Autopilot command palette anchors to the header command center", () => {
+test("Hypervisor command palette anchors to the header command center", () => {
   const commandPalette = readFileSync(
     "apps/hypervisor/src/components/CommandPalette.tsx",
     "utf8",
@@ -658,11 +658,11 @@ test("Autopilot command palette anchors to the header command center", () => {
 
 test("controlled substrate surfaces expose inspection target attributes", () => {
   const chatHeader = readFileSync(
-    "apps/hypervisor/src/windows/AutopilotShellWindow/components/HypervisorClientHeader.tsx",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorClientHeader.tsx",
     "utf8",
   );
   const activityRail = readFileSync(
-    "apps/hypervisor/src/windows/AutopilotShellWindow/components/ChatLocalActivityBar.tsx",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/components/ChatLocalActivityBar.tsx",
     "utf8",
   );
   const directSurface = readFileSync(

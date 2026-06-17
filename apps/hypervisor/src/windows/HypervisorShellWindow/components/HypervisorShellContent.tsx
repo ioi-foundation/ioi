@@ -2,7 +2,7 @@ import clsx from "clsx";
 import { useEffect, useState } from "react";
 
 import { buildConnectorPolicySummary } from "../../../surfaces/Policy";
-import { useAutopilotShellController } from "../useAutopilotShellController";
+import { useHypervisorShellController } from "../useHypervisorShellController";
 import { type HypervisorClientRuntime } from "../../../services/HypervisorClientRuntime";
 import { buildConnectorTrustProfile } from "../../../surfaces/Capabilities";
 import { ChatLocalActivityBar } from "./ChatLocalActivityBar";
@@ -28,15 +28,15 @@ import {
 import { buildOperatorCommandCenterModel } from "../operatorSubstrateModel";
 import { materializeWorkflowProject } from "../../../services/workflowProjectMaterialization";
 
-interface AutopilotShellContentProps {
-  controller: ReturnType<typeof useAutopilotShellController>;
+interface HypervisorShellContentProps {
+  controller: ReturnType<typeof useHypervisorShellController>;
   runtime: HypervisorClientRuntime;
 }
 
-export function AutopilotShellContent({
+export function HypervisorShellContent({
   controller,
   runtime,
-}: AutopilotShellContentProps) {
+}: HypervisorShellContentProps) {
   const { activeView, currentProject, projects, notificationBadgeCount } =
     controller;
   const workspaceHost = getDefaultWorkspaceWorkbenchHost();

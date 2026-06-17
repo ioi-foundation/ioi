@@ -13,7 +13,7 @@ import {
   SparklesIcon,
   WorkspaceIcon,
 } from "./ChatActivityBarIcons";
-import type { PrimaryView } from "../autopilotShellModel";
+import type { PrimaryView } from "../hypervisorShellModel";
 import {
   buildOperatorActivityRailModel,
   getHypervisorSurfaceIdForPrimaryView,

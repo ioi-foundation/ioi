@@ -131,10 +131,10 @@ export const P3_PRODUCT_POLISH_ITEMS = Object.freeze([
         "GuiHarnessValidator",
         "kernel_ref",
       ]),
-      sourceAnchor("apps/hypervisor/src/windows/AutopilotShellWindow/harnessWorkflowWiring.test.mjs", [
+      sourceAnchor("apps/hypervisor/src/windows/HypervisorShellWindow/harnessWorkflowWiring.test.mjs", [
         "Default Agent Harness",
       ]),
-      sourceAnchor("apps/hypervisor/src/windows/AutopilotShellWindow/workflowComposerWiring.test.ts", [
+      sourceAnchor("apps/hypervisor/src/windows/HypervisorShellWindow/workflowComposerWiring.test.ts", [
         "substrate",
       ]),
     ],
@@ -378,7 +378,7 @@ export const BETTER_AGENT_VALIDATIONS = Object.freeze([
     ]),
   ]),
   betterAgent("unified_substrate_dogfooding", 2133, "Unified-substrate dogfooding tests", [
-    sourceAnchor("apps/hypervisor/src/windows/AutopilotShellWindow/harnessWorkflowWiring.test.mjs", [
+    sourceAnchor("apps/hypervisor/src/windows/HypervisorShellWindow/harnessWorkflowWiring.test.mjs", [
       "Default Agent Harness",
     ]),
     sourceAnchor("crates/types/src/app/harness/components.rs", ["kernel_ref"]),
@@ -395,7 +395,7 @@ export const BETTER_AGENT_VALIDATIONS = Object.freeze([
     ]),
   ]),
   betterAgent("mock_live_substrate", 2140, "Mock/live substrate tests", [
-    sourceAnchor("apps/hypervisor/src/windows/AutopilotShellWindow/workflowComposerWiring.test.ts", [
+    sourceAnchor("apps/hypervisor/src/windows/HypervisorShellWindow/workflowComposerWiring.test.ts", [
       "mock",
       "live",
     ]),
@@ -758,7 +758,7 @@ export function scanImportBoundaries(repoRoot) {
     "crates/services/src/agentic/runtime",
     "crates/types/src/app",
     "apps/hypervisor/src/windows/ChatShellWindow",
-    "apps/hypervisor/src/windows/AutopilotShellWindow",
+    "apps/hypervisor/src/windows/HypervisorShellWindow",
     "packages/hypervisor-workbench/src",
   ];
   const forbiddenPatterns = [
@@ -1030,7 +1030,7 @@ function buildDogfoodingDashboard(readiness) {
         ["CLI", "crates/cli/src/commands/agent.rs"],
         ["API/runtime", "crates/services/src/agentic/runtime/substrate.rs"],
         ["Harness", "crates/types/src/app/harness/components.rs"],
-        ["Workflow compositor", "apps/hypervisor/src/windows/AutopilotShellWindow/workflowComposerWiring.test.ts"],
+        ["Workflow compositor", "apps/hypervisor/src/windows/HypervisorShellWindow/workflowComposerWiring.test.ts"],
         ["Benchmarks", "scripts/run-agent-model-matrix.mjs"],
         ["Desktop UI", "scripts/run-autopilot-gui-harness-validation.mjs"],
       ],

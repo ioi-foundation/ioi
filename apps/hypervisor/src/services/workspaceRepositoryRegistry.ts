@@ -39,8 +39,8 @@ interface StoredWorkspaceRepositoryRegistry {
   records: StoredWorkspaceRepositoryRecord[];
 }
 
-const STORAGE_KEY = "autopilot.workspace-repositories.v1";
-const PENDING_OPEN_KEY = "autopilot.workspace-repositories.pending-open.v1";
+const STORAGE_KEY = "hypervisor.workspace-repositories.v1";
+const PENDING_OPEN_KEY = "hypervisor.workspace-repositories.pending-open.v1";
 export const GENERATED_REPOSITORY_ROOT = "examples/generated-code-repositories";
 
 const VALID_CATEGORIES = new Set<WorkspaceRepositoryCategory>([

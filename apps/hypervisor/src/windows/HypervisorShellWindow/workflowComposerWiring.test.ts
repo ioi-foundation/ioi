@@ -10,11 +10,11 @@ const operatorSubstrateModel = fs.readFileSync(
   "utf8",
 );
 const controller = fs.readFileSync(
-  new URL("./useAutopilotShellController.ts", import.meta.url),
+  new URL("./useHypervisorShellController.ts", import.meta.url),
   "utf8",
 );
 const shellContent = fs.readFileSync(
-  new URL("./components/AutopilotShellContent.tsx", import.meta.url),
+  new URL("./components/HypervisorShellContent.tsx", import.meta.url),
   "utf8",
 );
 const engineDetailPane = fs.readFileSync(

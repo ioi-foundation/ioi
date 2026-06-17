@@ -32,7 +32,7 @@ import { icons, type CommandMenuItem } from "./ui";
 import type {
   PrimaryView,
   ProjectScope,
-} from "../windows/AutopilotShellWindow/autopilotShellModel";
+} from "../windows/HypervisorShellWindow/hypervisorShellModel";
 import {
   AUTOPILOT_ONBOARDING_STEPS,
   HOME_ONBOARDING_FOCUS_EVENT,
