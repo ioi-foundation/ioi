@@ -175,7 +175,13 @@ async function main() {
     }
     const bodyText = await page.locator("body").innerText();
     assert(bodyText.includes("Welcome back to Hypervisor"), "Home cockpit did not render Hypervisor copy.");
+    assert(
+      bodyText.includes("What do you want to get done today?"),
+      "Home does not expose the IOI-reference intent composer.",
+    );
     assert(!bodyText.includes("Autopilot Code"), "Legacy Autopilot Code copy is visible in the shell.");
+    await page.waitForSelector('[data-home-intent-composer="ioi-reference-primary"]');
+    await page.waitForSelector('[data-home-intent-submit="new-session"]');
 
     await page.locator('[data-window-surface="new-session"]').click();
     await page.waitForSelector(".hypervisor-new-session-modal");
@@ -232,6 +238,7 @@ async function main() {
       ok: true,
       url,
       checks: [
+        "home_intent_composer_rendered",
         "home_cockpit_rendered",
         "new_session_launch_summary_rendered",
         "external_harness_ctee_blocked",

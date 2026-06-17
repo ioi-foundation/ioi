@@ -343,6 +343,8 @@ function HomeDashboardView({
   const newSessionHarnessOptions =
     HYPERVISOR_NEW_SESSION_SETUP_MODEL.harnessOptions.slice(0, 4);
   const harnessComparison = HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE;
+  const defaultHarnessLabel = newSessionHarnessOptions[0]?.label ?? "Default Harness Profile";
+  const [intentDraft, setIntentDraft] = useState("");
   const [cockpitProjection, setCockpitProjection] = useState(
     HYPERVISOR_HOME_COCKPIT_PROJECTION,
   );
@@ -462,6 +464,93 @@ function HomeDashboardView({
             </span>
             <kbd>ctrl + K</kbd>
           </button>
+
+          <section
+            className="chat-home-zero-intent-composer"
+            aria-label="Start from intent"
+            data-home-intent-composer="ioi-reference-primary"
+          >
+            <div className="chat-home-zero-intent-composer__heading">
+              <span>New Session</span>
+              <h2>What do you want to get done today?</h2>
+              <p>
+                Describe the outcome. Hypervisor will bind the project,
+                harness, model route, privacy posture, authority, and receipt
+                preview before anything consequential runs.
+              </p>
+            </div>
+            <form
+              className="chat-home-zero-intent-composer__box"
+              onSubmit={(event) => {
+                event.preventDefault();
+                onOpenNewSession();
+              }}
+            >
+              <textarea
+                value={intentDraft}
+                onChange={(event) => setIntentDraft(event.currentTarget.value)}
+                aria-label="Describe your task or type slash for commands"
+                placeholder="Describe your task or type / for commands"
+                rows={4}
+              />
+              <div className="chat-home-zero-intent-composer__controls">
+                <button
+                  type="button"
+                  data-home-intent-project={currentProject.id}
+                  onClick={() => onRecentModeChange("projects")}
+                >
+                  Work in {currentProject.name}
+                </button>
+                <button
+                  type="button"
+                  data-home-intent-harness={defaultHarnessLabel}
+                  onClick={onOpenNewSession}
+                >
+                  {defaultHarnessLabel}
+                </button>
+                <button
+                  type="button"
+                  data-home-intent-model="default-model-route"
+                  onClick={onOpenModels}
+                >
+                  Default model route
+                </button>
+                <button
+                  type="button"
+                  data-home-intent-privacy="privacy:ctee-private-workspace"
+                  onClick={() => onOpenCockpitSurface("surface:privacy")}
+                >
+                  cTEE private workspace
+                </button>
+                <button
+                  type="submit"
+                  className="chat-home-zero-intent-composer__submit"
+                  data-home-intent-submit="new-session"
+                >
+                  Start
+                  {renderIcon(ArrowRight, { size: 16, strokeWidth: 2 })}
+                </button>
+              </div>
+            </form>
+            <div
+              className="chat-home-zero-intent-composer__quickstarts"
+              aria-label="Suggested intent templates"
+            >
+              {[
+                "Automate env setup",
+                "Fix a bug",
+                "Boost your test coverage",
+              ].map((prompt) => (
+                <button
+                  type="button"
+                  key={prompt}
+                  onClick={() => setIntentDraft(prompt)}
+                >
+                  {prompt}
+                </button>
+              ))}
+            </div>
+          </section>
 
           <div
             className="chat-home-zero-actions"

@@ -64,6 +64,14 @@ test("home onboarding uses Hypervisor and Workbench adapter language", () => {
 
 test("home dashboard exposes the New Session setup contract", () => {
   assert.match(homeView, /HYPERVISOR_NEW_SESSION_SETUP_MODEL/);
+  assert.match(homeView, /data-home-intent-composer="ioi-reference-primary"/);
+  assert.match(homeView, /What do you want to get done today\?/);
+  assert.match(homeView, /Describe your task or type \/ for commands/);
+  assert.match(homeView, /data-home-intent-project/);
+  assert.match(homeView, /data-home-intent-harness/);
+  assert.match(homeView, /data-home-intent-model="default-model-route"/);
+  assert.match(homeView, /data-home-intent-privacy="privacy:ctee-private-workspace"/);
+  assert.match(homeView, /data-home-intent-submit="new-session"/);
   assert.match(homeView, /data-home-new-session-contract="daemon-runtime"/);
   assert.match(homeView, /newSessionRequiredSections/);
   assert.match(homeView, /newSessionHarnessOptions/);
@@ -81,6 +89,9 @@ test("home dashboard exposes the New Session setup contract", () => {
     shellContent,
     /onOpenNewSession=\{controller\.modals\.openNewSessionModal\}/,
   );
+  assert.match(homeCss, /\.chat-home-zero-intent-composer\s*\{/);
+  assert.match(homeCss, /\.chat-home-zero-intent-composer__box\s*\{/);
+  assert.match(homeCss, /\.chat-home-zero-intent-composer__submit\s*\{/);
 });
 
 test("home dashboard exposes the Core cockpit projection", () => {

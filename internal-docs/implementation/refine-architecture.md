@@ -556,6 +556,13 @@ Primary IOI reference mirror:
           git authentications, personal access tokens, integrations
   note: the mirror contains sanitized reference labels; translate them into
         Hypervisor product language instead of copying names literally.
+  corrected comparison evidence:
+    /tmp/ioi-hypervisor-compare/ioi-reference-correct.png
+    /tmp/ioi-hypervisor-compare/hypervisor-current-correct.png
+    /tmp/ioi-hypervisor-compare/side-by-side-correct.png
+  capture note:
+    run the IOI mirror with PORT=9226 from internal-docs/reverse-engineering/ioi;
+    port 9225 may already be occupied by the separate Palantir mirror.
 
 Current code anchors:
   apps/hypervisor/src/main.tsx
@@ -1294,20 +1301,23 @@ Current implementation cut:
   `homeCockpitModel.ts` defines `HypervisorHomeCockpitProjection` by composing
   project restore, active session, privacy gates, provider posture, receipt
   evidence, and harness comparison metrics from the existing Hypervisor Core
-  projections. `HomeView` now renders a Core cockpit status strip on the
-  landing page, making Home a projection over the same sessions/projects/
-  privacy/providers/receipts/Foundry evidence rather than a detached dashboard.
-  The invariant is explicit: Home summarizes evidence and does not become
-  runtime, authority, restore, or storage truth. The cockpit metric cards now
-  route through each metric's `surface_ref`, and `HypervisorShellContent`
-  validates that ref with the canonical Hypervisor surface registry before
-  switching surfaces. This makes Home an operator cockpit over the shared Core
-  substrate rather than a passive dashboard. Home cockpit metrics now also
-  carry `drill_refs` for project/session/privacy/provider/receipt/harness
-  evidence rows, rendering row-level drill-through buttons that route to the
-  owning surfaces while Home remains a read-only projection. Remaining work is
-  live projection hydration and destination-surface selection once daemon
-  projections provide durable selected-target parameters.
+  projections. `HomeView` now follows the IOI-reference shape by leading with a
+  centered intent composer (`What do you want to get done today?`) that routes
+  into New Session while showing project, harness, model-route, and cTEE
+  privacy posture hints. Under that primary composer, Home renders a Core
+  cockpit status strip over the same sessions/projects/privacy/providers/
+  receipts/Foundry evidence rather than a detached dashboard. The invariant is
+  explicit: Home summarizes evidence and does not become runtime, authority,
+  restore, or storage truth. The cockpit metric cards now route through each
+  metric's `surface_ref`, and `HypervisorShellContent` validates that ref with
+  the canonical Hypervisor surface registry before switching surfaces. This
+  makes Home an operator cockpit over the shared Core substrate rather than a
+  passive dashboard. Home cockpit metrics now also carry `drill_refs` for
+  project/session/privacy/provider/receipt/harness evidence rows, rendering
+  row-level drill-through buttons that route to the owning surfaces while Home
+  remains a read-only projection. Remaining work is live projection hydration,
+  real intent seeding into New Session, and destination-surface selection once
+  daemon projections provide durable selected-target parameters.
 
 0A.10 first Playwright shell smoke is implemented:
   `scripts/hypervisor-app-shell-smoke.mjs` serves the built
