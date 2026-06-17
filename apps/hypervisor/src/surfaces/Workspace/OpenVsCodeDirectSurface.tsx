@@ -286,7 +286,7 @@ export function OpenVsCodeDirectSurface({
       onError(
         error instanceof Error
           ? error.message
-          : "The direct OpenVSCode workbench surface failed to initialize.",
+          : "The direct Workbench adapter surface failed to initialize.",
       );
     }
   }, [onError, reservedRightPx, surface.surfaceId, surface.workbenchUrl, visible, isWebviewVisible]);
@@ -328,7 +328,7 @@ export function OpenVsCodeDirectSurface({
       onError(
         error instanceof Error
           ? error.message
-          : "The direct OpenVSCode workbench surface failed to prewarm.",
+          : "The direct Workbench adapter surface failed to prewarm.",
       );
     }
   }, [onError, reservedRightPx, surface.surfaceId, surface.workbenchUrl, visible, isWebviewVisible]);
@@ -552,7 +552,7 @@ export function OpenVsCodeDirectSurface({
         parentViewport ? JSON.stringify(parentViewport) : ""
       }
       role="application"
-      aria-label="Direct OpenVSCode workbench webview"
+      aria-label="Direct Workbench adapter webview"
       onFocus={() => {
         void focusWorkspaceDirectWebview(surface.surfaceId).catch(() => {});
       }}

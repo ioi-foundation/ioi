@@ -168,6 +168,16 @@ const activeHypervisorFixtureSources = [
   "apps/hypervisor/src/windows/ChatShellWindow/utils/turnWindows.test.ts",
   "packages/hypervisor-workbench/src/WorkflowComposer/computerUseRunOptions.test.ts",
 ].map(read).join("\n");
+const workspaceWorkbenchCopySources = [
+  "apps/hypervisor/src/surfaces/Workspace/WorkspaceShell.tsx",
+  "apps/hypervisor/src/surfaces/Workspace/OpenVsCodeDirectSurface.tsx",
+  "apps/hypervisor/src/services/directWorkspaceWorkbenchHost.ts",
+  "apps/hypervisor/src/services/openVsCodeWorkbenchHost.ts",
+  "apps/hypervisor/src/services/openVsCodeWorkbenchSession.ts",
+  "apps/hypervisor/src/services/workspaceRuntimeNavigation.ts",
+  "apps/hypervisor/src/services/workflowCodeGenerationProposal.ts",
+  "apps/hypervisor/src/services/hypervisorAppearance.ts",
+].map(read).join("\n");
 const hypervisorVisibleSurfaceSources = [
   "apps/hypervisor/src/windows/ChatShellWindow/index.tsx",
   "apps/hypervisor/src/windows/ChatShellWindow/components/ArtifactHubTaskViews.tsx",
@@ -611,6 +621,27 @@ assert(
     "packages/hypervisor-workbench/src/WorkflowComposer/computerUseRunOptions.test.ts",
   ],
   "Active chat/workflow fixture inputs must use Hypervisor labels unless they are explicit negative assertions.",
+);
+assert(
+  "workspace-workbench-copy-adapter-named",
+  workspaceWorkbenchCopySources.includes("Direct Workbench adapter") &&
+    workspaceWorkbenchCopySources.includes("Workbench adapter session is ready") &&
+    workspaceWorkbenchCopySources.includes("Direct Workbench adapter webview") &&
+    workspaceWorkbenchCopySources.includes("Workbench adapter context") &&
+    !/Direct OpenVSCode workbench|OpenVSCode session is ready|current OpenVSCode|available OpenVSCode|native OpenVSCode contribution|Code repositories<\/span>|Direct OpenVSCode workbench webview|OpenVSCode setup baseline/.test(
+      workspaceWorkbenchCopySources,
+    ),
+  [
+    "apps/hypervisor/src/surfaces/Workspace/WorkspaceShell.tsx",
+    "apps/hypervisor/src/surfaces/Workspace/OpenVsCodeDirectSurface.tsx",
+    "apps/hypervisor/src/services/directWorkspaceWorkbenchHost.ts",
+    "apps/hypervisor/src/services/openVsCodeWorkbenchHost.ts",
+    "apps/hypervisor/src/services/openVsCodeWorkbenchSession.ts",
+    "apps/hypervisor/src/services/workspaceRuntimeNavigation.ts",
+    "apps/hypervisor/src/services/workflowCodeGenerationProposal.ts",
+    "apps/hypervisor/src/services/hypervisorAppearance.ts",
+  ],
+  "Visible Workbench copy must describe adapter targets, not present OpenVSCode as the parent product.",
 );
 assert(
   "active-client-namespaces-hypervisor-named",

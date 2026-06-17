@@ -50,12 +50,12 @@ export const openVsCodeWorkbenchHost: WorkspaceWorkbenchHost = {
   describeSession(session) {
     const info = readOpenVsCodeSessionInfo(session);
     return {
-      startupEyebrow: "OpenVSCode iframe oracle",
+      startupEyebrow: "Workbench iframe oracle",
       startupDescription:
         "Starting the iframe oracle for direct-workbench parity checks.",
       startupFailureDescription:
-        "The OpenVSCode iframe oracle did not start cleanly.",
-      runtimeLabel: `OpenVSCode ${info.version} iframe oracle`,
+        "The Workbench iframe oracle did not start cleanly.",
+      runtimeLabel: `Workbench adapter ${info.version} iframe oracle`,
       metricDetails: {
         mode: "iframe-oracle",
         runtime: "openvscode",

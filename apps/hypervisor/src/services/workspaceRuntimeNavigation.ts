@@ -232,7 +232,7 @@ export async function routeWorkspaceBridgeRequest(
     case "chat.generateAgentInstructions": {
       const submitResult = await submitNativeWorkbenchChatPrompt(
         runtime,
-        "Generate Agent Instructions for this workspace using the current OpenVSCode workbench context. Include repository context, setup assumptions, and safe proposal-first coding posture.",
+        "Generate Agent Instructions for this workspace using the current Workbench adapter context. Include repository context, setup assumptions, and safe proposal-first coding posture.",
       );
       recordMetric?.("bridge_request_handled", {
         requestId: request.requestId,
@@ -264,7 +264,7 @@ export async function routeWorkspaceBridgeRequest(
         submitResult = await submitNativeWorkbenchChatPrompt(
           runtime,
           compactNativeWorkbenchIntent([
-            "Attach the current OpenVSCode editor context to this sidebar conversation.",
+            "Attach the current Workbench adapter editor context to this sidebar conversation.",
             context.filePath ? `Active file: ${context.filePath}` : null,
             context.selection?.selectedText
               ? `Selected text:\n\n${context.selection.selectedText.slice(0, 6_000)}`
@@ -274,7 +274,7 @@ export async function routeWorkspaceBridgeRequest(
       } else {
         submitResult = await submitNativeWorkbenchChatPrompt(
           runtime,
-          "Attach the most relevant OpenVSCode workspace context to this sidebar conversation. Prefer active editor, selected text, diagnostics, SCM posture, and visible IOI workbench refs.",
+          "Attach the most relevant Workbench adapter context to this sidebar conversation. Prefer active editor, selected text, diagnostics, SCM posture, and visible IOI workbench refs.",
         );
       }
       recordMetric?.("bridge_request_handled", {
@@ -291,7 +291,7 @@ export async function routeWorkspaceBridgeRequest(
     case "chat.contextOptions": {
       const submitResult = await submitNativeWorkbenchChatPrompt(
         runtime,
-        "List available OpenVSCode context options for this sidebar conversation, including active editor, selection, diagnostics, SCM state, terminal/task state, workflows, runs, and evidence refs.",
+        "List available Workbench adapter context options for this sidebar conversation, including active editor, selection, diagnostics, SCM state, terminal/task state, workflows, runs, and evidence refs.",
       );
       recordMetric?.("bridge_request_handled", {
         requestId: request.requestId,

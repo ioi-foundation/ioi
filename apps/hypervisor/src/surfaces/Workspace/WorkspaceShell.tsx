@@ -296,7 +296,7 @@ export function WorkspaceShell({
           ...surfaceRuntimeError,
           title: "Workspace surface did not attach",
           message:
-            "The project session is ready, but the embedded OpenVSCode surface has not attached to the window. Keep working if it appears, or retry the surface.",
+            "The project session is ready, but the embedded Workbench adapter surface has not attached to the window. Keep working if it appears, or retry the surface.",
           repairLabel: "Retry workspace surface",
         }
       : null;
@@ -309,7 +309,7 @@ export function WorkspaceShell({
           code: "workspace_surface_attaching",
           title: "Attaching workspace surface",
           message:
-            "The OpenVSCode session is ready. Hypervisor is attaching the embedded Workbench adapter surface.",
+            "The Workbench adapter session is ready. Hypervisor is attaching the embedded editor surface.",
           repairLabel: "Retry workspace surface",
           technicalDetail: `surface=openvscode-direct surfaceReady=${surfaceReady} phase=${bootPhase}`,
         }
@@ -522,7 +522,7 @@ export function WorkspaceShell({
               onClick={returnToRepositoryGate}
             >
               {renderShellIcon(ArrowLeft, { size: 15, "aria-hidden": true })}
-              <span>Code repositories</span>
+              <span>Workbench</span>
             </button>
             <div className="chat-workspace-oss-shell__workbench-title">
               <strong>{workbenchProject.name}</strong>

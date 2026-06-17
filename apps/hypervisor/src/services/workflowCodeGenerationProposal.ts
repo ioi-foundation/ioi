@@ -107,7 +107,7 @@ export function createWorkflowCodeGenerationProposalPlan(
   const proposalOnly = request.proposalOnly !== false;
   const blockers = proposalOnly
     ? ["target code not applied; approval and runtime-settled diff required"]
-    : ["direct apply requested but normal OpenVSCode path is proposal-first"];
+    : ["direct apply requested but normal Workbench adapter path is proposal-first"];
 
   const normalizedRequest = {
     schemaVersion: "ioi.workbench-integration.v1",
@@ -258,7 +258,7 @@ export function createWorkflowCodeGenerationProposalPlan(
           `Goal: ${goal}`,
           `Workspace: ${workspaceRoot}`,
           "",
-          "This is a proposal artifact only. The native OpenVSCode contribution has not changed target source files.",
+          "This is a proposal artifact only. The native Workbench adapter contribution has not changed target source files.",
           "A model/runtime pass must produce the final diff, collect approval, and emit apply/check receipts before mutation.",
           "",
         ].join("\n"),

@@ -29,7 +29,7 @@ export function readOpenVsCodeSessionInfo(
     | undefined;
   if (!internal || internal.kind !== "openvscode") {
     throw new Error(
-      "Workspace session is missing OpenVSCode runtime metadata.",
+      "Workspace session is missing Workbench adapter runtime metadata.",
     );
   }
   return internal.info;

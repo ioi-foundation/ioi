@@ -59,12 +59,12 @@ export const directWorkspaceWorkbenchHost: WorkspaceWorkbenchHost = {
   describeSession(session) {
     const info = readOpenVsCodeSessionInfo(session);
     return {
-      startupEyebrow: "Direct OpenVSCode workbench",
+      startupEyebrow: "Direct Workbench adapter",
       startupDescription:
-        "Starting the full OpenVSCode workbench for this project.",
+        "Starting the full Workbench adapter for this project.",
       startupFailureDescription:
-        "The direct OpenVSCode workbench did not start cleanly.",
-      runtimeLabel: `OpenVSCode ${info.version}`,
+        "The direct Workbench adapter did not start cleanly.",
+      runtimeLabel: `Workbench adapter ${info.version}`,
       metricDetails: {
         mode: "direct-openvscode",
         runtime: "openvscode",
