@@ -57,6 +57,12 @@ const hypervisorShellNavigationSource = read(
 const hypervisorHarnessAdapterModelSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/harnessAdapterModel.ts",
 );
+const hypervisorModelMountInventoryModelSource = read(
+  "apps/hypervisor/src/windows/HypervisorShellWindow/modelMountInventoryModel.ts",
+);
+const hypervisorShellWindowSource = read(
+  "apps/hypervisor/src/windows/HypervisorShellWindow/index.tsx",
+);
 const hypervisorNewSessionModalSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorNewSessionModal.tsx",
 );
@@ -525,6 +531,21 @@ assert(
     hypervisorHarnessAdapterModelSource.includes(
       "HYPERVISOR_NEW_SESSION_MODEL_MOUNT_INVENTORY_FIXTURE",
     ) &&
+    hypervisorModelMountInventoryModelSource.includes(
+      "/v1/model-mount/snapshot",
+    ) &&
+    hypervisorModelMountInventoryModelSource.includes(
+      "normalizeHypervisorModelMountInventorySnapshot",
+    ) &&
+    hypervisorModelMountInventoryModelSource.includes(
+      "loadHypervisorModelMountInventorySnapshot",
+    ) &&
+    hypervisorShellWindowSource.includes(
+      "loadHypervisorModelMountInventorySnapshot",
+    ) &&
+    hypervisorShellWindowSource.includes(
+      "modelMountInventory={modelMountInventory}",
+    ) &&
     hypervisorNewSessionModalSource.includes(
       "modelRouteSupportsHypervisorMountFromInventory",
     ) &&
@@ -546,7 +567,9 @@ assert(
       'modelRouteRef !== "model-route:none"',
     ),
   [
+    "apps/hypervisor/src/windows/HypervisorShellWindow/index.tsx",
     "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorNewSessionModal.tsx",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/modelMountInventoryModel.ts",
   ],
   "New Session must treat only verified Hypervisor model mounts as local model routes and block harness launches that would otherwise silently fall back.",
 );

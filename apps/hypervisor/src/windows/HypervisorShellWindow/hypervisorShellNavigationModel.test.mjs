@@ -216,7 +216,10 @@ test("new session modal is a shell-level governed launch flow", () => {
   assert.match(controller, /launchNewSession/);
   assert.match(controller, /setCurrentProjectId\(project\.id\)/);
   assert.match(controller, /setActiveView\(recipe\.surface_id\)/);
+  assert.match(shellWindow, /loadHypervisorModelMountInventorySnapshot/);
+  assert.match(shellWindow, /setModelMountInventory/);
   assert.match(shellWindow, /<HypervisorNewSessionModal/);
+  assert.match(shellWindow, /modelMountInventory=\{modelMountInventory\}/);
   assert.match(shellWindow, /onLaunch=\{controller\.modals\.launchNewSession\}/);
 });
 

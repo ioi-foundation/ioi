@@ -1370,10 +1370,12 @@ Current implementation cut:
   availability. It consumes a `HypervisorModelMountInventorySnapshot` and the
   shared `modelRouteSupportsHypervisorMountFromInventory` verdict, which
   requires an active default-local route plus a mounted endpoint or loaded
-  instance. The current shell uses a fixture inventory contract until the parent
-  runtime client injects live `/v1/model-mount/*` inventory, so the boundary is
-  explicit rather than silently falling back to a provider lane. Blocked and
-  local-route-unavailable verdicts still disable launch.
+  instance. `HypervisorShellWindow` now loads `/v1/model-mount/snapshot` from
+  the configured model-mount daemon endpoint, normalizes it into that inventory
+  contract, and passes it into New Session. If the daemon is offline, the shell
+  remains usable with the fixture contract and visibly reports the fixture
+  inventory state instead of silently falling back to a provider lane. Blocked
+  and local-route-unavailable verdicts still disable launch.
 
   `harnessAdapterModel.test.ts` and `check:runtime-layout` guard the adapter
   inventory, daemon-truth boundary, public testbed custody, receipt schema,
@@ -1402,11 +1404,11 @@ First implementation slice:
    Default Harness Profile, Codex CLI, codex-desktop-linux, Claude Code,
    Grok Build, DeepSeek TUI, Aider, OpenHands, shell/tmux agent, and Generic
    CLI. Done for shell/New Session selection.
-3. Add model route choices from the daemon model-mount inventory. Partial:
-   New Session has route options and an inventory-based compatibility contract;
-   route labels alone no longer satisfy local availability. Live
-   `/v1/model-mount/*` inventory injection from the shell/runtime client remains
-   the 0B.3 bridge follow-up.
+3. Add model route choices from the daemon model-mount inventory. Done for the
+   shell HTTP boundary: New Session has route options and an inventory-based
+   compatibility contract; route labels alone no longer satisfy local
+   availability. A future host-bridge command may replace the HTTP fetch, but it
+   must preserve the same inventory contract.
 4. Add compatibility states:
    compatible, adapter-native only, provider-trust, local-route unavailable.
    Done at static verdict level.

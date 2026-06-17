@@ -16,6 +16,11 @@ import { isBenignHostListenerCleanupError } from "../../services/hostListeners";
 import { markHypervisorMetric } from "../../services/workspacePerf";
 import { HypervisorShellContent } from "./components/HypervisorShellContent";
 import { HypervisorNewSessionModal } from "./components/HypervisorNewSessionModal";
+import {
+  HYPERVISOR_NEW_SESSION_MODEL_MOUNT_INVENTORY_FIXTURE,
+  type HypervisorModelMountInventorySnapshot,
+} from "./harnessAdapterModel";
+import { loadHypervisorModelMountInventorySnapshot } from "./modelMountInventoryModel";
 import { useHypervisorShellController } from "./useHypervisorShellController";
 
 import "@ioi/hypervisor-workbench/dist/style.css";
@@ -238,9 +243,32 @@ function HypervisorShellWindowCrashGuard({
 
 function HypervisorShellWindowLoaded() {
   const controller = useHypervisorShellController();
+  const [modelMountInventory, setModelMountInventory] =
+    useState<HypervisorModelMountInventorySnapshot>(
+      HYPERVISOR_NEW_SESSION_MODEL_MOUNT_INVENTORY_FIXTURE,
+    );
 
   useEffect(() => {
     markHypervisorMetric("chat_window_loaded");
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadHypervisorModelMountInventorySnapshot()
+      .then((snapshot) => {
+        if (!cancelled) {
+          setModelMountInventory(snapshot);
+        }
+      })
+      .catch((error) => {
+        console.warn(
+          "[Hypervisor][NewSession] model-mount inventory unavailable",
+          error,
+        );
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -290,6 +318,7 @@ function HypervisorShellWindowLoaded() {
           isOpen={controller.modals.newSessionModalOpen}
           currentProject={controller.currentProject}
           projects={controller.projects}
+          modelMountInventory={modelMountInventory}
           onClose={controller.modals.closeNewSessionModal}
           onLaunch={controller.modals.launchNewSession}
         />
