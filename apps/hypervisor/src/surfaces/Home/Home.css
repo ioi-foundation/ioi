@@ -2595,29 +2595,38 @@
   display: flex !important;
   flex-direction: column !important;
   align-items: center !important;
-  margin: 90px auto 0 !important;
+  margin: 76px auto 0 !important;
 }
 
 .chat-home-zero--ioi-reference .chat-home-zero-prompt-mark {
-  height: 16px !important;
+  min-height: 48px !important;
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
-  gap: 9px !important;
+  gap: 10px !important;
   color: #1f1f1f !important;
-  font-size: 13px !important;
-  line-height: 16px !important;
+  line-height: 48px !important;
+}
+
+.chat-home-zero--ioi-reference .chat-home-zero-prompt-logo {
+  width: 16px !important;
+  height: 16px !important;
+  display: inline-block !important;
+  clip-path: polygon(50% 0, 100% 88%, 0 88%) !important;
+  background:
+    linear-gradient(135deg, rgba(49, 92, 255, 0.94), rgba(125, 165, 255, 0.7)) !important;
+  transform: translateY(-3px) !important;
 }
 
 .chat-home-zero--ioi-reference .chat-home-zero-prompt-glyph {
-  color: #5f7cff !important;
-  font-size: 11px !important;
+  color: #18181b !important;
+  font-size: 42px !important;
   font-weight: 700 !important;
-  letter-spacing: -0.02em !important;
+  letter-spacing: -0.08em !important;
 }
 
 .chat-home-zero--ioi-reference .chat-home-zero-prompt-stage h1 {
-  margin: 26px 0 0 !important;
+  margin: 12px 0 0 !important;
   color: #1f1f1f !important;
   font-size: 24px !important;
   font-weight: 500 !important;
@@ -2632,7 +2641,7 @@
   display: flex !important;
   flex-direction: column !important;
   justify-content: space-between !important;
-  margin-top: 54px !important;
+  margin-top: 52px !important;
   border: 1px solid #dededc !important;
   border-radius: 10px !important;
   background: #ffffff !important;
@@ -2711,7 +2720,7 @@
   flex-wrap: wrap !important;
   justify-content: center !important;
   gap: 14px !important;
-  margin-top: 62px !important;
+  margin-top: 60px !important;
 }
 
 .chat-home-zero--ioi-reference .chat-home-zero-prompt-chips button {

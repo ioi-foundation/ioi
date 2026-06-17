@@ -36,6 +36,9 @@ test("home dashboard uses the IOI reference prompt shell", () => {
   assert.match(homeView, /Automate env setup/);
   assert.match(homeView, /Fix a bug/);
   assert.match(homeView, /Boost your test coverage/);
+  assert.match(homeView, /HOME_REFERENCE_RECENT_SESSIONS/);
+  assert.match(homeView, /Recent Sessions/);
+  assert.match(homeView, /Write Parent Harness Evidence Boundary Doc/);
   assert.doesNotMatch(homeView, /Welcome back to Autopilot/);
   assert.doesNotMatch(homeView, /Search Autopilot, code, sessions, and commands/);
 });
@@ -70,7 +73,9 @@ test("home dashboard exposes the reference-style prompt workplane", () => {
   assert.doesNotMatch(homeView, /data-home-intent-model/);
   assert.doesNotMatch(homeView, /data-home-intent-submit/);
   assert.doesNotMatch(homeView, /HOME_INTENT_QUICKSTARTS/);
-  assert.doesNotMatch(homeView, /HOME_REFERENCE_RECENT_SESSIONS/);
+  assert.match(homeView, /HOME_REFERENCE_RECENT_SESSIONS/);
+  assert.match(homeView, /chat-home-zero-prompt-logo/);
+  assert.match(homeView, /chat-home-zero-recent-sessions/);
   assert.doesNotMatch(homeView, /HOME_REFERENCE_RECENT_FILES/);
   assert.doesNotMatch(homeView, /HOME_REFERENCE_ACTIONS/);
   assert.doesNotMatch(homeView, /HOME_REFERENCE_TEMPLATES/);
@@ -115,8 +120,10 @@ test("home dashboard exposes the reference-style prompt workplane", () => {
   );
   assert.match(homeCss, /Phase 0A hard cut: Home mirrors the IOI reference prompt surface/);
   assert.match(homeCss, /\.chat-home-zero--ioi-reference \.chat-home-zero-prompt-stage \{[\s\S]*width: min\(728px/);
+  assert.match(homeCss, /\.chat-home-zero--ioi-reference \.chat-home-zero-prompt-logo \{/);
   assert.match(homeCss, /\.chat-home-zero--ioi-reference \.chat-home-zero-composer \{[\s\S]*min-height: 174px/);
   assert.match(homeCss, /\.chat-home-zero--ioi-reference \.chat-home-zero-prompt-chips \{/);
+  assert.match(homeCss, /\.chat-home-zero-recent-sessions \{/);
   assert.match(homeCss, /\.chat-main:has\(\.chat-home-zero--ioi-reference\),/);
   assert.doesNotMatch(homeCss, /Phase 0A hard cut: default Home mirrors the IOI portal/);
 });
