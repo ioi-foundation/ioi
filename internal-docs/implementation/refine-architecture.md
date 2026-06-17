@@ -1677,7 +1677,7 @@ authority UI semantics.
 
 | Field | Detail |
 | --- | --- |
-| Status | Canonized as `ModelWeightCustodyProfile` on 2026-06-17; first daemon-side model-weight custody admission contract implemented and guarded. Live model-router route integration remains follow-up hardening. |
+| Status | Canonized as `ModelWeightCustodyProfile` on 2026-06-17; daemon-side model-weight custody admission contract implemented, guarded, and exposed through the public Hypervisor daemon route. Deeper model-router route selection remains follow-up hardening. |
 | Files | `private-workspace-ctee.md`, `runtime-nodes-tee-depin.md`, `model-router/doctrine.md`, model-mount API docs |
 | Change | Distinguish workspace privacy, model-input privacy, model-output privacy, and model-weight custody. |
 | Acceptance | A rented 3090 path cannot be presented as safe for proprietary weights unless TEE/customer/local custody applies. |
@@ -1693,7 +1693,9 @@ required controls, scopes, disclosures, attestation/customer boundary, or trust
 acceptance refs are present. It fails closed for forbidden plaintext mounts,
 private weights readable by remote provider root, and provider-readable routes
 that try to claim `private_native`. `check:runtime-layout` guards the contract
-so cTEE workspace privacy cannot be confused with model-weight secrecy.
+and `/v1/hypervisor/model-weight-custody-admissions` exposes the same admission
+boundary through the public daemon API, so cTEE workspace privacy cannot be
+confused with model-weight secrecy at route time.
 ```
 
 ### Phase 5: Harden Managed Instance Lifecycle

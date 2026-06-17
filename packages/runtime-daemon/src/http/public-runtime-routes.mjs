@@ -6,6 +6,7 @@ import {
 } from "../runtime-agent-run-lifecycle.mjs";
 import { planHarnessAdapterContainerLane } from "../runtime-harness-container-lane.mjs";
 import { runHarnessPublicSmokeTask } from "../runtime-harness-public-smoke-task.mjs";
+import { admitModelWeightCustodyRoute } from "../runtime-model-weight-custody-admission.mjs";
 
 export function createPublicRuntimeRequestHandler(deps) {
   const {
@@ -266,6 +267,23 @@ export function createPublicRuntimeRequestHandler(deps) {
                   : undefined,
             },
           ),
+          202,
+        );
+        return;
+      }
+      if (
+        request.method === "POST" &&
+        url.pathname === "/v1/hypervisor/model-weight-custody-admissions"
+      ) {
+        const body = await readBody(request);
+        writeJsonResponse(
+          response,
+          admitModelWeightCustodyRoute({
+            ...body,
+            source:
+              optionalString(body.source) ??
+              "public_runtime_routes./v1/hypervisor/model-weight-custody-admissions",
+          }),
           202,
         );
         return;

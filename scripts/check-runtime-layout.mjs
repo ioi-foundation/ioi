@@ -600,6 +600,16 @@ assert(
     runtimeModelWeightCustodyAdmissionSource.includes(
       'runtimeTruthSource: "daemon-runtime"',
     ) &&
+    publicRuntimeRoutesSource.includes(
+      "/v1/hypervisor/model-weight-custody-admissions",
+    ) &&
+    publicRuntimeRoutesSource.includes("admitModelWeightCustodyRoute") &&
+    publicRuntimeRoutesTestSource.includes(
+      "expose model-weight custody admissions",
+    ) &&
+    publicRuntimeRoutesTestSource.includes(
+      "blocks provider-readable private weights",
+    ) &&
     runtimeModelWeightCustodyAdmissionTestSource.includes(
       "blocks private weights readable by remote root",
     ) &&
