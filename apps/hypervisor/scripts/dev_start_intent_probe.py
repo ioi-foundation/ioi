@@ -42,13 +42,17 @@ DEFAULT_DB_PATH = (
 DEFAULT_OUTPUT_ROOT = (
     PROJECT_ROOT / "docs/evidence/route-hierarchy/live-dev-start-intent"
 )
-WINDOW_SEARCH_PATTERN = "Autopilot"
+WINDOW_SEARCH_PATTERN = "Hypervisor"
 BROWSER_CAPTURE_URL = "http://127.0.0.1:1433/"
 POLL_INTERVAL_SECS = 1.0
 WINDOW_WAIT_TIMEOUT_SECS = 240.0
 POST_SETTLE_CAPTURE_DELAY_SECS = 2.0
-HEARTBEAT_LOG_RE = re.compile(r"^\[Autopilot\] Block #\d+ committed \(Tx: 0\)$")
-CHAT_LAUNCH_STAGE_RE = re.compile(r"\[Autopilot\]\[ChatLaunch\] stage=([^\s]+)")
+HEARTBEAT_LOG_RE = re.compile(
+    r"^\[(?:Autopilot|Hypervisor)\] Block #\d+ committed \(Tx: 0\)$"
+)
+CHAT_LAUNCH_STAGE_RE = re.compile(
+    r"\[(?:Autopilot|Hypervisor)\]\[ChatLaunch\] stage=([^\s]+)"
+)
 THOUGHTS_DRAWER_FALLBACK_POINT = (670, 82)
 
 
@@ -834,7 +838,7 @@ def parse_args() -> argparse.Namespace:
         "--window-timeout-secs",
         type=float,
         default=WINDOW_WAIT_TIMEOUT_SECS,
-        help="How long to wait for the desktop window. Increase this for cold Tauri builds.",
+        help="How long to wait for the desktop window. Increase this for cold Workbench adapter host starts.",
     )
     parser.add_argument(
         "--window-name",

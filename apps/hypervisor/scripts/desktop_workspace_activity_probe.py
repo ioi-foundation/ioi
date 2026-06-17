@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Exercise the real Workspace activity bar in the desktop shell.
 
-This probe launches the Tauri desktop app directly into Workspace, clicks each
+This probe launches the Hypervisor workbench-adapter host directly into Workspace, clicks each
 activity-bar section in order, and retains a screenshot bundle for each state.
 It is intentionally behavior-oriented: the goal is to prove the direct
 integration's activity bar is not decorative.
@@ -144,7 +144,7 @@ def click_window_ratio(window_id: int, x_ratio: float, y_ratio: float) -> dict[s
     rel_y = max(1, min(height - 1, int(height * y_ratio)))
     run(["xdotool", "windowactivate", str(window_id)], check=False)
     run(["xdotool", "mousemove", "--window", str(window_id), str(rel_x), str(rel_y)])
-    # `click --window` can miss WebKit/Tauri DOM targets on Linux/X11 even when the
+    # `click --window` can miss embedded editor DOM targets on Linux/X11 even when the
     # pointer is in the right place. Clicking the current pointer location after a
     # window-relative move is the more reliable path for these workspace probes.
     run(["xdotool", "click", "1"], check=False)

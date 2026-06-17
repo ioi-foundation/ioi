@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prove first Workspace reveal fills a maximized Autopilot parent window."""
+"""Prove first Workspace reveal fills a maximized Hypervisor parent window."""
 
 from __future__ import annotations
 
@@ -37,7 +37,7 @@ DEFAULT_OUTPUT_ROOT = (
     / "docs/evidence/route-hierarchy/live-openvscode-direct/fullscreen-first-load"
 )
 DEFAULT_DEV_URL = DEFAULT_WEB_ROOT
-SURFACE_WINDOW_SEARCH_PATTERN = "Autopilot Workspace Workbench"
+SURFACE_WINDOW_SEARCH_PATTERN = "Workspace Workbench"
 WINDOW_WAIT_TIMEOUT_SECS = 120.0
 POST_WINDOW_SETTLE_SECS = 5.0
 POST_MAXIMIZE_SETTLE_SECS = 2.5

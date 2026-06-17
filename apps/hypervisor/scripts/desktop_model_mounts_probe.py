@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Launch Autopilot directly into Model Mounts and retain GUI evidence.
+"""Launch Hypervisor directly into Model Mounts and retain GUI evidence.
 
 This probe avoids the chat-composer automation path. It starts a fresh runtime
 daemon, seeds model-mounting state through the public API, launches the desktop

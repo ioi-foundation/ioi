@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Exercise Autopilot Home onboarding in the real desktop shell.
+"""Exercise Hypervisor Home onboarding in the real desktop shell.
 
 The probe validates the Home surface as a product route rather than a static
-mock: it launches the Tauri desktop app into Home, maximizes the parent window,
+mock: it launches the Hypervisor workbench-adapter host into Home, maximizes the parent window,
 captures the onboarding layout, changes appearance, routes through the command
-palette, and hands off to the contained direct OpenVSCode Workspace.
+palette, and hands off to the contained Workbench adapter target.
 """
 
 from __future__ import annotations

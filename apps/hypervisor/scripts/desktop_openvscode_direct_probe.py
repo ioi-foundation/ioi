@@ -3,7 +3,7 @@
 
 This probe is intentionally separate from the legacy Workspace facade probes.
 It launches the desktop shell in direct OpenVSCode mode, waits for the native
-Tauri webview host to report the actual OpenVSCode surface, captures both the
+Workbench adapter host to report the actual OpenVSCode surface, captures both the
 parent-window image and a root-cropped compositor image, then performs a small
 set of real workbench interactions against the hosted OpenVSCode surface.
 """
@@ -46,7 +46,7 @@ DEFAULT_OUTPUT_ROOT = (
 )
 DEFAULT_DEV_URL = DEFAULT_WEB_ROOT
 OPENVSCODE_VERSION = "1.109.5"
-SURFACE_WINDOW_SEARCH_PATTERN = "Autopilot Workspace Workbench"
+SURFACE_WINDOW_SEARCH_PATTERN = "Workspace Workbench"
 LEGACY_SURFACE_WINDOW_SEARCH_PATTERN = "OpenVSCode Workspace"
 WINDOW_WAIT_TIMEOUT_SECS = 120.0
 POST_WINDOW_SETTLE_SECS = 14.0
@@ -1285,7 +1285,7 @@ def main() -> int:
             "noTaskSwitcherWorkbenchWindow": not containment.get(
                 "workbenchTopLevelWindowIds"
             ),
-            "childSurfaceParentedToAutopilot": bool(
+            "childSurfaceParentedToHypervisor": bool(
                 containment.get("childWindowParentMatchesParent", False)
             ),
             "childSurfaceMatchesWorkspaceRect": bool(

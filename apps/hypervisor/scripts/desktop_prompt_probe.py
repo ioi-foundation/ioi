@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Drive the local Autopilot desktop app with real prompts and retain receipts.
+"""Drive the local Hypervisor client with real prompts and retain receipts.
 
 This probe is intentionally lightweight:
 - it reuses a running `npm run dev:desktop` session
@@ -40,7 +40,7 @@ DEFAULT_DB_PATH = (
 )
 DEFAULT_OUTPUT_ROOT = PROJECT_ROOT / "docs/evidence/route-hierarchy/live-desktop-parity"
 
-WINDOW_SEARCH_PATTERN = "Autopilot Chat"
+WINDOW_SEARCH_PATTERN = "Hypervisor"
 BROWSER_CAPTURE_URL = "http://127.0.0.1:1433/"
 NEW_OUTCOME_X = 115
 NEW_OUTCOME_Y = 137
@@ -112,7 +112,7 @@ def find_window(window_pattern: str) -> WindowGeometry:
     ]
     if not ids:
         raise RuntimeError(
-            "Could not find an Autopilot desktop window. Start `npm run dev:desktop` first."
+            "Could not find a Hypervisor client window. Start `npm run dev:desktop` first."
         )
 
     window_id = ids[-1]

@@ -53,7 +53,8 @@ const runtimeServiceFiles = allFiles("crates/services/src/agentic/runtime/servic
   /\.(rs|md)$/.test(file),
 );
 const hypervisorDesktopProbeFiles = allFiles("apps/hypervisor/scripts", (file) =>
-  /^apps\/hypervisor\/scripts\/desktop_.*_probe\.py$/.test(file),
+  /^apps\/hypervisor\/scripts\/(?:desktop_.*_probe|dev_.*_probe)\.py$/.test(file) ||
+  file === "apps/hypervisor/scripts/home_onboarding_condition_matrix.ts",
 );
 const activeRuntimeSwarmFiles = [
   ...allFiles("apps/hypervisor/src", (file) => /\.(ts|tsx|css)$/.test(file)),
@@ -203,6 +204,22 @@ assert(
   ),
   hypervisorDesktopProbeFiles,
   "Active Hypervisor desktop probes must use temporary/current workspaces, not the retired Tauri app path.",
+);
+assert(
+  "desktop-probes-no-tauri-product-language",
+  hypervisorDesktopProbeFiles.every(
+    (file) => !/\bTauri\b|@tauri|tauri:\/\//.test(read(file)),
+  ),
+  hypervisorDesktopProbeFiles,
+  "Active Hypervisor desktop probes must target Hypervisor/App/Web/Workbench adapter hosts, not describe a Tauri app.",
+);
+assert(
+  "desktop-probes-no-ide-product-marker",
+  hypervisorDesktopProbeFiles.every(
+    (file) => !/\[Workspace IDE\]|Workspace IDE/.test(read(file)),
+  ),
+  hypervisorDesktopProbeFiles,
+  "Active Hypervisor desktop probes must target Workbench adapter hosts, not the retired Workspace IDE marker.",
 );
 assert(
   "sdk-no-gui-harness-imports",

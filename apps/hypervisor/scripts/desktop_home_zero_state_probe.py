@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the Autopilot Home skip flow and zero-state dashboard."""
+"""Validate the Hypervisor Home skip flow and zero-state dashboard."""
 
 from __future__ import annotations
 
@@ -303,7 +303,7 @@ def main() -> int:
     f"- Captured at: `{bundle['captured_at']}`\n"
     f"- Probe error: `{probe_error}`\n"
     f"- Assertions pass: `{assertions_pass(assertions)}`\n"
-    "- Scope: top-right onboarding skip, Autopilot-branded dashboard, search entry, workspace handoff.\n",
+    "- Scope: top-right onboarding skip, Hypervisor dashboard, search entry, workspace handoff.\n",
     encoding="utf-8",
   )
   print(f"[home-zero-state] results: {result_path}", flush=True)

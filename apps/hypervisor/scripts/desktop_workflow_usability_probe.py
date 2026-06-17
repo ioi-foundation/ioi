@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Exercise Workflow authoring through visible desktop GUI controls only.
 
-This probe launches the native Autopilot shell in Workflows, creates blank
+This probe launches the native Hypervisor shell in Workflows, creates blank
 workflows, and uses visible start cards, port-local add-next affordances, node
 configuration surfaces, run controls, and save/reload controls. It does not call
 workflow runtime APIs directly and it does not write workflow JSON. When a GUI

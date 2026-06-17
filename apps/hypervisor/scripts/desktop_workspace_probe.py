@@ -3,7 +3,7 @@
 
 This probe exists specifically for the direct Workspace workbench path:
 - launch `npm run dev:desktop` against the Workspace route directly
-- wait for the real Tauri window
+- wait for the real Hypervisor workbench-adapter host window
 - retain a screenshot, desktop log tail, and capture metadata
 
 On Linux/X11, per-window captures can intermittently come back as uniform black
@@ -37,7 +37,7 @@ DEFAULT_DEV_URL = DEFAULT_WEB_ROOT
 DEFAULT_OUTPUT_ROOT = (
     PROJECT_ROOT / "docs/evidence/route-hierarchy/live-workspace-workbench"
 )
-WINDOW_SEARCH_PATTERN = "Autopilot"
+WINDOW_SEARCH_PATTERN = "Hypervisor"
 BROWSER_CAPTURE_URL = f"{DEFAULT_WEB_ROOT}/?view=workspace"
 POLL_INTERVAL_SECS = 1.0
 WINDOW_WAIT_TIMEOUT_SECS = 90.0

@@ -4,7 +4,7 @@
 The contained-direct probe proves the native workbench is embedded. This probe
 exercises a product behavior path across that boundary: invoke an IOI command
 from the real OpenVSCode command palette, wait for the bridge request to be
-queued/drained, and verify the Autopilot Chat shell receives the matching
+queued/drained, and verify the Hypervisor Sessions shell receives the matching
 runtime target.
 """
 
@@ -123,14 +123,16 @@ def parse_chat_launch_lines(log_text: str) -> list[str]:
         line
         for line in log_text.splitlines()
         if "[Autopilot][ChatLaunch]" in line
+        or "[Hypervisor][ChatLaunch]" in line
     ][-40:]
 
 
 def parse_bridge_lines(log_text: str) -> list[str]:
     bridge_patterns = (
-        "[Workspace IDE] bridge request",
         "bridge_request_received",
         "bridge_request_handled",
+        "bridge request queued",
+        "bridge requests drained",
     )
     return [
         line

@@ -101,6 +101,11 @@ Slice 1415 additionally hard-cuts the model_mount capability-token/vault
 `state_dir` authority boundary: public capability-token and vault controls now
 require daemon Agentgres replay at the JS edge and Rust direct-planning boundary,
 and the old optional `stateDir ?? null` handoff is retired.
+Slice 1416 additionally hard-cuts the active Hypervisor probe/adapter-host
+language boundary: `apps/hypervisor/src-tauri`, the root `ide/` artifact path,
+Tauri product wording, and the retired `Workspace IDE` marker are barred from
+active client probes; those probes now target Hypervisor/workbench-adapter host
+windows while Tauri remains legacy-only under `internal-docs/legacy`.
 Slice 1388 additionally hard-deletes the run-create repository workflow JS
 projection facade: run creation and runtime-service turn submission consume
 Rust `project_repository_workflow` projections through an explicit

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Shared capture helpers for Linux desktop probes.
 
-These probes primarily exercise the real Tauri desktop shell, but on some
+These probes primarily exercise the real Hypervisor workbench-adapter host, but on some
 Linux/X11 WebKit stacks a per-window capture can intermittently come back as a
 uniform black image even when the UI is visible. To keep parity probes
 deterministic, we detect obviously blank captures and can fall back to a

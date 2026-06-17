@@ -817,6 +817,9 @@ Current implementation cut:
   active desktop probes and active contract tests no longer create or read
   `apps/hypervisor/src-tauri`; throwaway probe workspaces live under `.tmp/`
   and client-runtime checks read `HypervisorClientRuntime.ts`.
+  active desktop probes now target Hypervisor/workbench-adapter host windows by
+    default and `check:runtime-layout` rejects Tauri product language in active
+    Hypervisor probe files plus the retired `Workspace IDE` marker.
 
 0A.1B/0A.1C guardrails were tightened:
   `internal-docs/implementation/runtime-module-map.md` no longer points
@@ -824,6 +827,8 @@ Current implementation cut:
   `check:runtime-layout` rejects both active `apps/hypervisor/src-tauri/src`
   and a root `ide/` product/artifact directory, rejects the retired
   `apps/hypervisor/scripts/dev-desktop.sh` Tauri launcher, and
+  rejects active desktop probe wording that describes Hypervisor as a Tauri app
+  or as the retired `Workspace IDE`.
   `check:hypervisor-workbench-adapter-host-paths` verifies the tracked
   adapter path helper defaults to `workbench-adapters/`
   `.gitignore` no longer preserves dead active `src-tauri` or `agent-ide`

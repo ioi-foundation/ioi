@@ -40780,7 +40780,11 @@ function runCompositor() {
         runtimeLayoutCheck,
       ) &&
       /!exists\(activeTauriSrc\)/.test(runtimeLayoutCheck) &&
-      /Tauri Rust projection must stay legacy-only/.test(runtimeLayoutCheck),
+      /Tauri Rust projection must stay legacy-only/.test(runtimeLayoutCheck) &&
+      /desktop-probes-no-tauri-product-language/.test(runtimeLayoutCheck) &&
+      /not describe a Tauri app/.test(runtimeLayoutCheck) &&
+      /desktop-probes-no-ide-product-marker/.test(runtimeLayoutCheck) &&
+      /retired Workspace IDE marker/.test(runtimeLayoutCheck),
     [
       "scripts/generate-runtime-action-contracts.mjs",
       "scripts/check-pre-next-leg-readiness.mjs",

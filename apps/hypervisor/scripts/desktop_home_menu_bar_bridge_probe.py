@@ -49,10 +49,10 @@ SHOW_VISIBLE_FALSE_PATTERN = re.compile(
 )
 DESTROY_PATTERN = re.compile(r"\[WorkspaceDirectWebview\] destroy requested ")
 QUEUED_PATTERN = re.compile(
-    r"\[Workspace IDE\] bridge command queued .* command=workbench\.action\.toggleMenuBar"
+    r"bridge request queued .* command=workbench\.action\.toggleMenuBar"
 )
 DRAINED_PATTERN = re.compile(
-    r"\[Workspace IDE\] bridge commands drained .*workbench\.action\.toggleMenuBar"
+    r"bridge requests drained .*workbench\.action\.toggleMenuBar"
 )
 
 

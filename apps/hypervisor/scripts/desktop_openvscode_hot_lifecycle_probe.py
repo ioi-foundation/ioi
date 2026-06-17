@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prove contained direct OpenVSCode stays hot across Autopilot route changes."""
+"""Prove contained direct OpenVSCode stays hot across Hypervisor route changes."""
 
 from __future__ import annotations
 

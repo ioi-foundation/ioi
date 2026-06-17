@@ -3,7 +3,7 @@
 
 The goal is not to prove the whole onboarding system in one enormous run. Each
 pass retains a small route manifest, screenshots, and the exact OpenVSCode
-source strings/media that inform the future Autopilot Home port.
+source strings/media that inform the future Hypervisor Home port.
 """
 
 from __future__ import annotations
@@ -619,7 +619,7 @@ def pass_00(args: argparse.Namespace, output_root: Path) -> dict[str, Any]:
             "",
             "Port notes:",
             "- Treat the VS Code walkthrough as a data model: title, description, action, completion event, source strings, source media.",
-            "- Theme, density, command palette, project open, accessibility, and fundamentals must map to Autopilot-owned settings/runtime surfaces.",
+            "- Theme, density, command palette, project open, accessibility, and fundamentals must map to Hypervisor-owned settings/runtime surfaces.",
             "- Do not port this as a marketing landing page; port it as a workbench-grade setup editor.",
         ],
     )
@@ -770,7 +770,7 @@ def pass_01(args: argparse.Namespace, output_root: Path) -> dict[str, Any]:
             f"- Probe error: `{probe_error}`",
             "",
             "Captured route:",
-            "- Fullscreen direct OpenVSCode in the Autopilot shell.",
+            "- Fullscreen direct OpenVSCode in the Hypervisor workbench adapter host.",
             "- Welcome/back link probe.",
             "- Setup walkthrough entry probe.",
             "- Theme action probe.",
@@ -968,7 +968,7 @@ def pass_02(args: argparse.Namespace, output_root: Path) -> dict[str, Any]:
             "",
             "Port notes:",
             "- Implement Home onboarding from `sourceFamilies`, not screenshot-only JSX.",
-            "- Theme/density/settings/accessibility routes must update Autopilot-level settings, then bridge into OpenVSCode where relevant.",
+            "- Theme/density/settings/accessibility routes must update Hypervisor-level settings, then bridge into OpenVSCode where relevant.",
             "- Treat Git, terminal, tasks, debug, shortcuts, and evidence as IOI-governed runtime routes, not extension-host authority.",
         ],
     )
