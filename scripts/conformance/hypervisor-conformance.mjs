@@ -4512,6 +4512,9 @@ function runBridge() {
   const runtimeContextPolicyApiTest = exists("packages/runtime-daemon/src/runtime-context-policy-api.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-context-policy-api.test.mjs")
     : "";
+  const liveRuntimeDaemonContract = exists("scripts/lib/live-runtime-daemon-contract.test.mjs")
+    ? read("scripts/lib/live-runtime-daemon-contract.test.mjs")
+    : "";
   const runtimeWorkflowEditSurface = exists("packages/runtime-daemon/src/runtime-workflow-edit-api.mjs")
     ? read("packages/runtime-daemon/src/runtime-workflow-edit-api.mjs")
     : "";
@@ -12117,6 +12120,9 @@ function runBridge() {
       /this\.contextPolicyApi = createRuntimeContextPolicyApi/.test(runtimeDaemonIndex) &&
       !/this\.contextPolicySurface/.test(runtimeDaemonIndex) &&
       !/store\.contextPolicySurface/.test(`${runtimeRouteHandlers}\n${publicRuntimeRoutes}`) &&
+      !/runtime-context-policy-surface|runtimeContextPolicySurface|createRuntimeContextPolicySurface/.test(
+        liveRuntimeDaemonContract,
+      ) &&
       /store\.evaluateContextBudget/.test(`${runtimeRouteHandlers}\n${publicRuntimeRoutes}`) &&
       /store\.evaluateCompactionPolicy/.test(runtimeRouteHandlers) &&
       /store\.compactThread/.test(runtimeRouteHandlers),
@@ -12126,6 +12132,7 @@ function runBridge() {
       "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-api.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-api.test.mjs",
+      "scripts/lib/live-runtime-daemon-contract.test.mjs",
     ],
     "The route-visible runtime context-policy JS surface must stay deleted; public routes must enter through store-owned context policy APIs over the internal Rust-backed delegate",
   );

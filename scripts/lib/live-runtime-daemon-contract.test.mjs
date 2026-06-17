@@ -11153,8 +11153,8 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     path.join(root, "packages/runtime-daemon/src/runtime-route-handlers.mjs"),
     "utf8",
   );
-  const runtimeContextPolicySurface = fs.readFileSync(
-    path.join(root, "packages/runtime-daemon/src/runtime-context-policy-surface.mjs"),
+  const runtimeContextPolicyApi = fs.readFileSync(
+    path.join(root, "packages/runtime-daemon/src/runtime-context-policy-api.mjs"),
     "utf8",
   );
   const runtimeUsageEvents = fs.readFileSync(
@@ -11750,9 +11750,11 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(runtimeDaemon, /runtimeUsageTelemetryForThread/);
   assert.match(runtimeDaemon, /\/v1\/usage/);
   assert.match(runtimePublicRoutes, /\/v1\/context-budget/);
-  assert.match(runtimeContextPolicySurface, /evaluateContextBudget/);
+  assert.match(runtimeContextPolicyApi, /evaluateContextBudget/);
+  assert.match(runtimeRouteHandlers, /store\.evaluateContextBudget/);
   assert.match(runtimeRouteHandlers, /action === "compaction-policy"/);
-  assert.match(runtimeContextPolicySurface, /evaluateCompactionPolicy/);
+  assert.match(runtimeContextPolicyApi, /evaluateCompactionPolicy/);
+  assert.match(runtimeRouteHandlers, /store\.evaluateCompactionPolicy/);
   assert.match(runtimeDaemon, /usage_delta/);
   assert.match(runtimeDaemon, /context_pressure_delta/);
   assert.match(runtimeDaemon, /usage_final/);
