@@ -751,6 +751,124 @@ interface HypervisorSessionLaunchRecipe {
   privacy_posture_templates: string[];
 }
 
+type HypervisorEnvironmentLifecycleState =
+  | "draft"
+  | "provisioning"
+  | "running"
+  | "idle"
+  | "zero_to_idle"
+  | "stopped"
+  | "archived"
+  | "unarchiving"
+  | "restoring"
+  | "failed"
+  | "deleted";
+
+interface HypervisorEnvironmentClass {
+  class_id: string;
+  label: string;
+  provider_ref:
+    | "local"
+    | "customer_cloud"
+    | "hyperscaler"
+    | "depin_compute"
+    | "decentralized_storage"
+    | "hypervisor_os";
+  cpu: string;
+  memory: string;
+  gpu?: string;
+  storage: string;
+  privacy_posture_refs: string[];
+  default_for_project?: boolean;
+}
+
+interface HypervisorEnvironmentOpsProfile {
+  environment_id: string;
+  session_id: string;
+  project_ref: string;
+  lifecycle_state: HypervisorEnvironmentLifecycleState;
+  class_ref: string;
+  adapter_preference_ref?: string;
+  provider_candidate_ref?: string;
+  restore_state_ref?: string;
+  archive_ref?: string;
+  latest_activity_signal_ref?: string;
+  access_token_lease_refs: string[];
+  log_token_lease_refs: string[];
+  service_refs: string[];
+  task_refs: string[];
+  port_refs: string[];
+  scm_auth_requirement_refs: string[];
+  receipt_refs: string[];
+}
+
+interface HypervisorEnvironmentActivitySignal {
+  signal_id: string;
+  environment_id: string;
+  source: "hypervisor_app" | "hypervisor_web" | "workbench_adapter" | "agent_harness" | "daemon";
+  observed_at: string;
+  lease_ref?: string;
+  receipt_ref: string;
+}
+
+interface HypervisorSessionAccessLease {
+  lease_id: string;
+  environment_id: string;
+  purpose: "connect" | "logs" | "port_forward" | "support_bundle";
+  scope_refs: string[];
+  expires_at: string;
+  wallet_authority_ref: string;
+  receipt_ref: string;
+}
+
+interface HypervisorEnvironmentService {
+  service_id: string;
+  environment_id: string;
+  name: string;
+  reference: string;
+  start_command_ref: string;
+  ready_check_ref?: string;
+  status: "configured" | "starting" | "ready" | "failed" | "stopped";
+  port_refs: string[];
+  receipt_refs: string[];
+}
+
+interface HypervisorEnvironmentTask {
+  task_id: string;
+  environment_id: string;
+  name: string;
+  command_ref: string;
+  depends_on: string[];
+  trigger:
+    | "manual"
+    | "post_environment_start"
+    | "post_workspace_restore"
+    | "scheduled"
+    | "workflow_step";
+  status: "configured" | "queued" | "running" | "succeeded" | "failed" | "cancelled";
+  execution_receipt_refs: string[];
+}
+
+interface HypervisorEnvironmentPort {
+  port_id: string;
+  environment_id: string;
+  port: number;
+  name: string;
+  exposure_policy: "private" | "workspace" | "authenticated_link" | "public_forbidden";
+  url_ref?: string;
+  access_lease_ref?: string;
+}
+
+interface HypervisorScmAuthRequirement {
+  requirement_id: string;
+  environment_id: string;
+  host: string;
+  method: "oauth" | "personal_access_token" | "ssh_key" | "unavailable";
+  required_scope_refs: string[];
+  credential_lease_policy_ref: string;
+  satisfied_by_ref?: string;
+}
+
 interface WorkbenchAdapterPreference {
   adapter_id:
     | "vscode"
@@ -764,6 +882,52 @@ interface WorkbenchAdapterPreference {
   launch_mode: "embedded" | "external" | "remote_url" | "headless";
   default_for_project?: boolean;
 }
+```
+
+Environment-ops doctrine:
+
+```text
+Hypervisor environments are managed session resources, not runtime truth.
+
+The Hypervisor Daemon owns lifecycle operations:
+  create, create_from_project, start, stop, mark_active, archive,
+  unarchive, restore, delete.
+
+wallet.network authorizes:
+  environment access leases, log leases, port-forward leases,
+  SCM credential release, support-bundle access, provider spend,
+  and any secret-bearing action.
+
+Agentgres records:
+  environment lifecycle receipts, activity signals, service/task execution
+  receipts, access/log lease receipts, archive refs, restore refs,
+  provider evidence, and state-root linkage.
+
+Storage backends may hold:
+  encrypted workspace blobs, logs, archives, build artifacts, datasets,
+  and delivery bundles, but they do not define restore truth.
+
+Workbench adapters and AgentHarnessAdapters may connect to environments
+through short-lived leases. They do not receive durable credentials or become
+the workspace custody domain.
+```
+
+Environment inspector target:
+
+```text
+Selected session -> Environment tab:
+  lifecycle state
+  machine/provider class
+  selected editor adapter
+  activity freshness
+  access/log lease status
+  SCM auth requirements
+  services
+  tasks
+  ports
+  logs / terminal
+  archive and restore refs
+  latest receipts
 ```
 
 Implementation phases:
@@ -780,8 +944,8 @@ Implementation phases:
 | 0A.5 Workbench as adapter hub | Move "Code repositories" under Workbench and expose editor adapter preference. | `WorkspaceShell.tsx`, `WorkspaceRepositoryGate.tsx`, `workspaceWorkbenchHost.ts`, settings | VS Code/OpenVSCode is one adapter target; Cursor/Windsurf/JetBrains/browser IDE/terminal can be represented. |
 | 0A.6 Automations / Workflow Compositor | Convert current workflow composer/runs into Automations/Workflows with templates, filters, run buttons, graph editing, receipt state. | MissionControl workflow views, `packages/hypervisor-workbench/src/WorkflowComposer.tsx`, workbench webview | IOI-reference automations become Hypervisor compositor graphs and reusable recipes. |
 | 0A.7 Models as infrastructure and setup | Keep a Models surface, but also embed model mounting into New Session/Create Agent/Mission setup. | `MissionControlMountsView.tsx`, model daemon actions, public `/v1/model-mount/*` clients | Model mounts are not a detached tab; each session shows selected model/provider/custody. |
-| 0A.8 Authority/privacy/receipts inspectors | Add persistent contextual right/bottom governance and environment panels. | Policy, Capabilities, Settings, cTEE/private workspace services, receipt components | Selected session reveals changes, authority scope, privacy posture, latest receipts, ports/services, tasks, terminal/logs. |
-| 0A.9 Fleet and private workspace path | Surface direct providers, remote VM workspaces, DePIN nodes, zero-to-idle/restore. | Fleet surface, workspace host/session services, provider integrations | User can create persistent workspace/node route without treating provider as trusted. |
+| 0A.8 Authority/privacy/receipts inspectors | Add persistent contextual right/bottom governance and environment panels. | Policy, Capabilities, Settings, cTEE/private workspace services, receipt components, environment ops projections | Selected session reveals changes, authority scope, privacy posture, latest receipts, environment lifecycle, access/log lease state, SCM auth requirements, ports/services, tasks, terminal/logs. |
+| 0A.9 Fleet and private workspace path | Surface direct providers, remote VM workspaces, DePIN nodes, zero-to-idle/restore. | Fleet surface, workspace host/session services, provider integrations, environment lifecycle APIs | User can create, stop, start, archive, unarchive, and restore persistent workspace/node routes without treating provider resources as trusted custody or restore truth. |
 | 0A.10 Visual and behavior conformance | Add Playwright smoke checks and source scans for naming/IA. | App tests, `scripts/conformance/hypervisor-conformance.mjs` | Checks prove no user-facing "Autopilot" tabs, no Workbench-as-parent, and Home/Sessions/Workbench flows work. |
 
 Current implementation cut:
@@ -957,7 +1121,8 @@ First implementation slice:
 5. Add a New Session modal with fixture-backed choices and model/harness/privacy
    summary rows.
 6. Add IOI-reference inspectors:
-   Changes, Ports & Services, Tasks, Terminal, environment health.
+   Changes, Ports & Services, Tasks, Terminal, environment lifecycle,
+   access/log leases, SCM auth requirements, and environment health.
 7. Add tests/source scans for:
    - no "Autopilot Code" visible tab label;
    - Workbench is a surface, not parent product;

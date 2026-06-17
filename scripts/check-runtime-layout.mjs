@@ -349,6 +349,23 @@ assert(
   "Workbench must open as a governed adapter hub over Hypervisor Core, not a code-repository or pull-request console.",
 );
 assert(
+  "hypervisor-environment-ops-model",
+  refineArchitectureGuide.includes("HypervisorEnvironmentOpsProfile") &&
+    refineArchitectureGuide.includes("HypervisorEnvironmentLifecycleState") &&
+    refineArchitectureGuide.includes("HypervisorEnvironmentClass") &&
+    refineArchitectureGuide.includes("HypervisorSessionAccessLease") &&
+    refineArchitectureGuide.includes("HypervisorEnvironmentService") &&
+    refineArchitectureGuide.includes("HypervisorEnvironmentTask") &&
+    refineArchitectureGuide.includes("HypervisorEnvironmentPort") &&
+    refineArchitectureGuide.includes("HypervisorScmAuthRequirement") &&
+    refineArchitectureGuide.includes("Environment-ops doctrine") &&
+    refineArchitectureGuide.includes("create, create_from_project, start, stop, mark_active, archive,") &&
+    refineArchitectureGuide.includes("access/log lease state, SCM auth requirements, ports/services, tasks, terminal/logs") &&
+    !/\bGitpod\b|gitpod/i.test(refineArchitectureGuide),
+  ["internal-docs/implementation/refine-architecture.md"],
+  "Refine guide must model environment lifecycle, access/log leases, SCM auth, services, tasks, ports, and restore refs as Hypervisor-native objects without vendor-specific references.",
+);
+assert(
   "contract-family-modules",
   [
     "adapters",
