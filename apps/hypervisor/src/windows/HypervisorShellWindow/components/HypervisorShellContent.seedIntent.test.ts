@@ -113,14 +113,26 @@ assert.match(
 
 assert.match(
   source,
-  /className="hypervisor-session-operations hypervisor-session-operations--ioi-reference-session hypervisor-session-detail-shell"[\s\S]*data-ioi-reference-session-cockpit="true"/,
+  /className="hypervisor-session-operations--ioi-reference-session hypervisor-session-detail-shell"[\s\S]*data-ioi-reference-session-cockpit="true"/,
   "Sessions should use the IOI-reference session cockpit shell",
+);
+
+assert.doesNotMatch(
+  source,
+  /className="hypervisor-session-operations hypervisor-session-operations--ioi-reference-session/,
+  "Sessions should not keep the stale dark cockpit root class that creates a card frame",
 );
 
 assert.match(
   source,
-  /function formatSessionDisplayTitle[\s\S]*function formatSessionOperationLabel[\s\S]*function formatSessionLifecycleLabel[\s\S]*data-session-reference-page="environment-detail"[\s\S]*className="hypervisor-session-operations__session-title"[\s\S]*<strong>\{formatSessionDisplayTitle\(projection\.selected_session_ref\)\}<\/strong>[\s\S]*<code>\{projection\.selected_session_ref\}<\/code>[\s\S]*Environment \{formatSessionLifecycleLabel\(projection\.lifecycle_state\)\}[\s\S]*\{formatSessionOperationLabel\(operationKind\)\}/,
-  "Sessions should render the IOI reference environment detail page with human title, raw refs, lifecycle status, and operation actions",
+  /function formatSessionDisplayTitle[\s\S]*function formatSessionLifecycleLabel[\s\S]*data-session-reference-page="environment-detail"[\s\S]*data-session-workspace-mode-list=\{HYPERVISOR_SESSION_WORKSPACE_MODES\.map[\s\S]*\.filter\(\s*\(mode\) => mode\.mode_id === "code"[\s\S]*className="hypervisor-session-operations__session-title"[\s\S]*<strong>\{formatSessionDisplayTitle\(projection\.selected_session_ref\)\}<\/strong>[\s\S]*<code>\{projection\.selected_session_ref\}<\/code>[\s\S]*data-session-detail-tab-list=\{projection\.detail_tabs[\s\S]*\.filter\(\(tab\) => tab\.tab_id === "environment"\)[\s\S]*Environment \{formatSessionLifecycleLabel\(projection\.lifecycle_state\)\}/,
+  "Sessions should render the IOI reference environment detail page with a lean Code/title/Environment tab row, human title, raw refs, and lifecycle status",
+);
+
+assert.doesNotMatch(
+  source,
+  /className="hypervisor-session-operations__(?:header|launches|rail|reference-detail|tabs|grid|actions|bottom|metadata)"/,
+  "Sessions should hard-delete the stale dashboard rail/grid/actions/bottom DOM instead of hiding it behind CSS",
 );
 
 assert.match(
@@ -179,8 +191,14 @@ assert.match(
 
 assert.match(
   shellCss,
-  /\.hypervisor-session-detail-shell \.hypervisor-session-operations__right-pane\s*\{[\s\S]*grid-template-rows: 52px 44px minmax\(0, 1fr\) minmax\(224px, 32vh\);[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__bottom-dock\s*\{[\s\S]*border-top: 1px solid #e2e2df;/,
-  "Sessions should keep changes and Ports/Tasks/Terminal in the right inspector dock",
+  /\.hypervisor-session-detail-shell \.hypervisor-session-operations__right-pane\s*\{[\s\S]*grid-template-rows: 52px 56px minmax\(0, 1fr\) minmax\(224px, 32vh\);[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__change-filter-row\s*\{[\s\S]*grid-template-columns: minmax\(0, 1fr\) 140px;[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__bottom-dock\s*\{[\s\S]*border-top: 1px solid #e2e2df;/,
+  "Sessions should keep the reference Changes tree and Ports/Tasks/Terminal dock in the right inspector",
+);
+
+assert.match(
+  shellCss,
+  /\.hypervisor-session-detail-shell \.hypervisor-session-operations__bottom-content[\s\S]*> \.hypervisor-session-operations__panel:not\(:first-child\)\s*\{[\s\S]*display: none;[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__empty-state\s*\{/,
+  "Sessions should render the active Ports pane as an IOI-reference empty state while retaining tabbed dock panels",
 );
 
 assert.match(
@@ -191,8 +209,14 @@ assert.match(
 
 assert.match(
   shellCss,
-  /\.hypervisor-session-detail-shell > \.hypervisor-session-operations__actions[\s\S]*display: none;[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__top-actions\s*\{[\s\S]*display: flex;/,
-  "Sessions should move operation proposals into the reference top action strip and hide the stale action rail",
+  /\.hypervisor-session-detail-shell \.hypervisor-session-operations__top-actions\s*\{[\s\S]*display: flex;/,
+  "Sessions should keep operation proposals in the reference top action strip without a stale action rail",
+);
+
+assert.doesNotMatch(
+  shellCss,
+  /\.hypervisor-session-detail-shell > \.hypervisor-session-operations__(?:header|rail|reference-detail|tabs|grid|actions|bottom|metadata)[\s\S]*display: none;/,
+  "Sessions CSS should not keep hiding stale dashboard children after the DOM cut",
 );
 
 assert.match(

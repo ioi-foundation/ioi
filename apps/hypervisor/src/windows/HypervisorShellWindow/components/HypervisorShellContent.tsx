@@ -73,7 +73,6 @@ import {
 import {
   buildHypervisorSessionOperationProposal,
   HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE,
-  HYPERVISOR_SESSION_OPERATION_KINDS,
   loadHypervisorSessionOperationsProjection,
   proposeHypervisorSessionOperation,
   type HypervisorSessionOperationKind,
@@ -83,7 +82,6 @@ import {
   HYPERVISOR_SESSION_CHANGE_INSPECTOR_MODES,
   HYPERVISOR_SESSION_WORKSPACE_MODES,
   isHypervisorSurfaceId,
-  type HypervisorLaunchedSessionProjection,
 } from "../hypervisorShellNavigationModel";
 
 interface HypervisorShellContentProps {
@@ -503,29 +501,6 @@ function formatSessionDisplayTitle(sessionRef: string): string {
     .join(" ");
 }
 
-function formatSessionOperationLabel(
-  operationKind: HypervisorSessionOperationKind,
-): string {
-  switch (operationKind) {
-    case "request_access_lease":
-      return "Request access";
-    case "request_log_lease":
-      return "Request logs";
-    case "open_port":
-      return "Open port";
-    case "run_task":
-      return "Run task";
-    case "propose_terminal_command":
-      return "Review command";
-    case "archive_session":
-      return "Archive";
-    case "restore_session":
-      return "Restore";
-    default:
-      return String(operationKind).split("_").join(" ");
-  }
-}
-
 function formatSessionLifecycleLabel(lifecycleState: string): string {
   if (lifecycleState === "active") {
     return "running";
@@ -533,13 +508,7 @@ function formatSessionLifecycleLabel(lifecycleState: string): string {
   return lifecycleState.split("_").join(" ");
 }
 
-function HypervisorSessionOperationsCockpit({
-  launchedSessions,
-  onOpenSurface,
-}: {
-  launchedSessions: HypervisorLaunchedSessionProjection[];
-  onOpenSurface: (surface: PrimaryView) => void;
-}) {
+function HypervisorSessionOperationsCockpit() {
   const [projection, setProjection] = useState(
     HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE,
   );
@@ -589,154 +558,68 @@ function HypervisorSessionOperationsCockpit({
       });
   }
 
-  function canOpenLaunchedSessionSurface(
-    session: HypervisorLaunchedSessionProjection,
-  ): boolean {
-    return session.admission_state === "daemon_admitted";
-  }
-
-  function launchedSessionAdmissionLabel(
-    session: HypervisorLaunchedSessionProjection,
-  ): string {
-    switch (session.admission_state) {
-      case "daemon_admitted":
-        return "Daemon admitted";
-      case "daemon_blocked":
-        return "Daemon blocked";
-      case "daemon_unavailable":
-        return "Daemon unavailable";
-      case "pending_daemon_admission":
-      default:
-        return "Pending daemon admission";
-    }
-  }
-
-  function launchedSessionAdmissionDetail(
-    session: HypervisorLaunchedSessionProjection,
-  ): string {
-    const admission = session.workbench_adapter_admission;
-    if (!admission) {
-      return "No adapter launch admission record has been attached yet.";
-    }
-    if (admission.decision === "admitted") {
-      const receiptRefs = admission.receipt_refs.join(" - ") || "receipt pending";
-      return `${admission.admission_id} / ${receiptRefs}`;
-    }
-    return admission.error_message;
-  }
-
   const startupSteps = [
     {
-      label: "Started governed workspace",
+      label: "Started Hypervisor session",
       detail: projection.provider_candidate_ref,
     },
     {
-      label: "Initialized project state",
+      label: "Initialized repository",
       detail: projection.project_ref,
     },
     {
-      label: "Loaded authority scopes",
-      detail: projection.authority_scope_refs.join(" / "),
+      label: "Loaded secrets",
+      detail: `${projection.authority_scope_refs.length} scoped capabilities`,
     },
     {
-      label: "Connected adapter",
+      label: "Loaded automations",
+      detail: "internal-docs/implementation/refine-architecture.md",
+    },
+    {
+      label: "Started adapter runtime",
       detail: projection.selected_adapter_ref,
     },
+  ];
+
+  const changedFileGroups = [
     {
-      label: "Bound archive and restore refs",
-      detail: projection.restore_ref,
+      folder: ".hypervisor/",
+      count: projection.latest_receipt_refs.length,
+      files: [
+        {
+          name: "session.capsule.json",
+          delta: "+20",
+          receipt_ref: projection.latest_receipt_refs[0] ?? projection.access_lease_ref,
+        },
+        {
+          name: "authority-leases.json",
+          delta: "+8",
+          receipt_ref: projection.latest_receipt_refs[1] ?? projection.log_lease_ref,
+        },
+      ],
+    },
+    {
+      folder: "internal-docs/implementation/",
+      count: 1,
+      files: [
+        {
+          name: "refine-architecture.md",
+          delta: "+138",
+          receipt_ref: projection.restore_ref,
+        },
+      ],
     },
   ];
 
   return (
     <section
-      className="hypervisor-session-operations hypervisor-session-operations--ioi-reference-session hypervisor-session-detail-shell"
+      className="hypervisor-session-operations--ioi-reference-session hypervisor-session-detail-shell"
       aria-label="Session operations cockpit"
       data-ioi-reference-session-cockpit="true"
       data-hypervisor-session-operations={projection.projection_id}
       data-session-operations-source={projection.source}
       data-runtime-truth-source={projection.runtimeTruthSource}
     >
-      <div className="hypervisor-session-operations__header">
-        <span>Sessions</span>
-        <h2>{formatSessionDisplayTitle(projection.selected_session_ref)}</h2>
-        <code>{projection.selected_session_ref}</code>
-        <p>
-          Environment posture, leases, ports, tasks, terminal events, receipts,
-          and restore refs are projected from Hypervisor Core and Agentgres.
-        </p>
-      </div>
-
-      {launchedSessions.length > 0 ? (
-        <div
-          className="hypervisor-session-operations__launches"
-          aria-label="Recently launched governed sessions"
-          data-launched-session-count={launchedSessions.length}
-        >
-          {launchedSessions.map((session) => {
-            const canOpenSurface = canOpenLaunchedSessionSurface(session);
-            return (
-              <article
-                key={session.session_ref}
-                className={clsx(
-                  "hypervisor-session-operations__launch",
-                  !canOpenSurface && "is-admission-blocked",
-                )}
-                data-launched-session-ref={session.session_ref}
-                data-launched-session-surface={session.surface_id}
-                data-launched-session-state={session.admission_state}
-                data-launched-session-admission-ref={
-                  session.workbench_adapter_admission_ref ?? ""
-                }
-                data-launched-session-admission-decision={
-                  session.workbench_adapter_admission?.decision ?? "pending"
-                }
-                data-launched-session-open-disabled={!canOpenSurface}
-              >
-                <div>
-                  <span>{session.surface_id}</span>
-                  <h3>{session.project_label}</h3>
-                  <p>{session.recipe_ref}</p>
-                  <button
-                    type="button"
-                    data-launched-session-open-surface={session.surface_id}
-                    disabled={!canOpenSurface}
-                    onClick={() => {
-                      if (canOpenSurface) {
-                        onOpenSurface(session.surface_id);
-                      }
-                    }}
-                  >
-                    Open surface
-                  </button>
-                </div>
-                <dl>
-                  <div>
-                    <dt>Adapter admission</dt>
-                    <dd>
-                      <strong>{launchedSessionAdmissionLabel(session)}</strong>
-                      <span>{launchedSessionAdmissionDetail(session)}</span>
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>Harness</dt>
-                    <dd>{session.launch_summary.harness_label}</dd>
-                  </div>
-                  <div>
-                    <dt>Adapter</dt>
-                    <dd>{session.launch_summary.workbench_adapter_ref}</dd>
-                  </div>
-                  <div>
-                    <dt>Receipt</dt>
-                    <dd>{session.launch_receipt_ref}</dd>
-                  </div>
-                </dl>
-              </article>
-            );
-          })}
-        </div>
-      ) : null}
-
       <div
         className="hypervisor-session-operations__reference-page"
         aria-label="Selected session detail"
@@ -786,7 +669,9 @@ function HypervisorSessionOperationsCockpit({
               (mode) => mode.mode_id,
             ).join(" ")}
           >
-            {HYPERVISOR_SESSION_WORKSPACE_MODES.map((mode) => (
+            {HYPERVISOR_SESSION_WORKSPACE_MODES.filter(
+              (mode) => mode.mode_id === "code",
+            ).map((mode) => (
               <button
                 key={mode.mode_id}
                 type="button"
@@ -807,18 +692,27 @@ function HypervisorSessionOperationsCockpit({
             <code>{projection.selected_session_ref}</code>
             <span aria-hidden="true">⌄</span>
           </button>
-          <div className="hypervisor-session-operations__detail-tabs" role="tablist" aria-label="Session detail tabs">
-            {projection.detail_tabs.map((tab) => (
-              <button
-                key={tab.tab_id}
-                type="button"
-                role="tab"
-                aria-selected={tab.tab_id === "environment"}
-                data-session-detail-tab={tab.tab_id}
-              >
-                <strong>{tab.label}</strong>
-              </button>
-            ))}
+          <div
+            className="hypervisor-session-operations__detail-tabs"
+            role="tablist"
+            aria-label="Session detail tabs"
+            data-session-detail-tab-list={projection.detail_tabs
+              .map((tab) => tab.tab_id)
+              .join(" ")}
+          >
+            {projection.detail_tabs
+              .filter((tab) => tab.tab_id === "environment")
+              .map((tab) => (
+                <button
+                  key={tab.tab_id}
+                  type="button"
+                  role="tab"
+                  aria-selected={tab.tab_id === "environment"}
+                  data-session-detail-tab={tab.tab_id}
+                >
+                  <strong>{tab.label}</strong>
+                </button>
+              ))}
           </div>
         </div>
 
@@ -883,59 +777,63 @@ function HypervisorSessionOperationsCockpit({
             ).join(" ")}
           >
             <header className="hypervisor-session-operations__right-header">
-              <h3>Changes</h3>
-              <div className="hypervisor-session-operations__change-inspector">
-                {HYPERVISOR_SESSION_CHANGE_INSPECTOR_MODES.map((mode) => (
+              <button
+                type="button"
+                className="hypervisor-session-operations__right-title"
+              >
+                <strong>Changes</strong>
+                <span aria-hidden="true">⌄</span>
+              </button>
+              <div className="hypervisor-session-operations__right-actions">
+                {["Preview", "Graph", "Split"].map((label, index) => (
                   <button
-                    key={mode.mode_id}
+                    key={label}
                     type="button"
-                    aria-pressed={mode.mode_id === "changes"}
-                    data-session-change-mode={mode.mode_id}
-                    title={mode.summary}
+                    aria-pressed={index === 1}
+                    aria-label={`${label} changes inspector`}
                   >
-                    {mode.label}
+                    {index === 0 ? "◉" : index === 1 ? "⎇" : "▣"}
                   </button>
                 ))}
               </div>
             </header>
 
-            <label className="hypervisor-session-operations__search">
-              <span>Search files...</span>
-              <input
-                type="search"
-                aria-label="Search changed files"
-                placeholder="Search files..."
-              />
-            </label>
+            <div className="hypervisor-session-operations__change-filter-row">
+              <label className="hypervisor-session-operations__search">
+                <span>Search files...</span>
+                <input
+                  type="search"
+                  aria-label="Search changed files"
+                  placeholder="Search files..."
+                />
+              </label>
+              <button type="button" className="hypervisor-session-operations__status-filter">
+                Uncommitted
+                <span aria-hidden="true">⌄</span>
+              </button>
+            </div>
 
             <div className="hypervisor-session-operations__change-list">
-              <div>
-                <span className="hypervisor-session-operations__folder">
-                  Agentgres refs
-                </span>
-                {projection.latest_receipt_refs.map((receiptRef, index) => (
-                  <button type="button" key={receiptRef}>
-                    <code>{receiptRef}</code>
-                    <span>+{(index + 1) * 12}</span>
-                  </button>
-                ))}
-              </div>
-              <div>
-                <span className="hypervisor-session-operations__folder">
-                  Inspectors
-                </span>
-                {projection.right_inspector_panels.map((panel) => (
+              {changedFileGroups.map((group) => (
+                <div key={group.folder} className="hypervisor-session-operations__file-group">
+                  <span className="hypervisor-session-operations__folder">
+                    <span aria-hidden="true">⌄</span>
+                    {group.folder}
+                    <em>{group.count}</em>
+                  </span>
+                  {group.files.map((file) => (
                   <button
                     type="button"
-                    key={panel.panel_id}
-                    data-right-inspector-panel={panel.panel_id}
-                    data-panel-status={panel.status}
+                    key={`${group.folder}${file.name}`}
+                    data-session-changed-file={`${group.folder}${file.name}`}
+                    data-session-changed-file-receipt={file.receipt_ref}
                   >
-                    <strong>{panel.label}</strong>
-                    <span>{panel.status}</span>
+                    <code>{file.name}</code>
+                    <span>{file.delta}</span>
                   </button>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ))}
             </div>
 
             <div className="hypervisor-session-operations__bottom-dock">
@@ -944,7 +842,9 @@ function HypervisorSessionOperationsCockpit({
                 role="tablist"
                 aria-label="Bottom inspectors"
               >
-                {projection.bottom_inspector_panels.map((panel, index) => (
+                {projection.bottom_inspector_panels
+                  .filter((panel) => panel.panel_id !== "logs")
+                  .map((panel, index) => (
                   <button
                     key={panel.panel_id}
                     type="button"
@@ -955,31 +855,32 @@ function HypervisorSessionOperationsCockpit({
                   >
                     {panel.label}
                   </button>
-                ))}
+                  ))}
               </div>
               <div className="hypervisor-session-operations__bottom-content">
                 <div className="hypervisor-session-operations__panel">
-                  <h3>Ports</h3>
-                  {projection.ports_services.map((service) => (
-                    <div
-                      key={service.service_ref}
-                      className="hypervisor-session-operations__row"
-                      data-session-port-service={service.service_ref}
+                  <div className="hypervisor-session-operations__panel-heading">
+                    <h3>Ports</h3>
+                    <button
+                      type="button"
+                      data-session-service-open-port={projection.ports_services[0]?.service_ref}
+                      onClick={() =>
+                        handleSessionOperation(
+                          "open_port",
+                          projection.ports_services[0]?.service_ref,
+                        )
+                      }
                     >
-                      <strong>{service.label}</strong>
-                      <span>{service.protocol}:{service.port}</span>
-                      <em>{service.status}</em>
-                      <button
-                        type="button"
-                        data-session-service-open-port={service.service_ref}
-                        onClick={() =>
-                          handleSessionOperation("open_port", service.service_ref)
-                        }
-                      >
-                        Add port
-                      </button>
-                    </div>
-                  ))}
+                      + Add port
+                    </button>
+                  </div>
+                  <div
+                    className="hypervisor-session-operations__empty-state"
+                    data-session-port-services-count={projection.ports_services.length}
+                  >
+                    <span aria-hidden="true">⌁</span>
+                    <p>No open ports</p>
+                  </div>
                 </div>
                 <div className="hypervisor-session-operations__panel">
                   <h3>Tasks</h3>
@@ -1033,263 +934,6 @@ function HypervisorSessionOperationsCockpit({
           </aside>
         </div>
 
-        <div className="hypervisor-session-operations__metadata" aria-label="Environment refs">
-          <dl>
-            <div>
-              <dt>Environment</dt>
-              <dd>{projection.environment_ref}</dd>
-            </div>
-            <div>
-              <dt>Provider</dt>
-              <dd>{projection.provider_candidate_ref}</dd>
-            </div>
-            <div>
-              <dt>Adapter</dt>
-              <dd>{projection.selected_adapter_ref}</dd>
-            </div>
-            <div>
-              <dt>Access Lease</dt>
-              <dd>{projection.access_lease_ref}</dd>
-            </div>
-            <div>
-              <dt>Log Lease</dt>
-              <dd>{projection.log_lease_ref}</dd>
-            </div>
-            <div>
-              <dt>Archive</dt>
-              <dd>{projection.archive_ref}</dd>
-            </div>
-            <div>
-              <dt>Restore</dt>
-              <dd>{projection.restore_ref}</dd>
-            </div>
-          </dl>
-        </div>
-      </div>
-
-      <div className="hypervisor-session-operations__rail" aria-label="Session rail">
-        {projection.session_rail.map((railItem) => (
-          <div
-            key={railItem.state}
-            className={clsx(
-              "hypervisor-session-operations__rail-item",
-              railItem.selected && "is-selected",
-            )}
-            data-session-rail-state={railItem.state}
-          >
-            <span>{railItem.state.split("_").join(" ")}</span>
-            <strong>{railItem.count}</strong>
-          </div>
-        ))}
-      </div>
-
-      <div
-        className="hypervisor-session-operations__reference-detail"
-        aria-label="Code and conversation workspace"
-        data-session-reference-detail="code-conversation"
-      >
-        <div
-          className="hypervisor-session-operations__workspace-modes"
-          role="tablist"
-          aria-label="Session workspace modes"
-          data-session-workspace-mode-list={HYPERVISOR_SESSION_WORKSPACE_MODES.map(
-            (mode) => mode.mode_id,
-          ).join(" ")}
-        >
-          {HYPERVISOR_SESSION_WORKSPACE_MODES.map((mode) => (
-            <button
-              key={mode.mode_id}
-              type="button"
-              role="tab"
-              aria-selected={mode.mode_id === "code"}
-              data-session-workspace-mode={mode.mode_id}
-            >
-              <strong>{mode.label}</strong>
-              <span>{mode.summary}</span>
-            </button>
-          ))}
-        </div>
-
-        <aside
-          className="hypervisor-session-operations__change-inspector"
-          aria-label="Changes, files, and comments inspector"
-          data-session-change-inspector="changes-files-comments"
-          data-session-change-mode-list={HYPERVISOR_SESSION_CHANGE_INSPECTOR_MODES.map(
-            (mode) => mode.mode_id,
-          ).join(" ")}
-        >
-          {HYPERVISOR_SESSION_CHANGE_INSPECTOR_MODES.map((mode) => (
-            <button
-              key={mode.mode_id}
-              type="button"
-              aria-pressed={mode.mode_id === "changes"}
-              data-session-change-mode={mode.mode_id}
-            >
-              <strong>{mode.label}</strong>
-              <span>{mode.summary}</span>
-            </button>
-          ))}
-        </aside>
-      </div>
-
-      <div className="hypervisor-session-operations__tabs" role="tablist" aria-label="Session detail tabs">
-        {projection.detail_tabs.map((tab) => (
-          <button
-            key={tab.tab_id}
-            type="button"
-            role="tab"
-            aria-selected={tab.tab_id === "environment"}
-            data-session-detail-tab={tab.tab_id}
-          >
-            <strong>{tab.label}</strong>
-            <span>{tab.summary}</span>
-          </button>
-        ))}
-      </div>
-
-      <div className="hypervisor-session-operations__grid">
-        <div className="hypervisor-session-operations__panel" aria-label="Right inspectors">
-          <h3>Right Inspector</h3>
-          {projection.right_inspector_panels.map((panel) => (
-            <div
-              key={panel.panel_id}
-              className="hypervisor-session-operations__inspector"
-              data-right-inspector-panel={panel.panel_id}
-              data-panel-status={panel.status}
-            >
-              <strong>{panel.label}</strong>
-              <span>{panel.summary}</span>
-            </div>
-          ))}
-        </div>
-
-        <div className="hypervisor-session-operations__panel" aria-label="Environment and restore">
-          <h3>Environment</h3>
-          <dl>
-            <div>
-              <dt>Lifecycle</dt>
-              <dd>{projection.lifecycle_state}</dd>
-            </div>
-            <div>
-              <dt>Environment</dt>
-              <dd>{projection.environment_ref}</dd>
-            </div>
-            <div>
-              <dt>Provider</dt>
-              <dd>{projection.provider_candidate_ref}</dd>
-            </div>
-            <div>
-              <dt>Adapter</dt>
-              <dd>{projection.selected_adapter_ref}</dd>
-            </div>
-            <div>
-              <dt>Access Lease</dt>
-              <dd>{projection.access_lease_ref}</dd>
-            </div>
-            <div>
-              <dt>Log Lease</dt>
-              <dd>{projection.log_lease_ref}</dd>
-            </div>
-            <div>
-              <dt>Archive</dt>
-              <dd>{projection.archive_ref}</dd>
-            </div>
-            <div>
-              <dt>Restore</dt>
-              <dd>{projection.restore_ref}</dd>
-            </div>
-          </dl>
-        </div>
-      </div>
-
-      <div
-        className="hypervisor-session-operations__actions"
-        aria-label="Session operation proposals"
-      >
-        <span className="hypervisor-session-operations__actions-heading">
-          Session actions
-        </span>
-        {HYPERVISOR_SESSION_OPERATION_KINDS.map((operationKind) => (
-          <button
-            key={operationKind}
-            type="button"
-            data-session-operation-kind={operationKind}
-            data-session-operation-session={projection.selected_session_ref}
-            onClick={() => handleSessionOperation(operationKind)}
-          >
-            {formatSessionOperationLabel(operationKind)}
-          </button>
-        ))}
-      </div>
-
-      <div className="hypervisor-session-operations__bottom" aria-label="Bottom inspectors">
-        <div className="hypervisor-session-operations__panel">
-          <h3>Ports & Services</h3>
-          {projection.ports_services.map((service) => (
-            <div
-              key={service.service_ref}
-              className="hypervisor-session-operations__row"
-              data-session-port-service={service.service_ref}
-            >
-              <strong>{service.label}</strong>
-              <span>{service.protocol}:{service.port}</span>
-              <em>{service.status}</em>
-              <button
-                type="button"
-                data-session-service-open-port={service.service_ref}
-                onClick={() => handleSessionOperation("open_port", service.service_ref)}
-              >
-                Propose port lease
-              </button>
-            </div>
-          ))}
-        </div>
-
-        <div className="hypervisor-session-operations__panel">
-          <h3>Tasks</h3>
-          {projection.tasks.map((task) => (
-            <div
-              key={task.task_ref}
-              className="hypervisor-session-operations__row"
-              data-session-task={task.task_ref}
-            >
-              <strong>{task.label}</strong>
-              <span>{task.status}</span>
-              <em>{task.receipt_ref}</em>
-              <button
-                type="button"
-                data-session-task-run={task.task_ref}
-                onClick={() => handleSessionOperation("run_task", task.task_ref)}
-              >
-                Propose task run
-              </button>
-            </div>
-          ))}
-        </div>
-
-        <div className="hypervisor-session-operations__panel">
-          <h3>Terminal</h3>
-          {projection.terminal_events.map((event) => (
-            <div
-              key={event.event_ref}
-              className="hypervisor-session-operations__row"
-              data-session-terminal-event={event.event_ref}
-            >
-              <strong>{event.command_summary}</strong>
-              <span>{event.status}</span>
-              <em>{event.receipt_ref}</em>
-              <button
-                type="button"
-                data-session-terminal-propose={event.event_ref}
-                onClick={() =>
-                  handleSessionOperation("propose_terminal_command", event.event_ref)
-                }
-              >
-                Review command
-              </button>
-            </div>
-          ))}
-        </div>
       </div>
       {operationProposal ? (
         <aside
@@ -2255,12 +1899,7 @@ export function HypervisorShellContent({
                   ) : null}
 
                   {activeView === "sessions" ? (
-                    <HypervisorSessionOperationsCockpit
-                      launchedSessions={
-                        controller.sessions.launchedSessionProjections
-                      }
-                      onOpenSurface={controller.changePrimaryView}
-                    />
+                    <HypervisorSessionOperationsCockpit />
                   ) : null}
 
                   {activeView === "projects" ? (
