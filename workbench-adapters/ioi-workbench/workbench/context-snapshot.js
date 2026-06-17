@@ -672,7 +672,7 @@ function createWorkbenchContextSnapshot({
         },
         {
           targetId: "workflow.composer",
-          label: "Autopilot Workflow Composer",
+          label: "Hypervisor Workflow Composer",
           surface: "workflow",
           locators: [
             {

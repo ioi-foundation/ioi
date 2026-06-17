@@ -58,7 +58,7 @@ test("workflow composer renderer preserves assets, nonce, shell header, and CSP 
   const { context, webview } = createContextAndWebview();
   const html = renderer.workflowComposerHtml(context, webview);
 
-  assert.match(html, /<title>Autopilot Workflow Composer<\/title>/);
+  assert.match(html, /<title>Hypervisor Workflow Composer<\/title>/);
   assert.match(html, /<link nonce="composer-nonce" rel="stylesheet" href="webview:\/\/extension\/media\/workflow-composer\/workflow-composer\.css"/);
   assert.match(html, /<script nonce="composer-nonce" type="module" src="webview:\/\/extension\/media\/workflow-composer\/workflow-composer\.js"/);
   assert.match(html, /script-src 'nonce-composer-nonce'/);

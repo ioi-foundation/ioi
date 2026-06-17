@@ -20,7 +20,7 @@ function createWorkflowComposerPanelLifecycle({
     } else {
       workflowComposerPanel = vscode.window.createWebviewPanel(
         "ioi.workflowComposer",
-        "Autopilot Workflow Composer",
+        "Hypervisor Workflow Composer",
         vscode.ViewColumn.One,
         {
           enableScripts: true,

@@ -66,7 +66,7 @@ function createWorkflowComposerPanelRenderer({
       }
       ${hypervisorShellHeaderStyles()}
     </style>
-    <title>Autopilot Workflow Composer</title>
+    <title>Hypervisor Workflow Composer</title>
   </head>
   <body class="workflow-composer-shell">
     ${renderHypervisorShellHeader({ workspace: workspaceSummary(), modelMounting: {}, runs: [], policy: {} }, "workflows")}
