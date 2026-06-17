@@ -18,7 +18,8 @@ Product boundary doctrine:
 ioi.ai Goal Chat is where users ask.
 Hypervisor is where autonomous work runs.
 Hypervisor Automations is where durable workflows and services are built.
-Hypervisor Foundry is where workers, models, evals, and packages are made.
+Hypervisor Foundry is where models, workers, evals, datasets, endpoints,
+training jobs, registries, and ontology-aware packages are made.
 ```
 
 ## ioi.ai Goal Chat Boundary
@@ -34,15 +35,17 @@ It may:
   posture that the user is authorized to view;
 - draft a proposed AutomationSpec, service recipe, Foundry job, or marketplace
   publish flow for explicit user review;
-- draft an Outcome Room when the goal needs multi-agent/multi-session search,
-  benchmark races, eval gates, or competing harness/model strategies;
+- draft or open an ioi.ai Outcome Room over Hypervisor when the goal needs
+  multi-agent/multi-session search, benchmark races, eval gates, or competing
+  harness/model strategies;
 - route the user to Hypervisor App, Hypervisor Web, wallet.network, aiagent.xyz,
   sas.xyz, or console views when the job belongs there.
 
 It must not:
 
 - become the durable workflow/service builder;
-- become the Outcome Room, message board, leaderboard, or attempt truth source;
+- become the daemon runtime, message board truth, leaderboard truth, or attempt
+  truth source for an Outcome Room;
 - own Hypervisor Automations specs or run truth;
 - own Workflow Compositor graph truth;
 - own Hypervisor Daemon execution semantics;
