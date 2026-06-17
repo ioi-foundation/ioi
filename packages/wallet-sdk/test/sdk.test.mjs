@@ -24,6 +24,7 @@ test("SDK source imports wallet semantics from the protocol package", async () =
     "src/capabilities.ts",
     "src/client.ts",
     "src/receipts.ts",
+    "src/route-sources.ts",
     "src/index.ts",
   ];
 
@@ -41,6 +42,11 @@ test("SDK source imports wallet semantics from the protocol package", async () =
 
   const clientSource = await read("src/client.ts");
   assert.match(clientSource, /WALLET_NETWORK_PROTOCOL_METHODS/);
+
+  const routeSourcesSource = await read("src/route-sources.ts");
+  assert.match(routeSourcesSource, /buildCandidateEvidenceFromSourceAdapter/);
+  assert.match(routeSourcesSource, /exchangeRouteSourceAdapter/);
+  assert.match(routeSourcesSource, /tradeVenueSourceAdapter/);
 });
 
 test("SDK dist keeps protocol package imports instead of embedding protocol truth", async () => {

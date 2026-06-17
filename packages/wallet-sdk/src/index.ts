@@ -3,3 +3,4 @@ export * from "./authority-review.js";
 export * from "./capabilities.js";
 export * from "./client.js";
 export * from "./receipts.js";
+export * from "./route-sources.js";

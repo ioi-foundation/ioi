@@ -104,6 +104,21 @@ export interface CandidateEvidence {
   readonly claims: Readonly<Record<string, string>>;
 }
 
+export type CandidateSourceDomain = "exchange" | "trade";
+
+export interface WalletCandidateSourceAdapter {
+  readonly adapter_id: string;
+  readonly source: string;
+  readonly domain: CandidateSourceDomain;
+  readonly candidate_kind:
+    | "route_candidate"
+    | "venue_candidate"
+    | "market_candidate"
+    | "prediction_candidate";
+  readonly trust_boundary: "candidate_source_only";
+  readonly evidence_policy: "claims_plus_refs_required";
+}
+
 export interface PolicyCheck {
   readonly check_id: string;
   readonly result: PolicyCheckResult;

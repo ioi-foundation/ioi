@@ -6,11 +6,25 @@ import {
   type WalletReceipt,
   WALLET_PROTOCOL_SCHEMA_VERSION,
 } from "./types.js";
+import {
+  exchangeRouteSourceAdapter,
+  tradeVenueSourceAdapter,
+} from "./candidate-source-adapters.js";
+
+export const EXAMPLE_EXCHANGE_ROUTE_SOURCE_ADAPTER = exchangeRouteSourceAdapter({
+  adapter_id: "adapter:direct-pool-v1",
+  source: "decentralized.exchange",
+});
+
+export const EXAMPLE_TRADE_VENUE_SOURCE_ADAPTER = tradeVenueSourceAdapter({
+  adapter_id: "adapter:paper-perps-v1",
+  source: "decentralized.trade",
+});
 
 export const EXAMPLE_CANDIDATE_EVIDENCE = {
   candidate_id: "route:example-low-risk-usdc-eth",
-  source: "decentralized.exchange",
-  adapter_id: "adapter:direct-pool-v1",
+  source: EXAMPLE_EXCHANGE_ROUTE_SOURCE_ADAPTER.source,
+  adapter_id: EXAMPLE_EXCHANGE_ROUTE_SOURCE_ADAPTER.adapter_id,
   observed_at: "2026-06-17T00:00:00.000Z",
   expires_at: "2026-06-17T00:01:00.000Z",
   coverage_state: "assessed",
@@ -24,8 +38,8 @@ export const EXAMPLE_CANDIDATE_EVIDENCE = {
 
 export const EXAMPLE_TRADE_CANDIDATE_EVIDENCE = {
   candidate_id: "venue:paper-perps",
-  source: "decentralized.trade",
-  adapter_id: "adapter:paper-perps-v1",
+  source: EXAMPLE_TRADE_VENUE_SOURCE_ADAPTER.source,
+  adapter_id: EXAMPLE_TRADE_VENUE_SOURCE_ADAPTER.adapter_id,
   observed_at: "2026-06-17T00:00:00.000Z",
   expires_at: "2026-06-17T00:10:00.000Z",
   coverage_state: "assessed",

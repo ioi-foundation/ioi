@@ -76,6 +76,9 @@ requireAll("docs/architecture/components/wallet-network/product-exchange-risk.md
 
 requireAll("packages/wallet-protocol/src/types.ts", [
   "export interface CandidateEvidence",
+  "export interface WalletCandidateSourceAdapter",
+  "readonly trust_boundary: \"candidate_source_only\"",
+  "readonly evidence_policy: \"claims_plus_refs_required\"",
   "readonly candidate_id: string",
   "readonly adapter_id: string",
   "readonly observed_at: string",
@@ -85,6 +88,15 @@ requireAll("packages/wallet-protocol/src/types.ts", [
   "readonly risk_labels: readonly string[]",
   "readonly claims: Readonly<Record<string, string>>",
   "readonly candidate_evidence: readonly CandidateEvidence[]",
+]);
+
+requireAll("packages/wallet-protocol/src/candidate-source-adapters.ts", [
+  "exchangeRouteSourceAdapter",
+  "tradeVenueSourceAdapter",
+  "buildCandidateEvidenceFromSourceAdapter",
+  "assertCandidateSourceAdapter",
+  "candidate sources, not trust roots",
+  "claims plus evidence refs",
 ]);
 
 requireAll("packages/wallet-protocol/src/validation.ts", [
@@ -118,6 +130,18 @@ requireAll("packages/wallet-protocol/schemas/trade-intent.schema.json", [
   "\"candidate_evidence\"",
   "\"CandidateEvidence\"",
   "\"minItems\": 1",
+]);
+
+requireAll("packages/wallet-protocol/test/protocol.test.mjs", [
+  "candidate source adapters produce executable evidence without becoming trust roots",
+  "buildCandidateEvidenceFromSourceAdapter",
+]);
+
+requireAll("packages/wallet-sdk/src/route-sources.ts", [
+  "buildCandidateEvidenceFromSourceAdapter",
+  "exchangeRouteSourceAdapter",
+  "tradeVenueSourceAdapter",
+  "@ioi/wallet-protocol",
 ]);
 
 requireAll("docs/architecture/_meta/implementation-matrix.md", [

@@ -1729,7 +1729,7 @@ future aiagent and managed-agent product surfaces.
 
 | Field | Detail |
 | --- | --- |
-| Status | Canonized and guarded on 2026-06-17; wallet protocol route/trade candidate-evidence validation implemented and guarded. Live external route-source adapters remain follow-up implementation. |
+| Status | Canonized and guarded on 2026-06-17; wallet protocol route/trade candidate-evidence validation implemented and guarded; protocol-level route/venue source adapter contracts are implemented and exposed through the Wallet SDK. Live network adapters for external route sources remain follow-up implementation. |
 | Files | decentralized exchange/trade docs, Wallet product risk, API scopes, conformance docs |
 | Change | Require source, adapter, timestamp, expiry, evidence refs, coverage state, failure conditions for route/trade candidates. |
 | Acceptance | Candidate services cannot be hidden trust roots. |
@@ -1744,7 +1744,12 @@ now carry `candidate_evidence` directly, and the validators fail closed when the
 selected route/venue candidate is missing, mismatched, expired, or not
 `assessed`. JSON schemas, fixtures, protocol tests, and conformance scans guard
 the binding so decentralized.exchange and decentralized.trade remain candidate
-sources rather than hidden trust roots.
+sources rather than hidden trust roots. `WalletCandidateSourceAdapter`,
+`exchangeRouteSourceAdapter`, `tradeVenueSourceAdapter`, and
+`buildCandidateEvidenceFromSourceAdapter` now provide the protocol contract for
+route/venue sources to emit executable candidate evidence without becoming
+authority, execution, or receipt truth; `@ioi/wallet-sdk` re-exports those
+helpers as a thin facade over the protocol package.
 ```
 
 ### Phase 7: Harden Service Composition Delivery
