@@ -74,7 +74,7 @@ import { createRuntimeMcpControlApi } from "./runtime-mcp-control-api.mjs";
 import { createRuntimeMcpServeApi } from "./runtime-mcp-serve-api.mjs";
 import { createRuntimeRunReadSurface } from "./runtime-run-read-surface.mjs";
 import { createRuntimeLifecycleProjectionApi } from "./runtime-lifecycle-projection-api.mjs";
-import { createRuntimeSkillHookSurface } from "./runtime-skill-hook-surface.mjs";
+import { createRuntimeSkillHookApi } from "./runtime-skill-hook-api.mjs";
 import { createRuntimeTaskJobApi } from "./runtime-task-job-api.mjs";
 import { createRuntimeGovernedImprovementApi } from "./runtime-governed-improvement-api.mjs";
 import { createRuntimeWorkerServicePackageApi } from "./runtime-worker-service-package-api.mjs";
@@ -83,7 +83,7 @@ import { createRuntimeL1SettlementApi } from "./runtime-l1-settlement-api.mjs";
 import { createRuntimeThreadControlSurface } from "./runtime-thread-control-surface.mjs";
 import { createRuntimeThreadTurnApi } from "./runtime-thread-turn-api.mjs";
 import { createRuntimeThreadEventSurface } from "./runtime-thread-event-surface.mjs";
-import { createRuntimeToolSurface } from "./runtime-tool-surface.mjs";
+import { createRuntimeToolApi } from "./runtime-tool-api.mjs";
 import { createRuntimeSubagentApi } from "./runtime-subagent-api.mjs";
 import {
   booleanValue,
@@ -105,7 +105,7 @@ import { createRuntimeWorkerServicePackageCore } from "./runtime-worker-service-
 import { createRuntimeCteePrivateWorkspaceCore } from "./runtime-ctee-private-workspace-core.mjs";
 import { createRuntimeL1SettlementCore } from "./runtime-l1-settlement-core.mjs";
 import { createRuntimeWorkspaceRestoreCore } from "./runtime-workspace-restore-core.mjs";
-import { createRuntimeRepositorySurface } from "./runtime-repository-surface.mjs";
+import { createRuntimeRepositoryApi } from "./runtime-repository-api.mjs";
 import { startRuntimeDaemonServiceWithStore } from "./service/runtime-daemon-service.mjs";
 import {
   approvalModeForThreadMode,
@@ -712,7 +712,7 @@ export class AgentgresRuntimeStateStore {
     this.mcpServeApi = createRuntimeMcpServeApi({
       contextPolicyCore: this.contextPolicyCore,
     });
-    this.repositorySurface = createRuntimeRepositorySurface({
+    this.repositoryApi = createRuntimeRepositoryApi({
       contextPolicyCore: this.contextPolicyCore,
     });
     this.runReadSurface = createRuntimeRunReadSurface({
@@ -725,7 +725,7 @@ export class AgentgresRuntimeStateStore {
       contextPolicyCore: this.contextPolicyCore,
       workspaceRoot: this.defaultCwd,
     });
-    this.skillHookSurface = createRuntimeSkillHookSurface({
+    this.skillHookApi = createRuntimeSkillHookApi({
       contextPolicyCore: this.contextPolicyCore,
       defaultCwd: this.defaultCwd,
     });
@@ -733,7 +733,7 @@ export class AgentgresRuntimeStateStore {
       contextPolicyCore: this.contextPolicyCore,
       notFound,
     });
-    this.toolSurface = createRuntimeToolSurface({
+    this.toolApi = createRuntimeToolApi({
       contextPolicyCore: this.contextPolicyCore,
       workspaceRoot: this.defaultCwd,
     });

@@ -43,7 +43,7 @@ const REPOSITORY_PROJECTIONS = {
   },
 };
 
-export function createRuntimeRepositorySurface({
+export function createRuntimeRepositoryApi({
   contextPolicyCore = null,
 } = {}) {
   const project = (store, projection) =>
@@ -91,14 +91,14 @@ function projectRepositoryWorkflow(details = {}) {
   if (!contextPolicyCore?.projectRepositoryWorkflow) {
     throw createRepositoryWorkflowProjectionError(null, {
       ...errorDetails,
-      source: "runtime.repository_surface",
+      source: "runtime.repository_api",
       evidence_refs,
     });
   }
 
   const result = contextPolicyCore.projectRepositoryWorkflow({
     ...errorDetails,
-    source: "runtime.repository_surface",
+    source: "runtime.repository_api",
     evidence_refs,
   });
   if (result?.projection_kind !== errorDetails.projection_kind) {
@@ -141,7 +141,7 @@ function createRepositoryWorkflowProjectionMismatchError(result, fallbackDetails
     actual_projection_kind: result?.projection_kind ?? null,
     operation: fallbackDetails.operation,
     operation_kind: fallbackDetails.operation_kind,
-    source: "runtime.repository_surface",
+    source: "runtime.repository_api",
   };
   return error;
 }

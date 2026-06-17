@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createRuntimeRepositorySurface } from "./runtime-repository-surface.mjs";
+import { createRuntimeRepositoryApi } from "./runtime-repository-api.mjs";
 
-test("runtime repository surface returns Rust-owned repository workflow projections", () => {
+test("runtime repository API returns Rust-owned repository workflow projections", () => {
   const calls = [];
-  const surface = createRuntimeRepositorySurface({
+  const surface = createRuntimeRepositoryApi({
     contextPolicyCore: {
       projectRepositoryWorkflow(request) {
         calls.push(request);
@@ -44,7 +44,7 @@ test("runtime repository surface returns Rust-owned repository workflow projecti
       operation_kind: "repository_workflow.projection.repository_context",
       projection_kind: "repository_context",
       workspace_root: "/workspace/project",
-      source: "runtime.repository_surface",
+      source: "runtime.repository_api",
       evidence_refs: [
         "runtime_repository_workflow_rust_projection",
         "agentgres_repository_workflow_truth_required",
@@ -55,7 +55,7 @@ test("runtime repository surface returns Rust-owned repository workflow projecti
       operation_kind: "repository_workflow.projection.pr_attempts",
       projection_kind: "pr_attempts",
       workspace_root: "/workspace/project",
-      source: "runtime.repository_surface",
+      source: "runtime.repository_api",
       evidence_refs: [
         "runtime_repository_workflow_rust_projection",
         "agentgres_repository_workflow_truth_required",
@@ -64,8 +64,8 @@ test("runtime repository surface returns Rust-owned repository workflow projecti
   ]);
 });
 
-test("runtime repository surface fails closed when Rust projection is missing", () => {
-  const surface = createRuntimeRepositorySurface({});
+test("runtime repository API fails closed when Rust projection is missing", () => {
+  const surface = createRuntimeRepositoryApi({});
   const store = { defaultCwd: "/workspace/project" };
 
   assert.throws(
@@ -94,8 +94,8 @@ test("runtime repository surface fails closed when Rust projection is missing", 
   );
 });
 
-test("runtime repository surface rejects Rust projection mismatches", () => {
-  const surface = createRuntimeRepositorySurface({
+test("runtime repository API rejects Rust projection mismatches", () => {
+  const surface = createRuntimeRepositoryApi({
     contextPolicyCore: {
       projectRepositoryWorkflow() {
         return {

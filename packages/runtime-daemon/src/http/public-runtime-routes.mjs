@@ -137,39 +137,39 @@ export function createPublicRuntimeRequestHandler(deps) {
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/skills") {
-        writeJsonResponse(response, store.skillHookSurface.listSkills({ cwd: store.defaultCwd }));
+        writeJsonResponse(response, store.skillHookApi.listSkills({ cwd: store.defaultCwd }));
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/hooks") {
-        writeJsonResponse(response, store.skillHookSurface.listHooks({ cwd: store.defaultCwd }));
+        writeJsonResponse(response, store.skillHookApi.listHooks({ cwd: store.defaultCwd }));
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/repository-context") {
-        writeJsonResponse(response, store.repositorySurface.repositoryContext(store));
+        writeJsonResponse(response, store.repositoryApi.repositoryContext(store));
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/branch-policy") {
-        writeJsonResponse(response, store.repositorySurface.branchPolicy(store));
+        writeJsonResponse(response, store.repositoryApi.branchPolicy(store));
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/github-context") {
-        writeJsonResponse(response, store.repositorySurface.githubContext(store));
+        writeJsonResponse(response, store.repositoryApi.githubContext(store));
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/pr-attempts") {
-        writeJsonResponse(response, store.repositorySurface.prAttempts(store));
+        writeJsonResponse(response, store.repositoryApi.prAttempts(store));
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/issue-context") {
-        writeJsonResponse(response, store.repositorySurface.issueContext(store));
+        writeJsonResponse(response, store.repositoryApi.issueContext(store));
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/review-gate") {
-        writeJsonResponse(response, store.repositorySurface.reviewGate(store));
+        writeJsonResponse(response, store.repositoryApi.reviewGate(store));
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/github/pr-create-plan") {
-        writeJsonResponse(response, store.repositorySurface.githubPrCreatePlan(store));
+        writeJsonResponse(response, store.repositoryApi.githubPrCreatePlan(store));
         return;
       }
       if (request.method === "POST" && url.pathname === "/v1/agents") {
@@ -948,19 +948,19 @@ export function createPublicRuntimeRequestHandler(deps) {
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/repositories") {
-        writeJsonResponse(response, store.repositorySurface.listRepositories(store));
+        writeJsonResponse(response, store.repositoryApi.listRepositories(store));
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/account") {
-        writeJsonResponse(response, store.toolSurface.getAccount());
+        writeJsonResponse(response, store.toolApi.getAccount());
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/runtime/nodes") {
-        writeJsonResponse(response, store.toolSurface.listRuntimeNodes());
+        writeJsonResponse(response, store.toolApi.listRuntimeNodes());
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/tools") {
-        writeJsonResponse(response, store.toolSurface.listTools(Object.fromEntries(url.searchParams.entries())));
+        writeJsonResponse(response, store.toolApi.listTools(Object.fromEntries(url.searchParams.entries())));
         return;
       }
       throw notFound("Public daemon route not found.", {

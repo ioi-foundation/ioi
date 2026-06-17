@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createRuntimeToolSurface } from "./runtime-tool-surface.mjs";
+import { createRuntimeToolApi } from "./runtime-tool-api.mjs";
 
-test("runtime tool surface returns Rust-owned account nodes and tools", () => {
+test("runtime tool API returns Rust-owned account nodes and tools", () => {
   const calls = [];
   const contextPolicyCore = {
     projectRuntimeToolCatalog(request) {
@@ -49,7 +49,7 @@ test("runtime tool surface returns Rust-owned account nodes and tools", () => {
       };
     },
   };
-  const surface = createRuntimeToolSurface({
+  const surface = createRuntimeToolApi({
     env: {
       IOI_OPERATOR_EMAIL: "operator@example.test",
       IOI_AGENT_SDK_HOSTED_ENDPOINT: "https://hosted.example.test",
@@ -78,8 +78,8 @@ test("runtime tool surface returns Rust-owned account nodes and tools", () => {
   assert.equal(Object.hasOwn(calls[2], "workspaceRoot"), false);
 });
 
-test("runtime tool surface fails closed when Rust projection is missing", () => {
-  const surface = createRuntimeToolSurface({ workspaceRoot: "/workspace/project" });
+test("runtime tool API fails closed when Rust projection is missing", () => {
+  const surface = createRuntimeToolApi({ workspaceRoot: "/workspace/project" });
 
   assert.throws(
     () => surface.listTools({ pack: "coding" }),
@@ -92,8 +92,8 @@ test("runtime tool surface fails closed when Rust projection is missing", () => 
   );
 });
 
-test("runtime tool surface rejects Rust projection mismatches", () => {
-  const surface = createRuntimeToolSurface({
+test("runtime tool API rejects Rust projection mismatches", () => {
+  const surface = createRuntimeToolApi({
     contextPolicyCore: {
       projectRuntimeToolCatalog() {
         return {

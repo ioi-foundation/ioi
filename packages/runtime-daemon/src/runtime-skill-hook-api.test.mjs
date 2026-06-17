@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createRuntimeSkillHookSurface } from "./runtime-skill-hook-surface.mjs";
+import { createRuntimeSkillHookApi } from "./runtime-skill-hook-api.mjs";
 
-test("runtime skill hook surface returns Rust-owned catalog skills and hooks", () => {
+test("runtime skill hook API returns Rust-owned catalog skills and hooks", () => {
   const calls = [];
-  const surface = createRuntimeSkillHookSurface({
+  const surface = createRuntimeSkillHookApi({
     defaultCwd: "/workspace/project",
     env: { HOME: "/home/operator" },
     contextPolicyCore: {
@@ -68,8 +68,8 @@ test("runtime skill hook surface returns Rust-owned catalog skills and hooks", (
   assert.equal(Object.hasOwn(calls[0], "registryKind"), false);
 });
 
-test("runtime skill hook surface fails closed when Rust projection is missing", () => {
-  const surface = createRuntimeSkillHookSurface({ defaultCwd: "/workspace/project" });
+test("runtime skill hook API fails closed when Rust projection is missing", () => {
+  const surface = createRuntimeSkillHookApi({ defaultCwd: "/workspace/project" });
 
   assert.throws(
     () => surface.listSkills(),
@@ -83,8 +83,8 @@ test("runtime skill hook surface fails closed when Rust projection is missing", 
   );
 });
 
-test("runtime skill hook surface rejects Rust projection mismatches", () => {
-  const surface = createRuntimeSkillHookSurface({
+test("runtime skill hook API rejects Rust projection mismatches", () => {
+  const surface = createRuntimeSkillHookApi({
     defaultCwd: "/workspace/project",
     contextPolicyCore: {
       projectSkillHookRegistry() {

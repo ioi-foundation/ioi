@@ -1,6 +1,6 @@
 import { normalizeArray, objectRecord, optionalString } from "./runtime-value-helpers.mjs";
 
-export function createRuntimeToolSurface({
+export function createRuntimeToolApi({
   contextPolicyCore = null,
   env = process.env,
   workspaceRoot = null,
@@ -9,13 +9,13 @@ export function createRuntimeToolSurface({
     if (!contextPolicyCore?.projectRuntimeToolCatalog) {
       throwRuntimeToolCatalogRustCoreRequired({
         ...projection,
-        source: "runtime.tool_surface",
+        source: "runtime.tool_api",
         workspace_root: workspaceRoot,
       });
     }
     const result = contextPolicyCore.projectRuntimeToolCatalog({
       operation: "runtime_tool_catalog",
-      source: "runtime.tool_surface",
+      source: "runtime.tool_api",
       workspace_root: workspaceRoot,
       ...projection,
       operator_email: optionalString(env.IOI_OPERATOR_EMAIL),

@@ -214,45 +214,45 @@ test("public runtime computer-use routes dispatch through Rust daemon-core proje
   ]);
 });
 
-test("public runtime repository workflow routes use mounted repository surface", async () => {
+test("public runtime repository workflow routes use mounted repository API", async () => {
   const { handleRequest } = routeHarness();
   const calls = [];
-  const repositorySurface = {
-    listRepositories(surfaceStore) {
-      calls.push({ method: "listRepositories", surfaceStore });
+  const repositoryApi = {
+    listRepositories(apiStore) {
+      calls.push({ method: "listRepositories", apiStore });
       return { repositories: [] };
     },
-    repositoryContext(surfaceStore) {
-      calls.push({ method: "repositoryContext", surfaceStore });
+    repositoryContext(apiStore) {
+      calls.push({ method: "repositoryContext", apiStore });
       return { context_id: "repo_context" };
     },
-    branchPolicy(surfaceStore) {
-      calls.push({ method: "branchPolicy", surfaceStore });
+    branchPolicy(apiStore) {
+      calls.push({ method: "branchPolicy", apiStore });
       return { policy_id: "branch_policy" };
     },
-    githubContext(surfaceStore) {
-      calls.push({ method: "githubContext", surfaceStore });
+    githubContext(apiStore) {
+      calls.push({ method: "githubContext", apiStore });
       return { context_id: "github_context" };
     },
-    prAttempts(surfaceStore) {
-      calls.push({ method: "prAttempts", surfaceStore });
+    prAttempts(apiStore) {
+      calls.push({ method: "prAttempts", apiStore });
       return { attempts: [] };
     },
-    issueContext(surfaceStore) {
-      calls.push({ method: "issueContext", surfaceStore });
+    issueContext(apiStore) {
+      calls.push({ method: "issueContext", apiStore });
       return { issue_id: "issue_context" };
     },
-    reviewGate(surfaceStore) {
-      calls.push({ method: "reviewGate", surfaceStore });
+    reviewGate(apiStore) {
+      calls.push({ method: "reviewGate", apiStore });
       return { gate_id: "review_gate" };
     },
-    githubPrCreatePlan(surfaceStore) {
-      calls.push({ method: "githubPrCreatePlan", surfaceStore });
+    githubPrCreatePlan(apiStore) {
+      calls.push({ method: "githubPrCreatePlan", apiStore });
       return { plan_id: "pr_plan" };
     },
   };
   const store = {
-    repositorySurface,
+    repositoryApi,
     listRepositories: retiredRouteWrapper,
     repositoryContext: retiredRouteWrapper,
     branchPolicy: retiredRouteWrapper,
@@ -280,15 +280,15 @@ test("public runtime repository workflow routes use mounted repository surface",
   }
 
   assert.deepEqual(calls.map((call) => call.method), routes.map(([, method]) => method));
-  assert.equal(calls.every((call) => call.surfaceStore === store), true);
+  assert.equal(calls.every((call) => call.apiStore === store), true);
 });
 
-test("public runtime skill and hook routes use mounted skill hook surface", async () => {
+test("public runtime skill and hook routes use mounted skill hook API", async () => {
   const { handleRequest } = routeHarness();
   const calls = [];
   const store = {
     defaultCwd: "/workspace/canonical",
-    skillHookSurface: {
+    skillHookApi: {
       listSkills(request) {
         calls.push({ method: "listSkills", request });
         return {
@@ -996,11 +996,11 @@ test("public runtime studio intent route uses Rust daemon-core projection", asyn
   });
 });
 
-test("public runtime account node and tool routes use mounted tool surface", async () => {
+test("public runtime account node and tool routes use mounted tool API", async () => {
   const { handleRequest } = routeHarness();
   const calls = [];
   const store = {
-    toolSurface: {
+    toolApi: {
       getAccount() {
         calls.push({ method: "getAccount" });
         return { account_id: "acct_route" };

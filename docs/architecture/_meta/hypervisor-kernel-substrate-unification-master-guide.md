@@ -4347,7 +4347,7 @@ Likely files/modules:
 - `crates/services/src/agentic/runtime/kernel/invocation.rs`
 - `crates/services/src/agentic/runtime/harness.rs`
 - `packages/runtime-daemon/src/runtime-event-envelopes.mjs`
-- `packages/runtime-daemon/src/runtime-tool-surface.mjs`
+- `packages/runtime-daemon/src/runtime-tool-api.mjs`
 - `packages/hypervisor-workbench/src/runtime/harness-workflow/*`
 - `docs/architecture/_meta/implementation-matrix.md`
 
@@ -4674,7 +4674,7 @@ Likely files/modules:
 - `crates/services/src/agentic/runtime/kernel/plan.rs`
 - `crates/services/src/agentic/evolution.rs`
 - `packages/runtime-daemon/src/skill-hook-*`
-- `packages/runtime-daemon/src/runtime-skill-hook-surface.mjs`
+- `packages/runtime-daemon/src/runtime-skill-hook-api.mjs`
 - `packages/hypervisor-workbench/src/runtime/harness-workflow/*`
 
 Conformance checks:
@@ -5022,8 +5022,8 @@ diagnostics repair event planning/runtime-event admission, while direct
 retry-event append uses that same Rust-owned admission path; public agent
 create, top-level thread create, agent status/delete, and agent-scoped run
 create routes call direct Rust-backed lifecycle APIs; public
-runtime account/node/tool catalog routes call the mounted tool surface directly;
-public repository workflow routes call the mounted repository surface directly;
+runtime account/node/tool catalog routes call the mounted tool API directly;
+public repository workflow routes call the mounted repository API directly;
 public skill and hook catalog routes call the mounted skill-hook registry
 surface directly; public model catalog and model-capability routes call the
 mounted model-mount read-projection surface directly;
@@ -10493,7 +10493,7 @@ alias name cannot return. Remaining work is durable recovery replay/projection
 depth and stable Workbench/CLI/SDK recovery clients, not a JS runner fallback.
 
 Slice 1301 hard-cuts runtime tool catalog runner injection scaffolding.
-`createRuntimeToolSurface()` no longer accepts `toolCatalogRunner`; account,
+`createRuntimeToolApi()` no longer accepts `toolCatalogRunner`; account,
 runtime-node, and tool catalog projections mount the positive
 `contextPolicyCore` API directly before Rust daemon-core catalog projection.
 Daemon construction no longer wires a parallel tool catalog runner handle,
@@ -10504,7 +10504,7 @@ exposure, receipt/state-root binding, and stable protocol APIs, not a JS runner
 fallback.
 
 Slice 1302 hard-cuts skill/hook registry runner injection scaffolding.
-`createRuntimeSkillHookSurface()` no longer accepts `skillHookRunner`; catalog,
+`createRuntimeSkillHookApi()` no longer accepts `skillHookRunner`; catalog,
 skills, and hooks projections mount the positive `contextPolicyCore` API
 directly before Rust daemon-core registry projection. Daemon construction no
 longer wires a parallel skill/hook runner handle, focused tests mount fake Rust
@@ -10514,7 +10514,7 @@ catalog storage/replay depth, wallet authority where applicable,
 receipt/state-root binding, and stable protocol APIs, not a JS runner fallback.
 
 Slice 1303 hard-cuts repository workflow runner injection scaffolding.
-`createRuntimeRepositorySurface()` no longer accepts `repositoryRunner`;
+`createRuntimeRepositoryApi()` no longer accepts `repositoryRunner`;
 repository workflow projections mount the positive `contextPolicyCore` API
 directly before Rust daemon-core repository projection. Daemon construction no
 longer wires a parallel repository runner handle, focused tests mount fake Rust
@@ -12643,6 +12643,19 @@ The old `runtime-workflow-edit-surface.mjs`,
 positive `createRuntime*Api()` factories, and conformance guards the retired
 surface files/factories so they cannot return as unverified compatibility
 facades beside the store-owned route methods.
+
+Slice 1436 hard-deletes the public projection facade names for catalog,
+skill/hook registry, and repository workflow. The Rust-owned public projection
+families now mount only internal API delegates:
+`runtime-tool-api.mjs`, `runtime-skill-hook-api.mjs`, and
+`runtime-repository-api.mjs`. Public `/v1/account`, `/v1/runtime/nodes`,
+`/v1/tools`, `/v1/skills`, `/v1/hooks`, and repository workflow routes call the
+mounted `toolApi`, `skillHookApi`, and `repositoryApi` protocol clients, which
+delegate to the typed Rust daemon-core projection APIs and validate the returned
+projection or registry kind before route truth can return. The former
+Surface-named files, tests, factories, store properties, and route calls are
+absent, and conformance rejects their return as a compatibility anchor beside
+Rust-owned Agentgres projection/replay records.
 
 Slice 1424 hardens the active Hypervisor client/product vocabulary boundary.
 Developer-facing app docs now describe Hypervisor as a native operator client

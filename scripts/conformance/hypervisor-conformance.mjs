@@ -4727,12 +4727,15 @@ function runBridge() {
   const runtimeSubagentSurfaceTestForRunCancel = exists("packages/runtime-daemon/src/runtime-subagent-api.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-subagent-api.test.mjs")
     : "";
-  const runtimeSkillHookSurface = exists("packages/runtime-daemon/src/runtime-skill-hook-surface.mjs")
-    ? read("packages/runtime-daemon/src/runtime-skill-hook-surface.mjs")
+  const runtimeSkillHookApi = exists("packages/runtime-daemon/src/runtime-skill-hook-api.mjs")
+    ? read("packages/runtime-daemon/src/runtime-skill-hook-api.mjs")
     : "";
-  const runtimeSkillHookSurfaceTest = exists("packages/runtime-daemon/src/runtime-skill-hook-surface.test.mjs")
-    ? read("packages/runtime-daemon/src/runtime-skill-hook-surface.test.mjs")
+  const runtimeSkillHookApiTest = exists("packages/runtime-daemon/src/runtime-skill-hook-api.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-skill-hook-api.test.mjs")
     : "";
+  const runtimeSkillHookSurfaceRetired =
+    !exists("packages/runtime-daemon/src/runtime-skill-hook-surface.mjs") &&
+    !exists("packages/runtime-daemon/src/runtime-skill-hook-surface.test.mjs");
   const skillHookRegistryRustCore = exists(
     "crates/services/src/agentic/runtime/kernel/skill_hook_registry.rs",
   )
@@ -4753,12 +4756,15 @@ function runBridge() {
   )
     ? read("crates/services/src/agentic/runtime/kernel/runtime_lifecycle.rs")
     : "";
-  const runtimeRepositorySurface = exists("packages/runtime-daemon/src/runtime-repository-surface.mjs")
-    ? read("packages/runtime-daemon/src/runtime-repository-surface.mjs")
+  const runtimeRepositoryApi = exists("packages/runtime-daemon/src/runtime-repository-api.mjs")
+    ? read("packages/runtime-daemon/src/runtime-repository-api.mjs")
     : "";
-  const runtimeRepositorySurfaceTest = exists("packages/runtime-daemon/src/runtime-repository-surface.test.mjs")
-    ? read("packages/runtime-daemon/src/runtime-repository-surface.test.mjs")
+  const runtimeRepositoryApiTest = exists("packages/runtime-daemon/src/runtime-repository-api.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-repository-api.test.mjs")
     : "";
+  const runtimeRepositorySurfaceRetired =
+    !exists("packages/runtime-daemon/src/runtime-repository-surface.mjs") &&
+    !exists("packages/runtime-daemon/src/runtime-repository-surface.test.mjs");
   const runtimeRepositoryLegacyProjectionFilesAbsent = [
     "packages/runtime-daemon/src/repository-context.mjs",
     "packages/runtime-daemon/src/repository-context.test.mjs",
@@ -4986,6 +4992,38 @@ function runBridge() {
       matrix,
     ) &&
     /RuntimeDaemonCoreRouteInternalSurfaceModulesRetired/.test(
+      implementationMatrix,
+    );
+  const runtimePublicProjectionFacadeNamesRetired =
+    !exists("packages/runtime-daemon/src/runtime-tool-surface.mjs") &&
+    !exists("packages/runtime-daemon/src/runtime-tool-surface.test.mjs") &&
+    !exists("packages/runtime-daemon/src/runtime-skill-hook-surface.mjs") &&
+    !exists("packages/runtime-daemon/src/runtime-skill-hook-surface.test.mjs") &&
+    !exists("packages/runtime-daemon/src/runtime-repository-surface.mjs") &&
+    !exists("packages/runtime-daemon/src/runtime-repository-surface.test.mjs") &&
+    /import \{ createRuntimeToolApi \} from "\.\/runtime-tool-api\.mjs";/.test(
+      runtimeDaemonIndex,
+    ) &&
+    /import \{ createRuntimeSkillHookApi \} from "\.\/runtime-skill-hook-api\.mjs";/.test(
+      runtimeDaemonIndex,
+    ) &&
+    /import \{ createRuntimeRepositoryApi \} from "\.\/runtime-repository-api\.mjs";/.test(
+      runtimeDaemonIndex,
+    ) &&
+    /this\.toolApi = createRuntimeToolApi\(\{/.test(runtimeDaemonIndex) &&
+    /this\.skillHookApi = createRuntimeSkillHookApi\(\{/.test(runtimeDaemonIndex) &&
+    /this\.repositoryApi = createRuntimeRepositoryApi\(\{/.test(runtimeDaemonIndex) &&
+    /store\.toolApi\.listTools/.test(publicRuntimeRoutes) &&
+    /store\.skillHookApi\.listSkills/.test(publicRuntimeRoutes) &&
+    /store\.repositoryApi\.repositoryContext/.test(publicRuntimeRoutes) &&
+    !/toolSurface|skillHookSurface|repositorySurface|createRuntimeToolSurface|createRuntimeSkillHookSurface|createRuntimeRepositorySurface|runtime-tool-surface|runtime-skill-hook-surface|runtime-repository-surface/.test(
+      runtimeDaemonIndex + publicRuntimeRoutes + publicRuntimeRoutesTest,
+    ) &&
+    /Slice 1436 hard-deletes the public projection facade names/.test(guide) &&
+    /Slice 1436 additionally hard-deletes the public projection facade names/.test(
+      matrix,
+    ) &&
+    /RuntimeDaemonCorePublicProjectionFacadeNamesRetired/.test(
       implementationMatrix,
     );
   const workspaceRestoreHelpers = exists("packages/runtime-daemon/src/workspace-restore.mjs")
@@ -11181,6 +11219,26 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "runtime-public-projection-facade-names-retired",
+    runtimePublicProjectionFacadeNamesRetired,
+    [
+      "packages/runtime-daemon/src/index.mjs",
+      "packages/runtime-daemon/src/runtime-tool-api.mjs",
+      "packages/runtime-daemon/src/runtime-tool-api.test.mjs",
+      "packages/runtime-daemon/src/runtime-skill-hook-api.mjs",
+      "packages/runtime-daemon/src/runtime-skill-hook-api.test.mjs",
+      "packages/runtime-daemon/src/runtime-repository-api.mjs",
+      "packages/runtime-daemon/src/runtime-repository-api.test.mjs",
+      "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
+      "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
+      "docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md",
+      "docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md",
+      "docs/architecture/_meta/implementation-matrix.md",
+    ],
+    "Public catalog, skill/hook, and repository projection delegates must stay on internal *Api modules; former Surface-named facades and route calls must remain absent.",
+  );
+  assertCheck(
+    result,
     "approval-request-state-update-live-bridge",
     /ApprovalRequestStateUpdateCore/.test(approvalCore) &&
       /ApprovalRequestStateUpdateRequest/.test(approvalCore) &&
@@ -13969,54 +14027,58 @@ function runBridge() {
       /Object\.hasOwn\(captured,\s*"operation"\),\s*false/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /runtime_skill_hook_registry_rust_core_required/.test(runtimeSkillHookSurface) &&
+      /runtime_skill_hook_registry_rust_core_required/.test(runtimeSkillHookApi) &&
       /rust_core_boundary:\s*"runtime\.skill_hook_registry"/.test(
-        runtimeSkillHookSurface,
+        runtimeSkillHookApi,
       ) &&
       /runtime_skill_hook_registry_js_projection_retired/.test(
-        runtimeSkillHookSurface,
+        runtimeSkillHookApi,
       ) &&
-      /rust_daemon_core_skill_hook_registry_projection_required/.test(runtimeSkillHookSurface) &&
-      /agentgres_skill_hook_registry_truth_required/.test(runtimeSkillHookSurface) &&
+      /rust_daemon_core_skill_hook_registry_projection_required/.test(runtimeSkillHookApi) &&
+      /agentgres_skill_hook_registry_truth_required/.test(runtimeSkillHookApi) &&
       /contextPolicyCore\.projectSkillHookRegistry/.test(
-        runtimeSkillHookSurface,
+        runtimeSkillHookApi,
       ) &&
-      !/skillHookRunner/.test(runtimeDaemonIndex + runtimeSkillHookSurface + runtimeSkillHookSurfaceTest) &&
+      !/skillHookRunner/.test(runtimeDaemonIndex + runtimeSkillHookApi + runtimeSkillHookApiTest) &&
       !/operation:\s*"skill_hook_registry_(?:catalog|skills|hooks)"/.test(
-        runtimeSkillHookSurface,
+        runtimeSkillHookApi,
       ) &&
-      !/planSkillHookRegistryProjectionRequired/.test(runtimeSkillHookSurface) &&
-      !/discoverSkillHookCatalog/.test(runtimeSkillHookSurface) &&
+      !/planSkillHookRegistryProjectionRequired/.test(runtimeSkillHookApi) &&
+      !/discoverSkillHookCatalog/.test(runtimeSkillHookApi) &&
       !/schemaVersion:\s*"ioi\.agent-runtime\.skills\.v1"/.test(
-        runtimeSkillHookSurface,
+        runtimeSkillHookApi,
       ) &&
       !/schemaVersion:\s*"ioi\.agent-runtime\.hooks\.v1"/.test(
-        runtimeSkillHookSurface,
+        runtimeSkillHookApi,
       ) &&
-      /runtime skill hook surface returns Rust-owned catalog skills and hooks/.test(
-        runtimeSkillHookSurfaceTest,
+      /runtime skill hook API returns Rust-owned catalog skills and hooks/.test(
+        runtimeSkillHookApiTest,
       ) &&
       /Object\.hasOwn\(calls\[0\],\s*"operation"\),\s*false/.test(
-        runtimeSkillHookSurfaceTest,
+        runtimeSkillHookApiTest,
       ) &&
-      /runtime skill hook surface fails closed when Rust projection is missing/.test(
-        runtimeSkillHookSurfaceTest,
+      /runtime skill hook API fails closed when Rust projection is missing/.test(
+        runtimeSkillHookApiTest,
       ) &&
-      /runtime skill hook surface rejects Rust projection mismatches/.test(
-        runtimeSkillHookSurfaceTest,
+      /runtime skill hook API rejects Rust projection mismatches/.test(
+        runtimeSkillHookApiTest,
       ) &&
-      /store\.skillHookSurface\.listSkills\(\{ cwd: store\.defaultCwd \}\)/.test(
+      runtimeSkillHookSurfaceRetired &&
+      !/skillHookSurface|createRuntimeSkillHookSurface|runtime-skill-hook-surface/.test(
+        runtimeDaemonIndex + publicRuntimeRoutes + runtimeSkillHookApi + runtimeSkillHookApiTest,
+      ) &&
+      /store\.skillHookApi\.listSkills\(\{ cwd: store\.defaultCwd \}\)/.test(
         publicRuntimeRoutes,
       ) &&
-      /store\.skillHookSurface\.listHooks\(\{ cwd: store\.defaultCwd \}\)/.test(
+      /store\.skillHookApi\.listHooks\(\{ cwd: store\.defaultCwd \}\)/.test(
         publicRuntimeRoutes,
       ) &&
       !/store\.listSkills\(\)/.test(publicRuntimeRoutes) &&
       !/store\.listHooks\(\)/.test(publicRuntimeRoutes) &&
-      /public runtime skill and hook routes use mounted skill hook surface/.test(
+      /public runtime skill and hook routes use mounted skill hook API/.test(
         publicRuntimeRoutesTest,
       ) &&
-      /createRuntimeSkillHookSurface\(\{\s*contextPolicyCore:\s*this\.contextPolicyCore,\s*defaultCwd:\s*this\.defaultCwd,/s.test(
+      /createRuntimeSkillHookApi\(\{\s*contextPolicyCore:\s*this\.contextPolicyCore,\s*defaultCwd:\s*this\.defaultCwd,/s.test(
         runtimeDaemonIndex,
       ) &&
       !/^\s+(?:skillHookCatalog|listSkills|listHooks)\(/m.test(runtimeDaemonIndex),
@@ -14028,8 +14090,8 @@ function runBridge() {
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
-      "packages/runtime-daemon/src/runtime-skill-hook-surface.mjs",
-      "packages/runtime-daemon/src/runtime-skill-hook-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-skill-hook-api.mjs",
+      "packages/runtime-daemon/src/runtime-skill-hook-api.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
       "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
       "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
@@ -14114,26 +14176,26 @@ function runBridge() {
         runtimeContextPolicyCoreTest,
       ) &&
       /runtime_repository_workflow_rust_projection_missing/.test(
-        runtimeRepositorySurface,
+        runtimeRepositoryApi,
       ) &&
       /rust_core_boundary:\s*"runtime\.repository_workflow_projection"/.test(
-        runtimeRepositorySurface,
+        runtimeRepositoryApi,
       ) &&
       /runtime_repository_workflow_rust_projection/.test(
-        runtimeRepositorySurface,
+        runtimeRepositoryApi,
       ) &&
       /agentgres_repository_workflow_truth_required/.test(
-        runtimeRepositorySurface,
+        runtimeRepositoryApi,
       ) &&
       /contextPolicyCore\.projectRepositoryWorkflow/.test(
-        runtimeRepositorySurface,
+        runtimeRepositoryApi,
       ) &&
-      !/repositoryRunner/.test(runtimeDaemonIndex + runtimeRepositorySurface + runtimeRepositorySurfaceTest) &&
-      !/planRepositoryWorkflowProjectionRequired/.test(runtimeRepositorySurface) &&
+      !/repositoryRunner/.test(runtimeDaemonIndex + runtimeRepositoryApi + runtimeRepositoryApiTest) &&
+      !/planRepositoryWorkflowProjectionRequired/.test(runtimeRepositoryApi) &&
       !/repositoryContextProjection|repositoryListProjection|prAttemptsProjection|issueContextProjection|reviewGateProjection|githubPrCreatePlanProjection/.test(
-        runtimeRepositorySurface,
+        runtimeRepositoryApi,
       ) &&
-      !/createRepositoryWorkflowProjections/.test(runtimeRepositorySurface) &&
+      !/createRepositoryWorkflowProjections/.test(runtimeRepositoryApi) &&
       runtimeRepositoryLegacyProjectionFilesAbsent &&
       /repositoryWorkflowProjectionsForRun/.test(runtimeDaemonIndex) &&
       /repositoryWorkflowProjector\.projectRepositoryWorkflow/.test(
@@ -14175,29 +14237,33 @@ function runBridge() {
       /Runtime repository workflow lifecycle-runner projector fallback retired/.test(read(MATRIX)) &&
       /RuntimeRepositoryWorkflowLifecycleProjectorFallbackRetired/.test(read(IMPLEMENTATION_MATRIX)) &&
       !/schemaVersion:\s*"ioi\.agent-runtime\.(?:repository-context|issue-context|pr-attempt|review-gate|github-pr-create-plan)\.v1"/.test(
-        runtimeRepositorySurface,
+        runtimeRepositoryApi,
       ) &&
-      /runtime repository surface returns Rust-owned repository workflow projections/.test(
-        runtimeRepositorySurfaceTest,
+      /runtime repository API returns Rust-owned repository workflow projections/.test(
+        runtimeRepositoryApiTest,
       ) &&
-      /runtime repository surface fails closed when Rust projection is missing/.test(
-        runtimeRepositorySurfaceTest,
+      /runtime repository API fails closed when Rust projection is missing/.test(
+        runtimeRepositoryApiTest,
       ) &&
-      /runtime repository surface rejects Rust projection mismatches/.test(
-        runtimeRepositorySurfaceTest,
+      /runtime repository API rejects Rust projection mismatches/.test(
+        runtimeRepositoryApiTest,
       ) &&
-      /createRuntimeRepositorySurface\(\{\s*contextPolicyCore:\s*this\.contextPolicyCore,/s.test(
+      runtimeRepositorySurfaceRetired &&
+      !/repositorySurface|createRuntimeRepositorySurface|runtime-repository-surface/.test(
+        runtimeDaemonIndex + publicRuntimeRoutes + runtimeRepositoryApi + runtimeRepositoryApiTest,
+      ) &&
+      /createRuntimeRepositoryApi\(\{\s*contextPolicyCore:\s*this\.contextPolicyCore,/s.test(
         runtimeDaemonIndex,
       ) &&
-      /store\.repositorySurface\.listRepositories\(store\)/.test(publicRuntimeRoutes) &&
-      /store\.repositorySurface\.repositoryContext\(store\)/.test(publicRuntimeRoutes) &&
-      /store\.repositorySurface\.branchPolicy\(store\)/.test(publicRuntimeRoutes) &&
-      /store\.repositorySurface\.githubContext\(store\)/.test(publicRuntimeRoutes) &&
-      /store\.repositorySurface\.prAttempts\(store\)/.test(publicRuntimeRoutes) &&
-      /store\.repositorySurface\.issueContext\(store\)/.test(publicRuntimeRoutes) &&
-      /store\.repositorySurface\.reviewGate\(store\)/.test(publicRuntimeRoutes) &&
-      /store\.repositorySurface\.githubPrCreatePlan\(store\)/.test(publicRuntimeRoutes) &&
-      /public runtime repository workflow routes use mounted repository surface/.test(
+      /store\.repositoryApi\.listRepositories\(store\)/.test(publicRuntimeRoutes) &&
+      /store\.repositoryApi\.repositoryContext\(store\)/.test(publicRuntimeRoutes) &&
+      /store\.repositoryApi\.branchPolicy\(store\)/.test(publicRuntimeRoutes) &&
+      /store\.repositoryApi\.githubContext\(store\)/.test(publicRuntimeRoutes) &&
+      /store\.repositoryApi\.prAttempts\(store\)/.test(publicRuntimeRoutes) &&
+      /store\.repositoryApi\.issueContext\(store\)/.test(publicRuntimeRoutes) &&
+      /store\.repositoryApi\.reviewGate\(store\)/.test(publicRuntimeRoutes) &&
+      /store\.repositoryApi\.githubPrCreatePlan\(store\)/.test(publicRuntimeRoutes) &&
+      /public runtime repository workflow routes use mounted repository API/.test(
         publicRuntimeRoutesTest,
       ) &&
       !/store\.(?:listRepositories|repositoryContext|branchPolicy|githubContext|prAttempts|issueContext|reviewGate|githubPrCreatePlan)\(/.test(
@@ -14212,8 +14278,8 @@ function runBridge() {
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
-      "packages/runtime-daemon/src/runtime-repository-surface.mjs",
-      "packages/runtime-daemon/src/runtime-repository-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-repository-api.mjs",
+      "packages/runtime-daemon/src/runtime-repository-api.test.mjs",
       "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
       "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
@@ -23729,12 +23795,15 @@ function runReceipts() {
   const runtimeToolCatalogTest = exists("packages/runtime-daemon/src/runtime-tool-catalog.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-tool-catalog.test.mjs")
     : "";
-  const runtimeToolSurface = exists("packages/runtime-daemon/src/runtime-tool-surface.mjs")
-    ? read("packages/runtime-daemon/src/runtime-tool-surface.mjs")
+  const runtimeToolApi = exists("packages/runtime-daemon/src/runtime-tool-api.mjs")
+    ? read("packages/runtime-daemon/src/runtime-tool-api.mjs")
     : "";
-  const runtimeToolSurfaceTest = exists("packages/runtime-daemon/src/runtime-tool-surface.test.mjs")
-    ? read("packages/runtime-daemon/src/runtime-tool-surface.test.mjs")
+  const runtimeToolApiTest = exists("packages/runtime-daemon/src/runtime-tool-api.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-tool-api.test.mjs")
     : "";
+  const runtimeToolSurfaceRetired =
+    !exists("packages/runtime-daemon/src/runtime-tool-surface.mjs") &&
+    !exists("packages/runtime-daemon/src/runtime-tool-surface.test.mjs");
   const runtimeLifecycleProjectionSurfaceExists = exists("packages/runtime-daemon/src/runtime-lifecycle-projection-surface.mjs");
   const runtimeLifecycleProjectionSurfaceTestExists = exists(
     "packages/runtime-daemon/src/runtime-lifecycle-projection-surface.test.mjs",
@@ -31514,28 +31583,32 @@ function runReceipts() {
       /runtime tool catalog projection core sends Rust daemon-core request/.test(
         runtimeContextPolicyCoreTestForState,
       ) &&
-      /projectRuntimeToolCatalog/.test(runtimeToolSurface) &&
-      /throwRuntimeToolCatalogRustCoreRequired/.test(runtimeToolSurface) &&
-      !/planRuntimeToolCatalogProjectionRequired/.test(runtimeToolSurface) &&
-      /runtime_tool_catalog_js_projection_retired/.test(runtimeToolSurface) &&
-      /rust_daemon_core_runtime_tool_catalog_projection_required/.test(runtimeToolSurface) &&
-      /agentgres_runtime_tool_catalog_truth_required/.test(runtimeToolSurface) &&
-      !/runtimeToolsDep|runtimeAccountDep|runtimeNodesDep/.test(runtimeToolSurface) &&
-      /runtime tool surface returns Rust-owned account nodes and tools/.test(
-        runtimeToolSurfaceTest,
+      /projectRuntimeToolCatalog/.test(runtimeToolApi) &&
+      /throwRuntimeToolCatalogRustCoreRequired/.test(runtimeToolApi) &&
+      !/planRuntimeToolCatalogProjectionRequired/.test(runtimeToolApi) &&
+      /runtime_tool_catalog_js_projection_retired/.test(runtimeToolApi) &&
+      /rust_daemon_core_runtime_tool_catalog_projection_required/.test(runtimeToolApi) &&
+      /agentgres_runtime_tool_catalog_truth_required/.test(runtimeToolApi) &&
+      !/runtimeToolsDep|runtimeAccountDep|runtimeNodesDep/.test(runtimeToolApi) &&
+      /runtime tool API returns Rust-owned account nodes and tools/.test(
+        runtimeToolApiTest,
       ) &&
-      /runtime tool surface rejects Rust projection mismatches/.test(runtimeToolSurfaceTest) &&
-      /runtime tool surface fails closed when Rust projection is missing/.test(
-        runtimeToolSurfaceTest,
+      /runtime tool API rejects Rust projection mismatches/.test(runtimeToolApiTest) &&
+      /runtime tool API fails closed when Rust projection is missing/.test(
+        runtimeToolApiTest,
+      ) &&
+      runtimeToolSurfaceRetired &&
+      !/toolSurface|createRuntimeToolSurface|runtime-tool-surface/.test(
+        runtimeDaemonIndex + publicRuntimeRoutes + runtimeToolApi + runtimeToolApiTest,
       ) &&
       /contextPolicyCore: this\.contextPolicyCore/.test(runtimeDaemonIndex) &&
-      !/toolCatalogRunner/.test(runtimeDaemonIndex + runtimeToolSurface + runtimeToolSurfaceTest) &&
-      /store\.toolSurface\.getAccount\(\)/.test(publicRuntimeRoutes) &&
-      /store\.toolSurface\.listRuntimeNodes\(\)/.test(publicRuntimeRoutes) &&
-      /store\.toolSurface\.listTools\(Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
+      !/toolCatalogRunner/.test(runtimeDaemonIndex + runtimeToolApi + runtimeToolApiTest) &&
+      /store\.toolApi\.getAccount\(\)/.test(publicRuntimeRoutes) &&
+      /store\.toolApi\.listRuntimeNodes\(\)/.test(publicRuntimeRoutes) &&
+      /store\.toolApi\.listTools\(Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
         publicRuntimeRoutes,
       ) &&
-      /public runtime account node and tool routes use mounted tool surface/.test(
+      /public runtime account node and tool routes use mounted tool API/.test(
         publicRuntimeRoutesTest,
       ) &&
       !/store\.(?:getAccount|listRuntimeNodes|listTools)\(/.test(publicRuntimeRoutes) &&
@@ -31583,8 +31656,8 @@ function runReceipts() {
       !/store\.doctorReport\(/.test(publicRuntimeRoutes) &&
       !/doctorReport\(\{ baseUrl = null \} = \{\}\)/.test(runtimeDaemonIndex) &&
       !/runtimeToolCatalogForDoctor/.test(runtimeDaemonIndex) &&
-      !/store\.toolSurface\.listTools\(/.test(publicRuntimeDoctorRoute) &&
-      !/store\.toolSurface\.listRuntimeNodes\(/.test(publicRuntimeDoctorRoute) &&
+      !/store\.toolApi\.listTools\(/.test(publicRuntimeDoctorRoute) &&
+      !/store\.toolApi\.listRuntimeNodes\(/.test(publicRuntimeDoctorRoute) &&
       !/Runtime tool catalog projection is retired in JS/.test(runtimeDoctorReportRustCore) &&
       !/runtime_tool_catalog_rust_core_required/.test(runtimeDoctorReportRustCore) &&
       !/runtime_skill_hook_registry_rust_core_required/.test(runtimeDoctorReportRustCore) &&
@@ -31610,8 +31683,8 @@ function runReceipts() {
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
-      "packages/runtime-daemon/src/runtime-tool-surface.mjs",
-      "packages/runtime-daemon/src/runtime-tool-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-tool-api.mjs",
+      "packages/runtime-daemon/src/runtime-tool-api.test.mjs",
       "crates/services/src/agentic/runtime/kernel/runtime_doctor_report.rs",
       "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
       "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
