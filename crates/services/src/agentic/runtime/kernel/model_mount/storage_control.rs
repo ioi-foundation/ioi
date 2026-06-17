@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
+use std::time::Duration;
 
 use super::{
     non_empty_string, push_unique_ref, require_non_empty, sha256_hex, ModelMountError,
@@ -141,30 +142,44 @@ fn plan_download_queue(
     let record_id = string_field(body, "download_id")
         .or_else(|| string_field(body, "job_id"))
         .unwrap_or_else(|| format!("download.{}", safe_segment(&model_id)));
+    let materialization = hosted_download_materialization(body, &record_id)?;
+    let status = if materialization.is_some() {
+        "completed"
+    } else {
+        "queued"
+    };
+    let mut details = json!({
+        "job_id": record_id.clone(),
+        "model_id": model_id,
+        "provider_id": string_field(body, "provider_id"),
+        "catalog_provider_id": string_field(body, "catalog_provider_id"),
+        "source_url_hash": string_field(body, "source_url").map(|value| hash_text(&value)).transpose()?,
+        "source_label": string_field(body, "source_label"),
+        "file_name": string_field(body, "file_name"),
+        "bytes_total": integer_field(body, "bytes_total"),
+        "max_bytes": integer_field(body, "max_bytes"),
+        "expected_checksum_hash": string_field(body, "expected_checksum").map(|value| hash_text(&value)).transpose()?,
+        "display_name": string_field(body, "display_name"),
+        "context_window": integer_field(body, "context_window"),
+        "privacy_class": string_field(body, "privacy_class"),
+        "queued_only": bool_field(body, "queued_only").unwrap_or(true),
+        "network_transfer_executed": false,
+        "plaintext_source_url_returned": false,
+    });
+    if let Some(materialization) = materialization {
+        if let Some(details) = details.as_object_mut() {
+            for (key, value) in materialization {
+                details.insert(key, value);
+            }
+        }
+    }
     storage_plan(
         request,
         "model-downloads",
         &record_id,
         "ioi.model_mount_download",
-        "queued",
-        json!({
-            "job_id": record_id.clone(),
-            "model_id": model_id,
-            "provider_id": string_field(body, "provider_id"),
-            "catalog_provider_id": string_field(body, "catalog_provider_id"),
-            "source_url_hash": string_field(body, "source_url").map(|value| hash_text(&value)).transpose()?,
-            "source_label": string_field(body, "source_label"),
-            "file_name": string_field(body, "file_name"),
-            "bytes_total": integer_field(body, "bytes_total"),
-            "max_bytes": integer_field(body, "max_bytes"),
-            "expected_checksum_hash": string_field(body, "expected_checksum").map(|value| hash_text(&value)).transpose()?,
-            "display_name": string_field(body, "display_name"),
-            "context_window": integer_field(body, "context_window"),
-            "privacy_class": string_field(body, "privacy_class"),
-            "queued_only": bool_field(body, "queued_only").unwrap_or(true),
-            "network_transfer_executed": false,
-            "plaintext_source_url_returned": false,
-        }),
+        status,
+        details,
     )
 }
 
@@ -185,6 +200,185 @@ fn plan_download_cancel(
             "filesystem_mutation_executed": false,
         }),
     )
+}
+
+fn hosted_download_materialization(
+    body: &Map<String, Value>,
+    record_id: &str,
+) -> Result<Option<Map<String, Value>>, ModelMountError> {
+    if !hosted_download_materialization_requested(body) {
+        return Ok(None);
+    }
+    let source_url = required_body_string(body, "source_url")?;
+    if !source_url.starts_with("https://") && !source_url.starts_with("http://") {
+        return Err(ModelMountError::HostedProviderTransportExecutionFailed(
+            "hosted download materialization requires http(s) source_url".to_string(),
+        ));
+    }
+    let max_bytes = integer_field(body, "max_bytes")
+        .filter(|value| *value > 0)
+        .ok_or(ModelMountError::MissingField("max_bytes"))? as usize;
+    let client = reqwest::blocking::Client::builder()
+        .timeout(Duration::from_secs(120))
+        .redirect(reqwest::redirect::Policy::limited(8))
+        .build()
+        .map_err(|error| {
+            ModelMountError::HostedProviderTransportExecutionFailed(error.to_string())
+        })?;
+    let request_ref = format!(
+        "model_mount://hosted_download_transport_request/{}",
+        safe_segment(record_id)
+    );
+    let ctee_egress_resolver_ref = string_field(body, "ctee_egress_resolver_ref");
+    let ctee_egress_resolver_hash = string_field(body, "ctee_egress_resolver_hash");
+    let ctee_egress_resolution_status = string_field(body, "ctee_egress_resolution_status");
+    let source_url_hash = hash_text(&source_url)?;
+    let request_hash = hash_json(&json!({
+        "schema": "ioi.model_mount.hosted_download_request.v1",
+        "method": "GET",
+        "record_id": record_id,
+        "source_url_hash": source_url_hash,
+        "provider_auth_materialization_ref": string_field(body, "provider_auth_materialization_ref"),
+        "outbound_header_binding_ref": string_field(body, "outbound_header_binding_ref"),
+        "auth_header_materialization_status": string_field(body, "auth_header_materialization_status"),
+        "ctee_egress_resolver_ref": ctee_egress_resolver_ref,
+        "ctee_egress_resolver_hash": ctee_egress_resolver_hash,
+        "ctee_egress_resolution_status": ctee_egress_resolution_status,
+        "plaintext_source_url_returned": false,
+    }))?;
+    let response = client.get(&source_url).send().map_err(|error| {
+        ModelMountError::HostedProviderTransportExecutionFailed(error.to_string())
+    })?;
+    let status_code = response.status().as_u16();
+    let response_bytes = response.bytes().map_err(|error| {
+        ModelMountError::HostedProviderTransportExecutionFailed(error.to_string())
+    })?;
+    if response_bytes.len() > max_bytes {
+        return Err(ModelMountError::HostedProviderTransportExecutionFailed(
+            "hosted download response exceeded max_bytes".to_string(),
+        ));
+    }
+    if !(200..300).contains(&status_code) {
+        return Err(ModelMountError::HostedProviderTransportExecutionFailed(
+            format!("hosted download returned HTTP {status_code}"),
+        ));
+    }
+    let download_content_hash = format!("sha256:{}", sha256_hex(response_bytes.as_ref())?);
+    if let Some(expected_checksum) = string_field(body, "expected_checksum") {
+        if expected_checksum.starts_with("sha256:") && expected_checksum != download_content_hash {
+            return Err(ModelMountError::HostedProviderTransportExecutionFailed(
+                "hosted download checksum mismatch".to_string(),
+            ));
+        }
+    }
+    let response_hash = hash_json(&json!({
+        "schema": "ioi.model_mount.hosted_download_response.v1",
+        "request_hash": request_hash,
+        "status_code": status_code,
+        "bytes_downloaded": response_bytes.len(),
+        "download_content_hash": download_content_hash,
+        "plaintext_payload_returned": false,
+    }))?;
+    let mut materialization = Map::new();
+    materialization.insert(
+        "download_materialization_kind".to_string(),
+        json!("hosted_download"),
+    );
+    materialization.insert(
+        "download_materialization_status".to_string(),
+        json!("rust_hosted_download_materialized"),
+    );
+    materialization.insert(
+        "download_materialization_owner".to_string(),
+        json!("rust_daemon_core.model_mount.storage_control"),
+    );
+    materialization.insert(
+        "transport_execution_owner".to_string(),
+        json!("rust_daemon_core.model_mount.storage_control.hosted_download"),
+    );
+    materialization.insert("network_transfer_executed".to_string(), json!(true));
+    materialization.insert("queued_only".to_string(), json!(false));
+    materialization.insert("bytes_downloaded".to_string(), json!(response_bytes.len()));
+    materialization.insert("bytes_total".to_string(), json!(response_bytes.len()));
+    materialization.insert(
+        "download_content_hash".to_string(),
+        json!(download_content_hash),
+    );
+    materialization.insert(
+        "hosted_download_transport_request_ref".to_string(),
+        json!(request_ref),
+    );
+    materialization.insert(
+        "hosted_download_transport_request_hash".to_string(),
+        json!(request_hash),
+    );
+    materialization.insert(
+        "hosted_download_transport_response_hash".to_string(),
+        json!(response_hash),
+    );
+    materialization.insert(
+        "hosted_download_transport_status".to_string(),
+        json!("rust_hosted_download_transport_response_bound"),
+    );
+    materialization.insert(
+        "hosted_download_http_status".to_string(),
+        json!(status_code),
+    );
+    materialization.insert("plaintext_payload_returned".to_string(), json!(false));
+    materialization.insert("artifact_bytes_returned".to_string(), json!(false));
+    materialization.insert(
+        "provider_auth_materialization_ref".to_string(),
+        json!(string_field(body, "provider_auth_materialization_ref")),
+    );
+    materialization.insert(
+        "outbound_header_binding_ref".to_string(),
+        json!(string_field(body, "outbound_header_binding_ref")),
+    );
+    materialization.insert(
+        "auth_header_materialization_status".to_string(),
+        json!(string_field(body, "auth_header_materialization_status")),
+    );
+    materialization.insert(
+        "ctee_egress_resolver_ref".to_string(),
+        json!(ctee_egress_resolver_ref),
+    );
+    materialization.insert(
+        "ctee_egress_resolver_hash".to_string(),
+        json!(ctee_egress_resolver_hash),
+    );
+    materialization.insert(
+        "ctee_egress_resolution_status".to_string(),
+        json!(ctee_egress_resolution_status),
+    );
+    materialization.insert(
+        "custody_policy".to_string(),
+        json!({
+            "no_plaintext_custody": true,
+            "download_bytes_returned_to_js": false,
+            "private_material_resolved_by": "rust_daemon_core_ctee",
+            "download_materialized_by": "rust_daemon_core.model_mount.storage_control",
+        }),
+    );
+    Ok(Some(materialization))
+}
+
+fn hosted_download_materialization_requested(body: &Map<String, Value>) -> bool {
+    if bool_field(body, "hosted_download_materialization").unwrap_or(false) {
+        return true;
+    }
+    if bool_field(body, "materialize_now").unwrap_or(false) {
+        return true;
+    }
+    if string_field(body, "download_materialization_kind").as_deref() == Some("hosted_download") {
+        return true;
+    }
+    if string_field(body, "materialization_kind").as_deref() == Some("hosted_download") {
+        return true;
+    }
+    bool_field(body, "queued_only") == Some(false)
+        && string_field(body, "source_url")
+            .map(|value| value.starts_with("https://") || value.starts_with("http://"))
+            .unwrap_or(false)
 }
 
 fn plan_artifact_delete(
@@ -254,7 +448,7 @@ fn storage_plan(
     let receipt_refs = receipt_refs_for(request);
     let authority_grant_refs = non_empty_vec(&request.authority_grant_refs);
     let authority_receipt_refs = non_empty_vec(&request.authority_receipt_refs);
-    let evidence_refs = evidence_refs_for(&request.operation_kind);
+    let evidence_refs = evidence_refs_for(&request.operation_kind, &details);
     let public_response = json!({
         "object": object,
         "status": status,
@@ -317,7 +511,7 @@ fn storage_control_operation_supported(operation_kind: &str) -> bool {
     )
 }
 
-fn evidence_refs_for(operation_kind: &str) -> Vec<String> {
+fn evidence_refs_for(operation_kind: &str, details: &Value) -> Vec<String> {
     let mut refs = vec![
         "public_model_storage_js_facade_retired".to_string(),
         "rust_daemon_core_model_storage".to_string(),
@@ -328,6 +522,22 @@ fn evidence_refs_for(operation_kind: &str) -> Vec<String> {
             refs.push("public_catalog_download_js_facade_retired".to_string());
             refs.push("rust_daemon_core_catalog_download".to_string());
             refs.push("agentgres_catalog_download_truth_required".to_string());
+            if string_field(object_or_empty(details), "download_materialization_kind").as_deref()
+                == Some("hosted_download")
+            {
+                for evidence_ref in [
+                    "rust_hosted_download_materialized",
+                    "rust_hosted_download_transport_executor_owned",
+                    "rust_hosted_download_transport_request_bound",
+                    "rust_hosted_download_transport_response_bound",
+                    "ctee_hosted_download_no_plaintext_custody",
+                ] {
+                    push_unique_ref(&mut refs, evidence_ref);
+                }
+                if string_field(object_or_empty(details), "ctee_egress_resolver_ref").is_some() {
+                    push_unique_ref(&mut refs, "rust_ctee_egress_resolver_bound");
+                }
+            }
         }
         "model_mount.download.cancel" => {
             refs.push("rust_daemon_core_model_download_cancel".to_string());
@@ -460,6 +670,11 @@ fn safe_segment(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use serde_json::json;
+    use std::{
+        io::{Read, Write},
+        net::TcpListener,
+        thread,
+    };
 
     use super::*;
 
@@ -476,6 +691,25 @@ mod tests {
             custody_ref: Some("ctee://storage".to_string()),
             required_scope: Some("model.storage:test".to_string()),
         }
+    }
+
+    fn hosted_download_fixture_url(bytes: Vec<u8>) -> String {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind hosted download fixture");
+        let address = listener.local_addr().expect("fixture address");
+        thread::spawn(move || {
+            let (mut stream, _) = listener.accept().expect("fixture accept");
+            let mut request_bytes = [0_u8; 1024];
+            let _ = stream.read(&mut request_bytes);
+            let headers = format!(
+                "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nContent-Type: application/octet-stream\r\nConnection: close\r\n\r\n",
+                bytes.len()
+            );
+            stream
+                .write_all(headers.as_bytes())
+                .expect("fixture response headers");
+            stream.write_all(&bytes).expect("fixture response body");
+        });
+        format!("http://{address}/models/qwen-test.gguf")
     }
 
     #[test]
@@ -519,6 +753,64 @@ mod tests {
         assert_eq!(cancelled.record_dir, "model-downloads");
         assert_eq!(cancelled.record["status"], "cancelled");
         assert_eq!(cancelled.record["details"]["cleanup_partial"], true);
+    }
+
+    #[test]
+    fn materializes_hosted_download_transport_in_rust() {
+        let payload = b"hosted model bytes".to_vec();
+        let source_url = hosted_download_fixture_url(payload.clone());
+        let expected_checksum = format!("sha256:{}", sha256_hex(&payload).expect("payload hash"));
+        let plan = plan_storage_control(&request(
+            "model_mount.download.queue",
+            json!({
+                "model_id": "hosted-qwen",
+                "provider_id": "provider.openai",
+                "source_url": source_url,
+                "max_bytes": 1024,
+                "expected_checksum": expected_checksum,
+                "download_materialization_kind": "hosted_download",
+                "provider_auth_materialization_ref": "agentgres://model-mounting/model-provider-auth-materializations/provider_openai_auth_header",
+                "outbound_header_binding_ref": "provider_auth_header://provider_openai_auth_header#sha256:auth",
+                "auth_header_materialization_status": "rust_ctee_outbound_header_bound",
+                "ctee_egress_resolver_ref": "ctee://model-mount/egress-resolver/provider_openai_auth_header#sha256:egress",
+                "ctee_egress_resolver_hash": "sha256:egress",
+                "ctee_egress_resolution_status": "rust_ctee_outbound_egress_resolved",
+            }),
+        ))
+        .expect("hosted download plan");
+
+        assert_eq!(plan.record_dir, "model-downloads");
+        assert_eq!(plan.record["status"], "completed");
+        assert_eq!(
+            plan.record["details"]["download_materialization_status"],
+            "rust_hosted_download_materialized"
+        );
+        assert_eq!(plan.record["details"]["network_transfer_executed"], true);
+        assert_eq!(plan.record["details"]["plaintext_payload_returned"], false);
+        assert_eq!(plan.record["details"]["artifact_bytes_returned"], false);
+        assert_eq!(
+            plan.record["details"]["hosted_download_transport_status"],
+            "rust_hosted_download_transport_response_bound"
+        );
+        assert_eq!(
+            plan.record["details"]["download_content_hash"],
+            expected_checksum
+        );
+        assert!(
+            plan.record["details"]["hosted_download_transport_request_hash"]
+                .as_str()
+                .expect("request hash")
+                .starts_with("sha256:")
+        );
+        assert!(plan
+            .evidence_refs
+            .contains(&"rust_hosted_download_materialized".to_string()));
+        assert!(plan
+            .evidence_refs
+            .contains(&"ctee_hosted_download_no_plaintext_custody".to_string()));
+        assert!(plan
+            .evidence_refs
+            .contains(&"rust_ctee_egress_resolver_bound".to_string()));
     }
 
     #[test]

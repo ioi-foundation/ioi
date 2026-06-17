@@ -1051,6 +1051,8 @@ function runDocs() {
   const modelMountingRouteRow = matrix.match(/^\| `model-mounting` \|.*$/m)?.[0] ?? "";
   const modelMountingCoreBoundaryRow =
     matrix.match(/^\| `model-mounting\/core-api-boundary` \|.*$/m)?.[0] ?? "";
+  const modelMountingStorageDownloadControlsRow =
+    matrix.match(/^\| `model-mounting\/storage-download-controls` \|.*$/m)?.[0] ?? "";
   const localRuntimeEngines = exists("packages/runtime-daemon/src/model-mounting/local-runtime-engines.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/local-runtime-engines.mjs")
     : "";
@@ -3228,23 +3230,30 @@ function runDocs() {
       /Slices\s+1377-1383 moved those authority boundaries into Rust daemon-core ownership/.test(
         terminalBlockers,
       ) &&
-      /Remaining model_mount blockers are cTEE secret-injection depth for\s+outbound hosted catalog\/download edges, hosted download\s+materialization,\s+deeper wallet\/cTEE route authority and revocation policy/.test(
+      /Remaining model_mount blockers are cTEE secret-injection depth for\s+outbound hosted catalog\/download edges, deeper wallet\/cTEE route authority\s+and revocation policy/.test(
         terminalBlockers,
       ) &&
+      !/hosted download materialization/.test(terminalBlockers) &&
       !/live external backend binary spawning\/supervision|hosted\/provider transport|live cTEE secret injection into outbound hosted network requests|live external hosted API execution|live external hosted catalog\s+discovery\/materialization|actual external MCP transport\s+execution\/backend discovery/.test(
         terminalBlockers,
       ),
     [MATRIX, IMPLEMENTATION_MATRIX, GUIDE],
-    "migration matrix terminal blockers must not relist model_mount live transport, backend supervision, cTEE egress, invocation-authority, or hosted catalog transport cuts after Slices 1377-1383 and 1405",
+    "migration matrix terminal blockers must not relist model_mount live transport, backend supervision, cTEE egress, invocation-authority, hosted catalog transport, or hosted download materialization cuts after Slices 1377-1383 and 1405-1407",
   );
   assertCheck(
     result,
     "matrix-model-mount-route-row-current-blockers-reconciled",
-    /Move remaining cTEE secret-injection depth for hosted catalog\/download edges, hosted download materialization, deeper wallet\/cTEE route authority and revocation policy, conversation\/provider\/instance replay depth where still adapter-shaped, and stable SDK\/IDE\/CLI protocol APIs over Rust records/.test(
+    /Move remaining cTEE secret-injection depth for hosted catalog\/download edges, deeper wallet\/cTEE route authority and revocation policy, conversation\/provider\/instance replay depth where still adapter-shaped, and stable SDK\/IDE\/CLI protocol APIs over Rust records/.test(
       modelMountingRouteRow,
     ) &&
-      /Move remaining cTEE secret-injection depth for hosted catalog\/download edges, hosted download materialization, deeper wallet\/cTEE route authority and revocation policy, conversation\/provider\/instance replay depth where still adapter-shaped, and stable IDE\/CLI\/SDK protocol APIs over Rust records/.test(
+      /Move remaining cTEE secret-injection depth for hosted catalog\/download edges, deeper wallet\/cTEE route authority and revocation policy, conversation\/provider\/instance replay depth where still adapter-shaped, and stable IDE\/CLI\/SDK protocol APIs over Rust records/.test(
         modelMountingCoreBoundaryRow,
+      ) &&
+      /Hosted download materialization is Rust-owned/.test(
+        modelMountingStorageDownloadControlsRow,
+      ) &&
+      !/Move remaining[^|]*hosted download materialization|hosted download materialization,\s+(?:deeper|and stable|richer)|hosted download materialization plus stable|hosted download materialization[^|]*remain non-terminal|hosted download materialization[^|]*non-terminal/i.test(
+        `${modelMountingRouteRow}\n${modelMountingCoreBoundaryRow}\n${modelMountingStorageDownloadControlsRow}`,
       ) &&
       !/Move remaining live external backend binary spawning\/supervision, hosted\/provider transport, OAuth execution\/materialization, hosted catalog materialization, invocation authority/.test(
         modelMountingRouteRow,
@@ -25541,6 +25550,34 @@ function runReceipts() {
       /"model-downloads"/.test(modelMountStorageControlEvidence) &&
       /network_transfer_executed/.test(modelMountStorageControlEvidence) &&
       /plaintext_source_url_returned/.test(modelMountStorageControlEvidence) &&
+      /fn hosted_download_materialization\(/.test(modelMountStorageControlEvidence) &&
+      /fn hosted_download_materialization_requested\(/.test(modelMountStorageControlEvidence) &&
+      /reqwest::blocking::Client::builder\(\)/.test(modelMountStorageControlEvidence) &&
+      /max_bytes/.test(modelMountStorageControlEvidence) &&
+      /download_materialization_kind/.test(modelMountStorageControlEvidence) &&
+      /rust_hosted_download_materialized/.test(modelMountStorageControlEvidence) &&
+      /rust_daemon_core\.model_mount\.storage_control\.hosted_download/.test(
+        modelMountStorageControlEvidence,
+      ) &&
+      /hosted_download_transport_request_hash/.test(modelMountStorageControlEvidence) &&
+      /hosted_download_transport_response_hash/.test(modelMountStorageControlEvidence) &&
+      /download_content_hash/.test(modelMountStorageControlEvidence) &&
+      /plaintext_payload_returned/.test(modelMountStorageControlEvidence) &&
+      /artifact_bytes_returned/.test(modelMountStorageControlEvidence) &&
+      /ctee_hosted_download_no_plaintext_custody/.test(modelMountStorageControlEvidence) &&
+      /materializes_hosted_download_transport_in_rust/.test(modelMountStorageControlEvidence) &&
+      /admitted_hosted_download_materialization/.test(modelMountReadProjectionEvidence) &&
+      /download\.js-hosted/.test(modelMountReadProjectionEvidence) &&
+      /download\.hosted-qwen/.test(modelMountReadProjectionEvidence) &&
+      /rust_hosted_download_transport_executor_owned/.test(modelMountReadProjectionEvidence) &&
+      /storage_download_projections_replay_agentgres_storage_control_records_and_filter_js_truth/.test(
+        modelMountReadProjectionEvidence,
+      ) &&
+      /hosted_download_materialization/.test(modelMountingState) &&
+      /materialize_now/.test(modelMountingState) &&
+      /download_materialization_kind/.test(modelMountingState) &&
+      /provider_auth_materialization_ref/.test(modelMountingState) &&
+      /ctee_egress_resolver_ref/.test(modelMountingState) &&
       !/state\.lifecycleReceipt\("model_(?:catalog_import_url|download_(?:queued|failed|running|completed))"/.test(
         `${catalogImportUrlBlock}\n${downloadModelBlock}`,
       ) &&
@@ -25573,14 +25610,24 @@ function runReceipts() {
       /downloadState\.recordStateCommits\[0\]\.record_dir,\s*"model-downloads"/.test(
         catalogDownloadOperationsTest,
       ) &&
+      /downloadModel forwards hosted download materialization contract to Rust storage control/.test(
+        catalogDownloadOperationsTest,
+      ) &&
+      /download_materialization_kind:\s*"hosted_download"/.test(catalogDownloadOperationsTest) &&
+      /provider_auth_materialization_ref/.test(catalogDownloadOperationsTest) &&
+      /ctee_egress_resolver_ref/.test(catalogDownloadOperationsTest) &&
+      /assert\.equal\(state\.planRequests\[0\]\.body\.download_materialization_kind,\s*"hosted_download"\)/.test(
+        catalogDownloadOperationsTest,
+      ) &&
       /assertNoCatalogDownloadMutation/.test(catalogDownloadOperationsTest),
     [
       "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-download-operations.test.mjs",
       "packages/runtime-daemon/src/model-mounting/model-mount-core.mjs",
       "crates/services/src/agentic/runtime/kernel/model_mount/storage_control.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount/read_projection/topology.rs",
     ],
-    "Phase 9/11 is pending: catalog import/download mutations must use Rust storage-control planning plus Agentgres record-state commit without JS receipt, download, filesystem, or network materialization",
+    "Phase 9/11 is pending: catalog import/download mutations and hosted download materialization must use Rust storage-control planning plus Agentgres record-state commit without JS receipt, download, filesystem, or network materialization",
   );
   assertCheck(
     result,

@@ -9354,7 +9354,7 @@ Live external hosted catalog API execution for provider inventory is now
 Rust-owned: hosted `list_models` requires a canonical endpoint, executes the
 catalog request in Rust, and binds request/response hashes before Agentgres
 record-state commit. Remaining hosted materialization work is cTEE
-secret-injection depth, hosted download materialization, and richer
+secret-injection depth and richer
 replay/protocol coverage; the public hosted inventory facade no longer fails
 closed, returns the retired hosted-transport-not-executed marker, or returns
 through JS driver execution. Public
@@ -10843,8 +10843,8 @@ and OAuth start/callback/exchange/refresh/revoke still enter Rust
 `model-catalog-provider-controls` records through Agentgres before public
 truth returns. Conformance guards the absent daemon fields, persistence map
 entry, store directory, and focused absence assertions. Remaining work is cTEE
-secret-injection depth for hosted catalog/download edges, hosted download
-materialization, and stable SDK/IDE/CLI catalog-provider APIs, not a JS
+secret-injection depth for hosted catalog/download edges and stable
+SDK/IDE/CLI catalog-provider APIs, not a JS
 catalog-provider config or runtime-material cache fallback.
 
 Slice 1330 hard-cuts the model_mount invocation helper compatibility-alias
@@ -12326,10 +12326,9 @@ proof fields, or deterministic placeholder catalog truth, and conformance now
 guards the Rust transport executor, live network evidence, request/response hash
 binding, missing-endpoint failure, and JS request-field absence. Remaining
 model_mount blockers for this lane are cTEE secret-injection depth for outbound
-hosted catalog/download edges, hosted download materialization, deeper
-wallet/cTEE route authority and revocation policy, richer provider/instance
-replay joins, and stable IDE/CLI/SDK protocol coverage over the admitted Rust
-records.
+hosted catalog/download edges, deeper wallet/cTEE route authority and revocation
+policy, richer provider/instance replay joins, and stable IDE/CLI/SDK protocol
+coverage over the admitted Rust records.
 
 Slice 1406 hard-cuts provider-inventory endpoint materialization into Rust
 read-projection ownership. `listEndpoints()` now replays admitted
@@ -12342,6 +12341,24 @@ they can become endpoint truth. The stale gap where hosted provider inventory
 could carry model catalog truth without endpoint projection truth is retired; JS
 endpoint maps, JS provider inventory rows, command/binary fallback proof fields,
 and compatibility endpoint materializers remain absent from the hot path.
+
+Slice 1407 hard-cuts hosted download materialization into Rust storage-control
+ownership. `plan_model_mount_storage_control` now recognizes explicit
+`download_materialization_kind: "hosted_download"` and related canonical
+materialization requests, executes the bounded HTTP GET in Rust, enforces
+`max_bytes`, verifies optional `sha256:` checksums, and binds source request,
+transport response, and content hashes into the `model-downloads` Agentgres
+record before public truth can return. The committed record carries
+`rust_hosted_download_materialized`,
+`rust_hosted_download_transport_response_bound`, cTEE egress/auth materialization
+refs, and a no-plaintext custody policy; it never returns the plaintext source
+URL, payload, or artifact bytes to JS. `downloadModel()` only forwards canonical
+contract fields to Rust, while Rust storage read projection admits hosted
+downloads only when the Rust transport/custody evidence is present and filters
+fake JS-hosted materialized rows. Conformance now guards the Rust executor,
+bounded transfer, request/response/content hash binding, no-plaintext custody,
+JS field forwarding, projection admission filter, and removal of hosted download
+materialization from the non-terminal blocker ledger.
 
 ## Final Doctrine
 

@@ -188,6 +188,49 @@ test("catalog import and download mutations commit Rust-authored storage-control
   assertOnlyRustStorageControl(downloadState, 1);
 });
 
+test("downloadModel forwards hosted download materialization contract to Rust storage control", async () => {
+  const state = fakeState();
+
+  await ModelMountingState.prototype.downloadModel.call(
+    state,
+    {
+      model_id: "hosted-qwen",
+      provider_id: "provider.openai",
+      source_url: "https://models.example.test/qwen.gguf",
+      max_bytes: 4096,
+      download_materialization_kind: "hosted_download",
+      provider_auth_materialization_ref:
+        "agentgres://model-mounting/model-provider-auth-materializations/provider_openai_auth_header",
+      outbound_header_binding_ref: "provider_auth_header://provider_openai_auth_header#sha256:auth",
+      auth_header_materialization_status: "rust_ctee_outbound_header_bound",
+      ctee_egress_resolver_ref:
+        "ctee://model-mount/egress-resolver/provider_openai_auth_header#sha256:egress",
+      ctee_egress_resolver_hash: "sha256:egress",
+      ctee_egress_resolution_status: "rust_ctee_outbound_egress_resolved",
+      containment_ref: "ctee://containment/hosted-download",
+    },
+  );
+
+  assert.equal(state.planRequests.length, 1);
+  assert.equal(state.planRequests[0].operation_kind, "model_mount.download.queue");
+  assert.equal(state.planRequests[0].body.download_materialization_kind, "hosted_download");
+  assert.equal(
+    state.planRequests[0].body.provider_auth_materialization_ref,
+    "agentgres://model-mounting/model-provider-auth-materializations/provider_openai_auth_header",
+  );
+  assert.equal(
+    state.planRequests[0].body.outbound_header_binding_ref,
+    "provider_auth_header://provider_openai_auth_header#sha256:auth",
+  );
+  assert.equal(
+    state.planRequests[0].body.ctee_egress_resolution_status,
+    "rust_ctee_outbound_egress_resolved",
+  );
+  assert.equal(state.planRequests[0].body.containment_ref, "ctee://containment/hosted-download");
+  assert.equal(state.planRequests[0].containment_ref, "ctee://containment/hosted-download");
+  assertOnlyRustStorageControl(state, 1);
+});
+
 test("catalogImportUrl rejects retired request aliases before Rust-core boundary", async () => {
   const state = fakeState();
 

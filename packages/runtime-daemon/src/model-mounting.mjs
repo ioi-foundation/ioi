@@ -4282,6 +4282,16 @@ function storageControlBody(value = {}) {
     "simulate_failure",
     "failure_reason",
     "queued_only",
+    "hosted_download_materialization",
+    "materialize_now",
+    "materialization_kind",
+    "download_materialization_kind",
+    "provider_auth_materialization_ref",
+    "outbound_header_binding_ref",
+    "auth_header_materialization_status",
+    "ctee_egress_resolver_ref",
+    "ctee_egress_resolver_hash",
+    "ctee_egress_resolution_status",
     "expected_checksum",
     "display_name",
     "context_window",
@@ -4294,6 +4304,7 @@ function storageControlBody(value = {}) {
     "authority_grant_refs",
     "authority_receipt_refs",
     "custody_ref",
+    "containment_ref",
   ]) {
     if (Object.hasOwn(source, field) && source[field] !== undefined) body[field] = source[field];
   }

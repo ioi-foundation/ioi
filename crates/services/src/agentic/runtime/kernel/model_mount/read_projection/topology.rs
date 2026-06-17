@@ -2206,6 +2206,11 @@ fn admitted_download_record(record: Value) -> Option<Value> {
                     return None;
                 }
             }
+            if string_field(details, "download_materialization_kind") == "hosted_download"
+                && !admitted_hosted_download_materialization(details, &evidence_refs)
+            {
+                return None;
+            }
         }
         "model_mount.download.cancel" => {
             if !evidence_refs
@@ -2218,6 +2223,58 @@ fn admitted_download_record(record: Value) -> Option<Value> {
         _ => return None,
     }
     Some(record)
+}
+
+fn admitted_hosted_download_materialization(details: &Value, evidence_refs: &[String]) -> bool {
+    if string_field(details, "download_materialization_status")
+        != "rust_hosted_download_materialized"
+    {
+        return false;
+    }
+    if string_field(details, "download_materialization_owner")
+        != "rust_daemon_core.model_mount.storage_control"
+    {
+        return false;
+    }
+    if string_field(details, "transport_execution_owner")
+        != "rust_daemon_core.model_mount.storage_control.hosted_download"
+    {
+        return false;
+    }
+    if string_field(details, "hosted_download_transport_status")
+        != "rust_hosted_download_transport_response_bound"
+    {
+        return false;
+    }
+    if !bool_field(details, "network_transfer_executed")
+        || bool_field(details, "plaintext_payload_returned")
+        || bool_field(details, "artifact_bytes_returned")
+        || bool_field(details, "plaintext_source_url_returned")
+    {
+        return false;
+    }
+    for field in [
+        "download_content_hash",
+        "hosted_download_transport_request_ref",
+        "hosted_download_transport_request_hash",
+        "hosted_download_transport_response_hash",
+    ] {
+        if string_field(details, field).is_empty() {
+            return false;
+        }
+    }
+    for required in [
+        "rust_hosted_download_materialized",
+        "rust_hosted_download_transport_executor_owned",
+        "rust_hosted_download_transport_request_bound",
+        "rust_hosted_download_transport_response_bound",
+        "ctee_hosted_download_no_plaintext_custody",
+    ] {
+        if !evidence_refs.iter().any(|value| value == required) {
+            return false;
+        }
+    }
+    true
 }
 
 fn admitted_catalog_import_record(record: Value) -> Option<Value> {
@@ -3539,6 +3596,25 @@ mod tests {
                     "authority_hash": "sha256:legacy",
                 }),
                 storage_record(
+                    "download.js-hosted",
+                    "ioi.model_mount_download",
+                    "model_mount.download.queue",
+                    "completed",
+                    json!({
+                        "job_id": "download.js-hosted",
+                        "model_id": "legacy-hosted",
+                        "download_materialization_kind": "hosted_download",
+                        "download_materialization_status": "js_materialized",
+                        "network_transfer_executed": true,
+                        "plaintext_payload_returned": false,
+                    }),
+                    &[
+                        "public_catalog_download_js_facade_retired",
+                        "rust_daemon_core_catalog_download",
+                        "agentgres_catalog_download_truth_required",
+                    ],
+                ),
+                storage_record(
                     "download.qwen3",
                     "ioi.model_mount_download",
                     "model_mount.download.queue",
@@ -3554,6 +3630,41 @@ mod tests {
                         "public_catalog_download_js_facade_retired",
                         "rust_daemon_core_catalog_download",
                         "agentgres_catalog_download_truth_required",
+                    ],
+                ),
+                storage_record(
+                    "download.hosted-qwen",
+                    "ioi.model_mount_download",
+                    "model_mount.download.queue",
+                    "completed",
+                    json!({
+                        "job_id": "download.hosted-qwen",
+                        "model_id": "hosted-qwen",
+                        "bytes_total": 128,
+                        "bytes_downloaded": 128,
+                        "download_materialization_kind": "hosted_download",
+                        "download_materialization_status": "rust_hosted_download_materialized",
+                        "download_materialization_owner": "rust_daemon_core.model_mount.storage_control",
+                        "transport_execution_owner": "rust_daemon_core.model_mount.storage_control.hosted_download",
+                        "hosted_download_transport_request_ref": "model_mount://hosted_download_transport_request/hosted-qwen",
+                        "hosted_download_transport_request_hash": "sha256:hosted-download-request",
+                        "hosted_download_transport_response_hash": "sha256:hosted-download-response",
+                        "hosted_download_transport_status": "rust_hosted_download_transport_response_bound",
+                        "download_content_hash": "sha256:hosted-download-content",
+                        "network_transfer_executed": true,
+                        "plaintext_source_url_returned": false,
+                        "plaintext_payload_returned": false,
+                        "artifact_bytes_returned": false,
+                    }),
+                    &[
+                        "public_catalog_download_js_facade_retired",
+                        "rust_daemon_core_catalog_download",
+                        "agentgres_catalog_download_truth_required",
+                        "rust_hosted_download_materialized",
+                        "rust_hosted_download_transport_executor_owned",
+                        "rust_hosted_download_transport_request_bound",
+                        "rust_hosted_download_transport_response_bound",
+                        "ctee_hosted_download_no_plaintext_custody",
                     ],
                 ),
             ],
@@ -3597,14 +3708,34 @@ mod tests {
         let base_request = request("downloads", Some(temp.path().to_string_lossy().to_string()));
 
         let download_list = downloads(&base_request).expect("download projection");
-        assert_eq!(download_list.as_array().expect("downloads").len(), 1);
-        assert_eq!(download_list[0]["id"], "download.qwen3");
-        assert_eq!(download_list[0]["record_dir"], "model-downloads");
+        let download_records = download_list.as_array().expect("downloads");
+        assert_eq!(download_records.len(), 2);
+        let queued_download = download_records
+            .iter()
+            .find(|record| string_field(record, "id") == "download.qwen3")
+            .expect("queued download projection");
+        assert_eq!(queued_download["record_dir"], "model-downloads");
         assert_eq!(
-            download_list[0]["storage_projection_boundary"],
+            queued_download["storage_projection_boundary"],
             "model_mount.storage_projection"
         );
-        assert_eq!(download_list[0]["details"]["model_id"], "qwen3");
+        assert_eq!(queued_download["details"]["model_id"], "qwen3");
+        let hosted_download = download_records
+            .iter()
+            .find(|record| string_field(record, "id") == "download.hosted-qwen")
+            .expect("hosted download projection");
+        assert_eq!(hosted_download["status"], "completed");
+        assert_eq!(
+            hosted_download["details"]["download_materialization_status"],
+            "rust_hosted_download_materialized"
+        );
+        assert_eq!(
+            hosted_download["details"]["hosted_download_transport_status"],
+            "rust_hosted_download_transport_response_bound"
+        );
+        assert!(download_records
+            .iter()
+            .all(|record| string_field(record, "id") != "download.js-hosted"));
 
         let mut status_request = request(
             "download_status",
@@ -3625,10 +3756,10 @@ mod tests {
             "rust_model_mount_storage_summary_projection"
         );
         assert_eq!(summary["record_counts"]["catalog_imports"], 1);
-        assert_eq!(summary["record_counts"]["downloads"], 1);
+        assert_eq!(summary["record_counts"]["downloads"], 2);
         assert_eq!(summary["record_counts"]["storage_controls"], 1);
         assert_eq!(summary["filesystem_scanned"], false);
-        assert_eq!(summary["total_bytes"], 42);
+        assert_eq!(summary["total_bytes"], 170);
     }
 
     #[test]
