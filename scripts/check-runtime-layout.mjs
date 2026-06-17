@@ -235,6 +235,7 @@ const hypervisorClientNamespaceSources = [
   "apps/hypervisor/src/surfaces/Capabilities/components/model.ts",
   "packages/hypervisor-workbench/src/runtime/workflow-scratch-blueprints.ts",
 ].map(read).join("\n");
+const hypervisorIndexHtmlSource = read("apps/hypervisor/index.html");
 const hypervisorClientRuntimeSource = read(
   "apps/hypervisor/src/services/HypervisorClientRuntime.ts",
 );
@@ -496,6 +497,20 @@ assert(
     "apps/hypervisor/src/windows/HypervisorShellWindow/components/ChatLocalActivityBar.tsx",
   ],
   "Hypervisor shell must bind Phase 0A to the IOI reference cockpit contract and derive rail shortcuts from that contract.",
+);
+assert(
+  "hypervisor-shell-light-reference-boot",
+  hypervisorIndexHtmlSource.includes("background: #ffffff") &&
+    hypervisorIndexHtmlSource.includes("color: #1f1f1f") &&
+    hypervisorIndexHtmlSource.includes('font: 13px/1.45 "ABC Diatype"') &&
+    hypervisorIndexHtmlSource.includes("background: #f7f7f6") &&
+    hypervisorIndexHtmlSource.includes("border: 1px solid #e1e1e1") &&
+    hypervisorIndexHtmlSource.includes("color: #6f6f76") &&
+    !/background: #0d0c0a|color: #f2f0eb|rgba\(242, 240, 235/.test(
+      hypervisorIndexHtmlSource,
+    ),
+  ["apps/hypervisor/index.html"],
+  "Hypervisor pre-mount boot fallback must use the light IOI reference posture instead of a dark IDE-era card.",
 );
 assert(
   "repo-facing-hypervisor-client-map",
