@@ -34065,6 +34065,12 @@ function runCompositor() {
   const runtimeMcpServeCore = exists("crates/services/src/agentic/runtime/kernel/runtime_mcp_serve.rs")
     ? read("crates/services/src/agentic/runtime/kernel/runtime_mcp_serve.rs")
     : "";
+  const modelMountingState = exists("packages/runtime-daemon/src/model-mounting.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting.mjs")
+    : "";
+  const modelMountDaemonCore = exists("packages/runtime-daemon/src/model-mounting/model-mount-core.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/model-mount-core.mjs")
+    : "";
   const runtimeMcpServeStatusBlock =
     runtimeMcpServeSurface.match(/mcpServeStatus\(store, options = \{\}\) \{[\s\S]*?\n    \},\n    mcpServeToolCatalog/)?.[0] ??
     "";
@@ -44724,7 +44730,19 @@ function runCompositor() {
           runtimeMcpServeSurface,
       ) &&
       /assertRetiredMcpLiveTransportProofFieldsAbsent/.test(runtimeMcpControlSurface) &&
-      /retiredTransportProofFields/.test(runtimeMcpServeSurface) &&
+      /appendRetiredAuthorityProofFields/.test(runtimeMcpServeSurface) &&
+      /isRetiredAuthorityProofField/.test(
+        runtimeMcpControlSurface +
+          runtimeMcpServeSurface +
+          modelMountDaemonCore +
+          modelMountingState,
+      ) &&
+      !/"(?:js_backend_execution|js_transport_invocation|command_transport_fallback|binary_bridge_fallback|compatibility_fallback|legacy_js_result_fallback|js_result_synthesis|js_route_test|js_model_invocation|js_mcp_tool_invocation|js_process_supervisor|command_transport_spawn|binary_bridge_spawn|compatibility_spawn_fallback)"\s*,/.test(
+        runtimeMcpControlSurface +
+          runtimeMcpServeSurface +
+          modelMountDaemonCore +
+          modelMountingState,
+      ) &&
       /runtime MCP live exits reject retired transport fallback proof fields/.test(
         runtimeMcpControlSurfaceTest,
       ) &&

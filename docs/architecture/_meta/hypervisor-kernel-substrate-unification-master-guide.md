@@ -12441,6 +12441,19 @@ daemon `/v1` APIs; conformance now fails if the retired live JS facade roots,
 embedded Workbench facade root, old generated-contract carveout, or root
 workspace script path returns.
 
+Slice 1413 hard-cuts the runtime MCP/model_mount legacy fallback-proof field
+protocol from production hot paths. MCP serve, MCP control, model_mount MCP
+workflow, provider inventory/lifecycle, and backend-process materialization
+validators no longer enumerate the exact retired JS/command/binary bridge/
+compatibility fallback proof fields as a compatibility contract. The live
+validators enforce the positive Rust result contract and reject any retired
+authority key by shape, while focused tests and conformance keep the old fields
+as negative fixtures only. Rust MCP live-result replay/backend validators use
+the same generic retired-authority-key rejection, so migrated MCP and
+model_mount truth cannot return through a false-valued fallback-proof schema
+beside Rust-owned admission, receipt/state-root binding, Agentgres commit, and
+replay.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

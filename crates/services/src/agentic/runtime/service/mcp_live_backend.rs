@@ -269,15 +269,13 @@ impl RuntimeMcpLiveBackendExecutionRequest {
                 ));
             }
         }
-        for key in [
-            "js_backend_execution",
-            "command_transport_fallback",
-            "binary_bridge_fallback",
-            "compatibility_fallback",
-        ] {
-            if self.backend_execution.get(key).is_some() {
+        if let Some(fields) = self.backend_execution.as_object() {
+            for key in fields.keys() {
+                if !is_retired_authority_proof_field(key) {
+                    continue;
+                }
                 return Err(RuntimeMcpLiveBackendExecutionError::BackendContractInvalid(
-                    key,
+                    "retired_authority_proof_field",
                 ));
             }
         }
@@ -321,6 +319,15 @@ impl RuntimeMcpLiveBackendExecutionRequest {
             .unwrap_or(&tool);
         Ok(format!("{server_id}__{raw_tool}"))
     }
+}
+
+fn is_retired_authority_proof_field(field: &str) -> bool {
+    field.starts_with("js_")
+        || field.contains("legacy_js")
+        || field.contains("command_transport")
+        || field.contains("binary_bridge")
+        || field.contains("compatibility")
+        || field.contains("fallback")
 }
 
 fn build_execution_record(

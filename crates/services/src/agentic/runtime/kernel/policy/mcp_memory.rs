@@ -1702,15 +1702,20 @@ fn mcp_live_result_is_rust_owned(result: &Value) -> bool {
 }
 
 fn contains_retired_mcp_transport_proof_field(record: &Value) -> bool {
-    [
-        "js_backend_execution",
-        "js_transport_invocation",
-        "command_transport_fallback",
-        "binary_bridge_fallback",
-        "compatibility_fallback",
-    ]
-    .iter()
-    .any(|key| record.get(key).is_some())
+    record.as_object().is_some_and(|fields| {
+        fields
+            .keys()
+            .any(|field| is_retired_authority_proof_field(field))
+    })
+}
+
+fn is_retired_authority_proof_field(field: &str) -> bool {
+    field.starts_with("js_")
+        || field.contains("legacy_js")
+        || field.contains("command_transport")
+        || field.contains("binary_bridge")
+        || field.contains("compatibility")
+        || field.contains("fallback")
 }
 
 fn mcp_live_result_field_matches(result: &Value, key: &str, expected: Option<&str>) -> bool {

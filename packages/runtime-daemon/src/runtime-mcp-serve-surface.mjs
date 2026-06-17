@@ -334,17 +334,7 @@ function plannedMcpServeLiveResult(projection, { threadId, toolId }) {
   const evidenceRefs = Array.isArray(liveResult?.evidence_refs) ? liveResult.evidence_refs : [];
   const receiptRefs = Array.isArray(liveResult?.receipt_refs) ? liveResult.receipt_refs : [];
   const retiredTransportProofFields = [];
-  if (details) {
-    for (const field of [
-      "js_backend_execution",
-      "js_transport_invocation",
-      "command_transport_fallback",
-      "binary_bridge_fallback",
-      "compatibility_fallback",
-    ]) {
-      if (Object.hasOwn(details, field)) retiredTransportProofFields.push(`details.${field}_retired`);
-    }
-  }
+  appendRetiredAuthorityProofFields(details, "details", retiredTransportProofFields);
   const authorityGrantRefs = Array.isArray(details?.authority_grant_refs)
     ? details.authority_grant_refs.filter((ref) => typeof ref === "string" && ref.trim())
     : [];
@@ -394,6 +384,25 @@ function plannedMcpServeLiveResult(projection, { threadId, toolId }) {
     throw error;
   }
   return liveResult;
+}
+
+function appendRetiredAuthorityProofFields(record, path, missing) {
+  if (!record || typeof record !== "object" || Array.isArray(record)) return;
+  for (const field of Object.keys(record)) {
+    if (isRetiredAuthorityProofField(field)) missing.push(`${path}.${field}_retired`);
+  }
+}
+
+function isRetiredAuthorityProofField(field) {
+  if (typeof field !== "string" || field.length === 0) return false;
+  return (
+    field.startsWith("js_") ||
+    field.includes("legacy_js") ||
+    field.includes("command_transport") ||
+    field.includes("binary_bridge") ||
+    field.includes("compatibility") ||
+    field.includes("fallback")
+  );
 }
 
 function plannedMcpServeToolInvocationRequest(plan, { threadId, toolId }) {

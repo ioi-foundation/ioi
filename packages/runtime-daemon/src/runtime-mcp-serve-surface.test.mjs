@@ -615,9 +615,9 @@ test("runtime MCP serve tool calls reject retired transport fallback proof field
 
   assert.equal(response.error.code, -32603);
   assert.equal(response.error.data.code, "runtime_mcp_serve_live_result_projection_incomplete");
-  assert.deepEqual(response.error.data.details.retired_transport_proof_fields, [
-    "details.js_transport_invocation_retired",
+  assert.deepEqual([...response.error.data.details.retired_transport_proof_fields].sort(), [
     "details.command_transport_fallback_retired",
+    "details.js_transport_invocation_retired",
   ]);
   assert.equal(invocations.length, 1);
   assert.deepEqual(resultCommits, []);

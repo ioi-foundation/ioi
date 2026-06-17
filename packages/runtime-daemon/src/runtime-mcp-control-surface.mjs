@@ -581,15 +581,21 @@ export function createRuntimeMcpControlSurface({
 
   function assertRetiredMcpLiveTransportProofFieldsAbsent(record, path, missing) {
     if (!record || typeof record !== "object" || Array.isArray(record)) return;
-    for (const field of [
-      "js_backend_execution",
-      "js_transport_invocation",
-      "command_transport_fallback",
-      "binary_bridge_fallback",
-      "compatibility_fallback",
-    ]) {
-      if (Object.hasOwn(record, field)) missing.push(`${path}.${field}_retired`);
+    for (const field of Object.keys(record)) {
+      if (isRetiredAuthorityProofField(field)) missing.push(`${path}.${field}_retired`);
     }
+  }
+
+  function isRetiredAuthorityProofField(field) {
+    if (typeof field !== "string" || field.length === 0) return false;
+    return (
+      field.startsWith("js_") ||
+      field.includes("legacy_js") ||
+      field.includes("command_transport") ||
+      field.includes("binary_bridge") ||
+      field.includes("compatibility") ||
+      field.includes("fallback")
+    );
   }
 
   function assertRuntimeMcpLiveReceiptBound(receipt, control, details = {}) {

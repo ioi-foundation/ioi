@@ -691,18 +691,12 @@ function normalizeBackendProcessPlanApiResult(value = {}) {
   };
 }
 
-const RETIRED_BACKEND_PROCESS_FALLBACK_PROOF_FIELDS = [
-  "retired_paths",
-  "js_process_supervisor",
-  "command_transport_spawn",
-  "binary_bridge_spawn",
-  "compatibility_spawn_fallback",
-];
-
 function assertRetiredBackendProcessFallbackProofFieldsAbsent(record, path, missing) {
   if (!record || typeof record !== "object" || Array.isArray(record)) return;
-  for (const field of RETIRED_BACKEND_PROCESS_FALLBACK_PROOF_FIELDS) {
-    if (Object.hasOwn(record, field)) missing.push(`${path}.${field}_retired`);
+  for (const field of Object.keys(record)) {
+    if (isRetiredAuthorityProofField(field) || field === "retired_paths") {
+      missing.push(`${path}.${field}_retired`);
+    }
   }
 }
 
@@ -1245,12 +1239,7 @@ function assertMcpWorkflowResultMaterialized(publicResponse, receipt, record, mi
   if (!resultPayload || typeof resultPayload !== "object" || Array.isArray(resultPayload)) {
     missing.push("public_response.result_payload");
   } else {
-    assertRetiredMcpWorkflowFieldsAbsent(resultPayload, "public_response.result_payload", [
-      "js_result_synthesis",
-      "command_transport_fallback",
-      "binary_bridge_fallback",
-      "compatibility_fallback",
-    ], missing);
+    assertRetiredMcpWorkflowFieldsAbsent(resultPayload, "public_response.result_payload", missing);
   }
   if (!resultPayloadHash) {
     missing.push("public_response.result_payload_hash");
@@ -1281,20 +1270,27 @@ function assertMcpWorkflowResultMaterialized(publicResponse, receipt, record, mi
   }
   const receiptResultPayload = receipt?.details?.result_payload;
   if (receiptResultPayload && typeof receiptResultPayload === "object" && !Array.isArray(receiptResultPayload)) {
-    assertRetiredMcpWorkflowFieldsAbsent(receiptResultPayload, "receipt.details.result_payload", [
-      "js_result_synthesis",
-      "command_transport_fallback",
-      "binary_bridge_fallback",
-      "compatibility_fallback",
-    ], missing);
+    assertRetiredMcpWorkflowFieldsAbsent(receiptResultPayload, "receipt.details.result_payload", missing);
   }
 }
 
-function assertRetiredMcpWorkflowFieldsAbsent(record, path, fields, missing) {
+function assertRetiredMcpWorkflowFieldsAbsent(record, path, missing) {
   if (!record || typeof record !== "object" || Array.isArray(record)) return;
-  for (const field of fields) {
-    if (Object.hasOwn(record, field)) missing.push(`${path}.${field}_retired`);
+  for (const field of Object.keys(record)) {
+    if (isRetiredAuthorityProofField(field)) missing.push(`${path}.${field}_retired`);
   }
+}
+
+function isRetiredAuthorityProofField(field) {
+  if (typeof field !== "string" || field.length === 0) return false;
+  return (
+    field.startsWith("js_") ||
+    field.includes("legacy_js") ||
+    field.includes("command_transport") ||
+    field.includes("binary_bridge") ||
+    field.includes("compatibility") ||
+    field.includes("fallback")
+  );
 }
 
 function normalizeMcpWorkflowApiResult(value = {}) {
@@ -1359,20 +1355,8 @@ function normalizeMcpWorkflowApiResult(value = {}) {
     if (publicResponse.rust_transport_execution_admitted !== true) {
       missing.push("public_response.rust_transport_execution_admitted");
     }
-    assertRetiredMcpWorkflowFieldsAbsent(publicResponse, "public_response", [
-      "js_transport_invocation",
-      "command_transport_fallback",
-      "binary_bridge_fallback",
-      "compatibility_fallback",
-      "legacy_js_result_fallback",
-    ], missing);
-    assertRetiredMcpWorkflowFieldsAbsent(record?.details, "record.details", [
-      "js_transport_invocation",
-      "command_transport_fallback",
-      "binary_bridge_fallback",
-      "compatibility_fallback",
-      "legacy_js_result_fallback",
-    ], missing);
+    assertRetiredMcpWorkflowFieldsAbsent(publicResponse, "public_response", missing);
+    assertRetiredMcpWorkflowFieldsAbsent(record?.details, "record.details", missing);
     for (const field of [
       "content_receipt_id",
       "result_receipt_id",
@@ -1411,24 +1395,8 @@ function normalizeMcpWorkflowApiResult(value = {}) {
     if (publicResponse.rust_step_module_dispatch_admitted !== true) {
       missing.push("public_response.rust_step_module_dispatch_admitted");
     }
-    assertRetiredMcpWorkflowFieldsAbsent(publicResponse, "public_response", [
-      "js_route_test",
-      "js_model_invocation",
-      "js_mcp_tool_invocation",
-      "command_transport_fallback",
-      "binary_bridge_fallback",
-      "compatibility_fallback",
-      "legacy_js_result_fallback",
-    ], missing);
-    assertRetiredMcpWorkflowFieldsAbsent(record?.details, "record.details", [
-      "js_route_test",
-      "js_model_invocation",
-      "js_mcp_tool_invocation",
-      "command_transport_fallback",
-      "binary_bridge_fallback",
-      "compatibility_fallback",
-      "legacy_js_result_fallback",
-    ], missing);
+    assertRetiredMcpWorkflowFieldsAbsent(publicResponse, "public_response", missing);
+    assertRetiredMcpWorkflowFieldsAbsent(record?.details, "record.details", missing);
     for (const field of [
       "content_receipt_id",
       "result_receipt_id",
