@@ -1121,6 +1121,19 @@ Current implementation cut:
   Remaining work is live provider-placement hydration, provider action buttons
   mediated through wallet leases, and zero-to-idle/archive/restore operations
   backed by daemon and Agentgres APIs.
+
+0A.8/0A.10 first receipt evidence surface is implemented:
+  `hypervisorReceiptEvidenceModel.ts` defines
+  `HypervisorReceiptEvidenceProjection` by composing session lifecycle,
+  authority, environment lease, provider placement, artifact restore, and
+  harness comparison receipt refs from the existing Hypervisor shell
+  projections. Each record binds receipt ref, source projection, Agentgres
+  operation refs, artifact refs, trace refs, state root ref, replay ref, and
+  status. `HypervisorShellContent` now renders Receipts as an evidence surface
+  instead of a placeholder, while tests guard that the client only renders
+  daemon/Agentgres evidence projections and does not become receipt truth.
+  Remaining work is live receipt query hydration, filtering, drill-in replay,
+  and durable Agentgres-backed receipt pagination.
 ```
 
 Code migration posture:

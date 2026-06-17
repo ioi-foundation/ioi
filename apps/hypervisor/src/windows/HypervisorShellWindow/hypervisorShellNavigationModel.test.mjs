@@ -42,6 +42,10 @@ const providerPlacementModel = readFileSync(
   new URL("./hypervisorProviderPlacementModel.ts", import.meta.url),
   "utf8",
 );
+const receiptEvidenceModel = readFileSync(
+  new URL("./hypervisorReceiptEvidenceModel.ts", import.meta.url),
+  "utf8",
+);
 
 test("hypervisor shell exposes the canonical core client and surface taxonomy", () => {
   assert.match(source, /export type HypervisorClientKind/);
@@ -294,6 +298,26 @@ test("Providers and Environments surfaces are direct integrations, not Fleet pla
   assert.match(shellContent, /activeView === "environments"/);
   assert.match(shellContent, /activeView !== "providers"/);
   assert.match(shellContent, /activeView !== "environments"/);
+});
+
+test("Receipts surface renders Agentgres-bound evidence instead of a placeholder", () => {
+  assert.match(receiptEvidenceModel, /HypervisorReceiptEvidenceProjection/);
+  assert.match(receiptEvidenceModel, /HYPERVISOR_RECEIPT_EVIDENCE_PROJECTION_FIXTURE/);
+  assert.match(receiptEvidenceModel, /receipt_boundary_invariant/);
+  assert.match(receiptEvidenceModel, /Agentgres admits operational truth/);
+  assert.match(receiptEvidenceModel, /artifact_refs/);
+  assert.match(receiptEvidenceModel, /trace_refs/);
+  assert.match(receiptEvidenceModel, /state_root_ref/);
+  assert.match(receiptEvidenceModel, /replay_ref/);
+  assert.match(receiptEvidenceModel, /harness_comparison/);
+  assert.match(receiptEvidenceModel, /artifact_restore/);
+  assert.match(shellContent, /HypervisorReceiptEvidenceSurface/);
+  assert.match(shellContent, /data-hypervisor-receipt-evidence/);
+  assert.match(shellContent, /data-receipt-evidence-record/);
+  assert.match(shellContent, /data-receipt-evidence-kind/);
+  assert.match(shellContent, /data-receipt-evidence-status/);
+  assert.match(shellContent, /activeView === "receipts"/);
+  assert.match(shellContent, /activeView !== "receipts"/);
 });
 
 console.log("hypervisorShellNavigationModel.test.mjs: ok");

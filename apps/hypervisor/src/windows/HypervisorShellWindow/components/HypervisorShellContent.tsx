@@ -31,6 +31,7 @@ import { materializeWorkflowProject } from "../../../services/workflowProjectMat
 import type { PrimaryView } from "../hypervisorShellModel";
 import { HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE } from "../harnessAdapterModel";
 import { HYPERVISOR_PROVIDER_PLACEMENT_PROJECTION_FIXTURE } from "../hypervisorProviderPlacementModel";
+import { HYPERVISOR_RECEIPT_EVIDENCE_PROJECTION_FIXTURE } from "../hypervisorReceiptEvidenceModel";
 import { HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE } from "../hypervisorSessionOperationsModel";
 
 interface HypervisorShellContentProps {
@@ -433,6 +434,69 @@ function HypervisorEnvironmentEstateSurface({
   );
 }
 
+function HypervisorReceiptEvidenceSurface() {
+  const projection = HYPERVISOR_RECEIPT_EVIDENCE_PROJECTION_FIXTURE;
+  return (
+    <section
+      className="hypervisor-receipt-evidence"
+      aria-label="Receipt evidence surface"
+      data-hypervisor-receipt-evidence={projection.projection_id}
+      data-runtime-truth-source={projection.runtimeTruthSource}
+    >
+      <div className="hypervisor-receipt-evidence__header">
+        <span>Receipts</span>
+        <h2>Operational evidence, replay, and state-root continuity.</h2>
+        <p>{projection.receipt_boundary_invariant}</p>
+      </div>
+
+      <div className="hypervisor-receipt-evidence__grid">
+        {projection.records.map((record) => (
+          <article
+            key={`${record.kind}:${record.receipt_ref}`}
+            className="hypervisor-receipt-evidence__card"
+            data-receipt-evidence-record={record.receipt_ref}
+            data-receipt-evidence-kind={record.kind}
+            data-receipt-evidence-status={record.status}
+          >
+            <div className="hypervisor-receipt-evidence__card-head">
+              <span>{record.kind.split("_").join(" ")}</span>
+              <strong>{record.status}</strong>
+            </div>
+            <h3>{record.receipt_ref}</h3>
+            <p>{record.summary}</p>
+            <dl>
+              <div>
+                <dt>Source</dt>
+                <dd>{record.source_projection_ref}</dd>
+              </div>
+              <div>
+                <dt>Agentgres</dt>
+                <dd>{record.agentgres_operation_refs.join(", ")}</dd>
+              </div>
+              <div>
+                <dt>Artifact</dt>
+                <dd>{record.artifact_refs.join(", ")}</dd>
+              </div>
+              <div>
+                <dt>Trace</dt>
+                <dd>{record.trace_refs.join(", ")}</dd>
+              </div>
+              <div>
+                <dt>State Root</dt>
+                <dd>{record.state_root_ref}</dd>
+              </div>
+              <div>
+                <dt>Replay</dt>
+                <dd>{record.replay_ref}</dd>
+              </div>
+            </dl>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export function HypervisorShellContent({
   controller,
   runtime,
@@ -673,6 +737,10 @@ export function HypervisorShellContent({
                     <HypervisorEnvironmentEstateSurface runtime={runtime} />
                   ) : null}
 
+                  {activeView === "receipts" ? (
+                    <HypervisorReceiptEvidenceSurface />
+                  ) : null}
+
                   {activeView === "missions" ? (
                     <InboxView
                       onOpenHypervisor={() => {
@@ -791,7 +859,8 @@ export function HypervisorShellContent({
                   {isPlaceholderSurface(activeView) &&
                   activeView !== "foundry" &&
                   activeView !== "providers" &&
-                  activeView !== "environments" ? (
+                  activeView !== "environments" &&
+                  activeView !== "receipts" ? (
                     <HypervisorSurfacePlaceholder activeView={activeView} />
                   ) : null}
                 </div>

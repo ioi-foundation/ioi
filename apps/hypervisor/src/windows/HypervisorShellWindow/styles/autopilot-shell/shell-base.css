@@ -2960,3 +2960,117 @@
     grid-template-columns: 1fr;
   }
 }
+
+.hypervisor-receipt-evidence {
+  width: min(1180px, calc(100vw - 112px));
+  margin: 32px auto;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.8);
+  color: #e5edf7;
+  padding: 22px;
+  box-shadow: 0 20px 70px rgba(2, 6, 23, 0.26);
+}
+
+.hypervisor-receipt-evidence__header {
+  display: grid;
+  gap: 8px;
+  max-width: 860px;
+}
+
+.hypervisor-receipt-evidence__header span,
+.hypervisor-receipt-evidence__card-head span,
+.hypervisor-receipt-evidence__card dt {
+  color: #94a3b8;
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0;
+}
+
+.hypervisor-receipt-evidence__header h2,
+.hypervisor-receipt-evidence__card h3 {
+  margin: 0;
+}
+
+.hypervisor-receipt-evidence__header h2 {
+  font-size: clamp(1.35rem, 1.8vw, 1.9rem);
+  line-height: 1.18;
+}
+
+.hypervisor-receipt-evidence__header p,
+.hypervisor-receipt-evidence__card p {
+  margin: 0;
+  color: #cbd5e1;
+  line-height: 1.5;
+}
+
+.hypervisor-receipt-evidence__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.hypervisor-receipt-evidence__card {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.52);
+  padding: 16px;
+}
+
+.hypervisor-receipt-evidence__card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.hypervisor-receipt-evidence__card-head strong {
+  border: 1px solid rgba(34, 197, 94, 0.28);
+  border-radius: 999px;
+  background: rgba(20, 83, 45, 0.28);
+  color: #bbf7d0;
+  padding: 4px 8px;
+  font-size: 0.74rem;
+  text-transform: uppercase;
+}
+
+.hypervisor-receipt-evidence__card[data-receipt-evidence-status="draft"]
+  .hypervisor-receipt-evidence__card-head strong {
+  border-color: rgba(250, 204, 21, 0.28);
+  background: rgba(113, 63, 18, 0.28);
+  color: #fde68a;
+}
+
+.hypervisor-receipt-evidence__card h3,
+.hypervisor-receipt-evidence__card dd {
+  overflow-wrap: anywhere;
+}
+
+.hypervisor-receipt-evidence__card dl {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.hypervisor-receipt-evidence__card dd {
+  margin: 3px 0 0;
+  color: #dbeafe;
+  font-size: 0.84rem;
+  line-height: 1.42;
+}
+
+@media (max-width: 1080px) {
+  .hypervisor-receipt-evidence {
+    width: calc(100vw - 32px);
+  }
+}
+
+@media (max-width: 860px) {
+  .hypervisor-receipt-evidence__grid {
+    grid-template-columns: 1fr;
+  }
+}
