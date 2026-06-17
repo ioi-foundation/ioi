@@ -2959,12 +2959,15 @@
   height: 100%;
   min-height: 0;
   display: grid;
-  grid-template-rows: 52px 43px minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  grid-template-rows: 48px 48px minmax(0, 1fr);
   background: #ffffff;
 }
 
 .hypervisor-session-detail-shell .hypervisor-session-operations__session-topbar {
-  min-height: 52px;
+  grid-column: 1;
+  grid-row: 1;
+  min-height: 48px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -2984,7 +2987,7 @@
 .hypervisor-session-detail-shell .hypervisor-session-operations__row button {
   min-height: 32px;
   border: 0;
-  border-radius: 8px;
+  border-radius: 6px;
   background: transparent;
   color: #171719;
   font: inherit;
@@ -2995,8 +2998,8 @@
 .hypervisor-session-detail-shell .hypervisor-session-operations__branch-picker {
   display: inline-flex;
   align-items: center;
-  gap: 9px;
-  padding: 0 8px;
+  gap: 6px;
+  padding: 0 6px;
 }
 
 .hypervisor-session-detail-shell .hypervisor-session-operations__status-dot {
@@ -3013,6 +3016,8 @@
 }
 
 .hypervisor-session-detail-shell .hypervisor-session-operations__top-actions button {
+  min-width: 32px;
+  justify-content: center;
   padding: 0 10px;
   border: 1px solid #e7e7e5;
   background: #fbfbfa;
@@ -3030,11 +3035,13 @@
 }
 
 .hypervisor-session-detail-shell .hypervisor-session-operations__session-tabs {
-  min-height: 43px;
+  grid-column: 1;
+  grid-row: 2;
+  min-height: 48px;
   display: grid;
   grid-template-columns: auto minmax(180px, max-content) minmax(0, 1fr) auto;
   align-items: stretch;
-  gap: 14px;
+  gap: 8px;
   padding: 0 24px;
   border-bottom: 1px solid #e7e7e5;
   background: #ffffff;
@@ -3056,8 +3063,11 @@
 .hypervisor-session-detail-shell .hypervisor-session-operations__detail-tabs button {
   position: relative;
   flex: 0 0 auto;
-  min-height: 43px;
-  padding: 0 10px;
+  min-height: 48px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
   border-radius: 0;
   color: #3f3f46;
   white-space: nowrap;
@@ -3073,8 +3083,10 @@
 .hypervisor-session-detail-shell .hypervisor-session-operations__top-actions button:first-child {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  max-width: 220px;
+  gap: 8px;
+  width: 62px;
+  max-width: 62px;
+  padding: 0 8px;
 }
 
 .hypervisor-session-detail-shell .hypervisor-session-operations__top-actions button:first-child strong {
@@ -3085,11 +3097,10 @@
 }
 
 .hypervisor-session-detail-shell .hypervisor-session-operations__session-title {
-  display: grid;
-  grid-template-columns: minmax(0, auto) minmax(0, 1fr) auto;
+  display: inline-flex;
   align-items: center;
-  gap: 7px;
-  max-width: 340px;
+  gap: 6px;
+  max-width: 260px;
   padding: 0 8px;
   text-align: left;
 }
@@ -3108,15 +3119,71 @@
   font-size: 11px;
 }
 
+.hypervisor-session-detail-shell .hypervisor-session-operations__inline-icon,
+.hypervisor-session-detail-shell .hypervisor-session-operations__tab-icon,
+.hypervisor-session-detail-shell .hypervisor-session-operations__editor-logo,
+.hypervisor-session-detail-shell .hypervisor-session-operations__file-icon {
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  color: currentColor;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__inline-icon svg,
+.hypervisor-session-detail-shell .hypervisor-session-operations__tab-icon svg,
+.hypervisor-session-detail-shell .hypervisor-session-operations__editor-logo svg,
+.hypervisor-session-detail-shell .hypervisor-session-operations__file-icon svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__editor-logo {
+  color: #1677c9;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__detail-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #00a316;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__add-panel {
+  width: 32px;
+  height: 32px;
+  align-self: center;
+  justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #3f3f46;
+  padding: 0;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__add-panel:hover {
+  background: #ececeb;
+  color: #111113;
+}
+
 .hypervisor-session-detail-shell .hypervisor-session-operations__body {
+  grid-column: 1;
+  grid-row: 3;
   min-height: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 340px;
+  display: block;
+  overflow: hidden;
 }
 
 .hypervisor-session-detail-shell .hypervisor-session-operations__environment {
   min-width: 0;
   min-height: 0;
+  height: 100%;
   overflow: auto;
   padding: 40px 28px 28px;
 }
@@ -3180,6 +3247,9 @@
 
 .hypervisor-session-detail-shell dd {
   margin: 4px 0 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   color: #111113;
   font-size: 14px;
   line-height: 20px;
@@ -3261,10 +3331,12 @@
 }
 
 .hypervisor-session-detail-shell .hypervisor-session-operations__right-pane {
+  grid-column: 2;
+  grid-row: 1 / -1;
   min-width: 0;
   min-height: 0;
   display: grid;
-  grid-template-rows: 52px 56px minmax(0, 1fr) minmax(224px, 32vh);
+  grid-template-rows: 48px 56px minmax(0, 1fr) minmax(224px, 32vh);
   border-left: 1px solid #e2e2df;
   background: #ffffff;
   overflow: hidden;
@@ -3275,7 +3347,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 0 16px;
+  padding: 0 16px 0 22px;
   border-bottom: 1px solid #e7e7e5;
 }
 
@@ -3307,10 +3379,16 @@
   width: 32px;
   height: 32px;
   border: 0;
-  border-radius: 8px;
+  border-radius: 6px;
   background: transparent;
   color: #44444a;
   font: inherit;
+  padding: 0;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__right-actions svg {
+  width: 16px;
+  height: 16px;
 }
 
 .hypervisor-session-detail-shell .hypervisor-session-operations__right-actions button[aria-pressed="true"] {
@@ -3339,12 +3417,13 @@
 }
 
 .hypervisor-session-detail-shell .hypervisor-session-operations__search {
+  position: relative;
   display: grid;
   grid-template-columns: 1fr;
   align-items: center;
 }
 
-.hypervisor-session-detail-shell .hypervisor-session-operations__search span {
+.hypervisor-session-detail-shell .hypervisor-session-operations__search > span:first-child {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -3352,14 +3431,33 @@
   clip: rect(0 0 0 0);
 }
 
+.hypervisor-session-detail-shell .hypervisor-session-operations__search-icon {
+  position: absolute;
+  left: 11px;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #6f737b;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__search-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
 .hypervisor-session-detail-shell .hypervisor-session-operations__search input {
   width: 100%;
-  min-height: 32px;
+  min-height: 36px;
   border: 1px solid #dededc;
   border-radius: 8px;
   background: #ffffff;
   color: #171719;
-  padding: 0 11px;
+  padding: 0 11px 0 35px;
   font: inherit;
 }
 
@@ -3368,7 +3466,7 @@
 }
 
 .hypervisor-session-detail-shell .hypervisor-session-operations__status-filter {
-  min-height: 32px;
+  min-height: 36px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -3385,25 +3483,26 @@
 .hypervisor-session-detail-shell .hypervisor-session-operations__change-list {
   min-height: 0;
   overflow: auto;
-  padding: 4px 16px 14px;
+  padding: 2px 16px 14px;
 }
 
 .hypervisor-session-detail-shell .hypervisor-session-operations__file-group {
   display: grid;
-  gap: 4px;
-  margin-bottom: 16px;
+  gap: 0;
+  margin-bottom: 8px;
 }
 
 .hypervisor-session-detail-shell .hypervisor-session-operations__folder {
-  min-height: 24px;
+  min-height: 30px;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 7px;
+  gap: 6px;
   color: #5f6067;
   font-family: "ABC Diatype Mono", "SFMono-Regular", Consolas, monospace;
   font-size: 12px;
   line-height: 16px;
+  padding-left: 0;
 }
 
 .hypervisor-session-detail-shell .hypervisor-session-operations__folder em {
@@ -3416,16 +3515,16 @@
 }
 
 .hypervisor-session-detail-shell .hypervisor-session-operations__change-list button {
-  min-height: 28px;
+  min-height: 30px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 8px;
   border: 0;
   border-radius: 6px;
   background: transparent;
   color: #171719;
-  padding: 0 4px;
+  padding: 0 0 0 20px;
   font: inherit;
   text-align: left;
 }
@@ -3434,10 +3533,21 @@
   background: #ececeb;
 }
 
+.hypervisor-session-detail-shell .hypervisor-session-operations__file-name,
 .hypervisor-session-detail-shell .hypervisor-session-operations__change-list code,
 .hypervisor-session-detail-shell .hypervisor-session-operations__change-list strong {
   min-width: 0;
   overflow: hidden;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__file-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__change-list code,
+.hypervisor-session-detail-shell .hypervisor-session-operations__change-list strong {
   color: #171719;
   font-family: "ABC Diatype Mono", "SFMono-Regular", Consolas, monospace;
   font-size: 12px;
@@ -3446,9 +3556,23 @@
   white-space: nowrap;
 }
 
-.hypervisor-session-detail-shell .hypervisor-session-operations__change-list button span {
+.hypervisor-session-detail-shell .hypervisor-session-operations__delta {
   color: #00a316;
   font-size: 12px;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__file-status {
+  min-width: 18px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #ffe8d8;
+  color: #fb7f3b;
+  font-family: "ABC Diatype", "Inter", sans-serif;
+  font-size: 11px;
+  font-weight: 650;
 }
 
 .hypervisor-session-detail-shell .hypervisor-session-operations__bottom-dock {
@@ -3516,6 +3640,11 @@
   margin-top: 10px;
 }
 
+.hypervisor-session-detail-shell .hypervisor-session-operations__empty-state svg {
+  width: 16px;
+  height: 16px;
+}
+
 .hypervisor-session-detail-shell .hypervisor-session-operations__empty-state p {
   margin: 0;
   font-size: 14px;
@@ -3571,7 +3700,7 @@
 }
 
 @media (max-width: 1180px) {
-  .hypervisor-session-detail-shell .hypervisor-session-operations__body {
+  .hypervisor-session-detail-shell .hypervisor-session-operations__reference-page {
     grid-template-columns: minmax(0, 1fr) 320px;
   }
 
@@ -3586,7 +3715,8 @@
 
 @media (max-width: 860px) {
   .hypervisor-session-detail-shell .hypervisor-session-operations__reference-page {
-    grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
   }
 
   .hypervisor-session-detail-shell .hypervisor-session-operations__session-topbar,
@@ -3600,6 +3730,8 @@
   }
 
   .hypervisor-session-detail-shell .hypervisor-session-operations__right-pane {
+    grid-column: 1;
+    grid-row: 4;
     min-height: 420px;
     border-left: 0;
     border-top: 1px solid #e2e2df;
@@ -5000,54 +5132,6 @@
   font-size: 12px;
   font-weight: 400;
   line-height: 15px;
-}
-
-/* Phase 0A hard cut: IOI reference rail stays dark in every theme. */
-.chat-activity-bar {
-  background: var(--chat-activity-bg) !important;
-  color: var(--chat-activity-text) !important;
-}
-
-.chat-activity-section-label,
-.chat-activity-project-label,
-.chat-activity-session-row__copy em,
-.chat-activity-profile-label em {
-  color: var(--chat-activity-text-muted) !important;
-}
-
-.chat-activity-button,
-.chat-activity-session-row,
-.chat-activity-button--organization {
-  color: var(--chat-activity-text) !important;
-}
-
-.chat-activity-button:hover,
-.chat-activity-session-row:hover,
-.chat-activity-session-row:focus-visible,
-.chat-activity-profile-indicator:hover,
-.chat-activity-profile-indicator:focus-visible {
-  background: var(--chat-activity-hover-bg) !important;
-}
-
-.chat-activity-session-row__copy strong,
-.chat-activity-profile-label strong,
-.chat-activity-profile-indicator {
-  color: var(--chat-activity-text-strong) !important;
-}
-
-.chat-activity-project-skeleton i,
-.chat-activity-project-skeleton b {
-  background: rgba(255, 255, 255, 0.13) !important;
-}
-
-.chat-activity-profile-avatar {
-  border-color: rgba(255, 255, 255, 0.12) !important;
-  background: rgba(255, 255, 255, 0.06) !important;
-  color: var(--chat-activity-text-strong) !important;
-}
-
-.chat-activity-profile-avatar::after {
-  border-color: var(--chat-activity-bg) !important;
 }
 
 /* Phase 0A hard cut: mirror the IOI reference console rail, not the dark IDE rail. */

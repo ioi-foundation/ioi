@@ -508,6 +508,151 @@ function formatSessionLifecycleLabel(lifecycleState: string): string {
   return lifecycleState.split("_").join(" ");
 }
 
+function SessionCodeIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      <path
+        d="M13.69 3.2 11.17 1.98a.78.78 0 0 0-.87.15L5.47 6.53 3.37 4.94a.5.5 0 0 0-.65.03l-.68.61a.52.52 0 0 0 0 .75L3.87 8l-1.83 1.66a.52.52 0 0 0 0 .76l.68.61c.18.17.46.18.65.03l2.1-1.6 4.83 4.41c.23.23.58.29.87.15l2.52-1.22c.27-.13.44-.4.44-.69V3.88c0-.29-.17-.56-.44-.68Zm-2.63 7.58L7.4 8l3.66-2.78v5.56Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
+function SessionOctagonIcon() {
+  return (
+    <svg viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+      <path
+        d="M30.95 9.86A3.55 3.55 0 0 1 32 12.38v8.29c0 1-.41 1.88-1.05 2.52l-8.29 8.28A3.55 3.55 0 0 1 20.14 32h-8.28a3.55 3.55 0 0 1-2.57-1.05L1.01 22.66A3.55 3.55 0 0 1 0 20.14v-8.28c0-1 .37-1.88 1.01-2.57l8.28-8.28A3.55 3.55 0 0 1 11.86 0h8.28c.96 0 1.88.41 2.52 1.1l8.29 8.76ZM24.4 21.36v-9.68a3.59 3.59 0 0 0-3.57-3.61h-9.67a3.6 3.6 0 0 0-3.62 3.61v9.68a3.58 3.58 0 0 0 3.62 3.57h9.67a3.57 3.57 0 0 0 3.57-3.57Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
+function ChevronDownIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      <path
+        d="m5 6.75 2.47 2.47a.75.75 0 0 0 1.06 0L11 6.75"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.35"
+      />
+    </svg>
+  );
+}
+
+function CompactEditorIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path
+        d="M17.02 23.84c.38.15.81.14 1.19-.05l4.94-2.38A1.5 1.5 0 0 0 24 20.06V3.94c0-.58-.33-1.1-.85-1.35L18.21.21a1.5 1.5 0 0 0-1.71.29L7.05 9.13 2.92 6a1 1 0 0 0-1.27.06L.33 7.26a1 1 0 0 0 0 1.48L3.9 12 .33 15.26a1 1 0 0 0 0 1.48l1.32 1.2a1 1 0 0 0 1.27.06l4.13-3.13 9.45 8.63c.15.15.32.26.52.34ZM18 6.55 10.83 12 18 17.45V6.55Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
+function EyeIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      <path
+        d="M1.75 8s2.25-4 6.25-4 6.25 4 6.25 4-2.25 4-6.25 4-6.25-4-6.25-4Z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.3"
+      />
+      <circle cx="8" cy="8" r="1.7" fill="currentColor" />
+    </svg>
+  );
+}
+
+function BranchIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      <path
+        d="M5 3.5v6.25A2.75 2.75 0 0 0 7.75 12.5H11M11 12.5l-1.75-1.75M11 12.5l-1.75 1.75M5 5.5h4.25A1.75 1.75 0 0 0 11 3.75V2.5"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.35"
+      />
+    </svg>
+  );
+}
+
+function SplitPanelIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      <rect x="2.5" y="3" width="11" height="10" fill="none" stroke="currentColor" strokeWidth="1.25" />
+      <path d="M10 3.5v9" stroke="currentColor" strokeWidth="1.25" />
+    </svg>
+  );
+}
+
+function AddPanelIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      <path d="M3 3h7v10H3zM12.5 6v4M10.5 8h4" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="1.25" />
+    </svg>
+  );
+}
+
+function FolderIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      <path
+        d="M2.5 4.5h4l1.2 1.5h5.8v5.5h-11v-7Z"
+        fill="none"
+        stroke="currentColor"
+        strokeLinejoin="round"
+        strokeWidth="1.15"
+      />
+    </svg>
+  );
+}
+
+function FileIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      <path d="M4.5 2.75h5L12 5.25v8H4.5v-10.5Z" fill="none" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.15" />
+      <path d="M9.5 2.75v2.5H12" fill="none" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.15" />
+    </svg>
+  );
+}
+
+function SearchIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path
+        d="m20 20-3.87-3.87m0 0A7.25 7.25 0 1 0 3.75 11a7.25 7.25 0 0 0 12.38 5.13Z"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="square"
+        strokeWidth="1.5"
+      />
+    </svg>
+  );
+}
+
+function PortEmptyIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      <path
+        d="M5.5 10.5a3.5 3.5 0 0 1 0-5M10.5 5.5a3.5 3.5 0 0 1 0 5M7 9.25 9 6.75"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="1.2"
+      />
+    </svg>
+  );
+}
+
 function HypervisorSessionOperationsCockpit() {
   const [projection, setProjection] = useState(
     HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE,
@@ -560,51 +705,54 @@ function HypervisorSessionOperationsCockpit() {
 
   const startupSteps = [
     {
-      label: "Started Hypervisor session",
-      detail: projection.provider_candidate_ref,
+      label: "Started remote virtual machine",
+      detail: "IOI Cloud (US01)",
     },
     {
       label: "Initialized repository",
-      detail: projection.project_ref,
+      detail: "",
     },
     {
       label: "Loaded secrets",
-      detail: `${projection.authority_scope_refs.length} scoped capabilities`,
+      detail: "1 project secret",
     },
     {
       label: "Loaded automations",
-      detail: "internal-docs/implementation/refine-architecture.md",
+      detail: ".ioi/automations.yaml",
     },
     {
-      label: "Started adapter runtime",
-      detail: projection.selected_adapter_ref,
+      label: "Started dev container",
+      detail: ".devcontainer/devcontainer.json",
     },
   ];
 
   const changedFileGroups = [
     {
-      folder: ".hypervisor/",
-      count: projection.latest_receipt_refs.length,
+      folder: ".devcontainer/",
+      count: 2,
       files: [
         {
-          name: "session.capsule.json",
+          name: "devcontainer.json",
           delta: "+20",
+          status: "U",
           receipt_ref: projection.latest_receipt_refs[0] ?? projection.access_lease_ref,
         },
         {
-          name: "authority-leases.json",
-          delta: "+8",
+          name: "Dockerfile",
+          delta: "+5",
+          status: "U",
           receipt_ref: projection.latest_receipt_refs[1] ?? projection.log_lease_ref,
         },
       ],
     },
     {
-      folder: "internal-docs/implementation/",
+      folder: "docs/",
       count: 1,
       files: [
         {
-          name: "refine-architecture.md",
+          name: "parent-harness-evidence-boundary.md",
           delta: "+138",
+          status: "U",
           receipt_ref: projection.restore_ref,
         },
       ],
@@ -633,25 +781,25 @@ function HypervisorSessionOperationsCockpit() {
           >
             <span className="hypervisor-session-operations__status-dot" />
             <strong>main</strong>
-            <span aria-hidden="true">⌄</span>
+            <span className="hypervisor-session-operations__inline-icon" aria-hidden="true">
+              <ChevronDownIcon />
+            </span>
           </button>
           <div className="hypervisor-session-operations__top-actions">
             <button
               type="button"
+              aria-label={`Open ${projection.selected_adapter_ref.replace(/^workbench-adapter:/, "")}`}
               data-session-adapter-ref={projection.selected_adapter_ref}
-            >
-              <span aria-hidden="true">⌘</span>
-              <strong>{projection.selected_adapter_ref.replace(/^workbench-adapter:/, "")}</strong>
-              <span aria-hidden="true">⌄</span>
-            </button>
-            <button
-              type="button"
-              aria-label="Request session access lease"
               data-session-operation-kind="request_access_lease"
               data-session-operation-session={projection.selected_session_ref}
               onClick={() => handleSessionOperation("request_access_lease")}
             >
-              ...
+              <span className="hypervisor-session-operations__editor-logo" aria-hidden="true">
+                <CompactEditorIcon />
+              </span>
+              <span className="hypervisor-session-operations__inline-icon" aria-hidden="true">
+                <ChevronDownIcon />
+              </span>
             </button>
           </div>
         </header>
@@ -679,6 +827,9 @@ function HypervisorSessionOperationsCockpit() {
                 aria-selected={mode.mode_id === "code"}
                 data-session-workspace-mode={mode.mode_id}
               >
+                <span className="hypervisor-session-operations__tab-icon" aria-hidden="true">
+                  <SessionCodeIcon />
+                </span>
                 <strong>{mode.label}</strong>
               </button>
             ))}
@@ -688,9 +839,13 @@ function HypervisorSessionOperationsCockpit() {
             className="hypervisor-session-operations__session-title"
             data-session-ref={projection.selected_session_ref}
           >
+            <span className="hypervisor-session-operations__tab-icon" aria-hidden="true">
+              <SessionOctagonIcon />
+            </span>
             <strong>{formatSessionDisplayTitle(projection.selected_session_ref)}</strong>
-            <code>{projection.selected_session_ref}</code>
-            <span aria-hidden="true">⌄</span>
+            <span className="hypervisor-session-operations__inline-icon" aria-hidden="true">
+              <ChevronDownIcon />
+            </span>
           </button>
           <div
             className="hypervisor-session-operations__detail-tabs"
@@ -708,12 +863,20 @@ function HypervisorSessionOperationsCockpit() {
                   type="button"
                   role="tab"
                   aria-selected={tab.tab_id === "environment"}
-                  data-session-detail-tab={tab.tab_id}
+                data-session-detail-tab={tab.tab_id}
                 >
+                  <span className="hypervisor-session-operations__detail-status-dot" aria-hidden="true" />
                   <strong>{tab.label}</strong>
                 </button>
               ))}
           </div>
+          <button
+            type="button"
+            className="hypervisor-session-operations__add-panel"
+            aria-label="Open split view"
+          >
+            <AddPanelIcon />
+          </button>
         </div>
 
         <div className="hypervisor-session-operations__body">
@@ -734,7 +897,12 @@ function HypervisorSessionOperationsCockpit() {
               <dl>
                 <div>
                   <dt>Auto-stop after</dt>
-                  <dd>30m of inactivity</dd>
+                  <dd>
+                    30m of inactivity
+                    <span className="hypervisor-session-operations__inline-icon" aria-hidden="true">
+                      <ChevronDownIcon />
+                    </span>
+                  </dd>
                 </div>
                 <div>
                   <dt>Created</dt>
@@ -761,90 +929,118 @@ function HypervisorSessionOperationsCockpit() {
                   <span className="hypervisor-session-operations__check-dot">✓</span>
                   <div>
                     <strong>{step.label}</strong>
-                    <span>{step.detail}</span>
+                    {step.detail ? <span>{step.detail}</span> : null}
                   </div>
                 </li>
               ))}
             </ol>
           </main>
+        </div>
 
-          <aside
-            className="hypervisor-session-operations__right-pane"
-            aria-label="Changes, files, comments, and session inspectors"
-            data-session-change-inspector="changes-files-comments"
-            data-session-change-mode-list={HYPERVISOR_SESSION_CHANGE_INSPECTOR_MODES.map(
-              (mode) => mode.mode_id,
-            ).join(" ")}
-          >
-            <header className="hypervisor-session-operations__right-header">
-              <button
-                type="button"
-                className="hypervisor-session-operations__right-title"
-              >
-                <strong>Changes</strong>
-                <span aria-hidden="true">⌄</span>
-              </button>
-              <div className="hypervisor-session-operations__right-actions">
-                {["Preview", "Graph", "Split"].map((label, index) => (
-                  <button
-                    key={label}
-                    type="button"
-                    aria-pressed={index === 1}
-                    aria-label={`${label} changes inspector`}
-                  >
-                    {index === 0 ? "◉" : index === 1 ? "⎇" : "▣"}
-                  </button>
-                ))}
-              </div>
-            </header>
+        <aside
+          className="hypervisor-session-operations__right-pane"
+          aria-label="Changes, files, comments, and session inspectors"
+          data-session-change-inspector="changes-files-comments"
+          data-session-change-mode-list={HYPERVISOR_SESSION_CHANGE_INSPECTOR_MODES.map(
+            (mode) => mode.mode_id,
+          ).join(" ")}
+        >
+          <header className="hypervisor-session-operations__right-header">
+            <button
+              type="button"
+              className="hypervisor-session-operations__right-title"
+            >
+              <strong>Changes</strong>
+              <span className="hypervisor-session-operations__inline-icon" aria-hidden="true">
+                <ChevronDownIcon />
+              </span>
+            </button>
+            <div className="hypervisor-session-operations__right-actions">
+              {[
+                { label: "Preview", icon: <EyeIcon /> },
+                { label: "Graph", icon: <BranchIcon /> },
+                { label: "Split", icon: <SplitPanelIcon /> },
+              ].map((action, index) => (
+                <button
+                  key={action.label}
+                  type="button"
+                  aria-pressed={index === 1}
+                  aria-label={`${action.label} changes inspector`}
+                >
+                  {action.icon}
+                </button>
+              ))}
+            </div>
+          </header>
 
             <div className="hypervisor-session-operations__change-filter-row">
               <label className="hypervisor-session-operations__search">
                 <span>Search files...</span>
+                <span
+                  className="hypervisor-session-operations__search-icon"
+                  aria-hidden="true"
+                >
+                  <SearchIcon />
+                </span>
                 <input
                   type="search"
                   aria-label="Search changed files"
-                  placeholder="Search files..."
-                />
-              </label>
-              <button type="button" className="hypervisor-session-operations__status-filter">
-                Uncommitted
-                <span aria-hidden="true">⌄</span>
-              </button>
-            </div>
+                placeholder="Search files..."
+              />
+            </label>
+            <button type="button" className="hypervisor-session-operations__status-filter">
+              Uncommitted
+              <span className="hypervisor-session-operations__inline-icon" aria-hidden="true">
+                <ChevronDownIcon />
+              </span>
+            </button>
+          </div>
 
-            <div className="hypervisor-session-operations__change-list">
-              {changedFileGroups.map((group) => (
-                <div key={group.folder} className="hypervisor-session-operations__file-group">
-                  <span className="hypervisor-session-operations__folder">
-                    <span aria-hidden="true">⌄</span>
-                    {group.folder}
-                    <em>{group.count}</em>
+          <div className="hypervisor-session-operations__change-list">
+            {changedFileGroups.map((group) => (
+              <div key={group.folder} className="hypervisor-session-operations__file-group">
+                <span className="hypervisor-session-operations__folder">
+                  <span className="hypervisor-session-operations__inline-icon" aria-hidden="true">
+                    <ChevronDownIcon />
                   </span>
-                  {group.files.map((file) => (
+                  <span className="hypervisor-session-operations__file-icon" aria-hidden="true">
+                    <FolderIcon />
+                  </span>
+                  {group.folder}
+                  <em>{group.count}</em>
+                </span>
+                {group.files.map((file) => (
                   <button
                     type="button"
                     key={`${group.folder}${file.name}`}
                     data-session-changed-file={`${group.folder}${file.name}`}
                     data-session-changed-file-receipt={file.receipt_ref}
                   >
-                    <code>{file.name}</code>
-                    <span>{file.delta}</span>
+                    <span className="hypervisor-session-operations__file-name">
+                      <span className="hypervisor-session-operations__file-icon" aria-hidden="true">
+                        <FileIcon />
+                      </span>
+                      <code>{file.name}</code>
+                    </span>
+                    <span className="hypervisor-session-operations__delta">{file.delta}</span>
+                    <span className="hypervisor-session-operations__file-status">
+                      {file.status}
+                    </span>
                   </button>
-                  ))}
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ))}
+          </div>
 
-            <div className="hypervisor-session-operations__bottom-dock">
-              <div
-                className="hypervisor-session-operations__bottom-tabs"
-                role="tablist"
-                aria-label="Bottom inspectors"
-              >
-                {projection.bottom_inspector_panels
-                  .filter((panel) => panel.panel_id !== "logs")
-                  .map((panel, index) => (
+          <div className="hypervisor-session-operations__bottom-dock">
+            <div
+              className="hypervisor-session-operations__bottom-tabs"
+              role="tablist"
+              aria-label="Bottom inspectors"
+            >
+              {projection.bottom_inspector_panels
+                .filter((panel) => panel.panel_id !== "logs")
+                .map((panel, index) => (
                   <button
                     key={panel.panel_id}
                     type="button"
@@ -853,86 +1049,89 @@ function HypervisorSessionOperationsCockpit() {
                     data-bottom-inspector-panel={panel.panel_id}
                     title={panel.summary}
                   >
-                    {panel.label}
+                    {panel.panel_id === "ports_services"
+                      ? "Ports & Services"
+                      : panel.label}
                   </button>
-                  ))}
+                ))}
+            </div>
+            <div className="hypervisor-session-operations__bottom-content">
+              <div className="hypervisor-session-operations__panel">
+                <div className="hypervisor-session-operations__panel-heading">
+                  <h3>Ports</h3>
+                  <button
+                    type="button"
+                    data-session-service-open-port={projection.ports_services[0]?.service_ref}
+                    onClick={() =>
+                      handleSessionOperation(
+                        "open_port",
+                        projection.ports_services[0]?.service_ref,
+                      )
+                    }
+                  >
+                    + Add port
+                  </button>
+                </div>
+                <div
+                  className="hypervisor-session-operations__empty-state"
+                  data-session-port-services-count={projection.ports_services.length}
+                >
+                  <span aria-hidden="true">
+                    <PortEmptyIcon />
+                  </span>
+                  <p>No open ports</p>
+                </div>
               </div>
-              <div className="hypervisor-session-operations__bottom-content">
-                <div className="hypervisor-session-operations__panel">
-                  <div className="hypervisor-session-operations__panel-heading">
-                    <h3>Ports</h3>
+              <div className="hypervisor-session-operations__panel">
+                <h3>Tasks</h3>
+                {projection.tasks.map((task) => (
+                  <div
+                    key={task.task_ref}
+                    className="hypervisor-session-operations__row"
+                    data-session-task={task.task_ref}
+                  >
+                    <strong>{task.label}</strong>
+                    <span>{task.status}</span>
+                    <em>{task.receipt_ref}</em>
                     <button
                       type="button"
-                      data-session-service-open-port={projection.ports_services[0]?.service_ref}
+                      data-session-task-run={task.task_ref}
+                      onClick={() => handleSessionOperation("run_task", task.task_ref)}
+                    >
+                      Run
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div className="hypervisor-session-operations__panel">
+                <h3>Terminal</h3>
+                {projection.terminal_events.map((event) => (
+                  <div
+                    key={event.event_ref}
+                    className="hypervisor-session-operations__row"
+                    data-session-terminal-event={event.event_ref}
+                  >
+                    <strong>{event.command_summary}</strong>
+                    <span>{event.status}</span>
+                    <em>{event.receipt_ref}</em>
+                    <button
+                      type="button"
+                      data-session-terminal-propose={event.event_ref}
                       onClick={() =>
                         handleSessionOperation(
-                          "open_port",
-                          projection.ports_services[0]?.service_ref,
+                          "propose_terminal_command",
+                          event.event_ref,
                         )
                       }
                     >
-                      + Add port
+                      Review
                     </button>
                   </div>
-                  <div
-                    className="hypervisor-session-operations__empty-state"
-                    data-session-port-services-count={projection.ports_services.length}
-                  >
-                    <span aria-hidden="true">⌁</span>
-                    <p>No open ports</p>
-                  </div>
-                </div>
-                <div className="hypervisor-session-operations__panel">
-                  <h3>Tasks</h3>
-                  {projection.tasks.map((task) => (
-                    <div
-                      key={task.task_ref}
-                      className="hypervisor-session-operations__row"
-                      data-session-task={task.task_ref}
-                    >
-                      <strong>{task.label}</strong>
-                      <span>{task.status}</span>
-                      <em>{task.receipt_ref}</em>
-                      <button
-                        type="button"
-                        data-session-task-run={task.task_ref}
-                        onClick={() => handleSessionOperation("run_task", task.task_ref)}
-                      >
-                        Run
-                      </button>
-                    </div>
-                  ))}
-                </div>
-                <div className="hypervisor-session-operations__panel">
-                  <h3>Terminal</h3>
-                  {projection.terminal_events.map((event) => (
-                    <div
-                      key={event.event_ref}
-                      className="hypervisor-session-operations__row"
-                      data-session-terminal-event={event.event_ref}
-                    >
-                      <strong>{event.command_summary}</strong>
-                      <span>{event.status}</span>
-                      <em>{event.receipt_ref}</em>
-                      <button
-                        type="button"
-                        data-session-terminal-propose={event.event_ref}
-                        onClick={() =>
-                          handleSessionOperation(
-                            "propose_terminal_command",
-                            event.event_ref,
-                          )
-                        }
-                      >
-                        Review
-                      </button>
-                    </div>
-                  ))}
-                </div>
+                ))}
               </div>
             </div>
-          </aside>
-        </div>
+          </div>
+        </aside>
 
       </div>
       {operationProposal ? (

@@ -125,8 +125,20 @@ assert.doesNotMatch(
 
 assert.match(
   source,
-  /function formatSessionDisplayTitle[\s\S]*function formatSessionLifecycleLabel[\s\S]*data-session-reference-page="environment-detail"[\s\S]*data-session-workspace-mode-list=\{HYPERVISOR_SESSION_WORKSPACE_MODES\.map[\s\S]*\.filter\(\s*\(mode\) => mode\.mode_id === "code"[\s\S]*className="hypervisor-session-operations__session-title"[\s\S]*<strong>\{formatSessionDisplayTitle\(projection\.selected_session_ref\)\}<\/strong>[\s\S]*<code>\{projection\.selected_session_ref\}<\/code>[\s\S]*data-session-detail-tab-list=\{projection\.detail_tabs[\s\S]*\.filter\(\(tab\) => tab\.tab_id === "environment"\)[\s\S]*Environment \{formatSessionLifecycleLabel\(projection\.lifecycle_state\)\}/,
-  "Sessions should render the IOI reference environment detail page with a lean Code/title/Environment tab row, human title, raw refs, and lifecycle status",
+  /function SessionCodeIcon[\s\S]*function SessionOctagonIcon[\s\S]*function CompactEditorIcon[\s\S]*function SearchIcon[\s\S]*data-session-reference-page="environment-detail"[\s\S]*data-session-workspace-mode-list=\{HYPERVISOR_SESSION_WORKSPACE_MODES\.map[\s\S]*\.filter\(\s*\(mode\) => mode\.mode_id === "code"[\s\S]*className="hypervisor-session-operations__tab-icon"[\s\S]*<SessionCodeIcon \/>[\s\S]*className="hypervisor-session-operations__session-title"[\s\S]*<SessionOctagonIcon \/>[\s\S]*<strong>\{formatSessionDisplayTitle\(projection\.selected_session_ref\)\}<\/strong>[\s\S]*data-session-detail-tab-list=\{projection\.detail_tabs[\s\S]*\.filter\(\(tab\) => tab\.tab_id === "environment"\)[\s\S]*className="hypervisor-session-operations__detail-status-dot"[\s\S]*Environment \{formatSessionLifecycleLabel\(projection\.lifecycle_state\)\}/,
+  "Sessions should render the IOI reference environment detail page with Code/title/Environment tab icons, status dot, human title, and lifecycle status",
+);
+
+assert.doesNotMatch(
+  source,
+  /aria-label="Request session access lease"[\s\S]*>\s*<span aria-hidden="true">\.\.\.<\/span>/,
+  "Sessions should not keep a separate topbar ellipsis beside the reference editor control",
+);
+
+assert.match(
+  source,
+  /folder: "\.devcontainer\/"[\s\S]*name: "devcontainer\.json"[\s\S]*name: "Dockerfile"[\s\S]*folder: "docs\/"[\s\S]*name: "parent-harness-evidence-boundary\.md"[\s\S]*className="hypervisor-session-operations__search-icon"[\s\S]*<SearchIcon \/>[\s\S]*className="hypervisor-session-operations__file-status"[\s\S]*panel\.panel_id === "ports_services"[\s\S]*\? "Ports & Services"/,
+  "Sessions should mirror the reference changed-file tree shape with search icon, folder rows, file icons, deltas, status pills, and dock label",
 );
 
 assert.doesNotMatch(
@@ -185,14 +197,14 @@ assert.match(
 
 assert.match(
   shellCss,
-  /Phase 0A hard cut: Sessions uses the IOI reference environment detail view[\s\S]*\.hypervisor-session-detail-shell\s*\{[\s\S]*height: 100%;[\s\S]*overflow: hidden;[\s\S]*background: #ffffff;[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__reference-page\s*\{[\s\S]*grid-template-rows: 52px 43px minmax\(0, 1fr\) auto;/,
-  "Sessions should use the IOI-reference environment detail page instead of the stale dashboard grid",
+  /Phase 0A hard cut: Sessions uses the IOI reference environment detail view[\s\S]*\.hypervisor-session-detail-shell\s*\{[\s\S]*height: 100%;[\s\S]*overflow: hidden;[\s\S]*background: #ffffff;[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__reference-page\s*\{[\s\S]*grid-template-columns: minmax\(0, 1fr\) 340px;[\s\S]*grid-template-rows: 48px 48px minmax\(0, 1fr\);/,
+  "Sessions should use the IOI-reference two-column environment detail page instead of the stale dashboard grid",
 );
 
 assert.match(
   shellCss,
-  /\.hypervisor-session-detail-shell \.hypervisor-session-operations__right-pane\s*\{[\s\S]*grid-template-rows: 52px 56px minmax\(0, 1fr\) minmax\(224px, 32vh\);[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__change-filter-row\s*\{[\s\S]*grid-template-columns: minmax\(0, 1fr\) 140px;[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__bottom-dock\s*\{[\s\S]*border-top: 1px solid #e2e2df;/,
-  "Sessions should keep the reference Changes tree and Ports/Tasks/Terminal dock in the right inspector",
+  /\.hypervisor-session-detail-shell \.hypervisor-session-operations__right-pane\s*\{[\s\S]*grid-column: 2;[\s\S]*grid-row: 1 \/ -1;[\s\S]*grid-template-rows: 48px 56px minmax\(0, 1fr\) minmax\(224px, 32vh\);[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__change-filter-row\s*\{[\s\S]*grid-template-columns: minmax\(0, 1fr\) 140px;[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__bottom-dock\s*\{[\s\S]*border-top: 1px solid #e2e2df;/,
+  "Sessions should keep the reference full-height Changes tree and Ports/Tasks/Terminal dock in the right inspector",
 );
 
 assert.match(
@@ -203,8 +215,8 @@ assert.match(
 
 assert.match(
   shellCss,
-  /\.hypervisor-session-detail-shell \.hypervisor-session-operations__session-title code\s*\{[\s\S]*text-overflow: ellipsis;[\s\S]*white-space: nowrap;/,
-  "Sessions should keep raw refs visible as compact session-title metadata",
+  /\.hypervisor-session-detail-shell \.hypervisor-session-operations__inline-icon,[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__tab-icon,[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__editor-logo,[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__file-icon[\s\S]*\.hypervisor-session-detail-shell \.hypervisor-session-operations__search-icon/,
+  "Sessions should use first-class reference icons for tabs, editor controls, chevrons, files, and inspector actions",
 );
 
 assert.match(
