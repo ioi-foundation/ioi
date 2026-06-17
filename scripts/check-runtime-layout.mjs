@@ -66,6 +66,9 @@ const hypervisorModelMountInventoryModelSource = read(
 const hypervisorAutomationCompositorModelSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorAutomationCompositorModel.ts",
 );
+const hypervisorModelInfrastructureModelSource = read(
+  "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorModelInfrastructureModel.ts",
+);
 const hypervisorShellWindowSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/index.tsx",
 );
@@ -1190,6 +1193,69 @@ assert(
     "docs/architecture/components/daemon-runtime/api.md",
   ],
   "Hypervisor Automations should hydrate workflow templates, run recipes, compositor graphs, action proposals, Agentgres operation refs, state roots, and receipts through the daemon/public runtime route with fixture fallback.",
+);
+assert(
+  "hypervisor-model-infrastructure-live-projection",
+  hypervisorModelInfrastructureModelSource.includes(
+    "HYPERVISOR_MODEL_INFRASTRUCTURE_PROJECTION_PATH",
+  ) &&
+    hypervisorModelInfrastructureModelSource.includes(
+      "normalizeHypervisorModelInfrastructureProjection",
+    ) &&
+    hypervisorModelInfrastructureModelSource.includes(
+      "loadHypervisorModelInfrastructureProjection",
+    ) &&
+    hypervisorModelInfrastructureModelSource.includes(
+      "buildHypervisorModelInfrastructureProjectionFromInventory",
+    ) &&
+    hypervisorModelInfrastructureModelSource.includes(
+      "ioi.hypervisor.model_infrastructure_projection.v1",
+    ) &&
+    hypervisorModelInfrastructureModelSource.includes("model_route_refs") &&
+    hypervisorModelInfrastructureModelSource.includes("endpoint_refs") &&
+    hypervisorModelInfrastructureModelSource.includes(
+      "loaded_instance_refs",
+    ) &&
+    hypervisorModelInfrastructureModelSource.includes(
+      "model_weight_custody_policy_refs",
+    ) &&
+    hypervisorModelInfrastructureModelSource.includes("session_bindings") &&
+    hypervisorModelInfrastructureModelSource.includes(
+      "authority_scope_refs",
+    ) &&
+    hypervisorShellContentSource.includes(
+      "HypervisorModelInfrastructureSurface",
+    ) &&
+    hypervisorShellContentSource.includes(
+      "loadHypervisorModelInfrastructureProjection",
+    ) &&
+    hypervisorShellContentSource.includes(
+      "data-model-infrastructure-source",
+    ) &&
+    hypervisorShellContentSource.includes(
+      "data-model-mounting-ui-boundary",
+    ) &&
+    publicRuntimeRoutesSource.includes(
+      "/v1/hypervisor/model-infrastructure",
+    ) &&
+    publicRuntimeRoutesSource.includes(
+      "runtime.lifecycle_projection.hypervisor_model_infrastructure",
+    ) &&
+    publicRuntimeRoutesSource.includes("projectRuntimeLifecycle") &&
+    publicRuntimeRoutesTestSource.includes(
+      "dispatch Hypervisor model infrastructure through lifecycle projection",
+    ) &&
+    daemonRuntimeApiDoc.includes("GET /v1/hypervisor/model-infrastructure") &&
+    daemonRuntimeApiDoc.includes(
+      "runtime.lifecycle_projection.hypervisor_model_infrastructure",
+    ),
+  [
+    "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorModelInfrastructureModel.ts",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorShellContent.tsx",
+    "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
+    "docs/architecture/components/daemon-runtime/api.md",
+  ],
+  "Hypervisor Models should hydrate model routes, provider endpoints, loaded instances, session bindings, custody policy refs, authority scopes, and receipts through the daemon/public runtime route with fixture fallback.",
 );
 assert(
   "hypervisor-provider-placement-live-projection",

@@ -34,6 +34,10 @@ import {
   loadHypervisorAutomationCompositorProjection,
 } from "../hypervisorAutomationCompositorModel";
 import { HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE } from "../harnessAdapterModel";
+import {
+  HYPERVISOR_MODEL_INFRASTRUCTURE_PROJECTION_FIXTURE,
+  loadHypervisorModelInfrastructureProjection,
+} from "../hypervisorModelInfrastructureModel";
 import { HYPERVISOR_PRIVACY_POSTURE_PROJECTION_FIXTURE } from "../hypervisorPrivacyPostureModel";
 import {
   HYPERVISOR_PROJECT_STATE_PROJECTION_FIXTURE,
@@ -894,6 +898,153 @@ function HypervisorReceiptEvidenceSurface() {
   );
 }
 
+function HypervisorModelInfrastructureSurface({
+  currentProjectId,
+  children,
+}: {
+  currentProjectId: string;
+  children: ReactNode;
+}) {
+  const [projection, setProjection] = useState(
+    HYPERVISOR_MODEL_INFRASTRUCTURE_PROJECTION_FIXTURE,
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    loadHypervisorModelInfrastructureProjection({
+      projectId: currentProjectId,
+      sessionRef: projection.selected_session_ref,
+    })
+      .then((nextProjection) => {
+        if (!cancelled) {
+          setProjection(nextProjection);
+        }
+      })
+      .catch((error) => {
+        console.warn(
+          "[Hypervisor][Models] infrastructure projection unavailable",
+          error,
+        );
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentProjectId, projection.selected_session_ref]);
+
+  return (
+    <section
+      className="hypervisor-model-infrastructure"
+      aria-label="Model infrastructure projection"
+      data-hypervisor-model-infrastructure={projection.projection_id}
+      data-model-infrastructure-source={projection.source}
+      data-model-infrastructure-inventory-source={projection.inventory_source}
+      data-runtime-truth-source={projection.runtimeTruthSource}
+    >
+      <div className="hypervisor-model-infrastructure__header">
+        <span>Models</span>
+        <h2>Model routes, providers, custody lanes, and session bindings.</h2>
+        <p>{projection.infrastructure_boundary_invariant}</p>
+      </div>
+
+      <div
+        className="hypervisor-model-infrastructure__summary"
+        aria-label="Model infrastructure summary"
+      >
+        <div>
+          <span>Routes</span>
+          <strong>{projection.model_route_refs.length}</strong>
+        </div>
+        <div>
+          <span>Endpoints</span>
+          <strong>{projection.endpoint_refs.length}</strong>
+        </div>
+        <div>
+          <span>Instances</span>
+          <strong>{projection.loaded_instance_refs.length}</strong>
+        </div>
+        <div>
+          <span>Receipts</span>
+          <strong>{projection.latest_receipt_refs.length}</strong>
+        </div>
+      </div>
+
+      <div className="hypervisor-model-infrastructure__grid">
+        <section aria-label="Model route bindings">
+          <h3>Routes</h3>
+          {projection.routes.map((route) => (
+            <article
+              key={route.route_ref}
+              className="hypervisor-model-infrastructure__card"
+              data-model-route-ref={route.route_ref}
+              data-model-route-status={route.status}
+              data-model-weight-custody-lane={route.model_weight_custody_lane}
+            >
+              <div>
+                <span>{route.role}</span>
+                <h4>{route.route_ref}</h4>
+                <p>{route.privacy_posture}</p>
+              </div>
+              <dl>
+                <div>
+                  <dt>Provider</dt>
+                  <dd>{route.provider_ref}</dd>
+                </div>
+                <div>
+                  <dt>Endpoints</dt>
+                  <dd>{route.endpoint_refs.join(", ")}</dd>
+                </div>
+                <div>
+                  <dt>Scopes</dt>
+                  <dd>{route.authority_scope_refs.join(", ")}</dd>
+                </div>
+              </dl>
+            </article>
+          ))}
+        </section>
+
+        <section aria-label="Session model bindings">
+          <h3>Session Bindings</h3>
+          {projection.session_bindings.map((binding) => (
+            <article
+              key={binding.session_ref}
+              className="hypervisor-model-infrastructure__card"
+              data-model-session-binding={binding.session_ref}
+              data-model-session-route={binding.selected_model_route_ref}
+            >
+              <div>
+                <span>{binding.policy_ref}</span>
+                <h4>{binding.session_ref}</h4>
+                <p>{binding.custody_profile_ref}</p>
+              </div>
+              <dl>
+                <div>
+                  <dt>Endpoint</dt>
+                  <dd>{binding.selected_endpoint_ref}</dd>
+                </div>
+                <div>
+                  <dt>Instance</dt>
+                  <dd>{binding.selected_instance_ref}</dd>
+                </div>
+                <div>
+                  <dt>Receipt</dt>
+                  <dd>{binding.receipt_ref}</dd>
+                </div>
+              </dl>
+            </article>
+          ))}
+        </section>
+      </div>
+
+      <div
+        className="hypervisor-model-infrastructure__mounts"
+        data-model-mounting-ui-boundary="configuration-client"
+      >
+        {children}
+      </div>
+    </section>
+  );
+}
+
 function HypervisorPrivacyPostureSurface() {
   const projection = HYPERVISOR_PRIVACY_POSTURE_PROJECTION_FIXTURE;
   return (
@@ -1264,7 +1415,11 @@ export function HypervisorShellContent({
                   ) : null}
 
                   {activeView === "models" ? (
-                    <MissionControlMountsView />
+                    <HypervisorModelInfrastructureSurface
+                      currentProjectId={currentProject.id}
+                    >
+                      <MissionControlMountsView />
+                    </HypervisorModelInfrastructureSurface>
                   ) : null}
 
                   {activeView === "privacy" ? (

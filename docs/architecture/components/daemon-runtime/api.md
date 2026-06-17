@@ -273,6 +273,71 @@ creation, and package promotion still require daemon admission, wallet/network
 authority where relevant, and Agentgres operation linkage.
 
 ```http
+GET /v1/hypervisor/model-infrastructure
+```
+
+`GET /v1/hypervisor/model-infrastructure` dispatches through the daemon runtime
+lifecycle projection boundary with:
+
+```text
+operation_kind = runtime.lifecycle_projection.hypervisor_model_infrastructure
+projection_kind = hypervisor_model_infrastructure
+```
+
+Optional query params:
+
+```text
+project_id
+session_ref
+```
+
+The response is an `ioi.hypervisor.model_infrastructure_projection.v1`
+projection:
+
+```json
+{
+  "schema_version": "ioi.hypervisor.model_infrastructure_projection.v1",
+  "projection_id": "model-infrastructure:...",
+  "source": "daemon-model-infrastructure-projection",
+  "selected_project_id": "project:...",
+  "selected_session_ref": "session:...",
+  "runtimeTruthSource": "daemon-runtime",
+  "infrastructure_boundary_invariant": "Models renders daemon-owned model routes, provider endpoints, loaded instances, custody policy, authority scopes, and receipts.",
+  "inventory_source": "daemon-model-mount-inventory",
+  "checked_at": "2026-06-17T00:00:00.000Z",
+  "model_route_refs": ["model-route:..."],
+  "endpoint_refs": ["model-endpoint:..."],
+  "loaded_instance_refs": ["model-instance:..."],
+  "provider_refs": ["provider:..."],
+  "routes": [
+    {
+      "route_ref": "model-route:...",
+      "role": "default",
+      "status": "active",
+      "privacy_posture": "local",
+      "provider_ref": "provider:...",
+      "endpoint_refs": ["model-endpoint:..."],
+      "loaded_instance_refs": ["model-instance:..."],
+      "model_weight_custody_lane": "local_or_open_weight",
+      "authority_scope_refs": ["scope:model.invoke"],
+      "receipt_refs": ["receipt://..."]
+    }
+  ],
+  "providers": [],
+  "session_bindings": [],
+  "model_weight_custody_policy_refs": ["model-weight-custody:..."],
+  "latest_receipt_refs": ["receipt://..."]
+}
+```
+
+Model infrastructure projections power the Hypervisor Models surface and
+session setup summaries. The model-mounting UI can configure providers,
+downloads, tokens, routes, and benchmarks, but it remains a configuration
+client. Model invocation, route selection, credential use, provider fallback,
+weight-custody admission, and receipt creation remain daemon-mediated and
+Agentgres-linked.
+
+```http
 GET /v1/hypervisor/provider-placement
 ```
 

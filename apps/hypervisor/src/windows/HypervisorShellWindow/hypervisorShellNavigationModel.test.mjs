@@ -58,6 +58,10 @@ const automationCompositorModel = readFileSync(
   new URL("./hypervisorAutomationCompositorModel.ts", import.meta.url),
   "utf8",
 );
+const modelInfrastructureModel = readFileSync(
+  new URL("./hypervisorModelInfrastructureModel.ts", import.meta.url),
+  "utf8",
+);
 const receiptEvidenceModel = readFileSync(
   new URL("./hypervisorReceiptEvidenceModel.ts", import.meta.url),
   "utf8",
@@ -370,6 +374,33 @@ test("Automations surface renders workflow compositor projection before editor",
   assert.match(shellContent, /data-workflow-run-ref/);
   assert.match(shellContent, /data-workflow-compositor-editor-boundary/);
   assert.match(shellContent, /activeView === "automations"/);
+});
+
+test("Models surface renders model infrastructure projection before mount UI", () => {
+  assert.match(modelInfrastructureModel, /HypervisorModelInfrastructureProjection/);
+  assert.match(modelInfrastructureModel, /HYPERVISOR_MODEL_INFRASTRUCTURE_PROJECTION_FIXTURE/);
+  assert.match(modelInfrastructureModel, /HYPERVISOR_MODEL_INFRASTRUCTURE_PROJECTION_PATH/);
+  assert.match(modelInfrastructureModel, /buildHypervisorModelInfrastructureProjectionFromInventory/);
+  assert.match(modelInfrastructureModel, /loadHypervisorModelInfrastructureProjection/);
+  assert.match(modelInfrastructureModel, /normalizeHypervisorModelInfrastructureProjection/);
+  assert.match(modelInfrastructureModel, /model_route_refs/);
+  assert.match(modelInfrastructureModel, /endpoint_refs/);
+  assert.match(modelInfrastructureModel, /loaded_instance_refs/);
+  assert.match(modelInfrastructureModel, /session_bindings/);
+  assert.match(modelInfrastructureModel, /model_weight_custody_policy_refs/);
+  assert.match(modelInfrastructureModel, /authority_scope_refs/);
+  assert.match(modelInfrastructureModel, /Models is an infrastructure projection/);
+  assert.match(modelInfrastructureModel, /Hypervisor Daemon admits execution/);
+  assert.match(modelInfrastructureModel, /Agentgres records model-route truth/);
+  assert.match(shellContent, /HypervisorModelInfrastructureSurface/);
+  assert.match(shellContent, /loadHypervisorModelInfrastructureProjection/);
+  assert.match(shellContent, /\[Hypervisor\]\[Models\] infrastructure projection unavailable/);
+  assert.match(shellContent, /data-hypervisor-model-infrastructure/);
+  assert.match(shellContent, /data-model-infrastructure-source/);
+  assert.match(shellContent, /data-model-route-ref/);
+  assert.match(shellContent, /data-model-session-binding/);
+  assert.match(shellContent, /data-model-mounting-ui-boundary/);
+  assert.match(shellContent, /activeView === "models"/);
 });
 
 test("Providers and Environments surfaces are direct integrations, not Fleet placeholders", () => {

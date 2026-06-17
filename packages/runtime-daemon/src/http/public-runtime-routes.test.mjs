@@ -487,6 +487,120 @@ test("public runtime routes dispatch Hypervisor automation compositor through li
   ]);
 });
 
+test("public runtime routes dispatch Hypervisor model infrastructure through lifecycle projection", async () => {
+  const { handleRequest } = routeHarness();
+  const response = responseRecorder();
+  const calls = [];
+  const modelInfrastructureProjection = {
+    schema_version: "ioi.hypervisor.model_infrastructure_projection.v1",
+    projection_id: "model-infrastructure:daemon/test",
+    source: "daemon-model-infrastructure-projection",
+    selected_project_id: "project:ioi",
+    selected_session_ref: "session:ioi",
+    runtimeTruthSource: "daemon-runtime",
+    infrastructure_boundary_invariant:
+      "Models renders daemon model-route projections; daemon admits execution; Agentgres records truth.",
+    inventory_source: "daemon-model-mount-inventory",
+    checked_at: "2026-06-17T00:00:00.000Z",
+    model_route_refs: ["model-route:daemon/default"],
+    endpoint_refs: ["model-endpoint:daemon/default"],
+    loaded_instance_refs: ["model-instance:daemon/default"],
+    provider_refs: ["provider:daemon-local"],
+    routes: [
+      {
+        route_ref: "model-route:daemon/default",
+        role: "default",
+        status: "active",
+        privacy_posture: "local",
+        provider_ref: "provider:daemon-local",
+        endpoint_refs: ["model-endpoint:daemon/default"],
+        loaded_instance_refs: ["model-instance:daemon/default"],
+        model_weight_custody_lane: "local_or_open_weight",
+        authority_scope_refs: ["scope:model.invoke"],
+        receipt_refs: ["receipt://model/daemon"],
+      },
+    ],
+    providers: [
+      {
+        provider_ref: "provider:daemon-local",
+        label: "Daemon local provider",
+        provider_kind: "local",
+        privacy_posture: "local",
+        credential_scope_refs: ["scope:secret.use"],
+        receipt_ref: "receipt://provider/daemon-local",
+      },
+    ],
+    session_bindings: [
+      {
+        session_ref: "session:ioi",
+        selected_model_route_ref: "model-route:daemon/default",
+        selected_endpoint_ref: "model-endpoint:daemon/default",
+        selected_instance_ref: "model-instance:daemon/default",
+        custody_profile_ref: "custody-profile:model/local",
+        policy_ref: "policy:model-route/session-default",
+        receipt_ref: "receipt://model/session",
+      },
+    ],
+    model_weight_custody_policy_refs: [
+      "model-weight-custody:local_or_open_weight",
+    ],
+    latest_receipt_refs: ["receipt://model/session"],
+  };
+  const contextPolicyCore = {
+    projectRuntimeLifecycle(request) {
+      calls.push({ method: "projectRuntimeLifecycle", request });
+      return {
+        projection: modelInfrastructureProjection,
+        record: {
+          operation_kind:
+            "runtime.lifecycle_projection.hypervisor_model_infrastructure",
+          projection_kind: "hypervisor_model_infrastructure",
+          projection: modelInfrastructureProjection,
+        },
+      };
+    },
+  };
+  const store = {
+    defaultCwd: "/workspace",
+    homeDir: "/home/operator",
+    schemaVersion: "ioi.agentgres.runtime.v0",
+    stateDir: "/state",
+    projectRuntimeLifecycleProjection: retiredRouteWrapper,
+  };
+
+  await handleRequest({
+    request: request({
+      url: "/v1/hypervisor/model-infrastructure?project_id=project:ioi&session_ref=session:ioi",
+    }),
+    response,
+    store,
+    contextPolicyCore,
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(JSON.parse(response.body), modelInfrastructureProjection);
+  assert.deepEqual(calls, [
+    {
+      method: "projectRuntimeLifecycle",
+      request: {
+        operation: "hypervisor_model_infrastructure_projection",
+        operation_kind:
+          "runtime.lifecycle_projection.hypervisor_model_infrastructure",
+        projection_kind: "hypervisor_model_infrastructure",
+        base_url: "http://daemon.test",
+        workspace_root: "/workspace",
+        state_dir: "/state",
+        home_dir: "/home/operator",
+        runtime_schema_version: "ioi.agentgres.runtime.v0",
+        project_id: "project:ioi",
+        session_ref: "session:ioi",
+        source:
+          "public_runtime_routes./v1/hypervisor/model-infrastructure",
+      },
+    },
+  ]);
+});
+
 test("public runtime routes dispatch Hypervisor provider placement through lifecycle projection", async () => {
   const { handleRequest } = routeHarness();
   const response = responseRecorder();
