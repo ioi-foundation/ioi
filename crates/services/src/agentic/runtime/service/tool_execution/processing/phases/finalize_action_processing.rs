@@ -1741,8 +1741,12 @@ fn select_manifest_script_recovery_candidate(
             {
                 score += 10;
             }
-            if goal_lc.contains("desktop") && name_lc == "dev:desktop" {
-                score += 8;
+            if (goal_lc.contains("desktop")
+                || goal_lc.contains("app")
+                || goal_lc.contains("launch"))
+                && name_lc == "dev:hypervisor-app"
+            {
+                score += 14;
             }
             if goal_lc.contains("launch")
                 && (name_lc.contains("start")

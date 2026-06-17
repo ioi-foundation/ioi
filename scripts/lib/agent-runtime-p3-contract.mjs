@@ -543,7 +543,7 @@ export const RUNTIME_SCORECARD_DIMENSIONS = Object.freeze([
   ["Dry-run", "High-impact side effects are previewed when dry-run support exists."],
   ["Stop", "Terminal state includes explicit stop reason and evidence sufficiency status."],
   ["Handoff", "Receiving agent or operator can continue without reconstructing objective, state, blockers, or evidence."],
-  ["Autopilot GUI", "`AUTOPILOT_LOCAL_GPU_DEV=1 npm run dev:desktop` launches retained desktop validation."],
+  ["Hypervisor App", "`AUTOPILOT_LOCAL_GPU_DEV=1 npm run dev:hypervisor-app` launches retained Hypervisor App validation."],
   ["Chat UX", "Final answer is primary; Markdown, Mermaid, collapsible work, explored files, and source pills render cleanly."],
   ["GUI/runtime consistency", "Visible chat output matches trace, selected sources, receipts, task state, and stop reason."],
   ["Learning", "Promoted skills/playbooks/model-route changes have validation, rollback, and policy evidence."],

@@ -19,7 +19,7 @@ export AUTOPILOT_LOCAL_GPU_DEV=1
 export AUTOPILOT_RESET_DATA_ON_BOOT="${AUTOPILOT_RESET_DATA_ON_BOOT:-1}"
 
 if [[ "$MODE" == "wayland" ]]; then
-  npm run dev:desktop:wayland -- "${EXTRA_ARGS[@]}"
+  npm run dev:hypervisor-app:wayland -- "${EXTRA_ARGS[@]}"
 else
-  npm run dev:desktop -- "${EXTRA_ARGS[@]}"
+  npm run dev:hypervisor-app -- "${EXTRA_ARGS[@]}"
 fi

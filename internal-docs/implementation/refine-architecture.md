@@ -810,7 +810,7 @@ Current implementation cut:
 
 0A.1C is implemented for active app paths and remains a live regression guard:
   apps/hypervisor/src-tauri is absent from the live app path
-  apps/hypervisor/scripts/dev-desktop.sh is deleted; npm run dev:desktop
+  apps/hypervisor/scripts/dev-desktop.sh is deleted; npm run dev:hypervisor-app
     launches the packaged Workbench adapter host, not a Tauri shell
   internal-docs/legacy/autopilot-tauri-src is deleted from the active tree;
     git history is the historical extraction inventory

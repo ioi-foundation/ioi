@@ -15,6 +15,7 @@ pub mod consensus;
 pub mod events;
 /// Generated runtime action schema contract shared with Hypervisor Workbench.
 pub mod generated {
+    /// Generated runtime action schema constants.
     pub mod runtime_action_schema;
 }
 /// Data structures for guardianized signing, receipts, and attestation evidence.

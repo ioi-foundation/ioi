@@ -44,6 +44,9 @@ const packageScriptNames = Object.keys(packageJson.scripts ?? {});
 const retiredAutopilotPackageScripts = packageScriptNames.filter((scriptName) =>
   /^(?:goal|validate|test):autopilot/.test(scriptName),
 );
+const retiredDesktopLaunchScripts = packageScriptNames.filter((scriptName) =>
+  /^(?:dev|probe|dryrun):desktop(?::|$)/.test(scriptName),
+);
 const activeHypervisorPackageScriptValues = [
   "validate:hypervisor-app-harness",
   "validate:hypervisor-app-harness:run",
@@ -277,6 +280,14 @@ assert(
     legacyTauriArchive,
   ],
   "Active Tauri Rust/launchers, root ide/, packages/agent-ide, old AutopilotShellWindow, and legacy Tauri archive paths must stay retired from active app paths.",
+);
+assert(
+  "hypervisor-app-launcher-names",
+  Boolean(packageJson.scripts?.["dev:hypervisor-app"]) &&
+    Boolean(packageJson.scripts?.["dev:hypervisor-app:wayland"]) &&
+    retiredDesktopLaunchScripts.length === 0,
+  ["package.json", retiredDesktopLaunchScripts],
+  "Active launch/probe scripts must use Hypervisor App naming; retired dev/probe/dryrun:desktop script keys must not return.",
 );
 assert(
   "desktop-probes-no-retired-tauri-workspace",

@@ -227,7 +227,7 @@ npm run typecheck
 Run the local desktop surface:
 
 ```bash
-npm run dev:desktop
+npm run dev:hypervisor-app
 ```
 
 Build and test the SDK:

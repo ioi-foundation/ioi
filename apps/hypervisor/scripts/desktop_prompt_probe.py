@@ -2,7 +2,7 @@
 """Drive the local Hypervisor client with real prompts and retain receipts.
 
 This probe is intentionally lightweight:
-- it reuses a running `npm run dev:desktop` session
+- it reuses a running `npm run dev:hypervisor-app` session
 - it submits prompts through the real ChatRuntime window with xdotool/wmctrl
 - it polls the local desktop profile sqlite store for the latest task state
 - it saves a screenshot plus a JSON receipt bundle per prompt
@@ -112,7 +112,7 @@ def find_window(window_pattern: str) -> WindowGeometry:
     ]
     if not ids:
         raise RuntimeError(
-            "Could not find a Hypervisor client window. Start `npm run dev:desktop` first."
+            "Could not find a Hypervisor client window. Start `npm run dev:hypervisor-app` first."
         )
 
     window_id = ids[-1]

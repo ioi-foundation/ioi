@@ -70,16 +70,16 @@ npm install
 # Run the current Workbench editor host in development.
 # This also starts a supervised IOI daemon sidecar and projects discovered
 # local LM Studio/Ollama model artifacts into Models.
-npm run dev:desktop
+npm run dev:hypervisor-app
 
 # Validate the direct Workspace shell and retain a GUI receipt bundle
-npm run probe:desktop:workspace
+npm run probe:hypervisor-app:workspace
 
 # Build the Hypervisor Workbench workflow-composer webview bundle
 npm run build:hypervisor-workbench-composer
 ```
 
-`npm run dev:desktop` currently launches the packaged Electron/VS Code
+`npm run dev:hypervisor-app` currently launches the packaged Electron/VS Code
 Workbench adapter host through
 `scripts/launch-hypervisor-workbench-adapter-host.mjs`. The launcher role is
 editor-host launch, not Hypervisor product identity. If `IOI_DAEMON_ENDPOINT`
@@ -134,7 +134,7 @@ packages/
 - All consequential actions resolve through daemon/domain APIs.
 
 ### Validation
-- `npm run dev:desktop` launches the current packaged editor host with a
+- `npm run dev:hypervisor-app` launches the current packaged editor host with a
   supervised daemon sidecar by default.
 - GUI probes and goal scripts should target Hypervisor App surfaces and may use
   the packaged editor host as one Workbench adapter target while retaining

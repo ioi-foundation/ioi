@@ -13,5 +13,5 @@ npm run dev:web
 Run the packaged Workbench adapter host:
 
 ```bash
-npm run dev:desktop
+npm run dev:hypervisor-app
 ```

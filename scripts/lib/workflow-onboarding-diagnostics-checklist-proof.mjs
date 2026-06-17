@@ -87,7 +87,7 @@ const fixturePanel = buildWorkflowOnboardingDiagnosticsChecklist({
       requirement: "required",
       command: "node packages/runtime-daemon/src/index.mjs --version",
       detected: false,
-      remediation: "Start the daemon from Agent Studio or npm run dev:desktop.",
+      remediation: "Start the daemon from Agent Studio or npm run dev:hypervisor-app.",
       policyRef: "policy:onboarding.runtime_daemon.required",
     },
     {

@@ -42,6 +42,10 @@ function rustArray(name, values) {
   return `pub const ${name}: &[&str] = &[\n${values.map((value) => `    ${JSON.stringify(value)},`).join("\n")}\n];`;
 }
 
+function documentedRustArray(name, values, doc) {
+  return `/// ${doc}\n${rustArray(name, values)}`;
+}
+
 const ts = `${tsArray("AGENT_ACTION_KINDS", schema.actionKinds)}
 
 export const AGENT_ACTION_SCHEMA_VERSION = ${JSON.stringify(schema.schemaVersion)} as const;
@@ -53,15 +57,18 @@ ${tsArray("AGENT_ACTION_TERMINAL_KINDS", schema.terminalKinds)}
 ${tsArray("AGENT_ACTION_COMPLETION_VERIFICATION_KINDS", schema.completionVerificationKinds)}
 `;
 
-const rust = `pub const RUNTIME_ACTION_SCHEMA_VERSION: &str = ${JSON.stringify(schema.schemaVersion)};
+const rust = `//! Generated runtime action schema constants shared with Hypervisor Workbench.
 
-${rustArray("RUNTIME_ACTION_KINDS", schema.actionKinds)}
+/// Runtime action schema version shared by Rust and Hypervisor Workbench clients.
+pub const RUNTIME_ACTION_SCHEMA_VERSION: &str = ${JSON.stringify(schema.schemaVersion)};
 
-${rustArray("RUNTIME_ACTION_ENTRY_KINDS", schema.entryKinds)}
+${documentedRustArray("RUNTIME_ACTION_KINDS", schema.actionKinds, "All runtime action kinds accepted by the shared action schema.")}
 
-${rustArray("RUNTIME_ACTION_TERMINAL_KINDS", schema.terminalKinds)}
+${documentedRustArray("RUNTIME_ACTION_ENTRY_KINDS", schema.entryKinds, "Runtime action kinds that can start an action graph.")}
 
-${rustArray("RUNTIME_ACTION_COMPLETION_VERIFICATION_KINDS", schema.completionVerificationKinds)}
+${documentedRustArray("RUNTIME_ACTION_TERMINAL_KINDS", schema.terminalKinds, "Runtime action kinds that terminate an action graph.")}
+
+${documentedRustArray("RUNTIME_ACTION_COMPLETION_VERIFICATION_KINDS", schema.completionVerificationKinds, "Runtime action kinds that can satisfy completion verification.")}
 `;
 
 fs.mkdirSync(path.dirname(tsPath), { recursive: true });

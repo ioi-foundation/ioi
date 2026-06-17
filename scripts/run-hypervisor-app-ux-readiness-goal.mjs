@@ -1060,9 +1060,9 @@ function checkCanonicalControlRoomValidation() {
       "Canonical fork retained-query/control-room harness is not wired yet",
     evidence: {
       required:
-        "Run the retained query pack and control-room artifact checks against the Hypervisor Workbench adapter host, not the retired Tauri dev:desktop shell.",
+        "Run the retained query pack and control-room artifact checks against the Hypervisor Workbench adapter host, not the retired Tauri desktop shell.",
       currentBlocker:
-        "Existing live GUI harness still targets npm run dev:desktop and cannot prove fork-side chat submission, receipt projection, replay, or operator controls.",
+        "Existing live GUI harness still targets the Workbench adapter host and cannot prove fork-side chat submission, receipt projection, replay, or operator controls.",
     },
   };
 }
@@ -1085,7 +1085,11 @@ function checkTauriTargetRetired() {
     ...Object.fromEntries(
       Object.entries(scripts.app).map(([key, value]) => [`app:${key}`, value]),
     ),
-  }).filter(([, value]) => /\btauri\b|dev:desktop|src-tauri/.test(String(value)));
+  }).filter(
+    ([key, value]) =>
+      /dev:desktop/.test(key) ||
+      /\btauri\b|src-tauri/.test(String(value)),
+  );
   const appPackageText = existsSync(appPackagePath)
     ? readFileSync(appPackagePath, "utf8")
     : "";

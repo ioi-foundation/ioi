@@ -7381,12 +7381,12 @@ function preflight() {
     const packageJson = JSON.parse(
       readFileSync(join(repoRoot, "package.json"), "utf8"),
     );
-    hasDesktopScript = Boolean(packageJson.scripts?.["dev:desktop"]);
+    hasDesktopScript = Boolean(packageJson.scripts?.["dev:hypervisor-app"]);
   } catch {
     hasDesktopScript = false;
   }
   if (!hasDesktopScript) {
-    failures.push("package.json is missing dev:desktop script");
+    failures.push("package.json is missing dev:hypervisor-app script");
   }
   for (const command of ["npm", "bash"]) {
     if (!commandExists(command)) failures.push(`${command} not found on PATH`);
@@ -7430,7 +7430,7 @@ async function runSeedIntentRetainedQuery({
 }) {
   closeMatchingWindows(args.windowName);
   await sleep(1_000);
-  const desktop = spawn("npm", ["run", "dev:desktop"], {
+  const desktop = spawn("npm", ["run", "dev:hypervisor-app"], {
     cwd: repoRoot,
     env: {
       ...process.env,
@@ -7583,7 +7583,7 @@ export async function collectPromotionTransitionLiveGuiInteractionProof(
   await sleep(1_000);
 
   const log = [];
-  const desktop = spawn("npm", ["run", "dev:desktop"], {
+  const desktop = spawn("npm", ["run", "dev:hypervisor-app"], {
     cwd: repoRoot,
     env: {
       ...process.env,

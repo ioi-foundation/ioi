@@ -105,7 +105,7 @@ def launch_chat_desktop(
     log_path.parent.mkdir(parents=True, exist_ok=True)
     log_handle = log_path.open("w", encoding="utf-8")
     process = subprocess.Popen(
-        ["npm", "run", "dev:desktop"],
+        ["npm", "run", "dev:hypervisor-app"],
         cwd=str(PROJECT_ROOT),
         env=env,
         stdout=log_handle,

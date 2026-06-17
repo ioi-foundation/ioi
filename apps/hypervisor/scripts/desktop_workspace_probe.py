@@ -2,7 +2,7 @@
 """Launch the real desktop app into Workspace and retain a GUI validation bundle.
 
 This probe exists specifically for the direct Workspace workbench path:
-- launch `npm run dev:desktop` against the Workspace route directly
+- launch `npm run dev:hypervisor-app` against the Workspace route directly
 - wait for the real Hypervisor workbench-adapter host window
 - retain a screenshot, desktop log tail, and capture metadata
 
@@ -174,7 +174,7 @@ def launch_dev_desktop(
     log_path.parent.mkdir(parents=True, exist_ok=True)
     log_handle = log_path.open("w", encoding="utf-8")
     process = subprocess.Popen(
-        ["npm", "run", "dev:desktop"],
+        ["npm", "run", "dev:hypervisor-app"],
         cwd=str(PROJECT_ROOT),
         env=env,
         stdout=log_handle,

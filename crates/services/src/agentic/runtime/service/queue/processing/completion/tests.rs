@@ -331,7 +331,7 @@ fn completes_explicit_chat_reply_from_queue() {
     agent_state.resolved_intent = None;
     let session_id = agent_state.session_id;
     let mut success = true;
-    let mut out = Some("Replied: npm run dev:desktop".to_string());
+    let mut out = Some("Replied: npm run dev:hypervisor-app".to_string());
     let mut err = None;
     let mut completion_summary = None;
     let mut verification_checks = Vec::new();
@@ -341,7 +341,7 @@ fn completes_explicit_chat_reply_from_queue() {
         &mut agent_state,
         &AgentTool::ChatReply {
             message:
-                "In `package.json`, the npm script that launches the desktop app is `dev:desktop`."
+                "In `package.json`, the npm script that launches the desktop app is `dev:hypervisor-app`."
                     .to_string(),
         },
         false,
@@ -362,7 +362,7 @@ fn completes_explicit_chat_reply_from_queue() {
     assert_eq!(out, completion_summary);
     assert!(completion_summary
         .as_deref()
-        .is_some_and(|summary| summary.contains("`dev:desktop`")));
+        .is_some_and(|summary| summary.contains("`dev:hypervisor-app`")));
     assert!(verification_checks
         .iter()
         .any(|check| check == "terminal_chat_reply_ready=true"));
