@@ -75,7 +75,7 @@ import { createRuntimeMcpServeSurface } from "./runtime-mcp-serve-surface.mjs";
 import { createRuntimeRunReadSurface } from "./runtime-run-read-surface.mjs";
 import { createRuntimeLifecycleProjectionApi } from "./runtime-lifecycle-projection-api.mjs";
 import { createRuntimeSkillHookSurface } from "./runtime-skill-hook-surface.mjs";
-import { createRuntimeTaskJobSurface } from "./runtime-task-job-surface.mjs";
+import { createRuntimeTaskJobApi } from "./runtime-task-job-api.mjs";
 import { createRuntimeGovernedImprovementSurface } from "./runtime-governed-improvement-surface.mjs";
 import { createRuntimeWorkerServicePackageSurface } from "./runtime-worker-service-package-surface.mjs";
 import { createRuntimeCteePrivateWorkspaceSurface } from "./runtime-ctee-private-workspace-surface.mjs";
@@ -729,7 +729,7 @@ export class AgentgresRuntimeStateStore {
       contextPolicyCore: this.contextPolicyCore,
       defaultCwd: this.defaultCwd,
     });
-    this.taskJobSurface = createRuntimeTaskJobSurface({
+    this.taskJobApi = createRuntimeTaskJobApi({
       buildRun,
       contextPolicyCore: this.contextPolicyCore,
       ensureProviderAvailable,
@@ -1012,6 +1012,34 @@ export class AgentgresRuntimeStateStore {
 
   projectRuntimeLifecycleProjection(projectionKind, facts = {}) {
     return this.lifecycleProjectionApi.project(this, projectionKind, facts);
+  }
+
+  createRuntimeTask(body = {}) {
+    return this.taskJobApi.createTask(this, body);
+  }
+
+  listRuntimeTasks(options = {}) {
+    return this.taskJobApi.listTasks(this, options);
+  }
+
+  getRuntimeTask(taskId) {
+    return this.taskJobApi.getTask(this, taskId);
+  }
+
+  cancelRuntimeTask(taskId) {
+    return this.taskJobApi.cancelTask(this, taskId);
+  }
+
+  listRuntimeJobs(options = {}) {
+    return this.taskJobApi.listJobs(this, options);
+  }
+
+  getRuntimeJob(jobId) {
+    return this.taskJobApi.getJob(this, jobId);
+  }
+
+  cancelRuntimeJob(jobId) {
+    return this.taskJobApi.cancelJob(this, jobId);
   }
 
   admitRuntimeThreadEventForThread(store, request = {}) {

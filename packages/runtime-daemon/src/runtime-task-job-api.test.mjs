@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createRuntimeTaskJobSurface } from "./runtime-task-job-surface.mjs";
+import { createRuntimeTaskJobApi } from "./runtime-task-job-api.mjs";
 
 function run(id, status, createdAt) {
   return {
@@ -22,7 +22,7 @@ function harness() {
     run("run-b", "completed", "2026-06-04T00:00:02.000Z"),
     run("run-a", "running", "2026-06-04T00:00:01.000Z"),
   ];
-  const surface = createRuntimeTaskJobSurface({
+  const api = createRuntimeTaskJobApi({
     runtimeError({ status, code, message, details }) {
       return Object.assign(new Error(message), { status, code, details });
     },
@@ -39,7 +39,7 @@ function harness() {
       return { id: agentId };
     },
   };
-  return { calls, store, surface };
+  return { calls, store, api };
 }
 
 function plannedTaskJobCancel(request, operationKind) {
@@ -167,7 +167,7 @@ test("runtime task create commits Rust-planned task/job projection", () => {
       return plannedTaskJobCreate(request);
     },
   };
-  const surface = createRuntimeTaskJobSurface({
+  const api = createRuntimeTaskJobApi({
     buildRun({
       agent: buildAgent,
       mode,
@@ -226,7 +226,7 @@ test("runtime task create commits Rust-planned task/job projection", () => {
     },
   };
 
-  const result = surface.createTask(store, {
+  const result = api.createTask(store, {
     agent_id: "agent-one",
     agentId: "legacy-agent",
     prompt: "Do it",
@@ -270,10 +270,10 @@ test("runtime task create commits Rust-planned task/job projection", () => {
 });
 
 test("runtime task create fails closed before agent lookup when Rust planner is missing", () => {
-  const { calls, store, surface } = harness();
+  const { calls, store, api } = harness();
 
   assert.throws(
-    () => surface.createTask(store, { agent_id: "agent-one", prompt: "Do it" }),
+    () => api.createTask(store, { agent_id: "agent-one", prompt: "Do it" }),
     (error) =>
       assertRuntimeTaskJobRustCoreRequired(error, {
         operation: "runtime_task_create",
@@ -298,7 +298,7 @@ test("runtime task create rejects Rust projection mismatches before persistence"
       return planned;
     },
   };
-  const surface = createRuntimeTaskJobSurface({
+  const api = createRuntimeTaskJobApi({
     buildRun() {
       return {
         id: "run-task-create",
@@ -333,7 +333,7 @@ test("runtime task create rejects Rust projection mismatches before persistence"
   };
 
   assert.throws(
-    () => surface.createTask(store, { agent_id: "agent-one", prompt: "Do it" }),
+    () => api.createTask(store, { agent_id: "agent-one", prompt: "Do it" }),
     (error) => {
       assert.equal(error.code, "runtime_task_create_state_update_projection_mismatch");
       assert.equal(error.status, 502);
@@ -356,7 +356,7 @@ test("runtime task cancel commits Rust-planned run cancellation and returns task
       return plannedTaskJobCancel(request, "task.cancel");
     },
   };
-  const surface = createRuntimeTaskJobSurface({ contextPolicyCore });
+  const api = createRuntimeTaskJobApi({ contextPolicyCore });
   const store = {
     nowIso: () => "2026-06-06T05:00:00.000Z",
     getRun(runId) {
@@ -368,7 +368,7 @@ test("runtime task cancel commits Rust-planned run cancellation and returns task
     },
   };
 
-  const result = surface.cancelTask(store, "task_run-a");
+  const result = api.cancelTask(store, "task_run-a");
 
   assert.equal(result.taskId, "task_run-a");
   assert.equal(result.status, "canceled");
@@ -397,7 +397,7 @@ test("runtime job cancel commits Rust-planned run cancellation and returns job p
       return plannedTaskJobCancel(request, "job.cancel");
     },
   };
-  const surface = createRuntimeTaskJobSurface({ contextPolicyCore });
+  const api = createRuntimeTaskJobApi({ contextPolicyCore });
   const store = {
     nowIso: () => "2026-06-06T05:01:00.000Z",
     getRun(runId) {
@@ -409,7 +409,7 @@ test("runtime job cancel commits Rust-planned run cancellation and returns job p
     },
   };
 
-  const result = surface.cancelJob(store, "job_run-b");
+  const result = api.cancelJob(store, "job_run-b");
 
   assert.equal(result.jobId, "job_run-b");
   assert.equal(result.status, "canceled");
@@ -419,10 +419,10 @@ test("runtime job cancel commits Rust-planned run cancellation and returns job p
 });
 
 test("runtime task job cancel fails closed before run lookup when Rust planner is missing", () => {
-  const { calls, store, surface } = harness();
+  const { calls, store, api } = harness();
 
   assert.throws(
-    () => surface.cancelTask(store, "task_run-a"),
+    () => api.cancelTask(store, "task_run-a"),
     (error) =>
       assertRuntimeTaskJobRustCoreRequired(error, {
         operation: "runtime_task_cancel",
@@ -431,7 +431,7 @@ test("runtime task job cancel fails closed before run lookup when Rust planner i
       }),
   );
   assert.throws(
-    () => surface.cancelJob(store, "job_run-b"),
+    () => api.cancelJob(store, "job_run-b"),
     (error) =>
       assertRuntimeTaskJobRustCoreRequired(error, {
         operation: "runtime_job_cancel",
@@ -452,7 +452,7 @@ test("runtime task job cancel rejects Rust projection mismatches before persiste
       return planned;
     },
   };
-  const surface = createRuntimeTaskJobSurface({ contextPolicyCore });
+  const api = createRuntimeTaskJobApi({ contextPolicyCore });
   const store = {
     getRun() {
       return existingRun;
@@ -463,7 +463,7 @@ test("runtime task job cancel rejects Rust projection mismatches before persiste
   };
 
   assert.throws(
-    () => surface.cancelTask(store, "task_run-a"),
+    () => api.cancelTask(store, "task_run-a"),
     (error) => {
       assert.equal(error.code, "runtime_task_job_cancel_state_update_projection_mismatch");
       assert.equal(error.status, 502);
@@ -498,12 +498,12 @@ test("runtime task job read projection calls Rust state-dir projector for list f
       };
     },
   };
-  const surface = createRuntimeTaskJobSurface({ contextPolicyCore });
+  const api = createRuntimeTaskJobApi({ contextPolicyCore });
   const store = {
     stateDir: "/tmp/ioi-runtime-state",
   };
 
-  const result = surface.listTasks(store, {
+  const result = api.listTasks(store, {
     agent_id: "agent-one",
     agentId: "legacy-agent",
     status: "running",
@@ -556,13 +556,13 @@ test("runtime task job read projection returns Rust-selected task and job record
       };
     },
   };
-  const surface = createRuntimeTaskJobSurface({ contextPolicyCore });
+  const api = createRuntimeTaskJobApi({ contextPolicyCore });
   const store = {
     stateDir: "/tmp/ioi-runtime-state",
   };
 
-  const task = surface.getTask(store, "task_run-a");
-  const job = surface.getJob(store, "job_run-b");
+  const task = api.getTask(store, "task_run-a");
+  const job = api.getJob(store, "job_run-b");
 
   assert.equal(task.taskId, "task_run-a");
   assert.equal(job.jobId, "job_run-b");
@@ -581,29 +581,29 @@ test("runtime task job read projection returns Rust-selected task and job record
 });
 
 test("runtime task job read projection fails closed before run lookup when Rust projector is missing", () => {
-  const { calls, store, surface } = harness();
+  const { calls, store, api } = harness();
   const cases = [
     {
       operation: "runtime_task_list",
       operationKind: "task.list",
-      call: () => surface.listTasks(store, { agent_id: "agent-one", status: "running" }),
+      call: () => api.listTasks(store, { agent_id: "agent-one", status: "running" }),
     },
     {
       operation: "runtime_task_get",
       operationKind: "task.get",
       taskId: "task-run-a",
-      call: () => surface.getTask(store, "task-run-a"),
+      call: () => api.getTask(store, "task-run-a"),
     },
     {
       operation: "runtime_job_list",
       operationKind: "job.list",
-      call: () => surface.listJobs(store, { agent_id: "agent-one", status: "completed" }),
+      call: () => api.listJobs(store, { agent_id: "agent-one", status: "completed" }),
     },
     {
       operation: "runtime_job_get",
       operationKind: "job.get",
       jobId: "job-run-b",
-      call: () => surface.getJob(store, "job-run-b"),
+      call: () => api.getJob(store, "job-run-b"),
     },
   ];
 
@@ -631,13 +631,13 @@ test("runtime task job read projection rejects Rust projection mismatches before
       };
     },
   };
-  const surface = createRuntimeTaskJobSurface({ contextPolicyCore });
+  const api = createRuntimeTaskJobApi({ contextPolicyCore });
   const store = {
     stateDir: "/tmp/ioi-runtime-state",
   };
 
   assert.throws(
-    () => surface.getTask(store, "task_run-a"),
+    () => api.getTask(store, "task_run-a"),
     (error) => {
       assert.equal(error.code, "runtime_task_job_projection_mismatch");
       assert.equal(error.status, 502);

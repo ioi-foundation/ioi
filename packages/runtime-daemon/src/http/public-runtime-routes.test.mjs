@@ -1478,95 +1478,86 @@ test("public conversation artifact routes use mounted Rust-owned artifact surfac
   );
 });
 
-test("public runtime task and job routes use task job surface directly", async () => {
+test("public runtime task and job routes use store-owned task job API directly", async () => {
   const { handleRequest } = routeHarness();
   const calls = [];
   const body = { prompt: "plan the cutover" };
-  const surfaceResult = (method, args) => ({
+  const apiResult = (method, args) => ({
     status: "blocked",
     method,
     args,
   });
   const store = {
-    taskJobSurface: {
-      createTask(surfaceStore, requestBody) {
-        calls.push({ method: "createTask", surfaceStore, args: [requestBody] });
-        return surfaceResult("createTask", [requestBody]);
-      },
-      listTasks(surfaceStore, options) {
-        calls.push({ method: "listTasks", surfaceStore, args: [options] });
-        return surfaceResult("listTasks", [options]);
-      },
-      getTask(surfaceStore, taskId) {
-        calls.push({ method: "getTask", surfaceStore, args: [taskId] });
-        return surfaceResult("getTask", [taskId]);
-      },
-      cancelTask(surfaceStore, taskId) {
-        calls.push({ method: "cancelTask", surfaceStore, args: [taskId] });
-        return surfaceResult("cancelTask", [taskId]);
-      },
-      listJobs(surfaceStore, options) {
-        calls.push({ method: "listJobs", surfaceStore, args: [options] });
-        return surfaceResult("listJobs", [options]);
-      },
-      getJob(surfaceStore, jobId) {
-        calls.push({ method: "getJob", surfaceStore, args: [jobId] });
-        return surfaceResult("getJob", [jobId]);
-      },
-      cancelJob(surfaceStore, jobId) {
-        calls.push({ method: "cancelJob", surfaceStore, args: [jobId] });
-        return surfaceResult("cancelJob", [jobId]);
-      },
+    createRuntimeTask(requestBody) {
+      calls.push({ method: "createRuntimeTask", args: [requestBody] });
+      return apiResult("createRuntimeTask", [requestBody]);
     },
-    createTask: retiredRouteWrapper,
-    listTasks: retiredRouteWrapper,
-    getTask: retiredRouteWrapper,
-    cancelTask: retiredRouteWrapper,
-    listJobs: retiredRouteWrapper,
-    getJob: retiredRouteWrapper,
-    cancelJob: retiredRouteWrapper,
+    listRuntimeTasks(options) {
+      calls.push({ method: "listRuntimeTasks", args: [options] });
+      return apiResult("listRuntimeTasks", [options]);
+    },
+    getRuntimeTask(taskId) {
+      calls.push({ method: "getRuntimeTask", args: [taskId] });
+      return apiResult("getRuntimeTask", [taskId]);
+    },
+    cancelRuntimeTask(taskId) {
+      calls.push({ method: "cancelRuntimeTask", args: [taskId] });
+      return apiResult("cancelRuntimeTask", [taskId]);
+    },
+    listRuntimeJobs(options) {
+      calls.push({ method: "listRuntimeJobs", args: [options] });
+      return apiResult("listRuntimeJobs", [options]);
+    },
+    getRuntimeJob(jobId) {
+      calls.push({ method: "getRuntimeJob", args: [jobId] });
+      return apiResult("getRuntimeJob", [jobId]);
+    },
+    cancelRuntimeJob(jobId) {
+      calls.push({ method: "cancelRuntimeJob", args: [jobId] });
+      return apiResult("cancelRuntimeJob", [jobId]);
+    },
   };
   const cases = [
     {
       method: "POST",
       path: "/v1/tasks",
-      surfaceMethod: "createTask",
+      apiMethod: "createRuntimeTask",
       expectedArgs: [body],
     },
     {
       method: "GET",
       path: "/v1/tasks?agent_id=agent-canonical",
-      surfaceMethod: "listTasks",
+      apiMethod: "listRuntimeTasks",
       expectedArgs: [{ agent_id: "agent-canonical" }],
     },
     {
       method: "GET",
       path: "/v1/tasks/task_1",
-      surfaceMethod: "getTask",
+      apiMethod: "getRuntimeTask",
       expectedArgs: ["task_1"],
     },
     {
       method: "POST",
       path: "/v1/tasks/task_1/cancel",
-      surfaceMethod: "cancelTask",
+      apiMethod: "cancelRuntimeTask",
       expectedArgs: ["task_1"],
     },
     {
       method: "GET",
       path: "/v1/jobs?agent_id=agent-canonical",
-      surfaceMethod: "listJobs",
+      apiMethod: "listRuntimeJobs",
       expectedArgs: [{ agent_id: "agent-canonical" }],
     },
     {
       method: "GET",
       path: "/v1/jobs/job_1",
-      surfaceMethod: "getJob",
+      apiMethod: "getRuntimeJob",
       expectedArgs: ["job_1"],
     },
     {
       method: "POST",
       path: "/v1/jobs/job_1/cancel",
-      surfaceMethod: "cancelJob",
+      apiMethod: "cancelRuntimeJob",
       expectedArgs: ["job_1"],
     },
   ];
@@ -1584,12 +1575,11 @@ test("public runtime task and job routes use task job surface directly", async (
     });
     const call = calls.pop();
     assert.equal(response.statusCode, 200);
-    assert.equal(call.method, testCase.surfaceMethod);
-    assert.equal(call.surfaceStore, store);
+    assert.equal(call.method, testCase.apiMethod);
     assert.deepEqual(call.args, testCase.expectedArgs);
     assert.deepEqual(JSON.parse(response.body), {
       status: "blocked",
-      method: testCase.surfaceMethod,
+      method: testCase.apiMethod,
       args: testCase.expectedArgs,
     });
   }

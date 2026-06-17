@@ -8973,7 +8973,7 @@ task/job control surface calls Rust `project_runtime_task_job_projection` for
 task/job list and get, JS only supplies runtime `state_dir` plus canonical
 `agent_id`, `status`, `task_id`, or `job_id` request facts, and Rust replays
 admitted `runs/*.json` Agentgres state before record construction, filtering,
-and public-id selection. The task/job surface no longer receives the JS runtime
+and public-id selection. The task/job API no longer receives the JS runtime
 task/job record builders or `runs` candidate transport, retired `agentId`
 aliases stay ignored, and missing or mismatched Rust projections fail closed
 instead of falling back to JS readback.
@@ -10419,7 +10419,7 @@ return through those compatibility handles. Remaining work is wallet/policy auth
 custody, durable memory replay/projection depth, and stable Workbench/SDK memory APIs.
 
 Slice 1296 hard-cuts runtime task/job runner injection scaffolding.
-`createRuntimeTaskJobSurface()` no longer accepts `taskJobCreateRunner`,
+`createRuntimeTaskJobApi()` no longer accepts `taskJobCreateRunner`,
 `taskJobCancelRunner`, or `taskJobProjectionRunner`; task create, task/job
 cancel, and task/job read projection moved onto the Rust daemon-core task/job
 planners/projector before Agentgres-backed run persistence or route projection.
@@ -10631,10 +10631,10 @@ Remaining work is retry-event materialization, durable replay/projection, and
 deeper approval authority projection, not an alternate budget recovery planner
 mount.
 
-Slice 1314 hard-cuts the runtime task/job surface store-core fallback. Task
+Slice 1314 hard-cuts the runtime task/job API store-core fallback. Task
 create, task/job cancel, and task/job list/get projection now resolve only
 through the positive `contextPolicyCore` mount supplied to
-`createRuntimeTaskJobSurface()` by daemon startup. The task/job surface and
+`createRuntimeTaskJobApi()` by daemon startup. The task/job API and
 focused tests no longer read or model `store.contextPolicyCore` or
 `store.contextPolicyCore ?? null`, so task/job run truth and read projection
 cannot return through a store-mounted planner/projector fallback. Conformance
@@ -12579,6 +12579,23 @@ and old route call patterns from returning. Remaining lifecycle blockers stay
 wallet/cTEE authority on lifecycle exits, complete receipt/state-root binding
 for every lifecycle read projection, richer artifact projection, and stable
 Workbench/CLI/SDK protocol clients over Rust-owned Agentgres replay records.
+
+Slice 1423 hard-deletes the public task/job JS surface.
+`runtime-task-job-surface.mjs`, its focused test, and the mounted
+`taskJobSurface` daemon-store property are absent. Daemon startup mounts
+`runtime-task-job-api.mjs` as `taskJobApi`, and public `/v1/tasks` and
+`/v1/jobs` routes enter through store-owned `createRuntimeTask()`,
+`listRuntimeTasks()`, `getRuntimeTask()`, `cancelRuntimeTask()`,
+`listRuntimeJobs()`, `getRuntimeJob()`, and `cancelRuntimeJob()` methods.
+Those methods delegate to the positive Rust-backed task/job API and preserve
+the Rust planner/projector, Agentgres-backed write, state-dir replay, and
+mismatch guards. Focused tests prove the public route family no longer reaches
+a mounted route-visible task/job surface, and conformance guards the deleted
+file path, factory name, property, and old route call patterns from returning.
+Remaining task/job blockers stay durable task/job replay and projection depth,
+receipt/state-root binding, wallet/cTEE task authority, direct lifecycle API
+depth, and stable Workbench/CLI/SDK protocol clients over Rust-owned Agentgres
+task/job records.
 
 ## Final Doctrine
 

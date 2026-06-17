@@ -33328,11 +33328,15 @@ function runCompositor() {
   )
     ? read("crates/services/src/agentic/runtime/kernel/runtime_lifecycle.rs")
     : "";
-  const runtimeTaskJobSurface = exists("packages/runtime-daemon/src/runtime-task-job-surface.mjs")
-    ? read("packages/runtime-daemon/src/runtime-task-job-surface.mjs")
+  const runtimeTaskJobSurfaceExists = exists("packages/runtime-daemon/src/runtime-task-job-surface.mjs");
+  const runtimeTaskJobSurfaceTestExists = exists(
+    "packages/runtime-daemon/src/runtime-task-job-surface.test.mjs",
+  );
+  const runtimeTaskJobSurface = exists("packages/runtime-daemon/src/runtime-task-job-api.mjs")
+    ? read("packages/runtime-daemon/src/runtime-task-job-api.mjs")
     : "";
-  const runtimeTaskJobSurfaceTest = exists("packages/runtime-daemon/src/runtime-task-job-surface.test.mjs")
-    ? read("packages/runtime-daemon/src/runtime-task-job-surface.test.mjs")
+  const runtimeTaskJobSurfaceTest = exists("packages/runtime-daemon/src/runtime-task-job-api.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-task-job-api.test.mjs")
     : "";
   const runtimeThreadAuxiliarySurface = exists("packages/runtime-daemon/src/runtime-thread-auxiliary-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-thread-auxiliary-surface.mjs")
@@ -37287,8 +37291,8 @@ function runCompositor() {
         runtimeTaskJobSurfaceTest,
       ),
     [
-      "packages/runtime-daemon/src/runtime-task-job-surface.mjs",
-      "packages/runtime-daemon/src/runtime-task-job-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-task-job-api.mjs",
+      "packages/runtime-daemon/src/runtime-task-job-api.test.mjs",
     ],
     "Phase 10/11 is pending: runtime task/job reads must either fail closed at the Rust daemon-core boundary or ignore retired agentId request aliases, persisted taskId/jobId/runId aliases, and expose canonical snake_case not-found details",
   );
@@ -37297,8 +37301,8 @@ function runCompositor() {
     "runtime-task-job-read-projection-js-facades-retired",
     runtimeTaskJobReadProjectionLegacyRemoved,
     [
-      "packages/runtime-daemon/src/runtime-task-job-surface.mjs",
-      "packages/runtime-daemon/src/runtime-task-job-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-task-job-api.mjs",
+      "packages/runtime-daemon/src/runtime-task-job-api.test.mjs",
     ],
     "Phase 10/11 is pending: runtime task/job list/get projections must be Rust-owned through the direct daemon-core projector before JS can expose public task/job records",
   );
@@ -40112,7 +40116,7 @@ function runCompositor() {
       /public runtime run list route uses store-owned lifecycle projection API/.test(
         publicRuntimeRoutesTestForTaskJob,
       ) &&
-      /public runtime task and job routes use task job surface directly/.test(
+      /public runtime task and job routes use store-owned task job API directly/.test(
         publicRuntimeRoutesTestForTaskJob,
       ) &&
       /url:\s*"\/v1\/runs\?agent_id=agent-canonical"/.test(
@@ -40130,8 +40134,8 @@ function runCompositor() {
       !/searchParams\.get\("agentId"\)/.test(publicRuntimeRoutesForTaskJob),
     [
       "packages/agent-sdk/src/substrate-client.ts",
-      "packages/runtime-daemon/src/runtime-task-job-surface.mjs",
-      "packages/runtime-daemon/src/runtime-task-job-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-task-job-api.mjs",
+      "packages/runtime-daemon/src/runtime-task-job-api.test.mjs",
       "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
       "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
     ],
@@ -40172,8 +40176,8 @@ function runCompositor() {
       !/\.\.\.body/.test(runtimeTaskJobCreateTaskBlock),
     [
       "packages/agent-sdk/src/substrate-client.ts",
-      "packages/runtime-daemon/src/runtime-task-job-surface.mjs",
-      "packages/runtime-daemon/src/runtime-task-job-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-task-job-api.mjs",
+      "packages/runtime-daemon/src/runtime-task-job-api.test.mjs",
     ],
     "Phase 10/11 is pending: runtime task create request types and daemon create surfaces must not advertise, read, or forward retired identity/options/workspace/prompt aliases",
   );
@@ -40181,36 +40185,58 @@ function runCompositor() {
     result,
     "runtime-task-job-control-js-facade-retired",
     runtimeTaskJobControlFacadeRetired &&
-      /store\.taskJobSurface\.createTask\(store,\s*await readBody\(request\)\)/.test(
+      !runtimeTaskJobSurfaceExists &&
+      !runtimeTaskJobSurfaceTestExists &&
+      /taskJobApi = createRuntimeTaskJobApi/.test(runtimeDaemonIndex) &&
+      /createRuntimeTask\(body = \{\}\)/.test(runtimeDaemonIndex) &&
+      /return this\.taskJobApi\.createTask\(this, body\)/.test(runtimeDaemonIndex) &&
+      /listRuntimeTasks\(options = \{\}\)/.test(runtimeDaemonIndex) &&
+      /return this\.taskJobApi\.listTasks\(this, options\)/.test(runtimeDaemonIndex) &&
+      /getRuntimeTask\(taskId\)/.test(runtimeDaemonIndex) &&
+      /return this\.taskJobApi\.getTask\(this, taskId\)/.test(runtimeDaemonIndex) &&
+      /cancelRuntimeTask\(taskId\)/.test(runtimeDaemonIndex) &&
+      /return this\.taskJobApi\.cancelTask\(this, taskId\)/.test(runtimeDaemonIndex) &&
+      /listRuntimeJobs\(options = \{\}\)/.test(runtimeDaemonIndex) &&
+      /return this\.taskJobApi\.listJobs\(this, options\)/.test(runtimeDaemonIndex) &&
+      /getRuntimeJob\(jobId\)/.test(runtimeDaemonIndex) &&
+      /return this\.taskJobApi\.getJob\(this, jobId\)/.test(runtimeDaemonIndex) &&
+      /cancelRuntimeJob\(jobId\)/.test(runtimeDaemonIndex) &&
+      /return this\.taskJobApi\.cancelJob\(this, jobId\)/.test(runtimeDaemonIndex) &&
+      /store\.createRuntimeTask\(await readBody\(request\)\)/.test(
         publicRuntimeRoutesForTaskJob,
       ) &&
-      /store\.taskJobSurface\.listTasks\(store,\s*Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
+      /store\.listRuntimeTasks\(Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
         publicRuntimeRoutesForTaskJob,
       ) &&
-      /store\.taskJobSurface\.cancelTask\(store,\s*decodeURIComponent\(segments\[2\]\)\)/.test(
+      /store\.cancelRuntimeTask\(decodeURIComponent\(segments\[2\]\)\)/.test(
         publicRuntimeRoutesForTaskJob,
       ) &&
-      /store\.taskJobSurface\.getTask\(store,\s*decodeURIComponent\(segments\[2\]\)\)/.test(
+      /store\.getRuntimeTask\(decodeURIComponent\(segments\[2\]\)\)/.test(
         publicRuntimeRoutesForTaskJob,
       ) &&
-      /store\.taskJobSurface\.listJobs\(store,\s*Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
+      /store\.listRuntimeJobs\(Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
         publicRuntimeRoutesForTaskJob,
       ) &&
-      /store\.taskJobSurface\.cancelJob\(store,\s*decodeURIComponent\(segments\[2\]\)\)/.test(
+      /store\.cancelRuntimeJob\(decodeURIComponent\(segments\[2\]\)\)/.test(
         publicRuntimeRoutesForTaskJob,
       ) &&
-      /store\.taskJobSurface\.getJob\(store,\s*decodeURIComponent\(segments\[2\]\)\)/.test(
+      /store\.getRuntimeJob\(decodeURIComponent\(segments\[2\]\)\)/.test(
         publicRuntimeRoutesForTaskJob,
       ) &&
-      /public runtime task and job routes use task job surface directly/.test(
+      /public runtime task and job routes use store-owned task job API directly/.test(
         publicRuntimeRoutesTestForTaskJob,
       ) &&
-      !/^\s*(?:listJobs|createTask|listTasks|getTask|cancelTask|getJob|cancelJob)\(/m.test(
-        runtimeDaemonIndex,
+      !/taskJobSurface/.test(
+        `${runtimeDaemonIndex}\n${publicRuntimeRoutesForTaskJob}\n${publicRuntimeRoutesTestForTaskJob}`,
+      ) &&
+      !/createRuntimeTaskJobSurface|runtime-task-job-surface/.test(
+        `${runtimeDaemonIndex}\n${runtimeTaskJobSurface}\n${runtimeTaskJobSurfaceTest}`,
       ),
     [
       "packages/runtime-daemon/src/runtime-task-job-surface.mjs",
       "packages/runtime-daemon/src/runtime-task-job-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-task-job-api.mjs",
+      "packages/runtime-daemon/src/runtime-task-job-api.test.mjs",
       "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
       "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-core.mjs",

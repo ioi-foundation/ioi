@@ -16,7 +16,7 @@ const runtimeTaskJobControlFacadeRetirementEvidenceRefs = [
   "agentgres_runtime_task_job_truth_required",
 ];
 
-export function createRuntimeTaskJobSurface({
+export function createRuntimeTaskJobApi({
   buildRun = null,
   contextPolicyCore = null,
   ensureProviderAvailable = null,
