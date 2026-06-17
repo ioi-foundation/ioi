@@ -1407,10 +1407,11 @@ git diff --check -- internal-docs/implementation docs/architecture apps/hypervis
 
 | Field | Detail |
 | --- | --- |
+| Status | Canonized as `ModelWeightCustodyProfile` on 2026-06-17; admission-policy implementation remains. |
 | Files | `private-workspace-ctee.md`, `runtime-nodes-tee-depin.md`, `model-router/doctrine.md`, model-mount API docs |
 | Change | Distinguish workspace privacy, model-input privacy, model-output privacy, and model-weight custody. |
 | Acceptance | A rented 3090 path cannot be presented as safe for proprietary weights unless TEE/customer/local custody applies. |
-| Verify | `rg -n "ModelWeightCustodyProfile|proprietary model weights|provider_trust|tee_session" docs/architecture/components` |
+| Verify | `rg -n "ModelWeightCustodyProfile|forbidden_plaintext_mount|tee_or_customer_cloud_mount|proprietary model weights" docs/architecture` |
 
 ### Phase 5: Harden Managed Instance Lifecycle
 

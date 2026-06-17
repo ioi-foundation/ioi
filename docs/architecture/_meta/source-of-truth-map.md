@@ -166,6 +166,10 @@ Conflict rule:
      workers may reason or propose probabilistically, but consequential effects
      cross reality only through bounded authority, policy, receipts, and
      verification;
+   - Smarter-agent runtime loop is the bounded cognition discipline for
+     model pass, action proposal, gate, execution, observation, receipt, and
+     re-entry; it is mediated by Hypervisor Daemon/Core and never owns
+     execution authority by itself;
    - `physical_action` is a high-risk effect class, not a generic tool-call
      variant; actuator-affecting work must bind to Physical Action Safety
      objects such as `PhysicalActionPolicy`, `SafetyEnvelope`,

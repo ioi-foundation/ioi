@@ -69,6 +69,71 @@ Model availability is profile-dependent. Supported deployment shapes include:
 
 Bundling model weights is a deployment profile, not the architecture default.
 
+## Model-Weight Custody
+
+cTEE/private workspace guarantees protect workspace state, prompts, private
+files, strategy heads, credentials, and declassification paths. They do not
+magically protect proprietary model weights after those weights are mounted as
+normal plaintext files or tensors inside a root-owned remote GPU node.
+
+Every route that uses non-public model weights must declare a
+`ModelWeightCustodyProfile` separately from its `ExecutionPrivacyPosture`.
+
+```yaml
+ModelWeightCustodyProfile:
+  profile_id: model_weight_custody://...
+  weight_class:
+    public_open_weight |
+    user_local_private_weight |
+    remote_api_private_weight |
+    provider_trust_remote_mount |
+    tee_or_customer_cloud_mount |
+    forbidden_plaintext_mount
+  weight_owner: user | org | provider | public | marketplace_package
+  mount_target:
+    local_device | user_owned_node | rented_gpu |
+    customer_cloud | provider_api | tee_session | none
+  remote_provider_can_read_weights: true | false
+  required_controls:
+    - none
+    - wallet_authorized_api_capability
+    - local_only
+    - customer_account_boundary
+    - tee_attestation
+    - no_remote_plaintext_mount
+    - explicit_provider_trust_acceptance
+  user_disclosure: string
+```
+
+Canonical lanes:
+
+| Lane | Weight custody claim | Valid use |
+| --- | --- | --- |
+| `public_open_weight` | The weights are public or intentionally shareable. | Rented GPUs, DePIN nodes, local machines, hosted pools. |
+| `user_local_private_weight` | The weights remain on a user-owned or customer-controlled machine. | Local/private model serving, user-owned GPU, enterprise cluster. |
+| `remote_api_private_weight` | The provider keeps its own proprietary weights behind an API; the user does not receive or mount them. | Foundation-model APIs and managed private model services. |
+| `provider_trust_remote_mount` | Proprietary user/org weights are mounted on a provider-visible node under contract or accepted trust. | Explicit provider-trust deployments only. |
+| `tee_or_customer_cloud_mount` | Proprietary weights are mounted only inside an accepted TEE/customer-cloud/control boundary. | Confidential GPU lanes, customer VPCs, enterprise controlled accounts. |
+| `forbidden_plaintext_mount` | The requested mount would expose proprietary weights to an untrusted root provider. | Must be blocked unless the user changes route or accepts provider-trust. |
+
+Required product disclosure:
+
+```text
+Protecting a private workspace is not the same as protecting proprietary model
+weights. A rented GPU can safely run public/open weights under cTEE workspace
+rules, but proprietary weights need local custody, provider API custody,
+customer-controlled infrastructure, accepted confidential compute, or explicit
+provider-trust approval.
+```
+
+Admission rule:
+
+```text
+If `remote_provider_can_read_weights=true` and the weight class is not public,
+the route cannot be presented as private-native. It is provider-trust or
+forbidden until policy, wallet approval, and user disclosure accept that lane.
+```
+
 Supported surfaces should include:
 
 - OpenAI-compatible APIs;
@@ -238,6 +303,21 @@ The model router MUST NOT label a route as cTEE no-plaintext-custody when
 sensitive plaintext is sent to a third-party model API without a separately
 verifiable private-compute guarantee.
 
+Weight custody rule:
+
+```text
+rented GPU + public/open weights
+  -> valid cTEE workspace lane when private workspace state stays sealed/redacted
+
+rented GPU + proprietary user/org weights mounted as plaintext
+  -> forbidden_plaintext_mount unless the user explicitly accepts
+     provider-trust or supplies an accepted TEE/customer-cloud boundary
+
+foundation/provider API with provider-owned proprietary weights
+  -> remote_api_private_weight for weights; input/output privacy still depends
+     on ExecutionPrivacyPosture
+```
+
 ## Model Invocation Receipt
 
 Every significant model invocation should optionally emit:
@@ -267,6 +347,10 @@ ModelInvocationReceipt:
    bundled weights are allowed only when declared by a deployment profile.
 8. Service modules and workers invoke models through routes, not direct
    assumptions about local files, provider names, or bundled binaries.
+9. cTEE/private workspace custody does not protect proprietary model weights
+   mounted as plaintext on a root-owned remote node.
+10. Proprietary weights require local/customer custody, provider API custody,
+    accepted TEE/customer-cloud custody, or explicit provider-trust approval.
 
 ## One-Line Doctrine
 

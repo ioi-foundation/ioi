@@ -446,6 +446,38 @@ ExecutionPrivacyPosture:
   required_user_disclosure: string
 ```
 
+`ExecutionPrivacyPosture` answers what happens to protected workspace data.
+`ModelWeightCustodyProfile` answers what happens to the model weights. They are
+separate decisions.
+
+```text
+cTEE workspace state can remain sealed while public/open model weights run on a
+rented GPU.
+
+That does not imply proprietary model weights are safe to mount on the same
+rented GPU as plaintext.
+```
+
+Model-weight custody lanes:
+
+| Lane | cTEE meaning |
+| --- | --- |
+| `public_open_weight` | Safe for rented/DePIN GPU execution when workspace state remains sealed/redacted. |
+| `user_local_private_weight` | Weights stay on user-owned or customer-controlled hardware. |
+| `remote_api_private_weight` | Provider keeps its proprietary weights behind an API; input privacy is still a separate posture. |
+| `provider_trust_remote_mount` | User/org weights are visible to the provider and require explicit provider-trust approval. |
+| `tee_or_customer_cloud_mount` | User/org weights mount only inside accepted TEE/customer-cloud boundary. |
+| `forbidden_plaintext_mount` | Untrusted remote provider would receive proprietary weights as plaintext; block by default. |
+
+Admission rule:
+
+```text
+If proprietary weights would become provider-readable plaintext on a root-owned
+remote node, the cTEE no-plaintext-custody claim does not apply to those
+weights. The route must be forbidden, moved local/customer/TEE/API-side, or
+approved as provider-trust with receipt-backed disclosure.
+```
+
 Postures:
 
 ```text

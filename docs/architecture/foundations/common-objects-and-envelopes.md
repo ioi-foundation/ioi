@@ -1391,6 +1391,7 @@ ModelDeploymentProfileEnvelope:
   model_deployment_profile_id: profile://...
   owner_id: wallet://... | org://... | project://...
   mount_mode: bundled_weights | local_file | local_server | external_api | hosted_pool | tee_session | depin_session | customer_vpc
+  weight_custody_profile_id: model_weight_custody://...
   model_artifact_refs:
     - cid://... | artifact://... | file://...
   endpoint_refs:
@@ -1406,6 +1407,31 @@ ModelDeploymentProfileEnvelope:
 
 Bundled local weights are valid for offline, demo, small sovereign, or
 deployment-specific profiles. They are not the architecture default.
+
+## ModelWeightCustodyProfileEnvelope
+
+Model weight custody is tracked separately from workspace privacy. This avoids
+the common mistake of treating cTEE/private-workspace custody as protection for
+proprietary weights mounted on a root-owned rented GPU.
+
+```yaml
+ModelWeightCustodyProfileEnvelope:
+  profile_id: model_weight_custody://...
+  weight_class: public_open_weight | user_local_private_weight | remote_api_private_weight | provider_trust_remote_mount | tee_or_customer_cloud_mount | forbidden_plaintext_mount
+  weight_owner: user | org | provider | public | marketplace_package
+  mount_target: local_device | user_owned_node | rented_gpu | customer_cloud | provider_api | tee_session | none
+  remote_provider_can_read_weights: true | false
+  required_controls:
+    - wallet_authorized_api_capability
+    - local_only
+    - customer_account_boundary
+    - tee_attestation
+    - no_remote_plaintext_mount
+    - explicit_provider_trust_acceptance
+  receipt_refs:
+    - receipt://...
+  status: proposed | accepted | blocked | revoked
+```
 
 ## TrainingBatchPlanEnvelope
 

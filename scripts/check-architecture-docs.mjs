@@ -177,7 +177,7 @@ for (const required of [
   "components/daemon-runtime/events-receipts-delivery-bundles.md",
   "IOI daemon = hypervisor/control plane for autonomous execution",
   "Hypervisor App/Web/CLI-headless = first-class clients over Hypervisor Core",
-  "Hypervisor Workbench/Foundry/Fleet = application surfaces over Hypervisor Core",
+  "Hypervisor Workbench/Foundry = application surfaces over Hypervisor Core",
   "IOI Authority Gateway = compatibility adapter profile",
   "physical-action-safety.md",
 ]) {
