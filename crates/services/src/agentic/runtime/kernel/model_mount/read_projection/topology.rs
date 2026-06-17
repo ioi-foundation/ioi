@@ -1285,6 +1285,14 @@ fn endpoint_records_from_agentgres_replay(
         );
         records_by_key.insert(key, record);
     }
+    for record in endpoint_records_from_provider_inventory(request)? {
+        let key = format!(
+            "provider_inventory:{}:{}",
+            string_field(&record, "endpoint_id"),
+            string_field(&record, "model_id")
+        );
+        records_by_key.insert(key, record);
+    }
     for record in agentgres_artifact_endpoint_endpoint_records(request)? {
         let endpoint_id = string_field(&record, "endpoint_id");
         records_by_key.retain(|_, existing| {
@@ -1305,6 +1313,31 @@ fn endpoint_records_from_agentgres_replay(
             .cmp(&string_field(right, "id"))
             .then_with(|| string_field(left, "route_id").cmp(&string_field(right, "route_id")))
             .then_with(|| string_field(left, "model_id").cmp(&string_field(right, "model_id")))
+    });
+    Ok(records)
+}
+
+fn endpoint_records_from_provider_inventory(
+    request: &ModelMountReadProjectionRequest,
+) -> Result<Vec<Value>, ModelMountReadProjectionError> {
+    let mut records = Vec::new();
+    for record in agentgres_provider_inventory_records(request)? {
+        if string_field(&record, "action") != "list_models" {
+            continue;
+        }
+        for item_ref in string_array_field(&record, "item_refs") {
+            records.push(endpoint_record_for_provider_inventory_record(
+                &record, &item_ref,
+            ));
+        }
+    }
+    records.sort_by(|left, right| {
+        string_field(left, "endpoint_id")
+            .cmp(&string_field(right, "endpoint_id"))
+            .then_with(|| string_field(left, "model_id").cmp(&string_field(right, "model_id")))
+            .then_with(|| {
+                string_field(left, "provider_ref").cmp(&string_field(right, "provider_ref"))
+            })
     });
     Ok(records)
 }
@@ -2001,7 +2034,9 @@ fn admitted_provider_inventory_record(record: Value) -> Option<Value> {
     }
     if !matches!(
         string_field(&record, "execution_backend").as_str(),
-        "rust_model_mount_fixture_inventory" | "rust_model_mount_native_local_inventory"
+        "rust_model_mount_fixture_inventory"
+            | "rust_model_mount_native_local_inventory"
+            | "rust_model_mount_hosted_provider_inventory"
     ) {
         return None;
     }
@@ -2017,7 +2052,80 @@ fn admitted_provider_inventory_record(record: Value) -> Option<Value> {
             return None;
         }
     }
+    if string_field(&record, "execution_backend") == "rust_model_mount_hosted_provider_inventory"
+        && !admitted_hosted_provider_inventory_record(&record, &evidence_refs)
+    {
+        return None;
+    }
     Some(record)
+}
+
+fn admitted_hosted_provider_inventory_record(record: &Value, evidence_refs: &[String]) -> bool {
+    for required in [
+        "rust_model_mount_hosted_provider_inventory_backend",
+        "rust_hosted_provider_metadata_transport_materialized",
+        "ctee_hosted_provider_secret_not_exposed",
+        "wallet_network_provider_transport_authority_bound",
+        "wallet_network_provider_secret_boundary",
+    ] {
+        if !evidence_refs.iter().any(|value| value == required) {
+            return false;
+        }
+    }
+    if bool_field(record, "plaintext_secret_material_returned") {
+        return false;
+    }
+    if string_field(record, "action") == "list_loaded" {
+        return evidence_refs
+            .iter()
+            .any(|value| value == "hosted_provider_loaded_instance_replay_required");
+    }
+    if !bool_field(record, "live_network_io") {
+        return false;
+    }
+    for field in [
+        "transport_execution_status",
+        "transport_execution_owner",
+        "transport_materialization_kind",
+        "base_url_hash",
+        "hosted_catalog_transport_request_ref",
+        "hosted_catalog_transport_request_hash",
+        "hosted_catalog_transport_response_hash",
+        "hosted_catalog_transport_status",
+    ] {
+        if string_field(record, field).is_empty() {
+            return false;
+        }
+    }
+    if string_field(record, "transport_execution_owner")
+        != "rust_daemon_core.model_mount.provider_inventory"
+    {
+        return false;
+    }
+    if string_field(record, "hosted_catalog_transport_status")
+        != "rust_hosted_provider_catalog_transport_response_bound"
+    {
+        return false;
+    }
+    if !record
+        .get("transport_contract")
+        .is_some_and(Value::is_object)
+    {
+        return false;
+    }
+    for required in [
+        "hosted_provider_catalog_metadata_recorded",
+        "rust_hosted_provider_catalog_live_network_io_executed",
+        "rust_hosted_provider_catalog_transport_executor_owned",
+        "rust_hosted_provider_catalog_transport_request_bound",
+        "rust_hosted_provider_catalog_transport_response_bound",
+        "rust_hosted_provider_endpoint_url_bound",
+    ] {
+        if !evidence_refs.iter().any(|value| value == required) {
+            return false;
+        }
+    }
+    true
 }
 
 fn admitted_provider_control_record(record: Value) -> Option<Value> {
@@ -2411,6 +2519,95 @@ fn artifact_record_for_inventory_record(
             "model_mount_topology_js_materialization_retired"
         ],
     })
+}
+
+fn endpoint_record_for_provider_inventory_record(record: &Value, item_ref: &str) -> Value {
+    let provider_ref = string_field(record, "provider_ref");
+    let model_id = model_id_from_item_ref(item_ref);
+    let endpoint_id = format!(
+        "endpoint_{}_{}",
+        record_id_segment(&provider_ref, "provider"),
+        record_id_segment(&model_id, "model")
+    );
+    let hosted =
+        string_field(record, "execution_backend") == "rust_model_mount_hosted_provider_inventory";
+    json_object_without_nulls(json!({
+        "id": endpoint_id,
+        "object": "ioi.model_mount_endpoint",
+        "endpoint_id": endpoint_id,
+        "model_ref": item_ref,
+        "model_id": model_id,
+        "provider_id": provider_ref,
+        "provider_ref": provider_ref,
+        "provider_kind": string_field(record, "provider_kind"),
+        "status": "discovered",
+        "api_format": provider_inventory_endpoint_api_format(record),
+        "driver": string_field(record, "driver"),
+        "backend": string_field(record, "backend"),
+        "backend_id": string_field(record, "backend_id"),
+        "inventory_record_id": string_field(record, "record_id"),
+        "inventory_hash": string_field(record, "inventory_hash"),
+        "base_url_hash": string_field(record, "base_url_hash"),
+        "hosted_catalog_transport_request_ref": string_field(record, "hosted_catalog_transport_request_ref"),
+        "hosted_catalog_transport_request_hash": string_field(record, "hosted_catalog_transport_request_hash"),
+        "hosted_catalog_transport_response_hash": string_field(record, "hosted_catalog_transport_response_hash"),
+        "hosted_catalog_transport_status": string_field(record, "hosted_catalog_transport_status"),
+        "transport_execution_owner": string_field(record, "transport_execution_owner"),
+        "transport_materialization_kind": string_field(record, "transport_materialization_kind"),
+        "live_network_io": if hosted { bool_field(record, "live_network_io") } else { false },
+        "plaintext_transport_material_returned": false,
+        "plaintext_secret_material_returned": false,
+        "ctee_secret_injection": record
+            .get("transport_contract")
+            .and_then(|contract| contract.get("ctee_secret_injection"))
+            .and_then(Value::as_str)
+            .unwrap_or_default(),
+        "record_dir": "model-provider-inventory",
+        "record_id": string_field(record, "record_id"),
+        "source": "agentgres_provider_inventory",
+        "rust_core_boundary": "model_mount.provider_inventory.endpoint_materialization",
+        "artifact_endpoint_projection_boundary": "model_mount.provider_inventory_endpoint_projection",
+        "receipt_refs": record.get("receipt_refs").cloned().unwrap_or_else(|| json!([])),
+        "evidence_refs": provider_inventory_endpoint_evidence_refs(record),
+    }))
+    .unwrap_or(Value::Null)
+}
+
+fn provider_inventory_endpoint_api_format(record: &Value) -> String {
+    let provider_kind = string_field(record, "provider_kind");
+    if provider_kind == "local_folder" {
+        return "ioi_fixture".to_string();
+    }
+    if provider_kind == "ioi_native_local" {
+        return "ioi_native".to_string();
+    }
+    provider_kind
+}
+
+fn provider_inventory_endpoint_evidence_refs(record: &Value) -> Vec<String> {
+    let mut refs = evidence_refs(record);
+    for evidence_ref in [
+        "rust_daemon_core_provider_inventory_endpoint_materialization",
+        "agentgres_provider_inventory_truth_required",
+        "model_mount_endpoint_list_js_facade_retired",
+        "model_mount_provider_inventory_endpoint_js_materialization_retired",
+    ] {
+        if !refs.iter().any(|value| value == evidence_ref) {
+            refs.push(evidence_ref.to_string());
+        }
+    }
+    if string_field(record, "execution_backend") == "rust_model_mount_hosted_provider_inventory" {
+        for evidence_ref in [
+            "hosted_provider_endpoint_materialization_rust_owned",
+            "rust_hosted_provider_endpoint_url_bound",
+            "ctee_hosted_provider_secret_not_exposed",
+        ] {
+            if !refs.iter().any(|value| value == evidence_ref) {
+                refs.push(evidence_ref.to_string());
+            }
+        }
+    }
+    refs
 }
 
 fn runtime_model_catalog_entry_for_inventory_record(record: &Value, item_ref: &str) -> Value {
@@ -3497,6 +3694,153 @@ mod tests {
     }
 
     #[test]
+    fn endpoint_projection_materializes_hosted_provider_inventory_records() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let endpoint_resolution_dir = temp.path().join("model-route-endpoint-resolutions");
+        fs::create_dir_all(&endpoint_resolution_dir).expect("endpoint resolution dir");
+        let provider_inventory_dir = temp.path().join("model-provider-inventory");
+        fs::create_dir_all(&provider_inventory_dir).expect("provider inventory dir");
+        for record in [
+            json!({
+                "id": "legacy-js-hosted-provider-inventory",
+                "object": "ioi.model_mount_provider_inventory",
+                "schema_version": MODEL_MOUNT_PROVIDER_INVENTORY_SCHEMA_VERSION,
+                "provider_ref": "provider://legacy-hosted",
+                "provider_kind": "openai",
+                "action": "list_models",
+                "operation_kind": "model_mount.provider.inventory.list_models",
+                "status": "listed",
+                "backend": "hosted_provider_metadata",
+                "backend_id": "backend.hosted.legacy",
+                "driver": "hosted_provider_metadata",
+                "execution_backend": "daemon_js",
+                "item_refs": ["model://legacy-hosted/unsafe"],
+                "item_count": 1,
+                "inventory_hash": "sha256:legacy-hosted",
+                "record_dir": "model-provider-inventory",
+                "record_id": "legacy-js-hosted-provider-inventory",
+                "rust_core_boundary": "daemon_js",
+                "source": "runtime-daemon.provider_inventory_js",
+                "evidence_refs": ["legacy_js_provider_inventory"]
+            }),
+            json!({
+                "id": "provider_inventory_openai_list_models",
+                "object": "ioi.model_mount_provider_inventory",
+                "schema_version": MODEL_MOUNT_PROVIDER_INVENTORY_SCHEMA_VERSION,
+                "provider_ref": "provider://openai",
+                "provider_kind": "openai",
+                "action": "list_models",
+                "operation_kind": "model_mount.provider.inventory.list_models",
+                "status": "listed",
+                "backend": "hosted_provider_metadata",
+                "backend_id": "backend.hosted.openai",
+                "driver": "hosted_provider_metadata",
+                "execution_backend": "rust_model_mount_hosted_provider_inventory",
+                "item_refs": ["model://openai/hosted-chat"],
+                "item_count": 1,
+                "transport_contract": {
+                    "transport_execution_status": "rust_materialized",
+                    "transport_execution_owner": "rust_daemon_core.model_mount.provider_inventory",
+                    "transport_materialization_kind": "hosted_provider_metadata",
+                    "containment_ref": "ctee://model_mount/hosted_provider_metadata",
+                    "provider_ref": "provider://openai",
+                    "action": "list_models",
+                    "metadata_item_refs": ["model://openai/hosted-chat"],
+                    "live_network_io": true,
+                    "plaintext_secret_material_returned": false,
+                    "method": "GET",
+                    "path": "/models",
+                    "base_url_hash": "sha256:hosted-catalog-base-url",
+                    "hosted_catalog_transport_request_ref": "model_mount://hosted_catalog_transport_request/openai",
+                    "hosted_catalog_transport_request_hash": "sha256:hosted-catalog-request",
+                    "hosted_catalog_transport_response_hash": "sha256:hosted-catalog-response",
+                    "hosted_catalog_transport_status": "rust_hosted_provider_catalog_transport_response_bound",
+                    "ctee_secret_injection": "ctee_egress_resolver_ref"
+                },
+                "transport_execution_status": "rust_materialized",
+                "transport_execution_owner": "rust_daemon_core.model_mount.provider_inventory",
+                "transport_materialization_kind": "hosted_provider_metadata",
+                "live_network_io": true,
+                "method": "GET",
+                "path": "/models",
+                "base_url_hash": "sha256:hosted-catalog-base-url",
+                "hosted_catalog_transport_request_ref": "model_mount://hosted_catalog_transport_request/openai",
+                "hosted_catalog_transport_request_hash": "sha256:hosted-catalog-request",
+                "hosted_catalog_transport_response_hash": "sha256:hosted-catalog-response",
+                "hosted_catalog_transport_status": "rust_hosted_provider_catalog_transport_response_bound",
+                "plaintext_secret_material_returned": false,
+                "inventory_hash": "sha256:hosted-inventory",
+                "record_dir": "model-provider-inventory",
+                "record_id": "provider_inventory_openai_list_models",
+                "receipt_refs": ["receipt://provider-inventory/openai"],
+                "rust_core_boundary": "model_mount.provider_inventory",
+                "source": "rust_model_mount_provider_inventory_api",
+                "evidence_refs": [
+                    "rust_model_mount_provider_inventory",
+                    "agentgres_provider_inventory_truth_required",
+                    "rust_provider_inventory_item_refs_materialized",
+                    "rust_model_mount_hosted_provider_inventory_backend",
+                    "rust_hosted_provider_metadata_transport_materialized",
+                    "ctee_hosted_provider_secret_not_exposed",
+                    "wallet_network_provider_transport_authority_bound",
+                    "wallet_network_provider_secret_boundary",
+                    "hosted_provider_catalog_metadata_recorded",
+                    "rust_hosted_provider_catalog_live_network_io_executed",
+                    "rust_hosted_provider_catalog_transport_executor_owned",
+                    "rust_hosted_provider_catalog_transport_request_bound",
+                    "rust_hosted_provider_catalog_transport_response_bound",
+                    "rust_hosted_provider_endpoint_url_bound"
+                ]
+            }),
+        ] {
+            fs::write(
+                provider_inventory_dir.join(format!("{}.json", string_field(&record, "id"))),
+                serde_json::to_string_pretty(&record).expect("provider inventory json"),
+            )
+            .expect("write provider inventory record");
+        }
+
+        let projection = endpoints(&request(
+            "endpoints",
+            Some(temp.path().to_string_lossy().to_string()),
+        ))
+        .expect("endpoint projection");
+        let records = projection.as_array().expect("endpoint records");
+
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0]["id"], "endpoint_provider_openai_hosted-chat");
+        assert_eq!(records[0]["provider_ref"], "provider://openai");
+        assert_eq!(records[0]["model_ref"], "model://openai/hosted-chat");
+        assert_eq!(records[0]["backend_id"], "backend.hosted.openai");
+        assert_eq!(
+            records[0]["rust_core_boundary"],
+            "model_mount.provider_inventory.endpoint_materialization"
+        );
+        assert_eq!(
+            records[0]["artifact_endpoint_projection_boundary"],
+            "model_mount.provider_inventory_endpoint_projection"
+        );
+        assert_eq!(
+            records[0]["base_url_hash"],
+            "sha256:hosted-catalog-base-url"
+        );
+        assert_eq!(
+            records[0]["hosted_catalog_transport_status"],
+            "rust_hosted_provider_catalog_transport_response_bound"
+        );
+        assert_eq!(records[0]["plaintext_secret_material_returned"], false);
+        assert_eq!(records[0]["plaintext_transport_material_returned"], false);
+        assert!(records[0]["evidence_refs"]
+            .as_array()
+            .expect("endpoint evidence")
+            .iter()
+            .any(|value| value == "hosted_provider_endpoint_materialization_rust_owned"));
+        assert!(records
+            .iter()
+            .all(|record| record["provider_ref"] != "provider://legacy-hosted"));
+    }
+
+    #[test]
     fn artifact_endpoint_projection_replays_admitted_records_and_filters_js_truth() {
         let temp = tempfile::tempdir().expect("tempdir");
         write_provider_inventory_materialization_records(temp.path());
@@ -3700,25 +4044,45 @@ mod tests {
         let endpoint_projection =
             endpoints(&request("endpoints", state_dir)).expect("endpoint projection");
         let endpoint_records = endpoint_projection.as_array().expect("endpoint records");
-        assert_eq!(endpoint_records.len(), 1);
-        assert_eq!(endpoint_records[0]["id"], "endpoint.direct");
+        assert_eq!(endpoint_records.len(), 2);
+        let direct_endpoint = endpoint_records
+            .iter()
+            .find(|record| string_field(record, "id") == "endpoint.direct")
+            .expect("direct artifact endpoint projection");
+        assert_eq!(direct_endpoint["id"], "endpoint.direct");
         assert_eq!(
-            endpoint_records[0]["artifact_endpoint_projection_boundary"],
+            direct_endpoint["artifact_endpoint_projection_boundary"],
             "model_mount.artifact_endpoint_projection"
         );
         assert_eq!(
-            endpoint_records[0]["source"],
+            direct_endpoint["source"],
             "agentgres_artifact_endpoint_record"
         );
         assert_eq!(
-            endpoint_records[0]["plaintext_transport_material_returned"],
+            direct_endpoint["plaintext_transport_material_returned"],
             false
         );
-        assert!(endpoint_records[0]["evidence_refs"]
+        assert!(direct_endpoint["evidence_refs"]
             .as_array()
             .expect("endpoint evidence")
             .iter()
             .any(|value| value == "agentgres_artifact_endpoint_replay_required"));
+        let provider_inventory_endpoint = endpoint_records
+            .iter()
+            .find(|record| string_field(record, "id") == "endpoint_provider_fixture_qwen3")
+            .expect("provider inventory endpoint projection");
+        assert_eq!(
+            provider_inventory_endpoint["source"],
+            "agentgres_provider_inventory"
+        );
+        assert_eq!(
+            provider_inventory_endpoint["rust_core_boundary"],
+            "model_mount.provider_inventory.endpoint_materialization"
+        );
+        assert_eq!(
+            provider_inventory_endpoint["artifact_endpoint_projection_boundary"],
+            "model_mount.provider_inventory_endpoint_projection"
+        );
         assert!(endpoint_records
             .iter()
             .all(|record| string_field(record, "id") != "endpoint.legacy"));

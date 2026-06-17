@@ -9258,9 +9258,9 @@ runtime `state_dir`; Rust replays admitted `model-artifacts/*.json` and
 `model-endpoints/*.json` artifact-endpoint records, merges them with
 provider-inventory and route endpoint-resolution materializations, applies Rust
 unmount records as endpoint removal, and filters JS-authored artifact/endpoint
-truth. This remains non-terminal because hosted/provider endpoint
-discovery/materialization, deeper receipt/state-root binding, and stable
-protocol APIs still need direct Rust ownership.
+truth. Hosted/provider endpoint materialization is now Rust-projected from
+provider inventory; deeper receipt/state-root binding and stable protocol APIs
+still need direct Rust ownership before the family is terminal.
 Public model storage and catalog/download mutations have moved from fail-closed
 JS facades to typed `daemonCoreModelMountApi.planModelMountStorageControl`,
 backed by Rust `RuntimeKernel::plan_model_mount_storage_control`, plus Rust
@@ -9323,17 +9323,17 @@ records, and returns redacted log/event projections without committing
 server-control truth for reads. This remains non-terminal because actual
 process supervision, transport execution, and stable server-control protocol
 APIs still need direct Rust ownership.
-Provider-inventory topology and catalog materialization now replays that same
-admitted Agentgres truth in Rust. `listArtifacts()`, `listProductArtifacts()`,
-`listProviders()`, `runtimeModelCatalogList()`, and `openAiModelList()` call
-Rust read-projection kinds with runtime `state_dir`; Rust filters out
-JS-authored inventory, materializes only Rust fixture/native-local
-provider/artifact/runtime-catalog/OpenAI-list records, and the dedicated JS
-request state stays empty so JS topology maps cannot return as provider or
-catalog truth. Hosted endpoint discovery and materialization remain open because
-current provider inventory records carry live hosted model catalog truth but not
-hosted endpoint truth; public endpoint-list truth is now Rust-owned from
-route-control endpoint-resolution replay.
+Provider-inventory topology, catalog, and endpoint materialization now replays
+that same admitted Agentgres truth in Rust. `listArtifacts()`,
+`listProductArtifacts()`, `listProviders()`, `listEndpoints()`,
+`runtimeModelCatalogList()`, and `openAiModelList()` call Rust read-projection
+kinds with runtime `state_dir`; Rust filters out JS-authored inventory,
+materializes Rust fixture/native-local provider/artifact/runtime-catalog/OpenAI
+records, materializes hosted/provider endpoint projections from Rust-admitted
+`model-provider-inventory` records, and carries hosted catalog transport hashes,
+endpoint-url binding evidence, and cTEE no-plaintext facts into endpoint
+projection. The dedicated JS request state stays empty so JS topology maps cannot
+return as provider, catalog, artifact, or endpoint truth.
 Public catalog search now consumes that Rust-owned inventory truth through Rust
 read-projection kind `catalog_search`. `catalogSearch()` sends only canonical
 query facts plus runtime `state_dir`; Rust replays admitted
@@ -9354,7 +9354,7 @@ Live external hosted catalog API execution for provider inventory is now
 Rust-owned: hosted `list_models` requires a canonical endpoint, executes the
 catalog request in Rust, and binds request/response hashes before Agentgres
 record-state commit. Remaining hosted materialization work is cTEE
-secret-injection depth, hosted endpoint/download materialization, and richer
+secret-injection depth, hosted download materialization, and richer
 replay/protocol coverage; the public hosted inventory facade no longer fails
 closed, returns the retired hosted-transport-not-executed marker, or returns
 through JS driver execution. Public
@@ -9371,8 +9371,7 @@ readback, and no-commit success remain retired. Provider-control replay for
 provider lookup now lives in the Rust `providers` read-projection kind: Rust
 replays admitted `model-providers/*.json` records, filters JS-authored provider
 truth, and the mounted provider accessor consumes that projection instead of
-`state.providers` map truth. Hosted/provider transports, hosted/provider
-endpoint discovery/materialization, and stable
+`state.providers` map truth. Hosted/provider transports and stable
 direct Rust/Agentgres APIs remain non-terminal.
 Public `listInstances()` now calls Rust read-projection kind
 `instances` with runtime `state_dir`; Rust replays persisted
@@ -9383,10 +9382,9 @@ evidence, and keeps JS instance maps out of public-list request truth. Public
 `state_dir`; Rust replays persisted `model-routes/*.json` Agentgres records,
 filters to Rust-authored route-control records with route-control evidence and
 receipt refs, and keeps JS route maps out of public-list request truth. This is
-still non-terminal until hosted provider transports, hosted/provider endpoint
-discovery/materialization, richer hosted catalog materialization, deeper Agentgres receipt/state-root
-binding beyond record-state commit, and stable
-protocol APIs are Rust-owned.
+still non-terminal until hosted provider transports, richer hosted catalog
+materialization, deeper Agentgres receipt/state-root binding beyond record-state
+commit, and stable protocol APIs are Rust-owned.
 Public model route write/test has moved from the fail-closed route-control JS
 facade to typed `daemonCoreModelMountApi.planModelMountRouteControl`, backed by
 Rust `RuntimeKernelService::plan_model_mount_route_control`, plus Rust Agentgres
@@ -9430,8 +9428,7 @@ Public `listInstances()` now calls Rust read-projection kind `instances` with ru
 and emits only Rust-authored instance lifecycle records with lifecycle hashes
 and Agentgres registry evidence. The dedicated instance-list request state
 remains empty, so JS instance maps cannot return as public topology truth.
-deeper receipt/state-root binding, hosted/provider
-transports, hosted/provider endpoint discovery/materialization, richer hosted
+deeper receipt/state-root binding, hosted/provider transports, richer hosted
 catalog materialization, stable route/instance APIs, and stable protocol APIs
 remain required.
 The mounted model_mount topology accessors now consume those Rust read
@@ -10846,7 +10843,7 @@ and OAuth start/callback/exchange/refresh/revoke still enter Rust
 `model-catalog-provider-controls` records through Agentgres before public
 truth returns. Conformance guards the absent daemon fields, persistence map
 entry, store directory, and focused absence assertions. Remaining work is cTEE
-secret-injection depth for hosted catalog/download edges, hosted endpoint/download
+secret-injection depth for hosted catalog/download edges, hosted download
 materialization, and stable SDK/IDE/CLI catalog-provider APIs, not a JS
 catalog-provider config or runtime-material cache fallback.
 
@@ -12329,10 +12326,22 @@ proof fields, or deterministic placeholder catalog truth, and conformance now
 guards the Rust transport executor, live network evidence, request/response hash
 binding, missing-endpoint failure, and JS request-field absence. Remaining
 model_mount blockers for this lane are cTEE secret-injection depth for outbound
-hosted catalog/download edges, hosted endpoint/download materialization, deeper
+hosted catalog/download edges, hosted download materialization, deeper
 wallet/cTEE route authority and revocation policy, richer provider/instance
 replay joins, and stable IDE/CLI/SDK protocol coverage over the admitted Rust
 records.
+
+Slice 1406 hard-cuts provider-inventory endpoint materialization into Rust
+read-projection ownership. `listEndpoints()` now replays admitted
+`model-provider-inventory/*.json` records in Rust, admits hosted inventory only
+when the Rust-hosted catalog transport contract and cTEE no-plaintext evidence
+are present, materializes stable endpoint records from the Rust provider/model
+inventory tuple, carries hosted catalog request/response hashes and endpoint URL
+binding into the projection, and filters JS-authored hosted inventory rows before
+they can become endpoint truth. The stale gap where hosted provider inventory
+could carry model catalog truth without endpoint projection truth is retired; JS
+endpoint maps, JS provider inventory rows, command/binary fallback proof fields,
+and compatibility endpoint materializers remain absent from the hot path.
 
 ## Final Doctrine
 

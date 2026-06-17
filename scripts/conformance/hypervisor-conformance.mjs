@@ -3228,7 +3228,7 @@ function runDocs() {
       /Slices\s+1377-1383 moved those authority boundaries into Rust daemon-core ownership/.test(
         terminalBlockers,
       ) &&
-      /Remaining model_mount blockers are cTEE secret-injection depth for\s+outbound hosted catalog\/download edges, hosted endpoint\/download\s+materialization, deeper wallet\/cTEE route authority and revocation policy/.test(
+      /Remaining model_mount blockers are cTEE secret-injection depth for\s+outbound hosted catalog\/download edges, hosted download\s+materialization,\s+deeper wallet\/cTEE route authority and revocation policy/.test(
         terminalBlockers,
       ) &&
       !/live external backend binary spawning\/supervision|hosted\/provider transport|live cTEE secret injection into outbound hosted network requests|live external hosted API execution|live external hosted catalog\s+discovery\/materialization|actual external MCP transport\s+execution\/backend discovery/.test(
@@ -3240,10 +3240,10 @@ function runDocs() {
   assertCheck(
     result,
     "matrix-model-mount-route-row-current-blockers-reconciled",
-    /Move remaining cTEE secret-injection depth for hosted catalog\/download edges, hosted endpoint\/download materialization, deeper wallet\/cTEE route authority and revocation policy, conversation\/provider\/instance replay depth where still adapter-shaped, and stable SDK\/IDE\/CLI protocol APIs over Rust records/.test(
+    /Move remaining cTEE secret-injection depth for hosted catalog\/download edges, hosted download materialization, deeper wallet\/cTEE route authority and revocation policy, conversation\/provider\/instance replay depth where still adapter-shaped, and stable SDK\/IDE\/CLI protocol APIs over Rust records/.test(
       modelMountingRouteRow,
     ) &&
-      /Move remaining cTEE secret-injection depth for hosted catalog\/download edges, hosted endpoint\/download materialization, deeper wallet\/cTEE route authority and revocation policy, conversation\/provider\/instance replay depth where still adapter-shaped, and stable IDE\/CLI\/SDK protocol APIs over Rust records/.test(
+      /Move remaining cTEE secret-injection depth for hosted catalog\/download edges, hosted download materialization, deeper wallet\/cTEE route authority and revocation policy, conversation\/provider\/instance replay depth where still adapter-shaped, and stable IDE\/CLI\/SDK protocol APIs over Rust records/.test(
         modelMountingCoreBoundaryRow,
       ) &&
       !/Move remaining live external backend binary spawning\/supervision, hosted\/provider transport, OAuth execution\/materialization, hosted catalog materialization, invocation authority/.test(
@@ -17846,6 +17846,12 @@ function runBridge() {
       /MODEL_MOUNT_ENDPOINTS_PROJECTION_KIND => topology::endpoints\(request\)/.test(modelMountReadProjectionEvidence) &&
       /rust_daemon_core_model_endpoint_projection/.test(modelMountReadProjectionEvidence) &&
       /endpoint_projection_replays_route_control_records_and_filters_js_truth/.test(modelMountReadProjectionEvidence) &&
+      /endpoint_records_from_provider_inventory/.test(modelMountReadProjectionEvidence) &&
+      /endpoint_record_for_provider_inventory_record/.test(modelMountReadProjectionEvidence) &&
+      /model_mount\.provider_inventory\.endpoint_materialization/.test(modelMountReadProjectionEvidence) &&
+      /hosted_provider_endpoint_materialization_rust_owned/.test(modelMountReadProjectionEvidence) &&
+      /admitted_hosted_provider_inventory_record/.test(modelMountReadProjectionEvidence) &&
+      /endpoint_projection_materializes_hosted_provider_inventory_records/.test(modelMountReadProjectionEvidence) &&
       /endpoint_projection_fails_closed_without_agentgres_state_dir/.test(modelMountReadProjectionEvidence) &&
       /MODEL_MOUNT_INSTANCES_PROJECTION_KIND => topology::instances\(request\)/.test(modelMountReadProjectionEvidence) &&
       /MODEL_MOUNT_ROUTES_PROJECTION_KIND => topology::routes\(request\)/.test(modelMountReadProjectionEvidence) &&
@@ -17947,6 +17953,7 @@ function runBridge() {
       /provider_inventory_materialization_replays_agentgres_records_and_filters_js_truth/.test(modelMountReadProjectionEvidence) &&
       /provider_inventory_materialization_fails_closed_without_agentgres_state_dir/.test(modelMountReadProjectionEvidence) &&
       /artifact_records_from_provider_inventory/.test(modelMountReadProjectionEvidence) &&
+      /provider_inventory_endpoint_evidence_refs/.test(modelMountReadProjectionEvidence) &&
       /runtime_model_catalog_records/.test(modelMountReadProjectionEvidence) &&
       /open_ai_model_list_value/.test(modelMountReadProjectionEvidence) &&
       /pub\(super\) fn snapshot/.test(modelMountReadProjectionEvidence) &&
@@ -26147,12 +26154,26 @@ function runReceipts() {
       /Slice 1405 hard-cuts hosted provider `list_models` catalog execution into Rust\s+daemon core/.test(
         guide,
       ) &&
+      /Slice 1406 hard-cuts provider-inventory endpoint materialization into Rust\s+read-projection ownership/.test(
+        guide,
+      ) &&
       /Slice 1405 hard-cuts hosted provider catalog `list_models` live transport/.test(
+        matrix,
+      ) &&
+      /Public provider-inventory topology\/catalog\/endpoint materialization positive Rust path/.test(
+        matrix,
+      ) &&
+      /hosted\/provider endpoint records from Rust fixture\/native-local\/hosted inventory/.test(
         matrix,
       ) &&
       /Rust-contained live hosted catalog transport contract/.test(
         implementationMatrix,
       ) &&
+      /Rust endpoint projection now consumes admitted `model-provider-inventory` records/.test(
+        implementationMatrix,
+      ) &&
+      !/hosted endpoint\/download materialization/.test(matrix) &&
+      !/hosted endpoint\/download materialization/.test(implementationMatrix) &&
       !/Live external hosted catalog API execution, hosted\/provider endpoint discovery/.test(
         matrix,
       ) &&
