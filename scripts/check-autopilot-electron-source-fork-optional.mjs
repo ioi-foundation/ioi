@@ -45,7 +45,7 @@ if (AUTOPILOT_ELECTRON.forkRoot !== absentForkRoot) {
 }
 
 if (!existsSync(AUTOPILOT_ELECTRON.binary)) {
-  fail(`Packaged Autopilot binary is missing: ${AUTOPILOT_ELECTRON.binary}`);
+  fail(`Packaged Hypervisor Workbench adapter binary is missing: ${AUTOPILOT_ELECTRON.binary}`);
 }
 
 if (!existsSync(AUTOPILOT_ELECTRON.extensionSource)) {
@@ -73,6 +73,14 @@ if (sync) {
 const packagedExtension = join(AUTOPILOT_ELECTRON.packagedWorkbenchTarget, "extension.js");
 if (!existsSync(packagedExtension)) {
   fail(`Packaged ioi-workbench extension missing after sync: ${packagedExtension}`);
+}
+
+if (String(AUTOPILOT_ELECTRON.packagedRoot).includes("/ide/")) {
+  fail(`Packaged root must not fall back to retired root ide/ path: ${AUTOPILOT_ELECTRON.packagedRoot}`);
+}
+
+if (String(AUTOPILOT_ELECTRON.forkRoot).includes("/ide/")) {
+  fail(`Fork root must not fall back to retired root ide/ path: ${AUTOPILOT_ELECTRON.forkRoot}`);
 }
 
 for (const script of [

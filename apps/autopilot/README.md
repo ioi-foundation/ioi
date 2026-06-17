@@ -57,10 +57,9 @@ as the parent product.
 - [Node.js](https://nodejs.org/) (v20+ LTS recommended)
 - Packaged Electron/VS Code app at
   `workbench-adapters/builds/VSCode-linux-x64`, or set
-  `AUTOPILOT_VSCODE_PACKAGED_ROOT`. Existing machines may temporarily use the
-  legacy `ide/builds/VSCode-linux-x64` artifact path.
+  `AUTOPILOT_VSCODE_PACKAGED_ROOT`.
 - Optional VS Code source checkout at `workbench-adapters/vscode` for adapter
-  development. Existing machines may temporarily use legacy `ide/vscode`.
+  development.
 
 ### Setup
 
@@ -92,8 +91,7 @@ endpoint/token to `ioi-workbench`. Set
 discovery. The `workbench-adapters/vscode` source checkout is optional for this
 launch path; the required editor-host artifact is the packaged Electron app at
 `workbench-adapters/builds/VSCode-linux-x64` or
-`AUTOPILOT_VSCODE_PACKAGED_ROOT`. The old `ide/` paths remain temporary local
-artifact fallbacks only.
+`AUTOPILOT_VSCODE_PACKAGED_ROOT`. The old root `ide/` artifact path is retired.
 
 ### Project Structure
 

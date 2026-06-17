@@ -1,12 +1,12 @@
 # Workbench Adapter Host Artifacts
 
 `workbench-adapters/` is the tracked home for adapter-host metadata, patches,
-and future local build conventions. It is not the Hypervisor product, not an
-npm workspace, and not runtime authority.
+and local build conventions. It is not the Hypervisor product, not an npm
+workspace, and not runtime authority.
 
-The old root `ide/` path is now legacy local artifact storage only. Existing
-machines may still keep ignored VS Code source checkouts and packaged builds
-there until a machine-specific cleanup moves them to `workbench-adapters/`.
+The old root `ide/` path is retired. Local VS Code source checkouts and
+packaged editor-host builds belong here so the repository does not imply that
+Hypervisor is a single IDE product.
 
 The intended layout is:
 
@@ -28,8 +28,6 @@ Canonical ownership stays split:
 - `workbench-adapters/builds/VSCode-linux-x64` is the target local packaged
   Electron app path for the current Workbench adapter-host launcher and
   validation harnesses.
-- `ide/vscode` and `ide/builds/VSCode-linux-x64` remain temporary legacy
-  artifact paths only.
 - The IOI daemon remains the runtime authority for model mounting, workflow
   execution, policy, receipts, replay, connectors, secrets, and workspace
   mutation.

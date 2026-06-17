@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 export const AUTOPILOT_CAMPAIGN_PROCESS_PATTERN =
-  "[n]pm run dev:desktop|[l]aunch-autopilot-ide-fork|scripts/[i]oi-local-runtime-daemon\\.mjs|ide/builds/VSCode-linux-x64/[a]utopilot|[i]oi-runtime-bridge|[s]tartRuntimeDaemonService|packages/runtime-daemon/src/[i]ndex.mjs";
+  "[n]pm run dev:desktop|[l]aunch-hypervisor-workbench-adapter-host|scripts/[i]oi-local-runtime-daemon\\.mjs|workbench-adapters/builds/VSCode-linux-x64/bin/[h]ypervisor|[i]oi-runtime-bridge|[s]tartRuntimeDaemonService|packages/runtime-daemon/src/[i]ndex.mjs";
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
