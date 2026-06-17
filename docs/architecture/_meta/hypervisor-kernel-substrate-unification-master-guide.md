@@ -7302,8 +7302,8 @@ of the JS surface and into Rust `governed_admission.rs`. The Rust
 `admit_l1_settlement_attempt_protocol_response()` emits the canonical
 `ioi.runtime.l1_settlement_admission.v1` route envelope, including
 `settlement_admitted`, `thread_id`, `agent_id`, settlement refs, trigger refs,
-receipt refs, Rust-derived state-root refs, and admission hash. The JS L1
-settlement surface now only extracts the canonical `attempt` request body,
+receipt refs, Rust-derived state-root refs, and admission hash. The internal L1
+settlement product-route API now only extracts the canonical `attempt` request body,
 rejects retired request aliases and caller-supplied state-root truth, looks up
 the thread agent, and forwards context to the mounted core; it no longer mints
 the public settlement-admission response locally. The mounted core now requires
@@ -7311,13 +7311,11 @@ typed `daemonCoreGovernedAdmissionApi.admitL1SettlementAttempt`, rejects generic
 `daemonCoreInvoker`, and the old Rust `admit_l1_settlement_attempt` command
 operation is retired.
 
-This remains non-terminal because the route still reaches Rust through the
-shared JS daemon-core command runner and Node bridge stdin/JSON transport. The
-deleted JS-side L1 response-envelope authorship must not be recreated or
-treated as canonical. The next larger cuts should repeat this ownership move
-for the remaining governed admission/product-route families where Rust already
-has the response context, then replace the shared command runner/caller path
-and broad bridge transport with direct Rust daemon-core protocol APIs.
+This remains non-terminal because richer settlement replay/projection records,
+receipt/state-root binding, and stable Workbench/CLI/SDK settlement read APIs
+still need direct Rust ownership. The deleted JS-side L1 response-envelope
+authorship and route-visible surface shape must not be recreated or treated as
+canonical.
 
 Slice 1144 moves worker/service package product-route admission envelope
 authorship out of the JS surface and into Rust `governed_receipt.rs`. The Rust
@@ -7327,8 +7325,8 @@ the canonical `ioi.runtime.worker_service_package_admission.v1` route envelope,
 including `invocation_admitted`, `thread_id`, `agent_id`, package refs,
 StepModuleRouter admission, receipt binding, accepted-receipt append,
 Agentgres admission, projection record, receipt refs, artifact refs, payload
-refs, and authority grant refs. The JS worker/service package surface now only
-extracts the canonical `invocation` body, rejects retired request/truth fields,
+refs, and authority grant refs. The internal worker/service package
+product-route API now only extracts the canonical `invocation` body, rejects retired request/truth fields,
 looks up the thread agent, and forwards context to the mounted core; it no
 longer mints the public package-admission response locally. The mounted core now
 requires typed `daemonCoreWorkerServiceApi.admitWorkerServicePackageInvocation`,
@@ -7395,17 +7393,16 @@ route context and `authorize_external_capability_exit_protocol_response()` emits
 the canonical `ioi.runtime.external_capability_authority.v1` route envelope,
 including `status`, `exit_authorized`, `direct_truth_write_allowed`,
 `thread_id`, `agent_id`, authority refs, grant refs, receipt refs, and the
-authority hash. The JS external-capability authority surface now only extracts
+authority hash. The internal external-capability authority product-route API now only extracts
 the canonical `request` body, rejects retired aliases, looks up the thread
 agent, and forwards context to the mounted Rust core; it no longer mints the
 public authority response locally.
 
-This remains non-terminal because the route still reaches Rust through the
-shared JS daemon-core command runner and Node bridge stdin/JSON transport. The
-deleted JS-side external capability authority response-envelope authorship
-must not be recreated or treated as canonical. The next larger cuts should
-replace the shared command runner/caller path and broad bridge transport with
-direct Rust daemon-core authority protocol APIs once that seam is clear enough,
+This remains non-terminal because richer authority replay/projection records,
+Agentgres receipt/state-root binding, and stable Workbench/CLI/SDK authority
+read APIs still need direct Rust ownership. The deleted JS-side external
+capability authority response-envelope authorship and route-visible surface
+shape must not be recreated or treated as canonical,
 then continue facade retirement for the remaining JS product/readback surfaces.
 
 Slice 1148 removed the remaining JS-side defaulting for the external
@@ -8384,7 +8381,7 @@ The follow-on transport cut supersedes the direct-invoker-only edge: the cTEE
 core now requires typed `daemonCoreCteeApi.executePrivateWorkspaceCteeAction`,
 rejects generic `daemonCoreInvoker`, and the old Rust
 `execute_private_workspace_ctee_action` command operation is retired. This is
-still not terminal because the JS product surface remains a canonical request
+still not terminal because the internal product-route API remains a request
 extractor and richer cTEE projection/replay records, Agentgres
 receipt/state-root binding, and stable Workbench/CLI/SDK cTEE read APIs still need
 direct Rust ownership.
