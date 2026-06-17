@@ -1275,8 +1275,12 @@ Current implementation cut:
   landing page, making Home a projection over the same sessions/projects/
   privacy/providers/receipts/Foundry evidence rather than a detached dashboard.
   The invariant is explicit: Home summarizes evidence and does not become
-  runtime, authority, restore, or storage truth. Remaining work is live
-  projection hydration and interactive drill-through to selected surface rows.
+  runtime, authority, restore, or storage truth. The cockpit metric cards now
+  route through each metric's `surface_ref`, and `HypervisorShellContent`
+  validates that ref with the canonical Hypervisor surface registry before
+  switching surfaces. This makes Home an operator cockpit over the shared Core
+  substrate rather than a passive dashboard. Remaining work is live projection
+  hydration and row-level selection/drill-in within the destination surfaces.
 
 0A.10 first Playwright shell smoke is implemented:
   `scripts/hypervisor-app-shell-smoke.mjs` serves the built

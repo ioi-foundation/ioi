@@ -82,6 +82,7 @@ interface HomeViewProps {
   onOpenPolicy: () => void;
   onOpenSettings: (section?: SettingsSection | null) => void;
   onOpenCommandPalette: () => void;
+  onOpenCockpitSurface: (surfaceRef: string) => void;
   onSelectProject: (projectId: string) => void;
 }
 
@@ -262,6 +263,7 @@ interface HomeDashboardViewProps {
   onOpenPolicy: () => void;
   onOpenSettings: (section?: SettingsSection | null) => void;
   onOpenCommandPalette: () => void;
+  onOpenCockpitSurface: (surfaceRef: string) => void;
   onSelectProject: (projectId: string) => void;
   onReviewSetup: () => void;
 }
@@ -328,6 +330,7 @@ function HomeDashboardView({
   onOpenPolicy,
   onOpenSettings,
   onOpenCommandPalette,
+  onOpenCockpitSurface,
   onSelectProject,
   onReviewSetup,
 }: HomeDashboardViewProps) {
@@ -598,16 +601,18 @@ function HomeDashboardView({
             </div>
             <div className="chat-home-zero-cockpit-grid">
               {cockpitProjection.metrics.map((metric) => (
-                <article
+                <button
+                  type="button"
                   key={metric.metric_ref}
                   data-home-cockpit-metric={metric.metric_ref}
                   data-home-cockpit-surface={metric.surface_ref}
+                  onClick={() => onOpenCockpitSurface(metric.surface_ref)}
                 >
                   <span>{metric.label}</span>
                   <strong>{metric.value}</strong>
                   <em>{metric.detail}</em>
                   <small>{metric.evidence_refs.slice(0, 2).join(" · ")}</small>
-                </article>
+                </button>
               ))}
             </div>
           </section>
@@ -810,6 +815,7 @@ export function HomeView({
   onOpenPolicy,
   onOpenSettings,
   onOpenCommandPalette,
+  onOpenCockpitSurface,
   onSelectProject,
 }: HomeViewProps) {
   const [state, setState] = useState<HomeOnboardingState>(() => loadState());
@@ -1104,6 +1110,7 @@ export function HomeView({
           onOpenPolicy={onOpenPolicy}
           onOpenSettings={onOpenSettings}
           onOpenCommandPalette={onOpenCommandPalette}
+          onOpenCockpitSurface={onOpenCockpitSurface}
           onSelectProject={onSelectProject}
           onReviewSetup={() => setReviewingCompletedSetup(true)}
         />

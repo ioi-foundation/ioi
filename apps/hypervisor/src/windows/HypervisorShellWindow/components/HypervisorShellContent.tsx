@@ -62,6 +62,7 @@ import {
   loadHypervisorSessionOperationsProjection,
 } from "../hypervisorSessionOperationsModel";
 import type { HypervisorLaunchedSessionProjection } from "../hypervisorShellNavigationModel";
+import { isHypervisorSurfaceId } from "../hypervisorShellNavigationModel";
 
 interface HypervisorShellContentProps {
   controller: ReturnType<typeof useHypervisorShellController>;
@@ -1411,6 +1412,12 @@ export function HypervisorShellContent({
                       onOpenCommandPalette={
                         controller.modals.openCommandPalette
                       }
+                      onOpenCockpitSurface={(surfaceRef) => {
+                        const surfaceId = surfaceRef.replace(/^surface:/, "");
+                        if (isHypervisorSurfaceId(surfaceId)) {
+                          controller.changePrimaryView(surfaceId);
+                        }
+                      }}
                       onSelectProject={controller.workflow.selectProject}
                     />
                   ) : null}

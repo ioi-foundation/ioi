@@ -1393,14 +1393,24 @@
   gap: 10px;
 }
 
-.chat-home-zero-cockpit-grid article {
+.chat-home-zero-cockpit-grid button {
   display: grid;
   gap: 5px;
   min-width: 0;
   border: 1px solid var(--chat-border);
   border-radius: 8px;
   background: color-mix(in srgb, var(--chat-bg-elevated) 88%, transparent);
+  color: inherit;
+  cursor: pointer;
   padding: 11px;
+  text-align: left;
+}
+
+.chat-home-zero-cockpit-grid button:hover,
+.chat-home-zero-cockpit-grid button:focus-visible {
+  border-color: var(--chat-accent);
+  background: color-mix(in srgb, var(--chat-accent) 8%, var(--chat-bg-elevated));
+  outline: none;
 }
 
 .chat-home-zero-cockpit-grid span {
