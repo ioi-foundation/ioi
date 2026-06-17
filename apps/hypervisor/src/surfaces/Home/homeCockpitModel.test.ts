@@ -42,6 +42,13 @@ test("home cockpit metrics carry surface refs and evidence refs", () => {
     assert.ok(metric.value.length > 0);
     assert.ok(metric.detail.length > 0);
     assert.ok(metric.evidence_refs.length > 0);
+    assert.ok(metric.drill_refs.length > 0);
+    for (const drillRef of metric.drill_refs) {
+      assert.ok(drillRef.label.length > 0);
+      assert.ok(drillRef.surface_ref.startsWith("surface:"));
+      assert.ok(drillRef.target_ref.length > 0);
+      assert.ok(drillRef.evidence_ref.length > 0);
+    }
   }
 
   assert.ok(
@@ -74,6 +81,14 @@ test("home cockpit projection normalizer preserves daemon truth boundary", () =>
           detail: "session:daemon/live",
           surface_ref: "surface:sessions",
           evidence_refs: ["receipt://daemon/session"],
+          drill_refs: [
+            {
+              label: "Daemon session",
+              surface_ref: "surface:sessions",
+              target_ref: "session:daemon/live",
+              evidence_ref: "receipt://daemon/session",
+            },
+          ],
         },
       ],
     },
@@ -86,6 +101,14 @@ test("home cockpit projection normalizer preserves daemon truth boundary", () =>
   assert.equal(projection.metrics[0]?.metric_ref, "home-cockpit:daemon-session");
   assert.deepEqual(projection.metrics[0]?.evidence_refs, [
     "receipt://daemon/session",
+  ]);
+  assert.deepEqual(projection.metrics[0]?.drill_refs, [
+    {
+      label: "Daemon session",
+      surface_ref: "surface:sessions",
+      target_ref: "session:daemon/live",
+      evidence_ref: "receipt://daemon/session",
+    },
   ]);
 });
 

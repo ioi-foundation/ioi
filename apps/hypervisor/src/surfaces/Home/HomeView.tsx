@@ -601,18 +601,41 @@ function HomeDashboardView({
             </div>
             <div className="chat-home-zero-cockpit-grid">
               {cockpitProjection.metrics.map((metric) => (
-                <button
-                  type="button"
+                <div
                   key={metric.metric_ref}
+                  className="chat-home-zero-cockpit-card"
                   data-home-cockpit-metric={metric.metric_ref}
                   data-home-cockpit-surface={metric.surface_ref}
-                  onClick={() => onOpenCockpitSurface(metric.surface_ref)}
                 >
-                  <span>{metric.label}</span>
-                  <strong>{metric.value}</strong>
-                  <em>{metric.detail}</em>
-                  <small>{metric.evidence_refs.slice(0, 2).join(" · ")}</small>
-                </button>
+                  <button
+                    type="button"
+                    className="chat-home-zero-cockpit-card__summary"
+                    onClick={() => onOpenCockpitSurface(metric.surface_ref)}
+                  >
+                    <span>{metric.label}</span>
+                    <strong>{metric.value}</strong>
+                    <em>{metric.detail}</em>
+                    <small>{metric.evidence_refs.slice(0, 2).join(" · ")}</small>
+                  </button>
+                  <div
+                    className="chat-home-zero-cockpit-card__drill-refs"
+                    aria-label={`${metric.label} drill-through refs`}
+                  >
+                    {metric.drill_refs.slice(0, 2).map((drillRef) => (
+                      <button
+                        type="button"
+                        key={`${metric.metric_ref}:${drillRef.target_ref}`}
+                        data-home-cockpit-drill-ref={drillRef.target_ref}
+                        data-home-cockpit-drill-evidence={drillRef.evidence_ref}
+                        data-home-cockpit-drill-surface={drillRef.surface_ref}
+                        onClick={() => onOpenCockpitSurface(drillRef.surface_ref)}
+                      >
+                        <span>{drillRef.label}</span>
+                        <em>{drillRef.target_ref}</em>
+                      </button>
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
           </section>

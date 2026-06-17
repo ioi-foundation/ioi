@@ -105,14 +105,20 @@ test("home dashboard exposes the Core cockpit projection", () => {
   assert.match(homeView, /data-home-cockpit-source/);
   assert.match(homeView, /data-home-cockpit-metric/);
   assert.match(homeView, /data-home-cockpit-surface/);
+  assert.match(homeView, /data-home-cockpit-drill-ref/);
+  assert.match(homeView, /data-home-cockpit-drill-evidence/);
+  assert.match(homeView, /data-home-cockpit-drill-surface/);
   assert.match(homeView, /onOpenCockpitSurface: \(surfaceRef: string\) => void/);
   assert.match(homeView, /onClick=\{\(\) => onOpenCockpitSurface\(metric\.surface_ref\)\}/);
+  assert.match(homeView, /onClick=\{\(\) => onOpenCockpitSurface\(drillRef\.surface_ref\)\}/);
   assert.match(shellContent, /isHypervisorSurfaceId/);
   assert.match(shellContent, /surfaceRef\.replace\(\/\^surface:/);
   assert.match(shellContent, /controller\.changePrimaryView\(surfaceId\)/);
   assert.match(homeCss, /\.chat-home-zero-cockpit\s*\{/);
   assert.match(homeCss, /\.chat-home-zero-cockpit-grid\s*\{/);
-  assert.match(homeCss, /\.chat-home-zero-cockpit-grid button\s*\{/);
+  assert.match(homeCss, /\.chat-home-zero-cockpit-card\s*\{/);
+  assert.match(homeCss, /\.chat-home-zero-cockpit-card__summary/);
+  assert.match(homeCss, /\.chat-home-zero-cockpit-card__drill-refs/);
 });
 
 test("home dashboard routes model setup to the Models surface", () => {

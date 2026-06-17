@@ -1393,7 +1393,14 @@
   gap: 10px;
 }
 
-.chat-home-zero-cockpit-grid button {
+.chat-home-zero-cockpit-card {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.chat-home-zero-cockpit-card__summary,
+.chat-home-zero-cockpit-card__drill-refs button {
   display: grid;
   gap: 5px;
   min-width: 0;
@@ -1406,11 +1413,34 @@
   text-align: left;
 }
 
-.chat-home-zero-cockpit-grid button:hover,
-.chat-home-zero-cockpit-grid button:focus-visible {
+.chat-home-zero-cockpit-card__summary:hover,
+.chat-home-zero-cockpit-card__summary:focus-visible,
+.chat-home-zero-cockpit-card__drill-refs button:hover,
+.chat-home-zero-cockpit-card__drill-refs button:focus-visible {
   border-color: var(--chat-accent);
   background: color-mix(in srgb, var(--chat-accent) 8%, var(--chat-bg-elevated));
   outline: none;
+}
+
+.chat-home-zero-cockpit-card__drill-refs {
+  display: grid;
+  gap: 6px;
+}
+
+.chat-home-zero-cockpit-card__drill-refs button {
+  min-height: 56px;
+  background: color-mix(in srgb, var(--chat-bg-elevated) 64%, transparent);
+  padding: 8px 10px;
+}
+
+.chat-home-zero-cockpit-card__drill-refs span {
+  color: var(--chat-text);
+  font-size: 0.72rem;
+}
+
+.chat-home-zero-cockpit-card__drill-refs em {
+  color: var(--chat-text-muted);
+  font-size: 0.72rem;
 }
 
 .chat-home-zero-cockpit-grid span {
