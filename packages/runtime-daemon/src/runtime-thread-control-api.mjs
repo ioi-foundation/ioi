@@ -20,7 +20,7 @@ import {
 } from "./threads/thread-runtime-controls.mjs";
 import { createWorkspaceTrustState } from "./threads/workspace-trust-state.mjs";
 
-export function createRuntimeThreadControlSurface({
+export function createRuntimeThreadControlApi({
   approvalModeForThreadMode: approvalModeForThreadModeDep = approvalModeForThreadMode,
   contextPolicyCore: contextPolicyCoreDep = null,
   eventStreamIdForThread: eventStreamIdForThreadDep = eventStreamIdForThread,

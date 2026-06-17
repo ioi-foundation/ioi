@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createRuntimeThreadControlSurface } from "./runtime-thread-control-surface.mjs";
+import { createRuntimeThreadControlApi } from "./runtime-thread-control-api.mjs";
 
 function createStore() {
   const agent = {
@@ -80,8 +80,8 @@ function createStore() {
   return store;
 }
 
-function createSurface(plannerCalls = [], { threadControlStateUpdate = null } = {}) {
-  return createRuntimeThreadControlSurface({
+function createApi(plannerCalls = [], { threadControlStateUpdate = null } = {}) {
+  return createRuntimeThreadControlApi({
     contextPolicyCore: {
       planThreadControlAgentStateUpdate(request = {}) {
         plannerCalls.push(request);
@@ -213,12 +213,12 @@ function assertNoThreadControlMutation(store, plannerCalls) {
   assert.deepEqual(plannerCalls, []);
 }
 
-test("thread control mode/model/thinking facades delegate to Rust planner and Agentgres-backed write", () => {
+test("thread control mode/model/thinking APIs delegate to Rust planner and Agentgres-backed write", () => {
   const store = createStore();
   const plannerCalls = [];
-  const surface = createSurface(plannerCalls);
+  const api = createApi(plannerCalls);
 
-  const mode = surface.updateThreadMode(store, "thread_1", {
+  const mode = api.updateThreadMode(store, "thread_1", {
     mode: "review",
     actor: "operator_1",
     source: "agent_studio",
@@ -231,7 +231,7 @@ test("thread control mode/model/thinking facades delegate to Rust planner and Ag
   assert.deepEqual(mode.receipt_refs, ["receipt_thread_control_mode"]);
   assert.equal(mode.commit.operation_kind, "thread.mode");
 
-  const model = surface.updateThreadModel(store, "thread_1", {
+  const model = api.updateThreadModel(store, "thread_1", {
     model: { id: "auto", route_id: "route.local-first" },
     workflow_node_id: "runtime.model-router.custom",
   });
@@ -240,7 +240,7 @@ test("thread control mode/model/thinking facades delegate to Rust planner and Ag
   assert.equal(model.agent.modelId, "local-model");
   assert.deepEqual(model.receipt_refs, ["receipt_route_1"]);
 
-  const thinking = surface.updateThreadThinking(store, "thread_1", {
+  const thinking = api.updateThreadThinking(store, "thread_1", {
     thinking: "off",
     model: {
       id: "auto",
@@ -271,10 +271,10 @@ test("thread control mode/model/thinking facades delegate to Rust planner and Ag
   assert.equal(store.routeRequests[1].context.workflow_graph_id, "graph_1");
 });
 
-test("thread runtime-control facade fails closed before lookup without Rust planner", () => {
+test("thread runtime-control API fails closed before lookup without Rust planner", () => {
   const store = createStore();
   const plannerCalls = [];
-  const surface = createRuntimeThreadControlSurface({
+  const api = createRuntimeThreadControlApi({
     contextPolicyCore: null,
     runtimeError: ({ message, code, status, details }) => {
       const error = new Error(message);
@@ -286,7 +286,7 @@ test("thread runtime-control facade fails closed before lookup without Rust plan
   });
 
   assert.throws(
-    () => surface.updateThreadRuntimeControls(store, "thread_1", {
+    () => api.updateThreadRuntimeControls(store, "thread_1", {
       control: "mode",
       mode: "review",
       workflowGraphId: "graph_retired",
@@ -305,7 +305,7 @@ test("thread runtime-control facade fails closed before lookup without Rust plan
 test("thread mode fails closed before lookup when workspace trust Rust planner is missing", () => {
   const store = createStore();
   const plannerCalls = [];
-  const surface = createRuntimeThreadControlSurface({
+  const api = createRuntimeThreadControlApi({
     contextPolicyCore: {
       planThreadControlAgentStateUpdate(request = {}) {
         plannerCalls.push(request);
@@ -322,7 +322,7 @@ test("thread mode fails closed before lookup when workspace trust Rust planner i
   });
 
   assert.throws(
-    () => surface.updateThreadMode(store, "thread_1", {
+    () => api.updateThreadMode(store, "thread_1", {
       mode: "review",
       workflow_graph_id: "graph_1",
     }),
@@ -339,13 +339,13 @@ test("thread mode fails closed before lookup when workspace trust Rust planner i
   assertNoThreadControlMutation(store, plannerCalls);
 });
 
-test("direct thread runtime-control event facade stays retired before JS event append", () => {
+test("direct thread runtime-control event API stays retired before JS event append", () => {
   const store = createStore();
   const plannerCalls = [];
-  const surface = createSurface(plannerCalls);
+  const api = createApi(plannerCalls);
 
   assert.throws(
-    () => surface.appendThreadRuntimeControlEvent(store, {
+    () => api.appendThreadRuntimeControlEvent(store, {
       agent: { id: "agent_1", cwd: "/tmp/runtime-thread-control-test" },
       threadId: "thread_1",
       controlKind: "thinking",
@@ -372,11 +372,11 @@ test("direct thread runtime-control event facade stays retired before JS event a
   assertNoThreadControlMutation(store, plannerCalls);
 });
 
-test("thread control surface delegates workspace trust acknowledgement", () => {
+test("thread control API delegates workspace trust acknowledgement", () => {
   const store = createStore();
-  const surface = createSurface();
+  const api = createApi();
 
-  const result = surface.acknowledgeWorkspaceTrustWarning(
+  const result = api.acknowledgeWorkspaceTrustWarning(
     store,
     "thread_1",
     "workspace_trust_warning_1",

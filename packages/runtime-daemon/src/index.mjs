@@ -79,7 +79,7 @@ import { createRuntimeGovernedImprovementApi } from "./runtime-governed-improvem
 import { createRuntimeWorkerServicePackageApi } from "./runtime-worker-service-package-api.mjs";
 import { createRuntimeCteePrivateWorkspaceApi } from "./runtime-ctee-private-workspace-api.mjs";
 import { createRuntimeL1SettlementApi } from "./runtime-l1-settlement-api.mjs";
-import { createRuntimeThreadControlSurface } from "./runtime-thread-control-surface.mjs";
+import { createRuntimeThreadControlApi } from "./runtime-thread-control-api.mjs";
 import { createRuntimeThreadTurnApi } from "./runtime-thread-turn-api.mjs";
 import { createRuntimeToolApi } from "./runtime-tool-api.mjs";
 import { createRuntimeSubagentApi } from "./runtime-subagent-api.mjs";
@@ -794,7 +794,7 @@ export class AgentgresRuntimeStateStore {
       contextPolicyCore: this.contextPolicyCore,
       workspaceRoot: this.defaultCwd,
     });
-    this.threadControlSurface = createRuntimeThreadControlSurface({
+    this.threadControlApi = createRuntimeThreadControlApi({
       contextPolicyCore: this.contextPolicyCore,
     });
     this.threadTurnApi = createRuntimeThreadTurnApi({
@@ -1458,6 +1458,27 @@ export class AgentgresRuntimeStateStore {
 
   steerTurn(threadId, turnId, request = {}) {
     return this.threadTurnApi.steerTurn(this, threadId, turnId, request);
+  }
+
+  updateThreadMode(threadId, request = {}) {
+    return this.threadControlApi.updateThreadMode(this, threadId, request);
+  }
+
+  updateThreadModel(threadId, request = {}) {
+    return this.threadControlApi.updateThreadModel(this, threadId, request);
+  }
+
+  updateThreadThinking(threadId, request = {}) {
+    return this.threadControlApi.updateThreadThinking(this, threadId, request);
+  }
+
+  acknowledgeWorkspaceTrustWarning(threadId, warningId, request = {}) {
+    return this.threadControlApi.acknowledgeWorkspaceTrustWarning(
+      this,
+      threadId,
+      warningId,
+      request,
+    );
   }
 
   evaluateContextBudget(input = {}) {

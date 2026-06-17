@@ -199,7 +199,7 @@ export function createRuntimeRouteHandlers(deps) {
       return;
     }
     if (request.method === "POST" && action === "mode" && !segments[4]) {
-      writeJsonResponse(response, store.threadControlSurface.updateThreadMode(store, threadId, await readBody(request)));
+      writeJsonResponse(response, store.updateThreadMode(threadId, await readBody(request)));
       return;
     }
     if (
@@ -211,8 +211,7 @@ export function createRuntimeRouteHandlers(deps) {
     ) {
       writeJsonResponse(
         response,
-        store.threadControlSurface.acknowledgeWorkspaceTrustWarning(
-          store,
+        store.acknowledgeWorkspaceTrustWarning(
           threadId,
           decodeURIComponent(segments[4]),
           await readBody(request),
@@ -221,11 +220,11 @@ export function createRuntimeRouteHandlers(deps) {
       return;
     }
     if (request.method === "POST" && action === "model" && !segments[4]) {
-      writeJsonResponse(response, store.threadControlSurface.updateThreadModel(store, threadId, await readBody(request)));
+      writeJsonResponse(response, store.updateThreadModel(threadId, await readBody(request)));
       return;
     }
     if (request.method === "POST" && action === "thinking" && !segments[4]) {
-      writeJsonResponse(response, store.threadControlSurface.updateThreadThinking(store, threadId, await readBody(request)));
+      writeJsonResponse(response, store.updateThreadThinking(threadId, await readBody(request)));
       return;
     }
     if (request.method === "GET" && action === "managed-sessions" && !segments[4]) {

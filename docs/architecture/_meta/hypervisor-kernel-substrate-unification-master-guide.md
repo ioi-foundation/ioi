@@ -2767,8 +2767,9 @@ receipt/state-root binding, Agentgres truth, replay, projection,
 stable SDK/IDE/CLI protocol APIs remain
 required before terminal thread-tool conformance.
 Slice 957 retired the daemon-store thread-control route pass-through wrappers.
-The public mode/model/thinking and workspace-trust acknowledgement routes call
-the mounted `RuntimeThreadControl` surface directly, so JS no longer preserves
+At that point the public mode/model/thinking and workspace-trust
+acknowledgement routes called the then-mounted `RuntimeThreadControl` delegate
+directly, so JS no longer preserved
 `updateThreadMode()`, `updateThreadModel()`, `updateThreadThinking()`, or
 `acknowledgeWorkspaceTrustWarning()` as duplicate store-level compatibility
 wrappers. Later workspace-trust work moved warning/acknowledgement event
@@ -2781,6 +2782,16 @@ This still does not claim terminal thread-control or workspace-trust admission:
 deeper wallet/cTEE/model-route authority, durable Agentgres projection storage,
 and stable SDK/IDE/CLI protocol APIs remain required before terminal
 conformance.
+Slice 1439 later hard-deletes the route-visible thread-control surface shape.
+Daemon startup now mounts `runtime-thread-control-api.mjs` as the internal
+`threadControlApi` delegate, and public mode/model/thinking plus
+workspace-trust acknowledgement routes enter through store-owned
+`updateThreadMode()`, `updateThreadModel()`, `updateThreadThinking()`, and
+`acknowledgeWorkspaceTrustWarning()` methods. Conformance guards the deleted
+`runtime-thread-control-surface.mjs` files, the retired
+`createRuntimeThreadControlSurface()` factory, the absent
+`this.threadControlSurface` property, and direct `store.threadControlSurface.*`
+route calls from returning beside the Rust-backed thread-control API.
 Slice 958 retired the daemon-store subagent route pass-through wrappers. The
 public subagent list/get/result routes now call Rust
 `project_runtime_subagent_projection` through the mounted
@@ -6528,8 +6539,8 @@ authority, Agentgres expected-head/state-root binding, receipt binding, replay,
 and projection APIs replace the temporary surface.
 
 Slice 1102 retired the daemon-store workspace-trust warning pass-through
-delegate. At that point the mounted thread-control surface kept
-`appendWorkspaceTrustWarningEvent()` as a fail-closed migration surface, but the
+delegate. At that point the mounted thread-control delegate kept
+`appendWorkspaceTrustWarningEvent()` as a fail-closed migration API, but the
 daemon store no longer provided a duplicate `store.appendWorkspaceTrustWarningEvent()`
 compatibility entrypoint, and conformance failed if that wrapper returned.
 
@@ -6541,7 +6552,7 @@ canonical request bodies without generic command `operation`/`backend`
 envelopes and Rust rejects `plan_workspace_trust_control_state_update` as a
 command operation. `plan_workspace_trust_control_state_update` authors warning
 and acknowledgement event envelopes, receipt refs, policy refs, and
-replay-bound acknowledgement payloads; the JS thread-control surface only
+replay-bound acknowledgement payloads; the internal thread-control API only
 forwards canonical facts, requires the Rust planner before mode lookup/write,
 and admits Rust-authored events through `admit_runtime_thread_event`. The old JS
 repository-context warning record and acknowledgement payload construction stay
@@ -12824,6 +12835,20 @@ the mounted `this.threadTurnSurface` property from returning. Remaining blockers
 stay broader runtime-service/thread-turn execution dispatch, durable
 replay/projection, wallet/cTEE authority policy, Agentgres expected-head/state-root
 binding, and stable Workbench/CLI/SDK lifecycle clients over Rust-owned records.
+
+Slice 1439 hard-cuts the thread-control route-visible JS surface shape. Daemon
+startup now mounts the runtime thread-control delegate as internal
+`threadControlApi` instead of `threadControlSurface`, and public thread mode,
+model, thinking, and workspace-trust acknowledgement routes enter through
+store-owned daemon methods. Focused route tests poison the retired
+`threadControlSurface` and prove route calls use `updateThreadMode()`,
+`updateThreadModel()`, `updateThreadThinking()`, and
+`acknowledgeWorkspaceTrustWarning()` on the daemon store. Conformance guards
+the deleted surface file/test, retired factory/property names, and old
+route-call patterns from returning. Remaining blockers stay deeper
+workspace-trust wallet/cTEE authority enforcement, model-route authority,
+durable thread-control replay/projection storage, receipt/state-root binding,
+and stable Workbench/CLI/SDK thread-control clients over Rust-owned records.
 
 ## Final Doctrine
 

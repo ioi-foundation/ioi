@@ -1649,70 +1649,105 @@ test("thread route sends turn controls through store-owned turn APIs", async () 
   assert.deepEqual(calls, cases.map((testCase) => testCase.expected));
 });
 
-test("thread route sends runtime controls through thread control surface", async () => {
+test("thread route sends runtime controls through store-owned thread control API methods", async () => {
   const { handleThreadRoute } = routeHandlers();
-  const response = responseRecorder();
   const calls = [];
-  const body = { mode: "review" };
   const store = {
     threadControlSurface: {
-      updateThreadMode(surfaceStore, threadId, requestBody) {
-        calls.push({ surfaceStore, threadId, requestBody });
-        return {
-          status: "blocked",
-          thread_id: threadId,
-          requested_control_kind: "mode",
-        };
-      },
+      updateThreadMode: retiredRouteWrapper,
+      updateThreadModel: retiredRouteWrapper,
+      updateThreadThinking: retiredRouteWrapper,
     },
-    updateThreadMode() {
-      throw new Error("retired updateThreadMode wrapper must not be routed");
+    updateThreadMode(threadId, requestBody) {
+      calls.push({ method: "updateThreadMode", threadId, requestBody });
+      return {
+        status: "blocked",
+        thread_id: threadId,
+        requested_control_kind: "mode",
+      };
+    },
+    updateThreadModel(threadId, requestBody) {
+      calls.push({ method: "updateThreadModel", threadId, requestBody });
+      return {
+        status: "blocked",
+        thread_id: threadId,
+        requested_control_kind: "model",
+      };
+    },
+    updateThreadThinking(threadId, requestBody) {
+      calls.push({ method: "updateThreadThinking", threadId, requestBody });
+      return {
+        status: "blocked",
+        thread_id: threadId,
+        requested_control_kind: "thinking",
+      };
     },
   };
+  const cases = [
+    {
+      action: "mode",
+      body: { mode: "review" },
+      method: "updateThreadMode",
+      requestedControlKind: "mode",
+    },
+    {
+      action: "model",
+      body: { model: { id: "auto" } },
+      method: "updateThreadModel",
+      requestedControlKind: "model",
+    },
+    {
+      action: "thinking",
+      body: { thinking: "off" },
+      method: "updateThreadThinking",
+      requestedControlKind: "thinking",
+    },
+  ];
 
-  await handleThreadRoute({
-    request: request({
-      method: "POST",
-      url: "/v1/threads/thread_route/mode",
-      body,
-    }),
-    response,
-    store,
-    url: new URL("/v1/threads/thread_route/mode", "http://daemon.test"),
-    segments: ["v1", "threads", "thread_route", "mode"],
-  });
+  for (const testCase of cases) {
+    const response = responseRecorder();
+    await handleThreadRoute({
+      request: request({
+        method: "POST",
+        url: `/v1/threads/thread_route/${testCase.action}`,
+        body: testCase.body,
+      }),
+      response,
+      store,
+      url: new URL(`/v1/threads/thread_route/${testCase.action}`, "http://daemon.test"),
+      segments: ["v1", "threads", "thread_route", testCase.action],
+    });
 
-  assert.equal(response.statusCode, 200);
-  assert.equal(calls.length, 1);
-  assert.equal(calls[0].surfaceStore, store);
-  assert.equal(calls[0].threadId, "thread_route");
-  assert.deepEqual(calls[0].requestBody, body);
-  assert.deepEqual(JSON.parse(response.body), {
-    status: "blocked",
-    thread_id: "thread_route",
-    requested_control_kind: "mode",
-  });
+    const call = calls.pop();
+    assert.equal(response.statusCode, 200);
+    assert.equal(call.method, testCase.method);
+    assert.equal(call.threadId, "thread_route");
+    assert.deepEqual(call.requestBody, testCase.body);
+    assert.deepEqual(JSON.parse(response.body), {
+      status: "blocked",
+      thread_id: "thread_route",
+      requested_control_kind: testCase.requestedControlKind,
+    });
+  }
 });
 
-test("thread route sends workspace-trust acknowledgement through thread control surface", async () => {
+test("thread route sends workspace-trust acknowledgement through thread control API", async () => {
   const { handleThreadRoute } = routeHandlers();
   const response = responseRecorder();
   const calls = [];
   const body = { reason: "operator acknowledged" };
   const store = {
     threadControlSurface: {
-      acknowledgeWorkspaceTrustWarning(surfaceStore, threadId, warningId, requestBody) {
-        calls.push({ surfaceStore, threadId, warningId, requestBody });
-        return {
-          status: "blocked",
-          thread_id: threadId,
-          warning_id: warningId,
-          requested_control_kind: "workspace_trust_acknowledgement",
-        };
-      },
+      acknowledgeWorkspaceTrustWarning: retiredRouteWrapper,
     },
-    acknowledgeWorkspaceTrustWarning() {
-      throw new Error("retired acknowledgeWorkspaceTrustWarning wrapper must not be routed");
+    acknowledgeWorkspaceTrustWarning(threadId, warningId, requestBody) {
+      calls.push({ threadId, warningId, requestBody });
+      return {
+        status: "blocked",
+        thread_id: threadId,
+        warning_id: warningId,
+        requested_control_kind: "workspace_trust_acknowledgement",
+      };
     },
   };
 
@@ -1733,7 +1768,6 @@ test("thread route sends workspace-trust acknowledgement through thread control 
 
   assert.equal(response.statusCode, 200);
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].surfaceStore, store);
   assert.equal(calls[0].threadId, "thread_route");
   assert.equal(calls[0].warningId, "warning_1");
   assert.deepEqual(calls[0].requestBody, body);

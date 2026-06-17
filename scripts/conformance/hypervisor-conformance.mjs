@@ -4596,11 +4596,11 @@ function runBridge() {
     : "";
   const runtimeLifecycleProjectionSurface = runtimeLifecycleProjectionApi;
   const runtimeLifecycleProjectionSurfaceTest = runtimeLifecycleProjectionApiTest;
-  const runtimeThreadControlSurface = exists("packages/runtime-daemon/src/runtime-thread-control-surface.mjs")
-    ? read("packages/runtime-daemon/src/runtime-thread-control-surface.mjs")
+  const runtimeThreadControlApi = exists("packages/runtime-daemon/src/runtime-thread-control-api.mjs")
+    ? read("packages/runtime-daemon/src/runtime-thread-control-api.mjs")
     : "";
-  const runtimeThreadControlSurfaceTest = exists("packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs")
-    ? read("packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs")
+  const runtimeThreadControlApiTest = exists("packages/runtime-daemon/src/runtime-thread-control-api.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-thread-control-api.test.mjs")
     : "";
   const runtimeThreadTurnSurface = exists("packages/runtime-daemon/src/runtime-thread-turn-api.mjs")
     ? read("packages/runtime-daemon/src/runtime-thread-turn-api.mjs")
@@ -14394,49 +14394,49 @@ function runBridge() {
       /Object\.hasOwn\(result\.control,\s*field\),\s*false/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /runtime_thread_control_rust_core_required/.test(runtimeThreadControlSurface) &&
-      /runtime_thread_control_js_facade_retired/.test(runtimeThreadControlSurface) &&
-      /runtime_thread_mode_control_js_facade_retired/.test(runtimeThreadControlSurface) &&
-      /runtime_thread_model_control_js_facade_retired/.test(runtimeThreadControlSurface) &&
-      /runtime_thread_thinking_control_js_facade_retired/.test(runtimeThreadControlSurface) &&
-      /runtime_thread_control_event_js_facade_retired/.test(runtimeThreadControlSurface) &&
-      /rust_daemon_core_thread_control_required/.test(runtimeThreadControlSurface) &&
-      /agentgres_thread_control_truth_required/.test(runtimeThreadControlSurface) &&
-      !/createRuntimeContextPolicyCore/.test(runtimeThreadControlSurface) &&
-      /contextPolicyCore: contextPolicyCoreDep = null/.test(runtimeThreadControlSurface) &&
+      /runtime_thread_control_rust_core_required/.test(runtimeThreadControlApi) &&
+      /runtime_thread_control_js_facade_retired/.test(runtimeThreadControlApi) &&
+      /runtime_thread_mode_control_js_facade_retired/.test(runtimeThreadControlApi) &&
+      /runtime_thread_model_control_js_facade_retired/.test(runtimeThreadControlApi) &&
+      /runtime_thread_thinking_control_js_facade_retired/.test(runtimeThreadControlApi) &&
+      /runtime_thread_control_event_js_facade_retired/.test(runtimeThreadControlApi) &&
+      /rust_daemon_core_thread_control_required/.test(runtimeThreadControlApi) &&
+      /agentgres_thread_control_truth_required/.test(runtimeThreadControlApi) &&
+      !/createRuntimeContextPolicyCore/.test(runtimeThreadControlApi) &&
+      /contextPolicyCore: contextPolicyCoreDep = null/.test(runtimeThreadControlApi) &&
       /contextPolicyCoreDep\?\.planThreadControlAgentStateUpdate/.test(
-        runtimeThreadControlSurface,
+        runtimeThreadControlApi,
       ) &&
-      /applyRustThreadControlStateUpdate/.test(runtimeThreadControlSurface) &&
+      /applyRustThreadControlStateUpdate/.test(runtimeThreadControlApi) &&
       /const modelRoute = controls\.model_route \?\? null/.test(
-        runtimeThreadControlSurface,
+        runtimeThreadControlApi,
       ) &&
-      !/requiredThreadControlOperationKind/.test(runtimeThreadControlSurface) &&
-      /store\.agentForThread\?\.\(threadId\)/.test(runtimeThreadControlSurface) &&
-      /store\.resolveModelRoute/.test(runtimeThreadControlSurface) &&
+      !/requiredThreadControlOperationKind/.test(runtimeThreadControlApi) &&
+      /store\.agentForThread\?\.\(threadId\)/.test(runtimeThreadControlApi) &&
+      /store\.resolveModelRoute/.test(runtimeThreadControlApi) &&
       /store\.writeAgent\(plannedAgent, operationKind\)/.test(
-        runtimeThreadControlSurface,
+        runtimeThreadControlApi,
       ) &&
-      !/store\.appendRuntimeEvent|store\.agents\.set/.test(runtimeThreadControlSurface) &&
+      !/store\.appendRuntimeEvent|store\.agents\.set/.test(runtimeThreadControlApi) &&
       !/stateUpdate\.operation_kind\s*\?\?\s*`thread\.\$\{controlKind\}`/.test(
-        runtimeThreadControlSurface,
+        runtimeThreadControlApi,
       ) &&
       !/modelId:\s*modelRoute\.selectedModel|runtimeControls:\s*nextControls/.test(
-        runtimeThreadControlSurface,
+        runtimeThreadControlApi,
       ) &&
-      /thread control mode\/model\/thinking facades delegate to Rust planner and Agentgres-backed write/.test(
-        runtimeThreadControlSurfaceTest,
+      /thread control mode\/model\/thinking APIs delegate to Rust planner and Agentgres-backed write/.test(
+        runtimeThreadControlApiTest,
       ) &&
-      /thread runtime-control facade fails closed before lookup without Rust planner/.test(
-        runtimeThreadControlSurfaceTest,
+      /thread runtime-control API fails closed before lookup without Rust planner/.test(
+        runtimeThreadControlApiTest,
       ) &&
-      /direct thread runtime-control event facade stays retired before JS event append/.test(
-        runtimeThreadControlSurfaceTest,
+      /direct thread runtime-control event API stays retired before JS event append/.test(
+        runtimeThreadControlApiTest,
       ) &&
-      /assertThreadControlRustCoreRequired/.test(runtimeThreadControlSurfaceTest) &&
-      /assertNoThreadControlMutation/.test(runtimeThreadControlSurfaceTest) &&
-      /assert\.equal\(plannerCalls\.length,\s*3\)/.test(runtimeThreadControlSurfaceTest) &&
-      /assert\.equal\(store\.writes\.length,\s*3\)/.test(runtimeThreadControlSurfaceTest),
+      /assertThreadControlRustCoreRequired/.test(runtimeThreadControlApiTest) &&
+      /assertNoThreadControlMutation/.test(runtimeThreadControlApiTest) &&
+      /assert\.equal\(plannerCalls\.length,\s*3\)/.test(runtimeThreadControlApiTest) &&
+      /assert\.equal\(store\.writes\.length,\s*3\)/.test(runtimeThreadControlApiTest),
     [
 	      "crates/services/src/agentic/runtime/kernel/policy.rs",
 	      "crates/services/src/agentic/runtime/kernel/policy/mcp_memory.rs",
@@ -14446,8 +14446,8 @@ function runBridge() {
 	      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
-      "packages/runtime-daemon/src/runtime-thread-control-surface.mjs",
-      "packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-thread-control-api.mjs",
+      "packages/runtime-daemon/src/runtime-thread-control-api.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
     ],
     "Phase 10/11 is pending: thread-control public facades must route through Rust daemon-core state planning and Agentgres-backed agent persistence while direct JS control-event append remains retired",
@@ -14455,17 +14455,17 @@ function runBridge() {
   assertCheck(
     result,
     "thread-control-request-aliases-retired",
-    /runtime_thread_control_rust_core_required/.test(runtimeThreadControlSurface) &&
-      /thread runtime-control facade fails closed before lookup without Rust planner/.test(
-        runtimeThreadControlSurfaceTest,
+    /runtime_thread_control_rust_core_required/.test(runtimeThreadControlApi) &&
+      /thread runtime-control API fails closed before lookup without Rust planner/.test(
+        runtimeThreadControlApiTest,
       ) &&
-      /direct thread runtime-control event facade stays retired before JS event append/.test(
-        runtimeThreadControlSurfaceTest,
+      /direct thread runtime-control event API stays retired before JS event append/.test(
+        runtimeThreadControlApiTest,
       ) &&
-      /workflowGraphId: "graph_retired"/.test(runtimeThreadControlSurfaceTest) &&
-      /workflowNodeId: "node_retired"/.test(runtimeThreadControlSurfaceTest) &&
+      /workflowGraphId: "graph_retired"/.test(runtimeThreadControlApiTest) &&
+      /workflowNodeId: "node_retired"/.test(runtimeThreadControlApiTest) &&
       /idempotencyKey: "thread_control_idempotency_retired"/.test(
-        runtimeThreadControlSurfaceTest,
+        runtimeThreadControlApiTest,
       ) &&
       /workflowNodeId: "node-retired"/.test(threadRuntimeControlsTest) &&
       /retiredAliasInput\.workflowNodeId, "runtime\.model-router"/.test(
@@ -14498,10 +14498,10 @@ function runBridge() {
         modelWorkflowContextBody,
       ) &&
       !/\bworkflow\.(?:graphId|nodeId|nodeType)\b/.test(modelWorkflowContextBody) &&
-      !/request\.(?:workflowNodeId|workflowGraphId|requestedBy|interactionMode|approvalMode|idempotencyKey)\b/.test(runtimeThreadControlSurface) &&
+      !/request\.(?:workflowNodeId|workflowGraphId|requestedBy|interactionMode|approvalMode|idempotencyKey)\b/.test(runtimeThreadControlApi) &&
       !/request\.(?:workflowNodeId|threadMode|approvalMode|interactionMode|reasoningEffort|modelId|routeId)\b/.test(threadRuntimeControls) &&
       !/request\.(?:workflow_node_id|workflow_graph_id|idempotency_key)\s*\?\?\s*request\./.test(
-        runtimeThreadControlSurface,
+        runtimeThreadControlApi,
       ) &&
       /workflow_graph_id\?: string;/.test(runtimeThreadControlSdkInputBlocks) &&
       /workflow_node_id\?: string;/.test(runtimeThreadControlSdkInputBlocks) &&
@@ -14527,8 +14527,8 @@ function runBridge() {
         agentSdkTest,
       ),
     [
-      "packages/runtime-daemon/src/runtime-thread-control-surface.mjs",
-      "packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-thread-control-api.mjs",
+      "packages/runtime-daemon/src/runtime-thread-control-api.test.mjs",
       "packages/runtime-daemon/src/threads/thread-runtime-controls.mjs",
       "packages/runtime-daemon/src/threads/thread-runtime-controls.test.mjs",
       "packages/agent-sdk/src/substrate-client.ts",
@@ -14540,26 +14540,26 @@ function runBridge() {
     result,
     "thread-control-error-detail-aliases-retired",
       /rust_core_boundary:\s*"runtime\.thread_control"/.test(
-        runtimeThreadControlSurface,
+        runtimeThreadControlApi,
       ) &&
-      /requested_control_kind:\s*controlKind \?\? null/.test(runtimeThreadControlSurface) &&
-      /thread_id:\s*threadId/.test(runtimeThreadControlSurface) &&
-      /thread runtime-control facade fails closed before lookup without Rust planner/.test(
-        runtimeThreadControlSurfaceTest,
+      /requested_control_kind:\s*controlKind \?\? null/.test(runtimeThreadControlApi) &&
+      /thread_id:\s*threadId/.test(runtimeThreadControlApi) &&
+      /thread runtime-control API fails closed before lookup without Rust planner/.test(
+        runtimeThreadControlApiTest,
       ) &&
-      /thread route sends runtime controls through thread control surface/.test(
+      /thread route sends runtime controls through store-owned thread control API methods/.test(
         runtimeRouteHandlersTest,
       ) &&
       /thread route sends turn controls through store-owned turn APIs/.test(
         runtimeRouteHandlersTest,
       ) &&
-      /store\.threadControlSurface\.updateThreadMode\(store,\s*threadId,\s*await readBody\(request\)\)/.test(
+      /store\.updateThreadMode\(threadId,\s*await readBody\(request\)\)/.test(
         runtimeRouteHandlers,
       ) &&
-      /store\.threadControlSurface\.updateThreadModel\(store,\s*threadId,\s*await readBody\(request\)\)/.test(
+      /store\.updateThreadModel\(threadId,\s*await readBody\(request\)\)/.test(
         runtimeRouteHandlers,
       ) &&
-      /store\.threadControlSurface\.updateThreadThinking\(store,\s*threadId,\s*await readBody\(request\)\)/.test(
+      /store\.updateThreadThinking\(threadId,\s*await readBody\(request\)\)/.test(
         runtimeRouteHandlers,
       ) &&
       /store\.resumeThread\(threadId,\s*await readBody\(request\)\)/.test(
@@ -14577,7 +14577,13 @@ function runBridge() {
       !/store\.threadTurnSurface\.(?:resumeThread|createTurn|interruptTurn|steerTurn)\(/.test(
         runtimeRouteHandlers,
       ) &&
-      !/^\s*(?:updateThreadMode|updateThreadModel|updateThreadThinking)\(threadId, request = \{\}\) \{/m.test(
+      /updateThreadMode\(threadId, request = \{\}\) \{\s*return this\.threadControlApi\.updateThreadMode\(this, threadId, request\);\s*\}/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /updateThreadModel\(threadId, request = \{\}\) \{\s*return this\.threadControlApi\.updateThreadModel\(this, threadId, request\);\s*\}/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /updateThreadThinking\(threadId, request = \{\}\) \{\s*return this\.threadControlApi\.updateThreadThinking\(this, threadId, request\);\s*\}/.test(
         runtimeDaemonIndex,
       ) &&
       !/^\s*(?:updateThreadRuntimeControls|appendThreadRuntimeControlEvent)\(/m.test(
@@ -14586,17 +14592,90 @@ function runBridge() {
       /"updateThreadRuntimeControls"[\s\S]*"appendThreadRuntimeControlEvent"/.test(
         runtimeThreadSurfaceDelegatesRetiredTest,
       ) &&
-      /assertNoRetiredDetailAliases\(error\.details\)/.test(runtimeThreadControlSurfaceTest) &&
-      /error\.details\.thread_id/.test(runtimeThreadControlSurfaceTest) &&
-      /error\.details\.requested_control_kind/.test(runtimeThreadControlSurfaceTest) &&
+      /assertNoRetiredDetailAliases\(error\.details\)/.test(runtimeThreadControlApiTest) &&
+      /error\.details\.thread_id/.test(runtimeThreadControlApiTest) &&
+      /error\.details\.requested_control_kind/.test(runtimeThreadControlApiTest) &&
       !/details:\s*\{[^}\n]*\b(?:threadId|controlKind|operationKind|expectedOperationKind|requestedControlKind)\s*:/.test(
-        runtimeThreadControlSurface,
+        runtimeThreadControlApi,
       ),
     [
-      "packages/runtime-daemon/src/runtime-thread-control-surface.mjs",
-      "packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-thread-control-api.mjs",
+      "packages/runtime-daemon/src/runtime-thread-control-api.test.mjs",
     ],
     "Phase 10/11 is pending: thread-control Rust-planning fail-closed details must expose canonical snake_case fields without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-thread-control-route-visible-surface-retired",
+    !exists("packages/runtime-daemon/src/runtime-thread-control-surface.mjs") &&
+      !exists("packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs") &&
+      /import \{ createRuntimeThreadControlApi \} from "\.\/runtime-thread-control-api\.mjs";/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /this\.threadControlApi = createRuntimeThreadControlApi/.test(
+        runtimeDaemonIndex,
+      ) &&
+      !/this\.threadControlSurface|createRuntimeThreadControlSurface/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /updateThreadMode\(threadId, request = \{\}\) \{\s*return this\.threadControlApi\.updateThreadMode\(this, threadId, request\);\s*\}/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /updateThreadModel\(threadId, request = \{\}\) \{\s*return this\.threadControlApi\.updateThreadModel\(this, threadId, request\);\s*\}/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /updateThreadThinking\(threadId, request = \{\}\) \{\s*return this\.threadControlApi\.updateThreadThinking\(this, threadId, request\);\s*\}/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /acknowledgeWorkspaceTrustWarning\(threadId, warningId, request = \{\}\) \{\s*return this\.threadControlApi\.acknowledgeWorkspaceTrustWarning\(\s*this,\s*threadId,\s*warningId,\s*request,\s*\);\s*\}/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /store\.updateThreadMode\(threadId,\s*await readBody\(request\)\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.updateThreadModel\(threadId,\s*await readBody\(request\)\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.updateThreadThinking\(threadId,\s*await readBody\(request\)\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.acknowledgeWorkspaceTrustWarning\(\s*threadId,\s*decodeURIComponent\(segments\[4\]\),\s*await readBody\(request\),/m.test(
+        runtimeRouteHandlers,
+      ) &&
+      !/store\.threadControlSurface\.(?:updateThreadMode|updateThreadModel|updateThreadThinking|acknowledgeWorkspaceTrustWarning)\(/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /thread route sends runtime controls through store-owned thread control API methods/.test(
+        runtimeRouteHandlersTest,
+      ) &&
+      /thread route sends workspace-trust acknowledgement through thread control API/.test(
+        runtimeRouteHandlersTest,
+      ) &&
+      /threadControlSurface:\s*\{[\s\S]*?updateThreadMode:\s*retiredRouteWrapper[\s\S]*?updateThreadModel:\s*retiredRouteWrapper[\s\S]*?updateThreadThinking:\s*retiredRouteWrapper/.test(
+        runtimeRouteHandlersTest,
+      ) &&
+      /threadControlSurface:\s*\{[\s\S]*?acknowledgeWorkspaceTrustWarning:\s*retiredRouteWrapper/.test(
+        runtimeRouteHandlersTest,
+      ) &&
+      /Slice 1439 hard-cuts the thread-control route-visible JS surface\s+shape/.test(
+        guide,
+      ) &&
+      /Thread-control route-visible JS surface retired/.test(matrix) &&
+      /RuntimeDaemonCoreThreadControlRouteVisibleSurfaceRetired/.test(
+        implementationMatrix,
+      ),
+    [
+      "packages/runtime-daemon/src/index.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.test.mjs",
+      "packages/runtime-daemon/src/runtime-thread-control-api.mjs",
+      "packages/runtime-daemon/src/runtime-thread-control-api.test.mjs",
+      "docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md",
+      "docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md",
+      "docs/architecture/_meta/implementation-matrix.md",
+      "scripts/conformance/hypervisor-conformance.mjs",
+    ],
+    "The route-visible runtime thread-control JS surface must stay deleted; public runtime-control and workspace-trust acknowledgement routes must enter through store-owned thread-control APIs over the internal Rust-backed delegate",
   );
   assertCheck(
     result,
@@ -19776,18 +19855,18 @@ function runBridge() {
     "runtime-thread-hosted-fallback-alias-retired",
     /allow_hosted_fallback/.test(threadRuntimeControls) &&
       !/allowHostedFallback/.test(threadRuntimeControls) &&
-      !/allowHostedFallback/.test(runtimeThreadControlSurface) &&
+      !/allowHostedFallback/.test(runtimeThreadControlApi) &&
       /retiredAliasInput/.test(threadRuntimeControlsTest) &&
       /Object\.hasOwn\(retiredAliasInput\.model,\s*"allowHostedFallback"\),\s*false/.test(
         threadRuntimeControlsTest,
       ) &&
-      /runtime_thread_model_control_js_facade_retired/.test(runtimeThreadControlSurface) &&
-      /assertThreadControlRustCoreRequired/.test(runtimeThreadControlSurfaceTest),
+      /runtime_thread_model_control_js_facade_retired/.test(runtimeThreadControlApi) &&
+      /assertThreadControlRustCoreRequired/.test(runtimeThreadControlApiTest),
     [
       "packages/runtime-daemon/src/threads/thread-runtime-controls.mjs",
       "packages/runtime-daemon/src/threads/thread-runtime-controls.test.mjs",
-      "packages/runtime-daemon/src/runtime-thread-control-surface.mjs",
-      "packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-thread-control-api.mjs",
+      "packages/runtime-daemon/src/runtime-thread-control-api.test.mjs",
     ],
     "Phase 10 is pending: thread/runtime control model policy helpers must use canonical allow_hosted_fallback without the retired allowHostedFallback translator",
   );
@@ -19796,7 +19875,7 @@ function runBridge() {
     "runtime-thread-control-schema-version-output-alias-retired",
     /schema_version:\s*RUNTIME_THREAD_CONTROLS_SCHEMA_VERSION/.test(threadRuntimeControls) &&
       !/schemaVersion:\s*RUNTIME_THREAD_CONTROLS_SCHEMA_VERSION/.test(threadRuntimeControls) &&
-      !/schemaVersion:\s*runtimeThreadControlsSchemaVersion/.test(runtimeThreadControlSurface) &&
+      !/schemaVersion:\s*runtimeThreadControlsSchemaVersion/.test(runtimeThreadControlApi) &&
       !/initialThreadRuntimeControls(?:(?!\nexport function normalizedAgentRuntimeControls)[\s\S])*^\s*approvalMode\s*,/m.test(
         threadRuntimeControls,
       ) &&
@@ -19815,18 +19894,18 @@ function runBridge() {
       /assert\.equal\(controls\.approval_mode,\s*"human_required"\)/.test(
         threadRuntimeControlsTest,
       ) &&
-      /runtime_thread_control_js_facade_retired/.test(runtimeThreadControlSurface) &&
-      /thread control mode\/model\/thinking facades delegate to Rust planner and Agentgres-backed write/.test(
-        runtimeThreadControlSurfaceTest,
+      /runtime_thread_control_js_facade_retired/.test(runtimeThreadControlApi) &&
+      /thread control mode\/model\/thinking APIs delegate to Rust planner and Agentgres-backed write/.test(
+        runtimeThreadControlApiTest,
       ) &&
       /Object\.hasOwn\(mode\.agent\.runtimeControls,\s*"schemaVersion"\),\s*false/.test(
-        runtimeThreadControlSurfaceTest,
+        runtimeThreadControlApiTest,
       ),
     [
       "packages/runtime-daemon/src/threads/thread-runtime-controls.mjs",
       "packages/runtime-daemon/src/threads/thread-runtime-controls.test.mjs",
-      "packages/runtime-daemon/src/runtime-thread-control-surface.mjs",
-      "packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-thread-control-api.mjs",
+      "packages/runtime-daemon/src/runtime-thread-control-api.test.mjs",
     ],
     "Phase 10 is pending: thread runtime-control records must emit canonical schema_version without the retired schemaVersion output alias",
   );
@@ -19865,25 +19944,25 @@ function runBridge() {
   );
   assertCheck(
     result,
-    "runtime-thread-control-surface-output-aliases-retired",
-    /runtime_thread_control_rust_core_required/.test(runtimeThreadControlSurface) &&
-      /runtime_thread_control_event_js_facade_retired/.test(runtimeThreadControlSurface) &&
-      !/^\s*workspaceTrustWarning\s*,/m.test(runtimeThreadControlSurface) &&
-      !/control:\s*\{(?:(?!\n\s*\},\n\s*event,)[\s\S])*^\s*controlKind\s*,/m.test(runtimeThreadControlSurface) &&
-      !/^\s*workspaceTrustWarningEventId\s*:/m.test(runtimeThreadControlSurface) &&
-      !/^\s*workspaceTrustWarningEvent\s*:/m.test(runtimeThreadControlSurface) &&
-      /direct thread runtime-control event facade stays retired before JS event append/.test(
-        runtimeThreadControlSurfaceTest,
+    "runtime-thread-control-api-output-aliases-retired",
+    /runtime_thread_control_rust_core_required/.test(runtimeThreadControlApi) &&
+      /runtime_thread_control_event_js_facade_retired/.test(runtimeThreadControlApi) &&
+      !/^\s*workspaceTrustWarning\s*,/m.test(runtimeThreadControlApi) &&
+      !/control:\s*\{(?:(?!\n\s*\},\n\s*event,)[\s\S])*^\s*controlKind\s*,/m.test(runtimeThreadControlApi) &&
+      !/^\s*workspaceTrustWarningEventId\s*:/m.test(runtimeThreadControlApi) &&
+      !/^\s*workspaceTrustWarningEvent\s*:/m.test(runtimeThreadControlApi) &&
+      /direct thread runtime-control event API stays retired before JS event append/.test(
+        runtimeThreadControlApiTest,
       ) &&
-      /thread control mode\/model\/thinking facades delegate to Rust planner and Agentgres-backed write/.test(
-        runtimeThreadControlSurfaceTest,
+      /thread control mode\/model\/thinking APIs delegate to Rust planner and Agentgres-backed write/.test(
+        runtimeThreadControlApiTest,
       ) &&
-      /assertNoThreadControlMutation/.test(runtimeThreadControlSurfaceTest),
+      /assertNoThreadControlMutation/.test(runtimeThreadControlApiTest),
     [
-      "packages/runtime-daemon/src/runtime-thread-control-surface.mjs",
-      "packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-thread-control-api.mjs",
+      "packages/runtime-daemon/src/runtime-thread-control-api.test.mjs",
     ],
-    "Phase 10 is pending: thread-control surface responses must expose canonical snake_case output fields without retired camelCase duplicates",
+    "Phase 10 is pending: thread-control API responses must expose canonical snake_case output fields without retired camelCase duplicates",
   );
   assertCheck(
     result,
@@ -19909,14 +19988,14 @@ function runBridge() {
         threadRuntimeControls,
       ) &&
       !/modelRoute\.decision\?\.(?:reasoningEffort|workflowNodeId)/.test(
-        runtimeThreadControlSurface,
+        runtimeThreadControlApi,
       ) &&
-      /store\.resolveModelRoute/.test(runtimeThreadControlSurface) &&
+      /store\.resolveModelRoute/.test(runtimeThreadControlApi) &&
       /workflow_graph_id,\s*\n\s*workflow_node_id,\s*\n\s*workflow_node_type:\s*"Model Router"/.test(
-        runtimeThreadControlSurface,
+        runtimeThreadControlApi,
       ) &&
-      !/workflowGraphId,\s*\n\s*workflowNodeId/.test(runtimeThreadControlSurface) &&
-      /runtime_thread_model_control_js_facade_retired/.test(runtimeThreadControlSurface) &&
+      !/workflowGraphId,\s*\n\s*workflowNodeId/.test(runtimeThreadControlApi) &&
+      /runtime_thread_model_control_js_facade_retired/.test(runtimeThreadControlApi) &&
       /thread runtime control model payloads use canonical route-selection fields/.test(
         threadRuntimeControlsTest,
       ) &&
@@ -19936,16 +20015,16 @@ function runBridge() {
         threadRuntimeControlsTest,
       ) &&
       /assert\.equal\(store\.routeRequests\[0\]\.context\.workflow_node_id,\s*"runtime\.model-router\.custom"\)/.test(
-        runtimeThreadControlSurfaceTest,
+        runtimeThreadControlApiTest,
       ) &&
       /assert\.equal\(store\.routeRequests\[1\]\.context\.workflow_graph_id,\s*"graph_1"\)/.test(
-        runtimeThreadControlSurfaceTest,
+        runtimeThreadControlApiTest,
       ),
     [
       "packages/runtime-daemon/src/threads/thread-runtime-controls.mjs",
       "packages/runtime-daemon/src/threads/thread-runtime-controls.test.mjs",
-      "packages/runtime-daemon/src/runtime-thread-control-surface.mjs",
-      "packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-thread-control-api.mjs",
+      "packages/runtime-daemon/src/runtime-thread-control-api.test.mjs",
     ],
     "Phase 10 is pending: inherited thread-control model payloads must enter route selection with canonical snake_case fields and no retired camelCase request aliases",
   );
@@ -34089,11 +34168,11 @@ function runCompositor() {
   const workspaceTrustStateTest = exists("packages/runtime-daemon/src/threads/workspace-trust-state.test.mjs")
     ? read("packages/runtime-daemon/src/threads/workspace-trust-state.test.mjs")
     : "";
-  const runtimeThreadControlSurface = exists("packages/runtime-daemon/src/runtime-thread-control-surface.mjs")
-    ? read("packages/runtime-daemon/src/runtime-thread-control-surface.mjs")
+  const runtimeThreadControlApi = exists("packages/runtime-daemon/src/runtime-thread-control-api.mjs")
+    ? read("packages/runtime-daemon/src/runtime-thread-control-api.mjs")
     : "";
-  const runtimeThreadControlSurfaceTest = exists("packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs")
-    ? read("packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs")
+  const runtimeThreadControlApiTest = exists("packages/runtime-daemon/src/runtime-thread-control-api.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-thread-control-api.test.mjs")
     : "";
   const runtimeThreadTurnSurface = exists("packages/runtime-daemon/src/runtime-thread-turn-api.mjs")
     ? read("packages/runtime-daemon/src/runtime-thread-turn-api.mjs")
@@ -42836,13 +42915,13 @@ function runCompositor() {
         workspaceTrustStateTest,
       ) &&
       /thread mode fails closed before lookup when workspace trust Rust planner is missing/.test(
-        runtimeThreadControlSurfaceTest,
+        runtimeThreadControlApiTest,
       ) &&
-      /workspace_trust_warning_event/.test(runtimeThreadControlSurface) &&
+      /workspace_trust_warning_event/.test(runtimeThreadControlApi) &&
       /trustState\.appendWorkspaceTrustWarningEvent\(store/.test(
-        runtimeThreadControlSurface,
+        runtimeThreadControlApi,
       ) &&
-      !/workspaceTrustWarningRecordForMode/.test(runtimeThreadControlSurface) &&
+      !/workspaceTrustWarningRecordForMode/.test(runtimeThreadControlApi) &&
       /workflow_graph_id:\s*string \| null;/.test(agentIdeRuntimeControlNodes) &&
       /workflow_node_id:\s*string;/.test(agentIdeRuntimeControlNodes) &&
       /event_kind:\s*typeof RUNTIME_WORKSPACE_TRUST_ACKNOWLEDGEMENT_SOURCE_EVENT_KIND;/.test(
@@ -42860,13 +42939,13 @@ function runCompositor() {
       /Object\.prototype\.hasOwnProperty\.call\(request\.body,\s*"workflowGraphId"\),\s*false/.test(
         agentIdeRuntimeControlNodesTest,
       ) &&
-      /thread route sends workspace-trust acknowledgement through thread control surface/.test(
+      /thread route sends workspace-trust acknowledgement through thread control API/.test(
         runtimeRouteHandlersTest,
       ) &&
-      /store\.threadControlSurface\.acknowledgeWorkspaceTrustWarning\(\s*store,\s*threadId,\s*decodeURIComponent\(segments\[4\]\),\s*await readBody\(request\),/m.test(
+      /store\.acknowledgeWorkspaceTrustWarning\(\s*threadId,\s*decodeURIComponent\(segments\[4\]\),\s*await readBody\(request\),/m.test(
         runtimeRouteHandlers,
       ) &&
-      !/^\s*acknowledgeWorkspaceTrustWarning\(threadId, warningId, request = \{\}\) \{/m.test(
+      /acknowledgeWorkspaceTrustWarning\(threadId, warningId, request = \{\}\) \{\s*return this\.threadControlApi\.acknowledgeWorkspaceTrustWarning\(\s*this,\s*threadId,\s*warningId,\s*request,\s*\);\s*\}/.test(
         runtimeDaemonIndex,
       ) &&
       !/retiredWorkspaceTrustAcknowledgementAliases/.test(workspaceTrustState) &&
@@ -42900,7 +42979,7 @@ function runCompositor() {
     "Phase 10/11 is pending: workspace-trust warning and acknowledgement controls must be Rust-planned, Rust event-admitted, replay-bound, and guarded against the retired JS payload path",
   );
   const runtimeControlSeqCacheTransportSources = [
-    runtimeThreadControlSurface,
+    runtimeThreadControlApi,
     runtimeThreadTurnSurface,
     runtimeContextPolicyApi,
     runtimeMcpControlSurface,
@@ -42958,9 +43037,9 @@ function runCompositor() {
         runtimeControlSeqCacheTransportSources,
       ) &&
       /state_dir:\s*optionalStringDep\(store\?\.stateDir\)\s*\?\?\s*null/.test(
-        runtimeThreadControlSurface,
+        runtimeThreadControlApi,
       ) &&
-      /event_stream_id:\s*eventStreamId/.test(runtimeThreadControlSurface) &&
+      /event_stream_id:\s*eventStreamId/.test(runtimeThreadControlApi) &&
       /state_dir:\s*optionalStringDep\(store\?\.stateDir\)\s*\?\?\s*null/.test(
         runtimeThreadTurnSurface,
       ) &&
@@ -42972,10 +43051,10 @@ function runCompositor() {
         runtimeMcpControlSurface,
       ) &&
       /assert\.equal\(request\.state_dir,\s*"\/runtime-thread-control-state"\)/.test(
-        runtimeThreadControlSurfaceTest,
+        runtimeThreadControlApiTest,
       ) &&
       /assert\.equal\(Object\.hasOwn\(request,\s*"seq"\),\s*false\)/.test(
-        runtimeThreadControlSurfaceTest,
+        runtimeThreadControlApiTest,
       ) &&
       /assert\.equal\(request\.state_dir,\s*stateDir\)/.test(
         runtimeOperatorTurnControlFacadeTest,
@@ -43005,11 +43084,11 @@ function runCompositor() {
       "crates/services/src/agentic/runtime/kernel/policy/operator_control.rs",
       "crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs",
       "crates/services/src/agentic/runtime/kernel/policy/mcp_memory.rs",
-      "packages/runtime-daemon/src/runtime-thread-control-surface.mjs",
+      "packages/runtime-daemon/src/runtime-thread-control-api.mjs",
       "packages/runtime-daemon/src/runtime-thread-turn-api.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-api.mjs",
       "packages/runtime-daemon/src/runtime-mcp-control-api.mjs",
-      "packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-thread-control-api.test.mjs",
       "packages/runtime-daemon/src/runtime-operator-turn-control-facade.test.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-api.test.mjs",
       "packages/runtime-daemon/src/runtime-mcp-control-api.test.mjs",
