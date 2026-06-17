@@ -109,6 +109,26 @@ function modelMountCoreForComputerUseTest() {
 
 function memoryProjectionApiForComputerUseTest() {
   return {
+    planRuntimeMemoryCommand(request = {}) {
+      return {
+        source: "rust_runtime_memory_command_plan_api",
+        backend: "rust_policy",
+        object: "ioi.runtime_memory_command_plan",
+        status: "planned",
+        operation: "runtime_memory_command_plan",
+        operation_kind: request.operation_kind ?? "memory.run_command.plan",
+        command_kind: "none",
+        thread_id: request.thread_id ?? null,
+        agent_id: request.agent_id ?? null,
+        command: { kind: "none" },
+        evidence_refs: [
+          "rust_daemon_core_memory_command_parser",
+          "runtime_memory_command_parser_js_retired",
+          "run_memory_command_grammar_rust_owned",
+        ],
+        receipt_refs: ["receipt_runtime_memory_command_plan"],
+      };
+    },
     projectRuntimeMemoryProjection(request = {}) {
       return {
         source: "rust_runtime_memory_projection_api",
@@ -430,9 +450,6 @@ function poisonJsComputerUseTruthPaths(store) {
   };
   store.runtimeEventStream = () => {
     throw new Error("runtimeEventStream must not be read by computer-use public Rust lease adapter");
-  };
-  store.admitComputerUseRuntimeEvent = () => {
-    throw new Error("admitComputerUseRuntimeEvent must not be reached by computer-use public Rust lease adapter");
   };
 }
 

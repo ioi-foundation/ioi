@@ -1148,32 +1148,6 @@ export class AgentgresRuntimeStateStore {
     return this.runReadSurface.canonicalProjection(this, runId);
   }
 
-  admitComputerUseRuntimeEvent(event = {}) {
-    throw runtimeError({
-      status: 501,
-      code: "runtime_computer_use_invocation_rust_core_required",
-      message: "Runtime computer-use event admission requires direct Rust daemon-core admission and persistence.",
-      details: {
-        rust_core_boundary: "runtime.computer_use_invocation",
-        operation: "computer_use_event_admission",
-        operation_kind: event.event_kind ?? "computer_use.event",
-        thread_id: event.thread_id ?? null,
-        turn_id: event.turn_id ?? null,
-        tool_name: event.tool_name ?? null,
-        tool_call_id: event.tool_call_id ?? null,
-        workflow_graph_id: event.workflow_graph_id ?? null,
-        workflow_node_id: event.workflow_node_id ?? null,
-        receipt_refs: uniqueStrings(event.receipt_refs),
-        artifact_refs: uniqueStrings(event.artifact_refs),
-        evidence_refs: [
-          "computer_use_event_js_append_retired",
-          "rust_daemon_core_computer_use_event_admission_required",
-          "agentgres_computer_use_expected_head_required",
-        ],
-      },
-    });
-  }
-
   invokeComputerUseLeaseRequestRustCore(threadId, toolId, request = {}, defaults = {}) {
     return this.codingToolInvocationSurface.invokeThreadTool(
       this,

@@ -7322,10 +7322,10 @@ function runBridge() {
       ) &&
       !/requireComputerUseInvocationRustCore/.test(runtimeDaemonIndex) &&
       !/computer_use_invocation_js_facade_retired/.test(runtimeDaemonIndex) &&
-      /runtime_computer_use_invocation_rust_core_required/.test(runtimeDaemonIndex) &&
-      /rust_core_boundary:\s*"runtime\.computer_use_invocation"/.test(runtimeDaemonIndex) &&
-      /operation_kind:\s*event\.event_kind \?\? "computer_use\.event"/.test(runtimeDaemonIndex) &&
-      /computer_use_event_js_append_retired/.test(runtimeDaemonIndex) &&
+      !/admitComputerUseRuntimeEvent/.test(runtimeDaemonIndex) &&
+      !/computer_use_event_admission/.test(runtimeDaemonIndex) &&
+      !/runtime_computer_use_invocation_rust_core_required/.test(runtimeDaemonIndex) &&
+      !/computer_use_event_js_append_retired/.test(runtimeDaemonIndex) &&
       computerUseToolIdentityBodies.every((body) =>
         /return this\.invokeComputerUseLeaseRequestRustCore\(/.test(body) &&
         !/return this\.requireComputerUseInvocationRustCore\(/.test(body) &&
@@ -7346,9 +7346,7 @@ function runBridge() {
       /runtimeEventStream must not be read by computer-use public Rust lease adapter/.test(
         runtimeComputerUseInvocationStoreTest,
       ) &&
-      /admitComputerUseRuntimeEvent must not be reached by computer-use public Rust lease adapter/.test(
-        runtimeComputerUseInvocationStoreTest,
-      ) &&
+      !/admitComputerUseRuntimeEvent/.test(runtimeComputerUseInvocationStoreTest) &&
       /pathFor must not be called by computer-use public Rust lease adapter/.test(
         runtimeComputerUseInvocationStoreTest,
       ) &&
@@ -23522,9 +23520,10 @@ function runReceipts() {
       exists("workbench-adapters/ioi-workbench/extension.js") &&
       /"name":\s*"@ioi\/hypervisor-app"/.test(read("apps/hypervisor/package.json")) &&
       /"dev:web":\s*"npm run dev --workspace=@ioi\/hypervisor-app"/.test(rootPackageJson) &&
-      /"build:ioi-workbench-composer":\s*"npx vite build --config workbench-adapters\/ioi-workbench\/vite\.workflow-composer\.config\.ts"/.test(
+      /"build:hypervisor-workbench-composer":\s*"npx vite build --config workbench-adapters\/ioi-workbench\/vite\.workflow-composer\.config\.ts"/.test(
         rootPackageJson,
       ) &&
+      !/"build:ioi-workbench-composer"/.test(rootPackageJson) &&
       /apps\/hypervisor\/src\/generated\/\*/.test(rootGitignore) &&
       !retiredGeneratedPathPattern.test(rootGitignore) &&
       /Slice 1412 hard-cuts the pre-Hypervisor JS facade roots/.test(guide) &&

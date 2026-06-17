@@ -6392,8 +6392,10 @@ and canonical result fields. The JS edge remains only a narrow protocol
 adapter; it still must not restore local browser discovery sync, CDP execution,
 controlled native-browser launch, visual GUI capture/execution, local sandbox
 execution, JS event projection construction, runtime-event append, or direct
-computer-use event admission. Concrete provider execution, direct Rust
-computer-use event materialization, cTEE custody, durable Agentgres
+computer-use event admission. Slice 1421 later deletes the last direct
+computer-use event append store facade rather than preserving it as a
+fail-closed shim. Concrete provider execution, direct Rust computer-use event
+materialization, cTEE custody, durable Agentgres
 expected-head/state-root binding, replay, projection, and stable Workbench/CLI/SDK
 APIs remain non-terminal.
 
@@ -12547,6 +12549,21 @@ direct helper tests, and route-surface helper calls cannot return. Remaining
 blockers stay durable lifecycle replay/projection depth, wallet/cTEE
 runtime-service authority, receipt/state-root binding, and stable lifecycle
 protocol clients over Rust-owned records.
+
+Slice 1421 hard-deletes the computer-use direct event append JS facade.
+`AgentgresRuntimeStateStore` no longer exposes `admitComputerUseRuntimeEvent()`
+as a callable store method or fail-closed compatibility shim. Public
+computer-use invocation stays on the Rust-owned `computer_use.request_lease`
+StepModule path, while run-create materialization stays owned by Rust
+`RunCreateStateUpdateCore`; there is no separate JS event-admission surface
+left beside those paths. Focused tests no longer poison or reference the deleted
+method, and conformance now guards the absence of the method, the retired
+`computer_use_event_admission` operation string, and the old
+`runtime_computer_use_invocation_rust_core_required` marker from daemon
+production source. Remaining blockers stay concrete provider execution, direct
+Rust computer-use event materialization/admission, cTEE custody, durable
+Agentgres expected-head/state-root binding, replay/projection, and stable
+Workbench/CLI/SDK APIs over Rust-owned records.
 
 ## Final Doctrine
 
