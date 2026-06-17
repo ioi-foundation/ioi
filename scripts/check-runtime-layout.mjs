@@ -174,6 +174,7 @@ const hypervisorVisibleSurfaceSources = [
   "packages/hypervisor-workbench/src/runtime/harness-workflow/core.ts",
 ].map(read).join("\n");
 const hypervisorClientNamespaceSources = [
+  "apps/hypervisor/index.html",
   "apps/hypervisor/src/services/workspaceShellState.ts",
   "apps/hypervisor/src/services/workspaceRuntimeNavigation.ts",
   "apps/hypervisor/src/services/chatLaunchState.ts",
@@ -540,11 +541,14 @@ assert(
     "hypervisor-dark",
     "hypervisor-light",
     "hypervisor-shell",
+    "hypervisor-boot-fallback",
+    "data-hypervisor-boot-error",
   ].every((token) => hypervisorClientNamespaceSources.includes(token)) &&
-    !/autopilot-shell|autopilot-dark|autopilot-light|autopilot-share|autopilot-trace|autopilot\.pending|autopilot\.workspace-shell|autopilot\.chat_session|autopilot:chat-session|autopilot-header\.command-center/.test(
+    !/autopilot-shell|autopilot-dark|autopilot-light|autopilot-share|autopilot-trace|autopilot\.pending|autopilot\.workspace-shell|autopilot\.chat_session|autopilot:chat-session|autopilot-header\.command-center|autopilot-boot-fallback|data-autopilot-boot-error/.test(
       hypervisorClientNamespaceSources,
     ),
   [
+    "apps/hypervisor/index.html",
     "apps/hypervisor/src/services/*LaunchState.ts",
     "apps/hypervisor/src/services/workspaceShellState.ts",
     "apps/hypervisor/src/windows/ChatShellWindow/hooks/useChatVimMode.ts",

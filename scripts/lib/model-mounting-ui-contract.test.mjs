@@ -66,8 +66,8 @@ test("Hypervisor Mounts workbench is wired to daemon API without persisting capa
   assert.match(source, /ENDPOINT_STORAGE_KEY/);
   assert.match(source, /setSessionToken/);
   assert.match(source, /sessionTokenLabel/);
-  assert.match(source, /provider\.autopilot\.local/);
-  assert.match(source, /backend\.autopilot\.native-local\.fixture/);
+  assert.match(source, /provider\.hypervisor\.local/);
+  assert.match(source, /backend\.hypervisor\.native-local\.fixture/);
   assert.match(source, /backend\.llama-cpp/);
   assert.match(source, /route\.native-local/);
   assert.match(source, /Probe native backend/);

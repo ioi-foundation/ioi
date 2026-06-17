@@ -25,7 +25,7 @@
         background: #0d0c0a;
       }
 
-      .autopilot-boot-fallback {
+      .hypervisor-boot-fallback {
         box-sizing: border-box;
         width: 100%;
         height: 100%;
@@ -36,7 +36,7 @@
         font: 13px/1.45 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       }
 
-      .autopilot-boot-fallback__card {
+      .hypervisor-boot-fallback__card {
         width: min(520px, 100%);
         padding: 18px 20px;
         border: 1px solid rgba(242, 240, 235, 0.18);
@@ -44,18 +44,18 @@
         background: rgba(255, 255, 255, 0.055);
       }
 
-      .autopilot-boot-fallback__title {
+      .hypervisor-boot-fallback__title {
         margin: 0 0 6px;
         font-size: 15px;
         font-weight: 700;
       }
 
-      .autopilot-boot-fallback__detail {
+      .hypervisor-boot-fallback__detail {
         margin: 0;
         color: rgba(242, 240, 235, 0.7);
       }
 
-      .autopilot-boot-fallback__error {
+      .hypervisor-boot-fallback__error {
         margin-top: 12px;
         white-space: pre-wrap;
         color: #ffb4ab;
@@ -74,7 +74,7 @@
         const showBootError = (message, detail = "") => {
           const root = document.getElementById("root");
           if (!root) return;
-          const error = root.querySelector("[data-autopilot-boot-error]");
+          const error = root.querySelector("[data-hypervisor-boot-error]");
           if (error) {
             error.textContent = [message, detail].filter(Boolean).join("\n");
           }
@@ -97,20 +97,20 @@
       })();
     </script>
     <div id="root">
-      <div class="autopilot-boot-fallback" role="status" aria-live="polite">
-        <section class="autopilot-boot-fallback__card">
-          <p class="autopilot-boot-fallback__title">Starting Hypervisor</p>
-          <p class="autopilot-boot-fallback__detail">
+      <div class="hypervisor-boot-fallback" role="status" aria-live="polite">
+        <section class="hypervisor-boot-fallback__card">
+          <p class="hypervisor-boot-fallback__title">Starting Hypervisor</p>
+          <p class="hypervisor-boot-fallback__detail">
             Loading the operator shell and runtime bridge.
           </p>
-          <pre class="autopilot-boot-fallback__error" data-autopilot-boot-error></pre>
+          <pre class="hypervisor-boot-fallback__error" data-hypervisor-boot-error></pre>
         </section>
       </div>
     </div>
     <script type="module">
       import("/src/main.tsx").catch((error) => {
         const root = document.getElementById("root");
-        const target = root?.querySelector("[data-autopilot-boot-error]");
+        const target = root?.querySelector("[data-hypervisor-boot-error]");
         if (target) {
           target.textContent = [
             "Hypervisor failed to load the operator shell module.",

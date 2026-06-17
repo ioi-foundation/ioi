@@ -11,11 +11,11 @@ const hypervisorClientHeader = readFileSync(
   "utf8",
 );
 const shellBaseCss = readFileSync(
-  "apps/hypervisor/src/windows/HypervisorShellWindow/styles/autopilot-shell/shell-base.css",
+  "apps/hypervisor/src/windows/HypervisorShellWindow/styles/hypervisor-shell/shell-base.css",
   "utf8",
 );
 const traceAndWelcomeCss = readFileSync(
-  "apps/hypervisor/src/windows/HypervisorShellWindow/styles/autopilot-shell/trace-and-welcome.css",
+  "apps/hypervisor/src/windows/HypervisorShellWindow/styles/hypervisor-shell/trace-and-welcome.css",
   "utf8",
 );
 
@@ -130,10 +130,10 @@ test("activity bar styling matches the themeable collapsible rail contract", () 
 test("light workbench mode restores the old theme-inherited activity rail colors", () => {
   assert.doesNotMatch(
     traceAndWelcomeCss,
-    /:root\[data-autopilot-theme\^="light"\] \.chat-activity-button,/,
+    /:root\[data-hypervisor-theme\^="light"\] \.chat-activity-button,/,
   );
   assert.match(
     traceAndWelcomeCss,
-    /:root\[data-autopilot-theme\^="light"\] \.chat-activity-bar \{[\s\S]*--chat-activity-bg: #f3f3f3;[\s\S]*--chat-activity-text: #424242;/,
+    /:root\[data-hypervisor-theme\^="light"\] \.chat-activity-bar \{[\s\S]*--chat-activity-bg: #f3f3f3;[\s\S]*--chat-activity-text: #424242;/,
   );
 });

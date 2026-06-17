@@ -1077,8 +1077,9 @@ Current implementation cut:
   legacy protocol/model IDs remain a separate model-mount compatibility cut.
   active client-owned namespaces now use Hypervisor terms:
   shell storage keys, chat launch keys, chat Vim-mode events, trace/share
-  export prefixes, editor theme IDs, command-center route markers, and the
-  `styles/hypervisor-shell/` directory are guarded by `check:runtime-layout`.
+  export prefixes, editor theme IDs, command-center route markers, boot
+  fallback DOM hooks, and the `styles/hypervisor-shell/` directory are guarded
+  by `check:runtime-layout`.
   active native-local model mount identities now use Hypervisor terms across
   the daemon defaults, Mission Control mount surface, contract tests, desktop
   probe, auth audiences, catalog fixtures, and stream evidence refs:
