@@ -771,7 +771,7 @@ Implementation phases:
 | Phase | Objective | Main files | Acceptance |
 | --- | --- | --- | --- |
 | 0A.1 Product-shell rename and route map | Introduce Hypervisor naming without relying on old Autopilot tab semantics. | `apps/autopilot/src/main.tsx`, `AutopilotShellWindow/*`, CSS, tests | App copy says Hypervisor; compatibility names are implementation-only. |
-| 0A.1B Retire IDE-root naming | Rename launcher/script/docs away from `ide`/Electron-as-product language and move tracked adapter metadata to `workbench-adapters/`. | `workbench-adapters/`, launcher scripts, package scripts, conformance readers | Electron/VS Code is one Workbench adapter host; root `ide/` is legacy local artifact storage only. |
+| 0A.1B Retire IDE-root naming | Rename launcher/script/docs away from `ide`/Electron-as-product language and move tracked adapter metadata and ignored local adapter artifacts to `workbench-adapters/`. | `workbench-adapters/`, launcher scripts, package scripts, conformance readers | Electron/VS Code is one Workbench adapter host; root `ide/` is retired and must not be used as a product or artifact path. |
 | 0A.1C Retire Tauri app shims | Replace active `@tauri-apps/*` imports and `TauriRuntime` service naming with Hypervisor client bridge APIs; keep archived Tauri code only under `internal-docs/legacy`. | `apps/autopilot/src/services/*`, shell hooks/components, package deps, validation scripts | Active app code no longer depends on Tauri APIs or `apps/autopilot/src-tauri`; legacy Tauri references are historical only. |
 | 0A.2 App shell IA | Build IOI-reference shell with left rail, New Session, sessions rail, main surface, right inspector, and bottom inspector. | `AutopilotShellContent.tsx`, `ChatLocalActivityBar.tsx`, `ChatLeftSidebarShell.tsx`, shell CSS | Home opens as app cockpit, not Code repositories/OpenVSCode. |
 | 0A.3 Session/project model | Add session cards, project cards, restore state, blocked approvals, recent sessions. | `autopilotShellModel.ts`, `operatorSubstrateModel.ts`, Home/Session services | Sessions persist visually and map to daemon/Agentgres refs where available. |
@@ -795,9 +795,9 @@ Do not clone the IOI mirror literally; translate it:
   ports/services/tasks/terminal, automations, settings, default editor.
 Do not make model mounting a lonely infra page; make it contextual in launch.
 Do not make Workbench the parent product; make it one surface.
-Do not let the legacy root `ide/` artifact path or Electron/VS Code packaged
-host define the product. Treat them as current Workbench adapter-host artifacts;
-tracked adapter metadata belongs under `workbench-adapters/`.
+Do not let a root `ide/` artifact path or Electron/VS Code packaged host define
+the product. Root `ide/` is retired; current Workbench adapter-host metadata and
+ignored local adapter artifacts belong under `workbench-adapters/`.
 Do not preserve Tauri compatibility shims in active app paths. Tauri is legacy
 extraction inventory only.
 Do not collapse Settings and Authority:
