@@ -30,30 +30,129 @@
         width: 100%;
         height: 100%;
         display: grid;
-        place-items: center;
-        padding: 32px;
+        grid-template-columns: 300px minmax(0, 1fr);
         color: #1f1f1f;
         font: 13px/1.45 "ABC Diatype", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       }
 
-      .hypervisor-boot-fallback__card {
-        width: min(520px, 100%);
-        padding: 18px 20px;
-        border: 1px solid #e1e1e1;
-        border-radius: 10px;
+      .hypervisor-boot-fallback__rail {
+        box-sizing: border-box;
+        min-height: 100%;
         background: #f7f7f6;
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.035);
+        border-right: 1px solid #dddddb;
       }
 
-      .hypervisor-boot-fallback__title {
-        margin: 0 0 6px;
-        font-size: 15px;
-        font-weight: 700;
+      .hypervisor-boot-fallback__brand {
+        height: 52px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 16px;
+        border-bottom: 1px solid #ececea;
+      }
+
+      .hypervisor-boot-fallback__brand-cluster {
+        display: inline-flex;
+        align-items: center;
+        gap: 14px;
+      }
+
+      .hypervisor-boot-fallback__brand-pipe {
+        content: "";
+        width: 1px;
+        height: 18px;
+        background: #18181b;
+      }
+
+      .hypervisor-boot-fallback__mark {
+        width: 18px;
+        height: 18px;
+        border: 1px solid #93c5fd;
+        transform: rotate(45deg);
+        background:
+          linear-gradient(135deg, #315cff 0 48%, transparent 49%),
+          linear-gradient(315deg, #9db7ff 0 48%, transparent 49%);
+      }
+
+      .hypervisor-boot-fallback__collapse {
+        width: 18px;
+        height: 18px;
+        display: inline-grid;
+        place-items: center;
+        color: #27272a;
+      }
+
+      .hypervisor-boot-fallback__collapse::before {
+        content: "≡";
+        font-size: 17px;
+        line-height: 1;
+        transform: rotate(180deg);
+      }
+
+      .hypervisor-boot-fallback__row,
+      .hypervisor-boot-fallback__skeleton-row {
+        box-sizing: border-box;
+        width: calc(100% - 16px);
+        height: 32px;
+        margin: 0 8px;
+        border-radius: 8px;
+      }
+
+      .hypervisor-boot-fallback__row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 8px;
+        padding: 0 10px;
+        border: 1px solid #e1e1e1;
+        background: #f7f7f6;
+        font-weight: 600;
+      }
+
+      .hypervisor-boot-fallback__row span:first-child {
+        font-size: 19px;
+        font-weight: 300;
+        line-height: 1;
+      }
+
+      .hypervisor-boot-fallback__skeleton {
+        display: grid;
+        gap: 8px;
+        padding-top: 12px;
+      }
+
+      .hypervisor-boot-fallback__skeleton-row {
+        background: #ececeb;
+      }
+
+      .hypervisor-boot-fallback__skeleton-row:nth-child(2) {
+        width: 55%;
+      }
+
+      .hypervisor-boot-fallback__main {
+        min-width: 0;
+        min-height: 100%;
+        display: grid;
+        place-items: center;
+        background: #ffffff;
+      }
+
+      .hypervisor-boot-fallback__status {
+        width: min(728px, calc(100vw - 360px));
+        color: #6f6f76;
+        text-align: center;
+      }
+
+      .hypervisor-boot-fallback__status strong {
+        display: block;
+        margin-bottom: 8px;
+        color: #18181b;
+        font-size: 20px;
+        font-weight: 600;
       }
 
       .hypervisor-boot-fallback__detail {
         margin: 0;
-        color: #6f6f76;
       }
 
       .hypervisor-boot-fallback__error {
@@ -99,13 +198,34 @@
     </script>
     <div id="root">
       <div class="hypervisor-boot-fallback" role="status" aria-live="polite">
-        <section class="hypervisor-boot-fallback__card">
-          <p class="hypervisor-boot-fallback__title">Starting Hypervisor</p>
-          <p class="hypervisor-boot-fallback__detail">
-            Loading the operator shell and runtime bridge.
-          </p>
-          <pre class="hypervisor-boot-fallback__error" data-hypervisor-boot-error></pre>
-        </section>
+        <aside class="hypervisor-boot-fallback__rail" aria-hidden="true">
+          <div class="hypervisor-boot-fallback__brand">
+            <span class="hypervisor-boot-fallback__brand-cluster">
+              <span class="hypervisor-boot-fallback__brand-pipe"></span>
+              <span class="hypervisor-boot-fallback__mark"></span>
+              <span class="hypervisor-boot-fallback__brand-pipe"></span>
+            </span>
+            <span class="hypervisor-boot-fallback__collapse"></span>
+          </div>
+          <div class="hypervisor-boot-fallback__row">
+            <span>+</span>
+            <span>New Session</span>
+          </div>
+          <div class="hypervisor-boot-fallback__skeleton">
+            <span class="hypervisor-boot-fallback__skeleton-row"></span>
+            <span class="hypervisor-boot-fallback__skeleton-row"></span>
+            <span class="hypervisor-boot-fallback__skeleton-row"></span>
+          </div>
+        </aside>
+        <main class="hypervisor-boot-fallback__main">
+          <section class="hypervisor-boot-fallback__status">
+            <strong>Starting Hypervisor</strong>
+            <p class="hypervisor-boot-fallback__detail">
+              Loading the operator shell and runtime bridge.
+            </p>
+            <pre class="hypervisor-boot-fallback__error" data-hypervisor-boot-error></pre>
+          </section>
+        </main>
       </div>
     </div>
     <script type="module">
