@@ -26,8 +26,8 @@ import { applyAutopilotWorkbenchShellPatch } from "./lib/autopilot-workbench-she
 const repoRoot = HYPERVISOR_WORKBENCH_ADAPTER_HOST.repoRoot;
 const MASTER_GUIDE = ".internal/plans/autopilot-electron-fork-level-quickinput-parity-master-guide.md";
 const EVIDENCE_ROOT = "docs/evidence/autopilot-fork-quickinput-parity";
-const EXTENSION_JS = "apps/autopilot/openvscode-extension/ioi-workbench/extension.js";
-const STATIC_TEST = "apps/autopilot/openvscode-extension/ioi-workbench/extension.static.test.mjs";
+const EXTENSION_JS = "workbench-adapters/ioi-workbench/extension.js";
+const STATIC_TEST = "workbench-adapters/ioi-workbench/extension.static.test.mjs";
 const SHELL_PATCH = "scripts/lib/autopilot-workbench-shell-patch.mjs";
 const PROCESS_PATTERN = "/tmp/autopilot-fork-quickinput-user-";
 

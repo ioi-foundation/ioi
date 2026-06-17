@@ -3,7 +3,7 @@
   "status": "blocked",
   "runId": "fixture-interrupted-run",
   "generatedAt": "2026-04-05T22:50:16.168Z",
-  "presetCatalogPath": "apps/autopilot/src-tauri/dev/model-matrix-presets.json",
+  "presetCatalogPath": "apps/hypervisor/src-tauri/dev/model-matrix-presets.json",
   "benchmarkCatalogPath": "docs/evidence/agent-model-matrix/benchmark-suite.catalog.json",
   "summaryPath": "docs/evidence/agent-model-matrix/latest-summary.json",
   "runRootPath": "docs/evidence/agent-model-matrix",

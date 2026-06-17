@@ -78,13 +78,13 @@ const deterministicGates = [
   },
   {
     id: "autopilot-tsc",
-    command: "npx tsc -p apps/autopilot/tsconfig.json --noEmit",
+    command: "npx tsc -p apps/hypervisor/tsconfig.json --noEmit",
     required: true,
     category: "build",
   },
   {
     id: "autopilot-build",
-    command: "npm run build --workspace=apps/autopilot",
+    command: "npm run build --workspace=apps/hypervisor",
     required: true,
     category: "build",
   },

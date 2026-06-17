@@ -32,8 +32,8 @@ const MASTER_GUIDE = ".internal/plans/autopilot-electron-agent-studio-runtime-co
 const EVIDENCE_ROOT =
   process.env.AUTOPILOT_AGENT_STUDIO_RUNTIME_COCKPIT_EVIDENCE_ROOT ||
   "docs/evidence/autopilot-agent-studio-runtime-cockpit-parity";
-const EXTENSION_JS = "apps/autopilot/openvscode-extension/ioi-workbench/extension.js";
-const STATIC_TEST = "apps/autopilot/openvscode-extension/ioi-workbench/extension.static.test.mjs";
+const EXTENSION_JS = "workbench-adapters/ioi-workbench/extension.js";
+const STATIC_TEST = "workbench-adapters/ioi-workbench/extension.static.test.mjs";
 const SHELL_PATCH = "scripts/lib/autopilot-workbench-shell-patch.mjs";
 const PROCESS_PATTERN = "/tmp/autopilot-agent-studio-runtime-cockpit-user-";
 const VALIDATION_TIMEOUT_MS = 180_000;

@@ -90,10 +90,10 @@ assert(
   "Agent SDK testing subpath must not retain the retired mock projection client.",
 );
 
-const activeTauriRuntimeProjection = "apps/autopilot/src-tauri/src/runtime_projection.rs";
+const activeTauriRuntimeProjection = "apps/hypervisor/src-tauri/src/runtime_projection.rs";
 assert(
   !fs.existsSync(path.join(root, activeTauriRuntimeProjection)),
-  "Active Autopilot Tauri runtime projection must stay retired; legacy extraction inventory lives under internal-docs/legacy.",
+  "Active Tauri runtime projection must stay retired; legacy extraction inventory lives under internal-docs/legacy.",
 );
 
 const tsSubstrate = read("packages/hypervisor-workbench/src/runtime/runtime-projection-adapter.ts");
@@ -119,7 +119,7 @@ for (const nodeKind of actionSchema.actionKinds) {
       : nodeKind === "adapter_connector"
         ? rustSubstrate.includes("AdapterConnector")
         : rustSubstrate.includes(`"${nodeKind}"`);
-  assert(rustActiveEvidence, `Autopilot Rust action schema missing ${nodeKind}.`);
+  assert(rustActiveEvidence, `Legacy Rust action schema missing ${nodeKind}.`);
 }
 assert(
   generatedTsActionSchema.includes(actionSchema.schemaVersion) &&

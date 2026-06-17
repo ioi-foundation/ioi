@@ -11496,7 +11496,7 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     "utf8",
   );
   const tauriRuntime = fs.readFileSync(
-    path.join(root, "apps/autopilot/src/services/TauriRuntime.ts"),
+    path.join(root, "apps/hypervisor/src/services/TauriRuntime.ts"),
     "utf8",
   );
   const tauriArtifacts = fs.readFileSync(

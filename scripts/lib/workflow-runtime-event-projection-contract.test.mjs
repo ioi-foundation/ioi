@@ -187,7 +187,7 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   const graphRuntimeTypes = read(
     "packages/hypervisor-workbench/src/runtime/graph-runtime-types.ts",
   );
-  const tauriRuntime = read("apps/autopilot/src/services/TauriRuntime.ts");
+  const tauriRuntime = read("apps/hypervisor/src/services/TauriRuntime.ts");
 
   assert.match(
     projection,

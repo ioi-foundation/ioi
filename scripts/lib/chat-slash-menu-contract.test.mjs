@@ -3,15 +3,15 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const chatInput = readFileSync(
-  "apps/autopilot/src/windows/ChatShellWindow/components/ChatInputSection.tsx",
+  "apps/hypervisor/src/windows/ChatShellWindow/components/ChatInputSection.tsx",
   "utf8",
 );
 const sharedCommandCss = readFileSync(
-  "apps/autopilot/src/components/ui/CommandMenus.css",
+  "apps/hypervisor/src/components/ui/CommandMenus.css",
   "utf8",
 );
 const shellCommandCss = readFileSync(
-  "apps/autopilot/src/windows/ChatShellWindow/styles/Components.css",
+  "apps/hypervisor/src/windows/ChatShellWindow/styles/Components.css",
   "utf8",
 );
 

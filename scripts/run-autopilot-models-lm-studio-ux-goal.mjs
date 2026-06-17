@@ -22,7 +22,7 @@ const PARENT_GUIDE =
 const OUTPUT_ROOT =
   "docs/evidence/autopilot-electron-models-lm-studio-inspired-ux";
 const EXTENSION_ROOT =
-  "apps/autopilot/openvscode-extension/ioi-workbench";
+  "workbench-adapters/ioi-workbench";
 
 const REQUIRED_SCREENSHOTS = [
   "model-library-lmstudio-layout.png",

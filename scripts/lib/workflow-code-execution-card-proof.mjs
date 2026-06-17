@@ -13,7 +13,7 @@ const { buildWorkflowCodeExecutionCardPanel } = await import(
 );
 
 const extensionSource = fs.readFileSync(
-  "apps/autopilot/openvscode-extension/ioi-workbench/extension.js",
+  "workbench-adapters/ioi-workbench/extension.js",
   "utf8",
 );
 

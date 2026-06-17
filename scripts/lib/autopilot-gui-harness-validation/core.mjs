@@ -4166,67 +4166,67 @@ export function collectRollbackRestoreCanaryUiProof(outputRoot) {
   const bottomShelfPath =
     "packages/hypervisor-workbench/src/features/Workflows/WorkflowBottomShelf.tsx";
   const graphPath = "packages/hypervisor-workbench/src/types/graph.ts";
-  const restoreCommandPath = "apps/autopilot/src-tauri/src/project/commands.rs";
-  const projectPackagePath = "apps/autopilot/src-tauri/src/project/package.rs";
+  const restoreCommandPath = "apps/hypervisor/src-tauri/src/project/commands.rs";
+  const projectPackagePath = "apps/hypervisor/src-tauri/src/project/package.rs";
   const projectRustValidationPath =
-    "apps/autopilot/src-tauri/src/project/validation.rs";
-  const projectRuntimePath = "apps/autopilot/src-tauri/src/project/runtime.rs";
+    "apps/hypervisor/src-tauri/src/project/validation.rs";
+  const projectRuntimePath = "apps/hypervisor/src-tauri/src/project/runtime.rs";
   const projectWorkflowSchedulerLanePath =
-    "apps/autopilot/src-tauri/src/project/workflow_scheduler_lane.rs";
+    "apps/hypervisor/src-tauri/src/project/workflow_scheduler_lane.rs";
   const projectWorkflowSchedulerFinalizationLanePath =
-    "apps/autopilot/src-tauri/src/project/workflow_scheduler_finalization_lane.rs";
+    "apps/hypervisor/src-tauri/src/project/workflow_scheduler_finalization_lane.rs";
   const projectWorkflowSchedulerTerminalResultLanePath =
-    "apps/autopilot/src-tauri/src/project/workflow_scheduler_terminal_result_lane.rs";
+    "apps/hypervisor/src-tauri/src/project/workflow_scheduler_terminal_result_lane.rs";
   const projectWorkflowSchedulerInterruptLanePath =
-    "apps/autopilot/src-tauri/src/project/workflow_scheduler_interrupt_lane.rs";
+    "apps/hypervisor/src-tauri/src/project/workflow_scheduler_interrupt_lane.rs";
   const projectWorkflowSchedulerNodeExecutionLanePath =
-    "apps/autopilot/src-tauri/src/project/workflow_scheduler_node_execution_lane.rs";
+    "apps/hypervisor/src-tauri/src/project/workflow_scheduler_node_execution_lane.rs";
   const projectWorkflowSchedulerNodeOutcomeLanePath =
-    "apps/autopilot/src-tauri/src/project/workflow_scheduler_node_outcome_lane.rs";
+    "apps/hypervisor/src-tauri/src/project/workflow_scheduler_node_outcome_lane.rs";
   const projectWorkflowSchedulerNodeFailureOutcomeLanePath =
-    "apps/autopilot/src-tauri/src/project/workflow_scheduler_node_failure_outcome_lane.rs";
+    "apps/hypervisor/src-tauri/src/project/workflow_scheduler_node_failure_outcome_lane.rs";
   const projectWorkflowSchedulerNodeSuccessEventLanePath =
-    "apps/autopilot/src-tauri/src/project/workflow_scheduler_node_success_event_lane.rs";
+    "apps/hypervisor/src-tauri/src/project/workflow_scheduler_node_success_event_lane.rs";
   const projectWorkflowSchedulerNodeStateUpdateLanePath =
-    "apps/autopilot/src-tauri/src/project/workflow_scheduler_node_state_update_lane.rs";
+    "apps/hypervisor/src-tauri/src/project/workflow_scheduler_node_state_update_lane.rs";
   const projectWorkflowSchedulerValidationLanePath =
-    "apps/autopilot/src-tauri/src/project/workflow_scheduler_validation_lane.rs";
+    "apps/hypervisor/src-tauri/src/project/workflow_scheduler_validation_lane.rs";
   const projectWorkflowAuthorityToolingLanePath =
-    "apps/autopilot/src-tauri/src/project/workflow_authority_tooling_lane.rs";
+    "apps/hypervisor/src-tauri/src/project/workflow_authority_tooling_lane.rs";
   const projectWorkflowApprovalInterruptLanePath =
-    "apps/autopilot/src-tauri/src/project/workflow_approval_interrupt_lane.rs";
+    "apps/hypervisor/src-tauri/src/project/workflow_approval_interrupt_lane.rs";
   const projectWorkflowBindingLanePath =
-    "apps/autopilot/src-tauri/src/project/workflow_binding_lane.rs";
+    "apps/hypervisor/src-tauri/src/project/workflow_binding_lane.rs";
   const projectWorkflowCheckpointLanePath =
-    "apps/autopilot/src-tauri/src/project/workflow_checkpoint_lane.rs";
+    "apps/hypervisor/src-tauri/src/project/workflow_checkpoint_lane.rs";
   const projectWorkflowStateLanePath =
-    "apps/autopilot/src-tauri/src/project/workflow_state_lane.rs";
+    "apps/hypervisor/src-tauri/src/project/workflow_state_lane.rs";
   const projectWorkflowNodeContractLanePath =
-    "apps/autopilot/src-tauri/src/project/workflow_node_contract_lane.rs";
+    "apps/hypervisor/src-tauri/src/project/workflow_node_contract_lane.rs";
   const projectWorkflowNodeMetadataLanePath =
-    "apps/autopilot/src-tauri/src/project/workflow_node_metadata_lane.rs";
+    "apps/hypervisor/src-tauri/src/project/workflow_node_metadata_lane.rs";
   const projectWorkflowRunLifecycleLanePath =
-    "apps/autopilot/src-tauri/src/project/workflow_run_lifecycle_lane.rs";
+    "apps/hypervisor/src-tauri/src/project/workflow_run_lifecycle_lane.rs";
   const projectWorkflowNodeExecutionLanePath =
-    "apps/autopilot/src-tauri/src/project/workflow_node_execution_lane.rs";
+    "apps/hypervisor/src-tauri/src/project/workflow_node_execution_lane.rs";
   const projectWorkflowMemoryLanePath =
-    "apps/autopilot/src-tauri/src/project/workflow_memory_lane.rs";
+    "apps/hypervisor/src-tauri/src/project/workflow_memory_lane.rs";
   const projectWorkflowOutputLanePath =
-    "apps/autopilot/src-tauri/src/project/workflow_output_lane.rs";
+    "apps/hypervisor/src-tauri/src/project/workflow_output_lane.rs";
   const projectWorkflowPackageLanePath =
-    "apps/autopilot/src-tauri/src/project/workflow_package_lane.rs";
+    "apps/hypervisor/src-tauri/src/project/workflow_package_lane.rs";
   const projectWorkflowExecutionResultsLanePath =
-    "apps/autopilot/src-tauri/src/project/workflow_execution_results_lane.rs";
+    "apps/hypervisor/src-tauri/src/project/workflow_execution_results_lane.rs";
   const projectWorkflowGraphExecutionLanePath =
-    "apps/autopilot/src-tauri/src/project/workflow_graph_execution_lane.rs";
+    "apps/hypervisor/src-tauri/src/project/workflow_graph_execution_lane.rs";
   const projectWorkflowHarnessResultsLanePath =
-    "apps/autopilot/src-tauri/src/project/workflow_harness_results_lane.rs";
+    "apps/hypervisor/src-tauri/src/project/workflow_harness_results_lane.rs";
   const projectRepositoryPrLanePath =
-    "apps/autopilot/src-tauri/src/project/repository_pr_lane.rs";
+    "apps/hypervisor/src-tauri/src/project/repository_pr_lane.rs";
   const projectWorkflowValueHelpersPath =
-    "apps/autopilot/src-tauri/src/project/workflow_value_helpers.rs";
+    "apps/hypervisor/src-tauri/src/project/workflow_value_helpers.rs";
   const projectRuntimeTestsPath =
-    "apps/autopilot/src-tauri/src/project/workflow_project_tests/runtime_and_graph_contracts.rs";
+    "apps/hypervisor/src-tauri/src/project/workflow_project_tests/runtime_and_graph_contracts.rs";
   let rail = readFileSync(resolve(repoRoot, railPath), "utf8");
   rail += readFileSync(resolve(repoRoot, railOutputSummaryCardsPath), "utf8");
   const searchPanel = readFileSync(resolve(repoRoot, searchPanelPath), "utf8");
@@ -7571,7 +7571,7 @@ export async function collectPromotionTransitionLiveGuiInteractionProof(
   );
   const proofWorkflowPath = resolve(
     repoRoot,
-    "apps/autopilot/src-tauri/.agents/workflows/default-agent-harness-live-gui-promotion-proof.workflow.json",
+    "apps/hypervisor/src-tauri/.agents/workflows/default-agent-harness-live-gui-promotion-proof.workflow.json",
   );
   const logPath = join(outputRoot, "promotion-transition-live-gui.log");
   try {

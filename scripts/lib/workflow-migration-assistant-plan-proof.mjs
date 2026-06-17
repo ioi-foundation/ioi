@@ -12,8 +12,8 @@ const { buildWorkflowMigrationAssistantPlan } = await import(
   "../../packages/hypervisor-workbench/src/runtime/workflow-migration-assistant.ts"
 );
 
-const packageJsonPath = "apps/autopilot/openvscode-extension/ioi-workbench/package.json";
-const extensionSourcePath = "apps/autopilot/openvscode-extension/ioi-workbench/extension.js";
+const packageJsonPath = "workbench-adapters/ioi-workbench/package.json";
+const extensionSourcePath = "workbench-adapters/ioi-workbench/extension.js";
 const manifest = JSON.parse(fs.readFileSync(packageJsonPath, "utf8"));
 const extensionSource = fs.readFileSync(extensionSourcePath, "utf8");
 

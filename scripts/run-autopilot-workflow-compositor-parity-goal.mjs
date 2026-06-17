@@ -25,7 +25,7 @@ const MASTER_GUIDE =
 const OUTPUT_ROOT =
   "docs/evidence/autopilot-workbench-workflow-compositor-parity";
 const EXTENSION_ROOT =
-  "apps/autopilot/openvscode-extension/ioi-workbench";
+  "workbench-adapters/ioi-workbench";
 const VSCODE_PACKAGED_APP_ROOT = HYPERVISOR_WORKBENCH_ADAPTER_HOST.packagedRoot;
 const REQUIRED_SCREENSHOTS = [
   {
@@ -303,11 +303,11 @@ function checkPackageScripts() {
 function checkTauriNotTargeted() {
   const extensionSource = read(join(repoRoot, EXTENSION_ROOT, "extension.js"));
   const packageText = read(join(repoRoot, "package.json"));
-  const appPackageText = read(join(repoRoot, "apps/autopilot/package.json"));
-  const srcTauriPath = join(repoRoot, "apps/autopilot/src-tauri");
+  const appPackageText = read(join(repoRoot, "apps/hypervisor/package.json"));
+  const srcTauriPath = join(repoRoot, "apps/hypervisor/src-tauri");
   const scriptMentions = [
     ...Object.entries(readJson(join(repoRoot, "package.json")).scripts ?? {}),
-    ...Object.entries(readJson(join(repoRoot, "apps/autopilot/package.json")).scripts ?? {}).map(
+    ...Object.entries(readJson(join(repoRoot, "apps/hypervisor/package.json")).scripts ?? {}).map(
       ([key, value]) => [`app:${key}`, value],
     ),
   ].filter(([, value]) => /\btauri\b|src-tauri/.test(String(value)));
@@ -328,7 +328,7 @@ function checkTauriNotTargeted() {
 
 function buildComposerBundle() {
   const result = runCommand(
-    "npx vite build --config apps/autopilot/openvscode-extension/ioi-workbench/vite.workflow-composer.config.ts",
+    "npx vite build --config workbench-adapters/ioi-workbench/vite.workflow-composer.config.ts",
     { timeout: 120_000 },
   );
   return {

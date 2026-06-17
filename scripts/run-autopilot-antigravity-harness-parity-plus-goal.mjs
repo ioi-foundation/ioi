@@ -597,7 +597,7 @@ function implementationRefsFor(rowId) {
     ],
   };
   return refs[rowId] || [
-    "apps/autopilot/openvscode-extension/ioi-workbench/extension.js",
+    "workbench-adapters/ioi-workbench/extension.js",
     "packages/runtime-daemon/src/index.mjs",
   ];
 }

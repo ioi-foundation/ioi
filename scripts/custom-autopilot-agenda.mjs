@@ -153,7 +153,7 @@ async function run() {
 
     // 2. Spawn Vite Frontend Dev Server
     console.log("Spawning Vite frontend dev server...");
-    viteProcess = spawn("npm", ["run", "dev", "--workspace=apps/autopilot", "--", "--port", "1428", "--host", "127.0.0.1"], {
+    viteProcess = spawn("npm", ["run", "dev", "--workspace=apps/hypervisor", "--", "--port", "1428", "--host", "127.0.0.1"], {
       cwd: rootDir,
       stdio: "pipe"
     });

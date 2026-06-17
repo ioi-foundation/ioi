@@ -26,7 +26,7 @@ const MASTER_GUIDE =
 const OUTPUT_ROOT =
   "docs/evidence/autopilot-electron-model-mounting-daemon-runtime-adapter";
 const EXTENSION_ROOT =
-  "apps/autopilot/openvscode-extension/ioi-workbench";
+  "workbench-adapters/ioi-workbench";
 const VSCODE_PACKAGED_APP_ROOT = HYPERVISOR_WORKBENCH_ADAPTER_HOST.packagedRoot;
 const MODEL_ID = "native:electron-gui-model";
 const ENDPOINT_ID = "endpoint.electron.model-gui";
@@ -583,7 +583,7 @@ async function checkDaemonApis() {
 
 function buildComposerBundle() {
   const result = runCommand(
-    "npx vite build --config apps/autopilot/openvscode-extension/ioi-workbench/vite.workflow-composer.config.ts",
+    "npx vite build --config workbench-adapters/ioi-workbench/vite.workflow-composer.config.ts",
     { timeout: 120_000 },
   );
   return {

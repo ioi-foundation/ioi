@@ -389,7 +389,7 @@ for await (const event of run.stream()) {
       'docs/architecture/components/daemon-runtime/api.md',
       'packages/runtime-daemon/src/index.mjs',
       'packages/agent-sdk/src/substrate-client.ts',
-      'apps/autopilot/src/surfaces/MissionControl/MissionControlMountsView.tsx',
+      'apps/hypervisor/src/surfaces/MissionControl/MissionControlMountsView.tsx',
       'crates/cli',
     ],
     canonicalLinks: [canonicalDocsLink],
@@ -508,7 +508,7 @@ for await (const event of run.stream()) {
     legacyHashes: ['local-setup', 'setup'],
     lastVerified: LAST_VERIFIED,
     keywords: ['setup', 'local', 'workspace', 'daemon endpoint'],
-    sources: ['package.json', 'packages/runtime-daemon/package.json', 'apps/autopilot/package.json'],
+    sources: ['package.json', 'packages/runtime-daemon/package.json', 'apps/hypervisor/package.json'],
     canonicalLinks: [canonicalDocsLink],
     nextSteps: [
       { label: 'Quickstart', href: '#quickstart', description: 'Connect to the daemon-backed local runtime.' },
@@ -646,7 +646,7 @@ for await (const event of run.stream()) {
     legacyHashes: ['examples', 'templates', 'build-your-first-chat-artifact'],
     lastVerified: LAST_VERIFIED,
     keywords: ['examples', 'templates', 'quickstart-local', 'gallery'],
-    sources: ['packages/agent-sdk/examples/quickstart-local.ts', 'packages/agent-sdk/test/sdk.test.mjs', 'apps/autopilot/scripts'],
+    sources: ['packages/agent-sdk/examples/quickstart-local.ts', 'packages/agent-sdk/test/sdk.test.mjs', 'apps/hypervisor/scripts'],
     canonicalLinks: [canonicalDocsLink],
     nextSteps: [
       { label: 'Tutorials', href: '#tutorials', description: 'Follow practical build-guide tracks.' },
@@ -669,7 +669,7 @@ for await (const event of run.stream()) {
               rows={[
                 ['SDK test fixture', <code>packages/agent-sdk/examples/quickstart-local.ts</code>, 'Offline fixture for no-daemon examples and tests.'],
                 ['Daemon-backed tests', <code>packages/agent-sdk/test/sdk.test.mjs</code>, 'Evidence for route coverage and SDK behavior.'],
-                ['Autopilot probes', <code>apps/autopilot/scripts/*probe*</code>, 'Local GUI/runtime evidence, not a hosted examples product.'],
+                ['Autopilot probes', <code>apps/hypervisor/scripts/*probe*</code>, 'Local GUI/runtime evidence, not a hosted examples product.'],
                 ['Benchmark fixtures', <code>apps/benchmarks</code>, 'Current evidence surface for evaluation routes.'],
               ]}
             />
@@ -759,7 +759,7 @@ for await (const event of run.stream()) {
     legacyHashes: ['ioi-cli-overview', 'cli', 'tui'],
     lastVerified: LAST_VERIFIED,
     keywords: ['cli', 'tui', 'harness', 'benchmark', 'daemon'],
-    sources: ['crates/cli', 'apps/autopilot/scripts', 'packages/runtime-daemon/package.json'],
+    sources: ['crates/cli', 'apps/hypervisor/scripts', 'packages/runtime-daemon/package.json'],
     canonicalLinks: [canonicalDocsLink],
     nextSteps: [
       { label: 'Runtime Daemon', href: '#runtime-daemon', description: 'Understand what CLI commands inspect or drive.' },
@@ -809,10 +809,10 @@ for await (const event of run.stream()) {
     lastVerified: LAST_VERIFIED,
     keywords: ['autopilot', 'desktop', 'GUI', 'screenshots', 'workflow canvas', 'chat', 'harness'],
     sources: [
-      'apps/autopilot',
-      'apps/autopilot/src/windows/AutopilotShellWindow',
-      'apps/autopilot/src/windows/ChatShellWindow',
-      'apps/autopilot/src/surfaces/MissionControl/MissionControlMountsView.tsx',
+      'apps/hypervisor',
+      'apps/hypervisor/src/windows/AutopilotShellWindow',
+      'apps/hypervisor/src/windows/ChatShellWindow',
+      'apps/hypervisor/src/surfaces/MissionControl/MissionControlMountsView.tsx',
       'docs/evidence/autopilot-gui-harness-validation/2026-05-15T11-10-45-852Z/result.json',
       'docs/evidence/autopilot-gui-harness-validation/2026-05-15T11-10-45-852Z/workflow-terminal-coding-loop-run-button-proof.json',
       'docs/evidence/autopilot-gui-harness-validation/2026-05-15T11-10-45-852Z/workflow-telemetry-budget-chain-run-inspector-proof.json',
@@ -1025,7 +1025,7 @@ for await (const event of run.stream()) {
     legacyHashes: ['model-mounting', 'models', 'local-models'],
     lastVerified: LAST_VERIFIED,
     keywords: ['model mounting', 'models', 'OpenAI compatible', 'LM Studio', 'Ollama'],
-    sources: ['packages/runtime-daemon/src/model-mounting.mjs', 'apps/autopilot/src/surfaces/MissionControl/MissionControlMountsView.tsx', 'packages/agent-sdk/src/model-mounts.ts'],
+    sources: ['packages/runtime-daemon/src/model-mounting.mjs', 'apps/hypervisor/src/surfaces/MissionControl/MissionControlMountsView.tsx', 'packages/agent-sdk/src/model-mounts.ts'],
     canonicalLinks: [canonicalDocsLink],
     nextSteps: [
       { label: 'Runtime Daemon', href: '#runtime-daemon', description: 'See the daemon boundary behind model routes.' },
@@ -1145,7 +1145,7 @@ for await (const event of run.stream()) {
     legacyHashes: ['benchmarks', 'evals', 'visual-smoke'],
     lastVerified: LAST_VERIFIED,
     keywords: ['benchmarks', 'evals', 'visual smoke', 'Playwright', 'screenshots'],
-    sources: ['apps/benchmarks', 'apps/autopilot/scripts', 'docs/evidence', 'apps/developers-ioi-ai/scripts/smoke-routes.mjs'],
+    sources: ['apps/benchmarks', 'apps/hypervisor/scripts', 'docs/evidence', 'apps/developers-ioi-ai/scripts/smoke-routes.mjs'],
     canonicalLinks: [canonicalDocsLink],
     nextSteps: [
       { label: 'Autopilot', href: '#autopilot', description: 'Use current GUI evidence and public screenshot manifests.' },
@@ -1205,7 +1205,7 @@ for await (const event of run.stream()) {
     legacyHashes: ['package-a-service-candidate', 'service-candidate', 'ship'],
     lastVerified: LAST_VERIFIED,
     keywords: ['service candidate', 'package', 'worker', 'ship'],
-    sources: ['docs/architecture/domains/sas/service-marketplace.md', 'docs/architecture/foundations/common-objects-and-envelopes.md', 'apps/autopilot/src/windows/ChatShellWindow/components/ArtifactHubPackagingViews.tsx'],
+    sources: ['docs/architecture/domains/sas/service-marketplace.md', 'docs/architecture/foundations/common-objects-and-envelopes.md', 'apps/hypervisor/src/windows/ChatShellWindow/components/ArtifactHubPackagingViews.tsx'],
     canonicalLinks: [canonicalDocsLink],
     nextSteps: [
       { label: 'sas.xyz', href: '#sas-xyz', description: 'Understand the provider marketplace preview.' },

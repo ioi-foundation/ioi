@@ -31,7 +31,7 @@ export function buildRepoTestEngineerScratchWorkflow(seed: WorkflowProject): {
   };
   const scanCode = [
     "const payload = input.payload || input;",
-    "const files = ['crates/services/src/agentic/automation.rs', 'packages/hypervisor-workbench/src/WorkflowComposer.tsx', 'apps/autopilot/src/services/HypervisorClientRuntime.ts'];",
+    "const files = ['crates/services/src/agentic/automation.rs', 'packages/hypervisor-workbench/src/WorkflowComposer.tsx', 'apps/hypervisor/src/services/HypervisorClientRuntime.ts'];",
     "console.log(`scanned ${files.length} workflow runtime files`);",
     "return { summary: `repo scan ready for ${payload.task || 'test engineering'}`, count: files.length, passed: true, files };",
   ].join("\n");

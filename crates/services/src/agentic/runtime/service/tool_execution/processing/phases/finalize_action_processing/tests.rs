@@ -1239,7 +1239,7 @@ fn select_manifest_script_recovery_candidate_prefers_unique_desktop_script() {
     let manifest = r#"{
       "scripts": {
         "dev": "vite",
-        "dev:desktop": "bash apps/autopilot/scripts/dev-desktop.sh x11",
+        "dev:desktop": "bash apps/hypervisor/scripts/dev-desktop.sh x11",
         "test": "vitest"
       }
     }"#;
@@ -1251,7 +1251,7 @@ fn select_manifest_script_recovery_candidate_prefers_unique_desktop_script() {
         ),
         Some(ManifestScriptRecoveryCandidate {
             name: "dev:desktop".to_string(),
-            command: "bash apps/autopilot/scripts/dev-desktop.sh x11".to_string(),
+            command: "bash apps/hypervisor/scripts/dev-desktop.sh x11".to_string(),
         })
     );
 }
@@ -1260,7 +1260,7 @@ fn select_manifest_script_recovery_candidate_prefers_unique_desktop_script() {
 fn select_manifest_script_recovery_candidate_prefers_launch_oriented_desktop_match() {
     let manifest = r#"{
       "scripts": {
-        "dev:desktop": "bash apps/autopilot/scripts/dev-desktop.sh x11",
+        "dev:desktop": "bash apps/hypervisor/scripts/dev-desktop.sh x11",
         "start:desktop": "electron ."
       }
     }"#;
@@ -1272,7 +1272,7 @@ fn select_manifest_script_recovery_candidate_prefers_launch_oriented_desktop_mat
         ),
         Some(ManifestScriptRecoveryCandidate {
             name: "dev:desktop".to_string(),
-            command: "bash apps/autopilot/scripts/dev-desktop.sh x11".to_string(),
+            command: "bash apps/hypervisor/scripts/dev-desktop.sh x11".to_string(),
         })
     );
 }
@@ -1281,9 +1281,9 @@ fn select_manifest_script_recovery_candidate_prefers_launch_oriented_desktop_mat
 fn select_manifest_script_recovery_candidate_prefers_primary_desktop_script_over_variants() {
     let manifest = r#"{
       "scripts": {
-        "dev:desktop": "bash apps/autopilot/scripts/dev-desktop.sh x11",
-        "dev:desktop:wayland": "bash apps/autopilot/scripts/dev-desktop.sh wayland",
-        "dryrun:desktop": "bash apps/autopilot/scripts/dry-run-desktop.sh x11"
+        "dev:desktop": "bash apps/hypervisor/scripts/dev-desktop.sh x11",
+        "dev:desktop:wayland": "bash apps/hypervisor/scripts/dev-desktop.sh wayland",
+        "dryrun:desktop": "bash apps/hypervisor/scripts/dry-run-desktop.sh x11"
       }
     }"#;
 
@@ -1294,7 +1294,7 @@ fn select_manifest_script_recovery_candidate_prefers_primary_desktop_script_over
         ),
         Some(ManifestScriptRecoveryCandidate {
             name: "dev:desktop".to_string(),
-            command: "bash apps/autopilot/scripts/dev-desktop.sh x11".to_string(),
+            command: "bash apps/hypervisor/scripts/dev-desktop.sh x11".to_string(),
         })
     );
 }
@@ -1307,8 +1307,8 @@ fn manifest_read_terminalization_emits_desktop_script_reply() {
 
     let manifest = r#"{
       "scripts": {
-        "dev:desktop": "bash apps/autopilot/scripts/dev-desktop.sh x11",
-        "dev:desktop:wayland": "bash apps/autopilot/scripts/dev-desktop.sh wayland"
+        "dev:desktop": "bash apps/hypervisor/scripts/dev-desktop.sh x11",
+        "dev:desktop:wayland": "bash apps/hypervisor/scripts/dev-desktop.sh wayland"
       }
     }"#;
 
@@ -1319,7 +1319,7 @@ fn manifest_read_terminalization_emits_desktop_script_reply() {
             Some(manifest),
         ),
         Some(
-            "In `package.json`, the npm script that launches the desktop app is `dev:desktop`. It runs `bash apps/autopilot/scripts/dev-desktop.sh x11`.".to_string()
+            "In `package.json`, the npm script that launches the desktop app is `dev:desktop`. It runs `bash apps/hypervisor/scripts/dev-desktop.sh x11`.".to_string()
         )
     );
 }
@@ -1339,7 +1339,7 @@ fn workspace_package_manifest_recovery_enqueues_read_then_reply_on_first_no_effe
         dir.join("package.json"),
         r#"{
           "scripts": {
-            "dev:desktop": "bash apps/autopilot/scripts/dev-desktop.sh x11"
+            "dev:desktop": "bash apps/hypervisor/scripts/dev-desktop.sh x11"
           }
         }"#,
     )

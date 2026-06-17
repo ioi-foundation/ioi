@@ -1,0 +1,1319 @@
+#!/usr/bin/env python3
+"""Validate the native direct OpenVSCode workbench surface.
+
+This probe is intentionally separate from the legacy Workspace facade probes.
+It launches the desktop shell in direct OpenVSCode mode, waits for the native
+Tauri webview host to report the actual OpenVSCode surface, captures both the
+parent-window image and a root-cropped compositor image, then performs a small
+set of real workbench interactions against the hosted OpenVSCode surface.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import time
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+from desktop_capture import capture_window_with_fallback
+from desktop_workspace_probe import (
+    DEFAULT_PROFILE,
+    DEFAULT_WEB_ROOT,
+    WINDOW_SEARCH_PATTERN,
+    close_matching_windows,
+    focus_workspace_view,
+    launch_dev_desktop,
+    now_stamp,
+    read_log_tail,
+    terminate_existing_desktop_instances,
+    terminate_process_group,
+    wait_for_window,
+    window_ids_from_wmctrl,
+    window_ids_from_xdotool,
+)
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+DEFAULT_OUTPUT_ROOT = (
+    PROJECT_ROOT / "docs/evidence/route-hierarchy/live-openvscode-direct/contained"
+)
+DEFAULT_DEV_URL = DEFAULT_WEB_ROOT
+OPENVSCODE_VERSION = "1.109.5"
+SURFACE_WINDOW_SEARCH_PATTERN = "Autopilot Workspace Workbench"
+LEGACY_SURFACE_WINDOW_SEARCH_PATTERN = "OpenVSCode Workspace"
+WINDOW_WAIT_TIMEOUT_SECS = 120.0
+POST_WINDOW_SETTLE_SECS = 14.0
+CLICK_SETTLE_SECS = 1.4
+SURFACE_LOG_TIMEOUT_SECS = 90.0
+SURFACE_LOG_PATTERN = re.compile(
+    r"\[WorkspaceDirectWebview\] show requested surface=(?P<surface>\S+) "
+    r"parent=(?P<parent>\S+) (?:visible=(?P<visible>\S+) )?bounds=\("
+    r"(?P<x>-?\d+(?:\.\d+)?), (?P<y>-?\d+(?:\.\d+)?), "
+    r"(?P<width>-?\d+(?:\.\d+)?), (?P<height>-?\d+(?:\.\d+)?)\)"
+)
+UPDATE_BOUNDS_PATTERN = re.compile(
+    r"\[WorkspaceDirectWebview\] update bounds surface=(?P<surface>\S+) "
+    r"label=(?P<label>\S+) mode=(?P<mode>\S+) bounds=\("
+    r"(?P<x>-?\d+(?:\.\d+)?), (?P<y>-?\d+(?:\.\d+)?), "
+    r"(?P<width>-?\d+(?:\.\d+)?), (?P<height>-?\d+(?:\.\d+)?)\)"
+)
+CREATED_PATTERN = re.compile(
+    r"\[WorkspaceDirectWebview\] created (?P<mode>\S+) "
+    r"surface=(?P<surface>\S+) label=(?P<label>\S+)"
+)
+READY_PATTERN = re.compile(
+    r"\[WorkspaceDirectWebview\] ready (?P<mode>\S+) "
+    r"surface=(?P<surface>\S+) label=(?P<label>\S+)"
+)
+REPARENT_PATTERN = re.compile(
+    r"\[WorkspaceDirectWebview\] reparented child window surface "
+    r"label=(?P<label>\S+) parent=(?P<parent>\S+) "
+    r"xid=(?P<parent_xid>\d+) child_xid=(?P<child_xid>\d+) "
+    r"bounds=\((?P<x>-?\d+), (?P<y>-?\d+), "
+    r"(?P<width>\d+), (?P<height>\d+)\)"
+)
+
+
+def run(
+    cmd: list[str],
+    *,
+    check: bool = True,
+    capture_output: bool = True,
+    text: bool = True,
+    timeout: float | None = None,
+) -> subprocess.CompletedProcess[str]:
+    completed = subprocess.run(
+        cmd,
+        check=False,
+        capture_output=capture_output,
+        text=text,
+        timeout=timeout,
+    )
+    if check and completed.returncode != 0:
+        raise RuntimeError(
+            f"Command failed ({completed.returncode}): {' '.join(cmd)}\n"
+            f"stdout:\n{completed.stdout}\n"
+            f"stderr:\n{completed.stderr}"
+        )
+    return completed
+
+
+def window_geometry(window_id: int) -> dict[str, int]:
+    result = run(["xdotool", "getwindowgeometry", "--shell", str(window_id)])
+    geometry: dict[str, int] = {}
+    for line in result.stdout.splitlines():
+        if "=" not in line:
+            continue
+        key_name, _, value = line.partition("=")
+        key_name = key_name.strip().upper()
+        value = value.strip()
+        if key_name in {"X", "Y", "WIDTH", "HEIGHT"} and value.lstrip("-").isdigit():
+            geometry[key_name] = int(value)
+    return geometry
+
+
+def managed_workbench_patch_state(profile: str) -> dict[str, Any]:
+    workbench_path = (
+        Path.home()
+        / ".local/share/ai.ioi.autopilot/profiles"
+        / profile
+        / "workspace-ide/vendor"
+        / f"openvscode-server-v{OPENVSCODE_VERSION}-linux-x64"
+        / "out/vs/code/browser/workbench/workbench.js"
+    )
+    state: dict[str, Any] = {
+        "path": str(workbench_path),
+        "exists": workbench_path.exists(),
+        "marker": "IOI Hypervisor native workbench contribution replacement v2",
+        "hasMarker": False,
+        "hasUpstreamChatNoop": False,
+        "hasUpstreamChatContainerRegistration": False,
+        "hasUpstreamChatViewRegistration": False,
+        "owned": False,
+    }
+    if not workbench_path.exists():
+        state["error"] = "Managed OpenVSCode workbench bundle is missing."
+        return state
+
+    contents = workbench_path.read_text(encoding="utf-8", errors="ignore")
+    state["hasMarker"] = state["marker"] in contents
+    state["hasUpstreamChatNoop"] = "ioi.disabled.upstream.chat" in contents
+    state["hasUpstreamChatContainerRegistration"] = (
+        'registerViewContainer({id:S3,title:L(6058,"Chat")' in contents
+    )
+    state["hasUpstreamChatViewRegistration"] = "registerViews([Jrn],Ire)" in contents
+    state["owned"] = (
+        state["hasMarker"]
+        and state["hasUpstreamChatNoop"]
+        and not state["hasUpstreamChatContainerRegistration"]
+        and not state["hasUpstreamChatViewRegistration"]
+    )
+    return state
+
+
+def xwininfo_details(window_id: int) -> dict[str, Any]:
+    result = run(["xwininfo", "-id", str(window_id)], check=False)
+    parent_match = re.search(
+        r"Parent window id:\s+(0x[0-9a-fA-F]+)",
+        result.stdout,
+    )
+    absolute_x = re.search(r"Absolute upper-left X:\s+(-?\d+)", result.stdout)
+    absolute_y = re.search(r"Absolute upper-left Y:\s+(-?\d+)", result.stdout)
+    relative_x = re.search(r"Relative upper-left X:\s+(-?\d+)", result.stdout)
+    relative_y = re.search(r"Relative upper-left Y:\s+(-?\d+)", result.stdout)
+    width = re.search(r"Width:\s+(\d+)", result.stdout)
+    height = re.search(r"Height:\s+(\d+)", result.stdout)
+    override_redirect = re.search(r"Override Redirect State:\s+([A-Za-z]+)", result.stdout)
+    return {
+        "returncode": result.returncode,
+        "stdout": result.stdout,
+        "stderr": result.stderr,
+        "parentWindowHex": parent_match.group(1) if parent_match else None,
+        "parentWindowId": int(parent_match.group(1), 16) if parent_match else None,
+        "absoluteX": int(absolute_x.group(1)) if absolute_x else None,
+        "absoluteY": int(absolute_y.group(1)) if absolute_y else None,
+        "relativeX": int(relative_x.group(1)) if relative_x else None,
+        "relativeY": int(relative_y.group(1)) if relative_y else None,
+        "width": int(width.group(1)) if width else None,
+        "height": int(height.group(1)) if height else None,
+        "overrideRedirect": override_redirect.group(1).lower() == "yes"
+        if override_redirect
+        else None,
+    }
+
+
+def geometry_matches(
+    geometry: dict[str, int],
+    expected: dict[str, int],
+    *,
+    tolerance: int = 2,
+) -> bool:
+    return (
+        abs(geometry.get("X", -99999) - expected["X"]) <= tolerance
+        and abs(geometry.get("Y", -99999) - expected["Y"]) <= tolerance
+        and abs(geometry.get("WIDTH", -1) - expected["WIDTH"]) <= tolerance
+        and abs(geometry.get("HEIGHT", -1) - expected["HEIGHT"]) <= tolerance
+    )
+
+
+def wait_for_geometry_match(
+    window_id: int,
+    expected: dict[str, int],
+    *,
+    timeout_secs: float = 12.0,
+) -> tuple[dict[str, int], bool]:
+    deadline = time.time() + timeout_secs
+    last_geometry: dict[str, int] = {}
+    while time.time() < deadline:
+        last_geometry = window_geometry(window_id)
+        if geometry_matches(last_geometry, expected):
+            return last_geometry, True
+        time.sleep(0.5)
+    return last_geometry, geometry_matches(last_geometry, expected)
+
+
+def capture_root_crop(window_id: int, output_path: Path) -> dict[str, Any]:
+    geometry = window_geometry(window_id)
+    required = {"X", "Y", "WIDTH", "HEIGHT"}
+    if not required.issubset(geometry):
+        raise RuntimeError(f"Could not determine full window geometry for {window_id}")
+    crop = f"{geometry['X']},{geometry['Y']} {geometry['WIDTH']}x{geometry['HEIGHT']}"
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    attempts: list[dict[str, Any]] = []
+    if shutil.which("grim"):
+        completed = run(
+            ["grim", "-g", crop, str(output_path)],
+            check=False,
+            timeout=10.0,
+        )
+        tool = "grim"
+        attempts.append(
+            {
+                "tool": tool,
+                "returncode": completed.returncode,
+                "stderr": (completed.stderr or "").strip(),
+            }
+        )
+        if completed.returncode == 0 and output_path.exists():
+            return {
+                "geometry": geometry,
+                "crop": crop,
+                "tool": tool,
+                "attempts": attempts,
+                "returncode": completed.returncode,
+                "stderr": (completed.stderr or "").strip(),
+                "path": str(output_path),
+            }
+
+    if shutil.which("import"):
+        completed = run(
+            ["import", "-window", "root", "-crop", crop, str(output_path)],
+            check=False,
+            timeout=10.0,
+        )
+        tool = "import-root"
+        attempts.append(
+            {
+                "tool": tool,
+                "returncode": completed.returncode,
+                "stderr": (completed.stderr or "").strip(),
+            }
+        )
+    elif attempts:
+        last_attempt = attempts[-1]
+        completed = subprocess.CompletedProcess(
+            args=[],
+            returncode=int(last_attempt["returncode"]),
+            stdout="",
+            stderr=str(last_attempt["stderr"]),
+        )
+        tool = str(last_attempt["tool"])
+    else:
+        completed = subprocess.CompletedProcess(
+            args=[],
+            returncode=1,
+            stdout="",
+            stderr="No root screenshot tool is available.",
+        )
+        tool = "none"
+    return {
+        "geometry": geometry,
+        "crop": crop,
+        "tool": tool,
+        "attempts": attempts,
+        "returncode": completed.returncode,
+        "stderr": (completed.stderr or "").strip(),
+        "path": str(output_path),
+    }
+
+
+def wait_for_surface_log(log_path: Path) -> dict[str, Any] | None:
+    deadline = time.time() + SURFACE_LOG_TIMEOUT_SECS
+    last_bounds: dict[str, Any] | None = None
+    updates: list[dict[str, Any]] = []
+    created: dict[str, Any] | None = None
+    ready: dict[str, Any] | None = None
+    reparented: dict[str, Any] | None = None
+    while time.time() < deadline:
+        if log_path.exists():
+            for line in log_path.read_text(
+                encoding="utf-8",
+                errors="replace",
+            ).splitlines():
+                bounds_match = SURFACE_LOG_PATTERN.search(line)
+                if bounds_match:
+                    last_bounds = {
+                        "surfaceId": bounds_match.group("surface"),
+                        "parentWindowLabel": bounds_match.group("parent"),
+                        "bounds": {
+                            "x": float(bounds_match.group("x")),
+                            "y": float(bounds_match.group("y")),
+                            "width": float(bounds_match.group("width")),
+                            "height": float(bounds_match.group("height")),
+                        },
+                        "source": "show",
+                        "visible": bounds_match.group("visible"),
+                        "line": line,
+                    }
+                update_match = UPDATE_BOUNDS_PATTERN.search(line)
+                if update_match:
+                    update = {
+                        "surfaceId": update_match.group("surface"),
+                        "label": update_match.group("label"),
+                        "mode": update_match.group("mode"),
+                        "bounds": {
+                            "x": float(update_match.group("x")),
+                            "y": float(update_match.group("y")),
+                            "width": float(update_match.group("width")),
+                            "height": float(update_match.group("height")),
+                        },
+                        "source": "update",
+                        "line": line,
+                    }
+                    updates.append(update)
+                    last_bounds = {
+                        "surfaceId": update["surfaceId"],
+                        "parentWindowLabel": last_bounds.get("parentWindowLabel")
+                        if last_bounds
+                        else None,
+                        "bounds": update["bounds"],
+                        "source": "update",
+                        "line": line,
+                    }
+                created_match = CREATED_PATTERN.search(line)
+                if created_match:
+                    created = {
+                        "mode": created_match.group("mode"),
+                        "surfaceId": created_match.group("surface"),
+                        "label": created_match.group("label"),
+                        "line": line,
+                    }
+                ready_match = READY_PATTERN.search(line)
+                if ready_match:
+                    ready = {
+                        "mode": ready_match.group("mode"),
+                        "surfaceId": ready_match.group("surface"),
+                        "label": ready_match.group("label"),
+                        "line": line,
+                    }
+                reparent_match = REPARENT_PATTERN.search(line)
+                if reparent_match:
+                    reparented = {
+                        "label": reparent_match.group("label"),
+                        "parentLabel": reparent_match.group("parent"),
+                        "parentXid": int(reparent_match.group("parent_xid")),
+                        "childXid": int(reparent_match.group("child_xid")),
+                        "bounds": {
+                            "x": int(reparent_match.group("x")),
+                            "y": int(reparent_match.group("y")),
+                            "width": int(reparent_match.group("width")),
+                            "height": int(reparent_match.group("height")),
+                        },
+                        "line": line,
+                    }
+        if last_bounds and created and ready:
+            return {
+                **last_bounds,
+                "created": created,
+                "ready": ready,
+                "reparented": reparented,
+                "updates": updates,
+                "lastUpdate": updates[-1] if updates else None,
+            }
+        time.sleep(1.0)
+    return None
+
+
+def click_relative(window_id: int, x: int, y: int, *, button: int = 1) -> dict[str, int]:
+    geometry = window_geometry(window_id)
+    width = geometry.get("WIDTH", 1)
+    height = geometry.get("HEIGHT", 1)
+    safe_x = max(1, min(width - 1, x))
+    safe_y = max(1, min(height - 1, y))
+    run(["xdotool", "windowactivate", str(window_id)], check=False, timeout=4.0)
+    time.sleep(0.2)
+    run(["xdotool", "mousemove", "--window", str(window_id), str(safe_x), str(safe_y)])
+    run(["xdotool", "click", str(button)], check=False)
+    time.sleep(CLICK_SETTLE_SECS)
+    return {
+        "x": safe_x,
+        "y": safe_y,
+        "button": button,
+        "windowWidth": width,
+        "windowHeight": height,
+    }
+
+
+def key(window_id: int, chord: str, *, settle_secs: float = CLICK_SETTLE_SECS) -> None:
+    run(["xdotool", "windowactivate", str(window_id)], check=False, timeout=4.0)
+    time.sleep(0.2)
+    run(["xdotool", "key", chord], check=False, timeout=4.0)
+    time.sleep(settle_secs)
+
+
+def type_text(
+    window_id: int,
+    text: str,
+    *,
+    settle_secs: float = CLICK_SETTLE_SECS,
+    activate: bool = True,
+) -> None:
+    if activate:
+        run(["xdotool", "windowactivate", str(window_id)], check=False, timeout=4.0)
+        time.sleep(0.2)
+    run(["xdotool", "type", text], check=False, timeout=10.0)
+    time.sleep(settle_secs)
+
+
+def press_escape(window_id: int, *, settle_secs: float = 0.7) -> None:
+    key(window_id, "Escape", settle_secs=settle_secs)
+
+
+def move_pointer_off_window() -> None:
+    run(["xdotool", "mousemove", "0", "0"], check=False)
+    time.sleep(0.2)
+
+
+def dismiss_transient_workbench_notifications(window_id: int) -> dict[str, Any]:
+    """Close transient OpenVSCode toasts that can cover the native chat composer.
+
+    The product should suppress predictable prompts through managed settings, but
+    live validation still needs clean evidence when an upstream workbench toast is
+    already present. Click the standard bottom-right toast close affordance before
+    capturing composer parity screenshots.
+    """
+
+    geometry = window_geometry(window_id)
+    width = geometry.get("WIDTH", 1)
+    height = geometry.get("HEIGHT", 1)
+    click_x = max(1, width - 28)
+    click_y = max(1, min(height - 1, height - 140))
+    click = click_relative(window_id, click_x, click_y)
+    time.sleep(0.5)
+    return {
+        "reason": "dismiss transient OpenVSCode notification before screenshot evidence",
+        "click": click,
+    }
+
+
+def open_workspace_from_activity_rail(window_id: int) -> dict[str, int]:
+    """Use the real shell rail to reveal Workspace before waiting on native logs."""
+    geometry = window_geometry(window_id)
+    x = 25
+    y = min(max(150, int(geometry.get("HEIGHT", 900) * 0.16)), geometry.get("HEIGHT", 900) - 24)
+    click = click_relative(window_id, x, y)
+    press_escape(window_id)
+    key(window_id, "ctrl+2", settle_secs=1.2)
+    return click
+
+
+def open_first_recent_repository(window_id: int) -> dict[str, int]:
+    """Open a real project from the Workspace repository picker."""
+    geometry = window_geometry(window_id)
+    x = max(1, min(geometry.get("WIDTH", 1280) - 1, int(geometry.get("WIDTH", 1280) * 0.935)))
+    y = max(1, min(geometry.get("HEIGHT", 650) - 1, int(geometry.get("HEIGHT", 650) * 0.66)))
+    return click_relative(window_id, x, y)
+
+
+def image_difference_metric(reference_path: Path, candidate_path: Path) -> str | None:
+    if not reference_path.exists() or not candidate_path.exists():
+        return None
+    completed = subprocess.run(
+        [
+            "compare",
+            "-metric",
+            "RMSE",
+            str(reference_path),
+            str(candidate_path),
+            "null:",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    output = (completed.stderr or completed.stdout or "").strip()
+    return output or None
+
+
+def list_workflow_code_proposals() -> set[Path]:
+    proposal_root = PROJECT_ROOT / ".agents" / "workflow-code-proposals"
+    if not proposal_root.exists():
+        return set()
+    return {path for path in proposal_root.iterdir() if path.is_dir()}
+
+
+def validate_workflow_code_proposal_bundle(before: set[Path]) -> dict[str, Any]:
+    deadline = time.time() + 20.0
+    last_seen: list[Path] = []
+    while time.time() < deadline:
+        after = list_workflow_code_proposals()
+        candidates = sorted(
+            after - before,
+            key=lambda path: path.stat().st_mtime,
+            reverse=True,
+        )
+        if candidates:
+            proposal_root = candidates[0]
+            required = [
+                "request.json",
+                "proposal.md",
+                "diffs/proposed.patch",
+                "checks/checklist.md",
+                "receipts/workflow-code-generation-receipt.json",
+                "receipts/approval-required.json",
+                "receipts/apply-blocked.json",
+                "receipts/checks-required.json",
+                "receipts/eval-required.json",
+            ]
+            missing = [
+                rel_path
+                for rel_path in required
+                if not (proposal_root / rel_path).exists()
+            ]
+            return {
+                "proposalRoot": str(proposal_root),
+                "required": required,
+                "missing": missing,
+                "complete": not missing,
+            }
+        last_seen = sorted(after, key=lambda path: path.stat().st_mtime, reverse=True)
+        time.sleep(1.0)
+    return {
+        "proposalRoot": str(last_seen[0]) if last_seen else None,
+        "required": [],
+        "missing": ["new workflow-code proposal bundle"],
+        "complete": False,
+    }
+
+
+def analyze_image_region(
+    image_path: Path,
+    output_root: Path,
+    region_id: str,
+    bounds: dict[str, float],
+) -> dict[str, Any]:
+    width = max(1, int(round(float(bounds["width"]))))
+    height = max(1, int(round(float(bounds["height"]))))
+    x = max(0, int(round(float(bounds["x"]))))
+    y = max(0, int(round(float(bounds["y"]))))
+    crop_path = output_root / f"{region_id}.crop.png"
+    convert = shutil.which("magick") or shutil.which("convert")
+    identify = shutil.which("identify")
+    result: dict[str, Any] = {
+        "path": str(crop_path),
+        "bounds": {"x": x, "y": y, "width": width, "height": height},
+        "available": False,
+    }
+    if convert is None or identify is None or not image_path.exists():
+        result["error"] = "ImageMagick convert/magick and identify are required."
+        return result
+
+    if Path(convert).name == "magick":
+        crop_cmd = [
+            convert,
+            str(image_path),
+            "-crop",
+            f"{width}x{height}+{x}+{y}",
+            "+repage",
+            str(crop_path),
+        ]
+    else:
+        crop_cmd = [
+            convert,
+            str(image_path),
+            "-crop",
+            f"{width}x{height}+{x}+{y}",
+            "+repage",
+            str(crop_path),
+        ]
+    crop = run(crop_cmd, check=False, timeout=10.0)
+    result["cropReturncode"] = crop.returncode
+    result["cropStderr"] = (crop.stderr or "").strip()
+    if crop.returncode != 0 or not crop_path.exists():
+        result["error"] = result["cropStderr"] or "Region crop failed."
+        return result
+
+    metrics = run(
+        [
+            identify,
+            "-format",
+            "%k %[fx:mean] %[fx:standard_deviation]",
+            str(crop_path),
+        ],
+        check=False,
+        timeout=10.0,
+    )
+    result["identifyReturncode"] = metrics.returncode
+    result["identifyStderr"] = (metrics.stderr or "").strip()
+    parts = metrics.stdout.strip().split()
+    if len(parts) == 3:
+        try:
+            result["available"] = True
+            result["uniqueColors"] = int(parts[0])
+            result["mean"] = float(parts[1])
+            result["stddev"] = float(parts[2])
+        except ValueError:
+            result["error"] = f"Could not parse region metrics: {metrics.stdout!r}"
+    else:
+        result["error"] = f"Could not parse region metrics: {metrics.stdout!r}"
+    return result
+
+
+def compose_native_parent_capture(
+    parent_path: Path,
+    child_path: Path,
+    output_path: Path,
+    bounds: dict[str, float],
+) -> dict[str, Any]:
+    convert = shutil.which("magick") or shutil.which("convert")
+    x = int(round(float(bounds["x"])))
+    y = int(round(float(bounds["y"])))
+    result: dict[str, Any] = {
+        "path": str(output_path),
+        "parentSource": str(parent_path),
+        "childSource": str(child_path),
+        "childBounds": {
+            "x": x,
+            "y": y,
+            "width": int(round(float(bounds["width"]))),
+            "height": int(round(float(bounds["height"]))),
+        },
+        "available": False,
+    }
+    if convert is None:
+        result["error"] = "ImageMagick convert/magick is required."
+        return result
+    if not parent_path.exists() or not child_path.exists():
+        result["error"] = "Parent or child native capture is missing."
+        return result
+
+    if Path(convert).name == "magick":
+        cmd = [
+            convert,
+            str(parent_path),
+            str(child_path),
+            "-geometry",
+            f"+{x}+{y}",
+            "-composite",
+            str(output_path),
+        ]
+    else:
+        cmd = [
+            convert,
+            str(parent_path),
+            str(child_path),
+            "-geometry",
+            f"+{x}+{y}",
+            "-composite",
+            str(output_path),
+        ]
+    completed = run(cmd, check=False, timeout=12.0)
+    result["returncode"] = completed.returncode
+    result["stderr"] = (completed.stderr or "").strip()
+    result["available"] = completed.returncode == 0 and output_path.exists()
+    if not result["available"] and not result.get("error"):
+        result["error"] = result["stderr"] or "Native parent composition failed."
+    return result
+
+
+def region_has_visible_detail(analysis: dict[str, Any]) -> bool:
+    try:
+        return bool(
+            analysis.get("available")
+            and int(analysis.get("uniqueColors", 0)) > 32
+            and float(analysis.get("stddev", 0.0)) > 0.0001
+        )
+    except (TypeError, ValueError):
+        return False
+
+
+def region_has_visible_chrome(analysis: dict[str, Any]) -> bool:
+    try:
+        return bool(
+            analysis.get("available")
+            and int(analysis.get("uniqueColors", 0)) > 24
+            and float(analysis.get("stddev", 0.0)) > 0.0001
+        )
+    except (TypeError, ValueError):
+        return False
+
+
+def capture_step(
+    window_id: int,
+    output_root: Path,
+    step_id: str,
+    *,
+    browser_capture_url: str | None = None,
+) -> dict[str, Any]:
+    window_path = output_root / f"{step_id}.window.png"
+    root_path = output_root / f"{step_id}.root.png"
+    window_capture = capture_window_with_fallback(
+        window_id,
+        window_path,
+        browser_url=browser_capture_url,
+    )
+    root_capture = capture_root_crop(window_id, root_path)
+    root_screenshot = (
+        str(root_path)
+        if root_path.exists() and root_capture.get("returncode") == 0
+        else None
+    )
+    return {
+        "windowScreenshot": str(window_path) if window_path.exists() else None,
+        "rootScreenshot": root_screenshot,
+        "windowCaptureMode": window_capture.mode,
+        "windowCaptureDiagnostics": window_capture.diagnostics,
+        "windowCaptureError": window_capture.error,
+        "rootCapture": root_capture,
+    }
+
+
+def surface_point(bounds: dict[str, float], x_ratio: float, y_ratio: float) -> tuple[int, int]:
+    return (
+        int(round(float(bounds["x"]) + float(bounds["width"]) * x_ratio)),
+        int(round(float(bounds["y"]) + float(bounds["height"]) * y_ratio)),
+    )
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--output-root",
+        default=str(DEFAULT_OUTPUT_ROOT),
+        help=f"Directory to retain screenshots and receipts. Default: {DEFAULT_OUTPUT_ROOT}",
+    )
+    parser.add_argument(
+        "--window-name",
+        default=WINDOW_SEARCH_PATTERN,
+        help=f"Window title pattern to target. Default: {WINDOW_SEARCH_PATTERN!r}",
+    )
+    parser.add_argument(
+        "--timeout-secs",
+        type=float,
+        default=WINDOW_WAIT_TIMEOUT_SECS,
+        help="How long to wait for the Workspace desktop window to appear.",
+    )
+    parser.add_argument(
+        "--profile",
+        default=DEFAULT_PROFILE,
+        help=f"Desktop profile to launch. Default: {DEFAULT_PROFILE}",
+    )
+    parser.add_argument(
+        "--dev-url",
+        default=DEFAULT_DEV_URL,
+        help=f"Dev server URL to start. Default: {DEFAULT_DEV_URL}",
+    )
+    return parser.parse_args()
+
+
+def main() -> int:
+    args = parse_args()
+    output_root = Path(args.output_root).expanduser() / now_stamp()
+    output_root.mkdir(parents=True, exist_ok=True)
+    log_path = output_root / "desktop.log"
+
+    close_matching_windows(args.window_name)
+    terminate_existing_desktop_instances()
+
+    os.environ.pop("AUTOPILOT_WORKSPACE_DIRECT_WEBVIEW_MODE", None)
+    process = launch_dev_desktop(
+        args.profile,
+        log_path,
+        args.dev_url,
+        "direct-openvscode",
+    )
+    print("[openvscode-direct] launched Workspace desktop shell", flush=True)
+
+    probe_error: str | None = None
+    window_id: int | None = None
+    target_window_id: int | None = None
+    target_window_source = "parent-contained"
+    target_bounds: dict[str, float] | None = None
+    surface: dict[str, Any] | None = None
+    child_window_id: int | None = None
+    steps: list[dict[str, Any]] = []
+    parent_capture: dict[str, Any] | None = None
+    containment: dict[str, Any] = {}
+    workbench_patch_state: dict[str, Any] = {}
+
+    try:
+        window_id = wait_for_window(args.window_name, timeout_secs=args.timeout_secs)
+        if window_id is None:
+            raise RuntimeError(
+                f"Timed out waiting for a window matching {args.window_name!r}"
+            )
+
+        focus_workspace_view(window_id)
+        steps.append(
+            {
+                "action": "open-workspace-from-activity-rail",
+                "click": open_workspace_from_activity_rail(window_id),
+            }
+        )
+        route_capture = capture_step(window_id, output_root, "after-workspace-route")
+        steps.append({"id": "after-workspace-route", **route_capture})
+        steps.append(
+            {
+                "action": "open-first-recent-repository",
+                "click": open_first_recent_repository(window_id),
+            }
+        )
+        move_pointer_off_window()
+        time.sleep(POST_WINDOW_SETTLE_SECS)
+        surface = wait_for_surface_log(log_path)
+        if surface is None:
+            raise RuntimeError("Timed out waiting for native OpenVSCode surface log.")
+        print(f"[openvscode-direct] surface: {surface.get('created', {}).get('mode')}", flush=True)
+        workbench_patch_state = managed_workbench_patch_state(args.profile)
+        containment["managedWorkbenchPatchState"] = workbench_patch_state
+        if not workbench_patch_state.get("owned"):
+            raise RuntimeError(
+                "Managed OpenVSCode bundle still allows upstream Chat to register before IOI Chat: "
+                f"{workbench_patch_state}"
+            )
+
+        created_mode = surface.get("created", {}).get("mode")
+        legacy_window_ids = window_ids_from_wmctrl(LEGACY_SURFACE_WINDOW_SEARCH_PATTERN)
+        if not legacy_window_ids:
+            legacy_window_ids = window_ids_from_xdotool(
+                LEGACY_SURFACE_WINDOW_SEARCH_PATTERN
+            )
+        containment["legacyOpenVsCodeWindowIds"] = legacy_window_ids
+        containment["createdMode"] = created_mode
+        if created_mode not in {"Child", "OwnedWindow"}:
+            raise RuntimeError(
+                f"Direct OpenVSCode containment requires Child or OwnedWindow mode, got {created_mode!r}."
+            )
+        if legacy_window_ids:
+            raise RuntimeError(
+                f"Direct OpenVSCode exposed legacy OpenVSCode windows: {legacy_window_ids}"
+            )
+        workbench_top_level_window_ids = window_ids_from_wmctrl(
+            SURFACE_WINDOW_SEARCH_PATTERN
+        )
+        containment["workbenchTopLevelWindowIds"] = workbench_top_level_window_ids
+        if created_mode == "Child" and workbench_top_level_window_ids:
+            raise RuntimeError(
+                "Direct child mode exposed a task-switchable workbench window: "
+                f"{workbench_top_level_window_ids}"
+            )
+        if created_mode == "Child":
+            reparented = surface.get("reparented")
+            containment["reparentedChild"] = reparented
+            if not reparented:
+                raise RuntimeError(
+                    "Direct child mode did not report a reparented native child surface."
+                )
+            child_xid = int(reparented["childXid"])
+            child_window_id = child_xid
+            child_details = xwininfo_details(child_xid)
+            parent_geometry = window_geometry(window_id)
+            expected_x = int(round(parent_geometry.get("X", 0) + surface["bounds"]["x"]))
+            expected_y = int(round(parent_geometry.get("Y", 0) + surface["bounds"]["y"]))
+            expected_geometry = {
+                "X": expected_x,
+                "Y": expected_y,
+                "WIDTH": int(round(surface["bounds"]["width"])),
+                "HEIGHT": int(round(surface["bounds"]["height"])),
+            }
+            child_geometry = {
+                "X": child_details.get("absoluteX"),
+                "Y": child_details.get("absoluteY"),
+                "WIDTH": child_details.get("width"),
+                "HEIGHT": child_details.get("height"),
+            }
+            child_relative_geometry = {
+                "X": child_details.get("relativeX"),
+                "Y": child_details.get("relativeY"),
+                "WIDTH": child_details.get("width"),
+                "HEIGHT": child_details.get("height"),
+            }
+            expected_relative_geometry = {
+                "X": int(round(surface["bounds"]["x"])),
+                "Y": int(round(surface["bounds"]["y"])),
+                "WIDTH": int(round(surface["bounds"]["width"])),
+                "HEIGHT": int(round(surface["bounds"]["height"])),
+            }
+            containment["childWindowDetails"] = child_details
+            containment["childWindowGeometry"] = child_geometry
+            containment["childWindowRelativeGeometry"] = child_relative_geometry
+            containment["childWindowExpectedGeometry"] = expected_geometry
+            containment["childWindowExpectedRelativeGeometry"] = expected_relative_geometry
+            containment["childWindowParentMatchesParent"] = geometry_matches(
+                child_relative_geometry,
+                expected_relative_geometry,
+            )
+            containment["childWindowGeometryMatchesSurfaceRect"] = geometry_matches(
+                child_geometry,
+                expected_geometry,
+            )
+            containment["childWindowOverrideRedirect"] = bool(
+                child_details.get("overrideRedirect")
+            )
+            if not containment["childWindowParentMatchesParent"]:
+                raise RuntimeError(
+                    f"Direct child surface relative geometry {child_relative_geometry} did not match expected parent-relative rect {expected_relative_geometry}."
+                )
+            if not containment["childWindowGeometryMatchesSurfaceRect"]:
+                raise RuntimeError(
+                    f"Direct child surface geometry {child_geometry} did not match expected containment rect {expected_geometry}."
+                )
+            if not containment["childWindowOverrideRedirect"]:
+                raise RuntimeError("Direct child surface is still window-manager managed.")
+        if created_mode == "OwnedWindow":
+            target_window_id = wait_for_window(
+                SURFACE_WINDOW_SEARCH_PATTERN,
+                timeout_secs=30.0,
+            )
+            if target_window_id is None:
+                raise RuntimeError("Timed out waiting for owned OpenVSCode workbench window.")
+            target_window_source = "owned-window"
+            parent_geometry = window_geometry(window_id)
+            target_geometry = window_geometry(target_window_id)
+            expected_x = int(round(parent_geometry.get("X", 0) + surface["bounds"]["x"]))
+            expected_y = int(round(parent_geometry.get("Y", 0) + surface["bounds"]["y"]))
+            expected_width = int(round(surface["bounds"]["width"]))
+            expected_height = int(round(surface["bounds"]["height"]))
+            expected_geometry = {
+                "X": expected_x,
+                "Y": expected_y,
+                "WIDTH": expected_width,
+                "HEIGHT": expected_height,
+            }
+            target_geometry, geometry_match = wait_for_geometry_match(
+                target_window_id,
+                expected_geometry,
+            )
+            containment["ownedWindowGeometry"] = target_geometry
+            containment["ownedWindowExpectedGeometry"] = expected_geometry
+            containment["ownedWindowGeometryMatchesSurfaceRect"] = geometry_match
+            if not geometry_match:
+                raise RuntimeError(
+                    f"Owned workbench geometry {target_geometry} did not match expected containment rect."
+                )
+            print(
+                f"[openvscode-direct] owned geometry: {target_geometry}",
+                flush=True,
+            )
+            target_bounds = {
+                "x": 0.0,
+                "y": 0.0,
+                "width": float(target_geometry.get("WIDTH", 1)),
+                "height": float(target_geometry.get("HEIGHT", 1)),
+            }
+            parent_capture = capture_step(window_id, output_root, "parent-baseline")
+        else:
+            target_window_id = window_id
+            target_bounds = surface["bounds"]
+
+        baseline = capture_step(target_window_id, output_root, "baseline")
+        steps.append({"id": "baseline", **baseline})
+        print("[openvscode-direct] captured baseline", flush=True)
+        baseline_root = baseline.get("rootScreenshot")
+        native_child_capture: dict[str, Any] | None = None
+        native_composited_parent: dict[str, Any] | None = None
+        if (
+            created_mode == "Child"
+            and child_window_id is not None
+            and baseline.get("windowScreenshot")
+        ):
+            child_path = output_root / "native-child-workbench.window.png"
+            child_capture = capture_window_with_fallback(child_window_id, child_path)
+            native_child_capture = {
+                "windowId": child_window_id,
+                "path": str(child_path) if child_path.exists() else None,
+                "captureMode": child_capture.mode,
+                "captureError": child_capture.error,
+                "captureDiagnostics": child_capture.diagnostics,
+            }
+            containment["nativeChildCapture"] = native_child_capture
+            if child_path.exists() and child_capture.error is None:
+                native_composited_parent = compose_native_parent_capture(
+                    Path(baseline["windowScreenshot"]),
+                    child_path,
+                    output_root / "native-composited-parent.png",
+                    surface["bounds"],
+                )
+                containment["nativeCompositedParent"] = native_composited_parent
+        parent_geometry = window_geometry(window_id)
+        if baseline_root:
+            composition_image = Path(baseline_root)
+            workbench_bounds = surface["bounds"] if created_mode == "OwnedWindow" else target_bounds
+            chrome_source_image = composition_image
+            containment["canonicalCompositionSource"] = "whole-root"
+        elif native_composited_parent and native_composited_parent.get("available"):
+            composition_image = Path(str(native_composited_parent["path"]))
+            workbench_bounds = target_bounds
+            chrome_source_image = composition_image
+            containment["wholeScreenCaptureBlocked"] = True
+            containment["wholeScreenCaptureBlocker"] = baseline.get("rootCapture", {})
+            containment["canonicalCompositionSource"] = "native-composited-parent"
+        else:
+            composition_image = Path(baseline["windowScreenshot"])
+            workbench_bounds = target_bounds
+            if created_mode == "Child":
+                chrome_source_image = composition_image
+            elif parent_capture and parent_capture.get("windowScreenshot"):
+                chrome_source_image = Path(parent_capture["windowScreenshot"])
+            else:
+                raise RuntimeError("Parent chrome capture was unavailable.")
+            containment["wholeScreenCaptureBlocked"] = True
+            containment["wholeScreenCaptureBlocker"] = baseline.get("rootCapture", {})
+            containment["canonicalCompositionSource"] = "window-capture"
+
+        workbench_region = analyze_image_region(
+            composition_image,
+            output_root,
+            "contained-workbench",
+            workbench_bounds,
+        )
+        activity_region = analyze_image_region(
+            chrome_source_image,
+            output_root,
+            "autopilot-activity-bar",
+            {
+                "x": 0.0,
+                "y": float(surface["bounds"]["y"]),
+                "width": max(1.0, float(surface["bounds"]["x"])),
+                "height": float(surface["bounds"]["height"]),
+            },
+        )
+        header_region = analyze_image_region(
+            chrome_source_image,
+            output_root,
+            "autopilot-header",
+            {
+                "x": 0.0,
+                "y": 0.0,
+                "width": float(parent_geometry.get("WIDTH", 1)),
+                "height": max(1.0, float(surface["bounds"]["y"])),
+            },
+        )
+        workbench_top_region = analyze_image_region(
+            composition_image,
+            output_root,
+            "contained-workbench-top",
+            {
+                "x": float(workbench_bounds["x"]),
+                "y": float(workbench_bounds["y"]),
+                "width": float(workbench_bounds["width"]),
+                "height": min(90.0, float(workbench_bounds["height"])),
+            },
+        )
+        containment.update(
+            {
+                "workbenchRegion": workbench_region,
+                "workbenchTopRegion": workbench_top_region,
+                "activityBarRegion": activity_region,
+                "headerRegion": header_region,
+                "workbenchVisible": region_has_visible_detail(workbench_region),
+                "workbenchTopVisible": region_has_visible_detail(
+                    workbench_top_region
+                ),
+                "activityBarVisible": region_has_visible_chrome(activity_region),
+                "headerVisible": region_has_visible_chrome(header_region),
+            }
+        )
+        if not containment["workbenchVisible"]:
+            raise RuntimeError("Contained OpenVSCode workbench region did not render visibly.")
+        if not containment["workbenchTopVisible"]:
+            raise RuntimeError(
+                "Contained OpenVSCode workbench did not occupy the top of the workspace rect."
+            )
+        if not containment["activityBarVisible"]:
+            raise RuntimeError("Hypervisor activity bar chrome was not visibly retained.")
+        if not containment["headerVisible"]:
+            raise RuntimeError("Hypervisor header chrome was not visibly retained.")
+
+        composer_notification_dismissal = dismiss_transient_workbench_notifications(
+            target_window_id
+        )
+        composer_type_point = (0.82, 0.765)
+        typed_prompt = "probe prompt"
+        print("[openvscode-direct] interaction: native-chat-composer-type", flush=True)
+        x, y = surface_point(target_bounds, composer_type_point[0], composer_type_point[1])
+        composer_click = click_relative(target_window_id, x, y)
+        type_text(target_window_id, typed_prompt, settle_secs=0.8, activate=False)
+        composer_capture = capture_step(
+            target_window_id,
+            output_root,
+            "native-chat-composer-type",
+        )
+        steps.append(
+            {
+                "id": "native-chat-composer-type",
+                "click": composer_click,
+                "surfacePoint": {
+                    "xRatio": composer_type_point[0],
+                    "yRatio": composer_type_point[1],
+                },
+                "notificationDismissal": composer_notification_dismissal,
+                "typedPrompt": typed_prompt,
+                **composer_capture,
+            }
+        )
+
+        native_chat_send_point = (0.958, 0.895)
+        print("[openvscode-direct] interaction: native-chat-inline-submit", flush=True)
+        x, y = surface_point(
+            target_bounds,
+            native_chat_send_point[0],
+            native_chat_send_point[1],
+        )
+        inline_submit_click = click_relative(target_window_id, x, y)
+        time.sleep(7.0)
+        inline_submit_capture = capture_step(
+            target_window_id,
+            output_root,
+            "native-chat-inline-submit",
+        )
+        inline_submit_workbench_region = None
+        if inline_submit_capture.get("rootScreenshot"):
+            inline_submit_workbench_region = analyze_image_region(
+                Path(inline_submit_capture["rootScreenshot"]),
+                output_root,
+                "native-chat-inline-submit-workbench-top",
+                {
+                    "x": float(workbench_bounds["x"]),
+                    "y": float(workbench_bounds["y"]),
+                    "width": float(workbench_bounds["width"]),
+                    "height": min(90.0, float(workbench_bounds["height"])),
+                },
+            )
+            if not region_has_visible_detail(inline_submit_workbench_region):
+                raise RuntimeError(
+                    "Native chat inline submit did not retain the OpenVSCode workbench surface."
+                )
+        steps.append(
+            {
+                "id": "native-chat-inline-submit",
+                "click": inline_submit_click,
+                "surfacePoint": {
+                    "xRatio": native_chat_send_point[0],
+                    "yRatio": native_chat_send_point[1],
+                },
+                "typedPrompt": typed_prompt,
+                "workbenchTopRegion": inline_submit_workbench_region,
+                **inline_submit_capture,
+            }
+        )
+
+        proposal_before = list_workflow_code_proposals()
+        build_workspace_point = (0.818, 0.647)
+        notification_dismissal = dismiss_transient_workbench_notifications(target_window_id)
+        print("[openvscode-direct] interaction: native-chat-build-workspace", flush=True)
+        x, y = surface_point(target_bounds, build_workspace_point[0], build_workspace_point[1])
+        build_click = click_relative(target_window_id, x, y)
+        build_capture = capture_step(
+            target_window_id,
+            output_root,
+            "native-chat-build-workspace",
+        )
+        proposal_bundle = validate_workflow_code_proposal_bundle(proposal_before)
+        steps.append(
+            {
+                "id": "native-chat-build-workspace",
+                "click": build_click,
+                "surfacePoint": {
+                    "xRatio": build_workspace_point[0],
+                    "yRatio": build_workspace_point[1],
+                },
+                "notificationDismissal": notification_dismissal,
+                "proposalBundle": proposal_bundle,
+                **build_capture,
+            }
+        )
+        if not proposal_bundle.get("complete"):
+            raise RuntimeError(
+                f"Native chat Build Workspace did not materialize a complete workflow-code proposal bundle: {proposal_bundle}"
+            )
+
+        interactions = [
+            {"id": "activity-search", "point": (0.021, 0.215)},
+            {"id": "search-query", "point": (0.155, 0.132), "text": "src-tauri"},
+            {"id": "activity-scm", "point": (0.021, 0.315)},
+            {"id": "activity-extensions", "point": (0.021, 0.475)},
+            {"id": "activity-ioi", "point": (0.021, 0.545)},
+            {"id": "activity-explorer", "point": (0.021, 0.135)},
+            {"id": "explorer-context-menu", "point": (0.095, 0.165), "button": 3},
+        ]
+        for interaction in interactions:
+            step_id = str(interaction["id"])
+            point = interaction["point"]
+            command = interaction.get("command")
+            text = interaction.get("text")
+            button = int(interaction.get("button", 1))
+            print(f"[openvscode-direct] interaction: {step_id}", flush=True)
+            if interaction.get("pre_escape"):
+                press_escape(target_window_id)
+            x, y = surface_point(target_bounds, point[0], point[1])
+            click = click_relative(target_window_id, x, y, button=button)
+            if button == 3:
+                time.sleep(0.8)
+            if text:
+                type_text(target_window_id, str(text), settle_secs=0.8)
+            if command:
+                key(target_window_id, "ctrl+shift+p", settle_secs=1.0)
+                type_text(target_window_id, str(command), settle_secs=0.8)
+                key(target_window_id, "Return", settle_secs=1.8)
+            capture = capture_step(target_window_id, output_root, step_id)
+            rmse_window = (
+                image_difference_metric(
+                    Path(baseline["windowScreenshot"]),
+                    Path(capture["windowScreenshot"]),
+                )
+                if baseline.get("windowScreenshot")
+                and capture.get("windowScreenshot")
+                else None
+            )
+            rmse_root = (
+                image_difference_metric(
+                    Path(baseline["rootScreenshot"]),
+                    Path(capture["rootScreenshot"]),
+                )
+                if baseline.get("rootScreenshot")
+                and capture.get("rootScreenshot")
+                else None
+            )
+            steps.append(
+                {
+                    "id": step_id,
+                    "click": click,
+                    "surfacePoint": {"xRatio": point[0], "yRatio": point[1]},
+                    "command": command,
+                    "text": text,
+                    "rmseVsBaselineWindow": rmse_window,
+                    "rmseVsBaselineRoot": rmse_root,
+                    **capture,
+                }
+            )
+            if button == 3:
+                press_escape(target_window_id)
+    except Exception as error:
+        probe_error = str(error)
+    finally:
+        terminate_process_group(process)
+
+    bundle = {
+        "captured_at": datetime.now(timezone.utc).isoformat(),
+        "window_id": window_id,
+        "target_window_id": target_window_id,
+        "target_window_source": target_window_source,
+        "target_bounds": target_bounds,
+        "profile": args.profile,
+        "surface": surface,
+        "parent_capture": parent_capture,
+        "containment": containment,
+        "workbench_patch_state": workbench_patch_state,
+        "steps": steps,
+        "probe_error": probe_error,
+        "negative_checks": {
+            "directMode": True,
+            "createdNativeSurface": bool(surface and surface.get("created")),
+            "createdNativeSurfaceMode": surface.get("created", {}).get("mode")
+            if surface
+            else None,
+            "defaultModeIsChild": containment.get("createdMode") == "Child",
+            "noLegacyOpenVsCodeWindow": not containment.get("legacyOpenVsCodeWindowIds"),
+            "noTaskSwitcherWorkbenchWindow": not containment.get(
+                "workbenchTopLevelWindowIds"
+            ),
+            "childSurfaceParentedToAutopilot": bool(
+                containment.get("childWindowParentMatchesParent", False)
+            ),
+            "childSurfaceMatchesWorkspaceRect": bool(
+                containment.get("childWindowGeometryMatchesSurfaceRect", False)
+            ),
+            "workbenchContainedInParent": bool(containment.get("workbenchVisible")),
+            "nativeCompositedParentCapture": bool(
+                containment.get("nativeCompositedParent", {}).get("available")
+                or containment.get("canonicalCompositionSource") == "whole-root"
+            ),
+            "autopilotChromeRetained": bool(
+                containment.get("activityBarVisible")
+                and containment.get("headerVisible")
+            ),
+            "upstreamChatContributionNoopedBeforeFirstPaint": bool(
+                workbench_patch_state.get("owned")
+            ),
+        },
+        "log_tail": read_log_tail(log_path),
+    }
+
+    result_path = output_root / "result.json"
+    result_path.write_text(json.dumps(bundle, indent=2), encoding="utf-8")
+    print(f"[openvscode-direct] results: {result_path}", flush=True)
+
+    has_capture_error = any(step.get("windowCaptureError") for step in steps)
+    return 0 if not probe_error and not has_capture_error else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

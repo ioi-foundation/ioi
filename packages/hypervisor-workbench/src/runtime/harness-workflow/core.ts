@@ -10509,7 +10509,7 @@ export const DEFAULT_AGENT_HARNESS_COMPONENTS: WorkflowHarnessComponentSpec[] =
       label: "Workflow package export",
       description:
         "Exports the current workflow bundle, tests, fixtures, bindings, policy, output manifests, and harness package evidence for another checkout.",
-      kernelRef: "apps/autopilot/src/services/HypervisorClientRuntime.ts::export_workflow_package",
+      kernelRef: "apps/hypervisor/src/services/HypervisorClientRuntime.ts::export_workflow_package",
       capabilityScope: ["workflow.package.export", "workflow.context.read"],
       eventKinds: ["WorkflowPortablePackageManifest"],
       evidence: [
@@ -10527,7 +10527,7 @@ export const DEFAULT_AGENT_HARNESS_COMPONENTS: WorkflowHarnessComponentSpec[] =
       label: "Workflow package import",
       description:
         "Imports a portable workflow package into a target project and exposes the package import review, evidence readiness, and locale preservation gate.",
-      kernelRef: "apps/autopilot/src/services/HypervisorClientRuntime.ts::import_workflow_package",
+      kernelRef: "apps/hypervisor/src/services/HypervisorClientRuntime.ts::import_workflow_package",
       capabilityScope: ["workflow.package.import", "workflow.package.review"],
       approvalRequired: true,
       eventKinds: ["WorkflowPackageImportReview"],

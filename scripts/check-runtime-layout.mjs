@@ -37,7 +37,7 @@ const sdkIndex = read("packages/agent-sdk/src/index.ts");
 const workbenchRuntimeFiles = allFiles("packages/hypervisor-workbench/src/runtime", (file) =>
   /\.(ts|tsx)$/.test(file),
 );
-const activeTauriSrc = "apps/autopilot/src-tauri/src";
+const activeTauriSrc = "apps/hypervisor/src-tauri/src";
 const legacyTauriSrc = "internal-docs/legacy/autopilot-tauri-src/src";
 const rootIdeDir = "ide";
 const autopilotRootProofFiles = allFiles(legacyTauriSrc, (file) =>
@@ -50,13 +50,13 @@ const runtimeServiceFiles = allFiles("crates/services/src/agentic/runtime/servic
   /\.(rs|md)$/.test(file),
 );
 const activeRuntimeSwarmFiles = [
-  ...allFiles("apps/autopilot/src", (file) => /\.(ts|tsx|css)$/.test(file)),
+  ...allFiles("apps/hypervisor/src", (file) => /\.(ts|tsx|css)$/.test(file)),
   ...allFiles("crates/api/src", (file) => file.endsWith(".rs")),
   ...allFiles("crates/services/src/agentic/runtime", (file) => file.endsWith(".rs")),
   "crates/types/src/app/chat.rs",
 ].filter((file) => exists(file));
 const allowedSwarmCompatibilityFiles = new Set([
-  "apps/autopilot/src/types/work-graph-compat.ts",
+  "apps/hypervisor/src/types/work-graph-compat.ts",
   "crates/api/src/chat/types.rs",
   "crates/services/src/agentic/runtime/service/memory/context.rs",
   "crates/services/src/agentic/runtime/types.rs",
@@ -182,7 +182,7 @@ assert(
     `${legacyTauriSrc}/proofs/mod.rs`,
     `${legacyTauriSrc}/lib.rs`,
   ],
-  "Autopilot Tauri Rust and root ide/ must stay retired from active app paths; legacy proof modules must remain isolated under proofs/",
+  "Active Tauri Rust and root ide/ must stay retired from active app paths; legacy proof modules must remain isolated under proofs/",
 );
 assert(
   "sdk-no-gui-harness-imports",
@@ -241,7 +241,7 @@ assert(
       if (!/\bswarm\b|Swarm|swarm[A-Z_]/.test(content)) return true;
       return allowedSwarmCompatibilityFiles.has(file);
     }),
-  ["crates/types/src/app/chat.rs", "apps/autopilot/src", "crates/services/src/agentic/runtime"],
+  ["crates/types/src/app/chat.rs", "apps/hypervisor/src", "crates/services/src/agentic/runtime"],
   "active public runtime vocabulary must use adaptive work graph terminology; retired SWARM: decoding must stay absent",
 );
 assert(

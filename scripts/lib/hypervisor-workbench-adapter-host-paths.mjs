@@ -32,7 +32,7 @@ const forkRoot = resolveEnvPath(
 );
 const extensionSource = resolve(
   repoRoot,
-  "apps/autopilot/openvscode-extension/ioi-workbench",
+  "workbench-adapters/ioi-workbench",
 );
 const packagedWorkbenchTarget = resolve(
   packagedRoot,

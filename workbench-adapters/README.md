@@ -21,7 +21,7 @@ workbench-adapters/
 
 Canonical ownership stays split:
 
-- `apps/autopilot/openvscode-extension/ioi-workbench` is the current Workbench
+- `workbench-adapters/ioi-workbench` is the current Workbench
   extension/API source.
 - `workbench-adapters/vscode` is the target optional local VS Code source
   checkout for adapter-host development and rebuilds.
@@ -34,9 +34,9 @@ Canonical ownership stays split:
 
 Environment overrides still work:
 
-- `AUTOPILOT_VSCODE_PACKAGED_ROOT`
-- `AUTOPILOT_VSCODE_FORK_ROOT`
-- `AUTOPILOT_VSCODE_FORK_BIN`
+- `HYPERVISOR_WORKBENCH_VSCODE_PACKAGED_ROOT`
+- `HYPERVISOR_WORKBENCH_VSCODE_FORK_ROOT`
+- `HYPERVISOR_WORKBENCH_VSCODE_FORK_BIN`
 
 Keep fork code and packaged builds ignored unless a future repository split or
 submodule decision makes them intentional tracked assets.

@@ -7,7 +7,7 @@
 //!
 //! Keep product-shell concerns out of this layer. Session wiring, event
 //! emission, task mutation, navigator state, and renderer-specific shell
-//! surfaces belong in `apps/autopilot/.../kernel/chat`.
+//! surfaces belong in daemon-owned runtime APIs and protocol clients.
 //!
 //! New product-agnostic shell consumers should prefer
 //! `crate::runtime_harness`. This module remains the compatibility/product-

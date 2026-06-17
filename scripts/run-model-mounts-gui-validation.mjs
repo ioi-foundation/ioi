@@ -5,7 +5,7 @@ import { resolve } from "node:path";
 const repoRoot = resolve(new URL("..", import.meta.url).pathname);
 const args = process.argv.slice(2);
 const pythonArgs = [
-  "apps/autopilot/scripts/desktop_model_mounts_probe.py",
+  "apps/hypervisor/scripts/desktop_model_mounts_probe.py",
   ...args,
 ];
 

@@ -29,7 +29,7 @@ parallel execution path.
 | `@ioi/agent-sdk` | `packages/agent-sdk/` | Developer client over daemon/substrate contracts. |
 | `ioi-cli` / headless | `crates/cli/` | Terminal, scripting, CI, node-ops, and headless client over daemon/public runtime APIs, including training, benchmark, receipt, and routing inspection controls; TUI is an optional presentation over this client. |
 | `@ioi/hypervisor-workbench` | `packages/hypervisor-workbench/` | Workbench and workflow-composer projection over shared contracts. |
-| Hypervisor App/Web | `apps/autopilot/` today, future Hypervisor app/web homes as code is renamed | First-class product clients over Hypervisor Core; product shell over Workbench, Foundry, Fleet, chat/assistant surfaces, and daemon/runtime projections. |
+| Hypervisor App/Web | `apps/hypervisor/` today, future Hypervisor app/web homes as code is renamed | First-class product clients over Hypervisor Core; product shell over Workbench, Foundry, Fleet, chat/assistant surfaces, and daemon/runtime projections. |
 | Shared builder substrate | `packages/hypervisor-workbench/src/types/graph.ts`, `packages/hypervisor-workbench/src/runtime/workflow-schema.ts`, workflow runtime models | Typed graph, schema, and recipe contracts consumed by multiple builder lenses. |
 | Workflow compositor | `packages/hypervisor-workbench/src/WorkflowComposer/` | Standard graph projection over the shared builder substrate; submits to daemon/domain contracts and never owns canonical run truth. |
 
@@ -41,7 +41,7 @@ parallel execution path.
 | Runtime evidence | `scripts/evidence/` | Durable evidence generation commands. |
 | Script launchers | `scripts/` | Thin operator wrappers only. |
 | JS contract tests | `scripts/lib/*.test.mjs` | Tests and guardrails, not runtime implementation. |
-| Hypervisor proofs | `scripts/lib/*.test.mjs`, `scripts/conformance/`, `scripts/evidence/`, and focused proof helpers under `packages/hypervisor-workbench/src/runtime/` when they are client projections | Proof/harness code only; product runtime modules should stay uncluttered. The removed `apps/autopilot/src-tauri` path is not an active proof home. |
+| Hypervisor proofs | `scripts/lib/*.test.mjs`, `scripts/conformance/`, `scripts/evidence/`, and focused proof helpers under `packages/hypervisor-workbench/src/runtime/` when they are client projections | Proof/harness code only; product runtime modules should stay uncluttered. The removed `apps/hypervisor/src-tauri` path is not an active proof home. |
 
 ## Vocabulary Rules
 

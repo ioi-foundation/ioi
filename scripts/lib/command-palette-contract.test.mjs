@@ -3,11 +3,11 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const commandPalette = readFileSync(
-  "apps/autopilot/src/components/CommandPalette.tsx",
+  "apps/hypervisor/src/components/CommandPalette.tsx",
   "utf8",
 );
 const commandPaletteCss = readFileSync(
-  "apps/autopilot/src/components/CommandPalette.css",
+  "apps/hypervisor/src/components/CommandPalette.css",
   "utf8",
 );
 

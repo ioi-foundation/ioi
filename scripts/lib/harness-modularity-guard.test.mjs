@@ -387,7 +387,7 @@ test("active harness sources do not reintroduce retired runtime fallback authori
   const sourceRoots = [
     "crates/services/src/agentic/runtime",
     "crates/types/src/app",
-    "apps/autopilot/src/windows/AutopilotShellWindow",
+    "apps/hypervisor/src/windows/AutopilotShellWindow",
     "packages/hypervisor-workbench/src",
     "scripts/lib",
     ".internal/plans",

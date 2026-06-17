@@ -3,19 +3,19 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const activityBar = readFileSync(
-  "apps/autopilot/src/windows/AutopilotShellWindow/components/ChatLocalActivityBar.tsx",
+  "apps/hypervisor/src/windows/AutopilotShellWindow/components/ChatLocalActivityBar.tsx",
   "utf8",
 );
 const hypervisorClientHeader = readFileSync(
-  "apps/autopilot/src/windows/AutopilotShellWindow/components/HypervisorClientHeader.tsx",
+  "apps/hypervisor/src/windows/AutopilotShellWindow/components/HypervisorClientHeader.tsx",
   "utf8",
 );
 const shellBaseCss = readFileSync(
-  "apps/autopilot/src/windows/AutopilotShellWindow/styles/autopilot-shell/shell-base.css",
+  "apps/hypervisor/src/windows/AutopilotShellWindow/styles/autopilot-shell/shell-base.css",
   "utf8",
 );
 const traceAndWelcomeCss = readFileSync(
-  "apps/autopilot/src/windows/AutopilotShellWindow/styles/autopilot-shell/trace-and-welcome.css",
+  "apps/hypervisor/src/windows/AutopilotShellWindow/styles/autopilot-shell/trace-and-welcome.css",
   "utf8",
 );
 

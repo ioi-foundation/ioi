@@ -237,9 +237,9 @@ function runSupportChecks(outputDir) {
   const commands = [
     ["node", ["--check", "packages/runtime-daemon/src/conversation-artifacts.mjs"]],
     ["node", ["--check", "packages/runtime-daemon/src/index.mjs"]],
-    ["node", ["--check", "apps/autopilot/openvscode-extension/ioi-workbench/extension.js"]],
+    ["node", ["--check", "workbench-adapters/ioi-workbench/extension.js"]],
     ["node", ["--check", "scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs"]],
-    ["node", ["--test", "apps/autopilot/openvscode-extension/ioi-workbench/extension.static.test.mjs"]],
+    ["node", ["--test", "workbench-adapters/ioi-workbench/extension.static.test.mjs"]],
     ["npm", ["run", "build", "--workspace=@ioi/agent-sdk"]],
   ];
   const results = commands.map(([command, args]) => runCommand(command, args, { timeoutMs: 180_000 }));

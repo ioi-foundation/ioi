@@ -34,7 +34,7 @@ const PARENT_GUIDES = [
 ];
 const OUTPUT_ROOT =
   "docs/evidence/autopilot-electron-models-production-polish-playwright";
-const EXTENSION_ROOT = "apps/autopilot/openvscode-extension/ioi-workbench";
+const EXTENSION_ROOT = "workbench-adapters/ioi-workbench";
 const VSCODE_PACKAGED_APP_ROOT = HYPERVISOR_WORKBENCH_ADAPTER_HOST.packagedRoot;
 const MODEL_ID = "stories260k";
 const SECONDARY_MODEL_ID = "text-embedding-nomic-embed-text-v1.5";

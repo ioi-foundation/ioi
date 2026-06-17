@@ -25,7 +25,7 @@ export const P3_PRODUCT_POLISH_ITEMS = Object.freeze([
         "AgentCommands::Replay",
         "AgentCommands::Doctor",
       ]),
-      sourceAnchor("apps/autopilot/src/windows/ChatShellWindow/components/ArtifactHubSidebar.tsx", [
+      sourceAnchor("apps/hypervisor/src/windows/ChatShellWindow/components/ArtifactHubSidebar.tsx", [
         "tasks",
         "substrate",
         "kernel_logs",
@@ -39,11 +39,11 @@ export const P3_PRODUCT_POLISH_ITEMS = Object.freeze([
     label: "Redacted diagnostic bundle export",
     dashboard: "redacted-diagnostic-bundle.json",
     anchors: [
-      sourceAnchor("apps/autopilot/src/windows/ChatShellWindow/utils/traceBundleExportModel.ts", [
+      sourceAnchor("apps/hypervisor/src/windows/ChatShellWindow/utils/traceBundleExportModel.ts", [
         "redacted_share",
         "includeArtifactPayloads: false",
       ]),
-      sourceAnchor("apps/autopilot/src/windows/ChatShellWindow/components/ArtifactHubPackagingViews.tsx", [
+      sourceAnchor("apps/hypervisor/src/windows/ChatShellWindow/components/ArtifactHubPackagingViews.tsx", [
         "Redacted",
         "TraceBundleExportVariant",
       ]),
@@ -131,10 +131,10 @@ export const P3_PRODUCT_POLISH_ITEMS = Object.freeze([
         "GuiHarnessValidator",
         "kernel_ref",
       ]),
-      sourceAnchor("apps/autopilot/src/windows/AutopilotShellWindow/harnessWorkflowWiring.test.mjs", [
+      sourceAnchor("apps/hypervisor/src/windows/AutopilotShellWindow/harnessWorkflowWiring.test.mjs", [
         "Default Agent Harness",
       ]),
-      sourceAnchor("apps/autopilot/src/windows/AutopilotShellWindow/workflowComposerWiring.test.ts", [
+      sourceAnchor("apps/hypervisor/src/windows/AutopilotShellWindow/workflowComposerWiring.test.ts", [
         "substrate",
       ]),
     ],
@@ -298,7 +298,7 @@ export const EXHAUSTIVE_WORKFLOW_SUITES = Object.freeze([
     ]),
   ]),
   workflowSuite("observability_export_replay", 1369, "Observability/export/replay suite", [
-    sourceAnchor("apps/autopilot/src/windows/ChatShellWindow/utils/exportContext.ts", [
+    sourceAnchor("apps/hypervisor/src/windows/ChatShellWindow/utils/exportContext.ts", [
       "exportThreadTraceBundle",
     ]),
     sourceAnchor("crates/cli/src/commands/agent.rs", [
@@ -378,7 +378,7 @@ export const BETTER_AGENT_VALIDATIONS = Object.freeze([
     ]),
   ]),
   betterAgent("unified_substrate_dogfooding", 2133, "Unified-substrate dogfooding tests", [
-    sourceAnchor("apps/autopilot/src/windows/AutopilotShellWindow/harnessWorkflowWiring.test.mjs", [
+    sourceAnchor("apps/hypervisor/src/windows/AutopilotShellWindow/harnessWorkflowWiring.test.mjs", [
       "Default Agent Harness",
     ]),
     sourceAnchor("crates/types/src/app/harness/components.rs", ["kernel_ref"]),
@@ -395,7 +395,7 @@ export const BETTER_AGENT_VALIDATIONS = Object.freeze([
     ]),
   ]),
   betterAgent("mock_live_substrate", 2140, "Mock/live substrate tests", [
-    sourceAnchor("apps/autopilot/src/windows/AutopilotShellWindow/workflowComposerWiring.test.ts", [
+    sourceAnchor("apps/hypervisor/src/windows/AutopilotShellWindow/workflowComposerWiring.test.ts", [
       "mock",
       "live",
     ]),
@@ -499,17 +499,17 @@ export const BETTER_AGENT_VALIDATIONS = Object.freeze([
       "collapsible_explored_files",
       "source_pills_reserved_for_search",
     ]),
-    sourceAnchor("apps/autopilot/src/windows/ChatShellWindow/components/AssistantProcessDisclosure.tsx", [
+    sourceAnchor("apps/hypervisor/src/windows/ChatShellWindow/components/AssistantProcessDisclosure.tsx", [
       "assistant-process",
     ]),
   ]),
   betterAgent("thinking_source_ux", 2189, "Thinking/source UX tests", [
-    sourceAnchor("apps/autopilot/src/windows/ChatShellWindow/components/views/ThoughtsView.tsx", [
+    sourceAnchor("apps/hypervisor/src/windows/ChatShellWindow/components/views/ThoughtsView.tsx", [
       "thoughts-section--compact",
       "Searched web",
       "Browsed source",
     ]),
-    sourceAnchor("apps/autopilot/src/windows/ChatShellWindow/components/transcript/sourceSummary.ts", [
+    sourceAnchor("apps/hypervisor/src/windows/ChatShellWindow/components/transcript/sourceSummary.ts", [
       "faviconUrl",
     ]),
   ]),
@@ -757,8 +757,8 @@ export function scanImportBoundaries(repoRoot) {
   const productionRoots = [
     "crates/services/src/agentic/runtime",
     "crates/types/src/app",
-    "apps/autopilot/src/windows/ChatShellWindow",
-    "apps/autopilot/src/windows/AutopilotShellWindow",
+    "apps/hypervisor/src/windows/ChatShellWindow",
+    "apps/hypervisor/src/windows/AutopilotShellWindow",
     "packages/hypervisor-workbench/src",
   ];
   const forbiddenPatterns = [
@@ -1030,7 +1030,7 @@ function buildDogfoodingDashboard(readiness) {
         ["CLI", "crates/cli/src/commands/agent.rs"],
         ["API/runtime", "crates/services/src/agentic/runtime/substrate.rs"],
         ["Harness", "crates/types/src/app/harness/components.rs"],
-        ["Workflow compositor", "apps/autopilot/src/windows/AutopilotShellWindow/workflowComposerWiring.test.ts"],
+        ["Workflow compositor", "apps/hypervisor/src/windows/AutopilotShellWindow/workflowComposerWiring.test.ts"],
         ["Benchmarks", "scripts/run-agent-model-matrix.mjs"],
         ["Desktop UI", "scripts/run-autopilot-gui-harness-validation.mjs"],
       ],

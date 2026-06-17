@@ -364,7 +364,7 @@ export const SMARTER_AGENT_SUPERIORITY_SCENARIOS = Object.freeze([
         "CLEAN_CHAT_UX_REQUIREMENTS",
         "RUNTIME_CONSISTENCY_REQUIREMENTS",
       ]),
-      sourceAnchor("apps/autopilot/src/windows/ChatShellWindow/components/AssistantProcessDisclosure.tsx", [
+      sourceAnchor("apps/hypervisor/src/windows/ChatShellWindow/components/AssistantProcessDisclosure.tsx", [
         "assistant-process",
       ]),
       evidenceAnchor("gui_clean_ux", [
@@ -397,7 +397,7 @@ export const SMARTER_AGENT_SUPERIORITY_SCENARIOS = Object.freeze([
         "harness_trace_adapter_for_surface",
         "workflow_envelope_adapter_for_surface",
       ]),
-      sourceAnchor("apps/autopilot/src/windows/AutopilotShellWindow/workflowComposerWiring.test.ts", [
+      sourceAnchor("apps/hypervisor/src/windows/AutopilotShellWindow/workflowComposerWiring.test.ts", [
         "substrate",
       ]),
       evidenceAnchor("gui_query:harness_dogfooding", ["Validate this answer path"]),

@@ -457,7 +457,7 @@ function implementationRefsFor(rowId) {
       "packages/runtime-daemon/src/index.mjs",
     ],
     "CC-HARNESS-002": [
-      "apps/autopilot/openvscode-extension/ioi-workbench/extension.js",
+      "workbench-adapters/ioi-workbench/extension.js",
       "packages/hypervisor-workbench/src/runtime/workflow-runtime-control-nodes.test.ts",
     ],
     "CC-HARNESS-003": [
@@ -470,7 +470,7 @@ function implementationRefsFor(rowId) {
     ],
     "CC-HARNESS-005": [
       "packages/runtime-daemon/src/index.mjs",
-      "apps/autopilot/openvscode-extension/ioi-workbench/extension.js",
+      "workbench-adapters/ioi-workbench/extension.js",
     ],
     "CC-HARNESS-006": [
       "packages/runtime-daemon/src/subagent-manager.mjs",

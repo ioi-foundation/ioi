@@ -230,7 +230,7 @@ function checkForkAndWorkbenchPaths() {
   const packagedWorkbenchPath = HYPERVISOR_WORKBENCH_ADAPTER_HOST.packagedWorkbenchTarget;
   const workbenchPath = join(
     repoRoot,
-    "apps/autopilot/openvscode-extension/ioi-workbench",
+    "workbench-adapters/ioi-workbench",
   );
   const binaryPath = HYPERVISOR_WORKBENCH_ADAPTER_HOST.binary;
   const ok =
@@ -292,7 +292,7 @@ function checkCanonicalForkReadiness() {
   );
   const canonicalWorkbenchPackagePath = join(
     repoRoot,
-    "apps/autopilot/openvscode-extension/ioi-workbench/package.json",
+    "workbench-adapters/ioi-workbench/package.json",
   );
   const packagedCanonicalWorkbenchPackagePath = join(
     VSCODE_PACKAGED_APP_ROOT,
@@ -300,7 +300,7 @@ function checkCanonicalForkReadiness() {
   );
   const canonicalWorkbenchSourcePath = join(
     repoRoot,
-    "apps/autopilot/openvscode-extension/ioi-workbench/extension.js",
+    "workbench-adapters/ioi-workbench/extension.js",
   );
   const binaryPath = HYPERVISOR_WORKBENCH_ADAPTER_HOST.binary;
   const canonicalWorkbenchCandidates = [
@@ -1099,12 +1099,12 @@ function checkCanonicalControlRoomValidation() {
 }
 
 function checkTauriTargetRetired() {
-  const appPackagePath = join(repoRoot, "apps/autopilot/package.json");
+  const appPackagePath = join(repoRoot, "apps/hypervisor/package.json");
   const appPackage = existsSync(appPackagePath)
     ? maybeReadJson(appPackagePath)
     : {};
   const rootPackage = maybeReadJson(join(repoRoot, "package.json"));
-  const srcTauriPath = join(repoRoot, "apps/autopilot/src-tauri");
+  const srcTauriPath = join(repoRoot, "apps/hypervisor/src-tauri");
   const scripts = {
     root: rootPackage.scripts ?? {},
     app: appPackage.scripts ?? {},
@@ -1138,7 +1138,7 @@ function checkTauriTargetRetired() {
       appPackagePath,
       packageStillReferencesTauri,
       required:
-        "Delete/archive apps/autopilot/src-tauri from the target path, remove production Tauri scripts/dependencies, and keep any legacy shell compatibility outside connector-sprint readiness.",
+        "Delete/archive apps/hypervisor/src-tauri from the target path, remove production Tauri scripts/dependencies, and keep any legacy shell compatibility outside connector-sprint readiness.",
     },
   };
 }

@@ -8,7 +8,7 @@ if (!outputPath) {
   throw new Error("usage: workflow-agent-studio-mode-payload-contract-proof.mjs <output-path>");
 }
 
-const extensionPath = "apps/autopilot/openvscode-extension/ioi-workbench/extension.js";
+const extensionPath = "workbench-adapters/ioi-workbench/extension.js";
 const source = fs.readFileSync(extensionPath, "utf8");
 
 const snippets = {

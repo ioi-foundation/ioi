@@ -13,7 +13,7 @@
     "binary": "workbench-adapters/builds/VSCode-linux-x64/bin/hypervisor",
     "requiredForRuntimeLaunch": true
   },
-  "workbenchSource": "apps/autopilot/openvscode-extension/ioi-workbench",
+  "workbenchSource": "workbench-adapters/ioi-workbench",
   "runtimeAuthority": "packages/runtime-daemon",
   "doctrine": [
     "Hypervisor App is the product client; Workbench is one application surface.",

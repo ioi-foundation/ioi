@@ -54,15 +54,15 @@ const EVIDENCE_ROOT =
   process.env.AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT ||
   "docs/evidence/autopilot-agent-studio-chat-ux-playwright-hardening";
 const UPDATE_MASTER_GUIDE = process.env.AUTOPILOT_AGENT_STUDIO_UPDATE_GUIDE !== "0";
-const EXTENSION_JS = "apps/autopilot/openvscode-extension/ioi-workbench/extension.js";
-const STATIC_TEST = "apps/autopilot/openvscode-extension/ioi-workbench/extension.static.test.mjs";
+const EXTENSION_JS = "workbench-adapters/ioi-workbench/extension.js";
+const STATIC_TEST = "workbench-adapters/ioi-workbench/extension.static.test.mjs";
 const SHELL_PATCH = "scripts/lib/autopilot-workbench-shell-patch.mjs";
 const STUDIO_SOURCE_PARTS = [
   EXTENSION_JS,
-  "apps/autopilot/openvscode-extension/ioi-workbench/studio/studio-panel-html.js",
-  "apps/autopilot/openvscode-extension/ioi-workbench/studio/model-completion.js",
-  "apps/autopilot/openvscode-extension/ioi-workbench/studio/operational-surface.js",
-  "apps/autopilot/openvscode-extension/ioi-workbench/studio/model-surface.js",
+  "workbench-adapters/ioi-workbench/studio/studio-panel-html.js",
+  "workbench-adapters/ioi-workbench/studio/model-completion.js",
+  "workbench-adapters/ioi-workbench/studio/operational-surface.js",
+  "workbench-adapters/ioi-workbench/studio/model-surface.js",
 ];
 const PROCESS_PATTERN = "/tmp/autopilot-agent-studio-live-gui-validation-user-";
 const DEFAULT_VALIDATION_TIMEOUT_MS = 15 * 60 * 1000;

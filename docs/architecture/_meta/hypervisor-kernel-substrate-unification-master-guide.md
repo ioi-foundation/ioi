@@ -6334,7 +6334,7 @@ Slice 1251 hard-retires the remaining RuntimeAgentService bridge substrate.
 `RuntimeApiBridge` no longer exports an adapter class/factory, the
 `ioi-runtime-bridge` binary and Cargo bin entry are deleted, the daemon and
 service reject `runtimeBridge` options, Rust service policy no longer reads
-bridge allow-command envs, the legacy `apps/autopilot` implementation path uses
+bridge allow-command envs, the renamed `apps/hypervisor` app path uses
 an inference/model-route helper instead of a bridge helper, and bridge-backed
 live proof scripts/tests are
 removed. Conformance now fails if the JS adapter export, bridge helper,
@@ -10890,7 +10890,7 @@ substrate and Slice 1272 deletes the bridge-named JS profile helper module.
 `runtime-api-bridge.mjs` is absent, runtime profile normalization lives in
 `runtime-profile.mjs`, the `ioi-runtime-bridge` binary and Cargo bin entry are deleted, daemon startup
 rejects `runtimeBridge`, Rust service policy no longer reads bridge command-env
-overrides, the legacy `apps/autopilot` implementation path uses the renamed
+overrides, the renamed `apps/hypervisor` app path uses the renamed
 inference/model-route helper instead of a bridge helper, and stale
 bridge-backed live proof scripts/tests are removed.
 Conformance now guards that the JS adapter export, bridge helper, bridge env
@@ -12429,6 +12429,17 @@ from the planner request. Conformance now guards the Rust state-dir replay
 helper, the retired candidate-field rejection tests, and the absence of the JS
 resolver/candidate request path so the operator-control hot path cannot return
 to JS run truth while keeping the old command/binary bridge deleted.
+
+Slice 1412 hard-cuts the pre-Hypervisor JS facade roots. The former product app
+root and former embedded Workbench implementation root are deleted instead of
+kept as compatibility aliases. The product client now lives under
+`apps/hypervisor` as `@ioi/hypervisor-app`, Workbench adapter code lives under
+`workbench-adapters/ioi-workbench`, root scripts and conformance scan those new
+roots, and active Rust/Node tests no longer include or execute the deleted
+paths. The remaining JS there is product/workbench protocol-client surface over
+daemon `/v1` APIs; conformance now fails if the retired live JS facade roots,
+embedded Workbench facade root, old generated-contract carveout, or root
+workspace script path returns.
 
 ## Final Doctrine
 

@@ -23207,6 +23207,13 @@ function runReceipts() {
   const runtimeKernelModule = exists("crates/services/src/agentic/runtime/kernel/mod.rs")
     ? read("crates/services/src/agentic/runtime/kernel/mod.rs")
     : "";
+  const rootPackageJson = exists("package.json") ? read("package.json") : "";
+  const rootGitignore = exists(".gitignore") ? read(".gitignore") : "";
+  const retiredAppRoot = ["apps", "auto" + "pilot"].join("/");
+  const retiredWorkbenchRoot = [retiredAppRoot, "openvscode-extension", "ioi-workbench"].join("/");
+  const retiredGeneratedPathPattern = new RegExp(
+    retiredAppRoot.replaceAll("/", "\\/") + "\\/src\\/generated",
+  );
   const policyCoreForState = readRustPolicyCore();
   const runtimeContextPolicyCoreForState = exists("packages/runtime-daemon/src/runtime-context-policy-core.mjs")
     ? read("packages/runtime-daemon/src/runtime-context-policy-core.mjs")
@@ -23223,11 +23230,11 @@ function runReceipts() {
   const authorityEvidenceSummaryTest = exists("packages/runtime-daemon/src/authority-evidence-summary.test.mjs")
     ? read("packages/runtime-daemon/src/authority-evidence-summary.test.mjs")
     : "";
-  const authorityCenterRuntime = exists("apps/autopilot/src/surfaces/Policy/authorityCenterRuntime.ts")
-    ? read("apps/autopilot/src/surfaces/Policy/authorityCenterRuntime.ts")
+  const authorityCenterRuntime = exists("apps/hypervisor/src/surfaces/Policy/authorityCenterRuntime.ts")
+    ? read("apps/hypervisor/src/surfaces/Policy/authorityCenterRuntime.ts")
     : "";
-  const authorityCenterWiringTest = exists("apps/autopilot/src/surfaces/Settings/settingsAuthorityCenterWiring.test.ts")
-    ? read("apps/autopilot/src/surfaces/Settings/settingsAuthorityCenterWiring.test.ts")
+  const authorityCenterWiringTest = exists("apps/hypervisor/src/surfaces/Settings/settingsAuthorityCenterWiring.test.ts")
+    ? read("apps/hypervisor/src/surfaces/Settings/settingsAuthorityCenterWiring.test.ts")
     : "";
   const workflowToolConnectorCapabilityBinding = exists(
     "packages/hypervisor-workbench/src/runtime/workflow-tool-connector-capability-binding.ts",
@@ -23303,23 +23310,23 @@ function runReceipts() {
   const modelMountStableReadCliTokens = exists("crates/cli/src/commands/tokens.rs")
     ? read("crates/cli/src/commands/tokens.rs")
     : "";
-  const modelMountWorkbenchExtension = exists("apps/autopilot/openvscode-extension/ioi-workbench/extension.js")
-    ? read("apps/autopilot/openvscode-extension/ioi-workbench/extension.js")
+  const modelMountWorkbenchExtension = exists("workbench-adapters/ioi-workbench/extension.js")
+    ? read("workbench-adapters/ioi-workbench/extension.js")
     : "";
   const modelMountWorkbenchStudioModelSurface = exists(
-    "apps/autopilot/openvscode-extension/ioi-workbench/studio/model-surface.js",
+    "workbench-adapters/ioi-workbench/studio/model-surface.js",
   )
-    ? read("apps/autopilot/openvscode-extension/ioi-workbench/studio/model-surface.js")
+    ? read("workbench-adapters/ioi-workbench/studio/model-surface.js")
     : "";
   const modelMountWorkbenchWorkflowComposerBundle = exists(
-    "apps/autopilot/openvscode-extension/ioi-workbench/media/workflow-composer/workflow-composer.js",
+    "workbench-adapters/ioi-workbench/media/workflow-composer/workflow-composer.js",
   )
-    ? read("apps/autopilot/openvscode-extension/ioi-workbench/media/workflow-composer/workflow-composer.js")
+    ? read("workbench-adapters/ioi-workbench/media/workflow-composer/workflow-composer.js")
     : "";
   const modelMountWorkbenchWorkflowComposerMap = exists(
-    "apps/autopilot/openvscode-extension/ioi-workbench/media/workflow-composer/workflow-composer.js.map",
+    "workbench-adapters/ioi-workbench/media/workflow-composer/workflow-composer.js.map",
   )
-    ? read("apps/autopilot/openvscode-extension/ioi-workbench/media/workflow-composer/workflow-composer.js.map")
+    ? read("workbench-adapters/ioi-workbench/media/workflow-composer/workflow-composer.js.map")
     : "";
   const modelMountAgentIdeDist = [
     exists("packages/hypervisor-workbench/dist/index.es.js") ? read("packages/hypervisor-workbench/dist/index.es.js") : "",
@@ -23351,23 +23358,23 @@ function runReceipts() {
       (file) => file.endsWith(".ts") || file.endsWith(".tsx") || file.endsWith(".js") || file.endsWith(".jsx"),
     ).map((file) => read(file)),
     ...collectFiles(
-      "apps/autopilot/src",
+      "apps/hypervisor/src",
       (file) => file.endsWith(".ts") || file.endsWith(".tsx") || file.endsWith(".js") || file.endsWith(".jsx"),
     ).map((file) => read(file)),
     ...collectFiles(
-      "apps/autopilot/scripts",
+      "apps/hypervisor/scripts",
       (file) => file.endsWith(".py") || file.endsWith(".mjs") || file.endsWith(".js"),
     ).map((file) => read(file)),
     ...collectFiles(
-      "apps/autopilot/openvscode-extension/ioi-workbench/commands",
+      "workbench-adapters/ioi-workbench/commands",
       (file) => file.endsWith(".js") || file.endsWith(".mjs"),
     ).map((file) => read(file)),
     ...collectFiles(
-      "apps/autopilot/openvscode-extension/ioi-workbench/bridge",
+      "workbench-adapters/ioi-workbench/bridge",
       (file) => file.endsWith(".js") || file.endsWith(".mjs"),
     ).map((file) => read(file)),
     ...collectFiles(
-      "apps/autopilot/openvscode-extension/ioi-workbench/webview",
+      "workbench-adapters/ioi-workbench/webview",
       (file) =>
         (file.endsWith(".ts") || file.endsWith(".tsx") || file.endsWith(".js") || file.endsWith(".jsx")) &&
         !file.includes("/media/"),
@@ -23388,17 +23395,17 @@ function runReceipts() {
     exists("scripts/live-model-mounting-gate.mjs")
       ? read("scripts/live-model-mounting-gate.mjs")
       : "",
-    exists("apps/autopilot/scripts/desktop_model_mounts_probe.py")
-      ? read("apps/autopilot/scripts/desktop_model_mounts_probe.py")
+    exists("apps/hypervisor/scripts/desktop_model_mounts_probe.py")
+      ? read("apps/hypervisor/scripts/desktop_model_mounts_probe.py")
       : "",
   ].join("\n");
   const modelMountStableLifecycleBoundaryClientCorpus = [
     modelMountStableReadCliModels,
-    exists("apps/autopilot/openvscode-extension/ioi-workbench/commands/model-daemon-actions.js")
-      ? read("apps/autopilot/openvscode-extension/ioi-workbench/commands/model-daemon-actions.js")
+    exists("workbench-adapters/ioi-workbench/commands/model-daemon-actions.js")
+      ? read("workbench-adapters/ioi-workbench/commands/model-daemon-actions.js")
       : "",
-    exists("apps/autopilot/src/surfaces/MissionControl/MissionControlMountsView.tsx")
-      ? read("apps/autopilot/src/surfaces/MissionControl/MissionControlMountsView.tsx")
+    exists("apps/hypervisor/src/surfaces/MissionControl/MissionControlMountsView.tsx")
+      ? read("apps/hypervisor/src/surfaces/MissionControl/MissionControlMountsView.tsx")
       : "",
     exists("scripts/run-autopilot-model-mounting-goal.mjs")
       ? read("scripts/run-autopilot-model-mounting-goal.mjs")
@@ -23429,18 +23436,51 @@ function runReceipts() {
         file !== "scripts/conformance/hypervisor-conformance.mjs",
     ).map((file) => read(file)),
     ...collectFiles(
-      "apps/autopilot/src",
+      "apps/hypervisor/src",
       (file) => file.endsWith(".ts") || file.endsWith(".tsx") || file.endsWith(".js") || file.endsWith(".jsx"),
     ).map((file) => read(file)),
     ...collectFiles(
-      "apps/autopilot/scripts",
+      "apps/hypervisor/scripts",
       (file) => file.endsWith(".py") || file.endsWith(".mjs") || file.endsWith(".js"),
     ).map((file) => read(file)),
     ...collectFiles(
-      "apps/autopilot/openvscode-extension/ioi-workbench/commands",
+      "workbench-adapters/ioi-workbench/commands",
       (file) => file.endsWith(".js") || file.endsWith(".mjs"),
     ).map((file) => read(file)),
   ].join("\n");
+  assertCheck(
+    result,
+    "retired-live-js-facade-root-absent",
+    !exists(retiredAppRoot) &&
+      !exists(retiredWorkbenchRoot) &&
+      exists("apps/hypervisor/package.json") &&
+      exists("apps/hypervisor/src/main.tsx") &&
+      exists("workbench-adapters/ioi-workbench/extension.js") &&
+      /"name":\s*"@ioi\/hypervisor-app"/.test(read("apps/hypervisor/package.json")) &&
+      /"dev:web":\s*"npm run dev --workspace=@ioi\/hypervisor-app"/.test(rootPackageJson) &&
+      /"build:ioi-workbench-composer":\s*"npx vite build --config workbench-adapters\/ioi-workbench\/vite\.workflow-composer\.config\.ts"/.test(
+        rootPackageJson,
+      ) &&
+      /apps\/hypervisor\/src\/generated\/\*/.test(rootGitignore) &&
+      !retiredGeneratedPathPattern.test(rootGitignore) &&
+      /Slice 1412 hard-cuts the pre-Hypervisor JS facade roots/.test(guide) &&
+      /pre-Hypervisor app\/embedded Workbench JS facade-root deletion cut/.test(matrix) &&
+      /HypervisorPreRenameFacadeRootRetired/.test(implementationMatrix) &&
+      /workbench-adapters\/ioi-workbench\/extension\.js/.test(implementationMatrix),
+    [
+      retiredAppRoot,
+      retiredWorkbenchRoot,
+      "apps/hypervisor/package.json",
+      "apps/hypervisor/src/main.tsx",
+      "workbench-adapters/ioi-workbench/extension.js",
+      "package.json",
+      ".gitignore",
+      "docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md",
+      "docs/architecture/_meta/implementation-matrix.md",
+      "scripts/conformance/hypervisor-conformance.mjs",
+    ],
+    "Retired live JS facade roots must stay deleted; Hypervisor app and Workbench adapter roots are protocol clients, not alternate authority paths",
+  );
   const modelMountStableReadCliModelsLsBlock =
     modelMountStableReadCliModels.match(/ModelsCommands::Ls => \{[\s\S]*?\n        ModelsCommands::Capabilities/)?.[0] ?? "";
   const modelMountStableReadCliModelsCapabilitiesBlock =
@@ -27572,8 +27612,8 @@ function runReceipts() {
       "crates/cli/src/commands/models.rs",
       "crates/cli/src/commands/routes.rs",
       "scripts/lib/model-mounting-daemon-contract.test.mjs",
-      "apps/autopilot/src/surfaces/MissionControl/MissionControlMountsView.tsx",
-      "apps/autopilot/openvscode-extension/ioi-workbench/studio/model-surface.js",
+      "apps/hypervisor/src/surfaces/MissionControl/MissionControlMountsView.tsx",
+      "workbench-adapters/ioi-workbench/studio/model-surface.js",
       "crates/services/src/agentic/runtime/kernel/model_mount/read_projection/status.rs",
       "crates/services/src/agentic/runtime/kernel/runtime_doctor_report.rs",
     ],
@@ -27852,8 +27892,8 @@ function runReceipts() {
       "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.mjs",
       "crates/cli/src/commands/models.rs",
-      "apps/autopilot/openvscode-extension/ioi-workbench/commands/model-daemon-actions.js",
-      "apps/autopilot/src/surfaces/MissionControl/MissionControlMountsView.tsx",
+      "workbench-adapters/ioi-workbench/commands/model-daemon-actions.js",
+      "apps/hypervisor/src/surfaces/MissionControl/MissionControlMountsView.tsx",
       "scripts/run-autopilot-model-mounting-goal.mjs",
       "scripts/conformance/hypervisor-conformance.mjs",
     ],
@@ -28029,7 +28069,7 @@ function runReceipts() {
       /\/v1\/model-mount\/tokens/.test(modelMountStableReadCliTokens) &&
       /\/v1\/model-mount\/tokens\/count/.test(modelMountStableReadCliTokens) &&
       /\/v1\/model-mount\/catalog\/providers\/\$\{encodeURIComponent\(draft\.providerId\)\}\/oauth\/start/.test(
-        read("apps/autopilot/src/surfaces/MissionControl/MissionControlMountsView.tsx"),
+        read("apps/hypervisor/src/surfaces/MissionControl/MissionControlMountsView.tsx"),
       ) &&
       /\/v1\/model-mount\/catalog\/providers\/\$\{encodeURIComponent\(providerId\)\}\/oauth\/callback/.test(
         read("scripts/live-model-mounting-gate.mjs"),
@@ -28044,7 +28084,7 @@ function runReceipts() {
       "crates/cli/src/commands/models.rs",
       "crates/cli/src/commands/vault.rs",
       "crates/cli/src/commands/tokens.rs",
-      "apps/autopilot/src/surfaces/MissionControl/MissionControlMountsView.tsx",
+      "apps/hypervisor/src/surfaces/MissionControl/MissionControlMountsView.tsx",
       "scripts/live-model-mounting-gate.mjs",
       "scripts/conformance/hypervisor-conformance.mjs",
     ],
@@ -28089,10 +28129,10 @@ function runReceipts() {
       "packages/runtime-daemon/src/runtime-route-handlers.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.test.mjs",
       "scripts/lib/model-mounting-daemon-contract.test.mjs",
-      "apps/autopilot/src/surfaces/MissionControl/MissionControlMountsView.tsx",
+      "apps/hypervisor/src/surfaces/MissionControl/MissionControlMountsView.tsx",
       "scripts/validate-model-mounting-e2e.mjs",
       "scripts/live-model-mounting-gate.mjs",
-      "apps/autopilot/scripts/desktop_model_mounts_probe.py",
+      "apps/hypervisor/scripts/desktop_model_mounts_probe.py",
     ],
     "Model_mount invocation clients must use stable /v1 chat, responses, and embeddings protocol routes; retired /api/v1 invocation aliases and native embedding response shims must not return",
   );
@@ -28275,9 +28315,9 @@ function runReceipts() {
     ? read("packages/hypervisor-workbench/src/runtime/workflow-model-mount-control-nodes.test.ts")
     : "";
   const modelMountWorkbenchActions = exists(
-    "apps/autopilot/openvscode-extension/ioi-workbench/commands/model-daemon-actions.js",
+    "workbench-adapters/ioi-workbench/commands/model-daemon-actions.js",
   )
-    ? read("apps/autopilot/openvscode-extension/ioi-workbench/commands/model-daemon-actions.js")
+    ? read("workbench-adapters/ioi-workbench/commands/model-daemon-actions.js")
     : "";
   const modelMountStableWorkbenchIndex = exists("packages/hypervisor-workbench/src/index.ts")
     ? read("packages/hypervisor-workbench/src/index.ts")
@@ -28344,7 +28384,7 @@ function runReceipts() {
       "packages/hypervisor-workbench/src/runtime/workflow-model-mount-control-nodes.ts",
       "packages/hypervisor-workbench/src/runtime/workflow-model-mount-control-nodes.test.ts",
       "packages/hypervisor-workbench/src/index.ts",
-      "apps/autopilot/openvscode-extension/ioi-workbench/commands/model-daemon-actions.js",
+      "workbench-adapters/ioi-workbench/commands/model-daemon-actions.js",
 	      "scripts/conformance/hypervisor-conformance.mjs",
 	    ],
 	    "Model_mount Workbench control clients must use stable /v1/model-mount protocol APIs for route, server, backend, runtime, lifecycle, storage, provider, vault, token, and catalog controls; Workbench clients must not reintroduce /api/v1 control paths or retired camelCase request aliases",
@@ -31459,8 +31499,8 @@ function runReceipts() {
       /RuntimeLifecycleAuthorityEvidenceProductProtocolClient/.test(implementationMatrix) &&
       /RuntimeProofContractStableProtocolClients/.test(implementationMatrix),
     [
-      "apps/autopilot/src/surfaces/Policy/authorityCenterRuntime.ts",
-      "apps/autopilot/src/surfaces/Settings/settingsAuthorityCenterWiring.test.ts",
+      "apps/hypervisor/src/surfaces/Policy/authorityCenterRuntime.ts",
+      "apps/hypervisor/src/surfaces/Settings/settingsAuthorityCenterWiring.test.ts",
       "scripts/lib/live-runtime-daemon-contract.test.mjs",
       "docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md",
       "docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md",
@@ -31516,8 +31556,8 @@ function runReceipts() {
       "packages/hypervisor-workbench/src/runtime/workflow-run-capability-receipts.ts",
       "packages/hypervisor-workbench/src/runtime/workflow-tool-connector-capability-binding.test.ts",
       "packages/hypervisor-workbench/src/runtime/workflow-run-history-model.test.ts",
-      "apps/autopilot/src/surfaces/Policy/authorityCenterRuntime.ts",
-      "apps/autopilot/src/surfaces/Settings/settingsAuthorityCenterWiring.test.ts",
+      "apps/hypervisor/src/surfaces/Policy/authorityCenterRuntime.ts",
+      "apps/hypervisor/src/surfaces/Settings/settingsAuthorityCenterWiring.test.ts",
       "docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md",
       "docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md",
       "docs/architecture/_meta/implementation-matrix.md",
@@ -40637,7 +40677,7 @@ function runCompositor() {
   );
   assertCheck(
     result,
-    "autopilot-tauri-active-runtime-paths-retired",
+    "tauri-active-runtime-paths-retired",
     /internal-docs/.test(runtimeActionContractsGenerator) &&
       /legacy/.test(runtimeActionContractsGenerator) &&
       /autopilot-tauri-src/.test(runtimeActionContractsGenerator) &&
@@ -40651,7 +40691,7 @@ function runCompositor() {
       /internal-docs\/legacy\/autopilot-tauri-src\/src\/generated\/runtime_action_schema\.rs/.test(
         preNextLegReadiness,
       ) &&
-      /const activeTauriSrc = "apps\/autopilot\/src-tauri\/src"/.test(
+      /const activeTauriSrc = "apps\/hypervisor\/src-tauri\/src"/.test(
         runtimeLayoutCheck,
       ) &&
       /const legacyTauriSrc = "internal-docs\/legacy\/autopilot-tauri-src\/src"/.test(
@@ -40664,7 +40704,7 @@ function runCompositor() {
       "scripts/check-pre-next-leg-readiness.mjs",
       "scripts/check-runtime-layout.mjs",
     ],
-    "Phase 10/11 is pending: active gates must not require retired Autopilot Tauri Rust runtime paths",
+    "Phase 10/11 is pending: active gates must not require retired Tauri Rust runtime paths",
   );
   assertCheck(
     result,

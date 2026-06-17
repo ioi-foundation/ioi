@@ -27,7 +27,7 @@ const repoRoot = resolve(__dirname, "..");
 const MASTER_GUIDE =
   ".internal/plans/autopilot-electron-workbench-mode-shell-master-guide.md";
 const OUTPUT_ROOT = "docs/evidence/autopilot-workbench-mode-shell";
-const EXTENSION_ROOT = "apps/autopilot/openvscode-extension/ioi-workbench";
+const EXTENSION_ROOT = "workbench-adapters/ioi-workbench";
 const REQUIRED_SCREENSHOTS = [
   "first-run-autopilot-rail.png",
   "first-run-vscode-command-center.png",

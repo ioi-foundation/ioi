@@ -8,8 +8,8 @@ if (!outputPath) {
   throw new Error("usage: workflow-chat-trace-parity-plus-mount-proof.mjs <output-path>");
 }
 
-const extensionPath = "apps/autopilot/openvscode-extension/ioi-workbench/extension.js";
-const staticTestPath = "apps/autopilot/openvscode-extension/ioi-workbench/extension.static.test.mjs";
+const extensionPath = "workbench-adapters/ioi-workbench/extension.js";
+const staticTestPath = "workbench-adapters/ioi-workbench/extension.static.test.mjs";
 const extensionSource = fs.readFileSync(extensionPath, "utf8");
 const staticTestSource = fs.readFileSync(staticTestPath, "utf8");
 

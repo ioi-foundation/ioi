@@ -160,7 +160,7 @@ const PRODUCT_RELIABILITY_USER_REPO_CONTEXT_PROMPTS = [
     executionMode: "agent",
     prompt: "Find where API base URLs are configured in this repo.",
     mustMentionAny: ["src/apiClient.mjs", "API_BASE_URL", "api.pawprint-orders.example"],
-    mustNotMentionAny: ["apps/autopilot", "packages/runtime-daemon", "Hello! I am a local assistant"],
+    mustNotMentionAny: ["apps/hypervisor", "packages/runtime-daemon", "Hello! I am a local assistant"],
     assistantVisibleTimeoutMs: 90_000,
   },
 ];

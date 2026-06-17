@@ -12,7 +12,7 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 # Define source and target paths
 PROTO_SRC="${REPO_ROOT}/crates/ipc/proto"
-UI_OUT_DIR="${REPO_ROOT}/apps/autopilot/src/generated"
+UI_OUT_DIR="${REPO_ROOT}/apps/hypervisor/src/generated"
 
 # 2. Dependency Check
 # -------------------
@@ -25,7 +25,7 @@ fi
 # The binary created by 'npm install ts-proto' is named 'protoc-gen-ts_proto' (underscore).
 # In workspace installs, npm may hoist it to the repo-root node_modules/.bin.
 PLUGIN_PATHS=(
-    "${REPO_ROOT}/apps/autopilot/node_modules/.bin/protoc-gen-ts_proto"
+    "${REPO_ROOT}/apps/hypervisor/node_modules/.bin/protoc-gen-ts_proto"
     "${REPO_ROOT}/node_modules/.bin/protoc-gen-ts_proto"
 )
 PLUGIN_PATH=""
@@ -43,7 +43,7 @@ if [ -z "$PLUGIN_PATH" ]; then
     done
     echo ""
     echo "   Please run:"
-    echo "   cd apps/autopilot && npm install --save-dev ts-proto"
+    echo "   cd apps/hypervisor && npm install --save-dev ts-proto"
     exit 1
 fi
 
