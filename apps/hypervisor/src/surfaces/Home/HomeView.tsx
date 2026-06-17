@@ -499,31 +499,29 @@ function HomeDashboardView({
 
   return (
     <section
-      className="chat-home-zero"
+      className="chat-home-zero chat-home-zero--ioi-reference"
       aria-label="Hypervisor home"
-      data-home-dashboard-variant="hypervisor-zero-state"
+      data-home-dashboard-variant="ioi-reference-portal"
     >
       <div className="chat-home-zero-shell">
         <header className="chat-home-zero-hero">
           <div className="chat-home-zero-title-row">
             <HomeBrandMark />
-            <h1>Welcome back to Hypervisor</h1>
+            <h1>Welcome back</h1>
           </div>
           <button
             type="button"
             className="chat-home-zero-search"
             onClick={onOpenCommandPalette}
             data-home-action="palette.open"
-            aria-label="Search Hypervisor, sessions, workbench, automations, and commands"
+            aria-label="Search Hypervisor"
           >
             {renderIcon(Search, {
               size: 17,
               strokeWidth: 1.8,
               "aria-hidden": true,
             })}
-            <span>
-              Search Hypervisor, sessions, workbench, automations, and commands
-            </span>
+            <span>Search Hypervisor</span>
             <kbd>ctrl + K</kbd>
           </button>
 
@@ -534,7 +532,7 @@ function HomeDashboardView({
           >
             <div className="chat-home-zero-intent-composer__heading">
               <span>New Session</span>
-              <h2>What do you want to get done today?</h2>
+              <h2>Open a governed workspace</h2>
               <p>
                 Describe the outcome. Hypervisor will bind the project,
                 harness, model route, privacy posture, authority, and receipt
@@ -668,13 +666,13 @@ function HomeDashboardView({
                 {renderIcon(SquareTerminal, { size: 23, strokeWidth: 1.8 })}
               </span>
               <div>
-                <h2>Open Workbench</h2>
+                <h2>Get started</h2>
                 <p>
-                  Use the selected editor or terminal adapter for this project.
+                  Open a governed session with editor, terminal, model, and authority wired.
                 </p>
               </div>
               <button type="button" onClick={onOpenWorkspace}>
-                <span>Open Workbench</span>
+                <span>Open workspace</span>
                 {renderIcon(ArrowRight, { size: 15, strokeWidth: 2 })}
               </button>
             </article>
@@ -683,13 +681,13 @@ function HomeDashboardView({
                 {renderIcon(Bot, { size: 23, strokeWidth: 1.8 })}
               </span>
               <div>
-                <h2>Start a session</h2>
+                <h2>Install examples</h2>
                 <p>
-                  Bind intent, harness, model route, privacy, and authority.
+                  Start from reusable agents, automations, model mounts, and workspace templates.
                 </p>
               </div>
               <button type="button" onClick={() => onOpenNewSession()}>
-                <span>New Session</span>
+                <span>New session</span>
                 {renderIcon(ArrowRight, { size: 15, strokeWidth: 2 })}
               </button>
             </article>
@@ -698,11 +696,11 @@ function HomeDashboardView({
                 {renderIcon(FileCode2, { size: 23, strokeWidth: 1.8 })}
               </span>
               <div>
-                <h2>Review retained proof</h2>
-                <p>Inspect runs, receipts, artifacts, and evidence bundles.</p>
+                <h2>Join community</h2>
+                <p>Review runs, receipts, artifacts, adapters, and reusable worker packages.</p>
               </div>
               <button type="button" onClick={onOpenRuns}>
-                <span>Open Insights</span>
+                <span>Open insights</span>
                 {renderIcon(ArrowRight, { size: 15, strokeWidth: 2 })}
               </button>
             </article>
@@ -788,7 +786,7 @@ function HomeDashboardView({
           >
             <div className="chat-home-zero-section-heading">
               <div>
-                <h2>Core cockpit</h2>
+                <h2>Core status</h2>
                 <p>{cockpitProjection.boundary_invariant}</p>
               </div>
               <button type="button" onClick={onOpenRuns}>
@@ -951,7 +949,7 @@ function HomeDashboardView({
           >
             <section className="chat-home-zero-side-card">
               <div className="chat-home-zero-side-header">
-                <h2>Recommended surfaces</h2>
+                <h2>Recommended applications</h2>
                 <button type="button" onClick={onOpenCommandPalette}>
                   View all
                 </button>

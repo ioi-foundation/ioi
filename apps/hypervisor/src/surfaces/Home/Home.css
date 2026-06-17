@@ -2570,3 +2570,295 @@
     display: none !important;
   }
 }
+
+/* Phase 0A hard cut: default Home mirrors the IOI portal/workplane, not a chat prompt. */
+.chat-home-zero.chat-home-zero--ioi-reference {
+  min-height: 100%;
+  overflow: auto !important;
+  background: #f7f8fa !important;
+  color: #1b1f27 !important;
+}
+
+.chat-home-zero.chat-home-zero--ioi-reference::before {
+  display: block !important;
+  height: 270px !important;
+  background:
+    linear-gradient(120deg, rgba(51, 96, 140, 0.14) 0 1px, transparent 1px 170px),
+    linear-gradient(25deg, rgba(62, 105, 151, 0.11) 0 1px, transparent 1px 150px),
+    radial-gradient(circle at 82% 15%, rgba(89, 128, 173, 0.18), transparent 220px) !important;
+  background-size: 210px 150px, 180px 140px, auto !important;
+  mask-image: linear-gradient(180deg, #000 0, rgba(0, 0, 0, 0.54) 52%, transparent 100%) !important;
+}
+
+.chat-home-zero--ioi-reference .chat-home-zero-shell {
+  width: min(1220px, calc(100% - 72px)) !important;
+  min-height: 100% !important;
+  display: block !important;
+  margin: 0 auto !important;
+  padding: 52px 0 80px !important;
+}
+
+.chat-home-zero--ioi-reference .chat-home-zero-hero {
+  width: 100% !important;
+  display: grid !important;
+  align-items: start !important;
+  gap: 18px !important;
+}
+
+.chat-home-zero--ioi-reference .chat-home-zero-title-row {
+  min-height: auto !important;
+  display: flex !important;
+  justify-content: flex-start !important;
+  align-items: center !important;
+  gap: 18px !important;
+}
+
+.chat-home-zero--ioi-reference .chat-home-zero-title-row h1 {
+  display: block !important;
+  margin: 0 !important;
+  color: #20242c !important;
+  font-size: 32px !important;
+  font-weight: 500 !important;
+  line-height: 40px !important;
+}
+
+.chat-home-zero--ioi-reference .chat-home-zero-brand-mark {
+  width: auto !important;
+  height: 28px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 7px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: #20242c !important;
+}
+
+.chat-home-zero--ioi-reference .chat-home-zero-brand-mark__glyph {
+  width: 18px !important;
+  height: 18px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: #2563eb !important;
+}
+
+.chat-home-zero--ioi-reference .chat-home-zero-brand-mark__word {
+  color: #20242c !important;
+  font-size: 22px !important;
+  font-weight: 700 !important;
+  line-height: 28px !important;
+}
+
+.chat-home-zero--ioi-reference .chat-home-zero-search {
+  width: min(560px, 100%) !important;
+  min-height: 40px !important;
+  display: grid !important;
+  grid-template-columns: 20px minmax(0, 1fr) auto !important;
+  justify-self: end !important;
+  border: 1px solid #cbd3df !important;
+  border-radius: 7px !important;
+  background: #ffffff !important;
+  color: #5f6b7c !important;
+  box-shadow: 0 1px 2px rgba(18, 24, 33, 0.05) !important;
+}
+
+.chat-home-zero--ioi-reference .chat-home-zero-search kbd {
+  color: #7b8492 !important;
+  font-size: 12px !important;
+}
+
+.chat-home-zero--ioi-reference .chat-home-zero-intent-composer,
+.chat-home-zero--ioi-reference .chat-home-zero-session-card,
+.chat-home-zero--ioi-reference .chat-home-zero-cockpit {
+  display: none !important;
+}
+
+.chat-home-zero--ioi-reference .chat-home-zero-actions {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 0 !important;
+  margin-top: 14px !important;
+  overflow: hidden !important;
+  border: 1px solid #cdd6e3 !important;
+  border-radius: 12px !important;
+  background: #ffffff !important;
+  box-shadow: 0 14px 38px rgba(31, 43, 59, 0.08) !important;
+}
+
+.chat-home-zero--ioi-reference .chat-home-zero-actions article {
+  min-height: 166px !important;
+  display: grid !important;
+  grid-template-columns: 44px minmax(0, 1fr) !important;
+  grid-template-rows: minmax(72px, 1fr) auto !important;
+  gap: 12px 14px !important;
+  border-right: 1px solid #e1e6ef !important;
+  border-bottom: 0 !important;
+  padding: 28px !important;
+}
+
+.chat-home-zero--ioi-reference .chat-home-zero-actions article:last-child {
+  border-right: 0 !important;
+}
+
+.chat-home-zero--ioi-reference .chat-home-zero-action-icon {
+  width: 40px !important;
+  height: 40px !important;
+  border: 1px solid #d8e0eb !important;
+  border-radius: 8px !important;
+  background: #f3f6fa !important;
+  color: #526170 !important;
+}
+
+.chat-home-zero--ioi-reference .chat-home-zero-actions h2 {
+  margin: 0 !important;
+  color: #1f2630 !important;
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  line-height: 21px !important;
+}
+
+.chat-home-zero--ioi-reference .chat-home-zero-actions p {
+  margin: 7px 0 0 !important;
+  color: #657184 !important;
+  font-size: 13px !important;
+  line-height: 18px !important;
+}
+
+.chat-home-zero--ioi-reference .chat-home-zero-actions button {
+  grid-column: 2 !important;
+  width: fit-content !important;
+  min-height: 32px !important;
+  border: 1px solid #cbd3df !important;
+  border-radius: 5px !important;
+  background: #ffffff !important;
+  color: #1d2735 !important;
+  font-weight: 500 !important;
+}
+
+.chat-home-zero--ioi-reference .chat-home-zero-actions article:first-child button {
+  border-color: #1f7a4d !important;
+  background: #1f7a4d !important;
+  color: #ffffff !important;
+}
+
+.chat-home-zero--ioi-reference .chat-home-zero-body {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) 322px !important;
+  gap: 28px !important;
+  align-items: start !important;
+  margin-top: 30px !important;
+}
+
+.chat-home-zero--ioi-reference .chat-home-zero-main {
+  display: grid !important;
+  gap: 22px !important;
+}
+
+.chat-home-zero--ioi-reference .chat-home-zero-section-heading {
+  margin-bottom: 12px !important;
+}
+
+.chat-home-zero--ioi-reference .chat-home-zero-section-heading h2,
+.chat-home-zero--ioi-reference .chat-home-zero-side-card h2,
+.chat-home-zero--ioi-reference .chat-home-zero-assist h2 {
+  color: #20242c !important;
+  font-size: 15px !important;
+  font-weight: 600 !important;
+}
+
+.chat-home-zero--ioi-reference .chat-home-zero-filter button {
+  min-height: 30px !important;
+  border-radius: 16px !important;
+  background: #edf1f6 !important;
+  color: #5c6878 !important;
+}
+
+.chat-home-zero--ioi-reference .chat-home-zero-filter button.is-active {
+  background: #dfe6ef !important;
+  color: #1f2630 !important;
+}
+
+.chat-home-zero--ioi-reference .chat-home-zero-table {
+  min-height: 360px !important;
+  display: block !important;
+  border: 1px solid #cfd7e4 !important;
+  border-radius: 12px !important;
+  background: #ffffff !important;
+  box-shadow: 0 1px 2px rgba(18, 24, 33, 0.05) !important;
+}
+
+.chat-home-zero--ioi-reference .chat-home-zero-table-head {
+  grid-template-columns: minmax(0, 1fr) 190px !important;
+  min-height: 43px !important;
+  border-bottom: 1px solid #e3e8f0 !important;
+  background: #f8fafc !important;
+  color: #6f7b8e !important;
+}
+
+.chat-home-zero--ioi-reference .chat-home-zero-empty {
+  min-height: 316px !important;
+  color: #7b8492 !important;
+}
+
+.chat-home-zero--ioi-reference .chat-home-zero-project-rows button {
+  grid-template-columns: minmax(0, 1fr) 190px !important;
+  border-bottom: 1px solid #edf1f6 !important;
+}
+
+.chat-home-zero--ioi-reference .chat-home-zero-assist {
+  min-height: 132px !important;
+  border-radius: 12px !important;
+  background:
+    linear-gradient(115deg, rgba(38, 47, 72, 0.86), rgba(25, 30, 45, 0.98)),
+    #191e2d !important;
+  padding: 22px 220px 22px 22px !important;
+}
+
+.chat-home-zero--ioi-reference .chat-home-zero-sidebar {
+  display: grid !important;
+  gap: 16px !important;
+}
+
+.chat-home-zero--ioi-reference .chat-home-zero-side-card {
+  display: block !important;
+  border: 1px solid #cfd7e4 !important;
+  border-radius: 12px !important;
+  background: #ffffff !important;
+  box-shadow: 0 1px 2px rgba(18, 24, 33, 0.05) !important;
+}
+
+.chat-home-zero--ioi-reference .chat-home-zero-app-grid {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 14px !important;
+}
+
+.chat-home-zero--ioi-reference .chat-home-zero-app > span {
+  width: 58px !important;
+  height: 58px !important;
+  border-color: #d9e1ec !important;
+  border-radius: 10px !important;
+  background: #f5f7fa !important;
+}
+
+.chat-home-zero--ioi-reference .chat-home-zero-app strong {
+  max-width: 78px !important;
+  color: #26303d !important;
+  font-size: 12px !important;
+}
+
+@media (max-width: 1100px) {
+  .chat-home-zero--ioi-reference .chat-home-zero-shell {
+    width: min(100% - 36px, 980px) !important;
+  }
+
+  .chat-home-zero--ioi-reference .chat-home-zero-actions,
+  .chat-home-zero--ioi-reference .chat-home-zero-body {
+    grid-template-columns: 1fr !important;
+  }
+
+  .chat-home-zero--ioi-reference .chat-home-zero-actions article {
+    border-right: 0 !important;
+    border-bottom: 1px solid #e1e6ef !important;
+  }
+}

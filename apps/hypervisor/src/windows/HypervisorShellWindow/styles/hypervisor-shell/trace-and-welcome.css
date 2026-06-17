@@ -1744,17 +1744,17 @@
 }
 
 :root[data-hypervisor-theme^="light"] .chat-activity-bar {
-  --chat-activity-bg: #f3f3f3;
-  --chat-activity-border: #e5e5e5;
-  --chat-activity-divider: #e5e5e5;
-  --chat-activity-text: #424242;
-  --chat-activity-text-strong: #1f1f1f;
-  --chat-activity-text-muted: #6f6f6f;
-  --chat-activity-hover-bg: rgba(0, 0, 0, 0.045);
-  --chat-activity-active-bg: rgba(0, 120, 212, 0.1);
-  --chat-activity-active-hover-bg: rgba(0, 120, 212, 0.14);
-  --chat-activity-avatar-bg: #e8e8e8;
-  --chat-activity-avatar-text: #1f1f1f;
+  --chat-activity-bg: #17191f;
+  --chat-activity-border: #2a2e37;
+  --chat-activity-divider: rgba(255, 255, 255, 0.08);
+  --chat-activity-text: #c5cad3;
+  --chat-activity-text-strong: #f5f7fb;
+  --chat-activity-text-muted: #8d96a6;
+  --chat-activity-hover-bg: rgba(255, 255, 255, 0.07);
+  --chat-activity-active-bg: rgba(88, 166, 255, 0.18);
+  --chat-activity-active-hover-bg: rgba(88, 166, 255, 0.24);
+  --chat-activity-avatar-bg: #2f80ed;
+  --chat-activity-avatar-text: #ffffff;
 }
 
 :root[data-hypervisor-theme^="light"] .hypervisor-client-window-button {

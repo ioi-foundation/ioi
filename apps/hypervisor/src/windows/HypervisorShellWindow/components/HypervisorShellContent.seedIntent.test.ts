@@ -9,6 +9,18 @@ const shellCss = fs.readFileSync(
   new URL("../styles/hypervisor-shell/shell-base.css", import.meta.url),
   "utf8",
 );
+const traceAndWelcomeCss = fs.readFileSync(
+  new URL("../styles/hypervisor-shell/trace-and-welcome.css", import.meta.url),
+  "utf8",
+);
+const homeViewSource = fs.readFileSync(
+  new URL("../../../surfaces/Home/HomeView.tsx", import.meta.url),
+  "utf8",
+);
+const homeCss = fs.readFileSync(
+  new URL("../../../surfaces/Home/Home.css", import.meta.url),
+  "utf8",
+);
 
 assert.match(
   source,
@@ -141,6 +153,36 @@ assert.match(
   shellCss,
   /\.hypervisor-automation-compositor__layout\s*\{[\s\S]*grid-template-columns: minmax\(0, 1fr\) 310px;[\s\S]*\.hypervisor-automation-compositor__table\s*\{[\s\S]*border-radius: 12px;/,
   "Automations should keep the reference main-column plus suggested-template rail layout",
+);
+
+assert.match(
+  homeViewSource,
+  /data-home-dashboard-variant="ioi-reference-portal"/,
+  "Home should default to the IOI reference portal workplane",
+);
+
+assert.match(
+  homeCss,
+  /\.chat-home-zero--ioi-reference \.chat-home-zero-intent-composer,[\s\S]*display: none !important;/,
+  "Home should not expose the chat prompt composer as the default workplane",
+);
+
+assert.doesNotMatch(
+  homeViewSource,
+  /What do you want to get done today\?/,
+  "Home should not regress to the prompt-first zero-state copy",
+);
+
+assert.match(
+  shellCss,
+  /\.chat-activity-bar\s*\{[\s\S]*--chat-activity-bg: #17191f;[\s\S]*width: 208px;/,
+  "The primary rail should use the IOI reference dark 208px shell",
+);
+
+assert.doesNotMatch(
+  traceAndWelcomeCss,
+  /:root\[data-hypervisor-theme\^="light"\] \.chat-activity-bar\s*\{[\s\S]*--chat-activity-bg: #f3f3f3;/,
+  "Light theme must not turn the IOI reference rail pale",
 );
 
 console.log("HypervisorShellContent.seedIntent.test.ts: ok");
