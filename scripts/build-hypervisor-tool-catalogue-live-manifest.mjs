@@ -5,7 +5,7 @@ import { join, relative } from "node:path";
 const repoRoot = process.cwd();
 const evidenceRoot =
   "docs/evidence/autopilot-agent-studio-rust-tool-catalogue-live-ide-verification";
-const sourceRunner = "scripts/run-autopilot-agent-studio-rust-tool-catalogue-live-verification-goal.mjs";
+const sourceRunner = "scripts/run-hypervisor-agent-rust-tool-catalogue-live-verification-goal.mjs";
 
 const preferredEvidenceByScenario = new Map([
   ["stage0-hardening", "2026-05-25T18-20-49-468Z"],

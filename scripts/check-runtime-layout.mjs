@@ -133,7 +133,7 @@ assert(
   retiredAutopilotPackageScripts.length === 0 &&
     activeHypervisorPackageScriptValues.every(
       (scriptValue) =>
-        !/run-autopilot-(?:ux-readiness|gui-harness)|autopilot-gui-harness/.test(
+        !/run-autopilot-|build-autopilot|custom-autopilot|autopilot-gui-harness/.test(
           scriptValue,
         ),
     ) &&

@@ -29,7 +29,7 @@ const MASTER_GUIDE =
 const OUTPUT_ROOT = "docs/evidence/autopilot-workbench-mode-shell";
 const EXTENSION_ROOT = "workbench-adapters/ioi-workbench";
 const REQUIRED_SCREENSHOTS = [
-  "first-run-autopilot-rail.png",
+  "first-run-hypervisor-rail.png",
   "first-run-vscode-command-center.png",
   "home-mode-persistent-surface.png",
   "studio-mode-persistent-surface.png",
@@ -229,7 +229,7 @@ function checkPackageScripts() {
     packageJson.scripts?.["goal:hypervisor-workbench-mode-shell"],
     packageJson.scripts?.["goal:hypervisor-workbench-mode-shell:run"],
   ].every((script) =>
-    String(script || "").includes("scripts/run-autopilot-workbench-mode-shell-goal.mjs"),
+    String(script || "").includes("scripts/run-hypervisor-workbench-mode-shell-goal.mjs"),
   );
   return {
     id: "package:workbench-mode-shell-scripts",
@@ -1186,7 +1186,7 @@ async function runGuiValidation(outputRoot) {
       payload: { phase: "home" },
       requestType: "overview.open",
       testId: "autopilot-overview-home",
-      screenshotFile: "first-run-autopilot-rail.png",
+      screenshotFile: "first-run-hypervisor-rail.png",
     });
     await waitForWorkbenchChrome(page);
     normalChrome = await inspectWorkbenchChrome(page);

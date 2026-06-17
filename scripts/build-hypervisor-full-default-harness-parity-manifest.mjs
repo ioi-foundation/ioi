@@ -119,7 +119,7 @@ function defaultClosureStrategy(rowId) {
 
 function reproductionForRow(rowId) {
   const scenarioPrefix =
-    "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs --run --scenario";
+    "AUTOPILOT_AGENT_STUDIO_EVIDENCE_ROOT=docs/evidence/autopilot-agent-studio-full-default-harness-parity node scripts/run-hypervisor-agent-chat-ux-hardening-goal.mjs --run --scenario";
   if (rowId === "agent__await") return `${scenarioPrefix} toolcat-stage1-lifecycle-controls`;
   if (rowId === "shell__terminate" || rowId === "retained_shell.live_control_sequence_latency") {
     return `${scenarioPrefix} toolcat-stage4-retained-shell-threaded-controls`;

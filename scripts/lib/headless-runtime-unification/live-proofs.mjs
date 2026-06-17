@@ -570,7 +570,7 @@ export function runGuiScenarioProof(stageDir, scenarioId) {
   const evidenceRoot = stageDir;
   const beforeDirs = new Set([]);
   const command = runCommand("node", [
-    "scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs",
+    "scripts/run-hypervisor-agent-chat-ux-hardening-goal.mjs",
     "--run",
     "--scenario",
     scenarioId,

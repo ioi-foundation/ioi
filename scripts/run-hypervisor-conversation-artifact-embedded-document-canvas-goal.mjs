@@ -238,7 +238,7 @@ function runSupportChecks(outputDir) {
     ["node", ["--check", "packages/runtime-daemon/src/conversation-artifacts.mjs"]],
     ["node", ["--check", "packages/runtime-daemon/src/index.mjs"]],
     ["node", ["--check", "workbench-adapters/ioi-workbench/extension.js"]],
-    ["node", ["--check", "scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs"]],
+    ["node", ["--check", "scripts/run-hypervisor-agent-chat-ux-hardening-goal.mjs"]],
     ["node", ["--test", "workbench-adapters/ioi-workbench/extension.static.test.mjs"]],
     ["npm", ["run", "build", "--workspace=@ioi/agent-sdk"]],
   ];

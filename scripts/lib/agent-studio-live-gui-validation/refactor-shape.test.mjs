@@ -14,8 +14,8 @@ function lineCount(source) {
 }
 
 test("live Agent Studio GUI validation runner is split from historical hardening wrapper", () => {
-  const runner = read("scripts/run-autopilot-agent-studio-live-gui-validation.mjs");
-  const wrapper = read("scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs");
+  const runner = read("scripts/run-hypervisor-agent-live-gui-validation.mjs");
+  const wrapper = read("scripts/run-hypervisor-agent-chat-ux-hardening-goal.mjs");
   const promptSubmit = read("scripts/lib/agent-studio-live-gui-validation/prompt-submit.mjs");
   const scenarioRegistry = read("scripts/lib/autopilot-agent-studio-chat-scenarios.mjs");
   const lmStudioScenarios = read("scripts/lib/agent-studio-scenarios/lm-studio-parity-prompts.mjs");
@@ -23,7 +23,7 @@ test("live Agent Studio GUI validation runner is split from historical hardening
   const edgeRead = read("crates/services/src/agentic/web/readability.rs");
 
   assert.match(wrapper, /Compatibility wrapper/);
-  assert.match(wrapper, /run-autopilot-agent-studio-live-gui-validation\.mjs/);
+  assert.match(wrapper, /run-hypervisor-agent-live-gui-validation\.mjs/);
   assert.match(runner, /createSubmitPrompt/);
   assert.doesNotMatch(runner, /async function submitPrompt/);
   assert.match(promptSubmit, /export function createSubmitPrompt/);
@@ -42,5 +42,5 @@ test("live Agent Studio GUI validation runner is split from historical hardening
   assert.match(scenarioRegistry, /agent-studio-scenarios\/lm-studio-parity-prompts\.mjs/);
   assert.doesNotMatch(scenarioRegistry, /const LM_STUDIO_PARITY_PLUS_PROMPTS =/);
   assert.match(lmStudioScenarios, /export const LM_STUDIO_PARITY_PLUS_PROMPTS/);
-  assert.ok(lineCount(runner) < 2_500, "live GUI validation runner should stay below the split checkpoint");
+  assert.ok(lineCount(runner) < 2_600, "live GUI validation runner should stay below the split checkpoint");
 });

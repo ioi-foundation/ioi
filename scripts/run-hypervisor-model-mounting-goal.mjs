@@ -226,7 +226,7 @@ function checkPackageScripts() {
     .filter((script) => script.includes("model-mounting"))
     .every((script) =>
       packageJson.scripts?.[script]?.includes(
-        "scripts/run-autopilot-model-mounting-goal.mjs",
+        "scripts/run-hypervisor-model-mounting-goal.mjs",
       ),
     );
   return {

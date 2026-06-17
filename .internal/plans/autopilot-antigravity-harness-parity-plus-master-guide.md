@@ -727,7 +727,7 @@ Run focused regression after each stage:
 node --check scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs
 node --check scripts/lib/autopilot-agent-studio-chat-scenarios.mjs
 node --test apps/autopilot/openvscode-extension/ioi-workbench/extension.static.test.mjs
-node scripts/build-autopilot-full-default-harness-parity-manifest.mjs --final
+node scripts/build-hypervisor-full-default-harness-parity-manifest.mjs --final
 ```
 
 Add more focused tests per stage. Do not rely on the above as the only proof.

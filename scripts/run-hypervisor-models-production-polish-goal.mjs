@@ -180,7 +180,7 @@ function checkPackageScripts() {
     packageJson.scripts?.["goal:hypervisor-models-production-polish"],
     packageJson.scripts?.["goal:hypervisor-models-production-polish:run"],
   ].every((value) =>
-    String(value || "").includes("scripts/run-autopilot-models-production-polish-goal.mjs"),
+    String(value || "").includes("scripts/run-hypervisor-models-production-polish-goal.mjs"),
   );
   return {
     id: "package:models-production-polish-scripts",

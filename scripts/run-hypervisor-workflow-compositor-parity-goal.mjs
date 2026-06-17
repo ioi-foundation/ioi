@@ -286,7 +286,7 @@ function checkPackageScripts() {
     .filter((script) => script.includes("workflow-compositor"))
     .every((script) =>
       packageJson.scripts?.[script]?.includes(
-        "scripts/run-autopilot-workflow-compositor-parity-goal.mjs",
+        "scripts/run-hypervisor-workflow-compositor-parity-goal.mjs",
       ),
     );
   return {

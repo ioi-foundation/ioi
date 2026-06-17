@@ -15,7 +15,7 @@ const tmpDataDir = path.join(evidenceDir, ".ioi-data-tmp");
 // Ensure evidence directory exists
 fs.mkdirSync(evidenceDir, { recursive: true });
 
-console.log("=== Autopilot E2E Automation Agenda Playbook ===");
+console.log("=== Hypervisor E2E Automation Agenda Playbook ===");
 console.log(`Workspace Root: ${rootDir}`);
 console.log(`Evidence Directory: ${evidenceDir}`);
 console.log(`Temporary Data Directory: ${tmpDataDir}`);

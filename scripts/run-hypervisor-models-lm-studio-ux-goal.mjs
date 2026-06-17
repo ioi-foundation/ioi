@@ -201,7 +201,7 @@ function checkPackageScripts() {
     "goal:hypervisor-models-lm-studio-ux:run",
   ].every((script) =>
     packageJson.scripts?.[script]?.includes(
-      "scripts/run-autopilot-models-lm-studio-ux-goal.mjs",
+      "scripts/run-hypervisor-models-lm-studio-ux-goal.mjs",
     ),
   );
   return {
@@ -252,7 +252,7 @@ function checkWorkbenchImplementation() {
 }
 
 function checkHarness() {
-  const source = read(join(repoRoot, "scripts/run-autopilot-model-mounting-goal.mjs"));
+  const source = read(join(repoRoot, "scripts/run-hypervisor-model-mounting-goal.mjs"));
   const missingScreenshots = REQUIRED_SCREENSHOTS.filter(
     (screenshot) => !source.includes(screenshot),
   );
@@ -322,7 +322,7 @@ function runGuiValidation(outputRoot) {
   }
 
   const delegate = runCommand("node", [
-    "scripts/run-autopilot-model-mounting-goal.mjs",
+    "scripts/run-hypervisor-model-mounting-goal.mjs",
     "--run",
     "--output-root",
     outputRoot,

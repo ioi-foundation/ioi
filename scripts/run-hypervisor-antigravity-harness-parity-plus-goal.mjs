@@ -49,7 +49,7 @@ const proofPlan = [
     "AG-HARNESS-010",
   ], "live_gui", [
     "node",
-    ["scripts/run-autopilot-agent-studio-runtime-cockpit-parity-goal.mjs", "--run"],
+    ["scripts/run-hypervisor-runtime-cockpit-parity-goal.mjs", "--run"],
   ], {
     outputStyle: "childEvidenceDir",
     env: (scenarioDir) => ({
@@ -75,7 +75,7 @@ const proofPlan = [
   proof("stage3-retained-shell-live-gui", 3, ["AG-HARNESS-003", "AG-HARNESS-010"], "live_gui", [
     "node",
     [
-      "scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs",
+      "scripts/run-hypervisor-agent-chat-ux-hardening-goal.mjs",
       "--run",
       "--scenario",
       "toolcat-stage4-retained-shell-threaded-controls",
@@ -135,7 +135,7 @@ const proofPlan = [
   proof("stage7-browser-computer-live-gui", 7, ["AG-HARNESS-014"], "live_gui", [
     "node",
     [
-      "scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs",
+      "scripts/run-hypervisor-agent-chat-ux-hardening-goal.mjs",
       "--run",
       "--scenario",
       "browser-computer-live-viewport-ux-focused",
@@ -585,7 +585,7 @@ function implementationRefsFor(rowId) {
     ],
     "AG-HARNESS-014": [
       "packages/runtime-daemon/src/computer-use-projection.mjs",
-      "scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs",
+      "scripts/run-hypervisor-agent-chat-ux-hardening-goal.mjs",
     ],
     "AG-HARNESS-017": [
       "packages/hypervisor-workbench/src/runtime/workflow-structured-policy-composer.ts",
@@ -726,9 +726,9 @@ function preflight() {
     { id: "default_harness_verdict", path: defaultHarnessVerdictPath },
   ].map((check) => ({ ...check, exists: existsSync(check.path) }));
   const scriptChecks = [
-    "scripts/run-autopilot-antigravity-harness-parity-plus-goal.mjs",
-    "scripts/run-autopilot-agent-studio-runtime-cockpit-parity-goal.mjs",
-    "scripts/run-autopilot-agent-studio-chat-ux-hardening-goal.mjs",
+    "scripts/run-hypervisor-antigravity-harness-parity-plus-goal.mjs",
+    "scripts/run-hypervisor-runtime-cockpit-parity-goal.mjs",
+    "scripts/run-hypervisor-agent-chat-ux-hardening-goal.mjs",
   ].map((script) => {
     const result = spawnSync("node", ["--check", script], { cwd: repoRoot, encoding: "utf8" });
     return {

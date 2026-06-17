@@ -4522,21 +4522,21 @@ function runBridge() {
   )
     ? read("packages/runtime-daemon/src/runtime-external-capability-authority-core-store.test.mjs")
     : "";
-  const externalCapabilityAuthoritySurface = exists(
-    "packages/runtime-daemon/src/runtime-external-capability-authority-surface.mjs",
+  const externalCapabilityAuthorityApi = exists(
+    "packages/runtime-daemon/src/runtime-external-capability-authority-api.mjs",
   )
-    ? read("packages/runtime-daemon/src/runtime-external-capability-authority-surface.mjs")
+    ? read("packages/runtime-daemon/src/runtime-external-capability-authority-api.mjs")
     : "";
-  const externalCapabilityAuthoritySurfaceTest = exists(
-    "packages/runtime-daemon/src/runtime-external-capability-authority-surface.test.mjs",
+  const externalCapabilityAuthorityApiTest = exists(
+    "packages/runtime-daemon/src/runtime-external-capability-authority-api.test.mjs",
   )
-    ? read("packages/runtime-daemon/src/runtime-external-capability-authority-surface.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-external-capability-authority-api.test.mjs")
     : "";
-  const governedImprovementSurface = exists("packages/runtime-daemon/src/runtime-governed-improvement-surface.mjs")
-    ? read("packages/runtime-daemon/src/runtime-governed-improvement-surface.mjs")
+  const governedImprovementApi = exists("packages/runtime-daemon/src/runtime-governed-improvement-api.mjs")
+    ? read("packages/runtime-daemon/src/runtime-governed-improvement-api.mjs")
     : "";
-  const governedImprovementSurfaceTest = exists("packages/runtime-daemon/src/runtime-governed-improvement-surface.test.mjs")
-    ? read("packages/runtime-daemon/src/runtime-governed-improvement-surface.test.mjs")
+  const governedImprovementApiTest = exists("packages/runtime-daemon/src/runtime-governed-improvement-api.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-governed-improvement-api.test.mjs")
     : "";
   const runtimeRouteHandlers = exists("packages/runtime-daemon/src/runtime-route-handlers.mjs")
     ? read("packages/runtime-daemon/src/runtime-route-handlers.mjs")
@@ -4633,8 +4633,8 @@ function runBridge() {
   const workbenchAdapterHostLauncher = exists("scripts/launch-hypervisor-workbench-adapter-host.mjs")
     ? read("scripts/launch-hypervisor-workbench-adapter-host.mjs")
     : "";
-  const agentStudioLiveValidation = exists("scripts/run-autopilot-agent-studio-live-gui-validation.mjs")
-    ? read("scripts/run-autopilot-agent-studio-live-gui-validation.mjs")
+  const agentStudioLiveValidation = exists("scripts/run-hypervisor-agent-live-gui-validation.mjs")
+    ? read("scripts/run-hypervisor-agent-live-gui-validation.mjs")
     : "";
   const runtimeAgentServiceBridgeBinary = exists("crates/node/src/bin/ioi-runtime-bridge.rs")
     ? read("crates/node/src/bin/ioi-runtime-bridge.rs")
@@ -4766,11 +4766,11 @@ function runBridge() {
   const workerServicePackageCoreStoreTest = exists("packages/runtime-daemon/src/runtime-worker-service-package-core-store.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-worker-service-package-core-store.test.mjs")
     : "";
-  const workerServicePackageSurface = exists("packages/runtime-daemon/src/runtime-worker-service-package-surface.mjs")
-    ? read("packages/runtime-daemon/src/runtime-worker-service-package-surface.mjs")
+  const workerServicePackageApi = exists("packages/runtime-daemon/src/runtime-worker-service-package-api.mjs")
+    ? read("packages/runtime-daemon/src/runtime-worker-service-package-api.mjs")
     : "";
-  const workerServicePackageSurfaceTest = exists("packages/runtime-daemon/src/runtime-worker-service-package-surface.test.mjs")
-    ? read("packages/runtime-daemon/src/runtime-worker-service-package-surface.test.mjs")
+  const workerServicePackageApiTest = exists("packages/runtime-daemon/src/runtime-worker-service-package-api.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-worker-service-package-api.test.mjs")
     : "";
   const nativeBrowserControlledRelaunchBroker = exists("packages/runtime-daemon/src/native-browser-controlled-relaunch-broker.mjs")
     ? read("packages/runtime-daemon/src/native-browser-controlled-relaunch-broker.mjs")
@@ -5059,11 +5059,11 @@ function runBridge() {
   const l1SettlementCoreStoreTest = exists("packages/runtime-daemon/src/runtime-l1-settlement-core-store.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-l1-settlement-core-store.test.mjs")
     : "";
-  const l1SettlementSurface = exists("packages/runtime-daemon/src/runtime-l1-settlement-surface.mjs")
-    ? read("packages/runtime-daemon/src/runtime-l1-settlement-surface.mjs")
+  const l1SettlementApi = exists("packages/runtime-daemon/src/runtime-l1-settlement-api.mjs")
+    ? read("packages/runtime-daemon/src/runtime-l1-settlement-api.mjs")
     : "";
-  const l1SettlementSurfaceTest = exists("packages/runtime-daemon/src/runtime-l1-settlement-surface.test.mjs")
-    ? read("packages/runtime-daemon/src/runtime-l1-settlement-surface.test.mjs")
+  const l1SettlementApiTest = exists("packages/runtime-daemon/src/runtime-l1-settlement-api.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-l1-settlement-api.test.mjs")
     : "";
   const l1SettlementControlNodes = exists(
     "packages/hypervisor-workbench/src/runtime/workflow-runtime-l1-settlement-control-nodes.ts",
@@ -10332,47 +10332,76 @@ function runBridge() {
   assertCheck(
     result,
     "external-capability-exit-authority-product-route",
-    /createRuntimeExternalCapabilityAuthoritySurface/.test(runtimeDaemonIndex) &&
-      /this\.externalCapabilityAuthoritySurface/.test(runtimeDaemonIndex) &&
-      !/^\s*authorizeExternalCapabilityExit\(threadId, request = \{\}\) \{/m.test(
+    /createRuntimeExternalCapabilityAuthorityApi/.test(runtimeDaemonIndex) &&
+      /this\.externalCapabilityAuthorityApi/.test(runtimeDaemonIndex) &&
+      /authorizeExternalCapabilityExit\(threadId, request = \{\}\) \{\s*return this\.externalCapabilityAuthorityApi\.authorizeExternalCapabilityExit\(this, threadId, request\);/s.test(
         runtimeDaemonIndex,
       ) &&
       !/EXTERNAL_CAPABILITY_AUTHORITY_RESPONSE_SCHEMA_VERSION/.test(
-        externalCapabilityAuthoritySurface,
+        externalCapabilityAuthorityApi,
       ) &&
-      !/exit_authorized:\s*true/.test(externalCapabilityAuthoritySurface) &&
-      !/direct_truth_write_allowed:\s*false/.test(externalCapabilityAuthoritySurface) &&
-      !/exit_ref:\s*authorization\.exit_ref/.test(externalCapabilityAuthoritySurface) &&
+      !/exit_authorized:\s*true/.test(externalCapabilityAuthorityApi) &&
+      !/direct_truth_write_allowed:\s*false/.test(externalCapabilityAuthorityApi) &&
+      !/exit_ref:\s*authorization\.exit_ref/.test(externalCapabilityAuthorityApi) &&
       /return store\.externalCapabilityAuthorityCore\.authorizeExit\(authorityRequest,\s*\{\s*thread_id:\s*threadId,\s*agent_id:\s*agent\.id,\s*\}\)/s.test(
-        externalCapabilityAuthoritySurface,
+        externalCapabilityAuthorityApi,
       ) &&
       /external-capability-exits/.test(runtimeRouteHandlers) &&
-      /store\.externalCapabilityAuthoritySurface\.authorizeExternalCapabilityExit\(store,\s*threadId,\s*await readBody\(request\)\)/.test(
+      /store\.authorizeExternalCapabilityExit\(threadId,\s*await readBody\(request\)\)/.test(
         runtimeRouteHandlers,
       ) &&
-      /external capability authority surface authorizes nested request through Rust core/.test(
-        externalCapabilityAuthoritySurfaceTest,
+      /external capability authority API authorizes nested request through Rust core/.test(
+        externalCapabilityAuthorityApiTest,
       ) &&
       /assert\.deepEqual\(runtimeStore\.calls\.at\(-1\)\.context,\s*\{\s*thread_id:\s*"thread_surface",\s*agent_id:\s*"agent_surface",\s*\}\)/s.test(
-        externalCapabilityAuthoritySurfaceTest,
+        externalCapabilityAuthorityApiTest,
       ) &&
-      /external capability authority surface rejects retired aliases before Rust core/.test(
-        externalCapabilityAuthoritySurfaceTest,
+      /external capability authority API rejects retired aliases before Rust core/.test(
+        externalCapabilityAuthorityApiTest,
       ) &&
-      /external capability authority surface fails closed without request payload/.test(
-        externalCapabilityAuthoritySurfaceTest,
+      /external capability authority API fails closed without request payload/.test(
+        externalCapabilityAuthorityApiTest,
       ) &&
-      /thread route sends admission controls through mounted admission surfaces/.test(
+      /thread route sends governed admission controls through store-owned APIs/.test(
         runtimeRouteHandlersTest,
       ),
     [
-      "packages/runtime-daemon/src/runtime-external-capability-authority-surface.mjs",
-      "packages/runtime-daemon/src/runtime-external-capability-authority-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-external-capability-authority-api.mjs",
+      "packages/runtime-daemon/src/runtime-external-capability-authority-api.test.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
     ],
     "Phase 9/10 is pending: daemon external capability exit product route must authorize through the Rust authority core without minting JS truth",
+  );
+  assertCheck(
+    result,
+    "governed-admission-route-visible-surfaces-retired",
+    /thread route sends governed admission controls through store-owned APIs/.test(runtimeRouteHandlersTest) &&
+      /store\.admitGovernedImprovementProposal\(threadId,\s*await readBody\(request\)\)/.test(runtimeRouteHandlers) &&
+      /store\.authorizeExternalCapabilityExit\(threadId,\s*await readBody\(request\)\)/.test(runtimeRouteHandlers) &&
+      /store\.admitWorkerServicePackageInvocation\(threadId,\s*await readBody\(request\)\)/.test(runtimeRouteHandlers) &&
+      /store\.executeCteePrivateWorkspaceAction\(threadId,\s*await readBody\(request\)\)/.test(runtimeRouteHandlers) &&
+      /store\.admitL1SettlementAttempt\(threadId,\s*await readBody\(request\)\)/.test(runtimeRouteHandlers) &&
+      !/store\.(?:governedImprovement|externalCapabilityAuthority|workerServicePackage|cteePrivateWorkspace|l1Settlement)(?:Api|Surface)\./.test(
+        runtimeRouteHandlers,
+      ) &&
+      !exists("packages/runtime-daemon/src/runtime-governed-improvement-surface.mjs") &&
+      !exists("packages/runtime-daemon/src/runtime-external-capability-authority-surface.mjs") &&
+      !exists("packages/runtime-daemon/src/runtime-worker-service-package-surface.mjs") &&
+      !exists("packages/runtime-daemon/src/runtime-ctee-private-workspace-surface.mjs") &&
+      !exists("packages/runtime-daemon/src/runtime-l1-settlement-surface.mjs"),
+    [
+      "packages/runtime-daemon/src/runtime-route-handlers.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
+      "packages/runtime-daemon/src/runtime-governed-improvement-api.mjs",
+      "packages/runtime-daemon/src/runtime-external-capability-authority-api.mjs",
+      "packages/runtime-daemon/src/runtime-worker-service-package-api.mjs",
+      "packages/runtime-daemon/src/runtime-ctee-private-workspace-api.mjs",
+      "packages/runtime-daemon/src/runtime-l1-settlement-api.mjs",
+    ],
+    "Governed admission thread routes must enter through store-owned Rust-backed APIs; route-visible JS surfaces or direct mounted API calls must stay retired.",
   );
   assertCheck(
     result,
@@ -10398,7 +10427,7 @@ function runBridge() {
       /Object\.hasOwn\(body,\s*"workflowGraphId"\),\s*false/.test(agentSdkTest) &&
       /Object\.hasOwn\(body,\s*"workflowNodeId"\),\s*false/.test(agentSdkTest) &&
       !externalCapabilityAuthorityCamelAliasPropertyPattern.test(
-        externalCapabilityAuthoritySurface,
+        externalCapabilityAuthorityApi,
       ) &&
       !externalCapabilityAuthorityCamelAliasTypePattern.test(
         externalCapabilityAuthorityResultType,
@@ -10409,7 +10438,7 @@ function runBridge() {
     [
       "packages/agent-sdk/src/substrate-client.ts",
       "packages/agent-sdk/test/sdk.test.mjs",
-      "packages/runtime-daemon/src/runtime-external-capability-authority-surface.mjs",
+      "packages/runtime-daemon/src/runtime-external-capability-authority-api.mjs",
     ],
     "Phase 9/11 is pending: SDK external capability clients must call the daemon authority route and expose canonical snake_case authorization fields only",
   );
@@ -15933,7 +15962,7 @@ function runBridge() {
       !exists("packages/runtime-daemon/src/bridges/runtime-agent-bridge.mjs") &&
       !exists("packages/runtime-daemon/src/bridges/runtime-agent-bridge.test.mjs") &&
       !exists("crates/node/src/bin/ioi-runtime-bridge.rs") &&
-      !exists("scripts/run-autopilot-agent-studio-rust-agentic-runtime-parity-goal.mjs") &&
+      !exists("scripts/run-hypervisor-rust-agentic-runtime-parity-goal.mjs") &&
       !exists("scripts/lib/autopilot-runtime-agent-service-bridge.mjs") &&
       exists("scripts/lib/autopilot-runtime-agent-service-inference.mjs") &&
       !exists("packages/runtime-daemon/src/runtime-api-bridge.mjs") &&
@@ -15977,7 +16006,7 @@ function runBridge() {
       "crates/services/src/agentic/runtime/service/policy.rs",
       "scripts/lib/autopilot-runtime-agent-service-inference.mjs",
       "scripts/launch-hypervisor-workbench-adapter-host.mjs",
-      "scripts/run-autopilot-agent-studio-live-gui-validation.mjs",
+      "scripts/run-hypervisor-agent-live-gui-validation.mjs",
     ],
     "RuntimeAgentService command transport must stay retired: no JS adapter export, bridge helper, bridge env fallback, Cargo bridge binary, or runtimeBridge service option may return",
   );
@@ -21489,43 +21518,43 @@ function runBridge() {
   assertCheck(
     result,
     "worker-service-package-product-route",
-    /createRuntimeWorkerServicePackageSurface/.test(runtimeDaemonIndex) &&
-      /this\.workerServicePackageSurface/.test(runtimeDaemonIndex) &&
-      !/^\s*admitWorkerServicePackageInvocation\(threadId, request = \{\}\) \{/m.test(
+    /createRuntimeWorkerServicePackageApi/.test(runtimeDaemonIndex) &&
+      /this\.workerServicePackageApi/.test(runtimeDaemonIndex) &&
+      /admitWorkerServicePackageInvocation\(threadId, request = \{\}\) \{\s*return this\.workerServicePackageApi\.admitWorkerServicePackageInvocation\(this, threadId, request\);/s.test(
         runtimeDaemonIndex,
       ) &&
-      !/WORKER_SERVICE_PACKAGE_ADMISSION_RESPONSE_SCHEMA_VERSION/.test(workerServicePackageSurface) &&
-      !/invocation_admitted:\s*true/.test(workerServicePackageSurface) &&
-      !/package_ref:\s*admission\.package_ref/.test(workerServicePackageSurface) &&
+      !/WORKER_SERVICE_PACKAGE_ADMISSION_RESPONSE_SCHEMA_VERSION/.test(workerServicePackageApi) &&
+      !/invocation_admitted:\s*true/.test(workerServicePackageApi) &&
+      !/package_ref:\s*admission\.package_ref/.test(workerServicePackageApi) &&
       !/accepted_receipt_append:\s*admission\.accepted_receipt_append/.test(
-        workerServicePackageSurface,
+        workerServicePackageApi,
       ) &&
-      /RETIRED_WORKER_SERVICE_PACKAGE_TRUTH_FIELDS/.test(workerServicePackageSurface) &&
-      /worker_service_package_agentgres_truth_fields_retired/.test(workerServicePackageSurface) &&
+      /RETIRED_WORKER_SERVICE_PACKAGE_TRUTH_FIELDS/.test(workerServicePackageApi) &&
+      /worker_service_package_agentgres_truth_fields_retired/.test(workerServicePackageApi) &&
       /return store\.workerServicePackageCore\.admitInvocation\(invocation,\s*\{\s*thread_id:\s*threadId,\s*agent_id:\s*agent\.id,\s*\}\)/.test(
-        workerServicePackageSurface,
+        workerServicePackageApi,
       ) &&
       /worker-service-package-invocations/.test(runtimeRouteHandlers) &&
-      /store\.workerServicePackageSurface\.admitWorkerServicePackageInvocation\(store,\s*threadId,\s*await readBody\(request\)\)/.test(
+      /store\.admitWorkerServicePackageInvocation\(threadId,\s*await readBody\(request\)\)/.test(
         runtimeRouteHandlers,
       ) &&
-      /thread route sends admission controls through mounted admission surfaces/.test(runtimeRouteHandlersTest) &&
+      /thread route sends governed admission controls through store-owned APIs/.test(runtimeRouteHandlersTest) &&
       /thread route does not expose worker\/service package apply shortcut/.test(runtimeRouteHandlersTest) &&
       /worker\/service package surface admits nested invocation through Rust core/.test(
-        workerServicePackageSurfaceTest,
+        workerServicePackageApiTest,
       ) &&
       /assert\.deepEqual\(runtimeStore\.calls\.at\(-1\)\.context,\s*\{\s*thread_id:\s*"thread_surface",\s*agent_id:\s*"agent_surface",\s*\}\)/.test(
-        workerServicePackageSurfaceTest,
+        workerServicePackageApiTest,
       ) &&
       /worker\/service package surface fails closed without invocation payload/.test(
-        workerServicePackageSurfaceTest,
+        workerServicePackageApiTest,
       ) &&
       /worker\/service package surface rejects client supplied Agentgres truth before Rust core/.test(
-        workerServicePackageSurfaceTest,
+        workerServicePackageApiTest,
       ),
     [
-      "packages/runtime-daemon/src/runtime-worker-service-package-surface.mjs",
-      "packages/runtime-daemon/src/runtime-worker-service-package-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-worker-service-package-api.mjs",
+      "packages/runtime-daemon/src/runtime-worker-service-package-api.test.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
@@ -21535,18 +21564,18 @@ function runBridge() {
   assertCheck(
     result,
     "worker-service-package-admission-response-aliases-retired",
-    !workerServicePackageAdmissionCamelAliasPropertyPattern.test(workerServicePackageSurface) &&
+    !workerServicePackageAdmissionCamelAliasPropertyPattern.test(workerServicePackageApi) &&
       !workerServicePackageAdmissionCamelAliasTypePattern.test(
         workerServicePackageAdmissionResultType,
       ) &&
       /worker\/service package surface exposes only canonical snake_case admission fields/.test(
-        workerServicePackageSurfaceTest,
+        workerServicePackageApiTest,
       ) &&
-      /WORKER_SERVICE_PACKAGE_ADMISSION_CAMEL_ALIASES/.test(workerServicePackageSurfaceTest) &&
-      /Object\.hasOwn\(result, key\)/.test(workerServicePackageSurfaceTest),
+      /WORKER_SERVICE_PACKAGE_ADMISSION_CAMEL_ALIASES/.test(workerServicePackageApiTest) &&
+      /Object\.hasOwn\(result, key\)/.test(workerServicePackageApiTest),
     [
-      "packages/runtime-daemon/src/runtime-worker-service-package-surface.mjs",
-      "packages/runtime-daemon/src/runtime-worker-service-package-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-worker-service-package-api.mjs",
+      "packages/runtime-daemon/src/runtime-worker-service-package-api.test.mjs",
       "packages/agent-sdk/src/substrate-client.ts",
     ],
     "Phase 8/11 is pending: worker/service package admission responses must not preserve camelCase compatibility aliases after the canonical route is verified",
@@ -21554,29 +21583,29 @@ function runBridge() {
   assertCheck(
     result,
     "worker-service-package-admission-request-aliases-retired",
-    /RETIRED_WORKER_SERVICE_PACKAGE_REQUEST_ALIASES/.test(workerServicePackageSurface) &&
-      /CANONICAL_WORKER_SERVICE_PACKAGE_REQUEST_FIELDS/.test(workerServicePackageSurface) &&
-      /worker_service_package_invocation_request_aliases_retired/.test(workerServicePackageSurface) &&
-      /worker_service_package_agentgres_truth_fields_retired/.test(workerServicePackageSurface) &&
+    /RETIRED_WORKER_SERVICE_PACKAGE_REQUEST_ALIASES/.test(workerServicePackageApi) &&
+      /CANONICAL_WORKER_SERVICE_PACKAGE_REQUEST_FIELDS/.test(workerServicePackageApi) &&
+      /worker_service_package_invocation_request_aliases_retired/.test(workerServicePackageApi) &&
+      /worker_service_package_agentgres_truth_fields_retired/.test(workerServicePackageApi) &&
       /assertCanonicalWorkerServicePackageRequestBody\(body\);[\s\S]*objectRecord\(body\.invocation\)/.test(
-        workerServicePackageSurface,
+        workerServicePackageApi,
       ) &&
       /assertNoClientSuppliedWorkerServicePackageTruth\(invocation\);/.test(
-        workerServicePackageSurface,
+        workerServicePackageApi,
       ) &&
-      !/body\.(?:packageInvocation|package_invocation)\b/.test(workerServicePackageSurface) &&
+      !/body\.(?:packageInvocation|package_invocation)\b/.test(workerServicePackageApi) &&
       /worker\/service package surface rejects retired request aliases before agent lookup or Rust core/.test(
-        workerServicePackageSurfaceTest,
+        workerServicePackageApiTest,
       ) &&
       /worker\/service package surface ignores retired nested invocation identity alias/.test(
-        workerServicePackageSurfaceTest,
+        workerServicePackageApiTest,
       ) &&
       /invocationId: "invocation:\/\/worker-package\/retired"/.test(
-        workerServicePackageSurfaceTest,
+        workerServicePackageApiTest,
       ) &&
-      /result\.invocation_id,\s*undefined/.test(workerServicePackageSurfaceTest) &&
-      !/invocation\.invocation\?\.invocationId/.test(workerServicePackageSurface) &&
-      /assert\.deepEqual\(runtimeStore\.calls,\s*\[\]\)/.test(workerServicePackageSurfaceTest) &&
+      /result\.invocation_id,\s*undefined/.test(workerServicePackageApiTest) &&
+      !/invocation\.invocation\?\.invocationId/.test(workerServicePackageApi) &&
+      /assert\.deepEqual\(runtimeStore\.calls,\s*\[\]\)/.test(workerServicePackageApiTest) &&
       /retiredWorkerServicePackageRequestAliases/.test(workerServicePackageControlNodesTest) &&
       /Object\.prototype\.hasOwnProperty\.call\(request\.body,\s*key\)/.test(
         workerServicePackageControlNodesTest,
@@ -21599,8 +21628,8 @@ function runBridge() {
       !/package_invocation:\s*invocation/.test(workerServicePackageControlNodes) &&
       !/packageInvocation:\s*invocation/.test(workerServicePackageControlNodes),
     [
-      "packages/runtime-daemon/src/runtime-worker-service-package-surface.mjs",
-      "packages/runtime-daemon/src/runtime-worker-service-package-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-worker-service-package-api.mjs",
+      "packages/runtime-daemon/src/runtime-worker-service-package-api.test.mjs",
       "packages/hypervisor-workbench/src/runtime/workflow-runtime-worker-service-package-control-nodes.ts",
       "packages/hypervisor-workbench/src/runtime/workflow-runtime-worker-service-package-control-nodes.test.ts",
     ],
@@ -21856,35 +21885,35 @@ function runBridge() {
   assertCheck(
     result,
     "l1-settlement-product-route",
-      /createRuntimeL1SettlementSurface/.test(runtimeDaemonIndex) &&
-      /this\.l1SettlementSurface/.test(runtimeDaemonIndex) &&
-      !/^\s*admitL1SettlementAttempt\(threadId, request = \{\}\) \{/m.test(runtimeDaemonIndex) &&
-      !/L1_SETTLEMENT_ADMISSION_RESPONSE_SCHEMA_VERSION/.test(l1SettlementSurface) &&
-      !/settlement_admitted:\s*true/.test(l1SettlementSurface) &&
-      !/settlement_ref:\s*admission\.settlement_ref/.test(l1SettlementSurface) &&
-      !/admission_hash:\s*admission\.admission_hash/.test(l1SettlementSurface) &&
-      /RETIRED_L1_SETTLEMENT_TRUTH_FIELDS/.test(l1SettlementSurface) &&
-      /l1_settlement_state_root_truth_fields_retired/.test(l1SettlementSurface) &&
+      /createRuntimeL1SettlementApi/.test(runtimeDaemonIndex) &&
+      /this\.l1SettlementApi/.test(runtimeDaemonIndex) &&
+      /admitL1SettlementAttempt\(threadId, request = \{\}\) \{\s*return this\.l1SettlementApi\.admitL1SettlementAttempt\(this, threadId, request\);/s.test(runtimeDaemonIndex) &&
+      !/L1_SETTLEMENT_ADMISSION_RESPONSE_SCHEMA_VERSION/.test(l1SettlementApi) &&
+      !/settlement_admitted:\s*true/.test(l1SettlementApi) &&
+      !/settlement_ref:\s*admission\.settlement_ref/.test(l1SettlementApi) &&
+      !/admission_hash:\s*admission\.admission_hash/.test(l1SettlementApi) &&
+      /RETIRED_L1_SETTLEMENT_TRUTH_FIELDS/.test(l1SettlementApi) &&
+      /l1_settlement_state_root_truth_fields_retired/.test(l1SettlementApi) &&
       /return store\.l1SettlementCore\.admitAttempt\(attempt,\s*\{\s*thread_id:\s*threadId,\s*agent_id:\s*agent\.id,\s*\}\)/.test(
-        l1SettlementSurface,
+        l1SettlementApi,
       ) &&
       /l1-settlement-attempts/.test(runtimeRouteHandlers) &&
-      /store\.l1SettlementSurface\.admitL1SettlementAttempt\(store,\s*threadId,\s*await readBody\(request\)\)/.test(
+      /store\.admitL1SettlementAttempt\(threadId,\s*await readBody\(request\)\)/.test(
         runtimeRouteHandlers,
       ) &&
-      /thread route sends admission controls through mounted admission surfaces/.test(runtimeRouteHandlersTest) &&
+      /thread route sends governed admission controls through store-owned APIs/.test(runtimeRouteHandlersTest) &&
       /thread route does not expose L1 settlement apply shortcut/.test(runtimeRouteHandlersTest) &&
-      /L1 settlement surface admits nested attempt through Rust core/.test(l1SettlementSurfaceTest) &&
-      /L1 settlement surface rejects client supplied state-root truth before Rust core/.test(
-        l1SettlementSurfaceTest,
+      /L1 settlement API admits nested attempt through Rust core/.test(l1SettlementApiTest) &&
+      /L1 settlement API rejects client supplied state-root truth before Rust core/.test(
+        l1SettlementApiTest,
       ) &&
       /context:\s*\{\s*thread_id:\s*"thread_surface",\s*agent_id:\s*"agent_surface",\s*\}/.test(
-        l1SettlementSurfaceTest,
+        l1SettlementApiTest,
       ) &&
-      /L1 settlement surface fails closed without attempt payload/.test(l1SettlementSurfaceTest),
+      /L1 settlement API fails closed without attempt payload/.test(l1SettlementApiTest),
     [
-      "packages/runtime-daemon/src/runtime-l1-settlement-surface.mjs",
-      "packages/runtime-daemon/src/runtime-l1-settlement-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-l1-settlement-api.mjs",
+      "packages/runtime-daemon/src/runtime-l1-settlement-api.test.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
@@ -21894,16 +21923,16 @@ function runBridge() {
   assertCheck(
     result,
     "l1-settlement-admission-response-aliases-retired",
-    !l1SettlementAdmissionCamelAliasPropertyPattern.test(l1SettlementSurface) &&
+    !l1SettlementAdmissionCamelAliasPropertyPattern.test(l1SettlementApi) &&
       !l1SettlementAdmissionCamelAliasTypePattern.test(l1SettlementAdmissionResultType) &&
-      /L1 settlement surface exposes only canonical snake_case admission fields/.test(
-        l1SettlementSurfaceTest,
+      /L1 settlement API exposes only canonical snake_case admission fields/.test(
+        l1SettlementApiTest,
       ) &&
-      /L1_SETTLEMENT_ADMISSION_CAMEL_ALIASES/.test(l1SettlementSurfaceTest) &&
-      /Object\.hasOwn\(result, key\)/.test(l1SettlementSurfaceTest),
+      /L1_SETTLEMENT_ADMISSION_CAMEL_ALIASES/.test(l1SettlementApiTest) &&
+      /Object\.hasOwn\(result, key\)/.test(l1SettlementApiTest),
     [
-      "packages/runtime-daemon/src/runtime-l1-settlement-surface.mjs",
-      "packages/runtime-daemon/src/runtime-l1-settlement-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-l1-settlement-api.mjs",
+      "packages/runtime-daemon/src/runtime-l1-settlement-api.test.mjs",
       "packages/agent-sdk/src/substrate-client.ts",
     ],
     "Phase 8/11 is pending: L1 settlement admission responses must not preserve camelCase compatibility aliases after the canonical route is verified",
@@ -21911,18 +21940,18 @@ function runBridge() {
   assertCheck(
     result,
     "l1-settlement-admission-request-aliases-retired",
-      /RETIRED_L1_SETTLEMENT_REQUEST_ALIASES/.test(l1SettlementSurface) &&
-      /CANONICAL_L1_SETTLEMENT_REQUEST_FIELDS/.test(l1SettlementSurface) &&
-      /l1_settlement_attempt_request_aliases_retired/.test(l1SettlementSurface) &&
-      /assertNoClientSuppliedL1SettlementTruth\(attempt\);/.test(l1SettlementSurface) &&
+      /RETIRED_L1_SETTLEMENT_REQUEST_ALIASES/.test(l1SettlementApi) &&
+      /CANONICAL_L1_SETTLEMENT_REQUEST_FIELDS/.test(l1SettlementApi) &&
+      /l1_settlement_attempt_request_aliases_retired/.test(l1SettlementApi) &&
+      /assertNoClientSuppliedL1SettlementTruth\(attempt\);/.test(l1SettlementApi) &&
       /assertCanonicalL1SettlementRequestBody\(body\);[\s\S]*objectRecord\(body\.attempt\)/.test(
-        l1SettlementSurface,
+        l1SettlementApi,
       ) &&
-      !/body\.(?:settlementAttempt|settlement_attempt)\b/.test(l1SettlementSurface) &&
-      /L1 settlement surface rejects retired request aliases before agent lookup or Rust core/.test(
-        l1SettlementSurfaceTest,
+      !/body\.(?:settlementAttempt|settlement_attempt)\b/.test(l1SettlementApi) &&
+      /L1 settlement API rejects retired request aliases before agent lookup or Rust core/.test(
+        l1SettlementApiTest,
       ) &&
-      /assert\.deepEqual\(runtimeStore\.calls,\s*\[\]\)/.test(l1SettlementSurfaceTest) &&
+      /assert\.deepEqual\(runtimeStore\.calls,\s*\[\]\)/.test(l1SettlementApiTest) &&
       /retiredL1SettlementRequestAliases/.test(l1SettlementControlNodesTest) &&
       /Object\.prototype\.hasOwnProperty\.call\(request\.body,\s*key\)/.test(
         l1SettlementControlNodesTest,
@@ -21936,8 +21965,8 @@ function runBridge() {
       !/settlement_attempt:\s*attempt/.test(l1SettlementControlNodes) &&
       !/settlementAttempt:\s*attempt/.test(l1SettlementControlNodes),
     [
-      "packages/runtime-daemon/src/runtime-l1-settlement-surface.mjs",
-      "packages/runtime-daemon/src/runtime-l1-settlement-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-l1-settlement-api.mjs",
+      "packages/runtime-daemon/src/runtime-l1-settlement-api.test.mjs",
       "packages/hypervisor-workbench/src/runtime/workflow-runtime-l1-settlement-control-nodes.ts",
       "packages/hypervisor-workbench/src/runtime/workflow-runtime-l1-settlement-control-nodes.test.ts",
     ],
@@ -22251,45 +22280,45 @@ function runBridge() {
   assertCheck(
     result,
     "governed-meta-improvement-product-route",
-    /createRuntimeGovernedImprovementSurface/.test(runtimeDaemonIndex) &&
-      /this\.governedImprovementSurface/.test(runtimeDaemonIndex) &&
-      !/^\s*admitGovernedImprovementProposal\(threadId, request = \{\}\) \{/m.test(
+    /createRuntimeGovernedImprovementApi/.test(runtimeDaemonIndex) &&
+      /this\.governedImprovementApi/.test(runtimeDaemonIndex) &&
+      /admitGovernedImprovementProposal\(threadId, request = \{\}\) \{\s*return this\.governedImprovementApi\.admitGovernedImprovementProposal\(this, threadId, request\);/s.test(
         runtimeDaemonIndex,
       ) &&
-      !/GOVERNED_IMPROVEMENT_ADMISSION_RESPONSE_SCHEMA_VERSION/.test(governedImprovementSurface) &&
-      !/proposal_admitted:\s*true/.test(governedImprovementSurface) &&
-      !/mutation_executed:\s*false/.test(governedImprovementSurface) &&
-      !/admission_hash:\s*admission\.admission_hash/.test(governedImprovementSurface) &&
-      !/state_root_after:\s*admission\.state_root_after/.test(governedImprovementSurface) &&
-      /RETIRED_GOVERNED_IMPROVEMENT_TRUTH_FIELDS/.test(governedImprovementSurface) &&
-      /governed_improvement_agentgres_truth_fields_retired/.test(governedImprovementSurface) &&
+      !/GOVERNED_IMPROVEMENT_ADMISSION_RESPONSE_SCHEMA_VERSION/.test(governedImprovementApi) &&
+      !/proposal_admitted:\s*true/.test(governedImprovementApi) &&
+      !/mutation_executed:\s*false/.test(governedImprovementApi) &&
+      !/admission_hash:\s*admission\.admission_hash/.test(governedImprovementApi) &&
+      !/state_root_after:\s*admission\.state_root_after/.test(governedImprovementApi) &&
+      /RETIRED_GOVERNED_IMPROVEMENT_TRUTH_FIELDS/.test(governedImprovementApi) &&
+      /governed_improvement_agentgres_truth_fields_retired/.test(governedImprovementApi) &&
       /return store\.governedImprovementCore\.admitProposal\(proposal,\s*\{\s*thread_id:\s*threadId,\s*agent_id:\s*agent\.id,\s*\}\)/.test(
-        governedImprovementSurface,
+        governedImprovementApi,
       ) &&
       /governed-improvement-proposals/.test(runtimeRouteHandlers) &&
-      /store\.governedImprovementSurface\.admitGovernedImprovementProposal\(store,\s*threadId,\s*await readBody\(request\)\)/.test(
+      /store\.admitGovernedImprovementProposal\(threadId,\s*await readBody\(request\)\)/.test(
         runtimeRouteHandlers,
       ) &&
-      /thread route sends admission controls through mounted admission surfaces/.test(runtimeRouteHandlersTest) &&
+      /thread route sends governed admission controls through store-owned APIs/.test(runtimeRouteHandlersTest) &&
       /thread route does not expose governed improvement apply shortcut/.test(runtimeRouteHandlersTest) &&
-      /governed improvement surface admits nested proposal through Rust core/.test(governedImprovementSurfaceTest) &&
+      /governed improvement API admits nested proposal through Rust core/.test(governedImprovementApiTest) &&
       /assert\.deepEqual\(runtimeStore\.calls\.at\(-1\)\.context,\s*\{\s*thread_id:\s*"thread_surface",\s*agent_id:\s*"agent_surface",\s*\}\)/.test(
-        governedImprovementSurfaceTest,
+        governedImprovementApiTest,
       ) &&
-      /governed improvement surface rejects client supplied Agentgres truth before Rust core/.test(
-        governedImprovementSurfaceTest,
+      /governed improvement API rejects client supplied Agentgres truth before Rust core/.test(
+        governedImprovementApiTest,
       ) &&
-      /RETIRED_GOVERNED_IMPROVEMENT_PROPOSAL_ALIASES/.test(governedImprovementSurface) &&
+      /RETIRED_GOVERNED_IMPROVEMENT_PROPOSAL_ALIASES/.test(governedImprovementApi) &&
       /governed_improvement_proposal_payload_aliases_retired/.test(
-        governedImprovementSurface,
+        governedImprovementApi,
       ) &&
-      /governed improvement surface rejects retired proposal payload aliases before agent lookup or Rust core/.test(
-        governedImprovementSurfaceTest,
+      /governed improvement API rejects retired proposal payload aliases before agent lookup or Rust core/.test(
+        governedImprovementApiTest,
       ) &&
-      !/proposal\.proposalId/.test(governedImprovementSurface),
+      !/proposal\.proposalId/.test(governedImprovementApi),
     [
-      "packages/runtime-daemon/src/runtime-governed-improvement-surface.mjs",
-      "packages/runtime-daemon/src/runtime-governed-improvement-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-governed-improvement-api.mjs",
+      "packages/runtime-daemon/src/runtime-governed-improvement-api.test.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
@@ -22299,20 +22328,20 @@ function runBridge() {
   assertCheck(
     result,
     "governed-meta-improvement-admission-response-aliases-retired",
-    !governedImprovementAdmissionCamelAliasPropertyPattern.test(governedImprovementSurface) &&
+    !governedImprovementAdmissionCamelAliasPropertyPattern.test(governedImprovementApi) &&
       !governedImprovementAdmissionCamelAliasTypePattern.test(
         governedImprovementAdmissionResultType,
       ) &&
-      /governed improvement surface exposes only canonical snake_case admission fields/.test(
-        governedImprovementSurfaceTest,
+      /governed improvement API exposes only canonical snake_case admission fields/.test(
+        governedImprovementApiTest,
       ) &&
       /GOVERNED_IMPROVEMENT_ADMISSION_CAMEL_ALIASES/.test(
-        governedImprovementSurfaceTest,
+        governedImprovementApiTest,
       ) &&
-      /Object\.hasOwn\(result, key\)/.test(governedImprovementSurfaceTest),
+      /Object\.hasOwn\(result, key\)/.test(governedImprovementApiTest),
     [
-      "packages/runtime-daemon/src/runtime-governed-improvement-surface.mjs",
-      "packages/runtime-daemon/src/runtime-governed-improvement-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-governed-improvement-api.mjs",
+      "packages/runtime-daemon/src/runtime-governed-improvement-api.test.mjs",
       "packages/agent-sdk/src/substrate-client.ts",
     ],
     "Phase 9/11 is pending: governed-improvement admission responses must not preserve camelCase compatibility aliases after the canonical route is verified",
@@ -22320,20 +22349,20 @@ function runBridge() {
   assertCheck(
     result,
     "governed-meta-improvement-admission-request-aliases-retired",
-    /RETIRED_GOVERNED_IMPROVEMENT_REQUEST_ALIASES/.test(governedImprovementSurface) &&
-      /CANONICAL_GOVERNED_IMPROVEMENT_REQUEST_FIELDS/.test(governedImprovementSurface) &&
+    /RETIRED_GOVERNED_IMPROVEMENT_REQUEST_ALIASES/.test(governedImprovementApi) &&
+      /CANONICAL_GOVERNED_IMPROVEMENT_REQUEST_FIELDS/.test(governedImprovementApi) &&
       /governed_improvement_proposal_request_aliases_retired/.test(
-        governedImprovementSurface,
+        governedImprovementApi,
       ) &&
       /assertCanonicalGovernedImprovementRequestBody\(body\);[\s\S]*objectRecord\(body\.proposal\)/.test(
-        governedImprovementSurface,
+        governedImprovementApi,
       ) &&
-      !/body\.(?:proposalPayload|proposal_payload)\b/.test(governedImprovementSurface) &&
-      /governed improvement surface rejects retired request aliases before agent lookup or Rust core/.test(
-        governedImprovementSurfaceTest,
+      !/body\.(?:proposalPayload|proposal_payload)\b/.test(governedImprovementApi) &&
+      /governed improvement API rejects retired request aliases before agent lookup or Rust core/.test(
+        governedImprovementApiTest,
       ) &&
       /assert\.deepEqual\(runtimeStore\.calls,\s*\[\]\)/.test(
-        governedImprovementSurfaceTest,
+        governedImprovementApiTest,
       ) &&
       /retiredGovernedImprovementRequestAliases/.test(
         governedImprovementControlNodesTest,
@@ -22350,8 +22379,8 @@ function runBridge() {
       !/proposal_payload:\s*proposal/.test(governedImprovementControlNodes) &&
       !/proposalPayload:\s*proposal/.test(governedImprovementControlNodes),
     [
-      "packages/runtime-daemon/src/runtime-governed-improvement-surface.mjs",
-      "packages/runtime-daemon/src/runtime-governed-improvement-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-governed-improvement-api.mjs",
+      "packages/runtime-daemon/src/runtime-governed-improvement-api.test.mjs",
       "packages/hypervisor-workbench/src/runtime/workflow-runtime-governed-improvement-control-nodes.ts",
       "packages/hypervisor-workbench/src/runtime/workflow-runtime-governed-improvement-control-nodes.test.ts",
     ],
@@ -23508,11 +23537,11 @@ function runReceipts() {
     exists("apps/hypervisor/src/surfaces/MissionControl/MissionControlMountsView.tsx")
       ? read("apps/hypervisor/src/surfaces/MissionControl/MissionControlMountsView.tsx")
       : "",
-    exists("scripts/run-autopilot-model-mounting-goal.mjs")
-      ? read("scripts/run-autopilot-model-mounting-goal.mjs")
+    exists("scripts/run-hypervisor-model-mounting-goal.mjs")
+      ? read("scripts/run-hypervisor-model-mounting-goal.mjs")
       : "",
-    exists("scripts/run-autopilot-models-production-polish-goal.mjs")
-      ? read("scripts/run-autopilot-models-production-polish-goal.mjs")
+    exists("scripts/run-hypervisor-models-production-polish-goal.mjs")
+      ? read("scripts/run-hypervisor-models-production-polish-goal.mjs")
       : "",
     exists("scripts/validate-model-mounting-e2e.mjs")
       ? read("scripts/validate-model-mounting-e2e.mjs")
@@ -27812,8 +27841,8 @@ function runReceipts() {
       /ServerCommands::Restart => \(Method::POST,\s*"\/v1\/model-mount\/server\/restart"\.to_string\(\)\)/.test(
         modelMountStableReadCliServer,
       ) &&
-      /url\.pathname === "\/v1\/model-mount\/server\/start"/.test(read("scripts/run-autopilot-model-mounting-goal.mjs")) &&
-      /url\.pathname === "\/v1\/model-mount\/server\/stop"/.test(read("scripts/run-autopilot-model-mounting-goal.mjs")) &&
+      /url\.pathname === "\/v1\/model-mount\/server\/start"/.test(read("scripts/run-hypervisor-model-mounting-goal.mjs")) &&
+      /url\.pathname === "\/v1\/model-mount\/server\/stop"/.test(read("scripts/run-hypervisor-model-mounting-goal.mjs")) &&
       /Slice 1353 hard-cuts stable model_mount server-control protocol clients/.test(guide) &&
       /Model_mount stable server-control protocol clients/.test(matrix) &&
       /RuntimeDaemonCoreModelMountStableServerControlProtocolClients/.test(implementationMatrix),
@@ -27821,7 +27850,7 @@ function runReceipts() {
       "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.mjs",
       "crates/cli/src/commands/server.rs",
-      "scripts/run-autopilot-model-mounting-goal.mjs",
+      "scripts/run-hypervisor-model-mounting-goal.mjs",
       "scripts/conformance/hypervisor-conformance.mjs",
     ],
     "Model_mount server-control clients must use the stable /v1/model-mount/server control protocol; retired /api/v1/server and /api/v1/models/server control aliases must not return",
@@ -27860,9 +27889,9 @@ function runReceipts() {
       /\/v1\/model-mount\/backends\/\{id\}\/health/.test(modelMountStableReadCliBackends) &&
       /\/v1\/model-mount\/backends\/\{id\}\/start/.test(modelMountStableReadCliBackends) &&
       /\/v1\/model-mount\/backends\/\{id\}\/stop/.test(modelMountStableReadCliBackends) &&
-      /segments\[4\] === "health"/.test(read("scripts/run-autopilot-model-mounting-goal.mjs")) &&
-      /segments\[4\] === "start"/.test(read("scripts/run-autopilot-model-mounting-goal.mjs")) &&
-      /segments\[4\] === "stop"/.test(read("scripts/run-autopilot-model-mounting-goal.mjs")) &&
+      /segments\[4\] === "health"/.test(read("scripts/run-hypervisor-model-mounting-goal.mjs")) &&
+      /segments\[4\] === "start"/.test(read("scripts/run-hypervisor-model-mounting-goal.mjs")) &&
+      /segments\[4\] === "stop"/.test(read("scripts/run-hypervisor-model-mounting-goal.mjs")) &&
       /Slice 1354 hard-cuts stable model_mount backend-control protocol clients/.test(guide) &&
       /Model_mount stable backend-control protocol clients/.test(matrix) &&
       /RuntimeDaemonCoreModelMountStableBackendControlProtocolClients/.test(implementationMatrix),
@@ -27870,7 +27899,7 @@ function runReceipts() {
       "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.mjs",
       "crates/cli/src/commands/backends.rs",
-      "scripts/run-autopilot-model-mounting-goal.mjs",
+      "scripts/run-hypervisor-model-mounting-goal.mjs",
       "scripts/conformance/hypervisor-conformance.mjs",
     ],
     "Model_mount backend lifecycle clients must use the stable /v1/model-mount/backends control protocol; retired /api/v1/backends control aliases must not return",
@@ -27923,9 +27952,9 @@ function runReceipts() {
       /\/v1\/model-mount\/runtime\/survey/.test(modelMountStableReadCliBackends) &&
       /\/v1\/model-mount\/runtime\/select/.test(modelMountStableReadCliBackends) &&
       /\/v1\/model-mount\/runtime\/engines\/\{engine_id\}/.test(modelMountStableReadCliBackends) &&
-      /url\.pathname === "\/v1\/model-mount\/runtime\/survey"/.test(read("scripts/run-autopilot-model-mounting-goal.mjs")) &&
-      /url\.pathname === "\/v1\/model-mount\/runtime\/select"/.test(read("scripts/run-autopilot-model-mounting-goal.mjs")) &&
-      /segments\[5\] === "select"/.test(read("scripts/run-autopilot-model-mounting-goal.mjs")) &&
+      /url\.pathname === "\/v1\/model-mount\/runtime\/survey"/.test(read("scripts/run-hypervisor-model-mounting-goal.mjs")) &&
+      /url\.pathname === "\/v1\/model-mount\/runtime\/select"/.test(read("scripts/run-hypervisor-model-mounting-goal.mjs")) &&
+      /segments\[5\] === "select"/.test(read("scripts/run-hypervisor-model-mounting-goal.mjs")) &&
       /Slice 1355 hard-cuts stable model_mount runtime-control protocol clients/.test(guide) &&
       /Model_mount stable runtime-control protocol clients/.test(matrix) &&
       /RuntimeDaemonCoreModelMountStableRuntimeControlProtocolClients/.test(implementationMatrix),
@@ -27933,7 +27962,7 @@ function runReceipts() {
       "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.mjs",
       "crates/cli/src/commands/backends.rs",
-      "scripts/run-autopilot-model-mounting-goal.mjs",
+      "scripts/run-hypervisor-model-mounting-goal.mjs",
       "scripts/conformance/hypervisor-conformance.mjs",
     ],
     "Model_mount runtime survey/select/profile clients must use the stable /v1/model-mount/runtime control protocol; retired /api/v1/runtime control aliases must not return",
@@ -27959,8 +27988,8 @@ function runReceipts() {
       /\/api\/v1\/routes\/route\.route\/test/.test(runtimeRouteHandlersTest) &&
       !/\/api\/v1\/routes(?:\/|["'`])/.test(modelMountStableReadProtocolClientCorpus) &&
       /\/v1\/model-mount\/routes\/\{id\}\/test/.test(modelMountStableReadCliRoutes) &&
-      /url\.pathname === "\/v1\/model-mount\/routes"/.test(read("scripts/run-autopilot-model-mounting-goal.mjs")) &&
-      /segments\[2\] === "routes"/.test(read("scripts/run-autopilot-model-mounting-goal.mjs")) &&
+      /url\.pathname === "\/v1\/model-mount\/routes"/.test(read("scripts/run-hypervisor-model-mounting-goal.mjs")) &&
+      /segments\[2\] === "routes"/.test(read("scripts/run-hypervisor-model-mounting-goal.mjs")) &&
       /Slice 1356 hard-cuts stable model_mount route-control protocol clients/.test(guide) &&
       /Model_mount stable route-control protocol clients/.test(matrix) &&
       /RuntimeDaemonCoreModelMountStableRouteControlProtocolClients/.test(implementationMatrix),
@@ -27968,7 +27997,7 @@ function runReceipts() {
       "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.mjs",
       "crates/cli/src/commands/routes.rs",
-      "scripts/run-autopilot-model-mounting-goal.mjs",
+      "scripts/run-hypervisor-model-mounting-goal.mjs",
       "scripts/conformance/hypervisor-conformance.mjs",
     ],
     "Model_mount route write/test clients must use the stable /v1/model-mount/routes control protocol; retired /api/v1/routes control aliases must not return",
@@ -28037,10 +28066,10 @@ function runReceipts() {
       /"\/v1\/model-mount\/endpoints"/.test(modelMountStableReadCliModels) &&
       /"\/v1\/model-mount\/instances\/load"/.test(modelMountStableReadCliModels) &&
       /"\/v1\/model-mount\/instances\/unload"/.test(modelMountStableReadCliModels) &&
-      /url\.pathname === "\/v1\/model-mount\/artifacts\/import"/.test(read("scripts/run-autopilot-model-mounting-goal.mjs")) &&
-      /url\.pathname === "\/v1\/model-mount\/endpoints"/.test(read("scripts/run-autopilot-model-mounting-goal.mjs")) &&
-      /url\.pathname === "\/v1\/model-mount\/instances\/load"/.test(read("scripts/run-autopilot-model-mounting-goal.mjs")) &&
-      /segments\[2\] === "endpoints"/.test(read("scripts/run-autopilot-model-mounting-goal.mjs")) &&
+      /url\.pathname === "\/v1\/model-mount\/artifacts\/import"/.test(read("scripts/run-hypervisor-model-mounting-goal.mjs")) &&
+      /url\.pathname === "\/v1\/model-mount\/endpoints"/.test(read("scripts/run-hypervisor-model-mounting-goal.mjs")) &&
+      /url\.pathname === "\/v1\/model-mount\/instances\/load"/.test(read("scripts/run-hypervisor-model-mounting-goal.mjs")) &&
+      /segments\[2\] === "endpoints"/.test(read("scripts/run-hypervisor-model-mounting-goal.mjs")) &&
       /Slice 1357 hard-cuts stable model_mount lifecycle protocol clients/.test(guide) &&
       /Model_mount stable lifecycle protocol clients/.test(matrix) &&
       /RuntimeDaemonCoreModelMountStableLifecycleProtocolClients/.test(implementationMatrix),
@@ -28050,7 +28079,7 @@ function runReceipts() {
       "crates/cli/src/commands/models.rs",
       "workbench-adapters/ioi-workbench/commands/model-daemon-actions.js",
       "apps/hypervisor/src/surfaces/MissionControl/MissionControlMountsView.tsx",
-      "scripts/run-autopilot-model-mounting-goal.mjs",
+      "scripts/run-hypervisor-model-mounting-goal.mjs",
       "scripts/conformance/hypervisor-conformance.mjs",
     ],
     "Model_mount import/mount/load/unload clients must use stable /v1/model-mount lifecycle protocol routes; retired /api/v1 model lifecycle aliases must not return",
@@ -28108,10 +28137,10 @@ function runReceipts() {
       /"\/v1\/model-mount\/downloads\/\{job_id\}\/cancel"/.test(modelMountStableReadCliModels) &&
       /"\/v1\/model-mount\/storage\/cleanup"/.test(modelMountStableReadCliModels) &&
       /"\/v1\/model-mount\/artifacts\/\{id\}"/.test(modelMountStableReadCliModels) &&
-      /url\.pathname === "\/v1\/model-mount\/catalog\/import-url"/.test(read("scripts/run-autopilot-model-mounting-goal.mjs")) &&
-      /url\.pathname === "\/v1\/model-mount\/downloads"/.test(read("scripts/run-autopilot-model-mounting-goal.mjs")) &&
-      /url\.pathname === "\/v1\/model-mount\/storage\/cleanup"/.test(read("scripts/run-autopilot-model-mounting-goal.mjs")) &&
-      /segments\[2\] === "downloads"/.test(read("scripts/run-autopilot-model-mounting-goal.mjs")) &&
+      /url\.pathname === "\/v1\/model-mount\/catalog\/import-url"/.test(read("scripts/run-hypervisor-model-mounting-goal.mjs")) &&
+      /url\.pathname === "\/v1\/model-mount\/downloads"/.test(read("scripts/run-hypervisor-model-mounting-goal.mjs")) &&
+      /url\.pathname === "\/v1\/model-mount\/storage\/cleanup"/.test(read("scripts/run-hypervisor-model-mounting-goal.mjs")) &&
+      /segments\[2\] === "downloads"/.test(read("scripts/run-hypervisor-model-mounting-goal.mjs")) &&
       /Slice 1358 hard-cuts stable model_mount storage-download protocol clients/.test(guide) &&
       /Model_mount stable storage-download protocol clients/.test(matrix) &&
       /RuntimeDaemonCoreModelMountStableStorageDownloadProtocolClients/.test(implementationMatrix),
@@ -28119,7 +28148,7 @@ function runReceipts() {
       "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.mjs",
       "crates/cli/src/commands/models.rs",
-      "scripts/run-autopilot-model-mounting-goal.mjs",
+      "scripts/run-hypervisor-model-mounting-goal.mjs",
       "scripts/conformance/hypervisor-conformance.mjs",
     ],
     "Model_mount catalog import-url, download queue/status/cancel, storage cleanup, and artifact delete clients must use stable /v1/model-mount storage/download protocol routes; retired /api/v1 storage aliases must not return",
@@ -28230,7 +28259,7 @@ function runReceipts() {
       /\/v1\/model-mount\/catalog\/providers\/\$\{encodeURIComponent\(providerId\)\}\/oauth\/callback/.test(
         read("scripts/live-model-mounting-gate.mjs"),
       ) &&
-      /\/v1\/model-mount\/tokens/.test(read("scripts/run-autopilot-model-mounting-goal.mjs")) &&
+      /\/v1\/model-mount\/tokens/.test(read("scripts/run-hypervisor-model-mounting-goal.mjs")) &&
       /Slice 1359 hard-cuts stable model_mount provider-vault-token-catalog protocol/.test(guide) &&
       /Model_mount stable provider-vault-token-catalog protocol clients/.test(matrix) &&
       /RuntimeDaemonCoreModelMountStableProviderVaultTokenCatalogProtocolClients/.test(implementationMatrix),
@@ -32733,11 +32762,11 @@ function runCtee() {
   const cteePrivateWorkspaceCoreStoreTest = exists("packages/runtime-daemon/src/runtime-ctee-private-workspace-core-store.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-ctee-private-workspace-core-store.test.mjs")
     : "";
-  const cteePrivateWorkspaceSurface = exists("packages/runtime-daemon/src/runtime-ctee-private-workspace-surface.mjs")
-    ? read("packages/runtime-daemon/src/runtime-ctee-private-workspace-surface.mjs")
+  const cteePrivateWorkspaceApi = exists("packages/runtime-daemon/src/runtime-ctee-private-workspace-api.mjs")
+    ? read("packages/runtime-daemon/src/runtime-ctee-private-workspace-api.mjs")
     : "";
-  const cteePrivateWorkspaceSurfaceTest = exists("packages/runtime-daemon/src/runtime-ctee-private-workspace-surface.test.mjs")
-    ? read("packages/runtime-daemon/src/runtime-ctee-private-workspace-surface.test.mjs")
+  const cteePrivateWorkspaceApiTest = exists("packages/runtime-daemon/src/runtime-ctee-private-workspace-api.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-ctee-private-workspace-api.test.mjs")
     : "";
   const runtimeRouteHandlers = exists("packages/runtime-daemon/src/runtime-route-handlers.mjs")
     ? read("packages/runtime-daemon/src/runtime-route-handlers.mjs")
@@ -32970,27 +32999,27 @@ function runCtee() {
   assertCheck(
     result,
     "ctee-product-route",
-    /createRuntimeCteePrivateWorkspaceSurface/.test(runtimeDaemonIndex) &&
-      /this\.cteePrivateWorkspaceSurface/.test(runtimeDaemonIndex) &&
-      !/^\s*executeCteePrivateWorkspaceAction\(threadId, request = \{\}\) \{/m.test(
+    /createRuntimeCteePrivateWorkspaceApi/.test(runtimeDaemonIndex) &&
+      /this\.cteePrivateWorkspaceApi/.test(runtimeDaemonIndex) &&
+      /executeCteePrivateWorkspaceAction\(threadId, request = \{\}\) \{\s*return this\.cteePrivateWorkspaceApi\.executeCteePrivateWorkspaceAction\(this, threadId, request\);/s.test(
         runtimeDaemonIndex,
       ) &&
-      !/CTEE_PRIVATE_WORKSPACE_ADMISSION_RESPONSE_SCHEMA_VERSION/.test(cteePrivateWorkspaceSurface) &&
-      !/action_executed:\s*true/.test(cteePrivateWorkspaceSurface) &&
-      !/receipt_ref:\s*receipt\?\.receipt_ref/.test(cteePrivateWorkspaceSurface) &&
+      !/CTEE_PRIVATE_WORKSPACE_ADMISSION_RESPONSE_SCHEMA_VERSION/.test(cteePrivateWorkspaceApi) &&
+      !/action_executed:\s*true/.test(cteePrivateWorkspaceApi) &&
+      !/receipt_ref:\s*receipt\?\.receipt_ref/.test(cteePrivateWorkspaceApi) &&
       !/accepted_receipt_append:\s*admission\.accepted_receipt_append/.test(
-        cteePrivateWorkspaceSurface,
+        cteePrivateWorkspaceApi,
       ) &&
-      /RETIRED_CTEE_PRIVATE_WORKSPACE_TRUTH_FIELDS/.test(cteePrivateWorkspaceSurface) &&
-      /ctee_private_workspace_agentgres_truth_fields_retired/.test(cteePrivateWorkspaceSurface) &&
+      /RETIRED_CTEE_PRIVATE_WORKSPACE_TRUTH_FIELDS/.test(cteePrivateWorkspaceApi) &&
+      /ctee_private_workspace_agentgres_truth_fields_retired/.test(cteePrivateWorkspaceApi) &&
       /return store\.cteePrivateWorkspaceCore\.executeAction\(action,\s*\{\s*thread_id:\s*threadId,\s*agent_id:\s*agent\.id,\s*\}\)/.test(
-        cteePrivateWorkspaceSurface,
+        cteePrivateWorkspaceApi,
       ) &&
       /ctee-private-workspace-actions/.test(runtimeRouteHandlers) &&
-      /store\.cteePrivateWorkspaceSurface\.executeCteePrivateWorkspaceAction\(store,\s*threadId,\s*await readBody\(request\)\)/.test(
+      /store\.executeCteePrivateWorkspaceAction\(threadId,\s*await readBody\(request\)\)/.test(
         runtimeRouteHandlers,
       ) &&
-      /thread route sends admission controls through mounted admission surfaces/.test(
+      /thread route sends governed admission controls through store-owned APIs/.test(
         runtimeRouteHandlersTest,
       ) &&
       !/"expected_heads":\s*\["agentgres:\/\/ctee\/private-workspace\/head\/before"\]/.test(
@@ -32999,21 +33028,21 @@ function runCtee() {
       /thread route does not expose cTEE private workspace apply shortcut/.test(
         runtimeRouteHandlersTest,
       ) &&
-      /cTEE private workspace surface executes nested action through Rust core/.test(
-        cteePrivateWorkspaceSurfaceTest,
+      /cTEE private workspace API executes nested action through Rust core/.test(
+        cteePrivateWorkspaceApiTest,
       ) &&
       /assert\.deepEqual\(runtimeStore\.calls\.at\(-1\)\.context,\s*\{\s*thread_id:\s*"thread_surface",\s*agent_id:\s*"agent_surface",\s*\}\)/.test(
-        cteePrivateWorkspaceSurfaceTest,
+        cteePrivateWorkspaceApiTest,
       ) &&
-      /cTEE private workspace surface fails closed without action payload/.test(
-        cteePrivateWorkspaceSurfaceTest,
+      /cTEE private workspace API fails closed without action payload/.test(
+        cteePrivateWorkspaceApiTest,
       ) &&
-      /cTEE private workspace surface rejects client supplied Agentgres truth before Rust core/.test(
-        cteePrivateWorkspaceSurfaceTest,
+      /cTEE private workspace API rejects client supplied Agentgres truth before Rust core/.test(
+        cteePrivateWorkspaceApiTest,
       ),
     [
-      "packages/runtime-daemon/src/runtime-ctee-private-workspace-surface.mjs",
-      "packages/runtime-daemon/src/runtime-ctee-private-workspace-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-ctee-private-workspace-api.mjs",
+      "packages/runtime-daemon/src/runtime-ctee-private-workspace-api.test.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
@@ -33023,18 +33052,18 @@ function runCtee() {
   assertCheck(
     result,
     "ctee-admission-response-aliases-retired",
-    !cteePrivateWorkspaceAdmissionCamelAliasPropertyPattern.test(cteePrivateWorkspaceSurface) &&
+    !cteePrivateWorkspaceAdmissionCamelAliasPropertyPattern.test(cteePrivateWorkspaceApi) &&
       !cteePrivateWorkspaceAdmissionCamelAliasTypePattern.test(
         cteePrivateWorkspaceActionResultType,
       ) &&
-      /cTEE private workspace surface exposes only canonical snake_case admission fields/.test(
-        cteePrivateWorkspaceSurfaceTest,
+      /cTEE private workspace API exposes only canonical snake_case admission fields/.test(
+        cteePrivateWorkspaceApiTest,
       ) &&
-      /CTEE_PRIVATE_WORKSPACE_ADMISSION_CAMEL_ALIASES/.test(cteePrivateWorkspaceSurfaceTest) &&
-      /Object\.hasOwn\(result, key\)/.test(cteePrivateWorkspaceSurfaceTest),
+      /CTEE_PRIVATE_WORKSPACE_ADMISSION_CAMEL_ALIASES/.test(cteePrivateWorkspaceApiTest) &&
+      /Object\.hasOwn\(result, key\)/.test(cteePrivateWorkspaceApiTest),
     [
-      "packages/runtime-daemon/src/runtime-ctee-private-workspace-surface.mjs",
-      "packages/runtime-daemon/src/runtime-ctee-private-workspace-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-ctee-private-workspace-api.mjs",
+      "packages/runtime-daemon/src/runtime-ctee-private-workspace-api.test.mjs",
       "packages/agent-sdk/src/substrate-client.ts",
     ],
     "Phase 7/11 is pending: cTEE Private Workspace admission responses must not preserve camelCase compatibility aliases after the canonical route is verified",
@@ -33042,33 +33071,33 @@ function runCtee() {
   assertCheck(
     result,
     "ctee-admission-request-aliases-retired",
-    /RETIRED_CTEE_PRIVATE_WORKSPACE_REQUEST_ALIASES/.test(cteePrivateWorkspaceSurface) &&
-      /CANONICAL_CTEE_PRIVATE_WORKSPACE_REQUEST_FIELDS/.test(cteePrivateWorkspaceSurface) &&
+    /RETIRED_CTEE_PRIVATE_WORKSPACE_REQUEST_ALIASES/.test(cteePrivateWorkspaceApi) &&
+      /CANONICAL_CTEE_PRIVATE_WORKSPACE_REQUEST_FIELDS/.test(cteePrivateWorkspaceApi) &&
       /ctee_private_workspace_action_request_aliases_retired/.test(
-        cteePrivateWorkspaceSurface,
+        cteePrivateWorkspaceApi,
       ) &&
       /ctee_private_workspace_agentgres_truth_fields_retired/.test(
-        cteePrivateWorkspaceSurface,
+        cteePrivateWorkspaceApi,
       ) &&
       /assertCanonicalCteePrivateWorkspaceRequestBody\(body\);[\s\S]*objectRecord\(body\.action\)/.test(
-        cteePrivateWorkspaceSurface,
+        cteePrivateWorkspaceApi,
       ) &&
       /assertNoClientSuppliedCteePrivateWorkspaceTruth\(action\);/.test(
-        cteePrivateWorkspaceSurface,
+        cteePrivateWorkspaceApi,
       ) &&
-      !/body\.(?:cteeAction|ctee_action)\b/.test(cteePrivateWorkspaceSurface) &&
-      /cTEE private workspace surface rejects retired request aliases before agent lookup or Rust core/.test(
-        cteePrivateWorkspaceSurfaceTest,
+      !/body\.(?:cteeAction|ctee_action)\b/.test(cteePrivateWorkspaceApi) &&
+      /cTEE private workspace API rejects retired request aliases before agent lookup or Rust core/.test(
+        cteePrivateWorkspaceApiTest,
       ) &&
-      /cTEE private workspace surface ignores retired nested invocation identity alias/.test(
-        cteePrivateWorkspaceSurfaceTest,
+      /cTEE private workspace API ignores retired nested invocation identity alias/.test(
+        cteePrivateWorkspaceApiTest,
       ) &&
       /invocationId: "invocation:\/\/ctee\/retired"/.test(
-        cteePrivateWorkspaceSurfaceTest,
+        cteePrivateWorkspaceApiTest,
       ) &&
-      /result\.invocation_id,\s*undefined/.test(cteePrivateWorkspaceSurfaceTest) &&
-      !/action\.invocation\?\.invocationId/.test(cteePrivateWorkspaceSurface) &&
-      /assert\.deepEqual\(runtimeStore\.calls,\s*\[\]\)/.test(cteePrivateWorkspaceSurfaceTest) &&
+      /result\.invocation_id,\s*undefined/.test(cteePrivateWorkspaceApiTest) &&
+      !/action\.invocation\?\.invocationId/.test(cteePrivateWorkspaceApi) &&
+      /assert\.deepEqual\(runtimeStore\.calls,\s*\[\]\)/.test(cteePrivateWorkspaceApiTest) &&
       /retiredCteePrivateWorkspaceRequestAliases/.test(cteePrivateWorkspaceControlNodesTest) &&
       /Object\.prototype\.hasOwnProperty\.call\(request\.body,\s*key\)/.test(
         cteePrivateWorkspaceControlNodesTest,
@@ -33091,8 +33120,8 @@ function runCtee() {
       !/ctee_action:\s*action/.test(cteePrivateWorkspaceControlNodes) &&
       !/cteeAction:\s*action/.test(cteePrivateWorkspaceControlNodes),
     [
-      "packages/runtime-daemon/src/runtime-ctee-private-workspace-surface.mjs",
-      "packages/runtime-daemon/src/runtime-ctee-private-workspace-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-ctee-private-workspace-api.mjs",
+      "packages/runtime-daemon/src/runtime-ctee-private-workspace-api.test.mjs",
       "packages/hypervisor-workbench/src/runtime/workflow-runtime-ctee-private-workspace-control-nodes.ts",
       "packages/hypervisor-workbench/src/runtime/workflow-runtime-ctee-private-workspace-control-nodes.test.ts",
     ],
@@ -35244,9 +35273,9 @@ function runCompositor() {
     ? read("scripts/lib/live-runtime-daemon-contract/mcp-fixtures.mjs")
     : "";
   const conversationArtifactProofScript = exists(
-    "scripts/run-autopilot-conversation-artifact-embedded-document-canvas-goal.mjs",
+    "scripts/run-hypervisor-conversation-artifact-embedded-document-canvas-goal.mjs",
   )
-    ? read("scripts/run-autopilot-conversation-artifact-embedded-document-canvas-goal.mjs")
+    ? read("scripts/run-hypervisor-conversation-artifact-embedded-document-canvas-goal.mjs")
     : "";
   function blockBetween(text, startMarker, endMarker) {
     const startIndex = text.indexOf(startMarker);
@@ -36335,7 +36364,7 @@ function runCompositor() {
       "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.mjs",
       "packages/agent-sdk/src/substrate-client.ts",
-      "scripts/run-autopilot-conversation-artifact-embedded-document-canvas-goal.mjs",
+      "scripts/run-hypervisor-conversation-artifact-embedded-document-canvas-goal.mjs",
     ],
     "Phase 10/11 is pending: conversation artifact records, refs, revisions, actions, routes, and SDK queries must use the canonical snake_case contract without duplicate compatibility aliases",
   );
