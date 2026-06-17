@@ -1,11 +1,11 @@
 export function ensureNativeLocalFixtureArtifact(state, checkedAt) {
   void state;
   return {
-    id: "autopilot.native.fixture",
-    providerId: "provider.autopilot.local",
-    modelId: "autopilot:native-fixture",
-    displayName: "Autopilot native local fixture",
-    family: "autopilot-native",
+    id: "hypervisor.native.fixture",
+    providerId: "provider.hypervisor.local",
+    modelId: "hypervisor:native-fixture",
+    displayName: "Hypervisor native local fixture",
+    family: "hypervisor-native",
     format: "rust_backed_fixture",
     quantization: "deterministic",
     sizeBytes: 0,

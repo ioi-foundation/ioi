@@ -65,7 +65,7 @@ test("product model defaults do not seed fixture or local:auto models", () => {
     for (const ids of [allModelIds, productModelIds, endpointModelIds, runtimeModelIds, openAiModelIds]) {
       assert.equal(ids.includes("local:auto"), false);
       assert.equal(ids.some((id) => String(id || "").includes("fixture")), false);
-      assert.equal(ids.some((id) => String(id || "").includes("autopilot:native-fixture")), false);
+      assert.equal(ids.some((id) => String(id || "").includes("hypervisor:native-fixture")), false);
     }
   });
 });

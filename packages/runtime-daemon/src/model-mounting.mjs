@@ -2700,7 +2700,7 @@ function assertCanonicalModelLoadingRequestBody(body = {}) {
 }
 
 function defaultBackendForProvider(provider = {}) {
-  if (provider.kind === "ioi_native_local") return "backend.autopilot.native-local.fixture";
+  if (provider.kind === "ioi_native_local") return "backend.hypervisor.native-local.fixture";
   if (provider.kind === "lm_studio") return "backend.lmstudio";
   if (provider.kind === "ollama") return "backend.ollama";
   if (provider.kind === "vllm") return "backend.vllm";

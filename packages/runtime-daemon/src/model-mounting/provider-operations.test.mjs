@@ -413,7 +413,7 @@ function fakeState() {
       const backendId = fakeLifecycleValue(endpoint, ["backend_ref", "backend_id", "backendId"]) ??
         fakeLifecycleValue(provider, ["backend_ref", "backend_id", "backendId"]) ??
         request.backend_ref ?? (nativeLocal
-        ? "backend.autopilot.native-local.fixture"
+        ? "backend.hypervisor.native-local.fixture"
         : hostedProvider
           ? `backend.hosted.${fakeLifecycleSafeId(providerKind)}`
           : "backend.fixture");
@@ -554,7 +554,7 @@ function fakeState() {
       const hostedProvider = request.execution_backend === "rust_model_mount_hosted_provider_inventory";
       const itemRefs = fakeProviderInventoryItemRefs(request);
       const backendId = request.backend_ref ?? (nativeLocal
-        ? "backend.autopilot.native-local.fixture"
+        ? "backend.hypervisor.native-local.fixture"
         : hostedProvider
           ? `backend.hosted.${request.provider_kind}`
           : "backend.fixture");
@@ -1360,13 +1360,13 @@ test("local provider health uses Rust native-local lifecycle planner without JS 
   state.endpoints.set("endpoint.local", {
     id: "endpoint.local",
     providerId: "provider.local",
-    modelId: "autopilot:native-fixture",
+    modelId: "hypervisor:native-fixture",
     status: "mounted",
   });
   state.endpointProjectionRecords.push({
     id: "endpoint.local",
     providerId: "provider.local",
-    modelId: "autopilot:native-fixture",
+    modelId: "hypervisor:native-fixture",
     status: "mounted",
   });
   state.drivers.set("provider.local", {
@@ -1460,19 +1460,19 @@ test("local provider health fails closed when Rust lifecycle planner is unavaila
   state.endpoints.set("endpoint.local", {
     id: "endpoint.local",
     providerId: "provider.local",
-    modelId: "autopilot:native-fixture",
+    modelId: "hypervisor:native-fixture",
     status: "mounted",
   });
   state.endpointProjectionRecords.push({
     id: "endpoint.local",
     providerId: "provider.local",
-    modelId: "autopilot:native-fixture",
+    modelId: "hypervisor:native-fixture",
     status: "mounted",
   });
   state.endpointProjectionRecords.push({
     id: "endpoint.local",
     providerId: "provider.local",
-    modelId: "autopilot:native-fixture",
+    modelId: "hypervisor:native-fixture",
     status: "mounted",
   });
   state.drivers.set("provider.local", {
@@ -2026,13 +2026,13 @@ test("local provider start and stop commit Rust native-local provider-lifecycle 
   state.endpoints.set("endpoint.local", {
     id: "endpoint.local",
     providerId: "provider.local",
-    modelId: "autopilot:native-fixture",
+    modelId: "hypervisor:native-fixture",
     status: "mounted",
   });
   state.endpointProjectionRecords.push({
     id: "endpoint.local",
     providerId: "provider.local",
-    modelId: "autopilot:native-fixture",
+    modelId: "hypervisor:native-fixture",
     status: "mounted",
   });
   state.drivers.set("provider.local", {

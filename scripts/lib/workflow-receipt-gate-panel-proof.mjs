@@ -46,7 +46,7 @@ try {
   const grant = await expectOk(daemon.endpoint, "/v1/model-mount/tokens", {
     method: "POST",
     body: {
-      audience: "autopilot-local-server",
+      audience: "hypervisor-local-server",
       allowed: ["model.chat:*", "route.use:*"],
     },
   });

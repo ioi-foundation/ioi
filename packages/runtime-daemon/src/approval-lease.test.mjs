@@ -615,7 +615,7 @@ test("coding tool approval leases stop satisfying retries after expiry", async (
       status: "active",
       runtime: "agent",
       cwd,
-      modelId: "autopilot:native-fixture",
+      modelId: "hypervisor:native-fixture",
       requestedModelId: "auto",
       modelRouteId: "route.native-local",
       modelRouteEndpointId: null,

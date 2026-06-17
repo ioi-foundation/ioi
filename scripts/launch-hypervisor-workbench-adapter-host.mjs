@@ -117,9 +117,9 @@ function isProductRuntimeEndpoint(endpoint = {}) {
     haystack.includes("lmstudio:detected") ||
     haystack.includes("lmstudio.detected") ||
     haystack.includes("local:auto") ||
-    haystack.includes("autopilot:native-fixture") ||
+    haystack.includes("hypervisor:native-fixture") ||
     haystack.includes("endpoint.local.auto") ||
-    haystack.includes("endpoint.autopilot.native-fixture") ||
+    haystack.includes("endpoint.hypervisor.native-fixture") ||
     /\bfixture\b/.test(haystack)
   ) {
     return false;

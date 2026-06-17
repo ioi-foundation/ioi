@@ -185,6 +185,16 @@ const hypervisorClientNamespaceSources = [
   "packages/workspace-substrate/src/components/CodeOssEditor.tsx",
   "packages/workspace-substrate/src/components/WorkspaceEditorPane.tsx",
 ].map(read).join("\n");
+const hypervisorModelMountIdentitySources = [
+  "packages/runtime-daemon/src/model-mounting/default-records.mjs",
+  "packages/runtime-daemon/src/model-mounting/default-discovery.mjs",
+  "packages/runtime-daemon/src/model-mounting.mjs",
+  "apps/hypervisor/src/surfaces/MissionControl/MissionControlMountsView.tsx",
+  "scripts/lib/hypervisor-runtime-agent-service-inference.mjs",
+  "scripts/lib/model-mounting-daemon-contract.test.mjs",
+  "scripts/validate-model-mounting-e2e.mjs",
+  "apps/hypervisor/scripts/desktop_model_mounts_probe.py",
+].map(read).join("\n");
 const packageScriptNames = Object.keys(packageJson.scripts ?? {});
 const retiredAutopilotPackageScripts = packageScriptNames.filter((scriptName) =>
   /^(?:goal|validate|test):autopilot/.test(scriptName),
@@ -543,6 +553,31 @@ assert(
     "packages/workspace-substrate/src/codeOss.ts",
   ],
   "Active client storage keys, events, export prefixes, editor themes, and shell stylesheet paths must use Hypervisor namespaces.",
+);
+assert(
+  "active-model-mount-identities-hypervisor-named",
+  [
+    "provider.hypervisor.local",
+    "backend.hypervisor.native-local.fixture",
+    "endpoint.hypervisor.native-fixture",
+    "hypervisor:native-fixture",
+    "hypervisor-local-server",
+    "hypervisor_native_local_provider_native_stream",
+    "hypervisor_native_local_backend_registry",
+    "fixture://catalog/hypervisor-native-3b-q4",
+  ].every((token) => hypervisorModelMountIdentitySources.includes(token)) &&
+    !/provider\.autopilot\.local|backend\.autopilot\.native-local\.fixture|endpoint\.autopilot\.native-fixture|autopilot:native-fixture|autopilot-local-server|autopilot_native_local_provider_native_stream|autopilot_native_local_backend_registry|fixture:\/\/catalog\/autopilot-native-3b-q4/.test(
+      hypervisorModelMountIdentitySources,
+    ),
+  [
+    "packages/runtime-daemon/src/model-mounting/default-records.mjs",
+    "packages/runtime-daemon/src/model-mounting/default-discovery.mjs",
+    "packages/runtime-daemon/src/model-mounting.mjs",
+    "apps/hypervisor/src/surfaces/MissionControl/MissionControlMountsView.tsx",
+    "scripts/lib/model-mounting-daemon-contract.test.mjs",
+    "scripts/validate-model-mounting-e2e.mjs",
+  ],
+  "Active native-local model mount providers, backends, endpoints, auth audiences, catalog fixtures, and stream evidence refs must use Hypervisor identities.",
 );
 assert(
   "workbench-landing-adapter-hub",

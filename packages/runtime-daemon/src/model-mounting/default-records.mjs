@@ -18,9 +18,9 @@ export function localFolderProviderRecord(checkedAt) {
 
 export function nativeLocalProviderRecord(checkedAt) {
   return {
-    id: "provider.autopilot.local",
+    id: "provider.hypervisor.local",
     kind: "ioi_native_local",
-    label: "Autopilot native local",
+    label: "Hypervisor native local",
     apiFormat: "ioi_native",
     driver: "native_local",
     baseUrl: "local://ioi-native/model-server",
@@ -29,7 +29,7 @@ export function nativeLocalProviderRecord(checkedAt) {
     capabilities: ["chat", "responses", "embeddings", "structured_output", "rerank"],
     discovery: {
       checkedAt,
-      evidenceRefs: ["autopilot_native_local_backend_registry", "deterministic_native_local_fixture"],
+      evidenceRefs: ["hypervisor_native_local_backend_registry", "deterministic_native_local_fixture"],
     },
   };
 }
@@ -75,7 +75,7 @@ export function runtimeProviderRecords({
         evidenceRefs: [
           "IOI_LLAMA_CPP_BASE_URL",
           "IOI_LLAMA_CPP_SERVER_PATH",
-          ...(llamaBinary ? ["autopilot_llama_cpp_runtime_engine_detected"] : []),
+          ...(llamaBinary ? ["hypervisor_llama_cpp_runtime_engine_detected"] : []),
         ],
         binaryPathHash: llamaBinary ? stableHash(llamaBinary) : null,
       },
@@ -197,8 +197,8 @@ export function localFixtureEndpointRecord(checkedAt) {
 
 export function nativeFixtureEndpointRecord({ artifact, checkedAt } = {}) {
   return {
-    id: "endpoint.autopilot.native-fixture",
-    providerId: "provider.autopilot.local",
+    id: "endpoint.hypervisor.native-fixture",
+    providerId: "provider.hypervisor.local",
     modelId: artifact.modelId,
     apiFormat: "ioi_native",
     driver: "native_local",

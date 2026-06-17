@@ -125,7 +125,7 @@ function fakeState() {
       const nativeLocal = request.execution_backend === "rust_model_mount_native_local_lifecycle";
       const status = request.action === "unload" ? "unloaded" : "loaded";
       const backendId = request.backend_ref ?? (nativeLocal
-        ? "backend.autopilot.native-local.fixture"
+        ? "backend.hypervisor.native-local.fixture"
         : "backend.fixture");
       const evidenceRefs = [
         "public_provider_lifecycle_js_facade_retired",
@@ -245,7 +245,7 @@ function fakeState() {
       const endpointId = request.endpoint_ref || endpoint.id;
       const modelId = request.model_ref || instance?.modelId || instance?.model_id || endpoint.modelId || endpoint.model_id;
       const providerId = request.provider_ref || instance?.providerId || instance?.provider_id || provider.id;
-      const backendId = request.backend_ref || instance?.backendId || instance?.backend_id || endpoint.backendId || endpoint.backend_id || "backend.autopilot.native-local.fixture";
+      const backendId = request.backend_ref || instance?.backendId || instance?.backend_id || endpoint.backendId || endpoint.backend_id || "backend.hypervisor.native-local.fixture";
       const driver = request.driver || instance?.driver || provider.driver || endpoint.driver || "native_local";
       const instanceId = request.instance_ref ||
         (estimate ? `model_instance_estimate.${endpointId}` : `model_instance.${endpointId}.${modelId}`);
@@ -583,7 +583,7 @@ test("loadModel estimate-only commits Rust estimate record before returning publ
   assert.equal(estimate.endpoint_id, "endpoint.local.llama");
   assert.equal(estimate.model_id, "llama-test");
   assert.equal(estimate.provider_id, "provider.local");
-  assert.equal(estimate.backend_id, "backend.autopilot.native-local.fixture");
+  assert.equal(estimate.backend_id, "backend.hypervisor.native-local.fixture");
   assert.equal(estimate.runtime_engine_id, "engine.native");
   assert.equal(estimate.load_estimate.object, "ioi.model_mount_load_estimate");
   assert.equal(estimate.load_estimate.js_sizing_execution, false);
@@ -637,16 +637,16 @@ test("loadModel commits Rust-planned instance lifecycle without mutating JS inst
   assert.equal(loaded.endpoint_id, "endpoint.local.llama");
   assert.equal(loaded.model_id, "llama-test");
   assert.equal(loaded.provider_id, "provider.local");
-  assert.equal(loaded.backend_id, "backend.autopilot.native-local.fixture");
+  assert.equal(loaded.backend_id, "backend.hypervisor.native-local.fixture");
   assert.equal(loaded.provider_lifecycle_hash, "sha256:provider:provider://provider.local:load");
   assert.equal(
     loaded.backend_process_ref,
-    "backend_process://backend.autopilot.native-local.fixture.process#sha256:plan",
+    "backend_process://backend.hypervisor.native-local.fixture.process#sha256:plan",
   );
   assert.equal(loaded.backend_process_materialization_hash, "sha256:backend-process-materialization");
   assert.equal(
     loaded.backend_supervision_ref,
-    "backend_supervision://backend.autopilot.native-local.fixture.process#sha256:plan",
+    "backend_supervision://backend.hypervisor.native-local.fixture.process#sha256:plan",
   );
   assert.equal(loaded.backend_supervision_hash, "sha256:backend-supervision");
   assert.equal(loaded.backend_supervision_status, "rust_fixture_supervision_bound");
@@ -670,7 +670,7 @@ test("loadModel commits Rust-planned instance lifecycle without mutating JS inst
   );
   assert.equal(
     state.backendProcessMaterializationRequests[0].backend_ref,
-    "backend.autopilot.native-local.fixture",
+    "backend.hypervisor.native-local.fixture",
   );
   assert.equal(state.backendProcessMaterializationRequests[0].backend_kind, "native_local");
   assert.equal(state.backendProcessMaterializationRequests[0].load_options.identifier, "llama-test");
@@ -820,7 +820,7 @@ test("unloadModel commits Rust-planned instance lifecycle without mutating JS in
   assert.equal(unloaded.endpoint_id, "endpoint.local.llama");
   assert.equal(unloaded.model_id, "llama-test");
   assert.equal(unloaded.provider_id, "provider.local");
-  assert.equal(unloaded.backend_id, "backend.autopilot.native-local.fixture");
+  assert.equal(unloaded.backend_id, "backend.hypervisor.native-local.fixture");
   assert.equal(unloaded.provider_lifecycle_hash, "sha256:provider:provider://provider.local:unload");
   assert.equal(unloaded.instance_lifecycle_hash, "sha256:instance:instance.loaded:unload");
   assert.deepEqual(state.instances.get("instance.loaded"), loaded);

@@ -2216,10 +2216,10 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
     schema_version: "ioi.model_mount.provider_invocation.v1",
     provider_execution_ref: providerExecution.provider_execution_ref,
     provider_execution_hash: providerExecution.provider_execution_hash,
-    provider_ref: "provider.autopilot.local",
+    provider_ref: "provider.hypervisor.local",
     provider_kind: "ioi_native_local",
     execution_backend: "rust_model_mount_native_local_stream",
-    backend_ref: "backend.autopilot.native-local.fixture",
+    backend_ref: "backend.hypervisor.native-local.fixture",
     stream_status: "started",
   });
   assert.equal(calls.length, 0);
@@ -2231,12 +2231,12 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
   assert.equal(providerStream.streamKind, "openai_responses_native_local");
   const providerLifecycle = store.modelMounting.planModelMountProviderLifecycle({
     schema_version: "ioi.model_mount.provider_lifecycle.v1",
-    provider_ref: "provider.autopilot.local",
+    provider_ref: "provider.hypervisor.local",
     provider_kind: "ioi_native_local",
     action: "load",
     execution_backend: "rust_model_mount_native_local_lifecycle",
     driver: "native_local",
-    backend_ref: "backend.autopilot.native-local.fixture",
+    backend_ref: "backend.hypervisor.native-local.fixture",
   });
   assert.equal(calls.length, 0);
   assertModelMountDirectApiCall(
@@ -2247,12 +2247,12 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
   assert.equal(providerLifecycle.lifecycle_hash, "sha256:direct-provider-lifecycle");
   const providerInventory = store.modelMounting.planModelMountProviderInventory({
     schema_version: "ioi.model_mount.provider_inventory.v1",
-    provider_ref: "provider.autopilot.local",
+    provider_ref: "provider.hypervisor.local",
     provider_kind: "ioi_native_local",
     action: "list_loaded",
     execution_backend: "rust_model_mount_native_local_inventory",
     driver: "native_local",
-    backend_ref: "backend.autopilot.native-local.fixture",
+    backend_ref: "backend.hypervisor.native-local.fixture",
   });
   assert.equal(calls.length, 0);
   assertModelMountDirectApiCall(
@@ -2264,11 +2264,11 @@ test("daemon-level typed APIs feed migrated daemon-core surfaces", () => {
   const instanceLifecycle = store.modelMounting.planModelMountInstanceLifecycle({
     schema_version: "ioi.model_mount.instance_lifecycle.v1",
     instance_ref: "model_instance://native/direct",
-    provider_ref: "provider.autopilot.local",
+    provider_ref: "provider.hypervisor.local",
     action: "load",
     execution_backend: "rust_model_mount_instance_lifecycle",
     driver: "native_local",
-    backend_ref: "backend.autopilot.native-local.fixture",
+    backend_ref: "backend.hypervisor.native-local.fixture",
     provider_lifecycle_hash: providerLifecycle.lifecycle_hash,
     backend_process_ref: "backend_process://backend.llama.process#sha256:direct-backend-process",
     backend_process_materialization_hash: "sha256:direct-backend-process-materialization",

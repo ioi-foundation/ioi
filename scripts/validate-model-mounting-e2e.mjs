@@ -160,12 +160,12 @@ function assertNativeLocalStreamReceipt(receipt, { kind, streamKind, selectedMod
   assert.equal(receipt.details.routeId, "route.native-local");
   assert.equal(receipt.details.selectedModel, selectedModel);
   assert.equal(receipt.details.endpointId, endpointId);
-  assert.equal(receipt.details.providerId, "provider.autopilot.local");
-  assert.equal(receipt.details.backendId, "backend.autopilot.native-local.fixture");
-  assert.equal(receipt.details.selectedBackend, "backend.autopilot.native-local.fixture");
+  assert.equal(receipt.details.providerId, "provider.hypervisor.local");
+  assert.equal(receipt.details.backendId, "backend.hypervisor.native-local.fixture");
+  assert.equal(receipt.details.selectedBackend, "backend.hypervisor.native-local.fixture");
   assert.equal(receipt.details.streamSource, "provider_native");
   assert.equal(typeof receipt.details.invocationReceiptId, "string");
-  assert.ok(receipt.details.backendEvidenceRefs.includes("autopilot_native_local_provider_native_stream"));
+  assert.ok(receipt.details.backendEvidenceRefs.includes("hypervisor_native_local_provider_native_stream"));
   if (status) {
     assert.equal(receipt.details.status, status);
   }
@@ -493,7 +493,7 @@ async function main() {
       const grant = await expectOk(daemon.endpoint, "/v1/model-mount/tokens", {
         method: "POST",
         body: {
-          audience: "autopilot-local-server",
+          audience: "hypervisor-local-server",
           allowed: [
             "model.chat:*",
             "model.responses:*",
@@ -565,7 +565,7 @@ async function main() {
       const backendIds = new Set(snapshot.backends.map((backend) => backend.id));
       for (const id of [
         "backend.fixture",
-        "backend.autopilot.native-local.fixture",
+        "backend.hypervisor.native-local.fixture",
         "backend.llama-cpp",
         "backend.ollama",
         "backend.vllm",
@@ -585,7 +585,7 @@ async function main() {
     await runStep(evidence, "runtime engines and hardware survey", async () => {
       const engines = await expectOk(daemon.endpoint, "/v1/model-mount/runtime/engines");
       assert.ok(
-        engines.some((engine) => engine.id === "backend.autopilot.native-local.fixture"),
+        engines.some((engine) => engine.id === "backend.hypervisor.native-local.fixture"),
         "missing native-local runtime engine",
       );
       const survey = await expectOk(daemon.endpoint, "/v1/model-mount/runtime/survey", { method: "POST" });
@@ -604,10 +604,10 @@ async function main() {
       assert.equal(receiptText.includes(path.join(os.homedir(), ".local/bin/lm-studio.AppImage")), false);
       const selection = await expectOk(daemon.endpoint, "/v1/model-mount/runtime/select", {
         method: "POST",
-        body: { engine_id: "backend.autopilot.native-local.fixture" },
+        body: { engine_id: "backend.hypervisor.native-local.fixture" },
       });
-      assert.equal(selection.selectedEngineId, "backend.autopilot.native-local.fixture");
-      const profile = await expectOk(daemon.endpoint, "/v1/model-mount/runtime/engines/backend.autopilot.native-local.fixture", {
+      assert.equal(selection.selectedEngineId, "backend.hypervisor.native-local.fixture");
+      const profile = await expectOk(daemon.endpoint, "/v1/model-mount/runtime/engines/backend.hypervisor.native-local.fixture", {
         method: "PATCH",
         body: {
           label: "Autopilot native fixture e2e",
@@ -616,7 +616,7 @@ async function main() {
         },
       });
       assert.equal(profile.engine.operatorProfile.defaultLoadOptions.contextLength, 3584);
-      const detail = await expectOk(daemon.endpoint, "/v1/model-mount/runtime/engines/backend.autopilot.native-local.fixture");
+      const detail = await expectOk(daemon.endpoint, "/v1/model-mount/runtime/engines/backend.hypervisor.native-local.fixture");
       assert.equal(detail.profile.defaultLoadOptions.parallel, 3);
       const selectedEngines = await expectOk(daemon.endpoint, "/v1/model-mount/runtime/engines");
       assert.equal(selectedEngines.find((engine) => engine.id === selection.selectedEngineId)?.selected, true);
@@ -631,17 +631,17 @@ async function main() {
     });
 
     await runStep(evidence, "import, mount, and load deterministic native-local artifact", async () => {
-      const artifactPath = path.join(workspaceDir, "autopilot-e2e.Q4_K_M.gguf");
+      const artifactPath = path.join(workspaceDir, "hypervisor-e2e.Q4_K_M.gguf");
       fs.writeFileSync(
         artifactPath,
-        ["family=autopilot-e2e", "quantization=Q4_K_M", "context=4096", "fixture bytes"].join("\n"),
+        ["family=hypervisor-e2e", "quantization=Q4_K_M", "context=4096", "fixture bytes"].join("\n"),
       );
       const imported = await expectOk(daemon.endpoint, "/v1/model-mount/artifacts/import", {
         method: "POST",
         token,
         body: {
           model_id: "native:e2e",
-          provider_id: "provider.autopilot.local",
+          provider_id: "provider.hypervisor.local",
           path: artifactPath,
           capabilities: ["chat", "responses", "embeddings"],
         },
@@ -650,7 +650,7 @@ async function main() {
       const mounted = await expectOk(daemon.endpoint, "/v1/model-mount/endpoints", {
         method: "POST",
         token,
-        body: { model_id: "native:e2e", id: "endpoint.e2e.native-local", provider_id: "provider.autopilot.local" },
+        body: { model_id: "native:e2e", id: "endpoint.e2e.native-local", provider_id: "provider.hypervisor.local" },
       });
       const defaultEstimate = await expectOk(daemon.endpoint, "/v1/model-mount/instances/load", {
         method: "POST",
@@ -679,7 +679,7 @@ async function main() {
         },
       });
       assert.equal(estimate.status, "estimate_only");
-      assert.equal(estimate.runtimeEngineId, "backend.autopilot.native-local.fixture");
+      assert.equal(estimate.runtimeEngineId, "backend.hypervisor.native-local.fixture");
       const loaded = await expectOk(daemon.endpoint, "/v1/model-mount/instances/load", {
         method: "POST",
         token,
@@ -695,15 +695,15 @@ async function main() {
           },
         },
       });
-      assert.equal(loaded.backendId, "backend.autopilot.native-local.fixture");
-      assert.equal(loaded.runtimeEngineId, "backend.autopilot.native-local.fixture");
+      assert.equal(loaded.backendId, "backend.hypervisor.native-local.fixture");
+      assert.equal(loaded.runtimeEngineId, "backend.hypervisor.native-local.fixture");
       assert.equal(loaded.identifier, "e2e-native-load");
       assert.equal(loaded.contextLength, 4096);
       assert.equal(loaded.backendProcess.status, "started");
       assert.match(loaded.backendProcess.pidHash, /^[a-f0-9]{16}$/);
       assert.equal(loaded.backendProcess.argsRedacted.includes("--context"), true);
       const processBackends = await expectOk(daemon.endpoint, "/v1/model-mount/backends");
-      const nativeProcessBackend = processBackends.find((backend) => backend.id === "backend.autopilot.native-local.fixture");
+      const nativeProcessBackend = processBackends.find((backend) => backend.id === "backend.hypervisor.native-local.fixture");
       assert.equal(nativeProcessBackend.process.status, "started");
       assert.equal(nativeProcessBackend.process.argsRedacted.includes("4096"), true);
       return {
@@ -723,7 +723,7 @@ async function main() {
         body: { route_id: "route.native-local", model: "native:e2e", input: "native chat e2e" },
       });
       nativeReceiptId = chat.receipt_id;
-      assert.match(chat.output_text, /Autopilot native local model response/);
+      assert.match(chat.output_text, /Hypervisor native local model response/);
 
       const compatChat = await expectOk(daemon.endpoint, "/v1/chat/completions", {
         method: "POST",
@@ -741,7 +741,7 @@ async function main() {
         token,
         body: { route_id: "route.native-local", model: "native:e2e", input: "responses e2e" },
       });
-      assert.match(responses.output_text, /Autopilot native local model response/);
+      assert.match(responses.output_text, /Hypervisor native local model response/);
       assert.match(responses.response_id, /^resp_/);
 
       const continuedResponse = await expectOk(daemon.endpoint, "/v1/responses", {
@@ -757,7 +757,7 @@ async function main() {
       continuedResponseId = continuedResponse.id;
       continuedResponseReceiptId = continuedResponse.receipt_id;
       assert.equal(continuedResponse.previous_response_id, responses.response_id);
-      assert.match(continuedResponse.output_text, /Autopilot native local model response/);
+      assert.match(continuedResponse.output_text, /Hypervisor native local model response/);
       const continuedResponseReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${continuedResponseReceiptId}`);
       assert.equal(continuedResponseReceipt.details.previousResponseId, responses.response_id);
       assert.equal(continuedResponseReceipt.details.continuation.mode, "matched");
@@ -776,7 +776,7 @@ async function main() {
       assert.equal(anthropic.type, "message");
       assert.equal(anthropic.route_id, "route.native-local");
       assert.equal(anthropic.model, "native:e2e");
-      assert.match(anthropic.content[0].text, /Autopilot native local model response/);
+      assert.match(anthropic.content[0].text, /Hypervisor native local model response/);
       const anthropicReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${anthropicReceiptId}`);
       assert.equal(anthropicReceipt.kind, "model_invocation");
       assert.equal(anthropicReceipt.details.routeId, "route.native-local");
@@ -854,7 +854,7 @@ async function main() {
         .filter((event) => event.event === "content_block_delta")
         .map((event) => event.data.delta.text)
         .join("");
-      assert.match(anthropicStreamText, /Autopilot native local model response/);
+      assert.match(anthropicStreamText, /Hypervisor native local model response/);
       const anthropicStop = anthropicStream.events.at(-1);
       assert.equal(anthropicStop.event, "message_stop");
       assert.equal(anthropicStop.data.route_id, "route.native-local");
@@ -892,7 +892,7 @@ async function main() {
         .filter((chunk) => chunk !== "[DONE]")
         .map((chunk) => chunk.choices?.[0]?.delta?.content ?? "")
         .join("");
-      assert.match(streamedChatText, /Autopilot native local model response/);
+      assert.match(streamedChatText, /Hypervisor native local model response/);
       const streamedChatMetadata = streamedChatChunks.find((chunk) => chunk !== "[DONE]" && chunk.stream_receipt_id);
       assert.equal(streamedChatMetadata.route_id, "route.native-local");
       assert.equal(streamedChatMetadata.provider_stream, "native");
@@ -986,15 +986,15 @@ async function main() {
 
     await runStep(evidence, "catalog search, import modes, cleanup, and download lifecycle", async () => {
       const catalog = await expectOk(daemon.endpoint, "/v1/models/catalog/search?query=autopilot");
-      assert.ok(catalog.results.some((entry) => entry.sourceUrl === "fixture://catalog/autopilot-native-3b-q4"));
+      assert.ok(catalog.results.some((entry) => entry.sourceUrl === "fixture://catalog/hypervisor-native-3b-q4"));
       const catalogImport = await expectOk(daemon.endpoint, "/v1/model-mount/catalog/import-url", {
         method: "POST",
         token,
-        body: { source_url: "fixture://catalog/autopilot-native-3b-q4", model_id: "native:e2e-catalog" },
+        body: { source_url: "fixture://catalog/hypervisor-native-3b-q4", model_id: "native:e2e-catalog" },
       });
       assert.equal(catalogImport.status, "completed");
       assert.equal(catalogImport.download.variant.quantization, "Q4_K_M");
-      const dryRunPath = path.join(workspaceDir, "autopilot-e2e-dry-run.Q4_K_M.gguf");
+      const dryRunPath = path.join(workspaceDir, "hypervisor-e2e-dry-run.Q4_K_M.gguf");
       fs.writeFileSync(dryRunPath, "family=e2e-dry-run\ncontext=1024\nquantization=Q4_K_M\n");
       const dryRun = await expectOk(daemon.endpoint, "/v1/model-mount/artifacts/import", {
         method: "POST",
@@ -1013,7 +1013,7 @@ async function main() {
         token,
         body: {
           model_id: "native:e2e-cancel",
-          provider_id: "provider.autopilot.local",
+          provider_id: "provider.hypervisor.local",
           source_url: "fixture://e2e/cancel",
           queued_only: true,
         },
@@ -1028,7 +1028,7 @@ async function main() {
         token,
         body: {
           model_id: "native:e2e-downloaded",
-          provider_id: "provider.autopilot.local",
+          provider_id: "provider.hypervisor.local",
           source_url: "fixture://e2e/downloaded",
           fixture_content: "family=e2e-downloaded\ncontext=2048\nquantization=Q4_K_M\n",
         },
@@ -1209,11 +1209,11 @@ async function main() {
       assert.ok(serverLogs.records.some((record) => record.event === "server_restart"));
       assert.equal(JSON.stringify(serverLogs).includes(token), false);
       const backends = await runCli(cli, ["backends", "--json", "ls"], common);
-      assert.ok(backends.some((backend) => backend.id === "backend.autopilot.native-local.fixture"));
+      assert.ok(backends.some((backend) => backend.id === "backend.hypervisor.native-local.fixture"));
       const models = await runCli(cli, ["models", "--json", "ls"], common);
       assert.ok(models.artifacts.some((artifact) => artifact.modelId === "native:e2e"));
-      const providerModels = await runCli(cli, ["models", "--json", "provider-models", "provider.autopilot.local"], common);
-      assert.ok(providerModels.some((model) => model.modelId === "autopilot:native-fixture"));
+      const providerModels = await runCli(cli, ["models", "--json", "provider-models", "provider.hypervisor.local"], common);
+      assert.ok(providerModels.some((model) => model.modelId === "hypervisor:native-fixture"));
       const cliVaultMaterial = `cli-e2e-${crypto.randomUUID()}`;
       secretNeedles.push(cliVaultMaterial);
       const vaultSet = await runCli(
@@ -1296,19 +1296,19 @@ async function main() {
       assert.equal(JSON.stringify(configuredProvider).includes(cliVaultMaterial), false);
       const loaded = await runCli(cli, ["models", "--json", "ps"], common);
       assert.ok(loaded.some((instance) => instance.modelId === "native:e2e"));
-      const providerHealth = await runCli(cli, ["models", "--json", "provider-health", "provider.autopilot.local"], common);
+      const providerHealth = await runCli(cli, ["models", "--json", "provider-health", "provider.hypervisor.local"], common);
       assert.equal(providerHealth.status, "available");
       const runtimeSurvey = await runCli(cli, ["backends", "--json", "survey"], common);
       assert.match(runtimeSurvey.receiptId, /^receipt_runtime_survey_/);
       const runtimeEngines = await runCli(cli, ["backends", "--json", "engines"], common);
-      assert.ok(runtimeEngines.some((engine) => engine.id === "backend.autopilot.native-local.fixture"));
+      assert.ok(runtimeEngines.some((engine) => engine.id === "backend.hypervisor.native-local.fixture"));
       const runtimeEngineUpdate = await runCli(
         cli,
         [
           "backends",
           "--json",
           "engine-update",
-          "backend.autopilot.native-local.fixture",
+          "backend.hypervisor.native-local.fixture",
           "--priority",
           "2",
           "--gpu",
@@ -1325,17 +1325,17 @@ async function main() {
         common,
       );
       assert.equal(runtimeEngineUpdate.engine.operatorProfile.defaultLoadOptions.contextLength, 4096);
-      const runtimeEngineGet = await runCli(cli, ["backends", "--json", "engine-get", "backend.autopilot.native-local.fixture"], common);
+      const runtimeEngineGet = await runCli(cli, ["backends", "--json", "engine-get", "backend.hypervisor.native-local.fixture"], common);
       assert.equal(runtimeEngineGet.profile.defaultLoadOptions.identifier, "cli-runtime-profile");
-      const runtimeSelect = await runCli(cli, ["backends", "--json", "select", "backend.autopilot.native-local.fixture"], common);
-      assert.equal(runtimeSelect.selectedEngineId, "backend.autopilot.native-local.fixture");
-      const runtimeEngineRemove = await runCli(cli, ["backends", "--json", "engine-remove", "backend.autopilot.native-local.fixture"], common);
+      const runtimeSelect = await runCli(cli, ["backends", "--json", "select", "backend.hypervisor.native-local.fixture"], common);
+      assert.equal(runtimeSelect.selectedEngineId, "backend.hypervisor.native-local.fixture");
+      const runtimeEngineRemove = await runCli(cli, ["backends", "--json", "engine-remove", "backend.hypervisor.native-local.fixture"], common);
       assert.equal(runtimeEngineRemove.removed, true);
       const catalogSearch = await runCli(cli, ["models", "--json", "catalog-search", "--query", "autopilot"], common);
       assert.ok(catalogSearch.results.length > 0);
       const catalogImport = await runCli(
         cli,
-        ["models", "--json", "catalog-import-url", "fixture://catalog/autopilot-native-3b-q4", "--model-id", "native:e2e-cli-catalog"],
+        ["models", "--json", "catalog-import-url", "fixture://catalog/hypervisor-native-3b-q4", "--model-id", "native:e2e-cli-catalog"],
         common,
       );
       assert.equal(catalogImport.status, "completed");
@@ -1366,7 +1366,7 @@ async function main() {
       assert.equal(loadEstimate.status, "estimate_only");
       const providerHealthLatest = await runCli(
         cli,
-        ["models", "--json", "provider-health", "provider.autopilot.local", "--latest"],
+        ["models", "--json", "provider-health", "provider.hypervisor.local", "--latest"],
         common,
       );
       assert.equal(providerHealthLatest.receipt.id, providerHealth.discovery.lastHealthCheck.receiptId);
@@ -1565,7 +1565,7 @@ async function main() {
       assert.equal(continuedReplay.receipt.id, continuedResponseReceiptId);
       assert.equal(continuedReplay.route.id, "route.native-local");
       assert.equal(continuedReplay.endpoint.id, "endpoint.e2e.native-local");
-      const restartedProcess = projection.backendProcesses.find((process) => process.backendId === "backend.autopilot.native-local.fixture");
+      const restartedProcess = projection.backendProcesses.find((process) => process.backendId === "backend.hypervisor.native-local.fixture");
       assert.equal(restartedProcess.status, "stale_recovered");
       assert.equal(restartedProcess.staleReason, "daemon_boot_mismatch");
       const runtimeSurveyReplay = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${runtimeSurveyReceiptId}/replay`);

@@ -156,18 +156,18 @@ function providerInvocationRequest() {
 function providerStreamInvocationRequest() {
   return {
     ...providerInvocationRequest(),
-    provider_ref: "provider.autopilot.local",
+    provider_ref: "provider.hypervisor.local",
     provider_kind: "ioi_native_local",
     endpoint_ref: "endpoint.native-local",
     model_ref: "model://qwen/qwen3.5-9b",
     execution_backend: "rust_model_mount_native_local_stream",
     api_format: "ioi_native",
     driver: "native_local",
-    backend_ref: "backend.autopilot.native-local.fixture",
+    backend_ref: "backend.hypervisor.native-local.fixture",
     stream_status: "started",
     admitted_provider_execution: {
       ...providerExecutionRequest(),
-      provider_ref: "provider.autopilot.local",
+      provider_ref: "provider.hypervisor.local",
       endpoint_ref: "endpoint.native-local",
       model_ref: "model://qwen/qwen3.5-9b",
       provider_execution_ref: "model_mount://provider_execution/test",
@@ -180,7 +180,7 @@ function providerStreamInvocationRequest() {
 function providerLifecycleRequest() {
   return {
     schema_version: "ioi.model_mount.provider_lifecycle.v1",
-    provider_ref: "provider.autopilot.local",
+    provider_ref: "provider.hypervisor.local",
     provider_kind: "ioi_native_local",
     endpoint_ref: "endpoint.native-local",
     model_ref: "model.native-local",
@@ -188,7 +188,7 @@ function providerLifecycleRequest() {
     execution_backend: "rust_model_mount_native_local_lifecycle",
     api_format: "ioi_native",
     driver: "native_local",
-    backend_ref: "backend.autopilot.native-local.fixture",
+    backend_ref: "backend.hypervisor.native-local.fixture",
     evidence_refs: ["daemon_native_local_load_request"],
     process_evidence_refs: ["fake_process"],
   };
@@ -197,13 +197,13 @@ function providerLifecycleRequest() {
 function providerInventoryRequest() {
   return {
     schema_version: "ioi.model_mount.provider_inventory.v1",
-    provider_ref: "provider.autopilot.local",
+    provider_ref: "provider.hypervisor.local",
     provider_kind: "ioi_native_local",
     action: "list_loaded",
     execution_backend: "rust_model_mount_native_local_inventory",
     api_format: "ioi_native",
     driver: "native_local",
-    backend_ref: "backend.autopilot.native-local.fixture",
+    backend_ref: "backend.hypervisor.native-local.fixture",
   };
 }
 
@@ -213,11 +213,11 @@ function instanceLifecycleRequest() {
     instance_ref: "model_instance://native/qwen3",
     endpoint_ref: "endpoint.native-local",
     model_ref: "model://qwen/qwen3.5-9b",
-    provider_ref: "provider.autopilot.local",
+    provider_ref: "provider.hypervisor.local",
     action: "load",
     target_status: "loaded",
     execution_backend: "rust_model_mount_instance_lifecycle",
-    backend_ref: "backend.autopilot.native-local.fixture",
+    backend_ref: "backend.hypervisor.native-local.fixture",
     driver: "native_local",
     provider_lifecycle_hash: "sha256:provider-lifecycle",
     evidence_refs: ["rust_model_mount_provider_lifecycle"],
@@ -232,7 +232,7 @@ function providerResultRequest() {
     route_decision_ref: "model_mount://route_decision/test",
     route_receipt_ref: "receipt://route",
     route_ref: "route.local-first",
-    provider_ref: "provider.autopilot.local",
+    provider_ref: "provider.hypervisor.local",
     provider_kind: "ioi_native_local",
     endpoint_ref: "endpoint.autopilot.local",
     model_ref: "model.autopilot.local",
@@ -244,7 +244,7 @@ function providerResultRequest() {
     token_count: { prompt_tokens: 1, completion_tokens: 2, total_tokens: 3 },
     provider_response_kind: "rust_model_mount.native_local.stream",
     execution_backend: "rust_model_mount_native_local_stream",
-    backend_ref: "backend.autopilot.native-local.fixture",
+    backend_ref: "backend.hypervisor.native-local.fixture",
     receipt_refs: ["receipt://route"],
     provider_auth_evidence_refs: [],
     backend_evidence_refs: ["rust_model_mount_native_local_stream_backend"],
@@ -1114,30 +1114,30 @@ test("Rust model_mount core sends native-local provider stream invocation throug
             result: {
               ...request,
               schema_version: "ioi.model_mount.provider_stream_invocation.v1",
-              output_text: "Autopilot native local stream response",
+              output_text: "Hypervisor native local stream response",
               token_count: { prompt_tokens: 3, completion_tokens: 8, total_tokens: 11 },
               provider_response_kind: "rust_model_mount.native_local.stream",
               backend: "autopilot.native_local.fixture",
-              backend_id: "backend.autopilot.native-local.fixture",
+              backend_id: "backend.hypervisor.native-local.fixture",
               execution_backend: "rust_model_mount_native_local_stream",
               stream_format: "ioi_jsonl",
               stream_kind: "openai_responses_native_local",
               stream_chunks: [
-                "{\"delta\":\"Autopilot native local stream response\",\"done\":false}\n",
+                "{\"delta\":\"Hypervisor native local stream response\",\"done\":false}\n",
                 "{\"delta\":\"\",\"done\":true,\"done_reason\":\"stop\",\"prompt_eval_count\":3,\"eval_count\":8}\n",
               ],
               evidence_refs: ["rust_model_mount_provider_stream_invocation"],
               invocation_hash: "sha256:stream-invocation",
             },
-            outputText: "Autopilot native local stream response",
+            outputText: "Hypervisor native local stream response",
             tokenCount: { prompt_tokens: 3, completion_tokens: 8, total_tokens: 11 },
             providerResponseKind: "rust_model_mount.native_local.stream",
             execution_backend: "rust_model_mount_native_local_stream",
-            backendId: "backend.autopilot.native-local.fixture",
+            backendId: "backend.hypervisor.native-local.fixture",
             streamFormat: "ioi_jsonl",
             streamKind: "openai_responses_native_local",
             streamChunks: [
-              "{\"delta\":\"Autopilot native local stream response\",\"done\":false}\n",
+              "{\"delta\":\"Hypervisor native local stream response\",\"done\":false}\n",
               "{\"delta\":\"\",\"done\":true,\"done_reason\":\"stop\",\"prompt_eval_count\":3,\"eval_count\":8}\n",
             ],
             provider_execution_ref: "model_mount://provider_execution/test",
@@ -1160,10 +1160,10 @@ test("Rust model_mount core sends native-local provider stream invocation throug
   );
   assert.equal(calls[0].request.provider_kind, "ioi_native_local");
   assert.equal(calls[0].request.stream_status, "started");
-  assert.equal(result.outputText, "Autopilot native local stream response");
+  assert.equal(result.outputText, "Hypervisor native local stream response");
   assert.equal(result.providerResponseKind, "rust_model_mount.native_local.stream");
   assert.equal(result.executionBackend, "rust_model_mount_native_local_stream");
-  assert.equal(result.backendId, "backend.autopilot.native-local.fixture");
+  assert.equal(result.backendId, "backend.hypervisor.native-local.fixture");
   assert.equal(result.streamFormat, "ioi_jsonl");
   assert.equal(result.streamKind, "openai_responses_native_local");
   assert.equal(result.streamChunks.some((chunk) => chunk.includes("\"done\":true")), true);
@@ -1185,13 +1185,13 @@ test("Rust model_mount core sends native-local provider lifecycle through typed 
               ...request,
               status: "loaded",
               backend: "autopilot.native_local.fixture",
-              backend_id: "backend.autopilot.native-local.fixture",
+              backend_id: "backend.hypervisor.native-local.fixture",
               driver: "native_local",
               lifecycle_hash: "sha256:lifecycle",
               evidence_refs: ["rust_model_mount_provider_lifecycle"],
             },
             status: "loaded",
-            backend_id: "backend.autopilot.native-local.fixture",
+            backend_id: "backend.hypervisor.native-local.fixture",
             provider_backend: "autopilot.native_local.fixture",
             driver: "native_local",
             execution_backend: "rust_model_mount_native_local_lifecycle",
@@ -1214,7 +1214,7 @@ test("Rust model_mount core sends native-local provider lifecycle through typed 
   assert.equal(calls[0].request.action, "load");
   assert.equal(result.status, "loaded");
   assert.equal(result.providerBackend, "autopilot.native_local.fixture");
-  assert.equal(result.backendId, "backend.autopilot.native-local.fixture");
+  assert.equal(result.backendId, "backend.hypervisor.native-local.fixture");
   assert.equal(result.executionBackend, "rust_model_mount_native_local_lifecycle");
   assert.equal(result.lifecycle_hash, "sha256:lifecycle");
   assert.equal(Object.hasOwn(result.result, "providerBackend"), false);
@@ -1321,7 +1321,7 @@ test("Rust model_mount core sends local provider inventory through typed daemon-
         operation_kind: "model_mount.provider.inventory.list_loaded",
         status: "listed",
         backend: "autopilot.native_local.fixture",
-        backend_id: "backend.autopilot.native-local.fixture",
+        backend_id: "backend.hypervisor.native-local.fixture",
         driver: "native_local",
         execution_backend: "rust_model_mount_native_local_inventory",
         item_refs: ["model_instance://native/qwen3"],
@@ -1346,7 +1346,7 @@ test("Rust model_mount core sends local provider inventory through typed daemon-
               operation_kind: "model_mount.provider.inventory.list_loaded",
               status: "listed",
               backend: "autopilot.native_local.fixture",
-              backend_id: "backend.autopilot.native-local.fixture",
+              backend_id: "backend.hypervisor.native-local.fixture",
               driver: "native_local",
               item_count: 1,
               inventory_hash: "sha256:inventory",
@@ -1361,7 +1361,7 @@ test("Rust model_mount core sends local provider inventory through typed daemon-
               ],
             },
             status: "listed",
-            backend_id: "backend.autopilot.native-local.fixture",
+            backend_id: "backend.hypervisor.native-local.fixture",
             provider_backend: "autopilot.native_local.fixture",
             driver: "native_local",
             execution_backend: "rust_model_mount_native_local_inventory",
@@ -1397,7 +1397,7 @@ test("Rust model_mount core sends local provider inventory through typed daemon-
   assert.equal(Object.hasOwn(calls[0].request, "evidence_refs"), false);
   assert.equal(result.status, "listed");
   assert.equal(result.providerBackend, "autopilot.native_local.fixture");
-  assert.equal(result.backendId, "backend.autopilot.native-local.fixture");
+  assert.equal(result.backendId, "backend.hypervisor.native-local.fixture");
   assert.equal(result.executionBackend, "rust_model_mount_native_local_inventory");
   assert.deepEqual(result.itemRefs, ["model_instance://native/qwen3"]);
   assert.equal(result.itemCount, 1);
@@ -1428,12 +1428,12 @@ test("Rust model_mount core sends model instance lifecycle through typed daemon-
             result: {
               ...request,
               status: "loaded",
-              backend_id: "backend.autopilot.native-local.fixture",
+              backend_id: "backend.hypervisor.native-local.fixture",
               instance_lifecycle_hash: "sha256:instance-lifecycle",
               evidence_refs: ["rust_model_mount_instance_lifecycle"],
             },
             status: "loaded",
-            backendId: "backend.autopilot.native-local.fixture",
+            backendId: "backend.hypervisor.native-local.fixture",
             driver: "native_local",
             execution_backend: "rust_model_mount_instance_lifecycle",
             provider_lifecycle_hash: "sha256:provider-lifecycle",
@@ -1455,7 +1455,7 @@ test("Rust model_mount core sends model instance lifecycle through typed daemon-
   );
   assert.equal(calls[0].request.action, "load");
   assert.equal(result.status, "loaded");
-  assert.equal(result.backendId, "backend.autopilot.native-local.fixture");
+  assert.equal(result.backendId, "backend.hypervisor.native-local.fixture");
   assert.equal(result.executionBackend, "rust_model_mount_instance_lifecycle");
   assert.equal(result.provider_lifecycle_hash, "sha256:provider-lifecycle");
   assert.equal(result.providerLifecycleHash, undefined);

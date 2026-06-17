@@ -186,7 +186,7 @@ def seed_model_mounting_state(endpoint: str) -> dict[str, Any]:
         "/v1/model-mount/tokens",
         method="POST",
         body={
-            "audience": "autopilot-local-server",
+            "audience": "hypervisor-local-server",
             "allowed": [
                 "model.chat:*",
                 "model.responses:*",
@@ -208,7 +208,7 @@ def seed_model_mounting_state(endpoint: str) -> dict[str, Any]:
     token = str(grant["token"])
     backend_health = request_json(
         endpoint,
-        "/v1/model-mount/backends/backend.autopilot.native-local.fixture/health",
+        "/v1/model-mount/backends/backend.hypervisor.native-local.fixture/health",
         method="POST",
     )
     catalog_search = request_json(endpoint, "/v1/models/catalog/search?query=autopilot&format=gguf&limit=10")
@@ -219,7 +219,7 @@ def seed_model_mounting_state(endpoint: str) -> dict[str, Any]:
         token=token,
         body={
             "model_id": "autopilot:gui-download",
-            "provider_id": "provider.autopilot.local",
+            "provider_id": "provider.hypervisor.local",
             "source_url": "fixture://gui/model-mounts",
             "fixture_content": "family=gui-download\\ncontext=2048\\nquantization=Q4_K_M\\n",
             "max_bytes": 262144,
@@ -232,7 +232,7 @@ def seed_model_mounting_state(endpoint: str) -> dict[str, Any]:
         token=token,
         body={
             "model_id": "autopilot:gui-queued-download",
-            "provider_id": "provider.autopilot.local",
+            "provider_id": "provider.hypervisor.local",
             "source_url": "fixture://gui/model-mounts-queued",
             "source_label": "Fixture catalog / queued GUI validation",
             "queued_only": True,
@@ -246,7 +246,7 @@ def seed_model_mounting_state(endpoint: str) -> dict[str, Any]:
         token=token,
         body={
             "model_id": "autopilot:gui-canceled-download",
-            "provider_id": "provider.autopilot.local",
+            "provider_id": "provider.hypervisor.local",
             "source_url": "fixture://gui/model-mounts-canceled",
             "source_label": "Fixture catalog / canceled GUI validation",
             "queued_only": True,
@@ -266,7 +266,7 @@ def seed_model_mounting_state(endpoint: str) -> dict[str, Any]:
         token=token,
         body={
             "model_id": "autopilot:gui-failed-download",
-            "provider_id": "provider.autopilot.local",
+            "provider_id": "provider.hypervisor.local",
             "source_url": "fixture://gui/model-mounts-failed",
             "source_label": "Fixture catalog / failed GUI validation",
             "simulate_failure": True,
@@ -294,7 +294,7 @@ def seed_model_mounting_state(endpoint: str) -> dict[str, Any]:
         "/v1/chat/completions",
         method="POST",
         token=token,
-        body={"route_id": "route.native-local", "model": "autopilot:native-fixture", "input": "GUI validation probe"},
+        body={"route_id": "route.native-local", "model": "hypervisor:native-fixture", "input": "GUI validation probe"},
     )
     route_test = request_json(
         endpoint,
@@ -303,7 +303,7 @@ def seed_model_mounting_state(endpoint: str) -> dict[str, Any]:
         token=token,
         body={
             "capability": "chat",
-            "model": "autopilot:native-fixture",
+            "model": "hypervisor:native-fixture",
             "model_policy": {"privacy": "local_only", "max_cost_usd": 0.05},
         },
     )
@@ -314,7 +314,7 @@ def seed_model_mounting_state(endpoint: str) -> dict[str, Any]:
         token=token,
         body={
             "route_id": "route.native-local",
-            "model": "autopilot:native-fixture",
+            "model": "hypervisor:native-fixture",
             "input": "GUI benchmark responses probe",
             "model_policy": {"privacy": "local_only", "max_cost_usd": 0.05},
         },
@@ -326,7 +326,7 @@ def seed_model_mounting_state(endpoint: str) -> dict[str, Any]:
         token=token,
         body={
             "route_id": "route.native-local",
-            "model": "autopilot:native-fixture",
+            "model": "hypervisor:native-fixture",
             "input": ["GUI benchmark embedding probe", "model mounts"],
             "model_policy": {"privacy": "local_only", "max_cost_usd": 0.05},
         },
@@ -653,13 +653,13 @@ def stream_receipt_has_details(
         return False
     if details.get("routeId") != "route.native-local":
         return False
-    if details.get("selectedModel") != "autopilot:native-fixture":
+    if details.get("selectedModel") != "hypervisor:native-fixture":
         return False
-    if details.get("endpointId") != "endpoint.autopilot.native-fixture":
+    if details.get("endpointId") != "endpoint.hypervisor.native-fixture":
         return False
     if details.get("streamSource") != "provider_native":
         return False
-    if details.get("backendId") != "backend.autopilot.native-local.fixture":
+    if details.get("backendId") != "backend.hypervisor.native-local.fixture":
         return False
     if details.get("providerResponseKind") not in {"native_local.chat.stream", "native_local.responses.stream"}:
         return False
@@ -1010,7 +1010,7 @@ def exercise_model_lifecycle_actions(
         and artifact.get("quantization") == "Q4_K_M",
         "mountedEndpointProjected": mounted_endpoint.get("id") == endpoint_id
         and mounted_endpoint.get("status") == "mounted"
-        and mounted_endpoint.get("backendId") == "backend.autopilot.native-local.fixture",
+        and mounted_endpoint.get("backendId") == "backend.hypervisor.native-local.fixture",
         "loadedInstanceProjected": loaded_instance.get("status") == "loaded"
         and loaded_instance.get("identifier") == identifier,
         "unloadedInstanceProjected": unloaded_instance.get("status") == "unloaded"
@@ -1296,9 +1296,9 @@ def exercise_benchmark_observability_actions(
             return False
         if details.get("routeId") != "route.native-local":
             return False
-        if details.get("endpointId") != "endpoint.autopilot.native-fixture":
+        if details.get("endpointId") != "endpoint.hypervisor.native-fixture":
             return False
-        if details.get("selectedModel") != "autopilot:native-fixture":
+        if details.get("selectedModel") != "hypervisor:native-fixture":
             return False
         return summary.startswith(summary_prefix) if summary_prefix else True
 
@@ -1378,7 +1378,7 @@ def exercise_benchmark_observability_actions(
     ]
     route = next((item for item in snapshot.get("routes", []) if item.get("id") == "route.native-local"), {})
     observability_ready = all(
-        (receipt.get("details") or {}).get("backendId") == "backend.autopilot.native-local.fixture"
+        (receipt.get("details") or {}).get("backendId") == "backend.hypervisor.native-local.fixture"
         and (receipt.get("details") or {}).get("grantId")
         and (receipt.get("details") or {}).get("latencyMs")
         for receipt in native_invocations[-4:]
@@ -1533,8 +1533,8 @@ def exercise_provider_backend_actions(
 ) -> dict[str, Any]:
     """Exercise backend and provider controls through the live Mounts desktop surface."""
 
-    backend_id = "backend.autopilot.native-local.fixture"
-    provider_id = "provider.autopilot.local"
+    backend_id = "backend.hypervisor.native-local.fixture"
+    provider_id = "provider.hypervisor.local"
     action_screenshots: list[dict[str, Any]] = []
 
     activate_tab(window_id, "F2")

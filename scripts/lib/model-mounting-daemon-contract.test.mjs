@@ -252,8 +252,8 @@ test("model=auto resolves to a canonical ModelRouteDecision before provider invo
     assert.equal(routerDecision.requestedModel, "auto");
     assert.equal(routerDecision.requestedModelMode, "auto");
     assert.equal(routerDecision.autoResolved, true);
-    assert.equal(routerDecision.selectedModel, "autopilot:native-fixture");
-    assert.equal(routerDecision.upstreamModel, "autopilot:native-fixture");
+    assert.equal(routerDecision.selectedModel, "hypervisor:native-fixture");
+    assert.equal(routerDecision.upstreamModel, "hypervisor:native-fixture");
     assert.equal(routerDecision.neverSendAutoUpstream, true);
     assert.equal(routerDecision.localRemotePlacement, "local");
     assert.equal(routerDecision.privacyPosture, "local_only");
@@ -275,18 +275,18 @@ test("model=auto resolves to a canonical ModelRouteDecision before provider invo
         model_policy: { privacy: "local_only", reasoning_effort: "medium" },
       },
     });
-    assert.equal(chat.model, "autopilot:native-fixture");
+    assert.equal(chat.model, "hypervisor:native-fixture");
     assert.equal(chat.route_decision.eventKind, "ModelRouteDecision");
     assert.equal(chat.route_decision.requestedModel, "auto");
-    assert.equal(chat.route_decision.selectedModel, "autopilot:native-fixture");
-    assert.equal(chat.route_decision.upstreamModel, "autopilot:native-fixture");
+    assert.equal(chat.route_decision.selectedModel, "hypervisor:native-fixture");
+    assert.equal(chat.route_decision.upstreamModel, "hypervisor:native-fixture");
     assert.equal(chat.route_decision.neverSendAutoUpstream, true);
     assert.equal(chat.route_decision.reasoningEffort, "medium");
     assert.equal(chat.route_decision.workflowNodeId, "node.model-call");
 
     const replay = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${chat.route_receipt_id}/replay`);
     assert.equal(replay.modelRouteDecision.decisionId, chat.route_decision.decisionId);
-    assert.equal(replay.modelRouteDecision.selectedModel, "autopilot:native-fixture");
+    assert.equal(replay.modelRouteDecision.selectedModel, "hypervisor:native-fixture");
 
     const projection = await expectOk(daemon.endpoint, "/v1/model-mount/projection");
     assert.ok(
@@ -365,7 +365,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     const grant = await expectOk(daemon.endpoint, "/v1/model-mount/tokens", {
       method: "POST",
       body: {
-        audience: "autopilot-local-server",
+        audience: "hypervisor-local-server",
         allowed: [
           "model.chat:*",
           "model.responses:*",
@@ -448,11 +448,11 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.equal(latestVaultHealth.health.status, "session_only");
     assert.equal(latestVaultHealth.replay.receipt.id, vaultHealth.receiptId);
 
-    const nativeProviderModels = await expectOk(daemon.endpoint, "/v1/model-mount/providers/provider.autopilot.local/models");
-    assert.ok(nativeProviderModels.some((model) => model.modelId === "autopilot:native-fixture"));
+    const nativeProviderModels = await expectOk(daemon.endpoint, "/v1/model-mount/providers/provider.hypervisor.local/models");
+    assert.ok(nativeProviderModels.some((model) => model.modelId === "hypervisor:native-fixture"));
     const catalog = await expectOk(daemon.endpoint, "/v1/models/catalog/search?q=autopilot");
     assert.equal(catalog.providers.find((provider) => provider.id === "catalog.fixture")?.status, "available");
-    const fixtureCatalogEntry = catalog.results.find((entry) => entry.sourceUrl === "fixture://catalog/autopilot-native-3b-q4");
+    const fixtureCatalogEntry = catalog.results.find((entry) => entry.sourceUrl === "fixture://catalog/hypervisor-native-3b-q4");
     assert.ok(fixtureCatalogEntry);
     assert.equal(fixtureCatalogEntry.architecture, "llama");
     assert.equal(fixtureCatalogEntry.parameterCount, "3B");
@@ -464,16 +464,16 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.equal(JSON.stringify(catalog).includes("sk-"), false);
     const snapshotAfterCatalogSearch = await expectOk(daemon.endpoint, "/v1/model-mount/snapshot");
     assert.equal(snapshotAfterCatalogSearch.catalog.lastSearch.query, "autopilot");
-    assert.ok(snapshotAfterCatalogSearch.catalog.results.some((entry) => entry.sourceUrl === "fixture://catalog/autopilot-native-3b-q4" && entry.recommendation?.primaryBackend));
+    assert.ok(snapshotAfterCatalogSearch.catalog.results.some((entry) => entry.sourceUrl === "fixture://catalog/hypervisor-native-3b-q4" && entry.recommendation?.primaryBackend));
 
     const backends = await expectOk(daemon.endpoint, "/v1/model-mount/backends");
-    assert.ok(backends.some((backend) => backend.id === "backend.autopilot.native-local.fixture"));
+    assert.ok(backends.some((backend) => backend.id === "backend.hypervisor.native-local.fixture"));
     const runtimeEngines = await expectOk(daemon.endpoint, "/v1/model-mount/runtime/engines");
-    assert.ok(runtimeEngines.some((engine) => engine.id === "backend.autopilot.native-local.fixture"));
-    assert.ok(runtimeEngines.some((engine) => engine.source === "autopilot_backend_registry"));
+    assert.ok(runtimeEngines.some((engine) => engine.id === "backend.hypervisor.native-local.fixture"));
+    assert.ok(runtimeEngines.some((engine) => engine.source === "hypervisor_backend_registry"));
     const runtimeSurvey = await expectOk(daemon.endpoint, "/v1/model-mount/runtime/survey", { method: "POST" });
     assert.equal(runtimeSurvey.schemaVersion, "ioi.model-mounting.runtime.v1");
-    assert.ok(runtimeSurvey.engines.some((engine) => engine.id === "backend.autopilot.native-local.fixture"));
+    assert.ok(runtimeSurvey.engines.some((engine) => engine.id === "backend.hypervisor.native-local.fixture"));
     assert.equal(typeof runtimeSurvey.hardware.totalMemoryBytes, "number");
     assert.ok(["absent", "available", "blocked"].includes(runtimeSurvey.lmStudio.status));
     assert.match(runtimeSurvey.receiptId, /^receipt_runtime_survey_/);
@@ -482,12 +482,12 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.equal(runtimeSurveyReceipt.details.engineCount, runtimeSurvey.engines.length);
     const runtimeSelection = await expectOk(daemon.endpoint, "/v1/model-mount/runtime/select", {
       method: "POST",
-      body: { engine_id: "backend.autopilot.native-local.fixture" },
+      body: { engine_id: "backend.hypervisor.native-local.fixture" },
     });
-    assert.equal(runtimeSelection.selectedEngineId, "backend.autopilot.native-local.fixture");
+    assert.equal(runtimeSelection.selectedEngineId, "backend.hypervisor.native-local.fixture");
     assert.match(runtimeSelection.receiptId, /^receipt_model_lifecycle_/);
     const selectedRuntimeEngines = await expectOk(daemon.endpoint, "/v1/model-mount/runtime/engines");
-    assert.equal(selectedRuntimeEngines.find((engine) => engine.id === "backend.autopilot.native-local.fixture")?.selected, true);
+    assert.equal(selectedRuntimeEngines.find((engine) => engine.id === "backend.hypervisor.native-local.fixture")?.selected, true);
     const llamaProfile = await expectOk(daemon.endpoint, "/v1/model-mount/runtime/engines/backend.llama-cpp", {
       method: "PATCH",
       body: {
@@ -506,7 +506,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
       method: "DELETE",
     });
     assert.equal(removedRuntimeProfile.removed, true);
-    const selectedRuntimeProfile = await expectOk(daemon.endpoint, "/v1/model-mount/runtime/engines/backend.autopilot.native-local.fixture", {
+    const selectedRuntimeProfile = await expectOk(daemon.endpoint, "/v1/model-mount/runtime/engines/backend.hypervisor.native-local.fixture", {
       method: "PATCH",
       body: {
         label: "Autopilot native fixture tuned",
@@ -515,9 +515,9 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
       },
     });
     assert.equal(selectedRuntimeProfile.engine.operatorProfile.defaultLoadOptions.parallel, 3);
-    const runtimeEngineDetail = await expectOk(daemon.endpoint, "/v1/model-mount/runtime/engines/backend.autopilot.native-local.fixture");
+    const runtimeEngineDetail = await expectOk(daemon.endpoint, "/v1/model-mount/runtime/engines/backend.hypervisor.native-local.fixture");
     assert.equal(runtimeEngineDetail.profile.defaultLoadOptions.contextLength, 3072);
-    const backendHealth = await expectOk(daemon.endpoint, "/v1/model-mount/backends/backend.autopilot.native-local.fixture/health", {
+    const backendHealth = await expectOk(daemon.endpoint, "/v1/model-mount/backends/backend.hypervisor.native-local.fixture/health", {
       method: "POST",
     });
     assert.equal(backendHealth.status, "available");
@@ -538,12 +538,12 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
       token: grant.token,
       body: {
         model_id: "native:imported",
-        provider_id: "provider.autopilot.local",
+        provider_id: "provider.hypervisor.local",
         path: importedModelPath,
         capabilities: ["chat", "responses", "embeddings"],
       },
     });
-    assert.equal(imported.providerId, "provider.autopilot.local");
+    assert.equal(imported.providerId, "provider.hypervisor.local");
     assert.equal(imported.format, "gguf");
     assert.match(imported.checksum, /^sha256:/);
 
@@ -598,7 +598,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
       token: grant.token,
       body: {
         model_id: "native:collision",
-        provider_id: "provider.autopilot.local",
+        provider_id: "provider.hypervisor.local",
         path: collisionModelPath,
         capabilities: ["chat"],
       },
@@ -609,7 +609,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
       body: {
         model_id: "native:collision",
         id: "endpoint.test.native-collision",
-        provider_id: "provider.autopilot.local",
+        provider_id: "provider.hypervisor.local",
       },
     });
     await expectOk(daemon.endpoint, "/v1/model-mount/routes", {
@@ -635,9 +635,9 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
       },
     });
     assert.equal(collisionChat.endpoint_id, "endpoint.test.native-collision");
-    assert.match(collisionChat.output_text, /Autopilot native local model response/);
+    assert.match(collisionChat.output_text, /Hypervisor native local model response/);
     const collisionReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${collisionChat.receipt_id}`);
-    assert.equal(collisionReceipt.details.providerId, "provider.autopilot.local");
+    assert.equal(collisionReceipt.details.providerId, "provider.hypervisor.local");
     assert.equal(collisionReceipt.details.endpointId, "endpoint.test.native-collision");
 
     const nativeMounted = await expectOk(daemon.endpoint, "/v1/model-mount/endpoints", {
@@ -645,7 +645,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
       token: grant.token,
       body: { model_id: "native:imported", id: "endpoint.test.native-imported" },
     });
-    assert.equal(nativeMounted.providerId, "provider.autopilot.local");
+    assert.equal(nativeMounted.providerId, "provider.hypervisor.local");
     const defaultedLoadEstimate = await expectOk(daemon.endpoint, "/v1/model-mount/instances/load", {
       method: "POST",
       token: grant.token,
@@ -674,7 +674,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
       },
     });
     assert.equal(nativeLoadEstimate.status, "estimate_only");
-    assert.equal(nativeLoadEstimate.runtimeEngineId, "backend.autopilot.native-local.fixture");
+    assert.equal(nativeLoadEstimate.runtimeEngineId, "backend.hypervisor.native-local.fixture");
     assert.equal(nativeLoadEstimate.loadOptions.contextLength, 4096);
     assert.match(nativeLoadEstimate.receiptId, /^receipt_model_lifecycle_/);
     const nativeLoadEstimateReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${nativeLoadEstimate.receiptId}`);
@@ -696,7 +696,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
       },
     });
     assert.equal(nativeLoaded.backend, "autopilot.native_local.fixture");
-    assert.equal(nativeLoaded.runtimeEngineId, "backend.autopilot.native-local.fixture");
+    assert.equal(nativeLoaded.runtimeEngineId, "backend.hypervisor.native-local.fixture");
     assert.equal(nativeLoaded.identifier, "native-imported-dev");
     assert.equal(nativeLoaded.contextLength, 4096);
     assert.equal(nativeLoaded.parallelism, 2);
@@ -705,23 +705,23 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.ok(nativeLoaded.backendProcess.argsHash);
     assert.ok(nativeLoaded.backendProcess.evidenceRefs.includes("ModelBackendDriver.process_supervision"));
     const nativeBackends = await expectOk(daemon.endpoint, "/v1/model-mount/backends");
-    assert.ok(nativeBackends.some((backend) => backend.id === "backend.autopilot.native-local.fixture"));
+    assert.ok(nativeBackends.some((backend) => backend.id === "backend.hypervisor.native-local.fixture"));
     const nativeChat = await expectOk(daemon.endpoint, "/v1/chat/completions", {
       method: "POST",
       token: grant.token,
       body: { route_id: "route.native-local", model: "native:imported", input: "hello autopilot native local" },
     });
-    assert.match(nativeChat.output_text, /Autopilot native local model response/);
+    assert.match(nativeChat.output_text, /Hypervisor native local model response/);
     const nativeReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${nativeChat.receipt_id}`);
-    assert.equal(nativeReceipt.details.providerId, "provider.autopilot.local");
+    assert.equal(nativeReceipt.details.providerId, "provider.hypervisor.local");
     assert.equal(nativeReceipt.details.backend, "autopilot.native_local.fixture");
-    assert.equal(nativeReceipt.details.backendId, "backend.autopilot.native-local.fixture");
+    assert.equal(nativeReceipt.details.backendId, "backend.hypervisor.native-local.fixture");
     assert.equal(nativeReceipt.details.backendProcess.status, "started");
     assert.equal(nativeReceipt.details.backendProcessPidHash, nativeLoaded.backendProcess.pidHash);
     assert.ok(nativeReceipt.details.backendEvidenceRefs.includes("autopilot_native_local_openai_compatible_serving"));
     const nativeBackendLogs = await expectOk(
       daemon.endpoint,
-      "/v1/model-mount/backends/backend.autopilot.native-local.fixture/logs",
+      "/v1/model-mount/backends/backend.hypervisor.native-local.fixture/logs",
     );
     assert.ok(nativeBackendLogs.some((record) => record.event === "invoke"));
 
@@ -790,7 +790,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
       body: { route_id: "route.native-local", model: "native:imported", messages: [{ role: "user", content: "compat native" }] },
     });
     assert.equal(nativeCompat.model, "native:imported");
-    assert.match(nativeCompat.choices[0].message.content, /Autopilot native local model response/);
+    assert.match(nativeCompat.choices[0].message.content, /Hypervisor native local model response/);
 
     const nativeCompatStream = await requestSse(daemon.endpoint, "/v1/chat/completions", {
       method: "POST",
@@ -809,17 +809,17 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
       .filter((chunk) => chunk !== "[DONE]")
       .map((chunk) => chunk.choices?.[0]?.delta?.content ?? "")
       .join("");
-    assert.match(nativeCompatStreamText, /Autopilot native local model response/);
+    assert.match(nativeCompatStreamText, /Hypervisor native local model response/);
     const nativeCompatStreamMetadata = nativeCompatStreamChunks.find((chunk) => chunk !== "[DONE]" && chunk.stream_receipt_id);
     assert.equal(nativeCompatStreamMetadata.route_id, "route.native-local");
     assert.equal(nativeCompatStreamMetadata.provider_stream, "native");
     const nativeCompatStreamReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${nativeCompatStreamMetadata.receipt_id}`);
-    assert.equal(nativeCompatStreamReceipt.details.providerId, "provider.autopilot.local");
+    assert.equal(nativeCompatStreamReceipt.details.providerId, "provider.hypervisor.local");
     assert.equal(nativeCompatStreamReceipt.details.backend, "autopilot.native_local.fixture");
-    assert.equal(nativeCompatStreamReceipt.details.backendId, "backend.autopilot.native-local.fixture");
+    assert.equal(nativeCompatStreamReceipt.details.backendId, "backend.hypervisor.native-local.fixture");
     assert.equal(nativeCompatStreamReceipt.details.backendProcessPidHash, nativeLoaded.backendProcess.pidHash);
     assert.equal(nativeCompatStreamReceipt.details.providerResponseKind, "native_local.chat.stream");
-    assert.ok(nativeCompatStreamReceipt.details.backendEvidenceRefs.includes("autopilot_native_local_provider_native_stream"));
+    assert.ok(nativeCompatStreamReceipt.details.backendEvidenceRefs.includes("hypervisor_native_local_provider_native_stream"));
     const nativeCompatStreamCompleteReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${nativeCompatStreamMetadata.stream_receipt_id}`);
     assert.equal(nativeCompatStreamCompleteReceipt.details.invocationReceiptId, nativeCompatStreamMetadata.receipt_id);
     assert.equal(
@@ -843,17 +843,17 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
       .filter((event) => event.event === "response.output_text.delta")
       .map((event) => event.data.delta)
       .join("");
-    assert.match(nativeResponseStreamText, /Autopilot native local model response/);
+    assert.match(nativeResponseStreamText, /Hypervisor native local model response/);
     const nativeResponseCompleted = nativeResponseStream.events.find((event) => event.event === "response.completed")?.data.response;
     assert.equal(nativeResponseCompleted.route_id, "route.native-local");
     assert.equal(nativeResponseCompleted.provider_stream, "native");
     const nativeResponseStreamReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${nativeResponseCompleted.receipt_id}`);
-    assert.equal(nativeResponseStreamReceipt.details.providerId, "provider.autopilot.local");
+    assert.equal(nativeResponseStreamReceipt.details.providerId, "provider.hypervisor.local");
     assert.equal(nativeResponseStreamReceipt.details.backend, "autopilot.native_local.fixture");
-    assert.equal(nativeResponseStreamReceipt.details.backendId, "backend.autopilot.native-local.fixture");
+    assert.equal(nativeResponseStreamReceipt.details.backendId, "backend.hypervisor.native-local.fixture");
     assert.equal(nativeResponseStreamReceipt.details.backendProcessPidHash, nativeLoaded.backendProcess.pidHash);
     assert.equal(nativeResponseStreamReceipt.details.providerResponseKind, "native_local.responses.stream");
-    assert.ok(nativeResponseStreamReceipt.details.backendEvidenceRefs.includes("autopilot_native_local_provider_native_stream"));
+    assert.ok(nativeResponseStreamReceipt.details.backendEvidenceRefs.includes("hypervisor_native_local_provider_native_stream"));
     const nativeResponseStreamCompleteReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${nativeResponseCompleted.stream_receipt_id}`);
     assert.equal(nativeResponseStreamCompleteReceipt.details.invocationReceiptId, nativeResponseCompleted.receipt_id);
     assert.equal(
@@ -880,18 +880,18 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
       .filter((event) => event.event === "content_block_delta")
       .map((event) => event.data.delta.text)
       .join("");
-    assert.match(nativeAnthropicStreamText, /Autopilot native local model response/);
+    assert.match(nativeAnthropicStreamText, /Hypervisor native local model response/);
     const nativeAnthropicStop = nativeAnthropicStream.events.at(-1);
     assert.equal(nativeAnthropicStop.event, "message_stop");
     assert.equal(nativeAnthropicStop.data.route_id, "route.native-local");
     assert.equal(nativeAnthropicStop.data.provider_stream, "native");
     const nativeAnthropicStreamReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${nativeAnthropicStop.data.receipt_id}`);
-    assert.equal(nativeAnthropicStreamReceipt.details.providerId, "provider.autopilot.local");
+    assert.equal(nativeAnthropicStreamReceipt.details.providerId, "provider.hypervisor.local");
     assert.equal(nativeAnthropicStreamReceipt.details.backend, "autopilot.native_local.fixture");
-    assert.equal(nativeAnthropicStreamReceipt.details.backendId, "backend.autopilot.native-local.fixture");
+    assert.equal(nativeAnthropicStreamReceipt.details.backendId, "backend.hypervisor.native-local.fixture");
     assert.equal(nativeAnthropicStreamReceipt.details.backendProcessPidHash, nativeLoaded.backendProcess.pidHash);
     assert.equal(nativeAnthropicStreamReceipt.details.providerResponseKind, "native_local.chat.stream");
-    assert.ok(nativeAnthropicStreamReceipt.details.backendEvidenceRefs.includes("autopilot_native_local_provider_native_stream"));
+    assert.ok(nativeAnthropicStreamReceipt.details.backendEvidenceRefs.includes("hypervisor_native_local_provider_native_stream"));
     const nativeAnthropicStreamCompleteReceipt = await expectOk(
       daemon.endpoint,
       `/v1/model-mount/receipts/${nativeAnthropicStop.data.stream_receipt_id}`,
@@ -937,7 +937,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.equal(canceledNativeCompatReceipt.details.status, "aborted");
     assert.equal(canceledNativeCompatReceipt.details.streamSource, "provider_native");
     assert.equal(canceledNativeCompatReceipt.details.providerResponseKind, "native_local.chat.stream");
-    assert.ok(canceledNativeCompatReceipt.details.backendEvidenceRefs.includes("autopilot_native_local_provider_native_stream"));
+    assert.ok(canceledNativeCompatReceipt.details.backendEvidenceRefs.includes("hypervisor_native_local_provider_native_stream"));
     const canceledNativeCompatInvocation = await expectOk(
       daemon.endpoint,
       `/v1/model-mount/receipts/${canceledNativeCompatReceipt.details.invocationReceiptId}`,
@@ -979,7 +979,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.equal(canceledNativeResponsesReceipt.details.status, "aborted");
     assert.equal(canceledNativeResponsesReceipt.details.streamSource, "provider_native");
     assert.equal(canceledNativeResponsesReceipt.details.providerResponseKind, "native_local.responses.stream");
-    assert.ok(canceledNativeResponsesReceipt.details.backendEvidenceRefs.includes("autopilot_native_local_provider_native_stream"));
+    assert.ok(canceledNativeResponsesReceipt.details.backendEvidenceRefs.includes("hypervisor_native_local_provider_native_stream"));
 
     const priorNativeAnthropicProviderStreamDelay = process.env.IOI_DETERMINISTIC_PROVIDER_STREAM_DELAY_MS;
     process.env.IOI_DETERMINISTIC_PROVIDER_STREAM_DELAY_MS = "25";
@@ -1016,11 +1016,11 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.equal(canceledNativeAnthropicReceipt.details.status, "aborted");
     assert.equal(canceledNativeAnthropicReceipt.details.streamSource, "provider_native");
     assert.equal(canceledNativeAnthropicReceipt.details.providerResponseKind, "native_local.chat.stream");
-    assert.ok(canceledNativeAnthropicReceipt.details.backendEvidenceRefs.includes("autopilot_native_local_provider_native_stream"));
+    assert.ok(canceledNativeAnthropicReceipt.details.backendEvidenceRefs.includes("hypervisor_native_local_provider_native_stream"));
 
     const nativeProviderAbortLogs = await expectOk(
       daemon.endpoint,
-      "/v1/model-mount/backends/backend.autopilot.native-local.fixture/logs",
+      "/v1/model-mount/backends/backend.hypervisor.native-local.fixture/logs",
     );
     assert.ok(
       nativeProviderAbortLogs.some(
@@ -1033,13 +1033,13 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
       ),
     );
 
-    const nativeBackendStart = await expectOk(daemon.endpoint, "/v1/model-mount/backends/backend.autopilot.native-local.fixture/start", {
+    const nativeBackendStart = await expectOk(daemon.endpoint, "/v1/model-mount/backends/backend.hypervisor.native-local.fixture/start", {
       method: "POST",
       token: grant.token,
     });
     assert.equal(nativeBackendStart.status, "available");
     assert.equal(nativeBackendStart.processStatus, "started");
-    const nativeBackendStop = await expectOk(daemon.endpoint, "/v1/model-mount/backends/backend.autopilot.native-local.fixture/stop", {
+    const nativeBackendStop = await expectOk(daemon.endpoint, "/v1/model-mount/backends/backend.hypervisor.native-local.fixture/stop", {
       method: "POST",
       token: grant.token,
     });
@@ -1047,7 +1047,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.equal(nativeBackendStop.processStatus, "stopped");
     const nativeBackendLifecycleLogs = await expectOk(
       daemon.endpoint,
-      "/v1/model-mount/backends/backend.autopilot.native-local.fixture/logs",
+      "/v1/model-mount/backends/backend.hypervisor.native-local.fixture/logs",
     );
     assert.ok(nativeBackendLifecycleLogs.some((record) => record.event === "backend_start"));
     assert.ok(nativeBackendLifecycleLogs.some((record) => record.event === "backend_stop"));
@@ -1565,14 +1565,14 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
       receipts.some(
         (receipt) =>
           receipt.details?.operation === "backend_start" &&
-          receipt.details?.backendId === "backend.autopilot.native-local.fixture",
+          receipt.details?.backendId === "backend.hypervisor.native-local.fixture",
       ),
     );
     assert.ok(
       receipts.some(
         (receipt) =>
           receipt.details?.operation === "backend_stop" &&
-          receipt.details?.backendId === "backend.autopilot.native-local.fixture",
+          receipt.details?.backendId === "backend.hypervisor.native-local.fixture",
       ),
     );
     assert.ok(receipts.some((receipt) => receipt.kind === "model_route_selection"));
@@ -2326,7 +2326,7 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
     const deniedCatalogImport = await requestJson(daemon.endpoint, "/v1/model-mount/catalog/import-url", {
       method: "POST",
       token: downloadOnlyGrant.token,
-      body: { source_url: "fixture://catalog/autopilot-native-3b-q4", model_id: "native:catalog-denied-import-scope" },
+      body: { source_url: "fixture://catalog/hypervisor-native-3b-q4", model_id: "native:catalog-denied-import-scope" },
     });
     assert.equal(deniedCatalogImport.response.status, 403);
 
@@ -2344,7 +2344,7 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
       token: grant.token,
       body: {
         model_id: "native:hf-unapproved",
-        provider_id: "provider.autopilot.local",
+        provider_id: "provider.hypervisor.local",
         source_url: liveEntry.sourceUrl,
         format: "gguf",
         quantization: "Q4_K_M",
@@ -2359,7 +2359,7 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
       token: grant.token,
       body: {
         model_id: "native:hf-secret-redacted",
-        provider_id: "provider.autopilot.local",
+        provider_id: "provider.hypervisor.local",
         source_url: secretSource,
         format: "gguf",
         quantization: "Q4_K_M",
@@ -2380,7 +2380,7 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
       token: grant.token,
       body: {
         model_id: "native:hf-retry-resume",
-        provider_id: "provider.autopilot.local",
+        provider_id: "provider.hypervisor.local",
         source_url: retriedSource,
         format: "gguf",
         quantization: "Q4_K_M",
@@ -2401,7 +2401,7 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
       token: grant.token,
       body: {
         model_id: "native:hf-interrupted-resume",
-        provider_id: "provider.autopilot.local",
+        provider_id: "provider.hypervisor.local",
         source_url: interruptedSecretSource,
         format: "gguf",
         quantization: "Q4_K_M",
@@ -2421,7 +2421,7 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
       token: grant.token,
       body: {
         model_id: "native:hf-interrupted-resume",
-        provider_id: "provider.autopilot.local",
+        provider_id: "provider.hypervisor.local",
         source_url: interruptedSecretSource,
         format: "gguf",
         quantization: "Q4_K_M",
@@ -2440,7 +2440,7 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
       token: grant.token,
       body: {
         model_id: "native:hf-retry-exhausted",
-        provider_id: "provider.autopilot.local",
+        provider_id: "provider.hypervisor.local",
         source_url: `${liveEntry.sourceUrl}?status=503&attempt_key=retry-exhausted`,
         format: "gguf",
         quantization: "Q4_K_M",
@@ -2459,7 +2459,7 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
       token: grant.token,
       body: {
         model_id: "native:hf-checksum-mismatch",
-        provider_id: "provider.autopilot.local",
+        provider_id: "provider.hypervisor.local",
         source_url: liveEntry.sourceUrl,
         format: "gguf",
         quantization: "Q4_K_M",
@@ -2478,7 +2478,7 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
       token: grant.token,
       body: {
         model_id: "native:hf-oversized",
-        provider_id: "provider.autopilot.local",
+        provider_id: "provider.hypervisor.local",
         source_url: liveEntry.sourceUrl,
         format: "gguf",
         quantization: "Q4_K_M",
@@ -2492,7 +2492,7 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
     const catalogImport = await expectOk(daemon.endpoint, "/v1/model-mount/catalog/import-url", {
       method: "POST",
       token: grant.token,
-      body: { source_url: "fixture://catalog/autopilot-native-3b-q4", model_id: "native:catalog-imported" },
+      body: { source_url: "fixture://catalog/hypervisor-native-3b-q4", model_id: "native:catalog-imported" },
     });
     assert.equal(catalogImport.status, "completed");
     assert.match(catalogImport.catalogReceiptId, /^receipt_model_lifecycle_/);
@@ -2503,7 +2503,7 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
       token: grant.token,
       body: {
         model_id: "native:downloaded",
-        provider_id: "provider.autopilot.local",
+        provider_id: "provider.hypervisor.local",
         source_url: "fixture://model/native-downloaded",
         fixture_content: "family=native-downloaded\ncontext=2048\nquantization=Q4_K_M\n",
       },
@@ -2523,7 +2523,7 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
       token: grant.token,
       body: {
         model_id: "native:download-fails",
-        provider_id: "provider.autopilot.local",
+        provider_id: "provider.hypervisor.local",
         source_url: "fixture://model/fails",
         simulate_failure: true,
       },
@@ -2554,7 +2554,7 @@ test("model download lifecycle supports progress, failure, cancel, cleanup, and 
       token: grant.token,
       body: {
         model_id: "native:download-queued",
-        provider_id: "provider.autopilot.local",
+        provider_id: "provider.hypervisor.local",
         source_url: "fixture://model/queued",
         queued_only: true,
       },
@@ -2663,12 +2663,12 @@ test("Agentgres model mounting projection and receipt lookup survive daemon rest
     const chat = await expectOk(daemon.endpoint, "/v1/chat/completions", {
       method: "POST",
       token: grant.token,
-      body: { route_id: "route.native-local", model: "autopilot:native-fixture", input: "restart replay" },
+      body: { route_id: "route.native-local", model: "hypervisor:native-fixture", input: "restart replay" },
     });
     receiptId = chat.receipt_id;
     const projection = await expectOk(daemon.endpoint, "/v1/model-mount/projection");
     assert.ok(projection.invocationReceipts.some((receipt) => receipt.id === receiptId));
-    assert.ok(projection.backendProcesses.some((process) => process.backendId === "backend.autopilot.native-local.fixture"));
+    assert.ok(projection.backendProcesses.some((process) => process.backendId === "backend.hypervisor.native-local.fixture"));
   } finally {
     await daemon.close();
   }
@@ -2681,9 +2681,9 @@ test("Agentgres model mounting projection and receipt lookup survive daemon rest
     const replay = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${receiptId}/replay`);
     assert.equal(replay.receipt.id, receiptId);
     assert.equal(replay.route.id, "route.native-local");
-    assert.equal(replay.endpoint.modelId, "autopilot:native-fixture");
+    assert.equal(replay.endpoint.modelId, "hypervisor:native-fixture");
     const restartedProjection = await expectOk(daemon.endpoint, "/v1/model-mount/projection");
-    const restartedProcess = restartedProjection.backendProcesses.find((process) => process.backendId === "backend.autopilot.native-local.fixture");
+    const restartedProcess = restartedProjection.backendProcesses.find((process) => process.backendId === "backend.hypervisor.native-local.fixture");
     assert.equal(restartedProcess.status, "stale_recovered");
     assert.equal(restartedProcess.staleReason, "daemon_boot_mismatch");
   } finally {

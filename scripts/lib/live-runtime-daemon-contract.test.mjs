@@ -1551,7 +1551,7 @@ test("local daemon projects Agentgres runs through thread, turn, and monotonic e
     assert.equal(thread.model_route_id, "route.native-local");
     assert.equal(thread.model_route_decision.eventKind, "ModelRouteDecision");
     assert.equal(thread.model_route_decision.requestedModelMode, "auto");
-    assert.equal(thread.model_route_decision.selectedModel, "autopilot:native-fixture");
+    assert.equal(thread.model_route_decision.selectedModel, "hypervisor:native-fixture");
     assert.equal(thread.model_route_decision.neverSendAutoUpstream, true);
     assert.equal(thread.model_route_decision.workflowNodeId, "workflow.model-router");
 
@@ -1571,7 +1571,7 @@ test("local daemon projects Agentgres runs through thread, turn, and monotonic e
     assert.equal(turn.stop_reason, "evidence_sufficient");
     assert.ok(turn.quality_ledger_ref);
     assert.equal(turn.model_route_decision.eventKind, "ModelRouteDecision");
-    assert.equal(turn.model_route_decision.selectedModel, "autopilot:native-fixture");
+    assert.equal(turn.model_route_decision.selectedModel, "hypervisor:native-fixture");
 
     const reloadedThread = await fetchJson(`${daemon.endpoint}/v1/threads/${thread.thread_id}`);
     assert.equal(reloadedThread.latest_turn_id, turn.turn_id);
@@ -1599,8 +1599,8 @@ test("local daemon projects Agentgres runs through thread, turn, and monotonic e
     assert.equal(routeEvent.event_kind, "item.completed");
     assert.equal(routeEvent.component_kind, "model_router");
     assert.equal(routeEvent.workflow_node_id, "workflow.model-router");
-    assert.equal(routeEvent.payload_summary.selected_model, "autopilot:native-fixture");
-    assert.equal(routeEvent.payload.selected_model, "autopilot:native-fixture");
+    assert.equal(routeEvent.payload_summary.selected_model, "hypervisor:native-fixture");
+    assert.equal(routeEvent.payload.selected_model, "hypervisor:native-fixture");
     assert.equal(routeEvent.payload_summary.reasoning_effort, "low");
     assert.ok(routeEvent.payload_summary.model_route_decision_id);
     assert.deepEqual(routeEvent.receipt_refs, [thread.model_route_receipt_id]);

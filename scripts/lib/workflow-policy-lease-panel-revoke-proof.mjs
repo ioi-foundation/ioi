@@ -54,7 +54,7 @@ function seedDaemonThread(store, cwd) {
     status: "active",
     runtime: "agent",
     cwd,
-    modelId: "autopilot:native-fixture",
+    modelId: "hypervisor:native-fixture",
     requestedModelId: "auto",
     modelRouteId: "route.native-local",
     modelRouteEndpointId: null,

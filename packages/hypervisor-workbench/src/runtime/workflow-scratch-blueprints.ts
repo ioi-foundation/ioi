@@ -462,7 +462,7 @@ function buildRepoMaintenancePackageWorkflow(
   const modelBinding: WorkflowModelBinding & GraphModelBinding = {
     modelRef: "reasoning",
     modelId: "mounted-local-coder",
-    modelCapabilityRef: "model-capability:autopilot.mounted.local-coder",
+    modelCapabilityRef: "model-capability:hypervisor.mounted.local-coder",
     routeId: "route.autopilot.local-first",
     mockBinding: false,
     capabilityScope: ["reasoning"],

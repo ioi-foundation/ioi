@@ -20,7 +20,7 @@ const manifest = {
     harnessRef: "harness://repo-maintenance/proposal-first",
   },
   capabilities: {
-    modelCapabilityRefs: ["model-capability:autopilot.mounted.local-coder"],
+    modelCapabilityRefs: ["model-capability:hypervisor.mounted.local-coder"],
     toolCapabilityRefs: ["tool-capability:file.read", "tool-capability:file.apply_patch"],
     connectorRefs: [],
     primitiveCapabilitiesRequired: ["prim:model.invoke", "prim:fs.read", "prim:fs.write"],

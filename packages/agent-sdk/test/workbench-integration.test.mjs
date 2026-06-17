@@ -17,7 +17,7 @@ test("workbench projection base names daemon runtime as source of truth", () => 
     receiptRefs: ["receipt://workbench/context-attached"],
     authorityRefs: ["authority://workspace/write"],
     manifestRefs: ["manifest://autonomous-system/repo-maintenance"],
-    capabilityRefs: ["model-capability:autopilot.mounted.local-coder"],
+    capabilityRefs: ["model-capability:hypervisor.mounted.local-coder"],
   });
 
   assert.equal(base.schemaVersion, WORKBENCH_INTEGRATION_CONTRACT_SCHEMA_VERSION);
@@ -100,7 +100,7 @@ test("workflow code generation contracts stay proposal-first and capability-shap
     ...workbenchProjectionBase({
       authorityRefs: ["authority://workspace/proposal-first-write"],
       capabilityRefs: [
-        "model-capability:autopilot.mounted.local-coder",
+        "model-capability:hypervisor.mounted.local-coder",
         "tool-capability:workspace.apply-patch",
       ],
       manifestRefs: ["manifest://autonomous-system/repo-agent"],
@@ -110,7 +110,7 @@ test("workflow code generation contracts stay proposal-first and capability-shap
     workflowRef: "workflow://repo-agent",
     packageRef: "package://repo-agent",
     goal: "Add a focused unit test.",
-    boundModelCapabilityRef: "model-capability:autopilot.mounted.local-coder",
+    boundModelCapabilityRef: "model-capability:hypervisor.mounted.local-coder",
     boundToolCapabilityRefs: ["tool-capability:workspace.apply-patch"],
     targetWorkspace: "workspace://example",
     authorityScope: "scope:workspace.write.proposal",

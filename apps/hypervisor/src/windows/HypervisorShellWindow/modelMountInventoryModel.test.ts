@@ -82,9 +82,9 @@ test("model mount inventory normalizer accepts UI-normalized endpoint aliases", 
       routes: [{ id: "route.native-local", role: "default", status: "ready" }],
       endpoints: [
         {
-          id: "endpoint.autopilot.native-fixture",
-          provider: "provider.autopilot.local",
-          modelId: "autopilot:native-fixture",
+          id: "endpoint.hypervisor.native-fixture",
+          provider: "provider.hypervisor.local",
+          modelId: "hypervisor:native-fixture",
           status: "degraded",
           privacy: "local_private",
         },
@@ -97,9 +97,9 @@ test("model mount inventory normalizer accepts UI-normalized endpoint aliases", 
   assert.equal(snapshot.source, "fixture");
   assert.equal(snapshot.routes[0]?.status, "active");
   assert.deepEqual(snapshot.endpoints[0], {
-    id: "endpoint.autopilot.native-fixture",
-    providerId: "provider.autopilot.local",
-    modelId: "autopilot:native-fixture",
+    id: "endpoint.hypervisor.native-fixture",
+    providerId: "provider.hypervisor.local",
+    modelId: "hypervisor:native-fixture",
     status: "degraded",
     privacyClass: "local_private",
   });

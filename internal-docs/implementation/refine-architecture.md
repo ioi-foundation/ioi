@@ -1079,6 +1079,13 @@ Current implementation cut:
   shell storage keys, chat launch keys, chat Vim-mode events, trace/share
   export prefixes, editor theme IDs, command-center route markers, and the
   `styles/hypervisor-shell/` directory are guarded by `check:runtime-layout`.
+  active native-local model mount identities now use Hypervisor terms across
+  the daemon defaults, Mission Control mount surface, contract tests, desktop
+  probe, auth audiences, catalog fixtures, and stream evidence refs:
+  `provider.hypervisor.local`, `backend.hypervisor.native-local.fixture`,
+  `endpoint.hypervisor.native-fixture`, `hypervisor:native-fixture`,
+  `hypervisor-local-server`, and `fixture://catalog/hypervisor-native-3b-q4`.
+  `check:runtime-layout` rejects the retired Autopilot mount identities.
 
 0A.2 remaining visual implementation:
   Home still needs to become the full IOI-reference cockpit view

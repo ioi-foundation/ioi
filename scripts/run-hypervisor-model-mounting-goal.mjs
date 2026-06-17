@@ -454,7 +454,7 @@ async function bootstrapDaemonModelRuntime(outputDir = null) {
     body: {
       id: "import.electron-gui-model",
       model_id: MODEL_ID,
-      provider_id: "provider.autopilot.local",
+      provider_id: "provider.hypervisor.local",
       path: modelPath,
       capabilities: ["chat", "responses", "embeddings", "structured_output", "code"],
     },
@@ -465,8 +465,8 @@ async function bootstrapDaemonModelRuntime(outputDir = null) {
     body: {
       id: ENDPOINT_ID,
       model_id: MODEL_ID,
-      provider_id: "provider.autopilot.local",
-      backend_id: "backend.autopilot.native-local.fixture",
+      provider_id: "provider.hypervisor.local",
+      backend_id: "backend.hypervisor.native-local.fixture",
       load_policy: { mode: "on_demand", idle_ttl_seconds: 900, auto_evict: true },
     },
   });

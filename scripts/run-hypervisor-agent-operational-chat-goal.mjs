@@ -284,9 +284,9 @@ function bridgeState() {
       artifacts: [
         {
           id: "hypervisor-native-fixture",
-          modelId: "autopilot:native-fixture",
-          name: "Autopilot native local fixture",
-          publisher: "provider.autopilot.local",
+          modelId: "hypervisor:native-fixture",
+          name: "Hypervisor native local fixture",
+          publisher: "provider.hypervisor.local",
           status: "mounted",
           format: "GGUF",
           capabilities: ["chat", "responses", "structured_output"],

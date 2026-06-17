@@ -134,7 +134,7 @@ const STAGE4_REPO_AWARE_PROMPTS = [
     kind: "agent local native provider registration",
     executionMode: "agent",
     prompt: "Where are local/native model providers registered in this repo?",
-    mustMentionAny: ["packages/runtime-daemon/src/model-mounting.mjs", "provider.autopilot.local", "defaultBackendForProvider"],
+    mustMentionAny: ["packages/runtime-daemon/src/model-mounting.mjs", "provider.hypervisor.local", "defaultBackendForProvider"],
     mustNotMentionAny: ["I don't know", "Hello! I am a local assistant"],
   },
   {
@@ -755,7 +755,7 @@ const LOOP_NATIVE_WEBSITE_ARTIFACT_SMOKE_PROMPTS = [
       "fixture",
       "input_hash",
       "local:auto",
-      "autopilot:native-fixture",
+      "hypervisor:native-fixture",
       "stories260k",
     ],
     assistantVisibleTimeoutMs: 240_000,

@@ -11,7 +11,7 @@ test("workflow code generation proposal plan writes proposal-only artifacts", ()
     packageRef: "package://repo-agent",
     goal: "Add a focused unit test.",
     targetWorkspace: "/tmp/example-workspace",
-    modelCapabilityRef: "model-capability:autopilot.mounted.local-coder",
+    modelCapabilityRef: "model-capability:hypervisor.mounted.local-coder",
     toolCapabilityRefs: ["tool-capability:workspace.apply-patch"],
     authorityScope: "workspace.fs.proposal",
     evalProfileRef: "eval://repo-agent/unit",

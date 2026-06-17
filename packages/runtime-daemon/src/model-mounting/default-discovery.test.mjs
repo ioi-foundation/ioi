@@ -21,8 +21,8 @@ test("native local fixture artifact is a Rust-backed record without JS file mate
 
   const artifact = ensureNativeLocalFixtureArtifact(state, "2026-06-03T12:00:00.000Z");
 
-  assert.equal(artifact.id, "autopilot.native.fixture");
-  assert.equal(artifact.modelId, "autopilot:native-fixture");
+  assert.equal(artifact.id, "hypervisor.native.fixture");
+  assert.equal(artifact.modelId, "hypervisor:native-fixture");
   assert.equal(artifact.source, "rust_model_mount_native_local_fixture");
   assert.equal(artifact.format, "rust_backed_fixture");
   assert.equal(artifact.checksum, null);

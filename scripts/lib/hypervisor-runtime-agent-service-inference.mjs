@@ -10,8 +10,8 @@ export const DEFAULT_RUNTIME_COGNITION_TIMEOUT_SECS = 140;
 export const DEFAULT_RUNTIME_MODEL_ID = "stories260k";
 export const DEFAULT_RUNTIME_ENDPOINT_ID = "endpoint.stories260k";
 export const DEFAULT_RUNTIME_ROUTE_ID = "route.local-first";
-export const DEFAULT_RUNTIME_PROVIDER_ID = "provider.autopilot.local";
-export const DEFAULT_RUNTIME_BACKEND_ID = "backend.autopilot.native-local.fixture";
+export const DEFAULT_RUNTIME_PROVIDER_ID = "provider.hypervisor.local";
+export const DEFAULT_RUNTIME_BACKEND_ID = "backend.hypervisor.native-local.fixture";
 
 function truthyEnv(value) {
   return /^(1|true|yes|on)$/i.test(String(value || "").trim());
@@ -194,7 +194,7 @@ export async function bootstrapNativeRuntimeModelRoute({
           privacy: "local_only",
           deny_fixture_models: true,
           denied_backends: ["fixture", "ioi_fixture"],
-          denied_providers: ["provider.autopilot.local", "provider.local.folder"],
+          denied_providers: ["provider.hypervisor.local", "provider.local.folder"],
         },
       },
     });

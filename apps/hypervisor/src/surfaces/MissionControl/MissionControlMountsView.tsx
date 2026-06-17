@@ -622,7 +622,7 @@ const defaultProviderDraft: ProviderDraft = {
 };
 
 const defaultTokenDraft: TokenDraft = {
-  audience: "autopilot-local-server",
+  audience: "hypervisor-local-server",
   expiresHours: "24",
   allowed: [
     "model.chat:*",
@@ -738,7 +738,7 @@ const fallbackData: MountsWorkbenchData = {
         formats: ["gguf"],
         adapterPort: "ModelCatalogProviderPort",
         operations: ["search", "resolveVariant", "importUrl", "download", "health"],
-        providerId: "provider.autopilot.local",
+        providerId: "provider.hypervisor.local",
         baseUrlHash: "local",
 	        manifestPathHash: "none",
 	        authVaultRefHash: "none",
@@ -771,7 +771,7 @@ const fallbackData: MountsWorkbenchData = {
         formats: ["gguf", "mlx", "safetensors"],
         adapterPort: "ModelCatalogProviderPort",
         operations: ["search", "resolveVariant", "importUrl", "download", "health"],
-        providerId: "provider.autopilot.local",
+        providerId: "provider.hypervisor.local",
         baseUrlHash: "none",
 	        manifestPathHash: "not configured",
 	        authVaultRefHash: "none",
@@ -837,7 +837,7 @@ const fallbackData: MountsWorkbenchData = {
         formats: ["gguf", "mlx", "safetensors"],
         adapterPort: "ModelCatalogProviderPort",
         operations: ["search", "resolveVariant", "importUrl", "download", "health"],
-        providerId: "provider.autopilot.local",
+        providerId: "provider.hypervisor.local",
         baseUrlHash: "redacted",
 	        manifestPathHash: "none",
 	        authVaultRefHash: "none",
@@ -870,7 +870,7 @@ const fallbackData: MountsWorkbenchData = {
         formats: ["gguf", "mlx", "safetensors"],
         adapterPort: "ModelCatalogProviderPort",
         operations: ["search", "resolveVariant", "importUrl", "download", "health"],
-        providerId: "provider.autopilot.local",
+        providerId: "provider.hypervisor.local",
         baseUrlHash: "not configured",
 	        manifestPathHash: "none",
 	        authVaultRefHash: "none",
@@ -912,13 +912,13 @@ const fallbackData: MountsWorkbenchData = {
       "structured_output",
       "rerank",
     ], "agentgres_model_registry_fixture"),
-    provider("provider.autopilot.local", "Hypervisor native local", "ioi_native_local", "available", "local_private", "ioi_native", "local://ioi-native/model-server", "no auth", [
+    provider("provider.hypervisor.local", "Hypervisor native local", "ioi_native_local", "available", "local_private", "ioi_native", "local://ioi-native/model-server", "no auth", [
       "chat",
       "responses",
       "embeddings",
       "structured_output",
       "rerank",
-    ], "autopilot_native_local_backend_registry"),
+    ], "hypervisor_native_local_backend_registry"),
     provider("provider.lmstudio", "LM Studio", "lm_studio", "stopped", "local_private", "openai_compatible", "http://127.0.0.1:1234/v1", "no auth", [
       "chat",
       "responses",
@@ -962,10 +962,10 @@ const fallbackData: MountsWorkbenchData = {
       "embeddings",
       "rerank",
     ], "deterministic_fixture", "normal", "none"),
-    backend("backend.autopilot.native-local.fixture", "Hypervisor native-local fixture", "native_local", "available", "supervised_fixture", "local://ioi-native/model-server", "fixture", [
+    backend("backend.hypervisor.native-local.fixture", "Hypervisor native-local fixture", "native_local", "available", "supervised_fixture", "local://ioi-native/model-server", "fixture", [
       "gguf",
       "fixture",
-    ], ["chat", "responses", "embeddings", "rerank"], "autopilot_native_local_backend_registry", "normal", "none"),
+    ], ["chat", "responses", "embeddings", "rerank"], "hypervisor_native_local_backend_registry", "normal", "none"),
     backend("backend.llama-cpp", "llama.cpp native GGUF server", "llama_cpp", "blocked", "binary_absent", "http://127.0.0.1:8080/v1", "not configured", [
       "gguf",
     ], ["chat", "responses", "embeddings"], "IOI_LLAMA_CPP_SERVER_PATH", "normal", "none"),
@@ -981,8 +981,8 @@ const fallbackData: MountsWorkbenchData = {
     ], ["chat", "responses", "embeddings"], "lm_studio_public_cli_or_server_probe", "normal", "none"),
   ],
   runtimeEngines: [
-    runtimeEngine("backend.autopilot.native-local.fixture", "Hypervisor native-local fixture", "native_local", "available", true, "gguf,fixture", "autopilot_backend_registry"),
-    runtimeEngine("backend.llama-cpp", "llama.cpp native GGUF server", "llama_cpp", "blocked", false, "gguf", "autopilot_backend_registry"),
+    runtimeEngine("backend.hypervisor.native-local.fixture", "Hypervisor native-local fixture", "native_local", "available", true, "gguf,fixture", "hypervisor_backend_registry"),
+    runtimeEngine("backend.llama-cpp", "llama.cpp native GGUF server", "llama_cpp", "blocked", false, "gguf", "hypervisor_backend_registry"),
     runtimeEngine("lmstudio.runtime.cuda12", "LM Studio CUDA12 llama.cpp runtime", "lm_studio_runtime", "installed", true, "GGUF", "lm_studio_public_lms_runtime_ls"),
   ],
   runtimeSurvey: {
@@ -992,7 +992,7 @@ const fallbackData: MountsWorkbenchData = {
     ram: "available after survey",
     vram: "available after survey",
     memoryPressure: "normal",
-    selectedEngine: "backend.autopilot.native-local.fixture",
+    selectedEngine: "backend.hypervisor.native-local.fixture",
     receipt: "none",
   },
   artifacts: [
@@ -1027,9 +1027,9 @@ const fallbackData: MountsWorkbenchData = {
       capabilities: ["embeddings"],
     },
     {
-      id: "autopilot.native.fixture",
-      name: "autopilot:native-fixture",
-      provider: "provider.autopilot.local",
+      id: "hypervisor.native.fixture",
+      name: "hypervisor:native-fixture",
+      provider: "provider.hypervisor.local",
       state: "installed",
       context: "8192",
       format: "gguf",
@@ -1070,11 +1070,11 @@ const fallbackData: MountsWorkbenchData = {
       capabilities: ["chat", "responses", "embeddings", "structured_output", "rerank"],
     },
     {
-      id: "endpoint.autopilot.native-fixture",
-      provider: "provider.autopilot.local",
+      id: "endpoint.hypervisor.native-fixture",
+      provider: "provider.hypervisor.local",
       apiFormat: "ioi_native",
       baseUrl: "local://ioi-native/model-server",
-      modelId: "autopilot:native-fixture",
+      modelId: "hypervisor:native-fixture",
       privacy: "local_private",
       loadPolicy: "on_demand / idle_evict 900s",
       status: "mounted",
@@ -1107,14 +1107,14 @@ const fallbackData: MountsWorkbenchData = {
     },
   ],
   downloads: [
-    { id: "download_job_fixture", model: "local:auto", providerId: "provider.autopilot.local", status: "completed", progress: "100%", source: "fixture://catalog/autopilot-native-3b-q4", sourceLabel: "Fixture catalog", sourceHash: "fixture", bytes: "1.2 GB / 1.2 GB", maxBytes: "not bounded", maxBytesValue: 0, bandwidthLimit: "unlimited", bandwidthLimitValue: 0, retryLimit: "0", resumePolicy: "resume enabled", cleanupState: "not_needed", policyStatus: "ready", checksum: "sha256 redacted", receipt: "receipt_model_lifecycle_*", failureReason: "none", failureClass: "none", format: "gguf", quantization: "Q4_K_M", sizeBytes: 1288490188 },
-    { id: "download_job_retry_fixture", model: "autopilot:native-fixture", providerId: "provider.autopilot.local", status: "failed", progress: "42%", source: "fixture://catalog/autopilot-native-3b-q4", sourceLabel: "Fixture catalog", sourceHash: "fixture", bytes: "512 MB / 1.2 GB", maxBytes: "2 GB", maxBytesValue: 2147483648, bandwidthLimit: "unlimited", bandwidthLimitValue: 0, retryLimit: "1", resumePolicy: "resume enabled", cleanupState: "not_needed", policyStatus: "ready", checksum: "pending", receipt: "receipt_model_lifecycle_failed_*", failureReason: "checksum_mismatch", failureClass: "integrity", format: "gguf", quantization: "Q4_K_M", sizeBytes: 1288490188 },
-    { id: "download_queue_empty", model: "queue", providerId: "provider.autopilot.local", status: "empty", progress: "0 active jobs", source: "", sourceLabel: "No queued downloads", sourceHash: "none", bytes: "0", maxBytes: "not bounded", maxBytesValue: 0, bandwidthLimit: "unlimited", bandwidthLimitValue: 0, retryLimit: "0", resumePolicy: "resume enabled", cleanupState: "none", policyStatus: "ready", checksum: "none", receipt: "none", failureReason: "none", failureClass: "none", format: "unknown", quantization: "unknown", sizeBytes: 0 },
+    { id: "download_job_fixture", model: "local:auto", providerId: "provider.hypervisor.local", status: "completed", progress: "100%", source: "fixture://catalog/hypervisor-native-3b-q4", sourceLabel: "Fixture catalog", sourceHash: "fixture", bytes: "1.2 GB / 1.2 GB", maxBytes: "not bounded", maxBytesValue: 0, bandwidthLimit: "unlimited", bandwidthLimitValue: 0, retryLimit: "0", resumePolicy: "resume enabled", cleanupState: "not_needed", policyStatus: "ready", checksum: "sha256 redacted", receipt: "receipt_model_lifecycle_*", failureReason: "none", failureClass: "none", format: "gguf", quantization: "Q4_K_M", sizeBytes: 1288490188 },
+    { id: "download_job_retry_fixture", model: "hypervisor:native-fixture", providerId: "provider.hypervisor.local", status: "failed", progress: "42%", source: "fixture://catalog/hypervisor-native-3b-q4", sourceLabel: "Fixture catalog", sourceHash: "fixture", bytes: "512 MB / 1.2 GB", maxBytes: "2 GB", maxBytesValue: 2147483648, bandwidthLimit: "unlimited", bandwidthLimitValue: 0, retryLimit: "1", resumePolicy: "resume enabled", cleanupState: "not_needed", policyStatus: "ready", checksum: "pending", receipt: "receipt_model_lifecycle_failed_*", failureReason: "checksum_mismatch", failureClass: "integrity", format: "gguf", quantization: "Q4_K_M", sizeBytes: 1288490188 },
+    { id: "download_queue_empty", model: "queue", providerId: "provider.hypervisor.local", status: "empty", progress: "0 active jobs", source: "", sourceLabel: "No queued downloads", sourceHash: "none", bytes: "0", maxBytes: "not bounded", maxBytesValue: 0, bandwidthLimit: "unlimited", bandwidthLimitValue: 0, retryLimit: "0", resumePolicy: "resume enabled", cleanupState: "none", policyStatus: "ready", checksum: "none", receipt: "none", failureReason: "none", failureClass: "none", format: "unknown", quantization: "unknown", sizeBytes: 0 },
   ],
   tokens: [
     {
       id: "grant_local_dev",
-      audience: "autopilot-local-server",
+      audience: "hypervisor-local-server",
       allowed: ["model.chat:*", "model.responses:*", "model.embeddings:*", "route.use:*", "mcp.call:huggingface.model_search"],
       denied: ["connector.gmail.send", "filesystem.write", "shell.exec"],
       expires: "24h",
@@ -1130,7 +1130,7 @@ const fallbackData: MountsWorkbenchData = {
     },
     {
       id: "grant_revoked_fixture",
-      audience: "autopilot-local-server",
+      audience: "hypervisor-local-server",
       allowed: ["model.chat:*"],
       denied: ["model.chat:*"],
       expires: "revoked",
@@ -1182,7 +1182,7 @@ const fallbackData: MountsWorkbenchData = {
   ],
   routes: [
     route("route.local-first", "default", "local_or_enterprise", "adaptive", "$0.25", "endpoint.local.auto", "local:auto", "receipt_model_invocation_*"),
-    route("route.native-local", "default", "local_only", "deterministic", "$0.00", "endpoint.autopilot.native-fixture", "autopilot:native-fixture", "receipt_model_invocation_*"),
+    route("route.native-local", "default", "local_only", "deterministic", "$0.00", "endpoint.hypervisor.native-fixture", "hypervisor:native-fixture", "receipt_model_invocation_*"),
     route("route.verifier.local", "verifier", "local_only", "deterministic", "$0.05", "endpoint.local.auto", "local:auto", "receipt_model_route_selection_*"),
     route("route.hosted-fallback", "planner", "local_or_enterprise", "high", "$0.25", "endpoint.local.auto -> provider.openai-compatible", "blocked by provider policy", "policy blocked"),
   ],
@@ -1230,7 +1230,7 @@ const fallbackData: MountsWorkbenchData = {
       providerId: "provider.local-folder",
       instanceId: "instance.local.auto.default",
       backend: "native_local_fixture",
-      backendId: "backend.autopilot.native-local.fixture",
+      backendId: "backend.hypervisor.native-local.fixture",
       grantId: "wallet.grant.fixture",
       tokenCount: 42,
       latencyMs: 24,
@@ -1242,15 +1242,15 @@ const fallbackData: MountsWorkbenchData = {
       streamStatus: "started",
       streamSource: "provider_native",
       streamKind: "openai_chat_completions_native_local",
-      selectedBackend: "backend.autopilot.native-local.fixture",
+      selectedBackend: "backend.hypervisor.native-local.fixture",
     }),
     receipt("receipt_model_stream_completed_fixture", "model_invocation_stream_completed", "openai_chat_completions_native_local stream completed for local:auto.", ["model_stream", "openai_chat_completions_native_local", "endpoint.local.auto"], "completed", {
       routeId: "route.local-first",
       endpointId: "endpoint.local.auto",
       selectedModel: "local:auto",
-      providerId: "provider.autopilot.local",
-      backendId: "backend.autopilot.native-local.fixture",
-      selectedBackend: "backend.autopilot.native-local.fixture",
+      providerId: "provider.hypervisor.local",
+      backendId: "backend.hypervisor.native-local.fixture",
+      selectedBackend: "backend.hypervisor.native-local.fixture",
       providerResponseKind: "native_local.chat.stream",
       streamStatus: "completed",
       streamSource: "provider_native",
@@ -1263,9 +1263,9 @@ const fallbackData: MountsWorkbenchData = {
       routeId: "route.local-first",
       endpointId: "endpoint.local.auto",
       selectedModel: "local:auto",
-      providerId: "provider.autopilot.local",
-      backendId: "backend.autopilot.native-local.fixture",
-      selectedBackend: "backend.autopilot.native-local.fixture",
+      providerId: "provider.hypervisor.local",
+      backendId: "backend.hypervisor.native-local.fixture",
+      selectedBackend: "backend.hypervisor.native-local.fixture",
       providerResponseKind: "native_local.responses.stream",
       streamStatus: "aborted",
       streamSource: "provider_native",
@@ -1287,9 +1287,9 @@ const fallbackData: MountsWorkbenchData = {
 
 const fallbackCatalogVariants: CatalogVariantPreview[] = [
   {
-    id: "catalog.fixture.autopilot-native-3b-q4",
-    modelId: "autopilot:native-fixture",
-    family: "autopilot-native",
+    id: "catalog.fixture.hypervisor-native-3b-q4",
+    modelId: "hypervisor:native-fixture",
+    family: "hypervisor-native",
     architecture: "llama",
     parameterCount: "3B",
     catalogProviderId: "catalog.fixture",
@@ -1299,7 +1299,7 @@ const fallbackCatalogVariants: CatalogVariantPreview[] = [
     size: "1.2 GB",
     sizeBytes: 1288490188,
     sourceLabel: "Fixture catalog",
-    sourceUrl: "fixture://catalog/autopilot-native-3b-q4",
+    sourceUrl: "fixture://catalog/hypervisor-native-3b-q4",
     sourceHash: "fixture",
     compatibility: ["native_local_fixture", "llama_cpp"],
     tags: ["chat", "responses", "embeddings"],
@@ -2184,7 +2184,7 @@ function useModelMountsDaemon() {
     const grant = await requestJson("/v1/model-mount/tokens", {
       method: "POST",
       body: {
-        audience: "autopilot-local-server",
+        audience: "hypervisor-local-server",
         allowed: [
           "model.chat:*",
           "model.responses:*",
@@ -2360,7 +2360,7 @@ function useModelMountsDaemon() {
         }),
       probeNativeBackend: () =>
         runAction("backend-health", async () => {
-          await requestJson("/v1/model-mount/backends/backend.autopilot.native-local.fixture/health", {
+          await requestJson("/v1/model-mount/backends/backend.hypervisor.native-local.fixture/health", {
             method: "POST",
           });
           return "Native-local backend health receipt recorded.";
@@ -2368,7 +2368,7 @@ function useModelMountsDaemon() {
       startNativeBackend: () =>
         runAction("backend-start", async () => {
           const token = await ensureToken();
-          await requestJson("/v1/model-mount/backends/backend.autopilot.native-local.fixture/start", {
+          await requestJson("/v1/model-mount/backends/backend.hypervisor.native-local.fixture/start", {
             method: "POST",
             token,
           });
@@ -2377,7 +2377,7 @@ function useModelMountsDaemon() {
       stopNativeBackend: () =>
         runAction("backend-stop", async () => {
           const token = await ensureToken();
-          await requestJson("/v1/model-mount/backends/backend.autopilot.native-local.fixture/stop", {
+          await requestJson("/v1/model-mount/backends/backend.hypervisor.native-local.fixture/stop", {
             method: "POST",
             token,
           });
@@ -2385,7 +2385,7 @@ function useModelMountsDaemon() {
         }),
       tailNativeBackendLogs: () =>
         runAction("backend-logs", async () => {
-          const logs = await requestJson("/v1/model-mount/backends/backend.autopilot.native-local.fixture/logs");
+          const logs = await requestJson("/v1/model-mount/backends/backend.hypervisor.native-local.fixture/logs");
           const count = Array.isArray(logs) ? logs.length : 0;
           return `Native-local backend returned ${count} bounded log record${count === 1 ? "" : "s"}.`;
         }),
@@ -2406,7 +2406,7 @@ function useModelMountsDaemon() {
             method: "POST",
             token,
             body: {
-              model_id: "autopilot:native-fixture",
+              model_id: "hypervisor:native-fixture",
               load_policy: { mode: "on_demand", idle_ttl_seconds: 900, auto_evict: true },
             },
           });
@@ -2420,7 +2420,7 @@ function useModelMountsDaemon() {
             token,
             body: {
               model_id: `autopilot:download-${Date.now()}`,
-              provider_id: "provider.autopilot.local",
+              provider_id: "provider.hypervisor.local",
               source_url: "fixture://autopilot/native-local",
             },
           });
@@ -2487,7 +2487,7 @@ function useModelMountsDaemon() {
                 resumeDownload: payload.resumeDownload,
               })
             : {
-                source_url: payload.sourceUrl || "fixture://catalog/autopilot-native-3b-q4",
+                source_url: payload.sourceUrl || "fixture://catalog/hypervisor-native-3b-q4",
                 transfer_approved: Boolean(payload.transferApproved),
                 bandwidth_bps: parseByteLimit(payload.bandwidthBps ?? "") || undefined,
                 retry_limit: parseByteLimit(payload.retryLimit ?? "") || undefined,
@@ -2601,7 +2601,7 @@ function useModelMountsDaemon() {
             token,
             body: {
               model_id: VALIDATION_LIFECYCLE_MODEL_ID,
-              provider_id: "provider.autopilot.local",
+              provider_id: "provider.hypervisor.local",
               display_name: "GUI lifecycle validation model",
               family: "autopilot-validation",
               format: "gguf",
@@ -2623,8 +2623,8 @@ function useModelMountsDaemon() {
             body: {
               id: VALIDATION_LIFECYCLE_ENDPOINT_ID,
               model_id: VALIDATION_LIFECYCLE_MODEL_ID,
-              provider_id: "provider.autopilot.local",
-              backend_id: "backend.autopilot.native-local.fixture",
+              provider_id: "provider.hypervisor.local",
+              backend_id: "backend.hypervisor.native-local.fixture",
               base_url: "local://ioi-daemon/gui-lifecycle-validation",
               capabilities: ["chat", "embeddings"],
               load_policy: { mode: "on_demand", idle_ttl_seconds: 900, auto_evict: true },
@@ -2685,7 +2685,7 @@ function useModelMountsDaemon() {
             token,
             body: {
               route_id: "route.native-local",
-              model: "autopilot:native-fixture",
+              model: "hypervisor:native-fixture",
               stream: true,
               messages: [{ role: "user", content: "Mounts GUI completed native-local stream probe." }],
             },
@@ -2695,7 +2695,7 @@ function useModelMountsDaemon() {
             abortAfterFirstChunk: true,
             body: {
               route_id: "route.native-local",
-              model: "autopilot:native-fixture",
+              model: "hypervisor:native-fixture",
               stream: true,
               input: "Mounts GUI aborted native-local stream probe.",
             },
@@ -3328,7 +3328,7 @@ function tokenScopeList(value: string) {
 function tokenDraftPayload(draft: TokenDraft) {
   const expiresHours = Math.max(1, Number(draft.expiresHours || 24));
   return {
-    audience: draft.audience.trim() || "autopilot-local-server",
+    audience: draft.audience.trim() || "hypervisor-local-server",
     allowed: tokenScopeList(draft.allowed),
     denied: tokenScopeList(draft.denied),
     expires_at: new Date(Date.now() + expiresHours * 60 * 60 * 1000).toISOString(),
@@ -3559,7 +3559,7 @@ function normalizeSnapshot(snapshot: any, endpoint: string): MountsWorkbenchData
     downloads: arrayOf(snapshot?.downloads).map((item) => ({
       id: stringValue(item.id, "download.unknown"),
       model: stringValue(item.modelId, "unknown"),
-      providerId: stringValue(item.providerId, "provider.autopilot.local"),
+      providerId: stringValue(item.providerId, "provider.hypervisor.local"),
       status: stringValue(item.status, "unknown"),
       progress: item.progress === undefined ? "unknown" : `${Math.round(Number(item.progress) * 100)}%`,
       source: stringValue(item.source, ""),
@@ -3588,7 +3588,7 @@ function normalizeSnapshot(snapshot: any, endpoint: string): MountsWorkbenchData
     providers,
     tokens: arrayOf(snapshot?.tokens).map((item) => ({
       id: stringValue(item.id, "grant.unknown"),
-      audience: stringValue(item.audience, "autopilot-local-server"),
+      audience: stringValue(item.audience, "hypervisor-local-server"),
       allowed: stringArray(item.allowed),
       denied: stringArray(item.denied),
       expires: stringValue(item.expiresAt, "unknown"),
@@ -3841,7 +3841,7 @@ function catalogVariantPayload(variant: CatalogVariantPreview, maxBytes?: string
   return {
     source_url: variant.sourceUrl,
     model_id: variant.modelId,
-    provider_id: "provider.autopilot.local",
+    provider_id: "provider.hypervisor.local",
     family: variant.family,
     architecture: variant.architecture,
     parameter_count: variant.parameterCount,
@@ -3988,7 +3988,7 @@ function catalogProviderEvidence(provider: CatalogProviderPreview) {
 function loadDraftBody(draft: ModelLoadDraft) {
   const ttlSeconds = Number(draft.ttlSeconds || 900);
   return {
-    model_id: draft.modelId || "autopilot:native-fixture",
+    model_id: draft.modelId || "hypervisor:native-fixture",
     load_policy: {
       mode: draft.mode || "on_demand",
       idle_ttl_seconds: ttlSeconds,
@@ -4673,7 +4673,7 @@ function BackendsPanel({
   onForgetRuntimeEngine: (engineId: string) => void;
   busy: boolean;
 }) {
-  const nativeBackend = backends.find((backendItem) => backendItem.id === "backend.autopilot.native-local.fixture") ?? backends[0];
+  const nativeBackend = backends.find((backendItem) => backendItem.id === "backend.hypervisor.native-local.fixture") ?? backends[0];
   const selectedEngine = runtimeEngines.find((engine) => engine.selected) ?? runtimeEngines[0];
   const [engineDraft, setEngineDraft] = useState<RuntimeEngineProfileDraft>(() => draftFromRuntimeEngine(selectedEngine));
   useEffect(() => {
@@ -4893,7 +4893,7 @@ function ModelsPanel({
 }) {
   const [deleteConfirmId, setDeleteConfirmId] = useState("");
   const [loadDraft, setLoadDraft] = useState<ModelLoadDraft>({
-    modelId: "autopilot:native-fixture",
+    modelId: "hypervisor:native-fixture",
     mode: "on_demand",
     gpu: "auto",
     contextLength: "4096",
@@ -4907,7 +4907,7 @@ function ModelsPanel({
   };
   const loadedInstances = data.instances.filter(isLoadedInstance);
   const localAutoSelection = normalizePickerSelection(data, { ...emptyPickerSelection, modelId: "local:auto", endpointId: "endpoint.local.auto", routeId: "route.local-first" });
-  const nativeSelection = normalizePickerSelection(data, { ...emptyPickerSelection, modelId: "autopilot:native-fixture", endpointId: "endpoint.autopilot.native-fixture", routeId: "route.native-local" });
+  const nativeSelection = normalizePickerSelection(data, { ...emptyPickerSelection, modelId: "hypervisor:native-fixture", endpointId: "endpoint.hypervisor.native-fixture", routeId: "route.native-local" });
   const draftLoadGuard = combineGuards(
     connectionActionGuard(connectionState, "model.load:*"),
     tokenScopeGuard(data, hasSessionToken, "model.load:*"),
@@ -5146,7 +5146,7 @@ function DownloadsPanel({
   const [oauthDraft, setOauthDraft] = useState<CatalogOAuthDraft>(defaultCatalogOAuthDraft);
   const [selectedOAuthPresetId, setSelectedOAuthPresetId] = useState(catalogOAuthProviderPresets[0]?.id ?? "");
   const [oauthCopyState, setOauthCopyState] = useState("not copied");
-  const [sourceUrl, setSourceUrl] = useState("fixture://catalog/autopilot-native-3b-q4");
+  const [sourceUrl, setSourceUrl] = useState("fixture://catalog/hypervisor-native-3b-q4");
   const [selectedVariantId, setSelectedVariantId] = useState("");
   const [maxBytes, setMaxBytes] = useState("");
   const [bandwidthBps, setBandwidthBps] = useState("");
@@ -7035,7 +7035,7 @@ export function MissionControlMountsView() {
         | "provider-stop",
     ) => {
       if (!validationActionsEnabled || busy) return;
-      const providerId = "provider.autopilot.local";
+      const providerId = "provider.hypervisor.local";
       if (action.startsWith("backend-")) setActiveTab("backends");
       if (action.startsWith("provider-")) setActiveTab("providers");
 
@@ -7099,7 +7099,7 @@ export function MissionControlMountsView() {
       setPickerSelection((current) => ({
         ...current,
         modelId: VALIDATION_LIFECYCLE_MODEL_ID,
-        providerId: "provider.autopilot.local",
+        providerId: "provider.hypervisor.local",
         endpointId: VALIDATION_LIFECYCLE_ENDPOINT_ID,
         routeId: "route.native-local",
         instanceId: instanceId ?? current.instanceId,
@@ -7147,9 +7147,9 @@ export function MissionControlMountsView() {
       if (action === "run-benchmark") {
         const selection = normalizePickerSelection(daemon.data, {
           ...emptyPickerSelection,
-          modelId: "autopilot:native-fixture",
-          providerId: "provider.autopilot.local",
-          endpointId: "endpoint.autopilot.native-fixture",
+          modelId: "hypervisor:native-fixture",
+          providerId: "provider.hypervisor.local",
+          endpointId: "endpoint.hypervisor.native-fixture",
           routeId: "route.native-local",
         });
         setPickerSelection(selection);

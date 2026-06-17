@@ -7,7 +7,7 @@ const CANNED_DAEMON_RESPONSE_PATTERNS = [
 
 const NON_SEMANTIC_MODEL_RESPONSE_PATTERNS = [
   /IOI model router fixture response/i,
-  /Autopilot native local model response/i,
+  /Hypervisor native local model response/i,
   /^Hello! I am a local assistant\.?$/i,
   /\binput_hash=[0-9a-f]{8,}\b/i,
 ];

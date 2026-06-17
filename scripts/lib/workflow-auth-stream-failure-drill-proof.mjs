@@ -128,7 +128,7 @@ try {
   const grant = await expectOk(daemon.endpoint, "/v1/model-mount/tokens", {
     method: "POST",
     body: {
-      audience: "autopilot-local-server",
+      audience: "hypervisor-local-server",
       allowed: ["model.chat:*", "model.responses:*", "route.use:*"],
     },
   });
@@ -141,7 +141,7 @@ try {
     token: grant.token,
     body: {
       route_id: "route.native-local",
-      model: "autopilot:native-fixture",
+      model: "hypervisor:native-fixture",
       stream: true,
       messages: [{ role: "user", content: "abort chat stream for clean failure panel" }],
     },
@@ -162,7 +162,7 @@ try {
     token: grant.token,
     body: {
       route_id: "route.native-local",
-      model: "autopilot:native-fixture",
+      model: "hypervisor:native-fixture",
       stream: true,
       messages: [{ role: "user", content: "recover after canceled stream" }],
     },

@@ -24264,7 +24264,7 @@ function runReceipts() {
       /code-rail-back-to-hypervisor/.test(workbenchShellPatch) &&
       /secondaryHypervisorHeaderRemoved/.test(workbenchShellPatch) &&
       /hypervisorModeMenuHiddenByCssAndSettings/.test(workbenchShellPatch) &&
-      !/applyAutopilotWorkbenchShellPatch|ioi-autopilot-native-shell|ioi-autopilot-fork-quickinput|ioi\.autopilot-workbench-shell-patch|ioi\.autopilot\.shell\.mode|ioi\.autopilot\.active\.mode|autopilot-primary-rail|code-rail-back-to-autopilot|activeAutopilotMode|secondaryAutopilotHeaderRemoved|autopilotModeMenuHiddenByCssAndSettings|Back to Autopilot/.test(
+      !/applyAutopilotWorkbenchShellPatch|ioi-hypervisor-native-shell|ioi-autopilot-fork-quickinput|ioi\.autopilot-workbench-shell-patch|ioi\.autopilot\.shell\.mode|ioi\.autopilot\.active\.mode|autopilot-primary-rail|code-rail-back-to-autopilot|activeAutopilotMode|secondaryAutopilotHeaderRemoved|autopilotModeMenuHiddenByCssAndSettings|Back to Autopilot/.test(
         workbenchShellPatch,
       ),
     [

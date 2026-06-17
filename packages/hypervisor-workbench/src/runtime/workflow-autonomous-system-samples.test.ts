@@ -50,7 +50,7 @@ test("repo-maintenance package sample projects to full lifecycle readiness", () 
     "ready",
   );
   assert.deepEqual(lifecycle.manifest.capabilities.modelCapabilityRefs, [
-    "model-capability:autopilot.mounted.local-coder",
+    "model-capability:hypervisor.mounted.local-coder",
   ]);
   assert.deepEqual(lifecycle.manifest.capabilities.toolCapabilityRefs, [
     "tool-capability:file.apply_patch",

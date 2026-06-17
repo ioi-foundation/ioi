@@ -38,7 +38,7 @@ test("default model provider records preserve local and hosted boundaries", () =
   assert.equal(local.id, "provider.local.folder");
   assert.equal(local.privacyClass, "local_private");
   assert.deepEqual(local.discovery.evidenceRefs, ["agentgres_model_registry_fixture"]);
-  assert.equal(native.id, "provider.autopilot.local");
+  assert.equal(native.id, "provider.hypervisor.local");
   assert.equal(native.driver, "native_local");
 
   const llama = providers.find((provider) => provider.id === "provider.llama-cpp");
@@ -60,7 +60,7 @@ test("default artifact, endpoint, and route records preserve compatibility ids",
   const [localArtifact, embeddingArtifact] = localFixtureArtifactRecords(checkedAt);
   const localEndpoint = localFixtureEndpointRecord(checkedAt);
   const nativeEndpoint = nativeFixtureEndpointRecord({
-    artifact: { modelId: "autopilot:native-fixture" },
+    artifact: { modelId: "hypervisor:native-fixture" },
     checkedAt,
   });
   const routes = defaultRouteRecords();
@@ -69,8 +69,8 @@ test("default artifact, endpoint, and route records preserve compatibility ids",
   assert.equal(localArtifact.modelId, "local:auto");
   assert.equal(embeddingArtifact.capabilities.includes("embeddings"), true);
   assert.equal(localEndpoint.id, "endpoint.local.auto");
-  assert.equal(nativeEndpoint.id, "endpoint.autopilot.native-fixture");
-  assert.equal(nativeEndpoint.modelId, "autopilot:native-fixture");
+  assert.equal(nativeEndpoint.id, "endpoint.hypervisor.native-fixture");
+  assert.equal(nativeEndpoint.modelId, "hypervisor:native-fixture");
   assert.equal(Object.hasOwn(nativeEndpoint, "backendRegistry"), false);
   assert.equal(routes[0].id, "route.local-first");
   assert.equal(routes[1].id, "route.native-local");

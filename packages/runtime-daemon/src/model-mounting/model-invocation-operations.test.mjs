@@ -957,11 +957,11 @@ function providerInvocationBridgeResult(request, options = {}) {
   const output_text =
     options.output_text ??
     (nativeLocal
-      ? `Autopilot native local model response from ${request.model_ref}. input_hash=test`
+      ? `Hypervisor native local model response from ${request.model_ref}. input_hash=test`
       : "provider answer");
   const provider_response_kind = nativeLocal ? "rust_model_mount.native_local" : "rust_model_mount.fixture";
   const backend = nativeLocal ? "autopilot.native_local.fixture" : "ioi_fixture";
-  const backend_id = nativeLocal ? request.backend_ref ?? "backend.autopilot.native-local.fixture" : "backend.fixture";
+  const backend_id = nativeLocal ? request.backend_ref ?? "backend.hypervisor.native-local.fixture" : "backend.fixture";
   const execution_backend = request.execution_backend ?? "rust_model_mount_fixture";
   const evidenceRefs = [
     "rust_model_mount_provider_invocation",
@@ -1007,7 +1007,7 @@ function providerStreamInvocationBridgeResult(request, options = {}) {
   const output_text = options.output_text ?? "rust stream answer";
   const token_count = options.token_count ?? { prompt_tokens: 1, completion_tokens: 2, total_tokens: 3 };
   const execution_backend = request.execution_backend ?? "rust_model_mount_native_local_stream";
-  const backend_id = request.backend_ref ?? "backend.autopilot.native-local.fixture";
+  const backend_id = request.backend_ref ?? "backend.hypervisor.native-local.fixture";
   const streamKind =
     request.invocation_kind === "responses"
       ? "openai_responses_native_local"

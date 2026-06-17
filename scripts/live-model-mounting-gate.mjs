@@ -1871,7 +1871,7 @@ async function runModelCatalogOAuthGate(evidence) {
     const grant = await expectOk(daemon.endpoint, "/v1/model-mount/tokens", {
       method: "POST",
       body: {
-        audience: "autopilot-local-server",
+        audience: "hypervisor-local-server",
         allowed: [`provider.write:${providerId}`, "vault.write:*", "vault.read:*"],
         denied: ["filesystem.write", "shell.exec"],
       },
@@ -2139,7 +2139,7 @@ async function runWalletGate(evidence) {
         const grant = await expectOk(daemon.endpoint, "/v1/model-mount/tokens", {
           method: "POST",
           body: {
-            audience: "autopilot-local-server",
+            audience: "hypervisor-local-server",
             allowed: ["model.chat:*", "mcp.import:*", "mcp.call:huggingface.model_search"],
             denied: ["filesystem.write", "shell.exec"],
             vault_refs: { provider_key: "vault://wallet.fake/provider-key" },
@@ -2231,7 +2231,7 @@ async function runAgentgresGate(evidence) {
           token: grant.token,
           body: {
             model_id: "agentgres:remote-boundary-fixture",
-            provider_id: "provider.autopilot.local",
+            provider_id: "provider.hypervisor.local",
             source_url: "fixture://agentgres/remote-boundary",
             fixture_content: "family=agentgres-boundary\ncontext=1024\nquantization=Q4_K_M\n",
           },
@@ -2241,7 +2241,7 @@ async function runAgentgresGate(evidence) {
           token: grant.token,
           body: {
             route_id: "route.native-local",
-            model: "autopilot:native-fixture",
+            model: "hypervisor:native-fixture",
             input: "Agentgres remote boundary replay check",
           },
         });

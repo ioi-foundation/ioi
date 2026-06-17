@@ -172,7 +172,7 @@ export function createSubmitPrompt(deps) {
         /\bTOOLCAT_/i,
         /\binput_hash=/i,
         /\blocal:auto\b/i,
-        /\bautopilot:native-fixture\b/i,
+        /\bhypervisor:native-fixture\b/i,
       ];
       return {
         rowCount: rows.length,
