@@ -511,6 +511,18 @@ compliance acronyms for hidden audit material.
   binds selection ref, execution lane, model route ref when present, workspace
   mount policy, authority scope refs, privacy posture ref, Agentgres operation
   refs, artifact refs, and daemon-runtime truth source.
+- `HarnessContainerLanePlan`: daemon-planned Docker/Podman execution contract
+  for a containerized `AgentHarnessAdapter`. It binds the selected adapter,
+  runtime, container image ref, command argv hash, public/redacted mounts,
+  network policy, env policy ref, authority scope refs, and privacy posture.
+  It is a lane plan, not execution proof and not a privacy primitive.
+- `HarnessContainerLaneReceipt`: receipt envelope for a container harness lane.
+  It copies the planned image, argv hash, mounts, network policy, env policy,
+  authority scope refs, and privacy posture, then adds explicit exit status,
+  Agentgres operation refs, artifact refs, and daemon-runtime truth source.
+  By default it must not represent plaintext workspace, cTEE private workspace,
+  raw host paths, host container sockets, plaintext env maps, or secret argv as
+  safe.
 - `AgentHarnessEnvironmentOpsProfile`: stable environment-operations contract
   for external harnesses. It extends `HypervisorEnvironmentOpsProfile` for
   harness-specific proposal-source behavior and keeps external harnesses out of

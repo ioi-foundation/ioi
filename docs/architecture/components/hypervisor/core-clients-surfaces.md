@@ -365,6 +365,40 @@ selection ref, execution lane, model route ref, workspace mount policy,
 authority scope refs, privacy posture ref, Agentgres operation refs, and
 artifact refs.
 
+Containerized harness adapters require a stricter daemon-side lane contract.
+Docker and Podman are execution lanes, not privacy guarantees. A
+`HarnessContainerLanePlan` must bind:
+
+```text
+runtime:
+  docker | podman
+container_image_ref
+command_argv_hash
+mounts:
+  source_ref
+  target_path
+  access:
+    read_only | read_write_scratch
+  custody:
+    public_trunk | redacted_projection
+network_policy:
+  disabled | allowlist
+env_policy_ref
+authority_scope_refs
+privacy_posture_ref
+```
+
+The corresponding `HarnessContainerLaneReceipt` must include the same image,
+argv hash, mounts, network policy, env policy, authority scope refs, privacy
+posture ref, Agentgres operation refs, artifact refs, and an explicit
+`exit_status` (`not_executed`, `success`, `failure`, or `blocked`).
+
+By default, external container harnesses may not mount `plain_workspace` or
+`ctee_private_workspace` custody, may not receive raw host paths, may not mount
+host container sockets, and may not receive plaintext env maps or secret argv.
+Those constraints keep container lanes useful for public-trunk and redacted
+fixtures without pretending Docker or Podman provide cTEE privacy.
+
 Adapter doctrine:
 
 ```text

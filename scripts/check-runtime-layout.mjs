@@ -60,6 +60,12 @@ const hypervisorHarnessAdapterModelSource = read(
 const hypervisorNewSessionModalSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorNewSessionModal.tsx",
 );
+const runtimeHarnessContainerLaneSource = read(
+  "packages/runtime-daemon/src/runtime-harness-container-lane.mjs",
+);
+const runtimeHarnessContainerLaneTestSource = read(
+  "packages/runtime-daemon/src/runtime-harness-container-lane.test.mjs",
+);
 const hypervisorActivityBarSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/components/ChatLocalActivityBar.tsx",
 );
@@ -474,6 +480,39 @@ assert(
     ),
   ["apps/hypervisor/src/windows/HypervisorShellWindow/harnessAdapterModel.ts"],
   "AgentHarnessAdapter fixtures must list external harnesses as daemon-gated proposal sources with public testbed custody, comparison receipts, and no runtime-truth shortcut.",
+);
+assert(
+  "hypervisor-harness-container-lane-contract",
+  runtimeHarnessContainerLaneSource.includes(
+    "ioi.hypervisor.harness_container_lane_plan.v1",
+  ) &&
+    runtimeHarnessContainerLaneSource.includes(
+      "ioi.hypervisor.harness_container_lane_receipt.v1",
+    ) &&
+    runtimeHarnessContainerLaneSource.includes("planHarnessAdapterContainerLane") &&
+    runtimeHarnessContainerLaneSource.includes("buildHarnessContainerLaneReceipt") &&
+    runtimeHarnessContainerLaneSource.includes("container_image_ref") &&
+    runtimeHarnessContainerLaneSource.includes("command_argv_hash") &&
+    runtimeHarnessContainerLaneSource.includes("network_policy") &&
+    runtimeHarnessContainerLaneSource.includes("exit_status") &&
+    runtimeHarnessContainerLaneSource.includes("ctee_private_workspace") &&
+    runtimeHarnessContainerLaneSource.includes(
+      "harness_container_lane_private_mount_blocked",
+    ) &&
+    runtimeHarnessContainerLaneSource.includes(
+      "source refs, not raw host paths",
+    ) &&
+    runtimeHarnessContainerLaneTestSource.includes(
+      "container lane plan produces a not-executed receipt",
+    ) &&
+    runtimeHarnessContainerLaneTestSource.includes(
+      "External container harnesses cannot mount plaintext or cTEE private workspace custody",
+    ),
+  [
+    "packages/runtime-daemon/src/runtime-harness-container-lane.mjs",
+    "packages/runtime-daemon/src/runtime-harness-container-lane.test.mjs",
+  ],
+  "Harness container lanes must be daemon-planned Docker/Podman contracts with image, argv hash, mounts, network policy, exit status, and private-mount/secret guards.",
 );
 assert(
   "hypervisor-new-session-model-route-compatibility",

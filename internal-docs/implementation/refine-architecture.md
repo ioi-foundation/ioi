@@ -1375,6 +1375,18 @@ Current implementation cut:
   `harnessAdapterModel.test.ts` and `check:runtime-layout` guard the adapter
   inventory, daemon-truth boundary, public testbed custody, receipt schema,
   model-route compatibility rule, and anti-patterns.
+
+  0B.4's container lane contract is implemented at the daemon boundary:
+  `packages/runtime-daemon/src/runtime-harness-container-lane.mjs` defines
+  `HarnessContainerLanePlan` and `HarnessContainerLaneReceipt` semantics for
+  Docker/Podman adapter lanes. The plan/receipt bind the selected adapter,
+  runtime, container image ref, command argv hash, explicit public/redacted
+  mounts, network policy, env policy ref, authority scopes, privacy posture,
+  Agentgres refs, artifact refs, and exit status. The contract blocks raw host
+  paths, host container sockets, plaintext env maps, secret argv, plaintext
+  workspace custody, and cTEE private workspace custody by default. Focused
+  tests in `runtime-harness-container-lane.test.mjs` and `check:runtime-layout`
+  guard this boundary. Real adapter execution remains 0B.5.
 ```
 
 First implementation slice:
@@ -1394,8 +1406,9 @@ First implementation slice:
 4. Add compatibility states:
    compatible, adapter-native only, provider-trust, local-route unavailable.
    Done at static verdict level.
-5. Add container lane dry-run receipt for a public fixture workspace. Not yet:
-   static draft receipts exist; real container dry-run remains 0B.4/0B.5.
+5. Add container lane dry-run receipt for a public fixture workspace. Done for
+   the daemon-side Docker/Podman plan and not-executed receipt contract; real
+   adapter execution remains 0B.5.
 6. Add source scans proving no external harness bypasses daemon gates. Done for
    static model and runtime-layout guard.
 ```
