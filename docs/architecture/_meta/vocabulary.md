@@ -451,7 +451,7 @@ compliance acronyms for hidden audit material.
   clients. Clients request, inspect, steer, approve, and render; they do not
   own runtime truth.
 - `HypervisorApp`: the native desktop client over Hypervisor Core. It may host
-  Workbench, Foundry, Agents, Models, cTEE/Privacy, Receipts/Audit,
+  Workbench, Automations, Foundry, Agents, Models, cTEE/Privacy, Receipts/Audit,
   Connectors, provider/environment views, and other application surfaces.
 - `HypervisorWeb`: the browser/team/remote client over Hypervisor Core. It may
   host web/operator/team versions of the same application surfaces while using
@@ -465,7 +465,7 @@ compliance acronyms for hidden audit material.
   HypervisorCliHeadless client. It is not a separate first-class client lane and
   must not maintain hidden runtime controls outside daemon/domain APIs.
 - `HypervisorApplicationSurface`: a major product surface over Hypervisor Core,
-  such as Workbench, Foundry, Agents, Services, Models, cTEE/Privacy,
+  such as Workbench, Automations, Foundry, Agents, Services, Models, cTEE/Privacy,
   Receipts/Audit, or Connectors. Provider/environment posture is a default
   Hypervisor view, not a separate Fleet application surface. Application
   surfaces are not separate apps with separate runtime truth.
@@ -473,6 +473,15 @@ compliance acronyms for hidden audit material.
   browser, workflow, and debugging surface over Hypervisor Core. It replaces
   "Hypervisor IDE" as the live product term for the code-oriented Hypervisor
   experience.
+- `HypervisorAutomations`: the durable workflow, trigger, schedule, webhook,
+  approval-flow, queue-worker, service/API, and background-mission surface over
+  Hypervisor Core and the Workflow Compositor. It owns product-level
+  AutomationSpec projections and run views, but not execution semantics,
+  wallet.network authority, Agentgres truth, or the selected harness loop.
+- `HypervisorCanvas`: the visual builder/editor for graph-shaped work inside
+  Automations, Workbench, or Foundry. It may edit and display nodes, edges,
+  typed step contracts, approvals, privacy posture, and receipt projections,
+  but it is not a runtime owner, automation truth source, or authority plane.
 - `HypervisorSession`: a live governed workspace, run, or control context
   managed through Hypervisor Core. Examples include local workspaces, remote VM
   workspaces, browser sandboxes, hosted workers, HypervisorOS nodes, terminal
@@ -486,6 +495,14 @@ compliance acronyms for hidden audit material.
   autonomous work with trigger policy, review contract, output contract,
   authority requirements, and receipts. It is not a hidden interactive editor
   session.
+- `HypervisorAutomationSpec`: durable product object for saved workflows,
+  service recipes, schedules, triggers, approval flows, and background work. It
+  binds a Workflow Compositor graph contract, trigger/review/output contracts,
+  harness selection hints, authority refs, receipt policy, Agentgres refs, and
+  version state. It is not a chat transcript or Canvas layout.
+- `HypervisorAutomationRun`: run/session projection for one execution of an
+  AutomationSpec. It binds session refs, trigger refs, daemon refs, Agentgres
+  operation refs, receipt refs, artifact refs, and terminal status.
 - `HypervisorAdapterTarget`: an editor, terminal, browser, VM, container, local
   OS surface, hosted worker, HypervisorOS node, or external tool that a
   Hypervisor Session can project into or mediate. VS Code, Cursor, Windsurf,
@@ -580,7 +597,8 @@ compliance acronyms for hidden audit material.
   application surfaces, Hypervisor Daemon, Agentgres, wallet.network authority
   paths, local registries, receipts, replay, and runtime profiles. It is not
   the Hypervisor App, Hypervisor Web, CLI/headless client, optional TUI view,
-  Workbench, Foundry, or provider/environment view by itself.
+  Workbench, Automations, Canvas, Foundry, or provider/environment view by
+  itself.
 - `LocalSettlementDomain`: a Hypervisor Node domain that locally accepts work,
   proposals, authority outcomes, receipts, interop messages, and state
   transitions for many governed autonomous-system chains. Public economic
@@ -849,6 +867,16 @@ compliance acronyms for hidden audit material.
   compute preferences, creating capability leases, initializing cTEE/private
   workspace posture, and selecting defaults. It is not the Default Harness
   Profile.
+- `IoiAiGoalChat`: the ioi.ai intent and coordination surface where users ask,
+  invoke existing work, inspect state, and draft Hypervisor runs, Automations,
+  Foundry jobs, restore flows, or marketplace publish flows. It is not the
+  durable automation builder, execution runtime, wallet authority, or
+  Agentgres truth source.
+- `IoiAiGoalChatHandoff`: explicit proposal from ioi.ai Goal Chat into
+  Hypervisor App/Web, Hypervisor Automations, Foundry, wallet.network,
+  aiagent.xyz, sas.xyz, or provider/restore flows. It can carry draft refs and
+  review requirements, but it does not make an automation durable without
+  explicit user action and daemon/Agentgres/wallet paths.
 - `TaskCapsule`: a minimized, policy-bound execution packet given to a runtime
   node. It carries visible context, hidden context classes, allowed/forbidden
   actions, output contract, TTL, and authority bindings.

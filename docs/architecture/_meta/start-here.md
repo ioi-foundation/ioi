@@ -16,6 +16,10 @@ publicly.
 Read the stack like this:
 
 ```text
+ioi.ai Goal Chat
+  asks, discovers, coordinates, and drafts handoffs; durable automations and
+  execution live in Hypervisor
+
 Hypervisor clients
   request, inspect, steer, and approve work through the same Core
   Hypervisor App, Hypervisor Web, CLI/headless, SDK, ADK, Authority Gateway adapters
@@ -23,7 +27,12 @@ Hypervisor clients
 
 Hypervisor application surfaces
   organize the same Core by job-to-be-done
-  Workbench, Foundry, Agents, Services, Models, cTEE/Privacy, Receipts/Audit
+  Workbench, Automations, Foundry, Agents, Services, Models, cTEE/Privacy,
+  Receipts/Audit
+
+Hypervisor Canvas
+  visual builder/editor inside Automations, Workbench, or Foundry; not runtime
+  truth
 
 Hypervisor sessions/providers/environments
   default cross-session views over managed workspaces, provider integrations,
@@ -169,8 +178,9 @@ Intent
 
 Do not add another runtime beside the Hypervisor Daemon. Runtime profiles,
 harnesses, adapters, SDK clients, Hypervisor App/Web/CLI-headless clients, and
-Workbench/Foundry surfaces and provider/environment views are clients,
-projections, application surfaces, views, or daemon-executed profiles.
+Workbench/Automations/Foundry surfaces, Canvas views, and
+provider/environment views are clients, projections, application surfaces,
+editors, views, or daemon-executed profiles.
 
 ## Route By Problem
 
@@ -324,7 +334,8 @@ Start here:
 
 Build for: operator controls, approval cards, run graphs, context topology
 views, receipt timelines, artifact viewers, first-class App/Web/CLI clients,
-Workbench/Foundry application surfaces, provider/environment views, package
+Workbench/Automations/Foundry application surfaces, Canvas views,
+provider/environment views, package
 install/publish flows, and clear distinction between Hypervisor Core, Hypervisor Node, Hypervisor
 Daemon, Agentgres, wallet.network, and L1.
 
@@ -367,8 +378,10 @@ Hypervisor App/Web/CLI-headless = runtime truth
 TUI = separate first-class client lane
 external CLI agent harness = Hypervisor runtime truth
 Codex/Claude Code/Grok Build = Hypervisor client
-Hypervisor Workbench/Foundry/provider views = runtime truth
+Hypervisor Workbench/Automations/Foundry/provider views = runtime truth
 Hypervisor IDE = live parent product term
+Canvas = runtime truth or automation owner
+ioi.ai Goal Chat = durable automation owner
 Hypervisor Fleet = live product surface, posture layer, execution runtime, or authority plane
 decentralized.exchange = exchange backend or liquidity owner
 decentralized.trade = broker, custodian, or ordinary swap route
@@ -395,7 +408,9 @@ daemon executes
 Hypervisor Core coordinates clients, surfaces, sessions, and adapters
 Hypervisor App/Web/CLI-headless are first-class clients
 TUI is an optional CLI presentation
-Hypervisor Workbench/Foundry are application surfaces over Core
+Hypervisor Workbench/Automations/Foundry are application surfaces over Core
+Canvas is a visual editor/projection, not a runtime owner
+ioi.ai Goal Chat proposes and coordinates; Hypervisor Automations owns durable workflows/services
 Hypervisor provider/environment views manage sessions, providers, and environments
 External agent harnesses are mediated through Agent Harness Adapters
 Workflow Compositor shapes high-level directed work

@@ -730,7 +730,7 @@ update this module to follow the canonical doctrine above.
 
 It functions as a secure **Cryptographic Superset** that manages the pillars of agentic operation:
 
-1.  **Native Hybrid Custody:** Natively holds legacy assets (ETH/SOL) and Web4 assets (Service NFTs, Labor Gas).
+1.  **Native Hybrid Custody:** Natively holds legacy assets (ETH/SOL) and Web4 authority assets such as service licenses, ServiceOrder escrow positions, SLA bonds, work credits, and receipt-backed claims.
 2.  **Session Authority:** Issuing bounded, automated permissions so agents can operate without constant human clicks.
 3.  **Secret Injection (and Authority-Scope Execution):** Securely storing non-blockchain credentials (API keys, OAuth tokens) and injecting them via policy. The AI model never sees the raw secret.
 4.  **Future-Proof Identity:** Establishing a **hybrid classical + post-quantum** root of trust while bridging to legacy EOAs.
@@ -752,7 +752,7 @@ It functions as a secure **Cryptographic Superset** that manages the pillars of 
 | Custody Domain | Managed By | Cryptography (via `dcrypt`) | Assets / Artifacts Held |
 | :--- | :--- | :--- | :--- |
 | **Legacy Web3 Assets** | `wallet.network` (Native) | **Classical:** `secp256k1` / `Ed25519` | ETH, SOL, ERC-20s, standard NFTs. |
-| **Web4 Native Assets** | `wallet.network` (Native) | **Hybrid Sigs:** `Ed25519` + `ML-DSA-44` | Service NFTs, Gig Escrows, SLA Bonds, Labor Gas. |
+| **Web4 Native Assets** | `wallet.network` (Native) | **Hybrid Sigs:** `Ed25519` + `ML-DSA-44` | Service licenses, ServiceOrder escrows, SLA bonds, work credits, receipt-backed claims. |
 | **Agentic Authority** | `wallet.network` (Vault) | **Hybrid KEM & Sigs** | Session Keys, ApprovalTokens, Policy Envelopes. |
 
 ### 2.2 The "Frictionless-to-Fortress" Authentication Tiers
@@ -1077,7 +1077,7 @@ Receipts are hash-linked for tamper-evidence and can be anchored into IOI’s br
 
 1.  **The Master Custodian Account (Native `wallet.network`)**
     *   **Type:** Native Web4 Identity (Dual-Entropy Seed).
-    *   **Purpose:** Holds the bulk of classical (ETH) and PQ assets (Service NFTs, Escrows). Secured by the highest configured threshold (e.g., 3FA/MPC).
+    *   **Purpose:** Holds the bulk of classical (ETH) and Web4/PQ assets such as service licenses, ServiceOrder escrows, SLA bonds, and receipt-backed claims. Secured by the highest configured threshold (e.g., 3FA/MPC).
     *   **Constraint:** **Never** directly connected to a running agent session.
 2.  **The Agent Execution Account (Ops Wallet)**
     *   **Type:** Smart Account (ERC-4337, Safe, Kernel) with Policy Modules.

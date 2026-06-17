@@ -12,6 +12,55 @@ Last alignment pass: 2026-06-07.
 
 It is not the heavy agent runtime, credential vault, marketplace database, or canonical state store for all user work.
 
+Product boundary doctrine:
+
+```text
+ioi.ai Goal Chat is where users ask.
+Hypervisor is where autonomous work runs.
+Hypervisor Automations is where durable workflows and services are built.
+Hypervisor Foundry is where workers, models, evals, and packages are made.
+```
+
+## ioi.ai Goal Chat Boundary
+
+**ioi.ai Goal Chat** is an intent, discovery, and coordination surface.
+
+It may:
+
+- collect a user's goal, constraints, preferences, and account context;
+- invoke an existing Hypervisor automation, worker, service, or session;
+- start an ad hoc Hypervisor run through daemon/Core contracts;
+- inspect and summarize receipts, run state, restore state, and provider
+  posture that the user is authorized to view;
+- draft a proposed AutomationSpec, service recipe, Foundry job, or marketplace
+  publish flow for explicit user review;
+- route the user to Hypervisor App, Hypervisor Web, wallet.network, aiagent.xyz,
+  sas.xyz, or console views when the job belongs there.
+
+It must not:
+
+- become the durable workflow/service builder;
+- own Hypervisor Automations specs or run truth;
+- own Workflow Compositor graph truth;
+- own Hypervisor Daemon execution semantics;
+- own wallet.network authority, secrets, capability leases, or declassification;
+- own Agentgres operational truth, receipts, artifact refs, or restore validity;
+- silently convert an ad hoc chat into a durable automation or service.
+
+Handoff rule:
+
+```text
+Chat can propose.
+Hypervisor Automations must own durable automation/service deployment.
+Hypervisor Daemon must own execution.
+wallet.network must own authority.
+Agentgres must own admitted truth.
+```
+
+When a user says "turn this into an automation," "make this run every day,"
+"expose this as an API," or similar, ioi.ai should create a draft handoff into
+Hypervisor Automations rather than storing the durable system as chat state.
+
 ## What ioi.ai Owns
 
 ioi.ai may own:

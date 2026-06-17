@@ -29,6 +29,17 @@ Many application surfaces.
 Every consequential action governed.
 ```
 
+Product boundary doctrine:
+
+```text
+ioi.ai asks and coordinates goals.
+Hypervisor runs governed autonomous work.
+Automations make durable workflows and services.
+Foundry makes and improves workers, models, evals, and packages.
+Workbench develops, debugs, and operates systems.
+Canvas visually edits automations; it is not runtime truth.
+```
+
 ## Hypervisor Core
 
 **Hypervisor Core** is the shared product/runtime substrate used by Hypervisor
@@ -78,8 +89,10 @@ Hypervisor
       SDK / ADK clients
   -> application surfaces
       Workbench
+      Automations
       Foundry
       Agents
+      Services
       Models
       cTEE / Privacy
       Receipts / Audit
@@ -139,9 +152,17 @@ Hypervisor Workbench
   code, systems, workflow, workspace, editor, terminal, browser, and
   debugging surface
 
+Hypervisor Automations
+  durable workflow, trigger, schedule, API/service, approval-flow, and
+  background-mission surface
+
 Hypervisor Foundry
   worker creation, training, evaluation, benchmarking, packaging, and
   improvement surface
+
+Hypervisor Canvas
+  visual builder/editor inside Automations, Workbench, or Foundry where useful;
+  not a separate product plane or runtime owner
 ```
 
 Other surfaces may include Agents, Services, Models, cTEE / Privacy,
@@ -174,12 +195,110 @@ Workbench may appear in:
 Workbench can open and operate sessions through many editors. The editor is an
 adapter target, not the product identity.
 
+## Hypervisor Automations
+
+**Hypervisor Automations** is the durable orchestration surface over
+Hypervisor Core and the Workflow Compositor.
+
+Automations is for work the user wants to save, run again, trigger, schedule,
+publish as an internal service, or expose through an API/webhook.
+
+Automations may own product-level projections for:
+
+- automation specs and versions;
+- trigger, schedule, webhook, queue, and API entrypoints;
+- workflow/service graphs backed by Workflow Compositor contracts;
+- review points, approval gates, and output contracts;
+- run history, mission status, receipt views, and replay links;
+- service templates and reusable recipes;
+- Canvas editor state where a visual view is useful.
+
+Automations does not own:
+
+- execution semantics;
+- wallet.network authority or secret release;
+- Agentgres truth, receipts, archive refs, or restore validity;
+- model private reasoning;
+- Foundry training, distillation, or package publication;
+- the selected harness's internal step loop.
+
+Common automation modes:
+
+```text
+manual workflow
+scheduled workflow
+event/webhook-triggered workflow
+background mission
+approval flow
+service/API endpoint
+queue worker
+marketplace service recipe
+```
+
+The durable object is the automation spec and its Agentgres-backed run history,
+not the editor that created it.
+
+## Hypervisor Canvas
+
+**Hypervisor Canvas** is a visual editor/presentation for composing and
+inspecting graph-shaped work.
+
+Canvas may appear inside Automations, Workbench, or Foundry. Its default home
+for durable workflows and services is Automations.
+
+Canvas may display:
+
+- nodes and edges;
+- typed step contracts;
+- trigger and schedule refs;
+- approval and policy checkpoints;
+- cTEE/privacy posture;
+- receipt and replay projections;
+- harness, model, worker, service, verifier, and provider selection hints.
+
+Canvas does not own execution, authority, state truth, receipts, or workflow
+semantics. It edits or visualizes objects owned by Automations, the Workflow
+Compositor, Foundry, or other product surfaces.
+
+Use this product phrasing:
+
+```text
+Open this automation in Canvas.
+```
+
+Avoid:
+
+```text
+Canvas owns the automation.
+Canvas runs the service.
+Canvas is the product plane.
+```
+
+## Hypervisor Foundry
+
+**Hypervisor Foundry** is the worker/model/eval/training/package surface over
+Hypervisor Core.
+
+Foundry produces and improves things that other surfaces use:
+
+- WorkerPackages and worker manifests;
+- model cards, model routes, and model-mount candidates;
+- eval suites, benchmarks, and verifier candidates;
+- training, distillation, fine-tuning, and dataset recipes;
+- quality gates and promotion proposals;
+- package publication proposals for aiagent.xyz or private catalogs.
+
+Foundry may consume Automations traces, Workbench runs, agent corrections,
+receipts, and evaluation results, but it does not directly self-mutate the
+runtime. Durable improvements enter through governed proposals, eval gates,
+wallet/network approvals when needed, and Agentgres admission.
+
 ## Workflow Compositor
 
 **Workflow Compositor** is the high-level directed-work surface over Hypervisor
-Core. It is a shared graph/projection model used by Workbench, Foundry, Agents,
-Services, provider/environment views, and SDK/ADK clients when work needs
-explicit structure.
+Core. It is a shared graph/projection model used by Automations, Workbench,
+Foundry, Agents, Services, provider/environment views, and SDK/ADK clients when
+work needs explicit structure.
 
 The compositor owns:
 
@@ -476,10 +595,11 @@ cleanup obligations
 receipt obligations
 ```
 
-External harnesses, Workbench, Foundry, Hypervisor App/Web, CLI/headless
-clients, and provider/environment views may receive structured outputs and exit
-codes. They do not get durable secrets, plaintext custody, or authority except
-through wallet.network capability leases and receipts.
+External harnesses, Workbench, Automations, Foundry, Canvas views, Hypervisor
+App/Web, CLI/headless clients, and provider/environment views may receive
+structured outputs and exit codes. They do not get durable secrets, plaintext
+custody, or authority except through wallet.network capability leases and
+receipts.
 
 Canonical environment ops objects:
 
@@ -586,9 +706,11 @@ HypervisorClient:
   org_ref: org://... | null
   core_endpoint_ref: hypervisor_core://...
   supported_surfaces:
+    - automations
     - workbench
     - foundry
     - agents
+    - services
     - models
     - privacy
     - receipts
@@ -598,11 +720,64 @@ HypervisorClient:
 HypervisorSurface:
   surface_id: hypervisor_surface:...
   surface_kind:
-    workbench | foundry | agents | services |
+    automations | workbench | foundry | canvas | agents | services |
     models | ctee_privacy | receipts_audit | connectors
   client_ref: hypervisor_client:...
   session_refs:
     - hypervisor_session:...
+  projection_refs:
+    - agentgres://projection/...
+
+HypervisorAutomationSpec:
+  automation_id: automation:...
+  project_ref: project:...
+  automation_kind:
+    manual_workflow | scheduled_workflow | webhook_workflow |
+    background_mission | approval_flow | service_api |
+    queue_worker | marketplace_service_recipe
+  graph_ref: workflow:...
+  compositor_contract_ref: workflow_compositor://...
+  trigger_policy_ref: policy://...
+  review_contract_ref: review_contract://... | null
+  output_contract_ref: output_contract://... | null
+  harness_selection_hints:
+    - harness_profile:... | agent_harness_adapter:...
+  authority_refs:
+    - grant://... | lease://...
+  agentgres_refs:
+    - agentgres://operation/...
+  receipt_policy_ref: policy://...
+  version:
+    semver: string
+    state_root_ref: state_root://...
+  status:
+    draft | enabled | disabled | archived
+
+HypervisorAutomationRun:
+  automation_run_id: automation_run:...
+  automation_ref: automation:...
+  mission_ref: mission:... | null
+  session_refs:
+    - hypervisor_session:...
+  trigger_ref: trigger://... | webhook://... | schedule://... | null
+  daemon_ref: daemon://...
+  agentgres_refs:
+    - agentgres://operation/...
+  receipt_refs:
+    - receipt://...
+  artifact_refs:
+    - artifact://...
+  status:
+    queued | running | waiting_for_approval | blocked |
+    succeeded | failed | canceled | archived
+
+HypervisorCanvasView:
+  canvas_view_id: canvas_view:...
+  owner_surface:
+    automations | workbench | foundry
+  target_ref:
+    automation:... | workflow:... | foundry_job:... | project:...
+  layout_ref: artifact://... | null
   projection_refs:
     - agentgres://projection/...
 
@@ -809,6 +984,7 @@ HypervisorMission:
   interactive: false
   project_ref: project:...
   workflow_ref: workflow:...
+  automation_ref: automation:... | null
   default_harness_profile_ref: dhp:...
   runtime_assignment_ref: runtime_assignment:... | null
   trigger_policy_ref: policy://...
@@ -915,8 +1091,13 @@ HypervisorScmAuthRequirement:
   Hypervisor Daemon.
 - No adapter target may receive secrets, declassification authority, or
   payment authority except through wallet.network leases and receipts.
-- Workbench, Foundry, and provider/environment views must share Core session,
-  authority, receipt, replay, and projection contracts.
+- Workbench, Automations, Foundry, Canvas, and provider/environment views must
+  share Core session, authority, receipt, replay, and projection contracts.
+- Automations must use Workflow Compositor contracts for graph shape and the
+  daemon/Agentgres path for execution truth; it must not invent a separate
+  automation runtime.
+- Canvas must remain an editor/projection over automation, workflow, and
+  Foundry objects; it must not become runtime truth.
 - Editor integrations must make mediation limits visible.
 - Every editor, terminal, browser, VM, and harness target must resolve through
   an `AdapterConnectionProfile`; a string editor preference is not enough.
@@ -950,17 +1131,21 @@ Hypervisor = VS Code fork
 Hypervisor IDE = parent product
 Hypervisor App owns Core
 Hypervisor Web owns Core
+ioi.ai chat = durable automation owner
 CLI/headless owns a separate runtime loop
 TUI = separate first-class client lane
 external CLI agent harness = Hypervisor client
 Codex/Claude Code/Grok Build = runtime truth
 editor name string = adapter contract
+Canvas = automation runtime
+Canvas = product plane
 support bundle = harmless log export
 port preview = not a data boundary
 SSH token = durable credential
 encrypted blob = restore truth
 provider lifecycle state = Agentgres truth
 background automation = hidden editor session
+automation spec = chat transcript
 Workbench = runtime truth
 Foundry = direct self-mutation path
 Fleet = live product surface or posture layer
@@ -981,7 +1166,8 @@ Hypervisor Core = shared contracts and control substrate
 Hypervisor Daemon = execution owner
 App/Web/CLI-headless = first-class clients
 TUI = optional CLI presentation
-Workbench/Foundry = application surfaces
+Workbench/Automations/Foundry = application surfaces
+Canvas = visual editor/projection
 Provider and infrastructure posture = Hypervisor session/project/provider/
 environment views
 Sessions = governed live workspaces/runs

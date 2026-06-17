@@ -104,7 +104,7 @@ This document owns the IOI binding:
 | Guardian / authority view | authenticated browser, local Hypervisor, CLI signer, wallet.network-backed authority |
 | Authority plane | wallet.network |
 | Execution boundary | Hypervisor Daemon |
-| Plaintext-Free Runtime Mount | Default Harness Profile cTEE mount inside the daemon |
+| Plaintext-Free Runtime Mount | daemon-owned cTEE/private-workspace mount exposed to selected HarnessProfiles, model mounts, tools, and service modules |
 | StateLog | Agentgres |
 | Artifact / blob store | Agentgres Artifact Plane plus storage backends |
 | Settlement layer | IOI L1 / app chains only by trigger |

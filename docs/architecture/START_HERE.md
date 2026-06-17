@@ -50,8 +50,11 @@ Current Hypervisor product-surface addition:
 > **Hypervisor Core is the shared product/runtime substrate whose execution owner
 > is the Hypervisor Daemon. Hypervisor App, Hypervisor Web, and CLI/headless are
 > first-class clients over Core; TUI is an optional CLI presentation. Hypervisor
-> Workbench and Foundry are application surfaces over the same Core. Sessions
-> are the primary unit. Providers, environments, services, tasks, ports, logs,
+> Workbench, Automations, and Foundry are application surfaces over the same
+> Core. Automations owns the durable workflow/service/mission surface, while
+> Canvas is a visual editor/projection inside Automations, Workbench, or
+> Foundry. Sessions are the primary unit. Providers, environments, services,
+> tasks, ports, logs,
 > archive refs, restore refs, and infrastructure posture are default Hypervisor
 > session/project/provider views, not a separate Fleet surface. Editor
 > integrations and external agent harnesses such as VS Code, Cursor, Windsurf,

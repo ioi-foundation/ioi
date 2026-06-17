@@ -43,7 +43,8 @@ The default stack relation is:
 ```text
 Hypervisor clients and surfaces
   Hypervisor App, Hypervisor Web, CLI/headless, optional TUI, SDK, ADK,
-  Workbench/Foundry surfaces, provider/environment views, Authority Gateway adapters
+  Workbench/Automations/Foundry surfaces, Canvas views, provider/environment
+  views, Authority Gateway adapters
 
 Hypervisor Daemon
   execution owner and policy/authority/effect boundary
@@ -51,6 +52,10 @@ Hypervisor Daemon
 Workflow Compositor
   high-level service/workflow graph, dependencies, review points, acceptance
   criteria, delivery contract, and harness selection hints
+
+Hypervisor Automations
+  durable workflow, trigger, schedule, API/service, approval-flow, queue, and
+  background-mission product surface over Workflow Compositor contracts
 
 Harness Profiles
   daemon-executed or daemon-mediated step-resolution profiles and adapters,
@@ -189,6 +194,16 @@ Workflow Compositor
     delivery contract
     reusable workflow/service templates
     harness/model/provider selection hints
+
+Hypervisor Automations
+  owns durable product projections:
+    automation specs
+    triggers and schedules
+    API/service entrypoints
+    approval flows
+    background missions
+    run-history and replay views
+    Canvas editor state where useful
 
 Selected HarnessProfile
   resolves one scoped step:
