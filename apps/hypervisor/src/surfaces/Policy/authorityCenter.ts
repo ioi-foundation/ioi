@@ -1,3 +1,8 @@
+import {
+  buildAuthorityReview,
+  type AuthorityReview,
+  type AuthorityRiskClass,
+} from "@ioi/wallet-sdk";
 import type { ConnectorSummary } from "@ioi/hypervisor-workbench";
 import type { ShieldPolicyState } from "./policyCenter";
 
@@ -129,6 +134,7 @@ export interface AuthorityCenterGrantRequestPayload {
   denied: string[];
   expiresAt: string;
   grantId: string;
+  authorityReview: AuthorityReview;
 }
 
 export function buildAuthorityGrantRequestPayload(
@@ -142,14 +148,42 @@ export function buildAuthorityGrantRequestPayload(
     capability.requiredScopes.length > 0
       ? capability.requiredScopes
       : fallbackScopesForCapability(capability);
+  const expiresAt = new Date(generatedAtMs + expiresInMs).toISOString();
+  const grantId = `wallet.grant.authority-center.${safeGrantSegment(
+    capability.kind,
+  )}.${safeGrantSegment(capability.id)}`;
   return {
-    audience: "autopilot-authority-center",
+    audience: "hypervisor-authority-center",
     allowed,
     denied: ["connector.gmail.send", "filesystem.write", "shell.exec"],
-    expiresAt: new Date(generatedAtMs + expiresInMs).toISOString(),
-    grantId: `wallet.grant.authority-center.${safeGrantSegment(
-      capability.kind,
-    )}.${safeGrantSegment(capability.id)}`,
+    expiresAt,
+    grantId,
+    authorityReview: buildAuthorityReview({
+      review_id: `review:${grantId}`,
+      initiator_id: "hypervisor:authority-center",
+      account_id: "wallet://local-operator",
+      intent_ref: grantId,
+      action_summary: `Request scoped grant for ${capability.label}.`,
+      requested_scopes: walletAuthorityScopesForCapability(capability, allowed),
+      approval_mode: "session_envelope",
+      allowed_approval_modes: ["session_envelope", "step_up_review"],
+      recommended_presentation_profile: "standard_wallet_review",
+      risk_class: authorityRiskClassForCapability(capability),
+      risk_labels: authorityRiskLabelsForCapability(capability),
+      eligibility_labels: [],
+      candidate_evidence: [],
+      policy_checks: [
+        {
+          check_id: "policy:authority-center-repair",
+          result: "warning",
+          explanation:
+            "Authority Center repair requests must be reviewed by wallet.network before a lease or grant is issued.",
+        },
+      ],
+      policy_result: "requires_human",
+      receipt_preview_ref: `receipt-preview:${grantId}`,
+      expires_at: expiresAt,
+    }),
   };
 }
 
@@ -1004,6 +1038,43 @@ function fallbackScopesForCapability(
   if (capability.kind === "model") return ["model.chat:*", "route.use:*"];
   if (capability.kind === "tool") return [`tool.call:${capability.id}`];
   return [`connector.use:${capability.id}`];
+}
+
+function walletAuthorityScopesForCapability(
+  capability: AuthorityCenterCapabilityRow,
+  scopes: readonly string[],
+): string[] {
+  const canonical = scopes.map(canonicalWalletAuthorityScope);
+  if (canonical.length > 0) return [...new Set(canonical)];
+  if (capability.kind === "model") return ["scope:model.invoke"];
+  if (capability.kind === "tool") return ["scope:tool.invoke"];
+  return ["scope:connector.invoke"];
+}
+
+function canonicalWalletAuthorityScope(scope: string): string {
+  if (scope.startsWith("scope:")) return scope;
+  if (scope.startsWith("model.")) return "scope:model.invoke";
+  if (scope.startsWith("route.")) return "scope:model.route.use";
+  if (scope.startsWith("tool.")) return "scope:tool.invoke";
+  if (scope.startsWith("connector.")) return "scope:connector.invoke";
+  return `scope:${safeGrantSegment(scope).replace(/-/g, ".")}`;
+}
+
+function authorityRiskClassForCapability(
+  capability: AuthorityCenterCapabilityRow,
+): AuthorityRiskClass {
+  if (capability.kind === "model") return "read";
+  if (capability.kind === "connector") return "secret_export";
+  return "policy_widening";
+}
+
+function authorityRiskLabelsForCapability(
+  capability: AuthorityCenterCapabilityRow,
+): string[] {
+  const labels = ["Brokered Capability Lease", "Step-Up Recommended"];
+  if (capability.kind === "connector") labels.push("Brokered Secret");
+  if (capability.tone !== "ready") labels.push("Capability Not Ready");
+  return labels;
 }
 
 function safeGrantSegment(value: string): string {

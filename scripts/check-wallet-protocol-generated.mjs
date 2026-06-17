@@ -178,9 +178,30 @@ for (const sdkFile of [
   "packages/wallet-sdk/src/capabilities.ts",
   "packages/wallet-sdk/src/client.ts",
   "packages/wallet-sdk/src/receipts.ts",
+  "packages/wallet-sdk/src/route-sources.ts",
   "packages/wallet-sdk/src/index.ts",
 ]) {
   assertIncludes(sdkFile, read(sdkFile), "@ioi/wallet-protocol");
+}
+
+const hypervisorPackage = readJson("apps/hypervisor/package.json");
+if (hypervisorPackage.dependencies["@ioi/wallet-sdk"] !== "*") {
+  throw new Error("@ioi/hypervisor-app must import wallet product semantics through @ioi/wallet-sdk");
+}
+
+const hypervisorAuthorityCenter = read("apps/hypervisor/src/surfaces/Policy/authorityCenter.ts");
+assertIncludes(
+  "apps/hypervisor/src/surfaces/Policy/authorityCenter.ts",
+  hypervisorAuthorityCenter,
+  "buildAuthorityReview",
+);
+assertIncludes(
+  "apps/hypervisor/src/surfaces/Policy/authorityCenter.ts",
+  hypervisorAuthorityCenter,
+  "hypervisor-authority-center",
+);
+if (hypervisorAuthorityCenter.includes("autopilot-authority-center")) {
+  throw new Error("Hypervisor Authority Center must not emit retired Autopilot authority audience names");
 }
 
 console.log("wallet protocol packaging conformance passed");

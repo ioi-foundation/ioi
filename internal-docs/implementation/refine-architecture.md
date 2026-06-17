@@ -1654,7 +1654,7 @@ git diff --check -- internal-docs/implementation docs/architecture apps/hypervis
 
 | Field | Detail |
 | --- | --- |
-| Status | Initial package boundary implemented on 2026-06-17. Product import adoption and deeper Rust-derived generation remain follow-up hardening. |
+| Status | Initial package boundary implemented on 2026-06-17. First Hypervisor product import adoption implemented through the Authority Center grant-review path. Deeper Rust-derived generation remains follow-up hardening. |
 | Files | `packages/wallet-protocol`, `packages/wallet-sdk`, `crates/types/src/app/wallet_network`, scripts, conformance |
 | Change | Added checked-in wallet protocol package tied to Rust wallet truth and SDK helpers over it. |
 | Acceptance | Packages build/test; schemas and fixtures exist; product repo imports packages. |
@@ -1671,6 +1671,15 @@ advanced console, CLI prompt, or mobile sheet while the package only carried a
 single chosen approval mode. The package remains protocol truth; Wallet product
 surfaces choose presentations from this contract instead of inventing local
 authority UI semantics.
+
+Hypervisor Authority Center now depends on `@ioi/wallet-sdk` and embeds a
+canonical `AuthorityReview` when it builds scoped grant repair payloads. The
+legacy local allowed/denied summary remains for the existing UI path, but the
+review object carries canonical `scope:*` requested scopes, approval modes,
+presentation profile, risk labels, policy checks, and receipt preview refs. The
+wallet packaging conformance guard rejects a return to the retired
+`autopilot-authority-center` audience and requires the product import to flow
+through `@ioi/wallet-sdk`.
 ```
 
 ### Phase 4: Add cTEE and Model-Weight Custody Lane Table

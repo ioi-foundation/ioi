@@ -289,11 +289,27 @@ test("authority center builds scoped grant payloads from capability rows", () =>
     },
   );
 
-  assert.equal(payload.audience, "autopilot-authority-center");
+  assert.equal(payload.audience, "hypervisor-authority-center");
   assert.deepEqual(payload.allowed, [
     "model.chat:*",
     "route.use:route.local-first",
   ]);
+  assert.equal(payload.authorityReview.schema_version, "ioi.wallet.protocol.v1");
+  assert.equal(payload.authorityReview.intent_ref, payload.grantId);
+  assert.equal(payload.authorityReview.approval_mode, "session_envelope");
+  assert.deepEqual(payload.authorityReview.allowed_approval_modes, [
+    "session_envelope",
+    "step_up_review",
+  ]);
+  assert.deepEqual(payload.authorityReview.requested_scopes, [
+    "scope:model.invoke",
+    "scope:model.route.use",
+  ]);
+  assert.equal(
+    payload.authorityReview.recommended_presentation_profile,
+    "standard_wallet_review",
+  );
+  assert.equal(payload.authorityReview.policy_result, "requires_human");
   assert.equal(payload.expiresAt, "2026-05-15T12:30:00.000Z");
   assert.equal(
     payload.grantId,
