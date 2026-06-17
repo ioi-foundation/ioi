@@ -613,6 +613,14 @@ assert(
   "Harness public smoke runs must compare installed adapters against the same public fixture through daemon-gated container receipts.",
 );
 assert(
+  "hypervisor-home-harness-comparison-preview",
+  hypervisorHomeSource.includes("HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE") &&
+    hypervisorHomeSource.includes("data-home-harness-comparison-run") &&
+    hypervisorHomeSource.includes("Harness comparison preview"),
+  ["apps/hypervisor/src/surfaces/Home/HomeView.tsx"],
+  "Hypervisor Home should surface a receipt-backed harness comparison preview as the first dashboard foothold for adapter comparison.",
+);
+assert(
   "contract-family-modules",
   [
     "adapters",

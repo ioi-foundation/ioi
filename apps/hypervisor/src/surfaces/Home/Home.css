@@ -1287,6 +1287,45 @@
   text-transform: capitalize;
 }
 
+.chat-home-zero-session-card__comparison {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  border: 1px solid var(--chat-border);
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--chat-bg-surface) 84%, transparent);
+  padding: 10px;
+}
+
+.chat-home-zero-session-card__comparison div {
+  min-width: 0;
+}
+
+.chat-home-zero-session-card__comparison span,
+.chat-home-zero-session-card__comparison strong {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-home-zero-session-card__comparison span {
+  color: var(--chat-text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.chat-home-zero-session-card__comparison strong {
+  margin-top: 4px;
+  color: var(--chat-text);
+  font-size: 12px;
+  font-weight: 600;
+}
+
 .chat-home-zero-session-card__actions {
   grid-column: 1 / -1;
 }
@@ -1829,11 +1868,13 @@
   }
 
   .chat-home-zero-session-card,
-  .chat-home-zero-session-card__harnesses {
+  .chat-home-zero-session-card__harnesses,
+  .chat-home-zero-session-card__comparison {
     grid-template-columns: minmax(0, 1fr);
   }
 
   .chat-home-zero-session-card__harnesses,
+  .chat-home-zero-session-card__comparison,
   .chat-home-zero-session-card__actions {
     grid-column: auto;
   }

@@ -27,6 +27,7 @@ import {
 import "./Home.css";
 import { HYPERVISOR_NEW_SESSION_SETUP_MODEL } from "../../windows/HypervisorShellWindow/hypervisorShellNavigationModel";
 import {
+  HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE,
   buildHarnessCompatibilityVerdict,
   getHarnessSelectionRef,
 } from "../../windows/HypervisorShellWindow/harnessAdapterModel";
@@ -334,6 +335,7 @@ function HomeDashboardView({
     .slice(0, 5);
   const newSessionHarnessOptions =
     HYPERVISOR_NEW_SESSION_SETUP_MODEL.harnessOptions.slice(0, 4);
+  const harnessComparison = HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE;
   const surfaces: DashboardSurface[] = [
     {
       id: "projects",
@@ -515,6 +517,28 @@ function HomeDashboardView({
                   </div>
                 );
               })}
+            </div>
+            <div
+              className="chat-home-zero-session-card__comparison"
+              aria-label="Harness comparison preview"
+              data-home-harness-comparison-run={harnessComparison.run_id}
+            >
+              <div>
+                <span>Comparison fixture</span>
+                <strong>{harnessComparison.task_ref}</strong>
+              </div>
+              <div>
+                <span>Mode</span>
+                <strong>{harnessComparison.comparison_mode}</strong>
+              </div>
+              <div>
+                <span>Candidates</span>
+                <strong>{harnessComparison.candidate_selection_refs.length}</strong>
+              </div>
+              <div>
+                <span>Receipt refs</span>
+                <strong>{harnessComparison.receipt_refs.length}</strong>
+              </div>
             </div>
             <div className="chat-home-zero-session-card__actions">
               <button type="button" onClick={onOpenNewSession}>

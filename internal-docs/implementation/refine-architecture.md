@@ -1411,6 +1411,12 @@ Current implementation cut:
   remains the compatible cTEE private-workspace path. External harnesses must
   use redacted or public projections unless a future explicit private-workspace
   policy adds a compatible grant.
+
+  0B.7's first comparison dashboard foothold is implemented in Hypervisor Home:
+  the New Session contract card now renders the existing
+  `HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE` with fixture task, comparison
+  mode, candidate count, and receipt count. This is a compact receipt-backed
+  preview, not the full Foundry/Workbench comparison surface.
 ```
 
 First implementation slice:
@@ -1440,7 +1446,10 @@ First implementation slice:
 7. Add cTEE/private workspace guard. Done at New Session compatibility level
    for the default external-adapter path; daemon container lanes also continue
    to reject cTEE/private and plaintext workspace mounts.
-8. Add source scans proving no external harness bypasses daemon gates. Done for
+8. Add comparison dashboard. Partial: Home now exposes a compact harness
+   comparison preview backed by the same `HarnessComparisonRun` fixture; richer
+   Workbench/Foundry output, cost, and verification comparison remains follow-up.
+9. Add source scans proving no external harness bypasses daemon gates. Done for
    static model and runtime-layout guard.
 ```
 

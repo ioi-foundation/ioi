@@ -63,6 +63,9 @@ test("home dashboard exposes the New Session setup contract", () => {
   assert.match(homeView, /data-home-new-session-contract="daemon-runtime"/);
   assert.match(homeView, /newSessionRequiredSections/);
   assert.match(homeView, /newSessionHarnessOptions/);
+  assert.match(homeView, /HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE/);
+  assert.match(homeView, /data-home-harness-comparison-run/);
+  assert.match(homeView, /Harness comparison preview/);
   assert.match(homeView, /buildHarnessCompatibilityVerdict/);
   assert.match(homeView, /getHarnessSelectionRef/);
   assert.match(homeView, /onOpenNewSession: \(\) => void/);
@@ -87,9 +90,10 @@ test("home dashboard routes model setup to the Models surface", () => {
 test("new session card has responsive shell styling", () => {
   assert.match(homeCss, /\.chat-home-zero-session-card\s*\{/);
   assert.match(homeCss, /\.chat-home-zero-session-card__harnesses\s*\{/);
+  assert.match(homeCss, /\.chat-home-zero-session-card__comparison\s*\{/);
   assert.match(
     homeCss,
-    /@media \(max-width: 860px\)[\s\S]*\.chat-home-zero-session-card,[\s\S]*\.chat-home-zero-session-card__harnesses/,
+    /@media \(max-width: 860px\)[\s\S]*\.chat-home-zero-session-card,[\s\S]*\.chat-home-zero-session-card__harnesses,[\s\S]*\.chat-home-zero-session-card__comparison/,
   );
 });
 
