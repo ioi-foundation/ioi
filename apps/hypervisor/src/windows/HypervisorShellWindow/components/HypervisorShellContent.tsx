@@ -58,8 +58,13 @@ import {
   loadHypervisorReceiptEvidenceProjection,
 } from "../hypervisorReceiptEvidenceModel";
 import {
+  buildHypervisorSessionOperationProposal,
   HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE,
+  HYPERVISOR_SESSION_OPERATION_KINDS,
   loadHypervisorSessionOperationsProjection,
+  proposeHypervisorSessionOperation,
+  type HypervisorSessionOperationKind,
+  type HypervisorSessionOperationProposal,
 } from "../hypervisorSessionOperationsModel";
 import type { HypervisorLaunchedSessionProjection } from "../hypervisorShellNavigationModel";
 import { isHypervisorSurfaceId } from "../hypervisorShellNavigationModel";
@@ -361,6 +366,8 @@ function HypervisorSessionOperationsCockpit({
   const [projection, setProjection] = useState(
     HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE,
   );
+  const [operationProposal, setOperationProposal] =
+    useState<HypervisorSessionOperationProposal | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -380,6 +387,30 @@ function HypervisorSessionOperationsCockpit({
       cancelled = true;
     };
   }, []);
+
+  function handleSessionOperation(
+    operationKind: HypervisorSessionOperationKind,
+    targetRef?: string,
+  ) {
+    proposeHypervisorSessionOperation({
+      projection,
+      operationKind,
+      targetRef,
+    })
+      .then(setOperationProposal)
+      .catch((error) => {
+        console.warn(
+          "[Hypervisor][Sessions] operation proposal unavailable",
+          error,
+        );
+        setOperationProposal(
+          buildHypervisorSessionOperationProposal(projection, operationKind, {
+            targetRef,
+            source: "unverified",
+          }),
+        );
+      });
+  }
 
   return (
     <section
@@ -530,6 +561,23 @@ function HypervisorSessionOperationsCockpit({
         </div>
       </div>
 
+      <div
+        className="hypervisor-session-operations__actions"
+        aria-label="Session operation proposals"
+      >
+        {HYPERVISOR_SESSION_OPERATION_KINDS.map((operationKind) => (
+          <button
+            key={operationKind}
+            type="button"
+            data-session-operation-kind={operationKind}
+            data-session-operation-session={projection.selected_session_ref}
+            onClick={() => handleSessionOperation(operationKind)}
+          >
+            {operationKind.split("_").join(" ")}
+          </button>
+        ))}
+      </div>
+
       <div className="hypervisor-session-operations__bottom" aria-label="Bottom inspectors">
         <div className="hypervisor-session-operations__panel">
           <h3>Ports & Services</h3>
@@ -542,6 +590,13 @@ function HypervisorSessionOperationsCockpit({
               <strong>{service.label}</strong>
               <span>{service.protocol}:{service.port}</span>
               <em>{service.status}</em>
+              <button
+                type="button"
+                data-session-service-open-port={service.service_ref}
+                onClick={() => handleSessionOperation("open_port", service.service_ref)}
+              >
+                Propose port lease
+              </button>
             </div>
           ))}
         </div>
@@ -557,6 +612,13 @@ function HypervisorSessionOperationsCockpit({
               <strong>{task.label}</strong>
               <span>{task.status}</span>
               <em>{task.receipt_ref}</em>
+              <button
+                type="button"
+                data-session-task-run={task.task_ref}
+                onClick={() => handleSessionOperation("run_task", task.task_ref)}
+              >
+                Propose task run
+              </button>
             </div>
           ))}
         </div>
@@ -572,10 +634,60 @@ function HypervisorSessionOperationsCockpit({
               <strong>{event.command_summary}</strong>
               <span>{event.status}</span>
               <em>{event.receipt_ref}</em>
+              <button
+                type="button"
+                data-session-terminal-propose={event.event_ref}
+                onClick={() =>
+                  handleSessionOperation("propose_terminal_command", event.event_ref)
+                }
+              >
+                Review command
+              </button>
             </div>
           ))}
         </div>
       </div>
+      {operationProposal ? (
+        <aside
+          className="hypervisor-session-operations__proposal"
+          aria-label="Session operation proposal"
+          data-session-operation-proposal={operationProposal.proposal_ref}
+          data-session-operation-admission={operationProposal.admission_state}
+          data-session-operation-target={operationProposal.target_ref}
+        >
+          <div>
+            <span>Session proposal</span>
+            <h3>{operationProposal.operation_kind.split("_").join(" ")}</h3>
+            <p>{operationProposal.custody_invariant}</p>
+          </div>
+          <dl>
+            <div>
+              <dt>Wallet lease</dt>
+              <dd>{operationProposal.wallet_lease_ref}</dd>
+            </div>
+            <div>
+              <dt>Scopes</dt>
+              <dd>{operationProposal.required_scope_refs.join(", ")}</dd>
+            </div>
+            <div>
+              <dt>Agentgres op</dt>
+              <dd>{operationProposal.agentgres_operation_ref}</dd>
+            </div>
+            <div>
+              <dt>Receipt</dt>
+              <dd>{operationProposal.receipt_ref}</dd>
+            </div>
+            <div>
+              <dt>State root</dt>
+              <dd>{operationProposal.state_root_ref}</dd>
+            </div>
+            <div>
+              <dt>Restore</dt>
+              <dd>{operationProposal.restore_ref}</dd>
+            </div>
+          </dl>
+        </aside>
+      ) : null}
     </section>
   );
 }

@@ -314,6 +314,50 @@ export function createPublicRuntimeRequestHandler(deps) {
         );
         return;
       }
+      if (request.method === "POST" && url.pathname === "/v1/hypervisor/session-operations/proposals") {
+        const body = await readBody(request);
+        const routeContextPolicyCore = requiredPublicRuntimeContextPolicyCore(
+          contextPolicyCore,
+          "runtime.lifecycle_operation.hypervisor_session_operation_proposal",
+        );
+        const projected = routeContextPolicyCore.projectRuntimeLifecycle({
+          operation: "hypervisor_session_operation_proposal",
+          operation_kind:
+            "runtime.lifecycle_operation.hypervisor_session_operation_proposal",
+          projection_kind: "hypervisor_session_operation_proposal",
+          base_url: baseUrlForRequest(request),
+          workspace_root: store.defaultCwd,
+          state_dir: store.stateDir,
+          home_dir: store.homeDir,
+          runtime_schema_version: store.schemaVersion,
+          project_id: optionalString(body.project_id ?? body.project_ref),
+          session_ref: optionalString(body.session_ref),
+          environment_ref: optionalString(body.environment_ref),
+          provider_candidate_ref: optionalString(body.provider_candidate_ref),
+          requested_operation: optionalString(body.operation_kind),
+          target_ref: optionalString(body.target_ref),
+          authority_scope_refs: Array.isArray(body.authority_scope_refs)
+            ? body.authority_scope_refs.filter(
+                (scopeRef) => typeof scopeRef === "string" && scopeRef,
+              )
+            : [],
+          access_lease_ref: optionalString(body.access_lease_ref),
+          log_lease_ref: optionalString(body.log_lease_ref),
+          archive_ref: optionalString(body.archive_ref),
+          restore_ref: optionalString(body.restore_ref),
+          source:
+            "public_runtime_routes./v1/hypervisor/session-operations/proposals",
+        });
+        writeJsonResponse(
+          response,
+          projected.proposal ??
+            projected.record?.proposal ??
+            projected.record?.projection ??
+            projected.record ??
+            projected,
+        );
+        return;
+      }
       if (request.method === "POST" && url.pathname === "/v1/hypervisor/harness-container-lanes") {
         const body = await readBody(request);
         writeJsonResponse(

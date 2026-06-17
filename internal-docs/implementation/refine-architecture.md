@@ -1088,8 +1088,11 @@ Current implementation cut:
   state roots, artifact refs, archive refs, restore refs, and receipt refs.
   right and bottom inspectors now render the first session operations panels
   for changes/authority/privacy/receipts/model-provider and
-  ports/services/tasks/terminal/logs shape; remaining work is interactive
-  lease/action flows and broader non-fixture project/session data coverage
+  ports/services/tasks/terminal/logs shape; session operations now have a
+  first proposal path for access/log leases, port exposure, task run, terminal
+  command review, archive, and restore. Remaining work is approved operation
+  execution after wallet authority plus broader non-fixture project/session
+  data coverage.
 
 0A.5 Workbench adapter-hub landing is partially implemented:
   `WorkspaceRepositoryGate` now opens as a Workbench adapter hub over
@@ -1188,8 +1191,20 @@ Current implementation cut:
   a read-only operations cockpit before the chat/work session view. This makes
   the IOI-reference session-detail tabs and ports/services/tasks/terminal
   inspector implementation-visible without making the client runtime truth.
+  The Sessions surface now also exposes session operation proposal buttons for
+  access lease, log lease, open port, run task, terminal command review,
+  archive session, and restore session. Those actions call
+  `/v1/hypervisor/session-operations/proposals`, dispatch through
+  `projectRuntimeLifecycle` with
+  `runtime.lifecycle_operation.hypervisor_session_operation_proposal`, and
+  display an `ioi.hypervisor.session_operation_proposal.v1` proposal carrying
+  wallet lease refs, required scope refs, Agentgres operation refs, receipt
+  refs, state-root refs, archive refs, and restore refs. If the daemon route is
+  unavailable, the client renders an explicitly `unverified` proposal instead
+  of executing locally.
   Focused model and shell source tests guard the tab/inspector arrays, lease
-  refs, restore refs, port/service rows, task rows, terminal events, and
+  refs, restore refs, port/service rows, task rows, terminal events, session
+  operation proposal schema, daemon route, and
   `runtimeTruthSource: "daemon-runtime"` boundary.
 
 0A.9 first provider/environment surface cut is implemented:

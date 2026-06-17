@@ -8,10 +8,15 @@ import {
   HYPERVISOR_SESSION_DETAIL_TABS,
 } from "./hypervisorShellNavigationModel.ts";
 import {
+  buildHypervisorSessionOperationProposal,
   HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE,
+  HYPERVISOR_SESSION_OPERATION_KINDS,
+  HYPERVISOR_SESSION_OPERATION_PROPOSAL_PATH,
   HYPERVISOR_SESSION_OPERATIONS_PROJECTION_PATH,
   loadHypervisorSessionOperationsProjection,
+  normalizeHypervisorSessionOperationProposal,
   normalizeHypervisorSessionOperationsProjection,
+  proposeHypervisorSessionOperation,
 } from "./hypervisorSessionOperationsModel.ts";
 
 test("session operations fixture mirrors the canonical shell tab and inspector contract", () => {
@@ -136,4 +141,123 @@ test("session operations fixture exposes provider, lease, restore, and receipt e
       receiptRef.startsWith("receipt://"),
     ),
   );
+});
+
+test("session operation proposals bind wallet leases, Agentgres refs, receipts, and restore refs", () => {
+  const projection = HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE;
+  const proposal = buildHypervisorSessionOperationProposal(
+    projection,
+    "propose_terminal_command",
+    {
+      targetRef: projection.terminal_events[0]?.event_ref,
+    },
+  );
+
+  assert.equal(
+    proposal.schema_version,
+    "ioi.hypervisor.session_operation_proposal.v1",
+  );
+  assert.equal(proposal.source, "fixture");
+  assert.equal(proposal.project_ref, projection.project_ref);
+  assert.equal(proposal.session_ref, projection.selected_session_ref);
+  assert.equal(proposal.operation_kind, "propose_terminal_command");
+  assert.equal(proposal.admission_state, "requires_wallet_lease");
+  assert.match(proposal.wallet_lease_ref, /^lease:wallet\/session\//);
+  assert.ok(proposal.required_scope_refs.includes("scope:shell.exec"));
+  assert.match(proposal.agentgres_operation_ref, /^agentgres:\/\/operation\/session\//);
+  assert.match(proposal.receipt_ref, /^receipt:\/\/session\//);
+  assert.equal(proposal.archive_ref, projection.archive_ref);
+  assert.equal(proposal.restore_ref, projection.restore_ref);
+  assert.match(proposal.custody_invariant, /wallet\.network grants/);
+  assert.deepEqual(
+    HYPERVISOR_SESSION_OPERATION_KINDS,
+    [
+      "request_access_lease",
+      "request_log_lease",
+      "open_port",
+      "run_task",
+      "propose_terminal_command",
+      "archive_session",
+      "restore_session",
+    ],
+  );
+});
+
+test("session operation proposal normalization and loader use daemon admission route", async () => {
+  const projection = HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE;
+  const normalized = normalizeHypervisorSessionOperationProposal(
+    {
+      proposal_ref: "session-operation:daemon/open-port",
+      source: "daemon-session-operation-proposal",
+      operation_kind: "open_port",
+      target_ref: "service:daemon",
+      admission_state: "requires_wallet_lease",
+      required_scope_refs: ["scope:port.expose"],
+    },
+    {
+      projection,
+      operationKind: "open_port",
+      targetRef: "service:daemon",
+    },
+  );
+  assert.equal(normalized.source, "daemon-session-operation-proposal");
+  assert.equal(normalized.operation_kind, "open_port");
+  assert.equal(normalized.target_ref, "service:daemon");
+  assert.deepEqual(normalized.required_scope_refs, ["scope:port.expose"]);
+
+  const calls: Array<{ input: string; method?: string; body?: unknown }> = [];
+  const proposal = await proposeHypervisorSessionOperation({
+    endpoint: "http://daemon.test/",
+    projection,
+    operationKind: "restore_session",
+    targetRef: projection.restore_ref,
+    fetchImpl: async (input, init) => {
+      calls.push({
+        input,
+        method: init?.method,
+        body: init?.body ? JSON.parse(String(init.body)) : null,
+      });
+      return {
+        ok: true,
+        status: 200,
+        async text() {
+          return JSON.stringify({
+            proposal_ref: "session-operation:daemon/restore",
+            source: "daemon-session-operation-proposal",
+            operation_kind: "restore_session",
+            target_ref: projection.restore_ref,
+            admission_state: "requires_wallet_lease",
+            wallet_lease_ref: "lease:wallet/session/restore",
+          });
+        },
+      };
+    },
+  });
+
+  assert.deepEqual(calls, [
+    {
+      input:
+        `http://daemon.test${HYPERVISOR_SESSION_OPERATION_PROPOSAL_PATH}`,
+      method: "POST",
+      body: {
+        project_ref: projection.project_ref,
+        session_ref: projection.selected_session_ref,
+        environment_ref: projection.environment_ref,
+        provider_candidate_ref: projection.provider_candidate_ref,
+        operation_kind: "restore_session",
+        target_ref: projection.restore_ref,
+        authority_scope_refs: [
+          ...projection.authority_scope_refs,
+          "scope:restore.apply",
+        ],
+        access_lease_ref: projection.access_lease_ref,
+        log_lease_ref: projection.log_lease_ref,
+        archive_ref: projection.archive_ref,
+        restore_ref: projection.restore_ref,
+      },
+    },
+  ]);
+  assert.equal(proposal.source, "daemon-session-operation-proposal");
+  assert.equal(proposal.operation_kind, "restore_session");
+  assert.equal(proposal.wallet_lease_ref, "lease:wallet/session/restore");
 });

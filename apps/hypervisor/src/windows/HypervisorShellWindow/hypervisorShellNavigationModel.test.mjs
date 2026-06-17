@@ -305,6 +305,12 @@ test("Sessions surface renders session tabs and operations inspectors from daemo
   assert.match(sessionOperationsModel, /HypervisorSessionOperationsProjection/);
   assert.match(sessionOperationsModel, /HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE/);
   assert.match(sessionOperationsModel, /HYPERVISOR_SESSION_OPERATIONS_PROJECTION_PATH/);
+  assert.match(sessionOperationsModel, /HYPERVISOR_SESSION_OPERATION_PROPOSAL_PATH/);
+  assert.match(sessionOperationsModel, /HypervisorSessionOperationProposal/);
+  assert.match(sessionOperationsModel, /buildHypervisorSessionOperationProposal/);
+  assert.match(sessionOperationsModel, /proposeHypervisorSessionOperation/);
+  assert.match(sessionOperationsModel, /wallet\.network grants/);
+  assert.match(sessionOperationsModel, /Agentgres admits lifecycle/);
   assert.match(sessionOperationsModel, /loadHypervisorSessionOperationsProjection/);
   assert.match(sessionOperationsModel, /normalizeHypervisorSessionOperationsProjection/);
   assert.match(sessionOperationsModel, /HYPERVISOR_SESSION_DETAIL_TABS/);
@@ -336,6 +342,17 @@ test("Sessions surface renders session tabs and operations inspectors from daemo
   assert.match(shellContent, /data-session-port-service/);
   assert.match(shellContent, /data-session-task/);
   assert.match(shellContent, /data-session-terminal-event/);
+  assert.match(shellContent, /HYPERVISOR_SESSION_OPERATION_KINDS/);
+  assert.match(shellContent, /data-session-operation-kind/);
+  assert.match(shellContent, /data-session-operation-proposal/);
+  assert.match(shellContent, /data-session-operation-admission/);
+  assert.match(shellContent, /data-session-operation-target/);
+  assert.match(shellContent, /data-session-service-open-port/);
+  assert.match(shellContent, /data-session-task-run/);
+  assert.match(shellContent, /data-session-terminal-propose/);
+  assert.match(shellContent, /proposeHypervisorSessionOperation/);
+  assert.match(shellContent, /buildHypervisorSessionOperationProposal/);
+  assert.match(shellContent, /\[Hypervisor\]\[Sessions\] operation proposal unavailable/);
   assert.match(shellContent, /activeView === "sessions"/);
 });
 

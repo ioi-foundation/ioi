@@ -84,16 +84,62 @@ export interface HypervisorSessionOperationsProjection {
   runtimeTruthSource: "daemon-runtime";
 }
 
+export type HypervisorSessionOperationKind =
+  | "request_access_lease"
+  | "request_log_lease"
+  | "open_port"
+  | "run_task"
+  | "propose_terminal_command"
+  | "archive_session"
+  | "restore_session";
+
+export interface HypervisorSessionOperationProposal {
+  schema_version: "ioi.hypervisor.session_operation_proposal.v1";
+  proposal_ref: string;
+  source: "daemon-session-operation-proposal" | "fixture" | "unverified";
+  project_ref: string;
+  session_ref: string;
+  environment_ref: string;
+  provider_candidate_ref: string;
+  operation_kind: HypervisorSessionOperationKind;
+  target_ref: string;
+  admission_state:
+    | "requires_wallet_lease"
+    | "ready_for_daemon_admission"
+    | "blocked";
+  wallet_lease_ref: string;
+  required_scope_refs: string[];
+  agentgres_operation_ref: string;
+  receipt_ref: string;
+  state_root_ref: string;
+  archive_ref: string;
+  restore_ref: string;
+  custody_invariant: string;
+}
+
+export const HYPERVISOR_SESSION_OPERATION_KINDS: HypervisorSessionOperationKind[] =
+  [
+    "request_access_lease",
+    "request_log_lease",
+    "open_port",
+    "run_task",
+    "propose_terminal_command",
+    "archive_session",
+    "restore_session",
+  ];
+
 export const HYPERVISOR_SESSION_OPERATIONS_DAEMON_ENDPOINT_STORAGE_KEY =
   "ioi.hypervisor.daemonEndpoint";
 export const HYPERVISOR_SESSION_OPERATIONS_DEFAULT_DAEMON_ENDPOINT =
   "http://127.0.0.1:8765";
 export const HYPERVISOR_SESSION_OPERATIONS_PROJECTION_PATH =
   "/v1/hypervisor/session-operations";
+export const HYPERVISOR_SESSION_OPERATION_PROPOSAL_PATH =
+  "/v1/hypervisor/session-operations/proposals";
 
 type FetchLike = (
   input: string,
-  init?: { method?: string; headers?: Record<string, string> },
+  init?: { method?: string; headers?: Record<string, string>; body?: string },
 ) => Promise<{
   ok: boolean;
   status: number;
@@ -110,6 +156,22 @@ interface LoadSessionOperationsProjectionOptions
   fetchImpl?: FetchLike;
   projectId?: string | null;
   sessionRef?: string | null;
+}
+
+interface NormalizeSessionOperationProposalOptions {
+  projection?: HypervisorSessionOperationsProjection;
+  operationKind?: HypervisorSessionOperationKind;
+  targetRef?: string;
+  source?: HypervisorSessionOperationProposal["source"];
+}
+
+interface ProposeSessionOperationOptions {
+  endpoint?: string;
+  fetchImpl?: FetchLike;
+  projection: HypervisorSessionOperationsProjection;
+  operationKind: HypervisorSessionOperationKind;
+  targetRef?: string;
+  source?: HypervisorSessionOperationProposal["source"];
 }
 
 function formatPanelLabel(value: string): string {
@@ -272,6 +334,71 @@ function enumValue<T extends string>(
   return typeof value === "string" && allowed.includes(value as T)
     ? (value as T)
     : fallback;
+}
+
+function sessionOperationKindValue(
+  value: unknown,
+  fallback: HypervisorSessionOperationKind,
+): HypervisorSessionOperationKind {
+  return enumValue(value, fallback, HYPERVISOR_SESSION_OPERATION_KINDS);
+}
+
+function sessionOperationTargetRef(
+  projection: HypervisorSessionOperationsProjection,
+  operationKind: HypervisorSessionOperationKind,
+  targetRef?: string,
+): string {
+  if (targetRef) {
+    return targetRef;
+  }
+  switch (operationKind) {
+    case "request_access_lease":
+      return projection.access_lease_ref;
+    case "request_log_lease":
+      return projection.log_lease_ref;
+    case "open_port":
+      return projection.ports_services[0]?.service_ref ?? projection.environment_ref;
+    case "run_task":
+      return projection.tasks[0]?.task_ref ?? projection.selected_session_ref;
+    case "propose_terminal_command":
+      return projection.terminal_events[0]?.event_ref ?? projection.selected_session_ref;
+    case "archive_session":
+      return projection.archive_ref;
+    case "restore_session":
+      return projection.restore_ref;
+    default:
+      return projection.selected_session_ref;
+  }
+}
+
+function sessionOperationRequiredScopes(
+  projection: HypervisorSessionOperationsProjection,
+  operationKind: HypervisorSessionOperationKind,
+): string[] {
+  const scopeByKind: Record<HypervisorSessionOperationKind, string[]> = {
+    request_access_lease: ["scope:session.access"],
+    request_log_lease: ["scope:logs.read"],
+    open_port: ["scope:port.expose"],
+    run_task: ["scope:task.run"],
+    propose_terminal_command: ["scope:shell.exec"],
+    archive_session: ["scope:archive.write"],
+    restore_session: ["scope:restore.apply"],
+  };
+  return Array.from(
+    new Set([...projection.authority_scope_refs, ...scopeByKind[operationKind]]),
+  );
+}
+
+function sessionOperationAdmissionState(
+  operationKind: HypervisorSessionOperationKind,
+): HypervisorSessionOperationProposal["admission_state"] {
+  return operationKind === "run_task" || operationKind === "archive_session"
+    ? "ready_for_daemon_admission"
+    : "requires_wallet_lease";
+}
+
+function proposalRefSegment(value: string): string {
+  return value.replace(/[^a-zA-Z0-9_.:-]+/g, "-");
 }
 
 function normalizeRailProjection(
@@ -498,5 +625,165 @@ export async function loadHypervisorSessionOperationsProjection(
   }
   return normalizeHypervisorSessionOperationsProjection(value, {
     source: options.source ?? "daemon-session-operations-projection",
+  });
+}
+
+export function buildHypervisorSessionOperationProposal(
+  projection: HypervisorSessionOperationsProjection,
+  operationKind: HypervisorSessionOperationKind,
+  options: {
+    targetRef?: string;
+    source?: HypervisorSessionOperationProposal["source"];
+  } = {},
+): HypervisorSessionOperationProposal {
+  const targetRef = sessionOperationTargetRef(
+    projection,
+    operationKind,
+    options.targetRef,
+  );
+  const targetSegment = proposalRefSegment(targetRef);
+  return {
+    schema_version: "ioi.hypervisor.session_operation_proposal.v1",
+    proposal_ref: `session-operation:${operationKind}/${targetSegment}`,
+    source: options.source ?? "fixture",
+    project_ref: projection.project_ref,
+    session_ref: projection.selected_session_ref,
+    environment_ref: projection.environment_ref,
+    provider_candidate_ref: projection.provider_candidate_ref,
+    operation_kind: operationKind,
+    target_ref: targetRef,
+    admission_state: sessionOperationAdmissionState(operationKind),
+    wallet_lease_ref: `lease:wallet/session/${proposalRefSegment(
+      projection.selected_session_ref,
+    )}/${operationKind}`,
+    required_scope_refs: sessionOperationRequiredScopes(projection, operationKind),
+    agentgres_operation_ref: `agentgres://operation/session/${proposalRefSegment(
+      projection.selected_session_ref,
+    )}/${operationKind}`,
+    receipt_ref: `receipt://session/${proposalRefSegment(
+      projection.selected_session_ref,
+    )}/${operationKind}`,
+    state_root_ref: `agentgres://state-root/session/${proposalRefSegment(
+      projection.selected_session_ref,
+    )}`,
+    archive_ref: projection.archive_ref,
+    restore_ref: projection.restore_ref,
+    custody_invariant:
+      "Session operations are proposals until wallet.network grants any required lease and Agentgres admits lifecycle, lease, task, terminal, archive, restore, receipt, and state-root refs.",
+  };
+}
+
+export function normalizeHypervisorSessionOperationProposal(
+  snapshot: unknown,
+  options: NormalizeSessionOperationProposalOptions = {},
+): HypervisorSessionOperationProposal {
+  const projection =
+    options.projection ?? HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE;
+  const fallback = buildHypervisorSessionOperationProposal(
+    projection,
+    options.operationKind ?? "request_access_lease",
+    {
+      targetRef: options.targetRef,
+      source: options.source ?? "daemon-session-operation-proposal",
+    },
+  );
+  const value = objectRecord(snapshot);
+  return {
+    schema_version: "ioi.hypervisor.session_operation_proposal.v1",
+    proposal_ref: stringValue(value.proposal_ref, fallback.proposal_ref),
+    source: enumValue(value.source, fallback.source, [
+      "daemon-session-operation-proposal",
+      "fixture",
+      "unverified",
+    ]),
+    project_ref: stringValue(value.project_ref, fallback.project_ref),
+    session_ref: stringValue(value.session_ref, fallback.session_ref),
+    environment_ref: stringValue(value.environment_ref, fallback.environment_ref),
+    provider_candidate_ref: stringValue(
+      value.provider_candidate_ref,
+      fallback.provider_candidate_ref,
+    ),
+    operation_kind: sessionOperationKindValue(
+      value.operation_kind,
+      fallback.operation_kind,
+    ),
+    target_ref: stringValue(value.target_ref, fallback.target_ref),
+    admission_state: enumValue(value.admission_state, fallback.admission_state, [
+      "requires_wallet_lease",
+      "ready_for_daemon_admission",
+      "blocked",
+    ]),
+    wallet_lease_ref: stringValue(value.wallet_lease_ref, fallback.wallet_lease_ref),
+    required_scope_refs: stringList(
+      value.required_scope_refs,
+      fallback.required_scope_refs,
+    ),
+    agentgres_operation_ref: stringValue(
+      value.agentgres_operation_ref,
+      fallback.agentgres_operation_ref,
+    ),
+    receipt_ref: stringValue(value.receipt_ref, fallback.receipt_ref),
+    state_root_ref: stringValue(value.state_root_ref, fallback.state_root_ref),
+    archive_ref: stringValue(value.archive_ref, fallback.archive_ref),
+    restore_ref: stringValue(value.restore_ref, fallback.restore_ref),
+    custody_invariant: stringValue(
+      value.custody_invariant,
+      fallback.custody_invariant,
+    ),
+  };
+}
+
+export async function proposeHypervisorSessionOperation(
+  options: ProposeSessionOperationOptions,
+): Promise<HypervisorSessionOperationProposal> {
+  const endpoint =
+    options.endpoint ?? readHypervisorSessionOperationsDaemonEndpoint();
+  const fetchImpl = options.fetchImpl ?? globalThis.fetch?.bind(globalThis);
+  if (!fetchImpl) {
+    throw new Error("fetch unavailable for Hypervisor session operation proposal");
+  }
+  const targetRef = sessionOperationTargetRef(
+    options.projection,
+    options.operationKind,
+    options.targetRef,
+  );
+  const response = await fetchImpl(
+    `${endpoint.replace(/\/+$/, "")}${HYPERVISOR_SESSION_OPERATION_PROPOSAL_PATH}`,
+    {
+      method: "POST",
+      headers: {
+        accept: "application/json",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        project_ref: options.projection.project_ref,
+        session_ref: options.projection.selected_session_ref,
+        environment_ref: options.projection.environment_ref,
+        provider_candidate_ref: options.projection.provider_candidate_ref,
+        operation_kind: options.operationKind,
+        target_ref: targetRef,
+        authority_scope_refs: sessionOperationRequiredScopes(
+          options.projection,
+          options.operationKind,
+        ),
+        access_lease_ref: options.projection.access_lease_ref,
+        log_lease_ref: options.projection.log_lease_ref,
+        archive_ref: options.projection.archive_ref,
+        restore_ref: options.projection.restore_ref,
+      }),
+    },
+  );
+  const text = await response.text();
+  const value = text ? JSON.parse(text) : {};
+  if (!response.ok) {
+    throw new Error(
+      `Session operation proposal request failed with ${response.status}`,
+    );
+  }
+  return normalizeHypervisorSessionOperationProposal(value, {
+    projection: options.projection,
+    operationKind: options.operationKind,
+    targetRef,
+    source: options.source ?? "daemon-session-operation-proposal",
   });
 }
