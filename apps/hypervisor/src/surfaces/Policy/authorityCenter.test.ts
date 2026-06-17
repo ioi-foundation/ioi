@@ -433,10 +433,10 @@ test("authority center accepts canonical endpoint wrappers and snake case contra
       ],
       capabilities: [
         {
-          model_capability_ref: "model-capability:route.autopilot",
-          route_id: "route.autopilot",
+          model_capability_ref: "model-capability:route.hypervisor",
+          route_id: "route.hypervisor",
           capability: "chat",
-          policy_target: "model.route.autopilot",
+          policy_target: "model.route.hypervisor",
           privacy_tier: "local_private",
           authority_scope_requirements: ["model.chat:*"],
           credential_readiness: { status: "ready" },
@@ -472,7 +472,7 @@ test("authority center accepts canonical endpoint wrappers and snake case contra
   assert.equal(projection.summary.readyCapabilities, 2);
   assert.equal(
     projection.capabilities[0]?.id,
-    "model-capability:route.autopilot",
+    "model-capability:route.hypervisor",
   );
   assert.deepEqual(projection.capabilities[0]?.receiptTypes, [
     "model_invocation",

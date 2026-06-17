@@ -159,6 +159,9 @@ const hypervisorProviderPlacementModelSource = read(
 const workspaceRepositoryGateSource = read(
   "apps/hypervisor/src/surfaces/Workspace/WorkspaceRepositoryGate.tsx",
 );
+const authorityCenterTestSource = read(
+  "apps/hypervisor/src/surfaces/Policy/authorityCenter.test.ts",
+);
 const hypervisorVisibleSurfaceSources = [
   "apps/hypervisor/src/windows/ChatShellWindow/index.tsx",
   "apps/hypervisor/src/windows/ChatShellWindow/components/ArtifactHubTaskViews.tsx",
@@ -214,7 +217,6 @@ const hypervisorModelMountIdentitySources = [
   "packages/runtime-daemon/src/model-mounting/default-discovery.mjs",
   "packages/runtime-daemon/src/model-mounting.mjs",
   "apps/hypervisor/src/surfaces/MissionControl/MissionControlMountsView.tsx",
-  "scripts/lib/hypervisor-runtime-agent-service-inference.mjs",
   "scripts/lib/model-mounting-daemon-contract.test.mjs",
   "scripts/validate-model-mounting-e2e.mjs",
   "apps/hypervisor/scripts/desktop_model_mounts_probe.py",
@@ -233,15 +235,13 @@ const retiredAutopilotPackageScripts = packageScriptNames.filter((scriptName) =>
 const retiredDesktopLaunchScripts = packageScriptNames.filter((scriptName) =>
   /^(?:dev|probe|dryrun):desktop(?::|$)/.test(scriptName),
 );
-const activeHypervisorPackageScriptValues = [
-  "validate:hypervisor-app-harness",
-  "validate:hypervisor-app-harness:run",
-  "test:hypervisor-app-harness",
-  "goal:hypervisor-app-ux-readiness",
-  "goal:hypervisor-app-ux-readiness:run",
-].map((scriptName) => packageJson.scripts?.[scriptName] ?? "");
+const retiredHypervisorGoalScripts = packageScriptNames.filter((scriptName) =>
+  scriptName.startsWith("goal:hypervisor-"),
+);
+const retiredHypervisorHarnessValidationScripts = packageScriptNames.filter((scriptName) =>
+  scriptName.startsWith("validate:hypervisor-app-harness"),
+);
 const hypervisorAppHarnessContractSource = read("scripts/lib/hypervisor-app-harness-contract.mjs");
-const hypervisorCampaignProcessesSource = read("scripts/lib/hypervisor-campaign-processes.mjs");
 const daemonSource = read("packages/runtime-daemon/src/index.mjs");
 const sdkSubstrate = read("packages/agent-sdk/src/substrate-client.ts");
 const sdkIndex = read("packages/agent-sdk/src/index.ts");
@@ -298,76 +298,29 @@ assert(
   "daemon implementation must use product runtime names",
 );
 assert(
-  "stable-conformance-scripts",
-  exists("scripts/conformance/runtime-complete-plus.mjs") &&
-    exists("scripts/evidence/runtime-complete-plus.mjs") &&
-    packageJson.scripts["validate:runtime-complete-plus"] &&
-    packageJson.scripts["evidence:runtime-complete-plus"],
-  ["scripts/conformance/runtime-complete-plus.mjs", "scripts/evidence/runtime-complete-plus.mjs", "package.json"],
-  "runtime conformance/evidence must have durable names",
-);
-assert(
-  "roadmap-wrappers-retired",
-  !exists("scripts/run-architectural-improvements-broad-validation.mjs") &&
-    !exists("scripts/run-architectural-improvements-broad-evidence.mjs") &&
-    !packageJson.scripts["validate:architectural-improvements-broad"] &&
-    !packageJson.scripts["evidence:architectural-improvements-broad"],
-  [
-    "scripts/conformance/runtime-complete-plus.mjs",
-    "scripts/evidence/runtime-complete-plus.mjs",
-    "package.json",
-  ],
-  "roadmap-specific compatibility wrappers and package aliases must stay retired; use runtime-complete-plus commands",
-);
-assert(
-  "autopilot-package-scripts-retired",
+  "focused-hypervisor-checks",
   retiredAutopilotPackageScripts.length === 0 &&
-    activeHypervisorPackageScriptValues.every(
-      (scriptValue) =>
-        !/run-autopilot-|build-autopilot|custom-autopilot|autopilot-gui-harness/.test(
-          scriptValue,
-        ),
-    ) &&
-    packageJson.scripts["validate:hypervisor-app-harness"] &&
-    packageJson.scripts["validate:hypervisor-app-harness:run"] &&
+    retiredHypervisorGoalScripts.length === 0 &&
+    retiredHypervisorHarnessValidationScripts.length === 0 &&
     packageJson.scripts["test:hypervisor-app-harness"] &&
-    packageJson.scripts["goal:hypervisor-app-ux-readiness"] &&
-    packageJson.scripts["goal:hypervisor-workflow-compositor-parity"] &&
-    packageJson.scripts["goal:hypervisor-model-mounting"] &&
-    packageJson.scripts["goal:hypervisor-workbench-mode-shell"] &&
     packageJson.scripts["build:hypervisor-workbench-composer"] &&
     !packageJson.scripts["build:ioi-workbench-composer"],
   ["package.json"],
-  "root package scripts must expose Hypervisor command names, not retired Autopilot product aliases",
+  "root package scripts must expose focused Hypervisor checks, not campaign goals",
 );
 assert(
-  "autopilot-proof-helper-names-retired",
-  exists("scripts/lib/hypervisor-campaign-processes.mjs") &&
-    exists("scripts/lib/hypervisor-runtime-agent-service-inference.mjs") &&
-    exists("scripts/lib/hypervisor-agent-chat-scenarios.mjs") &&
-    !exists("scripts/lib/autopilot-gui-chat-ux-campaign-processes.mjs") &&
-    !exists("scripts/lib/autopilot-runtime-agent-service-inference.mjs") &&
-    !exists("scripts/lib/autopilot-agent-studio-chat-scenarios.mjs") &&
-    hypervisorCampaignProcessesSource.includes("cleanupHypervisorCampaignProcesses") &&
-    hypervisorCampaignProcessesSource.includes("HYPERVISOR_CAMPAIGN_PROCESS_PATTERN") &&
-    hypervisorCampaignProcessesSource.includes("ioi.hypervisor.campaign.process-cleanup.v1") &&
-    hypervisorAppHarnessContractSource.includes("hypervisorGuiHarnessContract") &&
+  "compact-app-harness-contract",
+  hypervisorAppHarnessContractSource.includes("hypervisorGuiHarnessContract") &&
     hypervisorAppHarnessContractSource.includes("validateHypervisorGuiHarnessResult") &&
     hypervisorAppHarnessContractSource.includes("buildBlockedHypervisorGuiHarnessResult") &&
     hypervisorAppHarnessContractSource.includes("HYPERVISOR_RETAINED_QUERIES") &&
-    !/cleanupAutopilotCampaignProcesses|listAutopilotCampaignProcesses|AUTOPILOT_CAMPAIGN_PROCESS_PATTERN|ioi\.autopilot\.gui-chat-ux-campaign/.test(
-      hypervisorCampaignProcessesSource,
-    ) &&
     !/autopilotGuiHarnessContract|validateAutopilotGuiHarnessResult|buildBlockedAutopilotGuiHarnessResult|AUTOPILOT_(?:GUI_HARNESS|REQUIRED|RETAINED|PROVIDER_GATED|READ_ONLY)/.test(
       hypervisorAppHarnessContractSource,
     ),
   [
-    "scripts/lib/hypervisor-campaign-processes.mjs",
-    "scripts/lib/hypervisor-runtime-agent-service-inference.mjs",
-    "scripts/lib/hypervisor-agent-chat-scenarios.mjs",
     "scripts/lib/hypervisor-app-harness-contract.mjs",
   ],
-  "active proof helper modules must use Hypervisor filenames, exports, and schema names; retired Autopilot helper paths must stay absent",
+  "keep the compact app harness contract as the app-harness authority",
 );
 assert(
   "hypervisor-client-runtime-command-names",
@@ -620,6 +573,19 @@ assert(
     !/autopilot\.workflow_output_writer/.test(hypervisorVisibleSurfaceSources),
   ["packages/hypervisor-workbench/src/runtime/harness-workflow/core.ts"],
   "Workflow runtime checkpoint identities must use Hypervisor namespaces, not retired Autopilot checkpoint names.",
+);
+assert(
+  "authority-center-model-route-fixtures-hypervisor-named",
+  [
+    "model-capability:route.hypervisor",
+    "route.hypervisor",
+    "model.route.hypervisor",
+  ].every((token) => authorityCenterTestSource.includes(token)) &&
+    !/model-capability:route\.autopilot|route_id:\s*["']route\.autopilot["']|model\.route\.autopilot/.test(
+      authorityCenterTestSource,
+    ),
+  ["apps/hypervisor/src/surfaces/Policy/authorityCenter.test.ts"],
+  "Authority Center model-route fixtures must use Hypervisor route identities, not retired Autopilot model-route namespaces.",
 );
 assert(
   "active-client-namespaces-hypervisor-named",

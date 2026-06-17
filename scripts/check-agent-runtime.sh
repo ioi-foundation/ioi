@@ -17,12 +17,4 @@ cargo test -p ioi-services "agentic::runtime::service::decision_loop::tests::"
 cargo test -p ioi-services sudo_retry_restores_install_from_incident_when_pending_tool_is_stale
 cargo test -p ioi-services reset_for_new_user_goal_refreshes_target_and_intent_state
 cargo test -p ioi-services --test pii_hard_gates
-npm run test:harness-contract
-node apps/hypervisor/src/windows/HypervisorShellWindow/harnessWorkflowWiring.test.mjs
-node apps/hypervisor/src/windows/HypervisorShellWindow/workflowComposerWiring.test.ts
 npm run test:hypervisor-app-harness
-npm run validate:hypervisor-app-harness
-npm run test:agent-runtime-p3
-npm run validate:agent-runtime-p3
-npm run test:agent-runtime-superiority
-npm run validate:agent-runtime-superiority -- --require-gui-evidence

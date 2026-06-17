@@ -7,8 +7,8 @@ import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
-test("architectural improvements broad execution-surface guardrail passes", () => {
-  const result = spawnSync("node", ["scripts/check-execution-surface-leg.mjs"], {
+test("architectural improvements broad runtime-layout guardrail passes", () => {
+  const result = spawnSync("node", ["scripts/check-runtime-layout.mjs"], {
     cwd: root,
     encoding: "utf8",
   });

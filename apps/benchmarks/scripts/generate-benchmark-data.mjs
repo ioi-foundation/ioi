@@ -9,7 +9,6 @@ import {
 import { buildAgentModelMatrixView } from "../../../scripts/lib/agent-model-matrix.mjs";
 import { collectChatArtifactCorpusIndex } from "../../../scripts/lib/chat-artifact-corpus.mjs";
 import { collectChatArtifactDistillationView } from "../../../scripts/lib/chat-artifact-distillation.mjs";
-import { collectChatArtifactParityLoopView } from "../../../scripts/lib/chat-artifact-parity-loop.mjs";
 import {
   collectChatArtifactReleaseGatesView,
   writeChatArtifactReleaseGates,
@@ -1801,89 +1800,6 @@ function buildSuiteSummaries(latestCases, liveRuns) {
     });
 }
 
-function collectChatArtifactParityLoop() {
-  const view = collectChatArtifactParityLoopView({ repoRoot });
-  if (!view) {
-    return null;
-  }
-
-  const summarizeReceipt = (receipt) =>
-    receipt && typeof receipt === "object"
-      ? {
-          keepChange:
-            typeof receipt.keepChange === "boolean" ? receipt.keepChange : null,
-          noImprovementStreak: Number(receipt.noImprovementStreak ?? 0),
-          selectedInterventionFamily:
-            typeof receipt.selectedInterventionFamily === "string"
-              ? receipt.selectedInterventionFamily
-              : null,
-          allowedInterventionFamilies: Array.isArray(
-            receipt.allowedInterventionFamilies,
-          )
-            ? receipt.allowedInterventionFamilies.filter((value) => typeof value === "string")
-            : [],
-          decision:
-            receipt.decision && typeof receipt.decision === "object"
-              ? {
-                  kind: receipt.decision.kind ?? "continue",
-                  reason: receipt.decision.reason ?? "",
-                }
-              : { kind: "continue", reason: "" },
-          weakestTarget:
-            receipt.weakestTarget && typeof receipt.weakestTarget === "object"
-              ? {
-                  id: receipt.weakestTarget.id ?? null,
-                  label: receipt.weakestTarget.label ?? null,
-                  summary: receipt.weakestTarget.summary ?? null,
-                  family: receipt.weakestTarget.family ?? null,
-                  caseIds: Array.isArray(receipt.weakestTarget.caseIds)
-                    ? receipt.weakestTarget.caseIds.filter(
-                        (value) => typeof value === "string",
-                      )
-                    : [],
-                }
-              : null,
-          relevantCaseIds: Array.isArray(receipt.relevantCaseIds)
-            ? receipt.relevantCaseIds.filter((value) => typeof value === "string")
-            : [],
-          requiredReceipts: Array.isArray(receipt.requiredReceipts)
-            ? receipt.requiredReceipts.filter((value) => typeof value === "string")
-            : [],
-          comparison:
-            receipt.comparison && typeof receipt.comparison === "object"
-              ? {
-                  improvedMetrics: Array.isArray(receipt.comparison.improvedMetrics)
-                    ? receipt.comparison.improvedMetrics.filter(
-                        (value) => typeof value === "string",
-                      )
-                    : [],
-                  regressedMetrics: Array.isArray(receipt.comparison.regressedMetrics)
-                    ? receipt.comparison.regressedMetrics.filter(
-                        (value) => typeof value === "string",
-                      )
-                    : [],
-                  unchangedMetrics: Array.isArray(receipt.comparison.unchangedMetrics)
-                    ? receipt.comparison.unchangedMetrics.filter(
-                        (value) => typeof value === "string",
-                      )
-                    : [],
-                }
-              : null,
-        }
-      : null;
-
-  return {
-    status: view.status,
-    receiptCount: Number(view.receiptCount ?? 0),
-    summaryPath: toDisplayPath(view.summaryPath),
-    summaryHref: toFileHref(view.summaryPath),
-    ledgerPath: toDisplayPath(view.ledgerPath),
-    ledgerHref: toFileHref(view.ledgerPath),
-    latestReceipt: summarizeReceipt(view.latestReceipt),
-    currentPlan: summarizeReceipt(view.currentPlan),
-  };
-}
-
 function collectChatArtifactDistillation() {
   const view = collectChatArtifactDistillationView({ repoRoot });
   if (!view) {
@@ -2046,8 +1962,7 @@ export function buildBenchmarkDataPayload(options = {}) {
     collectChatArtifactReleaseGates(chatArtifactCorpus);
   const chatArtifactDistillation =
     options.chatArtifactDistillation ?? collectChatArtifactDistillation();
-  const chatArtifactParityLoop =
-    options.chatArtifactParityLoop ?? collectChatArtifactParityLoop();
+  const chatArtifactParityLoop = options.chatArtifactParityLoop ?? null;
   const agentModelMatrix =
     options.agentModelMatrix ?? buildAgentModelMatrixView({ repoRoot });
   const latestCases = sortLatestCases(

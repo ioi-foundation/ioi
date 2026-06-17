@@ -143,7 +143,8 @@ Agent checklist before modifying harness-sensitive runtime behavior:
   receipt coverage, mutation canary, worker binding, and rollback target.
 - Keep GUI state derived from canonical runtime/contract state, not one-off UI
   state.
-- Run `npm run test:harness-contract` and the targeted Rust harness tests.
+- Run `npm run test:hypervisor-app-harness`, `npm run check:runtime-layout`,
+  and the targeted Rust harness tests.
 
 Guidance budgets for hotspot entrypoints:
 
