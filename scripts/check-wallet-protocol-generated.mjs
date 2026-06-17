@@ -184,6 +184,16 @@ for (const sdkFile of [
   assertIncludes(sdkFile, read(sdkFile), "@ioi/wallet-protocol");
 }
 
+const walletSdkRouteSources = read("packages/wallet-sdk/src/route-sources.ts");
+for (const text of [
+  "createHttpCandidateSourceClient",
+  "assertCandidateEvidenceExecutable",
+  "candidate_source_only",
+  "wallet candidate source evidence must match the declared adapter and source",
+]) {
+  assertIncludes("packages/wallet-sdk/src/route-sources.ts", walletSdkRouteSources, text);
+}
+
 const hypervisorPackage = readJson("apps/hypervisor/package.json");
 if (hypervisorPackage.dependencies["@ioi/wallet-sdk"] !== "*") {
   throw new Error("@ioi/hypervisor-app must import wallet product semantics through @ioi/wallet-sdk");

@@ -1767,7 +1767,7 @@ future aiagent and managed-agent product surfaces.
 
 | Field | Detail |
 | --- | --- |
-| Status | Canonized and guarded on 2026-06-17; wallet protocol route/trade candidate-evidence validation implemented and guarded; protocol-level route/venue source adapter contracts are implemented and exposed through the Wallet SDK. Live network adapters for external route sources remain follow-up implementation. |
+| Status | Canonized and guarded on 2026-06-17; wallet protocol route/trade candidate-evidence validation implemented and guarded; protocol-level route/venue source adapter contracts are implemented and exposed through the Wallet SDK. First source-agnostic HTTP candidate-source client implemented in the Wallet SDK; provider-specific decentralized.exchange/decentralized.trade deployments remain follow-up integration. |
 | Files | decentralized exchange/trade docs, Wallet product risk, API scopes, conformance docs |
 | Change | Require source, adapter, timestamp, expiry, evidence refs, coverage state, failure conditions for route/trade candidates. |
 | Acceptance | Candidate services cannot be hidden trust roots. |
@@ -1787,7 +1787,13 @@ sources rather than hidden trust roots. `WalletCandidateSourceAdapter`,
 `buildCandidateEvidenceFromSourceAdapter` now provide the protocol contract for
 route/venue sources to emit executable candidate evidence without becoming
 authority, execution, or receipt truth; `@ioi/wallet-sdk` re-exports those
-helpers as a thin facade over the protocol package.
+helpers as a thin facade over the protocol package. `@ioi/wallet-sdk` now also
+exposes `createHttpCandidateSourceClient()`, a source-agnostic HTTP adapter
+that can call route/venue candidate services and only returns evidence after
+`assertCandidateEvidenceExecutable()` passes and the returned `source` /
+`adapter_id` match the declared adapter. This is the first live network seam
+for route-intelligence services while preserving the canon boundary: route
+sources propose; Wallet verifies, authorizes, and receipts.
 ```
 
 ### Phase 7: Harden Service Composition Delivery

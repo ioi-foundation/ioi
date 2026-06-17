@@ -141,6 +141,10 @@ requireAll("packages/wallet-sdk/src/route-sources.ts", [
   "buildCandidateEvidenceFromSourceAdapter",
   "exchangeRouteSourceAdapter",
   "tradeVenueSourceAdapter",
+  "createHttpCandidateSourceClient",
+  "assertCandidateEvidenceExecutable",
+  "candidate_source_only",
+  "wallet candidate source evidence must match the declared adapter and source",
   "@ioi/wallet-protocol",
 ]);
 
