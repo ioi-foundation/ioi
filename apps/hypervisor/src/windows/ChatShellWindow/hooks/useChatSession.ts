@@ -220,7 +220,7 @@ export function useChatSession({
         !isChatVariant &&
         (text.toLowerCase().includes("work graph") || text.toLowerCase().includes("team"))
       ) {
-        await openChat("autopilot");
+        await openChat("process");
       }
     },
     shouldContinueExistingSession: (currentTask) =>

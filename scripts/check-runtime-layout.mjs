@@ -192,6 +192,12 @@ const hypervisorClientNamespaceSources = [
 const hypervisorClientRuntimeSource = read(
   "apps/hypervisor/src/services/HypervisorClientRuntime.ts",
 );
+const companionShellNavigationSource = read(
+  "apps/hypervisor/src/services/companionShellNavigation.ts",
+);
+const chatSessionHookSource = read(
+  "apps/hypervisor/src/windows/ChatShellWindow/hooks/useChatSession.ts",
+);
 const hypervisorModelMountIdentitySources = [
   "packages/runtime-daemon/src/model-mounting/default-records.mjs",
   "packages/runtime-daemon/src/model-mounting/default-discovery.mjs",
@@ -371,6 +377,19 @@ assert(
     !/workspace_ide|Workspace IDE/.test(workspaceEditorAdapterBridgeSource),
   ["apps/hypervisor/src/services/workspaceEditorAdapterBridge.ts"],
   "Workbench adapter bridge commands must use Workbench adapter protocol names, not retired workspace_ide command ids.",
+);
+assert(
+  "chat-shell-hypervisor-route-names",
+  companionShellNavigationSource.includes('openChatShellView("process")') &&
+    chatSessionHookSource.includes('await openChat("process")') &&
+    !/openChatShellView\("autopilot"\)|openChat\("autopilot"\)/.test(
+      `${companionShellNavigationSource}\n${chatSessionHookSource}`,
+    ),
+  [
+    "apps/hypervisor/src/services/companionShellNavigation.ts",
+    "apps/hypervisor/src/windows/ChatShellWindow/hooks/useChatSession.ts",
+  ],
+  "Chat shell entry points must route Hypervisor/work-graph shortcuts to the process view, not the retired autopilot view id.",
 );
 assert(
   "runtime-module-map",

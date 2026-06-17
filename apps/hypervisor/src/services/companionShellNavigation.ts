@@ -26,7 +26,7 @@ export async function openCompanionNotifications() {
 }
 
 export async function openCompanionHypervisor() {
-  await openChatShellView("autopilot");
+  await openChatShellView("process");
 }
 
 export async function openCompanionSettings() {
