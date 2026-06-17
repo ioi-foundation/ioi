@@ -35,7 +35,11 @@ const readme = read("README.md");
 const developersDocs = read("apps/developers-ioi-ai/src/content/docs.tsx");
 const refineArchitectureGuide = read("internal-docs/implementation/refine-architecture.md");
 const workbenchAdapterLauncher = read("scripts/launch-hypervisor-workbench-adapter-host.mjs");
+const workbenchAdapterHostPaths = read("scripts/lib/hypervisor-workbench-adapter-host-paths.mjs");
+const workbenchAdaptersReadme = read("workbench-adapters/README.md");
+const workbenchShellManifest = read("workbench-adapters/shell.manifest.json");
 const workbenchShellPatch = read("scripts/lib/hypervisor-workbench-shell-patch.mjs");
+const rootGitignore = read(".gitignore");
 const hypervisorShellNavigationSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorShellNavigationModel.ts",
 );
@@ -48,6 +52,9 @@ const hypervisorHomeSource = [
   "apps/hypervisor/src/surfaces/Home/homeOnboardingModel.ts",
   "apps/hypervisor/src/surfaces/Home/index.ts",
 ].map(read).join("\n");
+const workspaceRepositoryGateSource = read(
+  "apps/hypervisor/src/surfaces/Workspace/WorkspaceRepositoryGate.tsx",
+);
 const packageScriptNames = Object.keys(packageJson.scripts ?? {});
 const retiredAutopilotPackageScripts = packageScriptNames.filter((scriptName) =>
   /^(?:goal|validate|test):autopilot/.test(scriptName),
@@ -264,7 +271,13 @@ assert(
     workbenchShellPatch.includes("ioi-hypervisor-native-shell") &&
     workbenchShellPatch.includes("ioi-hypervisor-workbench-quickinput") &&
     workbenchShellPatch.includes("ioi.hypervisor-workbench-shell-patch.v1") &&
-    !/applyAutopilotWorkbenchShellPatch|ioi-autopilot-native-shell|ioi-autopilot-fork-quickinput|ioi\.autopilot-workbench-shell-patch/.test(
+    workbenchShellPatch.includes("ioi.hypervisor.shell.mode") &&
+    workbenchShellPatch.includes("ioi.hypervisor.active.mode") &&
+    workbenchShellPatch.includes("hypervisor-primary-rail") &&
+    workbenchShellPatch.includes("code-rail-back-to-hypervisor") &&
+    workbenchShellPatch.includes("secondaryHypervisorHeaderRemoved") &&
+    workbenchShellPatch.includes("hypervisorModeMenuHiddenByCssAndSettings") &&
+    !/applyAutopilotWorkbenchShellPatch|ioi-autopilot-native-shell|ioi-autopilot-fork-quickinput|ioi\.autopilot-workbench-shell-patch|ioi\.autopilot\.shell\.mode|ioi\.autopilot\.active\.mode|autopilot-primary-rail|code-rail-back-to-autopilot|activeAutopilotMode|secondaryAutopilotHeaderRemoved|autopilotModeMenuHiddenByCssAndSettings|Back to Autopilot/.test(
       workbenchShellPatch,
     ),
   [
@@ -272,6 +285,34 @@ assert(
     "scripts/lib/autopilot-workbench-shell-patch.mjs",
   ],
   "Workbench adapter shell patch helper must use Hypervisor naming; the retired Autopilot helper path/function/source ids must not return.",
+);
+assert(
+  "workbench-adapter-fork-sync-target-only",
+  /workbench-adapters\/vscode\/\n/.test(rootGitignore) &&
+    /workbench-adapters\/builds\/\n/.test(rootGitignore) &&
+    /"workbenchSource":\s*"workbench-adapters\/ioi-workbench"/.test(workbenchShellManifest) &&
+    /"optionalForRuntimeLaunch":\s*true/.test(workbenchShellManifest) &&
+    workbenchAdaptersReadme.includes("workbench-adapters/ioi-workbench") &&
+    workbenchAdaptersReadme.includes("target optional local VS Code source") &&
+    /const extensionSource = resolve\(\s*repoRoot,\s*"workbench-adapters\/ioi-workbench",\s*\);/.test(
+      workbenchAdapterHostPaths,
+    ) &&
+    /const forkWorkbenchTarget = resolve\(forkRoot, "extensions\/ioi-workbench"\);/.test(
+      workbenchAdapterHostPaths,
+    ) &&
+    /rmSync\(target\.path, \{ recursive: true, force: true \}\);\s*mkdirSync\(target\.path, \{ recursive: true \}\);\s*cpSync\(extensionSource, target\.path, \{ recursive: true, force: true \}\);/.test(
+      workbenchAdapterHostPaths,
+    ) &&
+    !/const extensionSource = resolve\([\s\S]*workbench-adapters\/vscode/.test(
+      workbenchAdapterHostPaths,
+    ),
+  [
+    ".gitignore",
+    "workbench-adapters/README.md",
+    "workbench-adapters/shell.manifest.json",
+    "scripts/lib/hypervisor-workbench-adapter-host-paths.mjs",
+  ],
+  "Ignored VS Code fork/build trees must stay sync targets copied from the canonical Workbench adapter source, not duplicate tracked JS truth paths.",
 );
 assert(
   "home-onboarding-hypervisor-taxonomy",
@@ -288,6 +329,24 @@ assert(
     "apps/hypervisor/src/surfaces/Home/index.ts",
   ],
   "Home onboarding must use Hypervisor and Workbench adapter language instead of retired Autopilot/OpenVSCode product framing.",
+);
+assert(
+  "workbench-landing-adapter-hub",
+  workspaceRepositoryGateSource.includes('data-workbench-adapter-hub="true"') &&
+    workspaceRepositoryGateSource.includes("<h1>Workbench</h1>") &&
+    workspaceRepositoryGateSource.includes("Adapter targets") &&
+    workspaceRepositoryGateSource.includes("Choose a governed adapter target") &&
+    workspaceRepositoryGateSource.includes("adapter targets over Hypervisor Core") &&
+    workspaceRepositoryGateSource.includes("not the parent product or runtime truth") &&
+    workspaceRepositoryGateSource.includes("VS Code / OpenVSCode") &&
+    workspaceRepositoryGateSource.includes("Cursor / Windsurf") &&
+    workspaceRepositoryGateSource.includes("JetBrains / Terminal") &&
+    workspaceRepositoryGateSource.includes("Browser / VM / Node") &&
+    !/<h1>Code repositories<\/h1>|>Pull requests<|No pull requests created by you|Find pull requests/.test(
+      workspaceRepositoryGateSource,
+    ),
+  ["apps/hypervisor/src/surfaces/Workspace/WorkspaceRepositoryGate.tsx"],
+  "Workbench must open as a governed adapter hub over Hypervisor Core, not a code-repository or pull-request console.",
 );
 assert(
   "contract-family-modules",

@@ -23563,6 +23563,18 @@ function runReceipts() {
     : "";
   const rootPackageJson = exists("package.json") ? read("package.json") : "";
   const rootGitignore = exists(".gitignore") ? read(".gitignore") : "";
+  const workbenchAdapterHostPaths = exists("scripts/lib/hypervisor-workbench-adapter-host-paths.mjs")
+    ? read("scripts/lib/hypervisor-workbench-adapter-host-paths.mjs")
+    : "";
+  const workbenchAdaptersReadme = exists("workbench-adapters/README.md")
+    ? read("workbench-adapters/README.md")
+    : "";
+  const workbenchShellManifest = exists("workbench-adapters/shell.manifest.json")
+    ? read("workbench-adapters/shell.manifest.json")
+    : "";
+  const workbenchShellPatch = exists("scripts/lib/hypervisor-workbench-shell-patch.mjs")
+    ? read("scripts/lib/hypervisor-workbench-shell-patch.mjs")
+    : "";
   const retiredAppRoot = ["apps", "auto" + "pilot"].join("/");
   const retiredWorkbenchRoot = [retiredAppRoot, "openvscode-extension", "ioi-workbench"].join("/");
   const retiredGeneratedPathPattern = new RegExp(
@@ -23824,6 +23836,24 @@ function runReceipts() {
       !/"build:ioi-workbench-composer"/.test(rootPackageJson) &&
       /apps\/hypervisor\/src\/generated\/\*/.test(rootGitignore) &&
       !retiredGeneratedPathPattern.test(rootGitignore) &&
+      /workbench-adapters\/vscode\/\n/.test(rootGitignore) &&
+      /workbench-adapters\/builds\/\n/.test(rootGitignore) &&
+      /"workbenchSource":\s*"workbench-adapters\/ioi-workbench"/.test(workbenchShellManifest) &&
+      /"optionalForRuntimeLaunch":\s*true/.test(workbenchShellManifest) &&
+      /workbench-adapters\/ioi-workbench/.test(workbenchAdaptersReadme) &&
+      /target optional local VS Code source/.test(workbenchAdaptersReadme) &&
+      /const extensionSource = resolve\(\s*repoRoot,\s*"workbench-adapters\/ioi-workbench",\s*\);/.test(
+        workbenchAdapterHostPaths,
+      ) &&
+      /const forkWorkbenchTarget = resolve\(forkRoot, "extensions\/ioi-workbench"\);/.test(
+        workbenchAdapterHostPaths,
+      ) &&
+      /rmSync\(target\.path, \{ recursive: true, force: true \}\);\s*mkdirSync\(target\.path, \{ recursive: true \}\);\s*cpSync\(extensionSource, target\.path, \{ recursive: true, force: true \}\);/.test(
+        workbenchAdapterHostPaths,
+      ) &&
+      !/const extensionSource = resolve\([\s\S]*workbench-adapters\/vscode/.test(
+        workbenchAdapterHostPaths,
+      ) &&
       /Slice 1412 hard-cuts the pre-Hypervisor JS facade roots/.test(guide) &&
       /pre-Hypervisor app\/embedded Workbench JS facade-root deletion cut/.test(matrix) &&
       /HypervisorPreRenameFacadeRootRetired/.test(implementationMatrix) &&
@@ -23836,11 +23866,39 @@ function runReceipts() {
       "workbench-adapters/ioi-workbench/extension.js",
       "package.json",
       ".gitignore",
+      "workbench-adapters/README.md",
+      "workbench-adapters/shell.manifest.json",
+      "scripts/lib/hypervisor-workbench-adapter-host-paths.mjs",
       "docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md",
       "docs/architecture/_meta/implementation-matrix.md",
       "scripts/conformance/hypervisor-conformance.mjs",
     ],
     "Retired live JS facade roots must stay deleted; Hypervisor app and Workbench adapter roots are protocol clients, not alternate authority paths",
+  );
+  assertCheck(
+    result,
+    "workbench-shell-patch-autopilot-state-retired",
+    exists("scripts/lib/hypervisor-workbench-shell-patch.mjs") &&
+      !exists("scripts/lib/autopilot-workbench-shell-patch.mjs") &&
+      /applyHypervisorWorkbenchShellPatch/.test(workbenchShellPatch) &&
+      /ioi-hypervisor-native-shell/.test(workbenchShellPatch) &&
+      /ioi-hypervisor-workbench-quickinput/.test(workbenchShellPatch) &&
+      /ioi\.hypervisor-workbench-shell-patch\.v1/.test(workbenchShellPatch) &&
+      /ioi\.hypervisor\.shell\.mode/.test(workbenchShellPatch) &&
+      /ioi\.hypervisor\.active\.mode/.test(workbenchShellPatch) &&
+      /hypervisor-primary-rail/.test(workbenchShellPatch) &&
+      /code-rail-back-to-hypervisor/.test(workbenchShellPatch) &&
+      /secondaryHypervisorHeaderRemoved/.test(workbenchShellPatch) &&
+      /hypervisorModeMenuHiddenByCssAndSettings/.test(workbenchShellPatch) &&
+      !/applyAutopilotWorkbenchShellPatch|ioi-autopilot-native-shell|ioi-autopilot-fork-quickinput|ioi\.autopilot-workbench-shell-patch|ioi\.autopilot\.shell\.mode|ioi\.autopilot\.active\.mode|autopilot-primary-rail|code-rail-back-to-autopilot|activeAutopilotMode|secondaryAutopilotHeaderRemoved|autopilotModeMenuHiddenByCssAndSettings|Back to Autopilot/.test(
+        workbenchShellPatch,
+      ),
+    [
+      "scripts/lib/hypervisor-workbench-shell-patch.mjs",
+      "scripts/lib/autopilot-workbench-shell-patch.mjs",
+      "scripts/conformance/hypervisor-conformance.mjs",
+    ],
+    "Workbench shell patch must not preserve retired Autopilot helper state keys, rail IDs, metadata fields, or back-navigation labels beside the Hypervisor helper",
   );
   const modelMountStableReadCliModelsLsBlock =
     modelMountStableReadCliModels.match(/ModelsCommands::Ls => \{[\s\S]*?\n        ModelsCommands::Capabilities/)?.[0] ?? "";

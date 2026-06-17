@@ -569,11 +569,11 @@ ${CSS_END}`;
 
 function workbenchShellJs() {
   return `${JS_START}
-;(function ioiAutopilotWorkbenchShellPatch() {
-  if (globalThis.__ioiAutopilotWorkbenchShellPatchLoaded) {
+;(function ioiHypervisorWorkbenchShellPatch() {
+  if (globalThis.__ioiHypervisorWorkbenchShellPatchLoaded) {
     return;
   }
-  globalThis.__ioiAutopilotWorkbenchShellPatchLoaded = true;
+  globalThis.__ioiHypervisorWorkbenchShellPatchLoaded = true;
 
   const substratePatterns = [
     /explorer/i,
@@ -587,15 +587,15 @@ function workbenchShellJs() {
     /manage/i,
     /settings/i,
   ];
-  const autopilotModes = [
-    { id: "home", title: "Home", codicon: "home", patterns: [/autopilot overview/i, /home/i] },
+  const hypervisorModes = [
+    { id: "home", title: "Home", codicon: "home", patterns: [/hypervisor overview/i, /home/i] },
     { id: "studio", title: "Studio", codicon: "sparkle", patterns: [/agent studio/i, /studio/i] },
-    { id: "workflows", title: "Workflows", customIcon: "workflows", patterns: [/autopilot workflows/i, /workflow/i] },
-    { id: "models", title: "Models", codicon: "server", patterns: [/autopilot models/i, /models/i] },
-    { id: "runs", title: "Runs", codicon: "pulse", patterns: [/autopilot runs/i, /runs/i] },
-    { id: "policy", title: "Policy", codicon: "shield", patterns: [/autopilot policy/i, /policy/i] },
-    { id: "connectors", title: "Connectors", codicon: "plug", patterns: [/autopilot connectors/i, /connectors/i] },
-    { id: "code", title: "Code", codicon: "code", patterns: [/autopilot code/i, /code/i] },
+    { id: "workflows", title: "Workflows", customIcon: "workflows", patterns: [/hypervisor workflows/i, /workflow/i] },
+    { id: "models", title: "Models", codicon: "server", patterns: [/hypervisor models/i, /models/i] },
+    { id: "runs", title: "Runs", codicon: "pulse", patterns: [/hypervisor runs/i, /runs/i] },
+    { id: "policy", title: "Policy", codicon: "shield", patterns: [/hypervisor policy/i, /policy/i] },
+    { id: "connectors", title: "Connectors", codicon: "plug", patterns: [/hypervisor connectors/i, /connectors/i] },
+    { id: "code", title: "Code", codicon: "code", patterns: [/hypervisor code/i, /code/i] },
   ];
   const codeMenuModel = [
     {
@@ -887,8 +887,8 @@ function workbenchShellJs() {
     },
   ];
 
-  let shellMode = localStorage.getItem("ioi.autopilot.shell.mode") || "autopilot";
-  let activeAutopilotMode = localStorage.getItem("ioi.autopilot.active.mode") || "home";
+  let shellMode = localStorage.getItem("ioi.hypervisor.shell.mode") || "hypervisor";
+  let activeHypervisorMode = localStorage.getItem("ioi.hypervisor.active.mode") || "home";
   let scheduled = false;
   let lastHeaderMarkup = "";
   let lastCodeMenuMarkup = "";
@@ -931,29 +931,29 @@ function workbenchShellJs() {
     return values.filter(Boolean).join(" ");
   }
 
-  function classifyAutopilotAction(label) {
-    return autopilotModes.find((mode) => mode.patterns.some((pattern) => pattern.test(label)));
+  function classifyHypervisorAction(label) {
+    return hypervisorModes.find((mode) => mode.patterns.some((pattern) => pattern.test(label)));
   }
 
   function inferModeFromLabel(label) {
-    return /autopilot code|code repository|code mode/i.test(label) ? "code"
-      : /workflow composer|autopilot workflow/i.test(label) ? "workflows"
-      : /autopilot models/i.test(label) ? "models"
+    return /hypervisor code|code repository|code mode/i.test(label) ? "code"
+      : /workflow composer|hypervisor workflow/i.test(label) ? "workflows"
+      : /hypervisor models/i.test(label) ? "models"
       : /agent studio/i.test(label) ? "studio"
-      : /autopilot runs/i.test(label) ? "runs"
-      : /autopilot policy/i.test(label) ? "policy"
-      : /autopilot connectors/i.test(label) ? "connectors"
-      : /autopilot overview|autopilot home/i.test(label) ? "home"
+      : /hypervisor runs/i.test(label) ? "runs"
+      : /hypervisor policy/i.test(label) ? "policy"
+      : /hypervisor connectors/i.test(label) ? "connectors"
+      : /hypervisor overview|hypervisor home/i.test(label) ? "home"
       : null;
   }
 
   function setShellMode(nextMode, nextActiveMode) {
-    shellMode = nextMode === "code" ? "code" : "autopilot";
+    shellMode = nextMode === "code" ? "code" : "hypervisor";
     if (nextActiveMode && nextActiveMode !== "code") {
-      activeAutopilotMode = nextActiveMode;
-      localStorage.setItem("ioi.autopilot.active.mode", activeAutopilotMode);
+      activeHypervisorMode = nextActiveMode;
+      localStorage.setItem("ioi.hypervisor.active.mode", activeHypervisorMode);
     }
-    localStorage.setItem("ioi.autopilot.shell.mode", shellMode);
+    localStorage.setItem("ioi.hypervisor.shell.mode", shellMode);
     applyClasses();
     renderHeader();
     renderCodeMenu();
@@ -966,7 +966,7 @@ function workbenchShellJs() {
     if (modeId === "code") {
       setShellMode("code");
     } else {
-      setShellMode("autopilot", modeId || "home");
+      setShellMode("hypervisor", modeId || "home");
     }
     const targetMode = modeId || "home";
     const editorSelection = selectExistingEditor(targetMode);
@@ -989,7 +989,7 @@ function workbenchShellJs() {
 
   function modeTitle() {
     if (shellMode === "code") return "Code";
-    return autopilotModes.find((mode) => mode.id === activeAutopilotMode)?.title || "Home";
+    return hypervisorModes.find((mode) => mode.id === activeHypervisorMode)?.title || "Home";
   }
 
   function activeWorkbenchLabel() {
@@ -1013,17 +1013,17 @@ function workbenchShellJs() {
     const label = activeWorkbenchLabel();
     const inferred = inferModeFromLabel(label);
     if (!inferred) return;
-    shellMode = inferred === "code" ? "code" : "autopilot";
+    shellMode = inferred === "code" ? "code" : "hypervisor";
     if (inferred !== "code") {
-      activeAutopilotMode = inferred;
-      localStorage.setItem("ioi.autopilot.active.mode", activeAutopilotMode);
+      activeHypervisorMode = inferred;
+      localStorage.setItem("ioi.hypervisor.active.mode", activeHypervisorMode);
     }
-    localStorage.setItem("ioi.autopilot.shell.mode", shellMode);
+    localStorage.setItem("ioi.hypervisor.shell.mode", shellMode);
   }
 
   function workspaceLabel() {
     const title = document.title || "ioi - Hypervisor";
-    const match = title.match(/-\\s*([^-]+)\\s*-\\s*(?:Hypervisor|Autopilot\\s+IDE)/i);
+    const match = title.match(/-\\s*([^-]+)\\s*-\\s*Hypervisor/i);
     return match?.[1]?.trim() || "ioi";
   }
 
@@ -1034,7 +1034,7 @@ function workbenchShellJs() {
     updateClass(wb, "ioi-shell-code-mode", shellMode === "code");
     updateClass(wb, "ioi-shell-hypervisor-mode", shellMode !== "code");
     setDataset(wb, "ioiShellMode", shellMode);
-    setDataset(wb, "ioiActiveMode", shellMode === "code" ? "code" : activeAutopilotMode);
+    setDataset(wb, "ioiActiveMode", shellMode === "code" ? "code" : activeHypervisorMode);
 
     const titlebar = document.querySelector(".part.titlebar");
     const activitybar = document.querySelector(".part.activitybar");
@@ -1065,7 +1065,7 @@ function workbenchShellJs() {
     const actions = Array.from(document.querySelectorAll(".part.activitybar .action-item"));
     const match = actions.find((action) => {
       const label = labelFor(action);
-      const mode = classifyAutopilotAction(label);
+      const mode = classifyHypervisorAction(label);
       return mode?.id === modeId;
     });
     match?.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window }));
@@ -1214,8 +1214,8 @@ function workbenchShellJs() {
     if (!rail) {
       rail = document.createElement("nav");
       rail.id = "ioi-hypervisor-primary-rail";
-      rail.dataset.testid = "autopilot-primary-rail";
-      rail.setAttribute("aria-label", "Autopilot primary modes");
+      rail.dataset.testid = "hypervisor-primary-rail";
+      rail.setAttribute("aria-label", "Hypervisor primary modes");
       rail.addEventListener("click", (event) => {
         const button = event.target.closest("[data-ioi-native-mode]");
         if (!button) return;
@@ -1227,14 +1227,14 @@ function workbenchShellJs() {
     if (rail.parentElement !== wb) {
       wb.appendChild(rail);
     }
-    const signature = [shellMode, activeAutopilotMode].join("\\n");
+    const signature = [shellMode, activeHypervisorMode].join("\\n");
     if (signature === lastRailMarkup) return;
     rail.replaceChildren(
-      ...autopilotModes.map((mode) => {
+      ...hypervisorModes.map((mode) => {
         const button = element("button", {
           className: "ioi-native-rail-button" + (
             (shellMode === "code" && mode.id === "code") ||
-            (shellMode !== "code" && mode.id === activeAutopilotMode)
+            (shellMode !== "code" && mode.id === activeHypervisorMode)
               ? " is-active"
               : ""
           ),
@@ -1248,7 +1248,7 @@ function workbenchShellJs() {
           }),
         ]);
         button.dataset.ioiNativeMode = mode.id;
-        button.title = mode.id === "code" ? "Code" : "Autopilot " + mode.title;
+        button.title = mode.id === "code" ? "Code" : "Hypervisor " + mode.title;
         button.setAttribute("aria-label", button.title);
         return button;
       }),
@@ -2093,12 +2093,12 @@ function workbenchShellJs() {
       back = document.createElement("button");
       back.id = "ioi-hypervisor-back-rail";
       back.type = "button";
-      back.title = "Back to Autopilot";
-      back.setAttribute("aria-label", "Back to Autopilot");
-      back.dataset.testid = "code-rail-back-to-autopilot";
+      back.title = "Back to Hypervisor";
+      back.setAttribute("aria-label", "Back to Hypervisor");
+      back.dataset.testid = "code-rail-back-to-hypervisor";
       back.textContent = "‹";
       back.addEventListener("click", () => {
-        openMode(activeAutopilotMode || "home");
+        openMode(activeHypervisorMode || "home");
       });
       content.prepend(back);
     }
@@ -2109,17 +2109,17 @@ function workbenchShellJs() {
     installBackRail();
     for (const action of document.querySelectorAll(".part.activitybar .action-item")) {
       const label = labelFor(action);
-      const autopilotMode = classifyAutopilotAction(label);
-      const isAutopilot = Boolean(autopilotMode);
-      const isSubstrate = !isAutopilot && substratePatterns.some((pattern) => pattern.test(label));
-      const isGlobal = !isAutopilot && !isSubstrate && globalPatterns.some((pattern) => pattern.test(label));
-      updateClass(action, "ioi-hypervisor-mode-action", isAutopilot);
-      updateClass(action, "ioi-code-action", autopilotMode?.id === "code");
+      const hypervisorMode = classifyHypervisorAction(label);
+      const isHypervisor = Boolean(hypervisorMode);
+      const isSubstrate = !isHypervisor && substratePatterns.some((pattern) => pattern.test(label));
+      const isGlobal = !isHypervisor && !isSubstrate && globalPatterns.some((pattern) => pattern.test(label));
+      updateClass(action, "ioi-hypervisor-mode-action", isHypervisor);
+      updateClass(action, "ioi-code-action", hypervisorMode?.id === "code");
       updateClass(action, "ioi-vscode-substrate-action", isSubstrate);
       updateClass(action, "ioi-vscode-global-action", isGlobal);
-      if (autopilotMode) {
-        setDataset(action, "ioiRailKind", "autopilot");
-        setDataset(action, "ioiMode", autopilotMode.id);
+      if (hypervisorMode) {
+        setDataset(action, "ioiRailKind", "hypervisor");
+        setDataset(action, "ioiMode", hypervisorMode.id);
         continue;
       }
       if (isSubstrate) {
@@ -2192,11 +2192,11 @@ function workbenchShellJs() {
     const action = target.closest(".part.activitybar .action-item");
     if (!action) return;
     const label = labelFor(action);
-    const autopilotMode = classifyAutopilotAction(label);
-    if (autopilotMode?.id === "code") {
+    const hypervisorMode = classifyHypervisorAction(label);
+    if (hypervisorMode?.id === "code") {
       setShellMode("code");
-    } else if (autopilotMode) {
-      setShellMode("autopilot", autopilotMode.id);
+    } else if (hypervisorMode) {
+      setShellMode("hypervisor", hypervisorMode.id);
     }
   }, true);
 
@@ -2303,8 +2303,8 @@ function patchWorkbenchTitlebarStyle(workbenchJsPath) {
 function patchWorkbenchIntegrityWarning(workbenchJsPath) {
   let existing = readFileSync(workbenchJsPath, "utf8");
   const safeGuard = "typeof process === 'undefined' || process.env.IOI_WORKBENCH_NATIVE_SHELL === '1'";
-  const safeMarker = safeGuard + ") {\n                return; // Autopilot shell intentionally patches the packaged workbench.";
-  const unsafeMarker = "process.env.IOI_WORKBENCH_NATIVE_SHELL === '1') {\n                return; // Autopilot shell intentionally patches the packaged workbench.";
+  const safeMarker = safeGuard + ") {\n                return; // Hypervisor shell intentionally patches the packaged workbench.";
+  const unsafeMarker = "process.env.IOI_WORKBENCH_NATIVE_SHELL === '1') {\n                return; // Hypervisor shell intentionally patches the packaged workbench.";
   if (existing.includes(safeMarker)) {
     return false;
   }
@@ -2317,7 +2317,7 @@ function patchWorkbenchIntegrityWarning(workbenchJsPath) {
   const replacement =
     "        async k() {\n            if (" +
     safeGuard +
-    ") {\n                return; // Autopilot shell intentionally patches the packaged workbench.\n            }\n            const { isPure } = await this.isPure();";
+    ") {\n                return; // Hypervisor shell intentionally patches the packaged workbench.\n            }\n            const { isPure } = await this.isPure();";
   if (!existing.includes(needle)) {
     throw new Error(`Workbench integrity service shape not found in ${workbenchJsPath}`);
   }
@@ -2402,13 +2402,13 @@ export function applyHypervisorWorkbenchShellPatch({
 	    capabilities: {
 	      forkNativeRailShim: true,
 	      forkNativeHeaderShim: false,
-	      secondaryAutopilotHeaderRemoved: true,
+	      secondaryHypervisorHeaderRemoved: true,
 	      vscodeCommandCenterOwnsTopShell: true,
 	      forkNativeModeHostShim: true,
       originalVscodeMenuRestoredInElectronMain: true,
       originalVscodeCustomTitlebarForcedInElectronMain: true,
       codeModeUsesOriginalVscodeMenubar: true,
-      autopilotModeMenuHiddenByCssAndSettings: true,
+      hypervisorModeMenuHiddenByCssAndSettings: true,
       workbenchIntegrityWarningSuppressed: true,
       workbenchIntegrityPatched,
       workbenchCspPatched,

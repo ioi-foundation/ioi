@@ -1728,6 +1728,22 @@
   line-height: 1.45;
 }
 
+.workspace-repository-gate__adapter-hub {
+  align-items: stretch;
+  text-align: left;
+}
+
+.workspace-repository-gate__adapter-hub h2,
+.workspace-repository-gate__adapter-hub p {
+  align-self: center;
+  text-align: center;
+}
+
+.workspace-repository-gate__adapter-hub .workspace-repository-gate__category-grid {
+  width: 100%;
+  margin-top: 10px;
+}
+
 .workspace-repository-gate__rail {
   display: flex;
   flex-direction: column;

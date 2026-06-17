@@ -891,6 +891,21 @@ Current implementation cut:
   right and bottom inspectors still need to be actual runtime panels, not only
   navigation metadata
 
+0A.5 Workbench adapter-hub landing is partially implemented:
+  `WorkspaceRepositoryGate` now opens as a Workbench adapter hub over
+  Hypervisor Core instead of a `Code repositories` / pull-request console
+  the landing models VS Code/OpenVSCode, Cursor/Windsurf,
+  JetBrains/Terminal, and Browser/VM/Node as adapter targets
+  the landing states that the Electron host is one target, not the parent
+  product or runtime truth
+  existing workspace-root creation, recents, favorites, and open-workspace
+  behavior are preserved under the Workbench surface
+  `WorkspaceRepositoryGate.workbenchHub.test.mjs` and `check:runtime-layout`
+  reject the old first-screen `Code repositories` / `Pull requests` framing
+  remaining 0A.5 work: add a real editor-adapter preference control and route
+  Cursor/Windsurf/JetBrains/browser IDE/terminal selections into session launch
+  and settings instead of showing them only as target cards
+
 0A.4 New Session is partially implemented:
   `HYPERVISOR_SESSION_LAUNCH_RECIPES` defines Mission, Workbench, Agent,
   Automation, Foundry Job, Fleet Job, and Private Workspace launch recipes

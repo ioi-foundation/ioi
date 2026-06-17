@@ -4,7 +4,6 @@ import {
   ChevronRight,
   ExternalLink,
   FolderOpen,
-  GitPullRequest,
   Plus,
   Search,
   Star,
@@ -211,6 +210,37 @@ const TEMPLATE_OPTIONS: Record<
   ],
 };
 
+const WORKBENCH_ADAPTER_TARGETS = [
+  {
+    id: "vscode",
+    label: "VS Code / OpenVSCode",
+    summary:
+      "Use the packaged Electron Workbench adapter host for code, IOI panes, and extension-backed project work.",
+    status: "Default adapter",
+  },
+  {
+    id: "cursor-windsurf",
+    label: "Cursor / Windsurf",
+    summary:
+      "Attach compatible editor sessions as governed adapter targets without making them runtime truth.",
+    status: "Adapter target",
+  },
+  {
+    id: "jetbrains-terminal",
+    label: "JetBrains / Terminal",
+    summary:
+      "Route shells, tmux, and IDE clients through daemon-gated workspace and command mediation.",
+    status: "Daemon gated",
+  },
+  {
+    id: "browser-vm-node",
+    label: "Browser / VM / Node",
+    summary:
+      "Open remote workspaces, browser sessions, VMs, and HypervisorOS nodes under authority and receipt policy.",
+    status: "Session target",
+  },
+] as const;
+
 function RepositoryGateIcon() {
   return (
     <svg
@@ -411,13 +441,13 @@ export function WorkspaceRepositoryGate({
   );
 
   return (
-    <div className="workspace-repository-gate">
+    <div className="workspace-repository-gate" data-workbench-adapter-hub="true">
       <header className="workspace-repository-gate__header">
         <div className="workspace-repository-gate__title">
           <span className="workspace-repository-gate__icon-shell">
             <RepositoryGateIcon />
           </span>
-          <h1>Code repositories</h1>
+          <h1>Workbench</h1>
         </div>
         <button
           type="button"
@@ -425,7 +455,7 @@ export function WorkspaceRepositoryGate({
           onClick={startCreateFlow}
         >
           {renderIcon(Plus, { size: 16, "aria-hidden": true })}
-          <span>New repository</span>
+          <span>New workspace</span>
         </button>
       </header>
 
@@ -467,62 +497,87 @@ export function WorkspaceRepositoryGate({
               <div className="workspace-repository-gate__pr-toolbar">
                 <div className="workspace-repository-gate__tabs" role="tablist">
                   <button type="button" className="is-active">
-                    Pull requests
+                    Adapter targets
                   </button>
-                  <button type="button">Created by you</button>
-                  <button type="button">Review requested</button>
+                  <button type="button">Session state</button>
+                  <button type="button">Changes</button>
                 </div>
                 <label className="workspace-repository-gate__search-field">
                   {renderIcon(Search, { size: 16, "aria-hidden": true })}
-                  <input type="search" placeholder="Find pull requests..." />
+                  <input
+                    type="search"
+                    placeholder="Find adapters, sessions, or files..."
+                  />
                 </label>
               </div>
-              <section className="workspace-repository-gate__pr-empty">
-                {renderIcon(GitPullRequest, {
-                  size: 46,
-                  strokeWidth: 1.4,
-                  "aria-hidden": true,
-                })}
-                <h2>No pull requests created by you</h2>
+              <section
+                className="workspace-repository-gate__pr-empty workspace-repository-gate__adapter-hub"
+                data-testid="workbench-adapter-hub"
+              >
+                <h2>Choose a governed adapter target</h2>
                 <p>
-                  There are no open pull requests created by you. Here are the
-                  recently visited code repositories and their pull requests.
+                  The Workbench opens editors, terminals, browsers, VMs, and
+                  nodes as adapter targets over Hypervisor Core. The Electron
+                  host is one target, not the parent product or runtime truth.
                 </p>
+                <div
+                  className="workspace-repository-gate__category-grid"
+                  aria-label="Workbench adapter targets"
+                >
+                  {WORKBENCH_ADAPTER_TARGETS.map((target) => (
+                    <article
+                      className="workspace-repository-gate__choice-card"
+                      data-workbench-adapter-target={target.id}
+                      key={target.id}
+                    >
+                      <span>
+                        {renderIcon(FolderOpen, {
+                          size: 18,
+                          "aria-hidden": true,
+                        })}
+                      </span>
+                      <strong>{target.label}</strong>
+                      <small>{target.summary}</small>
+                      <small>{target.status}</small>
+                    </article>
+                  ))}
+                </div>
               </section>
             </main>
 
             <aside className="workspace-repository-gate__rail">
               <section className="workspace-repository-gate__news">
                 <div className="workspace-repository-gate__rail-heading">
-                  <h2>What&apos;s new?</h2>
+                  <h2>Governance</h2>
                   <button type="button">
-                    <span>See all</span>
+                    <span>Receipts</span>
                     {renderIcon(ExternalLink, { size: 16, "aria-hidden": true })}
                   </button>
                 </div>
                 <article className="workspace-repository-gate__news-card">
                   <div>
-                    <span>Feature</span>
-                    <time dateTime="2026-04-21">Apr 21, 2026</time>
+                    <span>Adapter policy</span>
+                    <time dateTime="2026-06-17">Jun 17, 2026</time>
                   </div>
                   <p>
-                    Ontology Manager now displays run history directly within
-                    function and action observability dashboards.
+                    Adapter targets propose work through daemon gates. Authority,
+                    privacy posture, and receipts stay owned by Hypervisor Core,
+                    wallet.network, and Agentgres.
                   </p>
-                  <button type="button">More</button>
+                  <button type="button">Review policy</button>
                 </article>
               </section>
 
               <section className="workspace-repository-gate__repositories">
                 <div className="workspace-repository-gate__rail-heading">
-                  <h2>Repositories</h2>
+                  <h2>Workspace roots</h2>
                   {renderIcon(Search, { size: 18, "aria-hidden": true })}
                 </div>
                 <label className="workspace-repository-gate__repository-search">
                   {renderIcon(Search, { size: 15, "aria-hidden": true })}
                   <input
                     type="search"
-                    placeholder="Search repositories"
+                    placeholder="Search workspace roots"
                     value={repositoryQuery}
                     onChange={(event) => setRepositoryQuery(event.target.value)}
                   />

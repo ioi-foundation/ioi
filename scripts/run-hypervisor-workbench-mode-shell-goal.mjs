@@ -42,8 +42,8 @@ const REQUIRED_SCREENSHOTS = [
   "code-mode-vscode-menu-tooling.png",
   "code-mode-original-substrate-terminal-menu.png",
   "code-mode-terminal-opened.png",
-  "back-to-autopilot-from-code.png",
-  "autopilot-shell-without-secondary-header.png",
+  "back-to-hypervisor-from-code.png",
+  "hypervisor-shell-without-secondary-header.png",
   "no-useless-workflow-sidebar.png",
   "no-duplicate-mode-tabs-after-repeat-clicks.png",
 ];
@@ -142,7 +142,7 @@ async function cleanupValidationProcesses({ pattern, outputDir, phase }) {
     : { signaled: [], forceKilled: [] };
   const after = listProcessesContaining(pattern);
   const cleanup = {
-    schemaVersion: "ioi.autopilot-workbench-mode-shell.process-cleanup.v1",
+    schemaVersion: "ioi.hypervisor-workbench-mode-shell.process-cleanup.v1",
     phase,
     pattern,
     before,
@@ -279,7 +279,7 @@ function checkExtensionShape() {
         "ioi-code",
       ].every((id) => activityContainers.has(id)),
     modeCommands:
-      ["ioi.code.open", "ioi.autopilot.back", "ioi.runs.refresh", "ioi.policy.open", "ioi.connections.inspect"].every(
+      ["ioi.code.open", "ioi.hypervisor.back", "ioi.runs.refresh", "ioi.policy.open", "ioi.connections.inspect"].every(
         (command) => commands.has(command),
       ),
     noTauriFallback: !/src-tauri|@tauri-apps|tauri:\/\/|tauri\./i.test(source),
@@ -291,16 +291,16 @@ function checkExtensionShape() {
       shellPatchSource.includes("originalVscodeMenuRestoredInElectronMain") &&
       shellPatchSource.includes("originalVscodeCustomTitlebarForcedInElectronMain") &&
       shellPatchSource.includes("codeModeUsesOriginalVscodeMenubar") &&
-      shellPatchSource.includes("secondaryAutopilotHeaderRemoved") &&
+      shellPatchSource.includes("secondaryHypervisorHeaderRemoved") &&
       shellPatchSource.includes("vscodeCommandCenterOwnsTopShell"),
     workbenchIntegrityWarningSuppressed: shellPatchSource.includes("workbenchIntegrityWarningSuppressed") &&
-      shellPatchSource.includes("Autopilot shell intentionally patches the packaged workbench"),
+      shellPatchSource.includes("Hypervisor shell intentionally patches the packaged workbench"),
   };
   return {
     id: "implementation:workbench-mode-shell-source-shape",
     ok: Object.values(checks).every(Boolean),
     summary: Object.values(checks).every(Boolean)
-      ? "Extension implements the transitional Autopilot mode shell fallback"
+      ? "Extension implements the transitional Hypervisor mode shell fallback"
       : "Extension mode shell implementation is incomplete",
     evidence: {
       checks,
@@ -313,9 +313,9 @@ function checkExtensionShape() {
 function currentTargetShellBlockers() {
   return [
     {
-      id: "fork-native-autopilot-rail",
+      id: "fork-native-hypervisor-rail",
       summary:
-        "Normal Autopilot mode still uses the shared VS Code activity bar instead of an Autopilot-owned primary rail.",
+        "Normal Hypervisor mode still uses the shared VS Code activity bar instead of a Hypervisor-owned primary rail.",
     },
     {
       id: "code-drilldown-rail-swap",
@@ -323,19 +323,19 @@ function currentTargetShellBlockers() {
         "Code mode is command-driven but does not yet swap the rail to reveal VS Code substrate tools only inside Code mode.",
     },
     {
-      id: "secondary-autopilot-header",
+      id: "secondary-hypervisor-header",
       summary:
-        "A secondary Autopilot header is still rendered instead of using the VS Code command center/top shell.",
+        "A secondary Hypervisor header is still rendered instead of using the VS Code command center/top shell.",
     },
     {
-      id: "autopilot-mode-host",
+      id: "hypervisor-mode-host",
       summary:
-        "Autopilot modes still present as editor tabs instead of fork-native persistent app modes.",
+        "Hypervisor modes still present as editor tabs instead of fork-native persistent app modes.",
     },
     {
       id: "generic-vscode-menu-demotion",
       summary:
-        "Generic VS Code menu chrome remains globally visible above Autopilot content.",
+        "Generic VS Code menu chrome remains globally visible above Hypervisor content.",
     },
   ];
 }
@@ -646,7 +646,7 @@ async function waitForWorkbenchChrome(page, timeoutMs = 45_000) {
     }
   }, timeoutMs, 250);
   if (!found) {
-    throw new Error("Could not find the Autopilot rail plus VS Code top shell.");
+    throw new Error("Could not find the Hypervisor rail plus VS Code top shell.");
   }
 }
 
@@ -702,16 +702,16 @@ async function inspectWorkbenchChrome(page) {
     )
       .filter(visible)
       .map((button) => button.dataset.ioiCodeMenuItem || labelFor(button));
-    const customRail = document.querySelector('[data-testid="autopilot-primary-rail"]');
+    const customRail = document.querySelector('[data-testid="hypervisor-primary-rail"]');
     const customRailButtons = Array.from(
-      document.querySelectorAll('[data-testid="autopilot-primary-rail"] [data-ioi-native-mode]'),
+      document.querySelectorAll('[data-testid="hypervisor-primary-rail"] [data-ioi-native-mode]'),
     )
       .filter(visible)
       .map((button) => ({
         mode: button.dataset.ioiNativeMode || "",
         label: labelFor(button) || button.getAttribute("aria-label") || button.getAttribute("title") || "",
       }));
-    const backRail = document.querySelector('[data-testid="code-rail-back-to-autopilot"]');
+    const backRail = document.querySelector('[data-testid="code-rail-back-to-hypervisor"]');
     const workbench = document.querySelector(".monaco-workbench");
     const commandCenterCandidates = Array.from(document.querySelectorAll([
       ".part.titlebar .command-center",
@@ -757,7 +757,7 @@ async function inspectWorkbenchChrome(page) {
         .filter((action) => action.railKind === "substrate")
         .map((action) => action.label),
       visibleAutopilotLabels: visibleActions
-        .filter((action) => action.railKind === "autopilot")
+        .filter((action) => action.railKind === "hypervisor")
         .map((action) => action.label),
       visibleGlobalLabels: visibleActions
         .filter((action) => action.railKind === "global")
@@ -823,7 +823,7 @@ async function terminalPanelState(page) {
 function buildTargetShellBlockers({ normalChrome, codeChrome, codeTerminalState, afterBackChrome }) {
   const blockers = [];
   const add = (id, summary) => blockers.push({ id, summary });
-  const expectedAutopilotModes = [
+  const expectedHypervisorModes = [
     "home",
     "studio",
     "workflows",
@@ -835,61 +835,61 @@ function buildTargetShellBlockers({ normalChrome, codeChrome, codeTerminalState,
   ];
 
   if (normalChrome.nativeHeaderExists || normalChrome.nativeHeaderVisible) {
-    add("secondary-autopilot-header", "Normal Autopilot mode still renders the duplicate Autopilot header instead of using the VS Code top shell.");
+    add("secondary-hypervisor-header", "Normal Hypervisor mode still renders the duplicate Hypervisor header instead of using the VS Code top shell.");
   }
   if (!normalChrome.vscodeTopShellVisible) {
-    add("vscode-top-shell", "The VS Code top shell/titlebar is not visible in normal Autopilot mode.");
+    add("vscode-top-shell", "The VS Code top shell/titlebar is not visible in normal Hypervisor mode.");
   }
   if (!normalChrome.vscodeCommandCenterVisible) {
-    add("vscode-command-center", "The VS Code command center/top-shell search affordance is not visible in normal Autopilot mode.");
+    add("vscode-command-center", "The VS Code command center/top-shell search affordance is not visible in normal Hypervisor mode.");
   }
-  const missingNativeRailModes = expectedAutopilotModes.filter(
+  const missingNativeRailModes = expectedHypervisorModes.filter(
     (mode) => !normalChrome.customPrimaryRailModes?.includes(mode),
   );
   if (!normalChrome.customPrimaryRailVisible || missingNativeRailModes.length > 0) {
     add(
       "native-primary-rail",
-      `Workbench-owned Autopilot primary rail is missing modes: ${missingNativeRailModes.join(", ") || "rail not visible"}`,
+      `Workbench-owned Hypervisor primary rail is missing modes: ${missingNativeRailModes.join(", ") || "rail not visible"}`,
     );
   }
   if (codeChrome.customPrimaryRailVisible) {
-    add("code-native-rail-hidden", "Code mode still shows the Autopilot primary rail overlay.");
+    add("code-native-rail-hidden", "Code mode still shows the Hypervisor primary rail overlay.");
   }
   if (normalChrome.webviewLocalHeaderCount > 0) {
-    add("webview-local-header", "Autopilot shell header is still rendered inside webview/editor content.");
+    add("webview-local-header", "Hypervisor shell header is still rendered inside webview/editor content.");
   }
   if (normalChrome.visibleSubstrateLabels.length > 0) {
     add(
-      "fork-native-autopilot-rail",
-      `Normal Autopilot rail still shows VS Code substrate actions: ${normalChrome.visibleSubstrateLabels.join(", ")}`,
+      "fork-native-hypervisor-rail",
+      `Normal Hypervisor rail still shows VS Code substrate actions: ${normalChrome.visibleSubstrateLabels.join(", ")}`,
     );
   }
   if (normalChrome.visibleGlobalLabels.length > 0) {
     add(
       "normal-rail-global-vscode-actions",
-      `Normal Autopilot rail still shows generic global VS Code actions: ${normalChrome.visibleGlobalLabels.join(", ")}`,
+      `Normal Hypervisor rail still shows generic global VS Code actions: ${normalChrome.visibleGlobalLabels.join(", ")}`,
     );
   }
   if (normalChrome.menubarVisible) {
-    add("generic-vscode-menu-demotion", "Generic VS Code menubar is still visible in normal Autopilot mode.");
+    add("generic-vscode-menu-demotion", "Generic VS Code menubar is still visible in normal Hypervisor mode.");
   }
   if (normalChrome.localCodeMenuVisible) {
-    add("code-local-menu-in-autopilot", "Code-mode local menu is visible in normal Autopilot mode.");
+    add("code-local-menu-in-hypervisor", "Code-mode local menu is visible in normal Hypervisor mode.");
   }
   if (!expectedCodeOriginalMenubar(codeChrome)) {
     add("code-original-vscode-menubar", "Code mode does not expose the original VS Code File/Edit/Selection/View/Go/Run/Terminal/Help menubar.");
   }
   if (codeChrome.localCodeMenuVisible || codeChrome.localCodeDropdownVisible) {
-    add("code-fake-menubar", "Code mode still exposes the cloned Autopilot menu instead of relying on the original VS Code substrate shell.");
+    add("code-fake-menubar", "Code mode still exposes the cloned Hypervisor menu instead of relying on the original VS Code substrate shell.");
   }
   if (!codeTerminalState?.terminalVisible) {
     add("code-original-terminal-command", "Code mode could not open a terminal through the original VS Code Terminal > New Terminal menu.");
   }
   if (normalChrome.editorTabsVisible) {
-    add("autopilot-mode-host", "Autopilot modes still show ordinary editor tab chrome in normal mode.");
+    add("hypervisor-mode-host", "Hypervisor modes still show ordinary editor tab chrome in normal mode.");
   }
   if (!codeChrome.backRailVisible) {
-    add("code-back-rail", "Code mode does not show a Back to Autopilot rail affordance.");
+    add("code-back-rail", "Code mode does not show a Back to Hypervisor rail affordance.");
   }
   if (!expectedSubstrateVisibleInCode(codeChrome)) {
     add("code-drilldown-rail-swap", "Code mode does not visibly expose Explorer/Search/SCM/Run/Extensions.");
@@ -898,10 +898,10 @@ function buildTargetShellBlockers({ normalChrome, codeChrome, codeTerminalState,
     add("code-menu-tooling", "Code mode does not expose local VS Code substrate controls.");
   }
   if (afterBackChrome.nativeHeaderExists || afterBackChrome.nativeHeaderVisible) {
-    add("secondary-header-after-back", "Back to Autopilot restored a duplicate Autopilot header.");
+    add("secondary-header-after-back", "Back to Hypervisor restored a duplicate Hypervisor header.");
   }
-  if (afterBackChrome.shellMode !== "autopilot") {
-    add("back-to-autopilot", "Back to Autopilot does not restore normal Autopilot shell mode.");
+  if (afterBackChrome.shellMode !== "hypervisor") {
+    add("back-to-hypervisor", "Back to Hypervisor does not restore normal Hypervisor shell mode.");
   }
   return blockers;
 }
@@ -1249,7 +1249,7 @@ async function runGuiValidation(outputRoot) {
     );
     await waitForWorkbenchChrome(page);
     await screenshot(page, outputDir, "connectors-mode-dry-run-posture.png", screenshots);
-    await screenshot(page, outputDir, "autopilot-shell-without-secondary-header.png", screenshots);
+    await screenshot(page, outputDir, "hypervisor-shell-without-secondary-header.png", screenshots);
 
     queueCommand(commands, "ioi.overview.open", { phase: "home" });
     await requireRequest(requests, (request) => request?.requestType === "overview.open", "overview.open before code");
@@ -1281,7 +1281,7 @@ async function runGuiValidation(outputRoot) {
       return chrome.shellMode === "code" && expectedCodeOriginalMenubar(chrome) ? chrome : null;
     }, 10_000, 250);
 
-    queueCommand(commands, "ioi.autopilot.back");
+    queueCommand(commands, "ioi.hypervisor.back");
     await requireRequest(
       requests,
       (request) => request?.requestType === "overview.open",
@@ -1290,10 +1290,10 @@ async function runGuiValidation(outputRoot) {
     await findFrameWithTestId(page, "autopilot-overview-home");
     await waitForPredicate(async () => {
       const chrome = await inspectWorkbenchChrome(page);
-      return chrome.shellMode === "autopilot" ? chrome : null;
+      return chrome.shellMode === "hypervisor" ? chrome : null;
     }, 15_000, 250);
     afterBackChrome = await inspectWorkbenchChrome(page);
-    await screenshot(page, outputDir, "back-to-autopilot-from-code.png", screenshots);
+    await screenshot(page, outputDir, "back-to-hypervisor-from-code.png", screenshots);
 
     queueCommand(commands, "ioi.models.open", { phase: "model-library" });
     queueCommand(commands, "ioi.models.open", { phase: "model-library" });
@@ -1349,7 +1349,7 @@ async function runGuiValidation(outputRoot) {
       },
       {
         mode: "back",
-        buttonTestId: "code-rail-back-to-autopilot",
+        buttonTestId: "code-rail-back-to-hypervisor",
         requestType: "connections.open",
         targetTestId: "autopilot-connectors-mode",
       },
@@ -1404,7 +1404,7 @@ async function runGuiValidation(outputRoot) {
     ];
     const fallbackOk = missingScreenshots.length === 0 && pageErrors.length === 0;
     const proof = {
-      schemaVersion: "ioi.autopilot-workbench-mode-shell.proof.v1",
+      schemaVersion: "ioi.hypervisor-workbench-mode-shell.proof.v1",
       generatedAt: new Date().toISOString(),
       outputDir,
       ok: fallbackOk && targetShellBlockers.length === 0,
@@ -1431,19 +1431,19 @@ async function runGuiValidation(outputRoot) {
       tracePath,
       electronLaunched: true,
       daemonAttached: true,
-      topLevelRail: targetShellBlockers.some((blocker) => blocker.id === "fork-native-autopilot-rail")
+      topLevelRail: targetShellBlockers.some((blocker) => blocker.id === "fork-native-hypervisor-rail")
         ? "blocked"
-        : "autopilot-owned",
+        : "hypervisor-owned",
       topShell: targetShellBlockers.some((blocker) => blocker.id === "vscode-top-shell" || blocker.id === "vscode-command-center")
         ? "blocked"
         : "vscode-command-center",
-      secondaryAutopilotHeaderRemoved: targetShellBlockers.some((blocker) =>
-        ["secondary-autopilot-header", "secondary-header-after-back", "webview-local-header"].includes(blocker.id),
+      secondaryHypervisorHeaderRemoved: targetShellBlockers.some((blocker) =>
+          ["secondary-hypervisor-header", "secondary-header-after-back", "webview-local-header"].includes(blocker.id),
       )
         ? "blocked"
         : true,
       persistentHeader: "removed-in-favor-of-vscode-command-center",
-      vscodeMenuDominatesAutopilotMode: Boolean(normalChrome?.menubarVisible),
+      vscodeMenuDominatesHypervisorMode: Boolean(normalChrome?.menubarVisible),
       globalMenuVisibilityTarget: "hidden",
       codeDrillDownAvailable: targetShellBlockers.some((blocker) => blocker.id === "code-drilldown-rail-swap")
         ? "blocked"
@@ -1469,11 +1469,11 @@ async function runGuiValidation(outputRoot) {
       duplicateModePanelsDetected: false,
       uselessSidebarDetected: false,
       normalCodeToolsReachable: true,
-      forkNativeAutopilotRail: !targetShellBlockers.some((blocker) => blocker.id === "fork-native-autopilot-rail"),
+      forkNativeHypervisorRail: !targetShellBlockers.some((blocker) => blocker.id === "fork-native-hypervisor-rail"),
       vscodeCommandCenterOwnsTopShell: !targetShellBlockers.some((blocker) =>
         ["vscode-top-shell", "vscode-command-center"].includes(blocker.id),
       ),
-      forkNativeModeHost: !targetShellBlockers.some((blocker) => blocker.id === "autopilot-mode-host"),
+      forkNativeModeHost: !targetShellBlockers.some((blocker) => blocker.id === "hypervisor-mode-host"),
       extensionHostOwnsRuntime: false,
       orphanProcesses: cleanupAfterLaunch?.after ?? [],
       runtimeAuthority: "daemon-owned",
@@ -1510,7 +1510,7 @@ async function runGuiValidation(outputRoot) {
     }
     if (server) await closeServer(server).catch(() => undefined);
     const failure = {
-      schemaVersion: "ioi.autopilot-workbench-mode-shell.failure.v1",
+      schemaVersion: "ioi.hypervisor-workbench-mode-shell.failure.v1",
       outputDir,
       error: String(error?.stack ?? error?.message ?? error),
       screenshots,
