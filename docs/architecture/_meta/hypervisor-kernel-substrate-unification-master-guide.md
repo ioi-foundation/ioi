@@ -2500,16 +2500,18 @@ admission, wallet/cTEE authority where applicable, Agentgres
 expected-head/state-root binding, receipt/artifact materialization, replay,
 projection, and stable SDK/IDE/CLI protocol APIs
 remain required before terminal pure Rust substrate conformance.
-Slice 962 retired the daemon-store approval route pass-through wrappers. The
-public approval request, decision, approve/reject shortcut, and revoke routes
-now call the mounted fail-closed approval surface directly, so JS no longer
-preserves `requestThreadApproval()`, `decideThreadApproval()`, or
-`revokeThreadApproval()` as daemon-store compatibility wrappers. This does not
-claim terminal approval authority migration: direct Rust daemon-core route
+Slice 962 retired the daemon-store approval route pass-through wrappers. At
+that stage the public approval request, decision, approve/reject shortcut, and
+revoke routes called the mounted fail-closed approval surface directly, so JS
+no longer preserved `requestThreadApproval()`, `decideThreadApproval()`, or
+`revokeThreadApproval()` as daemon-store compatibility wrappers. Slice 1430
+later hard-deletes that route-visible surface shape by restoring store-owned
+public approval API methods over an internal Rust-backed delegate. This does
+not claim terminal approval authority migration: direct Rust daemon-core route
 admission, wallet.network grant/lease issuance, Agentgres expected-head and
-state-root binding, receipt/event materialization, replay, projection,
-stable SDK/IDE/CLI protocol APIs remain
-required before terminal pure Rust substrate conformance.
+state-root binding, receipt/event materialization, replay, projection, and
+stable SDK/IDE/CLI protocol APIs remain required before terminal pure Rust
+substrate conformance.
 Slice 963 retired the daemon-store context-policy route pass-through wrappers.
 The public workflow-only context-budget, thread context-budget, thread
 compaction-policy, thread compact, and run context-budget routes now call the
@@ -11077,7 +11079,7 @@ approval-grant artifacts. `ApprovalDecisionAuthorityRequest` now accepts
 structure for approve, reject, and revoke decisions, derives the canonical grant
 artifact hash/ref, records `wallet_approval_grant_hash` and
 `wallet_approval_grant_ref`, and uses that derived ref as the approval wallet
-authority. The public JS approval surface forwards the typed grant object but
+authority. The internal approval API forwards the typed grant object but
 always blanks caller `authority_grant_refs`, so approval decisions can no longer
 return through JS-minted `wallet.network://grant/...` strings. Conformance guards
 the typed field, the approve/reject/revoke missing-grant negative paths, the
@@ -11112,7 +11114,7 @@ records, lease ids, and lease statuses. Rust `approval.rs` owns the
 `ioi.runtime.approval-lease.v1` record, hashes it into request/decision
 authority records, includes it in request/decision/revoke state updates, and
 rejects state planning when the authority record lacks the lease binding. The
-public approval surface no longer normalizes decisions locally and no longer
+internal approval API no longer normalizes decisions locally and no longer
 authors lease ids, TTL/expiry facts, policy hashes, or lease state; it simply
 requires Rust authority output before persistence. `runtime-approval-lease.mjs`
 and `runtime-approval-lease.test.mjs` are absent, and conformance now guards
@@ -12693,6 +12695,22 @@ calls into mounted delegate APIs cannot return. Remaining blockers stay deeper
 projection/replay storage, receipt/state-root binding, stable Workbench/CLI/SDK
 protocol clients, and any residual non-terminal governed admission custody or
 authority materialization.
+
+Slice 1430 hard-deletes the approval route-visible JS surface shape.
+`runtime-approval-surface.mjs`, `createRuntimeApprovalSurface()`, and the
+mounted `approvalSurface` daemon-store property are absent. Daemon startup
+mounts `runtime-approval-api.mjs` as the internal `approvalApi` delegate, while
+public approval queue, request, decision, approve/reject shortcut, and revoke
+routes enter through store-owned `listThreadApprovals()`,
+`requestThreadApproval()`, `decideThreadApproval()`, and
+`revokeThreadApproval()` methods. Those methods delegate to the Rust-backed
+approval API while preserving Rust approval authority, wallet grant/lease
+binding, Agentgres replay/projection, and fail-closed admission behavior.
+Conformance rejects the old surface file, factory, property, and direct route
+calls into mounted approval delegates from returning. Remaining blockers stay
+wallet.network grant issuance/signature semantics, richer durable approval
+authority projection/replay storage, receipt/state-root binding, and stable
+Workbench/CLI/SDK approval clients over Rust-owned records.
 
 ## Final Doctrine
 

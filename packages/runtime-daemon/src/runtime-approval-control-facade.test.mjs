@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createRuntimeApprovalSurface } from "./runtime-approval-surface.mjs";
+import { createRuntimeApprovalApi } from "./runtime-approval-api.mjs";
 
 function assertNoRetiredApprovalControlAliases(value) {
   for (const alias of [
@@ -80,7 +80,7 @@ function createStore({ approvalStateCore = null } = {}) {
       throw new Error("approval control must not append runtime events in JS");
     },
   };
-  const surface = createRuntimeApprovalSurface({
+  const api = createRuntimeApprovalApi({
     approvalStateCore,
     nowIso() {
       return "2026-06-06T04:35:00.000Z";
@@ -93,7 +93,7 @@ function createStore({ approvalStateCore = null } = {}) {
       return error;
     },
   });
-  return { store, surface, writes };
+  return { store, api, writes };
 }
 
 function rustRunRecord(operationKind, request, control = {}) {
@@ -280,9 +280,9 @@ function approvalAuthorityResult(decision = "approve") {
   };
 }
 
-test("requestThreadApproval public surface calls Rust approval authority and commits Rust run projection", () => {
+test("requestThreadApproval public API calls Rust approval authority and commits Rust run projection", () => {
   const calls = [];
-  const { store, surface, writes } = createStore({
+  const { store, api, writes } = createStore({
     approvalStateCore: {
       authorizeApprovalRequest(request) {
         calls.push({ method: "authorizeApprovalRequest", request });
@@ -300,7 +300,7 @@ test("requestThreadApproval public surface calls Rust approval authority and com
     },
   });
 
-  const result = surface.requestThreadApproval(store, "thread_alpha", {
+  const result = api.requestThreadApproval(store, "thread_alpha", {
     approval_id: "approval_alpha",
     event_id: "event_approval",
     seq: 3,
@@ -356,7 +356,7 @@ test("requestThreadApproval public surface calls Rust approval authority and com
 
 test("approval request facade fails closed before state update without Rust request authority", () => {
   const calls = [];
-  const { store, surface, writes } = createStore({
+  const { store, api, writes } = createStore({
     approvalStateCore: {
       authorizeApprovalRequest(request) {
         calls.push({ method: "authorizeApprovalRequest", request });
@@ -373,7 +373,7 @@ test("approval request facade fails closed before state update without Rust requ
   });
 
   assert.throws(
-    () => surface.requestThreadApproval(store, "thread_alpha", {
+    () => api.requestThreadApproval(store, "thread_alpha", {
       approval_id: "approval_alpha",
       event_id: "event_approval",
       seq: 3,
@@ -390,9 +390,9 @@ test("approval request facade fails closed before state update without Rust requ
   assert.equal(store.runtimeEventStreams.size, 0);
 });
 
-test("decideThreadApproval public surface calls Rust authority with canonical decision fields", () => {
+test("decideThreadApproval public API calls Rust authority with canonical decision fields", () => {
   const calls = [];
-  const { store, surface, writes } = createStore({
+  const { store, api, writes } = createStore({
     approvalStateCore: {
       authorizeApprovalDecision(request) {
         calls.push({ method: "authorizeApprovalDecision", request });
@@ -408,7 +408,7 @@ test("decideThreadApproval public surface calls Rust authority with canonical de
     },
   });
 
-  const result = surface.decideThreadApproval(store, "thread_alpha", "approval_alpha", {
+  const result = api.decideThreadApproval(store, "thread_alpha", "approval_alpha", {
     decision: "approve",
     event_id: "event_decision",
     seq: 4,
@@ -456,7 +456,7 @@ test("decideThreadApproval public surface calls Rust authority with canonical de
 
 test("approval decision facade fails closed before state update without Rust wallet.network authority", () => {
   const calls = [];
-  const { store, surface, writes } = createStore({
+  const { store, api, writes } = createStore({
     approvalStateCore: {
       authorizeApprovalDecision(request) {
         calls.push({ method: "authorizeApprovalDecision", request });
@@ -473,7 +473,7 @@ test("approval decision facade fails closed before state update without Rust wal
   });
 
   assert.throws(
-    () => surface.decideThreadApproval(store, "thread_alpha", "approval_alpha", {
+    () => api.decideThreadApproval(store, "thread_alpha", "approval_alpha", {
       decision: "approve",
       event_id: "event_decision",
       seq: 4,
@@ -491,9 +491,9 @@ test("approval decision facade fails closed before state update without Rust wal
   assert.equal(store.runtimeEventStreams.size, 0);
 });
 
-test("revokeThreadApproval public surface calls Rust authority and commits Rust projection", () => {
+test("revokeThreadApproval public API calls Rust authority and commits Rust projection", () => {
   const calls = [];
-  const { store, surface, writes } = createStore({
+  const { store, api, writes } = createStore({
     approvalStateCore: {
       authorizeApprovalDecision(request) {
         calls.push({ method: "authorizeApprovalDecision", request });
@@ -510,7 +510,7 @@ test("revokeThreadApproval public surface calls Rust authority and commits Rust 
     },
   });
 
-  const result = surface.revokeThreadApproval(store, "thread_alpha", "approval_alpha", {
+  const result = api.revokeThreadApproval(store, "thread_alpha", "approval_alpha", {
     event_id: "event_revoke",
     seq: 5,
     created_at: "2026-06-06T04:40:00.000Z",
@@ -552,7 +552,7 @@ test("revokeThreadApproval public surface calls Rust authority and commits Rust 
 
 test("listThreadApprovals public read calls Rust approval queue projection", () => {
   const calls = [];
-  const { store, surface, writes } = createStore({
+  const { store, api, writes } = createStore({
     approvalStateCore: {
       projectApprovalQueue(request) {
         calls.push({ method: "projectApprovalQueue", request });
@@ -581,7 +581,7 @@ test("listThreadApprovals public read calls Rust approval queue projection", () 
     },
   });
 
-  const result = surface.listThreadApprovals(store, "thread_alpha", {
+  const result = api.listThreadApprovals(store, "thread_alpha", {
     include_resolved: "true",
     includeResolved: "retired",
     expected_head: "agentgres://head/before",
@@ -605,10 +605,10 @@ test("listThreadApprovals public read calls Rust approval queue projection", () 
   assert.equal(store.runtimeEventStreams.size, 0);
 });
 
-test("approval request surface remains fail-closed without Rust request authority core", () => {
-  const { store, surface } = createStore();
+test("approval request API remains fail-closed without Rust request authority core", () => {
+  const { store, api } = createStore();
   assert.throws(
-    () => surface.requestThreadApproval(store, "thread_alpha", {
+    () => api.requestThreadApproval(store, "thread_alpha", {
       approval_id: "approval_alpha",
       event_id: "event_approval",
       seq: 3,
@@ -627,10 +627,10 @@ test("approval request surface remains fail-closed without Rust request authorit
   assert.equal(store.runtimeEventStreams.size, 0);
 });
 
-test("approval queue read surface remains fail-closed without Rust approval authority core", () => {
-  const { store, surface } = createStore();
+test("approval queue read API remains fail-closed without Rust approval authority core", () => {
+  const { store, api } = createStore();
   assert.throws(
-    () => surface.listThreadApprovals(store, "thread_alpha", {
+    () => api.listThreadApprovals(store, "thread_alpha", {
       include_resolved: "true",
     }),
     (error) => {
@@ -647,8 +647,8 @@ test("approval queue read surface remains fail-closed without Rust approval auth
   assert.equal(store.runtimeEventStreams.size, 0);
 });
 
-test("approval queue readback is Rust projection only on the JS approval surface", () => {
-  const { surface } = createStore({
+test("approval queue readback is Rust projection only on the internal approval API", () => {
+  const { api } = createStore({
     approvalStateCore: {
       projectApprovalQueue() {
         return {
@@ -662,17 +662,17 @@ test("approval queue readback is Rust projection only on the JS approval surface
       },
     },
   });
-  assert.equal(typeof surface.listThreadApprovals, "function");
-  assert.equal(Object.hasOwn(surface, "approvalQueueForThread"), false);
-  assert.equal(surface.approvalQueueForThread, undefined);
-  assert.equal(Object.hasOwn(surface, "pendingApprovalsForThread"), false);
-  assert.equal(surface.pendingApprovalsForThread, undefined);
+  assert.equal(typeof api.listThreadApprovals, "function");
+  assert.equal(Object.hasOwn(api, "approvalQueueForThread"), false);
+  assert.equal(api.approvalQueueForThread, undefined);
+  assert.equal(Object.hasOwn(api, "pendingApprovalsForThread"), false);
+  assert.equal(api.pendingApprovalsForThread, undefined);
 });
 
-test("approval decision readback facade is retired from the JS approval surface", () => {
-  const { surface } = createStore();
-  assert.equal(Object.hasOwn(surface, "latestApprovalRequestEvent"), false);
-  assert.equal(surface.latestApprovalRequestEvent, undefined);
-  assert.equal(Object.hasOwn(surface, "latestApprovalDecisionEvent"), false);
-  assert.equal(surface.latestApprovalDecisionEvent, undefined);
+test("approval decision readback facade is retired from the internal approval API", () => {
+  const { api } = createStore();
+  assert.equal(Object.hasOwn(api, "latestApprovalRequestEvent"), false);
+  assert.equal(api.latestApprovalRequestEvent, undefined);
+  assert.equal(Object.hasOwn(api, "latestApprovalDecisionEvent"), false);
+  assert.equal(api.latestApprovalDecisionEvent, undefined);
 });

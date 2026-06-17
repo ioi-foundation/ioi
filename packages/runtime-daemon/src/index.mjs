@@ -67,7 +67,7 @@ import { createRuntimeConversationArtifactApi } from "./runtime-conversation-art
 import { createRuntimeContextPolicySurface } from "./runtime-context-policy-surface.mjs";
 import { createRuntimeContextPolicyCore } from "./runtime-context-policy-core.mjs";
 import { createRuntimeWorkflowEditSurface } from "./runtime-workflow-edit-surface.mjs";
-import { createRuntimeApprovalSurface } from "./runtime-approval-surface.mjs";
+import { createRuntimeApprovalApi } from "./runtime-approval-api.mjs";
 import { createRuntimeApprovalStateCore } from "./runtime-approval-state-core.mjs";
 import { createRuntimeMcpCatalogApi } from "./runtime-mcp-catalog-api.mjs";
 import { createRuntimeMcpControlApi } from "./runtime-mcp-control-api.mjs";
@@ -597,7 +597,7 @@ export class AgentgresRuntimeStateStore {
       contextPolicyCore: this.contextPolicyCore,
       notFound,
     });
-    this.approvalSurface = createRuntimeApprovalSurface({
+    this.approvalApi = createRuntimeApprovalApi({
       approvalStateCore: this.approvalStateCore,
       notFound,
       runtimeError,
@@ -906,6 +906,22 @@ export class AgentgresRuntimeStateStore {
 
   validateThreadMcp(threadId, request = {}) {
     return this.mcpControlApi.validateThreadMcp(this, threadId, request);
+  }
+
+  listThreadApprovals(threadId, request = {}) {
+    return this.approvalApi.listThreadApprovals(this, threadId, request);
+  }
+
+  requestThreadApproval(threadId, request = {}) {
+    return this.approvalApi.requestThreadApproval(this, threadId, request);
+  }
+
+  decideThreadApproval(threadId, approvalId, request = {}) {
+    return this.approvalApi.decideThreadApproval(this, threadId, approvalId, request);
+  }
+
+  revokeThreadApproval(threadId, approvalId, request = {}) {
+    return this.approvalApi.revokeThreadApproval(this, threadId, approvalId, request);
   }
 
   admitGovernedImprovementProposal(threadId, request = {}) {

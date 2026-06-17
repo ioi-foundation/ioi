@@ -1584,7 +1584,7 @@ function runDocs() {
       /Slice 799 moved successful latest model_mount provider-health and vault-health\s+read envelopes through Rust read-projection kinds/.test(guide) &&
       /`latestProviderHealth\(\)` now\s+preflights provider existence and health-record presence at the JS edge, then\s+returns the Rust-authored `latest_provider_health` projection/.test(guide) &&
       /`latestVaultHealth\(\)`\s+keeps its not-found edge check, then returns the Rust-authored\s+`latest_vault_health` projection/.test(guide) &&
-      /Slice 800 retired the JS not-found preflight decisions from the latest\s+model_mount provider-health and vault-health read surfaces/.test(guide) &&
+      /Slice 800 retired the JS not-found preflight decisions from the latest\s+model_mount provider-health and vault-health read APIs/.test(guide) &&
       /the Rust planner verifies provider\s+existence, health-record presence, and receipt binding before authoring or\s+rejecting the read/.test(guide) &&
       /`model_mount_provider_not_found`[\s\S]*`model_mount_provider_health_not_found`[\s\S]*`model_mount_vault_health_not_found`/.test(guide) &&
       /Slice 801 retired the JS adapter-boundary object materializer from the\s+model_mount read-projection facade/.test(guide) &&
@@ -1616,7 +1616,7 @@ function runDocs() {
       /Slice 809 retired the snapshot helper's internal full-projection rebuild/.test(guide) &&
       /`model_mount_snapshot\(\)` no longer calls `model_mount_projection\(request\)` just\s+to recover adapter boundaries and projection summary/.test(guide) &&
       /authors the nested\s+summary through the Rust receipt projection boundary backed by runtime\s+`state_dir` replay/.test(guide) &&
-      /Slice 810 moved public model_mount runtime-engine read surfaces through\s+dedicated Rust read-projection kinds/.test(guide) &&
+      /Slice 810 moved public model_mount runtime-engine read APIs through\s+dedicated Rust read-projection kinds/.test(guide) &&
       /`runtimePreference\(\)`,\s+`runtimePreferenceForEndpoint\(\)`, `runtimeEngineProfile\(\)`,\s+`listRuntimeEngineProfiles\(\)`, `runtimeDefaultLoadOptions\(\)`,\s+`runtimeEngine\(\)`, and `listRuntimeEngines\(\)`/.test(guide) &&
       /`runtime_preference`,\s+`runtime_preference_for_endpoint`,\s+`runtime_engine_profiles`, `runtime_default_load_options`,\s+`runtime_engine_detail`, and `runtime_engines`/.test(guide) &&
       /`model_mount_runtime_engine_not_found`/.test(guide) &&
@@ -2001,7 +2001,7 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 809/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 810/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 811/.test(matrix) &&
-      /Slice 810 moved public model_mount runtime-engine read surfaces through\s+dedicated Rust read-projection kinds/.test(matrix) &&
+      /Slice 810 moved public model_mount runtime-engine read APIs through\s+dedicated Rust read-projection kinds/.test(matrix) &&
       /missing runtime-engine detail is\s+now rejected by Rust with `model_mount_runtime_engine_not_found`/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 812/.test(matrix) &&
       /Slice 811 moved public model_mount latest runtime-survey readback through a\s+dedicated Rust read-projection kind/.test(matrix) &&
@@ -4411,11 +4411,8 @@ function runBridge() {
   const runtimeCodingToolApprovalCoreStoreTest = exists("packages/runtime-daemon/src/runtime-coding-tool-approval-core-store.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-coding-tool-approval-core-store.test.mjs")
     : "";
-  const runtimeApprovalSurface = exists("packages/runtime-daemon/src/runtime-approval-surface.mjs")
-    ? read("packages/runtime-daemon/src/runtime-approval-surface.mjs")
-    : "";
-  const runtimeApprovalSurfaceTest = exists("packages/runtime-daemon/src/runtime-approval-surface.test.mjs")
-    ? read("packages/runtime-daemon/src/runtime-approval-surface.test.mjs")
+  const runtimeApprovalApi = exists("packages/runtime-daemon/src/runtime-approval-api.mjs")
+    ? read("packages/runtime-daemon/src/runtime-approval-api.mjs")
     : "";
   const runtimeApprovalControlFacadeTest = exists(
     "packages/runtime-daemon/src/runtime-approval-control-facade.test.mjs",
@@ -4665,11 +4662,11 @@ function runBridge() {
   const operatorTurnControlBody =
     runtimeThreadTurnSurface.match(/function applyOperatorTurnControl\([\s\S]*?\n  function throwThreadTurnProjectionMismatch/)?.[0] ?? "";
   const approvalRequestFacadeBody =
-    runtimeApprovalSurface.match(/function requestThreadApproval\(store, threadId, request = \{\}\) \{[\s\S]*?\n  function decideThreadApproval/)?.[0] ?? "";
+    runtimeApprovalApi.match(/function requestThreadApproval\(store, threadId, request = \{\}\) \{[\s\S]*?\n  function decideThreadApproval/)?.[0] ?? "";
   const approvalDecisionFacadeBody =
-    runtimeApprovalSurface.match(/function decideThreadApproval\(store, threadId, approvalId, request = \{\}\) \{[\s\S]*?\n  function revokeThreadApproval/)?.[0] ?? "";
+    runtimeApprovalApi.match(/function decideThreadApproval\(store, threadId, approvalId, request = \{\}\) \{[\s\S]*?\n  function revokeThreadApproval/)?.[0] ?? "";
   const approvalRevokeFacadeBody =
-    runtimeApprovalSurface.match(/function revokeThreadApproval\(store, threadId, approvalId, request = \{\}\) \{[\s\S]*?\n\n  return \{/)?.[0] ?? "";
+    runtimeApprovalApi.match(/function revokeThreadApproval\(store, threadId, approvalId, request = \{\}\) \{[\s\S]*?\n\n  return \{/)?.[0] ?? "";
   const computerUseToolIdentityBodies = [
     runtimeDaemonIndex.match(/invokeComputerUseBrowserDiscoveryTool\(threadId, toolId, request = \{\}\) \{[\s\S]*?\n  invokeComputerUseControlTool/)?.[0] ?? "",
     runtimeDaemonIndex.match(/invokeComputerUseControlTool\(threadId, toolId, request = \{\}\) \{[\s\S]*?\n  async invokeComputerUseNativeBrowserTool/)?.[0] ?? "",
@@ -10821,12 +10818,12 @@ function runBridge() {
       /approval state core fails closed without Rust-planned operation kinds/.test(
         runtimeApprovalStateCoreTest,
       ) &&
-      /listThreadApprovals/.test(runtimeApprovalSurface) &&
-      /projectApprovalQueue/.test(runtimeApprovalSurface) &&
-      /state_dir:\s*store\?\.stateDir \?\? null/.test(runtimeApprovalSurface) &&
-      /approval_queue_js_readback_retired/.test(runtimeApprovalSurface) &&
-      /rust_daemon_core_approval_queue_projection_required/.test(runtimeApprovalSurface) &&
-      /agentgres_approval_queue_projection_truth_required/.test(runtimeApprovalSurface) &&
+      /listThreadApprovals/.test(runtimeApprovalApi) &&
+      /projectApprovalQueue/.test(runtimeApprovalApi) &&
+      /state_dir:\s*store\?\.stateDir \?\? null/.test(runtimeApprovalApi) &&
+      /approval_queue_js_readback_retired/.test(runtimeApprovalApi) &&
+      /rust_daemon_core_approval_queue_projection_required/.test(runtimeApprovalApi) &&
+      /agentgres_approval_queue_projection_truth_required/.test(runtimeApprovalApi) &&
       /listThreadApprovals public read calls Rust approval queue projection/.test(
         runtimeApprovalControlFacadeTest,
       ) &&
@@ -10842,42 +10839,89 @@ function runBridge() {
       /Object\.hasOwn\(calls\[0\]\.request,\s*"runs"\),\s*false/.test(
         runtimeApprovalControlFacadeTest,
       ) &&
-      /approval queue read surface remains fail-closed without Rust approval authority core/.test(
+      /approval queue read API remains fail-closed without Rust approval authority core/.test(
         runtimeApprovalControlFacadeTest,
       ) &&
-      /approval queue readback is Rust projection only on the JS approval surface/.test(
+      /approval queue readback is Rust projection only on the internal approval API/.test(
         runtimeApprovalControlFacadeTest,
       ) &&
-      /Object\.hasOwn\(surface,\s*"approvalQueueForThread"\),\s*false/.test(
+      /Object\.hasOwn\(api,\s*"approvalQueueForThread"\),\s*false/.test(
         runtimeApprovalControlFacadeTest,
       ) &&
-      /Object\.hasOwn\(surface,\s*"pendingApprovalsForThread"\),\s*false/.test(
+      /Object\.hasOwn\(api,\s*"pendingApprovalsForThread"\),\s*false/.test(
         runtimeApprovalControlFacadeTest,
       ) &&
-      /store\.approvalSurface\.listThreadApprovals\(store,\s*threadId,\s*Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
+      /store\.listThreadApprovals\(threadId,\s*Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
         runtimeRouteHandlers,
       ) &&
       /operation:\s*"listThreadApprovals"/.test(runtimeRouteHandlersTest) &&
       /include_resolved:\s*"true"/.test(runtimeRouteHandlersTest) &&
       !/latestApprovalRequestEvent|latestApprovalDecisionEvent|approvalQueueForThread|pendingApprovalsForThread/.test(
-        runtimeApprovalSurface,
+        runtimeApprovalApi,
       ) &&
       !/const target = approvalQueueTarget|function approvalQueueTarget|runs:\s*target\.runs/.test(
-        runtimeApprovalSurface,
+        runtimeApprovalApi,
       ) &&
-      !/appendRunApprovalControl|store\.appendRuntimeEvent/.test(runtimeApprovalSurface),
+      !/appendRunApprovalControl|store\.appendRuntimeEvent/.test(runtimeApprovalApi),
     [
       "crates/services/src/agentic/runtime/kernel/approval.rs",
       "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
       "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
       "packages/runtime-daemon/src/runtime-approval-state-core.mjs",
       "packages/runtime-daemon/src/runtime-approval-state-core.test.mjs",
-      "packages/runtime-daemon/src/runtime-approval-surface.mjs",
+      "packages/runtime-daemon/src/runtime-approval-api.mjs",
       "packages/runtime-daemon/src/runtime-approval-control-facade.test.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.test.mjs",
     ],
     "Phase 10/11 is pending: public approval queue/read APIs must project from Rust daemon-core approval truth instead of JS event/readback helpers",
+  );
+  assertCheck(
+    result,
+    "approval-route-visible-surface-retired",
+    /thread route sends approvals through store-owned approval API/.test(runtimeRouteHandlersTest) &&
+      /approvalApi:\s*\{[\s\S]*listThreadApprovals:\s*retiredRouteWrapper[\s\S]*requestThreadApproval:\s*retiredRouteWrapper[\s\S]*decideThreadApproval:\s*retiredRouteWrapper[\s\S]*revokeThreadApproval:\s*retiredRouteWrapper/.test(
+        runtimeRouteHandlersTest,
+      ) &&
+      /store\.listThreadApprovals\(threadId,\s*Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.requestThreadApproval\(threadId,\s*await readBody\(request\)\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.decideThreadApproval\(\s*threadId,\s*decodeURIComponent\(segments\[4\]\),\s*await readBody\(request\),?\s*\)/s.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.decideThreadApproval\(threadId,\s*decodeURIComponent\(segments\[4\]\),\s*\{\s*\.\.\.body,\s*decision: segments\[5\],\s*\}\)/s.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.revokeThreadApproval\(\s*threadId,\s*decodeURIComponent\(segments\[4\]\),\s*await readBody\(request\),?\s*\)/s.test(
+        runtimeRouteHandlers,
+      ) &&
+      /listThreadApprovals\(threadId, request = \{\}\) \{\s*return this\.approvalApi\.listThreadApprovals\(this, threadId, request\);\s*\}/s.test(
+        runtimeDaemonIndex,
+      ) &&
+      /requestThreadApproval\(threadId, request = \{\}\) \{\s*return this\.approvalApi\.requestThreadApproval\(this, threadId, request\);\s*\}/s.test(
+        runtimeDaemonIndex,
+      ) &&
+      /decideThreadApproval\(threadId, approvalId, request = \{\}\) \{\s*return this\.approvalApi\.decideThreadApproval\(this, threadId, approvalId, request\);\s*\}/s.test(
+        runtimeDaemonIndex,
+      ) &&
+      /revokeThreadApproval\(threadId, approvalId, request = \{\}\) \{\s*return this\.approvalApi\.revokeThreadApproval\(this, threadId, approvalId, request\);\s*\}/s.test(
+        runtimeDaemonIndex,
+      ) &&
+      !/store\.approval(?:Surface|Api)\./.test(runtimeRouteHandlers) &&
+      !/this\.approvalSurface|createRuntimeApprovalSurface/.test(runtimeDaemonIndex) &&
+      !/createRuntimeApprovalSurface|approvalSurface/.test(runtimeApprovalApi) &&
+      !exists("packages/runtime-daemon/src/runtime-approval-surface.mjs"),
+    [
+      "packages/runtime-daemon/src/index.mjs",
+      "packages/runtime-daemon/src/runtime-approval-api.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.test.mjs",
+      "scripts/conformance/hypervisor-conformance.mjs",
+    ],
+    "Approval route-visible JS surface must stay retired: routes must call store-owned approval APIs, the internal delegate must not be route-addressable, and the old surface file/factory/property must remain absent",
   );
   assertCheck(
     result,
@@ -11024,7 +11068,7 @@ function runBridge() {
       !/operation_kind:\s*optionalString\(result\.operation_kind\s*\?\?\s*record\.operation_kind\)\s*\?\?\s*"approval\.required"/.test(
         runtimeApprovalStateCore,
       ) &&
-      /approvalStateCore/.test(runtimeApprovalSurface) &&
+      /approvalStateCore/.test(runtimeApprovalApi) &&
       /authorizeApprovalRequest[\s\S]*planApprovalRequestStateUpdate/.test(
         approvalRequestFacadeBody,
       ) &&
@@ -11040,27 +11084,27 @@ function runBridge() {
         approvalRequestFacadeBody,
       ) &&
       /applyRustApprovalStateUpdate/.test(approvalRequestFacadeBody) &&
-      /persistRustApprovalRunUpdate/.test(runtimeApprovalSurface) &&
-      /store\.writeRun\(run,\s*operationKind\)/.test(runtimeApprovalSurface) &&
+      /persistRustApprovalRunUpdate/.test(runtimeApprovalApi) &&
+      /store\.writeRun\(run,\s*operationKind\)/.test(runtimeApprovalApi) &&
       !/run:\s*target\.run|agent:\s*target\.agent/.test(approvalRequestFacadeBody) &&
-      !/request\.(?:run|agent)\b/.test(runtimeApprovalSurface) &&
+      !/request\.(?:run|agent)\b/.test(runtimeApprovalApi) &&
       !/function approvalTarget|function runForId|function latestRunForThread|store\.agentForThread|store\.getRun|store\.listRuns|store\.runs\?\.get/.test(
-        runtimeApprovalSurface,
+        runtimeApprovalApi,
       ) &&
       /createRuntimeApprovalStateCore/.test(runtimeDaemonIndex) &&
       /approvalStateCore: this\.approvalStateCore/.test(runtimeDaemonIndex) &&
-      /runtime_approval_control_rust_core_required/.test(runtimeApprovalSurface) &&
-      /rust_core_boundary:\s*"runtime\.approval_control"/.test(runtimeApprovalSurface) &&
-      /approval_request_authority_rust_owned/.test(runtimeApprovalSurface) &&
-      /rust_daemon_core_approval_request_authority_required/.test(runtimeApprovalSurface) &&
-      /agentgres_approval_request_authority_truth_required/.test(runtimeApprovalSurface) &&
-      /approval_request_js_facade_retired/.test(runtimeApprovalSurface) &&
-      /rust_daemon_core_approval_request_required/.test(runtimeApprovalSurface) &&
-      /agentgres_approval_request_state_truth_required/.test(runtimeApprovalSurface) &&
+      /runtime_approval_control_rust_core_required/.test(runtimeApprovalApi) &&
+      /rust_core_boundary:\s*"runtime\.approval_control"/.test(runtimeApprovalApi) &&
+      /approval_request_authority_rust_owned/.test(runtimeApprovalApi) &&
+      /rust_daemon_core_approval_request_authority_required/.test(runtimeApprovalApi) &&
+      /agentgres_approval_request_authority_truth_required/.test(runtimeApprovalApi) &&
+      /approval_request_js_facade_retired/.test(runtimeApprovalApi) &&
+      /rust_daemon_core_approval_request_required/.test(runtimeApprovalApi) &&
+      /agentgres_approval_request_state_truth_required/.test(runtimeApprovalApi) &&
       !/store\.appendRuntimeEvent/.test(
         approvalRequestFacadeBody,
       ) &&
-      /requestThreadApproval public surface calls Rust approval authority and commits Rust run projection/.test(
+      /requestThreadApproval public API calls Rust approval authority and commits Rust run projection/.test(
         runtimeApprovalControlFacadeTest,
       ) &&
       /assert\.equal\(calls\[0\]\.method,\s*"authorizeApprovalRequest"\)/.test(
@@ -11086,7 +11130,7 @@ function runBridge() {
       /approval control must not list JS run truth/.test(
         runtimeApprovalControlFacadeTest,
       ) &&
-      /approval request surface remains fail-closed without Rust request authority core/.test(
+      /approval request API remains fail-closed without Rust request authority core/.test(
         runtimeApprovalControlFacadeTest,
       ) &&
       /assertNoRetiredApprovalControlAliases\(calls\[0\]\.request\)/.test(
@@ -11095,21 +11139,21 @@ function runBridge() {
       /assertNoRetiredApprovalControlAliases\(calls\[1\]\.request\)/.test(
         runtimeApprovalControlFacadeTest,
       ) &&
-      /store\.approvalSurface\.requestThreadApproval\(store,\s*threadId,\s*await readBody\(request\)\)/.test(
+      /store\.requestThreadApproval\(threadId,\s*await readBody\(request\)\)/.test(
         runtimeRouteHandlers,
       ) &&
-      /thread route sends approvals through mounted approval surface/.test(runtimeRouteHandlersTest) &&
-      !/^\s*requestThreadApproval\(threadId, request = \{\}\) \{/m.test(runtimeDaemonIndex) &&
+      /thread route sends approvals through store-owned approval API/.test(runtimeRouteHandlersTest) &&
+      /requestThreadApproval\(threadId, request = \{\}\) \{\s*return this\.approvalApi\.requestThreadApproval\(this, threadId, request\);\s*\}/s.test(runtimeDaemonIndex) &&
       /approvalId:\s*"approval_retired"/.test(runtimeApprovalControlFacadeTest) &&
       /assert\.equal\(store\.runtimeEventStreams\.size,\s*0\)/.test(
         runtimeApprovalControlFacadeTest,
       ) &&
       !/control:\s*"approval_request"|appendRunApprovalControl\(run,\s*control,\s*"approvalRequests"\)|store\.appendRuntimeEvent/.test(
-        runtimeApprovalSurface,
+        runtimeApprovalApi,
       ) &&
-      !/stateUpdate\.operation_kind\s*\?\?\s*"approval\.required"/.test(runtimeApprovalSurface) &&
+      !/stateUpdate\.operation_kind\s*\?\?\s*"approval\.required"/.test(runtimeApprovalApi) &&
       !/const updatedAgent = \{\s*\.\.\.agent,\s*updatedAt: event\.created_at\s*\}/.test(
-        runtimeApprovalSurface,
+        runtimeApprovalApi,
       ),
     [
       "crates/services/src/agentic/runtime/kernel/approval.rs",
@@ -11117,7 +11161,7 @@ function runBridge() {
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/runtime-approval-state-core.mjs",
       "packages/runtime-daemon/src/runtime-approval-state-core.test.mjs",
-      "packages/runtime-daemon/src/runtime-approval-surface.mjs",
+      "packages/runtime-daemon/src/runtime-approval-api.mjs",
       "packages/runtime-daemon/src/runtime-approval-control-facade.test.mjs",
     ],
     "Phase 9/10 is pending: approval request public control must call the Rust authority state-update API, commit only Rust-authored projections, and keep JS event/readback authorship retired",
@@ -11220,23 +11264,23 @@ function runBridge() {
       !/operation_kind:\s*optionalString\(result\.operation_kind\s*\?\?\s*record\.operation_kind\)\s*\?\?\s*"approval\.approve"/.test(
         runtimeApprovalStateCore,
       ) &&
-      /approvalStateCore/.test(runtimeApprovalSurface) &&
+      /approvalStateCore/.test(runtimeApprovalApi) &&
       /authorizeApprovalDecision/.test(approvalDecisionFacadeBody) &&
       /planApprovalDecisionStateUpdate/.test(approvalDecisionFacadeBody) &&
       /state_dir:\s*store\?\.stateDir \?\? null/.test(approvalDecisionFacadeBody) &&
-	      /approvalDecisionAuthorityRequest/.test(runtimeApprovalSurface) &&
+	      /approvalDecisionAuthorityRequest/.test(runtimeApprovalApi) &&
 	      /wallet_approval_grant:\s*objectRecord\(request\.wallet_approval_grant\)\s*\?\?\s*null/.test(
-	        runtimeApprovalSurface,
+	        runtimeApprovalApi,
 	      ) &&
 		      /authority_grant_refs:\s*\[\]/.test(
-		        runtimeApprovalSurface,
+		        runtimeApprovalApi,
 		      ) &&
-		      !/requiresWalletApprovalGrant/.test(runtimeApprovalSurface) &&
+		      !/requiresWalletApprovalGrant/.test(runtimeApprovalApi) &&
 		      !/authority_grant_refs:\s*normalizeArray\(request\.authority_grant_refs\)/.test(
-		        runtimeApprovalSurface,
+		        runtimeApprovalApi,
 		      ) &&
-	      /approval_decision_wallet_network_authority_required/.test(runtimeApprovalSurface) &&
-      /rust_daemon_core_approval_decision_authority_required/.test(runtimeApprovalSurface) &&
+	      /approval_decision_wallet_network_authority_required/.test(runtimeApprovalApi) &&
+      /rust_daemon_core_approval_decision_authority_required/.test(runtimeApprovalApi) &&
       /receipt_refs:\s*normalizeArray\(authority\.authority_receipt_refs\)/.test(
         approvalDecisionFacadeBody,
       ) &&
@@ -11250,30 +11294,30 @@ function runBridge() {
         approvalDecisionFacadeBody,
       ) &&
       /applyRustApprovalStateUpdate/.test(approvalDecisionFacadeBody) &&
-      /persistRustApprovalRunUpdate/.test(runtimeApprovalSurface) &&
-      /store\.writeRun\(run,\s*operationKind\)/.test(runtimeApprovalSurface) &&
+      /persistRustApprovalRunUpdate/.test(runtimeApprovalApi) &&
+      /store\.writeRun\(run,\s*operationKind\)/.test(runtimeApprovalApi) &&
       !/run:\s*target\.run|agent:\s*target\.agent/.test(approvalDecisionFacadeBody) &&
-      /runtime_approval_control_rust_core_required/.test(runtimeApprovalSurface) &&
-      /approval_decision_js_facade_retired/.test(runtimeApprovalSurface) &&
-      /rust_daemon_core_approval_decision_required/.test(runtimeApprovalSurface) &&
-      /agentgres_approval_decision_state_truth_required/.test(runtimeApprovalSurface) &&
-      /approval decision readback facade is retired from the JS approval surface/.test(
+      /runtime_approval_control_rust_core_required/.test(runtimeApprovalApi) &&
+      /approval_decision_js_facade_retired/.test(runtimeApprovalApi) &&
+      /rust_daemon_core_approval_decision_required/.test(runtimeApprovalApi) &&
+      /agentgres_approval_decision_state_truth_required/.test(runtimeApprovalApi) &&
+      /approval decision readback facade is retired from the internal approval API/.test(
         runtimeApprovalControlFacadeTest,
       ) &&
-      /Object\.hasOwn\(surface,\s*"latestApprovalRequestEvent"\),\s*false/.test(
+      /Object\.hasOwn\(api,\s*"latestApprovalRequestEvent"\),\s*false/.test(
         runtimeApprovalControlFacadeTest,
       ) &&
-      /Object\.hasOwn\(surface,\s*"latestApprovalDecisionEvent"\),\s*false/.test(
+      /Object\.hasOwn\(api,\s*"latestApprovalDecisionEvent"\),\s*false/.test(
         runtimeApprovalControlFacadeTest,
       ) &&
-      !/latestApprovalRequestEvent/.test(runtimeApprovalSurface) &&
+      !/latestApprovalRequestEvent/.test(runtimeApprovalApi) &&
       !/latestApprovalRequestEvent\(threadId, approvalId\)/.test(runtimeDaemonIndex) &&
-      !/latestApprovalDecisionEvent/.test(runtimeApprovalSurface) &&
+      !/latestApprovalDecisionEvent/.test(runtimeApprovalApi) &&
       !/latestApprovalDecisionEvent\(threadId, approvalId\)/.test(runtimeDaemonIndex) &&
       !/latestApprovalRequestEvent|store\.appendRuntimeEvent/.test(
         approvalDecisionFacadeBody,
       ) &&
-	      /decideThreadApproval public surface calls Rust authority with canonical decision fields/.test(
+	      /decideThreadApproval public API calls Rust authority with canonical decision fields/.test(
 	        runtimeApprovalControlFacadeTest,
 	      ) &&
 	      /assert\.deepEqual\(calls\[0\]\.request\.wallet_approval_grant,\s*walletApprovalGrant\(\)\)/.test(
@@ -11285,7 +11329,7 @@ function runBridge() {
 		      /assert\.deepEqual\(captured\.wallet_approval_grant,\s*walletApprovalGrant\(\)\)/.test(
 		        runtimeApprovalStateCoreTest,
 		      ) &&
-		      /revokeThreadApproval public surface calls Rust authority[\s\S]*js_forged_revoke_ref[\s\S]*assert\.deepEqual\(calls\[0\]\.request\.wallet_approval_grant,\s*walletApprovalGrant\(\)\)[\s\S]*assert\.deepEqual\(calls\[0\]\.request\.authority_grant_refs,\s*\[\]\)[\s\S]*assert\.deepEqual\(calls\[1\]\.request\.authority_grant_refs,\s*\[WALLET_APPROVAL_GRANT_REF\]\)/.test(
+		      /revokeThreadApproval public API calls Rust authority[\s\S]*js_forged_revoke_ref[\s\S]*assert\.deepEqual\(calls\[0\]\.request\.wallet_approval_grant,\s*walletApprovalGrant\(\)\)[\s\S]*assert\.deepEqual\(calls\[0\]\.request\.authority_grant_refs,\s*\[\]\)[\s\S]*assert\.deepEqual\(calls\[1\]\.request\.authority_grant_refs,\s*\[WALLET_APPROVAL_GRANT_REF\]\)/.test(
 		        runtimeApprovalControlFacadeTest,
 		      ) &&
 	      /approval decision facade fails closed before state update without Rust wallet\.network authority/.test(
@@ -11306,34 +11350,34 @@ function runBridge() {
       /Object\.hasOwn\(calls\[0\]\.request,\s*"run"\),\s*false/.test(
         runtimeApprovalControlFacadeTest,
       ) &&
-      /store\.approvalSurface\.decideThreadApproval\(\s*store,\s*threadId,\s*decodeURIComponent\(segments\[4\]\),\s*await readBody\(request\),\s*\)/m.test(
+      /store\.decideThreadApproval\(\s*threadId,\s*decodeURIComponent\(segments\[4\]\),\s*await readBody\(request\),?\s*\)/s.test(
         runtimeRouteHandlers,
       ) &&
-      /store\.approvalSurface\.decideThreadApproval\(store,\s*threadId,\s*decodeURIComponent\(segments\[4\]\),\s*\{\s*\.\.\.body,\s*decision: segments\[5\],\s*\}\)/m.test(
+      /store\.decideThreadApproval\(threadId,\s*decodeURIComponent\(segments\[4\]\),\s*\{\s*\.\.\.body,\s*decision: segments\[5\],\s*\}\)/s.test(
         runtimeRouteHandlers,
       ) &&
-      /thread route sends approvals through mounted approval surface/.test(runtimeRouteHandlersTest) &&
-      !/^\s*decideThreadApproval\(threadId, approvalId, request = \{\}\) \{/m.test(
+      /thread route sends approvals through store-owned approval API/.test(runtimeRouteHandlersTest) &&
+      /decideThreadApproval\(threadId, approvalId, request = \{\}\) \{\s*return this\.approvalApi\.decideThreadApproval\(this, threadId, approvalId, request\);\s*\}/s.test(
         runtimeDaemonIndex,
       ) &&
       /assertNoRetiredApprovalControlAliases\(calls\[1\]\.request\)/.test(
         runtimeApprovalControlFacadeTest,
       ) &&
       !/control:\s*"approval_decision"/.test(
-        runtimeApprovalSurface,
+        runtimeApprovalApi,
       ) &&
       !/stateUpdate\.operation_kind\s*\?\?\s*`approval\.\$\{decision\}`/.test(
-        runtimeApprovalSurface,
+        runtimeApprovalApi,
       ) &&
       !/const updatedAgent = \{\s*\.\.\.agent,\s*updatedAt: event\.created_at\s*\}/.test(
-        runtimeApprovalSurface,
+        runtimeApprovalApi,
       ),
     [
       "crates/services/src/agentic/runtime/kernel/approval.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/runtime-approval-state-core.mjs",
       "packages/runtime-daemon/src/runtime-approval-state-core.test.mjs",
-      "packages/runtime-daemon/src/runtime-approval-surface.mjs",
+      "packages/runtime-daemon/src/runtime-approval-api.mjs",
       "packages/runtime-daemon/src/runtime-approval-control-facade.test.mjs",
     ],
     "Phase 9/10 is pending: approval decision public control must call the Rust authority state-update API, commit only Rust-authored projections, and keep JS event/readback authorship retired",
@@ -11394,7 +11438,7 @@ function runBridge() {
       !/operation_kind:\s*optionalString\(result\.operation_kind\s*\?\?\s*record\.operation_kind\)\s*\?\?\s*"approval\.revoke"/.test(
         runtimeApprovalStateCore,
       ) &&
-      /approvalStateCore/.test(runtimeApprovalSurface) &&
+      /approvalStateCore/.test(runtimeApprovalApi) &&
       /authorizeApprovalDecision/.test(approvalRevokeFacadeBody) &&
       /planApprovalRevokeStateUpdate/.test(approvalRevokeFacadeBody) &&
       /state_dir:\s*store\?\.stateDir \?\? null/.test(approvalRevokeFacadeBody) &&
@@ -11412,17 +11456,17 @@ function runBridge() {
         approvalRevokeFacadeBody,
       ) &&
       /applyRustApprovalStateUpdate/.test(approvalRevokeFacadeBody) &&
-      /persistRustApprovalRunUpdate/.test(runtimeApprovalSurface) &&
-      /store\.writeRun\(run,\s*operationKind\)/.test(runtimeApprovalSurface) &&
+      /persistRustApprovalRunUpdate/.test(runtimeApprovalApi) &&
+      /store\.writeRun\(run,\s*operationKind\)/.test(runtimeApprovalApi) &&
       !/run:\s*target\.run|agent:\s*target\.agent/.test(approvalRevokeFacadeBody) &&
-      /runtime_approval_control_rust_core_required/.test(runtimeApprovalSurface) &&
-      /approval_revoke_js_facade_retired/.test(runtimeApprovalSurface) &&
-      /rust_daemon_core_approval_revoke_required/.test(runtimeApprovalSurface) &&
-      /agentgres_approval_revoke_state_truth_required/.test(runtimeApprovalSurface) &&
+      /runtime_approval_control_rust_core_required/.test(runtimeApprovalApi) &&
+      /approval_revoke_js_facade_retired/.test(runtimeApprovalApi) &&
+      /rust_daemon_core_approval_revoke_required/.test(runtimeApprovalApi) &&
+      /agentgres_approval_revoke_state_truth_required/.test(runtimeApprovalApi) &&
       !/latestApprovalRequestEvent|runtimeEventStream|store\.appendRuntimeEvent/.test(
         approvalRevokeFacadeBody,
       ) &&
-      /revokeThreadApproval public surface calls Rust authority and commits Rust projection/.test(
+      /revokeThreadApproval public API calls Rust authority and commits Rust projection/.test(
         runtimeApprovalControlFacadeTest,
       ) &&
       /assert\.equal\(calls\[1\]\.request\.authority_hash,\s*"sha256:approval-authority-revoke"\)/.test(
@@ -11437,29 +11481,29 @@ function runBridge() {
       /Object\.hasOwn\(calls\[0\]\.request,\s*"agent"\),\s*false/.test(
         runtimeApprovalControlFacadeTest,
       ) &&
-      /store\.approvalSurface\.revokeThreadApproval\(\s*store,\s*threadId,\s*decodeURIComponent\(segments\[4\]\),\s*await readBody\(request\),\s*\)/m.test(
+      /store\.revokeThreadApproval\(\s*threadId,\s*decodeURIComponent\(segments\[4\]\),\s*await readBody\(request\),?\s*\)/s.test(
         runtimeRouteHandlers,
       ) &&
-      /thread route sends approvals through mounted approval surface/.test(runtimeRouteHandlersTest) &&
-      !/^\s*revokeThreadApproval\(threadId, approvalId, request = \{\}\) \{/m.test(
+      /thread route sends approvals through store-owned approval API/.test(runtimeRouteHandlersTest) &&
+      /revokeThreadApproval\(threadId, approvalId, request = \{\}\) \{\s*return this\.approvalApi\.revokeThreadApproval\(this, threadId, approvalId, request\);\s*\}/s.test(
         runtimeDaemonIndex,
       ) &&
       /assertNoRetiredApprovalControlAliases\(calls\[1\]\.request\)/.test(
         runtimeApprovalControlFacadeTest,
       ) &&
       !/control:\s*"approval_revoke"|appendRunApprovalControl|appendOperatorControl/.test(
-        runtimeApprovalSurface,
+        runtimeApprovalApi,
       ) &&
-      !/stateUpdate\.operation_kind\s*\?\?\s*"approval\.revoke"/.test(runtimeApprovalSurface) &&
+      !/stateUpdate\.operation_kind\s*\?\?\s*"approval\.revoke"/.test(runtimeApprovalApi) &&
       !/const updatedAgent = \{\s*\.\.\.agent,\s*updatedAt: event\.created_at\s*\}/.test(
-        runtimeApprovalSurface,
+        runtimeApprovalApi,
       ),
     [
       "crates/services/src/agentic/runtime/kernel/approval.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/runtime-approval-state-core.mjs",
       "packages/runtime-daemon/src/runtime-approval-state-core.test.mjs",
-      "packages/runtime-daemon/src/runtime-approval-surface.mjs",
+      "packages/runtime-daemon/src/runtime-approval-api.mjs",
       "packages/runtime-daemon/src/runtime-approval-control-facade.test.mjs",
     ],
     "Phase 9/10 is pending: approval revoke public control must call the Rust authority state-update API, commit only Rust-authored projections, and keep JS event/readback authorship retired",
@@ -11467,7 +11511,7 @@ function runBridge() {
   assertCheck(
     result,
     "runtime-approval-request-aliases-retired",
-    /requestThreadApproval public surface calls Rust approval authority and commits Rust run projection/.test(
+    /requestThreadApproval public API calls Rust approval authority and commits Rust run projection/.test(
       runtimeApprovalControlFacadeTest,
     ) &&
       /approvalId:\s*"approval_retired"/.test(runtimeApprovalControlFacadeTest) &&
@@ -11491,25 +11535,25 @@ function runBridge() {
       /pub approval_lease: Value/.test(approvalCore) &&
       /fn approval_lease_binding_present/.test(approvalCore) &&
       /approval_lease_binding_present\(/.test(approvalCore) &&
-      /approval_rust_lease_authority_incomplete/.test(runtimeApprovalSurface) &&
-      /approval_lease: approvalLease/.test(runtimeApprovalSurface) &&
+      /approval_rust_lease_authority_incomplete/.test(runtimeApprovalApi) &&
+      /approval_lease: approvalLease/.test(runtimeApprovalApi) &&
       /assert\.equal\(calls\[1\]\.request\.approval_lease\.status,\s*"active"\)/.test(
         runtimeApprovalControlFacadeTest,
       ) &&
       !/^\s*(?:approvalRequired|approvalManifest|toolId|effectClass|riskDomain|pressureStatus|alertId|sourceEventId)\s*[:,]/m.test(
-        runtimeApprovalSurface,
+        runtimeApprovalApi,
       ) &&
       !/approvalRequestPayload\.(?:toolId|effectClass|riskDomain|approvalManifest)\b/.test(
-        runtimeApprovalSurface,
+        runtimeApprovalApi,
       ) &&
       !/request\.(?:turnId|workflowNodeId|workflowGraphId|requestedBy|approvalAction|toolId|toolName|effectClass|riskDomain|approvalId|contextPressure|pressureStatus|contextPressureStatus|alertId|alertEventId|sourceEventId|policyDecisionRefs|authorityScopeRequirements|approvalManifest|receiptRefs|idempotencyKey)\b/.test(
-        runtimeApprovalSurface,
+        runtimeApprovalApi,
       ) &&
       !/^\s*(?:approvalLease|approvalRequestEventId|approvalDecisionEventId|leaseId|leaseStatus|policyHash|ttlMs|expiresAt|expectedReceiptRefs|authorityScopeRequirements|revokeEndpoint)\s*[:,]/m.test(
-        runtimeApprovalSurface,
+        runtimeApprovalApi,
       ),
     [
-      "packages/runtime-daemon/src/runtime-approval-surface.mjs",
+      "packages/runtime-daemon/src/runtime-approval-api.mjs",
       "packages/runtime-daemon/src/runtime-approval-control-facade.test.mjs",
       "crates/services/src/agentic/runtime/kernel/approval.rs",
       ],
@@ -11518,22 +11562,22 @@ function runBridge() {
   assertCheck(
     result,
     "runtime-approval-error-detail-aliases-retired",
-    /runtime_approval_control_rust_core_required/.test(runtimeApprovalSurface) &&
-      /rust_core_boundary:\s*"runtime\.approval_control"/.test(runtimeApprovalSurface) &&
-      /thread_id:\s*threadId/.test(runtimeApprovalSurface) &&
-      /approval_id:\s*normalizedApprovalId/.test(runtimeApprovalSurface) &&
+    /runtime_approval_control_rust_core_required/.test(runtimeApprovalApi) &&
+      /rust_core_boundary:\s*"runtime\.approval_control"/.test(runtimeApprovalApi) &&
+      /thread_id:\s*threadId/.test(runtimeApprovalApi) &&
+      /approval_id:\s*normalizedApprovalId/.test(runtimeApprovalApi) &&
       /approval_id:\s*approvalId/.test(
-        runtimeApprovalSurface,
+        runtimeApprovalApi,
       ) &&
       /assertNoRetiredApprovalControlAliases\(error\.details\)/.test(
         runtimeApprovalControlFacadeTest,
       ) &&
       /error\.details\.approval_id/.test(runtimeApprovalControlFacadeTest) &&
       !/details:\s*\{[^}\n]*\b(?:threadId|runId|turnId|agentId|approvalId|targetKind|operationKind|expectedOperationKind)\s*:/.test(
-        runtimeApprovalSurface,
+        runtimeApprovalApi,
       ),
     [
-      "packages/runtime-daemon/src/runtime-approval-surface.mjs",
+      "packages/runtime-daemon/src/runtime-approval-api.mjs",
       "packages/runtime-daemon/src/runtime-approval-control-facade.test.mjs",
     ],
     "Phase 10/11 is pending: approval facade failure details must expose canonical snake_case fields without duplicate camelCase aliases",
@@ -30750,7 +30794,7 @@ function runReceipts() {
       "packages/runtime-daemon/src/threads/thread-turn-projection.mjs",
       "packages/runtime-daemon/src/index.mjs",
     ],
-    "Phase 5/11 is pending: run persistence and read surfaces must not append or expose duplicate daemon-local operation-log records outside Agentgres state projections and admitted receipts",
+    "Phase 5/11 is pending: run persistence and read APIs must not append or expose duplicate daemon-local operation-log records outside Agentgres state projections and admitted receipts",
   );
   assertCheck(
     result,
@@ -37324,10 +37368,10 @@ function runCompositor() {
       !/run\.jobId\b/.test(runtimeRunReadSurface) &&
       !/runtimeChecklist\?\.checklistId/.test(runtimeRunReadSurface) &&
       !/run\.checklistId\b/.test(runtimeRunReadSurface) &&
-      /runtime run read surface default job sidecar path ignores retired job id fallbacks/.test(
+      /runtime run read API default job sidecar path ignores retired job id fallbacks/.test(
         runtimeRunReadSurfaceTest,
       ) &&
-      /runtime run read surface default checklist sidecar path ignores retired checklist id fallbacks/.test(
+      /runtime run read API default checklist sidecar path ignores retired checklist id fallbacks/.test(
         runtimeRunReadSurfaceTest,
       ) &&
       /jobs\/job_run-canonical\.json/.test(runtimeRunReadSurfaceTest) &&

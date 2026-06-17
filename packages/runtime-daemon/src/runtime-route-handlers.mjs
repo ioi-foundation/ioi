@@ -424,18 +424,17 @@ export function createRuntimeRouteHandlers(deps) {
       return;
     }
     if (request.method === "GET" && action === "approvals" && !segments[4]) {
-      writeJsonResponse(response, store.approvalSurface.listThreadApprovals(store, threadId, Object.fromEntries(url.searchParams.entries())));
+      writeJsonResponse(response, store.listThreadApprovals(threadId, Object.fromEntries(url.searchParams.entries())));
       return;
     }
     if (request.method === "POST" && action === "approvals" && !segments[4]) {
-      writeJsonResponse(response, store.approvalSurface.requestThreadApproval(store, threadId, await readBody(request)));
+      writeJsonResponse(response, store.requestThreadApproval(threadId, await readBody(request)));
       return;
     }
     if (request.method === "POST" && action === "approvals" && segments[4] && segments[5] === "decision" && !segments[6]) {
       writeJsonResponse(
         response,
-        store.approvalSurface.decideThreadApproval(
-          store,
+        store.decideThreadApproval(
           threadId,
           decodeURIComponent(segments[4]),
           await readBody(request),
@@ -447,7 +446,7 @@ export function createRuntimeRouteHandlers(deps) {
       const body = await readBody(request);
       writeJsonResponse(
         response,
-        store.approvalSurface.decideThreadApproval(store, threadId, decodeURIComponent(segments[4]), {
+        store.decideThreadApproval(threadId, decodeURIComponent(segments[4]), {
           ...body,
           decision: segments[5],
         }),
@@ -457,8 +456,7 @@ export function createRuntimeRouteHandlers(deps) {
     if (request.method === "POST" && action === "approvals" && segments[4] && segments[5] === "revoke" && !segments[6]) {
       writeJsonResponse(
         response,
-        store.approvalSurface.revokeThreadApproval(
-          store,
+        store.revokeThreadApproval(
           threadId,
           decodeURIComponent(segments[4]),
           await readBody(request),

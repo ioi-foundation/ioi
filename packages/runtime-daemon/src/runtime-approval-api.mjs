@@ -23,7 +23,7 @@ function approvalRevokeRequiredError(runtimeError, threadId) {
   });
 }
 
-export function createRuntimeApprovalSurface(deps = {}) {
+export function createRuntimeApprovalApi(deps = {}) {
   const {
     approvalStateCore = null,
     nowIso = () => new Date().toISOString(),
