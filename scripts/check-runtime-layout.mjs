@@ -63,6 +63,9 @@ const hypervisorHarnessAdapterModelSource = read(
 const hypervisorModelMountInventoryModelSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/modelMountInventoryModel.ts",
 );
+const hypervisorAutomationCompositorModelSource = read(
+  "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorAutomationCompositorModel.ts",
+);
 const hypervisorShellWindowSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/index.tsx",
 );
@@ -1130,6 +1133,63 @@ assert(
     "docs/architecture/components/daemon-runtime/api.md",
   ],
   "Hypervisor Projects should hydrate workspace refs, adapter preferences, Agentgres object heads, state roots, artifact refs, archive refs, restore refs, and receipts through the daemon/public runtime route with fixture fallback.",
+);
+assert(
+  "hypervisor-automation-compositor-live-projection",
+  hypervisorAutomationCompositorModelSource.includes(
+    "HYPERVISOR_AUTOMATION_COMPOSITOR_PROJECTION_PATH",
+  ) &&
+    hypervisorAutomationCompositorModelSource.includes(
+      "normalizeHypervisorAutomationCompositorProjection",
+    ) &&
+    hypervisorAutomationCompositorModelSource.includes(
+      "loadHypervisorAutomationCompositorProjection",
+    ) &&
+    hypervisorAutomationCompositorModelSource.includes(
+      "ioi.hypervisor.automation_compositor_projection.v1",
+    ) &&
+    hypervisorAutomationCompositorModelSource.includes(
+      "workflow_template_refs",
+    ) &&
+    hypervisorAutomationCompositorModelSource.includes("run_recipe_refs") &&
+    hypervisorAutomationCompositorModelSource.includes("graph_refs") &&
+    hypervisorAutomationCompositorModelSource.includes(
+      "agentgres_operation_refs",
+    ) &&
+    hypervisorAutomationCompositorModelSource.includes("state_root_ref") &&
+    hypervisorShellContentSource.includes(
+      "HypervisorAutomationCompositorSurface",
+    ) &&
+    hypervisorShellContentSource.includes(
+      "loadHypervisorAutomationCompositorProjection",
+    ) &&
+    hypervisorShellContentSource.includes(
+      "data-automation-compositor-source",
+    ) &&
+    hypervisorShellContentSource.includes(
+      "data-workflow-compositor-editor-boundary",
+    ) &&
+    publicRuntimeRoutesSource.includes(
+      "/v1/hypervisor/automation-compositor",
+    ) &&
+    publicRuntimeRoutesSource.includes(
+      "runtime.lifecycle_projection.hypervisor_automation_compositor",
+    ) &&
+    publicRuntimeRoutesSource.includes("projectRuntimeLifecycle") &&
+    publicRuntimeRoutesTestSource.includes(
+      "dispatch Hypervisor automation compositor through lifecycle projection",
+    ) &&
+    daemonRuntimeApiDoc.includes("GET /v1/hypervisor/automation-compositor") &&
+    daemonRuntimeApiDoc.includes(
+      "runtime.lifecycle_projection.hypervisor_automation_compositor",
+    ),
+  [
+    "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorAutomationCompositorModel.ts",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorShellContent.tsx",
+    "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
+    "docs/architecture/components/daemon-runtime/api.md",
+  ],
+  "Hypervisor Automations should hydrate workflow templates, run recipes, compositor graphs, action proposals, Agentgres operation refs, state roots, and receipts through the daemon/public runtime route with fixture fallback.",
 );
 assert(
   "hypervisor-provider-placement-live-projection",

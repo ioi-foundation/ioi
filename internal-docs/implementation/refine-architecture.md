@@ -1123,6 +1123,26 @@ Current implementation cut:
   modal launch routes through the Hypervisor shell controller to the selected
   canonical surface and seeds Sessions when the recipe is a Mission
 
+0A.6 Automations / Workflow Compositor projection is implemented:
+  `hypervisorAutomationCompositorModel.ts` defines
+  `HypervisorAutomationCompositorProjection` for workflow template refs, run
+  recipe refs, compositor graph refs, action proposal refs, Agentgres operation
+  refs, state roots, receipt refs, context chamber refs, artifact refs, and
+  selected project scope.
+  `HypervisorShellContent` now wraps `MissionControlWorkflowsView` with a
+  projection surface that marks fixture-vs-daemon source explicitly through
+  `data-automation-compositor-source`. The Workflow Compositor remains the
+  graph/proposal editor behind the projection; it is not runtime truth.
+  `/v1/hypervisor/automation-compositor` is implemented as a public runtime
+  route that dispatches through `projectRuntimeLifecycle` with
+  `runtime.lifecycle_projection.hypervisor_automation_compositor`, returning
+  only the client projection body.
+  `check:runtime-layout`, focused app model tests, and public runtime route
+  tests guard the schema, loader, source marker, daemon route, API docs, and
+  Agentgres/receipt/state-root boundary. Remaining work is live recipe
+  execution, schedule mutation, and package promotion after wallet authority
+  and Agentgres admission.
+
 0A.8 first session operations cockpit is implemented:
   `hypervisorSessionOperationsModel.ts` defines
   `HypervisorSessionOperationsProjection` and a daemon-runtime fixture binding

@@ -1,6 +1,6 @@
 import clsx from "clsx";
 import { EnvironmentEstateView } from "@ioi/hypervisor-workbench";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import { buildConnectorPolicySummary } from "../../../surfaces/Policy";
 import { useHypervisorShellController } from "../useHypervisorShellController";
@@ -29,6 +29,10 @@ import {
 import { buildOperatorCommandCenterModel } from "../operatorSubstrateModel";
 import { materializeWorkflowProject } from "../../../services/workflowProjectMaterialization";
 import type { PrimaryView } from "../hypervisorShellModel";
+import {
+  HYPERVISOR_AUTOMATION_COMPOSITOR_PROJECTION_FIXTURE,
+  loadHypervisorAutomationCompositorProjection,
+} from "../hypervisorAutomationCompositorModel";
 import { HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE } from "../harnessAdapterModel";
 import { HYPERVISOR_PRIVACY_POSTURE_PROJECTION_FIXTURE } from "../hypervisorPrivacyPostureModel";
 import {
@@ -186,6 +190,153 @@ function HypervisorHarnessComparisonDashboard() {
             <span role="cell">{candidate.receipt_ref}</span>
           </div>
         ))}
+      </div>
+    </section>
+  );
+}
+
+function HypervisorAutomationCompositorSurface({
+  currentProjectId,
+  workflowSurface,
+  children,
+}: {
+  currentProjectId: string;
+  workflowSurface: string;
+  children: ReactNode;
+}) {
+  const [projection, setProjection] = useState(
+    HYPERVISOR_AUTOMATION_COMPOSITOR_PROJECTION_FIXTURE,
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    loadHypervisorAutomationCompositorProjection({
+      projectId: currentProjectId,
+    })
+      .then((nextProjection) => {
+        if (!cancelled) {
+          setProjection(nextProjection);
+        }
+      })
+      .catch((error) => {
+        console.warn(
+          "[Hypervisor][Automations] compositor projection unavailable",
+          error,
+        );
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentProjectId]);
+
+  return (
+    <section
+      className="hypervisor-automation-compositor"
+      aria-label="Automation compositor projection"
+      data-hypervisor-automation-compositor={projection.projection_id}
+      data-automation-compositor-source={projection.source}
+      data-runtime-truth-source={projection.runtimeTruthSource}
+      data-workflow-compositor-surface={workflowSurface}
+    >
+      <div className="hypervisor-automation-compositor__header">
+        <span>Automations</span>
+        <h2>Workflow templates, compositor graphs, and reusable run recipes.</h2>
+        <p>{projection.compositor_boundary_invariant}</p>
+      </div>
+
+      <div
+        className="hypervisor-automation-compositor__summary"
+        aria-label="Automation compositor summary"
+      >
+        <div>
+          <span>Templates</span>
+          <strong>{projection.workflow_template_refs.length}</strong>
+        </div>
+        <div>
+          <span>Run recipes</span>
+          <strong>{projection.run_recipe_refs.length}</strong>
+        </div>
+        <div>
+          <span>Graphs</span>
+          <strong>{projection.graph_refs.length}</strong>
+        </div>
+        <div>
+          <span>Receipts</span>
+          <strong>{projection.latest_receipt_refs.length}</strong>
+        </div>
+      </div>
+
+      <div className="hypervisor-automation-compositor__grid">
+        <section aria-label="Workflow templates">
+          <h3>Templates</h3>
+          {projection.templates.map((template) => (
+            <article
+              key={template.template_ref}
+              className="hypervisor-automation-compositor__card"
+              data-workflow-template-ref={template.template_ref}
+              data-workflow-graph-ref={template.graph_ref}
+            >
+              <div>
+                <span>{template.recipe_ref}</span>
+                <h4>{template.label}</h4>
+                <p>{template.description}</p>
+              </div>
+              <dl>
+                <div>
+                  <dt>Scopes</dt>
+                  <dd>{template.required_scope_refs.join(", ")}</dd>
+                </div>
+                <div>
+                  <dt>Model route</dt>
+                  <dd>{template.model_route_policy_ref}</dd>
+                </div>
+                <div>
+                  <dt>Receipt policy</dt>
+                  <dd>{template.receipt_policy_ref}</dd>
+                </div>
+              </dl>
+            </article>
+          ))}
+        </section>
+
+        <section aria-label="Workflow runs">
+          <h3>Runs</h3>
+          {projection.runs.map((run) => (
+            <article
+              key={run.run_ref}
+              className="hypervisor-automation-compositor__card"
+              data-workflow-run-ref={run.run_ref}
+              data-workflow-run-status={run.status}
+            >
+              <div>
+                <span>{run.status}</span>
+                <h4>{run.template_ref}</h4>
+                <p>{run.action_proposal_ref}</p>
+              </div>
+              <dl>
+                <div>
+                  <dt>Agentgres op</dt>
+                  <dd>{run.agentgres_operation_ref}</dd>
+                </div>
+                <div>
+                  <dt>State root</dt>
+                  <dd>{run.state_root_ref}</dd>
+                </div>
+                <div>
+                  <dt>Receipt</dt>
+                  <dd>{run.latest_receipt_ref}</dd>
+                </div>
+              </dl>
+            </article>
+          ))}
+        </section>
+      </div>
+
+      <div
+        className="hypervisor-automation-compositor__editor"
+        data-workflow-compositor-editor-boundary="projection-client"
+      >
+        {children}
       </div>
     </section>
   );
@@ -1048,51 +1199,64 @@ export function HypervisorShellContent({
                   ) : null}
 
                   {activeView === "automations" ? (
-                    <MissionControlWorkflowsView
-                      runtime={runtime}
-                      surface={controller.workflow.surface}
-                      currentProject={currentProject}
-                      projects={projects}
-                      notificationCount={notificationBadgeCount}
-                      editingAgent={controller.agents.editingAgent}
-                      onSurfaceChange={controller.workflow.setSurface}
-                      onSelectProject={controller.workflow.selectProject}
-                      onOpenChat={() => controller.changePrimaryView("sessions")}
-                      onOpenInbox={() => controller.changePrimaryView("missions")}
-                      onOpenCapabilities={() =>
-                        controller.changePrimaryView("agents")
-                      }
-                      onOpenPolicy={() =>
-                        controller.policy.openPolicyCenter(null)
-                      }
-                      onOpenSettings={() =>
-                        controller.changePrimaryView("settings")
-                      }
-                      onOpenAgent={controller.agents.openBuilder}
-                      onCloseAgent={controller.agents.closeBuilder}
-                      onStageCatalogEntry={
-                        controller.catalog.openStageModalForEntry
-                      }
-                      composeSeedProject={
-                        controller.workflow.composeSeedProject
-                      }
-                      onConsumeComposeSeedProject={
-                        controller.workflow.consumeComposeSeedProject
-                      }
-                      workflowPreflightSeed={controller.workflow.preflightSeed}
-                      onConsumeWorkflowPreflightSeed={
-                        controller.workflow.consumePreflightSeed
-                      }
-                      onMaterializeWorkflowProject={async (request) => {
-                        const result =
-                          await materializeWorkflowProject(request);
-                        controller.changePrimaryView("workbench");
-                        return result;
-                      }}
-                      onAddBuilderConfigToCanvas={(config) => {
-                        controller.workflow.queueBuilderConfigToCanvas(config);
-                      }}
-                    />
+                    <HypervisorAutomationCompositorSurface
+                      currentProjectId={currentProject.id}
+                      workflowSurface={controller.workflow.surface}
+                    >
+                      <MissionControlWorkflowsView
+                        runtime={runtime}
+                        surface={controller.workflow.surface}
+                        currentProject={currentProject}
+                        projects={projects}
+                        notificationCount={notificationBadgeCount}
+                        editingAgent={controller.agents.editingAgent}
+                        onSurfaceChange={controller.workflow.setSurface}
+                        onSelectProject={controller.workflow.selectProject}
+                        onOpenChat={() =>
+                          controller.changePrimaryView("sessions")
+                        }
+                        onOpenInbox={() =>
+                          controller.changePrimaryView("missions")
+                        }
+                        onOpenCapabilities={() =>
+                          controller.changePrimaryView("agents")
+                        }
+                        onOpenPolicy={() =>
+                          controller.policy.openPolicyCenter(null)
+                        }
+                        onOpenSettings={() =>
+                          controller.changePrimaryView("settings")
+                        }
+                        onOpenAgent={controller.agents.openBuilder}
+                        onCloseAgent={controller.agents.closeBuilder}
+                        onStageCatalogEntry={
+                          controller.catalog.openStageModalForEntry
+                        }
+                        composeSeedProject={
+                          controller.workflow.composeSeedProject
+                        }
+                        onConsumeComposeSeedProject={
+                          controller.workflow.consumeComposeSeedProject
+                        }
+                        workflowPreflightSeed={
+                          controller.workflow.preflightSeed
+                        }
+                        onConsumeWorkflowPreflightSeed={
+                          controller.workflow.consumePreflightSeed
+                        }
+                        onMaterializeWorkflowProject={async (request) => {
+                          const result =
+                            await materializeWorkflowProject(request);
+                          controller.changePrimaryView("workbench");
+                          return result;
+                        }}
+                        onAddBuilderConfigToCanvas={(config) => {
+                          controller.workflow.queueBuilderConfigToCanvas(
+                            config,
+                          );
+                        }}
+                      />
+                    </HypervisorAutomationCompositorSurface>
                   ) : null}
 
                   {activeView === "insights" ? (

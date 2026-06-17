@@ -212,6 +212,67 @@ project truth remain Agentgres-admitted facts backed by daemon operations and
 receipt linkage.
 
 ```http
+GET /v1/hypervisor/automation-compositor
+```
+
+`GET /v1/hypervisor/automation-compositor` dispatches through the daemon
+runtime lifecycle projection boundary with:
+
+```text
+operation_kind = runtime.lifecycle_projection.hypervisor_automation_compositor
+projection_kind = hypervisor_automation_compositor
+```
+
+Optional query params:
+
+```text
+project_id
+```
+
+The response is an `ioi.hypervisor.automation_compositor_projection.v1`
+projection:
+
+```json
+{
+  "schema_version": "ioi.hypervisor.automation_compositor_projection.v1",
+  "projection_id": "automation-compositor:...",
+  "source": "daemon-automation-compositor-projection",
+  "selected_project_id": "project:...",
+  "runtimeTruthSource": "daemon-runtime",
+  "compositor_boundary_invariant": "Workflow Compositor edits and proposes; the Hypervisor Daemon admits execution; Agentgres records operational truth.",
+  "workflow_template_refs": ["workflow-template:..."],
+  "run_recipe_refs": ["run-recipe:..."],
+  "graph_refs": ["workflow://graph/..."],
+  "templates": [
+    {
+      "template_ref": "workflow-template:...",
+      "label": "Template",
+      "description": "Reusable workflow template.",
+      "graph_ref": "workflow://graph/...",
+      "recipe_ref": "run-recipe:...",
+      "required_scope_refs": ["scope:workflow.run"],
+      "model_route_policy_ref": "model-route-policy:...",
+      "receipt_policy_ref": "receipt-policy:workflow/...",
+      "latest_receipt_refs": ["receipt://..."]
+    }
+  ],
+  "run_recipes": [],
+  "graphs": [],
+  "runs": [],
+  "latest_receipt_refs": ["receipt://..."],
+  "agentgres_operation_refs": ["agentgres://operation/workflow/..."],
+  "state_root_ref": "agentgres://state-root/workflow-compositor/..."
+}
+```
+
+Automation compositor projections power Hypervisor Automations/Workflows
+surfaces, reusable recipes, scheduled/manual run previews, graph references,
+and workflow receipt evidence. The client may render and edit proposals through
+the Workflow Compositor, but workflow execution, state-root mutation, receipt
+creation, and package promotion still require daemon admission, wallet/network
+authority where relevant, and Agentgres operation linkage.
+
+```http
 GET /v1/hypervisor/provider-placement
 ```
 

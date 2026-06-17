@@ -368,6 +368,125 @@ test("public runtime routes dispatch Hypervisor project state through lifecycle 
   ]);
 });
 
+test("public runtime routes dispatch Hypervisor automation compositor through lifecycle projection", async () => {
+  const { handleRequest } = routeHarness();
+  const response = responseRecorder();
+  const calls = [];
+  const automationCompositorProjection = {
+    schema_version: "ioi.hypervisor.automation_compositor_projection.v1",
+    projection_id: "automation-compositor:daemon/test",
+    source: "daemon-automation-compositor-projection",
+    selected_project_id: "project:ioi",
+    runtimeTruthSource: "daemon-runtime",
+    compositor_boundary_invariant:
+      "Workflow Compositor proposes graphs; daemon admits execution; Agentgres records truth.",
+    workflow_template_refs: ["workflow-template:test"],
+    run_recipe_refs: ["run-recipe:test/manual"],
+    graph_refs: ["workflow://graph/test"],
+    templates: [
+      {
+        template_ref: "workflow-template:test",
+        label: "Test template",
+        description: "Test workflow template",
+        graph_ref: "workflow://graph/test",
+        recipe_ref: "run-recipe:test/manual",
+        required_scope_refs: ["scope:workflow.run"],
+        model_route_policy_ref: "model-route-policy:test",
+        receipt_policy_ref: "receipt-policy:workflow/test",
+        latest_receipt_refs: ["receipt://workflow/test"],
+      },
+    ],
+    run_recipes: [
+      {
+        run_recipe_ref: "run-recipe:test/manual",
+        template_ref: "workflow-template:test",
+        label: "Manual",
+        schedule_ref: "schedule:manual",
+        launch_action_ref: "action://workflow/test/launch",
+        authority_scope_refs: ["scope:workflow.run"],
+        receipt_refs: ["receipt://workflow/test"],
+      },
+    ],
+    graphs: [
+      {
+        graph_ref: "workflow://graph/test",
+        label: "Test graph",
+        node_count: 2,
+        edge_count: 1,
+        context_chamber_refs: ["chamber://workflow/test"],
+        artifact_refs: ["artifact://workflow/test/graph"],
+        receipt_refs: ["receipt://workflow/test"],
+      },
+    ],
+    runs: [
+      {
+        run_ref: "workflow-run:test/latest",
+        template_ref: "workflow-template:test",
+        status: "ready",
+        action_proposal_ref: "action://workflow/test/launch",
+        agentgres_operation_ref: "agentgres://operation/workflow/test",
+        state_root_ref: "agentgres://state-root/workflow/test",
+        latest_receipt_ref: "receipt://workflow/test",
+      },
+    ],
+    latest_receipt_refs: ["receipt://workflow/test"],
+    agentgres_operation_refs: ["agentgres://operation/workflow/test"],
+    state_root_ref: "agentgres://state-root/workflow/test",
+  };
+  const contextPolicyCore = {
+    projectRuntimeLifecycle(request) {
+      calls.push({ method: "projectRuntimeLifecycle", request });
+      return {
+        projection: automationCompositorProjection,
+        record: {
+          operation_kind:
+            "runtime.lifecycle_projection.hypervisor_automation_compositor",
+          projection_kind: "hypervisor_automation_compositor",
+          projection: automationCompositorProjection,
+        },
+      };
+    },
+  };
+  const store = {
+    defaultCwd: "/workspace",
+    homeDir: "/home/operator",
+    schemaVersion: "ioi.agentgres.runtime.v0",
+    stateDir: "/state",
+    projectRuntimeLifecycleProjection: retiredRouteWrapper,
+  };
+
+  await handleRequest({
+    request: request({
+      url: "/v1/hypervisor/automation-compositor?project_id=project:ioi",
+    }),
+    response,
+    store,
+    contextPolicyCore,
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(JSON.parse(response.body), automationCompositorProjection);
+  assert.deepEqual(calls, [
+    {
+      method: "projectRuntimeLifecycle",
+      request: {
+        operation: "hypervisor_automation_compositor_projection",
+        operation_kind:
+          "runtime.lifecycle_projection.hypervisor_automation_compositor",
+        projection_kind: "hypervisor_automation_compositor",
+        base_url: "http://daemon.test",
+        workspace_root: "/workspace",
+        state_dir: "/state",
+        home_dir: "/home/operator",
+        runtime_schema_version: "ioi.agentgres.runtime.v0",
+        project_id: "project:ioi",
+        source:
+          "public_runtime_routes./v1/hypervisor/automation-compositor",
+      },
+    },
+  ]);
+});
+
 test("public runtime routes dispatch Hypervisor provider placement through lifecycle projection", async () => {
   const { handleRequest } = routeHarness();
   const response = responseRecorder();

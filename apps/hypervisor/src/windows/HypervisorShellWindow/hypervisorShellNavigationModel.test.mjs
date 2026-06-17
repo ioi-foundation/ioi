@@ -54,6 +54,10 @@ const projectStateModel = readFileSync(
   new URL("./hypervisorProjectStateModel.ts", import.meta.url),
   "utf8",
 );
+const automationCompositorModel = readFileSync(
+  new URL("./hypervisorAutomationCompositorModel.ts", import.meta.url),
+  "utf8",
+);
 const receiptEvidenceModel = readFileSync(
   new URL("./hypervisorReceiptEvidenceModel.ts", import.meta.url),
   "utf8",
@@ -340,6 +344,32 @@ test("Projects surface renders workspace, restore, artifact, and state-root proj
   assert.match(shellContent, /activeView === "projects"/);
   assert.match(shellContent, /activeView !== "projects"/);
   assert.doesNotMatch(shellContent, /projects: \{\s*eyebrow: "Project state"/);
+});
+
+test("Automations surface renders workflow compositor projection before editor", () => {
+  assert.match(automationCompositorModel, /HypervisorAutomationCompositorProjection/);
+  assert.match(automationCompositorModel, /HYPERVISOR_AUTOMATION_COMPOSITOR_PROJECTION_FIXTURE/);
+  assert.match(automationCompositorModel, /HYPERVISOR_AUTOMATION_COMPOSITOR_PROJECTION_PATH/);
+  assert.match(automationCompositorModel, /loadHypervisorAutomationCompositorProjection/);
+  assert.match(automationCompositorModel, /normalizeHypervisorAutomationCompositorProjection/);
+  assert.match(automationCompositorModel, /workflow_template_refs/);
+  assert.match(automationCompositorModel, /run_recipe_refs/);
+  assert.match(automationCompositorModel, /graph_refs/);
+  assert.match(automationCompositorModel, /action_proposal_ref/);
+  assert.match(automationCompositorModel, /agentgres_operation_refs/);
+  assert.match(automationCompositorModel, /state_root_ref/);
+  assert.match(automationCompositorModel, /Workflow Compositor edits and proposes/);
+  assert.match(automationCompositorModel, /Hypervisor Daemon admits execution/);
+  assert.match(automationCompositorModel, /Agentgres records operational truth/);
+  assert.match(shellContent, /HypervisorAutomationCompositorSurface/);
+  assert.match(shellContent, /loadHypervisorAutomationCompositorProjection/);
+  assert.match(shellContent, /\[Hypervisor\]\[Automations\] compositor projection unavailable/);
+  assert.match(shellContent, /data-hypervisor-automation-compositor/);
+  assert.match(shellContent, /data-automation-compositor-source/);
+  assert.match(shellContent, /data-workflow-template-ref/);
+  assert.match(shellContent, /data-workflow-run-ref/);
+  assert.match(shellContent, /data-workflow-compositor-editor-boundary/);
+  assert.match(shellContent, /activeView === "automations"/);
 });
 
 test("Providers and Environments surfaces are direct integrations, not Fleet placeholders", () => {
