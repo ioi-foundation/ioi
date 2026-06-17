@@ -12398,7 +12398,7 @@ Rust cTEE/auth binding before Agentgres commit. Focused Rust and Node tests cove
 the positive hosted catalog/download paths and the missing-auth/missing-cTEE
 fail-closed cases, while conformance guards the hard requirement and the removed
 compatibility translation. Remaining model_mount work is deeper wallet/cTEE route
-authority and revocation policy, conversation/provider replay depth
+authority and revocation policy, conversation replay depth
 where still adapter-shaped, and stable Workbench/CLI/SDK protocol APIs over the
 Rust records.
 
@@ -12511,8 +12511,25 @@ JS estimate-id helper and maintenance endpoint/provider enrichment helpers are
 deleted. Focused Node/Rust tests and conformance guard the replay boundary,
 candidate-field rejection, deleted helper surface, and absence of JS
 candidate-enrichment request shaping. Remaining blockers stay deeper
-wallet/cTEE route revocation policy, conversation/provider replay depth, and
+wallet/cTEE route revocation policy, conversation replay depth, and
 stable protocol API coverage over admitted records.
+
+Slice 1419 hard-cuts model_mount provider-lifecycle topology candidate
+transport. Provider health/start/stop no longer resolve endpoint/model/backend
+truth in JS before calling the Rust provider-lifecycle planner. JS sends only
+provider identity, action, execution backend, evidence refs, receipt refs, and
+daemon Agentgres `state_dir`; Rust `lifecycle/provider.rs` requires `state_dir`,
+rejects restored `provider`, `endpoint`, `providers`, and `endpoints`
+candidate fields, replays admitted providers/endpoints through Rust
+read-projection planning, and derives provider kind, endpoint, model, backend,
+driver, status, lifecycle hash, transport contract, and evidence before
+Agentgres record-state commit can return public lifecycle truth. The obsolete
+JS provider-lifecycle subject and endpoint-selection helpers are deleted, and
+focused Node/Rust tests plus conformance guard state-dir replay, candidate
+rejection, absent `js_*` proof fields, and absence of JS endpoint-map lifecycle
+subject transport. Remaining blockers stay deeper wallet/cTEE route revocation
+policy, conversation replay depth, and stable protocol API coverage over
+admitted records.
 
 ## Final Doctrine
 

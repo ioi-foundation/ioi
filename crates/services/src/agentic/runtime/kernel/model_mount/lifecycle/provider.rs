@@ -3,17 +3,22 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 
 use super::super::{
-    push_unique_ref, require_non_empty, ModelMountError,
-    MODEL_MOUNT_PROVIDER_LIFECYCLE_PLAN_SCHEMA_VERSION,
+    non_empty_string, option_trimmed, push_unique_ref,
+    read_projection::{plan_read_projection, ModelMountReadProjectionRequest},
+    require_non_empty, ModelMountError, MODEL_MOUNT_PROVIDER_LIFECYCLE_PLAN_SCHEMA_VERSION,
     MODEL_MOUNT_PROVIDER_LIFECYCLE_SCHEMA_VERSION,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ModelMountProviderLifecycleRequest {
     pub schema_version: String,
+    #[serde(default)]
     pub provider_ref: String,
+    #[serde(default)]
     pub provider_kind: String,
+    #[serde(default)]
     pub endpoint_ref: String,
+    #[serde(default)]
     pub model_ref: String,
     pub action: String,
     pub execution_backend: String,
@@ -37,6 +42,16 @@ pub struct ModelMountProviderLifecycleRequest {
     pub generated_at: Option<String>,
     #[serde(default)]
     pub receipt_refs: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub state_dir: Option<String>,
+    #[serde(default)]
+    pub provider: Value,
+    #[serde(default)]
+    pub endpoint: Value,
+    #[serde(default)]
+    pub providers: Vec<Value>,
+    #[serde(default)]
+    pub endpoints: Vec<Value>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -73,22 +88,23 @@ impl ModelMountProviderLifecycleRequest {
             });
         }
         require_non_empty("provider_ref", &self.provider_ref)?;
-        require_non_empty("provider_kind", &self.provider_kind)?;
-        require_non_empty("endpoint_ref", &self.endpoint_ref)?;
-        require_non_empty("model_ref", &self.model_ref)?;
         require_non_empty("action", &self.action)?;
         require_non_empty("execution_backend", &self.execution_backend)?;
-        if self.model_ref.trim().eq_ignore_ascii_case("auto") {
-            return Err(ModelMountError::UnresolvedAutoModel);
+        option_trimmed(&self.state_dir).ok_or(ModelMountError::MissingField("state_dir"))?;
+        if !self.provider.is_null() {
+            return Err(ModelMountError::MissingField("retired_provider"));
+        }
+        if !self.endpoint.is_null() {
+            return Err(ModelMountError::MissingField("retired_endpoint"));
+        }
+        if !self.providers.is_empty() {
+            return Err(ModelMountError::MissingField("retired_providers"));
+        }
+        if !self.endpoints.is_empty() {
+            return Err(ModelMountError::MissingField("retired_endpoints"));
         }
         if !matches!(self.action.trim(), "health" | "load" | "unload") {
             return Err(ModelMountError::UnsupportedProviderLifecycleAction);
-        }
-        if !is_native_local_provider_lifecycle_backend(self)
-            && !is_fixture_provider_lifecycle_backend(self)
-            && !is_hosted_provider_lifecycle_backend(self)
-        {
-            return Err(ModelMountError::UnsupportedProviderLifecycleBackend);
         }
         Ok(())
     }
@@ -98,22 +114,32 @@ pub(super) fn plan_provider_lifecycle(
     request: &ModelMountProviderLifecycleRequest,
 ) -> Result<ModelMountProviderLifecycleResult, ModelMountError> {
     request.validate()?;
+    let subject = resolve_provider_lifecycle_subject(request)?;
+    if subject.model_ref.trim().eq_ignore_ascii_case("auto") {
+        return Err(ModelMountError::UnresolvedAutoModel);
+    }
+    if !is_native_local_provider_lifecycle_backend(request, &subject)
+        && !is_fixture_provider_lifecycle_backend(request, &subject)
+        && !is_hosted_provider_lifecycle_backend(request, &subject)
+    {
+        return Err(ModelMountError::UnsupportedProviderLifecycleBackend);
+    }
     let operation_kind = provider_lifecycle_operation_kind(request);
     let receipt_refs = non_empty_vec(&request.receipt_refs);
     let mut result = ModelMountProviderLifecycleResult {
         schema_version: MODEL_MOUNT_PROVIDER_LIFECYCLE_SCHEMA_VERSION.to_string(),
-        provider_ref: request.provider_ref.clone(),
-        provider_kind: request.provider_kind.clone(),
-        endpoint_ref: request.endpoint_ref.clone(),
-        model_ref: request.model_ref.clone(),
+        provider_ref: subject.provider_ref.clone(),
+        provider_kind: subject.provider_kind.clone(),
+        endpoint_ref: subject.endpoint_ref.clone(),
+        model_ref: subject.model_ref.clone(),
         action: request.action.clone(),
-        status: provider_lifecycle_status(request)?,
-        backend: provider_lifecycle_backend(request),
-        backend_id: provider_lifecycle_backend_id(request),
-        driver: provider_lifecycle_driver(request),
+        status: provider_lifecycle_status(request, &subject)?,
+        backend: provider_lifecycle_backend(request, &subject),
+        backend_id: provider_lifecycle_backend_id(request, &subject),
+        driver: provider_lifecycle_driver(request, &subject),
         execution_backend: request.execution_backend.clone(),
-        evidence_refs: provider_lifecycle_evidence_refs(request),
-        transport_contract: provider_lifecycle_transport_contract(request),
+        evidence_refs: provider_lifecycle_evidence_refs(request, &subject),
+        transport_contract: provider_lifecycle_transport_contract(request, &subject),
         lifecycle_hash: String::new(),
         operation_kind,
         rust_core_boundary: "model_mount.provider_lifecycle".to_string(),
@@ -130,37 +156,222 @@ pub(super) fn plan_provider_lifecycle(
     Ok(result)
 }
 
-fn is_native_local_provider_lifecycle_backend(
+#[derive(Debug, Clone)]
+struct ProviderLifecycleSubject {
+    provider_ref: String,
+    provider_kind: String,
+    endpoint_ref: String,
+    model_ref: String,
+    api_format: Option<String>,
+    driver: Option<String>,
+    backend_ref: Option<String>,
+    provider_status: Option<String>,
+}
+
+struct ProviderLifecycleReplay {
+    providers: Vec<Value>,
+    endpoints: Vec<Value>,
+}
+
+fn resolve_provider_lifecycle_subject(
     request: &ModelMountProviderLifecycleRequest,
-) -> bool {
-    if request.execution_backend.trim() != "rust_model_mount_native_local_lifecycle" {
-        return false;
-    }
-    let provider_kind = request.provider_kind.trim();
-    let api_format = request.api_format.as_deref().unwrap_or("").trim();
-    let driver = request.driver.as_deref().unwrap_or("").trim();
-    provider_kind == "ioi_native_local" || driver == "native_local" || api_format == "ioi_native"
-}
-
-fn is_fixture_provider_lifecycle_backend(request: &ModelMountProviderLifecycleRequest) -> bool {
-    if request.execution_backend.trim() != "rust_model_mount_fixture_lifecycle" {
-        return false;
-    }
-    let provider_kind = request.provider_kind.trim();
-    let api_format = request.api_format.as_deref().unwrap_or("").trim();
-    let driver = request.driver.as_deref().unwrap_or("").trim();
-    provider_kind == "local_folder" || driver == "fixture" || api_format == "ioi_fixture"
-}
-
-fn is_hosted_provider_lifecycle_backend(request: &ModelMountProviderLifecycleRequest) -> bool {
-    if request.execution_backend.trim() != "rust_model_mount_hosted_provider_lifecycle" {
-        return false;
-    }
-    let provider_kind = request.provider_kind.trim();
-    let api_format = request.api_format.as_deref().unwrap_or("").trim();
-    let driver = request.driver.as_deref().unwrap_or("").trim();
-    matches!(
+) -> Result<ProviderLifecycleSubject, ModelMountError> {
+    let replay = provider_lifecycle_replay(request)?;
+    let provider = provider_by_ref(&replay.providers, &request.provider_ref)
+        .ok_or(ModelMountError::MissingField("state_dir.model_providers"))?;
+    let provider_ref = value_string_any(&provider, &["provider_ref", "id", "provider_id"])
+        .or_else(|| non_empty_string(&request.provider_ref))
+        .ok_or(ModelMountError::MissingField(
+            "state_dir.model_providers.provider_ref",
+        ))?;
+    let provider_kind = value_string_any(&provider, &["kind", "provider_kind", "api_format"])
+        .or_else(|| non_empty_string(&request.provider_kind))
+        .ok_or(ModelMountError::MissingField(
+            "state_dir.model_providers.kind",
+        ))?;
+    let api_format = value_string_any(&provider, &["api_format", "apiFormat"])
+        .or_else(|| request.api_format.as_deref().and_then(non_empty_string));
+    let driver = value_string_any(&provider, &["driver", "driver_ref"])
+        .or_else(|| request.driver.as_deref().and_then(non_empty_string));
+    let provider_status =
+        value_string_any(&provider, &["status", "provider_status"]).or_else(|| {
+            request
+                .provider_status
+                .as_deref()
+                .and_then(non_empty_string)
+        });
+    let endpoint = endpoint_for_provider(request, &provider_ref, &replay.endpoints);
+    let hosted_subject = is_hosted_provider_metadata_subject(
+        &provider_kind,
+        api_format.as_deref(),
+        driver.as_deref(),
+    );
+    let (endpoint_ref, model_ref, endpoint_backend_ref) = if let Some(endpoint) = endpoint {
+        let endpoint_ref = value_string_any(&endpoint, &["endpoint_ref", "id", "endpoint_id"])
+            .ok_or(ModelMountError::MissingField(
+                "state_dir.model_endpoints.endpoint_ref",
+            ))?;
+        let model_ref = value_string_any(&endpoint, &["model_ref", "model_id", "modelId"])
+            .or_else(|| non_empty_string(&request.model_ref))
+            .ok_or(ModelMountError::MissingField(
+                "state_dir.model_endpoints.model_id",
+            ))?;
+        let endpoint_backend_ref =
+            value_string_any(&endpoint, &["backend_ref", "backend_id", "backendId"]);
+        (endpoint_ref, model_ref, endpoint_backend_ref)
+    } else if hosted_subject {
+        let provider_id = record_id_segment(&provider_ref, "hosted");
+        let provider_segment = record_id_segment(&provider_kind, "hosted");
+        (
+            non_empty_string(&request.endpoint_ref)
+                .unwrap_or_else(|| format!("endpoint://{provider_id}/hosted-metadata")),
+            non_empty_string(&request.model_ref)
+                .unwrap_or_else(|| format!("model://{provider_segment}/hosted-metadata")),
+            None,
+        )
+    } else {
+        return Err(ModelMountError::MissingField("state_dir.model_endpoints"));
+    };
+    let backend_ref = endpoint_backend_ref
+        .or_else(|| value_string_any(&provider, &["backend_ref", "backend_id", "backendId"]))
+        .or_else(|| request.backend_ref.as_deref().and_then(non_empty_string))
+        .or_else(|| {
+            default_backend_for_provider(&provider_kind, api_format.as_deref(), driver.as_deref())
+        });
+    Ok(ProviderLifecycleSubject {
+        provider_ref,
         provider_kind,
+        endpoint_ref,
+        model_ref,
+        api_format,
+        driver,
+        backend_ref,
+        provider_status,
+    })
+}
+
+fn provider_lifecycle_replay(
+    request: &ModelMountProviderLifecycleRequest,
+) -> Result<ProviderLifecycleReplay, ModelMountError> {
+    Ok(ProviderLifecycleReplay {
+        providers: provider_lifecycle_replay_records(request, "providers")?,
+        endpoints: provider_lifecycle_replay_records(request, "endpoints")?,
+    })
+}
+
+fn provider_lifecycle_replay_records(
+    request: &ModelMountProviderLifecycleRequest,
+    projection_kind: &str,
+) -> Result<Vec<Value>, ModelMountError> {
+    let plan = plan_read_projection(&ModelMountReadProjectionRequest {
+        projection_kind: projection_kind.to_string(),
+        schema_version: None,
+        generated_at: None,
+        receipt_id: None,
+        engine_id: None,
+        provider_id: None,
+        download_id: None,
+        base_url: None,
+        state_dir: request.state_dir.clone(),
+        state: Value::Null,
+    })
+    .map_err(|error| {
+        ModelMountError::HashFailed(format!(
+            "model_mount_provider_lifecycle_replay_{projection_kind}: {}",
+            error.message
+        ))
+    })?;
+    match plan.projection {
+        Value::Array(records) => Ok(records),
+        _ => Err(ModelMountError::MissingField("state_dir_projection")),
+    }
+}
+
+fn endpoint_for_provider(
+    request: &ModelMountProviderLifecycleRequest,
+    provider_ref: &str,
+    endpoints: &[Value],
+) -> Option<Value> {
+    if let Some(endpoint_ref) = non_empty_string(&request.endpoint_ref) {
+        return endpoints
+            .iter()
+            .filter(|record| endpoint_is_mounted(record))
+            .find(|record| {
+                identity_matches(
+                    record,
+                    &["endpoint_ref", "id", "endpoint_id"],
+                    &endpoint_ref,
+                )
+            })
+            .cloned();
+    }
+    endpoints
+        .iter()
+        .filter(|record| endpoint_is_mounted(record))
+        .find(|record| {
+            identity_matches(
+                record,
+                &["provider_ref", "provider_id", "providerId"],
+                provider_ref,
+            )
+        })
+        .cloned()
+}
+
+fn endpoint_is_mounted(record: &Value) -> bool {
+    !matches!(
+        value_string(record, "status").as_deref(),
+        Some("unmounted") | Some("blocked")
+    )
+}
+
+fn provider_by_ref(providers: &[Value], provider_ref: &str) -> Option<Value> {
+    providers
+        .iter()
+        .find(|record| {
+            identity_matches(record, &["provider_ref", "id", "provider_id"], provider_ref)
+        })
+        .cloned()
+}
+
+fn identity_matches(record: &Value, fields: &[&str], requested: &str) -> bool {
+    let requested = requested.trim();
+    fields.iter().any(|field| {
+        value_string(record, field)
+            .as_deref()
+            .is_some_and(|value| value == requested || ref_alias_matches(value, requested))
+    })
+}
+
+fn ref_alias_matches(left: &str, right: &str) -> bool {
+    left.rsplit_once("://")
+        .map(|(_, suffix)| suffix == right)
+        .unwrap_or(false)
+        || right
+            .rsplit_once("://")
+            .map(|(_, suffix)| suffix == left)
+            .unwrap_or(false)
+}
+
+fn value_string_any(value: &Value, fields: &[&str]) -> Option<String> {
+    fields.iter().find_map(|field| value_string(value, field))
+}
+
+fn value_string(value: &Value, field: &str) -> Option<String> {
+    value
+        .as_object()
+        .and_then(|object| object.get(field))
+        .and_then(Value::as_str)
+        .and_then(non_empty_string)
+}
+
+fn is_hosted_provider_metadata_subject(
+    provider_kind: &str,
+    api_format: Option<&str>,
+    driver: Option<&str>,
+) -> bool {
+    matches!(
+        provider_kind.trim(),
         "openai"
             | "anthropic"
             | "gemini"
@@ -172,21 +383,82 @@ fn is_hosted_provider_lifecycle_backend(request: &ModelMountProviderLifecycleReq
             | "lm_studio"
             | "depin_tee"
     ) || matches!(
-        api_format,
+        api_format.unwrap_or("").trim(),
         "openai" | "anthropic" | "gemini" | "custom" | "openai_compatible" | "ollama"
     ) || matches!(
-        driver,
+        driver.unwrap_or("").trim(),
         "openai_compatible" | "hosted_provider" | "hosted_provider_metadata"
+    )
+}
+
+fn default_backend_for_provider(
+    provider_kind: &str,
+    api_format: Option<&str>,
+    driver: Option<&str>,
+) -> Option<String> {
+    if provider_kind == "ioi_native_local"
+        || driver == Some("native_local")
+        || api_format == Some("ioi_native")
+    {
+        return Some("backend.autopilot.native-local.fixture".to_string());
+    }
+    if is_hosted_provider_metadata_subject(provider_kind, api_format, driver) {
+        return Some(format!(
+            "backend.hosted.{}",
+            record_id_segment(provider_kind, "hosted")
+        ));
+    }
+    Some("backend.fixture".to_string())
+}
+
+fn is_native_local_provider_lifecycle_backend(
+    request: &ModelMountProviderLifecycleRequest,
+    subject: &ProviderLifecycleSubject,
+) -> bool {
+    if request.execution_backend.trim() != "rust_model_mount_native_local_lifecycle" {
+        return false;
+    }
+    let provider_kind = subject.provider_kind.trim();
+    let api_format = subject.api_format.as_deref().unwrap_or("").trim();
+    let driver = subject.driver.as_deref().unwrap_or("").trim();
+    provider_kind == "ioi_native_local" || driver == "native_local" || api_format == "ioi_native"
+}
+
+fn is_fixture_provider_lifecycle_backend(
+    request: &ModelMountProviderLifecycleRequest,
+    subject: &ProviderLifecycleSubject,
+) -> bool {
+    if request.execution_backend.trim() != "rust_model_mount_fixture_lifecycle" {
+        return false;
+    }
+    let provider_kind = subject.provider_kind.trim();
+    let api_format = subject.api_format.as_deref().unwrap_or("").trim();
+    let driver = subject.driver.as_deref().unwrap_or("").trim();
+    provider_kind == "local_folder" || driver == "fixture" || api_format == "ioi_fixture"
+}
+
+fn is_hosted_provider_lifecycle_backend(
+    request: &ModelMountProviderLifecycleRequest,
+    subject: &ProviderLifecycleSubject,
+) -> bool {
+    if request.execution_backend.trim() != "rust_model_mount_hosted_provider_lifecycle" {
+        return false;
+    }
+    is_hosted_provider_metadata_subject(
+        &subject.provider_kind,
+        subject.api_format.as_deref(),
+        subject.driver.as_deref(),
     )
 }
 
 fn provider_lifecycle_status(
     request: &ModelMountProviderLifecycleRequest,
+    subject: &ProviderLifecycleSubject,
 ) -> Result<String, ModelMountError> {
     match request.action.trim() {
         "health" => {
             if matches!(
-                request.provider_status.as_deref().map(str::trim),
+                subject.provider_status.as_deref().map(str::trim),
                 Some("blocked")
             ) {
                 Ok("blocked".to_string())
@@ -200,17 +472,20 @@ fn provider_lifecycle_status(
     }
 }
 
-fn provider_lifecycle_backend(request: &ModelMountProviderLifecycleRequest) -> String {
-    if is_native_local_provider_lifecycle_backend(request) {
+fn provider_lifecycle_backend(
+    request: &ModelMountProviderLifecycleRequest,
+    subject: &ProviderLifecycleSubject,
+) -> String {
+    if is_native_local_provider_lifecycle_backend(request, subject) {
         "autopilot.native_local.fixture".to_string()
-    } else if is_hosted_provider_lifecycle_backend(request) {
-        request
+    } else if is_hosted_provider_lifecycle_backend(request, subject) {
+        subject
             .api_format
             .as_deref()
             .map(str::trim)
             .filter(|value| !value.is_empty())
             .or_else(|| {
-                request
+                subject
                     .driver
                     .as_deref()
                     .map(str::trim)
@@ -219,7 +494,7 @@ fn provider_lifecycle_backend(request: &ModelMountProviderLifecycleRequest) -> S
             .unwrap_or("hosted_provider_metadata")
             .to_string()
     } else {
-        request
+        subject
             .api_format
             .as_deref()
             .map(str::trim)
@@ -229,9 +504,12 @@ fn provider_lifecycle_backend(request: &ModelMountProviderLifecycleRequest) -> S
     }
 }
 
-fn provider_lifecycle_backend_id(request: &ModelMountProviderLifecycleRequest) -> String {
-    if is_native_local_provider_lifecycle_backend(request) {
-        return request
+fn provider_lifecycle_backend_id(
+    request: &ModelMountProviderLifecycleRequest,
+    subject: &ProviderLifecycleSubject,
+) -> String {
+    if is_native_local_provider_lifecycle_backend(request, subject) {
+        return subject
             .backend_ref
             .as_deref()
             .map(str::trim)
@@ -239,8 +517,8 @@ fn provider_lifecycle_backend_id(request: &ModelMountProviderLifecycleRequest) -
             .unwrap_or("backend.autopilot.native-local.fixture")
             .to_string();
     }
-    if is_hosted_provider_lifecycle_backend(request) {
-        return request
+    if is_hosted_provider_lifecycle_backend(request, subject) {
+        return subject
             .backend_ref
             .as_deref()
             .map(str::trim)
@@ -249,11 +527,11 @@ fn provider_lifecycle_backend_id(request: &ModelMountProviderLifecycleRequest) -
             .unwrap_or_else(|| {
                 format!(
                     "backend.hosted.{}",
-                    record_id_segment(&request.provider_kind, "hosted")
+                    record_id_segment(&subject.provider_kind, "hosted")
                 )
             });
     }
-    request
+    subject
         .backend_ref
         .as_deref()
         .map(str::trim)
@@ -262,23 +540,31 @@ fn provider_lifecycle_backend_id(request: &ModelMountProviderLifecycleRequest) -
         .to_string()
 }
 
-fn provider_lifecycle_driver(request: &ModelMountProviderLifecycleRequest) -> String {
-    if is_native_local_provider_lifecycle_backend(request) {
+fn provider_lifecycle_driver(
+    request: &ModelMountProviderLifecycleRequest,
+    subject: &ProviderLifecycleSubject,
+) -> String {
+    if is_native_local_provider_lifecycle_backend(request, subject) {
         "native_local".to_string()
-    } else if is_hosted_provider_lifecycle_backend(request) {
+    } else if is_hosted_provider_lifecycle_backend(request, subject) {
         "hosted_provider_metadata".to_string()
     } else {
         "fixture".to_string()
     }
 }
 
-fn provider_lifecycle_evidence_refs(request: &ModelMountProviderLifecycleRequest) -> Vec<String> {
+fn provider_lifecycle_evidence_refs(
+    request: &ModelMountProviderLifecycleRequest,
+    subject: &ProviderLifecycleSubject,
+) -> Vec<String> {
     let mut refs = vec![
         "public_provider_lifecycle_js_facade_retired".to_string(),
         "rust_model_mount_provider_lifecycle".to_string(),
         "agentgres_provider_lifecycle_truth_required".to_string(),
+        "agentgres_provider_lifecycle_topology_replay_required".to_string(),
+        "model_mount_provider_lifecycle_candidate_transport_retired".to_string(),
     ];
-    if is_native_local_provider_lifecycle_backend(request) {
+    if is_native_local_provider_lifecycle_backend(request, subject) {
         refs.push("rust_model_mount_native_local_lifecycle_backend".to_string());
         if matches!(request.action.trim(), "health" | "load") {
             refs.push("autopilot_native_local_backend_registry".to_string());
@@ -287,7 +573,7 @@ fn provider_lifecycle_evidence_refs(request: &ModelMountProviderLifecycleRequest
             refs.push("autopilot_native_local_process_supervisor".to_string());
         }
         refs.push("deterministic_native_local_fixture".to_string());
-    } else if is_hosted_provider_lifecycle_backend(request) {
+    } else if is_hosted_provider_lifecycle_backend(request, subject) {
         refs.push("rust_model_mount_hosted_provider_lifecycle_backend".to_string());
         refs.push("rust_hosted_provider_metadata_transport_materialized".to_string());
         refs.push("ctee_hosted_provider_secret_not_exposed".to_string());
@@ -308,28 +594,32 @@ fn provider_lifecycle_evidence_refs(request: &ModelMountProviderLifecycleRequest
     refs
 }
 
-fn provider_lifecycle_transport_contract(request: &ModelMountProviderLifecycleRequest) -> Value {
-    let (materialization_kind, containment_ref) = if is_hosted_provider_lifecycle_backend(request) {
-        (
-            "hosted_provider_metadata_lifecycle",
-            "ctee://model_mount/hosted_provider_lifecycle",
-        )
-    } else if is_native_local_provider_lifecycle_backend(request) {
-        (
-            "native_local_lifecycle",
-            "ctee://model_mount/native_local_lifecycle",
-        )
-    } else {
-        ("fixture_lifecycle", "ctee://model_mount/fixture_lifecycle")
-    };
+fn provider_lifecycle_transport_contract(
+    request: &ModelMountProviderLifecycleRequest,
+    subject: &ProviderLifecycleSubject,
+) -> Value {
+    let (materialization_kind, containment_ref) =
+        if is_hosted_provider_lifecycle_backend(request, subject) {
+            (
+                "hosted_provider_metadata_lifecycle",
+                "ctee://model_mount/hosted_provider_lifecycle",
+            )
+        } else if is_native_local_provider_lifecycle_backend(request, subject) {
+            (
+                "native_local_lifecycle",
+                "ctee://model_mount/native_local_lifecycle",
+            )
+        } else {
+            ("fixture_lifecycle", "ctee://model_mount/fixture_lifecycle")
+        };
     json!({
         "transport_execution_status": "rust_materialized",
         "transport_execution_owner": "rust_daemon_core.model_mount.provider_lifecycle",
         "transport_materialization_kind": materialization_kind,
         "containment_ref": containment_ref,
-        "provider_ref": &request.provider_ref,
-        "endpoint_ref": &request.endpoint_ref,
-        "model_ref": &request.model_ref,
+        "provider_ref": &subject.provider_ref,
+        "endpoint_ref": &subject.endpoint_ref,
+        "model_ref": &subject.model_ref,
         "action": &request.action,
         "plaintext_secret_material_returned": false,
     })
@@ -513,8 +803,182 @@ fn non_empty_vec(values: &[String]) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
+    use std::{fs, path::Path};
 
-    fn provider_lifecycle_request() -> ModelMountProviderLifecycleRequest {
+    fn write_json_record(
+        state_dir: &Path,
+        record_dir: &str,
+        file_name: &str,
+        record: serde_json::Value,
+    ) {
+        let dir = state_dir.join(record_dir);
+        fs::create_dir_all(&dir).expect("record dir");
+        fs::write(
+            dir.join(file_name),
+            serde_json::to_string_pretty(&record).expect("record json"),
+        )
+        .expect("write record");
+    }
+
+    fn seeded_provider_lifecycle_state_dir() -> tempfile::TempDir {
+        let temp = tempfile::tempdir().expect("provider lifecycle state dir");
+        write_json_record(
+            temp.path(),
+            "model-providers",
+            "ioi-native-local.json",
+            json!({
+                "id": "ioi-native-local",
+                "record_id": "ioi-native-local",
+                "provider_id": "ioi-native-local",
+                "provider_ref": "provider://ioi-native-local",
+                "schema_version": "ioi.model_mount.provider_control.v1",
+                "object": "ioi.model_mount_provider",
+                "status": "configured",
+                "operation_kind": "model_mount.provider.write",
+                "source": "rust_daemon_core.model_mount.provider_control",
+                "kind": "ioi_native_local",
+                "api_format": "ioi_native",
+                "driver": "native_local",
+                "backend_id": "backend.autopilot.native-local.fixture",
+                "rust_core_boundary": "model_mount.provider_control",
+                "plaintext_material_returned": false,
+                "control_hash": "sha256:control:ioi-native-local",
+                "evidence_refs": [
+                    "rust_daemon_core_provider_control",
+                    "agentgres_provider_control_truth_required",
+                    "public_provider_control_js_facade_retired"
+                ]
+            }),
+        );
+        write_json_record(
+            temp.path(),
+            "model-providers",
+            "fixture.json",
+            json!({
+                "id": "fixture",
+                "record_id": "fixture",
+                "provider_id": "fixture",
+                "provider_ref": "provider://fixture",
+                "schema_version": "ioi.model_mount.provider_control.v1",
+                "object": "ioi.model_mount_provider",
+                "status": "configured",
+                "operation_kind": "model_mount.provider.write",
+                "source": "rust_daemon_core.model_mount.provider_control",
+                "kind": "local_folder",
+                "api_format": "ioi_fixture",
+                "driver": "fixture",
+                "backend_id": "backend.fixture",
+                "rust_core_boundary": "model_mount.provider_control",
+                "plaintext_material_returned": false,
+                "control_hash": "sha256:control:fixture",
+                "evidence_refs": [
+                    "rust_daemon_core_provider_control",
+                    "agentgres_provider_control_truth_required",
+                    "public_provider_control_js_facade_retired"
+                ]
+            }),
+        );
+        write_json_record(
+            temp.path(),
+            "model-providers",
+            "openai.json",
+            json!({
+                "id": "openai",
+                "record_id": "openai",
+                "provider_id": "openai",
+                "provider_ref": "provider://openai",
+                "schema_version": "ioi.model_mount.provider_control.v1",
+                "object": "ioi.model_mount_provider",
+                "status": "configured",
+                "operation_kind": "model_mount.provider.write",
+                "source": "rust_daemon_core.model_mount.provider_control",
+                "kind": "custom_http",
+                "api_format": "openai_compatible",
+                "driver": "hosted_provider_metadata",
+                "backend_id": "backend.hosted.custom_http",
+                "rust_core_boundary": "model_mount.provider_control",
+                "plaintext_material_returned": false,
+                "control_hash": "sha256:control:openai",
+                "evidence_refs": [
+                    "rust_daemon_core_provider_control",
+                    "agentgres_provider_control_truth_required",
+                    "public_provider_control_js_facade_retired"
+                ]
+            }),
+        );
+        write_json_record(
+            temp.path(),
+            "model-endpoints",
+            "ioi-native-local-qwen3.json",
+            json!({
+                "id": "endpoint://ioi-native-local/qwen3",
+                "record_id": "endpoint://ioi-native-local/qwen3",
+                "endpoint_id": "endpoint://ioi-native-local/qwen3",
+                "schema_version": "ioi.model_mount.artifact_endpoint.v1",
+                "object": "ioi.model_mount_endpoint",
+                "status": "mounted",
+                "operation_kind": "model_mount.endpoint.mount",
+                "source": "runtime-daemon.model_mounting.artifact_endpoint",
+                "provider_id": "ioi-native-local",
+                "provider_ref": "provider://ioi-native-local",
+                "provider_kind": "ioi_native_local",
+                "api_format": "ioi_native",
+                "driver": "native_local",
+                "model_id": "model://qwen/qwen3.5-9b",
+                "backend_id": "backend.autopilot.native-local.fixture",
+                "privacy_class": "local_private",
+                "plaintext_transport_material_returned": false,
+                "mounted_at": "2026-06-13T00:00:00.000Z",
+                "rust_core_boundary": "model_mount.artifact_endpoint",
+                "control_hash": "sha256:control:ioi-native-local-qwen3",
+                "authority_hash": "sha256:authority:ioi-native-local-qwen3",
+                "evidence_refs": [
+                    "public_artifact_endpoint_js_facade_retired",
+                    "rust_daemon_core_artifact_endpoint",
+                    "agentgres_artifact_endpoint_truth_required",
+                    "rust_daemon_core_model_endpoint_mount"
+                ]
+            }),
+        );
+        write_json_record(
+            temp.path(),
+            "model-endpoints",
+            "fixture-qwen3.json",
+            json!({
+                "id": "endpoint://fixture/qwen3",
+                "record_id": "endpoint://fixture/qwen3",
+                "endpoint_id": "endpoint://fixture/qwen3",
+                "schema_version": "ioi.model_mount.artifact_endpoint.v1",
+                "object": "ioi.model_mount_endpoint",
+                "status": "mounted",
+                "operation_kind": "model_mount.endpoint.mount",
+                "source": "runtime-daemon.model_mounting.artifact_endpoint",
+                "provider_id": "fixture",
+                "provider_ref": "provider://fixture",
+                "provider_kind": "local_folder",
+                "api_format": "ioi_fixture",
+                "driver": "fixture",
+                "model_id": "model://fixture/qwen3",
+                "backend_id": "backend.fixture",
+                "privacy_class": "local_private",
+                "plaintext_transport_material_returned": false,
+                "mounted_at": "2026-06-13T00:00:00.000Z",
+                "rust_core_boundary": "model_mount.artifact_endpoint",
+                "control_hash": "sha256:control:fixture-qwen3",
+                "authority_hash": "sha256:authority:fixture-qwen3",
+                "evidence_refs": [
+                    "public_artifact_endpoint_js_facade_retired",
+                    "rust_daemon_core_artifact_endpoint",
+                    "agentgres_artifact_endpoint_truth_required",
+                    "rust_daemon_core_model_endpoint_mount"
+                ]
+            }),
+        );
+        temp
+    }
+
+    fn provider_lifecycle_request(state_dir: &Path) -> ModelMountProviderLifecycleRequest {
         ModelMountProviderLifecycleRequest {
             schema_version: MODEL_MOUNT_PROVIDER_LIFECYCLE_SCHEMA_VERSION.to_string(),
             provider_ref: "provider://ioi-native-local".to_string(),
@@ -533,10 +997,15 @@ mod tests {
             source: Some("test".to_string()),
             generated_at: Some("2026-06-13T00:00:00.000Z".to_string()),
             receipt_refs: vec!["receipt://provider-lifecycle".to_string()],
+            state_dir: Some(state_dir.to_string_lossy().to_string()),
+            provider: Value::Null,
+            endpoint: Value::Null,
+            providers: Vec::new(),
+            endpoints: Vec::new(),
         }
     }
 
-    fn fixture_provider_lifecycle_request() -> ModelMountProviderLifecycleRequest {
+    fn fixture_provider_lifecycle_request(state_dir: &Path) -> ModelMountProviderLifecycleRequest {
         ModelMountProviderLifecycleRequest {
             schema_version: MODEL_MOUNT_PROVIDER_LIFECYCLE_SCHEMA_VERSION.to_string(),
             provider_ref: "provider://fixture".to_string(),
@@ -555,12 +1024,18 @@ mod tests {
             source: Some("test".to_string()),
             generated_at: Some("2026-06-13T00:00:00.000Z".to_string()),
             receipt_refs: vec![],
+            state_dir: Some(state_dir.to_string_lossy().to_string()),
+            provider: Value::Null,
+            endpoint: Value::Null,
+            providers: Vec::new(),
+            endpoints: Vec::new(),
         }
     }
 
     #[test]
     fn provider_lifecycle_child_module_owns_planner_surface() {
-        let result = plan_provider_lifecycle(&provider_lifecycle_request())
+        let temp = seeded_provider_lifecycle_state_dir();
+        let result = plan_provider_lifecycle(&provider_lifecycle_request(temp.path()))
             .expect("native-local provider lifecycle planned in Rust");
 
         assert_eq!(
@@ -590,7 +1065,8 @@ mod tests {
 
     #[test]
     fn native_local_provider_lifecycle_is_planned_in_rust_model_mount() {
-        let mut request = provider_lifecycle_request();
+        let temp = seeded_provider_lifecycle_state_dir();
+        let mut request = provider_lifecycle_request(temp.path());
         request.action = "unload".to_string();
         request.evidence_refs.clear();
 
@@ -609,7 +1085,8 @@ mod tests {
 
     #[test]
     fn native_local_provider_health_lifecycle_is_planned_in_rust_model_mount() {
-        let mut request = provider_lifecycle_request();
+        let temp = seeded_provider_lifecycle_state_dir();
+        let mut request = provider_lifecycle_request(temp.path());
         request.action = "health".to_string();
         request.evidence_refs = vec!["daemon_native_local_health_request".to_string()];
         request.process_evidence_refs.clear();
@@ -638,7 +1115,8 @@ mod tests {
 
     #[test]
     fn fixture_provider_lifecycle_is_planned_in_rust_model_mount() {
-        let mut request = fixture_provider_lifecycle_request();
+        let temp = seeded_provider_lifecycle_state_dir();
+        let mut request = fixture_provider_lifecycle_request(temp.path());
 
         let result =
             plan_provider_lifecycle(&request).expect("fixture provider health planned in Rust");
@@ -668,6 +1146,7 @@ mod tests {
 
     #[test]
     fn hosted_provider_lifecycle_materializes_contained_metadata_transport_in_rust() {
+        let temp = seeded_provider_lifecycle_state_dir();
         let request = ModelMountProviderLifecycleRequest {
             schema_version: MODEL_MOUNT_PROVIDER_LIFECYCLE_SCHEMA_VERSION.to_string(),
             provider_ref: "provider://openai".to_string(),
@@ -686,6 +1165,11 @@ mod tests {
             source: Some("test".to_string()),
             generated_at: Some("2026-06-14T00:00:00.000Z".to_string()),
             receipt_refs: vec![],
+            state_dir: Some(temp.path().to_string_lossy().to_string()),
+            provider: Value::Null,
+            endpoint: Value::Null,
+            providers: Vec::new(),
+            endpoints: Vec::new(),
         };
 
         let result = plan_provider_lifecycle(&request)
@@ -747,7 +1231,8 @@ mod tests {
 
     #[test]
     fn native_local_provider_lifecycle_rejects_unsupported_backend_and_action() {
-        let mut request = provider_lifecycle_request();
+        let temp = seeded_provider_lifecycle_state_dir();
+        let mut request = provider_lifecycle_request(temp.path());
         request.execution_backend = "daemon_js".to_string();
 
         let error = plan_provider_lifecycle(&request)
@@ -755,11 +1240,48 @@ mod tests {
 
         assert_eq!(error, ModelMountError::UnsupportedProviderLifecycleBackend);
 
-        request = provider_lifecycle_request();
+        request = provider_lifecycle_request(temp.path());
         request.action = "restart".to_string();
         let error = plan_provider_lifecycle(&request)
             .expect_err("lifecycle planner only supports explicit health/load/unload actions");
 
         assert_eq!(error, ModelMountError::UnsupportedProviderLifecycleAction);
+    }
+
+    #[test]
+    fn rust_core_rejects_provider_lifecycle_candidate_transport() {
+        let temp = seeded_provider_lifecycle_state_dir();
+
+        let mut request = provider_lifecycle_request(temp.path());
+        request.provider = json!({"id": "provider.candidate"});
+        assert_eq!(
+            plan_provider_lifecycle(&request)
+                .expect_err("provider candidate transport must stay retired"),
+            ModelMountError::MissingField("retired_provider")
+        );
+
+        let mut request = provider_lifecycle_request(temp.path());
+        request.endpoint = json!({"id": "endpoint.candidate"});
+        assert_eq!(
+            plan_provider_lifecycle(&request)
+                .expect_err("endpoint candidate transport must stay retired"),
+            ModelMountError::MissingField("retired_endpoint")
+        );
+
+        let mut request = provider_lifecycle_request(temp.path());
+        request.providers = vec![json!({"id": "provider.candidate"})];
+        assert_eq!(
+            plan_provider_lifecycle(&request)
+                .expect_err("provider list candidate transport must stay retired"),
+            ModelMountError::MissingField("retired_providers")
+        );
+
+        let mut request = provider_lifecycle_request(temp.path());
+        request.endpoints = vec![json!({"id": "endpoint.candidate"})];
+        assert_eq!(
+            plan_provider_lifecycle(&request)
+                .expect_err("endpoint list candidate transport must stay retired"),
+            ModelMountError::MissingField("retired_endpoints")
+        );
     }
 }

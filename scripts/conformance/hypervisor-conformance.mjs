@@ -3251,10 +3251,10 @@ function runDocs() {
   assertCheck(
     result,
     "matrix-model-mount-route-row-current-blockers-reconciled",
-    /Move remaining deeper wallet\/cTEE route authority and revocation policy, conversation\/provider replay depth where still adapter-shaped, and stable SDK\/IDE\/CLI protocol APIs over Rust records/.test(
+    /Move remaining deeper wallet\/cTEE route authority and revocation policy, conversation replay depth where still adapter-shaped, and stable SDK\/IDE\/CLI protocol APIs over Rust records/.test(
       modelMountingRouteRow,
     ) &&
-      /Move remaining deeper wallet\/cTEE route authority and revocation policy, conversation\/provider replay depth where still adapter-shaped, and stable Workbench\/CLI\/SDK protocol APIs over Rust records/.test(
+      /Move remaining deeper wallet\/cTEE route authority and revocation policy, conversation replay depth where still adapter-shaped, and stable Workbench\/CLI\/SDK protocol APIs over Rust records/.test(
         modelMountingCoreBoundaryRow,
       ) &&
       /Hosted download materialization is Rust-owned/.test(
@@ -26619,8 +26619,24 @@ function runReceipts() {
       /function planProviderLifecycle\(state,\s*provider,\s*options = \{\}\)/.test(providerOperations) &&
       /modelMountProviderLifecycleRequest\(state,\s*provider,\s*options\)/.test(providerOperations) &&
       /state\.planModelMountProviderLifecycle\(request\)/.test(providerOperations) &&
-      /providerLifecycleEndpointForState\(state,\s*provider\)/.test(providerOperations) &&
-      /modelMountProjectionRecords\(state,\s*"listEndpoints"\)/.test(providerOperations) &&
+      !/providerLifecycleSubject/.test(providerOperations) &&
+      !/providerLifecycleEndpointForState/.test(providerOperations) &&
+      /state_dir:\s*requireProviderLifecycleMountedStateDir/.test(providerOperations) &&
+      /model_mount_provider_lifecycle_state_dir_required/.test(providerOperations) &&
+      /agentgres_provider_lifecycle_topology_replay_required/.test(providerOperations) &&
+      /model_mount_provider_lifecycle_candidate_transport_retired/.test(providerOperations) &&
+      /pub state_dir: Option<String>/.test(rustModelMountCore) &&
+      /ModelMountReadProjectionRequest/.test(rustModelMountCore) &&
+      /retired_provider/.test(rustModelMountCore) &&
+      /retired_endpoint/.test(rustModelMountCore) &&
+      /retired_providers/.test(rustModelMountCore) &&
+      /retired_endpoints/.test(rustModelMountCore) &&
+      /rust_core_rejects_provider_lifecycle_candidate_transport/.test(rustModelMountCore) &&
+      /agentgres_provider_lifecycle_topology_replay_required/.test(rustModelMountCore) &&
+      /model_mount_provider_lifecycle_candidate_transport_retired/.test(rustModelMountCore) &&
+      /Slice 1419 hard-cuts model_mount provider-lifecycle topology candidate\s+transport/.test(guide) &&
+      /provider-lifecycle topology replay Rust contract/.test(matrix) &&
+      /RuntimeDaemonCoreModelMountProviderLifecycleTopologyReplayAuthority/.test(implementationMatrix) &&
       !/\[\.\.\.\(state\.endpoints\?\.values/.test(providerOperations) &&
       /assertRustAuthoredProviderLifecycleResult\(result,\s*options\)/.test(providerOperations) &&
       /model_mount\.provider\.health/.test(providerOperations) &&
@@ -26681,12 +26697,24 @@ function runReceipts() {
       /local provider health uses Rust native-local lifecycle planner without JS driver/.test(
         read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
       ) &&
-      /provider lifecycle ignores map-only endpoints before Rust planning/.test(
+      /provider lifecycle sends state_dir and Rust replay rejects map-only endpoints/.test(
         read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
       ) &&
-      /assert\.deepEqual\(state\.modelMountLifecycleRequests,\s*\[\]\)/.test(
+      /state\.modelMountLifecycleRequests\[0\]\.state_dir,\s*state\.stateDir/.test(
         read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
       ) &&
+      /state\.modelMountLifecycleRequests\[0\]\.provider_kind,\s*""/.test(
+        read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
+      ) &&
+      /state\.modelMountLifecycleRequests\[0\]\.endpoint_ref,\s*""/.test(
+        read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
+      ) &&
+      /state\.modelMountLifecycleRequests\[0\]\.model_ref,\s*""/.test(
+        read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
+      ) &&
+      /model_mount_provider_lifecycle_replay_required/.test(providerOperationsTest) &&
+      /state_dir\.model_endpoints/.test(providerOperationsTest) &&
+      !/js_provider_driver_call:\s*false/.test(providerOperationsTest) &&
       /local provider health fails closed when Rust lifecycle planner is unavailable/.test(
         read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
       ) &&
@@ -40843,27 +40871,22 @@ function runCompositor() {
   assertCheck(
     result,
     "tauri-active-runtime-paths-retired",
-    /internal-docs/.test(runtimeActionContractsGenerator) &&
-      /legacy/.test(runtimeActionContractsGenerator) &&
-      /autopilot-tauri-src/.test(runtimeActionContractsGenerator) &&
+    /"crates",\s*"types",\s*"src",\s*"app",\s*"generated"/s.test(runtimeActionContractsGenerator) &&
+      !/autopilot-tauri-src/.test(runtimeActionContractsGenerator) &&
       !/"apps",\s*"autopilot",\s*"src-tauri",\s*"src",\s*"generated"/s.test(
         runtimeActionContractsGenerator,
       ) &&
       /activeTauriRuntimeProjection/.test(preNextLegReadiness) &&
-      /internal-docs\/legacy\/autopilot-tauri-src\/src\/runtime_projection\.rs/.test(
-        preNextLegReadiness,
-      ) &&
-      /internal-docs\/legacy\/autopilot-tauri-src\/src\/generated\/runtime_action_schema\.rs/.test(
-        preNextLegReadiness,
-      ) &&
+      !/autopilot-tauri-src/.test(preNextLegReadiness) &&
+      /crates\/types\/src\/app\/generated\/runtime_action_schema\.rs/.test(preNextLegReadiness) &&
       /const activeTauriSrc = "apps\/hypervisor\/src-tauri\/src"/.test(
         runtimeLayoutCheck,
       ) &&
-      /const legacyTauriSrc = "internal-docs\/legacy\/autopilot-tauri-src\/src"/.test(
+      /const legacyTauriArchive = "internal-docs\/legacy\/autopilot-tauri-src"/.test(
         runtimeLayoutCheck,
       ) &&
       /!exists\(activeTauriSrc\)/.test(runtimeLayoutCheck) &&
-      /Tauri Rust projection must stay legacy-only/.test(runtimeLayoutCheck) &&
+      /Tauri Rust projection must stay retired/.test(runtimeLayoutCheck) &&
       /desktop-probes-no-tauri-product-language/.test(runtimeLayoutCheck) &&
       /not describe a Tauri app/.test(runtimeLayoutCheck) &&
       /desktop-probes-no-ide-product-marker/.test(runtimeLayoutCheck) &&

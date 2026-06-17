@@ -31,6 +31,92 @@ function fakeProviderInventoryItemRefs(request = {}) {
   return [`model://${provider}/hosted-catalog`];
 }
 
+function fakeLifecycleText(value) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function fakeLifecycleValue(record, fields) {
+  for (const field of fields) {
+    const value = fakeLifecycleText(record?.[field]);
+    if (value) return value;
+  }
+  return null;
+}
+
+function fakeLifecycleRefSuffix(value) {
+  const text = fakeLifecycleText(value);
+  if (!text) return null;
+  return text.includes("://") ? text.split("://").pop() : text;
+}
+
+function fakeLifecycleRefMatches(candidate, requested) {
+  const left = fakeLifecycleText(candidate);
+  const right = fakeLifecycleText(requested);
+  if (!left || !right) return false;
+  return left === right || fakeLifecycleRefSuffix(left) === right || fakeLifecycleRefSuffix(right) === left;
+}
+
+function fakeLifecycleSafeId(value, fallback = "hosted") {
+  return String(value ?? fallback).replace(/[^a-z0-9._-]+/gi, "_").replace(/^_+|_+$/g, "") || fallback;
+}
+
+function fakeLifecycleProviderForRequest(state, request) {
+  const requested = fakeLifecycleText(request.provider_ref);
+  for (const [key, provider] of state.providers.entries()) {
+    const providerRef = provider?.provider_ref ?? `provider://${provider?.id ?? key}`;
+    const candidates = [key, provider?.id, provider?.provider_id, providerRef];
+    if (candidates.some((candidate) => fakeLifecycleRefMatches(candidate, requested))) return provider;
+  }
+  return null;
+}
+
+function fakeLifecycleEndpointForProvider(state, request, provider, providerRef) {
+  const requestedEndpoint = fakeLifecycleText(request.endpoint_ref);
+  const providerId = fakeLifecycleRefSuffix(providerRef) ?? provider?.id ?? provider?.provider_id ?? null;
+  return state.endpointProjectionRecords.find((endpoint) => {
+    if (["blocked", "unmounted"].includes(endpoint?.status)) return false;
+    if (requestedEndpoint) {
+      return [endpoint?.endpoint_ref, endpoint?.endpoint_id, endpoint?.id].some((candidate) =>
+        fakeLifecycleRefMatches(candidate, requestedEndpoint)
+      );
+    }
+    return [endpoint?.provider_ref, endpoint?.provider_id, endpoint?.providerId].some((candidate) =>
+      fakeLifecycleRefMatches(candidate, providerRef) || fakeLifecycleRefMatches(candidate, providerId)
+    );
+  }) ?? null;
+}
+
+function fakeHostedProviderMetadataSubject(providerKind, apiFormat, driver) {
+  return [
+    "openai",
+    "anthropic",
+    "gemini",
+    "openrouter",
+    "mistral",
+    "cohere",
+    "perplexity",
+    "custom_http",
+    "openai_compatible",
+    "ollama",
+    "lm_studio",
+    "depin_tee",
+  ].includes(providerKind) ||
+    ["openai", "anthropic", "gemini", "custom", "openai_compatible", "ollama"].includes(apiFormat) ||
+    ["openai_compatible", "hosted_provider", "hosted_provider_metadata"].includes(driver);
+}
+
+function fakeLifecycleError(code, details = {}) {
+  const error = new Error("Rust model_mount provider lifecycle replay failed.");
+  error.status = 500;
+  error.code = code;
+  error.details = {
+    rust_core_boundary: "model_mount.provider_lifecycle",
+    rust_core_api: "plan_model_mount_provider_lifecycle",
+    ...details,
+  };
+  throw error;
+}
+
 function fakeState() {
   const state = {
     artifacts: new Map(),
@@ -285,32 +371,68 @@ function fakeState() {
       this.modelMountLifecycleRequests.push(JSON.parse(JSON.stringify(request)));
       const nativeLocal = request.execution_backend === "rust_model_mount_native_local_lifecycle";
       const hostedProvider = request.execution_backend === "rust_model_mount_hosted_provider_lifecycle";
+      const provider = fakeLifecycleProviderForRequest(this, request);
+      if (!provider) {
+        fakeLifecycleError("model_mount_provider_lifecycle_replay_required", {
+          missing: ["state_dir.model_providers"],
+          provider_ref: request.provider_ref,
+        });
+      }
+      const resolvedProviderRef = fakeLifecycleValue(provider, ["provider_ref", "id", "provider_id"]) ?? request.provider_ref;
+      const providerRef = resolvedProviderRef.startsWith("provider://")
+        ? resolvedProviderRef
+        : `provider://${resolvedProviderRef}`;
+      const providerKind = fakeLifecycleValue(provider, ["kind", "provider_kind", "api_format", "apiFormat"]) ??
+        request.provider_kind;
+      const apiFormat = fakeLifecycleValue(provider, ["api_format", "apiFormat"]) ?? request.api_format;
+      const providerDriver = fakeLifecycleValue(provider, ["driver", "driver_ref"]) ?? request.driver;
+      const providerStatus = fakeLifecycleValue(provider, ["status", "provider_status"]) ?? request.provider_status;
+      const endpoint = fakeLifecycleEndpointForProvider(this, request, provider, providerRef);
+      const hostedSubject = fakeHostedProviderMetadataSubject(providerKind, apiFormat, providerDriver);
+      if (!endpoint && !hostedSubject) {
+        fakeLifecycleError("model_mount_provider_lifecycle_replay_required", {
+          missing: ["state_dir.model_endpoints"],
+          provider_ref: providerRef,
+        });
+      }
+      const rawEndpointRef = endpoint
+        ? fakeLifecycleValue(endpoint, ["endpoint_ref", "endpoint_id", "id"])
+        : `endpoint://${fakeLifecycleSafeId(fakeLifecycleRefSuffix(providerRef), "hosted")}/hosted-metadata`;
+      const endpointRef = rawEndpointRef.startsWith("endpoint://") ? rawEndpointRef : `endpoint://${rawEndpointRef}`;
+      const rawModelRef = endpoint
+        ? fakeLifecycleValue(endpoint, ["model_ref", "model_id", "modelId"])
+        : `model://${fakeLifecycleSafeId(providerKind, "hosted")}/hosted-metadata`;
+      const modelRef = rawModelRef.startsWith("model://") ? rawModelRef : `model://${rawModelRef}`;
       const status = request.action === "load"
         ? "loaded"
         : request.action === "unload"
           ? "unloaded"
-          : request.provider_status === "blocked"
+          : providerStatus === "blocked"
             ? "blocked"
             : "available";
-      const backendId = request.backend_ref ?? (nativeLocal
+      const backendId = fakeLifecycleValue(endpoint, ["backend_ref", "backend_id", "backendId"]) ??
+        fakeLifecycleValue(provider, ["backend_ref", "backend_id", "backendId"]) ??
+        request.backend_ref ?? (nativeLocal
         ? "backend.autopilot.native-local.fixture"
         : hostedProvider
-          ? `backend.hosted.${request.provider_kind}`
+          ? `backend.hosted.${fakeLifecycleSafeId(providerKind)}`
           : "backend.fixture");
       const backend = nativeLocal
         ? "autopilot.native_local.fixture"
         : hostedProvider
-          ? (request.api_format ?? request.driver ?? "hosted_provider_metadata")
+          ? (apiFormat ?? providerDriver ?? "hosted_provider_metadata")
           : "ioi_fixture";
       const driver = nativeLocal
         ? "native_local"
         : hostedProvider
           ? "hosted_provider_metadata"
-          : "fixture";
+          : (providerDriver ?? "fixture");
       const evidenceRefs = [
         "public_provider_lifecycle_js_facade_retired",
         "rust_model_mount_provider_lifecycle",
         "agentgres_provider_lifecycle_truth_required",
+        "agentgres_provider_lifecycle_topology_replay_required",
+        "model_mount_provider_lifecycle_candidate_transport_retired",
         nativeLocal
           ? "rust_model_mount_native_local_lifecycle_backend"
           : hostedProvider
@@ -337,28 +459,33 @@ function fakeState() {
       };
       const record = {
         ...request,
+        provider_ref: providerRef,
+        provider_kind: providerKind,
+        endpoint_ref: endpointRef,
+        model_ref: modelRef,
+        api_format: apiFormat,
         operation_kind: request.operation_kind,
         status,
         backend,
         backend_id: backendId,
         driver,
-        lifecycle_hash: `sha256:${request.provider_ref}:${request.action}`,
+        lifecycle_hash: `sha256:${providerRef}:${request.action}`,
         evidence_refs: evidenceRefs,
         transport_contract: transportContract,
         rust_core_boundary: "model_mount.provider_lifecycle",
         record_dir: "model-provider-lifecycle-controls",
         receipt_refs: [],
       };
-      const recordId = `provider_lifecycle_${request.provider_ref.replace(/[^a-z0-9._-]+/gi, "_").replace(/^_+|_+$/g, "")}_${request.action}_test`;
+      const recordId = `provider_lifecycle_${providerRef.replace(/[^a-z0-9._-]+/gi, "_").replace(/^_+|_+$/g, "")}_${request.action}_test`;
       const providerLifecycleRecord = {
         id: recordId,
         record_id: recordId,
         object: "ioi.model_mount_provider_lifecycle",
         schema_version: "ioi.model_mount.provider_lifecycle_plan.v1",
-        provider_ref: request.provider_ref,
-        provider_kind: request.provider_kind,
-        endpoint_ref: request.endpoint_ref,
-        model_ref: request.model_ref,
+        provider_ref: providerRef,
+        provider_kind: providerKind,
+        endpoint_ref: endpointRef,
+        model_ref: modelRef,
         action: request.action,
         operation_kind: request.operation_kind,
         status,
@@ -375,16 +502,16 @@ function fakeState() {
         record_dir: "model-provider-lifecycle-controls",
         receipt_refs: [record.lifecycle_hash],
         rust_core_boundary: "model_mount.provider_lifecycle",
-        source: "rust_model_mount_provider_lifecycle_command",
+        source: "rust_daemon_core.model_mount.provider_lifecycle",
         evidence_refs: record.evidence_refs,
       };
       const publicResponse = {
         object: "ioi.model_mount_provider_lifecycle",
         status,
-        provider_ref: request.provider_ref,
-        provider_kind: request.provider_kind,
-        endpoint_ref: request.endpoint_ref,
-        model_ref: request.model_ref,
+        provider_ref: providerRef,
+        provider_kind: providerKind,
+        endpoint_ref: endpointRef,
+        model_ref: modelRef,
         action: request.action,
         backend_id: backendId,
         provider_backend: record.backend,
@@ -395,17 +522,13 @@ function fakeState() {
         lifecycle_hash: record.lifecycle_hash,
         transport_contract: transportContract,
         transport_execution_status: "rust_materialized",
-        js_provider_driver_call: false,
-        js_provider_map_write: false,
-        js_lifecycle_receipt: false,
-        js_projection_write: false,
       };
       providerLifecycleRecord.public_response = publicResponse;
       record.record_id = recordId;
       record.record = providerLifecycleRecord;
       record.public_response = publicResponse;
       return {
-        source: "rust_model_mount_provider_lifecycle_command",
+        source: "rust_daemon_core.model_mount.provider_lifecycle",
         backend: request.execution_backend,
         result: record,
         status,
@@ -1030,12 +1153,20 @@ test("provider health commits Rust provider-lifecycle record without JS driver, 
   assert.equal(state.modelMountLifecycleRequests.length, 1);
   assert.equal(state.modelMountLifecycleRequests[0].schema_version, "ioi.model_mount.provider_lifecycle.v1");
   assert.equal(state.modelMountLifecycleRequests[0].provider_ref, "provider://provider.fixture");
-  assert.equal(state.modelMountLifecycleRequests[0].provider_kind, "fixture");
-  assert.equal(state.modelMountLifecycleRequests[0].endpoint_ref, "endpoint://endpoint.fixture");
-  assert.equal(state.modelMountLifecycleRequests[0].model_ref, "model://local:auto");
+  assert.equal(state.modelMountLifecycleRequests[0].provider_kind, "");
+  assert.equal(state.modelMountLifecycleRequests[0].endpoint_ref, "");
+  assert.equal(state.modelMountLifecycleRequests[0].model_ref, "");
+  assert.equal(state.modelMountLifecycleRequests[0].api_format, null);
+  assert.equal(state.modelMountLifecycleRequests[0].driver, null);
+  assert.equal(state.modelMountLifecycleRequests[0].backend_ref, null);
+  assert.equal(state.modelMountLifecycleRequests[0].provider_status, null);
+  assert.equal(state.modelMountLifecycleRequests[0].state_dir, state.stateDir);
   assert.equal(state.modelMountLifecycleRequests[0].action, "health");
   assert.equal(state.modelMountLifecycleRequests[0].execution_backend, "rust_model_mount_fixture_lifecycle");
   assert.equal(result.status, "available");
+  assert.equal(result.record.provider_kind, "fixture");
+  assert.equal(result.record.endpoint_ref, "endpoint://endpoint.fixture");
+  assert.equal(result.record.model_ref, "model://local:auto");
   assert.equal(result.result.action, "health");
   assert.equal(result.executionBackend, "rust_model_mount_fixture_lifecycle");
   assert.equal(result.operation_kind, "model_mount.provider.health");
@@ -1043,7 +1174,7 @@ test("provider health commits Rust provider-lifecycle record without JS driver, 
   assert.equal(result.record_dir, "model-provider-lifecycle-controls");
   assert.equal(result.record.object, "ioi.model_mount_provider_lifecycle");
   assert.equal(result.record.rust_core_boundary, "model_mount.provider_lifecycle");
-  assert.equal(result.public_response.js_provider_driver_call, false);
+  assert.equal(Object.hasOwn(result.public_response, "js_provider_driver_call"), false);
   assert.equal(result.commit.record_id, result.record_id);
   assert.equal(result.evidence_refs.includes("rust_model_mount_provider_lifecycle"), true);
   assert.equal(result.evidence_refs.includes("agentgres_provider_lifecycle_truth_required"), true);
@@ -1093,12 +1224,19 @@ test("hosted provider health commits Rust metadata lifecycle records without JS 
   assert.equal(healthCalls, 0);
   assert.equal(state.modelMountLifecycleRequests.length, 1);
   assert.equal(state.modelMountLifecycleRequests[0].execution_backend, "rust_model_mount_hosted_provider_lifecycle");
-  assert.equal(state.modelMountLifecycleRequests[0].endpoint_ref, "endpoint://provider.remote/hosted-metadata");
-  assert.equal(state.modelMountLifecycleRequests[0].model_ref, "model://custom_http/hosted-metadata");
+  assert.equal(state.modelMountLifecycleRequests[0].state_dir, state.stateDir);
+  assert.equal(state.modelMountLifecycleRequests[0].provider_kind, "");
+  assert.equal(state.modelMountLifecycleRequests[0].endpoint_ref, "");
+  assert.equal(state.modelMountLifecycleRequests[0].model_ref, "");
+  assert.equal(state.modelMountLifecycleRequests[0].api_format, null);
+  assert.equal(state.modelMountLifecycleRequests[0].driver, null);
+  assert.equal(state.modelMountLifecycleRequests[0].backend_ref, null);
+  assert.equal(result.record.endpoint_ref, "endpoint://provider.remote/hosted-metadata");
+  assert.equal(result.record.model_ref, "model://custom_http/hosted-metadata");
   assert.equal(result.status, "available");
   assert.equal(result.executionBackend, "rust_model_mount_hosted_provider_lifecycle");
   assert.equal(result.driver, "hosted_provider_metadata");
-  assert.equal(result.public_response.js_provider_driver_call, false);
+  assert.equal(Object.hasOwn(result.public_response, "js_provider_driver_call"), false);
   assert.equal(result.evidence_refs.includes("rust_model_mount_hosted_provider_lifecycle_backend"), true);
   assert.equal(result.evidence_refs.includes("rust_hosted_provider_metadata_transport_materialized"), true);
   assert.equal(result.evidence_refs.includes("hosted_provider_transport_not_executed"), false);
@@ -1256,6 +1394,10 @@ test("local provider health uses Rust native-local lifecycle planner without JS 
   assert.equal(state.modelMountLifecycleRequests.length, 1);
   assert.equal(state.modelMountLifecycleRequests[0].action, "health");
   assert.equal(state.modelMountLifecycleRequests[0].execution_backend, "rust_model_mount_native_local_lifecycle");
+  assert.equal(state.modelMountLifecycleRequests[0].state_dir, state.stateDir);
+  assert.equal(state.modelMountLifecycleRequests[0].provider_kind, "");
+  assert.equal(state.modelMountLifecycleRequests[0].endpoint_ref, "");
+  assert.equal(state.modelMountLifecycleRequests[0].model_ref, "");
   assert.equal(result.status, "available");
   assert.equal(result.executionBackend, "rust_model_mount_native_local_lifecycle");
   assert.equal(result.result.driver, "native_local");
@@ -1269,7 +1411,7 @@ test("local provider health uses Rust native-local lifecycle planner without JS 
   assert.equal(state.projections, 0);
 });
 
-test("provider lifecycle ignores map-only endpoints before Rust planning", async () => {
+test("provider lifecycle sends state_dir and Rust replay rejects map-only endpoints", async () => {
   const state = fakeState();
   state.providers.set("provider.local", {
     id: "provider.local",
@@ -1288,15 +1430,18 @@ test("provider lifecycle ignores map-only endpoints before Rust planning", async
   await assert.rejects(
     () => providerHealth(state, "provider.local"),
     (error) => {
-      assert.equal(error.code, "model_mount_provider_health_rust_core_required");
-      assert.equal(error.details.operation, "provider_health");
-      assert.equal(error.details.operation_kind, "model_mount.provider.health");
-      assert.deepEqual(error.details.missing, ["endpoint_ref", "model_ref"]);
-      assert.equal(Object.hasOwn(error.details, "endpointId"), false);
+      assert.equal(error.code, "model_mount_provider_lifecycle_replay_required");
+      assert.equal(error.details.rust_core_boundary, "model_mount.provider_lifecycle");
+      assert.equal(error.details.rust_core_api, "plan_model_mount_provider_lifecycle");
+      assert.deepEqual(error.details.missing, ["state_dir.model_endpoints"]);
       return true;
     },
   );
-  assert.deepEqual(state.modelMountLifecycleRequests, []);
+  assert.equal(state.modelMountLifecycleRequests.length, 1);
+  assert.equal(state.modelMountLifecycleRequests[0].state_dir, state.stateDir);
+  assert.equal(state.modelMountLifecycleRequests[0].provider_kind, "");
+  assert.equal(state.modelMountLifecycleRequests[0].endpoint_ref, "");
+  assert.equal(state.modelMountLifecycleRequests[0].model_ref, "");
   assert.deepEqual(state.recordStateCommits, []);
   assert.deepEqual(state.receipts, []);
 });
@@ -1313,6 +1458,12 @@ test("local provider health fails closed when Rust lifecycle planner is unavaila
     discovery: { evidenceRefs: ["native_provider"] },
   });
   state.endpoints.set("endpoint.local", {
+    id: "endpoint.local",
+    providerId: "provider.local",
+    modelId: "autopilot:native-fixture",
+    status: "mounted",
+  });
+  state.endpointProjectionRecords.push({
     id: "endpoint.local",
     providerId: "provider.local",
     modelId: "autopilot:native-fixture",
@@ -1843,8 +1994,8 @@ test("hosted provider start and stop commit Rust metadata lifecycle records with
   assert.equal(stopResult.status, "unloaded");
   assert.equal(startResult.executionBackend, "rust_model_mount_hosted_provider_lifecycle");
   assert.equal(stopResult.executionBackend, "rust_model_mount_hosted_provider_lifecycle");
-  assert.equal(startResult.public_response.js_provider_driver_call, false);
-  assert.equal(stopResult.public_response.js_provider_driver_call, false);
+  assert.equal(Object.hasOwn(startResult.public_response, "js_provider_driver_call"), false);
+  assert.equal(Object.hasOwn(stopResult.public_response, "js_provider_driver_call"), false);
   assert.equal(startResult.evidence_refs.includes("rust_model_mount_hosted_provider_lifecycle_backend"), true);
   assert.equal(stopResult.evidence_refs.includes("rust_hosted_provider_metadata_transport_materialized"), true);
   assert.equal(stopResult.evidence_refs.includes("hosted_provider_transport_not_executed"), false);
@@ -1908,6 +2059,14 @@ test("local provider start and stop commit Rust native-local provider-lifecycle 
   assert.deepEqual(
     state.modelMountLifecycleRequests.map((request) => request.execution_backend),
     ["rust_model_mount_native_local_lifecycle", "rust_model_mount_native_local_lifecycle"],
+  );
+  assert.deepEqual(
+    state.modelMountLifecycleRequests.map((request) => request.state_dir),
+    [state.stateDir, state.stateDir],
+  );
+  assert.deepEqual(
+    state.modelMountLifecycleRequests.map((request) => request.endpoint_ref),
+    ["", ""],
   );
   assert.equal(startResult.status, "loaded");
   assert.equal(startResult.result.action, "load");

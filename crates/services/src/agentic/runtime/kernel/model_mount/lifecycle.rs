@@ -135,6 +135,7 @@ mod tests {
 
     #[test]
     fn rust_core_plans_model_mount_provider_lifecycle_direct_api() {
+        let temp = seeded_instance_lifecycle_state_dir();
         let request: ModelMountProviderLifecycleRequest = serde_json::from_value(json!({
             "schema_version": MODEL_MOUNT_PROVIDER_LIFECYCLE_SCHEMA_VERSION,
             "provider_ref": "provider.autopilot.local",
@@ -147,7 +148,8 @@ mod tests {
             "driver": "native_local",
             "backend_ref": "backend.autopilot.native-local.fixture",
             "evidence_refs": ["daemon_model_load_request"],
-            "process_evidence_refs": ["autopilot_native_local_process_started"]
+            "process_evidence_refs": ["autopilot_native_local_process_started"],
+            "state_dir": temp.path().to_string_lossy().to_string()
         }))
         .expect("native-local lifecycle request");
 

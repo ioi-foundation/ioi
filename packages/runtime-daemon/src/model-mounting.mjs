@@ -4996,24 +4996,24 @@ function modelMountProviderLifecycleRequest(state, provider, options = {}) {
       unsupported_provider_lifecycle_backend: true,
     });
   }
-  const subject = providerLifecycleSubject(state, provider, { operation, operation_kind, endpoint: options.endpoint });
   return {
     schema_version: MODEL_MOUNT_PROVIDER_LIFECYCLE_SCHEMA_VERSION,
     provider_ref: provider?.provider_ref ?? `provider://${provider?.id}`,
-    provider_kind: provider?.kind ?? "",
-    endpoint_ref: subject.endpoint_ref,
-    model_ref: subject.model_ref,
+    provider_kind: "",
+    endpoint_ref: "",
+    model_ref: "",
     action,
     execution_backend: executionBackend,
-    api_format: provider?.api_format ?? provider?.apiFormat ?? null,
-    driver: provider?.driver ?? null,
-    backend_ref: subject.backend_ref,
-    provider_status: provider?.status ?? null,
+    api_format: null,
+    driver: null,
+    backend_ref: null,
+    provider_status: null,
     evidence_refs: providerLifecycleEvidenceRefs(provider, operation),
     process_evidence_refs: [],
     operation_kind,
     source: "runtime-daemon.model_mounting.provider_lifecycle",
     generated_at: typeof state.nowIso === "function" ? state.nowIso() : null,
+    state_dir: requireProviderLifecycleMountedStateDir(state, operation_kind),
     receipt_refs: uniqueModelMountRefs(
       Array.isArray(options.receipt_refs)
         ? options.receipt_refs
@@ -5046,49 +5046,6 @@ function providerLifecycleExecutionBackend(provider = {}, options = {}) {
 function hostedProviderLifecycleMetadataOperation(options = {}) {
   const operationKind = String(options.operation_kind ?? "").trim();
   return operationKind === "model_mount.provider.lifecycle" || operationKind.startsWith("model_mount.provider.");
-}
-
-function providerLifecycleSubject(state, provider, options = {}) {
-  const endpoint = options.endpoint ?? providerLifecycleEndpointForState(state, provider);
-  const modelRef = endpoint?.model_ref ?? endpoint?.modelId ?? endpoint?.model_id ?? null;
-  if (!endpoint || !endpoint.id || !modelRef || String(modelRef).trim().toLowerCase() === "auto") {
-    if (hostedProviderMetadata(provider)) {
-      const providerId = String(provider?.id ?? provider?.provider_id ?? "hosted").trim() || "hosted";
-      const providerKind = String(provider?.kind ?? provider?.api_format ?? provider?.apiFormat ?? "hosted").trim() || "hosted";
-      return {
-        endpoint_ref: provider?.endpoint_ref ?? `endpoint://${providerId}/hosted-metadata`,
-        model_ref: provider?.model_ref ?? `model://${providerKind}/hosted-metadata`,
-        backend_ref: provider?.backend_ref ?? provider?.backend_id ?? provider?.backendId ?? `backend.hosted.${safeId(providerKind)}`,
-      };
-    }
-    throwProviderLifecycleRustCoreRequired(provider, options.operation ?? "provider_lifecycle", {
-      operation_kind: options.operation_kind ?? "model_mount.provider.lifecycle",
-      missing: [
-        ...(!endpoint || !endpoint.id ? ["endpoint_ref"] : []),
-        ...(!modelRef || String(modelRef).trim().toLowerCase() === "auto" ? ["model_ref"] : []),
-      ],
-    });
-  }
-  return {
-    endpoint_ref: endpoint.endpoint_ref ?? `endpoint://${endpoint.id}`,
-    model_ref: endpoint.model_ref ?? `model://${modelRef}`,
-    backend_ref: endpoint.backend_ref ?? endpoint.backendId ?? provider?.backend_ref ?? null,
-  };
-}
-
-function providerLifecycleEndpointForState(state, provider) {
-  const providerId = String(provider?.id ?? provider?.provider_id ?? "").trim();
-  const providerRef = String(provider?.provider_ref ?? (providerId ? `provider://${providerId}` : "")).trim();
-  if (!providerId && !providerRef) return null;
-  return modelMountProjectionRecords(state, "listEndpoints").find(
-    (candidate) =>
-      candidate?.status !== "unmounted" &&
-      (
-        candidate?.providerId === providerId ||
-        candidate?.provider_id === providerId ||
-        candidate?.provider_ref === providerRef
-      ),
-  ) ?? null;
 }
 
 function providerLifecycleEvidenceRefs(provider = {}, operation) {
@@ -5959,6 +5916,29 @@ function requireRouteControlMountedStateDir(state, operation_kind) {
         "model_mount_route_control_rust_owned",
         "agentgres_route_topology_replay_required",
         "model_mount_route_candidate_transport_retired",
+      ],
+    },
+  });
+}
+
+function requireProviderLifecycleMountedStateDir(state, operation_kind) {
+  const stateDir = typeof state?.stateDir === "string" && state.stateDir.trim()
+    ? state.stateDir.trim()
+    : null;
+  if (stateDir) return stateDir;
+  throw runtimeError({
+    status: 500,
+    code: "model_mount_provider_lifecycle_state_dir_required",
+    message:
+      "Model provider lifecycle requires daemon Agentgres state_dir replay before provider lifecycle truth can return.",
+    details: {
+      operation_kind,
+      rust_core_boundary: "model_mount.provider_lifecycle",
+      rust_core_api: "plan_model_mount_provider_lifecycle",
+      evidence_refs: [
+        "rust_model_mount_provider_lifecycle",
+        "agentgres_provider_lifecycle_topology_replay_required",
+        "model_mount_provider_lifecycle_candidate_transport_retired",
       ],
     },
   });
