@@ -32,8 +32,29 @@ assert.match(
 
 assert.match(
   source,
-  /const pathname = window\.location\.pathname\.toLowerCase\(\);[\s\S]*pathname === "\/sessions" \|\| pathname\.startsWith\("\/sessions\/"\)[\s\S]*return "sessions";/,
-  "the dedicated /sessions route should boot into the Sessions surface before pending-launch hydration runs",
+  /function resolvePathnamePrimaryView\(pathname: string\): PrimaryView \| null \{[\s\S]*segment === "ai"[\s\S]*return "home";[\s\S]*isSupportedInitialPrimaryView\(segment\) \? segment : null;/,
+  "canonical Hypervisor paths should boot into their owning surface before pending-launch hydration runs",
+);
+
+for (const route of [
+  "/sessions",
+  "/projects",
+  "/automations",
+  "/insights",
+  "/models",
+  "/providers",
+]) {
+  assert.match(
+    mainSource,
+    new RegExp(`"${route.replace("/", "\\/")}"`),
+    `${route} should be an explicit Hypervisor product route`,
+  );
+}
+
+assert.doesNotMatch(
+  source,
+  /pathname === "\/sessions" \|\| pathname\.startsWith\("\/sessions\/"\)/,
+  "surface routing should not preserve the old /sessions-only boot special case",
 );
 
 assert.match(
@@ -52,12 +73,6 @@ assert.match(
   source,
   /candidate\.source\?\.serviceName === "Hypervisor" &&[\s\S]*candidate\.source\.workflowName === "workflow" &&[\s\S]*\(candidate\.sessionId \|\| candidate\.threadId\)[\s\S]*return;/,
   "chat-bound Hypervisor workflow notifications should stay in the Chat UX instead of opening separate pill/native notification surfaces",
-);
-
-assert.match(
-  mainSource,
-  /<Route path="\/sessions" element=\{<HypervisorShellWindow \/>\} \/>/,
-  "the canonical /sessions route should render the Hypervisor shell",
 );
 
 assert.match(

@@ -92,30 +92,55 @@ type RuntimeCatalogStageEntry = {
 
 const appliedChatLaunchIds = new Set<string>();
 
-function resolveInitialPrimaryView(): PrimaryView {
-  const supportedRequestedViews: PrimaryView[] = [
-    "home",
-    "sessions",
-    "projects",
-    "missions",
-    "workbench",
-    "automations",
-    "insights",
-    "agents",
-    "models",
-    "privacy",
-    "providers",
-    "environments",
-    "foundry",
-    "authority",
-    "receipts",
-    "settings",
-  ];
+const HYPERVISOR_PATH_PRIMARY_VIEWS: readonly PrimaryView[] = [
+  "home",
+  "sessions",
+  "projects",
+  "missions",
+  "workbench",
+  "automations",
+  "insights",
+  "agents",
+  "models",
+  "privacy",
+  "providers",
+  "environments",
+  "foundry",
+  "authority",
+  "receipts",
+  "settings",
+];
 
+function isSupportedInitialPrimaryView(value: string | null): value is PrimaryView {
+  return Boolean(
+    value &&
+      HYPERVISOR_PATH_PRIMARY_VIEWS.includes(value.toLowerCase() as PrimaryView),
+  );
+}
+
+function resolvePathnamePrimaryView(pathname: string): PrimaryView | null {
+  const segment = pathname
+    .toLowerCase()
+    .replace(/^\/+/, "")
+    .split("/")[0]
+    ?.trim();
+
+  if (!segment) {
+    return null;
+  }
+
+  if (segment === "ai") {
+    return "home";
+  }
+
+  return isSupportedInitialPrimaryView(segment) ? segment : null;
+}
+
+function resolveInitialPrimaryView(): PrimaryView {
   if (typeof window !== "undefined") {
     const requested = new URLSearchParams(window.location.search).get("view");
-    if (supportedRequestedViews.includes(requested as PrimaryView)) {
-      return requested as PrimaryView;
+    if (isSupportedInitialPrimaryView(requested)) {
+      return requested;
     }
   }
 
@@ -123,14 +148,14 @@ function resolveInitialPrimaryView(): PrimaryView {
     .toString()
     .trim()
     .toLowerCase();
-  if (supportedRequestedViews.includes(envRequestedView as PrimaryView)) {
-    return envRequestedView as PrimaryView;
+  if (isSupportedInitialPrimaryView(envRequestedView)) {
+    return envRequestedView;
   }
 
   if (typeof window !== "undefined") {
-    const pathname = window.location.pathname.toLowerCase();
-    if (pathname === "/sessions" || pathname.startsWith("/sessions/")) {
-      return "sessions";
+    const pathnameView = resolvePathnamePrimaryView(window.location.pathname);
+    if (pathnameView) {
+      return pathnameView;
     }
   }
 

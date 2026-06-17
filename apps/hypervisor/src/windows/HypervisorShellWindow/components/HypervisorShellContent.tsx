@@ -32,6 +32,10 @@ import type { PrimaryView } from "../hypervisorShellModel";
 import {
   HYPERVISOR_AUTOMATION_COMPOSITOR_PROJECTION_FIXTURE,
   loadHypervisorAutomationCompositorProjection,
+  type HypervisorAutomationCompositorProjection,
+  type HypervisorAutomationRun,
+  type HypervisorAutomationRunStatus,
+  type HypervisorAutomationTemplate,
 } from "../hypervisorAutomationCompositorModel";
 import {
   HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE,
@@ -296,117 +300,191 @@ function HypervisorAutomationCompositorSurface({
     };
   }, [currentProjectId]);
 
+  const completedRuns = projection.runs.filter(
+    (run) => run.status === "completed",
+  ).length;
+  const failedRuns = projection.runs.filter((run) =>
+    ["blocked"].includes(run.status),
+  ).length;
+  const rowTemplates = projection.templates.slice(0, 5);
+  const suggestedTemplates = projection.templates.slice().reverse().slice(0, 5);
+
   return (
     <section
-      className="hypervisor-automation-compositor"
+      className="hypervisor-automation-compositor hypervisor-automation-compositor--ioi-reference"
       aria-label="Automation compositor projection"
       data-hypervisor-automation-compositor={projection.projection_id}
       data-automation-compositor-source={projection.source}
       data-runtime-truth-source={projection.runtimeTruthSource}
       data-workflow-compositor-surface={workflowSurface}
     >
-      <div className="hypervisor-automation-compositor__header">
-        <span>Automations</span>
-        <h2>Workflow templates, compositor graphs, and reusable run recipes.</h2>
-        <p>{projection.compositor_boundary_invariant}</p>
-      </div>
+      <header className="hypervisor-automation-compositor__topbar">
+        <h2>Automations</h2>
+        <button type="button" className="hypervisor-automation-compositor__new">
+          <span aria-hidden="true">+</span>
+          <span>New</span>
+        </button>
+      </header>
 
-      <div
-        className="hypervisor-automation-compositor__summary"
-        aria-label="Automation compositor summary"
-      >
-        <div>
-          <span>Templates</span>
-          <strong>{projection.workflow_template_refs.length}</strong>
-        </div>
-        <div>
-          <span>Run recipes</span>
-          <strong>{projection.run_recipe_refs.length}</strong>
-        </div>
-        <div>
-          <span>Graphs</span>
-          <strong>{projection.graph_refs.length}</strong>
-        </div>
-        <div>
-          <span>Receipts</span>
-          <strong>{projection.latest_receipt_refs.length}</strong>
-        </div>
-      </div>
+      <div className="hypervisor-automation-compositor__layout">
+        <main className="hypervisor-automation-compositor__main">
+          <div
+            className="hypervisor-automation-compositor__metrics"
+            aria-label="Automation compositor summary"
+          >
+            <AutomationMetric
+              active
+              label="Total Automations"
+              value={projection.workflow_template_refs.length}
+            />
+            <AutomationMetric label="Successful - 7d" value={completedRuns} />
+            <AutomationMetric label="Failed - 7d" value={failedRuns} />
+          </div>
 
-      <div className="hypervisor-automation-compositor__grid">
-        <section aria-label="Workflow templates">
-          <h3>Templates</h3>
-          {projection.templates.map((template) => (
-            <article
+          <div
+            className="hypervisor-automation-compositor__filters"
+            aria-label="Automation filters"
+          >
+            <label>
+              <span aria-hidden="true">Search</span>
+              <input type="search" placeholder="Search..." />
+            </label>
+            <button type="button">Status: All</button>
+            <button type="button">Sort: Recently completed</button>
+            <div role="group" aria-label="Automation ownership filter">
+              <button type="button" className="is-active">
+                Yours ({projection.templates.length})
+              </button>
+              <button type="button">All ({projection.runs.length})</button>
+            </div>
+          </div>
+
+          <section
+            className="hypervisor-automation-compositor__table"
+            aria-label="Workflow templates"
+          >
+            {rowTemplates.map((template, index) => {
+              const run = findAutomationRunForTemplate(projection, template);
+              return (
+                <article
+                  key={template.template_ref}
+                  className="hypervisor-automation-compositor__row"
+                  data-workflow-template-ref={template.template_ref}
+                  data-workflow-graph-ref={template.graph_ref}
+                  data-workflow-run-status={run?.status ?? "draft"}
+                >
+                  <span className="hypervisor-automation-compositor__row-icon">
+                    {index === 0 ? ">" : "[]"}
+                  </span>
+                  <div className="hypervisor-automation-compositor__row-copy">
+                    <strong>{template.label}</strong>
+                    <em>{formatAutomationRunState(run)}</em>
+                  </div>
+                  <button
+                    type="button"
+                    className="hypervisor-automation-compositor__row-run"
+                  >
+                    Run
+                  </button>
+                  <button
+                    type="button"
+                    className="hypervisor-automation-compositor__row-menu"
+                    aria-label={`Open ${template.label} automation actions`}
+                  >
+                    ...
+                  </button>
+                </article>
+              );
+            })}
+          </section>
+        </main>
+
+        <aside
+          className="hypervisor-automation-compositor__suggested"
+          aria-label="Suggested templates"
+        >
+          <div className="hypervisor-automation-compositor__suggested-heading">
+            <h3>Suggested templates</h3>
+            <p>Try these automations for common autonomous-work workflows.</p>
+          </div>
+          {suggestedTemplates.map((template) => (
+            <button
+              type="button"
               key={template.template_ref}
-              className="hypervisor-automation-compositor__card"
-              data-workflow-template-ref={template.template_ref}
-              data-workflow-graph-ref={template.graph_ref}
+              className="hypervisor-automation-compositor__suggested-card"
+              data-workflow-template-suggestion={template.template_ref}
             >
-              <div>
-                <span>{template.recipe_ref}</span>
-                <h4>{template.label}</h4>
-                <p>{template.description}</p>
-              </div>
-              <dl>
-                <div>
-                  <dt>Scopes</dt>
-                  <dd>{template.required_scope_refs.join(", ")}</dd>
-                </div>
-                <div>
-                  <dt>Model route</dt>
-                  <dd>{template.model_route_policy_ref}</dd>
-                </div>
-                <div>
-                  <dt>Receipt policy</dt>
-                  <dd>{template.receipt_policy_ref}</dd>
-                </div>
-              </dl>
-            </article>
+              <span className="hypervisor-automation-compositor__suggested-icon">
+                {template.label.slice(0, 1)}
+              </span>
+              <span>
+                <strong>{template.label}</strong>
+                <em>{template.description}</em>
+              </span>
+              <span aria-hidden="true">&gt;</span>
+            </button>
           ))}
-        </section>
-
-        <section aria-label="Workflow runs">
-          <h3>Runs</h3>
-          {projection.runs.map((run) => (
-            <article
-              key={run.run_ref}
-              className="hypervisor-automation-compositor__card"
-              data-workflow-run-ref={run.run_ref}
-              data-workflow-run-status={run.status}
-            >
-              <div>
-                <span>{run.status}</span>
-                <h4>{run.template_ref}</h4>
-                <p>{run.action_proposal_ref}</p>
-              </div>
-              <dl>
-                <div>
-                  <dt>Agentgres op</dt>
-                  <dd>{run.agentgres_operation_ref}</dd>
-                </div>
-                <div>
-                  <dt>State root</dt>
-                  <dd>{run.state_root_ref}</dd>
-                </div>
-                <div>
-                  <dt>Receipt</dt>
-                  <dd>{run.latest_receipt_ref}</dd>
-                </div>
-              </dl>
-            </article>
-          ))}
-        </section>
+        </aside>
       </div>
 
       <div
         className="hypervisor-automation-compositor__editor"
         data-workflow-compositor-editor-boundary="projection-client"
+        hidden
       >
         {children}
       </div>
     </section>
   );
+}
+
+function AutomationMetric({
+  active = false,
+  label,
+  value,
+}: {
+  active?: boolean;
+  label: string;
+  value: number;
+}) {
+  return (
+    <div
+      className={clsx("hypervisor-automation-compositor__metric", {
+        "is-active": active,
+      })}
+    >
+      <span>{label}</span>
+      <strong>{value}</strong>
+      {active ? (
+        <svg aria-hidden="true" viewBox="0 0 112 42" preserveAspectRatio="none">
+          <path d="M1 31 L19 7 L38 31 L56 8 L75 31 L94 8 L111 31" />
+        </svg>
+      ) : null}
+    </div>
+  );
+}
+
+function findAutomationRunForTemplate(
+  projection: HypervisorAutomationCompositorProjection,
+  template: HypervisorAutomationTemplate,
+): HypervisorAutomationRun | undefined {
+  return projection.runs.find((run) => run.template_ref === template.template_ref);
+}
+
+function formatAutomationStatus(status: HypervisorAutomationRunStatus): string {
+  if (status === "completed") return "Successful";
+  if (status === "blocked") return "Failed";
+  if (status === "running") return "Running";
+  if (status === "scheduled") return "Scheduled";
+  if (status === "ready") return "Ready";
+  return "Never ran";
+}
+
+function formatAutomationRunState(run: HypervisorAutomationRun | undefined): string {
+  if (!run || run.status === "draft") {
+    return "Never ran";
+  }
+  return formatAutomationStatus(run.status);
 }
 
 function HypervisorSessionOperationsCockpit({

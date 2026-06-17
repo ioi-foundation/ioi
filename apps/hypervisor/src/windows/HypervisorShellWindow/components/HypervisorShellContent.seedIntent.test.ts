@@ -5,6 +5,10 @@ const source = fs.readFileSync(
   new URL("./HypervisorShellContent.tsx", import.meta.url),
   "utf8",
 );
+const shellCss = fs.readFileSync(
+  new URL("../styles/hypervisor-shell/shell-base.css", import.meta.url),
+  "utf8",
+);
 
 assert.match(
   source,
@@ -77,6 +81,36 @@ assert.doesNotMatch(
   chatConversationSurfaceSource,
   /id: "search"/,
   "sidebar chat should not add a separate search control that competes with the Hypervisor command center",
+);
+
+assert.match(
+  source,
+  /className="hypervisor-automation-compositor hypervisor-automation-compositor--ioi-reference"/,
+  "Automations should use the IOI-reference operator console shell",
+);
+
+assert.match(
+  source,
+  /className="hypervisor-automation-compositor__metrics"[\s\S]*className="hypervisor-automation-compositor__filters"[\s\S]*className="hypervisor-automation-compositor__table"[\s\S]*className="hypervisor-automation-compositor__suggested"/,
+  "Automations should render metrics, filters, table rows, and the suggested-template rail",
+);
+
+assert.match(
+  source,
+  /data-workflow-compositor-editor-boundary="projection-client"[\s\S]*hidden/,
+  "the legacy compositor child should remain mounted as a boundary artifact without becoming the default visible surface",
+);
+
+assert.match(
+  shellCss,
+  /\.hypervisor-automation-compositor--ioi-reference\s*\{[\s\S]*background: #ffffff;[\s\S]*font-family:[\s\S]*"ABC Diatype"/,
+  "Automations should share the IOI-reference light workplane and typography",
+);
+
+assert.match(
+  shellCss,
+  /\.hypervisor-automation-compositor__layout\s*\{[\s\S]*grid-template-columns: minmax\(0, 1fr\) 310px;[\s\S]*\.hypervisor-automation-compositor__table\s*\{[\s\S]*border-radius: 12px;/,
+  "Automations should keep the reference main-column plus suggested-template rail layout",
 );
 
 console.log("HypervisorShellContent.seedIntent.test.ts: ok");

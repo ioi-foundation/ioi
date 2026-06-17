@@ -52,6 +52,27 @@ function DisabledPillRoute() {
   return null;
 }
 
+const HYPERVISOR_PRIMARY_ROUTES = [
+  "/",
+  "/home",
+  "/ai",
+  "/sessions",
+  "/projects",
+  "/missions",
+  "/workbench",
+  "/automations",
+  "/insights",
+  "/agents",
+  "/models",
+  "/privacy",
+  "/providers",
+  "/environments",
+  "/foundry",
+  "/authority",
+  "/receipts",
+  "/settings",
+];
+
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <BrowserRouter>
@@ -61,8 +82,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         <Route path="/workspace-preview" element={<WorkspaceWorkbenchPreview />} />
         <Route path="/chat-session" element={<LegacyChatSessionRedirect />} />
         <Route path="/gate" element={<GateWindow />} />
-        <Route path="/sessions" element={<HypervisorShellWindow />} />
-        <Route path="/" element={<HypervisorShellWindow />} />
+        {HYPERVISOR_PRIMARY_ROUTES.map((path) => (
+          <Route key={path} path={path} element={<HypervisorShellWindow />} />
+        ))}
         <Route path="*" element={<HypervisorShellWindow />} />
       </Routes>
     </BrowserRouter>
