@@ -143,7 +143,7 @@ function createStudioOperationalSurface(deps) {
             ${studioCompactRuntimeStatusRows()}
           </section>
           <form class="studio-composer" data-testid="studio-composer" data-studio-prompt-form>
-            <div class="studio-tauri-composer" data-testid="studio-tauri-composer">
+            <div class="studio-workbench-composer" data-testid="studio-workbench-composer">
               <div class="studio-composer-context-row" data-testid="studio-composer-context-row">
                 <button type="button" data-testid="studio-add-context" class="studio-context-btn" data-command="ioi.quickInput.context.open">
                   <span class="studio-context-btn__icon" aria-hidden="true">${renderNativeChatIcon("paperclip")}</span>

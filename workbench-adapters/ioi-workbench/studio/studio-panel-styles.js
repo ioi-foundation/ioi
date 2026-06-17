@@ -1233,7 +1233,7 @@ function studioPanelStyles() {
         background: #050505;
         padding: 10px 24px 14px;
       }
-      .studio-tauri-composer {
+      .studio-workbench-composer {
         width: min(760px, 100%);
         margin: 0 auto;
         border: 1px solid #6a6a6a;
@@ -1248,7 +1248,7 @@ function studioPanelStyles() {
         min-height: 24px;
         margin-bottom: 6px;
       }
-      .studio-tauri-composer textarea {
+      .studio-workbench-composer textarea {
         min-height: 48px;
         max-height: 170px;
         border: 0;

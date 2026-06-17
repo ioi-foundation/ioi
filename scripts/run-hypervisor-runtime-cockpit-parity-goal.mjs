@@ -604,7 +604,7 @@ async function activeComposerState(frame) {
   return frame.evaluate(() => {
     const input = document.querySelector("[data-testid='studio-composer-input']");
     const composer = document.querySelector("[data-testid='studio-composer']");
-    const dock = document.querySelector("[data-testid='studio-tauri-composer']");
+    const dock = document.querySelector("[data-testid='studio-workbench-composer']");
     const active = document.activeElement;
     const inputStyle = input ? getComputedStyle(input) : null;
     const composerStyle = composer ? getComputedStyle(composer) : null;
