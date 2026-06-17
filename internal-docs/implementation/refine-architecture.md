@@ -132,8 +132,8 @@ Top implementation-pressure discoveries:
 | 1 | Hypervisor needs the Core/client/surface/adapter taxonomy everywhere. | Prevents the old "Hypervisor IDE" or "CLI/TUI" framing from collapsing product clients, app surfaces, external harnesses, and runtime truth into one bucket. |
 | 2 | Hypervisor App should become the reference operator cockpit, not a VS Code/IDE shell. | The current UX opens into code-repository/OpenVSCode gravity; the target is one Core with sessions, projects, surfaces, adapters, model mounts, authority, privacy, and receipts. |
 | 3 | `WalletAuthorityCore` should become the reusable authority kernel; Wallet UI is one presentation. | Prevents all Web3/Web4 apps from inheriting a heavy finance console. |
-| 4 | Broad autonomous labor needs first-class ontology and integration-surface canon, not only a plan doc. | aiagent still reads as "portable digital workers" while edge cases include games, Discord, finance, robotics, and embodied systems. |
-| 5 | Physical/embodied action needs a canonical safety envelope owner. | `physical_action` appears as a risk class, but robotics-grade objects are still plan-level. |
+| 4 | Broad autonomous labor needs first-class ontology and integration-surface canon, not only a plan doc. | This is now canonized through the aiagent ontology docs and worker-package install admission; live marketplace endpoints remain the adoption frontier. |
+| 5 | Physical/embodied action needs a canonical safety envelope owner. | This is now canonized through Physical Action Safety and daemon admission; live actuator adapters remain the adoption frontier. |
 | 6 | cTEE must expose lane selection for user privacy, model-weight privacy, and provider trust separately. | Harness/workspace privacy is not the same as protecting proprietary model weights. |
 | 7 | Long-lived managed instances need lapse, archive, restore, and context-custody semantics. | Years-long agents and subscription lapses cannot rely on generic "persistent" wording. |
 
@@ -154,11 +154,11 @@ ExecutionPrivacyPosture for every model/provider route.
 | Game hires an agent for one hour with tiny repeated payments | Wallet session approvals and aiagent managed instances mostly fit. | Full Wallet console would be too heavy; per-action modals would fail UX. | Use `WalletAuthorityCore` with `lite_approval_card`, `session_envelope`, spend cap, receipt bundle, and platform-policy labels. |
 | User rents a DePIN 3090 for private quant workspace | Private Workspace cTEE fits well. | Users may believe "encrypted workspace" means the node can run private source in plaintext. | Require `ExecutionPrivacyPosture` display: public trunk on node, private head via guardian/local/crypto/TEE, explicit unsafe mount warning. |
 | Proprietary model must run remotely without leaking weights | Runtime nodes and cTEE distinguish workspace privacy from hardware privacy. | cTEE does not protect model weights once mounted to root-owned GPU. | Canonize three lanes: remote API capability, user/local weights, or TEE/customer-cloud weight mount. |
-| Discord moderation agent needs scoped credentials and revocation | Wallet scopes and secret brokerage fit. | aiagent lacks vertical pack for platform policy, mass actions, bans, and audit. | Add integration-surface taxonomy plus `CapabilityLease` examples for moderation actions. |
-| Persistent aiagent instance runs for years, then payment lapses | Runtime nodes mention zero-to-idle and persistent. | Lapse behavior is not yet implementation-grade. | Add `ManagedWorkerInstanceLifecycle` with active, suspended, archived, restored, expired, export, and delete states. |
-| sas.xyz outcome uses nested workers, private data, disputes | sas delivery bundles and receipts fit. | Nested contribution, privacy posture, and delivery evidence need default bundle shape. | Add service composition evidence profile that binds worker contribution, private data posture, and dispute refs. |
-| Humanoid/robot preps cars at a carwash | AIIP and common envelopes mention robot domains. | Physical safety objects are still in broad plan, not canonical owner docs. | Add `physical-action-safety.md` or equivalent under aiagent/foundations. |
-| Wallet user approves a session envelope instead of per-action modals | Wallet authority UX model now fits. | Needs protocol package implementation, not only docs. | Implement `AuthorityReview`, `ApprovalMode`, and `CapabilityLease` in `@ioi/wallet-protocol` and SDK. |
+| Discord moderation agent needs scoped credentials and revocation | Wallet scopes and secret brokerage fit. | The ontology now has integration-surface vocabulary; product-specific moderation packs still need endpoint adoption. | Use integration-surface taxonomy plus `CapabilityLease` examples for moderation actions. |
+| Persistent aiagent instance runs for years, then payment lapses | Runtime nodes mention zero-to-idle and persistent. | Lifecycle is now canonized and daemon-admitted; live aiagent marketplace/product endpoints remain follow-up. | Use `ManagedWorkerInstanceLifecycle` with active, suspended, archived, restored, expired, export, and delete states. |
+| sas.xyz outcome uses nested workers, private data, disputes | sas delivery bundles and receipts fit. | Default service composition evidence is now daemon-admitted; SAS product endpoints remain follow-up. | Use service composition evidence profile that binds worker contribution, private-data posture, and dispute refs. |
+| Humanoid/robot preps cars at a carwash | AIIP and common envelopes mention robot domains. | Physical safety is now canonized and daemon-admitted; live actuator adapters remain follow-up. | Use Physical Action Safety with supervision, e-stop, sensor evidence, and actuator receipts. |
+| Wallet user approves a session envelope instead of per-action modals | Wallet authority UX model now fits. | Protocol/SDK packages now carry approval modes and presentation profiles; deeper Rust-derived generation remains follow-up. | Use `AuthorityReview`, `ApprovalMode`, and `CapabilityLease` in `@ioi/wallet-protocol` and SDK. |
 | Operator uses Codex, Claude Code, Grok Build, or Aider inside a Hypervisor-managed workspace | Authority Gateway and Hypervisor adapter docs mostly fit. | External agent harnesses can be mistaken for first-class Hypervisor clients or trusted runtimes. | Treat them as `AgentHarnessAdapter` targets: proposal in, daemon gate, wallet authority, Agentgres receipt/replay out. |
 | Operator wants a terminal UI for node ops | CLI/headless plus optional TUI fits. | Calling this "CLI/TUI" suggests the TUI is a separate client/runtime lane. | Keep `HypervisorCliHeadless` as the first-class client and `HypervisorTui` as optional presentation over the same daemon/domain APIs. |
 | Prediction market trade proposed by an agent | decentralized.trade and Wallet Trade fit. | Live event exposure by agents needs eligibility, compliance, and market-category policy. | Add `PredictionAuthorityPolicy` as a profile over `PredictionIntent`. |
@@ -171,17 +171,17 @@ ExecutionPrivacyPosture for every model/provider route.
 
 ## Coherence Findings
 
-### 1. aiagent broad labor plan is not yet live canon
+### 1. aiagent broad labor canon is implementation-visible
 
 | Field | Detail |
 | --- | --- |
 | Severity | High |
-| Current canon | `docs/architecture/domains/aiagent/worker-marketplace.md`, `docs/architecture/domains/aiagent/broad-autonomous-labor-canon-plan.md` |
+| Current canon | `docs/architecture/domains/aiagent/worker-marketplace.md`, `digital-worker-ontology.md`, `vertical-ontology-packs.md`, `integration-surface-taxonomy.md`, `managed-agent-console-contract.md`, `managed-worker-instance-lifecycle.md` |
 | Edge case | Discord moderation, game server finding, robotics carwash prep, embodied field-service agents. |
-| Issue | The marketplace doc still centers "portable digital workers" while a plan file describes a broader ontology for digital and embodied workers. |
+| Issue | Resolved at canon and first daemon admission level; live marketplace endpoints and product surfaces still need to adopt the ontology-bound contract. |
 | Why it matters | Implementers may build a worker storefront instead of an autonomous labor substrate that supports millions of vertical profiles. |
-| Recommended change | Promote broad labor plan into canonical aiagent docs: Digital Worker Ontology, Vertical Ontology Packs, Integration Surface Taxonomy, Managed Worker Lifecycle, Managed Agent Console Contract. |
-| Fix type | Docs now; schema/API implementation next. |
+| Recommended change | Keep all aiagent endpoint/product work bound to Digital Worker Ontology, Vertical Ontology Packs, Integration Surface Taxonomy, Managed Worker Lifecycle, and Managed Agent Console Contract. |
+| Fix type | Canon and first daemon admission implemented; live endpoint/product adoption next. |
 
 ### 1A. Hypervisor client/surface/adapter taxonomy must stay implementation-visible
 
@@ -195,29 +195,29 @@ ExecutionPrivacyPosture for every model/provider route.
 | Recommended change | Keep `HypervisorCore`, `HypervisorClient`, `HypervisorApplicationSurface`, `HypervisorAdapterTarget`, and `AgentHarnessAdapter` in source maps, vocabulary, implementation matrix, app APIs, and future conformance checks. |
 | Fix type | Docs already patched; API/schema/conformance still needed. |
 
-### 2. Physical-action safety lacks a canonical owner
+### 2. Physical-action safety has a canonical owner
 
 | Field | Detail |
 | --- | --- |
 | Severity | High |
-| Current canon | `common-objects-and-envelopes.md`, `aiip.md`, `default-harness-profile.md`, broad aiagent plan. |
+| Current canon | `docs/architecture/foundations/physical-action-safety.md`, `common-objects-and-envelopes.md`, `aiip.md`, `default-harness-profile.md`, runtime physical-action admission. |
 | Edge case | Humanoid or robot performs vehicle-adjacent work near humans. |
-| Issue | `physical_action` exists as a risk class, but the safety envelope objects are not in canonical owner docs. |
+| Issue | Resolved at canon and daemon admission level; live actuator adapters and incident integrations remain follow-up hardening. |
 | Why it matters | Physical action cannot be treated as just another connector call. It needs supervision, emergency stop, sensor evidence, actuator receipts, liability, and incident handling. |
-| Recommended change | Add `physical-action-safety.md` under `foundations/` or `domains/aiagent/`, then wire source map and vocabulary. |
-| Fix type | Docs plus conformance and runtime gate implementation. |
+| Recommended change | Keep every physical/embodied worker and service package bound to `PhysicalActionPolicy`, `SafetyEnvelope`, `EmergencyStopAuthority`, sensor evidence, and actuator receipts. |
+| Fix type | Canon and daemon admission implemented; live actuator adapter implementation next. |
 
-### 3. Managed worker instance lapse semantics are under-specified
+### 3. Managed worker instance lapse semantics are canonical
 
 | Field | Detail |
 | --- | --- |
 | Severity | High |
-| Current canon | `aiagent/worker-marketplace.md`, `aiagent/worker-endpoints.md`, `runtime-nodes-tee-depin.md`, Agentgres artifact refs. |
+| Current canon | `aiagent/managed-worker-instance-lifecycle.md`, `worker-marketplace.md`, `worker-endpoints.md`, `runtime-nodes-tee-depin.md`, Agentgres artifact refs, runtime lifecycle admission. |
 | Edge case | User rents an agent for years, stops paying, then wants context restored. |
-| Issue | Persistent/zero-to-idle profiles exist, but lapse/archive/export/delete/restore semantics are not yet explicit enough. |
+| Issue | Resolved at canon and daemon admission level; live aiagent marketplace/product endpoints still need to call the lifecycle admission boundary. |
 | Why it matters | User trust and marketplace economics depend on context custody, retention, and restore behavior. |
-| Recommended change | Add `managed-worker-instance-lifecycle.md` with lifecycle states, payment lapse policy, archive refs, restore authority, export rights, and deletion policy. |
-| Fix type | Docs plus Agentgres/wallet/aiagent API implementation. |
+| Recommended change | Use `ManagedWorkerInstanceLifecycle` states, payment lapse policy, archive refs, restore authority, export rights, and deletion policy for all persistent agent instances. |
+| Fix type | Canon and daemon admission implemented; live Agentgres/wallet/aiagent product adoption next. |
 
 ### 4. cTEE protects workspace state, not model weights by default
 
@@ -434,34 +434,39 @@ Can a new engineer build from the canon today?
 ```text
 Core runtime/authority/state/storage stack: yes, with repo inspection.
 Hypervisor App UX: conceptually yes; shell IA and product naming migration needed.
-Wallet UX/authority packaging: conceptually yes, package implementation missing.
+Wallet UX/authority packaging: initial protocol/SDK packages and Hypervisor
+  Authority Center import adoption exist; deeper Rust-derived generation and
+  wallet-network product adoption remain.
 Private Workspace cTEE: yes for architecture, partial for full conformance.
 Provider/environment integrations: yes for boundary, provider adapters still needed.
-aiagent broad labor: not yet; plan exists, canon needs promotion.
-sas nested outcomes: partially; delivery bundle exists, contribution defaults need work.
-Physical/embodied systems: not yet; risk class exists, safety owner missing.
+aiagent broad labor: canon and first daemon install admission exist; live
+  marketplace/product endpoints remain.
+sas nested outcomes: service composition receipt bundle admission exists; live
+  SAS endpoint adoption remains.
+Physical/embodied systems: Physical Action Safety canon and daemon admission
+  exist; live actuator adapters remain.
 ```
 
 Blocking object/API/schema gaps:
 
 ```text
-@ioi/wallet-protocol and @ioi/wallet-sdk
-HypervisorShellNavigationModel
-HypervisorSessionCard
-HypervisorSessionLaunchRecipe
-WorkbenchAdapterPreference
-AuthorityReview schema
-CapabilityLease schema
-ApprovalMode conformance
-ManagedWorkerInstance lifecycle API
-VerticalOntologyPack manifest/schema
-IntegrationSurface taxonomy schema
-PhysicalActionPolicy and SafetyEnvelope schema
-ExecutionPrivacyPosture admission enforcement
-ModelWeightCustodyProfile
-CandidateEvidence schema for exchange/trade
-ArtifactAvailabilityIncident receipt
-ServiceCompositionReceiptBundle
+Hypervisor live projection hydration for Home/Projects/Sessions/Privacy
+Hypervisor row-level drill-in inside destination surfaces
+HypervisorSessionLaunchRecipe live daemon admission and execution
+WorkbenchAdapterPreference external editor/browser/VM control wiring
+wallet-network product imports for @ioi/wallet-protocol and @ioi/wallet-sdk
+Rust-derived wallet schema generation
+CapabilityLease product flows
+ApprovalMode embedded/lite UI adoption
+ManagedWorkerInstance live marketplace endpoints
+VerticalOntologyPack live package manifests
+IntegrationSurface endpoint adoption
+PhysicalActionPolicy and SafetyEnvelope live actuator adapters
+ExecutionPrivacyPosture live model/provider admission hydration
+ModelWeightCustodyProfile model-router route selection
+CandidateEvidence provider-specific route-source integrations
+ArtifactAvailabilityIncident live Agentgres artifact endpoint integration
+ServiceCompositionReceiptBundle SAS endpoint adoption
 ```
 
 Docs that are too doctrinal and need implementation objects:
