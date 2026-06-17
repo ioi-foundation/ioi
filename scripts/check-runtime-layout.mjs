@@ -200,6 +200,13 @@ const companionShellNavigationSource = read(
 const chatSessionHookSource = read(
   "apps/hypervisor/src/windows/ChatShellWindow/hooks/useChatSession.ts",
 );
+const hypervisorTypeWrapperSources = [
+  "apps/hypervisor/src/types/generated.ts",
+  "apps/hypervisor/src/types/events.ts",
+  "apps/hypervisor/src/types/artifacts.ts",
+  "apps/hypervisor/src/types/notifications.ts",
+  "apps/hypervisor/src/types/atlas.ts",
+].map(read).join("\n");
 const hypervisorModelMountIdentitySources = [
   "packages/runtime-daemon/src/model-mounting/default-records.mjs",
   "packages/runtime-daemon/src/model-mounting/default-discovery.mjs",
@@ -392,6 +399,22 @@ assert(
     "apps/hypervisor/src/windows/ChatShellWindow/hooks/useChatSession.ts",
   ],
   "Chat shell entry points must route Hypervisor/work-graph shortcuts to the process view, not the retired autopilot view id.",
+);
+assert(
+  "hypervisor-generated-contract-path",
+  exists("apps/hypervisor/src/generated/hypervisor-contracts/index.ts") &&
+    !exists("apps/hypervisor/src/generated/autopilot-contracts/index.ts") &&
+    hypervisorTypeWrapperSources.includes("../generated/hypervisor-contracts") &&
+    !hypervisorTypeWrapperSources.includes("../generated/autopilot-contracts"),
+  [
+    "apps/hypervisor/src/generated/hypervisor-contracts",
+    "apps/hypervisor/src/types/generated.ts",
+    "apps/hypervisor/src/types/events.ts",
+    "apps/hypervisor/src/types/artifacts.ts",
+    "apps/hypervisor/src/types/notifications.ts",
+    "apps/hypervisor/src/types/atlas.ts",
+  ],
+  "Hypervisor frontend type wrappers must import generated Hypervisor contracts, not the retired generated/autopilot-contracts path.",
 );
 assert(
   "runtime-module-map",

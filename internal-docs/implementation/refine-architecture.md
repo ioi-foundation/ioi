@@ -990,6 +990,9 @@ Current implementation cut:
     `hypervisor_replay`, `hypervisor-cell-*`, and `hypervisor-replay` active
     format identifiers; the Code OSS theme helper is `defineHypervisorTheme`,
     and `check:runtime-layout` rejects the retired active replay/theme tokens
+  generated frontend contracts now live at
+    `apps/hypervisor/src/generated/hypervisor-contracts`, and active type
+    wrappers import that path instead of `generated/autopilot-contracts`
   scripts/lib/autopilot-electron-app-paths.mjs ->
     scripts/lib/hypervisor-workbench-adapter-host-paths.mjs
   check:autopilot-electron-source-fork-optional ->

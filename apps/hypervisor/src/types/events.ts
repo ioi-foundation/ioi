@@ -1,4 +1,4 @@
-import type { AgentEvent as GeneratedAgentEvent } from "../generated/autopilot-contracts";
+import type { AgentEvent as GeneratedAgentEvent } from "../generated/hypervisor-contracts";
 import type { JsonRecord } from "./base";
 import type { EventType } from "./generated";
 

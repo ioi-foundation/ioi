@@ -15,7 +15,7 @@ import type {
   NotificationSeverity as GeneratedNotificationSeverity,
   ObservationTier as GeneratedObservationTier,
   SkillCatalogEntry as GeneratedSkillCatalogEntry,
-} from "../generated/autopilot-contracts";
+} from "../generated/hypervisor-contracts";
 
 export type ActiveContextItem = GeneratedActiveContextItem;
 export type ArtifactRef = GeneratedArtifactRef;

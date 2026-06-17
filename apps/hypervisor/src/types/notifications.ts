@@ -6,7 +6,7 @@ import type {
   NotificationPolicyRefs as GeneratedNotificationPolicyRefs,
   NotificationPrivacy as GeneratedNotificationPrivacy,
   NotificationSource as GeneratedNotificationSource,
-} from "../generated/autopilot-contracts";
+} from "../generated/hypervisor-contracts";
 import type { NotificationActionStyle } from "./generated";
 
 export type NotificationAction = Omit<GeneratedNotificationAction, "style"> & {

@@ -1,4 +1,4 @@
-import type { Artifact as GeneratedArtifact } from "../generated/autopilot-contracts";
+import type { Artifact as GeneratedArtifact } from "../generated/hypervisor-contracts";
 import type { JsonRecord } from "./base";
 
 export type { ArtifactRef, ArtifactType } from "./generated";

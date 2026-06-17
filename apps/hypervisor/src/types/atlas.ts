@@ -5,7 +5,7 @@ import type {
   AtlasNode as GeneratedAtlasNode,
   SubstrateProofReceipt as GeneratedSubstrateProofReceipt,
   SubstrateProofView as GeneratedSubstrateProofView,
-} from "../generated/autopilot-contracts";
+} from "../generated/hypervisor-contracts";
 import type { JsonRecord } from "./base";
 
 export type AtlasEdge = GeneratedAtlasEdge;
