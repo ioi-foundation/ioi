@@ -124,7 +124,7 @@ export function routeControlRequiredForState(state, operation_kind, details = {}
   return state.routeControlRequired(operation_kind, details);
 }
 
-function routeControlPlanForState(state, operation_kind, { body = {}, route_id = null, current_route = null } = {}) {
+function routeControlPlanForState(state, operation_kind, { body = {}, route_id = null } = {}) {
   if (!state || typeof state.planRouteControl !== "function") {
     const error = new Error("Model route control requires Rust daemon-core route-control planning.");
     error.status = 500;
@@ -136,6 +136,7 @@ function routeControlPlanForState(state, operation_kind, { body = {}, route_id =
     };
     throw error;
   }
+  const stateDir = requireRouteControlDaemonStateDir(state, operation_kind);
   return state.planRouteControl({
     schema_version: MODEL_MOUNT_ROUTE_CONTROL_SCHEMA_VERSION,
     operation_kind,
@@ -143,8 +144,31 @@ function routeControlPlanForState(state, operation_kind, { body = {}, route_id =
     route_id,
     generated_at: typeof state.nowIso === "function" ? state.nowIso() : null,
     body,
-    current_route,
+    state_dir: stateDir,
   });
+}
+
+function requireRouteControlDaemonStateDir(state, operation_kind) {
+  const stateDir = typeof state?.stateDir === "string" && state.stateDir.trim()
+    ? state.stateDir.trim()
+    : null;
+  if (stateDir) return stateDir;
+  const error = new Error(
+    "Model route control requires daemon Agentgres state_dir replay before route topology truth can return.",
+  );
+  error.status = 500;
+  error.code = "model_mount_route_control_state_dir_required";
+  error.details = {
+    operation_kind,
+    rust_core_boundary: "model_mount.route_control",
+    rust_core_api: "plan_model_mount_route_control",
+    evidence_refs: [
+      "model_mount_route_control_rust_owned",
+      "agentgres_route_topology_replay_required",
+      "model_mount_route_candidate_transport_retired",
+    ],
+  };
+  throw error;
 }
 
 export function commitRouteControlPlan(state, plan, options = {}) {

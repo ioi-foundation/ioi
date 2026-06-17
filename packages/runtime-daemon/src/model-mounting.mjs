@@ -1717,7 +1717,6 @@ export class ModelMountingState {
       operation_kind: "model_mount.route.explicit_model_endpoints",
       route_id: route?.id ?? "route.local-first",
       body: { model_id: modelId ?? null },
-      current_route: route ?? null,
     }));
     const commit = commitRouteControlPlanState(this, plan, {
       recordDir: plan.record_dir,
@@ -1736,7 +1735,6 @@ export class ModelMountingState {
   selectRoute({ modelId, routeId, capability, policy, body = {} }) {
     const requestBody = body && typeof body === "object" && !Array.isArray(body) ? body : {};
     const selectedRouteId = routeId ?? requestBody.route_id ?? "route.local-first";
-    const currentRoute = routeControlRouteForMountedState(this, selectedRouteId);
     const selectedModel = modelId ?? requestBody.model ?? requestBody.model_id ?? null;
     const selectedCapability = capability ?? requestBody.capability ?? "chat";
     const selectedPolicy = policy && typeof policy === "object" && !Array.isArray(policy)
@@ -1754,7 +1752,6 @@ export class ModelMountingState {
           ? { model_policy: selectedPolicy }
           : {}),
       },
-      current_route: currentRoute,
     }));
     const commit = commitRouteControlPlanState(this, plan, {
       recordDir: plan.record_dir,
@@ -5959,7 +5956,6 @@ function routeControlRequestForMountedState(
     operation_kind,
     route_id,
     body = {},
-    current_route = null,
   } = {},
 ) {
   return {
@@ -5969,24 +5965,36 @@ function routeControlRequestForMountedState(
     route_id,
     generated_at: typeof state.nowIso === "function" ? state.nowIso() : null,
     body,
-    current_route,
-    endpoints: modelMountProjectionRecords(state, "listEndpoints"),
-    providers: modelMountProjectionRecords(state, "listProviders"),
+    state_dir: requireRouteControlMountedStateDir(state, operation_kind),
   };
-}
-
-function routeControlRouteForMountedState(state, routeId) {
-  return modelMountProjectionRecords(state, "listRoutes").find(
-    (record) =>
-      record?.id === routeId ||
-      record?.route_id === routeId ||
-      record?.route_ref === routeId,
-  ) ?? null;
 }
 
 function modelMountProjectionRecords(state, methodName) {
   const records = typeof state?.[methodName] === "function" ? state[methodName]() : [];
   return Array.isArray(records) ? records : [];
+}
+
+function requireRouteControlMountedStateDir(state, operation_kind) {
+  const stateDir = typeof state?.stateDir === "string" && state.stateDir.trim()
+    ? state.stateDir.trim()
+    : null;
+  if (stateDir) return stateDir;
+  throw runtimeError({
+    status: 500,
+    code: "model_mount_route_control_state_dir_required",
+    message:
+      "Model route control requires daemon Agentgres state_dir replay before route topology truth can return.",
+    details: {
+      operation_kind,
+      rust_core_boundary: "model_mount.route_control",
+      rust_core_api: "plan_model_mount_route_control",
+      evidence_refs: [
+        "model_mount_route_control_rust_owned",
+        "agentgres_route_topology_replay_required",
+        "model_mount_route_candidate_transport_retired",
+      ],
+    },
+  });
 }
 
 function modelMountReadProjection(

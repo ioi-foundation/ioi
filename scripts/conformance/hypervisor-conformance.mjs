@@ -18347,12 +18347,22 @@ function runBridge() {
       /routeControlPlanForState\(state,\s*"model_mount\.route\.test"/.test(modelRoutes) &&
       /commitRouteControlPlan\(state,\s*plan/.test(modelRoutes) &&
       /commitModelMountRecordState\(state/.test(modelRoutes) &&
+      /requireRouteControlDaemonStateDir/.test(modelRoutes) &&
+      /state_dir:\s*stateDir/.test(modelRoutes) &&
+      /model_mount_route_control_state_dir_required/.test(modelRoutes) &&
+      /agentgres_route_topology_replay_required/.test(modelRoutes) &&
+      /model_mount_route_candidate_transport_retired/.test(modelRoutes) &&
       !/state\.routes\.set\(/.test(modelRoutes) &&
       !/state\?\.routes\?\.get/.test(modelRoutes) &&
-      /routeControlRouteForMountedState\(this,\s*selectedRouteId\)/.test(modelMountingState) &&
-      /modelMountProjectionRecords\(state,\s*"listRoutes"\)/.test(modelMountingState) &&
-      /modelMountProjectionRecords\(state,\s*"listEndpoints"\)/.test(modelMountingState) &&
-      /modelMountProjectionRecords\(state,\s*"listProviders"\)/.test(modelMountingState) &&
+      !/routeControlRouteForMountedState/.test(modelMountingState) &&
+      /requireRouteControlMountedStateDir/.test(modelMountingState) &&
+      /state_dir:\s*requireRouteControlMountedStateDir\(state,\s*operation_kind\)/.test(modelMountingState) &&
+      /model_mount_route_control_state_dir_required/.test(modelMountingState) &&
+      /agentgres_route_topology_replay_required/.test(modelMountingState) &&
+      /model_mount_route_candidate_transport_retired/.test(modelMountingState) &&
+      !/current_route:\s*currentRoute/.test(modelMountingState) &&
+      !/endpoints:\s*modelMountProjectionRecords\(state,\s*"listEndpoints"\)/.test(modelMountingState) &&
+      !/providers:\s*modelMountProjectionRecords\(state,\s*"listProviders"\)/.test(modelMountingState) &&
       !/this\.routes\.get\(selectedRouteId\)/.test(modelMountingState) &&
       !/endpoints:\s*\[\.\.\.\(state\.endpoints\?\.values/.test(modelMountingState) &&
       !/providers:\s*\[\.\.\.\(state\.providers\?\.values/.test(modelMountingState) &&
@@ -18381,11 +18391,23 @@ function runBridge() {
       /agentgres_route_truth_required/.test(modelRoutes) &&
       /MODEL_MOUNT_ROUTE_CONTROL_SCHEMA_VERSION/.test(modelMountRouteControlEvidence) &&
       /MODEL_MOUNT_ROUTE_CONTROL_PLAN_SCHEMA_VERSION/.test(modelMountRouteControlEvidence) &&
+      /pub state_dir: Option<String>/.test(modelMountRouteControlEvidence) &&
+      /option_trimmed\(&self\.state_dir\)\.ok_or\(ModelMountError::MissingField\("state_dir"\)\)\?/.test(modelMountRouteControlEvidence) &&
+      /retired_current_route/.test(modelMountRouteControlEvidence) &&
+      /retired_endpoints/.test(modelMountRouteControlEvidence) &&
+      /retired_providers/.test(modelMountRouteControlEvidence) &&
+      /route_control_replay_topology/.test(modelMountRouteControlEvidence) &&
+      /ModelMountReadProjectionRequest/.test(modelMountRouteControlEvidence) &&
+      /agentgres_route_topology_replay_required/.test(modelMountRouteControlEvidence) &&
+      /model_mount_route_candidate_transport_retired/.test(modelMountRouteControlEvidence) &&
       !/pub struct ModelMountRouteControlBridgeRequest/.test(modelMountRouteControlEvidence) &&
       !/pub fn plan_model_mount_route_control_response/.test(modelMountRouteControlEvidence) &&
       /rust_core_plans_model_mount_route_write_control/.test(modelMountRouteControlEvidence) &&
       /rust_core_plans_model_mount_route_test_control/.test(modelMountRouteControlEvidence) &&
       /rust_core_plans_model_mount_route_control_direct_api/.test(modelMountRouteControlEvidence) &&
+      /rust_core_replays_route_control_topology_from_state_dir/.test(modelMountRouteControlEvidence) &&
+      /rust_core_rejects_route_control_without_state_dir/.test(modelMountRouteControlEvidence) &&
+      /rust_core_rejects_route_control_candidate_transport/.test(modelMountRouteControlEvidence) &&
       /rust_core_rejects_unowned_model_mount_route_control_kind/.test(modelMountRouteControlEvidence) &&
       !/plan_model_mount_route_control_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
       /model_mount_route_control_command_transport_is_retired/.test(commandProtocolCore) &&
@@ -18417,13 +18439,16 @@ function runBridge() {
       /route upsert rejects retired request aliases before Rust-required boundary/.test(modelRoutesTest) &&
       /route upsert commits Rust-planned route record without JS normalization/.test(modelRoutesTest) &&
       (modelRoutesTest.match(/Object\.hasOwn\(state,\s*"routes"\),\s*false/g) ?? []).length >= 3 &&
-      /assert\.equal\(routeControlPlans\[0\]\.current_route,\s*null\)/.test(modelRoutesTest) &&
+      /assert\.equal\(routeControlPlans\[0\]\.state_dir,\s*"\/tmp\/ioi-model-mount-route-state"\)/.test(modelRoutesTest) &&
+      (modelRoutesTest.match(/Object\.hasOwn\(routeControlPlans\[\d\],\s*"current_route"\),\s*false/g) ?? []).length >= 5 &&
+      (modelRoutesTest.match(/Object\.hasOwn\(routeControlPlans\[\d\],\s*"endpoints"\),\s*false/g) ?? []).length >= 5 &&
+      (modelRoutesTest.match(/Object\.hasOwn\(routeControlPlans\[\d\],\s*"providers"\),\s*false/g) ?? []).length >= 5 &&
       /model mounting public route control uses Rust planning and Agentgres record commits/.test(modelRoutesTest) &&
-      /assert\.equal\(routeControlPlans\[1\]\.current_route,\s*null\)/.test(modelRoutesTest) &&
-      /routeProjectionRows/.test(modelRoutesTest) &&
-      /listRoutes\(\)\s*\{/.test(modelRoutesTest) &&
-      /listEndpoints\(\)\s*\{/.test(modelRoutesTest) &&
-      /listProviders\(\)\s*\{/.test(modelRoutesTest) &&
+      /model route control requires daemon state_dir before Rust planning/.test(modelRoutesTest) &&
+      /model_mount_route_control_state_dir_required/.test(modelRoutesTest) &&
+      /listRoutes must not shape route-control requests/.test(modelRoutesTest) &&
+      /listEndpoints must not shape route-control requests/.test(modelRoutesTest) &&
+      /listProviders must not shape route-control requests/.test(modelRoutesTest) &&
       /topology, OAuth, catalog-provider, capability-token, runtime-engine, MCP, conversation, vault-ref, route, and download JS cache maps stay retired/.test(read("packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs")) &&
       !exists("packages/runtime-daemon/src/model-mounting/state-seeding.test.mjs") &&
       /route local cache storage/.test(read("packages/runtime-daemon/src/model-mounting/store.test.mjs")) &&
@@ -18436,6 +18461,9 @@ function runBridge() {
       /RuntimeDaemonCoreModelMountRouteCacheRetired/.test(
         read("docs/architecture/_meta/implementation-matrix.md"),
       ) &&
+      /Slice 1417 hard-cuts model_mount route-control topology candidate transport/.test(guide) &&
+      /route-control topology candidate transport/.test(matrix) &&
+      /RuntimeDaemonCoreModelMountRouteControlTopologyReplayAuthority/.test(implementationMatrix) &&
       /route-selection receipt helper is retired behind Rust core/.test(modelRoutesTest) &&
       /recordStateCommits\[0\]\.record_dir/.test(modelRoutesTest) &&
       /modelTokenizerUtility uses Rust tokenizer planning and Agentgres commit without JS tokenization receipt/.test(modelTokenizerOperationsTest) &&

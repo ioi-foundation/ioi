@@ -266,6 +266,7 @@ test("model mounting route upsert commits Rust-planned route record without JS n
   const routeControlPlans = [];
   const recordStateCommits = [];
   const state = {
+    stateDir: "/tmp/ioi-model-mount-route-state",
     nowIso: () => "2026-06-13T00:00:00.000Z",
     planRouteControl: routeControlPlannerForTest(routeControlPlans),
     commitRuntimeModelMountRecordState: recordStateCommitForTest(recordStateCommits),
@@ -302,7 +303,10 @@ test("model mounting route upsert commits Rust-planned route record without JS n
   assert.equal(routeControlPlans.length, 1);
   assert.equal(routeControlPlans[0].operation_kind, "model_mount.route.write");
   assert.equal(routeControlPlans[0].body.role, "Research Route");
-  assert.equal(routeControlPlans[0].current_route, null);
+  assert.equal(routeControlPlans[0].state_dir, "/tmp/ioi-model-mount-route-state");
+  assert.equal(Object.hasOwn(routeControlPlans[0], "current_route"), false);
+  assert.equal(Object.hasOwn(routeControlPlans[0], "endpoints"), false);
+  assert.equal(Object.hasOwn(routeControlPlans[0], "providers"), false);
   assert.equal(recordStateCommits.length, 1);
   assert.equal(recordStateCommits[0].record_dir, "model-routes");
   assert.equal(recordStateCommits[0].record_id, "route:Research Route");
@@ -378,6 +382,7 @@ test("mounted route selection uses Rust planning and Agentgres commits before JS
     capabilities: ["chat"],
   };
   const state = {
+    stateDir: "/tmp/ioi-model-mount-route-state",
     nowIso: () => "2026-06-13T00:00:00.000Z",
     planRouteControl: routeControlPlannerForTest(routeControlPlans),
     commitRuntimeModelMountRecordState: recordStateCommitForTest(recordStateCommits),
@@ -393,13 +398,16 @@ test("mounted route selection uses Rust planning and Agentgres commits before JS
     endpointProjectionRows: [endpoint],
     providerProjectionRows: [provider],
     listRoutes() {
-      return this.routeProjectionRows.map((record) => ({ ...record }));
+      calls.push(["listRoutes"]);
+      throw new Error("listRoutes must not shape route-control requests.");
     },
     listEndpoints() {
-      return this.endpointProjectionRows.map((record) => ({ ...record }));
+      calls.push(["listEndpoints"]);
+      throw new Error("listEndpoints must not shape route-control requests.");
     },
     listProviders() {
-      return this.providerProjectionRows.map((record) => ({ ...record }));
+      calls.push(["listProviders"]);
+      throw new Error("listProviders must not shape route-control requests.");
     },
     mountEndpoint(body) {
       calls.push(["mountEndpoint", body]);
@@ -434,11 +442,16 @@ test("mounted route selection uses Rust planning and Agentgres commits before JS
   assert.equal(routeControlPlans[0].operation_kind, "model_mount.route.select");
   assert.equal(routeControlPlans[0].body.model, "model.local");
   assert.equal(routeControlPlans[0].body.model_policy.privacy, "local_only");
-  assert.equal(routeControlPlans[0].current_route.id, "route.local-first");
-  assert.deepEqual(routeControlPlans[0].endpoints, [endpoint]);
-  assert.deepEqual(routeControlPlans[0].providers, [provider]);
+  assert.equal(routeControlPlans[0].state_dir, "/tmp/ioi-model-mount-route-state");
+  assert.equal(Object.hasOwn(routeControlPlans[0], "current_route"), false);
+  assert.equal(Object.hasOwn(routeControlPlans[0], "endpoints"), false);
+  assert.equal(Object.hasOwn(routeControlPlans[0], "providers"), false);
   assert.equal(routeControlPlans[1].operation_kind, "model_mount.route.explicit_model_endpoints");
   assert.equal(routeControlPlans[1].body.model_id, "model.local");
+  assert.equal(routeControlPlans[1].state_dir, "/tmp/ioi-model-mount-route-state");
+  assert.equal(Object.hasOwn(routeControlPlans[1], "current_route"), false);
+  assert.equal(Object.hasOwn(routeControlPlans[1], "endpoints"), false);
+  assert.equal(Object.hasOwn(routeControlPlans[1], "providers"), false);
   assert.deepEqual(recordStateCommits.map((commit) => commit.record_dir), [
     "model-route-selections",
     "model-route-endpoint-resolutions",
@@ -451,6 +464,7 @@ test("model mounting public route control uses Rust planning and Agentgres recor
   const routeControlPlans = [];
   const recordStateCommits = [];
   const state = {
+    stateDir: "/tmp/ioi-model-mount-route-state",
     nowIso: () => "2026-06-13T00:00:00.000Z",
     planRouteControl: routeControlPlannerForTest(routeControlPlans),
     commitRuntimeModelMountRecordState: recordStateCommitForTest(recordStateCommits),
@@ -486,14 +500,52 @@ test("model mounting public route control uses Rust planning and Agentgres recor
   assert.equal(Object.hasOwn(state, "routes"), false);
   assert.equal(routeControlPlans.length, 2);
   assert.equal(routeControlPlans[0].operation_kind, "model_mount.route.write");
-  assert.equal(routeControlPlans[0].current_route, null);
+  assert.equal(routeControlPlans[0].state_dir, "/tmp/ioi-model-mount-route-state");
+  assert.equal(Object.hasOwn(routeControlPlans[0], "current_route"), false);
+  assert.equal(Object.hasOwn(routeControlPlans[0], "endpoints"), false);
+  assert.equal(Object.hasOwn(routeControlPlans[0], "providers"), false);
   assert.equal(routeControlPlans[1].operation_kind, "model_mount.route.test");
-  assert.equal(routeControlPlans[1].current_route, null);
+  assert.equal(routeControlPlans[1].state_dir, "/tmp/ioi-model-mount-route-state");
+  assert.equal(Object.hasOwn(routeControlPlans[1], "current_route"), false);
+  assert.equal(Object.hasOwn(routeControlPlans[1], "endpoints"), false);
+  assert.equal(Object.hasOwn(routeControlPlans[1], "providers"), false);
   assert.equal(recordStateCommits.length, 2);
   assert.deepEqual(recordStateCommits.map((commit) => commit.record_dir), [
     "model-routes",
     "model-route-tests",
   ]);
+});
+
+test("model route control requires daemon state_dir before Rust planning", () => {
+  const routeControlPlans = [];
+  const recordStateCommits = [];
+  const state = {
+    stateDir: null,
+    nowIso: () => "2026-06-13T00:00:00.000Z",
+    planRouteControl: routeControlPlannerForTest(routeControlPlans),
+    commitRuntimeModelMountRecordState: recordStateCommitForTest(recordStateCommits),
+  };
+
+  const upsertError = captureError(() => upsertRoute(state, { role: "Review" }));
+  assert.equal(upsertError.status, 500);
+  assert.equal(upsertError.code, "model_mount_route_control_state_dir_required");
+  assert.equal(upsertError.details.rust_core_boundary, "model_mount.route_control");
+  assert.deepEqual(upsertError.details.evidence_refs, [
+    "model_mount_route_control_rust_owned",
+    "agentgres_route_topology_replay_required",
+    "model_mount_route_candidate_transport_retired",
+  ]);
+
+  const mountedSelectError = captureError(() =>
+    ModelMountingState.prototype.selectRoute.call(state, {
+      modelId: "model.local",
+      routeId: "route.local-first",
+    }),
+  );
+  assert.equal(mountedSelectError.status, 500);
+  assert.equal(mountedSelectError.code, "model_mount_route_control_state_dir_required");
+  assert.deepEqual(routeControlPlans, []);
+  assert.deepEqual(recordStateCommits, []);
 });
 
 test("model mounting route-selection receipt helper is retired behind Rust core", () => {

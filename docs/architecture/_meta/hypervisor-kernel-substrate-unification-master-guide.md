@@ -12482,6 +12482,20 @@ optional JS state-dir transport. This remains non-terminal because deeper
 wallet/cTEE route revocation policy, projection/replay depth, and stable
 protocol API coverage remain active blockers.
 
+Slice 1417 hard-cuts model_mount route-control topology candidate transport.
+Mounted route selection and explicit-model endpoint resolution no longer gather
+`listRoutes()`, `listEndpoints()`, or `listProviders()` in JS to send
+`current_route`, `endpoints`, or `providers` candidates into Rust. JS sends only
+canonical route/model request facts plus daemon Agentgres `state_dir`; Rust
+`route_control.rs` requires `state_dir`, rejects restored candidate fields,
+replays `model-routes`, `model-route-endpoint-resolutions`/`model-endpoints`,
+and `model-providers` through Rust read-projection planning, and then selects or
+resolves endpoints from the replayed Agentgres topology before record-state
+commit. Focused Node/Rust tests and conformance guard the state-dir replay path,
+candidate-field rejection, and absence of the old mounted JS topology request
+shaping. Remaining blockers stay deeper wallet/cTEE route revocation policy,
+projection/replay depth, and stable protocol API coverage over admitted records.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

@@ -3,9 +3,11 @@ use serde_json::{json, Value};
 
 use super::{
     admission::{admit_route_decision, rust_authored_route_selection_receipt},
-    non_empty_string, require_non_empty, sha256_hex, trimmed_string, ModelMountError,
-    ModelMountRouteDecisionRequest, MODEL_MOUNT_ROUTE_CONTROL_PLAN_SCHEMA_VERSION,
-    MODEL_MOUNT_ROUTE_CONTROL_SCHEMA_VERSION, MODEL_MOUNT_ROUTE_DECISION_SCHEMA_VERSION,
+    non_empty_string, option_trimmed,
+    read_projection::{plan_read_projection, ModelMountReadProjectionRequest},
+    require_non_empty, sha256_hex, trimmed_string, ModelMountError, ModelMountRouteDecisionRequest,
+    MODEL_MOUNT_ROUTE_CONTROL_PLAN_SCHEMA_VERSION, MODEL_MOUNT_ROUTE_CONTROL_SCHEMA_VERSION,
+    MODEL_MOUNT_ROUTE_DECISION_SCHEMA_VERSION,
 };
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -28,6 +30,8 @@ pub struct ModelMountRouteControlRequest {
     pub providers: Vec<Value>,
     #[serde(default)]
     pub receipt_refs: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub state_dir: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -58,8 +62,15 @@ impl ModelMountRouteControlRequest {
         if !self.body.is_null() && !self.body.is_object() {
             return Err(ModelMountError::MissingField("body"));
         }
-        if !self.current_route.is_null() && !self.current_route.is_object() {
-            return Err(ModelMountError::MissingField("current_route"));
+        option_trimmed(&self.state_dir).ok_or(ModelMountError::MissingField("state_dir"))?;
+        if !self.current_route.is_null() {
+            return Err(ModelMountError::MissingField("retired_current_route"));
+        }
+        if !self.endpoints.is_empty() {
+            return Err(ModelMountError::MissingField("retired_endpoints"));
+        }
+        if !self.providers.is_empty() {
+            return Err(ModelMountError::MissingField("retired_providers"));
         }
         Ok(())
     }
@@ -83,7 +94,6 @@ fn plan_route_write(
 ) -> Result<ModelMountRouteControlPlan, ModelMountError> {
     let route_id = route_id_for_write(request)?;
     let body = object_or_empty(&request.body);
-    let current = object_or_empty(&request.current_route);
     let source = source_for(request);
     let receipt_refs = receipt_refs_for(request, &route_id)?;
     let evidence_refs = route_control_evidence_refs();
@@ -95,39 +105,27 @@ fn plan_route_write(
     let record = json!({
         "id": route_id,
         "role": string_field(body, "role")
-            .or_else(|| string_field(current, "role"))
             .unwrap_or_else(|| "default".to_string()),
         "description": string_field(body, "description")
-            .or_else(|| string_field(current, "description"))
             .unwrap_or_else(|| "Rust-authored model route.".to_string()),
         "privacy": string_field(body, "privacy")
-            .or_else(|| string_field(current, "privacy"))
             .unwrap_or_else(|| "local_or_enterprise".to_string()),
         "quality": string_field(body, "quality")
-            .or_else(|| string_field(current, "quality"))
             .unwrap_or_else(|| "adaptive".to_string()),
         "maxCostUsd": number_field(body, "max_cost_usd")
-            .or_else(|| number_field(current, "maxCostUsd"))
             .unwrap_or(0.25),
         "maxLatencyMs": integer_field(body, "max_latency_ms")
-            .or_else(|| integer_field(current, "maxLatencyMs"))
             .unwrap_or(30000),
         "providerEligibility": array_field(body, "provider_eligibility")
-            .or_else(|| array_field(current, "providerEligibility"))
             .unwrap_or_default(),
         "fallback": array_field(body, "fallback")
-            .or_else(|| array_field(current, "fallback"))
             .unwrap_or_default(),
         "deniedProviders": array_field(body, "denied_providers")
-            .or_else(|| array_field(current, "deniedProviders"))
             .unwrap_or_default(),
         "status": string_field(body, "status")
-            .or_else(|| string_field(current, "status"))
             .unwrap_or_else(|| "active".to_string()),
-        "lastSelectedModel": string_field(body, "last_selected_model")
-            .or_else(|| string_field(current, "lastSelectedModel")),
-        "lastReceiptId": string_field(body, "last_receipt_id")
-            .or_else(|| string_field(current, "lastReceiptId")),
+        "lastSelectedModel": string_field(body, "last_selected_model"),
+        "lastReceiptId": string_field(body, "last_receipt_id"),
         "receiptRefs": receipt_refs,
         "authorityReceiptRefs": array_field(body, "authority_receipt_refs").unwrap_or_default(),
         "updatedAt": generated_at,
@@ -180,7 +178,7 @@ fn plan_route_test(
         "rust_core_boundary": "model_mount.route_control",
         "source": source,
         "tested_at": generated_at,
-        "current_route": request.current_route,
+        "state_dir_replay_required": true,
     });
     route_control_plan(
         request,
@@ -195,12 +193,14 @@ fn plan_route_test(
 fn plan_route_select(
     request: &ModelMountRouteControlRequest,
 ) -> Result<ModelMountRouteControlPlan, ModelMountError> {
-    let route = object_or_non_empty(&request.current_route, "current_route")?;
+    let topology = route_control_replay_topology(request)?;
+    let route_value = replayed_route_for_request(request, &topology.routes)?;
+    let route = object_or_non_empty(&route_value, "state_dir.model_routes")?;
     let route_id = route_id_for_selection(request, route)?;
     let source = source_for(request);
     let body = object_or_empty(&request.body);
     let capability = string_field(body, "capability").unwrap_or_else(|| "chat".to_string());
-    let selected = select_route_endpoint(request, route, &capability)?;
+    let selected = select_route_endpoint(request, route, &capability, &topology)?;
     let receipt_refs = receipt_refs_for(request, &route_id)?;
     let policy_hash = policy_hash_for(request, &route_id, &capability)?;
     let idempotency_key = route_selection_id(request, &route_id, &selected.endpoint_id)?;
@@ -294,19 +294,21 @@ fn plan_route_select(
 fn plan_explicit_model_endpoints(
     request: &ModelMountRouteControlRequest,
 ) -> Result<ModelMountRouteControlPlan, ModelMountError> {
-    let route = object_or_non_empty(&request.current_route, "current_route")?;
+    let topology = route_control_replay_topology(request)?;
+    let route_value = replayed_route_for_request(request, &topology.routes)?;
+    let route = object_or_non_empty(&route_value, "state_dir.model_routes")?;
     let route_id = route_id_for_selection(request, route)?;
     let body = object_or_empty(&request.body);
     let model_id = string_field(body, "model").or_else(|| string_field(body, "model_id"));
     let model_id = model_id.ok_or(ModelMountError::MissingField("model_id"))?;
-    let endpoints: Vec<Value> = endpoint_objects(request)
+    let endpoints: Vec<Value> = endpoint_objects(&topology)
         .into_iter()
         .filter(|endpoint| endpoint_is_mounted(endpoint))
         .filter(|endpoint| {
             string_field_any(endpoint, &["model_id", "modelId"]).as_deref()
                 == Some(model_id.as_str())
         })
-        .filter(|endpoint| endpoint_allowed_by_route(route, endpoint, &request.providers))
+        .filter(|endpoint| endpoint_allowed_by_route(route, endpoint, &topology))
         .map(|endpoint| Value::Object(endpoint.clone()))
         .collect();
     if endpoints.is_empty() {
@@ -366,6 +368,12 @@ struct SelectedRouteEndpoint<'a> {
     model_id: String,
 }
 
+struct RouteControlReplayTopology {
+    routes: Vec<Value>,
+    endpoints: Vec<Value>,
+    providers: Vec<Value>,
+}
+
 fn route_id_for_selection(
     request: &ModelMountRouteControlRequest,
     route: &serde_json::Map<String, Value>,
@@ -382,17 +390,81 @@ fn route_id_for_selection(
         .ok_or(ModelMountError::MissingField("route_id"))
 }
 
+fn route_control_replay_topology(
+    request: &ModelMountRouteControlRequest,
+) -> Result<RouteControlReplayTopology, ModelMountError> {
+    Ok(RouteControlReplayTopology {
+        routes: route_control_replay_records(request, "routes")?,
+        endpoints: route_control_replay_records(request, "endpoints")?,
+        providers: route_control_replay_records(request, "providers")?,
+    })
+}
+
+fn route_control_replay_records(
+    request: &ModelMountRouteControlRequest,
+    projection_kind: &str,
+) -> Result<Vec<Value>, ModelMountError> {
+    let plan = plan_read_projection(&ModelMountReadProjectionRequest {
+        projection_kind: projection_kind.to_string(),
+        schema_version: None,
+        generated_at: request.generated_at.clone(),
+        receipt_id: None,
+        engine_id: None,
+        provider_id: None,
+        download_id: None,
+        base_url: None,
+        state_dir: request.state_dir.clone(),
+        state: Value::Null,
+    })
+    .map_err(|error| {
+        ModelMountError::HashFailed(format!(
+            "model_mount_route_control_replay_{projection_kind}: {}",
+            error.message
+        ))
+    })?;
+    match plan.projection {
+        Value::Array(records) => Ok(records),
+        _ => Err(ModelMountError::MissingField("state_dir_projection")),
+    }
+}
+
+fn replayed_route_for_request(
+    request: &ModelMountRouteControlRequest,
+    routes: &[Value],
+) -> Result<Value, ModelMountError> {
+    let body = object_or_empty(&request.body);
+    let requested_route_id = string_field(body, "route_id")
+        .or_else(|| {
+            request
+                .route_id
+                .as_ref()
+                .and_then(|value| non_empty_string(value))
+        })
+        .ok_or(ModelMountError::MissingField("route_id"))?;
+    routes
+        .iter()
+        .filter_map(Value::as_object)
+        .find(|route| {
+            string_field(route, "id").as_deref() == Some(requested_route_id.as_str())
+                || string_field(route, "route_id").as_deref() == Some(requested_route_id.as_str())
+                || string_field(route, "route_ref").as_deref() == Some(requested_route_id.as_str())
+        })
+        .map(|route| Value::Object(route.clone()))
+        .ok_or(ModelMountError::MissingField("state_dir.model_routes"))
+}
+
 fn select_route_endpoint<'a>(
     request: &'a ModelMountRouteControlRequest,
     route: &'a serde_json::Map<String, Value>,
     capability: &str,
+    topology: &'a RouteControlReplayTopology,
 ) -> Result<SelectedRouteEndpoint<'a>, ModelMountError> {
     let body = object_or_empty(&request.body);
     let requested_model = string_field(body, "model")
         .or_else(|| string_field(body, "model_id"))
         .filter(|value| !value.eq_ignore_ascii_case("auto"));
     let route_endpoint_ids = route_endpoint_ids(route);
-    let endpoints = endpoint_objects(request);
+    let endpoints = endpoint_objects(topology);
     for endpoint in endpoints {
         if !endpoint_is_mounted(endpoint) {
             continue;
@@ -418,7 +490,7 @@ fn select_route_endpoint<'a>(
         {
             continue;
         }
-        let provider = match provider_for_endpoint(endpoint, &request.providers) {
+        let provider = match provider_for_endpoint(endpoint, &topology.providers) {
             Some(value) => value,
             None => continue,
         };
@@ -445,9 +517,9 @@ fn select_route_endpoint<'a>(
 fn endpoint_allowed_by_route(
     route: &serde_json::Map<String, Value>,
     endpoint: &serde_json::Map<String, Value>,
-    providers: &[Value],
+    topology: &RouteControlReplayTopology,
 ) -> bool {
-    provider_for_endpoint(endpoint, providers)
+    provider_for_endpoint(endpoint, &topology.providers)
         .map(|provider| provider_allowed_by_route(route, endpoint, provider))
         .unwrap_or(false)
 }
@@ -503,10 +575,8 @@ fn provider_for_endpoint<'a>(
         .find(|provider| string_field(provider, "id").as_deref() == Some(provider_id.as_str()))
 }
 
-fn endpoint_objects(
-    request: &ModelMountRouteControlRequest,
-) -> Vec<&serde_json::Map<String, Value>> {
-    request
+fn endpoint_objects(topology: &RouteControlReplayTopology) -> Vec<&serde_json::Map<String, Value>> {
+    topology
         .endpoints
         .iter()
         .filter_map(Value::as_object)
@@ -538,7 +608,7 @@ fn route_selection_id(
         "route_id": route_id,
         "endpoint_id": endpoint_id,
         "body": request.body,
-        "current_route": request.current_route,
+        "state_dir_replay_required": true,
     });
     serde_json::to_vec(&seed)
         .map_err(|error| ModelMountError::HashFailed(error.to_string()))
@@ -616,9 +686,7 @@ fn route_control_hash(
         "operation_kind": request.operation_kind,
         "record_id": record_id,
         "body": request.body,
-        "current_route": request.current_route,
-        "endpoints": request.endpoints,
-        "providers": request.providers,
+        "state_dir_replay_required": true,
         "receipt_refs": receipt_refs,
     });
     serde_json::to_vec(&value)
@@ -665,6 +733,8 @@ fn route_control_evidence_refs() -> Vec<String> {
         "model_mount_route_control_rust_owned".to_string(),
         "rust_daemon_core_route_control_plan".to_string(),
         "agentgres_route_truth_required".to_string(),
+        "agentgres_route_topology_replay_required".to_string(),
+        "model_mount_route_candidate_transport_retired".to_string(),
     ]
 }
 
@@ -751,6 +821,123 @@ fn bool_field_any(map: &serde_json::Map<String, Value>, fields: &[&str]) -> Opti
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::agentic::runtime::kernel::model_mount::MODEL_MOUNT_PROVIDER_CONTROL_SCHEMA_VERSION;
+    use std::{fs, path::Path};
+
+    fn static_state_dir() -> Option<String> {
+        Some("/tmp/ioi-model-mount-route-control-state".to_string())
+    }
+
+    fn write_json_record(state_dir: &Path, record_dir: &str, file_name: &str, record: Value) {
+        let dir = state_dir.join(record_dir);
+        fs::create_dir_all(&dir).expect("record dir");
+        fs::write(
+            dir.join(file_name),
+            serde_json::to_string_pretty(&record).expect("record json"),
+        )
+        .expect("write record");
+    }
+
+    fn seeded_route_control_state_dir() -> tempfile::TempDir {
+        let temp = tempfile::tempdir().expect("route-control state dir");
+        write_json_record(
+            temp.path(),
+            "model-routes",
+            "route.local-first.json",
+            json!({
+                "id": "route.local-first",
+                "role": "default",
+                "description": "Rust-authored model route.",
+                "privacy": "local_or_enterprise",
+                "quality": "adaptive",
+                "maxCostUsd": 0.25,
+                "maxLatencyMs": 30000,
+                "providerEligibility": ["local_folder"],
+                "fallback": ["endpoint.local"],
+                "deniedProviders": ["openai"],
+                "status": "active",
+                "receiptRefs": ["receipt://model-mount/route-control/write"],
+                "authorityReceiptRefs": [],
+                "updatedAt": "2026-06-13T00:00:00.000Z",
+                "routeControl": {
+                    "source": "runtime-daemon.model_mounting.route_control",
+                    "operation_kind": "model_mount.route.write",
+                    "rust_core_boundary": "model_mount.route_control",
+                    "evidence_refs": [
+                        "model_mount_route_control_rust_owned",
+                        "rust_daemon_core_route_control_plan",
+                        "agentgres_route_truth_required",
+                        "agentgres_route_topology_replay_required",
+                        "model_mount_route_candidate_transport_retired"
+                    ]
+                }
+            }),
+        );
+        write_json_record(
+            temp.path(),
+            "model-route-endpoint-resolutions",
+            "route.local-first.endpoint.json",
+            json!({
+                "id": "route_endpoint_resolution:route.local-first:seed",
+                "object": "ioi.model_mount_explicit_model_endpoints",
+                "route_id": "route.local-first",
+                "model_id": "model.local",
+                "endpoint_ids": ["endpoint.local"],
+                "endpoints": [{
+                    "id": "endpoint.local",
+                    "providerId": "provider.local",
+                    "modelId": "model.local",
+                    "status": "mounted",
+                    "capabilities": ["chat"]
+                }],
+                "receipt_refs": ["receipt://route-control/explicit-endpoints"],
+                "evidence_refs": [
+                    "model_mount_route_control_rust_owned",
+                    "rust_daemon_core_route_control_plan",
+                    "agentgres_route_truth_required"
+                ],
+                "rust_core_boundary": "model_mount.route_control",
+                "route_selection_boundary": "model_mount.route_selection",
+                "source": "runtime-daemon.model_mounting.route_control",
+                "resolved_at": "2026-06-13T00:00:01.000Z"
+            }),
+        );
+        write_json_record(
+            temp.path(),
+            "model-providers",
+            "provider.local.json",
+            json!({
+                "id": "provider.local",
+                "record_id": "provider.local",
+                "schema_version": MODEL_MOUNT_PROVIDER_CONTROL_SCHEMA_VERSION,
+                "object": "ioi.model_mount_provider",
+                "status": "configured",
+                "operation_kind": "model_mount.provider.write",
+                "source": "rust_daemon_core.model_mount.provider_control",
+                "provider_id": "provider.local",
+                "provider_ref": "provider.local",
+                "kind": "local_folder",
+                "label": "Local provider",
+                "api_format": "ioi_fixture",
+                "driver": "fixture",
+                "base_url": "local://provider",
+                "privacy_class": "local_private",
+                "capabilities": ["chat"],
+                "auth_scheme": "none",
+                "auth_header_name": "none",
+                "secret_ref": "",
+                "rust_core_boundary": "model_mount.provider_control",
+                "plaintext_material_returned": false,
+                "control_hash": "sha256:provider-control",
+                "evidence_refs": [
+                    "rust_daemon_core_provider_control",
+                    "agentgres_provider_control_truth_required",
+                    "public_provider_control_js_facade_retired"
+                ]
+            }),
+        );
+        temp
+    }
 
     #[test]
     fn rust_core_plans_model_mount_route_write_control() {
@@ -771,6 +958,7 @@ mod tests {
             endpoints: vec![],
             providers: vec![],
             receipt_refs: vec![],
+            state_dir: static_state_dir(),
         })
         .expect("route write control plan");
 
@@ -805,10 +993,11 @@ mod tests {
                 "model": "model.local",
                 "model_policy": {"privacy": "local_only"},
             }),
-            current_route: json!({"id": "route.local-first"}),
+            current_route: Value::Null,
             endpoints: vec![],
             providers: vec![],
             receipt_refs: vec!["receipt://route/test".to_string()],
+            state_dir: static_state_dir(),
         })
         .expect("route test control plan");
 
@@ -823,6 +1012,7 @@ mod tests {
 
     #[test]
     fn rust_core_plans_model_mount_route_selection_control() {
+        let state_dir = seeded_route_control_state_dir();
         let plan = plan_route_control(&ModelMountRouteControlRequest {
             schema_version: MODEL_MOUNT_ROUTE_CONTROL_SCHEMA_VERSION.to_string(),
             operation_kind: "model_mount.route.select".to_string(),
@@ -835,27 +1025,11 @@ mod tests {
                 "model_policy": {"privacy": "local_only"},
                 "authority_receipt_refs": ["receipt://wallet/model-chat"],
             }),
-            current_route: json!({
-                "id": "route.local-first",
-                "fallback": ["endpoint.local"],
-                "providerEligibility": ["local_folder"],
-                "deniedProviders": ["openai"],
-                "privacy": "local_only",
-            }),
-            endpoints: vec![json!({
-                "id": "endpoint.local",
-                "providerId": "provider.local",
-                "modelId": "model.local",
-                "status": "mounted",
-                "capabilities": ["chat"],
-            })],
-            providers: vec![json!({
-                "id": "provider.local",
-                "kind": "local_folder",
-                "capabilities": ["chat"],
-                "privacyClass": "local_private",
-            })],
+            current_route: Value::Null,
+            endpoints: vec![],
+            providers: vec![],
             receipt_refs: vec![],
+            state_dir: Some(state_dir.path().to_string_lossy().to_string()),
         })
         .expect("route selection control plan");
 
@@ -880,11 +1054,17 @@ mod tests {
             plan.record["accepted_receipt_record"]["details"]["model_mount_route_decision_ref"],
             plan.record["route_decision"]["route_decision_ref"]
         );
+        assert_eq!(
+            plan.record["route"]["routeControl"]["evidence_refs"][3],
+            "agentgres_route_topology_replay_required"
+        );
+        assert_eq!(plan.record["provider"]["kind"], "local_folder");
         assert_eq!(plan.record.get("selectedModel"), None);
     }
 
     #[test]
     fn rust_core_plans_explicit_model_endpoint_resolution_control() {
+        let state_dir = seeded_route_control_state_dir();
         let plan = plan_route_control(&ModelMountRouteControlRequest {
             schema_version: MODEL_MOUNT_ROUTE_CONTROL_SCHEMA_VERSION.to_string(),
             operation_kind: "model_mount.route.explicit_model_endpoints".to_string(),
@@ -892,22 +1072,11 @@ mod tests {
             route_id: Some("route.local-first".to_string()),
             generated_at: Some("2026-06-13T00:00:00.000Z".to_string()),
             body: json!({"model_id": "model.local"}),
-            current_route: json!({
-                "id": "route.local-first",
-                "fallback": ["endpoint.local"],
-                "providerEligibility": ["local_folder"],
-            }),
-            endpoints: vec![json!({
-                "id": "endpoint.local",
-                "providerId": "provider.local",
-                "modelId": "model.local",
-                "status": "mounted",
-            })],
-            providers: vec![json!({
-                "id": "provider.local",
-                "kind": "local_folder",
-            })],
+            current_route: Value::Null,
+            endpoints: vec![],
+            providers: vec![],
             receipt_refs: vec![],
+            state_dir: Some(state_dir.path().to_string_lossy().to_string()),
         })
         .expect("explicit endpoint resolution control plan");
 
@@ -923,6 +1092,112 @@ mod tests {
     }
 
     #[test]
+    fn rust_core_replays_route_control_topology_from_state_dir() {
+        let state_dir = seeded_route_control_state_dir();
+        let plan = plan_route_control(&ModelMountRouteControlRequest {
+            schema_version: MODEL_MOUNT_ROUTE_CONTROL_SCHEMA_VERSION.to_string(),
+            operation_kind: "model_mount.route.select".to_string(),
+            source: Some("runtime-daemon.model_mounting.route_control".to_string()),
+            route_id: Some("route.local-first".to_string()),
+            generated_at: Some("2026-06-13T00:00:00.000Z".to_string()),
+            body: json!({"model": "model.local", "capability": "chat"}),
+            current_route: Value::Null,
+            endpoints: vec![],
+            providers: vec![],
+            receipt_refs: vec![],
+            state_dir: Some(state_dir.path().to_string_lossy().to_string()),
+        })
+        .expect("route selection replay plan");
+
+        assert_eq!(plan.record["route_id"], "route.local-first");
+        assert_eq!(plan.record["endpoint_id"], "endpoint.local");
+        assert_eq!(plan.record["provider_id"], "provider.local");
+        assert_eq!(plan.record["route"]["id"], "route.local-first");
+        assert_eq!(plan.record["endpoint"]["provider_id"], "provider.local");
+        assert_eq!(plan.record["provider"]["id"], "provider.local");
+    }
+
+    #[test]
+    fn rust_core_rejects_route_control_without_state_dir() {
+        let error = plan_route_control(&ModelMountRouteControlRequest {
+            schema_version: MODEL_MOUNT_ROUTE_CONTROL_SCHEMA_VERSION.to_string(),
+            operation_kind: "model_mount.route.write".to_string(),
+            source: None,
+            route_id: Some("route.review".to_string()),
+            generated_at: None,
+            body: json!({"id": "route.review", "role": "Review"}),
+            current_route: Value::Null,
+            endpoints: vec![],
+            providers: vec![],
+            receipt_refs: vec!["receipt://route-control/write".to_string()],
+            state_dir: None,
+        })
+        .expect_err("state_dir is required");
+
+        assert_eq!(error, ModelMountError::MissingField("state_dir"));
+    }
+
+    #[test]
+    fn rust_core_rejects_route_control_candidate_transport() {
+        let current_route_error = plan_route_control(&ModelMountRouteControlRequest {
+            schema_version: MODEL_MOUNT_ROUTE_CONTROL_SCHEMA_VERSION.to_string(),
+            operation_kind: "model_mount.route.select".to_string(),
+            source: None,
+            route_id: Some("route.local-first".to_string()),
+            generated_at: None,
+            body: json!({"model": "model.local"}),
+            current_route: json!({"id": "route.local-first"}),
+            endpoints: vec![],
+            providers: vec![],
+            receipt_refs: vec![],
+            state_dir: static_state_dir(),
+        })
+        .expect_err("current_route candidate transport retired");
+        assert_eq!(
+            current_route_error,
+            ModelMountError::MissingField("retired_current_route")
+        );
+
+        let endpoints_error = plan_route_control(&ModelMountRouteControlRequest {
+            schema_version: MODEL_MOUNT_ROUTE_CONTROL_SCHEMA_VERSION.to_string(),
+            operation_kind: "model_mount.route.select".to_string(),
+            source: None,
+            route_id: Some("route.local-first".to_string()),
+            generated_at: None,
+            body: json!({"model": "model.local"}),
+            current_route: Value::Null,
+            endpoints: vec![json!({"id": "endpoint.local"})],
+            providers: vec![],
+            receipt_refs: vec![],
+            state_dir: static_state_dir(),
+        })
+        .expect_err("endpoint candidate transport retired");
+        assert_eq!(
+            endpoints_error,
+            ModelMountError::MissingField("retired_endpoints")
+        );
+
+        let providers_error = plan_route_control(&ModelMountRouteControlRequest {
+            schema_version: MODEL_MOUNT_ROUTE_CONTROL_SCHEMA_VERSION.to_string(),
+            operation_kind: "model_mount.route.select".to_string(),
+            source: None,
+            route_id: Some("route.local-first".to_string()),
+            generated_at: None,
+            body: json!({"model": "model.local"}),
+            current_route: Value::Null,
+            endpoints: vec![],
+            providers: vec![json!({"id": "provider.local"})],
+            receipt_refs: vec![],
+            state_dir: static_state_dir(),
+        })
+        .expect_err("provider candidate transport retired");
+        assert_eq!(
+            providers_error,
+            ModelMountError::MissingField("retired_providers")
+        );
+    }
+
+    #[test]
     fn rust_core_plans_model_mount_route_control_direct_api() {
         let plan = plan_route_control(&ModelMountRouteControlRequest {
             schema_version: MODEL_MOUNT_ROUTE_CONTROL_SCHEMA_VERSION.to_string(),
@@ -935,6 +1210,7 @@ mod tests {
             endpoints: vec![],
             providers: vec![],
             receipt_refs: vec!["receipt://route-control/write".to_string()],
+            state_dir: static_state_dir(),
         })
         .expect("route control direct API plan");
 
@@ -962,6 +1238,7 @@ mod tests {
             endpoints: vec![],
             providers: vec![],
             receipt_refs: vec![],
+            state_dir: static_state_dir(),
         })
         .expect_err("unsupported route control kind");
 

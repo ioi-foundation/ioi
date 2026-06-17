@@ -494,7 +494,7 @@ function routeControlRequest() {
       fallback: ["endpoint.local"],
       provider_eligibility: ["local_folder"],
     },
-    current_route: null,
+    state_dir: "/tmp/ioi-model-mount-route-state",
   };
 }
 
