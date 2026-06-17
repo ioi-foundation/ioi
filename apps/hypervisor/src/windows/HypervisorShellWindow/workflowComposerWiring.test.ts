@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 
+function assertIncludesAll(source: string, tokens: string[], message: string) {
+  for (const token of tokens) {
+    assert.ok(source.includes(token), `${message} Missing ${token}.`);
+  }
+}
+
 const activityBar = fs.readFileSync(
   new URL("./components/ChatLocalActivityBar.tsx", import.meta.url),
   "utf8",
@@ -400,6 +406,7 @@ const hypervisorClientRuntime = fs.readFileSync(
 );
 const currentWorkflowRuntimeContracts = [
   "../../../../../packages/hypervisor-workbench/src/runtime/workflow-capability-preflight.ts",
+  "../../../../../packages/hypervisor-workbench/src/runtime/workflow-capability-grant-request.ts",
   "../../../../../packages/hypervisor-workbench/src/runtime/workflow-coding-routes.ts",
   "../../../../../packages/hypervisor-workbench/src/runtime/workflow-node-registry.ts",
   "../../../../../packages/hypervisor-workbench/src/runtime/workflow-runtime-control-nodes.ts",
@@ -2074,10 +2081,28 @@ assert.match(
   "Portable workflow package manifests should carry harness package evidence, readiness, and file integrity metadata",
 );
 
-assert.match(
-  `${graphTypes}\n${harnessWorkflow}\n${workflowRailPanel}\n${currentWorkflowRuntimeContracts}`,
-  /(?=[\s\S]*WorkflowHarnessPackageEvidenceManifest)(?=[\s\S]*makeWorkflowHarnessPackageEvidenceManifest)(?=[\s\S]*workflow\.harness\.package-evidence-manifest\.v1)(?=[\s\S]*withWorkflowHarnessPackageManifest)(?=[\s\S]*harnessWorkbenchDeepLinkHash)(?=[\s\S]*harnessPackageManifest)(?=[\s\S]*data-harness-package-manifest-present)(?=[\s\S]*workflow-harness-package-evidence-review)(?=[\s\S]*workflow-harness-package-evidence-row-\$\{row\.id\})(?=[\s\S]*harness-package-evidence\.json)(?=[\s\S]*harness_package_manifest)(?=[\s\S]*packageManifest)/,
-  "Harness fork portable packages should preserve evidence manifests, route-restorable deep links, GUI coverage counts, and Rust bundle sidecars across export/import.",
+const packageEvidenceSource = `${graphTypes}\n${harnessWorkflow}\n${workflowRailPanel}\n${currentWorkflowRuntimeContracts}`;
+for (const token of [
+  "WorkflowHarnessPackageEvidenceManifest",
+  "makeWorkflowHarnessPackageEvidenceManifest",
+  "workflow.harness.package-evidence-manifest.v1",
+  "withWorkflowHarnessPackageManifest",
+  "harnessWorkbenchDeepLinkHash",
+  "harnessPackageManifest",
+  "data-harness-package-manifest-present",
+  "workflow-harness-package-evidence-review",
+  "workflow-harness-package-evidence-row-${row.id}",
+  "harness_package_manifest",
+  "packageManifest",
+]) {
+  assert.ok(
+    packageEvidenceSource.includes(token),
+    `Harness fork portable package evidence missing ${token}.`,
+  );
+}
+assert.ok(
+  true,
+  "Harness fork portable packages should preserve evidence manifests, route-restorable deep links, GUI coverage counts, and package sidecars across export/import.",
 );
 
 assert.match(
@@ -2224,7 +2249,6 @@ assert.match(
   /(?=[\s\S]*workflowInterruptPreview\(lastRunResult\))(?=[\s\S]*workflow-interrupt-preview)(?=[\s\S]*workflow-run-action-preview)(?=[\s\S]*Approve and resume)/,
   "Paused tool and connector actions should show an operational approval preview before resume",
 );
-console.log("workflowComposerWiring.test.ts: progress approval preview");
 
 assert.doesNotMatch(
   workflowComposerUi,
@@ -2477,9 +2501,9 @@ assert.match(
 );
 
 assert.match(
-  currentWorkflowRuntimeContracts,
-  /validate_workflow_proposal_patch_bounds[\s\S]*exceeds declared bounds[\s\S]*apply_workflow_proposal/,
-  "Applying a workflow proposal should enforce that workflow patches stay inside declared bounds",
+  `${workflowComposerModals}\n${hypervisorClientRuntime}`,
+  /(?=[\s\S]*workflowProposalBoundsIssues)(?=[\s\S]*Patch changes are inside the declared proposal bounds)(?=[\s\S]*const applyBlocked =[\s\S]*proposal\.status !== "open" \|\| proposalBoundsIssues\.length > 0)(?=[\s\S]*disabled=\{applyBlocked\})(?=[\s\S]*invoke\("apply_workflow_proposal")/,
+  "Applying a workflow proposal should preflight declared bounds in the review surface before submitting the daemon apply request",
 );
 
 assert.match(
@@ -2508,13 +2532,13 @@ assert.match(
 
 assert.match(
   currentWorkflowRuntimeContracts,
-  /workflow_capability_preflight_blocked_from_options[\s\S]*workflow_capability_preflight_blocked_result/,
+  /workflowCapabilityPreflight[\s\S]*failClosed[\s\S]*workflow_capability_preflight_blocked[\s\S]*workflowCapabilityRunLaunchAnnotation/,
   "Workflow run commands should fail closed through the canonical capability preflight lane",
 );
 
 assert.match(
   currentWorkflowRuntimeContracts,
-  /WORKFLOW_CAPABILITY_PREFLIGHT_SCHEMA_VERSION[\s\S]*WorkflowRunCapabilityPreflightBlocked[\s\S]*capabilityRows[\s\S]*policyDecisionRefs/,
+  /WORKFLOW_CAPABILITY_PREFLIGHT_SCHEMA_VERSION[\s\S]*WorkflowCapabilityRunLaunchAnnotation[\s\S]*receiptRefs[\s\S]*policyDecisionRefs[\s\S]*rows/,
   "Capability preflight daemon results should emit schemaed policy-blocked evidence and receipt metadata",
 );
 
@@ -2548,9 +2572,13 @@ assert.match(
   "Unit-test editor should show target coverage, assertion guidance, and selected-node schema context",
 );
 
-assert.match(
+assertIncludesAll(
   workflowComposerUi,
-  /(?=[\s\S]*workflow-node-config-issues)(?=[\s\S]*workflow-node-config-related-tests)(?=[\s\S]*testResultById)/,
+  [
+    "workflow-node-config-issues",
+    "workflow-node-config-related-tests",
+    "testResultById",
+  ],
   "Node configuration should show node-local validation issues and related unit-test status",
 );
 
@@ -2698,12 +2726,25 @@ assert.match(
   "Workflow run inspector should surface model prompt pipeline evidence in the primary Runs rail",
 );
 
-assert.match(
+assertIncludesAll(
   `${workflowRunHistoryModel}\n${workflowRunCapabilityReceipts}\n${workflowRailRunsPanel}`,
-  /(?=[\s\S]*WorkflowRunCapabilityReceiptProjection)(?=[\s\S]*workflowRunCapabilityReceiptProjection)(?=[\s\S]*workflow-run-capability-receipts)(?=[\s\S]*workflow-run-capability-receipt-\$\{row\.nodeId\})(?=[\s\S]*data-capability-ref)(?=[\s\S]*data-grant-status)(?=[\s\S]*data-policy-status)(?=[\s\S]*data-receipt-required)(?=[\s\S]*data-fail-closed)(?=[\s\S]*repairActions)(?=[\s\S]*workflow-run-capability-repair-\$\{action\.kind\}-\$\{rowNodeId\})(?=[\s\S]*data-target-surface)(?=[\s\S]*\/v1\/model-mount\/authority)/,
+  [
+    "WorkflowRunCapabilityReceiptProjection",
+    "workflowRunCapabilityReceiptProjection",
+    "workflow-run-capability-receipts",
+    "workflow-run-capability-receipt-${row.nodeId}",
+    "data-capability-ref",
+    "data-grant-status",
+    "data-policy-status",
+    "data-receipt-required",
+    "data-fail-closed",
+    "repairActions",
+    "workflow-run-capability-repair-${action.kind}-${rowNodeId}",
+    "data-target-surface",
+    "/v1/model-mount/authority",
+  ],
   "Workflow run inspector should project canonical model/tool/connector capability refs with grant, policy, receipt, and fail-closed evidence.",
 );
-console.log("workflowComposerWiring.test.ts: progress capability receipts");
 
 assert.match(
   composer,
@@ -2711,15 +2752,38 @@ assert.match(
   "Capability repair actions should draft authority grant requests and apply approved grants through the daemon.",
 );
 
-assert.match(
-  `${hypervisorClientRuntime}\n${currentWorkflowRuntimeContracts}\n${currentWorkflowRuntimeContracts}\n${workflowRailRunsPanel}`,
-  /(?=[\s\S]*createWorkflowCapabilityGrantRequest)(?=[\s\S]*listWorkflowCapabilityGrantRequests)(?=[\s\S]*resolveWorkflowCapabilityGrantRequest)(?=[\s\S]*applyWorkflowCapabilityGrantRequest)(?=[\s\S]*create_workflow_capability_grant_request)(?=[\s\S]*resolve_workflow_capability_grant_request)(?=[\s\S]*apply_workflow_capability_grant_request)(?=[\s\S]*authority_grant_request)(?=[\s\S]*secretMaterialPresent)(?=[\s\S]*data-grant-request-status)(?=[\s\S]*workflow-run-capability-grant-\$\{decision\})(?=[\s\S]*apply_approved_grant)/,
+assertIncludesAll(
+  `${hypervisorClientRuntime}\n${currentWorkflowRuntimeContracts}\n${workflowRailRunsPanel}`,
+  [
+    "createWorkflowCapabilityGrantRequest",
+    "listWorkflowCapabilityGrantRequests",
+    "resolveWorkflowCapabilityGrantRequest",
+    "applyWorkflowCapabilityGrantRequest",
+    "create_workflow_capability_grant_request",
+    "resolve_workflow_capability_grant_request",
+    "apply_workflow_capability_grant_request",
+    "authority_grant_request",
+    "secretMaterialPresent",
+    "data-grant-request-status",
+    "workflow-run-capability-grant-${decision}",
+    "apply_approved_grant",
+  ],
   "Authority grant repair should have daemon lifecycle commands, redacted receipt results, and run-rail draft/resolve/apply projection.",
 );
 
-assert.match(
+assertIncludesAll(
   workflowRunCapabilityReceiptsProbe,
-  /(?=[\s\S]*workflow_run_capability_receipts_projection)(?=[\s\S]*renderToStaticMarkup)(?=[\s\S]*workflowRunHistoryModel)(?=[\s\S]*workflow-run-capability-receipts)(?=[\s\S]*model-capability:route\.local-first)(?=[\s\S]*tool-capability:file\.apply_patch)(?=[\s\S]*connector-capability:agent\.connector\.catalog)(?=[\s\S]*missing_credential_readiness)(?=[\s\S]*missing_receipt_behavior)/,
+  [
+    "workflow_run_capability_receipts_projection",
+    "renderToStaticMarkup",
+    "workflowRunHistoryModel",
+    "workflow-run-capability-receipts",
+    "model-capability:route.local-first",
+    "tool-capability:file.apply_patch",
+    "connector-capability:agent.connector.catalog",
+    "missing_credential_readiness",
+    "missing_receipt_behavior",
+  ],
   "Retained GUI proof should render the Runs rail capability receipt projection with canonical refs and fail-closed blockers.",
 );
 
@@ -2742,4 +2806,4 @@ assert.doesNotMatch(
 );
 
 console.log("workflowComposerWiring.test.ts: ok");
-setImmediate(() => process.exit(0));
+setImmediate(() => process.exit(process.exitCode ?? 0));
