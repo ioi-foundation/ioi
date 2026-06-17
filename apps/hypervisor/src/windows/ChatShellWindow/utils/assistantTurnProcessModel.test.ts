@@ -117,8 +117,8 @@ const workspaceSources: ArtifactSourceReference[] = [
     reason: "Selected by bounded workspace source probe.",
   },
   {
-    sourceId: "internal-docs/specs/runtime/autopilot-chat-agent-ux.md:50",
-    title: "internal-docs/specs/runtime/autopilot-chat-agent-ux.md:50",
+    sourceId: "internal-docs/implementation/refine-architecture.md:50",
+    title: "internal-docs/implementation/refine-architecture.md:50",
     domain: "workspace",
     excerpt: "Partial: current runtime has foundations",
     reason: "Selected by bounded workspace source probe.",

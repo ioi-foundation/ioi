@@ -3,7 +3,7 @@ import { buildPrCommentsOverview } from "./artifactHubPrCommentsModel.ts";
 
 {
   const overview = buildPrCommentsOverview({
-    sessionTitle: "Autopilot validation run",
+    sessionTitle: "Hypervisor validation run",
     branchLabel: "feature/mobile",
     lastCommitLabel: "abc123 Add mobile handoff drawer",
     progressSummary: "Validation passed and artifacts retained.",
@@ -32,7 +32,7 @@ import { buildPrCommentsOverview } from "./artifactHubPrCommentsModel.ts";
 
 {
   const overview = buildPrCommentsOverview({
-    sessionTitle: "Autopilot validation run",
+    sessionTitle: "Hypervisor validation run",
     branchLabel: "feature/review",
     lastCommitLabel: null,
     progressSummary: "Awaiting clarification.",

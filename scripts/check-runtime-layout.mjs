@@ -162,6 +162,12 @@ const workspaceRepositoryGateSource = read(
 const authorityCenterTestSource = read(
   "apps/hypervisor/src/surfaces/Policy/authorityCenter.test.ts",
 );
+const activeHypervisorFixtureSources = [
+  "apps/hypervisor/src/windows/ChatShellWindow/components/artifactHubPrCommentsModel.test.ts",
+  "apps/hypervisor/src/windows/ChatShellWindow/utils/assistantTurnProcessModel.test.ts",
+  "apps/hypervisor/src/windows/ChatShellWindow/utils/turnWindows.test.ts",
+  "packages/hypervisor-workbench/src/WorkflowComposer/computerUseRunOptions.test.ts",
+].map(read).join("\n");
 const hypervisorVisibleSurfaceSources = [
   "apps/hypervisor/src/windows/ChatShellWindow/index.tsx",
   "apps/hypervisor/src/windows/ChatShellWindow/components/ArtifactHubTaskViews.tsx",
@@ -586,6 +592,25 @@ assert(
     ),
   ["apps/hypervisor/src/surfaces/Policy/authorityCenter.test.ts"],
   "Authority Center model-route fixtures must use Hypervisor route identities, not retired Autopilot model-route namespaces.",
+);
+assert(
+  "active-test-fixtures-hypervisor-named",
+  activeHypervisorFixtureSources.includes("Hypervisor validation run") &&
+    activeHypervisorFixtureSources.includes("install hypervisor") &&
+    activeHypervisorFixtureSources.includes('"captureAppName"] = "Hypervisor"') &&
+    activeHypervisorFixtureSources.includes(
+      "internal-docs/implementation/refine-architecture.md:50",
+    ) &&
+    !/Autopilot validation run|install autopilot|captureAppName["'\]]+\s*=\s*["']Autopilot|autopilot-chat-agent-ux/.test(
+      activeHypervisorFixtureSources,
+    ),
+  [
+    "apps/hypervisor/src/windows/ChatShellWindow/components/artifactHubPrCommentsModel.test.ts",
+    "apps/hypervisor/src/windows/ChatShellWindow/utils/assistantTurnProcessModel.test.ts",
+    "apps/hypervisor/src/windows/ChatShellWindow/utils/turnWindows.test.ts",
+    "packages/hypervisor-workbench/src/WorkflowComposer/computerUseRunOptions.test.ts",
+  ],
+  "Active chat/workflow fixture inputs must use Hypervisor labels unless they are explicit negative assertions.",
 );
 assert(
   "active-client-namespaces-hypervisor-named",

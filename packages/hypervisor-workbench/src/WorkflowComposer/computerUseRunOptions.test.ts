@@ -157,7 +157,7 @@ test("computer-use composer run options project visual GUI observation refs", ()
   args["axPath"] = "./evidence/ax.json";
   args["captureScreen"] = true;
   args["captureAxTree"] = true;
-  args["captureAppName"] = "Autopilot";
+  args["captureAppName"] = "Hypervisor";
   args["captureWindowTitle"] = "Workflow Composer";
   args["localGuiExecutor"] = true;
   args["localGuiExecutorProvider"] = "auto";
@@ -180,7 +180,7 @@ test("computer-use composer run options project visual GUI observation refs", ()
   assert.equal(options.metadata.axPath, "./evidence/ax.json");
   assert.equal(options.metadata.captureScreen, true);
   assert.equal(options.metadata.captureAxTree, true);
-  assert.equal(options.metadata.captureAppName, "Autopilot");
+  assert.equal(options.metadata.captureAppName, "Hypervisor");
   assert.equal(options.metadata.captureWindowTitle, "Workflow Composer");
   assert.equal(options.metadata.localGuiExecutor, true);
   assert.equal(options.metadata.localGuiExecutorProvider, "auto");

@@ -24,7 +24,7 @@ const windows = buildEventTurnWindows([
     step_index: 1,
     event_type: "agent_message" as any,
     title: "User request",
-    digest: { query: "install autopilot" },
+    digest: { query: "install hypervisor" },
     details: {},
     artifact_refs: [],
     receipt_ref: null,
@@ -35,7 +35,7 @@ const windows = buildEventTurnWindows([
 ] as any);
 
 assert.equal(windows.length, 1);
-assert.equal(windows[0]?.prompt, "install autopilot");
+assert.equal(windows[0]?.prompt, "install hypervisor");
 assert.equal(windows[0]?.startAtMs, null);
 
 console.log("turnWindows.test.ts: ok");
