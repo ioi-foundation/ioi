@@ -8518,7 +8518,7 @@ export function makeHarnessDefaultRuntimeDispatchProof(
   const stagedTranscriptWriteRecord = {
     target: "checkpoint_transcript_messages",
     stagingSurface: "checkpoint_blobs",
-    checkpointName: "autopilot.workflow_output_writer_transcript_staging.v1",
+    checkpointName: "hypervisor.workflow_output_writer_transcript_staging.v1",
     role: "agent",
     timestampMs: 1,
     orderIndex: 1,
@@ -8536,7 +8536,7 @@ export function makeHarnessDefaultRuntimeDispatchProof(
   const stagedTranscriptWriteProof = {
     schemaVersion: "workflow.output_writer.transcript-staging-proof.v1",
     surface: "checkpoint_blobs",
-    checkpointName: "autopilot.workflow_output_writer_transcript_staging.v1",
+    checkpointName: "hypervisor.workflow_output_writer_transcript_staging.v1",
     record: stagedTranscriptWriteRecord,
     persisted: true,
     loadedBeforeRollback: true,

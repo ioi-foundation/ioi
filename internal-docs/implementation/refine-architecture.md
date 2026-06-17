@@ -1094,6 +1094,9 @@ Current implementation cut:
   active visible chat, workspace, connector, model, and harness-workflow
   surfaces now use Hypervisor labels instead of Autopilot labels; lowercase
   legacy protocol/model IDs remain a separate model-mount compatibility cut.
+  workflow output-writer checkpoint identities now use
+  `hypervisor.workflow_output_writer_transcript_staging.v1` and are guarded
+  against retired `autopilot.workflow_*` checkpoint names.
   active client-owned namespaces now use Hypervisor terms:
   shell storage keys, chat launch keys, chat Vim-mode events, trace/share
   export prefixes, editor theme IDs, command-center route markers, boot

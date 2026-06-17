@@ -613,6 +613,15 @@ assert(
   "Active visible app/workbench surfaces must use Hypervisor labels; Autopilot may remain only in protocol IDs, historical evidence, or explicit legacy fixtures.",
 );
 assert(
+  "workflow-runtime-checkpoint-identities-hypervisor-named",
+  hypervisorVisibleSurfaceSources.includes(
+    "hypervisor.workflow_output_writer_transcript_staging.v1",
+  ) &&
+    !/autopilot\.workflow_output_writer/.test(hypervisorVisibleSurfaceSources),
+  ["packages/hypervisor-workbench/src/runtime/harness-workflow/core.ts"],
+  "Workflow runtime checkpoint identities must use Hypervisor namespaces, not retired Autopilot checkpoint names.",
+);
+assert(
   "active-client-namespaces-hypervisor-named",
   [
     "hypervisor.workspace-shell.v1",
