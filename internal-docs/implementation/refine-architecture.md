@@ -1525,8 +1525,10 @@ Current implementation cut:
   paths, host container sockets, plaintext env maps, secret argv, plaintext
   workspace custody, and cTEE private workspace custody by default. Focused
   tests in `runtime-harness-container-lane.test.mjs` and `check:runtime-layout`
-  guard this boundary. Route-handler wiring and real external process spawning
-  remain follow-up work beyond the standalone smoke runner.
+  guard this boundary. The public daemon route
+  `/v1/hypervisor/harness-container-lanes` now exposes the same plan and
+  not-executed receipt contract for governed adapter launch proposals. Real
+  external process spawning remains executor-mounted follow-up work.
 
   0B.5's first public smoke runner is implemented as a daemon-side contract:
   `packages/runtime-daemon/src/runtime-harness-public-smoke-task.mjs` compares
@@ -1536,7 +1538,10 @@ Current implementation cut:
   preserves the container lane private-mount guard. Focused tests prove two
   installed adapters receive the same public fixture, success receipts bind
   Agentgres/artifact refs, insufficient installs block comparison, and cTEE or
-  plaintext private workspace custody remains blocked.
+  plaintext private workspace custody remains blocked. The public daemon route
+  `/v1/hypervisor/harness-public-smoke` now exposes that comparison contract
+  under daemon gates and accepts an injected executor when the daemon has a live
+  container lane runner mounted.
 
   0B.6's first private-workspace guard is implemented at New Session
   selection time: `buildHarnessCompatibilityVerdict` now receives the selected
@@ -1582,11 +1587,12 @@ First implementation slice:
    compatible, adapter-native only, provider-trust, local-route unavailable.
    Done at static verdict level.
 5. Add container lane dry-run receipt for a public fixture workspace. Done for
-   the daemon-side Docker/Podman plan and not-executed receipt contract.
+   the daemon-side Docker/Podman plan, public route, and not-executed receipt
+   contract.
 6. Add first public smoke comparison. Done for daemon-side injected execution:
    the smoke runner can compare two installed container adapters against the
-   same public fixture and return success or dry-run receipts without bypassing
-   daemon gates.
+   same public fixture through the public daemon route and return success or
+   dry-run receipts without bypassing daemon gates.
 7. Add cTEE/private workspace guard. Done at New Session compatibility level
    for the default external-adapter path; daemon container lanes also continue
    to reject cTEE/private and plaintext workspace mounts.

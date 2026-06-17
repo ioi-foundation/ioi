@@ -4,6 +4,8 @@ import {
   createAgent as createLifecycleAgent,
   createThread as createLifecycleThread,
 } from "../runtime-agent-run-lifecycle.mjs";
+import { planHarnessAdapterContainerLane } from "../runtime-harness-container-lane.mjs";
+import { runHarnessPublicSmokeTask } from "../runtime-harness-public-smoke-task.mjs";
 
 export function createPublicRuntimeRequestHandler(deps) {
   const {
@@ -12,6 +14,7 @@ export function createPublicRuntimeRequestHandler(deps) {
     createLifecycleAgent: createLifecycleAgentDep = createLifecycleAgent,
     createLifecycleThread: createLifecycleThreadDep = createLifecycleThread,
     ensureProviderAvailable = null,
+    executeHarnessContainerLane = null,
     eventStreamIdForThread = null,
     handleAgentRoute,
     handleModelMountingNativeRoute,
@@ -228,6 +231,42 @@ export function createPublicRuntimeRequestHandler(deps) {
             projected.record?.projection ??
             projected.record ??
             projected,
+        );
+        return;
+      }
+      if (request.method === "POST" && url.pathname === "/v1/hypervisor/harness-container-lanes") {
+        const body = await readBody(request);
+        writeJsonResponse(
+          response,
+          planHarnessAdapterContainerLane({
+            ...body,
+            source:
+              optionalString(body.source) ??
+              "public_runtime_routes./v1/hypervisor/harness-container-lanes",
+          }),
+          202,
+        );
+        return;
+      }
+      if (request.method === "POST" && url.pathname === "/v1/hypervisor/harness-public-smoke") {
+        const body = await readBody(request);
+        writeJsonResponse(
+          response,
+          await runHarnessPublicSmokeTask(
+            {
+              ...body,
+              source:
+                optionalString(body.source) ??
+                "public_runtime_routes./v1/hypervisor/harness-public-smoke",
+            },
+            {
+              executeContainerLane:
+                typeof executeHarnessContainerLane === "function"
+                  ? executeHarnessContainerLane
+                  : undefined,
+            },
+          ),
+          202,
         );
         return;
       }

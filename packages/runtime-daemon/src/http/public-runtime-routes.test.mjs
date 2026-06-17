@@ -540,6 +540,186 @@ test("public runtime routes dispatch Hypervisor provider operations through life
   ]);
 });
 
+test("public runtime routes expose daemon-planned harness container lane receipts", async () => {
+  const { handleRequest } = routeHarness();
+  const response = responseRecorder();
+  const store = {
+    defaultCwd: "/workspace",
+    stateDir: "/state",
+    projectRuntimeLifecycleProjection: retiredRouteWrapper,
+  };
+
+  await handleRequest({
+    request: request({
+      method: "POST",
+      url: "/v1/hypervisor/harness-container-lanes",
+      body: {
+        selection_ref: "agent-harness-adapter:deepseek_tui",
+        adapter_id: "deepseek_tui",
+        runtime: "docker",
+        container_image_ref: "container-image:deepseek-tui:local",
+        command_argv: [
+          "harness-adapter",
+          "run",
+          "deepseek_tui",
+          "--fixture",
+          "harness-testbed:public-code-edit-smoke",
+        ],
+        mounts: [
+          {
+            mount_ref: "mount:public-trunk",
+            source_ref: "artifact://workspace/public-trunk",
+            target_path: "/workspace",
+            access: "read_only",
+            custody: "public_trunk",
+          },
+        ],
+        network_policy: "disabled",
+        env_policy_ref: "env-policy:harness-adapter/no-plaintext-env",
+        authority_scope_refs: ["scope:workspace.read", "scope:workspace.patch"],
+        privacy_posture_ref: "privacy-posture:public-trunk",
+      },
+    }),
+    response,
+    store,
+  });
+
+  const payload = JSON.parse(response.body);
+  assert.equal(response.statusCode, 202);
+  assert.equal(
+    payload.schema_version,
+    "ioi.hypervisor.harness_container_lane_plan.v1",
+  );
+  assert.equal(payload.selection_ref, "agent-harness-adapter:deepseek_tui");
+  assert.equal(payload.runtimeTruthSource, "daemon-runtime");
+  assert.equal(payload.requiresDaemonGate, true);
+  assert.match(payload.command_argv_hash, /^sha256:[0-9a-f]{64}$/);
+  assert.equal(
+    payload.receipt.schema_version,
+    "ioi.hypervisor.harness_container_lane_receipt.v1",
+  );
+  assert.equal(payload.receipt.exit_status, "not_executed");
+  assert.deepEqual(payload.receipt.mounts, payload.mounts);
+});
+
+test("public runtime routes expose harness public smoke comparison under daemon gates", async () => {
+  const executed = [];
+  const { handleRequest } = routeHarness({
+    executeHarnessContainerLane: async ({ plan, fixture_id, task_ref }) => {
+      executed.push({ plan_id: plan.plan_id, fixture_id, task_ref });
+      return {
+        exit_status: "success",
+        exit_code: 0,
+        agentgres_operation_refs: [
+          `agentgres://operation/${plan.adapter_id}/public-smoke`,
+        ],
+        artifact_refs: [`artifact://harness-smoke/${plan.adapter_id}/stdout`],
+        created_at: "2026-06-17T13:01:00.000Z",
+      };
+    },
+  });
+  const response = responseRecorder();
+  const store = {
+    defaultCwd: "/workspace",
+    stateDir: "/state",
+    projectRuntimeLifecycleProjection: retiredRouteWrapper,
+  };
+
+  await handleRequest({
+    request: request({
+      method: "POST",
+      url: "/v1/hypervisor/harness-public-smoke",
+      body: {
+        installed_adapter_ids: ["deepseek_tui", "generic_cli"],
+        candidate_lanes: [
+          {
+            adapter_id: "deepseek_tui",
+            selection_ref: "agent-harness-adapter:deepseek_tui",
+            runtime: "docker",
+            container_image_ref: "container-image:deepseek-tui:local",
+          },
+          {
+            adapter_id: "generic_cli",
+            selection_ref: "agent-harness-adapter:generic_cli",
+            runtime: "docker",
+            container_image_ref: "container-image:generic-cli:local",
+          },
+        ],
+      },
+    }),
+    response,
+    store,
+  });
+
+  const payload = JSON.parse(response.body);
+  assert.equal(response.statusCode, 202);
+  assert.equal(payload.schema_version, "ioi.hypervisor.harness_public_smoke_run.v1");
+  assert.equal(payload.requiresDaemonGate, true);
+  assert.equal(payload.runtimeTruthSource, "daemon-runtime");
+  assert.deepEqual(payload.candidate_selection_refs, [
+    "agent-harness-adapter:deepseek_tui",
+    "agent-harness-adapter:generic_cli",
+  ]);
+  assert.deepEqual(
+    payload.attempts.map((attempt) => attempt.exit_status),
+    ["success", "success"],
+  );
+  assert.equal(executed.length, 2);
+  assert.ok(
+    payload.attempts.every((attempt) =>
+      attempt.mounts.every((mount) =>
+        ["public_trunk", "redacted_projection"].includes(mount.custody),
+      ),
+    ),
+  );
+  assert.equal(
+    payload.attempts[0].receipt.agentgres_operation_refs[0],
+    "agentgres://operation/deepseek_tui/public-smoke",
+  );
+});
+
+test("public runtime harness smoke route preserves private workspace mount guard", async () => {
+  const { handleRequest } = routeHarness();
+  const response = responseRecorder();
+
+  await handleRequest({
+    request: request({
+      method: "POST",
+      url: "/v1/hypervisor/harness-public-smoke",
+      body: {
+        installed_adapter_ids: ["deepseek_tui", "generic_cli"],
+        candidate_lanes: [
+          {
+            adapter_id: "deepseek_tui",
+            runtime: "docker",
+            container_image_ref: "container-image:deepseek-tui:local",
+            mounts: [
+              {
+                source_ref: "artifact://workspace/private",
+                target_path: "/workspace",
+                access: "read_only",
+                custody: "ctee_private_workspace",
+              },
+            ],
+          },
+          {
+            adapter_id: "generic_cli",
+            runtime: "docker",
+            container_image_ref: "container-image:generic-cli:local",
+          },
+        ],
+      },
+    }),
+    response,
+    store: { defaultCwd: "/workspace", stateDir: "/state" },
+  });
+
+  assert.equal(response.statusCode, 403);
+  assert.deepEqual(JSON.parse(response.body), {
+    error: "harness_container_lane_private_mount_blocked",
+  });
+});
+
 test("public runtime computer-use routes dispatch through Rust daemon-core projection", async () => {
   const { handleRequest } = routeHarness();
   const calls = [];

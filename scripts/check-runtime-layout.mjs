@@ -553,6 +553,13 @@ assert(
     runtimeHarnessContainerLaneSource.includes(
       "source refs, not raw host paths",
     ) &&
+    publicRuntimeRoutesSource.includes(
+      "/v1/hypervisor/harness-container-lanes",
+    ) &&
+    publicRuntimeRoutesSource.includes("planHarnessAdapterContainerLane") &&
+    publicRuntimeRoutesTestSource.includes(
+      "expose daemon-planned harness container lane receipts",
+    ) &&
     runtimeHarnessContainerLaneTestSource.includes(
       "container lane plan produces a not-executed receipt",
     ) &&
@@ -801,6 +808,13 @@ assert(
     ) &&
     runtimeHarnessPublicSmokeTaskSource.includes(
       "harness-testbed:public-code-edit-smoke",
+    ) &&
+    publicRuntimeRoutesSource.includes(
+      "/v1/hypervisor/harness-public-smoke",
+    ) &&
+    publicRuntimeRoutesSource.includes("runHarnessPublicSmokeTask") &&
+    publicRuntimeRoutesTestSource.includes(
+      "expose harness public smoke comparison under daemon gates",
     ) &&
     runtimeHarnessPublicSmokeTaskTestSource.includes(
       "runs the same fixture through two installed adapters",
