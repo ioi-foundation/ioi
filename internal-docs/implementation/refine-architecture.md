@@ -871,6 +871,22 @@ Current implementation cut:
   `/sessions` is the canonical session shell route; `/chat` is no longer a
   named product route
   workflow dogfood probes request `automations` as the initial shell surface
+  `HYPERVISOR_IOI_REFERENCE_SHELL_REQUIREMENTS` binds the active shell to the
+  `internal-docs/reverse-engineering/ioi` reference contract: source reference
+  surfaces, translated Hypervisor surfaces, left navigation, New Session,
+  session rail, session detail tabs, right inspectors, bottom inspectors,
+  settings sections, editor adapter targets, and Agent Harness Adapters
+  `ChatLocalActivityBar` derives keyboard navigation from that contract instead
+  of a hand-maintained IDE-era list
+  `check:runtime-layout` now guards this contract so Phase 0A remains tied to
+  the IOI reference cockpit rather than ONA, Tauri, or singular-IDE framing
+
+0A.2 remaining visual implementation:
+  Home still needs to become the full IOI-reference cockpit view
+  the secondary session/project rail still needs the live session projection
+  the main canvas still needs richer session detail tabs and inspectors
+  right and bottom inspectors still need to be actual runtime panels, not only
+  navigation metadata
 
 0A.4 New Session is partially implemented:
   `HYPERVISOR_SESSION_LAUNCH_RECIPES` defines Mission, Workbench, Agent,

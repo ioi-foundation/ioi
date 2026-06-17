@@ -14,7 +14,10 @@ import {
   WorkspaceIcon,
 } from "./ChatActivityBarIcons";
 import type { PrimaryView } from "../hypervisorShellModel";
-import { HYPERVISOR_PRIMARY_ACTION } from "../hypervisorShellNavigationModel";
+import {
+  HYPERVISOR_IOI_REFERENCE_SHELL_REQUIREMENTS,
+  HYPERVISOR_PRIMARY_ACTION,
+} from "../hypervisorShellNavigationModel";
 import {
   buildOperatorActivityRailModel,
   getHypervisorSurfaceIdForPrimaryView,
@@ -47,17 +50,8 @@ interface SearchButtonProps {
 const CHAT_ACTIVITY_BAR_COLLAPSED_KEY =
   "hypervisor.activityBarCollapsed";
 
-const KEYBOARD_NAV_VIEWS: PrimaryView[] = [
-  "home",
-  "sessions",
-  "projects",
-  "missions",
-  "workbench",
-  "automations",
-  "insights",
-  "agents",
-  "models",
-];
+const KEYBOARD_NAV_VIEWS: PrimaryView[] =
+  HYPERVISOR_IOI_REFERENCE_SHELL_REQUIREMENTS.leftNavSurfaceIds.slice(0, 9);
 
 const NAV_ICON_BY_SURFACE: Record<string, ReactNode> = {
   home: <HomeIcon />,

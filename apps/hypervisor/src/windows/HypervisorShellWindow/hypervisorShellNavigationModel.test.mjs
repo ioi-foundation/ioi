@@ -41,6 +41,72 @@ test("hypervisor shell exposes the canonical core client and surface taxonomy", 
   assert.doesNotMatch(source, /"recipes"/);
 });
 
+test("hypervisor shell binds Phase 0A to the IOI reference cockpit contract", () => {
+  assert.match(source, /HYPERVISOR_IOI_REFERENCE_SHELL_REQUIREMENTS/);
+  assert.match(source, /primaryReference: "internal-docs\/reverse-engineering\/ioi"/);
+  assert.doesNotMatch(source, /internal-docs\/reverse-engineering\/ona/);
+  for (const referenceSurface of [
+    "home",
+    "workspaces",
+    "automations",
+    "insights",
+    "ai",
+    "projects",
+    "settings",
+    "logs",
+    "session_detail",
+    "editor",
+  ]) {
+    assert.match(source, new RegExp(`"${referenceSurface}"`));
+  }
+  for (const hypervisorSurface of [
+    "home",
+    "sessions",
+    "projects",
+    "missions",
+    "workbench",
+    "automations",
+    "insights",
+    "agents",
+    "models",
+    "privacy",
+    "fleet",
+    "foundry",
+    "authority",
+    "receipts",
+    "settings",
+  ]) {
+    assert.match(source, new RegExp(`"${hypervisorSurface}"`));
+  }
+  for (const shellRegion of [
+    "left_nav",
+    "new_session",
+    "session_rail",
+    "main_surface",
+    "session_detail_tabs",
+    "right_inspector",
+    "bottom_inspector",
+    "settings",
+  ]) {
+    assert.match(source, new RegExp(`"${shellRegion}"`));
+  }
+  for (const settingsSection of [
+    "editor_preference",
+    "secrets",
+    "git_auth",
+    "personal_access_tokens",
+    "integrations",
+  ]) {
+    assert.match(source, new RegExp(`"${settingsSection}"`));
+  }
+  assert.match(source, /Codex CLI[\s\S]*Claude Code[\s\S]*DeepSeek CLI[\s\S]*Grok Build/);
+  assert.match(activityBar, /HYPERVISOR_IOI_REFERENCE_SHELL_REQUIREMENTS/);
+  assert.match(
+    activityBar,
+    /HYPERVISOR_IOI_REFERENCE_SHELL_REQUIREMENTS\.leftNavSurfaceIds\.slice\(0, 9\)/,
+  );
+});
+
 test("hypervisor shell keeps application surfaces separate from clients", () => {
   assert.match(source, /id: "workbench"[\s\S]*label: "Workbench"/);
   assert.match(

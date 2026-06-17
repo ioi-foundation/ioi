@@ -63,6 +63,49 @@ export type HypervisorInspectorPanelId =
   | "receipts"
   | "model_harness_provider";
 
+export type HypervisorIoiReferenceSurface =
+  | "home"
+  | "workspaces"
+  | "automations"
+  | "insights"
+  | "ai"
+  | "projects"
+  | "settings"
+  | "logs"
+  | "session_detail"
+  | "editor";
+
+export type HypervisorShellRegion =
+  | "left_nav"
+  | "new_session"
+  | "session_rail"
+  | "main_surface"
+  | "session_detail_tabs"
+  | "right_inspector"
+  | "bottom_inspector"
+  | "settings";
+
+export type HypervisorSettingsSectionId =
+  | "editor_preference"
+  | "secrets"
+  | "git_auth"
+  | "personal_access_tokens"
+  | "integrations";
+
+export interface HypervisorIoiReferenceShellRequirements {
+  primaryReference: "internal-docs/reverse-engineering/ioi";
+  sourceSurfaces: readonly HypervisorIoiReferenceSurface[];
+  translatedHypervisorSurfaces: readonly HypervisorSurfaceId[];
+  leftNavSurfaceIds: readonly HypervisorSurfaceId[];
+  shellRegions: readonly HypervisorShellRegion[];
+  sessionDetailTabs: readonly HypervisorSessionDetailTab[];
+  rightInspectorPanels: readonly HypervisorInspectorPanelId[];
+  bottomInspectorPanels: readonly HypervisorInspectorPanelId[];
+  settingsSections: readonly HypervisorSettingsSectionId[];
+  editorAdapterTargets: readonly string[];
+  agentHarnessAdapters: readonly string[];
+}
+
 export interface HypervisorShellNavigationItem {
   id: HypervisorSurfaceId;
   label: string;
@@ -444,6 +487,96 @@ export const HYPERVISOR_BOTTOM_INSPECTOR_PANELS: HypervisorInspectorPanelId[] = 
   "terminal",
   "logs",
 ];
+
+export const HYPERVISOR_IOI_REFERENCE_SHELL_REQUIREMENTS: HypervisorIoiReferenceShellRequirements =
+  {
+    primaryReference: "internal-docs/reverse-engineering/ioi",
+    sourceSurfaces: [
+      "home",
+      "workspaces",
+      "automations",
+      "insights",
+      "ai",
+      "projects",
+      "settings",
+      "logs",
+      "session_detail",
+      "editor",
+    ],
+    translatedHypervisorSurfaces: [
+      "home",
+      "sessions",
+      "projects",
+      "missions",
+      "workbench",
+      "automations",
+      "insights",
+      "agents",
+      "models",
+      "privacy",
+      "fleet",
+      "foundry",
+      "authority",
+      "receipts",
+      "settings",
+    ],
+    leftNavSurfaceIds: [
+      "home",
+      "sessions",
+      "projects",
+      "missions",
+      "workbench",
+      "automations",
+      "insights",
+      "agents",
+      "models",
+      "privacy",
+      "fleet",
+      "foundry",
+      "authority",
+      "receipts",
+      "settings",
+    ],
+    shellRegions: [
+      "left_nav",
+      "new_session",
+      "session_rail",
+      "main_surface",
+      "session_detail_tabs",
+      "right_inspector",
+      "bottom_inspector",
+      "settings",
+    ],
+    sessionDetailTabs: HYPERVISOR_SESSION_DETAIL_TABS,
+    rightInspectorPanels: HYPERVISOR_RIGHT_INSPECTOR_PANELS,
+    bottomInspectorPanels: HYPERVISOR_BOTTOM_INSPECTOR_PANELS,
+    settingsSections: [
+      "editor_preference",
+      "secrets",
+      "git_auth",
+      "personal_access_tokens",
+      "integrations",
+    ],
+    editorAdapterTargets: [
+      "VS Code",
+      "Cursor",
+      "Windsurf",
+      "JetBrains",
+      "Browser IDE",
+      "Terminal",
+      "tmux",
+      "workspace substrate",
+    ],
+    agentHarnessAdapters: [
+      "Codex CLI",
+      "Claude Code",
+      "DeepSeek CLI",
+      "Grok Build",
+      "Aider",
+      "OpenHands",
+      "generic CLI harness",
+    ],
+  };
 
 export function getHypervisorSurfaceById(
   id: HypervisorSurfaceId,

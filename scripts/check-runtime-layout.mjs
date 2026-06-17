@@ -35,6 +35,12 @@ const readme = read("README.md");
 const developersDocs = read("apps/developers-ioi-ai/src/content/docs.tsx");
 const refineArchitectureGuide = read("internal-docs/implementation/refine-architecture.md");
 const workbenchAdapterLauncher = read("scripts/launch-hypervisor-workbench-adapter-host.mjs");
+const hypervisorShellNavigationSource = read(
+  "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorShellNavigationModel.ts",
+);
+const hypervisorActivityBarSource = read(
+  "apps/hypervisor/src/windows/HypervisorShellWindow/components/ChatLocalActivityBar.tsx",
+);
 const hypervisorHomeSource = [
   "apps/hypervisor/src/surfaces/Home/HomeView.tsx",
   "apps/hypervisor/src/surfaces/Home/HomeWalkthroughDocument.tsx",
@@ -174,6 +180,53 @@ assert(
     !/internal-docs\/reverse-engineering\/ona|ONA-like/.test(refineArchitectureGuide),
   ["internal-docs/implementation/refine-architecture.md"],
   "refine-architecture Phase 0A must use the IOI reverse-engineering mirror as the primary UX target, not ONA-era wording.",
+);
+assert(
+  "hypervisor-shell-ioi-reference-contract",
+  hypervisorShellNavigationSource.includes("HYPERVISOR_IOI_REFERENCE_SHELL_REQUIREMENTS") &&
+    hypervisorShellNavigationSource.includes('primaryReference: "internal-docs/reverse-engineering/ioi"') &&
+    [
+      '"home"',
+      '"sessions"',
+      '"projects"',
+      '"missions"',
+      '"workbench"',
+      '"automations"',
+      '"insights"',
+      '"agents"',
+      '"models"',
+      '"privacy"',
+      '"fleet"',
+      '"foundry"',
+      '"authority"',
+      '"receipts"',
+      '"settings"',
+    ].every((surface) => hypervisorShellNavigationSource.includes(surface)) &&
+    [
+      '"left_nav"',
+      '"new_session"',
+      '"session_rail"',
+      '"session_detail_tabs"',
+      '"right_inspector"',
+      '"bottom_inspector"',
+    ].every((region) => hypervisorShellNavigationSource.includes(region)) &&
+    hypervisorShellNavigationSource.includes('"editor_preference"') &&
+    hypervisorShellNavigationSource.includes('"git_auth"') &&
+    hypervisorShellNavigationSource.includes("Codex CLI") &&
+    hypervisorShellNavigationSource.includes("Claude Code") &&
+    hypervisorShellNavigationSource.includes("DeepSeek CLI") &&
+    hypervisorActivityBarSource.includes("HYPERVISOR_IOI_REFERENCE_SHELL_REQUIREMENTS") &&
+    hypervisorActivityBarSource.includes(
+      "HYPERVISOR_IOI_REFERENCE_SHELL_REQUIREMENTS.leftNavSurfaceIds.slice(0, 9)",
+    ) &&
+    !/internal-docs\/reverse-engineering\/ona|Hypervisor IDE/.test(
+      hypervisorShellNavigationSource,
+    ),
+  [
+    "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorShellNavigationModel.ts",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/components/ChatLocalActivityBar.tsx",
+  ],
+  "Hypervisor shell must bind Phase 0A to the IOI reference cockpit contract and derive rail shortcuts from that contract.",
 );
 assert(
   "repo-facing-hypervisor-client-map",
