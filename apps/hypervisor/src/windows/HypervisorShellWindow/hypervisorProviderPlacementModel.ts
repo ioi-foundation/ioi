@@ -31,16 +31,45 @@ export interface HypervisorProviderPlacementCandidate {
 export interface HypervisorProviderPlacementProjection {
   schema_version: "ioi.hypervisor.provider_placement_projection.v1";
   projection_id: string;
+  source: "daemon-provider-placement-projection" | "fixture" | "unverified";
   selected_project_ref: string;
   candidates: HypervisorProviderPlacementCandidate[];
   anti_gateway_invariant: string;
   runtimeTruthSource: "daemon-runtime";
 }
 
+export const HYPERVISOR_PROVIDER_PLACEMENT_DAEMON_ENDPOINT_STORAGE_KEY =
+  "ioi.hypervisor.daemonEndpoint";
+export const HYPERVISOR_PROVIDER_PLACEMENT_DEFAULT_DAEMON_ENDPOINT =
+  "http://127.0.0.1:8765";
+export const HYPERVISOR_PROVIDER_PLACEMENT_PROJECTION_PATH =
+  "/v1/hypervisor/provider-placement";
+
+type FetchLike = (
+  input: string,
+  init?: { method?: string; headers?: Record<string, string> },
+) => Promise<{
+  ok: boolean;
+  status: number;
+  text(): Promise<string>;
+}>;
+
+interface NormalizeProviderPlacementProjectionOptions {
+  source?: HypervisorProviderPlacementProjection["source"];
+}
+
+interface LoadProviderPlacementProjectionOptions
+  extends NormalizeProviderPlacementProjectionOptions {
+  endpoint?: string;
+  fetchImpl?: FetchLike;
+  projectId?: string | null;
+}
+
 export const HYPERVISOR_PROVIDER_PLACEMENT_PROJECTION_FIXTURE: HypervisorProviderPlacementProjection =
   {
     schema_version: "ioi.hypervisor.provider_placement_projection.v1",
     projection_id: "provider-placement:hypervisor-core/default",
+    source: "fixture",
     selected_project_ref: "project:hypervisor-core",
     anti_gateway_invariant:
       "Hypervisor integrates providers directly; route catalogs may suggest candidates, but wallet.network authorizes spend/secret release and Agentgres records admitted truth.",
@@ -126,3 +155,160 @@ export const HYPERVISOR_PROVIDER_PLACEMENT_PROJECTION_FIXTURE: HypervisorProvide
     ],
     runtimeTruthSource: "daemon-runtime",
   };
+
+function objectRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function arrayOf(value: unknown): Record<string, unknown>[] {
+  return Array.isArray(value) ? value.map(objectRecord) : [];
+}
+
+function stringValue(value: unknown, fallback: string): string {
+  return typeof value === "string" && value.trim() ? value.trim() : fallback;
+}
+
+function stringList(value: unknown, fallback: string[]): string[] {
+  if (!Array.isArray(value)) {
+    return fallback;
+  }
+  const values = value
+    .filter((item): item is string => typeof item === "string" && !!item.trim())
+    .map((item) => item.trim());
+  return values.length > 0 ? values : fallback;
+}
+
+function enumValue<T extends string>(
+  value: unknown,
+  fallback: T,
+  allowed: readonly T[],
+): T {
+  return typeof value === "string" && allowed.includes(value as T)
+    ? (value as T)
+    : fallback;
+}
+
+function normalizeProviderPlacementCandidate(
+  item: Record<string, unknown>,
+  index: number,
+): HypervisorProviderPlacementCandidate {
+  const fallback =
+    HYPERVISOR_PROVIDER_PLACEMENT_PROJECTION_FIXTURE.candidates[index] ??
+    HYPERVISOR_PROVIDER_PLACEMENT_PROJECTION_FIXTURE.candidates[0]!;
+  return {
+    candidate_ref: stringValue(item.candidate_ref, fallback.candidate_ref),
+    label: stringValue(item.label, fallback.label),
+    integration_kind: enumValue(item.integration_kind, fallback.integration_kind, [
+      "local_machine",
+      "customer_cloud",
+      "hyperscaler_confidential",
+      "depin_compute",
+      "decentralized_storage",
+      "gpu_market",
+    ]),
+    direct_provider_ref: stringValue(
+      item.direct_provider_ref,
+      fallback.direct_provider_ref,
+    ),
+    workload_fit: stringValue(item.workload_fit, fallback.workload_fit),
+    privacy_posture: enumValue(item.privacy_posture, fallback.privacy_posture, [
+      "local_custody",
+      "customer_controlled",
+      "confidential_compute",
+      "ctee_split_required",
+      "encrypted_storage_only",
+      "provider_trust",
+    ]),
+    wallet_authority_scope_refs: stringList(
+      item.wallet_authority_scope_refs,
+      fallback.wallet_authority_scope_refs,
+    ),
+    agentgres_receipt_ref: stringValue(
+      item.agentgres_receipt_ref,
+      fallback.agentgres_receipt_ref,
+    ),
+    storage_policy_ref: stringValue(
+      item.storage_policy_ref,
+      fallback.storage_policy_ref,
+    ),
+    restore_policy_ref: stringValue(
+      item.restore_policy_ref,
+      fallback.restore_policy_ref,
+    ),
+    risk_labels: stringList(item.risk_labels, fallback.risk_labels),
+  };
+}
+
+export function readHypervisorProviderPlacementDaemonEndpoint(): string {
+  try {
+    if (typeof window === "undefined") {
+      return HYPERVISOR_PROVIDER_PLACEMENT_DEFAULT_DAEMON_ENDPOINT;
+    }
+    return (
+      window.localStorage.getItem(
+        HYPERVISOR_PROVIDER_PLACEMENT_DAEMON_ENDPOINT_STORAGE_KEY,
+      ) || HYPERVISOR_PROVIDER_PLACEMENT_DEFAULT_DAEMON_ENDPOINT
+    );
+  } catch {
+    return HYPERVISOR_PROVIDER_PLACEMENT_DEFAULT_DAEMON_ENDPOINT;
+  }
+}
+
+export function normalizeHypervisorProviderPlacementProjection(
+  snapshot: unknown,
+  options: NormalizeProviderPlacementProjectionOptions = {},
+): HypervisorProviderPlacementProjection {
+  const value = objectRecord(snapshot);
+  const fallback = HYPERVISOR_PROVIDER_PLACEMENT_PROJECTION_FIXTURE;
+  const candidates = arrayOf(value.candidates).map(
+    normalizeProviderPlacementCandidate,
+  );
+  return {
+    schema_version: "ioi.hypervisor.provider_placement_projection.v1",
+    projection_id: stringValue(value.projection_id, fallback.projection_id),
+    source: options.source ?? "daemon-provider-placement-projection",
+    selected_project_ref: stringValue(
+      value.selected_project_ref,
+      fallback.selected_project_ref,
+    ),
+    candidates: candidates.length > 0 ? candidates : fallback.candidates,
+    anti_gateway_invariant: stringValue(
+      value.anti_gateway_invariant,
+      fallback.anti_gateway_invariant,
+    ),
+    runtimeTruthSource: "daemon-runtime",
+  };
+}
+
+export async function loadHypervisorProviderPlacementProjection(
+  options: LoadProviderPlacementProjectionOptions = {},
+): Promise<HypervisorProviderPlacementProjection> {
+  const endpoint =
+    options.endpoint ?? readHypervisorProviderPlacementDaemonEndpoint();
+  const fetchImpl = options.fetchImpl ?? globalThis.fetch?.bind(globalThis);
+  if (!fetchImpl) {
+    throw new Error("fetch unavailable for Hypervisor provider placement projection");
+  }
+  const query = new URLSearchParams();
+  if (options.projectId) {
+    query.set("project_id", options.projectId);
+  }
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+  const url = `${endpoint.replace(/\/+$/, "")}${HYPERVISOR_PROVIDER_PLACEMENT_PROJECTION_PATH}${suffix}`;
+  const response = await fetchImpl(url, {
+    method: "GET",
+    headers: { accept: "application/json" },
+  });
+  const text = await response.text();
+  const value = text ? JSON.parse(text) : {};
+  if (!response.ok) {
+    throw new Error(
+      `Provider placement projection request failed with ${response.status}`,
+    );
+  }
+  return normalizeHypervisorProviderPlacementProjection(value, {
+    source: options.source ?? "daemon-provider-placement-projection",
+  });
+}

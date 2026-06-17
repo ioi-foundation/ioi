@@ -1140,9 +1140,15 @@ Current implementation cut:
   projection and mounts the live `EnvironmentEstateView` under the Environments
   surface. Providers/Environments therefore move beyond placeholders without
   recreating Fleet or treating a future cloud router as mandatory.
-  Remaining work is live provider-placement hydration, provider action buttons
-  mediated through wallet leases, and zero-to-idle/archive/restore operations
-  backed by daemon and Agentgres APIs.
+  Providers now has a normalized
+  `ioi.hypervisor.provider_placement_projection.v1` loader and
+  `/v1/hypervisor/provider-placement` public runtime route dispatching through
+  `projectRuntimeLifecycle` with
+  `runtime.lifecycle_projection.hypervisor_provider_placement`. The route
+  returns only the client projection body and preserves explicit
+  fixture-vs-daemon source markers.
+  Remaining work is provider action buttons mediated through wallet leases and
+  zero-to-idle/archive/restore operations backed by daemon and Agentgres APIs.
 
 0A.8/0A.10 first receipt evidence surface is implemented:
   `hypervisorReceiptEvidenceModel.ts` defines

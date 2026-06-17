@@ -211,6 +211,62 @@ payloads, but those refs are restore material only. Restore validity and live
 project truth remain Agentgres-admitted facts backed by daemon operations and
 receipt linkage.
 
+```http
+GET /v1/hypervisor/provider-placement
+```
+
+`GET /v1/hypervisor/provider-placement` dispatches through the daemon runtime
+lifecycle projection boundary with:
+
+```text
+operation_kind = runtime.lifecycle_projection.hypervisor_provider_placement
+projection_kind = hypervisor_provider_placement
+```
+
+Optional query params:
+
+```text
+project_id
+```
+
+The response is an `ioi.hypervisor.provider_placement_projection.v1`
+projection:
+
+```json
+{
+  "schema_version": "ioi.hypervisor.provider_placement_projection.v1",
+  "projection_id": "provider-placement:...",
+  "source": "daemon-provider-placement-projection",
+  "selected_project_ref": "project:...",
+  "anti_gateway_invariant": "Hypervisor integrates providers directly; route catalogs may suggest candidates, but wallet.network authorizes spend/secret release and Agentgres records admitted truth.",
+  "candidates": [
+    {
+      "candidate_ref": "provider-candidate:...",
+      "label": "Provider",
+      "integration_kind": "local_machine | customer_cloud | hyperscaler_confidential | depin_compute | decentralized_storage | gpu_market",
+      "direct_provider_ref": "provider:...",
+      "workload_fit": "Public, redacted, local, confidential, storage, or restore workload fit.",
+      "privacy_posture": "local_custody | customer_controlled | confidential_compute | ctee_split_required | encrypted_storage_only | provider_trust",
+      "wallet_authority_scope_refs": ["scope:provider.spend"],
+      "agentgres_receipt_ref": "receipt://provider/...",
+      "storage_policy_ref": "storage-policy:...",
+      "restore_policy_ref": "agentgres://restore/...",
+      "risk_labels": ["Provider root expected"]
+    }
+  ],
+  "runtimeTruthSource": "daemon-runtime"
+}
+```
+
+Provider placement projections are candidate/read models for Hypervisor
+clients. They may include local machines, customer cloud accounts,
+hyperscaler confidential-compute lanes, DePIN compute, decentralized storage,
+and GPU markets. They do not create a mandatory cloud router, do not authorize
+spend or secret release, do not make provider state authoritative, and do not
+turn storage backends into restore truth. wallet.network authorizes spend and
+secret/declassification release; Agentgres admits lifecycle, receipt, archive,
+restore, and state-root truth.
+
 ### Runtime Manifest
 
 ```json

@@ -368,6 +368,87 @@ test("public runtime routes dispatch Hypervisor project state through lifecycle 
   ]);
 });
 
+test("public runtime routes dispatch Hypervisor provider placement through lifecycle projection", async () => {
+  const { handleRequest } = routeHarness();
+  const response = responseRecorder();
+  const calls = [];
+  const providerPlacementProjection = {
+    schema_version: "ioi.hypervisor.provider_placement_projection.v1",
+    projection_id: "provider-placement:daemon/test",
+    source: "daemon-provider-placement-projection",
+    selected_project_ref: "project:ioi",
+    anti_gateway_invariant:
+      "Hypervisor integrates providers directly; wallet.network authorizes spend and Agentgres records admitted truth.",
+    candidates: [
+      {
+        candidate_ref: "provider-candidate:local-workstation",
+        label: "Local workstation",
+        integration_kind: "local_machine",
+        direct_provider_ref: "provider:local-workstation",
+        workload_fit: "Private local work",
+        privacy_posture: "local_custody",
+        wallet_authority_scope_refs: ["scope:workspace.read"],
+        agentgres_receipt_ref: "receipt://provider/local/placement",
+        storage_policy_ref: "storage-policy:local",
+        restore_policy_ref: "agentgres://restore/local/latest",
+        risk_labels: ["Local custody"],
+      },
+    ],
+    runtimeTruthSource: "daemon-runtime",
+  };
+  const contextPolicyCore = {
+    projectRuntimeLifecycle(request) {
+      calls.push({ method: "projectRuntimeLifecycle", request });
+      return {
+        projection: providerPlacementProjection,
+        record: {
+          operation_kind:
+            "runtime.lifecycle_projection.hypervisor_provider_placement",
+          projection_kind: "hypervisor_provider_placement",
+          projection: providerPlacementProjection,
+        },
+      };
+    },
+  };
+  const store = {
+    defaultCwd: "/workspace",
+    homeDir: "/home/operator",
+    schemaVersion: "ioi.agentgres.runtime.v0",
+    stateDir: "/state",
+    projectRuntimeLifecycleProjection: retiredRouteWrapper,
+  };
+
+  await handleRequest({
+    request: request({
+      url: "/v1/hypervisor/provider-placement?project_id=project:ioi",
+    }),
+    response,
+    store,
+    contextPolicyCore,
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(JSON.parse(response.body), providerPlacementProjection);
+  assert.deepEqual(calls, [
+    {
+      method: "projectRuntimeLifecycle",
+      request: {
+        operation: "hypervisor_provider_placement_projection",
+        operation_kind:
+          "runtime.lifecycle_projection.hypervisor_provider_placement",
+        projection_kind: "hypervisor_provider_placement",
+        base_url: "http://daemon.test",
+        workspace_root: "/workspace",
+        state_dir: "/state",
+        home_dir: "/home/operator",
+        runtime_schema_version: "ioi.agentgres.runtime.v0",
+        project_id: "project:ioi",
+        source: "public_runtime_routes./v1/hypervisor/provider-placement",
+      },
+    },
+  ]);
+});
+
 test("public runtime computer-use routes dispatch through Rust daemon-core projection", async () => {
   const { handleRequest } = routeHarness();
   const calls = [];

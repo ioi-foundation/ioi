@@ -329,6 +329,9 @@ test("Projects surface renders workspace, restore, artifact, and state-root proj
 test("Providers and Environments surfaces are direct integrations, not Fleet placeholders", () => {
   assert.match(providerPlacementModel, /HypervisorProviderPlacementProjection/);
   assert.match(providerPlacementModel, /HYPERVISOR_PROVIDER_PLACEMENT_PROJECTION_FIXTURE/);
+  assert.match(providerPlacementModel, /HYPERVISOR_PROVIDER_PLACEMENT_PROJECTION_PATH/);
+  assert.match(providerPlacementModel, /loadHypervisorProviderPlacementProjection/);
+  assert.match(providerPlacementModel, /normalizeHypervisorProviderPlacementProjection/);
   assert.match(providerPlacementModel, /anti_gateway_invariant/);
   assert.match(providerPlacementModel, /wallet\.network authorizes/);
   assert.match(providerPlacementModel, /Agentgres records admitted truth/);
@@ -338,9 +341,12 @@ test("Providers and Environments surfaces are direct integrations, not Fleet pla
   assert.match(providerPlacementModel, /encrypted_storage_only/);
   assert.doesNotMatch(providerPlacementModel, /decentralized\.cloud/);
   assert.match(shellContent, /HypervisorProviderPlacementDashboard/);
+  assert.match(shellContent, /loadHypervisorProviderPlacementProjection/);
+  assert.match(shellContent, /\[Hypervisor\]\[Providers\] placement projection unavailable/);
   assert.match(shellContent, /HypervisorEnvironmentEstateSurface/);
   assert.match(shellContent, /EnvironmentEstateView runtime=\{runtime\}/);
   assert.match(shellContent, /data-hypervisor-provider-placement/);
+  assert.match(shellContent, /data-provider-placement-source/);
   assert.match(shellContent, /data-provider-placement-candidate/);
   assert.match(shellContent, /data-hypervisor-environment-estate/);
   assert.match(shellContent, /activeView === "providers"/);

@@ -35,7 +35,10 @@ import {
   HYPERVISOR_PROJECT_STATE_PROJECTION_FIXTURE,
   loadHypervisorProjectStateProjection,
 } from "../hypervisorProjectStateModel";
-import { HYPERVISOR_PROVIDER_PLACEMENT_PROJECTION_FIXTURE } from "../hypervisorProviderPlacementModel";
+import {
+  HYPERVISOR_PROVIDER_PLACEMENT_PROJECTION_FIXTURE,
+  loadHypervisorProviderPlacementProjection,
+} from "../hypervisorProviderPlacementModel";
 import { HYPERVISOR_RECEIPT_EVIDENCE_PROJECTION_FIXTURE } from "../hypervisorReceiptEvidenceModel";
 import {
   HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE,
@@ -480,12 +483,35 @@ function HypervisorProjectStateSurface({
 }
 
 function HypervisorProviderPlacementDashboard() {
-  const projection = HYPERVISOR_PROVIDER_PLACEMENT_PROJECTION_FIXTURE;
+  const [projection, setProjection] = useState(
+    HYPERVISOR_PROVIDER_PLACEMENT_PROJECTION_FIXTURE,
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    loadHypervisorProviderPlacementProjection()
+      .then((nextProjection) => {
+        if (!cancelled) {
+          setProjection(nextProjection);
+        }
+      })
+      .catch((error) => {
+        console.warn(
+          "[Hypervisor][Providers] placement projection unavailable",
+          error,
+        );
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <section
       className="hypervisor-provider-placement"
       aria-label="Provider placement dashboard"
       data-hypervisor-provider-placement={projection.projection_id}
+      data-provider-placement-source={projection.source}
       data-runtime-truth-source={projection.runtimeTruthSource}
     >
       <div className="hypervisor-provider-placement__header">

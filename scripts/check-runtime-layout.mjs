@@ -120,6 +120,9 @@ const hypervisorSessionOperationsModelSource = read(
 const hypervisorProjectStateModelSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorProjectStateModel.ts",
 );
+const hypervisorProviderPlacementModelSource = read(
+  "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorProviderPlacementModel.ts",
+);
 const workspaceRepositoryGateSource = read(
   "apps/hypervisor/src/surfaces/Workspace/WorkspaceRepositoryGate.tsx",
 );
@@ -874,6 +877,49 @@ assert(
     "docs/architecture/components/daemon-runtime/api.md",
   ],
   "Hypervisor Projects should hydrate workspace refs, adapter preferences, Agentgres object heads, state roots, artifact refs, archive refs, restore refs, and receipts through the daemon/public runtime route with fixture fallback.",
+);
+assert(
+  "hypervisor-provider-placement-live-projection",
+  hypervisorProviderPlacementModelSource.includes(
+    "HYPERVISOR_PROVIDER_PLACEMENT_PROJECTION_PATH",
+  ) &&
+    hypervisorProviderPlacementModelSource.includes(
+      "normalizeHypervisorProviderPlacementProjection",
+    ) &&
+    hypervisorProviderPlacementModelSource.includes(
+      "loadHypervisorProviderPlacementProjection",
+    ) &&
+    hypervisorProviderPlacementModelSource.includes(
+      "ioi.hypervisor.provider_placement_projection.v1",
+    ) &&
+    hypervisorProviderPlacementModelSource.includes("ctee_split_required") &&
+    hypervisorProviderPlacementModelSource.includes("encrypted_storage_only") &&
+    hypervisorProviderPlacementModelSource.includes(
+      "wallet.network authorizes",
+    ) &&
+    hypervisorShellContentSource.includes(
+      "loadHypervisorProviderPlacementProjection",
+    ) &&
+    hypervisorShellContentSource.includes("data-provider-placement-source") &&
+    publicRuntimeRoutesSource.includes("/v1/hypervisor/provider-placement") &&
+    publicRuntimeRoutesSource.includes(
+      "runtime.lifecycle_projection.hypervisor_provider_placement",
+    ) &&
+    publicRuntimeRoutesSource.includes("projectRuntimeLifecycle") &&
+    publicRuntimeRoutesTestSource.includes(
+      "dispatch Hypervisor provider placement through lifecycle projection",
+    ) &&
+    daemonRuntimeApiDoc.includes("GET /v1/hypervisor/provider-placement") &&
+    daemonRuntimeApiDoc.includes(
+      "runtime.lifecycle_projection.hypervisor_provider_placement",
+    ),
+  [
+    "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorProviderPlacementModel.ts",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorShellContent.tsx",
+    "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
+    "docs/architecture/components/daemon-runtime/api.md",
+  ],
+  "Hypervisor Providers should hydrate direct provider placement candidates through the daemon/public runtime route while preserving wallet authority, Agentgres truth, and storage-backend boundaries.",
 );
 assert(
   "contract-family-modules",
