@@ -1,4 +1,9 @@
 import type { PrimaryView, ProjectScope } from "./autopilotShellModel";
+import {
+  HYPERVISOR_PRIMARY_SURFACES,
+  type HypervisorSurfaceId,
+  type HypervisorSurfaceKind,
+} from "./hypervisorShellNavigationModel";
 
 export type OperatorChromeMode =
   | "full"
@@ -46,10 +51,14 @@ export interface OperatorCommandCenterModel {
 export interface OperatorActivityRailItem {
   id: string;
   label: string;
+  description: string;
   route: OperatorSurfaceRoute;
   badgeCount?: number;
   dataWindowSurface: string;
-  group: "primary" | "work" | "bottom" | "utility";
+  hypervisorSurfaceId?: HypervisorSurfaceId;
+  surfaceKind?: HypervisorSurfaceKind;
+  routeState: "active_route" | "planned_surface";
+  group: "primary" | "applications" | "governance" | "bottom" | "utility";
   source: "shell-projection" | "runtime-projection";
 }
 
@@ -286,18 +295,20 @@ const PRIMARY_VIEW_LABELS: Record<PrimaryView, string> = {
   settings: "Settings",
 };
 
-const RAIL_VIEW_ORDER: PrimaryView[] = [
-  "home",
-  "chat",
-  "inbox",
-  "workspace",
-  "workflows",
-  "runs",
-  "mounts",
-  "capabilities",
-  "policy",
-  "settings",
-];
+const HYPERVISOR_SURFACE_PRIMARY_VIEW_ROUTES: Partial<
+  Record<HypervisorSurfaceId, PrimaryView>
+> = {
+  home: "home",
+  sessions: "chat",
+  missions: "inbox",
+  workbench: "workspace",
+  automations: "workflows",
+  insights: "runs",
+  agents: "capabilities",
+  models: "mounts",
+  authority: "policy",
+  settings: "settings",
+};
 
 function mergeEvidenceRefs(
   evidenceRefs: Partial<OperatorRuntimeEvidenceRefs> | undefined,
@@ -322,24 +333,37 @@ function primaryViewCommand(view: PrimaryView): OperatorCommandCenterCommand {
   };
 }
 
-function railGroupForView(view: PrimaryView): OperatorActivityRailItem["group"] {
-  if (view === "settings") return "bottom";
-  if (view === "home" || view === "chat" || view === "inbox") return "primary";
-  return "work";
+export function getHypervisorSurfaceIdForPrimaryView(
+  view: PrimaryView,
+): HypervisorSurfaceId {
+  const surface = Object.entries(HYPERVISOR_SURFACE_PRIMARY_VIEW_ROUTES).find(
+    ([, routeView]) => routeView === view,
+  )?.[0] as HypervisorSurfaceId | undefined;
+
+  return surface ?? "home";
 }
 
-function railItemForView(
-  view: PrimaryView,
+function railItemForHypervisorSurface(
+  surface: (typeof HYPERVISOR_PRIMARY_SURFACES)[number],
   notificationCount: number,
 ): OperatorActivityRailItem {
+  const view = HYPERVISOR_SURFACE_PRIMARY_VIEW_ROUTES[surface.id];
+  const route: OperatorSurfaceRoute = view
+    ? { kind: "primary-view", view }
+    : { kind: "command-palette", query: surface.label };
+
   return {
-    id: `surface.${view}`,
-    label: PRIMARY_VIEW_LABELS[view],
-    route: { kind: "primary-view", view },
-    badgeCount: view === "inbox" ? notificationCount : undefined,
-    dataWindowSurface: view,
-    group: railGroupForView(view),
-    source: view === "inbox" ? "runtime-projection" : "shell-projection",
+    id: `surface.${surface.id}`,
+    label: surface.label,
+    description: surface.description,
+    route,
+    badgeCount: surface.id === "missions" ? notificationCount : undefined,
+    dataWindowSurface: surface.id,
+    hypervisorSurfaceId: surface.id,
+    surfaceKind: surface.kind,
+    routeState: view ? "active_route" : "planned_surface",
+    group: surface.railGroup,
+    source: surface.id === "missions" ? "runtime-projection" : "shell-projection",
   };
 }
 
@@ -358,18 +382,24 @@ export function buildOperatorActivityRailModel({
       {
         id: "command.search",
         label: "Search",
+        description: "Search sessions, surfaces, commands, receipts, and workspace context.",
         route: { kind: "command-palette" },
         dataWindowSurface: "search",
         group: "utility",
+        routeState: "active_route",
         source: "shell-projection",
       },
-      ...RAIL_VIEW_ORDER.map((view) => railItemForView(view, notificationCount)),
+      ...HYPERVISOR_PRIMARY_SURFACES.map((surface) =>
+        railItemForHypervisorSurface(surface, notificationCount),
+      ),
       {
         id: "profile.current",
         label: "Profile",
+        description: "Open the operator profile and account preferences.",
         route: { kind: "command-palette", query: "profile" },
         dataWindowSurface: "profile",
         group: "bottom",
+        routeState: "active_route",
         source: "shell-projection",
       },
     ],

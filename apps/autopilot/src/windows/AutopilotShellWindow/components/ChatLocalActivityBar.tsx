@@ -16,6 +16,7 @@ import {
 import type { PrimaryView } from "../autopilotShellModel";
 import {
   buildOperatorActivityRailModel,
+  getHypervisorSurfaceIdForPrimaryView,
   type OperatorActivityRailItem,
   type OperatorSurfaceRoute,
 } from "../operatorSubstrateModel";
@@ -58,14 +59,19 @@ const KEYBOARD_NAV_VIEWS: PrimaryView[] = [
 
 const NAV_ICON_BY_SURFACE: Record<string, ReactNode> = {
   home: <HomeIcon />,
-  chat: <SparklesIcon />,
-  workspace: <WorkspaceIcon />,
-  workflows: <ComposeIcon />,
-  runs: <FleetIcon />,
-  mounts: <MountsIcon />,
-  inbox: <NotificationsIcon />,
-  capabilities: <IntegrationsIcon />,
-  policy: <ShieldIcon />,
+  sessions: <SparklesIcon />,
+  projects: <WorkspaceIcon />,
+  missions: <NotificationsIcon />,
+  workbench: <WorkspaceIcon />,
+  automations: <ComposeIcon />,
+  insights: <FleetIcon />,
+  agents: <IntegrationsIcon />,
+  models: <MountsIcon />,
+  privacy: <ShieldIcon />,
+  fleet: <FleetIcon />,
+  foundry: <ComposeIcon />,
+  authority: <ShieldIcon />,
+  receipts: <NotificationsIcon />,
   settings: <SettingsIcon />,
 };
 
@@ -110,16 +116,23 @@ function ActivityButton({
   return (
     <button
       type="button"
-      className={`chat-activity-button ${isActive ? "is-active" : ""}`}
+      className={`chat-activity-button ${isActive ? "is-active" : ""} ${
+        item.routeState === "planned_surface" ? "is-planned" : ""
+      }`}
       data-window-surface={item.dataWindowSurface}
+      data-route-state={item.routeState}
       onClick={onClick}
       aria-current={isActive ? "page" : undefined}
       aria-label={item.label}
-      title={item.label}
+      title={
+        item.routeState === "planned_surface"
+          ? `${item.label}: ${item.description}`
+          : item.label
+      }
     >
       <span
         className={`chat-activity-button-icon ${
-          item.dataWindowSurface === "capabilities" ? "is-capabilities" : ""
+          item.dataWindowSurface === "agents" ? "is-capabilities" : ""
         }`}
         aria-hidden="true"
       >
@@ -241,7 +254,12 @@ export function ChatLocalActivityBar({
   const primaryNavItems = railModel.items.filter(
     (item) => item.group === "primary",
   );
-  const workNavItems = railModel.items.filter((item) => item.group === "work");
+  const applicationNavItems = railModel.items.filter(
+    (item) => item.group === "applications",
+  );
+  const governanceNavItems = railModel.items.filter(
+    (item) => item.group === "governance",
+  );
   const profileItem = railModel.items.find(
     (item) => item.dataWindowSurface === "profile",
   );
@@ -252,6 +270,7 @@ export function ChatLocalActivityBar({
   const profileDisplayName = resolveProfileDisplayName(profile);
   const profileInitials = resolveProfileInitials(profile);
   const profileRoleLabel = profile.roleLabel?.trim() || "Profile";
+  const activeHypervisorSurfaceId = getHypervisorSurfaceIdForPrimaryView(activeView);
   const activateRoute = (route: OperatorSurfaceRoute) => {
     if (isPrimaryViewRoute(route)) {
       onViewChange(route.view);
@@ -263,7 +282,8 @@ export function ChatLocalActivityBar({
     }
   };
   const isActiveRailItem = (item: OperatorActivityRailItem) =>
-    isPrimaryViewRoute(item.route) && item.route.view === activeView;
+    item.routeState === "active_route" &&
+    item.hypervisorSurfaceId === activeHypervisorSurfaceId;
 
   return (
     <aside
@@ -303,10 +323,11 @@ export function ChatLocalActivityBar({
         ))}
       </div>
 
-      <div className="chat-activity-group" aria-label="Work surfaces">
-        {workNavItems.map((item) => {
+      <div className="chat-activity-group" aria-label="Applications">
+        <div className="chat-activity-section-label">Applications</div>
+        {applicationNavItems.map((item) => {
           const icon =
-            item.dataWindowSurface === "capabilities" ? (
+            item.dataWindowSurface === "agents" ? (
               <IntegrationsIcon
                 disableHoverAnimation={activeView === "capabilities"}
               />
@@ -326,9 +347,16 @@ export function ChatLocalActivityBar({
         })}
       </div>
 
-      <div className="chat-activity-apps">
-        <div className="chat-activity-section-label">Applications</div>
-        <p>Pin Hypervisor surfaces and adapter targets here</p>
+      <div className="chat-activity-group" aria-label="Governance and infrastructure">
+        <div className="chat-activity-section-label">Governance</div>
+        {governanceNavItems.map((item) => (
+          <ActivityButton
+            key={item.id}
+            item={item}
+            isActive={isActiveRailItem(item)}
+            onClick={() => activateRoute(item.route)}
+          />
+        ))}
       </div>
 
       <div className="chat-activity-spacer" />

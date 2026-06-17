@@ -92,21 +92,39 @@ test("operator activity rail is a shell projection with deterministic surfaces",
     [
       "search",
       "home",
-      "chat",
-      "inbox",
-      "workspace",
-      "workflows",
-      "runs",
-      "mounts",
-      "capabilities",
-      "policy",
+      "sessions",
+      "projects",
+      "missions",
+      "workbench",
+      "automations",
+      "insights",
+      "agents",
+      "models",
+      "privacy",
+      "fleet",
+      "foundry",
+      "authority",
+      "receipts",
       "settings",
       "profile",
     ],
   );
   assert.equal(
-    model.items.find((item) => item.dataWindowSurface === "inbox")?.badgeCount,
+    model.items.find((item) => item.dataWindowSurface === "missions")?.badgeCount,
     4,
+  );
+  assert.equal(
+    model.items.find((item) => item.dataWindowSurface === "workbench")
+      ?.routeState,
+    "active_route",
+  );
+  assert.equal(
+    model.items.find((item) => item.dataWindowSurface === "fleet")?.routeState,
+    "planned_surface",
+  );
+  assert.equal(
+    model.items.find((item) => item.dataWindowSurface === "fleet")?.group,
+    "governance",
   );
   assert.equal(
     model.items.find((item) => item.dataWindowSurface === "search")?.route.kind,

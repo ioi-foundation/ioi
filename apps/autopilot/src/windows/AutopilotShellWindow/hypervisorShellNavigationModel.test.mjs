@@ -65,7 +65,9 @@ test("visible shell chrome uses Hypervisor labels over compatibility route keys"
     /Search Hypervisor, sessions, workbench, automations, and commands/,
   );
   assert.match(activityBar, /aria-label="Hypervisor navigation"/);
-  assert.match(activityBar, /Pin Hypervisor surfaces and adapter targets here/);
+  assert.match(activityBar, /aria-label="Applications"/);
+  assert.match(activityBar, /aria-label="Governance and infrastructure"/);
+  assert.match(activityBar, /data-route-state=\{item\.routeState\}/);
   assert.match(header, /`Hypervisor .*?\$\{windowSurfaceTitle/s);
   assert.doesNotMatch(header, /Autopilot Chat/);
 });
