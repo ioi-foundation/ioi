@@ -112,6 +112,60 @@ export interface HarnessComparisonRun {
   runtimeTruthSource: "daemon-runtime";
 }
 
+export type HypervisorModelMountInventorySource =
+  | "daemon-model-mount-inventory"
+  | "fixture"
+  | "unverified";
+
+export type HypervisorModelRouteAvailabilityState =
+  | "daemon_verified"
+  | "fixture_available"
+  | "unverified"
+  | "unavailable";
+
+export interface HypervisorModelMountInventoryRoute {
+  id: string;
+  role?: string;
+  status: "active" | "disabled" | "unknown";
+  privacy?: string;
+}
+
+export interface HypervisorModelMountInventoryEndpoint {
+  id: string;
+  providerId?: string;
+  modelId?: string;
+  status: "mounted" | "unmounted" | "degraded" | "unknown";
+  privacyClass?: string;
+}
+
+export interface HypervisorModelMountInventoryInstance {
+  id: string;
+  endpointId?: string;
+  providerId?: string;
+  modelId?: string;
+  status: "loaded" | "unloaded" | "evicted" | "failed" | "unknown";
+}
+
+export interface HypervisorModelMountInventorySnapshot {
+  schema_version: "ioi.hypervisor.model_mount_inventory_snapshot.v1";
+  source: HypervisorModelMountInventorySource;
+  checked_at?: string;
+  routes: HypervisorModelMountInventoryRoute[];
+  endpoints: HypervisorModelMountInventoryEndpoint[];
+  loadedInstances: HypervisorModelMountInventoryInstance[];
+}
+
+export interface HypervisorModelRouteAvailability {
+  model_route_ref: string;
+  state: HypervisorModelRouteAvailabilityState;
+  available: boolean;
+  summary: string;
+  route_refs: string[];
+  endpoint_refs: string[];
+  loaded_instance_refs: string[];
+  requiresDaemonInventory: true;
+}
+
 export interface HarnessAdapterTestbedFixture {
   schema_version: "ioi.hypervisor.harness_adapter_testbed_fixture.v1";
   fixture_id: string;
@@ -135,6 +189,42 @@ export interface HarnessCompatibilityVerdict {
   requiresDaemonGate: true;
   privacyWarning?: string;
 }
+
+export const HYPERVISOR_DEFAULT_LOCAL_MODEL_ROUTE_REF =
+  "model-route:hypervisor/default-local";
+
+export const HYPERVISOR_NEW_SESSION_MODEL_MOUNT_INVENTORY_FIXTURE: HypervisorModelMountInventorySnapshot =
+  {
+    schema_version: "ioi.hypervisor.model_mount_inventory_snapshot.v1",
+    source: "fixture",
+    checked_at: "2026-06-17T00:00:00.000Z",
+    routes: [
+      {
+        id: HYPERVISOR_DEFAULT_LOCAL_MODEL_ROUTE_REF,
+        role: "default-local",
+        status: "active",
+        privacy: "local",
+      },
+    ],
+    endpoints: [
+      {
+        id: "model-endpoint:hypervisor/default-local",
+        providerId: "provider:hypervisor-local",
+        modelId: "model:local/default",
+        status: "mounted",
+        privacyClass: "local",
+      },
+    ],
+    loadedInstances: [
+      {
+        id: "model-instance:hypervisor/default-local",
+        endpointId: "model-endpoint:hypervisor/default-local",
+        providerId: "provider:hypervisor-local",
+        modelId: "model:local/default",
+        status: "loaded",
+      },
+    ],
+  };
 
 export const DEFAULT_HARNESS_PROFILE_OPTION: HypervisorHarnessProfileOption = {
   selection_kind: "harness_profile",
@@ -305,6 +395,117 @@ export function isAgentHarnessAdapterOption(
   option: HypervisorHarnessSelectionOption,
 ): option is AgentHarnessAdapterProfile {
   return option.selection_kind === "agent_harness_adapter";
+}
+
+function routeMatchesDefaultLocalModelMount(
+  route: HypervisorModelMountInventoryRoute,
+): boolean {
+  return (
+    route.id === HYPERVISOR_DEFAULT_LOCAL_MODEL_ROUTE_REF ||
+    route.id === "hypervisor/default-local" ||
+    route.role === "default-local"
+  );
+}
+
+function endpointCanSatisfyLocalModelMount(
+  endpoint: HypervisorModelMountInventoryEndpoint,
+): boolean {
+  if (endpoint.status !== "mounted" && endpoint.status !== "degraded") {
+    return false;
+  }
+  const privacyClass = endpoint.privacyClass?.toLowerCase() ?? "";
+  return (
+    privacyClass.includes("local") ||
+    privacyClass.includes("private") ||
+    privacyClass.includes("hypervisor")
+  );
+}
+
+function loadedInstanceCanSatisfyLocalModelMount(
+  instance: HypervisorModelMountInventoryInstance,
+): boolean {
+  return instance.status === "loaded";
+}
+
+export function modelRouteSupportsHypervisorMountFromInventory(
+  modelRouteRef: string,
+  inventory?: HypervisorModelMountInventorySnapshot,
+): HypervisorModelRouteAvailability {
+  if (modelRouteRef !== HYPERVISOR_DEFAULT_LOCAL_MODEL_ROUTE_REF) {
+    return {
+      model_route_ref: modelRouteRef,
+      state: "unavailable",
+      available: false,
+      summary:
+        "Selected model route is not the Hypervisor default-local model mount.",
+      route_refs: [],
+      endpoint_refs: [],
+      loaded_instance_refs: [],
+      requiresDaemonInventory: true,
+    };
+  }
+
+  if (!inventory || inventory.source === "unverified") {
+    return {
+      model_route_ref: modelRouteRef,
+      state: "unverified",
+      available: false,
+      summary:
+        "Hypervisor model mount inventory has not been verified by the daemon.",
+      route_refs: [],
+      endpoint_refs: [],
+      loaded_instance_refs: [],
+      requiresDaemonInventory: true,
+    };
+  }
+
+  const matchingRoutes = inventory.routes.filter(
+    (route) =>
+      route.status === "active" && routeMatchesDefaultLocalModelMount(route),
+  );
+  const mountedEndpoints = inventory.endpoints.filter(
+    endpointCanSatisfyLocalModelMount,
+  );
+  const loadedInstances = inventory.loadedInstances.filter(
+    loadedInstanceCanSatisfyLocalModelMount,
+  );
+  const hasMountedExecutionTarget =
+    mountedEndpoints.length > 0 || loadedInstances.length > 0;
+  const available = matchingRoutes.length > 0 && hasMountedExecutionTarget;
+
+  if (!available) {
+    const missingReason =
+      matchingRoutes.length === 0
+        ? "No active default-local model route was reported."
+        : "Default-local route has no mounted endpoint or loaded instance.";
+    return {
+      model_route_ref: modelRouteRef,
+      state: "unavailable",
+      available: false,
+      summary: missingReason,
+      route_refs: matchingRoutes.map((route) => route.id),
+      endpoint_refs: mountedEndpoints.map((endpoint) => endpoint.id),
+      loaded_instance_refs: loadedInstances.map((instance) => instance.id),
+      requiresDaemonInventory: true,
+    };
+  }
+
+  return {
+    model_route_ref: modelRouteRef,
+    state:
+      inventory.source === "daemon-model-mount-inventory"
+        ? "daemon_verified"
+        : "fixture_available",
+    available: true,
+    summary:
+      inventory.source === "daemon-model-mount-inventory"
+        ? "Daemon model-mount inventory reports an active local route and mounted execution target."
+        : "Fixture inventory reports the expected local route contract until live daemon probing is injected.",
+    route_refs: matchingRoutes.map((route) => route.id),
+    endpoint_refs: mountedEndpoints.map((endpoint) => endpoint.id),
+    loaded_instance_refs: loadedInstances.map((instance) => instance.id),
+    requiresDaemonInventory: true,
+  };
 }
 
 export function getHarnessSelectionOption(

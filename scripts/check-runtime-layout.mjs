@@ -516,9 +516,21 @@ assert(
 );
 assert(
   "hypervisor-new-session-model-route-compatibility",
-  hypervisorNewSessionModalSource.includes("modelRouteSupportsHypervisorMount") &&
+  hypervisorHarnessAdapterModelSource.includes(
+    "modelRouteSupportsHypervisorMountFromInventory",
+  ) &&
+    hypervisorHarnessAdapterModelSource.includes(
+      "ioi.hypervisor.model_mount_inventory_snapshot.v1",
+    ) &&
+    hypervisorHarnessAdapterModelSource.includes(
+      "HYPERVISOR_NEW_SESSION_MODEL_MOUNT_INVENTORY_FIXTURE",
+    ) &&
     hypervisorNewSessionModalSource.includes(
-      'selectedModelRoute.ref === "model-route:hypervisor/default-local"',
+      "modelRouteSupportsHypervisorMountFromInventory",
+    ) &&
+    hypervisorNewSessionModalSource.includes("modelMountInventory") &&
+    hypervisorNewSessionModalSource.includes(
+      "data-new-session-model-route-inventory-state",
     ) &&
     hypervisorNewSessionModalSource.includes("launchBlockedByHarnessVerdict") &&
     hypervisorNewSessionModalSource.includes(
@@ -526,6 +538,9 @@ assert(
     ) &&
     hypervisorNewSessionModalSource.includes(
       "data-new-session-harness-verdict",
+    ) &&
+    !hypervisorNewSessionModalSource.includes(
+      'selectedModelRoute.ref === "model-route:hypervisor/default-local"',
     ) &&
     !hypervisorNewSessionModalSource.includes(
       'modelRouteRef !== "model-route:none"',

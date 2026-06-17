@@ -1365,12 +1365,15 @@ Current implementation cut:
   preview. Compatibility verdicts expose provider-trust, adapter-native-only,
   local-route-unavailable, compatible, and blocked states.
 
-  0B.3's first app-side guard is implemented: New Session treats only
-  `model-route:hypervisor/default-local` as satisfying
-  `hypervisor_model_mount` compatibility. Adapter-native, provider-trust, and
-  no-model routes no longer count as local Hypervisor model availability, and
-  blocked/local-route-unavailable verdicts disable launch instead of silently
-  falling back.
+  0B.3's app-side guard is hardened: New Session no longer treats the
+  `model-route:hypervisor/default-local` string as proof of local model
+  availability. It consumes a `HypervisorModelMountInventorySnapshot` and the
+  shared `modelRouteSupportsHypervisorMountFromInventory` verdict, which
+  requires an active default-local route plus a mounted endpoint or loaded
+  instance. The current shell uses a fixture inventory contract until the parent
+  runtime client injects live `/v1/model-mount/*` inventory, so the boundary is
+  explicit rather than silently falling back to a provider lane. Blocked and
+  local-route-unavailable verdicts still disable launch.
 
   `harnessAdapterModel.test.ts` and `check:runtime-layout` guard the adapter
   inventory, daemon-truth boundary, public testbed custody, receipt schema,
@@ -1400,9 +1403,10 @@ First implementation slice:
    Grok Build, DeepSeek TUI, Aider, OpenHands, shell/tmux agent, and Generic
    CLI. Done for shell/New Session selection.
 3. Add model route choices from the daemon model-mount inventory. Partial:
-   New Session has route options and blocks local-route claims unless
-   `model-route:hypervisor/default-local` is selected; live `/v1/model-mount/*`
-   inventory probing remains 0B.3 follow-up.
+   New Session has route options and an inventory-based compatibility contract;
+   route labels alone no longer satisfy local availability. Live
+   `/v1/model-mount/*` inventory injection from the shell/runtime client remains
+   the 0B.3 bridge follow-up.
 4. Add compatibility states:
    compatible, adapter-native only, provider-trust, local-route unavailable.
    Done at static verdict level.

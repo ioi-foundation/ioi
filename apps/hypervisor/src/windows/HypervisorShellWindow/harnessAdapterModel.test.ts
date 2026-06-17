@@ -5,13 +5,16 @@ import test from "node:test";
 import {
   DEFAULT_HARNESS_PROFILE_OPTION,
   HYPERVISOR_AGENT_HARNESS_ADAPTER_PROFILES,
+  HYPERVISOR_DEFAULT_LOCAL_MODEL_ROUTE_REF,
   HYPERVISOR_HARNESS_ADAPTER_TESTBED_FIXTURE,
   HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE,
   HYPERVISOR_HARNESS_SELECTION_OPTIONS,
+  HYPERVISOR_NEW_SESSION_MODEL_MOUNT_INVENTORY_FIXTURE,
   buildHarnessAdapterReceiptDraft,
   buildHarnessCompatibilityVerdict,
   getHarnessSelectionRef,
   isAgentHarnessAdapterOption,
+  modelRouteSupportsHypervisorMountFromInventory,
 } from "./harnessAdapterModel.ts";
 
 test("default harness profile is the IOI reference scaffold, not an external adapter", () => {
@@ -101,6 +104,61 @@ test("compatibility verdicts expose provider trust and local-route gaps", () => 
   assert.equal(
     buildHarnessCompatibilityVerdict(shellTmux, true).state,
     "blocked",
+  );
+});
+
+test("model route availability comes from model-mount inventory, not route labels", () => {
+  assert.deepEqual(
+    modelRouteSupportsHypervisorMountFromInventory(
+      HYPERVISOR_DEFAULT_LOCAL_MODEL_ROUTE_REF,
+    ),
+    {
+      model_route_ref: HYPERVISOR_DEFAULT_LOCAL_MODEL_ROUTE_REF,
+      state: "unverified",
+      available: false,
+      summary:
+        "Hypervisor model mount inventory has not been verified by the daemon.",
+      route_refs: [],
+      endpoint_refs: [],
+      loaded_instance_refs: [],
+      requiresDaemonInventory: true,
+    },
+  );
+
+  const fixtureAvailability = modelRouteSupportsHypervisorMountFromInventory(
+    HYPERVISOR_DEFAULT_LOCAL_MODEL_ROUTE_REF,
+    HYPERVISOR_NEW_SESSION_MODEL_MOUNT_INVENTORY_FIXTURE,
+  );
+  assert.equal(fixtureAvailability.state, "fixture_available");
+  assert.equal(fixtureAvailability.available, true);
+  assert.deepEqual(fixtureAvailability.route_refs, [
+    HYPERVISOR_DEFAULT_LOCAL_MODEL_ROUTE_REF,
+  ]);
+
+  const daemonInventory = {
+    ...HYPERVISOR_NEW_SESSION_MODEL_MOUNT_INVENTORY_FIXTURE,
+    source: "daemon-model-mount-inventory" as const,
+  };
+  assert.equal(
+    modelRouteSupportsHypervisorMountFromInventory(
+      HYPERVISOR_DEFAULT_LOCAL_MODEL_ROUTE_REF,
+      daemonInventory,
+    ).state,
+    "daemon_verified",
+  );
+  assert.equal(
+    modelRouteSupportsHypervisorMountFromInventory(
+      "model-route:adapter-native",
+      daemonInventory,
+    ).available,
+    false,
+  );
+  assert.equal(
+    modelRouteSupportsHypervisorMountFromInventory(
+      HYPERVISOR_DEFAULT_LOCAL_MODEL_ROUTE_REF,
+      { ...daemonInventory, endpoints: [], loadedInstances: [] },
+    ).summary,
+    "Default-local route has no mounted endpoint or loaded instance.",
   );
 });
 

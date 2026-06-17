@@ -11,8 +11,11 @@ import {
   type HypervisorNewSessionLaunchRequest,
 } from "../hypervisorShellNavigationModel";
 import {
+  HYPERVISOR_NEW_SESSION_MODEL_MOUNT_INVENTORY_FIXTURE,
   buildHarnessCompatibilityVerdict,
   getHarnessSelectionRef,
+  modelRouteSupportsHypervisorMountFromInventory,
+  type HypervisorModelMountInventorySnapshot,
   type HypervisorHarnessSelectionOption,
 } from "../harnessAdapterModel";
 
@@ -28,6 +31,7 @@ interface HypervisorNewSessionModalProps {
   isOpen: boolean;
   currentProject: ProjectScope;
   projects: ProjectScope[];
+  modelMountInventory?: HypervisorModelMountInventorySnapshot;
   onClose: () => void;
   onLaunch: (request: HypervisorNewSessionLaunchRequest) => void;
 }
@@ -109,6 +113,7 @@ export function HypervisorNewSessionModal({
   isOpen,
   currentProject,
   projects,
+  modelMountInventory = HYPERVISOR_NEW_SESSION_MODEL_MOUNT_INVENTORY_FIXTURE,
   onClose,
   onLaunch,
 }: HypervisorNewSessionModalProps) {
@@ -145,8 +150,12 @@ export function HypervisorNewSessionModal({
   const selectedPrivacy =
     PRIVACY_OPTIONS.find((option) => option.ref === privacyPostureRef) ??
     PRIVACY_OPTIONS[0];
-  const modelRouteSupportsHypervisorMount =
-    selectedModelRoute.ref === "model-route:hypervisor/default-local";
+  const modelRouteAvailability =
+    modelRouteSupportsHypervisorMountFromInventory(
+      selectedModelRoute.ref,
+      modelMountInventory,
+    );
+  const modelRouteSupportsHypervisorMount = modelRouteAvailability.available;
   const harnessVerdict = buildHarnessCompatibilityVerdict(
     selectedHarness,
     modelRouteSupportsHypervisorMount,
@@ -314,6 +323,9 @@ export function HypervisorNewSessionModal({
           data-new-session-receipt-preview={receiptPreviewRef}
           data-new-session-harness-verdict={harnessVerdict.state}
           data-new-session-model-route-ref={selectedModelRoute.ref}
+          data-new-session-model-route-inventory-state={
+            modelRouteAvailability.state
+          }
         >
           <div>
             <span>Required inputs</span>
@@ -336,6 +348,7 @@ export function HypervisorNewSessionModal({
             <span>Model route</span>
             <strong>{selectedModelRoute.label}</strong>
             <em>{selectedModelRoute.detail}</em>
+            <em>{modelRouteAvailability.summary}</em>
           </div>
           <div>
             <span>Privacy posture</span>

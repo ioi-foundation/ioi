@@ -198,12 +198,15 @@ test("new session modal is a shell-level governed launch flow", () => {
   assert.match(newSessionModal, /adapter_preference_ref: adapterPreferenceRef/);
   assert.match(newSessionModal, /buildHarnessCompatibilityVerdict/);
   assert.match(newSessionModal, /modelRouteSupportsHypervisorMount/);
-  assert.match(
+  assert.match(newSessionModal, /modelRouteSupportsHypervisorMountFromInventory/);
+  assert.match(newSessionModal, /modelMountInventory/);
+  assert.match(newSessionModal, /data-new-session-model-route-inventory-state/);
+  assert.match(newSessionModal, /launchBlockedByHarnessVerdict/);
+  assert.match(newSessionModal, /disabled=\{launchBlockedByHarnessVerdict\}/);
+  assert.doesNotMatch(
     newSessionModal,
     /selectedModelRoute\.ref === "model-route:hypervisor\/default-local"/,
   );
-  assert.match(newSessionModal, /launchBlockedByHarnessVerdict/);
-  assert.match(newSessionModal, /disabled=\{launchBlockedByHarnessVerdict\}/);
   assert.doesNotMatch(newSessionModal, /modelRouteRef !== "model-route:none"/);
   assert.match(newSessionModal, /data-new-session-receipt-preview/);
   assert.match(newSessionModal, /data-new-session-harness-verdict/);
