@@ -17,7 +17,6 @@ import {
   getHarnessSelectionRef,
   modelRouteSupportsHypervisorMountFromInventory,
   type HypervisorModelMountInventorySnapshot,
-  type HypervisorHarnessSelectionOption,
 } from "../harnessAdapterModel";
 
 interface ProjectScope {
@@ -75,14 +74,6 @@ const PRIVACY_OPTIONS = [
   },
 ];
 
-function setupSectionLabel(sectionId: string): string {
-  return (
-    HYPERVISOR_NEW_SESSION_SETUP_MODEL.sections.find(
-      (section) => section.id === sectionId,
-    )?.label ?? sectionId
-  );
-}
-
 function defaultHarnessSelectionRef(): string {
   const option = HYPERVISOR_NEW_SESSION_SETUP_MODEL.harnessOptions[0];
   return option ? getHarnessSelectionRef(option) : "harness-profile:default_harness_profile";
@@ -104,12 +95,6 @@ function readStoredWorkbenchAdapterPreferenceRef(): string {
     return stored;
   }
   return DEFAULT_WORKBENCH_ADAPTER_PREFERENCE_REF;
-}
-
-function harnessOptionLabel(option: HypervisorHarnessSelectionOption): string {
-  return option.selection_kind === "harness_profile"
-    ? option.label
-    : `${option.label} - ${option.execution_lane}`;
 }
 
 function initialRecipeSelectionRef(initialRecipeId: string | null | undefined): string {
@@ -137,15 +122,15 @@ export function HypervisorNewSessionModal({
   const [recipeId, setRecipeId] = useState(
     () => initialRecipeSelectionRef(initialRecipeId),
   );
-  const [projectId, setProjectId] = useState(currentProject.id);
-  const [adapterPreferenceRef, setAdapterPreferenceRef] = useState(
+  const [projectId] = useState(currentProject.id);
+  const [adapterPreferenceRef] = useState(
     readStoredWorkbenchAdapterPreferenceRef,
   );
-  const [harnessSelectionRef, setHarnessSelectionRef] = useState(
+  const [harnessSelectionRef] = useState(
     defaultHarnessSelectionRef(),
   );
-  const [modelRouteRef, setModelRouteRef] = useState(MODEL_ROUTE_OPTIONS[0].ref);
-  const [privacyPostureRef, setPrivacyPostureRef] = useState(
+  const [modelRouteRef] = useState(MODEL_ROUTE_OPTIONS[0].ref);
+  const [privacyPostureRef] = useState(
     PRIVACY_OPTIONS[0].ref,
   );
   const [seedIntent, setSeedIntent] = useState(
@@ -239,25 +224,70 @@ export function HypervisorNewSessionModal({
       selectedProject.id,
     ],
   );
+  const buildLaunchRequest = (
+    launchRecipe = recipe,
+    nextSeedIntent = seedIntent,
+  ): HypervisorNewSessionLaunchRequest => {
+    const nextReceiptPreviewRef = [
+      "receipt-preview:new-session",
+      launchRecipe.recipe_id,
+      selectedProject.id,
+      nextSeedIntent.trim().replace(/[^a-z0-9_-]+/gi, "-").slice(0, 48) ||
+        "no-intent",
+      adapterPreferenceRef.replace(/[^a-z0-9_-]+/gi, "-"),
+      harnessSelectionRef.replace(/[^a-z0-9_-]+/gi, "-"),
+    ].join("/");
+    const nextLaunchSummary = buildHypervisorNewSessionLaunchSummary({
+      recipe: launchRecipe,
+      seedIntent: nextSeedIntent,
+      projectId: selectedProject.id,
+      workbenchAdapter: selectedAdapterPreference,
+      harness: selectedHarness,
+      harnessVerdict,
+      modelRouteAvailability,
+      modelRouteRef,
+      privacyPostureRef,
+      authorityScopeRefs: launchRecipe.authority_scope_templates,
+      receiptPreviewRef: nextReceiptPreviewRef,
+    });
 
-  if (!isOpen) {
-    return null;
-  }
-
-  const launch = () => {
-    onLaunch({
-      recipe_id: recipe.recipe_id,
-      seed_intent: launchSummary.seed_intent,
+    return {
+      recipe_id: launchRecipe.recipe_id,
+      seed_intent: nextLaunchSummary.seed_intent,
       project_id: selectedProject.id,
       adapter_preference_ref: adapterPreferenceRef,
       harness_selection_ref: harnessSelectionRef,
       model_route_ref: modelRouteRef,
       privacy_posture_ref: privacyPostureRef,
-      authority_scope_refs: recipe.authority_scope_templates,
-      receipt_preview_ref: receiptPreviewRef,
-      launch_summary: launchSummary,
-    });
+      authority_scope_refs: launchRecipe.authority_scope_templates,
+      receipt_preview_ref: nextReceiptPreviewRef,
+      launch_summary: nextLaunchSummary,
+    };
   };
+  const compactLaunchChoices = [
+    {
+      label: "Start from project",
+      description: selectedProject.name,
+      recipe_id: "workbench.default",
+      tone: "project",
+    },
+    {
+      label: "Start from URL",
+      description: "Attach a repository, issue, doc, or remote environment.",
+      recipe_id: "environment.provider",
+      tone: "url",
+    },
+    {
+      label: "Start from scratch",
+      description: "Open a blank governed mission.",
+      recipe_id: "mission.default",
+      tone: "scratch",
+    },
+  ];
+
+  if (!isOpen) {
+    return null;
+  }
 
   return (
     <div
@@ -273,226 +303,71 @@ export function HypervisorNewSessionModal({
         onClick={(event) => event.stopPropagation()}
       >
         <header className="hypervisor-new-session-modal__header">
-          <div>
-            <span>Hypervisor Core</span>
-            <h2 id="hypervisor-new-session-title">New Session</h2>
-            <p>
-              Bind intent, project, harness, model route, privacy, authority,
-              and receipt preview before launching governed work.
-            </p>
+          <div className="hypervisor-new-session-modal__title-lockup">
+            <h2 id="hypervisor-new-session-title">New session</h2>
+            <p>Select how you want to start</p>
           </div>
-          <button type="button" onClick={onClose} aria-label="Close New Session">
-            x
+          <button
+            type="button"
+            className="hypervisor-new-session-modal__close"
+            onClick={onClose}
+            aria-label="Close New Session"
+          >
+            ×
           </button>
         </header>
 
-        <div className="hypervisor-new-session-modal__grid">
-          <section aria-label="Session recipes">
-            <h3>Recipe</h3>
-            <div className="hypervisor-new-session-modal__choice-list">
-              {HYPERVISOR_SESSION_LAUNCH_RECIPES.map((candidate) => (
+        <div
+          className="hypervisor-new-session-modal__body hypervisor-new-session-modal__body--compact"
+          data-new-session-launch-cockpit="ioi-reference-governed-launch"
+        >
+          <div
+            className="hypervisor-new-session-modal__choice-list"
+            aria-label="Session start choices"
+            data-new-session-receipt-preview={receiptPreviewRef}
+            data-new-session-seed-intent={launchSummary.seed_intent ?? ""}
+            data-new-session-harness-verdict={harnessVerdict.state}
+            data-new-session-model-route-ref={selectedModelRoute.ref}
+            data-new-session-model-route-inventory-state={
+              modelRouteAvailability.state
+            }
+            data-new-session-launch-summary={launchSummary.schema_version}
+            data-new-session-workbench-adapter-ref={
+              launchSummary.workbench_adapter_ref
+            }
+            data-new-session-workbench-adapter-launch-plan-ref={
+              launchSummary.workbench_adapter_launch_plan_ref
+            }
+            data-new-session-workbench-adapter-connection-contract-ref={
+              launchSummary.workbench_adapter_connection_contract_ref
+            }
+            data-new-session-harness-selection-kind={
+              launchSummary.harness_selection_kind
+            }
+          >
+            {compactLaunchChoices.map((choice) => {
+              const launchRecipe =
+                HYPERVISOR_SESSION_LAUNCH_RECIPES.find(
+                  (candidate) => candidate.recipe_id === choice.recipe_id,
+                ) ?? recipe;
+              return (
                 <button
                   type="button"
-                  key={candidate.recipe_id}
-                  className={
-                    candidate.recipe_id === recipe.recipe_id ? "is-selected" : ""
-                  }
-                  onClick={() => setRecipeId(candidate.recipe_id)}
+                  key={choice.label}
+                  data-new-session-recipe={choice.recipe_id}
+                  className={`hypervisor-new-session-modal__compact-choice hypervisor-new-session-modal__compact-choice--${choice.tone}`}
+                  disabled={launchBlockedByHarnessVerdict}
+                  onClick={() => onLaunch(buildLaunchRequest(launchRecipe))}
                 >
-                  <strong>{candidate.label}</strong>
-                  <span>{candidate.description}</span>
+                  <span aria-hidden="true" />
+                  <strong>{choice.label}</strong>
+                  <em>{choice.description}</em>
+                  <b aria-hidden="true">&gt;</b>
                 </button>
-              ))}
-            </div>
-          </section>
-
-          <section aria-label="Session setup">
-            <h3>Setup</h3>
-            <label>
-              <span>Intent</span>
-              <textarea
-                value={seedIntent}
-                data-new-session-field="seed-intent"
-                onChange={(event) => setSeedIntent(event.target.value)}
-                placeholder="Describe the outcome, acceptance criteria, or operator notes."
-                rows={4}
-              />
-            </label>
-            <label>
-              <span>Project</span>
-              <select
-                value={selectedProject.id}
-                data-new-session-field="project"
-                onChange={(event) => setProjectId(event.target.value)}
-              >
-                {projects.map((project) => (
-                  <option key={project.id} value={project.id}>
-                    {project.name} · {project.rootPath}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              <span>Workbench Adapter</span>
-              <select
-                value={adapterPreferenceRef}
-                data-new-session-field="workbench-adapter"
-                onChange={(event) => setAdapterPreferenceRef(event.target.value)}
-              >
-                {HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES.map((preference) => {
-                  const preferenceRef = getWorkbenchAdapterPreferenceRef(preference);
-                  return (
-                    <option key={preferenceRef} value={preferenceRef}>
-                      {preference.label} - {preference.launch_mode}
-                    </option>
-                  );
-                })}
-              </select>
-            </label>
-            <label>
-              <span>Harness</span>
-              <select
-                value={harnessSelectionRef}
-                data-new-session-field="harness"
-                onChange={(event) => setHarnessSelectionRef(event.target.value)}
-              >
-                {HYPERVISOR_NEW_SESSION_SETUP_MODEL.harnessOptions.map(
-                  (option) => {
-                    const selectionRef = getHarnessSelectionRef(option);
-                    return (
-                      <option key={selectionRef} value={selectionRef}>
-                        {harnessOptionLabel(option)}
-                      </option>
-                    );
-                  },
-                )}
-              </select>
-            </label>
-            <label>
-              <span>Model Route</span>
-              <select
-                value={modelRouteRef}
-                data-new-session-field="model-route"
-                onChange={(event) => setModelRouteRef(event.target.value)}
-              >
-                {MODEL_ROUTE_OPTIONS.map((option) => (
-                  <option key={option.ref} value={option.ref}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              <span>Privacy</span>
-              <select
-                value={privacyPostureRef}
-                data-new-session-field="privacy"
-                onChange={(event) => setPrivacyPostureRef(event.target.value)}
-              >
-                {PRIVACY_OPTIONS.map((option) => (
-                  <option key={option.ref} value={option.ref}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </section>
+              );
+            })}
+          </div>
         </div>
-
-        <section
-          className="hypervisor-new-session-modal__summary"
-          aria-label="Receipt preview"
-          data-new-session-receipt-preview={receiptPreviewRef}
-          data-new-session-seed-intent={launchSummary.seed_intent ?? ""}
-          data-new-session-harness-verdict={harnessVerdict.state}
-          data-new-session-model-route-ref={selectedModelRoute.ref}
-          data-new-session-model-route-inventory-state={
-            modelRouteAvailability.state
-          }
-          data-new-session-launch-summary={launchSummary.schema_version}
-          data-new-session-workbench-adapter-ref={
-            launchSummary.workbench_adapter_ref
-          }
-          data-new-session-workbench-adapter-launch-plan-ref={
-            launchSummary.workbench_adapter_launch_plan_ref
-          }
-          data-new-session-workbench-adapter-connection-contract-ref={
-            launchSummary.workbench_adapter_connection_contract_ref
-          }
-          data-new-session-harness-selection-kind={
-            launchSummary.harness_selection_kind
-          }
-        >
-          <div>
-            <span>Intent</span>
-            <strong>{launchSummary.seed_intent ?? "No seed intent"}</strong>
-          </div>
-          <div>
-            <span>Required inputs</span>
-            <strong>{recipe.required_inputs.map(setupSectionLabel).join(" - ")}</strong>
-          </div>
-          <div>
-            <span>Adapter target</span>
-            <strong>{selectedAdapterPreference.label}</strong>
-            <em>{selectedAdapterPreference.description}</em>
-          </div>
-          <div>
-            <span>Adapter launch contract</span>
-            <strong>
-              {launchSummary.workbench_adapter_connection_contract_ref}
-            </strong>
-            <em>
-              Access leases:{" "}
-              {launchSummary.workbench_adapter_access_lease_refs.join(" - ")}
-            </em>
-            <em>
-              Receipt policy:{" "}
-              {launchSummary.workbench_adapter_receipt_refs.join(" - ")}
-            </em>
-          </div>
-          <div>
-            <span>Harness verdict</span>
-            <strong>{harnessVerdict.state.split("_").join(" ")}</strong>
-            <em>{harnessVerdict.summary}</em>
-            {harnessVerdict.privacyWarning ? (
-              <em>{harnessVerdict.privacyWarning}</em>
-            ) : null}
-          </div>
-          <div>
-            <span>Model route</span>
-            <strong>{selectedModelRoute.label}</strong>
-            <em>{selectedModelRoute.detail}</em>
-            <em>{modelRouteAvailability.summary}</em>
-          </div>
-          <div>
-            <span>Privacy posture</span>
-            <strong>{selectedPrivacy.label}</strong>
-            <em>{selectedPrivacy.detail}</em>
-          </div>
-          <div>
-            <span>Authority scopes</span>
-            <strong>{recipe.authority_scope_templates.join(" - ")}</strong>
-          </div>
-          <div>
-            <span>Receipt preview</span>
-            <strong>{receiptPreviewRef}</strong>
-          </div>
-        </section>
-
-        <footer className="hypervisor-new-session-modal__footer">
-          <button type="button" onClick={onClose}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="primary"
-            data-new-session-action="launch"
-            disabled={launchBlockedByHarnessVerdict}
-            onClick={launch}
-          >
-            Launch governed session
-          </button>
-        </footer>
       </section>
     </div>
   );

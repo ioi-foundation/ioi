@@ -286,6 +286,24 @@ const HOME_INTENT_QUICKSTARTS: Array<{
   },
 ];
 
+const HOME_REFERENCE_RECENT_SESSIONS = [
+  {
+    title: "Write Parent Harness Evidence Boundary Doc",
+    meta: "6h ago",
+    status: "active",
+  },
+  {
+    title: "Write Harness Tool Call Documentation",
+    meta: "6h ago",
+    status: "idle",
+  },
+  {
+    title: "Design Postquantum Computers Website",
+    meta: "6h ago",
+    status: "idle",
+  },
+] as const;
+
 interface HomeDashboardViewProps {
   currentProject: ProjectScope;
   projects: ProjectScope[];
@@ -332,7 +350,10 @@ function renderIcon(Icon: unknown, props: IconProps = {}) {
 function HomeBrandMark() {
   return (
     <span className="chat-home-zero-brand-mark" aria-hidden="true">
-      {renderIcon(Sparkles, { size: 26, strokeWidth: 1.75 })}
+      <span className="chat-home-zero-brand-mark__glyph">
+        {renderIcon(Sparkles, { size: 12, strokeWidth: 1.9 })}
+      </span>
+      <span className="chat-home-zero-brand-mark__word">IOI</span>
     </span>
   );
 }
@@ -530,54 +551,56 @@ function HomeDashboardView({
                 });
               }}
             >
-              <textarea
-                value={intentDraft}
-                onChange={(event) => {
-                  setIntentDraft(event.currentTarget.value);
-                  setIntentRecipeId(null);
-                }}
-                aria-label="Describe your task or type slash for commands"
-                placeholder="Describe your task or type / for commands"
-                rows={4}
-              />
-              <div className="chat-home-zero-intent-composer__controls">
-                <button
-                  type="button"
-                  className="chat-home-zero-intent-composer__project"
-                  data-home-intent-project={currentProject.id}
-                  onClick={() => onRecentModeChange("projects")}
-                >
-                  {renderIcon(Crosshair, { size: 15, strokeWidth: 1.8 })}
-                  <span>Work in a project</span>
-                  {renderIcon(ChevronDown, { size: 14, strokeWidth: 1.8 })}
-                </button>
-                <span className="chat-home-zero-intent-composer__spacer" />
-                <button
-                  type="button"
-                  className="chat-home-zero-intent-composer__add-context"
-                  aria-label="Add context"
-                  onClick={onOpenWorkspace}
-                >
-                  +
-                </button>
-                <button
-                  type="button"
-                  className="chat-home-zero-intent-composer__model"
-                  data-home-intent-model="default-model-route"
-                  onClick={onOpenModels}
-                >
-                  {renderIcon(Sparkles, { size: 15, strokeWidth: 1.8 })}
-                  <span>5.5 Medium</span>
-                  {renderIcon(ChevronDown, { size: 14, strokeWidth: 1.8 })}
-                </button>
-                <button
-                  type="submit"
-                  className="chat-home-zero-intent-composer__submit"
-                  data-home-intent-submit="new-session"
-                  aria-label="Start New Session"
-                >
-                  {renderIcon(ArrowUp, { size: 16, strokeWidth: 2 })}
-                </button>
+              <div className="chat-home-zero-intent-composer__frame">
+                <textarea
+                  value={intentDraft}
+                  onChange={(event) => {
+                    setIntentDraft(event.currentTarget.value);
+                    setIntentRecipeId(null);
+                  }}
+                  aria-label="Describe your task or type slash for commands"
+                  placeholder="Describe your task or type / for commands"
+                  rows={4}
+                />
+                <div className="chat-home-zero-intent-composer__controls">
+                  <button
+                    type="button"
+                    className="chat-home-zero-intent-composer__project"
+                    data-home-intent-project={currentProject.id}
+                    onClick={() => onRecentModeChange("projects")}
+                  >
+                    {renderIcon(Crosshair, { size: 15, strokeWidth: 1.8 })}
+                    <span>Work in a project</span>
+                    {renderIcon(ChevronDown, { size: 14, strokeWidth: 1.8 })}
+                  </button>
+                  <span className="chat-home-zero-intent-composer__spacer" />
+                  <button
+                    type="button"
+                    className="chat-home-zero-intent-composer__add-context"
+                    aria-label="Add context"
+                    onClick={onOpenWorkspace}
+                  >
+                    +
+                  </button>
+                  <button
+                    type="button"
+                    className="chat-home-zero-intent-composer__model"
+                    data-home-intent-model="default-model-route"
+                    onClick={onOpenModels}
+                  >
+                    {renderIcon(Sparkles, { size: 15, strokeWidth: 1.8 })}
+                    <span>5.5 Medium</span>
+                    {renderIcon(ChevronDown, { size: 14, strokeWidth: 1.8 })}
+                  </button>
+                  <button
+                    type="submit"
+                    className="chat-home-zero-intent-composer__submit"
+                    data-home-intent-submit="new-session"
+                    aria-label="Start New Session"
+                  >
+                    {renderIcon(ArrowUp, { size: 16, strokeWidth: 2 })}
+                  </button>
+                </div>
               </div>
             </form>
             <div
@@ -608,6 +631,32 @@ function HomeDashboardView({
                 </button>
               ))}
             </div>
+            <section
+              className="chat-home-zero-recent-sessions"
+              aria-label="Recent Sessions"
+              data-home-reference-recent-sessions="true"
+            >
+              <h2>Recent Sessions</h2>
+              <div>
+                {HOME_REFERENCE_RECENT_SESSIONS.map((session) => (
+                  <button
+                    type="button"
+                    key={session.title}
+                    data-home-recent-session-status={session.status}
+                    onClick={onOpenRuns}
+                  >
+                    <span
+                      className="chat-home-zero-recent-sessions__dot"
+                      aria-hidden="true"
+                    />
+                    <span className="chat-home-zero-recent-sessions__copy">
+                      <strong>{session.title}</strong>
+                      <em>{session.meta}</em>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </section>
           </section>
 
           <div

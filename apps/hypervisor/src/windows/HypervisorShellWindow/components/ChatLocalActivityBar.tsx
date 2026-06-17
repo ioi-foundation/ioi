@@ -47,6 +47,27 @@ const CHAT_ACTIVITY_BAR_COLLAPSED_KEY =
 const KEYBOARD_NAV_VIEWS: PrimaryView[] =
   [...HYPERVISOR_IOI_REFERENCE_SHELL_REQUIREMENTS.leftNavSurfaceIds];
 
+const REFERENCE_RECENT_SESSIONS = [
+  {
+    title: "Write Parent Harness Evidence Boundary Doc",
+    meta: "main · 6h ago",
+    status: "active",
+    count: 3,
+  },
+  {
+    title: "Write Harness Tool Call Documentation",
+    meta: "main · 6h ago",
+    status: "idle",
+    count: 4,
+  },
+  {
+    title: "Design Postquantum Computers Website",
+    meta: "main · 6h ago",
+    status: "idle",
+    count: 5,
+  },
+] as const;
+
 const NAV_ICON_BY_SURFACE: Record<string, ReactNode> = {
   home: <HomeIcon />,
   sessions: <SparklesIcon />,
@@ -329,15 +350,35 @@ export function ChatLocalActivityBar({
           />
         ) : null}
         <div className="chat-activity-project-label">
-          <span>Projects</span>
+          <span>From scratch</span>
           <span>Project</span>
         </div>
-        <div className="chat-activity-project-skeleton" aria-label="Project list preview">
-          {[0, 1, 2, 3].map((index) => (
-            <span key={index}>
-              <i />
-              <b />
-            </span>
+        <div
+          className="chat-activity-session-list"
+          aria-label="Recent session preview"
+          data-ioi-reference-session-list="true"
+        >
+          {REFERENCE_RECENT_SESSIONS.map((session) => (
+            <button
+              type="button"
+              key={session.title}
+              className="chat-activity-session-row"
+              data-session-status={session.status}
+              title={session.title}
+              onClick={() => onViewChange("sessions")}
+            >
+              <span className="chat-activity-session-row__dot" aria-hidden="true" />
+              <span className="chat-activity-session-row__copy">
+                <strong>{session.title}</strong>
+                <em>{session.meta}</em>
+              </span>
+              <span
+                className="chat-activity-session-row__badge"
+                aria-label={`${session.count} pending items`}
+              >
+                {session.count}
+              </span>
+            </button>
           ))}
         </div>
       </div>
@@ -374,11 +415,12 @@ export function ChatLocalActivityBar({
             data-window-surface={profileItem.dataWindowSurface}
             onClick={() => activateRoute(profileItem.route)}
           >
-            <span className="chat-activity-profile-avatar">{profileInitials}</span>
-            <span className="chat-activity-profile-label">
-              {profileDisplayName}
-            </span>
-          </button>
+	            <span className="chat-activity-profile-avatar">{profileInitials}</span>
+	            <span className="chat-activity-profile-label">
+	              <strong>IOI Workspace</strong>
+	              <em>{profileDisplayName}</em>
+	            </span>
+	          </button>
         ) : null}
       </div>
     </aside>

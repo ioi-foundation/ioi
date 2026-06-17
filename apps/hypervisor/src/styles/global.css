@@ -1,5 +1,45 @@
 /* Global styles - Design System & Reset */
 
+@font-face {
+  font-family: "ABC Diatype";
+  src: url("../assets/fonts/ABCDiatype-Regular.woff2") format("woff2");
+  font-display: swap;
+  font-style: normal;
+  font-weight: 400;
+}
+
+@font-face {
+  font-family: "ABC Diatype";
+  src: url("../assets/fonts/ABCDiatype-Medium.woff2") format("woff2");
+  font-display: swap;
+  font-style: normal;
+  font-weight: 500;
+}
+
+@font-face {
+  font-family: "ABC Diatype";
+  src: url("../assets/fonts/ABCDiatype-Bold.woff2") format("woff2");
+  font-display: swap;
+  font-style: normal;
+  font-weight: 700;
+}
+
+@font-face {
+  font-family: "ABC Diatype Mono";
+  src: url("../assets/fonts/ABCDiatypeMono-Regular.woff2") format("woff2");
+  font-display: swap;
+  font-style: normal;
+  font-weight: 400;
+}
+
+@font-face {
+  font-family: "ABC Diatype Mono";
+  src: url("../assets/fonts/ABCDiatypeMono-Medium.woff2") format("woff2");
+  font-display: swap;
+  font-style: normal;
+  font-weight: 500;
+}
+
 :root {
   color-scheme: dark;
 
@@ -120,11 +160,11 @@
   --text-muted: var(--sand-500);
 
   --font-sans:
-    "Segoe WPC", "Segoe UI", -apple-system, BlinkMacSystemFont, Ubuntu, Roboto,
+    "ABC Diatype", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
     Helvetica, Arial, sans-serif;
   --font-mono:
-    "SF Mono", "Cascadia Code", "JetBrains Mono", Menlo, Monaco, Consolas,
-    monospace;
+    "ABC Diatype Mono", "SF Mono", "Cascadia Code", "JetBrains Mono", Menlo,
+    Monaco, Consolas, monospace;
   --font-display: var(--font-sans);
 
   --text-xs: 11px;

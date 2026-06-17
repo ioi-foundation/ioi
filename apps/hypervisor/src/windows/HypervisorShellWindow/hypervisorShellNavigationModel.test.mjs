@@ -261,7 +261,12 @@ test("visible shell chrome uses Hypervisor labels over compatibility route keys"
   assert.match(activityBar, /topReferenceNavItems/);
   assert.match(activityBar, /sessionsNavItem/);
   assert.match(activityBar, /chat-activity-button--new-session/);
-  assert.match(activityBar, /chat-activity-project-skeleton/);
+  assert.match(activityBar, /REFERENCE_RECENT_SESSIONS/);
+  assert.match(activityBar, /chat-activity-session-list/);
+  assert.match(activityBar, /data-ioi-reference-session-list="true"/);
+  assert.match(activityBar, /Write Parent Harness Evidence Boundary Doc/);
+  assert.match(activityBar, /onViewChange\("sessions"\)/);
+  assert.doesNotMatch(activityBar, /chat-activity-project-skeleton/);
   assert.match(activityBar, /Organization settings/);
   assert.match(activityBar, /HYPERVISOR_PRIMARY_ACTION/);
   assert.doesNotMatch(activityBar, /aria-label="Applications"/);
@@ -274,7 +279,6 @@ test("visible shell chrome uses Hypervisor labels over compatibility route keys"
 test("new session modal is a shell-level governed launch flow", () => {
   assert.match(newSessionModal, /HYPERVISOR_SESSION_LAUNCH_RECIPES/);
   assert.match(newSessionModal, /HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES/);
-  assert.match(newSessionModal, /Workbench Adapter/);
   assert.match(newSessionModal, /adapter_preference_ref: adapterPreferenceRef/);
   assert.match(newSessionModal, /buildHarnessCompatibilityVerdict/);
   assert.match(newSessionModal, /buildHypervisorNewSessionLaunchSummary/);
@@ -284,11 +288,17 @@ test("new session modal is a shell-level governed launch flow", () => {
   assert.match(newSessionModal, /useEffect/);
   assert.match(newSessionModal, /setRecipeId\(initialRecipeSelectionRef\(initialRecipeId\)\)/);
   assert.match(newSessionModal, /setSeedIntent\(initialSeedIntent\?\.trim\(\) \?\? ""\)/);
-  assert.match(newSessionModal, /data-new-session-field="seed-intent"/);
   assert.match(newSessionModal, /seedIntent/);
-  assert.match(newSessionModal, /seed_intent: launchSummary\.seed_intent/);
+  assert.match(newSessionModal, /seed_intent: nextLaunchSummary\.seed_intent/);
+  assert.match(newSessionModal, /data-new-session-launch-cockpit="ioi-reference-governed-launch"/);
+  assert.match(newSessionModal, /hypervisor-new-session-modal__body--compact/);
+  assert.match(newSessionModal, /compactLaunchChoices/);
+  assert.match(newSessionModal, /Start from project/);
+  assert.match(newSessionModal, /Start from URL/);
+  assert.match(newSessionModal, /Start from scratch/);
+  assert.match(newSessionModal, /data-new-session-recipe=\{choice\.recipe_id\}/);
   assert.match(newSessionModal, /data-new-session-seed-intent/);
-  assert.match(newSessionModal, /launch_summary: launchSummary/);
+  assert.match(newSessionModal, /launch_summary: nextLaunchSummary/);
   assert.match(newSessionModal, /data-new-session-launch-summary/);
   assert.match(newSessionModal, /data-new-session-workbench-adapter-ref/);
   assert.match(newSessionModal, /data-new-session-harness-selection-kind/);
@@ -307,7 +317,8 @@ test("new session modal is a shell-level governed launch flow", () => {
   assert.match(newSessionModal, /data-new-session-receipt-preview/);
   assert.match(newSessionModal, /data-new-session-harness-verdict/);
   assert.match(newSessionModal, /cTEE private workspace/);
-  assert.match(newSessionModal, /Launch governed session/);
+  assert.doesNotMatch(newSessionModal, /Launch governed session/);
+  assert.doesNotMatch(newSessionModal, /Workbench Adapter/);
   assert.match(controller, /newSessionModalOpen/);
   assert.match(controller, /newSessionSeedIntent/);
   assert.match(controller, /newSessionRecipeId/);

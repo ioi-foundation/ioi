@@ -80,6 +80,10 @@ test("home dashboard exposes the New Session setup contract", () => {
   assert.match(homeView, /recipeId: "automation\.default"/);
   assert.match(homeView, /recipeId: "workbench\.default"/);
   assert.match(homeView, /recipeId: "foundry\.eval"/);
+  assert.match(homeView, /HOME_REFERENCE_RECENT_SESSIONS/);
+  assert.match(homeView, /data-home-reference-recent-sessions="true"/);
+  assert.match(homeView, /Recent Sessions/);
+  assert.match(homeView, /Write Parent Harness Evidence Boundary Doc/);
   assert.match(homeView, /data-home-new-session-contract="daemon-runtime"/);
   assert.match(homeView, /newSessionRequiredSections/);
   assert.match(homeView, /newSessionHarnessOptions/);
