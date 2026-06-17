@@ -175,8 +175,8 @@ assert.doesNotMatch(
 
 assert.match(
   shellCss,
-  /\.chat-activity-bar\s*\{[\s\S]*--chat-activity-bg: #17191f;[\s\S]*width: 208px;/,
-  "The primary rail should use the IOI reference dark 208px shell",
+  /\.chat-activity-bar\s*\{[\s\S]*--chat-activity-bg: #17191f;[\s\S]*width: 230px;/,
+  "The primary rail should use the IOI reference dark 230px shell",
 );
 
 assert.doesNotMatch(

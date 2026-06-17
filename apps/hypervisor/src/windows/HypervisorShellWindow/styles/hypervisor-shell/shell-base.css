@@ -4115,7 +4115,7 @@
   --chat-activity-avatar-bg: #2f80ed;
   --chat-activity-avatar-text: #ffffff;
 
-  width: 208px;
+  width: 230px;
   background: var(--chat-activity-bg);
   color: var(--chat-activity-text-strong);
   border-right: 1px solid var(--chat-activity-border);
