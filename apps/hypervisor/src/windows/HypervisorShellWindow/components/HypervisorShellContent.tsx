@@ -582,8 +582,12 @@ function HypervisorSessionOperationsCockpit({
 
 function HypervisorProjectStateSurface({
   selectedProjectId,
+  onSelectProject,
+  onOpenSurface,
 }: {
   selectedProjectId: string;
+  onSelectProject: (projectId: string) => void;
+  onOpenSurface: (surface: PrimaryView) => void;
 }) {
   const [projection, setProjection] = useState(
     HYPERVISOR_PROJECT_STATE_PROJECTION_FIXTURE,
@@ -690,6 +694,45 @@ function HypervisorProjectStateSurface({
                     <span key={ref}>{ref}</span>
                   ),
                 )}
+              </div>
+              <div
+                className="hypervisor-project-state__actions"
+                aria-label={`Project actions for ${project.name}`}
+              >
+                <button
+                  type="button"
+                  data-project-select-action={project.project_id}
+                  onClick={() => onSelectProject(project.project_id)}
+                >
+                  Select project
+                </button>
+                {project.current_session_ref ? (
+                  <button
+                    type="button"
+                    data-project-open-session={project.current_session_ref}
+                    onClick={() => onOpenSurface("sessions")}
+                  >
+                    Open session
+                  </button>
+                ) : null}
+                {project.provider_candidate_ref ? (
+                  <button
+                    type="button"
+                    data-project-open-provider={project.provider_candidate_ref}
+                    onClick={() => onOpenSurface("providers")}
+                  >
+                    Open provider
+                  </button>
+                ) : null}
+                {project.restore_state === "restore_ready" ? (
+                  <button
+                    type="button"
+                    data-project-open-restore={project.restore_ref}
+                    onClick={() => onOpenSurface("receipts")}
+                  >
+                    Review restore
+                  </button>
+                ) : null}
               </div>
             </article>
           );
@@ -1443,6 +1486,8 @@ export function HypervisorShellContent({
                   {activeView === "projects" ? (
                     <HypervisorProjectStateSurface
                       selectedProjectId={currentProject.id}
+                      onSelectProject={controller.workflow.selectProject}
+                      onOpenSurface={controller.changePrimaryView}
                     />
                   ) : null}
 

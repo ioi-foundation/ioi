@@ -1263,9 +1263,12 @@ Current implementation cut:
   `HypervisorShellContent` now renders Projects as a project-state and restore
   posture surface instead of a placeholder. The surface keeps the boundary
   explicit: Hypervisor clients inspect project state; Agentgres admits project
-  truth; storage backends hold bytes only. Remaining work is live project
-  projection hydration, project selection actions, archive/restore operation
-  buttons, and paginated project receipt history.
+  truth; storage backends hold bytes only. Project cards now expose governed
+  selection and drill-through actions for project selection, active session,
+  provider candidate, and restore evidence. These actions route to Sessions,
+  Providers, and Receipts surfaces rather than mutating project truth in the
+  client. Remaining work is live project projection hydration, archive/restore
+  operation proposals, and paginated project receipt history.
 
 0A.2 first Home cockpit projection is implemented:
   `homeCockpitModel.ts` defines `HypervisorHomeCockpitProjection` by composing

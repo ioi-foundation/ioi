@@ -360,6 +360,18 @@ test("Projects surface renders workspace, restore, artifact, and state-root proj
   assert.match(shellContent, /data-project-state-record/);
   assert.match(shellContent, /data-project-restore-state/);
   assert.match(shellContent, /data-project-custody-posture/);
+  assert.match(shellContent, /onSelectProject: \(projectId: string\) => void/);
+  assert.match(shellContent, /onOpenSurface: \(surface: PrimaryView\) => void/);
+  assert.match(shellContent, /data-project-select-action/);
+  assert.match(shellContent, /onClick=\{\(\) => onSelectProject\(project\.project_id\)\}/);
+  assert.match(shellContent, /data-project-open-session/);
+  assert.match(shellContent, /onClick=\{\(\) => onOpenSurface\("sessions"\)\}/);
+  assert.match(shellContent, /data-project-open-provider/);
+  assert.match(shellContent, /onClick=\{\(\) => onOpenSurface\("providers"\)\}/);
+  assert.match(shellContent, /data-project-open-restore/);
+  assert.match(shellContent, /onClick=\{\(\) => onOpenSurface\("receipts"\)\}/);
+  assert.match(shellContent, /onSelectProject=\{controller\.workflow\.selectProject\}/);
+  assert.match(shellContent, /onOpenSurface=\{controller\.changePrimaryView\}/);
   assert.match(shellContent, /activeView === "projects"/);
   assert.match(shellContent, /activeView !== "projects"/);
   assert.doesNotMatch(shellContent, /projects: \{\s*eyebrow: "Project state"/);
