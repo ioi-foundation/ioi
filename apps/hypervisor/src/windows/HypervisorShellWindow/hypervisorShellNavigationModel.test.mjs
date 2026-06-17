@@ -52,7 +52,7 @@ test("hypervisor shell keeps application surfaces separate from clients", () => 
   assert.match(source, /Direct provider integrations/);
   assert.doesNotMatch(
     source,
-    /Hypervisor IDE|ONA-like|internal-docs\/reverse-engineering\/ona/,
+    /Hypervisor IDE|reverse-engineering\/ona/,
   );
 });
 

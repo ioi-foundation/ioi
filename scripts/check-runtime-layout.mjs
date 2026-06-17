@@ -33,6 +33,7 @@ function assert(id, condition, evidence, message) {
 const packageJson = JSON.parse(read("package.json"));
 const readme = read("README.md");
 const developersDocs = read("apps/developers-ioi-ai/src/content/docs.tsx");
+const refineArchitectureGuide = read("internal-docs/implementation/refine-architecture.md");
 const workbenchAdapterLauncher = read("scripts/launch-hypervisor-workbench-adapter-host.mjs");
 const hypervisorHomeSource = [
   "apps/hypervisor/src/surfaces/Home/HomeView.tsx",
@@ -165,6 +166,14 @@ assert(
     "internal-docs/implementation/runtime-package-boundaries.md",
   ],
   "runtime module map must identify canonical homes and be linked from boundary docs",
+);
+assert(
+  "refine-architecture-ioi-reference-target",
+  refineArchitectureGuide.includes("internal-docs/reverse-engineering/ioi") &&
+    refineArchitectureGuide.includes("Primary IOI reference mirror") &&
+    !/internal-docs\/reverse-engineering\/ona|ONA-like/.test(refineArchitectureGuide),
+  ["internal-docs/implementation/refine-architecture.md"],
+  "refine-architecture Phase 0A must use the IOI reverse-engineering mirror as the primary UX target, not ONA-era wording.",
 );
 assert(
   "repo-facing-hypervisor-client-map",
