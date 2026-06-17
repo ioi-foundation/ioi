@@ -703,19 +703,6 @@ export class AgentgresRuntimeStateStore {
       runtimeError,
       writeJson,
     });
-    this.proposeWorkflowEdit = (threadId, request = {}) =>
-      this.workflowEditApi.proposeWorkflowEdit(this, threadId, request);
-    this.applyWorkflowEditProposal = (threadId, proposalId, request = {}) =>
-      this.workflowEditApi.applyWorkflowEditProposal(this, threadId, proposalId, request);
-    this.executeDiagnosticsRepairDecision = (threadId, decisionRef, request = {}) =>
-      this.diagnosticsRepairApi.executeDiagnosticsRepairDecision(this, threadId, decisionRef, request);
-    this.prepareWorkspaceSnapshotForPatch = (request = {}) =>
-      this.workspaceSnapshotApi.prepareWorkspaceSnapshotForPatch(this, request);
-    this.listWorkspaceSnapshots = (threadId) => this.workspaceSnapshotApi.listWorkspaceSnapshots(this, threadId);
-    this.previewWorkspaceSnapshotRestore = (threadId, snapshotId, request = {}) =>
-      this.workspaceSnapshotApi.previewWorkspaceSnapshotRestore(this, threadId, snapshotId, request);
-    this.applyWorkspaceSnapshotRestore = (threadId, snapshotId, request = {}) =>
-      this.workspaceSnapshotApi.applyWorkspaceSnapshotRestore(this, threadId, snapshotId, request);
     this.mcpCatalogApi = createRuntimeMcpCatalogApi({
       contextPolicyCore: this.contextPolicyCore,
     });
@@ -1377,6 +1364,34 @@ export class AgentgresRuntimeStateStore {
 
   canonicalProjection(runId) {
     return this.runReadSurface.canonicalProjection(this, runId);
+  }
+
+  proposeWorkflowEdit(threadId, request = {}) {
+    return this.workflowEditApi.proposeWorkflowEdit(this, threadId, request);
+  }
+
+  applyWorkflowEditProposal(threadId, proposalId, request = {}) {
+    return this.workflowEditApi.applyWorkflowEditProposal(this, threadId, proposalId, request);
+  }
+
+  executeDiagnosticsRepairDecision(threadId, decisionRef, request = {}) {
+    return this.diagnosticsRepairApi.executeDiagnosticsRepairDecision(this, threadId, decisionRef, request);
+  }
+
+  prepareWorkspaceSnapshotForPatch(request = {}) {
+    return this.workspaceSnapshotApi.prepareWorkspaceSnapshotForPatch(this, request);
+  }
+
+  listWorkspaceSnapshots(threadId) {
+    return this.workspaceSnapshotApi.listWorkspaceSnapshots(this, threadId);
+  }
+
+  previewWorkspaceSnapshotRestore(threadId, snapshotId, request = {}) {
+    return this.workspaceSnapshotApi.previewWorkspaceSnapshotRestore(this, threadId, snapshotId, request);
+  }
+
+  applyWorkspaceSnapshotRestore(threadId, snapshotId, request = {}) {
+    return this.workspaceSnapshotApi.applyWorkspaceSnapshotRestore(this, threadId, snapshotId, request);
   }
 
   invokeComputerUseLeaseRequestRustCore(threadId, toolId, request = {}, defaults = {}) {

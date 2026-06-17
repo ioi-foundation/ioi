@@ -4809,25 +4809,25 @@ function runBridge() {
     /this\.workspaceSnapshotApi = createRuntimeWorkspaceSnapshotSurface\(\{/.test(
       runtimeDaemonIndex,
     ) &&
-    /this\.proposeWorkflowEdit = \(threadId, request = \{\}\) =>[\s\S]*?this\.workflowEditApi\.proposeWorkflowEdit\(this, threadId, request\)/.test(
+    /proposeWorkflowEdit\(threadId, request = \{\}\) \{[\s\S]*?return this\.workflowEditApi\.proposeWorkflowEdit\(this, threadId, request\)/.test(
       runtimeDaemonIndex,
     ) &&
-    /this\.applyWorkflowEditProposal = \(threadId, proposalId, request = \{\}\) =>[\s\S]*?this\.workflowEditApi\.applyWorkflowEditProposal\(this, threadId, proposalId, request\)/.test(
+    /applyWorkflowEditProposal\(threadId, proposalId, request = \{\}\) \{[\s\S]*?return this\.workflowEditApi\.applyWorkflowEditProposal\(this, threadId, proposalId, request\)/.test(
       runtimeDaemonIndex,
     ) &&
-    /this\.executeDiagnosticsRepairDecision = \(threadId, decisionRef, request = \{\}\) =>[\s\S]*?this\.diagnosticsRepairApi\.executeDiagnosticsRepairDecision\(this, threadId, decisionRef, request\)/.test(
+    /executeDiagnosticsRepairDecision\(threadId, decisionRef, request = \{\}\) \{[\s\S]*?return this\.diagnosticsRepairApi\.executeDiagnosticsRepairDecision\(this, threadId, decisionRef, request\)/.test(
       runtimeDaemonIndex,
     ) &&
-    /this\.prepareWorkspaceSnapshotForPatch = \(request = \{\}\) =>[\s\S]*?this\.workspaceSnapshotApi\.prepareWorkspaceSnapshotForPatch\(this, request\)/.test(
+    /prepareWorkspaceSnapshotForPatch\(request = \{\}\) \{[\s\S]*?return this\.workspaceSnapshotApi\.prepareWorkspaceSnapshotForPatch\(this, request\)/.test(
       runtimeDaemonIndex,
     ) &&
-    /this\.listWorkspaceSnapshots = \(threadId\) => this\.workspaceSnapshotApi\.listWorkspaceSnapshots\(this, threadId\)/.test(
+    /listWorkspaceSnapshots\(threadId\) \{[\s\S]*?return this\.workspaceSnapshotApi\.listWorkspaceSnapshots\(this, threadId\)/.test(
       runtimeDaemonIndex,
     ) &&
-    /this\.previewWorkspaceSnapshotRestore = \(threadId, snapshotId, request = \{\}\) =>[\s\S]*?this\.workspaceSnapshotApi\.previewWorkspaceSnapshotRestore\(this, threadId, snapshotId, request\)/.test(
+    /previewWorkspaceSnapshotRestore\(threadId, snapshotId, request = \{\}\) \{[\s\S]*?return this\.workspaceSnapshotApi\.previewWorkspaceSnapshotRestore\(this, threadId, snapshotId, request\)/.test(
       runtimeDaemonIndex,
     ) &&
-    /this\.applyWorkspaceSnapshotRestore = \(threadId, snapshotId, request = \{\}\) =>[\s\S]*?this\.workspaceSnapshotApi\.applyWorkspaceSnapshotRestore\(this, threadId, snapshotId, request\)/.test(
+    /applyWorkspaceSnapshotRestore\(threadId, snapshotId, request = \{\}\) \{[\s\S]*?return this\.workspaceSnapshotApi\.applyWorkspaceSnapshotRestore\(this, threadId, snapshotId, request\)/.test(
       runtimeDaemonIndex,
     ) &&
     /store\.proposeWorkflowEdit\(threadId,\s*await readBody\(request\)\)/.test(
@@ -13284,7 +13284,7 @@ function runBridge() {
     /ThreadTurnAdmissionRequiredCore/.test(policyCore) &&
       /ThreadTurnAdmissionRequiredRequest/.test(policyCore) &&
       /THREAD_TURN_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
-      /rust_policy_plans_thread_turn_admission_required/.test(policyCore) &&
+      /rust_policy_plans_thread_turn_admission_required/.test(policyThreadLifecycleCore) &&
       /admission_required_command_transport_is_retired/.test(commandProtocolCore) &&
       !/CommandOperation::PlanThreadTurnAdmissionRequired/.test(commandProtocolCore) &&
       !/pub fn plan_thread_turn_admission_required_response/.test(policyThreadLifecycleCore) &&
@@ -13364,7 +13364,7 @@ function runBridge() {
       /"appendCodingToolCommandStreamEvents"[\s\S]*"codingToolApprovalSatisfaction"[\s\S]*"blockCodingToolForApproval"[\s\S]*"blockCodingToolForBudget"/.test(
         runtimeThreadSurfaceDelegatesRetiredTest,
       ) &&
-      /"prepareWorkspaceSnapshotForPatch"[\s\S]*"materializeWorkspaceSnapshotArtifact"[\s\S]*"appendWorkspaceSnapshotEvent"/.test(
+      /"materializeWorkspaceSnapshotArtifact"[\s\S]*"appendWorkspaceSnapshotEvent"/.test(
         runtimeThreadSurfaceDelegatesRetiredTest,
       ) &&
       /"workspaceSnapshotContentPackage"[\s\S]*"materializeWorkspaceRestorePreviewArtifact"[\s\S]*"appendWorkspaceRestoreApplyEvent"/.test(
@@ -13380,6 +13380,21 @@ function runBridge() {
         runtimeThreadSurfaceDelegatesRetiredTest,
       ) &&
       /Object\.hasOwn\(prototype, method\), false/.test(
+        runtimeThreadSurfaceDelegatesRetiredTest,
+      ) &&
+      /daemon store workflow diagnostics workspace methods are positive API owners, not surface delegates/.test(
+        runtimeThreadSurfaceDelegatesRetiredTest,
+      ) &&
+      /"proposeWorkflowEdit"[\s\S]*"applyWorkflowEditProposal"[\s\S]*"executeDiagnosticsRepairDecision"[\s\S]*"prepareWorkspaceSnapshotForPatch"/.test(
+        runtimeThreadSurfaceDelegatesRetiredTest,
+      ) &&
+      /"listWorkspaceSnapshots"[\s\S]*"previewWorkspaceSnapshotRestore"[\s\S]*"applyWorkspaceSnapshotRestore"/.test(
+        runtimeThreadSurfaceDelegatesRetiredTest,
+      ) &&
+      /this\.workflowEditApi\.proposeWorkflowEdit/.test(
+        runtimeThreadSurfaceDelegatesRetiredTest,
+      ) &&
+      /this\.workspaceSnapshotApi\.prepareWorkspaceSnapshotForPatch/.test(
         runtimeThreadSurfaceDelegatesRetiredTest,
       ) &&
       /daemon store thread auxiliary methods are positive API owners, not surface delegates/.test(
@@ -13412,7 +13427,7 @@ function runBridge() {
       /this\.subagentApi\.spawnSubagent/.test(
         runtimeThreadSurfaceDelegatesRetiredTest,
       ) &&
-      !/^\s*(?:appendWorkspaceTrustWarningEvent|applyThreadMcpServerMutation|mcpStatusWithLiveDiscovery|appendThreadMcpControlEvent|mcpServersForContext|appendCodingToolCommandStreamEvents|codingToolApprovalSatisfaction|blockCodingToolForApproval|blockCodingToolForBudget|prepareWorkspaceSnapshotForPatch|materializeWorkspaceSnapshotArtifact|appendWorkspaceSnapshotEvent|workspaceSnapshotContentPackage|materializeWorkspaceRestorePreviewArtifact|materializeWorkspaceRestoreApplyArtifact|appendWorkspaceRestorePreviewEvent|appendWorkspaceRestoreApplyEvent|maybeRunPostEditDiagnostics|pendingDiagnosticsFeedbackForNextTurn|materializeCodingToolArtifactDrafts|materializeVisualGuiObservationArtifacts|readCodingToolArtifact|retrieveCodingToolResult|executeDiagnosticsOperatorOverride|turnForOperatorOverrideEvent|appendDiagnosticsOperatorOverrideEvent|createDiagnosticsRepairRetryTurn|turnForRepairRetryEvent|appendDiagnosticsRepairRetryTurnEvent|resolveDiagnosticsRepairDecision|appendDiagnosticsRepairDecisionExecutedEvent)\(/m.test(
+      !/^\s*(?:appendWorkspaceTrustWarningEvent|applyThreadMcpServerMutation|mcpStatusWithLiveDiscovery|appendThreadMcpControlEvent|mcpServersForContext|appendCodingToolCommandStreamEvents|codingToolApprovalSatisfaction|blockCodingToolForApproval|blockCodingToolForBudget|materializeWorkspaceSnapshotArtifact|appendWorkspaceSnapshotEvent|workspaceSnapshotContentPackage|materializeWorkspaceRestorePreviewArtifact|materializeWorkspaceRestoreApplyArtifact|appendWorkspaceRestorePreviewEvent|appendWorkspaceRestoreApplyEvent|maybeRunPostEditDiagnostics|pendingDiagnosticsFeedbackForNextTurn|materializeCodingToolArtifactDrafts|materializeVisualGuiObservationArtifacts|readCodingToolArtifact|retrieveCodingToolResult|executeDiagnosticsOperatorOverride|turnForOperatorOverrideEvent|appendDiagnosticsOperatorOverrideEvent|createDiagnosticsRepairRetryTurn|turnForRepairRetryEvent|appendDiagnosticsRepairRetryTurnEvent|resolveDiagnosticsRepairDecision|appendDiagnosticsRepairDecisionExecutedEvent)\(/m.test(
         runtimeDaemonIndex,
       ) &&
       /thread turn surface resumes non-runtime threads through Rust lifecycle status and projection/.test(
@@ -17122,7 +17137,7 @@ function runBridge() {
       ) &&
       !/store\.requestThreadApproval\(/.test(runtimeWorkflowEditSurface) &&
       !/store\.agentForThread\(/.test(runtimeWorkflowEditSurface) &&
-      /^\s+this\.proposeWorkflowEdit = \(threadId, request = \{\}\) =>/m.test(
+      /^\s+proposeWorkflowEdit\(threadId, request = \{\}\) \{/m.test(
         runtimeDaemonIndex,
       ) &&
       !/details:\s*\{ threadId/.test(runtimeWorkflowEditSurface) &&
@@ -17164,7 +17179,7 @@ function runBridge() {
         runtimeWorkflowEditSurfaceTest,
       ) &&
       workflowDiagnosticsWorkspaceRouteStoreOwnedApis &&
-      /^\s*this\.applyWorkflowEditProposal = \(threadId, proposalId, request = \{\}\) =>/m.test(
+      /^\s*applyWorkflowEditProposal\(threadId, proposalId, request = \{\}\) \{/m.test(
         runtimeDaemonIndex,
       ) &&
       !/latestWorkflowEditProposalEvent\(threadId, proposalId\)/.test(runtimeDaemonIndex) &&
@@ -41563,11 +41578,11 @@ function runCompositor() {
 	      !/\brestorePreviewEvent:\s*event\b/.test(previewWorkspaceSnapshotRestoreBody) &&
       !/\brestoreApplyEvent:\s*event\b/.test(applyWorkspaceSnapshotRestoreBody) &&
       workflowDiagnosticsWorkspaceRouteStoreOwnedApis &&
-      /^\s*this\.listWorkspaceSnapshots = \(threadId\) =>/m.test(runtimeDaemonIndex) &&
-      /^\s*this\.previewWorkspaceSnapshotRestore = \(threadId, snapshotId, request = \{\}\) =>/m.test(
+      /^\s*listWorkspaceSnapshots\(threadId\) \{/m.test(runtimeDaemonIndex) &&
+      /^\s*previewWorkspaceSnapshotRestore\(threadId, snapshotId, request = \{\}\) \{/m.test(
         runtimeDaemonIndex,
       ) &&
-      /^\s*this\.applyWorkspaceSnapshotRestore = \(threadId, snapshotId, request = \{\}\) =>/m.test(
+      /^\s*applyWorkspaceSnapshotRestore\(threadId, snapshotId, request = \{\}\) \{/m.test(
         runtimeDaemonIndex,
       ) &&
       !/\bpolicy:\s*\{[\s\S]*?\b(?:approvalRequired|approvalSatisfied|approvalSource|conflictPolicy)\s*:/.test(
@@ -43173,7 +43188,7 @@ function runCompositor() {
       /restoreApplyIdempotencyKey:\s*"restore_apply_retired"/.test(
         runtimeDiagnosticsRepairSurfaceTest,
       ) &&
-      /^\s*this\.executeDiagnosticsRepairDecision = \(threadId, decisionRef, request = \{\}\) =>/m.test(
+      /^\s*executeDiagnosticsRepairDecision\(threadId, decisionRef, request = \{\}\) \{/m.test(
         runtimeDaemonIndex,
       ) &&
       /Object\.hasOwn\(details \?\? \{\},\s*key\),\s*false/.test(
