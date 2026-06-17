@@ -70,9 +70,10 @@ test("home dashboard exposes the New Session setup contract", () => {
   assert.match(homeView, /What do you want to get done today\?/);
   assert.match(homeView, /Describe your task or type \/ for commands/);
   assert.match(homeView, /data-home-intent-project/);
-  assert.match(homeView, /data-home-intent-harness/);
+  assert.doesNotMatch(homeView, /data-home-intent-harness/);
   assert.match(homeView, /data-home-intent-model="default-model-route"/);
-  assert.match(homeView, /data-home-intent-privacy="privacy:ctee-private-workspace"/);
+  assert.doesNotMatch(homeView, /data-home-intent-privacy="privacy:ctee-private-workspace"/);
+  assert.match(homeView, /chat-home-zero-intent-composer__add-context/);
   assert.match(homeView, /data-home-intent-submit="new-session"/);
   assert.match(homeView, /HOME_INTENT_QUICKSTARTS/);
   assert.match(homeView, /data-home-intent-recipe=\{quickstart\.recipeId\}/);
@@ -101,6 +102,8 @@ test("home dashboard exposes the New Session setup contract", () => {
   assert.match(homeCss, /\.chat-home-zero-intent-composer\s*\{/);
   assert.match(homeCss, /\.chat-home-zero-intent-composer__box\s*\{/);
   assert.match(homeCss, /\.chat-home-zero-intent-composer__submit\s*\{/);
+  assert.match(homeCss, /Phase 0A reference parity/);
+  assert.match(homeCss, /\.chat-home-zero-actions,[\s\S]*\.chat-home-zero-body \{[\s\S]*display: none;/);
 });
 
 test("home dashboard exposes the Core cockpit projection", () => {

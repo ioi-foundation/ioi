@@ -7,7 +7,6 @@ import {
   IntegrationsIcon,
   MountsIcon,
   NotificationsIcon,
-  SearchIcon,
   SettingsIcon,
   ShieldIcon,
   SparklesIcon,
@@ -24,7 +23,6 @@ import {
   type OperatorActivityRailItem,
   type OperatorSurfaceRoute,
 } from "../operatorSubstrateModel";
-import { chatCommandPaletteShortcutLabel } from "../../shared/shellShortcuts";
 import type { AssistantUserProfile } from "../../../types";
 
 interface ChatLocalActivityBarProps {
@@ -40,10 +38,6 @@ interface ActivityButtonProps {
   item: OperatorActivityRailItem;
   icon?: ReactNode;
   isActive: boolean;
-  onClick: () => void;
-}
-
-interface SearchButtonProps {
   onClick: () => void;
 }
 
@@ -145,27 +139,6 @@ function ActivityButton({
   );
 }
 
-function SearchButton({ onClick }: SearchButtonProps) {
-  const shortcut = chatCommandPaletteShortcutLabel();
-
-  return (
-    <button
-      type="button"
-      className="chat-activity-button"
-      data-window-surface="search"
-      onClick={onClick}
-      aria-label="Search"
-      title={`Search (${shortcut})`}
-    >
-      <span className="chat-activity-button-icon" aria-hidden="true">
-        <SearchIcon />
-      </span>
-      <span className="chat-activity-button-label">Search</span>
-      <span className="chat-activity-button-shortcut">{shortcut}</span>
-    </button>
-  );
-}
-
 function isEditableElement(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   const tag = target.tagName.toLowerCase();
@@ -246,27 +219,19 @@ export function ChatLocalActivityBar({
     collapsed,
     notificationCount,
   });
-  const searchItem = railModel.items.find(
-    (item) => item.dataWindowSurface === "search",
-  );
   const referenceLeftNavSurfaceIds =
     HYPERVISOR_IOI_REFERENCE_SHELL_REQUIREMENTS.leftNavSurfaceIds;
-  const referenceLeftNavSurfaceIdSet = new Set<string>(
-    referenceLeftNavSurfaceIds,
-  );
   const primaryNavItems = referenceLeftNavSurfaceIds.flatMap((surfaceId) => {
     const item = railModel.items.find(
       (candidate) => candidate.hypervisorSurfaceId === surfaceId,
     );
     return item ? [item] : [];
   });
-  const applicationNavItems = railModel.items.filter(
-    (item) =>
-      item.group === "applications" &&
-      !referenceLeftNavSurfaceIdSet.has(item.hypervisorSurfaceId ?? ""),
+  const topReferenceNavItems = primaryNavItems.filter(
+    (item) => item.hypervisorSurfaceId !== "sessions",
   );
-  const governanceNavItems = railModel.items.filter(
-    (item) => item.group === "governance",
+  const sessionsNavItem = primaryNavItems.find(
+    (item) => item.hypervisorSurfaceId === "sessions",
   );
   const profileItem = railModel.items.find(
     (item) => item.dataWindowSurface === "profile",
@@ -321,7 +286,6 @@ export function ChatLocalActivityBar({
       </div>
 
       <div className="chat-activity-group" aria-label="Primary surfaces">
-        {searchItem ? <SearchButton onClick={() => activateRoute(searchItem.route)} /> : null}
         <button
           type="button"
           className="chat-activity-button chat-activity-button--new-session"
@@ -330,15 +294,22 @@ export function ChatLocalActivityBar({
           aria-label={HYPERVISOR_PRIMARY_ACTION.label}
           title={HYPERVISOR_PRIMARY_ACTION.description}
         >
-          <span className="chat-activity-button-icon" aria-hidden="true">
-            <ComposeIcon />
+          <span
+            className="chat-activity-button-icon chat-activity-button-icon--plus"
+            aria-hidden="true"
+          >
+            +
           </span>
           <span className="chat-activity-button-label">
             {HYPERVISOR_PRIMARY_ACTION.label}
           </span>
+          <span className="chat-activity-button-shortcuts" aria-hidden="true">
+            <span className="chat-activity-button-shortcut">Ctrl</span>
+            <span className="chat-activity-button-shortcut">O</span>
+          </span>
         </button>
 
-        {primaryNavItems.map((item) => (
+        {topReferenceNavItems.map((item) => (
           <ActivityButton
             key={item.id}
             item={item}
@@ -348,45 +319,52 @@ export function ChatLocalActivityBar({
         ))}
       </div>
 
-      <div className="chat-activity-group" aria-label="Applications">
-        <div className="chat-activity-section-label">Applications</div>
-        {applicationNavItems.map((item) => {
-          const icon =
-            item.dataWindowSurface === "agents" ? (
-              <IntegrationsIcon
-                disableHoverAnimation={activeView === "agents"}
-              />
-            ) : (
-              NAV_ICON_BY_SURFACE[item.dataWindowSurface]
-            );
-
-          return (
-            <ActivityButton
-              key={item.id}
-              item={item}
-              icon={icon}
-              isActive={isActiveRailItem(item)}
-              onClick={() => activateRoute(item.route)}
-            />
-          );
-        })}
-      </div>
-
-      <div className="chat-activity-group" aria-label="Governance and infrastructure">
-        <div className="chat-activity-section-label">Governance</div>
-        {governanceNavItems.map((item) => (
+      <div className="chat-activity-group chat-activity-group--sessions" aria-label="Sessions">
+        {sessionsNavItem ? (
           <ActivityButton
-            key={item.id}
-            item={item}
-            isActive={isActiveRailItem(item)}
-            onClick={() => activateRoute(item.route)}
+            key={sessionsNavItem.id}
+            item={sessionsNavItem}
+            isActive={isActiveRailItem(sessionsNavItem)}
+            onClick={() => activateRoute(sessionsNavItem.route)}
           />
-        ))}
+        ) : null}
+        <div className="chat-activity-project-label">
+          <span>Projects</span>
+          <span>Project</span>
+        </div>
+        <div className="chat-activity-project-skeleton" aria-label="Project list preview">
+          {[0, 1, 2, 3].map((index) => (
+            <span key={index}>
+              <i />
+              <b />
+            </span>
+          ))}
+        </div>
       </div>
 
       <div className="chat-activity-spacer" />
 
       <div className="chat-activity-group chat-activity-group--bottom">
+        <button
+          type="button"
+          className="chat-activity-button chat-activity-button--organization"
+          data-window-surface="organization-settings"
+          onClick={() => {
+            const settingsItem = bottomNavItems.find(
+              (item) => item.dataWindowSurface === "settings",
+            );
+            if (settingsItem) {
+              activateRoute(settingsItem.route);
+            }
+          }}
+          aria-label="Organization settings"
+          title="Organization settings"
+        >
+          <span className="chat-activity-button-icon" aria-hidden="true">
+            <SettingsIcon />
+          </span>
+          <span className="chat-activity-button-label">Organization settings</span>
+        </button>
         {profileItem ? (
           <button
             type="button"
@@ -402,15 +380,6 @@ export function ChatLocalActivityBar({
             </span>
           </button>
         ) : null}
-
-        {bottomNavItems.map((item) => (
-          <ActivityButton
-            key={item.id}
-            item={item}
-            isActive={isActiveRailItem(item)}
-            onClick={() => activateRoute(item.route)}
-          />
-        ))}
       </div>
     </aside>
   );

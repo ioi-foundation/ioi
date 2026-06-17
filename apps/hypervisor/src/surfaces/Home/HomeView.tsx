@@ -8,13 +8,19 @@ import {
 } from "react";
 import {
   ArrowRight,
+  ArrowUp,
+  Atom,
   Bell,
   Bot,
   Boxes,
+  Bug,
   Code2,
+  Crosshair,
   Database,
   FileCode2,
   FolderOpen,
+  CircleDashed,
+  ChevronDown,
   LayoutDashboard,
   MessageCircle,
   Play,
@@ -254,21 +260,29 @@ const HOME_INTENT_QUICKSTARTS: Array<{
   label: string;
   seedIntent: string;
   recipeId: string;
+  icon: unknown;
+  tone: "blue" | "red" | "purple";
 }> = [
   {
     label: "Automate env setup",
     seedIntent: "Automate env setup",
     recipeId: "automation.default",
+    icon: CircleDashed,
+    tone: "blue",
   },
   {
     label: "Fix a bug",
     seedIntent: "Fix a bug",
     recipeId: "workbench.default",
+    icon: Bug,
+    tone: "red",
   },
   {
     label: "Boost your test coverage",
     seedIntent: "Boost your test coverage",
     recipeId: "foundry.eval",
+    icon: Atom,
+    tone: "purple",
   },
 ];
 
@@ -370,7 +384,6 @@ function HomeDashboardView({
   const newSessionHarnessOptions =
     HYPERVISOR_NEW_SESSION_SETUP_MODEL.harnessOptions.slice(0, 4);
   const harnessComparison = HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE;
-  const defaultHarnessLabel = newSessionHarnessOptions[0]?.label ?? "Default Harness Profile";
   const [intentDraft, setIntentDraft] = useState("");
   const [intentRecipeId, setIntentRecipeId] = useState<string | null>(null);
   const [cockpitProjection, setCockpitProjection] = useState(
@@ -530,44 +543,40 @@ function HomeDashboardView({
               <div className="chat-home-zero-intent-composer__controls">
                 <button
                   type="button"
+                  className="chat-home-zero-intent-composer__project"
                   data-home-intent-project={currentProject.id}
                   onClick={() => onRecentModeChange("projects")}
                 >
-                  Work in {currentProject.name}
+                  {renderIcon(Crosshair, { size: 15, strokeWidth: 1.8 })}
+                  <span>Work in a project</span>
+                  {renderIcon(ChevronDown, { size: 14, strokeWidth: 1.8 })}
                 </button>
+                <span className="chat-home-zero-intent-composer__spacer" />
                 <button
                   type="button"
-                  data-home-intent-harness={defaultHarnessLabel}
-                  onClick={() =>
-                    onOpenNewSession({
-                      seedIntent: intentDraft,
-                      recipeId: intentRecipeId,
-                    })
-                  }
+                  className="chat-home-zero-intent-composer__add-context"
+                  aria-label="Add context"
+                  onClick={onOpenWorkspace}
                 >
-                  {defaultHarnessLabel}
+                  +
                 </button>
                 <button
                   type="button"
+                  className="chat-home-zero-intent-composer__model"
                   data-home-intent-model="default-model-route"
                   onClick={onOpenModels}
                 >
-                  Default model route
-                </button>
-                <button
-                  type="button"
-                  data-home-intent-privacy="privacy:ctee-private-workspace"
-                  onClick={() => onOpenCockpitSurface("surface:privacy")}
-                >
-                  cTEE private workspace
+                  {renderIcon(Sparkles, { size: 15, strokeWidth: 1.8 })}
+                  <span>5.5 Medium</span>
+                  {renderIcon(ChevronDown, { size: 14, strokeWidth: 1.8 })}
                 </button>
                 <button
                   type="submit"
                   className="chat-home-zero-intent-composer__submit"
                   data-home-intent-submit="new-session"
+                  aria-label="Start New Session"
                 >
-                  Start
-                  {renderIcon(ArrowRight, { size: 16, strokeWidth: 2 })}
+                  {renderIcon(ArrowUp, { size: 16, strokeWidth: 2 })}
                 </button>
               </div>
             </form>
@@ -579,13 +588,23 @@ function HomeDashboardView({
                 <button
                   type="button"
                   key={quickstart.label}
+                  className={`chat-home-zero-intent-composer__quickstart chat-home-zero-intent-composer__quickstart--${quickstart.tone}`}
                   data-home-intent-recipe={quickstart.recipeId}
                   onClick={() => {
                     setIntentDraft(quickstart.seedIntent);
                     setIntentRecipeId(quickstart.recipeId);
                   }}
                 >
-                  {quickstart.label}
+                  <span
+                    className="chat-home-zero-intent-composer__quickstart-icon"
+                    aria-hidden="true"
+                  >
+                    {renderIcon(quickstart.icon, {
+                      size: 14,
+                      strokeWidth: 1.8,
+                    })}
+                  </span>
+                  <span>{quickstart.label}</span>
                 </button>
               ))}
             </div>

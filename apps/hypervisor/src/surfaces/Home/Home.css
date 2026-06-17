@@ -2171,3 +2171,268 @@
     display: none;
   }
 }
+
+/* Phase 0A reference parity override: keep the default Home as the IOI mirror composer. */
+.chat-home-zero {
+  overflow: hidden !important;
+  background: #ffffff !important;
+  color: #16181d !important;
+}
+
+.chat-home-zero::before,
+.chat-home-zero-search,
+.chat-home-zero-actions,
+.chat-home-zero-session-card,
+.chat-home-zero-cockpit,
+.chat-home-zero-body {
+  display: none !important;
+}
+
+.chat-home-zero-shell {
+  width: 100% !important;
+  min-height: 100% !important;
+  display: grid !important;
+  place-items: start center !important;
+  margin: 0 !important;
+  padding: 92px 24px 0 !important;
+}
+
+.chat-home-zero-hero {
+  width: min(720px, calc(100vw - 360px)) !important;
+  align-items: center !important;
+  gap: 24px !important;
+}
+
+.chat-home-zero-title-row {
+  justify-content: center !important;
+  gap: 8px !important;
+  min-height: 20px !important;
+}
+
+.chat-home-zero-title-row::before,
+.chat-home-zero-title-row::after {
+  content: "" !important;
+  width: 1px !important;
+  height: 15px !important;
+  background: #1f2937 !important;
+  opacity: 0.9 !important;
+}
+
+.chat-home-zero-title-row h1,
+.chat-home-zero-intent-composer__heading span,
+.chat-home-zero-intent-composer__heading p {
+  display: none !important;
+}
+
+.chat-home-zero-brand-mark {
+  width: 18px !important;
+  height: 18px !important;
+  color: #2563eb !important;
+  background: transparent !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+.chat-home-zero-brand-mark svg {
+  width: 18px !important;
+  height: 18px !important;
+}
+
+.chat-home-zero-intent-composer {
+  width: 100% !important;
+  gap: 36px !important;
+  padding: 0 !important;
+}
+
+.chat-home-zero-intent-composer__heading {
+  justify-items: center !important;
+  gap: 0 !important;
+  text-align: center !important;
+}
+
+.chat-home-zero-intent-composer__heading h2 {
+  font-size: 26px !important;
+  font-weight: 500 !important;
+  line-height: 1.2 !important;
+  color: #17191f !important;
+  letter-spacing: 0 !important;
+}
+
+.chat-home-zero-intent-composer__box {
+  width: min(720px, 100%) !important;
+  min-height: 178px !important;
+  gap: 0 !important;
+  border: 1px solid #dedede !important;
+  border-radius: 10px !important;
+  background: #ffffff !important;
+  box-shadow:
+    0 0 0 5px rgba(18, 24, 38, 0.026),
+    0 18px 38px rgba(17, 24, 39, 0.045) !important;
+  padding: 9px !important;
+}
+
+.chat-home-zero-intent-composer__box textarea {
+  min-height: 116px !important;
+  padding: 11px 12px !important;
+  color: #17191f !important;
+  background: #ffffff !important;
+  font-size: 13px !important;
+  line-height: 1.55 !important;
+}
+
+.chat-home-zero-intent-composer__box textarea::placeholder {
+  color: #9195a1 !important;
+}
+
+.chat-home-zero-intent-composer__controls {
+  display: grid !important;
+  grid-template-columns: auto minmax(0, 1fr) 34px auto 36px !important;
+  align-items: center !important;
+  gap: 8px !important;
+  border-top: 0 !important;
+  padding: 0 0 0 4px !important;
+}
+
+.chat-home-zero-intent-composer__spacer {
+  min-width: 0 !important;
+}
+
+.chat-home-zero-intent-composer__controls button,
+.chat-home-zero-intent-composer__quickstarts button {
+  min-height: 34px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 7px !important;
+  border: 1px solid #e3e4e7 !important;
+  border-radius: 8px !important;
+  background: #ffffff !important;
+  color: #3f444d !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  line-height: 1 !important;
+  box-shadow: 0 1px 1px rgba(17, 24, 39, 0.025) !important;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease,
+    box-shadow 120ms ease,
+    transform 120ms ease !important;
+}
+
+.chat-home-zero-intent-composer__controls button:hover,
+.chat-home-zero-intent-composer__controls button:focus-visible,
+.chat-home-zero-intent-composer__quickstarts button:hover,
+.chat-home-zero-intent-composer__quickstarts button:focus-visible {
+  border-color: #d0d3d8 !important;
+  background: #fafafa !important;
+  box-shadow: 0 2px 5px rgba(17, 24, 39, 0.05) !important;
+  outline: none !important;
+}
+
+.chat-home-zero-intent-composer__controls button:active,
+.chat-home-zero-intent-composer__quickstarts button:active {
+  transform: translateY(1px) !important;
+}
+
+.chat-home-zero-intent-composer__project,
+.chat-home-zero-intent-composer__model {
+  padding: 0 12px !important;
+  white-space: nowrap !important;
+}
+
+.chat-home-zero-intent-composer__project svg,
+.chat-home-zero-intent-composer__model svg {
+  color: #595f6b !important;
+}
+
+.chat-home-zero-intent-composer__project svg:last-child,
+.chat-home-zero-intent-composer__model svg:last-child {
+  margin-left: 1px !important;
+  color: #747985 !important;
+}
+
+.chat-home-zero-intent-composer__add-context {
+  width: 34px !important;
+  padding: 0 !important;
+  border-color: transparent !important;
+  color: #6b7280 !important;
+  font-size: 22px !important;
+  font-weight: 300 !important;
+  border-radius: 999px !important;
+  box-shadow: none !important;
+}
+
+.chat-home-zero-intent-composer__add-context:hover,
+.chat-home-zero-intent-composer__add-context:focus-visible {
+  border-color: #e3e4e7 !important;
+  background: #f7f7f7 !important;
+}
+
+.chat-home-zero-intent-composer__submit {
+  width: 36px !important;
+  min-width: 36px !important;
+  justify-content: center !important;
+  margin-left: 0 !important;
+  padding: 0 !important;
+  border-color: #969ba4 !important;
+  border-radius: 9px !important;
+  background: #969ba4 !important;
+  color: #ffffff !important;
+  box-shadow: 0 6px 12px rgba(75, 85, 99, 0.16) !important;
+}
+
+.chat-home-zero-intent-composer__submit:hover,
+.chat-home-zero-intent-composer__submit:focus-visible {
+  border-color: #737984 !important;
+  background: #737984 !important;
+}
+
+.chat-home-zero-intent-composer__quickstarts {
+  justify-content: center !important;
+  gap: 12px !important;
+}
+
+.chat-home-zero-intent-composer__quickstarts button {
+  min-height: 36px !important;
+  padding: 0 16px !important;
+  color: #555b65 !important;
+}
+
+.chat-home-zero-intent-composer__quickstart-icon {
+  width: 17px !important;
+  height: 17px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 999px !important;
+}
+
+.chat-home-zero-intent-composer__quickstart--blue .chat-home-zero-intent-composer__quickstart-icon {
+  color: #2563eb !important;
+}
+
+.chat-home-zero-intent-composer__quickstart--red .chat-home-zero-intent-composer__quickstart-icon {
+  color: #dc2626 !important;
+}
+
+.chat-home-zero-intent-composer__quickstart--purple .chat-home-zero-intent-composer__quickstart-icon {
+  color: #9333ea !important;
+}
+
+@media (max-width: 860px) {
+  .chat-home-zero-shell {
+    padding-top: 54px !important;
+  }
+
+  .chat-home-zero-hero {
+    width: min(680px, calc(100vw - 36px)) !important;
+  }
+
+  .chat-home-zero-intent-composer__controls {
+    grid-template-columns: minmax(0, 1fr) 34px auto 36px !important;
+  }
+
+  .chat-home-zero-intent-composer__spacer {
+    display: none !important;
+  }
+}
