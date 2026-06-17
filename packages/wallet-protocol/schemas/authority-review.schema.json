@@ -13,6 +13,8 @@
     "action_summary",
     "requested_scopes",
     "approval_mode",
+    "allowed_approval_modes",
+    "recommended_presentation_profile",
     "risk_class",
     "risk_labels",
     "eligibility_labels",
@@ -42,6 +44,30 @@
         "after_the_fact_receipt",
         "step_up_review",
         "denied"
+      ]
+    },
+    "allowed_approval_modes": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "one_shot_review",
+          "session_envelope",
+          "batch_review",
+          "silent_within_policy",
+          "after_the_fact_receipt",
+          "step_up_review",
+          "denied"
+        ]
+      },
+      "minItems": 1
+    },
+    "recommended_presentation_profile": {
+      "enum": [
+        "lite_approval_card",
+        "standard_wallet_review",
+        "advanced_authority_console",
+        "cli_prompt",
+        "mobile_approval_sheet"
       ]
     },
     "risk_class": {

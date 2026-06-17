@@ -59,6 +59,9 @@ const protocolTypes = assertFile("packages/wallet-protocol/src/types.ts", [
   "ExchangeIntent",
   "TradeIntent",
   "CandidateEvidence",
+  "WalletPresentationProfile",
+  "allowed_approval_modes",
+  "recommended_presentation_profile",
   "scope:",
 ]);
 
@@ -95,6 +98,7 @@ for (const protocolObject of [
   "CapabilityLease",
   "WalletReceipt",
   "CandidateEvidence",
+  "WalletPresentationProfile",
 ]) {
   assertIncludes("packages/wallet-protocol/src/types.ts", protocolTypes, protocolObject);
 }
@@ -138,6 +142,14 @@ if (fixtures.schema_version !== "ioi.wallet.protocol.v1") {
 
 if (!fixtures.authority_review.requested_scopes.every((scope) => scope.startsWith("scope:"))) {
   throw new Error("wallet protocol fixtures must preserve scope:* authority scopes");
+}
+
+if (!Array.isArray(fixtures.authority_review.allowed_approval_modes)) {
+  throw new Error("authority review fixtures must include allowed_approval_modes");
+}
+
+if (!fixtures.authority_review.recommended_presentation_profile) {
+  throw new Error("authority review fixtures must include recommended_presentation_profile");
 }
 
 const sdkPackage = readJson("packages/wallet-sdk/package.json");

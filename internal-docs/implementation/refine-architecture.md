@@ -1597,6 +1597,19 @@ git diff --check -- internal-docs/implementation docs/architecture apps/hypervis
 | Acceptance | Packages build/test; schemas and fixtures exist; product repo imports packages. |
 | Verify | `npm run test:wallet-protocol && npm run test:wallet-sdk && npm run check:wallet-protocol` |
 
+Current hardening slice:
+
+```text
+AuthorityReview now carries `allowed_approval_modes` and
+`recommended_presentation_profile` in @ioi/wallet-protocol schemas, fixtures,
+TypeScript types, and @ioi/wallet-sdk builders. This closes the product/canon
+gap where docs said Wallet authority can render as lite cards, standard review,
+advanced console, CLI prompt, or mobile sheet while the package only carried a
+single chosen approval mode. The package remains protocol truth; Wallet product
+surfaces choose presentations from this contract instead of inventing local
+authority UI semantics.
+```
+
 ### Phase 4: Add cTEE and Model-Weight Custody Lane Table
 
 | Field | Detail |

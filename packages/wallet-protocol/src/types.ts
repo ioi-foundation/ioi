@@ -12,6 +12,17 @@ export const APPROVAL_MODES = [
 
 export type ApprovalMode = (typeof APPROVAL_MODES)[number];
 
+export const WALLET_PRESENTATION_PROFILES = [
+  "lite_approval_card",
+  "standard_wallet_review",
+  "advanced_authority_console",
+  "cli_prompt",
+  "mobile_approval_sheet",
+] as const;
+
+export type WalletPresentationProfile =
+  (typeof WALLET_PRESENTATION_PROFILES)[number];
+
 export const AUTHORITY_RISK_CLASSES = [
   "read",
   "draft",
@@ -109,6 +120,8 @@ export interface AuthorityReview {
   readonly action_summary: string;
   readonly requested_scopes: readonly string[];
   readonly approval_mode: ApprovalMode;
+  readonly allowed_approval_modes: readonly ApprovalMode[];
+  readonly recommended_presentation_profile: WalletPresentationProfile;
   readonly risk_class: AuthorityRiskClass;
   readonly risk_labels: readonly string[];
   readonly eligibility_labels: readonly string[];

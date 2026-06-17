@@ -17,6 +17,7 @@ test("exports canonical wallet protocol version, methods, and fixtures", async (
 
   assert.equal(protocol.WALLET_PROTOCOL_SCHEMA_VERSION, "ioi.wallet.protocol.v1");
   assert.ok(protocol.APPROVAL_MODES.includes("session_envelope"));
+  assert.ok(protocol.WALLET_PRESENTATION_PROFILES.includes("lite_approval_card"));
   assert.ok(protocol.AUTHORITY_RISK_CLASSES.includes("secret_export"));
   assert.ok(protocol.WALLET_NETWORK_KERNEL_METHODS.includes("issue_session_lease@v1"));
   assert.equal(
@@ -65,6 +66,11 @@ test("fixture payloads preserve the wallet authority grammar", async () => {
   assert.equal(fixture.schema_version, "ioi.wallet.protocol.v1");
   assert.match(review.requested_scopes[0], /^scope:/);
   assert.equal(review.candidate_evidence[0].coverage_state, "assessed");
+  assert.deepEqual(review.allowed_approval_modes, [
+    "one_shot_review",
+    "step_up_review",
+  ]);
+  assert.equal(review.recommended_presentation_profile, "standard_wallet_review");
   assert.equal(review.policy_checks[0].result, "passed");
   assert.equal(review.policy_result, "requires_human");
 });

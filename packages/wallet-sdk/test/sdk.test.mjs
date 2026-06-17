@@ -34,6 +34,9 @@ test("SDK source imports wallet semantics from the protocol package", async () =
 
   const authorityReviewSource = await read("src/authority-review.ts");
   assert.match(authorityReviewSource, /WALLET_PROTOCOL_SCHEMA_VERSION/);
+  assert.match(authorityReviewSource, /WalletPresentationProfile/);
+  assert.match(authorityReviewSource, /recommended_presentation_profile/);
+  assert.match(authorityReviewSource, /allowed_approval_modes/);
   assert.match(authorityReviewSource, /scope:/);
 
   const clientSource = await read("src/client.ts");

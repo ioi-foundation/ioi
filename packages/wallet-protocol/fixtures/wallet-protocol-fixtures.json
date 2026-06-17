@@ -9,6 +9,8 @@
     "action_summary": "Swap 25 USDC to ETH through a no-bridge route.",
     "requested_scopes": ["scope:wallet.exchange"],
     "approval_mode": "one_shot_review",
+    "allowed_approval_modes": ["one_shot_review", "step_up_review"],
+    "recommended_presentation_profile": "standard_wallet_review",
     "risk_class": "funds",
     "risk_labels": ["No Bridge", "Route Risk Low"],
     "eligibility_labels": [],

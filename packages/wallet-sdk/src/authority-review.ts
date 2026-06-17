@@ -6,6 +6,7 @@ import {
   type CandidateEvidence,
   type PolicyCheck,
   type PolicyResult,
+  type WalletPresentationProfile,
   WALLET_PROTOCOL_SCHEMA_VERSION,
 } from "@ioi/wallet-protocol";
 
@@ -17,6 +18,8 @@ export interface BuildAuthorityReviewInput {
   readonly action_summary: string;
   readonly requested_scopes: readonly string[];
   readonly approval_mode?: ApprovalMode;
+  readonly allowed_approval_modes?: readonly ApprovalMode[];
+  readonly recommended_presentation_profile?: WalletPresentationProfile;
   readonly risk_class: AuthorityRiskClass;
   readonly risk_labels?: readonly string[];
   readonly eligibility_labels?: readonly string[];
@@ -44,6 +47,7 @@ export function buildAuthorityReview(
   input: BuildAuthorityReviewInput,
 ): AuthorityReview {
   const requested_scopes = input.requested_scopes.map(assertWalletScope);
+  const approval_mode = input.approval_mode ?? "one_shot_review";
 
   return {
     review_id: input.review_id,
@@ -53,7 +57,10 @@ export function buildAuthorityReview(
     intent_ref: input.intent_ref,
     action_summary: input.action_summary,
     requested_scopes,
-    approval_mode: input.approval_mode ?? "one_shot_review",
+    approval_mode,
+    allowed_approval_modes: input.allowed_approval_modes ?? [approval_mode],
+    recommended_presentation_profile:
+      input.recommended_presentation_profile ?? "standard_wallet_review",
     risk_class: input.risk_class,
     risk_labels: input.risk_labels ?? [],
     eligibility_labels: input.eligibility_labels ?? [],
