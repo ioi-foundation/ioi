@@ -486,7 +486,7 @@ async function bootstrapConfiguredLlamaCppModel(endpoint, token, mountedCount) {
       id: "route.native-local",
       role: "default",
       description:
-        "Autopilot-native local route backed by configured llama.cpp runtime.",
+        "Hypervisor native-local route backed by configured llama.cpp runtime.",
       privacy: "local_only",
       quality: "local_native",
       fallback: [mounted.id],

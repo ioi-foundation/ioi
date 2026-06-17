@@ -243,6 +243,8 @@ const hypervisorModelMountIdentitySources = [
   "apps/hypervisor/src/surfaces/MissionControl/MissionControlMountsView.tsx",
   "scripts/lib/model-mounting-daemon-contract.test.mjs",
   "scripts/validate-model-mounting-e2e.mjs",
+  "scripts/launch-hypervisor-workbench-adapter-host.mjs",
+  "scripts/live-model-mounting-gate.mjs",
   "apps/hypervisor/scripts/desktop_model_mounts_probe.py",
   "packages/runtime-daemon/src/runtime-daemon-core-direct-invoker-service.test.mjs",
   "packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs",
@@ -721,8 +723,13 @@ assert(
     "hypervisor_native_local_backend_registry",
     "fixture://catalog/hypervisor-native-3b-q4",
     "hypervisor:map-only",
+    "Hypervisor native fixture e2e",
+    "Hypervisor native fixture tuned",
+    "Hypervisor native-local route backed by configured llama.cpp runtime.",
+    "Hypervisor received the catalog OAuth callback.",
+    "governed Hypervisor model mounting path",
   ].every((token) => hypervisorModelMountIdentitySources.includes(token)) &&
-    !/provider\.autopilot\.local|backend\.autopilot\.native-local\.fixture|autopilot\.native_local\.fixture|endpoint\.autopilot\.local|endpoint\.autopilot\.native-fixture|endpoint\.autopilot\.gui-lifecycle|model\.autopilot\.local|autopilot:native-fixture|autopilot:map-only|autopilot:gui-|autopilot-local-server|autopilot_native_local_provider_native_stream|autopilot_native_local_backend_registry|fixture:\/\/catalog\/autopilot-native-3b-q4|fixture:\/\/autopilot|Autopilot-native local route/.test(
+    !/provider\.autopilot\.local|backend\.autopilot\.native-local\.fixture|autopilot\.native_local\.fixture|endpoint\.autopilot\.local|endpoint\.autopilot\.native-fixture|endpoint\.autopilot\.gui-lifecycle|model\.autopilot\.local|autopilot:native-fixture|autopilot:map-only|autopilot:gui-|autopilot-local-server|autopilot_native_local_provider_native_stream|autopilot_native_local_backend_registry|fixture:\/\/catalog\/autopilot-native-3b-q4|fixture:\/\/autopilot|Autopilot native fixture|Autopilot-native local route|Autopilot received the catalog OAuth callback|governed Autopilot model mounting path/.test(
       hypervisorModelMountIdentitySources,
     ),
   [

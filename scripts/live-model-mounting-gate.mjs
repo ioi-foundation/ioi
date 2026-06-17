@@ -570,7 +570,7 @@ async function startCatalogOAuthLoopbackServer({ timeoutMs = 120000 } = {}) {
     };
     response.statusCode = 200;
     response.setHeader("content-type", "text/plain; charset=utf-8");
-    response.end("Autopilot received the catalog OAuth callback. You can close this browser tab.");
+    response.end("Hypervisor received the catalog OAuth callback. You can close this browser tab.");
     resolveCallback(capturedCallback);
   });
   await new Promise((resolve, reject) => {

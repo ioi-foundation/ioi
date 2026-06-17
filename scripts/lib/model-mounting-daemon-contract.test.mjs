@@ -509,7 +509,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     const selectedRuntimeProfile = await expectOk(daemon.endpoint, "/v1/model-mount/runtime/engines/backend.hypervisor.native-local.fixture", {
       method: "PATCH",
       body: {
-        label: "Autopilot native fixture tuned",
+        label: "Hypervisor native fixture tuned",
         priority: 1,
         defaultLoadOptions: { gpu: "auto", contextLength: 3072, parallel: 3, ttlSeconds: 600, identifier: "runtime-profile-default" },
       },
@@ -1259,7 +1259,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
       body: {
         model: "local:auto",
         max_tokens: 32,
-        system: "Answer through the governed Autopilot model mounting path.",
+        system: "Answer through the governed Hypervisor model mounting path.",
         messages: [{ role: "user", content: [{ type: "text", text: "hello anthropic compat" }] }],
       },
     });

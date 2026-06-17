@@ -610,7 +610,7 @@ async function main() {
       const profile = await expectOk(daemon.endpoint, "/v1/model-mount/runtime/engines/backend.hypervisor.native-local.fixture", {
         method: "PATCH",
         body: {
-          label: "Autopilot native fixture e2e",
+          label: "Hypervisor native fixture e2e",
           priority: 1,
           defaultLoadOptions: { gpu: "auto", contextLength: 3584, parallel: 3, ttlSeconds: 540, identifier: "e2e-runtime-profile" },
         },
