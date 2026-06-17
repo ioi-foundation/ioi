@@ -10447,7 +10447,7 @@ lifecycle APIs, and stable Workbench/CLI/SDK task/job clients, not a JS runner
 fallback.
 
 Slice 1297 hard-cuts diagnostics repair runner injection scaffolding.
-`createRuntimeDiagnosticsRepairSurface()` no longer accepts
+`createRuntimeDiagnosticsRepairApi()` no longer accepts
 `diagnosticsRepairRunner`; diagnostics repair decision execution, direct
 repair/override/retry event append, operator override state update, retry-run
 planning, retry-result projection, decision projection, and repair policy
@@ -10461,7 +10461,7 @@ cTEE custody where repair work touches private workspace state, and stable
 IDE/CLI/SDK diagnostics clients, not a JS runner fallback.
 
 Slice 1298 hard-cuts workflow-edit runner injection scaffolding.
-`createRuntimeWorkflowEditSurface()` no longer accepts `workflowEditRunner`;
+`createRuntimeWorkflowEditApi()` no longer accepts `workflowEditRunner`;
 public workflow-edit proposal and apply controls resolve only
 `store.contextPolicyCore` before Rust daemon-core workflow-edit control
 planning and Rust runtime-event admission. Daemon construction no longer wires
@@ -10547,7 +10547,7 @@ receipt/state-root binding, lifecycle replay/projection storage, and stable
 protocol APIs, not an alternate JS route runner.
 
 Slice 1306 hard-cuts thread-turn surface runner aliases.
-`createRuntimeThreadTurnSurface()` no longer accepts `threadLifecycleRunner`,
+`createRuntimeThreadTurnApi()` no longer accepts `threadLifecycleRunner`,
 `threadTurnAdmissionRunner`, or `operatorTurnControlAdmissionRunner`;
 runtime-service resume/turn submit, public non-runtime resume/turn create, and
 operator interrupt/steer planning all resolve through the single positive
@@ -10570,7 +10570,7 @@ receipt/state-root binding, and stable SDK/IDE subagent protocol APIs, not
 alternate subagent runners.
 
 Slice 1308 hard-cuts diagnostics repair surface runner wrappers.
-`createRuntimeDiagnosticsRepairSurface()` no longer routes diagnostics repair
+`createRuntimeDiagnosticsRepairApi()` no longer routes diagnostics repair
 decision control, retry-run planning, retry-result projection, decision
 projection, or operator-override state update through
 `diagnosticsRepairControlRunner`, `diagnosticsRepairRetryRunRunner`,
@@ -10694,7 +10694,7 @@ alternate context-policy core mount.
 
 Slice 1317 hard-cuts the runtime workflow-edit surface store-core fallback.
 Workflow-edit proposal and apply controls now resolve only through the positive
-`contextPolicyCore` mount supplied to `createRuntimeWorkflowEditSurface()` by
+`contextPolicyCore` mount supplied to `createRuntimeWorkflowEditApi()` by
 daemon startup. The workflow-edit surface and focused tests no longer read or
 model `store?.contextPolicyCore ?? null`, `store.contextPolicyCore`, or
 `store?.contextPolicyCore`, so workflow-edit proposal/apply event truth cannot
@@ -10762,7 +10762,7 @@ alias, and the daemon injection path. Remaining work is durable policy/memory
 replay and wallet/cTEE authority depth, not another helper-owned core fallback.
 
 Slice 1322 hard-cuts the runtime-service thread-turn bridge-adapter constructor
-aliases. `runtime-thread-turn-surface.mjs` no longer accepts
+aliases. `runtime-thread-turn-api.mjs` no longer accepts
 `runtimeBridgeThreadControl` or `runtimeBridgeTurnRun` overrides; runtime-service
 resume and turn submission resolve through route-family code with the
 daemon-mounted `contextPolicyCore`. Focused tests mount fake Rust lifecycle cores
@@ -12629,6 +12629,20 @@ facade, and `RuntimeKernelService` no longer expose
 `plan_runtime_task_job_create_state_update`; conformance guards those retired
 symbols, schema constants, direct API wrapper, and old task-create normalizer
 from returning.
+
+Slice 1435 hard-deletes the workflow/diagnostics/workspace/thread-turn
+internal surface module names. The previously route-demoted delegates are now
+internal protocol/API delegates only:
+`runtime-workflow-edit-api.mjs`, `runtime-diagnostics-repair-api.mjs`,
+`runtime-workspace-snapshot-api.mjs`, and `runtime-thread-turn-api.mjs`.
+The old `runtime-workflow-edit-surface.mjs`,
+`runtime-diagnostics-repair-surface.mjs`,
+`runtime-workspace-snapshot-surface.mjs`, and
+`runtime-thread-turn-surface.mjs` files, their focused tests, and their
+`createRuntime*Surface()` factories are absent. Daemon startup imports only the
+positive `createRuntime*Api()` factories, and conformance guards the retired
+surface files/factories so they cannot return as unverified compatibility
+facades beside the store-owned route methods.
 
 Slice 1424 hardens the active Hypervisor client/product vocabulary boundary.
 Developer-facing app docs now describe Hypervisor as a native operator client

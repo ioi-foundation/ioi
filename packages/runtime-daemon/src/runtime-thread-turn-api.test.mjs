@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createRuntimeThreadTurnSurface } from "./runtime-thread-turn-surface.mjs";
+import { createRuntimeThreadTurnApi } from "./runtime-thread-turn-api.mjs";
 
 function runtimeError({ status, code, message, details }) {
   const error = new Error(message);
@@ -347,11 +347,11 @@ function createOperatorTurnControlRunner(calls) {
   };
 }
 
-test("thread turn surface controls runtime thread resume through Rust bridge-control state planning", async () => {
+test("thread turn API controls runtime thread resume through Rust bridge-control state planning", async () => {
   const store = createStore({
     agent: { id: "agent_runtime", runtime_profile: "runtime_service" },
   });
-  const surface = createRuntimeThreadTurnSurface({
+  const surface = createRuntimeThreadTurnApi({
     contextPolicyCore: store.contextPolicyCore,
     diagnosticsFeedbackBlocksContinuation: () => false,
     isRuntimeBackedAgent: () => true,
@@ -386,12 +386,12 @@ test("thread turn surface controls runtime thread resume through Rust bridge-con
   assert.equal(Object.hasOwn(store, "agentRunLifecycleSurface"), false);
 });
 
-test("thread turn surface fails closed for runtime thread resume when Rust bridge-control boundary is missing", async () => {
+test("thread turn API fails closed for runtime thread resume when Rust bridge-control boundary is missing", async () => {
   const store = createStore({
     agent: { id: "agent_runtime", runtime_profile: "runtime_service" },
     contextPolicyCore: {},
   });
-  const surface = createRuntimeThreadTurnSurface({
+  const surface = createRuntimeThreadTurnApi({
     contextPolicyCore: store.contextPolicyCore,
     diagnosticsFeedbackBlocksContinuation: () => false,
     isRuntimeBackedAgent: () => true,
@@ -416,11 +416,11 @@ test("thread turn surface fails closed for runtime thread resume when Rust bridg
   assert.equal(store.calls.some((call) => call.method === "threadForAgent"), false);
 });
 
-test("thread turn surface submits runtime turns through Rust bridge-turn state planning", async () => {
+test("thread turn API submits runtime turns through Rust bridge-turn state planning", async () => {
   const store = createStore({
     agent: { id: "agent_runtime", runtime_profile: "runtime_service" },
   });
-  const surface = createRuntimeThreadTurnSurface({
+  const surface = createRuntimeThreadTurnApi({
     contextPolicyCore: store.contextPolicyCore,
     diagnosticsFeedbackBlocksContinuation: () => false,
     isRuntimeBackedAgent: () => true,
@@ -460,12 +460,12 @@ test("thread turn surface submits runtime turns through Rust bridge-turn state p
   assert.equal(store.calls.some((call) => call.method === "createRun"), false);
 });
 
-test("thread turn surface fails closed for runtime turns when Rust bridge-turn lifecycle boundary is missing", async () => {
+test("thread turn API fails closed for runtime turns when Rust bridge-turn lifecycle boundary is missing", async () => {
   const store = createStore({
     agent: { id: "agent_runtime", runtime_profile: "runtime_service" },
     contextPolicyCore: {},
   });
-  const surface = createRuntimeThreadTurnSurface({
+  const surface = createRuntimeThreadTurnApi({
     contextPolicyCore: store.contextPolicyCore,
     diagnosticsFeedbackBlocksContinuation: () => false,
     isRuntimeBackedAgent: () => true,
@@ -493,8 +493,8 @@ test("thread turn surface fails closed for runtime turns when Rust bridge-turn l
   assert.equal(store.calls.some((call) => call.method === "turnForRun"), false);
 });
 
-test("thread turn surface resumes non-runtime threads through Rust lifecycle status and projection", async () => {
-  const surface = createRuntimeThreadTurnSurface({
+test("thread turn API resumes non-runtime threads through Rust lifecycle status and projection", async () => {
+  const surface = createRuntimeThreadTurnApi({
     diagnosticsFeedbackBlocksContinuation: () => false,
     lifecycleAgentStatusUpdate(state, agentId, status, operationKind, deps) {
       state.calls.push({ method: "lifecycleAgentStatusUpdate", state, agentId, status, operationKind, deps });
@@ -522,9 +522,9 @@ test("thread turn surface resumes non-runtime threads through Rust lifecycle sta
   assert.equal(Object.hasOwn(store, "agentRunLifecycleSurface"), false);
 });
 
-test("thread turn surface fails closed for non-runtime resume when direct Rust lifecycle API is missing", async () => {
+test("thread turn API fails closed for non-runtime resume when direct Rust lifecycle API is missing", async () => {
   const admissionRequiredCalls = [];
-  const surface = createRuntimeThreadTurnSurface({
+  const surface = createRuntimeThreadTurnApi({
     contextPolicyCore: createThreadTurnAdmissionRunner(admissionRequiredCalls),
     diagnosticsFeedbackBlocksContinuation: () => false,
     lifecycleAgentStatusUpdate: null,
@@ -557,8 +557,8 @@ test("thread turn surface fails closed for non-runtime resume when direct Rust l
   assert.equal(store.calls.some((call) => call.method === "threadForAgent"), false);
 });
 
-test("thread turn surface creates non-runtime turns through Rust-planned run and projection", async () => {
-  const surface = createRuntimeThreadTurnSurface({
+test("thread turn API creates non-runtime turns through Rust-planned run and projection", async () => {
+  const surface = createRuntimeThreadTurnApi({
     diagnosticsFeedbackBlocksContinuation: () => false,
     lifecycleRunCreate(state, agentId, request, deps) {
       state.calls.push({ method: "lifecycleRunCreate", state, agentId, request, deps });
@@ -594,9 +594,9 @@ test("thread turn surface creates non-runtime turns through Rust-planned run and
   assert.equal(Object.hasOwn(store, "agentRunLifecycleSurface"), false);
 });
 
-test("thread turn surface fails closed for non-runtime turns when direct Rust run API is missing", async () => {
+test("thread turn API fails closed for non-runtime turns when direct Rust run API is missing", async () => {
   const admissionRequiredCalls = [];
-  const surface = createRuntimeThreadTurnSurface({
+  const surface = createRuntimeThreadTurnApi({
     contextPolicyCore: createThreadTurnAdmissionRunner(admissionRequiredCalls),
     diagnosticsFeedbackBlocksContinuation: () => false,
     lifecycleRunCreate: null,
@@ -633,7 +633,7 @@ test("thread turn surface fails closed for non-runtime turns when direct Rust ru
   assert.equal(store.calls.some((call) => call.method === "turnForRun"), false);
 });
 
-test("thread turn surface creates diagnostics-blocked turns through Rust-planned run creation", async () => {
+test("thread turn API creates diagnostics-blocked turns through Rust-planned run creation", async () => {
   const admissionRequiredCalls = [];
   const diagnosticsFeedback = {
     blocking: true,
@@ -642,7 +642,7 @@ test("thread turn surface creates diagnostics-blocked turns through Rust-planned
     injection_id: "diag_injection_alpha",
   };
   const runner = createThreadTurnAdmissionRunner(admissionRequiredCalls);
-  const surface = createRuntimeThreadTurnSurface({
+  const surface = createRuntimeThreadTurnApi({
     contextPolicyCore: runner,
     diagnosticsFeedbackBlocksContinuation: () => true,
     lifecycleRunCreate(state, agentId, request, deps) {
@@ -680,9 +680,9 @@ test("thread turn surface creates diagnostics-blocked turns through Rust-planned
   assert.equal(store.calls.some((call) => call.method === "createRuntimeBridgeTurn"), false);
 });
 
-test("thread turn surface plans operator interrupt and steer through Rust before run persistence", async () => {
+test("thread turn API plans operator interrupt and steer through Rust before run persistence", async () => {
   const operatorCalls = [];
-  const surface = createRuntimeThreadTurnSurface({
+  const surface = createRuntimeThreadTurnApi({
     contextPolicyCore: createOperatorTurnControlRunner(operatorCalls),
     diagnosticsFeedbackBlocksContinuation: () => false,
     runtimeError,
@@ -735,8 +735,8 @@ test("thread turn surface plans operator interrupt and steer through Rust before
   assert.equal(store.calls.some((call) => call.method === "createRun"), false);
 });
 
-test("thread turn surface fails closed for operator turn controls without state-update planner", async () => {
-  const surface = createRuntimeThreadTurnSurface({
+test("thread turn API fails closed for operator turn controls without state-update planner", async () => {
+  const surface = createRuntimeThreadTurnApi({
     diagnosticsFeedbackBlocksContinuation: () => false,
     runtimeError,
   });

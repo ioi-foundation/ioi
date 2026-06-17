@@ -21,7 +21,7 @@ import {
 } from "./runtime-value-helpers.mjs";
 import { runtimeError } from "./runtime-http-utils.mjs";
 
-export function createRuntimeThreadTurnSurface(deps = {}) {
+export function createRuntimeThreadTurnApi(deps = {}) {
   const {
     approvalModeForThreadMode = null,
     buildRun = null,

@@ -49,7 +49,7 @@ import { createRuntimeInvocationResultProjections } from "./runtime-invocation-r
 import { createDiagnosticsFeedbackHelpers } from "./diagnostics-feedback.mjs";
 import { createRuntimeDiagnosticsFeedbackSurface } from "./runtime-diagnostics-feedback-surface.mjs";
 import { createDiagnosticsRepairPolicyHelpers } from "./diagnostics-repair-policy.mjs";
-import { createRuntimeDiagnosticsRepairSurface } from "./runtime-diagnostics-repair-surface.mjs";
+import { createRuntimeDiagnosticsRepairApi } from "./runtime-diagnostics-repair-api.mjs";
 import { createRuntimeUsageEventHelpers } from "./runtime-usage-events.mjs";
 import { createRuntimeMemoryHelpers } from "./runtime-memory-helpers.mjs";
 import { createRuntimeRunHelpers } from "./runtime-run-helpers.mjs";
@@ -60,13 +60,13 @@ import { createRuntimeCodingToolResultHelpers } from "./runtime-coding-tool-resu
 import { createRuntimeCodingToolApprovalCore } from "./runtime-coding-tool-approval-core.mjs";
 import { createRuntimeCodingToolArtifactSurface } from "./runtime-coding-tool-artifact-surface.mjs";
 import { createRuntimeCodingToolInvocationSurface } from "./runtime-coding-tool-invocation-surface.mjs";
-import { createRuntimeWorkspaceSnapshotSurface } from "./runtime-workspace-snapshot-surface.mjs";
+import { createRuntimeWorkspaceSnapshotApi } from "./runtime-workspace-snapshot-api.mjs";
 import { createRuntimeCodingToolGovernanceSurface } from "./runtime-coding-tool-governance-surface.mjs";
 import { createRuntimeCodingToolBudgetRecoverySurface } from "./runtime-coding-tool-budget-recovery-surface.mjs";
 import { createRuntimeConversationArtifactApi } from "./runtime-conversation-artifact-api.mjs";
 import { createRuntimeContextPolicySurface } from "./runtime-context-policy-surface.mjs";
 import { createRuntimeContextPolicyCore } from "./runtime-context-policy-core.mjs";
-import { createRuntimeWorkflowEditSurface } from "./runtime-workflow-edit-surface.mjs";
+import { createRuntimeWorkflowEditApi } from "./runtime-workflow-edit-api.mjs";
 import { createRuntimeApprovalApi } from "./runtime-approval-api.mjs";
 import { createRuntimeApprovalStateCore } from "./runtime-approval-state-core.mjs";
 import { createRuntimeMcpCatalogApi } from "./runtime-mcp-catalog-api.mjs";
@@ -81,7 +81,7 @@ import { createRuntimeWorkerServicePackageApi } from "./runtime-worker-service-p
 import { createRuntimeCteePrivateWorkspaceApi } from "./runtime-ctee-private-workspace-api.mjs";
 import { createRuntimeL1SettlementApi } from "./runtime-l1-settlement-api.mjs";
 import { createRuntimeThreadControlSurface } from "./runtime-thread-control-surface.mjs";
-import { createRuntimeThreadTurnSurface } from "./runtime-thread-turn-surface.mjs";
+import { createRuntimeThreadTurnApi } from "./runtime-thread-turn-api.mjs";
 import { createRuntimeThreadEventSurface } from "./runtime-thread-event-surface.mjs";
 import { createRuntimeToolSurface } from "./runtime-tool-surface.mjs";
 import { createRuntimeSubagentApi } from "./runtime-subagent-api.mjs";
@@ -663,7 +663,7 @@ export class AgentgresRuntimeStateStore {
       workloadGrpcAddr: process.env.IOI_WORKLOAD_GRPC_ADDR ?? null,
       workloadShmemId: process.env.IOI_SHMEM_ID ?? null,
     });
-    this.workspaceSnapshotApi = createRuntimeWorkspaceSnapshotSurface({
+    this.workspaceSnapshotApi = createRuntimeWorkspaceSnapshotApi({
       notFound,
       runtimeError,
       runtimeThreadEventAdmissionForThread: (store, request = {}) =>
@@ -677,7 +677,7 @@ export class AgentgresRuntimeStateStore {
       diagnosticsRepairPolicyProjector: this.contextPolicyCore,
       normalizeDiagnosticsMode,
     });
-    this.diagnosticsRepairApi = createRuntimeDiagnosticsRepairSurface({
+    this.diagnosticsRepairApi = createRuntimeDiagnosticsRepairApi({
       approvalModeForThreadMode,
       buildRun,
       contextPolicyCore: this.contextPolicyCore,
@@ -695,7 +695,7 @@ export class AgentgresRuntimeStateStore {
       contextPolicyCore: this.contextPolicyCore,
       runtimeError,
     });
-    this.workflowEditApi = createRuntimeWorkflowEditSurface({
+    this.workflowEditApi = createRuntimeWorkflowEditApi({
       contextPolicyCore: this.contextPolicyCore,
       eventStreamIdForThread,
       notFound,
@@ -740,7 +740,7 @@ export class AgentgresRuntimeStateStore {
     this.threadControlSurface = createRuntimeThreadControlSurface({
       contextPolicyCore: this.contextPolicyCore,
     });
-    this.threadTurnApi = createRuntimeThreadTurnSurface({
+    this.threadTurnApi = createRuntimeThreadTurnApi({
       approvalModeForThreadMode,
       buildRun,
       contextPolicyCore: this.contextPolicyCore,

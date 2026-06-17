@@ -70,7 +70,7 @@ const DIAGNOSTICS_REPAIR_DECISION_EXECUTION_RETIRED_REQUEST_ALIASES = [
   "payloadSchemaVersion",
 ];
 
-export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
+export function createRuntimeDiagnosticsRepairApi(deps = {}) {
   const {
     approvalModeForThreadMode = null,
     buildRun = null,

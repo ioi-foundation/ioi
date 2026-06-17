@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createRuntimeWorkflowEditSurface } from "./runtime-workflow-edit-surface.mjs";
+import { createRuntimeWorkflowEditApi } from "./runtime-workflow-edit-api.mjs";
 
 function runtimeError({ status, code, message, details }) {
   const error = new Error(message);
@@ -19,15 +19,15 @@ function createStore() {
     calls,
     agentForThread(threadId) {
       calls.push({ name: "agentForThread", threadId });
-      throw new Error("agentForThread must not be called by the Rust-owned workflow-edit surface");
+      throw new Error("agentForThread must not be called by the Rust-owned workflow-edit API");
     },
     listRuns(agentId) {
       calls.push({ name: "listRuns", agentId });
-      throw new Error("listRuns must not be called by the Rust-owned workflow-edit surface");
+      throw new Error("listRuns must not be called by the Rust-owned workflow-edit API");
     },
     getRun(runId) {
       calls.push({ name: "getRun", runId });
-      throw new Error("getRun must not be called by the Rust-owned workflow-edit surface");
+      throw new Error("getRun must not be called by the Rust-owned workflow-edit API");
     },
     appendRuntimeEvent(event) {
       calls.push({ name: "appendRuntimeEvent", event });
@@ -41,7 +41,7 @@ function createStore() {
     },
     requestThreadApproval(threadId, request) {
       calls.push({ name: "requestThreadApproval", threadId, request });
-      throw new Error("requestThreadApproval must not be called by the Rust-owned workflow-edit surface");
+      throw new Error("requestThreadApproval must not be called by the Rust-owned workflow-edit API");
     },
     latestApprovalRequestEvent(threadId, approvalId) {
       return events
@@ -106,7 +106,7 @@ function createWorkflowEditCore(calls = []) {
 }
 
 function createSurface({ contextPolicyCore = null } = {}) {
-  return createRuntimeWorkflowEditSurface({
+  return createRuntimeWorkflowEditApi({
     contextPolicyCore,
     eventStreamIdForThread: (threadId) => `event_stream_${threadId}`,
     runtimeError,
@@ -201,7 +201,7 @@ test("workflow-edit apply uses Rust planning and runtime event admission", () =>
 
 test("workflow-edit controls fail closed before event append without Rust planning", () => {
   const store = createStore();
-  const surface = createRuntimeWorkflowEditSurface({
+  const surface = createRuntimeWorkflowEditApi({
     eventStreamIdForThread: (threadId) => `event_stream_${threadId}`,
     runtimeError,
   });

@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { createRuntimeWorkspaceSnapshotSurface } from "./runtime-workspace-snapshot-surface.mjs";
+import { createRuntimeWorkspaceSnapshotApi } from "./runtime-workspace-snapshot-api.mjs";
 
 const RETIRED_WORKSPACE_RESTORE_ERROR_DETAIL_ALIASES = [
   "threadId",
@@ -126,7 +126,7 @@ function snapshotEvent(snapshotId = "workspace_snapshot_alpha") {
 
 function createSurface(options = {}) {
   const writes = [];
-  const surface = createRuntimeWorkspaceSnapshotSurface({
+  const surface = createRuntimeWorkspaceSnapshotApi({
     runtimeError,
     runtimeThreadEventAdmissionForThread: options.runtimeThreadEventAdmissionForThread,
     workspaceRestoreCore: options.workspaceRestoreCore,
@@ -193,7 +193,7 @@ function createStore(cwd = "/workspace") {
   };
 }
 
-test("workspace snapshot surface captures patch snapshot through Rust workspace restore core", () => {
+test("workspace snapshot API captures patch snapshot through Rust workspace restore core", () => {
   const coreCalls = [];
   const artifact = snapshotArtifact();
   const event = snapshotEvent();
@@ -297,7 +297,7 @@ test("workspace snapshot surface captures patch snapshot through Rust workspace 
   assert.equal(writes.length, 0);
 });
 
-test("workspace snapshot surface fails closed when Rust patch capture core is absent", () => {
+test("workspace snapshot API fails closed when Rust patch capture core is absent", () => {
   const { surface, writes } = createSurface();
   const store = createStore();
 
@@ -330,7 +330,7 @@ test("workspace snapshot surface fails closed when Rust patch capture core is ab
   assert.equal(store.artifactCommits.length, 0);
 });
 
-test("workspace snapshot surface calls Rust list projection and rejects missing Rust snapshot event", () => {
+test("workspace snapshot API calls Rust list projection and rejects missing Rust snapshot event", () => {
   const coreCalls = [];
   const { surface } = createSurface({
     workspaceRestoreCore: {
@@ -433,7 +433,7 @@ test("workspace snapshot content package projection calls Rust core before JS ar
   ]);
 });
 
-test("workspace snapshot surface commits Rust restore artifacts and admits Rust restore events", () => {
+test("workspace snapshot API commits Rust restore artifacts and admits Rust restore events", () => {
   const { surface, writes } = createSurface();
   const store = createStore();
   const previewArtifact = restoreArtifact("preview");
@@ -511,7 +511,7 @@ test("workspace snapshot surface commits Rust restore artifacts and admits Rust 
   assert.equal(store.codingArtifacts.size, 0);
 });
 
-test("workspace snapshot surface routes restore preview/apply through Rust core", () => {
+test("workspace snapshot API routes restore preview/apply through Rust core", () => {
   const coreCalls = [];
   const { surface } = createSurface({
     workspaceRestoreCore: {
@@ -638,9 +638,9 @@ test("workspace snapshot restore fail-closed details use canonical fields", () =
   }
 });
 
-test("workspace restore public facade calls Rust public restore API instead of operation helpers", () => {
+test("workspace restore public API calls Rust public restore API instead of operation helpers", () => {
   const calls = [];
-  const surface = createRuntimeWorkspaceSnapshotSurface({
+  const surface = createRuntimeWorkspaceSnapshotApi({
     runtimeError,
     workspaceRestoreCore: {
       planApplyPolicy() {

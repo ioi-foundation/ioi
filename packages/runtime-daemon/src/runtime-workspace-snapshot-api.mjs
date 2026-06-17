@@ -39,7 +39,7 @@ const CANONICAL_WORKSPACE_RESTORE_REQUEST_FIELDS = [
   "restore_policy",
 ];
 
-export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
+export function createRuntimeWorkspaceSnapshotApi(deps = {}) {
   const {
     runtimeError = defaultRuntimeError,
     runtimeThreadEventAdmissionForThread = null,

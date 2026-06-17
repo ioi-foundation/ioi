@@ -7,7 +7,7 @@ const WORKFLOW_EDIT_CONTROL_EVENT_EVIDENCE_REFS = [
   "agentgres_runtime_thread_event_truth_required",
 ];
 
-export function createRuntimeWorkflowEditSurface(deps = {}) {
+export function createRuntimeWorkflowEditApi(deps = {}) {
   const {
     contextPolicyCore = null,
     eventStreamIdForThread: eventStreamIdForThreadDep = eventStreamIdForThread,

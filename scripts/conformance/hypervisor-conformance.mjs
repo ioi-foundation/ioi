@@ -4491,11 +4491,11 @@ function runBridge() {
   const runtimeCodingToolBudgetRecoverySurfaceTest = exists("packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.test.mjs")
     : "";
-  const runtimeDiagnosticsRepairSurface = exists("packages/runtime-daemon/src/runtime-diagnostics-repair-surface.mjs")
-    ? read("packages/runtime-daemon/src/runtime-diagnostics-repair-surface.mjs")
+  const runtimeDiagnosticsRepairSurface = exists("packages/runtime-daemon/src/runtime-diagnostics-repair-api.mjs")
+    ? read("packages/runtime-daemon/src/runtime-diagnostics-repair-api.mjs")
     : "";
-  const runtimeDiagnosticsRepairSurfaceTest = exists("packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs")
-    ? read("packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs")
+  const runtimeDiagnosticsRepairSurfaceTest = exists("packages/runtime-daemon/src/runtime-diagnostics-repair-api.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-diagnostics-repair-api.test.mjs")
     : "";
   const runtimeDiagnosticsRepairControlCore = exists("crates/services/src/agentic/runtime/kernel/runtime_diagnostics_repair_control.rs")
     ? read("crates/services/src/agentic/runtime/kernel/runtime_diagnostics_repair_control.rs")
@@ -4512,11 +4512,11 @@ function runBridge() {
   const runtimeContextPolicySurfaceTest = exists("packages/runtime-daemon/src/runtime-context-policy-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-context-policy-surface.test.mjs")
     : "";
-  const runtimeWorkflowEditSurface = exists("packages/runtime-daemon/src/runtime-workflow-edit-surface.mjs")
-    ? read("packages/runtime-daemon/src/runtime-workflow-edit-surface.mjs")
+  const runtimeWorkflowEditSurface = exists("packages/runtime-daemon/src/runtime-workflow-edit-api.mjs")
+    ? read("packages/runtime-daemon/src/runtime-workflow-edit-api.mjs")
     : "";
-  const runtimeWorkflowEditSurfaceTest = exists("packages/runtime-daemon/src/runtime-workflow-edit-surface.test.mjs")
-    ? read("packages/runtime-daemon/src/runtime-workflow-edit-surface.test.mjs")
+  const runtimeWorkflowEditSurfaceTest = exists("packages/runtime-daemon/src/runtime-workflow-edit-api.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-workflow-edit-api.test.mjs")
     : "";
   const runtimeWorkflowEditControlCore = exists("crates/services/src/agentic/runtime/kernel/runtime_workflow_edit_control.rs")
     ? read("crates/services/src/agentic/runtime/kernel/runtime_workflow_edit_control.rs")
@@ -4599,11 +4599,11 @@ function runBridge() {
   const runtimeThreadControlSurfaceTest = exists("packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs")
     : "";
-  const runtimeThreadTurnSurface = exists("packages/runtime-daemon/src/runtime-thread-turn-surface.mjs")
-    ? read("packages/runtime-daemon/src/runtime-thread-turn-surface.mjs")
+  const runtimeThreadTurnSurface = exists("packages/runtime-daemon/src/runtime-thread-turn-api.mjs")
+    ? read("packages/runtime-daemon/src/runtime-thread-turn-api.mjs")
     : "";
-  const runtimeThreadTurnSurfaceTest = exists("packages/runtime-daemon/src/runtime-thread-turn-surface.test.mjs")
-    ? read("packages/runtime-daemon/src/runtime-thread-turn-surface.test.mjs")
+  const runtimeThreadTurnSurfaceTest = exists("packages/runtime-daemon/src/runtime-thread-turn-api.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-thread-turn-api.test.mjs")
     : "";
   const runtimeThreadAuxiliarySurfaceExists = exists("packages/runtime-daemon/src/runtime-thread-auxiliary-surface.mjs");
   const runtimeThreadAuxiliarySurface = exists("packages/runtime-daemon/src/runtime-thread-auxiliary-api.mjs")
@@ -4827,20 +4827,38 @@ function runBridge() {
   const workspaceRestoreCoreStoreTest = exists("packages/runtime-daemon/src/runtime-workspace-restore-core-store.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-workspace-restore-core-store.test.mjs")
     : "";
-  const runtimeWorkspaceSnapshotSurface = exists("packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs")
-    ? read("packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs")
+  const runtimeWorkspaceSnapshotSurface = exists("packages/runtime-daemon/src/runtime-workspace-snapshot-api.mjs")
+    ? read("packages/runtime-daemon/src/runtime-workspace-snapshot-api.mjs")
     : "";
-  const runtimeWorkspaceSnapshotSurfaceTest = exists("packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs")
-    ? read("packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs")
+  const runtimeWorkspaceSnapshotSurfaceTest = exists("packages/runtime-daemon/src/runtime-workspace-snapshot-api.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-workspace-snapshot-api.test.mjs")
     : "";
+  const retiredWorkflowDiagnosticsWorkspaceRouteSurfaceFilesAbsent = [
+    "packages/runtime-daemon/src/runtime-workflow-edit-surface.mjs",
+    "packages/runtime-daemon/src/runtime-workflow-edit-surface.test.mjs",
+    "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.mjs",
+    "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs",
+    "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs",
+    "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs",
+  ].every((file) => !exists(file));
+  const retiredWorkflowDiagnosticsWorkspaceRouteSurfaceFactoriesAbsent =
+    !/createRuntime(?:WorkflowEdit|DiagnosticsRepair|WorkspaceSnapshot)Surface/.test(
+      runtimeDaemonIndex +
+        runtimeWorkflowEditSurface +
+        runtimeWorkflowEditSurfaceTest +
+        runtimeDiagnosticsRepairSurface +
+        runtimeDiagnosticsRepairSurfaceTest +
+        runtimeWorkspaceSnapshotSurface +
+        runtimeWorkspaceSnapshotSurfaceTest,
+    );
   const workflowDiagnosticsWorkspaceRouteStoreOwnedApis =
-    /this\.workflowEditApi = createRuntimeWorkflowEditSurface\(\{\s*contextPolicyCore:\s*this\.contextPolicyCore,/s.test(
+    /this\.workflowEditApi = createRuntimeWorkflowEditApi\(\{\s*contextPolicyCore:\s*this\.contextPolicyCore,/s.test(
       runtimeDaemonIndex,
     ) &&
-    /this\.diagnosticsRepairApi\s*=\s*createRuntimeDiagnosticsRepairSurface\(\{[\s\S]*?contextPolicyCore:\s*this\.contextPolicyCore/.test(
+    /this\.diagnosticsRepairApi\s*=\s*createRuntimeDiagnosticsRepairApi\(\{[\s\S]*?contextPolicyCore:\s*this\.contextPolicyCore/.test(
       runtimeDaemonIndex,
     ) &&
-    /this\.workspaceSnapshotApi = createRuntimeWorkspaceSnapshotSurface\(\{/.test(
+    /this\.workspaceSnapshotApi = createRuntimeWorkspaceSnapshotApi\(\{/.test(
       runtimeDaemonIndex,
     ) &&
     /proposeWorkflowEdit\(threadId, request = \{\}\) \{[\s\S]*?return this\.workflowEditApi\.proposeWorkflowEdit\(this, threadId, request\)/.test(
@@ -4906,11 +4924,21 @@ function runBridge() {
     !/store\.(?:workflowEditSurface|diagnosticsRepairSurface|workspaceSnapshotSurface|workflowEditApi|diagnosticsRepairApi|workspaceSnapshotApi)\b/.test(
       runtimeRouteHandlers,
     ) &&
-      !/store\.workspaceSnapshotSurface\.prepareWorkspaceSnapshotForPatch/.test(
-        runtimeCodingToolInvocationSurface + runtimeCodingToolInvocationSurfaceTest,
-      );
+    !/store\.workspaceSnapshotSurface\.prepareWorkspaceSnapshotForPatch/.test(
+      runtimeCodingToolInvocationSurface + runtimeCodingToolInvocationSurfaceTest,
+    ) &&
+    retiredWorkflowDiagnosticsWorkspaceRouteSurfaceFilesAbsent &&
+    retiredWorkflowDiagnosticsWorkspaceRouteSurfaceFactoriesAbsent;
+  const retiredThreadTurnRouteSurfaceFilesAbsent = [
+    "packages/runtime-daemon/src/runtime-thread-turn-surface.mjs",
+    "packages/runtime-daemon/src/runtime-thread-turn-surface.test.mjs",
+  ].every((file) => !exists(file));
+  const retiredThreadTurnRouteSurfaceFactoryAbsent =
+    !/createRuntimeThreadTurnSurface/.test(
+      runtimeDaemonIndex + runtimeThreadTurnSurface + runtimeThreadTurnSurfaceTest,
+    );
   const threadTurnRouteStoreOwnedApis =
-    /this\.threadTurnApi = createRuntimeThreadTurnSurface\(\{/.test(
+    /this\.threadTurnApi = createRuntimeThreadTurnApi\(\{/.test(
       runtimeDaemonIndex,
     ) &&
     !/this\.threadTurnSurface\s*=/.test(runtimeDaemonIndex) &&
@@ -4943,6 +4971,22 @@ function runBridge() {
     ) &&
     /daemon store thread turn methods are positive API owners, not surface delegates/.test(
       runtimeThreadSurfaceDelegatesRetiredTest,
+    ) &&
+    retiredThreadTurnRouteSurfaceFilesAbsent &&
+    retiredThreadTurnRouteSurfaceFactoryAbsent;
+  const runtimeRouteInternalSurfaceModulesRetired =
+    retiredWorkflowDiagnosticsWorkspaceRouteSurfaceFilesAbsent &&
+    retiredWorkflowDiagnosticsWorkspaceRouteSurfaceFactoriesAbsent &&
+    retiredThreadTurnRouteSurfaceFilesAbsent &&
+    retiredThreadTurnRouteSurfaceFactoryAbsent &&
+    /Slice 1435 hard-deletes the workflow\/diagnostics\/workspace\/thread-turn\s+internal surface module names/.test(
+      guide,
+    ) &&
+    /Slice 1435 additionally hard-deletes the workflow\/diagnostics\/workspace\/thread-turn internal surface module names/.test(
+      matrix,
+    ) &&
+    /RuntimeDaemonCoreRouteInternalSurfaceModulesRetired/.test(
+      implementationMatrix,
     );
   const workspaceRestoreHelpers = exists("packages/runtime-daemon/src/workspace-restore.mjs")
     ? read("packages/runtime-daemon/src/workspace-restore.mjs")
@@ -11117,6 +11161,26 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "runtime-route-internal-surface-modules-retired",
+    runtimeRouteInternalSurfaceModulesRetired,
+    [
+      "packages/runtime-daemon/src/index.mjs",
+      "packages/runtime-daemon/src/runtime-workflow-edit-api.mjs",
+      "packages/runtime-daemon/src/runtime-workflow-edit-api.test.mjs",
+      "packages/runtime-daemon/src/runtime-diagnostics-repair-api.mjs",
+      "packages/runtime-daemon/src/runtime-diagnostics-repair-api.test.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-api.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-api.test.mjs",
+      "packages/runtime-daemon/src/runtime-thread-turn-api.mjs",
+      "packages/runtime-daemon/src/runtime-thread-turn-api.test.mjs",
+      "docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md",
+      "docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md",
+      "docs/architecture/_meta/implementation-matrix.md",
+    ],
+    "Route-owned workflow, diagnostics, workspace, and thread-turn delegates must stay on internal *Api modules; the retired *Surface files and factories must remain absent.",
+  );
+  assertCheck(
+    result,
     "approval-request-state-update-live-bridge",
     /ApprovalRequestStateUpdateCore/.test(approvalCore) &&
       /ApprovalRequestStateUpdateRequest/.test(approvalCore) &&
@@ -12841,7 +12905,7 @@ function runBridge() {
       /diagnostics operator override fails closed before run lookup without Rust state update/.test(
         runtimeDiagnosticsRepairSurfaceTest,
       ) &&
-      /Diagnostics repair facade must not persist run state in JS/.test(
+      /Diagnostics repair API must not persist run state in JS/.test(
         runtimeDiagnosticsRepairSurfaceTest,
       ) &&
       /Object\.hasOwn\(details \?\? \{\},\s*key\),\s*false/.test(
@@ -12863,8 +12927,8 @@ function runBridge() {
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
-      "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.mjs",
-      "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-diagnostics-repair-api.mjs",
+      "packages/runtime-daemon/src/runtime-diagnostics-repair-api.test.mjs",
     ],
     "Diagnostics operator override execution must use Rust policy state-update planning plus Rust Agentgres run-state commit and must fail closed without that Rust boundary",
   );
@@ -13077,7 +13141,7 @@ function runBridge() {
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
-      "packages/runtime-daemon/src/runtime-thread-turn-surface.mjs",
+      "packages/runtime-daemon/src/runtime-thread-turn-api.mjs",
       "packages/runtime-daemon/src/runtime-operator-turn-control-facade.test.mjs",
     ],
     "Public operator interrupt must use Rust daemon-core state-update planning and Agentgres run-state persistence, with the old JS runtime-bridge/event-append facade retired",
@@ -13227,7 +13291,7 @@ function runBridge() {
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
-      "packages/runtime-daemon/src/runtime-thread-turn-surface.mjs",
+      "packages/runtime-daemon/src/runtime-thread-turn-api.mjs",
       "packages/runtime-daemon/src/runtime-operator-turn-control-facade.test.mjs",
     ],
     "Public operator steer must use Rust daemon-core state-update planning and Agentgres run-state persistence, with the old JS event-append facade retired",
@@ -13336,7 +13400,7 @@ function runBridge() {
       /operation_kind:\s*operationKind/.test(runtimeThreadTurnSurface) &&
       /operationKind:\s*"turn\.interrupt"/.test(runtimeThreadTurnSurface) &&
       /operationKind:\s*"turn\.steer"/.test(runtimeThreadTurnSurface) &&
-      /thread turn surface fails closed for operator turn controls without state-update planner/.test(
+      /thread turn API fails closed for operator turn controls without state-update planner/.test(
         runtimeThreadTurnSurfaceTest,
       ) &&
       /assertNoRetiredOperatorTurnControlDetailAliases\(error\.details\)/.test(
@@ -13362,8 +13426,8 @@ function runBridge() {
         runtimeOperatorTurnControlFacadeTest,
       ),
     [
-      "packages/runtime-daemon/src/runtime-thread-turn-surface.mjs",
-      "packages/runtime-daemon/src/runtime-thread-turn-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-thread-turn-api.mjs",
+      "packages/runtime-daemon/src/runtime-thread-turn-api.test.mjs",
       "packages/runtime-daemon/src/runtime-operator-turn-control-facade.test.mjs",
     ],
     "Phase 10/11 is pending: operator-control Rust-core-required details must expose canonical snake_case fields without duplicate camelCase aliases",
@@ -13541,24 +13605,24 @@ function runBridge() {
       !/^\s*(?:appendWorkspaceTrustWarningEvent|applyThreadMcpServerMutation|mcpStatusWithLiveDiscovery|appendThreadMcpControlEvent|mcpServersForContext|appendCodingToolCommandStreamEvents|codingToolApprovalSatisfaction|blockCodingToolForApproval|blockCodingToolForBudget|materializeWorkspaceSnapshotArtifact|appendWorkspaceSnapshotEvent|workspaceSnapshotContentPackage|materializeWorkspaceRestorePreviewArtifact|materializeWorkspaceRestoreApplyArtifact|appendWorkspaceRestorePreviewEvent|appendWorkspaceRestoreApplyEvent|maybeRunPostEditDiagnostics|pendingDiagnosticsFeedbackForNextTurn|materializeCodingToolArtifactDrafts|materializeVisualGuiObservationArtifacts|readCodingToolArtifact|retrieveCodingToolResult|executeDiagnosticsOperatorOverride|turnForOperatorOverrideEvent|appendDiagnosticsOperatorOverrideEvent|createDiagnosticsRepairRetryTurn|turnForRepairRetryEvent|appendDiagnosticsRepairRetryTurnEvent|resolveDiagnosticsRepairDecision|appendDiagnosticsRepairDecisionExecutedEvent)\(/m.test(
         runtimeDaemonIndex,
       ) &&
-      /thread turn surface resumes non-runtime threads through Rust lifecycle status and projection/.test(
+      /thread turn API resumes non-runtime threads through Rust lifecycle status and projection/.test(
         runtimeThreadTurnSurfaceTest,
       ) &&
       /lifecycleAgentStatusUpdate/.test(runtimeThreadTurnSurfaceTest) &&
-      /thread turn surface fails closed for non-runtime resume when direct Rust lifecycle API is missing/.test(
+      /thread turn API fails closed for non-runtime resume when direct Rust lifecycle API is missing/.test(
         runtimeThreadTurnSurfaceTest,
       ) &&
       /admissionRequiredCalls\.length,\s*1/.test(runtimeThreadTurnSurfaceTest) &&
       /operation:\s*"thread_resume"/.test(runtimeThreadTurnSurfaceTest) &&
-      /thread turn surface creates non-runtime turns through Rust-planned run and projection/.test(
+      /thread turn API creates non-runtime turns through Rust-planned run and projection/.test(
         runtimeThreadTurnSurfaceTest,
       ) &&
       /lifecycleRunCreate/.test(runtimeThreadTurnSurfaceTest) &&
-      /thread turn surface fails closed for non-runtime turns when direct Rust run API is missing/.test(
+      /thread turn API fails closed for non-runtime turns when direct Rust run API is missing/.test(
         runtimeThreadTurnSurfaceTest,
       ) &&
       /operation:\s*"thread_turn_create"/.test(runtimeThreadTurnSurfaceTest) &&
-      /thread turn surface creates diagnostics-blocked turns through Rust-planned run creation/.test(
+      /thread turn API creates diagnostics-blocked turns through Rust-planned run creation/.test(
         runtimeThreadTurnSurfaceTest,
       ) &&
       /admissionRequiredCalls\.length,\s*0/.test(runtimeThreadTurnSurfaceTest) &&
@@ -13578,8 +13642,8 @@ function runBridge() {
         runtimeThreadTurnSurfaceTest,
       ),
     [
-      "packages/runtime-daemon/src/runtime-thread-turn-surface.mjs",
-      "packages/runtime-daemon/src/runtime-thread-turn-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-thread-turn-api.mjs",
+      "packages/runtime-daemon/src/runtime-thread-turn-api.test.mjs",
       "packages/runtime-daemon/src/runtime-thread-surface-delegates-retired.test.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.mjs",
     ],
@@ -14097,7 +14161,7 @@ function runBridge() {
         runtimeAgentRunLifecycleTest,
       ) &&
       !/createRuntimeBridgeTurnRun/.test(runtimeAgentRunLifecycleTest) &&
-      /thread turn surface submits runtime turns through Rust bridge-turn state planning/.test(
+      /thread turn API submits runtime turns through Rust bridge-turn state planning/.test(
         runtimeThreadTurnSurfaceTest,
       ) &&
       /repositoryWorkflowProjector:\s*contextPolicyCore/.test(
@@ -15914,18 +15978,18 @@ function runBridge() {
     /agent\/run lifecycle direct APIs route create, run creation, thread creation, and runtime-service thread start through Rust planning/.test(
       runtimeAgentRunLifecycleTest,
     ) &&
-    /thread turn surface controls runtime thread resume through Rust bridge-control state planning/.test(
+    /thread turn API controls runtime thread resume through Rust bridge-control state planning/.test(
       runtimeThreadTurnSurfaceTest,
     ) &&
     /retired runtimeBridgeThreadControl constructor alias must not be called/.test(
       runtimeThreadTurnSurfaceTest,
     ) &&
-    /thread turn surface fails closed for runtime thread resume when Rust bridge-control boundary is missing/.test(
+    /thread turn API fails closed for runtime thread resume when Rust bridge-control boundary is missing/.test(
       runtimeThreadTurnSurfaceTest,
     ) &&
     /assertRuntimeBridgeThreadRustCoreRequired/.test(runtimeAgentRunLifecycleTest) &&
     /assertRuntimeBridgeThreadRustCoreRequired/.test(runtimeThreadTurnSurfaceTest) &&
-    !/thread turn surface fails closed for runtime thread resume before bridge control dispatch/.test(
+    !/thread turn API fails closed for runtime thread resume before bridge control dispatch/.test(
       runtimeThreadTurnSurfaceTest,
     ) &&
     !/store\.runtimeBridge\.controlThread/.test(runtimeAgentRunLifecycle) &&
@@ -15943,8 +16007,8 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
       "packages/runtime-daemon/src/runtime-agent-run-lifecycle.mjs",
       "packages/runtime-daemon/src/runtime-agent-run-lifecycle.test.mjs",
-      "packages/runtime-daemon/src/runtime-thread-turn-surface.mjs",
-      "packages/runtime-daemon/src/runtime-thread-turn-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-thread-turn-api.mjs",
+      "packages/runtime-daemon/src/runtime-thread-turn-api.test.mjs",
     ],
     "Runtime bridge thread resume/control must use Rust bridge-control agent-state planning, Agentgres writeAgent commit, and Rust thread projection while the old JS bridge-control facade remains absent",
   );
@@ -16148,16 +16212,16 @@ function runBridge() {
       /createThread fails closed for runtime-service threads before route planning when Rust bridge-start planner is missing/.test(
         runtimeAgentRunLifecycleTest,
       ) &&
-      /thread turn surface controls runtime thread resume through Rust bridge-control state planning/.test(
+      /thread turn API controls runtime thread resume through Rust bridge-control state planning/.test(
         runtimeThreadTurnSurfaceTest,
       ) &&
-      /thread turn surface fails closed for runtime thread resume when Rust bridge-control boundary is missing/.test(
+      /thread turn API fails closed for runtime thread resume when Rust bridge-control boundary is missing/.test(
         runtimeThreadTurnSurfaceTest,
       ) &&
-      /thread turn surface submits runtime turns through Rust bridge-turn state planning/.test(
+      /thread turn API submits runtime turns through Rust bridge-turn state planning/.test(
         runtimeThreadTurnSurfaceTest,
       ) &&
-      /thread turn surface fails closed for runtime turns when Rust bridge-turn lifecycle boundary is missing/.test(
+      /thread turn API fails closed for runtime turns when Rust bridge-turn lifecycle boundary is missing/.test(
         runtimeThreadTurnSurfaceTest,
       ) &&
       /assertRuntimeBridgeThreadRustCoreRequired/.test(runtimeAgentRunLifecycleTest) &&
@@ -16221,8 +16285,8 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-api-bridge.test.mjs",
       "packages/runtime-daemon/src/runtime-agent-run-lifecycle.mjs",
       "packages/runtime-daemon/src/runtime-agent-run-lifecycle.test.mjs",
-      "packages/runtime-daemon/src/runtime-thread-turn-surface.mjs",
-      "packages/runtime-daemon/src/runtime-thread-turn-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-thread-turn-api.mjs",
+      "packages/runtime-daemon/src/runtime-thread-turn-api.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
       "packages/runtime-daemon/src/runtime-thread-control.test.mjs",
       "scripts/lib/workflow-stage5-stop-cancel-recover-live-gui-proof.mjs",
@@ -16337,14 +16401,14 @@ function runBridge() {
       !/store\.agentRunLifecycleSurface\.createRuntimeBridgeTurn/.test(
         runtimeThreadTurnSurface,
       ) &&
-      /thread turn surface submits runtime turns through Rust bridge-turn state planning/.test(
+      /thread turn API submits runtime turns through Rust bridge-turn state planning/.test(
         runtimeThreadTurnSurfaceTest,
       ) &&
-      /thread turn surface fails closed for runtime turns when Rust bridge-turn lifecycle boundary is missing/.test(
+      /thread turn API fails closed for runtime turns when Rust bridge-turn lifecycle boundary is missing/.test(
         runtimeThreadTurnSurfaceTest,
       ) &&
       !/createRuntimeBridgeTurnRun/.test(runtimeAgentRunLifecycleTest) &&
-      !/thread turn surface fails closed for runtime turns before bridge submit dispatch/.test(
+      !/thread turn API fails closed for runtime turns before bridge submit dispatch/.test(
         runtimeThreadTurnSurfaceTest,
       ) &&
       !/store\.createRuntimeBridgeTurn/.test(runtimeThreadTurnSurface) &&
@@ -16355,8 +16419,8 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
       "packages/runtime-daemon/src/runtime-agent-run-lifecycle.mjs",
       "packages/runtime-daemon/src/runtime-agent-run-lifecycle.test.mjs",
-      "packages/runtime-daemon/src/runtime-thread-turn-surface.mjs",
-      "packages/runtime-daemon/src/runtime-thread-turn-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-thread-turn-api.mjs",
+      "packages/runtime-daemon/src/runtime-thread-turn-api.test.mjs",
     ],
     "Runtime bridge turn submit must use Rust bridge-turn run-state planning, Agentgres writeRun commit, and Rust turn projection while the old JS bridge submit facade remains absent",
   );
@@ -17189,8 +17253,8 @@ function runBridge() {
       "crates/services/src/agentic/runtime/kernel/mod.rs",
       "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
-      "packages/runtime-daemon/src/runtime-workflow-edit-surface.mjs",
-      "packages/runtime-daemon/src/runtime-workflow-edit-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-workflow-edit-api.mjs",
+      "packages/runtime-daemon/src/runtime-workflow-edit-api.test.mjs",
     ],
     "Workflow-edit proposal/apply controls must use Rust daemon-core planning plus Rust runtime-event admission without JS event or approval authorship fallback",
   );
@@ -17237,10 +17301,10 @@ function runBridge() {
       /Object\.hasOwn\(surface,\s*"resolveWorkflowEditTarget"\),\s*false/.test(
         runtimeWorkflowEditSurfaceTest,
       ) &&
-      /requestThreadApproval must not be called by the Rust-owned workflow-edit surface/.test(
+      /requestThreadApproval must not be called by the Rust-owned workflow-edit API/.test(
         runtimeWorkflowEditSurfaceTest,
       ) &&
-      /agentForThread must not be called by the Rust-owned workflow-edit surface/.test(
+      /agentForThread must not be called by the Rust-owned workflow-edit API/.test(
         runtimeWorkflowEditSurfaceTest,
       ) &&
       workflowDiagnosticsWorkspaceRouteStoreOwnedApis &&
@@ -17261,8 +17325,8 @@ function runBridge() {
         runtimeWorkflowEditSurface,
       ),
     [
-      "packages/runtime-daemon/src/runtime-workflow-edit-surface.mjs",
-      "packages/runtime-daemon/src/runtime-workflow-edit-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-workflow-edit-api.mjs",
+      "packages/runtime-daemon/src/runtime-workflow-edit-api.test.mjs",
       "crates/services/src/agentic/runtime/kernel/policy/admission_required.rs",
     ],
     "Phase 10/11 is pending: workflow edit proposal/apply paths must use canonical request identity, target, patch, approval, and receipt fields before approval and projection handling",
@@ -17323,8 +17387,8 @@ function runBridge() {
         runtimeWorkflowEditSurface,
       ),
     [
-      "packages/runtime-daemon/src/runtime-workflow-edit-surface.mjs",
-      "packages/runtime-daemon/src/runtime-workflow-edit-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-workflow-edit-api.mjs",
+      "packages/runtime-daemon/src/runtime-workflow-edit-api.test.mjs",
     ],
     "Phase 10/11 is pending: workflow edit proposal/apply event, approval, and result envelopes must expose canonical snake_case fields without duplicate camelCase aliases or reader fallbacks",
   );
@@ -21492,10 +21556,10 @@ function runBridge() {
       /requireWorkspaceSnapshotProjection/.test(runtimeWorkspaceSnapshotSurface) &&
       /requireWorkspaceRestorePreview/.test(runtimeWorkspaceSnapshotSurface) &&
       /requireWorkspaceRestoreApply/.test(runtimeWorkspaceSnapshotSurface) &&
-      /workspace snapshot surface captures patch snapshot through Rust workspace restore core/.test(
+      /workspace snapshot API captures patch snapshot through Rust workspace restore core/.test(
         runtimeWorkspaceSnapshotSurfaceTest,
       ) &&
-      /workspace snapshot surface fails closed when Rust patch capture core is absent/.test(
+      /workspace snapshot API fails closed when Rust patch capture core is absent/.test(
         runtimeWorkspaceSnapshotSurfaceTest,
       ) &&
       !/planWorkspaceRestoreApplyPolicy/.test(runtimeWorkspaceSnapshotSurface) &&
@@ -21515,15 +21579,15 @@ function runBridge() {
       !/applyWorkspaceRestoreFile/.test(workspaceRestoreHelpers) &&
       !/workspaceSnapshotFileForPatch/.test(workspaceRestoreHelpers) &&
       !/workspaceSnapshotCaptureSide/.test(workspaceRestoreHelpers) &&
-      /workspace restore public facade calls Rust public restore API instead of operation helpers/.test(
+      /workspace restore public API calls Rust public restore API instead of operation helpers/.test(
         runtimeWorkspaceSnapshotSurfaceTest,
       ),
     [
       "packages/runtime-daemon/src/runtime-workspace-restore-core.mjs",
       "packages/runtime-daemon/src/runtime-workspace-restore-core.test.mjs",
       "packages/runtime-daemon/src/runtime-workspace-restore-core-store.test.mjs",
-      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs",
-      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-api.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-api.test.mjs",
       "packages/runtime-daemon/src/workspace-restore.mjs",
       "packages/runtime-daemon/src/index.mjs",
     ],
@@ -21556,8 +21620,8 @@ function runBridge() {
 	      ) &&
 	      !/function snapshotCapture\(/.test(runtimeWorkspaceSnapshotSurfaceTest),
     [
-      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs",
-      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-api.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-api.test.mjs",
       "packages/runtime-daemon/src/workspace-restore.mjs",
       "packages/runtime-daemon/src/workspace-restore.test.mjs",
     ],
@@ -21583,7 +21647,7 @@ function runBridge() {
       !/accepted_receipt_append:\s*/.test(cliRuntime),
     [
       "crates/cli/src/commands/runtime.rs",
-      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-api.mjs",
     ],
     "Phase 10/11 is pending: CLI workspace restore clients must call daemon snapshot restore routes without minting preview/apply truth locally",
   );
@@ -21615,7 +21679,7 @@ function runBridge() {
     [
       "packages/agent-sdk/src/substrate-client.ts",
       "packages/agent-sdk/test/sdk.test.mjs",
-      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-api.mjs",
     ],
     "Phase 10/11 is pending: SDK workspace restore clients must use canonical daemon routes and stop advertising retired restore aliases",
   );
@@ -21645,8 +21709,8 @@ function runBridge() {
     [
       "packages/agent-sdk/src/substrate-client.ts",
       "packages/agent-sdk/test/sdk.test.mjs",
-      "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.mjs",
-      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs",
+      "packages/runtime-daemon/src/runtime-diagnostics-repair-api.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-api.mjs",
     ],
     "Phase 10/11 is pending: SDK diagnostics restore execution must call the daemon repair route with canonical request bodies only",
   );
@@ -21680,7 +21744,7 @@ function runBridge() {
     [
       "packages/hypervisor-workbench/src/runtime/workflow-runtime-control-nodes.ts",
       "packages/hypervisor-workbench/src/runtime/workflow-runtime-control-nodes.test.ts",
-      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-api.mjs",
     ],
     "Phase 10/11 is pending: IDE restore-gate control nodes must call daemon workspace restore routes with canonical request bodies only",
   );
@@ -21774,8 +21838,8 @@ function runBridge() {
     [
       "packages/hypervisor-workbench/src/runtime/workflow-runtime-control-nodes.ts",
       "packages/hypervisor-workbench/src/runtime/workflow-runtime-control-nodes.test.ts",
-      "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.mjs",
-      "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-diagnostics-repair-api.mjs",
+      "packages/runtime-daemon/src/runtime-diagnostics-repair-api.test.mjs",
     ],
     "Phase 10/11 is pending: IDE diagnostics repair nodes must call daemon diagnostics repair routes with canonical request bodies only",
   );
@@ -23351,8 +23415,8 @@ function runReceipts() {
   const runtimeBridgeThread = exists("packages/runtime-daemon/src/threads/runtime-bridge-thread.mjs")
     ? read("packages/runtime-daemon/src/threads/runtime-bridge-thread.mjs")
     : "";
-  const runtimeThreadTurnSurface = exists("packages/runtime-daemon/src/runtime-thread-turn-surface.mjs")
-    ? read("packages/runtime-daemon/src/runtime-thread-turn-surface.mjs")
+  const runtimeThreadTurnSurface = exists("packages/runtime-daemon/src/runtime-thread-turn-api.mjs")
+    ? read("packages/runtime-daemon/src/runtime-thread-turn-api.mjs")
     : "";
   const threadStore = exists("packages/runtime-daemon/src/threads/thread-store.mjs")
     ? read("packages/runtime-daemon/src/threads/thread-store.mjs")
@@ -23377,13 +23441,13 @@ function runReceipts() {
   )
     ? read("packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.test.mjs")
     : "";
-  const runtimeWorkspaceSnapshotSurface = exists("packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs")
-    ? read("packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs")
+  const runtimeWorkspaceSnapshotSurface = exists("packages/runtime-daemon/src/runtime-workspace-snapshot-api.mjs")
+    ? read("packages/runtime-daemon/src/runtime-workspace-snapshot-api.mjs")
     : "";
   const runtimeWorkspaceSnapshotSurfaceTest = exists(
-    "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs",
+    "packages/runtime-daemon/src/runtime-workspace-snapshot-api.test.mjs",
   )
-    ? read("packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-workspace-snapshot-api.test.mjs")
     : "";
   const agentgresAdmissionCore = exists("crates/services/src/agentic/runtime/kernel/agentgres_admission.rs")
     ? read("crates/services/src/agentic/runtime/kernel/agentgres_admission.rs")
@@ -30910,7 +30974,7 @@ function runReceipts() {
 	      /"artifact\.workspace_restore_preview",\s*"artifact\.workspace_restore_apply"/.test(
 	        runtimeWorkspaceSnapshotSurfaceTest,
 	      ) &&
-	      /workspace snapshot surface commits Rust restore artifacts and admits Rust restore events/.test(
+	      /workspace snapshot API commits Rust restore artifacts and admits Rust restore events/.test(
 	        runtimeWorkspaceSnapshotSurfaceTest,
 	      ),
     [
@@ -30925,8 +30989,8 @@ function runReceipts() {
       "packages/runtime-daemon/src/threads/thread-persistence.test.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.test.mjs",
-      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs",
-      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-api.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-api.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
     ],
     "Phase 5/11 is pending: workspace snapshot and restore artifacts must persist through Rust Agentgres storage admission, while retired coding-tool/visual artifact JS mutation callers must fail closed before direct JS artifact writes",
@@ -30939,7 +31003,7 @@ function runReceipts() {
       !/turn\.runtime_bridge\.submit_(?:budget|error)/.test(runtimeThreadTurnSurface) &&
       !/appendOperation|append_operation/.test(runtimeThreadTurnSurface),
     [
-      "packages/runtime-daemon/src/runtime-thread-turn-surface.mjs",
+      "packages/runtime-daemon/src/runtime-thread-turn-api.mjs",
       "packages/runtime-daemon/src/threads/runtime-bridge-thread.mjs",
       "packages/runtime-daemon/src/threads/runtime-bridge-thread.test.mjs",
     ],
@@ -33760,20 +33824,32 @@ function runCompositor() {
   const runtimeCodingToolBudgetRecoverySurfaceTest = exists("packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.test.mjs")
     : "";
-  const runtimeWorkspaceSnapshotSurface = exists("packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs")
-    ? read("packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs")
+  const runtimeWorkspaceSnapshotSurface = exists("packages/runtime-daemon/src/runtime-workspace-snapshot-api.mjs")
+    ? read("packages/runtime-daemon/src/runtime-workspace-snapshot-api.mjs")
     : "";
-  const runtimeWorkspaceSnapshotSurfaceTest = exists("packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs")
-    ? read("packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs")
+  const runtimeWorkspaceSnapshotSurfaceTest = exists("packages/runtime-daemon/src/runtime-workspace-snapshot-api.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-workspace-snapshot-api.test.mjs")
     : "";
+  const retiredWorkflowDiagnosticsWorkspaceRouteSurfaceFilesAbsent = [
+    "packages/runtime-daemon/src/runtime-workflow-edit-surface.mjs",
+    "packages/runtime-daemon/src/runtime-workflow-edit-surface.test.mjs",
+    "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.mjs",
+    "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs",
+    "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs",
+    "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs",
+  ].every((file) => !exists(file));
+  const retiredWorkflowDiagnosticsWorkspaceRouteSurfaceFactoriesAbsent =
+    !/createRuntime(?:WorkflowEdit|DiagnosticsRepair|WorkspaceSnapshot)Surface/.test(
+      runtimeDaemonIndex + runtimeWorkspaceSnapshotSurface + runtimeWorkspaceSnapshotSurfaceTest,
+    );
   const workflowDiagnosticsWorkspaceRouteStoreOwnedApis =
-    /this\.workflowEditApi = createRuntimeWorkflowEditSurface\(\{\s*contextPolicyCore:\s*this\.contextPolicyCore,/s.test(
+    /this\.workflowEditApi = createRuntimeWorkflowEditApi\(\{\s*contextPolicyCore:\s*this\.contextPolicyCore,/s.test(
       runtimeDaemonIndex,
     ) &&
-    /this\.diagnosticsRepairApi\s*=\s*createRuntimeDiagnosticsRepairSurface\(\{[\s\S]*?contextPolicyCore:\s*this\.contextPolicyCore/.test(
+    /this\.diagnosticsRepairApi\s*=\s*createRuntimeDiagnosticsRepairApi\(\{[\s\S]*?contextPolicyCore:\s*this\.contextPolicyCore/.test(
       runtimeDaemonIndex,
     ) &&
-    /this\.workspaceSnapshotApi = createRuntimeWorkspaceSnapshotSurface\(\{/.test(
+    /this\.workspaceSnapshotApi = createRuntimeWorkspaceSnapshotApi\(\{/.test(
       runtimeDaemonIndex,
     ) &&
     /proposeWorkflowEdit\(threadId, request = \{\}\) \{[\s\S]*?return this\.workflowEditApi\.proposeWorkflowEdit\(this, threadId, request\)/.test(
@@ -33841,7 +33917,9 @@ function runCompositor() {
     ) &&
     !/store\.workspaceSnapshotSurface\.prepareWorkspaceSnapshotForPatch/.test(
       runtimeCodingToolInvocationSurface + runtimeCodingToolInvocationSurfaceTest,
-    );
+    ) &&
+    retiredWorkflowDiagnosticsWorkspaceRouteSurfaceFilesAbsent &&
+    retiredWorkflowDiagnosticsWorkspaceRouteSurfaceFactoriesAbsent;
   const workspaceRestoreCore = exists("packages/runtime-daemon/src/runtime-workspace-restore-core.mjs")
     ? read("packages/runtime-daemon/src/runtime-workspace-restore-core.mjs")
     : "";
@@ -33901,11 +33979,11 @@ function runCompositor() {
   const runtimeThreadControlSurfaceTest = exists("packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs")
     : "";
-  const runtimeThreadTurnSurface = exists("packages/runtime-daemon/src/runtime-thread-turn-surface.mjs")
-    ? read("packages/runtime-daemon/src/runtime-thread-turn-surface.mjs")
+  const runtimeThreadTurnSurface = exists("packages/runtime-daemon/src/runtime-thread-turn-api.mjs")
+    ? read("packages/runtime-daemon/src/runtime-thread-turn-api.mjs")
     : "";
-  const runtimeThreadTurnSurfaceTest = exists("packages/runtime-daemon/src/runtime-thread-turn-surface.test.mjs")
-    ? read("packages/runtime-daemon/src/runtime-thread-turn-surface.test.mjs")
+  const runtimeThreadTurnSurfaceTest = exists("packages/runtime-daemon/src/runtime-thread-turn-api.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-thread-turn-api.test.mjs")
     : "";
   const runtimeOperatorTurnControlFacadeTest = exists(
     "packages/runtime-daemon/src/runtime-operator-turn-control-facade.test.mjs",
@@ -33938,11 +34016,11 @@ function runCompositor() {
     diagnosticsRepairExecution.match(
       /function workspaceRestoreApplyAllowsConflicts\(request = \{\}\) \{[\s\S]*?\n  \}/,
     )?.[0] ?? "";
-  const runtimeDiagnosticsRepairSurface = exists("packages/runtime-daemon/src/runtime-diagnostics-repair-surface.mjs")
-    ? read("packages/runtime-daemon/src/runtime-diagnostics-repair-surface.mjs")
+  const runtimeDiagnosticsRepairSurface = exists("packages/runtime-daemon/src/runtime-diagnostics-repair-api.mjs")
+    ? read("packages/runtime-daemon/src/runtime-diagnostics-repair-api.mjs")
     : "";
-  const runtimeDiagnosticsRepairSurfaceTest = exists("packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs")
-    ? read("packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs")
+  const runtimeDiagnosticsRepairSurfaceTest = exists("packages/runtime-daemon/src/runtime-diagnostics-repair-api.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-diagnostics-repair-api.test.mjs")
     : "";
   const runtimeDiagnosticsRepairControlCore = exists("crates/services/src/agentic/runtime/kernel/runtime_diagnostics_repair_control.rs")
     ? read("crates/services/src/agentic/runtime/kernel/runtime_diagnostics_repair_control.rs")
@@ -41528,8 +41606,8 @@ function runCompositor() {
         diagnosticsRepairExecutionTest,
       ),
     [
-      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs",
-      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-api.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-api.test.mjs",
       "packages/runtime-daemon/src/diagnostics-repair-execution.mjs",
       "packages/runtime-daemon/src/diagnostics-repair-execution.test.mjs",
     ],
@@ -41572,7 +41650,7 @@ function runCompositor() {
     /function listWorkspaceSnapshots\(store, threadId\)/.test(runtimeWorkspaceSnapshotSurface) &&
       /workspaceRestoreCore\.projectWorkspaceSnapshotList\(\{/.test(runtimeWorkspaceSnapshotSurface) &&
       /thread_id:\s*threadId/.test(runtimeWorkspaceSnapshotSurface) &&
-      /workspace snapshot surface calls Rust list projection and rejects missing Rust snapshot event/.test(
+      /workspace snapshot API calls Rust list projection and rejects missing Rust snapshot event/.test(
         runtimeWorkspaceSnapshotSurfaceTest,
       ) &&
       /coreCalls,\s*\[\{\s*thread_id:\s*"thread_alpha"\s*\}\]/.test(
@@ -41591,8 +41669,8 @@ function runCompositor() {
         runtimeWorkspaceSnapshotSurface,
       ),
     [
-      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs",
-      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-api.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-api.test.mjs",
       "packages/runtime-daemon/src/runtime-workspace-restore-core.mjs",
       "crates/services/src/agentic/runtime/kernel/workspace_restore.rs",
     ],
@@ -41613,8 +41691,8 @@ function runCompositor() {
       !/workspaceSnapshotDrafts: \[/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
       !/workspaceSnapshotDrafts: \[/.test(runtimeCodingToolInvocationSurfaceTest),
     [
-      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs",
-      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-api.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-api.test.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs",
     ],
     "Phase 10/11 is pending: workspace snapshot capture must consume canonical changed_files and workspace_snapshot_drafts without daemon-side camelCase fallbacks",
@@ -41638,7 +41716,7 @@ function runCompositor() {
 	      /rust_daemon_core_workspace_restore_artifact_required/.test(runtimeWorkspaceSnapshotSurface) &&
 	      /agentgres_workspace_restore_artifact_truth_required/.test(runtimeWorkspaceSnapshotSurface) &&
 	      /workspace_restore_artifact_js_materializer_retired/.test(workspaceRestoreKernel) &&
-	      /workspace snapshot surface commits Rust restore artifacts and admits Rust restore events/.test(
+	      /workspace snapshot API commits Rust restore artifacts and admits Rust restore events/.test(
 	        runtimeWorkspaceSnapshotSurfaceTest,
 	      ) &&
 	      /"artifact\.workspace_restore_preview",\s*"artifact\.workspace_restore_apply"/.test(
@@ -41651,8 +41729,8 @@ function runCompositor() {
         runtimeWorkspaceSnapshotSurface,
       ),
     [
-      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs",
-      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-api.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-api.test.mjs",
     ],
     "Phase 10/11 is pending: workspace snapshot/restore artifact records must expose canonical snake_case metadata without duplicate camelCase aliases",
   );
@@ -41660,7 +41738,7 @@ function runCompositor() {
 	    result,
 	    "workspace-snapshot-content-payload-aliases-retired",
 	    /workspace_snapshot_js_capture_facade_retired/.test(runtimeWorkspaceSnapshotSurface) &&
-	      /workspace snapshot surface captures patch snapshot through Rust workspace restore core/.test(
+	      /workspace snapshot API captures patch snapshot through Rust workspace restore core/.test(
 	        runtimeWorkspaceSnapshotSurfaceTest,
 	      ) &&
 	      /snapshot_draft_count/.test(
@@ -41670,8 +41748,8 @@ function runCompositor() {
 	        runtimeWorkspaceSnapshotSurface,
 	      ),
     [
-      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs",
-      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-api.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-api.test.mjs",
     ],
     "Phase 10/11 is pending: workspace snapshot content artifact payload must expose canonical snake_case top-level identity fields without duplicate camelCase aliases",
   );
@@ -41681,7 +41759,7 @@ function runCompositor() {
 	    /runtime_workspace_snapshot_rust_core_required/.test(runtimeWorkspaceSnapshotSurface) &&
 	      /rust_daemon_core_workspace_snapshot_admission_required/.test(runtimeWorkspaceSnapshotSurface) &&
 	      /workspaceRestoreCore\.captureSnapshotFiles\(\{/.test(runtimeWorkspaceSnapshotSurface) &&
-	      /workspace snapshot surface captures patch snapshot through Rust workspace restore core/.test(
+	      /workspace snapshot API captures patch snapshot through Rust workspace restore core/.test(
 	        runtimeWorkspaceSnapshotSurfaceTest,
 	      ) &&
 	      !/function prepareWorkspaceSnapshotForPatch(?:(?!\n  function materializeWorkspaceSnapshotArtifact)[\s\S])*?\b(?:schemaVersion|threadId|turnId|workspaceRoot|snapshotKind|snapshotId|snapshotHash|fileCount|changedFileCount|createdFileCount|deletedFileCount|receiptRefs|artifactRefs|contentArtifactRefs|evidenceRefs|toolName|toolCallId|workflowGraphId|workflowNodeId|maxContentBytes|capturedFileCount|omittedFileCount|previewSupported|applySupported|contentIncluded|contentArtifactIncluded|pathsIncluded)\s*:/.test(
@@ -41691,8 +41769,8 @@ function runCompositor() {
         runtimeCodingToolInvocationSurface,
       ),
     [
-      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs",
-      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-api.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-api.test.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs",
     ],
     "Phase 10/11 is pending: workspace snapshot records must expose canonical snake_case fields without duplicate camelCase aliases",
@@ -41716,7 +41794,7 @@ function runCompositor() {
 	      /assert\.ok\(!store\.calls\.some\(\(call\) => call\.name === "appendSnapshotEvent"\)\)/.test(
 	        runtimeCodingToolInvocationSurfaceTest,
 	      ) &&
-	      /workspace snapshot surface calls Rust list projection and rejects missing Rust snapshot event/.test(
+	      /workspace snapshot API calls Rust list projection and rejects missing Rust snapshot event/.test(
 	        runtimeWorkspaceSnapshotSurfaceTest,
 	      ) &&
       !/function appendWorkspaceSnapshotEvent(?:(?!\n  function listWorkspaceSnapshots)[\s\S])*?\bsnapshot\.(?:snapshotId|snapshotHash|snapshotKind|fileCount|changedFileCount|createdFileCount|deletedFileCount|receiptRefs|artifactRefs)\b/.test(
@@ -41729,8 +41807,8 @@ function runCompositor() {
         runtimeWorkspaceSnapshotSurface,
       ),
     [
-      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs",
-      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-api.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-api.test.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs",
     ],
@@ -41750,7 +41828,7 @@ function runCompositor() {
 	      /rust_daemon_core_workspace_restore_event_required/.test(runtimeWorkspaceSnapshotSurface) &&
 	      /agentgres_workspace_restore_event_truth_required/.test(runtimeWorkspaceSnapshotSurface) &&
 	      /workspace_restore_event_js_append_retired/.test(workspaceRestoreKernel) &&
-	      /workspace snapshot surface commits Rust restore artifacts and admits Rust restore events/.test(
+	      /workspace snapshot API commits Rust restore artifacts and admits Rust restore events/.test(
 	        runtimeWorkspaceSnapshotSurfaceTest,
 	      ) &&
 	      /"event_workspace_restore_preview",\s*"event_workspace_restore_apply"/.test(
@@ -41763,8 +41841,8 @@ function runCompositor() {
         runtimeWorkspaceSnapshotSurface,
       ),
     [
-      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs",
-      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-api.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-api.test.mjs",
     ],
     "Phase 10/11 is pending: workspace restore preview/apply event appenders must read canonical snake_case result fields without camelCase fallbacks",
   );
@@ -41783,7 +41861,7 @@ function runCompositor() {
 	    "workspace-restore-result-output-aliases-retired",
 	    /workspaceRestoreCore\.previewSnapshotRestore\(\{/.test(runtimeWorkspaceSnapshotSurface) &&
 	      /workspaceRestoreCore\.applySnapshotRestore\(\{/.test(runtimeWorkspaceSnapshotSurface) &&
-	      /workspace snapshot surface routes restore preview\/apply through Rust core/.test(
+	      /workspace snapshot API routes restore preview\/apply through Rust core/.test(
 	        runtimeWorkspaceSnapshotSurfaceTest,
 	      ) &&
 	      /rust_core_shapes_workspace_snapshot_restore_preview_and_apply_responses/.test(
@@ -41812,8 +41890,8 @@ function runCompositor() {
         applyWorkspaceSnapshotRestoreBody,
       ),
     [
-      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs",
-      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-api.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-api.test.mjs",
     ],
     "Phase 10/11 is pending: workspace restore preview/apply results must expose canonical snake_case output fields without duplicate camelCase aliases",
   );
@@ -41838,8 +41916,8 @@ function runCompositor() {
 	        runtimeWorkspaceSnapshotSurface,
 	      ),
     [
-      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs",
-      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-api.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-api.test.mjs",
       "packages/runtime-daemon/src/runtime-workspace-restore-core.mjs",
       "crates/services/src/agentic/runtime/kernel/workspace_restore.rs",
     ],
@@ -41858,7 +41936,7 @@ function runCompositor() {
 	      /workspace snapshot restore fail-closed details use canonical fields/.test(
 	        runtimeWorkspaceSnapshotSurfaceTest,
 	      ) &&
-	      /workspace restore public facade calls Rust public restore API instead of operation helpers/.test(
+	      /workspace restore public API calls Rust public restore API instead of operation helpers/.test(
 	        runtimeWorkspaceSnapshotSurfaceTest,
 	      ) &&
       /assertNoRetiredWorkspaceRestoreErrorDetailAliases\(error\.details\)/.test(
@@ -41870,8 +41948,8 @@ function runCompositor() {
         runtimeWorkspaceSnapshotSurface,
       ),
     [
-      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs",
-      "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-api.mjs",
+      "packages/runtime-daemon/src/runtime-workspace-snapshot-api.test.mjs",
     ],
     "Phase 10/11 is pending: workspace restore fail-closed error details must expose canonical snake_case fields without duplicate camelCase aliases",
   );
@@ -42801,7 +42879,7 @@ function runCompositor() {
       "crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs",
       "crates/services/src/agentic/runtime/kernel/policy/mcp_memory.rs",
       "packages/runtime-daemon/src/runtime-thread-control-surface.mjs",
-      "packages/runtime-daemon/src/runtime-thread-turn-surface.mjs",
+      "packages/runtime-daemon/src/runtime-thread-turn-api.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-surface.mjs",
       "packages/runtime-daemon/src/runtime-mcp-control-api.mjs",
       "packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs",
@@ -43195,8 +43273,8 @@ function runCompositor() {
       "crates/services/src/agentic/runtime/kernel/mod.rs",
       "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
-      "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.mjs",
-      "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-diagnostics-repair-api.mjs",
+      "packages/runtime-daemon/src/runtime-diagnostics-repair-api.test.mjs",
     ],
     "Diagnostics repair decision execution, decision-event append, retry creation, and retry-event append must use Rust daemon-core planning plus Rust runtime-event admission without JS event or run-state fallback",
   );
@@ -43211,8 +43289,8 @@ function runCompositor() {
       "crates/services/src/agentic/runtime/kernel/mod.rs",
       "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
-      "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.mjs",
-      "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-diagnostics-repair-api.mjs",
+      "packages/runtime-daemon/src/runtime-diagnostics-repair-api.test.mjs",
     ],
     "Diagnostics repair decision projection must be Rust-owned before the daemon surface can resolve accepted repair truth, and the old JS projection-retired facade must stay gone",
   );
@@ -43418,8 +43496,8 @@ function runCompositor() {
         runtimeDiagnosticsRepairSurfaceTest,
       ),
     [
-      "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.mjs",
-      "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-diagnostics-repair-api.mjs",
+      "packages/runtime-daemon/src/runtime-diagnostics-repair-api.test.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
       "crates/services/src/agentic/runtime/kernel/policy.rs",
@@ -44099,8 +44177,8 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-agent-run-lifecycle.test.mjs",
       "packages/runtime-daemon/src/runtime-event-payloads.mjs",
       "packages/runtime-daemon/src/runtime-event-payloads.test.mjs",
-      "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.mjs",
-      "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-diagnostics-repair-api.mjs",
+      "packages/runtime-daemon/src/runtime-diagnostics-repair-api.test.mjs",
     ],
     "Phase 10/11 is pending: diagnostics feedback and blocking-gate envelopes must expose canonical snake_case fields without duplicate camelCase aliases or reader fallbacks",
   );
