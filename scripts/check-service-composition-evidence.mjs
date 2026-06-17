@@ -85,4 +85,27 @@ requireAll("docs/architecture/_meta/vocabulary.md", [
   "dispute evidence refs",
 ]);
 
+requireAll("packages/runtime-daemon/src/runtime-service-composition-receipt-bundle.mjs", [
+  "ioi.runtime.service_composition_receipt_bundle.v1",
+  "admitServiceCompositionReceiptBundle",
+  "contribution_receipt_refs",
+  "verifier_receipt_refs",
+  "policy_receipt_refs",
+  "routing_receipt_refs",
+  "private_data_posture",
+  "ctee_private_workspace",
+  "unsafe_plaintext_exception",
+  "dispute_evidence_refs",
+  "agentgres_operation_refs",
+  "state_root",
+  "service_composition_provider_logs_not_dispute_truth",
+  "service_composition_unsafe_plaintext_settlement_blocked",
+]);
+
+requireAll("packages/runtime-daemon/src/runtime-service-composition-receipt-bundle.test.mjs", [
+  "admits service composition receipt bundle with contribution, verifier, policy, routing, dispute, and Agentgres refs",
+  "rejects raw delivery blobs or provider logs as dispute truth",
+  "unsafe plaintext service delivery exceptions require explicit approval",
+]);
+
 console.log("service composition evidence conformance passed");
