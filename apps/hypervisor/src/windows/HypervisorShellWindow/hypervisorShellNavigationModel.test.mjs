@@ -30,6 +30,10 @@ const header = readFileSync(
   new URL("./components/HypervisorClientHeader.tsx", import.meta.url),
   "utf8",
 );
+const shellContent = readFileSync(
+  new URL("./components/HypervisorShellContent.tsx", import.meta.url),
+  "utf8",
+);
 
 test("hypervisor shell exposes the canonical core client and surface taxonomy", () => {
   assert.match(source, /export type HypervisorClientKind/);
@@ -222,6 +226,20 @@ test("new session modal is a shell-level governed launch flow", () => {
   assert.match(shellWindow, /<HypervisorNewSessionModal/);
   assert.match(shellWindow, /modelMountInventory=\{modelMountInventory\}/);
   assert.match(shellWindow, /onLaunch=\{controller\.modals\.launchNewSession\}/);
+});
+
+test("Foundry exposes harness comparison as a daemon-runtime dashboard", () => {
+  assert.match(shellContent, /HypervisorHarnessComparisonDashboard/);
+  assert.match(shellContent, /HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE/);
+  assert.match(shellContent, /data-hypervisor-harness-comparison-run/);
+  assert.match(shellContent, /Harness comparison dashboard/);
+  assert.match(shellContent, /output, cost, verification, receipts, and evidence/);
+  assert.match(shellContent, /candidate_reports\.map/);
+  assert.match(shellContent, /data-harness-comparison-candidate/);
+  assert.match(shellContent, /estimated_cost_usd/);
+  assert.match(shellContent, /verification_status/);
+  assert.match(shellContent, /receipt_ref/);
+  assert.match(shellContent, /activeView === "foundry"/);
 });
 
 console.log("hypervisorShellNavigationModel.test.mjs: ok");

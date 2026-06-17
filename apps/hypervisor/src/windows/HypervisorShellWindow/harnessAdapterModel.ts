@@ -108,8 +108,20 @@ export interface HarnessComparisonRun {
   selected_model_mount_ref?: string;
   comparison_mode: "same_task" | "same_fixture" | "benchmark" | "shadow";
   acceptance_criteria_refs: string[];
+  candidate_reports: HarnessComparisonCandidateReport[];
   receipt_refs: string[];
   runtimeTruthSource: "daemon-runtime";
+}
+
+export interface HarnessComparisonCandidateReport {
+  selection_ref: string;
+  label: string;
+  execution_lane: HarnessExecutionLane;
+  output_summary: string;
+  estimated_cost_usd: number;
+  verification_status: "passed" | "requires_review" | "blocked";
+  receipt_ref: string;
+  evidence_refs: string[];
 }
 
 export type HypervisorModelMountInventorySource =
@@ -625,6 +637,37 @@ const HYPERVISOR_HARNESS_TESTBED_SELECTION_REFS =
     getHarnessSelectionRef(option),
   );
 
+function harnessComparisonCandidateReport(
+  option: HypervisorHarnessSelectionOption,
+  index: number,
+): HarnessComparisonCandidateReport {
+  const selectionRef = getHarnessSelectionRef(option);
+  const adapterLane =
+    option.selection_kind === "agent_harness_adapter"
+      ? option.execution_lane
+      : "host_dev";
+  const modelPolicy =
+    option.selection_kind === "agent_harness_adapter"
+      ? option.model_route_policy
+      : option.default_model_route_policy;
+  return {
+    selection_ref: selectionRef,
+    label: option.label,
+    execution_lane: adapterLane,
+    output_summary:
+      option.selection_kind === "harness_profile"
+        ? "Reference scaffold owns loop policy and daemon-mediated model/tool routing."
+        : `Adapter proposal source over ${adapterLane} with ${modelPolicy} model policy.`,
+    estimated_cost_usd: Number((0.04 + index * 0.015).toFixed(3)),
+    verification_status: index === 0 ? "passed" : "requires_review",
+    receipt_ref: `receipt:draft:${selectionRef}`,
+    evidence_refs: [
+      "artifact://fixture/harness-comparison/public-code-edit-smoke",
+      `agentgres://projection/harness-comparison/${option.selection_kind}`,
+    ],
+  };
+}
+
 export const HYPERVISOR_HARNESS_ADAPTER_TESTBED_FIXTURE: HarnessAdapterTestbedFixture =
   {
     schema_version: "ioi.hypervisor.harness_adapter_testbed_fixture.v1",
@@ -657,6 +700,9 @@ export const HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE: HarnessComparisonRun = {
   comparison_mode: HYPERVISOR_HARNESS_ADAPTER_TESTBED_FIXTURE.comparison_mode,
   acceptance_criteria_refs:
     HYPERVISOR_HARNESS_ADAPTER_TESTBED_FIXTURE.acceptance_criteria_refs,
+  candidate_reports: HYPERVISOR_HARNESS_SELECTION_OPTIONS.map(
+    harnessComparisonCandidateReport,
+  ),
   receipt_refs: HYPERVISOR_HARNESS_ADAPTER_TESTBED_FIXTURE.candidate_selection_refs.map(
     (selectionRef) => `receipt:draft:${selectionRef}`,
   ),

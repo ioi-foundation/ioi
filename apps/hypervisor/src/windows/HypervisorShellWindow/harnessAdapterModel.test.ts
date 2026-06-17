@@ -255,6 +255,24 @@ test("harness testbed fixture compares adapters without granting runtime truth",
     selectionRefs.map((selectionRef) => `receipt:draft:${selectionRef}`),
   );
   assert.equal(
+    HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE.candidate_reports.length,
+    selectionRefs.length,
+  );
+  assert.deepEqual(
+    HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE.candidate_reports.map(
+      (candidate) => candidate.selection_ref,
+    ),
+    selectionRefs,
+  );
+  assert.equal(
+    HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE.candidate_reports[0]?.verification_status,
+    "passed",
+  );
+  assert.match(
+    HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE.candidate_reports[0]?.receipt_ref ?? "",
+    /^receipt:draft:/,
+  );
+  assert.equal(
     HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE.runtimeTruthSource,
     "daemon-runtime",
   );

@@ -28,6 +28,7 @@ import {
 import { buildOperatorCommandCenterModel } from "../operatorSubstrateModel";
 import { materializeWorkflowProject } from "../../../services/workflowProjectMaterialization";
 import type { PrimaryView } from "../hypervisorShellModel";
+import { HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE } from "../harnessAdapterModel";
 
 interface HypervisorShellContentProps {
   controller: ReturnType<typeof useHypervisorShellController>;
@@ -110,6 +111,73 @@ function HypervisorSurfacePlaceholder({
       <div className="hypervisor-surface-placeholder-tags" aria-label="Surface primitives">
         {copy.tags.map((tag) => (
           <span key={tag}>{tag}</span>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function HypervisorHarnessComparisonDashboard() {
+  const comparison = HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE;
+  return (
+    <section
+      className="hypervisor-harness-comparison"
+      aria-label="Harness comparison dashboard"
+      data-hypervisor-harness-comparison-run={comparison.run_id}
+    >
+      <div className="hypervisor-harness-comparison__header">
+        <span>Foundry comparison</span>
+        <h2>Compare harness adapters against one public fixture.</h2>
+        <p>
+          Foundry reads the same daemon-runtime comparison contract as New
+          Session, then makes output, cost, verification, receipts, and evidence
+          visible before any adapter is treated as reliable.
+        </p>
+      </div>
+
+      <div className="hypervisor-harness-comparison__summary" aria-label="Comparison summary">
+        <div>
+          <span>Fixture</span>
+          <strong>{comparison.task_ref}</strong>
+        </div>
+        <div>
+          <span>Mode</span>
+          <strong>{comparison.comparison_mode}</strong>
+        </div>
+        <div>
+          <span>Criteria</span>
+          <strong>{comparison.acceptance_criteria_refs.length}</strong>
+        </div>
+        <div>
+          <span>Receipts</span>
+          <strong>{comparison.receipt_refs.length}</strong>
+        </div>
+      </div>
+
+      <div className="hypervisor-harness-comparison__table" role="table">
+        <div className="hypervisor-harness-comparison__row is-head" role="row">
+          <span role="columnheader">Harness</span>
+          <span role="columnheader">Output</span>
+          <span role="columnheader">Cost</span>
+          <span role="columnheader">Verification</span>
+          <span role="columnheader">Receipt</span>
+        </div>
+        {comparison.candidate_reports.map((candidate) => (
+          <div
+            key={candidate.selection_ref}
+            className="hypervisor-harness-comparison__row"
+            role="row"
+            data-harness-comparison-candidate={candidate.selection_ref}
+          >
+            <span role="cell">
+              <strong>{candidate.label}</strong>
+              <em>{candidate.execution_lane}</em>
+            </span>
+            <span role="cell">{candidate.output_summary}</span>
+            <span role="cell">${candidate.estimated_cost_usd.toFixed(3)}</span>
+            <span role="cell">{candidate.verification_status.split("_").join(" ")}</span>
+            <span role="cell">{candidate.receipt_ref}</span>
+          </div>
         ))}
       </div>
     </section>
@@ -341,6 +409,10 @@ export function HypervisorShellContent({
                     <MissionControlMountsView />
                   ) : null}
 
+                  {activeView === "foundry" ? (
+                    <HypervisorHarnessComparisonDashboard />
+                  ) : null}
+
                   {activeView === "missions" ? (
                     <InboxView
                       onOpenHypervisor={() => {
@@ -456,7 +528,7 @@ export function HypervisorShellContent({
                     />
                   ) : null}
 
-                  {isPlaceholderSurface(activeView) ? (
+                  {isPlaceholderSurface(activeView) && activeView !== "foundry" ? (
                     <HypervisorSurfacePlaceholder activeView={activeView} />
                   ) : null}
                 </div>
