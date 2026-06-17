@@ -4,6 +4,7 @@ export type SettingsSection =
   | "knowledge"
   | "skill_sources"
   | "managed_settings"
+  | "workbench_adapter"
   | "runtime"
   | "storage_api"
   | "sources"

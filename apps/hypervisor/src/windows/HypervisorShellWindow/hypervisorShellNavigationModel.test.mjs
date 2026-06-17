@@ -91,7 +91,7 @@ test("hypervisor shell binds Phase 0A to the IOI reference cockpit contract", ()
     assert.match(source, new RegExp(`"${shellRegion}"`));
   }
   for (const settingsSection of [
-    "editor_preference",
+    "workbench_adapter",
     "secrets",
     "git_auth",
     "personal_access_tokens",
@@ -100,6 +100,11 @@ test("hypervisor shell binds Phase 0A to the IOI reference cockpit contract", ()
     assert.match(source, new RegExp(`"${settingsSection}"`));
   }
   assert.match(source, /Codex CLI[\s\S]*Claude Code[\s\S]*DeepSeek CLI[\s\S]*Grok Build/);
+  assert.match(source, /HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES/);
+  assert.match(source, /WorkbenchAdapterPreference/);
+  assert.match(source, /DEFAULT_WORKBENCH_ADAPTER_PREFERENCE_REF/);
+  assert.match(source, /workbench_adapter/);
+  assert.match(source, /Embedded Workbench[\s\S]*External Editor[\s\S]*Browser Workspace/);
   assert.match(activityBar, /HYPERVISOR_IOI_REFERENCE_SHELL_REQUIREMENTS/);
   assert.match(
     activityBar,
@@ -126,6 +131,8 @@ test("hypervisor shell models IOI-reference session detail and inspectors", () =
   assert.match(source, /HYPERVISOR_PRIMARY_ACTION[\s\S]*New Session/);
   assert.match(source, /HYPERVISOR_NEW_SESSION_SETUP_MODEL/);
   assert.match(source, /HYPERVISOR_SESSION_LAUNCH_RECIPES/);
+  assert.match(source, /adapter_preference_ref/);
+  assert.match(source, /"adapter_preference"/);
   for (const recipeId of [
     "mission.default",
     "workbench.default",
@@ -183,6 +190,9 @@ test("visible shell chrome uses Hypervisor labels over compatibility route keys"
 
 test("new session modal is a shell-level governed launch flow", () => {
   assert.match(newSessionModal, /HYPERVISOR_SESSION_LAUNCH_RECIPES/);
+  assert.match(newSessionModal, /HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES/);
+  assert.match(newSessionModal, /Workbench Adapter/);
+  assert.match(newSessionModal, /adapter_preference_ref: adapterPreferenceRef/);
   assert.match(newSessionModal, /buildHarnessCompatibilityVerdict/);
   assert.match(newSessionModal, /data-new-session-receipt-preview/);
   assert.match(newSessionModal, /cTEE private workspace/);

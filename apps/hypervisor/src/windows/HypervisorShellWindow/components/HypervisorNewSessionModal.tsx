@@ -1,8 +1,13 @@
 import { useMemo, useState } from "react";
 
 import {
+  DEFAULT_WORKBENCH_ADAPTER_PREFERENCE_REF,
   HYPERVISOR_NEW_SESSION_SETUP_MODEL,
   HYPERVISOR_SESSION_LAUNCH_RECIPES,
+  HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCE_STORAGE_KEY,
+  HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES,
+  getWorkbenchAdapterPreferenceByRef,
+  getWorkbenchAdapterPreferenceRef,
   type HypervisorNewSessionLaunchRequest,
 } from "../hypervisorShellNavigationModel";
 import {
@@ -76,6 +81,24 @@ function defaultHarnessSelectionRef(): string {
   return option ? getHarnessSelectionRef(option) : "harness-profile:default_harness_profile";
 }
 
+function readStoredWorkbenchAdapterPreferenceRef(): string {
+  if (typeof window === "undefined") {
+    return DEFAULT_WORKBENCH_ADAPTER_PREFERENCE_REF;
+  }
+  const stored = window.localStorage.getItem(
+    HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCE_STORAGE_KEY,
+  );
+  if (
+    stored &&
+    HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES.some(
+      (preference) => getWorkbenchAdapterPreferenceRef(preference) === stored,
+    )
+  ) {
+    return stored;
+  }
+  return DEFAULT_WORKBENCH_ADAPTER_PREFERENCE_REF;
+}
+
 function harnessOptionLabel(option: HypervisorHarnessSelectionOption): string {
   return option.selection_kind === "harness_profile"
     ? option.label
@@ -93,6 +116,9 @@ export function HypervisorNewSessionModal({
     HYPERVISOR_SESSION_LAUNCH_RECIPES[0]?.recipe_id ?? "mission.default",
   );
   const [projectId, setProjectId] = useState(currentProject.id);
+  const [adapterPreferenceRef, setAdapterPreferenceRef] = useState(
+    readStoredWorkbenchAdapterPreferenceRef,
+  );
   const [harnessSelectionRef, setHarnessSelectionRef] = useState(
     defaultHarnessSelectionRef(),
   );
@@ -107,6 +133,8 @@ export function HypervisorNewSessionModal({
     ) ?? HYPERVISOR_SESSION_LAUNCH_RECIPES[0]!;
   const selectedProject =
     projects.find((project) => project.id === projectId) ?? currentProject;
+  const selectedAdapterPreference =
+    getWorkbenchAdapterPreferenceByRef(adapterPreferenceRef);
   const selectedHarness =
     HYPERVISOR_NEW_SESSION_SETUP_MODEL.harnessOptions.find(
       (option) => getHarnessSelectionRef(option) === harnessSelectionRef,
@@ -127,9 +155,10 @@ export function HypervisorNewSessionModal({
         "receipt-preview:new-session",
         recipe.recipe_id,
         selectedProject.id,
+        adapterPreferenceRef.replace(/[^a-z0-9_-]+/gi, "-"),
         harnessSelectionRef.replace(/[^a-z0-9_-]+/gi, "-"),
       ].join("/"),
-    [harnessSelectionRef, recipe.recipe_id, selectedProject.id],
+    [adapterPreferenceRef, harnessSelectionRef, recipe.recipe_id, selectedProject.id],
   );
 
   if (!isOpen) {
@@ -140,6 +169,7 @@ export function HypervisorNewSessionModal({
     onLaunch({
       recipe_id: recipe.recipe_id,
       project_id: selectedProject.id,
+      adapter_preference_ref: adapterPreferenceRef,
       harness_selection_ref: harnessSelectionRef,
       model_route_ref: modelRouteRef,
       privacy_posture_ref: privacyPostureRef,
@@ -211,6 +241,22 @@ export function HypervisorNewSessionModal({
               </select>
             </label>
             <label>
+              <span>Workbench Adapter</span>
+              <select
+                value={adapterPreferenceRef}
+                onChange={(event) => setAdapterPreferenceRef(event.target.value)}
+              >
+                {HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES.map((preference) => {
+                  const preferenceRef = getWorkbenchAdapterPreferenceRef(preference);
+                  return (
+                    <option key={preferenceRef} value={preferenceRef}>
+                      {preference.label} - {preference.launch_mode}
+                    </option>
+                  );
+                })}
+              </select>
+            </label>
+            <label>
               <span>Harness</span>
               <select
                 value={harnessSelectionRef}
@@ -265,6 +311,11 @@ export function HypervisorNewSessionModal({
           <div>
             <span>Required inputs</span>
             <strong>{recipe.required_inputs.map(setupSectionLabel).join(" - ")}</strong>
+          </div>
+          <div>
+            <span>Adapter target</span>
+            <strong>{selectedAdapterPreference.label}</strong>
+            <em>{selectedAdapterPreference.description}</em>
           </div>
           <div>
             <span>Harness verdict</span>

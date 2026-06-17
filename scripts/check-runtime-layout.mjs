@@ -229,7 +229,7 @@ assert(
       '"right_inspector"',
       '"bottom_inspector"',
     ].every((region) => hypervisorShellNavigationSource.includes(region)) &&
-    hypervisorShellNavigationSource.includes('"editor_preference"') &&
+    hypervisorShellNavigationSource.includes('"workbench_adapter"') &&
     hypervisorShellNavigationSource.includes('"git_auth"') &&
     hypervisorShellNavigationSource.includes("Codex CLI") &&
     hypervisorShellNavigationSource.includes("Claude Code") &&
@@ -349,10 +349,10 @@ assert(
     workspaceRepositoryGateSource.includes("Choose a governed adapter target") &&
     workspaceRepositoryGateSource.includes("adapter targets over Hypervisor Core") &&
     workspaceRepositoryGateSource.includes("not the parent product or runtime truth") &&
-    workspaceRepositoryGateSource.includes("VS Code / OpenVSCode") &&
-    workspaceRepositoryGateSource.includes("Cursor / Windsurf") &&
-    workspaceRepositoryGateSource.includes("JetBrains / Terminal") &&
-    workspaceRepositoryGateSource.includes("Browser / VM / Node") &&
+    workspaceRepositoryGateSource.includes("HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES") &&
+    workspaceRepositoryGateSource.includes("getWorkbenchAdapterPreferenceRef") &&
+    workspaceRepositoryGateSource.includes("data-workbench-adapter-preference") &&
+    workspaceRepositoryGateSource.includes("persistWorkbenchAdapterPreferenceRef") &&
     !/<h1>Code repositories<\/h1>|>Pull requests<|No pull requests created by you|Find pull requests/.test(
       workspaceRepositoryGateSource,
     ),

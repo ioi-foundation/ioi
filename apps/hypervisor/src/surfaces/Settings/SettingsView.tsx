@@ -18,6 +18,12 @@ import type {
   SkillSourceRecord,
 } from "../../types";
 import {
+  DEFAULT_WORKBENCH_ADAPTER_PREFERENCE_REF,
+  HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCE_STORAGE_KEY,
+  HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES,
+  getWorkbenchAdapterPreferenceRef,
+} from "../../windows/HypervisorShellWindow/hypervisorShellNavigationModel";
+import {
   applySessionPermissionProfileToRuntime,
   fetchShieldRememberedApprovalSnapshotFromRuntime,
   onShieldPolicyStateUpdated,
@@ -35,6 +41,24 @@ import { SettingsViewBody } from "./SettingsViewBody";
 import { type SettingsSection } from "./settingsViewShared";
 import { buildAuthorityCenterProjection } from "../Policy/authorityCenter";
 import { loadAuthorityCenterRuntimeProjection } from "../Policy/authorityCenterRuntime";
+
+function readStoredWorkbenchAdapterPreferenceRef(): string {
+  if (typeof window === "undefined") {
+    return DEFAULT_WORKBENCH_ADAPTER_PREFERENCE_REF;
+  }
+  const stored = window.localStorage.getItem(
+    HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCE_STORAGE_KEY,
+  );
+  if (
+    stored &&
+    HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES.some(
+      (preference) => getWorkbenchAdapterPreferenceRef(preference) === stored,
+    )
+  ) {
+    return stored;
+  }
+  return DEFAULT_WORKBENCH_ADAPTER_PREFERENCE_REF;
+}
 
 interface SettingsViewProps {
   runtime: Pick<
@@ -105,6 +129,8 @@ export function SettingsView({
 }: SettingsViewProps) {
   const [selectedSection, setSelectedSection] =
     useState<SettingsSection>("identity");
+  const [workbenchAdapterPreferenceRef, setWorkbenchAdapterPreferenceRef] =
+    useState(readStoredWorkbenchAdapterPreferenceRef);
   const [isResetting, setIsResetting] = useState(false);
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -198,6 +224,15 @@ export function SettingsView({
     setSelectedSection(seedSection);
     onConsumeSeedSection?.();
   }, [onConsumeSeedSection, seedSection]);
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    window.localStorage.setItem(
+      HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCE_STORAGE_KEY,
+      workbenchAdapterPreferenceRef,
+    );
+  }, [workbenchAdapterPreferenceRef]);
   const engineDirty =
     !!engineSnapshot &&
     !!engineDraft &&
@@ -805,6 +840,8 @@ export function SettingsView({
     onSaveProfile,
     selectedSection,
     setSelectedSection,
+    workbenchAdapterPreferenceRef,
+    setWorkbenchAdapterPreferenceRef,
     isResetting,
     setIsResetting,
     resetConfirmOpen,

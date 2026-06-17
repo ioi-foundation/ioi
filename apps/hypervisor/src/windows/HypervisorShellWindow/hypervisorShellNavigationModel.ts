@@ -31,11 +31,32 @@ export type HypervisorShellActionId = "new_session";
 export type HypervisorNewSessionSetupSectionId =
   | "intent"
   | "project"
+  | "adapter_preference"
   | "harness"
   | "model_route"
   | "privacy_posture"
   | "authority"
   | "receipt_preview";
+
+export type HypervisorWorkbenchAdapterId =
+  | "embedded_workbench"
+  | "external_editor"
+  | "browser_workspace"
+  | "terminal_workspace"
+  | "remote_vm"
+  | "hypervisor_node";
+
+export type HypervisorWorkbenchAdapterLaunchMode =
+  | "embedded"
+  | "external"
+  | "remote_url"
+  | "headless";
+
+export type HypervisorWorkbenchAdapterCustodyPosture =
+  | "local_projection"
+  | "redacted_projection"
+  | "provider_session"
+  | "headless_session";
 
 export type HypervisorSurfaceKind =
   | "core"
@@ -86,7 +107,7 @@ export type HypervisorShellRegion =
   | "settings";
 
 export type HypervisorSettingsSectionId =
-  | "editor_preference"
+  | "workbench_adapter"
   | "secrets"
   | "git_auth"
   | "personal_access_tokens"
@@ -137,6 +158,16 @@ export interface HypervisorNewSessionSetupModel {
   runtimeTruthSource: "daemon-runtime";
 }
 
+export interface WorkbenchAdapterPreference {
+  adapter_id: HypervisorWorkbenchAdapterId;
+  label: string;
+  description: string;
+  launch_mode: HypervisorWorkbenchAdapterLaunchMode;
+  target_ref: string;
+  custody_posture: HypervisorWorkbenchAdapterCustodyPosture;
+  default_for_project?: boolean;
+}
+
 export interface HypervisorSessionLaunchRecipe {
   recipe_id: string;
   label: string;
@@ -160,11 +191,98 @@ export interface HypervisorSessionLaunchRecipe {
 export interface HypervisorNewSessionLaunchRequest {
   recipe_id: string;
   project_id: string;
+  adapter_preference_ref: string;
   harness_selection_ref: string;
   model_route_ref: string;
   privacy_posture_ref: string;
   authority_scope_refs: string[];
   receipt_preview_ref: string;
+}
+
+export const HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCE_STORAGE_KEY =
+  "hypervisor.workbench.adapterPreferenceRef";
+
+export const HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES: WorkbenchAdapterPreference[] =
+  [
+    {
+      adapter_id: "embedded_workbench",
+      label: "Embedded Workbench",
+      description:
+        "Use Hypervisor's packaged workbench host for code, IOI panes, and extension-backed project work.",
+      launch_mode: "embedded",
+      target_ref: "adapter-target:embedded-workbench",
+      custody_posture: "local_projection",
+      default_for_project: true,
+    },
+    {
+      adapter_id: "external_editor",
+      label: "External Editor",
+      description:
+        "Attach a compatible desktop editor as a governed adapter target without making it runtime truth.",
+      launch_mode: "external",
+      target_ref: "adapter-target:external-editor",
+      custody_posture: "redacted_projection",
+    },
+    {
+      adapter_id: "browser_workspace",
+      label: "Browser Workspace",
+      description:
+        "Open a browser-hosted workspace through daemon-mediated workspace, auth, and receipt policy.",
+      launch_mode: "remote_url",
+      target_ref: "adapter-target:browser-workspace",
+      custody_posture: "provider_session",
+    },
+    {
+      adapter_id: "terminal_workspace",
+      label: "Terminal Workspace",
+      description:
+        "Route shell, tmux, and harness CLI activity through command mediation and session receipts.",
+      launch_mode: "headless",
+      target_ref: "adapter-target:terminal-workspace",
+      custody_posture: "headless_session",
+    },
+    {
+      adapter_id: "remote_vm",
+      label: "Remote VM Workspace",
+      description:
+        "Launch or attach a VM/container workspace with explicit provider, port, service, and restore posture.",
+      launch_mode: "remote_url",
+      target_ref: "adapter-target:remote-vm-workspace",
+      custody_posture: "provider_session",
+    },
+    {
+      adapter_id: "hypervisor_node",
+      label: "HypervisorOS Node",
+      description:
+        "Attach a persistent node session as a governed workbench target with lifecycle and receipt projection.",
+      launch_mode: "remote_url",
+      target_ref: "adapter-target:hypervisoros-node",
+      custody_posture: "provider_session",
+    },
+  ];
+
+export function getWorkbenchAdapterPreferenceRef(
+  preference: Pick<WorkbenchAdapterPreference, "adapter_id">,
+): string {
+  return `workbench-adapter:${preference.adapter_id}`;
+}
+
+export const DEFAULT_WORKBENCH_ADAPTER_PREFERENCE_REF =
+  getWorkbenchAdapterPreferenceRef(
+    HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES.find(
+      (preference) => preference.default_for_project,
+    ) ?? HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES[0]!,
+  );
+
+export function getWorkbenchAdapterPreferenceByRef(
+  preferenceRef: string,
+): WorkbenchAdapterPreference {
+  return (
+    HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES.find(
+      (preference) =>
+        getWorkbenchAdapterPreferenceRef(preference) === preferenceRef,
+    ) ?? HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES[0]!
+  );
 }
 
 export const HYPERVISOR_PRIMARY_ACTION: HypervisorShellAction = {
@@ -188,6 +306,13 @@ export const HYPERVISOR_NEW_SESSION_SETUP_MODEL: HypervisorNewSessionSetupModel 
         id: "project",
         label: "Project",
         description: "Workspace/project root, state refs, and restore posture.",
+        required: true,
+      },
+      {
+        id: "adapter_preference",
+        label: "Adapter",
+        description:
+          "Editor, terminal, browser, VM, or node target mediated by Workbench.",
         required: true,
       },
       {
@@ -248,7 +373,13 @@ export const HYPERVISOR_SESSION_LAUNCH_RECIPES: HypervisorSessionLaunchRecipe[] 
         "Governed code/systems session that opens the selected editor, terminal, browser, or VM adapter.",
       kind: "workbench",
       surface_id: "workbench",
-      required_inputs: ["project", "harness", "model_route", "privacy_posture"],
+      required_inputs: [
+        "project",
+        "adapter_preference",
+        "harness",
+        "model_route",
+        "privacy_posture",
+      ],
       model_mount_policy: "inherit",
       harness_profile_policy: "select",
       authority_scope_templates: ["scope:workspace.read", "scope:workspace.patch"],
@@ -365,14 +496,9 @@ export const HYPERVISOR_PRIMARY_SURFACES: HypervisorShellNavigationItem[] = [
     railGroup: "applications",
     defaultSessionTab: "workbench",
     inspectorPanels: ["changes", "ports_services", "terminal", "model_harness_provider"],
-    adapterTargets: [
-      "VS Code",
-      "Cursor",
-      "Windsurf",
-      "JetBrains",
-      "Browser IDE",
-      "Terminal",
-    ],
+    adapterTargets: HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES.map(
+      (preference) => preference.label,
+    ),
   },
   {
     id: "automations",
@@ -551,21 +677,17 @@ export const HYPERVISOR_IOI_REFERENCE_SHELL_REQUIREMENTS: HypervisorIoiReference
     rightInspectorPanels: HYPERVISOR_RIGHT_INSPECTOR_PANELS,
     bottomInspectorPanels: HYPERVISOR_BOTTOM_INSPECTOR_PANELS,
     settingsSections: [
-      "editor_preference",
+      "workbench_adapter",
       "secrets",
       "git_auth",
       "personal_access_tokens",
       "integrations",
     ],
     editorAdapterTargets: [
-      "VS Code",
-      "Cursor",
-      "Windsurf",
-      "JetBrains",
-      "Browser IDE",
-      "Terminal",
-      "tmux",
-      "workspace substrate",
+      ...HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES.map(
+        (preference) => preference.label,
+      ),
+      "Workspace substrate",
     ],
     agentHarnessAdapters: [
       "Codex CLI",

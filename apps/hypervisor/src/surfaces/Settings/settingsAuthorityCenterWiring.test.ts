@@ -30,6 +30,10 @@ const environmentSection = fs.readFileSync(
   new URL("./SettingsEnvironmentSection.tsx", import.meta.url),
   "utf8",
 );
+const workbenchAdapterSection = fs.readFileSync(
+  new URL("./SettingsWorkbenchAdapterSection.tsx", import.meta.url),
+  "utf8",
+);
 const missionControlControlView = fs.readFileSync(
   new URL("../MissionControl/MissionControlControlView.tsx", import.meta.url),
   "utf8",
@@ -126,6 +130,20 @@ test("environment settings are labeled as compatibility, not authority truth", (
   assert.match(environmentSection, /Compatibility bindings/);
   assert.match(environmentSection, /Source of truth/);
   assert.match(environmentSection, /Authority Center/);
+});
+
+test("settings expose Workbench adapter preference as a client default", () => {
+  assert.match(settingsViewBody, /selectedSection === "workbench_adapter"/);
+  assert.match(settingsViewBody, /SettingsWorkbenchAdapterSection/);
+  assert.match(settingsView, /workbenchAdapterPreferenceRef/);
+  assert.match(
+    settingsView,
+    /HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCE_STORAGE_KEY/,
+  );
+  assert.match(workbenchAdapterSection, /Default session target/);
+  assert.match(workbenchAdapterSection, /HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES/);
+  assert.match(workbenchAdapterSection, /data-workbench-adapter-preference/);
+  assert.match(workbenchAdapterSection, /adapter_preference_ref/);
 });
 
 test("settings authority repair actions route to canonical surfaces", () => {

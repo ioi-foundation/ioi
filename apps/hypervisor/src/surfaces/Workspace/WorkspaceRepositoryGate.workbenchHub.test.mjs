@@ -22,11 +22,12 @@ test("Workbench landing is an adapter hub over Hypervisor Core", () => {
   assert.match(gateSource, /editors, terminals, browsers, VMs, and/);
   assert.match(gateSource, /adapter targets over Hypervisor Core/);
   assert.match(gateSource, /not the parent product or runtime truth/);
-  assert.match(gateSource, /WORKBENCH_ADAPTER_TARGETS/);
-  assert.match(gateSource, /VS Code \/ OpenVSCode/);
-  assert.match(gateSource, /Cursor \/ Windsurf/);
-  assert.match(gateSource, /JetBrains \/ Terminal/);
-  assert.match(gateSource, /Browser \/ VM \/ Node/);
+  assert.match(gateSource, /HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES/);
+  assert.match(gateSource, /getWorkbenchAdapterPreferenceRef/);
+  assert.match(gateSource, /data-workbench-adapter-preference/);
+  assert.match(gateSource, /aria-pressed=\{selected\}/);
+  assert.match(gateSource, /persistWorkbenchAdapterPreferenceRef/);
+  assert.doesNotMatch(gateSource, /WORKBENCH_ADAPTER_TARGETS/);
 });
 
 test("Workbench landing no longer opens as a code repository PR console", () => {

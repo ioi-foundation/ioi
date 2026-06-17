@@ -2041,6 +2041,11 @@
   box-shadow: 0 8px 18px rgba(31, 41, 51, 0.08);
 }
 
+.workspace-repository-gate__choice-card.is-selected {
+  border-color: var(--workspace-repo-link, #1d4ed8);
+  background: var(--workspace-repo-pill-active-bg, rgba(36, 99, 235, 0.08));
+}
+
 .workspace-repository-gate__choice-card > span {
   width: 34px;
   height: 34px;
@@ -2063,6 +2068,14 @@
   color: #526274;
   font-size: 12px;
   line-height: 1.4;
+}
+
+.workspace-repository-gate__choice-selected {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--workspace-repo-link, #1d4ed8) !important;
+  font-weight: 700;
 }
 
 .workspace-repository-gate__choice-card > svg {

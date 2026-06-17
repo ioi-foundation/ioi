@@ -17,6 +17,14 @@ import {
 } from "react";
 
 import {
+  DEFAULT_WORKBENCH_ADAPTER_PREFERENCE_REF,
+  HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCE_STORAGE_KEY,
+  HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES,
+  getWorkbenchAdapterPreferenceByRef,
+  getWorkbenchAdapterPreferenceRef,
+  type WorkbenchAdapterPreference,
+} from "../../windows/HypervisorShellWindow/hypervisorShellNavigationModel";
+import {
   createUniqueRepositorySlug,
   getGeneratedRepositoryPath,
   slugifyRepositoryName,
@@ -55,6 +63,8 @@ interface WorkspaceRepositoryGateProps {
   onDismissCreatedRepository: () => void;
   onOpenRepository: (repository: WorkspaceRepositoryRecord) => void;
   onToggleFavorite: (repository: WorkspaceRepositoryRecord) => void;
+  selectedAdapterPreferenceRef?: string;
+  onSelectAdapterPreference?: (preferenceRef: string) => void;
 }
 
 type CreateStep = "landing" | "category" | "template" | "details";
@@ -210,37 +220,6 @@ const TEMPLATE_OPTIONS: Record<
   ],
 };
 
-const WORKBENCH_ADAPTER_TARGETS = [
-  {
-    id: "vscode",
-    label: "VS Code / OpenVSCode",
-    summary:
-      "Use the packaged Electron Workbench adapter host for code, IOI panes, and extension-backed project work.",
-    status: "Default adapter",
-  },
-  {
-    id: "cursor-windsurf",
-    label: "Cursor / Windsurf",
-    summary:
-      "Attach compatible editor sessions as governed adapter targets without making them runtime truth.",
-    status: "Adapter target",
-  },
-  {
-    id: "jetbrains-terminal",
-    label: "JetBrains / Terminal",
-    summary:
-      "Route shells, tmux, and IDE clients through daemon-gated workspace and command mediation.",
-    status: "Daemon gated",
-  },
-  {
-    id: "browser-vm-node",
-    label: "Browser / VM / Node",
-    summary:
-      "Open remote workspaces, browser sessions, VMs, and HypervisorOS nodes under authority and receipt policy.",
-    status: "Session target",
-  },
-] as const;
-
 function RepositoryGateIcon() {
   return (
     <svg
@@ -296,6 +275,40 @@ function getDefaultTemplate(category: WorkspaceRepositoryCategory) {
   );
 }
 
+function readStoredWorkbenchAdapterPreferenceRef(): string {
+  if (typeof window === "undefined") {
+    return DEFAULT_WORKBENCH_ADAPTER_PREFERENCE_REF;
+  }
+  const stored = window.localStorage.getItem(
+    HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCE_STORAGE_KEY,
+  );
+  if (
+    stored &&
+    HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES.some(
+      (preference) => getWorkbenchAdapterPreferenceRef(preference) === stored,
+    )
+  ) {
+    return stored;
+  }
+  return DEFAULT_WORKBENCH_ADAPTER_PREFERENCE_REF;
+}
+
+function persistWorkbenchAdapterPreferenceRef(preferenceRef: string) {
+  if (typeof window === "undefined") {
+    return;
+  }
+  window.localStorage.setItem(
+    HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCE_STORAGE_KEY,
+    preferenceRef,
+  );
+}
+
+function adapterStatusLabel(preference: WorkbenchAdapterPreference): string {
+  return `${preference.launch_mode.split("_").join(" ")} / ${preference.custody_posture
+    .split("_")
+    .join(" ")}`;
+}
+
 export function WorkspaceRepositoryGate({
   repositories,
   createError,
@@ -305,6 +318,8 @@ export function WorkspaceRepositoryGate({
   onDismissCreatedRepository,
   onOpenRepository,
   onToggleFavorite,
+  selectedAdapterPreferenceRef,
+  onSelectAdapterPreference,
 }: WorkspaceRepositoryGateProps) {
   const [step, setStep] = useState<CreateStep>("landing");
   const [repositoryQuery, setRepositoryQuery] = useState("");
@@ -312,6 +327,9 @@ export function WorkspaceRepositoryGate({
     useState<WorkspaceRepositoryCategory>("pipelines");
   const [selectedTemplateId, setSelectedTemplateId] = useState("python");
   const [repositoryName, setRepositoryName] = useState("new-pipeline");
+  const [localAdapterPreferenceRef, setLocalAdapterPreferenceRef] = useState(
+    readStoredWorkbenchAdapterPreferenceRef,
+  );
 
   const selectedCategoryOption = CATEGORY_OPTIONS.find(
     (category) => category.id === selectedCategory,
@@ -346,6 +364,11 @@ export function WorkspaceRepositoryGate({
     (repository) => repository.favorite,
   );
   const canCreate = repositoryName.trim().length > 0 && !creating;
+  const activeAdapterPreferenceRef =
+    selectedAdapterPreferenceRef ?? localAdapterPreferenceRef;
+  const activeAdapterPreference = getWorkbenchAdapterPreferenceByRef(
+    activeAdapterPreferenceRef,
+  );
 
   useEffect(() => {
     if (createdRepository) {
@@ -389,6 +412,15 @@ export function WorkspaceRepositoryGate({
       template: selectedTemplate.id,
       templateLabel: selectedTemplate.label,
     });
+  };
+
+  const selectWorkbenchAdapterPreference = (
+    preference: WorkbenchAdapterPreference,
+  ) => {
+    const preferenceRef = getWorkbenchAdapterPreferenceRef(preference);
+    setLocalAdapterPreferenceRef(preferenceRef);
+    persistWorkbenchAdapterPreferenceRef(preferenceRef);
+    onSelectAdapterPreference?.(preferenceRef);
   };
 
   const renderRepositoryList = (
@@ -524,23 +556,44 @@ export function WorkspaceRepositoryGate({
                   className="workspace-repository-gate__category-grid"
                   aria-label="Workbench adapter targets"
                 >
-                  {WORKBENCH_ADAPTER_TARGETS.map((target) => (
-                    <article
-                      className="workspace-repository-gate__choice-card"
-                      data-workbench-adapter-target={target.id}
-                      key={target.id}
-                    >
-                      <span>
-                        {renderIcon(FolderOpen, {
-                          size: 18,
-                          "aria-hidden": true,
-                        })}
-                      </span>
-                      <strong>{target.label}</strong>
-                      <small>{target.summary}</small>
-                      <small>{target.status}</small>
-                    </article>
-                  ))}
+                  {HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES.map((target) => {
+                    const preferenceRef = getWorkbenchAdapterPreferenceRef(target);
+                    const selected =
+                      getWorkbenchAdapterPreferenceRef(activeAdapterPreference) ===
+                      preferenceRef;
+                    return (
+                      <button
+                        type="button"
+                        className={`workspace-repository-gate__choice-card ${
+                          selected ? "is-selected" : ""
+                        }`}
+                        data-workbench-adapter-target={target.adapter_id}
+                        data-workbench-adapter-preference={preferenceRef}
+                        aria-pressed={selected}
+                        onClick={() => selectWorkbenchAdapterPreference(target)}
+                        key={target.adapter_id}
+                      >
+                        <span>
+                          {renderIcon(FolderOpen, {
+                            size: 18,
+                            "aria-hidden": true,
+                          })}
+                        </span>
+                        <strong>{target.label}</strong>
+                        <small>{target.description}</small>
+                        <small>{adapterStatusLabel(target)}</small>
+                        {selected ? (
+                          <small className="workspace-repository-gate__choice-selected">
+                            {renderIcon(Check, {
+                              size: 13,
+                              "aria-hidden": true,
+                            })}
+                            Selected default
+                          </small>
+                        ) : null}
+                      </button>
+                    );
+                  })}
                 </div>
               </section>
             </main>

@@ -8,6 +8,7 @@ import { SettingsRuntimeSection } from "./SettingsRuntimeSection";
 import { SettingsSkillSourcesSection } from "./SettingsSkillSourcesSection";
 import { SettingsSourcesSection } from "./SettingsSourcesSection";
 import { SettingsStorageApiSection } from "./SettingsStorageApiSection";
+import { SettingsWorkbenchAdapterSection } from "./SettingsWorkbenchAdapterSection";
 import { isEngineSection } from "./settingsViewShared";
 import type { SettingsViewBodyView } from "./settingsViewTypes";
 
@@ -78,6 +79,18 @@ export function SettingsViewBody({ view }: { view: SettingsViewBodyView }) {
           <strong>Managed settings</strong>
           <span>
             Signed sync channels, effective policy, and local override posture.
+          </span>
+        </button>
+        <button
+          type="button"
+          className={`chat-settings-target ${
+            selectedSection === "workbench_adapter" ? "active" : ""
+          }`}
+          onClick={() => setSelectedSection("workbench_adapter")}
+        >
+          <strong>Workbench adapter</strong>
+          <span>
+            Default editor, terminal, browser workspace, VM, or node target.
           </span>
         </button>
         <button
@@ -173,6 +186,9 @@ export function SettingsViewBody({ view }: { view: SettingsViewBodyView }) {
         ) : null}
         {selectedSection === "managed_settings" ? (
           <SettingsManagedSection view={view} />
+        ) : null}
+        {selectedSection === "workbench_adapter" ? (
+          <SettingsWorkbenchAdapterSection view={view} />
         ) : null}
         {selectedSection === "runtime" ? (
           <SettingsRuntimeSection view={view} />
