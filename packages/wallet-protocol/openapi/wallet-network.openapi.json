@@ -1,0 +1,142 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "wallet.network Protocol API",
+    "version": "0.1.0",
+    "description": "Product-facing wallet.network authority, capability, intent, and receipt API contracts."
+  },
+  "paths": {
+    "/v1/authority/reviews": {
+      "post": {
+        "operationId": "createAuthorityReview",
+        "summary": "Create an authority review for an intent candidate.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/AuthorityReview" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Authority review accepted.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AuthorityReview" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/capability/leases": {
+      "post": {
+        "operationId": "issueCapabilityLease",
+        "summary": "Issue a bounded capability lease.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CapabilityLease" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Capability lease issued.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CapabilityLease" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/capability/leases/{lease_id}/revoke": {
+      "post": {
+        "operationId": "revokeCapabilityLease",
+        "summary": "Revoke a bounded capability lease.",
+        "parameters": [
+          {
+            "name": "lease_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "204": { "description": "Capability lease revoked." }
+        }
+      }
+    },
+    "/v1/exchange/intents": {
+      "post": {
+        "operationId": "createExchangeIntent",
+        "summary": "Create an exchange intent from a route candidate.",
+        "responses": {
+          "200": {
+            "description": "Exchange intent created.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ExchangeIntent" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/trade/intents": {
+      "post": {
+        "operationId": "createTradeIntent",
+        "summary": "Create a trade intent from a venue or market candidate.",
+        "responses": {
+          "200": {
+            "description": "Trade intent created.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TradeIntent" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/receipts": {
+      "post": {
+        "operationId": "createReceipt",
+        "summary": "Create a wallet receipt.",
+        "responses": {
+          "200": {
+            "description": "Wallet receipt created.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/WalletReceipt" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AuthorityReview": {
+        "$ref": "../schemas/authority-review.schema.json"
+      },
+      "CapabilityLease": {
+        "$ref": "../schemas/capability-lease.schema.json"
+      },
+      "WalletReceipt": {
+        "$ref": "../schemas/wallet-receipt.schema.json"
+      },
+      "ExchangeIntent": {
+        "$ref": "../schemas/exchange-intent.schema.json"
+      },
+      "TradeIntent": {
+        "$ref": "../schemas/trade-intent.schema.json"
+      }
+    }
+  }
+}

@@ -231,17 +231,17 @@ ExecutionPrivacyPosture for every model/provider route.
 | Recommended change | Add a model-weight custody table: open/local weights, remote API capability, provider-trust weight mount, TEE/customer-cloud mount, forbidden mount. |
 | Fix type | Docs plus model-mount admission policy implementation. |
 
-### 5. Wallet protocol packaging is now planned but not implemented
+### 5. Wallet protocol packaging has a first implementation boundary
 
 | Field | Detail |
 | --- | --- |
 | Severity | High |
 | Current canon | `wallet-network/doctrine.md`, `api-authority-scopes.md`, `_meta/wallet-protocol-sdk-packaging-plan.md`. |
 | Edge case | Embedded dapp approval card needs `AuthorityReview` and `ApprovalMode`. |
-| Issue | Rust wallet types and service are current truth, but `@ioi/wallet-protocol`, OpenAPI/JSON Schema, and `@ioi/wallet-sdk` do not exist yet. |
-| Why it matters | Product repos may keep inventing local authority objects until the package boundary exists. |
-| Recommended change | Execute wallet packaging plan before major Wallet UI work. |
-| Fix type | Implementation plus conformance. |
+| Issue | The base package boundary now exists, but product repos still need to adopt it and deeper generation from Rust exports should be hardened. |
+| Why it matters | Product repos may otherwise keep inventing local authority objects despite the package boundary. |
+| Recommended change | Wire Wallet product/import surfaces to `@ioi/wallet-protocol` and `@ioi/wallet-sdk`; later harden Rust-derived generation and conformance. |
+| Fix type | Product adoption plus generator/conformance hardening. |
 
 ### 6. Route engines are correctly bounded but need candidate-evidence conformance
 
@@ -1397,8 +1397,9 @@ git diff --check -- internal-docs/implementation docs/architecture apps/hypervis
 
 | Field | Detail |
 | --- | --- |
+| Status | Initial package boundary implemented on 2026-06-17. Product import adoption and deeper Rust-derived generation remain follow-up hardening. |
 | Files | `packages/wallet-protocol`, `packages/wallet-sdk`, `crates/types/src/app/wallet_network`, scripts, conformance |
-| Change | Generate protocol package from Rust wallet truth; provide SDK over it. |
+| Change | Added checked-in wallet protocol package tied to Rust wallet truth and SDK helpers over it. |
 | Acceptance | Packages build/test; schemas and fixtures exist; product repo imports packages. |
 | Verify | `npm run test:wallet-protocol && npm run test:wallet-sdk && npm run check:wallet-protocol` |
 

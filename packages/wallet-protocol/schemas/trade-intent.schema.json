@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.ioi.network/wallet/trade-intent.schema.json",
+  "title": "TradeIntent",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "intent_id",
+    "schema_version",
+    "initiator_id",
+    "account_id",
+    "venue_candidate_id",
+    "market",
+    "side",
+    "collateral",
+    "policy_hash",
+    "risk_labels"
+  ],
+  "properties": {
+    "intent_id": { "type": "string" },
+    "schema_version": { "const": "ioi.wallet.protocol.v1" },
+    "initiator_id": { "type": "string" },
+    "account_id": { "type": "string" },
+    "venue_candidate_id": { "type": "string" },
+    "market": { "type": "string" },
+    "side": { "enum": ["buy", "sell", "long", "short"] },
+    "collateral": { "$ref": "#/$defs/MoneyAmount" },
+    "leverage": { "type": "string" },
+    "margin_mode": { "enum": ["isolated", "cross"] },
+    "max_loss": { "$ref": "#/$defs/MoneyAmount" },
+    "policy_hash": { "type": "string" },
+    "risk_labels": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "simulation_hash": { "type": "string" }
+  },
+  "$defs": {
+    "MoneyAmount": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["asset", "amount"],
+      "properties": {
+        "asset": { "type": "string" },
+        "amount": { "type": "string" },
+        "chain": { "type": "string" }
+      }
+    }
+  }
+}

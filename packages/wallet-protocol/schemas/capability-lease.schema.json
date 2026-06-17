@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.ioi.network/wallet/capability-lease.schema.json",
+  "title": "CapabilityLease",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "lease_id",
+    "subject_id",
+    "holder_id",
+    "capability_scope",
+    "mode",
+    "policy_hash",
+    "revocation_epoch",
+    "issued_at",
+    "expires_at",
+    "receipt_refs"
+  ],
+  "properties": {
+    "lease_id": { "type": "string" },
+    "subject_id": { "type": "string" },
+    "holder_id": { "type": "string" },
+    "capability_scope": { "type": "string", "pattern": "^scope:" },
+    "mode": {
+      "enum": [
+        "one_shot_review",
+        "session_envelope",
+        "batch_review",
+        "silent_within_policy",
+        "after_the_fact_receipt",
+        "step_up_review",
+        "denied"
+      ]
+    },
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["limit", "window"],
+      "properties": {
+        "limit": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["asset", "amount"],
+          "properties": {
+            "asset": { "type": "string" },
+            "amount": { "type": "string" },
+            "chain": { "type": "string" }
+          }
+        },
+        "window": {
+          "enum": ["single_action", "hour", "day", "week", "month"]
+        }
+      }
+    },
+    "policy_hash": { "type": "string" },
+    "grant_ref": { "type": "string" },
+    "revocation_epoch": { "type": "integer", "minimum": 0 },
+    "issued_at": { "type": "string", "format": "date-time" },
+    "expires_at": { "type": "string", "format": "date-time" },
+    "revoked_at": { "type": "string", "format": "date-time" },
+    "receipt_refs": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}

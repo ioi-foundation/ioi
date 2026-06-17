@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.ioi.network/wallet/wallet-receipt.schema.json",
+  "title": "WalletReceipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "receipt_id",
+    "receipt_type",
+    "schema_version",
+    "initiator_id",
+    "account_id",
+    "action_summary",
+    "request_hash",
+    "policy_hash",
+    "revocation_epoch",
+    "risk_labels",
+    "policy_checks",
+    "candidate_evidence",
+    "execution_refs",
+    "created_at",
+    "signatures"
+  ],
+  "properties": {
+    "receipt_id": { "type": "string" },
+    "receipt_type": {
+      "enum": [
+        "send",
+        "receive",
+        "exchange",
+        "trade",
+        "prediction",
+        "approval",
+        "delegation",
+        "revocation",
+        "agent_action",
+        "step_up",
+        "secret_execution",
+        "declassification",
+        "risk_event",
+        "protection",
+        "policy_change",
+        "cloud_execution"
+      ]
+    },
+    "schema_version": { "const": "ioi.wallet.protocol.v1" },
+    "initiator_id": { "type": "string" },
+    "account_id": { "type": "string" },
+    "action_summary": { "type": "string" },
+    "request_hash": { "type": "string" },
+    "policy_hash": { "type": "string" },
+    "grant_id": { "type": "string" },
+    "lease_id": { "type": "string" },
+    "revocation_epoch": { "type": "integer", "minimum": 0 },
+    "risk_labels": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "policy_checks": {
+      "type": "array",
+      "items": { "type": "object" }
+    },
+    "candidate_evidence": {
+      "type": "array",
+      "items": { "type": "object" }
+    },
+    "execution_refs": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "agentgres_ref": { "type": "string" },
+    "ioi_commitment": { "type": "string" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "signatures": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}

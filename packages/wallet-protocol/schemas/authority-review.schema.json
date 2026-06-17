@@ -1,0 +1,149 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.ioi.network/wallet/authority-review.schema.json",
+  "title": "AuthorityReview",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "review_id",
+    "schema_version",
+    "initiator_id",
+    "account_id",
+    "intent_ref",
+    "action_summary",
+    "requested_scopes",
+    "approval_mode",
+    "risk_class",
+    "risk_labels",
+    "eligibility_labels",
+    "candidate_evidence",
+    "policy_checks",
+    "policy_result",
+    "receipt_preview_ref",
+    "expires_at"
+  ],
+  "properties": {
+    "review_id": { "type": "string" },
+    "schema_version": { "const": "ioi.wallet.protocol.v1" },
+    "initiator_id": { "type": "string" },
+    "account_id": { "type": "string" },
+    "intent_ref": { "type": "string" },
+    "action_summary": { "type": "string" },
+    "requested_scopes": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^scope:" }
+    },
+    "approval_mode": {
+      "enum": [
+        "one_shot_review",
+        "session_envelope",
+        "batch_review",
+        "silent_within_policy",
+        "after_the_fact_receipt",
+        "step_up_review",
+        "denied"
+      ]
+    },
+    "risk_class": {
+      "enum": [
+        "read",
+        "draft",
+        "external_message",
+        "commerce",
+        "funds",
+        "trade",
+        "policy_widening",
+        "secret_export",
+        "declassification",
+        "identity_change",
+        "cloud_deploy",
+        "physical_action"
+      ]
+    },
+    "risk_labels": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "eligibility_labels": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "candidate_evidence": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/CandidateEvidence" }
+    },
+    "policy_checks": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/PolicyCheck" }
+    },
+    "policy_result": {
+      "enum": [
+        "approved",
+        "blocked",
+        "requires_step_up",
+        "requires_human",
+        "requires_policy_change"
+      ]
+    },
+    "simulation_ref": { "type": "string" },
+    "receipt_preview_ref": { "type": "string" },
+    "expires_at": { "type": "string", "format": "date-time" }
+  },
+  "$defs": {
+    "CandidateEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidate_id",
+        "source",
+        "adapter_id",
+        "observed_at",
+        "coverage_state",
+        "evidence_refs",
+        "risk_labels",
+        "claims"
+      ],
+      "properties": {
+        "candidate_id": { "type": "string" },
+        "source": { "type": "string" },
+        "adapter_id": { "type": "string" },
+        "observed_at": { "type": "string", "format": "date-time" },
+        "expires_at": { "type": "string", "format": "date-time" },
+        "coverage_state": {
+          "enum": [
+            "assessed",
+            "unknown",
+            "unassessed",
+            "stale",
+            "conflicting_sources"
+          ]
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "risk_labels": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "claims": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    },
+    "PolicyCheck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["check_id", "result", "explanation"],
+      "properties": {
+        "check_id": { "type": "string" },
+        "result": {
+          "enum": ["passed", "failed", "warning", "not_applicable"]
+        },
+        "explanation": { "type": "string" },
+        "safer_alternative": { "type": "string" }
+      }
+    }
+  }
+}

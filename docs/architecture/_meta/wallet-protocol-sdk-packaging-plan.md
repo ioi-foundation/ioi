@@ -1,12 +1,13 @@
 # wallet.network Protocol and SDK Packaging Plan
 
-Status: implementation plan.
+Status: initial package boundary implemented; generator and product-import
+hardening remain.
 Canonical owner: this file for the plan to canonize and implement
 `@ioi/wallet-protocol` and `@ioi/wallet-sdk` packaging.
 Supersedes: ad hoc wallet package notes when they conflict with this plan.
-Superseded by: completed implementation docs after the packages and conformance
-suite land.
-Last alignment pass: 2026-06-14.
+Superseded by: completed implementation docs after product repos import the
+packages and Rust-derived generation is fully automated.
+Last alignment pass: 2026-06-17.
 
 ## Purpose
 
@@ -14,14 +15,21 @@ Move wallet.network from an architecture-correct but packaging-incomplete state
 to a clean protocol/package boundary:
 
 ```text
-Current
+Previous
   Rust wallet types + Rust service + tests are protocol truth.
   Wallet product repos own UI/product/prototype state.
   Generated wallet protocol/schema/SDK packages do not exist yet.
 
-Target
-  IOI monorepo generates and tests @ioi/wallet-protocol.
-  IOI monorepo provides @ioi/wallet-sdk over that protocol.
+Current implementation boundary
+  IOI monorepo owns checked-in @ioi/wallet-protocol and @ioi/wallet-sdk
+  packages.
+  @ioi/wallet-protocol exports TypeScript objects, method metadata, JSON
+  Schema, OpenAPI, fixtures, and package tests tied to Rust wallet anchors.
+  @ioi/wallet-sdk imports @ioi/wallet-protocol and provides client/helper
+  facades.
+
+Target hardening
+  IOI monorepo generates @ioi/wallet-protocol from Rust-owned exports.
   Wallet product repos import those packages.
   Product UI never authors canonical scopes, grants, leases, receipts,
   ExchangeIntent, TradeIntent, CapabilityLease, AuthorityReview,
@@ -54,16 +62,12 @@ packages/agent-sdk/
   and dist generation.
 ```
 
-Missing pieces:
+Remaining pieces:
 
 ```text
-packages/wallet-protocol/
-packages/wallet-sdk/
-generated wallet JSON Schema
-generated wallet OpenAPI
-wallet receipt fixtures
-wallet protocol conformance tests
-wallet SDK tests
+Rust-derived wallet JSON Schema/OpenAPI generation
+deeper wallet receipt hash fixtures
+wallet protocol conformance suite beyond package checks
 wallet-network product import boundary
 ```
 
@@ -701,4 +705,3 @@ Docs identify one canonical owner for wallet protocol packaging.
 git diff --check passes.
 Relevant Rust and Node package tests pass.
 ```
-

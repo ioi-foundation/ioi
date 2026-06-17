@@ -1,0 +1,34 @@
+{
+  "name": "@ioi/wallet-sdk",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Client SDK facade over canonical wallet.network protocol contracts.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace=@ioi/wallet-protocol && tsc -p tsconfig.json",
+    "typecheck": "npm run build --workspace=@ioi/wallet-protocol && tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node --test --test-concurrency=1 test/*.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@ioi/wallet-protocol": "0.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.30",
+    "typescript": "^5.3.3"
+  }
+}

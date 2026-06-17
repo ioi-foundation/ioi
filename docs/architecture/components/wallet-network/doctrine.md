@@ -285,7 +285,7 @@ the preferred product boundary for rapid UI, website, design-system, mobile,
 extension, and marketing iteration.
 
 The wallet.network authority contracts must remain anchored in the IOI protocol
-repository and generated outward. Product repositories consume the contracts;
+repository and exported outward. Product repositories consume the contracts;
 they do not define authority truth.
 
 ```text
@@ -294,9 +294,9 @@ IOI protocol monorepo
     Rust wallet.network types
     wallet.network service transition logic
     authority scope and receipt API doctrine
-    generated protocol package targets
-    generated SDK package targets
-    OpenAPI / JSON Schema artifacts when generated
+    `@ioi/wallet-protocol`
+    `@ioi/wallet-sdk`
+    OpenAPI / JSON Schema artifacts
     receipt fixtures and conformance tests
 
 wallet-network product repo
@@ -327,26 +327,35 @@ crates/cli/tests/wallet_network_session_channel_e2e/
 
 scripts/conformance/hypervisor-conformance.mjs
   Cross-runtime conformance hooks for wallet.network authority boundaries.
+
+packages/wallet-protocol/
+  Versioned TypeScript protocol objects, method registry, JSON Schema,
+  OpenAPI, fixtures, and package tests tied back to the Rust wallet anchors.
+
+packages/wallet-sdk/
+  Typed client helpers over wallet.network authority reviews, capability
+  leases, receipts, and protocol method calls. The SDK imports
+  `@ioi/wallet-protocol`; it does not author wallet authority semantics.
 ```
 
-Target generated artifacts:
+Package artifacts:
 
 ```text
 @ioi/wallet-protocol
-  Versioned generated protocol objects, schemas, OpenAPI/JSON Schema, receipt
-  fixtures, and canonical examples derived from IOI-owned contracts.
+  Versioned protocol objects, method metadata, schemas, OpenAPI/JSON Schema,
+  receipt fixtures, and canonical examples tied to IOI-owned contracts.
 
 @ioi/wallet-sdk
   Typed client helpers over wallet.network APIs, receipts, grants, leases,
   exchange/trade intents, capability exits, and revocation.
 ```
 
-Until those packages exist, the Rust `ioi_types::app::wallet_network` module,
-the wallet.network service tests, this architecture canon, and the low-level
-API reference are the authoritative contract surfaces. The product app may mock
-Wallet flows, but it must not become the source of truth for scopes, grants,
-leases, receipts, exchange/trade intents, secret-release semantics, or
-capability-use policy.
+The Rust `ioi_types::app::wallet_network` module and
+`WalletNetworkService` remain the lower service/type anchors. The TypeScript
+protocol and SDK packages are the distributable app/developer boundary over
+those anchors. Product apps may mock Wallet flows, but they must not become the
+source of truth for scopes, grants, leases, receipts, exchange/trade intents,
+secret-release semantics, or capability-use policy.
 
 ## Marketplace Role
 

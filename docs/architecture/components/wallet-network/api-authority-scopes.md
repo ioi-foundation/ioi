@@ -37,19 +37,19 @@ crates/cli/tests/wallet_network_session_channel_e2e/
   session-channel conformance evidence.
 ```
 
-Target generated package shape:
+Current package shape:
 
 ```text
 @ioi/wallet-protocol
-  generated protocol objects, OpenAPI / JSON Schema, receipt fixtures,
-  canonical examples, and versioned compatibility metadata
+  protocol objects, OpenAPI / JSON Schema, receipt fixtures, canonical
+  examples, method metadata, and versioned compatibility metadata
 
 @ioi/wallet-sdk
   typed client helpers for wallet.network apps, Hypervisor, agents, services,
   and third-party clients
 ```
 
-Product repos such as `wallet-network` consume these generated artifacts. They
+Product repos such as `wallet-network` consume these package artifacts. They
 may contain UI fixtures and prototypes, but they must not define canonical
 scopes, grants, leases, secret-release policy, receipt schemas, exchange/trade
 intent semantics, or revocation behavior.

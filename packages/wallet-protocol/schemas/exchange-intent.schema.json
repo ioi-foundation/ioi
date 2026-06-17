@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.ioi.network/wallet/exchange-intent.schema.json",
+  "title": "ExchangeIntent",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "intent_id",
+    "schema_version",
+    "initiator_id",
+    "account_id",
+    "from_asset",
+    "to_asset",
+    "min_amount_out",
+    "route_candidate_id",
+    "slippage_bps",
+    "policy_hash",
+    "risk_labels",
+    "simulation_hash",
+    "tx_intent_refs"
+  ],
+  "properties": {
+    "intent_id": { "type": "string" },
+    "schema_version": { "const": "ioi.wallet.protocol.v1" },
+    "initiator_id": { "type": "string" },
+    "account_id": { "type": "string" },
+    "from_asset": { "$ref": "#/$defs/MoneyAmount" },
+    "to_asset": { "type": "string" },
+    "min_amount_out": { "$ref": "#/$defs/MoneyAmount" },
+    "route_candidate_id": { "type": "string" },
+    "slippage_bps": { "type": "integer", "minimum": 0 },
+    "policy_hash": { "type": "string" },
+    "risk_labels": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "simulation_hash": { "type": "string" },
+    "tx_intent_refs": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "$defs": {
+    "MoneyAmount": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["asset", "amount"],
+      "properties": {
+        "asset": { "type": "string" },
+        "amount": { "type": "string" },
+        "chain": { "type": "string" }
+      }
+    }
+  }
+}
