@@ -190,6 +190,8 @@ const hypervisorClientNamespaceSources = [
   "packages/workspace-substrate/src/types.ts",
   "packages/workspace-substrate/src/components/CodeOssEditor.tsx",
   "packages/workspace-substrate/src/components/WorkspaceEditorPane.tsx",
+  "apps/hypervisor/src/surfaces/Capabilities/components/model.ts",
+  "packages/hypervisor-workbench/src/runtime/workflow-scratch-blueprints.ts",
 ].map(read).join("\n");
 const hypervisorClientRuntimeSource = read(
   "apps/hypervisor/src/services/HypervisorClientRuntime.ts",
@@ -625,8 +627,10 @@ assert(
     "hypervisor-shell",
     "hypervisor-boot-fallback",
     "data-hypervisor-boot-error",
+    "hypervisor.capabilities.custom-connections",
+    "route.hypervisor.local-first",
   ].every((token) => hypervisorClientNamespaceSources.includes(token)) &&
-    !/autopilot-shell|autopilot-dark|autopilot-light|autopilot-share|autopilot-trace|autopilot\.pending|autopilot\.workspace-shell|autopilot\.chat_session|autopilot:chat-session|autopilot-header\.command-center|autopilot-boot-fallback|data-autopilot-boot-error|["']\.autopilot["']|autopilot-cell|autopilot_replay|autopilot-replay|defineAutopilotTheme/.test(
+    !/autopilot-shell|autopilot-dark|autopilot-light|autopilot-share|autopilot-trace|autopilot\.pending|autopilot\.workspace-shell|autopilot\.chat_session|autopilot:chat-session|autopilot-header\.command-center|autopilot-boot-fallback|data-autopilot-boot-error|autopilot\.capabilities\.custom-connections|route\.autopilot\.local-first|["']\.autopilot["']|autopilot-cell|autopilot_replay|autopilot-replay|defineAutopilotTheme/.test(
       hypervisorClientNamespaceSources,
     ),
   [
@@ -639,6 +643,8 @@ assert(
     "packages/workspace-substrate/src/codeOss.ts",
     "packages/workspace-substrate/src/types.ts",
     "packages/workspace-substrate/src/notebook.ts",
+    "apps/hypervisor/src/surfaces/Capabilities/components/model.ts",
+    "packages/hypervisor-workbench/src/runtime/workflow-scratch-blueprints.ts",
   ],
   "Active client storage keys, events, export prefixes, editor themes, replay formats, and shell stylesheet paths must use Hypervisor namespaces.",
 );

@@ -181,7 +181,7 @@ export interface CapabilityTreeEntry {
 }
 
 export const CUSTOM_CONNECTIONS_STORAGE_KEY =
-  "autopilot.capabilities.custom-connections";
+  "hypervisor.capabilities.custom-connections";
 
 export function humanize(value: string): string {
   return value

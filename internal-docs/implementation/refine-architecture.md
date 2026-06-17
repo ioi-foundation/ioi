@@ -1097,8 +1097,9 @@ Current implementation cut:
   active client-owned namespaces now use Hypervisor terms:
   shell storage keys, chat launch keys, chat Vim-mode events, trace/share
   export prefixes, editor theme IDs, command-center route markers, boot
-  fallback DOM hooks, and the `styles/hypervisor-shell/` directory are guarded
-  by `check:runtime-layout`.
+  fallback DOM hooks, capability custom-connection storage keys,
+  Workbench local-first model route ids, and the
+  `styles/hypervisor-shell/` directory are guarded by `check:runtime-layout`.
   active native-local model mount identities now use Hypervisor terms across
   the daemon defaults, Mission Control mount surface, contract tests, desktop
   probe, auth audiences, catalog fixtures, and stream evidence refs:

@@ -463,7 +463,7 @@ function buildRepoMaintenancePackageWorkflow(
     modelRef: "reasoning",
     modelId: "mounted-local-coder",
     modelCapabilityRef: "model-capability:hypervisor.mounted.local-coder",
-    routeId: "route.autopilot.local-first",
+    routeId: "route.hypervisor.local-first",
     mockBinding: false,
     capabilityScope: ["reasoning"],
     sideEffectClass: "none",
