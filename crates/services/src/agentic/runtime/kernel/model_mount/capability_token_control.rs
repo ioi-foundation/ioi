@@ -81,19 +81,16 @@ impl ModelMountCapabilityTokenControlRequest {
         if !capability_token_operation_supported(&self.operation_kind) {
             return Err(ModelMountError::UnsupportedCapabilityTokenControlOperation);
         }
+        option_string(&self.state_dir, "state_dir")?;
         match self.operation_kind.as_str() {
             "model_mount.capability_token.authorize" => {
                 option_string(&self.token_hash, "token_hash")?;
                 option_string(&self.required_scope, "required_scope")?;
-                option_string(&self.state_dir, "state_dir")?;
             }
             "model_mount.capability_token.revoke" => {
                 option_string(&self.token_id, "token_id")?;
-                option_string(&self.state_dir, "state_dir")?;
             }
-            "model_mount.capability_token.list" => {
-                option_string(&self.state_dir, "state_dir")?;
-            }
+            "model_mount.capability_token.list" => {}
             _ => {}
         }
         Ok(())
@@ -576,7 +573,7 @@ mod tests {
             required_scope: None,
             source: Some("test.capability_token_control".to_string()),
             generated_at: Some("2026-06-13T12:00:00.000Z".to_string()),
-            state_dir: None,
+            state_dir: Some("/tmp/ioi-model-mount-state".to_string()),
             body: json!({
                 "audience": "agent-studio",
                 "allowed": ["model.chat:*"],
@@ -633,10 +630,9 @@ mod tests {
     }
 
     #[test]
-    fn rust_core_rejects_authorize_without_state_dir() {
-        let mut invalid = request("model_mount.capability_token.authorize");
-        invalid.token_hash = Some("hash".to_string());
-        invalid.required_scope = Some("model.chat:complete".to_string());
+    fn rust_core_rejects_capability_token_control_without_state_dir() {
+        let mut invalid = request("model_mount.capability_token.create");
+        invalid.state_dir = None;
 
         assert_eq!(
             plan_capability_token_control(&invalid).unwrap_err(),

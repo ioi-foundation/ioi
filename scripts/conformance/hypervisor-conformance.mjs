@@ -29509,6 +29509,10 @@ function runReceipts() {
       /model_mount\.capability_token\.list/.test(modelMountingState) &&
       /MODEL_MOUNT_CAPABILITY_TOKEN_CONTROL_SCHEMA_VERSION/.test(capabilityTokenControl) &&
       /state\.planCapabilityTokenControl/.test(capabilityTokenControl) &&
+      /requireCapabilityTokenDaemonStateDir/.test(capabilityTokenControl) &&
+      /model_mount_capability_token_state_dir_required/.test(capabilityTokenControl) &&
+      /model_mount_capability_token_state_dir_replay_required/.test(capabilityTokenControl) &&
+      !/state_dir:\s*state\.stateDir\s*\?\?\s*null/.test(capabilityTokenControl) &&
       /commitModelMountRecordState/.test(capabilityTokenControl) &&
       /recordDir:\s*plan\.record_dir/.test(capabilityTokenControl) &&
       /model_mount_capability_token_control_record_state_commit_unconfigured/.test(
@@ -29545,6 +29549,12 @@ function runReceipts() {
       /pub fn plan_model_mount_capability_token_control/.test(
         read("crates/services/src/agentic/runtime/kernel/mod.rs"),
       ) &&
+      /option_string\(&self\.state_dir,\s*"state_dir"\)\?;/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/capability_token_control.rs"),
+      ) &&
+      /rust_core_rejects_capability_token_control_without_state_dir/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/capability_token_control.rs"),
+      ) &&
       /rust_core_plans_capability_token_control_direct_api/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount/capability_token_control.rs"),
       ) &&
@@ -29573,12 +29583,15 @@ function runReceipts() {
       /Slice 1328 hard-cuts the model_mount legacy capability-token JS cache\s+substrate/.test(
         read("docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md"),
       ) &&
+      /Slice 1415 hard-cuts model_mount wallet\/cTEE state-dir authority/.test(guide) &&
       /Model_mount capability-token JS cache retired/.test(
         read("docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md"),
       ) &&
+      /Model_mount capability-token control positive API[\s\S]*state_dir/.test(matrix) &&
       /RuntimeDaemonCoreModelMountCapabilityTokenCacheRetired/.test(
         read("docs/architecture/_meta/implementation-matrix.md"),
       ) &&
+      /RuntimeDaemonCoreModelMountWalletCteeStateDirAuthority/.test(implementationMatrix) &&
       !/\.map\(publicToken\)/.test(modelMountingState) &&
       !/export function publicToken/.test(modelMountingIo) &&
       !/RUNTIME_MODEL_MOUNT_RECORD_STATE_COMMIT_SCHEMA_VERSION/.test(capabilityTokenOperations) &&
@@ -29595,6 +29608,11 @@ function runReceipts() {
       /capability token authorization preserves Bearer preflight before Rust boundary/.test(
         capabilityTokenOperationsTest,
       ) &&
+      /capability token control requires daemon state_dir before Rust planning/.test(
+        capabilityTokenOperationsTest,
+      ) &&
+      /model_mount_capability_token_state_dir_required/.test(capabilityTokenOperationsTest) &&
+      /assert\.deepEqual\(state\.recordStateCommits,\s*\[\]\)/.test(capabilityTokenOperationsTest) &&
       /planCapabilityTokenControl/.test(capabilityTokenOperationsTest) &&
       /walletAuthority\.createGrant must not authorize capability tokens/.test(capabilityTokenOperationsTest) &&
       /plaintext_material_persisted/.test(capabilityTokenOperationsTest) &&
@@ -29699,11 +29717,18 @@ function runReceipts() {
         read("packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs"),
       ) &&
       /Slice 1334 hard-cuts the model_mount vault-ref JS cache substrate/.test(guide) &&
+      /Slice 1415 hard-cuts model_mount wallet\/cTEE state-dir authority/.test(guide) &&
       /Model_mount vault-ref JS cache retired/.test(matrix) &&
+      /Model_mount vault control positive API[\s\S]*state_dir/.test(matrix) &&
       /RuntimeDaemonCoreModelMountVaultRefCacheRetired/.test(implementationMatrix) &&
+      /RuntimeDaemonCoreModelMountWalletCteeStateDirAuthority/.test(implementationMatrix) &&
       !/export function publicVaultRefs/.test(modelMountingIo) &&
       /MODEL_MOUNT_VAULT_CONTROL_SCHEMA_VERSION/.test(vaultControl) &&
       /state\.planVaultControl/.test(vaultControl) &&
+      /requireVaultDaemonStateDir/.test(vaultControl) &&
+      /model_mount_vault_state_dir_required/.test(vaultControl) &&
+      /model_mount_vault_state_dir_replay_required/.test(vaultControl) &&
+      !/state_dir:\s*state\.stateDir\s*\?\?\s*null/.test(vaultControl) &&
       /commitModelMountRecordState/.test(vaultControl) &&
       /recordDir:\s*plan\.record_dir/.test(vaultControl) &&
       /model_mount_vault_control_record_state_commit_unconfigured/.test(vaultControl) &&
@@ -29740,6 +29765,12 @@ function runReceipts() {
       /plan_vault_control/.test(modelMountCore) &&
       /pub fn plan_model_mount_vault_control/.test(
         read("crates/services/src/agentic/runtime/kernel/mod.rs"),
+      ) &&
+      /option_string\(&self\.state_dir,\s*"state_dir"\)\?;/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/vault_control.rs"),
+      ) &&
+      /rust_core_rejects_vault_control_without_state_dir/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/vault_control.rs"),
       ) &&
       /rust_core_plans_vault_control_direct_api/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount/vault_control.rs"),
@@ -29790,6 +29821,9 @@ function runReceipts() {
       /vault-refs/.test(vaultOperationsTest) &&
       /vault operations reject retired request aliases before Rust boundary/.test(vaultOperationsTest) &&
       /vault operations preserve required field errors before Rust boundary/.test(vaultOperationsTest) &&
+      /vault operations require daemon state_dir before Rust planning/.test(vaultOperationsTest) &&
+      /model_mount_vault_state_dir_required/.test(vaultOperationsTest) &&
+      /assert\.deepEqual\(state\.recordStateCommits,\s*\[\]\)/.test(vaultOperationsTest) &&
       /retired_aliases,\s*\[\s*"vaultRef",\s*"secret",\s*"value"\s*\]/.test(vaultOperationsTest) &&
       /canonical_fields,\s*\[\s*"vault_ref",\s*"material"\s*\]/.test(vaultOperationsTest) &&
       /assert\.deepEqual\(state\.calls,\s*\[\]\)/.test(vaultOperationsTest) &&

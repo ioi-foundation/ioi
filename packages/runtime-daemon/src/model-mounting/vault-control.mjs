@@ -42,6 +42,7 @@ export function vaultControlPlanForState(
       rust_core_api: "plan_model_mount_vault_control",
     });
   }
+  const stateDir = requireVaultDaemonStateDir(state, operation_kind);
   return state.planVaultControl({
     schema_version: MODEL_MOUNT_VAULT_CONTROL_SCHEMA_VERSION,
     operation_kind,
@@ -50,7 +51,7 @@ export function vaultControlPlanForState(
     custody_ref: stringField(body, "custody_ref"),
     source: "runtime-daemon.model_mounting.vault_control",
     generated_at: typeof state.nowIso === "function" ? state.nowIso() : null,
-    state_dir: state.stateDir ?? null,
+    state_dir: stateDir,
     body: sanitizedVaultBody(body),
     receipt_refs: stringArrayField(body, "receipt_refs"),
     authority_grant_refs: stringArrayField(body, "authority_grant_refs"),
@@ -101,6 +102,32 @@ export function vaultControlResponse(plan, commit) {
     control_hash: plan.control_hash,
     authority_hash: plan.authority_hash,
   };
+}
+
+function requireVaultDaemonStateDir(state, operation_kind) {
+  const stateDir = typeof state?.stateDir === "string" && state.stateDir.trim()
+    ? state.stateDir.trim()
+    : null;
+  if (stateDir) return stateDir;
+  throw runtimeError({
+    status: 500,
+    code: "model_mount_vault_state_dir_required",
+    message:
+      "Vault control requires daemon Agentgres state_dir replay before wallet/cTEE custody truth can return.",
+    details: {
+      operation_kind,
+      rust_core_boundary: "model_mount.vault",
+      rust_core_api: "plan_model_mount_vault_control",
+      evidence_refs: [
+        "rust_daemon_core_vault_control",
+        "wallet_network_vault_authority_required",
+        "ctee_vault_custody_enforced",
+        "agentgres_vault_truth_required",
+        "model_mount_vault_state_dir_replay_required",
+        "public_vault_js_facade_retired",
+      ],
+    },
+  });
 }
 
 function sanitizedVaultBody(value) {

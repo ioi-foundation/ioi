@@ -12469,6 +12469,19 @@ conformance guard the state-dir replay requirement and retired candidate
 transport so thread-fork truth cannot return through JS agent/thread lookup
 beside Rust-owned Agentgres replay, event admission, and projection.
 
+Slice 1415 hard-cuts model_mount wallet/cTEE state-dir authority for
+capability-token and vault control. Public capability-token
+create/list/authorize/revoke and vault bind/list/metadata/status/health/remove
+now require daemon Agentgres `stateDir` before any Rust planning call; the old
+`stateDir ?? null` handoff is retired. Rust `capability_token_control.rs` and
+`vault_control.rs` also reject every direct control operation without
+`state_dir`, so wallet authority and cTEE custody truth cannot be planned from a
+no-replay compatibility path. Focused Node/Rust tests and conformance guard the
+JS fail-closed boundary, the Rust `state_dir` requirement, and absence of the
+optional JS state-dir transport. This remains non-terminal because deeper
+wallet/cTEE route revocation policy, projection/replay depth, and stable
+protocol API coverage remain active blockers.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

@@ -80,6 +80,7 @@ impl ModelMountVaultControlRequest {
         if !vault_operation_supported(&self.operation_kind) {
             return Err(ModelMountError::UnsupportedVaultControlOperation);
         }
+        option_string(&self.state_dir, "state_dir")?;
         match self.operation_kind.as_str() {
             "model_mount.vault_ref.bind" => {
                 option_string(&self.vault_ref, "vault_ref")?;
@@ -592,7 +593,7 @@ mod tests {
             custody_ref: Some("ctee://vault/custom".to_string()),
             source: Some("test.vault_control".to_string()),
             generated_at: Some("2026-06-13T12:00:00.000Z".to_string()),
-            state_dir: None,
+            state_dir: Some("/tmp/ioi-model-mount-state".to_string()),
             body: json!({
                 "label": "Custom auth",
                 "purpose": "provider.auth:custom",
@@ -633,6 +634,17 @@ mod tests {
         assert_eq!(plan.public_response.get("material"), None);
         assert_eq!(plan.record["public_response"]["status"], "bound");
         assert_eq!(plan.record["public_response"]["label"], "Custom auth");
+    }
+
+    #[test]
+    fn rust_core_rejects_vault_control_without_state_dir() {
+        let mut invalid = request("model_mount.vault_ref.bind");
+        invalid.state_dir = None;
+
+        assert_eq!(
+            plan_vault_control(&invalid).unwrap_err(),
+            ModelMountError::MissingField("state_dir")
+        );
     }
 
     #[test]

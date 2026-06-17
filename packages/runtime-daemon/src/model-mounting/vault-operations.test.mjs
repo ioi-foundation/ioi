@@ -12,7 +12,7 @@ const VAULT_EVIDENCE_REFS = [
   "public_vault_js_facade_retired",
 ];
 
-function createState() {
+function createState(options = {}) {
   const calls = [];
   const planCalls = [];
   const recordStateCommits = [];
@@ -20,7 +20,7 @@ function createState() {
     calls,
     planCalls,
     recordStateCommits,
-    stateDir: "/tmp/ioi-model-mount-state",
+    stateDir: options.stateDir === undefined ? "/tmp/ioi-model-mount-state" : options.stateDir,
     vault: {
       bindVaultRef() {
         throw new Error("JS vault.bindVaultRef must not author public vault truth.");
@@ -329,6 +329,42 @@ test("vault operations preserve required field errors before Rust boundary", () 
     () => ModelMountingState.prototype.removeVaultRef.call(state, {}),
     (error) => error.status === 400 && error.details.field === "vault_ref",
   );
+  assert.deepEqual(state.planCalls, []);
+  assert.deepEqual(state.recordStateCommits, []);
+});
+
+test("vault operations require daemon state_dir before Rust planning", () => {
+  const state = createState({ stateDir: null });
+
+  const operations = [
+    () =>
+      ModelMountingState.prototype.bindVaultRef.call(state, {
+        vault_ref: "vault://provider/custom/api-key",
+        material: "custom-secret",
+      }),
+    () => ModelMountingState.prototype.listVaultRefs.call(state),
+    () =>
+      ModelMountingState.prototype.vaultRefMetadata.call(state, {
+        vault_ref: "vault://provider/custom/api-key",
+      }),
+    () => ModelMountingState.prototype.vaultStatus.call(state),
+    () => ModelMountingState.prototype.vaultHealth.call(state),
+    () =>
+      ModelMountingState.prototype.removeVaultRef.call(state, {
+        vault_ref: "vault://provider/custom/api-key",
+      }),
+  ];
+
+  for (const operation of operations) {
+    assert.throws(operation, (error) => {
+      assert.equal(error.status, 500);
+      assert.equal(error.code, "model_mount_vault_state_dir_required");
+      assert.equal(error.details.rust_core_boundary, "model_mount.vault");
+      assert.equal(error.details.rust_core_api, "plan_model_mount_vault_control");
+      assert.equal(error.details.evidence_refs.includes("model_mount_vault_state_dir_replay_required"), true);
+      return true;
+    });
+  }
   assert.deepEqual(state.planCalls, []);
   assert.deepEqual(state.recordStateCommits, []);
 });

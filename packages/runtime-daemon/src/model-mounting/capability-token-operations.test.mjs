@@ -11,13 +11,13 @@ const CAPABILITY_TOKEN_EVIDENCE_REFS = [
   "public_capability_token_js_facade_retired",
 ];
 
-function createState() {
+function createState(options = {}) {
   const planCalls = [];
   const recordStateCommits = [];
   const state = {
     planCalls,
     recordStateCommits,
-    stateDir: "/tmp/ioi-model-mount-state",
+    stateDir: options.stateDir === undefined ? "/tmp/ioi-model-mount-state" : options.stateDir,
     walletAuthority: {
       createGrant() {
         throw new Error("JS walletAuthority.createGrant must not authorize capability tokens.");
@@ -235,6 +235,39 @@ test("capability token authorization preserves Bearer preflight before Rust boun
       return true;
     },
   );
+  assert.deepEqual(state.planCalls, []);
+  assert.deepEqual(state.recordStateCommits, []);
+});
+
+test("capability token control requires daemon state_dir before Rust planning", () => {
+  const { state } = createState({ stateDir: null });
+
+  const operations = [
+    () =>
+      ModelMountingState.prototype.createToken.call(state, {
+        audience: "agent-studio",
+        allowed: ["model.chat:*"],
+        authority_grant_refs: ["grant://wallet/capability"],
+        authority_receipt_refs: ["receipt://wallet/capability"],
+      }),
+    () => ModelMountingState.prototype.listTokens.call(state),
+    () => ModelMountingState.prototype.authorize.call(state, "Bearer ioi_mnt_positive_token", "model.chat:complete"),
+    () => ModelMountingState.prototype.revokeToken.call(state, "capability_token:test"),
+  ];
+
+  for (const operation of operations) {
+    assert.throws(operation, (error) => {
+      assert.equal(error.status, 500);
+      assert.equal(error.code, "model_mount_capability_token_state_dir_required");
+      assert.equal(error.details.rust_core_boundary, "model_mount.capability_token");
+      assert.equal(error.details.rust_core_api, "plan_model_mount_capability_token_control");
+      assert.equal(
+        error.details.evidence_refs.includes("model_mount_capability_token_state_dir_replay_required"),
+        true,
+      );
+      return true;
+    });
+  }
   assert.deepEqual(state.planCalls, []);
   assert.deepEqual(state.recordStateCommits, []);
 });
