@@ -2581,13 +2581,31 @@
 
 .chat-home-zero.chat-home-zero--ioi-reference::before {
   display: block !important;
-  height: 270px !important;
+  height: 338px !important;
   background:
-    linear-gradient(120deg, rgba(51, 96, 140, 0.14) 0 1px, transparent 1px 170px),
-    linear-gradient(25deg, rgba(62, 105, 151, 0.11) 0 1px, transparent 1px 150px),
-    radial-gradient(circle at 82% 15%, rgba(89, 128, 173, 0.18), transparent 220px) !important;
-  background-size: 210px 150px, 180px 140px, auto !important;
-  mask-image: linear-gradient(180deg, #000 0, rgba(0, 0, 0, 0.54) 52%, transparent 100%) !important;
+    linear-gradient(30deg, rgba(81, 143, 225, 0.22) 0 1px, transparent 1px 132px),
+    linear-gradient(150deg, rgba(81, 143, 225, 0.18) 0 1px, transparent 1px 132px),
+    radial-gradient(circle at 75% 26%, rgba(92, 123, 235, 0.18) 0 3px, transparent 4px),
+    radial-gradient(circle at 69% 18%, rgba(17, 184, 194, 0.18) 0 4px, transparent 5px),
+    linear-gradient(180deg, #eaf3ff 0%, rgba(247, 248, 250, 0.92) 72%, rgba(247, 248, 250, 0) 100%) !important;
+  background-size: 178px 116px, 178px 116px, 72px 52px, 96px 68px, auto !important;
+  mask-image: linear-gradient(180deg, #000 0, rgba(0, 0, 0, 0.76) 66%, transparent 100%) !important;
+}
+
+.chat-home-zero.chat-home-zero--ioi-reference::after {
+  content: "" !important;
+  position: absolute !important;
+  inset: 0 0 auto !important;
+  height: 338px !important;
+  pointer-events: none !important;
+  background:
+    linear-gradient(90deg, transparent 0 74%, rgba(75, 134, 224, 0.24) 74% 74.2%, transparent 74.2%),
+    linear-gradient(30deg, transparent 0 63%, rgba(75, 134, 224, 0.2) 63% 63.2%, transparent 63.2%),
+    radial-gradient(circle at 84% 33%, rgba(82, 112, 229, 0.42) 0 5px, transparent 6px),
+    radial-gradient(circle at 88% 39%, rgba(82, 112, 229, 0.25) 0 4px, transparent 5px),
+    radial-gradient(circle at 80% 43%, rgba(33, 173, 196, 0.25) 0 4px, transparent 5px) !important;
+  opacity: 0.86 !important;
+  mask-image: linear-gradient(180deg, #000 0, rgba(0, 0, 0, 0.7) 62%, transparent 100%) !important;
 }
 
 .chat-home-zero--ioi-reference .chat-home-zero-shell {
@@ -2634,27 +2652,28 @@
 }
 
 .chat-home-zero--ioi-reference .chat-home-zero-brand-mark__glyph {
-  width: 18px !important;
-  height: 18px !important;
+  width: 38px !important;
+  height: 38px !important;
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
-  color: #2563eb !important;
+  border: 2px solid rgba(105, 137, 178, 0.26) !important;
+  border-radius: 999px !important;
+  color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.32) !important;
+  box-shadow: 0 10px 24px rgba(72, 119, 180, 0.16) !important;
 }
 
 .chat-home-zero--ioi-reference .chat-home-zero-brand-mark__word {
-  color: #20242c !important;
-  font-size: 22px !important;
-  font-weight: 700 !important;
-  line-height: 28px !important;
+  display: none !important;
 }
 
 .chat-home-zero--ioi-reference .chat-home-zero-search {
-  width: min(560px, 100%) !important;
+  width: 100% !important;
   min-height: 40px !important;
   display: grid !important;
   grid-template-columns: 20px minmax(0, 1fr) auto !important;
-  justify-self: end !important;
+  justify-self: stretch !important;
   border: 1px solid #cbd3df !important;
   border-radius: 7px !important;
   background: #ffffff !important;
@@ -2677,7 +2696,7 @@
   display: grid !important;
   grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
   gap: 0 !important;
-  margin-top: 14px !important;
+  margin-top: 18px !important;
   overflow: hidden !important;
   border: 1px solid #cdd6e3 !important;
   border-radius: 12px !important;
@@ -2686,7 +2705,7 @@
 }
 
 .chat-home-zero--ioi-reference .chat-home-zero-actions article {
-  min-height: 166px !important;
+  min-height: 234px !important;
   display: grid !important;
   grid-template-columns: 44px minmax(0, 1fr) !important;
   grid-template-rows: minmax(72px, 1fr) auto !important;

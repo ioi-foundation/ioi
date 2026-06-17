@@ -507,21 +507,21 @@ function HomeDashboardView({
         <header className="chat-home-zero-hero">
           <div className="chat-home-zero-title-row">
             <HomeBrandMark />
-            <h1>Welcome back</h1>
+            <h1>Welcome back, Heath</h1>
           </div>
           <button
             type="button"
             className="chat-home-zero-search"
             onClick={onOpenCommandPalette}
             data-home-action="palette.open"
-            aria-label="Search Hypervisor"
+            aria-label="Search for anything in Hypervisor"
           >
             {renderIcon(Search, {
               size: 17,
               strokeWidth: 1.8,
               "aria-hidden": true,
             })}
-            <span>Search Hypervisor</span>
+            <span>Search for anything in Hypervisor</span>
             <kbd>ctrl + K</kbd>
           </button>
 
