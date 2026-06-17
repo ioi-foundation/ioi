@@ -2,12 +2,12 @@
 
 - Status: Accepted
 - Date: 2026-05-25
-- Owners: IOI architecture / IOI L1 / AIIP / Autopilot / aiagent.xyz / sas.xyz / wallet.network / Agentgres
+- Owners: IOI architecture / IOI L1 / AIIP / Hypervisor / aiagent.xyz / sas.xyz / wallet.network / Agentgres
 
 ## Context
 
 IOI architecture had already separated governed autonomous-system chains,
-Autopilot nodes, and IOI L1. That clarified local and global settlement but did
+Hypervisor Nodes, and IOI L1. That clarified local and global settlement but did
 not fully name the protocol category.
 
 The remaining ambiguity was whether IOI should be framed as:
@@ -15,7 +15,7 @@ The remaining ambiguity was whether IOI should be framed as:
 - an agent marketplace;
 - an outcome marketplace;
 - agents on a blockchain;
-- a local Autopilot node architecture;
+- a local Hypervisor Node architecture;
 - a broader autonomous-system settlement and interoperability layer.
 
 The broader category is the durable one. Autonomous systems can run in local
@@ -49,7 +49,7 @@ Receipts prove what happened.
 IOI mainnet settles the consequential record.
 ```
 
-AIIP is used for both internal Autopilot microharness routing and external
+AIIP is used for both internal Hypervisor microharness routing and external
 handoffs between workers, service providers, marketplaces, enterprises,
 third-party systems, and independent AS-L1s. The protocol semantics stay the
 same; transport, trust boundary, privacy posture, and settlement depth vary by

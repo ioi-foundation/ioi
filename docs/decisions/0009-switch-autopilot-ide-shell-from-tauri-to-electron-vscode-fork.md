@@ -1,8 +1,16 @@
 # ADR 0009: Switch Autopilot IDE Shell From Tauri To The Electron/VS Code Fork
 
-- Status: Accepted
+- Status: Superseded by ADR 0013
 - Date: 2026-05-20
 - Owners: Autopilot / VS Code fork / daemon runtime / workbench UX
+
+## Supersession Note
+
+This ADR is retained as implementation history for why the Tauri/OpenVSCode
+embedding path was retired. The current architecture no longer treats the
+Electron/VS Code fork as the product identity. It is one Workbench adapter-host
+implementation under Hypervisor Core, alongside other editor/viewer targets and
+first-class Hypervisor App/Web/CLI-headless clients.
 
 ## Context
 

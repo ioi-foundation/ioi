@@ -1,8 +1,16 @@
 # ADR 0007: Adopt IDE-First Autopilot With Runtime And Workbench Substrates
 
-- Status: Accepted
+- Status: Superseded by ADR 0013
 - Date: 2026-05-20
 - Owners: Autopilot / daemon runtime / VS Code fork / policy / connectors-tools
+
+## Supersession Note
+
+This ADR is retained as implementation history for retiring the Tauri path and
+promoting deeper Workbench integration. The live product taxonomy is now ADR
+0013: Hypervisor Core is the shared substrate; Hypervisor App, Hypervisor Web,
+and CLI/headless are first-class clients; Workbench, Foundry, and Fleet are
+application surfaces; editor hosts are adapter targets.
 
 ## Context
 

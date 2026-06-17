@@ -929,8 +929,8 @@ for await (const event of run.stream()) {
         render: (isDark) => (
           <div className={bodyClass(isDark)}>
             <p>
-              Prefer existing desktop evidence for Autopilot screenshots because it exercises the
-              real Tauri GUI. For web-applicable docs routes, use the developers app visual smoke
+              Prefer current Hypervisor App evidence for product screenshots because it exercises the
+              active Workbench adapter-host path. For web-applicable docs routes, use the developers app visual smoke
               lane after the Vite preview server is running:
             </p>
             <CodeBlock
@@ -973,8 +973,8 @@ for await (const event of run.stream()) {
         render: (isDark) => (
           <div className={bodyClass(isDark)}>
             <p>
-              The daemon is the local runtime boundary that SDKs, TUI/CLI, agent-ide, Autopilot,
-              benchmarks, and probes should target. The current implementation includes an
+              The daemon is the local runtime boundary that SDKs, CLI/headless clients, Workbench
+              adapter hosts, Hypervisor App/Web, benchmarks, and probes should target. The current implementation includes an
               <code> AgentgresRuntimeStateStore</code> as the Agentgres v0 local store proof for
               runs, tasks, artifacts, receipts, policy decisions, traces, and projections.
             </p>

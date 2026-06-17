@@ -216,6 +216,10 @@ for (const required of [
   "ADR 0007",
   "ADR 0008",
   "ADR 0009",
+  "ADR 0010",
+  "ADR 0011",
+  "ADR 0012",
+  "ADR 0013",
 ]) {
   if (!decisionsIndex.includes(required)) {
     fail(`docs/decisions/README.md missing ${required}.`);
