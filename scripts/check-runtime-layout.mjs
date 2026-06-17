@@ -105,6 +105,12 @@ const runtimeManagedWorkerLifecycleAdmissionSource = read(
 const runtimeManagedWorkerLifecycleAdmissionTestSource = read(
   "packages/runtime-daemon/src/runtime-managed-worker-instance-lifecycle-admission.test.mjs",
 );
+const runtimePhysicalActionIntentAdmissionSource = read(
+  "packages/runtime-daemon/src/runtime-physical-action-intent-admission.mjs",
+);
+const runtimePhysicalActionIntentAdmissionTestSource = read(
+  "packages/runtime-daemon/src/runtime-physical-action-intent-admission.test.mjs",
+);
 const hypervisorActivityBarSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/components/ChatLocalActivityBar.tsx",
 );
@@ -685,6 +691,57 @@ assert(
     "packages/runtime-daemon/src/runtime-managed-worker-instance-lifecycle-admission.test.mjs",
   ],
   "Managed worker lifecycle admission must bind lapse, archive, restore, export, delete, and forget transitions to Agentgres operations, wallet authority, receipts, and restore/archive refs.",
+);
+assert(
+  "hypervisor-physical-action-intent-admission",
+  runtimePhysicalActionIntentAdmissionSource.includes(
+    "ioi.runtime.physical_action_intent_admission.v1",
+  ) &&
+    runtimePhysicalActionIntentAdmissionSource.includes(
+      "admitPhysicalActionIntent",
+    ) &&
+    runtimePhysicalActionIntentAdmissionSource.includes(
+      "physical_action_generic_tool_call_blocked",
+    ) &&
+    runtimePhysicalActionIntentAdmissionSource.includes(
+      "physical_action_emergency_stop_test_required",
+    ) &&
+    runtimePhysicalActionIntentAdmissionSource.includes(
+      "physical_action_simulation_not_execution_receipt",
+    ) &&
+    runtimePhysicalActionIntentAdmissionSource.includes(
+      "physical_action_human_supervision_authority_required",
+    ) &&
+    runtimePhysicalActionIntentAdmissionSource.includes(
+      'runtimeTruthSource: "daemon-runtime"',
+    ) &&
+    publicRuntimeRoutesSource.includes(
+      "/v1/hypervisor/physical-action-intent-admissions",
+    ) &&
+    publicRuntimeRoutesSource.includes("admitPhysicalActionIntent") &&
+    publicRuntimeRoutesTestSource.includes(
+      "expose physical action intent admissions",
+    ) &&
+    publicRuntimeRoutesTestSource.includes(
+      "blocks generic actuator tool calls",
+    ) &&
+    runtimePhysicalActionIntentAdmissionTestSource.includes(
+      "admits physical action only through daemon-owned safety",
+    ) &&
+    runtimePhysicalActionIntentAdmissionTestSource.includes(
+      "blocks actuator-affecting work routed as a generic tool call",
+    ) &&
+    runtimePhysicalActionIntentAdmissionTestSource.includes(
+      "requires tested emergency stop and current sensor evidence",
+    ) &&
+    runtimePhysicalActionIntentAdmissionTestSource.includes(
+      "does not admit simulation-only evidence as actuator execution",
+    ),
+  [
+    "packages/runtime-daemon/src/runtime-physical-action-intent-admission.mjs",
+    "packages/runtime-daemon/src/runtime-physical-action-intent-admission.test.mjs",
+  ],
+  "Physical-action admission must bind actuator-affecting work to safety envelopes, emergency stop, sensor evidence, wallet authority, Agentgres receipts, and daemon runtime truth instead of generic tool calls.",
 );
 assert(
   "hypervisor-new-session-model-route-compatibility",

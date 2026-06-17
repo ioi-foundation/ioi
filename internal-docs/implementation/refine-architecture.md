@@ -1644,11 +1644,25 @@ git diff --check -- internal-docs/implementation docs/architecture apps/hypervis
 
 | Field | Detail |
 | --- | --- |
-| Status | Implemented as a canonical docs slice on 2026-06-17. |
+| Status | Implemented as a canonical docs slice on 2026-06-17; daemon-side `PhysicalActionIntent` admission contract implemented, guarded, and exposed through the public Hypervisor daemon route. Live actuator adapters remain follow-up hardening. |
 | Files | `foundations/physical-action-safety.md`, common objects, AIIP, DHP, source map, implementation matrix, vocabulary, README, architecture-doc checks |
 | Change | Canonized `PhysicalActionPolicy`, `SafetyEnvelope`, `EmergencyStopAuthority`, `HumanSupervisionPolicy`, `SensorEvidenceReceipt`, `ActuatorCommandReceipt`, and `PhysicalActionIncident` as the safety owner for embodied work. |
 | Acceptance | Physical and embodied workers have explicit safety semantics and cannot execute actuator commands as generic tool calls. |
 | Verify | `rg -n "PhysicalActionPolicy|SafetyEnvelope|ActuatorCommandReceipt|EmergencyStopAuthority" docs/architecture`; `npm run check:architecture-docs`; `npm run hypervisor-conformance:docs` |
+
+Implementation slice:
+
+`packages/runtime-daemon/src/runtime-physical-action-intent-admission.mjs`
+now admits physical-action envelopes only when they bind `risk_class:
+physical_action`, `prim:physical.*` primitives, `scope:physical.*` authority,
+`PhysicalActionPolicy`, `SafetyEnvelope`, `EmergencyStopAuthority`, current
+sensor evidence receipts, wallet authority, policy refs, Agentgres operation
+refs, and execution receipts. The public route
+`/v1/hypervisor/physical-action-intent-admissions` exposes the same daemon
+gate. The contract blocks generic `tool.invoke` actuator paths, stale or
+untested emergency-stop posture, simulation-only evidence masquerading as
+execution, and human-in-loop actions without supervisor refs and wallet
+approval.
 
 ### Phase 3: Execute Wallet Protocol Packaging Plan
 
