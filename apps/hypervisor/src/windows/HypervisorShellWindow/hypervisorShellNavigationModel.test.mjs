@@ -42,6 +42,10 @@ const providerPlacementModel = readFileSync(
   new URL("./hypervisorProviderPlacementModel.ts", import.meta.url),
   "utf8",
 );
+const privacyPostureModel = readFileSync(
+  new URL("./hypervisorPrivacyPostureModel.ts", import.meta.url),
+  "utf8",
+);
 const receiptEvidenceModel = readFileSync(
   new URL("./hypervisorReceiptEvidenceModel.ts", import.meta.url),
   "utf8",
@@ -318,6 +322,32 @@ test("Receipts surface renders Agentgres-bound evidence instead of a placeholder
   assert.match(shellContent, /data-receipt-evidence-status/);
   assert.match(shellContent, /activeView === "receipts"/);
   assert.match(shellContent, /activeView !== "receipts"/);
+});
+
+test("Privacy surface renders cTEE and model-weight custody admission posture", () => {
+  assert.match(privacyPostureModel, /HypervisorPrivacyPostureProjection/);
+  assert.match(privacyPostureModel, /HYPERVISOR_PRIVACY_POSTURE_PROJECTION_FIXTURE/);
+  assert.match(privacyPostureModel, /Model-weight custody is a separate admission lane/);
+  assert.match(privacyPostureModel, /WorkspaceCustodySegment/);
+  assert.match(privacyPostureModel, /ModelWeightCustodyPolicy/);
+  assert.match(privacyPostureModel, /node_plaintext_allowed/);
+  assert.match(privacyPostureModel, /forbidden_plaintext_mount/);
+  assert.match(privacyPostureModel, /remote_api_capability/);
+  assert.match(privacyPostureModel, /tee_or_customer_cloud_mount/);
+  assert.match(privacyPostureModel, /ctee_split/);
+  assert.match(privacyPostureModel, /encrypted_storage_only/);
+  assert.match(privacyPostureModel, /wallet_network/);
+  assert.match(privacyPostureModel, /hypervisor_daemon/);
+  assert.match(privacyPostureModel, /agentgres/);
+  assert.match(shellContent, /HypervisorPrivacyPostureSurface/);
+  assert.match(shellContent, /data-hypervisor-privacy-posture/);
+  assert.match(shellContent, /data-privacy-workspace-segment/);
+  assert.match(shellContent, /data-model-weight-custody-lane/);
+  assert.match(shellContent, /data-provider-privacy-candidate/);
+  assert.match(shellContent, /data-privacy-admission-control/);
+  assert.match(shellContent, /activeView === "privacy"/);
+  assert.match(shellContent, /activeView !== "privacy"/);
+  assert.doesNotMatch(shellContent, /privacy: \{\s*eyebrow: "Private workspace"/);
 });
 
 console.log("hypervisorShellNavigationModel.test.mjs: ok");

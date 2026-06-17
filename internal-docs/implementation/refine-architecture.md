@@ -1134,6 +1134,20 @@ Current implementation cut:
   daemon/Agentgres evidence projections and does not become receipt truth.
   Remaining work is live receipt query hydration, filtering, drill-in replay,
   and durable Agentgres-backed receipt pagination.
+
+0A.8/0A.9 first Privacy/cTEE admission posture surface is implemented:
+  `hypervisorPrivacyPostureModel.ts` defines
+  `HypervisorPrivacyPostureProjection` for workspace custody segments,
+  model-weight custody lanes, provider privacy candidates, admission controls,
+  unsafe mount receipts, and runtime truth source. `HypervisorShellContent`
+  now renders Privacy as a cTEE/model-custody admission surface instead of a
+  placeholder. The fixture intentionally separates private workspace custody
+  from proprietary model-weight custody: cTEE can block protected workspace
+  plaintext on rented nodes, while proprietary weights require local/open,
+  remote API, TEE/customer-cloud, explicit provider-trust, or forbidden mount
+  lanes. Remaining work is live admission hydration from daemon model-mount
+  routes, provider leases, wallet declassification policy, and Agentgres
+  privacy receipts.
 ```
 
 Code migration posture:

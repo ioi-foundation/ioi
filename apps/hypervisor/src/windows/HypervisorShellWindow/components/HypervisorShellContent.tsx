@@ -30,6 +30,7 @@ import { buildOperatorCommandCenterModel } from "../operatorSubstrateModel";
 import { materializeWorkflowProject } from "../../../services/workflowProjectMaterialization";
 import type { PrimaryView } from "../hypervisorShellModel";
 import { HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE } from "../harnessAdapterModel";
+import { HYPERVISOR_PRIVACY_POSTURE_PROJECTION_FIXTURE } from "../hypervisorPrivacyPostureModel";
 import { HYPERVISOR_PROVIDER_PLACEMENT_PROJECTION_FIXTURE } from "../hypervisorProviderPlacementModel";
 import { HYPERVISOR_RECEIPT_EVIDENCE_PROJECTION_FIXTURE } from "../hypervisorReceiptEvidenceModel";
 import { HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE } from "../hypervisorSessionOperationsModel";
@@ -48,13 +49,6 @@ const PLACEHOLDER_SURFACE_COPY: Partial<
     body:
       "This surface is where Hypervisor will group local folders, remote workspaces, Agentgres state refs, encrypted artifact refs, and zero-to-idle restore material without making any editor the parent product.",
     tags: ["Workspace refs", "Restore posture", "Artifact refs"],
-  },
-  privacy: {
-    eyebrow: "Private workspace",
-    title: "Privacy will expose cTEE custody state and declassification gates.",
-    body:
-      "This surface tracks public trunks, redacted projections, encrypted refs, private handles, model-mount posture, and explicit unsafe mounts before a provider or adapter sees sensitive state.",
-    tags: ["cTEE", "No plaintext custody", "Declassification"],
   },
   providers: {
     eyebrow: "Provider posture",
@@ -497,6 +491,132 @@ function HypervisorReceiptEvidenceSurface() {
   );
 }
 
+function HypervisorPrivacyPostureSurface() {
+  const projection = HYPERVISOR_PRIVACY_POSTURE_PROJECTION_FIXTURE;
+  return (
+    <section
+      className="hypervisor-privacy-posture"
+      aria-label="Privacy and cTEE posture surface"
+      data-hypervisor-privacy-posture={projection.projection_id}
+      data-runtime-truth-source={projection.runtimeTruthSource}
+    >
+      <div className="hypervisor-privacy-posture__header">
+        <span>Privacy / cTEE</span>
+        <h2>Workspace custody, model custody, and provider admission.</h2>
+        <p>{projection.invariant}</p>
+      </div>
+
+      <div className="hypervisor-privacy-posture__summary">
+        <div>
+          <span>Selected Privacy</span>
+          <strong>{projection.selected_privacy_ref}</strong>
+        </div>
+        <div>
+          <span>Model Route</span>
+          <strong>{projection.default_model_route_ref}</strong>
+        </div>
+        <div>
+          <span>Session</span>
+          <strong>{projection.selected_session_ref}</strong>
+        </div>
+      </div>
+
+      <div className="hypervisor-privacy-posture__grid">
+        <section aria-label="Workspace custody segments">
+          <h3>Workspace Custody</h3>
+          {projection.workspace_segments.map((segment) => (
+            <article
+              key={segment.segment_ref}
+              className="hypervisor-privacy-posture__row"
+              data-privacy-workspace-segment={segment.segment_ref}
+              data-node-plaintext-allowed={String(segment.node_plaintext_allowed)}
+            >
+              <div>
+                <strong>{segment.label}</strong>
+                <span>{segment.custody_class.split("_").join(" ")}</span>
+              </div>
+              <em>{segment.owner.split("_").join(".")}</em>
+              <small>
+                Node plaintext {segment.node_plaintext_allowed ? "allowed" : "blocked"}
+              </small>
+            </article>
+          ))}
+        </section>
+
+        <section aria-label="Model-weight custody policies">
+          <h3>Model Custody</h3>
+          {projection.model_weight_policies.map((policy) => (
+            <article
+              key={policy.lane}
+              className="hypervisor-privacy-posture__row"
+              data-model-weight-custody-lane={policy.lane}
+              data-protects-model-weights={String(
+                policy.protects_model_weights_from_provider_root,
+              )}
+            >
+              <div>
+                <strong>{policy.label}</strong>
+                <span>{policy.admission_summary}</span>
+              </div>
+              <em>
+                weights{" "}
+                {policy.protects_model_weights_from_provider_root
+                  ? "protected"
+                  : "exposed"}
+              </em>
+              <small>{policy.authority_scope_refs.join(", ")}</small>
+            </article>
+          ))}
+        </section>
+
+        <section aria-label="Provider privacy candidates">
+          <h3>Provider Admission</h3>
+          {projection.provider_candidates.map((candidate) => (
+            <article
+              key={candidate.candidate_ref}
+              className="hypervisor-privacy-posture__row"
+              data-provider-privacy-candidate={candidate.candidate_ref}
+              data-execution-privacy-posture={candidate.posture}
+              data-provider-root-plaintext-risk={
+                candidate.provider_root_plaintext_risk
+              }
+            >
+              <div>
+                <strong>{candidate.label}</strong>
+                <span>{candidate.admission_summary}</span>
+              </div>
+              <em>{candidate.posture.split("_").join(" ")}</em>
+              <small>{candidate.model_weight_lane.split("_").join(" ")}</small>
+            </article>
+          ))}
+        </section>
+
+        <section aria-label="Privacy admission controls">
+          <h3>Admission Controls</h3>
+          {projection.admission_controls.map((control) => (
+            <article
+              key={control.control_ref}
+              className="hypervisor-privacy-posture__row"
+              data-privacy-admission-control={control.control_ref}
+              data-admission-control-owner={control.owner}
+            >
+              <div>
+                <strong>{control.label}</strong>
+                <span>{control.receipt_ref}</span>
+              </div>
+              <em>{control.owner.split("_").join(".")}</em>
+              <small>
+                unsafe plaintext{" "}
+                {control.blocks_unsafe_plaintext ? "blocked" : "allowed"}
+              </small>
+            </article>
+          ))}
+        </section>
+      </div>
+    </section>
+  );
+}
+
 export function HypervisorShellContent({
   controller,
   runtime,
@@ -725,6 +845,10 @@ export function HypervisorShellContent({
                     <MissionControlMountsView />
                   ) : null}
 
+                  {activeView === "privacy" ? (
+                    <HypervisorPrivacyPostureSurface />
+                  ) : null}
+
                   {activeView === "foundry" ? (
                     <HypervisorHarnessComparisonDashboard />
                   ) : null}
@@ -858,6 +982,7 @@ export function HypervisorShellContent({
 
                   {isPlaceholderSurface(activeView) &&
                   activeView !== "foundry" &&
+                  activeView !== "privacy" &&
                   activeView !== "providers" &&
                   activeView !== "environments" &&
                   activeView !== "receipts" ? (
