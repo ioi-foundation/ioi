@@ -9782,7 +9782,7 @@ tool receipt refs, emits materialized `ioi.runtime.mcp-live-result.v1` records
 with protocol payload hashes, `runtime.mcp_serve` authorship, StepModuleRouter
 ownership, and no retired JS/command/binary-bridge/compatibility fallback proof fields, and
 `policy/mcp_memory.rs` replays `runtime.mcp_serve` live results while still
-filtering JS-authored candidates. `runtime-mcp-serve-surface.mjs` now fails
+filtering JS-authored candidates. `runtime-mcp-serve-api.mjs` now fails
 closed without `commitRuntimeMcpLiveResultState`, runtime `stateDir`, or
 `projectMcpLiveResultReplay`, commits the Rust live-result record, and returns
 only the replayed protocol payload. This remains non-terminal because external
@@ -10603,7 +10603,7 @@ stable protocol APIs, not alternate conversation-artifact runners.
 Slice 1311 hard-cuts the runtime MCP serve store-core fallback. MCP serve
 `tools/call` planning, Rust result projection, and live-result replay now
 resolve only through the positive `contextPolicyCore` mount supplied to
-`createRuntimeMcpServeSurface()` by daemon startup. The MCP serve surface and
+`createRuntimeMcpServeApi()` by daemon startup. The MCP serve API and
 focused tests no longer read or model `store.contextPolicyCore`, and the old
 `store.contextPolicyCore ?? contextPolicyCore` fallback cannot return.
 Conformance now guards the absence of that store-mounted planner path. Remaining
@@ -12660,6 +12660,24 @@ the old surface file, factory, property, and route call patterns from returning.
 Remaining blockers stay direct Rust delegation/execution admission, durable
 subagent replay/projection storage, wallet authority, receipt/state-root binding,
 and stable Workbench/CLI/SDK subagent clients over Rust-owned records.
+
+Slice 1428 hard-deletes the thread MCP route-visible JS surfaces.
+`runtime-mcp-control-surface.mjs`, `runtime-mcp-catalog-surface.mjs`,
+`runtime-mcp-serve-surface.mjs`, their focused tests, the
+`createRuntimeMcp*Surface()` factories, and the mounted `mcp*Surface`
+daemon-store properties are absent. Daemon startup mounts
+`runtime-mcp-control-api.mjs`, `runtime-mcp-catalog-api.mjs`, and
+`runtime-mcp-serve-api.mjs` as internal delegates, while public thread MCP
+control/catalog/serve routes enter through store-owned methods such as
+`importThreadMcp()`, `searchThreadMcpTools()`, `mcpServeStatus()`, and
+`handleMcpServeJsonRpc()`. Those methods delegate to the positive Rust-backed
+MCP APIs while preserving Rust control planning, catalog projection, MCP serve
+planning/result projection, live-result Agentgres commit/replay, wallet
+authority refs, cTEE custody refs, containment refs, and daemon `state_dir`
+replay. Conformance rejects the old surface files, factories, properties, and
+route call patterns from returning. Remaining blockers stay broader stable
+SDK/CLI/IDE protocol coverage over Rust-owned records plus deeper MCP
+replay/storage depth.
 
 ## Final Doctrine
 

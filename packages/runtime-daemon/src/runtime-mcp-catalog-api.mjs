@@ -22,7 +22,7 @@ import {
   optionalString,
 } from "./runtime-value-helpers.mjs";
 
-export function createRuntimeMcpCatalogSurface({
+export function createRuntimeMcpCatalogApi({
   RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION: statusSchemaVersion = RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION,
   RUNTIME_MCP_TOOL_SEARCH_SCHEMA_VERSION: toolSearchSchemaVersion = RUNTIME_MCP_TOOL_SEARCH_SCHEMA_VERSION,
   MCP_LIVE_CATALOG_MAX_PREVIEW_LIMIT: maxLiveCatalogPreviewLimit = MCP_LIVE_CATALOG_MAX_PREVIEW_LIMIT,

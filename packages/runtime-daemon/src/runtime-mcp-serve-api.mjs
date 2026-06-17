@@ -20,7 +20,7 @@ const RUNTIME_MCP_LIVE_RESULT_STATE_COMMIT_SCHEMA_VERSION =
   "ioi.runtime_mcp_live_result_state_commit.v1";
 const RUNTIME_STATE_STORAGE_BACKEND_REF = "storage://runtime-agentgres/local-json";
 
-export function createRuntimeMcpServeSurface({
+export function createRuntimeMcpServeApi({
   RUNTIME_MCP_SERVE_PROTOCOL_VERSION: protocolVersion = RUNTIME_MCP_SERVE_PROTOCOL_VERSION,
   RUNTIME_MCP_SERVE_SCHEMA_VERSION: schemaVersion = RUNTIME_MCP_SERVE_SCHEMA_VERSION,
   codingToolContracts: codingToolContractsDep = codingToolContracts,

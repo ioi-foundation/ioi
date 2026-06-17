@@ -69,9 +69,9 @@ import { createRuntimeContextPolicyCore } from "./runtime-context-policy-core.mj
 import { createRuntimeWorkflowEditSurface } from "./runtime-workflow-edit-surface.mjs";
 import { createRuntimeApprovalSurface } from "./runtime-approval-surface.mjs";
 import { createRuntimeApprovalStateCore } from "./runtime-approval-state-core.mjs";
-import { createRuntimeMcpCatalogSurface } from "./runtime-mcp-catalog-surface.mjs";
-import { createRuntimeMcpControlSurface } from "./runtime-mcp-control-surface.mjs";
-import { createRuntimeMcpServeSurface } from "./runtime-mcp-serve-surface.mjs";
+import { createRuntimeMcpCatalogApi } from "./runtime-mcp-catalog-api.mjs";
+import { createRuntimeMcpControlApi } from "./runtime-mcp-control-api.mjs";
+import { createRuntimeMcpServeApi } from "./runtime-mcp-serve-api.mjs";
 import { createRuntimeRunReadSurface } from "./runtime-run-read-surface.mjs";
 import { createRuntimeLifecycleProjectionApi } from "./runtime-lifecycle-projection-api.mjs";
 import { createRuntimeSkillHookSurface } from "./runtime-skill-hook-surface.mjs";
@@ -703,13 +703,13 @@ export class AgentgresRuntimeStateStore {
       runtimeError,
       writeJson,
     });
-    this.mcpCatalogSurface = createRuntimeMcpCatalogSurface({
+    this.mcpCatalogApi = createRuntimeMcpCatalogApi({
       contextPolicyCore: this.contextPolicyCore,
     });
-    this.mcpControlSurface = createRuntimeMcpControlSurface({
+    this.mcpControlApi = createRuntimeMcpControlApi({
       contextPolicyCore: this.contextPolicyCore,
     });
-    this.mcpServeSurface = createRuntimeMcpServeSurface({
+    this.mcpServeApi = createRuntimeMcpServeApi({
       contextPolicyCore: this.contextPolicyCore,
     });
     this.repositorySurface = createRuntimeRepositorySurface({
@@ -856,6 +856,56 @@ export class AgentgresRuntimeStateStore {
 
   getThread(threadId) {
     return this.threadForAgent(this.agentForThread(threadId));
+  }
+
+  importThreadMcp(threadId, request = {}) {
+    return this.mcpControlApi.importThreadMcp(this, threadId, request);
+  }
+
+  addThreadMcpServer(threadId, request = {}) {
+    return this.mcpControlApi.addThreadMcpServer(this, threadId, request);
+  }
+
+  removeThreadMcpServer(threadId, serverId, request = {}) {
+    return this.mcpControlApi.removeThreadMcpServer(this, threadId, serverId, request);
+  }
+
+  setThreadMcpServerEnabled(threadId, serverId, enabled, request = {}) {
+    return this.mcpControlApi.setThreadMcpServerEnabled(this, threadId, serverId, enabled, request);
+  }
+
+  searchThreadMcpTools(threadId, request = {}) {
+    return this.mcpCatalogApi.searchThreadMcpTools(this, threadId, request);
+  }
+
+  getThreadMcpTool(threadId, toolId, request = {}) {
+    return this.mcpCatalogApi.getThreadMcpTool(this, threadId, toolId, request);
+  }
+
+  invokeThreadMcpTool(threadId, toolId, request = {}) {
+    return this.mcpControlApi.invokeThreadMcpTool(this, threadId, toolId, request);
+  }
+
+  mcpServeStatus(threadId, request = {}) {
+    return this.mcpServeApi.mcpServeStatus(this, {
+      ...request,
+      thread_id: threadId,
+    });
+  }
+
+  handleMcpServeJsonRpc(threadId, message, request = {}) {
+    return this.mcpServeApi.handleMcpServeJsonRpc(this, threadId, message, {
+      ...request,
+      thread_id: threadId,
+    });
+  }
+
+  recordThreadMcpStatus(threadId, request = {}) {
+    return this.mcpControlApi.recordThreadMcpStatus(this, threadId, request);
+  }
+
+  validateThreadMcp(threadId, request = {}) {
+    return this.mcpControlApi.validateThreadMcp(this, threadId, request);
   }
 
   listTurns(threadId) {

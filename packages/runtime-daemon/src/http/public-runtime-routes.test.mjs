@@ -1623,7 +1623,7 @@ test("public runtime top-level MCP route family is retired", async () => {
   });
   const failRetiredRoute = () => assert.fail("retired top-level MCP route must not reach an MCP surface");
   const store = {
-    mcpCatalogSurface: {
+    mcpCatalogApi: {
       mcpStatus: failRetiredRoute,
       listMcpServers: failRetiredRoute,
       listMcpTools: failRetiredRoute,
@@ -1633,14 +1633,14 @@ test("public runtime top-level MCP route family is retired", async () => {
       listMcpPrompts: failRetiredRoute,
       validateMcp: failRetiredRoute,
     },
-    mcpControlSurface: {
+    mcpControlApi: {
       importMcp: failRetiredRoute,
       addMcpServer: failRetiredRoute,
       setMcpServerEnabled: failRetiredRoute,
       removeMcpServer: failRetiredRoute,
       invokeMcpTool: failRetiredRoute,
     },
-    mcpServeSurface: {
+    mcpServeApi: {
       mcpServeStatus: failRetiredRoute,
       handleMcpServeJsonRpc: failRetiredRoute,
     },
@@ -1687,11 +1687,12 @@ test("public runtime MCP serve route accepts stable protocol admission envelope"
   const { handleRequest } = routeHarness();
   const calls = [];
   const store = {
-    mcpServeSurface: {
-      handleMcpServeJsonRpc(surfaceStore, threadId, message, options) {
-        calls.push({ surfaceStore, threadId, message, options });
-        return { jsonrpc: "2.0", id: message.id, result: { ok: true } };
-      },
+    mcpServeApi: {
+      handleMcpServeJsonRpc: retiredRouteWrapper,
+    },
+    handleMcpServeJsonRpc(threadId, message, options) {
+      calls.push({ thisArg: this, threadId, message, options });
+      return { jsonrpc: "2.0", id: message.id, result: { ok: true } };
     },
   };
   const admission = {
@@ -1723,6 +1724,7 @@ test("public runtime MCP serve route accepts stable protocol admission envelope"
   });
 
   assert.equal(response.statusCode, 200);
+  assert.equal(calls[0].thisArg, store);
   assert.equal(calls[0].threadId, "thread_route");
   assert.equal(calls[0].message.method, "tools/call");
   assert.deepEqual(calls[0].options.authority_grant_refs, admission.authority_grant_refs);
@@ -1736,7 +1738,9 @@ test("public runtime MCP serve route accepts stable protocol admission envelope"
 test("public runtime MCP serve route rejects query or raw JSON-RPC compatibility transport", async () => {
   const { handleRequest } = routeHarness();
   const store = {
-    mcpServeSurface: {
+    mcpServeStatus: retiredRouteWrapper,
+    handleMcpServeJsonRpc: retiredRouteWrapper,
+    mcpServeApi: {
       mcpServeStatus: retiredRouteWrapper,
       handleMcpServeJsonRpc: retiredRouteWrapper,
     },

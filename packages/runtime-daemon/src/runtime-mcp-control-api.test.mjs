@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createRuntimeMcpControlSurface } from "./runtime-mcp-control-surface.mjs";
+import { createRuntimeMcpControlApi } from "./runtime-mcp-control-api.mjs";
 
 function server(id, tools = [{ name: "search" }], extra = {}) {
   return {
@@ -581,7 +581,7 @@ function harness(options = {}) {
       };
     },
   };
-  const surface = createRuntimeMcpControlSurface({
+  const surface = createRuntimeMcpControlApi({
     RUNTIME_MCP_MANAGER_INVOCATION_SCHEMA_VERSION: "invoke.schema",
     RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION: "status.schema",
     RUNTIME_MCP_MANAGER_VALIDATION_SCHEMA_VERSION: "validation.schema",
@@ -660,7 +660,7 @@ function assertRustCoreRequired(error, operation, operationKind) {
   assertNoRetiredDetailAliases(error.details);
 }
 
-test("runtime MCP control surface keeps read-only status projection canonical", () => {
+test("runtime MCP control API keeps read-only status projection canonical", () => {
   const { agent, calls, surface } = harness();
 
   const status = surface.mcpStatusForAgent(agent);
@@ -698,7 +698,7 @@ test("runtime MCP control surface keeps read-only status projection canonical", 
   assert.equal(Object.hasOwn(status, "enabledServerCount"), false);
 });
 
-test("runtime MCP control facade rejects retired threadId alias before JS lookup", async () => {
+test("runtime MCP control API rejects retired threadId alias before JS lookup", async () => {
   const { store, surface } = harness();
 
   assert.throws(

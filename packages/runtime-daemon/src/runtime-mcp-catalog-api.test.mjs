@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createRuntimeMcpCatalogSurface } from "./runtime-mcp-catalog-surface.mjs";
+import { createRuntimeMcpCatalogApi } from "./runtime-mcp-catalog-api.mjs";
 
 function server(id, sourceScope = "workspace", extra = {}) {
   return {
@@ -20,7 +20,7 @@ function harness() {
   const calls = [];
   const workspaceServer = server("mcp.workspace.docs", "workspace");
   const agentServer = server("mcp.agent.git", "thread", { tools: [{ name: "diff" }] });
-  const surface = createRuntimeMcpCatalogSurface({
+  const surface = createRuntimeMcpCatalogApi({
     mcpConfigSourceModeForRequest(options) {
       return options.config_source_mode ?? options.mcp_config_source_mode ?? "all";
     },
@@ -310,7 +310,7 @@ function harness() {
   return { agentServer, calls, store, surface, workspaceServer };
 }
 
-test("runtime MCP catalog surface lists context servers and filters catalog rows", () => {
+test("runtime MCP catalog API lists context servers and filters catalog rows", () => {
   const { calls, store, surface } = harness();
 
   assert.deepEqual(surface.listMcpServers(store).map((item) => item.id), [
@@ -353,7 +353,7 @@ test("runtime MCP catalog surface lists context servers and filters catalog rows
   );
 });
 
-test("runtime MCP catalog surface projects status and validation envelopes", () => {
+test("runtime MCP catalog API projects status and validation envelopes", () => {
   const { calls, store, surface } = harness();
 
   const status = surface.mcpStatus(store);
@@ -441,7 +441,7 @@ test("runtime MCP catalog surface projects status and validation envelopes", () 
   );
 });
 
-test("runtime MCP catalog surface searches and fetches tools through global and thread contexts", async () => {
+test("runtime MCP catalog API searches and fetches tools through global and thread contexts", async () => {
   const { calls, store, surface } = harness();
 
   const globalSearch = await surface.searchMcpTools(store, {
@@ -543,7 +543,7 @@ test("runtime MCP catalog surface searches and fetches tools through global and 
   );
 });
 
-test("runtime MCP catalog surface materializes live discovery through Rust projection", async () => {
+test("runtime MCP catalog API materializes live discovery through Rust projection", async () => {
   const { calls, store, surface } = harness();
 
   const live = await surface.searchMcpTools(store, {

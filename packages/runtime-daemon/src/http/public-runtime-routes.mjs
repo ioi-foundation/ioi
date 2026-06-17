@@ -334,14 +334,14 @@ export function createPublicRuntimeRequestHandler(deps) {
         const threadId = decodeURIComponent(segments[2]);
         assertNoMcpServeQueryContext(url);
         if (request.method === "GET") {
-          writeJsonResponse(response, store.mcpServeSurface.mcpServeStatus(store, { thread_id: threadId }));
+          writeJsonResponse(response, store.mcpServeStatus(threadId));
           return;
         }
         if (request.method === "POST") {
           const { message, context } = mcpServeProtocolParts(await readBody(request));
           writeMcpJsonRpcResponse(
             response,
-            await store.mcpServeSurface.handleMcpServeJsonRpc(store, threadId, message, { ...context, thread_id: threadId }),
+            await store.handleMcpServeJsonRpc(threadId, message, { ...context, thread_id: threadId }),
           );
           return;
         }

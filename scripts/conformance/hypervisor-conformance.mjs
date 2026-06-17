@@ -2972,7 +2972,7 @@ function runDocs() {
       /contextPolicyCore\.validateMcpServers\(\{\s+servers \}\)/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 774 is now satisfied/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 775/.test(matrix) &&
-      /runtime-mcp-catalog-surface\.mjs` no longer imports, injects, or calls\s+`validateMcpServerRecords`/.test(matrix) &&
+      /runtime-mcp-catalog-api\.mjs` no longer imports, injects, or calls\s+`validateMcpServerRecords`/.test(matrix) &&
       /`mcpStatus\(\)` and `validateMcp\(\)` route normalized canonical server records\s+through `contextPolicyCore\.validateMcpServers/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 775 is now satisfied/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 776/.test(matrix) &&
@@ -4578,19 +4578,19 @@ function runBridge() {
   const runtimeThreadAuxiliarySurface = exists("packages/runtime-daemon/src/runtime-thread-auxiliary-api.mjs")
     ? read("packages/runtime-daemon/src/runtime-thread-auxiliary-api.mjs")
     : "";
-  const runtimeMcpControlSurface = exists("packages/runtime-daemon/src/runtime-mcp-control-surface.mjs")
-    ? read("packages/runtime-daemon/src/runtime-mcp-control-surface.mjs")
+  const runtimeMcpControlSurface = exists("packages/runtime-daemon/src/runtime-mcp-control-api.mjs")
+    ? read("packages/runtime-daemon/src/runtime-mcp-control-api.mjs")
     : "";
-  const runtimeMcpControlSurfaceTest = exists("packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs")
-    ? read("packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs")
+  const runtimeMcpControlSurfaceTest = exists("packages/runtime-daemon/src/runtime-mcp-control-api.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-mcp-control-api.test.mjs")
     : "";
-  const runtimeMcpCatalogSurface = exists("packages/runtime-daemon/src/runtime-mcp-catalog-surface.mjs")
-    ? read("packages/runtime-daemon/src/runtime-mcp-catalog-surface.mjs")
+  const runtimeMcpCatalogSurface = exists("packages/runtime-daemon/src/runtime-mcp-catalog-api.mjs")
+    ? read("packages/runtime-daemon/src/runtime-mcp-catalog-api.mjs")
     : "";
   const runtimeMcpCatalogSurfaceTest = exists(
-    "packages/runtime-daemon/src/runtime-mcp-catalog-surface.test.mjs",
+    "packages/runtime-daemon/src/runtime-mcp-catalog-api.test.mjs",
   )
-    ? read("packages/runtime-daemon/src/runtime-mcp-catalog-surface.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-mcp-catalog-api.test.mjs")
     : "";
   const runtimeThreadMemoryState = exists("packages/runtime-daemon/src/threads/thread-memory-state.mjs")
     ? read("packages/runtime-daemon/src/threads/thread-memory-state.mjs")
@@ -14866,10 +14866,10 @@ function runBridge() {
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
-      "packages/runtime-daemon/src/runtime-mcp-catalog-surface.mjs",
-      "packages/runtime-daemon/src/runtime-mcp-catalog-surface.test.mjs",
-      "packages/runtime-daemon/src/runtime-mcp-control-surface.mjs",
-      "packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-catalog-api.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-catalog-api.test.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-control-api.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-control-api.test.mjs",
     ],
     "Phase 10/11 is pending: MCP control mutations and live transport exits must be retired from the JS facade and routed through the Rust daemon core API",
   );
@@ -34269,21 +34269,21 @@ function runCompositor() {
       /export function mcpRegistryForWorkspace\(cwd, options = \{\}\) \{[\s\S]*?\n}\n\nexport function mcpServerRecordsFromValidationInput/,
     )?.[0] ?? "";
   const runtimeMcpManagerLiveOutputBlock = runtimeMcpManager;
-  const runtimeMcpCatalogSurface = exists("packages/runtime-daemon/src/runtime-mcp-catalog-surface.mjs")
-    ? read("packages/runtime-daemon/src/runtime-mcp-catalog-surface.mjs")
+  const runtimeMcpCatalogSurface = exists("packages/runtime-daemon/src/runtime-mcp-catalog-api.mjs")
+    ? read("packages/runtime-daemon/src/runtime-mcp-catalog-api.mjs")
     : "";
   const runtimeMcpCatalogSurfaceTest = exists(
-    "packages/runtime-daemon/src/runtime-mcp-catalog-surface.test.mjs",
+    "packages/runtime-daemon/src/runtime-mcp-catalog-api.test.mjs",
   )
-    ? read("packages/runtime-daemon/src/runtime-mcp-catalog-surface.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-mcp-catalog-api.test.mjs")
     : "";
-  const runtimeMcpServeSurface = exists("packages/runtime-daemon/src/runtime-mcp-serve-surface.mjs")
-    ? read("packages/runtime-daemon/src/runtime-mcp-serve-surface.mjs")
+  const runtimeMcpServeSurface = exists("packages/runtime-daemon/src/runtime-mcp-serve-api.mjs")
+    ? read("packages/runtime-daemon/src/runtime-mcp-serve-api.mjs")
     : "";
   const runtimeMcpServeSurfaceTest = exists(
-    "packages/runtime-daemon/src/runtime-mcp-serve-surface.test.mjs",
+    "packages/runtime-daemon/src/runtime-mcp-serve-api.test.mjs",
   )
-    ? read("packages/runtime-daemon/src/runtime-mcp-serve-surface.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-mcp-serve-api.test.mjs")
     : "";
   const runtimeMcpServeCore = exists("crates/services/src/agentic/runtime/kernel/runtime_mcp_serve.rs")
     ? read("crates/services/src/agentic/runtime/kernel/runtime_mcp_serve.rs")
@@ -34297,13 +34297,13 @@ function runCompositor() {
   const runtimeMcpServeStatusBlock =
     runtimeMcpServeSurface.match(/mcpServeStatus\(store, options = \{\}\) \{[\s\S]*?\n    \},\n    mcpServeToolCatalog/)?.[0] ??
     "";
-  const runtimeMcpControlSurface = exists("packages/runtime-daemon/src/runtime-mcp-control-surface.mjs")
-    ? read("packages/runtime-daemon/src/runtime-mcp-control-surface.mjs")
+  const runtimeMcpControlSurface = exists("packages/runtime-daemon/src/runtime-mcp-control-api.mjs")
+    ? read("packages/runtime-daemon/src/runtime-mcp-control-api.mjs")
     : "";
   const runtimeMcpControlSurfaceTest = exists(
-    "packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs",
+    "packages/runtime-daemon/src/runtime-mcp-control-api.test.mjs",
   )
-    ? read("packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-mcp-control-api.test.mjs")
     : "";
   const runtimeMcpControlStatusForAgentBlock =
     runtimeMcpControlSurface.match(
@@ -42338,11 +42338,11 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-thread-control-surface.mjs",
       "packages/runtime-daemon/src/runtime-thread-turn-surface.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-surface.mjs",
-      "packages/runtime-daemon/src/runtime-mcp-control-surface.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-control-api.mjs",
       "packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs",
       "packages/runtime-daemon/src/runtime-operator-turn-control-facade.test.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-surface.test.mjs",
-      "packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-control-api.test.mjs",
     ],
     "Runtime-control/context/MCP state-event planning must derive sequence authority from Rust state_dir replay; JS latest-sequence cache transport and caller-supplied seq/previous_latest_seq fields must stay retired",
   );
@@ -44218,7 +44218,7 @@ function runCompositor() {
       !/mcpServeToolCallResult/.test(runtimeMcpHelpers + runtimeMcpServeSurface),
     [
       "crates/services/src/agentic/runtime/kernel/runtime_mcp_serve.rs",
-      "packages/runtime-daemon/src/runtime-mcp-serve-surface.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-serve-api.mjs",
       "packages/runtime-daemon/src/runtime-mcp-helpers.mjs",
     ],
     "Phase 10/11 is pending: MCP serve result projection must be Rust-owned and use canonical runtime event_id while ignoring retired event.id aliases",
@@ -44271,8 +44271,8 @@ function runCompositor() {
       !/options\.(?:threadId|agentId|serverId)\b/.test(runtimeMcpCatalogSurface) &&
       !/^\s*(?:threadId|agentId|serverId)\?:/m.test(runtimeMcpSdkListOptionsBlock),
     [
-      "packages/runtime-daemon/src/runtime-mcp-catalog-surface.mjs",
-      "packages/runtime-daemon/src/runtime-mcp-catalog-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-catalog-api.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-catalog-api.test.mjs",
       "packages/agent-sdk/src/substrate-client.ts",
     ],
     "Phase 10/11 is pending: MCP catalog/list/search requests must use canonical snake_case identity fields without camelCase compatibility aliases",
@@ -44304,8 +44304,8 @@ function runCompositor() {
         runtimeMcpSdkToolSearchInputBlock,
       ),
     [
-      "packages/runtime-daemon/src/runtime-mcp-catalog-surface.mjs",
-      "packages/runtime-daemon/src/runtime-mcp-catalog-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-catalog-api.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-catalog-api.test.mjs",
       "packages/runtime-daemon/src/runtime-mcp-helpers.mjs",
       "packages/agent-sdk/src/substrate-client.ts",
     ],
@@ -44315,20 +44315,26 @@ function runCompositor() {
     result,
     "runtime-mcp-route-wrappers-retired",
       /public runtime top-level MCP route family is retired/.test(publicRuntimeRoutesTestForTaskJob) &&
-      /thread route sends MCP controls through mounted MCP surfaces/.test(runtimeRouteHandlersTest) &&
+      /thread route sends MCP controls through store-owned MCP APIs/.test(runtimeRouteHandlersTest) &&
       /model mounting native route does not expose retired MCP aliases/.test(runtimeRouteHandlersTest) &&
-      /store\.mcpServeSurface\.handleMcpServeJsonRpc\(store,\s*threadId,/.test(publicRuntimeRoutesForTaskJob) &&
-      /store\.mcpControlSurface\.importThreadMcp\(store,\s*threadId,/.test(runtimeRouteHandlers) &&
-      /store\.mcpControlSurface\.addThreadMcpServer\(store,\s*threadId,/.test(runtimeRouteHandlers) &&
-      /store\.mcpControlSurface\.removeThreadMcpServer\(\s*store,\s*threadId,/.test(runtimeRouteHandlers) &&
-      /store\.mcpControlSurface\.setThreadMcpServerEnabled\(\s*store,\s*threadId,/.test(runtimeRouteHandlers) &&
-      /store\.mcpCatalogSurface\.searchThreadMcpTools\(store,\s*threadId,/.test(runtimeRouteHandlers) &&
-      /store\.mcpCatalogSurface\.getThreadMcpTool\(store,\s*threadId,/.test(runtimeRouteHandlers) &&
-      /store\.mcpControlSurface\.invokeThreadMcpTool\(\s*store,\s*threadId,/.test(runtimeRouteHandlers) &&
-      /store\.mcpServeSurface\.mcpServeStatus\(store,/.test(runtimeRouteHandlers) &&
-      /store\.mcpServeSurface\.handleMcpServeJsonRpc\(store,\s*threadId,/.test(runtimeRouteHandlers) &&
-      /store\.mcpControlSurface\.recordThreadMcpStatus\(store,\s*threadId,/.test(runtimeRouteHandlers) &&
-      /store\.mcpControlSurface\.validateThreadMcp\(store,\s*threadId,/.test(runtimeRouteHandlers) &&
+      /store\.handleMcpServeJsonRpc\(threadId,\s*message,/.test(publicRuntimeRoutesForTaskJob) &&
+      /store\.importThreadMcp\(threadId,/.test(runtimeRouteHandlers) &&
+      /store\.addThreadMcpServer\(threadId,/.test(runtimeRouteHandlers) &&
+      /store\.removeThreadMcpServer\(\s*threadId,/.test(runtimeRouteHandlers) &&
+      /store\.setThreadMcpServerEnabled\(\s*threadId,/.test(runtimeRouteHandlers) &&
+      /store\.searchThreadMcpTools\(threadId,/.test(runtimeRouteHandlers) &&
+      /store\.getThreadMcpTool\(threadId,/.test(runtimeRouteHandlers) &&
+      /store\.invokeThreadMcpTool\(\s*threadId,/.test(runtimeRouteHandlers) &&
+      /store\.mcpServeStatus\(threadId\)/.test(runtimeRouteHandlers) &&
+      /store\.handleMcpServeJsonRpc\(threadId,\s*message,/.test(runtimeRouteHandlers) &&
+      /store\.recordThreadMcpStatus\(threadId,/.test(runtimeRouteHandlers) &&
+      /store\.validateThreadMcp\(threadId,/.test(runtimeRouteHandlers) &&
+      /importThreadMcp\(threadId, request = \{\}\) \{\s*return this\.mcpControlApi\.importThreadMcp\(this, threadId, request\);/s.test(runtimeDaemonIndex) &&
+      /handleMcpServeJsonRpc\(threadId, message, request = \{\}\) \{\s*return this\.mcpServeApi\.handleMcpServeJsonRpc\(this, threadId, message,/s.test(runtimeDaemonIndex) &&
+      !exists("packages/runtime-daemon/src/runtime-mcp-control-surface.mjs") &&
+      !exists("packages/runtime-daemon/src/runtime-mcp-catalog-surface.mjs") &&
+      !exists("packages/runtime-daemon/src/runtime-mcp-serve-surface.mjs") &&
+      !/store\.mcp(?:Control|Catalog|Serve)(?:Api|Surface)\./.test(runtimeRouteHandlers + publicRuntimeRoutesForTaskJob) &&
       !/url\.pathname === "\/v1\/mcp(?:\/|")/.test(publicRuntimeRoutesForTaskJob) &&
       !/segments\[1\] === "mcp"/.test(publicRuntimeRoutesForTaskJob) &&
       !/url\.pathname === "\/api\/v1\/mcp(?:\/|")/.test(runtimeRouteHandlers) &&
@@ -44340,14 +44346,8 @@ function runCompositor() {
       !/McpCommands::(?:Ls|Import|Invoke)|\b(?:Ls|Import|Invoke)\s*(?:\{|,)|\/api\/v1\/mcp|daemon_request\(/.test(
         agentMcpCli,
       ) &&
-      !/^\s*(?:listMcpServers|listMcpTools|searchMcpTools|getMcpTool|listMcpResources|listMcpPrompts|mcpStatus|validateMcp|importMcp|addMcpServer|removeMcpServer|importThreadMcp|addThreadMcpServer|removeThreadMcpServer|searchThreadMcpTools|getThreadMcpTool|getMcpToolFromCatalog|searchMcpToolCatalog|setMcpServerEnabled|setThreadMcpServerEnabled|invokeMcpTool|invokeThreadMcpTool|mcpServeStatus|mcpServeToolCatalog|handleMcpServeJsonRpc|handleSingleMcpServeJsonRpc|recordThreadMcpStatus|validateThreadMcp)\(/m.test(
-        runtimeDaemonIndex,
-      ) &&
-      !/store\.(?:mcpStatus|mcpServeStatus|handleMcpServeJsonRpc|listMcpServers|listMcpTools|searchMcpTools|getMcpTool|listMcpResources|listMcpPrompts|validateMcp|importMcp|addMcpServer|setMcpServerEnabled|removeMcpServer|invokeMcpTool)\(/.test(
-        publicRuntimeRoutesForTaskJob,
-      ) &&
-      !/store\.(?:importThreadMcp|addThreadMcpServer|removeThreadMcpServer|setThreadMcpServerEnabled|searchThreadMcpTools|getThreadMcpTool|invokeThreadMcpTool|mcpServeStatus|handleMcpServeJsonRpc|recordThreadMcpStatus|validateThreadMcp)\(/.test(
-        runtimeRouteHandlers,
+      !/store\.mcp(?:Control|Catalog|Serve)(?:Api|Surface)\./.test(
+        publicRuntimeRoutesForTaskJob + runtimeRouteHandlers,
       ),
     [
       "packages/runtime-daemon/src/index.mjs",
@@ -44358,7 +44358,7 @@ function runCompositor() {
       "packages/agent-sdk/src/substrate-client.ts",
       "crates/cli/src/commands/mcp.rs",
     ],
-    "Phase 10/11 is pending: top-level and legacy MCP route/client families must stay retired while thread MCP routes call mounted MCP surfaces directly",
+    "Phase 10/11 is pending: top-level and legacy MCP route/client families must stay retired while thread MCP routes call store-owned MCP APIs directly",
   );
   assertCheck(
     result,
@@ -44382,8 +44382,8 @@ function runCompositor() {
         `${runtimeMcpSdkServerControlInputBlock}\n${runtimeMcpSdkToolInvokeInputBlock}`,
       ),
     [
-      "packages/runtime-daemon/src/runtime-mcp-control-surface.mjs",
-      "packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-control-api.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-control-api.test.mjs",
       "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
       "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
       "packages/agent-sdk/src/substrate-client.ts",
@@ -44431,7 +44431,7 @@ function runCompositor() {
       /segments\[3\] === "mcp" &&\s*segments\[4\] === "serve"/.test(
         publicRuntimeRoutesForTaskJob,
       ) &&
-      /handleMcpServeJsonRpc\(store, threadId, message, \{ \.\.\.context, thread_id: threadId \}\)/.test(
+      /store\.handleMcpServeJsonRpc\(threadId, message, \{ \.\.\.context, thread_id: threadId \}\)/.test(
         publicRuntimeRoutesForTaskJob,
       ) &&
       !/url\.pathname === "\/v1\/mcp\/serve"/.test(publicRuntimeRoutesForTaskJob) &&
@@ -44599,8 +44599,8 @@ function runCompositor() {
       !/request\.serverId\b/.test(runtimeMcpControlSurface) &&
       !/^\s*serverId\?:/m.test(runtimeMcpSdkServerControlInputBlock),
     [
-      "packages/runtime-daemon/src/runtime-mcp-control-surface.mjs",
-      "packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-control-api.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-control-api.test.mjs",
       "packages/agent-sdk/src/substrate-client.ts",
     ],
     "Phase 10/11 is pending: MCP server-control requests must use canonical server_id without the retired serverId compatibility alias",
@@ -44613,8 +44613,8 @@ function runCompositor() {
       !/request\.workflowNodeId\b/.test(runtimeMcpControlSurface) &&
       !/^\s*workflowNodeId\?:/m.test(runtimeMcpSdkValidationInputBlock),
     [
-      "packages/runtime-daemon/src/runtime-mcp-control-surface.mjs",
-      "packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-control-api.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-control-api.test.mjs",
       "packages/agent-sdk/src/substrate-client.ts",
     ],
     "Phase 10/11 is pending: MCP control requests must use canonical workflow_node_id without the retired workflowNodeId compatibility alias",
@@ -44635,10 +44635,10 @@ function runCompositor() {
       !/options\.timeoutMs\b/.test(runtimeMcpManager) &&
       !/^\s*timeoutMs\?:/m.test(runtimeMcpSdkToolInvokeInputBlock),
     [
-      "packages/runtime-daemon/src/runtime-mcp-control-surface.mjs",
-      "packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs",
-      "packages/runtime-daemon/src/runtime-mcp-catalog-surface.mjs",
-      "packages/runtime-daemon/src/runtime-mcp-catalog-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-control-api.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-control-api.test.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-catalog-api.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-catalog-api.test.mjs",
       "packages/agent-sdk/src/substrate-client.ts",
     ],
     "Phase 10/11 is pending: MCP live transport requests must use canonical timeout_ms without the retired timeoutMs compatibility alias",
@@ -44681,8 +44681,8 @@ function runCompositor() {
       !/request\.(?:sideEffectClass|requiresApproval|approvalGranted)\b/.test(runtimeMcpControlSurface) &&
       !/^\s*(?:sideEffectClass|requiresApproval)\?:/m.test(runtimeMcpSdkToolInvokeInputBlock),
     [
-      "packages/runtime-daemon/src/runtime-mcp-control-surface.mjs",
-      "packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-control-api.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-control-api.test.mjs",
       "packages/agent-sdk/src/substrate-client.ts",
     ],
     "Phase 10/11 is pending: MCP invoke policy requests must use canonical side_effect_class/requires_approval/approved fields without retired camelCase policy aliases",
@@ -44697,8 +44697,8 @@ function runCompositor() {
       !/options\.mcpMode\b/.test(runtimeMcpManager) &&
       !/^\s*mcpMode\?:/m.test(runtimeMcpSdkToolInvokeInputBlock),
     [
-      "packages/runtime-daemon/src/runtime-mcp-control-surface.mjs",
-      "packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-control-api.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-control-api.test.mjs",
       "packages/agent-sdk/src/substrate-client.ts",
     ],
     "Phase 10/11 is pending: MCP invoke transport options must use canonical mcp_mode without the retired mcpMode compatibility alias",
@@ -44710,8 +44710,8 @@ function runCompositor() {
       /live_discovery: true/.test(runtimeMcpControlSurfaceTest) &&
       !/request\.liveDiscovery\b/.test(runtimeMcpControlSurface),
     [
-      "packages/runtime-daemon/src/runtime-mcp-control-surface.mjs",
-      "packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-control-api.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-control-api.test.mjs",
     ],
     "Phase 10/11 is pending: MCP control status requests must use canonical live_discovery without the retired liveDiscovery compatibility alias",
   );
@@ -44739,8 +44739,8 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-mcp-helpers.test.mjs",
       "packages/runtime-daemon/src/mcp-manager.mjs",
       "packages/runtime-daemon/src/mcp-manager.test.mjs",
-      "packages/runtime-daemon/src/runtime-mcp-control-surface.mjs",
-      "packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-control-api.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-control-api.test.mjs",
       "packages/agent-sdk/src/substrate-client.ts",
     ],
     "Phase 10/11 is pending: MCP validation/import requests must use canonical mcp_json/mcp_servers/servers without retired mcpJson/mcpServers compatibility aliases",
@@ -44826,8 +44826,8 @@ function runCompositor() {
         `${runtimeMcpSdkServeRpcInputBlock}\n${runtimeMcpSdkServeRpcOptionsBlock}`,
       ),
     [
-      "packages/runtime-daemon/src/runtime-mcp-catalog-surface.mjs",
-      "packages/runtime-daemon/src/runtime-mcp-catalog-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-catalog-api.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-catalog-api.test.mjs",
       "packages/runtime-daemon/src/runtime-mcp-helpers.mjs",
       "packages/runtime-daemon/src/runtime-mcp-helpers.test.mjs",
       "packages/agent-sdk/src/substrate-client.ts",
@@ -44966,7 +44966,7 @@ function runCompositor() {
 	      /runtime_mcp_serve_transport_containment_required/.test(runtimeMcpServeSurface) &&
 	      !/return mcpJsonRpcResultDep\(id,\s*projectedResult\)/.test(runtimeMcpServeSurface) &&
 	      /MCP_SERVE_ADMISSION/.test(runtimeMcpServeSurfaceTest) &&
-	      /runtime MCP serve surface invokes Rust-owned coding-tool path and Rust-owned result projection/.test(
+	      /runtime MCP serve API invokes Rust-owned coding-tool path and Rust-owned result projection/.test(
 	        runtimeMcpServeSurfaceTest,
 	      ) &&
       /plans\[0\]\.operation_kind,\s*"mcp\.serve\.tools\.call"/.test(
@@ -45094,13 +45094,13 @@ function runCompositor() {
 	      ) &&
 	      !/store\.agentForThread/.test(runtimeMcpServeSurface) &&
 	      !/store\.invokeThreadTool(?:Async)?\(/.test(runtimeMcpServeSurface) &&
-	      /this\.mcpCatalogSurface = createRuntimeMcpCatalogSurface\(\{\s*contextPolicyCore: this\.contextPolicyCore,\s*\}\);/.test(
+	      /this\.mcpCatalogApi = createRuntimeMcpCatalogApi\(\{\s*contextPolicyCore: this\.contextPolicyCore,\s*\}\);/.test(
 	        runtimeDaemonIndex,
 	      ) &&
-	      /this\.mcpControlSurface = createRuntimeMcpControlSurface\(\{\s*contextPolicyCore: this\.contextPolicyCore,\s*\}\);/.test(
+	      /this\.mcpControlApi = createRuntimeMcpControlApi\(\{\s*contextPolicyCore: this\.contextPolicyCore,\s*\}\);/.test(
 	        runtimeDaemonIndex,
 	      ) &&
-	      /this\.mcpServeSurface = createRuntimeMcpServeSurface\(\{\s*contextPolicyCore: this\.contextPolicyCore,\s*\}\);/.test(
+	      /this\.mcpServeApi = createRuntimeMcpServeApi\(\{\s*contextPolicyCore: this\.contextPolicyCore,\s*\}\);/.test(
 	        runtimeDaemonIndex,
 	      ) &&
 	      !/contextPolicyCore = createRuntimeContextPolicyCore\(\)/.test(
@@ -45114,8 +45114,8 @@ function runCompositor() {
       "crates/services/src/agentic/runtime/kernel/mod.rs",
       "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
-      "packages/runtime-daemon/src/runtime-mcp-serve-surface.mjs",
-      "packages/runtime-daemon/src/runtime-mcp-serve-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-serve-api.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-serve-api.test.mjs",
     ],
 	    "Phase 10/11 is pending: MCP serve tool-call requests and result envelopes must be planned/projected by Rust daemon-core, persisted as Rust-authored Agentgres live-result truth, replayed before JSON-RPC return, fail closed when any boundary is missing, and ignore retired camelCase aliases",
 	  );
@@ -45139,8 +45139,8 @@ function runCompositor() {
       !/serveForThread\s*:/.test(runtimeMcpServeStatusBlock) &&
       !/\b(?:allowedTools|supportedMethods)\s*:/.test(runtimeMcpServeSurface),
     [
-      "packages/runtime-daemon/src/runtime-mcp-serve-surface.mjs",
-      "packages/runtime-daemon/src/runtime-mcp-serve-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-serve-api.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-serve-api.test.mjs",
     ],
     "Phase 10/11 is pending: MCP serve status and error payloads must expose canonical snake_case output fields without duplicate camelCase aliases",
   );
@@ -45306,7 +45306,7 @@ function runCompositor() {
     [
       "packages/runtime-daemon/src/mcp-manager.mjs",
       "packages/runtime-daemon/src/mcp-manager.test.mjs",
-      "packages/runtime-daemon/src/runtime-mcp-serve-surface.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-serve-api.mjs",
     ],
     "Phase 10/11 is pending: MCP manager catalog tool/resource/prompt records must expose canonical snake_case fields without duplicate camelCase aliases",
   );
@@ -45336,7 +45336,7 @@ function runCompositor() {
       !/discoverMcp(?:Stdio|Http)CatalogDep/.test(runtimeMcpCatalogSurface) &&
       !/invokeMcp(?:Stdio|Http)ToolDep/.test(runtimeMcpCatalogSurface) &&
       !/request\.agent\b|store\.agentForThread|store\.agents|store\.getAgent/.test(runtimeMcpCatalogSurface) &&
-      /runtime MCP catalog surface materializes live discovery through Rust projection/.test(
+      /runtime MCP catalog API materializes live discovery through Rust projection/.test(
         runtimeMcpCatalogSurfaceTest,
       ) &&
       /rust_mcp_live_discovery_materialized/.test(runtimeMcpCatalogSurfaceTest) &&
@@ -45350,10 +45350,10 @@ function runCompositor() {
       !/catalog\.(?:executionMode|authBoundary)\b/.test(runtimeMcpControlSurface),
     [
       "packages/runtime-daemon/src/mcp-manager.mjs",
-      "packages/runtime-daemon/src/runtime-mcp-catalog-surface.mjs",
-      "packages/runtime-daemon/src/runtime-mcp-control-surface.mjs",
-      "packages/runtime-daemon/src/runtime-mcp-catalog-surface.test.mjs",
-      "packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-catalog-api.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-control-api.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-catalog-api.test.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-control-api.test.mjs",
     ],
     "Phase 10/11 is pending: retired JS MCP live transport helpers must stay removed and catalog live discovery must defer through Rust projection",
   );
@@ -45392,7 +45392,7 @@ function runCompositor() {
   );
   assertCheck(
     result,
-    "runtime-mcp-catalog-surface-output-aliases-retired",
+    "runtime-mcp-catalog-api-output-aliases-retired",
 	    /const core = requiredRuntimeMcpCatalogCore\("mcp_status"\)/.test(runtimeMcpStatusBlock) &&
 	      /core\.planMcpManagerCatalogProjection\(\{ servers \}\)/.test(runtimeMcpStatusBlock) &&
 	      /core\.planMcpManagerStatusProjection\(\{/.test(runtimeMcpStatusBlock) &&
@@ -45475,8 +45475,8 @@ function runCompositor() {
         runtimeMcpCatalogSurfaceTest,
       ),
     [
-      "packages/runtime-daemon/src/runtime-mcp-catalog-surface.mjs",
-      "packages/runtime-daemon/src/runtime-mcp-catalog-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-catalog-api.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-catalog-api.test.mjs",
     ],
     "Phase 10/11 is pending: MCP catalog status, validation, search, and fetch surfaces must expose canonical snake_case output fields without duplicate camelCase aliases",
   );
@@ -45519,8 +45519,8 @@ function runCompositor() {
         runtimeMcpControlSurface,
       ),
     [
-      "packages/runtime-daemon/src/runtime-mcp-control-surface.mjs",
-      "packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-control-api.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-control-api.test.mjs",
     ],
     "Phase 10/11 is pending: MCP control status and live-discovery payloads must expose canonical snake_case output fields without duplicate camelCase aliases",
   );
@@ -45539,8 +45539,8 @@ function runCompositor() {
       !/server\.evidenceRefs\b/.test(runtimeMcpControlSurface) &&
       !/policyDecision/.test(runtimeMcpControlSurface),
     [
-      "packages/runtime-daemon/src/runtime-mcp-control-surface.mjs",
-      "packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-control-api.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-control-api.test.mjs",
     ],
     "Phase 10/11 is pending: MCP control mutation payloads must expose canonical snake_case output fields without duplicate camelCase aliases",
   );
@@ -45558,8 +45558,8 @@ function runCompositor() {
         runtimeMcpControlSurface,
       ),
     [
-      "packages/runtime-daemon/src/runtime-mcp-control-surface.mjs",
-      "packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-control-api.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-control-api.test.mjs",
     ],
     "Phase 10/11 is pending: MCP control fail-closed error details must expose canonical snake_case fields without duplicate camelCase aliases",
   );
@@ -45589,8 +45589,8 @@ function runCompositor() {
       ) &&
       !/output = \{[^}]*\b(?:serverId|toolName)\s*:/m.test(runtimeMcpControlSurface),
     [
-      "packages/runtime-daemon/src/runtime-mcp-control-surface.mjs",
-      "packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-control-api.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-control-api.test.mjs",
     ],
     "Phase 10/11 is pending: MCP invocation payloads must expose canonical snake_case output fields without duplicate camelCase aliases",
   );
@@ -45605,8 +45605,8 @@ function runCompositor() {
       !/^\s*workflowGraphId\?:/m.test(runtimeMcpSdkValidationInputBlock) &&
       !/^\s*(?:turnId|idempotencyKey)\?:/m.test(runtimeMcpSdkThreadMcpInputBlock),
     [
-      "packages/runtime-daemon/src/runtime-mcp-control-surface.mjs",
-      "packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-control-api.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-control-api.test.mjs",
       "packages/agent-sdk/src/substrate-client.ts",
     ],
     "Phase 10/11 is pending: MCP control event metadata requests must use canonical turn_id/workflow_graph_id/idempotency_key without retired camelCase aliases",
@@ -45638,8 +45638,8 @@ function runCompositor() {
     [
       "packages/runtime-daemon/src/runtime-mcp-helpers.mjs",
       "packages/runtime-daemon/src/runtime-mcp-helpers.test.mjs",
-      "packages/runtime-daemon/src/runtime-mcp-control-surface.mjs",
-      "packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-control-api.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-control-api.test.mjs",
       "packages/agent-sdk/src/substrate-client.ts",
     ],
     "Phase 10/11 is pending: MCP invoke requests must use canonical tool_id/server_id/tool_name without retired camelCase identity aliases",

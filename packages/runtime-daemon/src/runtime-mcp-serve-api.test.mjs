@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createRuntimeMcpServeSurface } from "./runtime-mcp-serve-surface.mjs";
+import { createRuntimeMcpServeApi } from "./runtime-mcp-serve-api.mjs";
 
 const MCP_SERVE_ADMISSION = {
   authority_grant_refs: ["wallet.network://grant/mcp-serve/git.diff"],
@@ -315,7 +315,7 @@ function harness({ mountContextPolicyCore = true } = {}) {
       };
     },
   };
-  const surface = createRuntimeMcpServeSurface({
+  const surface = createRuntimeMcpServeApi({
     ...surfaceOptions,
     contextPolicyCore: mountContextPolicyCore ? contextPolicyCore : null,
   });
@@ -365,7 +365,7 @@ function harness({ mountContextPolicyCore = true } = {}) {
   return { contextPolicyCore, invocations, liveResultReplays, plans, resultCommits, resultProjections, store, surface };
 }
 
-test("runtime MCP serve surface projects status and allowed tool catalog", () => {
+test("runtime MCP serve API projects status and allowed tool catalog", () => {
   const { store, surface } = harness();
 
   const status = surface.mcpServeStatus(store, {
@@ -391,7 +391,7 @@ test("runtime MCP serve surface projects status and allowed tool catalog", () =>
   assert.equal(Object.hasOwn(status.routes, "serveForThread"), false);
 });
 
-test("runtime MCP serve surface handles JSON-RPC lifecycle and batch notifications", async () => {
+test("runtime MCP serve API handles JSON-RPC lifecycle and batch notifications", async () => {
   const { invocations, store, surface } = harness();
 
   const initialize = await surface.handleMcpServeJsonRpc(
@@ -434,7 +434,7 @@ test("runtime MCP serve surface handles JSON-RPC lifecycle and batch notificatio
   assert.deepEqual(invocations, []);
 });
 
-test("runtime MCP serve surface invokes Rust-owned coding-tool path and Rust-owned result projection", async () => {
+test("runtime MCP serve API invokes Rust-owned coding-tool path and Rust-owned result projection", async () => {
   const { invocations, liveResultReplays, plans, resultCommits, resultProjections, store, surface } = harness();
 
   const invalid = await surface.handleSingleMcpServeJsonRpc(store, "thread-one", []);
