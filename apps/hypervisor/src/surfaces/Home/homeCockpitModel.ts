@@ -1,9 +1,9 @@
-import { HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE } from "../../windows/HypervisorShellWindow/harnessAdapterModel";
-import { HYPERVISOR_PRIVACY_POSTURE_PROJECTION_FIXTURE } from "../../windows/HypervisorShellWindow/hypervisorPrivacyPostureModel";
-import { HYPERVISOR_PROJECT_STATE_PROJECTION_FIXTURE } from "../../windows/HypervisorShellWindow/hypervisorProjectStateModel";
-import { HYPERVISOR_PROVIDER_PLACEMENT_PROJECTION_FIXTURE } from "../../windows/HypervisorShellWindow/hypervisorProviderPlacementModel";
-import { HYPERVISOR_RECEIPT_EVIDENCE_PROJECTION_FIXTURE } from "../../windows/HypervisorShellWindow/hypervisorReceiptEvidenceModel";
-import { HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE } from "../../windows/HypervisorShellWindow/hypervisorSessionOperationsModel";
+import { HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE } from "../../windows/HypervisorShellWindow/harnessAdapterModel.ts";
+import { HYPERVISOR_PRIVACY_POSTURE_PROJECTION_FIXTURE } from "../../windows/HypervisorShellWindow/hypervisorPrivacyPostureModel.ts";
+import { HYPERVISOR_PROJECT_STATE_PROJECTION_FIXTURE } from "../../windows/HypervisorShellWindow/hypervisorProjectStateModel.ts";
+import { HYPERVISOR_PROVIDER_PLACEMENT_PROJECTION_FIXTURE } from "../../windows/HypervisorShellWindow/hypervisorProviderPlacementModel.ts";
+import { HYPERVISOR_RECEIPT_EVIDENCE_PROJECTION_FIXTURE } from "../../windows/HypervisorShellWindow/hypervisorReceiptEvidenceModel.ts";
+import { HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE } from "../../windows/HypervisorShellWindow/hypervisorSessionOperationsModel.ts";
 
 export interface HypervisorHomeCockpitMetric {
   metric_ref: string;
@@ -17,10 +17,37 @@ export interface HypervisorHomeCockpitMetric {
 export interface HypervisorHomeCockpitProjection {
   schema_version: "ioi.hypervisor.home_cockpit_projection.v1";
   projection_id: string;
+  source: "daemon-home-cockpit-projection" | "fixture" | "unverified";
   selected_project_id: string;
   runtimeTruthSource: "daemon-runtime";
   boundary_invariant: string;
   metrics: HypervisorHomeCockpitMetric[];
+}
+
+export const HYPERVISOR_HOME_COCKPIT_DAEMON_ENDPOINT_STORAGE_KEY =
+  "ioi.hypervisor.daemonEndpoint";
+export const HYPERVISOR_HOME_COCKPIT_DEFAULT_DAEMON_ENDPOINT =
+  "http://127.0.0.1:8765";
+export const HYPERVISOR_HOME_COCKPIT_PROJECTION_PATH =
+  "/v1/hypervisor/home-cockpit";
+
+type FetchLike = (
+  input: string,
+  init?: { method?: string; headers?: Record<string, string> },
+) => Promise<{
+  ok: boolean;
+  status: number;
+  text(): Promise<string>;
+}>;
+
+interface NormalizeHomeCockpitProjectionOptions {
+  source?: HypervisorHomeCockpitProjection["source"];
+}
+
+interface LoadHomeCockpitProjectionOptions
+  extends NormalizeHomeCockpitProjectionOptions {
+  endpoint?: string;
+  fetchImpl?: FetchLike;
 }
 
 const selectedProject =
@@ -45,6 +72,7 @@ export const HYPERVISOR_HOME_COCKPIT_PROJECTION: HypervisorHomeCockpitProjection
   {
     schema_version: "ioi.hypervisor.home_cockpit_projection.v1",
     projection_id: "home-cockpit:hypervisor-core/default",
+    source: "fixture",
     selected_project_id:
       HYPERVISOR_PROJECT_STATE_PROJECTION_FIXTURE.selected_project_id,
     runtimeTruthSource: "daemon-runtime",
@@ -116,3 +144,106 @@ export const HYPERVISOR_HOME_COCKPIT_PROJECTION: HypervisorHomeCockpitProjection
       },
     ],
   };
+
+function objectRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function arrayOf(value: unknown): Record<string, unknown>[] {
+  return Array.isArray(value) ? value.map(objectRecord) : [];
+}
+
+function stringValue(value: unknown, fallback: string): string {
+  return typeof value === "string" && value.trim() ? value.trim() : fallback;
+}
+
+function normalizeHomeCockpitMetric(
+  item: Record<string, unknown>,
+  index: number,
+): HypervisorHomeCockpitMetric {
+  const fallback =
+    HYPERVISOR_HOME_COCKPIT_PROJECTION.metrics[index] ??
+    HYPERVISOR_HOME_COCKPIT_PROJECTION.metrics[0]!;
+  const evidenceRefs = Array.isArray(item.evidence_refs)
+    ? item.evidence_refs
+        .filter((ref): ref is string => typeof ref === "string" && !!ref.trim())
+        .map((ref) => ref.trim())
+    : fallback.evidence_refs;
+  return {
+    metric_ref: stringValue(item.metric_ref, fallback.metric_ref),
+    label: stringValue(item.label, fallback.label),
+    value: stringValue(item.value, fallback.value),
+    detail: stringValue(item.detail, fallback.detail),
+    surface_ref: stringValue(item.surface_ref, fallback.surface_ref),
+    evidence_refs: evidenceRefs.length > 0 ? evidenceRefs : fallback.evidence_refs,
+  };
+}
+
+export function readHypervisorHomeCockpitDaemonEndpoint(): string {
+  try {
+    if (typeof window === "undefined") {
+      return HYPERVISOR_HOME_COCKPIT_DEFAULT_DAEMON_ENDPOINT;
+    }
+    return (
+      window.localStorage.getItem(
+        HYPERVISOR_HOME_COCKPIT_DAEMON_ENDPOINT_STORAGE_KEY,
+      ) || HYPERVISOR_HOME_COCKPIT_DEFAULT_DAEMON_ENDPOINT
+    );
+  } catch {
+    return HYPERVISOR_HOME_COCKPIT_DEFAULT_DAEMON_ENDPOINT;
+  }
+}
+
+export function normalizeHypervisorHomeCockpitProjection(
+  snapshot: unknown,
+  options: NormalizeHomeCockpitProjectionOptions = {},
+): HypervisorHomeCockpitProjection {
+  const value = objectRecord(snapshot);
+  const metrics = arrayOf(value.metrics).map(normalizeHomeCockpitMetric);
+  return {
+    schema_version: "ioi.hypervisor.home_cockpit_projection.v1",
+    projection_id: stringValue(
+      value.projection_id,
+      HYPERVISOR_HOME_COCKPIT_PROJECTION.projection_id,
+    ),
+    source: options.source ?? "daemon-home-cockpit-projection",
+    selected_project_id: stringValue(
+      value.selected_project_id,
+      HYPERVISOR_HOME_COCKPIT_PROJECTION.selected_project_id,
+    ),
+    runtimeTruthSource: "daemon-runtime",
+    boundary_invariant: stringValue(
+      value.boundary_invariant,
+      HYPERVISOR_HOME_COCKPIT_PROJECTION.boundary_invariant,
+    ),
+    metrics: metrics.length > 0 ? metrics : HYPERVISOR_HOME_COCKPIT_PROJECTION.metrics,
+  };
+}
+
+export async function loadHypervisorHomeCockpitProjection(
+  options: LoadHomeCockpitProjectionOptions = {},
+): Promise<HypervisorHomeCockpitProjection> {
+  const endpoint =
+    options.endpoint ?? readHypervisorHomeCockpitDaemonEndpoint();
+  const fetchImpl = options.fetchImpl ?? globalThis.fetch?.bind(globalThis);
+  if (!fetchImpl) {
+    throw new Error("fetch unavailable for Hypervisor home cockpit projection");
+  }
+  const url = `${endpoint.replace(/\/+$/, "")}${HYPERVISOR_HOME_COCKPIT_PROJECTION_PATH}`;
+  const response = await fetchImpl(url, {
+    method: "GET",
+    headers: { accept: "application/json" },
+  });
+  const text = await response.text();
+  const value = text ? JSON.parse(text) : {};
+  if (!response.ok) {
+    throw new Error(
+      `Home cockpit projection request failed with ${response.status}`,
+    );
+  }
+  return normalizeHypervisorHomeCockpitProjection(value, {
+    source: options.source ?? "daemon-home-cockpit-projection",
+  });
+}

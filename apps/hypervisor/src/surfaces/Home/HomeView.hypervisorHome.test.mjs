@@ -86,6 +86,9 @@ test("home dashboard exposes the New Session setup contract", () => {
 test("home dashboard exposes the Core cockpit projection", () => {
   assert.match(homeCockpitModel, /HypervisorHomeCockpitProjection/);
   assert.match(homeCockpitModel, /HYPERVISOR_HOME_COCKPIT_PROJECTION/);
+  assert.match(homeCockpitModel, /HYPERVISOR_HOME_COCKPIT_PROJECTION_PATH/);
+  assert.match(homeCockpitModel, /loadHypervisorHomeCockpitProjection/);
+  assert.match(homeCockpitModel, /normalizeHypervisorHomeCockpitProjection/);
   assert.match(homeCockpitModel, /does not become runtime/);
   assert.match(homeCockpitModel, /Project restore/);
   assert.match(homeCockpitModel, /Active session/);
@@ -94,8 +97,12 @@ test("home dashboard exposes the Core cockpit projection", () => {
   assert.match(homeCockpitModel, /Receipt evidence/);
   assert.match(homeCockpitModel, /Harness comparison/);
   assert.match(homeView, /HYPERVISOR_HOME_COCKPIT_PROJECTION/);
+  assert.match(homeView, /loadHypervisorHomeCockpitProjection/);
+  assert.match(homeView, /setCockpitProjection/);
+  assert.match(homeView, /\[Hypervisor\]\[Home\] cockpit projection unavailable/);
   assert.match(homeView, /aria-label="Hypervisor cockpit status"/);
   assert.match(homeView, /data-home-cockpit-projection/);
+  assert.match(homeView, /data-home-cockpit-source/);
   assert.match(homeView, /data-home-cockpit-metric/);
   assert.match(homeView, /data-home-cockpit-surface/);
   assert.match(homeCss, /\.chat-home-zero-cockpit\s*\{/);

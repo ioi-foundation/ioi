@@ -5,7 +5,7 @@ import {
   HYPERVISOR_SESSION_DETAIL_TABS,
   type HypervisorInspectorPanelId,
   type HypervisorSessionDetailTab,
-} from "./hypervisorShellNavigationModel";
+} from "./hypervisorShellNavigationModel.ts";
 
 export type HypervisorSessionLifecycleState =
   | "active"

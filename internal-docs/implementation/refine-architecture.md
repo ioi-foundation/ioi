@@ -1057,8 +1057,11 @@ Current implementation cut:
   Home still needs to become the full IOI-reference cockpit view
   the secondary session/project rail still needs the live session projection
   the main canvas now has a first read-only Sessions operations cockpit backed
-  by `HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE`, but live daemon
-  projection hydration remains follow-up work
+  by `HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE`; Home now has a
+  normalized `ioi.hypervisor.home_cockpit_projection.v1` loader and renders its
+  fixture or daemon source explicitly via `data-home-cockpit-source`. The live
+  daemon route behind `/v1/hypervisor/home-cockpit` remains a follow-up API cut,
+  but the app-side hydration seam is implemented and guarded.
   right and bottom inspectors now render the first session operations panels
   for changes/authority/privacy/receipts/model-provider and
   ports/services/tasks/terminal/logs shape, but they still need live runtime

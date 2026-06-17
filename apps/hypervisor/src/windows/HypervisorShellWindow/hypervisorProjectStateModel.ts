@@ -1,9 +1,9 @@
-import { PROJECT_SCOPES, type ProjectScope } from "./hypervisorShellModel";
-import { DEFAULT_WORKBENCH_ADAPTER_PREFERENCE_REF } from "./hypervisorShellNavigationModel";
-import { HYPERVISOR_PRIVACY_POSTURE_PROJECTION_FIXTURE } from "./hypervisorPrivacyPostureModel";
-import { HYPERVISOR_PROVIDER_PLACEMENT_PROJECTION_FIXTURE } from "./hypervisorProviderPlacementModel";
-import { HYPERVISOR_RECEIPT_EVIDENCE_PROJECTION_FIXTURE } from "./hypervisorReceiptEvidenceModel";
-import { HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE } from "./hypervisorSessionOperationsModel";
+import { PROJECT_SCOPES, type ProjectScope } from "./hypervisorShellModel.ts";
+import { DEFAULT_WORKBENCH_ADAPTER_PREFERENCE_REF } from "./hypervisorShellNavigationModel.ts";
+import { HYPERVISOR_PRIVACY_POSTURE_PROJECTION_FIXTURE } from "./hypervisorPrivacyPostureModel.ts";
+import { HYPERVISOR_PROVIDER_PLACEMENT_PROJECTION_FIXTURE } from "./hypervisorProviderPlacementModel.ts";
+import { HYPERVISOR_RECEIPT_EVIDENCE_PROJECTION_FIXTURE } from "./hypervisorReceiptEvidenceModel.ts";
+import { HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE } from "./hypervisorSessionOperationsModel.ts";
 
 export type HypervisorProjectRestoreState =
   | "active"

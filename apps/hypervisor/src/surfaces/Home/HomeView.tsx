@@ -31,7 +31,10 @@ import {
   buildHarnessCompatibilityVerdict,
   getHarnessSelectionRef,
 } from "../../windows/HypervisorShellWindow/harnessAdapterModel";
-import { HYPERVISOR_HOME_COCKPIT_PROJECTION } from "./homeCockpitModel";
+import {
+  HYPERVISOR_HOME_COCKPIT_PROJECTION,
+  loadHypervisorHomeCockpitProjection,
+} from "./homeCockpitModel";
 import {
   applyHypervisorAppearance,
   getHypervisorThemeOption,
@@ -337,7 +340,29 @@ function HomeDashboardView({
   const newSessionHarnessOptions =
     HYPERVISOR_NEW_SESSION_SETUP_MODEL.harnessOptions.slice(0, 4);
   const harnessComparison = HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE;
-  const cockpitProjection = HYPERVISOR_HOME_COCKPIT_PROJECTION;
+  const [cockpitProjection, setCockpitProjection] = useState(
+    HYPERVISOR_HOME_COCKPIT_PROJECTION,
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    loadHypervisorHomeCockpitProjection()
+      .then((projection) => {
+        if (!cancelled) {
+          setCockpitProjection(projection);
+        }
+      })
+      .catch((error) => {
+        console.warn(
+          "[Hypervisor][Home] cockpit projection unavailable",
+          error,
+        );
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const surfaces: DashboardSurface[] = [
     {
       id: "projects",
@@ -559,6 +584,7 @@ function HomeDashboardView({
             className="chat-home-zero-cockpit"
             aria-label="Hypervisor cockpit status"
             data-home-cockpit-projection={cockpitProjection.projection_id}
+            data-home-cockpit-source={cockpitProjection.source}
             data-runtime-truth-source={cockpitProjection.runtimeTruthSource}
           >
             <div className="chat-home-zero-section-heading">

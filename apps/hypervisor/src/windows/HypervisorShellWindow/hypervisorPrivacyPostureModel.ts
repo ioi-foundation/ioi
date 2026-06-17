@@ -3,9 +3,9 @@ import {
   HYPERVISOR_AGENT_HARNESS_ADAPTER_PROFILES,
   HYPERVISOR_CTEE_PRIVATE_WORKSPACE_PRIVACY_REF,
   HYPERVISOR_DEFAULT_LOCAL_MODEL_ROUTE_REF,
-} from "./harnessAdapterModel";
-import { HYPERVISOR_PROVIDER_PLACEMENT_PROJECTION_FIXTURE } from "./hypervisorProviderPlacementModel";
-import { HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE } from "./hypervisorSessionOperationsModel";
+} from "./harnessAdapterModel.ts";
+import { HYPERVISOR_PROVIDER_PLACEMENT_PROJECTION_FIXTURE } from "./hypervisorProviderPlacementModel.ts";
+import { HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE } from "./hypervisorSessionOperationsModel.ts";
 
 export type HypervisorExecutionPrivacyPosture =
   | "private_native"

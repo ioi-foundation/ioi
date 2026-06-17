@@ -102,6 +102,9 @@ const hypervisorHomeSource = [
   "apps/hypervisor/src/surfaces/Home/homeOnboardingModel.ts",
   "apps/hypervisor/src/surfaces/Home/index.ts",
 ].map(read).join("\n");
+const hypervisorHomeCockpitModelSource = read(
+  "apps/hypervisor/src/surfaces/Home/homeCockpitModel.ts",
+);
 const workspaceRepositoryGateSource = read(
   "apps/hypervisor/src/surfaces/Workspace/WorkspaceRepositoryGate.tsx",
 );
@@ -747,9 +750,23 @@ assert(
   "hypervisor-home-harness-comparison-preview",
   hypervisorHomeSource.includes("HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE") &&
     hypervisorHomeSource.includes("data-home-harness-comparison-run") &&
-    hypervisorHomeSource.includes("Harness comparison preview"),
-  ["apps/hypervisor/src/surfaces/Home/HomeView.tsx"],
-  "Hypervisor Home should surface a receipt-backed harness comparison preview as the first dashboard foothold for adapter comparison.",
+    hypervisorHomeSource.includes("Harness comparison preview") &&
+    hypervisorHomeSource.includes("loadHypervisorHomeCockpitProjection") &&
+    hypervisorHomeSource.includes("data-home-cockpit-source") &&
+    hypervisorHomeCockpitModelSource.includes(
+      "HYPERVISOR_HOME_COCKPIT_PROJECTION_PATH",
+    ) &&
+    hypervisorHomeCockpitModelSource.includes(
+      "normalizeHypervisorHomeCockpitProjection",
+    ) &&
+    hypervisorHomeCockpitModelSource.includes(
+      "ioi.hypervisor.home_cockpit_projection.v1",
+    ),
+  [
+    "apps/hypervisor/src/surfaces/Home/HomeView.tsx",
+    "apps/hypervisor/src/surfaces/Home/homeCockpitModel.ts",
+  ],
+  "Hypervisor Home should surface a receipt-backed harness comparison preview and keep the Core cockpit projection ready for daemon hydration with fixture fallback.",
 );
 assert(
   "contract-family-modules",
