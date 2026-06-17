@@ -12335,7 +12335,7 @@ binding, missing-endpoint failure, and JS request-field absence. Slice 1409
 hardens this hosted catalog edge so provider-auth materialization plus cTEE
 outbound secret-injection binding are required before network I/O. Remaining
 model_mount blockers for this lane are deeper wallet/cTEE route authority and
-revocation policy, richer provider/instance replay joins, and stable
+revocation policy, richer provider replay joins, and stable
 Workbench/CLI/SDK protocol coverage over the admitted Rust records.
 
 Slice 1406 hard-cuts provider-inventory endpoint materialization into Rust
@@ -12398,7 +12398,7 @@ Rust cTEE/auth binding before Agentgres commit. Focused Rust and Node tests cove
 the positive hosted catalog/download paths and the missing-auth/missing-cTEE
 fail-closed cases, while conformance guards the hard requirement and the removed
 compatibility translation. Remaining model_mount work is deeper wallet/cTEE route
-authority and revocation policy, conversation/provider/instance replay depth
+authority and revocation policy, conversation/provider replay depth
 where still adapter-shaped, and stable Workbench/CLI/SDK protocol APIs over the
 Rust records.
 
@@ -12495,6 +12495,24 @@ commit. Focused Node/Rust tests and conformance guard the state-dir replay path,
 candidate-field rejection, and absence of the old mounted JS topology request
 shaping. Remaining blockers stay deeper wallet/cTEE route revocation policy,
 projection/replay depth, and stable protocol API coverage over admitted records.
+
+Slice 1418 hard-cuts model_mount instance-lifecycle topology candidate
+transport. Model load/unload/estimate and loaded-instance maintenance no longer
+send JS-shaped endpoint/provider/instance/backend/driver truth into the Rust
+instance-lifecycle planner. JS sends only canonical endpoint/model/instance ids
+or instance refs plus daemon Agentgres `state_dir`; Rust
+`lifecycle/instance.rs` requires `state_dir`, rejects restored `endpoint`,
+`provider`, `instance`, `endpoints`, `providers`, and `instances` candidate
+fields, replays admitted endpoints/providers/instances through Rust
+read-projection planning, derives endpoint/provider/model/backend/driver truth
+and maintenance provider-lifecycle hashes from Agentgres replay, and owns
+estimate id plus missing-instance subject binding before record-state commit. The obsolete
+JS estimate-id helper and maintenance endpoint/provider enrichment helpers are
+deleted. Focused Node/Rust tests and conformance guard the replay boundary,
+candidate-field rejection, deleted helper surface, and absence of JS
+candidate-enrichment request shaping. Remaining blockers stay deeper
+wallet/cTEE route revocation policy, conversation/provider replay depth, and
+stable protocol API coverage over admitted records.
 
 ## Final Doctrine
 

@@ -3251,10 +3251,10 @@ function runDocs() {
   assertCheck(
     result,
     "matrix-model-mount-route-row-current-blockers-reconciled",
-    /Move remaining deeper wallet\/cTEE route authority and revocation policy, conversation\/provider\/instance replay depth where still adapter-shaped, and stable SDK\/IDE\/CLI protocol APIs over Rust records/.test(
+    /Move remaining deeper wallet\/cTEE route authority and revocation policy, conversation\/provider replay depth where still adapter-shaped, and stable SDK\/IDE\/CLI protocol APIs over Rust records/.test(
       modelMountingRouteRow,
     ) &&
-      /Move remaining deeper wallet\/cTEE route authority and revocation policy, conversation\/provider\/instance replay depth where still adapter-shaped, and stable Workbench\/CLI\/SDK protocol APIs over Rust records/.test(
+      /Move remaining deeper wallet\/cTEE route authority and revocation policy, conversation\/provider replay depth where still adapter-shaped, and stable Workbench\/CLI\/SDK protocol APIs over Rust records/.test(
         modelMountingCoreBoundaryRow,
       ) &&
       /Hosted download materialization is Rust-owned/.test(
@@ -20389,6 +20389,14 @@ function runBridge() {
       /function planInstanceMaintenanceLifecycle/.test(loadedInstances) &&
       /function commitInstanceMaintenanceTransition/.test(loadedInstances) &&
       /model_mount_instance_lifecycle_rust_core_required/.test(loadedInstances) &&
+      /Slice 1418 hard-cuts model_mount instance-lifecycle topology candidate\s+transport/.test(
+        guide,
+      ) &&
+      /instance-lifecycle topology\s+candidate transport/.test(matrix) &&
+      /RuntimeDaemonCoreModelMountInstanceLifecycleTopologyReplayAuthority/.test(implementationMatrix) &&
+      /state_dir:\s*requireInstanceLifecycleMountedStateDir/.test(loadedInstances) &&
+      /agentgres_instance_lifecycle_topology_replay_required/.test(loadedInstances) &&
+      /model_mount_instance_lifecycle_candidate_transport_retired/.test(loadedInstances) &&
       /public_model_instance_maintenance_rust_facade/.test(loadedInstances) &&
       /model_mount_instance_eviction_rust_positive_api/.test(loadedInstances) &&
       /model_mount_instance_supersede_rust_positive_api/.test(loadedInstances) &&
@@ -20409,11 +20417,20 @@ function runBridge() {
       /model_load_estimate/.test(modelMountingState) &&
       /model_mount_model_load_estimate_rust_positive_api/.test(modelLoadingOperations) &&
       /canonicalLoadEstimateOptions/.test(modelMountingState) &&
-      /defaultModelLoadEstimateId/.test(modelMountingState) &&
+      !/defaultModelLoadEstimateId/.test(modelMountingState) &&
+      /model_mount_instance_lifecycle_state_dir_required/.test(modelMountingState) &&
+      /agentgres_instance_lifecycle_topology_replay_required/.test(modelMountingState) &&
+      /model_mount_instance_lifecycle_candidate_transport_retired/.test(modelMountingState) &&
       !/updateInstanceCache/.test(modelLoadingOperations) &&
       /model_instance_load_estimate_is_planned_in_rust_without_provider_lifecycle/.test(modelMountCore) &&
+      /rust_core_rejects_instance_lifecycle_candidate_transport/.test(modelMountCore) &&
+      /retired_endpoint/.test(modelMountCore) &&
+      /retired_provider/.test(modelMountCore) &&
+      /retired_instance/.test(modelMountCore) &&
       /rust_model_mount_load_estimate/.test(modelMountCore) &&
       /agentgres_model_instance_estimate_truth_required/.test(modelMountCore) &&
+      /agentgres_instance_lifecycle_topology_replay_required/.test(modelMountCore) &&
+      /model_mount_instance_lifecycle_candidate_transport_retired/.test(modelMountCore) &&
       /js_sizing_execution/.test(modelMountCore) &&
       !/\/api\/v1\/models\/estimate-load/.test(runtimeRouteHandlers) &&
       /model mounting native route does not expose retired estimate-load endpoint/.test(runtimeRouteHandlersTest) &&
@@ -20440,6 +20457,18 @@ function runBridge() {
         read("packages/runtime-daemon/src/model-mounting/loaded-instances.test.mjs"),
       ) &&
       /loadModel commits Rust-planned instance lifecycle without mutating JS instance cache/.test(
+        read("packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs"),
+      ) &&
+      /state\.instanceLifecycleRequests\[0\]\.state_dir,\s*state\.stateDir/.test(
+        read("packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs"),
+      ) &&
+      /state\.instanceLifecycleRequests\[0\]\.provider_ref,\s*""/.test(
+        read("packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs"),
+      ) &&
+      /state\.instanceLifecycleRequests\[0\]\.backend_ref,\s*""/.test(
+        read("packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs"),
+      ) &&
+      /state\.instanceLifecycleRequests\[0\]\.driver,\s*""/.test(
         read("packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs"),
       ) &&
       /loadModel estimate-only commits Rust estimate record before returning public estimate truth/.test(
@@ -24413,11 +24442,20 @@ function runReceipts() {
       /model_load_estimate/.test(modelMountingState) &&
       /model_mount_model_load_estimate_rust_positive_api/.test(modelLoadingOperations) &&
       /canonicalLoadEstimateOptions/.test(modelMountingState) &&
-      /defaultModelLoadEstimateId/.test(modelMountingState) &&
+      !/defaultModelLoadEstimateId/.test(modelMountingState) &&
+      /model_mount_instance_lifecycle_state_dir_required/.test(modelMountingState) &&
+      /agentgres_instance_lifecycle_topology_replay_required/.test(modelMountingState) &&
+      /model_mount_instance_lifecycle_candidate_transport_retired/.test(modelMountingState) &&
       !/updateInstanceCache/.test(modelLoadingOperations) &&
       /model_instance_load_estimate_is_planned_in_rust_without_provider_lifecycle/.test(modelMountCore) &&
+      /rust_core_rejects_instance_lifecycle_candidate_transport/.test(modelMountCore) &&
+      /retired_endpoint/.test(modelMountCore) &&
+      /retired_provider/.test(modelMountCore) &&
+      /retired_instance/.test(modelMountCore) &&
       /rust_model_mount_load_estimate/.test(modelMountCore) &&
       /agentgres_model_instance_estimate_truth_required/.test(modelMountCore) &&
+      /agentgres_instance_lifecycle_topology_replay_required/.test(modelMountCore) &&
+      /model_mount_instance_lifecycle_candidate_transport_retired/.test(modelMountCore) &&
       /js_sizing_execution/.test(modelMountCore) &&
       !/loadEstimate\(/.test(modelLoadingOperations) &&
       !/estimateNativeLocalResources/.test(modelLoadingOperations) &&
@@ -24436,6 +24474,9 @@ function runReceipts() {
       /function planInstanceMaintenanceLifecycle/.test(loadedInstances) &&
       /function commitInstanceMaintenanceTransition/.test(loadedInstances) &&
       /model_mount_instance_lifecycle_rust_core_required/.test(loadedInstances) &&
+      /state_dir:\s*requireInstanceLifecycleMountedStateDir/.test(loadedInstances) &&
+      /agentgres_instance_lifecycle_topology_replay_required/.test(loadedInstances) &&
+      /model_mount_instance_lifecycle_candidate_transport_retired/.test(loadedInstances) &&
       /public_model_instance_maintenance_rust_facade/.test(loadedInstances) &&
       /model_mount_instance_eviction_rust_positive_api/.test(loadedInstances) &&
       /model_mount_instance_supersede_rust_positive_api/.test(loadedInstances) &&
@@ -24452,6 +24493,12 @@ function runReceipts() {
       /loadModel commits Rust-planned instance lifecycle without mutating JS instance cache/.test(
         modelLoadingOperationsTest,
       ) &&
+      /state\.instanceLifecycleRequests\[0\]\.state_dir,\s*state\.stateDir/.test(
+        modelLoadingOperationsTest,
+      ) &&
+      /state\.instanceLifecycleRequests\[0\]\.provider_ref,\s*""/.test(modelLoadingOperationsTest) &&
+      /state\.instanceLifecycleRequests\[0\]\.backend_ref,\s*""/.test(modelLoadingOperationsTest) &&
+      /state\.instanceLifecycleRequests\[0\]\.driver,\s*""/.test(modelLoadingOperationsTest) &&
       /loadModel estimate-only commits Rust estimate record before returning public estimate truth/.test(
         modelLoadingOperationsTest,
       ) &&
@@ -27297,10 +27344,15 @@ function runReceipts() {
     "model-mount-instance-maintenance-rust-projection-selection",
     /for \(const instance of projectionRecords\(state,\s*"listInstances"\)\)/.test(loadedInstances) &&
       /const instances = projectionRecords\(state,\s*"listInstances"\)/.test(loadedInstances) &&
-      /const endpoint = endpointProjectionRecord\(state,\s*endpointId\) \?\? \{\}/.test(loadedInstances) &&
-      /const provider = providerProjectionRecord\(state,\s*providerId\) \?\? \{\}/.test(loadedInstances) &&
-      /function endpointProjectionRecord\(state,\s*endpointId\)/.test(loadedInstances) &&
-      /function providerProjectionRecord\(state,\s*providerId\)/.test(loadedInstances) &&
+      /state_dir:\s*requireInstanceLifecycleMountedStateDir/.test(loadedInstances) &&
+      /endpoint_ref:\s*""/.test(loadedInstances) &&
+      /model_ref:\s*""/.test(loadedInstances) &&
+      /provider_ref:\s*""/.test(loadedInstances) &&
+      /backend_ref:\s*""/.test(loadedInstances) &&
+      /driver:\s*""/.test(loadedInstances) &&
+      /provider_lifecycle_hash:\s*""/.test(loadedInstances) &&
+      !/function endpointProjectionRecord\(state,\s*endpointId\)/.test(loadedInstances) &&
+      !/function providerProjectionRecord\(state,\s*providerId\)/.test(loadedInstances) &&
       !/state\.instances\.values\(\)/.test(loadedInstances) &&
       !/state\.instances\.set/.test(loadedInstances) &&
       !/state\.instances\?\.\s*set\?\./.test(loadedInstances) &&
@@ -27308,7 +27360,10 @@ function runReceipts() {
       !/mapGet\(state\.providers/.test(loadedInstances) &&
       !/state\.endpoints\.get/.test(loadedInstances) &&
       !/state\.providers\.get/.test(loadedInstances) &&
-      /instance maintenance derives candidate and enrichment truth from Rust projections/.test(loadedInstancesTest) &&
+      /instance maintenance sends only instance ref while Rust replay resolves enrichment truth/.test(loadedInstancesTest) &&
+      /state\.transitionRequests\[0\]\.state_dir,\s*state\.stateDir/.test(loadedInstancesTest) &&
+      /state\.transitionRequests\[0\]\.endpoint_ref,\s*""/.test(loadedInstancesTest) &&
+      /state\.transitionRequests\[0\]\.backend_ref,\s*""/.test(loadedInstancesTest) &&
       /idle TTL eviction commits Rust-planned instance lifecycle without mutating JS instance cache/.test(
         loadedInstancesTest,
       ) &&

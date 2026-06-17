@@ -126,59 +126,21 @@ function planInstanceMaintenanceLifecycle(state, instance, options = {}) {
 }
 
 function modelMountInstanceMaintenanceRequest(state, instance = {}, options = {}) {
-  const endpointId = requiredMaintenanceString(
-    instance.endpoint_id ?? instance.endpointId,
-    "endpoint_id",
-    instance,
-    options,
-  );
-  const endpoint = endpointProjectionRecord(state, endpointId) ?? {};
-  const providerId = requiredMaintenanceString(
-    instance.provider_id ?? instance.providerId ?? endpoint.provider_id ?? endpoint.providerId,
-    "provider_id",
-    instance,
-    options,
-  );
-  const provider = providerProjectionRecord(state, providerId) ?? {};
-  const modelId = requiredMaintenanceString(
-    instance.model_id ?? instance.modelId ?? endpoint.model_id ?? endpoint.modelId,
-    "model_id",
-    instance,
-    options,
-  );
-  const backendId = requiredMaintenanceString(
-    instance.backend_id ?? instance.backendId ?? endpoint.backend_id ?? endpoint.backendId ?? provider.backend_id ?? provider.backendId,
-    "backend_id",
-    instance,
-    options,
-  );
-  const driver = requiredMaintenanceString(
-    instance.driver ?? provider.driver ?? endpoint.driver,
-    "driver",
-    instance,
-    options,
-  );
-  const provider_lifecycle_hash = requiredMaintenanceString(
-    instance.provider_lifecycle_hash ?? instance.model_mount_provider_lifecycle_hash,
-    "provider_lifecycle_hash",
-    instance,
-    options,
-  );
   const superseded_by = options.action === "supersede"
     ? requiredMaintenanceString(options.superseded_by, "superseded_by", instance, options)
     : null;
   return {
     schema_version: MODEL_MOUNT_INSTANCE_LIFECYCLE_SCHEMA_VERSION,
     instance_ref: requiredMaintenanceString(instance.id, "instance_id", instance, options),
-    endpoint_ref: endpointId,
-    model_ref: modelId,
-    provider_ref: providerId,
+    endpoint_ref: "",
+    model_ref: "",
+    provider_ref: "",
     action: options.action,
     target_status: options.targetStatus,
     execution_backend: RUST_MODEL_MOUNT_INSTANCE_LIFECYCLE_BACKEND,
-    backend_ref: backendId,
-    driver,
-    provider_lifecycle_hash: provider_lifecycle_hash,
+    backend_ref: "",
+    driver: "",
+    provider_lifecycle_hash: "",
     reason: options.reason ?? null,
     superseded_by: superseded_by,
     evidence_refs: [
@@ -188,6 +150,7 @@ function modelMountInstanceMaintenanceRequest(state, instance = {}, options = {}
         ...(options.evidenceRefs ?? []),
       ].filter(Boolean)),
     ],
+    state_dir: requireInstanceLifecycleMountedStateDir(state, options.operation_kind),
   };
 }
 
@@ -247,38 +210,6 @@ function projectionRecords(state, methodName) {
   return Array.isArray(records) ? records : [];
 }
 
-function endpointProjectionRecord(state, endpointId) {
-  const requested = String(endpointId ?? "").trim();
-  if (!requested) return null;
-  return projectionRecords(state, "listEndpoints").find(
-    (record) =>
-      record?.id === requested ||
-      record?.endpoint_id === requested ||
-      record?.endpoint_ref === requested,
-  ) ?? null;
-}
-
-function providerProjectionRecord(state, providerId) {
-  const refs = providerRefs(providerId);
-  if (refs.size === 0) return null;
-  return projectionRecords(state, "listProviders").find(
-    (record) =>
-      refs.has(record?.id) ||
-      refs.has(record?.provider_id) ||
-      refs.has(record?.provider_ref),
-  ) ?? null;
-}
-
-function providerRefs(providerId) {
-  const requested = String(providerId ?? "").trim();
-  const values = new Set();
-  if (!requested) return values;
-  values.add(requested);
-  if (requested.startsWith("provider://")) values.add(requested.slice("provider://".length));
-  else values.add(`provider://${requested}`);
-  return values;
-}
-
 function throwInstanceMaintenanceRustCoreRequired(operation, instance, details = {}) {
   const error = new Error("Model instance lifecycle maintenance requires Rust daemon-core ownership.");
   error.status = 501;
@@ -298,4 +229,20 @@ function throwInstanceMaintenanceRustCoreRequired(operation, instance, details =
     ],
   };
   throw error;
+}
+
+function requireInstanceLifecycleMountedStateDir(state, operation_kind) {
+  const stateDir = typeof state?.stateDir === "string" && state.stateDir.trim()
+    ? state.stateDir.trim()
+    : null;
+  if (stateDir) return stateDir;
+  throwInstanceMaintenanceRustCoreRequired("model_instance_maintenance", {}, {
+    operation_kind,
+    missing: ["state_dir"],
+    evidence_refs: [
+      "rust_model_mount_instance_lifecycle",
+      "agentgres_instance_lifecycle_topology_replay_required",
+      "model_mount_instance_lifecycle_candidate_transport_retired",
+    ],
+  });
 }

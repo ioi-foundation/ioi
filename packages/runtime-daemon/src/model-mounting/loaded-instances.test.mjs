@@ -59,6 +59,7 @@ function fakeState({ now = "2026-06-03T12:00:00.000Z", instances = [] } = {}) {
     receipts: [],
     transitionRequests: [],
     writes: [],
+    stateDir: "/tmp/ioi-loaded-instances-test-state",
     now() {
       return new Date(now);
     },
@@ -85,22 +86,31 @@ function fakeState({ now = "2026-06-03T12:00:00.000Z", instances = [] } = {}) {
     },
     planModelMountInstanceLifecycle(request) {
       this.transitionRequests.push(JSON.parse(JSON.stringify(request)));
+      const instance = this.instanceProjectionRows.find((row) => row.id === request.instance_ref) ?? {};
+      const endpointId = instance.endpoint_id ?? instance.endpointId ?? request.endpoint_ref;
+      const endpoint = this.endpointProjectionRows.find((row) =>
+        row.id === endpointId || row.endpoint_id === endpointId || row.endpoint_ref === endpointId,
+      ) ?? {};
+      const providerId = instance.provider_id ?? instance.providerId ?? endpoint.provider_id ?? endpoint.providerId ?? request.provider_ref;
+      const provider = this.providerProjectionRows.find((row) =>
+        row.id === providerId || row.provider_id === providerId || row.provider_ref === providerId,
+      ) ?? {};
       const record = {
         schema_version: request.schema_version,
         id: request.instance_ref,
-        endpoint_id: request.endpoint_ref,
-        model_id: request.model_ref,
-        provider_id: request.provider_ref,
+        endpoint_id: endpointId,
+        model_id: instance.model_id ?? instance.modelId ?? endpoint.model_id ?? endpoint.modelId ?? request.model_ref,
+        provider_id: providerId,
         instance_ref: request.instance_ref,
-        endpoint_ref: request.endpoint_ref,
-        model_ref: request.model_ref,
-        provider_ref: request.provider_ref,
+        endpoint_ref: endpointId,
+        model_ref: instance.model_ref ?? instance.model_id ?? instance.modelId ?? endpoint.model_ref ?? endpoint.model_id ?? endpoint.modelId ?? request.model_ref,
+        provider_ref: instance.provider_ref ?? provider.provider_ref ?? providerId,
         action: request.action,
         status: request.target_status,
-        backend_id: request.backend_ref,
-        driver: request.driver,
+        backend_id: request.backend_ref || instance.backend_id || instance.backendId || endpoint.backend_id || endpoint.backendId || provider.backend_id || provider.backendId,
+        driver: request.driver || instance.driver || provider.driver || endpoint.driver,
         execution_backend: request.execution_backend,
-        provider_lifecycle_hash: request.provider_lifecycle_hash,
+        provider_lifecycle_hash: request.provider_lifecycle_hash || instance.provider_lifecycle_hash || instance.model_mount_provider_lifecycle_hash,
         ...(request.reason ? { reason: request.reason } : {}),
         ...(request.superseded_by ? { superseded_by: request.superseded_by } : {}),
         evidence_refs: [
@@ -214,7 +224,13 @@ test("idle TTL eviction commits Rust-planned instance lifecycle without mutating
   assert.equal(state.transitionRequests[0].target_status, "evicted");
   assert.equal(state.transitionRequests[0].reason, "idle_ttl");
   assert.equal(state.transitionRequests[0].execution_backend, "rust_model_mount_instance_lifecycle");
-  assert.equal(state.transitionRequests[0].provider_lifecycle_hash, "sha256:provider-load");
+  assert.equal(state.transitionRequests[0].state_dir, state.stateDir);
+  assert.equal(state.transitionRequests[0].endpoint_ref, "");
+  assert.equal(state.transitionRequests[0].model_ref, "");
+  assert.equal(state.transitionRequests[0].provider_ref, "");
+  assert.equal(state.transitionRequests[0].backend_ref, "");
+  assert.equal(state.transitionRequests[0].driver, "");
+  assert.equal(state.transitionRequests[0].provider_lifecycle_hash, "");
   assert.equal(state.recordStateCommits.length, 1);
   assert.equal(state.recordStateCommits[0].record_dir, "model-instances");
   assert.equal(state.recordStateCommits[0].record_id, "instance_old");
@@ -228,7 +244,7 @@ test("idle TTL eviction commits Rust-planned instance lifecycle without mutating
   assert.deepEqual(state.writes, []);
 });
 
-test("instance maintenance derives candidate and enrichment truth from Rust projections", () => {
+test("instance maintenance sends only instance ref while Rust replay resolves enrichment truth", () => {
   const state = fakeState();
   state.instances.set("instance_map_only_expired", loadedFixtureInstance("instance_map_only_expired", {
     expiresAt: "2026-06-03T11:59:59.000Z",
@@ -265,14 +281,21 @@ test("instance maintenance derives candidate and enrichment truth from Rust proj
   assert.equal(state.instances.has("instance_projection_only"), false);
   assert.equal(state.transitionRequests.length, 1);
   assert.equal(state.transitionRequests[0].instance_ref, "instance_projection_only");
-  assert.equal(state.transitionRequests[0].endpoint_ref, "endpoint_projection");
-  assert.equal(state.transitionRequests[0].model_ref, "model.projected");
-  assert.equal(state.transitionRequests[0].provider_ref, "provider_projected");
-  assert.equal(state.transitionRequests[0].backend_ref, "backend.projected");
-  assert.equal(state.transitionRequests[0].driver, "native_local");
-  assert.equal(state.transitionRequests[0].provider_lifecycle_hash, "sha256:provider-projected");
+  assert.equal(state.transitionRequests[0].state_dir, state.stateDir);
+  assert.equal(state.transitionRequests[0].endpoint_ref, "");
+  assert.equal(state.transitionRequests[0].model_ref, "");
+  assert.equal(state.transitionRequests[0].provider_ref, "");
+  assert.equal(state.transitionRequests[0].backend_ref, "");
+  assert.equal(state.transitionRequests[0].driver, "");
+  assert.equal(state.transitionRequests[0].provider_lifecycle_hash, "");
   assert.equal(state.recordStateCommits[0].record.status, "evicted");
   assert.equal(state.recordStateCommits[0].record.id, "instance_projection_only");
+  assert.equal(state.recordStateCommits[0].record.endpoint_id, "endpoint_projection");
+  assert.equal(state.recordStateCommits[0].record.model_id, "model.projected");
+  assert.equal(state.recordStateCommits[0].record.provider_id, "provider_projected");
+  assert.equal(state.recordStateCommits[0].record.backend_id, "backend.projected");
+  assert.equal(state.recordStateCommits[0].record.driver, "native_local");
+  assert.equal(state.recordStateCommits[0].record.provider_lifecycle_hash, "sha256:provider-projected");
 });
 
 test("idle TTL eviction fails closed before mutation when Rust lifecycle planner is unavailable", () => {
@@ -394,18 +417,19 @@ test("explicit supersede rejects Rust result without superseded binding before c
   });
   state.planModelMountInstanceLifecycle = function planModelMountInstanceLifecycle(request) {
     this.transitionRequests.push(JSON.parse(JSON.stringify(request)));
+    const instance = this.instanceProjectionRows.find((row) => row.id === request.instance_ref) ?? {};
     return {
       result: {
         id: request.instance_ref,
-        endpoint_id: request.endpoint_ref,
-        model_id: request.model_ref,
-        provider_id: request.provider_ref,
+        endpoint_id: instance.endpointId ?? instance.endpoint_id,
+        model_id: instance.modelId ?? instance.model_id,
+        provider_id: instance.providerId ?? instance.provider_id,
         action: request.action,
         status: request.target_status,
-        backend_id: request.backend_ref,
-        driver: request.driver,
+        backend_id: instance.backendId ?? instance.backend_id,
+        driver: instance.driver,
         execution_backend: request.execution_backend,
-        provider_lifecycle_hash: request.provider_lifecycle_hash,
+        provider_lifecycle_hash: instance.provider_lifecycle_hash,
         evidence_refs: ["rust_model_mount_instance_lifecycle"],
         instance_lifecycle_hash: "sha256:bad",
       },

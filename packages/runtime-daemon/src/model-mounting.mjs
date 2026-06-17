@@ -815,10 +815,9 @@ export class ModelMountingState {
       const lifecycle = planModelInstanceLifecycle(this, {
         action: "estimate",
         targetStatus: "estimated",
-        endpoint,
-        provider,
-        backendId,
-        instanceId: body.instance_id ?? body.id ?? defaultModelLoadEstimateId(endpoint, loadOptions),
+        endpointId: endpoint.id ?? endpoint.endpoint_id ?? endpoint.endpointId ?? null,
+        modelId: body.model_id ?? null,
+        instanceId: body.instance_id ?? body.id ?? null,
         load_options: loadOptions,
         runtime_engine_id: runtimePreference.selectedEngineId,
         evidenceRefs: ["model_mount_model_load_estimate_rust_positive_api"],
@@ -850,9 +849,8 @@ export class ModelMountingState {
     const lifecycle = planModelInstanceLifecycle(this, {
       action: "load",
       targetStatus: "loaded",
-      endpoint,
-      provider,
-      backendId,
+      endpointId: endpoint.id ?? endpoint.endpoint_id ?? endpoint.endpointId ?? null,
+      modelId: body.model_id ?? null,
       instanceId,
       providerLifecycle,
       backendProcessMaterialization,
@@ -886,12 +884,9 @@ export class ModelMountingState {
     const lifecycle = planModelInstanceLifecycle(this, {
       action: "unload",
       targetStatus: "unloaded",
-      endpoint,
-      provider,
-      instance,
-      backendId,
-      instanceId: instance.id,
-      modelId,
+      endpointId: instanceId ? null : endpointId,
+      modelId: body.model_id ?? null,
+      instanceId: body.instance_id ?? body.id ?? null,
       providerLifecycle,
       evidenceRefs: ["model_mount_model_unloading_rust_positive_api"],
     });
@@ -5537,7 +5532,7 @@ function commitProviderLifecycleRecordState(state, plan = {}) {
 }
 
 function planModelInstanceLifecycle(state, options = {}) {
-  const request = modelMountInstanceLifecycleRequest(options);
+  const request = modelMountInstanceLifecycleRequest(state, options);
   if (typeof state.planModelMountInstanceLifecycle !== "function") {
     throwModelLoadingRustCoreRequired(
       options.action === "estimate"
@@ -5549,9 +5544,8 @@ function planModelInstanceLifecycle(state, options = {}) {
       {
         operation_kind: `model_mount.instance.${options.action ?? "lifecycle"}`,
         rust_core_api: "plan_model_mount_instance_lifecycle",
-        endpoint_id: options.endpoint?.id ?? options.endpoint?.endpoint_id ?? null,
-        model_id: options.modelId ?? options.endpoint?.modelId ?? options.endpoint?.model_id ?? null,
-        backend_id: options.backendId ?? null,
+        endpoint_id: options.endpointId ?? null,
+        model_id: options.modelId ?? null,
       },
     );
   }
@@ -5560,36 +5554,18 @@ function planModelInstanceLifecycle(state, options = {}) {
   return result;
 }
 
-function modelMountInstanceLifecycleRequest({
+function modelMountInstanceLifecycleRequest(state, {
   action,
   targetStatus,
-  endpoint = {},
-  provider = {},
-  instance = null,
+  endpointId,
   instanceId,
   modelId,
-  backendId,
   providerLifecycle,
   backendProcessMaterialization,
   load_options,
   runtime_engine_id,
   evidenceRefs = [],
 } = {}) {
-  const endpointId = requiredString(endpoint.id ?? endpoint.endpoint_id ?? endpoint.endpointId, "endpoint_id");
-  const resolvedModelId = requiredString(
-    modelId ?? instance?.model_id ?? instance?.modelId ?? endpoint.model_id ?? endpoint.modelId,
-    "model_id",
-  );
-  const providerId = requiredString(
-    instance?.provider_id ?? instance?.providerId ?? provider.id ?? endpoint.provider_id ?? endpoint.providerId,
-    "provider_id",
-  );
-  const resolvedInstanceId = requiredString(instanceId ?? instance?.id, "instance_id");
-  const resolvedBackendId = requiredString(
-    backendId ?? instance?.backend_id ?? instance?.backendId ?? endpoint.backend_id ?? endpoint.backendId,
-    "backend_id",
-  );
-  const driver = requiredString(provider.driver ?? provider.driver_ref ?? endpoint.driver, "driver");
   const provider_lifecycle_hash = action === "estimate"
     ? optionalProviderLifecycleHash(providerLifecycle)
     : requiredProviderLifecycleHash(providerLifecycle);
@@ -5610,15 +5586,15 @@ function modelMountInstanceLifecycleRequest({
     : optionalBackendProcessSupervisionStatus(backendProcessMaterialization);
   const request = {
     schema_version: MODEL_MOUNT_INSTANCE_LIFECYCLE_SCHEMA_VERSION,
-    instance_ref: resolvedInstanceId,
-    endpoint_ref: endpointId,
-    model_ref: resolvedModelId,
-    provider_ref: providerId,
+    instance_ref: optionalString(instanceId) ?? "",
+    endpoint_ref: optionalString(endpointId) ?? "",
+    model_ref: optionalString(modelId) ?? "",
+    provider_ref: "",
     action,
     target_status: targetStatus,
     execution_backend: RUST_MODEL_MOUNT_INSTANCE_LIFECYCLE_BACKEND,
-    backend_ref: resolvedBackendId,
-    driver,
+    backend_ref: "",
+    driver: "",
     provider_lifecycle_hash,
     backend_process_ref,
     backend_process_materialization_hash,
@@ -5631,6 +5607,7 @@ function modelMountInstanceLifecycleRequest({
         ...evidenceRefs,
       ].filter(Boolean)),
     ],
+    state_dir: requireInstanceLifecycleMountedStateDir(state, `model_mount.instance.${action ?? "lifecycle"}`),
   };
   if (action === "estimate") {
     request.runtime_engine_ref = runtime_engine_id ?? null;
@@ -5933,16 +5910,6 @@ function defaultModelInstanceId(endpoint = {}, loadOptions = {}) {
   return `model_instance.${safeId(endpoint.id ?? "endpoint")}.${safeId(loadOptions.identifier ?? endpoint.modelId ?? endpoint.model_id ?? "model")}`;
 }
 
-function defaultModelLoadEstimateId(endpoint = {}, loadOptions = {}) {
-  return `model_instance_estimate.${safeId(endpoint.id ?? "endpoint")}.${stableHash({
-    model_id: endpoint.modelId ?? endpoint.model_id ?? null,
-    context_length: loadOptions.contextLength ?? null,
-    parallel: loadOptions.parallel ?? null,
-    ttl_seconds: loadOptions.ttlSeconds ?? null,
-    identifier: loadOptions.identifier ?? null,
-  }).slice(0, 16)}`;
-}
-
 function throwProviderLifecycleRustCoreRequired(provider, operation, details = {}) {
   if (operation === "provider_health") {
     throwModelMountProviderHealthRustCoreRequired(provider, operation, details);
@@ -5992,6 +5959,29 @@ function requireRouteControlMountedStateDir(state, operation_kind) {
         "model_mount_route_control_rust_owned",
         "agentgres_route_topology_replay_required",
         "model_mount_route_candidate_transport_retired",
+      ],
+    },
+  });
+}
+
+function requireInstanceLifecycleMountedStateDir(state, operation_kind) {
+  const stateDir = typeof state?.stateDir === "string" && state.stateDir.trim()
+    ? state.stateDir.trim()
+    : null;
+  if (stateDir) return stateDir;
+  throw runtimeError({
+    status: 500,
+    code: "model_mount_instance_lifecycle_state_dir_required",
+    message:
+      "Model instance lifecycle requires daemon Agentgres state_dir replay before instance truth can return.",
+    details: {
+      operation_kind,
+      rust_core_boundary: "model_mount.instance_lifecycle",
+      rust_core_api: "plan_model_mount_instance_lifecycle",
+      evidence_refs: [
+        "rust_model_mount_instance_lifecycle",
+        "agentgres_instance_lifecycle_topology_replay_required",
+        "model_mount_instance_lifecycle_candidate_transport_retired",
       ],
     },
   });

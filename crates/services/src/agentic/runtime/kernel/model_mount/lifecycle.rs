@@ -36,6 +36,102 @@ mod tests {
         MODEL_MOUNT_PROVIDER_LIFECYCLE_SCHEMA_VERSION,
     };
     use serde_json::json;
+    use std::{fs, path::Path};
+
+    fn write_json_record(
+        state_dir: &Path,
+        record_dir: &str,
+        file_name: &str,
+        record: serde_json::Value,
+    ) {
+        let dir = state_dir.join(record_dir);
+        fs::create_dir_all(&dir).expect("record dir");
+        fs::write(
+            dir.join(file_name),
+            serde_json::to_string_pretty(&record).expect("record json"),
+        )
+        .expect("write record");
+    }
+
+    fn seeded_instance_lifecycle_state_dir() -> tempfile::TempDir {
+        let temp = tempfile::tempdir().expect("instance lifecycle state dir");
+        write_json_record(
+            temp.path(),
+            "model-endpoints",
+            "endpoint.native-local.json",
+            json!({
+                "id": "endpoint.native-local",
+                "record_id": "endpoint.native-local",
+                "schema_version": "ioi.model_mount.artifact_endpoint.v1",
+                "object": "ioi.model_mount_endpoint",
+                "status": "mounted",
+                "operation_kind": "model_mount.endpoint.mount",
+                "source": "runtime-daemon.model_mounting.artifact_endpoint",
+                "rust_core_boundary": "model_mount.artifact_endpoint",
+                "endpoint_id": "endpoint.native-local",
+                "model_id": "model://qwen/qwen3.5-9b",
+                "provider_id": "provider.autopilot.local",
+                "provider_kind": "ioi_native_local",
+                "api_format": "ioi_native",
+                "driver": "native_local",
+                "backend_id": "backend.autopilot.native-local.fixture",
+                "privacy_class": "local_private",
+                "plaintext_transport_material_returned": false,
+                "receipt_refs": ["receipt://endpoint/native-local"],
+                "evidence_refs": [
+                    "public_artifact_endpoint_js_facade_retired",
+                    "rust_daemon_core_artifact_endpoint",
+                    "agentgres_artifact_endpoint_truth_required",
+                    "rust_daemon_core_model_endpoint_mount"
+                ],
+                "control_hash": "sha256:control:endpoint.native-local",
+                "authority_hash": "sha256:authority:endpoint.native-local",
+                "mounted_at": "2026-06-13T00:03:00.000Z"
+            }),
+        );
+        write_json_record(
+            temp.path(),
+            "model-providers",
+            "provider.autopilot.local.json",
+            json!({
+                "id": "provider.autopilot.local",
+                "record_id": "provider.autopilot.local",
+                "schema_version": "ioi.model_mount.provider_control.v1",
+                "object": "ioi.model_mount_provider",
+                "status": "configured",
+                "operation_kind": "model_mount.provider.write",
+                "source": "rust_daemon_core.model_mount.provider_control",
+                "provider_id": "provider.autopilot.local",
+                "provider_ref": "provider://provider.autopilot.local",
+                "kind": "ioi_native_local",
+                "label": "IOI native local",
+                "api_format": "ioi_native",
+                "driver": "native_local",
+                "privacy_class": "local_private",
+                "capabilities": ["chat", "responses"],
+                "rust_core_boundary": "model_mount.provider_control",
+                "wallet_authority_boundary": "wallet.network.provider_control",
+                "ctee_custody_boundary": "ctee.provider_material",
+                "plaintext_material_returned": false,
+                "authority": {
+                    "authority_hash": "sha256:authority:provider.autopilot.local",
+                    "required_scope": "provider.write:provider.autopilot.local",
+                    "authority_grant_refs": ["wallet://grant/provider-control"],
+                    "authority_receipt_refs": ["receipt://wallet/provider-control"]
+                },
+                "control_hash": "sha256:control:provider.autopilot.local",
+                "evidence_refs": [
+                    "rust_daemon_core_provider_control",
+                    "wallet_network_provider_control_authority_required",
+                    "wallet_network_vault_authority_required",
+                    "ctee_provider_custody_enforced",
+                    "agentgres_provider_control_truth_required",
+                    "public_provider_control_js_facade_retired"
+                ]
+            }),
+        );
+        temp
+    }
 
     #[test]
     fn rust_core_plans_model_mount_provider_lifecycle_direct_api() {
@@ -150,6 +246,7 @@ mod tests {
 
     #[test]
     fn rust_core_plans_model_mount_instance_lifecycle_direct_api() {
+        let temp = seeded_instance_lifecycle_state_dir();
         let request: ModelMountInstanceLifecycleRequest = serde_json::from_value(json!({
             "schema_version": MODEL_MOUNT_INSTANCE_LIFECYCLE_SCHEMA_VERSION,
             "instance_ref": "model_instance://native/qwen3",
@@ -167,6 +264,7 @@ mod tests {
             "backend_supervision_ref": "backend_supervision://backend.autopilot.native-local.fixture_process#sha256:plan",
             "backend_supervision_hash": "sha256:backend-supervision",
             "backend_supervision_status": "rust_fixture_supervision_bound",
+            "state_dir": temp.path().to_string_lossy().to_string(),
             "evidence_refs": ["rust_model_mount_provider_lifecycle"]
         }))
         .expect("instance lifecycle request");

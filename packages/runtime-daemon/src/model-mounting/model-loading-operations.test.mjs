@@ -48,6 +48,7 @@ function fakeState() {
     transitionRequests: [],
     writes: [],
     now: "2026-06-04T00:00:00.000Z",
+    stateDir: "/tmp/ioi-model-loading-test-state",
     driverCalls: [],
     driverForProvider() {
       return {
@@ -189,10 +190,6 @@ function fakeState() {
         lifecycle_hash: lifecycleHash,
         transport_contract: transportContract,
         transport_execution_status: "rust_materialized",
-        js_provider_driver_call: false,
-        js_provider_map_write: false,
-        js_lifecycle_receipt: false,
-        js_projection_write: false,
       };
       providerLifecycleRecord.public_response = publicResponse;
       const record = {
@@ -236,23 +233,39 @@ function fakeState() {
     planModelMountInstanceLifecycle(request) {
       this.instanceLifecycleRequests.push(JSON.parse(JSON.stringify(request)));
       const estimate = request.action === "estimate";
+      const instance = request.instance_ref ? this.instances.get(request.instance_ref) : null;
+      const endpoint = request.endpoint_ref
+        ? this.endpointById.get(request.endpoint_ref) ?? this.endpointRecord
+        : instance?.endpointId || instance?.endpoint_id
+          ? this.endpointById.get(instance.endpointId ?? instance.endpoint_id) ?? this.endpointRecord
+          : this.endpointRecord;
+      const provider = instance?.providerId || instance?.provider_id
+        ? { id: instance.providerId ?? instance.provider_id, ...this.providerRecord }
+        : this.providerRecord;
+      const endpointId = request.endpoint_ref || endpoint.id;
+      const modelId = request.model_ref || instance?.modelId || instance?.model_id || endpoint.modelId || endpoint.model_id;
+      const providerId = request.provider_ref || instance?.providerId || instance?.provider_id || provider.id;
+      const backendId = request.backend_ref || instance?.backendId || instance?.backend_id || endpoint.backendId || endpoint.backend_id || "backend.autopilot.native-local.fixture";
+      const driver = request.driver || instance?.driver || provider.driver || endpoint.driver || "native_local";
+      const instanceId = request.instance_ref ||
+        (estimate ? `model_instance_estimate.${endpointId}` : `model_instance.${endpointId}.${modelId}`);
       const record = {
         schema_version: request.schema_version,
-        id: request.instance_ref,
-        endpoint_id: request.endpoint_ref,
-        model_id: request.model_ref,
-        provider_id: request.provider_ref,
-        instance_ref: request.instance_ref,
-        endpoint_ref: request.endpoint_ref,
-        model_ref: request.model_ref,
-        provider_ref: request.provider_ref,
+        id: instanceId,
+        endpoint_id: endpointId,
+        model_id: modelId,
+        provider_id: providerId,
+        instance_ref: instanceId,
+        endpoint_ref: endpointId,
+        model_ref: modelId,
+        provider_ref: providerId,
         action: request.action,
         status: request.target_status,
-        backend_id: request.backend_ref,
-        driver: request.driver,
+        backend_id: backendId,
+        driver,
         execution_backend: request.execution_backend,
         provider_lifecycle_hash: estimate
-          ? `sha256:estimate-provider-lifecycle-not-executed:${request.instance_ref}`
+          ? `sha256:estimate-provider-lifecycle-not-executed:${instanceId}`
           : request.provider_lifecycle_hash,
         backend_process_ref: request.backend_process_ref ?? "",
         backend_process_materialization_hash: request.backend_process_materialization_hash ?? "",
@@ -269,7 +282,7 @@ function fakeState() {
             js_sizing_execution: false,
             js_driver_execution: false,
             runtime_engine_id: request.runtime_engine_ref,
-            backend_id: request.backend_ref,
+            backend_id: backendId,
             requested_context_tokens: request.load_options.context_length,
             parallel: request.load_options.parallel,
             ttl_seconds: request.load_options.ttl_seconds,
@@ -292,7 +305,7 @@ function fakeState() {
             ]),
           ...request.evidence_refs,
         ],
-        instance_lifecycle_hash: `sha256:instance:${request.instance_ref}:${request.action}`,
+        instance_lifecycle_hash: `sha256:instance:${instanceId}:${request.action}`,
       };
       return {
         source: "rust_model_mount_instance_lifecycle_command",
@@ -590,6 +603,12 @@ test("loadModel estimate-only commits Rust estimate record before returning publ
   assert.equal(state.instanceLifecycleRequests.length, 1);
   assert.equal(state.instanceLifecycleRequests[0].action, "estimate");
   assert.equal(state.instanceLifecycleRequests[0].target_status, "estimated");
+  assert.equal(state.instanceLifecycleRequests[0].state_dir, state.stateDir);
+  assert.equal(state.instanceLifecycleRequests[0].endpoint_ref, "endpoint.local.llama");
+  assert.equal(state.instanceLifecycleRequests[0].model_ref, "");
+  assert.equal(state.instanceLifecycleRequests[0].provider_ref, "");
+  assert.equal(state.instanceLifecycleRequests[0].backend_ref, "");
+  assert.equal(state.instanceLifecycleRequests[0].driver, "");
   assert.equal(state.instanceLifecycleRequests[0].provider_lifecycle_hash, "");
   assert.equal(state.instanceLifecycleRequests[0].runtime_engine_ref, "engine.native");
   assert.equal(state.instanceLifecycleRequests[0].load_options.estimate_only, true);
@@ -659,6 +678,12 @@ test("loadModel commits Rust-planned instance lifecycle without mutating JS inst
   assert.equal(state.instanceLifecycleRequests[0].action, "load");
   assert.equal(state.instanceLifecycleRequests[0].target_status, "loaded");
   assert.equal(state.instanceLifecycleRequests[0].execution_backend, "rust_model_mount_instance_lifecycle");
+  assert.equal(state.instanceLifecycleRequests[0].state_dir, state.stateDir);
+  assert.equal(state.instanceLifecycleRequests[0].endpoint_ref, "endpoint.local.llama");
+  assert.equal(state.instanceLifecycleRequests[0].model_ref, "");
+  assert.equal(state.instanceLifecycleRequests[0].provider_ref, "");
+  assert.equal(state.instanceLifecycleRequests[0].backend_ref, "");
+  assert.equal(state.instanceLifecycleRequests[0].driver, "");
   assert.equal(
     state.instanceLifecycleRequests[0].provider_lifecycle_hash,
     "sha256:provider:provider://provider.local:load",
@@ -804,6 +829,12 @@ test("unloadModel commits Rust-planned instance lifecycle without mutating JS in
   assert.equal(state.instanceLifecycleRequests.length, 1);
   assert.equal(state.instanceLifecycleRequests[0].action, "unload");
   assert.equal(state.instanceLifecycleRequests[0].target_status, "unloaded");
+  assert.equal(state.instanceLifecycleRequests[0].state_dir, state.stateDir);
+  assert.equal(state.instanceLifecycleRequests[0].endpoint_ref, "");
+  assert.equal(state.instanceLifecycleRequests[0].model_ref, "");
+  assert.equal(state.instanceLifecycleRequests[0].provider_ref, "");
+  assert.equal(state.instanceLifecycleRequests[0].backend_ref, "");
+  assert.equal(state.instanceLifecycleRequests[0].driver, "");
   assert.equal(state.recordStateCommits.length, 1);
   assert.equal(state.recordStateCommits[0].record_dir, "model-instances");
   assert.equal(state.recordStateCommits[0].record_id, "instance.loaded");
