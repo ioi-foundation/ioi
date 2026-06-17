@@ -242,9 +242,10 @@ test("hypervisor shell models IOI-reference session detail and inspectors", () =
 
 test("visible shell chrome uses Hypervisor labels over compatibility route keys", () => {
   assert.match(operatorSubstrate, /sessions: "Sessions"/);
+  assert.match(operatorSubstrate, /projects: "Files"/);
   assert.match(operatorSubstrate, /workbench: "Workbench"/);
   assert.match(operatorSubstrate, /automations: "Automations"/);
-  assert.match(operatorSubstrate, /insights: "Insights"/);
+  assert.match(operatorSubstrate, /insights: "Applications"/);
   assert.match(operatorSubstrate, /models: "Models"/);
   assert.match(operatorSubstrate, /agents: "Agents"/);
   assert.match(operatorSubstrate, /authority: "Authority"/);
@@ -252,7 +253,7 @@ test("visible shell chrome uses Hypervisor labels over compatibility route keys"
   assert.match(operatorSubstrate, /routeState: "active_route"/);
   assert.match(
     operatorSubstrate,
-    /Search Hypervisor, sessions, workbench, automations, and commands/,
+    /Search Hypervisor, files, applications, sessions, and commands/,
   );
   assert.match(activityBar, /aria-label="Hypervisor navigation"/);
   assert.match(activityBar, /data-ioi-reference-primary-rail="true"/);

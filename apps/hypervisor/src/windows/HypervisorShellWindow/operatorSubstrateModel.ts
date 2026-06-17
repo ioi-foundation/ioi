@@ -291,11 +291,11 @@ const EMPTY_EVIDENCE_REFS: OperatorRuntimeEvidenceRefs = {
 const PRIMARY_VIEW_LABELS: Record<PrimaryView, string> = {
   home: "Home",
   sessions: "Sessions",
-  projects: "Projects",
+  projects: "Files",
   missions: "Missions",
   workbench: "Workbench",
   automations: "Automations",
-  insights: "Insights",
+  insights: "Applications",
   agents: "Agents",
   models: "Models",
   privacy: "Privacy",
@@ -437,7 +437,7 @@ export function buildOperatorInspectionTargetModel({
         {
           kind: "aria",
           accessibleName:
-            "Search Hypervisor, sessions, workbench, automations, and commands",
+            "Search Hypervisor, files, applications, sessions, and commands",
         },
       ],
     },
@@ -662,7 +662,7 @@ export function buildOperatorCommandCenterModel({
     activeRoute: { kind: "primary-view", view: activeView },
     scopeLabel: `${currentProject.name} / ${surfaceLabel}`,
     placeholder:
-      "Search Hypervisor, sessions, workbench, automations, and commands",
+      "Search Hypervisor, files, applications, sessions, and commands",
     shortcutLabel: "Ctrl+K",
     runtimeTruthSource: "daemon-runtime",
     evidenceRefs: {

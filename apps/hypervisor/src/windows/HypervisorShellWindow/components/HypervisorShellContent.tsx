@@ -372,6 +372,7 @@ function HypervisorAutomationCompositorSurface({
                   className="hypervisor-automation-compositor__row"
                   data-workflow-template-ref={template.template_ref}
                   data-workflow-graph-ref={template.graph_ref}
+                  data-workflow-run-ref={run?.run_ref ?? ""}
                   data-workflow-run-status={run?.status ?? "draft"}
                 >
                   <span className="hypervisor-automation-compositor__row-icon">
