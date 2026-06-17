@@ -36,18 +36,17 @@ export function createRunMemoryResolution({
     throw error;
   }
 
-  function runMemorySurface(store, { operation, threadId = null, agentId = null, memoryId = null } = {}) {
-    const surface = store?.threadMemorySurface;
+  function runMemoryApi(store, { operation, threadId = null, agentId = null, memoryId = null } = {}) {
     if (
-      surface?.publicListMemoryForThread &&
-      surface?.publicMemoryPathForThread &&
-      surface?.publicMemoryPolicyForThread &&
-      surface?.rememberForAgent &&
-      surface?.updateMemoryForThread &&
-      surface?.deleteMemoryForThread &&
-      surface?.setMemoryPolicyForThread
+      store?.publicListMemoryForThread &&
+      store?.publicMemoryPathForThread &&
+      store?.publicMemoryPolicyForThread &&
+      store?.rememberForAgent &&
+      store?.updateMemoryForThread &&
+      store?.deleteMemoryForThread &&
+      store?.setMemoryPolicyForThread
     ) {
-      return surface;
+      return store;
     }
     throwRunMemoryRustCoreRequired({ operation, threadId, agentId, memoryId });
   }
@@ -56,20 +55,20 @@ export function createRunMemoryResolution({
     const memoryOptions = memoryOptionsForRequest(request);
     const threadId = memoryOptions.thread_id ?? threadIdForAgent(agent.id);
     const command = planRunMemoryCommand(agent, threadId, prompt);
-    const surface = runMemorySurface(store, {
+    const memoryApi = runMemoryApi(store, {
       operation: "memory_projection",
       threadId,
       agentId: agent?.id ?? null,
     });
-    const paths = surface.publicMemoryPathForThread(store, threadId, {});
+    const paths = memoryApi.publicMemoryPathForThread(threadId, {});
     let policy = {
-      ...objectRecord(surface.publicMemoryPolicyForThread(store, threadId, {})),
+      ...objectRecord(memoryApi.publicMemoryPolicyForThread(threadId, {})),
       ...memoryPolicyOverrides(memoryOptions),
     };
     const policyUpdates = [];
     const mutations = [];
     if (command.kind === "disable" || command.kind === "enable") {
-      const policyMutation = commitRunMemoryPolicy(surface, store, agent, threadId, command);
+      const policyMutation = commitRunMemoryPolicy(memoryApi, agent, threadId, command);
       mutations.push(policyMutation);
       policyUpdates.push(policyMutation);
       policy = {
@@ -115,20 +114,20 @@ export function createRunMemoryResolution({
     }
     const writes = [];
     if (!policyBlockReason && command.kind === "remember") {
-      const write = commitRunMemoryWrite(surface, store, agent, threadId, command.text, memoryOptions);
+      const write = commitRunMemoryWrite(memoryApi, agent, threadId, command.text, memoryOptions);
       writes.push(write);
       mutations.push(write);
     } else if (!policyBlockReason && command.kind === "edit") {
-      mutations.push(commitRunMemoryEdit(surface, store, threadId, command, memoryOptions));
+      mutations.push(commitRunMemoryEdit(memoryApi, threadId, command, memoryOptions));
     } else if (!policyBlockReason && command.kind === "delete") {
-      mutations.push(commitRunMemoryDelete(surface, store, threadId, command, memoryOptions));
+      mutations.push(commitRunMemoryDelete(memoryApi, threadId, command, memoryOptions));
     } else if (!policyBlockReason && requestedRemember) {
-      const write = commitRunMemoryWrite(surface, store, agent, threadId, requestedRemember, memoryOptions);
+      const write = commitRunMemoryWrite(memoryApi, agent, threadId, requestedRemember, memoryOptions);
       writes.push(write);
       mutations.push(write);
     }
     const records = subagentMemoryInheritance?.records ??
-      recordsFromProjection(surface.publicListMemoryForThread(store, threadId, memoryOptions));
+      recordsFromProjection(memoryApi.publicListMemoryForThread(threadId, memoryOptions));
     return {
       command: command.kind,
       records,
@@ -154,11 +153,11 @@ export function createRunMemoryResolution({
     const filters = memoryListFilters(memoryOptions);
     const parentAllowsInjection = !parentPolicy.disabled && parentPolicy.injection_enabled !== false;
     const records = parentAllowsInjection && shouldInheritSubagentMemory(mode, memoryOptions)
-      ? recordsFromProjection(runMemorySurface(store, {
+      ? recordsFromProjection(runMemoryApi(store, {
           operation: "memory_projection",
           threadId,
           agentId: agent?.id ?? null,
-        }).publicListMemoryForThread(store, threadId, {
+        }).publicListMemoryForThread(threadId, {
           ...memoryOptions,
           redaction: memoryOptions.redaction ?? parentPolicy.redaction,
         }))
@@ -220,10 +219,10 @@ export function createRunMemoryResolution({
     };
   }
 
-  function commitRunMemoryWrite(surface, store, agent, threadId, text, memoryOptions = {}) {
+  function commitRunMemoryWrite(memoryApi, agent, threadId, text, memoryOptions = {}) {
     return runMemoryMutationFromResult(
       "memory_write",
-      surface.rememberForAgent(store, agent, {
+      memoryApi.rememberForAgent(agent, {
         text,
         threadId,
         scope: optionalString(memoryOptions.scope) ?? "thread",
@@ -233,10 +232,10 @@ export function createRunMemoryResolution({
     );
   }
 
-  function commitRunMemoryEdit(surface, store, threadId, command = {}, memoryOptions = {}) {
+  function commitRunMemoryEdit(memoryApi, threadId, command = {}, memoryOptions = {}) {
     return runMemoryMutationFromResult(
       "memory_edit",
-      surface.updateMemoryForThread(store, threadId, command.id, {
+      memoryApi.updateMemoryForThread(threadId, command.id, {
         ...runMemoryControlRequest(memoryOptions),
         text: command.text,
         source: "runtime_run_memory_resolution",
@@ -244,10 +243,10 @@ export function createRunMemoryResolution({
     );
   }
 
-  function commitRunMemoryDelete(surface, store, threadId, command = {}, memoryOptions = {}) {
+  function commitRunMemoryDelete(memoryApi, threadId, command = {}, memoryOptions = {}) {
     return runMemoryMutationFromResult(
       "memory_delete",
-      surface.deleteMemoryForThread(store, threadId, command.id, {
+      memoryApi.deleteMemoryForThread(threadId, command.id, {
         ...runMemoryControlRequest(memoryOptions),
         source: "runtime_run_memory_resolution",
         reason: "runtime_run_memory_resolution_delete",
@@ -255,11 +254,11 @@ export function createRunMemoryResolution({
     );
   }
 
-  function commitRunMemoryPolicy(surface, store, agent, threadId, command = {}) {
+  function commitRunMemoryPolicy(memoryApi, agent, threadId, command = {}) {
     const disabled = command.kind === "disable";
     return runMemoryMutationFromResult(
       disabled ? "memory_disable" : "memory_enable",
-      surface.setMemoryPolicyForThread(store, threadId, {
+      memoryApi.setMemoryPolicyForThread(threadId, {
         source: "runtime_run_memory_resolution",
         policy: {
           disabled,

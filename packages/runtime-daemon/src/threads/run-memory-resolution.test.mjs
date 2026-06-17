@@ -115,103 +115,101 @@ function createHarness({
         throw new Error("run memory resolution must use Rust publicListMemoryForThread");
       },
     },
-    threadMemorySurface: {
-      publicMemoryPathForThread(_store, threadId) {
-        calls.push({ method: "publicMemoryPathForThread", threadId });
-        return { memoryPath: "/state/memory", thread_id: threadId };
-      },
-      publicMemoryPolicyForThread(_store, threadId) {
-        calls.push({ method: "publicMemoryPolicyForThread", threadId });
-        return { ...policyState, thread_id: threadId, agent_id: agent.id };
-      },
-      publicListMemoryForThread(_store, threadId, input = {}) {
-        calls.push({ method: "publicListMemoryForThread", threadId, input });
-        return {
-          schema_version: "ioi.agent-runtime.memory.v1",
-          object: "ioi.agent_memory_projection",
-          thread_id: threadId,
-          records: recordsState
-            .filter((record) => record.status !== "deleted")
-            .map((record) => ({ ...record, query: input.query, redaction: input.redaction })),
-          total_matches: recordsState.filter((record) => record.status !== "deleted").length,
-        };
-      },
-      rememberForAgent(_store, _agent, input) {
-        calls.push({ method: "rememberForAgent", input });
-        const record = {
-          id: `memory-${writes.length + 1}`,
-          fact: input.text,
-          thread_id: input.threadId,
-          agent_id: _agent.id,
-          source: input.source,
-          memory_key: input.workflow?.memory_key ?? null,
-        };
-        recordsState.push(record);
-        const write = memoryControlResult({
-          operation: "write",
-          operation_kind: "memory.write",
-          memory_state_kind: "record",
-          state_id: record.id,
-          record,
-        });
-        writes.push(write);
-        return write;
-      },
-      updateMemoryForThread(_store, threadId, id, input) {
-        calls.push({ method: "updateMemoryForThread", threadId, id, input });
-        const record = {
-          ...(recordsState.find((entry) => entry.id === id) ?? { id, thread_id: threadId, agent_id: agent.id }),
-          fact: input.text,
-          source: input.source,
-        };
-        recordsState = recordsState.filter((entry) => entry.id !== id).concat(record);
-        const mutation = memoryControlResult({
-          operation: "edit",
-          operation_kind: "memory.edit",
-          memory_state_kind: "record",
-          state_id: id,
-          record,
-        });
-        mutations.push(mutation);
-        return mutation;
-      },
-      deleteMemoryForThread(_store, threadId, id, input) {
-        calls.push({ method: "deleteMemoryForThread", threadId, id, input });
-        const record = {
-          ...(recordsState.find((entry) => entry.id === id) ?? { id, thread_id: threadId, agent_id: agent.id }),
-          status: "deleted",
-          source: input.source,
-        };
-        recordsState = recordsState.filter((entry) => entry.id !== id).concat(record);
-        const mutation = memoryControlResult({
-          operation: "delete",
-          operation_kind: "memory.delete",
-          memory_state_kind: "record",
-          state_id: id,
-          record,
-        });
-        mutations.push(mutation);
-        return mutation;
-      },
-      setMemoryPolicyForThread(_store, threadId, input) {
-        calls.push({ method: "setMemoryPolicyForThread", threadId, input });
-        policyState = {
-          ...policyState,
-          ...input.policy,
-          thread_id: threadId,
-          agent_id: agent.id,
-          source: input.source,
-        };
-        const mutation = memoryControlResult({
-          operation: "policy",
-          operation_kind: "memory.policy",
-          memory_state_kind: "policy",
-          state_id: `memory_policy_${threadId}`,
-          policy: policyState,
-        });
-        mutations.push(mutation);
-        return mutation;
-      },
+    publicMemoryPathForThread(threadId) {
+      calls.push({ method: "publicMemoryPathForThread", threadId });
+      return { memoryPath: "/state/memory", thread_id: threadId };
+    },
+    publicMemoryPolicyForThread(threadId) {
+      calls.push({ method: "publicMemoryPolicyForThread", threadId });
+      return { ...policyState, thread_id: threadId, agent_id: agent.id };
+    },
+    publicListMemoryForThread(threadId, input = {}) {
+      calls.push({ method: "publicListMemoryForThread", threadId, input });
+      return {
+        schema_version: "ioi.agent-runtime.memory.v1",
+        object: "ioi.agent_memory_projection",
+        thread_id: threadId,
+        records: recordsState
+          .filter((record) => record.status !== "deleted")
+          .map((record) => ({ ...record, query: input.query, redaction: input.redaction })),
+        total_matches: recordsState.filter((record) => record.status !== "deleted").length,
+      };
+    },
+    rememberForAgent(_agent, input) {
+      calls.push({ method: "rememberForAgent", input });
+      const record = {
+        id: `memory-${writes.length + 1}`,
+        fact: input.text,
+        thread_id: input.threadId,
+        agent_id: _agent.id,
+        source: input.source,
+        memory_key: input.workflow?.memory_key ?? null,
+      };
+      recordsState.push(record);
+      const write = memoryControlResult({
+        operation: "write",
+        operation_kind: "memory.write",
+        memory_state_kind: "record",
+        state_id: record.id,
+        record,
+      });
+      writes.push(write);
+      return write;
+    },
+    updateMemoryForThread(threadId, id, input) {
+      calls.push({ method: "updateMemoryForThread", threadId, id, input });
+      const record = {
+        ...(recordsState.find((entry) => entry.id === id) ?? { id, thread_id: threadId, agent_id: agent.id }),
+        fact: input.text,
+        source: input.source,
+      };
+      recordsState = recordsState.filter((entry) => entry.id !== id).concat(record);
+      const mutation = memoryControlResult({
+        operation: "edit",
+        operation_kind: "memory.edit",
+        memory_state_kind: "record",
+        state_id: id,
+        record,
+      });
+      mutations.push(mutation);
+      return mutation;
+    },
+    deleteMemoryForThread(threadId, id, input) {
+      calls.push({ method: "deleteMemoryForThread", threadId, id, input });
+      const record = {
+        ...(recordsState.find((entry) => entry.id === id) ?? { id, thread_id: threadId, agent_id: agent.id }),
+        status: "deleted",
+        source: input.source,
+      };
+      recordsState = recordsState.filter((entry) => entry.id !== id).concat(record);
+      const mutation = memoryControlResult({
+        operation: "delete",
+        operation_kind: "memory.delete",
+        memory_state_kind: "record",
+        state_id: id,
+        record,
+      });
+      mutations.push(mutation);
+      return mutation;
+    },
+    setMemoryPolicyForThread(threadId, input) {
+      calls.push({ method: "setMemoryPolicyForThread", threadId, input });
+      policyState = {
+        ...policyState,
+        ...input.policy,
+        thread_id: threadId,
+        agent_id: agent.id,
+        source: input.source,
+      };
+      const mutation = memoryControlResult({
+        operation: "policy",
+        operation_kind: "memory.policy",
+        memory_state_kind: "policy",
+        state_id: `memory_policy_${threadId}`,
+        policy: policyState,
+      });
+      mutations.push(mutation);
+      return mutation;
     },
     resolveSubagentMemoryInheritance(input) {
       return helper.resolveSubagentMemoryInheritance(store, input);
@@ -398,9 +396,9 @@ test("run memory resolution ignores retired memory thread and approval aliases",
   assert.deepEqual(blockedHarness.mutations, []);
 });
 
-test("run memory resolution fails closed before JS cache reads when Rust memory surface is missing", () => {
+test("run memory resolution fails closed before JS cache reads when store-owned Rust memory APIs are missing", () => {
   const { agent, helper, store } = createHarness();
-  store.threadMemorySurface = null;
+  store.publicMemoryPathForThread = null;
 
   assert.throws(
     () => helper.resolveRunMemory(store, agent, {}, "hello"),

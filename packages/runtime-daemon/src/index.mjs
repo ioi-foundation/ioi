@@ -649,7 +649,7 @@ export class AgentgresRuntimeStateStore {
       subagentReceiverForRequest,
       threadIdForAgent,
     });
-    this.threadMemorySurface = createThreadMemoryState({
+    this.threadMemoryApi = createThreadMemoryState({
       ...threadMemoryStateDeps,
       contextPolicyCore: this.contextPolicyCore,
     });
@@ -886,6 +886,74 @@ export class AgentgresRuntimeStateStore {
 
   resolveSubagentMemoryInheritance({ agent, threadId, request = {}, parentPolicy = {} } = {}) {
     return this.runMemoryResolution.resolveSubagentMemoryInheritance(this, { agent, threadId, request, parentPolicy });
+  }
+
+  publicMemoryPolicyForAgent(agentId, options = {}) {
+    return this.threadMemoryApi.publicMemoryPolicyForAgent(this, agentId, options);
+  }
+
+  setMemoryPolicyForAgent(agentId, request = {}) {
+    return this.threadMemoryApi.setMemoryPolicyForAgent(this, agentId, request);
+  }
+
+  publicMemoryPathForAgent(agentId, options = {}) {
+    return this.threadMemoryApi.publicMemoryPathForAgent(this, agentId, options);
+  }
+
+  updateMemoryForAgentId(agentId, memoryId, request = {}) {
+    return this.threadMemoryApi.updateMemoryForAgentId(this, agentId, memoryId, request);
+  }
+
+  deleteMemoryForAgentId(agentId, memoryId, request = {}) {
+    return this.threadMemoryApi.deleteMemoryForAgentId(this, agentId, memoryId, request);
+  }
+
+  publicListMemoryForAgent(agentId, options = {}) {
+    return this.threadMemoryApi.publicListMemoryForAgent(this, agentId, options);
+  }
+
+  rememberForAgentId(agentId, request = {}) {
+    return this.threadMemoryApi.rememberForAgentId(this, agentId, request);
+  }
+
+  rememberForAgent(agent, request = {}) {
+    return this.threadMemoryApi.rememberForAgent(this, agent, request);
+  }
+
+  recordThreadMemoryStatus(threadId, request = {}) {
+    return this.threadMemoryApi.recordThreadMemoryStatus(this, threadId, request);
+  }
+
+  validateThreadMemory(threadId, request = {}) {
+    return this.threadMemoryApi.validateThreadMemory(this, threadId, request);
+  }
+
+  publicMemoryPolicyForThread(threadId, options = {}) {
+    return this.threadMemoryApi.publicMemoryPolicyForThread(this, threadId, options);
+  }
+
+  setMemoryPolicyForThread(threadId, request = {}) {
+    return this.threadMemoryApi.setMemoryPolicyForThread(this, threadId, request);
+  }
+
+  publicMemoryPathForThread(threadId, options = {}) {
+    return this.threadMemoryApi.publicMemoryPathForThread(this, threadId, options);
+  }
+
+  updateMemoryForThread(threadId, memoryId, request = {}) {
+    return this.threadMemoryApi.updateMemoryForThread(this, threadId, memoryId, request);
+  }
+
+  deleteMemoryForThread(threadId, memoryId, request = {}) {
+    return this.threadMemoryApi.deleteMemoryForThread(this, threadId, memoryId, request);
+  }
+
+  publicListMemoryForThread(threadId, options = {}) {
+    return this.threadMemoryApi.publicListMemoryForThread(this, threadId, options);
+  }
+
+  rememberForThread(threadId, request = {}) {
+    return this.threadMemoryApi.rememberForThread(this, threadId, request);
   }
 
   listThreads() {

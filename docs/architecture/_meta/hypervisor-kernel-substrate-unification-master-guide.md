@@ -12850,6 +12850,19 @@ workspace-trust wallet/cTEE authority enforcement, model-route authority,
 durable thread-control replay/projection storage, receipt/state-root binding,
 and stable Workbench/CLI/SDK thread-control clients over Rust-owned records.
 
+Slice 1440 hard-cuts the thread-memory route-visible JS surface shape. Daemon
+startup now mounts `createThreadMemoryState()` as internal `threadMemoryApi`
+instead of `threadMemorySurface`, and public agent/thread memory list, policy,
+path, write, edit, delete, status, and validation routes enter through
+store-owned daemon methods. Run-memory resolution now requires those same
+store-owned memory APIs instead of discovering a memory surface on the store.
+Focused route tests poison the retired `threadMemorySurface`, and conformance
+rejects restored `this.threadMemorySurface`, direct `store.threadMemorySurface.*`
+route calls, and run-memory surface discovery. Remaining blockers stay deeper
+wallet/policy authority, cTEE private-memory custody, durable memory
+replay/projection storage, receipt/state-root binding, and stable
+Workbench/CLI/SDK memory clients over Rust-owned records.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

@@ -15759,9 +15759,12 @@ function runBridge() {
         runtimeThreadMemoryState,
       ) &&
       /runtimeError/.test(runtimeDaemonIndex) &&
-      !/^\s*(?:rememberForAgent|rememberForThread|listMemoryForThread|memoryPolicyForThread|setMemoryPolicyForThread|memoryPathForThread|updateMemoryForThread|deleteMemoryForThread|rememberForAgentId|listMemoryForAgent|memoryPolicyForAgent|setMemoryPolicyForAgent|memoryPathForAgent|updateMemoryForAgentId|deleteMemoryForAgentId|updateMemoryRecord|deleteMemoryRecord|recordThreadMemoryStatus|validateThreadMemory|recordThreadMemoryMutation|appendThreadMemoryControlEvent)\s*\(/m.test(
+      /this\.threadMemoryApi = createThreadMemoryState/.test(runtimeDaemonIndex) &&
+      !/this\.threadMemorySurface/.test(runtimeDaemonIndex) &&
+      !/^\s*(?:listMemoryForThread|memoryPolicyForThread|memoryPathForThread|listMemoryForAgent|memoryPolicyForAgent|memoryPathForAgent|updateMemoryRecord|deleteMemoryRecord|recordThreadMemoryMutation|appendThreadMemoryControlEvent)\s*\(/m.test(
         runtimeDaemonIndex,
-      ),
+      ) &&
+      !/store\.threadMemorySurface\./.test(runtimeRouteHandlers),
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
       "crates/services/src/agentic/runtime/kernel/policy/mcp_memory.rs",
@@ -37114,9 +37117,61 @@ function runCompositor() {
 		    result,
 		    "runtime-memory-route-read-projections-rust-owned",
 		    /const threadMemoryStateDeps = \{/.test(runtimeDaemonIndex) &&
-		      /this\.threadMemorySurface = createThreadMemoryState\(\{\s*\.\.\.threadMemoryStateDeps,\s*contextPolicyCore:\s*this\.contextPolicyCore,\s*\}\)/s.test(
+		      /this\.threadMemoryApi = createThreadMemoryState\(\{\s*\.\.\.threadMemoryStateDeps,\s*contextPolicyCore:\s*this\.contextPolicyCore,\s*\}\)/s.test(
 		        runtimeDaemonIndex,
 		      ) &&
+	      !/this\.threadMemorySurface/.test(runtimeDaemonIndex) &&
+	      /publicMemoryPolicyForAgent\(agentId, options = \{\}\) \{[\s\S]*?this\.threadMemoryApi\.publicMemoryPolicyForAgent\(this, agentId, options\)/.test(
+	        runtimeDaemonIndex,
+	      ) &&
+	      /setMemoryPolicyForAgent\(agentId, request = \{\}\) \{[\s\S]*?this\.threadMemoryApi\.setMemoryPolicyForAgent\(this, agentId, request\)/.test(
+	        runtimeDaemonIndex,
+	      ) &&
+	      /publicMemoryPathForAgent\(agentId, options = \{\}\) \{[\s\S]*?this\.threadMemoryApi\.publicMemoryPathForAgent\(this, agentId, options\)/.test(
+	        runtimeDaemonIndex,
+	      ) &&
+	      /updateMemoryForAgentId\(agentId, memoryId, request = \{\}\) \{[\s\S]*?this\.threadMemoryApi\.updateMemoryForAgentId\(this, agentId, memoryId, request\)/.test(
+	        runtimeDaemonIndex,
+	      ) &&
+	      /deleteMemoryForAgentId\(agentId, memoryId, request = \{\}\) \{[\s\S]*?this\.threadMemoryApi\.deleteMemoryForAgentId\(this, agentId, memoryId, request\)/.test(
+	        runtimeDaemonIndex,
+	      ) &&
+	      /publicListMemoryForAgent\(agentId, options = \{\}\) \{[\s\S]*?this\.threadMemoryApi\.publicListMemoryForAgent\(this, agentId, options\)/.test(
+	        runtimeDaemonIndex,
+	      ) &&
+	      /rememberForAgentId\(agentId, request = \{\}\) \{[\s\S]*?this\.threadMemoryApi\.rememberForAgentId\(this, agentId, request\)/.test(
+	        runtimeDaemonIndex,
+	      ) &&
+	      /rememberForAgent\(agent, request = \{\}\) \{[\s\S]*?this\.threadMemoryApi\.rememberForAgent\(this, agent, request\)/.test(
+	        runtimeDaemonIndex,
+	      ) &&
+	      /recordThreadMemoryStatus\(threadId, request = \{\}\) \{[\s\S]*?this\.threadMemoryApi\.recordThreadMemoryStatus\(this, threadId, request\)/.test(
+	        runtimeDaemonIndex,
+	      ) &&
+	      /validateThreadMemory\(threadId, request = \{\}\) \{[\s\S]*?this\.threadMemoryApi\.validateThreadMemory\(this, threadId, request\)/.test(
+	        runtimeDaemonIndex,
+	      ) &&
+	      /publicMemoryPolicyForThread\(threadId, options = \{\}\) \{[\s\S]*?this\.threadMemoryApi\.publicMemoryPolicyForThread\(this, threadId, options\)/.test(
+	        runtimeDaemonIndex,
+	      ) &&
+	      /setMemoryPolicyForThread\(threadId, request = \{\}\) \{[\s\S]*?this\.threadMemoryApi\.setMemoryPolicyForThread\(this, threadId, request\)/.test(
+	        runtimeDaemonIndex,
+	      ) &&
+	      /publicMemoryPathForThread\(threadId, options = \{\}\) \{[\s\S]*?this\.threadMemoryApi\.publicMemoryPathForThread\(this, threadId, options\)/.test(
+	        runtimeDaemonIndex,
+	      ) &&
+	      /updateMemoryForThread\(threadId, memoryId, request = \{\}\) \{[\s\S]*?this\.threadMemoryApi\.updateMemoryForThread\(this, threadId, memoryId, request\)/.test(
+	        runtimeDaemonIndex,
+	      ) &&
+	      /deleteMemoryForThread\(threadId, memoryId, request = \{\}\) \{[\s\S]*?this\.threadMemoryApi\.deleteMemoryForThread\(this, threadId, memoryId, request\)/.test(
+	        runtimeDaemonIndex,
+	      ) &&
+	      /publicListMemoryForThread\(threadId, options = \{\}\) \{[\s\S]*?this\.threadMemoryApi\.publicListMemoryForThread\(this, threadId, options\)/.test(
+	        runtimeDaemonIndex,
+	      ) &&
+	      /rememberForThread\(threadId, request = \{\}\) \{[\s\S]*?this\.threadMemoryApi\.rememberForThread\(this, threadId, request\)/.test(
+	        runtimeDaemonIndex,
+	      ) &&
 	      /publicListMemoryForThread/.test(runtimeThreadMemoryState) &&
 	      /publicMemoryPolicyForThread/.test(runtimeThreadMemoryState) &&
 	      /publicMemoryPathForThread/.test(runtimeThreadMemoryState) &&
@@ -37171,54 +37226,41 @@ function runCompositor() {
 	      !/project_runtime_memory_projection_response\(decode/.test(coreCommandDispatchForCompositor) &&
 	      /thread_memory_command_transport_is_retired/.test(commandProtocolCoreForCompositor) &&
 	      /pub mod runtime_memory_projection;/.test(kernelModuleForCompositor) &&
-	      /store\.threadMemorySurface\.publicMemoryPolicyForAgent\(store, agentId,/.test(
-	        runtimeRouteHandlers,
+	      !/store\.threadMemorySurface\./.test(runtimeRouteHandlers) &&
+	      /store\.publicMemoryPolicyForAgent\(agentId,/.test(runtimeRouteHandlers) &&
+	      /store\.publicMemoryPathForAgent\(agentId,/.test(runtimeRouteHandlers) &&
+	      /store\.publicListMemoryForAgent\(agentId,/.test(runtimeRouteHandlers) &&
+	      /store\.publicMemoryPolicyForThread\(threadId,/.test(runtimeRouteHandlers) &&
+	      /store\.publicMemoryPathForThread\(threadId,/.test(runtimeRouteHandlers) &&
+	      /store\.publicListMemoryForThread\(threadId,/.test(runtimeRouteHandlers) &&
+	      /store\.setMemoryPolicyForAgent\(agentId,/.test(runtimeRouteHandlers) &&
+	      /store\.updateMemoryForAgentId\(agentId,/.test(runtimeRouteHandlers) &&
+	      /store\.deleteMemoryForAgentId\(agentId,/.test(runtimeRouteHandlers) &&
+	      /store\.rememberForAgentId\(agentId,/.test(runtimeRouteHandlers) &&
+	      /store\.recordThreadMemoryStatus\(threadId,/.test(runtimeRouteHandlers) &&
+	      /store\.validateThreadMemory\(threadId,/.test(runtimeRouteHandlers) &&
+	      /store\.setMemoryPolicyForThread\(threadId,/.test(runtimeRouteHandlers) &&
+	      /store\.updateMemoryForThread\(threadId,/.test(runtimeRouteHandlers) &&
+	      /store\.deleteMemoryForThread\(threadId,/.test(runtimeRouteHandlers) &&
+	      /store\.rememberForThread\(threadId,/.test(runtimeRouteHandlers) &&
+	      !/threadMemorySurface/.test(runtimeRunMemoryResolution) &&
+	      /function runMemoryApi\(store,/.test(runtimeRunMemoryResolution) &&
+	      /store\?\.publicListMemoryForThread/.test(runtimeRunMemoryResolution) &&
+	      /store\?\.publicMemoryPathForThread/.test(runtimeRunMemoryResolution) &&
+	      /store\?\.publicMemoryPolicyForThread/.test(runtimeRunMemoryResolution) &&
+	      /store\?\.rememberForAgent/.test(runtimeRunMemoryResolution) &&
+	      /memoryApi\.publicMemoryPathForThread\(threadId,/.test(runtimeRunMemoryResolution) &&
+	      /memoryApi\.publicMemoryPolicyForThread\(threadId,/.test(runtimeRunMemoryResolution) &&
+	      /memoryApi\.publicListMemoryForThread\(threadId,/.test(runtimeRunMemoryResolution) &&
+	      /memoryApi\.rememberForAgent\(agent,/.test(runtimeRunMemoryResolution) &&
+	      /run memory resolution fails closed before JS cache reads when store-owned Rust memory APIs are missing/.test(
+	        runtimeRunMemoryResolutionTest,
 	      ) &&
-      /store\.threadMemorySurface\.publicMemoryPathForAgent\(store, agentId,/.test(
-        runtimeRouteHandlers,
-      ) &&
-      /store\.threadMemorySurface\.publicListMemoryForAgent\(store, agentId,/.test(
-        runtimeRouteHandlers,
-      ) &&
-      /store\.threadMemorySurface\.publicMemoryPolicyForThread\(store, threadId,/.test(
-        runtimeRouteHandlers,
-      ) &&
-      /store\.threadMemorySurface\.publicMemoryPathForThread\(store, threadId,/.test(
-        runtimeRouteHandlers,
-      ) &&
-      /store\.threadMemorySurface\.publicListMemoryForThread\(store, threadId,/.test(
-        runtimeRouteHandlers,
-      ) &&
-      /store\.threadMemorySurface\.setMemoryPolicyForAgent\(store, agentId,/.test(
-        runtimeRouteHandlers,
-      ) &&
-      /store\.threadMemorySurface\.updateMemoryForAgentId\(store, agentId,/.test(
-        runtimeRouteHandlers,
-      ) &&
-      /store\.threadMemorySurface\.deleteMemoryForAgentId\(store, agentId,/.test(
-        runtimeRouteHandlers,
-      ) &&
-      /store\.threadMemorySurface\.rememberForAgentId\(store, agentId,/.test(
-        runtimeRouteHandlers,
-      ) &&
-      /store\.threadMemorySurface\.recordThreadMemoryStatus\(store, threadId,/.test(
-        runtimeRouteHandlers,
-      ) &&
-      /store\.threadMemorySurface\.validateThreadMemory\(store, threadId,/.test(
-        runtimeRouteHandlers,
-      ) &&
-      /store\.threadMemorySurface\.setMemoryPolicyForThread\(store, threadId,/.test(
-        runtimeRouteHandlers,
-      ) &&
-      /store\.threadMemorySurface\.updateMemoryForThread\(store, threadId,/.test(
-        runtimeRouteHandlers,
-      ) &&
-      /store\.threadMemorySurface\.deleteMemoryForThread\(store, threadId,/.test(
-        runtimeRouteHandlers,
-      ) &&
-      /store\.threadMemorySurface\.rememberForThread\(store, threadId,/.test(
-        runtimeRouteHandlers,
-      ) &&
+	      /Slice 1440 hard-cuts the thread-memory route-visible JS surface shape/.test(read(GUIDE)) &&
+	      /Thread-memory route-visible JS surface retired/.test(read(MATRIX)) &&
+	      /RuntimeDaemonCoreThreadMemoryRouteVisibleSurfaceRetired/.test(
+	        read(IMPLEMENTATION_MATRIX),
+	      ) &&
 	      !/url\.pathname === "\/v1\/memory"/.test(publicRuntimeRoutes) &&
 	      !/url\.pathname === "\/v1\/memory\/records"/.test(publicRuntimeRoutes) &&
 	      !/url\.pathname === "\/v1\/memory\/policy"/.test(publicRuntimeRoutes) &&
@@ -37235,12 +37277,14 @@ function runCompositor() {
 	        publicRuntimeRoutes,
 	      ) &&
 	      !/store\.threadMemorySurface\.publicValidateMemory\(store,/.test(publicRuntimeRoutes) &&
-      /agent and thread memory read routes use mounted thread memory surface/.test(
+      /agent and thread memory read routes use store-owned thread memory APIs/.test(
         runtimeRouteHandlersTest,
       ) &&
-	      /agent and thread memory mutation routes use mounted thread memory surface/.test(
+	      /agent and thread memory mutation routes use store-owned thread memory APIs/.test(
 	        runtimeRouteHandlersTest,
 	      ) &&
+	      /publicMemoryPolicyForAgent:\s*retiredRouteWrapper/.test(runtimeRouteHandlersTest) &&
+	      /setMemoryPolicyForAgent:\s*retiredRouteWrapper/.test(runtimeRouteHandlersTest) &&
 		      /public runtime top-level memory context routes are retired/.test(
 		        publicRuntimeRoutesTest,
 		      ) &&
@@ -37262,9 +37306,6 @@ function runCompositor() {
 	      !/store\.(?:listMemoryForThread|memoryPolicyForThread|memoryPathForThread|listMemoryForAgent|memoryPolicyForAgent|memoryPathForAgent)\(/.test(
 	        runtimeRouteHandlers,
 	      ) &&
-      !/store\.(?:setMemoryPolicyForThread|updateMemoryForThread|deleteMemoryForThread|rememberForThread|setMemoryPolicyForAgent|updateMemoryForAgentId|deleteMemoryForAgentId|rememberForAgentId|recordThreadMemoryStatus|validateThreadMemory)\(/.test(
-        runtimeRouteHandlers,
-      ) &&
 	      !/store\.(?:memoryStatus|memoryProjectionForContext|validateMemory)\(/.test(
 	        publicRuntimeRoutes,
 	      ) &&
@@ -37282,6 +37323,8 @@ function runCompositor() {
 	      "packages/runtime-daemon/src/index.mjs",
 	      "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
 	      "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
+	      "packages/runtime-daemon/src/threads/run-memory-resolution.mjs",
+	      "packages/runtime-daemon/src/threads/run-memory-resolution.test.mjs",
 	      "packages/runtime-daemon/src/threads/thread-memory-state.mjs",
 	      "packages/runtime-daemon/src/threads/thread-memory-state.test.mjs",
 	      "packages/runtime-daemon/src/runtime-route-handlers.mjs",
@@ -37289,7 +37332,7 @@ function runCompositor() {
 	      "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
 	      "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
 	    ],
-	    "Public memory read/status/policy/path/validation routes must use explicit thread/agent Rust daemon-core runtime memory projection and must not restore top-level context-query memory routes or JS memory-store readback",
+	    "Public memory read/status/policy/path/validation routes and run-memory resolution must use store-owned Rust daemon-core thread-memory APIs and must not restore top-level context-query routes, route-visible memory surfaces, or JS memory-store readback",
 	  );
   assertCheck(
     result,
@@ -37811,17 +37854,17 @@ function runCompositor() {
       /run memory resolution policy commands use Rust memory policy control/.test(
         runtimeRunMemoryResolutionTest,
       ) &&
-      /run memory resolution fails closed before JS cache reads when Rust memory surface is missing/.test(
+      /run memory resolution fails closed before JS cache reads when store-owned Rust memory APIs are missing/.test(
         runtimeRunMemoryResolutionTest,
       ) &&
       /runtime_run_memory_projection_js_cache_retired/.test(runtimeRunMemoryResolution) &&
       /runtime_run_memory_mutation_rust_core_required/.test(runtimeRunMemoryResolution) &&
       /runtime_run_memory_resolution_js_mutation_retired/.test(runtimeRunMemoryResolution) &&
-      /surface\.rememberForAgent\(store, agent/.test(runtimeRunMemoryResolution) &&
-      /surface\.updateMemoryForThread\(store, threadId/.test(runtimeRunMemoryResolution) &&
-      /surface\.deleteMemoryForThread\(store, threadId/.test(runtimeRunMemoryResolution) &&
-      /surface\.setMemoryPolicyForThread\(store, threadId/.test(runtimeRunMemoryResolution) &&
-      /surface\.publicListMemoryForThread\(store, threadId/.test(runtimeRunMemoryResolution) &&
+      /memoryApi\.rememberForAgent\(agent/.test(runtimeRunMemoryResolution) &&
+      /memoryApi\.updateMemoryForThread\(threadId/.test(runtimeRunMemoryResolution) &&
+      /memoryApi\.deleteMemoryForThread\(threadId/.test(runtimeRunMemoryResolution) &&
+      /memoryApi\.setMemoryPolicyForThread\(threadId/.test(runtimeRunMemoryResolution) &&
+      /memoryApi\.publicListMemoryForThread\(threadId/.test(runtimeRunMemoryResolution) &&
       /threadId: "thread-retired"/.test(runtimeRunMemoryResolutionTest) &&
       /thread_id: "thread-canonical"/.test(runtimeRunMemoryResolutionTest) &&
       /writeApproved: true/.test(runtimeRunMemoryResolutionTest) &&

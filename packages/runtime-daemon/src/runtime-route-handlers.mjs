@@ -119,31 +119,31 @@ export function createRuntimeRouteHandlers(deps) {
       return;
     }
     if (request.method === "GET" && action === "memory" && segments[4] === "policy") {
-      writeJsonResponse(response, store.threadMemorySurface.publicMemoryPolicyForAgent(store, agentId, Object.fromEntries(url.searchParams.entries())));
+      writeJsonResponse(response, store.publicMemoryPolicyForAgent(agentId, Object.fromEntries(url.searchParams.entries())));
       return;
     }
     if ((request.method === "PUT" || request.method === "PATCH") && action === "memory" && segments[4] === "policy") {
-      writeJsonResponse(response, store.threadMemorySurface.setMemoryPolicyForAgent(store, agentId, await readBody(request)));
+      writeJsonResponse(response, store.setMemoryPolicyForAgent(agentId, await readBody(request)));
       return;
     }
     if (request.method === "GET" && action === "memory" && segments[4] === "path") {
-      writeJsonResponse(response, store.threadMemorySurface.publicMemoryPathForAgent(store, agentId, Object.fromEntries(url.searchParams.entries())));
+      writeJsonResponse(response, store.publicMemoryPathForAgent(agentId, Object.fromEntries(url.searchParams.entries())));
       return;
     }
     if ((request.method === "PATCH" || request.method === "PUT") && action === "memory" && segments[4]) {
-      writeJsonResponse(response, store.threadMemorySurface.updateMemoryForAgentId(store, agentId, decodeURIComponent(segments[4]), await readBody(request)));
+      writeJsonResponse(response, store.updateMemoryForAgentId(agentId, decodeURIComponent(segments[4]), await readBody(request)));
       return;
     }
     if (request.method === "DELETE" && action === "memory" && segments[4]) {
-      writeJsonResponse(response, store.threadMemorySurface.deleteMemoryForAgentId(store, agentId, decodeURIComponent(segments[4]), await readBody(request)));
+      writeJsonResponse(response, store.deleteMemoryForAgentId(agentId, decodeURIComponent(segments[4]), await readBody(request)));
       return;
     }
     if (request.method === "GET" && action === "memory") {
-      writeJsonResponse(response, store.threadMemorySurface.publicListMemoryForAgent(store, agentId, Object.fromEntries(new URL(request.url ?? "/", "http://127.0.0.1").searchParams.entries())));
+      writeJsonResponse(response, store.publicListMemoryForAgent(agentId, Object.fromEntries(new URL(request.url ?? "/", "http://127.0.0.1").searchParams.entries())));
       return;
     }
     if (request.method === "POST" && action === "memory") {
-      writeJsonResponse(response, store.threadMemorySurface.rememberForAgentId(store, agentId, await readBody(request)));
+      writeJsonResponse(response, store.rememberForAgentId(agentId, await readBody(request)));
       return;
     }
     throw notFound("Agent route not found.", { agentId, action, method: request.method });
@@ -403,11 +403,11 @@ export function createRuntimeRouteHandlers(deps) {
       return;
     }
     if (request.method === "POST" && action === "memory" && segments[4] === "status" && !segments[5]) {
-      writeJsonResponse(response, store.threadMemorySurface.recordThreadMemoryStatus(store, threadId, await readBody(request)));
+      writeJsonResponse(response, store.recordThreadMemoryStatus(threadId, await readBody(request)));
       return;
     }
     if (request.method === "POST" && action === "memory" && segments[4] === "validate" && !segments[5]) {
-      writeJsonResponse(response, store.threadMemorySurface.validateThreadMemory(store, threadId, await readBody(request)));
+      writeJsonResponse(response, store.validateThreadMemory(threadId, await readBody(request)));
       return;
     }
     if (request.method === "POST" && action === "turns" && !segments[4]) {
@@ -555,31 +555,31 @@ export function createRuntimeRouteHandlers(deps) {
       return;
     }
     if (request.method === "GET" && action === "memory" && segments[4] === "policy") {
-      writeJsonResponse(response, store.threadMemorySurface.publicMemoryPolicyForThread(store, threadId, Object.fromEntries(url.searchParams.entries())));
+      writeJsonResponse(response, store.publicMemoryPolicyForThread(threadId, Object.fromEntries(url.searchParams.entries())));
       return;
     }
     if ((request.method === "PUT" || request.method === "PATCH") && action === "memory" && segments[4] === "policy") {
-      writeJsonResponse(response, store.threadMemorySurface.setMemoryPolicyForThread(store, threadId, await readBody(request)));
+      writeJsonResponse(response, store.setMemoryPolicyForThread(threadId, await readBody(request)));
       return;
     }
     if (request.method === "GET" && action === "memory" && segments[4] === "path") {
-      writeJsonResponse(response, store.threadMemorySurface.publicMemoryPathForThread(store, threadId, Object.fromEntries(url.searchParams.entries())));
+      writeJsonResponse(response, store.publicMemoryPathForThread(threadId, Object.fromEntries(url.searchParams.entries())));
       return;
     }
     if ((request.method === "PATCH" || request.method === "PUT") && action === "memory" && segments[4]) {
-      writeJsonResponse(response, store.threadMemorySurface.updateMemoryForThread(store, threadId, decodeURIComponent(segments[4]), await readBody(request)));
+      writeJsonResponse(response, store.updateMemoryForThread(threadId, decodeURIComponent(segments[4]), await readBody(request)));
       return;
     }
     if (request.method === "DELETE" && action === "memory" && segments[4]) {
-      writeJsonResponse(response, store.threadMemorySurface.deleteMemoryForThread(store, threadId, decodeURIComponent(segments[4]), await readBody(request)));
+      writeJsonResponse(response, store.deleteMemoryForThread(threadId, decodeURIComponent(segments[4]), await readBody(request)));
       return;
     }
     if (request.method === "GET" && action === "memory") {
-      writeJsonResponse(response, store.threadMemorySurface.publicListMemoryForThread(store, threadId, Object.fromEntries(url.searchParams.entries())));
+      writeJsonResponse(response, store.publicListMemoryForThread(threadId, Object.fromEntries(url.searchParams.entries())));
       return;
     }
     if (request.method === "POST" && action === "memory") {
-      writeJsonResponse(response, store.threadMemorySurface.rememberForThread(store, threadId, await readBody(request)));
+      writeJsonResponse(response, store.rememberForThread(threadId, await readBody(request)));
       return;
     }
     throw notFound("Thread route not found.", { threadId, action, method: request.method });

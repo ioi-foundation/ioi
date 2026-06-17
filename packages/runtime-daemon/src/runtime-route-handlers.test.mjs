@@ -372,7 +372,7 @@ test("agent lifecycle mutation routes use direct Rust lifecycle APIs", async () 
   );
 });
 
-test("agent and thread memory read routes use mounted thread memory surface", async () => {
+test("agent and thread memory read routes use store-owned thread memory APIs", async () => {
   const { handleAgentRoute, handleThreadRoute } = routeHandlers();
   const calls = [];
   const rustCoreRequired = (details = {}) => {
@@ -386,33 +386,39 @@ test("agent and thread memory read routes use mounted thread memory surface", as
     throw error;
   };
   const threadMemorySurface = {
-    publicMemoryPolicyForAgent(surfaceStore, agentId, options) {
-      calls.push({ method: "publicMemoryPolicyForAgent", surfaceStore, agentId, options });
-      rustCoreRequired({ requested_control_kind: "memory_policy_projection", agent_id: agentId });
-    },
-    publicMemoryPathForAgent(surfaceStore, agentId, options) {
-      calls.push({ method: "publicMemoryPathForAgent", surfaceStore, agentId, options });
-      rustCoreRequired({ requested_control_kind: "memory_path_projection", agent_id: agentId });
-    },
-    publicListMemoryForAgent(surfaceStore, agentId, options) {
-      calls.push({ method: "publicListMemoryForAgent", surfaceStore, agentId, options });
-      rustCoreRequired({ requested_control_kind: "memory_read_projection", agent_id: agentId });
-    },
-    publicMemoryPolicyForThread(surfaceStore, threadId, options) {
-      calls.push({ method: "publicMemoryPolicyForThread", surfaceStore, threadId, options });
-      rustCoreRequired({ requested_control_kind: "memory_policy_projection", thread_id: threadId });
-    },
-    publicMemoryPathForThread(surfaceStore, threadId, options) {
-      calls.push({ method: "publicMemoryPathForThread", surfaceStore, threadId, options });
-      rustCoreRequired({ requested_control_kind: "memory_path_projection", thread_id: threadId });
-    },
-    publicListMemoryForThread(surfaceStore, threadId, options) {
-      calls.push({ method: "publicListMemoryForThread", surfaceStore, threadId, options });
-      rustCoreRequired({ requested_control_kind: "memory_read_projection", thread_id: threadId });
-    },
+    publicMemoryPolicyForAgent: retiredRouteWrapper,
+    publicMemoryPathForAgent: retiredRouteWrapper,
+    publicListMemoryForAgent: retiredRouteWrapper,
+    publicMemoryPolicyForThread: retiredRouteWrapper,
+    publicMemoryPathForThread: retiredRouteWrapper,
+    publicListMemoryForThread: retiredRouteWrapper,
   };
   const store = {
     threadMemorySurface,
+    publicMemoryPolicyForAgent(agentId, options) {
+      calls.push({ method: "publicMemoryPolicyForAgent", agentId, options });
+      rustCoreRequired({ requested_control_kind: "memory_policy_projection", agent_id: agentId });
+    },
+    publicMemoryPathForAgent(agentId, options) {
+      calls.push({ method: "publicMemoryPathForAgent", agentId, options });
+      rustCoreRequired({ requested_control_kind: "memory_path_projection", agent_id: agentId });
+    },
+    publicListMemoryForAgent(agentId, options) {
+      calls.push({ method: "publicListMemoryForAgent", agentId, options });
+      rustCoreRequired({ requested_control_kind: "memory_read_projection", agent_id: agentId });
+    },
+    publicMemoryPolicyForThread(threadId, options) {
+      calls.push({ method: "publicMemoryPolicyForThread", threadId, options });
+      rustCoreRequired({ requested_control_kind: "memory_policy_projection", thread_id: threadId });
+    },
+    publicMemoryPathForThread(threadId, options) {
+      calls.push({ method: "publicMemoryPathForThread", threadId, options });
+      rustCoreRequired({ requested_control_kind: "memory_path_projection", thread_id: threadId });
+    },
+    publicListMemoryForThread(threadId, options) {
+      calls.push({ method: "publicListMemoryForThread", threadId, options });
+      rustCoreRequired({ requested_control_kind: "memory_read_projection", thread_id: threadId });
+    },
     listMemoryForAgent: retiredRouteWrapper,
     memoryPolicyForAgent: retiredRouteWrapper,
     memoryPathForAgent: retiredRouteWrapper,
@@ -454,7 +460,6 @@ test("agent and thread memory read routes use mounted thread memory surface", as
     );
   }
 
-  assert.equal(calls.every((call) => call.surfaceStore === store), true);
   assert.deepEqual(
     calls.map(({ method, agentId, threadId, options }) => ({ method, agentId, threadId, options })),
     [
@@ -498,7 +503,7 @@ test("agent and thread memory read routes use mounted thread memory surface", as
   );
 });
 
-test("agent and thread memory mutation routes use mounted thread memory surface", async () => {
+test("agent and thread memory mutation routes use store-owned thread memory APIs", async () => {
   const { handleAgentRoute, handleThreadRoute } = routeHandlers();
   const calls = [];
   const rustCoreRequired = (details = {}) => {
@@ -512,49 +517,6 @@ test("agent and thread memory mutation routes use mounted thread memory surface"
     throw error;
   };
   const threadMemorySurface = {
-    setMemoryPolicyForAgent(surfaceStore, agentId, input) {
-      calls.push({ method: "setMemoryPolicyForAgent", surfaceStore, agentId, input });
-      rustCoreRequired({ requested_control_kind: "memory_policy", agent_id: agentId });
-    },
-    updateMemoryForAgentId(surfaceStore, agentId, memoryId, input) {
-      calls.push({ method: "updateMemoryForAgentId", surfaceStore, agentId, memoryId, input });
-      rustCoreRequired({ requested_control_kind: "memory_edit", agent_id: agentId, memory_id: memoryId });
-    },
-    deleteMemoryForAgentId(surfaceStore, agentId, memoryId, input) {
-      calls.push({ method: "deleteMemoryForAgentId", surfaceStore, agentId, memoryId, input });
-      rustCoreRequired({ requested_control_kind: "memory_delete", agent_id: agentId, memory_id: memoryId });
-    },
-    rememberForAgentId(surfaceStore, agentId, input) {
-      calls.push({ method: "rememberForAgentId", surfaceStore, agentId, input });
-      rustCoreRequired({ requested_control_kind: "memory_write", agent_id: agentId });
-    },
-    recordThreadMemoryStatus(surfaceStore, threadId, input) {
-      calls.push({ method: "recordThreadMemoryStatus", surfaceStore, threadId, input });
-      rustCoreRequired({ requested_control_kind: "memory_status", thread_id: threadId });
-    },
-    validateThreadMemory(surfaceStore, threadId, input) {
-      calls.push({ method: "validateThreadMemory", surfaceStore, threadId, input });
-      rustCoreRequired({ requested_control_kind: "memory_validate", thread_id: threadId });
-    },
-    setMemoryPolicyForThread(surfaceStore, threadId, input) {
-      calls.push({ method: "setMemoryPolicyForThread", surfaceStore, threadId, input });
-      rustCoreRequired({ requested_control_kind: "memory_policy", thread_id: threadId });
-    },
-    updateMemoryForThread(surfaceStore, threadId, memoryId, input) {
-      calls.push({ method: "updateMemoryForThread", surfaceStore, threadId, memoryId, input });
-      rustCoreRequired({ requested_control_kind: "memory_edit", thread_id: threadId, memory_id: memoryId });
-    },
-    deleteMemoryForThread(surfaceStore, threadId, memoryId, input) {
-      calls.push({ method: "deleteMemoryForThread", surfaceStore, threadId, memoryId, input });
-      rustCoreRequired({ requested_control_kind: "memory_delete", thread_id: threadId, memory_id: memoryId });
-    },
-    rememberForThread(surfaceStore, threadId, input) {
-      calls.push({ method: "rememberForThread", surfaceStore, threadId, input });
-      rustCoreRequired({ requested_control_kind: "memory_write", thread_id: threadId });
-    },
-  };
-  const store = {
-    threadMemorySurface,
     setMemoryPolicyForAgent: retiredRouteWrapper,
     updateMemoryForAgentId: retiredRouteWrapper,
     deleteMemoryForAgentId: retiredRouteWrapper,
@@ -565,6 +527,49 @@ test("agent and thread memory mutation routes use mounted thread memory surface"
     updateMemoryForThread: retiredRouteWrapper,
     deleteMemoryForThread: retiredRouteWrapper,
     rememberForThread: retiredRouteWrapper,
+  };
+  const store = {
+    threadMemorySurface,
+    setMemoryPolicyForAgent(agentId, input) {
+      calls.push({ method: "setMemoryPolicyForAgent", agentId, input });
+      rustCoreRequired({ requested_control_kind: "memory_policy", agent_id: agentId });
+    },
+    updateMemoryForAgentId(agentId, memoryId, input) {
+      calls.push({ method: "updateMemoryForAgentId", agentId, memoryId, input });
+      rustCoreRequired({ requested_control_kind: "memory_edit", agent_id: agentId, memory_id: memoryId });
+    },
+    deleteMemoryForAgentId(agentId, memoryId, input) {
+      calls.push({ method: "deleteMemoryForAgentId", agentId, memoryId, input });
+      rustCoreRequired({ requested_control_kind: "memory_delete", agent_id: agentId, memory_id: memoryId });
+    },
+    rememberForAgentId(agentId, input) {
+      calls.push({ method: "rememberForAgentId", agentId, input });
+      rustCoreRequired({ requested_control_kind: "memory_write", agent_id: agentId });
+    },
+    recordThreadMemoryStatus(threadId, input) {
+      calls.push({ method: "recordThreadMemoryStatus", threadId, input });
+      rustCoreRequired({ requested_control_kind: "memory_status", thread_id: threadId });
+    },
+    validateThreadMemory(threadId, input) {
+      calls.push({ method: "validateThreadMemory", threadId, input });
+      rustCoreRequired({ requested_control_kind: "memory_validate", thread_id: threadId });
+    },
+    setMemoryPolicyForThread(threadId, input) {
+      calls.push({ method: "setMemoryPolicyForThread", threadId, input });
+      rustCoreRequired({ requested_control_kind: "memory_policy", thread_id: threadId });
+    },
+    updateMemoryForThread(threadId, memoryId, input) {
+      calls.push({ method: "updateMemoryForThread", threadId, memoryId, input });
+      rustCoreRequired({ requested_control_kind: "memory_edit", thread_id: threadId, memory_id: memoryId });
+    },
+    deleteMemoryForThread(threadId, memoryId, input) {
+      calls.push({ method: "deleteMemoryForThread", threadId, memoryId, input });
+      rustCoreRequired({ requested_control_kind: "memory_delete", thread_id: threadId, memory_id: memoryId });
+    },
+    rememberForThread(threadId, input) {
+      calls.push({ method: "rememberForThread", threadId, input });
+      rustCoreRequired({ requested_control_kind: "memory_write", thread_id: threadId });
+    },
   };
 
   const agentRoutes = [
@@ -609,7 +614,6 @@ test("agent and thread memory mutation routes use mounted thread memory surface"
     );
   }
 
-  assert.equal(calls.every((call) => call.surfaceStore === store), true);
   assert.deepEqual(
     calls.map(({ method, agentId, threadId, memoryId, input }) => ({ method, agentId, threadId, memoryId, input })),
     [
