@@ -136,7 +136,7 @@ export interface OnboardingSourceReference {
   captureStatus: OnboardingCaptureStatus;
 }
 
-export interface AutopilotOnboardingStep {
+export interface HypervisorOnboardingStep {
   id: string;
   familyId: OnboardingFamilyId;
   sourceStepId: string;
@@ -158,7 +158,7 @@ export interface AutopilotOnboardingStep {
   visibleInFirstRun: boolean;
 }
 
-export interface AutopilotOnboardingFamily {
+export interface HypervisorOnboardingFamily {
   id: OnboardingFamilyId;
   sourceId: string;
   title: string;
@@ -169,7 +169,7 @@ export interface AutopilotOnboardingFamily {
   sourceSummaryIndex: number;
   sourceVisibility: OnboardingSourceVisibility;
   visibleInFirstRun: boolean;
-  steps: AutopilotOnboardingStep[];
+  steps: HypervisorOnboardingStep[];
 }
 
 export interface HomeDashboardCard {
@@ -437,11 +437,11 @@ const FAMILY_SEEDS: Record<OnboardingFamilyId, FamilySeed> = {
   "setup-vscode-web": {
     id: "setup-vscode-web",
     sourceId: "SetupWeb",
-    title: "Get Started with Autopilot",
+    title: "Get Started with Hypervisor",
     sourceTitle: "Get Started with VS Code for the Web",
-    pageTitle: "Setup VS Code Web",
+    pageTitle: "Setup Hypervisor Workbench",
     summary:
-      "Customize the shell, bind your codebase, learn the runtime paths, and start working inside the contained OpenVSCode workbench.",
+      "Customize the shell, bind your codebase, learn the runtime paths, and start working inside the governed Workbench adapter.",
     titleIndex: 15264,
     summaryIndex: 15265,
     visibility: "default-welcome",
@@ -450,9 +450,9 @@ const FAMILY_SEEDS: Record<OnboardingFamilyId, FamilySeed> = {
   "setup-vscode": {
     id: "setup-vscode",
     sourceId: "Setup",
-    title: "Setup VS Code",
+    title: "Setup Workbench Adapter",
     sourceTitle: "Get started with VS Code",
-    pageTitle: "Setup VS Code",
+    pageTitle: "Setup Workbench Adapter",
     summary: "Non-web setup source inventory retained for parity tracking.",
     titleIndex: 15255,
     summaryIndex: 15256,
@@ -476,7 +476,7 @@ const FAMILY_SEEDS: Record<OnboardingFamilyId, FamilySeed> = {
     sourceId: "SetupAccessibility",
     title: "Get Started with Accessibility Features",
     sourceTitle: "Get Started with Accessibility Features",
-    pageTitle: "Setup VS Code Accessibility",
+    pageTitle: "Setup Hypervisor Accessibility",
     summary:
       "Learn the tools and shortcuts that make the workbench accessible.",
     titleIndex: 15292,
@@ -506,18 +506,18 @@ interface StepSeed {
   body: string;
   nlsIndexes: number[];
   sourceActions: OnboardingSourceAction[];
-  media: AutopilotOnboardingStep["media"];
+  media: HypervisorOnboardingStep["media"];
   condition: string;
   captureStatus: OnboardingCaptureStatus;
   targetRoute: string;
   completionPredicate: OnboardingCompletionPredicate;
   primaryAction: OnboardingActionDefinition;
   secondaryActions?: OnboardingActionDefinition[];
-  fidelity?: AutopilotOnboardingStep["fidelity"];
+  fidelity?: HypervisorOnboardingStep["fidelity"];
   visibleInFirstRun?: boolean;
 }
 
-function makeStep(seed: StepSeed): AutopilotOnboardingStep {
+function makeStep(seed: StepSeed): HypervisorOnboardingStep {
   const family = FAMILY_SEEDS[seed.familyId];
   const conditionIds = conditionIdsForSourceExpression(seed.condition);
   return {
@@ -552,7 +552,7 @@ function makeStep(seed: StepSeed): AutopilotOnboardingStep {
   };
 }
 
-const setupWebSteps: AutopilotOnboardingStep[] = [
+const setupWebSteps: HypervisorOnboardingStep[] = [
   makeStep({
     id: "setup-theme",
     familyId: "setup-vscode-web",
@@ -567,17 +567,17 @@ const setupWebSteps: AutopilotOnboardingStep[] = [
     media: {
       kind: "theme-picker",
       assets: ["dark.png", "light.png", "dark-hc.png", "light-hc.png"],
-      alt: "OpenVSCode theme choices",
+      alt: "Workbench theme choices",
     },
     condition: "always",
     captureStatus: "captured",
-    targetRoute: "Hypervisor appearance settings + OpenVSCode colorTheme",
+    targetRoute: "Hypervisor appearance settings + Workbench color theme",
     completionPredicate: "appearance-selected",
     primaryAction: action(
       "appearance.selectTheme",
       "Browse Color Themes",
-      "autopilot.onboarding.appearance",
-      "Home: Choose Autopilot Theme",
+      "hypervisor.onboarding.appearance",
+      "Home: Choose Hypervisor Theme",
       "workbench.action.selectTheme",
     ),
   }),
@@ -604,7 +604,7 @@ const setupWebSteps: AutopilotOnboardingStep[] = [
     primaryAction: action(
       "workbench.toggleMenuBar",
       "Toggle Menu Bar",
-      "autopilot.onboarding.toggleMenuBar",
+      "hypervisor.onboarding.toggleMenuBar",
       "Home: Toggle Menu Bar",
       "workbench.action.toggleMenuBar",
     ),
@@ -615,7 +615,7 @@ const setupWebSteps: AutopilotOnboardingStep[] = [
     sourceStepId: "extensionsWebWeb",
     title: "Code with extensions",
     body:
-      "Extensions are VS Code's power-ups. A growing number are becoming available in the web.",
+      "Workbench adapters expose extension catalogs without becoming the parent product.",
     nlsIndexes: [15273, 15274],
     sourceActions: [
       sourceAction(
@@ -627,16 +627,16 @@ const setupWebSteps: AutopilotOnboardingStep[] = [
     media: {
       kind: "single-image",
       assets: ["extensions-web.svg"],
-      alt: "VS Code extension marketplace with featured language extensions",
+      alt: "Workbench adapter extension catalog with featured language extensions",
     },
     condition: "workspacePlatform == 'webworker'",
     captureStatus: "source-known-needs-targeted-capture",
-    targetRoute: "Contained OpenVSCode extensions view",
+    targetRoute: "Workbench adapter extensions view",
     completionPredicate: "workspace-opened",
     primaryAction: action(
       "extensions.openPopularWeb",
       "Browse Popular Web Extensions",
-      "autopilot.onboarding.extensions.web",
+      "hypervisor.onboarding.extensions.web",
       "Home: Browse Web Extensions",
       "workbench.extensions.action.showPopularExtensions",
     ),
@@ -664,12 +664,12 @@ const setupWebSteps: AutopilotOnboardingStep[] = [
     },
     condition: "workspacePlatform != 'webworker'",
     captureStatus: "captured",
-    targetRoute: "Contained OpenVSCode language extensions view",
+    targetRoute: "Workbench adapter language extensions view",
     completionPredicate: "workspace-opened",
     primaryAction: action(
       "extensions.openLanguage",
       "Browse Language Extensions",
-      "autopilot.onboarding.extensions.language",
+      "hypervisor.onboarding.extensions.language",
       "Home: Browse Language Extensions",
       "workbench.extensions.action.showLanguageExtensions",
     ),
@@ -696,12 +696,12 @@ const setupWebSteps: AutopilotOnboardingStep[] = [
     },
     condition: "syncStatus != uninitialized",
     captureStatus: "source-known-needs-targeted-capture",
-    targetRoute: "Hypervisor profile settings and OpenVSCode sync posture",
+    targetRoute: "Hypervisor profile settings and Workbench adapter sync posture",
     completionPredicate: "manual",
     primaryAction: action(
       "settings.sync",
       "Backup and Sync Settings",
-      "autopilot.onboarding.settingsSync",
+      "hypervisor.onboarding.settingsSync",
       "Home: Open Profile Sync Settings",
       "workbench.userDataSync.actions.turnOn",
     ),
@@ -713,7 +713,7 @@ const setupWebSteps: AutopilotOnboardingStep[] = [
     sourceStepId: "commandPaletteTaskWeb",
     title: "Unlock productivity with the Command Palette",
     body:
-      "Run commands without reaching for your mouse to accomplish any task in VS Code.",
+      "Run commands without reaching for your mouse across Hypervisor sessions and adapter targets.",
     nlsIndexes: [15282, 15283],
     sourceActions: [
       sourceAction(15284, "Open Command Palette", "workbench.action.showCommands"),
@@ -730,7 +730,7 @@ const setupWebSteps: AutopilotOnboardingStep[] = [
     primaryAction: action(
       "palette.open",
       "Open Command Palette",
-      "autopilot.onboarding.palette",
+      "hypervisor.onboarding.palette",
       "Home: Open Command Palette",
       "workbench.action.showCommands",
     ),
@@ -741,7 +741,7 @@ const setupWebSteps: AutopilotOnboardingStep[] = [
     sourceStepId: "pickAFolderTask-WebWeb",
     title: "Open up your code",
     body:
-      "You're all set to start coding. You can open a local project or a remote repository to get your files into VS Code.",
+      "Open a local project, remote repository, or governed workspace through a selected Workbench adapter.",
     nlsIndexes: [15285, 15286],
     sourceActions: [
       sourceAction(15287, "Open Folder", "workbench.action.addRootFolder"),
@@ -754,12 +754,12 @@ const setupWebSteps: AutopilotOnboardingStep[] = [
     },
     condition: "workspaceFolderCount == 0",
     captureStatus: "source-known-needs-targeted-capture",
-    targetRoute: "Hypervisor project selection and contained direct Workbench",
+    targetRoute: "Hypervisor project selection and direct Workbench adapter",
     completionPredicate: "project-selected",
     primaryAction: action(
       "project.openWorkbench",
       "Open Folder",
-      "autopilot.onboarding.openWorkbench",
+      "hypervisor.onboarding.openWorkbench",
       "Home: Open Workbench",
       "workbench.action.addRootFolder",
     ),
@@ -767,7 +767,7 @@ const setupWebSteps: AutopilotOnboardingStep[] = [
       action(
         "project.openWorkbench",
         "Open Repository",
-        "autopilot.onboarding.openRepository",
+        "hypervisor.onboarding.openRepository",
         "Home: Open Repository",
         "remoteHub.openRepository",
       ),
@@ -783,7 +783,7 @@ const setupWebSteps: AutopilotOnboardingStep[] = [
       "Navigate between files in an instant with one keystroke. Tip: Open multiple files by pressing the right arrow key.",
     nlsIndexes: [15289, 15290],
     sourceActions: [
-      sourceAction(15291, "Quick Open a File", "autopilot.commandCenter.open"),
+      sourceAction(15291, "Quick Open a File", "hypervisor.commandCenter.open"),
     ],
     media: {
       kind: "single-image",
@@ -797,14 +797,14 @@ const setupWebSteps: AutopilotOnboardingStep[] = [
     primaryAction: action(
       "quickOpen.open",
       "Quick Open a File",
-      "autopilot.onboarding.quickOpen",
+      "hypervisor.onboarding.quickOpen",
       "Home: Quick Open A File",
-      "autopilot.commandCenter.open",
+      "hypervisor.commandCenter.open",
     ),
   }),
 ];
 
-const setupDesktopSteps: AutopilotOnboardingStep[] = [
+const setupDesktopSteps: HypervisorOnboardingStep[] = [
   makeStep({
     id: "setup-desktop-theme",
     familyId: "setup-vscode",
@@ -819,7 +819,7 @@ const setupDesktopSteps: AutopilotOnboardingStep[] = [
     media: {
       kind: "theme-picker",
       assets: ["dark.png", "light.png", "dark-hc.png", "light-hc.png"],
-      alt: "OpenVSCode theme choices",
+      alt: "Workbench theme choices",
     },
     condition: "!isWeb",
     captureStatus: "source-indexed-not-default-visible",
@@ -828,7 +828,7 @@ const setupDesktopSteps: AutopilotOnboardingStep[] = [
     primaryAction: action(
       "appearance.selectTheme",
       "Browse Color Themes",
-      "autopilot.onboarding.desktopTheme",
+      "hypervisor.onboarding.desktopTheme",
       "Home: Choose Theme From Desktop Source",
       "workbench.action.selectTheme",
     ),
@@ -840,13 +840,13 @@ const setupDesktopSteps: AutopilotOnboardingStep[] = [
     sourceStepId: "videoTutorial",
     title: "Watch video tutorials",
     body:
-      "Watch the first in a series of short and practical video tutorials for VS Code's key features.",
+      "Review practical walkthroughs for Hypervisor Workbench and adapter-driven project work.",
     nlsIndexes: [15261, 15262],
     sourceActions: [sourceAction(15263, "Watch Tutorial", "https://aka.ms/vscode-getting-started-video")],
     media: {
       kind: "single-image",
       assets: ["learn.svg"],
-      alt: "VS Code tutorials",
+      alt: "Workbench tutorials",
     },
     condition: "!isWeb",
     captureStatus: "source-indexed-not-default-visible",
@@ -855,21 +855,21 @@ const setupDesktopSteps: AutopilotOnboardingStep[] = [
     primaryAction: action(
       "home.markDone",
       "Watch Tutorial",
-      "autopilot.onboarding.videoTutorial",
+      "hypervisor.onboarding.videoTutorial",
       "Home: Watch Tutorial",
     ),
     visibleInFirstRun: false,
   }),
 ];
 
-const fundamentalsSteps: AutopilotOnboardingStep[] = [
+const fundamentalsSteps: HypervisorOnboardingStep[] = [
   makeStep({
     id: "fundamentals-settings",
     familyId: "learn-fundamentals",
     sourceStepId: "settingsAndSync",
     title: "Tune your settings",
     body:
-      "Customize every aspect of VS Code and sync customizations across devices.",
+      "Customize Hypervisor, Workbench adapters, and sync-safe profile settings across devices.",
     nlsIndexes: [15339, 15340],
     sourceActions: [
       sourceAction(15341, "Open Settings", "toSide:workbench.action.openSettings"),
@@ -877,16 +877,16 @@ const fundamentalsSteps: AutopilotOnboardingStep[] = [
     media: {
       kind: "single-image",
       assets: ["settings.svg"],
-      alt: "VS Code Settings",
+      alt: "Workbench settings",
     },
     condition: "workspacePlatform != 'webworker' && syncStatus != uninitialized",
     captureStatus: "source-known-needs-targeted-capture",
-    targetRoute: "Hypervisor settings and contained OpenVSCode settings",
+    targetRoute: "Hypervisor settings and Workbench adapter settings",
     completionPredicate: "manual",
     primaryAction: action(
       "runtime.openSettings",
       "Open Settings",
-      "autopilot.onboarding.settings",
+      "hypervisor.onboarding.settings",
       "Home: Open Settings",
       "toSide:workbench.action.openSettings",
     ),
@@ -898,7 +898,7 @@ const fundamentalsSteps: AutopilotOnboardingStep[] = [
     sourceStepId: "extensions",
     title: "Code with extensions",
     body:
-      "Extensions are VS Code's power-ups. They range from handy productivity hacks, expanding out-of-the-box features, to adding completely new capabilities.",
+      "Workbench adapters expose extension catalogs, productivity tools, and domain-specific capabilities without becoming runtime truth.",
     nlsIndexes: [15342, 15343],
     sourceActions: [
       sourceAction(
@@ -910,16 +910,16 @@ const fundamentalsSteps: AutopilotOnboardingStep[] = [
     media: {
       kind: "single-image",
       assets: ["extensions.svg"],
-      alt: "VS Code extension marketplace with featured language extensions",
+      alt: "Workbench adapter extension catalog with featured language extensions",
     },
     condition: "workspacePlatform != 'webworker'",
     captureStatus: "captured",
-    targetRoute: "Contained OpenVSCode extensions view",
+    targetRoute: "Workbench adapter extensions view",
     completionPredicate: "workspace-opened",
     primaryAction: action(
       "extensions.openPopularWeb",
       "Browse Popular Extensions",
-      "autopilot.onboarding.extensions",
+      "hypervisor.onboarding.extensions",
       "Home: Browse Extensions",
       "workbench.extensions.action.showPopularExtensions",
     ),
@@ -942,12 +942,12 @@ const fundamentalsSteps: AutopilotOnboardingStep[] = [
     },
     condition: "workspacePlatform != 'webworker' && remoteName != codespaces && !terminalIsOpen",
     captureStatus: "captured",
-    targetRoute: "Contained OpenVSCode terminal",
+    targetRoute: "Workbench terminal adapter",
     completionPredicate: "workspace-opened",
     primaryAction: action(
       "workbench.openTerminal",
       "Open Terminal",
-      "autopilot.onboarding.terminal",
+      "hypervisor.onboarding.terminal",
       "Home: Open Terminal",
       "workbench.action.terminal.toggleTerminal",
     ),
@@ -970,12 +970,12 @@ const fundamentalsSteps: AutopilotOnboardingStep[] = [
     },
     condition: "workspacePlatform != 'webworker' && workspaceFolderCount != 0",
     captureStatus: "captured",
-    targetRoute: "Contained OpenVSCode run/debug view",
+    targetRoute: "Workbench run/debug adapter",
     completionPredicate: "workspace-opened",
     primaryAction: action(
       "workbench.openDebug",
       "Run your Project",
-      "autopilot.onboarding.debug",
+      "hypervisor.onboarding.debug",
       "Home: Run Project",
       "workbench.action.debug.selectandstart",
     ),
@@ -996,12 +996,12 @@ const fundamentalsSteps: AutopilotOnboardingStep[] = [
     },
     condition: "config.git.enabled && !git.missing && workspaceFolderCount == 0",
     captureStatus: "source-known-needs-targeted-capture",
-    targetRoute: "Contained OpenVSCode source control",
+    targetRoute: "Workbench source-control adapter",
     completionPredicate: "workspace-opened",
     primaryAction: action(
       "workbench.openGit",
       "Clone Repository",
-      "autopilot.onboarding.git.clone",
+      "hypervisor.onboarding.git.clone",
       "Home: Clone Repository",
       "git.clone",
     ),
@@ -1024,12 +1024,12 @@ const fundamentalsSteps: AutopilotOnboardingStep[] = [
     condition:
       "config.git.enabled && !git.missing && workspaceFolderCount != 0 && gitOpenRepositoryCount == 0",
     captureStatus: "source-known-needs-targeted-capture",
-    targetRoute: "Contained OpenVSCode source control",
+    targetRoute: "Workbench source-control adapter",
     completionPredicate: "workspace-opened",
     primaryAction: action(
       "workbench.openGit",
       "Initialize Git Repository",
-      "autopilot.onboarding.git.init",
+      "hypervisor.onboarding.git.init",
       "Home: Initialize Git Repository",
       "git.init",
     ),
@@ -1054,12 +1054,12 @@ const fundamentalsSteps: AutopilotOnboardingStep[] = [
     condition:
       "config.git.enabled && !git.missing && workspaceFolderCount != 0 && gitOpenRepositoryCount != 0 && activeViewlet != 'workbench.view.scm'",
     captureStatus: "captured",
-    targetRoute: "Contained OpenVSCode source control",
+    targetRoute: "Workbench source-control adapter",
     completionPredicate: "workspace-opened",
     primaryAction: action(
       "workbench.openGit",
       "Open Source Control",
-      "autopilot.onboarding.git",
+      "hypervisor.onboarding.git",
       "Home: Open Source Control",
       "workbench.view.scm",
     ),
@@ -1084,7 +1084,7 @@ const fundamentalsSteps: AutopilotOnboardingStep[] = [
     primaryAction: action(
       "workbench.openGit",
       "Install Git",
-      "autopilot.onboarding.git.install",
+      "hypervisor.onboarding.git.install",
       "Home: Install Git",
     ),
     visibleInFirstRun: false,
@@ -1107,12 +1107,12 @@ const fundamentalsSteps: AutopilotOnboardingStep[] = [
     },
     condition: "workspaceFolderCount != 0 && workspacePlatform != 'webworker'",
     captureStatus: "captured",
-    targetRoute: "IOI runs and contained OpenVSCode tasks",
+    targetRoute: "IOI runs and Workbench task adapter",
     completionPredicate: "evidence-reviewed",
     primaryAction: action(
       "workbench.runTasks",
       "Run Auto-detected Tasks",
-      "autopilot.onboarding.tasks",
+      "hypervisor.onboarding.tasks",
       "Home: Run Tasks",
       "workbench.action.tasks.runTask",
     ),
@@ -1139,12 +1139,12 @@ const fundamentalsSteps: AutopilotOnboardingStep[] = [
     },
     condition: "always",
     captureStatus: "captured",
-    targetRoute: "Hypervisor accessibility and OpenVSCode keybindings",
+    targetRoute: "Hypervisor accessibility and Workbench adapter keybindings",
     completionPredicate: "accessibility-reviewed",
     primaryAction: action(
       "workbench.openShortcuts",
       "Keyboard Shortcuts",
-      "autopilot.onboarding.shortcuts",
+      "hypervisor.onboarding.shortcuts",
       "Home: Open Keyboard Shortcuts",
       "toSide:workbench.action.openGlobalKeybindings",
     ),
@@ -1168,12 +1168,12 @@ const fundamentalsSteps: AutopilotOnboardingStep[] = [
     },
     condition: "workspacePlatform != 'webworker' && !isWorkspaceTrusted && workspaceFolderCount == 0",
     captureStatus: "source-known-needs-targeted-capture",
-    targetRoute: "Hypervisor policy boundaries and OpenVSCode Workspace Trust",
+    targetRoute: "Hypervisor policy boundaries and Workspace Trust",
     completionPredicate: "policy-reviewed",
     primaryAction: action(
       "workbench.workspaceTrust",
       "Workspace Trust",
-      "autopilot.onboarding.workspaceTrust",
+      "hypervisor.onboarding.workspaceTrust",
       "Home: Workspace Trust",
       "toSide:workbench.trust.manage",
     ),
@@ -1181,7 +1181,7 @@ const fundamentalsSteps: AutopilotOnboardingStep[] = [
   }),
 ];
 
-const accessibilitySteps: AutopilotOnboardingStep[] = [
+const accessibilitySteps: HypervisorOnboardingStep[] = [
   makeStep({
     id: "accessibility-help",
     familyId: "accessibility",
@@ -1200,12 +1200,12 @@ const accessibilitySteps: AutopilotOnboardingStep[] = [
     },
     condition: "accessibility context",
     captureStatus: "source-indexed-not-default-visible",
-    targetRoute: "Hypervisor accessibility diagnostics and OpenVSCode help",
+    targetRoute: "Hypervisor accessibility diagnostics and Workbench help",
     completionPredicate: "accessibility-reviewed",
     primaryAction: action(
       "accessibility.openSettings",
       "Open Accessibility Help",
-      "autopilot.onboarding.accessibility.help",
+      "hypervisor.onboarding.accessibility.help",
       "Home: Open Accessibility Help",
       "editor.action.accessibilityHelp",
     ),
@@ -1229,7 +1229,7 @@ const accessibilitySteps: AutopilotOnboardingStep[] = [
     primaryAction: action(
       "accessibility.openSettings",
       "Open Accessible View",
-      "autopilot.onboarding.accessibleView",
+      "hypervisor.onboarding.accessibleView",
       "Home: Open Accessible View",
       "editor.action.accessibleView",
     ),
@@ -1257,7 +1257,7 @@ const accessibilitySteps: AutopilotOnboardingStep[] = [
     primaryAction: action(
       "accessibility.openSettings",
       "Open Accessibility Settings",
-      "autopilot.onboarding.accessibility.settings",
+      "hypervisor.onboarding.accessibility.settings",
       "Home: Open Accessibility Settings",
       "workbench.action.openAccessibilitySettings",
     ),
@@ -1268,7 +1268,7 @@ const accessibilitySteps: AutopilotOnboardingStep[] = [
     sourceStepId: "commandPaletteTaskAccessibility",
     title: "Unlock productivity with the Command Palette",
     body:
-      "Run commands without reaching for your mouse to accomplish any task in VS Code.",
+      "Run commands without reaching for your mouse across Hypervisor sessions and adapter targets.",
     nlsIndexes: [15304, 15305],
     sourceActions: [
       sourceAction(15306, "Open Command Palette", "workbench.action.showCommands"),
@@ -1285,7 +1285,7 @@ const accessibilitySteps: AutopilotOnboardingStep[] = [
     primaryAction: action(
       "palette.open",
       "Open Command Palette",
-      "autopilot.onboarding.accessibility.palette",
+      "hypervisor.onboarding.accessibility.palette",
       "Home: Open Accessibility Palette",
       "workbench.action.showCommands",
     ),
@@ -1312,12 +1312,12 @@ const accessibilitySteps: AutopilotOnboardingStep[] = [
     },
     condition: "accessibility context",
     captureStatus: "source-indexed-not-default-visible",
-    targetRoute: "Hypervisor accessibility settings and OpenVSCode keybindings",
+    targetRoute: "Hypervisor accessibility settings and Workbench adapter keybindings",
     completionPredicate: "accessibility-reviewed",
     primaryAction: action(
       "workbench.openShortcuts",
       "Keyboard Shortcuts",
-      "autopilot.onboarding.accessibility.shortcuts",
+      "hypervisor.onboarding.accessibility.shortcuts",
       "Home: Open Accessibility Shortcuts",
       "toSide:workbench.action.openGlobalKeybindings",
     ),
@@ -1343,7 +1343,7 @@ const accessibilitySteps: AutopilotOnboardingStep[] = [
     primaryAction: action(
       "accessibility.openSettings",
       "List Signal Sounds",
-      "autopilot.onboarding.accessibility.signals",
+      "hypervisor.onboarding.accessibility.signals",
       "Home: List Accessibility Signals",
       "signals.sounds.help",
     ),
@@ -1362,12 +1362,12 @@ const accessibilitySteps: AutopilotOnboardingStep[] = [
     media: { kind: "empty-markdown", assets: [], alt: "Editor hover" },
     condition: "accessibility context",
     captureStatus: "source-indexed-not-default-visible",
-    targetRoute: "Contained OpenVSCode editor command",
+    targetRoute: "Workbench editor adapter command",
     completionPredicate: "accessibility-reviewed",
     primaryAction: action(
       "workspace.open",
       "Show or Focus Hover",
-      "autopilot.onboarding.accessibility.hover",
+      "hypervisor.onboarding.accessibility.hover",
       "Home: Show Hover",
       "editor.action.showHover",
     ),
@@ -1385,12 +1385,12 @@ const accessibilitySteps: AutopilotOnboardingStep[] = [
     media: { kind: "empty-markdown", assets: [], alt: "Go to symbol" },
     condition: "accessibility context",
     captureStatus: "source-indexed-not-default-visible",
-    targetRoute: "Contained OpenVSCode editor command",
+    targetRoute: "Workbench editor adapter command",
     completionPredicate: "accessibility-reviewed",
     primaryAction: action(
       "workspace.open",
       "Go to Symbol",
-      "autopilot.onboarding.accessibility.symbols",
+      "hypervisor.onboarding.accessibility.symbols",
       "Home: Go To Symbol",
       "editor.action.goToSymbol",
     ),
@@ -1410,12 +1410,12 @@ const accessibilitySteps: AutopilotOnboardingStep[] = [
     media: { kind: "empty-markdown", assets: [], alt: "Code folding" },
     condition: "accessibility context",
     captureStatus: "source-indexed-not-default-visible",
-    targetRoute: "Contained OpenVSCode editor command",
+    targetRoute: "Workbench editor adapter command",
     completionPredicate: "accessibility-reviewed",
     primaryAction: action(
       "workspace.open",
       "Toggle Fold",
-      "autopilot.onboarding.accessibility.folding",
+      "hypervisor.onboarding.accessibility.folding",
       "Home: Toggle Fold",
       "editor.toggleFold",
     ),
@@ -1435,12 +1435,12 @@ const accessibilitySteps: AutopilotOnboardingStep[] = [
     media: { kind: "empty-markdown", assets: [], alt: "Intellisense" },
     condition: "accessibility context",
     captureStatus: "source-indexed-not-default-visible",
-    targetRoute: "Contained OpenVSCode editor command",
+    targetRoute: "Workbench editor adapter command",
     completionPredicate: "accessibility-reviewed",
     primaryAction: action(
       "workspace.open",
       "Trigger Intellisense",
-      "autopilot.onboarding.accessibility.intellisense",
+      "hypervisor.onboarding.accessibility.intellisense",
       "Home: Trigger Intellisense",
       "editor.action.triggerSuggest",
     ),
@@ -1468,7 +1468,7 @@ const accessibilitySteps: AutopilotOnboardingStep[] = [
     primaryAction: action(
       "accessibility.openSettings",
       "Open Accessibility Settings",
-      "autopilot.onboarding.accessibility.configure",
+      "hypervisor.onboarding.accessibility.configure",
       "Home: Configure Accessibility Settings",
       "workbench.action.openAccessibilitySettings",
     ),
@@ -1494,14 +1494,14 @@ const accessibilitySteps: AutopilotOnboardingStep[] = [
     primaryAction: action(
       "accessibility.openSettings",
       "Voice: Start Dictation in Editor",
-      "autopilot.onboarding.accessibility.dictation",
+      "hypervisor.onboarding.accessibility.dictation",
       "Home: Start Dictation",
       "workbench.action.editorDictation.start",
     ),
   }),
 ];
 
-const notebookSteps: AutopilotOnboardingStep[] = [
+const notebookSteps: HypervisorOnboardingStep[] = [
   makeStep({
     id: "notebook-profile",
     familyId: "notebooks",
@@ -1522,7 +1522,7 @@ const notebookSteps: AutopilotOnboardingStep[] = [
     primaryAction: action(
       "notebook.profile",
       "Select Notebook Layout",
-      "autopilot.onboarding.notebookProfile",
+      "hypervisor.onboarding.notebookProfile",
       "Home: Select Notebook Layout",
       "notebook.setProfile",
     ),
@@ -1530,7 +1530,7 @@ const notebookSteps: AutopilotOnboardingStep[] = [
   }),
 ];
 
-const familySteps: Record<OnboardingFamilyId, AutopilotOnboardingStep[]> = {
+const familySteps: Record<OnboardingFamilyId, HypervisorOnboardingStep[]> = {
   "setup-vscode-web": setupWebSteps,
   "setup-vscode": setupDesktopSteps,
   "learn-fundamentals": fundamentalsSteps,
@@ -1538,7 +1538,7 @@ const familySteps: Record<OnboardingFamilyId, AutopilotOnboardingStep[]> = {
   notebooks: notebookSteps,
 };
 
-export const AUTOPILOT_ONBOARDING_FAMILIES: AutopilotOnboardingFamily[] = (
+export const HYPERVISOR_ONBOARDING_FAMILIES: HypervisorOnboardingFamily[] = (
   Object.keys(FAMILY_SEEDS) as OnboardingFamilyId[]
 ).map((familyId) => {
   const seed = FAMILY_SEEDS[familyId];
@@ -1557,12 +1557,12 @@ export const AUTOPILOT_ONBOARDING_FAMILIES: AutopilotOnboardingFamily[] = (
   };
 });
 
-export const FIRST_RUN_ONBOARDING_FAMILIES = AUTOPILOT_ONBOARDING_FAMILIES.filter(
+export const FIRST_RUN_ONBOARDING_FAMILIES = HYPERVISOR_ONBOARDING_FAMILIES.filter(
   (family) => family.visibleInFirstRun,
 );
 
-export const AUTOPILOT_ONBOARDING_STEPS =
-  AUTOPILOT_ONBOARDING_FAMILIES.flatMap((family) => family.steps);
+export const HYPERVISOR_ONBOARDING_STEPS =
+  HYPERVISOR_ONBOARDING_FAMILIES.flatMap((family) => family.steps);
 
 export const FIRST_RUN_ONBOARDING_STEPS =
   FIRST_RUN_ONBOARDING_FAMILIES.flatMap((family) =>
@@ -1571,16 +1571,16 @@ export const FIRST_RUN_ONBOARDING_STEPS =
 
 export interface OnboardingRouteResolution {
   conditionState: OnboardingRouteConditionState;
-  visibleFamilies: AutopilotOnboardingFamily[];
-  visibleSteps: AutopilotOnboardingStep[];
+  visibleFamilies: HypervisorOnboardingFamily[];
+  visibleSteps: HypervisorOnboardingStep[];
   hiddenSteps: Array<{
-    step: AutopilotOnboardingStep;
+    step: HypervisorOnboardingStep;
     conditionMatched: boolean;
     conditionIds: OnboardingConditionId[];
     reasons: string[];
   }>;
-  conditionalVisibleSteps: AutopilotOnboardingStep[];
-  sourceIndexedHiddenSteps: AutopilotOnboardingStep[];
+  conditionalVisibleSteps: HypervisorOnboardingStep[];
+  sourceIndexedHiddenSteps: HypervisorOnboardingStep[];
 }
 
 export function normalizeOnboardingConditionState(
@@ -1616,7 +1616,7 @@ export function onboardingConditionsMatch(
 }
 
 function hiddenReasonsForStep(
-  step: AutopilotOnboardingStep,
+  step: HypervisorOnboardingStep,
   state: OnboardingRouteConditionState,
 ): string[] {
   const reasons = step.conditionIds
@@ -1632,8 +1632,8 @@ function hiddenReasonsForStep(
 }
 
 function shouldSurfaceStep(
-  step: AutopilotOnboardingStep,
-  family: AutopilotOnboardingFamily,
+  step: HypervisorOnboardingStep,
+  family: HypervisorOnboardingFamily,
   state: OnboardingRouteConditionState,
 ): boolean {
   const matched = onboardingConditionsMatch(step.conditionIds, state);
@@ -1650,11 +1650,11 @@ export function resolveOnboardingRouteVisibility(
   patch: Partial<OnboardingRouteConditionState> = {},
 ): OnboardingRouteResolution {
   const conditionState = normalizeOnboardingConditionState(patch);
-  const visibleFamilies: AutopilotOnboardingFamily[] = [];
-  const visibleSteps: AutopilotOnboardingStep[] = [];
+  const visibleFamilies: HypervisorOnboardingFamily[] = [];
+  const visibleSteps: HypervisorOnboardingStep[] = [];
   const hiddenSteps: OnboardingRouteResolution["hiddenSteps"] = [];
 
-  for (const family of AUTOPILOT_ONBOARDING_FAMILIES) {
+  for (const family of HYPERVISOR_ONBOARDING_FAMILIES) {
     const resolvedFamilySteps = family.steps.filter((step) =>
       shouldSurfaceStep(step, family, conditionState),
     );
@@ -1696,7 +1696,7 @@ export const HOME_DASHBOARD_CARDS: HomeDashboardCard[] = [
   {
     id: "workbench",
     title: "Workbench",
-    detail: "Open the contained OpenVSCode workbench for code browsing and IOI panes.",
+    detail: "Open the governed Workbench adapter for code browsing and IOI panes.",
     meta: "Direct child webview",
     actionLabel: "Open Workbench",
     actionId: "workspace.open",
@@ -1727,20 +1727,20 @@ export const HOME_DASHBOARD_CARDS: HomeDashboardCard[] = [
   },
 ];
 
-export function findOnboardingStep(stepId: string): AutopilotOnboardingStep | null {
-  return AUTOPILOT_ONBOARDING_STEPS.find((step) => step.id === stepId) ?? null;
+export function findOnboardingStep(stepId: string): HypervisorOnboardingStep | null {
+  return HYPERVISOR_ONBOARDING_STEPS.find((step) => step.id === stepId) ?? null;
 }
 
 export function findFirstRunOnboardingStep(
   stepId: string,
-): AutopilotOnboardingStep | null {
+): HypervisorOnboardingStep | null {
   return FIRST_RUN_ONBOARDING_STEPS.find((step) => step.id === stepId) ?? null;
 }
 
 export function findOnboardingFamily(
   familyId: OnboardingFamilyId,
-): AutopilotOnboardingFamily | null {
-  return AUTOPILOT_ONBOARDING_FAMILIES.find((family) => family.id === familyId) ?? null;
+): HypervisorOnboardingFamily | null {
+  return HYPERVISOR_ONBOARDING_FAMILIES.find((family) => family.id === familyId) ?? null;
 }
 
 export function defaultOnboardingStepId(): string {

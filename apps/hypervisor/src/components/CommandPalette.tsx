@@ -34,7 +34,7 @@ import type {
   ProjectScope,
 } from "../windows/HypervisorShellWindow/hypervisorShellModel";
 import {
-  AUTOPILOT_ONBOARDING_STEPS,
+  HYPERVISOR_ONBOARDING_STEPS,
   HOME_ONBOARDING_FOCUS_EVENT,
 } from "../surfaces/Home/homeOnboardingModel";
 import "./CommandPalette.css";
@@ -549,7 +549,7 @@ export function CommandPalette({
       return icons.sparkles;
     };
 
-    const homeOnboardingItems: CommandPaletteItem[] = AUTOPILOT_ONBOARDING_STEPS.map(
+    const homeOnboardingItems: CommandPaletteItem[] = HYPERVISOR_ONBOARDING_STEPS.map(
       (step) => ({
         id: `home-onboarding-${step.id}`,
         title: step.primaryAction.commandPaletteLabel,

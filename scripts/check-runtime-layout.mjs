@@ -34,6 +34,12 @@ const packageJson = JSON.parse(read("package.json"));
 const readme = read("README.md");
 const developersDocs = read("apps/developers-ioi-ai/src/content/docs.tsx");
 const workbenchAdapterLauncher = read("scripts/launch-hypervisor-workbench-adapter-host.mjs");
+const hypervisorHomeSource = [
+  "apps/hypervisor/src/surfaces/Home/HomeView.tsx",
+  "apps/hypervisor/src/surfaces/Home/HomeWalkthroughDocument.tsx",
+  "apps/hypervisor/src/surfaces/Home/homeOnboardingModel.ts",
+  "apps/hypervisor/src/surfaces/Home/index.ts",
+].map(read).join("\n");
 const packageScriptNames = Object.keys(packageJson.scripts ?? {});
 const retiredAutopilotPackageScripts = packageScriptNames.filter((scriptName) =>
   /^(?:goal|validate|test):autopilot/.test(scriptName),
@@ -170,6 +176,22 @@ assert(
     "scripts/launch-hypervisor-workbench-adapter-host.mjs",
   ],
   "Active product docs and model preload identifiers must use Hypervisor client/Workbench taxonomy, not Autopilot IDE or Tauri product language.",
+);
+assert(
+  "home-onboarding-hypervisor-taxonomy",
+  hypervisorHomeSource.includes("HYPERVISOR_ONBOARDING_FAMILIES") &&
+    hypervisorHomeSource.includes("HypervisorOnboardingStep") &&
+    hypervisorHomeSource.includes("Get Started with Hypervisor") &&
+    hypervisorHomeSource.includes("governed Workbench adapter") &&
+    hypervisorHomeSource.includes("Workbench adapter") &&
+    !/AUTOPILOT_ONBOARDING|AutopilotOnboarding|autopilot\.home\.onboarding|autopilot\.onboarding|OpenVSCode|contained OpenVSCode/.test(hypervisorHomeSource),
+  [
+    "apps/hypervisor/src/surfaces/Home/HomeView.tsx",
+    "apps/hypervisor/src/surfaces/Home/HomeWalkthroughDocument.tsx",
+    "apps/hypervisor/src/surfaces/Home/homeOnboardingModel.ts",
+    "apps/hypervisor/src/surfaces/Home/index.ts",
+  ],
+  "Home onboarding must use Hypervisor and Workbench adapter language instead of retired Autopilot/OpenVSCode product framing.",
 );
 assert(
   "contract-family-modules",

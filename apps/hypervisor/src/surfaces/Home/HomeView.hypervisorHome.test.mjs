@@ -7,6 +7,15 @@ const homeView = readFileSync(
   "utf8",
 );
 const homeCss = readFileSync(new URL("./Home.css", import.meta.url), "utf8");
+const homeIndex = readFileSync(new URL("./index.ts", import.meta.url), "utf8");
+const homeOnboardingModel = readFileSync(
+  new URL("./homeOnboardingModel.ts", import.meta.url),
+  "utf8",
+);
+const homeWalkthroughDocument = readFileSync(
+  new URL("./HomeWalkthroughDocument.tsx", import.meta.url),
+  "utf8",
+);
 const shellContent = readFileSync(
   new URL(
     "../../windows/HypervisorShellWindow/components/HypervisorShellContent.tsx",
@@ -27,6 +36,26 @@ test("home dashboard uses Hypervisor cockpit copy and search intent", () => {
     homeView,
     /Search Autopilot, code, sessions, and commands/,
   );
+});
+
+test("home onboarding uses Hypervisor and Workbench adapter language", () => {
+  const homeSource = [
+    homeView,
+    homeIndex,
+    homeOnboardingModel,
+    homeWalkthroughDocument,
+  ].join("\n");
+  assert.match(homeSource, /HYPERVISOR_ONBOARDING_FAMILIES/);
+  assert.match(homeSource, /HypervisorOnboardingStep/);
+  assert.match(homeSource, /Get Started with Hypervisor/);
+  assert.match(homeSource, /governed Workbench adapter/);
+  assert.match(homeSource, /Workbench adapter/);
+  assert.doesNotMatch(homeSource, /AUTOPILOT_ONBOARDING/);
+  assert.doesNotMatch(homeSource, /AutopilotOnboarding/);
+  assert.doesNotMatch(homeSource, /autopilot\.home\.onboarding/);
+  assert.doesNotMatch(homeSource, /autopilot\.onboarding/);
+  assert.doesNotMatch(homeSource, /OpenVSCode/);
+  assert.doesNotMatch(homeSource, /contained OpenVSCode/);
 });
 
 test("home dashboard exposes the New Session setup contract", () => {

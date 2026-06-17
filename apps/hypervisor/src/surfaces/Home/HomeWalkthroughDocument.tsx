@@ -24,9 +24,9 @@ import shortcutsSvg from "../../assets/openvscode-walkthrough/shortcuts.svg";
 import terminalSvg from "../../assets/openvscode-walkthrough/terminal.svg";
 import workspaceTrustSvg from "../../assets/openvscode-walkthrough/workspaceTrust.svg";
 import {
-  AUTOPILOT_ONBOARDING_FAMILIES,
-  type AutopilotOnboardingFamily,
-  type AutopilotOnboardingStep,
+  HYPERVISOR_ONBOARDING_FAMILIES,
+  type HypervisorOnboardingFamily,
+  type HypervisorOnboardingStep,
   type OnboardingActionId,
 } from "./homeOnboardingModel";
 
@@ -54,7 +54,7 @@ const WALKTHROUGH_MEDIA: Record<string, string> = {
 };
 
 interface HomeWalkthroughDocumentProps {
-  selectedStep: AutopilotOnboardingStep;
+  selectedStep: HypervisorOnboardingStep;
   completedStepIds: ReadonlySet<string>;
   appearance: HypervisorAppearanceState;
   onBack: () => void;
@@ -62,19 +62,19 @@ interface HomeWalkthroughDocumentProps {
   onApplyTheme: (themeId: HypervisorThemeId) => void;
   onExecuteAction: (actionId: OnboardingActionId) => void;
   onFocusStep: (stepId: string) => void;
-  families: AutopilotOnboardingFamily[];
+  families: HypervisorOnboardingFamily[];
   onMarkStepDone: (stepId?: string) => void;
   onNextStep: () => void;
 }
 
 function currentFamilyForStep(
-  step: AutopilotOnboardingStep,
-  families: AutopilotOnboardingFamily[],
+  step: HypervisorOnboardingStep,
+  families: HypervisorOnboardingFamily[],
 ) {
   return (
     families.find((family) => family.id === step.familyId) ??
     families[0] ??
-    AUTOPILOT_ONBOARDING_FAMILIES[0]!
+    HYPERVISOR_ONBOARDING_FAMILIES[0]!
   );
 }
 
@@ -131,7 +131,7 @@ function ThemePickerMedia({
   );
 }
 
-function EmptyMarkdownMedia({ step }: { step: AutopilotOnboardingStep }) {
+function EmptyMarkdownMedia({ step }: { step: HypervisorOnboardingStep }) {
   return (
     <div
       className="chat-home-walkthrough-empty-media"
@@ -168,7 +168,7 @@ function StepMedia({
   onApplyTheme,
 }: {
   appearance: HypervisorAppearanceState;
-  selectedStep: AutopilotOnboardingStep;
+  selectedStep: HypervisorOnboardingStep;
   onApplyTheme: (themeId: HypervisorThemeId) => void;
 }) {
   if (selectedStep.media.kind === "theme-picker") {

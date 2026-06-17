@@ -92,13 +92,13 @@ interface HomeOnboardingState {
   }>;
 }
 
-const STORAGE_KEY = "autopilot.home.onboarding.v1";
-const RESET_SESSION_KEY = "autopilot.home.onboarding.reset.applied.v1";
+const STORAGE_KEY = "hypervisor.home.onboarding.v1";
+const RESET_SESSION_KEY = "hypervisor.home.onboarding.reset.applied.v1";
 let resetAppliedThisPage = false;
 
 function resetRequestedByEnv(): boolean {
   return (
-    (import.meta.env.VITE_AUTOPILOT_RESET_HOME_ONBOARDING ?? "")
+    (import.meta.env.VITE_HYPERVISOR_RESET_HOME_ONBOARDING ?? "")
       .toString()
       .trim() === "1"
   );
@@ -605,7 +605,7 @@ function HomeDashboardView({
 
             <section
               className="chat-home-zero-assist"
-              aria-label="Autopilot assistant"
+              aria-label="Hypervisor assistant"
             >
               <div>
                 <h2>Operate this project with governed sessions</h2>
