@@ -186,6 +186,9 @@ const hypervisorClientNamespaceSources = [
   "packages/workspace-substrate/src/components/CodeOssEditor.tsx",
   "packages/workspace-substrate/src/components/WorkspaceEditorPane.tsx",
 ].map(read).join("\n");
+const hypervisorClientRuntimeSource = read(
+  "apps/hypervisor/src/services/HypervisorClientRuntime.ts",
+);
 const hypervisorModelMountIdentitySources = [
   "packages/runtime-daemon/src/model-mounting/default-records.mjs",
   "packages/runtime-daemon/src/model-mounting/default-discovery.mjs",
@@ -338,6 +341,16 @@ assert(
     "scripts/lib/hypervisor-app-harness-contract.mjs",
   ],
   "active proof helper modules must use Hypervisor filenames, exports, and schema names; retired Autopilot helper paths must stay absent",
+);
+assert(
+  "hypervisor-client-runtime-command-names",
+  hypervisorClientRuntimeSource.includes("runtime_open_hypervisor_intent_requested") &&
+    hypervisorClientRuntimeSource.includes('invoke("reset_hypervisor_data")') &&
+    !/runtime_open_autopilot_intent_requested|reset_autopilot_data/.test(
+      hypervisorClientRuntimeSource,
+    ),
+  ["apps/hypervisor/src/services/HypervisorClientRuntime.ts"],
+  "Hypervisor client runtime must emit Hypervisor-named host events and commands, not retired Autopilot bridge names.",
 );
 assert(
   "runtime-module-map",

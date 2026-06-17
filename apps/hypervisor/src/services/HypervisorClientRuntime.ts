@@ -994,7 +994,7 @@ export class HypervisorClientRuntime implements AgentWorkbenchRuntime, Assistant
             kind: "hypervisor-intent",
             intent,
           },
-          "runtime_open_autopilot_intent_requested",
+          "runtime_open_hypervisor_intent_requested",
           {
             intent,
           },
@@ -1583,7 +1583,7 @@ export class HypervisorClientRuntime implements AgentWorkbenchRuntime, Assistant
     }
 
     async resetHypervisorData(): Promise<ResetHypervisorDataResult> {
-        return invoke("reset_autopilot_data");
+        return invoke("reset_hypervisor_data");
     }
 
     async getLocalBenchmarkTraceFeed(limit = 8): Promise<BenchmarkTraceFeed> {

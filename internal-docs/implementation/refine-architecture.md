@@ -1022,6 +1022,11 @@ Current implementation cut:
   the active Tauri app and root `ide/` product path are retired, and root
   `package.json` now exposes Hypervisor/App/Workbench command names instead of
   retired Autopilot-prefixed goal, validation, or test product aliases.
+  `HypervisorClientRuntime` now emits
+  `runtime_open_hypervisor_intent_requested` and invokes
+  `reset_hypervisor_data`; `check:runtime-layout` rejects the retired
+  `runtime_open_autopilot_intent_requested` and `reset_autopilot_data` bridge
+  names from the active client runtime.
   active proof/helper APIs now use Hypervisor names:
   `hypervisor-campaign-processes.mjs`,
   `hypervisor-runtime-agent-service-inference.mjs`,
