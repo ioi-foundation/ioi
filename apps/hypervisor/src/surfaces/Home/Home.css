@@ -1356,6 +1356,74 @@
   color: #ffffff;
 }
 
+.chat-home-zero-cockpit {
+  display: grid;
+  gap: 14px;
+  border: 1px solid var(--chat-border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--chat-bg-surface) 88%, transparent);
+  padding: 16px;
+  box-shadow: 0 12px 34px rgba(15, 23, 42, 0.06);
+}
+
+.chat-home-zero-cockpit .chat-home-zero-section-heading {
+  align-items: flex-start;
+  margin-bottom: 0;
+}
+
+.chat-home-zero-cockpit .chat-home-zero-section-heading p {
+  max-width: 760px;
+  margin: 5px 0 0;
+  color: var(--chat-text-muted);
+  line-height: 1.45;
+}
+
+.chat-home-zero-cockpit .chat-home-zero-section-heading button {
+  border: 1px solid var(--chat-border-strong);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--chat-accent) 9%, transparent);
+  color: var(--chat-accent-strong);
+  padding: 8px 10px;
+  font-weight: 700;
+}
+
+.chat-home-zero-cockpit-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.chat-home-zero-cockpit-grid article {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  border: 1px solid var(--chat-border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--chat-bg-elevated) 88%, transparent);
+  padding: 11px;
+}
+
+.chat-home-zero-cockpit-grid span {
+  color: var(--chat-text-muted);
+  font-size: 0.74rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.chat-home-zero-cockpit-grid strong {
+  color: var(--chat-text);
+  font-size: 1rem;
+}
+
+.chat-home-zero-cockpit-grid em,
+.chat-home-zero-cockpit-grid small {
+  overflow-wrap: anywhere;
+  color: var(--chat-text-muted);
+  font-size: 0.78rem;
+  font-style: normal;
+  line-height: 1.35;
+}
+
 .chat-home-zero-body {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 382px;
@@ -1869,7 +1937,8 @@
 
   .chat-home-zero-session-card,
   .chat-home-zero-session-card__harnesses,
-  .chat-home-zero-session-card__comparison {
+  .chat-home-zero-session-card__comparison,
+  .chat-home-zero-cockpit-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 

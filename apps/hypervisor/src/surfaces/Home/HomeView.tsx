@@ -31,6 +31,7 @@ import {
   buildHarnessCompatibilityVerdict,
   getHarnessSelectionRef,
 } from "../../windows/HypervisorShellWindow/harnessAdapterModel";
+import { HYPERVISOR_HOME_COCKPIT_PROJECTION } from "./homeCockpitModel";
 import {
   applyHypervisorAppearance,
   getHypervisorThemeOption,
@@ -336,6 +337,7 @@ function HomeDashboardView({
   const newSessionHarnessOptions =
     HYPERVISOR_NEW_SESSION_SETUP_MODEL.harnessOptions.slice(0, 4);
   const harnessComparison = HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE;
+  const cockpitProjection = HYPERVISOR_HOME_COCKPIT_PROJECTION;
   const surfaces: DashboardSurface[] = [
     {
       id: "projects",
@@ -550,6 +552,37 @@ function HomeDashboardView({
               <button type="button" onClick={onOpenPolicy}>
                 Review Authority
               </button>
+            </div>
+          </section>
+
+          <section
+            className="chat-home-zero-cockpit"
+            aria-label="Hypervisor cockpit status"
+            data-home-cockpit-projection={cockpitProjection.projection_id}
+            data-runtime-truth-source={cockpitProjection.runtimeTruthSource}
+          >
+            <div className="chat-home-zero-section-heading">
+              <div>
+                <h2>Core cockpit</h2>
+                <p>{cockpitProjection.boundary_invariant}</p>
+              </div>
+              <button type="button" onClick={onOpenRuns}>
+                Open evidence
+              </button>
+            </div>
+            <div className="chat-home-zero-cockpit-grid">
+              {cockpitProjection.metrics.map((metric) => (
+                <article
+                  key={metric.metric_ref}
+                  data-home-cockpit-metric={metric.metric_ref}
+                  data-home-cockpit-surface={metric.surface_ref}
+                >
+                  <span>{metric.label}</span>
+                  <strong>{metric.value}</strong>
+                  <em>{metric.detail}</em>
+                  <small>{metric.evidence_refs.slice(0, 2).join(" · ")}</small>
+                </article>
+              ))}
             </div>
           </section>
         </header>

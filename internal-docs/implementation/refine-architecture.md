@@ -1160,6 +1160,17 @@ Current implementation cut:
   truth; storage backends hold bytes only. Remaining work is live project
   projection hydration, project selection actions, archive/restore operation
   buttons, and paginated project receipt history.
+
+0A.2 first Home cockpit projection is implemented:
+  `homeCockpitModel.ts` defines `HypervisorHomeCockpitProjection` by composing
+  project restore, active session, privacy gates, provider posture, receipt
+  evidence, and harness comparison metrics from the existing Hypervisor Core
+  projections. `HomeView` now renders a Core cockpit status strip on the
+  landing page, making Home a projection over the same sessions/projects/
+  privacy/providers/receipts/Foundry evidence rather than a detached dashboard.
+  The invariant is explicit: Home summarizes evidence and does not become
+  runtime, authority, restore, or storage truth. Remaining work is live
+  projection hydration and interactive drill-through to selected surface rows.
 ```
 
 Code migration posture:

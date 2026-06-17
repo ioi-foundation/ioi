@@ -12,6 +12,10 @@ const homeOnboardingModel = readFileSync(
   new URL("./homeOnboardingModel.ts", import.meta.url),
   "utf8",
 );
+const homeCockpitModel = readFileSync(
+  new URL("./homeCockpitModel.ts", import.meta.url),
+  "utf8",
+);
 const homeWalkthroughDocument = readFileSync(
   new URL("./HomeWalkthroughDocument.tsx", import.meta.url),
   "utf8",
@@ -77,6 +81,25 @@ test("home dashboard exposes the New Session setup contract", () => {
     shellContent,
     /onOpenNewSession=\{controller\.modals\.openNewSessionModal\}/,
   );
+});
+
+test("home dashboard exposes the Core cockpit projection", () => {
+  assert.match(homeCockpitModel, /HypervisorHomeCockpitProjection/);
+  assert.match(homeCockpitModel, /HYPERVISOR_HOME_COCKPIT_PROJECTION/);
+  assert.match(homeCockpitModel, /does not become runtime/);
+  assert.match(homeCockpitModel, /Project restore/);
+  assert.match(homeCockpitModel, /Active session/);
+  assert.match(homeCockpitModel, /Privacy gates/);
+  assert.match(homeCockpitModel, /Provider posture/);
+  assert.match(homeCockpitModel, /Receipt evidence/);
+  assert.match(homeCockpitModel, /Harness comparison/);
+  assert.match(homeView, /HYPERVISOR_HOME_COCKPIT_PROJECTION/);
+  assert.match(homeView, /aria-label="Hypervisor cockpit status"/);
+  assert.match(homeView, /data-home-cockpit-projection/);
+  assert.match(homeView, /data-home-cockpit-metric/);
+  assert.match(homeView, /data-home-cockpit-surface/);
+  assert.match(homeCss, /\.chat-home-zero-cockpit\s*\{/);
+  assert.match(homeCss, /\.chat-home-zero-cockpit-grid\s*\{/);
 });
 
 test("home dashboard routes model setup to the Models surface", () => {
