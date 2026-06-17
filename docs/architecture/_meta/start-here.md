@@ -34,9 +34,13 @@ Hypervisor Canvas
   visual builder/editor inside Automations, Workbench, or Foundry; not runtime
   truth
 
-Hypervisor Outcome Rooms
-  governed multi-agent/multi-session search and eval containers for one
-  measurable outcome
+ioi.ai Outcome Rooms
+  chat.ioi.ai's first-party governed multi-agent/multi-session search and eval
+  containers over Hypervisor for one measurable outcome
+
+Hypervisor Foundry
+  model, worker, eval, dataset, registry, endpoint, training, and
+  ontology-aware package-building surface over Hypervisor Core
 
 Hypervisor sessions/providers/environments
   default cross-session views over managed workspaces, provider integrations,
@@ -423,8 +427,10 @@ TUI is an optional CLI presentation
 Hypervisor Workbench/Automations/Foundry are application surfaces over Core
 Canvas is a visual editor/projection, not a runtime owner
 ioi.ai Goal Chat proposes and coordinates; Hypervisor Automations owns durable workflows/services
-Outcome Rooms are governed collaborative missions with isolated attempts,
-eval gates, receipts, and promotion policy
+ioi.ai Outcome Rooms are chat.ioi.ai implementations of governed collaborative
+missions with isolated attempts, eval gates, receipts, and promotion policy
+Foundry builds and evaluates models, workers, datasets, endpoints, registries,
+and ontology-aware packages
 Hypervisor provider/environment views manage sessions, providers, and environments
 External agent harnesses are mediated through Agent Harness Adapters
 Workflow Compositor shapes high-level directed work

@@ -1,10 +1,10 @@
-# Hypervisor Outcome Rooms And Collaborative Missions
+# Outcome Rooms And Collaborative Missions Over Hypervisor
 
 Status: canonical architecture authority.
-Canonical owner: this file for Outcome Rooms, Collaborative Missions,
-multi-agent/multi-session search, benchmark-gated outcome races, shared
-message/leaderboard/evidence rooms, and Stockfish-style coding/computer-use
-search patterns.
+Canonical owner: this file for the Outcome Room pattern, ioi.ai/chat.ioi.ai
+Outcome Rooms, Collaborative Missions over Hypervisor, multi-agent/multi-session
+search, benchmark-gated outcome races, shared message/leaderboard/evidence
+rooms, and Stockfish-style coding/computer-use search patterns.
 Supersedes: product prose that treats collaborative agents as a group chat,
 unbounded swarm, separate runtime, or leaderboard without authority, receipts,
 and replay.
@@ -13,20 +13,23 @@ Last alignment pass: 2026-06-17.
 
 ## Canonical Definition
 
-**A Hypervisor Outcome Room is a governed collaborative mission container where
-many agents, harnesses, models, humans, sessions, and verifier paths search for
-one measurable outcome under explicit authority, budget, privacy, and quality
-guardrails.**
+**An Outcome Room is ioi.ai/chat.ioi.ai's first-party use of Hypervisor
+Core, CLI/headless operation, Automations, sessions, harness adapters, and
+Foundry/eval lanes to turn one user intent into one measurable outcome through
+governed multi-agent and multi-session search.**
 
-It is the Hypervisor-native pattern for turning an intent into a verifiable
-outcome when the best answer is likely to come from parallel attempts,
-multi-path search, benchmark races, specialist agents, or competing strategies.
+It is not a new Hypervisor runtime or a required Hypervisor product surface.
+It is the canonical ioi.ai product implementation of a general pattern that
+any Hypervisor client, SDK, enterprise console, or third-party system may build:
+a durable Collaborative Mission that coordinates many agents, harnesses,
+models, humans, sessions, and verifier paths under explicit authority, budget,
+privacy, and quality guardrails.
 
 Product line:
 
 ```text
-State the outcome.
-Hypervisor opens an Outcome Room.
+State the goal in chat.ioi.ai.
+ioi.ai opens an Outcome Room over Hypervisor.
 Agents explore in isolated sessions.
 Evals score attempts.
 Receipts prove why the winner won.
@@ -41,6 +44,7 @@ a fixed swarm
 a separate runtime beside the daemon
 a replacement for Hypervisor Automations
 a replacement for Foundry
+a mandatory Hypervisor UI for all users
 a marketplace by itself
 a leaderboard without receipts
 a direct self-improvement path
@@ -49,7 +53,7 @@ an excuse to bypass wallet.network authority
 
 ## Owns
 
-Outcome Rooms own product-level coordination for:
+Outcome Rooms own ioi.ai-level coordination and projections for:
 
 - the outcome objective and acceptance criteria;
 - participant roster across humans, workers, models, and harness adapters;
@@ -81,11 +85,15 @@ Outcome Rooms do not own:
 ## Stack Relationship
 
 ```text
-ioi.ai Goal Chat
-  may create an OutcomeRoom draft from a user goal
+chat.ioi.ai / ioi.ai Goal Chat
+  creates, inspects, and coordinates the first-party Outcome Room experience
 
 Hypervisor Automations
-  owns the durable OutcomeRoom / CollaborativeMission spec and trigger policy
+  owns the durable CollaborativeMission / AutomationSpec and trigger policy
+
+Hypervisor CLI / Headless Client
+  provides the programmable operation lane ioi.ai can use to start, inspect,
+  pause, resume, and govern sessions without becoming the runtime itself
 
 Hypervisor Sessions
   isolate attempts across branches, sandboxes, VMs, browsers, shells,
@@ -99,8 +107,9 @@ Workbench
   inspects attempts, diffs, traces, failures, screenshots, and promoted patches
 
 Foundry
-  owns eval suites, benchmark gates, scorecards, failure mining, skill
-  extraction, worker/package improvement, and promotion proposals
+  owns model/worker building surfaces, eval suites, benchmark gates,
+  scorecards, failure mining, skill extraction, worker/package improvement,
+  ontology-bound datasets, and promotion proposals
 
 Hypervisor Daemon
   gates and executes consequential actions
@@ -168,8 +177,10 @@ where attempts become comparable, replayable, promotable, and teachable.
 ## Lifecycle
 
 ```text
-1. User states a desired outcome in ioi.ai, Hypervisor, Wallet, or an API.
-2. Hypervisor creates an OutcomeRoom draft with objective, constraints,
+1. User states a desired outcome in chat.ioi.ai, ioi.ai, Hypervisor, Wallet,
+   or an API.
+2. ioi.ai or another client creates an OutcomeRoom draft with objective,
+   constraints,
    authority requirements, privacy posture, budget, and quality guardrails.
 3. Hypervisor Automations turns the draft into a CollaborativeMission spec.
 4. wallet.network grants scoped budgets, credentials, provider access, or
@@ -193,8 +204,10 @@ where attempts become comparable, replayable, promotable, and teachable.
 ## Minimal Implementation Objects
 
 ```yaml
-HypervisorOutcomeRoom:
+OutcomeRoom:
   outcome_room_id: outcome_room:...
+  owner_surface:
+    ioi_ai | hypervisor_client | sdk_client | enterprise_console | third_party
   project_ref: project:...
   automation_ref: automation:...
   mission_ref: mission:...
@@ -307,8 +320,12 @@ OutcomeScorecard:
 
 ## Conformance Checks
 
-- Outcome Rooms must run through Hypervisor Automations and daemon/Core
-  contracts, not through an ungoverned chat process.
+- ioi.ai Outcome Rooms must run through Hypervisor Automations,
+  CLI/headless/Core contracts, and daemon gates, not through an ungoverned chat
+  process.
+- Third-party Outcome Room-like products may use their own UI, but they must
+  still bind to Hypervisor contracts before claiming IOI-grade authority,
+  receipts, replay, or settlement.
 - Every consequential attempt must produce receipts, Agentgres operation refs,
   and enough replay/evidence material to justify its leaderboard position.
 - Leaderboards must rank by declared objective and guardrails, not raw model
@@ -344,8 +361,9 @@ shared workspace = private workspace by default
 Correct:
 
 ```text
-Outcome Room = governed multi-session search/eval container
+Outcome Room = ioi.ai implementation of governed multi-session search/eval
 Collaborative Mission = durable automation class
+Hypervisor Core / CLI-headless = programmable substrate for the room
 participants propose
 daemon gates and executes
 wallet.network authorizes

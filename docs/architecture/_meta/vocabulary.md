@@ -503,10 +503,14 @@ compliance acronyms for hidden audit material.
 - `HypervisorAutomationRun`: run/session projection for one execution of an
   AutomationSpec. It binds session refs, trigger refs, daemon refs, Agentgres
   operation refs, receipt refs, artifact refs, and terminal status.
-- `HypervisorOutcomeRoom`: governed collaborative mission container where many
-  agents, models, harnesses, humans, sessions, and verifier lanes search toward
-  one measurable outcome under explicit objective metrics, quality guardrails,
+- `OutcomeRoom`: governed collaborative mission pattern where many agents,
+  models, harnesses, humans, sessions, and verifier lanes search toward one
+  measurable outcome under explicit objective metrics, quality guardrails,
   budgets, authority, privacy posture, receipts, and promotion policy.
+- `IoiAiOutcomeRoom`: chat.ioi.ai's first-party implementation of
+  `OutcomeRoom` over Hypervisor Core, CLI/headless operation, Automations,
+  sessions, harness adapters, daemon gates, wallet.network authority,
+  Agentgres receipts, and Foundry/eval lanes.
 - `CollaborativeMission`: a mission class used by Outcome Rooms when multiple
   participants or attempts work on the same outcome. It is not a group chat or
   unbounded swarm; it is a durable Automations object backed by daemon
@@ -857,10 +861,13 @@ compliance acronyms for hidden audit material.
   schemas, recipe model, daemon execution path, and Agentgres receipt model
   used by Hypervisor application surfaces. It is a UI/workflow substrate, not
   canonical runtime truth by itself.
-- `HypervisorFoundry`: the Hypervisor application surface for creating, training,
-  configuring, evaluating, packaging, deploying, and improving workers through
-  the Worker Training lifecycle. It can project recipes into the standard
-  Workflow Compositor, but it is not a separate canvas environment or runtime.
+- `HypervisorFoundry`: the Hypervisor application surface for model garden,
+  model registry, model routes/mounts, tuning, training, evaluation, datasets,
+  feature views, experiments, pipelines, endpoints, batch inference, metadata,
+  monitoring, worker/package creation, ontology-aware package building, and
+  promotion proposals. It can project recipes into the standard Workflow
+  Compositor, but it is not a separate canvas environment, Outcome Room, or
+  runtime.
 - `HypervisorProviderEnvironmentView`: default Hypervisor App, Hypervisor Web,
   CLI/headless, optional TUI, or console view for hands-on management of
   attached nodes, providers, persistent workspaces, active

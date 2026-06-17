@@ -46,6 +46,10 @@ Provider integrations across local, cloud, DePIN, storage, or HypervisorOS
 
 Stockfish-style coding, multi-agent search, or benchmarked outcome races
   -> components/hypervisor/outcome-rooms.md
+
+Model gardens, tuning, evals, datasets, endpoints, training, package promotion,
+or ontology-aware worker building
+  -> components/hypervisor/foundry.md
 ```
 
 Current Hypervisor product-surface addition:
@@ -56,8 +60,11 @@ Current Hypervisor product-surface addition:
 > Workbench, Automations, and Foundry are application surfaces over the same
 > Core. Automations owns the durable workflow/service/mission surface, while
 > Canvas is a visual editor/projection inside Automations, Workbench, or
-> Foundry. Outcome Rooms are governed collaborative missions for
-> multi-agent/multi-session search toward one measurable outcome. Sessions are
+> Foundry. chat.ioi.ai Outcome Rooms are ioi.ai's first-party governed
+> collaborative missions over Hypervisor for multi-agent/multi-session search
+> toward one measurable outcome. Foundry is the model, worker, eval, dataset,
+> training, endpoint, registry, and ontology-aware package-building surface.
+> Sessions are
 > the primary unit. Providers, environments, services, tasks, ports, logs,
 > archive refs, restore refs, and infrastructure posture are default Hypervisor
 > session/project/provider views, not a separate Fleet surface. Editor

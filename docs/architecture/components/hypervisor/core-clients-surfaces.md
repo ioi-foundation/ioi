@@ -35,8 +35,9 @@ Product boundary doctrine:
 ioi.ai asks and coordinates goals.
 Hypervisor runs governed autonomous work.
 Automations make durable workflows and services.
-Outcome Rooms coordinate multi-session search toward measurable outcomes.
-Foundry makes and improves workers, models, evals, and packages.
+ioi.ai Outcome Rooms coordinate multi-session search toward measurable outcomes.
+Foundry builds models, workers, evals, datasets, ontology-bound packages,
+and deployment candidates.
 Workbench develops, debugs, and operates systems.
 Canvas visually edits automations; it is not runtime truth.
 ```
@@ -155,11 +156,13 @@ Hypervisor Workbench
 
 Hypervisor Automations
   durable workflow, trigger, schedule, API/service, approval-flow, and
-  background-mission surface, including Outcome Rooms / Collaborative Missions
+  background-mission surface, including ioi.ai Outcome Rooms / Collaborative
+  Missions
 
 Hypervisor Foundry
-  worker creation, training, evaluation, benchmarking, packaging, and
-  improvement surface
+  model garden, registry, model routes/mounts, tuning, training, evaluation,
+  datasets, experiments, pipelines, endpoints, monitoring, worker/package
+  creation, and ontology-aware improvement surface
 
 Hypervisor Canvas
   visual builder/editor inside Automations, Workbench, or Foundry where useful;
@@ -283,13 +286,17 @@ Canvas is the product plane.
 
 ## Hypervisor Foundry
 
-**Hypervisor Foundry** is the worker/model/eval/training/package surface over
-Hypervisor Core.
+**Hypervisor Foundry** is the worker/model/eval/training/dataset/registry/
+endpoint/package surface over Hypervisor Core.
 
 Foundry produces and improves things that other surfaces use:
 
+- model garden entries and model cards;
+- model registry entries, model routes, and model-mount candidates;
 - WorkerPackages and worker manifests;
-- model cards, model routes, and model-mount candidates;
+- datasets, feature views, ontology-bound datasets, and holdouts;
+- experiments, pipelines, endpoints, batch inference, metadata, and monitoring
+  projections;
 - eval suites, benchmarks, and verifier candidates;
 - training, distillation, fine-tuning, and dataset recipes;
 - quality gates and promotion proposals;
@@ -299,6 +306,10 @@ Foundry may consume Automations traces, Workbench runs, agent corrections,
 receipts, and evaluation results, but it does not directly self-mutate the
 runtime. Durable improvements enter through governed proposals, eval gates,
 wallet/network approvals when needed, and Agentgres admission.
+
+Foundry is owned in detail by [`foundry.md`](./foundry.md). Outcome Rooms may
+consume Foundry evals and promote lessons into Foundry proposals, but Outcome
+Rooms are not Foundry and Foundry is not a chat room.
 
 ## Workflow Compositor
 

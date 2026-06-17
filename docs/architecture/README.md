@@ -63,7 +63,8 @@ Hypervisor Workbench/Automations/Foundry = application surfaces over Hypervisor 
 Hypervisor Workbench/Foundry = application surfaces over Hypervisor Core
 Hypervisor Automations = durable workflow, trigger, schedule, API/service, and background-mission surface
 Hypervisor Canvas = visual builder/editor inside Automations/Workbench/Foundry, not runtime truth
-Hypervisor Outcome Room = governed multi-agent/multi-session search/eval container for one measurable outcome
+ioi.ai Outcome Room = chat.ioi.ai implementation of governed multi-agent/multi-session search/eval over Hypervisor
+Hypervisor Foundry = model, worker, eval, dataset, registry, endpoint, training, and ontology-aware package build surface
 Hypervisor sessions/providers/environments = default cross-session infrastructure views
 Hypervisor Node = local autonomous-system settlement and interop domain
 Hypervisor Adapters = mediated bridges to editors, terminals, browsers, VMs, OS surfaces, and nodes
@@ -173,11 +174,11 @@ Read the stack this way:
   triggers, schedules, APIs/services, approval flows, queues, and background
   missions; Canvas is the visual editor/projection for graph-shaped work, not
   the owner of execution, authority, receipts, or truth;
-- Hypervisor Outcome Rooms are a special Automations pattern for Stockfish-style
-  coding and generalized computer-use search: many agents, models, harnesses,
-  humans, sessions, branches, and verifier lanes compete or collaborate toward
-  one measurable outcome under eval gates, receipts, authority, privacy, and
-  promotion policy;
+- ioi.ai Outcome Rooms are chat.ioi.ai's first-party Automations pattern over
+  Hypervisor for Stockfish-style coding and generalized computer-use search:
+  many agents, models, harnesses, humans, sessions, branches, and verifier lanes
+  compete or collaborate toward one measurable outcome under eval gates,
+  receipts, authority, privacy, and promotion policy;
 - IOI Authority Gateway is the daemon sidecar/adapter profile for existing IDE,
   CLI, browser, hosted-agent, and MCP/tool ecosystems: keep your IDE, keep your
   model, and put consequential execution behind IOI;
@@ -261,7 +262,8 @@ distilled back into this architecture pack or into an accepted decision record.
 - [`daemon-runtime/doctrine.md`](./components/daemon-runtime/doctrine.md) — universal execution endpoint for local, hosted, and DePIN nodes.
 - [`daemon-runtime/hypervisoros.md`](./components/daemon-runtime/hypervisoros.md) — bare-metal Hypervisor node profile, measured boot, daemon-rooted workload launch, node enforcement profile, node integrity receipts, and HypervisorOS conformance.
 - [`hypervisor/core-clients-surfaces.md`](./components/hypervisor/core-clients-surfaces.md) — Hypervisor Core, first-class clients, application surfaces, projects, sessions, missions, adapter connection profiles, access/log/support policies, and harness environment-ops contracts; App/Web/CLI-headless are clients, TUI is an optional CLI presentation, Workbench/Automations/Foundry are application surfaces, Canvas is an editor/projection, provider/environment posture is a default Hypervisor view, and external CLI agents are harness adapters.
-- [`hypervisor/outcome-rooms.md`](./components/hypervisor/outcome-rooms.md) — Outcome Rooms and Collaborative Missions for governed multi-agent/multi-session search, benchmark races, shared message/leaderboard/evidence rooms, and Stockfish-style coding/computer-use search.
+- [`hypervisor/foundry.md`](./components/hypervisor/foundry.md) — Hypervisor Foundry as the model garden, registry, model route/mount, tuning, training, evaluation, dataset, experiment, pipeline, endpoint, metadata, monitoring, package, and ontology-aware build surface.
+- [`hypervisor/outcome-rooms.md`](./components/hypervisor/outcome-rooms.md) — ioi.ai/chat.ioi.ai Outcome Rooms and Collaborative Missions over Hypervisor for governed multi-agent/multi-session search, benchmark races, shared message/leaderboard/evidence rooms, and Stockfish-style coding/computer-use search.
 - [`hypervisor/providers-and-environments.md`](./components/hypervisor/providers-and-environments.md) — Hypervisor-managed sessions, environments, providers, cross-session infrastructure posture, direct provider integrations such as Akash compute/GPU and Filecoin storage/retrieval, zero-to-idle/restore posture, warmup/cache posture, services/tasks/ports/logs/SCM auth, access leases, archive/restore refs, and the deprecated Fleet boundary.
 - [`hypervisor/fleet.md`](./components/hypervisor/fleet.md) — deprecated terminology stub; use Hypervisor providers/environments instead.
 - [`daemon-runtime/private-workspace-ctee.md`](./components/daemon-runtime/private-workspace-ctee.md) — Private Workspace backed by cTEE for persistent rented GPU Hypervisor Nodes, Candidate-Lattice Private Decoding, private files/folders, private strategy execution, autonomy leases, declassification gates, and no-plaintext protected classes.
@@ -328,9 +330,9 @@ supporting file.
 | HypervisorOS | Bare-metal Hypervisor node profile where the daemon is the node root; owns measured node boot, daemon-rooted workload launch, node enforcement posture, node integrity receipts, and bare-metal conformance without replacing cTEE privacy or wallet.network authority. |
 | Hypervisor Core | Shared product/runtime substrate used by Hypervisor clients and application surfaces; its execution owner is the Hypervisor Daemon and its step/module backend converges on the Rust/WASM workload/kernel substrate. |
 | Hypervisor App / Web / CLI-headless | First-class clients over Hypervisor Core for native desktop, browser/team/remote, and terminal/headless operation; TUI is an optional CLI presentation. |
-| Hypervisor Workbench / Automations / Foundry | Application surfaces over Hypervisor Core for code/systems/workspace operation, durable workflows/services/missions, and worker/eval/training. |
+| Hypervisor Workbench / Automations / Foundry | Application surfaces over Hypervisor Core for code/systems/workspace operation, durable workflows/services/missions, and model/worker/eval/dataset/training/ontology-aware package building. |
 | Hypervisor Canvas | Visual builder/editor inside Automations, Workbench, or Foundry; edits or displays graph-shaped work without owning runtime truth. |
-| Hypervisor Outcome Room | Governed collaborative mission container for many agents, models, harnesses, humans, sessions, and verifier lanes searching toward one measurable outcome. |
+| ioi.ai Outcome Room | chat.ioi.ai implementation of a governed collaborative mission over Hypervisor: many agents, models, harnesses, humans, sessions, and verifier lanes searching toward one measurable outcome. |
 | Hypervisor Providers / Environments | Default Hypervisor views and daemon/Core objects for sessions, environments, providers, nodes, VMs, containers, microVMs, WASM workloads, images, volumes, networks, GPU pools, DePIN/cloud/local/bare-metal runtime inventory, CloudRoute candidates, direct Akash/Filecoin-style provider/storage integrations, zero-to-idle/restore posture, warmup/cache posture, placement, health, cost, storage posture, cTEE posture, receipts, replay projections, and policy visibility without creating a separate Fleet app, surface, runtime, authority, truth, or storage layer. |
 | Wallet Lanes / Provider Integrations | Wallet is the authority cockpit. decentralized.exchange is a route-intelligence engine for liquidity, decentralized.trade is a venue/market-intelligence engine for exposure including prediction markets/event contracts, and Hypervisor integrates directly with compute, storage, GPU, confidential, DePIN, local, customer-cloud, and enterprise providers. Candidates propose; wallet.network authorizes; Hypervisor executes or deploys; venues/providers perform; Agentgres records; IOI L1 settles by trigger. |
 | Private Workspace backed by cTEE | User-facing private workspace and daemon execution profile for persistent rented GPU nodes that run useful compute without receiving protected plaintext by default; Plaintext-Free Runtime Mounting is the daemon boundary, CLPD is the default protected-agency strategy, Candidate Coverage Profile estimates proposal redundancy, Counterfactual Lattice Execution trades extra public token volume for lower online private-choice leakage, the Cryptographic Operator Plane handles protected private operators internally, External Model API Boundary distinguishes private-native/redacted-API/provider-trust/unsafe paths, and deterrence/detection receipts support canaries, watermarks, and disputes. |
