@@ -47,16 +47,9 @@ const workflowValidation = fs.readFileSync(
   ),
   "utf8",
 );
-const legacyDesktopProjectTypes = fs.readFileSync(
+const rustHarnessService = fs.readFileSync(
   new URL(
-    "../../../../../internal-docs/legacy/autopilot-tauri-src/src/project/types.rs",
-    import.meta.url,
-  ),
-  "utf8",
-);
-const localEngineSupport = fs.readFileSync(
-  new URL(
-    "../../../../../internal-docs/legacy/autopilot-tauri-src/src/kernel/data/commands/local_engine_support.rs",
+    "../../../../../crates/services/src/agentic/runtime/harness.rs",
     import.meta.url,
   ),
   "utf8",
@@ -324,14 +317,14 @@ assert.match(
 );
 
 assert.match(
-  legacyDesktopProjectTypes,
-  /(?=[\s\S]*WorkflowNodeRun[\s\S]*pub harness_attempt: Option<Value>)(?=[\s\S]*WorkflowRunResult[\s\S]*pub harness_attempts: Vec<Value>[\s\S]*pub harness_shadow_comparisons: Vec<Value>[\s\S]*pub harness_gated_cluster_runs: Vec<Value>)(?=[\s\S]*WorkflowPortablePackageManifest[\s\S]*pub harness: Option<Value>[\s\S]*pub worker_harness_binding: Option<Value>)/,
+  graphTypes,
+  /(?=[\s\S]*interface WorkflowNodeRun[\s\S]*harnessAttempt\?: WorkflowHarnessNodeAttemptRecord)(?=[\s\S]*interface WorkflowRunResult[\s\S]*harnessAttempts\?: WorkflowHarnessNodeAttemptRecord\[\][\s\S]*harnessShadowComparisons\?: WorkflowHarnessShadowComparison\[\])(?=[\s\S]*interface WorkflowPortablePackageManifest[\s\S]*workerHarnessBinding\?: WorkflowHarnessWorkerBinding)/,
   "Portable packages and run records should preserve harness metadata, worker binding identity, node attempts, shadow comparisons, and gated cluster runs.",
 );
 
 assert.match(
-  localEngineSupport,
-  /harness_workflow_id: Some\([\s\S]*DEFAULT_AGENT_HARNESS_WORKFLOW_ID[\s\S]*harness_activation_id: Some\([\s\S]*DEFAULT_AGENT_HARNESS_ACTIVATION_ID[\s\S]*harness_hash: Some\([\s\S]*DEFAULT_AGENT_HARNESS_HASH/,
+  rustHarnessService,
+  /(?=[\s\S]*HarnessWorkerSessionRecord)(?=[\s\S]*DEFAULT_AGENT_HARNESS_WORKFLOW_ID)(?=[\s\S]*DEFAULT_AGENT_HARNESS_ACTIVATION_ID)(?=[\s\S]*DEFAULT_AGENT_HARNESS_HASH)/,
   "Worker workflow records should point at the blessed default harness identity.",
 );
 

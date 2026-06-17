@@ -206,7 +206,7 @@ impl HarnessComponentKind {
                 "packages/runtime-daemon/src/index.mjs"
             }
             Self::WorkflowPackageExport | Self::WorkflowPackageImport => {
-                "internal-docs/legacy/autopilot-tauri-src/src/project/commands.rs"
+                "packages/hypervisor-workbench/src/runtime/workflow-node-registry.ts"
             }
             Self::RepositoryContext
             | Self::BranchPolicy

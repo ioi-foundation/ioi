@@ -22,12 +22,12 @@ execution semantics and durable run truth.
 domains, manifests, receipts, authority scopes, and mainnet/application-domain
 interactions.**
 
-The IOI CLI is a terminal/headless client over daemon/public runtime APIs and
-the broader canonical Web4 stack. It may mirror daemon commands, render
-operator workflows, resolve natural-language intent into inspectable plans, and
-administer domain/settlement/authority surfaces. A TUI may be offered as an
-interactive presentation of the CLI, but it is not a separate first-class
-runtime or client lane.
+The IOI CLI is a terminal/TUI client over daemon/public runtime APIs and
+the broader canonical Web4 stack, with headless mode for scripting. It may
+mirror daemon commands, render operator workflows, resolve natural-language
+intent into inspectable plans, and administer domain/settlement/authority
+surfaces. A TUI may be offered as an interactive presentation of the CLI, but
+it is not a separate first-class runtime or client lane.
 The CLI must not own a separate agent runtime or execution loop.
 
 Through daemon APIs, it launches workflows, agents, workers, tools, models,

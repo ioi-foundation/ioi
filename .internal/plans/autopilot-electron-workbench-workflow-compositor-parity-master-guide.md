@@ -101,8 +101,7 @@ Known local state as of 2026-05-20:
   live connectors, mutate files directly, or revive Tauri.
 - `apps/autopilot/src` remains legacy React/Tauri shell extraction inventory.
   That path is not canonical and should not be revived as the product shell.
-- `apps/autopilot/src-tauri` remains archived at
-  `internal-docs/legacy/autopilot-tauri-src/`.
+- `apps/autopilot/src-tauri` is retired; git history is the recovery handle.
 
 Interpretation:
 
@@ -308,7 +307,7 @@ Inventory source paths:
 - `packages/agent-ide/src/runtime/`
 - `apps/autopilot/src/surfaces/Workspace/`
 - `apps/autopilot/src/windows/AutopilotShellWindow/`
-- `internal-docs/legacy/autopilot-tauri-src/`
+- retired Tauri-era source in git history
 
 Inventory target:
 

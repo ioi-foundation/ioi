@@ -571,7 +571,7 @@ const setupWebSteps: AutopilotOnboardingStep[] = [
     },
     condition: "always",
     captureStatus: "captured",
-    targetRoute: "Autopilot appearance settings + OpenVSCode colorTheme",
+    targetRoute: "Hypervisor appearance settings + OpenVSCode colorTheme",
     completionPredicate: "appearance-selected",
     primaryAction: action(
       "appearance.selectTheme",
@@ -599,7 +599,7 @@ const setupWebSteps: AutopilotOnboardingStep[] = [
     },
     condition: "isWeb",
     captureStatus: "captured",
-    targetRoute: "Autopilot shell density and workbench menu preference",
+    targetRoute: "Hypervisor shell density and workbench menu preference",
     completionPredicate: "manual",
     primaryAction: action(
       "workbench.toggleMenuBar",
@@ -696,7 +696,7 @@ const setupWebSteps: AutopilotOnboardingStep[] = [
     },
     condition: "syncStatus != uninitialized",
     captureStatus: "source-known-needs-targeted-capture",
-    targetRoute: "Autopilot profile settings and OpenVSCode sync posture",
+    targetRoute: "Hypervisor profile settings and OpenVSCode sync posture",
     completionPredicate: "manual",
     primaryAction: action(
       "settings.sync",
@@ -725,7 +725,7 @@ const setupWebSteps: AutopilotOnboardingStep[] = [
     },
     condition: "always",
     captureStatus: "captured",
-    targetRoute: "Autopilot Command Palette",
+    targetRoute: "Hypervisor Command Palette",
     completionPredicate: "palette-opened",
     primaryAction: action(
       "palette.open",
@@ -754,7 +754,7 @@ const setupWebSteps: AutopilotOnboardingStep[] = [
     },
     condition: "workspaceFolderCount == 0",
     captureStatus: "source-known-needs-targeted-capture",
-    targetRoute: "Autopilot project selection and contained direct Workbench",
+    targetRoute: "Hypervisor project selection and contained direct Workbench",
     completionPredicate: "project-selected",
     primaryAction: action(
       "project.openWorkbench",
@@ -792,7 +792,7 @@ const setupWebSteps: AutopilotOnboardingStep[] = [
     },
     condition: "workspaceFolderCount != 0",
     captureStatus: "captured",
-    targetRoute: "Autopilot command center",
+    targetRoute: "Hypervisor command center",
     completionPredicate: "workspace-opened",
     primaryAction: action(
       "quickOpen.open",
@@ -881,7 +881,7 @@ const fundamentalsSteps: AutopilotOnboardingStep[] = [
     },
     condition: "workspacePlatform != 'webworker' && syncStatus != uninitialized",
     captureStatus: "source-known-needs-targeted-capture",
-    targetRoute: "Autopilot settings and contained OpenVSCode settings",
+    targetRoute: "Hypervisor settings and contained OpenVSCode settings",
     completionPredicate: "manual",
     primaryAction: action(
       "runtime.openSettings",
@@ -1139,7 +1139,7 @@ const fundamentalsSteps: AutopilotOnboardingStep[] = [
     },
     condition: "always",
     captureStatus: "captured",
-    targetRoute: "Autopilot accessibility and OpenVSCode keybindings",
+    targetRoute: "Hypervisor accessibility and OpenVSCode keybindings",
     completionPredicate: "accessibility-reviewed",
     primaryAction: action(
       "workbench.openShortcuts",
@@ -1168,7 +1168,7 @@ const fundamentalsSteps: AutopilotOnboardingStep[] = [
     },
     condition: "workspacePlatform != 'webworker' && !isWorkspaceTrusted && workspaceFolderCount == 0",
     captureStatus: "source-known-needs-targeted-capture",
-    targetRoute: "Autopilot policy boundaries and OpenVSCode Workspace Trust",
+    targetRoute: "Hypervisor policy boundaries and OpenVSCode Workspace Trust",
     completionPredicate: "policy-reviewed",
     primaryAction: action(
       "workbench.workspaceTrust",
@@ -1200,7 +1200,7 @@ const accessibilitySteps: AutopilotOnboardingStep[] = [
     },
     condition: "accessibility context",
     captureStatus: "source-indexed-not-default-visible",
-    targetRoute: "Autopilot accessibility diagnostics and OpenVSCode help",
+    targetRoute: "Hypervisor accessibility diagnostics and OpenVSCode help",
     completionPredicate: "accessibility-reviewed",
     primaryAction: action(
       "accessibility.openSettings",
@@ -1224,7 +1224,7 @@ const accessibilitySteps: AutopilotOnboardingStep[] = [
     media: { kind: "empty-markdown", assets: [], alt: "Accessible view" },
     condition: "accessibility context",
     captureStatus: "source-indexed-not-default-visible",
-    targetRoute: "Autopilot accessibility settings",
+    targetRoute: "Hypervisor accessibility settings",
     completionPredicate: "accessibility-reviewed",
     primaryAction: action(
       "accessibility.openSettings",
@@ -1252,7 +1252,7 @@ const accessibilitySteps: AutopilotOnboardingStep[] = [
     media: { kind: "empty-markdown", assets: [], alt: "Accessibility settings" },
     condition: "accessibility context",
     captureStatus: "source-indexed-not-default-visible",
-    targetRoute: "Autopilot accessibility settings",
+    targetRoute: "Hypervisor accessibility settings",
     completionPredicate: "accessibility-reviewed",
     primaryAction: action(
       "accessibility.openSettings",
@@ -1280,7 +1280,7 @@ const accessibilitySteps: AutopilotOnboardingStep[] = [
     },
     condition: "accessibility context",
     captureStatus: "source-indexed-not-default-visible",
-    targetRoute: "Autopilot Command Palette",
+    targetRoute: "Hypervisor Command Palette",
     completionPredicate: "palette-opened",
     primaryAction: action(
       "palette.open",
@@ -1312,7 +1312,7 @@ const accessibilitySteps: AutopilotOnboardingStep[] = [
     },
     condition: "accessibility context",
     captureStatus: "source-indexed-not-default-visible",
-    targetRoute: "Autopilot accessibility settings and OpenVSCode keybindings",
+    targetRoute: "Hypervisor accessibility settings and OpenVSCode keybindings",
     completionPredicate: "accessibility-reviewed",
     primaryAction: action(
       "workbench.openShortcuts",
@@ -1338,7 +1338,7 @@ const accessibilitySteps: AutopilotOnboardingStep[] = [
     media: { kind: "empty-markdown", assets: [], alt: "Accessibility signals" },
     condition: "accessibility context",
     captureStatus: "source-indexed-not-default-visible",
-    targetRoute: "Autopilot accessibility settings",
+    targetRoute: "Hypervisor accessibility settings",
     completionPredicate: "accessibility-reviewed",
     primaryAction: action(
       "accessibility.openSettings",
@@ -1463,7 +1463,7 @@ const accessibilitySteps: AutopilotOnboardingStep[] = [
     media: { kind: "empty-markdown", assets: [], alt: "Accessibility settings" },
     condition: "accessibility context",
     captureStatus: "source-indexed-not-default-visible",
-    targetRoute: "Autopilot accessibility settings",
+    targetRoute: "Hypervisor accessibility settings",
     completionPredicate: "accessibility-reviewed",
     primaryAction: action(
       "accessibility.openSettings",
@@ -1489,7 +1489,7 @@ const accessibilitySteps: AutopilotOnboardingStep[] = [
     media: { kind: "empty-markdown", assets: [], alt: "Dictation commands" },
     condition: "hasSpeechProvider",
     captureStatus: "source-indexed-not-default-visible",
-    targetRoute: "Autopilot accessibility settings",
+    targetRoute: "Hypervisor accessibility settings",
     completionPredicate: "accessibility-reviewed",
     primaryAction: action(
       "accessibility.openSettings",

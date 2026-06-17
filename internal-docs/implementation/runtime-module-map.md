@@ -79,8 +79,9 @@ When moving runtime code, prefer this order:
 3. Keep temporary compatibility wrappers only if an active public or persisted
    surface requires them.
 4. Remove roadmap/proof names from product paths once conformance stays green.
-5. Do not create new active Tauri homes. Preserve retired Tauri source only as
-   historical extraction inventory under `internal-docs/legacy/`.
+5. Do not create new active Tauri homes. The retired Tauri app is deleted from
+   the active tree; git history is the recovery handle, and any external archive
+   must be explicitly marked deprecated rather than used as a contract source.
 6. Do not add new root `ide/`, `agent-ide`, or Autopilot-named product paths.
    Workbench adapter hosts belong under `workbench-adapters/`; active product
    scripts should expose Hypervisor names.

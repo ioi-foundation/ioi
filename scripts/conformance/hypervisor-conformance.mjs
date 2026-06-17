@@ -40890,13 +40890,19 @@ function runCompositor() {
       /desktop-probes-no-tauri-product-language/.test(runtimeLayoutCheck) &&
       /not describe a Tauri app/.test(runtimeLayoutCheck) &&
       /desktop-probes-no-ide-product-marker/.test(runtimeLayoutCheck) &&
-      /retired Workspace IDE marker/.test(runtimeLayoutCheck),
+      /retired Workspace IDE marker/.test(runtimeLayoutCheck) &&
+      !/readOptional\("internal-docs\/legacy\/autopilot-tauri-src/.test(
+        liveRuntimeDaemonContract,
+      ) &&
+      !/assertLegacyTauri/.test(liveRuntimeDaemonContract) &&
+      !/internal-docs\/legacy\/autopilot-tauri-src/.test(liveRuntimeDaemonContract),
     [
       "scripts/generate-runtime-action-contracts.mjs",
       "scripts/check-pre-next-leg-readiness.mjs",
       "scripts/check-runtime-layout.mjs",
+      "scripts/lib/live-runtime-daemon-contract.test.mjs",
     ],
-    "Phase 10/11 is pending: active gates must not require retired Tauri Rust runtime paths",
+    "Phase 10/11 is pending: active gates and live-runtime tests must not require retired Tauri Rust runtime paths",
   );
   assertCheck(
     result,

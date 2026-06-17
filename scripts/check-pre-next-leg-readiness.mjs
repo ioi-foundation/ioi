@@ -93,15 +93,14 @@ assert(
 const activeTauriRuntimeProjection = "apps/hypervisor/src-tauri/src/runtime_projection.rs";
 assert(
   !fs.existsSync(path.join(root, activeTauriRuntimeProjection)),
-  "Active Tauri runtime projection must stay retired; legacy extraction inventory lives under internal-docs/legacy.",
+  "Active Tauri runtime projection must stay retired; generated runtime contracts live under Rust app types.",
 );
 
 const tsSubstrate = read("packages/hypervisor-workbench/src/runtime/runtime-projection-adapter.ts");
-const rustSubstrate = read("internal-docs/legacy/autopilot-tauri-src/src/runtime_projection.rs");
 const actionSchema = readJson("internal-docs/implementation/runtime-action-schema.json");
 const generatedTsActionSchema = read("packages/hypervisor-workbench/src/runtime/generated/action-schema.ts");
 const generatedRustActionSchema = read(
-  "internal-docs/legacy/autopilot-tauri-src/src/generated/runtime_action_schema.rs",
+  "crates/types/src/app/generated/runtime_action_schema.rs",
 );
 for (const nodeKind of actionSchema.actionKinds) {
   assert(
@@ -113,13 +112,6 @@ for (const nodeKind of actionSchema.actionKinds) {
     `Generated Rust action schema missing ${nodeKind}.`,
   );
   assert(tsSubstrate.includes(`"${nodeKind}"`), `Hypervisor Workbench action schema missing ${nodeKind}.`);
-  const rustActiveEvidence =
-    nodeKind === "source_input"
-      ? rustSubstrate.includes("SourceInput")
-      : nodeKind === "adapter_connector"
-        ? rustSubstrate.includes("AdapterConnector")
-        : rustSubstrate.includes(`"${nodeKind}"`);
-  assert(rustActiveEvidence, `Legacy Rust action schema missing ${nodeKind}.`);
 }
 assert(
   generatedTsActionSchema.includes(actionSchema.schemaVersion) &&

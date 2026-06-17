@@ -44,12 +44,9 @@ const workbenchRuntimeFiles = allFiles("packages/hypervisor-workbench/src/runtim
 const activeTauriSrc = "apps/hypervisor/src-tauri/src";
 const activeTauriRuntimeService = "apps/hypervisor/src/services/TauriRuntime.ts";
 const activeTauriDesktopLauncher = "apps/hypervisor/scripts/dev-desktop.sh";
-const legacyTauriSrc = "internal-docs/legacy/autopilot-tauri-src/src";
+const legacyTauriArchive = "internal-docs/legacy/autopilot-tauri-src";
 const rootIdeDir = "ide";
 const retiredAutopilotShellWindow = "apps/hypervisor/src/windows/AutopilotShellWindow";
-const autopilotRootProofFiles = allFiles(legacyTauriSrc, (file) =>
-  /_proof\.rs$/.test(file) && !file.includes(`${path.sep}bin${path.sep}`) && !file.includes(`${path.sep}proofs${path.sep}`),
-);
 const builtinFiles = allFiles("crates/services/src/agentic/runtime/tools/builtins", (file) =>
   file.endsWith(".rs"),
 );
@@ -74,7 +71,7 @@ const allowedSwarmCompatibilityFiles = new Set([
   "crates/types/src/app/chat.rs",
 ]);
 const generatedTs = read("packages/hypervisor-workbench/src/runtime/generated/action-schema.ts");
-const generatedRust = read(`${legacyTauriSrc}/generated/runtime_action_schema.rs`);
+const generatedRust = read("crates/types/src/app/generated/runtime_action_schema.rs");
 const actionSchema = JSON.parse(read("internal-docs/implementation/runtime-action-schema.json"));
 
 assert(
@@ -199,20 +196,17 @@ assert(
   !exists(activeTauriRuntimeService) &&
   !exists(activeTauriDesktopLauncher) &&
   !exists(rootIdeDir) &&
-  !exists(retiredAutopilotShellWindow) &&
-  autopilotRootProofFiles.length === 0 &&
-    exists(`${legacyTauriSrc}/proofs/mod.rs`) &&
-    read(`${legacyTauriSrc}/lib.rs`).includes("pub mod proofs;"),
+    !exists(retiredAutopilotShellWindow) &&
+    !exists(legacyTauriArchive),
   [
     activeTauriSrc,
     activeTauriRuntimeService,
     activeTauriDesktopLauncher,
     rootIdeDir,
     retiredAutopilotShellWindow,
-    `${legacyTauriSrc}/proofs/mod.rs`,
-    `${legacyTauriSrc}/lib.rs`,
+    legacyTauriArchive,
   ],
-  "Active Tauri Rust/launchers, root ide/, and the old AutopilotShellWindow root must stay retired from active app paths; legacy proof modules must remain isolated under proofs/",
+  "Active Tauri Rust/launchers, root ide/, old AutopilotShellWindow, and legacy Tauri archive paths must stay retired from active app paths.",
 );
 assert(
   "desktop-probes-no-retired-tauri-workspace",
@@ -249,14 +243,12 @@ assert(
   exists("packages/hypervisor-workbench/src/runtime/runtime-projection-adapter.ts") &&
     !exists("packages/hypervisor-workbench/src/runtime/agent-execution-substrate.ts") &&
     !exists(`${activeTauriSrc}/runtime_projection.rs`) &&
-    exists(`${legacyTauriSrc}/runtime_projection.rs`) &&
     !exists(`${activeTauriSrc}/agent_runtime_substrate.rs`),
   [
     "packages/hypervisor-workbench/src/runtime/runtime-projection-adapter.ts",
     `${activeTauriSrc}/runtime_projection.rs`,
-    `${legacyTauriSrc}/runtime_projection.rs`,
   ],
-  "client projection adapters must not be named as canonical execution substrates, and Tauri Rust projection must stay legacy-only",
+  "client projection adapters must not be named as canonical execution substrates, and Tauri Rust projection must stay retired",
 );
 assert(
   "workbench-projection-boundary",
@@ -280,7 +272,7 @@ assert(
   [
     "internal-docs/implementation/runtime-action-schema.json",
     "packages/hypervisor-workbench/src/runtime/generated/action-schema.ts",
-    `${legacyTauriSrc}/generated/runtime_action_schema.rs`,
+    "crates/types/src/app/generated/runtime_action_schema.rs",
   ],
   "generated action schema projections must match shared runtime-action-schema.json",
 );

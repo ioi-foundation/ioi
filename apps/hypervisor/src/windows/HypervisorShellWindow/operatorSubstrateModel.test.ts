@@ -19,22 +19,14 @@ const PROJECT: ProjectScope = {
 };
 
 const RETIRED_NATIVE_APP_PATH = ["apps/hypervisor", "src-tauri"].join("/");
-const LEGACY_NATIVE_ARCHIVE_SRC_PATH = [
+const RETIRED_NATIVE_ARCHIVE_PATH = [
   "internal-docs/legacy",
   "autopilot-tauri-src",
-  "src",
 ].join("/");
 
-test("retired native app path stays archived only", () => {
+test("retired native app path and archive stay absent", () => {
   assert.equal(existsSync(RETIRED_NATIVE_APP_PATH), false);
-  assert.equal(
-    existsSync(`${LEGACY_NATIVE_ARCHIVE_SRC_PATH}/workspace_ide.rs`),
-    true,
-  );
-  assert.equal(
-    existsSync(`${LEGACY_NATIVE_ARCHIVE_SRC_PATH}/workspace_direct_webview.rs`),
-    true,
-  );
+  assert.equal(existsSync(RETIRED_NATIVE_ARCHIVE_PATH), false);
 });
 
 test("operator command center is a daemon-runtime projection", () => {
@@ -199,12 +191,8 @@ test("workspace embedding defers global command center to HypervisorClientHeader
     "apps/hypervisor/src/surfaces/Workspace/OpenVsCodeDirectSurface.tsx",
     "utf8",
   );
-  const workspaceDirectWebview = readFileSync(
-    `${LEGACY_NATIVE_ARCHIVE_SRC_PATH}/workspace_direct_webview.rs`,
-    "utf8",
-  );
-  const legacyWorkspaceEditorHost = readFileSync(
-    `${LEGACY_NATIVE_ARCHIVE_SRC_PATH}/workspace_ide.rs`,
+  const bundledExtension = readFileSync(
+    "workbench-adapters/ioi-workbench/extension.js",
     "utf8",
   );
   const workspaceRuntimeNavigation = readFileSync(
@@ -257,9 +245,10 @@ test("workspace embedding defers global command center to HypervisorClientHeader
     openVsCodeDirectSurface,
     /\[reservedRightPx, scheduleSettledSyncBounds, visible\]/,
   );
-  assert.match(workspaceDirectWebview, /bounds\.width\.min\(max_width\)/);
-  assert.match(workspaceDirectWebview, /clamped child bounds/);
-  assert.match(legacyWorkspaceEditorHost, /"ioi\.commandCenter\.open"/);
+  assert.match(openVsCodeDirectSurface, /const availableWidth = Math\.max\(1, surfaceWidth - reservedRightWidth\)/);
+  assert.match(openVsCodeDirectSurface, /width: availableWidth/);
+  assert.match(bundledExtension, /createNativeCommandRegistrar/);
+  assert.match(bundledExtension, /syncWorkbenchAppearance/);
   assert.match(
     workspaceRuntimeNavigation,
     /case "commandCenter\.open":[\s\S]*onOpenCommandPalette\?\.\(/,
@@ -495,8 +484,8 @@ test("workspace docked chat is real operator chrome, not screenshot hitboxes", (
 });
 
 test("embedded OpenVSCode defers global search to Hypervisor chrome", () => {
-  const legacyWorkspaceEditorHost = readFileSync(
-    `${LEGACY_NATIVE_ARCHIVE_SRC_PATH}/workspace_ide.rs`,
+  const openVsCodeDirectSurface = readFileSync(
+    "apps/hypervisor/src/surfaces/Workspace/OpenVsCodeDirectSurface.tsx",
     "utf8",
   );
   const homeView = readFileSync(
@@ -512,71 +501,9 @@ test("embedded OpenVSCode defers global search to Hypervisor chrome", () => {
     "utf8",
   );
 
-  assert.match(
-    legacyWorkspaceEditorHost,
-    /"window\.commandCenter"\.to_string\(\),\s*Value::Bool\(false\)/,
-  );
-  assert.match(
-    legacyWorkspaceEditorHost,
-    /"window\.customTitleBarVisibility"\.to_string\(\),\s*Value::String\("never"\.to_string\(\)\)/,
-  );
-  assert.match(
-    legacyWorkspaceEditorHost,
-    /"workbench\.navigationControl\.enabled"\.to_string\(\),\s*Value::Bool\(false\)/,
-  );
-  assert.match(
-    legacyWorkspaceEditorHost,
-    /"chat\.agentsControl\.enabled"\.to_string\(\),\s*Value::Bool\(false\)/,
-  );
-  assert.match(
-    legacyWorkspaceEditorHost,
-    /"chat\.unifiedAgentsBar\.enabled"\.to_string\(\),\s*Value::Bool\(false\)/,
-  );
-  assert.match(
-    legacyWorkspaceEditorHost,
-    /"workbench\.experimental\.share\.enabled"\.to_string\(\),\s*Value::Bool\(false\)/,
-  );
-  assert.match(
-    legacyWorkspaceEditorHost,
-    /fn ensure_openvscode_user_keybindings[\s\S]*"-workbench\.action\.quickOpen"[\s\S]*"-workbench\.action\.showCommands"/,
-  );
-  assert.match(
-    legacyWorkspaceEditorHost,
-    /fn openvscode_user_config_owned[\s\S]*"window\.commandCenter"[\s\S]*workbench\.action\.quickOpen/,
-  );
-  assert.match(
-    legacyWorkspaceEditorHost,
-    /fn ensure_openvscode_legacy_shell_chrome_patch_removed[\s\S]*remove_openvscode_legacy_stylesheet_chrome_patch/,
-  );
-  assert.match(
-    legacyWorkspaceEditorHost,
-    /fn ensure_openvscode_native_workbench_js_patch[\s\S]*patch_openvscode_native_workbench_js/,
-  );
-  assert.match(
-    legacyWorkspaceEditorHost,
-    /OPENVSCODE_COMMAND_CENTER_GETTER_PATCHED:\s*&str\s*=\s*"get ec\(\)\{return!1\}"/,
-  );
-  assert.match(
-    legacyWorkspaceEditorHost,
-    /OPENVSCODE_COMMAND_CENTER_CONTRIBUTION_PATCHED:[\s\S]*data-ioi-native-command-center-disabled/,
-  );
-  assert.match(
-    legacyWorkspaceEditorHost,
-    /patch_openvscode_native_workbench_js[\s\S]*OPENVSCODE_COMMAND_CENTER_CONTRIBUTION_SOURCE[\s\S]*OPENVSCODE_COMMAND_CENTER_CONTRIBUTION_PATCHED/,
-  );
-  assert.doesNotMatch(legacyWorkspaceEditorHost, /stylesheet\.push_str/);
-  assert.doesNotMatch(
-    legacyWorkspaceEditorHost,
-    /\.titlebar-center[\s\S]*display: none !important/,
-  );
-  assert.match(
-    legacyWorkspaceEditorHost,
-    /"workbench\.secondarySideBar\.defaultVisibility"\.to_string\(\),\s*Value::String\("visible"\.to_string\(\)\)/,
-  );
-  assert.match(
-    legacyWorkspaceEditorHost,
-    /openvscode_user_config_owned\(&existing_user_data_dir\)[\s\S]*return Ok\(current_session_info\(existing\)\)[\s\S]*kill_session\(existing\)/,
-  );
+  assert.match(openVsCodeDirectSurface, /hideWorkspaceDirectWebview\(surface\.surfaceId\)/);
+  assert.match(openVsCodeDirectSurface, /data-workspace-native-bounds/);
+  assert.match(openVsCodeDirectSurface, /data-workspace-native-screen-bounds/);
   assert.match(
     homeView,
     /case "quickOpen\.open":[\s\S]*onOpenCommandPalette\(\);[\s\S]*return;/,
@@ -585,7 +512,7 @@ test("embedded OpenVSCode defers global search to Hypervisor chrome", () => {
     homeView,
     /case "quickOpen\.open":[\s\S]*queueWorkbenchCommand\("workbench\.action\.quickOpen"\)/,
   );
-  assert.match(homeOnboardingModel, /targetRoute: "Autopilot command center"/);
+  assert.match(homeOnboardingModel, /targetRoute: "Hypervisor command center"/);
   assert.doesNotMatch(
     homeOnboardingModel,
     /toSide:workbench\.action\.quickOpen/,

@@ -23,10 +23,10 @@ const tsPath = path.join(
 );
 const rustPath = path.join(
   root,
-  "internal-docs",
-  "legacy",
-  "autopilot-tauri-src",
+  "crates",
+  "types",
   "src",
+  "app",
   "generated",
   "runtime_action_schema.rs",
 );

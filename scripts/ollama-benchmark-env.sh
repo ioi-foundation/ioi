@@ -3,7 +3,7 @@ set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 REPO_ROOT=$(CDPATH= cd -- "${SCRIPT_DIR}/.." && pwd)
-BACKEND_START="${AUTOPILOT_OLLAMA_OPENAI_BACKEND_START:-${REPO_ROOT}/internal-docs/legacy/autopilot-tauri-src/dev/local-backends/ollama-openai/start.sh}"
+BACKEND_START="${HYPERVISOR_OLLAMA_OPENAI_BACKEND_START:-${AUTOPILOT_OLLAMA_OPENAI_BACKEND_START:-}}"
 
 EIGHT_GB_CLASS_MAX_MIB=9000
 
@@ -129,9 +129,21 @@ Environment:
   OLLAMA_DEFAULT_MODEL
   OLLAMA_ACCEPTANCE_MODEL
   OLLAMA_EMBEDDING_MODEL
+  HYPERVISOR_OLLAMA_OPENAI_BACKEND_START
   AUTOPILOT_LOCAL_GPU_TOTAL_MEMORY_MIB
   AUTOPILOT_LOCAL_HARDWARE_PROFILE
 EOF
+}
+
+require_backend_start() {
+  if [ -z "${BACKEND_START}" ]; then
+    printf '%s\n' "Set HYPERVISOR_OLLAMA_OPENAI_BACKEND_START to an OpenAI-compatible Ollama backend launcher." >&2
+    exit 2
+  fi
+  if [ ! -x "${BACKEND_START}" ]; then
+    printf 'Configured backend launcher is not executable: %s\n' "${BACKEND_START}" >&2
+    exit 2
+  fi
 }
 
 command_name="${1:-}"
@@ -147,11 +159,13 @@ case "${command_name}" in
     ;;
   start)
     apply_profile_defaults
+    require_backend_start
     exec "${BACKEND_START}"
     ;;
   start-clean)
     apply_profile_defaults
     stop_local_ollama
+    require_backend_start
     exec "${BACKEND_START}"
     ;;
   stop)

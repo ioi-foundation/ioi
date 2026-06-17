@@ -772,7 +772,7 @@ Implementation phases:
 | --- | --- | --- | --- |
 | 0A.1 Product-shell rename and route map | Introduce Hypervisor naming without relying on old Autopilot tab semantics. | `apps/hypervisor/src/main.tsx`, `HypervisorShellWindow/*`, CSS, tests | App copy says Hypervisor; compatibility names are implementation-only. |
 | 0A.1B Retire IDE-root naming | Rename launcher/script/docs away from `ide`/Electron-as-product language and move tracked adapter metadata and ignored local adapter artifacts to `workbench-adapters/`. | `workbench-adapters/`, launcher scripts, package scripts, conformance readers | Electron/VS Code is one Workbench adapter host; root `ide/` is retired and must not be used as a product or artifact path. |
-| 0A.1C Retire Tauri app shims | Replace active `@tauri-apps/*` imports and `TauriRuntime` service naming with Hypervisor client bridge APIs; keep archived Tauri code only under `internal-docs/legacy`. | `apps/hypervisor/src/services/*`, shell hooks/components, package deps, validation scripts | Active app code no longer depends on Tauri APIs or `apps/hypervisor/src-tauri`; legacy Tauri references are historical only. |
+| 0A.1C Retire Tauri app shims | Replace active `@tauri-apps/*` imports and `TauriRuntime` service naming with Hypervisor client bridge APIs; delete the retired Tauri tree from the active repo instead of keeping it as a contract archive. | `apps/hypervisor/src/services/*`, shell hooks/components, package deps, validation scripts | Active app code no longer depends on Tauri APIs, `apps/hypervisor/src-tauri`, or `internal-docs/legacy/autopilot-tauri-src`; git history is the recovery handle. |
 | 0A.1D Retire Autopilot proof-runner names | Rename or remove active root package scripts and proof-runner entry points that still advertise Autopilot as the product, while preserving historical evidence under legacy/evidence paths. | `package.json`, `scripts/run-*-goal.mjs`, `scripts/lib/*`, conformance readers | `npm run` exposes Hypervisor/App/Workbench/Fleet/Foundry names; any remaining `autopilot` script/file names are historical fixtures or explicitly marked legacy. |
 | 0A.2 App shell IA | Build IOI-reference shell with left rail, New Session, sessions rail, main surface, right inspector, and bottom inspector. | `HypervisorShellContent.tsx`, `ChatLocalActivityBar.tsx`, `ChatLeftSidebarShell.tsx`, shell CSS | Home opens as app cockpit, not Code repositories/OpenVSCode. |
 | 0A.3 Session/project model | Add session cards, project cards, restore state, blocked approvals, recent sessions. | `hypervisorShellModel.ts`, `operatorSubstrateModel.ts`, Home/Session services | Sessions persist visually and map to daemon/Agentgres refs where available. |
@@ -812,7 +812,8 @@ Current implementation cut:
   apps/hypervisor/src-tauri is absent from the live app path
   apps/hypervisor/scripts/dev-desktop.sh is deleted; npm run dev:desktop
     launches the packaged Workbench adapter host, not a Tauri shell
-  internal-docs/legacy/autopilot-tauri-src is historical extraction inventory
+  internal-docs/legacy/autopilot-tauri-src is deleted from the active tree;
+    git history is the historical extraction inventory
   any active @tauri-apps import, TauriRuntime service, or src-tauri dependency is
   a regression unless it appears in a negative test or legacy reference.
   active desktop probes and active contract tests no longer create or read
@@ -880,8 +881,9 @@ Do not make Workbench the parent product; make it one surface.
 Do not let a root `ide/` artifact path or Electron/VS Code packaged host define
 the product. Root `ide/` is retired; current Workbench adapter-host metadata and
 ignored local adapter artifacts belong under `workbench-adapters/`.
-Do not preserve Tauri compatibility shims in active app paths. Tauri is legacy
-extraction inventory only.
+Do not preserve Tauri compatibility shims in active app paths. Tauri is legacy;
+the old Tauri tree is removed from the active repo, and `src-tauri` must not be
+recreated as a live product path.
 Do not leave Autopilot proof-runner names in active root package scripts after
 their owning runner has a Hypervisor name. Historical `.internal/plans`,
 `docs/evidence`, and `internal-docs/legacy` material may retain Autopilot as

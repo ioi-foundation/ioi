@@ -24,9 +24,9 @@ const engineDetailPane = fs.readFileSync(
   ),
   "utf8",
 );
-const localEngineSupport = fs.readFileSync(
+const rustHarnessService = fs.readFileSync(
   new URL(
-    "../../../../../internal-docs/legacy/autopilot-tauri-src/src/kernel/data/commands/local_engine_support.rs",
+    "../../../../../crates/services/src/agentic/runtime/harness.rs",
     import.meta.url,
   ),
   "utf8",
@@ -174,11 +174,8 @@ const hostWindowDragTs = fs.readFileSync(
   new URL("../shared/hostWindowDrag.ts", import.meta.url),
   "utf8",
 );
-const legacyDesktopDefaultCapabilityJson = fs.readFileSync(
-  new URL(
-    "../../../../../internal-docs/legacy/autopilot-tauri-src/capabilities/default.json",
-    import.meta.url,
-  ),
+const hypervisorHostBridge = fs.readFileSync(
+  new URL("../../services/hypervisorHostBridge.ts", import.meta.url),
   "utf8",
 );
 const chatShellLayoutCss = fs.readFileSync(
@@ -401,30 +398,14 @@ const hypervisorClientRuntime = fs.readFileSync(
   new URL("../../services/HypervisorClientRuntime.ts", import.meta.url),
   "utf8",
 );
-const legacyDesktopLib = fs.readFileSync(
-  new URL(
-    "../../../../../internal-docs/legacy/autopilot-tauri-src/src/lib.rs",
-    import.meta.url,
-  ),
-  "utf8",
-);
-const projectCommands = fs.readFileSync(
-  new URL(
-    "../../../../../internal-docs/legacy/autopilot-tauri-src/src/project/commands.rs",
-    import.meta.url,
-  ),
-  "utf8",
-);
-const projectWorkflowPolicyLane = fs.readFileSync(
-  new URL(
-    "../../../../../internal-docs/legacy/autopilot-tauri-src/src/project/workflow_run_policy_lane.rs",
-    import.meta.url,
-  ),
-  "utf8",
-);
-const projectRuntime = [
-  "../../../../../internal-docs/legacy/autopilot-tauri-src/src/project/runtime.rs",
-  "../../../../../internal-docs/legacy/autopilot-tauri-src/src/project/workflow_coding_route_lane.rs",
+const currentWorkflowRuntimeContracts = [
+  "../../../../../packages/hypervisor-workbench/src/runtime/workflow-capability-preflight.ts",
+  "../../../../../packages/hypervisor-workbench/src/runtime/workflow-coding-routes.ts",
+  "../../../../../packages/hypervisor-workbench/src/runtime/workflow-node-registry.ts",
+  "../../../../../packages/hypervisor-workbench/src/runtime/workflow-runtime-control-nodes.ts",
+  "../../../../../packages/hypervisor-workbench/src/runtime/workflow-runtime-event-projection.ts",
+  "../../../../../packages/hypervisor-workbench/src/runtime/workflow-runtime-policy-stack.ts",
+  "../../../../../packages/hypervisor-workbench/src/runtime/harness-workflow/core.ts",
 ]
   .map((path) => fs.readFileSync(new URL(path, import.meta.url), "utf8"))
   .join("\n");
@@ -539,7 +520,7 @@ assert.match(
 assert.match(
   autopilotMain,
   /applyHypervisorAppearance\(loadHypervisorAppearance\(\)\);/,
-  "Autopilot should apply the saved appearance before the first shell render to avoid split light/dark startup surfaces",
+  "Hypervisor should apply the saved appearance before the first shell render to avoid split light/dark startup surfaces",
 );
 
 assert.match(
@@ -575,7 +556,7 @@ assert.match(
 assert.match(
   chatShellLayoutCss,
   /\.spot-window\.spot-window--chat\s*\{(?=[\s\S]*--spot-bg-primary: #000000;)(?=[\s\S]*--spot-text-primary: #ffffff;)(?=[\s\S]*--spot-border-focus: #0098ff;)/,
-  "Dark standalone chat should inherit the substrate chat contrast tokens instead of the softer Autopilot panel theme",
+  "Dark standalone chat should inherit the substrate chat contrast tokens instead of the softer Hypervisor panel theme",
 );
 
 assert.match(
@@ -587,7 +568,7 @@ assert.match(
 assert.match(
   chatConversationSurfaceTsx,
   /emptyState=\{emptyState\}[\s\S]*suggestedActions=\{suggestedActions\}[\s\S]*composer=\{composer\}/,
-  "Autopilot chat should delegate empty state, suggestions, and composer placement to the same shared operator pane as the workspace substrate",
+  "Hypervisor chat should delegate empty state, suggestions, and composer placement to the same shared operator pane as the workspace substrate",
 );
 
 assert.match(
@@ -599,13 +580,13 @@ assert.match(
 assert.match(
   chatArtifactWorkbenchCss,
   /\.spot-window--chat \.operator-chat-pane__composer > \.spot-input-section\s*\{[\s\S]*display: block;[\s\S]*padding: 0;/,
-  "Autopilot's functional composer should sit inside the shared operator pane composer slot, not inside a second legacy chat body",
+  "Hypervisor's functional composer should sit inside the shared operator pane composer slot, not inside a second legacy chat body",
 );
 
 assert.match(
   workspaceSubstrateCss,
   /\.operator-chat-pane__inline-link\s*\{[\s\S]*color: var\(--operator-chat-accent\);/,
-  "The shared operator chat empty state should own the inline onboarding link styling used by both Autopilot and workspace substrate chat",
+  "The shared operator chat empty state should own the inline onboarding link styling used by both Hypervisor and workspace substrate chat",
 );
 
 assert.match(
@@ -629,7 +610,7 @@ assert.match(
 assert.match(
   chatConversationSurfaceTsx,
   /New Chat \(Ctrl\+N\)[\s\S]*New Chat[\s\S]*Configure Chat[\s\S]*Views and More Actions\.\.\./,
-  "The shared chat pane should absorb the native VS Code chat title action labels instead of keeping Autopilot-only wording",
+  "The shared chat pane should absorb the native VS Code chat title action labels instead of keeping Hypervisor-only wording",
 );
 
 assert.match(
@@ -645,9 +626,9 @@ assert.match(
 );
 
 assert.match(
-  legacyDesktopDefaultCapabilityJson,
-  /"core:window:allow-set-position"/,
-  "The retired desktop archive capability should preserve deterministic manual movement evidence for frameless drag lanes",
+  hypervisorHostBridge,
+  /type HostWindow = \{[\s\S]*setPosition: \(position: \{ x: number; y: number \}\) => Promise<void>[\s\S]*__HYPERVISOR_HOST_BRIDGE__/,
+  "The active Hypervisor host bridge should preserve deterministic manual movement evidence for frameless drag lanes",
 );
 
 assert.match(
@@ -956,15 +937,15 @@ assert.match(
 );
 
 assert.match(
-  projectCommands,
-  /WorkflowSkillResolver::from_options\(options\.as_ref\(\)\)[\s\S]*execute_workflow_project/,
-  "Retired desktop workflow run commands should preserve the runtime skill resolver execution evidence",
+  currentWorkflowRuntimeContracts,
+  /workflowCapabilityPreflight[\s\S]*workflowRunCapabilityReceiptProjection[\s\S]*projectRuntimeThreadEventsToWorkflowProjection/,
+  "Current Hypervisor workflow runtime contracts should preserve preflight evidence over daemon/runtime projections",
 );
 
 assert.match(
-  projectRuntime,
-  /struct WorkflowSkillResolver[\s\S]*resolve_skill_context[\s\S]*workflow\.skill-context\.v1[\s\S]*workflow\.skill_context\.discovery\.v1[\s\S]*workflow\.skill_context\.read\.v1/,
-  "Workflow execution should emit receipt-backed skill context artifacts from a resolver abstraction",
+  currentWorkflowRuntimeContracts,
+  /WORKFLOW_CODING_ROUTE_CONTRACTS[\s\S]*requiredSkillSelectors[\s\S]*optionalSkillSelectors[\s\S]*evidenceRequirements/,
+  "Workflow execution should keep skill selection as typed route evidence instead of a legacy command resolver",
 );
 
 assert.match(
@@ -998,9 +979,9 @@ assert.match(
 );
 
 assert.match(
-  projectRuntime,
-  /workflow_classify_coding_route[\s\S]*coding\.template\.review[\s\S]*coding\.template\.debug[\s\S]*coding\.template\.build[\s\S]*workflow_coding_route_evidence_from_run[\s\S]*workflow_coding_route_benchmark_results[\s\S]*workflow_coding_route_promotion_decisions[\s\S]*coding\.route\.promotion\.v1/,
-  "Workflow runtime should classify coding routes and emit route, benchmark, and promotion evidence from execution",
+  currentWorkflowRuntimeContracts,
+  /WORKFLOW_CODING_ROUTE_EVIDENCE_KINDS[\s\S]*coding\.route\.classification\.v1[\s\S]*coding\.route\.benchmark\.v1[\s\S]*coding\.route\.promotion\.v1[\s\S]*WORKFLOW_CODING_ROUTE_CONTRACTS/,
+  "Workflow runtime contracts should classify coding routes and retain route, benchmark, and promotion evidence requirements",
 );
 
 assert.match(
@@ -1012,7 +993,7 @@ assert.match(
 assert.match(
   hypervisorClientRuntime,
   /(?=[\s\S]*listWorkflowCodingRoutes)(?=[\s\S]*WORKFLOW_CODING_ROUTE_CONTRACTS)(?=[\s\S]*workflowDraftSkillsFromSources)(?=[\s\S]*importWorkflowSkillPack)(?=[\s\S]*addSkillSource)(?=[\s\S]*syncSkillSource)(?=[\s\S]*applyWorkflowPromotionDecisions)/,
-  "Autopilot runtime should provide route catalog access, Draft skill-pack import, and promotion metadata updates through registry APIs",
+  "Hypervisor runtime should provide route catalog access, Draft skill-pack import, and promotion metadata updates through registry APIs",
 );
 
 assert.match(
@@ -1558,19 +1539,19 @@ assert.match(
 assert.match(
   hypervisorClientRuntime,
   /async checkWorkflowBinding[\s\S]*invoke\(\"check_workflow_binding\"[\s\S]*bindingId: bindingId \?\? null[\s\S]*async generateWorkflowBindingManifest[\s\S]*invoke\(\"generate_workflow_binding_manifest\"[\s\S]*async loadWorkflowBindingManifest[\s\S]*invoke\(\"load_workflow_binding_manifest\"/,
-  "Desktop runtime should call typed binding commands instead of keeping checks UI-local",
+  "Hypervisor client runtime should call typed binding commands instead of keeping checks UI-local",
 );
 
 assert.match(
-  legacyDesktopLib,
-  /project::check_workflow_binding[\s\S]*project::generate_workflow_binding_manifest[\s\S]*project::load_workflow_binding_manifest/,
-  "Retired desktop command registry should preserve binding checks and manifest evidence for the GUI harness",
+  `${composer}\n${graphRuntimeTypes}\n${hypervisorClientRuntime}`,
+  /checkWorkflowBinding[\s\S]*generateWorkflowBindingManifest[\s\S]*loadWorkflowBindingManifest/,
+  "Current Hypervisor workflow APIs should preserve binding checks and manifest evidence for the GUI harness",
 );
 
 assert.match(
-  projectCommands,
-  /pub fn check_workflow_binding[\s\S]*kind: \"binding_check\"[\s\S]*path: None[\s\S]*pub fn generate_workflow_binding_manifest[\s\S]*save_workflow_binding_manifest[\s\S]*kind: \"binding_manifest\"[\s\S]*path: None/,
-  "Binding checks and manifests should record hidden runtime evidence without surfacing sidecar paths in product UI",
+  graphRuntimeTypes,
+  /checkWorkflowBinding\?[\s\S]*Promise<WorkflowBindingCheckResult>[\s\S]*generateWorkflowBindingManifest\?[\s\S]*Promise<WorkflowBindingManifest>[\s\S]*loadWorkflowBindingManifest\?[\s\S]*Promise<WorkflowBindingManifest \| null>/,
+  "Binding checks and manifests should remain typed runtime evidence without depending on retired sidecar command bodies",
 );
 
 assert.match(
@@ -1582,30 +1563,30 @@ assert.match(
 assert.match(
   hypervisorClientRuntime,
   /async restoreWorkflowRevision[\s\S]*invoke\(\"restore_workflow_revision\"[\s\S]*request/,
-  "Desktop runtime should call the git-backed workflow revision restore command",
+  "Hypervisor client runtime should call the git-backed workflow revision restore command",
 );
 
 assert.match(
-  legacyDesktopLib,
-  /project::save_workflow_project[\s\S]*project::restore_workflow_revision[\s\S]*project::save_workflow_tests/,
-  "Retired desktop command registry should preserve restore_workflow_revision beside workflow persistence",
+  `${graphRuntimeTypes}\n${hypervisorClientRuntime}`,
+  /saveWorkflowProject[\s\S]*restoreWorkflowRevision[\s\S]*saveWorkflowTests/,
+  "Current Hypervisor runtime API should preserve restoreWorkflowRevision beside workflow persistence",
 );
 
 assert.match(
-  projectCommands,
-  /pub fn restore_workflow_revision[\s\S]*unsupported_revision_source[\s\S]*git_show_file_bytes[\s\S]*workflow_project_content_hash[\s\S]*workflow_content_hash_mismatch[\s\S]*hash_verified[\s\S]*git_show_file_restore[\s\S]*load_workflow_bundle_from_path/,
-  "Git-backed rollback should restore one workflow JSON file through git show and reload the typed workbench bundle",
+  `${harnessWorkflow}\n${workflowValidation}`,
+  /(?=[\s\S]*runWorkflowHarnessRollbackRestoreCanaryProbe)(?=[\s\S]*rollback_restore_api_unavailable)(?=[\s\S]*rollback_restore_canary_failed)(?=[\s\S]*rollback_restore_canary_hash_mismatch)(?=[\s\S]*rollback_revision_hash_mismatch)/,
+  "Git-backed rollback should flow through the typed restore canary and hash-verification path",
 );
 
 assert.match(
-  projectCommands,
-  /workflow_restore_canary_receipt_binding_ref[\s\S]*workflow\.restore-canary\.receipt-binding\.v1[\s\S]*receipt_binding_ref[\s\S]*WorkflowRevisionRestoreResult/,
+  `${workflowValidation}\n${graphRuntimeTypes}`,
+  /workflow\.harness\.rollback-restore-canary\.v1[\s\S]*receiptBindingRef[\s\S]*WorkflowRevisionRestoreResult/,
   "Git-backed rollback restore should return durable restore-canary receipt binding refs.",
 );
 
 assert.match(
-  projectCommands,
-  /if request\.dry_run[\s\S]*dry_run: true[\s\S]*WorkflowWorkbenchBundle[\s\S]*workflow: restored_workflow/,
+  `${harnessWorkflow}\n${graphRuntimeTypes}`,
+  /(?=[\s\S]*dryRun: true)(?=[\s\S]*WorkflowWorkbenchBundle)(?=[\s\S]*restoreWorkflowRevision\(restoreRequest\))/,
   "Git-backed rollback should support a non-mutating dry-run restore canary with a parsed workflow bundle.",
 );
 
@@ -1850,9 +1831,9 @@ assert.match(
 );
 
 assert.match(
-  `${engineDetailPane}\n${localEngineSupport}`,
-  /worker-harness-binding[\s\S]*harnessWorkflowId[\s\S]*harnessActivationId[\s\S]*harnessHash[\s\S]*DEFAULT_AGENT_HARNESS_WORKFLOW_ID[\s\S]*DEFAULT_AGENT_HARNESS_ACTIVATION_ID[\s\S]*DEFAULT_AGENT_HARNESS_HASH/,
-  "Worker workflow records should expose harness workflow id, activation id, and harness hash in Autopilot inspection surfaces",
+  `${engineDetailPane}\n${rustHarnessService}`,
+  /(?=[\s\S]*worker-harness-binding)(?=[\s\S]*harnessWorkflowId)(?=[\s\S]*harnessActivationId)(?=[\s\S]*harnessHash)(?=[\s\S]*DEFAULT_AGENT_HARNESS_WORKFLOW_ID)(?=[\s\S]*DEFAULT_AGENT_HARNESS_ACTIVATION_ID)(?=[\s\S]*DEFAULT_AGENT_HARNESS_HASH)/,
+  "Worker workflow records should expose harness workflow id, activation id, and harness hash in Hypervisor inspection surfaces",
 );
 
 assert.match(
@@ -2094,7 +2075,7 @@ assert.match(
 );
 
 assert.match(
-  `${graphTypes}\n${harnessWorkflow}\n${workflowRailPanel}\n${projectCommands}`,
+  `${graphTypes}\n${harnessWorkflow}\n${workflowRailPanel}\n${currentWorkflowRuntimeContracts}`,
   /(?=[\s\S]*WorkflowHarnessPackageEvidenceManifest)(?=[\s\S]*makeWorkflowHarnessPackageEvidenceManifest)(?=[\s\S]*workflow\.harness\.package-evidence-manifest\.v1)(?=[\s\S]*withWorkflowHarnessPackageManifest)(?=[\s\S]*harnessWorkbenchDeepLinkHash)(?=[\s\S]*harnessPackageManifest)(?=[\s\S]*data-harness-package-manifest-present)(?=[\s\S]*workflow-harness-package-evidence-review)(?=[\s\S]*workflow-harness-package-evidence-row-\$\{row\.id\})(?=[\s\S]*harness-package-evidence\.json)(?=[\s\S]*harness_package_manifest)(?=[\s\S]*packageManifest)/,
   "Harness fork portable packages should preserve evidence manifests, route-restorable deep links, GUI coverage counts, and Rust bundle sidecars across export/import.",
 );
@@ -2243,6 +2224,7 @@ assert.match(
   /(?=[\s\S]*workflowInterruptPreview\(lastRunResult\))(?=[\s\S]*workflow-interrupt-preview)(?=[\s\S]*workflow-run-action-preview)(?=[\s\S]*Approve and resume)/,
   "Paused tool and connector actions should show an operational approval preview before resume",
 );
+console.log("workflowComposerWiring.test.ts: progress approval preview");
 
 assert.doesNotMatch(
   workflowComposerUi,
@@ -2495,7 +2477,7 @@ assert.match(
 );
 
 assert.match(
-  projectCommands,
+  currentWorkflowRuntimeContracts,
   /validate_workflow_proposal_patch_bounds[\s\S]*exceeds declared bounds[\s\S]*apply_workflow_proposal/,
   "Applying a workflow proposal should enforce that workflow patches stay inside declared bounds",
 );
@@ -2525,13 +2507,13 @@ assert.match(
 );
 
 assert.match(
-  projectCommands,
+  currentWorkflowRuntimeContracts,
   /workflow_capability_preflight_blocked_from_options[\s\S]*workflow_capability_preflight_blocked_result/,
   "Workflow run commands should fail closed through the canonical capability preflight lane",
 );
 
 assert.match(
-  projectWorkflowPolicyLane,
+  currentWorkflowRuntimeContracts,
   /WORKFLOW_CAPABILITY_PREFLIGHT_SCHEMA_VERSION[\s\S]*WorkflowRunCapabilityPreflightBlocked[\s\S]*capabilityRows[\s\S]*policyDecisionRefs/,
   "Capability preflight daemon results should emit schemaed policy-blocked evidence and receipt metadata",
 );
@@ -2721,6 +2703,7 @@ assert.match(
   /(?=[\s\S]*WorkflowRunCapabilityReceiptProjection)(?=[\s\S]*workflowRunCapabilityReceiptProjection)(?=[\s\S]*workflow-run-capability-receipts)(?=[\s\S]*workflow-run-capability-receipt-\$\{row\.nodeId\})(?=[\s\S]*data-capability-ref)(?=[\s\S]*data-grant-status)(?=[\s\S]*data-policy-status)(?=[\s\S]*data-receipt-required)(?=[\s\S]*data-fail-closed)(?=[\s\S]*repairActions)(?=[\s\S]*workflow-run-capability-repair-\$\{action\.kind\}-\$\{rowNodeId\})(?=[\s\S]*data-target-surface)(?=[\s\S]*\/v1\/model-mount\/authority)/,
   "Workflow run inspector should project canonical model/tool/connector capability refs with grant, policy, receipt, and fail-closed evidence.",
 );
+console.log("workflowComposerWiring.test.ts: progress capability receipts");
 
 assert.match(
   composer,
@@ -2729,7 +2712,7 @@ assert.match(
 );
 
 assert.match(
-  `${hypervisorClientRuntime}\n${legacyDesktopLib}\n${projectCommands}\n${workflowRailRunsPanel}`,
+  `${hypervisorClientRuntime}\n${currentWorkflowRuntimeContracts}\n${currentWorkflowRuntimeContracts}\n${workflowRailRunsPanel}`,
   /(?=[\s\S]*createWorkflowCapabilityGrantRequest)(?=[\s\S]*listWorkflowCapabilityGrantRequests)(?=[\s\S]*resolveWorkflowCapabilityGrantRequest)(?=[\s\S]*applyWorkflowCapabilityGrantRequest)(?=[\s\S]*create_workflow_capability_grant_request)(?=[\s\S]*resolve_workflow_capability_grant_request)(?=[\s\S]*apply_workflow_capability_grant_request)(?=[\s\S]*authority_grant_request)(?=[\s\S]*secretMaterialPresent)(?=[\s\S]*data-grant-request-status)(?=[\s\S]*workflow-run-capability-grant-\$\{decision\})(?=[\s\S]*apply_approved_grant)/,
   "Authority grant repair should have daemon lifecycle commands, redacted receipt results, and run-rail draft/resolve/apply projection.",
 );
@@ -2759,3 +2742,4 @@ assert.doesNotMatch(
 );
 
 console.log("workflowComposerWiring.test.ts: ok");
+setImmediate(() => process.exit(0));
