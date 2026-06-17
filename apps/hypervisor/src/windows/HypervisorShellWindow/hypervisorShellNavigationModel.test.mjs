@@ -100,7 +100,7 @@ test("hypervisor shell binds Phase 0A to the IOI reference cockpit contract", ()
   ]) {
     assert.match(source, new RegExp(`"${settingsSection}"`));
   }
-  assert.match(source, /Codex CLI[\s\S]*Claude Code[\s\S]*DeepSeek CLI[\s\S]*Grok Build/);
+  assert.match(source, /Codex CLI[\s\S]*Claude Code[\s\S]*DeepSeek TUI[\s\S]*Grok Build/);
   assert.match(source, /HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES/);
   assert.match(source, /WorkbenchAdapterPreference/);
   assert.match(source, /DEFAULT_WORKBENCH_ADAPTER_PREFERENCE_REF/);

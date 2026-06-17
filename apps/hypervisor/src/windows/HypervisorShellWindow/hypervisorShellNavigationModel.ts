@@ -703,7 +703,7 @@ export const HYPERVISOR_IOI_REFERENCE_SHELL_REQUIREMENTS: HypervisorIoiReference
     agentHarnessAdapters: [
       "Codex CLI",
       "Claude Code",
-      "DeepSeek CLI",
+      "DeepSeek TUI",
       "Grok Build",
       "Aider",
       "OpenHands",

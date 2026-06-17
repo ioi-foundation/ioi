@@ -112,6 +112,22 @@ export interface HarnessComparisonRun {
   runtimeTruthSource: "daemon-runtime";
 }
 
+export interface HarnessAdapterTestbedFixture {
+  schema_version: "ioi.hypervisor.harness_adapter_testbed_fixture.v1";
+  fixture_id: string;
+  label: string;
+  description: string;
+  project_ref: string;
+  task_ref: string;
+  workspace_mount_policy: Extract<HarnessWorkspaceMountPolicy, "public_trunk">;
+  candidate_selection_refs: string[];
+  comparison_mode: Extract<HarnessComparisonRun["comparison_mode"], "same_fixture">;
+  acceptance_criteria_refs: string[];
+  expected_receipt_schema: HarnessAdapterReceipt["schema_version"];
+  requiresDaemonGate: true;
+  runtimeTruthSource: "daemon-runtime";
+}
+
 export interface HarnessCompatibilityVerdict {
   selection_ref: string;
   state: HarnessCompatibilityState;
@@ -387,3 +403,46 @@ export function buildHarnessAdapterReceiptDraft(
     runtimeTruthSource: "daemon-runtime",
   };
 }
+
+const HYPERVISOR_HARNESS_TESTBED_SELECTION_REFS =
+  HYPERVISOR_HARNESS_SELECTION_OPTIONS.map((option) =>
+    getHarnessSelectionRef(option),
+  );
+
+export const HYPERVISOR_HARNESS_ADAPTER_TESTBED_FIXTURE: HarnessAdapterTestbedFixture =
+  {
+    schema_version: "ioi.hypervisor.harness_adapter_testbed_fixture.v1",
+    fixture_id: "harness-testbed:public-code-edit-smoke",
+    label: "Public code edit smoke",
+    description:
+      "Non-sensitive fixture for comparing Default Harness Profile and external AgentHarnessAdapters without granting runtime truth.",
+    project_ref: "project:fixture/public-workbench",
+    task_ref: "task:fixture/public-code-edit-smoke",
+    workspace_mount_policy: "public_trunk",
+    candidate_selection_refs: HYPERVISOR_HARNESS_TESTBED_SELECTION_REFS,
+    comparison_mode: "same_fixture",
+    acceptance_criteria_refs: [
+      "acceptance:patch-applies",
+      "acceptance:tests-pass",
+      "acceptance:receipt-produced",
+    ],
+    expected_receipt_schema: "ioi.hypervisor.harness_adapter_receipt.v1",
+    requiresDaemonGate: true,
+    runtimeTruthSource: "daemon-runtime",
+  };
+
+export const HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE: HarnessComparisonRun = {
+  schema_version: "ioi.hypervisor.harness_comparison_run.v1",
+  run_id: "harness-comparison:public-code-edit-smoke",
+  project_ref: HYPERVISOR_HARNESS_ADAPTER_TESTBED_FIXTURE.project_ref,
+  task_ref: HYPERVISOR_HARNESS_ADAPTER_TESTBED_FIXTURE.task_ref,
+  candidate_selection_refs:
+    HYPERVISOR_HARNESS_ADAPTER_TESTBED_FIXTURE.candidate_selection_refs,
+  comparison_mode: HYPERVISOR_HARNESS_ADAPTER_TESTBED_FIXTURE.comparison_mode,
+  acceptance_criteria_refs:
+    HYPERVISOR_HARNESS_ADAPTER_TESTBED_FIXTURE.acceptance_criteria_refs,
+  receipt_refs: HYPERVISOR_HARNESS_ADAPTER_TESTBED_FIXTURE.candidate_selection_refs.map(
+    (selectionRef) => `receipt:draft:${selectionRef}`,
+  ),
+  runtimeTruthSource: "daemon-runtime",
+};

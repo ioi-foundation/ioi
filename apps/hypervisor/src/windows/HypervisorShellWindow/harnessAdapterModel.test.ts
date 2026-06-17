@@ -5,6 +5,8 @@ import test from "node:test";
 import {
   DEFAULT_HARNESS_PROFILE_OPTION,
   HYPERVISOR_AGENT_HARNESS_ADAPTER_PROFILES,
+  HYPERVISOR_HARNESS_ADAPTER_TESTBED_FIXTURE,
+  HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE,
   HYPERVISOR_HARNESS_SELECTION_OPTIONS,
   buildHarnessAdapterReceiptDraft,
   buildHarnessCompatibilityVerdict,
@@ -131,12 +133,59 @@ test("receipt drafts bind adapter execution through daemon truth and workspace p
   assert.equal(defaultReceipt.workspace_mount_policy, "ctee_private_workspace");
 });
 
+test("harness testbed fixture compares adapters without granting runtime truth", () => {
+  const selectionRefs = HYPERVISOR_HARNESS_SELECTION_OPTIONS.map((option) =>
+    getHarnessSelectionRef(option),
+  );
+
+  assert.equal(
+    HYPERVISOR_HARNESS_ADAPTER_TESTBED_FIXTURE.schema_version,
+    "ioi.hypervisor.harness_adapter_testbed_fixture.v1",
+  );
+  assert.equal(
+    HYPERVISOR_HARNESS_ADAPTER_TESTBED_FIXTURE.workspace_mount_policy,
+    "public_trunk",
+  );
+  assert.deepEqual(
+    HYPERVISOR_HARNESS_ADAPTER_TESTBED_FIXTURE.candidate_selection_refs,
+    selectionRefs,
+  );
+  assert.equal(HYPERVISOR_HARNESS_ADAPTER_TESTBED_FIXTURE.requiresDaemonGate, true);
+  assert.equal(
+    HYPERVISOR_HARNESS_ADAPTER_TESTBED_FIXTURE.expected_receipt_schema,
+    "ioi.hypervisor.harness_adapter_receipt.v1",
+  );
+
+  assert.equal(
+    HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE.schema_version,
+    "ioi.hypervisor.harness_comparison_run.v1",
+  );
+  assert.equal(
+    HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE.comparison_mode,
+    "same_fixture",
+  );
+  assert.deepEqual(
+    HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE.candidate_selection_refs,
+    selectionRefs,
+  );
+  assert.deepEqual(
+    HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE.receipt_refs,
+    selectionRefs.map((selectionRef) => `receipt:draft:${selectionRef}`),
+  );
+  assert.equal(
+    HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE.runtimeTruthSource,
+    "daemon-runtime",
+  );
+});
+
 test("source text rejects legacy external-harness-as-runtime shortcuts", () => {
   const source = readFileSync(
     "apps/hypervisor/src/windows/HypervisorShellWindow/harnessAdapterModel.ts",
     "utf8",
   );
 
+  assert.match(source, /HYPERVISOR_HARNESS_ADAPTER_TESTBED_FIXTURE/);
+  assert.match(source, /HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE/);
   assert.match(source, /truth_boundary: "proposal_source_only"/);
   assert.match(source, /runtimeTruthSource: "daemon-runtime"/);
   assert.doesNotMatch(source, /Codex = Default Harness/);

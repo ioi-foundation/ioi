@@ -54,6 +54,9 @@ const rootGitignore = read(".gitignore");
 const hypervisorShellNavigationSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorShellNavigationModel.ts",
 );
+const hypervisorHarnessAdapterModelSource = read(
+  "apps/hypervisor/src/windows/HypervisorShellWindow/harnessAdapterModel.ts",
+);
 const hypervisorActivityBarSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/components/ChatLocalActivityBar.tsx",
 );
@@ -238,7 +241,7 @@ assert(
     hypervisorShellNavigationSource.includes('"git_auth"') &&
     hypervisorShellNavigationSource.includes("Codex CLI") &&
     hypervisorShellNavigationSource.includes("Claude Code") &&
-    hypervisorShellNavigationSource.includes("DeepSeek CLI") &&
+    hypervisorShellNavigationSource.includes("DeepSeek TUI") &&
     hypervisorActivityBarSource.includes("HYPERVISOR_IOI_REFERENCE_SHELL_REQUIREMENTS") &&
     hypervisorActivityBarSource.includes(
       "HYPERVISOR_IOI_REFERENCE_SHELL_REQUIREMENTS.leftNavSurfaceIds.slice(0, 9)",
@@ -431,6 +434,43 @@ assert(
     "docs/architecture/_meta/vocabulary.md",
   ],
   "Canon docs must model Hypervisor environment lifecycle, access/log leases, SCM auth, services, tasks, ports, and restore refs without vendor-specific references.",
+);
+assert(
+  "hypervisor-agent-harness-adapter-testbed",
+  [
+    "codex_cli",
+    "codex_desktop_linux",
+    "claude_code_cli",
+    "grok_build_cli",
+    "deepseek_tui",
+    "aider_cli",
+    "openhands",
+    "shell_tmux_agent",
+    "generic_cli",
+  ].every((adapterId) => hypervisorHarnessAdapterModelSource.includes(adapterId)) &&
+    hypervisorHarnessAdapterModelSource.includes(
+      "HYPERVISOR_HARNESS_ADAPTER_TESTBED_FIXTURE",
+    ) &&
+    hypervisorHarnessAdapterModelSource.includes(
+      "HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE",
+    ) &&
+    hypervisorHarnessAdapterModelSource.includes(
+      'workspace_mount_policy: "public_trunk"',
+    ) &&
+    hypervisorHarnessAdapterModelSource.includes(
+      'expected_receipt_schema: "ioi.hypervisor.harness_adapter_receipt.v1"',
+    ) &&
+    hypervisorHarnessAdapterModelSource.includes(
+      'runtimeTruthSource: "daemon-runtime"',
+    ) &&
+    hypervisorHarnessAdapterModelSource.includes(
+      'truth_boundary: "proposal_source_only"',
+    ) &&
+    !/Codex = Default Harness|Claude Code = Default Harness|external harness.*runtime truth/i.test(
+      hypervisorHarnessAdapterModelSource,
+    ),
+  ["apps/hypervisor/src/windows/HypervisorShellWindow/harnessAdapterModel.ts"],
+  "AgentHarnessAdapter fixtures must list external harnesses as daemon-gated proposal sources with public testbed custody, comparison receipts, and no runtime-truth shortcut.",
 );
 assert(
   "contract-family-modules",

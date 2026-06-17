@@ -1330,20 +1330,66 @@ Implementation phases:
 | 0B.6 cTEE/private workspace guard | Restrict external harnesses to public trunk/redacted projection unless explicitly allowed. | private workspace policy, adapter runner | Sensitive work cannot be mounted into plain external harness workspace by default. |
 | 0B.7 Comparison dashboard | Add HarnessComparisonRun view to Workbench/Foundry. | Hypervisor App Workbench/Foundry surfaces | User can compare adapter output, cost, receipts, and verification results. |
 
+Current implementation cut:
+
+```text
+0B.1 Adapter manifest fixtures are implemented in the Hypervisor shell model:
+  `apps/hypervisor/src/windows/HypervisorShellWindow/harnessAdapterModel.ts`
+  defines `AgentHarnessAdapterProfile`, `HarnessAdapterReceipt`,
+  `HarnessComparisonRun`, and `HarnessAdapterTestbedFixture`.
+
+  Static adapter manifests exist for:
+    Default Harness Profile,
+    Codex CLI,
+    Codex Desktop Linux,
+    Claude Code CLI,
+    Grok Build CLI,
+    DeepSeek TUI,
+    Aider CLI,
+    OpenHands,
+    shell/tmux agent,
+    Generic CLI Harness.
+
+  Each external harness manifest is explicitly an `agent_harness_adapter` with
+  `truth_boundary: "proposal_source_only"` and `runtimeTruthSource:
+  "daemon-runtime"`.
+
+  `HYPERVISOR_HARNESS_ADAPTER_TESTBED_FIXTURE` and
+  `HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE` provide a public-trunk smoke
+  fixture and same-fixture comparison run before real adapter execution is
+  wired. They bind candidate selection refs, acceptance criteria refs, draft
+  receipt refs, and the harness adapter receipt schema.
+
+  `HypervisorNewSessionModal` already lists these harness choices beside
+  workbench adapter, model route, privacy posture, authority scopes, and receipt
+  preview. Compatibility verdicts expose provider-trust, adapter-native-only,
+  local-route-unavailable, compatible, and blocked states.
+
+  `harnessAdapterModel.test.ts` and `check:runtime-layout` guard the adapter
+  inventory, daemon-truth boundary, public testbed custody, receipt schema, and
+  anti-patterns.
+```
+
 First implementation slice:
 
 ```text
 1. Define `AgentHarnessAdapterProfile`, `HarnessAdapterReceipt`, and
-   `HarnessComparisonRun` fixtures.
+   `HarnessComparisonRun` fixtures. Done for static manifests and public
+   smoke fixture; real adapter execution remains later.
 2. Add adapter choices to New Session:
    Default Harness Profile, Codex CLI, codex-desktop-linux, Claude Code,
    Grok Build, DeepSeek TUI, Aider, OpenHands, shell/tmux agent, and Generic
-   CLI.
-3. Add model route choices from the daemon model-mount inventory.
+   CLI. Done for shell/New Session selection.
+3. Add model route choices from the daemon model-mount inventory. Partial:
+   New Session has route options, but live daemon inventory probing remains
+   0B.3.
 4. Add compatibility states:
    compatible, adapter-native only, provider-trust, local-route unavailable.
-5. Add container lane dry-run receipt for a public fixture workspace.
-6. Add source scans proving no external harness bypasses daemon gates.
+   Done at static verdict level.
+5. Add container lane dry-run receipt for a public fixture workspace. Not yet:
+   static draft receipts exist; real container dry-run remains 0B.4/0B.5.
+6. Add source scans proving no external harness bypasses daemon gates. Done for
+   static model and runtime-layout guard.
 ```
 
 Anti-patterns:
