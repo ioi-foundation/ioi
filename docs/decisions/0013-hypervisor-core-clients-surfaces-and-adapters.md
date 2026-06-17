@@ -4,6 +4,10 @@
 - Date: 2026-06-16
 - Owners: Hypervisor / daemon runtime / Workbench / provider integrations / wallet.network / Agentgres
 
+Note: ADR 0014 refines this decision by making Hypervisor an IDE-of-IDEs and
+by folding Fleet terminology into sessions, providers, environments, and
+session-estate views.
+
 ## Context
 
 The earlier desktop direction treated the product as an IDE-first app and used

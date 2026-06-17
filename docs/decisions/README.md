@@ -21,4 +21,5 @@ explain the accepted decision when that history remains useful.
 - [ADR 0010: Define Verifiable Bounded Agency As Execution-Boundary Alignment](./0010-verifiable-bounded-agency-and-execution-boundary-alignment.md)
 - [ADR 0011: Canonicalize Hypervisor Nodes As Local Settlement Domains](./0011-hypervisor-nodes-and-governed-autonomous-system-chains.md)
 - [ADR 0012: Define IOI As Autonomous-System Settlement Layer And AIIP As Work Interop](./0012-ioi-autonomous-system-settlement-and-aiip.md)
-- [ADR 0013: Define Hypervisor Core, Clients, Surfaces, And Adapter Targets](./0013-hypervisor-core-clients-surfaces-and-adapters.md)
+- [ADR 0013: Define Hypervisor Core, Clients, Surfaces, And Adapter Targets](./0013-hypervisor-core-clients-surfaces-and-adapters.md) (refined by ADR 0014)
+- [ADR 0014: Make Hypervisor An IDE-Of-IDEs And Session Estate](./0014-hypervisor-ide-of-ides-and-session-estate.md)
