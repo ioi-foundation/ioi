@@ -34,6 +34,12 @@ assert.match(
   "the auxiliary chat pane should not auto-submit the same seed intent a second time",
 );
 
+assert.match(
+  source,
+  /const contentMainRef = useRef<HTMLDivElement \| null>\(null\);[\s\S]*useLayoutEffect\(\(\) => \{[\s\S]*const resetScroll = \(\) => \{[\s\S]*node\.scrollTop = 0;[\s\S]*window\.requestAnimationFrame\(resetScroll\)[\s\S]*window\.setTimeout\(resetScroll, 0\)[\s\S]*}, \[activeView\]\);[\s\S]*ref=\{contentMainRef\}/,
+  "the main workplane should reset scroll during and after layout so reference cockpit surfaces open at the top",
+);
+
 const chatLeftUtilityPaneSource = fs.readFileSync(
   new URL("./ChatLeftUtilityPane.tsx", import.meta.url),
   "utf8",
@@ -103,6 +109,12 @@ assert.match(
 
 assert.match(
   source,
+  /className="hypervisor-session-operations hypervisor-session-operations--ioi-reference-session"[\s\S]*data-ioi-reference-session-cockpit="true"/,
+  "Sessions should use the IOI-reference session cockpit shell",
+);
+
+assert.match(
+  source,
   /className="hypervisor-automation-compositor__metrics"[\s\S]*className="hypervisor-automation-compositor__filters"[\s\S]*className="hypervisor-automation-compositor__table"[\s\S]*className="hypervisor-automation-compositor__suggested"/,
   "Automations should render metrics, filters, table rows, and the suggested-template rail",
 );
@@ -147,6 +159,18 @@ assert.match(
   shellCss,
   /\.hypervisor-automation-compositor--ioi-reference\s*\{[\s\S]*background: #ffffff;[\s\S]*font-family:[\s\S]*"ABC Diatype"/,
   "Automations should share the IOI-reference light workplane and typography",
+);
+
+assert.match(
+  shellCss,
+  /Phase 0A hard cut: Sessions mirrors the IOI reference environment cockpit[\s\S]*\.hypervisor-session-operations--ioi-reference-session\s*\{[\s\S]*background: #ffffff;[\s\S]*grid-template-areas:[\s\S]*"rail reference grid"/,
+  "Sessions should use the IOI-reference light cockpit with rail, center workplane, and inspector regions",
+);
+
+assert.match(
+  shellCss,
+  /\.hypervisor-session-operations--ioi-reference-session \.hypervisor-session-operations__bottom\s*\{[\s\S]*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\);[\s\S]*border-top: 1px solid #e6e8eb;/,
+  "Sessions should keep ports/services, tasks, and terminal as bottom inspectors",
 );
 
 assert.match(

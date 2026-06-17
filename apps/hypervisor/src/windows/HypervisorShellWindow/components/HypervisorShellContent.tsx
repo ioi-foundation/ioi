@@ -1,6 +1,12 @@
 import clsx from "clsx";
 import { EnvironmentEstateView } from "@ioi/hypervisor-workbench";
-import { useEffect, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 
 import { buildConnectorPolicySummary } from "../../../surfaces/Policy";
 import { useHypervisorShellController } from "../useHypervisorShellController";
@@ -583,8 +589,9 @@ function HypervisorSessionOperationsCockpit({
 
   return (
     <section
-      className="hypervisor-session-operations"
+      className="hypervisor-session-operations hypervisor-session-operations--ioi-reference-session"
       aria-label="Session operations cockpit"
+      data-ioi-reference-session-cockpit="true"
       data-hypervisor-session-operations={projection.projection_id}
       data-session-operations-source={projection.source}
       data-runtime-truth-source={projection.runtimeTruthSource}
@@ -1691,7 +1698,34 @@ export function HypervisorShellContent({
     currentProject,
     notificationCount: notificationBadgeCount,
   });
+  const contentMainRef = useRef<HTMLDivElement | null>(null);
   const [workspaceChatDismissed, setWorkspaceChatDismissed] = useState(false);
+
+  useLayoutEffect(() => {
+    const node = contentMainRef.current;
+    if (!node) {
+      return undefined;
+    }
+
+    const resetScroll = () => {
+      node.scrollTop = 0;
+    };
+
+    resetScroll();
+    const animationFrame =
+      typeof window !== "undefined"
+        ? window.requestAnimationFrame(resetScroll)
+        : 0;
+    const timeout =
+      typeof window !== "undefined" ? window.setTimeout(resetScroll, 0) : 0;
+
+    return () => {
+      if (typeof window !== "undefined") {
+        window.cancelAnimationFrame(animationFrame);
+        window.clearTimeout(timeout);
+      }
+    };
+  }, [activeView]);
 
   useEffect(() => {
     if (!workspaceActive) {
@@ -1784,6 +1818,7 @@ export function HypervisorShellContent({
             >
               <div className="chat-center-area">
                 <div
+                  ref={contentMainRef}
                   className={clsx(
                     "chat-content-main",
                     dedicatedWorkbenchActive &&
