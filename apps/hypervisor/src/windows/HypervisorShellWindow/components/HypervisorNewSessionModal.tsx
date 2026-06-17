@@ -15,6 +15,7 @@ import {
   HYPERVISOR_NEW_SESSION_MODEL_MOUNT_INVENTORY_FIXTURE,
   buildHarnessCompatibilityVerdict,
   getHarnessSelectionRef,
+  isAgentHarnessAdapterOption,
   modelRouteSupportsHypervisorMountFromInventory,
   type HypervisorModelMountInventorySnapshot,
 } from "../harnessAdapterModel";
@@ -126,11 +127,11 @@ export function HypervisorNewSessionModal({
   const [adapterPreferenceRef] = useState(
     readStoredWorkbenchAdapterPreferenceRef,
   );
-  const [harnessSelectionRef] = useState(
+  const [harnessSelectionRef, setHarnessSelectionRef] = useState(
     defaultHarnessSelectionRef(),
   );
-  const [modelRouteRef] = useState(MODEL_ROUTE_OPTIONS[0].ref);
-  const [privacyPostureRef] = useState(
+  const [modelRouteRef, setModelRouteRef] = useState(MODEL_ROUTE_OPTIONS[0].ref);
+  const [privacyPostureRef, setPrivacyPostureRef] = useState(
     PRIVACY_OPTIONS[0].ref,
   );
   const [seedIntent, setSeedIntent] = useState(
@@ -344,6 +345,16 @@ export function HypervisorNewSessionModal({
             data-new-session-harness-selection-kind={
               launchSummary.harness_selection_kind
             }
+            data-new-session-harness-selection-ref={
+              launchSummary.harness_selection_ref
+            }
+            data-new-session-harness-truth-boundary={
+              launchSummary.harness_truth_boundary
+            }
+            data-new-session-privacy-posture-ref={privacyPostureRef}
+            data-new-session-requires-daemon-gate={String(
+              launchSummary.requires_daemon_gate,
+            )}
           >
             {compactLaunchChoices.map((choice) => {
               const launchRecipe =
@@ -367,6 +378,79 @@ export function HypervisorNewSessionModal({
               );
             })}
           </div>
+
+          <section
+            className="hypervisor-new-session-modal__governance"
+            aria-label="Session launch governance"
+            data-new-session-governance="harness-model-privacy"
+          >
+            <label>
+              <span>Harness</span>
+              <select
+                value={harnessSelectionRef}
+                onChange={(event) =>
+                  setHarnessSelectionRef(event.currentTarget.value)
+                }
+              >
+                {HYPERVISOR_NEW_SESSION_SETUP_MODEL.harnessOptions.map(
+                  (option) => {
+                    const selectionRef = getHarnessSelectionRef(option);
+                    return (
+                      <option key={selectionRef} value={selectionRef}>
+                        {option.label}
+                      </option>
+                    );
+                  },
+                )}
+              </select>
+            </label>
+
+            <label>
+              <span>Model route</span>
+              <select
+                value={modelRouteRef}
+                onChange={(event) => setModelRouteRef(event.currentTarget.value)}
+              >
+                {MODEL_ROUTE_OPTIONS.map((option) => (
+                  <option key={option.ref} value={option.ref}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              <span>Privacy</span>
+              <select
+                value={privacyPostureRef}
+                onChange={(event) =>
+                  setPrivacyPostureRef(event.currentTarget.value)
+                }
+              >
+                {PRIVACY_OPTIONS.map((option) => (
+                  <option key={option.ref} value={option.ref}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <div
+              className="hypervisor-new-session-modal__verdict"
+              data-new-session-harness-verdict-card={harnessVerdict.state}
+            >
+              <strong>{selectedHarness.label}</strong>
+              <span>
+                {isAgentHarnessAdapterOption(selectedHarness)
+                  ? "AgentHarnessAdapter proposal source"
+                  : "Reference HarnessProfile scaffold"}
+              </span>
+              <p>{harnessVerdict.summary}</p>
+              {harnessVerdict.privacyWarning ? (
+                <em>{harnessVerdict.privacyWarning}</em>
+              ) : null}
+            </div>
+          </section>
         </div>
       </section>
     </div>

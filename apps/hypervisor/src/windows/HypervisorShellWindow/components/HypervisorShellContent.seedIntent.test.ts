@@ -21,6 +21,10 @@ const homeCss = fs.readFileSync(
   new URL("../../../surfaces/Home/Home.css", import.meta.url),
   "utf8",
 );
+const newSessionModalSource = fs.readFileSync(
+  new URL("./HypervisorNewSessionModal.tsx", import.meta.url),
+  "utf8",
+);
 
 assert.doesNotMatch(
   source,
@@ -195,6 +199,30 @@ assert.match(
   shellCss,
   /\.hypervisor-automation-compositor__layout\s*\{[\s\S]*grid-template-columns: minmax\(0, 1fr\) 310px;[\s\S]*\.hypervisor-automation-compositor__table\s*\{[\s\S]*border-radius: 12px;/,
   "Automations should keep the reference main-column plus suggested-template rail layout",
+);
+
+assert.match(
+  newSessionModalSource,
+  /const \[harnessSelectionRef, setHarnessSelectionRef\] = useState[\s\S]*const \[modelRouteRef, setModelRouteRef\] = useState[\s\S]*const \[privacyPostureRef, setPrivacyPostureRef\] = useState/,
+  "New Session should let the operator choose harness, model route, and privacy posture instead of freezing the default harness",
+);
+
+assert.match(
+  newSessionModalSource,
+  /data-new-session-harness-selection-ref=\{[\s\S]*launchSummary\.harness_selection_ref[\s\S]*data-new-session-harness-truth-boundary=\{[\s\S]*launchSummary\.harness_truth_boundary[\s\S]*data-new-session-requires-daemon-gate=\{String\([\s\S]*launchSummary\.requires_daemon_gate/,
+  "New Session should bind selected harness truth boundary and daemon gate into launch-summary DOM evidence",
+);
+
+assert.match(
+  newSessionModalSource,
+  /data-new-session-governance="harness-model-privacy"[\s\S]*setHarnessSelectionRef\(event\.currentTarget\.value\)[\s\S]*setModelRouteRef\(event\.currentTarget\.value\)[\s\S]*setPrivacyPostureRef\(event\.currentTarget\.value\)[\s\S]*data-new-session-harness-verdict-card=\{harnessVerdict\.state\}/,
+  "New Session should expose the governed harness/model/privacy testbed selectors and verdict before launch",
+);
+
+assert.match(
+  shellCss,
+  /\.hypervisor-new-session-modal__governance\s*\{[\s\S]*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\);[\s\S]*\.hypervisor-new-session-modal__verdict\[data-new-session-harness-verdict-card="blocked"\]/,
+  "New Session governance controls should be visible and warn on blocked harness/privacy combinations",
 );
 
 assert.match(
