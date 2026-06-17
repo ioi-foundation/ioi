@@ -322,7 +322,10 @@ test("Sessions surface renders session tabs and operations inspectors from daemo
   assert.match(shellContent, /data-launched-session-ref/);
   assert.match(shellContent, /data-launched-session-surface/);
   assert.match(shellContent, /data-launched-session-state/);
+  assert.match(shellContent, /data-launched-session-open-surface/);
+  assert.match(shellContent, /onClick=\{\(\) => onOpenSurface\(session\.surface_id\)\}/);
   assert.match(shellContent, /controller\.sessions\.launchedSessionProjections/);
+  assert.match(shellContent, /onOpenSurface=\{controller\.changePrimaryView\}/);
   assert.match(shellContent, /loadHypervisorSessionOperationsProjection/);
   assert.match(shellContent, /\[Hypervisor\]\[Sessions\] operations projection unavailable/);
   assert.match(shellContent, /data-hypervisor-session-operations/);

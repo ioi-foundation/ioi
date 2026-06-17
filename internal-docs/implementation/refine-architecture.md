@@ -1128,7 +1128,9 @@ Current implementation cut:
   and receipt refs. The Sessions cockpit renders those recent launches, so
   Workbench, Agent, Automation, Foundry, Provider/Environment, and Private
   Workspace sessions remain inspectable as cross-session Hypervisor routes while
-  still opening their target application surfaces.
+  still opening their target application surfaces. Recent launched sessions also
+  expose an `Open surface` action back to the owning Hypervisor surface, making
+  Sessions a cross-session switchboard rather than a passive receipt list.
 
 0A.6 Automations / Workflow Compositor projection is implemented:
   `hypervisorAutomationCompositorModel.ts` defines

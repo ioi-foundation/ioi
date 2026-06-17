@@ -352,8 +352,10 @@ function HypervisorAutomationCompositorSurface({
 
 function HypervisorSessionOperationsCockpit({
   launchedSessions,
+  onOpenSurface,
 }: {
   launchedSessions: HypervisorLaunchedSessionProjection[];
+  onOpenSurface: (surface: PrimaryView) => void;
 }) {
   const [projection, setProjection] = useState(
     HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE,
@@ -414,6 +416,13 @@ function HypervisorSessionOperationsCockpit({
                 <span>{session.surface_id}</span>
                 <h3>{session.project_label}</h3>
                 <p>{session.recipe_ref}</p>
+                <button
+                  type="button"
+                  data-launched-session-open-surface={session.surface_id}
+                  onClick={() => onOpenSurface(session.surface_id)}
+                >
+                  Open surface
+                </button>
               </div>
               <dl>
                 <div>
@@ -1412,6 +1421,7 @@ export function HypervisorShellContent({
                         launchedSessions={
                           controller.sessions.launchedSessionProjections
                         }
+                        onOpenSurface={controller.changePrimaryView}
                       />
                       <ChatCopilotView
                         seedIntent={controller.chat.seedIntent}
