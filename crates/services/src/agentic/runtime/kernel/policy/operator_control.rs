@@ -1,6 +1,10 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 use sha2::{Digest, Sha256};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 use super::{
     DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
@@ -149,13 +153,14 @@ pub struct OperatorInterruptStateUpdateRequest {
     pub turn_id: Option<String>,
     #[serde(default)]
     pub run_id: Option<String>,
-    pub run: Value,
     pub event_id: String,
     #[serde(default)]
     pub seq: Option<u64>,
     pub created_at: String,
     pub source: String,
     pub reason: String,
+    #[serde(default, flatten)]
+    pub extra: Map<String, Value>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -190,13 +195,14 @@ pub struct OperatorSteerStateUpdateRequest {
     pub turn_id: Option<String>,
     #[serde(default)]
     pub run_id: Option<String>,
-    pub run: Value,
     pub event_id: String,
     #[serde(default)]
     pub seq: Option<u64>,
     pub created_at: String,
     pub source: String,
     pub guidance: String,
+    #[serde(default, flatten)]
+    pub extra: Map<String, Value>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -700,8 +706,18 @@ impl OperatorInterruptStateUpdateCore {
             "evidenceSufficient": true,
             "rationale": format!("Operator interrupt accepted from {source}: {reason}"),
         });
-        let mut run = object_value(&request.run)
-            .ok_or(OperatorInterruptStateUpdateError::MissingField("run"))?;
+        let mut run = operator_turn_control_run_from_state_dir(
+            request.state_dir.as_deref(),
+            run_id.as_deref(),
+            turn_id.as_deref(),
+            thread_id.as_deref(),
+            "operator interrupt",
+        )
+        .map_err(OperatorInterruptStateUpdateError::ReplayReadFailed)?;
+        let run_id = Some(
+            optional_json_string(&Value::Object(run.clone()), &["id", "run_id"])
+                .ok_or(OperatorInterruptStateUpdateError::MissingField("run.id"))?,
+        );
         let prior_status = run
             .get("status")
             .and_then(Value::as_str)
@@ -846,8 +862,18 @@ impl OperatorSteerStateUpdateCore {
             "seq": seq,
             "created_at": request.created_at,
         });
-        let mut run =
-            object_value(&request.run).ok_or(OperatorSteerStateUpdateError::MissingField("run"))?;
+        let mut run = operator_turn_control_run_from_state_dir(
+            request.state_dir.as_deref(),
+            run_id.as_deref(),
+            turn_id.as_deref(),
+            thread_id.as_deref(),
+            "operator steer",
+        )
+        .map_err(OperatorSteerStateUpdateError::ReplayReadFailed)?;
+        let run_id = Some(
+            optional_json_string(&Value::Object(run.clone()), &["id", "run_id"])
+                .ok_or(OperatorSteerStateUpdateError::MissingField("run.id"))?,
+        );
         run.insert(
             "updatedAt".to_string(),
             Value::String(request.created_at.clone()),
@@ -924,8 +950,8 @@ impl OperatorInterruptStateUpdateRequest {
                 actual: self.schema_version.clone(),
             });
         }
-        if !self.run.is_object() {
-            return Err(OperatorInterruptStateUpdateError::MissingField("run"));
+        if let Some(field) = retired_operator_turn_control_candidate_field(&self.extra) {
+            return Err(OperatorInterruptStateUpdateError::RetiredField(field));
         }
         if optional_trimmed(Some(self.event_id.as_str())).is_none() {
             return Err(OperatorInterruptStateUpdateError::MissingField("event_id"));
@@ -935,6 +961,11 @@ impl OperatorInterruptStateUpdateRequest {
         }
         if optional_trimmed(self.state_dir.as_deref()).is_none() {
             return Err(OperatorInterruptStateUpdateError::StateDirRequired);
+        }
+        if optional_trimmed(self.run_id.as_deref()).is_none()
+            && optional_trimmed(self.turn_id.as_deref()).is_none()
+        {
+            return Err(OperatorInterruptStateUpdateError::MissingField("run_id"));
         }
         if optional_trimmed(Some(self.created_at.as_str())).is_none() {
             return Err(OperatorInterruptStateUpdateError::MissingField(
@@ -953,8 +984,8 @@ impl OperatorSteerStateUpdateRequest {
                 actual: self.schema_version.clone(),
             });
         }
-        if !self.run.is_object() {
-            return Err(OperatorSteerStateUpdateError::MissingField("run"));
+        if let Some(field) = retired_operator_turn_control_candidate_field(&self.extra) {
+            return Err(OperatorSteerStateUpdateError::RetiredField(field));
         }
         if optional_trimmed(Some(self.event_id.as_str())).is_none() {
             return Err(OperatorSteerStateUpdateError::MissingField("event_id"));
@@ -964,6 +995,11 @@ impl OperatorSteerStateUpdateRequest {
         }
         if optional_trimmed(self.state_dir.as_deref()).is_none() {
             return Err(OperatorSteerStateUpdateError::StateDirRequired);
+        }
+        if optional_trimmed(self.run_id.as_deref()).is_none()
+            && optional_trimmed(self.turn_id.as_deref()).is_none()
+        {
+            return Err(OperatorSteerStateUpdateError::MissingField("run_id"));
         }
         if optional_trimmed(Some(self.created_at.as_str())).is_none() {
             return Err(OperatorSteerStateUpdateError::MissingField("created_at"));
@@ -1028,6 +1064,141 @@ fn object_value(value: &Value) -> Option<serde_json::Map<String, Value>> {
 
 fn object_value_ref(value: &Value) -> Option<&Map<String, Value>> {
     value.as_object()
+}
+
+fn operator_turn_control_run_from_state_dir(
+    state_dir: Option<&str>,
+    run_id: Option<&str>,
+    turn_id: Option<&str>,
+    thread_id: Option<&str>,
+    operation: &str,
+) -> Result<Map<String, Value>, String> {
+    let state_dir = optional_trimmed(state_dir)
+        .ok_or_else(|| format!("runtime {operation} requires Agentgres state_dir replay"))?;
+    let run_id = optional_trimmed(run_id);
+    let turn_id = optional_trimmed(turn_id);
+    let thread_id = optional_trimmed(thread_id);
+    let runs_dir = Path::new(&state_dir).join("runs");
+    let mut run_records = operator_turn_control_run_records_from_state_dir(&runs_dir, operation)?;
+    run_records.sort_by(|left, right| {
+        optional_json_string(&Value::Object(left.clone()), &["id", "run_id"]).cmp(
+            &optional_json_string(&Value::Object(right.clone()), &["id", "run_id"]),
+        )
+    });
+    run_records
+        .into_iter()
+        .find(|record| {
+            operator_turn_control_run_matches(
+                record,
+                run_id.as_deref(),
+                turn_id.as_deref(),
+                thread_id.as_deref(),
+            )
+        })
+        .ok_or_else(|| {
+            format!("runtime {operation} could not replay target run from Agentgres state_dir")
+        })
+}
+
+fn operator_turn_control_run_records_from_state_dir(
+    runs_dir: &Path,
+    operation: &str,
+) -> Result<Vec<Map<String, Value>>, String> {
+    if !runs_dir.exists() {
+        return Ok(Vec::new());
+    }
+    let entries = fs::read_dir(runs_dir).map_err(|error| {
+        format!(
+            "runtime {operation} could not read Agentgres runs directory {}: {error}",
+            runs_dir.display()
+        )
+    })?;
+    let mut paths = Vec::<PathBuf>::new();
+    for entry in entries {
+        let entry = entry.map_err(|error| {
+            format!(
+                "runtime {operation} could not inspect Agentgres runs directory {}: {error}",
+                runs_dir.display()
+            )
+        })?;
+        let path = entry.path();
+        if path.is_file() && path.extension().and_then(|value| value.to_str()) == Some("json") {
+            paths.push(path);
+        }
+    }
+    paths.sort();
+
+    let mut records = Vec::new();
+    for path in paths.into_iter().take(1000) {
+        let contents = fs::read_to_string(&path).map_err(|error| {
+            format!(
+                "runtime {operation} could not read Agentgres run record {}: {error}",
+                path.display()
+            )
+        })?;
+        let value: Value = serde_json::from_str(&contents).map_err(|error| {
+            format!(
+                "runtime {operation} found invalid Agentgres run record {}: {error}",
+                path.display()
+            )
+        })?;
+        if let Some(record) = value.as_object().cloned() {
+            records.push(record);
+        }
+    }
+    Ok(records)
+}
+
+fn operator_turn_control_run_matches(
+    record: &Map<String, Value>,
+    run_id: Option<&str>,
+    turn_id: Option<&str>,
+    thread_id: Option<&str>,
+) -> bool {
+    let record_value = Value::Object(record.clone());
+    let record_run_id = optional_json_string(&record_value, &["id", "run_id"]);
+    let record_turn_id = optional_json_string(&record_value, &["turn_id", "runtime_turn_id"]);
+    let record_thread_id = optional_json_string(&record_value, &["thread_id"]);
+    let run_matches = run_id.is_some_and(|expected| record_run_id.as_deref() == Some(expected));
+    let turn_matches = turn_id.is_some_and(|expected| {
+        record_turn_id.as_deref() == Some(expected)
+            || record_run_id.as_deref().map(turn_id_for_run).as_deref() == Some(expected)
+    });
+    let thread_matches = match thread_id {
+        Some(expected) => match record_thread_id.as_deref() {
+            Some(actual) => actual == expected,
+            None => true,
+        },
+        None => true,
+    };
+    thread_matches && (run_matches || turn_matches)
+}
+
+fn retired_operator_turn_control_candidate_field(
+    extra: &Map<String, Value>,
+) -> Option<&'static str> {
+    for field in ["run", "runs", "agent", "candidate_run", "candidateRun"] {
+        if extra.contains_key(field) {
+            return Some(field);
+        }
+    }
+    None
+}
+
+fn optional_json_string(value: &Value, keys: &[&str]) -> Option<String> {
+    keys.iter().find_map(|key| {
+        value
+            .get(*key)
+            .and_then(Value::as_str)
+            .and_then(|value| optional_trimmed(Some(value)))
+    })
+}
+
+fn turn_id_for_run(run_id: &str) -> String {
+    run_id
+        .strip_prefix("run_")
+        .map(|suffix| format!("turn_{suffix}"))
+        .unwrap_or_else(|| format!("turn_{run_id}"))
 }
 
 fn first_json_bool<'a>(values: impl IntoIterator<Item = Option<&'a Value>>) -> Option<bool> {
@@ -1167,16 +1338,13 @@ mod tests {
     }
 
     fn operator_interrupt_state_update_request() -> OperatorInterruptStateUpdateRequest {
-        OperatorInterruptStateUpdateRequest {
-            schema_version: OPERATOR_INTERRUPT_STATE_UPDATE_REQUEST_SCHEMA_VERSION.to_string(),
-            thread_id: Some("thread_budget".to_string()),
-            state_dir: Some("/tmp/ioi-operator-control-state".to_string()),
-            event_stream_id: Some("thread_budget:events".to_string()),
-            turn_id: Some("turn_budget".to_string()),
-            run_id: Some("run_budget".to_string()),
-            run: json!({
+        let state_dir = temp_operator_control_state_dir("interrupt");
+        write_operator_control_run_record(
+            &state_dir,
+            json!({
                 "id": "run_budget",
                 "agentId": "agent_budget",
+                "thread_id": "thread_budget",
                 "status": "running",
                 "turnStatus": "running",
                 "trace": {
@@ -1186,36 +1354,76 @@ mod tests {
                 },
                 "operatorControls": []
             }),
+        );
+        OperatorInterruptStateUpdateRequest {
+            schema_version: OPERATOR_INTERRUPT_STATE_UPDATE_REQUEST_SCHEMA_VERSION.to_string(),
+            thread_id: Some("thread_budget".to_string()),
+            state_dir: Some(state_dir.to_string_lossy().to_string()),
+            event_stream_id: Some("thread_budget:events".to_string()),
+            turn_id: Some("turn_budget".to_string()),
+            run_id: None,
             event_id: "event_interrupt".to_string(),
             seq: None,
             created_at: "2026-06-06T04:25:00.000Z".to_string(),
             source: "runtime_auto".to_string(),
             reason: "operator_stop".to_string(),
+            extra: Map::new(),
         }
     }
 
     fn operator_steer_state_update_request() -> OperatorSteerStateUpdateRequest {
-        OperatorSteerStateUpdateRequest {
-            schema_version: OPERATOR_STEER_STATE_UPDATE_REQUEST_SCHEMA_VERSION.to_string(),
-            thread_id: Some("thread_budget".to_string()),
-            state_dir: Some("/tmp/ioi-operator-control-state".to_string()),
-            event_stream_id: Some("thread_budget:events".to_string()),
-            turn_id: Some("turn_budget".to_string()),
-            run_id: Some("run_budget".to_string()),
-            run: json!({
+        let state_dir = temp_operator_control_state_dir("steer");
+        write_operator_control_run_record(
+            &state_dir,
+            json!({
                 "id": "run_budget",
                 "agentId": "agent_budget",
+                "thread_id": "thread_budget",
                 "status": "running",
                 "turnStatus": "running",
                 "trace": {},
                 "operatorControls": []
             }),
+        );
+        OperatorSteerStateUpdateRequest {
+            schema_version: OPERATOR_STEER_STATE_UPDATE_REQUEST_SCHEMA_VERSION.to_string(),
+            thread_id: Some("thread_budget".to_string()),
+            state_dir: Some(state_dir.to_string_lossy().to_string()),
+            event_stream_id: Some("thread_budget:events".to_string()),
+            turn_id: Some("turn_budget".to_string()),
+            run_id: None,
             event_id: "event_steer".to_string(),
             seq: None,
             created_at: "2026-06-06T04:35:00.000Z".to_string(),
             source: "react_flow".to_string(),
             guidance: "focus on the failing bridge assertion".to_string(),
+            extra: Map::new(),
         }
+    }
+
+    fn temp_operator_control_state_dir(label: &str) -> PathBuf {
+        let suffix = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("system clock")
+            .as_nanos();
+        let state_dir = std::env::temp_dir().join(format!(
+            "ioi_runtime_operator_control_{label}_{}_{}",
+            std::process::id(),
+            suffix
+        ));
+        let _ = fs::remove_dir_all(&state_dir);
+        fs::create_dir_all(state_dir.join("runs")).expect("runs dir");
+        state_dir
+    }
+
+    fn write_operator_control_run_record(state_dir: &Path, run: Value) {
+        let run_id = run.get("id").and_then(Value::as_str).expect("run id");
+        let path = state_dir.join("runs").join(format!("{run_id}.json"));
+        fs::write(
+            path,
+            serde_json::to_string_pretty(&run).expect("serialize run"),
+        )
+        .expect("write run record");
     }
 
     fn operator_turn_control_admission_required_request(
@@ -1448,6 +1656,36 @@ mod tests {
     }
 
     #[test]
+    fn rust_policy_replays_operator_interrupt_run_from_state_dir() {
+        let request = operator_interrupt_state_update_request();
+        let state_dir = request.state_dir.clone().expect("state_dir");
+        let record = OperatorInterruptStateUpdateCore
+            .plan(&request)
+            .expect("operator interrupt state-dir run replay");
+
+        assert_eq!(record.run_id.as_deref(), Some("run_budget"));
+        assert_eq!(record.run["id"], "run_budget");
+        assert!(state_dir.contains("ioi_runtime_operator_control_interrupt"));
+    }
+
+    #[test]
+    fn rust_policy_rejects_operator_interrupt_run_candidate_transport() {
+        let mut request = operator_interrupt_state_update_request();
+        request
+            .extra
+            .insert("run".to_string(), json!({"id": "run_js_candidate"}));
+
+        let error = OperatorInterruptStateUpdateCore
+            .plan(&request)
+            .expect_err("retired JS run candidate transport");
+
+        assert_eq!(
+            error,
+            OperatorInterruptStateUpdateError::RetiredField("run")
+        );
+    }
+
+    #[test]
     fn rust_policy_plans_operator_turn_control_admission_required() {
         let record = OperatorTurnControlAdmissionRequiredCore
             .plan(&operator_turn_control_admission_required_request())
@@ -1516,6 +1754,33 @@ mod tests {
             "event_steer"
         );
         assert_eq!(record.run["operatorControls"][0]["event_id"], "event_steer");
+    }
+
+    #[test]
+    fn rust_policy_replays_operator_steer_run_from_state_dir() {
+        let request = operator_steer_state_update_request();
+        let state_dir = request.state_dir.clone().expect("state_dir");
+        let record = OperatorSteerStateUpdateCore
+            .plan(&request)
+            .expect("operator steer state-dir run replay");
+
+        assert_eq!(record.run_id.as_deref(), Some("run_budget"));
+        assert_eq!(record.run["id"], "run_budget");
+        assert!(state_dir.contains("ioi_runtime_operator_control_steer"));
+    }
+
+    #[test]
+    fn rust_policy_rejects_operator_steer_run_candidate_transport() {
+        let mut request = operator_steer_state_update_request();
+        request
+            .extra
+            .insert("run".to_string(), json!({"id": "run_js_candidate"}));
+
+        let error = OperatorSteerStateUpdateCore
+            .plan(&request)
+            .expect_err("retired JS run candidate transport");
+
+        assert_eq!(error, OperatorSteerStateUpdateError::RetiredField("run"));
     }
 
     #[test]

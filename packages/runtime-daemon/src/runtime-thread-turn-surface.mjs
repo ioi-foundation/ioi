@@ -276,36 +276,16 @@ export function createRuntimeThreadTurnSurface(deps = {}) {
       });
     }
     if (
-      typeof store?.agentForThread !== "function" ||
-      typeof store?.resolveRunForThreadTurn !== "function" ||
       typeof store?.writeRun !== "function"
     ) {
       throwOperatorTurnControlStateUpdateError({
         code: "runtime_operator_turn_control_state_store_unavailable",
-        message: "Operator turn control requires Rust-owned run resolution and Agentgres run persistence.",
+        message: "Operator turn control requires Rust-owned run replay and Agentgres run persistence.",
         details: {
           operation,
           operation_kind: operationKind,
           thread_id: threadId,
           turn_id: turnId,
-          evidence_refs: operatorTurnControlEvidenceRefs(operation),
-        },
-      });
-    }
-    const agent = objectRecord(store.agentForThread(threadId));
-    const resolved = store.resolveRunForThreadTurn(agent, threadId, turnId);
-    const run = objectRecord(resolved?.run);
-    const runId = optionalStringDep(resolved?.runId ?? run?.id);
-    if (!agent || !run || !runId) {
-      throwOperatorTurnControlStateUpdateError({
-        code: "runtime_operator_turn_control_run_unavailable",
-        message: "Operator turn control requires a persisted run for the requested turn.",
-        details: {
-          operation,
-          operation_kind: operationKind,
-          thread_id: threadId,
-          turn_id: turnId,
-          run_id: runId ?? null,
           evidence_refs: operatorTurnControlEvidenceRefs(operation),
         },
       });
@@ -320,21 +300,20 @@ export function createRuntimeThreadTurnSurface(deps = {}) {
       state_dir: optionalStringDep(store?.stateDir) ?? null,
       event_stream_id: streamId,
       turn_id: turnId,
-      run_id: runId,
-      run,
       event_id: eventId,
       created_at: createdAt,
       source: optionalStringDep(request.source) ?? "hypervisor_daemon",
       ...controlRequest,
     });
     const plannedRun = objectRecord(plan?.run);
+    const plannedRunId = optionalStringDep(plannedRun?.id);
     const plannedOperationKind = optionalStringDep(plan?.operation_kind);
     const operatorControl = objectRecord(plan?.operator_control);
     if (
       optionalStringDep(plan?.status) !== "planned" ||
       plannedOperationKind !== operationKind ||
       !plannedRun ||
-      optionalStringDep(plannedRun.id) !== runId ||
+      !plannedRunId ||
       !operatorControl ||
       optionalStringDep(operatorControl.control) !== controlKind ||
       optionalStringDep(operatorControl.event_id) !== eventId
@@ -347,7 +326,7 @@ export function createRuntimeThreadTurnSurface(deps = {}) {
           operation_kind: operationKind,
           thread_id: threadId,
           turn_id: turnId,
-          run_id: runId,
+          run_id: plannedRunId ?? null,
           expected_operation_kind: operationKind,
           actual_operation_kind: plannedOperationKind ?? null,
           actual_status: optionalStringDep(plan?.status) ?? null,
@@ -363,7 +342,7 @@ export function createRuntimeThreadTurnSurface(deps = {}) {
       operation_kind: plannedOperationKind,
       thread_id: threadId,
       turn_id: turnId,
-      run_id: runId,
+      run_id: plannedRunId,
       event_id: eventId,
       seq: positiveInteger(operatorControl.seq) ?? null,
       operator_control: operatorControl,

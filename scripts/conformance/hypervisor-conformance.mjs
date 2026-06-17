@@ -4655,6 +4655,8 @@ function runBridge() {
     runtimeThreadTurnSurface.match(/async interruptTurn\(store, threadId, turnId, request = \{\}\) \{[\s\S]*?\n    steerTurn\(/)?.[0] ?? "";
   const operatorSteerTurnBody =
     runtimeThreadTurnSurface.match(/steerTurn\(store, threadId, turnId, request = \{\}\) \{[\s\S]*?\n  \};/)?.[0] ?? "";
+  const operatorTurnControlBody =
+    runtimeThreadTurnSurface.match(/function applyOperatorTurnControl\([\s\S]*?\n  function throwThreadTurnProjectionMismatch/)?.[0] ?? "";
   const approvalRequestFacadeBody =
     runtimeApprovalSurface.match(/function requestThreadApproval\(store, threadId, request = \{\}\) \{[\s\S]*?\n  function decideThreadApproval/)?.[0] ?? "";
   const approvalDecisionFacadeBody =
@@ -12607,6 +12609,24 @@ function runBridge() {
       /rust_policy_plans_operator_turn_control_admission_required/.test(policyCore) &&
       /OPERATOR_INTERRUPT_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
       /rust_policy_plans_operator_interrupt_state_update/.test(policyCore) &&
+      /operator_turn_control_run_from_state_dir/.test(policyOperatorControlCore) &&
+      /operator_turn_control_run_records_from_state_dir/.test(policyOperatorControlCore) &&
+      /retired_operator_turn_control_candidate_field/.test(policyOperatorControlCore) &&
+      /pub struct OperatorInterruptStateUpdateRequest \{(?:(?!pub struct OperatorInterruptStateUpdateRecord)[\s\S])*#\[serde\(default, flatten\)\]\s*pub extra: Map<String, Value>,/.test(
+        policyOperatorControlCore,
+      ) &&
+      !/pub struct OperatorInterruptStateUpdateRequest \{(?:(?!pub struct OperatorInterruptStateUpdateRecord)[\s\S])*pub run: Value/.test(
+        policyOperatorControlCore,
+      ) &&
+      /operator_turn_control_run_from_state_dir\(\s*request\.state_dir\.as_deref\(\),\s*run_id\.as_deref\(\),\s*turn_id\.as_deref\(\),/m.test(
+        operatorInterruptStateUpdateCoreBlock,
+      ) &&
+      /rust_policy_replays_operator_interrupt_run_from_state_dir/.test(
+        policyOperatorControlCore,
+      ) &&
+      /rust_policy_rejects_operator_interrupt_run_candidate_transport/.test(
+        policyOperatorControlCore,
+      ) &&
       /"event_id": request\.event_id/.test(operatorInterruptStateUpdateCoreBlock) &&
       /"created_at": request\.created_at/.test(operatorInterruptStateUpdateCoreBlock) &&
       !/"eventId": request\.event_id|"createdAt": request\.created_at/.test(
@@ -12718,8 +12738,15 @@ function runBridge() {
       ) &&
       /plannerMethod:\s*"planOperatorInterruptStateUpdate"/.test(operatorInterruptTurnBody) &&
       /controlKind:\s*"interrupt"/.test(operatorInterruptTurnBody) &&
-      /store\.resolveRunForThreadTurn\(agent,\s*threadId,\s*turnId\)/.test(
-        runtimeThreadTurnSurface,
+      /state_dir:\s*optionalStringDep\(store\?\.stateDir\)\s*\?\?\s*null/.test(
+        operatorTurnControlBody,
+      ) &&
+      /turn_id:\s*turnId/.test(operatorTurnControlBody) &&
+      !/resolveRunForThreadTurn|agentForThread|run:\s*run\b|run_id:\s*runId\b/.test(
+        operatorTurnControlBody,
+      ) &&
+      /const plannedRunId = optionalStringDep\(plannedRun\?\.id\)/.test(
+        operatorTurnControlBody,
       ) &&
       /store\.writeRun\(plannedRun,\s*plannedOperationKind\)/.test(runtimeThreadTurnSurface) &&
       /optionalStringDep\(plan\?\.status\)\s*!==\s*"planned"/.test(runtimeThreadTurnSurface) &&
@@ -12748,6 +12775,15 @@ function runBridge() {
       /result\.operation,\s*"operator_interrupt"/.test(runtimeOperatorTurnControlFacadeTest) &&
       /plannerCalls\.length,\s*2/.test(runtimeOperatorTurnControlFacadeTest) &&
       /plannerCalls\[0\]\.method,\s*"planOperatorInterruptStateUpdate"/.test(
+        runtimeOperatorTurnControlFacadeTest,
+      ) &&
+      /assertNoRetiredOperatorTurnControlCandidateTransport/.test(
+        runtimeOperatorTurnControlFacadeTest,
+      ) &&
+      /Object\.hasOwn\(plannerCalls\[0\]\.request,\s*"run_id"\),\s*false/.test(
+        runtimeOperatorTurnControlFacadeTest,
+      ) &&
+      /run", "runs", "agent", "run_id", "candidate_run", "candidateRun"/.test(
         runtimeOperatorTurnControlFacadeTest,
       ) &&
       /plannerCalls\[1\]\.method,\s*"writeRun"/.test(runtimeOperatorTurnControlFacadeTest) &&
@@ -12786,6 +12822,22 @@ function runBridge() {
       /rust_policy_plans_operator_turn_control_admission_required/.test(policyCore) &&
       /OPERATOR_STEER_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
       /rust_policy_plans_operator_steer_state_update/.test(policyCore) &&
+      /operator_turn_control_run_from_state_dir/.test(policyOperatorControlCore) &&
+      /pub struct OperatorSteerStateUpdateRequest \{(?:(?!pub struct OperatorSteerStateUpdateRecord)[\s\S])*#\[serde\(default, flatten\)\]\s*pub extra: Map<String, Value>,/.test(
+        policyOperatorControlCore,
+      ) &&
+      !/pub struct OperatorSteerStateUpdateRequest \{(?:(?!pub struct OperatorSteerStateUpdateRecord)[\s\S])*pub run: Value/.test(
+        policyOperatorControlCore,
+      ) &&
+      /operator_turn_control_run_from_state_dir\(\s*request\.state_dir\.as_deref\(\),\s*run_id\.as_deref\(\),\s*turn_id\.as_deref\(\),/m.test(
+        operatorSteerStateUpdateCoreBlock,
+      ) &&
+      /rust_policy_replays_operator_steer_run_from_state_dir/.test(
+        policyOperatorControlCore,
+      ) &&
+      /rust_policy_rejects_operator_steer_run_candidate_transport/.test(
+        policyOperatorControlCore,
+      ) &&
       /"event_id": request\.event_id/.test(operatorSteerStateUpdateCoreBlock) &&
       /"created_at": request\.created_at/.test(operatorSteerStateUpdateCoreBlock) &&
       !/"eventId": request\.event_id|"createdAt": request\.created_at/.test(
@@ -12845,8 +12897,15 @@ function runBridge() {
       ) &&
       /plannerMethod:\s*"planOperatorSteerStateUpdate"/.test(operatorSteerTurnBody) &&
       /controlKind:\s*"steer"/.test(operatorSteerTurnBody) &&
-      /store\.resolveRunForThreadTurn\(agent,\s*threadId,\s*turnId\)/.test(
-        runtimeThreadTurnSurface,
+      /state_dir:\s*optionalStringDep\(store\?\.stateDir\)\s*\?\?\s*null/.test(
+        operatorTurnControlBody,
+      ) &&
+      /turn_id:\s*turnId/.test(operatorTurnControlBody) &&
+      !/resolveRunForThreadTurn|agentForThread|run:\s*run\b|run_id:\s*runId\b/.test(
+        operatorTurnControlBody,
+      ) &&
+      /const plannedRunId = optionalStringDep\(plannedRun\?\.id\)/.test(
+        operatorTurnControlBody,
       ) &&
       /store\.writeRun\(plannedRun,\s*plannedOperationKind\)/.test(runtimeThreadTurnSurface) &&
       /optionalStringDep\(plan\?\.status\)\s*!==\s*"planned"/.test(runtimeThreadTurnSurface) &&
@@ -12872,6 +12931,12 @@ function runBridge() {
       /result\.operation,\s*"operator_steer"/.test(runtimeOperatorTurnControlFacadeTest) &&
       /plannerCalls\.length,\s*2/.test(runtimeOperatorTurnControlFacadeTest) &&
       /plannerCalls\[0\]\.method,\s*"planOperatorSteerStateUpdate"/.test(
+        runtimeOperatorTurnControlFacadeTest,
+      ) &&
+      /assertNoRetiredOperatorTurnControlCandidateTransport/.test(
+        runtimeOperatorTurnControlFacadeTest,
+      ) &&
+      /Object\.hasOwn\(plannerCalls\[0\]\.request,\s*"run_id"\),\s*false/.test(
         runtimeOperatorTurnControlFacadeTest,
       ) &&
       /plannerCalls\[1\]\.method,\s*"writeRun"/.test(runtimeOperatorTurnControlFacadeTest) &&

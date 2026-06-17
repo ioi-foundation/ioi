@@ -12413,6 +12413,23 @@ hostile store-mounted core is ignored, and the missing-direct-planner path fails
 before JS command parsing, while conformance guards the retired store lookup
 beside the already-deleted JS regex parser.
 
+Slice 1411 hard-cuts operator turn-control JS run-candidate transport. Public
+operator interrupt/steer still call the typed Rust daemon-core
+`planOperatorInterruptStateUpdate` / `planOperatorSteerStateUpdate` APIs through
+the mounted `contextPolicyCore`, but the request now sends only `state_dir`,
+`event_stream_id`, turn identity, and operator intent. Rust
+`policy/operator_control.rs` replays the target run from admitted
+`runs/*.json`, derives the next event sequence from `events/*.jsonl`, rejects
+retired `run`/`runs`/`agent`/candidate-run fields, and returns the only
+mutable run projection that JS may commit through Agentgres `writeRun()`. The
+thread-turn surface no longer calls `agentForThread()` or
+`resolveRunForThreadTurn()` before operator-control planning, and focused JS
+tests assert that `run`, `run_id`, `agent`, and candidate transports are absent
+from the planner request. Conformance now guards the Rust state-dir replay
+helper, the retired candidate-field rejection tests, and the absence of the JS
+resolver/candidate request path so the operator-control hot path cannot return
+to JS run truth while keeping the old command/binary bridge deleted.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

@@ -19,9 +19,24 @@ function assertNoRetiredOperatorTurnControlDetailAliases(details) {
   }
 }
 
+function assertNoRetiredOperatorTurnControlCandidateTransport(request) {
+  for (const key of ["run", "runs", "agent", "run_id", "candidate_run", "candidateRun"]) {
+    assert.equal(Object.hasOwn(request ?? {}, key), false, `${key} candidate transport must be absent`);
+  }
+}
+
 function createStore() {
   const stateDir = mkdtempSync(join(tmpdir(), "ioi-runtime-operator-control-facade-"));
   const plannerCalls = [];
+  const replayedRun = {
+    id: "run_one",
+    agentId: "agent_one",
+    status: "running",
+    turnStatus: "running",
+    createdAt: "2026-06-13T12:00:00.000Z",
+    updatedAt: "2026-06-13T12:01:00.000Z",
+    trace: {},
+  };
   const store = new AgentgresRuntimeStateStore(stateDir, {
     cwd: stateDir,
     modelMountCore: {
@@ -43,6 +58,7 @@ function createStore() {
         plannerCalls.push({ method: "planOperatorInterruptStateUpdate", request });
         assert.equal(request.state_dir, stateDir);
         assert.equal(Object.hasOwn(request, "seq"), false);
+        assertNoRetiredOperatorTurnControlCandidateTransport(request);
         return {
           source: "rust_operator_interrupt_state_update_command",
           backend: "rust_policy",
@@ -61,12 +77,12 @@ function createStore() {
             reason: "operator_interrupt",
           },
           run: {
-            ...request.run,
+            ...replayedRun,
             status: "canceled",
             turnStatus: "interrupted",
             updatedAt: request.created_at,
             trace: {
-              ...(request.run.trace ?? {}),
+              ...(replayedRun.trace ?? {}),
               operatorControls: [{
                 control: "interrupt",
                 event_id: request.event_id,
@@ -79,6 +95,7 @@ function createStore() {
         plannerCalls.push({ method: "planOperatorSteerStateUpdate", request });
         assert.equal(request.state_dir, stateDir);
         assert.equal(Object.hasOwn(request, "seq"), false);
+        assertNoRetiredOperatorTurnControlCandidateTransport(request);
         return {
           source: "rust_operator_steer_state_update_command",
           backend: "rust_policy",
@@ -94,10 +111,10 @@ function createStore() {
             created_at: request.created_at,
           },
           run: {
-            ...request.run,
+            ...replayedRun,
             updatedAt: request.created_at,
             trace: {
-              ...(request.run.trace ?? {}),
+              ...(replayedRun.trace ?? {}),
               operatorControls: [{
                 control: "steer",
                 event_id: request.event_id,
@@ -117,15 +134,7 @@ function createStore() {
     updatedAt: "2026-06-13T12:00:00.000Z",
     runtimeControls: { mode: "agent", approval_mode: "suggest" },
   });
-  store.runs.set("run_one", {
-    id: "run_one",
-    agentId: "agent_one",
-    status: "running",
-    turnStatus: "running",
-    createdAt: "2026-06-13T12:00:00.000Z",
-    updatedAt: "2026-06-13T12:01:00.000Z",
-    trace: {},
-  });
+  store.runs.set("run_one", replayedRun);
   store.writeRun = (run, operationKind) => {
     plannerCalls.push({ method: "writeRun", run, operationKind });
     store.runs.set(run.id, run);
@@ -161,9 +170,10 @@ test("interruptTurn facade uses Rust state-update planning before Agentgres run 
     assert.equal(plannerCalls[0].method, "planOperatorInterruptStateUpdate");
     assert.equal(plannerCalls[0].request.thread_id, "thread_one");
     assert.equal(plannerCalls[0].request.turn_id, "turn_one");
-    assert.equal(plannerCalls[0].request.run_id, "run_one");
+    assert.equal(Object.hasOwn(plannerCalls[0].request, "run_id"), false);
     assert.equal(plannerCalls[0].request.reason, "cancel");
     assertNoRetiredOperatorTurnControlDetailAliases(plannerCalls[0].request);
+    assertNoRetiredOperatorTurnControlCandidateTransport(plannerCalls[0].request);
     assert.equal(plannerCalls[1].method, "writeRun");
     assert.equal(plannerCalls[1].operationKind, "turn.interrupt");
     assert.equal(store.runs.get("run_one").turnStatus, "interrupted");
@@ -193,9 +203,10 @@ test("steerTurn facade uses Rust state-update planning before Agentgres run pers
     assert.equal(plannerCalls[0].method, "planOperatorSteerStateUpdate");
     assert.equal(plannerCalls[0].request.thread_id, "thread_one");
     assert.equal(plannerCalls[0].request.turn_id, "turn_one");
-    assert.equal(plannerCalls[0].request.run_id, "run_one");
+    assert.equal(Object.hasOwn(plannerCalls[0].request, "run_id"), false);
     assert.equal(plannerCalls[0].request.guidance, "focus on Rust admission");
     assertNoRetiredOperatorTurnControlDetailAliases(plannerCalls[0].request);
+    assertNoRetiredOperatorTurnControlCandidateTransport(plannerCalls[0].request);
     assert.equal(plannerCalls[1].method, "writeRun");
     assert.equal(plannerCalls[1].operationKind, "turn.steer");
     assert.equal(store.runs.get("run_one").trace.operatorControls[0].control, "steer");
