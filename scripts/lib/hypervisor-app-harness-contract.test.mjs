@@ -14,7 +14,7 @@ import {
   retainedQueryByScenario,
   validateAutopilotGuiHarnessResult,
   validateDefaultLivePromotionInvariants,
-} from "./autopilot-gui-harness-contract.mjs";
+} from "./hypervisor-app-harness-contract.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -249,7 +249,7 @@ function promotionInvariantUiAssertions(proof = reviewedImportActivationApplyPro
   };
 }
 
-test("autopilot GUI harness contract preserves retained query pack", () => {
+test("Hypervisor app harness contract preserves retained query pack", () => {
   const contract = autopilotGuiHarnessContract();
   assert.equal(contract.launchCommand, AUTOPILOT_GUI_HARNESS_LAUNCH_COMMAND);
   assert.equal(contract.requiredEnv.AUTOPILOT_LOCAL_GPU_DEV, "1");

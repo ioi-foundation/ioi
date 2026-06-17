@@ -3,7 +3,7 @@ export function parseArgs(argv) {
     contractOnly: false,
     preflight: false,
     run: false,
-    outputRoot: "docs/evidence/autopilot-gui-harness-validation",
+    outputRoot: "docs/evidence/hypervisor-app-harness-validation",
     windowName: "Autopilot Chat",
     windowTimeoutMs: 120_000,
     settleMs: 12_000,

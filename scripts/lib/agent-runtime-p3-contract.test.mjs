@@ -79,7 +79,7 @@ test("import-boundary scanner catches script fixture leaks in production paths",
   fs.mkdirSync(path.dirname(leakPath), { recursive: true });
   fs.writeFileSync(
     leakPath,
-    "const BAD: &str = \"scripts/lib/autopilot-gui-harness-contract.mjs\";\n",
+    "const BAD: &str = \"scripts/lib/hypervisor-app-harness-contract.mjs\";\n",
     "utf8",
   );
   const cleanPath = path.join(tmp, "crates/types/src/app/runtime_contracts.rs");

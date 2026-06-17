@@ -104,7 +104,7 @@ if (String(HYPERVISOR_WORKBENCH_ADAPTER_HOST.forkRoot).includes("/ide/")) {
 
 for (const script of [
   "scripts/launch-hypervisor-workbench-adapter-host.mjs",
-  "scripts/run-autopilot-ux-readiness-goal.mjs",
+  "scripts/run-hypervisor-app-ux-readiness-goal.mjs",
   "scripts/run-autopilot-workflow-compositor-parity-goal.mjs",
   "scripts/run-autopilot-model-mounting-goal.mjs",
   "scripts/run-autopilot-models-production-polish-goal.mjs",

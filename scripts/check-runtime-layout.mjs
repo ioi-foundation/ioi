@@ -44,6 +44,13 @@ const packageScriptNames = Object.keys(packageJson.scripts ?? {});
 const retiredAutopilotPackageScripts = packageScriptNames.filter((scriptName) =>
   /^(?:goal|validate|test):autopilot/.test(scriptName),
 );
+const activeHypervisorPackageScriptValues = [
+  "validate:hypervisor-app-harness",
+  "validate:hypervisor-app-harness:run",
+  "test:hypervisor-app-harness",
+  "goal:hypervisor-app-ux-readiness",
+  "goal:hypervisor-app-ux-readiness:run",
+].map((scriptName) => packageJson.scripts?.[scriptName] ?? "");
 const daemonSource = read("packages/runtime-daemon/src/index.mjs");
 const sdkSubstrate = read("packages/agent-sdk/src/substrate-client.ts");
 const sdkIndex = read("packages/agent-sdk/src/index.ts");
@@ -124,6 +131,12 @@ assert(
 assert(
   "autopilot-package-scripts-retired",
   retiredAutopilotPackageScripts.length === 0 &&
+    activeHypervisorPackageScriptValues.every(
+      (scriptValue) =>
+        !/run-autopilot-(?:ux-readiness|gui-harness)|autopilot-gui-harness/.test(
+          scriptValue,
+        ),
+    ) &&
     packageJson.scripts["validate:hypervisor-app-harness"] &&
     packageJson.scripts["validate:hypervisor-app-harness:run"] &&
     packageJson.scripts["test:hypervisor-app-harness"] &&

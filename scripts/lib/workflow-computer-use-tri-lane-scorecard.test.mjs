@@ -7,13 +7,13 @@ import test from "node:test";
 import {
   buildWorkflowComputerUseTriLaneScorecard,
   renderWorkflowComputerUseTriLaneScorecardMarkdown,
-} from "./autopilot-gui-harness-validation/computer-use-scorecard.mjs";
+} from "./hypervisor-app-harness-validation/computer-use-scorecard.mjs";
 import {
   collectWorkflowComputerUseTriLaneScorecard,
   collectWorkflowNativeBrowserPromptPipelineProof,
   collectWorkflowSandboxedComputerRunButtonProof,
   collectWorkflowVisualGuiPromptPipelineProof,
-} from "./autopilot-gui-harness-validation/workflow-proofs.mjs";
+} from "./hypervisor-app-harness-validation/workflow-proofs.mjs";
 
 function collectTriLaneProofs() {
   const outputRoot = mkdtempSync(

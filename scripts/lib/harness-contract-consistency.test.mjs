@@ -41,7 +41,7 @@ function readWorkflowRailPanel() {
 }
 
 function readGuiHarnessValidation() {
-  return read("scripts/lib/autopilot-gui-harness-validation/core.mjs");
+  return read("scripts/lib/hypervisor-app-harness-validation/core.mjs");
 }
 
 function rustImplBlock(source, implName) {

@@ -109,10 +109,10 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
     "packages/hypervisor-workbench/src/WorkflowComposer/runtimeSubflowInsertion.ts",
   );
   const guiHarnessContract = read(
-    "scripts/lib/autopilot-gui-harness-contract.mjs",
+    "scripts/lib/hypervisor-app-harness-contract.mjs",
   );
   const guiHarnessValidation = read(
-    "scripts/lib/autopilot-gui-harness-validation/core.mjs",
+    "scripts/lib/hypervisor-app-harness-validation/core.mjs",
   );
   const liveRuntimeDaemonContract = read(
     "scripts/lib/live-runtime-daemon-contract.test.mjs",

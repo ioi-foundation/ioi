@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { main } from "./lib/autopilot-gui-harness-validation/core.mjs";
+import { main } from "./lib/hypervisor-app-harness-validation/core.mjs";
 
 main()
   .then((code) => {

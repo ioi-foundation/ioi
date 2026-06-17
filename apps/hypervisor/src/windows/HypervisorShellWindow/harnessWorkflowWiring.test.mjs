@@ -56,14 +56,14 @@ const rustHarnessService = fs.readFileSync(
 );
 const guiHarnessValidation = fs.readFileSync(
   new URL(
-    "../../../../../scripts/lib/autopilot-gui-harness-validation/core.mjs",
+    "../../../../../scripts/lib/hypervisor-app-harness-validation/core.mjs",
     import.meta.url,
   ),
   "utf8",
 );
 const guiHarnessContract = fs.readFileSync(
   new URL(
-    "../../../../../scripts/lib/autopilot-gui-harness-contract.mjs",
+    "../../../../../scripts/lib/hypervisor-app-harness-contract.mjs",
     import.meta.url,
   ),
   "utf8",

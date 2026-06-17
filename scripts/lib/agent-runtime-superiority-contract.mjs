@@ -360,7 +360,7 @@ export const SMARTER_AGENT_SUPERIORITY_SCENARIOS = Object.freeze([
       "source_pills_reserved_for_search",
     ],
     anchors: [
-      sourceAnchor("scripts/lib/autopilot-gui-harness-contract.mjs", [
+      sourceAnchor("scripts/lib/hypervisor-app-harness-contract.mjs", [
         "CLEAN_CHAT_UX_REQUIREMENTS",
         "RUNTIME_CONSISTENCY_REQUIREMENTS",
       ]),

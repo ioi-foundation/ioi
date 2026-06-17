@@ -211,7 +211,7 @@ function summarizeTrace(trace) {
 }
 
 function existingCleanUxContract(repoRoot) {
-  const filePath = path.join(repoRoot, "scripts", "lib", "autopilot-gui-harness-contract.mjs");
+  const filePath = path.join(repoRoot, "scripts", "lib", "hypervisor-app-harness-contract.mjs");
   if (!fs.existsSync(filePath)) {
     return false;
   }

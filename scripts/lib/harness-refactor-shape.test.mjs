@@ -54,7 +54,7 @@ test("runtime and workflow harness compatibility facades stay thin", () => {
     ["crates/types/src/app/harness/mod.rs", 48],
     ["packages/hypervisor-workbench/src/runtime/harness-workflow.ts", 8],
     ["packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel.tsx", 8],
-    ["scripts/run-autopilot-gui-harness-validation.mjs", 12],
+    ["scripts/run-hypervisor-app-harness-validation.mjs", 12],
   ]) {
     assertFacade(relativePath, maxLines);
   }
@@ -936,35 +936,35 @@ test("workflow rail modules own extracted implementation", () => {
 
 test("GUI harness validation modules remain split by concern", () => {
   for (const relativePath of [
-    "scripts/lib/autopilot-gui-harness-validation/args.mjs",
-    "scripts/lib/autopilot-gui-harness-validation/desktop.mjs",
-    "scripts/lib/autopilot-gui-harness-validation/retained-query-evidence.mjs",
-    "scripts/lib/autopilot-gui-harness-validation/artifacts.mjs",
-    "scripts/lib/autopilot-gui-harness-validation/promotion-proof.mjs",
-    "scripts/lib/autopilot-gui-harness-validation/rollback-proof.mjs",
-    "scripts/lib/autopilot-gui-harness-validation/workflow-proofs.mjs",
-    "scripts/lib/autopilot-gui-harness-validation/assessment.mjs",
+    "scripts/lib/hypervisor-app-harness-validation/args.mjs",
+    "scripts/lib/hypervisor-app-harness-validation/desktop.mjs",
+    "scripts/lib/hypervisor-app-harness-validation/retained-query-evidence.mjs",
+    "scripts/lib/hypervisor-app-harness-validation/artifacts.mjs",
+    "scripts/lib/hypervisor-app-harness-validation/promotion-proof.mjs",
+    "scripts/lib/hypervisor-app-harness-validation/rollback-proof.mjs",
+    "scripts/lib/hypervisor-app-harness-validation/workflow-proofs.mjs",
+    "scripts/lib/hypervisor-app-harness-validation/assessment.mjs",
   ]) {
     assertExists(relativePath);
   }
 
   assertOwnsImplementation(
-    "scripts/lib/autopilot-gui-harness-validation/args.mjs",
+    "scripts/lib/hypervisor-app-harness-validation/args.mjs",
     /parseArgs/,
     30,
   );
   assertOwnsImplementation(
-    "scripts/lib/autopilot-gui-harness-validation/artifacts.mjs",
+    "scripts/lib/hypervisor-app-harness-validation/artifacts.mjs",
     /writeBundle/,
     8,
   );
   assertOwnsImplementation(
-    "scripts/lib/autopilot-gui-harness-validation/desktop.mjs",
+    "scripts/lib/hypervisor-app-harness-validation/desktop.mjs",
     /typeQuery/,
     200,
   );
   assertOwnsImplementation(
-    "scripts/lib/autopilot-gui-harness-validation/workflow-proofs.mjs",
+    "scripts/lib/hypervisor-app-harness-validation/workflow-proofs.mjs",
     /collectWorkflowTerminalCodingLoopRunButtonProof/,
     200,
   );
@@ -977,7 +977,7 @@ test("core files do not grow past the refactor checkpoint without updating the g
       "packages/hypervisor-workbench/src/features/Workflows/WorkflowRailPanel/core.tsx",
       5_830,
     ],
-    ["scripts/lib/autopilot-gui-harness-validation/core.mjs", 11_900],
+    ["scripts/lib/hypervisor-app-harness-validation/core.mjs", 11_900],
   ]) {
     assert.ok(
       lineCount(relativePath) <= maxLines,

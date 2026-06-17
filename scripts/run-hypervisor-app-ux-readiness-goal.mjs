@@ -11,19 +11,15 @@ import {
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { AUTOPILOT_RETAINED_QUERIES } from "./lib/autopilot-gui-harness-contract.mjs";
+import { AUTOPILOT_RETAINED_QUERIES } from "./lib/hypervisor-app-harness-contract.mjs";
 import { HYPERVISOR_WORKBENCH_ADAPTER_HOST } from "./lib/hypervisor-workbench-adapter-host-paths.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const repoRoot = resolve(__dirname, "..");
 
-const DEFAULT_OUTPUT_ROOT =
-  "docs/evidence/autopilot-ide-first-ux-readiness";
-const MASTER_GUIDE =
-  ".internal/plans/autopilot-ide-first-tauri-retirement-ux-readiness-master-guide.md";
-const TAURI_INVENTORY =
-  ".internal/plans/autopilot-tauri-retirement-inventory.md";
+const DEFAULT_OUTPUT_ROOT = "docs/evidence/hypervisor-app-ux-readiness";
+const MASTER_GUIDE = "internal-docs/implementation/refine-architecture.md";
 const VSCODE_FORK_ROOT = HYPERVISOR_WORKBENCH_ADAPTER_HOST.forkRoot;
 const VSCODE_PACKAGED_APP_ROOT = HYPERVISOR_WORKBENCH_ADAPTER_HOST.packagedRoot;
 
@@ -149,13 +145,10 @@ function checkMasterGuide() {
   }
   const content = readFileSync(guidePath, "utf8");
   const requiredHeadings = [
-    "## Executive Verdict",
-    "## Master Guide 0: Architecture Canon Update",
-    "## Master Guide 1: VS Code Fork Becomes The Canonical Shell",
-    "## Master Guide 2: Tauri Runtime Retirement",
-    "## Master Guide 5: Autopilot UX Readiness",
-    "## Master Guide 7: Connector Sprint Readiness Gate",
-    "## Final End State",
+    "## Core Correction",
+    "## Product And Client Taxonomy",
+    "## Phase 0A: Product UX Reframe",
+    "## Final Doctrine",
   ];
   const missingHeadings = requiredHeadings.filter(
     (heading) => !content.includes(heading),
@@ -166,47 +159,17 @@ function checkMasterGuide() {
     "checkout",
   ].filter((term) => content.toLowerCase().includes(term));
   return {
-    id: "master-guide:ux-readiness",
+    id: "master-guide:hypervisor-app-ux-readiness",
     ok: missingHeadings.length === 0 && providerSpecificMentions.length === 0,
     summary:
       missingHeadings.length === 0 && providerSpecificMentions.length === 0
-        ? "UX readiness master guide is present and connector-neutral"
-        : "UX readiness master guide needs attention",
+        ? "Refine architecture guide is present and connector-neutral"
+        : "Refine architecture guide needs attention",
     evidence: {
       path: MASTER_GUIDE,
       missingHeadings,
       providerSpecificMentions,
     },
-  };
-}
-
-function checkTauriInventory() {
-  const inventoryPath = join(repoRoot, TAURI_INVENTORY);
-  if (!existsSync(inventoryPath)) {
-    return {
-      id: "tauri-retirement:inventory",
-      ok: false,
-      summary: `${TAURI_INVENTORY} is missing`,
-    };
-  }
-  const content = readFileSync(inventoryPath, "utf8");
-  const requiredPhrases = [
-    "legacy extraction inventory to remove",
-    "migrate, retire, delete, or compatibility-only",
-    "VS Code / Electron fork",
-    "IOI daemon = hypervisor/control plane",
-  ];
-  const missingPhrases = requiredPhrases.filter(
-    (phrase) => !content.includes(phrase),
-  );
-  return {
-    id: "tauri-retirement:inventory",
-    ok: missingPhrases.length === 0,
-    summary:
-      missingPhrases.length === 0
-        ? "Tauri retirement inventory is present"
-        : "Tauri retirement inventory needs attention",
-    evidence: { path: TAURI_INVENTORY, missingPhrases },
   };
 }
 
@@ -463,7 +426,7 @@ function checkPackageScripts() {
     "validate:hypervisor-app-harness:run",
   ].filter((script) =>
     packageJson.scripts?.[script]?.includes(
-      "scripts/run-autopilot-ux-readiness-goal.mjs",
+      "scripts/run-hypervisor-app-ux-readiness-goal.mjs",
     ),
   );
   return {
@@ -1177,7 +1140,6 @@ async function main() {
     checkCodexGoalsFeature(),
     checkPlaywright(),
     checkMasterGuide(),
-    checkTauriInventory(),
     checkArchitectureDocs(),
     checkForkAndWorkbenchPaths(),
     checkCanonicalForkReadiness(),
@@ -1191,7 +1153,7 @@ async function main() {
   }
 
   const result = {
-    schemaVersion: "autopilot.ux-readiness-goal.v1",
+    schemaVersion: "hypervisor.app-ux-readiness-goal.v1",
     mode: args.run ? "run" : "preflight",
     ok: checks.every((check) => check.ok),
     generatedAt: new Date().toISOString(),

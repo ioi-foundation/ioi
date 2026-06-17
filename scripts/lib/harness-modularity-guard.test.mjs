@@ -85,7 +85,7 @@ const harnessAuthorityAllowlist = [
   "packages/hypervisor-workbench/src/runtime/workflow-rail-model.ts",
   "packages/hypervisor-workbench/src/runtime/workflow-run-history-model.ts",
   "packages/hypervisor-workbench/src/types/graph.ts",
-  "scripts/lib/autopilot-gui-harness-validation/core.mjs",
+  "scripts/lib/hypervisor-app-harness-validation/core.mjs",
   "scripts/lib/harness-contract-consistency.test.mjs",
   "scripts/lib/harness-modularity-guard.test.mjs",
 ];
@@ -126,7 +126,7 @@ function readTsHarnessWorkflow() {
 }
 
 function readGuiHarnessValidation() {
-  return read("scripts/lib/autopilot-gui-harness-validation/core.mjs");
+  return read("scripts/lib/hypervisor-app-harness-validation/core.mjs");
 }
 
 function rustImplBlock(source, implName) {

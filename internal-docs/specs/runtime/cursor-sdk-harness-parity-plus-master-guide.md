@@ -129,9 +129,9 @@ Key public API modules:
 | Runtime CLI commands for run, chat, resume, pause, cancel, approval, policy, tools, config, status, events, trace, verify, replay, export | `crates/cli/src/commands/agent.rs:41-206` |
 | MCP CLI inspection, receipts, containment checks | `crates/cli/src/commands/mcp.rs:24-38` |
 | MCP production containment rules | `crates/types/src/config/mod.rs:417-790` |
-| GUI retained-query harness contract | `scripts/lib/autopilot-gui-harness-contract.mjs:1-134` |
-| Clean chat UX requirements | `scripts/lib/autopilot-gui-harness-contract.mjs:94-113` |
-| GUI harness runner with safe click policy | `scripts/run-autopilot-gui-harness-validation.mjs:17-79` |
+| GUI retained-query harness contract | `scripts/lib/hypervisor-app-harness-contract.mjs:1-134` |
+| Clean chat UX requirements | `scripts/lib/hypervisor-app-harness-contract.mjs:94-113` |
+| GUI harness runner with safe click policy | `scripts/run-hypervisor-app-harness-validation.mjs:17-79` |
 | Runtime P3 validator inventory | `scripts/lib/agent-runtime-p3-contract.mjs:14-199` |
 | Smarter-agent superiority scenario ledger | `scripts/lib/agent-runtime-superiority-contract.mjs:23-51` |
 | Runtime validation command bundle | `scripts/check-agent-runtime.sh:8-27` |
@@ -197,7 +197,7 @@ Status meanings:
 | Local sandbox options | Partial Plus | `@cursor/sdk/dist/esm/options.d.ts:35-37`, `@cursor/sdk/dist/esm/local-executor.d.ts:9-17` | policy, approval, containment, dry-run, CIRC/CEC docs and runtime contracts | Gap: no SDK `sandboxOptions`. Plus: IOI has richer authority and dry-run semantics. Fix: expose typed sandbox profiles that cannot bypass policy. |
 | Checkpoint store / crash resume | Partial | `@cursor/sdk/dist/esm/platform.d.ts:6-13`, `@cursor/sdk/dist/esm/executor-types.d.ts:24-37` | snapshot/export/replay, pause/resume/cancel CLI | Gap: no SDK checkpoint store abstraction. Fix: public `CheckpointStore` over session trace and task state. |
 | Public validation harness | Complete Plus for SDK/local | Cursor package has test/build scripts, public claims | `scripts/lib/cursor-sdk-reference-contract.mjs:1-130`, `scripts/lib/cursor-sdk-parity-contract.mjs:1-226`, `scripts/run-cursor-sdk-parity-validation.mjs:1-55` | Cursor reference lock, local SDK proof, replay/trace/scorecard evidence, and external blocker records now exist. Live GUI remains blocked. |
-| Clean chat UX | Complete Plus | Cursor product claims show compact process UI | `scripts/lib/autopilot-gui-harness-contract.mjs:94-113` | Keep plus. Ensure SDK/harness evidence projects into compact sources/explored files, not raw dumps. |
+| Clean chat UX | Complete Plus | Cursor product claims show compact process UI | `scripts/lib/hypervisor-app-harness-contract.mjs:94-113` | Keep plus. Ensure SDK/harness evidence projects into compact sources/explored files, not raw dumps. |
 | Smarter-agent task/world state | Complete Plus for SDK/local | Cursor reference does not expose equivalent typed task state | `packages/agent-sdk/src/messages.ts:57-74`, `packages/agent-sdk/src/substrate-client.ts:536-548` | `run.inspect()` and trace export expose task state without adding default chat clutter. |
 | Uncertainty/probe/postcondition/semantic-impact loop | Complete Plus for SDK/local | Cursor exposes steps/deltas, not these contracts | `packages/agent-sdk/src/substrate-client.ts:549-606`, `docs/evidence/cursor-sdk-parity/2026-05-01T15-16-58-618Z/sdk-local-proof.json` | SDK proof shows uncertainty, probe, postcondition synthesis, and semantic impact records. |
 | Quality ledger, stop condition, handoff quality | Complete Plus for SDK/local | Cursor run result has status/result/git | `packages/agent-sdk/src/substrate-client.ts:607-747`, `packages/agent-sdk/test/sdk.test.mjs:78-90` | Run result and trace include stop condition, scorecard, quality ledger, and handoff/learning proof lanes. |

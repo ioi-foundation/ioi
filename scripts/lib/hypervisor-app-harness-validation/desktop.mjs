@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import { unlinkSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
-import { GUI_AUTOMATION_CLICK_POLICY } from "../autopilot-gui-harness-contract.mjs";
+import { GUI_AUTOMATION_CLICK_POLICY } from "../hypervisor-app-harness-contract.mjs";
 
 const repoRoot = resolve(new URL("../../..", import.meta.url).pathname);
 

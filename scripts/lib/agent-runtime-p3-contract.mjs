@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
-import { validateAutopilotGuiHarnessResult } from "./autopilot-gui-harness-contract.mjs";
+import { validateAutopilotGuiHarnessResult } from "./hypervisor-app-harness-contract.mjs";
 import { SCORECARD_SCHEMA } from "./benchmark-matrix-contracts.mjs";
 
 export const AGENT_RUNTIME_P3_SCHEMA_VERSION =
@@ -184,12 +184,12 @@ export const P3_PRODUCT_POLISH_ITEMS = Object.freeze([
     label: "Desktop validation dashboard",
     dashboard: "desktop-validation-dashboard.md",
     anchors: [
-      sourceAnchor("scripts/lib/autopilot-gui-harness-contract.mjs", [
+      sourceAnchor("scripts/lib/hypervisor-app-harness-contract.mjs", [
         "AUTOPILOT_RETAINED_QUERIES",
         "CLEAN_CHAT_UX_REQUIREMENTS",
         "RUNTIME_CONSISTENCY_REQUIREMENTS",
       ]),
-      sourceAnchor("scripts/lib/autopilot-gui-harness-validation/core.mjs", [
+      sourceAnchor("scripts/lib/hypervisor-app-harness-validation/core.mjs", [
         "buildGuiEvidenceAssessment",
         "screenshot",
         "runtime-artifacts.json",
@@ -488,14 +488,14 @@ export const BETTER_AGENT_VALIDATIONS = Object.freeze([
     ]),
   ]),
   betterAgent("autopilot_gui_retained_query", 2178, "Autopilot GUI retained-query tests", [
-    sourceAnchor("scripts/lib/autopilot-gui-harness-contract.mjs", [
+    sourceAnchor("scripts/lib/hypervisor-app-harness-contract.mjs", [
       "AUTOPILOT_RETAINED_QUERIES",
       "validateAutopilotGuiHarnessResult",
     ]),
     evidenceAnchor("autopilot_gui_harness_passing_result"),
   ]),
   betterAgent("chat_presentation", 2183, "Chat presentation tests", [
-    sourceAnchor("scripts/lib/autopilot-gui-harness-contract.mjs", [
+    sourceAnchor("scripts/lib/hypervisor-app-harness-contract.mjs", [
       "collapsible_explored_files",
       "source_pills_reserved_for_search",
     ]),
@@ -641,6 +641,7 @@ function sha256Text(text) {
 export function latestPassingGuiHarnessEvidence(repoRoot) {
   const evidenceRoots = [
     "docs/evidence/architectural-improvements-broad/gui-retained-validation",
+    "docs/evidence/hypervisor-app-harness-validation",
     "docs/evidence/autopilot-gui-harness-validation",
   ].map((relativePath) => path.join(repoRoot, relativePath));
   const candidates = evidenceRoots
@@ -728,7 +729,7 @@ function evaluateAnchor(repoRoot, anchor, context) {
             ...anchor,
             status: context.requireGuiEvidence ? "Missing" : "Unknown",
             detail:
-              "No passing Autopilot GUI retained-query result was found in architectural-improvements or legacy GUI evidence roots.",
+              "No passing Hypervisor app GUI retained-query result was found in architectural-improvements, canonical, or legacy GUI evidence roots.",
           };
     }
   }
@@ -766,7 +767,7 @@ export function scanImportBoundaries(repoRoot) {
     /require\(["'][^"']*scripts\/lib/i,
     /agent-runtime-p3-contract\.mjs/i,
     /benchmark-matrix-contracts\.mjs/i,
-    /autopilot-gui-harness-contract\.mjs/i,
+    /hypervisor-app-harness-contract\.mjs/i,
     /fixtures\/agent-model-matrix/i,
   ];
   const sourceExtensions = new Set([".rs", ".ts", ".tsx", ".js", ".jsx", ".mjs"]);
@@ -1032,7 +1033,7 @@ function buildDogfoodingDashboard(readiness) {
         ["Harness", "crates/types/src/app/harness/components.rs"],
         ["Workflow compositor", "apps/hypervisor/src/windows/HypervisorShellWindow/workflowComposerWiring.test.ts"],
         ["Benchmarks", "scripts/run-agent-model-matrix.mjs"],
-        ["Desktop UI", "scripts/run-autopilot-gui-harness-validation.mjs"],
+        ["Desktop UI", "scripts/run-hypervisor-app-harness-validation.mjs"],
       ],
     ),
     "",

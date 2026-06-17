@@ -11128,7 +11128,7 @@ export const DEFAULT_AGENT_HARNESS_COMPONENTS: WorkflowHarnessComponentSpec[] =
       label: "GUI harness validator",
       description:
         "Validates retained Autopilot chat queries, screenshots, transcripts, traces, receipts, source chips, scorecards, and clean chat UX.",
-      kernelRef: "scripts/run-autopilot-gui-harness-validation.mjs",
+      kernelRef: "scripts/run-hypervisor-app-harness-validation.mjs",
       capabilityScope: ["gui.validate", "harness.validate"],
       eventKinds: ["AutopilotGuiHarnessValidation", "CleanChatUxValidation"],
       evidence: ["screenshots", "transcripts", "trace_refs", "quality_ledger"],

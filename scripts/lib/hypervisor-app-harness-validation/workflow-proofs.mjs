@@ -236,15 +236,15 @@ export function collectWorkflowSkillContextProof(outputRoot) {
     bindingSections:
       "packages/hypervisor-workbench/src/features/Workflows/WorkflowNodeBindingEditor/sections.tsx",
     harnessTools: "packages/hypervisor-workbench/src/runtime/workflow-harness-tools.ts",
-    tauriRuntime: "apps/hypervisor/src/services/TauriRuntime.ts",
-    projectRuntime: "apps/hypervisor/src-tauri/src/project/runtime.rs",
+    tauriRuntime: "apps/hypervisor/src/services/HypervisorClientRuntime.ts",
+    projectRuntime: "apps/hypervisor/src/services/HypervisorClientRuntime.ts",
     projectWorkflowSchedulerLane:
-      "apps/hypervisor/src-tauri/src/project/workflow_scheduler_lane.rs",
+      "packages/hypervisor-workbench/src/runtime/harness-workflow/core.ts",
     projectCodingRouteLane:
-      "apps/hypervisor/src-tauri/src/project/workflow_coding_route_lane.rs",
-    projectCommands: "apps/hypervisor/src-tauri/src/project/commands.rs",
+      "packages/hypervisor-workbench/src/runtime/harness-workflow/core.ts",
+    projectCommands: "apps/hypervisor/src/services/HypervisorClientRuntime.ts",
     runtimeTests:
-      "apps/hypervisor/src-tauri/src/project/workflow_project_tests/runtime_and_graph_contracts.rs",
+      "packages/hypervisor-workbench/src/runtime/harness-workflow-activation.test.ts",
   };
   const source = Object.fromEntries(
     Object.entries(files).map(([key, relativePath]) => [key, read(relativePath)]),
@@ -316,15 +316,15 @@ export function collectWorkflowCodingRouteProof(outputRoot) {
     graphRuntimeTypes: "packages/hypervisor-workbench/src/runtime/graph-runtime-types.ts",
     routeCatalog: "packages/hypervisor-workbench/src/runtime/workflow-coding-routes.ts",
     harnessTools: "packages/hypervisor-workbench/src/runtime/workflow-harness-tools.ts",
-    tauriRuntime: "apps/hypervisor/src/services/TauriRuntime.ts",
-    projectTemplates: "apps/hypervisor/src-tauri/src/project/templates.rs",
-    projectRuntime: "apps/hypervisor/src-tauri/src/project/runtime.rs",
+    tauriRuntime: "apps/hypervisor/src/services/HypervisorClientRuntime.ts",
+    projectTemplates: "packages/hypervisor-workbench/src/workflowTemplates.ts",
+    projectRuntime: "apps/hypervisor/src/services/HypervisorClientRuntime.ts",
     projectWorkflowSchedulerLane:
-      "apps/hypervisor/src-tauri/src/project/workflow_scheduler_lane.rs",
+      "packages/hypervisor-workbench/src/runtime/harness-workflow/core.ts",
     projectCodingRouteLane:
-      "apps/hypervisor/src-tauri/src/project/workflow_coding_route_lane.rs",
+      "packages/hypervisor-workbench/src/runtime/harness-workflow/core.ts",
     runtimeTests:
-      "apps/hypervisor/src-tauri/src/project/workflow_project_tests/runtime_and_graph_contracts.rs",
+      "packages/hypervisor-workbench/src/runtime/harness-workflow-activation.test.ts",
   };
   const source = Object.fromEntries(
     Object.entries(files).map(([key, relativePath]) => [key, read(relativePath)]),
@@ -416,15 +416,15 @@ export function collectWorkflowCodingRoutePromotionLoopProof(outputRoot) {
     graphTypes: "packages/hypervisor-workbench/src/types/graph.ts",
     routeCatalog: "packages/hypervisor-workbench/src/runtime/workflow-coding-routes.ts",
     bottomShelf: "packages/hypervisor-workbench/src/features/Workflows/WorkflowBottomShelf.tsx",
-    tauriRuntime: "apps/hypervisor/src/services/TauriRuntime.ts",
-    projectTemplates: "apps/hypervisor/src-tauri/src/project/templates.rs",
-    projectRuntime: "apps/hypervisor/src-tauri/src/project/runtime.rs",
+    tauriRuntime: "apps/hypervisor/src/services/HypervisorClientRuntime.ts",
+    projectTemplates: "packages/hypervisor-workbench/src/workflowTemplates.ts",
+    projectRuntime: "apps/hypervisor/src/services/HypervisorClientRuntime.ts",
     projectWorkflowSchedulerLane:
-      "apps/hypervisor/src-tauri/src/project/workflow_scheduler_lane.rs",
+      "packages/hypervisor-workbench/src/runtime/harness-workflow/core.ts",
     projectCodingRouteLane:
-      "apps/hypervisor/src-tauri/src/project/workflow_coding_route_lane.rs",
+      "packages/hypervisor-workbench/src/runtime/harness-workflow/core.ts",
     runtimeTests:
-      "apps/hypervisor/src-tauri/src/project/workflow_project_tests/runtime_and_graph_contracts.rs",
+      "packages/hypervisor-workbench/src/runtime/harness-workflow-activation.test.ts",
   };
   const source = Object.fromEntries(
     Object.entries(files).map(([key, relativePath]) => [key, read(relativePath)]),

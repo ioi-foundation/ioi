@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 
-import { AUTOPILOT_RETAINED_QUERIES } from "../autopilot-gui-harness-contract.mjs";
+import { AUTOPILOT_RETAINED_QUERIES } from "../hypervisor-app-harness-contract.mjs";
 import { typeQuery } from "./desktop.mjs";
 
 function sleep(ms) {
