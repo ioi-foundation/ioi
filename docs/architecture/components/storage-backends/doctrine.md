@@ -101,10 +101,45 @@ themselves:
 
 ```text
 payload missing
-  -> Agentgres lifecycle status becomes missing or invalid
+  -> ArtifactAvailabilityIncident proposed in Agentgres
+  -> Agentgres lifecycle status becomes missing or invalid where applicable
   -> blocker or repair action opens if work depends on it
   -> replica/backend fallback may run
-  -> receipt records verification/repair outcome
+  -> repair receipt records verification/repair outcome
+  -> Agentgres operation admits repaired refs or unrecoverable state
+```
+
+Backends may report successful retrieval, failed retrieval, proof status,
+replica health, deal state, object metadata, or deletion state. Those reports
+are evidence. They do not repair artifact truth until Agentgres admits the
+repair operation and receipt.
+
+## Artifact Availability Incidents
+
+Storage failures that affect replay, restore, delivery, dispute, verification,
+or user-visible state must be surfaced through Agentgres:
+
+```text
+missing bytes
+invalid hash or CID
+decrypt failure
+stale replica
+backend timeout
+expired storage lease
+retention mismatch
+policy-incompatible storage location
+```
+
+The canonical response is:
+
+```text
+detect failure
+  -> open ArtifactAvailabilityIncident
+  -> quarantine invalid refs or dependent projections if needed
+  -> try configured replica/backend/archive fallback
+  -> verify commitments and wallet-controlled decryptability
+  -> emit ArtifactRepairReceipt
+  -> admit repaired refs or unrecoverable status through Agentgres
 ```
 
 ## Backend Selection Policy
@@ -137,6 +172,11 @@ An implementation conforms when:
 4. Archive restore uses Agentgres restore/import operations.
 5. Filecoin/CAS/S3/local disk/object stores can be swapped or replicated without
    changing what the payload means.
+6. Missing, invalid, stale, or unavailable payloads open
+   `ArtifactAvailabilityIncident` records when they affect admitted work.
+7. Repair from replica, archive, or replacement payload requires an
+   `ArtifactRepairReceipt` and Agentgres operation before projections or restore
+   paths treat it as valid.
 
 ## Anti-Patterns
 
@@ -146,6 +186,10 @@ Do not:
 - use `cas.put` / `cas.get` as runtime authority operations;
 - trust CDN URLs without content commitments and Agentgres refs;
 - restore from storage bytes without Agentgres state-root validation;
+- silently overwrite missing/corrupt payload bytes and call the artifact
+  repaired;
+- treat a successful backend fetch, Filecoin deal, gateway response, or object
+  metadata row as restore validity;
 - put raw private plaintext in public stores without wallet-controlled
   encryption;
 - let package availability imply package install authority;

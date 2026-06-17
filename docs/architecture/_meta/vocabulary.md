@@ -398,6 +398,16 @@ compliance acronyms for hidden audit material.
   validity layer for payload bytes. It owns `ArtifactRef`, `PayloadRef`,
   `EvidenceBundle`, `DeliveryBundle` artifact linkage, and `AgentStateArchive`
   refs; storage backends hold the bytes.
+- `ArtifactAvailabilityIncident`: the Agentgres-admitted incident object for
+  missing, unavailable, corrupt, stale, undecryptable, expired, or
+  policy-incompatible artifact payloads. It binds the affected refs, expected
+  and observed commitments, backend evidence, lifecycle state, repair policy,
+  repair receipts, replacement payload refs, and Agentgres operations.
+- `ArtifactRepairReceipt`: the receipt proving an attempted or completed repair
+  for an artifact availability incident. It records the repair action,
+  verified commitments, decryptability or restore-validity checks, replacement
+  refs, policy hash, and Agentgres operation refs. It does not make storage
+  backends authoritative.
 - `ServiceCompositionReceiptBundle`: the receipt-bundle profile for composed
   service deliveries. It binds composition graph refs, routing receipts,
   contribution receipts, verifier refs, policy receipts, private-data posture,
@@ -408,7 +418,8 @@ compliance acronyms for hidden audit material.
 - `StorageBackend`: a payload byte store below Agentgres-governed artifact refs,
   such as local disk, S3/object stores, Filecoin, CAS/IPFS, provider blob
   stores, customer VPC blob stores, or storage engines used as payload engines.
-  A storage backend is not an authority layer.
+  A storage backend is not an authority layer; availability failures become
+  `ArtifactAvailabilityIncident` records when admitted work depends on them.
 - `FilecoinCASBackend`: a content-addressed storage backend profile for payload
   availability. It may hold packages, evidence, traces, checkpoints, delivery
   payloads, datasets, and sealed archive bytes, but Agentgres owns their

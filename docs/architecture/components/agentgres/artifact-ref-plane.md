@@ -40,6 +40,7 @@ The Agentgres artifact-ref plane owns:
 
 - `ArtifactRef`;
 - `PayloadRef`;
+- `ArtifactAvailabilityIncident`;
 - `EvidenceBundle`;
 - `DeliveryBundle` artifact identity and acceptance linkage;
 - `AgentStateArchive` refs, state roots, object heads, restore/import metadata,
@@ -163,6 +164,53 @@ PayloadRef:
   artifact_ref: artifact://... | null
 ```
 
+### ArtifactAvailabilityIncident
+
+`ArtifactAvailabilityIncident` is the Agentgres-admitted incident object for a
+payload ref whose bytes, commitments, replicas, leases, or decryptability no
+longer satisfy the artifact lifecycle policy. It is not a storage-backend
+ticket by itself. It is the operational record that makes backend failure
+visible to replay, restore, dispute, repair, and projections.
+
+```yaml
+ArtifactAvailabilityIncident:
+  incident_id: artifact_incident://...
+  domain_id: agentgres://domain/...
+  artifact_ref: artifact://... | null
+  payload_ref:
+    cid: bafy... | null
+    sha256: sha256:... | null
+  archive_ref: archive://... | null
+  detected_by:
+    daemon:... | worker:... | verifier:... | projection:... | user:...
+  failure_kind:
+    missing | unavailable | invalid_hash | invalid_cid |
+    decrypt_failed | stale_replica | backend_timeout |
+    retention_expired | lease_expired | policy_violation
+  expected_commitment:
+    cid: bafy... | null
+    sha256: sha256:... | null
+    manifest_root: sha256:... | null
+  observed_commitment:
+    cid: bafy... | null
+    sha256: sha256:... | null
+    error: string | null
+  backend_refs:
+    - storage://...
+  lifecycle_state_before:
+    active | verified | archived | missing | invalid | revoked
+  repair_policy_ref: policy://...
+  repair_receipt_refs:
+    - receipt://...
+  replacement_payload_refs:
+    - artifact://... | payload://...
+  agentgres_operation_refs:
+    - agentgres://operation/...
+  status:
+    open | repair_attempted | repaired | quarantined |
+    unrecoverable | escalated
+```
+
 ### EvidenceBundle
 
 ```yaml
@@ -279,6 +327,20 @@ AgentStateRestoreRequested
   -> RestoreReceiptRecorded
 ```
 
+Artifact availability repair is likewise operation-backed:
+
+```text
+payload fetch, verify, decrypt, or replica check fails
+  -> ArtifactAvailabilityIncident proposed
+  -> Agentgres records lifecycle state missing or invalid where applicable
+  -> dependent projections, deliveries, restores, or claims are blocked/quarantined
+  -> replica/backend fallback, rehydration, or replacement payload is attempted
+  -> hash/CID/manifest/decryption/policy are verified
+  -> ArtifactRepairReceipt emitted
+  -> Agentgres operation admits repaired refs or marks unrecoverable
+  -> projections and restore/import paths resume only from admitted state
+```
+
 ## Admission / Settlement Boundary
 
 A payload ref crosses the Agentgres admission boundary when the payload:
@@ -308,6 +370,10 @@ ArtifactExported
 ArtifactRedacted
 ArtifactRevoked
 ArtifactMissing
+ArtifactAvailabilityIncidentOpened
+ArtifactRepairAttempted
+ArtifactRepairRecorded
+ArtifactQuarantined
 EvidenceBundleCreated
 DeliveryBundleProposed
 DeliveryBundleAccepted
@@ -374,7 +440,10 @@ An implementation conforms when:
    authority checks.
 5. Missing or invalid payloads become lifecycle states and/or blockers rather
    than silent success.
-6. Projections, indexes, and retrieval systems can be rebuilt from Agentgres
+6. Missing, invalid, stale, or unavailable payloads that affect replay,
+   restore, delivery, dispute, or verification open
+   `ArtifactAvailabilityIncident` records and emit repair receipts.
+7. Projections, indexes, and retrieval systems can be rebuilt from Agentgres
    operations, refs, receipts, and storage payloads.
 
 ## Anti-Patterns
@@ -391,6 +460,10 @@ Do not:
   live portfolio state in provider-visible artifact bytes;
 - let package, dataset, trace, or checkpoint bytes become authoritative because
   they are content-addressed;
+- replace missing or corrupt payload bytes without an Agentgres operation and
+  repair receipt;
+- hide stale replicas or backend retrieval failures behind projections that
+  still look current;
 - collapse Agent Wiki / `ioi-memory` into random Agentgres blob rows;
 - put ordinary artifact bytes or full traces on IOI L1.
 

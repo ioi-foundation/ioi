@@ -133,6 +133,31 @@ Consumers must verify:
 - wallet authority for decrypt/export/restore;
 - receipt linkage.
 
+## Availability Incidents And Repair
+
+Filecoin deals, IPFS pins, CAS objects, and gateway responses are availability
+evidence. They are not artifact truth and they are not restore validity by
+themselves.
+
+```text
+CID retrieval fails
+or provider deal expires
+or gateway returns bytes with wrong hash
+or replica is stale
+or encrypted archive cannot decrypt
+  -> Agentgres opens ArtifactAvailabilityIncident
+  -> invalid refs are quarantined where needed
+  -> replica, pin, deal renewal, archive fallback, or replacement payload is tried
+  -> CID/hash/manifest/decryption/policy are verified
+  -> ArtifactRepairReceipt records the repair attempt
+  -> Agentgres admits repaired refs or unrecoverable lifecycle state
+```
+
+A renewed Filecoin deal, new pin, or replacement CID may preserve availability.
+It does not preserve canonical meaning unless Agentgres links the new payload
+commitment to the artifact, receipt chain, policy hash, authority context, and
+state root.
+
 ## Anti-Patterns
 
 Do not:
@@ -141,6 +166,7 @@ Do not:
 - treat a CID as sufficient proof of policy, authority, or provenance;
 - use a gateway URL as trust;
 - restore an `AgentStateArchive` directly from bytes;
+- treat deal renewal, pinning, or gateway retrieval as an Agentgres repair;
 - publish private plaintext to public availability layers;
 - put ordinary operational truth on Filecoin/CAS as opaque state blobs;
 - model Filecoin/CAS as a peer runtime substrate beside Agentgres.

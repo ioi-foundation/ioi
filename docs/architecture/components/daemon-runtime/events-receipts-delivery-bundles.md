@@ -164,6 +164,8 @@ ModelInvocationReceipt
 ToolExecutionReceipt
 ModuleInvocationReceipt
 ArtifactReceipt
+ArtifactAvailabilityReceipt
+ArtifactRepairReceipt
 ValidationReceipt
 MergeReceipt
 SettlementReceipt
@@ -336,6 +338,51 @@ schedule leakage.
   "disclosed_classes": ["redacted | pii | strategy_summary | order_intent | none"],
   "capability_exit_ref": "capability_exit://...",
   "status": "success | denied | escalated"
+}
+```
+
+## Artifact Availability And Repair Receipts
+
+`ArtifactAvailabilityReceipt` records the detection or observation that an
+artifact payload, payload ref, archive payload, replica, storage lease, or
+decryptability check no longer satisfies the Agentgres artifact lifecycle
+policy. `ArtifactRepairReceipt` records an attempted or completed repair. These
+receipts do not make storage backends authoritative; they bind backend evidence
+to Agentgres operations.
+
+```json
+{
+  "receipt_id": "receipt_artifact_availability_123",
+  "receipt_type": "artifact_availability",
+  "incident_id": "artifact_incident://123",
+  "artifact_ref": "artifact://123",
+  "payload_ref": "payload://123",
+  "archive_ref": "archive://123",
+  "failure_kind": "missing | unavailable | invalid_hash | invalid_cid | decrypt_failed | stale_replica | backend_timeout | retention_expired | lease_expired | policy_violation",
+  "expected_commitment": "sha256:...",
+  "observed_commitment": "sha256:... | null",
+  "backend_refs": ["storage://filecoin/..."],
+  "policy_hash": "sha256:...",
+  "agentgres_operation_ref": "agentgres://operation/...",
+  "status": "open | quarantined | escalated"
+}
+```
+
+```json
+{
+  "receipt_id": "receipt_artifact_repair_123",
+  "receipt_type": "artifact_repair",
+  "incident_id": "artifact_incident://123",
+  "artifact_ref": "artifact://123",
+  "repair_action": "replica_fetch | backend_fallback | deal_renewal | rehydrate_from_archive | replacement_payload | mark_unrecoverable",
+  "source_backend_refs": ["storage://..."],
+  "replacement_payload_refs": ["artifact://..."],
+  "verified_commitments": ["sha256:...", "bafy..."],
+  "decryptability_checked": true,
+  "restore_validity_checked": true,
+  "policy_hash": "sha256:...",
+  "agentgres_operation_refs": ["agentgres://operation/..."],
+  "status": "repair_attempted | repaired | unrecoverable | denied"
 }
 ```
 

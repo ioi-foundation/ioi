@@ -1499,6 +1499,7 @@ git diff --check -- internal-docs/implementation docs/architecture apps/hypervis
 
 | Field | Detail |
 | --- | --- |
+| Status | Canonized and guarded on 2026-06-17. Runtime/API implementation remains follow-up work. |
 | Files | Agentgres artifact-ref plane, storage backend doctrine, receipts docs |
 | Change | Define incident when payload bytes are missing, corrupt, stale, or unavailable. |
 | Acceptance | Agentgres lifecycle and repair receipts govern backend failure. |
