@@ -63,7 +63,7 @@ type OperatorInboxQueueColumnsProps = {
   onSearchDraftChange: (value: string) => void;
   onSelectItemKey: (key: string) => void;
   onToolbarAction?: () => void;
-  onOpenAutopilot: () => void;
+  onOpenHypervisor: () => void;
   onOpenLocalEngine: () => void;
   onAssistantAction: (
     item: AssistantNotificationRecord,
@@ -94,7 +94,7 @@ export function OperatorInboxQueueColumns({
   onSearchDraftChange,
   onSelectItemKey,
   onToolbarAction,
-  onOpenAutopilot,
+  onOpenHypervisor,
   onOpenLocalEngine,
   onAssistantAction,
   onDeferAssistant,
@@ -330,7 +330,7 @@ export function OperatorInboxQueueColumns({
                               onOpenLocalEngine();
                               return;
                             }
-                            onOpenAutopilot();
+                            onOpenHypervisor();
                           }}
                         >
                           {isLocalEngineIntervention(

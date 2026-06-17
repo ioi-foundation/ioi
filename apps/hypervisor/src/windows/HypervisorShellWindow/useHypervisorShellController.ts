@@ -14,8 +14,8 @@ import type {
   WorkflowComposerPreflightSeed,
 } from "@ioi/hypervisor-workbench";
 import { useAssistantWorkbenchState } from "@ioi/hypervisor-workbench";
-import { bootstrapAgentSession, useAgentStore } from "../../session/autopilotSession";
-import { listenForAutopilotDataReset } from "../../services/autopilotReset";
+import { bootstrapHypervisorSession, useHypervisorSessionStore } from "../../session/hypervisorSession";
+import { listenForHypervisorDataReset } from "../../services/hypervisorReset";
 import { safelyDisposeHostListener } from "../../services/hostListeners";
 import {
   ackPendingChatLaunchRequest,
@@ -122,7 +122,7 @@ function resolveInitialPrimaryView(): PrimaryView {
   return "home";
 }
 
-function waitForChatAutopilotSurfaceFrame(): Promise<void> {
+function waitForChatHypervisorSurfaceFrame(): Promise<void> {
   return new Promise((resolve) => {
     if (typeof window === "undefined") {
       resolve();
@@ -226,11 +226,11 @@ function projectFromBuilderConfig(config: AgentConfiguration): ProjectFile {
   };
 }
 
-async function sendNativeAutopilotNotification(
+async function sendNativeHypervisorNotification(
   candidate: ToastCandidate,
 ): Promise<void> {
   if (
-    candidate.source?.serviceName === "Autopilot" &&
+    candidate.source?.serviceName === "Hypervisor" &&
     candidate.source.workflowName === "workflow" &&
     (candidate.sessionId || candidate.threadId)
   ) {
@@ -248,7 +248,7 @@ async function sendNativeAutopilotNotification(
     const body =
       candidate.privacy.previewMode === "redacted" &&
       candidate.privacy.containsSensitiveData
-        ? candidate.reason?.trim() || "Open Autopilot for details."
+        ? candidate.reason?.trim() || "Open Hypervisor for details."
         : candidate.summary;
 
     await sendNotification({
@@ -276,7 +276,7 @@ export function useHypervisorShellController() {
   >(null);
   const [capabilityGovernanceRequest, setCapabilityGovernanceRequest] =
     useState<CapabilityGovernanceRequest | null>(null);
-  const [autopilotSeedIntent, setAutopilotSeedIntent] = useState<string | null>(
+  const [hypervisorSeedIntent, setHypervisorSeedIntent] = useState<string | null>(
     null,
   );
   const [notificationBadgeCount, setNotificationBadgeCount] = useState(0);
@@ -414,8 +414,8 @@ export function useHypervisorShellController() {
     void invoke("clear_capability_governance_request");
   };
 
-  const openAutopilotWithIntent = (intent: string) => {
-    setAutopilotSeedIntent(intent);
+  const openHypervisorSessionWithIntent = (intent: string) => {
+    setHypervisorSeedIntent(intent);
     setActiveView("sessions");
     setChatSurface("chat");
     setChatPaneVisible(true);
@@ -438,7 +438,7 @@ export function useHypervisorShellController() {
     }
 
     if (recipe.surface_id === "sessions") {
-      setAutopilotSeedIntent(
+      setHypervisorSeedIntent(
         `Start ${recipe.label.toLowerCase()} for ${project.name}. Authority: ${request.authority_scope_refs.join(", ")}. Privacy: ${request.privacy_posture_ref}. Receipt preview: ${request.receipt_preview_ref}.`,
       );
       setChatSurface("chat");
@@ -541,15 +541,15 @@ export function useHypervisorShellController() {
             connectorId: pendingRequest.connectorId ?? null,
           });
           return;
-        case "autopilot-intent":
+        case "hypervisor-intent":
           if (pendingRequest.sessionId) {
-            await bootstrapAgentSession({
+            await bootstrapHypervisorSession({
               refreshCurrentTask: false,
             });
             setChatSurface("chat");
             setChatPaneVisible(true);
             setActiveView("sessions");
-            await waitForChatAutopilotSurfaceFrame();
+            await waitForChatHypervisorSurfaceFrame();
             await recordChatLaunchReceipt(
               "chat_session_followup_submit_dispatching",
               {
@@ -588,7 +588,7 @@ export function useHypervisorShellController() {
             });
             return;
           }
-          openAutopilotWithIntent(pendingRequest.intent);
+          openHypervisorSessionWithIntent(pendingRequest.intent);
           await recordChatLaunchReceipt("chat_pending_launch_applied", {
             source,
             launchId,
@@ -693,7 +693,7 @@ export function useHypervisorShellController() {
   }, []);
 
   useEffect(() => {
-    const resetUnlistenPromise = listenForAutopilotDataReset();
+    const resetUnlistenPromise = listenForHypervisorDataReset();
 
     return () => {
       safelyDisposeHostListener(resetUnlistenPromise);
@@ -734,14 +734,14 @@ export function useHypervisorShellController() {
       : null;
     const interventionToastUnlistenPromise = isHypervisorClientRuntime()
       ? listen<InterventionRecord>("intervention-toast-candidate", (event) => {
-          void sendNativeAutopilotNotification(event.payload);
+          void sendNativeHypervisorNotification(event.payload);
         })
       : null;
     const assistantToastUnlistenPromise = isHypervisorClientRuntime()
       ? listen<AssistantNotificationRecord>(
           "assistant-notification-toast-candidate",
           (event) => {
-            void sendNativeAutopilotNotification(event.payload);
+            void sendNativeHypervisorNotification(event.payload);
           },
         )
       : null;
@@ -877,10 +877,10 @@ export function useHypervisorShellController() {
   };
 
   const openSessionTarget = async (sessionId: string) => {
-    await bootstrapAgentSession({
+    await bootstrapHypervisorSession({
       refreshCurrentTask: false,
     });
-    const store = useAgentStore.getState();
+    const store = useHypervisorSessionStore.getState();
     await store.loadSession(sessionId);
     await store.refreshSessionHistory();
     setChatSurface("chat");
@@ -974,15 +974,15 @@ export function useHypervisorShellController() {
       paneVisible: chatPaneVisible,
       paneMaximized: chatPaneMaximized,
       assistantWorkbench,
-      seedIntent: autopilotSeedIntent,
+      seedIntent: hypervisorSeedIntent,
       hidePane: hideChatPane,
       showPane: showChatPane,
       togglePaneVisibility: toggleChatPaneVisibility,
       setSurface: setChatSurface,
       toggleMaximize: () =>
         setChatPaneMaximized((maximized) => !maximized),
-      consumeSeedIntent: () => setAutopilotSeedIntent(null),
-      openAutopilotWithIntent,
+      consumeSeedIntent: () => setHypervisorSeedIntent(null),
+      openHypervisorSessionWithIntent,
       openReplyComposer,
       openMeetingPrep,
     },

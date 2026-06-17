@@ -70,7 +70,7 @@ export function buildDefaultShellShortcutRecords(
   return [
     {
       id: "global-chat-session",
-      command: "Open Autopilot",
+      command: "Open Hypervisor",
       binding: `${modifier}+Space`,
       defaultBinding: `${modifier}+Space`,
       scope: "Global shell",

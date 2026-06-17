@@ -11,7 +11,7 @@ import {
   openArtifactReviewTarget,
   openEvidenceReviewSession,
 } from "../../../services/reviewNavigation";
-import { bootstrapAgentSession, useAgentStore } from "../../../session/autopilotSession";
+import { bootstrapHypervisorSession, useHypervisorSessionStore } from "../../../session/hypervisorSession";
 import {
   buildSessionContinuityOverview,
   currentSessionIdFromTask,
@@ -139,7 +139,7 @@ export function ChatUtilityDrawer({
   const {
     task: sessionTask,
     sessions: sessionHistory,
-  } = useAgentStore();
+  } = useHypervisorSessionStore();
   const activeChatSession = sessionTask?.chat_session ?? null;
   const activeArtifactReceipts =
     sessionTask?.renderer_session?.receipts ??
@@ -170,11 +170,11 @@ export function ChatUtilityDrawer({
     setSessionSurfaceStatus("loading");
     setSessionSurfaceError(null);
 
-    void bootstrapAgentSession({
+    void bootstrapHypervisorSession({
       refreshCurrentTask: false,
     })
       .then(async () => {
-        const store = useAgentStore.getState();
+        const store = useHypervisorSessionStore.getState();
         await Promise.all([store.refreshCurrentTask(), store.refreshSessionHistory()]);
       })
       .then(() => {
@@ -306,7 +306,7 @@ export function ChatUtilityDrawer({
     setSessionSurfaceStatus("loading");
     setSessionSurfaceError(null);
     try {
-      const store = useAgentStore.getState();
+      const store = useHypervisorSessionStore.getState();
       await store.loadSession(sessionId);
       await store.refreshSessionHistory();
       onOpenChatConversation();
@@ -324,7 +324,7 @@ export function ChatUtilityDrawer({
     setSessionSurfaceError(null);
     try {
       await runtime.stopAssistantSession();
-      const store = useAgentStore.getState();
+      const store = useHypervisorSessionStore.getState();
       await Promise.all([store.refreshCurrentTask(), store.refreshSessionHistory()]);
       setSessionSurfaceStatus("ready");
     } catch (error) {

@@ -1,5 +1,5 @@
 import {
-  openChatAutopilotIntent,
+  openChatHypervisorIntent,
   openChatCapabilities,
   openChatCapabilityActions,
   openChatCapabilitySetup,
@@ -25,7 +25,7 @@ export async function openCompanionNotifications() {
   await openChatNotifications();
 }
 
-export async function openCompanionAutopilot() {
+export async function openCompanionHypervisor() {
   await openChatShellView("autopilot");
 }
 
@@ -66,6 +66,6 @@ export async function openCompanionPolicyTarget(
   await openChatPolicyTarget(connectorId);
 }
 
-export async function openCompanionAutopilotIntent(intent: string) {
-  await openChatAutopilotIntent(intent);
+export async function openCompanionHypervisorIntent(intent: string) {
+  await openChatHypervisorIntent(intent);
 }

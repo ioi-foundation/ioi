@@ -35,7 +35,7 @@ export function SettingsSkillSourcesSection({
         </div>
         <p className="chat-settings-body">
           Point the shell at local skill roots or checked-out repositories.
-          Autopilot syncs `SKILL.md` manifests into a first-party source
+          Hypervisor syncs `SKILL.md` manifests into a first-party source
           registry so runtime skills can carry provenance instead of just
           unlabeled local-versus-synced origin hints.
         </p>

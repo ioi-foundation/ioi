@@ -258,7 +258,7 @@ export type {
 } from "./notifications";
 
 export type {
-  ResetAutopilotDataResult,
+  ResetHypervisorDataResult,
 } from "./app";
 
 export type {

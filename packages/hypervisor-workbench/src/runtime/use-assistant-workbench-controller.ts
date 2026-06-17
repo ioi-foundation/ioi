@@ -6,8 +6,8 @@ import type { AgentWorkbenchRuntime } from "./agent-workbench-runtime-types";
 import { createAssistantWorkbenchActivity } from "./assistant-workbench-activity";
 import {
   buildMeetingBriefDraft,
-  buildMeetingPrepAutopilotIntent,
-  buildReplyAutopilotIntent,
+  buildMeetingPrepHypervisorIntent,
+  buildReplyHypervisorIntent,
   buildReplyBody,
   buildReplyReferences,
   collectCalendarLinks,
@@ -251,18 +251,18 @@ export function useAssistantWorkbenchActions({
     }
   };
 
-  const reportAutopilotHandoff = async (intent: string) => {
+  const reportHypervisorHandoff = async (intent: string) => {
     if (!session) {
       return;
     }
 
     await emitWorkbenchActivity(session, {
-      action: "autopilot_handoff",
+      action: "hypervisor_handoff",
       status: "started",
       message:
         session.kind === "gmail_reply"
-          ? "Handing the reply draft to Autopilot."
-          : "Handing the meeting prep brief to Autopilot.",
+          ? "Handing the reply draft to Hypervisor."
+          : "Handing the meeting prep brief to Hypervisor.",
       detail: intent,
     });
   };
@@ -282,19 +282,19 @@ export function useAssistantWorkbenchActions({
     pendingShieldApproval,
     latestMessage,
     meetingLinks,
-    replyAutopilotIntent:
+    replyHypervisorIntent:
       session && session.kind === "gmail_reply"
-        ? buildReplyAutopilotIntent(session.thread, replyTo, replySubject, replyBody)
+        ? buildReplyHypervisorIntent(session.thread, replyTo, replySubject, replyBody)
         : null,
-    meetingPrepAutopilotIntent:
+    meetingPrepHypervisorIntent:
       session && session.kind === "meeting_prep"
-        ? buildMeetingPrepAutopilotIntent(session.event, meetingBrief)
+        ? buildMeetingPrepHypervisorIntent(session.event, meetingBrief)
         : null,
     runReplyAction,
     approvePendingShieldAction,
     dismissPendingShieldApproval: () => setPendingShieldApproval(null),
     copyMeetingBrief,
-    reportAutopilotHandoff,
+    reportHypervisorHandoff,
   };
 }
 

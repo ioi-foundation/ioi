@@ -80,7 +80,7 @@ export type AssistantWorkbenchActivityAction =
   | "draft"
   | "send"
   | "copy"
-  | "autopilot_handoff"
+  | "hypervisor_handoff"
   | "shield_approval";
 
 export type AssistantWorkbenchActivityStatus =
@@ -170,7 +170,7 @@ export interface AssistantSessionRuntime {
   activateAssistantWorkbenchSession(
     session: AssistantWorkbenchSession,
   ): Promise<void>;
-  openChatAutopilotIntent(intent: string): Promise<void>;
+  openChatHypervisorIntent(intent: string): Promise<void>;
   getActiveAssistantWorkbenchSession(): Promise<AssistantWorkbenchSession | null>;
   listenAssistantWorkbenchSession(
     handler: (session: AssistantWorkbenchSession) => void,

@@ -19,7 +19,7 @@ interface ChatLeftUtilityPaneProps {
   onToggleMaximize: () => void;
   onBackToInbox: () => void;
   onOpenInbox: () => void;
-  onOpenAutopilot: (intent: string) => void;
+  onOpenHypervisor: (intent: string) => void;
 }
 
 export function ChatLeftUtilityPane({
@@ -33,7 +33,7 @@ export function ChatLeftUtilityPane({
   onToggleMaximize,
   onBackToInbox,
   onOpenInbox,
-  onOpenAutopilot,
+  onOpenHypervisor,
 }: ChatLeftUtilityPaneProps) {
   const usesIntegratedChatChrome = surface === "chat";
   const layoutControlLabel = maximized
@@ -89,7 +89,7 @@ export function ChatLeftUtilityPane({
         onConsumeSeedIntent={onConsumeSeedIntent}
         onBackToInbox={onBackToInbox}
         onOpenInbox={onOpenInbox}
-        onOpenAutopilot={onOpenAutopilot}
+        onOpenHypervisor={onOpenHypervisor}
       />
     </aside>
   );

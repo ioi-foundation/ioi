@@ -566,7 +566,7 @@ export {
   loadSessionThreadEvents,
   activateAssistantWorkbenchSession,
   openChatAssistantWorkbench,
-  openChatAutopilotIntent,
+  openChatHypervisorIntent,
   openChatCapabilityTarget,
   openChatPolicyTarget,
   openChatSessionTarget,
@@ -587,8 +587,8 @@ export { parseShieldApprovalRequest } from "./runtime/shield-approval";
 export { buildConnectorApprovalMemoryRequest } from "./runtime/shield-approval";
 export {
   buildMeetingBriefDraft,
-  buildMeetingPrepAutopilotIntent,
-  buildReplyAutopilotIntent,
+  buildMeetingPrepHypervisorIntent,
+  buildReplyHypervisorIntent,
   buildReplyBody,
   buildReplyReferences,
   collectCalendarLinks,

@@ -85,7 +85,7 @@ export function buildReplyBody(thread: GmailThreadDetail): string {
   return `${salutation}\n\n\n\nBest,\n`;
 }
 
-export function buildReplyAutopilotIntent(
+export function buildReplyHypervisorIntent(
   thread: GmailThreadDetail,
   to: string,
   subject: string,
@@ -173,7 +173,7 @@ export function buildMeetingBriefDraft(event: CalendarEventDetail): string {
   ].join("\n");
 }
 
-export function buildMeetingPrepAutopilotIntent(
+export function buildMeetingPrepHypervisorIntent(
   event: CalendarEventDetail,
   briefDraft: string,
 ): string {

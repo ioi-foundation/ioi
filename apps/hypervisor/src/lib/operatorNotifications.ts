@@ -74,7 +74,7 @@ export function displayNotificationActionLabel(
 }
 
 type AssistantActionHandlers = {
-  onOpenAutopilot: () => void;
+  onOpenHypervisor: () => void;
   onOpenIntegrations: (connectorId?: string | null) => void;
   onOpenShield: (connectorId?: string | null) => void;
   onOpenSettings: () => void;
@@ -104,7 +104,7 @@ export async function runAssistantNotificationAction({
   item,
   actionId,
   updateAssistantStatus,
-  onOpenAutopilot,
+  onOpenHypervisor,
   onOpenIntegrations,
   onOpenShield,
   onOpenSettings,
@@ -121,13 +121,13 @@ export async function runAssistantNotificationAction({
           return;
         }
       }
-      onOpenAutopilot();
+      onOpenHypervisor();
       return;
-    case "open_autopilot":
+    case "open_hypervisor":
     case "open_task":
     case "view_result":
       await markAssistantSeenIfNeeded(item, updateAssistantStatus);
-      onOpenAutopilot();
+      onOpenHypervisor();
       return;
     case "open_integrations":
       await markAssistantSeenIfNeeded(item, updateAssistantStatus);
@@ -182,6 +182,6 @@ export async function runAssistantNotificationAction({
       return;
     default:
       await markAssistantSeenIfNeeded(item, updateAssistantStatus);
-      onOpenAutopilot();
+      onOpenHypervisor();
   }
 }

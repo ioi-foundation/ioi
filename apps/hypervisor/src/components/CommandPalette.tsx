@@ -6,7 +6,7 @@ import {
   type RuntimeCatalogEntry,
 } from "@ioi/hypervisor-workbench";
 import {
-  openCompanionAutopilotIntent,
+  openCompanionHypervisorIntent,
   openCompanionCapabilityActions,
   openCompanionGate,
 } from "../services/companionShellNavigation";
@@ -25,7 +25,7 @@ import {
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
-import { useAgentStore } from "../session/autopilotSession";
+import { useHypervisorSessionStore } from "../session/hypervisorSession";
 import { getSessionWorkbenchRuntime } from "../services/sessionRuntime";
 import type { SessionSummary, SkillCatalogEntry } from "../types";
 import { icons, type CommandMenuItem } from "./ui";
@@ -235,8 +235,8 @@ export function CommandPalette({
   onSelectProject,
   projects,
 }: CommandPaletteProps) {
-  const sessions = useAgentStore((state) => state.sessions);
-  const refreshSessionHistory = useAgentStore(
+  const sessions = useHypervisorSessionStore((state) => state.sessions);
+  const refreshSessionHistory = useHypervisorSessionStore(
     (state) => state.refreshSessionHistory,
   );
   const [query, setQuery] = useState(initialQuery);
@@ -1122,7 +1122,7 @@ export function CommandPalette({
                 onSelect: () =>
                   runAction(async () => {
                     onOpenPrimaryView("sessions");
-                    await openCompanionAutopilotIntent(
+                    await openCompanionHypervisorIntent(
                       `Use the ${skill.name} skill for this request. `,
                     );
                   }),
@@ -1381,8 +1381,8 @@ export function CommandPalette({
   const visibleSections = sections.filter((section) => section.items.length > 0);
   const emptyState =
     query.trim().length > 0
-      ? `No Autopilot commands match "${query}".`
-      : "No Autopilot commands available right now.";
+      ? `No Hypervisor commands match "${query}".`
+      : "No Hypervisor commands available right now.";
 
   return (
     <div className="command-palette-overlay" onClick={onClose}>

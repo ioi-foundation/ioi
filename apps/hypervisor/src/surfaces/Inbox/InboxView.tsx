@@ -13,7 +13,7 @@ import { NotificationDetailPanel } from "./NotificationDetailPanel";
 import type { AssistantNotificationRecord, AssistantWorkbenchSession } from "../../types";
 
 interface InboxViewProps {
-  onOpenAutopilot: () => void;
+  onOpenHypervisor: () => void;
   onOpenIntegrations: (connectorId?: string | null) => void;
   onOpenLocalEngine: () => void;
   onOpenShield: (connectorId?: string | null) => void;
@@ -27,7 +27,7 @@ interface InboxViewProps {
 }
 
 export function InboxView({
-  onOpenAutopilot,
+  onOpenHypervisor,
   onOpenIntegrations,
   onOpenLocalEngine,
   onOpenShield,
@@ -59,7 +59,7 @@ export function InboxView({
         item,
         actionId,
         updateAssistantStatus,
-        onOpenAutopilot,
+        onOpenHypervisor,
         onOpenIntegrations,
         onOpenShield,
         onOpenSettings,
@@ -180,7 +180,7 @@ export function InboxView({
           onSearchDraftChange={setSearchDraft}
           onSelectItemKey={setSelectedItemKey}
           onToolbarAction={onOpenSettings}
-          onOpenAutopilot={onOpenAutopilot}
+          onOpenHypervisor={onOpenHypervisor}
           onOpenLocalEngine={onOpenLocalEngine}
           onAssistantAction={handleAssistantAction}
           onDeferAssistant={(item) =>
@@ -206,7 +206,7 @@ export function InboxView({
           <NotificationDetailPanel
           item={selectedQueueItem?.record ?? null}
           onClose={() => setSelectedItemKey(null)}
-          onOpenAutopilot={onOpenAutopilot}
+          onOpenHypervisor={onOpenHypervisor}
           onOpenLocalEngine={onOpenLocalEngine}
           onOpenReplyComposer={onOpenReplyComposer}
           onOpenMeetingPrep={onOpenMeetingPrep}

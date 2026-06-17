@@ -200,8 +200,8 @@ export function getActiveAssistantWorkbenchSession(): Promise<AssistantWorkbench
   return getAssistantSessionRuntime().getActiveAssistantWorkbenchSession();
 }
 
-export function openChatAutopilotIntent(intent: string): Promise<void> {
-  return getAssistantSessionRuntime().openChatAutopilotIntent(intent);
+export function openChatHypervisorIntent(intent: string): Promise<void> {
+  return getAssistantSessionRuntime().openChatHypervisorIntent(intent);
 }
 
 export function listenAssistantWorkbenchSession(

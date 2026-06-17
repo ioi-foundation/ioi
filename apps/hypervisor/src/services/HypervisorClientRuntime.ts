@@ -102,7 +102,7 @@ import type {
   LocalEngineControlPlane,
   LocalEngineManagedSettingsSnapshot,
   LocalEngineSnapshot,
-  ResetAutopilotDataResult,
+  ResetHypervisorDataResult,
   SessionCompactionPolicy,
   SessionCompactionSnapshot,
   ExtensionManifestRecord,
@@ -579,7 +579,7 @@ export class HypervisorClientRuntime implements AgentWorkbenchRuntime, Assistant
           skillCatalog,
         };
       } catch (error) {
-        console.warn("[Autopilot][Runtime] workflow skill catalog unavailable", error);
+        console.warn("[Hypervisor][Runtime] workflow skill catalog unavailable", error);
         return options ?? null;
       }
     }
@@ -589,7 +589,7 @@ export class HypervisorClientRuntime implements AgentWorkbenchRuntime, Assistant
         try {
             sources = await this.getSkillSources();
         } catch (error) {
-            console.warn("[Autopilot][Runtime] workflow draft skill sources unavailable", error);
+            console.warn("[Hypervisor][Runtime] workflow draft skill sources unavailable", error);
             return [];
         }
         const importedAtMs = Date.now();
@@ -666,7 +666,7 @@ export class HypervisorClientRuntime implements AgentWorkbenchRuntime, Assistant
         if (!isHypervisorClientRuntime()) {
           throw unavailableOutsideHostBridge("start_task");
         }
-        console.info("[Autopilot][Runtime] start_task invoking", {
+        console.info("[Hypervisor][Runtime] start_task invoking", {
           originSurface: this.shellSurface,
           intentLength: intent.trim().length,
         });
@@ -675,12 +675,12 @@ export class HypervisorClientRuntime implements AgentWorkbenchRuntime, Assistant
             intent,
             originSurface: this.shellSurface,
           });
-          console.info("[Autopilot][Runtime] start_task resolved", {
+          console.info("[Hypervisor][Runtime] start_task resolved", {
             originSurface: this.shellSurface,
           });
           return task;
         } catch (error) {
-          console.error("[Autopilot][Runtime] start_task failed", error);
+          console.error("[Hypervisor][Runtime] start_task failed", error);
           throw error;
         }
     }
@@ -988,10 +988,10 @@ export class HypervisorClientRuntime implements AgentWorkbenchRuntime, Assistant
         return invoke("get_active_assistant_workbench_session");
     }
 
-    async openChatAutopilotIntent(intent: string): Promise<void> {
+    async openChatHypervisorIntent(intent: string): Promise<void> {
         await this.showChatShellWithTarget(
           {
-            kind: "autopilot-intent",
+            kind: "hypervisor-intent",
             intent,
           },
           "runtime_open_autopilot_intent_requested",
@@ -1459,7 +1459,7 @@ export class HypervisorClientRuntime implements AgentWorkbenchRuntime, Assistant
         try {
           catalog = await this.getSkillCatalog();
         } catch (error) {
-          console.warn("[Autopilot][Runtime] promoted skill catalog unavailable", error);
+          console.warn("[Hypervisor][Runtime] promoted skill catalog unavailable", error);
         }
         const promotedEntries = await Promise.all(
           catalog.map(async (skill) => {
@@ -1467,7 +1467,7 @@ export class HypervisorClientRuntime implements AgentWorkbenchRuntime, Assistant
             try {
               detail = await this.getSkillDetail(skill.skill_hash);
             } catch (error) {
-              console.warn("[Autopilot][Runtime] skill detail unavailable", skill.skill_hash, error);
+              console.warn("[Hypervisor][Runtime] skill detail unavailable", skill.skill_hash, error);
             }
             return {
               skillHash: skill.skill_hash,
@@ -1582,7 +1582,7 @@ export class HypervisorClientRuntime implements AgentWorkbenchRuntime, Assistant
         return invoke("search_atlas", { query, lens });
     }
 
-    async resetAutopilotData(): Promise<ResetAutopilotDataResult> {
+    async resetHypervisorData(): Promise<ResetHypervisorDataResult> {
         return invoke("reset_autopilot_data");
     }
 

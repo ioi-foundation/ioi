@@ -17,10 +17,10 @@ import {
   pickPrimaryAssistantAction,
   runAssistantNotificationAction,
 } from "../../lib/operatorNotifications";
-import { bootstrapAgentSession, useAgentStore } from "../../session/autopilotSession";
+import { bootstrapHypervisorSession, useHypervisorSessionStore } from "../../session/hypervisorSession";
 import {
-  openCompanionAutopilot,
-  openCompanionAutopilotIntent,
+  openCompanionHypervisor,
+  openCompanionHypervisorIntent,
   openCompanionCapabilities,
   openCompanionCapabilitySetup,
   openCompanionGate,
@@ -77,7 +77,7 @@ function isInterventionRecord(
 }
 
 export function PillWindow() {
-  const { task } = useAgentStore();
+  const { task } = useHypervisorSessionStore();
   const {
     assistantWorkbench,
     activeAssistantWorkbenchActivities,
@@ -109,7 +109,7 @@ export function PillWindow() {
   } = useNotificationTargetDetail(focusItem);
 
   useEffect(() => {
-    void bootstrapAgentSession();
+    void bootstrapHypervisorSession();
   }, []);
 
   useEffect(() => {
@@ -212,7 +212,7 @@ export function PillWindow() {
         item: focusAssistantNotification,
         actionId: primaryAssistantAction?.id ?? "open_target",
         updateAssistantStatus,
-        onOpenAutopilot: () => {
+        onOpenHypervisor: () => {
           void openCompanionChat();
         },
         onOpenIntegrations: (connectorId) => {
@@ -388,7 +388,7 @@ export function PillWindow() {
           type="button"
           className="pill-action"
           onClick={() => {
-            void openCompanionAutopilot();
+            void openCompanionHypervisor();
           }}
         >
           Chat
@@ -597,9 +597,9 @@ export function PillWindow() {
               setShowWorkbench(false);
               void openCompanionNotifications();
             }}
-            onOpenAutopilot={(intent) => {
+            onOpenHypervisor={(intent) => {
               setShowWorkbench(false);
-              void openCompanionAutopilotIntent(intent);
+              void openCompanionHypervisorIntent(intent);
             }}
           />
         </section>

@@ -58,7 +58,7 @@ export function SettingsMaintenanceSection({
         <div className="chat-settings-card-head">
           <div>
             <span className="chat-settings-card-eyebrow">Repair</span>
-            <h2>Reset Autopilot data</h2>
+            <h2>Reset Hypervisor data</h2>
           </div>
           <span className="chat-settings-pill chat-settings-pill-warning">
             Local only
@@ -91,7 +91,7 @@ export function SettingsMaintenanceSection({
               setResetConfirmOpen(true);
             }}
           >
-            {isResetting ? "Resetting..." : "Reset Autopilot data"}
+            {isResetting ? "Resetting..." : "Reset Hypervisor data"}
           </button>
         </div>
 

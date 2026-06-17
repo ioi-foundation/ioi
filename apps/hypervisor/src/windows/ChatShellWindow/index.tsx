@@ -17,8 +17,8 @@ import {
   useSessionShellShortcuts,
   useSessionChatArtifactDrawer,
 } from "@ioi/hypervisor-workbench";
-import { bootstrapAgentSession, useAgentStore } from "../../session/autopilotSession";
-import { listenForAutopilotDataReset } from "../../services/autopilotReset";
+import { bootstrapHypervisorSession, useHypervisorSessionStore } from "../../session/hypervisorSession";
+import { listenForHypervisorDataReset } from "../../services/hypervisorReset";
 import { recordChatLaunchReceipt } from "../../services/chatLaunchState";
 import { openCompanionGate } from "../../services/companionShellNavigation";
 import { buildAssistantWorkbenchSummary } from "../../lib/assistantWorkbenchSummary";
@@ -295,7 +295,7 @@ export function ChatShellWindow({
     setSelectedArtifactId,
     loadThreadEvents,
     loadThreadArtifacts,
-  } = useAgentStore();
+  } = useHypervisorSessionStore();
   const {
     assistantWorkbench,
     assistantWorkbenchActivities,
@@ -443,7 +443,7 @@ export function ChatShellWindow({
     handleInputChange,
     handleInputKeyDown,
   } = useChatSession({
-    bootstrapSessionController: bootstrapAgentSession,
+    bootstrapSessionController: bootstrapHypervisorSession,
     isChatVariant,
     task,
     inputRef,
@@ -757,7 +757,7 @@ export function ChatShellWindow({
   });
 
   useEffect(() => {
-    const resetUnlistenPromise = listenForAutopilotDataReset();
+    const resetUnlistenPromise = listenForHypervisorDataReset();
     return () => {
       resetUnlistenPromise.then((unlisten) => unlisten());
     };

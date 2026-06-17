@@ -45,7 +45,7 @@ export function safelyDisposeHostListener(
     .then((unlisten) => Promise.resolve().then(() => unlisten()))
     .catch((error) => {
       if (!isBenignHostListenerCleanupError(error)) {
-        console.warn("[Autopilot] Failed to dispose host bridge listener", error);
+        console.warn("[Hypervisor] Failed to dispose host bridge listener", error);
       }
     });
 }

@@ -27,7 +27,7 @@ const {
     },
   });
 
-// Keep a tiny Autopilot-local alias so the desktop shells import one stable
-// session surface while the package-owned controller remains canonical.
-export const useAgentStore = useSessionStore;
-export const bootstrapAgentSession = connectSessionStore;
+// Keep a tiny Hypervisor-local session surface while the package-owned
+// controller remains canonical.
+export const useHypervisorSessionStore = useSessionStore;
+export const bootstrapHypervisorSession = connectSessionStore;

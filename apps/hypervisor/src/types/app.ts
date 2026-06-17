@@ -1,4 +1,4 @@
-export interface ResetAutopilotDataResult {
+export interface ResetHypervisorDataResult {
   dataDir: string;
   removedPaths: string[];
   identityPreserved: boolean;

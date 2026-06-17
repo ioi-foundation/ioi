@@ -27,7 +27,7 @@ export function SettingsIdentitySection({
 
       <p className="chat-settings-body">
         This local operator profile shapes how the shell names you across
-        Autopilot surfaces. It does not replace runtime, policy, or tool
+        Hypervisor surfaces. It does not replace runtime, policy, or tool
         configuration.
       </p>
 

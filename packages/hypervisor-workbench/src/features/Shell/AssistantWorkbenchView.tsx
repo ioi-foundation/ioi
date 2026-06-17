@@ -10,7 +10,7 @@ interface AssistantWorkbenchViewProps {
   runtime: AgentWorkbenchRuntime;
   onBack: () => void;
   onOpenNotifications: () => void;
-  onOpenAutopilot: (intent: string) => void;
+  onOpenHypervisor: (intent: string) => void;
 }
 
 export function AssistantWorkbenchView({
@@ -18,7 +18,7 @@ export function AssistantWorkbenchView({
   runtime,
   onBack,
   onOpenNotifications,
-  onOpenAutopilot,
+  onOpenHypervisor,
 }: AssistantWorkbenchViewProps) {
   const {
     replyTo,
@@ -35,13 +35,13 @@ export function AssistantWorkbenchView({
     pendingShieldApproval,
     latestMessage,
     meetingLinks,
-    replyAutopilotIntent,
-    meetingPrepAutopilotIntent,
+    replyHypervisorIntent,
+    meetingPrepHypervisorIntent,
     runReplyAction,
     approvePendingShieldAction,
     dismissPendingShieldApproval,
     copyMeetingBrief,
-    reportAutopilotHandoff,
+    reportHypervisorHandoff,
   } = useAssistantWorkbenchActions({
     session,
     runtime,
@@ -75,7 +75,7 @@ export function AssistantWorkbenchView({
           <p>
             {session.kind === "gmail_reply"
               ? "Carry thread context forward into a native composer without dropping back to the generic assistant."
-              : "Review meeting context, links, and a working prep brief before handing off to Autopilot if needed."}
+              : "Review meeting context, links, and a working prep brief before handing off to Hypervisor if needed."}
           </p>
         </div>
         <div className="assistant-workbench-actions">
@@ -205,11 +205,11 @@ export function AssistantWorkbenchView({
                 type="button"
                 className="notifications-quiet-button"
                 onClick={() => {
-                  void reportAutopilotHandoff(replyAutopilotIntent ?? "");
-                  onOpenAutopilot(replyAutopilotIntent ?? "");
+                  void reportHypervisorHandoff(replyHypervisorIntent ?? "");
+                  onOpenHypervisor(replyHypervisorIntent ?? "");
                 }}
               >
-                Draft with Autopilot
+                Draft with Hypervisor
               </button>
             </div>
             {latestMessage ? (
@@ -281,11 +281,11 @@ export function AssistantWorkbenchView({
                 type="button"
                 className="notifications-primary-button"
                 onClick={() => {
-                  void reportAutopilotHandoff(meetingPrepAutopilotIntent ?? "");
-                  onOpenAutopilot(meetingPrepAutopilotIntent ?? "");
+                  void reportHypervisorHandoff(meetingPrepHypervisorIntent ?? "");
+                  onOpenHypervisor(meetingPrepHypervisorIntent ?? "");
                 }}
               >
-                Prepare brief in Autopilot
+                Prepare brief in Hypervisor
               </button>
               <button
                 type="button"

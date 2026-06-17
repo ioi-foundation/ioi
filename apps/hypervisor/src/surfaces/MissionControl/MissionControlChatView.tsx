@@ -17,7 +17,7 @@ interface MissionControlChatViewProps {
   onConsumeSeedIntent?: () => void;
   onBackToInbox: () => void;
   onOpenInbox: () => void;
-  onOpenAutopilot: (intent: string) => void;
+  onOpenHypervisor: (intent: string) => void;
 }
 
 function chatCopy(surface: MissionControlChatViewProps["surface"]): {
@@ -56,7 +56,7 @@ export function MissionControlChatView({
   onConsumeSeedIntent,
   onBackToInbox,
   onOpenInbox,
-  onOpenAutopilot,
+  onOpenHypervisor,
 }: MissionControlChatViewProps) {
   const copy = chatCopy(surface);
   const isPrimaryConversation = surface === "chat";
@@ -103,7 +103,7 @@ export function MissionControlChatView({
               runtime={runtime}
               onBack={onBackToInbox}
               onOpenNotifications={onOpenInbox}
-              onOpenAutopilot={onOpenAutopilot}
+              onOpenHypervisor={onOpenHypervisor}
             />
           )}
         </div>

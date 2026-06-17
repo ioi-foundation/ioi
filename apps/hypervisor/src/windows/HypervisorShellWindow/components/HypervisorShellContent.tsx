@@ -172,7 +172,7 @@ export function HypervisorShellContent({
           controller.changePrimaryView("missions");
         }}
         onOpenInbox={() => controller.changePrimaryView("missions")}
-        onOpenAutopilot={controller.chat.openAutopilotWithIntent}
+        onOpenHypervisor={controller.chat.openHypervisorSessionWithIntent}
       />
     ) : null;
 
@@ -336,7 +336,7 @@ export function HypervisorShellContent({
 
                   {activeView === "missions" ? (
                     <InboxView
-                      onOpenAutopilot={() => {
+                      onOpenHypervisor={() => {
                         controller.chat.setSurface("chat");
                         controller.chat.showPane();
                       }}
@@ -489,7 +489,7 @@ export function HypervisorShellContent({
                     controller.changePrimaryView("missions");
                   }}
                   onOpenInbox={() => controller.changePrimaryView("missions")}
-                  onOpenAutopilot={controller.chat.openAutopilotWithIntent}
+                  onOpenHypervisor={controller.chat.openHypervisorSessionWithIntent}
                 />
               ) : null}
             </div>

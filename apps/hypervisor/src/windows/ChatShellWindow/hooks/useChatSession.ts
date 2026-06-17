@@ -261,14 +261,14 @@ export function useChatSession({
     setRuntimePasswordPending,
     setRuntimePasswordSessionId,
     onClarificationSubmit: ({ sessionId, optionId, exactIdentifier }) => {
-      console.info("[Autopilot][Clarification] submit", {
+      console.info("[Hypervisor][Clarification] submit", {
         sessionId,
         optionId,
         exactIdentifier,
       });
     },
     onClarificationCancel: ({ sessionId }) => {
-      console.info("[Autopilot][Clarification] cancel", { sessionId });
+      console.info("[Hypervisor][Clarification] cancel", { sessionId });
     },
   });
 

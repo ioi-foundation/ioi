@@ -8,7 +8,7 @@ import type {
 interface NotificationDetailPanelProps {
   item: AssistantNotificationRecord | InterventionRecord | null;
   onClose: () => void;
-  onOpenAutopilot: () => void;
+  onOpenHypervisor: () => void;
   onOpenLocalEngine: () => void;
   onOpenReplyComposer: (
     session: Extract<AssistantWorkbenchSession, { kind: "gmail_reply" }>,
@@ -23,7 +23,7 @@ interface NotificationDetailPanelProps {
 export function NotificationDetailPanel({
   item,
   onClose,
-  onOpenAutopilot,
+  onOpenHypervisor,
   onOpenLocalEngine,
   onOpenReplyComposer,
   onOpenMeetingPrep,
@@ -35,7 +35,7 @@ export function NotificationDetailPanel({
       item={item}
       containerTag="aside"
       onClose={onClose}
-      onOpenChat={onOpenAutopilot}
+      onOpenChat={onOpenHypervisor}
       onOpenReplyComposer={onOpenReplyComposer}
       onOpenMeetingPrep={onOpenMeetingPrep}
       onOpenCapabilities={onOpenIntegrations}

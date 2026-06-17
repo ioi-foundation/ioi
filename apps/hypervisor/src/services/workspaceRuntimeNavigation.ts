@@ -246,7 +246,7 @@ export async function routeWorkspaceBridgeRequest(
     case "chat.showConfig": {
       const submitResult = await submitNativeWorkbenchChatPrompt(
         runtime,
-        "Show the current Autopilot native workbench configuration, including active workspace, model/tool capability posture, authority scope, and receipt expectations.",
+        "Show the current Hypervisor Workbench configuration, including active workspace, model/tool capability posture, authority scope, and receipt expectations.",
       );
       recordMetric?.("bridge_request_handled", {
         requestId: request.requestId,

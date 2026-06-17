@@ -131,7 +131,7 @@ export function createWorkflowProjectMaterializationPlan(
         content: [
           `# ${request.projectName}`,
           "",
-          "Generated from an Autopilot workflow as an Autonomous System Package scaffold.",
+          "Generated from a Hypervisor workflow as an Autonomous System Package scaffold.",
           "",
           "This package contains the workflow manifest, an eval fixture, and expected receipt declarations. Runtime execution remains governed by daemon authority, wallet grants, and Agentgres receipts.",
           "",

@@ -15,7 +15,7 @@ export async function openRuntimeCodeSelectionReview(
   context: CodeAwareActionContext | null | undefined,
   selectedText?: string | null,
 ) {
-  await runtime.openChatAutopilotIntent(
+  await runtime.openChatHypervisorIntent(
     buildExplainSelectionIntent(context, selectedText),
   );
 }
@@ -24,7 +24,7 @@ export async function openRuntimeFileReview(
   runtime: HypervisorClientRuntime,
   context: CodeAwareActionContext | null | undefined,
 ) {
-  await runtime.openChatAutopilotIntent(buildReviewFileIntent(context));
+  await runtime.openChatHypervisorIntent(buildReviewFileIntent(context));
 }
 
 export async function openRuntimeContextReview(
@@ -36,7 +36,7 @@ export async function openRuntimeContextReview(
     return;
   }
 
-  await runtime.openChatAutopilotIntent(buildContextReviewIntent(context));
+  await runtime.openChatHypervisorIntent(buildContextReviewIntent(context));
 }
 
 export async function openRuntimeArtifactReview(
@@ -48,7 +48,7 @@ export async function openRuntimeArtifactReview(
     return;
   }
 
-  await runtime.openChatAutopilotIntent(buildArtifactReviewIntent(context));
+  await runtime.openChatHypervisorIntent(buildArtifactReviewIntent(context));
 }
 
 export async function openRuntimeRunReview(
@@ -60,7 +60,7 @@ export async function openRuntimeRunReview(
     return;
   }
 
-  await runtime.openChatAutopilotIntent(buildRunReviewIntent(context));
+  await runtime.openChatHypervisorIntent(buildRunReviewIntent(context));
 }
 
 export async function openRuntimeWorkflowView(runtime: HypervisorClientRuntime) {
@@ -96,11 +96,11 @@ export async function openRuntimeBrowserAutomation(
   runtime: HypervisorClientRuntime,
   context: CodeAwareActionContext | null | undefined,
 ) {
-  await runtime.openChatAutopilotIntent(buildBrowserAutomationIntent(context));
+  await runtime.openChatHypervisorIntent(buildBrowserAutomationIntent(context));
 }
 
 export async function openRuntimeChatPrompt(runtime: HypervisorClientRuntime, prompt: string) {
-  await runtime.openChatAutopilotIntent(prompt);
+  await runtime.openChatHypervisorIntent(prompt);
 }
 
 export async function openRuntimeWorkflowCodeGeneration(
@@ -115,5 +115,5 @@ export async function openRuntimeWorkflowCodeGeneration(
     proposalOnly?: boolean;
   },
 ) {
-  await runtime.openChatAutopilotIntent(buildWorkflowCodeGenerationIntent(params));
+  await runtime.openChatHypervisorIntent(buildWorkflowCodeGenerationIntent(params));
 }

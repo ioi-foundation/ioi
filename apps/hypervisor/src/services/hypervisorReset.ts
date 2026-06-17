@@ -37,7 +37,7 @@ async function clearIndexedDb(): Promise<void> {
   );
 }
 
-export async function clearAutopilotBrowserData(): Promise<void> {
+export async function clearHypervisorBrowserData(): Promise<void> {
   if (typeof window === "undefined") return;
 
   try {
@@ -64,17 +64,17 @@ export async function clearAutopilotBrowserData(): Promise<void> {
   await clearIndexedDb();
 }
 
-export async function resetAutopilotFrontendState(): Promise<void> {
-  await clearAutopilotBrowserData();
+export async function resetHypervisorFrontendState(): Promise<void> {
+  await clearHypervisorBrowserData();
   window.location.reload();
 }
 
-export function listenForAutopilotDataReset(): Promise<() => void> {
+export function listenForHypervisorDataReset(): Promise<() => void> {
   if (!isHypervisorClientRuntime()) {
     return Promise.resolve(() => {});
   }
 
-  return listen("autopilot-data-reset", () => {
-    void resetAutopilotFrontendState();
+  return listen("hypervisor-data-reset", () => {
+    void resetHypervisorFrontendState();
   });
 }

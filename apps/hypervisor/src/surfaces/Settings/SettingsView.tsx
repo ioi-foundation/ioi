@@ -14,7 +14,7 @@ import type {
   KnowledgeCollectionSearchHit,
   LocalEngineControlPlane,
   LocalEngineSnapshot,
-  ResetAutopilotDataResult,
+  ResetHypervisorDataResult,
   SkillSourceRecord,
 } from "../../types";
 import {
@@ -48,7 +48,7 @@ interface SettingsViewProps {
     | "getKnowledgeCollections"
     | "getSkillSources"
     | "getConnectors"
-    | "resetAutopilotData"
+    | "resetHypervisorData"
     | "resetKnowledgeCollection"
     | "importKnowledgeFile"
     | "removeKnowledgeCollectionEntry"
@@ -108,7 +108,7 @@ export function SettingsView({
   const [isResetting, setIsResetting] = useState(false);
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [lastResult, setLastResult] = useState<ResetAutopilotDataResult | null>(
+  const [lastResult, setLastResult] = useState<ResetHypervisorDataResult | null>(
     null,
   );
   const [engineSnapshot, setEngineSnapshot] =
@@ -629,7 +629,7 @@ export function SettingsView({
     setError(null);
 
     try {
-      const result = await runtime.resetAutopilotData();
+      const result = await runtime.resetHypervisorData();
       setLastResult(result);
     } catch (nextError) {
       setError(String(nextError));

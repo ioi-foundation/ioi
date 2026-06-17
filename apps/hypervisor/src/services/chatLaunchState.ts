@@ -28,7 +28,7 @@ export type PendingChatLaunchRequest =
       connectorId?: string | null;
     }
   | {
-      kind: "autopilot-intent";
+      kind: "hypervisor-intent";
       intent: string;
       sessionId?: string | null;
     }
@@ -107,7 +107,7 @@ export function summarizePendingChatLaunchRequest(
         kind: request.kind,
         connectorId: request.connectorId ?? null,
       };
-    case "autopilot-intent":
+    case "hypervisor-intent":
       return {
         kind: request.kind,
         intent: request.intent,

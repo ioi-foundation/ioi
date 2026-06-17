@@ -23,9 +23,9 @@ import {
   runAssistantNotificationAction,
 } from "../../lib/operatorNotifications";
 import { buildAssistantWorkbenchSummary } from "../../lib/assistantWorkbenchSummary";
-import { bootstrapAgentSession, useAgentStore } from "../../session/autopilotSession";
+import { bootstrapHypervisorSession, useHypervisorSessionStore } from "../../session/hypervisorSession";
 import {
-  openCompanionAutopilotIntent,
+  openCompanionHypervisorIntent,
   openCompanionCapabilities,
   openCompanionCapabilityTarget,
   openCompanionNotifications,
@@ -55,7 +55,7 @@ import "../shared/AssistantWorkbench.css";
 import "./GateWindow.css";
 
 export function GateWindow() {
-  const { task, continueTask } = useAgentStore();
+  const { task, continueTask } = useHypervisorSessionStore();
   const {
     assistantWorkbench,
     activeAssistantWorkbenchActivities,
@@ -78,7 +78,7 @@ export function GateWindow() {
   } = useOperatorNotifications();
 
   useEffect(() => {
-    void bootstrapAgentSession();
+    void bootstrapHypervisorSession();
   }, []);
 
   useEffect(() => {
@@ -297,7 +297,7 @@ export function GateWindow() {
           item,
           actionId,
           updateAssistantStatus,
-          onOpenAutopilot: () => {
+          onOpenHypervisor: () => {
             void openCompanionChat();
           },
           onOpenIntegrations: (connectorId) => {
@@ -561,8 +561,8 @@ export function GateWindow() {
               runtime={workbenchRuntime}
               onBack={collapseWorkbench}
               onOpenNotifications={focusWorkbenchSource}
-              onOpenAutopilot={(intent) => {
-                void openCompanionAutopilotIntent(intent);
+              onOpenHypervisor={(intent) => {
+                void openCompanionHypervisorIntent(intent);
               }}
             />
             <div className="gate-window-workbench-stage-actions">
@@ -627,7 +627,7 @@ export function GateWindow() {
             onToolbarAction={() => {
               void openCompanionChat();
             }}
-            onOpenAutopilot={() => {
+            onOpenHypervisor={() => {
               void openCompanionChat();
             }}
             onOpenLocalEngine={() => {
