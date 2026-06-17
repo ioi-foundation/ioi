@@ -39,7 +39,7 @@ parallel execution path.
 | --- | --- | --- |
 | Runtime conformance | `scripts/conformance/` | Durable conformance commands. |
 | Runtime evidence | `scripts/evidence/` | Durable evidence generation commands. |
-| Script launchers | `scripts/` | Thin operator wrappers only. |
+| Script launchers | `scripts/` | Thin operator wrappers only. Active root entry points should use Hypervisor/App/Workbench/Foundry/Fleet names; Autopilot names belong only in historical proof fixtures until their owning runner is renamed. |
 | JS contract tests | `scripts/lib/*.test.mjs` | Tests and guardrails, not runtime implementation. |
 | Hypervisor proofs | `scripts/lib/*.test.mjs`, `scripts/conformance/`, `scripts/evidence/`, and focused proof helpers under `packages/hypervisor-workbench/src/runtime/` when they are client projections | Proof/harness code only; product runtime modules should stay uncluttered. The removed `apps/hypervisor/src-tauri` path is not an active proof home. |
 
@@ -81,3 +81,6 @@ When moving runtime code, prefer this order:
 4. Remove roadmap/proof names from product paths once conformance stays green.
 5. Do not create new active Tauri homes. Preserve retired Tauri source only as
    historical extraction inventory under `internal-docs/legacy/`.
+6. Do not add new root `ide/`, `agent-ide`, or Autopilot-named product paths.
+   Workbench adapter hosts belong under `workbench-adapters/`; active product
+   scripts should expose Hypervisor names.

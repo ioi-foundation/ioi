@@ -773,6 +773,7 @@ Implementation phases:
 | 0A.1 Product-shell rename and route map | Introduce Hypervisor naming without relying on old Autopilot tab semantics. | `apps/hypervisor/src/main.tsx`, `HypervisorShellWindow/*`, CSS, tests | App copy says Hypervisor; compatibility names are implementation-only. |
 | 0A.1B Retire IDE-root naming | Rename launcher/script/docs away from `ide`/Electron-as-product language and move tracked adapter metadata and ignored local adapter artifacts to `workbench-adapters/`. | `workbench-adapters/`, launcher scripts, package scripts, conformance readers | Electron/VS Code is one Workbench adapter host; root `ide/` is retired and must not be used as a product or artifact path. |
 | 0A.1C Retire Tauri app shims | Replace active `@tauri-apps/*` imports and `TauriRuntime` service naming with Hypervisor client bridge APIs; keep archived Tauri code only under `internal-docs/legacy`. | `apps/hypervisor/src/services/*`, shell hooks/components, package deps, validation scripts | Active app code no longer depends on Tauri APIs or `apps/hypervisor/src-tauri`; legacy Tauri references are historical only. |
+| 0A.1D Retire Autopilot proof-runner names | Rename or remove active root package scripts and proof-runner entry points that still advertise Autopilot as the product, while preserving historical evidence under legacy/evidence paths. | `package.json`, `scripts/run-*-goal.mjs`, `scripts/lib/*`, conformance readers | `npm run` exposes Hypervisor/App/Workbench/Fleet/Foundry names; any remaining `autopilot` script/file names are historical fixtures or explicitly marked legacy. |
 | 0A.2 App shell IA | Build IOI-reference shell with left rail, New Session, sessions rail, main surface, right inspector, and bottom inspector. | `HypervisorShellContent.tsx`, `ChatLocalActivityBar.tsx`, `ChatLeftSidebarShell.tsx`, shell CSS | Home opens as app cockpit, not Code repositories/OpenVSCode. |
 | 0A.3 Session/project model | Add session cards, project cards, restore state, blocked approvals, recent sessions. | `hypervisorShellModel.ts`, `operatorSubstrateModel.ts`, Home/Session services | Sessions persist visually and map to daemon/Agentgres refs where available. |
 | 0A.4 New Session flow | Create guided launch flow: Mission, Workbench, Agent, Automation, Foundry job, Fleet job, Private Workspace. | New surface or Home components; `workspaceRuntimeNavigation.ts`; runtime launch services | User can start a governed session with model/harness/privacy/authority summary. |
@@ -834,6 +835,15 @@ Current implementation cut:
   `.gitignore` no longer preserves dead active `src-tauri` or `agent-ide`
   shadows
 
+0A.1D is the next naming cleanup cut:
+  the active Tauri app and root `ide/` product path are already retired, but
+  root `package.json` still exposes old `goal:autopilot-*`,
+  `validate:autopilot-*`, and `test:autopilot-*` proof-runner names.
+  Those names should be replaced with Hypervisor/App/Workbench/Foundry/Fleet
+  script names as the corresponding runners are renamed. Do not keep
+  compatibility aliases unless an active conformance command still requires
+  them during the same slice.
+
 0A.2 canonical shell routing is partially implemented:
   `PrimaryView` is now the canonical `HypervisorSurfaceId` union rather than
   an IDE-era alias set
@@ -873,6 +883,10 @@ the product. Root `ide/` is retired; current Workbench adapter-host metadata and
 ignored local adapter artifacts belong under `workbench-adapters/`.
 Do not preserve Tauri compatibility shims in active app paths. Tauri is legacy
 extraction inventory only.
+Do not leave Autopilot proof-runner names in active root package scripts after
+their owning runner has a Hypervisor name. Historical `.internal/plans`,
+`docs/evidence`, and `internal-docs/legacy` material may retain Autopilot as
+dated context.
 Do not collapse Settings and Authority:
   Settings configures account/secrets/git/tokens/integrations/policy defaults.
   Authority governs live approvals, leases, grants, revocation, and review.
