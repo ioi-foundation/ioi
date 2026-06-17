@@ -159,6 +159,7 @@ export function HypervisorNewSessionModal({
   const harnessVerdict = buildHarnessCompatibilityVerdict(
     selectedHarness,
     modelRouteSupportsHypervisorMount,
+    selectedPrivacy.ref,
   );
   const launchBlockedByHarnessVerdict =
     harnessVerdict.state === "blocked" ||

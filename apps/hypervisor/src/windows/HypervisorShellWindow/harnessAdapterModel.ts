@@ -192,6 +192,8 @@ export interface HarnessCompatibilityVerdict {
 
 export const HYPERVISOR_DEFAULT_LOCAL_MODEL_ROUTE_REF =
   "model-route:hypervisor/default-local";
+export const HYPERVISOR_CTEE_PRIVATE_WORKSPACE_PRIVACY_REF =
+  "privacy:ctee-private-workspace";
 
 export const HYPERVISOR_NEW_SESSION_MODEL_MOUNT_INVENTORY_FIXTURE: HypervisorModelMountInventorySnapshot =
   {
@@ -523,6 +525,7 @@ export function getHarnessSelectionOption(
 export function buildHarnessCompatibilityVerdict(
   option: HypervisorHarnessSelectionOption,
   modelMountAvailable: boolean,
+  privacyPostureRef = "privacy:redacted-projection",
 ): HarnessCompatibilityVerdict {
   const selectionRef = getHarnessSelectionRef(option);
 
@@ -534,6 +537,18 @@ export function buildHarnessCompatibilityVerdict(
         ? "Default Harness Profile can use the selected Hypervisor model mount under daemon gates."
         : "Default Harness Profile needs a verified Hypervisor model route before local execution.",
       requiresDaemonGate: true,
+    };
+  }
+
+  if (privacyPostureRef === HYPERVISOR_CTEE_PRIVATE_WORKSPACE_PRIVACY_REF) {
+    return {
+      selection_ref: selectionRef,
+      state: "blocked",
+      summary:
+        "External harness adapters cannot mount or claim cTEE private workspace custody; choose a redacted/public projection or use the Default Harness Profile.",
+      requiresDaemonGate: true,
+      privacyWarning:
+        "cTEE private workspace state stays behind Hypervisor custody unless an explicit private-workspace policy grants a compatible path.",
     };
   }
 

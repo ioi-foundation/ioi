@@ -537,6 +537,12 @@ assert(
     hypervisorHarnessAdapterModelSource.includes(
       "HYPERVISOR_NEW_SESSION_MODEL_MOUNT_INVENTORY_FIXTURE",
     ) &&
+    hypervisorHarnessAdapterModelSource.includes(
+      "HYPERVISOR_CTEE_PRIVATE_WORKSPACE_PRIVACY_REF",
+    ) &&
+    hypervisorHarnessAdapterModelSource.includes(
+      "External harness adapters cannot mount or claim cTEE private workspace custody",
+    ) &&
     hypervisorModelMountInventoryModelSource.includes(
       "/v1/model-mount/snapshot",
     ) &&
@@ -555,6 +561,7 @@ assert(
     hypervisorNewSessionModalSource.includes(
       "modelRouteSupportsHypervisorMountFromInventory",
     ) &&
+    hypervisorNewSessionModalSource.includes("selectedPrivacy.ref") &&
     hypervisorNewSessionModalSource.includes("modelMountInventory") &&
     hypervisorNewSessionModalSource.includes(
       "data-new-session-model-route-inventory-state",

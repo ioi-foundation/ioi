@@ -197,6 +197,7 @@ test("new session modal is a shell-level governed launch flow", () => {
   assert.match(newSessionModal, /Workbench Adapter/);
   assert.match(newSessionModal, /adapter_preference_ref: adapterPreferenceRef/);
   assert.match(newSessionModal, /buildHarnessCompatibilityVerdict/);
+  assert.match(newSessionModal, /selectedPrivacy\.ref/);
   assert.match(newSessionModal, /modelRouteSupportsHypervisorMount/);
   assert.match(newSessionModal, /modelRouteSupportsHypervisorMountFromInventory/);
   assert.match(newSessionModal, /modelMountInventory/);

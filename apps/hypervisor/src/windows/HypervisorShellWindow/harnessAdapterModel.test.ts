@@ -105,6 +105,30 @@ test("compatibility verdicts expose provider trust and local-route gaps", () => 
     buildHarnessCompatibilityVerdict(shellTmux, true).state,
     "blocked",
   );
+  assert.deepEqual(
+    buildHarnessCompatibilityVerdict(
+      deepseek,
+      true,
+      "privacy:ctee-private-workspace",
+    ),
+    {
+      selection_ref: "agent-harness-adapter:deepseek_tui",
+      state: "blocked",
+      summary:
+        "External harness adapters cannot mount or claim cTEE private workspace custody; choose a redacted/public projection or use the Default Harness Profile.",
+      requiresDaemonGate: true,
+      privacyWarning:
+        "cTEE private workspace state stays behind Hypervisor custody unless an explicit private-workspace policy grants a compatible path.",
+    },
+  );
+  assert.equal(
+    buildHarnessCompatibilityVerdict(
+      DEFAULT_HARNESS_PROFILE_OPTION,
+      true,
+      "privacy:ctee-private-workspace",
+    ).state,
+    "compatible",
+  );
 });
 
 test("model route availability comes from model-mount inventory, not route labels", () => {

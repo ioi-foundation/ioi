@@ -1403,6 +1403,14 @@ Current implementation cut:
   installed adapters receive the same public fixture, success receipts bind
   Agentgres/artifact refs, insufficient installs block comparison, and cTEE or
   plaintext private workspace custody remains blocked.
+
+  0B.6's first private-workspace guard is implemented at New Session
+  selection time: `buildHarnessCompatibilityVerdict` now receives the selected
+  privacy posture and blocks external `AgentHarnessAdapter` selections when the
+  requested posture is `privacy:ctee-private-workspace`. Default Harness Profile
+  remains the compatible cTEE private-workspace path. External harnesses must
+  use redacted or public projections unless a future explicit private-workspace
+  policy adds a compatible grant.
 ```
 
 First implementation slice:
@@ -1429,7 +1437,10 @@ First implementation slice:
    the smoke runner can compare two installed container adapters against the
    same public fixture and return success or dry-run receipts without bypassing
    daemon gates.
-7. Add source scans proving no external harness bypasses daemon gates. Done for
+7. Add cTEE/private workspace guard. Done at New Session compatibility level
+   for the default external-adapter path; daemon container lanes also continue
+   to reject cTEE/private and plaintext workspace mounts.
+8. Add source scans proving no external harness bypasses daemon gates. Done for
    static model and runtime-layout guard.
 ```
 
