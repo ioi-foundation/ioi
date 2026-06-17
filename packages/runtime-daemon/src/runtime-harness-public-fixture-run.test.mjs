@@ -2,11 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  HARNESS_PUBLIC_SMOKE_RUN_SCHEMA_VERSION,
-  runHarnessPublicSmokeTask,
-} from "./runtime-harness-public-smoke-task.mjs";
+  HARNESS_PUBLIC_FIXTURE_RUN_SCHEMA_VERSION,
+  runHarnessPublicFixtureRun,
+} from "./runtime-harness-public-fixture-run.mjs";
 
-function smokeRequest(overrides = {}) {
+function fixtureRequest(overrides = {}) {
   return {
     installed_adapter_ids: ["deepseek_tui", "generic_cli"],
     candidate_lanes: [
@@ -33,9 +33,9 @@ function smokeRequest(overrides = {}) {
   };
 }
 
-test("public smoke task runs the same fixture through two installed adapters under daemon gates", async () => {
+test("public fixture run executes the same fixture through two installed adapters under daemon gates", async () => {
   const executed = [];
-  const run = await runHarnessPublicSmokeTask(smokeRequest(), {
+  const run = await runHarnessPublicFixtureRun(fixtureRequest(), {
     nowIso: () => "2026-06-17T13:00:00.000Z",
     executeContainerLane: async ({ plan, fixture_id, task_ref }) => {
       executed.push({ plan, fixture_id, task_ref });
@@ -43,17 +43,17 @@ test("public smoke task runs the same fixture through two installed adapters und
         exit_status: "success",
         exit_code: 0,
         agentgres_operation_refs: [
-          `agentgres://operation/${plan.adapter_id}/public-smoke`,
+          `agentgres://operation/${plan.adapter_id}/public-fixture`,
         ],
-        artifact_refs: [`artifact://harness-smoke/${plan.adapter_id}/stdout`],
+        artifact_refs: [`artifact://harness-fixture/${plan.adapter_id}/stdout`],
         created_at: "2026-06-17T13:01:00.000Z",
       };
     },
   });
 
-  assert.equal(run.schema_version, HARNESS_PUBLIC_SMOKE_RUN_SCHEMA_VERSION);
-  assert.equal(run.fixture_id, "harness-testbed:public-code-edit-smoke");
-  assert.equal(run.task_ref, "task:fixture/public-code-edit-smoke");
+  assert.equal(run.schema_version, HARNESS_PUBLIC_FIXTURE_RUN_SCHEMA_VERSION);
+  assert.equal(run.fixture_id, "harness-testbed:public-code-edit-fixture");
+  assert.equal(run.task_ref, "task:fixture/public-code-edit-fixture");
   assert.equal(run.requiresDaemonGate, true);
   assert.equal(run.runtimeTruthSource, "daemon-runtime");
   assert.deepEqual(run.candidate_selection_refs, [
@@ -64,8 +64,8 @@ test("public smoke task runs the same fixture through two installed adapters und
   assert.deepEqual(
     executed.map((item) => item.fixture_id),
     [
-      "harness-testbed:public-code-edit-smoke",
-      "harness-testbed:public-code-edit-smoke",
+      "harness-testbed:public-code-edit-fixture",
+      "harness-testbed:public-code-edit-fixture",
     ],
   );
   assert.deepEqual(
@@ -86,23 +86,23 @@ test("public smoke task runs the same fixture through two installed adapters und
   assert.deepEqual(run.receipt_refs, run.attempts.map((attempt) => attempt.receipt_id));
   assert.equal(
     run.attempts[0].receipt.agentgres_operation_refs[0],
-    "agentgres://operation/deepseek_tui/public-smoke",
+    "agentgres://operation/deepseek_tui/public-fixture",
   );
 });
 
-test("public smoke task blocks when fewer than two adapters are installed", async () => {
+test("public fixture run blocks when fewer than two adapters are installed", async () => {
   await assert.rejects(
-    runHarnessPublicSmokeTask(
-      smokeRequest({ installed_adapter_ids: ["deepseek_tui"] }),
+    runHarnessPublicFixtureRun(
+      fixtureRequest({ installed_adapter_ids: ["deepseek_tui"] }),
     ),
     /requires enough installed adapters/,
   );
 });
 
-test("public smoke task preserves container lane private-mount guard", async () => {
+test("public fixture run preserves container lane private-mount guard", async () => {
   await assert.rejects(
-    runHarnessPublicSmokeTask(
-      smokeRequest({
+    runHarnessPublicFixtureRun(
+      fixtureRequest({
         candidate_lanes: [
           {
             adapter_id: "deepseek_tui",
@@ -129,8 +129,8 @@ test("public smoke task preserves container lane private-mount guard", async () 
   );
 });
 
-test("public smoke task can produce dry-run receipts before executor wiring", async () => {
-  const run = await runHarnessPublicSmokeTask(smokeRequest(), {
+test("public fixture run can produce dry-run receipts before executor wiring", async () => {
+  const run = await runHarnessPublicFixtureRun(fixtureRequest(), {
     nowIso: () => "2026-06-17T13:00:00.000Z",
   });
   assert.deepEqual(

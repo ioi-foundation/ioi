@@ -93,11 +93,11 @@ const runtimeWorkbenchAdapterLaunchPlanAdmissionSource = read(
 const runtimeHarnessContainerLaneTestSource = read(
   "packages/runtime-daemon/src/runtime-harness-container-lane.test.mjs",
 );
-const runtimeHarnessPublicSmokeTaskSource = read(
-  "packages/runtime-daemon/src/runtime-harness-public-smoke-task.mjs",
+const runtimeHarnessPublicFixtureRunSource = read(
+  "packages/runtime-daemon/src/runtime-harness-public-fixture-run.mjs",
 );
-const runtimeHarnessPublicSmokeTaskTestSource = read(
-  "packages/runtime-daemon/src/runtime-harness-public-smoke-task.test.mjs",
+const runtimeHarnessPublicFixtureRunTestSource = read(
+  "packages/runtime-daemon/src/runtime-harness-public-fixture-run.test.mjs",
 );
 const hypervisorAppShellSmokeSource = read(
   "scripts/hypervisor-app-shell-smoke.mjs",
@@ -1172,37 +1172,37 @@ assert(
   "Phase 0A.10 must include a Playwright smoke over the built Hypervisor shell covering Home, New Session harness/privacy gating, and provider operation proposals.",
 );
 assert(
-  "hypervisor-harness-public-smoke-task",
-  runtimeHarnessPublicSmokeTaskSource.includes(
-    "ioi.hypervisor.harness_public_smoke_run.v1",
+  "hypervisor-harness-public-fixture-runs-contract",
+  runtimeHarnessPublicFixtureRunSource.includes(
+    "ioi.hypervisor.harness_public_fixture_run.v1",
   ) &&
-    runtimeHarnessPublicSmokeTaskSource.includes(
-      "runHarnessPublicSmokeTask",
+    runtimeHarnessPublicFixtureRunSource.includes(
+      "runHarnessPublicFixtureRun",
     ) &&
-    runtimeHarnessPublicSmokeTaskSource.includes(
+    runtimeHarnessPublicFixtureRunSource.includes(
       "executeContainerLane",
     ) &&
-    runtimeHarnessPublicSmokeTaskSource.includes(
-      "harness-testbed:public-code-edit-smoke",
+    runtimeHarnessPublicFixtureRunSource.includes(
+      "harness-testbed:public-code-edit-fixture",
     ) &&
     publicRuntimeRoutesSource.includes(
-      "/v1/hypervisor/harness-public-smoke",
+      "/v1/hypervisor/harness-public-fixture-runs",
     ) &&
-    publicRuntimeRoutesSource.includes("runHarnessPublicSmokeTask") &&
+    publicRuntimeRoutesSource.includes("runHarnessPublicFixtureRun") &&
     publicRuntimeRoutesTestSource.includes(
-      "expose harness public smoke comparison under daemon gates",
+      "expose harness public fixture comparison under daemon gates",
     ) &&
-    runtimeHarnessPublicSmokeTaskTestSource.includes(
-      "runs the same fixture through two installed adapters",
+    runtimeHarnessPublicFixtureRunTestSource.includes(
+      "executes the same fixture through two installed adapters",
     ) &&
-    runtimeHarnessPublicSmokeTaskTestSource.includes(
+    runtimeHarnessPublicFixtureRunTestSource.includes(
       "preserves container lane private-mount guard",
     ),
   [
-    "packages/runtime-daemon/src/runtime-harness-public-smoke-task.mjs",
-    "packages/runtime-daemon/src/runtime-harness-public-smoke-task.test.mjs",
+    "packages/runtime-daemon/src/runtime-harness-public-fixture-run.mjs",
+    "packages/runtime-daemon/src/runtime-harness-public-fixture-run.test.mjs",
   ],
-  "Harness public smoke runs must compare installed adapters against the same public fixture through daemon-gated container receipts.",
+  "Harness public fixture runs must compare installed adapters against the same public fixture through daemon-gated container receipts.",
 );
 assert(
   "hypervisor-home-harness-comparison-preview",

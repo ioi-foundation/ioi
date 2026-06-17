@@ -5,13 +5,13 @@ import {
 } from "./runtime-harness-container-lane.mjs";
 import { normalizeArray, objectRecord, optionalString, safeId } from "./runtime-value-helpers.mjs";
 
-export const HARNESS_PUBLIC_SMOKE_RUN_SCHEMA_VERSION =
-  "ioi.hypervisor.harness_public_smoke_run.v1";
+export const HARNESS_PUBLIC_FIXTURE_RUN_SCHEMA_VERSION =
+  "ioi.hypervisor.harness_public_fixture_run.v1";
 
-const DEFAULT_FIXTURE_ID = "harness-testbed:public-code-edit-smoke";
-const DEFAULT_TASK_REF = "task:fixture/public-code-edit-smoke";
+const DEFAULT_FIXTURE_ID = "harness-testbed:public-code-edit-fixture";
+const DEFAULT_TASK_REF = "task:fixture/public-code-edit-fixture";
 
-export async function runHarnessPublicSmokeTask(request = {}, deps = {}) {
+export async function runHarnessPublicFixtureRun(request = {}, deps = {}) {
   const nowIso = deps.nowIso ?? (() => new Date().toISOString());
   const createdAt = optionalString(request.created_at) ?? nowIso();
   const fixtureId = optionalString(request.fixture_id) ?? DEFAULT_FIXTURE_ID;
@@ -28,9 +28,9 @@ export async function runHarnessPublicSmokeTask(request = {}, deps = {}) {
   if (installedCandidates.length < minInstalledAdapters) {
     throw runtimeError({
       status: 409,
-      code: "harness_public_smoke_insufficient_installed_adapters",
+      code: "harness_public_fixture_run_insufficient_installed_adapters",
       message:
-        "Harness public smoke task requires enough installed adapters to compare the same fixture under daemon gates.",
+        "Harness public fixture run requires enough installed adapters to compare the same fixture under daemon gates.",
       details: {
         required: minInstalledAdapters,
         installed_adapter_ids: [...installedAdapterIds].sort(),
@@ -41,14 +41,14 @@ export async function runHarnessPublicSmokeTask(request = {}, deps = {}) {
 
   const runId =
     optionalString(request.run_id) ??
-    `harness-public-smoke:${safeId(fixtureId)}:${createdAt.replace(/[^0-9a-z]+/gi, "").slice(0, 14)}`;
+    `harness-public-fixture-runs:${safeId(fixtureId)}:${createdAt.replace(/[^0-9a-z]+/gi, "").slice(0, 14)}`;
   const attempts = [];
   for (const candidate of installedCandidates.slice(0, minInstalledAdapters)) {
     const plan = planHarnessAdapterContainerLane(
       {
         ...candidate,
         command_argv: commandArgvForFixture(candidate, fixtureId),
-        mounts: candidate.mounts ?? publicSmokeMounts(),
+        mounts: candidate.mounts ?? publicFixtureMounts(),
         network_policy: candidate.network_policy ?? "disabled",
         env_policy_ref:
           candidate.env_policy_ref ?? "env-policy:harness-adapter/no-plaintext-env",
@@ -77,7 +77,7 @@ export async function runHarnessPublicSmokeTask(request = {}, deps = {}) {
     });
 
     attempts.push({
-      attempt_id: `harness-smoke-attempt:${safeId(candidate.selection_ref)}`,
+      attempt_id: `harness-fixture-attempt:${safeId(candidate.selection_ref)}`,
       selection_ref: candidate.selection_ref,
       adapter_id: candidate.adapter_id,
       fixture_id: fixtureId,
@@ -96,7 +96,7 @@ export async function runHarnessPublicSmokeTask(request = {}, deps = {}) {
   }
 
   return {
-    schema_version: HARNESS_PUBLIC_SMOKE_RUN_SCHEMA_VERSION,
+    schema_version: HARNESS_PUBLIC_FIXTURE_RUN_SCHEMA_VERSION,
     run_id: runId,
     fixture_id: fixtureId,
     task_ref: taskRef,
@@ -115,8 +115,8 @@ function normalizeCandidateLanes(value) {
     if (!record) {
       throw runtimeError({
         status: 400,
-        code: "harness_public_smoke_candidate_invalid",
-        message: "Harness public smoke candidates must be objects.",
+        code: "harness_public_fixture_run_candidate_invalid",
+        message: "Harness public fixture candidates must be objects.",
         details: { index },
       });
     }
@@ -136,8 +136,8 @@ function normalizeCandidateLanes(value) {
   if (candidates.length === 0) {
     throw runtimeError({
       status: 400,
-      code: "harness_public_smoke_candidates_required",
-      message: "Harness public smoke task requires adapter candidates.",
+      code: "harness_public_fixture_run_candidates_required",
+      message: "Harness public fixture run requires adapter candidates.",
       details: {},
     });
   }
@@ -157,7 +157,7 @@ function commandArgvForFixture(candidate, fixtureId) {
   ];
 }
 
-function publicSmokeMounts() {
+function publicFixtureMounts() {
   return [
     {
       mount_ref: "mount:public-trunk",
@@ -181,8 +181,8 @@ function requiredString(value, field) {
   if (!text) {
     throw runtimeError({
       status: 400,
-      code: "harness_public_smoke_required_field_missing",
-      message: `Harness public smoke task is missing required field: ${field}.`,
+      code: "harness_public_fixture_run_required_field_missing",
+      message: `Harness public fixture run is missing required field: ${field}.`,
       details: { field },
     });
   }

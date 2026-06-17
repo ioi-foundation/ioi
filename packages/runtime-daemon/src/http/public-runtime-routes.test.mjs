@@ -971,7 +971,7 @@ test("public runtime routes expose daemon-planned harness container lane receipt
           "run",
           "deepseek_tui",
           "--fixture",
-          "harness-testbed:public-code-edit-smoke",
+          "harness-testbed:public-code-edit-fixture",
         ],
         mounts: [
           {
@@ -1010,7 +1010,7 @@ test("public runtime routes expose daemon-planned harness container lane receipt
   assert.deepEqual(payload.receipt.mounts, payload.mounts);
 });
 
-test("public runtime routes expose harness public smoke comparison under daemon gates", async () => {
+test("public runtime routes expose harness public fixture comparison under daemon gates", async () => {
   const executed = [];
   const { handleRequest } = routeHarness({
     executeHarnessContainerLane: async ({ plan, fixture_id, task_ref }) => {
@@ -1019,9 +1019,9 @@ test("public runtime routes expose harness public smoke comparison under daemon 
         exit_status: "success",
         exit_code: 0,
         agentgres_operation_refs: [
-          `agentgres://operation/${plan.adapter_id}/public-smoke`,
+          `agentgres://operation/${plan.adapter_id}/public-fixture`,
         ],
-        artifact_refs: [`artifact://harness-smoke/${plan.adapter_id}/stdout`],
+        artifact_refs: [`artifact://harness-fixture/${plan.adapter_id}/stdout`],
         created_at: "2026-06-17T13:01:00.000Z",
       };
     },
@@ -1036,7 +1036,7 @@ test("public runtime routes expose harness public smoke comparison under daemon 
   await handleRequest({
     request: request({
       method: "POST",
-      url: "/v1/hypervisor/harness-public-smoke",
+      url: "/v1/hypervisor/harness-public-fixture-runs",
       body: {
         installed_adapter_ids: ["deepseek_tui", "generic_cli"],
         candidate_lanes: [
@@ -1061,7 +1061,7 @@ test("public runtime routes expose harness public smoke comparison under daemon 
 
   const payload = JSON.parse(response.body);
   assert.equal(response.statusCode, 202);
-  assert.equal(payload.schema_version, "ioi.hypervisor.harness_public_smoke_run.v1");
+  assert.equal(payload.schema_version, "ioi.hypervisor.harness_public_fixture_run.v1");
   assert.equal(payload.requiresDaemonGate, true);
   assert.equal(payload.runtimeTruthSource, "daemon-runtime");
   assert.deepEqual(payload.candidate_selection_refs, [
@@ -1082,18 +1082,18 @@ test("public runtime routes expose harness public smoke comparison under daemon 
   );
   assert.equal(
     payload.attempts[0].receipt.agentgres_operation_refs[0],
-    "agentgres://operation/deepseek_tui/public-smoke",
+    "agentgres://operation/deepseek_tui/public-fixture",
   );
 });
 
-test("public runtime harness smoke route preserves private workspace mount guard", async () => {
+test("public runtime harness fixture route preserves private workspace mount guard", async () => {
   const { handleRequest } = routeHarness();
   const response = responseRecorder();
 
   await handleRequest({
     request: request({
       method: "POST",
-      url: "/v1/hypervisor/harness-public-smoke",
+      url: "/v1/hypervisor/harness-public-fixture-runs",
       body: {
         installed_adapter_ids: ["deepseek_tui", "generic_cli"],
         candidate_lanes: [

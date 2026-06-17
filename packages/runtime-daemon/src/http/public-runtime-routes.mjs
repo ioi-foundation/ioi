@@ -6,7 +6,7 @@ import {
 } from "../runtime-agent-run-lifecycle.mjs";
 import { admitArtifactAvailabilityIncident } from "../runtime-artifact-availability-incident.mjs";
 import { planHarnessAdapterContainerLane } from "../runtime-harness-container-lane.mjs";
-import { runHarnessPublicSmokeTask } from "../runtime-harness-public-smoke-task.mjs";
+import { runHarnessPublicFixtureRun } from "../runtime-harness-public-fixture-run.mjs";
 import { admitManagedWorkerInstanceLifecycleTransition } from "../runtime-managed-worker-instance-lifecycle-admission.mjs";
 import { admitModelWeightCustodyRoute } from "../runtime-model-weight-custody-admission.mjs";
 import { admitPhysicalActionIntent } from "../runtime-physical-action-intent-admission.mjs";
@@ -372,16 +372,16 @@ export function createPublicRuntimeRequestHandler(deps) {
         );
         return;
       }
-      if (request.method === "POST" && url.pathname === "/v1/hypervisor/harness-public-smoke") {
+      if (request.method === "POST" && url.pathname === "/v1/hypervisor/harness-public-fixture-runs") {
         const body = await readBody(request);
         writeJsonResponse(
           response,
-          await runHarnessPublicSmokeTask(
+          await runHarnessPublicFixtureRun(
             {
               ...body,
               source:
                 optionalString(body.source) ??
-                "public_runtime_routes./v1/hypervisor/harness-public-smoke",
+                "public_runtime_routes./v1/hypervisor/harness-public-fixture-runs",
             },
             {
               executeContainerLane:

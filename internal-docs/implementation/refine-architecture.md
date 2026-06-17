@@ -1599,7 +1599,7 @@ Execution lanes:
 | Lane | Use | Boundary |
 | --- | --- | --- |
 | Host dev CLI | Fast local development and adapter probing. | Lowest isolation; never privacy proof. |
-| Docker/Podman container | Reproducible harness smoke tests and public workspace tasks. | Useful sandbox; not a root-provider privacy guarantee. |
+| Docker/Podman container | Reproducible harness fixture runs and public workspace tasks. | Useful sandbox; not a root-provider privacy guarantee. |
 | `examples/codex-desktop-linux` | Desktop/client parity and computer-use reference. | Adapter target, not Hypervisor Core. |
 | Local model server | LocalAI/Ollama/llama.cpp/vLLM endpoint behind model mount. | Model backend, not harness authority. |
 | Remote/provider API | Existing harness-native provider path. | Provider-trust lane; mark privacy posture explicitly. |
@@ -1612,7 +1612,7 @@ Implementation phases:
 | 0B.2 Harness selector in New Session | Add harness selector beside model route and privacy posture. | Hypervisor App launch flow from Phase 0A | Session summary shows harness, model route, workspace mount, and privacy posture. |
 | 0B.3 Model-mount compatibility check | Probe `/v1/model-mount/*` inventory before offering local route. | `packages/agent-sdk/src/substrate-client.ts`, model mount clients | No harness silently falls back to cloud/provider if local route is unavailable. |
 | 0B.4 Container lane contract | Define Docker/Podman command, mount, network, env, and receipt envelope. | runtime daemon adapter service, docs, tests | Container run receipts include image, argv hash, mounts, network policy, exit status. |
-| 0B.5 First public smoke task | Run the same non-sensitive fixture task through two adapters where installed. | adapter runner tests, sample workspace | Receipts prove both were mediated by daemon gates. |
+| 0B.5 First public fixture run | Run the same non-sensitive fixture through two adapters where installed. | adapter runner tests, sample workspace | Receipts prove both were mediated by daemon gates. |
 | 0B.6 cTEE/private workspace guard | Restrict external harnesses to public trunk/redacted projection unless explicitly allowed. | private workspace policy, adapter runner | Sensitive work cannot be mounted into plain external harness workspace by default. |
 | 0B.7 Comparison dashboard | Add HarnessComparisonRun view to Workbench/Foundry. | Hypervisor App Workbench/Foundry surfaces | User can compare adapter output, cost, receipts, and verification results. |
 
@@ -1641,7 +1641,7 @@ Current implementation cut:
   "daemon-runtime"`.
 
   `HYPERVISOR_HARNESS_ADAPTER_TESTBED_FIXTURE` and
-  `HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE` provide a public-trunk smoke
+  `HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE` provide a public-trunk fixture
   fixture and same-fixture comparison run before real adapter execution is
   wired. They bind candidate selection refs, acceptance criteria refs, draft
   receipt refs, and the harness adapter receipt schema.
@@ -1682,8 +1682,8 @@ Current implementation cut:
   not-executed receipt contract for governed adapter launch proposals. Real
   external process spawning remains executor-mounted follow-up work.
 
-  0B.5's first public smoke runner is implemented as a daemon-side contract:
-  `packages/runtime-daemon/src/runtime-harness-public-smoke-task.mjs` compares
+  0B.5's first public fixture runner is implemented as a daemon-side contract:
+  `packages/runtime-daemon/src/runtime-harness-public-fixture-run.mjs` compares
   installed adapter candidates against the same non-sensitive fixture through
   daemon-planned container lanes. It accepts an injected `executeContainerLane`
   executor for live runs, produces dry-run receipts before executor wiring, and
@@ -1691,7 +1691,7 @@ Current implementation cut:
   installed adapters receive the same public fixture, success receipts bind
   Agentgres/artifact refs, insufficient installs block comparison, and cTEE or
   plaintext private workspace custody remains blocked. The public daemon route
-  `/v1/hypervisor/harness-public-smoke` now exposes that comparison contract
+  `/v1/hypervisor/harness-public-fixture-runs` now exposes that comparison contract
   under daemon gates and accepts an injected executor when the daemon has a live
   container lane runner mounted.
 
@@ -1725,7 +1725,7 @@ First implementation slice:
 ```text
 1. Define `AgentHarnessAdapterProfile`, `HarnessAdapterReceipt`, and
    `HarnessComparisonRun` fixtures. Done for static manifests and public
-   smoke fixture; real adapter execution remains later.
+   fixture; real adapter execution remains later.
 2. Add adapter choices to New Session:
    Default Harness Profile, Codex CLI, codex-desktop-linux, Claude Code,
    Grok Build, DeepSeek TUI, Aider, OpenHands, shell/tmux agent, and Generic
@@ -1741,8 +1741,8 @@ First implementation slice:
 5. Add container lane dry-run receipt for a public fixture workspace. Done for
    the daemon-side Docker/Podman plan, public route, and not-executed receipt
    contract.
-6. Add first public smoke comparison. Done for daemon-side injected execution:
-   the smoke runner can compare two installed container adapters against the
+6. Add first public fixture comparison. Done for daemon-side injected execution:
+   the fixture runner can compare two installed container adapters against the
    same public fixture through the public daemon route and return success or
    dry-run receipts without bypassing daemon gates.
 7. Add cTEE/private workspace guard. Done at New Session compatibility level

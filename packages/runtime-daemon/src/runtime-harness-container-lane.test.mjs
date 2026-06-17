@@ -19,7 +19,7 @@ function containerLaneRequest(overrides = {}) {
       "run",
       "deepseek_tui",
       "--fixture",
-      "harness-testbed:public-code-edit-smoke",
+      "harness-testbed:public-code-edit-fixture",
     ],
     mounts: [
       {
