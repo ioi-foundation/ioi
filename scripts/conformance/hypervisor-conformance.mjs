@@ -227,7 +227,6 @@ const RETIRED_COMMAND_PROTOCOL_MARKERS = [
   "plan_runtime_memory_control",
   "plan_runtime_subagent_control",
   "plan_runtime_task_job_cancel_state_update",
-  "plan_runtime_task_job_create_state_update",
   "plan_runtime_thread_fork_control",
   "plan_runtime_workflow_edit_control",
   "plan_runtime_workspace_change_control",
@@ -1024,6 +1023,7 @@ function runDocs() {
     "docs/architecture/components/daemon-runtime/doctrine.md",
     "docs/architecture/components/daemon-runtime/private-workspace-ctee.md",
     "docs/architecture/components/hypervisor/fleet.md",
+    "docs/architecture/components/hypervisor/providers-and-environments.md",
     "docs/architecture/components/agentgres/doctrine.md",
     "docs/architecture/components/agentgres/artifact-ref-plane.md",
     "docs/architecture/components/wallet-network/doctrine.md",
@@ -1070,6 +1070,9 @@ function runDocs() {
   const sourceMap = read(SOURCE_OF_TRUTH);
   const startShim = read("docs/architecture/START_HERE.md");
   const fleetDoc = read("docs/architecture/components/hypervisor/fleet.md");
+  const providersEnvironmentsDoc = read(
+    "docs/architecture/components/hypervisor/providers-and-environments.md",
+  );
   const packageJson = JSON.parse(read("package.json"));
 
   requireText(result, "guide-terminal-condition", guide, "### Terminal condition", [GUIDE]);
@@ -1129,40 +1132,71 @@ function runDocs() {
   assertCheck(
     result,
     "source-map-hypervisor-fleet",
-    /Hypervisor Fleet, general infrastructure manager/.test(sourceMap) &&
-      /autonomous infrastructure manager/.test(sourceMap) &&
-      /\[`fleet\.md`\]\(\.\.\/components\/hypervisor\/fleet\.md\)/.test(sourceMap),
-    [SOURCE_OF_TRUTH, "docs/architecture/components/hypervisor/fleet.md"],
-    "source-of-truth map must name Hypervisor Fleet and its canonical owner doc",
+    /Hypervisor provider\/environment management/.test(sourceMap) &&
+      /direct provider integrations/.test(sourceMap) &&
+      /\[`providers-and-environments\.md`\]\(\.\.\/components\/hypervisor\/providers-and-environments\.md\)/.test(
+        sourceMap,
+      ) &&
+      /\[`fleet\.md`\]\(\.\.\/components\/hypervisor\/fleet\.md\)/.test(sourceMap) &&
+      /`fleet\.md` is a deprecated terminology stub/.test(sourceMap),
+    [
+      SOURCE_OF_TRUTH,
+      "docs/architecture/components/hypervisor/providers-and-environments.md",
+      "docs/architecture/components/hypervisor/fleet.md",
+    ],
+    "source-of-truth map must name Hypervisor provider/environment ownership and keep Fleet deprecated",
   );
   assertCheck(
     result,
     "implementation-matrix-hypervisor-fleet",
-    /`HypervisorFleet`/.test(implementationMatrix) &&
-      /`FleetNode`/.test(implementationMatrix) &&
-      /`FleetRuntimeAssignmentView`/.test(implementationMatrix) &&
-      /`FleetStoragePosture`/.test(implementationMatrix) &&
-      /\|\s*planned\s*\|/.test(
-        implementationMatrix.match(/\| `HypervisorFleet`[\s\S]*?\n/)?.[0] ?? "",
-      ),
+    /`HypervisorCoreClientSurfaceSessionAdapterTaxonomy`/.test(implementationMatrix) &&
+      /provider\/environment posture is a default Hypervisor session\/project\/provider view/.test(
+        implementationMatrix,
+      ) &&
+      /`HypervisorOperationalProfiles`/.test(implementationMatrix) &&
+      /`HypervisorEnvironmentOpsProfile`/.test(implementationMatrix) &&
+      /`HypervisorSessionAccessLease`/.test(implementationMatrix) &&
+      /do not create Fleet-specific aliases/.test(implementationMatrix),
     [IMPLEMENTATION_MATRIX],
-    "implementation matrix must keep Fleet objects planned/projection-scoped until runtime receipts and conformance exist",
+    "implementation matrix must keep provider/environment objects under Hypervisor profiles and reject Fleet aliases",
   );
   assertCheck(
     result,
     "hypervisor-fleet-boundary-doctrine",
-    /Fleet coordinates and governs\./.test(fleetDoc) &&
-      /Hypervisor Daemon executes\./.test(fleetDoc) &&
-      /wallet\.network authorizes\./.test(fleetDoc) &&
-      /Agentgres records admitted truth\./.test(fleetDoc) &&
-      /It does not execute work, authorize power, admit operational truth, or own\s+payload bytes\./.test(
+    /Status: deprecated terminology stub\./.test(fleetDoc) &&
+      /Superseded by: \[`providers-and-environments\.md`\]/.test(fleetDoc) &&
+      /Do not model Fleet as:/.test(fleetDoc) &&
+      /a separate source of environment truth/.test(fleetDoc) &&
+      /Hypervisor Daemon executes lifecycle operations\./.test(fleetDoc) &&
+      /wallet\.network authorizes spend, access, secrets, SCM auth, and declassification\./.test(
         fleetDoc,
       ) &&
-      /Fleet cannot execute a workload without routing through a Hypervisor Daemon/.test(
+      /Agentgres records admitted truth, receipts, state roots, archive refs, and\s+restore validity\./.test(
         fleetDoc,
+      ) &&
+      /Storage backends hold payload bytes\./.test(fleetDoc) &&
+      /Status: canonical architecture authority\./.test(providersEnvironmentsDoc) &&
+      /Hypervisor Daemon executes lifecycle operations\./.test(
+        providersEnvironmentsDoc,
+      ) &&
+      /wallet\.network authorizes spend, access, secrets, SCM auth, and declassification\./.test(
+        providersEnvironmentsDoc,
+      ) &&
+      /Agentgres records admitted truth, receipts, state roots, archive refs, and\s+restore validity\./.test(
+        providersEnvironmentsDoc,
+      ) &&
+      /Storage backends hold payload bytes\./.test(providersEnvironmentsDoc) &&
+      /Provider state is evidence\. Agentgres state is truth\./.test(
+        providersEnvironmentsDoc,
+      ) &&
+      /Encrypted archive blobs are restore material\. They are not restore truth/.test(
+        providersEnvironmentsDoc,
       ),
-    ["docs/architecture/components/hypervisor/fleet.md"],
-    "Hypervisor Fleet canon must preserve daemon execution, wallet authority, Agentgres truth, and storage-byte boundaries",
+    [
+      "docs/architecture/components/hypervisor/fleet.md",
+      "docs/architecture/components/hypervisor/providers-and-environments.md",
+    ],
+    "Hypervisor provider/environment canon must preserve daemon execution, wallet authority, Agentgres truth, and storage-byte boundaries while Fleet stays deprecated",
   );
 
   const expectedScripts = new Map([
@@ -34345,7 +34379,10 @@ function runCompositor() {
     ) &&
     /rust_requires_state_dir_for_subagent_projection/.test(runtimeSubagentProjectionCore) &&
     !/rust_shapes_subagent_projection_command_response/.test(runtimeSubagentProjectionCore) &&
-    /runtime_compositor_command_transport_is_retired/.test(commandProtocolCoreForCompositor) &&
+    (!exists(COMMAND_PROTOCOL_PATH) ||
+      /runtime_compositor_command_transport_is_retired/.test(
+        commandProtocolCoreForCompositor,
+      )) &&
     !/ProjectRuntimeSubagentProjection/.test(commandProtocolCoreForCompositor) &&
     !/project_runtime_subagent_projection_response/.test(coreCommandDispatchForCompositor) &&
     /pub mod runtime_subagent_projection;/.test(kernelModuleForCompositor) &&
@@ -35932,33 +35969,27 @@ function runCompositor() {
       runtimeTaskJobSurfaceTest,
     );
   const runtimeTaskJobControlFacadeRetired =
-    /RuntimeTaskJobCreateStateUpdateCore/.test(policyTaskJobCore) &&
-    /RuntimeTaskJobCreateStateUpdateRequest/.test(policyTaskJobCore) &&
-    /RUNTIME_TASK_JOB_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
-      policyTaskJobCore,
+    /RunCreateStateUpdateCore/.test(policyThreadLifecycleCore) &&
+    !/RunCreateStateUpdateCore/.test(policyTaskJobCore) &&
+    !/RuntimeTaskJobCreateStateUpdate(?:Core|Request|Record|Error)/.test(
+      `${policyTaskJobCore}\n${kernelModuleForCompositor}`,
     ) &&
-    /RUNTIME_TASK_JOB_CREATE_STATE_UPDATE_RESULT_SCHEMA_VERSION/.test(
-      policyTaskJobCore,
+    !/RUNTIME_TASK_JOB_CREATE_STATE_UPDATE/.test(
+      `${policyTaskJobCore}\n${kernelModuleForCompositor}\n${runtimeContextPolicyCore}\n${runtimeContextPolicyCoreTest}`,
     ) &&
-    /RunCreateStateUpdateCore/.test(policyTaskJobCore) &&
-    !/pub fn plan_runtime_task_job_create_state_update_response/.test(
-      policyTaskJobCore,
+    !/plan_runtime_task_job_create_state_update/.test(
+      `${policyTaskJobCore}\n${kernelModuleForCompositor}\n${commandProtocolCoreForCompositor}\n${coreCommandDispatchForCompositor}`,
     ) &&
-    !/rust_runtime_task_job_create_state_update_command/.test(
-      policyTaskJobCore,
+    !/planRuntimeTaskJobCreateStateUpdate/.test(
+      `${runtimeContextPolicyCore}\n${runtimeContextPolicyCoreTest}\n${runtimeTaskJobSurface}\n${runtimeTaskJobSurfaceTest}`,
     ) &&
-    /rust_policy_plans_runtime_task_create_state_update/.test(
-      policyTaskJobCore,
+    !/runtime_task_job_create_state_update|rust_runtime_task_job_create_state_update_api/.test(
+      `${runtimeContextPolicyCore}\n${runtimeContextPolicyCoreTest}\n${runtimeTaskJobSurface}\n${runtimeTaskJobSurfaceTest}\n${policyTaskJobCore}`,
     ) &&
-    !/rust_policy_shapes_runtime_task_job_create_command_response/.test(
-      policyTaskJobCore,
-    ) &&
-    /rust_policy_rejects_runtime_task_create_agent_mismatch/.test(
-      policyTaskJobCore,
-    ) &&
-    /runtime_compositor_command_transport_is_retired/.test(
-      commandProtocolCoreForCompositor,
-    ) &&
+    (!exists(COMMAND_PROTOCOL_PATH) ||
+      /runtime_compositor_command_transport_is_retired/.test(
+        commandProtocolCoreForCompositor,
+      )) &&
     !/PlanRuntimeTaskJobCreateStateUpdate/.test(
       commandProtocolCoreForCompositor,
     ) &&
@@ -35970,25 +36001,6 @@ function runCompositor() {
     ) &&
     !/command_error_from!\(RuntimeTaskJobCreateCommandError\)/.test(
       coreCommandDispatchForCompositor,
-    ) &&
-    /pub fn plan_runtime_task_job_create_state_update\(/.test(kernelModuleForCompositor) &&
-    /planRuntimeTaskJobCreateStateUpdate/.test(runtimeContextPolicyCore) &&
-    /RUNTIME_CONTROL_TASK_JOB_CREATE_STATE_UPDATE_API_METHOD/.test(runtimeContextPolicyCore) &&
-    /invokeRuntimeControlApi\(\s*RUNTIME_CONTROL_TASK_JOB_CREATE_STATE_UPDATE_API_METHOD/.test(
-      runtimeContextPolicyCore,
-    ) &&
-    /RUNTIME_TASK_JOB_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
-      runtimeContextPolicyCore,
-    ) &&
-    /normalizeRuntimeTaskJobCreateStateUpdateResult/.test(
-      runtimeContextPolicyCore,
-    ) &&
-    /expectedOperationKind:\s*"task\.create"/.test(runtimeContextPolicyCore) &&
-    /runtime task job create core sends Rust state update through typed runtime-control API/.test(
-      runtimeContextPolicyCoreTest,
-    ) &&
-    /runtime task job create normalizer requires task create operation kind/.test(
-      runtimeContextPolicyCoreTest,
     ) &&
     /RuntimeTaskJobCancelStateUpdateCore/.test(policyTaskJobCore) &&
     /RuntimeTaskJobCancelStateUpdateRequest/.test(policyTaskJobCore) &&
@@ -36063,16 +36075,39 @@ function runCompositor() {
     /agentgres_runtime_task_job_truth_required/.test(runtimeTaskJobSurface) &&
     /createRuntimeTask/.test(runtimeTaskJobSurface) &&
     /canonicalTaskCreateRunRequest/.test(runtimeTaskJobSurface) &&
-    /planRuntimeTaskJobCreateStateUpdate/.test(runtimeTaskJobSurface) &&
-    /body\?\.agent_id/.test(runtimeTaskJobSurface) &&
-    /runtime_task_create_agent_id_required/.test(runtimeTaskJobSurface) &&
-    /runtime_task_create_agent_not_found/.test(runtimeTaskJobSurface) &&
-    /runtime_task_create_state_update_projection_mismatch/.test(
+    /typeof contextPolicyCore\?\.projectRuntimeTaskJobProjection !== "function"/.test(
       runtimeTaskJobSurface,
     ) &&
+    /store\.createRun\(agentId,\s*request\)/.test(runtimeTaskJobSurface) &&
+    /operation:\s*"runtime_task_create_projection"/.test(runtimeTaskJobSurface) &&
+    /projectionKind:\s*"task\.get"/.test(runtimeTaskJobSurface) &&
+    !/\bbuildRun\b/.test(runtimeTaskJobSurface) &&
+    !/\bensureProviderAvailable\b/.test(runtimeTaskJobSurface) &&
+    /body\?\.agent_id/.test(runtimeTaskJobSurface) &&
+    /runtime_task_create_agent_id_required/.test(runtimeTaskJobSurface) &&
+    /runtime_task_create_run_lifecycle_unavailable/.test(runtimeTaskJobSurface) &&
+    /runtime_task_create_run_lifecycle_projection_missing/.test(runtimeTaskJobSurface) &&
+    /runtime_task_create_projection_mismatch/.test(runtimeTaskJobSurface) &&
     !/taskJobCreateRunner/.test(runtimeDaemonIndex) &&
-    /buildRun,\s*\n\s*contextPolicyCore:\s*this\.contextPolicyCore,\s*\n\s*ensureProviderAvailable,\s*\n\s*notFound/.test(
+    !/this\.taskJobApi = createRuntimeTaskJobApi\(\{[^}]*\bbuildRun\b[^}]*\}\);/.test(runtimeDaemonIndex) &&
+    !/this\.taskJobApi = createRuntimeTaskJobApi\(\{[^}]*\bensureProviderAvailable\b[^}]*\}\);/.test(runtimeDaemonIndex) &&
+    /taskJobApi = createRuntimeTaskJobApi\(\{\s*[\r\n]+\s*contextPolicyCore:\s*this\.contextPolicyCore,\s*[\r\n]+\s*notFound,\s*[\r\n]+\s*\}\)/.test(
       runtimeDaemonIndex,
+    ) &&
+    /runtime task create uses store-owned run lifecycle and Rust replay projection/.test(
+      runtimeTaskJobSurfaceTest,
+    ) &&
+    /Object\.hasOwn\(calls\[1\]\.request,\s*"run"\),\s*false/.test(
+      runtimeTaskJobSurfaceTest,
+    ) &&
+    /runtime task create fails closed before run lifecycle when store API is missing/.test(
+      runtimeTaskJobSurfaceTest,
+    ) &&
+    /runtime task create fails closed before run lifecycle when Rust projector is missing/.test(
+      runtimeTaskJobSurfaceTest,
+    ) &&
+    /runtime task create rejects Rust replay projection mismatches/.test(
+      runtimeTaskJobSurfaceTest,
     ) &&
     !/taskJobCancelRunner/.test(runtimeDaemonIndex) &&
     /cancelRuntimeTaskJob/.test(runtimeTaskJobSurface) &&
@@ -36089,7 +36124,6 @@ function runCompositor() {
     /operationKind:\s*"task\.cancel"/.test(runtimeTaskJobSurface) &&
     /operationKind:\s*"job\.cancel"/.test(runtimeTaskJobSurface) &&
     !/store\.createAgent\(/.test(runtimeTaskJobSurface) &&
-    !/store\.createRun\(/.test(runtimeTaskJobSurface) &&
     !/store\.cancelRun\(/.test(runtimeTaskJobSurface) &&
     !/runtimeTaskRecordForRun/.test(runtimeTaskJobSurface) &&
     !/runtimeJobRecordForRun/.test(runtimeTaskJobSurface) &&
@@ -36100,13 +36134,16 @@ function runCompositor() {
       runtimeTaskJobSurface,
     ) &&
     !/planned\?\.run\s*\?\?\s*run/.test(runtimeTaskJobSurface) &&
-    /runtime task create commits Rust-planned task\/job projection/.test(
+    /runtime task create uses store-owned run lifecycle and Rust replay projection/.test(
       runtimeTaskJobSurfaceTest,
     ) &&
-    /runtime task create fails closed before agent lookup when Rust planner is missing/.test(
+    /runtime task create fails closed before run lifecycle when store API is missing/.test(
       runtimeTaskJobSurfaceTest,
     ) &&
-    /runtime task create rejects Rust projection mismatches before persistence/.test(
+    /runtime task create fails closed before run lifecycle when Rust projector is missing/.test(
+      runtimeTaskJobSurfaceTest,
+    ) &&
+    /runtime task create rejects Rust replay projection mismatches/.test(
       runtimeTaskJobSurfaceTest,
     ) &&
     /runtime task cancel commits Rust-planned run cancellation and returns task projection/.test(

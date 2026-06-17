@@ -8967,14 +8967,16 @@ through the Agentgres-backed `writeRun` commit path. The old `cancelRun`
 shortcut, public-id fallback, and JS task/job/checklist/event/receipt/artifact
 materialization paths remain retired.
 
-Public task creation is now a positive Rust daemon-core path. The task/job
-control surface calls Rust `plan_runtime_task_job_create_state_update`, requires
-canonical `agent_id`, gathers only the existing agent, model-route, memory, and
-run candidate after the Rust planner boundary exists, and requires Rust-authored
-`task.create` task/job/checklist plus run projections before committing only the
-returned run through Agentgres-backed `writeRun`. Direct `createAgent`,
-`createRun`, JS task/job/checklist projection synthesis, retired request aliases,
-and projection mismatch compatibility paths remain retired.
+Public task creation now composes through the store-owned Rust run-create
+lifecycle and Rust task replay projection instead of a duplicate task-create
+planner. The task/job API requires canonical `agent_id`, requires the Rust
+task/job projector before calling `createRun`, calls the store-owned
+`createRun()` path so `RunCreateStateUpdateCore` authors the run plus
+runtimeTask/runtimeJob/runtimeChecklist materialization, then returns only the
+Rust `project_runtime_task_job_projection` `task.get` replay record. The
+dedicated `plan_runtime_task_job_create_state_update` direct API, JS
+`planRuntimeTaskJobCreateStateUpdate()` wrapper, task-create schema constants,
+and task-create normalizer are retired as duplicate create truth.
 
 Public task/job read projection is now a positive Rust daemon-core path. The
 task/job control surface calls Rust `project_runtime_task_job_projection` for
@@ -12615,6 +12617,18 @@ Remaining task/job blockers stay durable task/job replay and projection depth,
 receipt/state-root binding, wallet/cTEE task authority, direct lifecycle API
 depth, and stable Workbench/CLI/SDK protocol clients over Rust-owned Agentgres
 task/job records.
+
+Slice 1434 hard-cuts the duplicate runtime task-create planner. Public task
+creation now enters through the store-owned Rust run-create lifecycle and then
+returns the Rust task replay projection; `runtime-task-job-api.mjs` no longer
+accepts `buildRun` or `ensureProviderAvailable`, no longer calls
+`planRuntimeTaskJobCreateStateUpdate()`, and fails closed before `createRun`
+when the Rust task/job projector is missing. Rust `task_job.rs`, the policy
+facade, and `RuntimeKernelService` no longer expose
+`RuntimeTaskJobCreateStateUpdate*` or
+`plan_runtime_task_job_create_state_update`; conformance guards those retired
+symbols, schema constants, direct API wrapper, and old task-create normalizer
+from returning.
 
 Slice 1424 hardens the active Hypervisor client/product vocabulary boundary.
 Developer-facing app docs now describe Hypervisor as a native operator client

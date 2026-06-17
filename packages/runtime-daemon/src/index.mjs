@@ -730,11 +730,8 @@ export class AgentgresRuntimeStateStore {
       defaultCwd: this.defaultCwd,
     });
     this.taskJobApi = createRuntimeTaskJobApi({
-      buildRun,
       contextPolicyCore: this.contextPolicyCore,
-      ensureProviderAvailable,
       notFound,
-      optionalString,
     });
     this.toolSurface = createRuntimeToolSurface({
       contextPolicyCore: this.contextPolicyCore,

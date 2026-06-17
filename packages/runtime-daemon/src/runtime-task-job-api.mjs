@@ -17,9 +17,7 @@ const runtimeTaskJobControlFacadeRetirementEvidenceRefs = [
 ];
 
 export function createRuntimeTaskJobApi({
-  buildRun = null,
   contextPolicyCore = null,
-  ensureProviderAvailable = null,
   notFound: notFoundDep = null,
   runtimeError: runtimeErrorDep = null,
 } = {}) {
@@ -127,47 +125,19 @@ export function createRuntimeTaskJobApi({
   function createRuntimeTask(store, body = {}) {
     const operation = "runtime_task_create";
     const operationKind = "task.create";
-    const runner = contextPolicyCore;
-    if (typeof runner?.planRuntimeTaskJobCreateStateUpdate !== "function") {
-      throwRuntimeTaskJobRustCoreRequired({
-        operation,
-        operationKind,
-      });
-    }
-    if (typeof buildRun !== "function") {
+    if (typeof store.createRun !== "function") {
       throwRuntimeTaskJobStateUpdateError({
         status: 501,
-        code: "runtime_task_create_builder_unavailable",
+        code: "runtime_task_create_run_lifecycle_unavailable",
         message:
-          "Runtime task creation requires mounted run candidate construction before Rust state planning.",
+          "Runtime task creation requires the store-owned Rust run-create lifecycle.",
         details: {
           rust_core_boundary: "runtime.task_job_control",
           operation,
           operation_kind: operationKind,
           evidence_refs: [
             ...runtimeTaskJobControlFacadeRetirementEvidenceRefs,
-            `${operation}_js_facade_retired`,
-          ],
-        },
-      });
-    }
-    if (
-      typeof store.getAgent !== "function" ||
-      typeof store.writeRun !== "function" ||
-      typeof store.resolveRunModelRoute !== "function" ||
-      typeof store.resolveRunMemory !== "function"
-    ) {
-      throwRuntimeTaskJobStateUpdateError({
-        status: 501,
-        code: "runtime_task_create_persistence_unavailable",
-        message:
-          "Runtime task creation requires Rust Agentgres agent lookup, run planning, and run-state persistence.",
-        details: {
-          rust_core_boundary: "runtime.task_job_control",
-          operation,
-          operation_kind: operationKind,
-          evidence_refs: [
-            ...runtimeTaskJobControlFacadeRetirementEvidenceRefs,
+            "runtime_run_create_state_update_required",
             `${operation}_js_facade_retired`,
           ],
         },
@@ -186,115 +156,100 @@ export function createRuntimeTaskJobApi({
         },
       });
     }
-    const agent = objectRecord(store.getAgent(agentId));
-    if (!agent) {
-      throwRuntimeTaskJobStateUpdateError({
-        status: 404,
-        code: "runtime_task_create_agent_not_found",
-        message: `Agent not found: ${agentId}`,
-        details: {
-          rust_core_boundary: "runtime.task_job_control",
-          operation,
-          operation_kind: operationKind,
-          agent_id: agentId,
-        },
+    if (typeof contextPolicyCore?.projectRuntimeTaskJobProjection !== "function") {
+      throwRuntimeTaskJobRustCoreRequired({
+        operation: "runtime_task_create_projection",
+        operationKind: "task.get",
       });
-    }
-    if (typeof ensureProviderAvailable === "function") {
-      ensureProviderAvailable(agent.runtime, agent.options);
     }
     const request = canonicalTaskCreateRunRequest(body);
-    const prompt = optionalString(request.prompt) ?? "";
-    const mode = optionalString(request.mode) ?? "send";
-    const modelRoute = store.resolveRunModelRoute(agent, request);
-    const memory = store.resolveRunMemory(agent, request, prompt);
-    const candidateRun = buildRun({
-      agent,
-      mode,
-      prompt,
-      request,
-      source: "local_daemon_agentgres",
-      modelRoute,
-      memory,
-      skillHookCatalog: null,
-      diagnosticsFeedback: null,
-    });
-    const planned = runner.planRuntimeTaskJobCreateStateUpdate({
-      agent_id: agentId,
-      run: candidateRun,
-    });
-    const plannedRun = objectRecord(planned?.run);
-    const plannedTask = objectRecord(planned?.runtime_task);
-    const plannedJob = objectRecord(planned?.runtime_job);
-    const plannedChecklist = objectRecord(planned?.runtime_checklist);
-    const plannedOperationKind = optionalString(planned?.operation_kind);
-    if (!plannedRun || !plannedTask || !plannedJob || !plannedChecklist) {
+    const plannedRun = objectRecord(store.createRun(agentId, request));
+    const runId = optionalString(plannedRun?.id);
+    const plannedTask = objectRecord(plannedRun?.runtimeTask);
+    const taskId = optionalString(plannedTask?.taskId);
+    if (!runId || !taskId || optionalString(plannedRun?.agentId) !== agentId) {
       throwRuntimeTaskJobStateUpdateError({
         status: 502,
-        code: "runtime_task_create_state_update_projection_missing",
+        code: "runtime_task_create_run_lifecycle_projection_missing",
         message:
-          "Rust daemon-core task creation did not return a complete task/job/checklist projection.",
+          "Rust run-create lifecycle did not return a task id for task creation.",
         details: {
           rust_core_boundary: "runtime.task_job_control",
           operation,
           operation_kind: operationKind,
           agent_id: agentId,
-        },
-      });
-    }
-    const runId = optionalString(planned?.run_id);
-    const taskId = optionalString(planned?.task_id);
-    const jobId = optionalString(planned?.job_id);
-    if (
-      optionalString(planned?.status) !== "planned" ||
-      plannedOperationKind !== operationKind ||
-      optionalString(planned?.agent_id) !== agentId ||
-      !runId ||
-      !taskId ||
-      !jobId ||
-      optionalString(plannedRun.id) !== runId ||
-      optionalString(plannedRun.agentId) !== agentId ||
-      optionalString(plannedTask.taskId) !== taskId ||
-      optionalString(plannedTask.runId) !== runId ||
-      optionalString(plannedTask.agentId) !== agentId ||
-      optionalString(plannedJob.jobId) !== jobId ||
-      optionalString(plannedJob.taskId) !== taskId ||
-      optionalString(plannedJob.runId) !== runId ||
-      optionalString(plannedChecklist.taskId) !== taskId ||
-      optionalString(plannedChecklist.jobId) !== jobId ||
-      optionalString(plannedChecklist.runId) !== runId ||
-      optionalString(plannedRun.runtimeTask?.taskId) !== taskId ||
-      optionalString(plannedRun.runtimeJob?.jobId) !== jobId ||
-      optionalString(plannedRun.runtimeChecklist?.checklistId) !==
-        optionalString(plannedChecklist.checklistId) ||
-      !Array.isArray(plannedRun.events) ||
-      !Array.isArray(plannedRun.receipts) ||
-      !Array.isArray(plannedRun.artifacts)
-    ) {
-      throwRuntimeTaskJobStateUpdateError({
-        status: 502,
-        code: "runtime_task_create_state_update_projection_mismatch",
-        message:
-          "Rust daemon-core task creation projection did not match the requested public API boundary.",
-        details: {
-          rust_core_boundary: "runtime.task_job_control",
-          operation,
-          operation_kind: operationKind,
-          expected_operation_kind: operationKind,
-          actual_operation_kind: plannedOperationKind,
-          agent_id: agentId,
-          actual_agent_id: optionalString(planned?.agent_id) ?? null,
           run_id: runId ?? null,
-          actual_run_id: optionalString(plannedRun.id) ?? null,
           task_id: taskId ?? null,
-          actual_task_id: optionalString(plannedTask.taskId) ?? null,
-          job_id: jobId ?? null,
-          actual_job_id: optionalString(plannedJob.jobId) ?? null,
         },
       });
     }
-    store.writeRun(plannedRun, plannedOperationKind);
-    return plannedTask;
+    let projectedTask;
+    try {
+      projectedTask = projectRuntimeTaskJob(store, {
+        operation: "runtime_task_create_projection",
+        operationKind: "task.get",
+        projectionKind: "task.get",
+        taskId,
+      });
+    } catch (error) {
+      if (error?.code === "runtime_task_job_projection_mismatch") {
+        throwRuntimeTaskCreateProjectionMismatch({
+          agentId,
+          runId,
+          taskId,
+          projectionError: error,
+        });
+      }
+      throw error;
+    }
+    if (
+      optionalString(projectedTask?.taskId) !== taskId ||
+      optionalString(projectedTask?.runId) !== runId ||
+      optionalString(projectedTask?.agentId) !== agentId
+    ) {
+      throwRuntimeTaskCreateProjectionMismatch({
+        agentId,
+        runId,
+        taskId,
+        projectedTask,
+      });
+    }
+    return projectedTask;
+  }
+
+  function throwRuntimeTaskCreateProjectionMismatch({
+    agentId,
+    runId,
+    taskId,
+    projectedTask = null,
+    projectionError = null,
+  }) {
+    throwRuntimeTaskJobStateUpdateError({
+      status: 502,
+      code: "runtime_task_create_projection_mismatch",
+      message:
+        "Rust task creation replay projection did not match the admitted run.",
+      details: {
+        rust_core_boundary: "runtime.task_job_control",
+        operation: "runtime_task_create",
+        operation_kind: "task.create",
+        agent_id: agentId,
+        actual_agent_id:
+          optionalString(projectedTask?.agentId) ??
+          optionalString(projectionError?.details?.actual_agent_id) ??
+          null,
+        run_id: runId,
+        actual_run_id:
+          optionalString(projectedTask?.runId) ??
+          optionalString(projectionError?.details?.actual_run_id) ??
+          null,
+        task_id: taskId,
+        actual_task_id:
+          optionalString(projectedTask?.taskId) ??
+          optionalString(projectionError?.details?.actual_task_id) ??
+          null,
+      },
+    });
   }
 
   function projectRuntimeTaskJob(store, {

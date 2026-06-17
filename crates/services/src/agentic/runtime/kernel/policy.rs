@@ -172,8 +172,6 @@ pub use run_cancel::{
 pub use task_job::{
     RuntimeTaskJobCancelStateUpdateCore, RuntimeTaskJobCancelStateUpdateError,
     RuntimeTaskJobCancelStateUpdateRecord, RuntimeTaskJobCancelStateUpdateRequest,
-    RuntimeTaskJobCreateStateUpdateCore, RuntimeTaskJobCreateStateUpdateError,
-    RuntimeTaskJobCreateStateUpdateRecord, RuntimeTaskJobCreateStateUpdateRequest,
     RuntimeTaskJobProjectionCore, RuntimeTaskJobProjectionError, RuntimeTaskJobProjectionRecord,
     RuntimeTaskJobProjectionRequest,
 };
@@ -255,10 +253,6 @@ pub const RUNTIME_TASK_JOB_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.task-job-cancel-state-update-request.v1";
 pub const RUNTIME_TASK_JOB_CANCEL_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =
     "ioi.runtime.task-job-cancel-state-update.v1";
-pub const RUNTIME_TASK_JOB_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str =
-    "ioi.runtime.task-job-create-state-update-request.v1";
-pub const RUNTIME_TASK_JOB_CREATE_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =
-    "ioi.runtime.task-job-create-state-update.v1";
 pub const WORKSPACE_TRUST_CONTROL_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.workspace-trust-control-state-update-request.v1";
 pub const WORKSPACE_TRUST_CONTROL_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =

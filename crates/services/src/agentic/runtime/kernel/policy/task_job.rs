@@ -9,14 +9,11 @@ use sha2::{Digest, Sha256};
 
 use super::{
     run_cancel::{RunCancelStateUpdateCore, RunCancelStateUpdateRequest},
-    thread_lifecycle::{RunCreateStateUpdateCore, RunCreateStateUpdateRequest},
     RUNTIME_TASK_JOB_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
     RUNTIME_TASK_JOB_CANCEL_STATE_UPDATE_RESULT_SCHEMA_VERSION,
-    RUNTIME_TASK_JOB_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
-    RUNTIME_TASK_JOB_CREATE_STATE_UPDATE_RESULT_SCHEMA_VERSION,
     RUNTIME_TASK_JOB_PROJECTION_REQUEST_SCHEMA_VERSION,
     RUNTIME_TASK_JOB_PROJECTION_RESULT_SCHEMA_VERSION,
-    RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION, RUN_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+    RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -54,21 +51,6 @@ pub enum RuntimeTaskJobProjectionError {
     ReplayRecordInvalid(String),
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum RuntimeTaskJobCreateStateUpdateError {
-    InvalidSchemaVersion {
-        expected: &'static str,
-        actual: String,
-    },
-    MissingField(&'static str),
-    AgentIdMismatch {
-        expected: String,
-        actual: String,
-    },
-    RunCreateInvalid(String),
-    ProjectionUnavailable,
-}
-
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RuntimeTaskJobCancelStateUpdateRequest {
     pub schema_version: String,
@@ -95,33 +77,6 @@ pub struct RuntimeTaskJobCancelStateUpdateRecord {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub job_id: Option<String>,
     pub run_id: String,
-    pub updated_at: String,
-    pub runtime_task: Value,
-    pub runtime_job: Value,
-    pub runtime_checklist: Value,
-    pub run: Value,
-    pub generated_at: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct RuntimeTaskJobCreateStateUpdateRequest {
-    pub schema_version: String,
-    #[serde(default)]
-    pub agent_id: Option<String>,
-    pub run: Value,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct RuntimeTaskJobCreateStateUpdateRecord {
-    pub schema_version: String,
-    pub object: String,
-    pub status: String,
-    pub operation_kind: String,
-    pub task_id: String,
-    pub job_id: String,
-    pub run_id: String,
-    pub agent_id: String,
-    pub created_at: String,
     pub updated_at: String,
     pub runtime_task: Value,
     pub runtime_job: Value,
@@ -248,83 +203,6 @@ impl RuntimeTaskJobCancelStateUpdateCore {
             runtime_job: run_cancel.runtime_job,
             runtime_checklist: run_cancel.runtime_checklist,
             run: run_cancel.run,
-            generated_at: "rust_policy_core".to_string(),
-        })
-    }
-}
-
-#[derive(Debug, Default, Clone)]
-pub struct RuntimeTaskJobCreateStateUpdateCore;
-
-impl RuntimeTaskJobCreateStateUpdateCore {
-    pub fn plan(
-        &self,
-        request: &RuntimeTaskJobCreateStateUpdateRequest,
-    ) -> Result<RuntimeTaskJobCreateStateUpdateRecord, RuntimeTaskJobCreateStateUpdateError> {
-        request.validate()?;
-        let requested_agent_id = optional_trimmed(request.agent_id.as_deref());
-        let planned_run_create = RunCreateStateUpdateCore
-            .plan(&RunCreateStateUpdateRequest {
-                schema_version: RUN_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION.to_string(),
-                run: request.run.clone(),
-            })
-            .map_err(|error| {
-                RuntimeTaskJobCreateStateUpdateError::RunCreateInvalid(format!("{error:?}"))
-            })?;
-        let run_id = planned_run_create.run_id;
-        let agent_id = planned_run_create.agent_id;
-        if let Some(expected_agent_id) = requested_agent_id {
-            if expected_agent_id != agent_id {
-                return Err(RuntimeTaskJobCreateStateUpdateError::AgentIdMismatch {
-                    expected: expected_agent_id,
-                    actual: agent_id,
-                });
-            }
-        }
-        let projected = project_runtime_task_job_records_for_run(&planned_run_create.run)
-            .ok_or(RuntimeTaskJobCreateStateUpdateError::ProjectionUnavailable)?;
-        let status = runtime_task_job_status_for_run_status(
-            json_string_value(&planned_run_create.run, "status").as_deref(),
-        );
-        let created_at = planned_run_create.created_at;
-        let updated_at = planned_run_create.updated_at;
-        let runtime_checklist = runtime_checklist_record_for_run(
-            &projected.runtime_task,
-            &projected.runtime_job,
-            &run_id,
-            status,
-            &created_at,
-            &updated_at,
-        );
-        let runtime_job =
-            attach_runtime_checklist_to_job(projected.runtime_job, &runtime_checklist);
-        let mut run = object_value(&planned_run_create.run)
-            .ok_or(RuntimeTaskJobCreateStateUpdateError::MissingField("run"))?;
-        run.insert("runtimeTask".to_string(), projected.runtime_task.clone());
-        run.insert("runtimeJob".to_string(), runtime_job.clone());
-        run.insert("runtimeChecklist".to_string(), runtime_checklist.clone());
-        let task_id = json_string_value(&projected.runtime_task, "taskId").ok_or(
-            RuntimeTaskJobCreateStateUpdateError::MissingField("runtime_task.taskId"),
-        )?;
-        let job_id = json_string_value(&runtime_job, "jobId").ok_or(
-            RuntimeTaskJobCreateStateUpdateError::MissingField("runtime_job.jobId"),
-        )?;
-
-        Ok(RuntimeTaskJobCreateStateUpdateRecord {
-            schema_version: RUNTIME_TASK_JOB_CREATE_STATE_UPDATE_RESULT_SCHEMA_VERSION.to_string(),
-            object: "ioi.runtime_task_job_create_state_update".to_string(),
-            status: "planned".to_string(),
-            operation_kind: "task.create".to_string(),
-            task_id,
-            job_id,
-            run_id,
-            agent_id,
-            created_at,
-            updated_at,
-            runtime_task: projected.runtime_task,
-            runtime_job,
-            runtime_checklist,
-            run: Value::Object(run),
             generated_at: "rust_policy_core".to_string(),
         })
     }
@@ -558,35 +436,11 @@ fn runtime_task_job_runs_from_state_dir(
     Ok(runs)
 }
 
-impl RuntimeTaskJobCreateStateUpdateRequest {
-    pub fn validate(&self) -> Result<(), RuntimeTaskJobCreateStateUpdateError> {
-        if self.schema_version != RUNTIME_TASK_JOB_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION {
-            return Err(RuntimeTaskJobCreateStateUpdateError::InvalidSchemaVersion {
-                expected: RUNTIME_TASK_JOB_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
-                actual: self.schema_version.clone(),
-            });
-        }
-        if !self.run.is_object() {
-            return Err(RuntimeTaskJobCreateStateUpdateError::MissingField("run"));
-        }
-        if optional_trimmed(self.agent_id.as_deref()).is_none() {
-            return Err(RuntimeTaskJobCreateStateUpdateError::MissingField(
-                "agent_id",
-            ));
-        }
-        Ok(())
-    }
-}
-
 fn optional_trimmed(value: Option<&str>) -> Option<String> {
     value
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(str::to_string)
-}
-
-fn object_value(value: &Value) -> Option<serde_json::Map<String, Value>> {
-    value.as_object().cloned()
 }
 
 fn json_string_value(value: &Value, key: &str) -> Option<String> {
@@ -754,21 +608,6 @@ fn compact_string_values(values: Vec<Option<String>>) -> Vec<Value> {
         .collect()
 }
 
-fn compact_unique_string_values(values: Vec<Option<String>>) -> Vec<Value> {
-    let mut unique = Vec::<String>::new();
-    for value in values.into_iter().flatten() {
-        let trimmed = value.trim();
-        if trimmed.is_empty() {
-            continue;
-        }
-        let normalized = trimmed.to_string();
-        if !unique.contains(&normalized) {
-            unique.push(normalized);
-        }
-    }
-    unique.into_iter().map(Value::String).collect()
-}
-
 fn runtime_task_record_for_run(
     run: &Value,
     run_id: &str,
@@ -848,169 +687,6 @@ fn runtime_task_record_for_run(
             active_skill_hook_manifest_id,
         ]),
     })
-}
-
-fn runtime_checklist_record_for_run(
-    runtime_task: &Value,
-    runtime_job: &Value,
-    run_id: &str,
-    status: &str,
-    created_at: &str,
-    updated_at: &str,
-) -> Value {
-    let task_id =
-        json_string_value(runtime_task, "taskId").unwrap_or_else(|| format!("task_{run_id}"));
-    let job_id = json_string_value(runtime_job, "jobId").unwrap_or_else(|| format!("job_{run_id}"));
-    let checklist_id = format!("checklist_{run_id}");
-    let terminal = match status {
-        "canceled" => ("Job canceled event emitted", "JobCanceled", "canceled"),
-        "failed" => ("Job failed event emitted", "JobFailed", "failed"),
-        "blocked" => ("Job blocked by policy gate", "PolicyBlocked", "blocked"),
-        _ => ("Job completed event emitted", "JobCompleted", "passed"),
-    };
-    let items = vec![
-        json!({
-            "itemId": format!("{checklist_id}:task_record"),
-            "label": "Runtime task record durable",
-            "status": "passed",
-            "evidenceRefs": compact_unique_string_values(vec![
-                Some(task_id.clone()),
-                Some("RuntimeTaskNode".to_string()),
-                Some("runtime.tasks.durable_projection".to_string()),
-            ]),
-        }),
-        json!({
-            "itemId": format!("{checklist_id}:job_record"),
-            "label": "Runtime job record durable",
-            "status": "passed",
-            "evidenceRefs": compact_unique_string_values(vec![
-                Some(job_id.clone()),
-                Some("RuntimeJobNode".to_string()),
-                Some("runtime.jobs.durable_projection".to_string()),
-            ]),
-        }),
-        json!({
-            "itemId": format!("{checklist_id}:job_queued"),
-            "label": "Job queued event emitted",
-            "status": "passed",
-            "evidenceRefs": ["JobQueued"],
-        }),
-        json!({
-            "itemId": format!("{checklist_id}:job_started"),
-            "label": "Job started event emitted",
-            "status": "passed",
-            "evidenceRefs": ["JobStarted"],
-        }),
-        json!({
-            "itemId": format!("{checklist_id}:job_terminal"),
-            "label": terminal.0,
-            "status": terminal.2,
-            "evidenceRefs": [terminal.1],
-        }),
-        json!({
-            "itemId": format!("{checklist_id}:artifacts"),
-            "label": "Runtime task/job/checklist artifacts attached",
-            "status": "passed",
-            "evidenceRefs": [
-                "runtime-task.json",
-                "runtime-job.json",
-                "runtime-checklist.json",
-            ],
-        }),
-    ];
-    let completed = items
-        .iter()
-        .filter(|item| json_string_value(item, "status").as_deref() == Some("passed"))
-        .count();
-    let canceled = items
-        .iter()
-        .filter(|item| json_string_value(item, "status").as_deref() == Some("canceled"))
-        .count();
-    let failed = items
-        .iter()
-        .filter(|item| json_string_value(item, "status").as_deref() == Some("failed"))
-        .count();
-    let blocked = items
-        .iter()
-        .filter(|item| json_string_value(item, "status").as_deref() == Some("blocked"))
-        .count();
-    let required_item_ids = items
-        .iter()
-        .filter_map(|item| json_string_value(item, "itemId"))
-        .map(Value::String)
-        .collect::<Vec<_>>();
-    json!({
-        "schemaVersion": "ioi.agent-runtime.checklist-record.v1",
-        "object": "ioi.runtime_checklist",
-        "checklistId": checklist_id,
-        "taskId": task_id,
-        "jobId": job_id,
-        "runId": run_id,
-        "agentId": runtime_task.get("agentId").cloned().unwrap_or(Value::Null),
-        "threadId": runtime_task.get("threadId").cloned().unwrap_or(Value::Null),
-        "turnId": runtime_task.get("turnId").cloned().unwrap_or(Value::Null),
-        "status": status,
-        "summary": format!("Runtime checklist for job_{run_id} is {status}."),
-        "durable": true,
-        "replayable": true,
-        "readOnly": true,
-        "itemCount": items.len(),
-        "completedItemCount": completed,
-        "canceledItemCount": canceled,
-        "failedItemCount": failed,
-        "blockedItemCount": blocked,
-        "items": items,
-        "requiredItemIds": required_item_ids,
-        "createdAt": created_at,
-        "updatedAt": updated_at,
-        "workflowNodeId": "runtime.runtime-checklist",
-        "redaction": {
-            "profile": "runtime_checklist_safe",
-            "promptIncluded": false,
-            "secretValuesIncluded": false,
-        },
-        "evidenceRefs": compact_unique_string_values(vec![
-            Some("runtime_checklist".to_string()),
-            Some("runtime.checklists.durable_projection".to_string()),
-            Some("RuntimeChecklistNode".to_string()),
-            Some(format!("task_{run_id}")),
-            Some(format!("job_{run_id}")),
-            Some(format!("run:{run_id}")),
-        ]),
-    })
-}
-
-fn attach_runtime_checklist_to_job(runtime_job: Value, runtime_checklist: &Value) -> Value {
-    let mut job = object_value(&runtime_job).unwrap_or_default();
-    job.insert(
-        "checklistId".to_string(),
-        runtime_checklist
-            .get("checklistId")
-            .cloned()
-            .unwrap_or(Value::Null),
-    );
-    job.insert(
-        "checklistStatus".to_string(),
-        runtime_checklist
-            .get("status")
-            .cloned()
-            .unwrap_or(Value::Null),
-    );
-    job.insert(
-        "checklistItemCount".to_string(),
-        runtime_checklist
-            .get("itemCount")
-            .cloned()
-            .unwrap_or(Value::Null),
-    );
-    job.insert(
-        "checklistCompletedItemCount".to_string(),
-        runtime_checklist
-            .get("completedItemCount")
-            .cloned()
-            .unwrap_or(Value::Null),
-    );
-    Value::Object(job)
 }
 
 fn runtime_job_record_for_run(
@@ -1261,79 +937,6 @@ mod tests {
                 "events": []
             }),
         );
-    }
-
-    fn task_job_create_request() -> RuntimeTaskJobCreateStateUpdateRequest {
-        RuntimeTaskJobCreateStateUpdateRequest {
-            schema_version: RUNTIME_TASK_JOB_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION.to_string(),
-            agent_id: Some("agent_task_job".to_string()),
-            run: json!({
-                "id": "run_task_job_create",
-                "agentId": "agent_task_job",
-                "status": "completed",
-                "objective": "Create a public runtime task",
-                "mode": "send",
-                "createdAt": "2026-06-06T04:59:00.000Z",
-                "updatedAt": "2026-06-06T04:59:00.000Z",
-                "usage": {},
-                "usage_telemetry": {},
-                "events": [{ "type": "completed" }],
-                "trace": {
-                    "usage_telemetry": {},
-                    "qualityLedger": {
-                        "taskFamily": "local_daemon_agentgres",
-                        "selectedStrategy": "local_daemon_agentgres_execution"
-                    }
-                },
-                "receipts": [{ "kind": "runtime_task" }],
-                "artifacts": [{ "name": "runtime-task.json" }]
-            }),
-        }
-    }
-
-    #[test]
-    fn rust_policy_plans_runtime_task_create_state_update() {
-        let record = RuntimeTaskJobCreateStateUpdateCore
-            .plan(&task_job_create_request())
-            .expect("task create");
-
-        assert_eq!(
-            record.schema_version,
-            RUNTIME_TASK_JOB_CREATE_STATE_UPDATE_RESULT_SCHEMA_VERSION
-        );
-        assert_eq!(record.status, "planned");
-        assert_eq!(record.operation_kind, "task.create");
-        assert_eq!(record.run_id, "run_task_job_create");
-        assert_eq!(record.agent_id, "agent_task_job");
-        assert_eq!(record.task_id, "task_run_task_job_create");
-        assert_eq!(record.job_id, "job_run_task_job_create");
-        assert_eq!(record.runtime_task["taskId"], "task_run_task_job_create");
-        assert_eq!(record.runtime_job["jobId"], "job_run_task_job_create");
-        assert_eq!(
-            record.runtime_job["checklistId"],
-            "checklist_run_task_job_create"
-        );
-        assert_eq!(
-            record.runtime_checklist["checklistId"],
-            "checklist_run_task_job_create"
-        );
-        assert_eq!(record.run["runtimeTask"]["taskId"], record.task_id);
-        assert_eq!(record.run["runtimeJob"]["jobId"], record.job_id);
-        assert_eq!(
-            record.run["runtimeChecklist"]["checklistId"],
-            "checklist_run_task_job_create"
-        );
-    }
-
-    #[test]
-    fn rust_policy_rejects_runtime_task_create_agent_mismatch() {
-        let mut request = task_job_create_request();
-        request.agent_id = Some("agent_other".to_string());
-
-        assert!(matches!(
-            RuntimeTaskJobCreateStateUpdateCore.plan(&request),
-            Err(RuntimeTaskJobCreateStateUpdateError::AgentIdMismatch { .. })
-        ));
     }
 
     #[test]

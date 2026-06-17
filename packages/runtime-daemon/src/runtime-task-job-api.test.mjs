@@ -87,49 +87,6 @@ function plannedTaskJobCancel(request, operationKind) {
   };
 }
 
-function plannedTaskJobCreate(request) {
-  const runtimeTask = {
-    taskId: `task_${request.run.id}`,
-    runId: request.run.id,
-    agentId: request.agent_id,
-    status: "completed",
-  };
-  const runtimeJob = {
-    jobId: `job_${request.run.id}`,
-    taskId: runtimeTask.taskId,
-    runId: request.run.id,
-    agentId: request.agent_id,
-    status: "completed",
-    checklistId: `checklist_${request.run.id}`,
-  };
-  const runtimeChecklist = {
-    checklistId: `checklist_${request.run.id}`,
-    taskId: runtimeTask.taskId,
-    jobId: runtimeJob.jobId,
-    runId: request.run.id,
-    status: "completed",
-  };
-  return {
-    source: "rust_runtime_task_job_create_state_update_api",
-    status: "planned",
-    operation_kind: "task.create",
-    task_id: runtimeTask.taskId,
-    job_id: runtimeJob.jobId,
-    run_id: request.run.id,
-    agent_id: request.agent_id,
-    runtime_task: runtimeTask,
-    runtime_job: runtimeJob,
-    runtime_checklist: runtimeChecklist,
-    run: {
-      ...request.run,
-      runtimeTask,
-      runtimeJob,
-      runtimeChecklist,
-      rust_planned_task_create: true,
-    },
-  };
-}
-
 function assertRuntimeTaskJobRustCoreRequired(error, {
   operation,
   operationKind,
@@ -152,77 +109,49 @@ function assertRuntimeTaskJobRustCoreRequired(error, {
   return true;
 }
 
-test("runtime task create commits Rust-planned task/job projection", () => {
+test("runtime task create uses store-owned run lifecycle and Rust replay projection", () => {
   const calls = [];
-  const writes = [];
-  const agent = {
-    id: "agent-one",
-    runtime: "local",
-    options: {},
-    modelId: "model-default",
-  };
   const contextPolicyCore = {
-    planRuntimeTaskJobCreateStateUpdate(request) {
-      calls.push({ name: "planRuntimeTaskJobCreateStateUpdate", request });
-      return plannedTaskJobCreate(request);
-    },
-  };
-  const api = createRuntimeTaskJobApi({
-    buildRun({
-      agent: buildAgent,
-      mode,
-      prompt,
-      request,
-      source,
-      modelRoute,
-      memory,
-    }) {
-      calls.push({
-        name: "buildRun",
-        agent: buildAgent,
-        mode,
-        prompt,
-        request,
-        source,
-        modelRoute,
-        memory,
-      });
+    projectRuntimeTaskJobProjection(request) {
+      calls.push({ name: "projectRuntimeTaskJobProjection", request });
       return {
-        id: "run-task-create",
-        agentId: buildAgent.id,
-        status: "completed",
-        mode,
-        objective: prompt,
-        createdAt: "2026-06-06T05:10:00.000Z",
-        updatedAt: "2026-06-06T05:10:00.000Z",
-        events: [],
-        receipts: [],
-        artifacts: [],
-        usage: {},
-        usage_telemetry: {},
-        trace: { usage_telemetry: {}, qualityLedger: {} },
+        source: "rust_runtime_task_job_projection_api",
+        status: "projected",
+        operation_kind: "task.get",
+        projection_kind: "task.get",
+        records: [
+          {
+            taskId: "task_run-task-create",
+            runId: "run-task-create",
+            agentId: "agent-one",
+            status: "completed",
+          },
+        ],
+        runtime_task: {
+          taskId: "task_run-task-create",
+          runId: "run-task-create",
+          agentId: "agent-one",
+          status: "completed",
+        },
       };
     },
-    contextPolicyCore,
-    ensureProviderAvailable(runtime, options) {
-      calls.push({ name: "ensureProviderAvailable", runtime, options });
-    },
-  });
+  };
+  const api = createRuntimeTaskJobApi({ contextPolicyCore });
   const store = {
-    getAgent(agentId) {
-      calls.push({ name: "getAgent", agentId });
-      return agent;
-    },
-    resolveRunModelRoute(resolveAgent, request) {
-      calls.push({ name: "resolveRunModelRoute", agent: resolveAgent, request });
-      return { selectedModel: "model-default", routeId: "route.local-first" };
-    },
-    resolveRunMemory(resolveAgent, request, prompt) {
-      calls.push({ name: "resolveRunMemory", agent: resolveAgent, request, prompt });
-      return { records: [] };
-    },
-    writeRun(runRecord, operationKind) {
-      writes.push({ run: runRecord, operationKind });
+    stateDir: "/tmp/ioi-runtime-state",
+    createRun(agentId, request) {
+      calls.push({ name: "createRun", agentId, request });
+      return {
+        id: "run-task-create",
+        agentId,
+        status: "completed",
+        runtimeTask: {
+          taskId: "task_run-task-create",
+          runId: "run-task-create",
+          agentId,
+          status: "completed",
+        },
+      };
     },
   };
 
@@ -239,16 +168,9 @@ test("runtime task create commits Rust-planned task/job projection", () => {
 
   assert.equal(result.taskId, "task_run-task-create");
   assert.equal(result.agentId, "agent-one");
-  assert.equal(writes.length, 1);
-  assert.equal(writes[0].operationKind, "task.create");
-  assert.equal(writes[0].run.rust_planned_task_create, true);
-  assert.equal(writes[0].run.runtimeTask.taskId, "task_run-task-create");
-  assert.equal(writes[0].run.runtimeJob.jobId, "job_run-task-create");
-  assert.equal(writes[0].run.runtimeChecklist.checklistId, "checklist_run-task-create");
-  assert.equal(calls[0].name, "getAgent");
-  assert.equal(calls[1].name, "ensureProviderAvailable");
-  assert.equal(calls[2].name, "resolveRunModelRoute");
-  assert.deepEqual(calls[2].request, {
+  assert.equal(calls[0].name, "createRun");
+  assert.equal(calls[0].agentId, "agent-one");
+  assert.deepEqual(calls[0].request, {
     mode: "send",
     prompt: "Do it",
     options: {
@@ -257,85 +179,91 @@ test("runtime task create commits Rust-planned task/job projection", () => {
       cwd: "/workspace/canonical",
     },
   });
-  assert.equal(calls[4].name, "buildRun");
-  assert.equal(calls[5].name, "planRuntimeTaskJobCreateStateUpdate");
-  assert.deepEqual(calls[5].request, {
-    agent_id: "agent-one",
-    run: calls[5].request.run,
+  assert.equal(calls[1].name, "projectRuntimeTaskJobProjection");
+  assert.deepEqual(calls[1].request, {
+    projection_kind: "task.get",
+    state_dir: "/tmp/ioi-runtime-state",
+    task_id: "task_run-task-create",
   });
-  assert.equal(calls[5].request.run.id, "run-task-create");
-  assert.equal(Object.hasOwn(calls[2].request, "agentId"), false);
-  assert.equal(Object.hasOwn(calls[2].request, "objective"), false);
-  assert.equal(Object.hasOwn(calls[2].request, "goal"), false);
+  assert.equal(Object.hasOwn(calls[0].request, "agentId"), false);
+  assert.equal(Object.hasOwn(calls[0].request, "objective"), false);
+  assert.equal(Object.hasOwn(calls[0].request, "goal"), false);
+  assert.equal(Object.hasOwn(calls[1].request, "run"), false);
 });
 
-test("runtime task create fails closed before agent lookup when Rust planner is missing", () => {
+test("runtime task create fails closed before run lifecycle when store API is missing", () => {
   const { calls, store, api } = harness();
 
   assert.throws(
     () => api.createTask(store, { agent_id: "agent-one", prompt: "Do it" }),
-    (error) =>
-      assertRuntimeTaskJobRustCoreRequired(error, {
-        operation: "runtime_task_create",
-        operationKind: "task.create",
-      }),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "runtime_task_create_run_lifecycle_unavailable");
+      assert.equal(error.details.rust_core_boundary, "runtime.task_job_control");
+      assert.equal(error.details.operation, "runtime_task_create");
+      assert.equal(error.details.operation_kind, "task.create");
+      assert.equal(
+        error.details.evidence_refs.includes("runtime_run_create_state_update_required"),
+        true,
+      );
+      return true;
+    },
   );
 
   assert.deepEqual(calls, []);
 });
 
-test("runtime task create rejects Rust projection mismatches before persistence", () => {
-  const writes = [];
-  const agent = { id: "agent-one", runtime: "local", options: {}, modelId: "model-default" };
-  const contextPolicyCore = {
-    planRuntimeTaskJobCreateStateUpdate(request) {
-      const planned = plannedTaskJobCreate(request);
-      planned.runtime_task = { ...planned.runtime_task, taskId: "task_run-other" };
-      planned.run = {
-        ...planned.run,
-        runtimeTask: planned.runtime_task,
-      };
-      return planned;
+test("runtime task create fails closed before run lifecycle when Rust projector is missing", () => {
+  const calls = [];
+  const api = createRuntimeTaskJobApi({});
+  const store = {
+    createRun() {
+      calls.push({ name: "createRun" });
+      return { id: "run-task-create", agentId: "agent-one" };
     },
   };
-  const api = createRuntimeTaskJobApi({
-    buildRun() {
+
+  assert.throws(
+    () => api.createTask(store, { agent_id: "agent-one", prompt: "Do it" }),
+    (error) =>
+      assertRuntimeTaskJobRustCoreRequired(error, {
+        operation: "runtime_task_create_projection",
+        operationKind: "task.get",
+      }),
+  );
+  assert.deepEqual(calls, []);
+});
+
+test("runtime task create rejects Rust replay projection mismatches", () => {
+  const contextPolicyCore = {
+    projectRuntimeTaskJobProjection() {
+      return {
+        source: "rust_runtime_task_job_projection_api",
+        status: "projected",
+        operation_kind: "task.get",
+        projection_kind: "task.get",
+        records: [{ taskId: "task_run-other", runId: "run-task-create", agentId: "agent-one" }],
+        runtime_task: { taskId: "task_run-other", runId: "run-task-create", agentId: "agent-one" },
+      };
+    },
+  };
+  const api = createRuntimeTaskJobApi({ contextPolicyCore });
+  const store = {
+    stateDir: "/tmp/ioi-runtime-state",
+    createRun() {
       return {
         id: "run-task-create",
         agentId: "agent-one",
         status: "completed",
-        mode: "send",
-        createdAt: "2026-06-06T05:10:00.000Z",
-        updatedAt: "2026-06-06T05:10:00.000Z",
-        events: [],
-        receipts: [],
-        artifacts: [],
-        usage: {},
-        usage_telemetry: {},
-        trace: { usage_telemetry: {}, qualityLedger: {} },
+        runtimeTask: { taskId: "task_run-task-create", runId: "run-task-create", agentId: "agent-one" },
       };
-    },
-    contextPolicyCore,
-  });
-  const store = {
-    getAgent() {
-      return agent;
-    },
-    resolveRunModelRoute() {
-      return { selectedModel: "model-default", routeId: "route.local-first" };
-    },
-    resolveRunMemory() {
-      return { records: [] };
-    },
-    writeRun(runRecord, operationKind) {
-      writes.push({ run: runRecord, operationKind });
     },
   };
 
   assert.throws(
     () => api.createTask(store, { agent_id: "agent-one", prompt: "Do it" }),
     (error) => {
-      assert.equal(error.code, "runtime_task_create_state_update_projection_mismatch");
+      assert.equal(error.code, "runtime_task_create_projection_mismatch");
       assert.equal(error.status, 502);
       assert.equal(error.details.agent_id, "agent-one");
       assert.equal(error.details.task_id, "task_run-task-create");
@@ -343,7 +271,6 @@ test("runtime task create rejects Rust projection mismatches before persistence"
       return true;
     },
   );
-  assert.deepEqual(writes, []);
 });
 
 test("runtime task cancel commits Rust-planned run cancellation and returns task projection", () => {

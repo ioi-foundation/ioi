@@ -29,7 +29,6 @@ import {
   RUNTIME_CONTROL_OPERATOR_TURN_CONTROL_ADMISSION_REQUIRED_API_METHOD,
   RUNTIME_CONTROL_RUN_CANCEL_STATE_UPDATE_API_METHOD,
   RUNTIME_CONTROL_TASK_JOB_CANCEL_STATE_UPDATE_API_METHOD,
-  RUNTIME_CONTROL_TASK_JOB_CREATE_STATE_UPDATE_API_METHOD,
   RUNTIME_CONTROL_WORKFLOW_EDIT_CONTROL_API_METHOD,
   RUNTIME_CONTROL_WORKFLOW_EDIT_ADMISSION_REQUIRED_API_METHOD,
   RUNTIME_CONTROL_MANAGED_SESSION_API_METHOD,
@@ -144,7 +143,6 @@ import {
   RUN_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   RUNTIME_TASK_JOB_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
-  RUNTIME_TASK_JOB_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   RUNTIME_TASK_JOB_PROJECTION_REQUEST_SCHEMA_VERSION,
   RuntimeContextPolicyCore,
   SKILL_HOOK_REGISTRY_PROJECTION_REQUEST_SCHEMA_VERSION,
@@ -185,7 +183,6 @@ import {
   normalizePostEditDiagnosticsFeedbackPlanResult,
   normalizeRunCancelStateUpdateApiResult,
   normalizeRuntimeTaskJobCancelStateUpdateResult,
-  normalizeRuntimeTaskJobCreateStateUpdateResult,
   normalizeRuntimeTaskJobProjectionResult,
   normalizeRuntimeToolCatalogProjectionResult,
   normalizeRuntimeLifecycleProjectionResult,
@@ -2333,88 +2330,6 @@ test("runtime task job cancel normalizer accepts job cancel operation kind", () 
   assert.equal(result.cancel_kind, "job");
   assert.equal(result.job_id, "job_run_cancel_one");
   assert.equal(result.runtime_job.status, "canceled");
-});
-
-test("runtime task job create core sends Rust state update through typed runtime-control API", () => {
-  let captured = null;
-  const { calls, runner } = createRuntimeControlDirectCore(
-    RUNTIME_CONTROL_TASK_JOB_CREATE_STATE_UPDATE_API_METHOD,
-    (request) => {
-      captured = request;
-      return {
-        source: "rust_runtime_task_job_create_state_update_api",
-        backend: "rust_policy",
-        status: "planned",
-        operation_kind: "task.create",
-        task_id: "task_run_create_one",
-        job_id: "job_run_create_one",
-        run_id: "run_create_one",
-        agent_id: "agent-one",
-        created_at: "2026-06-06T04:45:00.000Z",
-        updated_at: "2026-06-06T04:45:00.000Z",
-        runtime_task: {
-          taskId: "task_run_create_one",
-          runId: "run_create_one",
-          status: "completed",
-        },
-        runtime_job: {
-          jobId: "job_run_create_one",
-          status: "completed",
-        },
-        runtime_checklist: {
-          checklistId: "checklist_run_create_one",
-          status: "completed",
-        },
-        run: {
-          id: "run_create_one",
-          agentId: "agent-one",
-          status: "completed",
-        },
-      };
-    },
-  );
-
-  const result = runner.planRuntimeTaskJobCreateStateUpdate({
-    agent_id: "agent-one",
-    run: { id: "run_create_one", agentId: "agent-one", status: "completed" },
-  });
-
-  assert.equal(calls.length, 1);
-  assert.equal(calls[0].method, RUNTIME_CONTROL_TASK_JOB_CREATE_STATE_UPDATE_API_METHOD);
-  assert.equal(
-    captured.schema_version,
-    RUNTIME_TASK_JOB_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
-  );
-  assert.equal(captured.agent_id, "agent-one");
-  assert.equal(Object.hasOwn(captured, "backend"), false);
-  assert.equal(result.source, "rust_runtime_task_job_create_state_update_api");
-  assert.equal(result.operation_kind, "task.create");
-  assert.equal(result.task_id, "task_run_create_one");
-  assert.equal(result.runtime_task.status, "completed");
-  assert.equal(result.run.id, "run_create_one");
-});
-
-test("runtime task job create normalizer requires task create operation kind", () => {
-  const result = normalizeRuntimeTaskJobCreateStateUpdateResult({
-    source: "rust_runtime_task_job_create_state_update_api",
-    backend: "rust_policy",
-    record: {
-      status: "planned",
-      operation_kind: "task.create",
-      task_id: "task_run_create_one",
-      job_id: "job_run_create_one",
-      run_id: "run_create_one",
-      agent_id: "agent-one",
-      runtime_task: { status: "completed" },
-      runtime_job: { status: "completed" },
-      runtime_checklist: { status: "completed" },
-      run: { id: "run_create_one", status: "completed" },
-    },
-  });
-
-  assert.equal(result.operation_kind, "task.create");
-  assert.equal(result.task_id, "task_run_create_one");
-  assert.equal(result.runtime_checklist.status, "completed");
 });
 
 test("runtime task job projection core sends Rust projection through typed runtime-projection API", () => {

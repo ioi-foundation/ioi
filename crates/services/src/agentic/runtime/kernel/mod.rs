@@ -232,9 +232,7 @@ use policy::{
     RuntimeBridgeTurnRunStateUpdateError, RuntimeBridgeTurnRunStateUpdateRecord,
     RuntimeBridgeTurnRunStateUpdateRequest, RuntimeTaskJobCancelStateUpdateCore,
     RuntimeTaskJobCancelStateUpdateError, RuntimeTaskJobCancelStateUpdateRecord,
-    RuntimeTaskJobCancelStateUpdateRequest, RuntimeTaskJobCreateStateUpdateCore,
-    RuntimeTaskJobCreateStateUpdateError, RuntimeTaskJobCreateStateUpdateRecord,
-    RuntimeTaskJobCreateStateUpdateRequest, RuntimeTaskJobProjectionCore,
+    RuntimeTaskJobCancelStateUpdateRequest, RuntimeTaskJobProjectionCore,
     RuntimeTaskJobProjectionError, RuntimeTaskJobProjectionRecord, RuntimeTaskJobProjectionRequest,
     SubagentRecordStateUpdateCore, SubagentRecordStateUpdateError, SubagentRecordStateUpdateRecord,
     SubagentRecordStateUpdateRequest, ThreadControlAgentStateUpdateCore,
@@ -671,13 +669,6 @@ impl RuntimeKernelService {
         request: &RuntimeTaskJobCancelStateUpdateRequest,
     ) -> Result<RuntimeTaskJobCancelStateUpdateRecord, RuntimeTaskJobCancelStateUpdateError> {
         RuntimeTaskJobCancelStateUpdateCore.plan(request)
-    }
-
-    pub fn plan_runtime_task_job_create_state_update(
-        &self,
-        request: &RuntimeTaskJobCreateStateUpdateRequest,
-    ) -> Result<RuntimeTaskJobCreateStateUpdateRecord, RuntimeTaskJobCreateStateUpdateError> {
-        RuntimeTaskJobCreateStateUpdateCore.plan(request)
     }
 
     pub fn project_runtime_task_job_projection(

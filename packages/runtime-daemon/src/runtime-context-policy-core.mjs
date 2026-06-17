@@ -42,8 +42,6 @@ export const RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.run-cancel-state-update-request.v1";
 export const RUNTIME_TASK_JOB_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.task-job-cancel-state-update-request.v1";
-export const RUNTIME_TASK_JOB_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
-  "ioi.runtime.task-job-create-state-update-request.v1";
 export const RUNTIME_TASK_JOB_PROJECTION_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.task-job-projection-request.v1";
 export const SKILL_HOOK_REGISTRY_PROJECTION_REQUEST_SCHEMA_VERSION =
@@ -201,8 +199,6 @@ export const RUNTIME_CONTROL_RUN_CANCEL_STATE_UPDATE_API_METHOD =
   "planRunCancelStateUpdate";
 export const RUNTIME_CONTROL_TASK_JOB_CANCEL_STATE_UPDATE_API_METHOD =
   "planRuntimeTaskJobCancelStateUpdate";
-export const RUNTIME_CONTROL_TASK_JOB_CREATE_STATE_UPDATE_API_METHOD =
-  "planRuntimeTaskJobCreateStateUpdate";
 export const RUNTIME_PROJECTION_TASK_JOB_API_METHOD =
   "projectRuntimeTaskJobProjection";
 export const RUNTIME_CONTROL_WORKFLOW_EDIT_CONTROL_API_METHOD =
@@ -521,14 +517,6 @@ export class RuntimeContextPolicyCore {
     return normalizeRuntimeTaskJobCancelStateUpdateResult(this.invokeRuntimeControlApi(
       RUNTIME_CONTROL_TASK_JOB_CANCEL_STATE_UPDATE_API_METHOD,
       RUNTIME_TASK_JOB_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
-      request,
-    ));
-  }
-
-  planRuntimeTaskJobCreateStateUpdate(request = {}) {
-    return normalizeRuntimeTaskJobCreateStateUpdateResult(this.invokeRuntimeControlApi(
-      RUNTIME_CONTROL_TASK_JOB_CREATE_STATE_UPDATE_API_METHOD,
-      RUNTIME_TASK_JOB_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
     ));
   }
@@ -1935,40 +1923,6 @@ export function normalizeRuntimeTaskJobCancelStateUpdateResult(value = {}) {
     task_id: optionalString(result.task_id ?? record.task_id) ?? null,
     job_id: optionalString(result.job_id ?? record.job_id) ?? null,
     run_id: optionalString(result.run_id ?? record.run_id) ?? null,
-    updated_at: optionalString(result.updated_at ?? record.updated_at) ?? null,
-    runtime_task:
-      objectRecord(result.runtime_task) ?? objectRecord(record.runtime_task) ?? null,
-    runtime_job:
-      objectRecord(result.runtime_job) ?? objectRecord(record.runtime_job) ?? null,
-    runtime_checklist:
-      objectRecord(result.runtime_checklist) ??
-      objectRecord(record.runtime_checklist) ??
-      null,
-    run: objectRecord(result.run) ?? objectRecord(record.run) ?? null,
-  };
-}
-
-export function normalizeRuntimeTaskJobCreateStateUpdateResult(value = {}) {
-  const result = objectRecord(value) ?? {};
-  const record = objectRecord(result.record) ?? result;
-  return {
-    ...record,
-    source:
-      result.source ??
-      record.source ??
-      "rust_runtime_task_job_create_state_update_api",
-    backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
-    object: optionalString(result.object ?? record.object) ?? null,
-    status: optionalString(result.status ?? record.status) ?? null,
-    operation_kind: requiredContextPolicyOperationKind(result, record, {
-      codePrefix: "runtime_task_job_create_state_update",
-      expectedOperationKind: "task.create",
-    }),
-    task_id: optionalString(result.task_id ?? record.task_id) ?? null,
-    job_id: optionalString(result.job_id ?? record.job_id) ?? null,
-    run_id: optionalString(result.run_id ?? record.run_id) ?? null,
-    agent_id: optionalString(result.agent_id ?? record.agent_id) ?? null,
-    created_at: optionalString(result.created_at ?? record.created_at) ?? null,
     updated_at: optionalString(result.updated_at ?? record.updated_at) ?? null,
     runtime_task:
       objectRecord(result.runtime_task) ?? objectRecord(record.runtime_task) ?? null,
