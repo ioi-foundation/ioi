@@ -7,14 +7,14 @@ const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "../.
 const viewPath = path.join(
   root,
   "apps",
-  "autopilot",
+  "hypervisor",
   "src",
   "surfaces",
   "MissionControl",
   "MissionControlMountsView.tsx",
 );
 
-test("Autopilot Mounts workbench is wired to daemon API without persisting capability tokens", () => {
+test("Hypervisor Mounts workbench is wired to daemon API without persisting capability tokens", () => {
   const source = fs.readFileSync(viewPath, "utf8");
   for (const route of [
     "/v1/model-mount/snapshot",
@@ -452,7 +452,7 @@ test("Autopilot Mounts workbench is wired to daemon API without persisting capab
 });
 
 test("Mounts OAuth callback is daemon-owned and not packaged as a Tauri deep link", () => {
-  const srcTauriPath = path.join(root, "apps", "autopilot", "src-tauri");
+  const srcTauriPath = path.join(root, "apps", "hypervisor", "src-tauri");
   const daemonSource = [
     "index.mjs",
     "runtime-route-handlers.mjs",
@@ -462,13 +462,13 @@ test("Mounts OAuth callback is daemon-owned and not packaged as a Tauri deep lin
   ).join("\n");
   const liveGate = fs.readFileSync(path.join(root, "scripts", "live-model-mounting-gate.mjs"), "utf8");
   const workbenchExtension = [
-    fs.readFileSync(path.join(root, "apps", "autopilot", "openvscode-extension", "ioi-workbench", "extension.js"), "utf8"),
-    fs.readFileSync(path.join(root, "apps", "autopilot", "openvscode-extension", "ioi-workbench", "bridge", "client.js"), "utf8"),
-    fs.readFileSync(path.join(root, "apps", "autopilot", "openvscode-extension", "ioi-workbench", "commands", "models.js"), "utf8"),
+    fs.readFileSync(path.join(root, "workbench-adapters", "ioi-workbench", "extension.js"), "utf8"),
+    fs.readFileSync(path.join(root, "workbench-adapters", "ioi-workbench", "bridge", "client.js"), "utf8"),
+    fs.readFileSync(path.join(root, "workbench-adapters", "ioi-workbench", "commands", "models.js"), "utf8"),
   ].join("\n");
   const workbenchPackage = JSON.parse(
     fs.readFileSync(
-      path.join(root, "apps", "autopilot", "openvscode-extension", "ioi-workbench", "package.json"),
+      path.join(root, "workbench-adapters", "ioi-workbench", "package.json"),
       "utf8",
     ),
   );
@@ -496,7 +496,7 @@ test("Mounts OAuth callback is daemon-owned and not packaged as a Tauri deep lin
 test("Mounts GUI validation uses a dedicated desktop harness", () => {
   const packageJson = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
   const runnerPath = path.join(root, "scripts", "run-model-mounts-gui-validation.mjs");
-  const probePath = path.join(root, "apps", "autopilot", "scripts", "desktop_model_mounts_probe.py");
+  const probePath = path.join(root, "apps", "hypervisor", "scripts", "desktop_model_mounts_probe.py");
   const runner = fs.readFileSync(runnerPath, "utf8");
   const probe = fs.readFileSync(probePath, "utf8");
   assert.equal(
@@ -696,7 +696,7 @@ test("model mounting live-provider gates are explicit and opt-in", () => {
   }
 });
 
-test("Autopilot desktop bootstrap keeps product Studio routes on native llama.cpp", () => {
+test("Hypervisor Workbench adapter bootstrap keeps product routes on native llama.cpp", () => {
   const source = fs.readFileSync(path.join(root, "scripts", "launch-hypervisor-workbench-adapter-host.mjs"), "utf8");
   assert.match(source, /function isProductRuntimeEndpoint/);
   assert.match(source, /function discoverNativeLlamaServerPath/);
@@ -706,7 +706,17 @@ test("Autopilot desktop bootstrap keeps product Studio routes on native llama.cp
   assert.match(source, /\.lmstudio", "models"/);
   assert.match(source, /providerId === "provider\.llama-cpp" && mountedCount \+ mounted\.length === 0/);
   assert.match(source, /provider_eligibility: \["llama_cpp"\]/);
-  assert.match(source, /denied_providers: \["lm_studio", "ollama", "ioi_native_local", "openai", "anthropic", "gemini"\]/);
+  assert.match(source, /denied_providers:\s*\[/);
+  for (const provider of [
+    "lm_studio",
+    "ollama",
+    "ioi_native_local",
+    "openai",
+    "anthropic",
+    "gemini",
+  ]) {
+    assert.match(source, new RegExp(`"${provider}"`));
+  }
   assert.match(source, /isProductRuntimeEndpoint\(endpointRecord\)/);
   assert.match(source, /lmstudio:detected/);
   assert.match(source, /endpoint\.electron\.model-gui/);

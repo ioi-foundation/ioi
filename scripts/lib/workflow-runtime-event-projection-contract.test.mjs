@@ -187,7 +187,9 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   const graphRuntimeTypes = read(
     "packages/hypervisor-workbench/src/runtime/graph-runtime-types.ts",
   );
-  const tauriRuntime = read("apps/hypervisor/src/services/TauriRuntime.ts");
+  const hypervisorClientRuntime = read(
+    "apps/hypervisor/src/services/HypervisorClientRuntime.ts",
+  );
 
   assert.match(
     projection,
@@ -1276,7 +1278,7 @@ test("React Flow runtime event projection consumes canonical Thread.events shape
   assert.match(graphRuntimeTypes, /codingToolBudgetPreflight/);
   assert.match(graphRuntimeTypes, /codingToolBudgetRecovery/);
   assert.match(graphRuntimeTypes, /loadWorkflowRuntimeThreadEvents/);
-  assert.match(tauriRuntime, /loadWorkflowRuntimeThreadEvents/);
+  assert.match(hypervisorClientRuntime, /loadWorkflowRuntimeThreadEvents/);
   assert.match(typeTest, /WorkflowRunCodingToolBudgetPreflightBlocked/);
   assert.match(runHistoryModelTest, /daemon-owned coding budget preflight/);
   assert.match(runsPanel, /workflow-run-runtime-event-graph/);

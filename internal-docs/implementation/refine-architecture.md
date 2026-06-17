@@ -807,17 +807,25 @@ Current implementation cut:
   active adapter metadata defaults to workbench-adapters/
   active launch marker is IOI_HYPERVISOR_CANONICAL_CLIENT_HOST
 
-0A.1C remains a live guard, not an active Tauri app removal task:
+0A.1C is implemented for active app paths and remains a live regression guard:
   apps/hypervisor/src-tauri is absent from the live app path
+  apps/hypervisor/scripts/dev-desktop.sh is deleted; npm run dev:desktop
+    launches the packaged Workbench adapter host, not a Tauri shell
   internal-docs/legacy/autopilot-tauri-src is historical extraction inventory
   any active @tauri-apps import, TauriRuntime service, or src-tauri dependency is
   a regression unless it appears in a negative test or legacy reference.
+  active desktop probes and active contract tests no longer create or read
+  `apps/hypervisor/src-tauri`; throwaway probe workspaces live under `.tmp/`
+  and client-runtime checks read `HypervisorClientRuntime.ts`.
 
 0A.1B/0A.1C guardrails were tightened:
   `internal-docs/implementation/runtime-module-map.md` no longer points
   Hypervisor proof work at `apps/hypervisor/src-tauri`
   `check:runtime-layout` rejects both active `apps/hypervisor/src-tauri/src`
-  and a root `ide/` product/artifact directory
+  and a root `ide/` product/artifact directory, rejects the retired
+  `apps/hypervisor/scripts/dev-desktop.sh` Tauri launcher, and
+  `check:hypervisor-workbench-adapter-host-paths` verifies the tracked
+  adapter path helper defaults to `workbench-adapters/`
   `.gitignore` no longer preserves dead active `src-tauri` or `agent-ide`
   shadows
 
@@ -832,6 +840,15 @@ Current implementation cut:
   `/sessions` is the canonical session shell route; `/chat` is no longer a
   named product route
   workflow dogfood probes request `automations` as the initial shell surface
+
+0A.4 New Session is partially implemented:
+  `HYPERVISOR_SESSION_LAUNCH_RECIPES` defines Mission, Workbench, Agent,
+  Automation, Foundry Job, Fleet Job, and Private Workspace launch recipes
+  `HypervisorNewSessionModal` binds project, harness, model route, privacy
+  posture, authority scope templates, and receipt preview before launch
+  the activity rail and Home dashboard open the shell-level New Session modal
+  modal launch routes through the Hypervisor shell controller to the selected
+  canonical surface and seeds Sessions when the recipe is a Mission
 ```
 
 Code migration posture:

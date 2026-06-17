@@ -38,6 +38,8 @@ const workbenchRuntimeFiles = allFiles("packages/hypervisor-workbench/src/runtim
   /\.(ts|tsx)$/.test(file),
 );
 const activeTauriSrc = "apps/hypervisor/src-tauri/src";
+const activeTauriRuntimeService = "apps/hypervisor/src/services/TauriRuntime.ts";
+const activeTauriDesktopLauncher = "apps/hypervisor/scripts/dev-desktop.sh";
 const legacyTauriSrc = "internal-docs/legacy/autopilot-tauri-src/src";
 const rootIdeDir = "ide";
 const retiredAutopilotShellWindow = "apps/hypervisor/src/windows/AutopilotShellWindow";
@@ -49,6 +51,9 @@ const builtinFiles = allFiles("crates/services/src/agentic/runtime/tools/builtin
 );
 const runtimeServiceFiles = allFiles("crates/services/src/agentic/runtime/service", (file) =>
   /\.(rs|md)$/.test(file),
+);
+const hypervisorDesktopProbeFiles = allFiles("apps/hypervisor/scripts", (file) =>
+  /^apps\/hypervisor\/scripts\/desktop_.*_probe\.py$/.test(file),
 );
 const activeRuntimeSwarmFiles = [
   ...allFiles("apps/hypervisor/src", (file) => /\.(ts|tsx|css)$/.test(file)),
@@ -173,6 +178,8 @@ assert(
 assert(
   "proofs-isolated",
   !exists(activeTauriSrc) &&
+  !exists(activeTauriRuntimeService) &&
+  !exists(activeTauriDesktopLauncher) &&
   !exists(rootIdeDir) &&
   !exists(retiredAutopilotShellWindow) &&
   autopilotRootProofFiles.length === 0 &&
@@ -180,12 +187,22 @@ assert(
     read(`${legacyTauriSrc}/lib.rs`).includes("pub mod proofs;"),
   [
     activeTauriSrc,
+    activeTauriRuntimeService,
+    activeTauriDesktopLauncher,
     rootIdeDir,
     retiredAutopilotShellWindow,
     `${legacyTauriSrc}/proofs/mod.rs`,
     `${legacyTauriSrc}/lib.rs`,
   ],
-  "Active Tauri Rust, root ide/, and the old AutopilotShellWindow root must stay retired from active app paths; legacy proof modules must remain isolated under proofs/",
+  "Active Tauri Rust/launchers, root ide/, and the old AutopilotShellWindow root must stay retired from active app paths; legacy proof modules must remain isolated under proofs/",
+);
+assert(
+  "desktop-probes-no-retired-tauri-workspace",
+  hypervisorDesktopProbeFiles.every(
+    (file) => !read(file).includes("apps/hypervisor/src-tauri"),
+  ),
+  hypervisorDesktopProbeFiles,
+  "Active Hypervisor desktop probes must use temporary/current workspaces, not the retired Tauri app path.",
 );
 assert(
   "sdk-no-gui-harness-imports",

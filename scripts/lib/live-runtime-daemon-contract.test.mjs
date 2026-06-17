@@ -11495,8 +11495,8 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
     path.join(root, "packages/hypervisor-workbench/src/runtime/graph-runtime-types.ts"),
     "utf8",
   );
-  const tauriRuntime = fs.readFileSync(
-    path.join(root, "apps/hypervisor/src/services/TauriRuntime.ts"),
+  const hypervisorClientRuntime = fs.readFileSync(
+    path.join(root, "apps/hypervisor/src/services/HypervisorClientRuntime.ts"),
     "utf8",
   );
   const tauriArtifacts = fs.readFileSync(
@@ -12373,7 +12373,7 @@ test("React Flow memory, authority/tooling, doctor, skill, hook, and package nod
   assert.match(graphRuntimeTypes, /RuntimeOperatorInterruptControlRequest/);
   assert.match(graphRuntimeTypes, /RuntimeThreadModeControlRequest/);
   assert.match(graphRuntimeTypes, /RuntimeWorkspaceTrustAcknowledgementControlRequest/);
-  assert.match(tauriRuntime, /execute_workflow_runtime_control_request/);
+  assert.match(hypervisorClientRuntime, /execute_workflow_runtime_control_request/);
   assert.match(tauriArtifacts, /execute_workflow_runtime_control_request/);
   assert.match(tauriLib, /execute_workflow_runtime_control_request/);
   assert.match(workflowRunHistoryModel, /visibleRows/);

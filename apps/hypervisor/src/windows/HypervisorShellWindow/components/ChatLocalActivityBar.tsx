@@ -14,6 +14,7 @@ import {
   WorkspaceIcon,
 } from "./ChatActivityBarIcons";
 import type { PrimaryView } from "../hypervisorShellModel";
+import { HYPERVISOR_PRIMARY_ACTION } from "../hypervisorShellNavigationModel";
 import {
   buildOperatorActivityRailModel,
   getHypervisorSurfaceIdForPrimaryView,
@@ -26,6 +27,7 @@ import type { AssistantUserProfile } from "../../../types";
 interface ChatLocalActivityBarProps {
   activeView: PrimaryView;
   onViewChange: (view: PrimaryView) => void;
+  onOpenNewSession: () => void;
   onOpenCommandPalette: () => void;
   notificationCount: number;
   profile: AssistantUserProfile;
@@ -210,6 +212,7 @@ function resolveProfileInitials(profile: AssistantUserProfile): string {
 export function ChatLocalActivityBar({
   activeView,
   onViewChange,
+  onOpenNewSession,
   onOpenCommandPalette,
   notificationCount,
   profile,
@@ -312,6 +315,21 @@ export function ChatLocalActivityBar({
 
       <div className="chat-activity-group" aria-label="Primary surfaces">
         {searchItem ? <SearchButton onClick={() => activateRoute(searchItem.route)} /> : null}
+        <button
+          type="button"
+          className="chat-activity-button chat-activity-button--new-session"
+          data-window-surface="new-session"
+          onClick={onOpenNewSession}
+          aria-label={HYPERVISOR_PRIMARY_ACTION.label}
+          title={HYPERVISOR_PRIMARY_ACTION.description}
+        >
+          <span className="chat-activity-button-icon" aria-hidden="true">
+            <ComposeIcon />
+          </span>
+          <span className="chat-activity-button-label">
+            {HYPERVISOR_PRIMARY_ACTION.label}
+          </span>
+        </button>
 
         {primaryNavItems.map((item) => (
           <ActivityButton

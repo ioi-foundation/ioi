@@ -6,15 +6,20 @@ MODE="${1:-x11}"
 if [[ $# -gt 0 ]]; then
   shift
 fi
-EXTRA_TAURI_ARGS=("$@")
+EXTRA_ARGS=("$@")
 
 BASIC_QUERY="${AUTOPILOT_BASIC_QUERY:-Summarize what you can help me do in this repository in one short paragraph.}"
 
-echo "Launching Autopilot desktop with real inference."
+echo "Launching Hypervisor Workbench adapter host with real inference."
 echo "Use this basic dry-run query once the shell is ready:"
 echo "  ${BASIC_QUERY}"
 
 cd "$ROOT_DIR"
-AUTOPILOT_LOCAL_GPU_DEV=1 \
-AUTOPILOT_RESET_DATA_ON_BOOT="${AUTOPILOT_RESET_DATA_ON_BOOT:-1}" \
-bash apps/hypervisor/scripts/dev-desktop.sh "$MODE" "${EXTRA_TAURI_ARGS[@]}"
+export AUTOPILOT_LOCAL_GPU_DEV=1
+export AUTOPILOT_RESET_DATA_ON_BOOT="${AUTOPILOT_RESET_DATA_ON_BOOT:-1}"
+
+if [[ "$MODE" == "wayland" ]]; then
+  npm run dev:desktop:wayland -- "${EXTRA_ARGS[@]}"
+else
+  npm run dev:desktop -- "${EXTRA_ARGS[@]}"
+fi

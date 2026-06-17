@@ -14,6 +14,18 @@ const activityBar = readFileSync(
   new URL("./components/ChatLocalActivityBar.tsx", import.meta.url),
   "utf8",
 );
+const newSessionModal = readFileSync(
+  new URL("./components/HypervisorNewSessionModal.tsx", import.meta.url),
+  "utf8",
+);
+const controller = readFileSync(
+  new URL("./useHypervisorShellController.ts", import.meta.url),
+  "utf8",
+);
+const shellWindow = readFileSync(
+  new URL("./index.tsx", import.meta.url),
+  "utf8",
+);
 const header = readFileSync(
   new URL("./components/HypervisorClientHeader.tsx", import.meta.url),
   "utf8",
@@ -47,6 +59,18 @@ test("hypervisor shell keeps application surfaces separate from clients", () => 
 test("hypervisor shell models IOI-reference session detail and inspectors", () => {
   assert.match(source, /HYPERVISOR_PRIMARY_ACTION[\s\S]*New Session/);
   assert.match(source, /HYPERVISOR_NEW_SESSION_SETUP_MODEL/);
+  assert.match(source, /HYPERVISOR_SESSION_LAUNCH_RECIPES/);
+  for (const recipeId of [
+    "mission.default",
+    "workbench.default",
+    "agent.default",
+    "automation.default",
+    "foundry.eval",
+    "fleet.provider",
+    "privacy.workspace",
+  ]) {
+    assert.match(source, new RegExp(recipeId.replace(".", "\\.")));
+  }
   assert.match(
     source,
     /Default Harness Profile or daemon-mediated AgentHarnessAdapter/,
@@ -82,11 +106,27 @@ test("visible shell chrome uses Hypervisor labels over compatibility route keys"
     /Search Hypervisor, sessions, workbench, automations, and commands/,
   );
   assert.match(activityBar, /aria-label="Hypervisor navigation"/);
+  assert.match(activityBar, /chat-activity-button--new-session/);
+  assert.match(activityBar, /HYPERVISOR_PRIMARY_ACTION/);
   assert.match(activityBar, /aria-label="Applications"/);
   assert.match(activityBar, /aria-label="Governance and infrastructure"/);
   assert.match(activityBar, /data-route-state=\{item\.routeState\}/);
   assert.match(header, /`Hypervisor .*?\$\{windowSurfaceTitle/s);
   assert.doesNotMatch(header, /Autopilot Chat/);
+});
+
+test("new session modal is a shell-level governed launch flow", () => {
+  assert.match(newSessionModal, /HYPERVISOR_SESSION_LAUNCH_RECIPES/);
+  assert.match(newSessionModal, /buildHarnessCompatibilityVerdict/);
+  assert.match(newSessionModal, /data-new-session-receipt-preview/);
+  assert.match(newSessionModal, /cTEE private workspace/);
+  assert.match(newSessionModal, /Launch governed session/);
+  assert.match(controller, /newSessionModalOpen/);
+  assert.match(controller, /launchNewSession/);
+  assert.match(controller, /setCurrentProjectId\(project\.id\)/);
+  assert.match(controller, /setActiveView\(recipe\.surface_id\)/);
+  assert.match(shellWindow, /<HypervisorNewSessionModal/);
+  assert.match(shellWindow, /onLaunch=\{controller\.modals\.launchNewSession\}/);
 });
 
 console.log("hypervisorShellNavigationModel.test.mjs: ok");

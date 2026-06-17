@@ -44,7 +44,11 @@ import {
   PROJECT_SCOPES,
   type PrimaryView,
 } from "./hypervisorShellModel";
-import { isHypervisorSurfaceId } from "./hypervisorShellNavigationModel";
+import {
+  HYPERVISOR_SESSION_LAUNCH_RECIPES,
+  isHypervisorSurfaceId,
+  type HypervisorNewSessionLaunchRequest,
+} from "./hypervisorShellNavigationModel";
 import type { CapabilitySurface } from "../../surfaces/Capabilities";
 import type { SettingsSection } from "../../surfaces/Settings/settingsViewShared";
 
@@ -298,6 +302,7 @@ export function useHypervisorShellController() {
     useState<"default" | "tools">("default");
   const [commandPaletteInitialQuery, setCommandPaletteInitialQuery] = useState("");
   const [catalogStageModalOpen, setCatalogStageModalOpen] = useState(false);
+  const [newSessionModalOpen, setNewSessionModalOpen] = useState(false);
   const [capabilitiesSurfaceSeed, setCapabilitiesSurfaceSeed] =
     useState<CapabilitySurface | null>(null);
   const [capabilitiesTargetConnectorId, setCapabilitiesTargetConnectorId] =
@@ -414,6 +419,33 @@ export function useHypervisorShellController() {
     setActiveView("sessions");
     setChatSurface("chat");
     setChatPaneVisible(true);
+  };
+
+  const launchNewSession = (request: HypervisorNewSessionLaunchRequest) => {
+    const recipe =
+      HYPERVISOR_SESSION_LAUNCH_RECIPES.find(
+        (candidate) => candidate.recipe_id === request.recipe_id,
+      ) ?? HYPERVISOR_SESSION_LAUNCH_RECIPES[0]!;
+    const project =
+      PROJECT_SCOPES.find((candidate) => candidate.id === request.project_id) ??
+      PROJECT_SCOPES[0]!;
+
+    setCurrentProjectId(project.id);
+    setNewSessionModalOpen(false);
+
+    if (recipe.surface_id === "automations") {
+      setWorkflowSurface("canvas");
+    }
+
+    if (recipe.surface_id === "sessions") {
+      setAutopilotSeedIntent(
+        `Start ${recipe.label.toLowerCase()} for ${project.name}. Authority: ${request.authority_scope_refs.join(", ")}. Privacy: ${request.privacy_posture_ref}. Receipt preview: ${request.receipt_preview_ref}.`,
+      );
+      setChatSurface("chat");
+      setChatPaneVisible(true);
+    }
+
+    setActiveView(recipe.surface_id);
   };
 
   const applyPendingChatLaunchRequest = async (
@@ -1014,6 +1046,10 @@ export function useHypervisorShellController() {
         setCommandPaletteOpen(true);
       },
       closeCommandPalette: () => setCommandPaletteOpen(false),
+      newSessionModalOpen,
+      openNewSessionModal: () => setNewSessionModalOpen(true),
+      closeNewSessionModal: () => setNewSessionModalOpen(false),
+      launchNewSession,
       catalogStageModalOpen,
       closeCatalogStageModal: () => setCatalogStageModalOpen(false),
     },

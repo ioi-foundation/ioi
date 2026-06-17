@@ -57,10 +57,8 @@ export function agentModelMatrixPaths({ repoRoot }) {
     deploymentProfilesPath: path.join(evidenceRoot, "deployment-profiles.json"),
     presetCatalogPath: path.join(
       repoRoot,
-      "apps",
-      "autopilot",
-      "src-tauri",
-      "dev",
+      ".tmp",
+      "hypervisor-fixtures",
       "model-matrix-presets.json",
     ),
   };

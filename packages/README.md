@@ -1,2 +1,17 @@
-Rebuild (npm run build --workspace=@ioi/hypervisor-workbench).
-Run Desktop (npm run dev:desktop) or Web (npm run dev:web).
+Rebuild:
+
+```bash
+npm run build --workspace=@ioi/hypervisor-workbench
+```
+
+Run Hypervisor Web:
+
+```bash
+npm run dev:web
+```
+
+Run the packaged Workbench adapter host:
+
+```bash
+npm run dev:desktop
+```

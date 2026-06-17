@@ -1197,7 +1197,7 @@ def main() -> int:
 
         interactions = [
             {"id": "activity-search", "point": (0.021, 0.215)},
-            {"id": "search-query", "point": (0.155, 0.132), "text": "src-tauri"},
+            {"id": "search-query", "point": (0.155, 0.132), "text": "HypervisorClientRuntime"},
             {"id": "activity-scm", "point": (0.021, 0.315)},
             {"id": "activity-extensions", "point": (0.021, 0.475)},
             {"id": "activity-ioi", "point": (0.021, 0.545)},

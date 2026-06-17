@@ -145,7 +145,7 @@
 .chat-window-crash-button {
   min-height: 36px;
   padding: 0 14px;
-  border-radius: 10px;
+  border-radius: 8px;
   border: 1px solid var(--chat-primary-border);
   background: var(--chat-primary-bg);
   color: var(--button-primary-text);
@@ -342,6 +342,23 @@
   color: var(--chat-activity-text-strong);
 }
 
+.chat-activity-button--new-session {
+  margin: 4px 10px 8px;
+  width: calc(100% - 20px);
+  border: 1px solid rgba(96, 165, 250, 0.22);
+  border-radius: 8px;
+  background: rgba(37, 99, 235, 0.12);
+  color: var(--chat-activity-text-strong);
+}
+
+.chat-activity-button--new-session::before {
+  display: none;
+}
+
+.chat-activity-button--new-session:hover {
+  background: rgba(37, 99, 235, 0.18);
+}
+
 .chat-activity-button:disabled {
   cursor: default;
   color: var(--chat-text-secondary);
@@ -525,6 +542,10 @@
   display: flex;
   justify-content: center;
   padding: 0;
+}
+
+.chat-activity-bar.is-collapsed .chat-activity-button--new-session {
+  margin: 4px auto 8px;
 }
 
 .chat-activity-bar.is-collapsed .chat-activity-button-label,
@@ -2300,4 +2321,192 @@
   color: var(--workspace-repo-text-secondary, #586174);
   font-size: 12px;
   font-weight: 700;
+}
+
+.hypervisor-new-session-modal__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal, 1000);
+  display: grid;
+  place-items: center;
+  padding: 28px;
+  background: rgba(5, 11, 24, 0.56);
+  backdrop-filter: blur(10px);
+}
+
+.hypervisor-new-session-modal {
+  display: flex;
+  width: min(1040px, 100%);
+  max-height: min(860px, calc(100vh - 56px));
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--workspace-repo-border, rgba(93, 105, 128, 0.22));
+  border-radius: 10px;
+  background: var(--workspace-repo-bg, #f6f8fb);
+  box-shadow: 0 30px 90px rgba(5, 11, 24, 0.32);
+  color: var(--workspace-repo-text, #172033);
+}
+
+.hypervisor-new-session-modal__header,
+.hypervisor-new-session-modal__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  border-bottom: 1px solid var(--workspace-repo-border, rgba(93, 105, 128, 0.2));
+  padding: 20px 24px;
+  background: var(--workspace-repo-panel-bg, #fff);
+}
+
+.hypervisor-new-session-modal__header span,
+.hypervisor-new-session-modal__summary span {
+  color: var(--workspace-repo-link, #1d4ed8);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.hypervisor-new-session-modal__header h2 {
+  margin: 4px 0;
+  font-size: 28px;
+  letter-spacing: 0;
+}
+
+.hypervisor-new-session-modal__header p {
+  max-width: 700px;
+  margin: 0;
+  color: var(--workspace-repo-text-secondary, #586174);
+  line-height: 1.5;
+}
+
+.hypervisor-new-session-modal__header button {
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--workspace-repo-border, rgba(93, 105, 128, 0.22));
+  border-radius: 8px;
+  background: transparent;
+  color: var(--workspace-repo-text-secondary, #586174);
+  font-size: 24px;
+  line-height: 1;
+}
+
+.hypervisor-new-session-modal__grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.95fr) minmax(320px, 1fr);
+  gap: 18px;
+  overflow: auto;
+  padding: 22px 24px;
+}
+
+.hypervisor-new-session-modal__grid section,
+.hypervisor-new-session-modal__summary {
+  border: 1px solid var(--workspace-repo-border, rgba(93, 105, 128, 0.2));
+  border-radius: 8px;
+  background: var(--workspace-repo-panel-bg, #fff);
+}
+
+.hypervisor-new-session-modal__grid h3 {
+  margin: 0;
+  padding: 16px 16px 0;
+  font-size: 14px;
+  letter-spacing: 0;
+}
+
+.hypervisor-new-session-modal__choice-list {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px 16px;
+}
+
+.hypervisor-new-session-modal__choice-list button {
+  display: grid;
+  gap: 5px;
+  border: 1px solid var(--workspace-repo-border, rgba(93, 105, 128, 0.2));
+  border-radius: 8px;
+  padding: 11px;
+  background: var(--workspace-repo-bg, #f6f8fb);
+  color: inherit;
+  text-align: left;
+}
+
+.hypervisor-new-session-modal__choice-list button.is-selected {
+  border-color: var(--workspace-repo-link, #1d4ed8);
+  background: var(--workspace-repo-pill-active-bg, rgba(36, 99, 235, 0.08));
+}
+
+.hypervisor-new-session-modal__choice-list span,
+.hypervisor-new-session-modal label span,
+.hypervisor-new-session-modal__summary em {
+  color: var(--workspace-repo-text-secondary, #586174);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.hypervisor-new-session-modal label {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px 0;
+}
+
+.hypervisor-new-session-modal label:last-child {
+  padding-bottom: 16px;
+}
+
+.hypervisor-new-session-modal select {
+  min-height: 38px;
+  border: 1px solid var(--workspace-repo-border, rgba(93, 105, 128, 0.22));
+  border-radius: 8px;
+  background: var(--workspace-repo-panel-bg, #fff);
+  color: var(--workspace-repo-text, #172033);
+  font: inherit;
+}
+
+.hypervisor-new-session-modal__summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  margin: 0 24px 22px;
+  overflow: hidden;
+  background: var(--workspace-repo-border, rgba(93, 105, 128, 0.2));
+}
+
+.hypervisor-new-session-modal__summary div {
+  display: grid;
+  gap: 5px;
+  padding: 14px;
+  background: var(--workspace-repo-panel-bg, #fff);
+}
+
+.hypervisor-new-session-modal__summary strong {
+  overflow-wrap: anywhere;
+  font-size: 13px;
+}
+
+.hypervisor-new-session-modal__footer {
+  border-top: 1px solid var(--workspace-repo-border, rgba(93, 105, 128, 0.2));
+  border-bottom: 0;
+}
+
+.hypervisor-new-session-modal__footer button {
+  min-height: 38px;
+  border: 1px solid var(--workspace-repo-border, rgba(93, 105, 128, 0.22));
+  border-radius: 8px;
+  padding: 0 14px;
+  background: var(--workspace-repo-panel-bg, #fff);
+  color: var(--workspace-repo-text, #172033);
+  font-weight: 700;
+}
+
+.hypervisor-new-session-modal__footer button.primary {
+  border-color: var(--workspace-repo-primary-bg, #1f7a4f);
+  background: var(--workspace-repo-primary-bg, #1f7a4f);
+  color: white;
+}
+
+@media (max-width: 760px) {
+  .hypervisor-new-session-modal__grid,
+  .hypervisor-new-session-modal__summary {
+    grid-template-columns: 1fr;
+  }
 }

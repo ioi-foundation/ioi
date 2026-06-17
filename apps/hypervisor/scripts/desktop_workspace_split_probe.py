@@ -40,7 +40,7 @@ from desktop_workspace_probe import (
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
-PROBE_WORKSPACE_ROOT = PROJECT_ROOT / "apps/hypervisor/src-tauri"
+PROBE_WORKSPACE_ROOT = PROJECT_ROOT / ".tmp/hypervisor-probe-workspaces/workspace-split"
 DEFAULT_OUTPUT_ROOT = (
     PROJECT_ROOT / "docs/evidence/route-hierarchy/live-workspace-split"
 )
@@ -74,6 +74,7 @@ STEP_DEFS = [
 
 
 def create_probe_file(output_root: Path) -> Path:
+    PROBE_WORKSPACE_ROOT.mkdir(parents=True, exist_ok=True)
     probe_path = PROBE_WORKSPACE_ROOT / f".workspace-split-probe-{output_root.name}.txt"
     probe_path.write_text(
         "Workspace split probe file.\n"

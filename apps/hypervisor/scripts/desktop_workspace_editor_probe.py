@@ -34,7 +34,7 @@ from desktop_workspace_probe import (
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
-PROBE_WORKSPACE_ROOT = PROJECT_ROOT / "apps/hypervisor/src-tauri"
+PROBE_WORKSPACE_ROOT = PROJECT_ROOT / ".tmp/hypervisor-probe-workspaces/workspace-editor"
 DEFAULT_OUTPUT_ROOT = PROJECT_ROOT / "docs/evidence/route-hierarchy/live-workspace-editor"
 WINDOW_WAIT_TIMEOUT_SECS = 90.0
 POST_WINDOW_SETTLE_SECS = 12.0

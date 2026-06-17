@@ -15,6 +15,7 @@ import { HypervisorClientRuntime } from "../../services/HypervisorClientRuntime"
 import { isBenignHostListenerCleanupError } from "../../services/hostListeners";
 import { markAutopilotMetric } from "../../services/workspacePerf";
 import { HypervisorShellContent } from "./components/HypervisorShellContent";
+import { HypervisorNewSessionModal } from "./components/HypervisorNewSessionModal";
 import { useHypervisorShellController } from "./useHypervisorShellController";
 
 import "@ioi/hypervisor-workbench/dist/style.css";
@@ -281,6 +282,16 @@ function HypervisorShellWindowLoaded() {
           onOpenWorkflowSurface={controller.workflow.openSurface}
           onSelectProject={controller.workflow.selectProject}
           projects={controller.projects}
+        />
+      ) : null}
+
+      {controller.modals.newSessionModalOpen ? (
+        <HypervisorNewSessionModal
+          isOpen={controller.modals.newSessionModalOpen}
+          currentProject={controller.currentProject}
+          projects={controller.projects}
+          onClose={controller.modals.closeNewSessionModal}
+          onLaunch={controller.modals.launchNewSession}
         />
       ) : null}
 

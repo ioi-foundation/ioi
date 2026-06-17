@@ -41,12 +41,10 @@ test("conformance report flags benchmark ids and retained skill names in product
       path.join(
         root,
         "apps",
-        "autopilot",
-        "src-tauri",
+        "hypervisor",
         "src",
-        "kernel",
-        "chat",
-        "skills.rs",
+        "services",
+        "chatArtifactSkills.ts",
       ),
       "const SKILL = 'frontend-skill';",
     );

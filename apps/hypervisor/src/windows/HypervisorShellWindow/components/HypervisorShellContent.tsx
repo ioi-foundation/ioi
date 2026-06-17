@@ -199,6 +199,7 @@ export function HypervisorShellContent({
         <ChatLocalActivityBar
           activeView={activeView}
           onViewChange={controller.changePrimaryView}
+          onOpenNewSession={controller.modals.openNewSessionModal}
           onOpenCommandPalette={controller.modals.openCommandPalette}
           notificationCount={notificationBadgeCount}
           profile={controller.profile.value}
@@ -244,6 +245,7 @@ export function HypervisorShellContent({
                       projects={projects}
                       notificationCount={notificationBadgeCount}
                       onOpenChat={() => controller.changePrimaryView("sessions")}
+                      onOpenNewSession={controller.modals.openNewSessionModal}
                       onOpenWorkspace={() =>
                         controller.changePrimaryView("workbench")
                       }

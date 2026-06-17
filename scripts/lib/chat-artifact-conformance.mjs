@@ -12,7 +12,7 @@ const DEFAULT_PRODUCTION_SOURCE_PATHS = [
   path.join("crates", "api", "src", "chat", "validation.rs"),
   path.join("crates", "api", "src", "chat", "payload", "mod.rs"),
   path.join("crates", "api", "src", "chat", "html_registry.rs"),
-  path.join("apps", "autopilot", "src-tauri", "src", "kernel", "chat", "skills.rs"),
+  path.join("apps", "hypervisor", "src", "services", "chatArtifactSkills.ts"),
 ];
 
 function readJsonIfExists(targetPath) {

@@ -36,9 +36,15 @@ test("home dashboard exposes the New Session setup contract", () => {
   assert.match(homeView, /newSessionHarnessOptions/);
   assert.match(homeView, /buildHarnessCompatibilityVerdict/);
   assert.match(homeView, /getHarnessSelectionRef/);
+  assert.match(homeView, /onOpenNewSession: \(\) => void/);
+  assert.match(homeView, /onClick=\{onOpenNewSession\}/);
   assert.match(homeView, /Start New Session/);
   assert.match(homeView, /Configure Models/);
   assert.match(homeView, /Review Authority/);
+  assert.match(
+    shellContent,
+    /onOpenNewSession=\{controller\.modals\.openNewSessionModal\}/,
+  );
 });
 
 test("home dashboard routes model setup to the Models surface", () => {

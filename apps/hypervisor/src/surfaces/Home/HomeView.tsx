@@ -68,6 +68,7 @@ interface HomeViewProps {
   projects: ProjectScope[];
   notificationCount: number;
   onOpenChat: () => void;
+  onOpenNewSession: () => void;
   onOpenWorkspace: () => void;
   onOpenRuns: () => void;
   onOpenModels: () => void;
@@ -248,6 +249,7 @@ interface HomeDashboardViewProps {
   recentMode: RecentMode;
   onRecentModeChange: (mode: RecentMode) => void;
   onOpenChat: () => void;
+  onOpenNewSession: () => void;
   onOpenWorkspace: () => void;
   onOpenRuns: () => void;
   onOpenModels: () => void;
@@ -313,6 +315,7 @@ function HomeDashboardView({
   recentMode,
   onRecentModeChange,
   onOpenChat,
+  onOpenNewSession,
   onOpenWorkspace,
   onOpenRuns,
   onOpenModels,
@@ -457,7 +460,7 @@ function HomeDashboardView({
                   Bind intent, harness, model route, privacy, and authority.
                 </p>
               </div>
-              <button type="button" onClick={onOpenChat}>
+              <button type="button" onClick={onOpenNewSession}>
                 <span>New Session</span>
                 {renderIcon(ArrowRight, { size: 15, strokeWidth: 2 })}
               </button>
@@ -514,7 +517,7 @@ function HomeDashboardView({
               })}
             </div>
             <div className="chat-home-zero-session-card__actions">
-              <button type="button" onClick={onOpenChat}>
+              <button type="button" onClick={onOpenNewSession}>
                 Start New Session
               </button>
               <button type="button" onClick={onOpenModels}>
@@ -623,7 +626,7 @@ function HomeDashboardView({
                   {renderIcon(MessageCircle, { size: 15, strokeWidth: 2 })}
                   Summarize recent evidence
                 </button>
-                <button type="button" onClick={onOpenChat}>
+                <button type="button" onClick={onOpenNewSession}>
                   Start from intent...
                 </button>
               </div>
@@ -716,6 +719,7 @@ export function HomeView({
   projects,
   notificationCount,
   onOpenChat,
+  onOpenNewSession,
   onOpenWorkspace,
   onOpenRuns,
   onOpenModels,
@@ -1009,6 +1013,7 @@ export function HomeView({
           recentMode={recentMode}
           onRecentModeChange={setRecentMode}
           onOpenChat={onOpenChat}
+          onOpenNewSession={onOpenNewSession}
           onOpenWorkspace={onOpenWorkspace}
           onOpenRuns={onOpenRuns}
           onOpenModels={onOpenModels}
