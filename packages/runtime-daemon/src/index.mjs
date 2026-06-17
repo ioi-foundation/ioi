@@ -137,7 +137,7 @@ import {
   unregisterInFlightRuntimeTurn as unregisterInFlightRuntimeTurnState,
   updateAgent as updateAgentState,
 } from "./threads/thread-store.mjs";
-import { createRuntimeThreadAuxiliarySurface } from "./runtime-thread-auxiliary-surface.mjs";
+import { createRuntimeThreadAuxiliaryApi } from "./runtime-thread-auxiliary-api.mjs";
 import { createModelRouteSelection } from "./threads/model-route-selection.mjs";
 import { createRunMemoryResolution } from "./threads/run-memory-resolution.mjs";
 import { createThreadTurnProjection } from "./threads/thread-turn-projection.mjs";
@@ -590,7 +590,7 @@ export class AgentgresRuntimeStateStore {
       ...threadMemoryStateDeps,
       contextPolicyCore: this.contextPolicyCore,
     });
-    this.threadAuxiliarySurface = createRuntimeThreadAuxiliarySurface({
+    this.threadAuxiliaryApi = createRuntimeThreadAuxiliaryApi({
       contextPolicyCore: this.contextPolicyCore,
     });
     this.conversationArtifactSurface = createRuntimeConversationArtifactSurface({
@@ -1040,6 +1040,30 @@ export class AgentgresRuntimeStateStore {
 
   cancelRuntimeJob(jobId) {
     return this.taskJobApi.cancelJob(this, jobId);
+  }
+
+  inspectManagedSessionsForThread(threadId, options = {}) {
+    return this.threadAuxiliaryApi.inspectManagedSessionsForThread(this, threadId, options);
+  }
+
+  inspectWorkspaceChangeReviewsForThread(threadId, options = {}) {
+    return this.threadAuxiliaryApi.inspectWorkspaceChangeReviewsForThread(this, threadId, options);
+  }
+
+  controlWorkspaceChangeForThread(threadId, request = {}) {
+    return this.threadAuxiliaryApi.controlWorkspaceChangeForThread(this, threadId, request);
+  }
+
+  controlManagedSessionForThread(threadId, request = {}) {
+    return this.threadAuxiliaryApi.controlManagedSessionForThread(this, threadId, request);
+  }
+
+  forkThread(threadId, request = {}) {
+    return this.threadAuxiliaryApi.forkThread(this, threadId, request);
+  }
+
+  cancelRun(runId) {
+    return this.threadAuxiliaryApi.cancelRun(this, runId);
   }
 
   admitRuntimeThreadEventForThread(store, request = {}) {

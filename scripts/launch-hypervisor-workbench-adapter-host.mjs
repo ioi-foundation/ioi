@@ -512,7 +512,7 @@ async function bootstrapConfiguredLlamaCppModel(endpoint, token, mountedCount) {
         context_length: contextLength,
         parallel,
         ttl_seconds: 900,
-        identifier: "autopilot-ide-configured-llama-cpp",
+        identifier: "hypervisor-workbench-configured-llama-cpp",
         embeddings: process.env.IOI_LLAMA_CPP_ENABLE_EMBEDDINGS === "1",
       },
     },

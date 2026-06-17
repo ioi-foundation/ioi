@@ -191,7 +191,7 @@ export function createRuntimeRouteHandlers(deps) {
       return;
     }
     if (request.method === "POST" && action === "fork") {
-      writeJsonResponse(response, await store.threadAuxiliarySurface.forkThread(store, threadId, await readBody(request)));
+      writeJsonResponse(response, await store.forkThread(threadId, await readBody(request)));
       return;
     }
     if (request.method === "POST" && action === "compact") {
@@ -229,15 +229,19 @@ export function createRuntimeRouteHandlers(deps) {
       return;
     }
     if (request.method === "GET" && action === "managed-sessions" && !segments[4]) {
-      writeJsonResponse(response, await store.threadAuxiliarySurface.inspectManagedSessionsForThread(store, threadId, Object.fromEntries(url.searchParams.entries())));
+      writeJsonResponse(response, await store.inspectManagedSessionsForThread(threadId, Object.fromEntries(url.searchParams.entries())));
       return;
     }
     if (request.method === "GET" && action === "workspace-change-reviews" && !segments[4]) {
-      writeJsonResponse(response, await store.threadAuxiliarySurface.inspectWorkspaceChangeReviewsForThread(store, threadId, Object.fromEntries(url.searchParams.entries())));
+      writeJsonResponse(response, await store.inspectWorkspaceChangeReviewsForThread(threadId, Object.fromEntries(url.searchParams.entries())));
+      return;
+    }
+    if (request.method === "POST" && action === "workspace-change-reviews" && segments[4] === "control" && !segments[5]) {
+      writeJsonResponse(response, await store.controlWorkspaceChangeForThread(threadId, await readBody(request)));
       return;
     }
     if (request.method === "POST" && action === "managed-sessions" && segments[4] === "control" && !segments[5]) {
-      writeJsonResponse(response, await store.threadAuxiliarySurface.controlManagedSessionForThread(store, threadId, await readBody(request)));
+      writeJsonResponse(response, await store.controlManagedSessionForThread(threadId, await readBody(request)));
       return;
     }
     if (request.method === "GET" && action === "subagents" && !segments[4]) {
@@ -635,7 +639,7 @@ export function createRuntimeRouteHandlers(deps) {
       return;
     }
     if (request.method === "POST" && action === "cancel") {
-      writeJsonResponse(response, store.threadAuxiliarySurface.cancelRun(store, runId));
+      writeJsonResponse(response, store.cancelRun(runId));
       return;
     }
     if (request.method === "GET" && action === "wait") {

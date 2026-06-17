@@ -988,7 +988,7 @@ function checkStaleLiveTerminology(result) {
       pattern: /\bRust\/WASM runtime\b/i,
     },
     {
-      name: "Autopilot live architecture naming",
+      name: "Autopilot legacy product naming",
       pattern: /\bAutopilot\b/,
     },
   ];
@@ -4574,8 +4574,9 @@ function runBridge() {
   const runtimeThreadTurnSurfaceTest = exists("packages/runtime-daemon/src/runtime-thread-turn-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-thread-turn-surface.test.mjs")
     : "";
-  const runtimeThreadAuxiliarySurface = exists("packages/runtime-daemon/src/runtime-thread-auxiliary-surface.mjs")
-    ? read("packages/runtime-daemon/src/runtime-thread-auxiliary-surface.mjs")
+  const runtimeThreadAuxiliarySurfaceExists = exists("packages/runtime-daemon/src/runtime-thread-auxiliary-surface.mjs");
+  const runtimeThreadAuxiliarySurface = exists("packages/runtime-daemon/src/runtime-thread-auxiliary-api.mjs")
+    ? read("packages/runtime-daemon/src/runtime-thread-auxiliary-api.mjs")
     : "";
   const runtimeMcpControlSurface = exists("packages/runtime-daemon/src/runtime-mcp-control-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-mcp-control-surface.mjs")
@@ -13183,10 +13184,6 @@ function runBridge() {
       /"updateThreadRuntimeControls"[\s\S]*"appendThreadRuntimeControlEvent"/.test(
         runtimeThreadSurfaceDelegatesRetiredTest,
       ) &&
-      /"inspectManagedSessionsForThread"[\s\S]*"inspectWorkspaceChangeReviewsForThread"[\s\S]*"controlWorkspaceChangeForThread"[\s\S]*"controlManagedSessionForThread"/.test(
-        runtimeThreadSurfaceDelegatesRetiredTest,
-      ) &&
-      /"forkThread"[\s\S]*"cancelRun"/.test(runtimeThreadSurfaceDelegatesRetiredTest) &&
       /"applyThreadMcpServerMutation"[\s\S]*"mcpStatusWithLiveDiscovery"[\s\S]*"appendThreadMcpControlEvent"[\s\S]*"mcpServersForContext"/.test(
         runtimeThreadSurfaceDelegatesRetiredTest,
       ) &&
@@ -13217,7 +13214,13 @@ function runBridge() {
       /Object\.hasOwn\(prototype, method\), false/.test(
         runtimeThreadSurfaceDelegatesRetiredTest,
       ) &&
-      !/^\s*(?:appendWorkspaceTrustWarningEvent|inspectManagedSessionsForThread|inspectWorkspaceChangeReviewsForThread|controlWorkspaceChangeForThread|controlManagedSessionForThread|forkThread|cancelRun|applyThreadMcpServerMutation|mcpStatusWithLiveDiscovery|appendThreadMcpControlEvent|mcpServersForContext|appendCodingToolCommandStreamEvents|codingToolApprovalSatisfaction|blockCodingToolForApproval|blockCodingToolForBudget|prepareWorkspaceSnapshotForPatch|materializeWorkspaceSnapshotArtifact|appendWorkspaceSnapshotEvent|workspaceSnapshotContentPackage|materializeWorkspaceRestorePreviewArtifact|materializeWorkspaceRestoreApplyArtifact|appendWorkspaceRestorePreviewEvent|appendWorkspaceRestoreApplyEvent|maybeRunPostEditDiagnostics|pendingDiagnosticsFeedbackForNextTurn|materializeCodingToolArtifactDrafts|materializeVisualGuiObservationArtifacts|readCodingToolArtifact|retrieveCodingToolResult|executeDiagnosticsOperatorOverride|turnForOperatorOverrideEvent|appendDiagnosticsOperatorOverrideEvent|createDiagnosticsRepairRetryTurn|turnForRepairRetryEvent|appendDiagnosticsRepairRetryTurnEvent|resolveDiagnosticsRepairDecision|appendDiagnosticsRepairDecisionExecutedEvent|createConversationArtifact|listConversationArtifacts|getConversationArtifact|listConversationArtifactRevisions|performConversationArtifactAction|exportConversationArtifact|promoteConversationArtifact)\(/m.test(
+      /daemon store thread auxiliary methods are positive API owners, not surface delegates/.test(
+        runtimeThreadSurfaceDelegatesRetiredTest,
+      ) &&
+      /"inspectManagedSessionsForThread"[\s\S]*"inspectWorkspaceChangeReviewsForThread"[\s\S]*"controlWorkspaceChangeForThread"[\s\S]*"controlManagedSessionForThread"[\s\S]*"forkThread"[\s\S]*"cancelRun"/.test(
+        runtimeThreadSurfaceDelegatesRetiredTest,
+      ) &&
+      !/^\s*(?:appendWorkspaceTrustWarningEvent|applyThreadMcpServerMutation|mcpStatusWithLiveDiscovery|appendThreadMcpControlEvent|mcpServersForContext|appendCodingToolCommandStreamEvents|codingToolApprovalSatisfaction|blockCodingToolForApproval|blockCodingToolForBudget|prepareWorkspaceSnapshotForPatch|materializeWorkspaceSnapshotArtifact|appendWorkspaceSnapshotEvent|workspaceSnapshotContentPackage|materializeWorkspaceRestorePreviewArtifact|materializeWorkspaceRestoreApplyArtifact|appendWorkspaceRestorePreviewEvent|appendWorkspaceRestoreApplyEvent|maybeRunPostEditDiagnostics|pendingDiagnosticsFeedbackForNextTurn|materializeCodingToolArtifactDrafts|materializeVisualGuiObservationArtifacts|readCodingToolArtifact|retrieveCodingToolResult|executeDiagnosticsOperatorOverride|turnForOperatorOverrideEvent|appendDiagnosticsOperatorOverrideEvent|createDiagnosticsRepairRetryTurn|turnForRepairRetryEvent|appendDiagnosticsRepairRetryTurnEvent|resolveDiagnosticsRepairDecision|appendDiagnosticsRepairDecisionExecutedEvent|createConversationArtifact|listConversationArtifacts|getConversationArtifact|listConversationArtifactRevisions|performConversationArtifactAction|exportConversationArtifact|promoteConversationArtifact)\(/m.test(
         runtimeDaemonIndex,
       ) &&
       /thread turn surface resumes non-runtime threads through Rust lifecycle status and projection/.test(
@@ -13385,16 +13388,18 @@ function runBridge() {
       ) &&
       /planRunCancelStateUpdate/.test(runtimeRunCancellationTest) &&
       /Object\.hasOwn\(error\.details,\s*"runId"\),\s*false/.test(runtimeRunCancellationTest) &&
-      /createRuntimeThreadAuxiliarySurface/.test(runtimeThreadAuxiliarySurface) &&
+      !runtimeThreadAuxiliarySurfaceExists &&
+      /createRuntimeThreadAuxiliaryApi/.test(runtimeThreadAuxiliarySurface) &&
       /cancelRun\(store, runId, coreDeps\)/.test(runtimeThreadAuxiliarySurface) &&
-      /this\.threadAuxiliarySurface = createRuntimeThreadAuxiliarySurface\(\{\s*contextPolicyCore:\s*this\.contextPolicyCore,\s*\}\)/.test(
+      /this\.threadAuxiliaryApi = createRuntimeThreadAuxiliaryApi\(\{\s*contextPolicyCore:\s*this\.contextPolicyCore,\s*\}\)/.test(
         runtimeDaemonIndex,
       ) &&
-      !/^\s*cancelRun\(runId\)/m.test(runtimeDaemonIndex) &&
-      /store\.threadAuxiliarySurface\.cancelRun\(store, runId\)/.test(
+      /forkThread\(threadId, request = \{\}\)[\s\S]*?return this\.threadAuxiliaryApi\.forkThread\(this, threadId, request\)/.test(runtimeDaemonIndex) &&
+      /cancelRun\(runId\)[\s\S]*?return this\.threadAuxiliaryApi\.cancelRun\(this, runId\)/.test(runtimeDaemonIndex) &&
+      /store\.cancelRun\(runId\)/.test(
         runtimeRouteHandlers,
       ) &&
-      /thread auxiliary and run cancel routes use mounted auxiliary surface/.test(
+      /thread auxiliary and run cancel routes use store-owned auxiliary API directly/.test(
         runtimeRouteHandlersTest,
       ) &&
       /cancelRunDep\(store,\s*record\.run_id,\s*\{\s*contextPolicyCore\s*\}\)/.test(
@@ -13403,7 +13408,10 @@ function runBridge() {
       /typeof deps\.contextPolicyCore\?\.planRuntimeSubagentControl/.test(
         runtimeSubagentSurfaceTestForRunCancel,
       ) &&
-      !/store\.cancelRun\(runId\)/.test(runtimeRouteHandlers) &&
+      !/threadAuxiliarySurface/.test(`${runtimeDaemonIndex}\n${runtimeRouteHandlers}\n${runtimeRouteHandlersTest}`) &&
+      !/createRuntimeThreadAuxiliarySurface|runtime-thread-auxiliary-surface/.test(
+        `${runtimeDaemonIndex}\n${runtimeThreadAuxiliarySurface}`,
+      ) &&
       !/cancelRunState\(this,\s*runId,\s*\{/.test(runtimeDaemonIndex),
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
@@ -15391,23 +15399,24 @@ function runBridge() {
     !/deps\.contextPolicyCore\s*\?\?\s*store\?\.contextPolicyCore|store\?\.contextPolicyCore|store\.contextPolicyCore/.test(
       runtimeThreadForkStateTest,
     ) &&
-    /createRuntimeThreadAuxiliarySurface/.test(runtimeThreadAuxiliarySurface) &&
+    !runtimeThreadAuxiliarySurfaceExists &&
+    /createRuntimeThreadAuxiliaryApi/.test(runtimeThreadAuxiliarySurface) &&
     /contextPolicyCore = null/.test(runtimeThreadAuxiliarySurface) &&
     /const coreDeps = \{ contextPolicyCore \};/.test(runtimeThreadAuxiliarySurface) &&
     /threadForkState\.forkThread\(store, threadId, request, coreDeps\)/.test(
       runtimeThreadAuxiliarySurface,
     ) &&
-    /this\.threadAuxiliarySurface = createRuntimeThreadAuxiliarySurface\(\{\s*contextPolicyCore:\s*this\.contextPolicyCore,\s*\}\)/.test(
+    /this\.threadAuxiliaryApi = createRuntimeThreadAuxiliaryApi\(\{\s*contextPolicyCore:\s*this\.contextPolicyCore,\s*\}\)/.test(
       runtimeDaemonIndex,
     ) &&
-    !/^\s*forkThread\(threadId,/m.test(runtimeDaemonIndex) &&
-    /await store\.threadAuxiliarySurface\.forkThread\(store, threadId,/.test(
+    /forkThread\(threadId, request = \{\}\)[\s\S]*?return this\.threadAuxiliaryApi\.forkThread\(this, threadId, request\)/.test(runtimeDaemonIndex) &&
+    /await store\.forkThread\(threadId,/.test(
       runtimeRouteHandlers,
     ) &&
-    /thread auxiliary and run cancel routes use mounted auxiliary surface/.test(
+    /thread auxiliary and run cancel routes use store-owned auxiliary API directly/.test(
       runtimeRouteHandlersTest,
     ) &&
-    !/store\.forkThread\(threadId,/.test(runtimeRouteHandlers) &&
+    !/threadAuxiliarySurface/.test(`${runtimeDaemonIndex}\n${runtimeRouteHandlers}\n${runtimeRouteHandlersTest}`) &&
     /assertNoRetiredThreadForkDetailAliases/.test(runtimeThreadForkStateTest) &&
     /Object\.hasOwn\(plannedRequest,\s*"source_agent"\),\s*false/.test(
       runtimeThreadForkStateTest,
@@ -33259,6 +33268,11 @@ function runCompositor() {
   const runtimeRouteHandlersTest = exists("packages/runtime-daemon/src/runtime-route-handlers.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-route-handlers.test.mjs")
     : "";
+  const modelMountingClientSources = [
+    exists("scripts/launch-hypervisor-workbench-adapter-host.mjs")
+      ? read("scripts/launch-hypervisor-workbench-adapter-host.mjs")
+      : "",
+  ].join("\n");
   const skillHookCatalog = exists("packages/runtime-daemon/src/skill-hook-catalog.mjs")
     ? read("packages/runtime-daemon/src/skill-hook-catalog.mjs")
     : "";
@@ -33338,8 +33352,9 @@ function runCompositor() {
   const runtimeTaskJobSurfaceTest = exists("packages/runtime-daemon/src/runtime-task-job-api.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-task-job-api.test.mjs")
     : "";
-  const runtimeThreadAuxiliarySurface = exists("packages/runtime-daemon/src/runtime-thread-auxiliary-surface.mjs")
-    ? read("packages/runtime-daemon/src/runtime-thread-auxiliary-surface.mjs")
+  const runtimeThreadAuxiliarySurfaceExists = exists("packages/runtime-daemon/src/runtime-thread-auxiliary-surface.mjs");
+  const runtimeThreadAuxiliarySurface = exists("packages/runtime-daemon/src/runtime-thread-auxiliary-api.mjs")
+    ? read("packages/runtime-daemon/src/runtime-thread-auxiliary-api.mjs")
     : "";
   const runtimeCodingToolInvocationSurface = exists("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")
@@ -40913,6 +40928,9 @@ function runCompositor() {
       /not describe a Tauri app/.test(runtimeLayoutCheck) &&
       /desktop-probes-no-ide-product-marker/.test(runtimeLayoutCheck) &&
       /retired Workspace IDE marker/.test(runtimeLayoutCheck) &&
+      /active-product-copy-hypervisor-taxonomy/.test(runtimeLayoutCheck) &&
+      /hypervisor-workbench-configured-llama-cpp/.test(modelMountingClientSources) &&
+      !/autopilot-ide-configured-llama-cpp/.test(modelMountingClientSources) &&
       !/readOptional\("internal-docs\/legacy\/autopilot-tauri-src/.test(
         liveRuntimeDaemonContract,
       ) &&
@@ -41519,7 +41537,8 @@ function runCompositor() {
       !/deps\.contextPolicyCore\s*\?\?\s*store\?\.contextPolicyCore|store\?\.contextPolicyCore|store\.contextPolicyCore/.test(
         managedSessionStateTest,
       ) &&
-      /createRuntimeThreadAuxiliarySurface/.test(runtimeThreadAuxiliarySurface) &&
+      !runtimeThreadAuxiliarySurfaceExists &&
+      /createRuntimeThreadAuxiliaryApi/.test(runtimeThreadAuxiliarySurface) &&
       /contextPolicyCore = null/.test(runtimeThreadAuxiliarySurface) &&
       /const coreDeps = \{ contextPolicyCore \};/.test(runtimeThreadAuxiliarySurface) &&
       /inspectManagedSessionsForThread\(store, threadId, request, coreDeps\)/.test(
@@ -41528,27 +41547,21 @@ function runCompositor() {
       /controlManagedSessionForThread\(store, threadId, request, coreDeps\)/.test(
         runtimeThreadAuxiliarySurface,
       ) &&
-      /this\.threadAuxiliarySurface = createRuntimeThreadAuxiliarySurface\(\{\s*contextPolicyCore:\s*this\.contextPolicyCore,\s*\}\)/.test(
+      /this\.threadAuxiliaryApi = createRuntimeThreadAuxiliaryApi\(\{\s*contextPolicyCore:\s*this\.contextPolicyCore,\s*\}\)/.test(
         runtimeDaemonIndex,
       ) &&
-      !/^\s*inspectManagedSessionsForThread\(threadId,/m.test(
-        runtimeDaemonIndex,
-      ) &&
-      !/^\s*controlManagedSessionForThread\(threadId,/m.test(
-        runtimeDaemonIndex,
-      ) &&
-      /store\.threadAuxiliarySurface\.inspectManagedSessionsForThread\(store, threadId,/.test(
+      /inspectManagedSessionsForThread\(threadId, options = \{\}\)[\s\S]*?return this\.threadAuxiliaryApi\.inspectManagedSessionsForThread\(this, threadId, options\)/.test(runtimeDaemonIndex) &&
+      /controlManagedSessionForThread\(threadId, request = \{\}\)[\s\S]*?return this\.threadAuxiliaryApi\.controlManagedSessionForThread\(this, threadId, request\)/.test(runtimeDaemonIndex) &&
+      /store\.inspectManagedSessionsForThread\(threadId,/.test(
         runtimeRouteHandlers,
       ) &&
-      /store\.threadAuxiliarySurface\.controlManagedSessionForThread\(store, threadId,/.test(
+      /store\.controlManagedSessionForThread\(threadId,/.test(
         runtimeRouteHandlers,
       ) &&
-      /thread auxiliary and run cancel routes use mounted auxiliary surface/.test(
+      /thread auxiliary and run cancel routes use store-owned auxiliary API directly/.test(
         runtimeRouteHandlersTest,
       ) &&
-      !/store\.(?:inspectManagedSessionsForThread|controlManagedSessionForThread)\(threadId,/.test(
-        runtimeRouteHandlers,
-      ) &&
+      !/threadAuxiliarySurface/.test(`${runtimeDaemonIndex}\n${runtimeRouteHandlers}\n${runtimeRouteHandlersTest}`) &&
       !/details:\s*\{\s*threadId\s*(?:,|:)/.test(managedSessionState) &&
       !/^\s*(?:threadId|sessionId|managedSessions|managedSessionId)\s*:/m.test(
         managedSessionState,
@@ -41787,7 +41800,8 @@ function runCompositor() {
       !/deps\.contextPolicyCore\s*\?\?\s*store\?\.contextPolicyCore|store\?\.contextPolicyCore|store\.contextPolicyCore/.test(
         workspaceChangeStateTest,
       ) &&
-      /createRuntimeThreadAuxiliarySurface/.test(runtimeThreadAuxiliarySurface) &&
+      !runtimeThreadAuxiliarySurfaceExists &&
+      /createRuntimeThreadAuxiliaryApi/.test(runtimeThreadAuxiliarySurface) &&
       /contextPolicyCore = null/.test(runtimeThreadAuxiliarySurface) &&
       /const coreDeps = \{ contextPolicyCore \};/.test(runtimeThreadAuxiliarySurface) &&
       /inspectWorkspaceChangeReviewsForThread\(store, threadId, request, coreDeps\)/.test(
@@ -41796,24 +41810,21 @@ function runCompositor() {
       /controlWorkspaceChangeForThread\(store, threadId, request, coreDeps\)/.test(
         runtimeThreadAuxiliarySurface,
       ) &&
-      /this\.threadAuxiliarySurface = createRuntimeThreadAuxiliarySurface\(\{\s*contextPolicyCore:\s*this\.contextPolicyCore,\s*\}\)/.test(
+      /this\.threadAuxiliaryApi = createRuntimeThreadAuxiliaryApi\(\{\s*contextPolicyCore:\s*this\.contextPolicyCore,\s*\}\)/.test(
         runtimeDaemonIndex,
       ) &&
-      !/^\s*inspectWorkspaceChangeReviewsForThread\(threadId,/m.test(
-        runtimeDaemonIndex,
-      ) &&
-      !/^\s*controlWorkspaceChangeForThread\(threadId,/m.test(
-        runtimeDaemonIndex,
-      ) &&
-      /store\.threadAuxiliarySurface\.inspectWorkspaceChangeReviewsForThread\(store, threadId,/.test(
+      /inspectWorkspaceChangeReviewsForThread\(threadId, options = \{\}\)[\s\S]*?return this\.threadAuxiliaryApi\.inspectWorkspaceChangeReviewsForThread\(this, threadId, options\)/.test(runtimeDaemonIndex) &&
+      /controlWorkspaceChangeForThread\(threadId, request = \{\}\)[\s\S]*?return this\.threadAuxiliaryApi\.controlWorkspaceChangeForThread\(this, threadId, request\)/.test(runtimeDaemonIndex) &&
+      /store\.inspectWorkspaceChangeReviewsForThread\(threadId,/.test(
         runtimeRouteHandlers,
       ) &&
-      /thread auxiliary and run cancel routes use mounted auxiliary surface/.test(
+      /store\.controlWorkspaceChangeForThread\(threadId,/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /thread auxiliary and run cancel routes use store-owned auxiliary API directly/.test(
         runtimeRouteHandlersTest,
       ) &&
-      !/store\.inspectWorkspaceChangeReviewsForThread\(threadId,/.test(
-        runtimeRouteHandlers,
-      ) &&
+      !/threadAuxiliarySurface/.test(`${runtimeDaemonIndex}\n${runtimeRouteHandlers}\n${runtimeRouteHandlersTest}`) &&
       /assert\.deepEqual\(store\.calls,\s*\[\]\)/.test(
         workspaceChangeStateTest,
       ) &&
@@ -41935,13 +41946,14 @@ function runCompositor() {
       !/deps\.contextPolicyCore\s*\?\?\s*store\?\.contextPolicyCore|store\?\.contextPolicyCore|store\.contextPolicyCore/.test(
         runtimeThreadForkStateTest,
       ) &&
-      /createRuntimeThreadAuxiliarySurface/.test(runtimeThreadAuxiliarySurface) &&
+      !runtimeThreadAuxiliarySurfaceExists &&
+      /createRuntimeThreadAuxiliaryApi/.test(runtimeThreadAuxiliarySurface) &&
       /contextPolicyCore = null/.test(runtimeThreadAuxiliarySurface) &&
       /const coreDeps = \{ contextPolicyCore \};/.test(runtimeThreadAuxiliarySurface) &&
       /threadForkState\.forkThread\(store, threadId, request, coreDeps\)/.test(
         runtimeThreadAuxiliarySurface,
       ) &&
-      /this\.threadAuxiliarySurface = createRuntimeThreadAuxiliarySurface\(\{\s*contextPolicyCore:\s*this\.contextPolicyCore,\s*\}\)/.test(
+      /this\.threadAuxiliaryApi = createRuntimeThreadAuxiliaryApi\(\{\s*contextPolicyCore:\s*this\.contextPolicyCore,\s*\}\)/.test(
         runtimeDaemonIndex,
       ) &&
       !/store\.createAgent\(/.test(runtimeThreadForkState) &&
@@ -41950,10 +41962,10 @@ function runCompositor() {
         runtimeThreadForkState,
       ) &&
       !/rust_daemon_core_thread_fork_required/.test(runtimeThreadForkState) &&
-      /await store\.threadAuxiliarySurface\.forkThread\(store, threadId,/.test(
+      /await store\.forkThread\(threadId,/.test(
         runtimeRouteHandlers,
       ) &&
-      !/store\.forkThread\(threadId,/.test(runtimeRouteHandlers),
+      !/threadAuxiliarySurface/.test(`${runtimeDaemonIndex}\n${runtimeRouteHandlers}`),
     [
       "crates/services/src/agentic/runtime/kernel/runtime_thread_fork_control.rs",
       "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
@@ -41963,7 +41975,7 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
       "packages/runtime-daemon/src/threads/thread-fork-state.mjs",
       "packages/runtime-daemon/src/threads/thread-fork-state.test.mjs",
-      "packages/runtime-daemon/src/runtime-thread-auxiliary-surface.mjs",
+      "packages/runtime-daemon/src/runtime-thread-auxiliary-api.mjs",
       "packages/runtime-daemon/src/index.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.mjs",
     ],

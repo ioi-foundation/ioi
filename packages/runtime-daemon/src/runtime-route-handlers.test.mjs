@@ -1147,44 +1147,41 @@ test("thread and run routes send context policy controls through mounted context
   }
 });
 
-test("thread auxiliary and run cancel routes use mounted auxiliary surface", async () => {
+test("thread auxiliary and run cancel routes use store-owned auxiliary API directly", async () => {
   const { handleThreadRoute, handleRunRoute } = routeHandlers();
   const calls = [];
   const body = { request_id: "thread-auxiliary-route-test" };
-  const surfaceResult = (operation, args) => ({
+  const apiResult = (operation, args) => ({
     status: "rust_core_required",
     operation,
     args,
     direct_truth_write_allowed: false,
   });
   const store = {
-    threadAuxiliarySurface: {
-      forkThread(surfaceStore, threadId, requestBody) {
-        calls.push({ operation: "forkThread", surfaceStore, args: [threadId, requestBody] });
-        return surfaceResult("forkThread", [threadId, requestBody]);
-      },
-      inspectManagedSessionsForThread(surfaceStore, threadId, requestBody) {
-        calls.push({ operation: "inspectManagedSessionsForThread", surfaceStore, args: [threadId, requestBody] });
-        return surfaceResult("inspectManagedSessionsForThread", [threadId, requestBody]);
-      },
-      inspectWorkspaceChangeReviewsForThread(surfaceStore, threadId, requestBody) {
-        calls.push({ operation: "inspectWorkspaceChangeReviewsForThread", surfaceStore, args: [threadId, requestBody] });
-        return surfaceResult("inspectWorkspaceChangeReviewsForThread", [threadId, requestBody]);
-      },
-      controlManagedSessionForThread(surfaceStore, threadId, requestBody) {
-        calls.push({ operation: "controlManagedSessionForThread", surfaceStore, args: [threadId, requestBody] });
-        return surfaceResult("controlManagedSessionForThread", [threadId, requestBody]);
-      },
-      cancelRun(surfaceStore, runId) {
-        calls.push({ operation: "cancelRun", surfaceStore, args: [runId] });
-        return surfaceResult("cancelRun", [runId]);
-      },
+    forkThread(threadId, requestBody) {
+      calls.push({ operation: "forkThread", args: [threadId, requestBody] });
+      return apiResult("forkThread", [threadId, requestBody]);
     },
-    forkThread: retiredRouteWrapper,
-    inspectManagedSessionsForThread: retiredRouteWrapper,
-    inspectWorkspaceChangeReviewsForThread: retiredRouteWrapper,
-    controlManagedSessionForThread: retiredRouteWrapper,
-    cancelRun: retiredRouteWrapper,
+    inspectManagedSessionsForThread(threadId, requestBody) {
+      calls.push({ operation: "inspectManagedSessionsForThread", args: [threadId, requestBody] });
+      return apiResult("inspectManagedSessionsForThread", [threadId, requestBody]);
+    },
+    inspectWorkspaceChangeReviewsForThread(threadId, requestBody) {
+      calls.push({ operation: "inspectWorkspaceChangeReviewsForThread", args: [threadId, requestBody] });
+      return apiResult("inspectWorkspaceChangeReviewsForThread", [threadId, requestBody]);
+    },
+    controlWorkspaceChangeForThread(threadId, requestBody) {
+      calls.push({ operation: "controlWorkspaceChangeForThread", args: [threadId, requestBody] });
+      return apiResult("controlWorkspaceChangeForThread", [threadId, requestBody]);
+    },
+    controlManagedSessionForThread(threadId, requestBody) {
+      calls.push({ operation: "controlManagedSessionForThread", args: [threadId, requestBody] });
+      return apiResult("controlManagedSessionForThread", [threadId, requestBody]);
+    },
+    cancelRun(runId) {
+      calls.push({ operation: "cancelRun", args: [runId] });
+      return apiResult("cancelRun", [runId]);
+    },
   };
   const cases = [
     {
@@ -1207,6 +1204,13 @@ test("thread auxiliary and run cancel routes use mounted auxiliary surface", asy
       path: "/v1/threads/thread_route/workspace-change-reviews?scope=active",
       operation: "inspectWorkspaceChangeReviewsForThread",
       args: ["thread_route", { scope: "active" }],
+    },
+    {
+      handler: handleThreadRoute,
+      method: "POST",
+      path: "/v1/threads/thread_route/workspace-change-reviews/control",
+      operation: "controlWorkspaceChangeForThread",
+      args: ["thread_route", body],
     },
     {
       handler: handleThreadRoute,
@@ -1241,7 +1245,6 @@ test("thread auxiliary and run cancel routes use mounted auxiliary surface", asy
     const call = calls.pop();
     assert.equal(response.statusCode, 200);
     assert.equal(call.operation, testCase.operation);
-    assert.equal(call.surfaceStore, store);
     assert.deepEqual(call.args, testCase.args);
     assert.deepEqual(JSON.parse(response.body), {
       status: "rust_core_required",

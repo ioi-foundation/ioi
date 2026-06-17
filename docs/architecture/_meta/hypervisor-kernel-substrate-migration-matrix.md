@@ -96,7 +96,7 @@ model_mount tokenizer/required-control typed daemon-core
 API command-transport retirement cut, the model_mount conversation/stream typed daemon-core API
 command-transport retirement cut, and the model_mount MCP workflow typed daemon-core API
 command-transport retirement cut, the model_mount server-control typed
-daemon-core API command-transport retirement cut, and the model_mount runtime-engine/survey typed daemon-core API command-transport retirement cut, the model_mount catalog/provider/capability/vault/receipt-gate typed daemon-core API command-transport retirement cut, the hosted provider metadata transport Rust materialization cut, the model_mount MCP workflow Rust result-payload materialization cut, the runtime MCP control Rust result-payload materialization cut, the runtime MCP catalog live-discovery Rust materialization cut, the runtime MCP control Rust driver-backend contract cut, the backend registry derivation/seeding JS facade deletion cut, the runtime MCP live/serve fallback-proof protocol deletion cut, the runtime MCP top-level route/client family retirement cut, the runtime-control state-event sequence cache transport retirement cut, the run-memory command Rust projection/control plus daemon-store memory wrapper deletion cut, the runtime task/job runner-injection alias deletion cut, the diagnostics repair runner-injection alias deletion cut, the workflow-edit runner-injection alias deletion cut, the run-cancel runner-injection alias deletion cut, the coding-tool budget recovery runner-injection alias deletion cut, the runtime tool catalog runner-injection alias deletion cut, the skill/hook registry runner-injection alias deletion cut, the repository workflow runner-injection alias deletion cut, the runtime lifecycle projection runner-injection alias deletion cut, the lifecycle admission route-fallback deletion cut, the thread-turn surface runner-alias deletion cut, the runtime subagent runner-wrapper deletion cut, the diagnostics repair surface runner-wrapper deletion cut, the runtime agent/run lifecycle helper runner-fallback deletion cut, the conversation-artifact surface runner-wrapper deletion cut, the runtime MCP serve store-core fallback deletion cut, the coding-tool artifact surface store-core fallback deletion cut, the coding-tool budget recovery surface store-core fallback deletion cut, the runtime task/job surface store-core fallback deletion cut, the runtime MCP single context-policy core mount deletion cut, the runtime context/memory auxiliary self-core plus planner-alias deletion cut, the runtime-service thread-turn bridge-adapter constructor alias deletion cut, the model_mount read-projection JS facade deletion cut, the model_mount invocation helper compatibility-alias deletion cut, the hosted provider invocation Rust authority/auth gate cut, the hosted provider invocation Rust transport-contract materialization cut, the hosted provider stream Rust transport-contract materialization cut, the hosted provider auth materialization Rust API cut, the runtime MCP serve query/raw JSON-RPC transport fallback deletion cut, the run-memory command parser Rust-owned API cut, the runtime task/job/checklist run-materialization JS facade deletion cut, the operator turn-control JS run-candidate transport deletion cut, the pre-Hypervisor app/embedded Workbench JS facade-root deletion cut, the runtime MCP/model_mount legacy fallback-proof field protocol deletion cut, the runtime-service thread-turn standalone helper export deletion cut, the computer-use direct event append JS facade deletion cut, the public lifecycle projection JS surface deletion cut, and the public task/job JS surface deletion cut.
+daemon-core API command-transport retirement cut, and the model_mount runtime-engine/survey typed daemon-core API command-transport retirement cut, the model_mount catalog/provider/capability/vault/receipt-gate typed daemon-core API command-transport retirement cut, the hosted provider metadata transport Rust materialization cut, the model_mount MCP workflow Rust result-payload materialization cut, the runtime MCP control Rust result-payload materialization cut, the runtime MCP catalog live-discovery Rust materialization cut, the runtime MCP control Rust driver-backend contract cut, the backend registry derivation/seeding JS facade deletion cut, the runtime MCP live/serve fallback-proof protocol deletion cut, the runtime MCP top-level route/client family retirement cut, the runtime-control state-event sequence cache transport retirement cut, the run-memory command Rust projection/control plus daemon-store memory wrapper deletion cut, the runtime task/job runner-injection alias deletion cut, the diagnostics repair runner-injection alias deletion cut, the workflow-edit runner-injection alias deletion cut, the run-cancel runner-injection alias deletion cut, the coding-tool budget recovery runner-injection alias deletion cut, the runtime tool catalog runner-injection alias deletion cut, the skill/hook registry runner-injection alias deletion cut, the repository workflow runner-injection alias deletion cut, the runtime lifecycle projection runner-injection alias deletion cut, the lifecycle admission route-fallback deletion cut, the thread-turn surface runner-alias deletion cut, the runtime subagent runner-wrapper deletion cut, the diagnostics repair surface runner-wrapper deletion cut, the runtime agent/run lifecycle helper runner-fallback deletion cut, the conversation-artifact surface runner-wrapper deletion cut, the runtime MCP serve store-core fallback deletion cut, the coding-tool artifact surface store-core fallback deletion cut, the coding-tool budget recovery surface store-core fallback deletion cut, the runtime task/job surface store-core fallback deletion cut, the runtime MCP single context-policy core mount deletion cut, the runtime context/memory auxiliary self-core plus planner-alias deletion cut, the runtime-service thread-turn bridge-adapter constructor alias deletion cut, the model_mount read-projection JS facade deletion cut, the model_mount invocation helper compatibility-alias deletion cut, the hosted provider invocation Rust authority/auth gate cut, the hosted provider invocation Rust transport-contract materialization cut, the hosted provider stream Rust transport-contract materialization cut, the hosted provider auth materialization Rust API cut, the runtime MCP serve query/raw JSON-RPC transport fallback deletion cut, the run-memory command parser Rust-owned API cut, the runtime task/job/checklist run-materialization JS facade deletion cut, the operator turn-control JS run-candidate transport deletion cut, the pre-Hypervisor app/embedded Workbench JS facade-root deletion cut, the runtime MCP/model_mount legacy fallback-proof field protocol deletion cut, the runtime-service thread-turn standalone helper export deletion cut, the computer-use direct event append JS facade deletion cut, the public lifecycle projection JS surface deletion cut, the public task/job JS surface deletion cut, and the public thread auxiliary JS surface deletion cut.
 Slice 1415 additionally hard-cuts the model_mount capability-token/vault
 `state_dir` authority boundary: public capability-token and vault controls now
 require daemon Agentgres replay at the JS edge and Rust direct-planning boundary,
@@ -150,6 +150,14 @@ Slice 1423 additionally hard-deletes the public task/job JS surface:
 `listRuntimeJobs()`, `getRuntimeJob()`, and `cancelRuntimeJob()` methods, which
 delegate to the positive Rust-backed task/job API and cannot return through a
 mounted JS route facade.
+Slice 1425 additionally hard-deletes the public thread auxiliary JS surface:
+`runtime-thread-auxiliary-surface.mjs` and the mounted `threadAuxiliarySurface`
+daemon-store property are absent. Thread fork, managed-session inspection and
+control, workspace-change inspection and control, and run cancellation routes
+enter through store-owned `forkThread()`, `inspectManagedSessionsForThread()`,
+`controlManagedSessionForThread()`, `inspectWorkspaceChangeReviewsForThread()`,
+`controlWorkspaceChangeForThread()`, and `cancelRun()` methods, which delegate
+to the positive Rust-backed auxiliary API without a route-visible JS facade.
 Slice 1388 additionally hard-deletes the run-create repository workflow JS
 projection facade: run creation and runtime-service turn submission consume
 Rust `project_repository_workflow` projections through an explicit
@@ -503,15 +511,31 @@ module is now `runtime-task-job-api.mjs`, daemon startup mounts it as
 route-visible `taskJobSurface` object. Conformance guards that the old
 `runtime-task-job-surface.*` files, factory name, and public route call pattern
 do not return.
+Slice 1424 hardens the active Hypervisor client/product vocabulary boundary:
+the developer-facing app docs describe Hypervisor as a native operator client
+over Hypervisor Core and the IOI daemon, active sources point at
+`HypervisorShellWindow`, configured local llama.cpp preload metadata uses the
+`hypervisor-workbench-configured-llama-cpp` identifier, and
+`check:runtime-layout` plus Hypervisor conformance reject legacy Autopilot
+IDE/Tauri product copy or preload identifiers in active paths.
+Slice 1425 hard-deletes the route-visible runtime thread auxiliary JS surface:
+the tracked module is now `runtime-thread-auxiliary-api.mjs`, daemon startup
+mounts it as `threadAuxiliaryApi`, and thread/run routes enter through
+store-owned methods for managed-session inspection/control, workspace-change
+review/control, thread fork, and run cancel. Conformance guards that the old
+`runtime-thread-auxiliary-surface.*` file/factory/property and direct route
+calls cannot return as a parallel route-visible facade.
 Slice 1315 hard-cuts runtime auxiliary compositor store-core fallback:
 managed-session projection/control, workspace-change projection/control, and
 thread-fork control now resolve only through the positive `contextPolicyCore`
-mount supplied to `createRuntimeThreadAuxiliarySurface()` by daemon startup.
-The auxiliary surface passes that mount to the helper modules explicitly, and
+mount supplied to `createRuntimeThreadAuxiliaryApi()` by daemon startup.
+The auxiliary API passes that mount to the helper modules explicitly, and
 the helper modules plus focused tests no longer read or model
 `deps.contextPolicyCore ?? store.contextPolicyCore`, `store.contextPolicyCore`,
 or `store?.contextPolicyCore`; conformance guards that the retired store-core
 fallback cannot return.
+Slice 1425 later deletes the route-visible auxiliary surface outright; the
+store-owned auxiliary API methods remain as the route entry points.
 Slice 1316 hard-cuts runtime context-policy surface store-core fallback:
 `compactThread()`, thread/run context-budget event planning, and thread
 compaction-policy event planning now resolve only through the positive

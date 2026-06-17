@@ -833,6 +833,10 @@ Current implementation cut:
   or as the retired `Workspace IDE`.
   `check:hypervisor-workbench-adapter-host-paths` verifies the tracked
   adapter path helper defaults to `workbench-adapters/`
+  active developer docs describe Hypervisor as a native operator client over
+    Hypervisor Core and the IOI daemon, not as an Autopilot/Tauri desktop product
+  configured local llama.cpp model preloads identify as
+    `hypervisor-workbench-configured-llama-cpp`, not an `autopilot-ide` host
   `.gitignore` no longer preserves dead active `src-tauri` or `agent-ide`
   shadows
 

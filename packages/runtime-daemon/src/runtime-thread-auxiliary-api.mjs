@@ -9,7 +9,7 @@ import {
   inspectWorkspaceChangeReviewsForThread,
 } from "./threads/workspace-change-state.mjs";
 
-export function createRuntimeThreadAuxiliarySurface({
+export function createRuntimeThreadAuxiliaryApi({
   contextPolicyCore = null,
   threadForkState = createThreadForkState(),
 } = {}) {

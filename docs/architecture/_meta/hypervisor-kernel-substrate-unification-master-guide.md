@@ -5253,9 +5253,9 @@ thread fork now calls Rust daemon-core `plan_runtime_thread_fork_control`,
 commits only the Rust-authored forked agent through Agentgres-backed
 `writeAgent`, validates the forked-thread projection, and admits only the
 Rust-authored `thread.forked` runtime event; workspace-change inspection and run
-cancel routes call mounted auxiliary surfaces instead of daemon-store
-pass-through wrappers while direct Rust daemon-core projection and admission APIs
-are extracted; managed-session inspection/control now calls the Rust daemon-core
+cancel routes call store-owned auxiliary API methods instead of a mounted
+route-visible auxiliary facade while direct Rust daemon-core projection and
+admission APIs are extracted; managed-session inspection/control now calls the Rust daemon-core
 managed-session projection/control planner and admits only the Rust-authored
 control event;
 thread resume, turn create, interrupt, and steer routes now call
@@ -10645,15 +10645,17 @@ APIs, and stable protocol clients, not an alternate task/job core mount.
 Slice 1315 hard-cuts the runtime auxiliary compositor store-core fallback.
 Managed-session projection/control, workspace-change projection/control, and
 thread-fork control now resolve only through the positive `contextPolicyCore`
-mount supplied to `createRuntimeThreadAuxiliarySurface()` by daemon startup.
-The auxiliary surface passes that mount into the helper modules explicitly, and
+mount supplied to `createRuntimeThreadAuxiliaryApi()` by daemon startup.
+The auxiliary API passes that mount into the helper modules explicitly, and
 the helper modules plus focused tests no longer read or model
 `deps.contextPolicyCore ?? store.contextPolicyCore`, `store.contextPolicyCore`,
 or `store?.contextPolicyCore`. Managed-session, workspace-change, and
 thread-fork truth therefore cannot return through a store-mounted
 planner/projector fallback after Rust daemon-core parity is present.
 Conformance now guards the retired fallback and the daemon-mounted auxiliary
-core dependency. Remaining work is durable replay/projection depth,
+core dependency. Slice 1425 later deletes the route-visible auxiliary surface
+outright while keeping store-owned auxiliary API methods as route entry points.
+Remaining work is durable replay/projection depth,
 wallet/cTEE authority expansion, StepModuleRouter delegation execution, and
 stable protocol clients, not an alternate auxiliary core mount.
 
@@ -10701,7 +10703,7 @@ alternate store-mounted Rust core fallback.
 
 Slice 1319 hard-cuts the run-cancel state-core fallback. `cancelRun()` now
 accepts the positive `contextPolicyCore` mount explicitly from
-`createRuntimeThreadAuxiliarySurface()` and from subagent cancellation
+`createRuntimeThreadAuxiliaryApi()` and from subagent cancellation
 composition; it no longer reads `state.contextPolicyCore` or
 `state?.contextPolicyCore` for state planning, and missing state planning fails
 closed canonically. Focused cancellation tests mount fake Rust planners through
@@ -12596,6 +12598,33 @@ Remaining task/job blockers stay durable task/job replay and projection depth,
 receipt/state-root binding, wallet/cTEE task authority, direct lifecycle API
 depth, and stable Workbench/CLI/SDK protocol clients over Rust-owned Agentgres
 task/job records.
+
+Slice 1424 hardens the active Hypervisor client/product vocabulary boundary.
+Developer-facing app docs now describe Hypervisor as a native operator client
+over Hypervisor Core and the IOI daemon, not as an Autopilot/Tauri desktop
+product. Active docs point at `HypervisorShellWindow`, and configured local
+llama.cpp preloads use `hypervisor-workbench-configured-llama-cpp` instead of
+an `autopilot-ide` identifier. `check:runtime-layout` and Hypervisor
+conformance guard the stale Autopilot IDE/Tauri product copy and preload marker
+from returning in active paths.
+
+Slice 1425 hard-deletes the public thread auxiliary JS surface.
+`runtime-thread-auxiliary-surface.mjs` and the mounted `threadAuxiliarySurface`
+daemon-store property are absent. Daemon startup mounts
+`runtime-thread-auxiliary-api.mjs` as `threadAuxiliaryApi`, and thread fork,
+managed-session inspection/control, workspace-change inspection/control, and run-cancel
+routes enter through store-owned `forkThread()`,
+`inspectManagedSessionsForThread()`, `controlManagedSessionForThread()`,
+`inspectWorkspaceChangeReviewsForThread()`,
+`controlWorkspaceChangeForThread()`, and `cancelRun()` methods. Those methods
+delegate to the positive Rust-backed auxiliary API while preserving the
+Rust managed-session, workspace-change, thread-fork, and run-cancel planners,
+Agentgres-backed writes/admission, state-dir replay, and mismatch guards.
+Conformance rejects the old surface file, factory, property, and route call
+patterns from returning. Remaining blockers stay durable auxiliary-family
+replay/projection depth, wallet/cTEE/workspace authority expansion,
+StepModuleRouter delegation execution where applicable, receipt/state-root
+binding, and stable Workbench/CLI/SDK protocol clients over Rust-owned records.
 
 ## Final Doctrine
 

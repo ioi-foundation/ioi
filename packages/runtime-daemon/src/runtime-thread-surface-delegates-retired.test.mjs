@@ -13,12 +13,6 @@ test("daemon store thread turn and control pass-through delegates are retired", 
     "appendWorkspaceTrustWarningEvent",
     "updateThreadRuntimeControls",
     "appendThreadRuntimeControlEvent",
-    "inspectManagedSessionsForThread",
-    "inspectWorkspaceChangeReviewsForThread",
-    "controlWorkspaceChangeForThread",
-    "controlManagedSessionForThread",
-    "forkThread",
-    "cancelRun",
     "applyThreadMcpServerMutation",
     "mcpStatusWithLiveDiscovery",
     "appendThreadMcpControlEvent",
@@ -59,5 +53,20 @@ test("daemon store thread turn and control pass-through delegates are retired", 
   ]) {
     assert.equal(Object.hasOwn(prototype, method), false, `${method} must not be a store delegate`);
     assert.equal(typeof prototype[method], "undefined", `${method} must be absent from the store`);
+  }
+});
+
+test("daemon store thread auxiliary methods are positive API owners, not surface delegates", () => {
+  const prototype = AgentgresRuntimeStateStore.prototype;
+  for (const [method, expectedCall] of [
+    ["inspectManagedSessionsForThread", "this.threadAuxiliaryApi.inspectManagedSessionsForThread"],
+    ["inspectWorkspaceChangeReviewsForThread", "this.threadAuxiliaryApi.inspectWorkspaceChangeReviewsForThread"],
+    ["controlWorkspaceChangeForThread", "this.threadAuxiliaryApi.controlWorkspaceChangeForThread"],
+    ["controlManagedSessionForThread", "this.threadAuxiliaryApi.controlManagedSessionForThread"],
+    ["forkThread", "this.threadAuxiliaryApi.forkThread"],
+    ["cancelRun", "this.threadAuxiliaryApi.cancelRun"],
+  ]) {
+    assert.equal(Object.hasOwn(prototype, method), true, `${method} must be a store-owned auxiliary API method`);
+    assert.match(prototype[method].toString(), new RegExp(expectedCall.replaceAll(".", "\\.")));
   }
 });

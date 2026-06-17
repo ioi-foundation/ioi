@@ -804,13 +804,13 @@ for await (const event of run.stream()) {
     runnableToday: true,
     sourceFreshness: 'current_repo',
     primaryAudience: 'operator',
-    routePath: '/autopilot',
+    routePath: '/hypervisor',
     legacyHashes: ['run-autopilot-locally', 'autopilot', 'autopilot-desktop'],
     lastVerified: LAST_VERIFIED,
-    keywords: ['autopilot', 'desktop', 'GUI', 'screenshots', 'workflow canvas', 'chat', 'harness'],
+    keywords: ['hypervisor', 'desktop', 'GUI', 'screenshots', 'workflow canvas', 'chat', 'harness'],
     sources: [
       'apps/hypervisor',
-      'apps/hypervisor/src/windows/AutopilotShellWindow',
+      'apps/hypervisor/src/windows/HypervisorShellWindow',
       'apps/hypervisor/src/windows/ChatShellWindow',
       'apps/hypervisor/src/surfaces/MissionControl/MissionControlMountsView.tsx',
       'docs/evidence/autopilot-gui-harness-validation/2026-05-15T11-10-45-852Z/result.json',
@@ -831,10 +831,10 @@ for await (const event of run.stream()) {
         render: (isDark) => (
           <div className={bodyClass(isDark)}>
             <p>
-              Autopilot exists today as a local Tauri desktop product. The current repo includes
-              chat and artifact surfaces, workflow composer/runtime wiring, local model mount UI,
-              MCP import surfaces, policy/settings views, generated contracts, and GUI harness
-              evidence.
+              Hypervisor exists today as a native operator client over Hypervisor Core and
+              the IOI daemon. The current repo includes chat and artifact surfaces,
+              workflow composer/runtime wiring, local model mount UI, MCP import
+              surfaces, policy/settings views, generated contracts, and GUI harness evidence.
             </p>
             <Table
               isDark={isDark}
@@ -843,7 +843,7 @@ for await (const event of run.stream()) {
                 ['Chat workbench', 'Current local GUI with answer-first transcript, sources, artifacts, approvals, and runtime disclosures.'],
                 ['Workflow canvas', 'Current local workflow composition and harness proof path, with active preview areas for packaging/import review.'],
                 ['Model mounts', 'Current local/admin UI over /v1/model-mount/snapshot and /v1/chat/completions compatibility.'],
-                ['MCP tools', 'Current import/discovery/invocation paths in daemon and Autopilot surfaces.'],
+                ['MCP tools', 'Current import/discovery/invocation paths in daemon and Hypervisor surfaces.'],
                 ['Evidence harness', 'Current desktop probes capture screenshots, runtime artifacts, receipts, and logs.'],
               ]}
             />

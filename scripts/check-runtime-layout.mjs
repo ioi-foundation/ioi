@@ -32,6 +32,8 @@ function assert(id, condition, evidence, message) {
 
 const packageJson = JSON.parse(read("package.json"));
 const readme = read("README.md");
+const developersDocs = read("apps/developers-ioi-ai/src/content/docs.tsx");
+const workbenchAdapterLauncher = read("scripts/launch-hypervisor-workbench-adapter-host.mjs");
 const packageScriptNames = Object.keys(packageJson.scripts ?? {});
 const retiredAutopilotPackageScripts = packageScriptNames.filter((scriptName) =>
   /^(?:goal|validate|test):autopilot/.test(scriptName),
@@ -152,6 +154,22 @@ assert(
     !readme.includes("Hypervisor IDE"),
   ["README.md"],
   "README must present Hypervisor App/Web, Workbench, and adapter targets instead of retired Hypervisor IDE or packages/agent-ide language.",
+);
+assert(
+  "active-product-copy-hypervisor-taxonomy",
+  developersDocs.includes("Hypervisor exists today as a native operator client over Hypervisor Core") &&
+    developersDocs.includes("'apps/hypervisor/src/windows/HypervisorShellWindow'") &&
+    developersDocs.includes("routePath: '/hypervisor'") &&
+    !developersDocs.includes("Autopilot exists today as a local Tauri desktop product") &&
+    !developersDocs.includes("'apps/hypervisor/src/windows/AutopilotShellWindow'") &&
+    !developersDocs.includes("daemon and Autopilot surfaces") &&
+    workbenchAdapterLauncher.includes("hypervisor-workbench-configured-llama-cpp") &&
+    !workbenchAdapterLauncher.includes("autopilot-ide-configured-llama-cpp"),
+  [
+    "apps/developers-ioi-ai/src/content/docs.tsx",
+    "scripts/launch-hypervisor-workbench-adapter-host.mjs",
+  ],
+  "Active product docs and model preload identifiers must use Hypervisor client/Workbench taxonomy, not Autopilot IDE or Tauri product language.",
 );
 assert(
   "contract-family-modules",
