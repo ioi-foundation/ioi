@@ -97,13 +97,458 @@
 .chat-workspace-oss-shell__overlay {
   position: absolute;
   inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 28px;
+  display: block;
+  padding: 0;
   background:
     radial-gradient(circle at 50% 42%, rgba(255, 255, 255, 0.82), rgba(247, 247, 246, 0) 36rem),
     #f7f7f6;
+}
+
+.chat-workspace-oss-shell__fallback {
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: 48px 48px minmax(0, 1fr);
+  background: #f7f7f6;
+  color: #111111;
+}
+
+.chat-workspace-oss-shell__fallback-bar,
+.chat-workspace-oss-shell__fallback-tabs {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid #dedede;
+  background: #ffffff;
+}
+
+.chat-workspace-oss-shell__fallback-bar {
+  justify-content: space-between;
+  padding: 0 16px 0 26px;
+}
+
+.chat-workspace-oss-shell__branch,
+.chat-workspace-oss-shell__adapter-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: #111111;
+  font-size: 13px;
+}
+
+.chat-workspace-oss-shell__branch strong,
+.chat-workspace-oss-shell__adapter-pill {
+  font-weight: 700;
+}
+
+.chat-workspace-oss-shell__adapter-pill {
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid #e1e1e1;
+  border-radius: 9px;
+  background: #ffffff;
+}
+
+.chat-workspace-oss-shell__status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #11a035;
+}
+
+.chat-workspace-oss-shell__fallback-tabs {
+  gap: 22px;
+  padding: 0 26px;
+}
+
+.chat-workspace-oss-shell__fallback-tabs span,
+.chat-workspace-oss-shell__fallback-tabs strong {
+  height: 100%;
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  color: #2d2d2d;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.chat-workspace-oss-shell__fallback-tabs strong {
+  overflow: hidden;
+  max-width: min(360px, 34vw);
+  font-weight: 700;
+  text-overflow: ellipsis;
+}
+
+.chat-workspace-oss-shell__fallback-tabs .is-active {
+  position: relative;
+  color: #111111;
+  font-weight: 700;
+}
+
+.chat-workspace-oss-shell__fallback-tabs .is-active::after {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 3px;
+  border-radius: 999px 999px 0 0;
+  background: #111111;
+  content: "";
+}
+
+.chat-workspace-oss-shell__fallback-grid {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 388px;
+  overflow: hidden;
+}
+
+.chat-workspace-oss-shell__environment {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 38px 36px;
+  overflow: auto;
+  background: #ffffff;
+}
+
+.chat-workspace-oss-shell__environment-head {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(360px, 0.95fr);
+  align-items: center;
+  gap: 24px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid #e9e9e9;
+}
+
+.chat-workspace-oss-shell__environment-title {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.chat-workspace-oss-shell__environment-title h2 {
+  overflow: hidden;
+  margin: 0;
+  color: #111111;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-workspace-oss-shell__toggle {
+  position: relative;
+  width: 38px;
+  height: 20px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: #c9c9c9;
+}
+
+.chat-workspace-oss-shell__toggle::after {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+  content: "";
+}
+
+.chat-workspace-oss-shell__toggle.is-on {
+  background: #0ba328;
+}
+
+.chat-workspace-oss-shell__toggle.is-on::after {
+  transform: translateX(18px);
+}
+
+.chat-workspace-oss-shell__environment-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin: 0;
+}
+
+.chat-workspace-oss-shell__environment-stats div {
+  min-width: 0;
+}
+
+.chat-workspace-oss-shell__environment-stats dt {
+  margin: 0 0 6px;
+  color: #777777;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.chat-workspace-oss-shell__environment-stats dd {
+  margin: 0;
+  overflow: hidden;
+  color: #111111;
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-workspace-oss-shell__environment-stats .is-ok,
+.chat-workspace-oss-shell__environment-stats .is-warn {
+  width: fit-content;
+  padding: 3px 10px;
+  border-radius: 999px;
+}
+
+.chat-workspace-oss-shell__environment-stats .is-ok {
+  background: #dff8df;
+  color: #12852a;
+}
+
+.chat-workspace-oss-shell__environment-stats .is-warn {
+  background: #fff4ce;
+  color: #7b5800;
+}
+
+.chat-workspace-oss-shell__timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  max-width: 760px;
+}
+
+.chat-workspace-oss-shell__timeline-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 16px;
+  min-height: 66px;
+}
+
+.chat-workspace-oss-shell__timeline-row:not(:last-child)::before {
+  position: absolute;
+  top: 22px;
+  bottom: -2px;
+  left: 10px;
+  width: 2px;
+  background: #d9d9d9;
+  content: "";
+}
+
+.chat-workspace-oss-shell__timeline-dot {
+  z-index: 1;
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+  border: 2px solid #c9c9c9;
+  border-radius: 999px;
+  background: #ffffff;
+}
+
+.chat-workspace-oss-shell__timeline-dot.is-complete {
+  border-color: #0ba328;
+  background: #0ba328;
+  box-shadow: inset 0 0 0 4px #ffffff;
+}
+
+.chat-workspace-oss-shell__timeline-dot.is-warn {
+  border-color: #d99a00;
+  background: #fff4ce;
+}
+
+.chat-workspace-oss-shell__timeline-row strong {
+  display: block;
+  margin: 0 0 6px;
+  color: #111111;
+  font-size: 14px;
+}
+
+.chat-workspace-oss-shell__timeline-row span {
+  display: block;
+  color: #666666;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.chat-workspace-oss-shell__runtime-pending {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #666666;
+  font-size: 13px;
+}
+
+.chat-workspace-oss-shell__changes {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: 48px 44px minmax(0, 1fr) 256px;
+  gap: 10px;
+  padding: 0 16px 0;
+  border-left: 1px solid #dedede;
+  background: #ffffff;
+}
+
+.chat-workspace-oss-shell__changes-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #eeeeee;
+  color: #111111;
+  font-size: 14px;
+}
+
+.chat-workspace-oss-shell__search {
+  height: 36px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1px solid #d8d8d8;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #777777;
+}
+
+.chat-workspace-oss-shell__search input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #111111;
+  font: inherit;
+  font-size: 13px;
+}
+
+.chat-workspace-oss-shell__change-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow: auto;
+  padding-top: 6px;
+}
+
+.chat-workspace-oss-shell__change-list div {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #5f5f5f;
+  font-size: 13px;
+}
+
+.chat-workspace-oss-shell__change-list code,
+.chat-workspace-oss-shell__change-list span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-workspace-oss-shell__change-list code {
+  font-family: var(--font-mono);
+}
+
+.chat-workspace-oss-shell__change-list em,
+.chat-workspace-oss-shell__change-list strong {
+  flex: 0 0 auto;
+  min-width: 22px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-style: normal;
+  line-height: 18px;
+  text-align: center;
+}
+
+.chat-workspace-oss-shell__change-list em {
+  background: #eef2ff;
+  color: #61708d;
+}
+
+.chat-workspace-oss-shell__change-list strong {
+  background: #ecfff0;
+  color: #0ba328;
+}
+
+.chat-workspace-oss-shell__bottom-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0 -16px;
+  padding: 14px 16px;
+  border-top: 1px solid #dedede;
+  background: #ffffff;
+}
+
+.chat-workspace-oss-shell__bottom-panel nav,
+.chat-workspace-oss-shell__ports {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.chat-workspace-oss-shell__bottom-panel nav strong,
+.chat-workspace-oss-shell__bottom-panel nav span {
+  color: #333333;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.chat-workspace-oss-shell__bottom-panel nav strong {
+  position: relative;
+  color: #111111;
+}
+
+.chat-workspace-oss-shell__bottom-panel nav strong::after {
+  position: absolute;
+  right: 0;
+  bottom: -15px;
+  left: 0;
+  height: 2px;
+  background: #111111;
+  content: "";
+}
+
+.chat-workspace-oss-shell__ports {
+  justify-content: space-between;
+}
+
+.chat-workspace-oss-shell__ports h3 {
+  margin: 0;
+  color: #2c3a4a;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.chat-workspace-oss-shell__ports button {
+  min-height: 32px;
+  border: 0;
+  border-radius: 8px;
+  background: #f5f5f4;
+  color: #111111;
+  padding: 0 12px;
+  font: inherit;
+  font-weight: 700;
+}
+
+.chat-workspace-oss-shell__bottom-panel p {
+  display: grid;
+  place-items: center;
+  min-height: 58px;
+  margin: 0;
+  border: 1px solid #eeeeee;
+  border-radius: 10px;
+  color: #777777;
+  font-size: 13px;
 }
 
 .chat-workspace-oss-shell__overlay-card {

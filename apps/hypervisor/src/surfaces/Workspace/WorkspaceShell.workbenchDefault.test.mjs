@@ -46,6 +46,15 @@ test("Repository chooser remains an explicit secondary action", () => {
 });
 
 test("Workbench degraded state keeps the light IOI session posture", () => {
+  assert.match(shellSource, /chat-workspace-oss-shell__fallback-grid/);
+  assert.match(shellSource, /chat-workspace-oss-shell__environment/);
+  assert.match(shellSource, /chat-workspace-oss-shell__changes/);
+  assert.match(shellSource, />Ports & Services</);
+  assert.match(
+    shellSource,
+    /\{!overlayVisible \? \([\s\S]*?chat-workspace-oss-shell__workbench-header/,
+    "The fallback owns the route chrome and must not render an extra Workbench header.",
+  );
   assert.match(
     shellCss,
     /\.chat-workspace-oss-shell\s*\{[\s\S]*?background: #f7f7f6;/,
@@ -60,6 +69,14 @@ test("Workbench degraded state keeps the light IOI session posture", () => {
   );
   assert.match(
     traceCss,
-    /\.chat-workspace-oss-shell__overlay-card\s*\{[\s\S]*?background: #ffffff;/,
+    /\.chat-workspace-oss-shell__fallback-grid\s*\{[\s\S]*?grid-template-columns: minmax\(0, 1fr\) 388px;/,
+  );
+  assert.match(
+    traceCss,
+    /\.chat-workspace-oss-shell__environment\s*\{[\s\S]*?background: #ffffff;/,
+  );
+  assert.match(
+    traceCss,
+    /\.chat-workspace-oss-shell__changes\s*\{[\s\S]*?border-left: 1px solid #dedede;/,
   );
 });

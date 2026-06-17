@@ -514,20 +514,22 @@ export function WorkspaceShell({
         />
       ) : (
         <div className="chat-workspace-oss-shell__workbench">
-          <header className="chat-workspace-oss-shell__workbench-header">
-            <button
-              type="button"
-              className="chat-workspace-oss-shell__back"
-              onClick={returnToRepositoryGate}
-            >
-              {renderShellIcon(ArrowLeft, { size: 15, "aria-hidden": true })}
-              <span>Workbench</span>
-            </button>
-            <div className="chat-workspace-oss-shell__workbench-title">
-              <strong>{workbenchProject.name}</strong>
-              <code>{workbenchProject.rootPath}</code>
-            </div>
-          </header>
+          {!overlayVisible ? (
+            <header className="chat-workspace-oss-shell__workbench-header">
+              <button
+                type="button"
+                className="chat-workspace-oss-shell__back"
+                onClick={returnToRepositoryGate}
+              >
+                {renderShellIcon(ArrowLeft, { size: 15, "aria-hidden": true })}
+                <span>Workbench</span>
+              </button>
+              <div className="chat-workspace-oss-shell__workbench-title">
+                <strong>{workbenchProject.name}</strong>
+                <code>{workbenchProject.rootPath}</code>
+              </div>
+            </header>
+          ) : null}
 
           <div
             className={clsx(
@@ -626,77 +628,190 @@ export function WorkspaceShell({
 
               {overlayVisible ? (
               <div className="chat-workspace-oss-shell__overlay">
-                <div className="chat-workspace-oss-shell__overlay-card">
-                  <span className="chat-workspace-oss-shell__eyebrow">
-                    {sessionDescriptor?.startupEyebrow ?? "Workspace runtime"}
-                  </span>
-                  <h2>{workbenchProject.name}</h2>
-                  <p>
-                    {blockingError
-                      ? (sessionDescriptor?.startupFailureDescription ??
-                        "The workspace runtime did not start cleanly.")
-                      : (sessionDescriptor?.startupDescription ??
-                        "Starting the workspace runtime for this workspace.")}
-                  </p>
-                  <div className="chat-workspace-oss-shell__meta">
-                    <span>Root</span>
-                    <code>{workbenchProject.rootPath}</code>
+                <div className="chat-workspace-oss-shell__fallback">
+                  <div className="chat-workspace-oss-shell__fallback-bar">
+                    <div className="chat-workspace-oss-shell__branch">
+                      <span className="chat-workspace-oss-shell__status-dot" />
+                      <strong>main</strong>
+                      <span aria-hidden="true">⌄</span>
+                    </div>
+                    <div className="chat-workspace-oss-shell__adapter-pill">
+                      Hypervisor Core
+                      <span aria-hidden="true">⌄</span>
+                    </div>
                   </div>
-                  {session ? (
-                    <div className="chat-workspace-oss-shell__meta">
-                      <span>Runtime</span>
-                      <code>{sessionDescriptor?.runtimeLabel}</code>
-                    </div>
-                  ) : null}
-                  {import.meta.env.DEV ? (
-                    <details className="chat-workspace-oss-shell__diagnostics">
-                      <summary>Diagnostics</summary>
-                      <div className="chat-workspace-oss-shell__meta">
-                        <span>Debug</span>
-                        <code>
-                          {`status=${status} session=${session ? "yes" : "no"} surface=${surface?.kind ?? "none"}`}
-                        </code>
+                  <div className="chat-workspace-oss-shell__fallback-tabs">
+                    <span>Code</span>
+                    <strong>{workbenchProject.name}</strong>
+                    <span className="is-active">Environment</span>
+                  </div>
+
+                  <div className="chat-workspace-oss-shell__fallback-grid">
+                    <main className="chat-workspace-oss-shell__environment">
+                      <div className="chat-workspace-oss-shell__environment-head">
+                        <div className="chat-workspace-oss-shell__environment-title">
+                          <span
+                            className={clsx(
+                              "chat-workspace-oss-shell__toggle",
+                              !blockingError && "is-on",
+                            )}
+                            aria-hidden="true"
+                          />
+                          <h2>
+                            {blockingError
+                              ? "Environment needs runtime"
+                              : "Environment starting"}
+                          </h2>
+                        </div>
+                        <dl className="chat-workspace-oss-shell__environment-stats">
+                          <div>
+                            <dt>Auto-stop after</dt>
+                            <dd>30m of inactivity</dd>
+                          </div>
+                          <div>
+                            <dt>Created</dt>
+                            <dd>5h ago</dd>
+                          </div>
+                          <div>
+                            <dt>Last started</dt>
+                            <dd>{session ? "now" : "pending"}</dd>
+                          </div>
+                          <div>
+                            <dt>Resource usage</dt>
+                            <dd className={blockingError ? "is-warn" : "is-ok"}>
+                              {blockingError ? "Needs host" : "Healthy"}
+                            </dd>
+                          </div>
+                        </dl>
                       </div>
-                      <div className="chat-workspace-oss-shell__meta">
-                        <span>Flags</span>
-                        <code>
-                          {`surfaceReady=${surfaceReady} overlay=${overlayVisible ? "yes" : "no"}`}
-                        </code>
+
+                      <div className="chat-workspace-oss-shell__timeline">
+                        {[
+                          ["Resolved workspace root", workbenchProject.rootPath],
+                          ["Loaded workspace refs", "Agentgres workspace state"],
+                          ["Selected adapter", sessionDescriptor?.runtimeLabel ?? "Hypervisor Core"],
+                          [
+                            blockingError
+                              ? "Waiting for host bridge"
+                              : "Starting governed session",
+                            blockingError
+                              ? blockingError.message
+                              : "Runtime session launch in progress",
+                          ],
+                        ].map(([label, detail], index) => (
+                          <div
+                            className="chat-workspace-oss-shell__timeline-row"
+                            key={label}
+                          >
+                            <span
+                              className={clsx(
+                                "chat-workspace-oss-shell__timeline-dot",
+                                index < 3 && "is-complete",
+                                index === 3 && blockingError && "is-warn",
+                              )}
+                            />
+                            <div>
+                              <strong>{label}</strong>
+                              <span>{detail}</span>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                      <div className="chat-workspace-oss-shell__meta">
-                        <span>Phase</span>
-                        <code>{bootPhase}</code>
+
+                      {blockingError ? (
+                        <div className="chat-workspace-oss-shell__error">
+                          <strong>{blockingError.title}</strong>
+                          <span>{blockingError.message}</span>
+                          <details>
+                            <summary>Advanced detail</summary>
+                            <code>{blockingError.technicalDetail}</code>
+                          </details>
+                        </div>
+                      ) : (
+                        <div className="chat-workspace-oss-shell__runtime-pending">
+                          <div
+                            className="chat-workspace-oss-shell__spinner"
+                            aria-hidden="true"
+                          />
+                          <span>
+                            {sessionDescriptor?.startupDescription ??
+                              "Starting the workspace runtime for this workspace."}
+                          </span>
+                        </div>
+                      )}
+
+                      {import.meta.env.DEV ? (
+                        <details className="chat-workspace-oss-shell__diagnostics">
+                          <summary>Diagnostics</summary>
+                          <div className="chat-workspace-oss-shell__meta">
+                            <span>Debug</span>
+                            <code>
+                              {`status=${status} session=${session ? "yes" : "no"} surface=${surface?.kind ?? "none"}`}
+                            </code>
+                          </div>
+                          <div className="chat-workspace-oss-shell__meta">
+                            <span>Phase</span>
+                            <code>{bootPhase}</code>
+                          </div>
+                        </details>
+                      ) : null}
+
+                      <div className="chat-workspace-oss-shell__actions">
+                        <button
+                          type="button"
+                          className="chat-workspace-oss-shell__button"
+                          onClick={() => {
+                            setSurfaceError(null);
+                            restartWorkspace();
+                          }}
+                        >
+                          {blockingError
+                            ? "Retry workspace runtime"
+                            : "Retry workspace surface"}
+                        </button>
                       </div>
-                    </details>
-                  ) : null}
-                  {blockingError ? (
-                    <div className="chat-workspace-oss-shell__error">
-                      <strong>{blockingError.title}</strong>
-                      <span>{blockingError.message}</span>
-                      <details>
-                        <summary>Advanced detail</summary>
-                        <code>{blockingError.technicalDetail}</code>
-                      </details>
-                    </div>
-                  ) : (
-                    <div
-                      className="chat-workspace-oss-shell__spinner"
-                      aria-hidden="true"
-                    />
-                  )}
-                  <div className="chat-workspace-oss-shell__actions">
-                    <button
-                      type="button"
-                      className="chat-workspace-oss-shell__button"
-                      onClick={() => {
-                        setSurfaceError(null);
-                        restartWorkspace();
-                      }}
-                    >
-                      {blockingError
-                        ? "Retry workspace runtime"
-                        : "Retry workspace surface"}
-                    </button>
+                    </main>
+
+                    <aside className="chat-workspace-oss-shell__changes">
+                      <div className="chat-workspace-oss-shell__changes-head">
+                        <strong>Changes</strong>
+                        <span aria-hidden="true">⌄</span>
+                      </div>
+                      <label className="chat-workspace-oss-shell__search">
+                        <span>⌕</span>
+                        <input readOnly value="" placeholder="Search files..." />
+                      </label>
+                      <div className="chat-workspace-oss-shell__change-list">
+                        <div>
+                          <span>.hypervisor/</span>
+                          <em>2</em>
+                        </div>
+                        <div>
+                          <code>session.json</code>
+                          <strong>+20</strong>
+                        </div>
+                        <div>
+                          <code>workspace.refs</code>
+                          <strong>+5</strong>
+                        </div>
+                        <div>
+                          <span>receipts/</span>
+                          <em>1</em>
+                        </div>
+                      </div>
+                      <div className="chat-workspace-oss-shell__bottom-panel">
+                        <nav>
+                          <strong>Ports & Services</strong>
+                          <span>Tasks</span>
+                          <span>Terminal</span>
+                        </nav>
+                        <div className="chat-workspace-oss-shell__ports">
+                          <h3>Ports</h3>
+                          <button type="button">+ Add port</button>
+                        </div>
+                        <p>No open ports</p>
+                      </div>
+                    </aside>
                   </div>
                 </div>
               </div>
