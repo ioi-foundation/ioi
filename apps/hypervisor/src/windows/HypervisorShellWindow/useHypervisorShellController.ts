@@ -46,7 +46,9 @@ import {
 } from "./hypervisorShellModel";
 import {
   HYPERVISOR_SESSION_LAUNCH_RECIPES,
+  buildHypervisorLaunchedSessionProjection,
   isHypervisorSurfaceId,
+  type HypervisorLaunchedSessionProjection,
   type HypervisorNewSessionLaunchRequest,
 } from "./hypervisorShellNavigationModel";
 import type { CapabilitySurface } from "../../surfaces/Capabilities";
@@ -304,6 +306,9 @@ export function useHypervisorShellController() {
   const [commandPaletteInitialQuery, setCommandPaletteInitialQuery] = useState("");
   const [catalogStageModalOpen, setCatalogStageModalOpen] = useState(false);
   const [newSessionModalOpen, setNewSessionModalOpen] = useState(false);
+  const [launchedSessionProjections, setLaunchedSessionProjections] = useState<
+    HypervisorLaunchedSessionProjection[]
+  >([]);
   const [capabilitiesSurfaceSeed, setCapabilitiesSurfaceSeed] =
     useState<CapabilitySurface | null>(null);
   const [capabilitiesTargetConnectorId, setCapabilitiesTargetConnectorId] =
@@ -430,9 +435,20 @@ export function useHypervisorShellController() {
     const project =
       PROJECT_SCOPES.find((candidate) => candidate.id === request.project_id) ??
       PROJECT_SCOPES[0]!;
+    const launchedSession = buildHypervisorLaunchedSessionProjection({
+      request,
+      recipe,
+      projectLabel: project.name,
+    });
 
     setCurrentProjectId(project.id);
     setNewSessionModalOpen(false);
+    setLaunchedSessionProjections((current) => [
+      launchedSession,
+      ...current.filter(
+        (existing) => existing.session_ref !== launchedSession.session_ref,
+      ),
+    ].slice(0, 12));
 
     if (recipe.surface_id === "automations") {
       setWorkflowSurface("canvas");
@@ -999,6 +1015,9 @@ export function useHypervisorShellController() {
       consumeComposeSeedProject: () => setComposeSeedProject(null),
       preflightSeed: workflowPreflightSeed,
       consumePreflightSeed: () => setWorkflowPreflightSeed(null),
+    },
+    sessions: {
+      launchedSessionProjections,
     },
     policy: {
       shieldPolicy,

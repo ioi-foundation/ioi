@@ -1122,6 +1122,13 @@ Current implementation cut:
   the activity rail and Home dashboard open the shell-level New Session modal
   modal launch routes through the Hypervisor shell controller to the selected
   canonical surface and seeds Sessions when the recipe is a Mission
+  `HypervisorLaunchedSessionProjection` now records every New Session launch,
+  regardless of target surface, as a daemon-admission-pending session route with
+  recipe, surface, project, adapter, harness, model route, authority, privacy,
+  and receipt refs. The Sessions cockpit renders those recent launches, so
+  Workbench, Agent, Automation, Foundry, Provider/Environment, and Private
+  Workspace sessions remain inspectable as cross-session Hypervisor routes while
+  still opening their target application surfaces.
 
 0A.6 Automations / Workflow Compositor projection is implemented:
   `hypervisorAutomationCompositorModel.ts` defines

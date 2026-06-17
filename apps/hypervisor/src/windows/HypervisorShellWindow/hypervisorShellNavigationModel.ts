@@ -226,6 +226,62 @@ export interface HypervisorNewSessionLaunchRequest {
   launch_summary: HypervisorNewSessionLaunchSummary;
 }
 
+export interface HypervisorLaunchedSessionProjection {
+  schema_version: "ioi.hypervisor.launched_session_projection.v1";
+  session_ref: string;
+  launch_receipt_ref: string;
+  recipe_ref: string;
+  recipe_kind: HypervisorSessionLaunchRecipe["kind"];
+  surface_id: HypervisorSurfaceId;
+  project_ref: string;
+  project_label: string;
+  launched_at_ms: number;
+  admission_state: "pending_daemon_admission";
+  launch_summary: HypervisorNewSessionLaunchSummary;
+  runtimeTruthSource: "daemon-runtime";
+}
+
+function safeLaunchId(value: string | number): string {
+  return String(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 96) || "launch";
+}
+
+export function buildHypervisorLaunchedSessionProjection({
+  request,
+  recipe,
+  projectLabel,
+  launchedAtMs = Date.now(),
+}: {
+  request: HypervisorNewSessionLaunchRequest;
+  recipe: HypervisorSessionLaunchRecipe;
+  projectLabel: string;
+  launchedAtMs?: number;
+}): HypervisorLaunchedSessionProjection {
+  const routeId = [
+    safeLaunchId(recipe.kind),
+    safeLaunchId(request.project_id),
+    safeLaunchId(request.recipe_id),
+    safeLaunchId(launchedAtMs),
+  ].join("/");
+  return {
+    schema_version: "ioi.hypervisor.launched_session_projection.v1",
+    session_ref: `session:launch/${routeId}`,
+    launch_receipt_ref: `receipt://hypervisor/new-session/${routeId}`,
+    recipe_ref: request.recipe_id,
+    recipe_kind: recipe.kind,
+    surface_id: recipe.surface_id,
+    project_ref: request.project_id,
+    project_label: projectLabel,
+    launched_at_ms: launchedAtMs,
+    admission_state: "pending_daemon_admission",
+    launch_summary: request.launch_summary,
+    runtimeTruthSource: "daemon-runtime",
+  };
+}
+
 export function buildHypervisorNewSessionLaunchSummary({
   recipe,
   projectId,

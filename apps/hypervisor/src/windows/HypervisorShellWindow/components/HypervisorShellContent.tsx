@@ -61,6 +61,7 @@ import {
   HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE,
   loadHypervisorSessionOperationsProjection,
 } from "../hypervisorSessionOperationsModel";
+import type { HypervisorLaunchedSessionProjection } from "../hypervisorShellNavigationModel";
 
 interface HypervisorShellContentProps {
   controller: ReturnType<typeof useHypervisorShellController>;
@@ -349,7 +350,11 @@ function HypervisorAutomationCompositorSurface({
   );
 }
 
-function HypervisorSessionOperationsCockpit() {
+function HypervisorSessionOperationsCockpit({
+  launchedSessions,
+}: {
+  launchedSessions: HypervisorLaunchedSessionProjection[];
+}) {
   const [projection, setProjection] = useState(
     HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE,
   );
@@ -390,6 +395,44 @@ function HypervisorSessionOperationsCockpit() {
           and Agentgres. The client can inspect them, not become runtime truth.
         </p>
       </div>
+
+      {launchedSessions.length > 0 ? (
+        <div
+          className="hypervisor-session-operations__launches"
+          aria-label="Recently launched governed sessions"
+          data-launched-session-count={launchedSessions.length}
+        >
+          {launchedSessions.map((session) => (
+            <article
+              key={session.session_ref}
+              className="hypervisor-session-operations__launch"
+              data-launched-session-ref={session.session_ref}
+              data-launched-session-surface={session.surface_id}
+              data-launched-session-state={session.admission_state}
+            >
+              <div>
+                <span>{session.surface_id}</span>
+                <h3>{session.project_label}</h3>
+                <p>{session.recipe_ref}</p>
+              </div>
+              <dl>
+                <div>
+                  <dt>Harness</dt>
+                  <dd>{session.launch_summary.harness_label}</dd>
+                </div>
+                <div>
+                  <dt>Adapter</dt>
+                  <dd>{session.launch_summary.workbench_adapter_ref}</dd>
+                </div>
+                <div>
+                  <dt>Receipt</dt>
+                  <dd>{session.launch_receipt_ref}</dd>
+                </div>
+              </dl>
+            </article>
+          ))}
+        </div>
+      ) : null}
 
       <div className="hypervisor-session-operations__rail" aria-label="Session rail">
         {projection.session_rail.map((railItem) => (
@@ -1365,7 +1408,11 @@ export function HypervisorShellContent({
 
                   {activeView === "sessions" ? (
                     <>
-                      <HypervisorSessionOperationsCockpit />
+                      <HypervisorSessionOperationsCockpit
+                        launchedSessions={
+                          controller.sessions.launchedSessionProjections
+                        }
+                      />
                       <ChatCopilotView
                         seedIntent={controller.chat.seedIntent}
                         onConsumeSeedIntent={controller.chat.consumeSeedIntent}

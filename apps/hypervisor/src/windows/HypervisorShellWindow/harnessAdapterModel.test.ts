@@ -19,6 +19,7 @@ import {
 import {
   HYPERVISOR_SESSION_LAUNCH_RECIPES,
   HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES,
+  buildHypervisorLaunchedSessionProjection,
   buildHypervisorNewSessionLaunchSummary,
   buildWorkbenchAdapterLaunchPlan,
 } from "./hypervisorShellNavigationModel.ts";
@@ -299,6 +300,36 @@ test("new session launch summary binds harness, model route, adapter target, pri
     requires_daemon_gate: true,
     runtimeTruthSource: "daemon-runtime",
   });
+
+  const launchedSession = buildHypervisorLaunchedSessionProjection({
+    request: {
+      recipe_id: recipe.recipe_id,
+      project_id: "project:ioi",
+      adapter_preference_ref: "workbench-adapter:external_editor",
+      harness_selection_ref: "agent-harness-adapter:deepseek_tui",
+      model_route_ref: HYPERVISOR_DEFAULT_LOCAL_MODEL_ROUTE_REF,
+      privacy_posture_ref: "privacy:redacted-projection",
+      authority_scope_refs: ["scope:workspace.read", "scope:receipt.write"],
+      receipt_preview_ref: "receipt-preview:new-session/test",
+      launch_summary: summary,
+    },
+    recipe,
+    projectLabel: "IOI",
+    launchedAtMs: 1_718_000,
+  });
+
+  assert.equal(
+    launchedSession.schema_version,
+    "ioi.hypervisor.launched_session_projection.v1",
+  );
+  assert.equal(
+    launchedSession.session_ref,
+    "session:launch/mission/project-ioi/mission-default/1718000",
+  );
+  assert.equal(launchedSession.surface_id, "sessions");
+  assert.equal(launchedSession.admission_state, "pending_daemon_admission");
+  assert.equal(launchedSession.launch_summary, summary);
+  assert.equal(launchedSession.runtimeTruthSource, "daemon-runtime");
 });
 
 test("workbench adapter launch plans bind connection contracts and leases", () => {

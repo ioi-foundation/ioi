@@ -268,6 +268,12 @@ test("new session modal is a shell-level governed launch flow", () => {
   assert.match(newSessionModal, /Launch governed session/);
   assert.match(controller, /newSessionModalOpen/);
   assert.match(controller, /launchNewSession/);
+  assert.match(source, /HypervisorLaunchedSessionProjection/);
+  assert.match(source, /buildHypervisorLaunchedSessionProjection/);
+  assert.match(source, /ioi\.hypervisor\.launched_session_projection\.v1/);
+  assert.match(controller, /launchedSessionProjections/);
+  assert.match(controller, /buildHypervisorLaunchedSessionProjection\(\{/);
+  assert.match(controller, /setLaunchedSessionProjections\(\(current\) => \[/);
   assert.match(controller, /const summary = request\.launch_summary/);
   assert.match(controller, /summary\.harness_label/);
   assert.match(controller, /summary\.model_route_availability_state/);
@@ -311,6 +317,12 @@ test("Sessions surface renders session tabs and operations inspectors from daemo
   assert.match(sessionOperationsModel, /ports_services/);
   assert.match(sessionOperationsModel, /terminal_events/);
   assert.match(shellContent, /HypervisorSessionOperationsCockpit/);
+  assert.match(shellContent, /launchedSessions: HypervisorLaunchedSessionProjection\[\]/);
+  assert.match(shellContent, /data-launched-session-count/);
+  assert.match(shellContent, /data-launched-session-ref/);
+  assert.match(shellContent, /data-launched-session-surface/);
+  assert.match(shellContent, /data-launched-session-state/);
+  assert.match(shellContent, /controller\.sessions\.launchedSessionProjections/);
   assert.match(shellContent, /loadHypervisorSessionOperationsProjection/);
   assert.match(shellContent, /\[Hypervisor\]\[Sessions\] operations projection unavailable/);
   assert.match(shellContent, /data-hypervisor-session-operations/);
