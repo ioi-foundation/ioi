@@ -194,6 +194,22 @@ export interface HarnessAdapterTestbedFixture {
   runtimeTruthSource: "daemon-runtime";
 }
 
+export interface HarnessPublicFixtureCandidateLane {
+  adapter_id: AgentHarnessAdapterId;
+  selection_ref: string;
+  runtime: "docker" | "podman";
+  container_image_ref: string;
+}
+
+export interface HarnessPublicFixtureRunRequest {
+  source: "hypervisor_foundry.harness_comparison_dashboard";
+  fixture_id: string;
+  task_ref: string;
+  min_installed_adapters: number;
+  installed_adapter_ids: AgentHarnessAdapterId[];
+  candidate_lanes: HarnessPublicFixtureCandidateLane[];
+}
+
 export interface HarnessCompatibilityVerdict {
   selection_ref: string;
   state: HarnessCompatibilityState;
@@ -206,6 +222,12 @@ export const HYPERVISOR_DEFAULT_LOCAL_MODEL_ROUTE_REF =
   "model-route:hypervisor/default-local";
 export const HYPERVISOR_CTEE_PRIVATE_WORKSPACE_PRIVACY_REF =
   "privacy:ctee-private-workspace";
+export const HYPERVISOR_HARNESS_PUBLIC_FIXTURE_RUN_PATH =
+  "/v1/hypervisor/harness-public-fixture-runs";
+export const HYPERVISOR_HARNESS_PUBLIC_FIXTURE_DAEMON_ENDPOINT_STORAGE_KEY =
+  "ioi.hypervisor.daemonEndpoint";
+export const HYPERVISOR_HARNESS_PUBLIC_FIXTURE_DEFAULT_DAEMON_ENDPOINT =
+  "http://127.0.0.1:8765";
 
 export const HYPERVISOR_NEW_SESSION_MODEL_MOUNT_INVENTORY_FIXTURE: HypervisorModelMountInventorySnapshot =
   {
@@ -708,3 +730,220 @@ export const HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE: HarnessComparisonRun = {
   ),
   runtimeTruthSource: "daemon-runtime",
 };
+
+type HarnessFetchLike = (
+  input: string,
+  init?: {
+    method?: string;
+    headers?: Record<string, string>;
+    body?: string;
+  },
+) => Promise<{
+  ok: boolean;
+  status: number;
+  text(): Promise<string>;
+}>;
+
+interface RequestHarnessPublicFixtureRunOptions {
+  endpoint?: string;
+  fetchImpl?: HarnessFetchLike;
+  request?: HarnessPublicFixtureRunRequest;
+}
+
+function objectRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function arrayRecords(value: unknown): Record<string, unknown>[] {
+  return Array.isArray(value) ? value.map(objectRecord) : [];
+}
+
+function stringValue(value: unknown, fallback: string): string {
+  return typeof value === "string" && value.trim() ? value.trim() : fallback;
+}
+
+function numberValue(value: unknown, fallback: number): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function stringList(value: unknown, fallback: string[]): string[] {
+  if (!Array.isArray(value)) {
+    return fallback;
+  }
+  const values = value
+    .filter(
+      (item): item is string =>
+        typeof item === "string" && item.trim().length > 0,
+    )
+    .map((item) => item.trim());
+  return values.length > 0 ? values : fallback;
+}
+
+function enumValue<T extends string>(
+  value: unknown,
+  fallback: T,
+  allowed: readonly T[],
+): T {
+  return typeof value === "string" && allowed.includes(value as T)
+    ? (value as T)
+    : fallback;
+}
+
+function maybeHarnessSelectionOption(
+  selectionRef: string,
+): HypervisorHarnessSelectionOption | undefined {
+  return HYPERVISOR_HARNESS_SELECTION_OPTIONS.find(
+    (candidate) => getHarnessSelectionRef(candidate) === selectionRef,
+  );
+}
+
+function containerFixtureAdapterProfiles(): AgentHarnessAdapterProfile[] {
+  return HYPERVISOR_AGENT_HARNESS_ADAPTER_PROFILES.filter(
+    (profile) =>
+      profile.adapter_id === "deepseek_tui" ||
+      profile.adapter_id === "generic_cli",
+  );
+}
+
+function containerRuntimeForLane(
+  lane: HarnessExecutionLane,
+): HarnessPublicFixtureCandidateLane["runtime"] {
+  return lane === "podman_container" ? "podman" : "docker";
+}
+
+function containerImageRefForAdapter(adapterId: AgentHarnessAdapterId): string {
+  return `container-image:${adapterId.replace(/_/g, "-")}:local`;
+}
+
+export function buildHarnessPublicFixtureRunRequest(): HarnessPublicFixtureRunRequest {
+  const containerProfiles = containerFixtureAdapterProfiles();
+  return {
+    source: "hypervisor_foundry.harness_comparison_dashboard",
+    fixture_id: "harness-testbed:public-code-edit-fixture",
+    task_ref: "task:fixture/public-code-edit-fixture",
+    min_installed_adapters: 2,
+    installed_adapter_ids: containerProfiles.map(
+      (profile) => profile.adapter_id,
+    ),
+    candidate_lanes: containerProfiles.map((profile) => ({
+      adapter_id: profile.adapter_id,
+      selection_ref: getHarnessSelectionRef(profile),
+      runtime: containerRuntimeForLane(profile.execution_lane),
+      container_image_ref: containerImageRefForAdapter(profile.adapter_id),
+    })),
+  };
+}
+
+function harnessComparisonCandidateReportFromAttempt(
+  attempt: Record<string, unknown>,
+  index: number,
+): HarnessComparisonCandidateReport {
+  const fallback =
+    HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE.candidate_reports[index] ??
+    HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE.candidate_reports[0]!;
+  const selectionRef = stringValue(
+    attempt.selection_ref,
+    fallback.selection_ref,
+  );
+  const option = maybeHarnessSelectionOption(selectionRef);
+  const exitStatus = enumValue(
+    attempt.exit_status,
+    "not_executed",
+    ["success", "failure", "not_executed"],
+  );
+  const receipt = objectRecord(attempt.receipt);
+  const agentgresRefs = stringList(receipt.agentgres_operation_refs, []);
+  const artifactRefs = stringList(receipt.artifact_refs, []);
+  const commandHash = stringValue(attempt.command_argv_hash, "command hash pending");
+  return {
+    selection_ref: selectionRef,
+    label:
+      option?.label ??
+      stringValue(attempt.adapter_id, fallback.label).split("_").join(" "),
+    execution_lane:
+      option?.selection_kind === "agent_harness_adapter"
+        ? option.execution_lane
+        : fallback.execution_lane,
+    output_summary:
+      exitStatus === "success"
+        ? `Daemon fixture completed under ${commandHash}.`
+        : exitStatus === "failure"
+          ? `Daemon fixture failed under ${commandHash}.`
+          : `Daemon fixture planned under ${commandHash}; executor not mounted.`,
+    estimated_cost_usd: numberValue(
+      attempt.estimated_cost_usd,
+      Number((0.01 + index * 0.005).toFixed(3)),
+    ),
+    verification_status:
+      exitStatus === "success"
+        ? "passed"
+        : exitStatus === "failure"
+          ? "blocked"
+          : "requires_review",
+    receipt_ref: stringValue(attempt.receipt_id, fallback.receipt_ref),
+    evidence_refs:
+      [...agentgresRefs, ...artifactRefs].length > 0
+        ? [...agentgresRefs, ...artifactRefs]
+        : fallback.evidence_refs,
+  };
+}
+
+export function normalizeHarnessComparisonRunFromPublicFixtureRun(
+  response: unknown,
+): HarnessComparisonRun {
+  const value = objectRecord(response);
+  const fallback = HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE;
+  const attempts = arrayRecords(value.attempts);
+  const candidateReports = attempts.map(harnessComparisonCandidateReportFromAttempt);
+  return {
+    schema_version: "ioi.hypervisor.harness_comparison_run.v1",
+    run_id: stringValue(value.run_id, fallback.run_id),
+    project_ref: fallback.project_ref,
+    task_ref: stringValue(value.task_ref, fallback.task_ref),
+    candidate_selection_refs: stringList(
+      value.candidate_selection_refs,
+      fallback.candidate_selection_refs,
+    ),
+    comparison_mode: "same_fixture",
+    acceptance_criteria_refs: fallback.acceptance_criteria_refs,
+    candidate_reports:
+      candidateReports.length > 0 ? candidateReports : fallback.candidate_reports,
+    receipt_refs: stringList(value.receipt_refs, fallback.receipt_refs),
+    runtimeTruthSource: "daemon-runtime",
+  };
+}
+
+export function readHypervisorHarnessPublicFixtureDaemonEndpoint(): string {
+  try {
+    if (typeof window === "undefined") {
+      return HYPERVISOR_HARNESS_PUBLIC_FIXTURE_DEFAULT_DAEMON_ENDPOINT;
+    }
+    return (
+      window.localStorage.getItem(
+        HYPERVISOR_HARNESS_PUBLIC_FIXTURE_DAEMON_ENDPOINT_STORAGE_KEY,
+      ) || HYPERVISOR_HARNESS_PUBLIC_FIXTURE_DEFAULT_DAEMON_ENDPOINT
+    );
+  } catch {
+    return HYPERVISOR_HARNESS_PUBLIC_FIXTURE_DEFAULT_DAEMON_ENDPOINT;
+  }
+}
+
+export async function requestHarnessPublicFixtureRun({
+  endpoint = readHypervisorHarnessPublicFixtureDaemonEndpoint(),
+  fetchImpl = fetch,
+  request = buildHarnessPublicFixtureRunRequest(),
+}: RequestHarnessPublicFixtureRunOptions = {}): Promise<HarnessComparisonRun> {
+  const url = `${endpoint.replace(/\/+$/, "")}${HYPERVISOR_HARNESS_PUBLIC_FIXTURE_RUN_PATH}`;
+  const response = await fetchImpl(url, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(request),
+  });
+  if (!response.ok) {
+    throw new Error(`Harness public fixture run failed: ${response.status}`);
+  }
+  const body = await response.text();
+  return normalizeHarnessComparisonRunFromPublicFixtureRun(JSON.parse(body));
+}

@@ -1747,11 +1747,16 @@ Current implementation cut:
   use redacted or public projections unless a future explicit private-workspace
   policy adds a compatible grant.
 
-  0B.7's comparison dashboard is implemented as a staged path: Hypervisor Home
-  keeps a compact New Session preview, and the Foundry surface now renders a
-  read-only `HarnessComparisonRun` dashboard with candidate output summaries,
+  0B.7's comparison dashboard is implemented as a governed product path:
+  Hypervisor Home keeps a compact New Session preview, and the Foundry surface
+  renders a `HarnessComparisonRun` dashboard with candidate output summaries,
   cost estimates, verification status, receipt refs, and evidence posture from
-  the same daemon-runtime fixture. Workbench remains the adapter target surface;
+  the same daemon-runtime fixture. Foundry can now request the daemon public
+  fixture route through `requestHarnessPublicFixtureRun`; the app builds only
+  the public container-adapter request, POSTs to
+  `/v1/hypervisor/harness-public-fixture-runs`, normalizes daemon attempts back
+  into comparison rows, and records daemon-unavailable state instead of
+  executing harnesses locally. Workbench remains the adapter target surface;
   Foundry owns comparison/eval visibility.
 
   0B.2's launch contract is hardened: `HypervisorNewSessionModal` now emits an
@@ -1797,8 +1802,10 @@ First implementation slice:
 8. Add comparison dashboard. Done for the first read-only Foundry dashboard:
    Home exposes the compact preview, while Foundry renders output, cost,
    verification, receipts, and evidence from the same `HarnessComparisonRun`
-   fixture. Product wiring from the dashboard into the daemon executor remains
-   follow-up hardening.
+   fixture. Product wiring from Foundry into the daemon public-fixture route is
+   implemented through `buildHarnessPublicFixtureRunRequest`,
+   `requestHarnessPublicFixtureRun`, and
+   `normalizeHarnessComparisonRunFromPublicFixtureRun`.
 9. Add source scans proving no external harness bypasses daemon gates. Done for
    static model and runtime-layout guard.
 ```

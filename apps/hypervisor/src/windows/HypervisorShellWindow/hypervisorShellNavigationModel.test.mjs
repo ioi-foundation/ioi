@@ -361,7 +361,12 @@ test("new session modal is a shell-level governed launch flow", () => {
 test("Foundry exposes harness comparison as a daemon-runtime dashboard", () => {
   assert.match(shellContent, /HypervisorHarnessComparisonDashboard/);
   assert.match(shellContent, /HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE/);
+  assert.match(shellContent, /requestHarnessPublicFixtureRun/);
   assert.match(shellContent, /data-hypervisor-harness-comparison-run/);
+  assert.match(shellContent, /data-hypervisor-harness-comparison-state/);
+  assert.match(shellContent, /data-harness-comparison-action="request-daemon-run"/);
+  assert.match(shellContent, /setComparison\(nextComparison\)/);
+  assert.match(shellContent, /daemon_unavailable/);
   assert.match(shellContent, /Harness comparison dashboard/);
   assert.match(shellContent, /output, cost, verification, receipts, and evidence/);
   assert.match(shellContent, /candidate_reports\.map/);

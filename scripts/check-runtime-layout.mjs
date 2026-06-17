@@ -1058,6 +1058,38 @@ assert(
   "Harness container execution must be daemon-owned, command-hash verified, source-ref resolved, network-disabled by default, and receipt-only with output hashes.",
 );
 assert(
+  "hypervisor-foundry-harness-comparison-daemon-run",
+  hypervisorHarnessAdapterModelSource.includes(
+    "buildHarnessPublicFixtureRunRequest",
+  ) &&
+    hypervisorHarnessAdapterModelSource.includes(
+      "requestHarnessPublicFixtureRun",
+    ) &&
+    hypervisorHarnessAdapterModelSource.includes(
+      "normalizeHarnessComparisonRunFromPublicFixtureRun",
+    ) &&
+    hypervisorHarnessAdapterModelSource.includes(
+      "hypervisor_foundry.harness_comparison_dashboard",
+    ) &&
+    hypervisorShellContentSource.includes("requestHarnessPublicFixtureRun") &&
+    hypervisorShellContentSource.includes(
+      'data-harness-comparison-action="request-daemon-run"',
+    ) &&
+    hypervisorShellContentSource.includes(
+      "data-hypervisor-harness-comparison-state",
+    ) &&
+    hypervisorShellContentSource.includes("setComparison(nextComparison)") &&
+    publicRuntimeRoutesTestSource.includes(
+      "public runtime routes expose harness public fixture comparison under daemon gates",
+    ),
+  [
+    "apps/hypervisor/src/windows/HypervisorShellWindow/harnessAdapterModel.ts",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorShellContent.tsx",
+    "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
+  ],
+  "Foundry harness comparison must request the daemon public-fixture route, normalize daemon attempts into comparison rows, and never execute external harnesses locally.",
+);
+assert(
   "hypervisor-model-weight-custody-admission",
   runtimeModelWeightCustodyAdmissionSource.includes(
     "ioi.runtime.model_weight_custody_admission.v1",

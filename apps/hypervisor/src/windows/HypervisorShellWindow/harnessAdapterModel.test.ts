@@ -8,13 +8,17 @@ import {
   HYPERVISOR_DEFAULT_LOCAL_MODEL_ROUTE_REF,
   HYPERVISOR_HARNESS_ADAPTER_TESTBED_FIXTURE,
   HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE,
+  HYPERVISOR_HARNESS_PUBLIC_FIXTURE_RUN_PATH,
   HYPERVISOR_HARNESS_SELECTION_OPTIONS,
   HYPERVISOR_NEW_SESSION_MODEL_MOUNT_INVENTORY_FIXTURE,
   buildHarnessAdapterReceiptDraft,
   buildHarnessCompatibilityVerdict,
+  buildHarnessPublicFixtureRunRequest,
   getHarnessSelectionRef,
   isAgentHarnessAdapterOption,
   modelRouteSupportsHypervisorMountFromInventory,
+  normalizeHarnessComparisonRunFromPublicFixtureRun,
+  requestHarnessPublicFixtureRun,
 } from "./harnessAdapterModel.ts";
 import {
   HYPERVISOR_SESSION_LAUNCH_RECIPES,
@@ -223,6 +227,125 @@ test("receipt drafts bind adapter execution through daemon truth and workspace p
     "harness-profile:default_harness_profile",
   );
   assert.equal(defaultReceipt.workspace_mount_policy, "ctee_private_workspace");
+});
+
+test("foundry public fixture request only targets container adapters under daemon gates", () => {
+  const request = buildHarnessPublicFixtureRunRequest();
+
+  assert.equal(
+    request.source,
+    "hypervisor_foundry.harness_comparison_dashboard",
+  );
+  assert.equal(request.min_installed_adapters, 2);
+  assert.deepEqual(request.installed_adapter_ids, [
+    "deepseek_tui",
+    "generic_cli",
+  ]);
+  assert.deepEqual(
+    request.candidate_lanes.map((lane) => lane.selection_ref),
+    [
+      "agent-harness-adapter:deepseek_tui",
+      "agent-harness-adapter:generic_cli",
+    ],
+  );
+  assert.deepEqual(
+    request.candidate_lanes.map((lane) => lane.runtime),
+    ["docker", "docker"],
+  );
+  assert.ok(
+    request.candidate_lanes.every((lane) =>
+      lane.container_image_ref.startsWith("container-image:"),
+    ),
+  );
+  assert.doesNotMatch(JSON.stringify(request), /default_harness_profile/);
+});
+
+test("foundry public fixture daemon response normalizes into comparison dashboard rows", async () => {
+  const daemonResponse = {
+    schema_version: "ioi.hypervisor.harness_public_fixture_run.v1",
+    run_id: "harness-public-fixture-runs:test",
+    task_ref: "task:fixture/public-code-edit-fixture",
+    candidate_selection_refs: [
+      "agent-harness-adapter:deepseek_tui",
+      "agent-harness-adapter:generic_cli",
+    ],
+    receipt_refs: [
+      "receipt://harness-container/deepseek",
+      "receipt://harness-container/generic",
+    ],
+    attempts: [
+      {
+        selection_ref: "agent-harness-adapter:deepseek_tui",
+        adapter_id: "deepseek_tui",
+        exit_status: "success",
+        receipt_id: "receipt://harness-container/deepseek",
+        command_argv_hash: "sha256:deepseek",
+        receipt: {
+          agentgres_operation_refs: [
+            "agentgres://operation/deepseek/public-fixture",
+          ],
+          artifact_refs: ["artifact://harness-fixture/deepseek/stdout"],
+        },
+      },
+      {
+        selection_ref: "agent-harness-adapter:generic_cli",
+        adapter_id: "generic_cli",
+        exit_status: "not_executed",
+        receipt_id: "receipt://harness-container/generic",
+        command_argv_hash: "sha256:generic",
+        receipt: { agentgres_operation_refs: [], artifact_refs: [] },
+      },
+    ],
+  };
+
+  const normalized =
+    normalizeHarnessComparisonRunFromPublicFixtureRun(daemonResponse);
+  assert.equal(
+    normalized.schema_version,
+    "ioi.hypervisor.harness_comparison_run.v1",
+  );
+  assert.equal(normalized.run_id, "harness-public-fixture-runs:test");
+  assert.equal(normalized.runtimeTruthSource, "daemon-runtime");
+  assert.deepEqual(
+    normalized.candidate_reports.map((report) => report.verification_status),
+    ["passed", "requires_review"],
+  );
+  assert.match(
+    normalized.candidate_reports[0].output_summary,
+    /Daemon fixture completed/,
+  );
+  assert.deepEqual(normalized.candidate_reports[0].evidence_refs, [
+    "agentgres://operation/deepseek/public-fixture",
+    "artifact://harness-fixture/deepseek/stdout",
+  ]);
+
+  const calls: Array<{
+    url: string;
+    init: Record<string, unknown> | undefined;
+  }> = [];
+  const requested = await requestHarnessPublicFixtureRun({
+    endpoint: "http://daemon.local",
+    request: buildHarnessPublicFixtureRunRequest(),
+    fetchImpl: async (url, init) => {
+      calls.push({ url, init });
+      return {
+        ok: true,
+        status: 202,
+        text: async () => JSON.stringify(daemonResponse),
+      };
+    },
+  });
+
+  assert.equal(
+    calls[0]?.url,
+    `http://daemon.local${HYPERVISOR_HARNESS_PUBLIC_FIXTURE_RUN_PATH}`,
+  );
+  assert.equal(calls[0]?.init?.method, "POST");
+  assert.equal(
+    JSON.parse(String(calls[0]?.init?.body)).source,
+    "hypervisor_foundry.harness_comparison_dashboard",
+  );
+  assert.equal(requested.candidate_reports[0].verification_status, "passed");
 });
 
 test("new session launch summary binds harness, model route, adapter target, privacy, and receipt", () => {

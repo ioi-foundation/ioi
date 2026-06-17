@@ -33,7 +33,10 @@ import {
   HYPERVISOR_AUTOMATION_COMPOSITOR_PROJECTION_FIXTURE,
   loadHypervisorAutomationCompositorProjection,
 } from "../hypervisorAutomationCompositorModel";
-import { HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE } from "../harnessAdapterModel";
+import {
+  HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE,
+  requestHarnessPublicFixtureRun,
+} from "../harnessAdapterModel";
 import {
   HYPERVISOR_MODEL_INFRASTRUCTURE_PROJECTION_FIXTURE,
   loadHypervisorModelInfrastructureProjection,
@@ -147,22 +150,68 @@ function HypervisorSurfacePlaceholder({
 }
 
 function HypervisorHarnessComparisonDashboard() {
-  const comparison = HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE;
+  const [comparison, setComparison] = useState(
+    HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE,
+  );
+  const [runState, setRunState] = useState<
+    "fixture" | "requesting_daemon" | "daemon_admitted" | "daemon_unavailable"
+  >("fixture");
+  const [runMessage, setRunMessage] = useState(
+    "Fixture projection is loaded until a daemon run is requested.",
+  );
+
+  async function handleDaemonFixtureRun() {
+    setRunState("requesting_daemon");
+    setRunMessage("Requesting daemon-mediated public fixture run...");
+    try {
+      const nextComparison = await requestHarnessPublicFixtureRun();
+      setComparison(nextComparison);
+      setRunState("daemon_admitted");
+      setRunMessage(
+        `Daemon returned ${nextComparison.receipt_refs.length} receipt refs for ${nextComparison.candidate_reports.length} harness candidates.`,
+      );
+    } catch (error) {
+      setRunState("daemon_unavailable");
+      setRunMessage(
+        error instanceof Error
+          ? error.message
+          : "Harness public fixture run could not reach the daemon route.",
+      );
+    }
+  }
+
   return (
     <section
       className="hypervisor-harness-comparison"
       aria-label="Harness comparison dashboard"
       data-hypervisor-harness-comparison-run={comparison.run_id}
+      data-hypervisor-harness-comparison-state={runState}
     >
       <div className="hypervisor-harness-comparison__header">
-        <span>Foundry comparison</span>
-        <h2>Compare harness adapters against one public fixture.</h2>
-        <p>
-          Foundry reads the same daemon-runtime comparison contract as New
-          Session, then makes output, cost, verification, receipts, and evidence
-          visible before any adapter is treated as reliable.
-        </p>
+        <div>
+          <span>Foundry comparison</span>
+          <h2>Compare harness adapters against one public fixture.</h2>
+          <p>
+            Foundry reads the same daemon-runtime comparison contract as New
+            Session, then makes output, cost, verification, receipts, and evidence
+            visible before any adapter is treated as reliable.
+          </p>
+        </div>
+        <button
+          type="button"
+          data-harness-comparison-action="request-daemon-run"
+          disabled={runState === "requesting_daemon"}
+          onClick={handleDaemonFixtureRun}
+        >
+          {runState === "requesting_daemon" ? "Requesting..." : "Run daemon fixture"}
+        </button>
       </div>
+      <p
+        className="hypervisor-harness-comparison__daemon-state"
+        data-harness-comparison-daemon-state={runState}
+      >
+        {runMessage}
+      </p>
 
       <div className="hypervisor-harness-comparison__summary" aria-label="Comparison summary">
         <div>

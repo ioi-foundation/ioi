@@ -2736,9 +2736,39 @@
 }
 
 .hypervisor-harness-comparison__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.hypervisor-harness-comparison__header > div {
   display: grid;
   gap: 8px;
   max-width: 760px;
+}
+
+.hypervisor-harness-comparison__header button {
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 10px;
+  background: rgba(241, 245, 249, 0.08);
+  color: #f8fafc;
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 700;
+  min-width: 152px;
+  padding: 10px 14px;
+}
+
+.hypervisor-harness-comparison__header button:disabled {
+  cursor: wait;
+  opacity: 0.64;
+}
+
+.hypervisor-harness-comparison__daemon-state {
+  margin: 16px 0 0;
+  color: #cbd5e1;
+  font-size: 0.85rem;
 }
 
 .hypervisor-harness-comparison__header span,
