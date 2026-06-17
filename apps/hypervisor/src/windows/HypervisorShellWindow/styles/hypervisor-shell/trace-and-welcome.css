@@ -102,8 +102,8 @@
   justify-content: center;
   padding: 28px;
   background:
-    linear-gradient(180deg, rgba(11, 13, 18, 0.96), rgba(11, 13, 18, 0.9)),
-    #1e1e1e;
+    radial-gradient(circle at 50% 42%, rgba(255, 255, 255, 0.82), rgba(247, 247, 246, 0) 36rem),
+    #f7f7f6;
 }
 
 .chat-workspace-oss-shell__overlay-card {
@@ -112,14 +112,14 @@
   flex-direction: column;
   gap: 14px;
   padding: 24px;
-  border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(20, 22, 29, 0.96);
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+  border-radius: 8px;
+  border: 1px solid #d8d8d8;
+  background: #ffffff;
+  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.08);
 }
 
 .chat-workspace-oss-shell__eyebrow {
-  color: var(--chat-text-muted);
+  color: #777777;
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.14em;
@@ -128,14 +128,14 @@
 
 .chat-workspace-oss-shell__overlay-card h2 {
   margin: 0;
-  color: var(--chat-text);
+  color: #151515;
   font-size: 20px;
   line-height: 1.15;
 }
 
 .chat-workspace-oss-shell__overlay-card p {
   margin: 0;
-  color: var(--chat-text-secondary);
+  color: #616161;
   line-height: 1.6;
 }
 
@@ -200,7 +200,7 @@
 }
 
 .chat-workspace-oss-shell__meta span {
-  color: var(--chat-text-muted);
+  color: #777777;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.08em;
@@ -209,9 +209,9 @@
 
 .chat-workspace-oss-shell__meta code {
   padding: 11px 12px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--chat-text);
+  border-radius: 6px;
+  background: #f5f5f4;
+  color: #202020;
   font-size: 12px;
   line-height: 1.5;
   white-space: pre-wrap;
@@ -222,13 +222,13 @@
   width: 34px;
   height: 34px;
   border-radius: 999px;
-  border: 2px solid rgba(255, 255, 255, 0.12);
-  border-top-color: rgba(96, 146, 255, 0.95);
+  border: 2px solid rgba(17, 17, 17, 0.12);
+  border-top-color: rgba(57, 119, 198, 0.95);
   animation: chat-workspace-oss-spin 0.8s linear infinite;
 }
 
 .chat-workspace-oss-shell__diagnostics {
-  color: var(--chat-text-muted);
+  color: #777777;
 }
 
 .chat-workspace-oss-shell__diagnostics summary {
@@ -249,10 +249,10 @@
 }
 
 .chat-workspace-oss-shell__button {
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  border-radius: 10px;
-  background: rgba(96, 146, 255, 0.18);
-  color: var(--chat-text);
+  border: 1px solid #cbd6eb;
+  border-radius: 6px;
+  background: #eef4ff;
+  color: #1b355d;
   min-height: 36px;
   padding: 0 14px;
   font: inherit;
@@ -264,8 +264,8 @@
 }
 
 .chat-workspace-oss-shell__button:hover {
-  background: rgba(96, 146, 255, 0.28);
-  border-color: rgba(96, 146, 255, 0.34);
+  background: #e1edff;
+  border-color: #aebfde;
 }
 
 .chat-workspace-oss-shell__error {
@@ -274,10 +274,10 @@
   gap: 6px;
   margin: 0;
   padding: 12px;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 120, 120, 0.22);
-  background: rgba(255, 120, 120, 0.08);
-  color: #ffb4b4;
+  border-radius: 6px;
+  border: 1px solid #edc7c7;
+  background: #fff6f6;
+  color: #7e2d2d;
   font-size: 12px;
   line-height: 1.55;
   white-space: pre-wrap;
@@ -285,12 +285,12 @@
 }
 
 .chat-workspace-oss-shell__error strong {
-  color: #ffd0d0;
+  color: #611f1f;
   font-size: 13px;
 }
 
 .chat-workspace-oss-shell__error details {
-  color: rgba(255, 212, 212, 0.72);
+  color: #7e5d5d;
 }
 
 .chat-workspace-oss-shell__error summary {

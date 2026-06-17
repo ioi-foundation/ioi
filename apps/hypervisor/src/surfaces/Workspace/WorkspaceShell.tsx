@@ -114,7 +114,7 @@ export function WorkspaceShell({
     [currentProject, projects],
   );
   const [shellMode, setShellMode] =
-    useState<WorkspaceShellMode>("repository-gate");
+    useState<WorkspaceShellMode>("workbench");
   const [repositories, setRepositories] = useState(() =>
     loadWorkspaceRepositories(seedProjects),
   );
@@ -127,8 +127,7 @@ export function WorkspaceShell({
   const [createdRepositoryNotice, setCreatedRepositoryNotice] =
     useState<WorkspaceRepositoryRecord | null>(null);
   const workbenchProject = selectedRepository ?? currentProject;
-  const workbenchActive =
-    active && shellMode === "workbench" && selectedRepository !== null;
+  const workbenchActive = active && shellMode === "workbench";
 
   const refreshRepositories = useCallback(() => {
     setRepositories(loadWorkspaceRepositories(seedProjects));
