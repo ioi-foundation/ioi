@@ -548,7 +548,7 @@ fn hash_json_ref(value: &Value) -> Result<String, ModelMountError> {
 
 fn provider_inventory_backend(request: &ModelMountProviderInventoryRequest) -> String {
     if is_native_local_provider_inventory_backend(request) {
-        "autopilot.native_local.fixture".to_string()
+        "hypervisor.native_local.fixture".to_string()
     } else if is_hosted_provider_inventory_backend(request) {
         "hosted_provider_metadata".to_string()
     } else {
@@ -569,7 +569,7 @@ fn provider_inventory_backend_id(request: &ModelMountProviderInventoryRequest) -
             .as_deref()
             .map(str::trim)
             .filter(|value| !value.is_empty())
-            .unwrap_or("backend.autopilot.native-local.fixture")
+            .unwrap_or("backend.hypervisor.native-local.fixture")
             .to_string();
     }
     if is_hosted_provider_inventory_backend(request) {
@@ -616,9 +616,9 @@ fn provider_inventory_evidence_refs(
     ];
     if is_native_local_provider_inventory_backend(request) {
         refs.push("rust_model_mount_native_local_inventory_backend".to_string());
-        refs.push("autopilot_native_local_backend_registry".to_string());
+        refs.push("hypervisor_native_local_backend_registry".to_string());
         if request.action.trim() == "list_loaded" {
-            refs.push("autopilot_native_local_process_supervisor".to_string());
+            refs.push("hypervisor_native_local_process_supervisor".to_string());
         }
         refs.push("deterministic_native_local_fixture".to_string());
     } else if is_hosted_provider_inventory_backend(request) {
@@ -963,7 +963,7 @@ mod tests {
             execution_backend: "rust_model_mount_native_local_inventory".to_string(),
             api_format: Some("ioi_native".to_string()),
             driver: Some("native_local".to_string()),
-            backend_ref: Some("backend.autopilot.native-local.fixture".to_string()),
+            backend_ref: Some("backend.hypervisor.native-local.fixture".to_string()),
             provider_status: Some("configured".to_string()),
             base_url: None,
             provider_auth_materialization_ref: None,
@@ -1045,8 +1045,8 @@ mod tests {
             "model_mount.provider.inventory.list_loaded"
         );
         assert_eq!(result.status, "listed");
-        assert_eq!(result.backend, "autopilot.native_local.fixture");
-        assert_eq!(result.backend_id, "backend.autopilot.native-local.fixture");
+        assert_eq!(result.backend, "hypervisor.native_local.fixture");
+        assert_eq!(result.backend_id, "backend.hypervisor.native-local.fixture");
         assert_eq!(result.driver, "native_local");
         assert_eq!(
             result.execution_backend,
@@ -1071,7 +1071,7 @@ mod tests {
             .contains(&"rust_model_mount_native_local_inventory_backend".to_string()));
         assert!(result
             .evidence_refs
-            .contains(&"autopilot_native_local_process_supervisor".to_string()));
+            .contains(&"hypervisor_native_local_process_supervisor".to_string()));
         assert!(result.inventory_hash.starts_with("sha256:"));
         assert_eq!(result.rust_core_boundary, "model_mount.provider_inventory");
         assert_eq!(result.record_dir, "model-provider-inventory");

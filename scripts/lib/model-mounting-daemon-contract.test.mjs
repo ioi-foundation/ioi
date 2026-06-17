@@ -718,7 +718,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.equal(nativeReceipt.details.backendId, "backend.hypervisor.native-local.fixture");
     assert.equal(nativeReceipt.details.backendProcess.status, "started");
     assert.equal(nativeReceipt.details.backendProcessPidHash, nativeLoaded.backendProcess.pidHash);
-    assert.ok(nativeReceipt.details.backendEvidenceRefs.includes("autopilot_native_local_openai_compatible_serving"));
+    assert.ok(nativeReceipt.details.backendEvidenceRefs.includes("hypervisor_native_local_openai_compatible_serving"));
     const nativeBackendLogs = await expectOk(
       daemon.endpoint,
       "/v1/model-mount/backends/backend.hypervisor.native-local.fixture/logs",

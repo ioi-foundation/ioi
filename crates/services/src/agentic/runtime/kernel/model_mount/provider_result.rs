@@ -584,7 +584,7 @@ mod tests {
             },
             provider_response_kind: Some("rust_model_mount.native_local.stream".to_string()),
             execution_backend: "rust_model_mount_native_local_stream".to_string(),
-            backend_ref: Some("backend.autopilot.native-local.fixture".to_string()),
+            backend_ref: Some("backend.hypervisor.native-local.fixture".to_string()),
             stream_status: admission.stream_status.clone(),
             hosted_transport_request_ref: None,
             hosted_transport_request_hash: None,
@@ -595,7 +595,9 @@ mod tests {
             ctee_egress_resolution_status: None,
             receipt_refs: admission.receipt_refs.clone(),
             provider_auth_evidence_refs: vec![],
-            backend_evidence_refs: vec!["autopilot_native_local_provider_native_stream".to_string()],
+            backend_evidence_refs: vec![
+                "hypervisor_native_local_provider_native_stream".to_string()
+            ],
             evidence_refs: vec![admission.provider_execution_ref.clone()],
             admitted_provider_execution: Some(admission),
         };

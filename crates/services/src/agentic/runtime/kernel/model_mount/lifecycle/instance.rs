@@ -522,7 +522,7 @@ fn value_string(value: &Value, field: &str) -> Option<String> {
 fn default_backend_for_provider(provider: &Value) -> Option<String> {
     let kind = value_string(provider, "kind").unwrap_or_default();
     match kind.as_str() {
-        "ioi_native_local" => Some("backend.autopilot.native-local.fixture".to_string()),
+        "ioi_native_local" => Some("backend.hypervisor.native-local.fixture".to_string()),
         "lm_studio" => Some("backend.lmstudio".to_string()),
         "ollama" => Some("backend.ollama".to_string()),
         "vllm" => Some("backend.vllm".to_string()),
@@ -741,7 +741,7 @@ mod tests {
                 "provider_kind": "ioi_native_local",
                 "api_format": "ioi_native",
                 "driver": "native_local",
-                "backend_id": "backend.autopilot.native-local.fixture",
+                "backend_id": "backend.hypervisor.native-local.fixture",
                 "privacy_class": "local_private",
                 "plaintext_transport_material_returned": false,
                 "authority": {"authority_hash": "sha256:authority:endpoint.native-qwen3"},
@@ -814,7 +814,7 @@ mod tests {
                 "provider_ref": "provider://ioi-native-local",
                 "action": "load",
                 "status": "loaded",
-                "backend_id": "backend.autopilot.native-local.fixture",
+                "backend_id": "backend.hypervisor.native-local.fixture",
                 "driver": "native_local",
                 "execution_backend": "rust_model_mount_instance_lifecycle",
                 "provider_lifecycle_hash": "sha256:provider-lifecycle",
@@ -839,7 +839,7 @@ mod tests {
             action: "load".to_string(),
             target_status: "loaded".to_string(),
             execution_backend: "rust_model_mount_instance_lifecycle".to_string(),
-            backend_ref: "backend.autopilot.native-local.fixture".to_string(),
+            backend_ref: "backend.hypervisor.native-local.fixture".to_string(),
             driver: "native_local".to_string(),
             provider_lifecycle_hash: "sha256:provider-lifecycle".to_string(),
             backend_process_ref: "backend_process://backend.native_process#sha256:plan".to_string(),
@@ -881,7 +881,7 @@ mod tests {
         assert_eq!(result.model_id, "model://qwen/qwen3.5-9b");
         assert_eq!(result.provider_id, "provider://ioi-native-local");
         assert_eq!(result.status, "loaded");
-        assert_eq!(result.backend_id, "backend.autopilot.native-local.fixture");
+        assert_eq!(result.backend_id, "backend.hypervisor.native-local.fixture");
         assert_eq!(result.driver, "native_local");
         assert_eq!(
             result.execution_backend,
@@ -970,7 +970,7 @@ mod tests {
             action: "supersede".to_string(),
             target_status: "superseded".to_string(),
             execution_backend: "rust_model_mount_instance_lifecycle".to_string(),
-            backend_ref: "backend.autopilot.native-local.fixture".to_string(),
+            backend_ref: "backend.hypervisor.native-local.fixture".to_string(),
             driver: "native_local".to_string(),
             provider_lifecycle_hash: "sha256:provider-lifecycle".to_string(),
             backend_process_ref: "backend_process://backend.native_process#sha256:plan".to_string(),

@@ -70,11 +70,11 @@ mod tests {
                 "rust_core_boundary": "model_mount.artifact_endpoint",
                 "endpoint_id": "endpoint.native-local",
                 "model_id": "model://qwen/qwen3.5-9b",
-                "provider_id": "provider.autopilot.local",
+                "provider_id": "provider.hypervisor.local",
                 "provider_kind": "ioi_native_local",
                 "api_format": "ioi_native",
                 "driver": "native_local",
-                "backend_id": "backend.autopilot.native-local.fixture",
+                "backend_id": "backend.hypervisor.native-local.fixture",
                 "privacy_class": "local_private",
                 "plaintext_transport_material_returned": false,
                 "receipt_refs": ["receipt://endpoint/native-local"],
@@ -92,17 +92,17 @@ mod tests {
         write_json_record(
             temp.path(),
             "model-providers",
-            "provider.autopilot.local.json",
+            "provider.hypervisor.local.json",
             json!({
-                "id": "provider.autopilot.local",
-                "record_id": "provider.autopilot.local",
+                "id": "provider.hypervisor.local",
+                "record_id": "provider.hypervisor.local",
                 "schema_version": "ioi.model_mount.provider_control.v1",
                 "object": "ioi.model_mount_provider",
                 "status": "configured",
                 "operation_kind": "model_mount.provider.write",
                 "source": "rust_daemon_core.model_mount.provider_control",
-                "provider_id": "provider.autopilot.local",
-                "provider_ref": "provider://provider.autopilot.local",
+                "provider_id": "provider.hypervisor.local",
+                "provider_ref": "provider://provider.hypervisor.local",
                 "kind": "ioi_native_local",
                 "label": "IOI native local",
                 "api_format": "ioi_native",
@@ -114,12 +114,12 @@ mod tests {
                 "ctee_custody_boundary": "ctee.provider_material",
                 "plaintext_material_returned": false,
                 "authority": {
-                    "authority_hash": "sha256:authority:provider.autopilot.local",
-                    "required_scope": "provider.write:provider.autopilot.local",
+                    "authority_hash": "sha256:authority:provider.hypervisor.local",
+                    "required_scope": "provider.write:provider.hypervisor.local",
                     "authority_grant_refs": ["wallet://grant/provider-control"],
                     "authority_receipt_refs": ["receipt://wallet/provider-control"]
                 },
-                "control_hash": "sha256:control:provider.autopilot.local",
+                "control_hash": "sha256:control:provider.hypervisor.local",
                 "evidence_refs": [
                     "rust_daemon_core_provider_control",
                     "wallet_network_provider_control_authority_required",
@@ -138,7 +138,7 @@ mod tests {
         let temp = seeded_instance_lifecycle_state_dir();
         let request: ModelMountProviderLifecycleRequest = serde_json::from_value(json!({
             "schema_version": MODEL_MOUNT_PROVIDER_LIFECYCLE_SCHEMA_VERSION,
-            "provider_ref": "provider.autopilot.local",
+            "provider_ref": "provider.hypervisor.local",
             "provider_kind": "ioi_native_local",
             "endpoint_ref": "endpoint.native-local",
             "model_ref": "model://qwen/qwen3.5-9b",
@@ -146,9 +146,9 @@ mod tests {
             "execution_backend": "rust_model_mount_native_local_lifecycle",
             "api_format": "ioi_native",
             "driver": "native_local",
-            "backend_ref": "backend.autopilot.native-local.fixture",
+            "backend_ref": "backend.hypervisor.native-local.fixture",
             "evidence_refs": ["daemon_model_load_request"],
-            "process_evidence_refs": ["autopilot_native_local_process_started"],
+            "process_evidence_refs": ["hypervisor_native_local_process_started"],
             "state_dir": temp.path().to_string_lossy().to_string()
         }))
         .expect("native-local lifecycle request");
@@ -158,9 +158,9 @@ mod tests {
         assert_eq!(response.status, "loaded");
         assert_eq!(
             response.backend_id,
-            "backend.autopilot.native-local.fixture"
+            "backend.hypervisor.native-local.fixture"
         );
-        assert_eq!(response.backend, "autopilot.native_local.fixture");
+        assert_eq!(response.backend, "hypervisor.native_local.fixture");
         assert_eq!(response.driver, "native_local");
         assert!(response.lifecycle_hash.starts_with("sha256:"));
         assert!(response
@@ -196,13 +196,13 @@ mod tests {
     fn rust_core_plans_model_mount_provider_inventory_direct_api() {
         let request: ModelMountProviderInventoryRequest = serde_json::from_value(json!({
             "schema_version": MODEL_MOUNT_PROVIDER_INVENTORY_SCHEMA_VERSION,
-            "provider_ref": "provider.autopilot.local",
+            "provider_ref": "provider.hypervisor.local",
             "provider_kind": "ioi_native_local",
             "action": "list_loaded",
             "execution_backend": "rust_model_mount_native_local_inventory",
             "api_format": "ioi_native",
             "driver": "native_local",
-            "backend_ref": "backend.autopilot.native-local.fixture"
+            "backend_ref": "backend.hypervisor.native-local.fixture"
         }))
         .expect("native-local inventory request");
 
@@ -211,9 +211,9 @@ mod tests {
         assert_eq!(response.status, "listed");
         assert_eq!(
             response.backend_id,
-            "backend.autopilot.native-local.fixture"
+            "backend.hypervisor.native-local.fixture"
         );
-        assert_eq!(response.backend, "autopilot.native_local.fixture");
+        assert_eq!(response.backend, "hypervisor.native_local.fixture");
         assert_eq!(response.driver, "native_local");
         assert_eq!(response.item_count, 1);
         assert_eq!(
@@ -231,7 +231,7 @@ mod tests {
         assert_eq!(response.record_dir, "model-provider-inventory");
         assert!(response
             .record_id
-            .starts_with("provider_inventory_provider.autopilot.local_list_loaded_"));
+            .starts_with("provider_inventory_provider.hypervisor.local_list_loaded_"));
         assert_eq!(
             response.record["id"].as_str(),
             Some(response.record_id.as_str())
@@ -254,16 +254,16 @@ mod tests {
             "instance_ref": "model_instance://native/qwen3",
             "endpoint_ref": "endpoint.native-local",
             "model_ref": "model://qwen/qwen3.5-9b",
-            "provider_ref": "provider.autopilot.local",
+            "provider_ref": "provider.hypervisor.local",
             "action": "load",
             "target_status": "loaded",
             "execution_backend": "rust_model_mount_instance_lifecycle",
-            "backend_ref": "backend.autopilot.native-local.fixture",
+            "backend_ref": "backend.hypervisor.native-local.fixture",
             "driver": "native_local",
             "provider_lifecycle_hash": "sha256:provider-lifecycle",
-            "backend_process_ref": "backend_process://backend.autopilot.native-local.fixture_process#sha256:plan",
+            "backend_process_ref": "backend_process://backend.hypervisor.native-local.fixture_process#sha256:plan",
             "backend_process_materialization_hash": "sha256:backend-process-materialization",
-            "backend_supervision_ref": "backend_supervision://backend.autopilot.native-local.fixture_process#sha256:plan",
+            "backend_supervision_ref": "backend_supervision://backend.hypervisor.native-local.fixture_process#sha256:plan",
             "backend_supervision_hash": "sha256:backend-supervision",
             "backend_supervision_status": "rust_fixture_supervision_bound",
             "state_dir": temp.path().to_string_lossy().to_string(),
@@ -276,7 +276,7 @@ mod tests {
         assert_eq!(response.status, "loaded");
         assert_eq!(
             response.backend_id,
-            "backend.autopilot.native-local.fixture"
+            "backend.hypervisor.native-local.fixture"
         );
         assert_eq!(response.driver, "native_local");
         assert_eq!(

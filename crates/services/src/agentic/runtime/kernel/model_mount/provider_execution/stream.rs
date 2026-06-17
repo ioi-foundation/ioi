@@ -106,7 +106,7 @@ fn provider_stream_backend(request: &ModelMountProviderInvocationRequest) -> Str
             .unwrap_or("hosted_provider_stream_transport")
             .to_string();
     }
-    "autopilot.native_local.fixture".to_string()
+    "hypervisor.native_local.fixture".to_string()
 }
 
 fn provider_stream_backend_id(request: &ModelMountProviderInvocationRequest) -> String {
@@ -136,7 +136,7 @@ fn provider_stream_backend_id(request: &ModelMountProviderInvocationRequest) -> 
         .as_deref()
         .map(str::trim)
         .filter(|value| !value.is_empty())
-        .unwrap_or("backend.autopilot.native-local.fixture")
+        .unwrap_or("backend.hypervisor.native-local.fixture")
         .to_string()
 }
 
@@ -265,7 +265,7 @@ fn provider_stream_invocation_evidence_refs(
         refs.push("hosted_provider_auth_header_materialization_contract_bound".to_string());
     } else {
         refs.push("rust_model_mount_native_local_stream_backend".to_string());
-        refs.push("autopilot_native_local_openai_compatible_serving".to_string());
+        refs.push("hypervisor_native_local_openai_compatible_serving".to_string());
         refs.push("deterministic_native_local_fixture".to_string());
     }
     for evidence_ref in provider_auth_evidence_refs(request)
@@ -376,7 +376,7 @@ mod tests {
             execution_backend: "rust_model_mount_native_local_stream".to_string(),
             api_format: Some("ioi_native".to_string()),
             driver: Some("native_local".to_string()),
-            backend_ref: Some("backend.autopilot.native-local.fixture".to_string()),
+            backend_ref: Some("backend.hypervisor.native-local.fixture".to_string()),
             base_url: None,
             provider_auth_materialization_ref: None,
             outbound_header_binding_ref: None,
@@ -468,11 +468,11 @@ mod tests {
             result.provider_response_kind,
             "rust_model_mount.native_local.stream"
         );
-        assert_eq!(result.backend, "autopilot.native_local.fixture");
-        assert_eq!(result.backend_id, "backend.autopilot.native-local.fixture");
+        assert_eq!(result.backend, "hypervisor.native_local.fixture");
+        assert_eq!(result.backend_id, "backend.hypervisor.native-local.fixture");
         assert!(result
             .output_text
-            .starts_with("Autopilot native local model response from model://qwen/qwen3.5-9b."));
+            .starts_with("Hypervisor native local model response from model://qwen/qwen3.5-9b."));
         assert!(result.stream_chunks.len() >= 2);
         assert!(result.stream_chunks[0].contains("\"done\":false"));
         assert!(result

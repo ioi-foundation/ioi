@@ -253,7 +253,12 @@ const hypervisorModelMountIdentitySources = [
   "packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs",
   "packages/runtime-daemon/src/model-mounting/model-mount-core.test.mjs",
   "packages/runtime-daemon/src/model-mounting/read-projection-direct.test.mjs",
-].map(read).join("\n");
+].map(read).join("\n") +
+  "\n" +
+  allFiles(
+    "crates/services/src/agentic/runtime/kernel/model_mount",
+    (relativePath) => relativePath.endsWith(".rs"),
+  ).map(read).join("\n");
 const packageScriptNames = Object.keys(packageJson.scripts ?? {});
 const retiredAutopilotPackageScripts = packageScriptNames.filter((scriptName) =>
   /^(?:goal|validate|test):autopilot/.test(scriptName),
@@ -712,6 +717,7 @@ assert(
   [
     "provider.hypervisor.local",
     "backend.hypervisor.native-local.fixture",
+    "hypervisor.native_local.fixture",
     "endpoint.hypervisor.native-fixture",
     "hypervisor:native-fixture",
     "hypervisor:gui-lifecycle",
@@ -719,17 +725,20 @@ assert(
     "hypervisor:gui-failed-download",
     "endpoint.hypervisor.gui-lifecycle",
     "hypervisor-local-server",
+    "hypervisor_native_local_openai_compatible_serving",
     "hypervisor_native_local_provider_native_stream",
     "hypervisor_native_local_backend_registry",
+    "hypervisor_native_local_process_supervisor",
     "fixture://catalog/hypervisor-native-3b-q4",
     "hypervisor:map-only",
+    "Hypervisor native local model response",
     "Hypervisor native fixture e2e",
     "Hypervisor native fixture tuned",
     "Hypervisor native-local route backed by configured llama.cpp runtime.",
     "Hypervisor received the catalog OAuth callback.",
     "governed Hypervisor model mounting path",
   ].every((token) => hypervisorModelMountIdentitySources.includes(token)) &&
-    !/provider\.autopilot\.local|backend\.autopilot\.native-local\.fixture|autopilot\.native_local\.fixture|endpoint\.autopilot\.local|endpoint\.autopilot\.native-fixture|endpoint\.autopilot\.gui-lifecycle|model\.autopilot\.local|autopilot:native-fixture|autopilot:map-only|autopilot:gui-|autopilot-local-server|autopilot_native_local_provider_native_stream|autopilot_native_local_backend_registry|fixture:\/\/catalog\/autopilot-native-3b-q4|fixture:\/\/autopilot|Autopilot native fixture|Autopilot-native local route|Autopilot received the catalog OAuth callback|governed Autopilot model mounting path/.test(
+    !/provider\.autopilot\.local|backend\.autopilot\.native-local\.fixture|autopilot\.native_local\.fixture|endpoint\.autopilot\.local|endpoint\.autopilot\.native-fixture|endpoint\.autopilot\.gui-lifecycle|model\.autopilot\.local|autopilot:native-fixture|autopilot:map-only|autopilot:gui-|autopilot-local-server|autopilot_native_local_openai_compatible_serving|autopilot_native_local_provider_native_stream|autopilot_native_local_backend_registry|autopilot_native_local_process_supervisor|autopilot_native_local_process_started|fixture:\/\/catalog\/autopilot-native-3b-q4|fixture:\/\/autopilot|Autopilot native local|Autopilot native fixture|Autopilot-native local route|Autopilot received the catalog OAuth callback|governed Autopilot model mounting path/.test(
       hypervisorModelMountIdentitySources,
     ),
   [

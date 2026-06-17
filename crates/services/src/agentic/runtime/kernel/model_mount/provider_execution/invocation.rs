@@ -184,7 +184,7 @@ mod tests {
         request.provider_kind = "ioi_native_local".to_string();
         request.api_format = Some("ioi_native".to_string());
         request.driver = Some("native_local".to_string());
-        request.backend_ref = Some("backend.autopilot.native-local.fixture".to_string());
+        request.backend_ref = Some("backend.hypervisor.native-local.fixture".to_string());
         request.admitted_provider_execution = Some(ModelMountProviderExecutionRecord {
             provider_ref: request.provider_ref.clone(),
             endpoint_ref: request.endpoint_ref.clone(),
@@ -202,15 +202,15 @@ mod tests {
             invoke_provider(&request).expect("native-local provider invocation executes in Rust");
 
         assert_eq!(result.execution_backend, "rust_model_mount_native_local");
-        assert_eq!(result.backend, "autopilot.native_local.fixture");
-        assert_eq!(result.backend_id, "backend.autopilot.native-local.fixture");
+        assert_eq!(result.backend, "hypervisor.native_local.fixture");
+        assert_eq!(result.backend_id, "backend.hypervisor.native-local.fixture");
         assert_eq!(
             result.provider_response_kind.as_deref(),
             Some("rust_model_mount.native_local")
         );
         assert!(result
             .output_text
-            .starts_with("Autopilot native local model response from model://qwen/qwen3.5-9b."));
+            .starts_with("Hypervisor native local model response from model://qwen/qwen3.5-9b."));
         assert!(result
             .evidence_refs
             .contains(&"rust_model_mount_native_local_backend".to_string()));

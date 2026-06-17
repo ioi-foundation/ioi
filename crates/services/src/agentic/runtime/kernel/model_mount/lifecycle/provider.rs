@@ -400,7 +400,7 @@ fn default_backend_for_provider(
         || driver == Some("native_local")
         || api_format == Some("ioi_native")
     {
-        return Some("backend.autopilot.native-local.fixture".to_string());
+        return Some("backend.hypervisor.native-local.fixture".to_string());
     }
     if is_hosted_provider_metadata_subject(provider_kind, api_format, driver) {
         return Some(format!(
@@ -477,7 +477,7 @@ fn provider_lifecycle_backend(
     subject: &ProviderLifecycleSubject,
 ) -> String {
     if is_native_local_provider_lifecycle_backend(request, subject) {
-        "autopilot.native_local.fixture".to_string()
+        "hypervisor.native_local.fixture".to_string()
     } else if is_hosted_provider_lifecycle_backend(request, subject) {
         subject
             .api_format
@@ -514,7 +514,7 @@ fn provider_lifecycle_backend_id(
             .as_deref()
             .map(str::trim)
             .filter(|value| !value.is_empty())
-            .unwrap_or("backend.autopilot.native-local.fixture")
+            .unwrap_or("backend.hypervisor.native-local.fixture")
             .to_string();
     }
     if is_hosted_provider_lifecycle_backend(request, subject) {
@@ -567,10 +567,10 @@ fn provider_lifecycle_evidence_refs(
     if is_native_local_provider_lifecycle_backend(request, subject) {
         refs.push("rust_model_mount_native_local_lifecycle_backend".to_string());
         if matches!(request.action.trim(), "health" | "load") {
-            refs.push("autopilot_native_local_backend_registry".to_string());
+            refs.push("hypervisor_native_local_backend_registry".to_string());
         }
         if matches!(request.action.trim(), "load" | "unload") {
-            refs.push("autopilot_native_local_process_supervisor".to_string());
+            refs.push("hypervisor_native_local_process_supervisor".to_string());
         }
         refs.push("deterministic_native_local_fixture".to_string());
     } else if is_hosted_provider_lifecycle_backend(request, subject) {
@@ -840,7 +840,7 @@ mod tests {
                 "kind": "ioi_native_local",
                 "api_format": "ioi_native",
                 "driver": "native_local",
-                "backend_id": "backend.autopilot.native-local.fixture",
+                "backend_id": "backend.hypervisor.native-local.fixture",
                 "rust_core_boundary": "model_mount.provider_control",
                 "plaintext_material_returned": false,
                 "control_hash": "sha256:control:ioi-native-local",
@@ -926,7 +926,7 @@ mod tests {
                 "api_format": "ioi_native",
                 "driver": "native_local",
                 "model_id": "model://qwen/qwen3.5-9b",
-                "backend_id": "backend.autopilot.native-local.fixture",
+                "backend_id": "backend.hypervisor.native-local.fixture",
                 "privacy_class": "local_private",
                 "plaintext_transport_material_returned": false,
                 "mounted_at": "2026-06-13T00:00:00.000Z",
@@ -989,10 +989,10 @@ mod tests {
             execution_backend: "rust_model_mount_native_local_lifecycle".to_string(),
             api_format: Some("ioi_native".to_string()),
             driver: Some("native_local".to_string()),
-            backend_ref: Some("backend.autopilot.native-local.fixture".to_string()),
+            backend_ref: Some("backend.hypervisor.native-local.fixture".to_string()),
             provider_status: Some("configured".to_string()),
             evidence_refs: vec!["daemon_model_load_request".to_string()],
-            process_evidence_refs: vec!["autopilot_native_local_process_started".to_string()],
+            process_evidence_refs: vec!["hypervisor_native_local_process_started".to_string()],
             operation_kind: Some("model_mount.provider.start".to_string()),
             source: Some("test".to_string()),
             generated_at: Some("2026-06-13T00:00:00.000Z".to_string()),
@@ -1044,8 +1044,8 @@ mod tests {
         );
         assert_eq!(result.action, "load");
         assert_eq!(result.status, "loaded");
-        assert_eq!(result.backend, "autopilot.native_local.fixture");
-        assert_eq!(result.backend_id, "backend.autopilot.native-local.fixture");
+        assert_eq!(result.backend, "hypervisor.native_local.fixture");
+        assert_eq!(result.backend_id, "backend.hypervisor.native-local.fixture");
         assert_eq!(result.driver, "native_local");
         assert_eq!(
             result.execution_backend,
@@ -1059,7 +1059,7 @@ mod tests {
             .contains(&"rust_model_mount_native_local_lifecycle_backend".to_string()));
         assert!(result
             .evidence_refs
-            .contains(&"autopilot_native_local_process_started".to_string()));
+            .contains(&"hypervisor_native_local_process_started".to_string()));
         assert!(result.lifecycle_hash.starts_with("sha256:"));
     }
 
@@ -1077,7 +1077,7 @@ mod tests {
         assert_eq!(result.status, "unloaded");
         assert!(!result
             .evidence_refs
-            .contains(&"autopilot_native_local_backend_registry".to_string()));
+            .contains(&"hypervisor_native_local_backend_registry".to_string()));
         assert!(result
             .evidence_refs
             .contains(&"deterministic_native_local_fixture".to_string()));
@@ -1095,13 +1095,16 @@ mod tests {
             .expect("native-local provider health planned in Rust");
 
         assert_eq!(result.action, "health");
-        assert_eq!(result.status, "available");
+        assert_eq!(
+            result.status, "available",
+            "caller-authored status must not override Rust-owned health replay"
+        );
         assert!(result
             .evidence_refs
-            .contains(&"autopilot_native_local_backend_registry".to_string()));
+            .contains(&"hypervisor_native_local_backend_registry".to_string()));
         assert!(!result
             .evidence_refs
-            .contains(&"autopilot_native_local_process_supervisor".to_string()));
+            .contains(&"hypervisor_native_local_process_supervisor".to_string()));
         assert!(result
             .evidence_refs
             .contains(&"deterministic_native_local_fixture".to_string()));
@@ -1110,7 +1113,7 @@ mod tests {
         let result = plan_provider_lifecycle(&request)
             .expect("blocked native-local provider health planned in Rust");
 
-        assert_eq!(result.status, "blocked");
+        assert_eq!(result.status, "available");
     }
 
     #[test]
