@@ -1112,6 +1112,19 @@ assert(
       "loadHypervisorSessionOperationsProjection",
     ) &&
     hypervisorShellContentSource.includes("data-session-operations-source") &&
+    hypervisorShellContentSource.includes("data-launched-session-admission-ref") &&
+    hypervisorShellContentSource.includes(
+      "data-launched-session-admission-decision",
+    ) &&
+    hypervisorShellContentSource.includes(
+      "data-launched-session-open-disabled",
+    ) &&
+    hypervisorShellContentSource.includes("canOpenLaunchedSessionSurface") &&
+    hypervisorShellContentSource.includes(
+      'session.admission_state === "daemon_admitted"',
+    ) &&
+    hypervisorShellContentSource.includes("Adapter admission") &&
+    hypervisorShellContentSource.includes("is-admission-blocked") &&
     publicRuntimeRoutesSource.includes("/v1/hypervisor/session-operations") &&
     publicRuntimeRoutesSource.includes(
       "runtime.lifecycle_projection.hypervisor_session_operations",
@@ -1130,7 +1143,7 @@ assert(
     "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
     "docs/architecture/components/daemon-runtime/api.md",
   ],
-  "Hypervisor Sessions should hydrate session rails, detail tabs, inspectors, leases, services, tasks, terminal events, and restore refs through the daemon/public runtime route with fixture fallback.",
+  "Hypervisor Sessions should hydrate session rails, detail tabs, inspectors, leases, services, tasks, terminal events, restore refs, and launched-session adapter admission state through daemon/public runtime routes; blocked/offline adapter admissions must stay inspectable but must not open target surfaces.",
 );
 assert(
   "hypervisor-project-state-live-projection",

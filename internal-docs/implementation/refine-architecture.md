@@ -1131,6 +1131,11 @@ Current implementation cut:
   rather than treating adapter choice as local UI state. Remaining 0A.5 work is
   adapter-specific executor/control wiring after admission for external desktop
   editors, browser IDEs, terminal harnesses, VMs, and HypervisorOS nodes.
+  Sessions now render each launched session's adapter admission record and
+  disable `Open surface` unless the Workbench adapter launch plan is
+  `daemon_admitted`. `daemon_blocked` and `daemon_unavailable` launches remain
+  inspectable as governed session records, but they cannot silently enter the
+  target application surface.
 
 0A.4 New Session is partially implemented:
   `HYPERVISOR_SESSION_LAUNCH_RECIPES` defines Mission, Workbench, Agent,
@@ -1146,7 +1151,8 @@ Current implementation cut:
   daemon-unavailable, or daemon-admission-pending session route with recipe,
   surface, project, adapter, adapter launch admission, harness, model route,
   authority, privacy, and receipt refs. The Sessions cockpit renders those
-  recent launches, so
+  recent launches with admission labels/details and admission-gated surface
+  entry, so
   Workbench, Agent, Automation, Foundry, Provider/Environment, and Private
   Workspace sessions remain inspectable as cross-session Hypervisor routes while
   still opening their target application surfaces. Recent launched sessions also

@@ -412,6 +412,42 @@ function HypervisorSessionOperationsCockpit({
       });
   }
 
+  function canOpenLaunchedSessionSurface(
+    session: HypervisorLaunchedSessionProjection,
+  ): boolean {
+    return session.admission_state === "daemon_admitted";
+  }
+
+  function launchedSessionAdmissionLabel(
+    session: HypervisorLaunchedSessionProjection,
+  ): string {
+    switch (session.admission_state) {
+      case "daemon_admitted":
+        return "Daemon admitted";
+      case "daemon_blocked":
+        return "Daemon blocked";
+      case "daemon_unavailable":
+        return "Daemon unavailable";
+      case "pending_daemon_admission":
+      default:
+        return "Pending daemon admission";
+    }
+  }
+
+  function launchedSessionAdmissionDetail(
+    session: HypervisorLaunchedSessionProjection,
+  ): string {
+    const admission = session.workbench_adapter_admission;
+    if (!admission) {
+      return "No adapter launch admission record has been attached yet.";
+    }
+    if (admission.decision === "admitted") {
+      const receiptRefs = admission.receipt_refs.join(" - ") || "receipt pending";
+      return `${admission.admission_id} / ${receiptRefs}`;
+    }
+    return admission.error_message;
+  }
+
   return (
     <section
       className="hypervisor-session-operations"
@@ -436,42 +472,67 @@ function HypervisorSessionOperationsCockpit({
           aria-label="Recently launched governed sessions"
           data-launched-session-count={launchedSessions.length}
         >
-          {launchedSessions.map((session) => (
-            <article
-              key={session.session_ref}
-              className="hypervisor-session-operations__launch"
-              data-launched-session-ref={session.session_ref}
-              data-launched-session-surface={session.surface_id}
-              data-launched-session-state={session.admission_state}
-            >
-              <div>
-                <span>{session.surface_id}</span>
-                <h3>{session.project_label}</h3>
-                <p>{session.recipe_ref}</p>
-                <button
-                  type="button"
-                  data-launched-session-open-surface={session.surface_id}
-                  onClick={() => onOpenSurface(session.surface_id)}
-                >
-                  Open surface
-                </button>
-              </div>
-              <dl>
+          {launchedSessions.map((session) => {
+            const canOpenSurface = canOpenLaunchedSessionSurface(session);
+            return (
+              <article
+                key={session.session_ref}
+                className={clsx(
+                  "hypervisor-session-operations__launch",
+                  !canOpenSurface && "is-admission-blocked",
+                )}
+                data-launched-session-ref={session.session_ref}
+                data-launched-session-surface={session.surface_id}
+                data-launched-session-state={session.admission_state}
+                data-launched-session-admission-ref={
+                  session.workbench_adapter_admission_ref ?? ""
+                }
+                data-launched-session-admission-decision={
+                  session.workbench_adapter_admission?.decision ?? "pending"
+                }
+                data-launched-session-open-disabled={!canOpenSurface}
+              >
                 <div>
-                  <dt>Harness</dt>
-                  <dd>{session.launch_summary.harness_label}</dd>
+                  <span>{session.surface_id}</span>
+                  <h3>{session.project_label}</h3>
+                  <p>{session.recipe_ref}</p>
+                  <button
+                    type="button"
+                    data-launched-session-open-surface={session.surface_id}
+                    disabled={!canOpenSurface}
+                    onClick={() => {
+                      if (canOpenSurface) {
+                        onOpenSurface(session.surface_id);
+                      }
+                    }}
+                  >
+                    Open surface
+                  </button>
                 </div>
-                <div>
-                  <dt>Adapter</dt>
-                  <dd>{session.launch_summary.workbench_adapter_ref}</dd>
-                </div>
-                <div>
-                  <dt>Receipt</dt>
-                  <dd>{session.launch_receipt_ref}</dd>
-                </div>
-              </dl>
-            </article>
-          ))}
+                <dl>
+                  <div>
+                    <dt>Adapter admission</dt>
+                    <dd>
+                      <strong>{launchedSessionAdmissionLabel(session)}</strong>
+                      <span>{launchedSessionAdmissionDetail(session)}</span>
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Harness</dt>
+                    <dd>{session.launch_summary.harness_label}</dd>
+                  </div>
+                  <div>
+                    <dt>Adapter</dt>
+                    <dd>{session.launch_summary.workbench_adapter_ref}</dd>
+                  </div>
+                  <div>
+                    <dt>Receipt</dt>
+                    <dd>{session.launch_receipt_ref}</dd>
+                  </div>
+                </dl>
+              </article>
+            );
+          })}
         </div>
       ) : null}
 
