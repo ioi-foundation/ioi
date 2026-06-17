@@ -173,6 +173,18 @@ const hypervisorVisibleSurfaceSources = [
   "packages/hypervisor-workbench/src/features/Connectors/components/MailConnectorPanel.tsx",
   "packages/hypervisor-workbench/src/runtime/harness-workflow/core.ts",
 ].map(read).join("\n");
+const hypervisorClientNamespaceSources = [
+  "apps/hypervisor/src/services/workspaceShellState.ts",
+  "apps/hypervisor/src/services/workspaceRuntimeNavigation.ts",
+  "apps/hypervisor/src/services/chatLaunchState.ts",
+  "apps/hypervisor/src/services/chatShellLaunchState.ts",
+  "apps/hypervisor/src/windows/ChatShellWindow/hooks/useChatVimMode.ts",
+  "apps/hypervisor/src/windows/ChatShellWindow/utils/traceBundleExportModel.ts",
+  "apps/hypervisor/src/windows/HypervisorShellWindow/HypervisorShellWindow.css",
+  "packages/workspace-substrate/src/codeOss.ts",
+  "packages/workspace-substrate/src/components/CodeOssEditor.tsx",
+  "packages/workspace-substrate/src/components/WorkspaceEditorPane.tsx",
+].map(read).join("\n");
 const packageScriptNames = Object.keys(packageJson.scripts ?? {});
 const retiredAutopilotPackageScripts = packageScriptNames.filter((scriptName) =>
   /^(?:goal|validate|test):autopilot/.test(scriptName),
@@ -502,6 +514,35 @@ assert(
     "packages/hypervisor-workbench/src/runtime/harness-workflow/core.ts",
   ],
   "Active visible app/workbench surfaces must use Hypervisor labels; Autopilot may remain only in protocol IDs, historical evidence, or explicit legacy fixtures.",
+);
+assert(
+  "active-client-namespaces-hypervisor-named",
+  [
+    "hypervisor.workspace-shell.v1",
+    "hypervisor.pending_chat_launch.v1",
+    "hypervisor.chat_launch_receipts.v1",
+    "hypervisor.pending_chat_shell_launch.v1",
+    "hypervisor.chat_session.vim_mode.v1",
+    "hypervisor:chat-session-vim-mode-updated",
+    "hypervisor-header.command-center",
+    "hypervisor-share",
+    "hypervisor-trace",
+    "hypervisor-dark",
+    "hypervisor-light",
+    "hypervisor-shell",
+  ].every((token) => hypervisorClientNamespaceSources.includes(token)) &&
+    !/autopilot-shell|autopilot-dark|autopilot-light|autopilot-share|autopilot-trace|autopilot\.pending|autopilot\.workspace-shell|autopilot\.chat_session|autopilot:chat-session|autopilot-header\.command-center/.test(
+      hypervisorClientNamespaceSources,
+    ),
+  [
+    "apps/hypervisor/src/services/*LaunchState.ts",
+    "apps/hypervisor/src/services/workspaceShellState.ts",
+    "apps/hypervisor/src/windows/ChatShellWindow/hooks/useChatVimMode.ts",
+    "apps/hypervisor/src/windows/ChatShellWindow/utils/traceBundleExportModel.ts",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/styles/hypervisor-shell",
+    "packages/workspace-substrate/src/codeOss.ts",
+  ],
+  "Active client storage keys, events, export prefixes, editor themes, and shell stylesheet paths must use Hypervisor namespaces.",
 );
 assert(
   "workbench-landing-adapter-hub",

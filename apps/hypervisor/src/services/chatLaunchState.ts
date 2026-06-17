@@ -5,8 +5,8 @@ import type {
 } from "@ioi/hypervisor-workbench";
 import type { ChatCapabilityDetailSection } from "../types";
 
-const STORAGE_KEY = "autopilot.pending_chat_launch.v1";
-const RECEIPTS_STORAGE_KEY = "autopilot.chat_launch_receipts.v1";
+const STORAGE_KEY = "hypervisor.pending_chat_launch.v1";
+const RECEIPTS_STORAGE_KEY = "hypervisor.chat_launch_receipts.v1";
 const MAX_RECEIPTS = 64;
 
 export type PendingChatLaunchRequest =

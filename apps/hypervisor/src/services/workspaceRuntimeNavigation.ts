@@ -177,7 +177,7 @@ export async function routeWorkspaceBridgeRequest(
       recordMetric?.("bridge_request_handled", {
         requestId: request.requestId,
         requestType: request.requestType,
-        routedTo: "autopilot-header.command-center",
+        routedTo: "hypervisor-header.command-center",
         commandId: readString(request.payload, "sourceCommand"),
       });
       return;

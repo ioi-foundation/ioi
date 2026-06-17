@@ -539,7 +539,7 @@ export function WorkspaceEditorPane({
               path={activeDocument.path}
               value={activeDocument.content}
               language={activeLanguage}
-              theme="autopilot-light"
+              theme="hypervisor-light"
               options={{
                 automaticLayout: true,
                 fontSize: 13,
@@ -611,7 +611,7 @@ export function WorkspaceEditorPane({
             original={activeDocument.diff.originalContent}
             modified={activeDocument.diff.modifiedContent}
             language={languageForPath(activeDocument.path, activeDocument.diff.languageHint)}
-            theme="autopilot-light"
+            theme="hypervisor-light"
             options={{
               automaticLayout: true,
               renderSideBySide: true,

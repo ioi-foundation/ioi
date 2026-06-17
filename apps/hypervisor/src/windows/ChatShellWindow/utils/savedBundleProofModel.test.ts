@@ -73,7 +73,7 @@ function dossier(exportVariant: "operator_share" | "redacted_share" | null) {
 {
   const overview = buildSavedBundleProofOverview({
     dossier: dossier("redacted_share"),
-    exportPath: "/tmp/autopilot-share.zip",
+    exportPath: "/tmp/hypervisor-share.zip",
     exportTimestampMs: Date.parse("2026-04-05T23:45:00.000Z"),
     exportVariant: "operator_share",
     bundle,
@@ -86,7 +86,7 @@ function dossier(exportVariant: "operator_share" | "redacted_share" | null) {
 {
   const overview = buildSavedBundleProofOverview({
     dossier: dossier("operator_share"),
-    exportPath: "/tmp/autopilot-share.zip",
+    exportPath: "/tmp/hypervisor-share.zip",
     exportTimestampMs: Date.parse("2026-04-05T23:45:00.000Z"),
     exportVariant: "operator_share",
     bundle,

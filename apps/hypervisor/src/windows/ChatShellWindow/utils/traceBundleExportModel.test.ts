@@ -10,26 +10,26 @@ function presetDefaultsMatchExpectedSharePosture(): void {
   const redactedPreset = traceBundleExportPreset("redacted_share");
 
   assert.equal(tracePreset.includeArtifactPayloads, true);
-  assert.equal(tracePreset.filenamePrefix, "autopilot-trace");
+  assert.equal(tracePreset.filenamePrefix, "hypervisor-trace");
 
   assert.equal(sharePreset.includeArtifactPayloads, true);
-  assert.equal(sharePreset.filenamePrefix, "autopilot-share");
+  assert.equal(sharePreset.filenamePrefix, "hypervisor-share");
   assert.equal(sharePreset.dialogTitle, "Export Operator Evidence Pack");
 
   assert.equal(redactedPreset.includeArtifactPayloads, false);
-  assert.equal(redactedPreset.filenamePrefix, "autopilot-share-redacted");
+  assert.equal(redactedPreset.filenamePrefix, "hypervisor-share-redacted");
   assert.equal(redactedPreset.notificationTitle, "Redacted Review Pack Ready");
 }
 
 function defaultFilenameUsesPresetPrefixAndThreadId(): void {
   const filename = buildTraceBundleDefaultFilename(
     "session-abcdef1234567890",
-    "autopilot-share",
+    "hypervisor-share",
   );
 
   assert.match(
     filename,
-    /^autopilot-share-session--\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}Z\.zip$/,
+    /^hypervisor-share-session--\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}Z\.zip$/,
   );
 }
 

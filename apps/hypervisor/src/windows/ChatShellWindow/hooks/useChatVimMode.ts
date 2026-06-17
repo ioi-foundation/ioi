@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-const STORAGE_KEY = "autopilot.chat_session.vim_mode.v1";
-const UPDATE_EVENT = "autopilot:chat-session-vim-mode-updated";
+const STORAGE_KEY = "hypervisor.chat_session.vim_mode.v1";
+const UPDATE_EVENT = "hypervisor:chat-session-vim-mode-updated";
 
 interface ChatVimModeEnvelope {
   enabled: boolean;

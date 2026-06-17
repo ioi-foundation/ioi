@@ -80,7 +80,7 @@ export function CodeOssEditor({
   options,
   className,
   style,
-  theme = "autopilot-dark",
+  theme = "hypervisor-dark",
   loadingLabel = "Loading editor",
 }: CodeOssEditorProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -232,7 +232,7 @@ export function CodeOssDiffEditor({
   options,
   className,
   style,
-  theme = "autopilot-dark",
+  theme = "hypervisor-dark",
   loadingLabel = "Loading diff editor",
 }: CodeOssDiffEditorProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);

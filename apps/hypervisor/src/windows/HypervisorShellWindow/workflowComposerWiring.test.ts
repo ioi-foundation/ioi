@@ -158,11 +158,11 @@ const workflowComposerCss = [
   .map((path) => fs.readFileSync(new URL(path, import.meta.url), "utf8"))
   .join("\n");
 const autopilotShellCss = fs.readFileSync(
-  new URL("./styles/autopilot-shell/trace-and-welcome.css", import.meta.url),
+  new URL("./styles/hypervisor-shell/trace-and-welcome.css", import.meta.url),
   "utf8",
 );
 const autopilotShellBaseCss = fs.readFileSync(
-  new URL("./styles/autopilot-shell/shell-base.css", import.meta.url),
+  new URL("./styles/hypervisor-shell/shell-base.css", import.meta.url),
   "utf8",
 );
 const hypervisorClientHeaderTsx = fs.readFileSync(

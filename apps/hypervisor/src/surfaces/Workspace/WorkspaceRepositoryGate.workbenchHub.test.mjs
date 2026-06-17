@@ -8,7 +8,7 @@ const gateSource = readFileSync(
 );
 const shellCss = readFileSync(
   new URL(
-    "../../windows/HypervisorShellWindow/styles/autopilot-shell/shell-base.css",
+    "../../windows/HypervisorShellWindow/styles/hypervisor-shell/shell-base.css",
     import.meta.url,
   ),
   "utf8",

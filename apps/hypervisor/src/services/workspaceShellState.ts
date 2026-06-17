@@ -15,7 +15,7 @@ export interface WorkspaceShellPersistedState {
   snapshot: WorkspaceSnapshot | null;
 }
 
-const STORAGE_PREFIX = "autopilot.workspace-shell.v1";
+const STORAGE_PREFIX = "hypervisor.workspace-shell.v1";
 
 function storageAvailable(): boolean {
   return typeof window !== "undefined" && typeof window.localStorage !== "undefined";

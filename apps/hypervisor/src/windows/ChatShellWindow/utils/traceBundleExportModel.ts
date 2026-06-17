@@ -47,7 +47,7 @@ export function traceBundleExportPreset(
       return {
         variant,
         dialogTitle: "Export Operator Evidence Pack",
-        filenamePrefix: "autopilot-share",
+        filenamePrefix: "hypervisor-share",
         includeArtifactPayloads: true,
         notificationTitle: "Operator Evidence Pack Ready",
       };
@@ -55,7 +55,7 @@ export function traceBundleExportPreset(
       return {
         variant,
         dialogTitle: "Export Redacted Review Pack",
-        filenamePrefix: "autopilot-share-redacted",
+        filenamePrefix: "hypervisor-share-redacted",
         includeArtifactPayloads: false,
         notificationTitle: "Redacted Review Pack Ready",
       };
@@ -64,7 +64,7 @@ export function traceBundleExportPreset(
       return {
         variant: "trace_bundle",
         dialogTitle: "Export Canonical Trace Bundle",
-        filenamePrefix: "autopilot-trace",
+        filenamePrefix: "hypervisor-trace",
         includeArtifactPayloads: true,
         notificationTitle: "Trace Bundle Export Complete",
       };

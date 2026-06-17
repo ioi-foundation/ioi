@@ -294,7 +294,7 @@ test("direct OpenVSCode workspace failures stay in integrated surface chrome", (
     "utf8",
   );
   const workspaceStyles = readFileSync(
-    "apps/hypervisor/src/windows/HypervisorShellWindow/styles/autopilot-shell/trace-and-welcome.css",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/styles/hypervisor-shell/trace-and-welcome.css",
     "utf8",
   );
 

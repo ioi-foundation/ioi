@@ -1,7 +1,7 @@
 import { invoke } from "./hypervisorHostBridge";
 import type { ArtifactHubViewKey } from "../types";
 
-const STORAGE_KEY = "autopilot.pending_chat_shell_launch.v1";
+const STORAGE_KEY = "hypervisor.pending_chat_shell_launch.v1";
 
 export type PendingChatShellLaunchRequest =
   | {

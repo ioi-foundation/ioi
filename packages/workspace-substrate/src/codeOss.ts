@@ -13,7 +13,7 @@ function defineAutopilotTheme() {
     return;
   }
 
-  monaco.editor.defineTheme("autopilot-dark", {
+  monaco.editor.defineTheme("hypervisor-dark", {
     base: "vs-dark",
     inherit: true,
     rules: [],
@@ -39,7 +39,7 @@ function defineAutopilotTheme() {
     },
   });
 
-  monaco.editor.defineTheme("autopilot-light", {
+  monaco.editor.defineTheme("hypervisor-light", {
     base: "vs",
     inherit: true,
     rules: [],
@@ -75,7 +75,7 @@ export async function ensureCodeOssReady() {
       waitForDefaultExtensions: false,
     }).then(async () => {
       defineAutopilotTheme();
-      monaco.editor.setTheme("autopilot-dark");
+      monaco.editor.setTheme("hypervisor-dark");
       await updateUserConfiguration(
         JSON.stringify(
           {

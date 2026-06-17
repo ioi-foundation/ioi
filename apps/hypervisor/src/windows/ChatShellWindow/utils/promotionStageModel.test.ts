@@ -69,7 +69,7 @@ function baseBundle(): CanonicalTraceBundle {
     target: "sas.xyz",
     bundle: baseBundle(),
     exportVariant: "operator_share",
-    exportPath: "/tmp/autopilot-share.zip",
+    exportPath: "/tmp/hypervisor-share.zip",
     durabilitySummary: "Replay-safe durability · Auto compaction · 3 synced entries",
     privacySummary: "Redaction-aware sharing · 1 redacted overrides",
     dossier,
