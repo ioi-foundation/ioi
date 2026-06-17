@@ -309,7 +309,7 @@ export function WorkspaceShell({
           code: "workspace_surface_attaching",
           title: "Attaching workspace surface",
           message:
-            "The OpenVSCode session is ready. Autopilot is attaching the embedded workbench surface.",
+            "The OpenVSCode session is ready. Hypervisor is attaching the embedded Workbench adapter surface.",
           repairLabel: "Retry workspace surface",
           technicalDetail: `surface=openvscode-direct surfaceReady=${surfaceReady} phase=${bootPhase}`,
         }
@@ -707,7 +707,7 @@ export function WorkspaceShell({
             {showOperatorChatPane ? (
               <aside
                 className="chat-workspace-oss-shell__operator-chat-slot"
-                aria-label="Autopilot workspace chat"
+                aria-label="Hypervisor workspace chat"
               >
                 {operatorChatPane}
               </aside>

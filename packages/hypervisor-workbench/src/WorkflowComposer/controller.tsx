@@ -399,7 +399,7 @@ function formatWorkflowProjectMaterializationError(error: unknown): string {
     normalized.includes("__tauri") ||
     (normalized.includes("tauri") && normalized.includes("invoke"))
   ) {
-    return "Creating a project from a workflow requires the Autopilot desktop runtime. Open this flow in the desktop app and try again.";
+    return "Creating a project from a workflow requires the Hypervisor runtime bridge. Open this flow in the desktop app and try again.";
   }
   return message || "Project materialization failed.";
 }

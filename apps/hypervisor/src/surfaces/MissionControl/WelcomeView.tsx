@@ -109,7 +109,7 @@ export function WelcomeView({
     {
       id: "catalog",
       label: "Browse the service catalog",
-      detail: "Promote workflows into reusable packages that belong in the Autopilot runtime.",
+      detail: "Promote workflows into reusable packages that belong in the Hypervisor runtime.",
       icon: <CatalogIcon />,
       onClick: onOpenCatalog,
     },
@@ -117,8 +117,8 @@ export function WelcomeView({
 
   const operatingLayers: OperatingLayer[] = [
     {
-      id: "autopilot",
-      title: "Autopilot",
+      id: "hypervisor",
+      title: "Hypervisor",
       meta: "Operator-first",
       detail:
         "Instruct work, supervise workers, review results, handle approvals, and monitor production runs without leaving the operator shell.",
@@ -177,7 +177,7 @@ export function WelcomeView({
   ];
 
   return (
-    <section className="chat-welcome" aria-label="Autopilot home">
+    <section className="chat-welcome" aria-label="Hypervisor home">
       <div className="chat-welcome-grid">
         <div className="chat-welcome-primary">
           <div className="chat-welcome-hero">
@@ -190,7 +190,7 @@ export function WelcomeView({
               </span>
               <h1>Build durable digital workers without losing the operator shell.</h1>
               <p>
-                Autopilot stays operator-first. Chat is the builder-first
+                Hypervisor stays operator-first. Chat is the builder-first
                 surface for workflows, governed capabilities, replay, and
                 promotion into durable services on the same runtime.
               </p>

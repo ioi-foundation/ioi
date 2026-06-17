@@ -64,7 +64,7 @@ export function buildWorkflowEngineReconnectBanner(
       schemaVersion: WORKFLOW_ENGINE_RECONNECT_BANNER_SCHEMA_VERSION,
       status: "blocked",
       bannerLevel: "critical",
-      bannerLabel: "Autopilot Engine connection state is unavailable.",
+      bannerLabel: "Hypervisor Engine connection state is unavailable.",
       composerFrozen: true,
       composerDisabledReason: "missing_heartbeat_evidence",
       endpoint: null,
@@ -176,17 +176,17 @@ function bannerLabelForStatus(
   latest: WorkflowEngineReconnectRow,
   failedAttemptCount: number,
 ): string {
-  if (status === "idle") return "Autopilot Engine connected.";
+  if (status === "idle") return "Hypervisor Engine connected.";
   if (status === "restored") {
-    return `Autopilot Engine reconnected after ${failedAttemptCount} failed attempt(s).`;
+    return `Hypervisor Engine reconnected after ${failedAttemptCount} failed attempt(s).`;
   }
   if (status === "exhausted") {
-    return `Autopilot Engine reconnect exhausted after ${latest.attempt}/${latest.maxAttempts} attempt(s).`;
+    return `Hypervisor Engine reconnect exhausted after ${latest.attempt}/${latest.maxAttempts} attempt(s).`;
   }
   if (status === "reconnecting") {
-    return `Reconnecting to Autopilot Engine (Attempt ${latest.attempt}/${latest.maxAttempts})...`;
+    return `Reconnecting to Hypervisor Engine (Attempt ${latest.attempt}/${latest.maxAttempts})...`;
   }
-  return "Autopilot Engine connection state is unavailable.";
+  return "Hypervisor Engine connection state is unavailable.";
 }
 
 function positiveInteger(value: unknown): number | null {

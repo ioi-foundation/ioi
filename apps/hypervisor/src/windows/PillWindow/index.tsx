@@ -153,7 +153,7 @@ export function PillWindow() {
     if (focusItem?.title?.trim()) {
       return focusItem.title.trim();
     }
-    return "Autopilot ready";
+    return "Hypervisor ready";
   }, [focusItem, task]);
 
   const summary = useMemo(() => {

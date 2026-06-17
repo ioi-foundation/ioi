@@ -947,7 +947,7 @@ export interface WorkflowRuntimeUnavailableCopy {
 }
 
 const RUNTIME_BRIDGE_UNAVAILABLE_MESSAGE =
-  "The desktop/runtime bridge is unavailable, so Autopilot cannot load live runtime data right now. Retry the runtime bridge or open diagnostics. Offline or cached projections may remain available.";
+  "The desktop/runtime bridge is unavailable, so Hypervisor cannot load live runtime data right now. Retry the runtime bridge or open diagnostics. Offline or cached projections may remain available.";
 
 function workflowRuntimeUnavailableSurfaceLabel(
   surface: WorkflowRuntimeUnavailableSurface,
