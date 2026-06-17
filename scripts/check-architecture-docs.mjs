@@ -185,6 +185,18 @@ for (const required of [
     fail(`README.md must link ${required}.`);
   }
 }
+if (
+  /aiagent\.xyz\s*\|\s*Canonical Web4 marketplace for portable digital workers/.test(
+    index,
+  )
+) {
+  fail(
+    "README.md must describe aiagent.xyz as ontology-bound digital and embodied workers, not portable digital workers only.",
+  );
+}
+if (!index.includes("ontology-bound digital and embodied workers")) {
+  fail("README.md must describe aiagent.xyz as ontology-bound digital and embodied workers.");
+}
 
 const sourceMap = fs.readFileSync(
   path.join(architectureRoot, "_meta/source-of-truth-map.md"),
@@ -248,6 +260,100 @@ for (const required of [
 ]) {
   if (!vocabulary.includes(required)) {
     fail(`_meta/vocabulary.md missing ${required}.`);
+  }
+}
+
+const aiagentBroadLaborDocs = [
+  {
+    rel: "domains/aiagent/worker-marketplace.md",
+    required: [
+      "ontology-bound digital and embodied workers",
+      "DigitalWorkerOntology",
+      "VerticalOntologyPacks",
+      "IntegrationSurfaces",
+      "ManagedWorkerInstance",
+    ],
+  },
+  {
+    rel: "domains/aiagent/digital-worker-ontology.md",
+    required: [
+      "DigitalWorkerOntology",
+      "VerticalOntologyPack",
+      "IntegrationSurface",
+      "ManagedWorkerInstance",
+      "physical-action",
+    ],
+  },
+  {
+    rel: "domains/aiagent/vertical-ontology-packs.md",
+    required: [
+      "VerticalOntologyPack",
+      "DigitalWorkerOntology",
+      "safety envelopes",
+      "forbidden actions",
+      "receipt schemas",
+    ],
+  },
+  {
+    rel: "domains/aiagent/integration-surface-taxonomy.md",
+    required: [
+      "IntegrationSurface",
+      "robotics_physical",
+      "embodied_humanoid",
+      "voice_sms",
+      "authority scopes",
+    ],
+  },
+  {
+    rel: "domains/aiagent/managed-worker-instance-lifecycle.md",
+    required: [
+      "ManagedWorkerInstanceLifecycle",
+      "payment",
+      "archive",
+      "restore",
+      "Agentgres",
+    ],
+  },
+  {
+    rel: "domains/aiagent/managed-agent-console-contract.md",
+    required: [
+      "Managed Agent Console",
+      "ManagedWorkerInstance",
+      "projection",
+      "wallet.network",
+      "Agentgres",
+    ],
+  },
+];
+
+for (const { rel, required } of aiagentBroadLaborDocs) {
+  const file = path.join(architectureRoot, rel);
+  if (!fs.existsSync(file)) {
+    fail(`aiagent broad-labor canon missing ${rel}.`);
+    continue;
+  }
+  const content = fs.readFileSync(file, "utf8");
+  for (const phrase of required) {
+    if (!content.includes(phrase)) {
+      fail(`${rel} missing aiagent broad-labor phrase: ${phrase}.`);
+    }
+  }
+}
+
+for (const [rel, content] of [
+  ["_meta/source-of-truth-map.md", sourceMap],
+  ["_meta/implementation-matrix.md", fs.readFileSync(path.join(architectureRoot, "_meta/implementation-matrix.md"), "utf8")],
+  ["_meta/vocabulary.md", vocabulary],
+]) {
+  for (const phrase of [
+    "DigitalWorkerOntology",
+    "VerticalOntologyPack",
+    "IntegrationSurface",
+    "ManagedWorkerInstance",
+  ]) {
+    if (!content.includes(phrase)) {
+      fail(`${rel} missing aiagent broad-labor concept: ${phrase}.`);
+    }
   }
 }
 

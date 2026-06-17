@@ -1571,10 +1571,11 @@ git diff --check -- internal-docs/implementation docs/architecture apps/hypervis
 
 | Field | Detail |
 | --- | --- |
+| Status | Implemented as a canonical docs slice; conformance guard added so aiagent remains an ontology-bound digital and embodied labor substrate rather than drifting back to a digital-worker-only marketplace. Runtime/API adoption remains follow-up hardening. |
 | Files | `aiagent/worker-marketplace.md`, new aiagent ontology/lifecycle docs, `_meta/source-of-truth-map.md`, `_meta/implementation-matrix.md`, `_meta/vocabulary.md`, `README.md`, `_meta/start-here.md` |
 | Change | Move broad autonomous labor plan into canonical docs. |
 | Acceptance | aiagent definition covers ontology-bound digital and embodied workers; digital-only phrasing is removed or qualified. |
-| Verify | `git diff --check -- docs/architecture` and `rg -n "portable digital workers|DigitalWorkerOntology|VerticalOntologyPack" docs/architecture/domains/aiagent docs/architecture/_meta` |
+| Verify | `npm run check:architecture-docs`; `git diff --check -- docs/architecture internal-docs/implementation`; `rg -n "DigitalWorkerOntology|VerticalOntologyPack|IntegrationSurface|ManagedWorkerInstanceLifecycle|ManagedAgentConsole|ontology-bound digital and embodied workers" docs/architecture/domains/aiagent docs/architecture/_meta docs/architecture/README.md docs/architecture/START_HERE.md` |
 
 ### Phase 2: Add Physical Action Safety Owner
 
