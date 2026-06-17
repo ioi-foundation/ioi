@@ -13766,8 +13766,9 @@ function runBridge() {
       /createRun requires explicit repository workflow projector instead of lifecycle-runner fallback/.test(
         runtimeAgentRunLifecycleTest,
       ) &&
-      /createRuntimeBridgeTurnRun requires explicit repository workflow projector instead of bridge-turn runner fallback/.test(
-        runtimeAgentRunLifecycleTest,
+      !/createRuntimeBridgeTurnRun/.test(runtimeAgentRunLifecycleTest) &&
+      /thread turn surface submits runtime turns through Rust bridge-turn state planning/.test(
+        runtimeThreadTurnSurfaceTest,
       ) &&
       /repositoryWorkflowProjector:\s*contextPolicyCore/.test(
         runtimeThreadTurnSurface,
@@ -15554,38 +15555,32 @@ function runBridge() {
     /result\.control\.runtime_bridge_status, "active"/.test(
       runtimeContextPolicyCoreTest,
     ) &&
-    /createRuntimeBridgeThreadControl/.test(runtimeAgentRunLifecycle) &&
-    /planRuntimeBridgeThreadControlAgentStateUpdate/.test(runtimeAgentRunLifecycle) &&
-    /runtimeBridgeThreadControlEvidenceRefs/.test(runtimeAgentRunLifecycle) &&
-    /runtime_bridge_thread_control_rust_owned/.test(runtimeAgentRunLifecycle) &&
-    /runtime_bridge_thread_control_js_facade_retired/.test(runtimeAgentRunLifecycle) &&
+    !/export function createRuntimeBridgeThreadControl/.test(runtimeAgentRunLifecycle) &&
+    !/createRuntimeBridgeThreadControl/.test(runtimeThreadTurnSurface) &&
+    /controlRuntimeServiceThread/.test(runtimeThreadTurnSurface) &&
+    /planRuntimeBridgeThreadControlAgentStateUpdate/.test(runtimeThreadTurnSurface) &&
+    /runtimeBridgeThreadControlEvidenceRefs/.test(runtimeThreadTurnSurface) &&
+    /runtime_bridge_thread_control_rust_owned/.test(runtimeThreadTurnSurface) &&
+    /runtime_bridge_thread_control_js_facade_retired/.test(runtimeThreadTurnSurface) &&
     /rust_daemon_core_runtime_bridge_thread_control_required/.test(
-      runtimeAgentRunLifecycle,
+      runtimeThreadTurnSurface,
     ) &&
     /agentgres_runtime_bridge_thread_control_truth_required/.test(
-      runtimeAgentRunLifecycle,
+      runtimeThreadTurnSurface,
     ) &&
     /store\.writeAgent\(plannedAgent,\s*plannedOperationKind\)/.test(
-      runtimeAgentRunLifecycle,
-    ) &&
-    /thread\.runtime_bridge\.control/.test(runtimeAgentRunLifecycle) &&
-    !/runtimeBridgeThreadControl = createRuntimeBridgeThreadControl/.test(
       runtimeThreadTurnSurface,
     ) &&
-    /createRuntimeBridgeThreadControl\(\s*store,\s*threadId,\s*agent,/.test(
-      runtimeThreadTurnSurface,
-    ) &&
-    /lifecycleAdmissionRunner:\s*contextPolicyCore/.test(runtimeThreadTurnSurface) &&
+    /thread\.runtime_bridge\.control/.test(runtimeThreadTurnSurface) &&
+    /contextPolicyCore\.planRuntimeBridgeThreadControlAgentStateUpdate/.test(runtimeThreadTurnSurface) &&
     !/store\.agentRunLifecycleSurface\.createRuntimeBridgeThreadControl/.test(
       runtimeThreadTurnSurface,
     ) &&
-    !/\n\s{4}createRuntimeBridgeThreadControl\(store,\s*threadId,\s*agent,\s*request = \{\}\)\s*\{/.test(
-      runtimeAgentRunLifecycle,
-    ) &&
+    !/createRuntimeBridgeThreadControl/.test(runtimeAgentRunLifecycleTest) &&
     !/createRuntimeAgentRunLifecycleSurface/.test(
       runtimeAgentRunLifecycleTest,
     ) &&
-    /agent\/run lifecycle direct APIs route create, run creation, and thread creation through Rust planning/.test(
+    /agent\/run lifecycle direct APIs route create, run creation, thread creation, and runtime-service thread start through Rust planning/.test(
       runtimeAgentRunLifecycleTest,
     ) &&
     /thread turn surface controls runtime thread resume through Rust bridge-control state planning/.test(
@@ -15596,15 +15591,6 @@ function runBridge() {
     ) &&
     /thread turn surface fails closed for runtime thread resume when Rust bridge-control boundary is missing/.test(
       runtimeThreadTurnSurfaceTest,
-    ) &&
-    /createRuntimeBridgeThreadControl commits Rust-planned bridge agent and returns Rust thread projection/.test(
-      runtimeAgentRunLifecycleTest,
-    ) &&
-    /createRuntimeBridgeThreadControl fails closed before projection or persistence when Rust bridge-control planner is missing/.test(
-      runtimeAgentRunLifecycleTest,
-    ) &&
-    /store\.writes\[4\]\.operationKind, "thread\.runtime_bridge\.control"/.test(
-      runtimeAgentRunLifecycleTest,
     ) &&
     /assertRuntimeBridgeThreadRustCoreRequired/.test(runtimeAgentRunLifecycleTest) &&
     /assertRuntimeBridgeThreadRustCoreRequired/.test(runtimeThreadTurnSurfaceTest) &&
@@ -15789,38 +15775,37 @@ function runBridge() {
       /runtime_bridge_thread_rust_core_required/.test(runtimeAgentRunLifecycle) &&
       /createRuntimeBridgeThread/.test(runtimeAgentRunLifecycle) &&
       /planRuntimeBridgeThreadStartAgentStateUpdate/.test(runtimeAgentRunLifecycle) &&
-      /createRuntimeBridgeTurnRun/.test(runtimeAgentRunLifecycle) &&
-      /planRuntimeBridgeTurnRunStateUpdate/.test(runtimeAgentRunLifecycle) &&
+      !/export function createRuntimeBridgeTurnRun/.test(runtimeAgentRunLifecycle) &&
+      /submitRuntimeServiceTurn/.test(runtimeThreadTurnSurface) &&
+      /planRuntimeBridgeTurnRunStateUpdate/.test(runtimeThreadTurnSurface) &&
       /runtimeBridgeThreadStartEvidenceRefs/.test(runtimeAgentRunLifecycle) &&
-      /runtimeBridgeTurnSubmitEvidenceRefs/.test(runtimeAgentRunLifecycle) &&
+      /runtimeBridgeTurnSubmitEvidenceRefs/.test(runtimeThreadTurnSurface) &&
       /runtime_bridge_thread_start_rust_owned/.test(runtimeAgentRunLifecycle) &&
       /runtime_bridge_thread_start_js_facade_retired/.test(runtimeAgentRunLifecycle) &&
-      /runtime_bridge_turn_submit_rust_owned/.test(runtimeAgentRunLifecycle) &&
-      /runtime_bridge_turn_submit_js_facade_retired/.test(runtimeAgentRunLifecycle) &&
+      /runtime_bridge_turn_submit_rust_owned/.test(runtimeThreadTurnSurface) &&
+      /runtime_bridge_turn_submit_js_facade_retired/.test(runtimeThreadTurnSurface) &&
       /rust_daemon_core_runtime_bridge_thread_start_required/.test(runtimeAgentRunLifecycle) &&
       /agentgres_runtime_bridge_thread_start_truth_required/.test(runtimeAgentRunLifecycle) &&
       /store\.writeAgent\(plannedAgent,\s*plannedOperationKind\)/.test(runtimeAgentRunLifecycle) &&
-      /store\.writeRun\(plannedRun,\s*plannedOperationKind\)/.test(runtimeAgentRunLifecycle) &&
+      /store\.writeRun\(plannedRun,\s*plannedOperationKind\)/.test(runtimeThreadTurnSurface) &&
       /thread\.runtime_bridge\.start/.test(runtimeAgentRunLifecycle) &&
-      /turn\.runtime_bridge\.submit/.test(runtimeAgentRunLifecycle) &&
-      !/runtimeBridgeTurnRun = createRuntimeBridgeTurnRun/.test(runtimeThreadTurnSurface) &&
-      /createRuntimeBridgeTurnRun\(\s*store,\s*threadId,\s*agent,\s*controlledRequest/.test(
+      /turn\.runtime_bridge\.submit/.test(runtimeThreadTurnSurface) &&
+      !/createRuntimeBridgeTurnRun/.test(runtimeThreadTurnSurface) &&
+      /submitRuntimeServiceTurn\(\s*store,\s*threadId,\s*agent,\s*controlledRequest/.test(
         runtimeThreadTurnSurface,
       ) &&
       /buildRun/.test(runtimeThreadTurnSurface) &&
       /ensureProviderAvailable/.test(runtimeThreadTurnSurface) &&
       /threadModeForRunMode/.test(runtimeThreadTurnSurface) &&
-      /lifecycleAdmissionRunner:\s*contextPolicyCore/.test(runtimeThreadTurnSurface) &&
+      /repositoryWorkflowProjector:\s*contextPolicyCore/.test(runtimeThreadTurnSurface) &&
       !/store\.agentRunLifecycleSurface\.createRuntimeBridgeTurn/.test(
         runtimeThreadTurnSurface,
       ) &&
-      !/\n\s{4}createRuntimeBridgeTurn\(store,\s*threadId,\s*agent,\s*request = \{\}\)\s*\{/.test(
-        runtimeAgentRunLifecycle,
-      ) &&
+      !/createRuntimeBridgeTurnRun/.test(runtimeAgentRunLifecycleTest) &&
       !/createRuntimeAgentRunLifecycleSurface/.test(
         runtimeAgentRunLifecycleTest,
       ) &&
-      /agent\/run lifecycle direct APIs route create, run creation, and thread creation through Rust planning/.test(
+      /agent\/run lifecycle direct APIs route create, run creation, thread creation, and runtime-service thread start through Rust planning/.test(
         runtimeAgentRunLifecycleTest,
       ) &&
       /retired runtimeBridgeTurnRun constructor alias must not be called/.test(
@@ -15843,18 +15828,6 @@ function runBridge() {
       ) &&
       /thread turn surface fails closed for runtime turns when Rust bridge-turn lifecycle boundary is missing/.test(
         runtimeThreadTurnSurfaceTest,
-      ) &&
-      /createRuntimeBridgeTurn commits Rust-planned runtime bridge run and returns Rust turn projection/.test(
-        runtimeAgentRunLifecycleTest,
-      ) &&
-      /createRuntimeBridgeTurn fails closed before route, memory, or persistence when Rust bridge-turn planner is missing/.test(
-        runtimeAgentRunLifecycleTest,
-      ) &&
-      /createRuntimeBridgeThreadControl commits Rust-planned bridge agent and returns Rust thread projection/.test(
-        runtimeAgentRunLifecycleTest,
-      ) &&
-      /createRuntimeBridgeThreadControl fails closed before projection or persistence when Rust bridge-control planner is missing/.test(
-        runtimeAgentRunLifecycleTest,
       ) &&
       /assertRuntimeBridgeThreadRustCoreRequired/.test(runtimeAgentRunLifecycleTest) &&
       /assertRuntimeBridgeThreadRustCoreRequired/.test(runtimeThreadTurnSurfaceTest) &&
@@ -16009,26 +15982,24 @@ function runBridge() {
       /Object\.hasOwn\(captured,\s*"projection"\),\s*false/.test(
         runtimeContextPolicyCoreTest,
       ) &&
-      /createRuntimeBridgeTurnRun/.test(runtimeAgentRunLifecycle) &&
-      /runtimeBridgeTurnSubmitEvidenceRefs/.test(runtimeAgentRunLifecycle) &&
-      /runtime_bridge_turn_submit_rust_owned/.test(runtimeAgentRunLifecycle) &&
-      /planRuntimeBridgeTurnRunStateUpdate/.test(runtimeAgentRunLifecycle) &&
+      !/export function createRuntimeBridgeTurnRun/.test(runtimeAgentRunLifecycle) &&
+      !/createRuntimeBridgeTurnRun/.test(runtimeThreadTurnSurface) &&
+      /submitRuntimeServiceTurn/.test(runtimeThreadTurnSurface) &&
+      /runtimeBridgeTurnSubmitEvidenceRefs/.test(runtimeThreadTurnSurface) &&
+      /runtime_bridge_turn_submit_rust_owned/.test(runtimeThreadTurnSurface) &&
+      /planRuntimeBridgeTurnRunStateUpdate/.test(runtimeThreadTurnSurface) &&
       !/const candidateProjection = objectRecord\(store\.turnForRun\(candidateRun\)\)/.test(
-        runtimeAgentRunLifecycle,
+        runtimeThreadTurnSurface,
       ) &&
-      !/projection:\s*candidateProjection/.test(runtimeAgentRunLifecycle) &&
-      !/runtime bridge run candidate/.test(runtimeAgentRunLifecycle) &&
-      /store\.writeRun\(plannedRun,\s*plannedOperationKind\)/.test(runtimeAgentRunLifecycle) &&
-      /turn\.runtime_bridge\.submit/.test(runtimeAgentRunLifecycle) &&
-      !/runtimeBridgeTurnRun = createRuntimeBridgeTurnRun/.test(runtimeThreadTurnSurface) &&
-      /createRuntimeBridgeTurnRun\(\s*store,\s*threadId,\s*agent,\s*controlledRequest/.test(
+      !/projection:\s*candidateProjection/.test(runtimeThreadTurnSurface) &&
+      !/runtime bridge run candidate/.test(runtimeThreadTurnSurface) &&
+      /store\.writeRun\(plannedRun,\s*plannedOperationKind\)/.test(runtimeThreadTurnSurface) &&
+      /turn\.runtime_bridge\.submit/.test(runtimeThreadTurnSurface) &&
+      /submitRuntimeServiceTurn\(\s*store,\s*threadId,\s*agent,\s*controlledRequest/.test(
         runtimeThreadTurnSurface,
       ) &&
       !/store\.agentRunLifecycleSurface\.createRuntimeBridgeTurn/.test(
         runtimeThreadTurnSurface,
-      ) &&
-      !/\n\s{4}createRuntimeBridgeTurn\(store,\s*threadId,\s*agent,\s*request = \{\}\)\s*\{/.test(
-        runtimeAgentRunLifecycle,
       ) &&
       /thread turn surface submits runtime turns through Rust bridge-turn state planning/.test(
         runtimeThreadTurnSurfaceTest,
@@ -16036,12 +16007,7 @@ function runBridge() {
       /thread turn surface fails closed for runtime turns when Rust bridge-turn lifecycle boundary is missing/.test(
         runtimeThreadTurnSurfaceTest,
       ) &&
-      /createRuntimeBridgeTurn commits Rust-planned runtime bridge run and returns Rust turn projection/.test(
-        runtimeAgentRunLifecycleTest,
-      ) &&
-      /createRuntimeBridgeTurn fails closed before route, memory, or persistence when Rust bridge-turn planner is missing/.test(
-        runtimeAgentRunLifecycleTest,
-      ) &&
+      !/createRuntimeBridgeTurnRun/.test(runtimeAgentRunLifecycleTest) &&
       !/thread turn surface fails closed for runtime turns before bridge submit dispatch/.test(
         runtimeThreadTurnSurfaceTest,
       ) &&
@@ -16245,10 +16211,9 @@ function runBridge() {
       /const threadStartStateUpdateRunner = deps\.lifecycleAdmissionRunner \?\? null;/.test(
         runtimeAgentRunLifecycle,
       ) &&
-      /const runtimeBridgeTurnRunStateUpdateRunner = deps\.lifecycleAdmissionRunner \?\? null;/.test(
-        runtimeAgentRunLifecycle,
-      ) &&
-      /const bridgeThreadControlStateUpdateRunner = deps\.lifecycleAdmissionRunner \?\? null;/.test(
+      !/runtimeBridgeTurnRunStateUpdateRunner/.test(runtimeAgentRunLifecycle) &&
+      !/bridgeThreadControlStateUpdateRunner/.test(runtimeAgentRunLifecycle) &&
+      !/createRuntimeBridgeThreadControl|createRuntimeBridgeTurnRun/.test(
         runtimeAgentRunLifecycle,
       ) &&
       !/deps\.(?:agentCreateStateUpdateRunner|threadCreateStateUpdateRunner|runCreateStateUpdateRunner|runtimeBridgeThreadStartStateUpdateRunner|runtimeBridgeTurnRunStateUpdateRunner|runtimeBridgeThreadControlStateUpdateRunner)|store\.contextPolicyCore\s*\?\?/.test(
@@ -16424,7 +16389,7 @@ function runBridge() {
       /agent lifecycle mutation routes use direct Rust lifecycle APIs/.test(
         runtimeRouteHandlersTest,
       ) &&
-      /agent\/run lifecycle direct APIs route create, run creation, and thread creation through Rust planning/.test(
+      /agent\/run lifecycle direct APIs route create, run creation, thread creation, and runtime-service thread start through Rust planning/.test(
         runtimeAgentRunLifecycleTest,
       ) &&
       !/store\.(?:createAgent|createRun|createThread|updateAgent|deleteAgent|getAgent)\(/.test(

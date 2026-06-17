@@ -3,8 +3,6 @@ import test from "node:test";
 
 import {
   createAgent,
-  createRuntimeBridgeThreadControl,
-  createRuntimeBridgeTurnRun,
   createRun,
   createThread,
 } from "./runtime-agent-run-lifecycle.mjs";
@@ -1161,232 +1159,7 @@ test("createThread fails closed for runtime-service threads before route plannin
   assert.deepEqual(store.providerCalls, []);
 });
 
-test("createRuntimeBridgeThreadControl commits Rust-planned bridge agent and returns Rust thread projection", () => {
-  const store = fakeStore();
-  const agent = store.agents.get("agent_runtime");
-
-  const thread = createRuntimeBridgeThreadControl(
-    store,
-    "thread_runtime",
-    agent,
-    {
-      action: "resume",
-      reason: "continue",
-    },
-    {
-      lifecycleAdmissionRunner: store.contextPolicyCore,
-    },
-  );
-
-  assert.equal(thread.thread_id, "thread_runtime");
-  assert.equal(thread.agent_id, "agent_runtime");
-  assert.equal(thread.rust_projected, true);
-  assert.equal(store.plannerCalls.length, 1);
-  assert.equal(store.plannerCalls[0].thread_id, "thread_runtime");
-  assert.equal(store.plannerCalls[0].agent.id, "agent_runtime");
-  assert.equal(store.plannerCalls[0].action, "resume");
-  assert.equal(store.plannerCalls[0].reason, "continue");
-  assert.equal(store.plannerCalls[0].evidence_refs.includes("runtime_bridge_thread_control_rust_owned"), true);
-  assert.deepEqual(store.writes, [{
-    kind: "agent",
-    operationKind: "thread.runtime_bridge.control",
-    agent: {
-      ...agent,
-      status: "active",
-      runtime_bridge_status: "active",
-      updatedAt: store.writes[0]?.agent?.updatedAt,
-      rust_runtime_bridge_controlled: true,
-    },
-  }]);
-  assert.equal(store.writes[0].agent.runtime_bridge_status, "active");
-  assert.equal(store.writes[0].agent.rust_runtime_bridge_controlled, true);
-  assert.equal(store.threadProjectionCalls.length, 1);
-  assert.equal(store.threadProjectionCalls[0].id, "agent_runtime");
-  assert.deepEqual(store.routeCalls, []);
-  assert.deepEqual(store.memoryCalls, []);
-});
-
-test("createRuntimeBridgeThreadControl fails closed before projection or persistence when Rust bridge-control planner is missing", () => {
-  const store = fakeStore({ runtimeBridgeThreadControlPlan: null });
-  const agent = store.agents.get("agent_runtime");
-
-  assert.throws(
-    () => createRuntimeBridgeThreadControl(
-      store,
-      "thread_runtime",
-      agent,
-      {
-        action: "resume",
-        reason: "continue",
-      },
-      {
-        lifecycleAdmissionRunner: store.contextPolicyCore,
-      },
-    ),
-    (error) => assertRuntimeBridgeThreadRustCoreRequired(error, {
-      operation: "runtime_bridge_thread_control",
-      operationKind: "thread.runtime_bridge.control",
-    }),
-  );
-
-  assert.deepEqual(store.writes, []);
-  assert.deepEqual(store.threadProjectionCalls, []);
-  assert.deepEqual(store.routeCalls, []);
-  assert.deepEqual(store.memoryCalls, []);
-});
-
-test("createRuntimeBridgeTurn commits Rust-planned runtime bridge run and returns Rust turn projection", () => {
-  const store = fakeStore();
-  const agent = store.agents.get("agent_runtime");
-
-  const turn = createRuntimeBridgeTurnRun(
-    store,
-    "thread_runtime",
-    agent,
-    {
-      mode: "send",
-      prompt: "Ship the runtime turn",
-      threadMode: "retired",
-      approvalMode: "retired",
-    },
-    {
-      lifecycleAdmissionRunner: store.contextPolicyCore,
-      ...runCreateDeps(store),
-    },
-  );
-
-  assert.equal(turn.thread_id, "thread_runtime");
-  assert.equal(turn.request_id, "run_uuid-run");
-  assert.equal(turn.run_id, "run_uuid-run");
-  assert.equal(turn.rust_projected, true);
-  assert.equal(store.providerCalls.length, 1);
-  assert.equal(store.routeCalls.length, 1);
-  assert.equal(store.memoryCalls.length, 1);
-  assert.equal(store.runBuildCalls.length, 1);
-  assert.equal(store.runBuildCalls[0].agent.id, "agent_runtime");
-  assert.equal(store.runBuildCalls[0].request.prompt, "Ship the runtime turn");
-  assert.equal(store.runBuildCalls[0].repositoryWorkflowProjector, store.contextPolicyCore);
-  assert.equal(store.plannerCalls.length, 1);
-  assert.equal(store.plannerCalls[0].thread_id, "thread_runtime");
-  assert.equal(store.plannerCalls[0].agent.id, "agent_runtime");
-  assert.equal(Object.hasOwn(store.plannerCalls[0], "projection"), false);
-  assert.equal(store.plannerCalls[0].run.id, "run_uuid-run");
-  assert.deepEqual(store.writes, [{
-    kind: "run",
-    operationKind: "turn.runtime_bridge.submit",
-    run: {
-      id: "run_uuid-run",
-      agentId: "agent_runtime",
-      status: "completed",
-      mode: "send",
-      objective: "Ship the runtime turn",
-      createdAt: "2026-06-12T12:00:00.000Z",
-      updatedAt: "2026-06-12T12:00:00.000Z",
-      events: [],
-      conversation: [],
-      receipts: [],
-      artifacts: [],
-      trace: {
-        usage_telemetry: {
-          total_tokens: 7,
-        },
-      },
-      usage: {
-        total_tokens: 7,
-      },
-      usage_telemetry: {
-        total_tokens: 7,
-      },
-      result: "ok",
-      thread_mode: "agent",
-      approval_mode: "suggest",
-      rust_runtime_bridge_submitted: true,
-    },
-  }]);
-  assert.equal(store.turnProjectionCalls.length, 1);
-  assert.equal(store.turnProjectionCalls[0].rust_runtime_bridge_submitted, true);
-});
-
-test("createRuntimeBridgeTurnRun requires explicit repository workflow projector instead of bridge-turn runner fallback", () => {
-  const store = fakeStore();
-  const agent = store.agents.get("agent_runtime");
-  const deps = runCreateDepsWithoutRepositoryProjector(store);
-  deps.lifecycleAdmissionRunner = store.contextPolicyCore;
-  deps.buildRun = (args) => {
-    store.runBuildCalls.push(args);
-    if (typeof args.repositoryWorkflowProjector?.projectRepositoryWorkflow !== "function") {
-      const error = new Error("missing explicit runtime bridge repository workflow projector");
-      error.code = "test_missing_runtime_bridge_repository_workflow_projector";
-      throw error;
-    }
-    return {
-      id: "run_uuid-run",
-      agentId: args.agent.id,
-      status: "completed",
-      mode: args.mode,
-      objective: args.prompt,
-      createdAt: "2026-06-12T12:00:00.000Z",
-      updatedAt: "2026-06-12T12:00:00.000Z",
-    };
-  };
-
-  assert.throws(
-    () => createRuntimeBridgeTurnRun(
-      store,
-      "thread_runtime",
-      agent,
-      {
-        mode: "send",
-        prompt: "Require runtime bridge repository workflow projector",
-      },
-      deps,
-    ),
-    (error) => {
-      assert.equal(error.code, "test_missing_runtime_bridge_repository_workflow_projector");
-      return true;
-    },
-  );
-
-  assert.equal(store.runBuildCalls.length, 1);
-  assert.equal(store.runBuildCalls[0].repositoryWorkflowProjector, undefined);
-  assert.equal(typeof store.contextPolicyCore.projectRepositoryWorkflow, "function");
-  assert.deepEqual(store.repositoryProjectionCalls, []);
-  assert.deepEqual(store.writes, []);
-  assert.deepEqual(store.turnProjectionCalls, []);
-});
-
-test("createRuntimeBridgeTurn fails closed before route, memory, or persistence when Rust bridge-turn planner is missing", () => {
-  const store = fakeStore({ runtimeBridgeTurnRunStateUpdatePlan: null });
-  const agent = store.agents.get("agent_runtime");
-
-  assert.throws(
-    () => createRuntimeBridgeTurnRun(
-      store,
-      "thread_runtime",
-      agent,
-      {
-        mode: "send",
-        prompt: "Ship the runtime turn",
-      },
-      {
-        lifecycleAdmissionRunner: store.contextPolicyCore,
-        ...runCreateDeps(store),
-      },
-    ),
-    (error) => assertRuntimeBridgeThreadRustCoreRequired(error, {
-      operation: "runtime_bridge_turn_submit",
-      operationKind: "turn.runtime_bridge.submit",
-    }),
-  );
-
-  assert.deepEqual(store.writes, []);
-  assert.deepEqual(store.routeCalls, []);
-  assert.deepEqual(store.memoryCalls, []);
-  assert.deepEqual(store.providerCalls, []);
-  assert.deepEqual(store.turnProjectionCalls, []);
-});
-
-test("agent/run lifecycle direct APIs route create, run creation, and thread creation through Rust planning", async () => {
+test("agent/run lifecycle direct APIs route create, run creation, thread creation, and runtime-service thread start through Rust planning", async () => {
   const store = fakeStore();
 
   const lifecycleDeps = {
@@ -1419,50 +1192,19 @@ test("agent/run lifecycle direct APIs route create, run creation, and thread cre
   assert.equal(runtimeThread.thread_id, "thread_uuid-agent");
   assert.equal(runtimeThread.agent_id, "agent_uuid-agent");
   assert.equal(runtimeThread.rust_projected, true);
-  const runtimeControl = createRuntimeBridgeThreadControl(
-    store,
-    "thread_uuid-agent",
-    store.writes[3].agent,
-    { reason: "continue runtime thread" },
-    {
-      lifecycleAdmissionRunner: store.contextPolicyCore,
-    },
-  );
-  assert.equal(runtimeControl.thread_id, "thread_uuid-agent");
-  assert.equal(runtimeControl.agent_id, "agent_uuid-agent");
-  assert.equal(runtimeControl.rust_projected, true);
-  const runtimeTurn = createRuntimeBridgeTurnRun(
-    store,
-    "thread_uuid-agent",
-    store.writes[4].agent,
-    {
-      prompt: "ship runtime turn",
-    },
-    {
-      lifecycleAdmissionRunner: store.contextPolicyCore,
-      ...runCreateDeps(store),
-    },
-  );
-  assert.equal(runtimeTurn.thread_id, "thread_uuid-agent");
-  assert.equal(runtimeTurn.run_id, "run_uuid-run");
-  assert.equal(runtimeTurn.rust_projected, true);
 
   assert.deepEqual(store.runtimeThreadCalls, []);
   assert.deepEqual(store.lifecycleAdmissionRequiredCalls, []);
-  assert.equal(store.writes.length, 6);
+  assert.equal(store.writes.length, 4);
   assert.equal(store.writes[0].operationKind, "agent.create");
   assert.equal(store.writes[1].operationKind, "run.create");
   assert.equal(store.writes[2].operationKind, "thread.create");
   assert.equal(store.writes[3].operationKind, "thread.runtime_bridge.start");
   assert.equal(store.writes[3].agent.runtime_bridge_id, "bridge_runtime");
-  assert.equal(store.writes[4].operationKind, "thread.runtime_bridge.control");
-  assert.equal(store.writes[4].agent.runtime_bridge_status, "active");
-  assert.equal(store.writes[5].operationKind, "turn.runtime_bridge.submit");
-  assert.equal(store.writes[5].run.rust_runtime_bridge_submitted, true);
   assert.deepEqual(store.startedEvents, ["agent_uuid-agent", "agent_uuid-agent"]);
-  assert.equal(store.threadProjectionCalls.length, 3);
-  assert.equal(store.turnProjectionCalls.length, 1);
+  assert.equal(store.threadProjectionCalls.length, 2);
+  assert.equal(store.turnProjectionCalls.length, 0);
   assert.deepEqual(store.getAgentCalls, ["agent_existing"]);
-  assert.equal(store.routeCalls.length, 5);
-  assert.equal(store.memoryCalls.length, 2);
+  assert.equal(store.routeCalls.length, 4);
+  assert.equal(store.memoryCalls.length, 1);
 });

@@ -10255,7 +10255,7 @@ replay/storage, richer wallet/cTEE authority, model_mount/MCP materialization,
 and stable Workbench/CLI/SDK protocol APIs close over Rust-owned records.
 
 Slice 1286 hard-cuts runtime bridge turn-submit projection-candidate
-transport. `createRuntimeBridgeTurnRun()` no longer calls
+transport. The runtime-service turn-submit path no longer calls
 `store.turnForRun(candidateRun)` before Rust planning and no longer sends a
 JS-authored `projection` candidate into `planRuntimeBridgeTurnRunStateUpdate`;
 the Rust `RuntimeBridgeTurnRunStateUpdateRequest` denies unknown fields and
@@ -10570,17 +10570,16 @@ custody where repair work touches private workspace state, and stable SDK/IDE
 diagnostics APIs, not alternate diagnostics repair runners.
 
 Slice 1309 hard-cuts runtime agent/run lifecycle helper runner fallbacks.
-`createAgent()`, `createThread()`, `createRun()`,
-`createRuntimeBridgeTurnRun()`, and `createRuntimeBridgeThreadControl()` no
-longer accept per-operation state-update runner deps or recover through
-`store.contextPolicyCore ?? null`; agent create, thread create, run create,
-runtime-service bridge thread start/control, and runtime-service turn submit
-resolve through the explicit `lifecycleAdmissionRunner` dependency supplied by
-the daemon route/surface caller. Conformance now guards that the retired
-per-operation runner deps and store fallback cannot return. Remaining work is
-wallet/cTEE lifecycle policy depth, durable lifecycle replay/projection,
-receipt/state-root binding, and stable protocol APIs, not alternate lifecycle
-helper runners.
+`createAgent()`, `createThread()`, and `createRun()` no longer accept
+per-operation state-update runner deps or recover through `store.contextPolicyCore
+?? null`; agent create, thread create, run create, and runtime-service bridge
+thread start resolve through the explicit `lifecycleAdmissionRunner` dependency
+supplied by the daemon route/surface caller. Conformance now guards that the
+retired per-operation runner deps and store fallback cannot return. Slice 1420
+later deletes the standalone runtime-service thread-control and turn-submit
+helper exports entirely. Remaining work is wallet/cTEE lifecycle policy depth,
+durable lifecycle replay/projection, receipt/state-root binding, and stable
+protocol APIs, not alternate lifecycle helper runners.
 
 Slice 1310 hard-cuts conversation-artifact surface runner wrappers.
 `createRuntimeConversationArtifactSurface()` no longer routes artifact
@@ -10741,15 +10740,15 @@ replay and wallet/cTEE authority depth, not another helper-owned core fallback.
 Slice 1322 hard-cuts the runtime-service thread-turn bridge-adapter constructor
 aliases. `runtime-thread-turn-surface.mjs` no longer accepts
 `runtimeBridgeThreadControl` or `runtimeBridgeTurnRun` overrides; runtime-service
-resume and turn submission call the imported direct Rust lifecycle adapters
-(`createRuntimeBridgeThreadControl()` and `createRuntimeBridgeTurnRun()`) with
-the daemon-mounted `contextPolicyCore`. Focused tests mount fake Rust lifecycle
-cores through `contextPolicyCore` and install throw-if-called retired aliases to
-prove the old injected bridge handles cannot author runtime-service thread or
-turn truth. Conformance guards the direct adapter calls and the absent
-constructor aliases. Remaining work is durable lifecycle replay/projection,
-wallet/cTEE runtime-service authority, and stable Workbench/CLI/SDK lifecycle APIs,
-not another bridge-adapter injection path.
+resume and turn submission resolve through route-family code with the
+daemon-mounted `contextPolicyCore`. Focused tests mount fake Rust lifecycle cores
+through `contextPolicyCore` and install throw-if-called retired aliases to prove
+the old injected bridge handles cannot author runtime-service thread or turn
+truth. Conformance guards the absent constructor aliases. Slice 1420 later
+deletes the standalone helper exports so runtime-service control/turn execution
+cannot re-enter through a separate JS lifecycle helper surface. Remaining work is
+durable lifecycle replay/projection, wallet/cTEE runtime-service authority, and
+stable Workbench/CLI/SDK lifecycle APIs, not another bridge-adapter injection path.
 
 Slice 1323 deletes the model_mount read-projection JS facade boundary.
 `ModelMountingState` now calls the mounted `modelMountCore.planReadProjection()`
@@ -12530,6 +12529,24 @@ rejection, absent `js_*` proof fields, and absence of JS endpoint-map lifecycle
 subject transport. Remaining blockers stay deeper wallet/cTEE route revocation
 policy, conversation replay depth, and stable protocol API coverage over
 admitted records.
+
+Slice 1420 hard-cuts the runtime-service thread-turn standalone helper exports.
+`runtime-agent-run-lifecycle.mjs` no longer exports
+`createRuntimeBridgeThreadControl()` or `createRuntimeBridgeTurnRun()` as
+callable JS lifecycle surfaces. Public runtime-service resume/control and
+turn-submit now live inside the mounted `RuntimeThreadTurn` route family, which
+uses the daemon-mounted `contextPolicyCore` for typed Rust
+`daemonCoreThreadLifecycleApi` planning, commits only Rust-planned agent/run
+records through Agentgres-backed writes, and validates Rust thread/turn
+projections before returning route truth. Focused tests prove lifecycle
+create/thread/run coverage no longer imports the deleted helpers, runtime-service
+control/turn coverage remains on the mounted route surface, and operator
+turn-control test doubles no longer smuggle JS run candidates beside Rust
+`state_dir` replay. Conformance now guards that the standalone helper exports,
+direct helper tests, and route-surface helper calls cannot return. Remaining
+blockers stay durable lifecycle replay/projection depth, wallet/cTEE
+runtime-service authority, receipt/state-root binding, and stable lifecycle
+protocol clients over Rust-owned records.
 
 ## Final Doctrine
 
