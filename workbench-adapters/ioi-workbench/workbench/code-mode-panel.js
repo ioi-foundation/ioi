@@ -1,7 +1,7 @@
 "use strict";
 
 function createWorkbenchCodeModePanelRenderer({
-  autopilotShellHeaderStyles,
+  hypervisorShellHeaderStyles,
   buildWorkbenchContextSnapshot,
   escapeHtml,
   nonce,
@@ -37,7 +37,7 @@ function createWorkbenchCodeModePanelRenderer({
           id: "current-workspace",
           name: workspaceName || "Current workspace",
           rootPath: workspacePath,
-          description: "Current Autopilot workspace",
+          description: "Current Hypervisor workspace",
           favorite: false,
         }
       : null;
@@ -169,7 +169,7 @@ function createWorkbenchCodeModePanelRenderer({
       content="default-src 'none'; img-src data:; style-src 'nonce-${pageNonce}'; script-src 'nonce-${pageNonce}';"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Autopilot Code</title>
+    <title>Hypervisor Workbench</title>
     <style nonce="${pageNonce}">
       :root {
         color-scheme: dark;
@@ -182,7 +182,7 @@ function createWorkbenchCodeModePanelRenderer({
         color: var(--vscode-foreground);
         background: var(--vscode-editor-background);
       }
-      ${autopilotShellHeaderStyles()}
+      ${hypervisorShellHeaderStyles()}
       .code-repository-shell {
         min-height: calc(100vh - 50px);
         display: grid;
@@ -783,12 +783,12 @@ function createWorkbenchCodeModePanelRenderer({
   <body>
     <main
       class="workspace-repository-gate"
-      data-testid="autopilot-code-mode"
+      data-testid="hypervisor-code-mode"
       data-runtime-authority="daemon-owned"
       data-vscode-substrate-visible="true"
     >
       <div class="code-repository-substrate-sentinel" aria-hidden="true">
-        <button type="button" data-command="ioi.autopilot.back" data-testid="code-mode-back-to-autopilot">Back to Autopilot</button>
+        <button type="button" data-command="ioi.hypervisor.back" data-testid="code-mode-back-to-hypervisor">Back to Hypervisor</button>
         <button type="button" data-command="workbench.view.explorer" data-testid="code-mode-explorer">Explorer</button>
         <button type="button" data-command="workbench.view.search" data-testid="code-mode-search">Search</button>
         <button type="button" data-command="workbench.view.scm" data-testid="code-mode-scm">Source Control</button>

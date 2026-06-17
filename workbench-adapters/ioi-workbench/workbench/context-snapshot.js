@@ -324,7 +324,7 @@ function createWorkbenchContextSnapshot({
       runtimeRefs: buildRuntimeRefs(),
       targets: [
         {
-          targetId: "command-center.autopilot-header",
+          targetId: "command-center.hypervisor-header",
           label: "Autopilot header command center",
           surface: "command-center",
           locators: [
@@ -334,7 +334,7 @@ function createWorkbenchContextSnapshot({
             },
             {
               kind: "aria",
-              accessibleName: "Search Autopilot, code, workflows, runs, and commands",
+              accessibleName: "Search Hypervisor, code, workflows, runs, and commands",
             },
           ],
           fallbackAllowed: false,
@@ -348,7 +348,7 @@ function createWorkbenchContextSnapshot({
         },
         {
           targetId: "ioi.overview",
-          label: "Autopilot Overview",
+          label: "Hypervisor Overview",
           surface: "overview",
           locators: [
             {
@@ -357,14 +357,14 @@ function createWorkbenchContextSnapshot({
             },
             {
               kind: "data-attribute",
-              selector: "[data-testid='autopilot-overview-home']",
+              selector: "[data-testid='hypervisor-overview-home']",
             },
           ],
           fallbackAllowed: true,
         },
         {
           targetId: "activity.overview",
-          label: "Autopilot Overview activity",
+          label: "Hypervisor Overview activity",
           surface: "activity-rail",
           locators: [
             {
@@ -384,7 +384,7 @@ function createWorkbenchContextSnapshot({
         },
         {
           targetId: "activity.studio",
-          label: "Autopilot Studio activity",
+          label: "Hypervisor Studio activity",
           surface: "activity-rail",
           locators: [
             {
@@ -404,7 +404,7 @@ function createWorkbenchContextSnapshot({
         },
         {
           targetId: "activity.workflows",
-          label: "Autopilot Workflows activity",
+          label: "Hypervisor Workflows activity",
           surface: "activity-rail",
           locators: [
             {
@@ -424,7 +424,7 @@ function createWorkbenchContextSnapshot({
         },
         {
           targetId: "activity.models",
-          label: "Autopilot Models activity",
+          label: "Hypervisor Models activity",
           surface: "activity-rail",
           locators: [
             {
@@ -444,7 +444,7 @@ function createWorkbenchContextSnapshot({
         },
         {
           targetId: "activity.runs",
-          label: "Autopilot Runs activity",
+          label: "Hypervisor Runs activity",
           surface: "activity-rail",
           locators: [
             {
@@ -464,7 +464,7 @@ function createWorkbenchContextSnapshot({
         },
         {
           targetId: "activity.policy",
-          label: "Autopilot Policy activity",
+          label: "Hypervisor Policy activity",
           surface: "activity-rail",
           locators: [
             {
@@ -484,7 +484,7 @@ function createWorkbenchContextSnapshot({
         },
         {
           targetId: "activity.connectors",
-          label: "Autopilot Connectors activity",
+          label: "Hypervisor Connectors activity",
           surface: "activity-rail",
           locators: [
             {
@@ -524,16 +524,16 @@ function createWorkbenchContextSnapshot({
         },
         {
           targetId: "activity.back-to-autopilot",
-          label: "Back to Autopilot from Code",
+          label: "Back to Hypervisor from Code",
           surface: "activity-rail",
           locators: [
             {
               kind: "vscode-command",
-              commandId: "ioi.autopilot.back",
+              commandId: "ioi.hypervisor.back",
             },
             {
               kind: "data-attribute",
-              selector: "[data-testid='back-to-autopilot-from-code']",
+              selector: "[data-testid='back-to-hypervisor-from-code']",
             },
           ],
           fallbackAllowed: true,
@@ -700,7 +700,7 @@ function createWorkbenchContextSnapshot({
         },
         {
           targetId: "ioi.models",
-          label: "Autopilot Models",
+          label: "Hypervisor Models",
           surface: "models",
           locators: [
             {
@@ -713,7 +713,7 @@ function createWorkbenchContextSnapshot({
             },
             {
               kind: "data-attribute",
-              selector: "[data-testid='autopilot-models-mode']",
+              selector: "[data-testid='hypervisor-models-mode']",
             },
           ],
           fallbackAllowed: true,

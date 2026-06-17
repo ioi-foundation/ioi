@@ -31,7 +31,7 @@ function createStudioNativeDiffPreview({
       const afterText = String(hunk?.afterContent || hunk?.after || "Studio runtime cockpit preview after\n");
       studioDiffDocuments.set(beforeUri.toString(), beforeText);
       studioDiffDocuments.set(afterUri.toString(), afterText);
-      await vscode.commands.executeCommand("vscode.diff", beforeUri, afterUri, `Autopilot Studio Patch Preview: ${fileName}`, {
+      await vscode.commands.executeCommand("vscode.diff", beforeUri, afterUri, `Hypervisor Studio Patch Preview: ${fileName}`, {
         preview: true,
         preserveFocus: true,
       });

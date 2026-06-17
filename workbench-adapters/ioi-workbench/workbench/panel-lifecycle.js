@@ -1,8 +1,8 @@
 "use strict";
 
 function createWorkbenchPanelLifecycle({
-  AUTOPILOT_MODE_BY_ID,
-  AUTOPILOT_MODE_BY_VIEW_ID,
+  HYPERVISOR_MODE_BY_ID,
+  HYPERVISOR_MODE_BY_VIEW_ID,
   MODE_VISIBILITY_REQUEST_TYPES,
   buildWorkspaceActionContext,
   clearIntervalFn = clearInterval,
@@ -34,7 +34,7 @@ function createWorkbenchPanelLifecycle({
 
   function writeModeVisibilityProjection(modeId, output, reason = "panel-visible") {
     const requestType = MODE_VISIBILITY_REQUEST_TYPES[modeId];
-    const mode = AUTOPILOT_MODE_BY_ID[modeId];
+    const mode = HYPERVISOR_MODE_BY_ID[modeId];
     if (!requestType || !mode) {
       return false;
     }
@@ -153,7 +153,7 @@ function createWorkbenchPanelLifecycle({
     }
 
     maybeAutoOpenPrimarySurface() {
-      const mode = AUTOPILOT_MODE_BY_VIEW_ID[this.definition.id];
+      const mode = HYPERVISOR_MODE_BY_VIEW_ID[this.definition.id];
       const primarySurface = mode
         ? {
             command: mode.command,

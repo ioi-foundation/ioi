@@ -39,11 +39,11 @@ function createLifecycle(overrides = {}) {
   const disposedIntervals = [];
   const errors = [];
   const lifecycle = createWorkbenchPanelLifecycle({
-    AUTOPILOT_MODE_BY_ID: {
+    HYPERVISOR_MODE_BY_ID: {
       studio: { command: "ioi.studio.open", phase: "studio" },
       home: { command: "ioi.overview.open", phase: "overview" },
     },
-    AUTOPILOT_MODE_BY_VIEW_ID: {
+    HYPERVISOR_MODE_BY_VIEW_ID: {
       "ioi.studio": { command: "ioi.studio.open", phase: "studio" },
     },
     MODE_VISIBILITY_REQUEST_TYPES: {

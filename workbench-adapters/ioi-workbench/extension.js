@@ -21,14 +21,14 @@ const {
   createWorkbenchContextSnapshot,
 } = require("./workbench/context-snapshot");
 const { createWorkbenchCodeModePanelRenderer } = require("./workbench/code-mode-panel");
-const { createAutopilotModeController } = require("./workbench/mode-controller");
+const { createHypervisorModeController } = require("./workbench/mode-controller");
 const { createWorkbenchModeBodyRenderers } = require("./workbench/mode-body-renderers");
 const { formatBytes, modelSnapshotFromState } = require("./workbench/model-snapshot");
 const { createWorkbenchOverviewPanelRenderer } = require("./workbench/overview-panel");
 const { createOverviewPanelLifecycle } = require("./workbench/overview-panel-lifecycle");
 const { createWorkbenchPanelLifecycle } = require("./workbench/panel-lifecycle");
 const { createPersistentModePanels } = require("./workbench/persistent-mode-panels");
-const { createAutopilotShellHeader } = require("./workbench/shell-header");
+const { createHypervisorShellHeader } = require("./workbench/shell-header");
 const { createStudioPanelLifecycle } = require("./workbench/studio-panel-lifecycle");
 const { createWorkflowComposerPanelLifecycle } = require("./workbench/workflow-composer-panel-lifecycle");
 const { createWorkflowComposerPanelRenderer } = require("./workbench/workflow-composer-panel");
@@ -154,10 +154,10 @@ const {
   stringValue,
 } = require("./studio/value-helpers");
 const {
-  AUTOPILOT_MODE_BY_ID,
-  AUTOPILOT_MODE_BY_PANEL_VIEW_ID,
-  AUTOPILOT_MODE_BY_VIEW_ID,
-  AUTOPILOT_MODES,
+  HYPERVISOR_MODE_BY_ID,
+  HYPERVISOR_MODE_BY_PANEL_VIEW_ID,
+  HYPERVISOR_MODE_BY_VIEW_ID,
+  HYPERVISOR_MODES,
   VIEW_DEFINITIONS,
 } = require("./workbench-surfaces");
 
@@ -182,10 +182,10 @@ let overviewPanelNonce = null;
 let studioPanel = null;
 let studioPanelLastHtml = null;
 let studioPanelPageNonce = null;
-const autopilotModeController = createAutopilotModeController({
-  AUTOPILOT_MODE_BY_ID,
-  AUTOPILOT_MODE_BY_PANEL_VIEW_ID,
-  AUTOPILOT_MODE_BY_VIEW_ID,
+const hypervisorModeController = createHypervisorModeController({
+  HYPERVISOR_MODE_BY_ID,
+  HYPERVISOR_MODE_BY_PANEL_VIEW_ID,
+  HYPERVISOR_MODE_BY_VIEW_ID,
   vscode,
 });
 let studioModelInvocationToken = null;
@@ -1030,7 +1030,7 @@ function renderStudioView(state) {
 
 function renderOverviewActivityView() {
   return `
-    <section class="workflow-direct-open" data-inspection-target="overview-direct-open" aria-label="Opening Autopilot Overview">
+    <section class="workflow-direct-open" data-inspection-target="overview-direct-open" aria-label="Opening Hypervisor Overview">
       <span>Opening Overview...</span>
     </section>
   `;
@@ -1044,15 +1044,15 @@ function renderWorkflowView() {
   `;
 }
 
-async function enterAutopilotMode(modeId, output) {
-  await autopilotModeController.enterAutopilotMode(modeId, output);
+async function enterHypervisorMode(modeId, output) {
+  await hypervisorModeController.enterHypervisorMode(modeId, output);
 }
 
 const {
-  autopilotShellHeaderStyles,
-  renderAutopilotShellHeader,
-} = createAutopilotShellHeader({
-  AUTOPILOT_MODE_BY_ID,
+  hypervisorShellHeaderStyles,
+  renderHypervisorShellHeader,
+} = createHypervisorShellHeader({
+  HYPERVISOR_MODE_BY_ID,
   daemonEndpoint,
   escapeHtml,
   modelSnapshotFromState,
@@ -1060,7 +1060,7 @@ const {
 });
 
 const { codeModePanelHtml } = createWorkbenchCodeModePanelRenderer({
-  autopilotShellHeaderStyles,
+  hypervisorShellHeaderStyles,
   buildWorkbenchContextSnapshot,
   escapeHtml,
   nonce,
@@ -1085,7 +1085,7 @@ const {
 });
 
 const { overviewPanelHtml } = createWorkbenchOverviewPanelRenderer({
-  autopilotShellHeaderStyles,
+  hypervisorShellHeaderStyles,
   currentOverviewPanelNonce,
   daemonEndpoint,
   escapeHtml,
@@ -1094,20 +1094,20 @@ const { overviewPanelHtml } = createWorkbenchOverviewPanelRenderer({
   overviewPill,
   overviewTone,
   productStudioModelSelectionsFromSnapshot,
-  renderAutopilotShellHeader,
+  renderHypervisorShellHeader,
   renderOverviewAction,
   renderOverviewRow,
   workspaceSummary,
 });
 
 const { workflowComposerHtml } = createWorkflowComposerPanelRenderer({
-  autopilotShellHeaderStyles,
+  hypervisorShellHeaderStyles,
   bridgeUrl,
   daemonEndpoint,
   daemonToken,
   escapeHtml,
   nonce,
-  renderAutopilotShellHeader,
+  renderHypervisorShellHeader,
   vscode,
   workspaceSummary,
 });
@@ -1176,8 +1176,8 @@ function renderHtml(view, state) {
   const isWorkflowView = view.id === "ioi.workflows";
   const isModelsView = view.id === "ioi.models";
   const shellModeId =
-    autopilotModeController.modeIdForViewId(view.id) ||
-    autopilotModeController.currentModeId();
+    hypervisorModeController.modeIdForViewId(view.id) ||
+    hypervisorModeController.currentModeId();
   const appearanceThemeId =
     typeof state.appearance?.themeId === "string"
       ? state.appearance.themeId
@@ -1195,7 +1195,7 @@ function renderHtml(view, state) {
       :root {
         color-scheme: dark;
       }
-      body[data-autopilot-theme^="light"] {
+      body[data-hypervisor-theme^="light"] {
         color-scheme: light;
         --ioi-operator-chat-bg: #ffffff;
         --ioi-operator-chat-border: #d4d4d4;
@@ -1209,7 +1209,7 @@ function renderHtml(view, state) {
         --ioi-operator-chat-selected-bg: #e8f3ff;
         --ioi-operator-chat-selected-border: #0078d4;
       }
-      body[data-autopilot-theme^="dark"] {
+      body[data-hypervisor-theme^="dark"] {
         color-scheme: dark;
         --ioi-operator-chat-bg: #000000;
         --ioi-operator-chat-border: rgba(255, 255, 255, 0.2);
@@ -2798,25 +2798,25 @@ function renderHtml(view, state) {
         padding: 0;
         opacity: 0.55;
       }
-      ${autopilotShellHeaderStyles()}
+      ${hypervisorShellHeaderStyles()}
     </style>
   </head>
   <body
     class="${isChatView ? "is-chat-view" : ""} ${isModelsView ? "is-models-view" : ""}"
-    data-autopilot-theme="${escapeHtml(appearanceThemeId)}"
+    data-hypervisor-theme="${escapeHtml(appearanceThemeId)}"
   >
     ${
       isChatView
         ? renderBody(view.id, state)
         : isStudioView
-          ? `${renderAutopilotShellHeader(state, shellModeId)}${renderBody(view.id, state)}`
+          ? `${renderHypervisorShellHeader(state, shellModeId)}${renderBody(view.id, state)}`
         : isWorkflowView
-          ? `${renderAutopilotShellHeader(state, shellModeId)}${renderBody(view.id, state)}`
+          ? `${renderHypervisorShellHeader(state, shellModeId)}${renderBody(view.id, state)}`
         : isModelsView
-          ? `${renderAutopilotShellHeader(state, shellModeId)}${renderBody(view.id, state)}`
+          ? `${renderHypervisorShellHeader(state, shellModeId)}${renderBody(view.id, state)}`
         : `
-          ${renderAutopilotShellHeader(state, shellModeId)}
-          <main class="autopilot-generic-mode" data-testid="autopilot-${escapeHtml(shellModeId)}-mode">
+          ${renderHypervisorShellHeader(state, shellModeId)}
+          <main class="hypervisor-generic-mode" data-testid="autopilot-${escapeHtml(shellModeId)}-mode">
             <p class="eyebrow">${escapeHtml(view.eyebrow)}</p>
             <h2>${escapeHtml(view.title)}</h2>
             <p>${escapeHtml(view.description)}</p>
@@ -2837,7 +2837,7 @@ function renderHtml(view, state) {
       const vscode = acquireVsCodeApi();
       function collectModelsProof(phase) {
         const selectors = {
-          modelsMode: document.querySelectorAll('[data-testid="autopilot-models-mode"]').length,
+          modelsMode: document.querySelectorAll('[data-testid="hypervisor-models-mode"]').length,
           modelsShell: document.querySelectorAll('[data-testid="models-lmstudio-shell"]').length,
           leftRail: document.querySelectorAll('[data-testid="models-left-rail"]').length,
           modelLibrary: document.querySelectorAll('[data-testid="model-library"]').length,
@@ -2878,7 +2878,7 @@ function renderHtml(view, state) {
           unloadButton: document.querySelectorAll('[data-testid="model-running-unload-button"]').length,
           inspectorTabs: document.querySelectorAll('[data-model-inspector-tab]').length
         };
-        const root = document.querySelector('[data-testid="autopilot-models-mode"]');
+        const root = document.querySelector('[data-testid="hypervisor-models-mode"]');
         const proof = {
           schemaVersion: "ioi.models-mode.dom-proof.v1",
           phase,
@@ -2909,7 +2909,7 @@ function renderHtml(view, state) {
       }
       function activateModelSurface(surface) {
         const target = surface || "library";
-        const root = document.querySelector('[data-testid="autopilot-models-mode"]');
+        const root = document.querySelector('[data-testid="hypervisor-models-mode"]');
         if (root) {
           root.dataset.activeModelSurface = target;
         }
@@ -3220,7 +3220,7 @@ function renderHtml(view, state) {
         if (phase === "model-catalog-sources-surface") {
           activateModelSurface("sources");
         }
-        const root = document.querySelector('[data-testid="autopilot-models-mode"]');
+        const root = document.querySelector('[data-testid="hypervisor-models-mode"]');
         const targetTestId = phase === "model-discover-view" ? "model-discovery-surface" : phase;
         const target = phase === "model-library"
           ? root
@@ -3228,7 +3228,7 @@ function renderHtml(view, state) {
         target?.scrollIntoView({ block: phase === "model-discover-view" || phase === "model-discovery-surface" || phase === "model-catalog-sources-surface" || phase === "model-library" ? "start" : "center", inline: "center" });
         window.setTimeout(() => collectModelsProof(phase), 250);
       });
-      if (document.querySelector('[data-testid="autopilot-models-mode"]')) {
+      if (document.querySelector('[data-testid="hypervisor-models-mode"]')) {
         window.setTimeout(() => collectModelsProof("initial"), 250);
       }
       document.querySelectorAll("[data-command]").forEach((button) => {
@@ -3266,7 +3266,7 @@ function renderHtml(view, state) {
           if (notice && button.dataset.bridgeRequest === "workflow.codeGenerationRequest") {
             notice.hidden = false;
             notice.innerHTML =
-              "<strong>Proposal queued</strong>Autopilot is writing a proposal-first diff, approval/check plan, and receipt trail for the active workspace.";
+              "<strong>Proposal queued</strong>Hypervisor is writing a proposal-first diff, approval/check plan, and receipt trail for the active workspace.";
           }
         });
       });
@@ -5138,8 +5138,8 @@ const {
   syncWorkbenchAppearance,
   watchBridgeState,
 } = createWorkbenchPanelLifecycle({
-  AUTOPILOT_MODE_BY_ID,
-  AUTOPILOT_MODE_BY_VIEW_ID,
+  HYPERVISOR_MODE_BY_ID,
+  HYPERVISOR_MODE_BY_VIEW_ID,
   MODE_VISIBILITY_REQUEST_TYPES,
   buildWorkspaceActionContext,
   renderHtml,
@@ -5215,7 +5215,7 @@ const {
   openModelsPanel: openModelsPanelFromManager,
   refreshPersistentModePanels,
 } = createPersistentModePanels({
-  AUTOPILOT_MODE_BY_ID,
+  HYPERVISOR_MODE_BY_ID,
   VIEW_DEFINITIONS,
   buildWorkspaceActionContext,
   codeModePanelHtml,
@@ -5274,7 +5274,7 @@ function activate(context) {
   );
   statusItem.name = "IOI Workbench";
   statusItem.text = "$(symbol-keyword) IOI";
-  statusItem.tooltip = "Open Autopilot Overview.";
+  statusItem.tooltip = "Open Hypervisor Overview.";
   statusItem.command = "ioi.overview.open";
   statusItem.show();
   context.subscriptions.push(statusItem);
@@ -5333,10 +5333,10 @@ function activate(context) {
     applyStudioPermissionModeSelection,
     refreshStudioPanelHtml: () => refreshStudioPanelHtml(output),
     focusStudioPanelComposer,
-    autopilotModeById: AUTOPILOT_MODE_BY_ID,
-    getLastAutopilotModeBeforeCode: () => autopilotModeController.lastModeBeforeCode(),
+    hypervisorModeById: HYPERVISOR_MODE_BY_ID,
+    getLastHypervisorModeBeforeCode: () => hypervisorModeController.lastModeBeforeCode(),
     getStudioPanel: () => studioPanel,
-    enterAutopilotMode,
+    enterHypervisorMode,
     openOverviewPanel: () => openOverviewPanel(context, output),
     openStudioPanel: () => openStudioPanel(context, output),
     openGenericModePanel: (modeId) => openGenericModePanel(context, output, modeId),
@@ -5373,7 +5373,7 @@ function activate(context) {
         phase: "home",
       }).catch((error) => {
         output.appendLine(
-          `[ioi-workbench] failed to open Autopilot Overview: ${error?.message ?? error}`,
+          `[ioi-workbench] failed to open Hypervisor Overview: ${error?.message ?? error}`,
         );
       });
     }, 900);

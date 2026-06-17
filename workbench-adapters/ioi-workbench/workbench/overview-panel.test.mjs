@@ -20,7 +20,7 @@ function commandPayloadAttr(payload) {
 
 function createRenderer({ nonceValue = "overview-nonce", daemon = "http://127.0.0.1:1234" } = {}) {
   return createWorkbenchOverviewPanelRenderer({
-    autopilotShellHeaderStyles: () => ".autopilot-shell{}",
+    hypervisorShellHeaderStyles: () => ".hypervisor-shell{}",
     currentOverviewPanelNonce: () => nonceValue,
     daemonEndpoint: () => daemon,
     escapeHtml,
@@ -30,7 +30,7 @@ function createRenderer({ nonceValue = "overview-nonce", daemon = "http://127.0.
       `<span class="overview-pill is-${escapeHtml(tone)}"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></span>`,
     overviewTone: (value) => /connected|ready/i.test(String(value)) ? "ready" : "muted",
     productStudioModelSelectionsFromSnapshot: () => [{ id: "model-1" }, { id: "model-2" }],
-    renderAutopilotShellHeader: () => `<header data-testid="autopilot-shell-header">Shell</header>`,
+    renderHypervisorShellHeader: () => `<header data-testid="hypervisor-shell-header">Shell</header>`,
     renderOverviewAction: ({ label, description, command, payload, tone = "default" }) =>
       `<button class="overview-action is-${escapeHtml(tone)}" data-command="${escapeHtml(command)}"${commandPayloadAttr(payload)}><span>${escapeHtml(label)}</span><small>${escapeHtml(description)}</small></button>`,
     renderOverviewRow: (label, value, detail, tone = "muted") =>
@@ -50,9 +50,9 @@ test("overview panel preserves nonce wiring, daemon ownership, and command affor
   assert.match(html, /script-src 'nonce-overview-nonce'/);
   assert.match(html, /<style nonce="overview-nonce">/);
   assert.match(html, /<script nonce="overview-nonce">/);
-  assert.match(html, /data-testid="autopilot-overview-home"/);
+  assert.match(html, /data-testid="hypervisor-overview-home"/);
   assert.match(html, /data-runtime-authority="daemon-owned"/);
-  assert.match(html, /data-testid="autopilot-shell-header"/);
+  assert.match(html, /data-testid="hypervisor-shell-header"/);
   assert.match(html, /data-command="ioi\.studio\.open"/);
   assert.match(html, /data-command="ioi\.workflow\.openComposer"/);
   assert.match(html, /data-command="ioi\.models\.open"/);

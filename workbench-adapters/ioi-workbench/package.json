@@ -1,7 +1,7 @@
 {
   "name": "ioi-workbench",
   "displayName": "IOI Workbench",
-  "description": "IOI-native workbench surfaces for Autopilot Workspace.",
+  "description": "IOI-native workbench surfaces for Hypervisor Workspace.",
   "version": "0.0.1",
   "publisher": "ioi",
   "engines": {
@@ -39,37 +39,37 @@
       "activitybar": [
         {
           "id": "ioi-overview",
-          "title": "Autopilot Overview",
+          "title": "Hypervisor Overview",
           "icon": "$(home)"
         },
         {
           "id": "ioi-studio",
-          "title": "Autopilot Studio",
+          "title": "Hypervisor Studio",
           "icon": "$(sparkle)"
         },
         {
           "id": "ioi-workflows",
-          "title": "Autopilot Workflows",
+          "title": "Hypervisor Workflows",
           "icon": "media/ioi-workflows.svg"
         },
         {
           "id": "ioi-models",
-          "title": "Autopilot Models",
+          "title": "Hypervisor Models",
           "icon": "media/ioi-models.svg"
         },
         {
           "id": "ioi-runs",
-          "title": "Autopilot Runs",
+          "title": "Hypervisor Runs",
           "icon": "$(pulse)"
         },
         {
           "id": "ioi-policy",
-          "title": "Autopilot Policy",
+          "title": "Hypervisor Policy",
           "icon": "$(shield)"
         },
         {
           "id": "ioi-connectors",
-          "title": "Autopilot Connectors",
+          "title": "Hypervisor Connectors",
           "icon": "$(plug)"
         },
         {
@@ -140,7 +140,7 @@
     "commands": [
       {
         "command": "ioi.commandCenter.open",
-        "title": "IOI: Open Autopilot Command Center",
+        "title": "IOI: Open Hypervisor Command Center",
         "category": "IOI",
         "icon": "$(search)"
       },
@@ -151,14 +151,14 @@
         "icon": "$(code)"
       },
       {
-        "command": "ioi.autopilot.back",
-        "title": "IOI: Back to Autopilot",
+        "command": "ioi.hypervisor.back",
+        "title": "IOI: Back to Hypervisor",
         "category": "IOI",
         "icon": "$(arrow-left)"
       },
       {
         "command": "ioi.overview.open",
-        "title": "IOI: Open Autopilot Overview",
+        "title": "IOI: Open Hypervisor Overview",
         "category": "IOI",
         "icon": "$(home)"
       },
@@ -432,7 +432,7 @@
           "command": "ioi.code.open"
         },
         {
-          "command": "ioi.autopilot.back"
+          "command": "ioi.hypervisor.back"
         },
         {
           "command": "ioi.overview.open"

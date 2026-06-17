@@ -19,7 +19,7 @@ function createRenderer({
   nonceValue = "nonce-1",
 } = {}) {
   return createWorkbenchCodeModePanelRenderer({
-    autopilotShellHeaderStyles: () => ".shell-header{}",
+    hypervisorShellHeaderStyles: () => ".shell-header{}",
     buildWorkbenchContextSnapshot: (target) => ({
       target,
       workspace,
@@ -39,7 +39,7 @@ test("code mode panel projects the current workspace as a repository row", () =>
     id: "current-workspace",
     name: "Current <repo>",
     rootPath: "/workspace/current",
-    description: "Current Autopilot workspace",
+    description: "Current Hypervisor workspace",
     favorite: false,
   }]);
   assert.equal(renderer.relativeWorkspacePath("/workspace", "/workspace/current/file.txt"), "current/file.txt");
@@ -50,10 +50,10 @@ test("code mode panel preserves command affordances, test ids, and escaping", ()
   const renderer = createRenderer();
   const html = renderer.codeModePanelHtml({});
 
-  assert.match(html, /data-testid="autopilot-code-mode"/);
+  assert.match(html, /data-testid="hypervisor-code-mode"/);
   assert.match(html, /data-testid="code-repositories-gate"/);
   assert.match(html, /data-testid="code-mode-vscode-menu-tooling"/);
-  assert.match(html, /data-command="ioi\.autopilot\.back"/);
+  assert.match(html, /data-command="ioi\.hypervisor\.back"/);
   assert.match(html, /data-command="workbench\.view\.explorer"/);
   assert.match(html, /data-command="workbench\.action\.files\.openFolder"/);
   assert.match(html, /data-command="ioi\.commandCenter\.open"/);

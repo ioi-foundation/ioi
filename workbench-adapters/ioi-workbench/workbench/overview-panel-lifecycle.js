@@ -61,7 +61,7 @@ function createOverviewPanelLifecycle({
     } else {
       overviewPanel = vscode.window.createWebviewPanel(
         "ioi.overview",
-        "Autopilot Overview",
+        "Hypervisor Overview",
         vscode.ViewColumn.One,
         {
           enableScripts: true,
@@ -84,7 +84,7 @@ function createOverviewPanelLifecycle({
       });
     }
     updateOverviewPanelHtml(state);
-    output.appendLine("Opened Autopilot Overview webview.");
+    output.appendLine("Opened Hypervisor Overview webview.");
     return overviewPanel;
   }
 

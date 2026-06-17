@@ -449,7 +449,7 @@ function App() {
   const scenario = scenarioById(scenarioId);
   const projectScope = {
     id: "autopilot-electron-workbench",
-    name: "Autopilot Workbench",
+    name: "Hypervisor Workbench",
     rootPath:
       window.__IOI_WORKFLOW_COMPOSITOR_INITIAL_STATE__?.workspaceRoot ??
       "ioi-workspace",
@@ -464,7 +464,7 @@ function App() {
     >
       <div className="ioi-composer-parity-bar" data-testid="workflow-parity-harness">
         <div>
-          <strong>Autopilot Workflows</strong>
+          <strong>Hypervisor Workflows</strong>
           <span>Real @ioi/hypervisor-workbench WorkflowComposer in Electron</span>
         </div>
         <nav aria-label="Workflow parity scenarios">

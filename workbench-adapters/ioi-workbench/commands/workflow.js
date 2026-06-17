@@ -34,7 +34,7 @@ function registerWorkflowCommands({
         externalAction: false,
       }, contextSnapshot);
       closePrimarySidebarAfterActivityLaunch();
-      status("Opened Autopilot Workflow Composer.");
+      status("Opened Hypervisor Workflow Composer.");
     }),
     vscode.commands.registerCommand("ioi.workflow.compositor.runScenario", async (payload = {}) => {
       const scenarioId = pickString(payload, "scenarioId") || "sequential";

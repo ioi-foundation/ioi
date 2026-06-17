@@ -35,7 +35,7 @@ function registerModelCommands({
         tauriUsed: false,
       }, contextSnapshot);
       closePrimarySidebarAfterActivityLaunch();
-      status("Opened Autopilot Models.");
+      status("Opened Hypervisor Models.");
     }),
     vscode.commands.registerCommand("ioi.models.openLoader", async (payload = {}) => {
       const modelId = pickString(payload, "modelId");

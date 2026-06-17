@@ -122,7 +122,7 @@ function createWorkbenchModeBodyRenderers({
 
   function renderDirectModeActivityView({ title, command, description }) {
     return `
-    <section class="workflow-direct-open" data-testid="autopilot-direct-mode-activity">
+    <section class="workflow-direct-open" data-testid="hypervisor-direct-mode-activity">
       <span>${escapeHtml(description || `Opening ${title} mode in the editor area...`)}</span>
       <button class="action" type="button" data-command="${escapeHtml(command)}">Open ${escapeHtml(title)}</button>
     </section>

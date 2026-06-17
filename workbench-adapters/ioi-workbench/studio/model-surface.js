@@ -137,7 +137,7 @@ function renderRecommendedModelSetup(snapshot) {
       <div>
         <span class="model-chip">Recommended setup</span>
         <h3>Set up product local models</h3>
-        <p>No product chat model is mounted. Autopilot should guide first-run setup from hardware survey to recommended downloads instead of exposing fixtures or detected-provider internals.</p>
+        <p>No product chat model is mounted. Hypervisor should guide first-run setup from hardware survey to recommended downloads instead of exposing fixtures or detected-provider internals.</p>
       </div>
       <ul>
         <li><strong>Qwen 3.5</strong><span>Primary local chat, reasoning, and artifact generation route.</span></li>
@@ -403,7 +403,7 @@ function modelCatalogReferenceEntries() {
       description:
         "Dense Qwen reasoning model for local planning, tool use, and workflow-backed coding tasks.",
       readme:
-        "Qwen3.6 27B is a practical local reasoning candidate for Autopilot routes where the daemon needs predictable model lifecycle, receipts, and replay.",
+        "Qwen3.6 27B is a practical local reasoning candidate for Hypervisor routes where the daemon needs predictable model lifecycle, receipts, and replay.",
       moreFromPublisher: [
         { label: "qwen3.6-35b-a3b", downloads: 86_000, stars: 33 },
         { label: "qwen3-coder-next", downloads: 71_000, stars: 31 },
@@ -435,7 +435,7 @@ function modelCatalogReferenceEntries() {
       description:
         "General-purpose model family candidate for on-device assistants and document workflows.",
       readme:
-        "Gemma 4 31B is shown as a discovery candidate so Autopilot can route users from model selection into daemon-owned estimate, download, and load flows.",
+        "Gemma 4 31B is shown as a discovery candidate so Hypervisor can route users from model selection into daemon-owned estimate, download, and load flows.",
       moreFromPublisher: [
         { label: "gemma-4-e4b", downloads: 73_000, stars: 19 },
         { label: "gemma-4-e2b", downloads: 67_000, stars: 15 },
@@ -846,7 +846,7 @@ function renderModelSourcesSurface(snapshot) {
           <h3>Local Autodiscovery</h3>
           ${renderCatalogSourceRow({ catalog: {}, catalogProviderConfigs: [], providers: [lmStudio] }, "provider.lmstudio", "LM Studio", "Find local LM Studio models and mounted local server routes.", "model-source-lmstudio")}
           ${renderCatalogSourceRow({ catalog: {}, catalogProviderConfigs: [], providers: [ollama] }, "provider.ollama", "Ollama", "Find local Ollama models without copying artifacts into Autopilot.", "model-source-ollama")}
-          <p class="model-source-note">Local providers are discovered on startup and remain daemon-owned; Autopilot mounts routes as projections.</p>
+          <p class="model-source-note">Local providers are discovered on startup and remain daemon-owned; Hypervisor mounts routes as projections.</p>
         </section>
         <section class="model-sources-card" data-testid="model-remote-registry-sources">
           <h3>Remote Registries</h3>
@@ -948,8 +948,8 @@ function renderModelsPanelBody(state, { compact = false } = {}) {
   return `
       <section
         class="model-workbench models-lmstudio ${compact ? "is-compact" : ""}"
-      data-testid="autopilot-models-mode"
-      data-inspection-target="autopilot-models-mode"
+      data-testid="hypervisor-models-mode"
+      data-inspection-target="hypervisor-models-mode"
       data-daemon-backed="${modelStatus.status === "connected" ? "true" : "false"}"
       data-active-model-surface="library"
       >

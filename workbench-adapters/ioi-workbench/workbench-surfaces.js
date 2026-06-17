@@ -19,7 +19,7 @@ const VIEW_DEFINITIONS = [
   {
     id: "ioi.overviewActivity",
     title: "Overview",
-    eyebrow: "Autopilot Home",
+    eyebrow: "Hypervisor Home",
     description:
       "Open the IDE-native operator console for Build, Run, Govern, and Verify.",
     actions: [],
@@ -211,7 +211,7 @@ const VIEW_DEFINITIONS = [
   },
 ];
 
-const AUTOPILOT_MODES = [
+const HYPERVISOR_MODES = [
   {
     id: "home",
     title: "Home",
@@ -289,22 +289,22 @@ const AUTOPILOT_MODES = [
   },
 ];
 
-const AUTOPILOT_MODE_BY_ID = Object.fromEntries(
-  AUTOPILOT_MODES.map((mode) => [mode.id, mode]),
+const HYPERVISOR_MODE_BY_ID = Object.fromEntries(
+  HYPERVISOR_MODES.map((mode) => [mode.id, mode]),
 );
-const AUTOPILOT_MODE_BY_VIEW_ID = Object.fromEntries(
-  AUTOPILOT_MODES.map((mode) => [mode.viewId, mode]),
+const HYPERVISOR_MODE_BY_VIEW_ID = Object.fromEntries(
+  HYPERVISOR_MODES.map((mode) => [mode.viewId, mode]),
 );
-const AUTOPILOT_MODE_BY_PANEL_VIEW_ID = Object.fromEntries(
-  AUTOPILOT_MODES
+const HYPERVISOR_MODE_BY_PANEL_VIEW_ID = Object.fromEntries(
+  HYPERVISOR_MODES
     .filter((mode) => mode.panelViewId)
     .map((mode) => [mode.panelViewId, mode]),
 );
 
 module.exports = {
-  AUTOPILOT_MODE_BY_ID,
-  AUTOPILOT_MODE_BY_PANEL_VIEW_ID,
-  AUTOPILOT_MODE_BY_VIEW_ID,
-  AUTOPILOT_MODES,
+  HYPERVISOR_MODE_BY_ID,
+  HYPERVISOR_MODE_BY_PANEL_VIEW_ID,
+  HYPERVISOR_MODE_BY_VIEW_ID,
+  HYPERVISOR_MODES,
   VIEW_DEFINITIONS,
 };

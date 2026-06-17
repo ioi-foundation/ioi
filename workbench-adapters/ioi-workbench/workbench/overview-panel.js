@@ -1,7 +1,7 @@
 "use strict";
 
 function createWorkbenchOverviewPanelRenderer({
-  autopilotShellHeaderStyles,
+  hypervisorShellHeaderStyles,
   currentOverviewPanelNonce,
   daemonEndpoint,
   escapeHtml,
@@ -10,7 +10,7 @@ function createWorkbenchOverviewPanelRenderer({
   overviewPill,
   overviewTone,
   productStudioModelSelectionsFromSnapshot,
-  renderAutopilotShellHeader,
+  renderHypervisorShellHeader,
   renderOverviewAction,
   renderOverviewRow,
   workspaceSummary,
@@ -64,7 +64,7 @@ function createWorkbenchOverviewPanelRenderer({
       content="default-src 'none'; img-src data:; style-src 'nonce-${pageNonce}'; script-src 'nonce-${pageNonce}';"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Autopilot Overview</title>
+    <title>Hypervisor Overview</title>
     <style nonce="${pageNonce}">
       :root {
         color-scheme: dark;
@@ -279,7 +279,7 @@ function createWorkbenchOverviewPanelRenderer({
         border-radius: 4px;
         padding: 2px 5px;
       }
-      ${autopilotShellHeaderStyles()}
+      ${hypervisorShellHeaderStyles()}
       @media (max-width: 1000px) {
         .overview-header,
         .overview-main {
@@ -298,11 +298,11 @@ function createWorkbenchOverviewPanelRenderer({
     </style>
   </head>
   <body>
-    <main class="overview-shell" data-testid="autopilot-overview-home" data-runtime-authority="daemon-owned">
-      ${renderAutopilotShellHeader(state, "home")}
+    <main class="overview-shell" data-testid="hypervisor-overview-home" data-runtime-authority="daemon-owned">
+      ${renderHypervisorShellHeader(state, "home")}
       <header class="overview-header">
         <div>
-          <div class="overview-kicker">Autopilot Workbench</div>
+          <div class="overview-kicker">Hypervisor Workbench</div>
           <h1>Operator console for autonomous systems</h1>
           <p>
             Build, run, govern, and verify agentic work from one IDE-native surface.
@@ -317,7 +317,7 @@ function createWorkbenchOverviewPanelRenderer({
         </div>
       </header>
 
-      <nav class="overview-nav" aria-label="Autopilot primary actions">
+      <nav class="overview-nav" aria-label="Hypervisor primary actions">
         ${renderOverviewAction({
           label: "Build",
           description: "Agent Studio, workflows, workers, and model-backed app intent.",
@@ -441,7 +441,7 @@ function createWorkbenchOverviewPanelRenderer({
               })}
               ${renderOverviewAction({
                 label: "Command Center",
-                description: "Search Autopilot commands and runtime surfaces.",
+                description: "Search Hypervisor commands and runtime surfaces.",
                 command: "ioi.commandCenter.open",
               })}
             </div>

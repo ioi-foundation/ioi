@@ -22,14 +22,14 @@ function createRenderer({
 } = {}) {
   const joined = [];
   const renderer = createWorkflowComposerPanelRenderer({
-    autopilotShellHeaderStyles: () => ".autopilot-shell{}",
+    hypervisorShellHeaderStyles: () => ".hypervisor-shell{}",
     bridgeUrl: () => bridge,
     daemonEndpoint: () => daemon,
     daemonToken: () => token,
     escapeHtml,
     nonce: () => "composer-nonce",
-    renderAutopilotShellHeader: (state, modeId) =>
-      `<header data-testid="autopilot-shell-header" data-mode="${escapeHtml(modeId)}">${escapeHtml(state.workspace.path)}</header>`,
+    renderHypervisorShellHeader: (state, modeId) =>
+      `<header data-testid="hypervisor-shell-header" data-mode="${escapeHtml(modeId)}">${escapeHtml(state.workspace.path)}</header>`,
     vscode: {
       Uri: {
         joinPath: (...parts) => {
@@ -63,16 +63,16 @@ test("workflow composer renderer preserves assets, nonce, shell header, and CSP 
   assert.match(html, /<script nonce="composer-nonce" type="module" src="webview:\/\/extension\/media\/workflow-composer\/workflow-composer\.js"/);
   assert.match(html, /script-src 'nonce-composer-nonce'/);
   assert.match(html, /connect-src vscode-resource: http:\/\/127\.0\.0\.1:9911\/path\?&lt;bad&gt; http:\/\/127\.0\.0\.1:\* http:\/\/localhost:\*/);
-  assert.match(html, /data-testid="autopilot-shell-header"/);
+  assert.match(html, /data-testid="hypervisor-shell-header"/);
   assert.match(html, /data-mode="workflows"/);
   assert.equal(joined.length, 2);
 });
 
 test("workflow composer renderer serializes daemon-owned initial state safely", () => {
   const oldModelId = process.env.IOI_DAEMON_MODEL_ID;
-  const oldAutopilotModelId = process.env.IOI_AUTOPILOT_MODEL_ID;
+  const oldAutopilotModelId = process.env.IOI_HYPERVISOR_MODEL_ID;
   process.env.IOI_DAEMON_MODEL_ID = "model<one>";
-  delete process.env.IOI_AUTOPILOT_MODEL_ID;
+  delete process.env.IOI_HYPERVISOR_MODEL_ID;
   try {
     const { renderer } = createRenderer({
       bridge: "",
@@ -100,9 +100,9 @@ test("workflow composer renderer serializes daemon-owned initial state safely", 
       process.env.IOI_DAEMON_MODEL_ID = oldModelId;
     }
     if (oldAutopilotModelId === undefined) {
-      delete process.env.IOI_AUTOPILOT_MODEL_ID;
+      delete process.env.IOI_HYPERVISOR_MODEL_ID;
     } else {
-      process.env.IOI_AUTOPILOT_MODEL_ID = oldAutopilotModelId;
+      process.env.IOI_HYPERVISOR_MODEL_ID = oldAutopilotModelId;
     }
   }
 });

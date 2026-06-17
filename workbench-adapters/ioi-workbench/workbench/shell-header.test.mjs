@@ -3,7 +3,7 @@ import { createRequire } from "node:module";
 import test from "node:test";
 
 const require = createRequire(import.meta.url);
-const { createAutopilotShellHeader } = require("./shell-header.js");
+const { createHypervisorShellHeader } = require("./shell-header.js");
 
 function escapeHtml(value = "") {
   return String(value ?? "")
@@ -15,8 +15,8 @@ function escapeHtml(value = "") {
 }
 
 function createHeader(options = {}) {
-  return createAutopilotShellHeader({
-    AUTOPILOT_MODE_BY_ID: {
+  return createHypervisorShellHeader({
+    HYPERVISOR_MODE_BY_ID: {
       home: { id: "home", title: "Home" },
       code: { id: "code", title: "Code" },
     },
@@ -28,7 +28,7 @@ function createHeader(options = {}) {
   });
 }
 
-test("Autopilot shell header maps runtime tones", () => {
+test("Hypervisor shell header maps runtime tones", () => {
   const header = createHeader();
 
   assert.equal(header.shellStatusTone("connected"), "ready");
@@ -37,9 +37,9 @@ test("Autopilot shell header maps runtime tones", () => {
   assert.equal(header.shellStatusTone("not_configured"), "muted");
 });
 
-test("Autopilot shell header renders sanitized posture and commands", () => {
+test("Hypervisor shell header renders sanitized posture and commands", () => {
   const header = createHeader();
-  const html = header.renderAutopilotShellHeader({
+  const html = header.renderHypervisorShellHeader({
     workspace: { name: "Repo <One>", path: "/workspace/repo-one" },
     modelMounting: {
       instances: [{ status: "loaded" }],
@@ -50,33 +50,33 @@ test("Autopilot shell header renders sanitized posture and commands", () => {
     summary: { policyIssueCount: 1 },
   }, "home");
 
-  assert.match(html, /data-testid="autopilot-workbench-shell-header"/);
+  assert.match(html, /data-testid="hypervisor-workbench-shell-header"/);
   assert.match(html, /data-command="ioi\.commandCenter\.open"/);
   assert.match(html, /data-command="ioi\.code\.open"/);
   assert.match(html, /Repo &lt;One&gt;/);
   assert.match(html, /Local &lt;Route&gt;/);
-  assert.match(html, /autopilot-shell-chip is-ready/);
-  assert.match(html, /autopilot-shell-chip is-warn/);
+  assert.match(html, /hypervisor-shell-chip is-ready/);
+  assert.match(html, /hypervisor-shell-chip is-warn/);
 });
 
-test("Autopilot shell header supports native-shell gating and code-mode action", () => {
+test("Hypervisor shell header supports native-shell gating and code-mode action", () => {
   const nativeHeader = createHeader({ processEnv: { IOI_WORKBENCH_NATIVE_SHELL: "1" } });
-  assert.equal(nativeHeader.renderAutopilotShellHeader({}, "home"), "");
+  assert.equal(nativeHeader.renderHypervisorShellHeader({}, "home"), "");
 
   const codeHeader = createHeader();
-  const html = codeHeader.renderAutopilotShellHeader({
+  const html = codeHeader.renderHypervisorShellHeader({
     modelMounting: { instances: [], routes: [], endpoints: [] },
     runs: [],
     policy: {},
   }, "code");
-  assert.match(html, /data-command="ioi\.autopilot\.back"/);
-  assert.match(html, /data-testid="back-to-autopilot-from-code"/);
+  assert.match(html, /data-command="ioi\.hypervisor\.back"/);
+  assert.match(html, /data-testid="back-to-hypervisor-from-code"/);
 });
 
-test("Autopilot shell header styles expose the product shell selectors", () => {
+test("Hypervisor shell header styles expose the product shell selectors", () => {
   const header = createHeader();
-  const styles = header.autopilotShellHeaderStyles();
+  const styles = header.hypervisorShellHeaderStyles();
 
-  assert.match(styles, /\.autopilot-shell-header/);
-  assert.match(styles, /\.autopilot-shell-chip\.is-ready/);
+  assert.match(styles, /\.hypervisor-shell-header/);
+  assert.match(styles, /\.hypervisor-shell-chip\.is-ready/);
 });

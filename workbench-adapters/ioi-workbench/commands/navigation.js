@@ -8,8 +8,8 @@ function registerNavigationCommands({
   writeBridgeRequest,
   workspaceSummary,
   pickString,
-  autopilotModeById,
-  getLastAutopilotModeBeforeCode,
+  hypervisorModeById,
+  getLastHypervisorModeBeforeCode,
   getStudioPanel,
   enterHome,
   enterStudio,
@@ -38,7 +38,7 @@ function registerNavigationCommands({
         );
       });
       closePrimarySidebarAfterActivityLaunch();
-      status("Opened Autopilot Overview.");
+      status("Opened Hypervisor Overview.");
     }),
     vscode.commands.registerCommand("ioi.commandCenter.open", async (options = {}) => {
       const initialQuery =
@@ -49,14 +49,14 @@ function registerNavigationCommands({
         options && typeof options.mode === "string" && options.mode === "tools"
           ? "tools"
           : undefined;
-      const context = buildWorkspaceActionContext("command-center.autopilot-header");
+      const context = buildWorkspaceActionContext("command-center.hypervisor-header");
       await writeBridgeRequest("commandCenter.open", {
         workspaceRoot: workspaceSummary().path,
         sourceCommand: "ioi.commandCenter.open",
         initialQuery,
         ...(mode ? { mode } : {}),
       }, context);
-      status("Opening Autopilot command center.");
+      status("Opening Hypervisor command center.");
     }),
     vscode.commands.registerCommand("ioi.code.open", async () => {
       const contextSnapshot = buildWorkspaceActionContext("code-mode");
@@ -77,17 +77,17 @@ function registerNavigationCommands({
       await vscode.commands.executeCommand("workbench.view.explorer").catch(() => undefined);
       status("Opened Code mode.");
     }),
-    vscode.commands.registerCommand("ioi.autopilot.back", async () => {
-      const lastMode = getLastAutopilotModeBeforeCode();
+    vscode.commands.registerCommand("ioi.hypervisor.back", async () => {
+      const lastMode = getLastHypervisorModeBeforeCode();
       const targetMode = lastMode && lastMode !== "code" ? lastMode : "home";
-      const target = autopilotModeById[targetMode] || autopilotModeById.home;
+      const target = hypervisorModeById[targetMode] || hypervisorModeById.home;
       await enterMode(target.id);
       await vscode.commands.executeCommand(target.command, {
         source: "code-back",
         phase: target.phase,
       });
       closePrimarySidebarAfterActivityLaunch();
-      status(`Returned to Autopilot ${target.title}.`);
+      status(`Returned to Hypervisor ${target.title}.`);
     }),
     vscode.commands.registerCommand("ioi.studio.open", async (payload = {}) => {
       const contextSnapshot = buildWorkspaceActionContext("studio");

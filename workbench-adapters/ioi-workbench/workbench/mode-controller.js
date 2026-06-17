@@ -1,45 +1,45 @@
 "use strict";
 
-function createAutopilotModeController({
-  AUTOPILOT_MODE_BY_ID,
-  AUTOPILOT_MODE_BY_PANEL_VIEW_ID,
-  AUTOPILOT_MODE_BY_VIEW_ID,
+function createHypervisorModeController({
+  HYPERVISOR_MODE_BY_ID,
+  HYPERVISOR_MODE_BY_PANEL_VIEW_ID,
+  HYPERVISOR_MODE_BY_VIEW_ID,
   vscode,
   initialModeId = "home",
 } = {}) {
-  let currentAutopilotModeId = initialModeId;
-  let lastAutopilotModeBeforeCode = initialModeId === "code" ? "home" : initialModeId;
+  let currentHypervisorModeId = initialModeId;
+  let lastHypervisorModeBeforeCode = initialModeId === "code" ? "home" : initialModeId;
 
   function modeIdForViewId(viewId) {
     return (
-      AUTOPILOT_MODE_BY_VIEW_ID[viewId]?.id ||
-      AUTOPILOT_MODE_BY_PANEL_VIEW_ID[viewId]?.id ||
+      HYPERVISOR_MODE_BY_VIEW_ID[viewId]?.id ||
+      HYPERVISOR_MODE_BY_PANEL_VIEW_ID[viewId]?.id ||
       null
     );
   }
 
   function currentModeId() {
-    return currentAutopilotModeId;
+    return currentHypervisorModeId;
   }
 
   function lastModeBeforeCode() {
-    return lastAutopilotModeBeforeCode;
+    return lastHypervisorModeBeforeCode;
   }
 
-  function setActiveAutopilotMode(modeId) {
-    if (!AUTOPILOT_MODE_BY_ID[modeId]) {
+  function setActiveHypervisorMode(modeId) {
+    if (!HYPERVISOR_MODE_BY_ID[modeId]) {
       return;
     }
     if (modeId !== "code") {
-      lastAutopilotModeBeforeCode = modeId;
+      lastHypervisorModeBeforeCode = modeId;
     }
-    currentAutopilotModeId = modeId;
+    currentHypervisorModeId = modeId;
   }
 
   async function applyWorkbenchChromeForMode(modeId, output) {
     const menuBarVisibility = modeId === "code" ? "classic" : "hidden";
     await vscode.commands
-      .executeCommand("setContext", "ioi.autopilotMode", modeId !== "code")
+      .executeCommand("setContext", "ioi.hypervisorMode", modeId !== "code")
       .catch(() => undefined);
     await vscode.commands
       .executeCommand("setContext", "ioi.codeMode", modeId === "code")
@@ -56,21 +56,21 @@ function createAutopilotModeController({
       });
   }
 
-  async function enterAutopilotMode(modeId, output) {
-    setActiveAutopilotMode(modeId);
+  async function enterHypervisorMode(modeId, output) {
+    setActiveHypervisorMode(modeId);
     await applyWorkbenchChromeForMode(modeId, output);
   }
 
   return {
     applyWorkbenchChromeForMode,
     currentModeId,
-    enterAutopilotMode,
+    enterHypervisorMode,
     lastModeBeforeCode,
     modeIdForViewId,
-    setActiveAutopilotMode,
+    setActiveHypervisorMode,
   };
 }
 
 module.exports = {
-  createAutopilotModeController,
+  createHypervisorModeController,
 };

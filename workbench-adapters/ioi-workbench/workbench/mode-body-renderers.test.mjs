@@ -92,7 +92,7 @@ test("mode body renderers keep connector actions and direct mode projection stab
     title: "Runs <mode>",
     command: "ioi.runs.refresh",
   });
-  assert.match(direct, /data-testid="autopilot-direct-mode-activity"/);
+  assert.match(direct, /data-testid="hypervisor-direct-mode-activity"/);
   assert.match(direct, /Open Runs &lt;mode&gt;/);
   assert.match(direct, /data-command="ioi\.runs\.refresh"/);
 });

@@ -68,7 +68,7 @@ function createManager(overrides = {}) {
   const timers = [];
   const states = [{ label: "initial" }];
   const manager = createPersistentModePanels({
-    AUTOPILOT_MODE_BY_ID: {
+    HYPERVISOR_MODE_BY_ID: {
       code: {
         id: "code",
         title: "Code",
@@ -138,7 +138,7 @@ test("models panel opens, renders, forwards bridge/proof/command messages, and c
   assert.equal(timers[0].delayMs, 700);
   timers[0].callback();
   assert.deepEqual(panel.webview.posted, [{ type: "ioi.models.capturePhase", phase: "model-library" }]);
-  assert.deepEqual(outputLines, ["Opened Autopilot Models webview."]);
+  assert.deepEqual(outputLines, ["Opened Hypervisor Models webview."]);
 
   await panel.emitMessage({ type: "bridgeRequest", requestType: "models.open", payload: { phase: "library" } });
   await panel.emitMessage({ type: "modelsModeProof", proof: { ok: true } });
@@ -190,6 +190,6 @@ test("unknown generic modes fail closed", async () => {
   const { manager, output } = createManager();
   await assert.rejects(
     () => manager.openGenericModePanel({ extensionUri: "/extension" }, output, "missing"),
-    /Unknown Autopilot mode: missing/,
+    /Unknown Hypervisor mode: missing/,
   );
 });

@@ -74,10 +74,10 @@ test("native command registrar composes command groups with shared dependencies"
     applyStudioPermissionModeSelection: () => undefined,
     refreshStudioPanelHtml: () => undefined,
     focusStudioPanelComposer: () => undefined,
-    autopilotModeById: { home: { id: "home" } },
-    getLastAutopilotModeBeforeCode: () => "studio",
+    hypervisorModeById: { home: { id: "home" } },
+    getLastHypervisorModeBeforeCode: () => "studio",
     getStudioPanel: () => null,
-    enterAutopilotMode: (modeId, output) => {
+    enterHypervisorMode: (modeId, output) => {
       enteredModes.push({ modeId, output });
     },
     openOverviewPanel: () => opened.push("overview"),

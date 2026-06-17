@@ -100,7 +100,7 @@ function createWorkflowComposerPanelLifecycle({
       }, 750);
     }
 
-    output.appendLine("Opened Autopilot Workflow Composer webview.");
+    output.appendLine("Opened Hypervisor Workflow Composer webview.");
     return workflowComposerPanel;
   }
 

@@ -95,8 +95,8 @@ test("workflow composer lifecycle creates, reuses, and disposes the panel", () =
   assert.equal(first.webview.html, "<html>workflow</html>");
   assert.equal(harness.visibility[0].modeId, "workflows");
   assert.deepEqual(harness.outputLines, [
-    "Opened Autopilot Workflow Composer webview.",
-    "Opened Autopilot Workflow Composer webview.",
+    "Opened Hypervisor Workflow Composer webview.",
+    "Opened Hypervisor Workflow Composer webview.",
   ]);
 
   harness.disposeHandlers[0]();

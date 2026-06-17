@@ -1,13 +1,13 @@
 "use strict";
 
 function createWorkflowComposerPanelRenderer({
-  autopilotShellHeaderStyles,
+  hypervisorShellHeaderStyles,
   bridgeUrl,
   daemonEndpoint,
   daemonToken,
   escapeHtml,
   nonce,
-  renderAutopilotShellHeader,
+  renderHypervisorShellHeader,
   vscode,
   workspaceSummary,
 }) {
@@ -38,7 +38,7 @@ function createWorkflowComposerPanelRenderer({
       bridgeConfigured: Boolean(bridgeUrl()),
       daemonEndpoint: modelDaemonEndpoint,
       daemonToken: daemonToken(),
-      daemonModelId: process.env.IOI_DAEMON_MODEL_ID || process.env.IOI_AUTOPILOT_MODEL_ID || null,
+      daemonModelId: process.env.IOI_DAEMON_MODEL_ID || process.env.IOI_HYPERVISOR_MODEL_ID || null,
       runtimeAuthority: "daemon-owned",
       projectionOwner: "ioi-workbench-workflow-composer-webview",
       tauriUsed: false,
@@ -64,12 +64,12 @@ function createWorkflowComposerPanelRenderer({
       body.workflow-composer-shell #root {
         min-height: 0;
       }
-      ${autopilotShellHeaderStyles()}
+      ${hypervisorShellHeaderStyles()}
     </style>
     <title>Autopilot Workflow Composer</title>
   </head>
   <body class="workflow-composer-shell">
-    ${renderAutopilotShellHeader({ workspace: workspaceSummary(), modelMounting: {}, runs: [], policy: {} }, "workflows")}
+    ${renderHypervisorShellHeader({ workspace: workspaceSummary(), modelMounting: {}, runs: [], policy: {} }, "workflows")}
     <div id="root"></div>
     <script nonce="${pageNonce}">
       const __ioiOriginalAcquireVsCodeApi = window.acquireVsCodeApi;

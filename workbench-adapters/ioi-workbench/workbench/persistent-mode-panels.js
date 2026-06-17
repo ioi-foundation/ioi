@@ -11,7 +11,7 @@ function defaultModelsViewDefinition(viewDefinitions = []) {
 }
 
 function createPersistentModePanels({
-  AUTOPILOT_MODE_BY_ID,
+  HYPERVISOR_MODE_BY_ID,
   VIEW_DEFINITIONS,
   buildWorkspaceActionContext,
   codeModePanelHtml,
@@ -33,14 +33,14 @@ function createPersistentModePanels({
     if (modeId === "code") {
       return codeModePanelHtml(state);
     }
-    const mode = AUTOPILOT_MODE_BY_ID[modeId];
+    const mode = HYPERVISOR_MODE_BY_ID[modeId];
     const viewId = mode?.panelViewId;
     const viewDefinition =
       VIEW_DEFINITIONS.find((definition) => definition.id === viewId) || {
         id: viewId || `ioi.${modeId}`,
-        title: mode?.title || "Autopilot",
-        eyebrow: "Autopilot mode",
-        description: "Persistent Autopilot workbench mode.",
+        title: mode?.title || "Hypervisor",
+        eyebrow: "Hypervisor mode",
+        description: "Persistent Hypervisor Workbench mode.",
         actions: [],
       };
     return renderHtml(viewDefinition, state);
@@ -54,7 +54,7 @@ function createPersistentModePanels({
     } else {
       modelsPanel = vscode.window.createWebviewPanel(
         "ioi.models",
-        "Autopilot Models",
+        "Hypervisor Models",
         vscode.ViewColumn.One,
         {
           enableScripts: true,
@@ -114,14 +114,14 @@ function createPersistentModePanels({
         });
       }, 700);
     }
-    output.appendLine("Opened Autopilot Models webview.");
+    output.appendLine("Opened Hypervisor Models webview.");
     return modelsPanel;
   }
 
   async function openGenericModePanel(context, output, modeId) {
-    const mode = AUTOPILOT_MODE_BY_ID[modeId];
+    const mode = HYPERVISOR_MODE_BY_ID[modeId];
     if (!mode) {
-      throw new Error(`Unknown Autopilot mode: ${modeId}`);
+      throw new Error(`Unknown Hypervisor mode: ${modeId}`);
     }
     const state = await readBridgeState();
     let panel = genericModePanels.get(modeId);
@@ -130,7 +130,7 @@ function createPersistentModePanels({
     } else {
       panel = vscode.window.createWebviewPanel(
         mode.panelViewType,
-        `Autopilot ${mode.title}`,
+        `Hypervisor `,
         vscode.ViewColumn.One,
         {
           enableScripts: true,
@@ -166,7 +166,7 @@ function createPersistentModePanels({
       genericModePanels.set(modeId, panel);
     }
     panel.webview.html = renderModePanelHtml(modeId, state);
-    output.appendLine(`Opened Autopilot ${mode.title} mode webview.`);
+    output.appendLine(`Opened Hypervisor ${mode.title} mode webview.`);
     return panel;
   }
 

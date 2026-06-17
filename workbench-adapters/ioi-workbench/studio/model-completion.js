@@ -361,7 +361,7 @@ function createStudioModelCompletion(deps) {
       });
     } else {
     const askModePresentationBoundary = [
-      "Autopilot Ask mode presentation boundary:",
+      "Hypervisor Ask mode presentation boundary:",
       "- Give the best direct model answer to the user's prompt.",
       "- When the user's wording is ambiguous, briefly acknowledge the likely meanings and make a clear, useful interpretation instead of silently collapsing it into a nearby domain.",
       "- When reasoning/thinking is enabled, keep the thinking stream brief, then move into the final answer promptly.",
@@ -422,7 +422,7 @@ function createStudioModelCompletion(deps) {
           {
             role: "system",
             content:
-              "You are Autopilot Agent Studio in Ask mode. Answer directly in chat with useful prose, code, or analysis from the selected model. Do not claim to edit files, run tools, or create artifacts; Agent mode handles governed execution.",
+              "You are Hypervisor Agent Studio in Ask mode. Answer directly in chat with useful prose, code, or analysis from the selected model. Do not claim to edit files, run tools, or create artifacts; Agent mode handles governed execution.",
           },
           {
             role: "system",
@@ -464,7 +464,7 @@ function createStudioModelCompletion(deps) {
             {
               role: "system",
               content:
-                "You are Autopilot Agent Studio in Ask mode. Continue the same user turn by providing the final answer immediately. Do not include hidden reasoning or analysis.",
+                "You are Hypervisor Agent Studio in Ask mode. Continue the same user turn by providing the final answer immediately. Do not include hidden reasoning or analysis.",
             },
             {
               role: "system",
@@ -712,7 +712,7 @@ async function generateStudioStaticWebsiteDraft({ prompt, title, selectedRoute, 
             {
               role: "system",
               content: [
-                "You create polished, self-contained static website artifacts for Autopilot Agent Studio.",
+                "You create polished, self-contained static website artifacts for Hypervisor Agent Studio.",
                 "Return one complete HTML document only: <!DOCTYPE html><html>...</html>.",
                 "Keep the document compact enough to finish quickly in one response: roughly 70-110 lines, concise copy, at most five visible sections.",
                 "End the response immediately after the closing </html> tag.",
@@ -1125,7 +1125,7 @@ async function streamStudioArtifactHandoffText(args, output) {
     presentation: "artifact_handoff",
     maxTokens: 384,
     systemPrompt: [
-      "You write the final user-facing handoff after Autopilot Agent Studio has created an artifact.",
+      "You write the final user-facing handoff after Hypervisor Agent Studio has created an artifact.",
       "Return only concise Markdown prose, one short paragraph or two bullets.",
       "Mention what the user can do next if useful.",
       "Do not expose traces, receipts, fixture paths, JSON payloads, daemon details, or policy plumbing.",
@@ -1140,7 +1140,7 @@ async function streamStudioArtifactBlockedHandoff(args, output) {
     presentation: "artifact_blocked_handoff",
     maxTokens: 320,
     systemPrompt: [
-      "You write the user-facing blocker after an Autopilot Agent Studio artifact boundary rejected a result.",
+      "You write the user-facing blocker after a Hypervisor Agent Studio artifact boundary rejected a result.",
       "Return only concise Markdown prose.",
       "Explain the blocker in normal product language and give the next useful user action.",
       "Do not expose traces, receipts, fixture paths, JSON payloads, daemon details, policy plumbing, or validation internals.",

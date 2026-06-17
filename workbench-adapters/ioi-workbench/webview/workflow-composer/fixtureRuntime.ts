@@ -329,7 +329,7 @@ async function daemonRunResult(workflow: any, path: string, options: Record<stri
       checkpointCount: Math.max(1, modelNodes.length),
       summary:
         "Electron WorkflowComposer dry-run invoked mounted local models through the IOI daemon.",
-      evidencePath: "docs/evidence/autopilot-electron-model-mounting-daemon-runtime-adapter",
+      evidencePath: "docs/evidence/hypervisor-electron-model-mounting-daemon-runtime-adapter",
     },
     thread: {
       id: threadId,

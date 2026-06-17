@@ -112,8 +112,8 @@ test("overview panel lifecycle creates, reuses, and disposes the panel", async (
     ],
   );
   assert.deepEqual(harness.outputLines, [
-    "Opened Autopilot Overview webview.",
-    "Opened Autopilot Overview webview.",
+    "Opened Hypervisor Overview webview.",
+    "Opened Hypervisor Overview webview.",
   ]);
 
   harness.disposeHandlers[0]();
