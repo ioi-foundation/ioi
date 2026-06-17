@@ -1634,11 +1634,26 @@ git diff --check -- internal-docs/implementation docs/architecture apps/hypervis
 
 | Field | Detail |
 | --- | --- |
-| Status | Implemented as a canonical docs slice; conformance guard added so aiagent remains an ontology-bound digital and embodied labor substrate rather than drifting back to a digital-worker-only marketplace. Runtime/API adoption remains follow-up hardening. |
+| Status | Implemented as a canonical docs slice; conformance guard added so aiagent remains an ontology-bound digital and embodied labor substrate rather than drifting back to a digital-worker-only marketplace. First daemon/API adoption implemented through worker-package install admission; live aiagent marketplace endpoints remain follow-up hardening. |
 | Files | `aiagent/worker-marketplace.md`, new aiagent ontology/lifecycle docs, `_meta/source-of-truth-map.md`, `_meta/implementation-matrix.md`, `_meta/vocabulary.md`, `README.md`, `_meta/start-here.md` |
 | Change | Move broad autonomous labor plan into canonical docs. |
 | Acceptance | aiagent definition covers ontology-bound digital and embodied workers; digital-only phrasing is removed or qualified. |
 | Verify | `npm run check:architecture-docs`; `git diff --check -- docs/architecture internal-docs/implementation`; `rg -n "DigitalWorkerOntology|VerticalOntologyPack|IntegrationSurface|ManagedWorkerInstanceLifecycle|ManagedAgentConsole|ontology-bound digital and embodied workers" docs/architecture/domains/aiagent docs/architecture/_meta docs/architecture/README.md docs/architecture/START_HERE.md` |
+
+Implementation slice:
+
+`packages/runtime-daemon/src/runtime-worker-package-install-admission.mjs`
+now admits `WorkerPackage` install and managed-instance initialization requests
+only when they bind the aiagent base ontology, vertical pack refs, integration
+surfaces, `prim:*` execution requirements, `scope:*` wallet authority
+requirements, policy/evidence/receipt refs, runtime and persistence profiles,
+package artifact refs, wallet approval, install/license rights, Agentgres
+operation refs, and receipts. Physical-action worker packages must also bind
+`PhysicalActionPolicy`, `SafetyEnvelope`, and `EmergencyStopAuthority` refs.
+The public route `/v1/hypervisor/worker-package-install-admissions` exposes
+the same daemon gate and blocks `prim:*` scopes masquerading as authority,
+vertical runtime forks, private-workspace cTEE installs without a cTEE policy,
+and physical packages without safety refs.
 
 ### Phase 2: Add Physical Action Safety Owner
 

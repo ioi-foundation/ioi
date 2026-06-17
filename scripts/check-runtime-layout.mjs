@@ -111,6 +111,12 @@ const runtimePhysicalActionIntentAdmissionSource = read(
 const runtimePhysicalActionIntentAdmissionTestSource = read(
   "packages/runtime-daemon/src/runtime-physical-action-intent-admission.test.mjs",
 );
+const runtimeWorkerPackageInstallAdmissionSource = read(
+  "packages/runtime-daemon/src/runtime-worker-package-install-admission.mjs",
+);
+const runtimeWorkerPackageInstallAdmissionTestSource = read(
+  "packages/runtime-daemon/src/runtime-worker-package-install-admission.test.mjs",
+);
 const hypervisorActivityBarSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/components/ChatLocalActivityBar.tsx",
 );
@@ -742,6 +748,57 @@ assert(
     "packages/runtime-daemon/src/runtime-physical-action-intent-admission.test.mjs",
   ],
   "Physical-action admission must bind actuator-affecting work to safety envelopes, emergency stop, sensor evidence, wallet authority, Agentgres receipts, and daemon runtime truth instead of generic tool calls.",
+);
+assert(
+  "hypervisor-worker-package-install-admission",
+  runtimeWorkerPackageInstallAdmissionSource.includes(
+    "ioi.runtime.worker_package_install_admission.v1",
+  ) &&
+    runtimeWorkerPackageInstallAdmissionSource.includes(
+      "admitWorkerPackageInstall",
+    ) &&
+    runtimeWorkerPackageInstallAdmissionSource.includes(
+      "worker_package_install_primitive_scope_masquerade_blocked",
+    ) &&
+    runtimeWorkerPackageInstallAdmissionSource.includes(
+      "worker_package_install_vertical_runtime_fork_blocked",
+    ) &&
+    runtimeWorkerPackageInstallAdmissionSource.includes(
+      "worker_package_install_ctee_policy_required",
+    ) &&
+    runtimeWorkerPackageInstallAdmissionSource.includes(
+      "physical_action_policy_refs",
+    ) &&
+    runtimeWorkerPackageInstallAdmissionSource.includes(
+      'runtimeTruthSource: "daemon-runtime"',
+    ) &&
+    publicRuntimeRoutesSource.includes(
+      "/v1/hypervisor/worker-package-install-admissions",
+    ) &&
+    publicRuntimeRoutesSource.includes("admitWorkerPackageInstall") &&
+    publicRuntimeRoutesTestSource.includes(
+      "expose worker package install admissions",
+    ) &&
+    publicRuntimeRoutesTestSource.includes(
+      "blocks physical packages without safety refs",
+    ) &&
+    runtimeWorkerPackageInstallAdmissionTestSource.includes(
+      "admits ontology-bound worker package installs",
+    ) &&
+    runtimeWorkerPackageInstallAdmissionTestSource.includes(
+      "blocks prim capabilities masquerading as authority scopes",
+    ) &&
+    runtimeWorkerPackageInstallAdmissionTestSource.includes(
+      "physical-action worker packages require safety policy refs",
+    ) &&
+    runtimeWorkerPackageInstallAdmissionTestSource.includes(
+      "blocks vertical packs from becoming bespoke runtime forks",
+    ),
+  [
+    "packages/runtime-daemon/src/runtime-worker-package-install-admission.mjs",
+    "packages/runtime-daemon/src/runtime-worker-package-install-admission.test.mjs",
+  ],
+  "Worker package install admission must bind aiagent ontology refs, vertical packs, integration surfaces, prim/scope separation, cTEE policy, physical safety refs, wallet approval, Agentgres refs, and daemon runtime truth.",
 );
 assert(
   "hypervisor-new-session-model-route-compatibility",
