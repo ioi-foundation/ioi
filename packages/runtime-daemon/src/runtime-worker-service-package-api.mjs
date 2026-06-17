@@ -14,7 +14,7 @@ const RETIRED_WORKER_SERVICE_PACKAGE_TRUTH_FIELDS = [
   "expected_heads",
 ];
 
-export function createRuntimeWorkerServicePackageSurface(deps = {}) {
+export function createRuntimeWorkerServicePackageApi(deps = {}) {
   const {
     runtimeError: runtimeErrorDep = runtimeError,
   } = deps;

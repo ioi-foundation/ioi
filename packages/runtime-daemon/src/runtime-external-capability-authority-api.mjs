@@ -12,7 +12,7 @@ const CANONICAL_EXTERNAL_CAPABILITY_AUTHORITY_REQUEST_FIELDS = [
   "request",
 ];
 
-export function createRuntimeExternalCapabilityAuthoritySurface(deps = {}) {
+export function createRuntimeExternalCapabilityAuthorityApi(deps = {}) {
   const {
     runtimeError: runtimeErrorDep = runtimeError,
   } = deps;

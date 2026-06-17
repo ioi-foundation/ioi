@@ -76,10 +76,10 @@ import { createRuntimeRunReadSurface } from "./runtime-run-read-surface.mjs";
 import { createRuntimeLifecycleProjectionApi } from "./runtime-lifecycle-projection-api.mjs";
 import { createRuntimeSkillHookSurface } from "./runtime-skill-hook-surface.mjs";
 import { createRuntimeTaskJobApi } from "./runtime-task-job-api.mjs";
-import { createRuntimeGovernedImprovementSurface } from "./runtime-governed-improvement-surface.mjs";
-import { createRuntimeWorkerServicePackageSurface } from "./runtime-worker-service-package-surface.mjs";
-import { createRuntimeCteePrivateWorkspaceSurface } from "./runtime-ctee-private-workspace-surface.mjs";
-import { createRuntimeL1SettlementSurface } from "./runtime-l1-settlement-surface.mjs";
+import { createRuntimeGovernedImprovementApi } from "./runtime-governed-improvement-api.mjs";
+import { createRuntimeWorkerServicePackageApi } from "./runtime-worker-service-package-api.mjs";
+import { createRuntimeCteePrivateWorkspaceApi } from "./runtime-ctee-private-workspace-api.mjs";
+import { createRuntimeL1SettlementApi } from "./runtime-l1-settlement-api.mjs";
 import { createRuntimeThreadControlSurface } from "./runtime-thread-control-surface.mjs";
 import { createRuntimeThreadTurnSurface } from "./runtime-thread-turn-surface.mjs";
 import { createRuntimeThreadEventSurface } from "./runtime-thread-event-surface.mjs";
@@ -100,7 +100,7 @@ import { createRuntimeAgentOptionsHelpers } from "./runtime-agent-options.mjs";
 import { createRuntimeAgentgresAdmissionCore } from "./runtime-agentgres-admission-core.mjs";
 import { createRuntimeGovernedImprovementCore } from "./runtime-governed-improvement-core.mjs";
 import { createRuntimeExternalCapabilityAuthorityCore } from "./runtime-external-capability-authority-core.mjs";
-import { createRuntimeExternalCapabilityAuthoritySurface } from "./runtime-external-capability-authority-surface.mjs";
+import { createRuntimeExternalCapabilityAuthorityApi } from "./runtime-external-capability-authority-api.mjs";
 import { createRuntimeWorkerServicePackageCore } from "./runtime-worker-service-package-core.mjs";
 import { createRuntimeCteePrivateWorkspaceCore } from "./runtime-ctee-private-workspace-core.mjs";
 import { createRuntimeL1SettlementCore } from "./runtime-l1-settlement-core.mjs";
@@ -602,19 +602,19 @@ export class AgentgresRuntimeStateStore {
       notFound,
       runtimeError,
     });
-    this.governedImprovementSurface = createRuntimeGovernedImprovementSurface({
+    this.governedImprovementApi = createRuntimeGovernedImprovementApi({
       runtimeError,
     });
-    this.externalCapabilityAuthoritySurface = createRuntimeExternalCapabilityAuthoritySurface({
+    this.externalCapabilityAuthorityApi = createRuntimeExternalCapabilityAuthorityApi({
       runtimeError,
     });
-    this.workerServicePackageSurface = createRuntimeWorkerServicePackageSurface({
+    this.workerServicePackageApi = createRuntimeWorkerServicePackageApi({
       runtimeError,
     });
-    this.cteePrivateWorkspaceSurface = createRuntimeCteePrivateWorkspaceSurface({
+    this.cteePrivateWorkspaceApi = createRuntimeCteePrivateWorkspaceApi({
       runtimeError,
     });
-    this.l1SettlementSurface = createRuntimeL1SettlementSurface({
+    this.l1SettlementApi = createRuntimeL1SettlementApi({
       runtimeError,
     });
     this.codingToolBudgetRecoverySurface = createRuntimeCodingToolBudgetRecoverySurface({
@@ -906,6 +906,26 @@ export class AgentgresRuntimeStateStore {
 
   validateThreadMcp(threadId, request = {}) {
     return this.mcpControlApi.validateThreadMcp(this, threadId, request);
+  }
+
+  admitGovernedImprovementProposal(threadId, request = {}) {
+    return this.governedImprovementApi.admitGovernedImprovementProposal(this, threadId, request);
+  }
+
+  authorizeExternalCapabilityExit(threadId, request = {}) {
+    return this.externalCapabilityAuthorityApi.authorizeExternalCapabilityExit(this, threadId, request);
+  }
+
+  admitWorkerServicePackageInvocation(threadId, request = {}) {
+    return this.workerServicePackageApi.admitWorkerServicePackageInvocation(this, threadId, request);
+  }
+
+  executeCteePrivateWorkspaceAction(threadId, request = {}) {
+    return this.cteePrivateWorkspaceApi.executeCteePrivateWorkspaceAction(this, threadId, request);
+  }
+
+  admitL1SettlementAttempt(threadId, request = {}) {
+    return this.l1SettlementApi.admitL1SettlementAttempt(this, threadId, request);
   }
 
   listTurns(threadId) {

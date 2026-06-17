@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  createRuntimeCteePrivateWorkspaceSurface,
-} from "./runtime-ctee-private-workspace-surface.mjs";
+  createRuntimeCteePrivateWorkspaceApi,
+} from "./runtime-ctee-private-workspace-api.mjs";
 
 const CTEE_PRIVATE_WORKSPACE_ADMISSION_RESPONSE_SCHEMA_VERSION =
   "ioi.runtime.ctee_private_workspace_admission.v1";
@@ -127,9 +127,9 @@ const CTEE_PRIVATE_WORKSPACE_ADMISSION_CAMEL_ALIASES = [
   "evidenceRefs",
 ];
 
-test("cTEE private workspace surface executes nested action through Rust core", () => {
+test("cTEE private workspace API executes nested action through Rust core", () => {
   const runtimeStore = store();
-  const surface = createRuntimeCteePrivateWorkspaceSurface();
+  const surface = createRuntimeCteePrivateWorkspaceApi();
 
   const result = surface.executeCteePrivateWorkspaceAction(runtimeStore, "thread_surface", {
     action: cteeAction(),
@@ -159,9 +159,9 @@ test("cTEE private workspace surface executes nested action through Rust core", 
   });
 });
 
-test("cTEE private workspace surface rejects retired request aliases before agent lookup or Rust core", () => {
+test("cTEE private workspace API rejects retired request aliases before agent lookup or Rust core", () => {
   const runtimeStore = store();
-  const surface = createRuntimeCteePrivateWorkspaceSurface();
+  const surface = createRuntimeCteePrivateWorkspaceApi();
 
   assert.throws(
     () =>
@@ -180,9 +180,9 @@ test("cTEE private workspace surface rejects retired request aliases before agen
   assert.deepEqual(runtimeStore.calls, []);
 });
 
-test("cTEE private workspace surface rejects client supplied Agentgres truth before Rust core", () => {
+test("cTEE private workspace API rejects client supplied Agentgres truth before Rust core", () => {
   const runtimeStore = store();
-  const surface = createRuntimeCteePrivateWorkspaceSurface();
+  const surface = createRuntimeCteePrivateWorkspaceApi();
 
   assert.throws(
     () =>
@@ -203,7 +203,7 @@ test("cTEE private workspace surface rejects client supplied Agentgres truth bef
   assert.deepEqual(runtimeStore.calls, []);
 });
 
-test("cTEE private workspace surface ignores retired nested invocation identity alias", () => {
+test("cTEE private workspace API ignores retired nested invocation identity alias", () => {
   const runtimeStore = store();
   runtimeStore.cteePrivateWorkspaceCore.executeAction = (input) => {
     runtimeStore.calls.push({ name: "executeAction", input });
@@ -228,7 +228,7 @@ test("cTEE private workspace surface ignores retired nested invocation identity 
       evidence_refs: [],
     };
   };
-  const surface = createRuntimeCteePrivateWorkspaceSurface();
+  const surface = createRuntimeCteePrivateWorkspaceApi();
   const action = cteeAction();
   action.invocation = {
     ...action.invocation,
@@ -244,8 +244,8 @@ test("cTEE private workspace surface ignores retired nested invocation identity 
   assert.equal(runtimeStore.calls.at(-1).input.invocation.invocationId, "invocation://ctee/retired");
 });
 
-test("cTEE private workspace surface exposes only canonical snake_case admission fields", () => {
-  const result = createRuntimeCteePrivateWorkspaceSurface().executeCteePrivateWorkspaceAction(
+test("cTEE private workspace API exposes only canonical snake_case admission fields", () => {
+  const result = createRuntimeCteePrivateWorkspaceApi().executeCteePrivateWorkspaceAction(
     store(),
     "thread_surface",
     { action: cteeAction() },
@@ -256,8 +256,8 @@ test("cTEE private workspace surface exposes only canonical snake_case admission
   }
 });
 
-test("cTEE private workspace surface fails closed without action payload", () => {
-  const surface = createRuntimeCteePrivateWorkspaceSurface();
+test("cTEE private workspace API fails closed without action payload", () => {
+  const surface = createRuntimeCteePrivateWorkspaceApi();
 
   assert.throws(
     () => surface.executeCteePrivateWorkspaceAction(store(), "thread_surface", {}),

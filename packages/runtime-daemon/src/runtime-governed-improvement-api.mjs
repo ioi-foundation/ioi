@@ -35,7 +35,7 @@ const CANONICAL_GOVERNED_IMPROVEMENT_REQUEST_FIELDS = [
   "proposal",
 ];
 
-export function createRuntimeGovernedImprovementSurface(deps = {}) {
+export function createRuntimeGovernedImprovementApi(deps = {}) {
   const {
     runtimeError: runtimeErrorDep = runtimeError,
   } = deps;

@@ -695,78 +695,78 @@ test("thread conversation artifact routes use store-owned artifact API", async (
   );
 });
 
-test("thread route sends admission controls through mounted admission surfaces", async () => {
+test("thread route sends governed admission controls through store-owned APIs", async () => {
   const { handleThreadRoute } = routeHandlers();
   const calls = [];
   const body = { request_id: "route-admission-test" };
-  const surfaceResult = (surface, args) => ({
+  const apiResult = (api, args) => ({
     status: "admitted",
-    surface,
+    api,
     args,
     direct_truth_write_allowed: false,
   });
   const store = {
-    governedImprovementSurface: {
-      admitGovernedImprovementProposal(surfaceStore, threadId, requestBody) {
-        calls.push({ surface: "governedImprovementSurface", surfaceStore, args: [threadId, requestBody] });
-        return surfaceResult("governedImprovementSurface", [threadId, requestBody]);
-      },
+    governedImprovementApi: {
+      admitGovernedImprovementProposal: retiredRouteWrapper,
     },
-    externalCapabilityAuthoritySurface: {
-      authorizeExternalCapabilityExit(surfaceStore, threadId, requestBody) {
-        calls.push({ surface: "externalCapabilityAuthoritySurface", surfaceStore, args: [threadId, requestBody] });
-        return surfaceResult("externalCapabilityAuthoritySurface", [threadId, requestBody]);
-      },
+    externalCapabilityAuthorityApi: {
+      authorizeExternalCapabilityExit: retiredRouteWrapper,
     },
-    workerServicePackageSurface: {
-      admitWorkerServicePackageInvocation(surfaceStore, threadId, requestBody) {
-        calls.push({ surface: "workerServicePackageSurface", surfaceStore, args: [threadId, requestBody] });
-        return surfaceResult("workerServicePackageSurface", [threadId, requestBody]);
-      },
+    workerServicePackageApi: {
+      admitWorkerServicePackageInvocation: retiredRouteWrapper,
     },
-    cteePrivateWorkspaceSurface: {
-      executeCteePrivateWorkspaceAction(surfaceStore, threadId, requestBody) {
-        calls.push({ surface: "cteePrivateWorkspaceSurface", surfaceStore, args: [threadId, requestBody] });
-        return surfaceResult("cteePrivateWorkspaceSurface", [threadId, requestBody]);
-      },
+    cteePrivateWorkspaceApi: {
+      executeCteePrivateWorkspaceAction: retiredRouteWrapper,
     },
-    l1SettlementSurface: {
-      admitL1SettlementAttempt(surfaceStore, threadId, requestBody) {
-        calls.push({ surface: "l1SettlementSurface", surfaceStore, args: [threadId, requestBody] });
-        return surfaceResult("l1SettlementSurface", [threadId, requestBody]);
-      },
+    l1SettlementApi: {
+      admitL1SettlementAttempt: retiredRouteWrapper,
     },
-    admitGovernedImprovementProposal: retiredRouteWrapper,
-    authorizeExternalCapabilityExit: retiredRouteWrapper,
-    admitWorkerServicePackageInvocation: retiredRouteWrapper,
-    executeCteePrivateWorkspaceAction: retiredRouteWrapper,
-    admitL1SettlementAttempt: retiredRouteWrapper,
+    admitGovernedImprovementProposal(threadId, requestBody) {
+      calls.push({ api: "admitGovernedImprovementProposal", args: [threadId, requestBody] });
+      return apiResult("admitGovernedImprovementProposal", [threadId, requestBody]);
+    },
+    authorizeExternalCapabilityExit(threadId, requestBody) {
+      calls.push({ api: "authorizeExternalCapabilityExit", args: [threadId, requestBody] });
+      return apiResult("authorizeExternalCapabilityExit", [threadId, requestBody]);
+    },
+    admitWorkerServicePackageInvocation(threadId, requestBody) {
+      calls.push({ api: "admitWorkerServicePackageInvocation", args: [threadId, requestBody] });
+      return apiResult("admitWorkerServicePackageInvocation", [threadId, requestBody]);
+    },
+    executeCteePrivateWorkspaceAction(threadId, requestBody) {
+      calls.push({ api: "executeCteePrivateWorkspaceAction", args: [threadId, requestBody] });
+      return apiResult("executeCteePrivateWorkspaceAction", [threadId, requestBody]);
+    },
+    admitL1SettlementAttempt(threadId, requestBody) {
+      calls.push({ api: "admitL1SettlementAttempt", args: [threadId, requestBody] });
+      return apiResult("admitL1SettlementAttempt", [threadId, requestBody]);
+    },
   };
   const cases = [
     {
       path: "/v1/threads/thread_route/governed-improvement-proposals",
       segments: ["v1", "threads", "thread_route", "governed-improvement-proposals"],
-      surface: "governedImprovementSurface",
+      api: "admitGovernedImprovementProposal",
     },
     {
       path: "/v1/threads/thread_route/external-capability-exits",
       segments: ["v1", "threads", "thread_route", "external-capability-exits"],
-      surface: "externalCapabilityAuthoritySurface",
+      api: "authorizeExternalCapabilityExit",
     },
     {
       path: "/v1/threads/thread_route/worker-service-package-invocations",
       segments: ["v1", "threads", "thread_route", "worker-service-package-invocations"],
-      surface: "workerServicePackageSurface",
+      api: "admitWorkerServicePackageInvocation",
     },
     {
       path: "/v1/threads/thread_route/ctee-private-workspace-actions",
       segments: ["v1", "threads", "thread_route", "ctee-private-workspace-actions"],
-      surface: "cteePrivateWorkspaceSurface",
+      api: "executeCteePrivateWorkspaceAction",
     },
     {
       path: "/v1/threads/thread_route/l1-settlement-attempts",
       segments: ["v1", "threads", "thread_route", "l1-settlement-attempts"],
-      surface: "l1SettlementSurface",
+      api: "admitL1SettlementAttempt",
     },
   ];
 
@@ -785,12 +785,11 @@ test("thread route sends admission controls through mounted admission surfaces",
     });
     const call = calls.pop();
     assert.equal(response.statusCode, 201);
-    assert.equal(call.surface, testCase.surface);
-    assert.equal(call.surfaceStore, store);
+    assert.equal(call.api, testCase.api);
     assert.deepEqual(call.args, ["thread_route", body]);
     assert.deepEqual(JSON.parse(response.body), {
       status: "admitted",
-      surface: testCase.surface,
+      api: testCase.api,
       args: ["thread_route", body],
       direct_truth_write_allowed: false,
     });

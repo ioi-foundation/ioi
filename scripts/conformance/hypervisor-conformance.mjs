@@ -21540,16 +21540,16 @@ function runBridge() {
       ) &&
       /thread route sends governed admission controls through store-owned APIs/.test(runtimeRouteHandlersTest) &&
       /thread route does not expose worker\/service package apply shortcut/.test(runtimeRouteHandlersTest) &&
-      /worker\/service package surface admits nested invocation through Rust core/.test(
+      /worker\/service package API admits nested invocation through Rust core/.test(
         workerServicePackageApiTest,
       ) &&
       /assert\.deepEqual\(runtimeStore\.calls\.at\(-1\)\.context,\s*\{\s*thread_id:\s*"thread_surface",\s*agent_id:\s*"agent_surface",\s*\}\)/.test(
         workerServicePackageApiTest,
       ) &&
-      /worker\/service package surface fails closed without invocation payload/.test(
+      /worker\/service package API fails closed without invocation payload/.test(
         workerServicePackageApiTest,
       ) &&
-      /worker\/service package surface rejects client supplied Agentgres truth before Rust core/.test(
+      /worker\/service package API rejects client supplied Agentgres truth before Rust core/.test(
         workerServicePackageApiTest,
       ),
     [
@@ -21568,7 +21568,7 @@ function runBridge() {
       !workerServicePackageAdmissionCamelAliasTypePattern.test(
         workerServicePackageAdmissionResultType,
       ) &&
-      /worker\/service package surface exposes only canonical snake_case admission fields/.test(
+      /worker\/service package API exposes only canonical snake_case admission fields/.test(
         workerServicePackageApiTest,
       ) &&
       /WORKER_SERVICE_PACKAGE_ADMISSION_CAMEL_ALIASES/.test(workerServicePackageApiTest) &&
@@ -21594,10 +21594,10 @@ function runBridge() {
         workerServicePackageApi,
       ) &&
       !/body\.(?:packageInvocation|package_invocation)\b/.test(workerServicePackageApi) &&
-      /worker\/service package surface rejects retired request aliases before agent lookup or Rust core/.test(
+      /worker\/service package API rejects retired request aliases before agent lookup or Rust core/.test(
         workerServicePackageApiTest,
       ) &&
-      /worker\/service package surface ignores retired nested invocation identity alias/.test(
+      /worker\/service package API ignores retired nested invocation identity alias/.test(
         workerServicePackageApiTest,
       ) &&
       /invocationId: "invocation:\/\/worker-package\/retired"/.test(

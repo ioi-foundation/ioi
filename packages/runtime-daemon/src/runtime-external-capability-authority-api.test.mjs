@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  createRuntimeExternalCapabilityAuthoritySurface,
-} from "./runtime-external-capability-authority-surface.mjs";
+  createRuntimeExternalCapabilityAuthorityApi,
+} from "./runtime-external-capability-authority-api.mjs";
 
 const EXTERNAL_CAPABILITY_AUTHORITY_RESPONSE_SCHEMA_VERSION =
   "ioi.runtime.external_capability_authority.v1";
@@ -81,9 +81,9 @@ const EXTERNAL_CAPABILITY_AUTHORITY_CAMEL_ALIASES = [
   "authorityHash",
 ];
 
-test("external capability authority surface authorizes nested request through Rust core", () => {
+test("external capability authority API authorizes nested request through Rust core", () => {
   const runtimeStore = store();
-  const surface = createRuntimeExternalCapabilityAuthoritySurface();
+  const surface = createRuntimeExternalCapabilityAuthorityApi();
 
   const result = surface.authorizeExternalCapabilityExit(runtimeStore, "thread_surface", {
     request: authorityRequest(),
@@ -114,9 +114,9 @@ test("external capability authority surface authorizes nested request through Ru
   });
 });
 
-test("external capability authority surface rejects retired aliases before Rust core", () => {
+test("external capability authority API rejects retired aliases before Rust core", () => {
   const runtimeStore = store();
-  const surface = createRuntimeExternalCapabilityAuthoritySurface();
+  const surface = createRuntimeExternalCapabilityAuthorityApi();
 
   assert.throws(
     () =>
@@ -142,8 +142,8 @@ test("external capability authority surface rejects retired aliases before Rust 
   assert.deepEqual(runtimeStore.calls, []);
 });
 
-test("external capability authority surface exposes only canonical snake_case fields", () => {
-  const result = createRuntimeExternalCapabilityAuthoritySurface().authorizeExternalCapabilityExit(
+test("external capability authority API exposes only canonical snake_case fields", () => {
+  const result = createRuntimeExternalCapabilityAuthorityApi().authorizeExternalCapabilityExit(
     store(),
     "thread_surface",
     { request: authorityRequest() },
@@ -154,8 +154,8 @@ test("external capability authority surface exposes only canonical snake_case fi
   }
 });
 
-test("external capability authority surface fails closed without request payload", () => {
-  const surface = createRuntimeExternalCapabilityAuthoritySurface();
+test("external capability authority API fails closed without request payload", () => {
+  const surface = createRuntimeExternalCapabilityAuthorityApi();
 
   assert.throws(
     () => surface.authorizeExternalCapabilityExit(store(), "thread_surface", {}),

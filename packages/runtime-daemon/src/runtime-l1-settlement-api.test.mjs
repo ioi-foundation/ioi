@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createRuntimeL1SettlementSurface } from "./runtime-l1-settlement-surface.mjs";
+import { createRuntimeL1SettlementApi } from "./runtime-l1-settlement-api.mjs";
 
 const L1_SETTLEMENT_ADMISSION_RESPONSE_SCHEMA_VERSION =
   "ioi.runtime.l1_settlement_admission.v1";
@@ -65,9 +65,9 @@ const L1_SETTLEMENT_ADMISSION_CAMEL_ALIASES = [
   "admissionHash",
 ];
 
-test("L1 settlement surface admits nested attempt through Rust core", () => {
+test("L1 settlement API admits nested attempt through Rust core", () => {
   const runtimeStore = store();
-  const surface = createRuntimeL1SettlementSurface();
+  const surface = createRuntimeL1SettlementApi();
 
   const result = surface.admitL1SettlementAttempt(runtimeStore, "thread_surface", {
     attempt: settlementAttempt(),
@@ -95,9 +95,9 @@ test("L1 settlement surface admits nested attempt through Rust core", () => {
   assert.deepEqual(runtimeStore.calls.map((call) => call.name), ["agentForThread", "admitAttempt"]);
 });
 
-test("L1 settlement surface rejects client supplied state-root truth before Rust core", () => {
+test("L1 settlement API rejects client supplied state-root truth before Rust core", () => {
   const runtimeStore = store();
-  const surface = createRuntimeL1SettlementSurface();
+  const surface = createRuntimeL1SettlementApi();
 
   assert.throws(
     () =>
@@ -118,9 +118,9 @@ test("L1 settlement surface rejects client supplied state-root truth before Rust
   assert.deepEqual(runtimeStore.calls, []);
 });
 
-test("L1 settlement surface rejects retired request aliases before agent lookup or Rust core", () => {
+test("L1 settlement API rejects retired request aliases before agent lookup or Rust core", () => {
   const runtimeStore = store();
-  const surface = createRuntimeL1SettlementSurface();
+  const surface = createRuntimeL1SettlementApi();
 
   assert.throws(
     () =>
@@ -139,8 +139,8 @@ test("L1 settlement surface rejects retired request aliases before agent lookup 
   assert.deepEqual(runtimeStore.calls, []);
 });
 
-test("L1 settlement surface exposes only canonical snake_case admission fields", () => {
-  const result = createRuntimeL1SettlementSurface().admitL1SettlementAttempt(
+test("L1 settlement API exposes only canonical snake_case admission fields", () => {
+  const result = createRuntimeL1SettlementApi().admitL1SettlementAttempt(
     store(),
     "thread_surface",
     { attempt: settlementAttempt() },
@@ -151,8 +151,8 @@ test("L1 settlement surface exposes only canonical snake_case admission fields",
   }
 });
 
-test("L1 settlement surface fails closed without attempt payload", () => {
-  const surface = createRuntimeL1SettlementSurface();
+test("L1 settlement API fails closed without attempt payload", () => {
+  const surface = createRuntimeL1SettlementApi();
 
   assert.throws(
     () => surface.admitL1SettlementAttempt(store(), "thread_surface", {}),

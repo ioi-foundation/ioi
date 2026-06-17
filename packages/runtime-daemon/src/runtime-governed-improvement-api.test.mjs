@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  createRuntimeGovernedImprovementSurface,
-} from "./runtime-governed-improvement-surface.mjs";
+  createRuntimeGovernedImprovementApi,
+} from "./runtime-governed-improvement-api.mjs";
 
 const GOVERNED_IMPROVEMENT_ADMISSION_RESPONSE_SCHEMA_VERSION =
   "ioi.runtime.governed_improvement_admission.v1";
@@ -83,9 +83,9 @@ const GOVERNED_IMPROVEMENT_ADMISSION_CAMEL_ALIASES = [
   "rollbackRef",
 ];
 
-test("governed improvement surface rejects retired request aliases before agent lookup or Rust core", () => {
+test("governed improvement API rejects retired request aliases before agent lookup or Rust core", () => {
   const runtimeStore = store();
-  const surface = createRuntimeGovernedImprovementSurface();
+  const surface = createRuntimeGovernedImprovementApi();
 
   assert.throws(
     () =>
@@ -104,9 +104,9 @@ test("governed improvement surface rejects retired request aliases before agent 
   assert.deepEqual(runtimeStore.calls, []);
 });
 
-test("governed improvement surface rejects client supplied Agentgres truth before Rust core", () => {
+test("governed improvement API rejects client supplied Agentgres truth before Rust core", () => {
   const runtimeStore = store();
-  const surface = createRuntimeGovernedImprovementSurface();
+  const surface = createRuntimeGovernedImprovementApi();
 
   assert.throws(
     () =>
@@ -137,9 +137,9 @@ test("governed improvement surface rejects client supplied Agentgres truth befor
   assert.deepEqual(runtimeStore.calls, []);
 });
 
-test("governed improvement surface admits nested proposal through Rust core", () => {
+test("governed improvement API admits nested proposal through Rust core", () => {
   const runtimeStore = store();
-  const surface = createRuntimeGovernedImprovementSurface();
+  const surface = createRuntimeGovernedImprovementApi();
 
   const result = surface.admitGovernedImprovementProposal(runtimeStore, "thread_surface", {
     proposal: proposal(),
@@ -166,8 +166,8 @@ test("governed improvement surface admits nested proposal through Rust core", ()
   });
 });
 
-test("governed improvement surface exposes only canonical snake_case admission fields", () => {
-  const result = createRuntimeGovernedImprovementSurface().admitGovernedImprovementProposal(
+test("governed improvement API exposes only canonical snake_case admission fields", () => {
+  const result = createRuntimeGovernedImprovementApi().admitGovernedImprovementProposal(
     store(),
     "thread_surface",
     { proposal: proposal() },
@@ -178,12 +178,12 @@ test("governed improvement surface exposes only canonical snake_case admission f
   }
 });
 
-test("governed improvement surface rejects retired proposal payload aliases before agent lookup or Rust core", () => {
+test("governed improvement API rejects retired proposal payload aliases before agent lookup or Rust core", () => {
   const runtimeStore = store();
 
   assert.throws(
     () =>
-      createRuntimeGovernedImprovementSurface().admitGovernedImprovementProposal(
+      createRuntimeGovernedImprovementApi().admitGovernedImprovementProposal(
         runtimeStore,
         "thread_surface",
         {
@@ -208,8 +208,8 @@ test("governed improvement surface rejects retired proposal payload aliases befo
   assert.deepEqual(runtimeStore.calls, []);
 });
 
-test("governed improvement surface fails closed without proposal payload", () => {
-  const surface = createRuntimeGovernedImprovementSurface();
+test("governed improvement API fails closed without proposal payload", () => {
+  const surface = createRuntimeGovernedImprovementApi();
 
   assert.throws(
     () => surface.admitGovernedImprovementProposal(store(), "thread_surface", {}),

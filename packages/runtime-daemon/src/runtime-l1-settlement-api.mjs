@@ -15,7 +15,7 @@ const RETIRED_L1_SETTLEMENT_TRUTH_FIELDS = [
   "state_root_ref",
 ];
 
-export function createRuntimeL1SettlementSurface(deps = {}) {
+export function createRuntimeL1SettlementApi(deps = {}) {
   const {
     runtimeError: runtimeErrorDep = runtimeError,
   } = deps;

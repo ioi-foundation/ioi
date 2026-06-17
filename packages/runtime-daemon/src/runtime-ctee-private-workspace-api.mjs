@@ -15,7 +15,7 @@ const RETIRED_CTEE_PRIVATE_WORKSPACE_TRUTH_FIELDS = [
   "expectedHeads",
 ];
 
-export function createRuntimeCteePrivateWorkspaceSurface(deps = {}) {
+export function createRuntimeCteePrivateWorkspaceApi(deps = {}) {
   const {
     runtimeError: runtimeErrorDep = runtimeError,
   } = deps;

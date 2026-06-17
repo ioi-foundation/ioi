@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  createRuntimeWorkerServicePackageSurface,
-} from "./runtime-worker-service-package-surface.mjs";
+  createRuntimeWorkerServicePackageApi,
+} from "./runtime-worker-service-package-api.mjs";
 
 const WORKER_SERVICE_PACKAGE_ADMISSION_RESPONSE_SCHEMA_VERSION =
   "ioi.runtime.worker_service_package_admission.v1";
@@ -162,9 +162,9 @@ const WORKER_SERVICE_PACKAGE_ADMISSION_CAMEL_ALIASES = [
   "authorityGrantRefs",
 ];
 
-test("worker/service package surface admits nested invocation through Rust core", () => {
+test("worker/service package API admits nested invocation through Rust core", () => {
   const runtimeStore = store();
-  const surface = createRuntimeWorkerServicePackageSurface();
+  const surface = createRuntimeWorkerServicePackageApi();
 
   const result = surface.admitWorkerServicePackageInvocation(runtimeStore, "thread_surface", {
     invocation: packageInvocation(),
@@ -198,9 +198,9 @@ test("worker/service package surface admits nested invocation through Rust core"
   });
 });
 
-test("worker/service package surface rejects retired request aliases before agent lookup or Rust core", () => {
+test("worker/service package API rejects retired request aliases before agent lookup or Rust core", () => {
   const runtimeStore = store();
-  const surface = createRuntimeWorkerServicePackageSurface();
+  const surface = createRuntimeWorkerServicePackageApi();
 
   assert.throws(
     () =>
@@ -219,9 +219,9 @@ test("worker/service package surface rejects retired request aliases before agen
   assert.deepEqual(runtimeStore.calls, []);
 });
 
-test("worker/service package surface rejects client supplied Agentgres truth before Rust core", () => {
+test("worker/service package API rejects client supplied Agentgres truth before Rust core", () => {
   const runtimeStore = store();
-  const surface = createRuntimeWorkerServicePackageSurface();
+  const surface = createRuntimeWorkerServicePackageApi();
 
   assert.throws(
     () =>
@@ -242,9 +242,9 @@ test("worker/service package surface rejects client supplied Agentgres truth bef
   assert.deepEqual(runtimeStore.calls, []);
 });
 
-test("worker/service package surface ignores retired nested invocation identity alias", () => {
+test("worker/service package API ignores retired nested invocation identity alias", () => {
   const runtimeStore = store();
-  const surface = createRuntimeWorkerServicePackageSurface();
+  const surface = createRuntimeWorkerServicePackageApi();
   const invocation = packageInvocation();
   invocation.invocation = {
     ...invocation.invocation,
@@ -260,8 +260,8 @@ test("worker/service package surface ignores retired nested invocation identity 
   assert.equal(runtimeStore.calls.at(-1).input.invocation.invocationId, "invocation://worker-package/retired");
 });
 
-test("worker/service package surface exposes only canonical snake_case admission fields", () => {
-  const result = createRuntimeWorkerServicePackageSurface().admitWorkerServicePackageInvocation(
+test("worker/service package API exposes only canonical snake_case admission fields", () => {
+  const result = createRuntimeWorkerServicePackageApi().admitWorkerServicePackageInvocation(
     store(),
     "thread_surface",
     { invocation: packageInvocation() },
@@ -272,8 +272,8 @@ test("worker/service package surface exposes only canonical snake_case admission
   }
 });
 
-test("worker/service package surface fails closed without invocation payload", () => {
-  const surface = createRuntimeWorkerServicePackageSurface();
+test("worker/service package API fails closed without invocation payload", () => {
+  const surface = createRuntimeWorkerServicePackageApi();
 
   assert.throws(
     () => surface.admitWorkerServicePackageInvocation(store(), "thread_surface", {}),

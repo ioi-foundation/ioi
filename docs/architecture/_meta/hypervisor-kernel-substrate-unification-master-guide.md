@@ -2470,21 +2470,23 @@ admission, wallet lifecycle authority, StepModuleRouter dispatch, Agentgres
 expected-head/state-root binding, receipt/event materialization, replay,
 projection, and stable SDK/IDE/CLI protocol APIs
 remain required before terminal conformance.
-Slice 960 retired the daemon-store admission route pass-through wrappers for
-governed improvement proposals, external capability exits, worker/service
-package invocations, cTEE private workspace actions, and L1 settlement
-attempts. The public thread admission routes now call the mounted
-Rust-backed/fail-closed admission surfaces directly, so JS no longer preserves
+Slice 960 retired the old admission route pass-through wrappers for governed
+improvement proposals, external capability exits, worker/service package
+invocations, cTEE private workspace actions, and L1 settlement attempts. Slice
+1429 later hard-deletes the route-visible JS surface shape for this cluster:
+public thread admission routes enter through store-owned
 `admitGovernedImprovementProposal()`,
 `authorizeExternalCapabilityExit()`,
 `admitWorkerServicePackageInvocation()`,
-`executeCteePrivateWorkspaceAction()`, or `admitL1SettlementAttempt()` as
-daemon-store compatibility wrappers. This does not claim terminal admission
-migration: direct Rust daemon-core route admission, wallet.network authority,
+`executeCteePrivateWorkspaceAction()`, and `admitL1SettlementAttempt()` daemon
+APIs, which delegate to internal Rust-backed product-route APIs. The mounted
+delegate APIs are not public route facades and the old `*Surface` factories,
+properties, and file paths stay absent. This does not claim terminal admission
+migration: richer Rust daemon-core route admission, wallet.network authority,
 cTEE custody enforcement, StepModuleRouter dispatch, Agentgres
 expected-head/state-root binding, receipt/event materialization, replay,
-projection, and stable SDK/IDE/CLI protocol APIs
-remain required before terminal pure Rust substrate conformance.
+projection, and stable SDK/IDE/CLI protocol APIs remain required before
+terminal pure Rust substrate conformance.
 Slice 961 retired the daemon-store route pass-through wrappers for workflow
 edit apply, diagnostics repair decision execution, workspace snapshot list, and
 workspace restore preview/apply. Those public thread routes now call the
@@ -12678,6 +12680,21 @@ replay. Conformance rejects the old surface files, factories, properties, and
 route call patterns from returning. Remaining blockers stay broader stable
 SDK/CLI/IDE protocol coverage over Rust-owned records plus deeper MCP
 replay/storage depth.
+
+Slice 1429 hard-deletes the governed admission route-visible JS surface shape.
+The committed `runtime-governed-improvement-api.mjs`,
+`runtime-external-capability-authority-api.mjs`,
+`runtime-worker-service-package-api.mjs`,
+`runtime-ctee-private-workspace-api.mjs`, and
+`runtime-l1-settlement-api.mjs` modules are internal Rust-backed product-route
+delegates, not public route facades. Public governed improvement, external
+capability, worker/service package, cTEE private workspace, and L1 settlement
+thread routes now enter through store-owned daemon APIs, and conformance guards
+that the old `*Surface` files, factories, store properties, and direct route
+calls into mounted delegate APIs cannot return. Remaining blockers stay deeper
+projection/replay storage, receipt/state-root binding, stable Workbench/CLI/SDK
+protocol clients, and any residual non-terminal governed admission custody or
+authority materialization.
 
 ## Final Doctrine
 
