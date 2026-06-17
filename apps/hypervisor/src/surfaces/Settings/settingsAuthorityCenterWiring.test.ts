@@ -135,7 +135,16 @@ test("environment settings are labeled as compatibility, not authority truth", (
 test("settings expose Workbench adapter preference as a client default", () => {
   assert.match(settingsViewBody, /selectedSection === "workbench_adapter"/);
   assert.match(settingsViewBody, /SettingsWorkbenchAdapterSection/);
+  assert.match(settingsViewBody, /data-settings-reference-shell="ioi-settings"/);
+  assert.match(settingsViewBody, /Account/);
+  assert.match(settingsViewBody, /Secrets/);
+  assert.match(settingsViewBody, /Git authentications/);
+  assert.match(settingsViewBody, /Personal access tokens/);
+  assert.match(settingsViewBody, /Integrations/);
+  assert.match(settingsViewBody, /Default Editor/);
+  assert.match(settingsViewBody, /Embedded Workbench/);
   assert.match(settingsView, /workbenchAdapterPreferenceRef/);
+  assert.match(settingsView, /chat-settings-view--reference/);
   assert.match(
     settingsView,
     /HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCE_STORAGE_KEY/,

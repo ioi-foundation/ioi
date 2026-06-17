@@ -9,6 +9,7 @@ import { buildConnectorTrustProfile } from "../../../surfaces/Capabilities";
 import { ChatLocalActivityBar } from "./ChatLocalActivityBar";
 import { CapabilitiesView } from "../../../surfaces/Capabilities";
 import { InboxView } from "../../../surfaces/Inbox";
+import { SettingsView } from "../../../surfaces/Settings";
 import {
   MissionControlControlView,
   MissionControlMountsView,
@@ -1664,18 +1665,23 @@ export function HypervisorShellContent({
     workspaceHost === directWorkspaceWorkbenchHost ||
     workspaceHost === openVsCodeWorkbenchHost;
   const workspaceActive = activeView === "workbench";
+  const settingsActive = activeView === "settings";
   const workflowActive = activeView === "automations";
   const mountsActive = activeView === "models";
   const dedicatedWorkbenchActive = workflowActive || mountsActive;
 
   const auxiliaryChatVisible =
+    !settingsActive &&
     !workspaceActive &&
     !dedicatedWorkbenchActive &&
     activeView !== "sessions" &&
     activeView !== "home" &&
     controller.chat.paneVisible;
   const utilityDrawerVisible =
-    activeView !== "sessions" && activeView !== "home" && !dedicatedWorkbenchActive;
+    !settingsActive &&
+    activeView !== "sessions" &&
+    activeView !== "home" &&
+    !dedicatedWorkbenchActive;
   const auxiliaryChatFullscreen =
     auxiliaryChatVisible && controller.chat.paneMaximized;
   const commandCenterModel = buildOperatorCommandCenterModel({
@@ -2006,10 +2012,10 @@ export function HypervisorShellContent({
                     />
                   ) : null}
 
-                  {activeView === "authority" || activeView === "settings" ? (
+                  {activeView === "authority" ? (
                     <MissionControlControlView
                       runtime={runtime}
-                      surface={activeView === "settings" ? "system" : "policy"}
+                      surface="policy"
                       policyState={controller.policy.shieldPolicy}
                       profile={controller.profile.value}
                       profileDraft={controller.profile.draft}
@@ -2048,6 +2054,43 @@ export function HypervisorShellContent({
                           seed ?? {
                             panel: "readiness",
                             source: "authority-center",
+                          },
+                        )
+                      }
+                    />
+                  ) : null}
+
+                  {settingsActive ? (
+                    <SettingsView
+                      runtime={runtime}
+                      profile={controller.profile.value}
+                      profileDraft={controller.profile.draft}
+                      profileSaving={controller.profile.saving}
+                      profileError={controller.profile.error}
+                      policyState={controller.policy.shieldPolicy}
+                      governanceRequest={controller.policy.governanceRequest}
+                      seedSection={controller.settings.seedSection}
+                      onConsumeSeedSection={
+                        controller.settings.consumeSeedSection
+                      }
+                      onProfileDraftChange={controller.profile.updateDraft}
+                      onResetProfileDraft={controller.profile.resetDraft}
+                      onSaveProfile={controller.profile.saveDraft}
+                      onPolicyChange={controller.policy.setShieldPolicy}
+                      onOpenPolicySurface={() =>
+                        controller.changePrimaryView("authority")
+                      }
+                      onOpenConnections={() =>
+                        controller.changePrimaryView("agents")
+                      }
+                      onOpenModelRoutes={() =>
+                        controller.changePrimaryView("models")
+                      }
+                      onOpenWorkflowPreflight={(seed) =>
+                        controller.workflow.openPreflight(
+                          seed ?? {
+                            panel: "readiness",
+                            source: "settings",
                           },
                         )
                       }

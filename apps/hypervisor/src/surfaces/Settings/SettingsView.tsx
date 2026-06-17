@@ -952,7 +952,7 @@ export function SettingsView({
   };
 
   return (
-    <div className="chat-settings-view">
+    <div className="chat-settings-view chat-settings-view--reference">
       <div className="chat-settings-layout">
         <SettingsViewBody view={view} />
       </div>

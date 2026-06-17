@@ -379,6 +379,414 @@
   min-height: 0;
 }
 
+.chat-settings-view--reference {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background:
+    linear-gradient(rgba(9, 9, 10, 0.86), rgba(9, 9, 10, 0.86)),
+    var(--chat-bg);
+  padding: 96px 0 0 208px;
+  overflow: hidden;
+}
+
+.chat-settings-view--reference .chat-settings-layout {
+  width: min(1024px, calc(100vw - 300px));
+  max-height: calc(100vh - 124px);
+  min-height: 0;
+  flex: 0 1 auto;
+  display: flex;
+}
+
+.chat-settings-reference-shell {
+  width: 100%;
+  min-height: 720px;
+  max-height: calc(100vh - 124px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #303030;
+  border-radius: 2px;
+  background: #151515;
+  color: #f4f4f4;
+  box-shadow: 0 26px 80px rgba(0, 0, 0, 0.46);
+  font-family:
+    "ABC Diatype",
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    sans-serif;
+}
+
+.chat-settings-reference-header {
+  height: 56px;
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  border-bottom: 1px solid #303030;
+}
+
+.chat-settings-reference-header h1 {
+  margin: 0;
+  color: #ffffff;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.chat-settings-reference-header button {
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #b8b8b8;
+  font: inherit;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.chat-settings-reference-header button:hover {
+  background: #242424;
+  color: #ffffff;
+}
+
+.chat-settings-reference-layout {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+}
+
+.chat-settings-reference-nav {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 20px 12px 18px 16px;
+  border-right: 1px solid #303030;
+  background: #181818;
+}
+
+.chat-settings-reference-nav-primary {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.chat-settings-reference-nav-item {
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #f3f3f3;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+
+.chat-settings-reference-nav-item:hover,
+.chat-settings-reference-nav-item.active {
+  background: #2a2a2a;
+  color: #ffffff;
+}
+
+.chat-settings-reference-advanced {
+  margin-top: 28px;
+  padding-top: 16px;
+  border-top: 1px solid #282828;
+  color: #a5a5a5;
+}
+
+.chat-settings-reference-advanced summary {
+  margin: 0 8px 10px;
+  color: #8f8f8f;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.chat-settings-reference-advanced .chat-settings-reference-nav-item {
+  min-height: 28px;
+  color: #b9b9b9;
+  font-size: 12px;
+}
+
+.chat-settings-reference-org {
+  margin-top: auto;
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  color: #f3f3f3;
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.chat-settings-reference-org:hover {
+  color: #ffffff;
+}
+
+.chat-settings-reference-main {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  padding: 22px 24px 48px;
+  background: #151515;
+}
+
+.chat-settings-reference-panel {
+  width: min(600px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.chat-settings-reference-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid #272727;
+}
+
+.chat-settings-reference-section:last-child {
+  border-bottom: 0;
+}
+
+.chat-settings-reference-section h2 {
+  margin: 0;
+  color: #ffffff;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.chat-settings-reference-section p,
+.chat-settings-reference-field em,
+.chat-settings-reference-switch em,
+.chat-settings-reference-account-row em,
+.chat-settings-reference-list span {
+  margin: 0;
+  color: #a7a7a7;
+  font-size: 12px;
+  font-style: normal;
+  line-height: 1.45;
+}
+
+.chat-settings-reference-account-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.chat-settings-reference-avatar {
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #303030;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.chat-settings-reference-account-row div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.chat-settings-reference-account-row strong,
+.chat-settings-reference-list strong,
+.chat-settings-reference-switch strong {
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.chat-settings-reference-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.chat-settings-reference-field span,
+.chat-settings-reference-preference > span {
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.chat-settings-reference-field input,
+.chat-settings-reference-field select {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid #575757;
+  border-radius: 7px;
+  background: #222222;
+  color: #f5f5f5;
+  padding: 0 12px;
+  font: inherit;
+  font-size: 13px;
+}
+
+.chat-settings-reference-field input:focus,
+.chat-settings-reference-field select:focus {
+  outline: none;
+  border-color: #7c7c7c;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
+.chat-settings-reference-copy-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 72px;
+  gap: 8px;
+}
+
+.chat-settings-reference-copy-field button,
+.chat-settings-reference-list button {
+  border: 1px solid #3e3e3e;
+  border-radius: 7px;
+  background: #252525;
+  color: #f2f2f2;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.chat-settings-reference-copy-field button:hover,
+.chat-settings-reference-list button:hover {
+  background: #303030;
+}
+
+.chat-settings-reference-preference {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.chat-settings-reference-segmented {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px;
+  border: 1px solid #3b3b3b;
+  border-radius: 8px;
+  background: #202020;
+}
+
+.chat-settings-reference-segmented button {
+  min-height: 30px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #b8b8b8;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.chat-settings-reference-segmented button.active,
+.chat-settings-reference-segmented button:hover {
+  background: #333333;
+  color: #ffffff;
+}
+
+.chat-settings-reference-switch {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  column-gap: 16px;
+  row-gap: 2px;
+  align-items: center;
+}
+
+.chat-settings-reference-switch input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.chat-settings-reference-switch > span {
+  grid-row: 1 / span 2;
+  width: 36px;
+  height: 20px;
+  position: relative;
+  border-radius: 999px;
+  background: #363636;
+  border: 1px solid #454545;
+}
+
+.chat-settings-reference-switch > span::after {
+  content: "";
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  top: 1px;
+  left: 1px;
+  border-radius: 999px;
+  background: #ffffff;
+  transition: transform 0.14s ease;
+}
+
+.chat-settings-reference-switch input:checked + span {
+  background: #14c414;
+  border-color: #14c414;
+}
+
+.chat-settings-reference-switch input:checked + span::after {
+  transform: translateX(16px);
+}
+
+.chat-settings-reference-list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #2e2e2e;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.chat-settings-reference-list article {
+  min-height: 64px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 104px;
+  gap: 16px;
+  align-items: center;
+  padding: 12px 14px;
+  border-bottom: 1px solid #2e2e2e;
+  background: #1a1a1a;
+}
+
+.chat-settings-reference-list article:last-child {
+  border-bottom: 0;
+}
+
+.chat-settings-reference-list article div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.chat-settings-reference-list button {
+  min-height: 32px;
+}
+
 .chat-settings-sidebar {
   width: 284px;
   min-width: 284px;

@@ -102,6 +102,36 @@ assert.match(
 );
 
 assert.match(
+  source,
+  /const settingsActive = activeView === "settings"/,
+  "settings should have an explicit shell focus mode",
+);
+
+assert.match(
+  source,
+  /const utilityDrawerVisible =[\s\S]*!settingsActive[\s\S]*activeView !== "sessions"/,
+  "settings should not render the utility drawer over the reference settings shell",
+);
+
+assert.match(
+  source,
+  /const auxiliaryChatVisible =[\s\S]*!settingsActive[\s\S]*!workspaceActive/,
+  "settings should not render the auxiliary chat pane over the reference settings shell",
+);
+
+assert.match(
+  source,
+  /activeView === "authority" \?[\s\S]*<MissionControlControlView[\s\S]*surface="policy"/,
+  "the authority route should keep the governance wrapper while settings is no longer wrapped as Mission Control",
+);
+
+assert.match(
+  source,
+  /settingsActive \?[\s\S]*<SettingsView[\s\S]*source: "settings"/,
+  "the settings route should render SettingsView directly as a client preference surface",
+);
+
+assert.match(
   shellCss,
   /\.hypervisor-automation-compositor--ioi-reference\s*\{[\s\S]*background: #ffffff;[\s\S]*font-family:[\s\S]*"ABC Diatype"/,
   "Automations should share the IOI-reference light workplane and typography",
