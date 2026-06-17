@@ -236,7 +236,7 @@ export function collectWorkflowSkillContextProof(outputRoot) {
     bindingSections:
       "packages/hypervisor-workbench/src/features/Workflows/WorkflowNodeBindingEditor/sections.tsx",
     harnessTools: "packages/hypervisor-workbench/src/runtime/workflow-harness-tools.ts",
-    tauriRuntime: "apps/hypervisor/src/services/HypervisorClientRuntime.ts",
+    clientRuntime: "apps/hypervisor/src/services/HypervisorClientRuntime.ts",
     projectRuntime: "apps/hypervisor/src/services/HypervisorClientRuntime.ts",
     projectWorkflowSchedulerLane:
       "packages/hypervisor-workbench/src/runtime/harness-workflow/core.ts",
@@ -265,9 +265,9 @@ export function collectWorkflowSkillContextProof(outputRoot) {
       /"workflow\.catalog\.skills"/.test(source.harnessTools) &&
       /listWorkflowSkillCatalog/.test(source.harnessTools),
     registryBackedRuntime:
-      /getSkillCatalog\(\)/.test(source.tauriRuntime) &&
-      /getSkillDetail\(skill\.skill_hash\)/.test(source.tauriRuntime) &&
-      /workflowOptionsWithSkillCatalog/.test(source.tauriRuntime),
+      /getSkillCatalog\(\)/.test(source.clientRuntime) &&
+      /getSkillDetail\(skill\.skill_hash\)/.test(source.clientRuntime) &&
+      /workflowOptionsWithSkillCatalog/.test(source.clientRuntime),
     resolverExecution:
       /workflow_scheduler_lane/.test(source.projectRuntime) &&
       /workflow_coding_route_lane/.test(source.projectWorkflowSchedulerLane) &&
@@ -316,7 +316,7 @@ export function collectWorkflowCodingRouteProof(outputRoot) {
     graphRuntimeTypes: "packages/hypervisor-workbench/src/runtime/graph-runtime-types.ts",
     routeCatalog: "packages/hypervisor-workbench/src/runtime/workflow-coding-routes.ts",
     harnessTools: "packages/hypervisor-workbench/src/runtime/workflow-harness-tools.ts",
-    tauriRuntime: "apps/hypervisor/src/services/HypervisorClientRuntime.ts",
+    clientRuntime: "apps/hypervisor/src/services/HypervisorClientRuntime.ts",
     projectTemplates: "packages/hypervisor-workbench/src/workflowTemplates.ts",
     projectRuntime: "apps/hypervisor/src/services/HypervisorClientRuntime.ts",
     projectWorkflowSchedulerLane:
@@ -366,11 +366,11 @@ export function collectWorkflowCodingRouteProof(outputRoot) {
       /"workflow\.skills\.import_pack"/.test(source.harnessTools) &&
       /importWorkflowSkillPack/.test(source.harnessTools),
     runtimeRegistryImportPath:
-      /listWorkflowCodingRoutes/.test(source.tauriRuntime) &&
-      /WORKFLOW_CODING_ROUTE_CONTRACTS/.test(source.tauriRuntime) &&
-      /importWorkflowSkillPack/.test(source.tauriRuntime) &&
-      /addSkillSource/.test(source.tauriRuntime) &&
-      /syncSkillSource/.test(source.tauriRuntime),
+      /listWorkflowCodingRoutes/.test(source.clientRuntime) &&
+      /WORKFLOW_CODING_ROUTE_CONTRACTS/.test(source.clientRuntime) &&
+      /importWorkflowSkillPack/.test(source.clientRuntime) &&
+      /addSkillSource/.test(source.clientRuntime) &&
+      /syncSkillSource/.test(source.clientRuntime),
     draftSkillPackImportFixture:
       /"sourceType": "runtime_skill_source_draft"/.test(source.runtimeTests) &&
       /"relativePath": "skills\/incremental-implementation\/SKILL\.md"/.test(
@@ -416,7 +416,7 @@ export function collectWorkflowCodingRoutePromotionLoopProof(outputRoot) {
     graphTypes: "packages/hypervisor-workbench/src/types/graph.ts",
     routeCatalog: "packages/hypervisor-workbench/src/runtime/workflow-coding-routes.ts",
     bottomShelf: "packages/hypervisor-workbench/src/features/Workflows/WorkflowBottomShelf.tsx",
-    tauriRuntime: "apps/hypervisor/src/services/HypervisorClientRuntime.ts",
+    clientRuntime: "apps/hypervisor/src/services/HypervisorClientRuntime.ts",
     projectTemplates: "packages/hypervisor-workbench/src/workflowTemplates.ts",
     projectRuntime: "apps/hypervisor/src/services/HypervisorClientRuntime.ts",
     projectWorkflowSchedulerLane:
@@ -462,14 +462,14 @@ export function collectWorkflowCodingRoutePromotionLoopProof(outputRoot) {
       /coding\.route\.benchmark\.v1/.test(source.projectCodingRouteLane) &&
       /coding\.route\.promotion\.v1/.test(source.projectCodingRouteLane),
     draftImportMetadata:
-      /workflowDraftSkillsFromSources/.test(source.tauriRuntime) &&
-      /runtime_skill_source_draft/.test(source.tauriRuntime) &&
-      /workflowPhaseTagsForSkill/.test(source.tauriRuntime) &&
-      /workflowRouteTagsForSkill/.test(source.tauriRuntime),
+      /workflowDraftSkillsFromSources/.test(source.clientRuntime) &&
+      /runtime_skill_source_draft/.test(source.clientRuntime) &&
+      /workflowPhaseTagsForSkill/.test(source.clientRuntime) &&
+      /workflowRouteTagsForSkill/.test(source.clientRuntime),
     promotionMetadataUpdate:
-      /applyWorkflowPromotionDecisions/.test(source.tauriRuntime) &&
-      /WORKFLOW_SKILL_PROMOTION_LEDGER_KEY/.test(source.tauriRuntime) &&
-      /promotionEvidenceRefs/.test(source.tauriRuntime),
+      /applyWorkflowPromotionDecisions/.test(source.clientRuntime) &&
+      /WORKFLOW_SKILL_PROMOTION_LEDGER_KEY/.test(source.clientRuntime) &&
+      /promotionEvidenceRefs/.test(source.clientRuntime),
     operatorEvidenceUi:
       /workflow-route-promotion-summary/.test(source.bottomShelf) &&
       /routeRunSummary/.test(source.bottomShelf) &&
@@ -477,7 +477,7 @@ export function collectWorkflowCodingRoutePromotionLoopProof(outputRoot) {
       /workflow-route-gate/.test(source.bottomShelf) &&
       /workflow-route-promotion/.test(source.bottomShelf),
     guiForkabilitySurface:
-      /forkWorkflowCheckpoint/.test(source.tauriRuntime) &&
+      /forkWorkflowCheckpoint/.test(source.clientRuntime) &&
       /WorkflowCheckpointForkRequest/.test(source.graphTypes),
     promotionLoopTest:
       /coding_route_promotion_loop_promotes_draft_skill_with_evidence/.test(
