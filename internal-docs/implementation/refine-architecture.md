@@ -1209,6 +1209,15 @@ Current implementation cut:
   The invariant is explicit: Home summarizes evidence and does not become
   runtime, authority, restore, or storage truth. Remaining work is live
   projection hydration and interactive drill-through to selected surface rows.
+
+0A.10 first Playwright shell smoke is implemented:
+  `scripts/hypervisor-app-shell-smoke.mjs` serves the built
+  `apps/hypervisor/dist` bundle and verifies the IOI-reference Hypervisor shell
+  contract in Chromium. The smoke covers the Home cockpit, New Session launch
+  summary, external-harness plus cTEE privacy blocking, redacted-projection
+  harness allowance, Providers navigation, and provider operation proposal
+  rendering. The command is exposed as `npm run smoke:hypervisor-app-shell` and
+  guarded by `check:runtime-layout`.
 ```
 
 Code migration posture:

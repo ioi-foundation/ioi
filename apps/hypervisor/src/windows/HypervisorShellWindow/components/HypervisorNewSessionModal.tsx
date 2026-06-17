@@ -274,6 +274,7 @@ export function HypervisorNewSessionModal({
               <span>Project</span>
               <select
                 value={selectedProject.id}
+                data-new-session-field="project"
                 onChange={(event) => setProjectId(event.target.value)}
               >
                 {projects.map((project) => (
@@ -287,6 +288,7 @@ export function HypervisorNewSessionModal({
               <span>Workbench Adapter</span>
               <select
                 value={adapterPreferenceRef}
+                data-new-session-field="workbench-adapter"
                 onChange={(event) => setAdapterPreferenceRef(event.target.value)}
               >
                 {HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES.map((preference) => {
@@ -303,6 +305,7 @@ export function HypervisorNewSessionModal({
               <span>Harness</span>
               <select
                 value={harnessSelectionRef}
+                data-new-session-field="harness"
                 onChange={(event) => setHarnessSelectionRef(event.target.value)}
               >
                 {HYPERVISOR_NEW_SESSION_SETUP_MODEL.harnessOptions.map(
@@ -321,6 +324,7 @@ export function HypervisorNewSessionModal({
               <span>Model Route</span>
               <select
                 value={modelRouteRef}
+                data-new-session-field="model-route"
                 onChange={(event) => setModelRouteRef(event.target.value)}
               >
                 {MODEL_ROUTE_OPTIONS.map((option) => (
@@ -334,6 +338,7 @@ export function HypervisorNewSessionModal({
               <span>Privacy</span>
               <select
                 value={privacyPostureRef}
+                data-new-session-field="privacy"
                 onChange={(event) => setPrivacyPostureRef(event.target.value)}
               >
                 {PRIVACY_OPTIONS.map((option) => (
@@ -408,6 +413,7 @@ export function HypervisorNewSessionModal({
           <button
             type="button"
             className="primary"
+            data-new-session-action="launch"
             disabled={launchBlockedByHarnessVerdict}
             onClick={launch}
           >

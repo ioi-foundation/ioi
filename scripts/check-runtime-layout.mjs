@@ -84,6 +84,9 @@ const runtimeHarnessPublicSmokeTaskSource = read(
 const runtimeHarnessPublicSmokeTaskTestSource = read(
   "packages/runtime-daemon/src/runtime-harness-public-smoke-task.test.mjs",
 );
+const hypervisorAppShellSmokeSource = read(
+  "scripts/hypervisor-app-shell-smoke.mjs",
+);
 const publicRuntimeRoutesSource = read(
   "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
 );
@@ -714,6 +717,11 @@ assert(
     hypervisorNewSessionModalSource.includes(
       "data-new-session-harness-selection-kind",
     ) &&
+    hypervisorNewSessionModalSource.includes('data-new-session-field="harness"') &&
+    hypervisorNewSessionModalSource.includes('data-new-session-field="privacy"') &&
+    hypervisorNewSessionModalSource.includes(
+      'data-new-session-action="launch"',
+    ) &&
     hypervisorShellControllerSource.includes(
       "const summary = request.launch_summary",
     ) &&
@@ -737,6 +745,48 @@ assert(
     "apps/hypervisor/src/windows/HypervisorShellWindow/modelMountInventoryModel.ts",
   ],
   "New Session must emit a typed launch summary, treat only verified Hypervisor model mounts as local model routes, and block harness launches that would otherwise silently fall back.",
+);
+assert(
+  "hypervisor-app-shell-playwright-smoke",
+  packageJson.scripts["smoke:hypervisor-app-shell"] ===
+    "node scripts/hypervisor-app-shell-smoke.mjs" &&
+    hypervisorAppShellSmokeSource.includes("ioi.hypervisor.app_shell_smoke.v1") &&
+    hypervisorAppShellSmokeSource.includes(
+      '[data-home-dashboard-variant="hypervisor-zero-state"]',
+    ) &&
+    hypervisorAppShellSmokeSource.includes(
+      '[data-window-surface="new-session"]',
+    ) &&
+    hypervisorAppShellSmokeSource.includes(
+      '[data-new-session-field="harness"]',
+    ) &&
+    hypervisorAppShellSmokeSource.includes(
+      "agent-harness-adapter:codex_cli",
+    ) &&
+    hypervisorAppShellSmokeSource.includes(
+      "privacy:ctee-private-workspace",
+    ) &&
+    hypervisorAppShellSmokeSource.includes(
+      "privacy:redacted-projection",
+    ) &&
+    hypervisorAppShellSmokeSource.includes(
+      '[data-window-surface="providers"]',
+    ) &&
+    hypervisorAppShellSmokeSource.includes(
+      '[data-provider-operation-kind="archive"]',
+    ) &&
+    hypervisorAppShellSmokeSource.includes(
+      "[data-provider-operation-proposal]",
+    ) &&
+    hypervisorAppShellSmokeSource.includes(
+      "apps/hypervisor/dist/index.html is missing",
+    ),
+  [
+    "package.json",
+    "scripts/hypervisor-app-shell-smoke.mjs",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorNewSessionModal.tsx",
+  ],
+  "Phase 0A.10 must include a Playwright smoke over the built Hypervisor shell covering Home, New Session harness/privacy gating, and provider operation proposals.",
 );
 assert(
   "hypervisor-harness-public-smoke-task",
