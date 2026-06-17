@@ -6459,13 +6459,12 @@ the Rust-authored `thread.forked` event, and validates the Rust projection.
 
 Slice 1099 retires the daemon-store coding-tool artifact/governance,
 workspace-snapshot/restore, and diagnostics-feedback helper pass-through
-delegates. The coding-tool invocation surface now calls mounted
-`codingToolGovernanceSurface`, `codingToolArtifactSurface`,
-`workspaceSnapshotSurface`, and `diagnosticsFeedbackSurface` methods directly
-instead of re-entering `AgentgresRuntimeStateStore` wrappers for approval
-satisfaction/blocking, budget blocking, artifact reads/retrieval, command-stream
-events, artifact draft materialization, patch snapshots, snapshot events, and
-post-edit diagnostics.
+delegates. Slice 1431 later supersedes the workspace-snapshot portion: the
+coding-tool invocation surface still calls mounted governance, artifact, and
+diagnostics-feedback delegates, but patch snapshot capture now enters through
+the store-owned `prepareWorkspaceSnapshotForPatch()` method over the internal
+workspace snapshot API. The old route-visible `workspaceSnapshotSurface` call
+does not remain as the public snapshot-capture path.
 
 The daemon store no longer exposes the retired helper entrypoints, including
 `appendCodingToolCommandStreamEvents()`, `codingToolApprovalSatisfaction()`,
