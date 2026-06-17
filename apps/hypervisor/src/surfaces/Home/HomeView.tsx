@@ -12,7 +12,6 @@ import {
   Atom,
   Bell,
   Bot,
-  Boxes,
   Bug,
   Code2,
   Crosshair,
@@ -25,7 +24,6 @@ import {
   MessageCircle,
   Play,
   Search,
-  Settings,
   ShieldCheck,
   Sparkles,
   SquareTerminal,
@@ -304,6 +302,24 @@ const HOME_REFERENCE_RECENT_SESSIONS = [
   },
 ] as const;
 
+const HOME_REFERENCE_RECENT_FILES = [
+  {
+    name: "Build governed workspace runtime",
+    detail: "Hypervisor Core / sessions",
+    updated: "about 2 hours ago",
+  },
+  {
+    name: "Configure editor adapter bridge",
+    detail: "Workbench / code repositories",
+    updated: "about 4 hours ago",
+  },
+  {
+    name: "Review model mount receipts",
+    detail: "Models / authority",
+    updated: "yesterday",
+  },
+] as const;
+
 interface HomeDashboardViewProps {
   currentProject: ProjectScope;
   projects: ProjectScope[];
@@ -434,66 +450,66 @@ function HomeDashboardView({
     {
       id: "projects",
       label: "Projects & files",
-      detail: "Local scope",
+      detail: "Files",
       icon: FolderOpen,
       tone: "neutral",
       onClick: () => onRecentModeChange("projects"),
     },
     {
-      id: "workbench",
-      label: "Workbench",
-      detail: "Code workbench",
-      icon: Code2,
+      id: "models",
+      label: "Model Routes",
+      detail: "Routes",
+      icon: Sparkles,
       tone: "blue",
-      onClick: onOpenWorkspace,
+      onClick: onOpenModels,
     },
     {
-      id: "sessions",
-      label: "Sessions",
-      detail: "Live work",
-      icon: MessageCircle,
+      id: "composer",
+      label: "Pipeline Builder",
+      detail: "Workflows",
+      icon: CircleDashed,
       tone: "teal",
-      onClick: onOpenChat,
+      onClick: () => onOpenNewSession(),
     },
     {
-      id: "insights",
-      label: "Runs",
-      detail: "Execution history",
+      id: "runs",
+      label: "Run Contour",
+      detail: "Traces",
       icon: Play,
       tone: "orange",
       onClick: onOpenRuns,
     },
     {
-      id: "evidence",
-      label: "Evidence",
-      detail: "Receipts",
-      icon: FileCode2,
+      id: "wiki",
+      label: "Agent Wiki",
+      detail: "Memory",
+      icon: Database,
       tone: "green",
-      onClick: onOpenRuns,
-    },
-    {
-      id: "authority",
-      label: "Authority",
-      detail: "Approvals",
-      icon: ShieldCheck,
-      tone: "purple",
-      onClick: onOpenPolicy,
-    },
-    {
-      id: "agents",
-      label: "Agents",
-      detail: "Capabilities",
-      icon: Boxes,
-      tone: "blue",
       onClick: onOpenCapabilities,
     },
     {
-      id: "settings",
-      label: "Settings",
+      id: "workbench",
+      label: "Workbench",
+      detail: "Editors",
+      icon: Code2,
+      tone: "purple",
+      onClick: onOpenWorkspace,
+    },
+    {
+      id: "logic",
+      label: "Policy Logic",
+      detail: "Authority",
+      icon: ShieldCheck,
+      tone: "blue",
+      onClick: onOpenPolicy,
+    },
+    {
+      id: "code",
+      label: "Code Repositories",
       detail: selectedThemeLabel,
-      icon: Settings,
+      icon: FileCode2,
       tone: "neutral",
-      onClick: () => onOpenSettings("managed_settings"),
+      onClick: onOpenWorkspace,
     },
   ];
 
@@ -672,7 +688,11 @@ function HomeDashboardView({
                 </p>
               </div>
               <button type="button" onClick={onOpenWorkspace}>
-                <span>Open workspace</span>
+                <span>Start speedrun</span>
+                {renderIcon(ArrowRight, { size: 15, strokeWidth: 2 })}
+              </button>
+              <button type="button" onClick={() => onOpenNewSession()}>
+                <span>View training tracks</span>
                 {renderIcon(ArrowRight, { size: 15, strokeWidth: 2 })}
               </button>
             </article>
@@ -687,7 +707,7 @@ function HomeDashboardView({
                 </p>
               </div>
               <button type="button" onClick={() => onOpenNewSession()}>
-                <span>New session</span>
+                <span>Install</span>
                 {renderIcon(ArrowRight, { size: 15, strokeWidth: 2 })}
               </button>
             </article>
@@ -697,10 +717,13 @@ function HomeDashboardView({
               </span>
               <div>
                 <h2>Join community</h2>
-                <p>Review runs, receipts, artifacts, adapters, and reusable worker packages.</p>
+                <p>
+                  Review runs, receipts, artifacts, adapters, and reusable
+                  worker packages.
+                </p>
               </div>
               <button type="button" onClick={onOpenRuns}>
-                <span>Open insights</span>
+                <span>Join</span>
                 {renderIcon(ArrowRight, { size: 15, strokeWidth: 2 })}
               </button>
             </article>
@@ -897,12 +920,20 @@ function HomeDashboardView({
                     ))}
                   </div>
                 ) : (
-                  <div className="chat-home-zero-empty">
-                    {renderIcon(FolderOpen, { size: 46, strokeWidth: 1.35 })}
-                    <strong>No recently viewed files</strong>
-                    <button type="button" onClick={onOpenWorkspace}>
-                      Explore your codebase
-                    </button>
+                  <div className="chat-home-zero-project-rows chat-home-zero-file-rows">
+                    {HOME_REFERENCE_RECENT_FILES.map((file) => (
+                      <button
+                        type="button"
+                        key={file.name}
+                        onClick={onOpenWorkspace}
+                      >
+                        <span>
+                          <strong>{file.name}</strong>
+                          <em>{file.detail}</em>
+                        </span>
+                        <span>{file.updated}</span>
+                      </button>
+                    ))}
                   </div>
                 )}
               </div>
