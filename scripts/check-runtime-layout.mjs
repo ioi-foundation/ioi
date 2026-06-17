@@ -31,6 +31,7 @@ function assert(id, condition, evidence, message) {
 }
 
 const packageJson = JSON.parse(read("package.json"));
+const readme = read("README.md");
 const packageScriptNames = Object.keys(packageJson.scripts ?? {});
 const retiredAutopilotPackageScripts = packageScriptNames.filter((scriptName) =>
   /^(?:goal|validate|test):autopilot/.test(scriptName),
@@ -46,6 +47,7 @@ const activeTauriRuntimeService = "apps/hypervisor/src/services/TauriRuntime.ts"
 const activeTauriDesktopLauncher = "apps/hypervisor/scripts/dev-desktop.sh";
 const legacyTauriArchive = "internal-docs/legacy/autopilot-tauri-src";
 const rootIdeDir = "ide";
+const retiredAgentIdePath = "packages/agent-ide";
 const retiredAutopilotShellWindow = "apps/hypervisor/src/windows/AutopilotShellWindow";
 const builtinFiles = allFiles("crates/services/src/agentic/runtime/tools/builtins", (file) =>
   file.endsWith(".rs"),
@@ -141,6 +143,17 @@ assert(
   "runtime module map must identify canonical homes and be linked from boundary docs",
 );
 assert(
+  "repo-facing-hypervisor-client-map",
+  readme.includes("[`apps/hypervisor`](apps/hypervisor)") &&
+    readme.includes("[`packages/hypervisor-workbench`](packages/hypervisor-workbench)") &&
+    readme.includes("[`workbench-adapters`](workbench-adapters)") &&
+    readme.includes("Hypervisor Workbench") &&
+    !readme.includes("packages/agent-ide") &&
+    !readme.includes("Hypervisor IDE"),
+  ["README.md"],
+  "README must present Hypervisor App/Web, Workbench, and adapter targets instead of retired Hypervisor IDE or packages/agent-ide language.",
+);
+assert(
   "contract-family-modules",
   [
     "adapters",
@@ -198,6 +211,7 @@ assert(
   !exists(activeTauriRuntimeService) &&
   !exists(activeTauriDesktopLauncher) &&
   !exists(rootIdeDir) &&
+    !exists(retiredAgentIdePath) &&
     !exists(retiredAutopilotShellWindow) &&
     !exists(legacyTauriArchive),
   [
@@ -205,10 +219,11 @@ assert(
     activeTauriRuntimeService,
     activeTauriDesktopLauncher,
     rootIdeDir,
+    retiredAgentIdePath,
     retiredAutopilotShellWindow,
     legacyTauriArchive,
   ],
-  "Active Tauri Rust/launchers, root ide/, old AutopilotShellWindow, and legacy Tauri archive paths must stay retired from active app paths.",
+  "Active Tauri Rust/launchers, root ide/, packages/agent-ide, old AutopilotShellWindow, and legacy Tauri archive paths must stay retired from active app paths.",
 );
 assert(
   "desktop-probes-no-retired-tauri-workspace",

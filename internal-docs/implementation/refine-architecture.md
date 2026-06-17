@@ -848,6 +848,14 @@ Current implementation cut:
   an adapter-extension implementation detail, not the public script/product
   name.
 
+0A.1E repo-facing map cleanup is implemented:
+  README points new implementers to `apps/hypervisor`,
+  `packages/hypervisor-workbench`, and `workbench-adapters` instead of the
+  retired `packages/agent-ide` / Hypervisor IDE framing.
+  `check:runtime-layout` rejects a returned `packages/agent-ide` path, root
+  `ide/` product path, active Tauri path, and README wording that makes
+  Hypervisor an IDE product again.
+
 0A.2 canonical shell routing is partially implemented:
   `PrimaryView` is now the canonical `HypervisorSurfaceId` union rather than
   an IDE-era alias set
@@ -873,8 +881,9 @@ Current implementation cut:
 Code migration posture:
 
 ```text
-Do not rewrite the app from scratch.
-Do create a new shell contract and progressively move existing surfaces under it.
+Do not preserve the old IDE-era shell as the parent product.
+Do create a fresh Hypervisor Core client shell and progressively remount
+valuable existing surfaces under it.
 Do not delete model mounting, Workflow Composer, Policy, Settings, or
 WorkspaceShell; rehome them under the sharper IA.
 Do not clone the IOI mirror literally; translate it:

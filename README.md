@@ -85,8 +85,12 @@ settlement.
 - The **Hypervisor Daemon** is the deterministic runtime boundary for workflows,
   tools, models, workers, connectors, and artifacts. It is consumed by separate
   product and adoption surfaces:
-  - **Hypervisor IDE:** the native operator console and cockpit in the
-    Electron / VS Code fork.
+  - **Hypervisor App / Web:** first-class operator clients over Hypervisor
+    Core.
+  - **Hypervisor Workbench:** the code/systems/workspace surface inside
+    Hypervisor clients; editor hosts such as VS Code, Cursor, Windsurf,
+    JetBrains, browser IDEs, and terminals are adapter targets, not product
+    identity.
   - **IOI Authority Gateway, packaged as Hypervisor Guard:** compatibility
     sidecar/adapters for third-party developer interfaces such as Cursor, VS
     Code, Claude Code, and CLI agents. It routes proposed actions through daemon
@@ -101,8 +105,9 @@ settlement.
   CAS/IPFS hold encrypted payload bytes behind Agentgres-governed artifact refs.
 - **IOI L1** settles public rights, registries, roots, bonds, disputes,
   governance, and economic commitments.
-- **Clients** compose and inspect work: Hypervisor, CLI/TUI, SDK, agent-ide,
-  harnesses, benchmarks, and workflow canvases.
+- **Clients and surfaces** compose and inspect work: Hypervisor App/Web,
+  CLI/headless with optional TUI presentation, SDK/ADK, Workbench, Foundry,
+  Fleet, workflow compositor, harness adapters, and benchmarks.
 
 The doctrine is simple:
 
@@ -200,9 +205,10 @@ Stop renting tools. Hire workers.
 | [`crates/`](crates) | Rust runtime, consensus, execution, state, storage, services, drivers, CLI, and IPC. |
 | [`packages/agent-sdk`](packages/agent-sdk) | Developer SDK over the public runtime substrate. |
 | [`packages/runtime-daemon`](packages/runtime-daemon) | TypeScript daemon-facing runtime API surface and validation harnesses. |
-| [`packages/agent-ide`](packages/agent-ide) | Hypervisor IDE and workflow-composition client over shared contracts. |
-| [`packages/workspace-substrate`](packages/workspace-substrate) | Shared workspace substrate for app and IDE surfaces. |
-| Hypervisor app shell | Local desktop operator shell (Electron-first / VS Code fork) for chat, workflows, artifacts, approvals, and runtime UX. |
+| [`packages/hypervisor-workbench`](packages/hypervisor-workbench) | Hypervisor Workbench, workflow-composition, and code/systems projection package over shared contracts. |
+| [`packages/workspace-substrate`](packages/workspace-substrate) | Shared workspace substrate for Hypervisor App/Web and Workbench surfaces. |
+| [`apps/hypervisor`](apps/hypervisor) | Hypervisor App/Web client shell for sessions, projects, missions, Workbench, Foundry, Fleet, models, privacy, approvals, receipts, and runtime UX. |
+| [`workbench-adapters`](workbench-adapters) | Editor/terminal/browser adapter host metadata and current VS Code-family Workbench adapter assets; not product identity or runtime authority. |
 | [`apps/aiagent-xyz`](apps/aiagent-xyz) | Marketplace for bounded workers, manifests, benchmark profiles, managed instances, and autonomous capabilities. |
 | [`apps/sas-xyz`](apps/sas-xyz) | Marketplace for verified autonomous service outcomes and Worker Training contracts. |
 | [`apps/developers-ioi-ai`](apps/developers-ioi-ai) | Developer-facing documentation and onboarding surface. |
