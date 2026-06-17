@@ -13,9 +13,9 @@ import { fileURLToPath } from "node:url";
 
 import { startRuntimeDaemonService } from "../packages/runtime-daemon/src/index.mjs";
 import {
-  AUTOPILOT_ELECTRON,
+  HYPERVISOR_WORKBENCH_ADAPTER_HOST,
   syncWorkbenchExtensionTargets,
-} from "./lib/autopilot-electron-app-paths.mjs";
+} from "./lib/hypervisor-workbench-adapter-host-paths.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -27,7 +27,7 @@ const OUTPUT_ROOT =
   "docs/evidence/autopilot-electron-model-mounting-daemon-runtime-adapter";
 const EXTENSION_ROOT =
   "apps/autopilot/openvscode-extension/ioi-workbench";
-const VSCODE_PACKAGED_APP_ROOT = AUTOPILOT_ELECTRON.packagedRoot;
+const VSCODE_PACKAGED_APP_ROOT = HYPERVISOR_WORKBENCH_ADAPTER_HOST.packagedRoot;
 const MODEL_ID = "native:electron-gui-model";
 const ENDPOINT_ID = "endpoint.electron.model-gui";
 const ROUTE_ID = "route.native-local";
@@ -604,7 +604,7 @@ function syncExtension() {
   } catch (caught) {
     error = caught;
   }
-  const packagedTarget = AUTOPILOT_ELECTRON.packagedWorkbenchTarget;
+  const packagedTarget = HYPERVISOR_WORKBENCH_ADAPTER_HOST.packagedWorkbenchTarget;
   return {
     id: "sync:ioi-workbench-extension",
     ok:
@@ -814,7 +814,7 @@ async function runGuiValidation(outputRoot) {
 
     const stdoutPath = join(outputDir, "stdout.log");
     const stderrPath = join(outputDir, "stderr.log");
-    app = spawn(AUTOPILOT_ELECTRON.binary, [
+    app = spawn(HYPERVISOR_WORKBENCH_ADAPTER_HOST.binary, [
       `--user-data-dir=${userDataDir}`,
       `--extensions-dir=${extensionsDir}`,
       "--disable-updates",

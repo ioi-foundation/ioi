@@ -12,7 +12,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { AUTOPILOT_RETAINED_QUERIES } from "./lib/autopilot-gui-harness-contract.mjs";
-import { AUTOPILOT_ELECTRON } from "./lib/autopilot-electron-app-paths.mjs";
+import { HYPERVISOR_WORKBENCH_ADAPTER_HOST } from "./lib/hypervisor-workbench-adapter-host-paths.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -24,8 +24,8 @@ const MASTER_GUIDE =
   ".internal/plans/autopilot-ide-first-tauri-retirement-ux-readiness-master-guide.md";
 const TAURI_INVENTORY =
   ".internal/plans/autopilot-tauri-retirement-inventory.md";
-const VSCODE_FORK_ROOT = AUTOPILOT_ELECTRON.forkRoot;
-const VSCODE_PACKAGED_APP_ROOT = AUTOPILOT_ELECTRON.packagedRoot;
+const VSCODE_FORK_ROOT = HYPERVISOR_WORKBENCH_ADAPTER_HOST.forkRoot;
+const VSCODE_PACKAGED_APP_ROOT = HYPERVISOR_WORKBENCH_ADAPTER_HOST.packagedRoot;
 
 function timestamp() {
   return new Date().toISOString().replace(/[:.]/g, "-");
@@ -227,12 +227,12 @@ function checkArchitectureDocs() {
 function checkForkAndWorkbenchPaths() {
   const forkPath = VSCODE_FORK_ROOT;
   const packagedAppPath = VSCODE_PACKAGED_APP_ROOT;
-  const packagedWorkbenchPath = AUTOPILOT_ELECTRON.packagedWorkbenchTarget;
+  const packagedWorkbenchPath = HYPERVISOR_WORKBENCH_ADAPTER_HOST.packagedWorkbenchTarget;
   const workbenchPath = join(
     repoRoot,
     "apps/autopilot/openvscode-extension/ioi-workbench",
   );
-  const binaryPath = AUTOPILOT_ELECTRON.binary;
+  const binaryPath = HYPERVISOR_WORKBENCH_ADAPTER_HOST.binary;
   const ok =
     existsSync(packagedAppPath) &&
     existsSync(binaryPath) &&
@@ -302,7 +302,7 @@ function checkCanonicalForkReadiness() {
     repoRoot,
     "apps/autopilot/openvscode-extension/ioi-workbench/extension.js",
   );
-  const binaryPath = AUTOPILOT_ELECTRON.binary;
+  const binaryPath = HYPERVISOR_WORKBENCH_ADAPTER_HOST.binary;
   const canonicalWorkbenchCandidates = [
     join(VSCODE_PACKAGED_APP_ROOT, "resources/app/extensions/autopilot-workbench"),
     join(VSCODE_PACKAGED_APP_ROOT, "resources/app/extensions/ioi-workbench"),
@@ -479,7 +479,7 @@ function checkPackageScripts() {
       missingScripts,
       canonicalHarnessAliases,
       requiredHarness:
-        "The live GUI gate is the Electron/VS Code fork launch plus workbench control-room validation in this goal runner.",
+        "The live GUI gate is the Hypervisor Workbench adapter-host launch plus workbench control-room validation in this goal runner.",
     },
   };
 }
@@ -490,7 +490,7 @@ function runCanonicalForkLaunch(outputRoot) {
   const screenshotPath = join(outputDir, "canonical-fork-launch.png");
   const command = `
 set -euo pipefail
-APP=${JSON.stringify(AUTOPILOT_ELECTRON.binary)}
+APP=${JSON.stringify(HYPERVISOR_WORKBENCH_ADAPTER_HOST.binary)}
 OUT=${JSON.stringify(outputDir)}
 USER_DATA=$(mktemp -d /tmp/autopilot-vscode-user-XXXXXX)
 EXT_DIR=$(mktemp -d /tmp/autopilot-vscode-ext-XXXXXX)
@@ -543,8 +543,8 @@ done
     ok: result.ok && screenshotExists && /Autopilot/i.test(windowTitle),
     summary:
       result.ok && screenshotExists && /Autopilot/i.test(windowTitle)
-        ? "Canonical Electron/VS Code fork launches and screenshots successfully"
-        : "Canonical Electron/VS Code fork launch probe failed",
+        ? "Canonical Hypervisor Workbench adapter host launches and screenshots successfully"
+        : "Canonical Hypervisor Workbench adapter host launch probe failed",
     evidence: {
       outputDir,
       screenshotPath,
@@ -827,7 +827,7 @@ async function runCanonicalControlRoomValidation(outputRoot) {
     writeFileSync(join(outputDir, "extensions-dir"), `${extensionsDir}\n`);
     const stdoutPath = join(outputDir, "stdout.log");
     const stderrPath = join(outputDir, "stderr.log");
-    app = spawn(AUTOPILOT_ELECTRON.binary, [
+    app = spawn(HYPERVISOR_WORKBENCH_ADAPTER_HOST.binary, [
       `--user-data-dir=${userDataDir}`,
       `--extensions-dir=${extensionsDir}`,
       "--disable-updates",
@@ -1091,7 +1091,7 @@ function checkCanonicalControlRoomValidation() {
       "Canonical fork retained-query/control-room harness is not wired yet",
     evidence: {
       required:
-        "Run the retained query pack and control-room artifact checks against the Electron/VS Code fork, not the Tauri dev:desktop shell.",
+        "Run the retained query pack and control-room artifact checks against the Hypervisor Workbench adapter host, not the retired Tauri dev:desktop shell.",
       currentBlocker:
         "Existing live GUI harness still targets npm run dev:desktop and cannot prove fork-side chat submission, receipt projection, replay, or operator controls.",
     },

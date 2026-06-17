@@ -1737,7 +1737,7 @@
   background: var(--chat-bg);
 }
 
-:root[data-autopilot-theme^="light"] .chat-ide-header {
+:root[data-autopilot-theme^="light"] .hypervisor-client-header {
   background: #f3f3f3;
   border-color: #e5e5e5;
   color: #424242;
@@ -1757,7 +1757,7 @@
   --chat-activity-avatar-text: #1f1f1f;
 }
 
-:root[data-autopilot-theme^="light"] .chat-ide-window-button {
+:root[data-autopilot-theme^="light"] .hypervisor-client-window-button {
   color: #424242;
 }
 

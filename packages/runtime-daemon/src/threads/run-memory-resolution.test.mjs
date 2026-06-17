@@ -7,10 +7,36 @@ function createHarness({
   policy = { id: "policy-thread", injection_enabled: true, disabled: false, read_only: false },
   records = [{ id: "memory-one", fact: "Known fact" }],
   command = { kind: "none" },
+  runtimeMemoryCommandPlanner,
 } = {}) {
   const agent = { id: "agent-one", cwd: "/workspace" };
   const calls = [];
   const memoryOptionsForRequest = (request = {}) => request.memory ?? request.options?.memory ?? {};
+  const planner = runtimeMemoryCommandPlanner === undefined
+    ? {
+        planRuntimeMemoryCommand(input = {}) {
+          calls.push({ method: "planRuntimeMemoryCommand", input });
+          return {
+            source: "rust_runtime_memory_command_plan_api",
+            backend: "rust_policy",
+            object: "ioi.runtime_memory_command_plan",
+            status: "planned",
+            operation: "runtime_memory_command_plan",
+            operation_kind: "memory.run_command.plan",
+            command_kind: command.kind,
+            thread_id: input.thread_id,
+            agent_id: input.agent_id,
+            command: { ...command },
+            evidence_refs: [
+              "rust_daemon_core_memory_command_parser",
+              "runtime_memory_command_parser_js_retired",
+              "run_memory_command_grammar_rust_owned",
+            ],
+            receipt_refs: ["receipt_runtime_memory_command_plan"],
+          };
+        },
+      }
+    : runtimeMemoryCommandPlanner;
   const helper = createRunMemoryResolution({
     memoryListFilters: (options = {}) => ({ query: options.query, redaction: options.redaction }),
     memoryOptionsForRequest,
@@ -28,6 +54,7 @@ function createHarness({
       const text = String(value).trim();
       return text ? text : undefined;
     },
+    runtimeMemoryCommandPlanner: planner,
     shouldInheritSubagentMemory: (mode, options = {}) => mode !== "none" && (mode !== "explicit" || Boolean(options.query)),
     subagentMemoryPolicy: ({ agent: policyAgent, threadId, parentPolicy, receiver, mode }) => {
       const {
@@ -74,29 +101,6 @@ function createHarness({
     },
   });
   const store = {
-    contextPolicyCore: {
-      planRuntimeMemoryCommand(input = {}) {
-        calls.push({ method: "planRuntimeMemoryCommand", input });
-        return {
-          source: "rust_runtime_memory_command_plan_api",
-          backend: "rust_policy",
-          object: "ioi.runtime_memory_command_plan",
-          status: "planned",
-          operation: "runtime_memory_command_plan",
-          operation_kind: "memory.run_command.plan",
-          command_kind: command.kind,
-          thread_id: input.thread_id,
-          agent_id: input.agent_id,
-          command: { ...command },
-          evidence_refs: [
-            "rust_daemon_core_memory_command_parser",
-            "runtime_memory_command_parser_js_retired",
-            "run_memory_command_grammar_rust_owned",
-          ],
-          receipt_refs: ["receipt_runtime_memory_command_plan"],
-        };
-      },
-    },
     memory: {
       pathProjection: () => {
         throw new Error("run memory resolution must use Rust publicMemoryPathForThread");
@@ -232,6 +236,7 @@ function assertRunMemoryRustCoreRequired(error, {
   if (memoryId) assert.equal(error.details.memory_id, memoryId);
   for (const evidence of [
     "runtime_run_memory_resolution_js_mutation_retired",
+    "runtime_run_memory_command_store_core_fallback_retired",
     "runtime_memory_state_store_js_mutation_retired",
     "rust_daemon_core_thread_memory_control_required",
     "agentgres_thread_memory_state_truth_required",
@@ -261,6 +266,23 @@ test("run memory resolution injects matching records without writes", () => {
     "publicMemoryPolicyForThread",
     "publicListMemoryForThread",
   ]);
+});
+
+test("run memory command planning ignores retired store-mounted context policy core", () => {
+  const { agent, calls, helper, store } = createHarness({
+    command: { kind: "remember", text: "Remember direct mount" },
+  });
+  store.contextPolicyCore = {
+    planRuntimeMemoryCommand() {
+      throw new Error("store-mounted contextPolicyCore fallback must stay retired");
+    },
+  };
+
+  const result = helper.resolveRunMemory(store, agent, {}, "#remember");
+
+  assert.equal(result.command, "remember");
+  assert.equal(result.writes[0].record.fact, "Remember direct mount");
+  assert.equal(calls[0].method, "planRuntimeMemoryCommand");
 });
 
 test("run memory resolution write commands use Rust memory control and Agentgres commit results", () => {
@@ -386,9 +408,8 @@ test("run memory resolution fails closed before JS cache reads when Rust memory 
   );
 });
 
-test("run memory resolution fails closed before JS command parsing when Rust command planner is missing", () => {
-  const { agent, helper, store } = createHarness();
-  store.contextPolicyCore = null;
+test("run memory resolution fails closed before JS command parsing when direct Rust command planner is missing", () => {
+  const { agent, helper, store } = createHarness({ runtimeMemoryCommandPlanner: null });
 
   assert.throws(
     () => helper.resolveRunMemory(store, agent, {}, "hello"),

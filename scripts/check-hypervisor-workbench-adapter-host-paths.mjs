@@ -6,15 +6,15 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
-const absentForkRoot = mkdtempSync("/tmp/autopilot-vscode-source-absent-");
+const absentForkRoot = mkdtempSync(
+  "/tmp/hypervisor-vscode-adapter-source-absent-",
+);
 rmSync(absentForkRoot, { recursive: true, force: true });
 
-process.env.AUTOPILOT_VSCODE_FORK_ROOT = absentForkRoot;
+process.env.HYPERVISOR_WORKBENCH_VSCODE_FORK_ROOT = absentForkRoot;
 
-const {
-  AUTOPILOT_ELECTRON,
-  syncWorkbenchExtensionTargets,
-} = await import("./lib/autopilot-electron-app-paths.mjs");
+const { HYPERVISOR_WORKBENCH_ADAPTER_HOST, syncWorkbenchExtensionTargets } =
+  await import("./lib/hypervisor-workbench-adapter-host-paths.mjs");
 
 const failures = [];
 
@@ -28,11 +28,13 @@ function runNodeCheck(script) {
     encoding: "utf8",
     env: {
       ...process.env,
-      AUTOPILOT_VSCODE_FORK_ROOT: absentForkRoot,
+      HYPERVISOR_WORKBENCH_VSCODE_FORK_ROOT: absentForkRoot,
     },
   });
   if (result.status !== 0) {
-    fail(`${script} does not parse without source fork env: ${result.stderr || result.stdout}`);
+    fail(
+      `${script} does not parse without source fork env: ${result.stderr || result.stdout}`,
+    );
   }
 }
 
@@ -40,23 +42,31 @@ if (existsSync(absentForkRoot)) {
   fail(`Absent fork simulation path unexpectedly exists: ${absentForkRoot}`);
 }
 
-if (AUTOPILOT_ELECTRON.forkRoot !== absentForkRoot) {
-  fail(`Helper did not honor AUTOPILOT_VSCODE_FORK_ROOT=${absentForkRoot}`);
+if (HYPERVISOR_WORKBENCH_ADAPTER_HOST.forkRoot !== absentForkRoot) {
+  fail(
+    `Helper did not honor HYPERVISOR_WORKBENCH_VSCODE_FORK_ROOT=${absentForkRoot}`,
+  );
 }
 
-if (!existsSync(AUTOPILOT_ELECTRON.binary)) {
-  fail(`Packaged Hypervisor Workbench adapter binary is missing: ${AUTOPILOT_ELECTRON.binary}`);
+if (!existsSync(HYPERVISOR_WORKBENCH_ADAPTER_HOST.binary)) {
+  fail(
+    `Packaged Hypervisor Workbench adapter binary is missing: ${HYPERVISOR_WORKBENCH_ADAPTER_HOST.binary}`,
+  );
 }
 
-if (!existsSync(AUTOPILOT_ELECTRON.extensionSource)) {
-  fail(`Canonical ioi-workbench source is missing: ${AUTOPILOT_ELECTRON.extensionSource}`);
+if (!existsSync(HYPERVISOR_WORKBENCH_ADAPTER_HOST.extensionSource)) {
+  fail(
+    `Canonical ioi-workbench source is missing: ${HYPERVISOR_WORKBENCH_ADAPTER_HOST.extensionSource}`,
+  );
 }
 
 let sync = null;
 try {
   sync = syncWorkbenchExtensionTargets();
 } catch (error) {
-  fail(`Packaged extension sync failed without source fork: ${error?.message || error}`);
+  fail(
+    `Packaged extension sync failed without source fork: ${error?.message || error}`,
+  );
 }
 
 if (sync) {
@@ -70,17 +80,26 @@ if (sync) {
   }
 }
 
-const packagedExtension = join(AUTOPILOT_ELECTRON.packagedWorkbenchTarget, "extension.js");
+const packagedExtension = join(
+  HYPERVISOR_WORKBENCH_ADAPTER_HOST.packagedWorkbenchTarget,
+  "extension.js",
+);
 if (!existsSync(packagedExtension)) {
-  fail(`Packaged ioi-workbench extension missing after sync: ${packagedExtension}`);
+  fail(
+    `Packaged ioi-workbench extension missing after sync: ${packagedExtension}`,
+  );
 }
 
-if (String(AUTOPILOT_ELECTRON.packagedRoot).includes("/ide/")) {
-  fail(`Packaged root must not fall back to retired root ide/ path: ${AUTOPILOT_ELECTRON.packagedRoot}`);
+if (String(HYPERVISOR_WORKBENCH_ADAPTER_HOST.packagedRoot).includes("/ide/")) {
+  fail(
+    `Packaged root must not fall back to retired root ide/ path: ${HYPERVISOR_WORKBENCH_ADAPTER_HOST.packagedRoot}`,
+  );
 }
 
-if (String(AUTOPILOT_ELECTRON.forkRoot).includes("/ide/")) {
-  fail(`Fork root must not fall back to retired root ide/ path: ${AUTOPILOT_ELECTRON.forkRoot}`);
+if (String(HYPERVISOR_WORKBENCH_ADAPTER_HOST.forkRoot).includes("/ide/")) {
+  fail(
+    `Fork root must not fall back to retired root ide/ path: ${HYPERVISOR_WORKBENCH_ADAPTER_HOST.forkRoot}`,
+  );
 }
 
 for (const script of [
@@ -99,11 +118,13 @@ const launchScript = readFileSync(
 );
 const legacySiblingForkPath = ["..", "vscode"].join("/");
 if (launchScript.includes(legacySiblingForkPath)) {
-  fail("Launch script still directly references a legacy sibling VS Code path instead of the optional path helper.");
+  fail(
+    "Launch script still directly references a legacy sibling VS Code path instead of the optional path helper.",
+  );
 }
 
 if (failures.length > 0) {
-  console.error("Autopilot Electron source-fork optionality check failed:");
+  console.error("Hypervisor Workbench adapter host path check failed:");
   for (const failure of failures) {
     console.error(`- ${failure}`);
   }
@@ -115,8 +136,9 @@ console.log(
     {
       ok: true,
       absentForkRoot,
-      binary: AUTOPILOT_ELECTRON.binary,
-      packagedWorkbenchTarget: AUTOPILOT_ELECTRON.packagedWorkbenchTarget,
+      binary: HYPERVISOR_WORKBENCH_ADAPTER_HOST.binary,
+      packagedWorkbenchTarget:
+        HYPERVISOR_WORKBENCH_ADAPTER_HOST.packagedWorkbenchTarget,
       copied: sync?.copied ?? [],
       skipped: sync?.skipped ?? [],
     },

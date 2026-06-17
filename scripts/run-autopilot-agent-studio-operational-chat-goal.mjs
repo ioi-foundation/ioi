@@ -18,12 +18,12 @@ import { chromium } from "playwright";
 
 import { startRuntimeDaemonService } from "../packages/runtime-daemon/src/index.mjs";
 import {
-  AUTOPILOT_ELECTRON,
+  HYPERVISOR_WORKBENCH_ADAPTER_HOST,
   syncWorkbenchExtensionTargets,
-} from "./lib/autopilot-electron-app-paths.mjs";
+} from "./lib/hypervisor-workbench-adapter-host-paths.mjs";
 import { applyAutopilotWorkbenchShellPatch } from "./lib/autopilot-workbench-shell-patch.mjs";
 
-const repoRoot = AUTOPILOT_ELECTRON.repoRoot;
+const repoRoot = HYPERVISOR_WORKBENCH_ADAPTER_HOST.repoRoot;
 const MASTER_GUIDE = ".internal/plans/autopilot-electron-agent-studio-operational-chat-master-guide.md";
 const EVIDENCE_ROOT = "docs/evidence/autopilot-agent-studio-operational-chat";
 const EXTENSION_JS = "apps/autopilot/openvscode-extension/ioi-workbench/extension.js";
@@ -176,9 +176,9 @@ function preflightChecks() {
     checkNodeSyntax(),
     {
       id: "electron:binary",
-      ok: existsSync(AUTOPILOT_ELECTRON.binary),
+      ok: existsSync(HYPERVISOR_WORKBENCH_ADAPTER_HOST.binary),
       summary: "Electron Autopilot binary exists",
-      evidence: { binary: AUTOPILOT_ELECTRON.binary },
+      evidence: { binary: HYPERVISOR_WORKBENCH_ADAPTER_HOST.binary },
     },
   ];
   return {
@@ -529,7 +529,7 @@ async function runValidation(outputDir) {
     writeFileSync(join(outputDir, "user-data-dir"), `${userDataDir}\n`);
 
     app = spawn(
-      AUTOPILOT_ELECTRON.binary,
+      HYPERVISOR_WORKBENCH_ADAPTER_HOST.binary,
       [
         `--remote-debugging-port=${cdpPort}`,
         `--user-data-dir=${userDataDir}`,
@@ -545,7 +545,7 @@ async function runValidation(outputDir) {
           ...process.env,
           IOI_WORKSPACE_IDE_BRIDGE_URL: bridgeUrl,
           IOI_DAEMON_ENDPOINT: daemon.endpoint,
-          IOI_AUTOPILOT_CANONICAL_SHELL: "vscode-electron-fork",
+          IOI_HYPERVISOR_CANONICAL_CLIENT_HOST: "vscode-workbench-adapter-host",
           IOI_WORKBENCH_NATIVE_SHELL: "1",
         },
         stdio: ["ignore", "pipe", "pipe"],

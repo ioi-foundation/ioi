@@ -15,7 +15,7 @@ const activityBar = readFileSync(
   "utf8",
 );
 const header = readFileSync(
-  new URL("./components/ChatIdeHeader.tsx", import.meta.url),
+  new URL("./components/HypervisorClientHeader.tsx", import.meta.url),
   "utf8",
 );
 
@@ -31,25 +31,40 @@ test("hypervisor shell exposes the canonical core client and surface taxonomy", 
 
 test("hypervisor shell keeps application surfaces separate from clients", () => {
   assert.match(source, /id: "workbench"[\s\S]*label: "Workbench"/);
-  assert.match(source, /editors, terminals, browsers, and VMs are adapter targets/);
+  assert.match(
+    source,
+    /editors, terminals, browsers, and VMs are adapter targets/,
+  );
   assert.match(source, /id: "foundry"[\s\S]*label: "Foundry"/);
   assert.match(source, /id: "fleet"[\s\S]*label: "Fleet"/);
   assert.match(source, /Direct provider integrations/);
-  assert.doesNotMatch(source, /Hypervisor IDE|ONA-like|internal-docs\/reverse-engineering\/ona/);
+  assert.doesNotMatch(
+    source,
+    /Hypervisor IDE|ONA-like|internal-docs\/reverse-engineering\/ona/,
+  );
 });
 
 test("hypervisor shell models IOI-reference session detail and inspectors", () => {
   assert.match(source, /HYPERVISOR_PRIMARY_ACTION[\s\S]*New Session/);
   assert.match(source, /HYPERVISOR_NEW_SESSION_SETUP_MODEL/);
-  assert.match(source, /Default Harness Profile or daemon-mediated AgentHarnessAdapter/);
+  assert.match(
+    source,
+    /Default Harness Profile or daemon-mediated AgentHarnessAdapter/,
+  );
   assert.match(source, /harnessOptions: HYPERVISOR_HARNESS_SELECTION_OPTIONS/);
   assert.match(source, /runtimeTruthSource: "daemon-runtime"/);
   assert.match(source, /HYPERVISOR_SECONDARY_SESSION_RAIL_MODEL/);
   assert.match(source, /HYPERVISOR_SESSION_DETAIL_TABS/);
-  assert.match(source, /"agent"[\s\S]*"workbench"[\s\S]*"environment"[\s\S]*"changes"[\s\S]*"receipts"[\s\S]*"replay"/);
+  assert.match(
+    source,
+    /"agent"[\s\S]*"workbench"[\s\S]*"environment"[\s\S]*"changes"[\s\S]*"receipts"[\s\S]*"replay"/,
+  );
   assert.match(source, /HYPERVISOR_RIGHT_INSPECTOR_PANELS/);
   assert.match(source, /HYPERVISOR_BOTTOM_INSPECTOR_PANELS/);
-  assert.match(source, /"ports_services"[\s\S]*"tasks"[\s\S]*"terminal"[\s\S]*"logs"/);
+  assert.match(
+    source,
+    /"ports_services"[\s\S]*"tasks"[\s\S]*"terminal"[\s\S]*"logs"/,
+  );
 });
 
 test("visible shell chrome uses Hypervisor labels over compatibility route keys", () => {

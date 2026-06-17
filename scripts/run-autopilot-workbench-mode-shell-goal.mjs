@@ -15,9 +15,9 @@ import { fileURLToPath } from "node:url";
 
 import { chromium } from "playwright";
 import {
-  AUTOPILOT_ELECTRON,
+  HYPERVISOR_WORKBENCH_ADAPTER_HOST,
   syncWorkbenchExtensionTargets,
-} from "./lib/autopilot-electron-app-paths.mjs";
+} from "./lib/hypervisor-workbench-adapter-host-paths.mjs";
 import { applyAutopilotWorkbenchShellPatch } from "./lib/autopilot-workbench-shell-patch.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -341,9 +341,9 @@ function currentTargetShellBlockers() {
 }
 
 function checkPackagedApp() {
-  const binary = AUTOPILOT_ELECTRON.binary;
+  const binary = HYPERVISOR_WORKBENCH_ADAPTER_HOST.binary;
   const extension = join(
-    AUTOPILOT_ELECTRON.packagedRoot,
+    HYPERVISOR_WORKBENCH_ADAPTER_HOST.packagedRoot,
     "resources/app/extensions/ioi-workbench/extension.js",
   );
   return {
@@ -351,8 +351,8 @@ function checkPackagedApp() {
     ok: existsSync(binary) && existsSync(extension),
     summary:
       existsSync(binary) && existsSync(extension)
-        ? "Packaged Electron/VS Code fork is available"
-        : "Packaged Electron/VS Code fork is missing",
+        ? "Packaged Hypervisor Workbench adapter host is available"
+        : "Packaged Hypervisor Workbench adapter host is missing",
     evidence: { binary, extension },
   };
 }
@@ -1124,7 +1124,7 @@ async function runGuiValidation(outputRoot) {
     writeFileSync(join(outputDir, "user-data-dir"), `${userDataDir}\n`);
     writeFileSync(join(outputDir, "extensions-dir"), `${extensionsDir}\n`);
 
-    app = spawn(AUTOPILOT_ELECTRON.binary, [
+    app = spawn(HYPERVISOR_WORKBENCH_ADAPTER_HOST.binary, [
       `--remote-debugging-port=${cdpPort}`,
       `--user-data-dir=${userDataDir}`,
       `--extensions-dir=${extensionsDir}`,
@@ -1137,7 +1137,7 @@ async function runGuiValidation(outputRoot) {
       env: {
         ...process.env,
         IOI_WORKSPACE_IDE_BRIDGE_URL: bridgeUrl,
-        IOI_AUTOPILOT_CANONICAL_SHELL: "vscode-electron-fork",
+        IOI_HYPERVISOR_CANONICAL_CLIENT_HOST: "vscode-workbench-adapter-host",
         IOI_WORKBENCH_NATIVE_SHELL: "1",
       },
       stdio: ["ignore", "pipe", "pipe"],

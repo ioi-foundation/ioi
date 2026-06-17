@@ -100,7 +100,7 @@
     "hypervisor-conformance:compositor": "node scripts/conformance/hypervisor-conformance.mjs compositor",
     "hypervisor-conformance:negative": "node scripts/conformance/hypervisor-conformance.mjs negative",
     "check:runtime-layout": "node scripts/check-runtime-layout.mjs",
-    "check:autopilot-electron-source-fork-optional": "node scripts/check-autopilot-electron-source-fork-optional.mjs",
+    "check:hypervisor-workbench-adapter-host-paths": "node scripts/check-hypervisor-workbench-adapter-host-paths.mjs",
     "generate:runtime-action-contracts": "node scripts/generate-runtime-action-contracts.mjs",
     "dev:web": "npm run dev --workspace=apps/autopilot",
     "dev:benchmarks": "npm run dev --workspace=apps/benchmarks",

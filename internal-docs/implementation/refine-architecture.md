@@ -783,6 +783,26 @@ Implementation phases:
 | 0A.9 Fleet and private workspace path | Surface direct providers, remote VM workspaces, DePIN nodes, zero-to-idle/restore. | Fleet surface, workspace host/session services, provider integrations | User can create persistent workspace/node route without treating provider as trusted. |
 | 0A.10 Visual and behavior conformance | Add Playwright smoke checks and source scans for naming/IA. | App tests, `scripts/conformance/hypervisor-conformance.mjs` | Checks prove no user-facing "Autopilot" tabs, no Workbench-as-parent, and Home/Sessions/Workbench flows work. |
 
+Current implementation cut:
+
+```text
+0A.1B is partially implemented:
+  ChatIdeHeader.tsx -> HypervisorClientHeader.tsx
+  workspaceIde.ts -> workspaceEditorAdapterBridge.ts
+  scripts/lib/autopilot-electron-app-paths.mjs ->
+    scripts/lib/hypervisor-workbench-adapter-host-paths.mjs
+  check:autopilot-electron-source-fork-optional ->
+    check:hypervisor-workbench-adapter-host-paths
+  active adapter metadata defaults to workbench-adapters/
+  active launch marker is IOI_HYPERVISOR_CANONICAL_CLIENT_HOST
+
+0A.1C remains a live guard, not an active Tauri app removal task:
+  apps/autopilot/src-tauri is absent from the live app path
+  internal-docs/legacy/autopilot-tauri-src is historical extraction inventory
+  any active @tauri-apps import, TauriRuntime service, or src-tauri dependency is
+  a regression unless it appears in a negative test or legacy reference.
+```
+
 Code migration posture:
 
 ```text

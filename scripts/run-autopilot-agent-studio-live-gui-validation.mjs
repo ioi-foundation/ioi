@@ -37,16 +37,16 @@ import {
   resolveAgentStudioChatScenario,
 } from "./lib/autopilot-agent-studio-chat-scenarios.mjs";
 import {
-  AUTOPILOT_ELECTRON,
+  HYPERVISOR_WORKBENCH_ADAPTER_HOST,
   syncWorkbenchExtensionTargets,
-} from "./lib/autopilot-electron-app-paths.mjs";
+} from "./lib/hypervisor-workbench-adapter-host-paths.mjs";
 import {
   bootstrapNativeRuntimeModelRoute,
   configureRuntimeAgentServiceInferenceEnv,
 } from "./lib/autopilot-runtime-agent-service-inference.mjs";
 import { applyAutopilotWorkbenchShellPatch } from "./lib/autopilot-workbench-shell-patch.mjs";
 
-const repoRoot = AUTOPILOT_ELECTRON.repoRoot;
+const repoRoot = HYPERVISOR_WORKBENCH_ADAPTER_HOST.repoRoot;
 const MASTER_GUIDE =
   process.env.AUTOPILOT_AGENT_STUDIO_MASTER_GUIDE ||
   ".internal/plans/autopilot-electron-agent-studio-chat-ux-playwright-hardening-master-guide.md";
@@ -593,9 +593,9 @@ function preflightChecks() {
     },
     {
       id: "electron:binary",
-      ok: existsSync(AUTOPILOT_ELECTRON.binary),
+      ok: existsSync(HYPERVISOR_WORKBENCH_ADAPTER_HOST.binary),
       summary: "Electron Autopilot binary exists",
-      evidence: { binary: AUTOPILOT_ELECTRON.binary },
+      evidence: { binary: HYPERVISOR_WORKBENCH_ADAPTER_HOST.binary },
     },
   ];
   return {
@@ -1952,7 +1952,7 @@ async function runValidation(outputDir, { scenario = resolveAgentStudioChatScena
     writeFileSync(join(outputDir, "scenario-runtime-context.json"), `${JSON.stringify(scenarioRuntimeContext, null, 2)}\n`);
 
     app = spawn(
-      AUTOPILOT_ELECTRON.binary,
+      HYPERVISOR_WORKBENCH_ADAPTER_HOST.binary,
       [
         `--remote-debugging-port=${cdpPort}`,
         `--user-data-dir=${userDataDir}`,
@@ -1970,7 +1970,7 @@ async function runValidation(outputDir, { scenario = resolveAgentStudioChatScena
           IOI_DAEMON_ENDPOINT: daemon.endpoint,
           IOI_DAEMON_TOKEN: daemonModelToken.token,
           IOI_DAEMON_MODEL_ID: runtimeModelRoute.modelId,
-          IOI_AUTOPILOT_CANONICAL_SHELL: "vscode-electron-fork",
+          IOI_HYPERVISOR_CANONICAL_CLIENT_HOST: "vscode-workbench-adapter-host",
           IOI_WORKBENCH_NATIVE_SHELL: "1",
           AUTOPILOT_SKIP_OVERVIEW: "1",
         },

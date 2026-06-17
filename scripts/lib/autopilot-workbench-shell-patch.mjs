@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
-import { AUTOPILOT_ELECTRON } from "./autopilot-electron-app-paths.mjs";
+import { HYPERVISOR_WORKBENCH_ADAPTER_HOST } from "./hypervisor-workbench-adapter-host-paths.mjs";
 
 const JS_START = "// IOI_AUTOPILOT_WORKBENCH_SHELL_PATCH_START";
 const JS_END = "// IOI_AUTOPILOT_WORKBENCH_SHELL_PATCH_END";
@@ -2358,7 +2358,7 @@ function patchWorkbenchCspForLocalBridge(workbenchHtmlPath) {
 }
 
 export function applyAutopilotWorkbenchShellPatch({
-  packagedRoot = AUTOPILOT_ELECTRON.packagedRoot,
+  packagedRoot = HYPERVISOR_WORKBENCH_ADAPTER_HOST.packagedRoot,
 } = {}) {
   const workbenchDir = resolve(packagedRoot, "resources/app/out/vs/workbench");
   const electronMainDir = resolve(packagedRoot, "resources/app/out/vs/code/electron-main");

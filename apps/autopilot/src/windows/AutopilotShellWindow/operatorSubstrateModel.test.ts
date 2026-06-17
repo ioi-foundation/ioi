@@ -32,9 +32,7 @@ test("retired native app path stays archived only", () => {
     true,
   );
   assert.equal(
-    existsSync(
-      `${LEGACY_NATIVE_ARCHIVE_SRC_PATH}/workspace_direct_webview.rs`,
-    ),
+    existsSync(`${LEGACY_NATIVE_ARCHIVE_SRC_PATH}/workspace_direct_webview.rs`),
     true,
   );
 });
@@ -110,7 +108,8 @@ test("operator activity rail is a shell projection with deterministic surfaces",
     ],
   );
   assert.equal(
-    model.items.find((item) => item.dataWindowSurface === "missions")?.badgeCount,
+    model.items.find((item) => item.dataWindowSurface === "missions")
+      ?.badgeCount,
     4,
   );
   assert.equal(
@@ -187,7 +186,7 @@ test("workspace substrate target index exposes controlled UI before coordinate f
   );
 });
 
-test("workspace embedding defers global command center to ChatIdeHeader", () => {
+test("workspace embedding defers global command center to HypervisorClientHeader", () => {
   const workspaceHost = readFileSync(
     "packages/workspace-substrate/src/components/WorkspaceHost.tsx",
     "utf8",
@@ -204,7 +203,7 @@ test("workspace embedding defers global command center to ChatIdeHeader", () => 
     `${LEGACY_NATIVE_ARCHIVE_SRC_PATH}/workspace_direct_webview.rs`,
     "utf8",
   );
-  const workspaceIde = readFileSync(
+  const legacyWorkspaceEditorHost = readFileSync(
     `${LEGACY_NATIVE_ARCHIVE_SRC_PATH}/workspace_ide.rs`,
     "utf8",
   );
@@ -217,7 +216,7 @@ test("workspace embedding defers global command center to ChatIdeHeader", () => 
     "utf8",
   );
   const chatHeader = readFileSync(
-    "apps/autopilot/src/windows/AutopilotShellWindow/components/ChatIdeHeader.tsx",
+    "apps/autopilot/src/windows/AutopilotShellWindow/components/HypervisorClientHeader.tsx",
     "utf8",
   );
   const shellContent = readFileSync(
@@ -238,13 +237,19 @@ test("workspace embedding defers global command center to ChatIdeHeader", () => 
   assert.match(workspaceShell, /operatorChatPane\?: ReactNode/);
   assert.match(workspaceShell, /operatorChatPaneWidthPx\?: number/);
   assert.match(workspaceShell, /directSurfaceReservedRightPx/);
-  assert.match(workspaceShell, /reservedRightPx=\{directSurfaceReservedRightPx\}/);
+  assert.match(
+    workspaceShell,
+    /reservedRightPx=\{directSurfaceReservedRightPx\}/,
+  );
   assert.match(workspaceShell, /mode\?: "default" \| "tools"/);
   assert.match(workspaceShell, /chat-workspace-oss-shell__operator-chat-slot/);
   assert.match(openVsCodeDirectSurface, /reservedRightPx\?: number/);
   assert.match(openVsCodeDirectSurface, /suspended\?: boolean/);
   assert.match(openVsCodeDirectSurface, /const visible = active && !suspended/);
-  assert.match(openVsCodeDirectSurface, /hideWorkspaceDirectWebview\(surface\.surfaceId\)/);
+  assert.match(
+    openVsCodeDirectSurface,
+    /hideWorkspaceDirectWebview\(surface\.surfaceId\)/,
+  );
   assert.match(openVsCodeDirectSurface, /readElementBoundsWithReservedRight/);
   assert.match(openVsCodeDirectSurface, /constrainBoundsForReservedRight/);
   assert.match(openVsCodeDirectSurface, /surfaceWidth - reservedRightWidth/);
@@ -254,7 +259,7 @@ test("workspace embedding defers global command center to ChatIdeHeader", () => 
   );
   assert.match(workspaceDirectWebview, /bounds\.width\.min\(max_width\)/);
   assert.match(workspaceDirectWebview, /clamped child bounds/);
-  assert.match(workspaceIde, /"ioi\.commandCenter\.open"/);
+  assert.match(legacyWorkspaceEditorHost, /"ioi\.commandCenter\.open"/);
   assert.match(
     workspaceRuntimeNavigation,
     /case "commandCenter\.open":[\s\S]*onOpenCommandPalette\?\.\(/,
@@ -276,8 +281,14 @@ test("workspace embedding defers global command center to ChatIdeHeader", () => 
   assert.match(shellContent, /workspaceHost === directWorkspaceWorkbenchHost/);
   assert.match(shellContent, /workspaceHost === openVsCodeWorkbenchHost/);
   assert.match(shellContent, /operatorChatPane=\{workspaceOperatorChatPane\}/);
-  assert.match(shellContent, /commandPaletteOpen=\{controller\.modals\.commandPaletteOpen\}/);
-  assert.match(shellContent, /onOpenCommandPalette=\{controller\.modals\.openCommandPalette\}/);
+  assert.match(
+    shellContent,
+    /commandPaletteOpen=\{controller\.modals\.commandPaletteOpen\}/,
+  );
+  assert.match(
+    shellContent,
+    /onOpenCommandPalette=\{controller\.modals\.openCommandPalette\}/,
+  );
   assert.match(shellWindow, /mode=\{controller\.modals\.commandPaletteMode\}/);
   assert.match(shellController, /useState<"default" \| "tools">\("default"\)/);
   assert.match(
@@ -371,7 +382,10 @@ test("workspace docked chat is real operator chrome, not screenshot hitboxes", (
   assert.match(chatConversationSurface, /Views and More Actions\.\.\./);
   assert.match(chatConversationSurface, /Maximize Secondary Side Bar Size/);
   assert.match(chatConversationSurface, /emptyState=\{emptyState\}/);
-  assert.match(chatConversationSurface, /suggestedActions=\{suggestedActions\}/);
+  assert.match(
+    chatConversationSurface,
+    /suggestedActions=\{suggestedActions\}/,
+  );
   assert.match(chatConversationSurface, /composer=\{composer\}/);
   assert.match(chatShellWindow, /sharedChatEmptyState/);
   assert.match(chatShellWindow, /Build Workspace/);
@@ -413,16 +427,37 @@ test("workspace docked chat is real operator chrome, not screenshot hitboxes", (
   assert.match(chatInputControls, /onClick=\{onTriggerTools\}/);
   assert.doesNotMatch(chatInputControls, /onClick=\{onToggleAutoContext\}/);
   assert.match(chatInputSection, /activeDropdown === "tools"/);
-  assert.match(chatInputSection, /const toolPaletteMode = commandSurfaceMode === "tools"/);
-  assert.match(chatInputSection, /COMMAND_CENTER_SELECTOR = "\[data-operator-command-center\]"/);
+  assert.match(
+    chatInputSection,
+    /const toolPaletteMode = commandSurfaceMode === "tools"/,
+  );
+  assert.match(
+    chatInputSection,
+    /COMMAND_CENTER_SELECTOR = "\[data-operator-command-center\]"/,
+  );
   assert.match(chatInputSection, /useLayoutEffect\(\(\) => \{/);
   assert.match(chatInputSection, /createPortal\(/);
-  assert.match(chatInputSection, /data-inspection-target="operator-command-center-menu"/);
-  assert.match(chatInputSection, /placement=\{searchablePaletteMode \? "command-center" : "composer"\}/);
-  assert.match(chatInputSection, /searchPlaceholder=\{[\s\S]*\? "Select a tool"/);
-  assert.match(chatInputSection, /ariaLabel=\{toolPaletteMode \? "Tool picker"/);
+  assert.match(
+    chatInputSection,
+    /data-inspection-target="operator-command-center-menu"/,
+  );
+  assert.match(
+    chatInputSection,
+    /placement=\{searchablePaletteMode \? "command-center" : "composer"\}/,
+  );
+  assert.match(
+    chatInputSection,
+    /searchPlaceholder=\{[\s\S]*\? "Select a tool"/,
+  );
+  assert.match(
+    chatInputSection,
+    /ariaLabel=\{toolPaletteMode \? "Tool picker"/,
+  );
   assert.match(chatInputSection, /id: "tool-manage-capabilities"/);
-  assert.match(commandMenus, /\.spot-slash-menu--palette \.spot-slash-menu-search/);
+  assert.match(
+    commandMenus,
+    /\.spot-slash-menu--palette \.spot-slash-menu-search/,
+  );
   assert.match(commandMenus, /\.spot-command-center-menu-overlay/);
   assert.match(commandMenus, /\.spot-slash-menu--command-center/);
   assert.match(commandMenus, /position: fixed/);
@@ -431,7 +466,10 @@ test("workspace docked chat is real operator chrome, not screenshot hitboxes", (
   assert.match(commandMenus, /background: #075486/);
   assert.match(chatInputControls, /name="send"/);
   assert.doesNotMatch(chatInputControls, /spot-slash-trigger-text/);
-  assert.match(workspaceHost, /className="workspace-agent-composer-tool-toggle"/);
+  assert.match(
+    workspaceHost,
+    /className="workspace-agent-composer-tool-toggle"/,
+  );
   assert.match(workspaceHost, /className="workspace-agent-tool-menu"/);
   assert.match(workspaceHost, /aria-label="Select a tool"/);
   assert.match(workspaceHost, /value=\{toolMenuQuery\}/);
@@ -457,7 +495,7 @@ test("workspace docked chat is real operator chrome, not screenshot hitboxes", (
 });
 
 test("embedded OpenVSCode defers global search to Hypervisor chrome", () => {
-  const workspaceIde = readFileSync(
+  const legacyWorkspaceEditorHost = readFileSync(
     `${LEGACY_NATIVE_ARCHIVE_SRC_PATH}/workspace_ide.rs`,
     "utf8",
   );
@@ -475,65 +513,68 @@ test("embedded OpenVSCode defers global search to Hypervisor chrome", () => {
   );
 
   assert.match(
-    workspaceIde,
+    legacyWorkspaceEditorHost,
     /"window\.commandCenter"\.to_string\(\),\s*Value::Bool\(false\)/,
   );
   assert.match(
-    workspaceIde,
+    legacyWorkspaceEditorHost,
     /"window\.customTitleBarVisibility"\.to_string\(\),\s*Value::String\("never"\.to_string\(\)\)/,
   );
   assert.match(
-    workspaceIde,
+    legacyWorkspaceEditorHost,
     /"workbench\.navigationControl\.enabled"\.to_string\(\),\s*Value::Bool\(false\)/,
   );
   assert.match(
-    workspaceIde,
+    legacyWorkspaceEditorHost,
     /"chat\.agentsControl\.enabled"\.to_string\(\),\s*Value::Bool\(false\)/,
   );
   assert.match(
-    workspaceIde,
+    legacyWorkspaceEditorHost,
     /"chat\.unifiedAgentsBar\.enabled"\.to_string\(\),\s*Value::Bool\(false\)/,
   );
   assert.match(
-    workspaceIde,
+    legacyWorkspaceEditorHost,
     /"workbench\.experimental\.share\.enabled"\.to_string\(\),\s*Value::Bool\(false\)/,
   );
   assert.match(
-    workspaceIde,
+    legacyWorkspaceEditorHost,
     /fn ensure_openvscode_user_keybindings[\s\S]*"-workbench\.action\.quickOpen"[\s\S]*"-workbench\.action\.showCommands"/,
   );
   assert.match(
-    workspaceIde,
+    legacyWorkspaceEditorHost,
     /fn openvscode_user_config_owned[\s\S]*"window\.commandCenter"[\s\S]*workbench\.action\.quickOpen/,
   );
   assert.match(
-    workspaceIde,
+    legacyWorkspaceEditorHost,
     /fn ensure_openvscode_legacy_shell_chrome_patch_removed[\s\S]*remove_openvscode_legacy_stylesheet_chrome_patch/,
   );
   assert.match(
-    workspaceIde,
+    legacyWorkspaceEditorHost,
     /fn ensure_openvscode_native_workbench_js_patch[\s\S]*patch_openvscode_native_workbench_js/,
   );
   assert.match(
-    workspaceIde,
+    legacyWorkspaceEditorHost,
     /OPENVSCODE_COMMAND_CENTER_GETTER_PATCHED:\s*&str\s*=\s*"get ec\(\)\{return!1\}"/,
   );
   assert.match(
-    workspaceIde,
+    legacyWorkspaceEditorHost,
     /OPENVSCODE_COMMAND_CENTER_CONTRIBUTION_PATCHED:[\s\S]*data-ioi-native-command-center-disabled/,
   );
   assert.match(
-    workspaceIde,
+    legacyWorkspaceEditorHost,
     /patch_openvscode_native_workbench_js[\s\S]*OPENVSCODE_COMMAND_CENTER_CONTRIBUTION_SOURCE[\s\S]*OPENVSCODE_COMMAND_CENTER_CONTRIBUTION_PATCHED/,
   );
-  assert.doesNotMatch(workspaceIde, /stylesheet\.push_str/);
-  assert.doesNotMatch(workspaceIde, /\.titlebar-center[\s\S]*display: none !important/);
+  assert.doesNotMatch(legacyWorkspaceEditorHost, /stylesheet\.push_str/);
+  assert.doesNotMatch(
+    legacyWorkspaceEditorHost,
+    /\.titlebar-center[\s\S]*display: none !important/,
+  );
   assert.match(
-    workspaceIde,
+    legacyWorkspaceEditorHost,
     /"workbench\.secondarySideBar\.defaultVisibility"\.to_string\(\),\s*Value::String\("visible"\.to_string\(\)\)/,
   );
   assert.match(
-    workspaceIde,
+    legacyWorkspaceEditorHost,
     /openvscode_user_config_owned\(&existing_user_data_dir\)[\s\S]*return Ok\(current_session_info\(existing\)\)[\s\S]*kill_session\(existing\)/,
   );
   assert.match(
@@ -579,7 +620,10 @@ test("Autopilot command palette anchors to the header command center", () => {
   assert.match(commandPalette, /getBoundingClientRect\(\)/);
   assert.match(commandPalette, /initialQuery = ""/);
   assert.match(commandPalette, /mode = "default"/);
-  assert.match(commandPalette, /CommandPaletteDisplayMode = "default" \| "tools"/);
+  assert.match(
+    commandPalette,
+    /CommandPaletteDisplayMode = "default" \| "tools"/,
+  );
   assert.match(commandPalette, /useState\(initialQuery\)/);
   assert.match(commandPalette, /style=\{palettePosition\}/);
   assert.match(commandPalette, /mode === "tools"[\s\S]*"Select a tool"/);
@@ -614,7 +658,7 @@ test("Autopilot command palette anchors to the header command center", () => {
 
 test("controlled substrate surfaces expose inspection target attributes", () => {
   const chatHeader = readFileSync(
-    "apps/autopilot/src/windows/AutopilotShellWindow/components/ChatIdeHeader.tsx",
+    "apps/autopilot/src/windows/AutopilotShellWindow/components/HypervisorClientHeader.tsx",
     "utf8",
   );
   const activityRail = readFileSync(

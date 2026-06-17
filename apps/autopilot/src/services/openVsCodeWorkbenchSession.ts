@@ -1,10 +1,10 @@
 import {
-  ensureWorkspaceIdeSession,
-  stopWorkspaceIdeSession,
-  takeWorkspaceIdeBridgeRequests,
-  type WorkspaceIdeSessionInfo,
-  writeWorkspaceIdeBridgeState,
-} from "./workspaceIde";
+  ensureWorkspaceEditorAdapterSession,
+  stopWorkspaceEditorAdapterSession,
+  takeWorkspaceEditorAdapterBridgeRequests,
+  type WorkspaceEditorAdapterSessionInfo,
+  writeWorkspaceEditorAdapterBridgeState,
+} from "./workspaceEditorAdapterBridge";
 import {
   startWorkspaceBridgeRequestPolling,
   startWorkspaceBridgeStateSync,
@@ -17,16 +17,20 @@ import type {
 export type OpenVsCodeWorkbenchSession = WorkspaceWorkbenchHostSession & {
   internal: {
     kind: "openvscode";
-    info: WorkspaceIdeSessionInfo;
+    info: WorkspaceEditorAdapterSessionInfo;
   };
 };
 
 export function readOpenVsCodeSessionInfo(
   session: WorkspaceWorkbenchHostSession,
-): WorkspaceIdeSessionInfo {
-  const internal = session.internal as OpenVsCodeWorkbenchSession["internal"] | undefined;
+): WorkspaceEditorAdapterSessionInfo {
+  const internal = session.internal as
+    | OpenVsCodeWorkbenchSession["internal"]
+    | undefined;
   if (!internal || internal.kind !== "openvscode") {
-    throw new Error("Workspace session is missing OpenVSCode runtime metadata.");
+    throw new Error(
+      "Workspace session is missing OpenVSCode runtime metadata.",
+    );
   }
   return internal.info;
 }
@@ -36,10 +40,10 @@ export async function ensureOpenVsCodeWorkbenchSession(params: {
   forceRestart?: boolean;
 }): Promise<OpenVsCodeWorkbenchSession> {
   if (params.forceRestart) {
-    await stopWorkspaceIdeSession();
+    await stopWorkspaceEditorAdapterSession();
   }
 
-  const info = await ensureWorkspaceIdeSession(params.rootPath);
+  const info = await ensureWorkspaceEditorAdapterSession(params.rootPath);
   return {
     rootPath: info.rootPath,
     internal: {
@@ -53,13 +57,18 @@ export async function publishOpenVsCodeBridgeState(
   session: WorkspaceWorkbenchHostSession,
   state: Record<string, unknown>,
 ): Promise<void> {
-  await writeWorkspaceIdeBridgeState(readOpenVsCodeSessionInfo(session).rootPath, state);
+  await writeWorkspaceEditorAdapterBridgeState(
+    readOpenVsCodeSessionInfo(session).rootPath,
+    state,
+  );
 }
 
 export async function takeOpenVsCodeBridgeRequests(
   session: WorkspaceWorkbenchHostSession,
 ) {
-  return takeWorkspaceIdeBridgeRequests(readOpenVsCodeSessionInfo(session).rootPath);
+  return takeWorkspaceEditorAdapterBridgeRequests(
+    readOpenVsCodeSessionInfo(session).rootPath,
+  );
 }
 
 export function describeOpenVsCodeLifecyclePolicy() {
@@ -92,13 +101,9 @@ export function startOpenVsCodeBridgeRequestPolling(
 
 export function buildOpenVsCodeSurfaceId(
   mode: "iframe-oracle" | "direct-openvscode",
-  info: WorkspaceIdeSessionInfo,
+  info: WorkspaceEditorAdapterSessionInfo,
 ): string {
-  return [
-    "openvscode",
-    mode,
-    info.processId,
-    info.port,
-    info.bridgePort,
-  ].join("-");
+  return ["openvscode", mode, info.processId, info.port, info.bridgePort].join(
+    "-",
+  );
 }

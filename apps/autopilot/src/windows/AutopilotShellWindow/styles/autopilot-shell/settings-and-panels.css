@@ -208,7 +208,7 @@
     display: none;
   }
 
-  .chat-ide-header {
+  .hypervisor-client-header {
     gap: 10px;
   }
 }
@@ -228,16 +228,16 @@
     width: 320px;
   }
 
-  .chat-ide-header {
+  .hypervisor-client-header {
     gap: 10px;
     padding: 10px 12px;
   }
 
-  .chat-ide-window-controls {
+  .hypervisor-client-window-controls {
     margin-right: -12px;
   }
 
-  .chat-ide-window-button {
+  .hypervisor-client-window-button {
     width: 40px;
   }
 

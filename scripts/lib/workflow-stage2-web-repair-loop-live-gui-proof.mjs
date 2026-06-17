@@ -17,9 +17,9 @@ import { chromium } from "playwright";
 
 import { startRuntimeDaemonService } from "../../packages/runtime-daemon/src/index.mjs";
 import {
-  AUTOPILOT_ELECTRON,
+  HYPERVISOR_WORKBENCH_ADAPTER_HOST,
   syncWorkbenchExtensionTargets,
-} from "./autopilot-electron-app-paths.mjs";
+} from "./hypervisor-workbench-adapter-host-paths.mjs";
 import { applyAutopilotWorkbenchShellPatch } from "./autopilot-workbench-shell-patch.mjs";
 import {
   bootstrapNativeRuntimeModelRoute,
@@ -27,7 +27,7 @@ import {
 } from "./autopilot-runtime-agent-service-inference.mjs";
 import { collectDaemonRuntimeTraceSummaryBestEffort } from "./agent-studio-live-gui-validation/trace-summary.mjs";
 
-const repoRoot = AUTOPILOT_ELECTRON.repoRoot;
+const repoRoot = HYPERVISOR_WORKBENCH_ADAPTER_HOST.repoRoot;
 const evidenceRoot =
   process.env.AUTOPILOT_STAGE2_WEB_REPAIR_LIVE_GUI_EVIDENCE_ROOT ||
   "docs/evidence/autopilot-agent-runtime-parity-plus/stage-2-model-tool-result-loop/live-gui-web-repair-loop";
@@ -432,7 +432,7 @@ async function runProof(outputDir) {
     writeFileSync(join(outputDir, "runtime-model-route.json"), `${JSON.stringify(runtimeModelRoute, null, 2)}\n`);
 
     app = spawn(
-      AUTOPILOT_ELECTRON.binary,
+      HYPERVISOR_WORKBENCH_ADAPTER_HOST.binary,
       [
         `--remote-debugging-port=${cdpPort}`,
         `--user-data-dir=${userDataDir}`,
@@ -449,7 +449,7 @@ async function runProof(outputDir) {
           IOI_WORKSPACE_IDE_BRIDGE_URL: bridgeUrl,
           IOI_DAEMON_ENDPOINT: daemon.endpoint,
           IOI_DAEMON_TOKEN: token.token,
-          IOI_AUTOPILOT_CANONICAL_SHELL: "vscode-electron-fork",
+          IOI_HYPERVISOR_CANONICAL_CLIENT_HOST: "vscode-workbench-adapter-host",
           IOI_WORKBENCH_NATIVE_SHELL: "1",
           IOI_AUTOPILOT_STUDIO_TEST_HOOKS: "1",
           IOI_STAGE2_WEB_REPAIR_PROOF: "1",

@@ -40,9 +40,9 @@ import {
   type AutopilotThemeId,
 } from "../../services/autopilotAppearance";
 import {
-  enqueueWorkspaceIdeBridgeCommand,
-  ensureWorkspaceIdeSession,
-} from "../../services/workspaceIde";
+  enqueueWorkspaceEditorAdapterBridgeCommand,
+  ensureWorkspaceEditorAdapterSession,
+} from "../../services/workspaceEditorAdapterBridge";
 import type { SettingsSection } from "../Settings/settingsViewShared";
 import { HomeWalkthroughDocument } from "./HomeWalkthroughDocument";
 import {
@@ -104,7 +104,9 @@ function resetRequestedByEnv(): boolean {
 }
 
 function hasStorage(): boolean {
-  return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
+  return (
+    typeof window !== "undefined" && typeof window.localStorage !== "undefined"
+  );
 }
 
 function applyProbeResetOnce(): boolean {
@@ -112,7 +114,10 @@ function applyProbeResetOnce(): boolean {
     return false;
   }
   try {
-    if (resetAppliedThisPage || window.sessionStorage.getItem(RESET_SESSION_KEY) === "1") {
+    if (
+      resetAppliedThisPage ||
+      window.sessionStorage.getItem(RESET_SESSION_KEY) === "1"
+    ) {
       return false;
     }
     window.localStorage.removeItem(STORAGE_KEY);
@@ -168,12 +173,16 @@ function loadState(): HomeOnboardingState {
       actionReceipts: Array.isArray(parsed.actionReceipts)
         ? parsed.actionReceipts
             .filter(
-              (receipt): receipt is HomeOnboardingState["actionReceipts"][number] =>
+              (
+                receipt,
+              ): receipt is HomeOnboardingState["actionReceipts"][number] =>
                 Boolean(receipt) &&
                 typeof receipt === "object" &&
-                typeof (receipt as { actionId?: unknown }).actionId === "string" &&
+                typeof (receipt as { actionId?: unknown }).actionId ===
+                  "string" &&
                 typeof (receipt as { stepId?: unknown }).stepId === "string" &&
-                typeof (receipt as { timestampMs?: unknown }).timestampMs === "number",
+                typeof (receipt as { timestampMs?: unknown }).timestampMs ===
+                  "number",
             )
             .slice(-20)
         : [],
@@ -202,14 +211,12 @@ function formatDate(timestampMs: number | null): string {
   }).format(new Date(timestampMs));
 }
 
-function nextStepId(currentStepId: string, steps = FIRST_RUN_ONBOARDING_STEPS): string {
-  const currentIndex = steps.findIndex(
-    (step) => step.id === currentStepId,
-  );
-  const nextIndex =
-    currentIndex >= 0
-      ? (currentIndex + 1) % steps.length
-      : 0;
+function nextStepId(
+  currentStepId: string,
+  steps = FIRST_RUN_ONBOARDING_STEPS,
+): string {
+  const currentIndex = steps.findIndex((step) => step.id === currentStepId);
+  const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % steps.length : 0;
   return steps[nextIndex]?.id ?? defaultOnboardingStepId();
 }
 
@@ -289,9 +296,7 @@ function DashboardSurfaceButton({ surface }: { surface: DashboardSurface }) {
       data-home-dashboard-surface={surface.id}
       onClick={surface.onClick}
     >
-      <span>
-        {renderIcon(Icon, { size: 22, strokeWidth: 1.8 })}
-      </span>
+      <span>{renderIcon(Icon, { size: 22, strokeWidth: 1.8 })}</span>
       <strong>{surface.label}</strong>
       <em>{surface.detail}</em>
     </button>
@@ -412,19 +417,30 @@ function HomeDashboardView({
             data-home-action="palette.open"
             aria-label="Search Hypervisor, sessions, workbench, automations, and commands"
           >
-            {renderIcon(Search, { size: 17, strokeWidth: 1.8, "aria-hidden": true })}
-            <span>Search Hypervisor, sessions, workbench, automations, and commands</span>
+            {renderIcon(Search, {
+              size: 17,
+              strokeWidth: 1.8,
+              "aria-hidden": true,
+            })}
+            <span>
+              Search Hypervisor, sessions, workbench, automations, and commands
+            </span>
             <kbd>ctrl + K</kbd>
           </button>
 
-          <div className="chat-home-zero-actions" aria-label="Suggested actions">
+          <div
+            className="chat-home-zero-actions"
+            aria-label="Suggested actions"
+          >
             <article>
               <span className="chat-home-zero-action-icon">
                 {renderIcon(SquareTerminal, { size: 23, strokeWidth: 1.8 })}
               </span>
               <div>
                 <h2>Open Workbench</h2>
-                <p>Use the selected editor or terminal adapter for this project.</p>
+                <p>
+                  Use the selected editor or terminal adapter for this project.
+                </p>
               </div>
               <button type="button" onClick={onOpenWorkspace}>
                 <span>Open Workbench</span>
@@ -437,7 +453,9 @@ function HomeDashboardView({
               </span>
               <div>
                 <h2>Start a session</h2>
-                <p>Bind intent, harness, model route, privacy, and authority.</p>
+                <p>
+                  Bind intent, harness, model route, privacy, and authority.
+                </p>
               </div>
               <button type="button" onClick={onOpenChat}>
                 <span>New Session</span>
@@ -511,10 +529,16 @@ function HomeDashboardView({
 
         <div className="chat-home-zero-body">
           <main className="chat-home-zero-main">
-            <section className="chat-home-zero-recent" aria-label="Recent resources">
+            <section
+              className="chat-home-zero-recent"
+              aria-label="Recent resources"
+            >
               <div className="chat-home-zero-section-heading">
                 <h2>Recent</h2>
-                <div className="chat-home-zero-filter" aria-label="Recent filter">
+                <div
+                  className="chat-home-zero-filter"
+                  aria-label="Recent filter"
+                >
                   <button
                     type="button"
                     className={recentMode === "files" ? "is-active" : ""}
@@ -531,10 +555,17 @@ function HomeDashboardView({
                   </button>
                 </div>
               </div>
-              <div className="chat-home-zero-table" data-home-recent-mode={recentMode}>
+              <div
+                className="chat-home-zero-table"
+                data-home-recent-mode={recentMode}
+              >
                 <div className="chat-home-zero-table-head">
-                  <span>{recentMode === "files" ? "File name" : "Project"}</span>
-                  <span>{recentMode === "files" ? "Last updated" : "Scope"}</span>
+                  <span>
+                    {recentMode === "files" ? "File name" : "Project"}
+                  </span>
+                  <span>
+                    {recentMode === "files" ? "Last updated" : "Scope"}
+                  </span>
                 </div>
                 {recentMode === "projects" ? (
                   <div className="chat-home-zero-project-rows">
@@ -542,14 +573,18 @@ function HomeDashboardView({
                       <button
                         type="button"
                         key={project.id}
-                        className={project.id === currentProject.id ? "is-active" : ""}
+                        className={
+                          project.id === currentProject.id ? "is-active" : ""
+                        }
                         onClick={() => onSelectProject(project.id)}
                       >
                         <span>
                           <strong>{project.name}</strong>
                           <em>{project.description}</em>
                         </span>
-                        <span>{project.environment} · {project.rootPath}</span>
+                        <span>
+                          {project.environment} · {project.rootPath}
+                        </span>
                       </button>
                     ))}
                   </div>
@@ -565,10 +600,15 @@ function HomeDashboardView({
               </div>
             </section>
 
-            <section className="chat-home-zero-assist" aria-label="Autopilot assistant">
+            <section
+              className="chat-home-zero-assist"
+              aria-label="Autopilot assistant"
+            >
               <div>
                 <h2>Operate this project with governed sessions</h2>
-                <p>{currentProject.name} · {setupStatus}</p>
+                <p>
+                  {currentProject.name} · {setupStatus}
+                </p>
               </div>
               <div className="chat-home-zero-questions">
                 <button type="button" onClick={onOpenChat}>
@@ -595,11 +635,16 @@ function HomeDashboardView({
             </section>
           </main>
 
-          <aside className="chat-home-zero-sidebar" aria-label="Hypervisor surfaces">
+          <aside
+            className="chat-home-zero-sidebar"
+            aria-label="Hypervisor surfaces"
+          >
             <section className="chat-home-zero-side-card">
               <div className="chat-home-zero-side-header">
                 <h2>Recommended surfaces</h2>
-                <button type="button" onClick={onOpenCommandPalette}>View all</button>
+                <button type="button" onClick={onOpenCommandPalette}>
+                  View all
+                </button>
               </div>
               <div className="chat-home-zero-app-grid">
                 {surfaces.map((surface) => (
@@ -607,15 +652,21 @@ function HomeDashboardView({
                 ))}
               </div>
               <p>
-                Pin the surfaces you use most from the activity bar. The runtime,
-                evidence, and workbench share the same Hypervisor Core contract.
+                Pin the surfaces you use most from the activity bar. The
+                runtime, evidence, and workbench share the same Hypervisor Core
+                contract.
               </p>
             </section>
 
             <section className="chat-home-zero-side-card chat-home-zero-side-card--support">
               <h2>Get in touch</h2>
-              <p>Use diagnostics when something looks off, or review setup again.</p>
-              <button type="button" onClick={() => onOpenSettings("diagnostics")}>
+              <p>
+                Use diagnostics when something looks off, or review setup again.
+              </p>
+              <button
+                type="button"
+                onClick={() => onOpenSettings("diagnostics")}
+              >
                 {renderIcon(Bell, { size: 15, strokeWidth: 2 })}
                 Open diagnostics
               </button>
@@ -641,7 +692,11 @@ function HomeDashboardView({
                 </div>
                 <div>
                   <dt>Inbox</dt>
-                  <dd>{notificationCount > 0 ? `${notificationCount} pending` : "Clear"}</dd>
+                  <dd>
+                    {notificationCount > 0
+                      ? `${notificationCount} pending`
+                      : "Clear"}
+                  </dd>
                 </div>
                 <div>
                   <dt>Theme</dt>
@@ -736,18 +791,20 @@ export function HomeView({
       }
     };
     window.addEventListener(HOME_ONBOARDING_FOCUS_EVENT, handler);
-    return () => window.removeEventListener(HOME_ONBOARDING_FOCUS_EVENT, handler);
+    return () =>
+      window.removeEventListener(HOME_ONBOARDING_FOCUS_EVENT, handler);
   }, []);
 
-  const patchState = (updater: (current: HomeOnboardingState) => HomeOnboardingState) => {
+  const patchState = (
+    updater: (current: HomeOnboardingState) => HomeOnboardingState,
+  ) => {
     const next = updater(stateRef.current);
-    const complete =
-      visibleOnboardingSteps.every((step) =>
-        next.completedStepIds.includes(step.id),
-      );
+    const complete = visibleOnboardingSteps.every((step) =>
+      next.completedStepIds.includes(step.id),
+    );
     const resolved = {
       ...next,
-      completedAtMs: complete ? next.completedAtMs ?? Date.now() : null,
+      completedAtMs: complete ? (next.completedAtMs ?? Date.now()) : null,
     };
     stateRef.current = resolved;
     saveState(resolved);
@@ -785,7 +842,10 @@ export function HomeView({
     setReviewingCompletedSetup(false);
   };
 
-  const recordAction = (actionId: OnboardingActionId, stepId = selectedStep.id) => {
+  const recordAction = (
+    actionId: OnboardingActionId,
+    stepId = selectedStep.id,
+  ) => {
     patchState((current) => ({
       ...current,
       actionReceipts: [
@@ -807,13 +867,16 @@ export function HomeView({
     options: { revealWorkspace?: boolean } = {},
   ) => {
     void (async () => {
-      await ensureWorkspaceIdeSession(currentProject.rootPath);
-      await enqueueWorkspaceIdeBridgeCommand({
+      await ensureWorkspaceEditorAdapterSession(currentProject.rootPath);
+      await enqueueWorkspaceEditorAdapterBridgeCommand({
         root: currentProject.rootPath,
         command,
       });
     })().catch((error) => {
-      console.error("[HomeOnboarding] Failed to queue workbench command:", error);
+      console.error(
+        "[HomeOnboarding] Failed to queue workbench command:",
+        error,
+      );
     });
 
     if (options.revealWorkspace ?? true) {
@@ -914,7 +977,10 @@ export function HomeView({
   const goToNextStep = () => {
     patchState((current) => ({
       ...current,
-      selectedStepId: nextStepId(current.selectedStepId, visibleOnboardingSteps),
+      selectedStepId: nextStepId(
+        current.selectedStepId,
+        visibleOnboardingSteps,
+      ),
     }));
   };
 

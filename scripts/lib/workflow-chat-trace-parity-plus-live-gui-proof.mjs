@@ -18,12 +18,12 @@ import { chromium } from "playwright";
 
 import { startRuntimeDaemonService } from "../../packages/runtime-daemon/src/index.mjs";
 import {
-  AUTOPILOT_ELECTRON,
+  HYPERVISOR_WORKBENCH_ADAPTER_HOST,
   syncWorkbenchExtensionTargets,
-} from "./autopilot-electron-app-paths.mjs";
+} from "./hypervisor-workbench-adapter-host-paths.mjs";
 import { applyAutopilotWorkbenchShellPatch } from "./autopilot-workbench-shell-patch.mjs";
 
-const repoRoot = AUTOPILOT_ELECTRON.repoRoot;
+const repoRoot = HYPERVISOR_WORKBENCH_ADAPTER_HOST.repoRoot;
 const evidenceRoot =
   "docs/evidence/autopilot-agent-studio-gui-chat-ux-compositor-harness-parity-plus";
 
@@ -352,7 +352,7 @@ async function run(outputDir) {
     writeFileSync(join(outputDir, "user-data-dir"), `${userDataDir}\n`);
 
     app = spawn(
-      AUTOPILOT_ELECTRON.binary,
+      HYPERVISOR_WORKBENCH_ADAPTER_HOST.binary,
       [
         `--remote-debugging-port=${cdpPort}`,
         `--user-data-dir=${userDataDir}`,
@@ -368,7 +368,7 @@ async function run(outputDir) {
           ...process.env,
           IOI_WORKSPACE_IDE_BRIDGE_URL: bridgeUrl,
           IOI_DAEMON_ENDPOINT: daemon.endpoint,
-          IOI_AUTOPILOT_CANONICAL_SHELL: "vscode-electron-fork",
+          IOI_HYPERVISOR_CANONICAL_CLIENT_HOST: "vscode-workbench-adapter-host",
           IOI_WORKBENCH_NATIVE_SHELL: "1",
           IOI_AUTOPILOT_STUDIO_TEST_HOOKS: "1",
         },

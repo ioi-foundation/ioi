@@ -1053,6 +1053,11 @@ function runDocs() {
     matrix.match(/^\| `model-mounting\/core-api-boundary` \|.*$/m)?.[0] ?? "";
   const modelMountingStorageDownloadControlsRow =
     matrix.match(/^\| `model-mounting\/storage-download-controls` \|.*$/m)?.[0] ?? "";
+  const contextLifecycleImplementationRow =
+    implementationMatrix.match(/^\| `RuntimeContextLifecycleFallbackRetirement` \|.*$/m)?.[0] ??
+    "";
+  const stateUpdateImplementationRow =
+    implementationMatrix.match(/^\| `RuntimeStateUpdateFallbackRetirement` \|.*$/m)?.[0] ?? "";
   const localRuntimeEngines = exists("packages/runtime-daemon/src/model-mounting/local-runtime-engines.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/local-runtime-engines.mjs")
     : "";
@@ -3230,23 +3235,26 @@ function runDocs() {
       /Slices\s+1377-1383 moved those authority boundaries into Rust daemon-core ownership/.test(
         terminalBlockers,
       ) &&
-      /Remaining model_mount blockers are cTEE secret-injection depth for\s+outbound hosted catalog\/download edges, deeper wallet\/cTEE route authority\s+and revocation policy/.test(
+      /Remaining model_mount blockers are deeper wallet\/cTEE route authority\s+and revocation policy/.test(
         terminalBlockers,
       ) &&
       !/hosted download materialization/.test(terminalBlockers) &&
+      !/cTEE secret-injection depth for\s+outbound hosted catalog\/download edges/.test(
+        terminalBlockers,
+      ) &&
       !/live external backend binary spawning\/supervision|hosted\/provider transport|live cTEE secret injection into outbound hosted network requests|live external hosted API execution|live external hosted catalog\s+discovery\/materialization|actual external MCP transport\s+execution\/backend discovery/.test(
         terminalBlockers,
       ),
     [MATRIX, IMPLEMENTATION_MATRIX, GUIDE],
-    "migration matrix terminal blockers must not relist model_mount live transport, backend supervision, cTEE egress, invocation-authority, hosted catalog transport, or hosted download materialization cuts after Slices 1377-1383 and 1405-1407",
+    "migration matrix terminal blockers must not relist model_mount live transport, backend supervision, cTEE egress/secret injection, invocation-authority, hosted catalog transport, or hosted download materialization cuts after Slices 1377-1383 and 1405-1409",
   );
   assertCheck(
     result,
     "matrix-model-mount-route-row-current-blockers-reconciled",
-    /Move remaining cTEE secret-injection depth for hosted catalog\/download edges, deeper wallet\/cTEE route authority and revocation policy, conversation\/provider\/instance replay depth where still adapter-shaped, and stable SDK\/IDE\/CLI protocol APIs over Rust records/.test(
+    /Move remaining deeper wallet\/cTEE route authority and revocation policy, conversation\/provider\/instance replay depth where still adapter-shaped, and stable SDK\/IDE\/CLI protocol APIs over Rust records/.test(
       modelMountingRouteRow,
     ) &&
-      /Move remaining cTEE secret-injection depth for hosted catalog\/download edges, deeper wallet\/cTEE route authority and revocation policy, conversation\/provider\/instance replay depth where still adapter-shaped, and stable Workbench\/CLI\/SDK protocol APIs over Rust records/.test(
+      /Move remaining deeper wallet\/cTEE route authority and revocation policy, conversation\/provider\/instance replay depth where still adapter-shaped, and stable Workbench\/CLI\/SDK protocol APIs over Rust records/.test(
         modelMountingCoreBoundaryRow,
       ) &&
       /Hosted download materialization is Rust-owned/.test(
@@ -3263,6 +3271,21 @@ function runDocs() {
       ),
     [MATRIX],
     "migration matrix model_mount owner rows must point at current blockers rather than superseded live transport, backend supervision, or invocation-authority work",
+  );
+  assertCheck(
+    result,
+    "implementation-context-state-update-direct-rust-api-labels",
+    /Context lifecycle policy\/projection now resolves through direct typed Rust daemon-core APIs/.test(
+      contextLifecycleImplementationRow,
+    ) &&
+      /State-update admission\/projection now resolves through direct typed Rust daemon-core APIs/.test(
+        stateUpdateImplementationRow,
+      ) &&
+      !/temporary migration cleanup only|replace the remaining JS facade and Node bridge transport/.test(
+        `${contextLifecycleImplementationRow}\n${stateUpdateImplementationRow}`,
+      ),
+    [IMPLEMENTATION_MATRIX],
+    "implementation matrix must treat context lifecycle/state-update as direct Rust APIs, not pending Node bridge cleanup",
   );
   assertCheck(
     result,
@@ -4600,7 +4623,7 @@ function runBridge() {
   const runtimeAgentServiceInferenceHelper = exists("scripts/lib/autopilot-runtime-agent-service-inference.mjs")
     ? read("scripts/lib/autopilot-runtime-agent-service-inference.mjs")
     : "";
-  const autopilotIdeLauncher = exists("scripts/launch-hypervisor-workbench-adapter-host.mjs")
+  const workbenchAdapterHostLauncher = exists("scripts/launch-hypervisor-workbench-adapter-host.mjs")
     ? read("scripts/launch-hypervisor-workbench-adapter-host.mjs")
     : "";
   const agentStudioLiveValidation = exists("scripts/run-autopilot-agent-studio-live-gui-validation.mjs")
@@ -14863,10 +14886,19 @@ function runBridge() {
     !/memory-command-parser|parseMemoryCommand/.test(runtimeDaemonIndex) &&
     !/parseMemoryCommand/.test(runtimeRunMemoryResolution) &&
     /planRunMemoryCommand/.test(runtimeRunMemoryResolution) &&
+    /runtimeMemoryCommandPlanner/.test(runtimeRunMemoryResolution) &&
+    /runtimeMemoryCommandPlanner:\s*this\.contextPolicyCore/.test(runtimeDaemonIndex) &&
     /planRuntimeMemoryCommand/.test(runtimeRunMemoryResolution) &&
     /memory_command_plan/.test(runtimeRunMemoryResolution) &&
+    !/store\?\.contextPolicyCore|store\.contextPolicyCore/.test(runtimeRunMemoryResolution) &&
     /runtime_memory_command_parser_js_retired/.test(runtimeRunMemoryResolutionTest) &&
-    /run memory resolution fails closed before JS command parsing when Rust command planner is missing/.test(
+    /run memory command planning ignores retired store-mounted context policy core/.test(
+      runtimeRunMemoryResolutionTest,
+    ) &&
+    /store-mounted contextPolicyCore fallback must stay retired/.test(
+      runtimeRunMemoryResolutionTest,
+    ) &&
+    /run memory resolution fails closed before JS command parsing when direct Rust command planner is missing/.test(
       runtimeRunMemoryResolutionTest,
     ) &&
     /RUNTIME_MEMORY_COMMAND_PLAN_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyCore) &&
@@ -15820,7 +15852,7 @@ function runBridge() {
         runtimeAgentServiceInferenceHelper,
       ) &&
       !/configureRuntimeBridgeEnv|RuntimeAgentService bridge wired|runtimeBridge/.test(
-        autopilotIdeLauncher,
+        workbenchAdapterHostLauncher,
       ) &&
       !/configureRuntimeAgentServiceBridgeEnv|runtimeBridgeAllowCommands|IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ALLOW_COMMANDS|runtime-bridge-env/.test(
         agentStudioLiveValidation,
@@ -25597,13 +25629,27 @@ function runReceipts() {
       /rust_daemon_core\.model_mount\.storage_control\.hosted_download/.test(
         modelMountStorageControlEvidence,
       ) &&
+      /fn hosted_download_secret_injection_binding\(/.test(modelMountStorageControlEvidence) &&
+      /HostedProviderInvocationMissingAuthMaterialization/.test(
+        modelMountStorageControlEvidence,
+      ) &&
+      /HostedProviderInvocationMissingCteeEgressResolver/.test(
+        modelMountStorageControlEvidence,
+      ) &&
       /hosted_download_transport_request_hash/.test(modelMountStorageControlEvidence) &&
       /hosted_download_transport_response_hash/.test(modelMountStorageControlEvidence) &&
       /download_content_hash/.test(modelMountStorageControlEvidence) &&
+      /ctee_outbound_secret_injection_ref/.test(modelMountStorageControlEvidence) &&
+      /ctee_outbound_secret_injection_hash/.test(modelMountStorageControlEvidence) &&
+      /ctee_outbound_secret_injection_status/.test(modelMountStorageControlEvidence) &&
       /plaintext_payload_returned/.test(modelMountStorageControlEvidence) &&
       /artifact_bytes_returned/.test(modelMountStorageControlEvidence) &&
       /ctee_hosted_download_no_plaintext_custody/.test(modelMountStorageControlEvidence) &&
+      /ctee_hosted_download_secret_injection_bound/.test(modelMountStorageControlEvidence) &&
       /materializes_hosted_download_transport_in_rust/.test(modelMountStorageControlEvidence) &&
+      /hosted_download_requires_rust_auth_and_ctee_secret_injection_before_transport/.test(
+        modelMountStorageControlEvidence,
+      ) &&
       /admitted_hosted_download_materialization/.test(modelMountReadProjectionEvidence) &&
       /download\.js-hosted/.test(modelMountReadProjectionEvidence) &&
       /download\.hosted-qwen/.test(modelMountReadProjectionEvidence) &&
@@ -25654,6 +25700,7 @@ function runReceipts() {
       /download_materialization_kind:\s*"hosted_download"/.test(catalogDownloadOperationsTest) &&
       /provider_auth_materialization_ref/.test(catalogDownloadOperationsTest) &&
       /ctee_egress_resolver_ref/.test(catalogDownloadOperationsTest) &&
+      /ctee_egress_resolver_hash/.test(catalogDownloadOperationsTest) &&
       /assert\.equal\(state\.planRequests\[0\]\.body\.download_materialization_kind,\s*"hosted_download"\)/.test(
         catalogDownloadOperationsTest,
       ) &&
@@ -26219,14 +26266,33 @@ function runReceipts() {
 	      ) &&
 	      /rust_model_mount_hosted_provider_inventory/.test(providerOperationsTest) &&
 	      /rust_hosted_provider_metadata_transport_materialized/.test(providerOperationsTest) &&
+	      /hosted provider inventory does not translate retired camelCase cTEE auth fields/.test(
+	        providerOperationsTest,
+	      ) &&
+	      /providerAuthMaterializationRef/.test(providerOperationsTest) &&
+	      /provider_auth_materialization_ref,\s*null/.test(providerOperationsTest) &&
       /assert\.equal\(models\.evidence_refs\.includes\("rust_hosted_provider_catalog_live_network_io_executed"\),\s*true\)/.test(
+        providerOperationsTest,
+      ) &&
+      /assert\.equal\(models\.evidence_refs\.includes\("rust_provider_auth_materialization_bound"\),\s*true\)/.test(
+        providerOperationsTest,
+      ) &&
+      /assert\.equal\(models\.evidence_refs\.includes\("ctee_outbound_secret_injection_ref_bound"\),\s*true\)/.test(
         providerOperationsTest,
       ) &&
       /assert\.equal\(models\.transport_contract\.live_network_io,\s*true\)/.test(
         providerOperationsTest,
       ) &&
+      /models\.transport_contract\.provider_auth_materialization_ref/.test(
+        providerOperationsTest,
+      ) &&
+      /models\.transport_contract\.ctee_outbound_secret_injection_ref/.test(
+        providerOperationsTest,
+      ) &&
+      /rust_ctee_outbound_secret_injection_bound/.test(providerOperationsTest) &&
       /hosted_catalog_transport_request_hash/.test(providerOperations) &&
       /hosted_catalog_transport_response_hash/.test(providerOperations) &&
+      /providerAuthMaterializationRef/.test(modelMountingState) === false &&
       /assert\.equal\(models\.evidence_refs\.includes\("hosted_provider_transport_not_executed"\),\s*false\)/.test(
         providerOperationsTest,
       ) &&
@@ -26234,8 +26300,22 @@ function runReceipts() {
 	        modelMountCore,
 	      ) &&
       /hosted_provider_catalog_transport/.test(modelMountCore) &&
+      /hosted_provider_catalog_secret_injection_binding/.test(modelMountCore) &&
+      /HostedProviderInvocationMissingAuthMaterialization/.test(modelMountCore) &&
+      /HostedProviderInvocationMissingCteeEgressResolver/.test(modelMountCore) &&
       /rust_hosted_provider_catalog_live_network_io_executed/.test(modelMountCore) &&
       /hosted_catalog_transport_request_hash/.test(modelMountCore) &&
+      /ctee_outbound_secret_injection_ref/.test(modelMountCore) &&
+      /ctee_hosted_catalog_secret_injection_bound/.test(modelMountCore) &&
+      /hosted_provider_inventory_requires_rust_auth_and_ctee_secret_injection_before_transport/.test(
+        modelMountCore,
+      ) &&
+      /Slice 1409 hard-cuts cTEE outbound secret-injection depth for hosted catalog and\s+download network edges/.test(
+        guide,
+      ) &&
+      /Model_mount hosted catalog\/download cTEE secret-injection binding Rust contract/.test(
+        matrix,
+      ) &&
       /Slice 1405 hard-cuts hosted provider `list_models` catalog execution into Rust\s+daemon core/.test(
         guide,
       ) &&

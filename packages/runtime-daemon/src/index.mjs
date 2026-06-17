@@ -580,6 +580,7 @@ export class AgentgresRuntimeStateStore {
       memoryWriteBlockReason,
       normalizeSubagentInheritanceMode,
       optionalString,
+      runtimeMemoryCommandPlanner: this.contextPolicyCore,
       shouldInheritSubagentMemory,
       subagentMemoryPolicy,
       subagentReceiverForRequest,

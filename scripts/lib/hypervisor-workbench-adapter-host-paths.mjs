@@ -16,15 +16,18 @@ function envFlag(name) {
   );
 }
 
-const targetPackagedRoot = resolve(repoRoot, "workbench-adapters/builds/VSCode-linux-x64");
+const targetPackagedRoot = resolve(
+  repoRoot,
+  "workbench-adapters/builds/VSCode-linux-x64",
+);
 const targetForkRoot = resolve(repoRoot, "workbench-adapters/vscode");
 
 const packagedRoot = resolveEnvPath(
-  "AUTOPILOT_VSCODE_PACKAGED_ROOT",
+  "HYPERVISOR_WORKBENCH_VSCODE_PACKAGED_ROOT",
   targetPackagedRoot,
 );
 const forkRoot = resolveEnvPath(
-  "AUTOPILOT_VSCODE_FORK_ROOT",
+  "HYPERVISOR_WORKBENCH_VSCODE_FORK_ROOT",
   targetForkRoot,
 );
 const extensionSource = resolve(
@@ -36,11 +39,11 @@ const packagedWorkbenchTarget = resolve(
   "resources/app/extensions/ioi-workbench",
 );
 const forkWorkbenchTarget = resolve(forkRoot, "extensions/ioi-workbench");
-const binary = process.env.AUTOPILOT_VSCODE_FORK_BIN
-  ? resolve(process.env.AUTOPILOT_VSCODE_FORK_BIN)
+const binary = process.env.HYPERVISOR_WORKBENCH_VSCODE_FORK_BIN
+  ? resolve(process.env.HYPERVISOR_WORKBENCH_VSCODE_FORK_BIN)
   : resolve(packagedRoot, "bin/hypervisor");
 
-export const AUTOPILOT_ELECTRON = {
+export const HYPERVISOR_WORKBENCH_ADAPTER_HOST = {
   repoRoot,
   packagedRoot,
   forkRoot,
@@ -54,7 +57,9 @@ export const AUTOPILOT_ELECTRON = {
 
 export { envFlag };
 
-export function syncWorkbenchExtensionTargets({ includeForkIfPresent = true } = {}) {
+export function syncWorkbenchExtensionTargets({
+  includeForkIfPresent = true,
+} = {}) {
   const copied = [];
   const skipped = [];
   const targets = [

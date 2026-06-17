@@ -12331,11 +12331,12 @@ emits live-network and cTEE custody evidence before public inventory truth can
 return. The JS edge cannot provide hosted model refs, evidence refs, fallback
 proof fields, or deterministic placeholder catalog truth, and conformance now
 guards the Rust transport executor, live network evidence, request/response hash
-binding, missing-endpoint failure, and JS request-field absence. Remaining
-model_mount blockers for this lane are cTEE secret-injection depth for outbound
-hosted catalog/download edges, deeper wallet/cTEE route authority and revocation
-policy, richer provider/instance replay joins, and stable Workbench/CLI/SDK protocol
-coverage over the admitted Rust records.
+binding, missing-endpoint failure, and JS request-field absence. Slice 1409
+hardens this hosted catalog edge so provider-auth materialization plus cTEE
+outbound secret-injection binding are required before network I/O. Remaining
+model_mount blockers for this lane are deeper wallet/cTEE route authority and
+revocation policy, richer provider/instance replay joins, and stable
+Workbench/CLI/SDK protocol coverage over the admitted Rust records.
 
 Slice 1406 hard-cuts provider-inventory endpoint materialization into Rust
 read-projection ownership. `listEndpoints()` now replays admitted
@@ -12377,6 +12378,40 @@ target refs, records cTEE no-plaintext path custody evidence, and executes or
 dry-runs the mutation without returning plaintext paths to JS. Conformance now
 guards the Rust custody planner, containment check, custody evidence refs,
 alias rejection, and absence of JS filesystem mutation truth.
+
+Slice 1409 hard-cuts cTEE outbound secret-injection depth for hosted catalog and
+download network edges. Rust `model_mount/lifecycle/inventory.rs` now rejects
+hosted provider `list_models` catalog transport unless the request carries a
+Rust provider-auth materialization ref, outbound header binding ref,
+`rust_ctee_outbound_header_bound` status, cTEE egress resolver ref/hash, and
+`rust_ctee_outbound_egress_resolved` status before any HTTP client is built. The
+hosted catalog transport contract and Agentgres `model-provider-inventory`
+record persist those refs plus `ctee_outbound_secret_injection_ref/hash/status`,
+and the evidence set includes provider-auth materialization, cTEE egress
+resolver, outbound secret-injection, and hosted catalog no-plaintext custody
+proof. Rust `model_mount/storage_control.rs` applies the same preflight to
+hosted downloads before the bounded GET, persists the secret-injection binding
+into `model-downloads`, and emits the matching evidence. The JS provider
+inventory facade no longer translates retired camelCase auth/egress fields, and
+the provider-inventory result validator rejects hosted catalog truth without the
+Rust cTEE/auth binding before Agentgres commit. Focused Rust and Node tests cover
+the positive hosted catalog/download paths and the missing-auth/missing-cTEE
+fail-closed cases, while conformance guards the hard requirement and the removed
+compatibility translation. Remaining model_mount work is deeper wallet/cTEE route
+authority and revocation policy, conversation/provider/instance replay depth
+where still adapter-shaped, and stable Workbench/CLI/SDK protocol APIs over the
+Rust records.
+
+Slice 1410 hard-cuts the run-memory command parser store-core fallback. The
+daemon now passes the already-mounted `contextPolicyCore` into
+`createRunMemoryResolution()` as the direct `runtimeMemoryCommandPlanner`, and
+`run-memory-resolution.mjs` calls only that dependency before memory
+projection/control can run. A missing direct planner fails closed with
+`memory_command_plan`, while a stale `store.contextPolicyCore` cannot become a
+fallback command parser. Focused tests prove the direct planner is used, a
+hostile store-mounted core is ignored, and the missing-direct-planner path fails
+before JS command parsing, while conformance guards the retired store lookup
+beside the already-deleted JS regex parser.
 
 ## Final Doctrine
 

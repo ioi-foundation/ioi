@@ -9,7 +9,7 @@ import {
 import type { PrimaryView } from "../autopilotShellModel";
 import type { OperatorCommandCenterModel } from "../operatorSubstrateModel";
 
-interface ChatIdeHeaderProps {
+interface HypervisorClientHeaderProps {
   activeView: PrimaryView;
   workflowSurface: "home" | "canvas" | "agents" | "catalog";
   commandCenter: OperatorCommandCenterModel;
@@ -18,7 +18,7 @@ interface ChatIdeHeaderProps {
 
 function windowSurfaceTitle(
   view: PrimaryView,
-  workflowSurface: ChatIdeHeaderProps["workflowSurface"],
+  workflowSurface: HypervisorClientHeaderProps["workflowSurface"],
 ): string {
   if (view === "workflows") {
     if (workflowSurface === "home") return "Automations";
@@ -37,12 +37,12 @@ function windowSurfaceTitle(
   return "Sessions";
 }
 
-export function ChatIdeHeader({
+export function HypervisorClientHeader({
   activeView,
   workflowSurface,
   commandCenter,
   onOpenCommandPalette,
-}: ChatIdeHeaderProps) {
+}: HypervisorClientHeaderProps) {
   const [windowMaximized, setWindowMaximized] = useState(false);
   const windowControlsVisible = isHypervisorClientRuntime();
   const resolvedWindowTitle = `Hypervisor · ${windowSurfaceTitle(
@@ -57,9 +57,11 @@ export function ChatIdeHeader({
       return;
     }
 
-    void getCurrentWindow().setTitle(resolvedWindowTitle).catch(() => {
-      // Window title updates are best-effort in non-standard shells.
-    });
+    void getCurrentWindow()
+      .setTitle(resolvedWindowTitle)
+      .catch(() => {
+        // Window title updates are best-effort in non-standard shells.
+      });
   }, [resolvedWindowTitle, windowControlsVisible]);
 
   useEffect(() => {
@@ -130,18 +132,21 @@ export function ChatIdeHeader({
   };
 
   return (
-    <header className="chat-ide-header" onDoubleClick={handleHeaderDoubleClick}>
+    <header
+      className="hypervisor-client-header"
+      onDoubleClick={handleHeaderDoubleClick}
+    >
       <div
-        className="chat-ide-drag-surface"
+        className="hypervisor-client-drag-surface"
         data-host-drag-region
         onMouseDown={startHostWindowDrag}
         aria-hidden="true"
       />
 
-      <div className="chat-ide-command-shell">
+      <div className="hypervisor-client-command-shell">
         <button
           type="button"
-          className="chat-ide-command-center"
+          className="hypervisor-client-command-center"
           data-inspection-target="operator-command-center"
           data-operator-command-center={commandCenter.projectionId}
           data-operator-route-kind={commandCenter.activeRoute.kind}
@@ -149,7 +154,10 @@ export function ChatIdeHeader({
           title={`${commandCenter.placeholder} (${commandCenter.shortcutLabel})`}
           onClick={onOpenCommandPalette}
         >
-          <span className="chat-ide-command-center-icon" aria-hidden="true">
+          <span
+            className="hypervisor-client-command-center-icon"
+            aria-hidden="true"
+          >
             <svg
               width="15"
               height="15"
@@ -164,10 +172,10 @@ export function ChatIdeHeader({
               <path d="m12.6 12.6 4 4" />
             </svg>
           </span>
-          <span className="chat-ide-command-center-scope">
+          <span className="hypervisor-client-command-center-scope">
             {commandCenter.scopeLabel}
           </span>
-          <span className="chat-ide-command-center-placeholder">
+          <span className="hypervisor-client-command-center-placeholder">
             {commandCenter.placeholder}
           </span>
           <kbd>{commandCenter.shortcutLabel}</kbd>
@@ -175,10 +183,13 @@ export function ChatIdeHeader({
       </div>
 
       {windowControlsVisible ? (
-        <div className="chat-ide-window-controls" aria-label="Window controls">
+        <div
+          className="hypervisor-client-window-controls"
+          aria-label="Window controls"
+        >
           <button
             type="button"
-            className="chat-ide-window-button"
+            className="hypervisor-client-window-button"
             onClick={() => {
               void minimizeWindow();
             }}
@@ -201,7 +212,7 @@ export function ChatIdeHeader({
 
           <button
             type="button"
-            className="chat-ide-window-button"
+            className="hypervisor-client-window-button"
             onClick={() => {
               void toggleWindowMaximize();
             }}
@@ -242,7 +253,7 @@ export function ChatIdeHeader({
 
           <button
             type="button"
-            className="chat-ide-window-button chat-ide-window-button--close"
+            className="hypervisor-client-window-button hypervisor-client-window-button--close"
             onClick={() => {
               void closeWindow();
             }}

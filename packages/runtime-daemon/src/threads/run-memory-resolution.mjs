@@ -5,6 +5,7 @@ export function createRunMemoryResolution({
   memoryWriteBlockReason,
   normalizeSubagentInheritanceMode,
   optionalString,
+  runtimeMemoryCommandPlanner,
   shouldInheritSubagentMemory,
   subagentMemoryPolicy,
   subagentReceiverForRequest,
@@ -26,6 +27,7 @@ export function createRunMemoryResolution({
       evidence_refs: [
         "runtime_run_memory_projection_js_cache_retired",
         "runtime_run_memory_resolution_js_mutation_retired",
+        "runtime_run_memory_command_store_core_fallback_retired",
         "runtime_memory_state_store_js_mutation_retired",
         "rust_daemon_core_thread_memory_control_required",
         "agentgres_thread_memory_state_truth_required",
@@ -53,7 +55,7 @@ export function createRunMemoryResolution({
   function resolveRunMemory(store, agent, request = {}, prompt = "") {
     const memoryOptions = memoryOptionsForRequest(request);
     const threadId = memoryOptions.thread_id ?? threadIdForAgent(agent.id);
-    const command = planRunMemoryCommand(store, agent, threadId, prompt);
+    const command = planRunMemoryCommand(agent, threadId, prompt);
     const surface = runMemorySurface(store, {
       operation: "memory_projection",
       threadId,
@@ -194,8 +196,8 @@ export function createRunMemoryResolution({
     resolveSubagentMemoryInheritance,
   };
 
-  function planRunMemoryCommand(store, agent, threadId, prompt = "") {
-    const plan = store?.contextPolicyCore?.planRuntimeMemoryCommand?.({
+  function planRunMemoryCommand(agent, threadId, prompt = "") {
+    const plan = runtimeMemoryCommandPlanner?.planRuntimeMemoryCommand?.({
       operation: "runtime_memory_command_plan",
       operation_kind: "memory.run_command.plan",
       prompt,

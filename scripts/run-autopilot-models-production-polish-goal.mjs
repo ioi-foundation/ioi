@@ -18,9 +18,9 @@ import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 import { startRuntimeDaemonService } from "../packages/runtime-daemon/src/index.mjs";
 import {
-  AUTOPILOT_ELECTRON,
+  HYPERVISOR_WORKBENCH_ADAPTER_HOST,
   syncWorkbenchExtensionTargets,
-} from "./lib/autopilot-electron-app-paths.mjs";
+} from "./lib/hypervisor-workbench-adapter-host-paths.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -35,7 +35,7 @@ const PARENT_GUIDES = [
 const OUTPUT_ROOT =
   "docs/evidence/autopilot-electron-models-production-polish-playwright";
 const EXTENSION_ROOT = "apps/autopilot/openvscode-extension/ioi-workbench";
-const VSCODE_PACKAGED_APP_ROOT = AUTOPILOT_ELECTRON.packagedRoot;
+const VSCODE_PACKAGED_APP_ROOT = HYPERVISOR_WORKBENCH_ADAPTER_HOST.packagedRoot;
 const MODEL_ID = "stories260k";
 const SECONDARY_MODEL_ID = "text-embedding-nomic-embed-text-v1.5";
 const ENDPOINT_ID = "endpoint.electron.model-gui";
@@ -230,7 +230,7 @@ function checkSourceShape() {
 }
 
 function checkPackagedApp() {
-  const binary = AUTOPILOT_ELECTRON.binary;
+  const binary = HYPERVISOR_WORKBENCH_ADAPTER_HOST.binary;
   const extension = join(
     VSCODE_PACKAGED_APP_ROOT,
     "resources/app/extensions/ioi-workbench/extension.js",
@@ -240,8 +240,8 @@ function checkPackagedApp() {
     ok: existsSync(binary) && existsSync(extension),
     summary:
       existsSync(binary) && existsSync(extension)
-        ? "Packaged Electron/VS Code fork is available"
-        : "Packaged Electron/VS Code fork is missing",
+        ? "Packaged Hypervisor Workbench adapter host is available"
+        : "Packaged Hypervisor Workbench adapter host is missing",
     evidence: { binary, extension },
   };
 }
@@ -275,7 +275,7 @@ function buildComposerBundle() {
 }
 
 function syncExtension() {
-  const packagedTarget = AUTOPILOT_ELECTRON.packagedWorkbenchTarget;
+  const packagedTarget = HYPERVISOR_WORKBENCH_ADAPTER_HOST.packagedWorkbenchTarget;
   try {
     const sync = syncWorkbenchExtensionTargets();
     return {
@@ -723,7 +723,7 @@ async function runGuiValidation(outputRoot) {
     writeFileSync(join(outputDir, "user-data-dir"), `${userDataDir}\n`);
     writeFileSync(join(outputDir, "extensions-dir"), `${extensionsDir}\n`);
 
-    app = spawn(AUTOPILOT_ELECTRON.binary, [
+    app = spawn(HYPERVISOR_WORKBENCH_ADAPTER_HOST.binary, [
       `--remote-debugging-port=${cdpPort}`,
       `--user-data-dir=${userDataDir}`,
       `--extensions-dir=${extensionsDir}`,
@@ -740,7 +740,7 @@ async function runGuiValidation(outputRoot) {
         IOI_DAEMON_TOKEN: boot.token,
         IOI_DAEMON_MODEL_ID: MODEL_ID,
         IOI_PROVIDER_HTTP_TIMEOUT_MS: "60000",
-        IOI_AUTOPILOT_CANONICAL_SHELL: "vscode-electron-fork",
+        IOI_HYPERVISOR_CANONICAL_CLIENT_HOST: "vscode-workbench-adapter-host",
         AUTOPILOT_SKIP_OVERVIEW: "1",
       },
       stdio: ["ignore", "pipe", "pipe"],

@@ -159,8 +159,8 @@ const autopilotShellBaseCss = fs.readFileSync(
   new URL("./styles/autopilot-shell/shell-base.css", import.meta.url),
   "utf8",
 );
-const chatIdeHeaderTsx = fs.readFileSync(
-  new URL("./components/ChatIdeHeader.tsx", import.meta.url),
+const hypervisorClientHeaderTsx = fs.readFileSync(
+  new URL("./components/HypervisorClientHeader.tsx", import.meta.url),
   "utf8",
 );
 const chatConversationSurfaceTsx = fs.readFileSync(
@@ -609,15 +609,15 @@ assert.match(
 );
 
 assert.match(
-  chatIdeHeaderTsx,
-  /className="chat-ide-drag-surface"[\s\S]*data-host-drag-region[\s\S]*onMouseDown=\{startHostWindowDrag\}/,
-  "The frameless shell header should expose a broad host-window drag region outside the window-control buttons",
+  hypervisorClientHeaderTsx,
+  /className="hypervisor-client-drag-surface"[\s\S]*data-host-drag-region[\s\S]*onMouseDown=\{startHostWindowDrag\}/,
+  "The frameless client shell header should expose a broad host-window drag region outside the window-control buttons",
 );
 
 assert.match(
   autopilotShellBaseCss,
-  /\.chat-ide-drag-surface\s*\{[\s\S]*flex: 1 1 auto;/,
-  "The shell drag region should expand across available header space so users can move the frameless window",
+  /\.hypervisor-client-drag-surface\s*\{[\s\S]*flex: 1 1 auto;/,
+  "The client shell drag region should expand across available header space so users can move the frameless window",
 );
 
 assert.match(

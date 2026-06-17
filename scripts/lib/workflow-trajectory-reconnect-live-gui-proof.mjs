@@ -17,16 +17,16 @@ import { chromium } from "playwright";
 
 import { startRuntimeDaemonService } from "../../packages/runtime-daemon/src/index.mjs";
 import {
-  AUTOPILOT_ELECTRON,
+  HYPERVISOR_WORKBENCH_ADAPTER_HOST,
   syncWorkbenchExtensionTargets,
-} from "./autopilot-electron-app-paths.mjs";
+} from "./hypervisor-workbench-adapter-host-paths.mjs";
 import { applyAutopilotWorkbenchShellPatch } from "./autopilot-workbench-shell-patch.mjs";
 import {
   bootstrapNativeRuntimeModelRoute,
   configureRuntimeAgentServiceInferenceEnv,
 } from "./autopilot-runtime-agent-service-inference.mjs";
 
-const repoRoot = AUTOPILOT_ELECTRON.repoRoot;
+const repoRoot = HYPERVISOR_WORKBENCH_ADAPTER_HOST.repoRoot;
 const evidenceRoot =
   process.env.AUTOPILOT_TRAJECTORY_RECONNECT_LIVE_GUI_EVIDENCE_ROOT ||
   "docs/evidence/autopilot-agent-runtime-parity-plus/stage-1-trajectory-brain/live-gui-trajectory-reconnect";
@@ -436,7 +436,7 @@ async function runProof(outputDir) {
       const stdoutPath = join(outputDir, `electron-${label}-stdout.log`);
       const stderrPath = join(outputDir, `electron-${label}-stderr.log`);
       const app = spawn(
-        AUTOPILOT_ELECTRON.binary,
+        HYPERVISOR_WORKBENCH_ADAPTER_HOST.binary,
         [
           `--remote-debugging-port=${cdpPort}`,
           `--user-data-dir=${userDataDir}`,
@@ -453,7 +453,7 @@ async function runProof(outputDir) {
             IOI_WORKSPACE_IDE_BRIDGE_URL: bridgeUrl,
             IOI_DAEMON_ENDPOINT: daemon.endpoint,
             IOI_DAEMON_TOKEN: token.token,
-            IOI_AUTOPILOT_CANONICAL_SHELL: "vscode-electron-fork",
+            IOI_HYPERVISOR_CANONICAL_CLIENT_HOST: "vscode-workbench-adapter-host",
             IOI_WORKBENCH_NATIVE_SHELL: "1",
             IOI_AUTOPILOT_STUDIO_TEST_HOOKS: "1",
           },
