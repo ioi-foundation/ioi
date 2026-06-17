@@ -84,7 +84,7 @@ import { createRuntimeThreadControlSurface } from "./runtime-thread-control-surf
 import { createRuntimeThreadTurnSurface } from "./runtime-thread-turn-surface.mjs";
 import { createRuntimeThreadEventSurface } from "./runtime-thread-event-surface.mjs";
 import { createRuntimeToolSurface } from "./runtime-tool-surface.mjs";
-import { createRuntimeSubagentSurface } from "./runtime-subagent-surface.mjs";
+import { createRuntimeSubagentApi } from "./runtime-subagent-api.mjs";
 import {
   booleanValue,
   doctorHash,
@@ -752,7 +752,7 @@ export class AgentgresRuntimeStateStore {
       runtimeError,
       threadModeForRunMode,
     });
-    this.subagentSurface = createRuntimeSubagentSurface({
+    this.subagentApi = createRuntimeSubagentApi({
       approvalModeForThreadMode,
       buildRun,
       contextPolicyCore: this.contextPolicyCore,
@@ -1092,6 +1092,54 @@ export class AgentgresRuntimeStateStore {
 
   promoteConversationArtifact(artifactId, input = {}) {
     return this.conversationArtifactApi.promoteConversationArtifact(this, artifactId, input);
+  }
+
+  listSubagents(threadId, options = {}) {
+    return this.subagentApi.listSubagents(this, threadId, options);
+  }
+
+  getSubagent(threadId, subagentId) {
+    return this.subagentApi.getSubagent(this, threadId, subagentId);
+  }
+
+  spawnSubagent(threadId, request = {}) {
+    return this.subagentApi.spawnSubagent(this, threadId, request);
+  }
+
+  propagateSubagentCancellation(threadId, request = {}) {
+    return this.subagentApi.propagateSubagentCancellation(this, threadId, request);
+  }
+
+  waitSubagent(threadId, subagentId, request = {}) {
+    return this.subagentApi.waitSubagent(this, threadId, subagentId, request);
+  }
+
+  sendSubagentInput(threadId, subagentId, request = {}) {
+    return this.subagentApi.sendSubagentInput(this, threadId, subagentId, request);
+  }
+
+  cancelSubagent(threadId, subagentId, request = {}) {
+    return this.subagentApi.cancelSubagent(this, threadId, subagentId, request);
+  }
+
+  resumeSubagent(threadId, subagentId, request = {}) {
+    return this.subagentApi.resumeSubagent(this, threadId, subagentId, request);
+  }
+
+  assignSubagent(threadId, subagentId, request = {}) {
+    return this.subagentApi.assignSubagent(this, threadId, subagentId, request);
+  }
+
+  getSubagentResult(threadId, subagentId) {
+    return this.subagentApi.getSubagentResult(this, threadId, subagentId);
+  }
+
+  subagentProjection(record = {}) {
+    return this.subagentApi.subagentProjection(record);
+  }
+
+  appendThreadSubagentControlEvent(request = {}) {
+    return this.subagentApi.appendThreadSubagentControlEvent(this, request);
   }
 
   admitRuntimeThreadEventForThread(store, request = {}) {

@@ -925,7 +925,7 @@ protocol APIs remain non-terminal.
 The current subagent read macro cut replaces the fail-closed public subagent
 read facade with Rust daemon-core projection. Public subagent list, get, and
 result routes now call `project_runtime_subagent_projection` through the
-mounted subagent surface with runtime `state_dir`; Rust replays admitted
+store-owned subagent API with runtime `state_dir`; Rust replays admitted
 `subagents/*.json` and `runs/*.json` Agentgres records before route truth can
 return, owns parent-thread filtering, role filtering, subagent id selection,
 result envelope shaping, projection-kind validation, evidence refs, and receipt
@@ -4979,7 +4979,7 @@ surface with runtime `state_dir` and reject JS artifact candidate transport,
 while artifact create/action/export/promote call Rust
 `plan_runtime_conversation_artifact_control` and Rust Agentgres artifact-state
 commit before route truth returns; subagent list/get/result routes call Rust
-`project_runtime_subagent_projection` through the mounted subagent surface
+`project_runtime_subagent_projection` through the store-owned subagent API
 before JS subagent/run map readback, while subagent wait control uses Rust
 `plan_runtime_subagent_control`, Rust runtime-event Agentgres admission, Rust
 subagent record state-update planning, and Agentgres-backed `writeSubagent`;
@@ -10541,7 +10541,7 @@ wallet/cTEE runtime-service authority, receipt/state-root binding, and stable
 thread-turn protocol APIs, not alternate surface runners.
 
 Slice 1307 hard-cuts runtime subagent runner wrappers.
-`createRuntimeSubagentSurface()` no longer routes projection/control through
+`createRuntimeSubagentApi()` no longer routes projection/control through
 `subagentProjectionRunner`, `subagentControlRunner`, or
 `store.contextPolicyCore ?? contextPolicyCore`; subagent list/get/result,
 spawn, wait, input, resume, assign, cancel, propagated cancel, direct
@@ -12646,6 +12646,20 @@ and route call patterns from returning. Remaining blockers stay durable
 ArtifactRef/PayloadRef admission depth, richer Agentgres-backed artifact
 replay/projection storage, wallet/cTEE authority where needed, receipt/state-root
 binding, and stable Workbench/CLI/SDK artifact clients over Rust-owned records.
+
+Slice 1427 hard-deletes the public subagent JS surface.
+`runtime-subagent-surface.mjs`, its focused test, and the mounted
+`subagentSurface` daemon-store property are absent. Daemon startup mounts
+`runtime-subagent-api.mjs` as `subagentApi`, and public subagent list/get/result,
+spawn/wait/input/resume/assign/cancel/propagation, and direct control-event paths
+enter through store-owned subagent methods. Those methods delegate to the
+positive Rust-backed subagent API while preserving Rust subagent projection,
+control planning, runtime-event admission, record state-update planning,
+Agentgres-backed persistence, and daemon `state_dir` replay. Conformance rejects
+the old surface file, factory, property, and route call patterns from returning.
+Remaining blockers stay direct Rust delegation/execution admission, durable
+subagent replay/projection storage, wallet authority, receipt/state-root binding,
+and stable Workbench/CLI/SDK subagent clients over Rust-owned records.
 
 ## Final Doctrine
 

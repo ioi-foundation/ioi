@@ -200,7 +200,7 @@ function subagentCancellationPropagatesRecord(record = {}) {
   return (optionalString(record.cancellation_inheritance) ?? "propagate") === "propagate";
 }
 
-export function createRuntimeSubagentSurface({
+export function createRuntimeSubagentApi({
   cancelRun: cancelRunDep = cancelRun,
   contextPolicyCore = null,
   createLifecycleAgent: createLifecycleAgentDep = createLifecycleAgent,
@@ -239,7 +239,7 @@ export function createRuntimeSubagentSurface({
         thread_id: request.thread_id ?? null,
         subagent_id: request.subagent_id ?? null,
         role: request.role ?? null,
-        source: "runtime.subagent_surface.read_projection",
+        source: "runtime.subagent_api.read_projection",
         evidence_refs: runtimeSubagentReadProjectionEvidenceRefs,
       },
     });
@@ -521,7 +521,7 @@ export function createRuntimeSubagentSurface({
       thread_id: threadId,
       subagent_id: subagentId,
       role,
-      source: "runtime.subagent_surface.read_projection",
+      source: "runtime.subagent_api.read_projection",
       state_dir: subagentProjectionStateDir(store),
       evidence_refs: runtimeSubagentReadProjectionEvidenceRefs,
     };
@@ -540,7 +540,7 @@ export function createRuntimeSubagentSurface({
           actual_projection_kind: result?.projection_kind ?? null,
           operation: request.operation,
           operation_kind: request.operation_kind,
-          source: "runtime.subagent_surface.read_projection",
+          source: "runtime.subagent_api.read_projection",
         },
       });
     }

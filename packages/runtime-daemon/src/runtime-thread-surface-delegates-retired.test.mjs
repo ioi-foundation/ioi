@@ -79,3 +79,24 @@ test("daemon store conversation artifact methods are positive API owners, not su
     assert.match(prototype[method].toString(), new RegExp(expectedCall.replaceAll(".", "\\.")));
   }
 });
+
+test("daemon store subagent methods are positive API owners, not surface delegates", () => {
+  const prototype = AgentgresRuntimeStateStore.prototype;
+  for (const [method, expectedCall] of [
+    ["listSubagents", "this.subagentApi.listSubagents"],
+    ["getSubagent", "this.subagentApi.getSubagent"],
+    ["spawnSubagent", "this.subagentApi.spawnSubagent"],
+    ["propagateSubagentCancellation", "this.subagentApi.propagateSubagentCancellation"],
+    ["waitSubagent", "this.subagentApi.waitSubagent"],
+    ["sendSubagentInput", "this.subagentApi.sendSubagentInput"],
+    ["cancelSubagent", "this.subagentApi.cancelSubagent"],
+    ["resumeSubagent", "this.subagentApi.resumeSubagent"],
+    ["assignSubagent", "this.subagentApi.assignSubagent"],
+    ["getSubagentResult", "this.subagentApi.getSubagentResult"],
+    ["subagentProjection", "this.subagentApi.subagentProjection"],
+    ["appendThreadSubagentControlEvent", "this.subagentApi.appendThreadSubagentControlEvent"],
+  ]) {
+    assert.equal(Object.hasOwn(prototype, method), true, `${method} must be a store-owned subagent API method`);
+    assert.match(prototype[method].toString(), new RegExp(expectedCall.replaceAll(".", "\\.")));
+  }
+});

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createRuntimeSubagentSurface } from "./runtime-subagent-surface.mjs";
+import { createRuntimeSubagentApi } from "./runtime-subagent-api.mjs";
 
 function createLifecycleAgentForTest(state, options = {}) {
   const agentId = `agent_spawn_${state.agentCreates.length + 1}`;
@@ -487,7 +487,7 @@ const retiredSubagentSkippedRecordAliasKeys = [
 
 test("subagent lifecycle mutation facades stay retired before JS truth mutation", () => {
   const store = createStore();
-  const surface = createRuntimeSubagentSurface();
+  const surface = createRuntimeSubagentApi();
   store.surface = surface;
   const baseline = {
     agents: store.agents.size,
@@ -524,7 +524,7 @@ test("subagent lifecycle mutation facades stay retired before JS truth mutation"
 
 test("subagent direct controls fail closed before Rust read/control planning", () => {
   const store = createStore();
-  const surface = createRuntimeSubagentSurface();
+  const surface = createRuntimeSubagentApi();
   store.surface = surface;
   const baseline = {
     agents: store.agents.size,
@@ -616,7 +616,7 @@ test("subagent direct controls fail closed before Rust read/control planning", (
 
 test("subagent control event append fails closed before JS runtime event append without Rust planning", () => {
   const store = createStore();
-  const surface = createRuntimeSubagentSurface();
+  const surface = createRuntimeSubagentApi();
   store.surface = surface;
 
   assert.throws(
@@ -655,7 +655,7 @@ test("subagent control event append uses Rust control planning and Agentgres eve
   const controlCalls = [];
   const stateUpdateCalls = [];
   const store = createStore();
-  const surface = createRuntimeSubagentSurface({
+  const surface = createRuntimeSubagentApi({
     contextPolicyCore: {
       planRuntimeSubagentControl(request) {
         controlCalls.push(request);
@@ -791,7 +791,7 @@ const retiredSubagentLifecycleResultEnvelopeAliasKeys = ["receiptRefs"];
 
 test("subagent read projections fail closed before JS subagent/run reads without Rust", () => {
   const store = createStore();
-  const surface = createRuntimeSubagentSurface();
+  const surface = createRuntimeSubagentApi();
 
   const baseline = {
     agents: store.agents.size,
@@ -841,7 +841,7 @@ test("subagent read projections fail closed before JS subagent/run reads without
 test("subagent read projections return Rust daemon-core projections", () => {
   const projectionCalls = [];
   const store = createStore();
-  const surface = createRuntimeSubagentSurface({
+  const surface = createRuntimeSubagentApi({
     contextPolicyCore: {
       projectRuntimeSubagentProjection(request) {
         projectionCalls.push(request);
@@ -890,7 +890,7 @@ test("subagent spawn control uses Rust agent and run creation, control planning,
   const controlCalls = [];
   const stateUpdateCalls = [];
   const store = createStore();
-  const surface = createRuntimeSubagentSurface({
+  const surface = createRuntimeSubagentApi({
     contextPolicyCore: {
       planRuntimeSubagentControl(request) {
         controlCalls.push(request);
@@ -983,7 +983,7 @@ test("subagent wait control uses Rust control, state planning, and Agentgres com
   const controlCalls = [];
   const stateUpdateCalls = [];
   const store = createStore();
-  const surface = createRuntimeSubagentSurface({
+  const surface = createRuntimeSubagentApi({
     contextPolicyCore: {
       projectRuntimeSubagentProjection(request) {
         projectionCalls.push(request);
@@ -1054,7 +1054,7 @@ test("subagent input and resume controls use Rust run creation, control planning
   const controlCalls = [];
   const stateUpdateCalls = [];
   const store = createStore();
-  const surface = createRuntimeSubagentSurface({
+  const surface = createRuntimeSubagentApi({
     contextPolicyCore: {
       projectRuntimeSubagentProjection(request) {
         projectionCalls.push(request);
@@ -1164,7 +1164,7 @@ test("subagent assign and cancel controls use Rust control, state planning, and 
   const stateUpdateCalls = [];
   const canceledRuns = [];
   const store = createStore();
-  const surface = createRuntimeSubagentSurface({
+  const surface = createRuntimeSubagentApi({
     cancelRun(state, runId, deps = {}) {
       assert.equal(typeof deps.contextPolicyCore?.planRuntimeSubagentControl, "function");
       canceledRuns.push(runId);
@@ -1274,7 +1274,7 @@ test("subagent cancellation propagation uses Rust projection, propagated cancel 
   const stateUpdateCalls = [];
   const canceledRuns = [];
   const store = createStore();
-  const surface = createRuntimeSubagentSurface({
+  const surface = createRuntimeSubagentApi({
     cancelRun(state, runId, deps = {}) {
       assert.equal(typeof deps.contextPolicyCore?.planRuntimeSubagentControl, "function");
       canceledRuns.push(runId);

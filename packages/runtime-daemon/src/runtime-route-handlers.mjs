@@ -245,39 +245,39 @@ export function createRuntimeRouteHandlers(deps) {
       return;
     }
     if (request.method === "GET" && action === "subagents" && !segments[4]) {
-      writeJsonResponse(response, store.subagentSurface.listSubagents(store, threadId, Object.fromEntries(url.searchParams.entries())));
+      writeJsonResponse(response, store.listSubagents(threadId, Object.fromEntries(url.searchParams.entries())));
       return;
     }
     if (request.method === "POST" && action === "subagents" && !segments[4]) {
-      writeJsonResponse(response, store.subagentSurface.spawnSubagent(store, threadId, await readBody(request)), 201);
+      writeJsonResponse(response, store.spawnSubagent(threadId, await readBody(request)), 201);
       return;
     }
     if (request.method === "POST" && action === "subagents" && segments[4] === "cancel" && !segments[5]) {
-      writeJsonResponse(response, store.subagentSurface.propagateSubagentCancellation(store, threadId, await readBody(request)));
+      writeJsonResponse(response, store.propagateSubagentCancellation(threadId, await readBody(request)));
       return;
     }
     if (request.method === "POST" && action === "subagents" && segments[4] && segments[5] === "wait" && !segments[6]) {
-      writeJsonResponse(response, store.subagentSurface.waitSubagent(store, threadId, decodeURIComponent(segments[4]), await readBody(request)));
+      writeJsonResponse(response, store.waitSubagent(threadId, decodeURIComponent(segments[4]), await readBody(request)));
       return;
     }
     if (request.method === "POST" && action === "subagents" && segments[4] && segments[5] === "input" && !segments[6]) {
-      writeJsonResponse(response, store.subagentSurface.sendSubagentInput(store, threadId, decodeURIComponent(segments[4]), await readBody(request)));
+      writeJsonResponse(response, store.sendSubagentInput(threadId, decodeURIComponent(segments[4]), await readBody(request)));
       return;
     }
     if (request.method === "POST" && action === "subagents" && segments[4] && segments[5] === "cancel" && !segments[6]) {
-      writeJsonResponse(response, store.subagentSurface.cancelSubagent(store, threadId, decodeURIComponent(segments[4]), await readBody(request)));
+      writeJsonResponse(response, store.cancelSubagent(threadId, decodeURIComponent(segments[4]), await readBody(request)));
       return;
     }
     if (request.method === "POST" && action === "subagents" && segments[4] && segments[5] === "resume" && !segments[6]) {
-      writeJsonResponse(response, store.subagentSurface.resumeSubagent(store, threadId, decodeURIComponent(segments[4]), await readBody(request)));
+      writeJsonResponse(response, store.resumeSubagent(threadId, decodeURIComponent(segments[4]), await readBody(request)));
       return;
     }
     if (request.method === "POST" && action === "subagents" && segments[4] && segments[5] === "assign" && !segments[6]) {
-      writeJsonResponse(response, store.subagentSurface.assignSubagent(store, threadId, decodeURIComponent(segments[4]), await readBody(request)));
+      writeJsonResponse(response, store.assignSubagent(threadId, decodeURIComponent(segments[4]), await readBody(request)));
       return;
     }
     if (request.method === "GET" && action === "subagents" && segments[4] && segments[5] === "result" && !segments[6]) {
-      writeJsonResponse(response, store.subagentSurface.getSubagentResult(store, threadId, decodeURIComponent(segments[4])));
+      writeJsonResponse(response, store.getSubagentResult(threadId, decodeURIComponent(segments[4])));
       return;
     }
     if (request.method === "POST" && action === "mcp" && segments[4] === "import" && !segments[5]) {

@@ -4690,11 +4690,11 @@ function runBridge() {
   const runtimeRunCancellationTest = exists("packages/runtime-daemon/src/runtime-run-cancellation.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-run-cancellation.test.mjs")
     : "";
-  const runtimeSubagentSurfaceForRunCancel = exists("packages/runtime-daemon/src/runtime-subagent-surface.mjs")
-    ? read("packages/runtime-daemon/src/runtime-subagent-surface.mjs")
+  const runtimeSubagentSurfaceForRunCancel = exists("packages/runtime-daemon/src/runtime-subagent-api.mjs")
+    ? read("packages/runtime-daemon/src/runtime-subagent-api.mjs")
     : "";
-  const runtimeSubagentSurfaceTestForRunCancel = exists("packages/runtime-daemon/src/runtime-subagent-surface.test.mjs")
-    ? read("packages/runtime-daemon/src/runtime-subagent-surface.test.mjs")
+  const runtimeSubagentSurfaceTestForRunCancel = exists("packages/runtime-daemon/src/runtime-subagent-api.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-subagent-api.test.mjs")
     : "";
   const runtimeSkillHookSurface = exists("packages/runtime-daemon/src/runtime-skill-hook-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-skill-hook-surface.mjs")
@@ -13226,6 +13226,18 @@ function runBridge() {
       /this\.conversationArtifactApi\.createConversationArtifact/.test(
         runtimeThreadSurfaceDelegatesRetiredTest,
       ) &&
+      /daemon store subagent methods are positive API owners, not surface delegates/.test(
+        runtimeThreadSurfaceDelegatesRetiredTest,
+      ) &&
+      /"listSubagents"[\s\S]*"getSubagent"[\s\S]*"spawnSubagent"[\s\S]*"propagateSubagentCancellation"/.test(
+        runtimeThreadSurfaceDelegatesRetiredTest,
+      ) &&
+      /"waitSubagent"[\s\S]*"sendSubagentInput"[\s\S]*"cancelSubagent"[\s\S]*"resumeSubagent"[\s\S]*"assignSubagent"[\s\S]*"getSubagentResult"/.test(
+        runtimeThreadSurfaceDelegatesRetiredTest,
+      ) &&
+      /this\.subagentApi\.spawnSubagent/.test(
+        runtimeThreadSurfaceDelegatesRetiredTest,
+      ) &&
       !/^\s*(?:appendWorkspaceTrustWarningEvent|applyThreadMcpServerMutation|mcpStatusWithLiveDiscovery|appendThreadMcpControlEvent|mcpServersForContext|appendCodingToolCommandStreamEvents|codingToolApprovalSatisfaction|blockCodingToolForApproval|blockCodingToolForBudget|prepareWorkspaceSnapshotForPatch|materializeWorkspaceSnapshotArtifact|appendWorkspaceSnapshotEvent|workspaceSnapshotContentPackage|materializeWorkspaceRestorePreviewArtifact|materializeWorkspaceRestoreApplyArtifact|appendWorkspaceRestorePreviewEvent|appendWorkspaceRestoreApplyEvent|maybeRunPostEditDiagnostics|pendingDiagnosticsFeedbackForNextTurn|materializeCodingToolArtifactDrafts|materializeVisualGuiObservationArtifacts|readCodingToolArtifact|retrieveCodingToolResult|executeDiagnosticsOperatorOverride|turnForOperatorOverrideEvent|appendDiagnosticsOperatorOverrideEvent|createDiagnosticsRepairRetryTurn|turnForRepairRetryEvent|appendDiagnosticsRepairRetryTurnEvent|resolveDiagnosticsRepairDecision|appendDiagnosticsRepairDecisionExecutedEvent)\(/m.test(
         runtimeDaemonIndex,
       ) &&
@@ -13428,8 +13440,8 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-run-cancellation.mjs",
       "packages/runtime-daemon/src/runtime-run-cancellation.test.mjs",
       "packages/runtime-daemon/src/runtime-thread-auxiliary-surface.mjs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.test.mjs",
@@ -33695,12 +33707,15 @@ function runCompositor() {
   const subagentManagerTest = exists("packages/runtime-daemon/src/subagent-manager.test.mjs")
     ? read("packages/runtime-daemon/src/subagent-manager.test.mjs")
     : "";
-  const runtimeSubagentSurface = exists("packages/runtime-daemon/src/runtime-subagent-surface.mjs")
-    ? read("packages/runtime-daemon/src/runtime-subagent-surface.mjs")
+  const runtimeSubagentSurface = exists("packages/runtime-daemon/src/runtime-subagent-api.mjs")
+    ? read("packages/runtime-daemon/src/runtime-subagent-api.mjs")
     : "";
-  const runtimeSubagentSurfaceTest = exists("packages/runtime-daemon/src/runtime-subagent-surface.test.mjs")
-    ? read("packages/runtime-daemon/src/runtime-subagent-surface.test.mjs")
+  const runtimeSubagentSurfaceTest = exists("packages/runtime-daemon/src/runtime-subagent-api.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-subagent-api.test.mjs")
     : "";
+  const runtimeSubagentRouteSurfaceFileRetired =
+    !exists("packages/runtime-daemon/src/runtime-subagent-surface.mjs") &&
+    !exists("packages/runtime-daemon/src/runtime-subagent-surface.test.mjs");
   const runtimeSubagentListEnvelopeBlock =
     runtimeSubagentSurface.match(
       /listSubagents\(store, threadId, options = \{\}\) \{[\s\S]*?\n    \},\n    getSubagent/,
@@ -38600,8 +38615,8 @@ function runCompositor() {
       ),
     [
       "crates/services/src/agentic/runtime/kernel/policy/thread_lifecycle.rs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.test.mjs",
     ],
     "Phase 10/11 is pending: runtime subagent surface must ignore retired usageTelemetry record input fallback",
   );
@@ -38618,8 +38633,8 @@ function runCompositor() {
         runtimeSubagentSurfaceTest,
       ),
     [
-      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.test.mjs",
     ],
     "Phase 10/11 is pending: runtime subagent records must expose canonical budget_usage_telemetry without duplicate budgetUsageTelemetry",
   );
@@ -38636,8 +38651,8 @@ function runCompositor() {
         runtimeSubagentSurfaceTest,
       ),
     [
-      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.test.mjs",
     ],
     "Phase 10/11 is pending: runtime subagent records must expose canonical usage_telemetry without duplicate usageTelemetry",
   );
@@ -38655,8 +38670,8 @@ function runCompositor() {
         runtimeSubagentSurfaceTest,
       ),
     [
-      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.test.mjs",
     ],
     "Phase 10/11 is pending: runtime subagent record projections must expose canonical snake_case fields without duplicate camelCase aliases",
   );
@@ -38672,8 +38687,8 @@ function runCompositor() {
       /"waitedAt"/.test(runtimeSubagentSurfaceTest) &&
       /"assignedAt"/.test(runtimeSubagentSurfaceTest),
     [
-      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.test.mjs",
     ],
     "Phase 10/11 is pending: runtime subagent lifecycle writes must persist canonical snake_case records without duplicate camelCase aliases",
   );
@@ -38698,40 +38713,54 @@ function runCompositor() {
       /subagent control event append uses Rust control planning and Agentgres event admission/.test(
         runtimeSubagentSurfaceTest,
       ) &&
-      /thread route sends subagent controls through subagent surface/.test(
-        runtimeRouteHandlersTest,
-      ) &&
-      /store\.subagentSurface\.listSubagents\(store,\s*threadId,\s*Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
-        runtimeRouteHandlers,
-      ) &&
-      /store\.subagentSurface\.spawnSubagent\(store,\s*threadId,\s*await readBody\(request\)\)/.test(
-        runtimeRouteHandlers,
-      ) &&
-      /store\.subagentSurface\.propagateSubagentCancellation\(store,\s*threadId,\s*await readBody\(request\)\)/.test(
-        runtimeRouteHandlers,
-      ) &&
-      /store\.subagentSurface\.waitSubagent\(store,\s*threadId,\s*decodeURIComponent\(segments\[4\]\),\s*await readBody\(request\)\)/.test(
-        runtimeRouteHandlers,
-      ) &&
-      /store\.subagentSurface\.sendSubagentInput\(store,\s*threadId,\s*decodeURIComponent\(segments\[4\]\),\s*await readBody\(request\)\)/.test(
-        runtimeRouteHandlers,
-      ) &&
-      /store\.subagentSurface\.cancelSubagent\(store,\s*threadId,\s*decodeURIComponent\(segments\[4\]\),\s*await readBody\(request\)\)/.test(
-        runtimeRouteHandlers,
-      ) &&
-      /store\.subagentSurface\.resumeSubagent\(store,\s*threadId,\s*decodeURIComponent\(segments\[4\]\),\s*await readBody\(request\)\)/.test(
-        runtimeRouteHandlers,
-      ) &&
-      /store\.subagentSurface\.assignSubagent\(store,\s*threadId,\s*decodeURIComponent\(segments\[4\]\),\s*await readBody\(request\)\)/.test(
-        runtimeRouteHandlers,
-      ) &&
-      /store\.subagentSurface\.getSubagentResult\(store,\s*threadId,\s*decodeURIComponent\(segments\[4\]\)\)/.test(
-        runtimeRouteHandlers,
-      ) &&
-      !/^\s*(?:listSubagents|spawnSubagent|waitSubagent|sendSubagentInput|cancelSubagent|propagateSubagentCancellation|resumeSubagent|assignSubagent|getSubagentResult|getSubagent|subagentProjection)\(/m.test(
+      runtimeSubagentRouteSurfaceFileRetired &&
+      /import \{ createRuntimeSubagentApi \} from "\.\/runtime-subagent-api\.mjs";/.test(
         runtimeDaemonIndex,
       ) &&
-      !/^\s*appendThreadSubagentControlEvent\(\{/m.test(runtimeDaemonIndex) &&
+      /this\.subagentApi = createRuntimeSubagentApi\(\{/.test(runtimeDaemonIndex) &&
+      !/createRuntimeSubagentSurface|runtime-subagent-surface|this\.subagentSurface/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /thread route sends subagent controls through store-owned subagent API/.test(
+        runtimeRouteHandlersTest,
+      ) &&
+      /store\.listSubagents\(threadId,\s*Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.spawnSubagent\(threadId,\s*await readBody\(request\)\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.propagateSubagentCancellation\(threadId,\s*await readBody\(request\)\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.waitSubagent\(threadId,\s*decodeURIComponent\(segments\[4\]\),\s*await readBody\(request\)\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.sendSubagentInput\(threadId,\s*decodeURIComponent\(segments\[4\]\),\s*await readBody\(request\)\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.cancelSubagent\(threadId,\s*decodeURIComponent\(segments\[4\]\),\s*await readBody\(request\)\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.resumeSubagent\(threadId,\s*decodeURIComponent\(segments\[4\]\),\s*await readBody\(request\)\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.assignSubagent\(threadId,\s*decodeURIComponent\(segments\[4\]\),\s*await readBody\(request\)\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.getSubagentResult\(threadId,\s*decodeURIComponent\(segments\[4\]\)\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      !/store\.subagentSurface|subagentSurface/.test(runtimeRouteHandlers) &&
+      /listSubagents\(threadId, options = \{\}\)[\s\S]*?return this\.subagentApi\.listSubagents\(this, threadId, options\)/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /spawnSubagent\(threadId, request = \{\}\)[\s\S]*?return this\.subagentApi\.spawnSubagent\(this, threadId, request\)/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /appendThreadSubagentControlEvent\(request = \{\}\)[\s\S]*?return this\.subagentApi\.appendThreadSubagentControlEvent\(this, request\)/.test(
+        runtimeDaemonIndex,
+      ) &&
       /assertRuntimeSubagentControlPlanningMissing/.test(runtimeSubagentSurfaceTest) &&
       /assert\.equal\(store\.agents\.size,\s*baseline\.agents\)/.test(
         runtimeSubagentSurfaceTest,
@@ -38747,8 +38776,8 @@ function runCompositor() {
         runtimeSubagentSurfaceTest,
       ),
     [
-      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.test.mjs",
     ],
     "Phase 10/11 is pending: runtime subagent lifecycle mutation facades must stay retired before JS agent/run/event/subagent truth writes while Rust daemon-core admission is extracted",
   );
@@ -38757,8 +38786,8 @@ function runCompositor() {
     "runtime-subagent-control-legacy-js-bodies-retired",
     runtimeSubagentLifecycleMutationLegacyRemoved,
     [
-      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.test.mjs",
     ],
     "Phase 10/11 is pending: runtime subagent lifecycle mutation bodies must stay deleted from the JS facade after fail-closed Rust daemon-core retirement",
   );
@@ -38815,8 +38844,8 @@ function runCompositor() {
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.test.mjs",
     ],
     "Phase 10/11 is pending: subagent wait lifecycle persistence must be planned by Rust policy core through the typed daemon-core API",
   );
@@ -38831,8 +38860,8 @@ function runCompositor() {
       "crates/services/src/agentic/runtime/kernel/mod.rs",
       "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.test.mjs",
     ],
     "Runtime subagent wait control must be Rust daemon-core planned, Rust Agentgres-admitted as a runtime event, Rust state-planned, and committed through the mounted subagent surface without JS truth mutation fallback",
   );
@@ -38842,8 +38871,8 @@ function runCompositor() {
     runtimeSubagentDirectControlRustOwned,
     [
       "crates/services/src/agentic/runtime/kernel/runtime_subagent_control.rs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.test.mjs",
     ],
     "Runtime subagent assign/cancel controls must use Rust daemon-core control planning, Rust run-cancel where applicable, Rust state planning, and Agentgres-backed subagent commits without JS truth mutation fallback",
   );
@@ -38853,8 +38882,8 @@ function runCompositor() {
     runtimeSubagentDirectControlEventRustOwned,
     [
       "crates/services/src/agentic/runtime/kernel/runtime_subagent_control.rs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.test.mjs",
     ],
     "Runtime subagent direct control-event append must use Rust daemon-core control planning and Rust Agentgres runtime-event admission without JS-authored event fallback or subagent record mutation",
   );
@@ -38865,8 +38894,8 @@ function runCompositor() {
     [
       "crates/services/src/agentic/runtime/kernel/runtime_subagent_control.rs",
       "crates/services/src/agentic/runtime/kernel/policy/thread_lifecycle.rs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.test.mjs",
     ],
     "Runtime subagent cancellation propagation must use Rust daemon-core propagated-cancel planning, Rust run-cancel, Rust state planning, and Agentgres-backed subagent commits without JS truth mutation fallback",
   );
@@ -38876,8 +38905,8 @@ function runCompositor() {
     runtimeSubagentSpawnControlRustOwned,
     [
       "crates/services/src/agentic/runtime/kernel/runtime_subagent_control.rs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.test.mjs",
     ],
     "Runtime subagent spawn must use Rust daemon-core control planning, Rust-owned child agent/run creation, Rust state planning, and Agentgres-backed subagent commits without JS truth mutation fallback",
   );
@@ -38887,8 +38916,8 @@ function runCompositor() {
     runtimeSubagentInputResumeControlRustOwned,
     [
       "crates/services/src/agentic/runtime/kernel/runtime_subagent_control.rs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.test.mjs",
     ],
     "Runtime subagent input/resume controls must use Rust-owned run creation, Rust daemon-core control planning, Rust state planning, and Agentgres-backed subagent commits without JS truth mutation fallback",
   );
@@ -38909,8 +38938,8 @@ function runCompositor() {
       ),
     [
       "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.test.mjs",
     ],
     "Phase 10/11 is pending: subagent spawn persistence must be planned by Rust policy core through the typed daemon-core API",
   );
@@ -38931,8 +38960,8 @@ function runCompositor() {
       ),
     [
       "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.test.mjs",
     ],
     "Phase 10/11 is pending: subagent input lifecycle persistence must be planned by Rust policy core through the typed daemon-core API",
   );
@@ -38953,8 +38982,8 @@ function runCompositor() {
       ),
     [
       "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.test.mjs",
     ],
     "Phase 10/11 is pending: subagent resume lifecycle persistence must be planned by Rust policy core through the typed daemon-core API",
   );
@@ -38978,8 +39007,8 @@ function runCompositor() {
         runtimeSubagentSurfaceTest,
       ),
     [
-      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.test.mjs",
     ],
     "Phase 10/11 is pending: subagent-created run model-route payloads must use canonical route_id before route selection",
   );
@@ -39000,8 +39029,8 @@ function runCompositor() {
       ),
     [
       "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.test.mjs",
     ],
     "Phase 10/11 is pending: subagent assignment persistence must be planned by Rust policy core through the typed daemon-core API",
   );
@@ -39022,8 +39051,8 @@ function runCompositor() {
       ),
     [
       "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.test.mjs",
     ],
     "Phase 10/11 is pending: subagent cancellation persistence must be planned by Rust policy core through the typed daemon-core API",
   );
@@ -39039,8 +39068,8 @@ function runCompositor() {
       "packages/runtime-daemon/src/index.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.test.mjs",
     ],
     "Runtime subagent list/get/result projections must be Rust daemon-core projected through the mounted subagent surface and must fail closed before JS subagent/run map readback when Rust projection is missing",
   );
@@ -39064,8 +39093,8 @@ function runCompositor() {
         runtimeSubagentSurfaceTest,
       ),
     [
-      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.test.mjs",
     ],
     "Phase 10/11 is pending: runtime subagent list projection must either fail closed at the Rust daemon-core boundary or expose only canonical snake_case fields while propagation mutation facades stay retired",
   );
@@ -39082,8 +39111,8 @@ function runCompositor() {
       ) &&
       /subagentRole: "worker"/.test(runtimeSubagentSurfaceTest),
     [
-      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.test.mjs",
     ],
     "Phase 10/11 is pending: runtime subagent list filters must either fail closed at the Rust daemon-core boundary or ignore retired camelCase request aliases",
   );
@@ -39107,8 +39136,8 @@ function runCompositor() {
         runtimeSubagentSurfaceTest,
       ),
     [
-      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.test.mjs",
     ],
     "Phase 10/11 is pending: runtime subagent list/get read paths must either fail closed at the Rust daemon-core boundary or ignore retired camelCase persisted record aliases",
   );
@@ -39130,8 +39159,8 @@ function runCompositor() {
         runtimeSubagentSurfaceTest,
       ),
     [
-      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.test.mjs",
     ],
     "Phase 10/11 is pending: runtime subagent cancellation propagation must ignore retired camelCase persisted record aliases",
   );
@@ -39150,8 +39179,8 @@ function runCompositor() {
         runtimeSubagentSurfaceTest,
       ),
     [
-      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.test.mjs",
     ],
     "Phase 10/11 is pending: runtime subagent cancellation propagation must ignore retired camelCase request aliases",
   );
@@ -39171,8 +39200,8 @@ function runCompositor() {
       /outputContract: \["MISSING_SECTION"\]/.test(runtimeSubagentSurfaceTest) &&
       /lifecycleStatus: "blocked"/.test(runtimeSubagentSurfaceTest),
     [
-      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.test.mjs",
     ],
     "Phase 10/11 is pending: runtime subagent wait/result reads must ignore retired camelCase persisted record aliases",
   );
@@ -39204,8 +39233,8 @@ function runCompositor() {
         runtimeSubagentSurfaceTest,
       ),
     [
-      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.test.mjs",
     ],
     "Phase 10/11 is pending: runtime subagent spawn must ignore retired camelCase request aliases",
   );
@@ -39229,8 +39258,8 @@ function runCompositor() {
       /previousRunIds: \["run_alias"\]/.test(runtimeSubagentSurfaceTest) &&
       /evidenceRefs: \["evidence_alias"\]/.test(runtimeSubagentSurfaceTest),
     [
-      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.test.mjs",
     ],
     "Phase 10/11 is pending: runtime subagent send-input lifecycle must ignore retired camelCase persisted record aliases",
   );
@@ -39255,8 +39284,8 @@ function runCompositor() {
       /workflowGraphId: "graph_input_alias"/.test(runtimeSubagentSurfaceTest) &&
       /workflowNodeId: "node_input_alias"/.test(runtimeSubagentSurfaceTest),
     [
-      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.test.mjs",
     ],
     "Phase 10/11 is pending: runtime subagent send-input lifecycle must ignore retired camelCase request aliases",
   );
@@ -39286,8 +39315,8 @@ function runCompositor() {
       /previousRunIds: \["run_alias"\]/.test(runtimeSubagentSurfaceTest) &&
       /evidenceRefs: \["evidence_resume_alias"\]/.test(runtimeSubagentSurfaceTest),
     [
-      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.test.mjs",
     ],
     "Phase 10/11 is pending: runtime subagent resume lifecycle must ignore retired camelCase persisted record aliases",
   );
@@ -39332,8 +39361,8 @@ function runCompositor() {
       /workflowGraphId: "graph_resume_alias"/.test(runtimeSubagentSurfaceTest) &&
       /workflowNodeId: "node_resume_alias"/.test(runtimeSubagentSurfaceTest),
     [
-      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.test.mjs",
     ],
     "Phase 10/11 is pending: runtime subagent resume lifecycle must ignore retired camelCase request aliases",
   );
@@ -39351,8 +39380,8 @@ function runCompositor() {
         runtimeSubagentSurfaceTest,
       ),
     [
-      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.test.mjs",
     ],
     "Phase 10/11 is pending: runtime subagent send/resume budget lookup must ignore retired persisted request-budget aliases",
   );
@@ -39380,8 +39409,8 @@ function runCompositor() {
       /outputContract: \["MISSING_SECTION"\]/.test(runtimeSubagentSurfaceTest) &&
       /evidenceRefs: \["evidence_assign_alias"\]/.test(runtimeSubagentSurfaceTest),
     [
-      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.test.mjs",
     ],
     "Phase 10/11 is pending: runtime subagent assign lifecycle must ignore retired camelCase persisted record aliases",
   );
@@ -39412,8 +39441,8 @@ function runCompositor() {
       /workflowGraphId: "graph_assign_alias"/.test(runtimeSubagentSurfaceTest) &&
       /workflowNodeId: "node_assign_alias"/.test(runtimeSubagentSurfaceTest),
     [
-      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.test.mjs",
     ],
     "Phase 10/11 is pending: runtime subagent assign lifecycle must ignore retired camelCase request aliases",
   );
@@ -39442,8 +39471,8 @@ function runCompositor() {
       /operation_kind,\s*"subagent\.resume"/.test(runtimeSubagentSurfaceTest) &&
       /operation_kind,\s*"subagent\.assign"/.test(runtimeSubagentSurfaceTest),
     [
-      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.test.mjs",
     ],
     "Phase 10/11 is pending: runtime subagent lifecycle operations must not use the route subagent id as a fallback execution agent identity",
   );
@@ -39463,8 +39492,8 @@ function runCompositor() {
       /outputContract: \["MISSING_SECTION"\]/.test(runtimeSubagentSurfaceTest) &&
       /evidenceRefs: \["evidence_cancel_alias"\]/.test(runtimeSubagentSurfaceTest),
     [
-      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.test.mjs",
     ],
     "Phase 10/11 is pending: runtime subagent cancel lifecycle must ignore retired camelCase persisted record aliases",
   );
@@ -39484,8 +39513,8 @@ function runCompositor() {
       /cancellationInherited: true/.test(runtimeSubagentSurfaceTest) &&
       /propagatedFromThreadId: "thread_alias"/.test(runtimeSubagentSurfaceTest),
     [
-      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.test.mjs",
     ],
     "Phase 10/11 is pending: runtime subagent cancel lifecycle must ignore retired camelCase request aliases",
   );
@@ -39524,8 +39553,8 @@ function runCompositor() {
         runtimeSubagentSurfaceTest,
       ),
     [
-      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.test.mjs",
     ],
     "Phase 10/11 is pending: runtime subagent nested helper objects must expose canonical snake_case fields without duplicate camelCase aliases",
   );
@@ -39550,8 +39579,8 @@ function runCompositor() {
         runtimeSubagentSurfaceTest,
       ),
     [
-      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.test.mjs",
     ],
     "Phase 10/11 is pending: runtime subagent error details must expose canonical snake_case fields without duplicate camelCase aliases",
   );
@@ -39577,8 +39606,8 @@ function runCompositor() {
         ) ?? []
       ).length >= 3,
     [
-      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.test.mjs",
     ],
     "Phase 10/11 is pending: runtime subagent lifecycle result envelopes must expose canonical receipt_refs without duplicate receiptRefs aliases",
   );
@@ -39599,8 +39628,8 @@ function runCompositor() {
         ) ?? []
       ).length >= 6,
     [
-      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.test.mjs",
     ],
     "Phase 10/11 is pending: runtime subagent post-spawn lifecycle staging records must be canonical before event construction and write filtering",
   );
@@ -39621,8 +39650,8 @@ function runCompositor() {
         ) ?? []
       ).length >= 2,
     [
-      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.test.mjs",
     ],
     "Phase 10/11 is pending: runtime subagent spawn staging records must be canonical before event construction and write filtering",
   );
@@ -39643,8 +39672,8 @@ function runCompositor() {
         runtimeSubagentSurfaceTest,
       ),
     [
-      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.test.mjs",
     ],
     "Phase 10/11 is pending: runtime subagent control event construction must ignore retired camelCase record aliases",
   );
@@ -39665,8 +39694,8 @@ function runCompositor() {
       /policyDecisionRefs: \["policy_alias"\]/.test(runtimeSubagentSurfaceTest) &&
       /idempotencyKey: "idempotency_alias"/.test(runtimeSubagentSurfaceTest),
     [
-      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
-      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-api.test.mjs",
     ],
     "Phase 10/11 is pending: runtime subagent control event construction must ignore retired camelCase request aliases",
   );
