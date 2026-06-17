@@ -78,6 +78,12 @@ const runtimeHarnessPublicSmokeTaskSource = read(
 const runtimeHarnessPublicSmokeTaskTestSource = read(
   "packages/runtime-daemon/src/runtime-harness-public-smoke-task.test.mjs",
 );
+const runtimeModelWeightCustodyAdmissionSource = read(
+  "packages/runtime-daemon/src/runtime-model-weight-custody-admission.mjs",
+);
+const runtimeModelWeightCustodyAdmissionTestSource = read(
+  "packages/runtime-daemon/src/runtime-model-weight-custody-admission.test.mjs",
+);
 const hypervisorActivityBarSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/components/ChatLocalActivityBar.tsx",
 );
@@ -525,6 +531,49 @@ assert(
     "packages/runtime-daemon/src/runtime-harness-container-lane.test.mjs",
   ],
   "Harness container lanes must be daemon-planned Docker/Podman contracts with image, argv hash, mounts, network policy, exit status, and private-mount/secret guards.",
+);
+assert(
+  "hypervisor-model-weight-custody-admission",
+  runtimeModelWeightCustodyAdmissionSource.includes(
+    "ioi.runtime.model_weight_custody_admission.v1",
+  ) &&
+    runtimeModelWeightCustodyAdmissionSource.includes(
+      "admitModelWeightCustodyRoute",
+    ) &&
+    runtimeModelWeightCustodyAdmissionSource.includes("public_open_weight") &&
+    runtimeModelWeightCustodyAdmissionSource.includes("remote_api_private_weight") &&
+    runtimeModelWeightCustodyAdmissionSource.includes(
+      "tee_or_customer_cloud_mount",
+    ) &&
+    runtimeModelWeightCustodyAdmissionSource.includes(
+      "provider_trust_remote_mount",
+    ) &&
+    runtimeModelWeightCustodyAdmissionSource.includes(
+      "forbidden_plaintext_mount",
+    ) &&
+    runtimeModelWeightCustodyAdmissionSource.includes(
+      "model_weight_custody_plaintext_private_weight_blocked",
+    ) &&
+    runtimeModelWeightCustodyAdmissionSource.includes(
+      "model_weight_custody_private_native_claim_invalid",
+    ) &&
+    runtimeModelWeightCustodyAdmissionSource.includes(
+      'runtimeTruthSource: "daemon-runtime"',
+    ) &&
+    runtimeModelWeightCustodyAdmissionTestSource.includes(
+      "blocks private weights readable by remote root",
+    ) &&
+    runtimeModelWeightCustodyAdmissionTestSource.includes(
+      "provider-trust mounts require disclosure",
+    ) &&
+    runtimeModelWeightCustodyAdmissionTestSource.includes(
+      "TEE or customer-cloud model-weight mounts require attestation",
+    ),
+  [
+    "packages/runtime-daemon/src/runtime-model-weight-custody-admission.mjs",
+    "packages/runtime-daemon/src/runtime-model-weight-custody-admission.test.mjs",
+  ],
+  "Model-weight custody admission must block unsafe private-weight plaintext mounts, separate remote API/TEE/provider-trust lanes, and keep daemon runtime truth.",
 );
 assert(
   "hypervisor-new-session-model-route-compatibility",

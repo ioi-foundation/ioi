@@ -1614,11 +1614,24 @@ authority UI semantics.
 
 | Field | Detail |
 | --- | --- |
-| Status | Canonized as `ModelWeightCustodyProfile` on 2026-06-17; admission-policy implementation remains. |
+| Status | Canonized as `ModelWeightCustodyProfile` on 2026-06-17; first daemon-side model-weight custody admission contract implemented and guarded. Live model-router route integration remains follow-up hardening. |
 | Files | `private-workspace-ctee.md`, `runtime-nodes-tee-depin.md`, `model-router/doctrine.md`, model-mount API docs |
 | Change | Distinguish workspace privacy, model-input privacy, model-output privacy, and model-weight custody. |
 | Acceptance | A rented 3090 path cannot be presented as safe for proprietary weights unless TEE/customer/local custody applies. |
-| Verify | `rg -n "ModelWeightCustodyProfile|forbidden_plaintext_mount|tee_or_customer_cloud_mount|proprietary model weights" docs/architecture` |
+| Verify | `node --test packages/runtime-daemon/src/runtime-model-weight-custody-admission.test.mjs`; `npm run check:runtime-layout`; `rg -n "ModelWeightCustodyProfile|forbidden_plaintext_mount|tee_or_customer_cloud_mount|proprietary model weights" docs/architecture packages/runtime-daemon/src` |
+
+Current hardening slice:
+
+```text
+`runtime-model-weight-custody-admission.mjs` adds a daemon-side
+`ModelWeightCustodyAdmission` contract. It admits public/open, local,
+remote-API, TEE/customer-cloud, and explicit provider-trust lanes only when the
+required controls, scopes, disclosures, attestation/customer boundary, or trust
+acceptance refs are present. It fails closed for forbidden plaintext mounts,
+private weights readable by remote provider root, and provider-readable routes
+that try to claim `private_native`. `check:runtime-layout` guards the contract
+so cTEE workspace privacy cannot be confused with model-weight secrecy.
+```
 
 ### Phase 5: Harden Managed Instance Lifecycle
 
