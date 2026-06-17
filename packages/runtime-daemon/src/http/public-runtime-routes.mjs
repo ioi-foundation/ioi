@@ -144,6 +144,29 @@ export function createPublicRuntimeRequestHandler(deps) {
         );
         return;
       }
+      if (request.method === "GET" && url.pathname === "/v1/hypervisor/project-state") {
+        const routeContextPolicyCore = requiredPublicRuntimeContextPolicyCore(
+          contextPolicyCore,
+          "runtime.lifecycle_projection.hypervisor_project_state",
+        );
+        const projected = routeContextPolicyCore.projectRuntimeLifecycle({
+          operation: "hypervisor_project_state_projection",
+          operation_kind: "runtime.lifecycle_projection.hypervisor_project_state",
+          projection_kind: "hypervisor_project_state",
+          base_url: baseUrlForRequest(request),
+          workspace_root: store.defaultCwd,
+          state_dir: store.stateDir,
+          home_dir: store.homeDir,
+          runtime_schema_version: store.schemaVersion,
+          project_id: optionalString(url.searchParams.get("project_id")),
+          source: "public_runtime_routes./v1/hypervisor/project-state",
+        });
+        writeJsonResponse(
+          response,
+          projected.projection ?? projected.record?.projection ?? projected,
+        );
+        return;
+      }
       if (request.method === "GET" && url.pathname === "/v1/computer-use/browser-discovery") {
         const routeContextPolicyCore = requiredPublicRuntimeContextPolicyCore(
           contextPolicyCore,

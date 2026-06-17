@@ -284,6 +284,90 @@ test("public runtime routes dispatch Hypervisor session operations through lifec
   ]);
 });
 
+test("public runtime routes dispatch Hypervisor project state through lifecycle projection", async () => {
+  const { handleRequest } = routeHarness();
+  const response = responseRecorder();
+  const calls = [];
+  const projectStateProjection = {
+    schema_version: "ioi.hypervisor.project_state_projection.v1",
+    projection_id: "project-state:daemon/test",
+    source: "daemon-project-state-projection",
+    selected_project_id: "project:ioi",
+    records: [
+      {
+        project_id: "project:ioi",
+        name: "IOI",
+        description: "Runtime project",
+        environment: "local",
+        root_path: "/workspace",
+        workspace_ref: "workspace://ioi",
+        current_session_ref: "session:test",
+        environment_ref: "environment:test",
+        provider_candidate_ref: "provider:local",
+        adapter_preference_ref: "workbench-adapter:test",
+        custody_posture: "local_private",
+        restore_state: "active",
+        agentgres_object_head_ref: "agentgres://object-head/project:ioi",
+        state_root_ref: "agentgres://state-root/project:ioi",
+        artifact_refs: ["artifact://project/ioi/workspace-summary"],
+        archive_ref: "artifact://agentgres/archive/ioi/latest",
+        restore_ref: "agentgres://restore/ioi/latest",
+        latest_receipt_refs: ["receipt://project/ioi/state"],
+      },
+    ],
+    project_boundary_invariant:
+      "Project state is an admitted Agentgres projection, not client truth.",
+    runtimeTruthSource: "daemon-runtime",
+  };
+  const contextPolicyCore = {
+    projectRuntimeLifecycle(request) {
+      calls.push({ method: "projectRuntimeLifecycle", request });
+      return {
+        projection: projectStateProjection,
+        record: {
+          operation_kind: "runtime.lifecycle_projection.hypervisor_project_state",
+          projection_kind: "hypervisor_project_state",
+          projection: projectStateProjection,
+        },
+      };
+    },
+  };
+  const store = {
+    defaultCwd: "/workspace",
+    homeDir: "/home/operator",
+    schemaVersion: "ioi.agentgres.runtime.v0",
+    stateDir: "/state",
+    projectRuntimeLifecycleProjection: retiredRouteWrapper,
+  };
+
+  await handleRequest({
+    request: request({ url: "/v1/hypervisor/project-state?project_id=project:ioi" }),
+    response,
+    store,
+    contextPolicyCore,
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(JSON.parse(response.body), projectStateProjection);
+  assert.deepEqual(calls, [
+    {
+      method: "projectRuntimeLifecycle",
+      request: {
+        operation: "hypervisor_project_state_projection",
+        operation_kind: "runtime.lifecycle_projection.hypervisor_project_state",
+        projection_kind: "hypervisor_project_state",
+        base_url: "http://daemon.test",
+        workspace_root: "/workspace",
+        state_dir: "/state",
+        home_dir: "/home/operator",
+        runtime_schema_version: "ioi.agentgres.runtime.v0",
+        project_id: "project:ioi",
+        source: "public_runtime_routes./v1/hypervisor/project-state",
+      },
+    },
+  ]);
+});
+
 test("public runtime computer-use routes dispatch through Rust daemon-core projection", async () => {
   const { handleRequest } = routeHarness();
   const calls = [];

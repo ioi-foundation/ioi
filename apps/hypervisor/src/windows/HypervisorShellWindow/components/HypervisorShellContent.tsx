@@ -31,7 +31,10 @@ import { materializeWorkflowProject } from "../../../services/workflowProjectMat
 import type { PrimaryView } from "../hypervisorShellModel";
 import { HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE } from "../harnessAdapterModel";
 import { HYPERVISOR_PRIVACY_POSTURE_PROJECTION_FIXTURE } from "../hypervisorPrivacyPostureModel";
-import { HYPERVISOR_PROJECT_STATE_PROJECTION_FIXTURE } from "../hypervisorProjectStateModel";
+import {
+  HYPERVISOR_PROJECT_STATE_PROJECTION_FIXTURE,
+  loadHypervisorProjectStateProjection,
+} from "../hypervisorProjectStateModel";
 import { HYPERVISOR_PROVIDER_PLACEMENT_PROJECTION_FIXTURE } from "../hypervisorProviderPlacementModel";
 import { HYPERVISOR_RECEIPT_EVIDENCE_PROJECTION_FIXTURE } from "../hypervisorReceiptEvidenceModel";
 import {
@@ -362,12 +365,35 @@ function HypervisorProjectStateSurface({
 }: {
   selectedProjectId: string;
 }) {
-  const projection = HYPERVISOR_PROJECT_STATE_PROJECTION_FIXTURE;
+  const [projection, setProjection] = useState(
+    HYPERVISOR_PROJECT_STATE_PROJECTION_FIXTURE,
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    loadHypervisorProjectStateProjection({ projectId: selectedProjectId })
+      .then((nextProjection) => {
+        if (!cancelled) {
+          setProjection(nextProjection);
+        }
+      })
+      .catch((error) => {
+        console.warn(
+          "[Hypervisor][Projects] state projection unavailable",
+          error,
+        );
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedProjectId]);
+
   return (
     <section
       className="hypervisor-project-state"
       aria-label="Project state surface"
       data-hypervisor-project-state={projection.projection_id}
+      data-project-state-source={projection.source}
       data-runtime-truth-source={projection.runtimeTruthSource}
     >
       <div className="hypervisor-project-state__header">

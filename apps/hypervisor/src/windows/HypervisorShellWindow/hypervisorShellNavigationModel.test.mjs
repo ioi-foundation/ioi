@@ -303,6 +303,9 @@ test("Sessions surface renders session tabs and operations inspectors from daemo
 test("Projects surface renders workspace, restore, artifact, and state-root projection", () => {
   assert.match(projectStateModel, /HypervisorProjectStateProjection/);
   assert.match(projectStateModel, /HYPERVISOR_PROJECT_STATE_PROJECTION_FIXTURE/);
+  assert.match(projectStateModel, /HYPERVISOR_PROJECT_STATE_PROJECTION_PATH/);
+  assert.match(projectStateModel, /loadHypervisorProjectStateProjection/);
+  assert.match(projectStateModel, /normalizeHypervisorProjectStateProjection/);
   assert.match(projectStateModel, /agentgres_object_head_ref/);
   assert.match(projectStateModel, /state_root_ref/);
   assert.match(projectStateModel, /artifact_refs/);
@@ -311,7 +314,10 @@ test("Projects surface renders workspace, restore, artifact, and state-root proj
   assert.match(projectStateModel, /Agentgres admits project truth/);
   assert.match(projectStateModel, /storage backends only hold bytes/);
   assert.match(shellContent, /HypervisorProjectStateSurface/);
+  assert.match(shellContent, /loadHypervisorProjectStateProjection/);
+  assert.match(shellContent, /\[Hypervisor\]\[Projects\] state projection unavailable/);
   assert.match(shellContent, /data-hypervisor-project-state/);
+  assert.match(shellContent, /data-project-state-source/);
   assert.match(shellContent, /data-project-state-record/);
   assert.match(shellContent, /data-project-restore-state/);
   assert.match(shellContent, /data-project-custody-posture/);

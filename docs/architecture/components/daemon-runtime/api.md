@@ -153,6 +153,64 @@ leases, and restore/archive refs. The client may inspect this state, but any
 state transition still requires a daemon operation, wallet.network authority
 where relevant, and Agentgres admission/receipt linkage.
 
+```http
+GET /v1/hypervisor/project-state
+```
+
+`GET /v1/hypervisor/project-state` dispatches through the daemon runtime
+lifecycle projection boundary with:
+
+```text
+operation_kind = runtime.lifecycle_projection.hypervisor_project_state
+projection_kind = hypervisor_project_state
+```
+
+Optional query params:
+
+```text
+project_id
+```
+
+The response is an `ioi.hypervisor.project_state_projection.v1` projection:
+
+```json
+{
+  "schema_version": "ioi.hypervisor.project_state_projection.v1",
+  "projection_id": "project-state:...",
+  "source": "daemon-project-state-projection",
+  "selected_project_id": "project:...",
+  "records": [
+    {
+      "project_id": "project:...",
+      "name": "Project",
+      "description": "Workspace scope",
+      "environment": "local",
+      "root_path": "/workspace",
+      "workspace_ref": "workspace://...",
+      "current_session_ref": "session:...",
+      "environment_ref": "environment:...",
+      "provider_candidate_ref": "provider-candidate:...",
+      "adapter_preference_ref": "workbench-adapter:...",
+      "custody_posture": "local_private",
+      "restore_state": "active",
+      "agentgres_object_head_ref": "agentgres://object-head/...",
+      "state_root_ref": "agentgres://state-root/...",
+      "artifact_refs": ["artifact://..."],
+      "archive_ref": "artifact://agentgres/archive/...",
+      "restore_ref": "agentgres://restore/...",
+      "latest_receipt_refs": ["receipt://..."]
+    }
+  ],
+  "project_boundary_invariant": "Projects group workspace refs, sessions, adapter preferences, artifact refs, archive refs, restore refs, state roots, and receipts. Hypervisor clients inspect project state; Agentgres admits project truth and storage backends only hold bytes.",
+  "runtimeTruthSource": "daemon-runtime"
+}
+```
+
+Project state projections may reference encrypted archives and storage-backed
+payloads, but those refs are restore material only. Restore validity and live
+project truth remain Agentgres-admitted facts backed by daemon operations and
+receipt linkage.
+
 ### Runtime Manifest
 
 ```json

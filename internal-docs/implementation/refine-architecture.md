@@ -1055,8 +1055,13 @@ Current implementation cut:
 
 0A.2 remaining visual implementation:
   Home still needs to become the full IOI-reference cockpit view
-  the secondary project rail still needs deeper live project/session projection
-  wiring
+  the secondary project rail now has a normalized
+  `ioi.hypervisor.project_state_projection.v1` loader and
+  `/v1/hypervisor/project-state` public runtime route dispatching through
+  `projectRuntimeLifecycle` with
+  `runtime.lifecycle_projection.hypervisor_project_state`. Remaining work is
+  deeper interactive project/session actions and broader non-fixture data
+  coverage.
   the main canvas now has a first read-only Sessions operations cockpit backed
   by `HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE`; Home now has a
   normalized `ioi.hypervisor.home_cockpit_projection.v1` loader and renders its
@@ -1073,6 +1078,9 @@ Current implementation cut:
   `runtime.lifecycle_projection.hypervisor_session_operations`. The route
   returns only the client projection body and preserves explicit
   fixture-vs-daemon source markers.
+  Projects now preserves the same fixture-vs-daemon source marker while
+  carrying workspace refs, adapter preference refs, Agentgres object heads,
+  state roots, artifact refs, archive refs, restore refs, and receipt refs.
   right and bottom inspectors now render the first session operations panels
   for changes/authority/privacy/receipts/model-provider and
   ports/services/tasks/terminal/logs shape; remaining work is interactive

@@ -117,6 +117,9 @@ const hypervisorHomeCockpitModelSource = read(
 const hypervisorSessionOperationsModelSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorSessionOperationsModel.ts",
 );
+const hypervisorProjectStateModelSource = read(
+  "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorProjectStateModel.ts",
+);
 const workspaceRepositoryGateSource = read(
   "apps/hypervisor/src/surfaces/Workspace/WorkspaceRepositoryGate.tsx",
 );
@@ -831,6 +834,46 @@ assert(
     "docs/architecture/components/daemon-runtime/api.md",
   ],
   "Hypervisor Sessions should hydrate session rails, detail tabs, inspectors, leases, services, tasks, terminal events, and restore refs through the daemon/public runtime route with fixture fallback.",
+);
+assert(
+  "hypervisor-project-state-live-projection",
+  hypervisorProjectStateModelSource.includes(
+    "HYPERVISOR_PROJECT_STATE_PROJECTION_PATH",
+  ) &&
+    hypervisorProjectStateModelSource.includes(
+      "normalizeHypervisorProjectStateProjection",
+    ) &&
+    hypervisorProjectStateModelSource.includes(
+      "loadHypervisorProjectStateProjection",
+    ) &&
+    hypervisorProjectStateModelSource.includes(
+      "ioi.hypervisor.project_state_projection.v1",
+    ) &&
+    hypervisorProjectStateModelSource.includes("agentgres_object_head_ref") &&
+    hypervisorProjectStateModelSource.includes("state_root_ref") &&
+    hypervisorShellContentSource.includes(
+      "loadHypervisorProjectStateProjection",
+    ) &&
+    hypervisorShellContentSource.includes("data-project-state-source") &&
+    publicRuntimeRoutesSource.includes("/v1/hypervisor/project-state") &&
+    publicRuntimeRoutesSource.includes(
+      "runtime.lifecycle_projection.hypervisor_project_state",
+    ) &&
+    publicRuntimeRoutesSource.includes("projectRuntimeLifecycle") &&
+    publicRuntimeRoutesTestSource.includes(
+      "dispatch Hypervisor project state through lifecycle projection",
+    ) &&
+    daemonRuntimeApiDoc.includes("GET /v1/hypervisor/project-state") &&
+    daemonRuntimeApiDoc.includes(
+      "runtime.lifecycle_projection.hypervisor_project_state",
+    ),
+  [
+    "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorProjectStateModel.ts",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorShellContent.tsx",
+    "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
+    "docs/architecture/components/daemon-runtime/api.md",
+  ],
+  "Hypervisor Projects should hydrate workspace refs, adapter preferences, Agentgres object heads, state roots, artifact refs, archive refs, restore refs, and receipts through the daemon/public runtime route with fixture fallback.",
 );
 assert(
   "contract-family-modules",
