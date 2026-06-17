@@ -998,10 +998,7 @@ export function HomeView({
     () => new Set(state.completedStepIds),
     [state.completedStepIds],
   );
-  const allStepsComplete = visibleOnboardingSteps.every((step) =>
-    completedSet.has(step.id),
-  );
-  const showDashboard = allStepsComplete && !reviewingCompletedSetup;
+  const showDashboard = !reviewingCompletedSetup;
   const percentComplete = completionPercent(
     state.completedStepIds,
     visibleOnboardingSteps,

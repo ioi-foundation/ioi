@@ -63,6 +63,8 @@ test("home onboarding uses Hypervisor and Workbench adapter language", () => {
 });
 
 test("home dashboard exposes the New Session setup contract", () => {
+  assert.match(homeView, /const showDashboard = !reviewingCompletedSetup;/);
+  assert.doesNotMatch(homeView, /const showDashboard = allStepsComplete && !reviewingCompletedSetup;/);
   assert.match(homeView, /HYPERVISOR_NEW_SESSION_SETUP_MODEL/);
   assert.match(homeView, /data-home-intent-composer="ioi-reference-primary"/);
   assert.match(homeView, /What do you want to get done today\?/);
