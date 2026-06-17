@@ -1,4 +1,5 @@
 import clsx from "clsx";
+import { EnvironmentEstateView } from "@ioi/hypervisor-workbench";
 import { useEffect, useState } from "react";
 
 import { buildConnectorPolicySummary } from "../../../surfaces/Policy";
@@ -29,6 +30,7 @@ import { buildOperatorCommandCenterModel } from "../operatorSubstrateModel";
 import { materializeWorkflowProject } from "../../../services/workflowProjectMaterialization";
 import type { PrimaryView } from "../hypervisorShellModel";
 import { HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE } from "../harnessAdapterModel";
+import { HYPERVISOR_PROVIDER_PLACEMENT_PROJECTION_FIXTURE } from "../hypervisorProviderPlacementModel";
 import { HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE } from "../hypervisorSessionOperationsModel";
 
 interface HypervisorShellContentProps {
@@ -340,6 +342,97 @@ function HypervisorSessionOperationsCockpit() {
   );
 }
 
+function HypervisorProviderPlacementDashboard() {
+  const projection = HYPERVISOR_PROVIDER_PLACEMENT_PROJECTION_FIXTURE;
+  return (
+    <section
+      className="hypervisor-provider-placement"
+      aria-label="Provider placement dashboard"
+      data-hypervisor-provider-placement={projection.projection_id}
+      data-runtime-truth-source={projection.runtimeTruthSource}
+    >
+      <div className="hypervisor-provider-placement__header">
+        <span>Providers</span>
+        <h2>Direct provider integrations for governed sessions.</h2>
+        <p>{projection.anti_gateway_invariant}</p>
+      </div>
+
+      <div className="hypervisor-provider-placement__grid">
+        {projection.candidates.map((candidate) => (
+          <article
+            key={candidate.candidate_ref}
+            className="hypervisor-provider-placement__card"
+            data-provider-placement-candidate={candidate.candidate_ref}
+            data-provider-privacy-posture={candidate.privacy_posture}
+          >
+            <div>
+              <span>{candidate.integration_kind.split("_").join(" ")}</span>
+              <h3>{candidate.label}</h3>
+              <p>{candidate.workload_fit}</p>
+            </div>
+            <dl>
+              <div>
+                <dt>Provider</dt>
+                <dd>{candidate.direct_provider_ref}</dd>
+              </div>
+              <div>
+                <dt>Privacy</dt>
+                <dd>{candidate.privacy_posture.split("_").join(" ")}</dd>
+              </div>
+              <div>
+                <dt>Authority</dt>
+                <dd>{candidate.wallet_authority_scope_refs.join(", ")}</dd>
+              </div>
+              <div>
+                <dt>Receipt</dt>
+                <dd>{candidate.agentgres_receipt_ref}</dd>
+              </div>
+              <div>
+                <dt>Storage</dt>
+                <dd>{candidate.storage_policy_ref}</dd>
+              </div>
+              <div>
+                <dt>Restore</dt>
+                <dd>{candidate.restore_policy_ref}</dd>
+              </div>
+            </dl>
+            <div className="hypervisor-provider-placement__risks" aria-label="Provider risk labels">
+              {candidate.risk_labels.map((riskLabel) => (
+                <span key={riskLabel}>{riskLabel}</span>
+              ))}
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function HypervisorEnvironmentEstateSurface({
+  runtime,
+}: {
+  runtime: HypervisorClientRuntime;
+}) {
+  return (
+    <section
+      className="hypervisor-environment-estate-surface"
+      aria-label="Environment estate surface"
+      data-hypervisor-environment-estate="runtime-view"
+    >
+      <div className="hypervisor-environment-estate-surface__header">
+        <span>Environments</span>
+        <h2>Managed sessions, ports, services, tasks, and restore posture.</h2>
+        <p>
+          This view reads the live environment estate through Hypervisor Core.
+          Provider resources are execution placements, while wallet.network
+          authorizes spend and Agentgres records lifecycle and restore truth.
+        </p>
+      </div>
+      <EnvironmentEstateView runtime={runtime} />
+    </section>
+  );
+}
+
 export function HypervisorShellContent({
   controller,
   runtime,
@@ -572,6 +665,14 @@ export function HypervisorShellContent({
                     <HypervisorHarnessComparisonDashboard />
                   ) : null}
 
+                  {activeView === "providers" ? (
+                    <HypervisorProviderPlacementDashboard />
+                  ) : null}
+
+                  {activeView === "environments" ? (
+                    <HypervisorEnvironmentEstateSurface runtime={runtime} />
+                  ) : null}
+
                   {activeView === "missions" ? (
                     <InboxView
                       onOpenHypervisor={() => {
@@ -687,7 +788,10 @@ export function HypervisorShellContent({
                     />
                   ) : null}
 
-                  {isPlaceholderSurface(activeView) && activeView !== "foundry" ? (
+                  {isPlaceholderSurface(activeView) &&
+                  activeView !== "foundry" &&
+                  activeView !== "providers" &&
+                  activeView !== "environments" ? (
                     <HypervisorSurfacePlaceholder activeView={activeView} />
                   ) : null}
                 </div>

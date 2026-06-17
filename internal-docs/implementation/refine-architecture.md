@@ -1104,6 +1104,23 @@ Current implementation cut:
   Focused model and shell source tests guard the tab/inspector arrays, lease
   refs, restore refs, port/service rows, task rows, terminal events, and
   `runtimeTruthSource: "daemon-runtime"` boundary.
+
+0A.9 first provider/environment surface cut is implemented:
+  `hypervisorProviderPlacementModel.ts` defines
+  `HypervisorProviderPlacementProjection` with direct provider candidates for
+  local custody, customer/confidential cloud, Akash-style DePIN GPU, Filecoin
+  encrypted archive storage, and generic GPU markets. Each candidate carries
+  provider refs, privacy posture, wallet authority scopes, Agentgres receipt
+  refs, storage policy refs, restore policy refs, and risk labels. The fixture
+  explicitly says route catalogs may suggest candidates, but wallet.network
+  authorizes spend/secret release and Agentgres records admitted truth.
+  `HypervisorShellContent` now renders a Providers dashboard from that
+  projection and mounts the live `EnvironmentEstateView` under the Environments
+  surface. Providers/Environments therefore move beyond placeholders without
+  recreating Fleet or treating a future cloud router as mandatory.
+  Remaining work is live provider-placement hydration, provider action buttons
+  mediated through wallet leases, and zero-to-idle/archive/restore operations
+  backed by daemon and Agentgres APIs.
 ```
 
 Code migration posture:

@@ -38,6 +38,10 @@ const sessionOperationsModel = readFileSync(
   new URL("./hypervisorSessionOperationsModel.ts", import.meta.url),
   "utf8",
 );
+const providerPlacementModel = readFileSync(
+  new URL("./hypervisorProviderPlacementModel.ts", import.meta.url),
+  "utf8",
+);
 
 test("hypervisor shell exposes the canonical core client and surface taxonomy", () => {
   assert.match(source, /export type HypervisorClientKind/);
@@ -267,6 +271,29 @@ test("Sessions surface renders session tabs and operations inspectors from daemo
   assert.match(shellContent, /data-session-task/);
   assert.match(shellContent, /data-session-terminal-event/);
   assert.match(shellContent, /activeView === "sessions"/);
+});
+
+test("Providers and Environments surfaces are direct integrations, not Fleet placeholders", () => {
+  assert.match(providerPlacementModel, /HypervisorProviderPlacementProjection/);
+  assert.match(providerPlacementModel, /HYPERVISOR_PROVIDER_PLACEMENT_PROJECTION_FIXTURE/);
+  assert.match(providerPlacementModel, /anti_gateway_invariant/);
+  assert.match(providerPlacementModel, /wallet\.network authorizes/);
+  assert.match(providerPlacementModel, /Agentgres records admitted truth/);
+  assert.match(providerPlacementModel, /provider-candidate:akash-gpu/);
+  assert.match(providerPlacementModel, /provider-candidate:filecoin-archive/);
+  assert.match(providerPlacementModel, /ctee_split_required/);
+  assert.match(providerPlacementModel, /encrypted_storage_only/);
+  assert.doesNotMatch(providerPlacementModel, /decentralized\.cloud/);
+  assert.match(shellContent, /HypervisorProviderPlacementDashboard/);
+  assert.match(shellContent, /HypervisorEnvironmentEstateSurface/);
+  assert.match(shellContent, /EnvironmentEstateView runtime=\{runtime\}/);
+  assert.match(shellContent, /data-hypervisor-provider-placement/);
+  assert.match(shellContent, /data-provider-placement-candidate/);
+  assert.match(shellContent, /data-hypervisor-environment-estate/);
+  assert.match(shellContent, /activeView === "providers"/);
+  assert.match(shellContent, /activeView === "environments"/);
+  assert.match(shellContent, /activeView !== "providers"/);
+  assert.match(shellContent, /activeView !== "environments"/);
 });
 
 console.log("hypervisorShellNavigationModel.test.mjs: ok");

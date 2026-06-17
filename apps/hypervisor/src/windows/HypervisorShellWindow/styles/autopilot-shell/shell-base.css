@@ -2830,3 +2830,133 @@
     grid-template-columns: 1fr;
   }
 }
+
+.hypervisor-provider-placement,
+.hypervisor-environment-estate-surface {
+  width: min(1180px, calc(100vw - 112px));
+  margin: 32px auto;
+  color: #e5edf7;
+}
+
+.hypervisor-provider-placement {
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.8);
+  padding: 22px;
+  box-shadow: 0 20px 70px rgba(2, 6, 23, 0.26);
+}
+
+.hypervisor-provider-placement__header,
+.hypervisor-environment-estate-surface__header {
+  display: grid;
+  gap: 8px;
+  max-width: 860px;
+}
+
+.hypervisor-provider-placement__header span,
+.hypervisor-provider-placement__card > div > span,
+.hypervisor-provider-placement__card dt,
+.hypervisor-environment-estate-surface__header span {
+  color: #94a3b8;
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0;
+}
+
+.hypervisor-provider-placement__header h2,
+.hypervisor-provider-placement__card h3,
+.hypervisor-environment-estate-surface__header h2 {
+  margin: 0;
+}
+
+.hypervisor-provider-placement__header h2,
+.hypervisor-environment-estate-surface__header h2 {
+  font-size: clamp(1.35rem, 1.8vw, 1.9rem);
+  line-height: 1.18;
+}
+
+.hypervisor-provider-placement__header p,
+.hypervisor-provider-placement__card p,
+.hypervisor-environment-estate-surface__header p {
+  margin: 0;
+  color: #cbd5e1;
+  line-height: 1.5;
+}
+
+.hypervisor-provider-placement__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.hypervisor-provider-placement__card {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.52);
+  padding: 16px;
+}
+
+.hypervisor-provider-placement__card dl {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.hypervisor-provider-placement__card dl div {
+  min-width: 0;
+}
+
+.hypervisor-provider-placement__card dd {
+  margin: 3px 0 0;
+  color: #dbeafe;
+  font-size: 0.84rem;
+  overflow-wrap: anywhere;
+}
+
+.hypervisor-provider-placement__risks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.hypervisor-provider-placement__risks span {
+  border: 1px solid rgba(96, 165, 250, 0.24);
+  border-radius: 999px;
+  background: rgba(30, 64, 175, 0.22);
+  color: #bfdbfe;
+  padding: 5px 8px;
+  font-size: 0.76rem;
+}
+
+.hypervisor-environment-estate-surface {
+  display: grid;
+  gap: 16px;
+}
+
+.hypervisor-environment-estate-surface .environment-estate-view {
+  min-height: 560px;
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 16px;
+}
+
+@media (max-width: 1080px) {
+  .hypervisor-provider-placement,
+  .hypervisor-environment-estate-surface {
+    width: calc(100vw - 32px);
+  }
+
+  .hypervisor-provider-placement__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .hypervisor-provider-placement__grid {
+    grid-template-columns: 1fr;
+  }
+}
