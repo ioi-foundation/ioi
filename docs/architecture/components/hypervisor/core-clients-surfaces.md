@@ -35,6 +35,7 @@ Product boundary doctrine:
 ioi.ai asks and coordinates goals.
 Hypervisor runs governed autonomous work.
 Automations make durable workflows and services.
+Outcome Rooms coordinate multi-session search toward measurable outcomes.
 Foundry makes and improves workers, models, evals, and packages.
 Workbench develops, debugs, and operates systems.
 Canvas visually edits automations; it is not runtime truth.
@@ -154,7 +155,7 @@ Hypervisor Workbench
 
 Hypervisor Automations
   durable workflow, trigger, schedule, API/service, approval-flow, and
-  background-mission surface
+  background-mission surface, including Outcome Rooms / Collaborative Missions
 
 Hypervisor Foundry
   worker creation, training, evaluation, benchmarking, packaging, and
@@ -233,10 +234,16 @@ approval flow
 service/API endpoint
 queue worker
 marketplace service recipe
+outcome room / collaborative mission
 ```
 
 The durable object is the automation spec and its Agentgres-backed run history,
 not the editor that created it.
+
+Outcome Rooms are a special Automations pattern for many agents, harnesses,
+models, humans, sessions, and verifier lanes searching toward one measurable
+outcome. They are owned in detail by
+[`outcome-rooms.md`](./outcome-rooms.md).
 
 ## Hypervisor Canvas
 
@@ -734,7 +741,7 @@ HypervisorAutomationSpec:
   automation_kind:
     manual_workflow | scheduled_workflow | webhook_workflow |
     background_mission | approval_flow | service_api |
-    queue_worker | marketplace_service_recipe
+    queue_worker | marketplace_service_recipe | outcome_room
   graph_ref: workflow:...
   compositor_contract_ref: workflow_compositor://...
   trigger_policy_ref: policy://...
@@ -980,11 +987,13 @@ HypervisorMission:
   mission_id: mission:...
   mission_kind:
     manual | schedule | webhook | pull_request | issue_event |
-    policy_event | service_outcome | marketplace_job
+    policy_event | service_outcome | marketplace_job |
+    collaborative_outcome
   interactive: false
   project_ref: project:...
   workflow_ref: workflow:...
   automation_ref: automation:... | null
+  outcome_room_ref: outcome_room:... | null
   default_harness_profile_ref: dhp:...
   runtime_assignment_ref: runtime_assignment:... | null
   trigger_policy_ref: policy://...
@@ -1113,6 +1122,10 @@ HypervisorScmAuthRequirement:
 - Background missions must be modeled as `HypervisorMission` objects with
   trigger policy, review contract, authority requirements, output contract, and
   receipts; they must not be hidden interactive sessions.
+- Outcome Rooms and Collaborative Missions must use the Automations, session,
+  daemon, wallet.network, Agentgres, and Foundry/eval paths defined in
+  [`outcome-rooms.md`](./outcome-rooms.md); they must not collapse into
+  ungoverned multi-agent chat.
 - Remote access, SSH, browser previews, logs, support bundles, and environment
   operations must use short-lived session access tokens bound to wallet.network
   authority and revocation epochs.
@@ -1146,6 +1159,8 @@ encrypted blob = restore truth
 provider lifecycle state = Agentgres truth
 background automation = hidden editor session
 automation spec = chat transcript
+Outcome Room = group chat
+Outcome Room = unbounded swarm
 Workbench = runtime truth
 Foundry = direct self-mutation path
 Fleet = live product surface or posture layer
@@ -1168,6 +1183,7 @@ App/Web/CLI-headless = first-class clients
 TUI = optional CLI presentation
 Workbench/Automations/Foundry = application surfaces
 Canvas = visual editor/projection
+Outcome Rooms = governed multi-session search/eval containers
 Provider and infrastructure posture = Hypervisor session/project/provider/
 environment views
 Sessions = governed live workspaces/runs
@@ -1183,6 +1199,7 @@ Agentgres = admitted truth
 - [`../daemon-runtime/default-harness-profile.md`](../daemon-runtime/default-harness-profile.md)
 - [`../daemon-runtime/api.md`](../daemon-runtime/api.md)
 - [`providers-and-environments.md`](./providers-and-environments.md)
+- [`outcome-rooms.md`](./outcome-rooms.md)
 - [`../wallet-network/doctrine.md`](../wallet-network/doctrine.md)
 - [`../agentgres/doctrine.md`](../agentgres/doctrine.md)
 - [`../../_meta/source-of-truth-map.md`](../../_meta/source-of-truth-map.md)

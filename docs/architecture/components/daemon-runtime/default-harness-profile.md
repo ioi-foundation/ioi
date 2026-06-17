@@ -57,6 +57,11 @@ Hypervisor Automations
   durable workflow, trigger, schedule, API/service, approval-flow, queue, and
   background-mission product surface over Workflow Compositor contracts
 
+Hypervisor Outcome Rooms
+  special Automations pattern for multi-agent/multi-session search toward one
+  measurable outcome; many harnesses may participate, but no harness owns the
+  room truth
+
 Harness Profiles
   daemon-executed or daemon-mediated step-resolution profiles and adapters,
   including Default Harness Profile as the reference scaffold/fallback
@@ -204,6 +209,16 @@ Hypervisor Automations
     background missions
     run-history and replay views
     Canvas editor state where useful
+
+Hypervisor Outcome Rooms
+  coordinate parallel attempts:
+    participant roster
+    isolated sessions and branches
+    multi-path search policy
+    eval and benchmark gates
+    scorecards and leaderboards
+    promotion policy
+    failure mining and lesson extraction
 
 Selected HarnessProfile
   resolves one scoped step:

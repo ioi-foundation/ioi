@@ -34,12 +34,15 @@ It may:
   posture that the user is authorized to view;
 - draft a proposed AutomationSpec, service recipe, Foundry job, or marketplace
   publish flow for explicit user review;
+- draft an Outcome Room when the goal needs multi-agent/multi-session search,
+  benchmark races, eval gates, or competing harness/model strategies;
 - route the user to Hypervisor App, Hypervisor Web, wallet.network, aiagent.xyz,
   sas.xyz, or console views when the job belongs there.
 
 It must not:
 
 - become the durable workflow/service builder;
+- become the Outcome Room, message board, leaderboard, or attempt truth source;
 - own Hypervisor Automations specs or run truth;
 - own Workflow Compositor graph truth;
 - own Hypervisor Daemon execution semantics;

@@ -503,6 +503,35 @@ compliance acronyms for hidden audit material.
 - `HypervisorAutomationRun`: run/session projection for one execution of an
   AutomationSpec. It binds session refs, trigger refs, daemon refs, Agentgres
   operation refs, receipt refs, artifact refs, and terminal status.
+- `HypervisorOutcomeRoom`: governed collaborative mission container where many
+  agents, models, harnesses, humans, sessions, and verifier lanes search toward
+  one measurable outcome under explicit objective metrics, quality guardrails,
+  budgets, authority, privacy posture, receipts, and promotion policy.
+- `CollaborativeMission`: a mission class used by Outcome Rooms when multiple
+  participants or attempts work on the same outcome. It is not a group chat or
+  unbounded swarm; it is a durable Automations object backed by daemon
+  execution, Agentgres receipts, wallet.network authority, and Foundry/eval
+  scoring.
+- `OutcomeParticipant`: a human, worker, agent harness adapter, model route,
+  service module, verifier, or external AIIP domain participating in an Outcome
+  Room under explicit session, harness/model, authority, and contribution
+  receipt bindings.
+- `OutcomeSearchPolicy`: policy that controls multi-path search, benchmark
+  races, eval playouts, verifier tournaments, branch/snapshot/rollback use,
+  allowed harnesses, required checks, and promotion gates inside an Outcome
+  Room.
+- `OutcomeAttempt`: isolated attempt from one participant/session/branch or
+  snapshot in an Outcome Room. It binds proposed actions, execution refs,
+  artifacts, traces, receipts, scorecards, and terminal status so attempts are
+  comparable and replayable.
+- `OutcomeScorecard`: scored evaluation result for an OutcomeAttempt. It
+  records objective metrics, quality-guardrail results, cost/risk summaries,
+  reproducibility state, receipt completeness, and promotion verdict.
+- `StockfishStyleCodingSearch`: product shorthand for Outcome Room search over
+  code and computer-use states: candidate actions are explored across branches,
+  snapshots, and sessions; tests, static analysis, visual verification,
+  runtime traces, benchmarks, and policy checks score attempts before
+  promotion.
 - `HypervisorAdapterTarget`: an editor, terminal, browser, VM, container, local
   OS surface, hosted worker, HypervisorOS node, or external tool that a
   Hypervisor Session can project into or mediate. VS Code, Cursor, Windsurf,

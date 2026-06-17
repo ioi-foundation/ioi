@@ -34,6 +34,10 @@ Hypervisor Canvas
   visual builder/editor inside Automations, Workbench, or Foundry; not runtime
   truth
 
+Hypervisor Outcome Rooms
+  governed multi-agent/multi-session search and eval containers for one
+  measurable outcome
+
 Hypervisor sessions/providers/environments
   default cross-session views over managed workspaces, provider integrations,
   services, tasks, ports, logs, archive refs, restore refs, costs, and health
@@ -191,6 +195,7 @@ use this map before reading deep doctrine:
 | --- | --- | --- |
 | Build the Hypervisor cockpit from the IOI reference shell | [`components/hypervisor/core-clients-surfaces.md`](../components/hypervisor/core-clients-surfaces.md) | [`components/hypervisor/providers-and-environments.md`](../components/hypervisor/providers-and-environments.md), [`components/daemon-runtime/api.md`](../components/daemon-runtime/api.md), [`_meta/implementation-matrix.md`](./implementation-matrix.md) |
 | Route work through Codex/Claude/DeepSeek/Aider-style tools | [`components/hypervisor/core-clients-surfaces.md`](../components/hypervisor/core-clients-surfaces.md) | [`components/daemon-runtime/default-harness-profile.md`](../components/daemon-runtime/default-harness-profile.md), [`components/daemon-runtime/events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md) |
+| Build Stockfish-style coding, multi-agent search, or benchmarked outcome races | [`components/hypervisor/outcome-rooms.md`](../components/hypervisor/outcome-rooms.md) | [`components/hypervisor/core-clients-surfaces.md`](../components/hypervisor/core-clients-surfaces.md), [`components/daemon-runtime/default-harness-profile.md`](../components/daemon-runtime/default-harness-profile.md), [`components/daemon-runtime/events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md) |
 | Implement wallet authority, approvals, scopes, or agent credentials | [`components/wallet-network/doctrine.md`](../components/wallet-network/doctrine.md) | [`components/wallet-network/api-authority-scopes.md`](../components/wallet-network/api-authority-scopes.md), [`components/wallet-network/product-exchange-risk.md`](../components/wallet-network/product-exchange-risk.md) |
 | Build exchange, trade, perps, or prediction-market flows | [`components/wallet-network/product-exchange-risk.md`](../components/wallet-network/product-exchange-risk.md) | [`domains/decentralized/exchange.md`](../domains/decentralized/exchange.md), [`domains/decentralized/trade.md`](../domains/decentralized/trade.md) |
 | Run private work on rented/cloud/DePIN compute | [`components/daemon-runtime/private-workspace-ctee.md`](../components/daemon-runtime/private-workspace-ctee.md) | [`components/daemon-runtime/runtime-nodes-tee-depin.md`](../components/daemon-runtime/runtime-nodes-tee-depin.md), [`components/hypervisor/providers-and-environments.md`](../components/hypervisor/providers-and-environments.md) |
@@ -225,6 +230,12 @@ Start here:
 Build for: intent resolution, action proposals, policy/authority gates,
 execution, normalized observations, receipts, context topology, output
 ownership, and terminal-state conformance.
+
+For Outcome Rooms, build for multi-path code search, test/eval playouts,
+static analysis, visual verification, runtime traces, rollback/snapshot
+branching, skill reuse, failure mining, scorecards, leaderboards, and
+benchmark-gated promotion under daemon, wallet.network, Agentgres, and Foundry
+boundaries.
 
 For persistent cloud Hypervisor on rented GPUs, build for Open Private
 Workspace, private workspace capsules, encrypted patches/blobs, no-plaintext
@@ -396,6 +407,7 @@ strategy source on rented node = protected strategy
 AIIP = separate bespoke protocol per app
 IOI L1 = execution database for every run
 aiagent.xyz -> sas.xyz = mandatory supply chain
+Outcome Room = group chat or unbounded swarm
 Model output = authority
 scope:* = primitive capability
 prim:* = authority scope
@@ -411,6 +423,8 @@ TUI is an optional CLI presentation
 Hypervisor Workbench/Automations/Foundry are application surfaces over Core
 Canvas is a visual editor/projection, not a runtime owner
 ioi.ai Goal Chat proposes and coordinates; Hypervisor Automations owns durable workflows/services
+Outcome Rooms are governed collaborative missions with isolated attempts,
+eval gates, receipts, and promotion policy
 Hypervisor provider/environment views manage sessions, providers, and environments
 External agent harnesses are mediated through Agent Harness Adapters
 Workflow Compositor shapes high-level directed work

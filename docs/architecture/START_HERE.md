@@ -43,6 +43,9 @@ Physical/embodied work
 
 Provider integrations across local, cloud, DePIN, storage, or HypervisorOS
   -> components/hypervisor/providers-and-environments.md
+
+Stockfish-style coding, multi-agent search, or benchmarked outcome races
+  -> components/hypervisor/outcome-rooms.md
 ```
 
 Current Hypervisor product-surface addition:
@@ -53,8 +56,9 @@ Current Hypervisor product-surface addition:
 > Workbench, Automations, and Foundry are application surfaces over the same
 > Core. Automations owns the durable workflow/service/mission surface, while
 > Canvas is a visual editor/projection inside Automations, Workbench, or
-> Foundry. Sessions are the primary unit. Providers, environments, services,
-> tasks, ports, logs,
+> Foundry. Outcome Rooms are governed collaborative missions for
+> multi-agent/multi-session search toward one measurable outcome. Sessions are
+> the primary unit. Providers, environments, services, tasks, ports, logs,
 > archive refs, restore refs, and infrastructure posture are default Hypervisor
 > session/project/provider views, not a separate Fleet surface. Editor
 > integrations and external agent harnesses such as VS Code, Cursor, Windsurf,
