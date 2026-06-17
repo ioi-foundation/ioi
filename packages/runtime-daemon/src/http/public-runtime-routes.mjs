@@ -190,6 +190,47 @@ export function createPublicRuntimeRequestHandler(deps) {
         );
         return;
       }
+      if (request.method === "POST" && url.pathname === "/v1/hypervisor/provider-operations") {
+        const body = await readBody(request);
+        const routeContextPolicyCore = requiredPublicRuntimeContextPolicyCore(
+          contextPolicyCore,
+          "runtime.lifecycle_operation.hypervisor_provider_operation_proposal",
+        );
+        const projected = routeContextPolicyCore.projectRuntimeLifecycle({
+          operation: "hypervisor_provider_operation_proposal",
+          operation_kind:
+            "runtime.lifecycle_operation.hypervisor_provider_operation_proposal",
+          projection_kind: "hypervisor_provider_operation_proposal",
+          base_url: baseUrlForRequest(request),
+          workspace_root: store.defaultCwd,
+          state_dir: store.stateDir,
+          home_dir: store.homeDir,
+          runtime_schema_version: store.schemaVersion,
+          project_id: optionalString(body.project_id ?? body.project_ref),
+          candidate_ref: optionalString(body.candidate_ref),
+          direct_provider_ref: optionalString(body.direct_provider_ref),
+          requested_operation: optionalString(body.operation_kind),
+          wallet_authority_scope_refs: Array.isArray(
+            body.wallet_authority_scope_refs,
+          )
+            ? body.wallet_authority_scope_refs.filter(
+                (scopeRef) => typeof scopeRef === "string" && scopeRef,
+              )
+            : [],
+          storage_policy_ref: optionalString(body.storage_policy_ref),
+          restore_policy_ref: optionalString(body.restore_policy_ref),
+          source: "public_runtime_routes./v1/hypervisor/provider-operations",
+        });
+        writeJsonResponse(
+          response,
+          projected.proposal ??
+            projected.record?.proposal ??
+            projected.record?.projection ??
+            projected.record ??
+            projected,
+        );
+        return;
+      }
       if (request.method === "GET" && url.pathname === "/v1/computer-use/browser-discovery") {
         const routeContextPolicyCore = requiredPublicRuntimeContextPolicyCore(
           contextPolicyCore,

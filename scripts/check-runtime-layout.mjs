@@ -890,7 +890,23 @@ assert(
       "loadHypervisorProviderPlacementProjection",
     ) &&
     hypervisorProviderPlacementModelSource.includes(
+      "HYPERVISOR_PROVIDER_OPERATION_PROPOSAL_PATH",
+    ) &&
+    hypervisorProviderPlacementModelSource.includes(
+      "HypervisorProviderOperationProposal",
+    ) &&
+    hypervisorProviderPlacementModelSource.includes(
+      "proposeHypervisorProviderOperation",
+    ) &&
+    hypervisorProviderPlacementModelSource.includes("wallet_lease_ref") &&
+    hypervisorProviderPlacementModelSource.includes(
+      "agentgres_operation_ref",
+    ) &&
+    hypervisorProviderPlacementModelSource.includes(
       "ioi.hypervisor.provider_placement_projection.v1",
+    ) &&
+    hypervisorProviderPlacementModelSource.includes(
+      "ioi.hypervisor.provider_operation_proposal.v1",
     ) &&
     hypervisorProviderPlacementModelSource.includes("ctee_split_required") &&
     hypervisorProviderPlacementModelSource.includes("encrypted_storage_only") &&
@@ -900,18 +916,34 @@ assert(
     hypervisorShellContentSource.includes(
       "loadHypervisorProviderPlacementProjection",
     ) &&
+    hypervisorShellContentSource.includes(
+      "proposeHypervisorProviderOperation",
+    ) &&
     hypervisorShellContentSource.includes("data-provider-placement-source") &&
+    hypervisorShellContentSource.includes("data-provider-operation-kind") &&
+    hypervisorShellContentSource.includes("data-provider-operation-proposal") &&
     publicRuntimeRoutesSource.includes("/v1/hypervisor/provider-placement") &&
+    publicRuntimeRoutesSource.includes("/v1/hypervisor/provider-operations") &&
     publicRuntimeRoutesSource.includes(
       "runtime.lifecycle_projection.hypervisor_provider_placement",
+    ) &&
+    publicRuntimeRoutesSource.includes(
+      "runtime.lifecycle_operation.hypervisor_provider_operation_proposal",
     ) &&
     publicRuntimeRoutesSource.includes("projectRuntimeLifecycle") &&
     publicRuntimeRoutesTestSource.includes(
       "dispatch Hypervisor provider placement through lifecycle projection",
     ) &&
+    publicRuntimeRoutesTestSource.includes(
+      "dispatch Hypervisor provider operations through lifecycle admission proposal",
+    ) &&
     daemonRuntimeApiDoc.includes("GET /v1/hypervisor/provider-placement") &&
+    daemonRuntimeApiDoc.includes("POST /v1/hypervisor/provider-operations") &&
     daemonRuntimeApiDoc.includes(
       "runtime.lifecycle_projection.hypervisor_provider_placement",
+    ) &&
+    daemonRuntimeApiDoc.includes(
+      "runtime.lifecycle_operation.hypervisor_provider_operation_proposal",
     ),
   [
     "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorProviderPlacementModel.ts",

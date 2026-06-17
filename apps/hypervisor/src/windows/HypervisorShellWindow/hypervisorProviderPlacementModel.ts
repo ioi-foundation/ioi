@@ -28,6 +28,37 @@ export interface HypervisorProviderPlacementCandidate {
   risk_labels: string[];
 }
 
+export type HypervisorProviderOperationKind =
+  | "request_access_lease"
+  | "launch_session"
+  | "zero_to_idle"
+  | "archive"
+  | "restore";
+
+export type HypervisorProviderOperationAdmissionState =
+  | "requires_wallet_lease"
+  | "ready_for_daemon_admission"
+  | "blocked";
+
+export interface HypervisorProviderOperationProposal {
+  schema_version: "ioi.hypervisor.provider_operation_proposal.v1";
+  proposal_ref: string;
+  source: "daemon-provider-operation-proposal" | "fixture" | "unverified";
+  project_ref: string;
+  candidate_ref: string;
+  direct_provider_ref: string;
+  operation_kind: HypervisorProviderOperationKind;
+  admission_state: HypervisorProviderOperationAdmissionState;
+  wallet_lease_ref: string;
+  required_scope_refs: string[];
+  agentgres_operation_ref: string;
+  receipt_ref: string;
+  state_root_ref: string;
+  archive_ref: string;
+  restore_ref: string;
+  custody_invariant: string;
+}
+
 export interface HypervisorProviderPlacementProjection {
   schema_version: "ioi.hypervisor.provider_placement_projection.v1";
   projection_id: string;
@@ -44,10 +75,21 @@ export const HYPERVISOR_PROVIDER_PLACEMENT_DEFAULT_DAEMON_ENDPOINT =
   "http://127.0.0.1:8765";
 export const HYPERVISOR_PROVIDER_PLACEMENT_PROJECTION_PATH =
   "/v1/hypervisor/provider-placement";
+export const HYPERVISOR_PROVIDER_OPERATION_PROPOSAL_PATH =
+  "/v1/hypervisor/provider-operations";
+
+export const HYPERVISOR_PROVIDER_OPERATION_KINDS: readonly HypervisorProviderOperationKind[] =
+  [
+    "request_access_lease",
+    "launch_session",
+    "zero_to_idle",
+    "archive",
+    "restore",
+  ];
 
 type FetchLike = (
   input: string,
-  init?: { method?: string; headers?: Record<string, string> },
+  init?: { method?: string; headers?: Record<string, string>; body?: string },
 ) => Promise<{
   ok: boolean;
   status: number;
@@ -63,6 +105,22 @@ interface LoadProviderPlacementProjectionOptions
   endpoint?: string;
   fetchImpl?: FetchLike;
   projectId?: string | null;
+}
+
+interface NormalizeProviderOperationProposalOptions {
+  candidate?: HypervisorProviderPlacementCandidate;
+  operationKind?: HypervisorProviderOperationKind;
+  projectRef?: string;
+  source?: HypervisorProviderOperationProposal["source"];
+}
+
+interface ProposeProviderOperationOptions
+  extends NormalizeProviderOperationProposalOptions {
+  candidate: HypervisorProviderPlacementCandidate;
+  endpoint?: string;
+  fetchImpl?: FetchLike;
+  operationKind: HypervisorProviderOperationKind;
+  projectRef: string;
 }
 
 export const HYPERVISOR_PROVIDER_PLACEMENT_PROJECTION_FIXTURE: HypervisorProviderPlacementProjection =
@@ -190,6 +248,13 @@ function enumValue<T extends string>(
     : fallback;
 }
 
+function operationKindValue(
+  value: unknown,
+  fallback: HypervisorProviderOperationKind,
+): HypervisorProviderOperationKind {
+  return enumValue(value, fallback, HYPERVISOR_PROVIDER_OPERATION_KINDS);
+}
+
 function normalizeProviderPlacementCandidate(
   item: Record<string, unknown>,
   index: number,
@@ -310,5 +375,143 @@ export async function loadHypervisorProviderPlacementProjection(
   }
   return normalizeHypervisorProviderPlacementProjection(value, {
     source: options.source ?? "daemon-provider-placement-projection",
+  });
+}
+
+export function buildHypervisorProviderOperationProposal(
+  candidate: HypervisorProviderPlacementCandidate,
+  operationKind: HypervisorProviderOperationKind,
+  options: {
+    projectRef?: string;
+    source?: HypervisorProviderOperationProposal["source"];
+  } = {},
+): HypervisorProviderOperationProposal {
+  const projectRef =
+    options.projectRef ??
+    HYPERVISOR_PROVIDER_PLACEMENT_PROJECTION_FIXTURE.selected_project_ref;
+  return {
+    schema_version: "ioi.hypervisor.provider_operation_proposal.v1",
+    proposal_ref: `provider-operation:${operationKind}/${candidate.candidate_ref}`,
+    source: options.source ?? "fixture",
+    project_ref: projectRef,
+    candidate_ref: candidate.candidate_ref,
+    direct_provider_ref: candidate.direct_provider_ref,
+    operation_kind: operationKind,
+    admission_state:
+      operationKind === "request_access_lease"
+        ? "requires_wallet_lease"
+        : "ready_for_daemon_admission",
+    wallet_lease_ref: `lease:wallet/provider/${candidate.candidate_ref}/${operationKind}`,
+    required_scope_refs: candidate.wallet_authority_scope_refs,
+    agentgres_operation_ref: `agentgres://operation/provider/${candidate.candidate_ref}/${operationKind}`,
+    receipt_ref: `receipt://provider/${candidate.candidate_ref}/${operationKind}`,
+    state_root_ref: `agentgres://state-root/provider/${candidate.candidate_ref}`,
+    archive_ref: candidate.storage_policy_ref,
+    restore_ref: candidate.restore_policy_ref,
+    custody_invariant:
+      "Provider operations are proposals until wallet.network grants a scoped lease and Agentgres admits the lifecycle operation, receipt, archive, restore, and state-root refs.",
+  };
+}
+
+export function normalizeHypervisorProviderOperationProposal(
+  snapshot: unknown,
+  options: NormalizeProviderOperationProposalOptions = {},
+): HypervisorProviderOperationProposal {
+  const fallbackCandidate =
+    options.candidate ??
+    HYPERVISOR_PROVIDER_PLACEMENT_PROJECTION_FIXTURE.candidates[0]!;
+  const fallback = buildHypervisorProviderOperationProposal(
+    fallbackCandidate,
+    options.operationKind ?? "request_access_lease",
+    {
+      projectRef: options.projectRef,
+      source: options.source ?? "daemon-provider-operation-proposal",
+    },
+  );
+  const value = objectRecord(snapshot);
+  return {
+    schema_version: "ioi.hypervisor.provider_operation_proposal.v1",
+    proposal_ref: stringValue(value.proposal_ref, fallback.proposal_ref),
+    source: enumValue(value.source, fallback.source, [
+      "daemon-provider-operation-proposal",
+      "fixture",
+      "unverified",
+    ]),
+    project_ref: stringValue(value.project_ref, fallback.project_ref),
+    candidate_ref: stringValue(value.candidate_ref, fallback.candidate_ref),
+    direct_provider_ref: stringValue(
+      value.direct_provider_ref,
+      fallback.direct_provider_ref,
+    ),
+    operation_kind: operationKindValue(
+      value.operation_kind,
+      fallback.operation_kind,
+    ),
+    admission_state: enumValue(value.admission_state, fallback.admission_state, [
+      "requires_wallet_lease",
+      "ready_for_daemon_admission",
+      "blocked",
+    ]),
+    wallet_lease_ref: stringValue(value.wallet_lease_ref, fallback.wallet_lease_ref),
+    required_scope_refs: stringList(
+      value.required_scope_refs,
+      fallback.required_scope_refs,
+    ),
+    agentgres_operation_ref: stringValue(
+      value.agentgres_operation_ref,
+      fallback.agentgres_operation_ref,
+    ),
+    receipt_ref: stringValue(value.receipt_ref, fallback.receipt_ref),
+    state_root_ref: stringValue(value.state_root_ref, fallback.state_root_ref),
+    archive_ref: stringValue(value.archive_ref, fallback.archive_ref),
+    restore_ref: stringValue(value.restore_ref, fallback.restore_ref),
+    custody_invariant: stringValue(
+      value.custody_invariant,
+      fallback.custody_invariant,
+    ),
+  };
+}
+
+export async function proposeHypervisorProviderOperation(
+  options: ProposeProviderOperationOptions,
+): Promise<HypervisorProviderOperationProposal> {
+  const endpoint =
+    options.endpoint ?? readHypervisorProviderPlacementDaemonEndpoint();
+  const fetchImpl = options.fetchImpl ?? globalThis.fetch?.bind(globalThis);
+  if (!fetchImpl) {
+    throw new Error("fetch unavailable for Hypervisor provider operation proposal");
+  }
+  const response = await fetchImpl(
+    `${endpoint.replace(/\/+$/, "")}${HYPERVISOR_PROVIDER_OPERATION_PROPOSAL_PATH}`,
+    {
+      method: "POST",
+      headers: {
+        accept: "application/json",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        project_ref: options.projectRef,
+        candidate_ref: options.candidate.candidate_ref,
+        direct_provider_ref: options.candidate.direct_provider_ref,
+        operation_kind: options.operationKind,
+        wallet_authority_scope_refs:
+          options.candidate.wallet_authority_scope_refs,
+        storage_policy_ref: options.candidate.storage_policy_ref,
+        restore_policy_ref: options.candidate.restore_policy_ref,
+      }),
+    },
+  );
+  const text = await response.text();
+  const value = text ? JSON.parse(text) : {};
+  if (!response.ok) {
+    throw new Error(
+      `Provider operation proposal request failed with ${response.status}`,
+    );
+  }
+  return normalizeHypervisorProviderOperationProposal(value, {
+    candidate: options.candidate,
+    operationKind: options.operationKind,
+    projectRef: options.projectRef,
+    source: options.source ?? "daemon-provider-operation-proposal",
   });
 }

@@ -1147,8 +1147,18 @@ Current implementation cut:
   `runtime.lifecycle_projection.hypervisor_provider_placement`. The route
   returns only the client projection body and preserves explicit
   fixture-vs-daemon source markers.
-  Remaining work is provider action buttons mediated through wallet leases and
-  zero-to-idle/archive/restore operations backed by daemon and Agentgres APIs.
+  Provider cards now expose `request_access_lease`, `launch_session`,
+  `zero_to_idle`, `archive`, and `restore` operation proposal buttons. Those
+  actions call `/v1/hypervisor/provider-operations`, dispatch through
+  `projectRuntimeLifecycle` with
+  `runtime.lifecycle_operation.hypervisor_provider_operation_proposal`, and
+  display the resulting `ioi.hypervisor.provider_operation_proposal.v1`
+  proposal with wallet lease refs, required scope refs, Agentgres operation
+  refs, receipt refs, state-root refs, archive refs, and restore refs. Provider
+  actions therefore remain proposals until wallet.network grants a scoped lease
+  and Agentgres admits lifecycle truth.
+  Remaining work is executing the approved provider operation lifecycle against
+  real provider adapters after wallet approval and Agentgres admission.
 
 0A.8/0A.10 first receipt evidence surface is implemented:
   `hypervisorReceiptEvidenceModel.ts` defines

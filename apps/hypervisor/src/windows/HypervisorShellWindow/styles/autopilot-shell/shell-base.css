@@ -2932,6 +2932,69 @@
   font-size: 0.76rem;
 }
 
+.hypervisor-provider-placement__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.hypervisor-provider-placement__actions button {
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.72);
+  color: #e5edf7;
+  cursor: pointer;
+  font-size: 0.78rem;
+  padding: 7px 10px;
+  text-transform: capitalize;
+}
+
+.hypervisor-provider-placement__actions button:hover {
+  border-color: rgba(96, 165, 250, 0.55);
+  color: #bfdbfe;
+}
+
+.hypervisor-provider-placement__proposal {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+  border: 1px solid rgba(34, 197, 94, 0.24);
+  border-radius: 12px;
+  background: rgba(5, 46, 22, 0.18);
+  padding: 16px;
+}
+
+.hypervisor-provider-placement__proposal span,
+.hypervisor-provider-placement__proposal dt {
+  color: #94a3b8;
+  font-size: 0.74rem;
+  text-transform: uppercase;
+}
+
+.hypervisor-provider-placement__proposal h3,
+.hypervisor-provider-placement__proposal p,
+.hypervisor-provider-placement__proposal dl {
+  margin: 0;
+}
+
+.hypervisor-provider-placement__proposal p {
+  color: #cbd5e1;
+  line-height: 1.5;
+}
+
+.hypervisor-provider-placement__proposal dl {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.hypervisor-provider-placement__proposal dd {
+  margin: 3px 0 0;
+  color: #bbf7d0;
+  font-size: 0.82rem;
+  overflow-wrap: anywhere;
+}
+
 .hypervisor-environment-estate-surface {
   display: grid;
   gap: 16px;

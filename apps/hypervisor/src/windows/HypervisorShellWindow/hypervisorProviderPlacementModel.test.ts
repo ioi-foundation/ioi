@@ -2,10 +2,14 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  buildHypervisorProviderOperationProposal,
+  HYPERVISOR_PROVIDER_OPERATION_PROPOSAL_PATH,
   HYPERVISOR_PROVIDER_PLACEMENT_PROJECTION_FIXTURE,
   HYPERVISOR_PROVIDER_PLACEMENT_PROJECTION_PATH,
   loadHypervisorProviderPlacementProjection,
+  normalizeHypervisorProviderOperationProposal,
   normalizeHypervisorProviderPlacementProjection,
+  proposeHypervisorProviderOperation,
 } from "./hypervisorProviderPlacementModel.ts";
 
 test("provider placement fixture keeps direct providers as candidates, not authority", () => {
@@ -151,4 +155,125 @@ test("provider candidates expose privacy, authority, storage, and restore bounda
       candidate.restore_policy_ref.startsWith("agentgres://restore/"),
     ),
   );
+});
+
+test("provider operation proposal binds wallet lease and Agentgres refs before provider mutation", () => {
+  const candidate = HYPERVISOR_PROVIDER_PLACEMENT_PROJECTION_FIXTURE.candidates.find(
+    (item) => item.candidate_ref === "provider-candidate:akash-gpu",
+  );
+  assert.ok(candidate);
+
+  const proposal = buildHypervisorProviderOperationProposal(
+    candidate,
+    "zero_to_idle",
+    { projectRef: "project:ioi" },
+  );
+
+  assert.equal(
+    proposal.schema_version,
+    "ioi.hypervisor.provider_operation_proposal.v1",
+  );
+  assert.equal(proposal.operation_kind, "zero_to_idle");
+  assert.equal(proposal.project_ref, "project:ioi");
+  assert.equal(proposal.candidate_ref, "provider-candidate:akash-gpu");
+  assert.equal(proposal.admission_state, "ready_for_daemon_admission");
+  assert.match(proposal.wallet_lease_ref, /^lease:wallet\/provider\//);
+  assert.match(proposal.agentgres_operation_ref, /^agentgres:\/\/operation\/provider\//);
+  assert.match(proposal.receipt_ref, /^receipt:\/\/provider\//);
+  assert.match(proposal.state_root_ref, /^agentgres:\/\/state-root\/provider\//);
+  assert.match(proposal.restore_ref, /^agentgres:\/\/restore\//);
+  assert.match(proposal.custody_invariant, /wallet\.network grants/);
+  assert.match(proposal.custody_invariant, /Agentgres admits/);
+});
+
+test("provider operation normalization preserves daemon admission state", () => {
+  const candidate = HYPERVISOR_PROVIDER_PLACEMENT_PROJECTION_FIXTURE.candidates[0]!;
+  const proposal = normalizeHypervisorProviderOperationProposal(
+    {
+      proposal_ref: "provider-operation:daemon/restore",
+      source: "daemon-provider-operation-proposal",
+      project_ref: "project:daemon",
+      candidate_ref: candidate.candidate_ref,
+      direct_provider_ref: candidate.direct_provider_ref,
+      operation_kind: "restore",
+      admission_state: "requires_wallet_lease",
+      wallet_lease_ref: "lease:wallet/provider/local/restore",
+      required_scope_refs: ["scope:archive.restore"],
+      agentgres_operation_ref: "agentgres://operation/provider/local/restore",
+      receipt_ref: "receipt://provider/local/restore",
+      state_root_ref: "agentgres://state-root/provider/local",
+      archive_ref: "artifact://agentgres/archive/local/latest",
+      restore_ref: "agentgres://restore/local/latest",
+      custody_invariant:
+        "wallet.network grants; Agentgres admits restore truth.",
+    },
+    { candidate, operationKind: "restore" },
+  );
+
+  assert.equal(proposal.source, "daemon-provider-operation-proposal");
+  assert.equal(proposal.operation_kind, "restore");
+  assert.equal(proposal.admission_state, "requires_wallet_lease");
+  assert.deepEqual(proposal.required_scope_refs, ["scope:archive.restore"]);
+  assert.equal(proposal.archive_ref, "artifact://agentgres/archive/local/latest");
+  assert.equal(proposal.restore_ref, "agentgres://restore/local/latest");
+});
+
+test("provider operation proposal posts to daemon with scoped candidate evidence", async () => {
+  const candidate = HYPERVISOR_PROVIDER_PLACEMENT_PROJECTION_FIXTURE.candidates[0]!;
+  const calls: Array<{ input: string; method?: string; body?: string }> = [];
+
+  const proposal = await proposeHypervisorProviderOperation({
+    endpoint: "http://daemon.test",
+    projectRef: "project:ioi",
+    candidate,
+    operationKind: "archive",
+    fetchImpl: async (input, init) => {
+      calls.push({ input, method: init?.method, body: init?.body });
+      return {
+        ok: true,
+        status: 200,
+        async text() {
+          return JSON.stringify({
+            proposal_ref: "provider-operation:daemon/archive",
+            source: "daemon-provider-operation-proposal",
+            project_ref: "project:ioi",
+            candidate_ref: candidate.candidate_ref,
+            direct_provider_ref: candidate.direct_provider_ref,
+            operation_kind: "archive",
+            admission_state: "requires_wallet_lease",
+            wallet_lease_ref: "lease:wallet/provider/local/archive",
+            required_scope_refs: candidate.wallet_authority_scope_refs,
+            agentgres_operation_ref:
+              "agentgres://operation/provider/local/archive",
+            receipt_ref: "receipt://provider/local/archive",
+            state_root_ref: "agentgres://state-root/provider/local",
+            archive_ref: candidate.storage_policy_ref,
+            restore_ref: candidate.restore_policy_ref,
+            custody_invariant:
+              "wallet.network grants; Agentgres admits archive truth.",
+          });
+        },
+      };
+    },
+  });
+
+  assert.equal(calls.length, 1);
+  assert.equal(
+    calls[0]?.input,
+    `http://daemon.test${HYPERVISOR_PROVIDER_OPERATION_PROPOSAL_PATH}`,
+  );
+  assert.equal(calls[0]?.method, "POST");
+  assert.deepEqual(JSON.parse(calls[0]?.body ?? "{}"), {
+    project_ref: "project:ioi",
+    candidate_ref: candidate.candidate_ref,
+    direct_provider_ref: candidate.direct_provider_ref,
+    operation_kind: "archive",
+    wallet_authority_scope_refs: candidate.wallet_authority_scope_refs,
+    storage_policy_ref: candidate.storage_policy_ref,
+    restore_policy_ref: candidate.restore_policy_ref,
+  });
+  assert.equal(proposal.source, "daemon-provider-operation-proposal");
+  assert.equal(proposal.operation_kind, "archive");
+  assert.equal(proposal.admission_state, "requires_wallet_lease");
+  assert.equal(proposal.wallet_lease_ref, "lease:wallet/provider/local/archive");
 });

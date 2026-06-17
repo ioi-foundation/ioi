@@ -267,6 +267,61 @@ turn storage backends into restore truth. wallet.network authorizes spend and
 secret/declassification release; Agentgres admits lifecycle, receipt, archive,
 restore, and state-root truth.
 
+```http
+POST /v1/hypervisor/provider-operations
+```
+
+`POST /v1/hypervisor/provider-operations` creates a provider operation
+proposal through the daemon runtime lifecycle boundary with:
+
+```text
+operation_kind = runtime.lifecycle_operation.hypervisor_provider_operation_proposal
+projection_kind = hypervisor_provider_operation_proposal
+```
+
+Request body:
+
+```json
+{
+  "project_ref": "project:...",
+  "candidate_ref": "provider-candidate:...",
+  "direct_provider_ref": "provider:...",
+  "operation_kind": "request_access_lease | launch_session | zero_to_idle | archive | restore",
+  "wallet_authority_scope_refs": ["scope:provider.spend"],
+  "storage_policy_ref": "storage-policy:...",
+  "restore_policy_ref": "agentgres://restore/..."
+}
+```
+
+The response is an `ioi.hypervisor.provider_operation_proposal.v1` object:
+
+```json
+{
+  "schema_version": "ioi.hypervisor.provider_operation_proposal.v1",
+  "proposal_ref": "provider-operation:...",
+  "source": "daemon-provider-operation-proposal",
+  "project_ref": "project:...",
+  "candidate_ref": "provider-candidate:...",
+  "direct_provider_ref": "provider:...",
+  "operation_kind": "zero_to_idle",
+  "admission_state": "requires_wallet_lease",
+  "wallet_lease_ref": "lease:wallet/provider/...",
+  "required_scope_refs": ["scope:provider.spend"],
+  "agentgres_operation_ref": "agentgres://operation/provider/...",
+  "receipt_ref": "receipt://provider/...",
+  "state_root_ref": "agentgres://state-root/provider/...",
+  "archive_ref": "artifact://agentgres/archive/...",
+  "restore_ref": "agentgres://restore/...",
+  "custody_invariant": "Provider operations are proposals until wallet.network grants a scoped lease and Agentgres admits the lifecycle operation, receipt, archive, restore, and state-root refs."
+}
+```
+
+Provider operation proposals are not provider truth and are not authority
+grants. They are daemon/Core admission objects that bind a candidate,
+requested lifecycle action, wallet scope requirements, archive/restore refs,
+state-root refs, and receipt refs before any provider-side deployment, access,
+archive, zero-to-idle, or restore operation can proceed.
+
 ### Runtime Manifest
 
 ```json

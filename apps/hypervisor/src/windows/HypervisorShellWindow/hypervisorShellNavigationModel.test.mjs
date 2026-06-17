@@ -330,8 +330,13 @@ test("Providers and Environments surfaces are direct integrations, not Fleet pla
   assert.match(providerPlacementModel, /HypervisorProviderPlacementProjection/);
   assert.match(providerPlacementModel, /HYPERVISOR_PROVIDER_PLACEMENT_PROJECTION_FIXTURE/);
   assert.match(providerPlacementModel, /HYPERVISOR_PROVIDER_PLACEMENT_PROJECTION_PATH/);
+  assert.match(providerPlacementModel, /HYPERVISOR_PROVIDER_OPERATION_PROPOSAL_PATH/);
+  assert.match(providerPlacementModel, /HypervisorProviderOperationProposal/);
   assert.match(providerPlacementModel, /loadHypervisorProviderPlacementProjection/);
   assert.match(providerPlacementModel, /normalizeHypervisorProviderPlacementProjection/);
+  assert.match(providerPlacementModel, /proposeHypervisorProviderOperation/);
+  assert.match(providerPlacementModel, /wallet_lease_ref/);
+  assert.match(providerPlacementModel, /agentgres_operation_ref/);
   assert.match(providerPlacementModel, /anti_gateway_invariant/);
   assert.match(providerPlacementModel, /wallet\.network authorizes/);
   assert.match(providerPlacementModel, /Agentgres records admitted truth/);
@@ -342,6 +347,10 @@ test("Providers and Environments surfaces are direct integrations, not Fleet pla
   assert.doesNotMatch(providerPlacementModel, /decentralized\.cloud/);
   assert.match(shellContent, /HypervisorProviderPlacementDashboard/);
   assert.match(shellContent, /loadHypervisorProviderPlacementProjection/);
+  assert.match(shellContent, /proposeHypervisorProviderOperation/);
+  assert.match(shellContent, /data-provider-operation-kind/);
+  assert.match(shellContent, /data-provider-operation-proposal/);
+  assert.match(shellContent, /\[Hypervisor\]\[Providers\] operation proposal unavailable/);
   assert.match(shellContent, /\[Hypervisor\]\[Providers\] placement projection unavailable/);
   assert.match(shellContent, /HypervisorEnvironmentEstateSurface/);
   assert.match(shellContent, /EnvironmentEstateView runtime=\{runtime\}/);

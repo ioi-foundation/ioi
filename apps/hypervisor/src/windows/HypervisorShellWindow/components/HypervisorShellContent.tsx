@@ -36,8 +36,14 @@ import {
   loadHypervisorProjectStateProjection,
 } from "../hypervisorProjectStateModel";
 import {
+  buildHypervisorProviderOperationProposal,
   HYPERVISOR_PROVIDER_PLACEMENT_PROJECTION_FIXTURE,
+  HYPERVISOR_PROVIDER_OPERATION_KINDS,
   loadHypervisorProviderPlacementProjection,
+  proposeHypervisorProviderOperation,
+  type HypervisorProviderOperationKind,
+  type HypervisorProviderOperationProposal,
+  type HypervisorProviderPlacementCandidate,
 } from "../hypervisorProviderPlacementModel";
 import { HYPERVISOR_RECEIPT_EVIDENCE_PROJECTION_FIXTURE } from "../hypervisorReceiptEvidenceModel";
 import {
@@ -486,6 +492,8 @@ function HypervisorProviderPlacementDashboard() {
   const [projection, setProjection] = useState(
     HYPERVISOR_PROVIDER_PLACEMENT_PROJECTION_FIXTURE,
   );
+  const [operationProposal, setOperationProposal] =
+    useState<HypervisorProviderOperationProposal | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -505,6 +513,30 @@ function HypervisorProviderPlacementDashboard() {
       cancelled = true;
     };
   }, []);
+
+  function handleProviderOperation(
+    candidate: HypervisorProviderPlacementCandidate,
+    operationKind: HypervisorProviderOperationKind,
+  ) {
+    proposeHypervisorProviderOperation({
+      projectRef: projection.selected_project_ref,
+      candidate,
+      operationKind,
+    })
+      .then(setOperationProposal)
+      .catch((error) => {
+        console.warn(
+          "[Hypervisor][Providers] operation proposal unavailable",
+          error,
+        );
+        setOperationProposal(
+          buildHypervisorProviderOperationProposal(candidate, operationKind, {
+            projectRef: projection.selected_project_ref,
+            source: "unverified",
+          }),
+        );
+      });
+  }
 
   return (
     <section
@@ -564,9 +596,61 @@ function HypervisorProviderPlacementDashboard() {
                 <span key={riskLabel}>{riskLabel}</span>
               ))}
             </div>
+            <div
+              className="hypervisor-provider-placement__actions"
+              aria-label={`Provider operation proposals for ${candidate.label}`}
+            >
+              {HYPERVISOR_PROVIDER_OPERATION_KINDS.map((operationKind) => (
+                <button
+                  key={operationKind}
+                  type="button"
+                  data-provider-operation-kind={operationKind}
+                  data-provider-operation-candidate={candidate.candidate_ref}
+                  onClick={() => handleProviderOperation(candidate, operationKind)}
+                >
+                  {operationKind.split("_").join(" ")}
+                </button>
+              ))}
+            </div>
           </article>
         ))}
       </div>
+      {operationProposal ? (
+        <aside
+          className="hypervisor-provider-placement__proposal"
+          aria-label="Provider operation proposal"
+          data-provider-operation-proposal={operationProposal.proposal_ref}
+          data-provider-operation-admission={operationProposal.admission_state}
+        >
+          <div>
+            <span>Operation proposal</span>
+            <h3>{operationProposal.operation_kind.split("_").join(" ")}</h3>
+            <p>{operationProposal.custody_invariant}</p>
+          </div>
+          <dl>
+            <div>
+              <dt>Wallet lease</dt>
+              <dd>{operationProposal.wallet_lease_ref}</dd>
+            </div>
+            <div>
+              <dt>Agentgres op</dt>
+              <dd>{operationProposal.agentgres_operation_ref}</dd>
+            </div>
+            <div>
+              <dt>Receipt</dt>
+              <dd>{operationProposal.receipt_ref}</dd>
+            </div>
+            <div>
+              <dt>State root</dt>
+              <dd>{operationProposal.state_root_ref}</dd>
+            </div>
+            <div>
+              <dt>Restore</dt>
+              <dd>{operationProposal.restore_ref}</dd>
+            </div>
+          </dl>
+        </aside>
+      ) : null}
     </section>
   );
 }
