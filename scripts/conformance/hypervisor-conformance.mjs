@@ -24780,12 +24780,15 @@ function runReceipts() {
       /assertCanonicalModelStorageRequestBody\(body\);[\s\S]*planAndCommitStorageControl\(this,\s*"model_mount\.storage\.cleanup"/.test(
         cleanupModelStorageBlock,
       ) &&
-      !/body\.(?:cleanupPartial|dryRun|removeOrphans)\b/.test(modelMountingState) &&
+      !/body\.(?:cleanupPartial|dryRun|removeOrphans|storageRoot|artifactPath|orphanPaths|filesystemCustody|filesystemCustodyMode|filesystemMutationKind)\b/.test(modelMountingState) &&
       /storage mutations reject retired aliases before Rust-core boundary/.test(storageOperationsTest) &&
       /retired_aliases,\s*\[\s*"cleanupPartial"\s*\]/.test(storageOperationsTest) &&
       /retired_aliases,\s*\[\s*"dryRun"\s*\]/.test(storageOperationsTest) &&
       /retired_aliases,\s*\[\s*"removeOrphans"\s*\]/.test(storageOperationsTest) &&
-      /canonical_fields,\s*\[\s*"cleanup_partial",\s*"dry_run",\s*"remove_orphans",\s*\]/.test(
+      /retired_aliases,\s*\[\s*"storageRoot",\s*"artifactPath",\s*"filesystemCustody",\s*\]/.test(
+        storageOperationsTest,
+      ) &&
+      /canonical_fields,\s*\[\s*"cleanup_partial",\s*"dry_run",\s*"remove_orphans",\s*"storage_root",\s*"artifact_path",\s*"orphan_paths",\s*"filesystem_custody",\s*"filesystem_custody_mode",\s*"filesystem_mutation_kind",\s*\]/.test(
         storageOperationsTest,
       ),
     [
@@ -24843,6 +24846,31 @@ function runReceipts() {
       /pub\(super\) fn plan_storage_control/.test(modelMountStorageControlEvidence) &&
       /"model-downloads"/.test(modelMountStorageControlEvidence) &&
       /"model-storage-controls"/.test(modelMountStorageControlEvidence) &&
+	      /fn artifact_delete_filesystem_custody\(/.test(modelMountStorageControlEvidence) &&
+	      /fn storage_cleanup_filesystem_custody\(/.test(modelMountStorageControlEvidence) &&
+	      /StorageControlFilesystemCustodyFailed/.test(modelMountStorageControlEvidence) &&
+	      /fn contained_existing_path\(/.test(modelMountStorageControlEvidence) &&
+	      /fn remove_contained_path\(/.test(modelMountStorageControlEvidence) &&
+	      /fs::remove_file/.test(modelMountStorageControlEvidence) &&
+	      /fs::remove_dir_all/.test(modelMountStorageControlEvidence) &&
+	      /filesystem custody target must stay inside storage_root/.test(
+	        modelMountStorageControlEvidence,
+	      ) &&
+	      /rust_model_mount_filesystem_custody_owned/.test(modelMountStorageControlEvidence) &&
+	      /rust_model_mount_filesystem_target_contained/.test(modelMountStorageControlEvidence) &&
+	      /rust_model_mount_artifact_delete_filesystem_custody/.test(
+	        modelMountStorageControlEvidence,
+	      ) &&
+	      /rust_model_mount_storage_cleanup_filesystem_custody/.test(
+	        modelMountStorageControlEvidence,
+	      ) &&
+	      /plaintext_paths_returned/.test(modelMountStorageControlEvidence) &&
+	      /ctee_model_mount_filesystem_no_plaintext_path_custody/.test(
+	        modelMountStorageControlEvidence,
+	      ) &&
+      /materializes_filesystem_custody_for_delete_and_cleanup_in_rust/.test(
+        modelMountStorageControlEvidence,
+      ) &&
       /modelMountReadProjection\(this,\s*"storage_summary"\)/.test(storageSummaryBlock) &&
       /modelMountReadProjection\(this,\s*"download_status",\s*\{ downloadId: jobId \}\)/.test(downloadStatusBlock) &&
       !/this\.downloads\.get/.test(downloadStatusBlock) &&
@@ -24855,10 +24883,20 @@ function runReceipts() {
         read("packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs"),
       ) &&
       /download local cache storage/.test(read("packages/runtime-daemon/src/model-mounting/store.test.mjs")) &&
-      /Object\.hasOwn\(state,\s*"downloads"\),\s*false/.test(storageOperationsTest) &&
-      /Slice 1335 hard-cuts the model_mount download JS cache substrate/.test(guide) &&
-      /Model_mount download JS cache retired/.test(matrix) &&
-      /RuntimeDaemonCoreModelMountDownloadCacheRetired/.test(implementationMatrix) &&
+	      /Object\.hasOwn\(state,\s*"downloads"\),\s*false/.test(storageOperationsTest) &&
+	      /Slice 1335 hard-cuts the model_mount download JS cache substrate/.test(guide) &&
+	      /Slice 1408 hard-cuts artifact-delete and storage-cleanup filesystem custody/.test(
+	        guide,
+	      ) &&
+	      !/richer filesystem custody/.test(guide) &&
+	      /Model_mount download JS cache retired/.test(matrix) &&
+	      /Artifact-delete and storage-cleanup filesystem custody is Rust-owned/.test(matrix) &&
+	      !/richer filesystem custody/.test(matrix) &&
+	      /RuntimeDaemonCoreModelMountDownloadCacheRetired/.test(implementationMatrix) &&
+	      /artifact delete and storage cleanup filesystem custody is Rust-owned/.test(
+	        implementationMatrix,
+	      ) &&
+	      !/richer filesystem custody/.test(implementationMatrix) &&
       /storageSummary\(\)\s*\{[\s\S]*?modelMountReadProjection\(this,\s*"storage_summary"\)/.test(
         modelMountingReadProjectionDirectClient,
       ) &&

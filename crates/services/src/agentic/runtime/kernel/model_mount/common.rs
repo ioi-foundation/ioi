@@ -128,6 +128,7 @@ pub enum ModelMountError {
     HostedProviderInvocationMissingAuthMaterialization,
     HostedProviderInvocationMissingCteeEgressResolver,
     HostedProviderTransportExecutionFailed(String),
+    StorageControlFilesystemCustodyFailed(String),
     UnsupportedProviderLifecycleAction,
     UnsupportedProviderLifecycleBackend,
     UnsupportedProviderInventoryAction,

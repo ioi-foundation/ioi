@@ -2081,9 +2081,12 @@ storage-control records, and filter out JS-authored storage/download truth. JS
 no longer preserves the storage-control command-envelope builder/operation,
 bridge response wrapper, lifecycle receipts, direct download/artifact map
 mutation, download-status map readback, filesystem scanning/mutation, or
-no-commit planner success. This remains non-terminal: richer filesystem custody,
-richer catalog/download materialization, and stable protocol APIs remain
-required.
+no-commit planner success. Artifact delete and storage cleanup filesystem
+custody now lives in Rust storage-control planning: Rust checks containment
+under `storage_root`, hashes root/target refs, emits cTEE no-plaintext custody
+evidence, and executes or dry-runs the mutation without returning plaintext
+paths to JS. This remains non-terminal: richer catalog/download materialization
+and stable protocol APIs remain required.
 
 The capability-token cut now supersedes the earlier fail-closed helper
 retirement. Public capability-token create/list/authorize/revoke call Rust
@@ -2161,8 +2164,9 @@ URL, download identity, download control, and download metadata request alias
 rejection, but do not preserve JS transfer, fixture/live materialization,
 filesystem, artifact/download record-state, or receipt helpers as fallback
 truth. This remains non-terminal: richer catalog/download replay/projection,
-filesystem custody, receipt/state-root binding beyond record-state commit,
-and stable protocol APIs remain required.
+receipt/state-root binding beyond record-state commit, and stable protocol APIs
+remain required. Delete/cleanup filesystem custody is handled by the later Rust
+storage-control custody cut.
 
 Slice 878 retired the fail-closed
 `catalog-provider-configuration-operations.mjs` helper module after public
@@ -9278,8 +9282,11 @@ planner success as compatibility paths. `storageSummary()`, `listDownloads()`,
 and `downloadStatus()` now call Rust model_mount read projection over runtime
 `state_dir`, replay admitted storage-control records from `model-catalog-imports`,
 `model-downloads`, and `model-storage-controls`, and filter out JS-authored
-storage/download truth. Richer filesystem custody, richer catalog/download
-materialization, and stable protocol APIs remain non-terminal.
+storage/download truth. Delete/cleanup filesystem custody now travels through
+the same Rust storage-control boundary with contained path verification, hashed
+root/target evidence, Rust mutation status, and no plaintext path custody by
+the JS facade. Richer catalog/download materialization and stable protocol APIs
+remain non-terminal.
 Public provider inventory for migrated fixture/local-folder, native-local, and
 hosted metadata providers has moved from fail-closed JS list facades to the Rust
 `plan_model_mount_provider_inventory` planner. `listProviderModels()` and
@@ -12359,6 +12366,17 @@ fake JS-hosted materialized rows. Conformance now guards the Rust executor,
 bounded transfer, request/response/content hash binding, no-plaintext custody,
 JS field forwarding, projection admission filter, and removal of hosted download
 materialization from the non-terminal blocker ledger.
+
+Slice 1408 hard-cuts artifact-delete and storage-cleanup filesystem custody
+into Rust storage-control ownership. `deleteModelArtifact()` and
+`cleanupModelStorage()` now forward only canonical snake_case custody contract
+fields; retired camelCase storage/root/path/custody aliases fail before the Rust
+boundary. Rust `plan_model_mount_storage_control` validates that each requested
+filesystem target exists under the declared `storage_root`, hashes root and
+target refs, records cTEE no-plaintext path custody evidence, and executes or
+dry-runs the mutation without returning plaintext paths to JS. Conformance now
+guards the Rust custody planner, containment check, custody evidence refs,
+alias rejection, and absence of JS filesystem mutation truth.
 
 ## Final Doctrine
 

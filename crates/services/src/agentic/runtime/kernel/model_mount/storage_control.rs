@@ -1,6 +1,10 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
-use std::time::Duration;
+use std::{
+    fs,
+    path::{Path, PathBuf},
+    time::Duration,
+};
 
 use super::{
     non_empty_string, push_unique_ref, require_non_empty, sha256_hex, ModelMountError,
@@ -387,17 +391,21 @@ fn plan_artifact_delete(
     let body = object_or_empty(&request.body);
     let artifact_id = required_body_string(body, "artifact_id")?;
     let record_id = format!("artifact_delete.{}", safe_segment(&artifact_id));
+    let mut details = json!({
+        "artifact_id": artifact_id,
+        "dry_run": bool_field(body, "dry_run").unwrap_or(false),
+        "filesystem_mutation_executed": false,
+    });
+    if let Some(custody_details) = artifact_delete_filesystem_custody(body)? {
+        merge_details(&mut details, custody_details);
+    }
     storage_plan(
         request,
         "model-storage-controls",
         &record_id,
         "ioi.model_mount_storage_control",
         "delete_planned",
-        json!({
-            "artifact_id": artifact_id,
-            "dry_run": bool_field(body, "dry_run").unwrap_or(false),
-            "filesystem_mutation_executed": false,
-        }),
+        details,
     )
 }
 
@@ -410,18 +418,221 @@ fn plan_storage_cleanup(
         "storage_cleanup.{}",
         &body_hash.trim_start_matches("sha256:")[0..12]
     );
+    let mut details = json!({
+        "remove_orphans": bool_field(body, "remove_orphans").unwrap_or(false),
+        "dry_run": bool_field(body, "dry_run").unwrap_or(false),
+        "filesystem_mutation_executed": false,
+    });
+    if let Some(custody_details) = storage_cleanup_filesystem_custody(body)? {
+        merge_details(&mut details, custody_details);
+    }
     storage_plan(
         request,
         "model-storage-controls",
         &record_id,
         "ioi.model_mount_storage_control",
         "cleanup_planned",
-        json!({
-            "remove_orphans": bool_field(body, "remove_orphans").unwrap_or(false),
-            "dry_run": bool_field(body, "dry_run").unwrap_or(false),
-            "filesystem_mutation_executed": false,
-        }),
+        details,
     )
+}
+
+fn artifact_delete_filesystem_custody(
+    body: &Map<String, Value>,
+) -> Result<Option<Map<String, Value>>, ModelMountError> {
+    if !filesystem_custody_requested(body, "artifact_delete") {
+        return Ok(None);
+    }
+    let dry_run = bool_field(body, "dry_run").unwrap_or(false);
+    let storage_root = required_body_string(body, "storage_root")?;
+    let artifact_path = required_body_string(body, "artifact_path")?;
+    let target = contained_existing_path(&storage_root, &artifact_path)?;
+    let storage_root_hash = target.storage_root_hash.clone();
+    if !dry_run {
+        remove_contained_path(&target)?;
+    }
+    Ok(Some(filesystem_custody_details(
+        "artifact_delete",
+        dry_run,
+        &storage_root_hash,
+        vec![target],
+    )?))
+}
+
+fn storage_cleanup_filesystem_custody(
+    body: &Map<String, Value>,
+) -> Result<Option<Map<String, Value>>, ModelMountError> {
+    if !filesystem_custody_requested(body, "storage_cleanup") {
+        return Ok(None);
+    }
+    let dry_run = bool_field(body, "dry_run").unwrap_or(false);
+    let remove_orphans = bool_field(body, "remove_orphans").unwrap_or(false);
+    let storage_root = required_body_string(body, "storage_root")?;
+    let orphan_paths = string_array_field(body, "orphan_paths");
+    if remove_orphans && orphan_paths.is_empty() {
+        return Err(ModelMountError::MissingField("orphan_paths"));
+    }
+    let mut targets = Vec::new();
+    for orphan_path in orphan_paths {
+        targets.push(contained_existing_path(&storage_root, &orphan_path)?);
+    }
+    if !dry_run {
+        for target in &targets {
+            remove_contained_path(target)?;
+        }
+    }
+    let storage_root_hash = targets
+        .first()
+        .map(|target| target.storage_root_hash.clone())
+        .unwrap_or(hash_text(&storage_root)?);
+    Ok(Some(filesystem_custody_details(
+        "storage_cleanup",
+        dry_run,
+        &storage_root_hash,
+        targets,
+    )?))
+}
+
+#[derive(Debug, Clone)]
+struct ContainedPath {
+    path: PathBuf,
+    storage_root_hash: String,
+    target_hash: String,
+    target_kind: String,
+}
+
+fn contained_existing_path(
+    storage_root: &str,
+    target_path: &str,
+) -> Result<ContainedPath, ModelMountError> {
+    let root = fs::canonicalize(storage_root).map_err(filesystem_custody_error)?;
+    if !root.is_dir() {
+        return Err(ModelMountError::StorageControlFilesystemCustodyFailed(
+            "storage_root must be an existing directory".to_string(),
+        ));
+    }
+    let target_input = PathBuf::from(target_path);
+    let joined = if target_input.is_absolute() {
+        target_input
+    } else {
+        root.join(target_input)
+    };
+    let target = fs::canonicalize(joined).map_err(filesystem_custody_error)?;
+    if target == root || !target.starts_with(&root) {
+        return Err(ModelMountError::StorageControlFilesystemCustodyFailed(
+            "filesystem custody target must stay inside storage_root".to_string(),
+        ));
+    }
+    let metadata = fs::metadata(&target).map_err(filesystem_custody_error)?;
+    let target_kind = if metadata.is_dir() {
+        "directory"
+    } else if metadata.is_file() {
+        "file"
+    } else {
+        "other"
+    }
+    .to_string();
+    Ok(ContainedPath {
+        storage_root_hash: hash_path(&root)?,
+        target_hash: hash_path(&target)?,
+        target_kind,
+        path: target,
+    })
+}
+
+fn remove_contained_path(target: &ContainedPath) -> Result<(), ModelMountError> {
+    if target.target_kind == "directory" {
+        fs::remove_dir_all(&target.path).map_err(filesystem_custody_error)
+    } else {
+        fs::remove_file(&target.path).map_err(filesystem_custody_error)
+    }
+}
+
+fn filesystem_custody_details(
+    mutation_kind: &str,
+    dry_run: bool,
+    storage_root_hash: &str,
+    targets: Vec<ContainedPath>,
+) -> Result<Map<String, Value>, ModelMountError> {
+    let target_hashes: Vec<Value> = targets
+        .iter()
+        .map(|target| json!(target.target_hash))
+        .collect();
+    let target_kinds: Vec<Value> = targets
+        .iter()
+        .map(|target| json!(target.target_kind))
+        .collect();
+    let custody_hash = hash_json(&json!({
+        "schema": "ioi.model_mount.filesystem_custody.v1",
+        "mutation_kind": mutation_kind,
+        "dry_run": dry_run,
+        "storage_root_hash": storage_root_hash,
+        "target_hashes": target_hashes,
+        "target_kinds": target_kinds,
+        "plaintext_paths_returned": false,
+    }))?;
+    let mut details = Map::new();
+    details.insert(
+        "filesystem_custody_status".to_string(),
+        json!(if dry_run {
+            "rust_filesystem_custody_dry_run"
+        } else {
+            "rust_filesystem_mutation_executed"
+        }),
+    );
+    details.insert(
+        "filesystem_custody_owner".to_string(),
+        json!("rust_daemon_core.model_mount.storage_control.filesystem_custody"),
+    );
+    details.insert("filesystem_mutation_kind".to_string(), json!(mutation_kind));
+    details.insert("filesystem_mutation_executed".to_string(), json!(!dry_run));
+    details.insert("filesystem_custody_hash".to_string(), json!(custody_hash));
+    details.insert("storage_root_hash".to_string(), json!(storage_root_hash));
+    details.insert(
+        "filesystem_target_hashes".to_string(),
+        Value::Array(target_hashes),
+    );
+    details.insert(
+        "filesystem_target_kinds".to_string(),
+        Value::Array(target_kinds),
+    );
+    details.insert("filesystem_targets_count".to_string(), json!(targets.len()));
+    details.insert("plaintext_paths_returned".to_string(), json!(false));
+    details.insert("js_filesystem_mutation_executed".to_string(), json!(false));
+    details.insert(
+        "custody_policy".to_string(),
+        json!({
+            "no_plaintext_path_return": true,
+            "filesystem_mutated_by": "rust_daemon_core.model_mount.storage_control",
+            "containment_checked_by": "rust_daemon_core.model_mount.storage_control.filesystem_custody",
+        }),
+    );
+    Ok(details)
+}
+
+fn filesystem_custody_requested(body: &Map<String, Value>, mutation_kind: &str) -> bool {
+    if bool_field(body, "filesystem_custody").unwrap_or(false) {
+        return true;
+    }
+    if string_field(body, "filesystem_custody_mode").as_deref() == Some("rust_owned") {
+        return true;
+    }
+    string_field(body, "filesystem_mutation_kind").as_deref() == Some(mutation_kind)
+}
+
+fn filesystem_custody_error(error: std::io::Error) -> ModelMountError {
+    ModelMountError::StorageControlFilesystemCustodyFailed(error.to_string())
+}
+
+fn hash_path(path: &Path) -> Result<String, ModelMountError> {
+    hash_text(&path.to_string_lossy())
+}
+
+fn merge_details(details: &mut Value, updates: Map<String, Value>) {
+    if let Some(details) = details.as_object_mut() {
+        for (key, value) in updates {
+            details.insert(key, value);
+        }
+    }
 }
 
 fn storage_plan(
@@ -544,13 +755,47 @@ fn evidence_refs_for(operation_kind: &str, details: &Value) -> Vec<String> {
         }
         "model_mount.artifact.delete" => {
             refs.push("rust_daemon_core_model_artifact_delete".to_string());
+            if string_field(object_or_empty(details), "filesystem_custody_status").is_some() {
+                push_filesystem_custody_evidence(&mut refs, details, "artifact_delete");
+            }
         }
         "model_mount.storage.cleanup" => {
             refs.push("rust_daemon_core_model_storage_cleanup".to_string());
+            if string_field(object_or_empty(details), "filesystem_custody_status").is_some() {
+                push_filesystem_custody_evidence(&mut refs, details, "storage_cleanup");
+            }
         }
         _ => {}
     }
     refs
+}
+
+fn push_filesystem_custody_evidence(refs: &mut Vec<String>, details: &Value, mutation_kind: &str) {
+    for evidence_ref in [
+        "rust_model_mount_filesystem_custody_owned",
+        "rust_model_mount_filesystem_target_contained",
+        "ctee_model_mount_filesystem_no_plaintext_path_custody",
+    ] {
+        push_unique_ref(refs, evidence_ref);
+    }
+    match mutation_kind {
+        "artifact_delete" => {
+            push_unique_ref(refs, "rust_model_mount_artifact_delete_filesystem_custody")
+        }
+        "storage_cleanup" => {
+            push_unique_ref(refs, "rust_model_mount_storage_cleanup_filesystem_custody")
+        }
+        _ => {}
+    }
+    match string_field(object_or_empty(details), "filesystem_custody_status").as_deref() {
+        Some("rust_filesystem_mutation_executed") => {
+            push_unique_ref(refs, "rust_model_mount_filesystem_mutation_executed")
+        }
+        Some("rust_filesystem_custody_dry_run") => {
+            push_unique_ref(refs, "rust_model_mount_filesystem_custody_dry_run")
+        }
+        _ => {}
+    }
 }
 
 fn authority_record(request: &ModelMountStorageControlRequest, authority_hash: &str) -> Value {
@@ -642,6 +887,16 @@ fn bool_field(body: &Map<String, Value>, field: &str) -> Option<bool> {
     body.get(field)?.as_bool()
 }
 
+fn string_array_field(body: &Map<String, Value>, field: &str) -> Vec<String> {
+    body.get(field)
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+        .filter_map(non_empty_string)
+        .collect()
+}
+
 fn non_empty_vec(values: &[String]) -> Vec<String> {
     values
         .iter()
@@ -671,6 +926,7 @@ fn safe_segment(value: &str) -> String {
 mod tests {
     use serde_json::json;
     use std::{
+        fs,
         io::{Read, Write},
         net::TcpListener,
         thread,
@@ -831,6 +1087,96 @@ mod tests {
         assert_eq!(cleanup.record_dir, "model-storage-controls");
         assert_eq!(cleanup.record["status"], "cleanup_planned");
         assert_eq!(cleanup.record["details"]["remove_orphans"], true);
+    }
+
+    #[test]
+    fn materializes_filesystem_custody_for_delete_and_cleanup_in_rust() {
+        let temp = tempfile::tempdir().expect("storage root");
+        let storage_root = temp.path().to_string_lossy().to_string();
+        let artifact_path = temp.path().join("artifact.gguf");
+        fs::write(&artifact_path, b"artifact bytes").expect("artifact file");
+
+        let delete = plan_storage_control(&request(
+            "model_mount.artifact.delete",
+            json!({
+                "artifact_id": "artifact.local",
+                "storage_root": storage_root,
+                "artifact_path": "artifact.gguf",
+                "filesystem_custody": true,
+                "filesystem_mutation_kind": "artifact_delete",
+            }),
+        ))
+        .expect("artifact delete custody plan");
+
+        assert!(!artifact_path.exists());
+        assert_eq!(
+            delete.record["details"]["filesystem_custody_status"],
+            "rust_filesystem_mutation_executed"
+        );
+        assert_eq!(
+            delete.record["details"]["filesystem_custody_owner"],
+            "rust_daemon_core.model_mount.storage_control.filesystem_custody"
+        );
+        assert_eq!(
+            delete.record["details"]["filesystem_mutation_kind"],
+            "artifact_delete"
+        );
+        assert_eq!(
+            delete.record["details"]["filesystem_mutation_executed"],
+            true
+        );
+        assert_eq!(delete.record["details"]["plaintext_paths_returned"], false);
+        assert!(delete.record["details"]["storage_root_hash"]
+            .as_str()
+            .expect("root hash")
+            .starts_with("sha256:"));
+        assert_eq!(
+            delete.record["details"]["filesystem_target_hashes"]
+                .as_array()
+                .expect("target hashes")
+                .len(),
+            1
+        );
+        assert!(delete
+            .evidence_refs
+            .contains(&"rust_model_mount_filesystem_custody_owned".to_string()));
+        assert!(delete
+            .evidence_refs
+            .contains(&"rust_model_mount_artifact_delete_filesystem_custody".to_string()));
+        assert!(delete
+            .evidence_refs
+            .contains(&"rust_model_mount_filesystem_mutation_executed".to_string()));
+        assert!(delete
+            .evidence_refs
+            .contains(&"ctee_model_mount_filesystem_no_plaintext_path_custody".to_string()));
+
+        let orphan_path = temp.path().join("orphan.tmp");
+        fs::write(&orphan_path, b"orphan bytes").expect("orphan file");
+        let cleanup = plan_storage_control(&request(
+            "model_mount.storage.cleanup",
+            json!({
+                "storage_root": temp.path().to_string_lossy().to_string(),
+                "remove_orphans": true,
+                "orphan_paths": ["orphan.tmp"],
+                "filesystem_custody": true,
+                "filesystem_mutation_kind": "storage_cleanup",
+            }),
+        ))
+        .expect("storage cleanup custody plan");
+
+        assert!(!orphan_path.exists());
+        assert_eq!(
+            cleanup.record["details"]["filesystem_custody_status"],
+            "rust_filesystem_mutation_executed"
+        );
+        assert_eq!(
+            cleanup.record["details"]["filesystem_mutation_kind"],
+            "storage_cleanup"
+        );
+        assert_eq!(cleanup.record["details"]["filesystem_targets_count"], 1);
+        assert!(cleanup
+            .evidence_refs
+            .contains(&"rust_model_mount_storage_cleanup_filesystem_custody".to_string()));
     }
 
     #[test]

@@ -67,6 +67,11 @@ function fakeState() {
           cleanup_partial: request.body.cleanup_partial ?? null,
           dry_run: request.body.dry_run ?? null,
           remove_orphans: request.body.remove_orphans ?? null,
+          storage_root: request.body.storage_root ?? null,
+          artifact_path: request.body.artifact_path ?? null,
+          orphan_paths: request.body.orphan_paths ?? null,
+          filesystem_custody: request.body.filesystem_custody ?? null,
+          filesystem_mutation_kind: request.body.filesystem_mutation_kind ?? null,
           filesystem_mutation_executed: false,
         },
         public_response: {
@@ -217,6 +222,40 @@ test("model storage mutations commit Rust-authored storage-control records", () 
   );
 });
 
+test("storage mutations forward filesystem custody contract to Rust storage control", () => {
+  const state = fakeState();
+
+  ModelMountingState.prototype.deleteModelArtifact.call(state, "artifact.local", {
+    storage_root: "/models",
+    artifact_path: "artifact.local.gguf",
+    filesystem_custody: true,
+    filesystem_mutation_kind: "artifact_delete",
+  });
+  ModelMountingState.prototype.cleanupModelStorage.call(state, {
+    storage_root: "/models",
+    orphan_paths: ["orphan.tmp"],
+    remove_orphans: true,
+    filesystem_custody: true,
+    filesystem_mutation_kind: "storage_cleanup",
+  });
+
+  assert.deepEqual(state.planRequests[0].body, {
+    artifact_id: "artifact.local",
+    storage_root: "/models",
+    artifact_path: "artifact.local.gguf",
+    filesystem_custody: true,
+    filesystem_mutation_kind: "artifact_delete",
+  });
+  assert.deepEqual(state.planRequests[1].body, {
+    storage_root: "/models",
+    orphan_paths: ["orphan.tmp"],
+    remove_orphans: true,
+    filesystem_custody: true,
+    filesystem_mutation_kind: "storage_cleanup",
+  });
+  assertOnlyRustStorageControl(state, 2);
+});
+
 test("storage mutations reject retired aliases before Rust-core boundary", () => {
   const state = fakeState();
 
@@ -230,6 +269,12 @@ test("storage mutations reject retired aliases before Rust-core boundary", () =>
         "cleanup_partial",
         "dry_run",
         "remove_orphans",
+        "storage_root",
+        "artifact_path",
+        "orphan_paths",
+        "filesystem_custody",
+        "filesystem_custody_mode",
+        "filesystem_mutation_kind",
       ]);
       return true;
     },
@@ -251,6 +296,24 @@ test("storage mutations reject retired aliases before Rust-core boundary", () =>
       assert.equal(error.status, 400);
       assert.equal(error.code, "model_storage_request_aliases_retired");
       assert.deepEqual(error.details.retired_aliases, ["removeOrphans"]);
+      return true;
+    },
+  );
+
+  assert.throws(
+    () => ModelMountingState.prototype.deleteModelArtifact.call(state, "artifact.llama", {
+      storageRoot: "/models",
+      artifactPath: "artifact.llama",
+      filesystemCustody: true,
+    }),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "model_storage_request_aliases_retired");
+      assert.deepEqual(error.details.retired_aliases, [
+        "storageRoot",
+        "artifactPath",
+        "filesystemCustody",
+      ]);
       return true;
     },
   );
