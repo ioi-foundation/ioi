@@ -221,6 +221,11 @@ test("new session modal is a shell-level governed launch flow", () => {
   assert.match(newSessionModal, /Workbench Adapter/);
   assert.match(newSessionModal, /adapter_preference_ref: adapterPreferenceRef/);
   assert.match(newSessionModal, /buildHarnessCompatibilityVerdict/);
+  assert.match(newSessionModal, /buildHypervisorNewSessionLaunchSummary/);
+  assert.match(newSessionModal, /launch_summary: launchSummary/);
+  assert.match(newSessionModal, /data-new-session-launch-summary/);
+  assert.match(newSessionModal, /data-new-session-workbench-adapter-ref/);
+  assert.match(newSessionModal, /data-new-session-harness-selection-kind/);
   assert.match(newSessionModal, /selectedPrivacy\.ref/);
   assert.match(newSessionModal, /modelRouteSupportsHypervisorMount/);
   assert.match(newSessionModal, /modelRouteSupportsHypervisorMountFromInventory/);
@@ -239,6 +244,10 @@ test("new session modal is a shell-level governed launch flow", () => {
   assert.match(newSessionModal, /Launch governed session/);
   assert.match(controller, /newSessionModalOpen/);
   assert.match(controller, /launchNewSession/);
+  assert.match(controller, /const summary = request\.launch_summary/);
+  assert.match(controller, /summary\.harness_label/);
+  assert.match(controller, /summary\.model_route_availability_state/);
+  assert.match(controller, /summary\.workbench_adapter_ref/);
   assert.match(controller, /setCurrentProjectId\(project\.id\)/);
   assert.match(controller, /setActiveView\(recipe\.surface_id\)/);
   assert.match(shellWindow, /loadHypervisorModelMountInventorySnapshot/);

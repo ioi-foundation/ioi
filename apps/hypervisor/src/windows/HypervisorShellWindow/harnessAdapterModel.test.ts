@@ -16,6 +16,11 @@ import {
   isAgentHarnessAdapterOption,
   modelRouteSupportsHypervisorMountFromInventory,
 } from "./harnessAdapterModel.ts";
+import {
+  HYPERVISOR_SESSION_LAUNCH_RECIPES,
+  HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES,
+  buildHypervisorNewSessionLaunchSummary,
+} from "./hypervisorShellNavigationModel.ts";
 
 test("default harness profile is the IOI reference scaffold, not an external adapter", () => {
   assert.equal(DEFAULT_HARNESS_PROFILE_OPTION.selection_kind, "harness_profile");
@@ -213,6 +218,70 @@ test("receipt drafts bind adapter execution through daemon truth and workspace p
     "harness-profile:default_harness_profile",
   );
   assert.equal(defaultReceipt.workspace_mount_policy, "ctee_private_workspace");
+});
+
+test("new session launch summary binds harness, model route, adapter target, privacy, and receipt", () => {
+  const recipe = HYPERVISOR_SESSION_LAUNCH_RECIPES.find(
+    (candidate) => candidate.recipe_id === "mission.default",
+  );
+  const workbenchAdapter = HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES.find(
+    (candidate) => candidate.adapter_id === "external_editor",
+  );
+  const deepseek = HYPERVISOR_AGENT_HARNESS_ADAPTER_PROFILES.find(
+    (profile) => profile.adapter_id === "deepseek_tui",
+  );
+  assert.ok(recipe);
+  assert.ok(workbenchAdapter);
+  assert.ok(deepseek);
+
+  const routeAvailability = modelRouteSupportsHypervisorMountFromInventory(
+    HYPERVISOR_DEFAULT_LOCAL_MODEL_ROUTE_REF,
+    {
+      ...HYPERVISOR_NEW_SESSION_MODEL_MOUNT_INVENTORY_FIXTURE,
+      source: "daemon-model-mount-inventory",
+    },
+  );
+  const harnessVerdict = buildHarnessCompatibilityVerdict(
+    deepseek,
+    routeAvailability.available,
+    "privacy:redacted-projection",
+  );
+  const summary = buildHypervisorNewSessionLaunchSummary({
+    recipe,
+    projectId: "project:ioi",
+    workbenchAdapter,
+    harness: deepseek,
+    harnessVerdict,
+    modelRouteAvailability: routeAvailability,
+    modelRouteRef: HYPERVISOR_DEFAULT_LOCAL_MODEL_ROUTE_REF,
+    privacyPostureRef: "privacy:redacted-projection",
+    authorityScopeRefs: ["scope:workspace.read", "scope:receipt.write"],
+    receiptPreviewRef: "receipt-preview:new-session/test",
+  });
+
+  assert.deepEqual(summary, {
+    schema_version: "ioi.hypervisor.new_session_launch_summary.v1",
+    recipe_ref: "mission.default",
+    project_ref: "project:ioi",
+    workbench_adapter_ref: "workbench-adapter:external_editor",
+    workbench_adapter_target_ref: "adapter-target:external-editor",
+    workbench_adapter_custody_posture: "redacted_projection",
+    harness_selection_ref: "agent-harness-adapter:deepseek_tui",
+    harness_selection_kind: "agent_harness_adapter",
+    harness_label: "DeepSeek TUI",
+    harness_runtime_truth_source: "daemon-runtime",
+    harness_truth_boundary: "proposal_source_only",
+    harness_verdict_state: "compatible",
+    model_route_ref: HYPERVISOR_DEFAULT_LOCAL_MODEL_ROUTE_REF,
+    model_route_availability_state: "daemon_verified",
+    model_route_available: true,
+    model_route_endpoint_refs: ["model-endpoint:hypervisor/default-local"],
+    privacy_posture_ref: "privacy:redacted-projection",
+    authority_scope_refs: ["scope:workspace.read", "scope:receipt.write"],
+    receipt_preview_ref: "receipt-preview:new-session/test",
+    requires_daemon_gate: true,
+    runtimeTruthSource: "daemon-runtime",
+  });
 });
 
 test("harness testbed fixture compares adapters without granting runtime truth", () => {

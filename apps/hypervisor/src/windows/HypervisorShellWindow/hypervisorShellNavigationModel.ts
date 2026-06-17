@@ -1,5 +1,8 @@
 import {
   HYPERVISOR_HARNESS_SELECTION_OPTIONS,
+  getHarnessSelectionRef,
+  type HarnessCompatibilityVerdict,
+  type HypervisorModelRouteAvailability,
   type HypervisorHarnessSelectionOption,
 } from "./harnessAdapterModel.ts";
 
@@ -189,6 +192,30 @@ export interface HypervisorSessionLaunchRecipe {
   privacy_posture_templates: string[];
 }
 
+export interface HypervisorNewSessionLaunchSummary {
+  schema_version: "ioi.hypervisor.new_session_launch_summary.v1";
+  recipe_ref: string;
+  project_ref: string;
+  workbench_adapter_ref: string;
+  workbench_adapter_target_ref: string;
+  workbench_adapter_custody_posture: HypervisorWorkbenchAdapterCustodyPosture;
+  harness_selection_ref: string;
+  harness_selection_kind: HypervisorHarnessSelectionOption["selection_kind"];
+  harness_label: string;
+  harness_runtime_truth_source: "daemon-runtime";
+  harness_truth_boundary: "daemon-owned" | "proposal_source_only";
+  harness_verdict_state: HarnessCompatibilityVerdict["state"];
+  model_route_ref: string;
+  model_route_availability_state: HypervisorModelRouteAvailability["state"];
+  model_route_available: boolean;
+  model_route_endpoint_refs: string[];
+  privacy_posture_ref: string;
+  authority_scope_refs: string[];
+  receipt_preview_ref: string;
+  requires_daemon_gate: true;
+  runtimeTruthSource: "daemon-runtime";
+}
+
 export interface HypervisorNewSessionLaunchRequest {
   recipe_id: string;
   project_id: string;
@@ -198,6 +225,7 @@ export interface HypervisorNewSessionLaunchRequest {
   privacy_posture_ref: string;
   authority_scope_refs: string[];
   receipt_preview_ref: string;
+  launch_summary: HypervisorNewSessionLaunchSummary;
 }
 
 export const HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCE_STORAGE_KEY =
@@ -284,6 +312,57 @@ export function getWorkbenchAdapterPreferenceByRef(
         getWorkbenchAdapterPreferenceRef(preference) === preferenceRef,
     ) ?? HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES[0]!
   );
+}
+
+export function buildHypervisorNewSessionLaunchSummary({
+  recipe,
+  projectId,
+  workbenchAdapter,
+  harness,
+  harnessVerdict,
+  modelRouteAvailability,
+  modelRouteRef,
+  privacyPostureRef,
+  authorityScopeRefs,
+  receiptPreviewRef,
+}: {
+  recipe: HypervisorSessionLaunchRecipe;
+  projectId: string;
+  workbenchAdapter: WorkbenchAdapterPreference;
+  harness: HypervisorHarnessSelectionOption;
+  harnessVerdict: HarnessCompatibilityVerdict;
+  modelRouteAvailability: HypervisorModelRouteAvailability;
+  modelRouteRef: string;
+  privacyPostureRef: string;
+  authorityScopeRefs: string[];
+  receiptPreviewRef: string;
+}): HypervisorNewSessionLaunchSummary {
+  return {
+    schema_version: "ioi.hypervisor.new_session_launch_summary.v1",
+    recipe_ref: recipe.recipe_id,
+    project_ref: projectId,
+    workbench_adapter_ref: getWorkbenchAdapterPreferenceRef(workbenchAdapter),
+    workbench_adapter_target_ref: workbenchAdapter.target_ref,
+    workbench_adapter_custody_posture: workbenchAdapter.custody_posture,
+    harness_selection_ref: getHarnessSelectionRef(harness),
+    harness_selection_kind: harness.selection_kind,
+    harness_label: harness.label,
+    harness_runtime_truth_source: harness.runtimeTruthSource,
+    harness_truth_boundary:
+      harness.selection_kind === "harness_profile"
+        ? "daemon-owned"
+        : harness.truth_boundary,
+    harness_verdict_state: harnessVerdict.state,
+    model_route_ref: modelRouteRef,
+    model_route_availability_state: modelRouteAvailability.state,
+    model_route_available: modelRouteAvailability.available,
+    model_route_endpoint_refs: modelRouteAvailability.endpoint_refs,
+    privacy_posture_ref: privacyPostureRef,
+    authority_scope_refs: authorityScopeRefs,
+    receipt_preview_ref: receiptPreviewRef,
+    requires_daemon_gate: true,
+    runtimeTruthSource: "daemon-runtime",
+  };
 }
 
 export const HYPERVISOR_PRIMARY_ACTION: HypervisorShellAction = {

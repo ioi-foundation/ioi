@@ -439,8 +439,9 @@ export function useHypervisorShellController() {
     }
 
     if (recipe.surface_id === "sessions") {
+      const summary = request.launch_summary;
       setHypervisorSeedIntent(
-        `Start ${recipe.label.toLowerCase()} for ${project.name}. Authority: ${request.authority_scope_refs.join(", ")}. Privacy: ${request.privacy_posture_ref}. Receipt preview: ${request.receipt_preview_ref}.`,
+        `Start ${recipe.label.toLowerCase()} for ${project.name}. Harness: ${summary.harness_label}. Model route: ${summary.model_route_ref} (${summary.model_route_availability_state}). Workbench adapter: ${summary.workbench_adapter_ref}. Authority: ${summary.authority_scope_refs.join(", ")}. Privacy: ${summary.privacy_posture_ref}. Receipt preview: ${summary.receipt_preview_ref}.`,
       );
       setChatSurface("chat");
       setChatPaneVisible(true);

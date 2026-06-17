@@ -1504,6 +1504,15 @@ Current implementation cut:
   cost estimates, verification status, receipt refs, and evidence posture from
   the same daemon-runtime fixture. Workbench remains the adapter target surface;
   Foundry owns comparison/eval visibility.
+
+  0B.2's launch contract is hardened: `HypervisorNewSessionModal` now emits an
+  `ioi.hypervisor.new_session_launch_summary.v1` object binding recipe,
+  project, workbench adapter target/custody, harness selection/kind/truth
+  boundary, harness verdict, model-route availability, privacy posture,
+  authority scopes, receipt preview, and daemon-gate requirement. The
+  controller seeds sessions from that summary instead of reconstructing loose UI
+  refs. `harnessAdapterModel.test.ts`, `hypervisorShellNavigationModel.test.mjs`,
+  and `check:runtime-layout` guard the summary path.
 ```
 
 First implementation slice:

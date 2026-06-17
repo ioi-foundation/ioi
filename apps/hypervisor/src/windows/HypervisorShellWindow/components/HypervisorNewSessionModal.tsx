@@ -6,6 +6,7 @@ import {
   HYPERVISOR_SESSION_LAUNCH_RECIPES,
   HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCE_STORAGE_KEY,
   HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES,
+  buildHypervisorNewSessionLaunchSummary,
   getWorkbenchAdapterPreferenceByRef,
   getWorkbenchAdapterPreferenceRef,
   type HypervisorNewSessionLaunchRequest,
@@ -175,6 +176,32 @@ export function HypervisorNewSessionModal({
       ].join("/"),
     [adapterPreferenceRef, harnessSelectionRef, recipe.recipe_id, selectedProject.id],
   );
+  const launchSummary = useMemo(
+    () =>
+      buildHypervisorNewSessionLaunchSummary({
+        recipe,
+        projectId: selectedProject.id,
+        workbenchAdapter: selectedAdapterPreference,
+        harness: selectedHarness,
+        harnessVerdict,
+        modelRouteAvailability,
+        modelRouteRef,
+        privacyPostureRef,
+        authorityScopeRefs: recipe.authority_scope_templates,
+        receiptPreviewRef,
+      }),
+    [
+      harnessVerdict,
+      modelRouteAvailability,
+      modelRouteRef,
+      privacyPostureRef,
+      receiptPreviewRef,
+      recipe,
+      selectedAdapterPreference,
+      selectedHarness,
+      selectedProject.id,
+    ],
+  );
 
   if (!isOpen) {
     return null;
@@ -190,6 +217,7 @@ export function HypervisorNewSessionModal({
       privacy_posture_ref: privacyPostureRef,
       authority_scope_refs: recipe.authority_scope_templates,
       receipt_preview_ref: receiptPreviewRef,
+      launch_summary: launchSummary,
     });
   };
 
@@ -326,6 +354,13 @@ export function HypervisorNewSessionModal({
           data-new-session-model-route-ref={selectedModelRoute.ref}
           data-new-session-model-route-inventory-state={
             modelRouteAvailability.state
+          }
+          data-new-session-launch-summary={launchSummary.schema_version}
+          data-new-session-workbench-adapter-ref={
+            launchSummary.workbench_adapter_ref
+          }
+          data-new-session-harness-selection-kind={
+            launchSummary.harness_selection_kind
           }
         >
           <div>

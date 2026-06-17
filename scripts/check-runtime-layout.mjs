@@ -66,6 +66,9 @@ const hypervisorShellWindowSource = read(
 const hypervisorNewSessionModalSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorNewSessionModal.tsx",
 );
+const hypervisorShellControllerSource = read(
+  "apps/hypervisor/src/windows/HypervisorShellWindow/useHypervisorShellController.ts",
+);
 const runtimeHarnessContainerLaneSource = read(
   "packages/runtime-daemon/src/runtime-harness-container-lane.mjs",
 );
@@ -677,6 +680,29 @@ assert(
     hypervisorNewSessionModalSource.includes(
       "data-new-session-harness-verdict",
     ) &&
+    hypervisorNewSessionModalSource.includes(
+      "buildHypervisorNewSessionLaunchSummary",
+    ) &&
+    hypervisorNewSessionModalSource.includes("launch_summary: launchSummary") &&
+    hypervisorNewSessionModalSource.includes(
+      "data-new-session-launch-summary",
+    ) &&
+    hypervisorNewSessionModalSource.includes(
+      "data-new-session-workbench-adapter-ref",
+    ) &&
+    hypervisorNewSessionModalSource.includes(
+      "data-new-session-harness-selection-kind",
+    ) &&
+    hypervisorShellControllerSource.includes(
+      "const summary = request.launch_summary",
+    ) &&
+    hypervisorShellControllerSource.includes("summary.harness_label") &&
+    hypervisorShellControllerSource.includes(
+      "summary.model_route_availability_state",
+    ) &&
+    hypervisorShellControllerSource.includes(
+      "summary.workbench_adapter_ref",
+    ) &&
     !hypervisorNewSessionModalSource.includes(
       'selectedModelRoute.ref === "model-route:hypervisor/default-local"',
     ) &&
@@ -686,9 +712,10 @@ assert(
   [
     "apps/hypervisor/src/windows/HypervisorShellWindow/index.tsx",
     "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorNewSessionModal.tsx",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/useHypervisorShellController.ts",
     "apps/hypervisor/src/windows/HypervisorShellWindow/modelMountInventoryModel.ts",
   ],
-  "New Session must treat only verified Hypervisor model mounts as local model routes and block harness launches that would otherwise silently fall back.",
+  "New Session must emit a typed launch summary, treat only verified Hypervisor model mounts as local model routes, and block harness launches that would otherwise silently fall back.",
 );
 assert(
   "hypervisor-harness-public-smoke-task",
