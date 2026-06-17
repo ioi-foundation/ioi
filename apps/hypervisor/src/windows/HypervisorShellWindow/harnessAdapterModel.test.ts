@@ -20,6 +20,7 @@ import {
   HYPERVISOR_SESSION_LAUNCH_RECIPES,
   HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES,
   buildHypervisorNewSessionLaunchSummary,
+  buildWorkbenchAdapterLaunchPlan,
 } from "./hypervisorShellNavigationModel.ts";
 
 test("default harness profile is the IOI reference scaffold, not an external adapter", () => {
@@ -266,6 +267,22 @@ test("new session launch summary binds harness, model route, adapter target, pri
     workbench_adapter_ref: "workbench-adapter:external_editor",
     workbench_adapter_target_ref: "adapter-target:external-editor",
     workbench_adapter_custody_posture: "redacted_projection",
+    workbench_adapter_launch_plan_ref:
+      "workbench-adapter:external_editor/launch-plan",
+    workbench_adapter_connection_contract_ref:
+      "connection-contract:workbench-adapter/desktop-bridge",
+    workbench_adapter_access_lease_refs: [
+      "lease:workbench-adapter/desktop-bridge",
+    ],
+    workbench_adapter_authority_scope_refs: [
+      "scope:workspace.read",
+      "scope:workspace.patch",
+      "scope:receipt.write",
+    ],
+    workbench_adapter_receipt_refs: [
+      "receipt-policy:workbench-adapter/desktop-bridge",
+    ],
+    workbench_adapter_provider_posture_required: false,
     harness_selection_ref: "agent-harness-adapter:deepseek_tui",
     harness_selection_kind: "agent_harness_adapter",
     harness_label: "DeepSeek TUI",
@@ -282,6 +299,42 @@ test("new session launch summary binds harness, model route, adapter target, pri
     requires_daemon_gate: true,
     runtimeTruthSource: "daemon-runtime",
   });
+});
+
+test("workbench adapter launch plans bind connection contracts and leases", () => {
+  const plans = Object.fromEntries(
+    HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES.map((preference) => [
+      preference.adapter_id,
+      buildWorkbenchAdapterLaunchPlan(preference),
+    ]),
+  );
+
+  assert.equal(
+    plans.embedded_workbench?.connection_kind,
+    "embedded_host",
+  );
+  assert.deepEqual(plans.embedded_workbench?.required_access_lease_refs, [
+    "lease:workbench-adapter/embedded-host",
+  ]);
+  assert.equal(
+    plans.external_editor?.connection_contract_ref,
+    "connection-contract:workbench-adapter/desktop-bridge",
+  );
+  assert.equal(plans.terminal_workspace?.connection_kind, "terminal_session");
+  assert.equal(plans.browser_workspace?.provider_posture_required, true);
+  assert.equal(plans.remote_vm?.restore_archive_policy, "required_for_remote_persistence");
+  assert.equal(
+    plans.hypervisor_node?.connection_kind,
+    "hypervisor_node_session",
+  );
+
+  for (const plan of Object.values(plans)) {
+    assert.equal(plan?.schema_version, "ioi.hypervisor.workbench_adapter_launch_plan.v1");
+    assert.equal(plan?.runtimeTruthSource, "daemon-runtime");
+    assert.equal(plan?.requires_daemon_gate, true);
+    assert.equal(plan?.secret_release_policy, "no_durable_secret_release");
+    assert.ok(plan?.required_receipt_refs.length);
+  }
 });
 
 test("harness testbed fixture compares adapters without granting runtime truth", () => {

@@ -364,6 +364,12 @@ export function HypervisorNewSessionModal({
           data-new-session-workbench-adapter-ref={
             launchSummary.workbench_adapter_ref
           }
+          data-new-session-workbench-adapter-launch-plan-ref={
+            launchSummary.workbench_adapter_launch_plan_ref
+          }
+          data-new-session-workbench-adapter-connection-contract-ref={
+            launchSummary.workbench_adapter_connection_contract_ref
+          }
           data-new-session-harness-selection-kind={
             launchSummary.harness_selection_kind
           }
@@ -376,6 +382,20 @@ export function HypervisorNewSessionModal({
             <span>Adapter target</span>
             <strong>{selectedAdapterPreference.label}</strong>
             <em>{selectedAdapterPreference.description}</em>
+          </div>
+          <div>
+            <span>Adapter launch contract</span>
+            <strong>
+              {launchSummary.workbench_adapter_connection_contract_ref}
+            </strong>
+            <em>
+              Access leases:{" "}
+              {launchSummary.workbench_adapter_access_lease_refs.join(" - ")}
+            </em>
+            <em>
+              Receipt policy:{" "}
+              {launchSummary.workbench_adapter_receipt_refs.join(" - ")}
+            </em>
           </div>
           <div>
             <span>Harness verdict</span>

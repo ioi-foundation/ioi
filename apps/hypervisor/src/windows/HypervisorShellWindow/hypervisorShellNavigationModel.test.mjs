@@ -6,6 +6,10 @@ const source = readFileSync(
   new URL("./hypervisorShellNavigationModel.ts", import.meta.url),
   "utf8",
 );
+const workbenchAdapterPreferences = readFileSync(
+  new URL("./workbenchAdapterPreferences.ts", import.meta.url),
+  "utf8",
+);
 const operatorSubstrate = readFileSync(
   new URL("./operatorSubstrateModel.ts", import.meta.url),
   "utf8",
@@ -126,10 +130,19 @@ test("hypervisor shell binds Phase 0A to the IOI reference cockpit contract", ()
   }
   assert.match(source, /Codex CLI[\s\S]*Claude Code[\s\S]*DeepSeek TUI[\s\S]*Grok Build/);
   assert.match(source, /HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES/);
-  assert.match(source, /WorkbenchAdapterPreference/);
+  assert.match(workbenchAdapterPreferences, /WorkbenchAdapterPreference/);
+  assert.match(workbenchAdapterPreferences, /WorkbenchAdapterLaunchPlan/);
+  assert.match(workbenchAdapterPreferences, /buildWorkbenchAdapterLaunchPlan/);
+  assert.match(
+    workbenchAdapterPreferences,
+    /ioi\.hypervisor\.workbench_adapter_launch_plan\.v1/,
+  );
   assert.match(source, /DEFAULT_WORKBENCH_ADAPTER_PREFERENCE_REF/);
   assert.match(source, /workbench_adapter/);
-  assert.match(source, /Embedded Workbench[\s\S]*External Editor[\s\S]*Browser Workspace/);
+  assert.match(
+    workbenchAdapterPreferences,
+    /Embedded Workbench[\s\S]*External Editor[\s\S]*Browser Workspace/,
+  );
   assert.match(activityBar, /HYPERVISOR_IOI_REFERENCE_SHELL_REQUIREMENTS/);
   assert.match(
     activityBar,
@@ -159,6 +172,9 @@ test("hypervisor shell models IOI-reference session detail and inspectors", () =
   assert.match(source, /HYPERVISOR_NEW_SESSION_SETUP_MODEL/);
   assert.match(source, /HYPERVISOR_SESSION_LAUNCH_RECIPES/);
   assert.match(source, /adapter_preference_ref/);
+  assert.match(source, /workbench_adapter_launch_plan_ref/);
+  assert.match(source, /workbench_adapter_connection_contract_ref/);
+  assert.match(source, /workbench_adapter_access_lease_refs/);
   assert.match(source, /"adapter_preference"/);
   for (const recipeId of [
     "mission.default",

@@ -1101,6 +1101,13 @@ Current implementation cut:
   request field; remaining 0A.5 work is deeper adapter-specific launch/control
   wiring for external desktop editors, browser IDEs, terminal harnesses, VMs,
   and HypervisorOS nodes
+  `workbenchAdapterPreferences.ts` now owns `WorkbenchAdapterLaunchPlan`,
+  converting each adapter preference into a daemon-gated connection contract
+  with access leases, authority scopes, receipt policy refs, provider-posture
+  requirements, restore/archive policy, and `no_durable_secret_release`. New
+  Session receipt previews surface the launch plan and connection contract
+  before launch, so adapter targets are governed session routes rather than
+  decorative editor choices.
 
 0A.4 New Session is partially implemented:
   `HYPERVISOR_SESSION_LAUNCH_RECIPES` defines Mission, Workbench, Agent,

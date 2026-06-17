@@ -54,6 +54,9 @@ const rootGitignore = read(".gitignore");
 const hypervisorShellNavigationSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorShellNavigationModel.ts",
 );
+const workbenchAdapterPreferencesSource = read(
+  "apps/hypervisor/src/windows/HypervisorShellWindow/workbenchAdapterPreferences.ts",
+);
 const hypervisorHarnessAdapterModelSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/harnessAdapterModel.ts",
 );
@@ -438,6 +441,36 @@ assert(
     ),
   ["apps/hypervisor/src/surfaces/Workspace/WorkspaceRepositoryGate.tsx"],
   "Workbench must open as a governed adapter hub over Hypervisor Core, not a code-repository or pull-request console.",
+);
+assert(
+  "workbench-adapter-launch-plan-contract",
+  hypervisorShellNavigationSource.includes("workbenchAdapterPreferences.ts") &&
+    workbenchAdapterPreferencesSource.includes("WorkbenchAdapterLaunchPlan") &&
+    workbenchAdapterPreferencesSource.includes(
+      "ioi.hypervisor.workbench_adapter_launch_plan.v1",
+    ) &&
+    workbenchAdapterPreferencesSource.includes(
+      "buildWorkbenchAdapterLaunchPlan",
+    ) &&
+    workbenchAdapterPreferencesSource.includes(
+      "connection-contract:workbench-adapter/desktop-bridge",
+    ) &&
+    workbenchAdapterPreferencesSource.includes(
+      "lease:provider/workspace-access",
+    ) &&
+    workbenchAdapterPreferencesSource.includes(
+      "secret_release_policy: \"no_durable_secret_release\"",
+    ) &&
+    hypervisorNewSessionModalSource.includes(
+      "data-new-session-workbench-adapter-launch-plan-ref",
+    ) &&
+    hypervisorNewSessionModalSource.includes("Adapter launch contract"),
+  [
+    "apps/hypervisor/src/windows/HypervisorShellWindow/workbenchAdapterPreferences.ts",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorShellNavigationModel.ts",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorNewSessionModal.tsx",
+  ],
+  "Workbench adapter preferences must compile into daemon-gated launch plans with connection contracts, access leases, receipt refs, and no durable secret release.",
 );
 assert(
   "hypervisor-environment-ops-model",

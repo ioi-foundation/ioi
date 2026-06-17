@@ -5,6 +5,28 @@ import {
   type HypervisorModelRouteAvailability,
   type HypervisorHarnessSelectionOption,
 } from "./harnessAdapterModel.ts";
+import {
+  HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES,
+  buildWorkbenchAdapterLaunchPlan,
+  getWorkbenchAdapterPreferenceRef,
+  type HypervisorWorkbenchAdapterCustodyPosture,
+  type WorkbenchAdapterPreference,
+} from "./workbenchAdapterPreferences.ts";
+
+export {
+  DEFAULT_WORKBENCH_ADAPTER_PREFERENCE_REF,
+  HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES,
+  HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCE_STORAGE_KEY,
+  buildWorkbenchAdapterLaunchPlan,
+  getWorkbenchAdapterPreferenceByRef,
+  getWorkbenchAdapterPreferenceRef,
+  type HypervisorWorkbenchAdapterConnectionKind,
+  type HypervisorWorkbenchAdapterCustodyPosture,
+  type HypervisorWorkbenchAdapterId,
+  type HypervisorWorkbenchAdapterLaunchMode,
+  type WorkbenchAdapterLaunchPlan,
+  type WorkbenchAdapterPreference,
+} from "./workbenchAdapterPreferences.ts";
 
 export type HypervisorClientKind =
   | "app"
@@ -41,26 +63,6 @@ export type HypervisorNewSessionSetupSectionId =
   | "privacy_posture"
   | "authority"
   | "receipt_preview";
-
-export type HypervisorWorkbenchAdapterId =
-  | "embedded_workbench"
-  | "external_editor"
-  | "browser_workspace"
-  | "terminal_workspace"
-  | "remote_vm"
-  | "hypervisor_node";
-
-export type HypervisorWorkbenchAdapterLaunchMode =
-  | "embedded"
-  | "external"
-  | "remote_url"
-  | "headless";
-
-export type HypervisorWorkbenchAdapterCustodyPosture =
-  | "local_projection"
-  | "redacted_projection"
-  | "provider_session"
-  | "headless_session";
 
 export type HypervisorSurfaceKind =
   | "core"
@@ -162,16 +164,6 @@ export interface HypervisorNewSessionSetupModel {
   runtimeTruthSource: "daemon-runtime";
 }
 
-export interface WorkbenchAdapterPreference {
-  adapter_id: HypervisorWorkbenchAdapterId;
-  label: string;
-  description: string;
-  launch_mode: HypervisorWorkbenchAdapterLaunchMode;
-  target_ref: string;
-  custody_posture: HypervisorWorkbenchAdapterCustodyPosture;
-  default_for_project?: boolean;
-}
-
 export interface HypervisorSessionLaunchRecipe {
   recipe_id: string;
   label: string;
@@ -199,6 +191,12 @@ export interface HypervisorNewSessionLaunchSummary {
   workbench_adapter_ref: string;
   workbench_adapter_target_ref: string;
   workbench_adapter_custody_posture: HypervisorWorkbenchAdapterCustodyPosture;
+  workbench_adapter_launch_plan_ref: string;
+  workbench_adapter_connection_contract_ref: string;
+  workbench_adapter_access_lease_refs: string[];
+  workbench_adapter_authority_scope_refs: string[];
+  workbench_adapter_receipt_refs: string[];
+  workbench_adapter_provider_posture_required: boolean;
   harness_selection_ref: string;
   harness_selection_kind: HypervisorHarnessSelectionOption["selection_kind"];
   harness_label: string;
@@ -228,92 +226,6 @@ export interface HypervisorNewSessionLaunchRequest {
   launch_summary: HypervisorNewSessionLaunchSummary;
 }
 
-export const HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCE_STORAGE_KEY =
-  "hypervisor.workbench.adapterPreferenceRef";
-
-export const HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES: WorkbenchAdapterPreference[] =
-  [
-    {
-      adapter_id: "embedded_workbench",
-      label: "Embedded Workbench",
-      description:
-        "Use Hypervisor's packaged workbench host for code, IOI panes, and extension-backed project work.",
-      launch_mode: "embedded",
-      target_ref: "adapter-target:embedded-workbench",
-      custody_posture: "local_projection",
-      default_for_project: true,
-    },
-    {
-      adapter_id: "external_editor",
-      label: "External Editor",
-      description:
-        "Attach a compatible desktop editor as a governed adapter target without making it runtime truth.",
-      launch_mode: "external",
-      target_ref: "adapter-target:external-editor",
-      custody_posture: "redacted_projection",
-    },
-    {
-      adapter_id: "browser_workspace",
-      label: "Browser Workspace",
-      description:
-        "Open a browser-hosted workspace through daemon-mediated workspace, auth, and receipt policy.",
-      launch_mode: "remote_url",
-      target_ref: "adapter-target:browser-workspace",
-      custody_posture: "provider_session",
-    },
-    {
-      adapter_id: "terminal_workspace",
-      label: "Terminal Workspace",
-      description:
-        "Route shell, tmux, and harness CLI activity through command mediation and session receipts.",
-      launch_mode: "headless",
-      target_ref: "adapter-target:terminal-workspace",
-      custody_posture: "headless_session",
-    },
-    {
-      adapter_id: "remote_vm",
-      label: "Remote VM Workspace",
-      description:
-        "Launch or attach a VM/container workspace with explicit provider, port, service, and restore posture.",
-      launch_mode: "remote_url",
-      target_ref: "adapter-target:remote-vm-workspace",
-      custody_posture: "provider_session",
-    },
-    {
-      adapter_id: "hypervisor_node",
-      label: "HypervisorOS Node",
-      description:
-        "Attach a persistent node session as a governed workbench target with lifecycle and receipt projection.",
-      launch_mode: "remote_url",
-      target_ref: "adapter-target:hypervisoros-node",
-      custody_posture: "provider_session",
-    },
-  ];
-
-export function getWorkbenchAdapterPreferenceRef(
-  preference: Pick<WorkbenchAdapterPreference, "adapter_id">,
-): string {
-  return `workbench-adapter:${preference.adapter_id}`;
-}
-
-export const DEFAULT_WORKBENCH_ADAPTER_PREFERENCE_REF =
-  getWorkbenchAdapterPreferenceRef(
-    HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES.find(
-      (preference) => preference.default_for_project,
-    ) ?? HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES[0]!,
-  );
-
-export function getWorkbenchAdapterPreferenceByRef(
-  preferenceRef: string,
-): WorkbenchAdapterPreference {
-  return (
-    HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES.find(
-      (preference) =>
-        getWorkbenchAdapterPreferenceRef(preference) === preferenceRef,
-    ) ?? HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES[0]!
-  );
-}
-
 export function buildHypervisorNewSessionLaunchSummary({
   recipe,
   projectId,
@@ -337,6 +249,7 @@ export function buildHypervisorNewSessionLaunchSummary({
   authorityScopeRefs: string[];
   receiptPreviewRef: string;
 }): HypervisorNewSessionLaunchSummary {
+  const adapterLaunchPlan = buildWorkbenchAdapterLaunchPlan(workbenchAdapter);
   return {
     schema_version: "ioi.hypervisor.new_session_launch_summary.v1",
     recipe_ref: recipe.recipe_id,
@@ -344,6 +257,16 @@ export function buildHypervisorNewSessionLaunchSummary({
     workbench_adapter_ref: getWorkbenchAdapterPreferenceRef(workbenchAdapter),
     workbench_adapter_target_ref: workbenchAdapter.target_ref,
     workbench_adapter_custody_posture: workbenchAdapter.custody_posture,
+    workbench_adapter_launch_plan_ref: adapterLaunchPlan.launch_plan_ref,
+    workbench_adapter_connection_contract_ref:
+      adapterLaunchPlan.connection_contract_ref,
+    workbench_adapter_access_lease_refs:
+      adapterLaunchPlan.required_access_lease_refs,
+    workbench_adapter_authority_scope_refs:
+      adapterLaunchPlan.required_authority_scope_refs,
+    workbench_adapter_receipt_refs: adapterLaunchPlan.required_receipt_refs,
+    workbench_adapter_provider_posture_required:
+      adapterLaunchPlan.provider_posture_required,
     harness_selection_ref: getHarnessSelectionRef(harness),
     harness_selection_kind: harness.selection_kind,
     harness_label: harness.label,
