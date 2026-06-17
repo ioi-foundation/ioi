@@ -261,7 +261,7 @@ function checkPreflight() {
 }
 
 function buildComposerBundle() {
-  const result = runCommand("npm", ["run", "build:ioi-workbench-composer"], {
+  const result = runCommand("npm", ["run", "build:hypervisor-workbench-composer"], {
     timeout: 120_000,
   });
   return {

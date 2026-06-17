@@ -74,6 +74,9 @@ npm run dev:desktop
 
 # Validate the direct Workspace shell and retain a GUI receipt bundle
 npm run probe:desktop:workspace
+
+# Build the Hypervisor Workbench workflow-composer webview bundle
+npm run build:hypervisor-workbench-composer
 ```
 
 `npm run dev:desktop` currently launches the packaged Electron/VS Code

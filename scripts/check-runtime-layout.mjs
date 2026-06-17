@@ -120,7 +120,9 @@ assert(
     packageJson.scripts["goal:hypervisor-app-ux-readiness"] &&
     packageJson.scripts["goal:hypervisor-workflow-compositor-parity"] &&
     packageJson.scripts["goal:hypervisor-model-mounting"] &&
-    packageJson.scripts["goal:hypervisor-workbench-mode-shell"],
+    packageJson.scripts["goal:hypervisor-workbench-mode-shell"] &&
+    packageJson.scripts["build:hypervisor-workbench-composer"] &&
+    !packageJson.scripts["build:ioi-workbench-composer"],
   ["package.json"],
   "root package scripts must expose Hypervisor command names, not retired Autopilot product aliases",
 );

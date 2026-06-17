@@ -843,6 +843,10 @@ Current implementation cut:
   proof-runner filenames may remain historical internals until their code is
   refactored or deleted, but the public command surface must not advertise
   Autopilot as the product.
+  the Workflow Composer webview build command is
+  `build:hypervisor-workbench-composer`; the `ioi-workbench` directory name is
+  an adapter-extension implementation detail, not the public script/product
+  name.
 
 0A.2 canonical shell routing is partially implemented:
   `PrimaryView` is now the canonical `HypervisorSurfaceId` union rather than
