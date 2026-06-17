@@ -25,6 +25,11 @@ import {
   SquareTerminal,
 } from "lucide-react";
 import "./Home.css";
+import { HYPERVISOR_NEW_SESSION_SETUP_MODEL } from "../../windows/AutopilotShellWindow/hypervisorShellNavigationModel";
+import {
+  buildHarnessCompatibilityVerdict,
+  getHarnessSelectionRef,
+} from "../../windows/AutopilotShellWindow/harnessAdapterModel";
 import {
   applyAutopilotAppearance,
   getAutopilotThemeOption,
@@ -65,6 +70,7 @@ interface HomeViewProps {
   onOpenChat: () => void;
   onOpenWorkspace: () => void;
   onOpenRuns: () => void;
+  onOpenModels: () => void;
   onOpenInbox: () => void;
   onOpenCapabilities: () => void;
   onOpenPolicy: () => void;
@@ -237,6 +243,7 @@ interface HomeDashboardViewProps {
   onOpenChat: () => void;
   onOpenWorkspace: () => void;
   onOpenRuns: () => void;
+  onOpenModels: () => void;
   onOpenCapabilities: () => void;
   onOpenPolicy: () => void;
   onOpenSettings: (section?: SettingsSection | null) => void;
@@ -303,6 +310,7 @@ function HomeDashboardView({
   onOpenChat,
   onOpenWorkspace,
   onOpenRuns,
+  onOpenModels,
   onOpenCapabilities,
   onOpenPolicy,
   onOpenSettings,
@@ -313,6 +321,11 @@ function HomeDashboardView({
   const setupStatus = skippedAtMs
     ? `Setup skipped ${formatDate(skippedAtMs)}`
     : `Setup completed ${formatDate(completedAtMs)}`;
+  const newSessionRequiredSections = HYPERVISOR_NEW_SESSION_SETUP_MODEL.sections
+    .filter((section) => section.required)
+    .slice(0, 5);
+  const newSessionHarnessOptions =
+    HYPERVISOR_NEW_SESSION_SETUP_MODEL.harnessOptions.slice(0, 4);
   const surfaces: DashboardSurface[] = [
     {
       id: "projects",
@@ -332,8 +345,8 @@ function HomeDashboardView({
     },
     {
       id: "chat",
-      label: "Chat",
-      detail: "Agent runtime",
+      label: "Sessions",
+      detail: "Live work",
       icon: MessageCircle,
       tone: "teal",
       onClick: onOpenChat,
@@ -364,8 +377,8 @@ function HomeDashboardView({
     },
     {
       id: "capabilities",
-      label: "Capabilities",
-      detail: "Connectors",
+      label: "Agents",
+      detail: "Capabilities",
       icon: Boxes,
       tone: "blue",
       onClick: onOpenCapabilities,
@@ -383,24 +396,24 @@ function HomeDashboardView({
   return (
     <section
       className="chat-home-zero"
-      aria-label="Autopilot home"
-      data-home-dashboard-variant="autopilot-zero-state"
+      aria-label="Hypervisor home"
+      data-home-dashboard-variant="hypervisor-zero-state"
     >
       <div className="chat-home-zero-shell">
         <header className="chat-home-zero-hero">
           <div className="chat-home-zero-title-row">
             <HomeBrandMark />
-            <h1>Welcome back to Autopilot</h1>
+            <h1>Welcome back to Hypervisor</h1>
           </div>
           <button
             type="button"
             className="chat-home-zero-search"
             onClick={onOpenCommandPalette}
             data-home-action="palette.open"
-            aria-label="Search Autopilot, code, sessions, and commands"
+            aria-label="Search Hypervisor, sessions, workbench, automations, and commands"
           >
             {renderIcon(Search, { size: 17, strokeWidth: 1.8, "aria-hidden": true })}
-            <span>Search Autopilot, code, sessions, and commands</span>
+            <span>Search Hypervisor, sessions, workbench, automations, and commands</span>
             <kbd>ctrl + K</kbd>
           </button>
 
@@ -410,11 +423,11 @@ function HomeDashboardView({
                 {renderIcon(SquareTerminal, { size: 23, strokeWidth: 1.8 })}
               </span>
               <div>
-                <h2>Open your workspace</h2>
-                <p>Browse and edit code in the contained OpenVSCode workbench.</p>
+                <h2>Open Workbench</h2>
+                <p>Use the selected editor or terminal adapter for this project.</p>
               </div>
               <button type="button" onClick={onOpenWorkspace}>
-                <span>Open Workspace</span>
+                <span>Open Workbench</span>
                 {renderIcon(ArrowRight, { size: 15, strokeWidth: 2 })}
               </button>
             </article>
@@ -423,11 +436,11 @@ function HomeDashboardView({
                 {renderIcon(Bot, { size: 23, strokeWidth: 1.8 })}
               </span>
               <div>
-                <h2>Ask about this codebase</h2>
-                <p>Continue with shared project context and IOI runtime authority.</p>
+                <h2>Start a session</h2>
+                <p>Bind intent, harness, model route, privacy, and authority.</p>
               </div>
               <button type="button" onClick={onOpenChat}>
-                <span>Open Chat</span>
+                <span>New Session</span>
                 {renderIcon(ArrowRight, { size: 15, strokeWidth: 2 })}
               </button>
             </article>
@@ -445,6 +458,55 @@ function HomeDashboardView({
               </button>
             </article>
           </div>
+
+          <section
+            className="chat-home-zero-session-card"
+            aria-label="New Session setup preview"
+            data-home-new-session-contract="daemon-runtime"
+          >
+            <div className="chat-home-zero-session-card__copy">
+              <span>New Session</span>
+              <h2>Launch governed work through Hypervisor Core.</h2>
+              <p>
+                The launch contract binds harness selection, model route,
+                privacy posture, wallet authority, and receipt preview before
+                consequential execution.
+              </p>
+            </div>
+            <div
+              className="chat-home-zero-session-card__steps"
+              aria-label="Required setup sections"
+            >
+              {newSessionRequiredSections.map((section) => (
+                <span key={section.id}>{section.label}</span>
+              ))}
+            </div>
+            <div
+              className="chat-home-zero-session-card__harnesses"
+              aria-label="Harness options"
+            >
+              {newSessionHarnessOptions.map((option) => {
+                const verdict = buildHarnessCompatibilityVerdict(option, true);
+                return (
+                  <div key={getHarnessSelectionRef(option)}>
+                    <strong>{option.label}</strong>
+                    <span>{verdict.state.split("_").join(" ")}</span>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="chat-home-zero-session-card__actions">
+              <button type="button" onClick={onOpenChat}>
+                Start New Session
+              </button>
+              <button type="button" onClick={onOpenModels}>
+                Configure Models
+              </button>
+              <button type="button" onClick={onOpenPolicy}>
+                Review Authority
+              </button>
+            </div>
+          </section>
         </header>
 
         <div className="chat-home-zero-body">
@@ -505,7 +567,7 @@ function HomeDashboardView({
 
             <section className="chat-home-zero-assist" aria-label="Autopilot assistant">
               <div>
-                <h2>Get help from your personal AI assistant</h2>
+                <h2>Operate this project with governed sessions</h2>
                 <p>{currentProject.name} · {setupStatus}</p>
               </div>
               <div className="chat-home-zero-questions">
@@ -522,7 +584,7 @@ function HomeDashboardView({
                   Summarize recent evidence
                 </button>
                 <button type="button" onClick={onOpenChat}>
-                  Ask your question...
+                  Start from intent...
                 </button>
               </div>
               {renderIcon(Bot, {
@@ -533,7 +595,7 @@ function HomeDashboardView({
             </section>
           </main>
 
-          <aside className="chat-home-zero-sidebar" aria-label="Autopilot surfaces">
+          <aside className="chat-home-zero-sidebar" aria-label="Hypervisor surfaces">
             <section className="chat-home-zero-side-card">
               <div className="chat-home-zero-side-header">
                 <h2>Recommended surfaces</h2>
@@ -546,7 +608,7 @@ function HomeDashboardView({
               </div>
               <p>
                 Pin the surfaces you use most from the activity bar. The runtime,
-                evidence, and workbench all share the same project scope.
+                evidence, and workbench share the same Hypervisor Core contract.
               </p>
             </section>
 
@@ -601,6 +663,7 @@ export function HomeView({
   onOpenChat,
   onOpenWorkspace,
   onOpenRuns,
+  onOpenModels,
   onOpenCapabilities,
   onOpenPolicy,
   onOpenSettings,
@@ -866,7 +929,7 @@ export function HomeView({
     return (
       <section
         className="chat-home"
-        aria-label="Autopilot home dashboard"
+        aria-label="Hypervisor home dashboard"
         data-home-onboarding-state="complete"
         data-home-selected-step={state.selectedStepId}
       >
@@ -882,6 +945,7 @@ export function HomeView({
           onOpenChat={onOpenChat}
           onOpenWorkspace={onOpenWorkspace}
           onOpenRuns={onOpenRuns}
+          onOpenModels={onOpenModels}
           onOpenCapabilities={onOpenCapabilities}
           onOpenPolicy={onOpenPolicy}
           onOpenSettings={onOpenSettings}
@@ -896,7 +960,7 @@ export function HomeView({
   return (
     <section
       className="chat-home"
-      aria-label="Autopilot onboarding"
+      aria-label="Hypervisor onboarding"
       data-home-onboarding-state="onboarding"
       data-home-selected-step={selectedStep.id}
       data-home-progress={percentComplete}

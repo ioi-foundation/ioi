@@ -165,6 +165,7 @@ export function AutopilotShellContent({
                       controller.changePrimaryView("workspace")
                     }
                     onOpenRuns={() => controller.changePrimaryView("runs")}
+                    onOpenModels={() => controller.changePrimaryView("mounts")}
                     onOpenInbox={() => controller.changePrimaryView("inbox")}
                     onOpenCapabilities={() =>
                       controller.changePrimaryView("capabilities")
