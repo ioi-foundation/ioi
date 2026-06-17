@@ -161,6 +161,10 @@ const {
   VIEW_DEFINITIONS,
 } = require("./workbench-surfaces");
 
+const hypervisorWorkbenchRuntimeTruth = {
+  runtimeTruthSource: "daemon-runtime",
+};
+
 function workspaceSummary() {
   const folder = vscode.workspace.workspaceFolders?.[0];
   if (!folder) {

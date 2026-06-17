@@ -12,7 +12,10 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { AUTOPILOT_RETAINED_QUERIES } from "./lib/hypervisor-app-harness-contract.mjs";
-import { HYPERVISOR_WORKBENCH_ADAPTER_HOST } from "./lib/hypervisor-workbench-adapter-host-paths.mjs";
+import {
+  HYPERVISOR_WORKBENCH_ADAPTER_HOST,
+  syncWorkbenchAdapterHostMetadata,
+} from "./lib/hypervisor-workbench-adapter-host-paths.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -145,10 +148,12 @@ function checkMasterGuide() {
   }
   const content = readFileSync(guidePath, "utf8");
   const requiredHeadings = [
-    "## Core Correction",
-    "## Product And Client Taxonomy",
-    "## Phase 0A: Product UX Reframe",
-    "## Final Doctrine",
+    "## Executive Verdict",
+    "## Coherence Findings",
+    "## Cleaner Architecture Opportunities",
+    "## Proposed Patch Plan",
+    "## Final Doctrine Delta",
+    "## Completion Checklist for This Guide",
   ];
   const missingHeadings = requiredHeadings.filter(
     (heading) => !content.includes(heading),
@@ -247,6 +252,7 @@ function sourceLineFor(source, pattern) {
 }
 
 function checkCanonicalForkReadiness() {
+  syncWorkbenchAdapterHostMetadata();
   const productPath = join(VSCODE_PACKAGED_APP_ROOT, "resources/app/product.json");
   const packagePath = join(VSCODE_PACKAGED_APP_ROOT, "resources/app/package.json");
   const packagedExtensionPackagePath = join(
@@ -455,8 +461,8 @@ function runCanonicalForkLaunch(outputRoot) {
 set -euo pipefail
 APP=${JSON.stringify(HYPERVISOR_WORKBENCH_ADAPTER_HOST.binary)}
 OUT=${JSON.stringify(outputDir)}
-USER_DATA=$(mktemp -d /tmp/autopilot-vscode-user-XXXXXX)
-EXT_DIR=$(mktemp -d /tmp/autopilot-vscode-ext-XXXXXX)
+USER_DATA=$(mktemp -d /tmp/hypervisor-workbench-user-XXXXXX)
+EXT_DIR=$(mktemp -d /tmp/hypervisor-workbench-ext-XXXXXX)
 STDOUT="$OUT/stdout.log"
 STDERR="$OUT/stderr.log"
 echo "$USER_DATA" > "$OUT/user-data-dir"
@@ -468,7 +474,7 @@ WINDOW=""
 for _ in $(seq 1 30); do
   WINDOW=$(xdotool search --pid "$PID" 2>/dev/null | tail -n 1 || true)
   if [ -z "$WINDOW" ]; then
-    WINDOW=$(xdotool search --name "Autopilot" 2>/dev/null | tail -n 1 || true)
+    WINDOW=$(xdotool search --name "Hypervisor" 2>/dev/null | tail -n 1 || true)
   fi
   if [ -n "$WINDOW" ]; then
     break
@@ -476,7 +482,7 @@ for _ in $(seq 1 30); do
   sleep 1
 done
 if [ -z "$WINDOW" ]; then
-  echo "No Autopilot fork window found" > "$OUT/failure.txt"
+  echo "No Hypervisor Workbench adapter window found" > "$OUT/failure.txt"
   kill "$PID" 2>/dev/null || true
   exit 2
 fi
@@ -503,9 +509,9 @@ done
     : "";
   return {
     id: "canonical-shell:launch",
-    ok: result.ok && screenshotExists && /Autopilot/i.test(windowTitle),
+    ok: result.ok && screenshotExists && /Hypervisor/i.test(windowTitle),
     summary:
-      result.ok && screenshotExists && /Autopilot/i.test(windowTitle)
+      result.ok && screenshotExists && /Hypervisor/i.test(windowTitle)
         ? "Canonical Hypervisor Workbench adapter host launches and screenshots successfully"
         : "Canonical Hypervisor Workbench adapter host launch probe failed",
     evidence: {
@@ -820,16 +826,16 @@ async function runCanonicalControlRoomValidation(outputRoot) {
       const byName = runCommand(
         `for id in $(xdotool search --name ${JSON.stringify(
           "Hypervisor",
-        )} 2>/dev/null); do title=$(xdotool getwindowname "$id" 2>/dev/null || true); case "$title" in *"Hypervisor"*|*"Autopilot"*) echo "$id";; esac; done | tail -n 1`,
+        )} 2>/dev/null); do title=$(xdotool getwindowname "$id" 2>/dev/null || true); case "$title" in *"Hypervisor"*) echo "$id";; esac; done | tail -n 1`,
       );
       if (byName.ok && byName.stdout.trim()) return byName.stdout.trim();
       const byPid = runCommand(
-        `for id in $(xdotool search --pid ${app.pid} 2>/dev/null); do title=$(xdotool getwindowname "$id" 2>/dev/null || true); case "$title" in *"Hypervisor"*|*"Autopilot"*) echo "$id";; esac; done | tail -n 1`,
+        `for id in $(xdotool search --pid ${app.pid} 2>/dev/null); do title=$(xdotool getwindowname "$id" 2>/dev/null || true); case "$title" in *"Hypervisor"*) echo "$id";; esac; done | tail -n 1`,
       );
       return byPid.ok && byPid.stdout.trim() ? byPid.stdout.trim() : null;
     }, 30_000, 1_000);
     if (!windowId) {
-      throw new Error("No Autopilot fork window found for control-room probe");
+      throw new Error("No Hypervisor Workbench adapter window found for control-room probe");
     }
     writeFileSync(join(outputDir, "window-id"), `${windowId}\n`);
     await waitForPredicate(
@@ -1113,7 +1119,7 @@ function writeResult(outputRoot, result) {
   writeFileSync(resultPath, `${JSON.stringify(result, null, 2)}\n`);
   const summaryPath = join(outputDir, "summary.md");
   const lines = [
-    "# Autopilot UX Readiness Goal Result",
+    "# Hypervisor App UX Readiness Goal Result",
     "",
     `Status: ${result.ok ? "passed" : "failed"}`,
     `Mode: ${result.mode}`,

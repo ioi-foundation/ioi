@@ -1,5 +1,12 @@
-import { cpSync, existsSync, mkdirSync, rmSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -57,11 +64,42 @@ export const HYPERVISOR_WORKBENCH_ADAPTER_HOST = {
 
 export { envFlag };
 
+function patchJsonFile(filePath, patch) {
+  if (!existsSync(filePath)) return null;
+  const before = JSON.parse(readFileSync(filePath, "utf8"));
+  const after = patch({ ...before });
+  writeFileSync(filePath, `${JSON.stringify(after, null, 2)}\n`, "utf8");
+  return { filePath, changed: JSON.stringify(before) !== JSON.stringify(after) };
+}
+
+export function syncWorkbenchAdapterHostMetadata({
+  root = packagedRoot,
+} = {}) {
+  const productJson = patchJsonFile(join(root, "resources/app/product.json"), (product) => ({
+    ...product,
+    nameShort: "Hypervisor",
+    nameLong: "Hypervisor",
+    applicationName: "hypervisor",
+    dataFolderName: ".hypervisor",
+    urlProtocol: "hypervisor",
+  }));
+  const packageJson = patchJsonFile(join(root, "resources/app/package.json"), (pkg) => ({
+    ...pkg,
+    name: "hypervisor",
+  }));
+  return {
+    root,
+    productJson,
+    packageJson,
+  };
+}
+
 export function syncWorkbenchExtensionTargets({
   includeForkIfPresent = true,
 } = {}) {
   const copied = [];
   const skipped = [];
+  const metadata = syncWorkbenchAdapterHostMetadata();
   const targets = [
     {
       kind: "packaged-app",
@@ -98,5 +136,6 @@ export function syncWorkbenchExtensionTargets({
     packagedRoot,
     forkRoot,
     forkOptional: true,
+    metadata,
   };
 }
