@@ -70,14 +70,12 @@ test("native authority evidence compatibility routes are retired", async () => {
       authoritySnapshot: retiredRouteWrapper,
       listModelCapabilities: retiredRouteWrapper,
     },
-    lifecycleProjectionSurface: {
-      authorityEvidenceSummary(surfaceStore, options) {
-        calls.push({ surfaceStore, options });
-        return {
-          schema_version: "authority.evidence.summary.v1",
-          filters: options,
-        };
-      },
+    projectRuntimeLifecycleProjection(projectionKind, facts = {}) {
+      calls.push({ projectionKind, facts });
+      return {
+        schema_version: "authority.evidence.summary.v1",
+        filters: facts,
+      };
     },
     runReadSurface: {
       authorityEvidenceSummary: retiredRouteWrapper,
@@ -157,89 +155,16 @@ test("native chat, responses, and embeddings invocation aliases are retired with
   assert.deepEqual(calls, []);
 });
 
-test("agent, thread, and run detail routes return lifecycle projection surface output", async () => {
+test("agent, thread, and run detail routes return store-owned lifecycle projection API output", async () => {
   const { handleAgentRoute, handleThreadRoute, handleRunRoute } = routeHandlers();
   const calls = [];
-  const lifecycleProjectionSurface = {
-    getAgent(_store, agentId) {
-      calls.push({ method: "getAgent", id: agentId });
-      return { projection: "agent", agentId };
-    },
-    getThread(_store, threadId) {
-      calls.push({ method: "getThread", id: threadId });
-      return { projection: "thread", threadId };
-    },
-    getThreadUsage(_store, threadId) {
-      calls.push({ method: "getThreadUsage", id: threadId });
-      return { projection: "thread_usage", threadId };
-    },
-    listThreadTurns(_store, threadId) {
-      calls.push({ method: "listThreadTurns", id: threadId });
-      return [{ projection: "thread_turns", threadId }];
-    },
-    getThreadTurn(_store, threadId, turnId) {
-      calls.push({ method: "getThreadTurn", id: threadId, turnId });
-      return { projection: "thread_turn", threadId, turnId };
-    },
-    listThreadEvents(_store, threadId) {
-      calls.push({ method: "listThreadEvents", id: threadId });
-      return [{ projection: "thread_events", threadId }];
-    },
-    getRun(_store, runId) {
-      calls.push({ method: "getRun", id: runId });
-      return { projection: "run", runId };
-    },
-    waitRun(_store, runId) {
-      calls.push({ method: "waitRun", id: runId });
-      return { projection: "run_wait", runId };
-    },
-    getRunConversation(_store, runId) {
-      calls.push({ method: "getRunConversation", id: runId });
-      return [{ projection: "run_conversation", runId }];
-    },
-    getRunUsage(_store, runId) {
-      calls.push({ method: "getRunUsage", id: runId });
-      return { projection: "run_usage", runId };
-    },
-    listRunEvents(_store, runId) {
-      calls.push({ method: "listRunEvents", id: runId });
-      return [{ projection: "run_events", runId }];
-    },
-    replayRun(_store, runId) {
-      calls.push({ method: "replayRun", id: runId });
-      return [{ projection: "run_replay", runId }];
-    },
-    getRunTrace(_store, runId) {
-      calls.push({ method: "getRunTrace", id: runId });
-      return { projection: "run_trace", runId };
-    },
-    getRunComputerUseTrace(_store, runId) {
-      calls.push({ method: "getRunComputerUseTrace", id: runId });
-      return { projection: "run_computer_use_trace", runId };
-    },
-    getRunComputerUseTrajectory(_store, runId) {
-      calls.push({ method: "getRunComputerUseTrajectory", id: runId });
-      return [{ projection: "run_computer_use_trajectory", runId }];
-    },
-    getRunScorecard(_store, runId) {
-      calls.push({ method: "getRunScorecard", id: runId });
-      return { projection: "run_scorecard", runId };
-    },
-    listRunArtifacts(_store, runId) {
-      calls.push({ method: "listRunArtifacts", id: runId });
-      return [{ projection: "run_artifacts", runId }];
-    },
-    getRunArtifact(_store, runId, artifactRef) {
-      calls.push({ method: "getRunArtifact", id: runId, artifactRef });
-      return { projection: "run_artifact", runId, artifactRef };
-    },
-    listRuns(_store, agentId) {
-      calls.push({ method: "listRuns", id: agentId });
-      return [{ projection: "agent_runs", agentId }];
-    },
-  };
   const store = {
-    lifecycleProjectionSurface,
+    projectRuntimeLifecycleProjection(projectionKind, facts = {}) {
+      calls.push({ projectionKind, facts });
+      return Array.isArray(projectionForRoute(projectionKind))
+        ? projectionForRoute(projectionKind).map((record) => ({ ...record, ...facts }))
+        : { ...projectionForRoute(projectionKind), ...facts };
+    },
     usageForRun: retiredRouteWrapper,
     eventsForRun: retiredRouteWrapper,
     usageForThread: retiredRouteWrapper,
@@ -328,29 +253,36 @@ test("agent, thread, and run detail routes return lifecycle projection surface o
   }
 
   assert.deepEqual(calls, [
-    { method: "getAgent", id: "agent_route" },
-    { method: "listRuns", id: "agent_route" },
-    { method: "getThread", id: "thread_route" },
-    { method: "getThreadUsage", id: "thread_route" },
-    { method: "listThreadTurns", id: "thread_route" },
-    { method: "getThreadTurn", id: "thread_route", turnId: "turn_1" },
-    { method: "listThreadEvents", id: "thread_route" },
-    { method: "listThreadEvents", id: "thread_route" },
-    { method: "getRun", id: "run_route" },
-    { method: "getRunUsage", id: "run_route" },
-    { method: "waitRun", id: "run_route" },
-    { method: "getRunConversation", id: "run_route" },
-    { method: "listRunEvents", id: "run_route" },
-    { method: "replayRun", id: "run_route" },
-    { method: "getRunTrace", id: "run_route" },
-    { method: "getRunTrace", id: "run_route" },
-    { method: "getRunComputerUseTrace", id: "run_route" },
-    { method: "getRunComputerUseTrajectory", id: "run_route" },
-    { method: "getRunScorecard", id: "run_route" },
-    { method: "listRunArtifacts", id: "run_route" },
-    { method: "getRunArtifact", id: "run_route", artifactRef: "artifact_1" },
+    { projectionKind: "agent", facts: { agent_id: "agent_route" } },
+    { projectionKind: "agent_runs", facts: { agent_id: "agent_route" } },
+    { projectionKind: "thread", facts: { thread_id: "thread_route" } },
+    { projectionKind: "thread_usage", facts: { thread_id: "thread_route" } },
+    { projectionKind: "thread_turns", facts: { thread_id: "thread_route" } },
+    { projectionKind: "thread_turn", facts: { thread_id: "thread_route", turn_id: "turn_1" } },
+    { projectionKind: "thread_events", facts: { thread_id: "thread_route" } },
+    { projectionKind: "thread_events", facts: { thread_id: "thread_route" } },
+    { projectionKind: "run", facts: { run_id: "run_route" } },
+    { projectionKind: "run_usage", facts: { run_id: "run_route" } },
+    { projectionKind: "run_wait", facts: { run_id: "run_route" } },
+    { projectionKind: "run_conversation", facts: { run_id: "run_route" } },
+    { projectionKind: "run_events", facts: { run_id: "run_route" } },
+    { projectionKind: "run_replay", facts: { run_id: "run_route" } },
+    { projectionKind: "run_trace", facts: { run_id: "run_route" } },
+    { projectionKind: "run_trace", facts: { run_id: "run_route" } },
+    { projectionKind: "run_computer_use_trace", facts: { run_id: "run_route" } },
+    { projectionKind: "run_computer_use_trajectory", facts: { run_id: "run_route" } },
+    { projectionKind: "run_scorecard", facts: { run_id: "run_route" } },
+    { projectionKind: "run_artifacts", facts: { run_id: "run_route" } },
+    { projectionKind: "run_artifact", facts: { run_id: "run_route", artifact_ref: "artifact_1" } },
   ]);
 });
+
+function projectionForRoute(projectionKind) {
+  if (["thread_turns", "thread_events", "run_events", "run_replay", "run_conversation", "run_computer_use_trajectory", "run_artifacts", "agent_runs"].includes(projectionKind)) {
+    return [{ projection: projectionKind }];
+  }
+  return { projection: projectionKind };
+}
 
 test("agent lifecycle mutation routes use direct Rust lifecycle APIs", async () => {
   const calls = [];

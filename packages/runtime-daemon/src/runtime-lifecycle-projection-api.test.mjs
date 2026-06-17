@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createRuntimeLifecycleProjectionSurface } from "./runtime-lifecycle-projection-surface.mjs";
+import { createRuntimeLifecycleProjectionApi } from "./runtime-lifecycle-projection-api.mjs";
 
 function contextPolicyCore(calls = []) {
   return {
@@ -122,39 +122,39 @@ function storeFixture() {
   };
 }
 
-test("runtime lifecycle surface returns Rust-owned public lifecycle projections", () => {
+test("runtime lifecycle projection API returns Rust-owned public lifecycle projections", () => {
   const calls = [];
-  const surface = createRuntimeLifecycleProjectionSurface({
+  const api = createRuntimeLifecycleProjectionApi({
     contextPolicyCore: contextPolicyCore(calls),
     workspaceRoot: "/workspace/project",
   });
   const store = storeFixture();
 
-  assert.deepEqual(surface.listAgents(store).map((agent) => agent.id), ["agent_123"]);
-  assert.equal(surface.getAgent(store, "agent_123").id, "agent_123");
-  assert.deepEqual(surface.listThreads(store), [{ thread_id: "thread_123", agent_id: "agent_123" }]);
-  assert.equal(surface.getThread(store, "thread_123").thread_id, "thread_123");
-  assert.equal(surface.getThreadUsage(store, "thread_123").total_tokens, 11);
-  assert.equal(surface.listThreadTurns(store, "thread_123")[0].turn_id, "turn_123");
-  assert.equal(surface.getThreadTurn(store, "thread_123", "turn_123").turn_id, "turn_123");
-  assert.equal(surface.listThreadEvents(store, "thread_123")[0].event_id, "event_thread");
-  assert.deepEqual(surface.listRuns(store).map((run) => run.id), ["run_123", "run_other"]);
-  assert.deepEqual(surface.listRuns(store, "agent_123").map((run) => run.id), ["run_123"]);
-  assert.equal(surface.getRun(store, "run_123").id, "run_123");
-  assert.equal(surface.waitRun(store, "run_123").id, "run_123");
-  assert.equal(surface.getRunConversation(store, "run_123")[0].content, "ship it");
-  assert.equal(surface.getRunUsage(store, "run_123").total_tokens, 7);
-  assert.equal(surface.listRunEvents(store, "run_123")[0].event_id, "event_run");
-  assert.equal(surface.replayRun(store, "run_123")[0].event_id, "event_run");
-  assert.equal(surface.getRunTrace(store, "run_123").scorecard.score, 1);
-  assert.equal(surface.getRunComputerUseTrace(store, "run_123").steps, 2);
-  assert.equal(surface.getRunComputerUseTrajectory(store, "run_123")[0].x, 1);
-  assert.equal(surface.getRunScorecard(store, "run_123").score, 1);
-  assert.equal(surface.listRunArtifacts(store, "run_123")[0].id, "artifact_123");
-  assert.equal(surface.getRunArtifact(store, "run_123", "artifact_123").name, "trace.json");
-  assert.equal(surface.listUsage(store, { agent_id: "agent_123", group_by: "thread" }).group_by, "thread");
+  assert.deepEqual(api.listAgents(store).map((agent) => agent.id), ["agent_123"]);
+  assert.equal(api.getAgent(store, "agent_123").id, "agent_123");
+  assert.deepEqual(api.listThreads(store), [{ thread_id: "thread_123", agent_id: "agent_123" }]);
+  assert.equal(api.getThread(store, "thread_123").thread_id, "thread_123");
+  assert.equal(api.getThreadUsage(store, "thread_123").total_tokens, 11);
+  assert.equal(api.listThreadTurns(store, "thread_123")[0].turn_id, "turn_123");
+  assert.equal(api.getThreadTurn(store, "thread_123", "turn_123").turn_id, "turn_123");
+  assert.equal(api.listThreadEvents(store, "thread_123")[0].event_id, "event_thread");
+  assert.deepEqual(api.listRuns(store).map((run) => run.id), ["run_123", "run_other"]);
+  assert.deepEqual(api.listRuns(store, "agent_123").map((run) => run.id), ["run_123"]);
+  assert.equal(api.getRun(store, "run_123").id, "run_123");
+  assert.equal(api.waitRun(store, "run_123").id, "run_123");
+  assert.equal(api.getRunConversation(store, "run_123")[0].content, "ship it");
+  assert.equal(api.getRunUsage(store, "run_123").total_tokens, 7);
+  assert.equal(api.listRunEvents(store, "run_123")[0].event_id, "event_run");
+  assert.equal(api.replayRun(store, "run_123")[0].event_id, "event_run");
+  assert.equal(api.getRunTrace(store, "run_123").scorecard.score, 1);
+  assert.equal(api.getRunComputerUseTrace(store, "run_123").steps, 2);
+  assert.equal(api.getRunComputerUseTrajectory(store, "run_123")[0].x, 1);
+  assert.equal(api.getRunScorecard(store, "run_123").score, 1);
+  assert.equal(api.listRunArtifacts(store, "run_123")[0].id, "artifact_123");
+  assert.equal(api.getRunArtifact(store, "run_123", "artifact_123").name, "trace.json");
+  assert.equal(api.listUsage(store, { agent_id: "agent_123", group_by: "thread" }).group_by, "thread");
   assert.deepEqual(
-    surface.authorityEvidenceSummary(store, {
+    api.authorityEvidenceSummary(store, {
       thread_id: "thread_123",
       run_id: "run_123",
       capability_ref: "capability:model",
@@ -167,8 +167,12 @@ test("runtime lifecycle surface returns Rust-owned public lifecycle projections"
       route_id: "route_123",
     },
   );
+  assert.equal(api.project(store, "run_artifact", {
+    run_id: "run_123",
+    artifact_ref: "artifact_123",
+  }).name, "trace.json");
 
-  assert.ok(calls.every((call) => call.source === "runtime.lifecycle_projection_surface"));
+  assert.ok(calls.every((call) => call.source === "runtime.lifecycle_projection_api"));
   assert.ok(calls.every((call) => call.workspace_root === "/workspace/project"));
   assert.ok(calls.every((call) => call.state_dir === "/runtime-state"));
   assert.ok(calls.every((call) => call.evidence_refs.includes("runtime_lifecycle_rust_projection")));
@@ -204,6 +208,7 @@ test("runtime lifecycle surface returns Rust-owned public lifecycle projections"
     "run_artifact",
     "usage_list",
     "authority_evidence_summary",
+    "run_artifact",
   ]);
   const turnCall = calls.find((call) => call.projection_kind === "thread_turn");
   assert.equal(turnCall.turn_id, "turn_123");
@@ -223,13 +228,13 @@ test("runtime lifecycle surface returns Rust-owned public lifecycle projections"
   assert.equal(Object.hasOwn(authorityCall, "routeId"), false);
 });
 
-test("runtime lifecycle surface fails closed when Rust projection is missing", () => {
-  const surface = createRuntimeLifecycleProjectionSurface({
+test("runtime lifecycle projection API fails closed when Rust projection is missing", () => {
+  const api = createRuntimeLifecycleProjectionApi({
     workspaceRoot: "/workspace/project",
   });
 
   assert.throws(
-    () => surface.listAgents(storeFixture()),
+    () => api.listAgents(storeFixture()),
     (error) => {
       assert.equal(error.status, 501);
       assert.equal(error.code, "runtime_lifecycle_projection_rust_projection_missing");
@@ -242,8 +247,8 @@ test("runtime lifecycle surface fails closed when Rust projection is missing", (
   );
 });
 
-test("runtime lifecycle surface rejects Rust projection mismatches", () => {
-  const surface = createRuntimeLifecycleProjectionSurface({
+test("runtime lifecycle projection API rejects Rust projection mismatches", () => {
+  const api = createRuntimeLifecycleProjectionApi({
     contextPolicyCore: {
       projectRuntimeLifecycle() {
         return {
@@ -257,7 +262,7 @@ test("runtime lifecycle surface rejects Rust projection mismatches", () => {
   });
 
   assert.throws(
-    () => surface.listAgents(storeFixture()),
+    () => api.listAgents(storeFixture()),
     (error) => {
       assert.equal(error.status, 502);
       assert.equal(error.code, "runtime_lifecycle_projection_rust_projection_invalid");

@@ -50,7 +50,7 @@ export function createRuntimeRouteHandlers(deps) {
     const agentId = decodeURIComponent(segments[2]);
     const action = segments[3];
     if (request.method === "GET" && !action) {
-      writeJsonResponse(response, store.lifecycleProjectionSurface.getAgent(store, agentId));
+      writeJsonResponse(response, store.projectRuntimeLifecycleProjection("agent", { agent_id: agentId }));
       return;
     }
     if (request.method === "DELETE" && !action) {
@@ -115,7 +115,7 @@ export function createRuntimeRouteHandlers(deps) {
       return;
     }
     if (request.method === "GET" && action === "runs") {
-      writeJsonResponse(response, store.lifecycleProjectionSurface.listRuns(store, agentId));
+      writeJsonResponse(response, store.projectRuntimeLifecycleProjection("agent_runs", { agent_id: agentId }));
       return;
     }
     if (request.method === "GET" && action === "memory" && segments[4] === "policy") {
@@ -153,11 +153,11 @@ export function createRuntimeRouteHandlers(deps) {
     const threadId = decodeURIComponent(segments[2]);
     const action = segments[3];
     if (request.method === "GET" && !action) {
-      writeJsonResponse(response, store.lifecycleProjectionSurface.getThread(store, threadId));
+      writeJsonResponse(response, store.projectRuntimeLifecycleProjection("thread", { thread_id: threadId }));
       return;
     }
     if (request.method === "GET" && action === "usage" && !segments[4]) {
-      writeJsonResponse(response, store.lifecycleProjectionSurface.getThreadUsage(store, threadId));
+      writeJsonResponse(response, store.projectRuntimeLifecycleProjection("thread_usage", { thread_id: threadId }));
       return;
     }
     if (request.method === "POST" && action === "context-budget" && !segments[4]) {
@@ -561,18 +561,21 @@ export function createRuntimeRouteHandlers(deps) {
       return;
     }
     if (request.method === "GET" && action === "turns" && !segments[4]) {
-      writeJsonResponse(response, store.lifecycleProjectionSurface.listThreadTurns(store, threadId));
+      writeJsonResponse(response, store.projectRuntimeLifecycleProjection("thread_turns", { thread_id: threadId }));
       return;
     }
     if (request.method === "GET" && action === "turns" && segments[4] && !segments[5]) {
       writeJsonResponse(
         response,
-        store.lifecycleProjectionSurface.getThreadTurn(store, threadId, decodeURIComponent(segments[4])),
+        store.projectRuntimeLifecycleProjection("thread_turn", {
+          thread_id: threadId,
+          turn_id: decodeURIComponent(segments[4]),
+        }),
       );
       return;
     }
     if (request.method === "GET" && action === "events" && (!segments[4] || segments[4] === "stream")) {
-      writeSse(response, store.lifecycleProjectionSurface.listThreadEvents(store, threadId));
+      writeSse(response, store.projectRuntimeLifecycleProjection("thread_events", { thread_id: threadId }));
       return;
     }
     if (request.method === "GET" && action === "memory" && segments[4] === "policy") {
@@ -610,11 +613,11 @@ export function createRuntimeRouteHandlers(deps) {
     const runId = decodeURIComponent(segments[2]);
     const action = segments[3];
     if (request.method === "GET" && !action) {
-      writeJsonResponse(response, store.lifecycleProjectionSurface.getRun(store, runId));
+      writeJsonResponse(response, store.projectRuntimeLifecycleProjection("run", { run_id: runId }));
       return;
     }
     if (request.method === "GET" && action === "usage" && !segments[4]) {
-      writeJsonResponse(response, store.lifecycleProjectionSurface.getRunUsage(store, runId));
+      writeJsonResponse(response, store.projectRuntimeLifecycleProjection("run_usage", { run_id: runId }));
       return;
     }
     if (request.method === "POST" && action === "context-budget" && !segments[4]) {
@@ -636,50 +639,53 @@ export function createRuntimeRouteHandlers(deps) {
       return;
     }
     if (request.method === "GET" && action === "wait") {
-      writeJsonResponse(response, store.lifecycleProjectionSurface.waitRun(store, runId));
+      writeJsonResponse(response, store.projectRuntimeLifecycleProjection("run_wait", { run_id: runId }));
       return;
     }
     if (request.method === "GET" && action === "conversation") {
-      writeJsonResponse(response, store.lifecycleProjectionSurface.getRunConversation(store, runId));
+      writeJsonResponse(response, store.projectRuntimeLifecycleProjection("run_conversation", { run_id: runId }));
       return;
     }
     if (request.method === "GET" && action === "events") {
       writeSse(
         response,
-        store.lifecycleProjectionSurface.listRunEvents(store, runId),
+        store.projectRuntimeLifecycleProjection("run_events", { run_id: runId }),
       );
       return;
     }
     if (request.method === "GET" && action === "replay") {
       writeSse(
         response,
-        store.lifecycleProjectionSurface.replayRun(store, runId),
+        store.projectRuntimeLifecycleProjection("run_replay", { run_id: runId }),
       );
       return;
     }
     if (request.method === "GET" && (action === "trace" || action === "inspect")) {
-      writeJsonResponse(response, store.lifecycleProjectionSurface.getRunTrace(store, runId));
+      writeJsonResponse(response, store.projectRuntimeLifecycleProjection("run_trace", { run_id: runId }));
       return;
     }
     if (request.method === "GET" && action === "computer-use" && segments[4] === "trace" && !segments[5]) {
-      writeJsonResponse(response, store.lifecycleProjectionSurface.getRunComputerUseTrace(store, runId));
+      writeJsonResponse(response, store.projectRuntimeLifecycleProjection("run_computer_use_trace", { run_id: runId }));
       return;
     }
     if (request.method === "GET" && action === "computer-use" && segments[4] === "trajectory" && !segments[5]) {
-      writeJsonResponse(response, store.lifecycleProjectionSurface.getRunComputerUseTrajectory(store, runId));
+      writeJsonResponse(response, store.projectRuntimeLifecycleProjection("run_computer_use_trajectory", { run_id: runId }));
       return;
     }
     if (request.method === "GET" && action === "scorecard") {
-      writeJsonResponse(response, store.lifecycleProjectionSurface.getRunScorecard(store, runId));
+      writeJsonResponse(response, store.projectRuntimeLifecycleProjection("run_scorecard", { run_id: runId }));
       return;
     }
     if (request.method === "GET" && action === "artifacts" && !segments[4]) {
-      writeJsonResponse(response, store.lifecycleProjectionSurface.listRunArtifacts(store, runId));
+      writeJsonResponse(response, store.projectRuntimeLifecycleProjection("run_artifacts", { run_id: runId }));
       return;
     }
     if (request.method === "GET" && action === "artifacts" && segments[4]) {
       const artifactRef = decodeURIComponent(segments[4]);
-      writeJsonResponse(response, store.lifecycleProjectionSurface.getRunArtifact(store, runId, artifactRef));
+      writeJsonResponse(response, store.projectRuntimeLifecycleProjection("run_artifact", {
+        run_id: runId,
+        artifact_ref: artifactRef,
+      }));
       return;
     }
     throw notFound("Run route not found.", { runId, action, method: request.method });

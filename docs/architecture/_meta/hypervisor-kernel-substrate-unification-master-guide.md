@@ -10508,13 +10508,14 @@ repository workflow storage/replay, wallet authority for external exits,
 receipt/state-root binding, and stable protocol APIs, not a JS runner fallback.
 
 Slice 1304 hard-cuts runtime lifecycle projection runner injection scaffolding.
-`createRuntimeLifecycleProjectionSurface()` no longer accepts
-`lifecycleRunner`; public lifecycle projections mount the positive
-`contextPolicyCore` API directly before Rust daemon-core Agentgres replay
-projection. Daemon construction no longer wires a parallel lifecycle runner
-handle, focused tests mount fake Rust projectors only through
-`contextPolicyCore`, and conformance guards that the retired alias name cannot
-return. Remaining work is wallet/cTEE authority on lifecycle exits,
+The historical `createRuntimeLifecycleProjectionSurface()` no longer accepted
+`lifecycleRunner`; Slice 1422 later deletes that surface outright. Public
+lifecycle projections now enter through the store-owned
+`projectRuntimeLifecycleProjection()` API, which delegates to the positive
+`contextPolicyCore` Rust daemon-core Agentgres replay projector. Daemon
+construction no longer wires a parallel lifecycle runner handle, focused tests
+mount fake Rust projectors only through `contextPolicyCore`, and conformance
+guards that the retired alias and surface names cannot return. Remaining work is wallet/cTEE authority on lifecycle exits,
 receipt/state-root binding for every lifecycle read projection, richer
 ArtifactRef/PayloadRef-aware artifact projection, and stable Workbench/CLI/SDK
 protocol APIs, not a JS runner fallback.
@@ -10939,8 +10940,8 @@ Agentgres records in Rust, and derives public agent/thread/run/turn/event,
 run replay, usage, trace, computer-use, scorecard, and artifact projections
 from those records. Rust rejects retired lifecycle candidate transport fields
 such as `agents`, `runs`, `events`, `replay`, `usage`, `trace`, `artifacts`,
-and `artifact`; the daemon lifecycle surface now sends only route identifiers
-plus `state_dir` and no longer calls JS agent/run maps, thread/turn helpers,
+and `artifact`; the store-owned lifecycle projection API now sends only route
+identifiers plus `state_dir` and no longer calls JS agent/run maps, thread/turn helpers,
 usage helpers, event/replay streams, trace helpers, or artifact resolvers before
 the Rust projection. Conformance guards the `state_dir` requirement, retired
 candidate transport, daemon no-cache-call surface, and the updated run replay
@@ -10958,7 +10959,7 @@ usage rows and authority/preflight evidence from admitted Agentgres
 `runs/*.json` and `events/*.jsonl` records, and keeps the projection source
 bound to `rust_runtime_lifecycle_state_dir_replay`. Public `/v1/usage`,
 `/v1/authority-evidence`, and `/v1/workflow-capability-preflights` call the
-mounted lifecycle projection surface; the run-read surface no longer exposes
+store-owned lifecycle projection API; the run-read surface no longer exposes
 `listUsage` or `authorityEvidenceSummary`, and the old JS
 `authority-evidence-summary.mjs` helper/test are deleted. Conformance now
 guards the Rust projection kinds, lifecycle route calls, absent helper files,
@@ -12564,6 +12565,20 @@ production source. Remaining blockers stay concrete provider execution, direct
 Rust computer-use event materialization/admission, cTEE custody, durable
 Agentgres expected-head/state-root binding, replay/projection, and stable
 Workbench/CLI/SDK APIs over Rust-owned records.
+
+Slice 1422 hard-deletes the public lifecycle projection JS surface.
+`runtime-lifecycle-projection-surface.mjs`, its focused test, and the mounted
+`lifecycleProjectionSurface` daemon-store property are absent. Public
+agent/thread/run detail and list reads, top-level usage, and authority-evidence
+routes now call the store-owned `projectRuntimeLifecycleProjection()` API with
+canonical snake_case route facts; that API delegates to Rust
+`project_runtime_lifecycle` with runtime `state_dir` and returns only the Rust
+projection. Focused tests prove the public route family no longer calls the
+surface, and conformance guards the deleted file path, property, factory name,
+and old route call patterns from returning. Remaining lifecycle blockers stay
+wallet/cTEE authority on lifecycle exits, complete receipt/state-root binding
+for every lifecycle read projection, richer artifact projection, and stable
+Workbench/CLI/SDK protocol clients over Rust-owned Agentgres replay records.
 
 ## Final Doctrine
 

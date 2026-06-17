@@ -189,7 +189,7 @@ export function createPublicRuntimeRequestHandler(deps) {
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/agents") {
-        writeJsonResponse(response, store.lifecycleProjectionSurface.listAgents(store));
+        writeJsonResponse(response, store.projectRuntimeLifecycleProjection("agents"));
         return;
       }
       if (request.method === "POST" && url.pathname === "/v1/threads") {
@@ -213,14 +213,14 @@ export function createPublicRuntimeRequestHandler(deps) {
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/threads") {
-        writeJsonResponse(response, store.lifecycleProjectionSurface.listThreads(store));
+        writeJsonResponse(response, store.projectRuntimeLifecycleProjection("threads"));
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/usage") {
         writeJsonResponse(
           response,
           usageTelemetryWithRequestMetadata(
-            store.lifecycleProjectionSurface.listUsage(store, Object.fromEntries(url.searchParams.entries())),
+            store.projectRuntimeLifecycleProjection("usage_list", Object.fromEntries(url.searchParams.entries())),
             usageRequestMetadataFromUrl(url, {
               runtimeUsageTelemetrySchemaVersion: RUNTIME_USAGE_TELEMETRY_SCHEMA_VERSION,
             }),
@@ -235,7 +235,10 @@ export function createPublicRuntimeRequestHandler(deps) {
       ) {
         writeJsonResponse(
           response,
-          store.lifecycleProjectionSurface.authorityEvidenceSummary(store, Object.fromEntries(url.searchParams.entries())),
+          store.projectRuntimeLifecycleProjection(
+            "authority_evidence_summary",
+            Object.fromEntries(url.searchParams.entries()),
+          ),
         );
         return;
       }
@@ -353,7 +356,14 @@ export function createPublicRuntimeRequestHandler(deps) {
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/runs") {
-        writeJsonResponse(response, store.lifecycleProjectionSurface.listRuns(store, url.searchParams.get("agent_id") ?? undefined));
+        const agentId = url.searchParams.get("agent_id") ?? undefined;
+        writeJsonResponse(
+          response,
+          store.projectRuntimeLifecycleProjection(
+            agentId ? "agent_runs" : "runs",
+            agentId ? { agent_id: agentId } : {},
+          ),
+        );
         return;
       }
       if (request.method === "POST" && url.pathname === "/v1/tasks") {

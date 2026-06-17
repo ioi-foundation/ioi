@@ -4550,12 +4550,18 @@ function runBridge() {
   const publicRuntimeRoutesTest = exists("packages/runtime-daemon/src/http/public-runtime-routes.test.mjs")
     ? read("packages/runtime-daemon/src/http/public-runtime-routes.test.mjs")
     : "";
-  const runtimeLifecycleProjectionSurface = exists("packages/runtime-daemon/src/runtime-lifecycle-projection-surface.mjs")
-    ? read("packages/runtime-daemon/src/runtime-lifecycle-projection-surface.mjs")
+  const runtimeLifecycleProjectionSurfaceExists = exists("packages/runtime-daemon/src/runtime-lifecycle-projection-surface.mjs");
+  const runtimeLifecycleProjectionSurfaceTestExists = exists(
+    "packages/runtime-daemon/src/runtime-lifecycle-projection-surface.test.mjs",
+  );
+  const runtimeLifecycleProjectionApi = exists("packages/runtime-daemon/src/runtime-lifecycle-projection-api.mjs")
+    ? read("packages/runtime-daemon/src/runtime-lifecycle-projection-api.mjs")
     : "";
-  const runtimeLifecycleProjectionSurfaceTest = exists("packages/runtime-daemon/src/runtime-lifecycle-projection-surface.test.mjs")
-    ? read("packages/runtime-daemon/src/runtime-lifecycle-projection-surface.test.mjs")
+  const runtimeLifecycleProjectionApiTest = exists("packages/runtime-daemon/src/runtime-lifecycle-projection-api.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-lifecycle-projection-api.test.mjs")
     : "";
+  const runtimeLifecycleProjectionSurface = runtimeLifecycleProjectionApi;
+  const runtimeLifecycleProjectionSurfaceTest = runtimeLifecycleProjectionApiTest;
   const runtimeThreadControlSurface = exists("packages/runtime-daemon/src/runtime-thread-control-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-thread-control-surface.mjs")
     : "";
@@ -23333,12 +23339,18 @@ function runReceipts() {
   const runtimeToolSurfaceTest = exists("packages/runtime-daemon/src/runtime-tool-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-tool-surface.test.mjs")
     : "";
-  const runtimeLifecycleProjectionSurface = exists("packages/runtime-daemon/src/runtime-lifecycle-projection-surface.mjs")
-    ? read("packages/runtime-daemon/src/runtime-lifecycle-projection-surface.mjs")
+  const runtimeLifecycleProjectionSurfaceExists = exists("packages/runtime-daemon/src/runtime-lifecycle-projection-surface.mjs");
+  const runtimeLifecycleProjectionSurfaceTestExists = exists(
+    "packages/runtime-daemon/src/runtime-lifecycle-projection-surface.test.mjs",
+  );
+  const runtimeLifecycleProjectionApi = exists("packages/runtime-daemon/src/runtime-lifecycle-projection-api.mjs")
+    ? read("packages/runtime-daemon/src/runtime-lifecycle-projection-api.mjs")
     : "";
-  const runtimeLifecycleProjectionSurfaceTest = exists("packages/runtime-daemon/src/runtime-lifecycle-projection-surface.test.mjs")
-    ? read("packages/runtime-daemon/src/runtime-lifecycle-projection-surface.test.mjs")
+  const runtimeLifecycleProjectionApiTest = exists("packages/runtime-daemon/src/runtime-lifecycle-projection-api.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-lifecycle-projection-api.test.mjs")
     : "";
+  const runtimeLifecycleProjectionSurface = runtimeLifecycleProjectionApi;
+  const runtimeLifecycleProjectionSurfaceTest = runtimeLifecycleProjectionApiTest;
   const publicRuntimeRoutes = exists("packages/runtime-daemon/src/http/public-runtime-routes.mjs")
     ? read("packages/runtime-daemon/src/http/public-runtime-routes.mjs")
     : "";
@@ -31268,11 +31280,23 @@ function runReceipts() {
       /captured\.turn_id,\s*"turn_123"/.test(
         runtimeContextPolicyCoreTestForState,
       ) &&
+      !runtimeLifecycleProjectionSurfaceExists &&
+      !runtimeLifecycleProjectionSurfaceTestExists &&
+      /createRuntimeLifecycleProjectionApi/.test(runtimeLifecycleProjectionSurface) &&
+      /project\(store,\s*projectionKind,\s*facts = \{\}\)/.test(
+        runtimeLifecycleProjectionSurface,
+      ) &&
       /contextPolicyCore\.projectRuntimeLifecycle/.test(
         runtimeLifecycleProjectionSurface,
       ) &&
       !/lifecycleRunner/.test(
         runtimeDaemonIndex + runtimeLifecycleProjectionSurface + runtimeLifecycleProjectionSurfaceTest,
+      ) &&
+      !/createRuntimeLifecycleProjectionSurface/.test(
+        runtimeDaemonIndex + runtimeLifecycleProjectionSurface + runtimeLifecycleProjectionSurfaceTest,
+      ) &&
+      !/lifecycleProjectionSurface/.test(
+        runtimeDaemonIndex + publicRuntimeRoutes + runtimeRouteHandlers,
       ) &&
       !/planRuntimeLifecycleProjectionRequired/.test(
         runtimeLifecycleProjectionSurface,
@@ -31332,13 +31356,13 @@ function runReceipts() {
 	      !/callStore\(/.test(runtimeLifecycleProjectionSurface) &&
 	      !/eventsForRun/.test(runtimeLifecycleProjectionSurface) &&
 	      !/eventsForThread/.test(runtimeLifecycleProjectionSurface) &&
-	      /runtime lifecycle surface returns Rust-owned public lifecycle projections/.test(
+	      /runtime lifecycle projection API returns Rust-owned public lifecycle projections/.test(
 	        runtimeLifecycleProjectionSurfaceTest,
 	      ) &&
-      /runtime lifecycle surface fails closed when Rust projection is missing/.test(
+      /runtime lifecycle projection API fails closed when Rust projection is missing/.test(
         runtimeLifecycleProjectionSurfaceTest,
       ) &&
-      /runtime lifecycle surface rejects Rust projection mismatches/.test(
+      /runtime lifecycle projection API rejects Rust projection mismatches/.test(
         runtimeLifecycleProjectionSurfaceTest,
       ) &&
 	      /turnCall\.turn_id,\s*"turn_123"/.test(
@@ -31365,93 +31389,97 @@ function runReceipts() {
 	      /authorityCall\.capability_ref,\s*"capability:model"/.test(
 	        runtimeLifecycleProjectionSurfaceTest,
 	      ) &&
-      /lifecycleProjectionSurface = createRuntimeLifecycleProjectionSurface/.test(
+      /lifecycleProjectionApi = createRuntimeLifecycleProjectionApi/.test(runtimeDaemonIndex) &&
+      /projectRuntimeLifecycleProjection\(projectionKind, facts = \{\}\)/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /return this\.lifecycleProjectionApi\.project\(this, projectionKind, facts\)/.test(
         runtimeDaemonIndex,
       ) &&
 	      /contextPolicyCore: this\.contextPolicyCore/.test(runtimeDaemonIndex) &&
 	      !/resolveRunArtifact/.test(runtimeDaemonIndex) &&
-      /store\.lifecycleProjectionSurface\.listAgents\(store\)/.test(
+      /store\.projectRuntimeLifecycleProjection\("agents"\)/.test(
         publicRuntimeRoutes,
       ) &&
-      /store\.lifecycleProjectionSurface\.listThreads\(store\)/.test(
+      /store\.projectRuntimeLifecycleProjection\("threads"\)/.test(
         publicRuntimeRoutes,
       ) &&
-      /store\.lifecycleProjectionSurface\.listRuns\(store,\s*url\.searchParams\.get\("agent_id"\)\s*\?\?\s*undefined\)/.test(
+      /store\.projectRuntimeLifecycleProjection\(\s*agentId \? "agent_runs" : "runs",\s*agentId \? \{ agent_id: agentId \} : \{\},\s*\)/.test(
         publicRuntimeRoutes,
       ) &&
-      /store\.lifecycleProjectionSurface\.getAgent\(store,\s*agentId\)/.test(
+      /store\.projectRuntimeLifecycleProjection\("agent", \{ agent_id: agentId \}\)/.test(
         runtimeRouteHandlers,
       ) &&
-      /store\.lifecycleProjectionSurface\.listRuns\(store,\s*agentId\)/.test(
+      /store\.projectRuntimeLifecycleProjection\("agent_runs", \{ agent_id: agentId \}\)/.test(
         runtimeRouteHandlers,
       ) &&
-      /store\.lifecycleProjectionSurface\.getThread\(store,\s*threadId\)/.test(
+      /store\.projectRuntimeLifecycleProjection\("thread", \{ thread_id: threadId \}\)/.test(
         runtimeRouteHandlers,
       ) &&
-      /store\.lifecycleProjectionSurface\.getThreadUsage\(store,\s*threadId\)/.test(
+      /store\.projectRuntimeLifecycleProjection\("thread_usage", \{ thread_id: threadId \}\)/.test(
         runtimeRouteHandlers,
       ) &&
-      /store\.lifecycleProjectionSurface\.listThreadTurns\(store,\s*threadId\)/.test(
+      /store\.projectRuntimeLifecycleProjection\("thread_turns", \{ thread_id: threadId \}\)/.test(
         runtimeRouteHandlers,
       ) &&
-      /store\.lifecycleProjectionSurface\.getThreadTurn\(store,\s*threadId,\s*decodeURIComponent\(segments\[4\]\)\)/.test(
+      /store\.projectRuntimeLifecycleProjection\("thread_turn", \{[\s\S]*thread_id: threadId,[\s\S]*turn_id: decodeURIComponent\(segments\[4\]\),[\s\S]*\}\)/.test(
         runtimeRouteHandlers,
       ) &&
-      /store\.lifecycleProjectionSurface\.listThreadEvents\(store,\s*threadId\)/.test(
+      /store\.projectRuntimeLifecycleProjection\("thread_events", \{ thread_id: threadId \}\)/.test(
         runtimeRouteHandlers,
       ) &&
-      /store\.lifecycleProjectionSurface\.getRun\(store,\s*runId\)/.test(
+      /store\.projectRuntimeLifecycleProjection\("run", \{ run_id: runId \}\)/.test(
         runtimeRouteHandlers,
       ) &&
-      /store\.lifecycleProjectionSurface\.waitRun\(store,\s*runId\)/.test(
+      /store\.projectRuntimeLifecycleProjection\("run_wait", \{ run_id: runId \}\)/.test(
         runtimeRouteHandlers,
       ) &&
-      /store\.lifecycleProjectionSurface\.getRunConversation\(store,\s*runId\)/.test(
+      /store\.projectRuntimeLifecycleProjection\("run_conversation", \{ run_id: runId \}\)/.test(
         runtimeRouteHandlers,
       ) &&
-      /store\.lifecycleProjectionSurface\.getRunUsage\(store,\s*runId\)/.test(
+      /store\.projectRuntimeLifecycleProjection\("run_usage", \{ run_id: runId \}\)/.test(
         runtimeRouteHandlers,
       ) &&
-      /store\.lifecycleProjectionSurface\.listRunEvents\(store,\s*runId\)/.test(
+      /store\.projectRuntimeLifecycleProjection\("run_events", \{ run_id: runId \}\)/.test(
         runtimeRouteHandlers,
       ) &&
-      /store\.lifecycleProjectionSurface\.replayRun\(store,\s*runId\)/.test(
+      /store\.projectRuntimeLifecycleProjection\("run_replay", \{ run_id: runId \}\)/.test(
         runtimeRouteHandlers,
       ) &&
-      /store\.lifecycleProjectionSurface\.getRunTrace\(store,\s*runId\)/.test(
+      /store\.projectRuntimeLifecycleProjection\("run_trace", \{ run_id: runId \}\)/.test(
         runtimeRouteHandlers,
       ) &&
-      /store\.lifecycleProjectionSurface\.getRunComputerUseTrace\(store,\s*runId\)/.test(
+      /store\.projectRuntimeLifecycleProjection\("run_computer_use_trace", \{ run_id: runId \}\)/.test(
         runtimeRouteHandlers,
       ) &&
-      /store\.lifecycleProjectionSurface\.getRunComputerUseTrajectory\(store,\s*runId\)/.test(
+      /store\.projectRuntimeLifecycleProjection\("run_computer_use_trajectory", \{ run_id: runId \}\)/.test(
         runtimeRouteHandlers,
       ) &&
-      /store\.lifecycleProjectionSurface\.getRunScorecard\(store,\s*runId\)/.test(
+      /store\.projectRuntimeLifecycleProjection\("run_scorecard", \{ run_id: runId \}\)/.test(
         runtimeRouteHandlers,
       ) &&
-      /store\.lifecycleProjectionSurface\.listRunArtifacts\(store,\s*runId\)/.test(
+      /store\.projectRuntimeLifecycleProjection\("run_artifacts", \{ run_id: runId \}\)/.test(
         runtimeRouteHandlers,
       ) &&
-      /store\.lifecycleProjectionSurface\.getRunArtifact\(store,\s*runId,\s*artifactRef\)/.test(
+      /store\.projectRuntimeLifecycleProjection\("run_artifact", \{[\s\S]*run_id: runId,[\s\S]*artifact_ref: artifactRef,[\s\S]*\}\)/.test(
         runtimeRouteHandlers,
       ) &&
-      /public runtime agent and thread list routes use mounted lifecycle projection surface/.test(
+      /public runtime agent and thread list routes use store-owned lifecycle projection API/.test(
         publicRuntimeRoutesTest,
       ) &&
-      /public runtime run list route uses mounted lifecycle projection surface/.test(
+      /public runtime run list route uses store-owned lifecycle projection API/.test(
         publicRuntimeRoutesTest,
       ) &&
-      /store\.lifecycleProjectionSurface\.listUsage\(store, Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
+      /store\.projectRuntimeLifecycleProjection\("usage_list", Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
         publicRuntimeRoutes,
       ) &&
-      /store\.lifecycleProjectionSurface\.authorityEvidenceSummary\(store, Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
+      /store\.projectRuntimeLifecycleProjection\(\s*"authority_evidence_summary",\s*Object\.fromEntries\(url\.searchParams\.entries\(\)\),\s*\)/.test(
         publicRuntimeRoutes,
       ) &&
       !/\/api\/v1\/authority-evidence|\/api\/v1\/authority-evidence-summaries|\/api\/v1\/workflow-capability-preflight-evidence|\/api\/v1\/workflow-capability-preflight/.test(
         runtimeRouteHandlers,
       ) &&
-      /public runtime usage and authority evidence routes use mounted lifecycle projection surface/.test(
+      /public runtime usage and authority evidence routes use store-owned lifecycle projection API/.test(
         publicRuntimeRoutesTest,
       ) &&
       /native authority evidence compatibility routes are retired/.test(
@@ -31463,18 +31491,18 @@ function runReceipts() {
       !/store\.runReadSurface\.authorityEvidenceSummary\(store, Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
         publicRuntimeRoutes,
       ) &&
-      /agent, thread, and run detail routes return lifecycle projection surface output/.test(
+      /agent, thread, and run detail routes return store-owned lifecycle projection API output/.test(
         runtimeRouteHandlersTest,
       ) &&
-      /getThreadUsage/.test(runtimeRouteHandlersTest) &&
-      /listThreadTurns/.test(runtimeRouteHandlersTest) &&
-      /getThreadTurn/.test(runtimeRouteHandlersTest) &&
-      /listThreadEvents/.test(runtimeRouteHandlersTest) &&
-      /getRunUsage/.test(runtimeRouteHandlersTest) &&
-      /listRunEvents/.test(runtimeRouteHandlersTest) &&
-      /replayRun/.test(runtimeRouteHandlersTest) &&
-      /getRunComputerUseTrajectory/.test(runtimeRouteHandlersTest) &&
-      /getRunArtifact/.test(runtimeRouteHandlersTest) &&
+      /projectionKind: "thread_usage"/.test(runtimeRouteHandlersTest) &&
+      /projectionKind: "thread_turns"/.test(runtimeRouteHandlersTest) &&
+      /projectionKind: "thread_turn"/.test(runtimeRouteHandlersTest) &&
+      /projectionKind: "thread_events"/.test(runtimeRouteHandlersTest) &&
+      /projectionKind: "run_usage"/.test(runtimeRouteHandlersTest) &&
+      /projectionKind: "run_events"/.test(runtimeRouteHandlersTest) &&
+      /projectionKind: "run_replay"/.test(runtimeRouteHandlersTest) &&
+      /projectionKind: "run_computer_use_trajectory"/.test(runtimeRouteHandlersTest) &&
+      /projectionKind: "run_artifact"/.test(runtimeRouteHandlersTest) &&
       !/writeJsonResponse\(response,\s*store\.listAgents\(\)\)/.test(
         publicRuntimeRoutes,
       ) &&
@@ -31546,8 +31574,8 @@ function runReceipts() {
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
-      "packages/runtime-daemon/src/runtime-lifecycle-projection-surface.mjs",
-      "packages/runtime-daemon/src/runtime-lifecycle-projection-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-lifecycle-projection-api.mjs",
+      "packages/runtime-daemon/src/runtime-lifecycle-projection-api.test.mjs",
       "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
       "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.mjs",
@@ -31577,13 +31605,13 @@ function runReceipts() {
       /capability_ref: Option<String>/.test(runtimeLifecycleRustCore) &&
       /route_id: Option<String>/.test(runtimeLifecycleRustCore) &&
       /authority\.projection\["row_count"\],\s*1/.test(runtimeLifecycleRustCore) &&
-      /store\.lifecycleProjectionSurface\.authorityEvidenceSummary\(store, Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
+      /store\.projectRuntimeLifecycleProjection\(\s*"authority_evidence_summary",\s*Object\.fromEntries\(url\.searchParams\.entries\(\)\),\s*\)/.test(
         publicRuntimeRoutes,
       ) &&
       !/\/api\/v1\/authority-evidence|\/api\/v1\/authority-evidence-summaries|\/api\/v1\/workflow-capability-preflight-evidence|\/api\/v1\/workflow-capability-preflight/.test(
         runtimeRouteHandlers,
       ) &&
-      /public runtime usage and authority evidence routes use mounted lifecycle projection surface/.test(
+      /public runtime usage and authority evidence routes use store-owned lifecycle projection API/.test(
         publicRuntimeRoutesTest,
       ) &&
       /native authority evidence compatibility routes are retired/.test(
@@ -33291,9 +33319,10 @@ function runCompositor() {
   const runtimeRunReadSurfaceTest = exists("packages/runtime-daemon/src/runtime-run-read-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-run-read-surface.test.mjs")
     : "";
-  const runtimeLifecycleProjectionSurface = exists("packages/runtime-daemon/src/runtime-lifecycle-projection-surface.mjs")
-    ? read("packages/runtime-daemon/src/runtime-lifecycle-projection-surface.mjs")
+  const runtimeLifecycleProjectionApi = exists("packages/runtime-daemon/src/runtime-lifecycle-projection-api.mjs")
+    ? read("packages/runtime-daemon/src/runtime-lifecycle-projection-api.mjs")
     : "";
+  const runtimeLifecycleProjectionSurface = runtimeLifecycleProjectionApi;
   const runtimeLifecycleRustCore = exists(
     "crates/services/src/agentic/runtime/kernel/runtime_lifecycle.rs",
   )
@@ -37120,6 +37149,9 @@ function runCompositor() {
       /replayRun\(store,\s*runId\)\s*\{[\s\S]*?run_id:\s*optionalString\(runId\)/.test(
         runtimeLifecycleProjectionSurface,
       ) &&
+      /store\.projectRuntimeLifecycleProjection\("run_replay", \{ run_id: runId \}\)/.test(
+        runtimeRouteHandlers,
+      ) &&
       /state_dir:\s*lifecycleProjectionStateDir\(store\)/.test(
         runtimeLifecycleProjectionSurface,
       ) &&
@@ -37133,7 +37165,7 @@ function runCompositor() {
     [
       "packages/runtime-daemon/src/index.mjs",
       "packages/runtime-daemon/src/runtime-run-read-surface.mjs",
-      "packages/runtime-daemon/src/runtime-lifecycle-projection-surface.mjs",
+      "packages/runtime-daemon/src/runtime-lifecycle-projection-api.mjs",
       "packages/runtime-daemon/src/runtime-run-read-surface.test.mjs",
     ],
     "Phase 10/11 is pending: runtime run reads must retire JS replay aliases and use Rust thread-event replay through lifecycle projection",
@@ -37159,7 +37191,7 @@ function runCompositor() {
       /agent_id:\s*optionalString\(options\.agent_id\)/.test(
         runtimeLifecycleProjectionSurface,
       ) &&
-      /store\.lifecycleProjectionSurface\.listUsage\(store, Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
+      /store\.projectRuntimeLifecycleProjection\("usage_list", Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
         publicRuntimeRoutes,
       ) &&
       /Object\.hasOwn\(surface,\s*"listUsage"\),\s*false/.test(
@@ -37175,7 +37207,7 @@ function runCompositor() {
     [
       "packages/runtime-daemon/src/runtime-run-read-surface.mjs",
       "packages/runtime-daemon/src/runtime-run-read-surface.test.mjs",
-      "packages/runtime-daemon/src/runtime-lifecycle-projection-surface.mjs",
+      "packages/runtime-daemon/src/runtime-lifecycle-projection-api.mjs",
       "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
       "crates/services/src/agentic/runtime/kernel/runtime_lifecycle.rs",
     ],
@@ -40074,10 +40106,10 @@ function runCompositor() {
       (runtimeTaskJobReadProjectionLegacyRemoved ||
         /options\.agent_id/.test(runtimeTaskJobListJobsBlock) &&
           /options\.agent_id/.test(runtimeTaskJobListTasksBlock)) &&
-      /store\.lifecycleProjectionSurface\.listRuns\(store,\s*url\.searchParams\.get\("agent_id"\)\s*\?\?\s*undefined\)/.test(
+      /store\.projectRuntimeLifecycleProjection\(\s*agentId \? "agent_runs" : "runs",\s*agentId \? \{ agent_id: agentId \} : \{\},\s*\)/.test(
         publicRuntimeRoutesForTaskJob,
       ) &&
-      /public runtime run list route uses mounted lifecycle projection surface/.test(
+      /public runtime run list route uses store-owned lifecycle projection API/.test(
         publicRuntimeRoutesTestForTaskJob,
       ) &&
       /public runtime task and job routes use task job surface directly/.test(

@@ -1048,19 +1048,19 @@ test("public runtime routes delegate thread subroutes unchanged", async () => {
   assert.equal(response.ended, false);
 });
 
-test("public runtime agent and thread list routes use mounted lifecycle projection surface", async () => {
+test("public runtime agent and thread list routes use store-owned lifecycle projection API", async () => {
   const { handleRequest } = routeHarness();
   const calls = [];
   const store = {
-    lifecycleProjectionSurface: {
-      listAgents(surfaceStore) {
-        calls.push({ method: "listAgents", surfaceStore });
+    projectRuntimeLifecycleProjection(projectionKind, facts = {}) {
+      calls.push({ projectionKind, facts });
+      if (projectionKind === "agents") {
         return [{ id: "agent_route" }];
-      },
-      listThreads(surfaceStore) {
-        calls.push({ method: "listThreads", surfaceStore });
+      }
+      if (projectionKind === "threads") {
         return [{ thread_id: "thread_route" }];
-      },
+      }
+      return null;
     },
   };
 
@@ -1073,20 +1073,20 @@ test("public runtime agent and thread list routes use mounted lifecycle projecti
   await handleRequest({ request: request({ url: "/v1/threads" }), response: threadsResponse, store });
   assert.equal(threadsResponse.statusCode, 200);
   assert.deepEqual(JSON.parse(threadsResponse.body), [{ thread_id: "thread_route" }]);
-  assert.deepEqual(calls.map((call) => call.method), ["listAgents", "listThreads"]);
-  assert.equal(calls.every((call) => call.surfaceStore === store), true);
+  assert.deepEqual(calls, [
+    { projectionKind: "agents", facts: {} },
+    { projectionKind: "threads", facts: {} },
+  ]);
 });
 
-test("public runtime run list route uses mounted lifecycle projection surface", async () => {
+test("public runtime run list route uses store-owned lifecycle projection API", async () => {
   const { handleRequest } = routeHarness();
   const response = responseRecorder();
   const calls = [];
   const store = {
-    lifecycleProjectionSurface: {
-      listRuns(_store, agent_id) {
-        calls.push({ agent_id });
-        return [{ id: "run_route", agent_id: agent_id ?? null }];
-      },
+    projectRuntimeLifecycleProjection(projectionKind, facts = {}) {
+      calls.push({ projectionKind, facts });
+      return [{ id: "run_route", agent_id: facts.agent_id ?? null }];
     },
   };
 
@@ -1100,7 +1100,7 @@ test("public runtime run list route uses mounted lifecycle projection surface", 
   assert.deepEqual(JSON.parse(response.body), [
     { id: "run_route", agent_id: "agent-canonical" },
   ]);
-  assert.deepEqual(calls, [{ agent_id: "agent-canonical" }]);
+  assert.deepEqual(calls, [{ projectionKind: "agent_runs", facts: { agent_id: "agent-canonical" } }]);
 
   const unfilteredResponse = responseRecorder();
   await handleRequest({
@@ -1109,7 +1109,7 @@ test("public runtime run list route uses mounted lifecycle projection surface", 
     store,
   });
 
-  assert.deepEqual(calls.at(-1), { agent_id: undefined });
+  assert.deepEqual(calls.at(-1), { projectionKind: "runs", facts: {} });
   assert.equal(unfilteredResponse.statusCode, 200);
   assert.deepEqual(JSON.parse(unfilteredResponse.body), [
     { id: "run_route", agent_id: null },
@@ -1194,25 +1194,25 @@ test("public runtime thread create route uses direct Rust lifecycle API", async 
   assert.equal(Object.hasOwn(store, "agentRunLifecycleSurface"), false);
 });
 
-test("public runtime usage and authority evidence routes use mounted lifecycle projection surface", async () => {
+test("public runtime usage and authority evidence routes use store-owned lifecycle projection API", async () => {
   const { handleRequest } = routeHarness();
   const calls = [];
   const store = {
-    lifecycleProjectionSurface: {
-      listUsage(surfaceStore, options) {
-        calls.push({ method: "listUsage", surfaceStore, options });
+    projectRuntimeLifecycleProjection(projectionKind, facts = {}) {
+      calls.push({ projectionKind, facts });
+      if (projectionKind === "usage_list") {
         return {
           schema_version: "runtime.usage.telemetry.v1",
           items: [{ run_id: "run_route" }],
         };
-      },
-      authorityEvidenceSummary(surfaceStore, options) {
-        calls.push({ method: "authorityEvidenceSummary", surfaceStore, options });
+      }
+      if (projectionKind === "authority_evidence_summary") {
         return {
           schema_version: "authority.evidence.summary.v1",
-          filters: options,
+          filters: facts,
         };
-      },
+      }
+      return null;
     },
     runReadSurface: {
       listUsage: retiredRouteWrapper,
@@ -1252,14 +1252,12 @@ test("public runtime usage and authority evidence routes use mounted lifecycle p
   });
   assert.deepEqual(calls, [
     {
-      method: "listUsage",
-      surfaceStore: store,
-      options: { group_by: "thread", agent_id: "agent_route" },
+      projectionKind: "usage_list",
+      facts: { group_by: "thread", agent_id: "agent_route" },
     },
     {
-      method: "authorityEvidenceSummary",
-      surfaceStore: store,
-      options: { thread_id: "thread_route" },
+      projectionKind: "authority_evidence_summary",
+      facts: { thread_id: "thread_route" },
     },
   ]);
 });

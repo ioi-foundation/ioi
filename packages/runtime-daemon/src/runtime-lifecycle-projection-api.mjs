@@ -4,6 +4,7 @@ const EVIDENCE_REFS = [
   "runtime_lifecycle_rust_projection",
   "agentgres_runtime_lifecycle_truth_required",
 ];
+const RUNTIME_LIFECYCLE_PROJECTION_SOURCE = "runtime.lifecycle_projection_api";
 
 const ARRAY_PROJECTION_KINDS = new Set([
   "agents",
@@ -46,7 +47,7 @@ const LIFECYCLE_PROJECTIONS = {
   authority_evidence_summary: projection("authority_evidence_summary"),
 };
 
-export function createRuntimeLifecycleProjectionSurface({
+export function createRuntimeLifecycleProjectionApi({
   contextPolicyCore = null,
   workspaceRoot = null,
 } = {}) {
@@ -60,6 +61,13 @@ export function createRuntimeLifecycleProjectionSurface({
     });
 
   return {
+    project(store, projectionKind, facts = {}) {
+      const projectionDetails = LIFECYCLE_PROJECTIONS[projectionKind];
+      if (!projectionDetails) {
+        throw createRuntimeLifecycleProjectionKindError(projectionKind);
+      }
+      return project(store, projectionDetails, facts);
+    },
     listAgents(store) {
       return project(store, LIFECYCLE_PROJECTIONS.agents);
     },
@@ -187,6 +195,20 @@ export function createRuntimeLifecycleProjectionSurface({
   };
 }
 
+function createRuntimeLifecycleProjectionKindError(projectionKind) {
+  const error = new Error(
+    "Runtime lifecycle projection kind is not supported by the daemon-core projection API.",
+  );
+  error.status = 400;
+  error.code = "runtime_lifecycle_projection_kind_invalid";
+  error.details = {
+    rust_core_boundary: "runtime.lifecycle_projection",
+    projection_kind: optionalString(projectionKind),
+    supported_projection_kinds: Object.keys(LIFECYCLE_PROJECTIONS),
+  };
+  return error;
+}
+
 function projection(projectionKind) {
   return {
     operation: "runtime_lifecycle_projection",
@@ -200,14 +222,14 @@ function projectRuntimeLifecycle(details = {}) {
   if (!contextPolicyCore?.projectRuntimeLifecycle) {
     throw createRuntimeLifecycleProjectionError(null, {
       ...request,
-      source: "runtime.lifecycle_projection_surface",
+      source: RUNTIME_LIFECYCLE_PROJECTION_SOURCE,
       evidence_refs: EVIDENCE_REFS,
     });
   }
 
   const result = contextPolicyCore.projectRuntimeLifecycle({
     ...request,
-    source: "runtime.lifecycle_projection_surface",
+    source: RUNTIME_LIFECYCLE_PROJECTION_SOURCE,
     evidence_refs: EVIDENCE_REFS,
   });
   if (result?.projection_kind !== request.projection_kind) {
@@ -255,7 +277,7 @@ function createRuntimeLifecycleProjectionMismatchError(result, fallbackDetails) 
     actual_projection_kind: result?.projection_kind ?? null,
     operation: fallbackDetails.operation,
     operation_kind: fallbackDetails.operation_kind,
-    source: "runtime.lifecycle_projection_surface",
+    source: RUNTIME_LIFECYCLE_PROJECTION_SOURCE,
   };
   return error;
 }

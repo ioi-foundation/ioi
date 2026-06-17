@@ -73,7 +73,7 @@ import { createRuntimeMcpCatalogSurface } from "./runtime-mcp-catalog-surface.mj
 import { createRuntimeMcpControlSurface } from "./runtime-mcp-control-surface.mjs";
 import { createRuntimeMcpServeSurface } from "./runtime-mcp-serve-surface.mjs";
 import { createRuntimeRunReadSurface } from "./runtime-run-read-surface.mjs";
-import { createRuntimeLifecycleProjectionSurface } from "./runtime-lifecycle-projection-surface.mjs";
+import { createRuntimeLifecycleProjectionApi } from "./runtime-lifecycle-projection-api.mjs";
 import { createRuntimeSkillHookSurface } from "./runtime-skill-hook-surface.mjs";
 import { createRuntimeTaskJobSurface } from "./runtime-task-job-surface.mjs";
 import { createRuntimeGovernedImprovementSurface } from "./runtime-governed-improvement-surface.mjs";
@@ -721,7 +721,7 @@ export class AgentgresRuntimeStateStore {
       runtimeUsageTelemetryForThread,
       threadIdForAgent,
     });
-    this.lifecycleProjectionSurface = createRuntimeLifecycleProjectionSurface({
+    this.lifecycleProjectionApi = createRuntimeLifecycleProjectionApi({
       contextPolicyCore: this.contextPolicyCore,
       workspaceRoot: this.defaultCwd,
     });
@@ -1010,6 +1010,10 @@ export class AgentgresRuntimeStateStore {
     };
   }
 
+  projectRuntimeLifecycleProjection(projectionKind, facts = {}) {
+    return this.lifecycleProjectionApi.project(this, projectionKind, facts);
+  }
+
   admitRuntimeThreadEventForThread(store, request = {}) {
     const event = objectRecord(request.event);
     const eventStreamId = optionalString(event?.event_stream_id);
@@ -1133,11 +1137,11 @@ export class AgentgresRuntimeStateStore {
   }
 
   listUsage(options = {}) {
-    return this.lifecycleProjectionSurface.listUsage(this, options);
+    return this.projectRuntimeLifecycleProjection("usage_list", options);
   }
 
   authorityEvidenceSummary(options = {}) {
-    return this.lifecycleProjectionSurface.authorityEvidenceSummary(this, options);
+    return this.projectRuntimeLifecycleProjection("authority_evidence_summary", options);
   }
 
   traceFromCanonicalState(runId) {
