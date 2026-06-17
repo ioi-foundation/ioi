@@ -442,7 +442,7 @@ function normalizeCandidateLedgerEntry(entry, normalizedPresetMap) {
     executionScope:
       typeof parsed.executionScope === "string"
         ? parsed.executionScope
-        : preset?.comparisonContext?.executionScope ?? "fleet_shared",
+        : preset?.comparisonContext?.executionScope ?? "session_shared",
     status: typeof parsed.status === "string" ? parsed.status : "retained",
     summary: typeof parsed.summary === "string" ? parsed.summary : "",
     mutationIntent:
@@ -607,7 +607,7 @@ export function normalizeAgentModelMatrixView(summary, repoRoot, options = {}) {
           ? preset.comparisonContext
           : {
               comparisonIntent: "model_change",
-              executionScope: "fleet_shared",
+              executionScope: "session_shared",
               baselinePresetId: null,
               manifestPath: null,
             },

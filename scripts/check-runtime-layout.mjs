@@ -178,6 +178,14 @@ const workspaceWorkbenchCopySources = [
   "apps/hypervisor/src/services/workflowCodeGenerationProposal.ts",
   "apps/hypervisor/src/services/hypervisorAppearance.ts",
 ].map(read).join("\n");
+const agentModelMatrixScopeSources = [
+  "scripts/run-agent-model-matrix.mjs",
+  "scripts/lib/agent-model-matrix.mjs",
+  "scripts/run-agent-model-matrix.test.mjs",
+  "scripts/lib/agent-model-matrix.test.mjs",
+  "apps/benchmarks/src/App.tsx",
+  "apps/benchmarks/src/scorecardPreview.ts",
+].map(read).join("\n");
 const hypervisorVisibleSurfaceSources = [
   "apps/hypervisor/src/windows/ChatShellWindow/index.tsx",
   "apps/hypervisor/src/windows/ChatShellWindow/components/ArtifactHubTaskViews.tsx",
@@ -642,6 +650,17 @@ assert(
     "apps/hypervisor/src/services/hypervisorAppearance.ts",
   ],
   "Visible Workbench copy must describe adapter targets, not present OpenVSCode as the parent product.",
+);
+assert(
+  "agent-model-matrix-session-scope-named",
+  agentModelMatrixScopeSources.includes("session_shared") &&
+    !/fleet_shared/.test(agentModelMatrixScopeSources),
+  [
+    "scripts/run-agent-model-matrix.mjs",
+    "scripts/lib/agent-model-matrix.mjs",
+    "apps/benchmarks/src",
+  ],
+  "Agent/model benchmark execution scopes must use session_shared rather than the retired Fleet shared-scope label.",
 );
 assert(
   "active-client-namespaces-hypervisor-named",

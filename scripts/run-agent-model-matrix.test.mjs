@@ -214,7 +214,7 @@ test("candidateLedgerForRun emits lineage and validation summaries", () => {
   assert.equal(ledger[2].validationSummary.bestRequiredCount, 5);
   assert.equal(ledger[1].validationSummary.requiredReadyCount, 6);
   assert.equal(ledger[1].comparisonIntent, "model_change");
-  assert.equal(ledger[1].executionScope, "fleet_shared");
+  assert.equal(ledger[1].executionScope, "session_shared");
   assert.equal(ledger[1].evaluationLanes.validation, "retained");
   assert.equal(ledger[1].rollbackTarget, "candidate:baseline");
   assert.equal(ledger[2].conformanceStatus, "warn");

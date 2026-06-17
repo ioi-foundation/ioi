@@ -82,7 +82,7 @@ function parseArgs(argv) {
     benchmarks: null,
     skipComputerUse: false,
     comparisonIntent: null,
-    executionScope: "fleet_shared",
+    executionScope: "session_shared",
   };
   for (const arg of argv.slice(2)) {
     if (arg.startsWith("--presets=")) {
@@ -110,7 +110,7 @@ function parseArgs(argv) {
       continue;
     }
     if (arg.startsWith("--execution-scope=")) {
-      options.executionScope = arg.slice("--execution-scope=".length).trim() || "fleet_shared";
+      options.executionScope = arg.slice("--execution-scope=".length).trim() || "session_shared";
       continue;
     }
     throw new Error(`Unknown argument '${arg}'`);
@@ -334,7 +334,7 @@ function normalizeBenchmarkDefinition(benchmark, catalogVersion = 1) {
 }
 
 function executionScopeIsValid(value) {
-  return ["fleet_shared", "actor_family", "actor_local"].includes(String(value || ""));
+  return ["session_shared", "actor_family", "actor_local"].includes(String(value || ""));
 }
 
 function runtimeModelFingerprint(preset, availability) {
@@ -2208,7 +2208,7 @@ function summarizePreset(preset, availability, caseResults, presetRoot, runConte
         preset,
         runContext.comparisonIntent ?? null,
       ),
-      executionScope: runContext.executionScope ?? "fleet_shared",
+      executionScope: runContext.executionScope ?? "session_shared",
       baselinePresetId: runContext.baselinePreset?.id ?? null,
       manifestPath: path.join(presetRoot, "run-manifest.json"),
     },
@@ -2767,7 +2767,7 @@ function candidateLedgerForRun(presets, decision) {
       presetId: preset.presetId,
       deploymentProfile: preset.deploymentProfile,
       comparisonIntent: preset.comparisonContext?.comparisonIntent ?? "model_change",
-      executionScope: preset.comparisonContext?.executionScope ?? "fleet_shared",
+      executionScope: preset.comparisonContext?.executionScope ?? "session_shared",
       status,
       summary: candidateSummaryForStatus(status),
       mutationIntent: mutationIntentForProfile(preset.deploymentProfile, preset),
@@ -3095,7 +3095,7 @@ function buildRunManifest({
     comparisonIntent,
     executionScope: executionScopeIsValid(options?.executionScope)
       ? options.executionScope
-      : "fleet_shared",
+      : "session_shared",
     repoCommitSha: gitHeadSha(),
     dirtyWorktree: gitDirtyWorktree(),
     benchmarkCatalogPath: paths.benchmarkCatalogPath,

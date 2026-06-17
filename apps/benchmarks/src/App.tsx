@@ -269,7 +269,7 @@ function buildPendingAgentModelMatrix(generatedAt: string): ScorecardMatrixInput
     benchmarkCatalogHref: "",
     runManifest: {
       comparisonIntent: "baseline_anchor",
-      executionScope: "fleet_shared",
+      executionScope: "session_shared",
     },
     presets: [
       {
@@ -288,7 +288,7 @@ function buildPendingAgentModelMatrix(generatedAt: string): ScorecardMatrixInput
         roleAssignments: [],
         comparisonContext: {
           comparisonIntent: "baseline_anchor",
-          executionScope: "fleet_shared",
+          executionScope: "session_shared",
           baselinePresetId: "retained-baseline-pending",
           manifestPath: null,
         },

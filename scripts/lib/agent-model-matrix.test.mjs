@@ -120,5 +120,5 @@ test("normalizeAgentModelMatrixView preserves interrupted-run summary semantics"
   assert.equal(view.candidateLedger[1].status, "candidate");
   assert.equal(view.candidateLedger[1].evidenceLinks.length, 2);
   assert.equal(view.candidateLedger[1].comparisonIntent, "model_change");
-  assert.equal(view.candidateLedger[1].executionScope, "fleet_shared");
+  assert.equal(view.candidateLedger[1].executionScope, "session_shared");
 });

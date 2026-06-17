@@ -77,7 +77,7 @@ export function withScorecardPreview<T extends BenchmarkDataWithMatrix>(data: T)
     deploymentProfile: "local_gpu_8gb_class",
     comparisonContext: {
       comparisonIntent: "baseline_anchor",
-      executionScope: "fleet_shared",
+      executionScope: "session_shared",
       baselinePresetId: basePreset.presetId,
       manifestPath: "/tmp/retained/run-manifest.json",
     },
@@ -157,7 +157,7 @@ export function withScorecardPreview<T extends BenchmarkDataWithMatrix>(data: T)
     caseCount: 24,
     comparisonContext: {
       comparisonIntent: "model_change",
-      executionScope: "fleet_shared",
+      executionScope: "session_shared",
       baselinePresetId: baselinePreset.presetId,
       manifestPath: "/tmp/retained/run-manifest.json",
     },
@@ -318,7 +318,7 @@ export function withScorecardPreview<T extends BenchmarkDataWithMatrix>(data: T)
     caseCount: 24,
     comparisonContext: {
       comparisonIntent: "full_stack_change",
-      executionScope: "fleet_shared",
+      executionScope: "session_shared",
       baselinePresetId: baselinePreset.presetId,
       manifestPath: "/tmp/retained/run-manifest.json",
     },
@@ -483,7 +483,7 @@ export function withScorecardPreview<T extends BenchmarkDataWithMatrix>(data: T)
       },
       runManifest: {
         comparisonIntent: "full_stack_change",
-        executionScope: "fleet_shared",
+        executionScope: "session_shared",
       },
       plannedPresetCount: 3,
       summarizedPresetCount: 3,
@@ -566,7 +566,7 @@ export function withScorecardPreview<T extends BenchmarkDataWithMatrix>(data: T)
           presetId: baselinePreset.presetId,
           deploymentProfile: "local_gpu_8gb_class",
           comparisonIntent: "baseline_anchor",
-          executionScope: "fleet_shared",
+          executionScope: "session_shared",
           status: "retained_default",
           summary:
             "Current default anchor kept in place while stronger candidates continue to be validated.",
@@ -607,7 +607,7 @@ export function withScorecardPreview<T extends BenchmarkDataWithMatrix>(data: T)
           presetId: workstationPreset.presetId,
           deploymentProfile: "local_workstation",
           comparisonIntent: "model_change",
-          executionScope: "fleet_shared",
+          executionScope: "session_shared",
           status: "promotable",
           summary:
             "Strongest retained local candidate on richer hardware tiers with honest required-family coverage.",
@@ -649,7 +649,7 @@ export function withScorecardPreview<T extends BenchmarkDataWithMatrix>(data: T)
           presetId: cloudPreset.presetId,
           deploymentProfile: "blind_cloud_standard",
           comparisonIntent: "full_stack_change",
-          executionScope: "fleet_shared",
+          executionScope: "session_shared",
           status: "shadow_winner",
           summary:
             "Highest retained score overall, but intentionally held in shadow because blind-cloud posture cannot silently replace local defaults.",
