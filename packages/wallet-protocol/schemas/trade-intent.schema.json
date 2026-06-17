@@ -10,6 +10,7 @@
     "initiator_id",
     "account_id",
     "venue_candidate_id",
+    "candidate_evidence",
     "market",
     "side",
     "collateral",
@@ -22,6 +23,11 @@
     "initiator_id": { "type": "string" },
     "account_id": { "type": "string" },
     "venue_candidate_id": { "type": "string" },
+    "candidate_evidence": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/CandidateEvidence" },
+      "minItems": 1
+    },
     "market": { "type": "string" },
     "side": { "enum": ["buy", "sell", "long", "short"] },
     "collateral": { "$ref": "#/$defs/MoneyAmount" },
@@ -44,6 +50,50 @@
         "asset": { "type": "string" },
         "amount": { "type": "string" },
         "chain": { "type": "string" }
+      }
+    },
+    "CandidateEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidate_id",
+        "source",
+        "adapter_id",
+        "observed_at",
+        "expires_at",
+        "coverage_state",
+        "evidence_refs",
+        "risk_labels",
+        "claims"
+      ],
+      "properties": {
+        "candidate_id": { "type": "string" },
+        "source": { "type": "string" },
+        "adapter_id": { "type": "string" },
+        "observed_at": { "type": "string", "format": "date-time" },
+        "expires_at": { "type": "string", "format": "date-time" },
+        "coverage_state": {
+          "enum": [
+            "assessed",
+            "unknown",
+            "unassessed",
+            "stale",
+            "conflicting_sources"
+          ]
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1
+        },
+        "risk_labels": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "claims": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
       }
     }
   }

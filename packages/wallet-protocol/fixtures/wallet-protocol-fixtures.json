@@ -41,5 +41,68 @@
     "simulation_ref": "simulation:exchange-example",
     "receipt_preview_ref": "receipt-preview:exchange-example",
     "expires_at": "2026-06-17T00:05:00.000Z"
+  },
+  "exchange_intent": {
+    "intent_id": "intent:exchange-example",
+    "schema_version": "ioi.wallet.protocol.v1",
+    "initiator_id": "agent:research-assistant",
+    "account_id": "account:primary",
+    "from_asset": { "asset": "USDC", "amount": "25", "chain": "ethereum" },
+    "to_asset": "ETH",
+    "min_amount_out": { "asset": "ETH", "amount": "0.005", "chain": "ethereum" },
+    "route_candidate_id": "route:example-low-risk-usdc-eth",
+    "candidate_evidence": [
+      {
+        "candidate_id": "route:example-low-risk-usdc-eth",
+        "source": "decentralized.exchange",
+        "adapter_id": "adapter:direct-pool-v1",
+        "observed_at": "2026-06-17T00:00:00.000Z",
+        "expires_at": "2026-06-17T00:01:00.000Z",
+        "coverage_state": "assessed",
+        "evidence_refs": ["agentgres://evidence/wallet-route-example"],
+        "risk_labels": ["No Bridge", "Known Pool", "Route Risk Low"],
+        "claims": {
+          "venue": "direct-pool",
+          "simulation_hash": "hash:simulation-example"
+        }
+      }
+    ],
+    "slippage_bps": 50,
+    "policy_hash": "hash:policy-example",
+    "risk_labels": ["No Bridge", "Route Risk Low"],
+    "simulation_hash": "hash:simulation-example",
+    "tx_intent_refs": ["tx:intent-example"]
+  },
+  "trade_intent": {
+    "intent_id": "intent:trade-example",
+    "schema_version": "ioi.wallet.protocol.v1",
+    "initiator_id": "user:primary",
+    "account_id": "account:primary",
+    "venue_candidate_id": "venue:paper-perps",
+    "candidate_evidence": [
+      {
+        "candidate_id": "venue:paper-perps",
+        "source": "decentralized.trade",
+        "adapter_id": "adapter:paper-perps-v1",
+        "observed_at": "2026-06-17T00:00:00.000Z",
+        "expires_at": "2026-06-17T00:10:00.000Z",
+        "coverage_state": "assessed",
+        "evidence_refs": ["agentgres://evidence/wallet-trade-example"],
+        "risk_labels": ["Leverage Risk", "Paper Only"],
+        "claims": {
+          "venue": "paper-perps",
+          "simulation_hash": "hash:trade-simulation-example"
+        }
+      }
+    ],
+    "market": "ETH-PERP",
+    "side": "long",
+    "collateral": { "asset": "USDC", "amount": "100", "chain": "arbitrum" },
+    "leverage": "1.5",
+    "margin_mode": "isolated",
+    "max_loss": { "asset": "USDC", "amount": "25", "chain": "arbitrum" },
+    "policy_hash": "hash:policy-example",
+    "risk_labels": ["Leverage Risk", "Paper Only"],
+    "simulation_hash": "hash:trade-simulation-example"
   }
 }

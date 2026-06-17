@@ -24,6 +24,8 @@ test("exports canonical wallet protocol version, methods, and fixtures", async (
     protocol.WALLET_NETWORK_PROTOCOL_METHODS.issueCapabilityLease,
     "wallet.capability.lease.issue",
   );
+  assert.equal(typeof protocol.assertExchangeIntentCandidateEvidence, "function");
+  assert.equal(typeof protocol.assertTradeIntentCandidateEvidence, "function");
   assert.equal(
     protocol.EXAMPLE_AUTHORITY_REVIEW.schema_version,
     protocol.WALLET_PROTOCOL_SCHEMA_VERSION,
@@ -66,6 +68,14 @@ test("fixture payloads preserve the wallet authority grammar", async () => {
   assert.equal(fixture.schema_version, "ioi.wallet.protocol.v1");
   assert.match(review.requested_scopes[0], /^scope:/);
   assert.equal(review.candidate_evidence[0].coverage_state, "assessed");
+  assert.equal(
+    fixture.exchange_intent.candidate_evidence[0].candidate_id,
+    fixture.exchange_intent.route_candidate_id,
+  );
+  assert.equal(
+    fixture.trade_intent.candidate_evidence[0].candidate_id,
+    fixture.trade_intent.venue_candidate_id,
+  );
   assert.deepEqual(review.allowed_approval_modes, [
     "one_shot_review",
     "step_up_review",
@@ -73,4 +83,65 @@ test("fixture payloads preserve the wallet authority grammar", async () => {
   assert.equal(review.recommended_presentation_profile, "standard_wallet_review");
   assert.equal(review.policy_checks[0].result, "passed");
   assert.equal(review.policy_result, "requires_human");
+});
+
+test("candidate evidence validators fail closed for stale or mismatched exchange and trade intents", async () => {
+  const protocol = await import("../dist/index.js");
+
+  assert.equal(
+    protocol.assertExchangeIntentCandidateEvidence(
+      protocol.EXAMPLE_EXCHANGE_INTENT,
+      { now: "2026-06-17T00:00:30.000Z" },
+    ).intent_id,
+    "intent:exchange-example",
+  );
+  assert.equal(
+    protocol.assertTradeIntentCandidateEvidence(
+      protocol.EXAMPLE_TRADE_INTENT,
+      { now: "2026-06-17T00:05:00.000Z" },
+    ).intent_id,
+    "intent:trade-example",
+  );
+
+  assert.throws(
+    () =>
+      protocol.assertExchangeIntentCandidateEvidence({
+        ...protocol.EXAMPLE_EXCHANGE_INTENT,
+        route_candidate_id: "route:other",
+      }),
+    (error) => {
+      assert.equal(error.name, "WalletProtocolValidationError");
+      assert.equal(error.code, "exchange_intent_candidate_evidence_mismatch");
+      return true;
+    },
+  );
+
+  assert.throws(
+    () =>
+      protocol.assertTradeIntentCandidateEvidence({
+        ...protocol.EXAMPLE_TRADE_INTENT,
+        candidate_evidence: [
+          {
+            ...protocol.EXAMPLE_TRADE_INTENT.candidate_evidence[0],
+            coverage_state: "unknown",
+          },
+        ],
+      }),
+    (error) => {
+      assert.equal(error.code, "candidate_evidence_not_executable");
+      return true;
+    },
+  );
+
+  assert.throws(
+    () =>
+      protocol.assertExchangeIntentCandidateEvidence(
+        protocol.EXAMPLE_EXCHANGE_INTENT,
+        { now: "2026-06-17T00:02:00.000Z" },
+      ),
+    (error) => {
+      assert.equal(error.code, "candidate_evidence_expired");
+      return true;
+    },
+  );
 });

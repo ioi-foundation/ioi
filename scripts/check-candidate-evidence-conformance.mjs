@@ -79,11 +79,23 @@ requireAll("packages/wallet-protocol/src/types.ts", [
   "readonly candidate_id: string",
   "readonly adapter_id: string",
   "readonly observed_at: string",
-  "readonly expires_at?: string",
+  "readonly expires_at: string",
   "readonly coverage_state: RiskCoverageState",
   "readonly evidence_refs: readonly string[]",
   "readonly risk_labels: readonly string[]",
   "readonly claims: Readonly<Record<string, string>>",
+  "readonly candidate_evidence: readonly CandidateEvidence[]",
+]);
+
+requireAll("packages/wallet-protocol/src/validation.ts", [
+  "WalletProtocolValidationError",
+  "assertCandidateEvidenceExecutable",
+  "assertExchangeIntentCandidateEvidence",
+  "assertTradeIntentCandidateEvidence",
+  "candidate_evidence_not_executable",
+  "candidate_evidence_expired",
+  "exchange_intent_candidate_evidence_mismatch",
+  "trade_intent_candidate_evidence_mismatch",
 ]);
 
 requireAll("packages/wallet-protocol/schemas/authority-review.schema.json", [
@@ -94,6 +106,18 @@ requireAll("packages/wallet-protocol/schemas/authority-review.schema.json", [
   "\"coverage_state\"",
   "\"evidence_refs\"",
   "\"claims\"",
+]);
+
+requireAll("packages/wallet-protocol/schemas/exchange-intent.schema.json", [
+  "\"candidate_evidence\"",
+  "\"CandidateEvidence\"",
+  "\"minItems\": 1",
+]);
+
+requireAll("packages/wallet-protocol/schemas/trade-intent.schema.json", [
+  "\"candidate_evidence\"",
+  "\"CandidateEvidence\"",
+  "\"minItems\": 1",
 ]);
 
 requireAll("docs/architecture/_meta/implementation-matrix.md", [

@@ -65,6 +65,13 @@ const protocolTypes = assertFile("packages/wallet-protocol/src/types.ts", [
   "scope:",
 ]);
 
+const protocolValidation = assertFile("packages/wallet-protocol/src/validation.ts", [
+  "assertCandidateEvidenceExecutable",
+  "assertExchangeIntentCandidateEvidence",
+  "assertTradeIntentCandidateEvidence",
+  "WalletProtocolValidationError",
+]);
+
 const protocolMethods = assertFile("packages/wallet-protocol/src/methods.ts", [
   "WALLET_NETWORK_KERNEL_METHODS",
   "issue_session_lease@v1",
@@ -101,6 +108,15 @@ for (const protocolObject of [
   "WalletPresentationProfile",
 ]) {
   assertIncludes("packages/wallet-protocol/src/types.ts", protocolTypes, protocolObject);
+}
+
+for (const validationExport of [
+  "candidate_evidence_not_executable",
+  "candidate_evidence_expired",
+  "exchange_intent_candidate_evidence_mismatch",
+  "trade_intent_candidate_evidence_mismatch",
+]) {
+  assertIncludes("packages/wallet-protocol/src/validation.ts", protocolValidation, validationExport);
 }
 
 const schemaFiles = [

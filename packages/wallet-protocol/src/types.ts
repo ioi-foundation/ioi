@@ -97,7 +97,7 @@ export interface CandidateEvidence {
   readonly source: string;
   readonly adapter_id: string;
   readonly observed_at: string;
-  readonly expires_at?: string;
+  readonly expires_at: string;
   readonly coverage_state: RiskCoverageState;
   readonly evidence_refs: readonly string[];
   readonly risk_labels: readonly string[];
@@ -158,6 +158,7 @@ export interface ExchangeIntent {
   readonly to_asset: string;
   readonly min_amount_out: MoneyAmount;
   readonly route_candidate_id: string;
+  readonly candidate_evidence: readonly CandidateEvidence[];
   readonly slippage_bps: number;
   readonly policy_hash: string;
   readonly risk_labels: readonly string[];
@@ -171,6 +172,7 @@ export interface TradeIntent {
   readonly initiator_id: string;
   readonly account_id: string;
   readonly venue_candidate_id: string;
+  readonly candidate_evidence: readonly CandidateEvidence[];
   readonly market: string;
   readonly side: "buy" | "sell" | "long" | "short";
   readonly collateral: MoneyAmount;

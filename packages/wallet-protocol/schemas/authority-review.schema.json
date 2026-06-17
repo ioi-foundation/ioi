@@ -124,6 +124,7 @@
         "source",
         "adapter_id",
         "observed_at",
+        "expires_at",
         "coverage_state",
         "evidence_refs",
         "risk_labels",

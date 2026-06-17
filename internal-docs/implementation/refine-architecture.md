@@ -1662,11 +1662,23 @@ forget as product-console-only state.
 
 | Field | Detail |
 | --- | --- |
-| Status | Canonized and guarded on 2026-06-17. Route/trade API validation remains follow-up implementation. |
+| Status | Canonized and guarded on 2026-06-17; wallet protocol route/trade candidate-evidence validation implemented and guarded. Live external route-source adapters remain follow-up implementation. |
 | Files | decentralized exchange/trade docs, Wallet product risk, API scopes, conformance docs |
 | Change | Require source, adapter, timestamp, expiry, evidence refs, coverage state, failure conditions for route/trade candidates. |
 | Acceptance | Candidate services cannot be hidden trust roots. |
-| Verify | `npm run check:candidate-evidence`; `rg -n "CandidateEvidence|coverage_state|expires_at|adapter_id" docs/architecture/domains/decentralized docs/architecture/components/wallet-network packages/wallet-protocol` |
+| Verify | `npm run check:candidate-evidence`; `npm run test:wallet-protocol`; `npm run check:wallet-protocol`; `rg -n "CandidateEvidence|coverage_state|expires_at|adapter_id|assertExchangeIntentCandidateEvidence|assertTradeIntentCandidateEvidence" docs/architecture/domains/decentralized docs/architecture/components/wallet-network packages/wallet-protocol` |
+
+Current hardening slice:
+
+```text
+`packages/wallet-protocol/src/validation.ts` adds executable candidate-evidence
+validators for Wallet Exchange and Trade. `ExchangeIntent` and `TradeIntent`
+now carry `candidate_evidence` directly, and the validators fail closed when the
+selected route/venue candidate is missing, mismatched, expired, or not
+`assessed`. JSON schemas, fixtures, protocol tests, and conformance scans guard
+the binding so decentralized.exchange and decentralized.trade remain candidate
+sources rather than hidden trust roots.
+```
 
 ### Phase 7: Harden Service Composition Delivery
 

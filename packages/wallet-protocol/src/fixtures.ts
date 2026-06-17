@@ -22,6 +22,21 @@ export const EXAMPLE_CANDIDATE_EVIDENCE = {
   },
 } as const;
 
+export const EXAMPLE_TRADE_CANDIDATE_EVIDENCE = {
+  candidate_id: "venue:paper-perps",
+  source: "decentralized.trade",
+  adapter_id: "adapter:paper-perps-v1",
+  observed_at: "2026-06-17T00:00:00.000Z",
+  expires_at: "2026-06-17T00:10:00.000Z",
+  coverage_state: "assessed",
+  evidence_refs: ["agentgres://evidence/wallet-trade-example"],
+  risk_labels: ["Leverage Risk", "Paper Only"],
+  claims: {
+    venue: "paper-perps",
+    simulation_hash: "hash:trade-simulation-example",
+  },
+} as const;
+
 export const EXAMPLE_AUTHORITY_REVIEW: AuthorityReview = {
   review_id: "review:example-exchange",
   schema_version: WALLET_PROTOCOL_SCHEMA_VERSION,
@@ -73,6 +88,7 @@ export const EXAMPLE_EXCHANGE_INTENT: ExchangeIntent = {
   to_asset: "ETH",
   min_amount_out: { asset: "ETH", amount: "0.005", chain: "ethereum" },
   route_candidate_id: "route:example-low-risk-usdc-eth",
+  candidate_evidence: [EXAMPLE_CANDIDATE_EVIDENCE],
   slippage_bps: 50,
   policy_hash: "hash:policy-example",
   risk_labels: ["No Bridge", "Route Risk Low"],
@@ -86,6 +102,7 @@ export const EXAMPLE_TRADE_INTENT: TradeIntent = {
   initiator_id: "user:primary",
   account_id: "account:primary",
   venue_candidate_id: "venue:paper-perps",
+  candidate_evidence: [EXAMPLE_TRADE_CANDIDATE_EVIDENCE],
   market: "ETH-PERP",
   side: "long",
   collateral: { asset: "USDC", amount: "100", chain: "arbitrum" },
