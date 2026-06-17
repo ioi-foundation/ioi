@@ -960,7 +960,7 @@ function providerInvocationBridgeResult(request, options = {}) {
       ? `Hypervisor native local model response from ${request.model_ref}. input_hash=test`
       : "provider answer");
   const provider_response_kind = nativeLocal ? "rust_model_mount.native_local" : "rust_model_mount.fixture";
-  const backend = nativeLocal ? "autopilot.native_local.fixture" : "ioi_fixture";
+  const backend = nativeLocal ? "backend.hypervisor.native-local.fixture" : "ioi_fixture";
   const backend_id = nativeLocal ? request.backend_ref ?? "backend.hypervisor.native-local.fixture" : "backend.fixture";
   const execution_backend = request.execution_backend ?? "rust_model_mount_fixture";
   const evidenceRefs = [
@@ -1032,7 +1032,7 @@ function providerStreamInvocationBridgeResult(request, options = {}) {
       output_text: output_text,
       token_count: token_count,
       provider_response_kind: "rust_model_mount.native_local.stream",
-      backend: "autopilot.native_local.fixture",
+      backend: "backend.hypervisor.native-local.fixture",
       backend_id: backend_id,
       execution_backend: execution_backend,
       stream_format: "ioi_jsonl",

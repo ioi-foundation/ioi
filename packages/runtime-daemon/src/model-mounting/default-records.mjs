@@ -235,7 +235,7 @@ export function defaultRouteRecords() {
     {
       id: "route.native-local",
       role: "default",
-      description: "Autopilot-native local route that does not require LM Studio.",
+      description: "Hypervisor-native local route that does not require LM Studio.",
       privacy: "local_only",
       quality: "native_local",
       maxCostUsd: 0,

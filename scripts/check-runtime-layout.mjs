@@ -218,6 +218,13 @@ const hypervisorModelMountIdentitySources = [
   "scripts/lib/model-mounting-daemon-contract.test.mjs",
   "scripts/validate-model-mounting-e2e.mjs",
   "apps/hypervisor/scripts/desktop_model_mounts_probe.py",
+  "packages/runtime-daemon/src/runtime-daemon-core-direct-invoker-service.test.mjs",
+  "packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs",
+  "packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs",
+  "packages/runtime-daemon/src/model-mounting/inflight-invocation.test.mjs",
+  "packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs",
+  "packages/runtime-daemon/src/model-mounting/model-mount-core.test.mjs",
+  "packages/runtime-daemon/src/model-mounting/read-projection-direct.test.mjs",
 ].map(read).join("\n");
 const packageScriptNames = Object.keys(packageJson.scripts ?? {});
 const retiredAutopilotPackageScripts = packageScriptNames.filter((scriptName) =>
@@ -663,8 +670,9 @@ assert(
     "hypervisor_native_local_provider_native_stream",
     "hypervisor_native_local_backend_registry",
     "fixture://catalog/hypervisor-native-3b-q4",
+    "hypervisor:map-only",
   ].every((token) => hypervisorModelMountIdentitySources.includes(token)) &&
-    !/provider\.autopilot\.local|backend\.autopilot\.native-local\.fixture|endpoint\.autopilot\.native-fixture|endpoint\.autopilot\.gui-lifecycle|autopilot:native-fixture|autopilot:gui-|autopilot-local-server|autopilot_native_local_provider_native_stream|autopilot_native_local_backend_registry|fixture:\/\/catalog\/autopilot-native-3b-q4|fixture:\/\/autopilot/.test(
+    !/provider\.autopilot\.local|backend\.autopilot\.native-local\.fixture|autopilot\.native_local\.fixture|endpoint\.autopilot\.local|endpoint\.autopilot\.native-fixture|endpoint\.autopilot\.gui-lifecycle|model\.autopilot\.local|autopilot:native-fixture|autopilot:map-only|autopilot:gui-|autopilot-local-server|autopilot_native_local_provider_native_stream|autopilot_native_local_backend_registry|fixture:\/\/catalog\/autopilot-native-3b-q4|fixture:\/\/autopilot|Autopilot-native local route/.test(
       hypervisorModelMountIdentitySources,
     ),
   [
@@ -674,6 +682,8 @@ assert(
     "apps/hypervisor/src/surfaces/MissionControl/MissionControlMountsView.tsx",
     "scripts/lib/model-mounting-daemon-contract.test.mjs",
     "scripts/validate-model-mounting-e2e.mjs",
+    "packages/runtime-daemon/src/model-mounting/*.test.mjs",
+    "packages/runtime-daemon/src/runtime-daemon-core-direct-invoker-service.test.mjs",
   ],
   "Active native-local model mount providers, backends, endpoints, auth audiences, catalog fixtures, and stream evidence refs must use Hypervisor identities.",
 );

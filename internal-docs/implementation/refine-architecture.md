@@ -1108,6 +1108,7 @@ Current implementation cut:
   `hypervisor:gui-lifecycle`, `hypervisor:gui-download`,
   `endpoint.hypervisor.gui-lifecycle`, `hypervisor-local-server`, and
   `fixture://catalog/hypervisor-native-3b-q4`.
+  The native-local daemon fixture tests now use the same Hypervisor ids, and
   `check:runtime-layout` rejects the retired Autopilot mount identities.
 
 0A.2 remaining visual implementation:

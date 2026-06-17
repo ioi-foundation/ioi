@@ -695,7 +695,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
         },
       },
     });
-    assert.equal(nativeLoaded.backend, "autopilot.native_local.fixture");
+    assert.equal(nativeLoaded.backend, "backend.hypervisor.native-local.fixture");
     assert.equal(nativeLoaded.runtimeEngineId, "backend.hypervisor.native-local.fixture");
     assert.equal(nativeLoaded.identifier, "native-imported-dev");
     assert.equal(nativeLoaded.contextLength, 4096);
@@ -714,7 +714,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.match(nativeChat.output_text, /Hypervisor native local model response/);
     const nativeReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${nativeChat.receipt_id}`);
     assert.equal(nativeReceipt.details.providerId, "provider.hypervisor.local");
-    assert.equal(nativeReceipt.details.backend, "autopilot.native_local.fixture");
+    assert.equal(nativeReceipt.details.backend, "backend.hypervisor.native-local.fixture");
     assert.equal(nativeReceipt.details.backendId, "backend.hypervisor.native-local.fixture");
     assert.equal(nativeReceipt.details.backendProcess.status, "started");
     assert.equal(nativeReceipt.details.backendProcessPidHash, nativeLoaded.backendProcess.pidHash);
@@ -815,7 +815,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.equal(nativeCompatStreamMetadata.provider_stream, "native");
     const nativeCompatStreamReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${nativeCompatStreamMetadata.receipt_id}`);
     assert.equal(nativeCompatStreamReceipt.details.providerId, "provider.hypervisor.local");
-    assert.equal(nativeCompatStreamReceipt.details.backend, "autopilot.native_local.fixture");
+    assert.equal(nativeCompatStreamReceipt.details.backend, "backend.hypervisor.native-local.fixture");
     assert.equal(nativeCompatStreamReceipt.details.backendId, "backend.hypervisor.native-local.fixture");
     assert.equal(nativeCompatStreamReceipt.details.backendProcessPidHash, nativeLoaded.backendProcess.pidHash);
     assert.equal(nativeCompatStreamReceipt.details.providerResponseKind, "native_local.chat.stream");
@@ -849,7 +849,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.equal(nativeResponseCompleted.provider_stream, "native");
     const nativeResponseStreamReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${nativeResponseCompleted.receipt_id}`);
     assert.equal(nativeResponseStreamReceipt.details.providerId, "provider.hypervisor.local");
-    assert.equal(nativeResponseStreamReceipt.details.backend, "autopilot.native_local.fixture");
+    assert.equal(nativeResponseStreamReceipt.details.backend, "backend.hypervisor.native-local.fixture");
     assert.equal(nativeResponseStreamReceipt.details.backendId, "backend.hypervisor.native-local.fixture");
     assert.equal(nativeResponseStreamReceipt.details.backendProcessPidHash, nativeLoaded.backendProcess.pidHash);
     assert.equal(nativeResponseStreamReceipt.details.providerResponseKind, "native_local.responses.stream");
@@ -887,7 +887,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.equal(nativeAnthropicStop.data.provider_stream, "native");
     const nativeAnthropicStreamReceipt = await expectOk(daemon.endpoint, `/v1/model-mount/receipts/${nativeAnthropicStop.data.receipt_id}`);
     assert.equal(nativeAnthropicStreamReceipt.details.providerId, "provider.hypervisor.local");
-    assert.equal(nativeAnthropicStreamReceipt.details.backend, "autopilot.native_local.fixture");
+    assert.equal(nativeAnthropicStreamReceipt.details.backend, "backend.hypervisor.native-local.fixture");
     assert.equal(nativeAnthropicStreamReceipt.details.backendId, "backend.hypervisor.native-local.fixture");
     assert.equal(nativeAnthropicStreamReceipt.details.backendProcessPidHash, nativeLoaded.backendProcess.pidHash);
     assert.equal(nativeAnthropicStreamReceipt.details.providerResponseKind, "native_local.chat.stream");

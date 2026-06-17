@@ -234,8 +234,8 @@ function providerResultRequest() {
     route_ref: "route.local-first",
     provider_ref: "provider.hypervisor.local",
     provider_kind: "ioi_native_local",
-    endpoint_ref: "endpoint.autopilot.local",
-    model_ref: "model.autopilot.local",
+    endpoint_ref: "endpoint.hypervisor.native-fixture",
+    model_ref: "hypervisor:native-fixture",
     capability: "chat",
     invocation_kind: "responses",
     request_hash: "sha256:request",
@@ -1117,7 +1117,7 @@ test("Rust model_mount core sends native-local provider stream invocation throug
               output_text: "Hypervisor native local stream response",
               token_count: { prompt_tokens: 3, completion_tokens: 8, total_tokens: 11 },
               provider_response_kind: "rust_model_mount.native_local.stream",
-              backend: "autopilot.native_local.fixture",
+              backend: "backend.hypervisor.native-local.fixture",
               backend_id: "backend.hypervisor.native-local.fixture",
               execution_backend: "rust_model_mount_native_local_stream",
               stream_format: "ioi_jsonl",
@@ -1184,7 +1184,7 @@ test("Rust model_mount core sends native-local provider lifecycle through typed 
             result: {
               ...request,
               status: "loaded",
-              backend: "autopilot.native_local.fixture",
+              backend: "backend.hypervisor.native-local.fixture",
               backend_id: "backend.hypervisor.native-local.fixture",
               driver: "native_local",
               lifecycle_hash: "sha256:lifecycle",
@@ -1192,7 +1192,7 @@ test("Rust model_mount core sends native-local provider lifecycle through typed 
             },
             status: "loaded",
             backend_id: "backend.hypervisor.native-local.fixture",
-            provider_backend: "autopilot.native_local.fixture",
+            provider_backend: "backend.hypervisor.native-local.fixture",
             driver: "native_local",
             execution_backend: "rust_model_mount_native_local_lifecycle",
             lifecycle_hash: "sha256:lifecycle",
@@ -1213,7 +1213,7 @@ test("Rust model_mount core sends native-local provider lifecycle through typed 
   );
   assert.equal(calls[0].request.action, "load");
   assert.equal(result.status, "loaded");
-  assert.equal(result.providerBackend, "autopilot.native_local.fixture");
+  assert.equal(result.providerBackend, "backend.hypervisor.native-local.fixture");
   assert.equal(result.backendId, "backend.hypervisor.native-local.fixture");
   assert.equal(result.executionBackend, "rust_model_mount_native_local_lifecycle");
   assert.equal(result.lifecycle_hash, "sha256:lifecycle");
@@ -1320,7 +1320,7 @@ test("Rust model_mount core sends local provider inventory through typed daemon-
         action: "list_loaded",
         operation_kind: "model_mount.provider.inventory.list_loaded",
         status: "listed",
-        backend: "autopilot.native_local.fixture",
+        backend: "backend.hypervisor.native-local.fixture",
         backend_id: "backend.hypervisor.native-local.fixture",
         driver: "native_local",
         execution_backend: "rust_model_mount_native_local_inventory",
@@ -1345,7 +1345,7 @@ test("Rust model_mount core sends local provider inventory through typed daemon-
               ...request,
               operation_kind: "model_mount.provider.inventory.list_loaded",
               status: "listed",
-              backend: "autopilot.native_local.fixture",
+              backend: "backend.hypervisor.native-local.fixture",
               backend_id: "backend.hypervisor.native-local.fixture",
               driver: "native_local",
               item_count: 1,
@@ -1362,7 +1362,7 @@ test("Rust model_mount core sends local provider inventory through typed daemon-
             },
             status: "listed",
             backend_id: "backend.hypervisor.native-local.fixture",
-            provider_backend: "autopilot.native_local.fixture",
+            provider_backend: "backend.hypervisor.native-local.fixture",
             driver: "native_local",
             execution_backend: "rust_model_mount_native_local_inventory",
             item_refs: ["model_instance://native/qwen3"],
@@ -1396,7 +1396,7 @@ test("Rust model_mount core sends local provider inventory through typed daemon-
   assert.equal(Object.hasOwn(calls[0].request, "item_refs"), false);
   assert.equal(Object.hasOwn(calls[0].request, "evidence_refs"), false);
   assert.equal(result.status, "listed");
-  assert.equal(result.providerBackend, "autopilot.native_local.fixture");
+  assert.equal(result.providerBackend, "backend.hypervisor.native-local.fixture");
   assert.equal(result.backendId, "backend.hypervisor.native-local.fixture");
   assert.equal(result.executionBackend, "rust_model_mount_native_local_inventory");
   assert.deepEqual(result.itemRefs, ["model_instance://native/qwen3"]);

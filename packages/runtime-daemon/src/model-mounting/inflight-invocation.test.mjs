@@ -416,7 +416,7 @@ function mockModelMountCore() {
         result: {
           ...request,
           status: request.action === "load" ? "loaded" : "unloaded",
-          backend: "autopilot.native_local.fixture",
+          backend: "backend.hypervisor.native-local.fixture",
           backend_id: "backend.hypervisor.native-local.fixture",
           driver: "native_local",
           lifecycle_hash: "sha256:provider-lifecycle-test",
@@ -424,7 +424,7 @@ function mockModelMountCore() {
         },
         status: request.action === "load" ? "loaded" : "unloaded",
         backendId: "backend.hypervisor.native-local.fixture",
-        providerBackend: "autopilot.native_local.fixture",
+        providerBackend: "backend.hypervisor.native-local.fixture",
         driver: "native_local",
         executionBackend: "rust_model_mount_native_local_lifecycle",
         lifecycle_hash: "sha256:provider-lifecycle-test",

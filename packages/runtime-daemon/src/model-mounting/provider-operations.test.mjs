@@ -418,7 +418,7 @@ function fakeState() {
           ? `backend.hosted.${fakeLifecycleSafeId(providerKind)}`
           : "backend.fixture");
       const backend = nativeLocal
-        ? "autopilot.native_local.fixture"
+        ? "backend.hypervisor.native-local.fixture"
         : hostedProvider
           ? (apiFormat ?? providerDriver ?? "hosted_provider_metadata")
           : "ioi_fixture";
@@ -650,7 +650,7 @@ function fakeState() {
         operation_kind: operationKind,
         status: "listed",
         backend: nativeLocal
-          ? "autopilot.native_local.fixture"
+          ? "backend.hypervisor.native-local.fixture"
           : hostedProvider
             ? "hosted_provider_metadata"
             : "ioi_fixture",
@@ -694,7 +694,7 @@ function fakeState() {
         operation_kind: operationKind,
         status: "listed",
         backend: nativeLocal
-          ? "autopilot.native_local.fixture"
+          ? "backend.hypervisor.native-local.fixture"
           : hostedProvider
             ? "hosted_provider_metadata"
             : "ioi_fixture",
@@ -1423,7 +1423,7 @@ test("provider lifecycle sends state_dir and Rust replay rejects map-only endpoi
   state.endpoints.set("endpoint.map-only", {
     id: "endpoint.map-only",
     providerId: "provider.local",
-    modelId: "autopilot:map-only",
+    modelId: "hypervisor:map-only",
     status: "mounted",
   });
 
