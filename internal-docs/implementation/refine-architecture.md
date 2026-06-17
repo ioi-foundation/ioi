@@ -960,7 +960,7 @@ Implementation phases:
 | 0A.7 Models as infrastructure and setup | Keep a Models surface, but also embed model mounting into New Session/Create Agent/Mission setup. | `MissionControlMountsView.tsx`, model daemon actions, public `/v1/model-mount/*` clients | Model mounts are not a detached tab; each session shows selected model/provider/custody. |
 | 0A.8 Authority/privacy/receipts inspectors | Add persistent contextual right/bottom governance and environment panels. | Policy, Capabilities, Settings, cTEE/private workspace services, receipt components, environment ops projections | Selected session reveals changes, authority scope, privacy posture, latest receipts, environment lifecycle, access/log lease state, SCM auth requirements, ports/services, tasks, terminal/logs. |
 | 0A.9 Provider/environment and private workspace path | Surface direct providers, remote VM workspaces, DePIN nodes, zero-to-idle/restore. | Provider/environment views, workspace host/session services, provider integrations, environment lifecycle APIs | User can create, stop, start, archive, unarchive, and restore persistent workspace/node routes without treating provider resources as trusted custody or restore truth. |
-| 0A.10 Visual and behavior conformance | Add Playwright smoke checks and source scans for naming/IA. | App tests, `scripts/conformance/hypervisor-conformance.mjs` | Checks prove no user-facing "Autopilot" tabs, no Workbench-as-parent, and Home/Sessions/Workbench flows work. |
+| 0A.10 Visual and behavior conformance | Add built-shell contract checks and source scans for naming/IA. | App tests, `scripts/conformance/hypervisor-conformance.mjs` | Checks prove no user-facing "Autopilot" tabs, no Workbench-as-parent, and Home/Sessions/Workbench flows work. |
 
 Current implementation cut:
 
@@ -1362,13 +1362,13 @@ Current implementation cut:
   work is live projection hydration and durable selected-target parameters once
   daemon projections provide real project/session destinations.
 
-0A.10 first Playwright shell smoke is implemented:
-  `scripts/hypervisor-app-shell-smoke.mjs` serves the built
+0A.10 built-shell contract is implemented:
+  `scripts/hypervisor-app-shell-contract.mjs` serves the built
   `apps/hypervisor/dist` bundle and verifies the IOI-reference Hypervisor shell
-  contract in Chromium. The smoke covers the Home cockpit, New Session launch
+  contract in Chromium. The contract covers the Home cockpit, New Session launch
   summary, external-harness plus cTEE privacy blocking, redacted-projection
   harness allowance, Providers navigation, and provider operation proposal
-  rendering. The command is exposed as `npm run smoke:hypervisor-app-shell` and
+  rendering. The command is exposed as `npm run check:hypervisor-app-shell` and
   guarded by `check:runtime-layout` plus the lightweight
   `npm run hypervisor-conformance:app` tier.
 ```
@@ -1431,7 +1431,7 @@ npm run build --workspace=@ioi/workspace-substrate --if-present
 npm run build --workspace=autopilot
 node --check touched .mjs files
 focused shell/navigation tests
-Playwright smoke:
+Built-shell contract:
   / -> Hypervisor Home
   New Session opens
   Workbench opens repository gate/editor adapter selector

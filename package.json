@@ -23,7 +23,7 @@
     "dryrun:hypervisor-app:wayland": "bash apps/hypervisor/scripts/dry-run-desktop.sh wayland",
     "validate:hypervisor-app-harness": "node scripts/run-hypervisor-app-ux-readiness-goal.mjs --preflight",
     "validate:hypervisor-app-harness:run": "node scripts/run-hypervisor-app-ux-readiness-goal.mjs --run",
-    "smoke:hypervisor-app-shell": "node scripts/hypervisor-app-shell-smoke.mjs",
+    "check:hypervisor-app-shell": "node scripts/hypervisor-app-shell-contract.mjs",
     "goal:hypervisor-app-ux-readiness": "node scripts/run-hypervisor-app-ux-readiness-goal.mjs --preflight",
     "goal:hypervisor-app-ux-readiness:run": "node scripts/run-hypervisor-app-ux-readiness-goal.mjs --run",
     "build:hypervisor-workbench-composer": "npx vite build --config workbench-adapters/ioi-workbench/vite.workflow-composer.config.ts",

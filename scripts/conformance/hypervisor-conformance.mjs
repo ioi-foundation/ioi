@@ -1014,8 +1014,8 @@ function checkStaleLiveTerminology(result) {
 function runApp() {
   const result = createTierResult("app");
   const rootPackageJson = JSON.parse(read("package.json"));
-  const appSmokeScript = exists("scripts/hypervisor-app-shell-smoke.mjs")
-    ? read("scripts/hypervisor-app-shell-smoke.mjs")
+  const appShellContract = exists("scripts/hypervisor-app-shell-contract.mjs")
+    ? read("scripts/hypervisor-app-shell-contract.mjs")
     : "";
   const runtimeLayoutCheck = exists("scripts/check-runtime-layout.mjs")
     ? read("scripts/check-runtime-layout.mjs")
@@ -1033,39 +1033,39 @@ function runApp() {
 
   assertCheck(
     result,
-    "hypervisor-app-shell-smoke-script-wired",
-    rootPackageJson.scripts?.["smoke:hypervisor-app-shell"] ===
-      "node scripts/hypervisor-app-shell-smoke.mjs" &&
+    "hypervisor-app-shell-contract-script-wired",
+    rootPackageJson.scripts?.["check:hypervisor-app-shell"] ===
+      "node scripts/hypervisor-app-shell-contract.mjs" &&
       rootPackageJson.scripts?.["hypervisor-conformance:app"] ===
         "node scripts/conformance/hypervisor-conformance.mjs app" &&
-      /ioi\.hypervisor\.app_shell_smoke\.v1/.test(appSmokeScript) &&
-      /apps\/hypervisor\/dist\/index\.html is missing/.test(appSmokeScript),
-    ["package.json", "scripts/hypervisor-app-shell-smoke.mjs"],
-    "Hypervisor app shell smoke must be an explicit package script with a typed evidence schema and built-app preflight.",
+      /ioi\.hypervisor\.app_shell_contract\.v1/.test(appShellContract) &&
+      /apps\/hypervisor\/dist\/index\.html is missing/.test(appShellContract),
+    ["package.json", "scripts/hypervisor-app-shell-contract.mjs"],
+    "Hypervisor app shell contract must be an explicit package script with a typed evidence schema and built-app preflight.",
   );
   assertCheck(
     result,
-    "hypervisor-app-shell-smoke-covers-core-flow",
-    /\[data-home-dashboard-variant="hypervisor-zero-state"\]/.test(appSmokeScript) &&
-      /\[data-home-intent-submit="new-session"\]/.test(appSmokeScript) &&
-      /\[data-home-intent-recipe="automation.default"\]/.test(appSmokeScript) &&
-      /\[data-new-session-field="seed-intent"\]/.test(appSmokeScript) &&
-      /\[data-new-session-seed-intent\]/.test(appSmokeScript) &&
-      /home_seed_intent_reaches_new_session/.test(appSmokeScript) &&
-      /home_quickstart_recipe_reaches_new_session/.test(appSmokeScript) &&
-      /\[data-new-session-field="harness"\]/.test(appSmokeScript) &&
-      /agent-harness-adapter:codex_cli/.test(appSmokeScript) &&
-      /privacy:ctee-private-workspace/.test(appSmokeScript) &&
-      /privacy:redacted-projection/.test(appSmokeScript) &&
-      /\[data-window-surface="providers"\]/.test(appSmokeScript) &&
-      /\[data-provider-operation-kind="archive"\]/.test(appSmokeScript) &&
-      /ready_for_daemon_admission/.test(appSmokeScript),
-    ["scripts/hypervisor-app-shell-smoke.mjs"],
-    "Hypervisor app shell smoke must cover Home, New Session harness/privacy gating, Providers navigation, and provider operation admission posture.",
+    "hypervisor-app-shell-contract-covers-core-flow",
+    /\[data-home-dashboard-variant="hypervisor-zero-state"\]/.test(appShellContract) &&
+      /\[data-home-intent-submit="new-session"\]/.test(appShellContract) &&
+      /\[data-home-intent-recipe="automation.default"\]/.test(appShellContract) &&
+      /\[data-new-session-field="seed-intent"\]/.test(appShellContract) &&
+      /\[data-new-session-seed-intent\]/.test(appShellContract) &&
+      /home_seed_intent_reaches_new_session/.test(appShellContract) &&
+      /home_quickstart_recipe_reaches_new_session/.test(appShellContract) &&
+      /\[data-new-session-field="harness"\]/.test(appShellContract) &&
+      /agent-harness-adapter:codex_cli/.test(appShellContract) &&
+      /privacy:ctee-private-workspace/.test(appShellContract) &&
+      /privacy:redacted-projection/.test(appShellContract) &&
+      /\[data-window-surface="providers"\]/.test(appShellContract) &&
+      /\[data-provider-operation-kind="archive"\]/.test(appShellContract) &&
+      /ready_for_daemon_admission/.test(appShellContract),
+    ["scripts/hypervisor-app-shell-contract.mjs"],
+    "Hypervisor app shell contract must cover Home, New Session harness/privacy gating, Providers navigation, and provider operation admission posture.",
   );
   assertCheck(
     result,
-    "hypervisor-new-session-has-smoke-hooks",
+    "hypervisor-new-session-has-contract-hooks",
     /data-new-session-field="project"/.test(newSessionModal) &&
       /data-new-session-field="seed-intent"/.test(newSessionModal) &&
       /data-new-session-field="workbench-adapter"/.test(newSessionModal) &&
@@ -1076,16 +1076,16 @@ function runApp() {
     [
       "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorNewSessionModal.tsx",
     ],
-    "New Session must expose stable smoke hooks for governed launch fields and the launch action.",
+    "New Session must expose stable contract hooks for governed launch fields and the launch action.",
   );
   assertCheck(
     result,
-    "hypervisor-app-smoke-layout-guarded",
-    /hypervisor-app-shell-playwright-smoke/.test(runtimeLayoutCheck) &&
-      /scripts\/hypervisor-app-shell-smoke\.mjs/.test(runtimeLayoutCheck) &&
-      /0A\.10 first Playwright shell smoke is implemented/.test(refineArchitectureGuide),
+    "hypervisor-app-shell-contract-layout-guarded",
+    /hypervisor-app-shell-contract/.test(runtimeLayoutCheck) &&
+      /scripts\/hypervisor-app-shell-contract\.mjs/.test(runtimeLayoutCheck) &&
+      /0A\.10 built-shell contract is implemented/.test(refineArchitectureGuide),
     ["scripts/check-runtime-layout.mjs", "internal-docs/implementation/refine-architecture.md"],
-    "Runtime layout and the implementation ledger must guard the Phase 0A.10 app-shell smoke contract.",
+    "Runtime layout and the implementation ledger must guard the Phase 0A.10 app-shell contract.",
   );
   return result;
 }

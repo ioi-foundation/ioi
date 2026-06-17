@@ -260,7 +260,7 @@ async function main() {
     );
 
     const result = {
-      schema_version: "ioi.hypervisor.app_shell_smoke.v1",
+      schema_version: "ioi.hypervisor.app_shell_contract.v1",
       ok: true,
       url,
       checks: [

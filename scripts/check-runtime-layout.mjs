@@ -99,8 +99,8 @@ const runtimeHarnessPublicFixtureRunSource = read(
 const runtimeHarnessPublicFixtureRunTestSource = read(
   "packages/runtime-daemon/src/runtime-harness-public-fixture-run.test.mjs",
 );
-const hypervisorAppShellSmokeSource = read(
-  "scripts/hypervisor-app-shell-smoke.mjs",
+const hypervisorAppShellContractSource = read(
+  "scripts/hypervisor-app-shell-contract.mjs",
 );
 const publicRuntimeRoutesSource = read(
   "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
@@ -1115,61 +1115,61 @@ assert(
   "New Session must emit a typed launch summary, treat only verified Hypervisor model mounts as local model routes, and block harness launches that would otherwise silently fall back.",
 );
 assert(
-  "hypervisor-app-shell-playwright-smoke",
-  packageJson.scripts["smoke:hypervisor-app-shell"] ===
-    "node scripts/hypervisor-app-shell-smoke.mjs" &&
-    hypervisorAppShellSmokeSource.includes("ioi.hypervisor.app_shell_smoke.v1") &&
-    hypervisorAppShellSmokeSource.includes(
+  "hypervisor-app-shell-contract",
+  packageJson.scripts["check:hypervisor-app-shell"] ===
+    "node scripts/hypervisor-app-shell-contract.mjs" &&
+    hypervisorAppShellContractSource.includes("ioi.hypervisor.app_shell_contract.v1") &&
+    hypervisorAppShellContractSource.includes(
       '[data-home-dashboard-variant="hypervisor-zero-state"]',
     ) &&
-    hypervisorAppShellSmokeSource.includes(
+    hypervisorAppShellContractSource.includes(
       '[data-home-intent-submit="new-session"]',
     ) &&
-    hypervisorAppShellSmokeSource.includes(
+    hypervisorAppShellContractSource.includes(
       '[data-home-intent-recipe="automation.default"]',
     ) &&
-    hypervisorAppShellSmokeSource.includes(
+    hypervisorAppShellContractSource.includes(
       "New Session did not receive the Home quickstart recipe destination.",
     ) &&
-    hypervisorAppShellSmokeSource.includes(
+    hypervisorAppShellContractSource.includes(
       '[data-new-session-field="seed-intent"]',
     ) &&
-    hypervisorAppShellSmokeSource.includes(
+    hypervisorAppShellContractSource.includes(
       "[data-new-session-seed-intent]",
     ) &&
-    hypervisorAppShellSmokeSource.includes(
+    hypervisorAppShellContractSource.includes(
       "New Session did not receive the Home composer seed intent.",
     ) &&
-    hypervisorAppShellSmokeSource.includes(
+    hypervisorAppShellContractSource.includes(
       '[data-new-session-field="harness"]',
     ) &&
-    hypervisorAppShellSmokeSource.includes(
+    hypervisorAppShellContractSource.includes(
       "agent-harness-adapter:codex_cli",
     ) &&
-    hypervisorAppShellSmokeSource.includes(
+    hypervisorAppShellContractSource.includes(
       "privacy:ctee-private-workspace",
     ) &&
-    hypervisorAppShellSmokeSource.includes(
+    hypervisorAppShellContractSource.includes(
       "privacy:redacted-projection",
     ) &&
-    hypervisorAppShellSmokeSource.includes(
+    hypervisorAppShellContractSource.includes(
       '[data-window-surface="providers"]',
     ) &&
-    hypervisorAppShellSmokeSource.includes(
+    hypervisorAppShellContractSource.includes(
       '[data-provider-operation-kind="archive"]',
     ) &&
-    hypervisorAppShellSmokeSource.includes(
+    hypervisorAppShellContractSource.includes(
       "[data-provider-operation-proposal]",
     ) &&
-    hypervisorAppShellSmokeSource.includes(
+    hypervisorAppShellContractSource.includes(
       "apps/hypervisor/dist/index.html is missing",
     ),
   [
     "package.json",
-    "scripts/hypervisor-app-shell-smoke.mjs",
+    "scripts/hypervisor-app-shell-contract.mjs",
     "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorNewSessionModal.tsx",
   ],
-  "Phase 0A.10 must include a Playwright smoke over the built Hypervisor shell covering Home, New Session harness/privacy gating, and provider operation proposals.",
+  "Phase 0A.10 must include a built-shell contract covering Home, New Session harness/privacy gating, and provider operation proposals.",
 );
 assert(
   "hypervisor-harness-public-fixture-runs-contract",
