@@ -1315,9 +1315,14 @@ Current implementation cut:
   passive dashboard. Home cockpit metrics now also carry `drill_refs` for
   project/session/privacy/provider/receipt/harness evidence rows, rendering
   row-level drill-through buttons that route to the owning surfaces while Home
-  remains a read-only projection. Remaining work is live projection hydration,
-  real intent seeding into New Session, and destination-surface selection once
-  daemon projections provide durable selected-target parameters.
+  remains a read-only projection. The Home intent composer now seeds New
+  Session through the shell-owned modal state: `seed_intent` is normalized into
+  `HypervisorNewSessionLaunchSummary`, included in the receipt preview binding,
+  shown in the modal setup/summary, and carried into session launch seeding when
+  the chosen recipe opens Sessions. This preserves the boundary that Home
+  supplies operator intent while New Session binds the governed launch contract.
+  Remaining work is live projection hydration and destination-surface selection
+  once daemon projections provide durable selected-target parameters.
 
 0A.10 first Playwright shell smoke is implemented:
   `scripts/hypervisor-app-shell-smoke.mjs` serves the built

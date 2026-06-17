@@ -319,6 +319,7 @@ function HypervisorShellWindowLoaded() {
           currentProject={controller.currentProject}
           projects={controller.projects}
           modelMountInventory={modelMountInventory}
+          initialSeedIntent={controller.modals.newSessionSeedIntent}
           onClose={controller.modals.closeNewSessionModal}
           onLaunch={controller.modals.launchNewSession}
         />

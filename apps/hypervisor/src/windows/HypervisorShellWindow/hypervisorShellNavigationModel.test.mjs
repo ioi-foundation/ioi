@@ -246,6 +246,11 @@ test("new session modal is a shell-level governed launch flow", () => {
   assert.match(newSessionModal, /adapter_preference_ref: adapterPreferenceRef/);
   assert.match(newSessionModal, /buildHarnessCompatibilityVerdict/);
   assert.match(newSessionModal, /buildHypervisorNewSessionLaunchSummary/);
+  assert.match(newSessionModal, /initialSeedIntent/);
+  assert.match(newSessionModal, /data-new-session-field="seed-intent"/);
+  assert.match(newSessionModal, /seedIntent/);
+  assert.match(newSessionModal, /seed_intent: launchSummary\.seed_intent/);
+  assert.match(newSessionModal, /data-new-session-seed-intent/);
   assert.match(newSessionModal, /launch_summary: launchSummary/);
   assert.match(newSessionModal, /data-new-session-launch-summary/);
   assert.match(newSessionModal, /data-new-session-workbench-adapter-ref/);
@@ -267,6 +272,9 @@ test("new session modal is a shell-level governed launch flow", () => {
   assert.match(newSessionModal, /cTEE private workspace/);
   assert.match(newSessionModal, /Launch governed session/);
   assert.match(controller, /newSessionModalOpen/);
+  assert.match(controller, /newSessionSeedIntent/);
+  assert.match(controller, /openNewSessionModal: \(seedIntent\?: string \| null\)/);
+  assert.match(controller, /typeof seedIntent === "string"/);
   assert.match(controller, /launchNewSession/);
   assert.match(source, /HypervisorLaunchedSessionProjection/);
   assert.match(source, /buildHypervisorLaunchedSessionProjection/);
@@ -275,6 +283,7 @@ test("new session modal is a shell-level governed launch flow", () => {
   assert.match(controller, /buildHypervisorLaunchedSessionProjection\(\{/);
   assert.match(controller, /setLaunchedSessionProjections\(\(current\) => \[/);
   assert.match(controller, /const summary = request\.launch_summary/);
+  assert.match(controller, /summary\.seed_intent/);
   assert.match(controller, /summary\.harness_label/);
   assert.match(controller, /summary\.model_route_availability_state/);
   assert.match(controller, /summary\.workbench_adapter_ref/);
@@ -283,6 +292,7 @@ test("new session modal is a shell-level governed launch flow", () => {
   assert.match(shellWindow, /loadHypervisorModelMountInventorySnapshot/);
   assert.match(shellWindow, /setModelMountInventory/);
   assert.match(shellWindow, /<HypervisorNewSessionModal/);
+  assert.match(shellWindow, /initialSeedIntent=\{controller\.modals\.newSessionSeedIntent\}/);
   assert.match(shellWindow, /modelMountInventory=\{modelMountInventory\}/);
   assert.match(shellWindow, /onLaunch=\{controller\.modals\.launchNewSession\}/);
 });

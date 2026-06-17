@@ -306,6 +306,9 @@ export function useHypervisorShellController() {
   const [commandPaletteInitialQuery, setCommandPaletteInitialQuery] = useState("");
   const [catalogStageModalOpen, setCatalogStageModalOpen] = useState(false);
   const [newSessionModalOpen, setNewSessionModalOpen] = useState(false);
+  const [newSessionSeedIntent, setNewSessionSeedIntent] = useState<string | null>(
+    null,
+  );
   const [launchedSessionProjections, setLaunchedSessionProjections] = useState<
     HypervisorLaunchedSessionProjection[]
   >([]);
@@ -443,6 +446,7 @@ export function useHypervisorShellController() {
 
     setCurrentProjectId(project.id);
     setNewSessionModalOpen(false);
+    setNewSessionSeedIntent(null);
     setLaunchedSessionProjections((current) => [
       launchedSession,
       ...current.filter(
@@ -456,8 +460,11 @@ export function useHypervisorShellController() {
 
     if (recipe.surface_id === "sessions") {
       const summary = request.launch_summary;
+      const intentPrefix = summary.seed_intent
+        ? `Intent: ${summary.seed_intent}. `
+        : "";
       setHypervisorSeedIntent(
-        `Start ${recipe.label.toLowerCase()} for ${project.name}. Harness: ${summary.harness_label}. Model route: ${summary.model_route_ref} (${summary.model_route_availability_state}). Workbench adapter: ${summary.workbench_adapter_ref}. Authority: ${summary.authority_scope_refs.join(", ")}. Privacy: ${summary.privacy_posture_ref}. Receipt preview: ${summary.receipt_preview_ref}.`,
+        `${intentPrefix}Start ${recipe.label.toLowerCase()} for ${project.name}. Harness: ${summary.harness_label}. Model route: ${summary.model_route_ref} (${summary.model_route_availability_state}). Workbench adapter: ${summary.workbench_adapter_ref}. Authority: ${summary.authority_scope_refs.join(", ")}. Privacy: ${summary.privacy_posture_ref}. Receipt preview: ${summary.receipt_preview_ref}.`,
       );
       setChatSurface("chat");
       setChatPaneVisible(true);
@@ -1068,8 +1075,19 @@ export function useHypervisorShellController() {
       },
       closeCommandPalette: () => setCommandPaletteOpen(false),
       newSessionModalOpen,
-      openNewSessionModal: () => setNewSessionModalOpen(true),
-      closeNewSessionModal: () => setNewSessionModalOpen(false),
+      newSessionSeedIntent,
+      openNewSessionModal: (seedIntent?: string | null) => {
+        setNewSessionSeedIntent(
+          typeof seedIntent === "string" && seedIntent.trim()
+            ? seedIntent.trim()
+            : null,
+        );
+        setNewSessionModalOpen(true);
+      },
+      closeNewSessionModal: () => {
+        setNewSessionModalOpen(false);
+        setNewSessionSeedIntent(null);
+      },
       launchNewSession,
       catalogStageModalOpen,
       closeCatalogStageModal: () => setCatalogStageModalOpen(false),

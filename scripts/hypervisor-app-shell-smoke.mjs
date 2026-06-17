@@ -183,9 +183,27 @@ async function main() {
     await page.waitForSelector('[data-home-intent-composer="ioi-reference-primary"]');
     await page.waitForSelector('[data-home-intent-submit="new-session"]');
 
-    await page.locator('[data-window-surface="new-session"]').click();
+    const seededIntent = "Fix flaky receipt pagination";
+    await page
+      .locator('[data-home-intent-composer="ioi-reference-primary"] textarea')
+      .fill(seededIntent);
+    await page.locator('[data-home-intent-submit="new-session"]').click();
     await page.waitForSelector(".hypervisor-new-session-modal");
     await page.waitForSelector('[data-new-session-launch-summary="ioi.hypervisor.new_session_launch_summary.v1"]');
+    const modalSeedIntent = await page
+      .locator('[data-new-session-field="seed-intent"]')
+      .inputValue();
+    assert(
+      modalSeedIntent === seededIntent,
+      "New Session did not receive the Home composer seed intent.",
+    );
+    const summarySeedIntent = await page
+      .locator("[data-new-session-seed-intent]")
+      .getAttribute("data-new-session-seed-intent");
+    assert(
+      summarySeedIntent === seededIntent,
+      "New Session launch summary did not bind the seed intent.",
+    );
     const defaultPrivacy = await page
       .locator('[data-new-session-field="privacy"]')
       .inputValue();
@@ -239,6 +257,7 @@ async function main() {
       url,
       checks: [
         "home_intent_composer_rendered",
+        "home_seed_intent_reaches_new_session",
         "home_cockpit_rendered",
         "new_session_launch_summary_rendered",
         "external_harness_ctee_blocked",

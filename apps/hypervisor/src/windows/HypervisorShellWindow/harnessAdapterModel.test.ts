@@ -250,6 +250,7 @@ test("new session launch summary binds harness, model route, adapter target, pri
   );
   const summary = buildHypervisorNewSessionLaunchSummary({
     recipe,
+    seedIntent: "Fix flaky receipts",
     projectId: "project:ioi",
     workbenchAdapter,
     harness: deepseek,
@@ -264,6 +265,7 @@ test("new session launch summary binds harness, model route, adapter target, pri
   assert.deepEqual(summary, {
     schema_version: "ioi.hypervisor.new_session_launch_summary.v1",
     recipe_ref: "mission.default",
+    seed_intent: "Fix flaky receipts",
     project_ref: "project:ioi",
     workbench_adapter_ref: "workbench-adapter:external_editor",
     workbench_adapter_target_ref: "adapter-target:external-editor",
@@ -304,6 +306,7 @@ test("new session launch summary binds harness, model route, adapter target, pri
   const launchedSession = buildHypervisorLaunchedSessionProjection({
     request: {
       recipe_id: recipe.recipe_id,
+      seed_intent: "Fix flaky receipts",
       project_id: "project:ioi",
       adapter_preference_ref: "workbench-adapter:external_editor",
       harness_selection_ref: "agent-harness-adapter:deepseek_tui",

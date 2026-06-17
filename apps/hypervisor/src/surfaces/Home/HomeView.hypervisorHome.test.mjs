@@ -80,8 +80,10 @@ test("home dashboard exposes the New Session setup contract", () => {
   assert.match(homeView, /Harness comparison preview/);
   assert.match(homeView, /buildHarnessCompatibilityVerdict/);
   assert.match(homeView, /getHarnessSelectionRef/);
-  assert.match(homeView, /onOpenNewSession: \(\) => void/);
-  assert.match(homeView, /onClick=\{onOpenNewSession\}/);
+  assert.match(homeView, /onOpenNewSession: \(seedIntent\?: string \| null\) => void/);
+  assert.match(homeView, /onOpenNewSession\(intentDraft\)/);
+  assert.match(homeView, /onClick=\{\(\) => onOpenNewSession\(intentDraft\)\}/);
+  assert.match(homeView, /onClick=\{\(\) => onOpenNewSession\(\)\}/);
   assert.match(homeView, /Start New Session/);
   assert.match(homeView, /Configure Models/);
   assert.match(homeView, /Review Authority/);

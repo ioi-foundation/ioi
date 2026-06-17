@@ -2482,13 +2482,21 @@
   padding-bottom: 16px;
 }
 
-.hypervisor-new-session-modal select {
+.hypervisor-new-session-modal select,
+.hypervisor-new-session-modal textarea {
   min-height: 38px;
   border: 1px solid var(--workspace-repo-border, rgba(93, 105, 128, 0.22));
   border-radius: 8px;
   background: var(--workspace-repo-panel-bg, #fff);
   color: var(--workspace-repo-text, #172033);
   font: inherit;
+}
+
+.hypervisor-new-session-modal textarea {
+  min-height: 92px;
+  resize: vertical;
+  padding: 10px;
+  line-height: 1.45;
 }
 
 .hypervisor-new-session-modal__summary {

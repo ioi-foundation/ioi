@@ -187,6 +187,7 @@ export interface HypervisorSessionLaunchRecipe {
 export interface HypervisorNewSessionLaunchSummary {
   schema_version: "ioi.hypervisor.new_session_launch_summary.v1";
   recipe_ref: string;
+  seed_intent: string | null;
   project_ref: string;
   workbench_adapter_ref: string;
   workbench_adapter_target_ref: string;
@@ -216,6 +217,7 @@ export interface HypervisorNewSessionLaunchSummary {
 
 export interface HypervisorNewSessionLaunchRequest {
   recipe_id: string;
+  seed_intent: string | null;
   project_id: string;
   adapter_preference_ref: string;
   harness_selection_ref: string;
@@ -284,6 +286,7 @@ export function buildHypervisorLaunchedSessionProjection({
 
 export function buildHypervisorNewSessionLaunchSummary({
   recipe,
+  seedIntent = null,
   projectId,
   workbenchAdapter,
   harness,
@@ -295,6 +298,7 @@ export function buildHypervisorNewSessionLaunchSummary({
   receiptPreviewRef,
 }: {
   recipe: HypervisorSessionLaunchRecipe;
+  seedIntent?: string | null;
   projectId: string;
   workbenchAdapter: WorkbenchAdapterPreference;
   harness: HypervisorHarnessSelectionOption;
@@ -306,9 +310,11 @@ export function buildHypervisorNewSessionLaunchSummary({
   receiptPreviewRef: string;
 }): HypervisorNewSessionLaunchSummary {
   const adapterLaunchPlan = buildWorkbenchAdapterLaunchPlan(workbenchAdapter);
+  const normalizedSeedIntent = seedIntent?.trim() || null;
   return {
     schema_version: "ioi.hypervisor.new_session_launch_summary.v1",
     recipe_ref: recipe.recipe_id,
+    seed_intent: normalizedSeedIntent,
     project_ref: projectId,
     workbench_adapter_ref: getWorkbenchAdapterPreferenceRef(workbenchAdapter),
     workbench_adapter_target_ref: workbenchAdapter.target_ref,

@@ -960,7 +960,16 @@ assert(
       '[data-home-dashboard-variant="hypervisor-zero-state"]',
     ) &&
     hypervisorAppShellSmokeSource.includes(
-      '[data-window-surface="new-session"]',
+      '[data-home-intent-submit="new-session"]',
+    ) &&
+    hypervisorAppShellSmokeSource.includes(
+      '[data-new-session-field="seed-intent"]',
+    ) &&
+    hypervisorAppShellSmokeSource.includes(
+      "[data-new-session-seed-intent]",
+    ) &&
+    hypervisorAppShellSmokeSource.includes(
+      "New Session did not receive the Home composer seed intent.",
     ) &&
     hypervisorAppShellSmokeSource.includes(
       '[data-new-session-field="harness"]',

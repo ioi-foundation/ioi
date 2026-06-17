@@ -73,7 +73,7 @@ interface HomeViewProps {
   projects: ProjectScope[];
   notificationCount: number;
   onOpenChat: () => void;
-  onOpenNewSession: () => void;
+  onOpenNewSession: (seedIntent?: string | null) => void;
   onOpenWorkspace: () => void;
   onOpenRuns: () => void;
   onOpenModels: () => void;
@@ -255,7 +255,7 @@ interface HomeDashboardViewProps {
   recentMode: RecentMode;
   onRecentModeChange: (mode: RecentMode) => void;
   onOpenChat: () => void;
-  onOpenNewSession: () => void;
+  onOpenNewSession: (seedIntent?: string | null) => void;
   onOpenWorkspace: () => void;
   onOpenRuns: () => void;
   onOpenModels: () => void;
@@ -483,7 +483,7 @@ function HomeDashboardView({
               className="chat-home-zero-intent-composer__box"
               onSubmit={(event) => {
                 event.preventDefault();
-                onOpenNewSession();
+                onOpenNewSession(intentDraft);
               }}
             >
               <textarea
@@ -504,7 +504,7 @@ function HomeDashboardView({
                 <button
                   type="button"
                   data-home-intent-harness={defaultHarnessLabel}
-                  onClick={onOpenNewSession}
+                  onClick={() => onOpenNewSession(intentDraft)}
                 >
                   {defaultHarnessLabel}
                 </button>
@@ -581,7 +581,7 @@ function HomeDashboardView({
                   Bind intent, harness, model route, privacy, and authority.
                 </p>
               </div>
-              <button type="button" onClick={onOpenNewSession}>
+              <button type="button" onClick={() => onOpenNewSession()}>
                 <span>New Session</span>
                 {renderIcon(ArrowRight, { size: 15, strokeWidth: 2 })}
               </button>
@@ -660,7 +660,7 @@ function HomeDashboardView({
               </div>
             </div>
             <div className="chat-home-zero-session-card__actions">
-              <button type="button" onClick={onOpenNewSession}>
+              <button type="button" onClick={() => onOpenNewSession()}>
                 Start New Session
               </button>
               <button type="button" onClick={onOpenModels}>
@@ -826,7 +826,7 @@ function HomeDashboardView({
                   {renderIcon(MessageCircle, { size: 15, strokeWidth: 2 })}
                   Summarize recent evidence
                 </button>
-                <button type="button" onClick={onOpenNewSession}>
+                <button type="button" onClick={() => onOpenNewSession()}>
                   Start from intent...
                 </button>
               </div>

@@ -33,6 +33,7 @@ interface HypervisorNewSessionModalProps {
   currentProject: ProjectScope;
   projects: ProjectScope[];
   modelMountInventory?: HypervisorModelMountInventorySnapshot;
+  initialSeedIntent?: string | null;
   onClose: () => void;
   onLaunch: (request: HypervisorNewSessionLaunchRequest) => void;
 }
@@ -115,6 +116,7 @@ export function HypervisorNewSessionModal({
   currentProject,
   projects,
   modelMountInventory = HYPERVISOR_NEW_SESSION_MODEL_MOUNT_INVENTORY_FIXTURE,
+  initialSeedIntent = null,
   onClose,
   onLaunch,
 }: HypervisorNewSessionModalProps) {
@@ -131,6 +133,9 @@ export function HypervisorNewSessionModal({
   const [modelRouteRef, setModelRouteRef] = useState(MODEL_ROUTE_OPTIONS[0].ref);
   const [privacyPostureRef, setPrivacyPostureRef] = useState(
     PRIVACY_OPTIONS[0].ref,
+  );
+  const [seedIntent, setSeedIntent] = useState(
+    () => initialSeedIntent?.trim() ?? "",
   );
 
   const recipe =
@@ -171,15 +176,24 @@ export function HypervisorNewSessionModal({
         "receipt-preview:new-session",
         recipe.recipe_id,
         selectedProject.id,
+        seedIntent.trim().replace(/[^a-z0-9_-]+/gi, "-").slice(0, 48) ||
+          "no-intent",
         adapterPreferenceRef.replace(/[^a-z0-9_-]+/gi, "-"),
         harnessSelectionRef.replace(/[^a-z0-9_-]+/gi, "-"),
       ].join("/"),
-    [adapterPreferenceRef, harnessSelectionRef, recipe.recipe_id, selectedProject.id],
+    [
+      adapterPreferenceRef,
+      harnessSelectionRef,
+      recipe.recipe_id,
+      seedIntent,
+      selectedProject.id,
+    ],
   );
   const launchSummary = useMemo(
     () =>
       buildHypervisorNewSessionLaunchSummary({
         recipe,
+        seedIntent,
         projectId: selectedProject.id,
         workbenchAdapter: selectedAdapterPreference,
         harness: selectedHarness,
@@ -197,6 +211,7 @@ export function HypervisorNewSessionModal({
       privacyPostureRef,
       receiptPreviewRef,
       recipe,
+      seedIntent,
       selectedAdapterPreference,
       selectedHarness,
       selectedProject.id,
@@ -210,6 +225,7 @@ export function HypervisorNewSessionModal({
   const launch = () => {
     onLaunch({
       recipe_id: recipe.recipe_id,
+      seed_intent: launchSummary.seed_intent,
       project_id: selectedProject.id,
       adapter_preference_ref: adapterPreferenceRef,
       harness_selection_ref: harnessSelectionRef,
@@ -270,6 +286,16 @@ export function HypervisorNewSessionModal({
 
           <section aria-label="Session setup">
             <h3>Setup</h3>
+            <label>
+              <span>Intent</span>
+              <textarea
+                value={seedIntent}
+                data-new-session-field="seed-intent"
+                onChange={(event) => setSeedIntent(event.target.value)}
+                placeholder="Describe the outcome, acceptance criteria, or operator notes."
+                rows={4}
+              />
+            </label>
             <label>
               <span>Project</span>
               <select
@@ -355,6 +381,7 @@ export function HypervisorNewSessionModal({
           className="hypervisor-new-session-modal__summary"
           aria-label="Receipt preview"
           data-new-session-receipt-preview={receiptPreviewRef}
+          data-new-session-seed-intent={launchSummary.seed_intent ?? ""}
           data-new-session-harness-verdict={harnessVerdict.state}
           data-new-session-model-route-ref={selectedModelRoute.ref}
           data-new-session-model-route-inventory-state={
@@ -374,6 +401,10 @@ export function HypervisorNewSessionModal({
             launchSummary.harness_selection_kind
           }
         >
+          <div>
+            <span>Intent</span>
+            <strong>{launchSummary.seed_intent ?? "No seed intent"}</strong>
+          </div>
           <div>
             <span>Required inputs</span>
             <strong>{recipe.required_inputs.map(setupSectionLabel).join(" - ")}</strong>
