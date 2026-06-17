@@ -479,13 +479,50 @@ compliance acronyms for hidden audit material.
   mount policy, authority scope refs, privacy posture ref, Agentgres operation
   refs, artifact refs, and daemon-runtime truth source.
 - `AgentHarnessEnvironmentOpsProfile`: stable environment-operations contract
-  for external harnesses. It covers project/runtime discovery, create from
-  project or context URL, readiness polling, structured command execution,
-  logs, SSH/shell access when allowed, cleanup, and receipts.
+  for external harnesses. It extends `HypervisorEnvironmentOpsProfile` for
+  harness-specific proposal-source behavior and keeps external harnesses out of
+  runtime truth.
+- `HypervisorEnvironmentClass`: selectable managed environment shape behind a
+  Hypervisor Session, such as local workspace, remote VM, container, microVM,
+  browser sandbox, hosted worker, HypervisorOS node, provider workspace,
+  customer cloud, or enterprise cluster. It declares resource shape, provider
+  posture, persistence modes, privacy posture, attestation policy, and cost
+  policy.
+- `HypervisorEnvironmentOpsProfile`: daemon/Core lifecycle and operations
+  contract for a managed Hypervisor environment. It covers discovery,
+  create/start/stop/mark-active/archive/unarchive/restore/delete, command
+  execution, logs, service/task/port operations, SCM auth, cleanup, and receipt
+  obligations.
+- `HypervisorEnvironmentLifecycleState`: Agentgres/daemon-backed lifecycle
+  state for a managed Hypervisor Session environment, including provider state
+  evidence, activity refs, archive refs, restore refs, state-root refs, and
+  receipts.
+- `HypervisorEnvironmentActivitySignal`: observable environment signal such as
+  user activity, agent activity, task running, service running, port open, log
+  write, file change, network activity, idle candidate, idle confirmed, restore
+  required, or policy blocked. It is evidence/projection data, not authority.
+- `HypervisorSessionAccessLease`: durable authority object for short-lived
+  editor, SSH, browser, log, support, port-share, SCM-auth, task-exec, or
+  environment-ops access to a Hypervisor Session. `SessionAccessToken` is
+  derived token material under this lease, not durable authority.
+- `HypervisorEnvironmentService`: daemon-visible service inside a Hypervisor
+  environment, such as model server, dev server, database, queue, browser,
+  worker, evaluator, or custom service, with health refs and receipts.
+- `HypervisorEnvironmentTask`: daemon-visible task inside a Hypervisor
+  environment, such as shell, build, test, eval, benchmark, migration, provider
+  action, archive, restore, or custom task, with authority refs, execution
+  results, and receipts.
+- `HypervisorEnvironmentPort`: daemon-visible port and exposure posture for a
+  Hypervisor environment. Port sharing is a policy and lease event, not a
+  harmless preview toggle.
+- `HypervisorScmAuthRequirement`: brokered source-control authentication or
+  credential requirement for clone, fetch, push, pull request, issue, or
+  release actions. Satisfaction may require wallet.network step-up, scoped
+  secret release, a lease, and a receipt.
 - `SessionAccessToken`: short-lived, audience-bound token for editor, SSH,
   browser, log, support, or environment-ops access to a Hypervisor Session. It
-  is issued under wallet.network/daemon policy, bound to expiry and revocation
-  epoch, and receipted.
+  is derived token material under a `HypervisorSessionAccessLease`, bound to
+  expiry and revocation epoch, and receipted.
 - `PortExposurePolicy`: policy object declaring which session ports may be
   opened, forwarded, shared, previewed, or externally exposed.
 - `BrowserOpenPolicy`: policy object declaring whether browser URLs in a

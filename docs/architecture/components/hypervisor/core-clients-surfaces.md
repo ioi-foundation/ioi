@@ -402,30 +402,67 @@ the concrete mechanism behind the rule:
 
 > **Editor choice is a session preference, not Hypervisor's product identity.**
 
-## Agent Harness Environment Ops
+## Hypervisor Environment Ops
 
-Agent harness adapters need a stable environment-operations contract so
-external agent harnesses can discover, create, inspect, execute in, and clean
-up Hypervisor-governed sessions without scraping product UI.
+Some Hypervisor Sessions have a managed environment behind them: a local
+workspace, remote VM, container, microVM, browser sandbox, hosted worker,
+HypervisorOS node, provider workspace, or editor-attached runtime. Hypervisor
+environment ops are the daemon/Core contracts for creating, starting, stopping,
+inspecting, leasing access to, archiving, restoring, and deleting those managed
+session resources.
+
+An environment is not runtime truth by itself. It is the managed resource that
+hosts work. The Hypervisor Daemon owns lifecycle semantics, wallet.network owns
+authority and credential release, Agentgres owns admitted state/receipts/restore
+truth, and storage backends hold payload bytes.
 
 Environment-ops contracts cover:
 
 ```text
 project discovery
-runtime/environment class discovery
+environment class discovery
 create session from project or context URL
 non-blocking create and readiness polling
+start / stop / mark-active lifecycle
 structured command execution
 SSH or shell access when explicitly allowed
+service and task discovery / start / stop
+port discovery / share / revoke
 logs and output capture
-stop / archive / delete
+SCM auth requirements and satisfaction
+archive / unarchive / restore / delete
+activity signals
 cleanup obligations
 receipt obligations
 ```
 
-External harnesses may receive structured outputs and exit codes. They do not
+External harnesses, Workbench, Fleet, Foundry, Hypervisor App/Web, and
+CLI/headless clients may receive structured outputs and exit codes. They do not
 get durable secrets, plaintext custody, or authority except through
 wallet.network capability leases and receipts.
+
+Canonical environment ops objects:
+
+```text
+HypervisorEnvironmentClass
+HypervisorEnvironmentOpsProfile
+HypervisorEnvironmentLifecycleState
+HypervisorEnvironmentActivitySignal
+HypervisorSessionAccessLease
+HypervisorEnvironmentService
+HypervisorEnvironmentTask
+HypervisorEnvironmentPort
+HypervisorScmAuthRequirement
+```
+
+Archive and restore doctrine:
+
+```text
+archive refs and restore refs are Agentgres/artifact-plane objects
+encrypted blobs are restore material, not restore truth
+restore applies through daemon lifecycle operations and Agentgres receipts
+local/provider files must not be silently mutated as canonical restore
+```
 
 ## Projects, Sessions, And Missions
 
@@ -547,9 +584,14 @@ HypervisorSession:
   adapter_connection_profile_refs:
     - adapter_connection_profile:...
   workspace_persistence_profile_ref: workspace_persistence:... | null
+  environment_class_ref: hypervisor_environment_class:... | null
+  environment_ops_profile_ref: hypervisor_environment_ops:... | null
+  environment_lifecycle_state_ref: hypervisor_environment_lifecycle:... | null
   ctee_posture_ref: ctee_posture:... | null
+  access_lease_refs:
+    - hypervisor_session_access_lease:...
   access_token_refs:
-    - session_access_token:...
+    - session_access_token:... # derived token material, not durable authority
   port_exposure_policy_ref: policy://... | null
   browser_open_policy_ref: policy://... | null
   support_bundle_policy_ref: policy://... | null
@@ -598,21 +640,52 @@ AdapterConnectionProfile:
   known_limitations:
     - string
 
-AgentHarnessEnvironmentOpsProfile:
-  profile_id: agent_harness_env_ops:...
-  harness_kind:
-    codex | claude_code | grok_build | openhands | aider |
-    cursor_agent | windsurf_agent | shell_agent | ci_agent | custom
+HypervisorEnvironmentClass:
+  environment_class_id: hypervisor_environment_class:...
+  class_kind:
+    local_workspace | remote_vm | container | microvm | wasm |
+    browser_sandbox | hosted_worker | hypervisoros_node |
+    provider_workspace | customer_cloud | enterprise_cluster
+  provider_ref: provider://... | local://... | null
+  resource_shape:
+    cpu: string
+    memory: string
+    gpu: string | null
+    storage: string
+  privacy_postures:
+    - local_only
+    - provider_trust
+    - ctee_split_path
+    - hardware_tee
+    - customer_controlled
+  persistence_modes:
+    - ephemeral
+    - session
+    - zero_to_idle
+    - persistent
+  attestation_policy_ref: policy://... | null
+  cost_policy_ref: policy://... | null
+
+HypervisorEnvironmentOpsProfile:
+  profile_id: hypervisor_environment_ops:...
+  environment_class_ref: hypervisor_environment_class:...
+  consumer_kind:
+    workbench | fleet | foundry | agent_harness_adapter |
+    app | web | cli_headless | sdk | adk | connector
   discovery:
     projects: list | search | fixed
-    runtime_classes: list | policy_filtered | fixed
+    environment_classes: list | policy_filtered | fixed
   environment_lifecycle:
     create_from_project: true
     create_from_context_url: true
     non_blocking_create: true
     readiness_poll: true
+    start: true
     stop: true
+    mark_active: true
     archive: optional
+    unarchive: optional
+    restore: optional
     delete: true
   command_execution:
     mode:
@@ -629,6 +702,45 @@ AgentHarnessEnvironmentOpsProfile:
     - command_executed
     - output_captured
     - environment_stopped_or_deleted
+
+AgentHarnessEnvironmentOpsProfile:
+  profile_id: agent_harness_env_ops:...
+  extends: hypervisor_environment_ops:...
+  harness_kind:
+    codex | claude_code | grok_build | openhands | aider |
+    cursor_agent | windsurf_agent | shell_agent | ci_agent | custom
+  truth_boundary:
+    proposal_source_only
+
+HypervisorEnvironmentLifecycleState:
+  lifecycle_state_id: hypervisor_environment_lifecycle:...
+  session_ref: hypervisor_session:...
+  environment_class_ref: hypervisor_environment_class:...
+  status:
+    requested | provisioning | starting | ready | active | idle |
+    stopping | stopped | archiving | archived | restoring |
+    restore_available | deleting | deleted | failed | blocked
+  provider_state_ref: provider_state://... | null
+  activity_signal_refs:
+    - hypervisor_environment_activity:...
+  archive_ref: artifact://... | null
+  restore_ref: agentgres://restore/... | null
+  state_root_ref: state_root://... | null
+  receipt_refs:
+    - receipt://...
+
+HypervisorEnvironmentActivitySignal:
+  activity_signal_id: hypervisor_environment_activity:...
+  session_ref: hypervisor_session:...
+  signal_kind:
+    user_active | agent_active | task_running | service_running |
+    port_open | log_written | file_changed | network_activity |
+    idle_candidate | idle_confirmed | restore_required | policy_blocked
+  observed_at: timestamp
+  evidence_refs:
+    - artifact://... | trace://... | receipt://...
+  visibility:
+    local | shared | support | provider_visible | redacted
 
 HypervisorProject:
   project_id: project:...
@@ -677,6 +789,77 @@ SessionAccessToken:
   expires_at: timestamp
   revocation_epoch: integer
   receipt_ref: receipt://...
+
+HypervisorSessionAccessLease:
+  access_lease_id: hypervisor_session_access_lease:...
+  session_ref: hypervisor_session:...
+  lease_kind:
+    editor | ssh | browser | logs | environment_ops | support |
+    port_share | scm_auth | task_exec
+  authority_ref: grant://...
+  policy_ref: policy://...
+  audience:
+    user | org_role | adapter | support | harness | service
+  issued_token_ref: session_access_token:... | null
+  expires_at: timestamp
+  revocation_epoch: integer
+  receipt_ref: receipt://...
+
+HypervisorEnvironmentService:
+  service_id: hypervisor_environment_service:...
+  session_ref: hypervisor_session:...
+  service_kind:
+    model_server | dev_server | database | queue | browser |
+    worker | evaluator | custom
+  command_ref: artifact://... | null
+  port_refs:
+    - hypervisor_environment_port:...
+  status:
+    declared | starting | running | degraded | stopped | failed
+  health_ref: trace://... | receipt://... | null
+  receipt_refs:
+    - receipt://...
+
+HypervisorEnvironmentTask:
+  task_id: hypervisor_environment_task:...
+  session_ref: hypervisor_session:...
+  task_kind:
+    shell | build | test | eval | benchmark | migration |
+    provider_action | archive | restore | custom
+  authority_refs:
+    - grant://...
+  status:
+    queued | running | succeeded | failed | canceled | blocked
+  execution_result_ref: result://... | null
+  receipt_refs:
+    - receipt://...
+
+HypervisorEnvironmentPort:
+  port_id: hypervisor_environment_port:...
+  session_ref: hypervisor_session:...
+  port: integer
+  protocol:
+    http | https | tcp | udp | websocket | grpc
+  exposure:
+    closed | local_preview | shared_preview | external | blocked
+  policy_ref: policy://...
+  access_lease_ref: hypervisor_session_access_lease:... | null
+  receipt_ref: receipt://... | null
+
+HypervisorScmAuthRequirement:
+  requirement_id: hypervisor_scm_auth_requirement:...
+  session_ref: hypervisor_session:...
+  provider:
+    github | gitlab | bitbucket | self_hosted_git | custom
+  required_for:
+    clone | fetch | push | pull_request | issue | release
+  credential_mode:
+    oauth | deploy_key | ssh_key | fine_grained_token | brokered_secret
+  authority_ref: grant://... | null
+  secret_release_policy_ref: policy://...
+  status:
+    pending | satisfied | denied | expired | revoked
+  receipt_ref: receipt://... | null
 ```
 
 ## Conformance Checks
@@ -695,6 +878,12 @@ SessionAccessToken:
 - Agent harness adapters must use daemon/Core environment-ops APIs for
   discovery, execution, logs, and cleanup rather than scraping Hypervisor UI or
   directly mutating workspaces.
+- Hypervisor environment lifecycle changes, service/task execution, access/log
+  leases, port exposure, SCM auth, archive, and restore must produce Agentgres
+  refs and receipts when they affect authority, privacy, replay, cost, or
+  restore.
+- `SessionAccessToken` is derived token material under a
+  `HypervisorSessionAccessLease`; it is not the durable authority object.
 - Background missions must be modeled as `HypervisorMission` objects with
   trigger policy, review contract, authority requirements, output contract, and
   receipts; they must not be hidden interactive sessions.
@@ -724,6 +913,8 @@ editor name string = adapter contract
 support bundle = harmless log export
 port preview = not a data boundary
 SSH token = durable credential
+encrypted blob = restore truth
+provider lifecycle state = Agentgres truth
 background automation = hidden editor session
 Workbench = runtime truth
 Foundry = direct self-mutation path

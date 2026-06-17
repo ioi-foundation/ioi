@@ -34,6 +34,14 @@ const packageJson = JSON.parse(read("package.json"));
 const readme = read("README.md");
 const developersDocs = read("apps/developers-ioi-ai/src/content/docs.tsx");
 const refineArchitectureGuide = read("internal-docs/implementation/refine-architecture.md");
+const hypervisorCoreClientsSurfacesDoc = read(
+  "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+);
+const hypervisorFleetDoc = read("docs/architecture/components/hypervisor/fleet.md");
+const daemonRuntimeApiDoc = read("docs/architecture/components/daemon-runtime/api.md");
+const architectureSourceOfTruthMap = read("docs/architecture/_meta/source-of-truth-map.md");
+const architectureImplementationMatrix = read("docs/architecture/_meta/implementation-matrix.md");
+const architectureVocabulary = read("docs/architecture/_meta/vocabulary.md");
 const workbenchAdapterLauncher = read("scripts/launch-hypervisor-workbench-adapter-host.mjs");
 const workbenchAdapterHostPaths = read("scripts/lib/hypervisor-workbench-adapter-host-paths.mjs");
 const workbenchAdaptersReadme = read("workbench-adapters/README.md");
@@ -364,6 +372,52 @@ assert(
     !/\bGitpod\b|gitpod/i.test(refineArchitectureGuide),
   ["internal-docs/implementation/refine-architecture.md"],
   "Refine guide must model environment lifecycle, access/log leases, SCM auth, services, tasks, ports, and restore refs as Hypervisor-native objects without vendor-specific references.",
+);
+assert(
+  "hypervisor-environment-ops-canon",
+  [
+    "HypervisorEnvironmentClass",
+    "HypervisorEnvironmentOpsProfile",
+    "HypervisorEnvironmentLifecycleState",
+    "HypervisorEnvironmentActivitySignal",
+    "HypervisorSessionAccessLease",
+    "HypervisorEnvironmentService",
+    "HypervisorEnvironmentTask",
+    "HypervisorEnvironmentPort",
+    "HypervisorScmAuthRequirement",
+  ].every((term) =>
+    [
+      hypervisorCoreClientsSurfacesDoc,
+      hypervisorFleetDoc,
+      daemonRuntimeApiDoc,
+      architectureSourceOfTruthMap,
+      architectureImplementationMatrix,
+      architectureVocabulary,
+    ].every((doc) => doc.includes(term)),
+  ) &&
+    hypervisorCoreClientsSurfacesDoc.includes("encrypted blobs are restore material, not restore truth") &&
+    hypervisorFleetDoc.includes("A blob can be necessary restore material without") &&
+    daemonRuntimeApiDoc.includes("Provider lifecycle state may be evidence, but it is not") &&
+    architectureVocabulary.includes("derived token material under a `HypervisorSessionAccessLease`") &&
+    !/\bGitpod\b|gitpod/i.test(
+      [
+        hypervisorCoreClientsSurfacesDoc,
+        hypervisorFleetDoc,
+        daemonRuntimeApiDoc,
+        architectureSourceOfTruthMap,
+        architectureImplementationMatrix,
+        architectureVocabulary,
+      ].join("\n"),
+    ),
+  [
+    "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+    "docs/architecture/components/hypervisor/fleet.md",
+    "docs/architecture/components/daemon-runtime/api.md",
+    "docs/architecture/_meta/source-of-truth-map.md",
+    "docs/architecture/_meta/implementation-matrix.md",
+    "docs/architecture/_meta/vocabulary.md",
+  ],
+  "Canon docs must model Hypervisor environment lifecycle, access/log leases, SCM auth, services, tasks, ports, and restore refs without vendor-specific references.",
 );
 assert(
   "contract-family-modules",

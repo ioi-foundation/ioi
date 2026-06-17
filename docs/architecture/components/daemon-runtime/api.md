@@ -291,25 +291,77 @@ GET  /v1/projects/{project_id}/adapter-connection-profiles
 ### Sessions and Environment Ops
 
 ```http
+GET  /v1/environment-classes
+GET  /v1/environment-classes/{environment_class_id}
 POST /v1/sessions
 POST /v1/sessions/from-project
 POST /v1/sessions/from-context-url
 GET  /v1/sessions
 GET  /v1/sessions/{session_id}
+GET  /v1/sessions/{session_id}/environment
 GET  /v1/sessions/{session_id}/status
 GET  /v1/sessions/{session_id}/events
+POST /v1/sessions/{session_id}/start
+POST /v1/sessions/{session_id}/mark-active
 POST /v1/sessions/{session_id}/exec
 GET  /v1/sessions/{session_id}/logs
 GET  /v1/sessions/{session_id}/ssh-config
 POST /v1/sessions/{session_id}/stop
 POST /v1/sessions/{session_id}/archive
 POST /v1/sessions/{session_id}/unarchive
+POST /v1/sessions/{session_id}/restore
 DELETE /v1/sessions/{session_id}
 ```
 
 External agent harnesses should use the session/environment-ops API for
 structured command execution, readiness polling, logs, and cleanup. They should
 not scrape Hypervisor product UI.
+
+Environment lifecycle responses should expose `HypervisorEnvironmentClass`,
+`HypervisorEnvironmentOpsProfile`, `HypervisorEnvironmentLifecycleState`,
+activity signal refs, archive refs, restore refs, state-root refs, and receipt
+refs when present. Provider lifecycle state may be evidence, but it is not
+Agentgres truth.
+
+Canonical session/environment API objects include
+`HypervisorEnvironmentClass`, `HypervisorEnvironmentOpsProfile`,
+`HypervisorEnvironmentLifecycleState`, `HypervisorEnvironmentActivitySignal`,
+`HypervisorSessionAccessLease`, `HypervisorEnvironmentService`,
+`HypervisorEnvironmentTask`, `HypervisorEnvironmentPort`, and
+`HypervisorScmAuthRequirement`.
+
+Archive and restore operations must not silently mutate local or provider files
+as canonical state. Archive payloads are restore material. Restore validity is
+operation-backed through Agentgres, artifact refs, state-root refs, policy refs,
+authority refs, and receipts.
+
+### Environment Services, Tasks, and SCM Auth
+
+```http
+GET  /v1/sessions/{session_id}/services
+POST /v1/sessions/{session_id}/services
+GET  /v1/sessions/{session_id}/services/{service_id}
+POST /v1/sessions/{session_id}/services/{service_id}/start
+POST /v1/sessions/{session_id}/services/{service_id}/stop
+GET  /v1/sessions/{session_id}/tasks
+POST /v1/sessions/{session_id}/tasks
+GET  /v1/sessions/{session_id}/tasks/{task_id}
+POST /v1/sessions/{session_id}/tasks/{task_id}/start
+POST /v1/sessions/{session_id}/tasks/{task_id}/stop
+GET  /v1/sessions/{session_id}/tasks/{task_id}/executions
+GET  /v1/sessions/{session_id}/scm-auth-requirements
+POST /v1/sessions/{session_id}/scm-auth-requirements/{requirement_id}/satisfy
+```
+
+Services and tasks are daemon-visible environment resources. A dev server,
+model server, eval job, shell task, provider action, archive, or restore is not
+just UI process state once it has authority, cost, privacy, replay, or receipt
+impact.
+
+SCM auth requirements are brokered capability/credential requests. Satisfying
+one may require wallet.network step-up, secret-release policy, a scoped lease,
+and a receipt. The daemon must not persist durable SCM credentials as ordinary
+workspace files in provider-visible environments.
 
 ### Short-Lived Access and Log Tokens
 
@@ -319,10 +371,15 @@ POST /v1/sessions/{session_id}/log-tokens
 DELETE /v1/sessions/{session_id}/access-tokens/{token_id}
 ```
 
-Access tokens are short-lived, audience-bound, revocation-epoch-bound, and
-receipted. Durable editor, SSH, browser, log, support, or environment-ops
-credentials are non-conformant unless they are explicitly local-only and
-outside the remote/provider trust boundary.
+`HypervisorSessionAccessLease` is the canonical authority object. Token
+endpoints may return derived bearer material for editor, SSH, browser, log,
+support, port-share, or environment-ops access, but token material is not the
+durable grant.
+
+Access and log tokens are short-lived, audience-bound, revocation-epoch-bound,
+lease-bound, and receipted. Durable editor, SSH, browser, log, support, or
+environment-ops credentials are non-conformant unless they are explicitly
+local-only and outside the remote/provider trust boundary.
 
 ### Ports, Browser Open, and Support Bundles
 

@@ -218,6 +218,77 @@ future decentralized.cloud = mandatory gateway for cloud or DePIN.
 cheap DePIN GPU route = private route.
 ```
 
+## Environment Classes And Lifecycle Posture
+
+Fleet displays and coordinates Hypervisor environments, but it does not own
+their lifecycle truth.
+
+Canonical environment objects used by Fleet:
+
+```text
+HypervisorEnvironmentClass
+  selectable environment/runtime resource shape
+
+HypervisorEnvironmentOpsProfile
+  lifecycle and operations contract for an environment class
+
+HypervisorEnvironmentLifecycleState
+  daemon/Agentgres-backed state of a managed session environment
+
+HypervisorEnvironmentActivitySignal
+  activity, idleness, service, port, restore, and policy signals
+
+HypervisorSessionAccessLease
+  short-lived authority lease for access, logs, ports, support, or ops
+
+HypervisorEnvironmentService
+  model server, dev server, database, browser, worker, evaluator, or custom
+  service inside a session environment
+
+HypervisorEnvironmentTask
+  shell, build, test, eval, benchmark, provider action, archive, restore, or
+  custom task inside a session environment
+
+HypervisorEnvironmentPort
+  daemon-visible port and exposure posture
+
+HypervisorScmAuthRequirement
+  brokered source-control credential/capability requirement
+```
+
+Fleet may initiate or display:
+
+```text
+create / create_from_project / create_from_context_url
+start / stop / mark_active
+service start / stop
+task start / stop
+port share / revoke
+SCM auth satisfaction flow
+archive / unarchive / restore / delete
+activity and idle posture
+access/log/support leases
+```
+
+The ownership boundary remains:
+
+```text
+Fleet displays and compares posture.
+Hypervisor Daemon executes lifecycle operations.
+wallet.network authorizes spend, secrets, SCM auth, access, support, and
+declassification.
+Agentgres records lifecycle receipts, archive refs, restore refs, state roots,
+activity signals, and provider evidence.
+Storage backends hold encrypted payload/archive bytes.
+Providers expose their own native state as evidence, not canonical restore
+truth.
+```
+
+Encrypted archive/blob updates may be continuous, like pushing workspace state
+to remote storage, but the live truth remains the admitted Agentgres operation
+chain and state-root linkage. A blob can be necessary restore material without
+being sufficient restore authority.
+
 ## Surfaces
 
 Fleet is an application surface over Hypervisor Core with multiple client
