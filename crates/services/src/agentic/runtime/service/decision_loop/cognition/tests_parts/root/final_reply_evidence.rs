@@ -253,7 +253,7 @@ fn product_handoff_sanitizer_strips_runtime_refs_without_prompt_help() {
 #[test]
 fn product_handoff_sanitizer_strips_file_policy_runtime_details_without_prompt_help() {
     let cleaned = super::sanitize_product_handoff_internal_markers(
-        "The attempt to write to `/tmp/autopilot-agent-studio-user-repo-abc-sibling/outside-write.txt` was blocked. The `file__write` tool returned ERROR_CLASS=PolicyBlocked because the path is outside workspace boundary.",
+        "The attempt to write to `/tmp/hypervisor-agent-studio-user-repo-abc-sibling/outside-write.txt` was blocked. The `file__write` tool returned ERROR_CLASS=PolicyBlocked because the path is outside workspace boundary.",
     );
 
     assert!(cleaned.contains("blocked"), "{cleaned}");
@@ -262,7 +262,7 @@ fn product_handoff_sanitizer_strips_file_policy_runtime_details_without_prompt_h
     assert!(!cleaned.contains("ERROR_CLASS"), "{cleaned}");
     assert!(!cleaned.contains("PolicyBlocked"), "{cleaned}");
     assert!(!cleaned.contains("file__write"), "{cleaned}");
-    assert!(!cleaned.contains("/tmp/autopilot"), "{cleaned}");
+    assert!(!cleaned.contains("/tmp/hypervisor"), "{cleaned}");
     assert_eq!(
         super::final_reply_product_handoff_reason(
             &cleaned,
@@ -293,7 +293,7 @@ fn product_handoff_guard_flags_runtime_refs_even_when_raw_output_requested() {
 
 #[test]
 fn final_reply_product_handoff_reason_flags_temp_fixture_paths_even_for_raw_requests() {
-    let message = "Patched /tmp/autopilot-agent-studio-user-repo-abc/src/format.mjs and the raw stdout is below.";
+    let message = "Patched /tmp/hypervisor-agent-studio-user-repo-abc/src/format.mjs and the raw stdout is below.";
 
     assert_eq!(
         super::final_reply_product_handoff_reason(

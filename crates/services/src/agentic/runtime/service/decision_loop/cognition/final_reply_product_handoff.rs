@@ -77,9 +77,9 @@ pub(crate) fn sanitize_product_handoff_internal_markers(raw_output: &str) -> Str
     }
 
     for marker in [
-        "Autopilot Agent Studio",
-        "autopilot_agent_studio",
-        "autopilot-agent-studio",
+        "Hypervisor Agent Studio",
+        "hypervisor_agent_studio",
+        "hypervisor-agent-studio",
     ] {
         text = text.replace(marker, "the workbench");
     }
@@ -257,10 +257,10 @@ fn redact_disposable_absolute_paths(input: &str) -> String {
 
 fn disposable_path_match(input: &str, index: usize) -> Option<(usize, &'static str)> {
     [
-        "/tmp/autopilot-agent-studio-",
-        "/tmp/autopilot-",
+        "/tmp/hypervisor-agent-studio-",
+        "/tmp/hypervisor-",
         "/tmp/ioi-",
-        ".tmp/autopilot-",
+        ".tmp/hypervisor-",
     ]
     .into_iter()
     .filter_map(|marker| {
@@ -561,11 +561,11 @@ fn final_reply_contains_product_forbidden_marker(message: &str) -> bool {
         "toolcat",
         "toolcat_",
         "tool catalogue fixture",
-        "autopilot_agent_studio",
-        "autopilot-agent-studio",
-        "/tmp/autopilot",
+        "hypervisor_agent_studio",
+        "hypervisor-agent-studio",
+        "/tmp/hypervisor",
         "/tmp/ioi",
-        ".tmp/autopilot",
+        ".tmp/hypervisor",
         "native-fixture",
         "fixture response",
         "fixture marker",

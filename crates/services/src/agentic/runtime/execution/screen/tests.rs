@@ -225,7 +225,7 @@ async fn gui_snapshot_prefers_driver_capture_tree() {
 #[tokio::test(flavor = "current_thread")]
 async fn gui_click_element_falls_back_to_driver_capture_tree() {
     let gui = Arc::new(RecordingGuiDriver::with_tree_xml(
-        "<window id=\"win-1\" name=\"IOI Autopilot\" rect=\"0,0,1920,1080\">\n  <button id=\"btn-1\" name=\"Connect Wallet\" rect=\"100,100,200,50\" />\n</window>\n",
+        "<window id=\"win-1\" name=\"IOI Hypervisor\" rect=\"0,0,1920,1080\">\n  <button id=\"btn-1\" name=\"Connect Wallet\" rect=\"100,100,200,50\" />\n</window>\n",
     ));
     let exec = build_executor(gui.clone(), None, ExecutionTier::VisualBackground);
 

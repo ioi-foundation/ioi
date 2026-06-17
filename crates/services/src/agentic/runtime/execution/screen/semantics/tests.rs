@@ -204,7 +204,7 @@ fn find_semantic_ui_match_recovers_visual_clause_query_from_semantic_hints() {
 #[test]
 fn find_semantic_xml_match_uses_driver_capture_tree_rows() {
     let xml = r#"
-<window id="win-1" name="IOI Autopilot" rect="0,0,1920,1080">
+<window id="win-1" name="IOI Hypervisor" rect="0,0,1920,1080">
   <button id="btn-1" name="Connect Wallet" rect="100,100,200,50" />
 </window>
 "#;

@@ -54,6 +54,12 @@ const rootGitignore = read(".gitignore");
 const hypervisorInstallProductMetadataSource = read(
   "crates/services/src/agentic/runtime/resolver/software_install/product_metadata.rs",
 );
+const hypervisorRustProductFixtureSources = [
+  "crates/services/src/agentic/runtime/service/decision_loop/cognition/final_reply_product_handoff.rs",
+  "crates/services/src/agentic/runtime/service/decision_loop/cognition/tests_parts/root/final_reply_evidence.rs",
+  "crates/services/src/agentic/runtime/execution/screen/semantics/tests.rs",
+  "crates/services/src/agentic/runtime/execution/screen/tests.rs",
+].map(read).join("\n");
 const hypervisorShellNavigationSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorShellNavigationModel.ts",
 );
@@ -523,6 +529,22 @@ assert(
     ),
   ["crates/services/src/agentic/runtime/resolver/software_install/product_metadata.rs"],
   "Current-product install resolution must default to Hypervisor names and must not retain Autopilot aliases.",
+);
+assert(
+  "rust-product-fixtures-hypervisor-named",
+  hypervisorRustProductFixtureSources.includes("IOI Hypervisor") &&
+    hypervisorRustProductFixtureSources.includes("Hypervisor Agent Studio") &&
+    hypervisorRustProductFixtureSources.includes("/tmp/hypervisor-agent-studio-") &&
+    !/IOI Autopilot|Autopilot Agent Studio|autopilot_agent_studio|autopilot-agent-studio|\/tmp\/autopilot|\.tmp\/autopilot/.test(
+      hypervisorRustProductFixtureSources,
+    ),
+  [
+    "crates/services/src/agentic/runtime/service/decision_loop/cognition/final_reply_product_handoff.rs",
+    "crates/services/src/agentic/runtime/service/decision_loop/cognition/tests_parts/root/final_reply_evidence.rs",
+    "crates/services/src/agentic/runtime/execution/screen/semantics/tests.rs",
+    "crates/services/src/agentic/runtime/execution/screen/tests.rs",
+  ],
+  "Active Rust product fixtures and final-reply handoff canaries must use Hypervisor-era labels, not Autopilot labels.",
 );
 assert(
   "workbench-shell-patch-hypervisor-named",
