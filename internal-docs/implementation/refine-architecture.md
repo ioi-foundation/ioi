@@ -1059,9 +1059,12 @@ Current implementation cut:
   the main canvas now has a first read-only Sessions operations cockpit backed
   by `HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE`; Home now has a
   normalized `ioi.hypervisor.home_cockpit_projection.v1` loader and renders its
-  fixture or daemon source explicitly via `data-home-cockpit-source`. The live
-  daemon route behind `/v1/hypervisor/home-cockpit` remains a follow-up API cut,
-  but the app-side hydration seam is implemented and guarded.
+  fixture or daemon source explicitly via `data-home-cockpit-source`.
+  `/v1/hypervisor/home-cockpit` is implemented as a public runtime route that
+  dispatches through `projectRuntimeLifecycle` with
+  `runtime.lifecycle_projection.hypervisor_home_cockpit`, returning only the
+  client projection body. The app-side hydration seam and daemon route are both
+  guarded.
   right and bottom inspectors now render the first session operations panels
   for changes/authority/privacy/receipts/model-provider and
   ports/services/tasks/terminal/logs shape, but they still need live runtime

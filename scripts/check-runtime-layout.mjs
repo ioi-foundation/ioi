@@ -81,6 +81,12 @@ const runtimeHarnessPublicSmokeTaskSource = read(
 const runtimeHarnessPublicSmokeTaskTestSource = read(
   "packages/runtime-daemon/src/runtime-harness-public-smoke-task.test.mjs",
 );
+const publicRuntimeRoutesSource = read(
+  "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
+);
+const publicRuntimeRoutesTestSource = read(
+  "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
+);
 const runtimeModelWeightCustodyAdmissionSource = read(
   "packages/runtime-daemon/src/runtime-model-weight-custody-admission.mjs",
 );
@@ -761,12 +767,26 @@ assert(
     ) &&
     hypervisorHomeCockpitModelSource.includes(
       "ioi.hypervisor.home_cockpit_projection.v1",
+    ) &&
+    publicRuntimeRoutesSource.includes("/v1/hypervisor/home-cockpit") &&
+    publicRuntimeRoutesSource.includes(
+      "runtime.lifecycle_projection.hypervisor_home_cockpit",
+    ) &&
+    publicRuntimeRoutesSource.includes("projectRuntimeLifecycle") &&
+    publicRuntimeRoutesTestSource.includes(
+      "dispatch Hypervisor home cockpit through lifecycle projection",
+    ) &&
+    daemonRuntimeApiDoc.includes("GET /v1/hypervisor/home-cockpit") &&
+    daemonRuntimeApiDoc.includes(
+      "runtime.lifecycle_projection.hypervisor_home_cockpit",
     ),
   [
     "apps/hypervisor/src/surfaces/Home/HomeView.tsx",
     "apps/hypervisor/src/surfaces/Home/homeCockpitModel.ts",
+    "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
+    "docs/architecture/components/daemon-runtime/api.md",
   ],
-  "Hypervisor Home should surface a receipt-backed harness comparison preview and keep the Core cockpit projection ready for daemon hydration with fixture fallback.",
+  "Hypervisor Home should surface a receipt-backed harness comparison preview and hydrate the Core cockpit projection through the daemon/public runtime route with fixture fallback.",
 );
 assert(
   "contract-family-modules",

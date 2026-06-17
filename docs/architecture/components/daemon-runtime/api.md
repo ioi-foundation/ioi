@@ -52,6 +52,51 @@ GET /v1/runtime/policy
 GET /v1/runtime/nodes
 ```
 
+## Hypervisor Client Projections
+
+Hypervisor App, Hypervisor Web, and CLI/headless clients render Core
+projections from daemon/public runtime APIs. These endpoints are read models for
+clients; they do not move runtime truth into the client.
+
+```http
+GET /v1/hypervisor/home-cockpit
+```
+
+`GET /v1/hypervisor/home-cockpit` dispatches through the daemon runtime
+lifecycle projection boundary with:
+
+```text
+operation_kind = runtime.lifecycle_projection.hypervisor_home_cockpit
+projection_kind = hypervisor_home_cockpit
+```
+
+The response is an `ioi.hypervisor.home_cockpit_projection.v1` projection:
+
+```json
+{
+  "schema_version": "ioi.hypervisor.home_cockpit_projection.v1",
+  "projection_id": "home-cockpit:hypervisor-core/default",
+  "source": "daemon-home-cockpit-projection",
+  "selected_project_id": "project:...",
+  "runtimeTruthSource": "daemon-runtime",
+  "boundary_invariant": "Home renders daemon evidence projections; it does not become runtime truth.",
+  "metrics": [
+    {
+      "metric_ref": "home-cockpit:session",
+      "label": "Active session",
+      "value": "active",
+      "detail": "session:...",
+      "surface_ref": "surface:sessions",
+      "evidence_refs": ["receipt://..."]
+    }
+  ]
+}
+```
+
+Client fallback fixtures may keep the UI usable while the daemon is offline,
+but the fixture source must be visible and must not be presented as admitted
+runtime truth.
+
 ### Runtime Manifest
 
 ```json

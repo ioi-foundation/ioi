@@ -129,6 +129,78 @@ test("public runtime routes dispatch top-level daemon projections", async () => 
   }]);
 });
 
+test("public runtime routes dispatch Hypervisor home cockpit through lifecycle projection", async () => {
+  const { handleRequest } = routeHarness();
+  const response = responseRecorder();
+  const calls = [];
+  const cockpitProjection = {
+    schema_version: "ioi.hypervisor.home_cockpit_projection.v1",
+    projection_id: "home-cockpit:daemon/test",
+    source: "daemon-home-cockpit-projection",
+    selected_project_id: "project:ioi",
+    runtimeTruthSource: "daemon-runtime",
+    boundary_invariant:
+      "Home renders daemon evidence projections and does not become runtime truth.",
+    metrics: [
+      {
+        metric_ref: "home-cockpit:session",
+        label: "Active session",
+        value: "active",
+        detail: "session:test",
+        surface_ref: "surface:sessions",
+        evidence_refs: ["receipt://session/test"],
+      },
+    ],
+  };
+  const contextPolicyCore = {
+    projectRuntimeLifecycle(request) {
+      calls.push({ method: "projectRuntimeLifecycle", request });
+      return {
+        projection: cockpitProjection,
+        record: {
+          operation_kind: "runtime.lifecycle_projection.hypervisor_home_cockpit",
+          projection_kind: "hypervisor_home_cockpit",
+          projection: cockpitProjection,
+        },
+      };
+    },
+  };
+  const store = {
+    defaultCwd: "/workspace",
+    homeDir: "/home/operator",
+    schemaVersion: "ioi.agentgres.runtime.v0",
+    stateDir: "/state",
+    projectRuntimeLifecycleProjection: retiredRouteWrapper,
+  };
+
+  await handleRequest({
+    request: request({ url: "/v1/hypervisor/home-cockpit?project_id=project:ioi" }),
+    response,
+    store,
+    contextPolicyCore,
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(JSON.parse(response.body), cockpitProjection);
+  assert.deepEqual(calls, [
+    {
+      method: "projectRuntimeLifecycle",
+      request: {
+        operation: "hypervisor_home_cockpit_projection",
+        operation_kind: "runtime.lifecycle_projection.hypervisor_home_cockpit",
+        projection_kind: "hypervisor_home_cockpit",
+        base_url: "http://daemon.test",
+        workspace_root: "/workspace",
+        state_dir: "/state",
+        home_dir: "/home/operator",
+        runtime_schema_version: "ioi.agentgres.runtime.v0",
+        project_id: "project:ioi",
+        source: "public_runtime_routes./v1/hypervisor/home-cockpit",
+      },
+    },
+  ]);
+});
+
 test("public runtime computer-use routes dispatch through Rust daemon-core projection", async () => {
   const { handleRequest } = routeHarness();
   const calls = [];
