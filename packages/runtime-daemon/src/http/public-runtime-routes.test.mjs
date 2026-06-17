@@ -1166,6 +1166,96 @@ test("public runtime worker package install route blocks physical packages witho
   });
 });
 
+test("public runtime routes expose workbench adapter launch plan admissions", async () => {
+  const { handleRequest } = routeHarness();
+  const response = responseRecorder();
+
+  await handleRequest({
+    request: request({
+      method: "POST",
+      url: "/v1/hypervisor/workbench-adapter-launch-plans",
+      body: {
+        launch_plan_ref: "workbench-adapter:external_editor/launch-plan",
+        adapter_ref: "workbench-adapter:external_editor",
+        target_ref: "adapter-target:external-editor",
+        launch_mode: "external",
+        connection_kind: "desktop_bridge",
+        connection_contract_ref:
+          "connection-contract:workbench-adapter/desktop-bridge",
+        required_access_lease_refs: [
+          "lease:workbench-adapter/desktop-bridge",
+        ],
+        required_authority_scope_refs: [
+          "scope:workspace.read",
+          "scope:workspace.patch",
+          "scope:receipt.write",
+        ],
+        required_receipt_refs: [
+          "receipt-policy:workbench-adapter/desktop-bridge",
+        ],
+        custody_posture: "redacted_projection",
+        secret_release_policy: "no_durable_secret_release",
+        restore_archive_policy: "not_required",
+        provider_posture_required: false,
+        agentgres_operation_refs: [
+          "agentgres://operation/workbench-adapter/admit",
+        ],
+        receipt_refs: ["receipt://workbench-adapter/admit"],
+      },
+    }),
+    response,
+    store: { defaultCwd: "/workspace", stateDir: "/state" },
+  });
+
+  const payload = JSON.parse(response.body);
+  assert.equal(response.statusCode, 202);
+  assert.equal(
+    payload.schema_version,
+    "ioi.runtime.workbench_adapter_launch_plan_admission.v1",
+  );
+  assert.equal(payload.connection_kind, "desktop_bridge");
+  assert.equal(payload.secret_release_policy, "no_durable_secret_release");
+  assert.equal(payload.requiresDaemonGate, true);
+  assert.equal(payload.runtimeTruthSource, "daemon-runtime");
+});
+
+test("public runtime workbench adapter launch route blocks missing provider posture", async () => {
+  const { handleRequest } = routeHarness();
+  const response = responseRecorder();
+
+  await handleRequest({
+    request: request({
+      method: "POST",
+      url: "/v1/hypervisor/workbench-adapter-launch-plans",
+      body: {
+        launch_plan_ref: "workbench-adapter:remote_vm/launch-plan",
+        adapter_ref: "workbench-adapter:remote_vm",
+        target_ref: "adapter-target:remote-vm-workspace",
+        launch_mode: "remote_url",
+        connection_kind: "provider_workspace",
+        connection_contract_ref:
+          "connection-contract:workbench-adapter/provider-workspace",
+        required_access_lease_refs: ["lease:provider/workspace-access"],
+        required_authority_scope_refs: ["scope:provider.workspace.attach"],
+        required_receipt_refs: ["receipt-policy:workbench-adapter/provider"],
+        custody_posture: "provider_session",
+        secret_release_policy: "no_durable_secret_release",
+        restore_archive_policy: "required_for_remote_persistence",
+        provider_posture_required: true,
+        archive_ref: "artifact://workspace/archive/7",
+        restore_ref: "agentgres://restore/workspace/7",
+      },
+    }),
+    response,
+    store: { defaultCwd: "/workspace", stateDir: "/state" },
+  });
+
+  assert.equal(response.statusCode, 403);
+  assert.deepEqual(JSON.parse(response.body), {
+    error: "workbench_adapter_provider_posture_ref_required",
+  });
+});
+
 test("public runtime routes expose service composition receipt bundle admissions", async () => {
   const { handleRequest } = routeHarness();
   const response = responseRecorder();

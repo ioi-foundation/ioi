@@ -1108,6 +1108,10 @@ Current implementation cut:
   Session receipt previews surface the launch plan and connection contract
   before launch, so adapter targets are governed session routes rather than
   decorative editor choices.
+  `runtime-workbench-adapter-launch-plan-admission.mjs` now admits those launch
+  plans through `/v1/hypervisor/workbench-adapter-launch-plans`, blocking durable
+  secret release, adapter-runtime-truth claims, missing provider posture, and
+  persistent remote routes without archive/restore refs.
 
 0A.4 New Session is partially implemented:
   `HYPERVISOR_SESSION_LAUNCH_RECIPES` defines Mission, Workbench, Agent,

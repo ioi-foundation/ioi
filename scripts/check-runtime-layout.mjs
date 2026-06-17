@@ -78,6 +78,9 @@ const hypervisorShellControllerSource = read(
 const runtimeHarnessContainerLaneSource = read(
   "packages/runtime-daemon/src/runtime-harness-container-lane.mjs",
 );
+const runtimeWorkbenchAdapterLaunchPlanAdmissionSource = read(
+  "packages/runtime-daemon/src/runtime-workbench-adapter-launch-plan-admission.mjs",
+);
 const runtimeHarnessContainerLaneTestSource = read(
   "packages/runtime-daemon/src/runtime-harness-container-lane.test.mjs",
 );
@@ -464,13 +467,30 @@ assert(
     hypervisorNewSessionModalSource.includes(
       "data-new-session-workbench-adapter-launch-plan-ref",
     ) &&
-    hypervisorNewSessionModalSource.includes("Adapter launch contract"),
+    hypervisorNewSessionModalSource.includes("Adapter launch contract") &&
+    runtimeWorkbenchAdapterLaunchPlanAdmissionSource.includes(
+      "ioi.runtime.workbench_adapter_launch_plan_admission.v1",
+    ) &&
+    runtimeWorkbenchAdapterLaunchPlanAdmissionSource.includes(
+      "workbench_adapter_launch_durable_secret_release_blocked",
+    ) &&
+    runtimeWorkbenchAdapterLaunchPlanAdmissionSource.includes(
+      "workbench_adapter_runtime_truth_claim_blocked",
+    ) &&
+    runtimeWorkbenchAdapterLaunchPlanAdmissionSource.includes(
+      "workbench_adapter_provider_posture_ref_required",
+    ) &&
+    publicRuntimeRoutesSource.includes(
+      "/v1/hypervisor/workbench-adapter-launch-plans",
+    ),
   [
     "apps/hypervisor/src/windows/HypervisorShellWindow/workbenchAdapterPreferences.ts",
     "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorShellNavigationModel.ts",
     "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorNewSessionModal.tsx",
+    "packages/runtime-daemon/src/runtime-workbench-adapter-launch-plan-admission.mjs",
+    "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
   ],
-  "Workbench adapter preferences must compile into daemon-gated launch plans with connection contracts, access leases, receipt refs, and no durable secret release.",
+  "Workbench adapter preferences must compile into daemon-gated launch plans with connection contracts, access leases, receipt refs, no durable secret release, and a public daemon admission route.",
 );
 assert(
   "hypervisor-environment-ops-model",
