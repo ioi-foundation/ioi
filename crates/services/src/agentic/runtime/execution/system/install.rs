@@ -1255,10 +1255,10 @@ mod tests {
     }
 
     #[test]
-    fn autopilot_resolves_to_current_product_not_github_copilot() {
-        let target = resolve_install_target("autopilot", Some("auto")).expect("target");
-        assert_eq!(target.display_name, "IOI Autopilot");
-        assert_eq!(target.canonical_id, "ioi-autopilot");
+    fn hypervisor_resolves_to_current_product_not_github_copilot() {
+        let target = resolve_install_target("hypervisor", Some("auto")).expect("target");
+        assert_eq!(target.display_name, "IOI Hypervisor");
+        assert_eq!(target.canonical_id, "ioi-hypervisor");
         assert_eq!(target.target_kind, "current_product");
         assert_eq!(target.source_kind, "current_app");
         assert!(unsupported_target_error(&target)
@@ -1267,14 +1267,14 @@ mod tests {
     }
 
     #[test]
-    fn autopilot_current_product_can_complete_as_already_available() {
+    fn hypervisor_current_product_can_complete_as_already_available() {
         let summary = install_already_satisfied_before_approval_for_tool(&resolve_tool(
-            "autopilot",
+            "hypervisor",
             Some("auto"),
         ))
         .expect("current executable verifies the running product");
 
-        assert!(summary.contains("IOI Autopilot"));
+        assert!(summary.contains("IOI Hypervisor"));
         assert!(summary.contains("already_available_verified"));
         assert!(summary.contains("install_final_receipt"));
         assert!(!summary.contains("GitHub Copilot"));

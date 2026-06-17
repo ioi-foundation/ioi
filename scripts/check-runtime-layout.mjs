@@ -51,6 +51,9 @@ const workbenchAdaptersReadme = read("workbench-adapters/README.md");
 const workbenchShellManifest = read("workbench-adapters/shell.manifest.json");
 const workbenchShellPatch = read("scripts/lib/hypervisor-workbench-shell-patch.mjs");
 const rootGitignore = read(".gitignore");
+const hypervisorInstallProductMetadataSource = read(
+  "crates/services/src/agentic/runtime/resolver/software_install/product_metadata.rs",
+);
 const hypervisorShellNavigationSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorShellNavigationModel.ts",
 );
@@ -509,6 +512,17 @@ assert(
     "scripts/launch-hypervisor-workbench-adapter-host.mjs",
   ],
   "Active product docs and model preload identifiers must use Hypervisor client/Workbench taxonomy, not Autopilot IDE or Tauri product language.",
+);
+assert(
+  "install-resolver-current-product-hypervisor-named",
+  hypervisorInstallProductMetadataSource.includes("IOI Hypervisor") &&
+    hypervisorInstallProductMetadataSource.includes("ioi-hypervisor") &&
+    hypervisorInstallProductMetadataSource.includes("hypervisor,ioi hypervisor") &&
+    !/IOI Autopilot|ioi-autopilot|autopilot,ioi autopilot/.test(
+      hypervisorInstallProductMetadataSource,
+    ),
+  ["crates/services/src/agentic/runtime/resolver/software_install/product_metadata.rs"],
+  "Current-product install resolution must default to Hypervisor names and must not retain Autopilot aliases.",
 );
 assert(
   "workbench-shell-patch-hypervisor-named",
