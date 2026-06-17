@@ -247,6 +247,15 @@ run/usage/authority/replay/trace/artifact reads remain on Rust lifecycle
 projection over daemon `state_dir`, while internal state mutation uses explicit
 thread-store helpers and a private Agentgres run-state commit projection helper
 for commit payload materialization only.
+Slice 1438 additionally hard-deletes the runtime thread-event JS surface:
+`runtime-thread-event-surface.mjs`, its focused test,
+`createRuntimeThreadEventSurface()`, and the mounted `threadEventSurface`
+daemon-store property are absent. Public turn/event readback, event append,
+thread-start/run-event projection, replay helpers, event-stream paths, and
+thread/turn projection methods now call `threads/thread-replay.mjs` and
+`thread-turn-projection.mjs` directly from store-owned methods while preserving
+the Rust Agentgres admission/projection/replay boundary over daemon
+`state_dir`.
 Slice 1388 additionally hard-deletes the run-create repository workflow JS
 projection facade: run creation and runtime-service turn submission consume
 Rust `project_repository_workflow` projections through an explicit

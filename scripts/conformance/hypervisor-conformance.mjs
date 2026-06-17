@@ -34802,6 +34802,11 @@ function runCompositor() {
   )
     ? read("packages/runtime-daemon/src/runtime-thread-event-surface.test.mjs")
     : "";
+  const runtimeThreadEventSurfaceRetired =
+    !exists("packages/runtime-daemon/src/runtime-thread-event-surface.mjs") &&
+    !exists("packages/runtime-daemon/src/runtime-thread-event-surface.test.mjs") &&
+    !/from "\.\/runtime-thread-event-surface\.mjs"/.test(runtimeDaemonIndex) &&
+    !/createRuntimeThreadEventSurface|threadEventSurface/.test(runtimeDaemonIndex);
   const appendRuntimeEventBlock =
     threadReplay.match(
       /export function appendRuntimeEvent\(store, event, deps = \{\}\) \{[\s\S]*?\n\}/,
@@ -44531,6 +44536,15 @@ function runCompositor() {
       /runtimeAgentgresAdmissionCore\.admitRuntimeThreadEvent/.test(runtimeDaemonIndex) &&
       /runtimeAgentgresAdmissionCore\.projectRuntimeThreadEvents/.test(runtimeDaemonIndex) &&
       /runtimeAgentgresAdmissionCore\.projectRuntimeThreadEventReplay/.test(runtimeDaemonIndex) &&
+      runtimeThreadEventSurfaceRetired &&
+      /from "\.\/threads\/thread-replay\.mjs"/.test(runtimeDaemonIndex) &&
+      /ensureThreadStartedEventState\(this, agent/.test(runtimeDaemonIndex) &&
+      /projectThreadEventsState\(this, agent/.test(runtimeDaemonIndex) &&
+      /projectRunEventsState\(this, run, agent/.test(runtimeDaemonIndex) &&
+      /appendRuntimeEventState\(this, event/.test(runtimeDaemonIndex) &&
+      /runtimeEventsForStreamState\(this, eventStreamId, cursor/.test(runtimeDaemonIndex) &&
+      /runtimeEventsForTurnState\(this, turnId, cursor/.test(runtimeDaemonIndex) &&
+      /registerRuntimeEventState\(this, record\)/.test(runtimeDaemonIndex) &&
       /admitRuntimeThreadEventForThread/.test(runtimeDaemonIndex) &&
       /admitRuntimeThreadEventForThread\(store, request = \{\}\) \{(?:(?!\n  admitCodingToolResultEventForThread\(store, request = \{\}\) \{)[\s\S])*?state_dir:\s*this\.stateDir/.test(
         runtimeDaemonIndex,
@@ -44677,9 +44691,7 @@ function runCompositor() {
         threadReplayTest,
       ) &&
       /thread replay thread-start projection fails closed before JS append/.test(threadReplayTest) &&
-      /thread replay projection fails closed before JS run-event append/.test(threadReplayTest) &&
-      /runtimeError/.test(runtimeThreadEventSurface) &&
-      /runtimeError/.test(runtimeThreadEventSurfaceTest),
+      /thread replay projection fails closed before JS run-event append/.test(threadReplayTest),
     [
       "crates/services/src/agentic/runtime/kernel/runtime_thread_event.rs",
       "packages/runtime-daemon/src/threads/thread-replay.mjs",
@@ -44691,6 +44703,34 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-thread-event-surface.test.mjs",
     ],
     "Phase 10/11 is pending: daemon runtime thread-event append/projection/replay must route through Rust Agentgres admission before replay registration/readback",
+  );
+  assertCheck(
+    result,
+    "runtime-thread-event-surface-retired",
+    runtimeThreadEventSurfaceRetired &&
+      /listTurns\(threadId\) \{[\s\S]*this\.listRuns\(agent\.id\)\.map\(\(run\) => this\.turnForRun\(run\)\)/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /eventsForThread\(threadId, cursor = \{\}\) \{[\s\S]*this\.projectThreadEvents\(agent\)[\s\S]*runtimeEventsForStream/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /eventsForRun\(runId, cursor = \{\}\) \{[\s\S]*this\.projectThreadEvents\(agent\)[\s\S]*runtimeEventsForTurn/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /runtimeEventStreamPathState\(this, eventStreamId/.test(runtimeDaemonIndex) &&
+      /threadForAgent\(agent\) \{[\s\S]*this\.threadTurnProjection\.threadForAgent\(this, agent\)/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /turnForRun\(run\) \{[\s\S]*this\.threadTurnProjection\.turnForRun\(this, run\)/.test(
+        runtimeDaemonIndex,
+      ),
+    [
+      "packages/runtime-daemon/src/index.mjs",
+      "packages/runtime-daemon/src/threads/thread-replay.mjs",
+      "packages/runtime-daemon/src/runtime-thread-event-surface.mjs",
+      "packages/runtime-daemon/src/runtime-thread-event-surface.test.mjs",
+    ],
+    "Runtime thread-event replay/admission must enter through store-owned methods and the mounted JS thread-event surface must stay deleted.",
   );
   assertCheck(
     result,

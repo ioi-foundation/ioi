@@ -12670,6 +12670,20 @@ sidecar paths from the canonical run id. Conformance now guards that the
 deleted surface file, factory, daemon property, and public route calls cannot
 return beside the Rust-owned lifecycle projection path.
 
+Slice 1438 hard-deletes the runtime thread-event JS surface. Daemon startup no
+longer imports or mounts `runtime-thread-event-surface.mjs`, its focused test
+is absent, and `AgentgresRuntimeStateStore` no longer exposes a
+`threadEventSurface` property or `createRuntimeThreadEventSurface()` factory.
+Public turn/event readback, runtime-event append, thread-start/run-event
+projection, replay helpers, event-stream paths, and thread/turn projections
+remain store-owned methods that call `threads/thread-replay.mjs` and
+`thread-turn-projection.mjs` directly. Those helpers still fail closed through
+Rust Agentgres admission/projection/replay over daemon `state_dir`; JS no
+longer preserves a mounted route-visible event facade beside that Rust-owned
+thread-event spine. Conformance now guards the deleted surface file, test,
+factory, daemon property, direct store method wiring, and absence of production
+source references.
+
 Slice 1424 hardens the active Hypervisor client/product vocabulary boundary.
 Developer-facing app docs now describe Hypervisor as a native operator client
 over Hypervisor Core and the IOI daemon, not as an Autopilot/Tauri desktop

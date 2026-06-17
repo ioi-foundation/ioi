@@ -81,7 +81,6 @@ import { createRuntimeCteePrivateWorkspaceApi } from "./runtime-ctee-private-wor
 import { createRuntimeL1SettlementApi } from "./runtime-l1-settlement-api.mjs";
 import { createRuntimeThreadControlSurface } from "./runtime-thread-control-surface.mjs";
 import { createRuntimeThreadTurnApi } from "./runtime-thread-turn-api.mjs";
-import { createRuntimeThreadEventSurface } from "./runtime-thread-event-surface.mjs";
 import { createRuntimeToolApi } from "./runtime-tool-api.mjs";
 import { createRuntimeSubagentApi } from "./runtime-subagent-api.mjs";
 import {
@@ -140,6 +139,20 @@ import {
   usageForRun as usageForRunState,
   usageForThread as usageForThreadState,
 } from "./threads/thread-store.mjs";
+import {
+  appendRuntimeEvent as appendRuntimeEventState,
+  assertRuntimeCursorSeq as assertRuntimeCursorSeqState,
+  ensureThreadStartedEvent as ensureThreadStartedEventState,
+  latestRuntimeEventSeq as latestRuntimeEventSeqState,
+  projectRunEvents as projectRunEventsState,
+  projectThreadEvents as projectThreadEventsState,
+  registerRuntimeEvent as registerRuntimeEventState,
+  runtimeCursorSeq as runtimeCursorSeqState,
+  runtimeEventsForStream as runtimeEventsForStreamState,
+  runtimeEventsForTurn as runtimeEventsForTurnState,
+  runtimeEventStream as runtimeEventStreamState,
+  runtimeEventStreamPath as runtimeEventStreamPathState,
+} from "./threads/thread-replay.mjs";
 import { createRuntimeThreadAuxiliaryApi } from "./runtime-thread-auxiliary-api.mjs";
 import { createModelRouteSelection } from "./threads/model-route-selection.mjs";
 import { createRunMemoryResolution } from "./threads/run-memory-resolution.mjs";
@@ -825,22 +838,6 @@ export class AgentgresRuntimeStateStore {
       threadStatusForAgent,
       turnIdForRun,
     });
-    this.threadEventSurface = createRuntimeThreadEventSurface({
-      DAEMON_FIXTURE_PROFILE,
-      RUNTIME_THREAD_SCHEMA_VERSION,
-      eventStreamIdForThread,
-      fs,
-      isRuntimeBackedAgent,
-      normalizeRuntimeEventEnvelope,
-      notFound,
-      runtimeError,
-      runtimeEventStreamFileName,
-      runtimeTurnIdForRun,
-      threadIdForAgent,
-      threadStatusForAgent,
-      threadTurnProjection: this.threadTurnProjection,
-      turnIdForRun,
-    });
     this.writeSchema();
     this.load();
   }
@@ -986,63 +983,96 @@ export class AgentgresRuntimeStateStore {
   }
 
   listTurns(threadId) {
-    return this.threadEventSurface.listTurns(this, threadId);
+    const agent = this.agentForThread(threadId);
+    return this.listRuns(agent.id).map((run) => this.turnForRun(run));
   }
 
   getTurn(threadId, turnId) {
-    return this.threadEventSurface.getTurn(this, threadId, turnId);
+    const turn = this.listTurns(threadId).find((candidate) => candidate.turn_id === turnId);
+    if (!turn) throw notFound(`Turn not found: ${turnId}`, { threadId, turnId });
+    return turn;
   }
 
   eventsForThread(threadId, cursor = {}) {
-    return this.threadEventSurface.eventsForThread(this, threadId, cursor);
+    const agent = this.agentForThread(threadId);
+    this.projectThreadEvents(agent);
+    return this.runtimeEventsForStream(
+      eventStreamIdForThread(threadIdForAgent(agent.id)),
+      cursor,
+    );
   }
 
   eventsForRun(runId, cursor = {}) {
-    return this.threadEventSurface.eventsForRun(this, runId, cursor);
+    const run = this.getRun(runId);
+    const agent = this.getAgent(run.agentId);
+    this.projectThreadEvents(agent);
+    return this.runtimeEventsForTurn(runtimeTurnIdForRun(run), cursor);
   }
 
   ensureThreadStartedEvent(agent) {
-    return this.threadEventSurface.ensureThreadStartedEvent(this, agent);
+    return ensureThreadStartedEventState(this, agent, {
+      DAEMON_FIXTURE_PROFILE,
+      RUNTIME_THREAD_SCHEMA_VERSION,
+      eventStreamIdForThread,
+      runtimeError,
+      threadIdForAgent,
+      threadStatusForAgent,
+    });
   }
 
   projectThreadEvents(agent) {
-    return this.threadEventSurface.projectThreadEvents(this, agent);
+    return projectThreadEventsState(this, agent, {
+      eventStreamIdForThread,
+      isRuntimeBackedAgent,
+      runtimeError,
+      threadIdForAgent,
+    });
   }
 
   projectRunEvents(run, agent = this.getAgent(run.agentId)) {
-    return this.threadEventSurface.projectRunEvents(this, run, agent);
+    return projectRunEventsState(this, run, agent, {
+      eventStreamIdForThread,
+      isRuntimeBackedAgent,
+      runtimeError,
+      threadIdForAgent,
+      turnIdForRun,
+    });
   }
 
   appendRuntimeEvent(event) {
-    return this.threadEventSurface.appendRuntimeEvent(this, event);
+    return appendRuntimeEventState(this, event, {
+      fs,
+      normalizeRuntimeEventEnvelope,
+      runtimeError,
+    });
   }
 
   runtimeEventsForStream(eventStreamId, cursor = {}) {
-    return this.threadEventSurface.runtimeEventsForStream(this, eventStreamId, cursor);
+    return runtimeEventsForStreamState(this, eventStreamId, cursor, { runtimeError });
   }
 
   runtimeEventsForTurn(turnId, cursor = {}) {
-    return this.threadEventSurface.runtimeEventsForTurn(this, turnId, cursor);
+    return runtimeEventsForTurnState(this, turnId, cursor, { runtimeError });
   }
 
   runtimeCursorSeq(stream, cursor = {}) {
-    return this.threadEventSurface.runtimeCursorSeq(this, stream, cursor);
+    return runtimeCursorSeqState(this, stream, cursor, { runtimeError });
   }
 
   assertRuntimeCursorSeq(cursorSeq, latestSeq, details = {}) {
-    return this.threadEventSurface.assertRuntimeCursorSeq(cursorSeq, latestSeq, details);
+    return assertRuntimeCursorSeqState(cursorSeq, latestSeq, details, { runtimeError });
   }
 
   latestRuntimeEventSeq(eventStreamId) {
-    return this.threadEventSurface.latestRuntimeEventSeq(this, eventStreamId);
+    return latestRuntimeEventSeqState(this, eventStreamId);
   }
 
   runtimeEventStream(eventStreamId) {
-    return this.threadEventSurface.runtimeEventStream(this, eventStreamId);
+    return runtimeEventStreamState(this, eventStreamId);
   }
 
   registerRuntimeEvent(record) {
-    return this.threadEventSurface.registerRuntimeEvent(this, record);
+    return registerRuntimeEventState(this, record);
   }
 
   projectRuntimeThreadEventsForThread(store, request = {}) {
@@ -1335,15 +1365,17 @@ export class AgentgresRuntimeStateStore {
   }
 
   runtimeEventStreamPath(eventStreamId) {
-    return this.threadEventSurface.runtimeEventStreamPath(this, eventStreamId);
+    return runtimeEventStreamPathState(this, eventStreamId, {
+      runtimeEventStreamFileName,
+    });
   }
 
   threadForAgent(agent) {
-    return this.threadEventSurface.threadForAgent(this, agent);
+    return this.threadTurnProjection.threadForAgent(this, agent);
   }
 
   turnForRun(run) {
-    return this.threadEventSurface.turnForRun(this, run);
+    return this.threadTurnProjection.turnForRun(this, run);
   }
 
   agentForThread(threadId) {
