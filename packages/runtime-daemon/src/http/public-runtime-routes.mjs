@@ -8,6 +8,7 @@ import { planHarnessAdapterContainerLane } from "../runtime-harness-container-la
 import { runHarnessPublicSmokeTask } from "../runtime-harness-public-smoke-task.mjs";
 import { admitManagedWorkerInstanceLifecycleTransition } from "../runtime-managed-worker-instance-lifecycle-admission.mjs";
 import { admitModelWeightCustodyRoute } from "../runtime-model-weight-custody-admission.mjs";
+import { admitServiceCompositionReceiptBundle } from "../runtime-service-composition-receipt-bundle.mjs";
 
 export function createPublicRuntimeRequestHandler(deps) {
   const {
@@ -301,6 +302,23 @@ export function createPublicRuntimeRequestHandler(deps) {
             source:
               optionalString(body.source) ??
               "public_runtime_routes./v1/hypervisor/managed-worker-lifecycle-admissions",
+          }),
+          202,
+        );
+        return;
+      }
+      if (
+        request.method === "POST" &&
+        url.pathname === "/v1/hypervisor/service-composition-receipt-bundles"
+      ) {
+        const body = await readBody(request);
+        writeJsonResponse(
+          response,
+          admitServiceCompositionReceiptBundle({
+            ...body,
+            source:
+              optionalString(body.source) ??
+              "public_runtime_routes./v1/hypervisor/service-composition-receipt-bundles",
           }),
           202,
         );

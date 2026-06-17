@@ -1751,7 +1751,7 @@ sources rather than hidden trust roots.
 
 | Field | Detail |
 | --- | --- |
-| Status | Canonized and guarded on 2026-06-17; first daemon-side `ServiceCompositionReceiptBundle` admission contract implemented and guarded. Live SAS endpoint integration remains follow-up hardening. |
+| Status | Canonized and guarded on 2026-06-17; daemon-side `ServiceCompositionReceiptBundle` admission contract implemented, guarded, and exposed through the public Hypervisor daemon route. Live SAS marketplace/product endpoint integration remains follow-up hardening. |
 | Files | sas marketplace/endpoints, daemon receipts, marketplace neutrality |
 | Change | Add `ServiceCompositionReceiptBundle` defaults for nested contribution, verifier refs, private-data posture, and dispute evidence in service outcomes. |
 | Acceptance | Delivery bundle includes worker contribution refs, verifier refs, private-data posture, and dispute evidence. |
@@ -1766,7 +1766,8 @@ routing, receipt, dispute-evidence, Agentgres operation, state-root, artifact or
 payload refs, and explicit private-data posture. It rejects raw delivery blobs
 or provider logs as dispute truth, and blocks unsafe plaintext exceptions from
 being marked settlement-ready by default. `check:service-composition-evidence`
-guards the runtime contract alongside the SAS and daemon-runtime canon.
+guards the runtime contract and `/v1/hypervisor/service-composition-receipt-bundles`
+public route alongside the SAS and daemon-runtime canon.
 ```
 
 ### Phase 8: Add Artifact Availability Incident Flow

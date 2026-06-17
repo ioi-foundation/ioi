@@ -108,4 +108,14 @@ requireAll("packages/runtime-daemon/src/runtime-service-composition-receipt-bund
   "unsafe plaintext service delivery exceptions require explicit approval",
 ]);
 
+requireAll("packages/runtime-daemon/src/http/public-runtime-routes.mjs", [
+  "/v1/hypervisor/service-composition-receipt-bundles",
+  "admitServiceCompositionReceiptBundle",
+]);
+
+requireAll("packages/runtime-daemon/src/http/public-runtime-routes.test.mjs", [
+  "expose service composition receipt bundle admissions",
+  "blocks unsafe plaintext settlement",
+]);
+
 console.log("service composition evidence conformance passed");

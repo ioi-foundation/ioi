@@ -904,6 +904,96 @@ test("public runtime managed worker lifecycle route blocks payment-lapse deletio
   });
 });
 
+test("public runtime routes expose service composition receipt bundle admissions", async () => {
+  const { handleRequest } = routeHarness();
+  const response = responseRecorder();
+  const store = {
+    defaultCwd: "/workspace",
+    stateDir: "/state",
+    projectRuntimeLifecycleProjection: retiredRouteWrapper,
+  };
+
+  await handleRequest({
+    request: request({
+      method: "POST",
+      url: "/v1/hypervisor/service-composition-receipt-bundles",
+      body: {
+        service_ref: "service://sas/reporting",
+        delivery_ref: "delivery://sas/reporting/123",
+        composition_graph_ref: "workflow://service-composition/reporting",
+        delivery_status: "delivered",
+        private_data_posture: "ctee_private_workspace",
+        contribution_receipt_refs: ["receipt://contribution/worker-1"],
+        verifier_receipt_refs: ["receipt://verifier/quality-1"],
+        policy_receipt_refs: ["receipt://policy/service-1"],
+        routing_receipt_refs: ["receipt://routing/service-1"],
+        dispute_evidence_refs: ["evidence://dispute/service-1"],
+        provider_log_refs: ["log://provider/supporting"],
+        agentgres_operation_refs: [
+          "agentgres://operation/service-composition/123",
+        ],
+        artifact_refs: ["artifact://delivery/report"],
+        receipt_refs: ["receipt://service-composition/bundle-123"],
+        state_root: "state_root:service-composition:123",
+        settlement_requested: true,
+      },
+    }),
+    response,
+    store,
+  });
+
+  const payload = JSON.parse(response.body);
+  assert.equal(response.statusCode, 202);
+  assert.equal(
+    payload.schema_version,
+    "ioi.runtime.service_composition_receipt_bundle.v1",
+  );
+  assert.equal(payload.service_ref, "service://sas/reporting");
+  assert.equal(payload.private_data_posture, "ctee_private_workspace");
+  assert.equal(payload.settlement_ready, true);
+  assert.equal(payload.runtimeTruthSource, "daemon-runtime");
+});
+
+test("public runtime service composition route blocks unsafe plaintext settlement", async () => {
+  const { handleRequest } = routeHarness();
+  const response = responseRecorder();
+
+  await handleRequest({
+    request: request({
+      method: "POST",
+      url: "/v1/hypervisor/service-composition-receipt-bundles",
+      body: {
+        service_ref: "service://sas/reporting",
+        delivery_ref: "delivery://sas/reporting/unsafe",
+        composition_graph_ref: "workflow://service-composition/reporting",
+        delivery_status: "delivered",
+        private_data_posture: "unsafe_plaintext_exception",
+        contribution_receipt_refs: ["receipt://contribution/worker-1"],
+        verifier_receipt_refs: ["receipt://verifier/quality-1"],
+        policy_receipt_refs: ["receipt://policy/service-1"],
+        routing_receipt_refs: ["receipt://routing/service-1"],
+        dispute_evidence_refs: ["evidence://dispute/service-1"],
+        agentgres_operation_refs: [
+          "agentgres://operation/service-composition/unsafe",
+        ],
+        artifact_refs: ["artifact://delivery/report"],
+        receipt_refs: ["receipt://service-composition/unsafe"],
+        state_root: "state_root:service-composition:unsafe",
+        wallet_approval_ref: "approval://wallet/unsafe-service",
+        unsafe_plaintext_exception_ref: "receipt://unsafe-plaintext/service",
+        settlement_requested: true,
+      },
+    }),
+    response,
+    store: { defaultCwd: "/workspace", stateDir: "/state" },
+  });
+
+  assert.equal(response.statusCode, 403);
+  assert.deepEqual(JSON.parse(response.body), {
+    error: "service_composition_unsafe_plaintext_settlement_blocked",
+  });
+});
+
 test("public runtime computer-use routes dispatch through Rust daemon-core projection", async () => {
   const { handleRequest } = routeHarness();
   const calls = [];
