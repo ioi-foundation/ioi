@@ -62,7 +62,7 @@ import { createRuntimeCodingToolArtifactSurface } from "./runtime-coding-tool-ar
 import { createRuntimeCodingToolInvocationSurface } from "./runtime-coding-tool-invocation-surface.mjs";
 import { createRuntimeWorkspaceSnapshotApi } from "./runtime-workspace-snapshot-api.mjs";
 import { createRuntimeCodingToolGovernanceSurface } from "./runtime-coding-tool-governance-surface.mjs";
-import { createRuntimeCodingToolBudgetRecoverySurface } from "./runtime-coding-tool-budget-recovery-surface.mjs";
+import { createRuntimeCodingToolBudgetRecoveryApi } from "./runtime-coding-tool-budget-recovery-api.mjs";
 import { createRuntimeConversationArtifactApi } from "./runtime-conversation-artifact-api.mjs";
 import { createRuntimeContextPolicyApi } from "./runtime-context-policy-api.mjs";
 import { createRuntimeContextPolicyCore } from "./runtime-context-policy-core.mjs";
@@ -680,7 +680,7 @@ export class AgentgresRuntimeStateStore {
     this.l1SettlementApi = createRuntimeL1SettlementApi({
       runtimeError,
     });
-    this.codingToolBudgetRecoverySurface = createRuntimeCodingToolBudgetRecoverySurface({
+    this.codingToolBudgetRecoveryApi = createRuntimeCodingToolBudgetRecoveryApi({
       contextPolicyCore: this.contextPolicyCore,
       notFound,
       runtimeError,
@@ -1559,6 +1559,10 @@ export class AgentgresRuntimeStateStore {
 
   compactThread(threadId, request = {}) {
     return this.contextPolicyApi.compactThread(this, threadId, request);
+  }
+
+  codingToolBudgetRecoveryForRun(runId, request = {}) {
+    return this.codingToolBudgetRecoveryApi.codingToolBudgetRecoveryForRun(this, runId, request);
   }
 
   proposeWorkflowEdit(threadId, request = {}) {

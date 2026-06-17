@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createRuntimeCodingToolBudgetRecoverySurface } from "./runtime-coding-tool-budget-recovery-surface.mjs";
+import { createRuntimeCodingToolBudgetRecoveryApi } from "./runtime-coding-tool-budget-recovery-api.mjs";
 
 function runtimeError(input) {
   const error = new Error(input.message);
@@ -63,7 +63,7 @@ function harness() {
       },
     },
   };
-  const surface = createRuntimeCodingToolBudgetRecoverySurface({ runtimeError });
+  const surface = createRuntimeCodingToolBudgetRecoveryApi({ runtimeError });
   return { calls, store, surface };
 }
 
@@ -162,7 +162,7 @@ test("coding-tool budget recovery retry completion uses Rust planner and Agentgr
     },
   };
   const runnerCalls = [];
-  const surface = createRuntimeCodingToolBudgetRecoverySurface({ contextPolicyCore, runtimeError });
+  const surface = createRuntimeCodingToolBudgetRecoveryApi({ contextPolicyCore, runtimeError });
 
   const result = surface.codingToolBudgetRecoveryForRun(store, "run_alpha", {
     thread_id: "thread_alpha",
@@ -265,7 +265,7 @@ test("coding-tool budget recovery request approval uses Rust control planner and
       };
     },
   };
-  const surface = createRuntimeCodingToolBudgetRecoverySurface({ contextPolicyCore, runtimeError });
+  const surface = createRuntimeCodingToolBudgetRecoveryApi({ contextPolicyCore, runtimeError });
 
   const result = surface.codingToolBudgetRecoveryForRun(store, "run_alpha", {
     thread_id: "thread_alpha",
@@ -371,7 +371,7 @@ test("coding-tool budget recovery approve override uses Rust wallet authority co
       return { receipt_refs: ["receipt_commit"], policy_decision_refs: ["policy_commit"] };
     },
   };
-  const surface = createRuntimeCodingToolBudgetRecoverySurface({ contextPolicyCore, runtimeError });
+  const surface = createRuntimeCodingToolBudgetRecoveryApi({ contextPolicyCore, runtimeError });
 
   const result = surface.codingToolBudgetRecoveryForRun(store, "run_alpha", {
     thread_id: "thread_alpha",
@@ -458,7 +458,7 @@ test("coding-tool budget recovery request approval fails before JS lookup when c
       throw new Error("Budget recovery facade must not persist before canonical control inputs are present.");
     },
   };
-  const surface = createRuntimeCodingToolBudgetRecoverySurface({ contextPolicyCore, runtimeError });
+  const surface = createRuntimeCodingToolBudgetRecoveryApi({ contextPolicyCore, runtimeError });
 
   assert.throws(
     () =>
@@ -499,7 +499,7 @@ test("coding-tool budget recovery retry completion fails before JS lookup when c
       throw new Error("Budget recovery facade must not persist before canonical state inputs are present.");
     },
   };
-  const surface = createRuntimeCodingToolBudgetRecoverySurface({ contextPolicyCore, runtimeError });
+  const surface = createRuntimeCodingToolBudgetRecoveryApi({ contextPolicyCore, runtimeError });
 
   assert.throws(
     () =>

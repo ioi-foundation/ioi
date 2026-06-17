@@ -23,7 +23,7 @@ function defaultRuntimeError(payload = {}) {
   return error;
 }
 
-export function createRuntimeCodingToolBudgetRecoverySurface(deps = {}) {
+export function createRuntimeCodingToolBudgetRecoveryApi(deps = {}) {
   const {
     contextPolicyCore = null,
     runtimeError = defaultRuntimeError,

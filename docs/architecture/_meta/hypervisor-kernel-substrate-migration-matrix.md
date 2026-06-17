@@ -487,7 +487,7 @@ mount that the auxiliary surface passes explicitly before Agentgres-backed
 `writeRun` persistence. Conformance guards that the retired runner alias cannot
 return.
 Slice 1300 hard-cuts coding-tool budget recovery runner injection aliases:
-`createRuntimeCodingToolBudgetRecoverySurface()` no longer accepts
+`createRuntimeCodingToolBudgetRecoveryApi()` no longer accepts
 `codingToolBudgetRecoveryRunner`; retry completion, request-approval control,
 and approve-override control moved onto the Rust daemon-core budget recovery
 planners before wallet authority binding and Agentgres-backed `writeRun`
@@ -597,7 +597,7 @@ store-core fallback cannot return.
 Slice 1313 hard-cuts coding-tool budget recovery surface store-core fallback:
 retry-approved state update, request-approval control, and approve-override
 control now resolve only through the positive `contextPolicyCore` mount
-supplied to `createRuntimeCodingToolBudgetRecoverySurface()` by daemon startup.
+supplied to `createRuntimeCodingToolBudgetRecoveryApi()` by daemon startup.
 The surface and focused tests no longer read or model `store.contextPolicyCore`
 or `store.contextPolicyCore ?? null`, so budget-recovery run truth cannot return
 through a store-mounted planner fallback; conformance guards that the retired

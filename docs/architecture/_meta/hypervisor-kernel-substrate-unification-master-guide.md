@@ -6440,7 +6440,7 @@ daemon-core replacement; Slice 1208 later retires that JS satisfaction gate
 rather than preserving it as readback scaffolding.
 
 Slice 1097 retires the coding-tool budget blocked-event JS projection facade.
-`RuntimeCodingToolBudgetRecoverySurface` no longer exports
+`RuntimeCodingToolBudgetRecoveryApi` no longer exports
 `latestCodingToolBudgetBlockedEventForRun()`, and the daemon store no longer
 exposes the matching pass-through wrapper. The live run-level budget recovery
 route still calls the mounted `codingToolBudgetRecoveryForRun()` control
@@ -10494,7 +10494,7 @@ cancellation replay/projection storage, and direct Rust lifecycle APIs, not a JS
 runner fallback.
 
 Slice 1300 hard-cuts coding-tool budget recovery runner injection scaffolding.
-`createRuntimeCodingToolBudgetRecoverySurface()` no longer accepts
+`createRuntimeCodingToolBudgetRecoveryApi()` no longer accepts
 `codingToolBudgetRecoveryRunner`; retry completion, request-approval control,
 and approve-override control resolve only `store.contextPolicyCore` before Rust
 daemon-core budget recovery planning, wallet authority binding, and
@@ -10653,7 +10653,7 @@ Slice 1313 hard-cuts the coding-tool budget recovery surface store-core
 fallback. Retry-approved state update, request-approval control, and
 approve-override control now resolve only through the positive
 `contextPolicyCore` mount supplied to
-`createRuntimeCodingToolBudgetRecoverySurface()` by daemon startup. The budget
+`createRuntimeCodingToolBudgetRecoveryApi()` by daemon startup. The budget
 recovery surface and focused tests no longer read or model
 `store.contextPolicyCore` or `store.contextPolicyCore ?? null`, so
 budget-recovery run truth cannot return through a store-mounted planner

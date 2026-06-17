@@ -606,7 +606,7 @@ export function createRuntimeRouteHandlers(deps) {
     if (request.method === "POST" && action === "coding-tool-budget-recovery" && !segments[4]) {
       writeJsonResponse(
         response,
-        store.codingToolBudgetRecoverySurface.codingToolBudgetRecoveryForRun(store, runId, await readBody(request)),
+        store.codingToolBudgetRecoveryForRun(runId, await readBody(request)),
       );
       return;
     }

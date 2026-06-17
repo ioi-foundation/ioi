@@ -1221,22 +1221,22 @@ test("thread auxiliary and run cancel routes use store-owned auxiliary API direc
   }
 });
 
-test("run route sends coding-tool budget recovery through mounted surface", async () => {
+test("run route sends coding-tool budget recovery through store-owned API", async () => {
   const { handleRunRoute } = routeHandlers();
   const calls = [];
   const body = { request_id: "coding-tool-budget-recovery-route-test" };
   const store = {
-    codingToolBudgetRecoverySurface: {
-      codingToolBudgetRecoveryForRun(surfaceStore, runId, requestBody) {
-        calls.push({ surfaceStore, args: [runId, requestBody] });
-        return {
-          status: "rust_core_required",
-          args: [runId, requestBody],
-          direct_truth_write_allowed: false,
-        };
-      },
+    retiredBudgetRecoverySurface: {
+      codingToolBudgetRecoveryForRun: retiredRouteWrapper,
     },
-    codingToolBudgetRecoveryForRun: retiredRouteWrapper,
+    codingToolBudgetRecoveryForRun(runId, requestBody) {
+      calls.push({ args: [runId, requestBody] });
+      return {
+        status: "rust_core_required",
+        args: [runId, requestBody],
+        direct_truth_write_allowed: false,
+      };
+    },
   };
   const response = responseRecorder();
 
@@ -1254,7 +1254,6 @@ test("run route sends coding-tool budget recovery through mounted surface", asyn
 
   assert.equal(response.statusCode, 200);
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].surfaceStore, store);
   assert.deepEqual(calls[0].args, ["run_route", body]);
   assert.deepEqual(JSON.parse(response.body), {
     status: "rust_core_required",
