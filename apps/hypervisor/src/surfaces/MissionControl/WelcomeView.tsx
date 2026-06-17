@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import {
   AgentsIcon,
-  AutopilotIcon,
+  HypervisorIcon,
   CatalogIcon,
   ComposeIcon,
   IntegrationsIcon,
@@ -182,7 +182,7 @@ export function WelcomeView({
         <div className="chat-welcome-primary">
           <div className="chat-welcome-hero">
             <span className="chat-welcome-mark" aria-hidden="true">
-              <AutopilotIcon />
+              <HypervisorIcon />
             </span>
             <div className="chat-welcome-hero-copy">
               <span className="chat-welcome-eyebrow">

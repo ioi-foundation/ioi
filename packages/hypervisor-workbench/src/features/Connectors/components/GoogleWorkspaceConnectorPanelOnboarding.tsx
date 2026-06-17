@@ -266,7 +266,7 @@ export function GoogleWorkspaceConnectorPanelOnboarding({
               <h4>Set up Google access</h4>
               <p>
                 Create a Desktop OAuth client in your own Google Cloud project,
-                then save it locally in Autopilot. This assistant does not use
+                then save it locally in Hypervisor. This assistant does not use
                 platform-managed Google credentials.
               </p>
             </div>
@@ -287,7 +287,7 @@ export function GoogleWorkspaceConnectorPanelOnboarding({
             <article className="workspace-auth-step">
               <strong>2. Save it locally</strong>
               <p>
-                Autopilot validates the client ID format before it enables
+                Hypervisor validates the client ID format before it enables
                 Google consent.
               </p>
             </article>
@@ -349,7 +349,7 @@ export function GoogleWorkspaceConnectorPanelOnboarding({
               </span>
               <span>
                 Use a Desktop app OAuth client, not a Web app client, for the
-                native Autopilot redirect flow.
+                native Hypervisor redirect flow.
               </span>
             </div>
           </div>
@@ -358,7 +358,7 @@ export function GoogleWorkspaceConnectorPanelOnboarding({
             <div className="workspace-onboarding-summary workspace-onboarding-summary-recommended">
               <strong>Continue unlocking {unlockBundleContext.actionLabel}</strong>
               <p>
-                Save your local Google client once, then Autopilot will open
+                Save your local Google client once, then Hypervisor will open
                 bundle selection already centered on the access this action
                 needs.
               </p>
@@ -392,7 +392,7 @@ export function GoogleWorkspaceConnectorPanelOnboarding({
               <div>
                 <strong>Google Cloud Desktop OAuth client</strong>
                 <p>
-                  This is the required setup path for private Autopilot
+                  This is the required setup path for private Hypervisor
                   installs. The client belongs to you and is stored locally on
                   disk.
                 </p>
@@ -445,7 +445,7 @@ export function GoogleWorkspaceConnectorPanelOnboarding({
             <div className="workspace-byok-meta">
               <span>
                 Nothing is sent to a platform relay. Your Google project issues
-                the consent screen, and Autopilot stores the result locally.
+                the consent screen, and Hypervisor stores the result locally.
               </span>
             </div>
             {unlockBundleContext ? (
@@ -513,7 +513,7 @@ export function GoogleWorkspaceConnectorPanelOnboarding({
               <h4>Choose what this local agent can access</h4>
               <p>
                 Select the Google capabilities you want to grant before
-                Autopilot sends you to Google consent. Nothing beyond these
+                Hypervisor sends you to Google consent. Nothing beyond these
                 bundles will be requested.
               </p>
             </div>
@@ -619,7 +619,7 @@ export function GoogleWorkspaceConnectorPanelOnboarding({
               <span className="workspace-hero-kicker">Step 3</span>
               <h4>Finish consent in Google</h4>
               <p>
-                Autopilot has started native Google OAuth with the exact bundles
+                Hypervisor has started native Google OAuth with the exact bundles
                 you selected. Complete consent in your browser, then return here
                 while the connector refreshes automatically.
               </p>

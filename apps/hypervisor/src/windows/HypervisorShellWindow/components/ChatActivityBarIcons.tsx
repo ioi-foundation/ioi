@@ -9,7 +9,7 @@ const integrationsSvgMarkup = integrationsSvgRaw.replace(
   'fill="currentColor"',
 );
 
-export const AutopilotIcon = () => (
+export const HypervisorIcon = () => (
   <svg width="24" height="24" viewBox="0 0 64 64" fill="none">
     <path
       d="M10 50V42C10 40.9 9.1 40 8 40H7C5.34 40 4 38.66 4 37V13.5C4 11.84 5.34 10.5 7 10.5H31"

@@ -156,6 +156,23 @@ const hypervisorProviderPlacementModelSource = read(
 const workspaceRepositoryGateSource = read(
   "apps/hypervisor/src/surfaces/Workspace/WorkspaceRepositoryGate.tsx",
 );
+const hypervisorVisibleSurfaceSources = [
+  "apps/hypervisor/src/windows/ChatShellWindow/index.tsx",
+  "apps/hypervisor/src/windows/ChatShellWindow/components/ArtifactHubTaskViews.tsx",
+  "apps/hypervisor/src/windows/ChatShellWindow/components/views/ThoughtsView.tsx",
+  "apps/hypervisor/src/surfaces/MissionControl/WelcomeView.tsx",
+  "apps/hypervisor/src/surfaces/MissionControl/MissionControlMountsView.tsx",
+  "packages/workspace-substrate/src/components/WorkspaceHost.tsx",
+  "packages/workspace-substrate/src/notebook.ts",
+  "packages/hypervisor-workbench/src/features/Connectors/components/googleWorkspaceConnectorPanelConfig.ts",
+  "packages/hypervisor-workbench/src/features/Connectors/components/GoogleWorkspaceConnectorPanelConnected.tsx",
+  "packages/hypervisor-workbench/src/features/Connectors/components/GoogleWorkspaceConnectorPanel.tsx",
+  "packages/hypervisor-workbench/src/features/Connectors/components/GoogleWorkspaceConnectorPanelBody.tsx",
+  "packages/hypervisor-workbench/src/features/Connectors/components/GoogleWorkspaceConnectorPanelOnboarding.tsx",
+  "packages/hypervisor-workbench/src/features/Connectors/components/GenericConnectorPanel.tsx",
+  "packages/hypervisor-workbench/src/features/Connectors/components/MailConnectorPanel.tsx",
+  "packages/hypervisor-workbench/src/runtime/harness-workflow/core.ts",
+].map(read).join("\n");
 const packageScriptNames = Object.keys(packageJson.scripts ?? {});
 const retiredAutopilotPackageScripts = packageScriptNames.filter((scriptName) =>
   /^(?:goal|validate|test):autopilot/.test(scriptName),
@@ -466,6 +483,25 @@ assert(
     "apps/hypervisor/src/surfaces/Home/index.ts",
   ],
   "Home onboarding must use Hypervisor and Workbench adapter language instead of retired Autopilot/OpenVSCode product framing.",
+);
+assert(
+  "active-visible-surfaces-hypervisor-named",
+  !/\bAutopilot\b/.test(hypervisorVisibleSurfaceSources) &&
+    hypervisorVisibleSurfaceSources.includes("Hypervisor workspace") &&
+    hypervisorVisibleSurfaceSources.includes("Hypervisor native-local fixture") &&
+    hypervisorVisibleSurfaceSources.includes("inside Hypervisor"),
+  [
+    "apps/hypervisor/src/windows/ChatShellWindow/index.tsx",
+    "apps/hypervisor/src/windows/ChatShellWindow/components/ArtifactHubTaskViews.tsx",
+    "apps/hypervisor/src/windows/ChatShellWindow/components/views/ThoughtsView.tsx",
+    "apps/hypervisor/src/surfaces/MissionControl/WelcomeView.tsx",
+    "apps/hypervisor/src/surfaces/MissionControl/MissionControlMountsView.tsx",
+    "packages/workspace-substrate/src/components/WorkspaceHost.tsx",
+    "packages/workspace-substrate/src/notebook.ts",
+    "packages/hypervisor-workbench/src/features/Connectors/components",
+    "packages/hypervisor-workbench/src/runtime/harness-workflow/core.ts",
+  ],
+  "Active visible app/workbench surfaces must use Hypervisor labels; Autopilot may remain only in protocol IDs, historical evidence, or explicit legacy fixtures.",
 );
 assert(
   "workbench-landing-adapter-hub",

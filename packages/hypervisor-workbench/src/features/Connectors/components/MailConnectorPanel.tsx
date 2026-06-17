@@ -84,7 +84,7 @@ export function MailConnectorPanel({ mail }: MailConnectorPanelProps) {
         categoryLabel: "Mailbox task",
         title: "Read latest mail",
         description:
-          "Connect one inbox so Autopilot can pull the newest message from the selected mailbox.",
+          "Connect one inbox so Hypervisor can pull the newest message from the selected mailbox.",
         hint: "Unlock this action: jump to local inbox setup",
         ariaLabel: "Unlock Read latest mail. Open action setup details.",
       },
@@ -130,7 +130,7 @@ export function MailConnectorPanel({ mail }: MailConnectorPanelProps) {
   const unlockBlockerHeadline =
     "A connected inbox is still blocking this mailbox task.";
   const unlockBlockerDetail = selectedPreviewAction
-    ? `${selectedPreviewAction.title} needs one configured mailbox before Autopilot can read or inspect mail from it.`
+    ? `${selectedPreviewAction.title} needs one configured mailbox before Hypervisor can read or inspect mail from it.`
     : "Connect one inbox first so mailbox tasks have a real account to use.";
   const unlockProviderHint = mail.effectivePreset
     ? `${mail.effectivePreset.label} settings are already prepared from the current email. ${mail.effectivePreset.note}`
@@ -332,7 +332,7 @@ export function MailConnectorPanel({ mail }: MailConnectorPanelProps) {
       {mail.connectedMailAccounts.length === 0 ? (
         <ConnectorActionPreviewStage
           title="Connect an inbox to unlock mailbox tasks"
-          summary="Start with one inbox. Once it is attached, Autopilot can read the newest message or inspect recent deliveries from that mailbox."
+          summary="Start with one inbox. Once it is attached, Hypervisor can read the newest message or inspect recent deliveries from that mailbox."
           statusLabel="Inbox required"
           actions={previewActions}
           onSelectAction={setSelectedPreviewActionId}
@@ -343,7 +343,7 @@ export function MailConnectorPanel({ mail }: MailConnectorPanelProps) {
         <div className="mail-setup-head">
           <h3>Connect Mail Account</h3>
           <p>
-            Add an inbox Autopilot can use. You can connect more than one account by using
+            Add an inbox Hypervisor can use. You can connect more than one account by using
             different mailbox names.
           </p>
         </div>
@@ -728,7 +728,7 @@ export function MailConnectorPanel({ mail }: MailConnectorPanelProps) {
                 <span>Your inbox email address.</span>
                 <span>Your password or app password.</span>
                 <span>
-                  A mailbox name if you want Autopilot to keep more than one
+                  A mailbox name if you want Hypervisor to keep more than one
                   inbox configured.
                 </span>
               </div>

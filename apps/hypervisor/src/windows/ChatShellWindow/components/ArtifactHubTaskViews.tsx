@@ -37,7 +37,7 @@ export function PlanView({
   const outputLabel =
     planSummary.routeDecision?.outputIntent?.replace(/[_-]+/g, " ") ||
     "direct response";
-  const workerLabel = planSummary.activeWorkerLabel || "Autopilot";
+  const workerLabel = planSummary.activeWorkerLabel || "Hypervisor";
   const verifierLabel =
     planSummary.verifierOutcome ||
     (planSummary.verifierState === "not_engaged" ? null : planSummary.verifierState);
@@ -73,7 +73,7 @@ export function PlanView({
       <section className="thoughts-section">
         <div className="thoughts-agent-header">
           <span className="thoughts-agent-dot" />
-          <span className="thoughts-agent-name">Autopilot</span>
+          <span className="thoughts-agent-name">Hypervisor</span>
           <span className="thoughts-agent-role">Plan</span>
         </div>
         <div className="thoughts-notes">

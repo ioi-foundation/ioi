@@ -872,7 +872,7 @@ export function GenericConnectorPanel({
           <strong>{connectorStatusLabel(effectiveStatus)}</strong>
           <p>
             {selectedPreviewAction
-              ? `${selectedPreviewAction.label} needs this surface connected before Autopilot can run it.`
+              ? `${selectedPreviewAction.label} needs this surface connected before Hypervisor can run it.`
               : "Connect this surface before you run its live actions."}
           </p>
         </article>

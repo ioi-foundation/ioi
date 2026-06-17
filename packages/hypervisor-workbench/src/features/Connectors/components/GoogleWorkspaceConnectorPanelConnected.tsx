@@ -50,7 +50,7 @@ export function GoogleWorkspaceConnectorPanelConnected({
                   ? `Last checked ${formatTimestamp(workspace.lastConfiguredAtUtc)}`
                   : connector.lastSyncAtUtc
                     ? `Last sync ${formatTimestamp(connector.lastSyncAtUtc)}`
-                    : "Run Connect to start native Google OAuth in Autopilot."}
+                    : "Run Connect to start native Google OAuth in Hypervisor."}
               </p>
             </article>
             <article className="workspace-stat-card">

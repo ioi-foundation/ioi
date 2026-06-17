@@ -1,2 +1,2 @@
-// Compatibility barrel for Autopilot frontend contracts.
+// Compatibility barrel for Hypervisor frontend contracts.
 export * from "./types/index";

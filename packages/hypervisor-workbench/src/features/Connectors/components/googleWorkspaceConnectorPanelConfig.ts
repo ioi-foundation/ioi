@@ -225,7 +225,7 @@ export const AUTOMATION_RECIPES: AutomationRecipe[] = [
   {
     id: "gmail-watch",
     title: "Inbox watch",
-    summary: "Maintain a durable Gmail watch and inspect normalized deliveries in Autopilot.",
+    summary: "Maintain a durable Gmail watch and inspect normalized deliveries in Hypervisor.",
     actionId: "gmail.watch_emails",
     presetInput: {
       labelIds: "INBOX",

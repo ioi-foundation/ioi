@@ -1373,7 +1373,7 @@ export function ChatShellWindow({
           <ThoughtChain
             messages={[]}
             activeStep={task?.current_step || "Initializing..."}
-            agentName={task?.agent || "Autopilot"}
+            agentName={task?.agent || "Hypervisor"}
             generation={task?.generation || 0}
             progress={0}
             totalSteps={task?.total_steps || 10}

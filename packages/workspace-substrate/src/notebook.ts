@@ -25,7 +25,7 @@ type NotebookRecord = {
   cells?: NotebookCellRecord[];
 };
 
-type AutopilotReplayCellRecord = {
+type HypervisorReplayCellRecord = {
   id?: string;
   cell_kind?: string;
   status?: string;
@@ -45,12 +45,12 @@ type AutopilotReplayCellRecord = {
   policy_decision_refs?: unknown;
 };
 
-type AutopilotReplayRecord = {
+type HypervisorReplayRecord = {
   schema_version?: string;
   status?: string;
   read_only_replay_mode?: boolean;
   receipt_backed_cell_count?: number;
-  cells?: AutopilotReplayCellRecord[];
+  cells?: HypervisorReplayCellRecord[];
 };
 
 function sourceToString(source: NotebookSource | undefined): string {
@@ -116,7 +116,7 @@ function notebookCellId(cell: NotebookCellRecord, index: number): string {
   return explicit || `cell-${index + 1}`;
 }
 
-function isAutopilotReplayPath(path: string): boolean {
+function isHypervisorReplayPath(path: string): boolean {
   return path.trim().toLowerCase().endsWith(".autopilot");
 }
 
@@ -133,8 +133,8 @@ export function parseWorkspaceNotebookDocument(
     return null;
   }
 
-  if (isAutopilotReplayPath(path)) {
-    return parseAutopilotReplayNotebookDocument(path, content);
+  if (isHypervisorReplayPath(path)) {
+    return parseHypervisorReplayNotebookDocument(path, content);
   }
 
   let notebook: NotebookRecord;
@@ -200,7 +200,7 @@ export function updateWorkspaceNotebookCellSource(
     return null;
   }
 
-  if (isAutopilotReplayNotebookRecord(parsed)) {
+  if (isHypervisorReplayNotebookRecord(parsed)) {
     return null;
   }
 
@@ -225,18 +225,18 @@ export function updateWorkspaceNotebookCellSource(
   return `${JSON.stringify(notebook, null, 2)}\n`;
 }
 
-function parseAutopilotReplayNotebookDocument(
+function parseHypervisorReplayNotebookDocument(
   path: string,
   content: string,
 ): WorkspaceNotebookDocument | null {
-  let replay: AutopilotReplayRecord;
+  let replay: HypervisorReplayRecord;
   try {
-    replay = JSON.parse(content) as AutopilotReplayRecord;
+    replay = JSON.parse(content) as HypervisorReplayRecord;
   } catch {
     return null;
   }
 
-  if (!isAutopilotReplayNotebookRecord(replay)) {
+  if (!isHypervisorReplayNotebookRecord(replay)) {
     return null;
   }
 
@@ -285,7 +285,7 @@ function parseAutopilotReplayNotebookDocument(
     nbformat: 4,
     nbformatMinor: 5,
     language: "autopilot-replay",
-    kernelDisplayName: "Autopilot Signed Replay",
+    kernelDisplayName: "Hypervisor Signed Replay",
     readOnlyReplayMode: Boolean(replay.read_only_replay_mode),
     receiptBackedCellCount:
       typeof replay.receipt_backed_cell_count === "number"
@@ -298,13 +298,13 @@ function parseAutopilotReplayNotebookDocument(
   };
 }
 
-function isAutopilotReplayNotebookRecord(
+function isHypervisorReplayNotebookRecord(
   value: unknown,
-): value is AutopilotReplayRecord {
+): value is HypervisorReplayRecord {
   if (!value || typeof value !== "object") {
     return false;
   }
-  const record = value as AutopilotReplayRecord;
+  const record = value as HypervisorReplayRecord;
   const schema = String(record.schema_version ?? "");
   return schema.includes("signed-replay-notebook");
 }
@@ -323,7 +323,7 @@ function stringArray(value: unknown): string[] {
 }
 
 function autopilotReplayCellSource(
-  cell: AutopilotReplayCellRecord,
+  cell: HypervisorReplayCellRecord,
   refs: {
     receiptRefs: string[];
     artifactRefs: string[];
@@ -331,7 +331,7 @@ function autopilotReplayCellSource(
     policyDecisionRefs: string[];
   },
 ): string {
-  const title = stringField(cell.title) || "Autopilot replay cell";
+  const title = stringField(cell.title) || "Hypervisor replay cell";
   const lines = [`# ${title}`];
   const summary = stringField(cell.summary);
   const status = stringField(cell.status);

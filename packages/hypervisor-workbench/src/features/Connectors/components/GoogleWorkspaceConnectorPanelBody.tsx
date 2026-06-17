@@ -36,7 +36,7 @@ export function GoogleWorkspaceConnectorPanelBody({
           <p>
             Local-first Google access for Gmail, Calendar, Docs, Sheets,
             BigQuery, Drive, Tasks, Chat, and durable Workspace automations
-            inside Autopilot.
+            inside Hypervisor.
           </p>
           {workspace.connectedAccountEmail ? (
             <p className="workspace-hero-account">

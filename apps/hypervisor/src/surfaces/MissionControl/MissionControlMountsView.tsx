@@ -912,7 +912,7 @@ const fallbackData: MountsWorkbenchData = {
       "structured_output",
       "rerank",
     ], "agentgres_model_registry_fixture"),
-    provider("provider.autopilot.local", "Autopilot native local", "ioi_native_local", "available", "local_private", "ioi_native", "local://ioi-native/model-server", "no auth", [
+    provider("provider.autopilot.local", "Hypervisor native local", "ioi_native_local", "available", "local_private", "ioi_native", "local://ioi-native/model-server", "no auth", [
       "chat",
       "responses",
       "embeddings",
@@ -962,7 +962,7 @@ const fallbackData: MountsWorkbenchData = {
       "embeddings",
       "rerank",
     ], "deterministic_fixture", "normal", "none"),
-    backend("backend.autopilot.native-local.fixture", "Autopilot native-local fixture", "native_local", "available", "supervised_fixture", "local://ioi-native/model-server", "fixture", [
+    backend("backend.autopilot.native-local.fixture", "Hypervisor native-local fixture", "native_local", "available", "supervised_fixture", "local://ioi-native/model-server", "fixture", [
       "gguf",
       "fixture",
     ], ["chat", "responses", "embeddings", "rerank"], "autopilot_native_local_backend_registry", "normal", "none"),
@@ -981,7 +981,7 @@ const fallbackData: MountsWorkbenchData = {
     ], ["chat", "responses", "embeddings"], "lm_studio_public_cli_or_server_probe", "normal", "none"),
   ],
   runtimeEngines: [
-    runtimeEngine("backend.autopilot.native-local.fixture", "Autopilot native-local fixture", "native_local", "available", true, "gguf,fixture", "autopilot_backend_registry"),
+    runtimeEngine("backend.autopilot.native-local.fixture", "Hypervisor native-local fixture", "native_local", "available", true, "gguf,fixture", "autopilot_backend_registry"),
     runtimeEngine("backend.llama-cpp", "llama.cpp native GGUF server", "llama_cpp", "blocked", false, "gguf", "autopilot_backend_registry"),
     runtimeEngine("lmstudio.runtime.cuda12", "LM Studio CUDA12 llama.cpp runtime", "lm_studio_runtime", "installed", true, "GGUF", "lm_studio_public_lms_runtime_ls"),
   ],
@@ -1312,7 +1312,7 @@ const fallbackCatalogVariants: CatalogVariantPreview[] = [
       reasons: ["native_local_fixture ready", "size and storage projection are acceptable", "chat-ready"],
     },
     backendCompatibility: [
-      { backendKind: "native_local_fixture", score: 92, status: "ready", reason: "Autopilot native-local can import deterministic local artifacts." },
+      { backendKind: "native_local_fixture", score: 92, status: "ready", reason: "Hypervisor native-local can import deterministic local artifacts." },
       { backendKind: "llama_cpp", score: 90, status: "ready", reason: "llama.cpp expects GGUF artifacts." },
       { backendKind: "ollama", score: 62, status: "compatible", reason: "Ollama can run local GGUF through import/create workflows when configured." },
       { backendKind: "vllm", score: 18, status: "unsupported", reason: "vLLM expects Hugging Face/safetensors-style artifacts." },
@@ -1361,7 +1361,7 @@ const fallbackCatalogVariants: CatalogVariantPreview[] = [
       reasons: ["native_local_fixture ready", "size and storage projection are acceptable", "chat-ready"],
     },
     backendCompatibility: [
-      { backendKind: "native_local_fixture", score: 92, status: "ready", reason: "Autopilot native-local can import deterministic local artifacts." },
+      { backendKind: "native_local_fixture", score: 92, status: "ready", reason: "Hypervisor native-local can import deterministic local artifacts." },
       { backendKind: "llama_cpp", score: 90, status: "ready", reason: "llama.cpp expects GGUF artifacts." },
       { backendKind: "ollama", score: 62, status: "compatible", reason: "Ollama can run local GGUF through import/create workflows when configured." },
       { backendKind: "vllm", score: 18, status: "unsupported", reason: "vLLM expects Hugging Face/safetensors-style artifacts." },
@@ -2410,7 +2410,7 @@ function useModelMountsDaemon() {
               load_policy: { mode: "on_demand", idle_ttl_seconds: 900, auto_evict: true },
             },
           });
-          return "Autopilot native-local fixture loaded without LM Studio.";
+          return "Hypervisor native-local fixture loaded without LM Studio.";
         }),
       downloadFixture: () =>
         runAction("download-fixture", async () => {
@@ -2674,7 +2674,7 @@ function useModelMountsDaemon() {
           await requestJson("/v1/chat/completions", {
             method: "POST",
             token,
-            body: { model: "local:auto", input: "Autopilot Mounts workbench probe" },
+            body: { model: "local:auto", input: "Hypervisor Mounts workbench probe" },
           });
           return "Native chat probe produced a model invocation receipt.";
         }),
@@ -4706,7 +4706,7 @@ function BackendsPanel({
           <h3 id="model-mounts-backends-title">Backend manager</h3>
         </div>
         <div className="model-mounts-actions">
-          <StatusPill tone="ready">Autopilot owned</StatusPill>
+          <StatusPill tone="ready">Hypervisor owned</StatusPill>
           <StatusPill tone="muted">live engines gated</StatusPill>
           <ActionButton onClick={onProbeNativeBackend} disabled={busy} guard={combineGuards(connectionActionGuard(connectionState, "backend health"), backendGuard(nativeBackend, true))}>Probe native backend</ActionButton>
           <ActionButton onClick={onStartNativeBackend} disabled={busy} guard={backendStartGuard}>Start native</ActionButton>

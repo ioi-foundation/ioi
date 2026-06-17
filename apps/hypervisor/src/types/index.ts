@@ -1,4 +1,4 @@
-// Domain barrel for Autopilot frontend contracts.
+// Domain barrel for Hypervisor frontend contracts.
 
 export type {
   Node,

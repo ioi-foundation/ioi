@@ -1,4 +1,4 @@
-// Re-export shared Hypervisor Workbench contracts through the Autopilot type domain.
+// Re-export shared Hypervisor Workbench contracts through the Hypervisor type domain.
 export type {
   Node,
   Edge,

@@ -886,7 +886,7 @@ export function GoogleWorkspaceConnectorPanel({
       <WorkspaceModal
         open={setupHelpModalOpen}
         title="Google OAuth troubleshooting"
-        description="Use this when Google shows an error page instead of returning to Autopilot."
+        description="Use this when Google shows an error page instead of returning to Hypervisor."
         onClose={() => setSetupHelpModalOpen(false)}
       >
         <div className="workspace-warning-panel">
@@ -943,7 +943,7 @@ export function GoogleWorkspaceConnectorPanel({
             <p>
               In <code>Google Auth Platform</code>, then{" "}
               <code>Data Access</code>, review the exact scopes that will be
-              requested for the bundles selected in Autopilot.
+              requested for the bundles selected in Hypervisor.
             </p>
             <p>
               When switching to <code>External</code>, Google may require extra

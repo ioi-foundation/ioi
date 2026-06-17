@@ -161,7 +161,7 @@ export function ThoughtsView({
         <section className="thoughts-section thoughts-section--compact">
           <div className="thoughts-agent-header">
             <span className="thoughts-agent-dot" />
-            <span className="thoughts-agent-name">Autopilot</span>
+            <span className="thoughts-agent-name">Hypervisor</span>
             <span className="thoughts-agent-role">Research</span>
           </div>
           <div className="thoughts-items thoughts-items-compact">

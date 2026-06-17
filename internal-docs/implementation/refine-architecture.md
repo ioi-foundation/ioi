@@ -1022,6 +1022,14 @@ Current implementation cut:
   the active Tauri app and root `ide/` product path are retired, and root
   `package.json` now exposes Hypervisor/App/Workbench command names instead of
   retired Autopilot-prefixed goal, validation, or test product aliases.
+  active proof/helper APIs now use Hypervisor names:
+  `hypervisor-campaign-processes.mjs`,
+  `hypervisor-runtime-agent-service-inference.mjs`,
+  `hypervisor-agent-chat-scenarios.mjs`,
+  `hypervisorGuiHarnessContract`, `validateHypervisorGuiHarnessResult`,
+  and `buildBlockedHypervisorGuiHarnessResult`; `check:runtime-layout`
+  rejects the retired helper filenames, exported symbols, and
+  Autopilot-stamped active proof schemas.
   the active Workbench adapter shell patch helper is
   `scripts/lib/hypervisor-workbench-shell-patch.mjs` with
   `applyHypervisorWorkbenchShellPatch`, `ioi-hypervisor-native-shell`, and
@@ -1064,6 +1072,9 @@ Current implementation cut:
   of a hand-maintained IDE-era list
   `check:runtime-layout` now guards this contract so Phase 0A remains tied to
   the IOI reference cockpit rather than ONA, Tauri, or singular-IDE framing
+  active visible chat, workspace, connector, model, and harness-workflow
+  surfaces now use Hypervisor labels instead of Autopilot labels; lowercase
+  legacy protocol/model IDs remain a separate model-mount compatibility cut.
 
 0A.2 remaining visual implementation:
   Home still needs to become the full IOI-reference cockpit view

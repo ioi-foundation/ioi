@@ -1012,7 +1012,7 @@ export function WorkspaceHost({
       {showHeader ? (
         <header className="workspace-host-header">
           <div className="workspace-host-header-copy">
-            <span className="workspace-pane-eyebrow">Autopilot workspace</span>
+            <span className="workspace-pane-eyebrow">Hypervisor workspace</span>
             <h2>{title}</h2>
             <p>{session.snapshot?.rootPath ?? root}</p>
           </div>
