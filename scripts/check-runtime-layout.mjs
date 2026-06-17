@@ -215,12 +215,17 @@ assert(
       '"agents"',
       '"models"',
       '"privacy"',
-      '"fleet"',
+      '"providers"',
+      '"environments"',
       '"foundry"',
       '"authority"',
       '"receipts"',
       '"settings"',
     ].every((surface) => hypervisorShellNavigationSource.includes(surface)) &&
+    !/["']fleet["']|fleet_job|fleet\.provider|features\/Fleet/.test(
+      hypervisorShellNavigationSource,
+    ) &&
+    !exists("packages/hypervisor-workbench/src/features/Fleet") &&
     [
       '"left_nav"',
       '"new_session"',

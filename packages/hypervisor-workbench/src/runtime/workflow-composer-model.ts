@@ -934,7 +934,7 @@ export type WorkflowRuntimeUnavailableSurface =
   | "tool_catalog"
   | "connector_catalog"
   | "model_catalog"
-  | "fleet_state"
+  | "environment_estate"
   | "workspace_runtime"
   | "capability_registry";
 
@@ -961,8 +961,8 @@ function workflowRuntimeUnavailableSurfaceLabel(
       return "connector catalog";
     case "model_catalog":
       return "model catalog";
-    case "fleet_state":
-      return "fleet state";
+    case "environment_estate":
+      return "environment estate";
     case "workspace_runtime":
       return "workspace runtime";
     case "capability_registry":

@@ -711,7 +711,7 @@ export function CommandPalette({
       {
         id: "open-runs",
         title: "Open Insights",
-        description: "Inspect the fleet and execution supervision surfaces.",
+        description: "Inspect environment estate and execution supervision surfaces.",
         meta: "Insights",
         icon: icons.history,
         active: activeView === "insights",

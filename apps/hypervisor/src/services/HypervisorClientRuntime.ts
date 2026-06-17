@@ -18,7 +18,7 @@ import {
   ConnectorConfigureResult,
   ConnectorSubscriptionSummary,
   CreateMonitorWorkflowRequest,
-  FleetState,
+  EnvironmentEstateState,
   GraphCapabilityCatalog,
   GraphEvent,
   GraphGlobalConfig,
@@ -422,7 +422,7 @@ function playbookRunContainer(run: LocalEngineParentPlaybookRun): Container {
   };
 }
 
-function liveFleetStateFromSnapshot(snapshot: LocalEngineSnapshot): FleetState {
+function liveEnvironmentEstateStateFromSnapshot(snapshot: LocalEngineSnapshot): EnvironmentEstateState {
   const liveRuns = snapshot.parentPlaybookRuns.filter(
     (run) => !["completed", "failed"].includes(run.status),
   );
@@ -1924,8 +1924,8 @@ export class HypervisorClientRuntime implements AgentWorkbenchRuntime, Assistant
         return liveAgentSummariesFromSnapshot(await this.getLocalEngineSnapshot());
     }
 
-    async getFleetState(): Promise<FleetState> {
-        return liveFleetStateFromSnapshot(await this.getLocalEngineSnapshot());
+    async getEnvironmentEstateState(): Promise<EnvironmentEstateState> {
+        return liveEnvironmentEstateStateFromSnapshot(await this.getLocalEngineSnapshot());
     }
 
     async getRuntimeCatalogEntries(): Promise<RuntimeCatalogEntry[]> {

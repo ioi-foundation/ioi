@@ -51,12 +51,19 @@ const PLACEHOLDER_SURFACE_COPY: Partial<
       "This surface tracks public trunks, redacted projections, encrypted refs, private handles, model-mount posture, and explicit unsafe mounts before a provider or adapter sees sensitive state.",
     tags: ["cTEE", "No plaintext custody", "Declassification"],
   },
-  fleet: {
-    eyebrow: "Provider estate",
-    title: "Fleet will manage direct provider integrations.",
+  providers: {
+    eyebrow: "Provider posture",
+    title: "Providers manage direct compute, storage, model, and node integrations.",
     body:
-      "This surface is for local machines, customer clouds, DePIN providers, VMs, containers, HypervisorOS nodes, ports, services, spend leases, and provider receipts.",
+      "This surface is for local machines, customer clouds, DePIN compute, storage backends, confidential compute lanes, provider spend leases, and provider receipts.",
     tags: ["Local", "Cloud", "DePIN"],
+  },
+  environments: {
+    eyebrow: "Environment estate",
+    title: "Environments are governed resources behind sessions.",
+    body:
+      "This surface tracks VMs, containers, HypervisorOS nodes, ports, services, access leases, log leases, archive refs, restore refs, and provider placement evidence without making infrastructure truth.",
+    tags: ["Sessions", "Ports", "Restore"],
   },
   foundry: {
     eyebrow: "Evals and promotion",

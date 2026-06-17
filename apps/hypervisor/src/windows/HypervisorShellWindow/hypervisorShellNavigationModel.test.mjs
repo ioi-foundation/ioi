@@ -70,7 +70,8 @@ test("hypervisor shell binds Phase 0A to the IOI reference cockpit contract", ()
     "agents",
     "models",
     "privacy",
-    "fleet",
+    "providers",
+    "environments",
     "foundry",
     "authority",
     "receipts",
@@ -119,8 +120,10 @@ test("hypervisor shell keeps application surfaces separate from clients", () => 
     /editors, terminals, browsers, and VMs are adapter targets/,
   );
   assert.match(source, /id: "foundry"[\s\S]*label: "Foundry"/);
-  assert.match(source, /id: "fleet"[\s\S]*label: "Fleet"/);
-  assert.match(source, /Direct provider integrations/);
+  assert.match(source, /id: "providers"[\s\S]*label: "Providers"/);
+  assert.match(source, /id: "environments"[\s\S]*label: "Environments"/);
+  assert.match(source, /Direct integrations for local, cloud, DePIN/);
+  assert.doesNotMatch(source, /id: "fleet"[\s\S]*label: "Fleet"/);
   assert.doesNotMatch(
     source,
     /Hypervisor IDE|reverse-engineering\/ona/,
@@ -139,7 +142,7 @@ test("hypervisor shell models IOI-reference session detail and inspectors", () =
     "agent.default",
     "automation.default",
     "foundry.eval",
-    "fleet.provider",
+    "environment.provider",
     "privacy.workspace",
   ]) {
     assert.match(source, new RegExp(recipeId.replace(".", "\\.")));

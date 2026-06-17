@@ -91,7 +91,8 @@ test("operator activity rail is a shell projection with deterministic surfaces",
       "agents",
       "models",
       "privacy",
-      "fleet",
+      "providers",
+      "environments",
       "foundry",
       "authority",
       "receipts",
@@ -110,11 +111,11 @@ test("operator activity rail is a shell projection with deterministic surfaces",
     "active_route",
   );
   assert.equal(
-    model.items.find((item) => item.dataWindowSurface === "fleet")?.routeState,
+    model.items.find((item) => item.dataWindowSurface === "providers")?.routeState,
     "active_route",
   );
   assert.equal(
-    model.items.find((item) => item.dataWindowSurface === "fleet")?.group,
+    model.items.find((item) => item.dataWindowSurface === "environments")?.group,
     "governance",
   );
   assert.equal(

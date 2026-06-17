@@ -40,14 +40,14 @@ export interface Container {
   uptime: string;
 }
 
-export interface FleetState {
+export interface EnvironmentEstateState {
   zones: Zone[];
   containers: Container[];
 }
 
 export interface WorkbenchOperationsRuntime {
   getAgents(): Promise<AgentSummary[]>;
-  getFleetState(): Promise<FleetState>;
+  getEnvironmentEstateState(): Promise<EnvironmentEstateState>;
   getRuntimeCatalogEntries(): Promise<RuntimeCatalogEntry[]>;
   stageRuntimeCatalogEntry(entryId: string, notes?: string): Promise<void>;
 }

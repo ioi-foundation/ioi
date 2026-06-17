@@ -193,7 +193,7 @@ export const AgentsIcon = () => (
   </svg>
 );
 
-export const FleetIcon = () => (
+export const EnvironmentIcon = () => (
   <svg
     width="22"
     height="22"

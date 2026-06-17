@@ -53,15 +53,15 @@ test("catalog fallback copy keeps catalog failures user-facing", () => {
   assert.match(fallback.technicalDetail ?? "", /connector catalog/);
 });
 
-test("fleet state failures hide raw bridge exceptions", () => {
+test("environment estate failures hide raw bridge exceptions", () => {
   const copy = workflowRuntimeUnavailableCopy(
     new Error("Cannot read properties of undefined (reading 'invoke')"),
-    "fleet_state",
+    "environment_estate",
   );
 
   assert.equal(copy.code, "runtime_bridge_unavailable");
   assert.equal(copy.title, "Runtime bridge unavailable");
-  assert.match(copy.technicalDetail, /fleet state/);
+  assert.match(copy.technicalDetail, /environment estate/);
   assert.doesNotMatch(copy.message, /Cannot read properties|invoke/);
 });
 

@@ -1035,12 +1035,11 @@ Current implementation cut:
   target shell routes are Home, Sessions, Projects, Missions, Workbench,
   Automations, Insights, Agents, Models, Privacy, Providers, Environments,
   Foundry, Authority, Receipts, and Settings
-  current implementation still carries a `fleet` route and
-  `packages/hypervisor-workbench/src/features/Fleet/*`; rename that route and
-  feature module to Providers/Environments in the provider-environment
-  implementation slice
-  Projects, Privacy, the current provider-estate route, Foundry, and Receipts have live placeholder
-  surfaces instead of command-palette-only rail items
+  the active `fleet` route and `packages/hypervisor-workbench/src/features/Fleet/*`
+  feature module have been retired in favor of explicit Providers and
+  Environments surfaces plus `EnvironmentEstateView`
+  Projects, Privacy, Providers, Environments, Foundry, and Receipts have live
+  placeholder surfaces instead of command-palette-only rail items
   `/sessions` is the canonical session shell route; `/chat` is no longer a
   named product route
   workflow dogfood probes request `automations` as the initial shell surface
@@ -1072,16 +1071,15 @@ Current implementation cut:
   behavior are preserved under the Workbench surface
   `WorkspaceRepositoryGate.workbenchHub.test.mjs` and `check:runtime-layout`
   reject the old first-screen `Code repositories` / `Pull requests` framing
-  remaining 0A.5 work: add a real editor-adapter preference control and route
-  Cursor/Windsurf/JetBrains/browser IDE/terminal selections into session launch
-  and settings instead of showing them only as target cards
+  editor-adapter preference is a real New Session setting and shell launch
+  request field; remaining 0A.5 work is deeper adapter-specific launch/control
+  wiring for external desktop editors, browser IDEs, terminal harnesses, VMs,
+  and HypervisorOS nodes
 
 0A.4 New Session is partially implemented:
-  target `HYPERVISOR_SESSION_LAUNCH_RECIPES` should define Mission, Workbench,
-  Agent, Automation, Foundry Job, Provider/Environment Job, and Private
-  Workspace launch recipes; the current implementation may still use the old
-  `fleet_job` identifier until the provider-environment implementation slice
-  renames it
+  `HYPERVISOR_SESSION_LAUNCH_RECIPES` defines Mission, Workbench, Agent,
+  Automation, Foundry Job, Provider/Environment Job, and Private Workspace
+  launch recipes without the retired `fleet_job` identifier
   `HypervisorNewSessionModal` binds project, harness, model route, privacy
   posture, authority scope templates, and receipt preview before launch
   the activity rail and Home dashboard open the shell-level New Session modal

@@ -447,7 +447,7 @@ export {
 export { ActivityBar } from "./features/Shell/ActivityBar";
 export { AssistantWorkbenchView } from "./features/Shell/AssistantWorkbenchView";
 export { SessionHistorySidebar } from "./features/Shell/SessionHistorySidebar";
-export { FleetView } from "./features/Fleet/FleetView";
+export { EnvironmentEstateView } from "./features/Environments/EnvironmentEstateView";
 export { AgentsDashboard } from "./features/Dashboard/AgentsDashboard";
 export { BuilderView } from "./features/Builder/BuilderView";
 export { RuntimeCatalogView } from "./features/Marketplace/RuntimeCatalogView";
@@ -630,7 +630,7 @@ export type {
   WorkflowToolCatalogEntry,
   CacheResult,
   AgentSummary,
-  FleetState,
+  EnvironmentEstateState,
   Zone,
   Container,
   RuntimeCatalogEntry,

@@ -1,4 +1,4 @@
-import { FleetView } from "@ioi/hypervisor-workbench";
+import { EnvironmentEstateView } from "@ioi/hypervisor-workbench";
 import { HypervisorClientRuntime } from "../../services/HypervisorClientRuntime";
 
 interface MissionControlRunsViewProps {
@@ -21,7 +21,7 @@ export function MissionControlRunsView({ runtime }: MissionControlRunsViewProps)
 
       <div className="mission-control-stage">
         <div className="mission-control-stage-frame">
-          <FleetView runtime={runtime} />
+          <EnvironmentEstateView runtime={runtime} />
         </div>
       </div>
     </div>

@@ -20,7 +20,8 @@ export type HypervisorSurfaceId =
   | "agents"
   | "models"
   | "privacy"
-  | "fleet"
+  | "providers"
+  | "environments"
   | "foundry"
   | "authority"
   | "receipts"
@@ -178,7 +179,7 @@ export interface HypervisorSessionLaunchRecipe {
     | "agent"
     | "automation"
     | "foundry_job"
-    | "fleet_job"
+    | "provider_environment_job"
     | "privacy_workspace";
   surface_id: HypervisorSurfaceId;
   required_inputs: string[];
@@ -289,7 +290,7 @@ export const HYPERVISOR_PRIMARY_ACTION: HypervisorShellAction = {
   id: "new_session",
   label: "New Session",
   description:
-    "Launch a governed mission, workbench, agent, automation, foundry, fleet, or private workspace session.",
+    "Launch a governed mission, workbench, agent, automation, foundry, provider, environment, or private workspace session.",
 };
 
 export const HYPERVISOR_NEW_SESSION_SETUP_MODEL: HypervisorNewSessionSetupModel =
@@ -425,12 +426,12 @@ export const HYPERVISOR_SESSION_LAUNCH_RECIPES: HypervisorSessionLaunchRecipe[] 
       privacy_posture_templates: ["public_trunk", "redacted_projection"],
     },
     {
-      recipe_id: "fleet.provider",
-      label: "Fleet Job",
+      recipe_id: "environment.provider",
+      label: "Provider / Environment Job",
       description:
         "Provider, VM, node, port, service, or zero-to-idle infrastructure session.",
-      kind: "fleet_job",
-      surface_id: "fleet",
+      kind: "provider_environment_job",
+      surface_id: "environments",
       required_inputs: ["project", "authority", "privacy_posture", "receipt_preview"],
       model_mount_policy: "forbidden",
       harness_profile_policy: "external_adapter",
@@ -541,9 +542,17 @@ export const HYPERVISOR_PRIMARY_SURFACES: HypervisorShellNavigationItem[] = [
     inspectorPanels: ["privacy", "authority", "receipts"],
   },
   {
-    id: "fleet",
-    label: "Fleet",
-    description: "Direct provider integrations for local, cloud, DePIN, VM, and node estate.",
+    id: "providers",
+    label: "Providers",
+    description: "Direct integrations for local, cloud, DePIN, customer cloud, and model providers.",
+    kind: "infrastructure",
+    railGroup: "governance",
+    inspectorPanels: ["authority", "privacy", "receipts"],
+  },
+  {
+    id: "environments",
+    label: "Environments",
+    description: "Managed sessions, VMs, nodes, ports, services, tasks, and restore posture.",
     kind: "infrastructure",
     railGroup: "governance",
     inspectorPanels: ["ports_services", "logs", "receipts"],
@@ -640,7 +649,8 @@ export const HYPERVISOR_IOI_REFERENCE_SHELL_REQUIREMENTS: HypervisorIoiReference
       "agents",
       "models",
       "privacy",
-      "fleet",
+      "providers",
+      "environments",
       "foundry",
       "authority",
       "receipts",
@@ -657,7 +667,8 @@ export const HYPERVISOR_IOI_REFERENCE_SHELL_REQUIREMENTS: HypervisorIoiReference
       "agents",
       "models",
       "privacy",
-      "fleet",
+      "providers",
+      "environments",
       "foundry",
       "authority",
       "receipts",

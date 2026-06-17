@@ -1,4 +1,4 @@
-// packages/hypervisor-workbench/src/features/Fleet/FleetView.tsx
+// packages/hypervisor-workbench/src/features/Environments/EnvironmentEstateView.tsx
 import { useState, useEffect, useMemo } from "react";
 import { AgentWorkbenchRuntime, Zone, Container } from "../../runtime/agent-runtime";
 import {
@@ -6,9 +6,9 @@ import {
   type WorkflowRuntimeUnavailableCopy,
 } from "../../runtime/workflow-composer-model";
 import { Icons } from "../../ui/icons";
-import "./FleetView.css";
+import "./EnvironmentEstateView.css";
 
-interface FleetViewProps {
+interface EnvironmentEstateViewProps {
   runtime: AgentWorkbenchRuntime;
 }
 
@@ -55,7 +55,7 @@ function detailRowsForContainer(
   return rows;
 }
 
-export function FleetView({ runtime }: FleetViewProps) {
+export function EnvironmentEstateView({ runtime }: EnvironmentEstateViewProps) {
   const [selectedZone, setSelectedZone] = useState<string>("all");
   const [zones, setZones] = useState<Zone[]>([]);
   const [containers, setContainers] = useState<Container[]>([]);
@@ -67,12 +67,12 @@ export function FleetView({ runtime }: FleetViewProps) {
   useEffect(() => {
     const fetchState = async () => {
         try {
-          const state = await runtime.getFleetState();
+          const state = await runtime.getEnvironmentEstateState();
           setZones(state.zones);
           setContainers(state.containers);
           setError(null);
         } catch (nextError) {
-          setError(workflowRuntimeUnavailableCopy(nextError, "fleet_state"));
+          setError(workflowRuntimeUnavailableCopy(nextError, "environment_estate"));
           setZones([]);
           setContainers([]);
         } finally {
@@ -123,9 +123,9 @@ export function FleetView({ runtime }: FleetViewProps) {
   );
 
   return (
-    <div className="fleet-view">
+    <div className="environment-estate-view">
       {/* SIDEBAR: ZONES */}
-      <div className="fleet-sidebar">
+      <div className="environment-estate-sidebar">
         <div className="zone-header">Infrastructure Zones</div>
         <div className="zone-list">
           <div 
@@ -165,29 +165,29 @@ export function FleetView({ runtime }: FleetViewProps) {
         </div>
       </div>
 
-      {/* MAIN: CONTAINER GRID */}
-      <div className="fleet-main">
-        <div className="fleet-toolbar">
+        {/* MAIN: CONTAINER GRID */}
+      <div className="environment-estate-main">
+        <div className="environment-estate-toolbar">
           <span className="toolbar-title">Active Containers ({filteredContainers.length})</span>
-          <div className="fleet-toolbar-meta">
-            <span className="fleet-toolbar-chip">
+          <div className="environment-estate-toolbar-meta">
+            <span className="environment-estate-toolbar-chip">
               {zones.length} live zone{zones.length === 1 ? "" : "s"}
             </span>
-            <span className="fleet-toolbar-chip">Polled every 2s</span>
+            <span className="environment-estate-toolbar-chip">Polled every 2s</span>
           </div>
         </div>
 
         {loading ? (
-          <div className="fleet-terminal" style={{ marginBottom: 16 }}>
-            <div className="terminal-content">Loading live fleet state…</div>
+          <div className="environment-estate-terminal" style={{ marginBottom: 16 }}>
+            <div className="terminal-content">Loading live environment estate…</div>
           </div>
         ) : null}
 
         {error ? (
-          <div className="fleet-terminal" style={{ marginBottom: 16 }}>
+          <div className="environment-estate-terminal" style={{ marginBottom: 16 }}>
             <div className="terminal-content">
               <strong>{error.title}.</strong> {error.message}
-              <details className="fleet-error-detail">
+              <details className="environment-estate-error-detail">
                 <summary>Advanced detail</summary>
                 <span>{error.technicalDetail}</span>
               </details>
@@ -195,7 +195,7 @@ export function FleetView({ runtime }: FleetViewProps) {
           </div>
         ) : null}
 
-        <div className="fleet-grid">
+        <div className="environment-estate-grid">
           {filteredContainers.map(c => (
             <div 
               key={c.id} 
@@ -227,7 +227,7 @@ export function FleetView({ runtime }: FleetViewProps) {
         </div>
 
         {/* BOTTOM: LIVE DETAIL */}
-        <div className="fleet-terminal">
+        <div className="environment-estate-terminal">
           <div className="terminal-header">
             <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Icons.Action width="12" /> Live detail</span>
             <div className="divider-vertical" style={{ height: 16, width: 1, background: '#2E333D' }} />
@@ -237,18 +237,18 @@ export function FleetView({ runtime }: FleetViewProps) {
           </div>
           <div className="terminal-content">
             {activeContainer ? (
-              <div className="fleet-detail-list">
+              <div className="environment-estate-detail-list">
                 {activeContainerDetails.map((row) => (
-                  <div key={`${activeContainer.id}:${row.label}`} className="fleet-detail-row">
-                    <span className="fleet-detail-label">{row.label}</span>
-                    <span className="fleet-detail-value">{row.value}</span>
+                  <div key={`${activeContainer.id}:${row.label}`} className="environment-estate-detail-row">
+                    <span className="environment-estate-detail-label">{row.label}</span>
+                    <span className="environment-estate-detail-value">{row.value}</span>
                   </div>
                 ))}
               </div>
             ) : (
               <div style={{ color: '#4B5563', fontStyle: 'italic' }}>
                 {error
-                  ? "Fleet state unavailable. Resolve the runtime error above to inspect live containers."
+                  ? "Environment estate unavailable. Resolve the runtime error above to inspect live containers."
                   : "No container selected. Click a card above to inspect the live runtime detail we have for it."}
               </div>
             )}
