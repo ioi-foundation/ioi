@@ -38,6 +38,9 @@ const hypervisorCoreClientsSurfacesDoc = read(
   "docs/architecture/components/hypervisor/core-clients-surfaces.md",
 );
 const hypervisorFleetDoc = read("docs/architecture/components/hypervisor/fleet.md");
+const hypervisorProvidersEnvironmentsDoc = read(
+  "docs/architecture/components/hypervisor/providers-and-environments.md",
+);
 const daemonRuntimeApiDoc = read("docs/architecture/components/daemon-runtime/api.md");
 const architectureSourceOfTruthMap = read("docs/architecture/_meta/source-of-truth-map.md");
 const architectureImplementationMatrix = read("docs/architecture/_meta/implementation-matrix.md");
@@ -388,7 +391,7 @@ assert(
   ].every((term) =>
     [
       hypervisorCoreClientsSurfacesDoc,
-      hypervisorFleetDoc,
+      hypervisorProvidersEnvironmentsDoc,
       daemonRuntimeApiDoc,
       architectureSourceOfTruthMap,
       architectureImplementationMatrix,
@@ -396,12 +399,16 @@ assert(
     ].every((doc) => doc.includes(term)),
   ) &&
     hypervisorCoreClientsSurfacesDoc.includes("encrypted blobs are restore material, not restore truth") &&
-    hypervisorFleetDoc.includes("A blob can be necessary restore material without") &&
+    hypervisorProvidersEnvironmentsDoc.includes("A blob can be necessary restore material without") &&
     daemonRuntimeApiDoc.includes("Provider lifecycle state may be evidence, but it is not") &&
     architectureVocabulary.includes("derived token material under a `HypervisorSessionAccessLease`") &&
+    hypervisorFleetDoc.includes("Status: deprecated terminology stub") &&
+    hypervisorFleetDoc.includes("`Hypervisor Fleet` is deprecated live canon") &&
+    hypervisorProvidersEnvironmentsDoc.includes("There is no separate Fleet product") &&
     !/\bGitpod\b|gitpod/i.test(
       [
         hypervisorCoreClientsSurfacesDoc,
+        hypervisorProvidersEnvironmentsDoc,
         hypervisorFleetDoc,
         daemonRuntimeApiDoc,
         architectureSourceOfTruthMap,
@@ -411,6 +418,7 @@ assert(
     ),
   [
     "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+    "docs/architecture/components/hypervisor/providers-and-environments.md",
     "docs/architecture/components/hypervisor/fleet.md",
     "docs/architecture/components/daemon-runtime/api.md",
     "docs/architecture/_meta/source-of-truth-map.md",

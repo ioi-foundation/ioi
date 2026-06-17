@@ -64,7 +64,7 @@ It is not merely a Hypervisor client or application surface. It is the
 node-shaped composition of:
 
 - Hypervisor App, Hypervisor Web, CLI/headless, and application surfaces such
-  as Workbench, Foundry, and Fleet as operator clients/projections; optional TUI
+  as Workbench and Foundry plus provider/environment views as operator clients/projections; optional TUI
   views are presentations over the CLI/headless client, not separate runtime
   lanes;
 - Hypervisor Daemon as the deterministic execution and authority-enforcement

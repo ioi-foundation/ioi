@@ -26,7 +26,7 @@ future decentralized.cloud
   infrastructure marketplace with bonds, SLAs, and disputes
 ```
 
-Current canon should not require Hypervisor, Fleet, Wallet, or agents to route
+Current canon should not require Hypervisor, Wallet, or agents to route
 through `decentralized.cloud`.
 
 ## Present Canon
@@ -36,7 +36,7 @@ bandwidth, confidential compute, DePIN, hyperscalers, customer cloud,
 enterprise clusters, local machines, decentralized storage networks, and
 user-specified providers.
 
-Fleet and Hypervisor may route workloads through:
+Hypervisor may route workloads through:
 
 - local machines and homelabs;
 - user-owned or org-owned AWS, Google Cloud, Azure, and other cloud accounts;
@@ -54,8 +54,8 @@ Fleet and Hypervisor may route workloads through:
 ### CloudRoute
 
 `CloudRoute` is owned in detail by
-[`hypervisor/fleet.md`](../../components/hypervisor/fleet.md). It is the
-Hypervisor/Fleet object for selecting compute, storage, GPU, network, or
+[`hypervisor/providers-and-environments.md`](../../components/hypervisor/providers-and-environments.md).
+It is the Hypervisor object for selecting compute, storage, GPU, network, or
 confidential execution infrastructure.
 
 ### CloudCandidate
@@ -105,7 +105,7 @@ Reject these:
 ## Related Canon
 
 - [`README.md`](./README.md)
-- [`../../components/hypervisor/fleet.md`](../../components/hypervisor/fleet.md)
+- [`../../components/hypervisor/providers-and-environments.md`](../../components/hypervisor/providers-and-environments.md)
 - [`../../components/daemon-runtime/private-workspace-ctee.md`](../../components/daemon-runtime/private-workspace-ctee.md)
 - [`../../components/daemon-runtime/runtime-nodes-tee-depin.md`](../../components/daemon-runtime/runtime-nodes-tee-depin.md)
 - [`../../components/agentgres/artifact-ref-plane.md`](../../components/agentgres/artifact-ref-plane.md)

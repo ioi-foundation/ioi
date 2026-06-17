@@ -59,7 +59,7 @@ Client surfaces
   submit, inspect, scaffold, and control work through stable domain/runtime contracts
 
 Hypervisor application surfaces
-  Workbench, Foundry, Fleet, Agents, Services, Models, cTEE/Privacy, Receipts/Audit
+  Workbench, Foundry, Agents, Services, Models, cTEE/Privacy, Receipts/Audit, provider/environment views
   organize the same Core by job-to-be-done without owning runtime truth
 ```
 
@@ -257,7 +257,7 @@ L1:
 For run-per-launch work, the domain kernel may route to:
 
 - user-local Hypervisor Daemon managed through Hypervisor App, Hypervisor Web,
-  CLI/headless, or Workbench/Fleet surfaces;
+  CLI/headless, Workbench surfaces, or provider/environment views;
 - hosted Hypervisor Daemon;
 - provider runtime;
 - DePIN node;
@@ -298,7 +298,7 @@ It synchronizes with IOI L1 only for:
 4. Domain kernels must not create split-brain state separate from Agentgres.
 5. All surfaces must use stable runtime/substrate envelopes.
 6. Client surfaces such as Hypervisor App, Hypervisor Web, CLI/headless,
-   optional TUI, SDK, ADK, Workbench, Workflow Compositor, Foundry, and Fleet
+   optional TUI, SDK, ADK, Workbench, Workflow Compositor, Foundry, and provider/environment views
    must not bypass domain kernels or daemon runtime contracts for canonical
    work.
 

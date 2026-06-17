@@ -79,12 +79,17 @@ Hypervisor
   -> application surfaces
       Workbench
       Foundry
-      Fleet
       Agents
       Models
       cTEE / Privacy
       Receipts / Audit
       Connectors
+  -> default session and provider views
+      Sessions
+      Projects
+      Providers
+      Environments
+      Services / Tasks / Ports / Logs / Restore
   -> Hypervisor Core
       shared substrate and stable contracts
   -> Hypervisor Daemon
@@ -137,10 +142,6 @@ Hypervisor Workbench
 Hypervisor Foundry
   worker creation, training, evaluation, benchmarking, packaging, and
   improvement surface
-
-Hypervisor Fleet
-  infrastructure, provider, node, workspace, VM/container/microVM/WASM,
-  GPU, storage, cTEE posture, cost, health, and migration surface
 ```
 
 Other surfaces may include Agents, Services, Models, cTEE / Privacy,
@@ -150,6 +151,10 @@ Application surfaces are not separate apps with separate runtime truth. They
 are governed projections and control surfaces over Hypervisor Core, the
 Hypervisor Daemon, Agentgres, wallet.network, cTEE, AIIP, and provider
 integrations.
+
+Provider and infrastructure posture is not a separate `Fleet` surface in live
+canon. It is part of Hypervisor's default session, project, provider, and
+environment views.
 
 ## Hypervisor Workbench
 
@@ -172,8 +177,9 @@ adapter target, not the product identity.
 ## Workflow Compositor
 
 **Workflow Compositor** is the high-level directed-work surface over Hypervisor
-Core. It is a shared graph/projection model used by Workbench, Foundry, Fleet,
-Agents, Services, and SDK/ADK clients when work needs explicit structure.
+Core. It is a shared graph/projection model used by Workbench, Foundry, Agents,
+Services, provider/environment views, and SDK/ADK clients when work needs
+explicit structure.
 
 The compositor owns:
 
@@ -232,7 +238,7 @@ terminal session
 editor session
 computer-use session
 Foundry / eval / training session
-Fleet / provider management session
+provider / environment management session
 ```
 
 A session binds:
@@ -436,10 +442,10 @@ cleanup obligations
 receipt obligations
 ```
 
-External harnesses, Workbench, Fleet, Foundry, Hypervisor App/Web, and
-CLI/headless clients may receive structured outputs and exit codes. They do not
-get durable secrets, plaintext custody, or authority except through
-wallet.network capability leases and receipts.
+External harnesses, Workbench, Foundry, Hypervisor App/Web, CLI/headless
+clients, and provider/environment views may receive structured outputs and exit
+codes. They do not get durable secrets, plaintext custody, or authority except
+through wallet.network capability leases and receipts.
 
 Canonical environment ops objects:
 
@@ -548,14 +554,17 @@ HypervisorClient:
   supported_surfaces:
     - workbench
     - foundry
-    - fleet
+    - agents
+    - models
+    - privacy
+    - receipts
   adapter_targets:
     - adapter_target:...
 
 HypervisorSurface:
   surface_id: hypervisor_surface:...
   surface_kind:
-    workbench | foundry | fleet | agents | services |
+    workbench | foundry | agents | services |
     models | ctee_privacy | receipts_audit | connectors
   client_ref: hypervisor_client:...
   session_refs:
@@ -569,7 +578,8 @@ HypervisorSession:
   session_kind:
     local_workspace | remote_vm_workspace | browser_sandbox |
     hosted_worker | hypervisoros_node | terminal | editor |
-    computer_use | foundry_eval_training | fleet_provider
+    computer_use | foundry_eval_training | provider_management |
+    environment_management
   daemon_ref: daemon://...
   runtime_assignment_ref: runtime_assignment:... | null
   authority_refs:
@@ -670,8 +680,9 @@ HypervisorEnvironmentOpsProfile:
   profile_id: hypervisor_environment_ops:...
   environment_class_ref: hypervisor_environment_class:...
   consumer_kind:
-    workbench | fleet | foundry | agent_harness_adapter |
-    app | web | cli_headless | sdk | adk | connector
+    workbench | foundry | provider_environment_view |
+    agent_harness_adapter | app | web | cli_headless |
+    sdk | adk | connector
   discovery:
     projects: list | search | fixed
     environment_classes: list | policy_filtered | fixed
@@ -870,8 +881,8 @@ HypervisorScmAuthRequirement:
   Hypervisor Daemon.
 - No adapter target may receive secrets, declassification authority, or
   payment authority except through wallet.network leases and receipts.
-- Workbench, Foundry, and Fleet must share Core session, authority, receipt,
-  replay, and projection contracts.
+- Workbench, Foundry, and provider/environment views must share Core session,
+  authority, receipt, replay, and projection contracts.
 - Editor integrations must make mediation limits visible.
 - Every editor, terminal, browser, VM, and harness target must resolve through
   an `AdapterConnectionProfile`; a string editor preference is not enough.
@@ -918,6 +929,7 @@ provider lifecycle state = Agentgres truth
 background automation = hidden editor session
 Workbench = runtime truth
 Foundry = direct self-mutation path
+Fleet = live product surface or posture layer
 Fleet = infrastructure runtime or authority owner
 editor adapter = full execution boundary
 adapter target = secret vault
@@ -935,7 +947,9 @@ Hypervisor Core = shared contracts and control substrate
 Hypervisor Daemon = execution owner
 App/Web/CLI-headless = first-class clients
 TUI = optional CLI presentation
-Workbench/Foundry/Fleet = application surfaces
+Workbench/Foundry = application surfaces
+Provider and infrastructure posture = Hypervisor session/project/provider/
+environment views
 Sessions = governed live workspaces/runs
 Adapters = mediated bridges to targets
 Agent harness adapters = mediated bridges for external agent harnesses
@@ -948,7 +962,7 @@ Agentgres = admitted truth
 - [`../daemon-runtime/doctrine.md`](../daemon-runtime/doctrine.md)
 - [`../daemon-runtime/default-harness-profile.md`](../daemon-runtime/default-harness-profile.md)
 - [`../daemon-runtime/api.md`](../daemon-runtime/api.md)
-- [`fleet.md`](./fleet.md)
+- [`providers-and-environments.md`](./providers-and-environments.md)
 - [`../wallet-network/doctrine.md`](../wallet-network/doctrine.md)
 - [`../agentgres/doctrine.md`](../agentgres/doctrine.md)
 - [`../../_meta/source-of-truth-map.md`](../../_meta/source-of-truth-map.md)

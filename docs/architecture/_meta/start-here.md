@@ -23,7 +23,11 @@ Hypervisor clients
 
 Hypervisor application surfaces
   organize the same Core by job-to-be-done
-  Workbench, Foundry, Fleet, Agents, Services, Models, cTEE/Privacy, Receipts/Audit
+  Workbench, Foundry, Agents, Services, Models, cTEE/Privacy, Receipts/Audit
+
+Hypervisor sessions/providers/environments
+  default cross-session views over managed workspaces, provider integrations,
+  services, tasks, ports, logs, archive refs, restore refs, costs, and health
 
 Hypervisor Core
   shared product/runtime substrate whose execution owner is the daemon
@@ -37,13 +41,6 @@ Hypervisor Daemon
 
 HypervisorOS
   bare-metal node profile where the daemon is the node root
-
-Hypervisor Fleet
-  general infrastructure manager whose first-class workload is autonomous
-  systems; coordinates machines, workloads, private workspaces, nodes,
-  providers, placement, storage posture, cTEE posture, receipts, replay
-  projections, and policy visibility without owning execution or authority;
-  Fleet is an application surface over Hypervisor Core, not a separate runtime
 
 Workflow Compositor
   shapes high-level directed workflows, services, dependencies, step contracts,
@@ -137,7 +134,7 @@ Surfaces request.
 Hypervisor Core coordinates clients, surfaces, sessions, and adapters.
 Hypervisor Daemon executes.
 HypervisorOS roots serious nodes.
-Hypervisor Fleet manages infrastructure for autonomous systems.
+Hypervisor manages sessions, providers, and environments directly.
 Workflow Compositor shapes directed work.
 HarnessProfiles resolve scoped steps.
 Default Harness Profile is the reference scaffold/fallback.
@@ -172,8 +169,8 @@ Intent
 
 Do not add another runtime beside the Hypervisor Daemon. Runtime profiles,
 harnesses, adapters, SDK clients, Hypervisor App/Web/CLI-headless clients, and
-Workbench/Foundry/Fleet surfaces are clients, projections, application
-surfaces, or daemon-executed profiles.
+Workbench/Foundry surfaces and provider/environment views are clients,
+projections, application surfaces, views, or daemon-executed profiles.
 
 ## Reader Paths
 
@@ -186,7 +183,7 @@ Start here:
 3. [`components/daemon-runtime/runtime-nodes-tee-depin.md`](../components/daemon-runtime/runtime-nodes-tee-depin.md)
 4. [`components/daemon-runtime/hypervisoros.md`](../components/daemon-runtime/hypervisoros.md)
 5. [`components/hypervisor/core-clients-surfaces.md`](../components/hypervisor/core-clients-surfaces.md)
-6. [`components/hypervisor/fleet.md`](../components/hypervisor/fleet.md)
+6. [`components/hypervisor/providers-and-environments.md`](../components/hypervisor/providers-and-environments.md)
 7. [`domains/decentralized/README.md`](../domains/decentralized/README.md)
 8. [`components/daemon-runtime/doctrine.md`](../components/daemon-runtime/doctrine.md)
 9. [`components/daemon-runtime/api.md`](../components/daemon-runtime/api.md)
@@ -209,17 +206,18 @@ profiles, daemon-rooted workload launch, node integrity receipts,
 denied-by-default egress, cTEE compatibility, and no unmanaged model/tool/workspace
 bypass around the Hypervisor Daemon.
 
-For infrastructure and autonomous runtime-fleet management, build for
-Hypervisor Fleet: node registry, provider integrations, VMs, containers,
-microVMs, WASM workloads, image/volume/network posture, GPU pools, DePIN/cloud
-GPU endpoints, storage posture, runtime placement, fleet health, cost posture,
-cTEE posture, receipt/replay projections, and migration cockpit workflows.
-Fleet manages machines and workload posture while coordinating governance;
-Hypervisor Daemon executes; wallet.network authorizes; Agentgres records truth.
-For resource routing, direct provider connectors, local inventory, customer
-clouds, DePIN markets, storage networks, or user-specified routes may propose
-CloudRoute candidates. Fleet and Hypervisor still route through wallet.network
-authority, daemon/provider execution boundaries, Agentgres refs, and receipts.
+For provider and environment management, build for Hypervisor sessions,
+providers, and environments: node registry, provider integrations, VMs,
+containers, microVMs, WASM workloads, image/volume/network posture, GPU pools,
+DePIN/cloud GPU endpoints, storage posture, runtime placement, health, cost
+posture, cTEE posture, receipt/replay projections, and migration cockpit
+workflows. Hypervisor manages machines and workload posture while coordinating
+governance; Hypervisor Daemon executes; wallet.network authorizes; Agentgres
+records truth. For resource routing, direct provider connectors, local
+inventory, customer clouds, DePIN markets, storage networks, or user-specified
+routes may propose CloudRoute candidates. Hypervisor still routes through
+wallet.network authority, daemon/provider execution boundaries, Agentgres refs,
+and receipts.
 
 ### Implementing Agentgres
 
@@ -299,14 +297,14 @@ Start here:
 2. [`components/daemon-runtime/api.md`](../components/daemon-runtime/api.md)
 3. [`components/hypervisor/core-clients-surfaces.md`](../components/hypervisor/core-clients-surfaces.md)
 4. [`domains/ioi-ai/control-plane.md`](../domains/ioi-ai/control-plane.md)
-5. [`components/hypervisor/fleet.md`](../components/hypervisor/fleet.md)
+5. [`components/hypervisor/providers-and-environments.md`](../components/hypervisor/providers-and-environments.md)
 6. [`domains/aiagent/worker-marketplace.md`](../domains/aiagent/worker-marketplace.md)
 7. [`domains/sas/service-marketplace.md`](../domains/sas/service-marketplace.md)
 
 Build for: operator controls, approval cards, run graphs, context topology
 views, receipt timelines, artifact viewers, first-class App/Web/CLI clients,
-Workbench/Foundry/Fleet application surfaces, package install/publish flows,
-and clear distinction between Hypervisor Core, Hypervisor Node, Hypervisor
+Workbench/Foundry application surfaces, provider/environment views, package
+install/publish flows, and clear distinction between Hypervisor Core, Hypervisor Node, Hypervisor
 Daemon, Agentgres, wallet.network, and L1.
 
 ### Implementing Interop
@@ -348,9 +346,9 @@ Hypervisor App/Web/CLI-headless = runtime truth
 TUI = separate first-class client lane
 external CLI agent harness = Hypervisor runtime truth
 Codex/Claude Code/Grok Build = Hypervisor client
-Hypervisor Workbench/Foundry/Fleet = runtime truth
+Hypervisor Workbench/Foundry/provider views = runtime truth
 Hypervisor IDE = live parent product term
-Hypervisor Fleet = execution runtime or authority plane
+Hypervisor Fleet = live product surface, posture layer, execution runtime, or authority plane
 decentralized.exchange = exchange backend or liquidity owner
 decentralized.trade = broker, custodian, or ordinary swap route
 decentralized.exchange/trade = mandatory UIs users must visit before Wallet
@@ -376,9 +374,9 @@ daemon executes
 Hypervisor Core coordinates clients, surfaces, sessions, and adapters
 Hypervisor App/Web/CLI-headless are first-class clients
 TUI is an optional CLI presentation
-Hypervisor Workbench/Foundry/Fleet are application surfaces over Core
+Hypervisor Workbench/Foundry are application surfaces over Core
+Hypervisor provider/environment views manage sessions, providers, and environments
 External agent harnesses are mediated through Agent Harness Adapters
-Hypervisor Fleet manages infrastructure for autonomous systems
 Workflow Compositor shapes high-level directed work
 selected HarnessProfiles resolve scoped steps
 Default Harness Profile is the reference scaffold/fallback HarnessProfile

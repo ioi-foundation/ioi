@@ -12,23 +12,18 @@ That file owns the five-minute stack model, role-based reading paths, common
 boundary mistakes, and links to the source-of-truth map, vocabulary, and
 implementation matrix.
 
-Current Fleet addition:
-
-> **Hypervisor Fleet is a general infrastructure manager whose first-class
-> workload is autonomous systems. It appears as an application surface inside
-> Hypervisor App, Hypervisor Web, CLI/headless projections, and console.ioi.ai, but
-> its authority comes from wallet.network, its truth comes from Agentgres, and
-> execution remains daemon-owned.**
-
 Current Hypervisor product-surface addition:
 
 > **Hypervisor Core is the shared product/runtime substrate whose execution owner
 > is the Hypervisor Daemon. Hypervisor App, Hypervisor Web, and CLI/headless are
 > first-class clients over Core; TUI is an optional CLI presentation. Hypervisor
-> Workbench, Foundry, and Fleet are application surfaces over the same Core.
-> Editor integrations and external agent harnesses such as VS Code, Cursor,
-> Windsurf, JetBrains, Codex, Claude Code, Grok Build, browser IDEs, terminals,
-> VMs, local OS surfaces, and HypervisorOS nodes are adapter targets, not
+> Workbench and Foundry are application surfaces over the same Core. Sessions
+> are the primary unit. Providers, environments, services, tasks, ports, logs,
+> archive refs, restore refs, and infrastructure posture are default Hypervisor
+> session/project/provider views, not a separate Fleet surface. Editor
+> integrations and external agent harnesses such as VS Code, Cursor, Windsurf,
+> JetBrains, Codex, Claude Code, Grok Build, browser IDEs, terminals, VMs,
+> local OS surfaces, and HypervisorOS nodes are adapter targets, not
 > Hypervisor's product identity.**
 
 Current Wallet addition:

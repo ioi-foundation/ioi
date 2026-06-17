@@ -18,7 +18,7 @@ In the Hypervisor/daemon canon, the Hypervisor Daemon is the hypervisor/control 
 for autonomous execution and Agentgres is the operational truth substrate behind
 that control plane. Hypervisor App, Hypervisor Web, CLI/headless clients,
 optional TUI views, and application surfaces such as Workbench, Foundry, and
-Fleet may render Agentgres-backed projections, but they must not become the
+Hypervisor provider/environment views may render Agentgres-backed projections, but they must not become the
 canonical state store.
 
 In the machine-economy canon, Agentgres is the local/domain operational truth

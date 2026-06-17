@@ -34,10 +34,11 @@ Hypervisor Core and first-class clients
   presentation of the CLI/headless client, not a separate runtime lane.
 
 Hypervisor application surfaces
-  Workbench, Foundry, Fleet, Agents, Services, Models, cTEE/Privacy,
+  Workbench, Foundry, Agents, Services, Models, cTEE/Privacy,
   Receipts/Audit, Connectors, Wallet presentations, aiagent.xyz, sas.xyz,
-  console.ioi.ai, embedded approval cards, and marketplace consoles are
-  surfaces over shared authority/runtime contracts.
+  console.ioi.ai, embedded approval cards, marketplace consoles, and
+  provider/environment views are surfaces over shared authority/runtime
+  contracts.
 
 Hypervisor adapters and harnesses
   VS Code, Cursor, Windsurf, JetBrains, browser IDEs, terminals, browsers, VMs,
@@ -161,7 +162,7 @@ ExecutionPrivacyPosture for every model/provider route.
 | Operator uses Codex, Claude Code, Grok Build, or Aider inside a Hypervisor-managed workspace | Authority Gateway and Hypervisor adapter docs mostly fit. | External agent harnesses can be mistaken for first-class Hypervisor clients or trusted runtimes. | Treat them as `AgentHarnessAdapter` targets: proposal in, daemon gate, wallet authority, Agentgres receipt/replay out. |
 | Operator wants a terminal UI for node ops | CLI/headless plus optional TUI fits. | Calling this "CLI/TUI" suggests the TUI is a separate client/runtime lane. | Keep `HypervisorCliHeadless` as the first-class client and `HypervisorTui` as optional presentation over the same daemon/domain APIs. |
 | Prediction market trade proposed by an agent | decentralized.trade and Wallet Trade fit. | Live event exposure by agents needs eligibility, compliance, and market-category policy. | Add `PredictionAuthorityPolicy` as a profile over `PredictionIntent`. |
-| Cloud route needs AWS/GCP/Akash/Filecoin/local choices | Fleet direct provider integrations fit. | "CloudRoute" can sound like one router, not a provider decision object. | Clarify `CloudCandidate` as provider evidence and `CloudRoute` as selected approved plan. |
+| Cloud route needs AWS/GCP/Akash/Filecoin/local choices | Hypervisor direct provider integrations fit. | "CloudRoute" can sound like one router, not a provider decision object. | Clarify `CloudCandidate` as provider evidence and `CloudRoute` as selected approved plan. |
 | Storage backend loses payload bytes but Agentgres has refs | Artifact-ref plane fits. | Need repair playbook in operational docs. | Add `ArtifactAvailabilityIncident` and repair receipts in Agentgres artifact doc. |
 | Route engine returns stale quote or stale risk label | Wallet risk coverage states fit. | Candidate services must return evidence and expiry, not only "best route." | Add conformance: stale/unknown labels block silent execution. |
 | SMS access point requests escalation | Wallet access-point binding fits. | Product copy may imply SMS auth. | Keep canon explicit: SMS can carry challenge pointer only. |
@@ -254,12 +255,12 @@ ExecutionPrivacyPosture for every model/provider route.
 | Recommended change | Add route/trade candidate conformance profiles and schema rows. |
 | Fix type | Docs plus route/trade API validation. |
 
-### 7. Fleet/provider selection is cleaner without present decentralized.cloud
+### 7. Provider/environment selection is cleaner without present decentralized.cloud
 
 | Field | Detail |
 | --- | --- |
 | Severity | Medium |
-| Current canon | `hypervisor/fleet.md`, `decentralized/cloud-parked-future.md`. |
+| Current canon | `hypervisor/providers-and-environments.md`, deprecated `hypervisor/fleet.md` stub, `decentralized/cloud-parked-future.md`. |
 | Edge case | User chooses their own GCP account or Akash node directly. |
 | Issue | Current wording is mostly fixed, but `CloudRoute` naming may still feel like a router product rather than an approved placement decision. |
 | Why it matters | Hypervisor must not imply a mandatory cloud marketplace gateway. |
@@ -285,7 +286,7 @@ ExecutionPrivacyPosture for every model/provider route.
 | Severity | High |
 | Current UX evidence | Screenshot shows the product inside OpenVSCode with tabs such as "Autopilot Workflow Composer", "Autopilot Models", "Autopilot Runs", "Autopilot Policy", "Autopilot Connectors", and "Autopilot Code"; the active surface is a code repository gate. |
 | Reference evidence | `internal-docs/reverse-engineering/ioi` is the primary target UX reference: persistent left nav, New Session, Home, Projects, Automations, Insights, Sessions, session-detail tabs, environment status, changes panel, ports/services/tasks/terminal inspector, settings, default editor selection, secrets, git auth, tokens, integrations, and session history. Local screenshots and static mirror assets exist in that directory; mirrored labels must be translated into Hypervisor language rather than copied literally. |
-| Issue | The current product reads like an IDE extension host with Autopilot tabs. The canon now says Hypervisor App/Web/CLI-headless are clients over Hypervisor Core, Workbench/Foundry/Fleet are application surfaces, editors are adapter targets, and external coding agents are Agent Harness Adapters. |
+| Issue | The current product reads like an IDE extension host with Autopilot tabs. The canon now says Hypervisor App/Web/CLI-headless are clients over Hypervisor Core, Workbench/Foundry are application surfaces, provider/environment posture is a default Hypervisor view, editors are adapter targets, and external coding agents are Agent Harness Adapters. |
 | Why it matters | If the UX stays IDE-first, the architecture will keep drifting back toward "Hypervisor IDE" instead of "Hypervisor of IDEs / governed autonomous-work cockpit." |
 | Recommended change | Add a staged implementation plan that converts the app shell from Autopilot/OpenVSCode gravity into a Hypervisor Core cockpit with sessions, projects, application surfaces, adapter targets, model/harness/provider setup, cTEE/privacy posture, authority, and receipts. |
 | Fix type | Internal implementation plan now; UI/code migration next. |
@@ -342,7 +343,7 @@ ExecutionPrivacyPosture for every model/provider route.
 
 | Opportunity | Replace this | With this |
 | --- | --- | --- |
-| Hypervisor product taxonomy | "Hypervisor IDE", "Electron/VS Code fork", or "CLI/TUI" as parent product | Hypervisor Core with App/Web/CLI-headless clients, optional TUI presentation, Workbench/Foundry/Fleet surfaces, adapter targets, and Agent Harness Adapters. |
+| Hypervisor product taxonomy | "Hypervisor IDE", "Electron/VS Code fork", or "CLI/TUI" as parent product | Hypervisor Core with App/Web/CLI-headless clients, optional TUI presentation, Workbench/Foundry surfaces, provider/environment views, adapter targets, and Agent Harness Adapters. |
 | Authority UX | "Wallet app UI handles approvals" | `WalletAuthorityCore` plus presentation profiles. |
 | Cloud/provider routing | "Cloud lane" or future `decentralized.cloud` as present product | Direct Hypervisor provider integrations plus optional future catalog. |
 | Marketplace verticals | Hardcoded agent categories | Digital Worker Ontology plus Vertical Ontology Packs. |
@@ -435,7 +436,7 @@ Core runtime/authority/state/storage stack: yes, with repo inspection.
 Hypervisor App UX: conceptually yes; shell IA and product naming migration needed.
 Wallet UX/authority packaging: conceptually yes, package implementation missing.
 Private Workspace cTEE: yes for architecture, partial for full conformance.
-Fleet/provider integrations: yes for boundary, provider adapters still needed.
+Provider/environment integrations: yes for boundary, provider adapters still needed.
 aiagent broad labor: not yet; plan exists, canon needs promotion.
 sas nested outcomes: partially; delivery bundle exists, contribution defaults need work.
 Physical/embodied systems: not yet; risk class exists, safety owner missing.
@@ -481,7 +482,7 @@ Docs that risk becoming too implementation-specific:
 Wallet product surface doctrine
   Keep UI modules as presentation profiles over authority contracts.
 
-Fleet provider details
+Provider/environment details
   Keep provider examples as integrations, not mandatory provider stack.
 
 cTEE candidate-lattice math
@@ -587,7 +588,7 @@ Model mounting is global infrastructure plus contextual setup.
 Agents are configured runtime actors with skills, harness adapter choices,
 authority leases, model routes, and memory/workspace bindings.
 Foundry is training/eval/worker-improvement.
-Fleet is infrastructure/provider/workspace estate.
+Provider/environment views are infrastructure/provider/workspace estate.
 Authority, Privacy, and Receipts are always-visible governance rails.
 ```
 
@@ -608,7 +609,7 @@ Target information architecture:
 | Authority | Approvals, capability leases, connector scopes, spend gates | wallet.network |
 | Receipts / Audit | Receipts, replay, artifacts, state roots, restore | Agentgres + receipts |
 | Foundry | Eval, distillation, training, benchmark, package promotion | Hypervisor Foundry |
-| Fleet | Local/cloud/DePIN/customer provider estate and persistent nodes | Hypervisor Fleet |
+| Providers / Environments | Local/cloud/DePIN/customer provider estate and persistent nodes | Hypervisor provider/environment views |
 | Settings | Identity, editor preference, secrets, git auth, tokens, integrations, policy defaults | Hypervisor client settings + wallet.network |
 
 Core UX decisions:
@@ -658,7 +659,7 @@ Hypervisor App
     Agents
     Models
     Privacy
-    Fleet
+    Providers / Environments
     Foundry
     Authority
     Receipts
@@ -694,7 +695,8 @@ type HypervisorSurfaceId =
   | "agents"
   | "models"
   | "privacy"
-  | "fleet"
+  | "providers"
+  | "environments"
   | "foundry"
   | "authority"
   | "receipts"
@@ -742,7 +744,7 @@ interface HypervisorSessionLaunchRecipe {
     | "agent"
     | "automation"
     | "foundry_job"
-    | "fleet_job"
+    | "provider_environment_job"
     | "privacy_workspace";
   required_inputs: string[];
   model_mount_policy: "inherit" | "select" | "required" | "forbidden";
@@ -937,15 +939,15 @@ Implementation phases:
 | 0A.1 Product-shell rename and route map | Introduce Hypervisor naming without relying on old Autopilot tab semantics. | `apps/hypervisor/src/main.tsx`, `HypervisorShellWindow/*`, CSS, tests | App copy says Hypervisor; compatibility names are implementation-only. |
 | 0A.1B Retire IDE-root naming | Rename launcher/script/docs away from `ide`/Electron-as-product language and move tracked adapter metadata and ignored local adapter artifacts to `workbench-adapters/`. | `workbench-adapters/`, launcher scripts, package scripts, conformance readers | Electron/VS Code is one Workbench adapter host; root `ide/` is retired and must not be used as a product or artifact path. |
 | 0A.1C Retire Tauri app shims | Replace active `@tauri-apps/*` imports and `TauriRuntime` service naming with Hypervisor client bridge APIs; delete the retired Tauri tree from the active repo instead of keeping it as a contract archive. | `apps/hypervisor/src/services/*`, shell hooks/components, package deps, validation scripts | Active app code no longer depends on Tauri APIs, `apps/hypervisor/src-tauri`, or `internal-docs/legacy/autopilot-tauri-src`; git history is the recovery handle. |
-| 0A.1D Retire Autopilot proof-runner names | Rename or remove active root package scripts and proof-runner entry points that still advertise Autopilot as the product, while preserving historical evidence under legacy/evidence paths. | `package.json`, `scripts/run-*-goal.mjs`, `scripts/lib/*`, conformance readers | `npm run` exposes Hypervisor/App/Workbench/Fleet/Foundry names; any remaining `autopilot` script/file names are historical fixtures or explicitly marked legacy. |
+| 0A.1D Retire Autopilot proof-runner names | Rename or remove active root package scripts and proof-runner entry points that still advertise Autopilot as the product, while preserving historical evidence under legacy/evidence paths. | `package.json`, `scripts/run-*-goal.mjs`, `scripts/lib/*`, conformance readers | `npm run` exposes Hypervisor/App/Workbench/Foundry/provider-environment names; any remaining `autopilot` script/file names are historical fixtures or explicitly marked legacy. |
 | 0A.2 App shell IA | Build IOI-reference shell with left rail, New Session, sessions rail, main surface, right inspector, and bottom inspector. | `HypervisorShellContent.tsx`, `ChatLocalActivityBar.tsx`, `ChatLeftSidebarShell.tsx`, shell CSS | Home opens as app cockpit, not Code repositories/OpenVSCode. |
 | 0A.3 Session/project model | Add session cards, project cards, restore state, blocked approvals, recent sessions. | `hypervisorShellModel.ts`, `operatorSubstrateModel.ts`, Home/Session services | Sessions persist visually and map to daemon/Agentgres refs where available. |
-| 0A.4 New Session flow | Create guided launch flow: Mission, Workbench, Agent, Automation, Foundry job, Fleet job, Private Workspace. | New surface or Home components; `workspaceRuntimeNavigation.ts`; runtime launch services | User can start a governed session with model/harness/privacy/authority summary. |
+| 0A.4 New Session flow | Create guided launch flow: Mission, Workbench, Agent, Automation, Foundry job, provider/environment job, Private Workspace. | New surface or Home components; `workspaceRuntimeNavigation.ts`; runtime launch services | User can start a governed session with model/harness/privacy/authority summary. |
 | 0A.5 Workbench as adapter hub | Move "Code repositories" under Workbench and expose editor adapter preference. | `WorkspaceShell.tsx`, `WorkspaceRepositoryGate.tsx`, `workspaceWorkbenchHost.ts`, settings | VS Code/OpenVSCode is one adapter target; Cursor/Windsurf/JetBrains/browser IDE/terminal can be represented. |
 | 0A.6 Automations / Workflow Compositor | Convert current workflow composer/runs into Automations/Workflows with templates, filters, run buttons, graph editing, receipt state. | MissionControl workflow views, `packages/hypervisor-workbench/src/WorkflowComposer.tsx`, workbench webview | IOI-reference automations become Hypervisor compositor graphs and reusable recipes. |
 | 0A.7 Models as infrastructure and setup | Keep a Models surface, but also embed model mounting into New Session/Create Agent/Mission setup. | `MissionControlMountsView.tsx`, model daemon actions, public `/v1/model-mount/*` clients | Model mounts are not a detached tab; each session shows selected model/provider/custody. |
 | 0A.8 Authority/privacy/receipts inspectors | Add persistent contextual right/bottom governance and environment panels. | Policy, Capabilities, Settings, cTEE/private workspace services, receipt components, environment ops projections | Selected session reveals changes, authority scope, privacy posture, latest receipts, environment lifecycle, access/log lease state, SCM auth requirements, ports/services, tasks, terminal/logs. |
-| 0A.9 Fleet and private workspace path | Surface direct providers, remote VM workspaces, DePIN nodes, zero-to-idle/restore. | Fleet surface, workspace host/session services, provider integrations, environment lifecycle APIs | User can create, stop, start, archive, unarchive, and restore persistent workspace/node routes without treating provider resources as trusted custody or restore truth. |
+| 0A.9 Provider/environment and private workspace path | Surface direct providers, remote VM workspaces, DePIN nodes, zero-to-idle/restore. | Provider/environment views, workspace host/session services, provider integrations, environment lifecycle APIs | User can create, stop, start, archive, unarchive, and restore persistent workspace/node routes without treating provider resources as trusted custody or restore truth. |
 | 0A.10 Visual and behavior conformance | Add Playwright smoke checks and source scans for naming/IA. | App tests, `scripts/conformance/hypervisor-conformance.mjs` | Checks prove no user-facing "Autopilot" tabs, no Workbench-as-parent, and Home/Sessions/Workbench flows work. |
 
 Current implementation cut:
@@ -1030,10 +1032,14 @@ Current implementation cut:
 0A.2 canonical shell routing is partially implemented:
   `PrimaryView` is now the canonical `HypervisorSurfaceId` union rather than
   an IDE-era alias set
-  shell routes use Home, Sessions, Projects, Missions, Workbench, Automations,
-  Insights, Agents, Models, Privacy, Fleet, Foundry, Authority, Receipts, and
-  Settings directly
-  Projects, Privacy, Fleet, Foundry, and Receipts have live placeholder
+  target shell routes are Home, Sessions, Projects, Missions, Workbench,
+  Automations, Insights, Agents, Models, Privacy, Providers, Environments,
+  Foundry, Authority, Receipts, and Settings
+  current implementation still carries a `fleet` route and
+  `packages/hypervisor-workbench/src/features/Fleet/*`; rename that route and
+  feature module to Providers/Environments in the provider-environment
+  implementation slice
+  Projects, Privacy, the current provider-estate route, Foundry, and Receipts have live placeholder
   surfaces instead of command-palette-only rail items
   `/sessions` is the canonical session shell route; `/chat` is no longer a
   named product route
@@ -1071,8 +1077,11 @@ Current implementation cut:
   and settings instead of showing them only as target cards
 
 0A.4 New Session is partially implemented:
-  `HYPERVISOR_SESSION_LAUNCH_RECIPES` defines Mission, Workbench, Agent,
-  Automation, Foundry Job, Fleet Job, and Private Workspace launch recipes
+  target `HYPERVISOR_SESSION_LAUNCH_RECIPES` should define Mission, Workbench,
+  Agent, Automation, Foundry Job, Provider/Environment Job, and Private
+  Workspace launch recipes; the current implementation may still use the old
+  `fleet_job` identifier until the provider-environment implementation slice
+  renames it
   `HypervisorNewSessionModal` binds project, harness, model route, privacy
   posture, authority scope templates, and receipt preview before launch
   the activity rail and Home dashboard open the shell-level New Session modal
@@ -1115,8 +1124,8 @@ First implementation slice:
 2. Replace visible Autopilot shell labels with Hypervisor labels.
 3. Make Home the default route and render a left rail:
    New Session, Home, Projects, Sessions, Missions, Workbench, Automations,
-   Insights, Agents, Models, Privacy, Fleet, Foundry, Authority, Receipts,
-   Settings.
+   Insights, Agents, Models, Privacy, Providers, Environments, Foundry,
+   Authority, Receipts, Settings.
 4. Move Code repositories under Workbench.
 5. Add a New Session modal with fixture-backed choices and model/harness/privacy
    summary rows.

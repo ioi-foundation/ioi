@@ -38,91 +38,99 @@ compliance acronyms for hidden audit material.
   compatibility, or attestation posture. It proves what was supposed to run; it
   does not prove protected plaintext was safe unless paired with cTEE, TEE, or
   another approved confidential profile.
-- `HypervisorFleet`: the general infrastructure manager whose first-class
-  workload is autonomous systems. It coordinates machines, VMs, containers,
-  microVMs, WASM workloads, images, volumes, networks, GPU pools, node
-  registry, provider integrations, placement, health, cost, storage posture,
-  cTEE posture, receipts, replay projections, and policy visibility. It appears
-  through Hypervisor App, Hypervisor Web, CLI/headless projections, optional TUI
-  views, and console.ioi.ai surfaces, but it does not execute work, authorize
-  power, admit Agentgres truth, or own payload bytes.
-- `FleetNode`: the Fleet projection/object for a local, cloud, GPU, DePIN,
+- `HypervisorFleet`: deprecated live terminology. Use
+  `HypervisorProvidersAndEnvironments`, `HypervisorEnvironmentClass`,
+  `HypervisorEnvironmentLifecycleState`, provider views, and session views.
+  Fleet must not be modeled as a separate app, application surface, posture
+  layer, runtime, authority, truth layer, or storage layer.
+- `HypervisorProvidersAndEnvironments`: the default Hypervisor capability set
+  for cross-session provider integrations, environment lifecycle, managed
+  runtime resources, services, tasks, ports, logs, SCM auth, archive/restore
+  posture, cost, health, placement, and provider evidence. It is part of
+  Hypervisor's default session/project/provider views, not a separate product.
+- `HypervisorProviderNode`: the Hypervisor projection/object for a local, cloud, GPU, DePIN,
   customer, HypervisorOS, TEE, or bare-metal runtime node. It binds node
   identity, daemon refs, provider metadata, Agentgres domain refs, authority
   refs, status, cTEE posture, storage posture, receipt refs, and projection
   watermarks.
-- `FleetWorkloadPrimitive`: the Fleet projection/object for VM, container,
+- `FleetNode`: deprecated alias for `HypervisorProviderNode`.
+- `HypervisorWorkloadPrimitive`: the Hypervisor projection/object for VM, container,
   microVM, WASM, image, volume, network, snapshot, backup, restore point,
   GPU-pool, node-pool, migration-plan, or provider-connector lifecycle state.
   It is governed infrastructure state and must still link to authority refs,
   Agentgres operation refs, and receipts when consequential.
-- `FleetRuntimeAssignmentView`: the Fleet projection over runtime assignments,
-  placement reasons, workspace/run refs, authority refs, Agentgres operation
-  refs, receipt refs, and status. It is observability/control-plane state, not
-  execution ownership.
-- `FleetStoragePosture`: the Fleet projection over storage-backend availability,
+- `FleetWorkloadPrimitive`: deprecated alias for `HypervisorWorkloadPrimitive`.
+- `HypervisorRuntimeAssignmentView`: the Hypervisor projection over runtime
+  assignments, placement reasons, workspace/run refs, authority refs,
+  Agentgres operation refs, receipt refs, and status. It is observability and
+  control-plane state, not execution ownership.
+- `FleetRuntimeAssignmentView`: deprecated alias for
+  `HypervisorRuntimeAssignmentView`.
+- `HypervisorStoragePosture`: the Hypervisor projection over storage-backend availability,
   retention, replication, privacy class, and Agentgres artifact refs. It does
   not make storage backends the authority over payload meaning or restore
   validity.
-- `WorkspacePersistenceProfile`: Hypervisor/Fleet policy object for ephemeral,
+- `FleetStoragePosture`: deprecated alias for `HypervisorStoragePosture`.
+- `WorkspacePersistenceProfile`: Hypervisor policy object for ephemeral,
   session, zero-to-idle, persistent, or archive-only workspaces. It declares
   idle behavior, compute shutdown, provider lease closure, archive/checkpoint
   requirements, allowed storage backends, retrieval checks, restore policy, and
   receipts.
-- `EnvironmentWarmupProfile`: Hypervisor/Fleet policy object for prebuilds,
+- `EnvironmentWarmupProfile`: Hypervisor policy object for prebuilds,
   dependency caches, model caches, index warmup, image pulls, and provider warm
   pools. It is a performance projection, not canonical workspace truth.
 - `NodeEnforcementProfile`: HypervisorOS profile declaring daemon gates,
   sandboxing, executable policy, egress policy, datawall/leakage detection,
   log/export redaction, cTEE checks, and optional hardware attestation hooks.
   It is evidence/control posture, not a substitute for cTEE privacy.
-- `ClassicalInfraPrimitive`: any traditional infrastructure object Fleet may
+- `ClassicalInfraPrimitive`: any traditional infrastructure object Hypervisor may
   manage or project, including a VM, container, microVM, WASM workload, image,
   volume, network, firewall/egress policy, snapshot, backup, restore point,
   node pool, GPU pool, quota, lease, health check, log stream, metric stream,
   cost record, provider connector, or migration plan.
-- `VirtualMachineWorkload`: a VM managed as a Fleet workload primitive. It is
+- `VirtualMachineWorkload`: a VM managed as a Hypervisor workload primitive. It is
   not automatically a Hypervisor runtime node unless a Hypervisor Daemon profile
   is installed, enrolled, and receipted.
-- `ContainerWorkload`: a container managed as a Fleet workload primitive under
+- `ContainerWorkload`: a container managed as a Hypervisor workload primitive under
   daemon/provider policy. Containers do not bypass wallet.network authority,
   Agentgres receipt admission, or cTEE mount rules.
-- `MicroVMWorkload`: a microVM managed as a Fleet workload primitive for
+- `MicroVMWorkload`: a microVM managed as a Hypervisor workload primitive for
   stronger workload isolation or reproducibility under daemon/provider policy.
-- `WASMWorkload`: a WASM module or workload managed as a Fleet workload
+- `WASMWorkload`: a WASM module or workload managed as a Hypervisor workload
   primitive, commonly used for portable step/module execution under daemon
   routing.
-- `ImageRef`: Fleet-visible image identity or image artifact ref for VM,
+- `ImageRef`: Hypervisor-visible image identity or image artifact ref for VM,
   container, microVM, WASM, HypervisorOS, or model-server deployment.
-- `VolumeRef`: Fleet-visible volume identity or volume artifact/storage ref.
+- `VolumeRef`: Hypervisor-visible volume identity or volume artifact/storage ref.
   Volume availability is not payload meaning; Agentgres artifact refs and
   receipts govern meaning and restore validity.
-- `NetworkPolicy`: Fleet-visible ingress, egress, firewall, routing, and
+- `NetworkPolicy`: Hypervisor-visible ingress, egress, firewall, routing, and
   private-network posture. Network policy does not grant authority by itself.
-- `SnapshotRef`: Fleet-visible snapshot identity for infrastructure restore
+- `SnapshotRef`: Hypervisor-visible snapshot identity for infrastructure restore
   flows. It is not restore validity without Agentgres archive refs, state roots,
   and receipts where the snapshot affects canonical state.
-- `MigrationPlan`: Fleet-visible plan for moving workloads, nodes, volumes,
+- `MigrationPlan`: Hypervisor-visible plan for moving workloads, nodes, volumes,
   images, private workspaces, model servers, or provider posture between
   VMware, Proxmox, KubeVirt, Nutanix, Kubernetes, HypervisorOS, cloud, DePIN,
   and customer targets.
-- `GpuPool`: Fleet-visible accelerator pool with provider, node, utilization,
+- `GpuPool`: Hypervisor-visible accelerator pool with provider, node, utilization,
   model-route, placement, cost, lease, authority, and cTEE posture.
 - `ProviderConnector`: a declared connector for cloud, DePIN, storage,
   Kubernetes, KubeVirt, VMware, Proxmox, Nutanix, HypervisorOS, or customer
   environments. It may execute provider API actions only through approved daemon
   or provider-connector boundaries with authority and receipts.
-- `FleetPlacementDecision`: a Fleet projection or canonical object, depending
+- `HypervisorPlacementDecision`: a Hypervisor projection or canonical object, depending
   on risk, that records why a workload, private workspace, model mount, worker,
   service, or runtime assignment should land on a node/provider. It cannot
   bypass wallet.network, daemon execution, cTEE custody, or Agentgres admission.
-- `HypervisorProviderIntegration`: a direct Hypervisor/Fleet integration with a
+- `FleetPlacementDecision`: deprecated alias for `HypervisorPlacementDecision`.
+- `HypervisorProviderIntegration`: a direct Hypervisor integration with a
   provider or inventory source that can run, store, network, attest, or host
   autonomous work. Examples include local machines, customer clouds,
   hyperscalers, DePIN compute markets, decentralized storage networks,
   confidential-compute providers, enterprise clusters, cloud GPU providers,
   provider-specific markets, and user-specified routes.
-- `CloudRoute`: the Hypervisor/Fleet object for routing a workload to compute,
+- `CloudRoute`: the Hypervisor object for routing a workload to compute,
   storage, GPU, network, confidential compute, DePIN, customer cloud, local, or
   provider infrastructure. It binds resource requirements, privacy posture,
   storage requirements, budget, jurisdiction, selected candidate, provider trust
@@ -419,23 +427,24 @@ compliance acronyms for hidden audit material.
   clients. Clients request, inspect, steer, approve, and render; they do not
   own runtime truth.
 - `HypervisorApp`: the native desktop client over Hypervisor Core. It may host
-  Workbench, Foundry, Fleet, Agents, Models, cTEE/Privacy, Receipts/Audit,
-  Connectors, and other application surfaces.
+  Workbench, Foundry, Agents, Models, cTEE/Privacy, Receipts/Audit,
+  Connectors, provider/environment views, and other application surfaces.
 - `HypervisorWeb`: the browser/team/remote client over Hypervisor Core. It may
   host web/operator/team versions of the same application surfaces while using
   the same daemon, authority, Agentgres, session, receipt, and adapter
   contracts.
 - `HypervisorCliHeadless`: the terminal, scripting, CI, node-ops, and headless
   operator client over Hypervisor Core. It can render plans, controls, traces,
-  approvals, receipts, Fleet projections, and node operations, but it does not
-  own execution semantics.
+  approvals, receipts, provider/environment projections, and node operations,
+  but it does not own execution semantics.
 - `HypervisorTui`: an optional interactive presentation of the
   HypervisorCliHeadless client. It is not a separate first-class client lane and
   must not maintain hidden runtime controls outside daemon/domain APIs.
 - `HypervisorApplicationSurface`: a major product surface over Hypervisor Core,
-  such as Workbench, Foundry, Fleet, Agents, Services, Models, cTEE/Privacy,
-  Receipts/Audit, or Connectors. Application surfaces are not separate apps with
-  separate runtime truth.
+  such as Workbench, Foundry, Agents, Services, Models, cTEE/Privacy,
+  Receipts/Audit, or Connectors. Provider/environment posture is a default
+  Hypervisor view, not a separate Fleet application surface. Application
+  surfaces are not separate apps with separate runtime truth.
 - `HypervisorWorkbench`: the code, systems, workspace, editor, terminal,
   browser, workflow, and debugging surface over Hypervisor Core. It replaces
   "Hypervisor IDE" as the live product term for the code-oriented Hypervisor
@@ -444,7 +453,7 @@ compliance acronyms for hidden audit material.
   managed through Hypervisor Core. Examples include local workspaces, remote VM
   workspaces, browser sandboxes, hosted workers, HypervisorOS nodes, terminal
   sessions, editor sessions, computer-use sessions, Foundry/eval/training
-  sessions, and Fleet/provider sessions.
+  sessions, provider management sessions, and environment management sessions.
 - `HypervisorProject`: stable project/workspace identity under Hypervisor
   Core. It binds repository/context roots, default policies, persistence
   defaults, adapter preferences, and Agentgres domain links. It is not a
@@ -535,7 +544,7 @@ compliance acronyms for hidden audit material.
   application surfaces, Hypervisor Daemon, Agentgres, wallet.network authority
   paths, local registries, receipts, replay, and runtime profiles. It is not
   the Hypervisor App, Hypervisor Web, CLI/headless client, optional TUI view,
-  Workbench, Foundry, or Fleet by itself.
+  Workbench, Foundry, or provider/environment view by itself.
 - `LocalSettlementDomain`: a Hypervisor Node domain that locally accepts work,
   proposals, authority outcomes, receipts, interop messages, and state
   transitions for many governed autonomous-system chains. Public economic
@@ -769,17 +778,22 @@ compliance acronyms for hidden audit material.
   configuring, evaluating, packaging, deploying, and improving workers through
   the Worker Training lifecycle. It can project recipes into the standard
   Workflow Compositor, but it is not a separate canvas environment or runtime.
-- `HypervisorFleetSurface`: the Fleet application surface in Hypervisor App,
-  Hypervisor Web, CLI/headless projections, optional TUI views, or
-  console.ioi.ai for hands-on management of attached nodes, persistent
-  workspaces, active agents/workers/services, model mounts, cTEE posture,
-  receipts, approvals, trace summaries, replay availability, and
-  start/stop/resume/archive/restore actions. It requests and displays; it does
-  not own Fleet truth, execution, or authority.
-- `ConsoleIoiAiFleetSurface`: the console.ioi.ai web/org/admin lens for
-  accounts, devices, entitlements, node registry, provider integrations, fleet
-  status, billing, remote access, restore routing, and org policy visibility.
-  It is an ioi.ai control-plane surface over Hypervisor Fleet, not the daemon.
+- `HypervisorProviderEnvironmentView`: default Hypervisor App, Hypervisor Web,
+  CLI/headless, optional TUI, or console view for hands-on management of
+  attached nodes, providers, persistent workspaces, active
+  agents/workers/services, model mounts, cTEE posture, receipts, approvals,
+  trace summaries, replay availability, and start/stop/resume/archive/restore
+  actions. It requests and displays; it does not own execution, authority,
+  Agentgres truth, or storage bytes.
+- `HypervisorFleetSurface`: deprecated alias for
+  `HypervisorProviderEnvironmentView`. Do not use as live product canon.
+- `ConsoleIoiAiProviderEnvironmentView`: the console.ioi.ai web/org/admin lens
+  for accounts, devices, entitlements, node registry, provider integrations,
+  provider status, billing, remote access, restore routing, and org policy
+  visibility. It is an ioi.ai control-plane view over Hypervisor provider and
+  environment posture, not the daemon.
+- `ConsoleIoiAiFleetSurface`: deprecated alias for
+  `ConsoleIoiAiProviderEnvironmentView`.
 - `WorkflowCompositor`: the high-level directed-work surface over Hypervisor
   Core and the SharedBuilderSubstrate. It owns workflow/service graph shape,
   typed step contracts, dependencies, acceptance criteria, review points,
@@ -896,8 +910,9 @@ compliance acronyms for hidden audit material.
   candidate set, routing policy, selected worker, selection reason,
   contribution policy, and receipt obligations.
 - `ioiAiControlPlane`: the lightweight account, device, publishing, restore
-  routing, sync metadata, billing/entitlement, console/org Fleet surface, and
-  remote-runtime coordination domain for `ioi.ai`.
+  routing, sync metadata, billing/entitlement, console/org
+  provider-environment view, and remote-runtime coordination domain for
+  `ioi.ai`.
 - `intent`: the semantic operation the user is asking the harness to perform.
 - `lane`: a durable runtime capability family such as weather, sports, places,
   recipes, messaging, user input, visualizer, artifact, or inline answer.

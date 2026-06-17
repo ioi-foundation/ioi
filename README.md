@@ -107,7 +107,8 @@ settlement.
   governance, and economic commitments.
 - **Clients and surfaces** compose and inspect work: Hypervisor App/Web,
   CLI/headless with optional TUI presentation, SDK/ADK, Workbench, Foundry,
-  Fleet, workflow compositor, harness adapters, and benchmarks.
+  provider/environment views, workflow compositor, harness adapters, and
+  benchmarks.
 
 The doctrine is simple:
 
@@ -207,7 +208,7 @@ Stop renting tools. Hire workers.
 | [`packages/runtime-daemon`](packages/runtime-daemon) | TypeScript daemon-facing runtime API surface and validation harnesses. |
 | [`packages/hypervisor-workbench`](packages/hypervisor-workbench) | Hypervisor Workbench, workflow-composition, and code/systems projection package over shared contracts. |
 | [`packages/workspace-substrate`](packages/workspace-substrate) | Shared workspace substrate for Hypervisor App/Web and Workbench surfaces. |
-| [`apps/hypervisor`](apps/hypervisor) | Hypervisor App/Web client shell for sessions, projects, missions, Workbench, Foundry, Fleet, models, privacy, approvals, receipts, and runtime UX. |
+| [`apps/hypervisor`](apps/hypervisor) | Hypervisor App/Web client shell for sessions, projects, missions, Workbench, Foundry, provider/environment views, models, privacy, approvals, receipts, and runtime UX. |
 | [`workbench-adapters`](workbench-adapters) | Editor/terminal/browser adapter host metadata and current VS Code-family Workbench adapter assets; not product identity or runtime authority. |
 | [`apps/aiagent-xyz`](apps/aiagent-xyz) | Marketplace for bounded workers, manifests, benchmark profiles, managed instances, and autonomous capabilities. |
 | [`apps/sas-xyz`](apps/sas-xyz) | Marketplace for verified autonomous service outcomes and Worker Training contracts. |

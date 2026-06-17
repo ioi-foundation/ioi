@@ -7,8 +7,8 @@ not the runtime authority itself and not a single-IDE product.
 The daemon owns execution, policy, approvals, model mounting, connector calls,
 secrets, receipts, replay, and workspace mutation. Hypervisor App projects
 state, sends typed requests, and gives the operator first-class surfaces for
-Sessions, Workbench, Automations, Insights, Agents, Models, Privacy, Fleet,
-Foundry, Authority, Receipts, and Settings.
+Sessions, Workbench, Automations, Insights, Agents, Models, Privacy,
+provider/environment views, Foundry, Authority, Receipts, and Settings.
 
 ## Architecture
 
@@ -17,7 +17,8 @@ Hypervisor App
 │
 ├── Hypervisor shell
 │   ├── Home, Sessions, Projects, and New Session
-│   ├── application surfaces: Workbench, Automations, Agents, Models, Foundry, Fleet
+│   ├── application surfaces: Workbench, Automations, Agents, Models, Foundry
+│   ├── provider/environment views: local, cloud, DePIN, storage, and nodes
 │   ├── governance surfaces: Privacy, Authority, Receipts, Settings
 │   └── inspectors for changes, ports/services, tasks, terminal, logs, and receipts
 │
@@ -125,7 +126,7 @@ packages/
 - Automations for workflow composition, templates, schedules, and reusable runs.
 - Models for daemon-owned local model discovery, load, unload, route, server,
   log, receipt, and replay state.
-- Authority, Privacy, Fleet, Foundry, and Receipts as application surfaces over
+- Authority, Privacy, provider/environment views, Foundry, and Receipts over
   the same daemon/Core contracts.
 
 ### Daemon-Owned Authority

@@ -10,7 +10,7 @@ Last alignment pass: 2026-05-13.
 
 Runtime nodes are execution venues. They may be a local Hypervisor Daemon
 managed by Hypervisor App, Hypervisor Web, CLI/headless clients, optional TUI
-views, or Workbench/Fleet surfaces; hosted Hypervisor Daemon; provider node;
+views, Workbench surfaces, or provider/environment views; hosted Hypervisor Daemon; provider node;
 DePIN node; TEE-verified node; or customer VPC node. They execute task
 capsules and return events, artifacts, and receipts.
 

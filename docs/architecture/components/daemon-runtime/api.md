@@ -10,8 +10,8 @@ Last alignment pass: 2026-05-30.
 
 The Hypervisor Daemon is the universal execution endpoint and hypervisor/control plane
 for canonical Web4 autonomous work. The IOI CLI/headless client, optional TUI
-presentation, `@ioi/agent-sdk`, future
-IOI ADK, Hypervisor App, Hypervisor Web, Workbench/Foundry/Fleet surfaces,
+presentation, `@ioi/agent-sdk`, future IOI ADK, Hypervisor App,
+Hypervisor Web, Workbench/Foundry surfaces, provider/environment views,
 Workflow Compositor, harness profiles, benchmarks, editor extension-host code,
 and IOI
 Authority Gateway adapters are clients, builder frameworks, or projections over
@@ -242,7 +242,7 @@ POST /v1/threads/{thread_id}/turns/{turn_id}/steer
 ```
 
 Hypervisor App, Hypervisor Web, CLI/headless, optional TUI, SDK, ADK,
-Workflow Compositor, and Workbench/Foundry/Fleet surfaces may
+Workflow Compositor, Workbench/Foundry surfaces, and provider/environment views may
 render these controls differently, but they must converge on these daemon
 contracts rather than maintaining private session loops.
 
@@ -273,7 +273,7 @@ contracts rather than maintaining private session loops.
 
 Projects, sessions, missions, adapter targets, and environment operations are
 daemon/Core APIs. Hypervisor App, Hypervisor Web, CLI/headless clients,
-Workbench, Foundry, Fleet, SDK/ADK clients, and agent harness adapters may
+Workbench, Foundry, provider/environment views, SDK/ADK clients, and agent harness adapters may
 render or call these APIs, but they must not maintain parallel lifecycle truth.
 
 ### Projects
@@ -567,8 +567,8 @@ POST /v1/connectors/{connector_id}/subscriptions
 
 MCP manager endpoints expose tool/resource/prompt discovery and governed MCP
 tool invocation to Hypervisor App, Hypervisor Web, CLI/headless clients,
-optional TUI views, SDK, ADK, Workbench, Workflow Compositor, and
-Foundry/Fleet surfaces.
+optional TUI views, SDK, ADK, Workbench, Workflow Compositor, Foundry
+surfaces, and provider/environment views.
 Global MCP routes are thread-scoped daemon protocol APIs; retired top-level
 `/v1/mcp*` and legacy `/api/v1/mcp*` routes are not compatibility fallbacks.
 

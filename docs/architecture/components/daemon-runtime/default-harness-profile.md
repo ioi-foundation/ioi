@@ -43,7 +43,7 @@ The default stack relation is:
 ```text
 Hypervisor clients and surfaces
   Hypervisor App, Hypervisor Web, CLI/headless, optional TUI, SDK, ADK,
-  Workbench/Foundry/Fleet surfaces, Authority Gateway adapters
+  Workbench/Foundry surfaces, provider/environment views, Authority Gateway adapters
 
 Hypervisor Daemon
   execution owner and policy/authority/effect boundary

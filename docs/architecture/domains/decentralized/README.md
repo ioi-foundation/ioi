@@ -134,6 +134,6 @@ IOI L1
 - [`cloud-parked-future.md`](./cloud-parked-future.md)
 - [`../../components/wallet-network/product-exchange-risk.md`](../../components/wallet-network/product-exchange-risk.md)
 - [`../../components/wallet-network/doctrine.md`](../../components/wallet-network/doctrine.md)
-- [`../../components/hypervisor/fleet.md`](../../components/hypervisor/fleet.md)
+- [`../../components/hypervisor/providers-and-environments.md`](../../components/hypervisor/providers-and-environments.md)
 - [`../../components/agentgres/doctrine.md`](../../components/agentgres/doctrine.md)
 - [`../../foundations/ioi-l1-mainnet.md`](../../foundations/ioi-l1-mainnet.md)

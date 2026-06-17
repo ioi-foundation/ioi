@@ -80,7 +80,7 @@ Client Surfaces
   Workbench, Workflow Compositor, browser apps, harness profiles, benchmarks
 
 Hypervisor Application Surfaces
-  Workbench, Foundry, Fleet, Agents, Services, Models, cTEE/Privacy, Receipts/Audit
+  Workbench, Foundry, Agents, Services, Models, cTEE/Privacy, Receipts/Audit, provider/environment views
 
 Storage Backends
   immutable package, artifact, evidence, receipt, checkpoint, snapshot, sealed archive byte availability
@@ -136,7 +136,7 @@ Execution Nodes           = local/hosted/DePIN/TEE/customer runtime nodes
 Authority Plane           = wallet.network
 Artifact-Ref Plane        = Agentgres artifact refs
 Storage Backends          = local disk, S3/object stores, Filecoin, CAS/IPFS, provider blobs
-Application Surfaces      = Workbench, Foundry, Fleet, Agents, Services, Models, cTEE/Privacy, Receipts/Audit
+Application Surfaces      = Workbench, Foundry, Agents, Services, Models, cTEE/Privacy, Receipts/Audit; provider/environment views are default Hypervisor views
 Developer/Operator Clients = Hypervisor App, Hypervisor Web, IOI CLI/headless, optional TUI, @ioi/agent-sdk, IOI ADK, Workbench, Workflow Compositor, harness profiles
 MoW Routing               = worker selection, sparse categories, contribution policy, benchmark eligibility
 ```
@@ -154,7 +154,8 @@ Hypervisor Daemon runtime nodes = execution layer
 MoW = labor routing layer for bounded workers
 Hypervisor App/Web/CLI-headless/SDK/ADK/Workbench/Workflow Compositor = clients, builder frameworks, and projections over runtime/domain contracts
 TUI = optional CLI presentation over the same runtime/domain contracts
-Workbench/Foundry/Fleet = application surfaces over Hypervisor Core and daemon/domain contracts
+Workbench/Foundry = application surfaces over Hypervisor Core and daemon/domain contracts
+Provider/environment views = default Hypervisor views over sessions, providers, and environments
 ```
 
 ## Edge-In Topology

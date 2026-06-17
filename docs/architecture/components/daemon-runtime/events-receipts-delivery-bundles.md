@@ -15,7 +15,7 @@ Agentgres, aiagent.xyz, sas.xyz, and wallet.network.
 
 The Hypervisor Daemon emits these objects as the autonomous-execution
 hypervisor/control plane. Hypervisor App, Hypervisor Web, CLI/headless,
-optional TUI, SDK, ADK, Workbench/Foundry/Fleet surfaces, harnesses,
+optional TUI, SDK, ADK, Workbench/Foundry surfaces, provider/environment views, harnesses,
 benchmarks, and extension-host code may project or inspect them, but they must
 not mint private runtime truth for consequential work.
 

@@ -38,8 +38,8 @@ remain in storage backends.
 
 - Hypervisor Daemon executes work as the autonomous-execution hypervisor/control plane.
 - Hypervisor App, Hypervisor Web, CLI/headless clients, optional TUI views, and
-  Workbench/Foundry/Fleet request, approve, and inspect work as operator
-  clients and application surfaces.
+  Workbench/Foundry surfaces plus provider/environment views request, approve,
+  and inspect work as operator clients, application surfaces, and projections.
 - Agentgres records operational state, runs, receipts, projections, delivery,
   and contribution accounting.
 - IOI L1 settles registry, rights, escrows, bonds, disputes, and public
@@ -1212,7 +1212,7 @@ When a High-Risk action triggers a Step-Up:
 *   **Enforcement:** **On-Chain Modules** for Spend Limits and Allowlist.
 *   **Benefit:** High-Risk autonomy is now safe; compromised runtime cannot drain funds.
 
-#### Phase C: Enterprise Fleet
+#### Phase C: Enterprise Account Estate
 *   **Setup:** Multiple Strategy Sub-Accounts.
 *   **Control:** Hierarchical Grants, Aggregate Reporting.
 *   **Enforcement:** On-Chain Receipt Anchoring for compliance.

@@ -39,9 +39,10 @@ Hypervisor Core is the shared product/runtime substrate over this daemon-owned
 execution boundary. Hypervisor App, Hypervisor Web, CLI/headless, SDK, ADK,
 benchmarks, and extension hosts are first-class clients, builder frameworks, or
 projections; they do not become private runtimes. A TUI is an optional
-presentation of CLI/headless controls. Hypervisor Workbench, Foundry, Fleet,
-Agents, Services, Models, cTEE/Privacy, Receipts/Audit, and Connectors are
-application surfaces over the same Core, not separate runtime truth paths.
+presentation of CLI/headless controls. Hypervisor Workbench, Foundry, Agents,
+Services, Models, cTEE/Privacy, Receipts/Audit, Connectors, and
+provider/environment views are projections over the same Core, not separate
+runtime truth paths.
 
 Hypervisor Workbench replaces "Hypervisor IDE" as the live code/systems
 surface term. VS Code, Cursor, Windsurf, JetBrains, browser IDEs, terminals,
@@ -114,8 +115,9 @@ stores, and runtime profiles.
 
 The daemon is the execution and authority-enforcement substrate inside that
 node. Hypervisor App, Hypervisor Web, CLI/headless, optional TUI views, and
-application surfaces such as Workbench, Foundry, and Fleet are operator
-clients/projections. Agentgres is the local operational truth substrate. AIIP is
+application surfaces such as Workbench and Foundry plus provider/environment
+views are operator clients/projections. Agentgres is the local operational
+truth substrate. AIIP is
 the semantic interop protocol for local microharness routing and external
 autonomous-system handoffs.
 wallet.network owns authority. IOI L1 receives selected roots when public
@@ -250,7 +252,8 @@ CLI-compatible workflow/domain packages. The CLI may inspect, validate,
 materialize, promote, publish, route, or verify them through daemon and
 Agentgres APIs. The CLI does not become the Hypervisor runtime.
 
-Hypervisor App, Hypervisor Web, CLI/headless, and Workbench/Foundry/Fleet surfaces
+Hypervisor App, Hypervisor Web, CLI/headless, Workbench/Foundry surfaces, and
+provider/environment views
 may manage or inspect local Hypervisor Daemons and render local runtime
 projections. Remote, hosted, provider, DePIN, TEE, and customer runtime nodes
 should still be described as Hypervisor Daemon runtime-node profiles, even when
@@ -336,7 +339,8 @@ GET  /v1/deliveries/{id}
 
 Interactive clients and builder frameworks such as Hypervisor App/Web,
 CLI/headless, optional TUI views, SDK, ADK, Workflow Compositor, and
-Workbench/Foundry/Fleet surfaces also use the thread/turn control substrate:
+Workbench/Foundry surfaces and provider/environment views also use the
+thread/turn control substrate:
 
 ```http
 POST /v1/threads
@@ -416,7 +420,7 @@ The implementation may bridge the daemon API into a lower-level
 `RuntimeAgentService` or other runtime service loop. That bridge is behind the
 daemon/runtime-node profile. It does not change client ownership: SDK, ADK,
 CLI/headless, optional TUI views, Workflow Compositor, Hypervisor App/Web
-clients, Workbench/Foundry/Fleet surfaces, harnesses, and benchmarks remain
+clients, Workbench/Foundry surfaces, provider/environment views, harnesses, and benchmarks remain
 clients, builder frameworks, or projections.
 
 ## Event Model
@@ -493,7 +497,7 @@ TUI = separate first-class runtime/client lane
 external CLI agent harness = Hypervisor client
 Codex/Claude Code/Grok Build = runtime truth
 Hypervisor App/Web/CLI-headless = runtime truth
-Hypervisor Workbench/Foundry/Fleet = runtime truth
+Hypervisor Workbench/Foundry/provider views = runtime truth
 Hypervisor Core = peer runtime beside the daemon
 Default Harness Profile = peer daemon, only admissible harness, or meta-harness
 selected harness/model = owner of workspace skills or memory
