@@ -659,6 +659,18 @@ assert(
     runtimeManagedWorkerLifecycleAdmissionSource.includes(
       'runtimeTruthSource: "daemon-runtime"',
     ) &&
+    publicRuntimeRoutesSource.includes(
+      "/v1/hypervisor/managed-worker-lifecycle-admissions",
+    ) &&
+    publicRuntimeRoutesSource.includes(
+      "admitManagedWorkerInstanceLifecycleTransition",
+    ) &&
+    publicRuntimeRoutesTestSource.includes(
+      "expose managed worker lifecycle admissions",
+    ) &&
+    publicRuntimeRoutesTestSource.includes(
+      "blocks payment-lapse deletion",
+    ) &&
     runtimeManagedWorkerLifecycleAdmissionTestSource.includes(
       "payment lapse freezes billable work and cannot silently delete context",
     ) &&

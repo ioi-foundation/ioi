@@ -6,6 +6,7 @@ import {
 } from "../runtime-agent-run-lifecycle.mjs";
 import { planHarnessAdapterContainerLane } from "../runtime-harness-container-lane.mjs";
 import { runHarnessPublicSmokeTask } from "../runtime-harness-public-smoke-task.mjs";
+import { admitManagedWorkerInstanceLifecycleTransition } from "../runtime-managed-worker-instance-lifecycle-admission.mjs";
 import { admitModelWeightCustodyRoute } from "../runtime-model-weight-custody-admission.mjs";
 
 export function createPublicRuntimeRequestHandler(deps) {
@@ -283,6 +284,23 @@ export function createPublicRuntimeRequestHandler(deps) {
             source:
               optionalString(body.source) ??
               "public_runtime_routes./v1/hypervisor/model-weight-custody-admissions",
+          }),
+          202,
+        );
+        return;
+      }
+      if (
+        request.method === "POST" &&
+        url.pathname === "/v1/hypervisor/managed-worker-lifecycle-admissions"
+      ) {
+        const body = await readBody(request);
+        writeJsonResponse(
+          response,
+          admitManagedWorkerInstanceLifecycleTransition({
+            ...body,
+            source:
+              optionalString(body.source) ??
+              "public_runtime_routes./v1/hypervisor/managed-worker-lifecycle-admissions",
           }),
           202,
         );

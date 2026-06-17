@@ -805,6 +805,105 @@ test("public runtime model-weight custody route blocks provider-readable private
   });
 });
 
+test("public runtime routes expose managed worker lifecycle admissions", async () => {
+  const { handleRequest } = routeHarness();
+  const response = responseRecorder();
+  const store = {
+    defaultCwd: "/workspace",
+    stateDir: "/state",
+    projectRuntimeLifecycleProjection: retiredRouteWrapper,
+  };
+
+  await handleRequest({
+    request: request({
+      method: "POST",
+      url: "/v1/hypervisor/managed-worker-lifecycle-admissions",
+      body: {
+        lifecycle_id: "lifecycle:agent_123",
+        worker_instance_id: "agent://agent_123",
+        worker_package_ref: "package://worker/researcher@1",
+        owner_ref: "wallet://user_123",
+        from_state: "active",
+        to_state: "payment_past_due",
+        persistence_profile: "persistent",
+        payment_status: "past_due",
+        transition_reason: "payment_lapse",
+        authority_scope_refs: ["scope:worker.lifecycle"],
+        authority_grant_refs: ["grant://wallet/worker-lifecycle"],
+        policy_refs: ["policy://worker-lifecycle"],
+        latest_state_root: "state_root:worker:123",
+        receipt_refs: ["receipt://worker-lifecycle/payment-past-due"],
+        agentgres_operation_refs: [
+          "agentgres://operation/worker-lifecycle/payment-past-due",
+        ],
+        required_controls: [
+          "freeze_new_billable_work",
+          "pause_high_risk_standing_orders",
+        ],
+        new_billable_work_blocked: true,
+        high_risk_orders_paused: true,
+      },
+    }),
+    response,
+    store,
+  });
+
+  const payload = JSON.parse(response.body);
+  assert.equal(response.statusCode, 202);
+  assert.equal(
+    payload.schema_version,
+    "ioi.runtime.managed_worker_instance_lifecycle_admission.v1",
+  );
+  assert.equal(
+    payload.transition_id,
+    "managed-worker-lifecycle:lifecycle_agent_123:active-payment_past_due",
+  );
+  assert.equal(payload.state, "payment_past_due");
+  assert.equal(payload.freezes_new_billable_work, true);
+  assert.equal(payload.pauses_high_risk_standing_orders, true);
+  assert.equal(payload.runtimeTruthSource, "daemon-runtime");
+});
+
+test("public runtime managed worker lifecycle route blocks payment-lapse deletion", async () => {
+  const { handleRequest } = routeHarness();
+  const response = responseRecorder();
+
+  await handleRequest({
+    request: request({
+      method: "POST",
+      url: "/v1/hypervisor/managed-worker-lifecycle-admissions",
+      body: {
+        lifecycle_id: "lifecycle:agent_123",
+        worker_instance_id: "agent://agent_123",
+        owner_ref: "wallet://user_123",
+        from_state: "payment_past_due",
+        to_state: "deleted",
+        persistence_profile: "persistent",
+        payment_status: "past_due",
+        transition_reason: "payment_lapse",
+        authority_scope_refs: ["scope:worker.lifecycle", "scope:worker.delete"],
+        wallet_approval_ref: "approval://wallet/delete",
+        receipt_refs: ["receipt://worker-lifecycle/delete"],
+        agentgres_operation_refs: [
+          "agentgres://operation/worker-lifecycle/delete",
+        ],
+        deletion_policy: {
+          delete_runtime_state: true,
+          delete_archives: false,
+          forget_semantic_memory: false,
+        },
+      },
+    }),
+    response,
+    store: { defaultCwd: "/workspace", stateDir: "/state" },
+  });
+
+  assert.equal(response.statusCode, 403);
+  assert.deepEqual(JSON.parse(response.body), {
+    error: "managed_worker_lifecycle_lapse_delete_blocked",
+  });
+});
+
 test("public runtime computer-use routes dispatch through Rust daemon-core projection", async () => {
   const { handleRequest } = routeHarness();
   const calls = [];

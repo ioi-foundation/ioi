@@ -1702,7 +1702,7 @@ confused with model-weight secrecy at route time.
 
 | Field | Detail |
 | --- | --- |
-| Status | Canonized on 2026-06-17; first daemon-side managed worker lifecycle transition admission contract implemented and guarded. Live aiagent endpoint integration remains follow-up hardening. |
+| Status | Canonized on 2026-06-17; daemon-side managed worker lifecycle transition admission contract implemented, guarded, and exposed through the public Hypervisor daemon route. Live aiagent marketplace/product endpoint integration remains follow-up hardening. |
 | Files | new `aiagent/managed-worker-instance-lifecycle.md`, worker endpoints, Agentgres artifact refs, wallet APIs |
 | Change | Define install, initialize, active, idle, zero-to-idle, suspended, lapsed, archived, restored, exported, deleted. |
 | Acceptance | Payment lapse and restore/export/delete behavior are explicit. |
@@ -1720,7 +1720,9 @@ without import refs, archive without Agentgres archive refs/state roots, and
 export/delete/forget transitions without explicit wallet authority.
 `check:runtime-layout` guards the contract so long-lived aiagent instances
 cannot treat subscription lapse, zero-to-idle, archive, restore, export, or
-forget as product-console-only state.
+forget as product-console-only state. `/v1/hypervisor/managed-worker-lifecycle-admissions`
+now exposes the same admission boundary through the public daemon API for
+future aiagent and managed-agent product surfaces.
 ```
 
 ### Phase 6: Add Candidate Evidence Conformance
