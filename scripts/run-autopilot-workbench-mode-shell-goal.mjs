@@ -219,15 +219,15 @@ function checkGuide() {
 function checkPackageScripts() {
   const packageJson = readJson("package.json");
   const required = [
-    "goal:autopilot-workbench-mode-shell",
-    "goal:autopilot-workbench-mode-shell:run",
-    "goal:autopilot-workflow-compositor-parity",
-    "goal:autopilot-models-production-polish",
+    "goal:hypervisor-workbench-mode-shell",
+    "goal:hypervisor-workbench-mode-shell:run",
+    "goal:hypervisor-workflow-compositor-parity",
+    "goal:hypervisor-models-production-polish",
   ];
   const missing = required.filter((script) => !packageJson.scripts?.[script]);
   const wired = [
-    packageJson.scripts?.["goal:autopilot-workbench-mode-shell"],
-    packageJson.scripts?.["goal:autopilot-workbench-mode-shell:run"],
+    packageJson.scripts?.["goal:hypervisor-workbench-mode-shell"],
+    packageJson.scripts?.["goal:hypervisor-workbench-mode-shell:run"],
   ].every((script) =>
     String(script || "").includes("scripts/run-autopilot-workbench-mode-shell-goal.mjs"),
   );

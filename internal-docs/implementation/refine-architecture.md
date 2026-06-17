@@ -835,14 +835,13 @@ Current implementation cut:
   `.gitignore` no longer preserves dead active `src-tauri` or `agent-ide`
   shadows
 
-0A.1D is the next naming cleanup cut:
-  the active Tauri app and root `ide/` product path are already retired, but
-  root `package.json` still exposes old `goal:autopilot-*`,
-  `validate:autopilot-*`, and `test:autopilot-*` proof-runner names.
-  Those names should be replaced with Hypervisor/App/Workbench/Foundry/Fleet
-  script names as the corresponding runners are renamed. Do not keep
-  compatibility aliases unless an active conformance command still requires
-  them during the same slice.
+0A.1D active command-surface cleanup is implemented:
+  the active Tauri app and root `ide/` product path are retired, and root
+  `package.json` now exposes Hypervisor/App/Workbench command names instead of
+  retired Autopilot-prefixed goal, validation, or test product aliases. The
+  proof-runner filenames may remain historical internals until their code is
+  refactored or deleted, but the public command surface must not advertise
+  Autopilot as the product.
 
 0A.2 canonical shell routing is partially implemented:
   `PrimaryView` is now the canonical `HypervisorSurfaceId` union rather than

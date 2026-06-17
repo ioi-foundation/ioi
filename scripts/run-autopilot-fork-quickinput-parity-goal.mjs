@@ -107,8 +107,8 @@ function checkPackageScripts() {
   const packageJson = JSON.parse(read("package.json") || "{}");
   const scripts = packageJson.scripts || {};
   const required = [
-    "goal:autopilot-fork-quickinput-parity",
-    "goal:autopilot-fork-quickinput-parity:run",
+    "goal:hypervisor-fork-quickinput-parity",
+    "goal:hypervisor-fork-quickinput-parity:run",
   ];
   const missing = required.filter((script) => !scripts[script]);
   return {

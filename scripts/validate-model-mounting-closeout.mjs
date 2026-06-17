@@ -70,8 +70,8 @@ const deterministicGates = [
     evidencePattern: /docs\/evidence\/model-mounts-gui-validation\/[^\s]+\/result\.json/g,
   },
   {
-    id: "autopilot-gui-harness",
-    command: "AUTOPILOT_LOCAL_GPU_DEV=1 npm run validate:autopilot-gui-harness:run -- --window-timeout-ms 300000",
+    id: "hypervisor-app-harness",
+    command: "AUTOPILOT_LOCAL_GPU_DEV=1 npm run validate:hypervisor-app-harness:run -- --window-timeout-ms 300000",
     required: true,
     category: "gui",
     evidencePattern: /docs\/evidence\/autopilot-gui-harness-validation\/[^\s]+\/result\.json/g,

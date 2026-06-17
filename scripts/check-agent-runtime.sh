@@ -20,8 +20,8 @@ cargo test -p ioi-services --test pii_hard_gates
 npm run test:harness-contract
 node apps/hypervisor/src/windows/HypervisorShellWindow/harnessWorkflowWiring.test.mjs
 node apps/hypervisor/src/windows/HypervisorShellWindow/workflowComposerWiring.test.ts
-npm run test:autopilot-gui-harness
-npm run validate:autopilot-gui-harness
+npm run test:hypervisor-app-harness
+npm run validate:hypervisor-app-harness
 npm run test:agent-runtime-p3
 npm run validate:agent-runtime-p3
 npm run test:agent-runtime-superiority

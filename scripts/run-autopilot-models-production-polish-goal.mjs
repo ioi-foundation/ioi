@@ -169,16 +169,16 @@ function checkParentGuideLinks() {
 function checkPackageScripts() {
   const packageJson = readJson("package.json");
   const required = [
-    "goal:autopilot-models-production-polish",
-    "goal:autopilot-models-production-polish:run",
-    "goal:autopilot-models-lm-studio-ux",
-    "goal:autopilot-model-mounting",
-    "goal:autopilot-workflow-compositor-parity",
+    "goal:hypervisor-models-production-polish",
+    "goal:hypervisor-models-production-polish:run",
+    "goal:hypervisor-models-lm-studio-ux",
+    "goal:hypervisor-model-mounting",
+    "goal:hypervisor-workflow-compositor-parity",
   ];
   const missing = required.filter((script) => !packageJson.scripts?.[script]);
   const wired = [
-    packageJson.scripts?.["goal:autopilot-models-production-polish"],
-    packageJson.scripts?.["goal:autopilot-models-production-polish:run"],
+    packageJson.scripts?.["goal:hypervisor-models-production-polish"],
+    packageJson.scripts?.["goal:hypervisor-models-production-polish:run"],
   ].every((value) =>
     String(value || "").includes("scripts/run-autopilot-models-production-polish-goal.mjs"),
   );

@@ -31,6 +31,10 @@ function assert(id, condition, evidence, message) {
 }
 
 const packageJson = JSON.parse(read("package.json"));
+const packageScriptNames = Object.keys(packageJson.scripts ?? {});
+const retiredAutopilotPackageScripts = packageScriptNames.filter((scriptName) =>
+  /^(?:goal|validate|test):autopilot/.test(scriptName),
+);
 const daemonSource = read("packages/runtime-daemon/src/index.mjs");
 const sdkSubstrate = read("packages/agent-sdk/src/substrate-client.ts");
 const sdkIndex = read("packages/agent-sdk/src/index.ts");
@@ -109,6 +113,19 @@ assert(
     "package.json",
   ],
   "roadmap-specific compatibility wrappers and package aliases must stay retired; use runtime-complete-plus commands",
+);
+assert(
+  "autopilot-package-scripts-retired",
+  retiredAutopilotPackageScripts.length === 0 &&
+    packageJson.scripts["validate:hypervisor-app-harness"] &&
+    packageJson.scripts["validate:hypervisor-app-harness:run"] &&
+    packageJson.scripts["test:hypervisor-app-harness"] &&
+    packageJson.scripts["goal:hypervisor-app-ux-readiness"] &&
+    packageJson.scripts["goal:hypervisor-workflow-compositor-parity"] &&
+    packageJson.scripts["goal:hypervisor-model-mounting"] &&
+    packageJson.scripts["goal:hypervisor-workbench-mode-shell"],
+  ["package.json"],
+  "root package scripts must expose Hypervisor command names, not retired Autopilot product aliases",
 );
 assert(
   "runtime-module-map",

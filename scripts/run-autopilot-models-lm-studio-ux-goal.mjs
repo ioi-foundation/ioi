@@ -190,15 +190,15 @@ function checkParentGuide() {
 function checkPackageScripts() {
   const packageJson = readJson(join(repoRoot, "package.json"));
   const required = [
-    "goal:autopilot-models-lm-studio-ux",
-    "goal:autopilot-models-lm-studio-ux:run",
-    "goal:autopilot-model-mounting",
-    "goal:autopilot-workflow-compositor-parity",
+    "goal:hypervisor-models-lm-studio-ux",
+    "goal:hypervisor-models-lm-studio-ux:run",
+    "goal:hypervisor-model-mounting",
+    "goal:hypervisor-workflow-compositor-parity",
   ];
   const missing = required.filter((script) => !packageJson.scripts?.[script]);
   const wired = [
-    "goal:autopilot-models-lm-studio-ux",
-    "goal:autopilot-models-lm-studio-ux:run",
+    "goal:hypervisor-models-lm-studio-ux",
+    "goal:hypervisor-models-lm-studio-ux:run",
   ].every((script) =>
     packageJson.scripts?.[script]?.includes(
       "scripts/run-autopilot-models-lm-studio-ux-goal.mjs",

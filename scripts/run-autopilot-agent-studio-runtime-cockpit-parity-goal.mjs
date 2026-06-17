@@ -143,8 +143,8 @@ function checkPackageScripts() {
   const packageJson = JSON.parse(read("package.json") || "{}");
   const scripts = packageJson.scripts || {};
   const required = [
-    "goal:autopilot-agent-studio-runtime-cockpit-parity",
-    "goal:autopilot-agent-studio-runtime-cockpit-parity:run",
+    "goal:hypervisor-runtime-cockpit-parity",
+    "goal:hypervisor-runtime-cockpit-parity:run",
   ];
   const missing = required.filter((script) => !scripts[script]);
   return {

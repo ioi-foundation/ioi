@@ -450,17 +450,17 @@ function checkPackageScripts() {
   const packagePath = join(repoRoot, "package.json");
   const packageJson = JSON.parse(readFileSync(packagePath, "utf8"));
   const requiredScripts = [
-    "validate:autopilot-gui-harness",
-    "validate:autopilot-gui-harness:run",
-    "goal:autopilot-ux-readiness",
-    "goal:autopilot-ux-readiness:run",
+    "validate:hypervisor-app-harness",
+    "validate:hypervisor-app-harness:run",
+    "goal:hypervisor-app-ux-readiness",
+    "goal:hypervisor-app-ux-readiness:run",
   ];
   const missingScripts = requiredScripts.filter(
     (script) => !packageJson.scripts?.[script],
   );
   const canonicalHarnessAliases = [
-    "validate:autopilot-gui-harness",
-    "validate:autopilot-gui-harness:run",
+    "validate:hypervisor-app-harness",
+    "validate:hypervisor-app-harness:run",
   ].filter((script) =>
     packageJson.scripts?.[script]?.includes(
       "scripts/run-autopilot-ux-readiness-goal.mjs",

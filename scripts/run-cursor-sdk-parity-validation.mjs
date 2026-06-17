@@ -35,10 +35,10 @@ function run(command, args) {
 
 function writeGuiBlockerIfNeeded(targetDir) {
   const guiEvidence = {
-    lane: "autopilot_gui_retained_query_validation",
+    lane: "hypervisor_app_retained_query_validation",
     status: process.env.DISPLAY || process.env.WAYLAND_DISPLAY ? "not_run_by_this_script" : "blocked",
     command:
-      "AUTOPILOT_LOCAL_GPU_DEV=1 npm run validate:autopilot-gui-harness:run -- --window-timeout-ms 300000",
+      "AUTOPILOT_LOCAL_GPU_DEV=1 npm run validate:hypervisor-app-harness:run -- --window-timeout-ms 300000",
     environmentChecked: ["DISPLAY", "WAYLAND_DISPLAY", "AUTOPILOT_LOCAL_GPU_DEV"],
     reason:
       process.env.DISPLAY || process.env.WAYLAND_DISPLAY

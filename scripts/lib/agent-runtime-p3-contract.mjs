@@ -862,9 +862,9 @@ export function evaluateAgentRuntimeP3Readiness(repoRoot, options = {}) {
   const packageJson = JSON.parse(readText(repoRoot, "package.json"));
   const packageScripts = packageJson.scripts ?? {};
   const requiredScripts = [
-    "test:autopilot-gui-harness",
-    "validate:autopilot-gui-harness",
-    "validate:autopilot-gui-harness:run",
+    "test:hypervisor-app-harness",
+    "validate:hypervisor-app-harness",
+    "validate:hypervisor-app-harness:run",
     "test:agent-runtime-p3",
     "validate:agent-runtime-p3",
   ];

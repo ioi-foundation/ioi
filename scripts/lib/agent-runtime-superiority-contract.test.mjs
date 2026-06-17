@@ -132,9 +132,9 @@ test("superiority validation fails when a decisive IOI runtime anchor is absent"
     JSON.stringify(
       {
         scripts: {
-          "test:autopilot-gui-harness": "node test",
-          "validate:autopilot-gui-harness": "node test",
-          "validate:autopilot-gui-harness:run": "node test",
+          "test:hypervisor-app-harness": "node test",
+          "validate:hypervisor-app-harness": "node test",
+          "validate:hypervisor-app-harness:run": "node test",
           "test:agent-runtime-p3": "node test",
           "validate:agent-runtime-p3": "node test",
         },

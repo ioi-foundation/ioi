@@ -145,8 +145,8 @@ function checkPackageScripts() {
   const packageJson = JSON.parse(read("package.json") || "{}");
   const scripts = packageJson.scripts || {};
   const required = [
-    "goal:autopilot-agent-studio-operational-chat",
-    "goal:autopilot-agent-studio-operational-chat:run",
+    "goal:hypervisor-agent-operational-chat",
+    "goal:hypervisor-agent-operational-chat:run",
   ];
   const missing = required.filter((script) => !scripts[script]);
   return {

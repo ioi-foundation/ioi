@@ -511,8 +511,8 @@ function checkPackageScripts() {
   const packageJson = JSON.parse(read("package.json") || "{}");
   const scripts = packageJson.scripts || {};
   const required = [
-    "goal:autopilot-agent-studio-live-gui-validation",
-    "goal:autopilot-agent-studio-live-gui-validation:run",
+    "goal:hypervisor-agent-live-gui-validation",
+    "goal:hypervisor-agent-live-gui-validation:run",
   ];
   const missing = required.filter((script) => !scripts[script]);
   return {

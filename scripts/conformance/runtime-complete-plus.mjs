@@ -21,7 +21,7 @@ const commands = [
   ["npm", ["run", "test:agentgres-runtime-state"]],
   ["npm", ["run", "test:workflow-compositor-dogfood"]],
   ["npm", ["run", "test:hosted-workers"]],
-  ["npm", ["run", "test:autopilot-gui-harness"]],
+  ["npm", ["run", "test:hypervisor-app-harness"]],
   ["npm", ["run", "validate:agent-runtime-p3"]],
   ["npm", ["run", "validate:agent-runtime-superiority"]],
   ["npm", ["run", "validate:cursor-sdk-parity"]],

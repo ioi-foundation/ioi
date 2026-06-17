@@ -102,8 +102,8 @@ function checkPackageScripts() {
   const packageJson = JSON.parse(read("package.json") || "{}");
   const scripts = packageJson.scripts || {};
   const required = [
-    "goal:autopilot-agent-studio-runtime-ux-denoising",
-    "goal:autopilot-agent-studio-runtime-ux-denoising:run",
+    "goal:hypervisor-runtime-ux-denoising",
+    "goal:hypervisor-runtime-ux-denoising:run",
   ];
   const missing = required.filter((script) => !scripts[script]);
   return {

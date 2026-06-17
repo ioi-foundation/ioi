@@ -276,10 +276,10 @@ function checkExtensionImplementation() {
 function checkPackageScripts() {
   const packageJson = readJson(join(repoRoot, "package.json"));
   const required = [
-    "goal:autopilot-workflow-compositor-parity",
-    "goal:autopilot-workflow-compositor-parity:run",
-    "goal:autopilot-ux-readiness",
-    "goal:autopilot-ux-readiness:run",
+    "goal:hypervisor-workflow-compositor-parity",
+    "goal:hypervisor-workflow-compositor-parity:run",
+    "goal:hypervisor-app-ux-readiness",
+    "goal:hypervisor-app-ux-readiness:run",
   ];
   const missing = required.filter((script) => !packageJson.scripts?.[script]);
   const wired = required

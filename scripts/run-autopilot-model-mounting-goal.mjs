@@ -198,7 +198,7 @@ function checkMasterGuide() {
   const required = [
     "Observed LM Studio Reference Notes",
     "Workflow Composer De-Fixturing",
-    "npm run goal:autopilot-model-mounting",
+    "npm run goal:hypervisor-model-mounting",
     "Connector-specific sprint entry criteria",
   ];
   const missing = required.filter((phrase) => !content.includes(phrase));
@@ -216,10 +216,10 @@ function checkMasterGuide() {
 function checkPackageScripts() {
   const packageJson = readJson(join(repoRoot, "package.json"));
   const required = [
-    "goal:autopilot-model-mounting",
-    "goal:autopilot-model-mounting:run",
-    "goal:autopilot-workflow-compositor-parity",
-    "goal:autopilot-workflow-compositor-parity:run",
+    "goal:hypervisor-model-mounting",
+    "goal:hypervisor-model-mounting:run",
+    "goal:hypervisor-workflow-compositor-parity",
+    "goal:hypervisor-workflow-compositor-parity:run",
   ];
   const missing = required.filter((script) => !packageJson.scripts?.[script]);
   const wired = required
