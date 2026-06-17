@@ -1055,7 +1055,8 @@ Current implementation cut:
 
 0A.2 remaining visual implementation:
   Home still needs to become the full IOI-reference cockpit view
-  the secondary session/project rail still needs the live session projection
+  the secondary project rail still needs deeper live project/session projection
+  wiring
   the main canvas now has a first read-only Sessions operations cockpit backed
   by `HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE`; Home now has a
   normalized `ioi.hypervisor.home_cockpit_projection.v1` loader and renders its
@@ -1065,10 +1066,17 @@ Current implementation cut:
   `runtime.lifecycle_projection.hypervisor_home_cockpit`, returning only the
   client projection body. The app-side hydration seam and daemon route are both
   guarded.
+  Sessions now has a normalized
+  `ioi.hypervisor.session_operations_projection.v1` loader and
+  `/v1/hypervisor/session-operations` public runtime route dispatching through
+  `projectRuntimeLifecycle` with
+  `runtime.lifecycle_projection.hypervisor_session_operations`. The route
+  returns only the client projection body and preserves explicit
+  fixture-vs-daemon source markers.
   right and bottom inspectors now render the first session operations panels
   for changes/authority/privacy/receipts/model-provider and
-  ports/services/tasks/terminal/logs shape, but they still need live runtime
-  data and interactive lease/action flows
+  ports/services/tasks/terminal/logs shape; remaining work is interactive
+  lease/action flows and broader non-fixture project/session data coverage
 
 0A.5 Workbench adapter-hub landing is partially implemented:
   `WorkspaceRepositoryGate` now opens as a Workbench adapter hub over

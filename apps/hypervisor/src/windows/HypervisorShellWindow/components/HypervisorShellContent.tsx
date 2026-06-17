@@ -34,7 +34,10 @@ import { HYPERVISOR_PRIVACY_POSTURE_PROJECTION_FIXTURE } from "../hypervisorPriv
 import { HYPERVISOR_PROJECT_STATE_PROJECTION_FIXTURE } from "../hypervisorProjectStateModel";
 import { HYPERVISOR_PROVIDER_PLACEMENT_PROJECTION_FIXTURE } from "../hypervisorProviderPlacementModel";
 import { HYPERVISOR_RECEIPT_EVIDENCE_PROJECTION_FIXTURE } from "../hypervisorReceiptEvidenceModel";
-import { HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE } from "../hypervisorSessionOperationsModel";
+import {
+  HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE,
+  loadHypervisorSessionOperationsProjection,
+} from "../hypervisorSessionOperationsModel";
 
 interface HypervisorShellContentProps {
   controller: ReturnType<typeof useHypervisorShellController>;
@@ -177,12 +180,35 @@ function HypervisorHarnessComparisonDashboard() {
 }
 
 function HypervisorSessionOperationsCockpit() {
-  const projection = HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE;
+  const [projection, setProjection] = useState(
+    HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE,
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    loadHypervisorSessionOperationsProjection()
+      .then((nextProjection) => {
+        if (!cancelled) {
+          setProjection(nextProjection);
+        }
+      })
+      .catch((error) => {
+        console.warn(
+          "[Hypervisor][Sessions] operations projection unavailable",
+          error,
+        );
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <section
       className="hypervisor-session-operations"
       aria-label="Session operations cockpit"
       data-hypervisor-session-operations={projection.projection_id}
+      data-session-operations-source={projection.source}
       data-runtime-truth-source={projection.runtimeTruthSource}
     >
       <div className="hypervisor-session-operations__header">

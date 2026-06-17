@@ -97,6 +97,62 @@ Client fallback fixtures may keep the UI usable while the daemon is offline,
 but the fixture source must be visible and must not be presented as admitted
 runtime truth.
 
+```http
+GET /v1/hypervisor/session-operations
+```
+
+`GET /v1/hypervisor/session-operations` dispatches through the same daemon
+runtime lifecycle projection boundary with:
+
+```text
+operation_kind = runtime.lifecycle_projection.hypervisor_session_operations
+projection_kind = hypervisor_session_operations
+```
+
+Optional query params:
+
+```text
+project_id
+session_ref
+```
+
+The response is an `ioi.hypervisor.session_operations_projection.v1`
+projection:
+
+```json
+{
+  "schema_version": "ioi.hypervisor.session_operations_projection.v1",
+  "projection_id": "hypervisor-session-operations:...",
+  "source": "daemon-session-operations-projection",
+  "selected_session_ref": "session:...",
+  "lifecycle_state": "active",
+  "project_ref": "project:...",
+  "environment_ref": "environment:...",
+  "provider_candidate_ref": "provider:...",
+  "selected_adapter_ref": "workbench-adapter:...",
+  "authority_scope_refs": ["scope:workspace.read"],
+  "access_lease_ref": "lease:access/...",
+  "log_lease_ref": "lease:logs/...",
+  "archive_ref": "artifact://...",
+  "restore_ref": "agentgres://restore/...",
+  "session_rail": [],
+  "detail_tabs": [],
+  "right_inspector_panels": [],
+  "bottom_inspector_panels": [],
+  "ports_services": [],
+  "tasks": [],
+  "terminal_events": [],
+  "latest_receipt_refs": ["receipt://..."],
+  "runtimeTruthSource": "daemon-runtime"
+}
+```
+
+This projection powers Hypervisor session rails, session detail tabs, changes
+and authority inspectors, ports/services/tasks/terminal inspectors, access/log
+leases, and restore/archive refs. The client may inspect this state, but any
+state transition still requires a daemon operation, wallet.network authority
+where relevant, and Agentgres admission/receipt linkage.
+
 ### Runtime Manifest
 
 ```json

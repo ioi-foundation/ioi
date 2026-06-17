@@ -63,6 +63,9 @@ const hypervisorModelMountInventoryModelSource = read(
 const hypervisorShellWindowSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/index.tsx",
 );
+const hypervisorShellContentSource = read(
+  "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorShellContent.tsx",
+);
 const hypervisorNewSessionModalSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorNewSessionModal.tsx",
 );
@@ -110,6 +113,9 @@ const hypervisorHomeSource = [
 ].map(read).join("\n");
 const hypervisorHomeCockpitModelSource = read(
   "apps/hypervisor/src/surfaces/Home/homeCockpitModel.ts",
+);
+const hypervisorSessionOperationsModelSource = read(
+  "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorSessionOperationsModel.ts",
 );
 const workspaceRepositoryGateSource = read(
   "apps/hypervisor/src/surfaces/Workspace/WorkspaceRepositoryGate.tsx",
@@ -787,6 +793,44 @@ assert(
     "docs/architecture/components/daemon-runtime/api.md",
   ],
   "Hypervisor Home should surface a receipt-backed harness comparison preview and hydrate the Core cockpit projection through the daemon/public runtime route with fixture fallback.",
+);
+assert(
+  "hypervisor-session-operations-live-projection",
+  hypervisorSessionOperationsModelSource.includes(
+    "HYPERVISOR_SESSION_OPERATIONS_PROJECTION_PATH",
+  ) &&
+    hypervisorSessionOperationsModelSource.includes(
+      "normalizeHypervisorSessionOperationsProjection",
+    ) &&
+    hypervisorSessionOperationsModelSource.includes(
+      "loadHypervisorSessionOperationsProjection",
+    ) &&
+    hypervisorSessionOperationsModelSource.includes(
+      "ioi.hypervisor.session_operations_projection.v1",
+    ) &&
+    hypervisorShellContentSource.includes(
+      "loadHypervisorSessionOperationsProjection",
+    ) &&
+    hypervisorShellContentSource.includes("data-session-operations-source") &&
+    publicRuntimeRoutesSource.includes("/v1/hypervisor/session-operations") &&
+    publicRuntimeRoutesSource.includes(
+      "runtime.lifecycle_projection.hypervisor_session_operations",
+    ) &&
+    publicRuntimeRoutesSource.includes("projectRuntimeLifecycle") &&
+    publicRuntimeRoutesTestSource.includes(
+      "dispatch Hypervisor session operations through lifecycle projection",
+    ) &&
+    daemonRuntimeApiDoc.includes("GET /v1/hypervisor/session-operations") &&
+    daemonRuntimeApiDoc.includes(
+      "runtime.lifecycle_projection.hypervisor_session_operations",
+    ),
+  [
+    "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorSessionOperationsModel.ts",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorShellContent.tsx",
+    "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
+    "docs/architecture/components/daemon-runtime/api.md",
+  ],
+  "Hypervisor Sessions should hydrate session rails, detail tabs, inspectors, leases, services, tasks, terminal events, and restore refs through the daemon/public runtime route with fixture fallback.",
 );
 assert(
   "contract-family-modules",

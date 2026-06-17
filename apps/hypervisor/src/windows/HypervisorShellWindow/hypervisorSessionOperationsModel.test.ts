@@ -6,8 +6,13 @@ import {
   HYPERVISOR_RIGHT_INSPECTOR_PANELS,
   HYPERVISOR_SECONDARY_SESSION_RAIL_MODEL,
   HYPERVISOR_SESSION_DETAIL_TABS,
-} from "./hypervisorShellNavigationModel";
-import { HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE } from "./hypervisorSessionOperationsModel";
+} from "./hypervisorShellNavigationModel.ts";
+import {
+  HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE,
+  HYPERVISOR_SESSION_OPERATIONS_PROJECTION_PATH,
+  loadHypervisorSessionOperationsProjection,
+  normalizeHypervisorSessionOperationsProjection,
+} from "./hypervisorSessionOperationsModel.ts";
 
 test("session operations fixture mirrors the canonical shell tab and inspector contract", () => {
   const projection = HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE;
@@ -15,6 +20,7 @@ test("session operations fixture mirrors the canonical shell tab and inspector c
     projection.schema_version,
     "ioi.hypervisor.session_operations_projection.v1",
   );
+  assert.equal(projection.source, "fixture");
   assert.equal(projection.runtimeTruthSource, "daemon-runtime");
   assert.deepEqual(
     projection.session_rail.map((item) => item.state),
@@ -32,6 +38,85 @@ test("session operations fixture mirrors the canonical shell tab and inspector c
     projection.bottom_inspector_panels.map((panel) => panel.panel_id),
     HYPERVISOR_BOTTOM_INSPECTOR_PANELS,
   );
+});
+
+test("session operations normalization keeps daemon projections behind runtime truth markers", () => {
+  const projection = normalizeHypervisorSessionOperationsProjection(
+    {
+      projection_id: "hypervisor-session-operations:daemon/normalized",
+      selected_session_ref: "session:normalized",
+      lifecycle_state: "waiting_for_approval",
+      session_rail: [{ state: "waiting_for_approval", count: 3, selected: true }],
+      detail_tabs: [{ tab_id: "agent", label: "Agent", summary: "Ready" }],
+      right_inspector_panels: [
+        {
+          panel_id: "authority",
+          label: "Authority",
+          summary: "Step-up required",
+          status: "attention",
+          evidence_refs: ["receipt://authority/step-up"],
+        },
+      ],
+      ports_services: [
+        {
+          service_ref: "service:test",
+          label: "Test service",
+          port: 17777,
+          protocol: "http",
+          lease_ref: "lease:access/test",
+          status: "lease_required",
+        },
+      ],
+      latest_receipt_refs: ["receipt://session/normalized"],
+    },
+    { source: "daemon-session-operations-projection" },
+  );
+
+  assert.equal(projection.source, "daemon-session-operations-projection");
+  assert.equal(projection.runtimeTruthSource, "daemon-runtime");
+  assert.equal(projection.projection_id, "hypervisor-session-operations:daemon/normalized");
+  assert.equal(projection.selected_session_ref, "session:normalized");
+  assert.equal(projection.lifecycle_state, "waiting_for_approval");
+  assert.equal(projection.session_rail[0]?.state, "waiting_for_approval");
+  assert.equal(projection.detail_tabs[0]?.tab_id, "agent");
+  assert.equal(projection.right_inspector_panels[0]?.panel_id, "authority");
+  assert.equal(projection.ports_services[0]?.lease_ref, "lease:access/test");
+  assert.deepEqual(projection.latest_receipt_refs, ["receipt://session/normalized"]);
+});
+
+test("session operations loader calls the daemon projection route with project and session refs", async () => {
+  const calls: Array<{ input: string; method?: string }> = [];
+  const projection = await loadHypervisorSessionOperationsProjection({
+    endpoint: "http://daemon.test/",
+    projectId: "project:ioi",
+    sessionRef: "session:ioi",
+    fetchImpl: async (input, init) => {
+      calls.push({ input, method: init?.method });
+      return {
+        ok: true,
+        status: 200,
+        async text() {
+          return JSON.stringify({
+            projection_id: "hypervisor-session-operations:daemon/loaded",
+            selected_session_ref: "session:ioi",
+            latest_receipt_refs: ["receipt://session/loaded"],
+          });
+        },
+      };
+    },
+  });
+
+  assert.deepEqual(calls, [
+    {
+      input:
+        `http://daemon.test${HYPERVISOR_SESSION_OPERATIONS_PROJECTION_PATH}?project_id=project%3Aioi&session_ref=session%3Aioi`,
+      method: "GET",
+    },
+  ]);
+  assert.equal(projection.source, "daemon-session-operations-projection");
+  assert.equal(projection.projection_id, "hypervisor-session-operations:daemon/loaded");
+  assert.equal(projection.selected_session_ref, "session:ioi");
+  assert.deepEqual(projection.latest_receipt_refs, ["receipt://session/loaded"]);
 });
 
 test("session operations fixture exposes provider, lease, restore, and receipt evidence", () => {

@@ -274,6 +274,9 @@ test("Foundry exposes harness comparison as a daemon-runtime dashboard", () => {
 test("Sessions surface renders session tabs and operations inspectors from daemon projections", () => {
   assert.match(sessionOperationsModel, /HypervisorSessionOperationsProjection/);
   assert.match(sessionOperationsModel, /HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE/);
+  assert.match(sessionOperationsModel, /HYPERVISOR_SESSION_OPERATIONS_PROJECTION_PATH/);
+  assert.match(sessionOperationsModel, /loadHypervisorSessionOperationsProjection/);
+  assert.match(sessionOperationsModel, /normalizeHypervisorSessionOperationsProjection/);
   assert.match(sessionOperationsModel, /HYPERVISOR_SESSION_DETAIL_TABS/);
   assert.match(sessionOperationsModel, /HYPERVISOR_RIGHT_INSPECTOR_PANELS/);
   assert.match(sessionOperationsModel, /HYPERVISOR_BOTTOM_INSPECTOR_PANELS/);
@@ -284,7 +287,10 @@ test("Sessions surface renders session tabs and operations inspectors from daemo
   assert.match(sessionOperationsModel, /ports_services/);
   assert.match(sessionOperationsModel, /terminal_events/);
   assert.match(shellContent, /HypervisorSessionOperationsCockpit/);
+  assert.match(shellContent, /loadHypervisorSessionOperationsProjection/);
+  assert.match(shellContent, /\[Hypervisor\]\[Sessions\] operations projection unavailable/);
   assert.match(shellContent, /data-hypervisor-session-operations/);
+  assert.match(shellContent, /data-session-operations-source/);
   assert.match(shellContent, /data-runtime-truth-source/);
   assert.match(shellContent, /data-session-detail-tab/);
   assert.match(shellContent, /data-right-inspector-panel/);
