@@ -12,10 +12,6 @@ const homeOnboardingModel = readFileSync(
   new URL("./homeOnboardingModel.ts", import.meta.url),
   "utf8",
 );
-const homeCockpitModel = readFileSync(
-  new URL("./homeCockpitModel.ts", import.meta.url),
-  "utf8",
-);
 const homeWalkthroughDocument = readFileSync(
   new URL("./HomeWalkthroughDocument.tsx", import.meta.url),
   "utf8",
@@ -28,16 +24,20 @@ const shellContent = readFileSync(
   "utf8",
 );
 
-test("home dashboard uses Hypervisor cockpit copy and search intent", () => {
+test("home dashboard uses the IOI reference prompt shell", () => {
   assert.match(homeView, /aria-label="Hypervisor home"/);
-  assert.match(homeView, /data-home-dashboard-variant="ioi-reference-portal"/);
-  assert.match(homeView, /Welcome back, Heath/);
-  assert.match(homeView, /Search for anything in Hypervisor/);
+  assert.match(homeView, /data-home-dashboard-variant="ioi-reference-home"/);
+  assert.match(homeView, /What do you want to get done today\?/);
+  assert.match(homeView, /className="chat-home-zero-prompt-stage"/);
+  assert.match(homeView, /className="chat-home-zero-composer"/);
+  assert.match(homeView, /Describe your task or type \/ for commands/);
+  assert.match(homeView, /Work in a project/);
+  assert.match(homeView, /Local model/);
+  assert.match(homeView, /Automate env setup/);
+  assert.match(homeView, /Fix a bug/);
+  assert.match(homeView, /Boost your test coverage/);
   assert.doesNotMatch(homeView, /Welcome back to Autopilot/);
-  assert.doesNotMatch(
-    homeView,
-    /Search Autopilot, code, sessions, and commands/,
-  );
+  assert.doesNotMatch(homeView, /Search Autopilot, code, sessions, and commands/);
 });
 
 test("home onboarding uses Hypervisor and Workbench adapter language", () => {
@@ -60,104 +60,80 @@ test("home onboarding uses Hypervisor and Workbench adapter language", () => {
   assert.doesNotMatch(homeSource, /contained OpenVSCode/);
 });
 
-test("home dashboard exposes the New Session setup contract", () => {
+test("home dashboard exposes the reference-style prompt workplane", () => {
   assert.match(homeView, /const showDashboard = !reviewingCompletedSetup;/);
   assert.doesNotMatch(homeView, /const showDashboard = allStepsComplete && !reviewingCompletedSetup;/);
-  assert.match(homeView, /HYPERVISOR_NEW_SESSION_SETUP_MODEL/);
-  assert.match(homeView, /data-home-intent-composer="ioi-reference-primary"/);
+  assert.doesNotMatch(homeView, /HYPERVISOR_NEW_SESSION_SETUP_MODEL/);
+  assert.doesNotMatch(homeView, /data-home-intent-composer/);
   assert.match(homeView, /Describe your task or type \/ for commands/);
-  assert.match(homeView, /data-home-intent-project/);
-  assert.doesNotMatch(homeView, /data-home-intent-harness/);
-  assert.match(homeView, /data-home-intent-model="default-model-route"/);
-  assert.doesNotMatch(homeView, /data-home-intent-privacy="privacy:ctee-private-workspace"/);
-  assert.match(homeView, /chat-home-zero-intent-composer__add-context/);
-  assert.match(homeView, /data-home-intent-submit="new-session"/);
-  assert.match(homeView, /HOME_INTENT_QUICKSTARTS/);
-  assert.match(homeView, /data-home-intent-recipe=\{quickstart\.recipeId\}/);
-  assert.match(homeView, /recipeId: "automation\.default"/);
-  assert.match(homeView, /recipeId: "workbench\.default"/);
-  assert.match(homeView, /recipeId: "foundry\.eval"/);
-  assert.match(homeView, /HOME_REFERENCE_RECENT_SESSIONS/);
-  assert.match(homeView, /HOME_REFERENCE_RECENT_FILES/);
-  assert.match(homeView, /data-home-reference-recent-sessions="true"/);
-  assert.match(homeView, /Recent Sessions/);
-  assert.match(homeView, /Write Parent Harness Evidence Boundary Doc/);
-  assert.match(homeView, /Build governed workspace runtime/);
-  assert.match(homeView, /Configure editor adapter bridge/);
-  assert.match(homeView, /Review model mount receipts/);
+  assert.doesNotMatch(homeView, /data-home-intent-project/);
+  assert.doesNotMatch(homeView, /data-home-intent-model/);
+  assert.doesNotMatch(homeView, /data-home-intent-submit/);
+  assert.doesNotMatch(homeView, /HOME_INTENT_QUICKSTARTS/);
+  assert.doesNotMatch(homeView, /HOME_REFERENCE_RECENT_SESSIONS/);
+  assert.doesNotMatch(homeView, /HOME_REFERENCE_RECENT_FILES/);
+  assert.doesNotMatch(homeView, /HOME_REFERENCE_ACTIONS/);
+  assert.doesNotMatch(homeView, /HOME_REFERENCE_TEMPLATES/);
+  assert.match(homeView, /HOME_REFERENCE_PROMPTS/);
+  assert.doesNotMatch(homeView, /Total Sessions/);
+  assert.doesNotMatch(homeView, /Workspaces/);
+  assert.doesNotMatch(homeView, /Approvals/);
+  assert.doesNotMatch(homeView, /Scope: All/);
+  assert.doesNotMatch(homeView, /Sort: Recently opened/);
+  assert.doesNotMatch(homeView, /Build governed workspace runtime/);
+  assert.doesNotMatch(homeView, /Configure editor adapter bridge/);
+  assert.doesNotMatch(homeView, /Review model mount receipts/);
   assert.doesNotMatch(homeView, /No recently viewed files/);
-  assert.match(homeView, /Projects & files/);
-  assert.match(homeView, /Model Routes/);
-  assert.match(homeView, /Pipeline Builder/);
-  assert.match(homeView, /Run Contour/);
-  assert.match(homeView, /Agent Wiki/);
-  assert.match(homeView, /Policy Logic/);
-  assert.match(homeView, /Code Repositories/);
-  assert.match(homeView, /data-home-new-session-contract="daemon-runtime"/);
-  assert.match(homeView, /newSessionRequiredSections/);
-  assert.match(homeView, /newSessionHarnessOptions/);
-  assert.match(homeView, /HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE/);
-  assert.match(homeView, /data-home-harness-comparison-run/);
-  assert.match(homeView, /Harness comparison preview/);
-  assert.match(homeView, /buildHarnessCompatibilityVerdict/);
-  assert.match(homeView, /getHarnessSelectionRef/);
+  assert.doesNotMatch(homeView, /Projects & files/);
+  assert.doesNotMatch(homeView, /Data Connection/);
+  assert.doesNotMatch(homeView, /Pipeline Builder/);
+  assert.doesNotMatch(homeView, /Contour/);
+  assert.doesNotMatch(homeView, /Ontology Manager/);
+  assert.doesNotMatch(homeView, /AIP Logic/);
+  assert.doesNotMatch(homeView, /Code Repositories/);
+  assert.doesNotMatch(homeView, /Scan recent commits for issues/);
+  assert.doesNotMatch(homeView, /Draft weekly release notes/);
+  assert.doesNotMatch(homeView, /Add optimized AGENTS\.md/);
+  assert.doesNotMatch(homeView, /10x engineer/);
+  assert.doesNotMatch(homeView, /data-home-new-session-contract/);
+  assert.doesNotMatch(homeView, /newSessionRequiredSections/);
+  assert.doesNotMatch(homeView, /newSessionHarnessOptions/);
+  assert.doesNotMatch(homeView, /HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE/);
+  assert.doesNotMatch(homeView, /data-home-harness-comparison-run/);
+  assert.doesNotMatch(homeView, /Harness comparison preview/);
+  assert.doesNotMatch(homeView, /buildHarnessCompatibilityVerdict/);
+  assert.doesNotMatch(homeView, /getHarnessSelectionRef/);
   assert.match(homeView, /onOpenNewSession: \(seed\?: string \| HomeNewSessionSeed \| null\) => void/);
-  assert.match(homeView, /seedIntent: intentDraft/);
-  assert.match(homeView, /recipeId: intentRecipeId/);
-  assert.match(homeView, /onClick=\{\(\) => onOpenNewSession\(\)\}/);
-  assert.match(homeView, /Start New Session/);
-  assert.match(homeView, /Configure Models/);
-  assert.match(homeView, /Review Authority/);
+  assert.match(homeView, /seedIntent,/);
+  assert.match(homeView, /recipeId: "ioi-reference-home"/);
+  assert.doesNotMatch(homeView, /seedIntent: intentDraft/);
+  assert.doesNotMatch(homeView, /recipeId: intentRecipeId/);
+  assert.doesNotMatch(homeView, /Runtime status/);
   assert.match(
     shellContent,
     /onOpenNewSession=\{controller\.modals\.openNewSessionModal\}/,
   );
-  assert.match(homeCss, /\.chat-home-zero-intent-composer\s*\{/);
-  assert.match(homeCss, /\.chat-home-zero-intent-composer__box\s*\{/);
-  assert.match(homeCss, /\.chat-home-zero-intent-composer__submit\s*\{/);
-  assert.match(homeCss, /Phase 0A reference parity/);
-  assert.match(homeCss, /\.chat-home-zero-intent-composer \{[\s\S]*display: none/);
-  assert.match(homeCss, /\.chat-home-zero--ioi-reference \.chat-home-zero-body \{[\s\S]*width: 100%/);
-  assert.match(homeCss, /\.chat-home-zero--ioi-reference \.chat-home-zero-app-grid \{[\s\S]*repeat\(4/);
-  assert.match(homeCss, /\.chat-home-zero--ioi-reference \.chat-home-zero-assist \{[\s\S]*display: none/);
+  assert.match(homeCss, /Phase 0A hard cut: Home mirrors the IOI reference prompt surface/);
+  assert.match(homeCss, /\.chat-home-zero--ioi-reference \.chat-home-zero-prompt-stage \{[\s\S]*width: min\(728px/);
+  assert.match(homeCss, /\.chat-home-zero--ioi-reference \.chat-home-zero-composer \{[\s\S]*min-height: 174px/);
+  assert.match(homeCss, /\.chat-home-zero--ioi-reference \.chat-home-zero-prompt-chips \{/);
+  assert.match(homeCss, /\.chat-main:has\(\.chat-home-zero--ioi-reference\),/);
+  assert.doesNotMatch(homeCss, /Phase 0A hard cut: default Home mirrors the IOI portal/);
 });
 
-test("home dashboard exposes the Core cockpit projection", () => {
-  assert.match(homeCockpitModel, /HypervisorHomeCockpitProjection/);
-  assert.match(homeCockpitModel, /HYPERVISOR_HOME_COCKPIT_PROJECTION/);
-  assert.match(homeCockpitModel, /HYPERVISOR_HOME_COCKPIT_PROJECTION_PATH/);
-  assert.match(homeCockpitModel, /loadHypervisorHomeCockpitProjection/);
-  assert.match(homeCockpitModel, /normalizeHypervisorHomeCockpitProjection/);
-  assert.match(homeCockpitModel, /does not become runtime/);
-  assert.match(homeCockpitModel, /Project restore/);
-  assert.match(homeCockpitModel, /Active session/);
-  assert.match(homeCockpitModel, /Privacy gates/);
-  assert.match(homeCockpitModel, /Provider posture/);
-  assert.match(homeCockpitModel, /Receipt evidence/);
-  assert.match(homeCockpitModel, /Harness comparison/);
-  assert.match(homeView, /HYPERVISOR_HOME_COCKPIT_PROJECTION/);
-  assert.match(homeView, /loadHypervisorHomeCockpitProjection/);
-  assert.match(homeView, /setCockpitProjection/);
-  assert.match(homeView, /\[Hypervisor\]\[Home\] cockpit projection unavailable/);
-  assert.match(homeView, /aria-label="Hypervisor cockpit status"/);
-  assert.match(homeView, /data-home-cockpit-projection/);
-  assert.match(homeView, /data-home-cockpit-source/);
-  assert.match(homeView, /data-home-cockpit-metric/);
-  assert.match(homeView, /data-home-cockpit-surface/);
-  assert.match(homeView, /data-home-cockpit-drill-ref/);
-  assert.match(homeView, /data-home-cockpit-drill-evidence/);
-  assert.match(homeView, /data-home-cockpit-drill-surface/);
+test("home default dashboard does not mount hidden legacy workplanes", () => {
+  assert.doesNotMatch(homeView, /aria-label="Hypervisor cockpit status"/);
+  assert.doesNotMatch(homeView, /data-home-cockpit-projection/);
+  assert.doesNotMatch(homeView, /data-home-cockpit-source/);
+  assert.doesNotMatch(homeView, /data-home-cockpit-metric/);
+  assert.doesNotMatch(homeView, /data-home-cockpit-surface/);
+  assert.doesNotMatch(homeView, /data-home-cockpit-drill-ref/);
+  assert.doesNotMatch(homeView, /data-home-cockpit-drill-evidence/);
+  assert.doesNotMatch(homeView, /data-home-cockpit-drill-surface/);
   assert.match(homeView, /onOpenCockpitSurface: \(surfaceRef: string\) => void/);
-  assert.match(homeView, /onClick=\{\(\) => onOpenCockpitSurface\(metric\.surface_ref\)\}/);
-  assert.match(homeView, /onClick=\{\(\) => onOpenCockpitSurface\(drillRef\.surface_ref\)\}/);
   assert.match(shellContent, /isHypervisorSurfaceId/);
   assert.match(shellContent, /surfaceRef\.replace\(\/\^surface:/);
   assert.match(shellContent, /controller\.changePrimaryView\(surfaceId\)/);
-  assert.match(homeCss, /\.chat-home-zero-cockpit\s*\{/);
-  assert.match(homeCss, /\.chat-home-zero-cockpit-grid\s*\{/);
-  assert.match(homeCss, /\.chat-home-zero-cockpit-card\s*\{/);
-  assert.match(homeCss, /\.chat-home-zero-cockpit-card__summary/);
-  assert.match(homeCss, /\.chat-home-zero-cockpit-card__drill-refs/);
 });
 
 test("home dashboard routes model setup to the Models surface", () => {
@@ -168,13 +144,13 @@ test("home dashboard routes model setup to the Models surface", () => {
   );
 });
 
-test("new session card has responsive shell styling", () => {
-  assert.match(homeCss, /\.chat-home-zero-session-card\s*\{/);
-  assert.match(homeCss, /\.chat-home-zero-session-card__harnesses\s*\{/);
-  assert.match(homeCss, /\.chat-home-zero-session-card__comparison\s*\{/);
+test("home prompt has responsive reference styling", () => {
+  assert.match(homeCss, /\.chat-home-zero--ioi-reference \.chat-home-zero-prompt-stage\s*\{/);
+  assert.match(homeCss, /\.chat-home-zero--ioi-reference \.chat-home-zero-composer\s*\{/);
+  assert.match(homeCss, /\.chat-home-zero--ioi-reference \.chat-home-zero-prompt-chips\s*\{/);
   assert.match(
     homeCss,
-    /@media \(max-width: 860px\)[\s\S]*\.chat-home-zero-session-card,[\s\S]*\.chat-home-zero-session-card__harnesses,[\s\S]*\.chat-home-zero-session-card__comparison/,
+    /@media \(max-width: 820px\)[\s\S]*\.chat-home-zero--ioi-reference \.chat-home-zero-prompt-stage/,
   );
 });
 

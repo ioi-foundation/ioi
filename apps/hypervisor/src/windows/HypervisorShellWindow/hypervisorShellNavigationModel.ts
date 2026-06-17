@@ -612,7 +612,7 @@ export const HYPERVISOR_PRIMARY_SURFACES: HypervisorShellNavigationItem[] = [
   },
   {
     id: "projects",
-    label: "Files",
+    label: "Projects",
     description: "Workspace files, repos, state roots, and restore posture.",
     kind: "core",
     railGroup: "primary",
@@ -650,7 +650,7 @@ export const HYPERVISOR_PRIMARY_SURFACES: HypervisorShellNavigationItem[] = [
   },
   {
     id: "insights",
-    label: "Applications",
+    label: "Insights",
     description: "Application surfaces, run history, traces, receipts, and improvement signals.",
     kind: "application",
     railGroup: "applications",

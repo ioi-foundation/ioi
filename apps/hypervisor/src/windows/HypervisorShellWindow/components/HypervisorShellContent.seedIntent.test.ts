@@ -157,32 +157,38 @@ assert.match(
 
 assert.match(
   homeViewSource,
-  /data-home-dashboard-variant="ioi-reference-portal"/,
-  "Home should default to the IOI reference portal workplane",
+  /data-home-dashboard-variant="ioi-reference-home"/,
+  "Home should default to the IOI reference prompt workplane",
 );
 
 assert.match(
   homeCss,
-  /\.chat-home-zero--ioi-reference \.chat-home-zero-intent-composer,[\s\S]*display: none !important;/,
-  "Home should not expose the chat prompt composer as the default workplane",
+  /Phase 0A hard cut: Home mirrors the IOI reference prompt surface[\s\S]*\.chat-home-zero--ioi-reference \.chat-home-zero-composer \{/,
+  "Home should expose the IOI reference prompt composer as the default workplane",
 );
 
-assert.doesNotMatch(
+assert.match(
   homeViewSource,
   /What do you want to get done today\?/,
-  "Home should not regress to the prompt-first zero-state copy",
+  "Home should match the IOI reference prompt-first home copy",
 );
 
 assert.match(
   shellCss,
-  /\.chat-activity-bar\s*\{[\s\S]*--chat-activity-bg: #17191f;[\s\S]*width: 230px;/,
-  "The primary rail should use the IOI reference dark 230px shell",
+  /Phase 0A hard cut: mirror the IOI reference console rail[\s\S]*\.chat-activity-bar\s*\{[\s\S]*--chat-activity-bg: #f7f7f6;[\s\S]*width: 300px;/,
+  "The primary rail should use the IOI reference light 300px console shell",
+);
+
+assert.match(
+  traceAndWelcomeCss,
+  /:root\[data-hypervisor-theme\^="light"\] \.chat-activity-bar\s*\{[\s\S]*--chat-activity-bg: #f7f7f6;/,
+  "Light theme should preserve the IOI reference console rail palette",
 );
 
 assert.doesNotMatch(
   traceAndWelcomeCss,
-  /:root\[data-hypervisor-theme\^="light"\] \.chat-activity-bar\s*\{[\s\S]*--chat-activity-bg: #f3f3f3;/,
-  "Light theme must not turn the IOI reference rail pale",
+  /:root\[data-hypervisor-theme\^="light"\] \.chat-activity-bar\s*\{[\s\S]*--chat-activity-bg: #17191f;/,
+  "Light theme must not restore the deprecated dark IDE rail",
 );
 
 console.log("HypervisorShellContent.seedIntent.test.ts: ok");

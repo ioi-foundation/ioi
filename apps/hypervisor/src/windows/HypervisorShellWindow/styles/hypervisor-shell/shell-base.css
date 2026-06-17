@@ -4536,3 +4536,120 @@
 .chat-activity-profile-avatar::after {
   border-color: var(--chat-activity-bg) !important;
 }
+
+/* Phase 0A hard cut: mirror the IOI reference console rail, not the dark IDE rail. */
+.chat-activity-bar {
+  --chat-activity-bg: #f7f7f6;
+  --chat-activity-border: #d8d8d6;
+  --chat-activity-divider: #e7e7e5;
+  --chat-activity-text: #2f3034;
+  --chat-activity-text-strong: #171719;
+  --chat-activity-text-muted: #6f737b;
+  --chat-activity-hover-bg: #ececeb;
+  --chat-activity-active-bg: #ececeb;
+  --chat-activity-active-hover-bg: #e4e4e2;
+  --chat-activity-avatar-bg: #ffffff;
+  --chat-activity-avatar-text: #171719;
+
+  width: 300px;
+  background: var(--chat-activity-bg) !important;
+  color: var(--chat-activity-text) !important;
+  border-right: 1px solid var(--chat-activity-border);
+  box-shadow: none;
+}
+
+.chat-activity-brand-row {
+  min-height: 52px;
+  padding: 0 8px 0 16px;
+  border-bottom: 1px solid var(--chat-activity-divider);
+}
+
+.chat-activity-brand-row::before,
+.chat-activity-brand-row::after {
+  display: none;
+}
+
+.chat-activity-brand {
+  width: auto;
+  min-width: 42px;
+  justify-content: flex-start;
+  color: var(--chat-activity-text-strong);
+}
+
+.chat-activity-brand::after {
+  content: "IOI";
+  margin-left: 8px;
+  color: var(--chat-activity-text-strong);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.chat-activity-collapse-button {
+  color: var(--chat-activity-text-strong);
+}
+
+.chat-activity-button--new-session {
+  width: calc(100% - 16px);
+  margin: 0 8px 8px;
+  border-color: var(--chat-activity-border);
+  background: #ffffff;
+  color: var(--chat-activity-text-strong) !important;
+}
+
+.chat-activity-button--new-session:hover,
+.chat-activity-button--new-session:focus-visible {
+  border-color: #cfcfcd;
+  background: #ffffff !important;
+}
+
+.chat-activity-button-shortcut {
+  border-color: #dededc;
+  background: #f7f7f6;
+  color: #6f737b;
+}
+
+.chat-activity-button,
+.chat-activity-session-row,
+.chat-activity-button--organization {
+  color: var(--chat-activity-text) !important;
+}
+
+.chat-activity-button:hover,
+.chat-activity-button.is-active,
+.chat-activity-button.is-active:hover,
+.chat-activity-session-row:hover,
+.chat-activity-session-row:focus-visible,
+.chat-activity-profile-indicator:hover,
+.chat-activity-profile-indicator:focus-visible {
+  background: var(--chat-activity-active-bg) !important;
+  color: var(--chat-activity-text-strong) !important;
+}
+
+.chat-activity-session-row__copy strong,
+.chat-activity-profile-label strong,
+.chat-activity-profile-indicator {
+  color: var(--chat-activity-text-strong) !important;
+}
+
+.chat-activity-section-label,
+.chat-activity-project-label,
+.chat-activity-session-row__copy em,
+.chat-activity-profile-label em {
+  color: var(--chat-activity-text-muted) !important;
+}
+
+.chat-activity-session-row__badge {
+  background: #e9eeff;
+  color: #315cff;
+}
+
+.chat-activity-profile-avatar {
+  border-color: #d8d8d6 !important;
+  background: #ffffff !important;
+  color: var(--chat-activity-avatar-text) !important;
+}
+
+.chat-activity-profile-avatar::after {
+  border-color: var(--chat-activity-bg) !important;
+}
