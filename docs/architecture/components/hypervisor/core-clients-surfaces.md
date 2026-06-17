@@ -332,9 +332,11 @@ AgentHarnessAdapterProfile
     Codex CLI
     Codex Desktop Linux
     Claude Code CLI
+    Grok Build CLI
     DeepSeek TUI
     Aider CLI
     OpenHands
+    shell/tmux agent
     generic CLI
   truth boundary:
     proposal_source_only

@@ -6,9 +6,11 @@ export type AgentHarnessAdapterId =
   | "codex_cli"
   | "codex_desktop_linux"
   | "claude_code_cli"
+  | "grok_build_cli"
   | "deepseek_tui"
   | "aider_cli"
   | "openhands"
+  | "shell_tmux_agent"
   | "generic_cli";
 
 export type AgentHarnessAdapterKind =
@@ -179,6 +181,21 @@ export const HYPERVISOR_AGENT_HARNESS_ADAPTER_PROFILES: AgentHarnessAdapterProfi
     },
     {
       selection_kind: "agent_harness_adapter",
+      adapter_id: "grok_build_cli",
+      label: "Grok Build CLI",
+      description:
+        "Grok Build-style external command harness; provider-native paths remain provider-trust lanes unless proven otherwise.",
+      adapter_kind: "cli",
+      execution_lane: "host_dev",
+      model_route_policy: "provider_trust",
+      workspace_mount_policy: "redacted_projection",
+      required_authority_scopes: ["scope:workspace.read", "scope:workspace.patch"],
+      receipt_policy_ref: "receipt-policy:harness-adapter/provider-trust",
+      runtimeTruthSource: "daemon-runtime",
+      truth_boundary: "proposal_source_only",
+    },
+    {
+      selection_kind: "agent_harness_adapter",
       adapter_id: "deepseek_tui",
       label: "DeepSeek TUI",
       description:
@@ -219,6 +236,21 @@ export const HYPERVISOR_AGENT_HARNESS_ADAPTER_PROFILES: AgentHarnessAdapterProfi
       workspace_mount_policy: "public_trunk",
       required_authority_scopes: ["scope:workspace.read", "scope:workspace.patch"],
       receipt_policy_ref: "receipt-policy:harness-adapter/provider-trust",
+      runtimeTruthSource: "daemon-runtime",
+      truth_boundary: "proposal_source_only",
+    },
+    {
+      selection_kind: "agent_harness_adapter",
+      adapter_id: "shell_tmux_agent",
+      label: "Shell/tmux Agent",
+      description:
+        "Terminal or tmux-oriented agent loop mediated through daemon-gated commands, mounts, network, and receipts.",
+      adapter_kind: "cli",
+      execution_lane: "host_dev",
+      model_route_policy: "forbidden",
+      workspace_mount_policy: "public_trunk",
+      required_authority_scopes: ["scope:workspace.read"],
+      receipt_policy_ref: "receipt-policy:harness-adapter/shell-tmux",
       runtimeTruthSource: "daemon-runtime",
       truth_boundary: "proposal_source_only",
     },

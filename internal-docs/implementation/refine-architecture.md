@@ -1023,9 +1023,11 @@ interface AgentHarnessAdapterProfile {
     | "codex_cli"
     | "codex_desktop_linux"
     | "claude_code_cli"
+    | "grok_build_cli"
     | "deepseek_tui"
     | "aider_cli"
     | "openhands"
+    | "shell_tmux_agent"
     | "generic_cli";
   adapter_kind:
     | "cli"
@@ -1129,7 +1131,8 @@ First implementation slice:
    `HarnessComparisonRun` fixtures.
 2. Add adapter choices to New Session:
    Default Harness Profile, Codex CLI, codex-desktop-linux, Claude Code,
-   DeepSeek TUI, Generic CLI.
+   Grok Build, DeepSeek TUI, Aider, OpenHands, shell/tmux agent, and Generic
+   CLI.
 3. Add model route choices from the daemon model-mount inventory.
 4. Add compatibility states:
    compatible, adapter-native only, provider-trust, local-route unavailable.

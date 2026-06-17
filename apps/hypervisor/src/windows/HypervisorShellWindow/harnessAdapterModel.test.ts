@@ -41,9 +41,11 @@ test("external coding tools are proposal-source AgentHarnessAdapters", () => {
     "codex_cli",
     "codex_desktop_linux",
     "claude_code_cli",
+    "grok_build_cli",
     "deepseek_tui",
     "aider_cli",
     "openhands",
+    "shell_tmux_agent",
     "generic_cli",
   ]);
 
@@ -66,9 +68,13 @@ test("compatibility verdicts expose provider trust and local-route gaps", () => 
   const codex = HYPERVISOR_AGENT_HARNESS_ADAPTER_PROFILES.find(
     (profile) => profile.adapter_id === "codex_cli",
   );
+  const shellTmux = HYPERVISOR_AGENT_HARNESS_ADAPTER_PROFILES.find(
+    (profile) => profile.adapter_id === "shell_tmux_agent",
+  );
   assert.ok(claude);
   assert.ok(deepseek);
   assert.ok(codex);
+  assert.ok(shellTmux);
 
   assert.deepEqual(
     buildHarnessCompatibilityVerdict(claude, true),
@@ -89,6 +95,10 @@ test("compatibility verdicts expose provider trust and local-route gaps", () => 
   assert.equal(
     buildHarnessCompatibilityVerdict(codex, true).state,
     "adapter_native_only",
+  );
+  assert.equal(
+    buildHarnessCompatibilityVerdict(shellTmux, true).state,
+    "blocked",
   );
 });
 
