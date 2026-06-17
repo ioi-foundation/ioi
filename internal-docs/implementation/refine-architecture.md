@@ -1090,7 +1090,9 @@ Current implementation cut:
   probe, auth audiences, catalog fixtures, and stream evidence refs:
   `provider.hypervisor.local`, `backend.hypervisor.native-local.fixture`,
   `endpoint.hypervisor.native-fixture`, `hypervisor:native-fixture`,
-  `hypervisor-local-server`, and `fixture://catalog/hypervisor-native-3b-q4`.
+  `hypervisor:gui-lifecycle`, `hypervisor:gui-download`,
+  `endpoint.hypervisor.gui-lifecycle`, `hypervisor-local-server`, and
+  `fixture://catalog/hypervisor-native-3b-q4`.
   `check:runtime-layout` rejects the retired Autopilot mount identities.
 
 0A.2 remaining visual implementation:

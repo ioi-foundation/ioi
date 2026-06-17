@@ -211,14 +211,14 @@ def seed_model_mounting_state(endpoint: str) -> dict[str, Any]:
         "/v1/model-mount/backends/backend.hypervisor.native-local.fixture/health",
         method="POST",
     )
-    catalog_search = request_json(endpoint, "/v1/models/catalog/search?query=autopilot&format=gguf&limit=10")
+    catalog_search = request_json(endpoint, "/v1/models/catalog/search?query=hypervisor&format=gguf&limit=10")
     download = request_json(
         endpoint,
         "/v1/model-mount/downloads",
         method="POST",
         token=token,
         body={
-            "model_id": "autopilot:gui-download",
+            "model_id": "hypervisor:gui-download",
             "provider_id": "provider.hypervisor.local",
             "source_url": "fixture://gui/model-mounts",
             "fixture_content": "family=gui-download\\ncontext=2048\\nquantization=Q4_K_M\\n",
@@ -231,7 +231,7 @@ def seed_model_mounting_state(endpoint: str) -> dict[str, Any]:
         method="POST",
         token=token,
         body={
-            "model_id": "autopilot:gui-queued-download",
+            "model_id": "hypervisor:gui-queued-download",
             "provider_id": "provider.hypervisor.local",
             "source_url": "fixture://gui/model-mounts-queued",
             "source_label": "Fixture catalog / queued GUI validation",
@@ -245,7 +245,7 @@ def seed_model_mounting_state(endpoint: str) -> dict[str, Any]:
         method="POST",
         token=token,
         body={
-            "model_id": "autopilot:gui-canceled-download",
+            "model_id": "hypervisor:gui-canceled-download",
             "provider_id": "provider.hypervisor.local",
             "source_url": "fixture://gui/model-mounts-canceled",
             "source_label": "Fixture catalog / canceled GUI validation",
@@ -265,7 +265,7 @@ def seed_model_mounting_state(endpoint: str) -> dict[str, Any]:
         method="POST",
         token=token,
         body={
-            "model_id": "autopilot:gui-failed-download",
+            "model_id": "hypervisor:gui-failed-download",
             "provider_id": "provider.hypervisor.local",
             "source_url": "fixture://gui/model-mounts-failed",
             "source_label": "Fixture catalog / failed GUI validation",
@@ -805,7 +805,7 @@ def exercise_download_row_actions(
         for item in snapshot.get("downloads", []):
             if item.get("id") in before_retry_ids:
                 continue
-            if item.get("modelId") == "autopilot:gui-failed-download" and item.get("status") == "completed":
+            if item.get("modelId") == "hypervisor:gui-failed-download" and item.get("status") == "completed":
                 return item
         return None
 
@@ -896,8 +896,8 @@ def exercise_model_lifecycle_actions(
 ) -> dict[str, Any]:
     """Exercise model import, mount, load, unload, drawer, and receipt navigation controls."""
 
-    model_id = "autopilot:gui-lifecycle"
-    endpoint_id = "endpoint.autopilot.gui-lifecycle"
+    model_id = "hypervisor:gui-lifecycle"
+    endpoint_id = "endpoint.hypervisor.gui-lifecycle"
     identifier = "gui-lifecycle-validation"
     action_screenshots: list[dict[str, Any]] = []
     observed: dict[str, list[dict[str, Any]]] = {}

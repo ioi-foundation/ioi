@@ -578,12 +578,16 @@ assert(
     "backend.hypervisor.native-local.fixture",
     "endpoint.hypervisor.native-fixture",
     "hypervisor:native-fixture",
+    "hypervisor:gui-lifecycle",
+    "hypervisor:gui-download",
+    "hypervisor:gui-failed-download",
+    "endpoint.hypervisor.gui-lifecycle",
     "hypervisor-local-server",
     "hypervisor_native_local_provider_native_stream",
     "hypervisor_native_local_backend_registry",
     "fixture://catalog/hypervisor-native-3b-q4",
   ].every((token) => hypervisorModelMountIdentitySources.includes(token)) &&
-    !/provider\.autopilot\.local|backend\.autopilot\.native-local\.fixture|endpoint\.autopilot\.native-fixture|autopilot:native-fixture|autopilot-local-server|autopilot_native_local_provider_native_stream|autopilot_native_local_backend_registry|fixture:\/\/catalog\/autopilot-native-3b-q4/.test(
+    !/provider\.autopilot\.local|backend\.autopilot\.native-local\.fixture|endpoint\.autopilot\.native-fixture|endpoint\.autopilot\.gui-lifecycle|autopilot:native-fixture|autopilot:gui-|autopilot-local-server|autopilot_native_local_provider_native_stream|autopilot_native_local_backend_registry|fixture:\/\/catalog\/autopilot-native-3b-q4|fixture:\/\/autopilot/.test(
       hypervisorModelMountIdentitySources,
     ),
   [

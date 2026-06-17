@@ -7,8 +7,8 @@ type StatusTone = "neutral" | "ready" | "muted" | "warn" | "blocked";
 type ConnectionState = "offline" | "loading" | "connected" | "degraded";
 
 const VALIDATION_TOKEN_GRANT_ID = "wallet.grant.mounts.gui.validation";
-const VALIDATION_LIFECYCLE_MODEL_ID = "autopilot:gui-lifecycle";
-const VALIDATION_LIFECYCLE_ENDPOINT_ID = "endpoint.autopilot.gui-lifecycle";
+const VALIDATION_LIFECYCLE_MODEL_ID = "hypervisor:gui-lifecycle";
+const VALIDATION_LIFECYCLE_ENDPOINT_ID = "endpoint.hypervisor.gui-lifecycle";
 const VALIDATION_LIFECYCLE_IDENTIFIER = "gui-lifecycle-validation";
 const CATALOG_OAUTH_DEEP_LINK_SCHEME = "ioi";
 const CATALOG_OAUTH_DEEP_LINK_HOST = "mounts";
@@ -2419,9 +2419,9 @@ function useModelMountsDaemon() {
             method: "POST",
             token,
             body: {
-              model_id: `autopilot:download-${Date.now()}`,
+              model_id: `hypervisor:download-${Date.now()}`,
               provider_id: "provider.hypervisor.local",
-              source_url: "fixture://autopilot/native-local",
+              source_url: "fixture://hypervisor/native-local",
             },
           });
           return "Download lifecycle completed through queued, running, and completed receipts.";
@@ -2429,7 +2429,7 @@ function useModelMountsDaemon() {
 	      searchCatalog: (draft: CatalogSearchDraft) =>
 	        runAction("catalog-search", async () => {
           const params = new URLSearchParams({
-            query: draft.query || "autopilot",
+            query: draft.query || "hypervisor",
             format: draft.format,
             quantization: draft.quantization,
             limit: draft.limit || "20",
@@ -2603,7 +2603,7 @@ function useModelMountsDaemon() {
               model_id: VALIDATION_LIFECYCLE_MODEL_ID,
               provider_id: "provider.hypervisor.local",
               display_name: "GUI lifecycle validation model",
-              family: "autopilot-validation",
+              family: "hypervisor-validation",
               format: "gguf",
               quantization: "Q4_K_M",
               context_window: 4096,
@@ -5133,7 +5133,7 @@ function DownloadsPanel({
   onCleanupStorage: (options?: { removeOrphans?: boolean; confirmDestructive?: boolean }) => void;
   busy: boolean;
 }) {
-  const [draft, setDraft] = useState<CatalogSearchDraft>({ query: "autopilot", format: "gguf", quantization: "", limit: "20", catalogProviderId: "all" });
+  const [draft, setDraft] = useState<CatalogSearchDraft>({ query: "hypervisor", format: "gguf", quantization: "", limit: "20", catalogProviderId: "all" });
   const [configDraft, setConfigDraft] = useState<CatalogProviderConfigDraft>({
     providerId: "catalog.local_manifest",
     enabled: true,
