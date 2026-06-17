@@ -117,12 +117,12 @@ function notebookCellId(cell: NotebookCellRecord, index: number): string {
 }
 
 function isHypervisorReplayPath(path: string): boolean {
-  return path.trim().toLowerCase().endsWith(".autopilot");
+  return path.trim().toLowerCase().endsWith(".hypervisor");
 }
 
 export function isWorkspaceNotebookPath(path: string): boolean {
   const normalized = path.trim().toLowerCase();
-  return normalized.endsWith(".ipynb") || normalized.endsWith(".autopilot");
+  return normalized.endsWith(".ipynb") || normalized.endsWith(".hypervisor");
 }
 
 export function parseWorkspaceNotebookDocument(
@@ -259,11 +259,11 @@ function parseHypervisorReplayNotebookDocument(
         id:
           typeof cell.id === "string" && cell.id.trim()
             ? cell.id.trim()
-            : `autopilot-cell-${index + 1}`,
+            : `hypervisor-cell-${index + 1}`,
         index,
         cellType:
-          stringField(cell.cell_kind) || "autopilot_replay",
-        source: autopilotReplayCellSource(cell, {
+          stringField(cell.cell_kind) || "hypervisor_replay",
+        source: hypervisorReplayCellSource(cell, {
           receiptRefs,
           artifactRefs,
           rollbackRefs,
@@ -281,10 +281,10 @@ function parseHypervisorReplayNotebookDocument(
 
   return {
     path,
-    documentKind: "autopilot_replay",
+    documentKind: "hypervisor_replay",
     nbformat: 4,
     nbformatMinor: 5,
-    language: "autopilot-replay",
+    language: "hypervisor-replay",
     kernelDisplayName: "Hypervisor Signed Replay",
     readOnlyReplayMode: Boolean(replay.read_only_replay_mode),
     receiptBackedCellCount:
@@ -322,7 +322,7 @@ function stringArray(value: unknown): string[] {
     : [];
 }
 
-function autopilotReplayCellSource(
+function hypervisorReplayCellSource(
   cell: HypervisorReplayCellRecord,
   refs: {
     receiptRefs: string[];

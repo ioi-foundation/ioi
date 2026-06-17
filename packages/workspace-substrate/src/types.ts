@@ -116,7 +116,7 @@ export interface WorkspaceNotebookCell {
 
 export interface WorkspaceNotebookDocument {
   path: string;
-  documentKind?: "jupyter" | "autopilot_replay";
+  documentKind?: "jupyter" | "hypervisor_replay";
   nbformat: number;
   nbformatMinor: number;
   language: string | null;

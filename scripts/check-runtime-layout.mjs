@@ -186,6 +186,8 @@ const hypervisorClientNamespaceSources = [
   "apps/hypervisor/src/windows/ChatShellWindow/utils/traceBundleExportModel.ts",
   "apps/hypervisor/src/windows/HypervisorShellWindow/HypervisorShellWindow.css",
   "packages/workspace-substrate/src/codeOss.ts",
+  "packages/workspace-substrate/src/notebook.ts",
+  "packages/workspace-substrate/src/types.ts",
   "packages/workspace-substrate/src/components/CodeOssEditor.tsx",
   "packages/workspace-substrate/src/components/WorkspaceEditorPane.tsx",
 ].map(read).join("\n");
@@ -592,11 +594,16 @@ assert(
     "hypervisor-trace",
     "hypervisor-dark",
     "hypervisor-light",
+    ".hypervisor",
+    "hypervisor-cell",
+    "hypervisor_replay",
+    "hypervisor-replay",
+    "defineHypervisorTheme",
     "hypervisor-shell",
     "hypervisor-boot-fallback",
     "data-hypervisor-boot-error",
   ].every((token) => hypervisorClientNamespaceSources.includes(token)) &&
-    !/autopilot-shell|autopilot-dark|autopilot-light|autopilot-share|autopilot-trace|autopilot\.pending|autopilot\.workspace-shell|autopilot\.chat_session|autopilot:chat-session|autopilot-header\.command-center|autopilot-boot-fallback|data-autopilot-boot-error/.test(
+    !/autopilot-shell|autopilot-dark|autopilot-light|autopilot-share|autopilot-trace|autopilot\.pending|autopilot\.workspace-shell|autopilot\.chat_session|autopilot:chat-session|autopilot-header\.command-center|autopilot-boot-fallback|data-autopilot-boot-error|["']\.autopilot["']|autopilot-cell|autopilot_replay|autopilot-replay|defineAutopilotTheme/.test(
       hypervisorClientNamespaceSources,
     ),
   [
@@ -607,8 +614,10 @@ assert(
     "apps/hypervisor/src/windows/ChatShellWindow/utils/traceBundleExportModel.ts",
     "apps/hypervisor/src/windows/HypervisorShellWindow/styles/hypervisor-shell",
     "packages/workspace-substrate/src/codeOss.ts",
+    "packages/workspace-substrate/src/types.ts",
+    "packages/workspace-substrate/src/notebook.ts",
   ],
-  "Active client storage keys, events, export prefixes, editor themes, and shell stylesheet paths must use Hypervisor namespaces.",
+  "Active client storage keys, events, export prefixes, editor themes, replay formats, and shell stylesheet paths must use Hypervisor namespaces.",
 );
 assert(
   "active-model-mount-identities-hypervisor-named",

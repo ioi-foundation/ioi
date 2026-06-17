@@ -986,6 +986,10 @@ Current implementation cut:
   companion/work-graph shell entry points now route to the canonical `process`
     view instead of the retired `autopilot` Chat shell view id, with a
     `check:runtime-layout` guard
+  workspace-substrate replay notebooks now use `.hypervisor`,
+    `hypervisor_replay`, `hypervisor-cell-*`, and `hypervisor-replay` active
+    format identifiers; the Code OSS theme helper is `defineHypervisorTheme`,
+    and `check:runtime-layout` rejects the retired active replay/theme tokens
   scripts/lib/autopilot-electron-app-paths.mjs ->
     scripts/lib/hypervisor-workbench-adapter-host-paths.mjs
   check:autopilot-electron-source-fork-optional ->

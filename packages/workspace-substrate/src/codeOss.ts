@@ -8,7 +8,7 @@ import type { editor as CodeOssEditorApi } from "monaco-editor";
 let readyPromise: Promise<typeof monaco> | null = null;
 let themeDefined = false;
 
-function defineAutopilotTheme() {
+function defineHypervisorTheme() {
   if (themeDefined) {
     return;
   }
@@ -74,7 +74,7 @@ export async function ensureCodeOssReady() {
       registerAdditionalExtensions: false,
       waitForDefaultExtensions: false,
     }).then(async () => {
-      defineAutopilotTheme();
+      defineHypervisorTheme();
       monaco.editor.setTheme("hypervisor-dark");
       await updateUserConfiguration(
         JSON.stringify(
