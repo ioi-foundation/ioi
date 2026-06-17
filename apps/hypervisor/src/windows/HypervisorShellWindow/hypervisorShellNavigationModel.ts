@@ -85,6 +85,13 @@ export type HypervisorSessionDetailTab =
   | "receipts"
   | "replay";
 
+export type HypervisorSessionWorkspaceMode = "code" | "conversation";
+
+export type HypervisorSessionChangeInspectorMode =
+  | "changes"
+  | "all_files"
+  | "comments";
+
 export type HypervisorInspectorPanelId =
   | "changes"
   | "ports_services"
@@ -739,6 +746,45 @@ export const HYPERVISOR_SESSION_DETAIL_TABS: HypervisorSessionDetailTab[] = [
   "receipts",
   "replay",
 ];
+
+export const HYPERVISOR_SESSION_WORKSPACE_MODES = [
+  {
+    mode_id: "code",
+    label: "Code",
+    summary: "Adapter-backed workspace view for files, diffs, terminals, and patches.",
+  },
+  {
+    mode_id: "conversation",
+    label: "Conversation",
+    summary: "Session transcript, model turns, approvals, blockers, and ownership passes.",
+  },
+] as const satisfies ReadonlyArray<{
+  mode_id: HypervisorSessionWorkspaceMode;
+  label: string;
+  summary: string;
+}>;
+
+export const HYPERVISOR_SESSION_CHANGE_INSPECTOR_MODES = [
+  {
+    mode_id: "changes",
+    label: "Changes",
+    summary: "Uncommitted or proposed patches with receipt and policy evidence.",
+  },
+  {
+    mode_id: "all_files",
+    label: "All Files",
+    summary: "Read-only project file projection from the current session scope.",
+  },
+  {
+    mode_id: "comments",
+    label: "Comments",
+    summary: "Review comments, unresolved questions, and verifier notes.",
+  },
+] as const satisfies ReadonlyArray<{
+  mode_id: HypervisorSessionChangeInspectorMode;
+  label: string;
+  summary: string;
+}>;
 
 export const HYPERVISOR_RIGHT_INSPECTOR_PANELS: HypervisorInspectorPanelId[] = [
   "changes",

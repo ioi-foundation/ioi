@@ -66,8 +66,12 @@ import {
   type HypervisorSessionOperationKind,
   type HypervisorSessionOperationProposal,
 } from "../hypervisorSessionOperationsModel";
-import type { HypervisorLaunchedSessionProjection } from "../hypervisorShellNavigationModel";
-import { isHypervisorSurfaceId } from "../hypervisorShellNavigationModel";
+import {
+  HYPERVISOR_SESSION_CHANGE_INSPECTOR_MODES,
+  HYPERVISOR_SESSION_WORKSPACE_MODES,
+  isHypervisorSurfaceId,
+  type HypervisorLaunchedSessionProjection,
+} from "../hypervisorShellNavigationModel";
 
 interface HypervisorShellContentProps {
   controller: ReturnType<typeof useHypervisorShellController>;
@@ -550,6 +554,55 @@ function HypervisorSessionOperationsCockpit({
             <strong>{railItem.count}</strong>
           </div>
         ))}
+      </div>
+
+      <div
+        className="hypervisor-session-operations__reference-detail"
+        aria-label="Code and conversation workspace"
+        data-session-reference-detail="code-conversation"
+      >
+        <div
+          className="hypervisor-session-operations__workspace-modes"
+          role="tablist"
+          aria-label="Session workspace modes"
+          data-session-workspace-mode-list={HYPERVISOR_SESSION_WORKSPACE_MODES.map(
+            (mode) => mode.mode_id,
+          ).join(" ")}
+        >
+          {HYPERVISOR_SESSION_WORKSPACE_MODES.map((mode) => (
+            <button
+              key={mode.mode_id}
+              type="button"
+              role="tab"
+              aria-selected={mode.mode_id === "code"}
+              data-session-workspace-mode={mode.mode_id}
+            >
+              <strong>{mode.label}</strong>
+              <span>{mode.summary}</span>
+            </button>
+          ))}
+        </div>
+
+        <aside
+          className="hypervisor-session-operations__change-inspector"
+          aria-label="Changes, files, and comments inspector"
+          data-session-change-inspector="changes-files-comments"
+          data-session-change-mode-list={HYPERVISOR_SESSION_CHANGE_INSPECTOR_MODES.map(
+            (mode) => mode.mode_id,
+          ).join(" ")}
+        >
+          {HYPERVISOR_SESSION_CHANGE_INSPECTOR_MODES.map((mode) => (
+            <button
+              key={mode.mode_id}
+              type="button"
+              aria-pressed={mode.mode_id === "changes"}
+              data-session-change-mode={mode.mode_id}
+            >
+              <strong>{mode.label}</strong>
+              <span>{mode.summary}</span>
+            </button>
+          ))}
+        </aside>
       </div>
 
       <div className="hypervisor-session-operations__tabs" role="tablist" aria-label="Session detail tabs">

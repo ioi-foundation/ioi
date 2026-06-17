@@ -216,6 +216,18 @@ test("hypervisor shell models IOI-reference session detail and inspectors", () =
   assert.match(source, /runtimeTruthSource: "daemon-runtime"/);
   assert.match(source, /HYPERVISOR_SECONDARY_SESSION_RAIL_MODEL/);
   assert.match(source, /HYPERVISOR_SESSION_DETAIL_TABS/);
+  assert.match(source, /HypervisorSessionWorkspaceMode/);
+  assert.match(source, /HypervisorSessionChangeInspectorMode/);
+  assert.match(source, /HYPERVISOR_SESSION_WORKSPACE_MODES/);
+  assert.match(
+    source,
+    /HYPERVISOR_SESSION_WORKSPACE_MODES = \[[\s\S]*mode_id: "code"[\s\S]*label: "Code"[\s\S]*mode_id: "conversation"[\s\S]*label: "Conversation"/,
+  );
+  assert.match(source, /HYPERVISOR_SESSION_CHANGE_INSPECTOR_MODES/);
+  assert.match(
+    source,
+    /HYPERVISOR_SESSION_CHANGE_INSPECTOR_MODES = \[[\s\S]*mode_id: "changes"[\s\S]*label: "Changes"[\s\S]*mode_id: "all_files"[\s\S]*label: "All Files"[\s\S]*mode_id: "comments"[\s\S]*label: "Comments"/,
+  );
   assert.match(
     source,
     /"agent"[\s\S]*"workbench"[\s\S]*"environment"[\s\S]*"changes"[\s\S]*"receipts"[\s\S]*"replay"/,
@@ -392,6 +404,16 @@ test("Sessions surface renders session tabs and operations inspectors from daemo
   assert.match(shellContent, /data-hypervisor-session-operations/);
   assert.match(shellContent, /data-session-operations-source/);
   assert.match(shellContent, /data-runtime-truth-source/);
+  assert.match(shellContent, /HYPERVISOR_SESSION_WORKSPACE_MODES/);
+  assert.match(shellContent, /HYPERVISOR_SESSION_CHANGE_INSPECTOR_MODES/);
+  assert.match(shellContent, /data-session-reference-detail="code-conversation"/);
+  assert.match(shellContent, /aria-label="Session workspace modes"/);
+  assert.match(shellContent, /data-session-workspace-mode-list/);
+  assert.match(shellContent, /data-session-workspace-mode=\{mode\.mode_id\}/);
+  assert.match(shellContent, /aria-label="Changes, files, and comments inspector"/);
+  assert.match(shellContent, /data-session-change-inspector="changes-files-comments"/);
+  assert.match(shellContent, /data-session-change-mode-list/);
+  assert.match(shellContent, /data-session-change-mode=\{mode\.mode_id\}/);
   assert.match(shellContent, /data-session-detail-tab/);
   assert.match(shellContent, /data-right-inspector-panel/);
   assert.match(shellContent, /data-session-port-service/);

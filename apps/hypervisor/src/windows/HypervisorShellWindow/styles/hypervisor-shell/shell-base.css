@@ -2732,6 +2732,47 @@
   background: rgba(30, 64, 175, 0.28);
 }
 
+.hypervisor-session-operations__reference-detail {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.56fr);
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.hypervisor-session-operations__workspace-modes,
+.hypervisor-session-operations__change-inspector {
+  display: flex;
+  min-width: 0;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 12px;
+  background: rgba(2, 6, 23, 0.22);
+  overflow: hidden;
+}
+
+.hypervisor-session-operations__workspace-modes button,
+.hypervisor-session-operations__change-inspector button {
+  flex: 1;
+  min-width: 0;
+  min-height: 76px;
+  border: 0;
+  border-right: 1px solid rgba(148, 163, 184, 0.14);
+  background: transparent;
+  color: #e5edf7;
+  padding: 12px;
+  text-align: left;
+}
+
+.hypervisor-session-operations__workspace-modes button:last-child,
+.hypervisor-session-operations__change-inspector button:last-child {
+  border-right: 0;
+}
+
+.hypervisor-session-operations__workspace-modes button[aria-selected="true"],
+.hypervisor-session-operations__change-inspector button[aria-pressed="true"] {
+  background: rgba(59, 130, 246, 0.16);
+  box-shadow: inset 0 -2px 0 rgba(96, 165, 250, 0.9);
+}
+
 .hypervisor-session-operations__tabs {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
@@ -2756,6 +2797,10 @@
 
 .hypervisor-session-operations__tabs strong,
 .hypervisor-session-operations__tabs span,
+.hypervisor-session-operations__workspace-modes strong,
+.hypervisor-session-operations__workspace-modes span,
+.hypervisor-session-operations__change-inspector strong,
+.hypervisor-session-operations__change-inspector span,
 .hypervisor-session-operations__row strong,
 .hypervisor-session-operations__row span,
 .hypervisor-session-operations__row em,
@@ -2766,6 +2811,8 @@
 }
 
 .hypervisor-session-operations__tabs span,
+.hypervisor-session-operations__workspace-modes span,
+.hypervisor-session-operations__change-inspector span,
 .hypervisor-session-operations__inspector span,
 .hypervisor-session-operations__row span,
 .hypervisor-session-operations__panel dd {
@@ -2826,6 +2873,7 @@
   }
 
   .hypervisor-session-operations__grid,
+  .hypervisor-session-operations__reference-detail,
   .hypervisor-session-operations__bottom {
     grid-template-columns: 1fr;
   }
