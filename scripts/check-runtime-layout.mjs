@@ -34,9 +34,12 @@ const packageJson = JSON.parse(read("package.json"));
 const daemonSource = read("packages/runtime-daemon/src/index.mjs");
 const sdkSubstrate = read("packages/agent-sdk/src/substrate-client.ts");
 const sdkIndex = read("packages/agent-sdk/src/index.ts");
-const ideRuntimeFiles = allFiles("packages/hypervisor-workbench/src/runtime", (file) => /\.(ts|tsx)$/.test(file));
+const workbenchRuntimeFiles = allFiles("packages/hypervisor-workbench/src/runtime", (file) =>
+  /\.(ts|tsx)$/.test(file),
+);
 const activeTauriSrc = "apps/autopilot/src-tauri/src";
 const legacyTauriSrc = "internal-docs/legacy/autopilot-tauri-src/src";
+const rootIdeDir = "ide";
 const autopilotRootProofFiles = allFiles(legacyTauriSrc, (file) =>
   /_proof\.rs$/.test(file) && !file.includes(`${path.sep}bin${path.sep}`) && !file.includes(`${path.sep}proofs${path.sep}`),
 );
@@ -104,7 +107,10 @@ assert(
   "runtime-module-map",
   exists("internal-docs/implementation/runtime-module-map.md") &&
     read("internal-docs/implementation/runtime-module-map.md").includes("RuntimeSubstrate") &&
-    read("internal-docs/implementation/runtime-package-boundaries.md").includes("runtime-module-map.md"),
+    read("internal-docs/implementation/runtime-package-boundaries.md").includes("runtime-module-map.md") &&
+    read("internal-docs/implementation/runtime-module-map.md").includes("WorkbenchAdapterHost") &&
+    read("internal-docs/implementation/runtime-module-map.md").includes("root `ide/` product path") &&
+    read("internal-docs/implementation/runtime-module-map.md").includes("not an active proof home"),
   [
     "internal-docs/implementation/runtime-module-map.md",
     "internal-docs/implementation/runtime-package-boundaries.md",
@@ -166,11 +172,17 @@ assert(
 assert(
   "proofs-isolated",
   !exists(activeTauriSrc) &&
+  !exists(rootIdeDir) &&
   autopilotRootProofFiles.length === 0 &&
     exists(`${legacyTauriSrc}/proofs/mod.rs`) &&
     read(`${legacyTauriSrc}/lib.rs`).includes("pub mod proofs;"),
-  [activeTauriSrc, `${legacyTauriSrc}/proofs/mod.rs`, `${legacyTauriSrc}/lib.rs`],
-  "Autopilot Tauri Rust must stay retired from active app paths; legacy proof modules must remain isolated under proofs/",
+  [
+    activeTauriSrc,
+    rootIdeDir,
+    `${legacyTauriSrc}/proofs/mod.rs`,
+    `${legacyTauriSrc}/lib.rs`,
+  ],
+  "Autopilot Tauri Rust and root ide/ must stay retired from active app paths; legacy proof modules must remain isolated under proofs/",
 );
 assert(
   "sdk-no-gui-harness-imports",
@@ -193,8 +205,8 @@ assert(
   "client projection adapters must not be named as canonical execution substrates, and Tauri Rust projection must stay legacy-only",
 );
 assert(
-  "ide-projection-boundary",
-  ideRuntimeFiles.every((file) => !read(file).includes("AgentgresRuntimeStateStore")) &&
+  "workbench-projection-boundary",
+  workbenchRuntimeFiles.every((file) => !read(file).includes("AgentgresRuntimeStateStore")) &&
     read("packages/hypervisor-workbench/src/runtime/workflow-composer-model.ts").includes("non-canonical"),
   ["packages/hypervisor-workbench/src/runtime"],
   "hypervisor-workbench runtime helpers must remain non-canonical projections",

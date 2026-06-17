@@ -41,7 +41,7 @@ parallel execution path.
 | Runtime evidence | `scripts/evidence/` | Durable evidence generation commands. |
 | Script launchers | `scripts/` | Thin operator wrappers only. |
 | JS contract tests | `scripts/lib/*.test.mjs` | Tests and guardrails, not runtime implementation. |
-| Hypervisor proofs | `apps/autopilot/src-tauri/src/proofs/` or `apps/autopilot/src-tauri/src/harness/` while the source path is still named `autopilot` | Proof/harness code only; product runtime modules should stay uncluttered. |
+| Hypervisor proofs | `scripts/lib/*.test.mjs`, `scripts/conformance/`, `scripts/evidence/`, and focused proof helpers under `packages/hypervisor-workbench/src/runtime/` when they are client projections | Proof/harness code only; product runtime modules should stay uncluttered. The removed `apps/autopilot/src-tauri` path is not an active proof home. |
 
 ## Vocabulary Rules
 
@@ -66,6 +66,9 @@ parallel execution path.
 - `adaptive work graph` is the public execution-strategy term. `adaptive work graph` is
   legacy/historical vocabulary unless isolated in compatibility or old plan
   material.
+- `WorkbenchAdapterHost` means an editor/IDE host such as VS Code, Cursor,
+  Windsurf, JetBrains, a browser IDE, or a terminal surface. It is not the
+  Hypervisor product and must not live under a root `ide/` product path.
 
 ## Refactor Rule
 
@@ -76,3 +79,5 @@ When moving runtime code, prefer this order:
 3. Keep temporary compatibility wrappers only if an active public or persisted
    surface requires them.
 4. Remove roadmap/proof names from product paths once conformance stays green.
+5. Do not create new active Tauri homes. Preserve retired Tauri source only as
+   historical extraction inventory under `internal-docs/legacy/`.

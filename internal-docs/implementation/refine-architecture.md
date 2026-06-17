@@ -801,6 +801,14 @@ Current implementation cut:
   internal-docs/legacy/autopilot-tauri-src is historical extraction inventory
   any active @tauri-apps import, TauriRuntime service, or src-tauri dependency is
   a regression unless it appears in a negative test or legacy reference.
+
+0A.1B/0A.1C guardrails were tightened:
+  `internal-docs/implementation/runtime-module-map.md` no longer points
+  Hypervisor proof work at `apps/autopilot/src-tauri`
+  `check:runtime-layout` rejects both active `apps/autopilot/src-tauri/src`
+  and a root `ide/` product/artifact directory
+  `.gitignore` no longer preserves dead active `src-tauri` or `agent-ide`
+  shadows
 ```
 
 Code migration posture:
