@@ -820,6 +820,18 @@ Current implementation cut:
   and a root `ide/` product/artifact directory
   `.gitignore` no longer preserves dead active `src-tauri` or `agent-ide`
   shadows
+
+0A.2 canonical shell routing is partially implemented:
+  `PrimaryView` is now the canonical `HypervisorSurfaceId` union rather than
+  an IDE-era alias set
+  shell routes use Home, Sessions, Projects, Missions, Workbench, Automations,
+  Insights, Agents, Models, Privacy, Fleet, Foundry, Authority, Receipts, and
+  Settings directly
+  Projects, Privacy, Fleet, Foundry, and Receipts have live placeholder
+  surfaces instead of command-palette-only rail items
+  `/sessions` is the canonical session shell route; `/chat` is no longer a
+  named product route
+  workflow dogfood probes request `automations` as the initial shell surface
 ```
 
 Code migration posture:

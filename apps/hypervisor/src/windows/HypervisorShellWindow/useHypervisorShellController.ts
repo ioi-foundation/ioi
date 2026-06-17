@@ -44,6 +44,7 @@ import {
   PROJECT_SCOPES,
   type PrimaryView,
 } from "./hypervisorShellModel";
+import { isHypervisorSurfaceId } from "./hypervisorShellNavigationModel";
 import type { CapabilitySurface } from "../../surfaces/Capabilities";
 import type { SettingsSection } from "../../surfaces/Settings/settingsViewShared";
 
@@ -76,14 +77,19 @@ const appliedChatLaunchIds = new Set<string>();
 function resolveInitialPrimaryView(): PrimaryView {
   const supportedRequestedViews: PrimaryView[] = [
     "home",
-    "chat",
-    "workspace",
-    "workflows",
-    "runs",
-    "mounts",
-    "inbox",
-    "capabilities",
-    "policy",
+    "sessions",
+    "projects",
+    "missions",
+    "workbench",
+    "automations",
+    "insights",
+    "agents",
+    "models",
+    "privacy",
+    "fleet",
+    "foundry",
+    "authority",
+    "receipts",
     "settings",
   ];
 
@@ -104,8 +110,8 @@ function resolveInitialPrimaryView(): PrimaryView {
 
   if (typeof window !== "undefined") {
     const pathname = window.location.pathname.toLowerCase();
-    if (pathname === "/chat" || pathname.startsWith("/chat/")) {
-      return "chat";
+    if (pathname === "/sessions" || pathname.startsWith("/sessions/")) {
+      return "sessions";
     }
   }
 
@@ -325,7 +331,7 @@ export function useHypervisorShellController() {
     onActivateSession: (_session, surface) => {
       setChatSurface(surface);
       setChatPaneVisible(true);
-      setActiveView("inbox");
+      setActiveView("missions");
     },
   });
 
@@ -346,20 +352,16 @@ export function useHypervisorShellController() {
     setChatPaneVisible(true);
   };
 
-  const openLegacyView = (view: string) => {
+  const openRequestedSurface = (view: string) => {
+    if (isHypervisorSurfaceId(view)) {
+      setActiveView(view);
+      if (view === "automations") {
+        setWorkflowSurface("canvas");
+      }
+      return;
+    }
+
     switch (view) {
-      case "chat":
-      case "copilot":
-      case "autopilot":
-        setActiveView("chat");
-        return;
-      case "home":
-      case "welcome":
-        setActiveView("home");
-        return;
-      case "workspace":
-        setActiveView("workspace");
-        return;
       case "reply-composer":
         setChatSurface("reply-composer");
         setChatPaneVisible(true);
@@ -368,54 +370,9 @@ export function useHypervisorShellController() {
         setChatSurface("meeting-prep");
         setChatPaneVisible(true);
         return;
-      case "compose":
-        setActiveView("chat");
-        return;
-      case "build":
-        setActiveView("chat");
-        return;
-      case "code":
-      case "explorer":
-        setActiveView("chat");
-        return;
-      case "agents":
-        setWorkflowSurface("agents");
-        setActiveView("workflows");
-        return;
-      case "workflows":
-        setWorkflowSurface("canvas");
-        setActiveView("workflows");
-        return;
       case "catalog":
         setWorkflowSurface("catalog");
-        setActiveView("workflows");
-        return;
-      case "runs":
-      case "fleet":
-      case "atlas":
-        setActiveView("runs");
-        return;
-      case "mounts":
-      case "model-mounts":
-      case "model_mounts":
-        setActiveView("mounts");
-        return;
-      case "inbox":
-      case "notifications":
-        setActiveView("inbox");
-        return;
-      case "integrations":
-      case "connections":
-      case "capabilities":
-        setActiveView("capabilities");
-        return;
-      case "policy":
-      case "shield":
-      case "control":
-        setActiveView("policy");
-        return;
-      case "settings":
-        setActiveView("settings");
+        setActiveView("automations");
         return;
       default:
         setChatSurface("chat");
@@ -433,12 +390,12 @@ export function useHypervisorShellController() {
       setCapabilitiesTargetDetailSection(detailSection);
     }
     setCapabilitiesSurfaceSeed("connections");
-    setActiveView("capabilities");
+    setActiveView("agents");
   };
 
   const openPolicyCenter = (connectorId?: string | null) => {
     setFocusedPolicyConnectorId(connectorId ?? null);
-    setActiveView("policy");
+    setActiveView("authority");
   };
 
   const dismissCapabilityGovernanceRequest = () => {
@@ -454,7 +411,7 @@ export function useHypervisorShellController() {
 
   const openAutopilotWithIntent = (intent: string) => {
     setAutopilotSeedIntent(intent);
-    setActiveView("chat");
+    setActiveView("sessions");
     setChatSurface("chat");
     setChatPaneVisible(true);
   };
@@ -513,7 +470,7 @@ export function useHypervisorShellController() {
     try {
       switch (pendingRequest.kind) {
         case "view":
-          openLegacyView(pendingRequest.view);
+          openRequestedSurface(pendingRequest.view);
           await recordChatLaunchReceipt("chat_pending_launch_applied", {
             source,
             launchId,
@@ -559,7 +516,7 @@ export function useHypervisorShellController() {
             });
             setChatSurface("chat");
             setChatPaneVisible(true);
-            setActiveView("chat");
+            setActiveView("sessions");
             await waitForChatAutopilotSurfaceFrame();
             await recordChatLaunchReceipt(
               "chat_session_followup_submit_dispatching",
@@ -844,7 +801,7 @@ export function useHypervisorShellController() {
   }, [shieldPolicy, shieldPolicyHydrated]);
 
   const changePrimaryView = (view: PrimaryView) => {
-    if (view === "workflows") {
+    if (view === "automations") {
       setWorkflowSurface("canvas");
     }
     setActiveView(view);
@@ -859,12 +816,12 @@ export function useHypervisorShellController() {
     setCapabilitiesTargetConnectorId(null);
     setCapabilitiesTargetDetailSection(null);
     setCapabilitiesSurfaceSeed(surface);
-    setActiveView("capabilities");
+    setActiveView("agents");
   };
 
   const openWorkflowSurface = (surface: WorkflowSurface) => {
     setWorkflowSurface(surface);
-    setActiveView("workflows");
+    setActiveView("automations");
   };
 
   const openWorkflowPreflight = (
@@ -872,7 +829,7 @@ export function useHypervisorShellController() {
   ) => {
     setWorkflowPreflightSeed(seed ?? { panel: "readiness" });
     setWorkflowSurface("canvas");
-    setActiveView("workflows");
+    setActiveView("automations");
   };
 
   const openReplyComposer = (
@@ -895,7 +852,7 @@ export function useHypervisorShellController() {
     await store.loadSession(sessionId);
     await store.refreshSessionHistory();
     setChatSurface("chat");
-    setActiveView("chat");
+    setActiveView("sessions");
   };
 
   useEffect(() => {
@@ -971,7 +928,7 @@ export function useHypervisorShellController() {
   };
 
   const chatFullscreen =
-    activeView !== "chat" && chatPaneVisible && chatPaneMaximized;
+    activeView !== "sessions" && chatPaneVisible && chatPaneMaximized;
 
   return {
     activeView,

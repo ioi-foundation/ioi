@@ -61,7 +61,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         <Route path="/workspace-preview" element={<WorkspaceWorkbenchPreview />} />
         <Route path="/chat-session" element={<LegacyChatSessionRedirect />} />
         <Route path="/gate" element={<GateWindow />} />
-        <Route path="/chat" element={<HypervisorShellWindow />} />
+        <Route path="/sessions" element={<HypervisorShellWindow />} />
         <Route path="/" element={<HypervisorShellWindow />} />
         <Route path="*" element={<HypervisorShellWindow />} />
       </Routes>

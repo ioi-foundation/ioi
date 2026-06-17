@@ -32,20 +32,20 @@ assert.match(
 
 assert.match(
   source,
-  /const pathname = window\.location\.pathname\.toLowerCase\(\);[\s\S]*pathname === "\/chat" \|\| pathname\.startsWith\("\/chat\/"\)[\s\S]*return "chat";/,
-  "the dedicated /chat route should boot into the Chat view before pending-launch hydration runs",
+  /const pathname = window\.location\.pathname\.toLowerCase\(\);[\s\S]*pathname === "\/sessions" \|\| pathname\.startsWith\("\/sessions\/"\)[\s\S]*return "sessions";/,
+  "the dedicated /sessions route should boot into the Sessions surface before pending-launch hydration runs",
 );
 
 assert.match(
   source,
-  /case "autopilot-intent":[\s\S]*if \(pendingRequest\.sessionId\) \{[\s\S]*await bootstrapAgentSession\(\{\s*refreshCurrentTask: false,\s*\}\);[\s\S]*setActiveView\("chat"\);[\s\S]*await waitForChatAutopilotSurfaceFrame\(\);[\s\S]*await invoke\(\"continue_task\", \{\s*sessionId: pendingRequest\.sessionId,\s*userInput: pendingRequest\.intent,\s*\}\);[\s\S]*void openSessionTarget\(pendingRequest\.sessionId\)\.catch\(\(error\) => \{[\s\S]*submissionMode: "direct_continue_task"[\s\S]*return;[\s\S]*\}[\s\S]*openAutopilotWithIntent\(pendingRequest\.intent\);[\s\S]*submissionMode: "seed_intent"/,
+  /case "autopilot-intent":[\s\S]*if \(pendingRequest\.sessionId\) \{[\s\S]*await bootstrapAgentSession\(\{\s*refreshCurrentTask: false,\s*\}\);[\s\S]*setActiveView\("sessions"\);[\s\S]*await waitForChatAutopilotSurfaceFrame\(\);[\s\S]*await invoke\(\"continue_task\", \{\s*sessionId: pendingRequest\.sessionId,\s*userInput: pendingRequest\.intent,\s*\}\);[\s\S]*void openSessionTarget\(pendingRequest\.sessionId\)\.catch\(\(error\) => \{[\s\S]*submissionMode: "direct_continue_task"[\s\S]*return;[\s\S]*\}[\s\S]*openAutopilotWithIntent\(pendingRequest\.intent\);[\s\S]*submissionMode: "seed_intent"/,
   "autopilot-intent launch requests should submit retained follow-ups directly before reopening the UI session, while fresh launches still flow through the seed-intent path",
 );
 
 assert.match(
   source,
-  /case "workflows":[\s\S]*setActiveView\("workflows"\);[\s\S]*case "runs":[\s\S]*setActiveView\("runs"\);[\s\S]*case "inbox":[\s\S]*setActiveView\("inbox"\);[\s\S]*case "policy":[\s\S]*setActiveView\("policy"\);/,
-  "workspace bridge view launch targets should include canonical Chat view names, not only legacy aliases",
+  /if \(isHypervisorSurfaceId\(view\)\) \{[\s\S]*setActiveView\(view\);[\s\S]*if \(view === "automations"\) \{[\s\S]*setWorkflowSurface\("canvas"\);/,
+  "workspace bridge view launch targets should accept canonical Hypervisor surfaces directly",
 );
 
 assert.match(
@@ -56,8 +56,14 @@ assert.match(
 
 assert.match(
   mainSource,
+  /<Route path="\/sessions" element=\{<HypervisorShellWindow \/>\} \/>/,
+  "the canonical /sessions route should render the Hypervisor shell",
+);
+
+assert.match(
+  mainSource,
   /<Route path="\/chat-session" element=\{<LegacyChatSessionRedirect \/>\} \/>/,
-  "the legacy /chat-session route should redirect to the primary /chat surface instead of rendering a second composer",
+  "the legacy /chat-session route should close the secondary composer instead of rendering a second surface",
 );
 
 assert.match(

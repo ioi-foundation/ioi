@@ -7,6 +7,7 @@ import {
   startHostWindowDrag,
 } from "../../shared/hostWindowDrag";
 import type { PrimaryView } from "../hypervisorShellModel";
+import { getHypervisorSurfaceById } from "../hypervisorShellNavigationModel";
 import type { OperatorCommandCenterModel } from "../operatorSubstrateModel";
 
 interface HypervisorClientHeaderProps {
@@ -20,21 +21,13 @@ function windowSurfaceTitle(
   view: PrimaryView,
   workflowSurface: HypervisorClientHeaderProps["workflowSurface"],
 ): string {
-  if (view === "workflows") {
+  if (view === "automations") {
     if (workflowSurface === "home") return "Automations";
     if (workflowSurface === "agents") return "Agents";
     if (workflowSurface === "catalog") return "Catalog";
     return "Canvas";
   }
-  if (view === "workspace") return "Workbench";
-  if (view === "home") return "Home";
-  if (view === "policy") return "Authority";
-  if (view === "runs") return "Insights";
-  if (view === "mounts") return "Models";
-  if (view === "inbox") return "Missions";
-  if (view === "capabilities") return "Agents";
-  if (view === "settings") return "Settings";
-  return "Sessions";
+  return getHypervisorSurfaceById(view).label;
 }
 
 export function HypervisorClientHeader({

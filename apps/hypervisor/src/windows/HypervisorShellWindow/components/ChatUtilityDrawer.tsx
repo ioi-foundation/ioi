@@ -5,6 +5,7 @@ import {
   type ShieldPolicyState,
 } from "../../../surfaces/Policy";
 import type { PrimaryView } from "../hypervisorShellModel";
+import { getHypervisorSurfaceById } from "../hypervisorShellNavigationModel";
 import { type HypervisorClientRuntime } from "../../../services/HypervisorClientRuntime";
 import {
   openArtifactReviewTarget,
@@ -74,9 +75,9 @@ function isEditableElement(target: EventTarget | null): boolean {
 }
 
 function initialTabForView(view: PrimaryView): UtilityTab {
-  if (view === "chat") return "receipts";
-  if (view === "inbox") return "receipts";
-  if (view === "policy" || view === "settings") return "trace";
+  if (view === "sessions") return "receipts";
+  if (view === "missions") return "receipts";
+  if (view === "authority" || view === "settings") return "trace";
   return "logs";
 }
 
@@ -106,7 +107,7 @@ function utilityTabLabel(tab: UtilityTab): string {
 }
 
 function prettySurfaceLabel(view: PrimaryView): string {
-  return view[0].toUpperCase() + view.slice(1);
+  return getHypervisorSurfaceById(view).label;
 }
 
 export function ChatUtilityDrawer({
@@ -121,7 +122,7 @@ export function ChatUtilityDrawer({
   assistantWorkbench,
   onOpenChatConversation,
 }: ChatUtilityDrawerProps) {
-  const [isOpen, setIsOpen] = useState(activeView !== "chat");
+  const [isOpen, setIsOpen] = useState(activeView !== "sessions");
   const [activeTab, setActiveTab] = useState<UtilityTab>(
     initialTabForView(activeView),
   );
@@ -159,7 +160,7 @@ export function ChatUtilityDrawer({
   }, []);
 
   useEffect(() => {
-    if (activeView === "chat") {
+    if (activeView === "sessions") {
       setIsOpen(false);
     }
   }, [activeView]);

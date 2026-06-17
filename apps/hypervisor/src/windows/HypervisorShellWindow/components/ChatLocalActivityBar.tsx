@@ -43,18 +43,18 @@ interface SearchButtonProps {
 }
 
 const CHAT_ACTIVITY_BAR_COLLAPSED_KEY =
-  "autopilot.chatActivityBarCollapsed";
+  "hypervisor.activityBarCollapsed";
 
 const KEYBOARD_NAV_VIEWS: PrimaryView[] = [
-  "chat",
-  "workspace",
-  "workflows",
-  "runs",
-  "mounts",
-  "inbox",
-  "capabilities",
-  "policy",
-  "settings",
+  "home",
+  "sessions",
+  "projects",
+  "missions",
+  "workbench",
+  "automations",
+  "insights",
+  "agents",
+  "models",
 ];
 
 const NAV_ICON_BY_SURFACE: Record<string, ReactNode> = {
@@ -329,7 +329,7 @@ export function ChatLocalActivityBar({
           const icon =
             item.dataWindowSurface === "agents" ? (
               <IntegrationsIcon
-                disableHoverAnimation={activeView === "capabilities"}
+                disableHoverAnimation={activeView === "agents"}
               />
             ) : (
               NAV_ICON_BY_SURFACE[item.dataWindowSurface]

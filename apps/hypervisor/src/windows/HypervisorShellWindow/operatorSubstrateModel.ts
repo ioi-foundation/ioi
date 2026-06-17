@@ -74,7 +74,13 @@ export interface OperatorActivityRailModel {
 export interface OperatorChatPaneModel {
   projectionId: string;
   chromeMode: OperatorChromeMode;
-  activeSurface: "chat" | "workflows" | "runs" | "artifacts" | "policy" | "connections";
+  activeSurface:
+    | "sessions"
+    | "automations"
+    | "insights"
+    | "artifacts"
+    | "authority"
+    | "connections";
   controls: Array<"new" | "search" | "settings" | "expand" | "collapse" | "close">;
   showSessionList: boolean;
   runtimeTruthSource: "daemon-runtime";
@@ -284,30 +290,20 @@ const EMPTY_EVIDENCE_REFS: OperatorRuntimeEvidenceRefs = {
 
 const PRIMARY_VIEW_LABELS: Record<PrimaryView, string> = {
   home: "Home",
-  chat: "Sessions",
-  workspace: "Workbench",
-  workflows: "Automations",
-  runs: "Insights",
-  mounts: "Models",
-  inbox: "Missions",
-  capabilities: "Agents",
-  policy: "Authority",
+  sessions: "Sessions",
+  projects: "Projects",
+  missions: "Missions",
+  workbench: "Workbench",
+  automations: "Automations",
+  insights: "Insights",
+  agents: "Agents",
+  models: "Models",
+  privacy: "Privacy",
+  fleet: "Fleet",
+  foundry: "Foundry",
+  authority: "Authority",
+  receipts: "Receipts",
   settings: "Settings",
-};
-
-const HYPERVISOR_SURFACE_PRIMARY_VIEW_ROUTES: Partial<
-  Record<HypervisorSurfaceId, PrimaryView>
-> = {
-  home: "home",
-  sessions: "chat",
-  missions: "inbox",
-  workbench: "workspace",
-  automations: "workflows",
-  insights: "runs",
-  agents: "capabilities",
-  models: "mounts",
-  authority: "policy",
-  settings: "settings",
 };
 
 function mergeEvidenceRefs(
@@ -336,21 +332,17 @@ function primaryViewCommand(view: PrimaryView): OperatorCommandCenterCommand {
 export function getHypervisorSurfaceIdForPrimaryView(
   view: PrimaryView,
 ): HypervisorSurfaceId {
-  const surface = Object.entries(HYPERVISOR_SURFACE_PRIMARY_VIEW_ROUTES).find(
-    ([, routeView]) => routeView === view,
-  )?.[0] as HypervisorSurfaceId | undefined;
-
-  return surface ?? "home";
+  return view;
 }
 
 function railItemForHypervisorSurface(
   surface: (typeof HYPERVISOR_PRIMARY_SURFACES)[number],
   notificationCount: number,
 ): OperatorActivityRailItem {
-  const view = HYPERVISOR_SURFACE_PRIMARY_VIEW_ROUTES[surface.id];
-  const route: OperatorSurfaceRoute = view
-    ? { kind: "primary-view", view }
-    : { kind: "command-palette", query: surface.label };
+  const route: OperatorSurfaceRoute = {
+    kind: "primary-view",
+    view: surface.id,
+  };
 
   return {
     id: `surface.${surface.id}`,
@@ -361,7 +353,7 @@ function railItemForHypervisorSurface(
     dataWindowSurface: surface.id,
     hypervisorSurfaceId: surface.id,
     surfaceKind: surface.kind,
-    routeState: view ? "active_route" : "planned_surface",
+    routeState: "active_route",
     group: surface.railGroup,
     source: surface.id === "missions" ? "runtime-projection" : "shell-projection",
   };
@@ -620,19 +612,13 @@ export function buildOperatorCommandCenterModel({
 }: BuildOperatorCommandCenterModelOptions): OperatorCommandCenterModel {
   const mergedEvidenceRefs = mergeEvidenceRefs(evidenceRefs);
   const surfaceLabel =
-    activeView === "workflows" && workflowSurface !== "home"
-      ? `${PRIMARY_VIEW_LABELS.workflows}: ${workflowSurface}`
+    activeView === "automations" && workflowSurface !== "home"
+      ? `${PRIMARY_VIEW_LABELS.automations}: ${workflowSurface}`
       : PRIMARY_VIEW_LABELS[activeView];
   const commands: OperatorCommandCenterCommand[] = [
-    primaryViewCommand("home"),
-    primaryViewCommand("chat"),
-    primaryViewCommand("workspace"),
-    primaryViewCommand("workflows"),
-    primaryViewCommand("runs"),
-    primaryViewCommand("mounts"),
-    primaryViewCommand("capabilities"),
-    primaryViewCommand("policy"),
-    primaryViewCommand("settings"),
+    ...HYPERVISOR_PRIMARY_SURFACES.map((surface) =>
+      primaryViewCommand(surface.id),
+    ),
     {
       id: "workspace.search",
       label: "Search workspace",
@@ -653,7 +639,7 @@ export function buildOperatorCommandCenterModel({
       id: "runtime.receipts",
       label: "Inspect receipts",
       description: "Open runtime receipts, artifacts, and retained evidence.",
-      route: { kind: "primary-view", view: "runs" },
+      route: { kind: "primary-view", view: "receipts" },
       keywords: ["receipt", "artifact", "evidence", "trace", "run"],
       source: "runtime-projection",
     },
@@ -664,7 +650,7 @@ export function buildOperatorCommandCenterModel({
       id: "inbox.pending",
       label: `Open Inbox (${notificationCount})`,
       description: "Review pending approvals, prompts, and interventions.",
-      route: { kind: "primary-view", view: "inbox" },
+      route: { kind: "primary-view", view: "missions" },
       keywords: ["inbox", "approval", "notification", "pending"],
       source: "runtime-projection",
     });

@@ -43,7 +43,10 @@ test("home dashboard exposes the New Session setup contract", () => {
 
 test("home dashboard routes model setup to the Models surface", () => {
   assert.match(homeView, /onOpenModels: \(\) => void/);
-  assert.match(shellContent, /onOpenModels=\{\(\) => controller\.changePrimaryView\("mounts"\)\}/);
+  assert.match(
+    shellContent,
+    /onOpenModels=\{\(\) =>[\s\S]*controller\.changePrimaryView\("models"\)/,
+  );
 });
 
 test("new session card has responsive shell styling", () => {

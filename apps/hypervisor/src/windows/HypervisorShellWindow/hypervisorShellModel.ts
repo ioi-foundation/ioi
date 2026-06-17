@@ -1,16 +1,7 @@
 import type { AssistantUserProfile } from "../../types";
+import type { HypervisorSurfaceId } from "./hypervisorShellNavigationModel";
 
-export type PrimaryView =
-  | "home"
-  | "chat"
-  | "workspace"
-  | "workflows"
-  | "runs"
-  | "mounts"
-  | "inbox"
-  | "capabilities"
-  | "policy"
-  | "settings";
+export type PrimaryView = HypervisorSurfaceId;
 
 export interface ProjectScope {
   id: string;

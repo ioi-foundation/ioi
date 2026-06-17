@@ -395,7 +395,7 @@ def main() -> int:
         args.profile,
         log_path,
         args.dev_url,
-        initial_view="workflows",
+        initial_view="automations",
     )
     print(f"[workflow-usability] launched desktop shell, evidence={output_dir}", flush=True)
 

@@ -79,10 +79,10 @@ export interface OnboardingConditionDefinition {
 
 export type OnboardingActionId =
   | "appearance.selectTheme"
-  | "project.openWorkspace"
+  | "project.openWorkbench"
   | "context.openCapabilities"
   | "runtime.openSettings"
-  | "policy.openPolicy"
+  | "policy.openAuthority"
   | "palette.open"
   | "workspace.open"
   | "evidence.openRuns"
@@ -754,18 +754,18 @@ const setupWebSteps: AutopilotOnboardingStep[] = [
     },
     condition: "workspaceFolderCount == 0",
     captureStatus: "source-known-needs-targeted-capture",
-    targetRoute: "Autopilot project selection and contained direct Workspace",
+    targetRoute: "Autopilot project selection and contained direct Workbench",
     completionPredicate: "project-selected",
     primaryAction: action(
-      "project.openWorkspace",
+      "project.openWorkbench",
       "Open Folder",
-      "autopilot.onboarding.openWorkspace",
-      "Home: Open Workspace",
+      "autopilot.onboarding.openWorkbench",
+      "Home: Open Workbench",
       "workbench.action.addRootFolder",
     ),
     secondaryActions: [
       action(
-        "project.openWorkspace",
+        "project.openWorkbench",
         "Open Repository",
         "autopilot.onboarding.openRepository",
         "Home: Open Repository",
@@ -1694,35 +1694,35 @@ export function resolveOnboardingRouteVisibility(
 
 export const HOME_DASHBOARD_CARDS: HomeDashboardCard[] = [
   {
-    id: "workspace",
-    title: "Workspace",
+    id: "workbench",
+    title: "Workbench",
     detail: "Open the contained OpenVSCode workbench for code browsing and IOI panes.",
     meta: "Direct child webview",
-    actionLabel: "Open Workspace",
+    actionLabel: "Open Workbench",
     actionId: "workspace.open",
   },
   {
-    id: "runs",
-    title: "Runs and evidence",
+    id: "insights",
+    title: "Insights and evidence",
     detail: "Inspect runtime runs, receipts, artifacts, and review-ready proof bundles.",
     meta: "IOI authoritative",
-    actionLabel: "Open Runs",
+    actionLabel: "Open Insights",
     actionId: "evidence.openRuns",
   },
   {
-    id: "policy",
-    title: "Policy",
+    id: "authority",
+    title: "Authority",
     detail: "Review approval posture, connector boundaries, and evidence egress.",
     meta: "Shield state",
-    actionLabel: "Open Policy",
-    actionId: "policy.openPolicy",
+    actionLabel: "Open Authority",
+    actionId: "policy.openAuthority",
   },
   {
     id: "context",
     title: "Codebase context",
     detail: "Verify project scope, connector posture, and codebase-first defaults.",
     meta: "Shared runtime substrate",
-    actionLabel: "Open Capabilities",
+    actionLabel: "Open Agents",
     actionId: "context.openCapabilities",
   },
 ];

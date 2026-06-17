@@ -496,8 +496,8 @@ const escapeRegExp = (value: string) =>
 
 assert.match(
   operatorSubstrateModel,
-  /HYPERVISOR_SURFACE_PRIMARY_VIEW_ROUTES[\s\S]*workbench: "workspace"[\s\S]*automations: "workflows"[\s\S]*insights: "runs"/,
-  "Automations should sit after Workbench and before Insights in the activity bar",
+  /HYPERVISOR_PRIMARY_SURFACES\.map\(\(surface\) =>[\s\S]*primaryViewCommand\(surface\.id\)/,
+  "Automations should use canonical Hypervisor surface IDs instead of a legacy primary-view route map",
 );
 
 assert.match(
@@ -509,25 +509,25 @@ assert.match(
 assert.match(
   controller,
   /useState<WorkflowSurface>\("canvas"\)/,
-  "Workflows should boot canvas-first",
+  "Automations should boot canvas-first",
 );
 
 assert.match(
   controller,
-  /if \(view === "workflows"\) \{[\s\S]*setWorkflowSurface\("canvas"\);[\s\S]*\}/,
-  "Opening Workflows from the shell should force the canvas surface",
+  /if \(view === "automations"\) \{[\s\S]*setWorkflowSurface\("canvas"\);[\s\S]*\}/,
+  "Opening Automations from the shell should force the canvas surface",
 );
 
 assert.match(
   shellContent,
-  /const workflowActive = activeView === "workflows";/,
-  "The shell should treat Workflows as a dedicated workbench surface",
+  /const workflowActive = activeView === "automations";/,
+  "The shell should treat Automations as a dedicated workbench surface",
 );
 
 assert.match(
   shellContent,
   /!dedicatedWorkbenchActive[\s\S]*controller\.chat\.paneVisible/,
-  "Workflows should suppress the auxiliary chat pane",
+  "Automations should suppress the auxiliary chat pane",
 );
 
 assert.match(
@@ -652,8 +652,8 @@ assert.match(
 
 assert.match(
   shellContent,
-  /const utilityDrawerVisible =[\s\S]*activeView !== "chat"[\s\S]*activeView !== "home"[\s\S]*!dedicatedWorkbenchActive[\s\S]*\{utilityDrawerVisible \? \(/,
-  "Workflows should suppress the diagnostic utility drawer",
+  /const utilityDrawerVisible =[\s\S]*activeView !== "sessions"[\s\S]*activeView !== "home"[\s\S]*!dedicatedWorkbenchActive[\s\S]*\{utilityDrawerVisible \? \(/,
+  "Automations should suppress the diagnostic utility drawer",
 );
 
 assert.match(
@@ -2664,8 +2664,8 @@ assert.match(
 
 assert.match(
   scratchProbe,
-  /inputCapturedCount[\s\S]*bindingManifestFresh[\s\S]*freshFixtureInputCount[\s\S]*fixtureValidationStatuses[\s\S]*wait_for_dogfood_sidecars[\s\S]*initial_view="workflows"/,
-  "Scratch GUI dogfood should launch Workflows and observe fresh binding manifests, fixture input/validation, and node-run input capture through the manual composer bridge",
+  /inputCapturedCount[\s\S]*bindingManifestFresh[\s\S]*freshFixtureInputCount[\s\S]*fixtureValidationStatuses[\s\S]*wait_for_dogfood_sidecars[\s\S]*initial_view="automations"/,
+  "Scratch GUI dogfood should launch Automations and observe fresh binding manifests, fixture input/validation, and node-run input capture through the manual composer bridge",
 );
 
 assert.match(

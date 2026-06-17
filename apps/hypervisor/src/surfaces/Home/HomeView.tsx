@@ -341,15 +341,15 @@ function HomeDashboardView({
       onClick: () => onRecentModeChange("projects"),
     },
     {
-      id: "workspace",
-      label: "Workspace",
+      id: "workbench",
+      label: "Workbench",
       detail: "Code workbench",
       icon: Code2,
       tone: "blue",
       onClick: onOpenWorkspace,
     },
     {
-      id: "chat",
+      id: "sessions",
       label: "Sessions",
       detail: "Live work",
       icon: MessageCircle,
@@ -357,7 +357,7 @@ function HomeDashboardView({
       onClick: onOpenChat,
     },
     {
-      id: "runs",
+      id: "insights",
       label: "Runs",
       detail: "Execution history",
       icon: Play,
@@ -373,15 +373,15 @@ function HomeDashboardView({
       onClick: onOpenRuns,
     },
     {
-      id: "policy",
-      label: "Policy",
+      id: "authority",
+      label: "Authority",
       detail: "Approvals",
       icon: ShieldCheck,
       tone: "purple",
       onClick: onOpenPolicy,
     },
     {
-      id: "capabilities",
+      id: "agents",
       label: "Agents",
       detail: "Capabilities",
       icon: Boxes,
@@ -471,7 +471,7 @@ function HomeDashboardView({
                 <p>Inspect runs, receipts, artifacts, and evidence bundles.</p>
               </div>
               <button type="button" onClick={onOpenRuns}>
-                <span>Open Runs</span>
+                <span>Open Insights</span>
                 {renderIcon(ArrowRight, { size: 15, strokeWidth: 2 })}
               </button>
             </article>
@@ -890,7 +890,7 @@ export function HomeView({
       case "appearance.selectTheme":
         markStepDone("setup-theme");
         return;
-      case "project.openWorkspace":
+      case "project.openWorkbench":
       case "workspace.open":
         markStepDone(selectedStep.id);
         onOpenWorkspace();
@@ -946,7 +946,7 @@ export function HomeView({
         markStepDone(selectedStep.id);
         onOpenSettings("runtime");
         return;
-      case "policy.openPolicy":
+      case "policy.openAuthority":
         markStepDone(selectedStep.id);
         onOpenPolicy();
         return;

@@ -27,10 +27,86 @@ import {
 } from "../../../services/workspaceWorkbenchHostRegistry";
 import { buildOperatorCommandCenterModel } from "../operatorSubstrateModel";
 import { materializeWorkflowProject } from "../../../services/workflowProjectMaterialization";
+import type { PrimaryView } from "../hypervisorShellModel";
 
 interface HypervisorShellContentProps {
   controller: ReturnType<typeof useHypervisorShellController>;
   runtime: HypervisorClientRuntime;
+}
+
+const PLACEHOLDER_SURFACE_COPY: Partial<
+  Record<PrimaryView, { eyebrow: string; title: string; body: string; tags: string[] }>
+> = {
+  projects: {
+    eyebrow: "Project state",
+    title: "Projects will bind repos, workspace state, and restore posture.",
+    body:
+      "This surface is where Hypervisor will group local folders, remote workspaces, Agentgres state refs, encrypted artifact refs, and zero-to-idle restore material without making any editor the parent product.",
+    tags: ["Workspace refs", "Restore posture", "Artifact refs"],
+  },
+  privacy: {
+    eyebrow: "Private workspace",
+    title: "Privacy will expose cTEE custody state and declassification gates.",
+    body:
+      "This surface tracks public trunks, redacted projections, encrypted refs, private handles, model-mount posture, and explicit unsafe mounts before a provider or adapter sees sensitive state.",
+    tags: ["cTEE", "No plaintext custody", "Declassification"],
+  },
+  fleet: {
+    eyebrow: "Provider estate",
+    title: "Fleet will manage direct provider integrations.",
+    body:
+      "This surface is for local machines, customer clouds, DePIN providers, VMs, containers, HypervisorOS nodes, ports, services, spend leases, and provider receipts.",
+    tags: ["Local", "Cloud", "DePIN"],
+  },
+  foundry: {
+    eyebrow: "Evals and promotion",
+    title: "Foundry will govern evals, distillation, benchmarks, and package promotion.",
+    body:
+      "This is not the meta harness. It is the application surface for training, evaluation, scorecards, promotion candidates, and artifact-backed release evidence.",
+    tags: ["Evals", "Benchmarks", "Promotion"],
+  },
+  receipts: {
+    eyebrow: "Operational evidence",
+    title: "Receipts will become the audit and replay console.",
+    body:
+      "This surface will index action receipts, Agentgres operation refs, artifact refs, trace refs, state roots, delivery evidence, and restore/import proof chains.",
+    tags: ["Agentgres", "Replay", "State roots"],
+  },
+};
+
+function isPlaceholderSurface(view: PrimaryView): boolean {
+  return Boolean(PLACEHOLDER_SURFACE_COPY[view]);
+}
+
+function HypervisorSurfacePlaceholder({
+  activeView,
+}: {
+  activeView: PrimaryView;
+}) {
+  const copy = PLACEHOLDER_SURFACE_COPY[activeView];
+  if (!copy) {
+    return null;
+  }
+
+  return (
+    <section
+      className="hypervisor-surface-placeholder"
+      data-testid={`hypervisor-surface-placeholder-${activeView}`}
+      data-hypervisor-surface={activeView}
+      aria-label={copy.title}
+    >
+      <div className="hypervisor-surface-placeholder-eyebrow">
+        {copy.eyebrow}
+      </div>
+      <h2>{copy.title}</h2>
+      <p>{copy.body}</p>
+      <div className="hypervisor-surface-placeholder-tags" aria-label="Surface primitives">
+        {copy.tags.map((tag) => (
+          <span key={tag}>{tag}</span>
+        ))}
+      </div>
+    </section>
+  );
 }
 
 export function HypervisorShellContent({
@@ -43,19 +119,19 @@ export function HypervisorShellContent({
   const workspaceUsesNativeWorkbenchChat =
     workspaceHost === directWorkspaceWorkbenchHost ||
     workspaceHost === openVsCodeWorkbenchHost;
-  const workspaceActive = activeView === "workspace";
-  const workflowActive = activeView === "workflows";
-  const mountsActive = activeView === "mounts";
+  const workspaceActive = activeView === "workbench";
+  const workflowActive = activeView === "automations";
+  const mountsActive = activeView === "models";
   const dedicatedWorkbenchActive = workflowActive || mountsActive;
 
   const auxiliaryChatVisible =
     !workspaceActive &&
     !dedicatedWorkbenchActive &&
-    activeView !== "chat" &&
+    activeView !== "sessions" &&
     activeView !== "home" &&
     controller.chat.paneVisible;
   const utilityDrawerVisible =
-    activeView !== "chat" && activeView !== "home" && !dedicatedWorkbenchActive;
+    activeView !== "sessions" && activeView !== "home" && !dedicatedWorkbenchActive;
   const auxiliaryChatFullscreen =
     auxiliaryChatVisible && controller.chat.paneMaximized;
   const commandCenterModel = buildOperatorCommandCenterModel({
@@ -93,9 +169,9 @@ export function HypervisorShellContent({
         onToggleMaximize={controller.chat.toggleMaximize}
         onBackToInbox={() => {
           controller.chat.setSurface("chat");
-          controller.changePrimaryView("inbox");
+          controller.changePrimaryView("missions");
         }}
-        onOpenInbox={() => controller.changePrimaryView("inbox")}
+        onOpenInbox={() => controller.changePrimaryView("missions")}
         onOpenAutopilot={controller.chat.openAutopilotWithIntent}
       />
     ) : null;
@@ -167,17 +243,17 @@ export function HypervisorShellContent({
                       currentProject={currentProject}
                       projects={projects}
                       notificationCount={notificationBadgeCount}
-                      onOpenChat={() => controller.changePrimaryView("chat")}
+                      onOpenChat={() => controller.changePrimaryView("sessions")}
                       onOpenWorkspace={() =>
-                        controller.changePrimaryView("workspace")
+                        controller.changePrimaryView("workbench")
                       }
-                      onOpenRuns={() => controller.changePrimaryView("runs")}
+                      onOpenRuns={() => controller.changePrimaryView("insights")}
                       onOpenModels={() =>
-                        controller.changePrimaryView("mounts")
+                        controller.changePrimaryView("models")
                       }
-                      onOpenInbox={() => controller.changePrimaryView("inbox")}
+                      onOpenInbox={() => controller.changePrimaryView("missions")}
                       onOpenCapabilities={() =>
-                        controller.changePrimaryView("capabilities")
+                        controller.changePrimaryView("agents")
                       }
                       onOpenPolicy={() =>
                         controller.policy.openPolicyCenter(null)
@@ -190,7 +266,7 @@ export function HypervisorShellContent({
                     />
                   ) : null}
 
-                  {activeView === "chat" ? (
+                  {activeView === "sessions" ? (
                     <ChatCopilotView
                       seedIntent={controller.chat.seedIntent}
                       onConsumeSeedIntent={controller.chat.consumeSeedIntent}
@@ -200,7 +276,7 @@ export function HypervisorShellContent({
                     />
                   ) : null}
 
-                  {activeView === "workflows" ? (
+                  {activeView === "automations" ? (
                     <MissionControlWorkflowsView
                       runtime={runtime}
                       surface={controller.workflow.surface}
@@ -210,10 +286,10 @@ export function HypervisorShellContent({
                       editingAgent={controller.agents.editingAgent}
                       onSurfaceChange={controller.workflow.setSurface}
                       onSelectProject={controller.workflow.selectProject}
-                      onOpenChat={() => controller.changePrimaryView("chat")}
-                      onOpenInbox={() => controller.changePrimaryView("inbox")}
+                      onOpenChat={() => controller.changePrimaryView("sessions")}
+                      onOpenInbox={() => controller.changePrimaryView("missions")}
                       onOpenCapabilities={() =>
-                        controller.changePrimaryView("capabilities")
+                        controller.changePrimaryView("agents")
                       }
                       onOpenPolicy={() =>
                         controller.policy.openPolicyCenter(null)
@@ -239,7 +315,7 @@ export function HypervisorShellContent({
                       onMaterializeWorkflowProject={async (request) => {
                         const result =
                           await materializeWorkflowProject(request);
-                        controller.changePrimaryView("workspace");
+                        controller.changePrimaryView("workbench");
                         return result;
                       }}
                       onAddBuilderConfigToCanvas={(config) => {
@@ -248,15 +324,15 @@ export function HypervisorShellContent({
                     />
                   ) : null}
 
-                  {activeView === "runs" ? (
+                  {activeView === "insights" ? (
                     <MissionControlRunsView runtime={runtime} />
                   ) : null}
 
-                  {activeView === "mounts" ? (
+                  {activeView === "models" ? (
                     <MissionControlMountsView />
                   ) : null}
 
-                  {activeView === "inbox" ? (
+                  {activeView === "missions" ? (
                     <InboxView
                       onOpenAutopilot={() => {
                         controller.chat.setSurface("chat");
@@ -279,7 +355,7 @@ export function HypervisorShellContent({
                     />
                   ) : null}
 
-                  {activeView === "capabilities" ? (
+                  {activeView === "agents" ? (
                     <CapabilitiesView
                       runtime={runtime}
                       getConnectorPolicySummary={(connector) =>
@@ -300,7 +376,7 @@ export function HypervisorShellContent({
                           connector?.id ?? null,
                         )
                       }
-                      onOpenInbox={() => controller.changePrimaryView("inbox")}
+                      onOpenInbox={() => controller.changePrimaryView("missions")}
                       onOpenSettings={() =>
                         controller.changePrimaryView("settings")
                       }
@@ -323,7 +399,7 @@ export function HypervisorShellContent({
                     />
                   ) : null}
 
-                  {activeView === "policy" || activeView === "settings" ? (
+                  {activeView === "authority" || activeView === "settings" ? (
                     <MissionControlControlView
                       runtime={runtime}
                       surface={activeView === "settings" ? "system" : "policy"}
@@ -336,7 +412,7 @@ export function HypervisorShellContent({
                       focusedConnectorId={controller.policy.focusedConnectorId}
                       onSurfaceChange={(surface) =>
                         controller.changePrimaryView(
-                          surface === "policy" ? "policy" : "settings",
+                          surface === "policy" ? "authority" : "settings",
                         )
                       }
                       settingsSeedSection={controller.settings.seedSection}
@@ -355,10 +431,10 @@ export function HypervisorShellContent({
                         controller.policy.dismissGovernanceRequest
                       }
                       onOpenConnections={() =>
-                        controller.changePrimaryView("capabilities")
+                        controller.changePrimaryView("agents")
                       }
                       onOpenModelRoutes={() =>
-                        controller.changePrimaryView("mounts")
+                        controller.changePrimaryView("models")
                       }
                       onOpenWorkflowPreflight={(seed) =>
                         controller.workflow.openPreflight(
@@ -369,6 +445,10 @@ export function HypervisorShellContent({
                         )
                       }
                     />
+                  ) : null}
+
+                  {isPlaceholderSurface(activeView) ? (
+                    <HypervisorSurfacePlaceholder activeView={activeView} />
                   ) : null}
                 </div>
 
@@ -386,7 +466,7 @@ export function HypervisorShellContent({
                     }
                     assistantWorkbench={controller.chat.assistantWorkbench}
                     onOpenChatConversation={() =>
-                      controller.changePrimaryView("chat")
+                      controller.changePrimaryView("sessions")
                     }
                   />
                 ) : null}
@@ -404,9 +484,9 @@ export function HypervisorShellContent({
                   onToggleMaximize={controller.chat.toggleMaximize}
                   onBackToInbox={() => {
                     controller.chat.setSurface("chat");
-                    controller.changePrimaryView("inbox");
+                    controller.changePrimaryView("missions");
                   }}
-                  onOpenInbox={() => controller.changePrimaryView("inbox")}
+                  onOpenInbox={() => controller.changePrimaryView("missions")}
                   onOpenAutopilot={controller.chat.openAutopilotWithIntent}
                 />
               ) : null}

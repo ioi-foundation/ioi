@@ -574,7 +574,7 @@ export function CommandPalette({
         icon: icons.search,
         onSelect: () =>
           runAction(() => {
-            onOpenPrimaryView("workspace");
+            onOpenPrimaryView("workbench");
           }),
       },
       {
@@ -602,7 +602,7 @@ export function CommandPalette({
         icon: icons.sparkles,
         onSelect: () =>
           runAction(() => {
-            onOpenPrimaryView("chat");
+            onOpenPrimaryView("sessions");
           }),
       },
       {
@@ -618,10 +618,10 @@ export function CommandPalette({
         title: "Run Task",
         description: "Open execution supervision.",
         icon: icons.history,
-        active: activeView === "runs",
+        active: activeView === "insights",
         onSelect: () =>
           runAction(() => {
-            onOpenPrimaryView("runs");
+            onOpenPrimaryView("insights");
           }),
       },
       {
@@ -650,14 +650,14 @@ export function CommandPalette({
       },
       {
         id: "open-chat-copilot",
-        title: "Open Copilot",
+        title: "Open Sessions",
         description: "Jump back to the Chat workbench and operator surface.",
-        meta: "Chat",
+        meta: "Sessions",
         icon: icons.sparkles,
-        active: activeView === "chat",
+        active: activeView === "sessions",
         onSelect: () =>
           runAction(() => {
-            onOpenPrimaryView("chat");
+            onOpenPrimaryView("sessions");
           }),
       },
       {
@@ -666,7 +666,7 @@ export function CommandPalette({
         description: "Jump straight into the workflow graph editor.",
         meta: "Workflows",
         icon: icons.expand,
-        active: activeView === "workflows" && workflowSurface === "canvas",
+        active: activeView === "automations" && workflowSurface === "canvas",
         onSelect: () =>
           runAction(() => {
             onOpenWorkflowSurface("canvas");
@@ -678,7 +678,7 @@ export function CommandPalette({
         description: "Review workflow entrypoints, graph posture, and builder lanes.",
         meta: "Workflows",
         icon: icons.sidebar,
-        active: activeView === "workflows" && workflowSurface === "home",
+        active: activeView === "automations" && workflowSurface === "home",
         onSelect: () =>
           runAction(() => {
             onOpenWorkflowSurface("home");
@@ -690,7 +690,7 @@ export function CommandPalette({
         description: "Review the live worker roster and agent definitions.",
         meta: "Roster",
         icon: icons.code,
-        active: activeView === "workflows" && workflowSurface === "agents",
+        active: activeView === "automations" && workflowSurface === "agents",
         onSelect: () =>
           runAction(() => {
             onOpenWorkflowSurface("agents");
@@ -702,7 +702,7 @@ export function CommandPalette({
         description: "Inspect the live runtime catalog from Chat.",
         meta: "Catalog",
         icon: icons.globe,
-        active: activeView === "workflows" && workflowSurface === "catalog",
+        active: activeView === "automations" && workflowSurface === "catalog",
         onSelect: () =>
           runAction(() => {
             onOpenWorkflowSurface("catalog");
@@ -710,62 +710,62 @@ export function CommandPalette({
       },
       {
         id: "open-runs",
-        title: "Open Runs",
+        title: "Open Insights",
         description: "Inspect the fleet and execution supervision surfaces.",
-        meta: "Runs",
+        meta: "Insights",
         icon: icons.history,
-        active: activeView === "runs",
+        active: activeView === "insights",
         onSelect: () =>
           runAction(() => {
-            onOpenPrimaryView("runs");
+            onOpenPrimaryView("insights");
           }),
       },
       {
         id: "open-model-mounts",
-        title: "Open Model Mounts",
+        title: "Open Models",
         description: "Open the model mounting surface.",
-        meta: "Mounts",
+        meta: "Models",
         icon: icons.cube,
-        active: activeView === "mounts",
+        active: activeView === "models",
         onSelect: () =>
           runAction(() => {
-            onOpenPrimaryView("mounts");
+            onOpenPrimaryView("models");
           }),
       },
       {
         id: "open-inbox",
-        title: "Open Inbox",
+        title: "Open Missions",
         description: "Review the shared operator queue and pending actions.",
         meta: notificationCount > 0 ? `${notificationCount}` : "Queue",
         icon: icons.lock,
-        active: activeView === "inbox",
+        active: activeView === "missions",
         onSelect: () =>
           runAction(() => {
-            onOpenPrimaryView("inbox");
+            onOpenPrimaryView("missions");
           }),
       },
       {
         id: "open-capabilities",
-        title: "Open Capabilities",
+        title: "Open Agents",
         description: "Inspect live connectors, extensions, and tools.",
-        meta: "Capabilities",
+        meta: "Agents",
         icon: icons.cube,
-        active: activeView === "capabilities",
+        active: activeView === "agents",
         onSelect: () =>
           runAction(() => {
-            onOpenPrimaryView("capabilities");
+            onOpenPrimaryView("agents");
           }),
       },
       {
         id: "open-policy",
-        title: "Open Policy",
+        title: "Open Authority",
         description: "Jump to Shield policy and connector governance posture.",
         meta: "Governance",
         icon: icons.lock,
-        active: activeView === "policy",
+        active: activeView === "authority",
         onSelect: () =>
           runAction(() => {
-            onOpenPrimaryView("policy");
+            onOpenPrimaryView("authority");
           }),
       },
       {
@@ -991,7 +991,7 @@ export function CommandPalette({
                 icon: icons.alert,
                 onSelect: () =>
                   runAction(() => {
-                    onOpenPrimaryView("capabilities");
+                    onOpenPrimaryView("agents");
                   }),
               },
             ]
@@ -1046,7 +1046,7 @@ export function CommandPalette({
         icon: icons.paperclip,
         onSelect: () =>
           runAction(() => {
-            onOpenPrimaryView("workspace");
+            onOpenPrimaryView("workbench");
           }),
       },
       {
@@ -1057,7 +1057,7 @@ export function CommandPalette({
         icon: icons.code,
         onSelect: () =>
           runAction(() => {
-            onOpenPrimaryView("capabilities");
+            onOpenPrimaryView("agents");
           }),
       },
     ].filter((item) =>
@@ -1121,7 +1121,7 @@ export function CommandPalette({
                 icon: icons.sparkles,
                 onSelect: () =>
                   runAction(async () => {
-                    onOpenPrimaryView("chat");
+                    onOpenPrimaryView("sessions");
                     await openCompanionAutopilotIntent(
                       `Use the ${skill.name} skill for this request. `,
                     );
@@ -1161,7 +1161,7 @@ export function CommandPalette({
               icon: icons.code,
               onSelect: () =>
                 runAction(() => {
-                  onOpenPrimaryView("workspace");
+                  onOpenPrimaryView("workbench");
                 }),
             }));
     const workspaceItems: CommandPaletteItem[] = [
@@ -1173,7 +1173,7 @@ export function CommandPalette({
         icon: icons.search,
         onSelect: () =>
           runAction(() => {
-            onOpenPrimaryView("workspace");
+            onOpenPrimaryView("workbench");
           }),
       },
       {
@@ -1184,7 +1184,7 @@ export function CommandPalette({
         icon: icons.laptop,
         onSelect: () =>
           runAction(() => {
-            onOpenPrimaryView("workspace");
+            onOpenPrimaryView("workbench");
           }),
       },
     ].filter((item) =>

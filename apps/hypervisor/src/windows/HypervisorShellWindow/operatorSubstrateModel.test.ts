@@ -39,7 +39,7 @@ test("retired native app path stays archived only", () => {
 
 test("operator command center is a daemon-runtime projection", () => {
   const model: OperatorCommandCenterModel = buildOperatorCommandCenterModel({
-    activeView: "workspace",
+    activeView: "workbench",
     workflowSurface: "canvas",
     currentProject: PROJECT,
     notificationCount: 3,
@@ -58,7 +58,7 @@ test("operator command center is a daemon-runtime projection", () => {
         command.id === "runtime.receipts" &&
         command.source === "runtime-projection" &&
         command.route.kind === "primary-view" &&
-        command.route.view === "runs",
+        command.route.view === "receipts",
     ),
   );
   assert.ok(
@@ -73,7 +73,7 @@ test("operator command center is a daemon-runtime projection", () => {
 
 test("operator activity rail is a shell projection with deterministic surfaces", () => {
   const model = buildOperatorActivityRailModel({
-    activeView: "workflows",
+    activeView: "automations",
     collapsed: true,
     notificationCount: 4,
   });
@@ -83,7 +83,7 @@ test("operator activity rail is a shell projection with deterministic surfaces",
   assert.equal(model.chromeMode, "sidebar");
   assert.deepEqual(model.activeRoute, {
     kind: "primary-view",
-    view: "workflows",
+    view: "automations",
   });
   assert.deepEqual(
     model.items.map((item) => item.dataWindowSurface),
@@ -119,7 +119,7 @@ test("operator activity rail is a shell projection with deterministic surfaces",
   );
   assert.equal(
     model.items.find((item) => item.dataWindowSurface === "fleet")?.routeState,
-    "planned_surface",
+    "active_route",
   );
   assert.equal(
     model.items.find((item) => item.dataWindowSurface === "fleet")?.group,
