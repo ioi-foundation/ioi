@@ -139,7 +139,7 @@ test("runtime run read surface keeps authority evidence retired and projects tra
   });
 });
 
-test("runtime run read surface default job sidecar path ignores retired job id fallbacks", () => {
+test("runtime run read API default job sidecar path ignores retired job id fallbacks", () => {
   const poisonedRun = {
     ...run("run-canonical"),
     runtimeJob: { jobId: "job-retired-nested" },
@@ -164,7 +164,7 @@ test("runtime run read surface default job sidecar path ignores retired job id f
   );
 });
 
-test("runtime run read surface default checklist sidecar path ignores retired checklist id fallbacks", () => {
+test("runtime run read API default checklist sidecar path ignores retired checklist id fallbacks", () => {
   const poisonedRun = {
     ...run("run-canonical"),
     runtimeChecklist: { checklistId: "checklist-retired-nested" },
