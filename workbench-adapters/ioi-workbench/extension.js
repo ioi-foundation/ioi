@@ -403,7 +403,6 @@ const {
   studioIntentFrameArtifactClass,
   studioIntentFrameArtifactTitle,
   studioIntentFrameArtifactSummary,
-  fallbackStudioPromptIntentFrame,
   studioIntentFramePayload,
   studioArtifactClassFromPrompt,
   studioTopicFromGeneratedWebPrompt,
@@ -3587,10 +3586,51 @@ async function projectStudioRuntimeCockpit(prompt, streamResult, output) {
   return projectStudioRuntimeCockpitFromModule(prompt, streamResult, output);
 }
 
+function studioIntentFrameProjectionError(message, details = {}) {
+  const error = new Error(message);
+  error.code = "studio_intent_frame_projection_required";
+  error.details = {
+    rustCoreBoundary: "studio.intent_frame.projection",
+    ...details,
+  };
+  return error;
+}
+
+function studioIntentFrameHasRustDecisionMaterial(frame = {}) {
+  const material = frame?.decisionMaterial || frame?.decision_material || {};
+  return (
+    material?.source === "rust_studio_intent_frame_projection" ||
+    material?.source === "rust_studio_intent_frame_projection_api"
+  );
+}
+
+function assertRustStudioIntentFrame(frame) {
+  if (!frame || typeof frame !== "object") {
+    throw studioIntentFrameProjectionError("Rust Studio intent-frame projection returned no frame.", {
+      missing: "frame",
+    });
+  }
+  const schemaVersion = frame.schemaVersion || frame.schema_version;
+  if (
+    frame.object !== "ioi.studio_intent_frame" ||
+    schemaVersion !== "ioi.studio.intent-frame.v1" ||
+    !studioIntentFrameHasRustDecisionMaterial(frame)
+  ) {
+    throw studioIntentFrameProjectionError("Rust Studio intent-frame projection returned a non-authoritative frame.", {
+      object: frame.object || null,
+      schemaVersion: schemaVersion || null,
+      decisionMaterialSource: frame.decisionMaterial?.source || frame.decision_material?.source || null,
+    });
+  }
+  return frame;
+}
+
 async function resolveStudioPromptIntentFrame(prompt = "", options = {}, output) {
   const endpoint = daemonEndpoint();
   if (!endpoint) {
-    return fallbackStudioPromptIntentFrame(prompt, options);
+    throw studioIntentFrameProjectionError("Studio intent routing requires the Rust daemon protocol endpoint.", {
+      missing: "daemon_endpoint",
+    });
   }
   try {
     const frame = await requestJson(endpoint, "/v1/studio/intent-frame", {
@@ -3599,21 +3639,24 @@ async function resolveStudioPromptIntentFrame(prompt = "", options = {}, output)
       timeoutMs: 1500,
       payload: {
         prompt,
-        executionMode: normalizeStudioExecutionMode(options.executionMode || options.execution_mode),
-    routeId: options.selectedRoute || options.routeId || studioRuntimeProjection.modelRoute || "route.local-first",
-    modelId: options.selectedModelId || options.modelId || studioRuntimeProjection.selectedModel || "auto",
-    approvalMode: options.approvalMode || studioRuntimeProjection.approvalMode,
-    workspaceRoot: options.workspacePath || workspaceSummary().path,
-    source: "agent-studio-submit",
+        execution_mode: normalizeStudioExecutionMode(options.execution_mode),
+        route_id: options.route_id || studioRuntimeProjection.modelRoute || "route.local-first",
+        model_id: options.model_id || studioRuntimeProjection.selectedModel || "auto",
+        approval_mode: options.approval_mode || studioRuntimeProjection.approvalMode,
+        workspace_root: options.workspace_root || workspaceSummary().path,
+        source: "agent-studio-submit",
       },
     });
-    if (frame && typeof frame === "object") {
-      return frame;
-    }
+    return assertRustStudioIntentFrame(frame);
   } catch (error) {
-    output?.appendLine?.(`[ioi-studio] intent frame route unavailable; using local fallback: ${error?.message || String(error)}`);
+    if (error?.code === "studio_intent_frame_projection_required") {
+      throw error;
+    }
+    output?.appendLine?.(`[ioi-studio] Rust intent frame projection unavailable: ${error?.message || String(error)}`);
+    throw studioIntentFrameProjectionError("Studio intent routing requires Rust daemon-core projection.", {
+      cause: error?.message || String(error),
+    });
   }
-  return fallbackStudioPromptIntentFrame(prompt, options);
 }
 
 async function recoverStudioConversationArtifactAfterTimeout(threadId, { title, artifactClass, startedAtMs } = {}, output) {
@@ -4734,13 +4777,41 @@ async function submitStudioPrompt(payload = {}, output) {
     await refreshStudioPanelHtml(output);
     return;
   }
-  const resolvedIntentFrame = await resolveStudioPromptIntentFrame(prompt, {
-    executionMode,
-    selectedRoute,
-    selectedModelId,
-    approvalMode,
-    workspacePath: workspace.path,
-  }, output);
+  let resolvedIntentFrame;
+  try {
+    resolvedIntentFrame = await resolveStudioPromptIntentFrame(prompt, {
+      execution_mode: executionMode,
+      route_id: selectedRoute,
+      model_id: selectedModelId,
+      approval_mode: approvalMode,
+      workspace_root: workspace.path,
+    }, output);
+  } catch (error) {
+    const cleanMessage = studioCleanProductErrorMessage(
+      "Studio intent routing is blocked until the Rust daemon projection is available.",
+    );
+    studioRuntimeProjection.pending = false;
+    studioRuntimeProjection.status = "blocked";
+    studioRuntimeProjection.lastError = cleanMessage;
+    studioRuntimeProjection.timeline.push({
+      label: "Rust intent projection unavailable",
+      detail: error?.message || cleanMessage,
+      status: "blocked",
+    });
+    studioRuntimeProjection.turns.push({
+      role: "assistant",
+      content: cleanMessage,
+      createdAt: new Date().toISOString(),
+      agentTurn: {
+        status: "blocked",
+        eventCount: 0,
+        receiptRefs: [],
+        prompt,
+      },
+    });
+    await refreshStudioPanelHtml(output);
+    return;
+  }
   const resolvedIntentFramePayload = studioIntentFramePayload(resolvedIntentFrame);
   studioRuntimeProjection.lastIntentFrame = resolvedIntentFramePayload;
   void writeBridgeRequest(
@@ -4831,8 +4902,7 @@ async function submitStudioPrompt(payload = {}, output) {
       };
     } else {
       const intentFrame = resolvedIntentFrame;
-      const projectsArtifact = studioIntentFrameProjectsArtifact(intentFrame) ||
-        shouldProjectConversationArtifactCanvas(prompt);
+      const projectsArtifact = studioIntentFrameProjectsArtifact(intentFrame);
       const agentTurn = projectsArtifact
         ? await projectStudioConversationArtifactCanvas(prompt, output, intentFrame)
         : await submitStudioAgentTurn(
@@ -4846,7 +4916,7 @@ async function submitStudioPrompt(payload = {}, output) {
             },
             output,
           );
-      if (!projectsArtifact && (studioIntentFrameProjectsRuntimeCockpit(intentFrame) || shouldProjectStudioRuntimeCockpit(prompt))) {
+      if (!projectsArtifact && studioIntentFrameProjectsRuntimeCockpit(intentFrame)) {
         await projectStudioRuntimeCockpit(prompt, agentTurn, output);
       }
       const agentTurnStatus = agentTurn.status === "blocked" ? "blocked" : "completed";

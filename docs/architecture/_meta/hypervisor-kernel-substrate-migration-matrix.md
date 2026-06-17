@@ -202,6 +202,15 @@ routes enter through store-owned daemon methods; focused tests poison the
 internal delegate; and conformance rejects direct route calls into
 `store.threadTurnSurface.*` or a restored mounted `this.threadTurnSurface`
 property.
+Slice 1433 additionally hard-cuts the Workbench Studio intent local fallback:
+`workbench-adapters/ioi-workbench` now sends canonical snake_case protocol
+fields to `/v1/studio/intent-frame`, validates the returned
+Rust-authored `ioi.studio_intent_frame`, and blocks the Studio turn when Rust
+projection is unavailable instead of calling a local JS prompt classifier.
+The retired `fallbackStudioPromptIntentFrame()` resolver, fallback schema,
+`local_fallback_feature_resolver` source marker, and prompt-regex
+artifact/runtime-cockpit route override are absent from production Workbench
+source and guarded by focused plus conformance checks.
 Slice 1388 additionally hard-deletes the run-create repository workflow JS
 projection facade: run creation and runtime-service turn submission consume
 Rust `project_repository_workflow` projections through an explicit
@@ -292,7 +301,9 @@ Slice 1274 hard-cuts Studio intent-frame routing ownership into Rust:
 `RuntimeKernelService::project_studio_intent_frame`; the
 `studio-intent-frame.mjs` classifier facade and test are absent; and conformance
 rejects any return to the JS resolver, daemon-store route wrapper, or retired
-`executionMode` input alias passthrough.
+`executionMode` input alias passthrough. Slice 1433 extends this through the
+Workbench client: Workbench no longer falls back to a local Studio prompt
+classifier and acts only as a protocol client over the Rust-authored frame.
 Slice 1275 hard-cuts public computer-use discovery/provisioning projections into
 Rust: `/v1/computer-use/providers` and `/v1/computer-use/browser-discovery` now
 call typed `daemonCoreRuntimeProjectionApi.projectRuntimeComputerUse`, backed by
@@ -1328,6 +1339,12 @@ scaffolding:
   `store.contextPolicyCore.projectRuntimeComputerUse`,
   `store.contextPolicyCore.projectStudioIntentFrame`, and
   `store?.contextPolicyCore`
+- Workbench Studio local intent fallback:
+  `fallbackStudioPromptIntentFrame()`,
+  `ioi.studio.intent-frame.fallback.v1`,
+  `local_fallback_feature_resolver`,
+  `using local fallback`, and prompt-regex artifact/runtime-cockpit route
+  overrides after Rust frame resolution
 - run-cancel state-core fallback:
   `state.contextPolicyCore` and `state?.contextPolicyCore`
 - coding-tool result/artifact and diagnostics-repair command operations:

@@ -33665,6 +33665,18 @@ function runCompositor() {
   )
     ? read("crates/services/src/agentic/runtime/kernel/studio_intent_frame.rs")
     : "";
+  const workbenchStudioExtension = exists("workbench-adapters/ioi-workbench/extension.js")
+    ? read("workbench-adapters/ioi-workbench/extension.js")
+    : "";
+  const workbenchStudioExtensionStaticTest = exists("workbench-adapters/ioi-workbench/extension.static.test.mjs")
+    ? read("workbench-adapters/ioi-workbench/extension.static.test.mjs")
+    : "";
+  const workbenchStudioArtifactIntent = exists("workbench-adapters/ioi-workbench/studio/artifact-intent.js")
+    ? read("workbench-adapters/ioi-workbench/studio/artifact-intent.js")
+    : "";
+  const workbenchStudioArtifactIntentTest = exists("workbench-adapters/ioi-workbench/studio/artifact-intent.test.mjs")
+    ? read("workbench-adapters/ioi-workbench/studio/artifact-intent.test.mjs")
+    : "";
   const runtimeRunReadSurface = exists("packages/runtime-daemon/src/runtime-run-read-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-run-read-surface.mjs")
     : "";
@@ -41312,23 +41324,57 @@ function runCompositor() {
       /Object\.hasOwn\(captured,\s*"executionMode"\),\s*false/.test(runtimeContextPolicyCoreTestForState) &&
 	      /routeContextPolicyCore\.projectStudioIntentFrame\(\{/.test(publicRuntimeRoutes) &&
 	      /operation_kind:\s*"studio\.intent_frame\.projection"/.test(publicRuntimeRoutes) &&
+	      /execution_mode:\s*body\.execution_mode/.test(publicRuntimeRoutes) &&
+	      !/execution_mode:\s*body\.execution_mode \?\? body\.executionMode/.test(publicRuntimeRoutes) &&
 	      !/store\?\.contextPolicyCore|store\.contextPolicyCore/.test(publicRuntimeRoutes) &&
 	      !/store\.resolveStudioIntentFrame/.test(publicRuntimeRoutes) &&
-      !/resolveStudioIntentFrame\(await readBody\(request\)\)/.test(publicRuntimeRoutes) &&
-      !/studio-intent-frame\.mjs/.test(runtimeDaemonIndex) &&
-      /method:\s*"projectStudioIntentFrame"/.test(publicRuntimeRoutesTest) &&
-      /public runtime studio intent route uses Rust daemon-core projection/.test(publicRuntimeRoutesTest),
+	      !/resolveStudioIntentFrame\(await readBody\(request\)\)/.test(publicRuntimeRoutes) &&
+	      !/studio-intent-frame\.mjs/.test(runtimeDaemonIndex) &&
+	      /method:\s*"projectStudioIntentFrame"/.test(publicRuntimeRoutesTest) &&
+	      /public runtime studio intent route uses Rust daemon-core projection/.test(publicRuntimeRoutesTest) &&
+	      /function assertRustStudioIntentFrame\(frame\)/.test(workbenchStudioExtension) &&
+	      /studio_intent_frame_projection_required/.test(workbenchStudioExtension) &&
+	      /resolvedIntentFrame = await resolveStudioPromptIntentFrame\(prompt,/.test(workbenchStudioExtension) &&
+	      /execution_mode:\s*normalizeStudioExecutionMode/.test(workbenchStudioExtension) &&
+	      /route_id:\s*options\.route_id/.test(workbenchStudioExtension) &&
+	      /model_id:\s*options\.model_id/.test(workbenchStudioExtension) &&
+	      /approval_mode:\s*options\.approval_mode/.test(workbenchStudioExtension) &&
+	      /workspace_root:\s*options\.workspace_root/.test(workbenchStudioExtension) &&
+	      /execution_mode:\s*executionMode/.test(workbenchStudioExtension) &&
+	      /route_id:\s*selectedRoute/.test(workbenchStudioExtension) &&
+	      /model_id:\s*selectedModelId/.test(workbenchStudioExtension) &&
+	      /approval_mode:\s*approvalMode/.test(workbenchStudioExtension) &&
+	      /workspace_root:\s*workspace\.path/.test(workbenchStudioExtension) &&
+	      /Studio intent routing is blocked until the Rust daemon projection is available/.test(workbenchStudioExtension) &&
+	      !/fallbackStudioPromptIntentFrame|local_fallback_feature_resolver|ioi\.studio\.intent-frame\.fallback\.v1|using local fallback/.test(
+	        [workbenchStudioExtension, workbenchStudioArtifactIntent].join("\n"),
+	      ) &&
+	      !/function resolveStudioPromptIntentFrame(?:(?!\n}\n\nasync function recoverStudioConversationArtifactAfterTimeout)[\s\S])*options\.(?:executionMode|routeId|modelId|approvalMode|workspacePath)\b/.test(
+	        workbenchStudioExtension,
+	      ) &&
+	      !/studioIntentFrameProjectsArtifact\(intentFrame\)\s*\|\||studioIntentFrameProjectsRuntimeCockpit\(intentFrame\)\s*\|\|/.test(
+	        workbenchStudioExtension,
+	      ) &&
+	      /Object\.hasOwn\(intent,\s*"fallbackStudioPromptIntentFrame"\),\s*false/.test(
+	        workbenchStudioArtifactIntentTest,
+	      ) &&
+	      /fallbackStudioPromptIntentFrame/.test(workbenchStudioExtensionStaticTest) &&
+	      /local_fallback_feature_resolver/.test(workbenchStudioExtensionStaticTest),
     [
       "crates/services/src/agentic/runtime/kernel/studio_intent_frame.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
       "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
-      "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
-      "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
-      "packages/runtime-daemon/src/index.mjs",
-    ],
-    "Phase 10/11 is pending: Studio intent routing must be Rust daemon-core owned, strip retired executionMode input aliases, and keep the deleted JS resolver facade absent",
-  );
+	      "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
+	      "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
+	      "packages/runtime-daemon/src/index.mjs",
+	      "workbench-adapters/ioi-workbench/extension.js",
+	      "workbench-adapters/ioi-workbench/studio/artifact-intent.js",
+	      "workbench-adapters/ioi-workbench/extension.static.test.mjs",
+	      "workbench-adapters/ioi-workbench/studio/artifact-intent.test.mjs",
+	    ],
+	    "Phase 10/11 is pending: Studio intent routing must be Rust daemon-core owned, strip retired executionMode and Workbench local-fallback aliases, and keep JS resolver facades absent",
+	  );
   assertCheck(
     result,
     "execution-surface-operation-log-terminology-retired",

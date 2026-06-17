@@ -5140,6 +5140,10 @@ public studio intent-frame routing now calls typed
 `daemonCoreRuntimeProjectionApi.projectStudioIntentFrame`, backed by Rust
 `studio_intent_frame.rs`, while `studio-intent-frame.mjs` is absent so the
 route cannot classify consequential Studio intents through a JS resolver;
+Workbench Studio now consumes that Rust-authored `/v1/studio/intent-frame`
+projection through canonical snake_case protocol fields, validates the Rust
+decision material before use, and blocks instead of falling back to a local JS
+prompt classifier when the daemon projection is unavailable;
 public doctor routing now calls typed
 `daemonCoreRuntimeProjectionApi.projectRuntimeDoctorReport` and returns the Rust
 doctor report, while `runtime-doctor-report.mjs` is absent so the doctor route
@@ -10099,9 +10103,15 @@ truth returns. The JS `studio-intent-frame.mjs` classifier facade and test are
 deleted, daemon startup no longer imports or injects `resolveStudioIntentFrame`,
 and conformance rejects any return to the JS resolver, daemon-store route
 wrapper, deleted facade files, or retired `executionMode` input alias passthrough.
-This remains non-terminal because downstream wallet/cTEE admission, Agentgres
-receipt/state-root binding for consequential intent execution, and broader
-stable Workbench/CLI/SDK protocol coverage still need to close.
+Slice 1433 extends the same authority cut through Workbench Studio: the adapter
+now sends canonical snake_case daemon protocol fields, validates the Rust
+decision material in the returned frame, blocks when projection is unavailable,
+and no longer exposes `fallbackStudioPromptIntentFrame()`, the fallback schema,
+the local fallback source marker, or prompt-regex artifact/runtime-cockpit route
+overrides as a JS truth path. This remains non-terminal because downstream
+wallet/cTEE admission, Agentgres receipt/state-root binding for consequential
+intent execution, and broader stable CLI/SDK protocol coverage still need to
+close.
 
 Slice 1275 hard-cuts public computer-use provider/discovery projections onto a
 positive Rust daemon-core API. `/v1/computer-use/providers` and

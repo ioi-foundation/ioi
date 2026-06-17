@@ -63,18 +63,18 @@ function createStudioArtifactIntent({
     if (intentFrame?.retrieval && typeof intentFrame.retrieval === "object") {
       return Boolean(intentFrame.retrieval.required);
     }
-    return promptRequiresRetrieval(prompt);
+    return false;
   }
 
   function studioIntentFrameArtifactClass(intentFrame = {}, prompt = "") {
-    return stringValue(
-      intentFrame?.artifact?.class || intentFrame?.artifact?.artifactClass || intentFrame?.artifact?.artifact_class,
-      studioArtifactClassFromPrompt(prompt),
-    );
+    return stringValue(intentFrame?.artifact?.class || intentFrame?.artifact?.artifact_class);
   }
 
   function studioIntentFrameArtifactTitle(intentFrame = {}, artifactClass, prompt = "") {
-    return stringValue(intentFrame?.artifact?.title, studioArtifactTitleFromClass(artifactClass, prompt));
+    return stringValue(
+      intentFrame?.artifact?.title,
+      artifactClass ? studioArtifactTitleFromClass(artifactClass, prompt) : "",
+    );
   }
 
   function studioIntentFrameArtifactSummary(intentFrame = {}, prompt = "") {
@@ -84,92 +84,6 @@ function createStudioArtifactIntent({
         ? "Sandboxed website preview generated through the daemon-owned artifact lifecycle."
         : "Agent Studio conversation artifact created through the daemon-owned artifact lifecycle.",
     );
-  }
-
-  function fallbackStudioPromptIntentFrame(prompt = "", { executionMode = modeAgent } = {}) {
-    const normalizedExecutionMode = normalizeStudioExecutionMode(executionMode);
-    const artifactClass = shouldProjectConversationArtifactCanvas(prompt)
-      ? studioArtifactClassFromPrompt(prompt)
-      : null;
-    const projectsRuntime = !artifactClass && shouldProjectStudioRuntimeCockpit(prompt);
-    const requiresRetrieval =
-      promptRequiresRetrieval(prompt) ||
-      studioArtifactShouldGatherResearch(prompt, artifactClass);
-    const requiresWorkspaceContext = promptRequiresWorkspaceContext(prompt, normalizedExecutionMode);
-    const routeDirective = normalizedExecutionMode === modeAsk
-      ? "ask"
-      : artifactClass
-        ? "artifact"
-        : projectsRuntime
-          ? "runtime_cockpit"
-          : "agent";
-    const intentId = artifactClass
-      ? "artifact.create"
-      : projectsRuntime
-        ? "runtime.inspect"
-        : requiresRetrieval
-          ? "retrieval.answer"
-          : requiresWorkspaceContext
-            ? "workspace.context"
-            : "conversation.reply";
-    const requiredCapabilities = [
-      "prim:conversation.reply",
-      ...(artifactClass ? ["prim:artifact.write", "prim:artifact.render"] : []),
-      ...(requiresRetrieval ? ["prim:web.search", "prim:web.read"] : []),
-      ...(requiresWorkspaceContext ? ["prim:file.search", "prim:file.read", "prim:workspace.read"] : []),
-      ...(projectsRuntime ? ["prim:runtime.trace.read"] : []),
-    ];
-    const receiptsRequired = artifactClass
-      ? ["artifact_record", "artifact_revision", "artifact_policy"]
-      : requiresRetrieval
-        ? ["retrieval_search", "retrieval_read", "chat_reply"]
-        : requiresWorkspaceContext
-          ? ["file_search", "file_read", "chat_reply"]
-          : ["chat_reply"];
-    return {
-      schemaVersion: "ioi.studio.intent-frame.fallback.v1",
-      object: "ioi.studio_intent_frame",
-      target: prompt,
-      query: requiresRetrieval ? prompt : null,
-      intentId,
-      routeDirective,
-      executionMode: normalizedExecutionMode,
-      decision: "selected",
-      confidence: artifactClass || projectsRuntime || requiresRetrieval || requiresWorkspaceContext ? 0.76 : 0.42,
-      requiredCapabilities,
-      retrieval: {
-        required: requiresRetrieval,
-        requirements: requiresRetrieval ? ["source_grounding"] : [],
-      },
-      workspace: {
-        required: requiresWorkspaceContext,
-        requirements: requiresWorkspaceContext ? ["workspace_context"] : [],
-        targets: requiresWorkspaceContext ? workspaceTargetsForPrompt(prompt) : [],
-      },
-      artifact: {
-        required: Boolean(artifactClass),
-        class: artifactClass,
-        artifactClass,
-        title: artifactClass ? studioArtifactTitleFromClass(artifactClass, prompt) : null,
-        summary: artifactClass ? studioIntentFrameArtifactSummary({}, prompt) : null,
-      },
-      effectContract: {
-        applicabilityClass: artifactClass ? "local_artifact_generation" : requiresRetrieval ? "remote_retrieval" : requiresWorkspaceContext ? "workspace_context" : "conversation",
-        effectLevel: artifactClass ? "sandboxed_generation" : requiresRetrieval ? "read_only_external" : requiresWorkspaceContext ? "read_only_workspace" : "none",
-        sandbox: artifactClass ? "artifact_renderer" : requiresWorkspaceContext ? "workspace_readonly" : null,
-        typedActionsOnly: Boolean(artifactClass),
-        receiptsRequired,
-      },
-      decisionMaterial: {
-        source: "local_fallback_feature_resolver",
-        matchedFeatures: [
-          ...(artifactClass ? ["artifact_deliverable"] : []),
-          ...(projectsRuntime ? ["runtime_inspection"] : []),
-          ...(requiresRetrieval ? ["retrieval_required"] : []),
-          ...(requiresWorkspaceContext ? ["workspace_context_required"] : []),
-        ],
-      },
-    };
   }
 
   function studioIntentFramePayload(intentFrame = {}) {
@@ -273,7 +187,6 @@ function createStudioArtifactIntent({
     studioIntentFrameArtifactClass,
     studioIntentFrameArtifactTitle,
     studioIntentFrameArtifactSummary,
-    fallbackStudioPromptIntentFrame,
     studioIntentFramePayload,
     studioArtifactClassFromPrompt,
     studioTopicFromGeneratedWebPrompt,

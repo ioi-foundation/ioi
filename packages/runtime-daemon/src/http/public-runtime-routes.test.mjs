@@ -967,7 +967,7 @@ test("public runtime studio intent route uses Rust daemon-core projection", asyn
     request: request({
       method: "POST",
       url: "/v1/studio/intent-frame",
-      body: { prompt: "inspect the runtime", execution_mode: "agent", executionMode: "ask" },
+      body: { prompt: "inspect the runtime", execution_mode: "ask" },
     }),
     response,
     store,
@@ -984,7 +984,7 @@ test("public runtime studio intent route uses Rust daemon-core projection", asyn
         prompt: "inspect the runtime",
         input: undefined,
         query: undefined,
-        execution_mode: "agent",
+        execution_mode: "ask",
         source: "public_runtime_routes./v1/studio/intent-frame",
       },
     },
