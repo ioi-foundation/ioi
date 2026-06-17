@@ -11001,6 +11001,31 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "workflow-diagnostics-workspace-route-visible-surfaces-retired",
+    workflowDiagnosticsWorkspaceRouteStoreOwnedApis &&
+      /Slice 1431 hard-cuts the workflow\/diagnostics\/workspace route-visible JS\s+surface shape/.test(
+        guide,
+      ) &&
+      /Workflow\/diagnostics\/workspace route-visible JS surfaces retired/.test(
+        matrix,
+      ) &&
+      /RuntimeDaemonCoreWorkflowDiagnosticsWorkspaceRouteVisibleSurfacesRetired/.test(
+        implementationMatrix,
+      ),
+    [
+      "packages/runtime-daemon/src/index.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.test.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs",
+      "docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md",
+      "docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md",
+      "docs/architecture/_meta/implementation-matrix.md",
+    ],
+    "Workflow, diagnostics, and workspace thread routes must enter through store-owned Rust-backed APIs; route-visible JS surfaces or direct mounted API calls must stay retired.",
+  );
+  assertCheck(
+    result,
     "approval-request-state-update-live-bridge",
     /ApprovalRequestStateUpdateCore/.test(approvalCore) &&
       /ApprovalRequestStateUpdateRequest/.test(approvalCore) &&
@@ -33540,6 +33565,82 @@ function runCompositor() {
   const runtimeWorkspaceSnapshotSurfaceTest = exists("packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs")
     : "";
+  const workflowDiagnosticsWorkspaceRouteStoreOwnedApis =
+    /this\.workflowEditApi = createRuntimeWorkflowEditSurface\(\{\s*contextPolicyCore:\s*this\.contextPolicyCore,/s.test(
+      runtimeDaemonIndex,
+    ) &&
+    /this\.diagnosticsRepairApi\s*=\s*createRuntimeDiagnosticsRepairSurface\(\{[\s\S]*?contextPolicyCore:\s*this\.contextPolicyCore/.test(
+      runtimeDaemonIndex,
+    ) &&
+    /this\.workspaceSnapshotApi = createRuntimeWorkspaceSnapshotSurface\(\{/.test(
+      runtimeDaemonIndex,
+    ) &&
+    /proposeWorkflowEdit\(threadId, request = \{\}\) \{[\s\S]*?return this\.workflowEditApi\.proposeWorkflowEdit\(this, threadId, request\)/.test(
+      runtimeDaemonIndex,
+    ) &&
+    /applyWorkflowEditProposal\(threadId, proposalId, request = \{\}\) \{[\s\S]*?return this\.workflowEditApi\.applyWorkflowEditProposal\(this, threadId, proposalId, request\)/.test(
+      runtimeDaemonIndex,
+    ) &&
+    /executeDiagnosticsRepairDecision\(threadId, decisionRef, request = \{\}\) \{[\s\S]*?return this\.diagnosticsRepairApi\.executeDiagnosticsRepairDecision\(this, threadId, decisionRef, request\)/.test(
+      runtimeDaemonIndex,
+    ) &&
+    /prepareWorkspaceSnapshotForPatch\(request = \{\}\) \{[\s\S]*?return this\.workspaceSnapshotApi\.prepareWorkspaceSnapshotForPatch\(this, request\)/.test(
+      runtimeDaemonIndex,
+    ) &&
+    /listWorkspaceSnapshots\(threadId\) \{[\s\S]*?return this\.workspaceSnapshotApi\.listWorkspaceSnapshots\(this, threadId\)/.test(
+      runtimeDaemonIndex,
+    ) &&
+    /previewWorkspaceSnapshotRestore\(threadId, snapshotId, request = \{\}\) \{[\s\S]*?return this\.workspaceSnapshotApi\.previewWorkspaceSnapshotRestore\(this, threadId, snapshotId, request\)/.test(
+      runtimeDaemonIndex,
+    ) &&
+    /applyWorkspaceSnapshotRestore\(threadId, snapshotId, request = \{\}\) \{[\s\S]*?return this\.workspaceSnapshotApi\.applyWorkspaceSnapshotRestore\(this, threadId, snapshotId, request\)/.test(
+      runtimeDaemonIndex,
+    ) &&
+    /store\.proposeWorkflowEdit\(threadId,\s*await readBody\(request\)\)/.test(
+      runtimeRouteHandlers,
+    ) &&
+    /store\.applyWorkflowEditProposal\(threadId,\s*decodeURIComponent\(segments\[4\]\),\s*await readBody\(request\)\)/.test(
+      runtimeRouteHandlers,
+    ) &&
+    /store\.executeDiagnosticsRepairDecision\(threadId,\s*decodeURIComponent\(segments\[5\]\),\s*await readBody\(request\)\)/.test(
+      runtimeRouteHandlers,
+    ) &&
+    /store\.listWorkspaceSnapshots\(threadId\)/.test(runtimeRouteHandlers) &&
+    /store\.previewWorkspaceSnapshotRestore\(threadId,\s*decodeURIComponent\(segments\[4\]\),\s*await readBody\(request\)\)/.test(
+      runtimeRouteHandlers,
+    ) &&
+    /store\.applyWorkspaceSnapshotRestore\(threadId,\s*decodeURIComponent\(segments\[4\]\),\s*await readBody\(request\)\)/.test(
+      runtimeRouteHandlers,
+    ) &&
+    /thread route sends workflow, diagnostics, and snapshot controls through store-owned APIs/.test(
+      runtimeRouteHandlersTest,
+    ) &&
+    /workflowEditApi:\s*\{\s*proposeWorkflowEdit:\s*retiredRouteWrapper,\s*applyWorkflowEditProposal:\s*retiredRouteWrapper,\s*\}/s.test(
+      runtimeRouteHandlersTest,
+    ) &&
+    /diagnosticsRepairApi:\s*\{\s*executeDiagnosticsRepairDecision:\s*retiredRouteWrapper,\s*\}/s.test(
+      runtimeRouteHandlersTest,
+    ) &&
+    /workspaceSnapshotApi:\s*\{\s*listWorkspaceSnapshots:\s*retiredRouteWrapper,\s*previewWorkspaceSnapshotRestore:\s*retiredRouteWrapper,\s*applyWorkspaceSnapshotRestore:\s*retiredRouteWrapper,\s*\}/s.test(
+      runtimeRouteHandlersTest,
+    ) &&
+    /calls\.push\(\{ operation: "proposeWorkflowEdit", args: \[threadId, requestBody\] \}\)/.test(
+      runtimeRouteHandlersTest,
+    ) &&
+    /calls\.push\(\{ operation: "executeDiagnosticsRepairDecision", args: \[threadId, decisionRef, requestBody\] \}\)/.test(
+      runtimeRouteHandlersTest,
+    ) &&
+    /calls\.push\(\{ operation: "applyWorkspaceSnapshotRestore", args: \[threadId, snapshotId, requestBody\] \}\)/.test(
+      runtimeRouteHandlersTest,
+    ) &&
+    /store\.prepareWorkspaceSnapshotForPatch\(\{/.test(runtimeCodingToolInvocationSurface) &&
+    /prepareWorkspaceSnapshotForPatch\(input\) \{/.test(runtimeCodingToolInvocationSurfaceTest) &&
+    !/store\.(?:workflowEditSurface|diagnosticsRepairSurface|workspaceSnapshotSurface|workflowEditApi|diagnosticsRepairApi|workspaceSnapshotApi)\b/.test(
+      runtimeRouteHandlers,
+    ) &&
+    !/store\.workspaceSnapshotSurface\.prepareWorkspaceSnapshotForPatch/.test(
+      runtimeCodingToolInvocationSurface + runtimeCodingToolInvocationSurfaceTest,
+    );
   const workspaceRestoreCore = exists("packages/runtime-daemon/src/runtime-workspace-restore-core.mjs")
     ? read("packages/runtime-daemon/src/runtime-workspace-restore-core.mjs")
     : "";
