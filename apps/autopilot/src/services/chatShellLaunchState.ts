@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "./hypervisorHostBridge";
 import type { ArtifactHubViewKey } from "../types";
 
 const STORAGE_KEY = "autopilot.pending_chat_shell_launch.v1";
@@ -23,8 +23,8 @@ function canUseStorage() {
   return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
 }
 
-function canUseTauri() {
-  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+function canUseHostBridge() {
+  return typeof window !== "undefined" && "__HYPERVISOR_HOST_BRIDGE__" in window;
 }
 
 function createChatShellLaunchId() {
@@ -112,7 +112,7 @@ export function showChatShellWithLaunchRequest(
   request: PendingChatShellLaunchRequest,
 ) {
   return setPendingChatShellLaunchRequest(request).then(async () => {
-    if (canUseTauri()) {
+    if (canUseHostBridge()) {
       await invoke<void>("show_chat_session").catch(() => undefined);
     }
   });

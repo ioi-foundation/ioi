@@ -12,11 +12,6 @@ const mainSource = readFileSync(
   resolve(__dirname, "../../main.tsx"),
   "utf8",
 );
-const tauriLibSource = readFileSync(
-  resolve(__dirname, "../../../src-tauri/src/lib.rs"),
-  "utf8",
-);
-
 assert.match(
   source,
   /const claimedLaunch = await ackPendingChatLaunchRequest\(launchId\);[\s\S]*if \(!claimedLaunch\) \{[\s\S]*reason: "launch_already_claimed"/,
@@ -38,7 +33,7 @@ assert.match(
 assert.match(
   source,
   /const pathname = window\.location\.pathname\.toLowerCase\(\);[\s\S]*pathname === "\/chat" \|\| pathname\.startsWith\("\/chat\/"\)[\s\S]*return "chat";/,
-  "the dedicated Tauri /chat window should boot into the Chat view before pending-launch hydration runs",
+  "the dedicated /chat route should boot into the Chat view before pending-launch hydration runs",
 );
 
 assert.match(
@@ -75,12 +70,6 @@ assert.doesNotMatch(
   mainSource,
   /import \{ PillWindow \}|<PillWindow/,
   "the pill React component must not be routed as an active window",
-);
-
-assert.doesNotMatch(
-  tauriLibSource,
-  /Show Pill|\"pill\" => windows::show_pill/,
-  "native tray/menu routing should not expose the deprecated pill surface",
 );
 
 console.log("useAutopilotShellController.seedIntent.test.ts: ok");

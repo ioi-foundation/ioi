@@ -1,11 +1,11 @@
-import { listenIfTauri as listen } from "../../../services/tauriListeners";
+import { listenIfHostBridge as listen } from "../../../services/hostListeners";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
   WorkspaceCommitResult,
   WorkspaceSourceControlEntry,
   WorkspaceSourceControlState,
 } from "@ioi/workspace-substrate";
-import { tauriWorkspaceAdapter } from "../../../services/workspaceAdapter";
+import { hostWorkspaceAdapter } from "../../../services/workspaceAdapter";
 
 export type ChatSourceControlStatus =
   | "idle"
@@ -59,7 +59,7 @@ export function useChatSourceControl({
     setStatus((current) => (current === "ready" ? "loading" : current));
     setError(null);
     try {
-      const nextState = await tauriWorkspaceAdapter.getSourceControlState(root);
+      const nextState = await hostWorkspaceAdapter.getSourceControlState(root);
       setState(nextState);
       setStatus("ready");
       return nextState;
@@ -89,7 +89,7 @@ export function useChatSourceControl({
     setStatus("loading");
     setError(null);
 
-    void tauriWorkspaceAdapter
+    void hostWorkspaceAdapter
       .getSourceControlState(root)
       .then((nextState) => {
         if (cancelled) {
@@ -152,33 +152,33 @@ export function useChatSourceControl({
   );
 
   const stagePath = useCallback(
-    async (path: string) => mutate(tauriWorkspaceAdapter.stagePaths, [path]),
+    async (path: string) => mutate(hostWorkspaceAdapter.stagePaths, [path]),
     [mutate],
   );
 
   const stageAll = useCallback(async () => {
     const paths = state?.entries.map((entry) => entry.path) ?? [];
-    return mutate(tauriWorkspaceAdapter.stagePaths, paths);
+    return mutate(hostWorkspaceAdapter.stagePaths, paths);
   }, [mutate, state?.entries]);
 
   const unstagePath = useCallback(
-    async (path: string) => mutate(tauriWorkspaceAdapter.unstagePaths, [path]),
+    async (path: string) => mutate(hostWorkspaceAdapter.unstagePaths, [path]),
     [mutate],
   );
 
   const unstageAll = useCallback(async () => {
     const paths = stagedPaths(state?.entries ?? []);
-    return mutate(tauriWorkspaceAdapter.unstagePaths, paths);
+    return mutate(hostWorkspaceAdapter.unstagePaths, paths);
   }, [mutate, state?.entries]);
 
   const discardPath = useCallback(
-    async (path: string) => mutate(tauriWorkspaceAdapter.discardPaths, [path]),
+    async (path: string) => mutate(hostWorkspaceAdapter.discardPaths, [path]),
     [mutate],
   );
 
   const discardAllWorking = useCallback(async () => {
     const paths = discardablePaths(state?.entries ?? []);
-    return mutate(tauriWorkspaceAdapter.discardPaths, paths);
+    return mutate(hostWorkspaceAdapter.discardPaths, paths);
   }, [mutate, state?.entries]);
 
   const commit = useCallback(
@@ -190,7 +190,7 @@ export function useChatSourceControl({
       setStatus("committing");
       setError(null);
       try {
-        const receipt = await tauriWorkspaceAdapter.commitChanges(root, {
+        const receipt = await hostWorkspaceAdapter.commitChanges(root, {
           headline,
           body: body ?? null,
         });

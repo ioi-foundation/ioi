@@ -3,7 +3,7 @@ import {
   type ConnectorSummary,
   type RuntimeCatalogEntry,
 } from "@ioi/agent-ide";
-import { listenIfTauri as listen } from "../../../services/tauriListeners";
+import { listenIfHostBridge as listen } from "../../../services/hostListeners";
 import {
   useCallback,
   useEffect,
@@ -29,7 +29,7 @@ import {
   openReviewPolicyCenter,
 } from "../../../services/reviewNavigation";
 import { getSessionWorkbenchRuntime } from "../../../services/sessionRuntime";
-import { safelyDisposeTauriListener } from "../../../services/tauriListeners";
+import { safelyDisposeHostListener } from "../../../services/hostListeners";
 import type {
   AgentTask,
   ArtifactHubViewKey,
@@ -77,7 +77,7 @@ import {
   workspaceRootFromTask,
   type SlashTokenContext,
 } from "./chatInputHelpers";
-import type { WorkspaceWorkflowSummary } from "../../../services/TauriRuntime";
+import type { WorkspaceWorkflowSummary } from "../../../services/HypervisorClientRuntime";
 
 type ChatInputSectionProps = {
   inputRef: RefObject<HTMLTextAreaElement>;
@@ -440,7 +440,7 @@ export function ChatInputSection({
       focusComposer();
     });
     return () => {
-      safelyDisposeTauriListener(unlistenPromise);
+      safelyDisposeHostListener(unlistenPromise);
     };
   }, [focusComposer]);
 

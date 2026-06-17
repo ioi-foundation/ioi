@@ -1,10 +1,10 @@
-import { invoke } from "@tauri-apps/api/core";
-import { save } from "@tauri-apps/plugin-dialog";
+import { invoke } from "../../../services/hypervisorHostBridge";
+import { save } from "../../../services/hypervisorHostBridge";
 import {
   isPermissionGranted,
   requestPermission,
   sendNotification,
-} from "@tauri-apps/plugin-notification";
+} from "../../../services/hypervisorHostBridge";
 import {
   buildTraceBundleDefaultFilename,
   traceBundleExportPreset,

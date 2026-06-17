@@ -1,6 +1,6 @@
-import { invoke } from "@tauri-apps/api/core";
-import { save } from "@tauri-apps/plugin-dialog";
-import { openPath } from "@tauri-apps/plugin-opener";
+import { invoke } from "../../../services/hypervisorHostBridge";
+import { save } from "../../../services/hypervisorHostBridge";
+import { openPath } from "../../../services/hypervisorHostBridge";
 import { useEffect, useMemo, useState } from "react";
 import {
   type WorkspaceActivityEntry,

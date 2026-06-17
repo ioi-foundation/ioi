@@ -3,7 +3,7 @@ import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
-import { openUrl } from "@tauri-apps/plugin-opener";
+import { openUrl } from "../../../services/hypervisorHostBridge";
 import "katex/dist/katex.min.css";
 
 const SAFE_PROTOCOLS = new Set(["http:", "https:", "mailto:"]);

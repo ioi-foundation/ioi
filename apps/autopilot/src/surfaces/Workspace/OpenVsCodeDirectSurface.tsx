@@ -1,5 +1,5 @@
-import { listen } from "@tauri-apps/api/event";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { listen } from "../../services/hypervisorHostBridge";
+import { getCurrentWindow } from "../../services/hypervisorHostBridge";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import darkPng from "../../assets/openvscode-walkthrough/dark.png";

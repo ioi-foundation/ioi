@@ -1,8 +1,8 @@
 import { WorkspaceHost, type WorkspaceAdapter, type WorkspaceCommitMessage, type WorkspaceCommitResult, type WorkspaceDeleteResult, type WorkspaceDiffDocument, type WorkspaceFileDocument, type WorkspaceLanguageCodeAction, type WorkspaceLanguageLocation, type WorkspaceLanguageServiceSnapshot, type WorkspaceNode, type WorkspacePathMutationResult, type WorkspaceSearchResult, type WorkspaceSnapshot, type WorkspaceSourceControlState, type WorkspaceTerminalReadResult, type WorkspaceTerminalSession } from "@ioi/workspace-substrate";
 
-const ROOT = "/workspace/src-tauri";
-const ROOT_NODE = "SRC-TAURI";
-const ACTIVE_CHILD = `${ROOT_NODE}/src-tauri`;
+const ROOT = "/workspace/workspace-core";
+const ROOT_NODE = "WORKSPACE-CORE";
+const ACTIVE_CHILD = `${ROOT_NODE}/workspace-core`;
 
 const TREE: WorkspaceNode[] = [
   {
@@ -12,7 +12,7 @@ const TREE: WorkspaceNode[] = [
     hasChildren: true,
     children: [
       {
-        name: "src-tauri",
+        name: "workspace-core",
         path: ACTIVE_CHILD,
         kind: "directory",
         hasChildren: true,
@@ -32,7 +32,7 @@ const TREE: WorkspaceNode[] = [
 
 const SNAPSHOT: WorkspaceSnapshot = {
   rootPath: ROOT,
-  displayName: "src-tauri",
+  displayName: "workspace-core",
   git: {
     isRepo: true,
     branch: "main",
@@ -195,7 +195,7 @@ export function WorkspaceWorkbenchPreview() {
         <WorkspaceHost
           adapter={previewAdapter}
           root={ROOT}
-          title="Workspace for src-tauri"
+          title="Workspace for workspace-core"
           showHeader={false}
           showBottomPanel={false}
           initialSnapshot={SNAPSHOT}

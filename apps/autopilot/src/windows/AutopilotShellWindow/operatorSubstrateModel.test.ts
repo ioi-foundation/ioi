@@ -18,14 +18,23 @@ const PROJECT: ProjectScope = {
   rootPath: ".",
 };
 
-const ACTIVE_TAURI_APP_PATH = "apps/autopilot/src-tauri";
-const LEGACY_TAURI_SRC_PATH = "internal-docs/legacy/autopilot-tauri-src/src";
+const RETIRED_NATIVE_APP_PATH = ["apps/autopilot", "src-tauri"].join("/");
+const LEGACY_NATIVE_ARCHIVE_SRC_PATH = [
+  "internal-docs/legacy",
+  "autopilot-tauri-src",
+  "src",
+].join("/");
 
-test("active Tauri app path stays retired", () => {
-  assert.equal(existsSync(ACTIVE_TAURI_APP_PATH), false);
-  assert.equal(existsSync(`${LEGACY_TAURI_SRC_PATH}/workspace_ide.rs`), true);
+test("retired native app path stays archived only", () => {
+  assert.equal(existsSync(RETIRED_NATIVE_APP_PATH), false);
   assert.equal(
-    existsSync(`${LEGACY_TAURI_SRC_PATH}/workspace_direct_webview.rs`),
+    existsSync(`${LEGACY_NATIVE_ARCHIVE_SRC_PATH}/workspace_ide.rs`),
+    true,
+  );
+  assert.equal(
+    existsSync(
+      `${LEGACY_NATIVE_ARCHIVE_SRC_PATH}/workspace_direct_webview.rs`,
+    ),
     true,
   );
 });
@@ -174,11 +183,11 @@ test("workspace embedding defers global command center to ChatIdeHeader", () => 
     "utf8",
   );
   const workspaceDirectWebview = readFileSync(
-    `${LEGACY_TAURI_SRC_PATH}/workspace_direct_webview.rs`,
+    `${LEGACY_NATIVE_ARCHIVE_SRC_PATH}/workspace_direct_webview.rs`,
     "utf8",
   );
   const workspaceIde = readFileSync(
-    `${LEGACY_TAURI_SRC_PATH}/workspace_ide.rs`,
+    `${LEGACY_NATIVE_ARCHIVE_SRC_PATH}/workspace_ide.rs`,
     "utf8",
   );
   const workspaceRuntimeNavigation = readFileSync(
@@ -431,7 +440,7 @@ test("workspace docked chat is real operator chrome, not screenshot hitboxes", (
 
 test("embedded OpenVSCode defers global search to Hypervisor chrome", () => {
   const workspaceIde = readFileSync(
-    `${LEGACY_TAURI_SRC_PATH}/workspace_ide.rs`,
+    `${LEGACY_NATIVE_ARCHIVE_SRC_PATH}/workspace_ide.rs`,
     "utf8",
   );
   const homeView = readFileSync(
@@ -639,6 +648,6 @@ test("browser-inspected surfaces guard desktop-only event listeners", () => {
     "utf8",
   );
 
-  assert.match(capabilitiesController, /listenIfTauri/);
-  assert.doesNotMatch(capabilitiesController, /from "@tauri-apps\/api\/event"/);
+  assert.match(capabilitiesController, /listenIfHostBridge/);
+  assert.doesNotMatch(capabilitiesController, /from "@[^"]*tauri[^"]*"/i);
 });

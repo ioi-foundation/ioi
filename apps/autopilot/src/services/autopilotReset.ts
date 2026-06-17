@@ -1,7 +1,7 @@
 import {
-  isTauriRuntime,
-  listenIfTauri as listen,
-} from "./tauriListeners";
+  isHypervisorClientRuntime,
+  listenIfHostBridge as listen,
+} from "./hostListeners";
 
 async function clearIndexedDb(): Promise<void> {
   if (typeof window === "undefined" || !("indexedDB" in window)) return;
@@ -70,7 +70,7 @@ export async function resetAutopilotFrontendState(): Promise<void> {
 }
 
 export function listenForAutopilotDataReset(): Promise<() => void> {
-  if (!isTauriRuntime()) {
+  if (!isHypervisorClientRuntime()) {
     return Promise.resolve(() => {});
   }
 

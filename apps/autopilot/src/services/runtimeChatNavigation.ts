@@ -1,4 +1,4 @@
-import type { TauriRuntime } from "./TauriRuntime";
+import type { HypervisorClientRuntime } from "./HypervisorClientRuntime";
 import {
   buildArtifactReviewIntent,
   buildContextReviewIntent,
@@ -11,7 +11,7 @@ import {
 } from "./codeAwareActionContext";
 
 export async function openRuntimeCodeSelectionReview(
-  runtime: TauriRuntime,
+  runtime: HypervisorClientRuntime,
   context: CodeAwareActionContext | null | undefined,
   selectedText?: string | null,
 ) {
@@ -21,14 +21,14 @@ export async function openRuntimeCodeSelectionReview(
 }
 
 export async function openRuntimeFileReview(
-  runtime: TauriRuntime,
+  runtime: HypervisorClientRuntime,
   context: CodeAwareActionContext | null | undefined,
 ) {
   await runtime.openChatAutopilotIntent(buildReviewFileIntent(context));
 }
 
 export async function openRuntimeContextReview(
-  runtime: TauriRuntime,
+  runtime: HypervisorClientRuntime,
   context: CodeAwareActionContext | null | undefined,
 ) {
   if (context?.evidenceThreadId) {
@@ -40,7 +40,7 @@ export async function openRuntimeContextReview(
 }
 
 export async function openRuntimeArtifactReview(
-  runtime: TauriRuntime,
+  runtime: HypervisorClientRuntime,
   context: CodeAwareActionContext | null | undefined,
 ) {
   if (context?.evidenceThreadId) {
@@ -52,7 +52,7 @@ export async function openRuntimeArtifactReview(
 }
 
 export async function openRuntimeRunReview(
-  runtime: TauriRuntime,
+  runtime: HypervisorClientRuntime,
   context: CodeAwareActionContext | null | undefined,
 ) {
   if (context?.evidenceThreadId) {
@@ -63,48 +63,48 @@ export async function openRuntimeRunReview(
   await runtime.openChatAutopilotIntent(buildRunReviewIntent(context));
 }
 
-export async function openRuntimeWorkflowView(runtime: TauriRuntime) {
+export async function openRuntimeWorkflowView(runtime: HypervisorClientRuntime) {
   await runtime.openChatView("workflows");
 }
 
-export async function openRuntimeRunsView(runtime: TauriRuntime) {
+export async function openRuntimeRunsView(runtime: HypervisorClientRuntime) {
   await runtime.openChatView("runs");
 }
 
 export async function openRuntimePolicyView(
-  runtime: TauriRuntime,
+  runtime: HypervisorClientRuntime,
   connectorId?: string | null,
 ) {
   await runtime.openChatPolicyTarget(connectorId);
 }
 
 export async function openRuntimeEvidenceSession(
-  runtime: TauriRuntime,
+  runtime: HypervisorClientRuntime,
   sessionId: string,
 ) {
   await runtime.openChatSessionTarget(sessionId);
 }
 
 export async function openRuntimeConnectionsOverview(
-  runtime: TauriRuntime,
+  runtime: HypervisorClientRuntime,
   connectorId?: string | null,
 ) {
   await runtime.openChatCapabilityTarget(connectorId ?? null, "overview");
 }
 
 export async function openRuntimeBrowserAutomation(
-  runtime: TauriRuntime,
+  runtime: HypervisorClientRuntime,
   context: CodeAwareActionContext | null | undefined,
 ) {
   await runtime.openChatAutopilotIntent(buildBrowserAutomationIntent(context));
 }
 
-export async function openRuntimeChatPrompt(runtime: TauriRuntime, prompt: string) {
+export async function openRuntimeChatPrompt(runtime: HypervisorClientRuntime, prompt: string) {
   await runtime.openChatAutopilotIntent(prompt);
 }
 
 export async function openRuntimeWorkflowCodeGeneration(
-  runtime: TauriRuntime,
+  runtime: HypervisorClientRuntime,
   params: {
     workflowRef?: string | null;
     packageRef?: string | null;

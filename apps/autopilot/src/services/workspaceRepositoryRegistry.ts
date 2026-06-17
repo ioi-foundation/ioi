@@ -448,10 +448,10 @@ export function formatWorkspaceRepositoryMutationError(
   if (
     normalized.includes("reading 'invoke'") ||
     normalized.includes('reading "invoke"') ||
-    normalized.includes("__tauri") ||
-    (normalized.includes("tauri") && normalized.includes("invoke"))
+    normalized.includes("host bridge") ||
+    (normalized.includes("undefined") && normalized.includes("invoke"))
   ) {
-    return "Repository creation requires the Autopilot desktop runtime. Open this flow in the desktop app and try again.";
+    return "Repository creation requires the Hypervisor host bridge. Open this flow in Hypervisor App and try again.";
   }
 
   return message || fallback;

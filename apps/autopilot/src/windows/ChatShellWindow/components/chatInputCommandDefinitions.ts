@@ -9,7 +9,7 @@ import {
   workspaceRootFromTask,
 } from "./chatInputHelpers";
 import type { AgentTask, SessionSummary } from "../../../types";
-import type { WorkspaceWorkflowSummary } from "../../../services/TauriRuntime";
+import type { WorkspaceWorkflowSummary } from "../../../services/HypervisorClientRuntime";
 
 export function buildSharedSessionCommandItems({
   commandQuery,

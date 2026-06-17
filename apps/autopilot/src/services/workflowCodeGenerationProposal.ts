@@ -312,11 +312,11 @@ export function createWorkflowCodeGenerationProposalPlan(
 export async function materializeWorkflowCodeGenerationProposal(
   request: WorkflowCodeGenerationProposalRequest,
 ): Promise<WorkflowCodeGenerationProposalMaterialization> {
-  const { tauriWorkspaceAdapter } = await import("./workspaceAdapter");
+  const { hostWorkspaceAdapter } = await import("./workspaceAdapter");
   const plan = createWorkflowCodeGenerationProposalPlan(request);
-  await tauriWorkspaceAdapter.createDirectory(plan.workspaceRoot, plan.proposalRootPath);
+  await hostWorkspaceAdapter.createDirectory(plan.workspaceRoot, plan.proposalRootPath);
   for (const file of plan.files) {
-    await tauriWorkspaceAdapter.writeFile(plan.workspaceRoot, file.path, file.content);
+    await hostWorkspaceAdapter.writeFile(plan.workspaceRoot, file.path, file.content);
   }
 
   return {

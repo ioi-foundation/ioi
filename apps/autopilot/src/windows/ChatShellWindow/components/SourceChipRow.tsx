@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { openUrl } from "@tauri-apps/plugin-opener";
+import { openUrl } from "../../../services/hypervisorHostBridge";
 import type { SourceSummary } from "../../../types";
 import { icons } from "../../../components/ui/icons";
 

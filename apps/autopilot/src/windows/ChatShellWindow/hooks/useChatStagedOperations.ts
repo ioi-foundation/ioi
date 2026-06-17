@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { listenIfTauri as listen } from "../../../services/tauriListeners";
+import { listenIfHostBridge as listen } from "../../../services/hostListeners";
 import {
   getSessionOperatorRuntime,
   type SessionOperatorRuntime,
@@ -67,7 +67,7 @@ export function useChatStagedOperations() {
 
   useEffect(() => {
     let active = true;
-    if (typeof window === "undefined" || !("__TAURI_INTERNALS__" in window)) {
+    if (typeof window === "undefined" || !("__HYPERVISOR_HOST_BRIDGE__" in window)) {
       return () => {
         active = false;
       };

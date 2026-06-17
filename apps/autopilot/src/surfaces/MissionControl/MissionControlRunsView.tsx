@@ -1,8 +1,8 @@
 import { FleetView } from "@ioi/agent-ide";
-import { TauriRuntime } from "../../services/TauriRuntime";
+import { HypervisorClientRuntime } from "../../services/HypervisorClientRuntime";
 
 interface MissionControlRunsViewProps {
-  runtime: TauriRuntime;
+  runtime: HypervisorClientRuntime;
 }
 
 export function MissionControlRunsView({ runtime }: MissionControlRunsViewProps) {

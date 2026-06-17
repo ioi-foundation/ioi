@@ -11,8 +11,8 @@ import {
   loadAutopilotAppearance,
   subscribeAutopilotAppearance,
 } from "../../services/autopilotAppearance";
-import { TauriRuntime } from "../../services/TauriRuntime";
-import { isBenignTauriListenerCleanupError } from "../../services/tauriListeners";
+import { HypervisorClientRuntime } from "../../services/HypervisorClientRuntime";
+import { isBenignHostListenerCleanupError } from "../../services/hostListeners";
 import { markAutopilotMetric } from "../../services/workspacePerf";
 import { AutopilotShellContent } from "./components/AutopilotShellContent";
 import { useAutopilotShellController } from "./useAutopilotShellController";
@@ -21,7 +21,7 @@ import "@ioi/agent-ide/dist/style.css";
 import "../shared/AssistantWorkbench.css";
 import "./AutopilotShellWindow.css";
 
-const runtime = new TauriRuntime("chat");
+const runtime = new HypervisorClientRuntime("chat");
 
 type ChatCrashReport = {
   source: "render" | "runtime";
@@ -95,7 +95,7 @@ function describeChatError(
 }
 
 function shouldIgnoreChatRuntimeError(value: unknown): boolean {
-  return isBenignTauriListenerCleanupError(value);
+  return isBenignHostListenerCleanupError(value);
 }
 
 function AutopilotShellWindowCrashScreen({

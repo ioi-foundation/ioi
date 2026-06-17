@@ -5,7 +5,7 @@ import type {
   WorkspaceRunDebugModel,
 } from "@ioi/workspace-substrate";
 import type { ExtensionManifestRecord } from "../types";
-import type { TauriRuntime } from "./TauriRuntime";
+import type { HypervisorClientRuntime } from "./HypervisorClientRuntime";
 import {
   openRuntimeArtifactReview,
   openRuntimeBrowserAutomation,
@@ -29,7 +29,7 @@ export type DirectWorkspaceBridgeState = Awaited<
 >;
 
 export async function loadDirectWorkspaceWorkbenchData(params: {
-  runtime: TauriRuntime;
+  runtime: HypervisorClientRuntime;
   host: WorkspaceWorkbenchHost;
   currentProject: WorkspaceWorkbenchProjectDescriptor;
   session: WorkspaceWorkbenchHostSession;
@@ -69,7 +69,7 @@ function statusDetailLabel(timestampMs: number | null | undefined): string | nul
 
 export function createRunDebugModel(params: {
   bridgeState: DirectWorkspaceBridgeState | null;
-  runtime: TauriRuntime;
+  runtime: HypervisorClientRuntime;
   rootPath: string;
   activeFilePath: string | null;
 }): WorkspaceRunDebugModel {
@@ -99,7 +99,7 @@ export function createRunDebugModel(params: {
 export function createExtensionsModel(params: {
   bridgeState: DirectWorkspaceBridgeState | null;
   extensionManifests: ExtensionManifestRecord[];
-  runtime: TauriRuntime;
+  runtime: HypervisorClientRuntime;
 }): WorkspaceExtensionsModel {
   const primaryConnectorId = params.bridgeState?.connections[0]?.id ?? null;
   const statusForExtension = (
@@ -138,7 +138,7 @@ export function createOperatorModel(params: {
   bridgeState: DirectWorkspaceBridgeState | null;
   activeSurface: WorkspaceOperatorSurface;
   onSelectSurface: (surface: WorkspaceOperatorSurface) => void;
-  runtime: TauriRuntime;
+  runtime: HypervisorClientRuntime;
   rootPath: string;
   activeFilePath: string | null;
 }): WorkspaceOperatorModel {

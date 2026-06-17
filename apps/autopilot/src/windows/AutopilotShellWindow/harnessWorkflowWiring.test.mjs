@@ -47,13 +47,16 @@ const workflowValidation = fs.readFileSync(
   ),
   "utf8",
 );
-const tauriProjectTypes = fs.readFileSync(
-  new URL("../../../src-tauri/src/project/types.rs", import.meta.url),
+const legacyDesktopProjectTypes = fs.readFileSync(
+  new URL(
+    "../../../../../internal-docs/legacy/autopilot-tauri-src/src/project/types.rs",
+    import.meta.url,
+  ),
   "utf8",
 );
 const localEngineSupport = fs.readFileSync(
   new URL(
-    "../../../src-tauri/src/kernel/data/commands/local_engine_support.rs",
+    "../../../../../internal-docs/legacy/autopilot-tauri-src/src/kernel/data/commands/local_engine_support.rs",
     import.meta.url,
   ),
   "utf8",
@@ -321,7 +324,7 @@ assert.match(
 );
 
 assert.match(
-  tauriProjectTypes,
+  legacyDesktopProjectTypes,
   /(?=[\s\S]*WorkflowNodeRun[\s\S]*pub harness_attempt: Option<Value>)(?=[\s\S]*WorkflowRunResult[\s\S]*pub harness_attempts: Vec<Value>[\s\S]*pub harness_shadow_comparisons: Vec<Value>[\s\S]*pub harness_gated_cluster_runs: Vec<Value>)(?=[\s\S]*WorkflowPortablePackageManifest[\s\S]*pub harness: Option<Value>[\s\S]*pub worker_harness_binding: Option<Value>)/,
   "Portable packages and run records should preserve harness metadata, worker binding identity, node attempts, shadow comparisons, and gated cluster runs.",
 );

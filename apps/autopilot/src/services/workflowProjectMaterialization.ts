@@ -3,7 +3,7 @@ import type {
   WorkflowProjectMaterializationResult,
 } from "@ioi/agent-ide";
 
-import { tauriWorkspaceAdapter } from "./workspaceAdapter";
+import { hostWorkspaceAdapter } from "./workspaceAdapter";
 import {
   persistCreatedWorkspaceRepository,
   persistPendingWorkspaceRepositoryOpen,
@@ -17,9 +17,9 @@ export async function materializeWorkflowProject(
   const plan = createWorkflowProjectMaterializationPlan(request);
 
   if (!request.dryRun) {
-    await tauriWorkspaceAdapter.createDirectory(".", plan.rootPath);
+    await hostWorkspaceAdapter.createDirectory(".", plan.rootPath);
     for (const file of plan.files) {
-      await tauriWorkspaceAdapter.writeFile(".", file.path, file.content);
+      await hostWorkspaceAdapter.writeFile(".", file.path, file.content);
     }
 
     const now = Date.now();

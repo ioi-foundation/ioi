@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "./hypervisorHostBridge";
 
 import type { WorkspaceBridgeRouteRequest } from "./workspaceBridgeTypes";
 

@@ -1,4 +1,4 @@
-import type { TauriRuntime } from "./TauriRuntime";
+import type { HypervisorClientRuntime } from "./HypervisorClientRuntime";
 import type { AgentTask } from "../types";
 import type { WorkspaceActionContext } from "./workspaceActionContext";
 import type { WorkspaceBridgeRouteRequest } from "./workspaceBridgeTypes";
@@ -71,7 +71,7 @@ function shouldContinueWorkspaceChatTask(task: AgentTask | null): boolean {
 }
 
 async function submitNativeWorkbenchChatPrompt(
-  runtime: TauriRuntime,
+  runtime: HypervisorClientRuntime,
   prompt: string,
 ) {
   const currentTask = await runtime.getCurrentSessionTask<AgentTask>();
@@ -145,7 +145,7 @@ export function readWorkspaceActionContext(
 }
 
 export async function routeWorkspaceBridgeRequest(
-  runtime: TauriRuntime,
+  runtime: HypervisorClientRuntime,
   request: WorkspaceBridgeRouteRequest,
   recordMetric?: WorkspaceMetricRecorder,
   handlers: WorkspaceBridgeRouteHandlers = {},

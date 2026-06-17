@@ -1,6 +1,6 @@
-// apps/autopilot/src/services/TauriRuntime.ts
-import { invoke } from "@tauri-apps/api/core";
-import { emit, listen } from "@tauri-apps/api/event";
+// apps/autopilot/src/services/HypervisorClientRuntime.ts
+import { invoke } from "./hypervisorHostBridge";
+import { emit, listen } from "./hypervisorHostBridge";
 import {
   AgentWorkbenchRuntime,
   AssistantSessionRuntime,
@@ -122,12 +122,12 @@ import {
 const LOCAL_ENGINE_ZONE_ID = "local-engine";
 const ORCHESTRATION_ZONE_ID = "orchestration";
 
-function isTauriRuntime(): boolean {
-  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+function isHypervisorClientRuntime(): boolean {
+  return typeof window !== "undefined" && "__HYPERVISOR_HOST_BRIDGE__" in window;
 }
 
-function unavailableOutsideTauri(command: string): Error {
-  return new Error(`${command} is only available in the Autopilot desktop shell.`);
+function unavailableOutsideHostBridge(command: string): Error {
+  return new Error(`${command} is only available in the Hypervisor host bridge.`);
 }
 
 type LocalEngineBackend = LocalEngineSnapshot["managedBackends"][number];
@@ -564,7 +564,7 @@ function applyWorkflowSkillPromotionOverride(
     };
 }
 
-export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRuntime {
+export class HypervisorClientRuntime implements AgentWorkbenchRuntime, AssistantSessionRuntime {
     constructor(
       private readonly shellSurface: RuntimeShellSurface = "overlay",
     ) {}
@@ -652,8 +652,8 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
     }
 
     async runGraph(payload: GraphPayload): Promise<void> {
-        if (!isTauriRuntime()) {
-          throw unavailableOutsideTauri("run_chat_graph");
+        if (!isHypervisorClientRuntime()) {
+          throw unavailableOutsideHostBridge("run_chat_graph");
         }
         await invoke("run_chat_graph", { payload });
     }
@@ -663,8 +663,8 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
     }
 
     async startAssistantSession<T>(intent: string): Promise<T> {
-        if (!isTauriRuntime()) {
-          throw unavailableOutsideTauri("start_task");
+        if (!isHypervisorClientRuntime()) {
+          throw unavailableOutsideHostBridge("start_task");
         }
         console.info("[Autopilot][Runtime] start_task invoking", {
           originSurface: this.shellSurface,
@@ -690,8 +690,8 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
     }
 
     async submitAssistantSessionInput(sessionId: string, userInput: string): Promise<void> {
-        if (!isTauriRuntime()) {
-          throw unavailableOutsideTauri("continue_task");
+        if (!isHypervisorClientRuntime()) {
+          throw unavailableOutsideHostBridge("continue_task");
         }
         await invoke("continue_task", { sessionId, userInput });
     }
@@ -701,7 +701,7 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
     }
 
     async dismissAssistantSession(): Promise<void> {
-        if (!isTauriRuntime()) {
+        if (!isHypervisorClientRuntime()) {
           return;
         }
         await invoke("dismiss_task");
@@ -712,7 +712,7 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
     }
 
     async stopAssistantSession(): Promise<void> {
-        if (!isTauriRuntime()) {
+        if (!isHypervisorClientRuntime()) {
           return;
         }
         await invoke("cancel_task");
@@ -723,7 +723,7 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
     }
 
     async getActiveAssistantSession<T>(): Promise<T | null> {
-        if (!isTauriRuntime()) {
+        if (!isHypervisorClientRuntime()) {
           return null;
         }
         return invoke<T | null>("get_current_task");
@@ -734,7 +734,7 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
     }
 
     async listAssistantSessions<T>(): Promise<T[]> {
-        if (!isTauriRuntime()) {
+        if (!isHypervisorClientRuntime()) {
           return [];
         }
         return invoke<T[]>("get_session_history");
@@ -747,7 +747,7 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
     async getAssistantSessionProjection<TTask, TSessionSummary>(): Promise<
       AssistantSessionProjection<TTask, TSessionSummary>
     > {
-        if (!isTauriRuntime()) {
+        if (!isHypervisorClientRuntime()) {
           return {
             task: null,
             sessions: [],
@@ -765,8 +765,8 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
     }
 
     async loadAssistantSession<T>(sessionId: string): Promise<T> {
-        if (!isTauriRuntime()) {
-          throw unavailableOutsideTauri("load_session");
+        if (!isHypervisorClientRuntime()) {
+          throw unavailableOutsideHostBridge("load_session");
         }
         return invoke<T>("load_session", { sessionId });
     }
@@ -779,7 +779,7 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
         threadId: string,
         options?: AssistantSessionThreadLoadOptions
     ): Promise<T[]> {
-        if (!isTauriRuntime()) {
+        if (!isHypervisorClientRuntime()) {
           return [];
         }
         return invoke<T[]>("get_thread_events", {
@@ -805,14 +805,14 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
     }
 
     async executeWorkflowRuntimeControlRequest(request: unknown): Promise<unknown> {
-        if (!isTauriRuntime()) {
-          throw unavailableOutsideTauri("execute_workflow_runtime_control_request");
+        if (!isHypervisorClientRuntime()) {
+          throw unavailableOutsideHostBridge("execute_workflow_runtime_control_request");
         }
         return invoke("execute_workflow_runtime_control_request", { request });
     }
 
     async loadAssistantSessionArtifacts<T>(threadId: string): Promise<T[]> {
-        if (!isTauriRuntime()) {
+        if (!isHypervisorClientRuntime()) {
           return [];
         }
         return invoke<T[]>("get_thread_artifacts", {
@@ -826,42 +826,42 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
     }
 
     async showPillShell(): Promise<void> {
-        if (!isTauriRuntime()) {
+        if (!isHypervisorClientRuntime()) {
           return;
         }
         await invoke("show_pill");
     }
 
     async hidePillShell(): Promise<void> {
-        if (!isTauriRuntime()) {
+        if (!isHypervisorClientRuntime()) {
           return;
         }
         await invoke("hide_pill");
     }
 
     async showChatSessionShell(): Promise<void> {
-        if (!isTauriRuntime()) {
+        if (!isHypervisorClientRuntime()) {
           return;
         }
         await invoke("show_chat_session");
     }
 
     async hideChatSessionShell(): Promise<void> {
-        if (!isTauriRuntime()) {
+        if (!isHypervisorClientRuntime()) {
           return;
         }
         await invoke("hide_chat_session");
     }
 
     async showGateShell(): Promise<void> {
-        if (!isTauriRuntime()) {
+        if (!isHypervisorClientRuntime()) {
           return;
         }
         await invoke("show_gate");
     }
 
     async hideGateShell(): Promise<void> {
-        if (!isTauriRuntime()) {
+        if (!isHypervisorClientRuntime()) {
           return;
         }
         await invoke("hide_gate");
@@ -869,7 +869,7 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
 
     async showChatShell(): Promise<void> {
         await recordChatLaunchReceipt("runtime_show_chat_requested", {});
-        if (!isTauriRuntime()) {
+        if (!isHypervisorClientRuntime()) {
           await recordChatLaunchReceipt("runtime_show_chat_completed", {
             shell: "browser",
           });
@@ -965,7 +965,7 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
     async activateAssistantWorkbenchSession(
       session: AssistantWorkbenchSession,
     ): Promise<void> {
-        if (!isTauriRuntime()) {
+        if (!isHypervisorClientRuntime()) {
           return;
         }
         await invoke("set_active_assistant_workbench_session", { session });
@@ -982,7 +982,7 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
     }
 
     async getActiveAssistantWorkbenchSession(): Promise<AssistantWorkbenchSession | null> {
-        if (!isTauriRuntime()) {
+        if (!isHypervisorClientRuntime()) {
           return null;
         }
         return invoke("get_active_assistant_workbench_session");
@@ -1004,7 +1004,7 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
     async listenAssistantWorkbenchSession(
       handler: (session: AssistantWorkbenchSession) => void,
     ): Promise<() => void> {
-        if (!isTauriRuntime()) {
+        if (!isHypervisorClientRuntime()) {
           return () => {};
         }
         return listen<AssistantWorkbenchSession>(
@@ -1016,7 +1016,7 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
     async reportAssistantWorkbenchActivity(
       activity: AssistantWorkbenchActivity,
     ): Promise<void> {
-        if (!isTauriRuntime()) {
+        if (!isHypervisorClientRuntime()) {
           return;
         }
         try {
@@ -1030,7 +1030,7 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
     async getRecentAssistantWorkbenchActivities(
       limit?: number,
     ): Promise<AssistantWorkbenchActivity[]> {
-        if (!isTauriRuntime()) {
+        if (!isHypervisorClientRuntime()) {
           return [];
         }
         return invoke("get_recent_assistant_workbench_activities", { limit });
@@ -1039,7 +1039,7 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
     async listenAssistantWorkbenchActivity(
       handler: (activity: AssistantWorkbenchActivity) => void,
     ): Promise<() => void> {
-        if (!isTauriRuntime()) {
+        if (!isHypervisorClientRuntime()) {
           return () => {};
         }
         return listen<AssistantWorkbenchActivity>(
@@ -1052,8 +1052,8 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
         sessionId: string,
         password: string
     ): Promise<void> {
-        if (!isTauriRuntime()) {
-          throw unavailableOutsideTauri("submit_runtime_password");
+        if (!isHypervisorClientRuntime()) {
+          throw unavailableOutsideHostBridge("submit_runtime_password");
         }
         await invoke("submit_runtime_password", { sessionId, password });
     }
@@ -1068,8 +1068,8 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
     async respondToAssistantSessionGate(
       input: AssistantSessionGateResponse,
     ): Promise<void> {
-        if (!isTauriRuntime()) {
-          throw unavailableOutsideTauri("gate_respond");
+        if (!isHypervisorClientRuntime()) {
+          throw unavailableOutsideHostBridge("gate_respond");
         }
         await invoke("gate_respond", { ...input });
     }
@@ -1083,7 +1083,7 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
         projection: AssistantSessionProjection<TTask, TSessionSummary>,
       ) => void,
     ): Promise<() => void> {
-        if (!isTauriRuntime()) {
+        if (!isHypervisorClientRuntime()) {
           return () => {};
         }
         return listen<AssistantSessionProjection<TTask, TSessionSummary>>(
@@ -1106,7 +1106,7 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
         eventName: AssistantSessionEventName,
         handler: (payload: T) => void
     ): Promise<() => void> {
-        if (!isTauriRuntime()) {
+        if (!isHypervisorClientRuntime()) {
           return () => {};
         }
         return listen<T>(eventName, (event) => handler(event.payload));
@@ -1120,14 +1120,14 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
     }
 
     async checkNodeCache(nodeId: string, config: any, input: string): Promise<any> {
-        if (!isTauriRuntime()) {
-          throw unavailableOutsideTauri("check_node_cache");
+        if (!isHypervisorClientRuntime()) {
+          throw unavailableOutsideHostBridge("check_node_cache");
         }
         return invoke("check_node_cache", { nodeId, config, input });
     }
 
     async getAvailableTools(): Promise<any[]> {
-        if (!isTauriRuntime()) {
+        if (!isHypervisorClientRuntime()) {
           return [];
         }
         return invoke("get_available_tools");
@@ -2165,7 +2165,7 @@ export class TauriRuntime implements AgentWorkbenchRuntime, AssistantSessionRunt
     }
 
     onEvent(callback: (event: GraphEvent) => void): () => void {
-        if (!isTauriRuntime()) {
+        if (!isHypervisorClientRuntime()) {
             return () => {};
         }
         const unlisten = listen<any>("graph-event", (e) => {

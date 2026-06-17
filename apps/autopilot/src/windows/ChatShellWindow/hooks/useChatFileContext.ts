@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { WorkspaceNode } from "@ioi/workspace-substrate";
-import { tauriWorkspaceAdapter } from "../../../services/workspaceAdapter";
+import { hostWorkspaceAdapter } from "../../../services/workspaceAdapter";
 import {
   clearSessionFileContext,
   excludeSessionFileContextPath,
@@ -112,7 +112,7 @@ export function useChatFileContext({
     setBrowseStatus("loading");
     setBrowseError(null);
 
-    void tauriWorkspaceAdapter
+    void hostWorkspaceAdapter
       .listDirectory(context.workspace_root, browsePath)
       .then((entries) => {
         if (cancelled) {

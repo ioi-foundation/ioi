@@ -1,11 +1,11 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "../../services/hypervisorHostBridge";
 import type { WorkflowComposerPreflightSeed } from "@ioi/agent-ide";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { TauriRuntime } from "../../services/TauriRuntime";
+import type { HypervisorClientRuntime } from "../../services/HypervisorClientRuntime";
 import {
-  listenIfTauri as listen,
-  safelyDisposeTauriListener,
-} from "../../services/tauriListeners";
+  listenIfHostBridge as listen,
+  safelyDisposeHostListener,
+} from "../../services/hostListeners";
 import type {
   AssistantUserProfile,
   SessionHookSnapshot,
@@ -38,7 +38,7 @@ import { loadAuthorityCenterRuntimeProjection } from "../Policy/authorityCenterR
 
 interface SettingsViewProps {
   runtime: Pick<
-    TauriRuntime,
+    HypervisorClientRuntime,
     | "addKnowledgeCollectionSource"
     | "addKnowledgeTextEntry"
     | "addSkillSource"
@@ -375,8 +375,8 @@ export function SettingsView({
 
     return () => {
       cancelled = true;
-      safelyDisposeTauriListener(projectionPromise);
-      safelyDisposeTauriListener(governancePromise);
+      safelyDisposeHostListener(projectionPromise);
+      safelyDisposeHostListener(governancePromise);
       unlistenPolicy();
     };
   }, [refreshAuthorityCenterProjection]);

@@ -2,9 +2,9 @@ import {
   buildSessionReplTargets,
   useAssistantWorkbenchState,
 } from "@ioi/agent-ide";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "../../../services/hypervisorHostBridge";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { openUrl } from "@tauri-apps/plugin-opener";
+import { openUrl } from "../../../services/hypervisorHostBridge";
 import type {
   AgentTask,
   AgentEvent,

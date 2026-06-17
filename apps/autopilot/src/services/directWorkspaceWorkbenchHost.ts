@@ -1,7 +1,7 @@
 import {
   peekCachedWorkspaceSnapshot,
   prewarmWorkspaceRoot,
-  tauriWorkspaceAdapter,
+  hostWorkspaceAdapter,
 } from "./workspaceAdapter";
 import {
   buildOpenVsCodeSurfaceId,
@@ -116,7 +116,7 @@ export const substratePreviewWorkspaceWorkbenchHost: WorkspaceWorkbenchHost = {
       | {
           kind?: string;
           initialSnapshot?: Awaited<
-            ReturnType<typeof tauriWorkspaceAdapter.inspectWorkspace>
+            ReturnType<typeof hostWorkspaceAdapter.inspectWorkspace>
           >;
         }
       | undefined;
@@ -125,7 +125,7 @@ export const substratePreviewWorkspaceWorkbenchHost: WorkspaceWorkbenchHost = {
       key: `${session.rootPath}:${refreshNonce}`,
       title: `Workspace for ${projectName}`,
       rootPath: session.rootPath,
-      adapter: tauriWorkspaceAdapter,
+      adapter: hostWorkspaceAdapter,
       layoutMode: "full" as const,
       defaultPane: "files" as const,
       showHeader: false,

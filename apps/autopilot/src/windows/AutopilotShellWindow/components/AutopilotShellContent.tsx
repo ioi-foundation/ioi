@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 
 import { buildConnectorPolicySummary } from "../../../surfaces/Policy";
 import { useAutopilotShellController } from "../useAutopilotShellController";
-import { type TauriRuntime } from "../../../services/TauriRuntime";
+import { type HypervisorClientRuntime } from "../../../services/HypervisorClientRuntime";
 import { buildConnectorTrustProfile } from "../../../surfaces/Capabilities";
 import { ChatLocalActivityBar } from "./ChatLocalActivityBar";
 import { CapabilitiesView } from "../../../surfaces/Capabilities";
@@ -30,7 +30,7 @@ import { materializeWorkflowProject } from "../../../services/workflowProjectMat
 
 interface AutopilotShellContentProps {
   controller: ReturnType<typeof useAutopilotShellController>;
-  runtime: TauriRuntime;
+  runtime: HypervisorClientRuntime;
 }
 
 export function AutopilotShellContent({

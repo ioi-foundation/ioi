@@ -21,7 +21,7 @@ import {
   type WorkspaceSnapshot,
 } from "@ioi/workspace-substrate";
 
-import type { TauriRuntime } from "../../services/TauriRuntime";
+import type { HypervisorClientRuntime } from "../../services/HypervisorClientRuntime";
 import {
   loadWorkspaceShellState,
   persistWorkspaceShellState,
@@ -39,7 +39,7 @@ import type {
   WorkspaceWorkbenchProjectDescriptor,
 } from "../../services/workspaceWorkbenchHost";
 import { useWorkspaceWorkbenchSession } from "../../services/useWorkspaceWorkbenchSession";
-import { tauriWorkspaceAdapter } from "../../services/workspaceAdapter";
+import { hostWorkspaceAdapter } from "../../services/workspaceAdapter";
 import {
   createUniqueRepositorySlug,
   consumePendingWorkspaceRepositoryOpen,
@@ -60,7 +60,7 @@ interface WorkspaceShellProps {
   active: boolean;
   currentProject: WorkspaceWorkbenchProjectDescriptor;
   projects?: WorkspaceWorkbenchProjectDescriptor[];
-  runtime: TauriRuntime;
+  runtime: HypervisorClientRuntime;
   host: WorkspaceWorkbenchHost;
   fullBleed?: boolean;
   operatorChatPane?: ReactNode;
@@ -145,7 +145,7 @@ export function WorkspaceShell({
     ) => {
       const ensureDirectory = options.ensureDirectory ?? true;
       if (repository.source === "created" && ensureDirectory) {
-        await tauriWorkspaceAdapter.createDirectory(".", repository.rootPath);
+        await hostWorkspaceAdapter.createDirectory(".", repository.rootPath);
       }
 
       markWorkspaceRepositoryOpened(repository.id);
@@ -199,7 +199,7 @@ export function WorkspaceShell({
         );
         const rootPath = getGeneratedRepositoryPath(slug);
 
-        await tauriWorkspaceAdapter.createDirectory(".", rootPath);
+        await hostWorkspaceAdapter.createDirectory(".", rootPath);
 
         const now = Date.now();
         const repository: WorkspaceRepositoryRecord = {

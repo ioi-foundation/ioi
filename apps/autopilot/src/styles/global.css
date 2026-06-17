@@ -324,15 +324,15 @@ button:focus-visible {
 }
 
 /* Draggable regions */
-[data-tauri-drag-region] {
+[data-host-drag-region] {
   -webkit-app-region: drag;
 }
 
-[data-tauri-drag-region] button,
-[data-tauri-drag-region] input,
-[data-tauri-drag-region] select,
-[data-tauri-drag-region] textarea,
-[data-tauri-drag-region] a,
-[data-tauri-drag-region] [role="button"] {
+[data-host-drag-region] button,
+[data-host-drag-region] input,
+[data-host-drag-region] select,
+[data-host-drag-region] textarea,
+[data-host-drag-region] a,
+[data-host-drag-region] [role="button"] {
   -webkit-app-region: no-drag;
 }

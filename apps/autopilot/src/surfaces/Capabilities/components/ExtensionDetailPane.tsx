@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
+import { openPath, revealItemInDir } from "../../../services/hypervisorHostBridge";
 import { buildExtensionTrustProfile, humanize } from "./model";
 import { CapabilityAuthoritySection } from "./CapabilityAuthoritySection";
 import { type CapabilitiesController } from "./useCapabilitiesController";

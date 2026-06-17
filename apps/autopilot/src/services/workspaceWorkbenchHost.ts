@@ -1,4 +1,4 @@
-import type { TauriRuntime } from "./TauriRuntime";
+import type { HypervisorClientRuntime } from "./HypervisorClientRuntime";
 import type { WorkspaceBridgeRouteRequest } from "./workspaceBridgeTypes";
 import type { WorkspaceBridgeRouteHandlers } from "./workspaceRuntimeNavigation";
 import type {
@@ -79,7 +79,7 @@ export interface WorkspaceWorkbenchLifecyclePolicy {
 export interface WorkspaceWorkbenchHost {
   ensureSession(params: {
     rootPath: string;
-    runtime: TauriRuntime;
+    runtime: HypervisorClientRuntime;
     forceRestart?: boolean;
   }): Promise<WorkspaceWorkbenchHostSession>;
   publishState(
@@ -91,14 +91,14 @@ export interface WorkspaceWorkbenchHost {
   ): Promise<WorkspaceBridgeRouteRequest[]>;
   describeLifecyclePolicy(): WorkspaceWorkbenchLifecyclePolicy;
   startStateSync(params: {
-    runtime: TauriRuntime;
+    runtime: HypervisorClientRuntime;
     currentProject: WorkspaceWorkbenchProjectDescriptor;
     session: WorkspaceWorkbenchHostSession;
     refreshMs: number;
   }): () => void;
   startRequestPolling(params: {
     active: boolean;
-    runtime: TauriRuntime;
+    runtime: HypervisorClientRuntime;
     session: WorkspaceWorkbenchHostSession;
     pollMs: number;
     recordMetric?: (name: string, detail?: Record<string, unknown>) => void;

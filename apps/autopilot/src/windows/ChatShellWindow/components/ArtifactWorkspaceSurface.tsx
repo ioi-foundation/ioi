@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "../../../services/hypervisorHostBridge";
 import {
   WorkspaceExplorerPane,
   useWorkspaceSession,
@@ -13,7 +13,7 @@ import {
   type CodeAwareActionContext,
 } from "../../../services/codeAwareActionContext";
 import { openEvidenceReviewSession } from "../../../services/reviewNavigation";
-import { tauriWorkspaceAdapter } from "../../../services/workspaceAdapter";
+import { hostWorkspaceAdapter } from "../../../services/workspaceAdapter";
 import { ArtifactRendererHost } from "./ArtifactRendererHost";
 import { ArtifactSourceWorkbench } from "./ArtifactSourceWorkbench";
 import { ArtifactEvidencePanel } from "./ArtifactEvidencePanel";
@@ -50,12 +50,12 @@ export function ArtifactWorkspaceSurface({
     [rendererSession.entryDocument],
   );
   const terminalController = useWorkspaceTerminalSession({
-    adapter: tauriWorkspaceAdapter,
+    adapter: hostWorkspaceAdapter,
     root: rendererSession.workspaceRoot,
     enabled: false,
   });
   const session = useWorkspaceSession({
-    adapter: tauriWorkspaceAdapter,
+    adapter: hostWorkspaceAdapter,
     root: rendererSession.workspaceRoot,
     terminalController,
     initialPane: "files",

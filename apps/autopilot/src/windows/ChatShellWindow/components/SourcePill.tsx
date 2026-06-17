@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { openUrl } from "@tauri-apps/plugin-opener";
+import { openUrl } from "../../../services/hypervisorHostBridge";
 import type { AssistantSourceRef } from "../utils/assistantTurnProcessModel";
 import { icons } from "../../../components/ui/icons";
 

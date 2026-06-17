@@ -1,10 +1,10 @@
 import type { MouseEvent } from "react";
-import { getCurrentWindow, PhysicalPosition } from "@tauri-apps/api/window";
+import { getCurrentWindow, PhysicalPosition } from "../../services/hypervisorHostBridge";
 
-export function isTauriRuntime(): boolean {
+export function isHypervisorClientRuntime(): boolean {
   return (
     typeof window !== "undefined" &&
-    "__TAURI_INTERNALS__" in window
+    "__HYPERVISOR_HOST_BRIDGE__" in window
   );
 }
 
@@ -13,8 +13,8 @@ export function isInteractiveWindowTarget(target: EventTarget | null): boolean {
   return target.closest("button, input, select, textarea, a, [role='button']") !== null;
 }
 
-export function startTauriWindowDrag(event: MouseEvent<HTMLElement>): void {
-  if (!isTauriRuntime()) return;
+export function startHostWindowDrag(event: MouseEvent<HTMLElement>): void {
+  if (!isHypervisorClientRuntime()) return;
   if (event.button !== 0) return;
   if (event.detail > 1) return;
   if (isInteractiveWindowTarget(event.target)) return;

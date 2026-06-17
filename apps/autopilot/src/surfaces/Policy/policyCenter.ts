@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "../../services/hypervisorHostBridge";
 
 export type PolicyDecisionMode = "auto" | "confirm" | "block";
 export type AutomationPolicyMode =

@@ -5,7 +5,7 @@ import {
   setDefaultAssistantSessionRuntime,
 } from "@ioi/agent-ide";
 import type { LocalEngineSnapshot } from "../types";
-import { TauriRuntime, type WorkspaceWorkflowSummary } from "./TauriRuntime";
+import { HypervisorClientRuntime, type WorkspaceWorkflowSummary } from "./HypervisorClientRuntime";
 
 export interface SessionOperatorRuntime extends AssistantSessionRuntime {
   getLocalEngineSnapshot(): Promise<LocalEngineSnapshot>;
@@ -31,7 +31,7 @@ export type SessionWorkbenchRuntime = AgentWorkbenchRuntime &
     listWorkspaceWorkflows?: () => Promise<WorkspaceWorkflowSummary[]>;
   };
 
-const defaultSessionRuntime = new TauriRuntime();
+const defaultSessionRuntime = new HypervisorClientRuntime();
 setDefaultAssistantSessionRuntime(defaultSessionRuntime);
 
 function isSessionOperatorRuntime(

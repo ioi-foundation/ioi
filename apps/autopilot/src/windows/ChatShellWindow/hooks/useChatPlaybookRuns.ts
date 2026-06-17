@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { listenIfTauri as listen } from "../../../services/tauriListeners";
+import { listenIfHostBridge as listen } from "../../../services/hostListeners";
 import { submitAssistantSessionInput } from "@ioi/agent-ide";
 import {
   getSessionOperatorRuntime,
@@ -235,7 +235,7 @@ export function useChatPlaybookRuns(sessionId: string | null) {
 
   useEffect(() => {
     let active = true;
-    if (typeof window === "undefined" || !("__TAURI_INTERNALS__" in window)) {
+    if (typeof window === "undefined" || !("__HYPERVISOR_HOST_BRIDGE__" in window)) {
       return () => {
         active = false;
       };

@@ -1,4 +1,4 @@
-import type { TauriRuntime } from "./TauriRuntime";
+import type { HypervisorClientRuntime } from "./HypervisorClientRuntime";
 import { buildAutopilotAppearanceBridgeState } from "./autopilotAppearance";
 import type { AgentTask, ChatMessage, SessionSummary } from "../types";
 import {
@@ -63,7 +63,7 @@ function projectWorkspaceChatState(
 }
 
 export async function buildWorkspaceBridgeState(
-  runtime: TauriRuntime,
+  runtime: HypervisorClientRuntime,
   host: WorkspaceWorkbenchHost,
   currentProject: WorkspaceWorkbenchProjectDescriptor,
   session: WorkspaceWorkbenchHostSession,

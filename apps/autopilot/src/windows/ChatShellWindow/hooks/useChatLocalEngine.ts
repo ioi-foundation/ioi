@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { listenIfTauri as listen } from "../../../services/tauriListeners";
+import { listenIfHostBridge as listen } from "../../../services/hostListeners";
 import {
   getSessionOperatorRuntime,
   type SessionOperatorRuntime,

@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { openUrl } from "@tauri-apps/plugin-opener";
+import { openUrl } from "../../../services/hypervisorHostBridge";
 import type {
   AnswerPresentation,
   ChatContractResultColumn,

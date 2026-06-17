@@ -9,7 +9,7 @@ import {
 } from "@ioi/workspace-substrate";
 import { useEffect, useMemo, useState } from "react";
 import type { AgentTask, ArtifactHubViewKey, SessionSummary } from "../../../types";
-import { tauriWorkspaceAdapter } from "../../../services/workspaceAdapter";
+import { hostWorkspaceAdapter } from "../../../services/workspaceAdapter";
 import {
   currentSessionIdFromTask,
   mergeCurrentTaskRootIntoTargets,
@@ -179,7 +179,7 @@ export function ChatReplView({
   ]);
 
   const terminal = useWorkspaceTerminalSession({
-    adapter: tauriWorkspaceAdapter,
+    adapter: hostWorkspaceAdapter,
     root: selectedTarget?.workspaceRoot ?? ".",
     enabled: terminalEnabled && Boolean(selectedTarget?.workspaceRoot),
   });

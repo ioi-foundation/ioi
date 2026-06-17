@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "../../../services/hypervisorHostBridge";
 import { useCallback, useState } from "react";
 import type { VoiceInputTranscriptionResult } from "../../../types";
 

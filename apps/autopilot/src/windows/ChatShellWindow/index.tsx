@@ -264,7 +264,7 @@ export function ChatShellWindow({
   const [selectedChatArtifactSessionId, setSelectedChatArtifactSessionId] =
     useState<string | null>(null);
 
-  // Layout management (synced with Tauri backend)
+  // Layout management (synced with host bridge when available)
   const { layout, toggleSidebar, toggleArtifactPanel } = useChatLayout({
     persistToBackend: !isChatVariant,
   });

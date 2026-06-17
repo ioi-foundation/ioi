@@ -1,6 +1,6 @@
 import { SettingsView } from "../Settings";
 import { PolicyView } from "../Policy";
-import { TauriRuntime } from "../../services/TauriRuntime";
+import { HypervisorClientRuntime } from "../../services/HypervisorClientRuntime";
 import type { AssistantUserProfile } from "../../types";
 import type { WorkflowComposerPreflightSeed } from "@ioi/agent-ide";
 import type {
@@ -10,7 +10,7 @@ import type {
 import type { SettingsSection } from "../Settings/settingsViewShared";
 
 interface MissionControlControlViewProps {
-  runtime: TauriRuntime;
+  runtime: HypervisorClientRuntime;
   surface: "policy" | "system";
   policyState: ShieldPolicyState;
   profile: AssistantUserProfile;

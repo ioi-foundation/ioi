@@ -13,10 +13,10 @@ import {
   workflowRuntimeUnavailableCopy,
 } from "@ioi/agent-ide";
 import {
-  listenIfTauri,
-  safelyDisposeTauriListener,
-} from "../../../services/tauriListeners";
-import { type TauriRuntime } from "../../../services/TauriRuntime";
+  listenIfHostBridge,
+  safelyDisposeHostListener,
+} from "../../../services/hostListeners";
+import { type HypervisorClientRuntime } from "../../../services/HypervisorClientRuntime";
 import type {
   CapabilityRegistryEntry,
   CapabilityRegistrySnapshot,
@@ -55,7 +55,7 @@ import {
 } from "../../Policy/policyCenter";
 
 interface UseCapabilitiesControllerOptions {
-  runtime: TauriRuntime;
+  runtime: HypervisorClientRuntime;
   onOpenPolicyCenter?: (connector?: ConnectorSummary | null) => void;
 }
 
@@ -1482,7 +1482,7 @@ export function useCapabilitiesController({
 
   useEffect(() => {
     let active = true;
-    const unlistenPromise = listenIfTauri("local-engine-updated", () => {
+    const unlistenPromise = listenIfHostBridge("local-engine-updated", () => {
       if (!active) return;
       void refreshCapabilityRegistrySnapshot({
         preserveDraft: true,
@@ -1493,7 +1493,7 @@ export function useCapabilitiesController({
 
     return () => {
       active = false;
-      safelyDisposeTauriListener(unlistenPromise);
+      safelyDisposeHostListener(unlistenPromise);
     };
   }, [refreshCapabilityRegistrySnapshot]);
 

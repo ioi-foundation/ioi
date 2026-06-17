@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "../../../services/hypervisorHostBridge";
 
 import type {
   SkillDetailView,

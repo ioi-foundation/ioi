@@ -3,7 +3,7 @@ import type {
 } from "@ioi/agent-ide";
 import type { ChatCapabilityDetailSection } from "../../types";
 import { useEffect } from "react";
-import { type TauriRuntime } from "../../services/TauriRuntime";
+import { type HypervisorClientRuntime } from "../../services/HypervisorClientRuntime";
 import {
   openArtifactReviewTarget,
   openEvidenceReviewSession,
@@ -19,7 +19,7 @@ import { useCapabilitiesController } from "./components/useCapabilitiesControlle
 import "./Capabilities.css";
 
 interface CapabilitiesViewProps {
-  runtime: TauriRuntime;
+  runtime: HypervisorClientRuntime;
   getConnectorPolicySummary?: (
     connector: ConnectorSummary,
   ) => { headline: string; detail: string } | null;

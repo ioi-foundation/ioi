@@ -1,11 +1,11 @@
 import { useEffect, useState, type MouseEvent } from "react";
-import { getCurrentWindow } from "@tauri-apps/api/window";
-import { safelyDisposeTauriListener } from "../../../services/tauriListeners";
+import { getCurrentWindow } from "../../../services/hypervisorHostBridge";
+import { safelyDisposeHostListener } from "../../../services/hostListeners";
 import {
   isInteractiveWindowTarget,
-  isTauriRuntime,
-  startTauriWindowDrag,
-} from "../../shared/tauriWindowDrag";
+  isHypervisorClientRuntime,
+  startHostWindowDrag,
+} from "../../shared/hostWindowDrag";
 import type { PrimaryView } from "../autopilotShellModel";
 import type { OperatorCommandCenterModel } from "../operatorSubstrateModel";
 
@@ -44,7 +44,7 @@ export function ChatIdeHeader({
   onOpenCommandPalette,
 }: ChatIdeHeaderProps) {
   const [windowMaximized, setWindowMaximized] = useState(false);
-  const windowControlsVisible = isTauriRuntime();
+  const windowControlsVisible = isHypervisorClientRuntime();
   const resolvedWindowTitle = `Hypervisor · ${windowSurfaceTitle(
     activeView,
     workflowSurface,
@@ -90,7 +90,7 @@ export function ChatIdeHeader({
 
     return () => {
       cancelled = true;
-      safelyDisposeTauriListener(unlistenPromise);
+      safelyDisposeHostListener(unlistenPromise);
     };
   }, [windowControlsVisible]);
 
@@ -101,7 +101,7 @@ export function ChatIdeHeader({
       await appWindow.toggleMaximize();
       setWindowMaximized(await appWindow.isMaximized());
     } catch {
-      // Window controls are best-effort in non-Tauri environments.
+      // Window controls are best-effort in non-host-bridge environments.
     }
   };
 
@@ -110,7 +110,7 @@ export function ChatIdeHeader({
     try {
       await getCurrentWindow().minimize();
     } catch {
-      // Ignore non-Tauri environments.
+      // Ignore non-host-bridge environments.
     }
   };
 
@@ -119,7 +119,7 @@ export function ChatIdeHeader({
     try {
       await getCurrentWindow().close();
     } catch {
-      // Ignore non-Tauri environments.
+      // Ignore non-host-bridge environments.
     }
   };
 
@@ -133,8 +133,8 @@ export function ChatIdeHeader({
     <header className="chat-ide-header" onDoubleClick={handleHeaderDoubleClick}>
       <div
         className="chat-ide-drag-surface"
-        data-tauri-drag-region
-        onMouseDown={startTauriWindowDrag}
+        data-host-drag-region
+        onMouseDown={startHostWindowDrag}
         aria-hidden="true"
       />
 

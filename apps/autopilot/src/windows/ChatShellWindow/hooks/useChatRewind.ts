@@ -1,5 +1,5 @@
-import { invoke } from "@tauri-apps/api/core";
-import { listenIfTauri as listen } from "../../../services/tauriListeners";
+import { invoke } from "../../../services/hypervisorHostBridge";
+import { listenIfHostBridge as listen } from "../../../services/hostListeners";
 import { useCallback, useEffect, useState } from "react";
 import type { SessionRewindSnapshot } from "../../../types";
 

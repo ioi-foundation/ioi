@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { getCurrent as getCurrentDeepLinks, onOpenUrl } from "@tauri-apps/plugin-deep-link";
+import { getCurrent as getCurrentDeepLinks, onOpenUrl } from "../../services/hypervisorHostBridge";
 import "./MissionControlMountsView.css";
 
 type MountsTab = "server" | "backends" | "models" | "providers" | "downloads" | "tokens" | "routing" | "benchmarks" | "logs";
@@ -2083,8 +2083,8 @@ function readInitialTab(): MountsTab {
   return "server";
 }
 
-function isTauriRuntime() {
-  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+function isHypervisorClientRuntime() {
+  return typeof window !== "undefined" && "__HYPERVISOR_HOST_BRIDGE__" in window;
 }
 
 function readValidationActionsEnabled() {
@@ -3180,7 +3180,7 @@ function catalogOAuthDeepLinkRedirectUri(providerId: string) {
 }
 
 function catalogOAuthDefaultRedirectUri(providerId: string) {
-  if (isTauriRuntime()) return catalogOAuthDeepLinkRedirectUri(providerId);
+  if (isHypervisorClientRuntime()) return catalogOAuthDeepLinkRedirectUri(providerId);
   if (typeof window === "undefined") return "http://127.0.0.1/oauth/callback";
   const current = new URL(window.location.href);
   current.hash = "";
@@ -6942,13 +6942,13 @@ export function MissionControlMountsView() {
     consumeCatalogOAuthCallback(callback, "browser-query");
   }, [catalogOAuthCallbackConsumed, consumeCatalogOAuthCallback]);
   useEffect(() => {
-    if (!isTauriRuntime()) return undefined;
+    if (!isHypervisorClientRuntime()) return undefined;
     let active = true;
     let unlisten: (() => void) | null = null;
     const consumeUrls = (urls: string[]) => {
       if (!active) return;
       const callback = firstCatalogOAuthCallbackFromDeepLinks(urls);
-      if (callback) consumeCatalogOAuthCallback(callback, "tauri-deep-link");
+      if (callback) consumeCatalogOAuthCallback(callback, "host-deep-link");
     };
     void getCurrentDeepLinks()
       .then((urls) => consumeUrls(urls ?? []))

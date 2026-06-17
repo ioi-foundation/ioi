@@ -5,7 +5,7 @@ import {
   type ShieldPolicyState,
 } from "../../../surfaces/Policy";
 import type { PrimaryView } from "../autopilotShellModel";
-import { type TauriRuntime } from "../../../services/TauriRuntime";
+import { type HypervisorClientRuntime } from "../../../services/HypervisorClientRuntime";
 import {
   openArtifactReviewTarget,
   openEvidenceReviewSession,
@@ -36,7 +36,7 @@ interface ProjectScope {
 }
 
 interface ChatUtilityDrawerProps {
-  runtime: TauriRuntime;
+  runtime: HypervisorClientRuntime;
   activeView: PrimaryView;
   chatSurface: "chat" | "reply-composer" | "meeting-prep";
   operatorPaneOpen: boolean;

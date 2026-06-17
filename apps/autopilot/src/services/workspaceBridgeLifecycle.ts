@@ -1,4 +1,4 @@
-import type { TauriRuntime } from "./TauriRuntime";
+import type { HypervisorClientRuntime } from "./HypervisorClientRuntime";
 import { buildWorkspaceBridgeState } from "./workspaceBridgeState";
 import type { WorkspaceBridgeRouteRequest } from "./workspaceBridgeTypes";
 import {
@@ -15,7 +15,7 @@ type MetricRecorder = (name: string, detail?: Record<string, unknown>) => void;
 
 export function startWorkspaceBridgeStateSync(params: {
   host: WorkspaceWorkbenchHost;
-  runtime: TauriRuntime;
+  runtime: HypervisorClientRuntime;
   currentProject: WorkspaceWorkbenchProjectDescriptor;
   session: WorkspaceWorkbenchHostSession;
   refreshMs: number;
@@ -54,7 +54,7 @@ export function startWorkspaceBridgeStateSync(params: {
 export function startWorkspaceBridgeRequestPolling(params: {
   active: boolean;
   host: WorkspaceWorkbenchHost;
-  runtime: TauriRuntime;
+  runtime: HypervisorClientRuntime;
   session: WorkspaceWorkbenchHostSession;
   pollMs: number;
   recordMetric?: MetricRecorder;

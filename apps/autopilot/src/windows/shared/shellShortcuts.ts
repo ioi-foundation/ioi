@@ -74,7 +74,7 @@ export function buildDefaultShellShortcutRecords(
       binding: `${modifier}+Space`,
       defaultBinding: `${modifier}+Space`,
       scope: "Global shell",
-      source: "Tauri global shortcut",
+      source: "Hypervisor host shortcut",
       summary: "Show or hide Chat from anywhere.",
     },
     {

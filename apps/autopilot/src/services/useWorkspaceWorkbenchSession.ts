@@ -4,7 +4,7 @@ import {
   type WorkflowRuntimeUnavailableCopy,
 } from "@ioi/agent-ide";
 
-import type { TauriRuntime } from "./TauriRuntime";
+import type { HypervisorClientRuntime } from "./HypervisorClientRuntime";
 import { markWorkspaceMetric } from "./workspacePerf";
 import {
   type WorkspaceWorkbenchHost,
@@ -19,7 +19,7 @@ export function useWorkspaceWorkbenchSession(params: {
   active: boolean;
   enabled?: boolean;
   currentProject: WorkspaceWorkbenchProjectDescriptor;
-  runtime: TauriRuntime;
+  runtime: HypervisorClientRuntime;
   host: WorkspaceWorkbenchHost;
   onOpenCommandPalette?: (
     initialQuery?: string,

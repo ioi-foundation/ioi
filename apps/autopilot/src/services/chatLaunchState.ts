@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "./hypervisorHostBridge";
 import type {
   AssistantWorkbenchSession,
   ChatViewTarget,
@@ -52,8 +52,8 @@ function canUseStorage() {
   return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
 }
 
-function canUseTauri() {
-  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+function canUseHostBridge() {
+  return typeof window !== "undefined" && "__HYPERVISOR_HOST_BRIDGE__" in window;
 }
 
 export function summarizeAssistantWorkbenchSession(
@@ -237,7 +237,7 @@ export function setPendingChatLaunchRequest(
     return Promise.resolve();
   }
 
-  if (canUseTauri()) {
+  if (canUseHostBridge()) {
     if (!request) {
       return clearPendingChatLaunchRequest();
     }
@@ -260,7 +260,7 @@ export function setPendingChatLaunchRequest(
 export function showChatWithLaunchRequest(
   request: PendingChatLaunchRequest,
 ): Promise<void> {
-  if (canUseTauri()) {
+  if (canUseHostBridge()) {
     return invoke<void>("show_chat_with_target", { request }).catch(async () => {
       await setPendingChatLaunchRequest(request);
       await invoke<void>("show_chat").catch(() => undefined);
@@ -275,7 +275,7 @@ export function clearPendingChatLaunchRequest() {
     return Promise.resolve();
   }
 
-  if (canUseTauri()) {
+  if (canUseHostBridge()) {
     return invoke<void>("clear_pending_chat_launch").catch(() => {
       window.localStorage.removeItem(STORAGE_KEY);
     });
@@ -290,7 +290,7 @@ export function peekPendingChatLaunchRequest(): Promise<PendingChatLaunchEnvelop
     return Promise.resolve(null);
   }
 
-  if (canUseTauri()) {
+  if (canUseHostBridge()) {
     return invoke<PendingChatLaunchEnvelope | null>(
       "peek_pending_chat_launch",
     ).catch(() => readPendingChatLaunchEnvelope());
@@ -304,7 +304,7 @@ export function ackPendingChatLaunchRequest(launchId: string): Promise<boolean> 
     return Promise.resolve(false);
   }
 
-  if (canUseTauri()) {
+  if (canUseHostBridge()) {
     return invoke<boolean>("ack_pending_chat_launch", { launchId }).catch(() => {
       const pendingLaunch = readPendingChatLaunchEnvelope();
       if (pendingLaunch?.launchId === launchId) {
@@ -328,7 +328,7 @@ export function recordChatLaunchReceipt(stage: string, detail: unknown = {}) {
     return Promise.resolve();
   }
 
-  if (canUseTauri()) {
+  if (canUseHostBridge()) {
     return invoke("record_chat_launch_receipt", {
       stage,
       detail,
@@ -346,7 +346,7 @@ export function getChatLaunchReceipts(): Promise<ChatLaunchReceipt[]> {
     return Promise.resolve([]);
   }
 
-  if (canUseTauri()) {
+  if (canUseHostBridge()) {
     return invoke<ChatLaunchReceipt[]>("get_chat_launch_receipts").catch(
       () => readChatLaunchReceipts(),
     );

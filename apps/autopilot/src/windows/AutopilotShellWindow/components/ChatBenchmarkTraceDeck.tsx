@@ -1,5 +1,5 @@
 import { startTransition, useMemo } from "react";
-import { openUrl } from "@tauri-apps/plugin-opener";
+import { openUrl } from "../../../services/hypervisorHostBridge";
 import { toneForRuntimeStatus } from "../../../services/runtimeInspection";
 import type {
   BenchmarkTraceCaseView,

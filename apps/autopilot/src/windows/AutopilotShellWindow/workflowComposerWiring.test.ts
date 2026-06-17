@@ -26,7 +26,7 @@ const engineDetailPane = fs.readFileSync(
 );
 const localEngineSupport = fs.readFileSync(
   new URL(
-    "../../../../../apps/autopilot/src-tauri/src/kernel/data/commands/local_engine_support.rs",
+    "../../../../../internal-docs/legacy/autopilot-tauri-src/src/kernel/data/commands/local_engine_support.rs",
     import.meta.url,
   ),
   "utf8",
@@ -170,12 +170,15 @@ const chatConversationSurfaceTsx = fs.readFileSync(
   ),
   "utf8",
 );
-const tauriWindowDragTs = fs.readFileSync(
-  new URL("../shared/tauriWindowDrag.ts", import.meta.url),
+const hostWindowDragTs = fs.readFileSync(
+  new URL("../shared/hostWindowDrag.ts", import.meta.url),
   "utf8",
 );
-const tauriDefaultCapabilityJson = fs.readFileSync(
-  new URL("../../../src-tauri/capabilities/default.json", import.meta.url),
+const legacyDesktopDefaultCapabilityJson = fs.readFileSync(
+  new URL(
+    "../../../../../internal-docs/legacy/autopilot-tauri-src/capabilities/default.json",
+    import.meta.url,
+  ),
   "utf8",
 );
 const chatShellLayoutCss = fs.readFileSync(
@@ -394,28 +397,34 @@ const promotionTransitionGuiProbe = fs.readFileSync(
   ),
   "utf8",
 );
-const tauriRuntime = fs.readFileSync(
-  new URL("../../services/TauriRuntime.ts", import.meta.url),
+const hypervisorClientRuntime = fs.readFileSync(
+  new URL("../../services/HypervisorClientRuntime.ts", import.meta.url),
   "utf8",
 );
-const tauriLib = fs.readFileSync(
-  new URL("../../../src-tauri/src/lib.rs", import.meta.url),
+const legacyDesktopLib = fs.readFileSync(
+  new URL(
+    "../../../../../internal-docs/legacy/autopilot-tauri-src/src/lib.rs",
+    import.meta.url,
+  ),
   "utf8",
 );
 const projectCommands = fs.readFileSync(
-  new URL("../../../src-tauri/src/project/commands.rs", import.meta.url),
+  new URL(
+    "../../../../../internal-docs/legacy/autopilot-tauri-src/src/project/commands.rs",
+    import.meta.url,
+  ),
   "utf8",
 );
 const projectWorkflowPolicyLane = fs.readFileSync(
   new URL(
-    "../../../src-tauri/src/project/workflow_run_policy_lane.rs",
+    "../../../../../internal-docs/legacy/autopilot-tauri-src/src/project/workflow_run_policy_lane.rs",
     import.meta.url,
   ),
   "utf8",
 );
 const projectRuntime = [
-  "../../../src-tauri/src/project/runtime.rs",
-  "../../../src-tauri/src/project/workflow_coding_route_lane.rs",
+  "../../../../../internal-docs/legacy/autopilot-tauri-src/src/project/runtime.rs",
+  "../../../../../internal-docs/legacy/autopilot-tauri-src/src/project/workflow_coding_route_lane.rs",
 ]
   .map((path) => fs.readFileSync(new URL(path, import.meta.url), "utf8"))
   .join("\n");
@@ -601,8 +610,8 @@ assert.match(
 
 assert.match(
   chatIdeHeaderTsx,
-  /className="chat-ide-drag-surface"[\s\S]*data-tauri-drag-region[\s\S]*onMouseDown=\{startTauriWindowDrag\}/,
-  "The frameless shell header should expose a broad native Tauri drag region outside the window-control buttons",
+  /className="chat-ide-drag-surface"[\s\S]*data-host-drag-region[\s\S]*onMouseDown=\{startHostWindowDrag\}/,
+  "The frameless shell header should expose a broad host-window drag region outside the window-control buttons",
 );
 
 assert.match(
@@ -630,15 +639,15 @@ assert.match(
 );
 
 assert.match(
-  tauriWindowDragTs,
+  hostWindowDragTs,
   /setPosition\(new PhysicalPosition/,
-  "The frameless drag helper should move the native Tauri window deterministically instead of relying on browser-only app-region CSS",
+  "The frameless drag helper should move the native host window deterministically instead of relying on browser-only app-region CSS",
 );
 
 assert.match(
-  tauriDefaultCapabilityJson,
+  legacyDesktopDefaultCapabilityJson,
   /"core:window:allow-set-position"/,
-  "The Tauri chat window capability must allow deterministic manual movement for frameless drag lanes",
+  "The retired desktop archive capability should preserve deterministic manual movement evidence for frameless drag lanes",
 );
 
 assert.match(
@@ -941,7 +950,7 @@ assert.match(
 );
 
 assert.match(
-  tauriRuntime,
+  hypervisorClientRuntime,
   /listWorkflowSkillCatalog[\s\S]*getSkillCatalog\(\)[\s\S]*getSkillDetail\(skill\.skill_hash\)[\s\S]*workflowOptionsWithSkillCatalog/,
   "Workflow runtime should populate skill context from the runtime skill registry catalog/detail APIs",
 );
@@ -949,7 +958,7 @@ assert.match(
 assert.match(
   projectCommands,
   /WorkflowSkillResolver::from_options\(options\.as_ref\(\)\)[\s\S]*execute_workflow_project/,
-  "Tauri workflow run commands should pass the runtime skill resolver into execution",
+  "Retired desktop workflow run commands should preserve the runtime skill resolver execution evidence",
 );
 
 assert.match(
@@ -1001,7 +1010,7 @@ assert.match(
 );
 
 assert.match(
-  tauriRuntime,
+  hypervisorClientRuntime,
   /(?=[\s\S]*listWorkflowCodingRoutes)(?=[\s\S]*WORKFLOW_CODING_ROUTE_CONTRACTS)(?=[\s\S]*workflowDraftSkillsFromSources)(?=[\s\S]*importWorkflowSkillPack)(?=[\s\S]*addSkillSource)(?=[\s\S]*syncSkillSource)(?=[\s\S]*applyWorkflowPromotionDecisions)/,
   "Autopilot runtime should provide route catalog access, Draft skill-pack import, and promotion metadata updates through registry APIs",
 );
@@ -1547,15 +1556,15 @@ assert.match(
 );
 
 assert.match(
-  tauriRuntime,
+  hypervisorClientRuntime,
   /async checkWorkflowBinding[\s\S]*invoke\(\"check_workflow_binding\"[\s\S]*bindingId: bindingId \?\? null[\s\S]*async generateWorkflowBindingManifest[\s\S]*invoke\(\"generate_workflow_binding_manifest\"[\s\S]*async loadWorkflowBindingManifest[\s\S]*invoke\(\"load_workflow_binding_manifest\"/,
   "Desktop runtime should call typed binding commands instead of keeping checks UI-local",
 );
 
 assert.match(
-  tauriLib,
+  legacyDesktopLib,
   /project::check_workflow_binding[\s\S]*project::generate_workflow_binding_manifest[\s\S]*project::load_workflow_binding_manifest/,
-  "Tauri command registry should expose binding checks and manifests to the GUI harness",
+  "Retired desktop command registry should preserve binding checks and manifest evidence for the GUI harness",
 );
 
 assert.match(
@@ -1571,15 +1580,15 @@ assert.match(
 );
 
 assert.match(
-  tauriRuntime,
+  hypervisorClientRuntime,
   /async restoreWorkflowRevision[\s\S]*invoke\(\"restore_workflow_revision\"[\s\S]*request/,
   "Desktop runtime should call the git-backed workflow revision restore command",
 );
 
 assert.match(
-  tauriLib,
+  legacyDesktopLib,
   /project::save_workflow_project[\s\S]*project::restore_workflow_revision[\s\S]*project::save_workflow_tests/,
-  "Tauri command registry should expose restore_workflow_revision beside workflow persistence",
+  "Retired desktop command registry should preserve restore_workflow_revision beside workflow persistence",
 );
 
 assert.match(
@@ -2690,7 +2699,7 @@ assert.match(
 );
 
 assert.match(
-  tauriRuntime,
+  hypervisorClientRuntime,
   /run_workflow_project_live[\s\S]*run_workflow_node_live/,
   "Workflow composer runs should call the live daemon project/node runner so configured model nodes can use mounted inference",
 );
@@ -2709,7 +2718,7 @@ assert.match(
 
 assert.match(
   `${workflowRunHistoryModel}\n${workflowRunCapabilityReceipts}\n${workflowRailRunsPanel}`,
-  /(?=[\s\S]*WorkflowRunCapabilityReceiptProjection)(?=[\s\S]*workflowRunCapabilityReceiptProjection)(?=[\s\S]*workflow-run-capability-receipts)(?=[\s\S]*workflow-run-capability-receipt-\$\{row\.nodeId\})(?=[\s\S]*data-capability-ref)(?=[\s\S]*data-grant-status)(?=[\s\S]*data-policy-status)(?=[\s\S]*data-receipt-required)(?=[\s\S]*data-fail-closed)(?=[\s\S]*repairActions)(?=[\s\S]*workflow-run-capability-repair-\$\{action\.kind\}-\$\{rowNodeId\})(?=[\s\S]*data-target-surface)(?=[\s\S]*\/api\/v1\/authority)/,
+  /(?=[\s\S]*WorkflowRunCapabilityReceiptProjection)(?=[\s\S]*workflowRunCapabilityReceiptProjection)(?=[\s\S]*workflow-run-capability-receipts)(?=[\s\S]*workflow-run-capability-receipt-\$\{row\.nodeId\})(?=[\s\S]*data-capability-ref)(?=[\s\S]*data-grant-status)(?=[\s\S]*data-policy-status)(?=[\s\S]*data-receipt-required)(?=[\s\S]*data-fail-closed)(?=[\s\S]*repairActions)(?=[\s\S]*workflow-run-capability-repair-\$\{action\.kind\}-\$\{rowNodeId\})(?=[\s\S]*data-target-surface)(?=[\s\S]*\/v1\/model-mount\/authority)/,
   "Workflow run inspector should project canonical model/tool/connector capability refs with grant, policy, receipt, and fail-closed evidence.",
 );
 
@@ -2720,7 +2729,7 @@ assert.match(
 );
 
 assert.match(
-  `${tauriRuntime}\n${tauriLib}\n${projectCommands}\n${workflowRailRunsPanel}`,
+  `${hypervisorClientRuntime}\n${legacyDesktopLib}\n${projectCommands}\n${workflowRailRunsPanel}`,
   /(?=[\s\S]*createWorkflowCapabilityGrantRequest)(?=[\s\S]*listWorkflowCapabilityGrantRequests)(?=[\s\S]*resolveWorkflowCapabilityGrantRequest)(?=[\s\S]*applyWorkflowCapabilityGrantRequest)(?=[\s\S]*create_workflow_capability_grant_request)(?=[\s\S]*resolve_workflow_capability_grant_request)(?=[\s\S]*apply_workflow_capability_grant_request)(?=[\s\S]*authority_grant_request)(?=[\s\S]*secretMaterialPresent)(?=[\s\S]*data-grant-request-status)(?=[\s\S]*workflow-run-capability-grant-\$\{decision\})(?=[\s\S]*apply_approved_grant)/,
   "Authority grant repair should have daemon lifecycle commands, redacted receipt results, and run-rail draft/resolve/apply projection.",
 );

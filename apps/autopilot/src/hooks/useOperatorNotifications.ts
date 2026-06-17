@@ -1,5 +1,5 @@
-import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
+import { invoke } from "../services/hypervisorHostBridge";
+import { listen } from "../services/hypervisorHostBridge";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
   AssistantNotificationRecord,

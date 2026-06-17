@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
+import { invoke } from "../../services/hypervisorHostBridge";
+import { listen } from "../../services/hypervisorHostBridge";
 import {
   isPermissionGranted,
   requestPermission,
   sendNotification,
-} from "@tauri-apps/plugin-notification";
+} from "../../services/hypervisorHostBridge";
 import type {
   AgentConfiguration,
   AgentSummary,
@@ -16,7 +16,7 @@ import type {
 import { useAssistantWorkbenchState } from "@ioi/agent-ide";
 import { bootstrapAgentSession, useAgentStore } from "../../session/autopilotSession";
 import { listenForAutopilotDataReset } from "../../services/autopilotReset";
-import { safelyDisposeTauriListener } from "../../services/tauriListeners";
+import { safelyDisposeHostListener } from "../../services/hostListeners";
 import {
   ackPendingChatLaunchRequest,
   peekPendingChatLaunchRequest,
@@ -250,8 +250,8 @@ async function sendNativeAutopilotNotification(
   }
 }
 
-function isTauriRuntime(): boolean {
-  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+function isHypervisorClientRuntime(): boolean {
+  return typeof window !== "undefined" && "__HYPERVISOR_HOST_BRIDGE__" in window;
 }
 
 export function useAutopilotShellController() {
@@ -656,7 +656,7 @@ export function useAutopilotShellController() {
 
   useEffect(() => {
     let active = true;
-    const unlistenPromise = isTauriRuntime()
+    const unlistenPromise = isHypervisorClientRuntime()
       ? listen<PendingChatLaunchEnvelope>("request-chat-launch", (event) => {
           if (!active) {
             return;
@@ -672,7 +672,7 @@ export function useAutopilotShellController() {
 
     return () => {
       active = false;
-      safelyDisposeTauriListener(unlistenPromise);
+      safelyDisposeHostListener(unlistenPromise);
     };
   }, []);
 
@@ -689,7 +689,7 @@ export function useAutopilotShellController() {
         // Best-effort bootstrap only.
       });
 
-    const unlistenPromise = isTauriRuntime()
+    const unlistenPromise = isHypervisorClientRuntime()
       ? listen<AssistantUserProfile>("assistant-user-profile-updated", (event) => {
           if (cancelled) return;
           setProfile(event.payload);
@@ -699,7 +699,7 @@ export function useAutopilotShellController() {
 
     return () => {
       cancelled = true;
-      safelyDisposeTauriListener(unlistenPromise);
+      safelyDisposeHostListener(unlistenPromise);
     };
   }, []);
 
@@ -707,7 +707,7 @@ export function useAutopilotShellController() {
     const resetUnlistenPromise = listenForAutopilotDataReset();
 
     return () => {
-      safelyDisposeTauriListener(resetUnlistenPromise);
+      safelyDisposeHostListener(resetUnlistenPromise);
     };
   }, []);
 
@@ -738,17 +738,17 @@ export function useAutopilotShellController() {
         // Best-effort bootstrap only.
       });
 
-    const badgeUnlistenPromise = isTauriRuntime()
+    const badgeUnlistenPromise = isHypervisorClientRuntime()
       ? listen<number>("notifications-badge-updated", (event) => {
           setNotificationBadgeCount(event.payload);
         })
       : null;
-    const interventionToastUnlistenPromise = isTauriRuntime()
+    const interventionToastUnlistenPromise = isHypervisorClientRuntime()
       ? listen<InterventionRecord>("intervention-toast-candidate", (event) => {
           void sendNativeAutopilotNotification(event.payload);
         })
       : null;
-    const assistantToastUnlistenPromise = isTauriRuntime()
+    const assistantToastUnlistenPromise = isHypervisorClientRuntime()
       ? listen<AssistantNotificationRecord>(
           "assistant-notification-toast-candidate",
           (event) => {
@@ -759,9 +759,9 @@ export function useAutopilotShellController() {
 
     return () => {
       cancelled = true;
-      safelyDisposeTauriListener(badgeUnlistenPromise);
-      safelyDisposeTauriListener(interventionToastUnlistenPromise);
-      safelyDisposeTauriListener(assistantToastUnlistenPromise);
+      safelyDisposeHostListener(badgeUnlistenPromise);
+      safelyDisposeHostListener(interventionToastUnlistenPromise);
+      safelyDisposeHostListener(assistantToastUnlistenPromise);
     };
   }, []);
 
@@ -803,7 +803,7 @@ export function useAutopilotShellController() {
         }
       });
 
-    const unlistenPromise = isTauriRuntime()
+    const unlistenPromise = isHypervisorClientRuntime()
       ? listen<CapabilityGovernanceRequest | null>(
           "capability-governance-request-updated",
           (event) => {
@@ -816,7 +816,7 @@ export function useAutopilotShellController() {
 
     return () => {
       cancelled = true;
-      safelyDisposeTauriListener(unlistenPromise);
+      safelyDisposeHostListener(unlistenPromise);
     };
   }, []);
 

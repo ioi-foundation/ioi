@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "./hypervisorHostBridge";
 import type {
   WorkspaceAdapter,
   WorkspaceCommitResult,
@@ -60,7 +60,7 @@ function cacheWorkspaceSnapshot(root: string, snapshot: WorkspaceSnapshot): Work
   return snapshot;
 }
 
-export const tauriWorkspaceAdapter: WorkspaceAdapter = {
+export const hostWorkspaceAdapter: WorkspaceAdapter = {
   inspectWorkspace(root) {
     return loadWorkspaceSnapshot(root);
   },
