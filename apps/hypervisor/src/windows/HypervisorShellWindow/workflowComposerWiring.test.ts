@@ -538,7 +538,7 @@ assert.match(
 
 assert.match(
   autopilotMain,
-  /applyAutopilotAppearance\(loadAutopilotAppearance\(\)\);/,
+  /applyHypervisorAppearance\(loadHypervisorAppearance\(\)\);/,
   "Autopilot should apply the saved appearance before the first shell render to avoid split light/dark startup surfaces",
 );
 
@@ -550,7 +550,7 @@ assert.match(
 
 assert.match(
   chatShellLayoutCss,
-  /spot-window\.spot-window--chat[\s\S]*justify-content: stretch[\s\S]*:root\[data-autopilot-theme\^="light"\] \.spot-window\.spot-window--chat[\s\S]*--spot-bg-primary: #ffffff/,
+  /spot-window\.spot-window--chat[\s\S]*justify-content: stretch[\s\S]*:root\[data-hypervisor-theme\^="light"\] \.spot-window\.spot-window--chat[\s\S]*--spot-bg-primary: #ffffff/,
   "The fullscreen chat surface should only use light-specific tokens when the root appearance is light",
 );
 

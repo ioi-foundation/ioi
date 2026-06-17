@@ -106,7 +106,7 @@ body.chat-session-shell-host,
   align-items: stretch;
 }
 
-:root[data-autopilot-theme^="light"] .spot-window.spot-window--chat {
+:root[data-hypervisor-theme^="light"] .spot-window.spot-window--chat {
   --spot-bg-primary: #ffffff;
   --spot-bg-secondary: #f3f3f3;
   --spot-bg-tertiary: #f8f8f8;

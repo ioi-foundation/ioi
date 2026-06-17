@@ -1,5 +1,5 @@
 import type { HypervisorClientRuntime } from "./HypervisorClientRuntime";
-import { buildAutopilotAppearanceBridgeState } from "./autopilotAppearance";
+import { buildHypervisorAppearanceBridgeState } from "./hypervisorAppearance";
 import type { AgentTask, ChatMessage, SessionSummary } from "../types";
 import {
   buildWorkspaceArtifactInspections,
@@ -120,7 +120,7 @@ export async function buildWorkspaceBridgeState(
     schemaVersion: 1,
     generatedAtMs: Date.now(),
     authoritativeRuntime: true,
-    appearance: buildAutopilotAppearanceBridgeState(),
+    appearance: buildHypervisorAppearanceBridgeState(),
     workspace: {
       ...host.describeBridgeWorkspace(session, currentProject),
     },

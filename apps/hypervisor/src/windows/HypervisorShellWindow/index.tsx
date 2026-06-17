@@ -7,13 +7,13 @@ import React, {
 import { RuntimeCatalogStageModal } from "../../components/RuntimeCatalogStageModal";
 import { CommandPalette } from "../../components/CommandPalette";
 import {
-  applyAutopilotAppearance,
-  loadAutopilotAppearance,
-  subscribeAutopilotAppearance,
-} from "../../services/autopilotAppearance";
+  applyHypervisorAppearance,
+  loadHypervisorAppearance,
+  subscribeHypervisorAppearance,
+} from "../../services/hypervisorAppearance";
 import { HypervisorClientRuntime } from "../../services/HypervisorClientRuntime";
 import { isBenignHostListenerCleanupError } from "../../services/hostListeners";
-import { markAutopilotMetric } from "../../services/workspacePerf";
+import { markHypervisorMetric } from "../../services/workspacePerf";
 import { HypervisorShellContent } from "./components/HypervisorShellContent";
 import { HypervisorNewSessionModal } from "./components/HypervisorNewSessionModal";
 import { useHypervisorShellController } from "./useHypervisorShellController";
@@ -240,12 +240,12 @@ function HypervisorShellWindowLoaded() {
   const controller = useHypervisorShellController();
 
   useEffect(() => {
-    markAutopilotMetric("chat_window_loaded");
+    markHypervisorMetric("chat_window_loaded");
   }, []);
 
   useEffect(() => {
-    applyAutopilotAppearance(loadAutopilotAppearance());
-    return subscribeAutopilotAppearance(applyAutopilotAppearance);
+    applyHypervisorAppearance(loadHypervisorAppearance());
+    return subscribeHypervisorAppearance(applyHypervisorAppearance);
   }, []);
 
   const handleStageCatalogEntry = async (entry: {

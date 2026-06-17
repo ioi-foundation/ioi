@@ -185,7 +185,7 @@ export function OpenVsCodeDirectSurface({
   const [localMenuOpen, setLocalMenuOpen] = useState(false);
   const [themeId, setThemeId] = useState<string>(() => {
     if (typeof document !== "undefined") {
-      return document.documentElement.dataset.autopilotTheme ?? "dark-modern";
+      return document.documentElement.dataset.hypervisorTheme ?? "dark-modern";
     }
     return "dark-modern";
   });
@@ -207,11 +207,11 @@ export function OpenVsCodeDirectSurface({
   useEffect(() => {
     if (typeof document === "undefined") return;
     const observer = new MutationObserver(() => {
-      setThemeId(document.documentElement.dataset.autopilotTheme ?? "dark-modern");
+      setThemeId(document.documentElement.dataset.hypervisorTheme ?? "dark-modern");
     });
     observer.observe(document.documentElement, {
       attributes: true,
-      attributeFilter: ["data-autopilot-theme"],
+      attributeFilter: ["data-hypervisor-theme"],
     });
     return () => observer.disconnect();
   }, []);

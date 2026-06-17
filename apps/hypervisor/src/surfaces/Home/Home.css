@@ -1681,17 +1681,17 @@
   overflow-wrap: anywhere;
 }
 
-:root[data-autopilot-theme^="dark"] .chat-home-zero {
+:root[data-hypervisor-theme^="dark"] .chat-home-zero {
   background:
     linear-gradient(115deg, rgba(12, 108, 242, 0.12) 0 1px, transparent 1px 168px),
     linear-gradient(32deg, rgba(40, 167, 198, 0.1) 0 1px, transparent 1px 146px),
     linear-gradient(180deg, rgba(22, 30, 46, 0.98) 0, rgba(19, 22, 31, 0.94) 260px, var(--chat-bg) 560px);
 }
 
-:root[data-autopilot-theme^="dark"] .chat-home-zero-search,
-:root[data-autopilot-theme^="dark"] .chat-home-zero-actions,
-:root[data-autopilot-theme^="dark"] .chat-home-zero-table,
-:root[data-autopilot-theme^="dark"] .chat-home-zero-side-card {
+:root[data-hypervisor-theme^="dark"] .chat-home-zero-search,
+:root[data-hypervisor-theme^="dark"] .chat-home-zero-actions,
+:root[data-hypervisor-theme^="dark"] .chat-home-zero-table,
+:root[data-hypervisor-theme^="dark"] .chat-home-zero-side-card {
   background: color-mix(in srgb, var(--chat-bg-elevated) 90%, #000000 10%);
 }
 

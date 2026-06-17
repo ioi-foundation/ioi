@@ -1,29 +1,29 @@
-export type AutopilotThemeId =
+export type HypervisorThemeId =
   | "dark-modern"
   | "light-modern"
   | "dark-high-contrast"
   | "light-high-contrast";
 
-export type AutopilotDensity = "default" | "compact";
+export type HypervisorDensity = "default" | "compact";
 
-export interface AutopilotAppearanceState {
-  themeId: AutopilotThemeId;
-  density: AutopilotDensity;
+export interface HypervisorAppearanceState {
+  themeId: HypervisorThemeId;
+  density: HypervisorDensity;
   updatedAtMs: number;
 }
 
-export interface AutopilotThemeOption {
-  id: AutopilotThemeId;
+export interface HypervisorThemeOption {
+  id: HypervisorThemeId;
   label: string;
   description: string;
   openVsCodeColorTheme: string;
   sourceMedia: string;
 }
 
-const STORAGE_KEY = "autopilot.appearance.v1";
-const APPEARANCE_EVENT = "autopilot-appearance-updated";
+const STORAGE_KEY = "hypervisor.appearance.v1";
+const APPEARANCE_EVENT = "hypervisor-appearance-updated";
 
-export const AUTOPILOT_THEME_OPTIONS: AutopilotThemeOption[] = [
+export const HYPERVISOR_THEME_OPTIONS: HypervisorThemeOption[] = [
   {
     id: "dark-modern",
     label: "Dark Modern",
@@ -34,7 +34,7 @@ export const AUTOPILOT_THEME_OPTIONS: AutopilotThemeOption[] = [
   {
     id: "light-modern",
     label: "Light Modern",
-    description: "The light OpenVSCode setup baseline, adapted for Autopilot.",
+    description: "The light OpenVSCode setup baseline, adapted for Hypervisor.",
     openVsCodeColorTheme: "Default Light Modern",
     sourceMedia: "light.png",
   },
@@ -54,7 +54,7 @@ export const AUTOPILOT_THEME_OPTIONS: AutopilotThemeOption[] = [
   },
 ];
 
-const DEFAULT_APPEARANCE: AutopilotAppearanceState = {
+const DEFAULT_APPEARANCE: HypervisorAppearanceState = {
   themeId: "light-modern",
   density: "default",
   updatedAtMs: 0,
@@ -64,24 +64,24 @@ function hasBrowserStorage(): boolean {
   return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
 }
 
-function isThemeId(value: unknown): value is AutopilotThemeId {
-  return AUTOPILOT_THEME_OPTIONS.some((option) => option.id === value);
+function isThemeId(value: unknown): value is HypervisorThemeId {
+  return HYPERVISOR_THEME_OPTIONS.some((option) => option.id === value);
 }
 
-function isDensity(value: unknown): value is AutopilotDensity {
+function isDensity(value: unknown): value is HypervisorDensity {
   return value === "default" || value === "compact";
 }
 
-export function getAutopilotThemeOption(
-  themeId: AutopilotThemeId,
-): AutopilotThemeOption {
+export function getHypervisorThemeOption(
+  themeId: HypervisorThemeId,
+): HypervisorThemeOption {
   return (
-    AUTOPILOT_THEME_OPTIONS.find((option) => option.id === themeId) ??
-    AUTOPILOT_THEME_OPTIONS[0]
+    HYPERVISOR_THEME_OPTIONS.find((option) => option.id === themeId) ??
+    HYPERVISOR_THEME_OPTIONS[0]
   );
 }
 
-export function loadAutopilotAppearance(): AutopilotAppearanceState {
+export function loadHypervisorAppearance(): HypervisorAppearanceState {
   if (!hasBrowserStorage()) {
     return { ...DEFAULT_APPEARANCE };
   }
@@ -91,7 +91,7 @@ export function loadAutopilotAppearance(): AutopilotAppearanceState {
     if (!raw) {
       return { ...DEFAULT_APPEARANCE };
     }
-    const parsed = JSON.parse(raw) as Partial<AutopilotAppearanceState>;
+    const parsed = JSON.parse(raw) as Partial<HypervisorAppearanceState>;
     return {
       themeId: isThemeId(parsed.themeId)
         ? parsed.themeId
@@ -109,25 +109,25 @@ export function loadAutopilotAppearance(): AutopilotAppearanceState {
   }
 }
 
-export function applyAutopilotAppearance(
-  appearance: AutopilotAppearanceState = loadAutopilotAppearance(),
+export function applyHypervisorAppearance(
+  appearance: HypervisorAppearanceState = loadHypervisorAppearance(),
 ): void {
   if (typeof document === "undefined") {
     return;
   }
 
-  document.documentElement.dataset.autopilotTheme = appearance.themeId;
-  document.documentElement.dataset.autopilotDensity = appearance.density;
+  document.documentElement.dataset.hypervisorTheme = appearance.themeId;
+  document.documentElement.dataset.hypervisorDensity = appearance.density;
   document.documentElement.style.colorScheme = appearance.themeId.includes("light")
     ? "light"
     : "dark";
 }
 
-export function saveAutopilotAppearance(
-  patch: Partial<Omit<AutopilotAppearanceState, "updatedAtMs">>,
-): AutopilotAppearanceState {
-  const next: AutopilotAppearanceState = {
-    ...loadAutopilotAppearance(),
+export function saveHypervisorAppearance(
+  patch: Partial<Omit<HypervisorAppearanceState, "updatedAtMs">>,
+): HypervisorAppearanceState {
+  const next: HypervisorAppearanceState = {
+    ...loadHypervisorAppearance(),
     ...patch,
     updatedAtMs: Date.now(),
   };
@@ -136,12 +136,12 @@ export function saveAutopilotAppearance(
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
     window.dispatchEvent(new CustomEvent(APPEARANCE_EVENT, { detail: next }));
   }
-  applyAutopilotAppearance(next);
+  applyHypervisorAppearance(next);
   return next;
 }
 
-export function subscribeAutopilotAppearance(
-  callback: (appearance: AutopilotAppearanceState) => void,
+export function subscribeHypervisorAppearance(
+  callback: (appearance: HypervisorAppearanceState) => void,
 ): () => void {
   if (typeof window === "undefined") {
     return () => undefined;
@@ -150,8 +150,8 @@ export function subscribeAutopilotAppearance(
   const handler = (event: Event) => {
     callback(
       event instanceof CustomEvent
-        ? (event.detail as AutopilotAppearanceState)
-        : loadAutopilotAppearance(),
+        ? (event.detail as HypervisorAppearanceState)
+        : loadHypervisorAppearance(),
     );
   };
   window.addEventListener(APPEARANCE_EVENT, handler);
@@ -162,15 +162,15 @@ export function subscribeAutopilotAppearance(
   };
 }
 
-export function buildAutopilotAppearanceBridgeState() {
-  const appearance = loadAutopilotAppearance();
-  const theme = getAutopilotThemeOption(appearance.themeId);
+export function buildHypervisorAppearanceBridgeState() {
+  const appearance = loadHypervisorAppearance();
+  const theme = getHypervisorThemeOption(appearance.themeId);
   return {
     themeId: appearance.themeId,
     themeLabel: theme.label,
     density: appearance.density,
     openVsCodeColorTheme: theme.openVsCodeColorTheme,
-    source: "autopilot-home-onboarding",
+    source: "hypervisor-home-onboarding",
     updatedAtMs: appearance.updatedAtMs,
   };
 }

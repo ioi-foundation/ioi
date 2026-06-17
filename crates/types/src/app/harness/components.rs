@@ -306,7 +306,7 @@ impl HarnessComponentKind {
             Self::MergeJudge => "Merge and judge",
             Self::HandoffBridge => "Handoff bridge",
             Self::CompletionGate => "Completion gate",
-            Self::GuiHarnessValidator => "Autopilot GUI harness validator",
+            Self::GuiHarnessValidator => "Hypervisor App harness validator",
         }
     }
 }

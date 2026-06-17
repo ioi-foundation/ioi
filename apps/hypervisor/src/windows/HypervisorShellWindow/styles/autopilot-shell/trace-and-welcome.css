@@ -1730,20 +1730,20 @@
   color: var(--chat-text);
 }
 
-:root[data-autopilot-theme^="light"] .chat-shell:not(.chat-shell--workspace-mode),
-:root[data-autopilot-theme^="light"] .chat-workspace:not(.chat-workspace--workspace-mode),
-:root[data-autopilot-theme^="light"] .chat-main,
-:root[data-autopilot-theme^="light"] .chat-content {
+:root[data-hypervisor-theme^="light"] .chat-shell:not(.chat-shell--workspace-mode),
+:root[data-hypervisor-theme^="light"] .chat-workspace:not(.chat-workspace--workspace-mode),
+:root[data-hypervisor-theme^="light"] .chat-main,
+:root[data-hypervisor-theme^="light"] .chat-content {
   background: var(--chat-bg);
 }
 
-:root[data-autopilot-theme^="light"] .hypervisor-client-header {
+:root[data-hypervisor-theme^="light"] .hypervisor-client-header {
   background: #f3f3f3;
   border-color: #e5e5e5;
   color: #424242;
 }
 
-:root[data-autopilot-theme^="light"] .chat-activity-bar {
+:root[data-hypervisor-theme^="light"] .chat-activity-bar {
   --chat-activity-bg: #f3f3f3;
   --chat-activity-border: #e5e5e5;
   --chat-activity-divider: #e5e5e5;
@@ -1757,7 +1757,7 @@
   --chat-activity-avatar-text: #1f1f1f;
 }
 
-:root[data-autopilot-theme^="light"] .hypervisor-client-window-button {
+:root[data-hypervisor-theme^="light"] .hypervisor-client-window-button {
   color: #424242;
 }
 

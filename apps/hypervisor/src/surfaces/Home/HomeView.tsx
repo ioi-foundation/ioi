@@ -31,14 +31,14 @@ import {
   getHarnessSelectionRef,
 } from "../../windows/HypervisorShellWindow/harnessAdapterModel";
 import {
-  applyAutopilotAppearance,
-  getAutopilotThemeOption,
-  loadAutopilotAppearance,
-  saveAutopilotAppearance,
-  subscribeAutopilotAppearance,
-  type AutopilotAppearanceState,
-  type AutopilotThemeId,
-} from "../../services/autopilotAppearance";
+  applyHypervisorAppearance,
+  getHypervisorThemeOption,
+  loadHypervisorAppearance,
+  saveHypervisorAppearance,
+  subscribeHypervisorAppearance,
+  type HypervisorAppearanceState,
+  type HypervisorThemeId,
+} from "../../services/hypervisorAppearance";
 import {
   enqueueWorkspaceEditorAdapterBridgeCommand,
   ensureWorkspaceEditorAdapterSession,
@@ -123,7 +123,7 @@ function applyProbeResetOnce(): boolean {
     }
     window.localStorage.removeItem(STORAGE_KEY);
     window.sessionStorage.setItem(RESET_SESSION_KEY, "1");
-    saveAutopilotAppearance({ themeId: "light-modern", density: "default" });
+    saveHypervisorAppearance({ themeId: "light-modern", density: "default" });
     resetAppliedThisPage = true;
     return true;
   } catch {
@@ -731,8 +731,8 @@ export function HomeView({
 }: HomeViewProps) {
   const [state, setState] = useState<HomeOnboardingState>(() => loadState());
   const stateRef = useRef(state);
-  const [appearance, setAppearance] = useState<AutopilotAppearanceState>(() =>
-    loadAutopilotAppearance(),
+  const [appearance, setAppearance] = useState<HypervisorAppearanceState>(() =>
+    loadHypervisorAppearance(),
   );
   const [reviewingCompletedSetup, setReviewingCompletedSetup] = useState(false);
   const [recentMode, setRecentMode] = useState<RecentMode>("files");
@@ -753,7 +753,7 @@ export function HomeView({
     visibleOnboardingSteps.find((step) => step.id === state.selectedStepId) ??
     visibleOnboardingSteps[0] ??
     FIRST_RUN_ONBOARDING_STEPS[0]!;
-  const selectedTheme = getAutopilotThemeOption(appearance.themeId);
+  const selectedTheme = getHypervisorThemeOption(appearance.themeId);
   const completedSet = useMemo(
     () => new Set(state.completedStepIds),
     [state.completedStepIds],
@@ -768,8 +768,8 @@ export function HomeView({
   );
 
   useEffect(() => {
-    applyAutopilotAppearance(appearance);
-    return subscribeAutopilotAppearance(setAppearance);
+    applyHypervisorAppearance(appearance);
+    return subscribeHypervisorAppearance(setAppearance);
   }, []);
 
   useEffect(() => {
@@ -859,8 +859,8 @@ export function HomeView({
     }));
   };
 
-  const applyTheme = (themeId: AutopilotThemeId) => {
-    const nextAppearance = saveAutopilotAppearance({ themeId });
+  const applyTheme = (themeId: HypervisorThemeId) => {
+    const nextAppearance = saveHypervisorAppearance({ themeId });
     setAppearance(nextAppearance);
     markStepDone("setup-theme");
     recordAction("appearance.selectTheme", "setup-theme");

@@ -8,23 +8,23 @@ import "@ioi/workspace-substrate/style.css";
 import "./styles/global.css"; // Hypervisor client theme overrides
 import "./services/sessionRuntime";
 import {
-  applyAutopilotAppearance,
-  loadAutopilotAppearance,
-} from "./services/autopilotAppearance";
-import { markAutopilotMetric } from "./services/workspacePerf";
+  applyHypervisorAppearance,
+  loadHypervisorAppearance,
+} from "./services/hypervisorAppearance";
+import { markHypervisorMetric } from "./services/workspacePerf";
 
 import { GateWindow } from "./windows/GateWindow/index";
 import { HypervisorShellWindow } from "./windows/HypervisorShellWindow";
 import { WorkspaceWorkbenchPreview } from "./dev/WorkspaceWorkbenchPreview";
 import { hideChatSessionShell, hidePillShell, showChatShell } from "@ioi/hypervisor-workbench";
 
-applyAutopilotAppearance(loadAutopilotAppearance());
+applyHypervisorAppearance(loadHypervisorAppearance());
 
 function AppMetricsBeacon() {
   useEffect(() => {
-    markAutopilotMetric("react_router_mounted");
+    markHypervisorMetric("react_router_mounted");
     const frame = window.requestAnimationFrame(() => {
-      markAutopilotMetric("app_first_paint");
+      markHypervisorMetric("app_first_paint");
     });
     return () => window.cancelAnimationFrame(frame);
   }, []);

@@ -17,7 +17,7 @@ const SESSION_ID =
 
 declare global {
   interface Window {
-    __AUTOPILOT_METRICS__?: MetricRecord[];
+    __HYPERVISOR_METRICS__?: MetricRecord[];
   }
 }
 
@@ -40,13 +40,13 @@ function recordMetric(
   };
 
   if (typeof window !== "undefined") {
-    window.__AUTOPILOT_METRICS__ = [
-      ...(window.__AUTOPILOT_METRICS__ ?? []),
+    window.__HYPERVISOR_METRICS__ = [
+      ...(window.__HYPERVISOR_METRICS__ ?? []),
       metric,
     ].slice(-120);
   }
 
-  console.info(`[Autopilot][${category === "app" ? "AppMetric" : "WorkspaceMetric"}]`, {
+  console.info(`[Hypervisor][${category === "app" ? "AppMetric" : "WorkspaceMetric"}]`, {
     sessionId: SESSION_ID,
     stage,
     elapsedMs: metric.elapsedMs,
@@ -54,7 +54,7 @@ function recordMetric(
   });
 }
 
-export function markAutopilotMetric(stage: string, detail?: MetricDetail) {
+export function markHypervisorMetric(stage: string, detail?: MetricDetail) {
   recordMetric("app", stage, detail);
 }
 

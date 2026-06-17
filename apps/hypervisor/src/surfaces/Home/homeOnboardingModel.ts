@@ -1,4 +1,4 @@
-import type { AutopilotThemeId } from "../../services/autopilotAppearance";
+import type { HypervisorThemeId } from "../../services/hypervisorAppearance";
 
 export type OnboardingFamilyId =
   | "setup-vscode-web"
@@ -181,7 +181,7 @@ export interface HomeDashboardCard {
   actionId: OnboardingActionId;
 }
 
-export const HOME_ONBOARDING_FOCUS_EVENT = "autopilot-home-onboarding-focus";
+export const HOME_ONBOARDING_FOCUS_EVENT = "hypervisor-home-onboarding-focus";
 
 export const DEFAULT_ONBOARDING_CONDITION_STATE: OnboardingRouteConditionState = {
   isWeb: true,
@@ -1747,6 +1747,6 @@ export function defaultOnboardingStepId(): string {
   return FIRST_RUN_ONBOARDING_STEPS[0]?.id ?? "setup-theme";
 }
 
-export function recommendedAccessibilityTheme(): AutopilotThemeId {
+export function recommendedAccessibilityTheme(): HypervisorThemeId {
   return "light-high-contrast";
 }

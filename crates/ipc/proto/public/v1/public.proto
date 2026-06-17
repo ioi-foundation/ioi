@@ -26,7 +26,7 @@ service PublicApi {
   rpc GetBlockByHeight (GetBlockByHeightRequest) returns (GetBlockByHeightResponse);
 
   // [NEW] Subscribe to a stream of real-time events (agent thoughts, actions, block commits).
-  // Critical for the "Visual Sovereignty" of the Autopilot GUI.
+  // Critical for the "Visual Sovereignty" of the Hypervisor App.
   rpc SubscribeEvents (SubscribeEventsRequest) returns (stream ChainEvent);
 
   // [NEW] Converts a natural language intent into a signable transaction payload.

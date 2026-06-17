@@ -1,8 +1,8 @@
 import {
-  AUTOPILOT_THEME_OPTIONS,
-  type AutopilotAppearanceState,
-  type AutopilotThemeId,
-} from "../../services/autopilotAppearance";
+  HYPERVISOR_THEME_OPTIONS,
+  type HypervisorAppearanceState,
+  type HypervisorThemeId,
+} from "../../services/hypervisorAppearance";
 import commandPaletteSvg from "../../assets/openvscode-walkthrough/commandPalette.svg";
 import darkHcPng from "../../assets/openvscode-walkthrough/dark-hc.png";
 import darkPng from "../../assets/openvscode-walkthrough/dark.png";
@@ -56,10 +56,10 @@ const WALKTHROUGH_MEDIA: Record<string, string> = {
 interface HomeWalkthroughDocumentProps {
   selectedStep: AutopilotOnboardingStep;
   completedStepIds: ReadonlySet<string>;
-  appearance: AutopilotAppearanceState;
+  appearance: HypervisorAppearanceState;
   onBack: () => void;
   onSkipForNow: () => void;
-  onApplyTheme: (themeId: AutopilotThemeId) => void;
+  onApplyTheme: (themeId: HypervisorThemeId) => void;
   onExecuteAction: (actionId: OnboardingActionId) => void;
   onFocusStep: (stepId: string) => void;
   families: AutopilotOnboardingFamily[];
@@ -92,8 +92,8 @@ function ThemePickerMedia({
   appearance,
   onApplyTheme,
 }: {
-  appearance: AutopilotAppearanceState;
-  onApplyTheme: (themeId: AutopilotThemeId) => void;
+  appearance: HypervisorAppearanceState;
+  onApplyTheme: (themeId: HypervisorThemeId) => void;
 }) {
   return (
     <div
@@ -101,7 +101,7 @@ function ThemePickerMedia({
       aria-label="Theme choices"
       data-home-walkthrough-media="theme-picker"
     >
-      {AUTOPILOT_THEME_OPTIONS.map((theme) => {
+      {HYPERVISOR_THEME_OPTIONS.map((theme) => {
         const mediaSrc = WALKTHROUGH_MEDIA[theme.sourceMedia];
         const selected = appearance.themeId === theme.id;
         return (
@@ -167,9 +167,9 @@ function StepMedia({
   selectedStep,
   onApplyTheme,
 }: {
-  appearance: AutopilotAppearanceState;
+  appearance: HypervisorAppearanceState;
   selectedStep: AutopilotOnboardingStep;
-  onApplyTheme: (themeId: AutopilotThemeId) => void;
+  onApplyTheme: (themeId: HypervisorThemeId) => void;
 }) {
   if (selectedStep.media.kind === "theme-picker") {
     return <ThemePickerMedia appearance={appearance} onApplyTheme={onApplyTheme} />;

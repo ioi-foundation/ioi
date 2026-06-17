@@ -9530,7 +9530,7 @@ export const PublicApiService = {
   },
   /**
    * [NEW] Subscribe to a stream of real-time events (agent thoughts, actions, block commits).
-   * Critical for the "Visual Sovereignty" of the Autopilot GUI.
+   * Critical for the "Visual Sovereignty" of the Hypervisor App.
    */
   subscribeEvents: {
     path: "/ioi.public.v1.PublicApi/SubscribeEvents",
@@ -9617,7 +9617,7 @@ export interface PublicApiServer extends UntypedServiceImplementation {
   getBlockByHeight: handleUnaryCall<GetBlockByHeightRequest, GetBlockByHeightResponse>;
   /**
    * [NEW] Subscribe to a stream of real-time events (agent thoughts, actions, block commits).
-   * Critical for the "Visual Sovereignty" of the Autopilot GUI.
+   * Critical for the "Visual Sovereignty" of the Hypervisor App.
    */
   subscribeEvents: handleServerStreamingCall<SubscribeEventsRequest, ChainEvent>;
   /**
@@ -9739,7 +9739,7 @@ export interface PublicApiClient extends Client {
   ): ClientUnaryCall;
   /**
    * [NEW] Subscribe to a stream of real-time events (agent thoughts, actions, block commits).
-   * Critical for the "Visual Sovereignty" of the Autopilot GUI.
+   * Critical for the "Visual Sovereignty" of the Hypervisor App.
    */
   subscribeEvents(request: SubscribeEventsRequest, options?: Partial<CallOptions>): ClientReadableStream<ChainEvent>;
   subscribeEvents(
