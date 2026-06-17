@@ -444,6 +444,9 @@ test("Providers and Environments surfaces are direct integrations, not Fleet pla
 test("Receipts surface renders Agentgres-bound evidence instead of a placeholder", () => {
   assert.match(receiptEvidenceModel, /HypervisorReceiptEvidenceProjection/);
   assert.match(receiptEvidenceModel, /HYPERVISOR_RECEIPT_EVIDENCE_PROJECTION_FIXTURE/);
+  assert.match(receiptEvidenceModel, /HYPERVISOR_RECEIPT_EVIDENCE_PROJECTION_PATH/);
+  assert.match(receiptEvidenceModel, /loadHypervisorReceiptEvidenceProjection/);
+  assert.match(receiptEvidenceModel, /daemon-receipt-evidence-projection/);
   assert.match(receiptEvidenceModel, /receipt_boundary_invariant/);
   assert.match(receiptEvidenceModel, /Agentgres admits operational truth/);
   assert.match(receiptEvidenceModel, /artifact_refs/);
@@ -453,10 +456,13 @@ test("Receipts surface renders Agentgres-bound evidence instead of a placeholder
   assert.match(receiptEvidenceModel, /harness_comparison/);
   assert.match(receiptEvidenceModel, /artifact_restore/);
   assert.match(shellContent, /HypervisorReceiptEvidenceSurface/);
+  assert.match(shellContent, /loadHypervisorReceiptEvidenceProjection/);
   assert.match(shellContent, /data-hypervisor-receipt-evidence/);
+  assert.match(shellContent, /data-receipt-evidence-source/);
   assert.match(shellContent, /data-receipt-evidence-record/);
   assert.match(shellContent, /data-receipt-evidence-kind/);
   assert.match(shellContent, /data-receipt-evidence-status/);
+  assert.match(shellContent, /\[Hypervisor\]\[Receipts\] evidence projection unavailable/);
   assert.match(shellContent, /activeView === "receipts"/);
   assert.match(shellContent, /activeView !== "receipts"/);
 });

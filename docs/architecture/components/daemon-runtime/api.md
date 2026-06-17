@@ -394,6 +394,57 @@ secret/declassification release; Agentgres admits lifecycle, receipt, archive,
 restore, and state-root truth.
 
 ```http
+GET /v1/hypervisor/receipt-evidence
+```
+
+`GET /v1/hypervisor/receipt-evidence` dispatches through the daemon runtime
+lifecycle projection boundary with:
+
+```text
+operation_kind = runtime.lifecycle_projection.hypervisor_receipt_evidence
+projection_kind = hypervisor_receipt_evidence
+```
+
+Optional query params:
+
+```text
+project_id
+session_ref
+```
+
+The response is an `ioi.hypervisor.receipt_evidence_projection.v1`
+projection:
+
+```json
+{
+  "schema_version": "ioi.hypervisor.receipt_evidence_projection.v1",
+  "projection_id": "receipt-evidence:...",
+  "source": "daemon-receipt-evidence-projection",
+  "records": [
+    {
+      "receipt_ref": "receipt://...",
+      "kind": "session_lifecycle | authority | provider_placement | harness_comparison | environment_lease | artifact_restore",
+      "summary": "Evidence summary.",
+      "source_projection_ref": "session-operations:...",
+      "agentgres_operation_refs": ["agentgres://operation/..."],
+      "artifact_refs": ["artifact://..."],
+      "trace_refs": ["trace://..."],
+      "state_root_ref": "agentgres://state-root/...",
+      "replay_ref": "agentgres://replay/...",
+      "status": "admitted | draft | pending | blocked"
+    }
+  ],
+  "receipt_boundary_invariant": "Receipts make transitions attributable; Agentgres admits operational truth; Hypervisor clients only render evidence projections.",
+  "runtimeTruthSource": "daemon-runtime"
+}
+```
+
+Receipt evidence projections let Hypervisor clients inspect operational
+evidence, replay refs, traces, artifact refs, Agentgres operation refs, and
+state roots without becoming receipt truth. Filtering, drill-in replay, and
+pagination must remain daemon/Agentgres-backed rather than client-authored.
+
+```http
 POST /v1/hypervisor/provider-operations
 ```
 

@@ -1221,8 +1221,16 @@ Current implementation cut:
   status. `HypervisorShellContent` now renders Receipts as an evidence surface
   instead of a placeholder, while tests guard that the client only renders
   daemon/Agentgres evidence projections and does not become receipt truth.
-  Remaining work is live receipt query hydration, filtering, drill-in replay,
-  and durable Agentgres-backed receipt pagination.
+  Receipts now has a normalized
+  `ioi.hypervisor.receipt_evidence_projection.v1` loader and
+  `/v1/hypervisor/receipt-evidence` public runtime route dispatching through
+  `projectRuntimeLifecycle` with
+  `runtime.lifecycle_projection.hypervisor_receipt_evidence`, binding
+  `project_id` and `session_ref` to the evidence request. The Receipts surface
+  marks fixture-vs-daemon source explicitly through
+  `data-receipt-evidence-source`, preserving the boundary that clients inspect
+  receipt evidence while Agentgres admits receipt truth. Remaining work is
+  filtering, drill-in replay, and durable Agentgres-backed receipt pagination.
 
 0A.8/0A.9 first Privacy/cTEE admission posture surface is implemented:
   `hypervisorPrivacyPostureModel.ts` defines

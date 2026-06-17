@@ -69,6 +69,9 @@ const hypervisorAutomationCompositorModelSource = read(
 const hypervisorModelInfrastructureModelSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorModelInfrastructureModel.ts",
 );
+const hypervisorReceiptEvidenceModelSource = read(
+  "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorReceiptEvidenceModel.ts",
+);
 const hypervisorShellWindowSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/index.tsx",
 );
@@ -1331,6 +1334,51 @@ assert(
     "docs/architecture/components/daemon-runtime/api.md",
   ],
   "Hypervisor Providers should hydrate direct provider placement candidates through the daemon/public runtime route while preserving wallet authority, Agentgres truth, and storage-backend boundaries.",
+);
+assert(
+  "hypervisor-receipt-evidence-live-projection",
+  hypervisorReceiptEvidenceModelSource.includes(
+    "HYPERVISOR_RECEIPT_EVIDENCE_PROJECTION_PATH",
+  ) &&
+    hypervisorReceiptEvidenceModelSource.includes(
+      "normalizeHypervisorReceiptEvidenceProjection",
+    ) &&
+    hypervisorReceiptEvidenceModelSource.includes(
+      "loadHypervisorReceiptEvidenceProjection",
+    ) &&
+    hypervisorReceiptEvidenceModelSource.includes(
+      "ioi.hypervisor.receipt_evidence_projection.v1",
+    ) &&
+    hypervisorReceiptEvidenceModelSource.includes(
+      "daemon-receipt-evidence-projection",
+    ) &&
+    hypervisorReceiptEvidenceModelSource.includes(
+      "Agentgres admits operational truth",
+    ) &&
+    hypervisorShellContentSource.includes(
+      "loadHypervisorReceiptEvidenceProjection",
+    ) &&
+    hypervisorShellContentSource.includes("data-receipt-evidence-source") &&
+    hypervisorShellContentSource.includes("data-receipt-evidence-record") &&
+    publicRuntimeRoutesSource.includes("/v1/hypervisor/receipt-evidence") &&
+    publicRuntimeRoutesSource.includes(
+      "runtime.lifecycle_projection.hypervisor_receipt_evidence",
+    ) &&
+    publicRuntimeRoutesSource.includes("projectRuntimeLifecycle") &&
+    publicRuntimeRoutesTestSource.includes(
+      "dispatch Hypervisor receipt evidence through lifecycle projection",
+    ) &&
+    daemonRuntimeApiDoc.includes("GET /v1/hypervisor/receipt-evidence") &&
+    daemonRuntimeApiDoc.includes(
+      "runtime.lifecycle_projection.hypervisor_receipt_evidence",
+    ),
+  [
+    "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorReceiptEvidenceModel.ts",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorShellContent.tsx",
+    "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
+    "docs/architecture/components/daemon-runtime/api.md",
+  ],
+  "Hypervisor Receipts should hydrate receipt evidence, Agentgres operation refs, artifacts, traces, state roots, and replay refs through the daemon/public runtime route with fixture fallback.",
 );
 assert(
   "contract-family-modules",

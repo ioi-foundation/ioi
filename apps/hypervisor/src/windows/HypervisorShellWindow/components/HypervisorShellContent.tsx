@@ -53,7 +53,10 @@ import {
   type HypervisorProviderOperationProposal,
   type HypervisorProviderPlacementCandidate,
 } from "../hypervisorProviderPlacementModel";
-import { HYPERVISOR_RECEIPT_EVIDENCE_PROJECTION_FIXTURE } from "../hypervisorReceiptEvidenceModel";
+import {
+  HYPERVISOR_RECEIPT_EVIDENCE_PROJECTION_FIXTURE,
+  loadHypervisorReceiptEvidenceProjection,
+} from "../hypervisorReceiptEvidenceModel";
 import {
   HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE,
   loadHypervisorSessionOperationsProjection,
@@ -835,13 +838,43 @@ function HypervisorEnvironmentEstateSurface({
   );
 }
 
-function HypervisorReceiptEvidenceSurface() {
-  const projection = HYPERVISOR_RECEIPT_EVIDENCE_PROJECTION_FIXTURE;
+function HypervisorReceiptEvidenceSurface({
+  currentProjectId,
+}: {
+  currentProjectId: string;
+}) {
+  const [projection, setProjection] = useState(
+    HYPERVISOR_RECEIPT_EVIDENCE_PROJECTION_FIXTURE,
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    loadHypervisorReceiptEvidenceProjection({
+      projectId: currentProjectId,
+      sessionRef: HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE.selected_session_ref,
+    })
+      .then((nextProjection) => {
+        if (!cancelled) {
+          setProjection(nextProjection);
+        }
+      })
+      .catch((error) => {
+        console.warn(
+          "[Hypervisor][Receipts] evidence projection unavailable",
+          error,
+        );
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentProjectId]);
+
   return (
     <section
       className="hypervisor-receipt-evidence"
       aria-label="Receipt evidence surface"
       data-hypervisor-receipt-evidence={projection.projection_id}
+      data-receipt-evidence-source={projection.source}
       data-runtime-truth-source={projection.runtimeTruthSource}
     >
       <div className="hypervisor-receipt-evidence__header">
@@ -1439,7 +1472,9 @@ export function HypervisorShellContent({
                   ) : null}
 
                   {activeView === "receipts" ? (
-                    <HypervisorReceiptEvidenceSurface />
+                    <HypervisorReceiptEvidenceSurface
+                      currentProjectId={currentProject.id}
+                    />
                   ) : null}
 
                   {activeView === "missions" ? (

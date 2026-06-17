@@ -682,6 +682,86 @@ test("public runtime routes dispatch Hypervisor provider placement through lifec
   ]);
 });
 
+test("public runtime routes dispatch Hypervisor receipt evidence through lifecycle projection", async () => {
+  const { handleRequest } = routeHarness();
+  const response = responseRecorder();
+  const calls = [];
+  const receiptEvidenceProjection = {
+    schema_version: "ioi.hypervisor.receipt_evidence_projection.v1",
+    projection_id: "receipt-evidence:daemon/test",
+    source: "daemon-receipt-evidence-projection",
+    records: [
+      {
+        receipt_ref: "receipt://session/test",
+        kind: "session_lifecycle",
+        summary: "Session transition receipt evidence.",
+        source_projection_ref: "session-operations:daemon/test",
+        agentgres_operation_refs: ["agentgres://operation/session/test"],
+        artifact_refs: ["artifact://receipt-evidence/session/test"],
+        trace_refs: ["trace://hypervisor/session/test"],
+        state_root_ref: "agentgres://state-root/session/test",
+        replay_ref: "agentgres://replay/session/test",
+        status: "admitted",
+      },
+    ],
+    receipt_boundary_invariant:
+      "Agentgres admits receipt truth; Hypervisor clients render evidence.",
+    runtimeTruthSource: "daemon-runtime",
+  };
+  const contextPolicyCore = {
+    projectRuntimeLifecycle(request) {
+      calls.push({ method: "projectRuntimeLifecycle", request });
+      return {
+        projection: receiptEvidenceProjection,
+        record: {
+          operation_kind:
+            "runtime.lifecycle_projection.hypervisor_receipt_evidence",
+          projection_kind: "hypervisor_receipt_evidence",
+          projection: receiptEvidenceProjection,
+        },
+      };
+    },
+  };
+  const store = {
+    defaultCwd: "/workspace",
+    homeDir: "/home/operator",
+    schemaVersion: "ioi.agentgres.runtime.v0",
+    stateDir: "/state",
+    projectRuntimeLifecycleProjection: retiredRouteWrapper,
+  };
+
+  await handleRequest({
+    request: request({
+      url: "/v1/hypervisor/receipt-evidence?project_id=project:ioi&session_ref=session:ioi",
+    }),
+    response,
+    store,
+    contextPolicyCore,
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(JSON.parse(response.body), receiptEvidenceProjection);
+  assert.deepEqual(calls, [
+    {
+      method: "projectRuntimeLifecycle",
+      request: {
+        operation: "hypervisor_receipt_evidence_projection",
+        operation_kind:
+          "runtime.lifecycle_projection.hypervisor_receipt_evidence",
+        projection_kind: "hypervisor_receipt_evidence",
+        base_url: "http://daemon.test",
+        workspace_root: "/workspace",
+        state_dir: "/state",
+        home_dir: "/home/operator",
+        runtime_schema_version: "ioi.agentgres.runtime.v0",
+        project_id: "project:ioi",
+        session_ref: "session:ioi",
+        source: "public_runtime_routes./v1/hypervisor/receipt-evidence",
+      },
+    },
+  ]);
+});
+
 test("public runtime routes dispatch Hypervisor provider operations through lifecycle admission proposal", async () => {
   const { handleRequest } = routeHarness();
   const response = responseRecorder();
