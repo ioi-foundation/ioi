@@ -4,7 +4,7 @@ Status: canonical reader entry point.
 Canonical owner: this file for first-read architecture orientation and role-based reading paths.
 Supersedes: ad hoc onboarding paths across architecture docs.
 Superseded by: none.
-Last alignment pass: 2026-06-12.
+Last alignment pass: 2026-06-17.
 
 ## Five-Minute Mental Model
 
@@ -171,6 +171,27 @@ Do not add another runtime beside the Hypervisor Daemon. Runtime profiles,
 harnesses, adapters, SDK clients, Hypervisor App/Web/CLI-headless clients, and
 Workbench/Foundry surfaces and provider/environment views are clients,
 projections, application surfaces, views, or daemon-executed profiles.
+
+## Route By Problem
+
+If you are entering the architecture with a concrete implementation problem,
+use this map before reading deep doctrine:
+
+| Problem | Start Here | Then Read |
+| --- | --- | --- |
+| Build the Hypervisor cockpit from the IOI reference shell | [`components/hypervisor/core-clients-surfaces.md`](../components/hypervisor/core-clients-surfaces.md) | [`components/hypervisor/providers-and-environments.md`](../components/hypervisor/providers-and-environments.md), [`components/daemon-runtime/api.md`](../components/daemon-runtime/api.md), [`_meta/implementation-matrix.md`](./implementation-matrix.md) |
+| Route work through Codex/Claude/DeepSeek/Aider-style tools | [`components/hypervisor/core-clients-surfaces.md`](../components/hypervisor/core-clients-surfaces.md) | [`components/daemon-runtime/default-harness-profile.md`](../components/daemon-runtime/default-harness-profile.md), [`components/daemon-runtime/events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md) |
+| Implement wallet authority, approvals, scopes, or agent credentials | [`components/wallet-network/doctrine.md`](../components/wallet-network/doctrine.md) | [`components/wallet-network/api-authority-scopes.md`](../components/wallet-network/api-authority-scopes.md), [`components/wallet-network/product-exchange-risk.md`](../components/wallet-network/product-exchange-risk.md) |
+| Build exchange, trade, perps, or prediction-market flows | [`components/wallet-network/product-exchange-risk.md`](../components/wallet-network/product-exchange-risk.md) | [`domains/decentralized/exchange.md`](../domains/decentralized/exchange.md), [`domains/decentralized/trade.md`](../domains/decentralized/trade.md) |
+| Run private work on rented/cloud/DePIN compute | [`components/daemon-runtime/private-workspace-ctee.md`](../components/daemon-runtime/private-workspace-ctee.md) | [`components/daemon-runtime/runtime-nodes-tee-depin.md`](../components/daemon-runtime/runtime-nodes-tee-depin.md), [`components/hypervisor/providers-and-environments.md`](../components/hypervisor/providers-and-environments.md) |
+| Decide where model weights, private files, or plaintext may live | [`components/daemon-runtime/private-workspace-ctee.md`](../components/daemon-runtime/private-workspace-ctee.md) | [`components/model-router/doctrine.md`](../components/model-router/doctrine.md), [`components/wallet-network/doctrine.md`](../components/wallet-network/doctrine.md) |
+| Persist app/user/agent state, snapshots, archives, or restore refs | [`components/agentgres/artifact-ref-plane.md`](../components/agentgres/artifact-ref-plane.md) | [`components/agentgres/doctrine.md`](../components/agentgres/doctrine.md), [`components/storage-backends/doctrine.md`](../components/storage-backends/doctrine.md) |
+| Handle missing/corrupt/stale payload bytes | [`components/agentgres/artifact-ref-plane.md`](../components/agentgres/artifact-ref-plane.md) | [`components/storage-backends/doctrine.md`](../components/storage-backends/doctrine.md), [`components/storage-backends/filecoin-cas.md`](../components/storage-backends/filecoin-cas.md), [`components/daemon-runtime/events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md) |
+| Publish or rent a long-lived worker | [`domains/aiagent/worker-marketplace.md`](../domains/aiagent/worker-marketplace.md) | [`domains/aiagent/digital-worker-ontology.md`](../domains/aiagent/digital-worker-ontology.md), [`domains/aiagent/managed-worker-instance-lifecycle.md`](../domains/aiagent/managed-worker-instance-lifecycle.md) |
+| Sell or fulfill an autonomous service outcome | [`domains/sas/service-marketplace.md`](../domains/sas/service-marketplace.md) | [`domains/sas/service-endpoints.md`](../domains/sas/service-endpoints.md), [`components/daemon-runtime/events-receipts-delivery-bundles.md`](../components/daemon-runtime/events-receipts-delivery-bundles.md) |
+| Integrate robots, vehicles, drones, or embodied work | [`foundations/physical-action-safety.md`](../foundations/physical-action-safety.md) | [`foundations/aiip.md`](../foundations/aiip.md), [`components/wallet-network/api-authority-scopes.md`](../components/wallet-network/api-authority-scopes.md) |
+| Integrate AWS/GCP/Akash/Filecoin/local/customer providers | [`components/hypervisor/providers-and-environments.md`](../components/hypervisor/providers-and-environments.md) | [`components/storage-backends/doctrine.md`](../components/storage-backends/doctrine.md), [`components/daemon-runtime/hypervisoros.md`](../components/daemon-runtime/hypervisoros.md) |
+| Move work across autonomous systems | [`foundations/aiip.md`](../foundations/aiip.md) | [`foundations/common-objects-and-envelopes.md`](../foundations/common-objects-and-envelopes.md), [`foundations/ioi-l1-mainnet.md`](../foundations/ioi-l1-mainnet.md) |
 
 ## Reader Paths
 

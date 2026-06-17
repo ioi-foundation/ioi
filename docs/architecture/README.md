@@ -4,7 +4,7 @@ Status: canonical navigation and source-of-authority index.
 Canonical owner: this file for architecture navigation; see [`source-of-truth-map.md`](./_meta/source-of-truth-map.md) for subject ownership.
 Supersedes: ad hoc architecture navigation in plans/specs when links or ownership disagree.
 Superseded by: none.
-Last alignment pass: 2026-06-12.
+Last alignment pass: 2026-06-17.
 
 ## Purpose
 
@@ -14,7 +14,20 @@ surface.
 
 If you are new to the canon, start with [`START_HERE.md`](./START_HERE.md). It
 gives the five-minute stack model, role-based reading paths, common boundary
-mistakes, and links to the implementation matrix.
+mistakes, a route-by-problem map for implementers, and links to the
+implementation matrix.
+
+Use the problem map when you already know what you are building:
+
+```text
+Hypervisor cockpit / sessions / adapters
+Wallet authority / exchange / trade
+Private rented compute / cTEE / model-weight posture
+Agentgres refs / storage / restore / artifact repair
+aiagent managed workers / sas service outcomes
+physical or embodied action safety
+provider integrations across local, cloud, DePIN, storage, and HypervisorOS
+```
 
 The core doctrine is:
 

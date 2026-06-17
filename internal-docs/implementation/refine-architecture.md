@@ -1509,6 +1509,7 @@ git diff --check -- internal-docs/implementation docs/architecture apps/hypervis
 
 | Field | Detail |
 | --- | --- |
+| Status | Canonized and guarded on 2026-06-17. Further product screenshots/Playwright checks remain Phase 0A implementation work. |
 | Files | `_meta/start-here.md`, `START_HERE.md`, `README.md` |
 | Change | Show refined stack and route readers by edge case: Wallet authority, private compute, marketplace worker, service outcome, physical action, provider integration. |
 | Acceptance | New implementer can find the owner doc for each refined concept in five minutes. |

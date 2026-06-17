@@ -4,13 +4,46 @@ Status: entry-point shim.
 Canonical owner: [`_meta/start-here.md`](./_meta/start-here.md).
 Supersedes: references that expected a top-level `docs/architecture/START_HERE.md`.
 Superseded by: none.
-Last alignment pass: 2026-06-12.
+Last alignment pass: 2026-06-17.
 
 Start with [`_meta/start-here.md`](./_meta/start-here.md).
 
 That file owns the five-minute stack model, role-based reading paths, common
 boundary mistakes, and links to the source-of-truth map, vocabulary, and
 implementation matrix.
+
+Fast entry routes now live there as well:
+
+```text
+Hypervisor cockpit / IOI reference shell
+  -> components/hypervisor/core-clients-surfaces.md
+
+External coding tools and heterogeneous harnesses
+  -> components/hypervisor/core-clients-surfaces.md
+  -> components/daemon-runtime/default-harness-profile.md
+
+Wallet authority, approvals, agent credentials, exchange, or trade
+  -> components/wallet-network/doctrine.md
+  -> components/wallet-network/product-exchange-risk.md
+
+Private rented/cloud compute and cTEE/model-weight posture
+  -> components/daemon-runtime/private-workspace-ctee.md
+  -> components/hypervisor/providers-and-environments.md
+
+Agentgres refs, storage backends, restore, or artifact repair
+  -> components/agentgres/artifact-ref-plane.md
+  -> components/storage-backends/doctrine.md
+
+aiagent managed workers or sas service outcomes
+  -> domains/aiagent/worker-marketplace.md
+  -> domains/sas/service-marketplace.md
+
+Physical/embodied work
+  -> foundations/physical-action-safety.md
+
+Provider integrations across local, cloud, DePIN, storage, or HypervisorOS
+  -> components/hypervisor/providers-and-environments.md
+```
 
 Current Hypervisor product-surface addition:
 
