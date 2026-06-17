@@ -55,8 +55,66 @@ export interface WorkbenchAdapterLaunchPlan {
   runtimeTruthSource: "daemon-runtime";
 }
 
+export interface WorkbenchAdapterLaunchAdmission {
+  schema_version: "ioi.runtime.workbench_adapter_launch_plan_admission.v1";
+  admission_id: string;
+  launch_plan_ref: string;
+  adapter_ref: string;
+  target_ref: string;
+  launch_mode: HypervisorWorkbenchAdapterLaunchMode;
+  connection_kind: HypervisorWorkbenchAdapterConnectionKind;
+  connection_contract_ref: string;
+  required_access_lease_refs: string[];
+  required_authority_scope_refs: string[];
+  required_receipt_refs: string[];
+  custody_posture: HypervisorWorkbenchAdapterCustodyPosture;
+  secret_release_policy: "no_durable_secret_release";
+  restore_archive_policy: WorkbenchAdapterLaunchPlan["restore_archive_policy"];
+  provider_posture_required: boolean;
+  provider_posture_ref: string | null;
+  wallet_approval_ref: string | null;
+  archive_ref: string | null;
+  restore_ref: string | null;
+  agentgres_operation_refs: string[];
+  receipt_refs: string[];
+  state_root: string | null;
+  adapter_runtime_truth_claimed: false;
+  decision: "admitted";
+  requiresDaemonGate: true;
+  runtimeTruthSource: "daemon-runtime";
+  admitted_at: string;
+}
+
+export class WorkbenchAdapterLaunchAdmissionError extends Error {
+  readonly endpoint: string;
+  readonly responseBody: string;
+  readonly status: number;
+
+  constructor({
+    endpoint,
+    responseBody,
+    status,
+  }: {
+    endpoint: string;
+    responseBody: string;
+    status: number;
+  }) {
+    super(`Workbench adapter launch admission failed with ${status}`);
+    this.name = "WorkbenchAdapterLaunchAdmissionError";
+    this.endpoint = endpoint;
+    this.responseBody = responseBody;
+    this.status = status;
+  }
+}
+
 export const HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCE_STORAGE_KEY =
   "hypervisor.workbench.adapterPreferenceRef";
+export const HYPERVISOR_WORKBENCH_ADAPTER_DAEMON_ENDPOINT_STORAGE_KEY =
+  "ioi.hypervisor.daemonEndpoint";
+export const HYPERVISOR_WORKBENCH_ADAPTER_DEFAULT_DAEMON_ENDPOINT =
+  "http://127.0.0.1:8765";
+export const HYPERVISOR_WORKBENCH_ADAPTER_LAUNCH_PLAN_ADMISSION_PATH =
+  "/v1/hypervisor/workbench-adapter-launch-plans";
 
 export const HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES: WorkbenchAdapterPreference[] =
   [
@@ -268,4 +326,134 @@ export function buildWorkbenchAdapterLaunchPlan(
         provider_posture_required: false,
       };
   }
+}
+
+type FetchLike = (
+  input: string,
+  init?: {
+    body?: string;
+    headers?: Record<string, string>;
+    method?: string;
+  },
+) => Promise<{
+  ok: boolean;
+  status: number;
+  text(): Promise<string>;
+}>;
+
+interface WorkbenchAdapterLaunchAdmissionOptions {
+  endpoint?: string;
+  fetchImpl?: FetchLike;
+}
+
+function readHypervisorWorkbenchAdapterDaemonEndpoint(): string {
+  try {
+    if (typeof window === "undefined") {
+      return HYPERVISOR_WORKBENCH_ADAPTER_DEFAULT_DAEMON_ENDPOINT;
+    }
+    return (
+      window.localStorage.getItem(
+        HYPERVISOR_WORKBENCH_ADAPTER_DAEMON_ENDPOINT_STORAGE_KEY,
+      ) || HYPERVISOR_WORKBENCH_ADAPTER_DEFAULT_DAEMON_ENDPOINT
+    );
+  } catch {
+    return HYPERVISOR_WORKBENCH_ADAPTER_DEFAULT_DAEMON_ENDPOINT;
+  }
+}
+
+function stringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
+}
+
+function nullableString(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function objectRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function normalizeWorkbenchAdapterLaunchAdmission(
+  value: unknown,
+): WorkbenchAdapterLaunchAdmission {
+  const record = objectRecord(value);
+  return {
+    schema_version: "ioi.runtime.workbench_adapter_launch_plan_admission.v1",
+    admission_id: nullableString(record.admission_id) ?? "admission:unknown",
+    launch_plan_ref:
+      nullableString(record.launch_plan_ref) ?? "workbench-adapter:unknown",
+    adapter_ref: nullableString(record.adapter_ref) ?? "workbench-adapter:unknown",
+    target_ref: nullableString(record.target_ref) ?? "adapter-target:unknown",
+    launch_mode:
+      (nullableString(record.launch_mode) as HypervisorWorkbenchAdapterLaunchMode) ??
+      "embedded",
+    connection_kind:
+      (nullableString(
+        record.connection_kind,
+      ) as HypervisorWorkbenchAdapterConnectionKind) ?? "embedded_host",
+    connection_contract_ref:
+      nullableString(record.connection_contract_ref) ??
+      "connection-contract:workbench-adapter/unknown",
+    required_access_lease_refs: stringArray(record.required_access_lease_refs),
+    required_authority_scope_refs: stringArray(
+      record.required_authority_scope_refs,
+    ),
+    required_receipt_refs: stringArray(record.required_receipt_refs),
+    custody_posture:
+      (nullableString(
+        record.custody_posture,
+      ) as HypervisorWorkbenchAdapterCustodyPosture) ?? "local_projection",
+    secret_release_policy: "no_durable_secret_release",
+    restore_archive_policy:
+      record.restore_archive_policy === "required_for_remote_persistence"
+        ? "required_for_remote_persistence"
+        : "not_required",
+    provider_posture_required: record.provider_posture_required === true,
+    provider_posture_ref: nullableString(record.provider_posture_ref),
+    wallet_approval_ref: nullableString(record.wallet_approval_ref),
+    archive_ref: nullableString(record.archive_ref),
+    restore_ref: nullableString(record.restore_ref),
+    agentgres_operation_refs: stringArray(record.agentgres_operation_refs),
+    receipt_refs: stringArray(record.receipt_refs),
+    state_root: nullableString(record.state_root),
+    adapter_runtime_truth_claimed: false,
+    decision: "admitted",
+    requiresDaemonGate: true,
+    runtimeTruthSource: "daemon-runtime",
+    admitted_at: nullableString(record.admitted_at) ?? new Date().toISOString(),
+  };
+}
+
+export async function requestWorkbenchAdapterLaunchPlanAdmission(
+  launchPlan: WorkbenchAdapterLaunchPlan,
+  options: WorkbenchAdapterLaunchAdmissionOptions = {},
+): Promise<WorkbenchAdapterLaunchAdmission> {
+  const endpoint =
+    options.endpoint ?? readHypervisorWorkbenchAdapterDaemonEndpoint();
+  const fetchImpl = options.fetchImpl ?? globalThis.fetch?.bind(globalThis);
+  if (!fetchImpl) {
+    throw new Error("fetch unavailable for Workbench adapter launch admission");
+  }
+  const url = `${endpoint.replace(/\/+$/, "")}${HYPERVISOR_WORKBENCH_ADAPTER_LAUNCH_PLAN_ADMISSION_PATH}`;
+  const response = await fetchImpl(url, {
+    body: JSON.stringify(launchPlan),
+    headers: {
+      accept: "application/json",
+      "content-type": "application/json",
+    },
+    method: "POST",
+  });
+  const text = await response.text();
+  if (!response.ok) {
+    throw new WorkbenchAdapterLaunchAdmissionError({
+      endpoint: url,
+      responseBody: text,
+      status: response.status,
+    });
+  }
+  return normalizeWorkbenchAdapterLaunchAdmission(text ? JSON.parse(text) : {});
 }

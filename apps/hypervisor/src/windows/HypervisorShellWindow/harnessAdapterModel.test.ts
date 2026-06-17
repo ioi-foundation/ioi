@@ -21,7 +21,10 @@ import {
   HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES,
   buildHypervisorLaunchedSessionProjection,
   buildHypervisorNewSessionLaunchSummary,
+  buildHypervisorWorkbenchAdapterAdmissionFailure,
   buildWorkbenchAdapterLaunchPlan,
+  requestWorkbenchAdapterLaunchPlanAdmission,
+  WorkbenchAdapterLaunchAdmissionError,
 } from "./hypervisorShellNavigationModel.ts";
 
 test("default harness profile is the IOI reference scaffold, not an external adapter", () => {
@@ -331,6 +334,8 @@ test("new session launch summary binds harness, model route, adapter target, pri
   );
   assert.equal(launchedSession.surface_id, "sessions");
   assert.equal(launchedSession.admission_state, "pending_daemon_admission");
+  assert.equal(launchedSession.workbench_adapter_admission, null);
+  assert.equal(launchedSession.workbench_adapter_admission_ref, null);
   assert.equal(launchedSession.launch_summary, summary);
   assert.equal(launchedSession.runtimeTruthSource, "daemon-runtime");
 });
@@ -369,6 +374,138 @@ test("workbench adapter launch plans bind connection contracts and leases", () =
     assert.equal(plan?.secret_release_policy, "no_durable_secret_release");
     assert.ok(plan?.required_receipt_refs.length);
   }
+});
+
+test("workbench adapter launch admission posts canonical plans to the daemon", async () => {
+  const preference = HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES.find(
+    (candidate) => candidate.adapter_id === "embedded_workbench",
+  );
+  assert.ok(preference);
+  const plan = buildWorkbenchAdapterLaunchPlan(preference);
+  const admission = await requestWorkbenchAdapterLaunchPlanAdmission(plan, {
+    endpoint: "http://daemon.local",
+    fetchImpl: async (input, init) => {
+      assert.equal(
+        input,
+        "http://daemon.local/v1/hypervisor/workbench-adapter-launch-plans",
+      );
+      assert.equal(init?.method, "POST");
+      assert.equal(init?.headers?.["content-type"], "application/json");
+      const request = JSON.parse(init?.body ?? "{}");
+      assert.equal(request.launch_plan_ref, plan.launch_plan_ref);
+      assert.equal(request.adapter_ref, plan.adapter_ref);
+      assert.equal(request.requires_daemon_gate, true);
+      assert.equal(request.runtimeTruthSource, "daemon-runtime");
+      return {
+        ok: true,
+        status: 202,
+        text: async () =>
+          JSON.stringify({
+            ...plan,
+            schema_version:
+              "ioi.runtime.workbench_adapter_launch_plan_admission.v1",
+            admission_id: "workbench-adapter-launch:embedded-host",
+            provider_posture_ref: null,
+            wallet_approval_ref: null,
+            archive_ref: null,
+            restore_ref: null,
+            agentgres_operation_refs: [
+              "agentgres://operation/workbench-adapter-launch",
+            ],
+            receipt_refs: ["receipt://workbench-adapter-launch/admitted"],
+            state_root: "state-root:workbench-adapter-launch",
+            adapter_runtime_truth_claimed: false,
+            decision: "admitted",
+            admitted_at: "2026-06-17T00:00:00.000Z",
+          }),
+      };
+    },
+  });
+
+  assert.equal(
+    admission.schema_version,
+    "ioi.runtime.workbench_adapter_launch_plan_admission.v1",
+  );
+  assert.equal(admission.decision, "admitted");
+  assert.equal(admission.admission_id, "workbench-adapter-launch:embedded-host");
+  assert.equal(admission.runtimeTruthSource, "daemon-runtime");
+
+  const recipe = HYPERVISOR_SESSION_LAUNCH_RECIPES[0]!;
+  const summary = buildHypervisorNewSessionLaunchSummary({
+    recipe,
+    projectId: "project:ioi",
+    workbenchAdapter: preference,
+    harness: DEFAULT_HARNESS_PROFILE_OPTION,
+    harnessVerdict: buildHarnessCompatibilityVerdict(
+      DEFAULT_HARNESS_PROFILE_OPTION,
+      true,
+    ),
+    modelRouteAvailability: modelRouteSupportsHypervisorMountFromInventory(
+      HYPERVISOR_DEFAULT_LOCAL_MODEL_ROUTE_REF,
+      HYPERVISOR_NEW_SESSION_MODEL_MOUNT_INVENTORY_FIXTURE,
+    ),
+    modelRouteRef: HYPERVISOR_DEFAULT_LOCAL_MODEL_ROUTE_REF,
+    privacyPostureRef: "privacy:ctee-private-workspace",
+    authorityScopeRefs: recipe.authority_scope_templates,
+    receiptPreviewRef: "receipt-preview:new-session/admitted",
+  });
+  const launchedSession = buildHypervisorLaunchedSessionProjection({
+    request: {
+      recipe_id: recipe.recipe_id,
+      seed_intent: null,
+      project_id: "project:ioi",
+      adapter_preference_ref: plan.adapter_ref,
+      harness_selection_ref: "harness-profile:default_harness_profile",
+      model_route_ref: HYPERVISOR_DEFAULT_LOCAL_MODEL_ROUTE_REF,
+      privacy_posture_ref: "privacy:ctee-private-workspace",
+      authority_scope_refs: recipe.authority_scope_templates,
+      receipt_preview_ref: "receipt-preview:new-session/admitted",
+      launch_summary: summary,
+    },
+    recipe,
+    projectLabel: "IOI",
+    launchedAtMs: 1_718_001,
+    workbenchAdapterAdmission: admission,
+  });
+
+  assert.equal(launchedSession.admission_state, "daemon_admitted");
+  assert.equal(
+    launchedSession.workbench_adapter_admission_ref,
+    "workbench-adapter-launch:embedded-host",
+  );
+  assert.equal(launchedSession.workbench_adapter_admission, admission);
+});
+
+test("workbench adapter launch admission failures are explicit session state", async () => {
+  const preference = HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES.find(
+    (candidate) => candidate.adapter_id === "remote_vm",
+  );
+  assert.ok(preference);
+  const plan = buildWorkbenchAdapterLaunchPlan(preference);
+  let error: unknown = null;
+  try {
+    await requestWorkbenchAdapterLaunchPlanAdmission(plan, {
+      endpoint: "http://daemon.local",
+      fetchImpl: async () => ({
+        ok: false,
+        status: 400,
+        text: async () =>
+          JSON.stringify({
+            code: "workbench_adapter_provider_posture_ref_required",
+          }),
+      }),
+    });
+  } catch (caught) {
+    error = caught;
+  }
+  assert.ok(error instanceof WorkbenchAdapterLaunchAdmissionError);
+  const failure = buildHypervisorWorkbenchAdapterAdmissionFailure({
+    error,
+    launchPlan: plan,
+  });
+  assert.equal(failure.decision, "blocked");
+  assert.equal(failure.http_status, 400);
+  assert.equal(failure.runtimeTruthSource, "daemon-runtime");
 });
 
 test("harness testbed fixture compares adapters without granting runtime truth", () => {

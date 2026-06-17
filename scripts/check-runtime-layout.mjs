@@ -465,6 +465,12 @@ assert(
       "buildWorkbenchAdapterLaunchPlan",
     ) &&
     workbenchAdapterPreferencesSource.includes(
+      "requestWorkbenchAdapterLaunchPlanAdmission",
+    ) &&
+    workbenchAdapterPreferencesSource.includes(
+      "HYPERVISOR_WORKBENCH_ADAPTER_LAUNCH_PLAN_ADMISSION_PATH",
+    ) &&
+    workbenchAdapterPreferencesSource.includes(
       "connection-contract:workbench-adapter/desktop-bridge",
     ) &&
     workbenchAdapterPreferencesSource.includes(
@@ -477,6 +483,16 @@ assert(
       "data-new-session-workbench-adapter-launch-plan-ref",
     ) &&
     hypervisorNewSessionModalSource.includes("Adapter launch contract") &&
+    hypervisorShellNavigationSource.includes("workbench_adapter_admission") &&
+    hypervisorShellNavigationSource.includes("daemon_admitted") &&
+    hypervisorShellNavigationSource.includes("daemon_blocked") &&
+    hypervisorShellNavigationSource.includes("daemon_unavailable") &&
+    hypervisorShellControllerSource.includes(
+      "requestWorkbenchAdapterLaunchPlanAdmission",
+    ) &&
+    hypervisorShellControllerSource.includes(
+      "buildHypervisorWorkbenchAdapterAdmissionFailure",
+    ) &&
     runtimeWorkbenchAdapterLaunchPlanAdmissionSource.includes(
       "ioi.runtime.workbench_adapter_launch_plan_admission.v1",
     ) &&
@@ -495,11 +511,12 @@ assert(
   [
     "apps/hypervisor/src/windows/HypervisorShellWindow/workbenchAdapterPreferences.ts",
     "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorShellNavigationModel.ts",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/useHypervisorShellController.ts",
     "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorNewSessionModal.tsx",
     "packages/runtime-daemon/src/runtime-workbench-adapter-launch-plan-admission.mjs",
     "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
   ],
-  "Workbench adapter preferences must compile into daemon-gated launch plans with connection contracts, access leases, receipt refs, no durable secret release, and a public daemon admission route.",
+  "Workbench adapter preferences must compile into daemon-gated launch plans, call the public daemon admission route during New Session launch, preserve admission/block/offline state, and keep connection contracts, leases, receipts, and no durable secret release.",
 );
 assert(
   "hypervisor-environment-ops-model",

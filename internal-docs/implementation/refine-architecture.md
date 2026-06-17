@@ -1113,9 +1113,7 @@ Current implementation cut:
   `WorkspaceRepositoryGate.workbenchHub.test.mjs` and `check:runtime-layout`
   reject the old first-screen `Code repositories` / `Pull requests` framing
   editor-adapter preference is a real New Session setting and shell launch
-  request field; remaining 0A.5 work is deeper adapter-specific launch/control
-  wiring for external desktop editors, browser IDEs, terminal harnesses, VMs,
-  and HypervisorOS nodes
+  request field
   `workbenchAdapterPreferences.ts` now owns `WorkbenchAdapterLaunchPlan`,
   converting each adapter preference into a daemon-gated connection contract
   with access leases, authority scopes, receipt policy refs, provider-posture
@@ -1127,6 +1125,12 @@ Current implementation cut:
   plans through `/v1/hypervisor/workbench-adapter-launch-plans`, blocking durable
   secret release, adapter-runtime-truth claims, missing provider posture, and
   persistent remote routes without archive/restore refs.
+  `requestWorkbenchAdapterLaunchPlanAdmission` now calls that daemon route from
+  New Session launch. `HypervisorLaunchedSessionProjection` records the adapter
+  admission as `daemon_admitted`, `daemon_blocked`, or `daemon_unavailable`,
+  rather than treating adapter choice as local UI state. Remaining 0A.5 work is
+  adapter-specific executor/control wiring after admission for external desktop
+  editors, browser IDEs, terminal harnesses, VMs, and HypervisorOS nodes.
 
 0A.4 New Session is partially implemented:
   `HYPERVISOR_SESSION_LAUNCH_RECIPES` defines Mission, Workbench, Agent,
@@ -1138,9 +1142,11 @@ Current implementation cut:
   modal launch routes through the Hypervisor shell controller to the selected
   canonical surface and seeds Sessions when the recipe is a Mission
   `HypervisorLaunchedSessionProjection` now records every New Session launch,
-  regardless of target surface, as a daemon-admission-pending session route with
-  recipe, surface, project, adapter, harness, model route, authority, privacy,
-  and receipt refs. The Sessions cockpit renders those recent launches, so
+  regardless of target surface, as a daemon-admitted, daemon-blocked,
+  daemon-unavailable, or daemon-admission-pending session route with recipe,
+  surface, project, adapter, adapter launch admission, harness, model route,
+  authority, privacy, and receipt refs. The Sessions cockpit renders those
+  recent launches, so
   Workbench, Agent, Automation, Foundry, Provider/Environment, and Private
   Workspace sessions remain inspectable as cross-session Hypervisor routes while
   still opening their target application surfaces. Recent launched sessions also

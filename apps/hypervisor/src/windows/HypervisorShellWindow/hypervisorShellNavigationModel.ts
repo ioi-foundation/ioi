@@ -7,9 +7,12 @@ import {
 } from "./harnessAdapterModel.ts";
 import {
   HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES,
+  WorkbenchAdapterLaunchAdmissionError,
   buildWorkbenchAdapterLaunchPlan,
   getWorkbenchAdapterPreferenceRef,
   type HypervisorWorkbenchAdapterCustodyPosture,
+  type WorkbenchAdapterLaunchAdmission,
+  type WorkbenchAdapterLaunchPlan,
   type WorkbenchAdapterPreference,
 } from "./workbenchAdapterPreferences.ts";
 
@@ -20,10 +23,13 @@ export {
   buildWorkbenchAdapterLaunchPlan,
   getWorkbenchAdapterPreferenceByRef,
   getWorkbenchAdapterPreferenceRef,
+  requestWorkbenchAdapterLaunchPlanAdmission,
+  WorkbenchAdapterLaunchAdmissionError,
   type HypervisorWorkbenchAdapterConnectionKind,
   type HypervisorWorkbenchAdapterCustodyPosture,
   type HypervisorWorkbenchAdapterId,
   type HypervisorWorkbenchAdapterLaunchMode,
+  type WorkbenchAdapterLaunchAdmission,
   type WorkbenchAdapterLaunchPlan,
   type WorkbenchAdapterPreference,
 } from "./workbenchAdapterPreferences.ts";
@@ -228,6 +234,22 @@ export interface HypervisorNewSessionLaunchRequest {
   launch_summary: HypervisorNewSessionLaunchSummary;
 }
 
+export interface HypervisorWorkbenchAdapterLaunchAdmissionFailure {
+  schema_version: "ioi.hypervisor.workbench_adapter_launch_admission_failure.v1";
+  admission_id: string;
+  launch_plan_ref: string;
+  adapter_ref: string;
+  target_ref: string;
+  decision: "blocked" | "daemon_unavailable";
+  error_message: string;
+  http_status: number | null;
+  runtimeTruthSource: "daemon-runtime";
+}
+
+export type HypervisorWorkbenchAdapterLaunchAdmissionRecord =
+  | WorkbenchAdapterLaunchAdmission
+  | HypervisorWorkbenchAdapterLaunchAdmissionFailure;
+
 export interface HypervisorLaunchedSessionProjection {
   schema_version: "ioi.hypervisor.launched_session_projection.v1";
   session_ref: string;
@@ -238,7 +260,15 @@ export interface HypervisorLaunchedSessionProjection {
   project_ref: string;
   project_label: string;
   launched_at_ms: number;
-  admission_state: "pending_daemon_admission";
+  admission_state:
+    | "daemon_admitted"
+    | "daemon_blocked"
+    | "daemon_unavailable"
+    | "pending_daemon_admission";
+  workbench_adapter_admission:
+    | HypervisorWorkbenchAdapterLaunchAdmissionRecord
+    | null;
+  workbench_adapter_admission_ref: string | null;
   launch_summary: HypervisorNewSessionLaunchSummary;
   runtimeTruthSource: "daemon-runtime";
 }
@@ -256,11 +286,13 @@ export function buildHypervisorLaunchedSessionProjection({
   recipe,
   projectLabel,
   launchedAtMs = Date.now(),
+  workbenchAdapterAdmission = null,
 }: {
   request: HypervisorNewSessionLaunchRequest;
   recipe: HypervisorSessionLaunchRecipe;
   projectLabel: string;
   launchedAtMs?: number;
+  workbenchAdapterAdmission?: HypervisorWorkbenchAdapterLaunchAdmissionRecord | null;
 }): HypervisorLaunchedSessionProjection {
   const routeId = [
     safeLaunchId(recipe.kind),
@@ -268,6 +300,14 @@ export function buildHypervisorLaunchedSessionProjection({
     safeLaunchId(request.recipe_id),
     safeLaunchId(launchedAtMs),
   ].join("/");
+  const admissionState =
+    workbenchAdapterAdmission?.decision === "admitted"
+      ? "daemon_admitted"
+      : workbenchAdapterAdmission?.decision === "blocked"
+        ? "daemon_blocked"
+        : workbenchAdapterAdmission?.decision === "daemon_unavailable"
+          ? "daemon_unavailable"
+          : "pending_daemon_admission";
   return {
     schema_version: "ioi.hypervisor.launched_session_projection.v1",
     session_ref: `session:launch/${routeId}`,
@@ -278,8 +318,36 @@ export function buildHypervisorLaunchedSessionProjection({
     project_ref: request.project_id,
     project_label: projectLabel,
     launched_at_ms: launchedAtMs,
-    admission_state: "pending_daemon_admission",
+    admission_state: admissionState,
+    workbench_adapter_admission: workbenchAdapterAdmission,
+    workbench_adapter_admission_ref:
+      workbenchAdapterAdmission?.admission_id ?? null,
     launch_summary: request.launch_summary,
+    runtimeTruthSource: "daemon-runtime",
+  };
+}
+
+export function buildHypervisorWorkbenchAdapterAdmissionFailure({
+  error,
+  launchPlan,
+}: {
+  error: unknown;
+  launchPlan: WorkbenchAdapterLaunchPlan;
+}): HypervisorWorkbenchAdapterLaunchAdmissionFailure {
+  const httpStatus =
+    error instanceof WorkbenchAdapterLaunchAdmissionError ? error.status : null;
+  return {
+    schema_version: "ioi.hypervisor.workbench_adapter_launch_admission_failure.v1",
+    admission_id: `${launchPlan.launch_plan_ref}/admission-failure`,
+    launch_plan_ref: launchPlan.launch_plan_ref,
+    adapter_ref: launchPlan.adapter_ref,
+    target_ref: launchPlan.target_ref,
+    decision:
+      typeof httpStatus === "number" && httpStatus < 500
+        ? "blocked"
+        : "daemon_unavailable",
+    error_message: error instanceof Error ? error.message : String(error),
+    http_status: httpStatus,
     runtimeTruthSource: "daemon-runtime",
   };
 }

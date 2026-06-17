@@ -36,7 +36,7 @@ interface HypervisorNewSessionModalProps {
   initialSeedIntent?: string | null;
   initialRecipeId?: string | null;
   onClose: () => void;
-  onLaunch: (request: HypervisorNewSessionLaunchRequest) => void;
+  onLaunch: (request: HypervisorNewSessionLaunchRequest) => Promise<void> | void;
 }
 
 const MODEL_ROUTE_OPTIONS = [

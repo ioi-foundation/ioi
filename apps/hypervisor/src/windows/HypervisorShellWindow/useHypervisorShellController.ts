@@ -46,8 +46,12 @@ import {
 } from "./hypervisorShellModel";
 import {
   HYPERVISOR_SESSION_LAUNCH_RECIPES,
+  buildHypervisorWorkbenchAdapterAdmissionFailure,
   buildHypervisorLaunchedSessionProjection,
+  buildWorkbenchAdapterLaunchPlan,
+  getWorkbenchAdapterPreferenceByRef,
   isHypervisorSurfaceId,
+  requestWorkbenchAdapterLaunchPlanAdmission,
   type HypervisorLaunchedSessionProjection,
   type HypervisorNewSessionLaunchRequest,
 } from "./hypervisorShellNavigationModel";
@@ -441,7 +445,7 @@ export function useHypervisorShellController() {
     setChatPaneVisible(true);
   };
 
-  const launchNewSession = (request: HypervisorNewSessionLaunchRequest) => {
+  const launchNewSession = async (request: HypervisorNewSessionLaunchRequest) => {
     const recipe =
       HYPERVISOR_SESSION_LAUNCH_RECIPES.find(
         (candidate) => candidate.recipe_id === request.recipe_id,
@@ -449,10 +453,25 @@ export function useHypervisorShellController() {
     const project =
       PROJECT_SCOPES.find((candidate) => candidate.id === request.project_id) ??
       PROJECT_SCOPES[0]!;
+    const workbenchAdapter = getWorkbenchAdapterPreferenceByRef(
+      request.adapter_preference_ref,
+    );
+    const workbenchAdapterLaunchPlan =
+      buildWorkbenchAdapterLaunchPlan(workbenchAdapter);
+    const workbenchAdapterAdmission =
+      await requestWorkbenchAdapterLaunchPlanAdmission(
+        workbenchAdapterLaunchPlan,
+      ).catch((error: unknown) =>
+        buildHypervisorWorkbenchAdapterAdmissionFailure({
+          error,
+          launchPlan: workbenchAdapterLaunchPlan,
+        }),
+      );
     const launchedSession = buildHypervisorLaunchedSessionProjection({
       request,
       recipe,
       projectLabel: project.name,
+      workbenchAdapterAdmission,
     });
 
     setCurrentProjectId(project.id);
