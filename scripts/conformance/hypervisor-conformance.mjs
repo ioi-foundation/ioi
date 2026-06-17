@@ -4872,8 +4872,43 @@ function runBridge() {
     !/store\.(?:workflowEditSurface|diagnosticsRepairSurface|workspaceSnapshotSurface|workflowEditApi|diagnosticsRepairApi|workspaceSnapshotApi)\b/.test(
       runtimeRouteHandlers,
     ) &&
-    !/store\.workspaceSnapshotSurface\.prepareWorkspaceSnapshotForPatch/.test(
-      runtimeCodingToolInvocationSurface + runtimeCodingToolInvocationSurfaceTest,
+      !/store\.workspaceSnapshotSurface\.prepareWorkspaceSnapshotForPatch/.test(
+        runtimeCodingToolInvocationSurface + runtimeCodingToolInvocationSurfaceTest,
+      );
+  const threadTurnRouteStoreOwnedApis =
+    /this\.threadTurnApi = createRuntimeThreadTurnSurface\(\{/.test(
+      runtimeDaemonIndex,
+    ) &&
+    !/this\.threadTurnSurface\s*=/.test(runtimeDaemonIndex) &&
+    /resumeThread\(threadId, request = \{\}\) \{[\s\S]*?return this\.threadTurnApi\.resumeThread\(this, threadId, request\)/.test(
+      runtimeDaemonIndex,
+    ) &&
+    /createTurn\(threadId, request = \{\}\) \{[\s\S]*?return this\.threadTurnApi\.createTurn\(this, threadId, request\)/.test(
+      runtimeDaemonIndex,
+    ) &&
+    /interruptTurn\(threadId, turnId, request = \{\}\) \{[\s\S]*?return this\.threadTurnApi\.interruptTurn\(this, threadId, turnId, request\)/.test(
+      runtimeDaemonIndex,
+    ) &&
+    /steerTurn\(threadId, turnId, request = \{\}\) \{[\s\S]*?return this\.threadTurnApi\.steerTurn\(this, threadId, turnId, request\)/.test(
+      runtimeDaemonIndex,
+    ) &&
+    /store\.resumeThread\(threadId,\s*await readBody\(request\)\)/.test(runtimeRouteHandlers) &&
+    /store\.createTurn\(threadId,\s*await readBody\(request\)\)/.test(runtimeRouteHandlers) &&
+    /store\.interruptTurn\(threadId,\s*decodeURIComponent\(segments\[4\]\),\s*await readBody\(request\)\)/.test(
+      runtimeRouteHandlers,
+    ) &&
+    /store\.steerTurn\(threadId,\s*decodeURIComponent\(segments\[4\]\),\s*await readBody\(request\)\)/.test(
+      runtimeRouteHandlers,
+    ) &&
+    !/store\.threadTurnSurface\.(?:resumeThread|createTurn|interruptTurn|steerTurn)\(/.test(
+      runtimeRouteHandlers,
+    ) &&
+    /thread route sends turn controls through store-owned turn APIs/.test(runtimeRouteHandlersTest) &&
+    /threadTurnApi:\s*\{\s*resumeThread:\s*retiredRouteWrapper,\s*createTurn:\s*retiredRouteWrapper,\s*interruptTurn:\s*retiredRouteWrapper,\s*steerTurn:\s*retiredRouteWrapper,\s*\}/s.test(
+      runtimeRouteHandlersTest,
+    ) &&
+    /daemon store thread turn methods are positive API owners, not surface delegates/.test(
+      runtimeThreadSurfaceDelegatesRetiredTest,
     );
   const workspaceRestoreHelpers = exists("packages/runtime-daemon/src/workspace-restore.mjs")
     ? read("packages/runtime-daemon/src/workspace-restore.mjs")
@@ -11026,6 +11061,28 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "thread-turn-route-visible-surface-retired",
+    threadTurnRouteStoreOwnedApis &&
+      /Slice 1432 hard-cuts the thread-turn route-visible JS surface\s+shape/.test(
+        guide,
+      ) &&
+      /Thread-turn route-visible JS surface retired/.test(matrix) &&
+      /RuntimeDaemonCoreThreadTurnRouteVisibleSurfaceRetired/.test(
+        implementationMatrix,
+      ),
+    [
+      "packages/runtime-daemon/src/index.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.test.mjs",
+      "packages/runtime-daemon/src/runtime-thread-surface-delegates-retired.test.mjs",
+      "docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md",
+      "docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md",
+      "docs/architecture/_meta/implementation-matrix.md",
+    ],
+    "Thread resume, turn create, interrupt, and steer routes must enter through store-owned Rust-backed APIs; the route-visible threadTurnSurface call shape must stay retired.",
+  );
+  assertCheck(
+    result,
     "approval-request-state-update-live-bridge",
     /ApprovalRequestStateUpdateCore/.test(approvalCore) &&
       /ApprovalRequestStateUpdateRequest/.test(approvalCore) &&
@@ -12948,7 +13005,7 @@ function runBridge() {
       !/approval_mode:\s*agent\.runtimeControls\?\.approvalMode \?\? "suggest"/.test(
         operatorInterruptTurnBody,
       ) &&
-      /interruptTurn facade uses Rust state-update planning before Agentgres run persistence/.test(
+      /interruptTurn store API uses Rust state-update planning before Agentgres run persistence/.test(
         runtimeOperatorTurnControlFacadeTest,
       ) &&
       /result\.operation,\s*"operator_interrupt"/.test(runtimeOperatorTurnControlFacadeTest) &&
@@ -12970,7 +13027,7 @@ function runBridge() {
         runtimeOperatorTurnControlFacadeTest,
       ) &&
       !/runtimeBridgeCalls|runtimeBridge:\s*\{/.test(runtimeOperatorTurnControlFacadeTest) &&
-      /typeof store\.interruptTurn,\s*"undefined"/.test(runtimeOperatorTurnControlFacadeTest) &&
+      /typeof store\.threadTurnSurface,\s*"undefined"/.test(runtimeOperatorTurnControlFacadeTest) &&
       /runtime_control_action:\s*"cancel"/.test(runtimeOperatorTurnControlFacadeTest) &&
       /controlAction:\s*"cancel"/.test(runtimeOperatorTurnControlFacadeTest) &&
       /workflowGraphId:\s*"graph_retired"/.test(runtimeOperatorTurnControlFacadeTest) &&
@@ -13104,7 +13161,7 @@ function runBridge() {
       !/request\.(?:workflowGraphId|workflowNodeId|idempotencyKey)\b/.test(
         operatorSteerTurnBody,
       ) &&
-      /steerTurn facade uses Rust state-update planning before Agentgres run persistence/.test(
+      /steerTurn store API uses Rust state-update planning before Agentgres run persistence/.test(
         runtimeOperatorTurnControlFacadeTest,
       ) &&
       /result\.operation,\s*"operator_steer"/.test(runtimeOperatorTurnControlFacadeTest) &&
@@ -13123,7 +13180,7 @@ function runBridge() {
         runtimeOperatorTurnControlFacadeTest,
       ) &&
       !/runtimeBridgeCalls|runtimeBridge:\s*\{/.test(runtimeOperatorTurnControlFacadeTest) &&
-      /typeof store\.steerTurn,\s*"undefined"/.test(runtimeOperatorTurnControlFacadeTest) &&
+      /typeof store\.threadTurnSurface,\s*"undefined"/.test(runtimeOperatorTurnControlFacadeTest) &&
       /idempotencyKey:\s*"operator_steer_idempotency_retired"/.test(
         runtimeOperatorTurnControlFacadeTest,
       ) &&
@@ -13254,14 +13311,13 @@ function runBridge() {
       /error\.details\.thread_id/.test(runtimeThreadTurnSurfaceTest) &&
       /error\.details\.turn_id/.test(runtimeThreadTurnSurfaceTest) &&
       /error\.details\.operation_kind/.test(runtimeThreadTurnSurfaceTest) &&
-      /store\.threadTurnSurface\.interruptTurn\(store,\s*"thread_one",\s*"turn_one"/.test(
+      /store\.interruptTurn\("thread_one",\s*"turn_one"/.test(
         runtimeOperatorTurnControlFacadeTest,
       ) &&
-      /store\.threadTurnSurface\.steerTurn\(store,\s*"thread_one",\s*"turn_one"/.test(
+      /store\.steerTurn\("thread_one",\s*"turn_one"/.test(
         runtimeOperatorTurnControlFacadeTest,
       ) &&
-      /typeof store\.interruptTurn,\s*"undefined"/.test(runtimeOperatorTurnControlFacadeTest) &&
-      /typeof store\.steerTurn,\s*"undefined"/.test(runtimeOperatorTurnControlFacadeTest) &&
+      /typeof store\.threadTurnSurface,\s*"undefined"/.test(runtimeOperatorTurnControlFacadeTest) &&
       !/details:\s*\{[^}\n]*\b(?:threadId|turnId|runId|operationKind|expectedOperationKind|requestedAction)\s*:/.test(
         runtimeThreadTurnSurface,
       ) &&
@@ -13346,13 +13402,34 @@ function runBridge() {
       !/store\.updateAgent\(/.test(runtimeThreadTurnSurface) &&
       !/store\.createRun\(agent\.id/.test(runtimeThreadTurnSurface) &&
       !/requestWithDiagnosticsFeedback/.test(runtimeThreadTurnSurface) &&
-      !/^\s*(?:resumeThread|createTurn|interruptTurn|steerTurn)\(threadId/m.test(
+      /resumeThread\(threadId, request = \{\}\) \{[\s\S]*?return this\.threadTurnApi\.resumeThread\(this, threadId, request\)/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /createTurn\(threadId, request = \{\}\) \{[\s\S]*?return this\.threadTurnApi\.createTurn\(this, threadId, request\)/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /interruptTurn\(threadId, turnId, request = \{\}\) \{[\s\S]*?return this\.threadTurnApi\.interruptTurn\(this, threadId, turnId, request\)/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /steerTurn\(threadId, turnId, request = \{\}\) \{[\s\S]*?return this\.threadTurnApi\.steerTurn\(this, threadId, turnId, request\)/.test(
         runtimeDaemonIndex,
       ) &&
       /daemon store thread turn and control pass-through delegates are retired/.test(
         runtimeThreadSurfaceDelegatesRetiredTest,
       ) &&
-      /"resumeThread"[\s\S]*"createTurn"[\s\S]*"interruptTurn"[\s\S]*"steerTurn"[\s\S]*"appendWorkspaceTrustWarningEvent"/.test(
+      /daemon store thread turn methods are positive API owners, not surface delegates/.test(
+        runtimeThreadSurfaceDelegatesRetiredTest,
+      ) &&
+      /"resumeThread"[\s\S]*"createTurn"[\s\S]*"interruptTurn"[\s\S]*"steerTurn"/.test(
+        runtimeThreadSurfaceDelegatesRetiredTest,
+      ) &&
+      /this\.threadTurnApi\.resumeThread/.test(
+        runtimeThreadSurfaceDelegatesRetiredTest,
+      ) &&
+      /this\.threadTurnApi\.steerTurn/.test(
+        runtimeThreadSurfaceDelegatesRetiredTest,
+      ) &&
+      /"appendWorkspaceTrustWarningEvent"[\s\S]*"updateThreadRuntimeControls"/.test(
         runtimeThreadSurfaceDelegatesRetiredTest,
       ) &&
       /"updateThreadRuntimeControls"[\s\S]*"appendThreadRuntimeControlEvent"/.test(
@@ -14282,7 +14359,7 @@ function runBridge() {
       /thread route sends runtime controls through thread control surface/.test(
         runtimeRouteHandlersTest,
       ) &&
-      /thread route sends turn controls through mounted turn surface/.test(
+      /thread route sends turn controls through store-owned turn APIs/.test(
         runtimeRouteHandlersTest,
       ) &&
       /store\.threadControlSurface\.updateThreadMode\(store,\s*threadId,\s*await readBody\(request\)\)/.test(
@@ -14294,19 +14371,19 @@ function runBridge() {
       /store\.threadControlSurface\.updateThreadThinking\(store,\s*threadId,\s*await readBody\(request\)\)/.test(
         runtimeRouteHandlers,
       ) &&
-      /store\.threadTurnSurface\.resumeThread\(store, threadId, await readBody\(request\)\)/.test(
+      /store\.resumeThread\(threadId,\s*await readBody\(request\)\)/.test(
         runtimeRouteHandlers,
       ) &&
-      /store\.threadTurnSurface\.createTurn\(store, threadId, await readBody\(request\)\)/.test(
+      /store\.createTurn\(threadId,\s*await readBody\(request\)\)/.test(
         runtimeRouteHandlers,
       ) &&
-      /store\.threadTurnSurface\.interruptTurn\(store, threadId, decodeURIComponent\(segments\[4\]\), await readBody\(request\)\)/.test(
+      /store\.interruptTurn\(threadId,\s*decodeURIComponent\(segments\[4\]\),\s*await readBody\(request\)\)/.test(
         runtimeRouteHandlers,
       ) &&
-      /store\.threadTurnSurface\.steerTurn\(store, threadId, decodeURIComponent\(segments\[4\]\), await readBody\(request\)\)/.test(
+      /store\.steerTurn\(threadId,\s*decodeURIComponent\(segments\[4\]\),\s*await readBody\(request\)\)/.test(
         runtimeRouteHandlers,
       ) &&
-      !/store\.(?:resumeThread|createTurn|interruptTurn|steerTurn)\(threadId/.test(
+      !/store\.threadTurnSurface\.(?:resumeThread|createTurn|interruptTurn|steerTurn)\(/.test(
         runtimeRouteHandlers,
       ) &&
       !/^\s*(?:updateThreadMode|updateThreadModel|updateThreadThinking)\(threadId, request = \{\}\) \{/m.test(
@@ -16065,7 +16142,7 @@ function runBridge() {
       /runtime-service thread creation uses Rust bridge-start planning with retired dispatch absent/.test(
         runtimeThreadControlTest,
       ) &&
-      /runtime thread-control compatibility store wrappers stay retired/.test(
+      /runtime thread-control compatibility wrappers stay retired while turn APIs are store-owned/.test(
         runtimeThreadControlTest,
       ) &&
       /import \{ createThread \} from "\.\/runtime-agent-run-lifecycle\.mjs";/.test(
@@ -16078,6 +16155,11 @@ function runBridge() {
         runtimeThreadControlTest,
       ) &&
       /typeof store\.createThread,\s*"undefined"/.test(runtimeThreadControlTest) &&
+      /typeof store\.threadTurnSurface,\s*"undefined"/.test(runtimeThreadControlTest) &&
+      /typeof store\.resumeThread,\s*"function"/.test(runtimeThreadControlTest) &&
+      /typeof store\.createTurn,\s*"function"/.test(runtimeThreadControlTest) &&
+      /typeof store\.interruptTurn,\s*"function"/.test(runtimeThreadControlTest) &&
+      /typeof store\.steerTurn,\s*"function"/.test(runtimeThreadControlTest) &&
       !exists("scripts/lib/workflow-stage5-stop-cancel-recover-live-gui-proof.mjs") &&
       !exists("scripts/lib/workflow-stage7-delegation-live-gui-proof.mjs") &&
       !exists("packages/runtime-daemon/src/runtime-api-bridge.mjs") &&

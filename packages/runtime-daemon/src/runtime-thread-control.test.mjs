@@ -399,7 +399,7 @@ test("runtime-service thread creation uses Rust bridge-start planning with retir
   }
 });
 
-test("runtime thread-control compatibility store wrappers stay retired", () => {
+test("runtime thread-control compatibility wrappers stay retired while turn APIs are store-owned", () => {
   const stateDir = mkdtempSync(join(tmpdir(), "ioi-runtime-thread-control-wrapper-retired-"));
   const calls = [];
   const store = runtimeControlStore(stateDir, calls);
@@ -407,12 +407,11 @@ test("runtime thread-control compatibility store wrappers stay retired", () => {
     assert.equal(typeof store.createAgent, "undefined");
     assert.equal(typeof store.createThread, "undefined");
     assert.equal(typeof store.createRun, "undefined");
-    assert.equal(typeof store.resumeThread, "undefined");
-    assert.equal(typeof store.createTurn, "undefined");
-    assert.equal(typeof store.interruptTurn, "undefined");
-    assert.equal(typeof store.steerTurn, "undefined");
-    assert.equal(typeof store.spawnSubagent, "undefined");
-    assert.equal(typeof store.resumeSubagent, "undefined");
+    assert.equal(typeof store.threadTurnSurface, "undefined");
+    assert.equal(typeof store.resumeThread, "function");
+    assert.equal(typeof store.createTurn, "function");
+    assert.equal(typeof store.interruptTurn, "function");
+    assert.equal(typeof store.steerTurn, "function");
   } finally {
     store.close();
     rmSync(stateDir, { recursive: true, force: true });

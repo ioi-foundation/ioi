@@ -1564,39 +1564,31 @@ test("thread route invokes coding tools through mounted invocation surface", asy
   });
 });
 
-test("thread route sends turn controls through mounted turn surface", async () => {
+test("thread route sends turn controls through store-owned turn APIs", async () => {
   const { handleThreadRoute } = routeHandlers();
   const calls = [];
   const store = {
-    threadTurnSurface: {
-      resumeThread(surfaceStore, threadId, requestBody) {
-        calls.push({ method: "resumeThread", surfaceStore, threadId, requestBody });
-        return { status: "active", thread_id: threadId, request: requestBody };
-      },
-      createTurn(surfaceStore, threadId, requestBody) {
-        calls.push({ method: "createTurn", surfaceStore, threadId, requestBody });
-        return { status: "created", thread_id: threadId, turn_id: "turn_route", request: requestBody };
-      },
-      interruptTurn(surfaceStore, threadId, turnId, requestBody) {
-        calls.push({ method: "interruptTurn", surfaceStore, threadId, turnId, requestBody });
-        return { status: "blocked", thread_id: threadId, turn_id: turnId, request: requestBody };
-      },
-      steerTurn(surfaceStore, threadId, turnId, requestBody) {
-        calls.push({ method: "steerTurn", surfaceStore, threadId, turnId, requestBody });
-        return { status: "blocked", thread_id: threadId, turn_id: turnId, request: requestBody };
-      },
+    threadTurnApi: {
+      resumeThread: retiredRouteWrapper,
+      createTurn: retiredRouteWrapper,
+      interruptTurn: retiredRouteWrapper,
+      steerTurn: retiredRouteWrapper,
     },
-    resumeThread() {
-      throw new Error("retired resumeThread wrapper must not be routed");
+    resumeThread(threadId, requestBody) {
+      calls.push({ method: "resumeThread", threadId, requestBody });
+      return { status: "active", thread_id: threadId, request: requestBody };
     },
-    createTurn() {
-      throw new Error("retired createTurn wrapper must not be routed");
+    createTurn(threadId, requestBody) {
+      calls.push({ method: "createTurn", threadId, requestBody });
+      return { status: "created", thread_id: threadId, turn_id: "turn_route", request: requestBody };
     },
-    interruptTurn() {
-      throw new Error("retired interruptTurn wrapper must not be routed");
+    interruptTurn(threadId, turnId, requestBody) {
+      calls.push({ method: "interruptTurn", threadId, turnId, requestBody });
+      return { status: "blocked", thread_id: threadId, turn_id: turnId, request: requestBody };
     },
-    steerTurn() {
-      throw new Error("retired steerTurn wrapper must not be routed");
+    steerTurn(threadId, turnId, requestBody) {
+      calls.push({ method: "steerTurn", threadId, turnId, requestBody });
+      return { status: "blocked", thread_id: threadId, turn_id: turnId, request: requestBody };
     },
   };
   const cases = [
@@ -1605,14 +1597,14 @@ test("thread route sends turn controls through mounted turn surface", async () =
       path: "/v1/threads/thread_route/resume",
       segments: ["v1", "threads", "thread_route", "resume"],
       body: { reason: "continue" },
-      expected: { method: "resumeThread", surfaceStore: store, threadId: "thread_route", requestBody: { reason: "continue" } },
+      expected: { method: "resumeThread", threadId: "thread_route", requestBody: { reason: "continue" } },
     },
     {
       method: "createTurn",
       path: "/v1/threads/thread_route/turns",
       segments: ["v1", "threads", "thread_route", "turns"],
       body: { prompt: "next" },
-      expected: { method: "createTurn", surfaceStore: store, threadId: "thread_route", requestBody: { prompt: "next" } },
+      expected: { method: "createTurn", threadId: "thread_route", requestBody: { prompt: "next" } },
     },
     {
       method: "interruptTurn",
@@ -1621,7 +1613,6 @@ test("thread route sends turn controls through mounted turn surface", async () =
       body: { reason: "stop" },
       expected: {
         method: "interruptTurn",
-        surfaceStore: store,
         threadId: "thread_route",
         turnId: "turn_route",
         requestBody: { reason: "stop" },
@@ -1634,7 +1625,6 @@ test("thread route sends turn controls through mounted turn surface", async () =
       body: { guidance: "focus" },
       expected: {
         method: "steerTurn",
-        surfaceStore: store,
         threadId: "thread_route",
         turnId: "turn_route",
         requestBody: { guidance: "focus" },

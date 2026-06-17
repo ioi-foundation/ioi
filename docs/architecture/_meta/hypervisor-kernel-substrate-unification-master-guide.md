@@ -6073,22 +6073,24 @@ thread/turn/control APIs own admission, execution dispatch, persistence,
 replay, projection, wallet/cTEE policy, and Agentgres expected-head/state-root
 binding.
 
-Slice 1082 retires the daemon-store thread-turn and thread-control compatibility
-delegates that remained after public routes moved to mounted surfaces. The
-store no longer exposes `resumeThread()`, `createTurn()`, `interruptTurn()`,
-`steerTurn()`, `updateThreadRuntimeControls()`, or
-`appendThreadRuntimeControlEvent()` as pass-through methods. Route handlers and
-tests now enter through `threadTurnSurface` or `threadControlSurface` directly,
-so runtime thread/turn/control admission cannot re-enter through a daemon-store
-compatibility API.
+Slice 1082 retired the daemon-store thread-control compatibility delegates that
+remained after public routes moved to mounted surfaces. Slice 1432 later
+supersedes the thread-turn portion: public resume, turn create, interrupt, and
+steer routes now enter through store-owned `resumeThread()`, `createTurn()`,
+`interruptTurn()`, and `steerTurn()` methods backed by the internal
+`threadTurnApi` delegate instead of route-addressing `threadTurnSurface`
+directly. The thread-control pass-through methods
+`updateThreadRuntimeControls()` and `appendThreadRuntimeControlEvent()` remain
+retired.
 
-Conformance now fails if those store delegates return in `index.mjs`, if
-operator turn-control tests stop proving the store methods are absent, or if
-runtime-backed turn tests stop using the mounted turn surface. This is still not
-terminal thread/turn/control migration: the mounted JS surfaces remain
-fail-closed or fixed transport scaffolding until direct Rust daemon-core
-admission, execution dispatch, persistence, replay, projection, wallet/cTEE
-policy, and Agentgres expected-head/state-root binding own the surface.
+Conformance now fails if thread-control store delegates return in `index.mjs`,
+if public turn routes call `store.threadTurnSurface.*`, if daemon startup
+restores `this.threadTurnSurface`, or if tests stop proving the store-owned turn
+methods delegate only through `threadTurnApi`. This is still not terminal
+thread/turn/control migration: the internal JS delegate remains migration
+scaffolding until direct Rust daemon-core admission, execution dispatch,
+persistence, replay, projection, wallet/cTEE policy, and Agentgres
+expected-head/state-root binding own the surface.
 
 Slice 1083 moved the public operator turn-control admission-required refusal
 contract into the Rust policy core. That intermediate fail-closed public
@@ -12728,6 +12730,20 @@ Remaining blockers stay durable workflow mutation custody, diagnostics and
 workspace replay/projection depth, wallet/cTEE authority expansion where
 applicable, receipt/state-root binding, and stable Workbench/CLI/SDK protocol
 clients over Rust-owned records.
+
+Slice 1432 hard-cuts the thread-turn route-visible JS surface shape. Daemon
+startup now mounts the runtime thread-turn delegate as internal `threadTurnApi`
+instead of `threadTurnSurface`, and public thread resume, turn create, turn
+interrupt, and turn steer routes enter through store-owned daemon methods.
+Focused route tests poison the internal delegate and prove route calls use
+`resumeThread()`, `createTurn()`, `interruptTurn()`, and `steerTurn()` on the
+daemon store, while store-delegate tests prove those methods are positive API
+owners over `threadTurnApi` rather than legacy pass-through wrappers.
+Conformance rejects the old route-visible `store.threadTurnSurface.*` calls and
+the mounted `this.threadTurnSurface` property from returning. Remaining blockers
+stay broader runtime-service/thread-turn execution dispatch, durable
+replay/projection, wallet/cTEE authority policy, Agentgres expected-head/state-root
+binding, and stable Workbench/CLI/SDK lifecycle clients over Rust-owned records.
 
 ## Final Doctrine
 

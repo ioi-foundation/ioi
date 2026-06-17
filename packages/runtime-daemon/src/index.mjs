@@ -743,7 +743,7 @@ export class AgentgresRuntimeStateStore {
     this.threadControlSurface = createRuntimeThreadControlSurface({
       contextPolicyCore: this.contextPolicyCore,
     });
-    this.threadTurnSurface = createRuntimeThreadTurnSurface({
+    this.threadTurnApi = createRuntimeThreadTurnSurface({
       approvalModeForThreadMode,
       buildRun,
       contextPolicyCore: this.contextPolicyCore,
@@ -1364,6 +1364,22 @@ export class AgentgresRuntimeStateStore {
 
   canonicalProjection(runId) {
     return this.runReadSurface.canonicalProjection(this, runId);
+  }
+
+  resumeThread(threadId, request = {}) {
+    return this.threadTurnApi.resumeThread(this, threadId, request);
+  }
+
+  createTurn(threadId, request = {}) {
+    return this.threadTurnApi.createTurn(this, threadId, request);
+  }
+
+  interruptTurn(threadId, turnId, request = {}) {
+    return this.threadTurnApi.interruptTurn(this, threadId, turnId, request);
+  }
+
+  steerTurn(threadId, turnId, request = {}) {
+    return this.threadTurnApi.steerTurn(this, threadId, turnId, request);
   }
 
   proposeWorkflowEdit(threadId, request = {}) {

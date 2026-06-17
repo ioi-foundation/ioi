@@ -672,7 +672,7 @@ test("computer-use run materialization is delegated to Rust run-create planning"
       updatedAt: "2026-06-15T18:00:00.000Z",
     });
 
-    await store.threadTurnSurface.createTurn(store, "thread_browser", {
+    await store.createTurn("thread_browser", {
       mode: "send",
       prompt: "Inspect the browser page without side effects.",
       metadata: {

@@ -187,7 +187,7 @@ export function createRuntimeRouteHandlers(deps) {
       return;
     }
     if (request.method === "POST" && action === "resume") {
-      writeJsonResponse(response, await store.threadTurnSurface.resumeThread(store, threadId, await readBody(request)));
+      writeJsonResponse(response, await store.resumeThread(threadId, await readBody(request)));
       return;
     }
     if (request.method === "POST" && action === "fork") {
@@ -412,15 +412,15 @@ export function createRuntimeRouteHandlers(deps) {
       return;
     }
     if (request.method === "POST" && action === "turns" && !segments[4]) {
-      writeJsonResponse(response, await store.threadTurnSurface.createTurn(store, threadId, await readBody(request)));
+      writeJsonResponse(response, await store.createTurn(threadId, await readBody(request)));
       return;
     }
     if (request.method === "POST" && action === "turns" && segments[4] && segments[5] === "interrupt" && !segments[6]) {
-      writeJsonResponse(response, await store.threadTurnSurface.interruptTurn(store, threadId, decodeURIComponent(segments[4]), await readBody(request)));
+      writeJsonResponse(response, await store.interruptTurn(threadId, decodeURIComponent(segments[4]), await readBody(request)));
       return;
     }
     if (request.method === "POST" && action === "turns" && segments[4] && segments[5] === "steer" && !segments[6]) {
-      writeJsonResponse(response, store.threadTurnSurface.steerTurn(store, threadId, decodeURIComponent(segments[4]), await readBody(request)));
+      writeJsonResponse(response, await store.steerTurn(threadId, decodeURIComponent(segments[4]), await readBody(request)));
       return;
     }
     if (request.method === "GET" && action === "approvals" && !segments[4]) {

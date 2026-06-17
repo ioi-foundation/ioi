@@ -148,11 +148,11 @@ function createStore() {
   return { plannerCalls, stateDir, store };
 }
 
-test("interruptTurn facade uses Rust state-update planning before Agentgres run persistence", async () => {
+test("interruptTurn store API uses Rust state-update planning before Agentgres run persistence", async () => {
   const { plannerCalls, stateDir, store } = createStore();
   try {
-    assert.equal(typeof store.interruptTurn, "undefined");
-    const result = await store.threadTurnSurface.interruptTurn(store, "thread_one", "turn_one", {
+    assert.equal(typeof store.threadTurnSurface, "undefined");
+    const result = await store.interruptTurn("thread_one", "turn_one", {
       runtime_control_action: "cancel",
       controlAction: "cancel",
       workflowGraphId: "graph_retired",
@@ -184,11 +184,11 @@ test("interruptTurn facade uses Rust state-update planning before Agentgres run 
   }
 });
 
-test("steerTurn facade uses Rust state-update planning before Agentgres run persistence", () => {
+test("steerTurn store API uses Rust state-update planning before Agentgres run persistence", () => {
   const { plannerCalls, stateDir, store } = createStore();
   try {
-    assert.equal(typeof store.steerTurn, "undefined");
-    const result = store.threadTurnSurface.steerTurn(store, "thread_one", "turn_one", {
+    assert.equal(typeof store.threadTurnSurface, "undefined");
+    const result = store.steerTurn("thread_one", "turn_one", {
       guidance: "focus on Rust admission",
       idempotencyKey: "operator_steer_idempotency_retired",
       createdAt: "2026-06-13T12:03:00.000Z",

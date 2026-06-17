@@ -6,10 +6,6 @@ import { AgentgresRuntimeStateStore } from "./index.mjs";
 test("daemon store thread turn and control pass-through delegates are retired", () => {
   const prototype = AgentgresRuntimeStateStore.prototype;
   for (const method of [
-    "resumeThread",
-    "createTurn",
-    "interruptTurn",
-    "steerTurn",
     "appendWorkspaceTrustWarningEvent",
     "updateThreadRuntimeControls",
     "appendThreadRuntimeControlEvent",
@@ -45,6 +41,19 @@ test("daemon store thread turn and control pass-through delegates are retired", 
   ]) {
     assert.equal(Object.hasOwn(prototype, method), false, `${method} must not be a store delegate`);
     assert.equal(typeof prototype[method], "undefined", `${method} must be absent from the store`);
+  }
+});
+
+test("daemon store thread turn methods are positive API owners, not surface delegates", () => {
+  const prototype = AgentgresRuntimeStateStore.prototype;
+  for (const [method, expectedCall] of [
+    ["resumeThread", "this.threadTurnApi.resumeThread"],
+    ["createTurn", "this.threadTurnApi.createTurn"],
+    ["interruptTurn", "this.threadTurnApi.interruptTurn"],
+    ["steerTurn", "this.threadTurnApi.steerTurn"],
+  ]) {
+    assert.equal(Object.hasOwn(prototype, method), true, `${method} must be a store-owned turn API method`);
+    assert.match(prototype[method].toString(), new RegExp(expectedCall.replaceAll(".", "\\.")));
   }
 });
 
