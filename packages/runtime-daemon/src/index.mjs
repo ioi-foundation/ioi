@@ -663,7 +663,7 @@ export class AgentgresRuntimeStateStore {
       workloadGrpcAddr: process.env.IOI_WORKLOAD_GRPC_ADDR ?? null,
       workloadShmemId: process.env.IOI_SHMEM_ID ?? null,
     });
-    this.workspaceSnapshotSurface = createRuntimeWorkspaceSnapshotSurface({
+    this.workspaceSnapshotApi = createRuntimeWorkspaceSnapshotSurface({
       notFound,
       runtimeError,
       runtimeThreadEventAdmissionForThread: (store, request = {}) =>
@@ -677,7 +677,7 @@ export class AgentgresRuntimeStateStore {
       diagnosticsRepairPolicyProjector: this.contextPolicyCore,
       normalizeDiagnosticsMode,
     });
-    this.diagnosticsRepairSurface = createRuntimeDiagnosticsRepairSurface({
+    this.diagnosticsRepairApi = createRuntimeDiagnosticsRepairSurface({
       approvalModeForThreadMode,
       buildRun,
       contextPolicyCore: this.contextPolicyCore,
@@ -695,7 +695,7 @@ export class AgentgresRuntimeStateStore {
       contextPolicyCore: this.contextPolicyCore,
       runtimeError,
     });
-    this.workflowEditSurface = createRuntimeWorkflowEditSurface({
+    this.workflowEditApi = createRuntimeWorkflowEditSurface({
       contextPolicyCore: this.contextPolicyCore,
       eventStreamIdForThread,
       notFound,
@@ -703,6 +703,19 @@ export class AgentgresRuntimeStateStore {
       runtimeError,
       writeJson,
     });
+    this.proposeWorkflowEdit = (threadId, request = {}) =>
+      this.workflowEditApi.proposeWorkflowEdit(this, threadId, request);
+    this.applyWorkflowEditProposal = (threadId, proposalId, request = {}) =>
+      this.workflowEditApi.applyWorkflowEditProposal(this, threadId, proposalId, request);
+    this.executeDiagnosticsRepairDecision = (threadId, decisionRef, request = {}) =>
+      this.diagnosticsRepairApi.executeDiagnosticsRepairDecision(this, threadId, decisionRef, request);
+    this.prepareWorkspaceSnapshotForPatch = (request = {}) =>
+      this.workspaceSnapshotApi.prepareWorkspaceSnapshotForPatch(this, request);
+    this.listWorkspaceSnapshots = (threadId) => this.workspaceSnapshotApi.listWorkspaceSnapshots(this, threadId);
+    this.previewWorkspaceSnapshotRestore = (threadId, snapshotId, request = {}) =>
+      this.workspaceSnapshotApi.previewWorkspaceSnapshotRestore(this, threadId, snapshotId, request);
+    this.applyWorkspaceSnapshotRestore = (threadId, snapshotId, request = {}) =>
+      this.workspaceSnapshotApi.applyWorkspaceSnapshotRestore(this, threadId, snapshotId, request);
     this.mcpCatalogApi = createRuntimeMcpCatalogApi({
       contextPolicyCore: this.contextPolicyCore,
     });

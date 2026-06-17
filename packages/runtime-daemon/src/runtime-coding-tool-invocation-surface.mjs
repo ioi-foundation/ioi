@@ -351,7 +351,7 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
         artifactRefs.push(...normalizeArray(result.artifact_refs));
       }
       if (normalizedToolId === "file.apply_patch") {
-        workspaceSnapshot = store.workspaceSnapshotSurface.prepareWorkspaceSnapshotForPatch(store, {
+        workspaceSnapshot = store.prepareWorkspaceSnapshotForPatch({
           threadId,
           turnId,
           workspaceRoot: agent.cwd,

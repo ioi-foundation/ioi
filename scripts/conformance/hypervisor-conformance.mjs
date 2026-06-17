@@ -4799,6 +4799,82 @@ function runBridge() {
   const runtimeWorkspaceSnapshotSurfaceTest = exists("packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs")
     : "";
+  const workflowDiagnosticsWorkspaceRouteStoreOwnedApis =
+    /this\.workflowEditApi = createRuntimeWorkflowEditSurface\(\{\s*contextPolicyCore:\s*this\.contextPolicyCore,/s.test(
+      runtimeDaemonIndex,
+    ) &&
+    /this\.diagnosticsRepairApi\s*=\s*createRuntimeDiagnosticsRepairSurface\(\{[\s\S]*?contextPolicyCore:\s*this\.contextPolicyCore/.test(
+      runtimeDaemonIndex,
+    ) &&
+    /this\.workspaceSnapshotApi = createRuntimeWorkspaceSnapshotSurface\(\{/.test(
+      runtimeDaemonIndex,
+    ) &&
+    /this\.proposeWorkflowEdit = \(threadId, request = \{\}\) =>[\s\S]*?this\.workflowEditApi\.proposeWorkflowEdit\(this, threadId, request\)/.test(
+      runtimeDaemonIndex,
+    ) &&
+    /this\.applyWorkflowEditProposal = \(threadId, proposalId, request = \{\}\) =>[\s\S]*?this\.workflowEditApi\.applyWorkflowEditProposal\(this, threadId, proposalId, request\)/.test(
+      runtimeDaemonIndex,
+    ) &&
+    /this\.executeDiagnosticsRepairDecision = \(threadId, decisionRef, request = \{\}\) =>[\s\S]*?this\.diagnosticsRepairApi\.executeDiagnosticsRepairDecision\(this, threadId, decisionRef, request\)/.test(
+      runtimeDaemonIndex,
+    ) &&
+    /this\.prepareWorkspaceSnapshotForPatch = \(request = \{\}\) =>[\s\S]*?this\.workspaceSnapshotApi\.prepareWorkspaceSnapshotForPatch\(this, request\)/.test(
+      runtimeDaemonIndex,
+    ) &&
+    /this\.listWorkspaceSnapshots = \(threadId\) => this\.workspaceSnapshotApi\.listWorkspaceSnapshots\(this, threadId\)/.test(
+      runtimeDaemonIndex,
+    ) &&
+    /this\.previewWorkspaceSnapshotRestore = \(threadId, snapshotId, request = \{\}\) =>[\s\S]*?this\.workspaceSnapshotApi\.previewWorkspaceSnapshotRestore\(this, threadId, snapshotId, request\)/.test(
+      runtimeDaemonIndex,
+    ) &&
+    /this\.applyWorkspaceSnapshotRestore = \(threadId, snapshotId, request = \{\}\) =>[\s\S]*?this\.workspaceSnapshotApi\.applyWorkspaceSnapshotRestore\(this, threadId, snapshotId, request\)/.test(
+      runtimeDaemonIndex,
+    ) &&
+    /store\.proposeWorkflowEdit\(threadId,\s*await readBody\(request\)\)/.test(
+      runtimeRouteHandlers,
+    ) &&
+    /store\.applyWorkflowEditProposal\(threadId,\s*decodeURIComponent\(segments\[4\]\),\s*await readBody\(request\)\)/.test(
+      runtimeRouteHandlers,
+    ) &&
+    /store\.executeDiagnosticsRepairDecision\(threadId,\s*decodeURIComponent\(segments\[5\]\),\s*await readBody\(request\)\)/.test(
+      runtimeRouteHandlers,
+    ) &&
+    /store\.listWorkspaceSnapshots\(threadId\)/.test(runtimeRouteHandlers) &&
+    /store\.previewWorkspaceSnapshotRestore\(threadId,\s*decodeURIComponent\(segments\[4\]\),\s*await readBody\(request\)\)/.test(
+      runtimeRouteHandlers,
+    ) &&
+    /store\.applyWorkspaceSnapshotRestore\(threadId,\s*decodeURIComponent\(segments\[4\]\),\s*await readBody\(request\)\)/.test(
+      runtimeRouteHandlers,
+    ) &&
+    /thread route sends workflow, diagnostics, and snapshot controls through store-owned APIs/.test(
+      runtimeRouteHandlersTest,
+    ) &&
+    /workflowEditApi:\s*\{\s*proposeWorkflowEdit:\s*retiredRouteWrapper,\s*applyWorkflowEditProposal:\s*retiredRouteWrapper,\s*\}/s.test(
+      runtimeRouteHandlersTest,
+    ) &&
+    /diagnosticsRepairApi:\s*\{\s*executeDiagnosticsRepairDecision:\s*retiredRouteWrapper,\s*\}/s.test(
+      runtimeRouteHandlersTest,
+    ) &&
+    /workspaceSnapshotApi:\s*\{\s*listWorkspaceSnapshots:\s*retiredRouteWrapper,\s*previewWorkspaceSnapshotRestore:\s*retiredRouteWrapper,\s*applyWorkspaceSnapshotRestore:\s*retiredRouteWrapper,\s*\}/s.test(
+      runtimeRouteHandlersTest,
+    ) &&
+    /calls\.push\(\{ operation: "proposeWorkflowEdit", args: \[threadId, requestBody\] \}\)/.test(
+      runtimeRouteHandlersTest,
+    ) &&
+    /calls\.push\(\{ operation: "executeDiagnosticsRepairDecision", args: \[threadId, decisionRef, requestBody\] \}\)/.test(
+      runtimeRouteHandlersTest,
+    ) &&
+    /calls\.push\(\{ operation: "applyWorkspaceSnapshotRestore", args: \[threadId, snapshotId, requestBody\] \}\)/.test(
+      runtimeRouteHandlersTest,
+    ) &&
+    /store\.prepareWorkspaceSnapshotForPatch\(\{/.test(runtimeCodingToolInvocationSurface) &&
+    /prepareWorkspaceSnapshotForPatch\(input\) \{/.test(runtimeCodingToolInvocationSurfaceTest) &&
+    !/store\.(?:workflowEditSurface|diagnosticsRepairSurface|workspaceSnapshotSurface|workflowEditApi|diagnosticsRepairApi|workspaceSnapshotApi)\b/.test(
+      runtimeRouteHandlers,
+    ) &&
+    !/store\.workspaceSnapshotSurface\.prepareWorkspaceSnapshotForPatch/.test(
+      runtimeCodingToolInvocationSurface + runtimeCodingToolInvocationSurfaceTest,
+    );
   const workspaceRestoreHelpers = exists("packages/runtime-daemon/src/workspace-restore.mjs")
     ? read("packages/runtime-daemon/src/workspace-restore.mjs")
     : "";
@@ -16919,9 +16995,7 @@ function runBridge() {
     !/store\?\.contextPolicyCore|store\.contextPolicyCore|store\?\.contextPolicyCore\s*\?\?\s*null/.test(
       runtimeWorkflowEditSurface + runtimeWorkflowEditSurfaceTest,
     ) &&
-    /this\.workflowEditSurface = createRuntimeWorkflowEditSurface\(\{\s*contextPolicyCore:\s*this\.contextPolicyCore,/s.test(
-      runtimeDaemonIndex,
-    ) &&
+    workflowDiagnosticsWorkspaceRouteStoreOwnedApis &&
     /createSurface\(\{\s*contextPolicyCore: createWorkflowEditCore\(runnerCalls\),\s*\}\)/.test(
       runtimeWorkflowEditSurfaceTest,
     ) &&
@@ -17013,12 +17087,7 @@ function runBridge() {
       /agentForThread must not be called by the Rust-owned workflow-edit surface/.test(
         runtimeWorkflowEditSurfaceTest,
       ) &&
-      /store\.workflowEditSurface\.proposeWorkflowEdit\(\s*store,\s*threadId,\s*await readBody\(request\)\s*\)/m.test(
-        runtimeRouteHandlers,
-      ) &&
-      /thread route sends workflow, diagnostics, and snapshot controls through mounted surfaces/.test(
-        runtimeRouteHandlersTest,
-      ) &&
+      workflowDiagnosticsWorkspaceRouteStoreOwnedApis &&
       /error\.details\.thread_id, "thread_alpha"/.test(runtimeWorkflowEditSurfaceTest) &&
       /Object\.hasOwn\(error\.details,\s*"threadId"\),\s*false/.test(
         runtimeWorkflowEditSurfaceTest,
@@ -17028,7 +17097,7 @@ function runBridge() {
       ) &&
       !/store\.requestThreadApproval\(/.test(runtimeWorkflowEditSurface) &&
       !/store\.agentForThread\(/.test(runtimeWorkflowEditSurface) &&
-      !/^\s+proposeWorkflowEdit\(threadId, request = \{\}\) \{/m.test(
+      /^\s+this\.proposeWorkflowEdit = \(threadId, request = \{\}\) =>/m.test(
         runtimeDaemonIndex,
       ) &&
       !/details:\s*\{ threadId/.test(runtimeWorkflowEditSurface) &&
@@ -17069,13 +17138,8 @@ function runBridge() {
       /Object\.hasOwn\(surface,\s*"workflowEditApprovalSatisfaction"\),\s*false/.test(
         runtimeWorkflowEditSurfaceTest,
       ) &&
-      /store\.workflowEditSurface\.applyWorkflowEditProposal\(\s*store,\s*threadId,\s*decodeURIComponent\(segments\[4\]\),\s*await readBody\(request\),\s*\)/m.test(
-        runtimeRouteHandlers,
-      ) &&
-      /thread route sends workflow, diagnostics, and snapshot controls through mounted surfaces/.test(
-        runtimeRouteHandlersTest,
-      ) &&
-      !/^\s*applyWorkflowEditProposal\(threadId, proposalId, request = \{\}\) \{/m.test(
+      workflowDiagnosticsWorkspaceRouteStoreOwnedApis &&
+      /^\s*this\.applyWorkflowEditProposal = \(threadId, proposalId, request = \{\}\) =>/m.test(
         runtimeDaemonIndex,
       ) &&
       !/latestWorkflowEditProposalEvent\(threadId, proposalId\)/.test(runtimeDaemonIndex) &&
@@ -41397,23 +41461,12 @@ function runCompositor() {
 	      !workspaceRestoreResultAliasPattern.test(applyWorkspaceSnapshotRestoreBody) &&
 	      !/\brestorePreviewEvent:\s*event\b/.test(previewWorkspaceSnapshotRestoreBody) &&
       !/\brestoreApplyEvent:\s*event\b/.test(applyWorkspaceSnapshotRestoreBody) &&
-      /store\.workspaceSnapshotSurface\.listWorkspaceSnapshots\(store,\s*threadId\)/.test(
-        runtimeRouteHandlers,
-      ) &&
-      /store\.workspaceSnapshotSurface\.previewWorkspaceSnapshotRestore\(\s*store,\s*threadId,\s*decodeURIComponent\(segments\[4\]\),\s*await readBody\(request\),\s*\)/m.test(
-        runtimeRouteHandlers,
-      ) &&
-      /store\.workspaceSnapshotSurface\.applyWorkspaceSnapshotRestore\(\s*store,\s*threadId,\s*decodeURIComponent\(segments\[4\]\),\s*await readBody\(request\),\s*\)/m.test(
-        runtimeRouteHandlers,
-      ) &&
-      /thread route sends workflow, diagnostics, and snapshot controls through mounted surfaces/.test(
-        runtimeRouteHandlersTest,
-      ) &&
-      !/^\s*listWorkspaceSnapshots\(threadId\) \{/m.test(runtimeDaemonIndex) &&
-      !/^\s*previewWorkspaceSnapshotRestore\(threadId, snapshotId, request = \{\}\) \{/m.test(
+      workflowDiagnosticsWorkspaceRouteStoreOwnedApis &&
+      /^\s*this\.listWorkspaceSnapshots = \(threadId\) =>/m.test(runtimeDaemonIndex) &&
+      /^\s*this\.previewWorkspaceSnapshotRestore = \(threadId, snapshotId, request = \{\}\) =>/m.test(
         runtimeDaemonIndex,
       ) &&
-      !/^\s*applyWorkspaceSnapshotRestore\(threadId, snapshotId, request = \{\}\) \{/m.test(
+      /^\s*this\.applyWorkspaceSnapshotRestore = \(threadId, snapshotId, request = \{\}\) =>/m.test(
         runtimeDaemonIndex,
       ) &&
       !/\bpolicy:\s*\{[\s\S]*?\b(?:approvalRequired|approvalSatisfied|approvalSource|conflictPolicy)\s*:/.test(
@@ -42607,9 +42660,7 @@ function runCompositor() {
     !/diagnosticsRepair(?:Control|RetryRun|RetryResultProjection|Projection|OperatorOverrideStateUpdate)Runner|store\?\.contextPolicyCore\s*\?\?\s*null/.test(
       runtimeDiagnosticsRepairSurface + runtimeDiagnosticsRepairSurfaceTest,
     ) &&
-    /this\.diagnosticsRepairSurface\s*=\s*createRuntimeDiagnosticsRepairSurface\(\{[\s\S]*?contextPolicyCore:\s*this\.contextPolicyCore/.test(
-      runtimeDaemonIndex,
-    ) &&
+    workflowDiagnosticsWorkspaceRouteStoreOwnedApis &&
     /eventStreamIdForThread/.test(runtimeDaemonIndex) &&
     /diagnostics repair decision execution uses Rust planning and runtime event admission/.test(
       runtimeDiagnosticsRepairSurfaceTest,
@@ -42919,9 +42970,7 @@ function runCompositor() {
       !/diagnosticsRepair(?:Control|RetryRun|RetryResultProjection|Projection|OperatorOverrideStateUpdate)Runner|store\?\.contextPolicyCore\s*\?\?\s*null/.test(
         runtimeDiagnosticsRepairSurface + runtimeDiagnosticsRepairSurfaceTest,
       ) &&
-      /this\.diagnosticsRepairSurface\s*=\s*createRuntimeDiagnosticsRepairSurface\(\{[\s\S]*?contextPolicyCore:\s*this\.contextPolicyCore/.test(
-        runtimeDaemonIndex,
-      ) &&
+      workflowDiagnosticsWorkspaceRouteStoreOwnedApis &&
       !/diagnosticsRepairRetryResultFromEvent/.test(runtimeDaemonIndex) &&
       !/diagnosticsOperatorOverrideResultFromEvent/.test(runtimeDaemonIndex) &&
       /RUNTIME_PROJECTION_DIAGNOSTICS_REPAIR_RETRY_RESULT_API_METHOD/.test(
@@ -43009,12 +43058,7 @@ function runCompositor() {
       !/diagnostics repair decision resolver facade fails closed before JS projection reads/.test(
         runtimeDiagnosticsRepairSurfaceTest,
       ) &&
-      /store\.diagnosticsRepairSurface\.executeDiagnosticsRepairDecision\(\s*store,\s*threadId,\s*decodeURIComponent\(segments\[5\]\),\s*await readBody\(request\),\s*\)/m.test(
-        runtimeRouteHandlers,
-      ) &&
-      /thread route sends workflow, diagnostics, and snapshot controls through mounted surfaces/.test(
-        runtimeRouteHandlersTest,
-      ) &&
+      workflowDiagnosticsWorkspaceRouteStoreOwnedApis &&
       /DIAGNOSTICS_REPAIR_DECISION_EXECUTION_RETIRED_REQUEST_ALIASES/.test(
         runtimeDiagnosticsRepairSurface,
       ) &&
@@ -43028,7 +43072,7 @@ function runCompositor() {
       /restoreApplyIdempotencyKey:\s*"restore_apply_retired"/.test(
         runtimeDiagnosticsRepairSurfaceTest,
       ) &&
-      !/^\s*executeDiagnosticsRepairDecision\(threadId, decisionRef, request = \{\}\) \{/m.test(
+      /^\s*this\.executeDiagnosticsRepairDecision = \(threadId, decisionRef, request = \{\}\) =>/m.test(
         runtimeDaemonIndex,
       ) &&
       /Object\.hasOwn\(details \?\? \{\},\s*key\),\s*false/.test(

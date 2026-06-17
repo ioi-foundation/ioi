@@ -361,27 +361,23 @@ function createStore(options = {}) {
         return [{ event_id: "event_command_stream", event_kind: "artifact.command_stream" }];
       },
     },
-    workspaceSnapshotSurface: {
-      prepareWorkspaceSnapshotForPatch(surfaceStore, input) {
-        assert.equal(surfaceStore, store);
-        calls.push({ name: "prepareSnapshot", input });
-        if (options.onPrepareSnapshot) {
-          return options.onPrepareSnapshot(input);
-        }
-        return {
-          record: {
-            snapshot_id: "snapshot_alpha",
-            artifact_refs: ["artifact_snapshot"],
-            receipt_refs: ["receipt_snapshot"],
-          },
-          event: { event_id: "event_snapshot" },
-        };
-      },
-      appendWorkspaceSnapshotEvent(surfaceStore, input) {
-        assert.equal(surfaceStore, store);
-        calls.push({ name: "appendSnapshotEvent", input });
-        throw new Error("appendWorkspaceSnapshotEvent must not be called by coding-tool invocation");
-      },
+    prepareWorkspaceSnapshotForPatch(input) {
+      calls.push({ name: "prepareSnapshot", input });
+      if (options.onPrepareSnapshot) {
+        return options.onPrepareSnapshot(input);
+      }
+      return {
+        record: {
+          snapshot_id: "snapshot_alpha",
+          artifact_refs: ["artifact_snapshot"],
+          receipt_refs: ["receipt_snapshot"],
+        },
+        event: { event_id: "event_snapshot" },
+      };
+    },
+    appendWorkspaceSnapshotEvent() {
+      calls.push({ name: "appendSnapshotEvent" });
+      throw new Error("appendWorkspaceSnapshotEvent must not be called by coding-tool invocation");
     },
     appendRuntimeEvent(event) {
       throw new Error(`appendRuntimeEvent must not be called by coding-tool invocation result admission: ${event?.event_kind}`);
