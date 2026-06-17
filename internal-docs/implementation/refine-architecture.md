@@ -1706,11 +1706,24 @@ guards the runtime contract alongside the SAS and daemon-runtime canon.
 
 | Field | Detail |
 | --- | --- |
-| Status | Canonized and guarded on 2026-06-17. Runtime/API implementation remains follow-up work. |
+| Status | Canonized and guarded on 2026-06-17; first daemon-side `ArtifactAvailabilityIncident` admission contract implemented and guarded. Live Agentgres artifact endpoint integration remains follow-up hardening. |
 | Files | Agentgres artifact-ref plane, storage backend doctrine, receipts docs |
 | Change | Define incident when payload bytes are missing, corrupt, stale, or unavailable. |
 | Acceptance | Agentgres lifecycle and repair receipts govern backend failure. |
-| Verify | `rg -n "ArtifactAvailabilityIncident|missing|invalid|repair receipt" docs/architecture/components/agentgres docs/architecture/components/storage-backends` |
+| Verify | `node --test packages/runtime-daemon/src/runtime-artifact-availability-incident.test.mjs`; `npm run check:artifact-availability-incident`; `rg -n "ArtifactAvailabilityIncident|missing|invalid|repair receipt|admitArtifactAvailabilityIncident" docs/architecture/components/agentgres docs/architecture/components/storage-backends packages/runtime-daemon/src` |
+
+Current hardening slice:
+
+```text
+`runtime-artifact-availability-incident.mjs` adds daemon-side admission for
+`ArtifactAvailabilityIncident`. It binds artifact refs, payload refs, storage
+backend refs, affected Agentgres object refs, incident receipts, Agentgres
+operation refs, and repair/verification/restore refs for fallback, quarantine,
+repair, and close flows. It fails closed for missing integrity evidence on
+hash/CID failures and blocks silent payload-byte mutation without repair
+receipts. `check:artifact-availability-incident` guards the runtime contract
+beside the Agentgres artifact plane and storage-backend canon.
+```
 
 ### Phase 9: Update Start Here and Readability Entry Points
 
