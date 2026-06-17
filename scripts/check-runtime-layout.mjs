@@ -84,6 +84,12 @@ const runtimeModelWeightCustodyAdmissionSource = read(
 const runtimeModelWeightCustodyAdmissionTestSource = read(
   "packages/runtime-daemon/src/runtime-model-weight-custody-admission.test.mjs",
 );
+const runtimeManagedWorkerLifecycleAdmissionSource = read(
+  "packages/runtime-daemon/src/runtime-managed-worker-instance-lifecycle-admission.mjs",
+);
+const runtimeManagedWorkerLifecycleAdmissionTestSource = read(
+  "packages/runtime-daemon/src/runtime-managed-worker-instance-lifecycle-admission.test.mjs",
+);
 const hypervisorActivityBarSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/components/ChatLocalActivityBar.tsx",
 );
@@ -574,6 +580,55 @@ assert(
     "packages/runtime-daemon/src/runtime-model-weight-custody-admission.test.mjs",
   ],
   "Model-weight custody admission must block unsafe private-weight plaintext mounts, separate remote API/TEE/provider-trust lanes, and keep daemon runtime truth.",
+);
+assert(
+  "hypervisor-managed-worker-lifecycle-admission",
+  runtimeManagedWorkerLifecycleAdmissionSource.includes(
+    "ioi.runtime.managed_worker_instance_lifecycle_admission.v1",
+  ) &&
+    runtimeManagedWorkerLifecycleAdmissionSource.includes(
+      "admitManagedWorkerInstanceLifecycleTransition",
+    ) &&
+    runtimeManagedWorkerLifecycleAdmissionSource.includes("payment_past_due") &&
+    runtimeManagedWorkerLifecycleAdmissionSource.includes("zero_to_idle") &&
+    runtimeManagedWorkerLifecycleAdmissionSource.includes(
+      "managed_worker_lifecycle_lapse_delete_blocked",
+    ) &&
+    runtimeManagedWorkerLifecycleAdmissionSource.includes(
+      "managed_worker_lifecycle_restore_import_ref_required",
+    ) &&
+    runtimeManagedWorkerLifecycleAdmissionSource.includes(
+      "managed_worker_lifecycle_archive_policy_required",
+    ) &&
+    runtimeManagedWorkerLifecycleAdmissionSource.includes(
+      "scope:worker.restore",
+    ) &&
+    runtimeManagedWorkerLifecycleAdmissionSource.includes(
+      "scope:worker.export",
+    ) &&
+    runtimeManagedWorkerLifecycleAdmissionSource.includes(
+      "scope:worker.delete",
+    ) &&
+    runtimeManagedWorkerLifecycleAdmissionSource.includes(
+      "scope:worker.forget",
+    ) &&
+    runtimeManagedWorkerLifecycleAdmissionSource.includes(
+      'runtimeTruthSource: "daemon-runtime"',
+    ) &&
+    runtimeManagedWorkerLifecycleAdmissionTestSource.includes(
+      "payment lapse freezes billable work and cannot silently delete context",
+    ) &&
+    runtimeManagedWorkerLifecycleAdmissionTestSource.includes(
+      "archive and restore transitions require Agentgres refs",
+    ) &&
+    runtimeManagedWorkerLifecycleAdmissionTestSource.includes(
+      "export, delete, and forget transitions require explicit wallet authority",
+    ),
+  [
+    "packages/runtime-daemon/src/runtime-managed-worker-instance-lifecycle-admission.mjs",
+    "packages/runtime-daemon/src/runtime-managed-worker-instance-lifecycle-admission.test.mjs",
+  ],
+  "Managed worker lifecycle admission must bind lapse, archive, restore, export, delete, and forget transitions to Agentgres operations, wallet authority, receipts, and restore/archive refs.",
 );
 assert(
   "hypervisor-new-session-model-route-compatibility",

@@ -1637,11 +1637,26 @@ so cTEE workspace privacy cannot be confused with model-weight secrecy.
 
 | Field | Detail |
 | --- | --- |
-| Status | Implemented as a canonical docs slice on 2026-06-17. Runtime/API implementation remains follow-up hardening. |
+| Status | Canonized on 2026-06-17; first daemon-side managed worker lifecycle transition admission contract implemented and guarded. Live aiagent endpoint integration remains follow-up hardening. |
 | Files | new `aiagent/managed-worker-instance-lifecycle.md`, worker endpoints, Agentgres artifact refs, wallet APIs |
 | Change | Define install, initialize, active, idle, zero-to-idle, suspended, lapsed, archived, restored, exported, deleted. |
 | Acceptance | Payment lapse and restore/export/delete behavior are explicit. |
-| Verify | `rg -n "lapse|archive_policy|restore_policy|ManagedWorkerInstanceLifecycle" docs/architecture/domains/aiagent docs/architecture/_meta` |
+| Verify | `node --test packages/runtime-daemon/src/runtime-managed-worker-instance-lifecycle-admission.test.mjs`; `npm run check:runtime-layout`; `rg -n "lapse|archive_policy|restore_policy|ManagedWorkerInstanceLifecycle" docs/architecture/domains/aiagent docs/architecture/_meta packages/runtime-daemon/src` |
+
+Current hardening slice:
+
+```text
+`runtime-managed-worker-instance-lifecycle-admission.mjs` adds a daemon-side
+`ManagedWorkerInstanceLifecycleAdmission` contract. It admits canonical
+instance state transitions only when lifecycle, owner, Agentgres operation,
+receipt, archive, restore, wallet approval, and authority-scope evidence is
+present for the transition. It fails closed for payment-lapse deletion, restore
+without import refs, archive without Agentgres archive refs/state roots, and
+export/delete/forget transitions without explicit wallet authority.
+`check:runtime-layout` guards the contract so long-lived aiagent instances
+cannot treat subscription lapse, zero-to-idle, archive, restore, export, or
+forget as product-console-only state.
+```
 
 ### Phase 6: Add Candidate Evidence Conformance
 
