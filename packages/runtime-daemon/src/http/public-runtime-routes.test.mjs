@@ -1311,47 +1311,38 @@ test("public runtime top-level memory context routes are retired", async () => {
   }
 });
 
-test("public conversation artifact routes use mounted Rust-owned artifact surface", async () => {
+test("public conversation artifact routes use store-owned Rust artifact API", async () => {
   const { handleRequest } = routeHarness();
   const calls = [];
   const store = {
-    conversationArtifactSurface: {
-      listConversationArtifacts(surfaceStore, query) {
-        calls.push({ method: "listConversationArtifacts", surfaceStore, query });
-        return [{ id: "artifact_route", thread_id: query.thread_id }];
-      },
-      createConversationArtifact(surfaceStore, threadId, input) {
-        calls.push({ method: "createConversationArtifact", surfaceStore, threadId, input });
-        return { artifact_id: "artifact_created", thread_id: threadId, input, commit_hash: "commit-created" };
-      },
-      getConversationArtifact(surfaceStore, artifactId) {
-        calls.push({ method: "getConversationArtifact", surfaceStore, artifactId });
-        return { id: artifactId, thread_id: "thread_route" };
-      },
-      listConversationArtifactRevisions(surfaceStore, artifactId) {
-        calls.push({ method: "listConversationArtifactRevisions", surfaceStore, artifactId });
-        return [{ revision_id: "revision_route", artifact_id: artifactId }];
-      },
-      performConversationArtifactAction(surfaceStore, artifactId, input) {
-        calls.push({ method: "performConversationArtifactAction", surfaceStore, artifactId, input });
-        return { artifact_id: artifactId, action_kind: input.action_kind, commit_hash: "commit-action" };
-      },
-      exportConversationArtifact(surfaceStore, artifactId, input) {
-        calls.push({ method: "exportConversationArtifact", surfaceStore, artifactId, input });
-        return { artifact_id: artifactId, export_format: input.export_format, commit_hash: "commit-export" };
-      },
-      promoteConversationArtifact(surfaceStore, artifactId, input) {
-        calls.push({ method: "promoteConversationArtifact", surfaceStore, artifactId, input });
-        return { artifact_id: artifactId, promotion_target: input.promotion_target, commit_hash: "commit-promote" };
-      },
+    listConversationArtifacts(query) {
+      calls.push({ method: "listConversationArtifacts", query });
+      return [{ id: "artifact_route", thread_id: query.thread_id }];
     },
-    listConversationArtifacts: retiredRouteWrapper,
-    createConversationArtifact: retiredRouteWrapper,
-    getConversationArtifact: retiredRouteWrapper,
-    listConversationArtifactRevisions: retiredRouteWrapper,
-    performConversationArtifactAction: retiredRouteWrapper,
-    exportConversationArtifact: retiredRouteWrapper,
-    promoteConversationArtifact: retiredRouteWrapper,
+    createConversationArtifact(threadId, input) {
+      calls.push({ method: "createConversationArtifact", threadId, input });
+      return { artifact_id: "artifact_created", thread_id: threadId, input, commit_hash: "commit-created" };
+    },
+    getConversationArtifact(artifactId) {
+      calls.push({ method: "getConversationArtifact", artifactId });
+      return { id: artifactId, thread_id: "thread_route" };
+    },
+    listConversationArtifactRevisions(artifactId) {
+      calls.push({ method: "listConversationArtifactRevisions", artifactId });
+      return [{ revision_id: "revision_route", artifact_id: artifactId }];
+    },
+    performConversationArtifactAction(artifactId, input) {
+      calls.push({ method: "performConversationArtifactAction", artifactId, input });
+      return { artifact_id: artifactId, action_kind: input.action_kind, commit_hash: "commit-action" };
+    },
+    exportConversationArtifact(artifactId, input) {
+      calls.push({ method: "exportConversationArtifact", artifactId, input });
+      return { artifact_id: artifactId, export_format: input.export_format, commit_hash: "commit-export" };
+    },
+    promoteConversationArtifact(artifactId, input) {
+      calls.push({ method: "promoteConversationArtifact", artifactId, input });
+      return { artifact_id: artifactId, promotion_target: input.promotion_target, commit_hash: "commit-promote" };
+    },
   };
 
   const requests = [
@@ -1415,7 +1406,6 @@ test("public conversation artifact routes use mounted Rust-owned artifact surfac
     assert.deepEqual(JSON.parse(response.body), body);
   }
 
-  assert.equal(calls.every((call) => call.surfaceStore === store), true);
   assert.deepEqual(
     calls.map(({ method, query, threadId, artifactId, input }) => ({
       method,

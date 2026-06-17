@@ -630,22 +630,18 @@ test("agent and thread memory mutation routes use mounted thread memory surface"
   );
 });
 
-test("thread conversation artifact routes use mounted artifact surface", async () => {
+test("thread conversation artifact routes use store-owned artifact API", async () => {
   const { handleThreadRoute } = routeHandlers();
   const calls = [];
   const store = {
-    conversationArtifactSurface: {
-      listConversationArtifacts(surfaceStore, query) {
-        calls.push({ method: "listConversationArtifacts", surfaceStore, query });
-        return [{ id: "artifact_route", thread_id: query.thread_id }];
-      },
-      createConversationArtifact(surfaceStore, threadId, input) {
-        calls.push({ method: "createConversationArtifact", surfaceStore, threadId, input });
-        return { artifact_id: "artifact_created", thread_id: threadId, input, commit_hash: "commit-created" };
-      },
+    listConversationArtifacts(query) {
+      calls.push({ method: "listConversationArtifacts", query });
+      return [{ id: "artifact_route", thread_id: query.thread_id }];
     },
-    listConversationArtifacts: retiredRouteWrapper,
-    createConversationArtifact: retiredRouteWrapper,
+    createConversationArtifact(threadId, input) {
+      calls.push({ method: "createConversationArtifact", threadId, input });
+      return { artifact_id: "artifact_created", thread_id: threadId, input, commit_hash: "commit-created" };
+    },
   };
 
   const listResponse = responseRecorder();
@@ -680,7 +676,6 @@ test("thread conversation artifact routes use mounted artifact surface", async (
     commit_hash: "commit-created",
   });
 
-  assert.equal(calls.every((call) => call.surfaceStore === store), true);
   assert.deepEqual(
     calls.map(({ method, query, threadId, input }) => ({ method, query, threadId, input })),
     [

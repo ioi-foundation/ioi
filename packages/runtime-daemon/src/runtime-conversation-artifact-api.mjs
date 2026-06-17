@@ -34,7 +34,7 @@ function objectRecord(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : null;
 }
 
-export function createRuntimeConversationArtifactSurface({
+export function createRuntimeConversationArtifactApi({
   contextPolicyCore = null,
   runtimeError = ({ status = 500, code = "runtime_conversation_artifact_error", message, details }) =>
     Object.assign(new Error(message), { status, code, details }),
@@ -45,7 +45,7 @@ export function createRuntimeConversationArtifactSurface({
     threadId = null,
     artifactId = null,
     code = "runtime_conversation_artifact_control_rust_core_required",
-    source = "runtime.conversation_artifact_surface.control",
+    source = "runtime.conversation_artifact_api.control",
   }) {
     throw runtimeError({
       status: 501,
@@ -85,7 +85,7 @@ export function createRuntimeConversationArtifactSurface({
       threadId: request.thread_id ?? null,
       artifactId: request.artifact_id ?? null,
       code: "runtime_conversation_artifact_agentgres_commit_required",
-      source: "runtime.conversation_artifact_surface.agentgres_commit",
+      source: "runtime.conversation_artifact_api.agentgres_commit",
     });
   }
 
@@ -103,7 +103,7 @@ export function createRuntimeConversationArtifactSurface({
         projection_kind: request.projection_kind ?? null,
         thread_id: request.thread_id ?? null,
         artifact_id: request.artifact_id ?? null,
-        source: "runtime.conversation_artifact_surface.read_projection",
+        source: "runtime.conversation_artifact_api.read_projection",
         evidence_refs: conversationArtifactReadProjectionEvidenceRefs,
       },
     });
@@ -124,7 +124,7 @@ export function createRuntimeConversationArtifactSurface({
         projection_kind: request.projection_kind ?? null,
         thread_id: request.thread_id ?? null,
         artifact_id: request.artifact_id ?? null,
-        source: request.source ?? "runtime.conversation_artifact_surface",
+        source: request.source ?? "runtime.conversation_artifact_api",
         evidence_refs: [
           ...conversationArtifactControlEvidenceRefs,
           ...conversationArtifactReadProjectionEvidenceRefs,
@@ -193,7 +193,7 @@ export function createRuntimeConversationArtifactSurface({
         operation_kind: operationKind,
         thread_id: threadId,
         artifact_id: artifactId,
-        source: "runtime.conversation_artifact_surface.control",
+        source: "runtime.conversation_artifact_api.control",
       }),
       request: conversationArtifactControlRequestPayload(input),
       evidence_refs: [
@@ -239,7 +239,7 @@ export function createRuntimeConversationArtifactSurface({
           ...(artifactId ? { artifact_id: artifactId } : {}),
           planned_operation_kind: plan?.operation_kind ?? null,
           planned_artifact_id: plannedArtifactId,
-          source: "runtime.conversation_artifact_surface.control",
+          source: "runtime.conversation_artifact_api.control",
         },
       });
     }
@@ -278,7 +278,7 @@ export function createRuntimeConversationArtifactSurface({
           operation_kind: plan?.operation_kind ?? null,
           artifact_id: plan?.artifact_id ?? null,
           cause: error?.message ?? String(error),
-          source: "runtime.conversation_artifact_surface.agentgres_commit",
+          source: "runtime.conversation_artifact_api.agentgres_commit",
           evidence_refs: conversationArtifactControlEvidenceRefs,
         },
       });
@@ -312,9 +312,9 @@ export function createRuntimeConversationArtifactSurface({
         projection_kind: projectionKind,
         thread_id: threadId,
         artifact_id: artifactId,
-        source: "runtime.conversation_artifact_surface.read_projection",
+        source: "runtime.conversation_artifact_api.read_projection",
       }),
-      source: "runtime.conversation_artifact_surface.read_projection",
+      source: "runtime.conversation_artifact_api.read_projection",
       evidence_refs: conversationArtifactReadProjectionEvidenceRefs,
     };
     const result = core.projectRuntimeConversationArtifactProjection(request);
@@ -333,7 +333,7 @@ export function createRuntimeConversationArtifactSurface({
           actual_projection_kind: result?.projection_kind ?? null,
           operation: request.operation,
           operation_kind: request.operation_kind,
-          source: "runtime.conversation_artifact_surface.read_projection",
+          source: "runtime.conversation_artifact_api.read_projection",
         },
       });
     }

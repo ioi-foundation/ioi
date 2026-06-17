@@ -43,13 +43,6 @@ test("daemon store thread turn and control pass-through delegates are retired", 
     "appendDiagnosticsRepairRetryTurnEvent",
     "resolveDiagnosticsRepairDecision",
     "appendDiagnosticsRepairDecisionExecutedEvent",
-    "createConversationArtifact",
-    "listConversationArtifacts",
-    "getConversationArtifact",
-    "listConversationArtifactRevisions",
-    "performConversationArtifactAction",
-    "exportConversationArtifact",
-    "promoteConversationArtifact",
   ]) {
     assert.equal(Object.hasOwn(prototype, method), false, `${method} must not be a store delegate`);
     assert.equal(typeof prototype[method], "undefined", `${method} must be absent from the store`);
@@ -67,6 +60,22 @@ test("daemon store thread auxiliary methods are positive API owners, not surface
     ["cancelRun", "this.threadAuxiliaryApi.cancelRun"],
   ]) {
     assert.equal(Object.hasOwn(prototype, method), true, `${method} must be a store-owned auxiliary API method`);
+    assert.match(prototype[method].toString(), new RegExp(expectedCall.replaceAll(".", "\\.")));
+  }
+});
+
+test("daemon store conversation artifact methods are positive API owners, not surface delegates", () => {
+  const prototype = AgentgresRuntimeStateStore.prototype;
+  for (const [method, expectedCall] of [
+    ["createConversationArtifact", "this.conversationArtifactApi.createConversationArtifact"],
+    ["listConversationArtifacts", "this.conversationArtifactApi.listConversationArtifacts"],
+    ["getConversationArtifact", "this.conversationArtifactApi.getConversationArtifact"],
+    ["listConversationArtifactRevisions", "this.conversationArtifactApi.listConversationArtifactRevisions"],
+    ["performConversationArtifactAction", "this.conversationArtifactApi.performConversationArtifactAction"],
+    ["exportConversationArtifact", "this.conversationArtifactApi.exportConversationArtifact"],
+    ["promoteConversationArtifact", "this.conversationArtifactApi.promoteConversationArtifact"],
+  ]) {
+    assert.equal(Object.hasOwn(prototype, method), true, `${method} must be a store-owned artifact API method`);
     assert.match(prototype[method].toString(), new RegExp(expectedCall.replaceAll(".", "\\.")));
   }
 });

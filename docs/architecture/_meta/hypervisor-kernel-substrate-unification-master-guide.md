@@ -10585,13 +10585,16 @@ durable lifecycle replay/projection, receipt/state-root binding, and stable
 protocol APIs, not alternate lifecycle helper runners.
 
 Slice 1310 hard-cuts conversation-artifact surface runner wrappers.
-`createRuntimeConversationArtifactSurface()` no longer routes artifact
+`createRuntimeConversationArtifactApi()` no longer routes artifact
 create/action/export/promote control or list/get/revision projection through
 `conversationArtifactControlRunner`, `conversationArtifactProjectionRunner`, or
 the `store.contextPolicyCore ?? contextPolicyCore` fallback shape. Public and
 thread-scoped conversation-artifact read/control routes now resolve through the
-single positive `contextPolicyCore` mount injected by daemon startup before Rust
-control planning, Rust projection, and Agentgres artifact-state commit.
+store-owned conversation-artifact API backed by the single positive
+`contextPolicyCore` mount injected by daemon startup before Rust control
+planning, Rust projection, and Agentgres artifact-state commit. Slice 1426
+later deletes the route-visible conversation-artifact surface outright while
+keeping store-owned conversation-artifact API methods as route entry points.
 Conformance now guards that the retired wrappers and fallback cannot return.
 Remaining work is durable Agentgres-backed artifact replay/projection,
 ArtifactRef/PayloadRef admission depth, wallet/cTEE authority where needed, and
@@ -12625,6 +12628,24 @@ patterns from returning. Remaining blockers stay durable auxiliary-family
 replay/projection depth, wallet/cTEE/workspace authority expansion,
 StepModuleRouter delegation execution where applicable, receipt/state-root
 binding, and stable Workbench/CLI/SDK protocol clients over Rust-owned records.
+
+Slice 1426 hard-deletes the public conversation-artifact JS surface.
+`runtime-conversation-artifact-surface.mjs`, its focused test, and the mounted
+`conversationArtifactSurface` daemon-store property are absent. Daemon startup
+mounts `runtime-conversation-artifact-api.mjs` as `conversationArtifactApi`,
+and thread-scoped plus public conversation-artifact list/get/revision and
+create/action/export/promote routes enter through store-owned
+`listConversationArtifacts()`, `createConversationArtifact()`,
+`getConversationArtifact()`, `listConversationArtifactRevisions()`,
+`performConversationArtifactAction()`, `exportConversationArtifact()`, and
+`promoteConversationArtifact()` methods. Those methods delegate to the positive
+Rust-backed conversation-artifact API while preserving Rust projection/control
+planning, Agentgres artifact-state admission, daemon `state_dir` replay, and
+mismatch guards. Conformance rejects the old surface file, factory, property,
+and route call patterns from returning. Remaining blockers stay durable
+ArtifactRef/PayloadRef admission depth, richer Agentgres-backed artifact
+replay/projection storage, wallet/cTEE authority where needed, receipt/state-root
+binding, and stable Workbench/CLI/SDK artifact clients over Rust-owned records.
 
 ## Final Doctrine
 

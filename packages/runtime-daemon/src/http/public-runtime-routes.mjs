@@ -272,7 +272,7 @@ export function createPublicRuntimeRequestHandler(deps) {
       if (request.method === "GET" && url.pathname === "/v1/conversation-artifacts") {
         writeJsonResponse(
           response,
-          store.conversationArtifactSurface.listConversationArtifacts(store, Object.fromEntries(url.searchParams.entries())),
+          store.listConversationArtifacts(Object.fromEntries(url.searchParams.entries())),
         );
         return;
       }
@@ -280,8 +280,7 @@ export function createPublicRuntimeRequestHandler(deps) {
         const body = await readBody(request);
         writeJsonResponse(
           response,
-          store.conversationArtifactSurface.createConversationArtifact(
-            store,
+          store.createConversationArtifact(
             optionalString(body.thread_id) ?? "thread_standalone",
             body,
           ),
@@ -292,34 +291,34 @@ export function createPublicRuntimeRequestHandler(deps) {
       if (segments[0] === "v1" && segments[1] === "conversation-artifacts" && segments[2]) {
         const artifactId = decodeURIComponent(segments[2]);
         if (request.method === "GET" && !segments[3]) {
-          writeJsonResponse(response, store.conversationArtifactSurface.getConversationArtifact(store, artifactId));
+          writeJsonResponse(response, store.getConversationArtifact(artifactId));
           return;
         }
         if (request.method === "GET" && segments[3] === "revisions" && !segments[4]) {
           writeJsonResponse(
             response,
-            store.conversationArtifactSurface.listConversationArtifactRevisions(store, artifactId),
+            store.listConversationArtifactRevisions(artifactId),
           );
           return;
         }
         if (request.method === "POST" && segments[3] === "actions" && !segments[4]) {
           writeJsonResponse(
             response,
-            store.conversationArtifactSurface.performConversationArtifactAction(store, artifactId, await readBody(request)),
+            store.performConversationArtifactAction(artifactId, await readBody(request)),
           );
           return;
         }
         if (request.method === "POST" && segments[3] === "export" && !segments[4]) {
           writeJsonResponse(
             response,
-            store.conversationArtifactSurface.exportConversationArtifact(store, artifactId, await readBody(request)),
+            store.exportConversationArtifact(artifactId, await readBody(request)),
           );
           return;
         }
         if (request.method === "POST" && segments[3] === "promote" && !segments[4]) {
           writeJsonResponse(
             response,
-            store.conversationArtifactSurface.promoteConversationArtifact(store, artifactId, await readBody(request)),
+            store.promoteConversationArtifact(artifactId, await readBody(request)),
           );
           return;
         }

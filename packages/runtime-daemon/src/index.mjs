@@ -63,7 +63,7 @@ import { createRuntimeCodingToolInvocationSurface } from "./runtime-coding-tool-
 import { createRuntimeWorkspaceSnapshotSurface } from "./runtime-workspace-snapshot-surface.mjs";
 import { createRuntimeCodingToolGovernanceSurface } from "./runtime-coding-tool-governance-surface.mjs";
 import { createRuntimeCodingToolBudgetRecoverySurface } from "./runtime-coding-tool-budget-recovery-surface.mjs";
-import { createRuntimeConversationArtifactSurface } from "./runtime-conversation-artifact-surface.mjs";
+import { createRuntimeConversationArtifactApi } from "./runtime-conversation-artifact-api.mjs";
 import { createRuntimeContextPolicySurface } from "./runtime-context-policy-surface.mjs";
 import { createRuntimeContextPolicyCore } from "./runtime-context-policy-core.mjs";
 import { createRuntimeWorkflowEditSurface } from "./runtime-workflow-edit-surface.mjs";
@@ -593,7 +593,7 @@ export class AgentgresRuntimeStateStore {
     this.threadAuxiliaryApi = createRuntimeThreadAuxiliaryApi({
       contextPolicyCore: this.contextPolicyCore,
     });
-    this.conversationArtifactSurface = createRuntimeConversationArtifactSurface({
+    this.conversationArtifactApi = createRuntimeConversationArtifactApi({
       contextPolicyCore: this.contextPolicyCore,
       notFound,
     });
@@ -1064,6 +1064,34 @@ export class AgentgresRuntimeStateStore {
 
   cancelRun(runId) {
     return this.threadAuxiliaryApi.cancelRun(this, runId);
+  }
+
+  listConversationArtifacts(query = {}) {
+    return this.conversationArtifactApi.listConversationArtifacts(this, query);
+  }
+
+  createConversationArtifact(threadId, input = {}) {
+    return this.conversationArtifactApi.createConversationArtifact(this, threadId, input);
+  }
+
+  getConversationArtifact(artifactId) {
+    return this.conversationArtifactApi.getConversationArtifact(this, artifactId);
+  }
+
+  listConversationArtifactRevisions(artifactId) {
+    return this.conversationArtifactApi.listConversationArtifactRevisions(this, artifactId);
+  }
+
+  performConversationArtifactAction(artifactId, input = {}) {
+    return this.conversationArtifactApi.performConversationArtifactAction(this, artifactId, input);
+  }
+
+  exportConversationArtifact(artifactId, input = {}) {
+    return this.conversationArtifactApi.exportConversationArtifact(this, artifactId, input);
+  }
+
+  promoteConversationArtifact(artifactId, input = {}) {
+    return this.conversationArtifactApi.promoteConversationArtifact(this, artifactId, input);
   }
 
   admitRuntimeThreadEventForThread(store, request = {}) {

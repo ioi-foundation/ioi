@@ -13205,12 +13205,6 @@ function runBridge() {
       /"turnForRepairRetryEvent"[\s\S]*"appendDiagnosticsRepairRetryTurnEvent"[\s\S]*"resolveDiagnosticsRepairDecision"[\s\S]*"appendDiagnosticsRepairDecisionExecutedEvent"/.test(
         runtimeThreadSurfaceDelegatesRetiredTest,
       ) &&
-      /"createConversationArtifact"[\s\S]*"listConversationArtifacts"[\s\S]*"getConversationArtifact"[\s\S]*"listConversationArtifactRevisions"/.test(
-        runtimeThreadSurfaceDelegatesRetiredTest,
-      ) &&
-      /"performConversationArtifactAction"[\s\S]*"exportConversationArtifact"[\s\S]*"promoteConversationArtifact"/.test(
-        runtimeThreadSurfaceDelegatesRetiredTest,
-      ) &&
       /Object\.hasOwn\(prototype, method\), false/.test(
         runtimeThreadSurfaceDelegatesRetiredTest,
       ) &&
@@ -13220,7 +13214,19 @@ function runBridge() {
       /"inspectManagedSessionsForThread"[\s\S]*"inspectWorkspaceChangeReviewsForThread"[\s\S]*"controlWorkspaceChangeForThread"[\s\S]*"controlManagedSessionForThread"[\s\S]*"forkThread"[\s\S]*"cancelRun"/.test(
         runtimeThreadSurfaceDelegatesRetiredTest,
       ) &&
-      !/^\s*(?:appendWorkspaceTrustWarningEvent|applyThreadMcpServerMutation|mcpStatusWithLiveDiscovery|appendThreadMcpControlEvent|mcpServersForContext|appendCodingToolCommandStreamEvents|codingToolApprovalSatisfaction|blockCodingToolForApproval|blockCodingToolForBudget|prepareWorkspaceSnapshotForPatch|materializeWorkspaceSnapshotArtifact|appendWorkspaceSnapshotEvent|workspaceSnapshotContentPackage|materializeWorkspaceRestorePreviewArtifact|materializeWorkspaceRestoreApplyArtifact|appendWorkspaceRestorePreviewEvent|appendWorkspaceRestoreApplyEvent|maybeRunPostEditDiagnostics|pendingDiagnosticsFeedbackForNextTurn|materializeCodingToolArtifactDrafts|materializeVisualGuiObservationArtifacts|readCodingToolArtifact|retrieveCodingToolResult|executeDiagnosticsOperatorOverride|turnForOperatorOverrideEvent|appendDiagnosticsOperatorOverrideEvent|createDiagnosticsRepairRetryTurn|turnForRepairRetryEvent|appendDiagnosticsRepairRetryTurnEvent|resolveDiagnosticsRepairDecision|appendDiagnosticsRepairDecisionExecutedEvent|createConversationArtifact|listConversationArtifacts|getConversationArtifact|listConversationArtifactRevisions|performConversationArtifactAction|exportConversationArtifact|promoteConversationArtifact)\(/m.test(
+      /daemon store conversation artifact methods are positive API owners, not surface delegates/.test(
+        runtimeThreadSurfaceDelegatesRetiredTest,
+      ) &&
+      /"createConversationArtifact"[\s\S]*"listConversationArtifacts"[\s\S]*"getConversationArtifact"[\s\S]*"listConversationArtifactRevisions"/.test(
+        runtimeThreadSurfaceDelegatesRetiredTest,
+      ) &&
+      /"performConversationArtifactAction"[\s\S]*"exportConversationArtifact"[\s\S]*"promoteConversationArtifact"/.test(
+        runtimeThreadSurfaceDelegatesRetiredTest,
+      ) &&
+      /this\.conversationArtifactApi\.createConversationArtifact/.test(
+        runtimeThreadSurfaceDelegatesRetiredTest,
+      ) &&
+      !/^\s*(?:appendWorkspaceTrustWarningEvent|applyThreadMcpServerMutation|mcpStatusWithLiveDiscovery|appendThreadMcpControlEvent|mcpServersForContext|appendCodingToolCommandStreamEvents|codingToolApprovalSatisfaction|blockCodingToolForApproval|blockCodingToolForBudget|prepareWorkspaceSnapshotForPatch|materializeWorkspaceSnapshotArtifact|appendWorkspaceSnapshotEvent|workspaceSnapshotContentPackage|materializeWorkspaceRestorePreviewArtifact|materializeWorkspaceRestoreApplyArtifact|appendWorkspaceRestorePreviewEvent|appendWorkspaceRestoreApplyEvent|maybeRunPostEditDiagnostics|pendingDiagnosticsFeedbackForNextTurn|materializeCodingToolArtifactDrafts|materializeVisualGuiObservationArtifacts|readCodingToolArtifact|retrieveCodingToolResult|executeDiagnosticsOperatorOverride|turnForOperatorOverrideEvent|appendDiagnosticsOperatorOverrideEvent|createDiagnosticsRepairRetryTurn|turnForRepairRetryEvent|appendDiagnosticsRepairRetryTurnEvent|resolveDiagnosticsRepairDecision|appendDiagnosticsRepairDecisionExecutedEvent)\(/m.test(
         runtimeDaemonIndex,
       ) &&
       /thread turn surface resumes non-runtime threads through Rust lifecycle status and projection/.test(
@@ -33285,15 +33291,18 @@ function runCompositor() {
   const conversationArtifactsTest = exists("packages/runtime-daemon/src/conversation-artifacts.test.mjs")
     ? read("packages/runtime-daemon/src/conversation-artifacts.test.mjs")
     : "";
-  const runtimeConversationArtifactSurface = exists(
+  const runtimeConversationArtifactSurfaceExists = exists(
     "packages/runtime-daemon/src/runtime-conversation-artifact-surface.mjs",
+  );
+  const runtimeConversationArtifactSurface = exists(
+    "packages/runtime-daemon/src/runtime-conversation-artifact-api.mjs",
   )
-    ? read("packages/runtime-daemon/src/runtime-conversation-artifact-surface.mjs")
+    ? read("packages/runtime-daemon/src/runtime-conversation-artifact-api.mjs")
     : "";
   const runtimeConversationArtifactSurfaceTest = exists(
-    "packages/runtime-daemon/src/runtime-conversation-artifact-surface.test.mjs",
+    "packages/runtime-daemon/src/runtime-conversation-artifact-api.test.mjs",
   )
-    ? read("packages/runtime-daemon/src/runtime-conversation-artifact-surface.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-conversation-artifact-api.test.mjs")
     : "";
   const runtimeConversationArtifactListBlock = blockBetween(
     runtimeConversationArtifactSurface,
@@ -35922,6 +35931,8 @@ function runCompositor() {
     /runtime_conversation_artifact_control_artifact_missing/.test(
       runtimeContextPolicyCore,
     ) &&
+    !runtimeConversationArtifactSurfaceExists &&
+    /createRuntimeConversationArtifactApi/.test(runtimeConversationArtifactSurface) &&
     /runtime conversation artifact control core sends Rust request through typed runtime-control API/.test(
       runtimeContextPolicyCoreTest,
     ) &&
@@ -35986,13 +35997,23 @@ function runCompositor() {
     /calls\.some\(\(call\) => \["create", "action", "exportArtifact", "promoteArtifact"\]/.test(
       runtimeConversationArtifactSurfaceTest,
     ) &&
-    /public conversation artifact routes use mounted Rust-owned artifact surface/.test(
+    /this\.conversationArtifactApi = createRuntimeConversationArtifactApi\(\{[\s\S]*?contextPolicyCore:\s*this\.contextPolicyCore/.test(
+      runtimeDaemonIndex,
+    ) &&
+    /createConversationArtifact\(threadId, input = \{\}\)[\s\S]*?return this\.conversationArtifactApi\.createConversationArtifact\(this, threadId, input\)/.test(runtimeDaemonIndex) &&
+    /performConversationArtifactAction\(artifactId, input = \{\}\)[\s\S]*?return this\.conversationArtifactApi\.performConversationArtifactAction\(this, artifactId, input\)/.test(runtimeDaemonIndex) &&
+    /public conversation artifact routes use store-owned Rust artifact API/.test(
       publicRuntimeRoutesTest,
     ) &&
-    /thread conversation artifact routes use mounted artifact surface/.test(
+    /thread conversation artifact routes use store-owned artifact API/.test(
       runtimeRouteHandlersTest,
+    ) &&
+    !/conversationArtifactSurface|createRuntimeConversationArtifactSurface/.test(
+      `${runtimeDaemonIndex}\n${runtimeRouteHandlers}\n${publicRuntimeRoutes}\n${runtimeRouteHandlersTest}\n${publicRuntimeRoutesTest}`,
     );
   const runtimeConversationArtifactReadProjectionRustOwned =
+    !runtimeConversationArtifactSurfaceExists &&
+    /createRuntimeConversationArtifactApi/.test(runtimeConversationArtifactSurface) &&
     /runtime_conversation_artifact_read_projection_rust_owned/.test(
       runtimeConversationArtifactSurface,
     ) &&
@@ -36091,10 +36112,13 @@ function runCompositor() {
       kernelModuleForCompositor,
     ) &&
     /contextPolicyCore:\s*this\.contextPolicyCore/.test(runtimeDaemonIndex) &&
-    /public conversation artifact routes use mounted Rust-owned artifact surface/.test(
+    /listConversationArtifacts\(query = \{\}\)[\s\S]*?return this\.conversationArtifactApi\.listConversationArtifacts\(this, query\)/.test(runtimeDaemonIndex) &&
+    /getConversationArtifact\(artifactId\)[\s\S]*?return this\.conversationArtifactApi\.getConversationArtifact\(this, artifactId\)/.test(runtimeDaemonIndex) &&
+    /listConversationArtifactRevisions\(artifactId\)[\s\S]*?return this\.conversationArtifactApi\.listConversationArtifactRevisions\(this, artifactId\)/.test(runtimeDaemonIndex) &&
+    /public conversation artifact routes use store-owned Rust artifact API/.test(
       publicRuntimeRoutesTest,
     ) &&
-    /thread conversation artifact routes use mounted artifact surface/.test(
+    /thread conversation artifact routes use store-owned artifact API/.test(
       runtimeRouteHandlersTest,
     ) &&
     /conversation artifact read projections return Rust daemon-core projections/.test(
@@ -36202,35 +36226,35 @@ function runCompositor() {
       /\.filter\(\(record\) => !threadId \|\| record\.thread_id === threadId\)/.test(conversationArtifacts) &&
       (runtimeConversationArtifactControlRustOwned ||
         /thread_id:\s*threadId/.test(runtimeConversationArtifactSurface)) &&
-      /store\.conversationArtifactSurface\.listConversationArtifacts\(store, \{ thread_id: threadId \}\)/.test(
+      /store\.listConversationArtifacts\(\{ thread_id: threadId \}\)/.test(
         runtimeRouteHandlers,
       ) &&
-      /store\.conversationArtifactSurface\.createConversationArtifact\(store, threadId,/.test(
+      /store\.createConversationArtifact\(threadId,/.test(
         runtimeRouteHandlers,
       ) &&
-      /store\.conversationArtifactSurface\.listConversationArtifacts\(store, Object\.fromEntries/.test(
+      /store\.listConversationArtifacts\(Object\.fromEntries/.test(
         publicRuntimeRoutes,
       ) &&
-      /store\.conversationArtifactSurface\.createConversationArtifact\(\s*\n\s*store,\s*\n\s*optionalString\(body\.thread_id\)/.test(
+      /store\.createConversationArtifact\(\s*\n\s*optionalString\(body\.thread_id\)/.test(
         publicRuntimeRoutes,
       ) &&
-      /store\.conversationArtifactSurface\.getConversationArtifact\(store, artifactId\)/.test(
+      /store\.getConversationArtifact\(artifactId\)/.test(
         publicRuntimeRoutes,
       ) &&
-      /store\.conversationArtifactSurface\.listConversationArtifactRevisions\(store, artifactId\)/.test(
+      /store\.listConversationArtifactRevisions\(artifactId\)/.test(
         publicRuntimeRoutes,
       ) &&
-      /store\.conversationArtifactSurface\.performConversationArtifactAction\(store, artifactId,/.test(
+      /store\.performConversationArtifactAction\(artifactId,/.test(
         publicRuntimeRoutes,
       ) &&
-      /store\.conversationArtifactSurface\.exportConversationArtifact\(store, artifactId,/.test(
+      /store\.exportConversationArtifact\(artifactId,/.test(
         publicRuntimeRoutes,
       ) &&
-      /store\.conversationArtifactSurface\.promoteConversationArtifact\(store, artifactId,/.test(
+      /store\.promoteConversationArtifact\(artifactId,/.test(
         publicRuntimeRoutes,
       ) &&
-      /thread conversation artifact routes use mounted artifact surface/.test(runtimeRouteHandlersTest) &&
-      /public conversation artifact routes use mounted Rust-owned artifact surface/.test(
+      /thread conversation artifact routes use store-owned artifact API/.test(runtimeRouteHandlersTest) &&
+      /public conversation artifact routes use store-owned Rust artifact API/.test(
         publicRuntimeRoutesTest,
       ) &&
       /optionalString\(body\.thread_id\)/.test(publicRuntimeRoutesForTaskJob) &&
@@ -36261,7 +36285,7 @@ function runCompositor() {
       /Object\.hasOwn\(revision,\s*key\),\s*false/.test(conversationArtifactsTest) &&
       /Object\.hasOwn\(ref,\s*key\),\s*false/.test(conversationArtifactsTest) &&
       (runtimeConversationArtifactReadProjectionRustOwned ||
-        /surface\.listConversationArtifacts\(store, \{ thread_id: "thread-one" \}\)/.test(
+        /api\.listConversationArtifacts\(store, \{ thread_id: "thread-one" \}\)/.test(
           runtimeConversationArtifactSurfaceTest,
         )) &&
       !/^\s*(?:fileName|mediaType|revisionId|artifactId|threadId|artifactClass|stateLabel|sourceRefs|originalRefs|projectionRefs|previewRefs|traceRefs|policyRefs|receiptRefs|latestRevisionId|exportRefs|promotionRefs|createdAt|updatedAt)\?:/m.test(
@@ -36270,7 +36294,20 @@ function runCompositor() {
       !/listConversationArtifacts\(input\?: \{ threadId/.test(agentSdkSubstrateClient) &&
       !/input\.threadId/.test(conversationArtifactSdkListMethodBlock) &&
       !/\?threadId=/.test(conversationArtifactSdkListMethodBlock) &&
-      !/store\.(?:listConversationArtifacts|createConversationArtifact|getConversationArtifact|listConversationArtifactRevisions|performConversationArtifactAction|exportConversationArtifact|promoteConversationArtifact)\(/.test(
+      /store\.listConversationArtifacts\(\{ thread_id: threadId \}\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.createConversationArtifact\(threadId,/.test(runtimeRouteHandlers) &&
+      /store\.listConversationArtifacts\(Object\.fromEntries/.test(publicRuntimeRoutes) &&
+      /store\.createConversationArtifact\(\s*\n\s*optionalString\(body\.thread_id\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /store\.getConversationArtifact\(artifactId\)/.test(publicRuntimeRoutes) &&
+      /store\.listConversationArtifactRevisions\(artifactId\)/.test(publicRuntimeRoutes) &&
+      /store\.performConversationArtifactAction\(artifactId,/.test(publicRuntimeRoutes) &&
+      /store\.exportConversationArtifact\(artifactId,/.test(publicRuntimeRoutes) &&
+      /store\.promoteConversationArtifact\(artifactId,/.test(publicRuntimeRoutes) &&
+      !/conversationArtifactSurface|store\.conversationArtifactApi/.test(
         `${runtimeRouteHandlers}\n${publicRuntimeRoutes}`,
       ),
     [
@@ -36278,8 +36315,8 @@ function runCompositor() {
       "packages/runtime-daemon/src/conversation-artifacts.test.mjs",
       "packages/runtime-daemon/src/runtime-artifact-state-commit.mjs",
       "packages/runtime-daemon/src/index.mjs",
-      "packages/runtime-daemon/src/runtime-conversation-artifact-surface.mjs",
-      "packages/runtime-daemon/src/runtime-conversation-artifact-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-conversation-artifact-api.mjs",
+      "packages/runtime-daemon/src/runtime-conversation-artifact-api.test.mjs",
       "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.mjs",
       "packages/agent-sdk/src/substrate-client.ts",
@@ -36308,8 +36345,8 @@ function runCompositor() {
       "crates/services/src/agentic/runtime/kernel/mod.rs",
       "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
-      "packages/runtime-daemon/src/runtime-conversation-artifact-surface.mjs",
-      "packages/runtime-daemon/src/runtime-conversation-artifact-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-conversation-artifact-api.mjs",
+      "packages/runtime-daemon/src/runtime-conversation-artifact-api.test.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.test.mjs",
       "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
@@ -36329,14 +36366,14 @@ function runCompositor() {
       "packages/runtime-daemon/src/index.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-core.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-core.test.mjs",
-      "packages/runtime-daemon/src/runtime-conversation-artifact-surface.mjs",
-      "packages/runtime-daemon/src/runtime-conversation-artifact-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-conversation-artifact-api.mjs",
+      "packages/runtime-daemon/src/runtime-conversation-artifact-api.test.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.test.mjs",
       "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
       "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
     ],
-    "Conversation artifact list/get/revision public projections must be Rust daemon-core projected through the mounted artifact surface and must fail closed before JS artifact-store readback when Rust projection is missing",
+    "Conversation artifact list/get/revision public projections must be Rust daemon-core projected through the store-owned artifact API and must fail closed before JS artifact-store readback when Rust projection is missing",
   );
 		  assertCheck(
 		    result,

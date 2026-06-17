@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createRuntimeConversationArtifactSurface } from "./runtime-conversation-artifact-surface.mjs";
+import { createRuntimeConversationArtifactApi } from "./runtime-conversation-artifact-api.mjs";
 
 function harness(options = {}) {
   const calls = [];
@@ -9,7 +9,7 @@ function harness(options = {}) {
     ["artifact-one", { id: "artifact-one", thread_id: "thread-one", title: "One", revisions: [{ revision_id: "rev-one" }] }],
     ["artifact-two", { id: "artifact-two", thread_id: "thread-two", title: "Two", revisions: [{ revision_id: "rev-two" }] }],
   ]);
-  const surface = createRuntimeConversationArtifactSurface({
+  const api = createRuntimeConversationArtifactApi({
     contextPolicyCore: options.contextPolicyCore,
   });
   const store = {
@@ -59,7 +59,7 @@ function harness(options = {}) {
   if (options.conversationArtifactStateDir) {
     store.conversationArtifacts.stateDir = options.conversationArtifactStateDir;
   }
-  return { calls, store, surface };
+  return { calls, store, api };
 }
 
 function assertConversationArtifactControlRequired(error, {
@@ -134,7 +134,7 @@ function assertConversationArtifactProjectionMissing(error, {
 
 test("conversation artifact mutation plans in Rust and commits artifact truth without JS writers", () => {
   const planCalls = [];
-  const { calls, store, surface } = harness({
+  const { calls, store, api } = harness({
     contextPolicyCore: {
       planRuntimeConversationArtifactControl(request) {
         planCalls.push(request);
@@ -172,7 +172,7 @@ test("conversation artifact mutation plans in Rust and commits artifact truth wi
   });
 
   assert.equal(
-    surface.createConversationArtifact(store, "thread-one", {
+    api.createConversationArtifact(store, "thread-one", {
       title: "Draft",
       created_at: "2026-06-12T00:00:00.000Z",
       idempotency_key: "canonical",
@@ -183,7 +183,7 @@ test("conversation artifact mutation plans in Rust and commits artifact truth wi
     "commit:artifact-create",
   );
   assert.equal(
-    surface.performConversationArtifactAction(store, "artifact-one", {
+    api.performConversationArtifactAction(store, "artifact-one", {
       action_kind: "edit",
       kind: "retired-kind",
       artifactId: "retired-artifact",
@@ -191,14 +191,14 @@ test("conversation artifact mutation plans in Rust and commits artifact truth wi
     "commit:artifact-one",
   );
   assert.equal(
-    surface.exportConversationArtifact(store, "artifact-one", {
+    api.exportConversationArtifact(store, "artifact-one", {
       export_format: "zip",
       format: "retired-format",
     }).commit.commit_hash,
     "commit:artifact-one",
   );
   assert.equal(
-    surface.promoteConversationArtifact(store, "artifact-one", {
+    api.promoteConversationArtifact(store, "artifact-one", {
       promotion_target: "canvas",
       target: "retired-target",
     }).commit.commit_hash,
@@ -245,10 +245,10 @@ test("conversation artifact mutation plans in Rust and commits artifact truth wi
 });
 
 test("conversation artifact mutation fails before artifact lookup without Rust planner", () => {
-  const { calls, store, surface } = harness();
+  const { calls, store, api } = harness();
 
   assert.throws(
-    () => surface.createConversationArtifact(store, "thread-one", { title: "Draft" }),
+    () => api.createConversationArtifact(store, "thread-one", { title: "Draft" }),
     (error) =>
       assertConversationArtifactControlRequired(error, {
         operation: "conversation_artifact_create",
@@ -262,7 +262,7 @@ test("conversation artifact mutation fails before artifact lookup without Rust p
 
 test("conversation artifact mutation fails before artifact lookup without Agentgres commit", () => {
   const planCalls = [];
-  const { calls, store, surface } = harness({
+  const { calls, store, api } = harness({
     contextPolicyCore: {
       planRuntimeConversationArtifactControl(request) {
         planCalls.push(request);
@@ -273,7 +273,7 @@ test("conversation artifact mutation fails before artifact lookup without Agentg
   delete store.commitRuntimeArtifactState;
 
   assert.throws(
-    () => surface.performConversationArtifactAction(store, "artifact-one", { action_kind: "edit" }),
+    () => api.performConversationArtifactAction(store, "artifact-one", { action_kind: "edit" }),
     (error) =>
       assertConversationArtifactControlRequired(error, {
         operation: "conversation_artifact_action",
@@ -288,7 +288,7 @@ test("conversation artifact mutation fails before artifact lookup without Agentg
 });
 
 test("conversation artifact mutation rejects invalid Rust plans before commit", () => {
-  const { calls, store, surface } = harness({
+  const { calls, store, api } = harness({
     contextPolicyCore: {
       planRuntimeConversationArtifactControl() {
         return {
@@ -300,7 +300,7 @@ test("conversation artifact mutation rejects invalid Rust plans before commit", 
   });
 
   assert.throws(
-    () => surface.performConversationArtifactAction(store, "artifact-one", { action_kind: "edit" }),
+    () => api.performConversationArtifactAction(store, "artifact-one", { action_kind: "edit" }),
     (error) =>
       error.code === "runtime_conversation_artifact_control_plan_invalid" &&
       error.status === 502 &&
@@ -312,7 +312,7 @@ test("conversation artifact mutation rejects invalid Rust plans before commit", 
 
 test("conversation artifact mutation rejects ConversationArtifactStore state_dir fallback before Rust planning", () => {
   let planned = false;
-  const { calls, store, surface } = harness({
+  const { calls, store, api } = harness({
     stateDir: null,
     conversationArtifactStateDir: "/retired-conversation-artifact-state",
     contextPolicyCore: {
@@ -324,7 +324,7 @@ test("conversation artifact mutation rejects ConversationArtifactStore state_dir
   });
 
   assert.throws(
-    () => surface.createConversationArtifact(store, "thread-one", { title: "Draft" }),
+    () => api.createConversationArtifact(store, "thread-one", { title: "Draft" }),
     (error) => {
       assert.equal(error.status, 501);
       assert.equal(error.code, "runtime_conversation_artifact_daemon_state_dir_required");
@@ -344,28 +344,28 @@ test("conversation artifact mutation rejects ConversationArtifactStore state_dir
 });
 
 test("conversation artifact read projections fail closed before JS artifact reads without Rust", () => {
-  const { calls, store, surface } = harness();
+  const { calls, store, api } = harness();
   const cases = [
     {
       operation: "conversation_artifact_list",
       operationKind: "runtime.conversation_artifact_projection.list",
       projectionKind: "list",
       threadId: "thread-one",
-      call: () => surface.listConversationArtifacts(store, { thread_id: "thread-one" }),
+      call: () => api.listConversationArtifacts(store, { thread_id: "thread-one" }),
     },
     {
       operation: "conversation_artifact_get",
       operationKind: "runtime.conversation_artifact_projection.get",
       projectionKind: "get",
       artifactId: "artifact-one",
-      call: () => surface.getConversationArtifact(store, "artifact-one"),
+      call: () => api.getConversationArtifact(store, "artifact-one"),
     },
     {
       operation: "conversation_artifact_revision_list",
       operationKind: "runtime.conversation_artifact_projection.revisions",
       projectionKind: "revisions",
       artifactId: "artifact-one",
-      call: () => surface.listConversationArtifactRevisions(store, "artifact-one"),
+      call: () => api.listConversationArtifactRevisions(store, "artifact-one"),
     },
   ];
 
@@ -385,7 +385,7 @@ test("conversation artifact read projections return Rust daemon-core projections
     { id: "artifact-one", thread_id: "thread-one", title: "One", revisions: [{ revision_id: "rev-one" }] },
     { id: "artifact-two", thread_id: "thread-two", title: "Two", revisions: [{ revision_id: "rev-two" }] },
   ];
-  const { calls, store, surface } = harness({
+  const { calls, store, api } = harness({
     contextPolicyCore: {
       projectRuntimeConversationArtifactProjection(request) {
         projectionCalls.push(request);
@@ -410,16 +410,16 @@ test("conversation artifact read projections return Rust daemon-core projections
     },
   });
 
-  assert.deepEqual(surface.listConversationArtifacts(store, { thread_id: "thread-one" }), [
+  assert.deepEqual(api.listConversationArtifacts(store, { thread_id: "thread-one" }), [
     { id: "artifact-one", thread_id: "thread-one", title: "One", revisions: [{ revision_id: "rev-one" }] },
   ]);
-  assert.deepEqual(surface.getConversationArtifact(store, "artifact-two"), {
+  assert.deepEqual(api.getConversationArtifact(store, "artifact-two"), {
     id: "artifact-two",
     thread_id: "thread-two",
     title: "Two",
     revisions: [{ revision_id: "rev-two" }],
   });
-  assert.deepEqual(surface.listConversationArtifactRevisions(store, "artifact-one"), [
+  assert.deepEqual(api.listConversationArtifactRevisions(store, "artifact-one"), [
     { revision_id: "rev-one" },
   ]);
 
@@ -453,7 +453,7 @@ test("conversation artifact read projections return Rust daemon-core projections
 
 test("conversation artifact read rejects ConversationArtifactStore state_dir fallback before Rust projection", () => {
   let projected = false;
-  const { calls, store, surface } = harness({
+  const { calls, store, api } = harness({
     stateDir: null,
     conversationArtifactStateDir: "/retired-conversation-artifact-state",
     contextPolicyCore: {
@@ -465,7 +465,7 @@ test("conversation artifact read rejects ConversationArtifactStore state_dir fal
   });
 
   assert.throws(
-    () => surface.listConversationArtifacts(store, { thread_id: "thread-one" }),
+    () => api.listConversationArtifacts(store, { thread_id: "thread-one" }),
     (error) => {
       assert.equal(error.status, 501);
       assert.equal(error.code, "runtime_conversation_artifact_daemon_state_dir_required");
