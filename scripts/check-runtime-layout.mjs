@@ -2085,6 +2085,13 @@ assert(
     hypervisorShellContentSource.includes("projection.activity_signals.map") &&
     hypervisorShellContentSource.includes("projection.access_log_leases.map") &&
     hypervisorShellContentSource.includes("projection.ports_services.map") &&
+    hypervisorShellContentSource.includes("launchedSessionAdmissionLabel") &&
+    hypervisorShellContentSource.includes("data-launched-session-list") &&
+    hypervisorShellContentSource.includes("data-launched-session-ref") &&
+    hypervisorShellContentSource.includes("data-launched-session-admission") &&
+    hypervisorShellContentSource.includes(
+      "controller.sessions.launchedSessionProjections",
+    ) &&
     hypervisorShellContentSource.includes("data-session-port-service") &&
     hypervisorShellContentSource.includes("data-session-activity-signal") &&
     hypervisorShellContentSource.includes("data-session-lease") &&

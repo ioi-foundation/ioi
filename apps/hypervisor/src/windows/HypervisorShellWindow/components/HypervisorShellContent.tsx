@@ -84,6 +84,8 @@ import {
   HYPERVISOR_SESSION_CHANGE_INSPECTOR_MODES,
   HYPERVISOR_SESSION_WORKSPACE_MODES,
   isHypervisorSurfaceId,
+  type HypervisorLaunchedSessionProjection,
+  type HypervisorSurfaceId,
 } from "../hypervisorShellNavigationModel";
 
 const insightsDashboardPreviewUrl = new URL(
@@ -1334,7 +1336,41 @@ function PortEmptyIcon() {
   );
 }
 
-function HypervisorSessionOperationsCockpit() {
+function launchedSessionAdmissionLabel(
+  state: HypervisorLaunchedSessionProjection["admission_state"],
+): string {
+  switch (state) {
+    case "daemon_admitted":
+      return "Admitted";
+    case "daemon_blocked":
+      return "Blocked";
+    case "daemon_unavailable":
+      return "Daemon unavailable";
+    case "pending_daemon_admission":
+      return "Pending";
+  }
+}
+
+function launchedSessionAdmissionDetail(
+  session: HypervisorLaunchedSessionProjection,
+): string {
+  const admission = session.code_editor_adapter_admission;
+  if (admission && "error_message" in admission) {
+    return admission.error_message;
+  }
+  if (session.admission_state === "daemon_admitted") {
+    return `Open ${session.surface_id} with ${session.launch_summary.harness_label}.`;
+  }
+  return `Inspect ${session.surface_id}; target entry waits for daemon admission.`;
+}
+
+function HypervisorSessionOperationsCockpit({
+  launchedSessions,
+  onOpenSurface,
+}: {
+  launchedSessions: readonly HypervisorLaunchedSessionProjection[];
+  onOpenSurface: (surfaceId: HypervisorSurfaceId) => void;
+}) {
   const [projection, setProjection] = useState(
     HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE,
   );
@@ -1402,6 +1438,46 @@ function HypervisorSessionOperationsCockpit() {
       data-session-operations-source={projection.source}
       data-runtime-truth-source={projection.runtimeTruthSource}
     >
+      {launchedSessions.length > 0 ? (
+        <section
+          className="hypervisor-session-operations__recent-launches"
+          aria-label="Recent New Session routes"
+          data-launched-session-list="new-session-projection-cache"
+        >
+          <header>
+            <span>Recent launches</span>
+            <strong>{launchedSessions.length}</strong>
+          </header>
+          <div className="hypervisor-session-operations__recent-launch-list">
+            {launchedSessions.slice(0, 4).map((session) => {
+              const canOpenTarget =
+                session.admission_state === "daemon_admitted" &&
+                isHypervisorSurfaceId(session.surface_id);
+              return (
+                <button
+                  type="button"
+                  key={session.session_ref}
+                  data-launched-session-ref={session.session_ref}
+                  data-launched-session-surface={session.surface_id}
+                  data-launched-session-admission={session.admission_state}
+                  disabled={!canOpenTarget}
+                  onClick={() => {
+                    if (canOpenTarget) {
+                      onOpenSurface(session.surface_id);
+                    }
+                  }}
+                >
+                  <span>{session.project_label}</span>
+                  <strong>{session.launch_summary.harness_label}</strong>
+                  <em>{launchedSessionAdmissionLabel(session.admission_state)}</em>
+                  <small>{launchedSessionAdmissionDetail(session)}</small>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
+
       <div
         className="hypervisor-session-operations__reference-page"
         aria-label="Selected session detail"
@@ -3013,7 +3089,12 @@ export function HypervisorShellContent({
                   ) : null}
 
                   {activeView === "sessions" ? (
-                    <HypervisorSessionOperationsCockpit />
+                    <HypervisorSessionOperationsCockpit
+                      launchedSessions={
+                        controller.sessions.launchedSessionProjections
+                      }
+                      onOpenSurface={controller.changePrimaryView}
+                    />
                   ) : null}
 
                   {activeView === "projects" ? (

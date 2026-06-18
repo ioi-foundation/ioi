@@ -2014,15 +2014,113 @@
   width: 100%;
   height: 100%;
   min-height: 0;
-  display: block;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
   padding: 0;
   background: #ffffff;
   color: #171719;
 }
 
+.hypervisor-session-detail-shell .hypervisor-session-operations__recent-launches {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr);
+  gap: 12px;
+  align-items: stretch;
+  padding: 10px 24px;
+  border-bottom: 1px solid #e7e7e5;
+  background: #fbfbfa;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__recent-launches header {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__recent-launches header span,
+.hypervisor-session-detail-shell .hypervisor-session-operations__recent-launches header strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__recent-launches header span {
+  color: #7a7a7a;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__recent-launches header strong {
+  color: #171719;
+  font-size: 20px;
+  line-height: 24px;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__recent-launch-list {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__recent-launch-list button {
+  min-width: 0;
+  min-height: 72px;
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  border: 1px solid #e7e7e5;
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: #ffffff;
+  color: #171719;
+  text-align: left;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__recent-launch-list button:disabled {
+  color: #8c8c8c;
+  background: #f6f6f5;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__recent-launch-list button:not(:disabled):hover {
+  border-color: #b8d3ff;
+  background: #f3f8ff;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__recent-launch-list span,
+.hypervisor-session-detail-shell .hypervisor-session-operations__recent-launch-list strong,
+.hypervisor-session-detail-shell .hypervisor-session-operations__recent-launch-list em,
+.hypervisor-session-detail-shell .hypervisor-session-operations__recent-launch-list small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__recent-launch-list span,
+.hypervisor-session-detail-shell .hypervisor-session-operations__recent-launch-list em,
+.hypervisor-session-detail-shell .hypervisor-session-operations__recent-launch-list small {
+  color: #707071;
+  font-size: 11px;
+  font-style: normal;
+  line-height: 14px;
+}
+
+.hypervisor-session-detail-shell .hypervisor-session-operations__recent-launch-list strong {
+  color: #171719;
+  font-size: 13px;
+  line-height: 16px;
+}
+
 .hypervisor-session-detail-shell .hypervisor-session-operations__reference-page {
-  height: 100%;
+  flex: 1 1 auto;
+  height: auto;
   min-height: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 340px;

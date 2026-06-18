@@ -539,16 +539,13 @@ test("Sessions surface renders session tabs and operations inspectors from daemo
   assert.match(sessionOperationsModel, /activity_signals/);
   assert.match(sessionOperationsModel, /access_log_leases/);
   assert.match(shellContent, /HypervisorSessionOperationsCockpit/);
-  assert.match(shellContent, /<HypervisorSessionOperationsCockpit \/>/);
-  assert.doesNotMatch(
-    shellContent,
-    /launchedSessions: HypervisorLaunchedSessionProjection\[\]/,
-  );
-  assert.doesNotMatch(shellContent, /data-launched-session-/);
-  assert.doesNotMatch(shellContent, /canOpenLaunchedSessionSurface/);
-  assert.doesNotMatch(shellContent, /launchedSessionAdmissionLabel/);
-  assert.doesNotMatch(shellContent, /launchedSessionAdmissionDetail/);
-  assert.doesNotMatch(
+  assert.match(shellContent, /launchedSessions: readonly HypervisorLaunchedSessionProjection\[\]/);
+  assert.match(shellContent, /data-launched-session-list/);
+  assert.match(shellContent, /data-launched-session-ref/);
+  assert.match(shellContent, /data-launched-session-admission/);
+  assert.match(shellContent, /launchedSessionAdmissionLabel/);
+  assert.match(shellContent, /launchedSessionAdmissionDetail/);
+  assert.match(
     shellContent,
     /controller\.sessions\.launchedSessionProjections/,
   );
