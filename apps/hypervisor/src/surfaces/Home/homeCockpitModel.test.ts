@@ -72,18 +72,18 @@ test("home cockpit projection normalizer preserves daemon truth boundary", () =>
     {
       projection_id: "home-cockpit:daemon/live",
       selected_project_id: "project:daemon",
-      boundary_invariant: "Daemon projection; Home still only renders evidence.",
+      boundary_invariant: "Core projection; Home still only renders evidence.",
       metrics: [
         {
           metric_ref: "home-cockpit:daemon-session",
-          label: "Daemon session",
+          label: "Governed session",
           value: "active",
           detail: "session:daemon/live",
           surface_ref: "surface:sessions",
           evidence_refs: ["receipt://daemon/session"],
           drill_refs: [
             {
-              label: "Daemon session",
+              label: "Governed session",
               surface_ref: "surface:sessions",
               target_ref: "session:daemon/live",
               evidence_ref: "receipt://daemon/session",
@@ -104,12 +104,16 @@ test("home cockpit projection normalizer preserves daemon truth boundary", () =>
   ]);
   assert.deepEqual(projection.metrics[0]?.drill_refs, [
     {
-      label: "Daemon session",
+      label: "Governed session",
       surface_ref: "surface:sessions",
       target_ref: "session:daemon/live",
       evidence_ref: "receipt://daemon/session",
     },
   ]);
+  assert.doesNotMatch(
+    JSON.stringify(projection.metrics.map((metric) => metric.label)),
+    /Daemon session|Daemon projection|runtime truth/i,
+  );
 });
 
 test("home cockpit loader reads the daemon projection endpoint", async () => {

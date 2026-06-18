@@ -164,7 +164,7 @@ export const HYPERVISOR_AUTOMATION_COMPOSITOR_PROJECTION_FIXTURE: HypervisorAuto
         template_ref: "workflow-template:provider-zero-to-idle",
         label: "Provider Zero to Idle",
         description:
-          "Archive session state, write restore refs, revoke access leases, and idle provider resources through daemon admission.",
+          "Archive session state, write restore refs, revoke access leases, and idle provider resources through governed admission.",
         graph_ref: "workflow://graph/provider-zero-to-idle",
         recipe_ref: "run-recipe:provider-zero-to-idle/on-idle",
         required_scope_refs: ["scope:provider.stop", "scope:archive.write"],

@@ -97,7 +97,7 @@ test("model infrastructure normalization preserves daemon projection fields", ()
       selected_project_id: "project:daemon",
       selected_session_ref: "session:daemon",
       infrastructure_boundary_invariant:
-        "Daemon projection; Models only renders evidence.",
+        "Core projection; Models only renders evidence.",
       inventory_source: "daemon-model-mount-inventory",
       checked_at: "2026-06-17T00:00:00.000Z",
       model_route_refs: ["model-route:daemon"],
@@ -121,7 +121,7 @@ test("model infrastructure normalization preserves daemon projection fields", ()
       providers: [
         {
           provider_ref: "provider:daemon",
-          label: "Daemon provider",
+          label: "Core provider",
           provider_kind: "local",
           privacy_posture: "local",
           credential_scope_refs: ["scope:secret.use"],
@@ -153,6 +153,10 @@ test("model infrastructure normalization preserves daemon projection fields", ()
   assert.equal(projection.selected_session_ref, "session:daemon");
   assert.equal(projection.routes[0]?.route_ref, "model-route:daemon");
   assert.equal(projection.providers[0]?.provider_kind, "local");
+  assert.doesNotMatch(
+    JSON.stringify(projection.providers.map((provider) => provider.label)),
+    /Daemon provider|runtime truth/i,
+  );
   assert.equal(
     projection.session_bindings[0]?.custody_profile_ref,
     "custody-profile:model/local",

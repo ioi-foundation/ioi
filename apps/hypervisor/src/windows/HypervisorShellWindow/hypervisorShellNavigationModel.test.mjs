@@ -636,6 +636,10 @@ test("Agents surface renders workers as a cockpit list without internal doctrine
   assert.doesNotMatch(shellContent, /Manage authority/);
   assert.doesNotMatch(shellContent, /Review leases/);
   assert.doesNotMatch(shellContent, /Daemon Owned/);
+  assert.doesNotMatch(shellContent, /Daemon agent/);
+  assert.doesNotMatch(shellContent, /Daemon provider/);
+  assert.doesNotMatch(shellContent, /Daemon session/);
+  assert.doesNotMatch(shellContent, /Daemon projection/);
   assert.doesNotMatch(shellContent, /Proposal Source Only/);
   assert.doesNotMatch(shellContent, /AgentHarnessAdapter proposal source/);
   assert.doesNotMatch(shellContent, /Reference HarnessProfile scaffold/);

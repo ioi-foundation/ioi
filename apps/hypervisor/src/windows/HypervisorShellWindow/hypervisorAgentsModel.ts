@@ -464,12 +464,12 @@ function normalizeMemoryBindings(
   return memoryCount > 0
     ? [
         {
-          memory_ref: `${agentRef}/memory/daemon`,
+          memory_ref: `${agentRef}/memory/core`,
           label: `${memoryCount} memory records`,
           scope: "agent_bound",
           owner: "agent_wiki_ioi_memory",
           persistence: "persistent",
-          receipt_ref: `receipt://${agentRef}/memory/daemon`,
+          receipt_ref: `receipt://${agentRef}/memory/core`,
         },
       ]
     : [
@@ -520,7 +520,7 @@ function normalizeAgentRecord(
   const record = objectRecord(value);
   const agentRef =
     firstString(record, ["agent_ref", "agent_id", "agentId", "id"]) ??
-    `agent:daemon/${index + 1}`;
+    `agent:hypervisor/${index + 1}`;
   const sessionRef =
     firstString(record, ["session_ref", "thread_id", "session_id"]) ??
     `${agentRef}/session`;
@@ -538,7 +538,7 @@ function normalizeAgentRecord(
     objective: stringValue(
       record.objective,
       firstString(record, ["goal", "title"]) ??
-        "Configured Hypervisor agent runtime.",
+        "Governed Hypervisor agent.",
     ),
     status: statusValue(record.status),
     workspace_ref: workspaceRef,

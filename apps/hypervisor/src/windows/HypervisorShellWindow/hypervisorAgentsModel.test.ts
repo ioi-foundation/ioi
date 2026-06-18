@@ -120,8 +120,8 @@ test("agents projection loader calls the Hypervisor daemon route", async () => {
             selected_project_ref: "project:ioi",
             records: [
               {
-                agent_ref: "agent:daemon",
-                label: "Daemon agent",
+                agent_ref: "agent:hypervisor/test",
+                label: "Managed agent",
                 status: "idle",
               },
             ],
@@ -136,5 +136,9 @@ test("agents projection loader calls the Hypervisor daemon route", async () => {
     "http://daemon.test/v1/hypervisor/agents?project_id=project%3Aioi",
   );
   assert.equal(projection.projection_id, "agents:daemon/test");
-  assert.equal(projection.records[0]?.agent_ref, "agent:daemon");
+  assert.equal(projection.records[0]?.agent_ref, "agent:hypervisor/test");
+  assert.doesNotMatch(
+    JSON.stringify(projection.records),
+    /Daemon agent|Daemon worker|runtime truth/i,
+  );
 });

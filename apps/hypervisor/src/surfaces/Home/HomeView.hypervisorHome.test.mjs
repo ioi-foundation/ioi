@@ -50,6 +50,7 @@ test("home dashboard uses the IOI reference prompt surface", () => {
   assert.doesNotMatch(homeView, /chat-home-zero-sidebar/);
   assert.doesNotMatch(homeView, /Welcome back to Autopilot/);
   assert.doesNotMatch(homeView, /Search Autopilot, code, sessions, and commands/);
+  assert.doesNotMatch(homeView, /Daemon|runtime truth|configured workers/i);
 });
 
 test("home onboarding uses Hypervisor and Workbench adapter language", () => {
