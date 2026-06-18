@@ -322,8 +322,14 @@ assert.match(
 
 assert.match(
   homeViewSource,
-  /What do you want to get done today\?[\s\S]*Describe your task or type \/ for commands[\s\S]*Recent Sessions/,
+  /What do you want to get done today\?[\s\S]*Describe your task or type \/ for commands[\s\S]*chat-home-zero-quickstarts/,
   "Home should match the IOI reference prompt-home copy",
+);
+
+assert.doesNotMatch(
+  homeViewSource,
+  /Recent Sessions|chat-home-zero-recent/,
+  "Home should keep recent session navigation in the left rail instead of duplicating it in the main prompt stage",
 );
 
 assert.doesNotMatch(

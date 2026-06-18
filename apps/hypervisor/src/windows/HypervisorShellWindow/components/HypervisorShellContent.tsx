@@ -425,6 +425,16 @@ function HypervisorAgentsSurface({
               />
             ))}
           </div>
+        </div>
+
+        <aside className="hypervisor-agents__side" aria-label="Agent setup">
+          <div className="hypervisor-agents__side-head">
+            <h3>Agent setup</h3>
+            <p>
+              Choose how this agent works, what it can access, and when
+              approvals are required.
+            </p>
+          </div>
 
           {selectedAgent ? (
             <div
@@ -439,7 +449,7 @@ function HypervisorAgentsSurface({
               />
             </div>
           ) : null}
-        </div>
+        </aside>
       </div>
 
       <div
@@ -2873,7 +2883,6 @@ export function HypervisorShellContent({
                   {activeView === "home" ? (
                     <HomeView
                       currentProject={currentProject}
-                      projects={projects}
                       notificationCount={notificationBadgeCount}
                       onOpenChat={() => controller.changePrimaryView("sessions")}
                       onOpenNewSession={controller.modals.openNewSessionModal}
@@ -2901,7 +2910,6 @@ export function HypervisorShellContent({
                           controller.changePrimaryView(surfaceId);
                         }
                       }}
-                      onSelectProject={controller.workflow.selectProject}
                     />
                   ) : null}
 

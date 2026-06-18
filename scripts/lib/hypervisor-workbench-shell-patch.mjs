@@ -2260,7 +2260,10 @@ function patchElectronMainMenuVisibility(mainJsPath) {
     "        if (platform_1.$o) {";
   if (!existing.includes(ELECTRON_MAIN_CUSTOM_TITLEBAR_PATCH)) {
     if (!existing.includes(titlebarNeedle)) {
-      throw new Error(`Electron main titlebar style function shape not found in ${mainJsPath}`);
+      console.warn(
+        `[hypervisor-workbench-shell-patch] Electron main titlebar style function shape not found in ${mainJsPath}; continuing without titlebar override.`,
+      );
+      return false;
     }
     existing = existing.replace(titlebarNeedle, titlebarReplacement);
     patched = true;
@@ -2288,7 +2291,10 @@ function patchWorkbenchTitlebarStyle(workbenchJsPath) {
     "        if (platform_1.$o) {";
   if (!existing.includes(ELECTRON_MAIN_CUSTOM_TITLEBAR_PATCH)) {
     if (!existing.includes(titlebarNeedle)) {
-      throw new Error(`Workbench titlebar style function shape not found in ${workbenchJsPath}`);
+      console.warn(
+        `[hypervisor-workbench-shell-patch] Workbench titlebar style function shape not found in ${workbenchJsPath}; continuing without titlebar override.`,
+      );
+      return false;
     }
     existing = existing.replace(titlebarNeedle, titlebarReplacement);
     patched = true;
@@ -2319,7 +2325,10 @@ function patchWorkbenchIntegrityWarning(workbenchJsPath) {
     safeGuard +
     ") {\n                return; // Hypervisor shell intentionally patches the packaged workbench.\n            }\n            const { isPure } = await this.isPure();";
   if (!existing.includes(needle)) {
-    throw new Error(`Workbench integrity service shape not found in ${workbenchJsPath}`);
+    console.warn(
+      `[hypervisor-workbench-shell-patch] Workbench integrity service shape not found in ${workbenchJsPath}; continuing without integrity-warning suppression.`,
+    );
+    return false;
   }
   existing = existing.replace(needle, replacement);
   writeFileSync(workbenchJsPath, existing);

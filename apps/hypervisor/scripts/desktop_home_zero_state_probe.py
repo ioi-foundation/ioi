@@ -255,7 +255,10 @@ def main() -> int:
     )
   except Exception as error:
     probe_error = str(error)
-    geometry = window_geometry(window_id) if window_id is not None else {}
+    try:
+      geometry = window_geometry(window_id) if window_id is not None else {}
+    except Exception:
+      geometry = {}
   finally:
     terminate_process_group(process)
 

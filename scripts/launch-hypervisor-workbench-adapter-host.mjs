@@ -617,17 +617,30 @@ async function startManagedDaemon() {
   mkdirSync(stateDir, { recursive: true });
   configureNativeLlamaCppEnvDefaults();
   const daemon = await startRuntimeDaemonService({ cwd: repoRoot, stateDir });
-  const grant = await requestJson(daemon.endpoint, "/v1/model-mount/tokens", {
-    method: "POST",
-    body: { allowed: DAEMON_SCOPES },
-  });
-  const discovery = await bootstrapLocalModelDiscovery(
-    daemon.endpoint,
-    grant.token,
-  );
+  let grant = null;
+  let discovery = {
+    providers: [],
+    models: [],
+    mounted: [],
+    route: null,
+    bootError: null,
+  };
+  try {
+    grant = await requestJson(daemon.endpoint, "/v1/model-mount/tokens", {
+      method: "POST",
+      body: { allowed: DAEMON_SCOPES },
+    });
+    discovery = await bootstrapLocalModelDiscovery(daemon.endpoint, grant.token);
+  } catch (error) {
+    const message = error?.message || String(error);
+    console.warn(
+      `[Hypervisor Workbench Adapter] model mount bootstrap unavailable; launching without mounted model token: ${message}`,
+    );
+    discovery.bootError = message;
+  }
   const runtimeInference = configureRuntimeBridgeInferenceEnv(
     daemon.endpoint,
-    grant.token,
+    grant?.token ?? null,
     discovery,
   );
   const ready = {
@@ -648,7 +661,7 @@ async function startManagedDaemon() {
   console.log(
     `[Hypervisor Workbench Adapter] IOI daemon ready at ${daemon.endpoint}; discovered ${discovery.mounted.length} local model mount(s).`,
   );
-  return { daemon, endpoint: daemon.endpoint, token: grant.token, discovery };
+  return { daemon, endpoint: daemon.endpoint, token: grant?.token ?? null, discovery };
 }
 
 if (!existsSync(binary)) {

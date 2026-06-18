@@ -45,7 +45,6 @@ interface HomeNewSessionSeed {
 
 interface HomeViewProps {
   currentProject: ProjectScope;
-  projects: ProjectScope[];
   notificationCount: number;
   onOpenChat: () => void;
   onOpenNewSession: (seed?: string | HomeNewSessionSeed | null) => void;
@@ -58,7 +57,6 @@ interface HomeViewProps {
   onOpenSettings: (section?: SettingsSection | null) => void;
   onOpenCommandPalette: () => void;
   onOpenCockpitSurface: (surfaceRef: string) => void;
-  onSelectProject: (projectId: string) => void;
 }
 
 interface HomeOnboardingState {
@@ -229,7 +227,6 @@ const HOME_AGENT_PROMPTS = [
 
 interface HomeDashboardViewProps {
   currentProject: ProjectScope;
-  projects: ProjectScope[];
   notificationCount: number;
   selectedThemeLabel: string;
   completedAtMs: number | null;
@@ -244,39 +241,18 @@ interface HomeDashboardViewProps {
   onOpenSettings: (section?: SettingsSection | null) => void;
   onOpenCommandPalette: () => void;
   onOpenCockpitSurface: (surfaceRef: string) => void;
-  onSelectProject: (projectId: string) => void;
   onReviewSetup: () => void;
 }
 
 function HomeDashboardView({
   currentProject,
-  projects,
   onOpenNewSession,
   onOpenWorkspace,
   onOpenCommandPalette,
-  onSelectProject,
 }: HomeDashboardViewProps) {
   const defaultSeedIntent =
     "Open a governed Hypervisor session for this workspace.";
   const [intentDraft, setIntentDraft] = useState("");
-  const visibleProjects = projects.length > 0 ? projects : [currentProject];
-  const recentSessions = [
-    {
-      title: "Write Parent Harness Evidence Boundary Doc",
-      status: "running",
-      started: "6h ago",
-    },
-    {
-      title: "Write Harness Tool Call Documentation",
-      status: "stopped",
-      started: "6h ago",
-    },
-    {
-      title: "Design Postquantum Computers Website",
-      status: "stopped",
-      started: "6h ago",
-    },
-  ];
   const launchSession = (seedIntent = intentDraft.trim() || defaultSeedIntent) =>
     onOpenNewSession({
       seedIntent,
@@ -293,7 +269,6 @@ function HomeDashboardView({
         <main className="chat-home-zero-prompt-stage" aria-label="Start a session">
           <div className="chat-home-zero-brand-lockup" aria-hidden="true">
             <span className="chat-home-zero-brand-mark" />
-            <strong>IOI</strong>
           </div>
           <h1>What do you want to get done today?</h1>
 
@@ -362,36 +337,6 @@ function HomeDashboardView({
               </button>
             ))}
           </div>
-
-          <section className="chat-home-zero-recent" aria-label="Recent sessions">
-            <div className="chat-home-zero-recent-heading">
-              <h2>Recent Sessions</h2>
-            </div>
-            <ul>
-              {recentSessions.map((session, index) => (
-                <li key={session.title}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const project = visibleProjects[index] ?? currentProject;
-                      onSelectProject(project.id);
-                      onOpenWorkspace();
-                    }}
-                  >
-                    <span
-                      className="chat-home-zero-recent-status"
-                      data-session-status={session.status}
-                      aria-hidden="true"
-                    />
-                    <span>
-                      <strong>{session.title}</strong>
-                      <em>{session.started}</em>
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </section>
         </main>
       </div>
     </section>
@@ -400,7 +345,6 @@ function HomeDashboardView({
 
 export function HomeView({
   currentProject,
-  projects,
   notificationCount,
   onOpenChat,
   onOpenNewSession,
@@ -412,7 +356,6 @@ export function HomeView({
   onOpenSettings,
   onOpenCommandPalette,
   onOpenCockpitSurface,
-  onSelectProject,
 }: HomeViewProps) {
   const [state, setState] = useState<HomeOnboardingState>(() => loadState());
   const stateRef = useRef(state);
@@ -686,7 +629,6 @@ export function HomeView({
       >
         <HomeDashboardView
           currentProject={currentProject}
-          projects={projects}
           notificationCount={notificationCount}
           selectedThemeLabel={selectedTheme.label}
           completedAtMs={state.completedAtMs}
@@ -701,7 +643,6 @@ export function HomeView({
           onOpenSettings={onOpenSettings}
           onOpenCommandPalette={onOpenCommandPalette}
           onOpenCockpitSurface={onOpenCockpitSurface}
-          onSelectProject={onSelectProject}
           onReviewSetup={() => setReviewingCompletedSetup(true)}
         />
       </section>
