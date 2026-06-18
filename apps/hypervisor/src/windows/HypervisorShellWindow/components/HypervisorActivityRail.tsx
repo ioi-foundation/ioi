@@ -519,27 +519,47 @@ export function HypervisorActivityRail({
           title="Open organization settings"
           onClick={() => onViewChange("settings")}
         />
-        <button
-          type="button"
-          className="hypervisor-activity-profile-indicator"
-          data-window-surface="account"
-          onClick={() => {
-            onViewChange("settings");
-          }}
-          aria-label={`${workspaceLabel} account for ${profileDisplayName}`}
-          title={`${workspaceLabel} · ${profileDisplayName} · ${profileRoleLabel}`}
-        >
-          <span className="hypervisor-activity-profile-avatar" aria-hidden="true">
-            {profileInitials}
-          </span>
-          <span className="hypervisor-activity-profile-label">
-            <strong>{workspaceLabel}</strong>
-            <em>{profileDisplayName}</em>
-          </span>
-          <span className="hypervisor-activity-profile-menu-indicator" aria-hidden="true">
-            ⌄
-          </span>
-        </button>
+        <div className="hypervisor-activity-footer-profile-row">
+          <button
+            type="button"
+            className="hypervisor-activity-profile-indicator"
+            data-window-surface="account"
+            onClick={() => {
+              onViewChange("settings");
+            }}
+            aria-label={`${workspaceLabel} account for ${profileDisplayName}`}
+            title={`${workspaceLabel} · ${profileDisplayName} · ${profileRoleLabel}`}
+          >
+            <span className="hypervisor-activity-profile-avatar" aria-hidden="true">
+              {profileInitials}
+            </span>
+            <span className="hypervisor-activity-profile-label">
+              <strong>{workspaceLabel}</strong>
+              <em>{profileDisplayName}</em>
+            </span>
+            <span className="hypervisor-activity-profile-menu-indicator" aria-hidden="true">
+              ⌄
+            </span>
+          </button>
+          <button
+            type="button"
+            className="hypervisor-activity-profile-secondary"
+            data-window-surface="workspace-notifications"
+            onClick={() => onViewChange("missions")}
+            aria-label="Open workspace notifications"
+            title="Open workspace notifications"
+          >
+            <NotificationsIcon />
+            {notificationCount > 0 ? (
+              <span
+                className="hypervisor-activity-profile-secondary-badge"
+                aria-label={`${notificationCount} notifications`}
+              >
+                {notificationCount > 9 ? "9+" : notificationCount}
+              </span>
+            ) : null}
+          </button>
+        </div>
       </div>
     </aside>
   );

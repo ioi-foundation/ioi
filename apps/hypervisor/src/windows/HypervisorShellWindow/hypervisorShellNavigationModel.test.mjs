@@ -358,6 +358,9 @@ test("visible shell chrome uses Hypervisor labels over compatibility route keys"
   assert.match(activityBarIcons, /<polygon points=/);
   assert.doesNotMatch(activityBarIcons, /strokeWidth="12"/);
   assert.match(activityBar, /hypervisor-activity-profile-indicator/);
+  assert.match(activityBar, /hypervisor-activity-footer-profile-row/);
+  assert.match(activityBar, /hypervisor-activity-profile-secondary/);
+  assert.match(activityBar, /data-window-surface="workspace-notifications"/);
   assert.match(activityBar, /hypervisor-activity-profile-label/);
   assert.match(activityBar, /hypervisor-activity-profile-menu-indicator/);
   assert.doesNotMatch(activityBar, /hypervisor-activity-button--account/);

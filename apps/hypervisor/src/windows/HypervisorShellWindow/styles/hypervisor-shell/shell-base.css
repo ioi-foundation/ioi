@@ -581,6 +581,16 @@
   padding: 0;
 }
 
+.hypervisor-activity-bar.is-collapsed .hypervisor-activity-footer-profile-row {
+  width: 48px;
+  display: flex;
+  justify-content: center;
+}
+
+.hypervisor-activity-bar.is-collapsed .hypervisor-activity-profile-secondary {
+  display: none;
+}
+
 .hypervisor-activity-bar.is-collapsed .hypervisor-activity-button-badge {
   top: 8px;
   left: 27px;
@@ -5633,7 +5643,16 @@
   color: var(--hypervisor-activity-text);
 }
 
+.hypervisor-activity-footer-profile-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 32px;
+  align-items: center;
+  gap: 4px;
+}
+
 .hypervisor-activity-profile-indicator {
+  width: 100%;
   min-height: 46px;
   grid-template-columns: 34px minmax(0, 1fr) 16px;
   column-gap: 9px;
@@ -5645,10 +5664,55 @@
     box-shadow 120ms ease;
 }
 
+.hypervisor-activity-profile-secondary {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--hypervisor-activity-text);
+  cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+
 .hypervisor-activity-profile-indicator:hover,
-.hypervisor-activity-profile-indicator:focus-visible {
+.hypervisor-activity-profile-indicator:focus-visible,
+.hypervisor-activity-profile-secondary:hover,
+.hypervisor-activity-profile-secondary:focus-visible {
   background: var(--hypervisor-activity-hover-bg);
+  color: var(--hypervisor-activity-text-strong);
   outline: none;
+}
+
+.hypervisor-activity-profile-secondary svg {
+  width: 18px;
+  height: 18px;
+}
+
+.hypervisor-activity-profile-secondary-badge {
+  position: absolute;
+  top: 4px;
+  right: 3px;
+  min-width: 13px;
+  height: 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 3px;
+  border: 1px solid var(--hypervisor-activity-bg);
+  border-radius: 999px;
+  background: #315cff;
+  color: #ffffff;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .hypervisor-activity-profile-avatar {

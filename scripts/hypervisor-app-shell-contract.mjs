@@ -179,6 +179,40 @@ async function main() {
         bodyText.includes("Operator"),
       "Left rail does not expose the reference-style workspace/user footer.",
     );
+    assert(
+      (await page.locator(".hypervisor-activity-footer-profile-row").count()) === 1 &&
+        (await page.locator(".hypervisor-activity-profile-secondary").count()) === 1,
+      "Left rail footer must use the IOI reference split workspace/action layout.",
+    );
+    const profileFooterLayout = await page
+      .locator(".hypervisor-activity-footer-profile-row")
+      .evaluate((element) => {
+        const row = element.getBoundingClientRect();
+        const profile = element
+          .querySelector(".hypervisor-activity-profile-indicator")
+          ?.getBoundingClientRect();
+        const secondary = element
+          .querySelector(".hypervisor-activity-profile-secondary")
+          ?.getBoundingClientRect();
+        return {
+          rowWidth: row.width,
+          profileWidth: profile?.width ?? 0,
+          secondaryWidth: secondary?.width ?? 0,
+          gap:
+            profile && secondary
+              ? Math.round(secondary.left - profile.right)
+              : null,
+        };
+      });
+    assert(
+      profileFooterLayout.rowWidth >= 280 &&
+        profileFooterLayout.rowWidth <= 286 &&
+        profileFooterLayout.profileWidth >= 246 &&
+        profileFooterLayout.profileWidth <= 250 &&
+        profileFooterLayout.secondaryWidth === 32 &&
+        profileFooterLayout.gap === 4,
+      `Left rail footer proportions drifted from the IOI reference split control. layout=${JSON.stringify(profileFooterLayout)}`,
+    );
     const profileAvatarStyle = await page
       .locator(".hypervisor-activity-profile-avatar")
       .evaluate((element) => {
