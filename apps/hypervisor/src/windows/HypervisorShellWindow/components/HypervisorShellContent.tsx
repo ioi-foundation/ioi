@@ -1943,6 +1943,21 @@ function HypervisorProjectStateSurface({
     };
   }, [selectedProjectId]);
 
+  const selectedProject =
+    projection.records.find(
+      (project) => project.project_id === projection.selected_project_id,
+    ) ??
+    projection.records.find((project) => project.project_id === selectedProjectId) ??
+    projection.records[0] ??
+    null;
+  const visibleProjects = projection.records;
+  const activeProjectCount = visibleProjects.filter(
+    (project) => project.restore_state === "active",
+  ).length;
+  const restoreReadyCount = visibleProjects.filter(
+    (project) => project.restore_state === "restore_ready",
+  ).length;
+
   return (
     <section
       className="hypervisor-project-state"
@@ -1954,57 +1969,142 @@ function HypervisorProjectStateSurface({
     >
       <div className="hypervisor-project-state__content">
         <header className="hypervisor-project-state__header">
-          <h2>Projects</h2>
-        </header>
-
-        <label className="hypervisor-project-state__search">
-          <span aria-hidden="true">
-            <SearchIcon />
-          </span>
-          <input type="search" placeholder="Search projects" readOnly />
-        </label>
-
-        <section
-          className="hypervisor-project-state__empty"
-          aria-label="Project empty state"
-        >
-          <span className="hypervisor-project-state__empty-icon" aria-hidden="true">
-            <span />
-            <span />
-            <span />
-            <span />
-          </span>
-          <h3>No projects</h3>
-          <p>
-            Projects bundle your repo, secrets, and other configuration into a
-            shareable template-prebuilt in the background for faster startup
-            times.
-          </p>
-          <a href="/projects" aria-label="Learn more about projects in IOI">
-            Learn more about projects in IOI.
-          </a>
+          <div>
+            <h2>Projects</h2>
+            <p>
+              Workspaces, sessions, adapter targets, archives, and restore refs
+              admitted through Hypervisor Core.
+            </p>
+          </div>
           <button type="button" className="hypervisor-project-state__new">
             New project
           </button>
-        </section>
+        </header>
 
-        <div hidden aria-hidden="true" data-project-state-records>
-          {projection.records.map((project) => (
-            <div
-              key={project.project_id}
-              data-project-state-record={project.project_id}
-              data-project-restore-state={project.restore_state}
-              data-project-custody-posture={project.custody_posture}
-              data-project-workspace-ref={project.workspace_ref}
-              data-project-object-head-ref={project.agentgres_object_head_ref}
-              data-project-state-root-ref={project.state_root_ref}
-              data-project-archive-ref={project.archive_ref}
-              data-project-restore-ref={project.restore_ref}
-            >
-              {project.name}
-            </div>
-          ))}
+        <div className="hypervisor-project-state__toolbar">
+          <label className="hypervisor-project-state__search">
+            <span aria-hidden="true">
+              <SearchIcon />
+            </span>
+            <input type="search" placeholder="Search projects" readOnly />
+          </label>
+          <div
+            className="hypervisor-project-state__filters"
+            aria-label="Project filters"
+          >
+            <button type="button">All ({visibleProjects.length})</button>
+            <button type="button">Active ({activeProjectCount})</button>
+            <button type="button">Restore ready ({restoreReadyCount})</button>
+          </div>
         </div>
+
+        {visibleProjects.length > 0 ? (
+          <div className="hypervisor-project-state__layout">
+            <section
+              className="hypervisor-project-state__table"
+              aria-label="Project state records"
+              data-project-state-records
+            >
+              <div
+                className="hypervisor-project-state__table-head"
+                aria-hidden="true"
+              >
+                <span>Project</span>
+                <span>Environment</span>
+                <span>Restore</span>
+                <span>Custody</span>
+              </div>
+              {visibleProjects.map((project) => {
+                const isSelected =
+                  selectedProject?.project_id === project.project_id;
+                return (
+                  <article
+                    key={project.project_id}
+                    className={clsx("hypervisor-project-state__record", {
+                      "is-selected": isSelected,
+                    })}
+                    data-project-state-record={project.project_id}
+                    data-project-restore-state={project.restore_state}
+                    data-project-custody-posture={project.custody_posture}
+                    data-project-workspace-ref={project.workspace_ref}
+                    data-project-object-head-ref={project.agentgres_object_head_ref}
+                    data-project-state-root-ref={project.state_root_ref}
+                    data-project-archive-ref={project.archive_ref}
+                    data-project-restore-ref={project.restore_ref}
+                  >
+                    <div>
+                      <strong>{project.name}</strong>
+                      <span>{project.description}</span>
+                    </div>
+                    <span>{project.environment}</span>
+                    <span>{project.restore_state.split("_").join(" ")}</span>
+                    <span>{project.custody_posture.split("_").join(" ")}</span>
+                  </article>
+                );
+              })}
+            </section>
+
+            <aside
+              className="hypervisor-project-state__inspector"
+              aria-label="Selected project restore context"
+            >
+              <h3>{selectedProject?.name ?? "Selected project"}</h3>
+              <p>
+                Agentgres owns project truth. Storage backends only hold the
+                encrypted archive and payload bytes referenced here.
+              </p>
+              <dl>
+                <div>
+                  <dt>Workspace</dt>
+                  <dd>{selectedProject?.workspace_ref ?? "unavailable"}</dd>
+                </div>
+                <div>
+                  <dt>Session</dt>
+                  <dd>{selectedProject?.current_session_ref ?? "idle"}</dd>
+                </div>
+                <div>
+                  <dt>Adapter</dt>
+                  <dd>{selectedProject?.adapter_preference_ref ?? "unbound"}</dd>
+                </div>
+                <div>
+                  <dt>State root</dt>
+                  <dd>{selectedProject?.state_root_ref ?? "unavailable"}</dd>
+                </div>
+                <div>
+                  <dt>Archive</dt>
+                  <dd>{selectedProject?.archive_ref ?? "unavailable"}</dd>
+                </div>
+                <div>
+                  <dt>Restore</dt>
+                  <dd>{selectedProject?.restore_ref ?? "unavailable"}</dd>
+                </div>
+              </dl>
+            </aside>
+          </div>
+        ) : (
+          <section
+            className="hypervisor-project-state__empty"
+            aria-label="Project empty state"
+          >
+            <span
+              className="hypervisor-project-state__empty-icon"
+              aria-hidden="true"
+            >
+              <span />
+              <span />
+              <span />
+              <span />
+            </span>
+            <h3>No projects</h3>
+            <p>
+              Projects appear after Hypervisor Core admits a workspace, session
+              graph, archive ref, and restore boundary for the operator.
+            </p>
+            <button type="button" className="hypervisor-project-state__new">
+              New project
+            </button>
+          </section>
+        )}
       </div>
     </section>
   );

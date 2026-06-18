@@ -413,12 +413,32 @@ async function main() {
     await page.waitForSelector("[data-hypervisor-project-state]");
     const projectsText = await page.locator("body").innerText();
     assert(
-      projectsText.includes("No projects"),
-      "Projects page did not render the IOI-reference empty state.",
+      projectsText.includes("IOI Workspace") &&
+        projectsText.includes("Nested Guardian") &&
+        projectsText.includes("Capability Lab"),
+      "Projects page did not render visible project state rows.",
     );
     assert(
       projectsText.includes("New project"),
       "Projects page did not expose the New project action.",
+    );
+    assert(
+      projectsText.includes("Agentgres owns project truth") &&
+        projectsText.includes("workspace://hypervisor-core") &&
+        projectsText.includes("agentgres://state-root/project:hypervisor-core"),
+      "Projects page did not render the selected project restore inspector.",
+    );
+    assert(
+      !projectsText.includes("Projects bundle your repo"),
+      "Projects page revived the retired project education empty copy.",
+    );
+    assert(
+      (await page.locator("[data-project-state-record]").count()) >= 3,
+      "Projects page did not expose project record metadata for conformance/replay.",
+    );
+    assert(
+      (await page.locator("[data-project-restore-state='active']").count()) >= 1,
+      "Projects page did not bind project restore state metadata.",
     );
     const projectsSearchPlaceholder = await page
       .locator(".hypervisor-project-state__search input")
@@ -658,7 +678,7 @@ async function main() {
         "new_session_workbench_launch_opens_workspace_shell",
         "sessions_reference_conversation_cockpit_rendered",
         "automations_reference_rows_rendered",
-        "projects_reference_empty_state_rendered",
+        "projects_reference_state_list_rendered",
         "workbench_workspace_session_surface_rendered",
         "foundry_harness_comparison_rendered",
         "foundry_harness_fixture_route_gated",

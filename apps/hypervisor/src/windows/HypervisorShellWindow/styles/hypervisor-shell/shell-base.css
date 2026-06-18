@@ -5051,7 +5051,11 @@
 }
 
 .hypervisor-project-state__header {
-  margin-bottom: 18px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 22px;
 }
 
 .hypervisor-project-state__header h2 {
@@ -5060,6 +5064,22 @@
   font-size: 24px;
   font-weight: 700;
   line-height: 1.2;
+}
+
+.hypervisor-project-state__header p {
+  max-width: 620px;
+  margin: 7px 0 0;
+  color: #667085;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.hypervisor-project-state__toolbar {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 12px;
 }
 
 .hypervisor-project-state__search {
@@ -5090,6 +5110,156 @@
   font: inherit;
   font-size: 13px;
   outline: none;
+}
+
+.hypervisor-project-state__filters {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 9px;
+  background: #f2f4f7;
+}
+
+.hypervisor-project-state__filters button {
+  min-height: 28px;
+  padding: 0 11px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #475467;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.hypervisor-project-state__filters button:first-child {
+  background: #ffffff;
+  color: #101828;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.08);
+}
+
+.hypervisor-project-state__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 24px;
+  align-items: start;
+}
+
+.hypervisor-project-state__table {
+  overflow: hidden;
+  border: 1px solid #d8dee6;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.hypervisor-project-state__table-head,
+.hypervisor-project-state__record {
+  display: grid;
+  grid-template-columns: minmax(260px, 1.35fr) 150px 142px 170px;
+  align-items: center;
+  gap: 18px;
+}
+
+.hypervisor-project-state__table-head {
+  min-height: 40px;
+  padding: 0 16px;
+  border-bottom: 1px solid #eaecf0;
+  color: #667085;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.hypervisor-project-state__record {
+  min-height: 74px;
+  padding: 14px 16px;
+  border-bottom: 1px solid #eaecf0;
+  color: #344054;
+  font-size: 13px;
+}
+
+.hypervisor-project-state__record:last-child {
+  border-bottom: 0;
+}
+
+.hypervisor-project-state__record.is-selected {
+  background: #f8fbff;
+}
+
+.hypervisor-project-state__record strong {
+  display: block;
+  margin-bottom: 4px;
+  color: #101828;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.hypervisor-project-state__record span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hypervisor-project-state__record div span {
+  display: block;
+  color: #667085;
+  line-height: 1.35;
+}
+
+.hypervisor-project-state__inspector {
+  padding: 18px;
+  border: 1px solid #e4e7ec;
+  border-radius: 12px;
+  background: #fcfcfd;
+}
+
+.hypervisor-project-state__inspector h3 {
+  margin: 0;
+  color: #101828;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.hypervisor-project-state__inspector p {
+  margin: 8px 0 18px;
+  color: #667085;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.hypervisor-project-state__inspector dl {
+  display: grid;
+  gap: 0;
+  margin: 0;
+}
+
+.hypervisor-project-state__inspector div {
+  display: grid;
+  gap: 4px;
+  padding: 12px 0;
+  border-top: 1px solid #eaecf0;
+}
+
+.hypervisor-project-state__inspector dt {
+  color: #667085;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.hypervisor-project-state__inspector dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: #344054;
+  font-family: "ABC Diatype Mono", ui-monospace, SFMono-Regular, monospace;
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .hypervisor-project-state__empty {
@@ -5149,7 +5319,6 @@
 
 .hypervisor-project-state__new {
   min-height: 36px;
-  margin-top: 10px;
   padding: 0 18px;
   border: 0;
   border-radius: 7px;
@@ -5165,6 +5334,40 @@
 .hypervisor-project-state__new:focus-visible {
   background: #111111;
   outline: none;
+}
+
+@media (max-width: 1180px) {
+  .hypervisor-project-state__layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .hypervisor-project-state__inspector {
+    max-width: none;
+  }
+}
+
+@media (max-width: 860px) {
+  .hypervisor-project-state__header,
+  .hypervisor-project-state__toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .hypervisor-project-state__header {
+    display: grid;
+  }
+
+  .hypervisor-project-state__filters {
+    overflow-x: auto;
+  }
+
+  .hypervisor-project-state__table-head {
+    display: none;
+  }
+
+  .hypervisor-project-state__record {
+    grid-template-columns: 1fr;
+    gap: 7px;
+  }
 }
 
 /* Phase 0A reference parity: primary rail follows the IOI captured shell. */
