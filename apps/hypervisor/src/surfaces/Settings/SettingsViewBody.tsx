@@ -191,8 +191,8 @@ function SettingsAccountPanel({ view }: { view: SettingsViewBodyView }) {
 
         <SettingsSwitch
           checked={selectedPreference.adapter_id === "embedded_workbench"}
-          label="Embedded VS Code"
-          description="Show the embedded VS Code editor in the Code tab. Disabling this reduces resource usage."
+          label="Embedded Workbench"
+          description="Show the packaged editor adapter inside Workbench sessions. Disabling this reduces resource usage."
         />
         <SettingsSwitch
           label="Agent done notification"
@@ -423,7 +423,7 @@ export function SettingsViewBody({ view }: { view: SettingsViewBodyView }) {
             ))}
           </div>
 
-          <details className="chat-settings-reference-advanced" hidden>
+          <details className="chat-settings-reference-advanced">
             <summary>Advanced</summary>
             {ADVANCED_SETTINGS_NAV.map((item) => (
               <SettingsNavButton

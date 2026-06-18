@@ -285,13 +285,13 @@ test("visible shell chrome uses Hypervisor labels over compatibility route keys"
   assert.match(activityBar, /topReferenceNavItems/);
   assert.match(activityBar, /sessionsNavItem/);
   assert.match(activityBar, /chat-activity-button--new-session/);
-  assert.match(activityBar, /chat-activity-session-list/);
-  assert.match(activityBar, /data-ioi-reference-session-list="empty"/);
+  assert.match(activityBar, /chat-activity-project-label/);
+  assert.match(activityBar, /chat-activity-project-skeleton/);
+  assert.match(activityBar, /data-ioi-reference-session-list="project-skeleton"/);
   assert.doesNotMatch(activityBar, /REFERENCE_RECENT_SESSIONS/);
   assert.doesNotMatch(activityBar, /data-ioi-reference-session-list="true"/);
   assert.doesNotMatch(activityBar, /Write Parent Harness Evidence Boundary Doc/);
   assert.match(activityBar, /activateRoute\(sessionsNavItem\.route\)/);
-  assert.doesNotMatch(activityBar, /chat-activity-project-skeleton/);
   assert.match(activityBar, /Organization settings/);
   assert.match(activityBar, /HYPERVISOR_PRIMARY_ACTION/);
   assert.doesNotMatch(activityBar, /aria-label="Applications"/);

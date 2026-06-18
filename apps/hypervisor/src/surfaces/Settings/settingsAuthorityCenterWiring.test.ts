@@ -154,11 +154,19 @@ test("settings expose Workbench adapter preference as a client default", () => {
   assert.match(settingsViewBody, /SettingsEditorTargetList/);
   assert.match(settingsViewBody, /data-settings-editor-picker/);
   assert.match(settingsViewBody, /data-settings-editor-target/);
-  assert.match(settingsViewBody, /Embedded VS Code/);
+  assert.match(settingsViewBody, /Embedded Workbench/);
+  assert.match(settingsViewBody, /className="chat-settings-reference-advanced"/);
+  assert.match(settingsViewBody, /<summary>Advanced<\/summary>/);
+  assert.doesNotMatch(
+    settingsViewBody,
+    /className="chat-settings-reference-advanced" hidden/,
+  );
   assert.match(
     settingsViewBody,
     /This will be your default selected editor for environments/,
   );
+  assert.doesNotMatch(settingsViewBody, /Code tab/);
+  assert.doesNotMatch(settingsViewBody, /Show the embedded VS Code editor/);
   assert.match(
     settingsViewBody,
     /Connect editors, terminals, browsers, cloud accounts, model providers, and storage services/,
@@ -192,9 +200,19 @@ test("settings expose Workbench adapter preference as a client default", () => {
   );
   assert.match(workbenchAdapterSection, /Default session target/);
   assert.match(workbenchAdapterSection, /HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES/);
+  assert.match(workbenchAdapterSection, /buildWorkbenchAdapterLaunchPlan/);
   assert.match(workbenchAdapterSection, /data-workbench-adapter-preference/);
+  assert.match(workbenchAdapterSection, /data-workbench-adapter-executor-lane/);
+  assert.match(workbenchAdapterSection, /data-workbench-adapter-control-action/);
+  assert.match(workbenchAdapterSection, /data-workbench-adapter-control-channel-ref/);
+  assert.match(workbenchAdapterSection, /controlActionLabel/);
+  assert.match(workbenchAdapterSection, /Open embedded/);
+  assert.match(workbenchAdapterSection, /Request bridge/);
+  assert.match(workbenchAdapterSection, /Local workspace/);
   assert.match(workbenchAdapterSection, /Session preference/);
   assert.doesNotMatch(workbenchAdapterSection, /adapter_preference_ref/);
+  assert.doesNotMatch(workbenchAdapterSection, /preference\.launch_mode\} \/ /);
+  assert.doesNotMatch(workbenchAdapterSection, /custody_posture\.split/);
 });
 
 test("settings authority repair actions route to canonical surfaces", () => {

@@ -1470,6 +1470,24 @@ Current implementation cut:
   and onto the same light reference content plane as Agents and Models; visible
   copy now says Encrypted state refs instead of exposing Agentgres naming.
 
+0A.2 reference-shell cleanup is implemented:
+  The left activity rail now follows the IOI reference shell posture more
+  closely by rendering a Projects label plus quiet project skeleton rows instead
+  of an empty session-list placeholder. This keeps the rail feeling like a
+  workspace/session cockpit, not a daemon console.
+  Visible boot and error copy now says "Opening the workspace" and "workspace
+  shell" rather than "runtime bridge", so implementation plumbing does not sit
+  above the product surface.
+  Settings now exposes the Advanced section as an operator-configurable panel,
+  and the Workbench adapter controls render product labels such as Embedded
+  Workbench, Open embedded, Request bridge, and Local workspace while preserving
+  executor lane and control-action refs as metadata. The old Code tab / embedded
+  VS Code phrasing is now guarded against returning.
+  Current comparison evidence:
+    `/tmp/reference-ioi-current.png`
+    `/tmp/hypervisor-agents-current.png`
+    `/tmp/hypervisor-settings-current.png`
+
 0A.2/0A.6 IOI-reference Home and Automations parity cut is implemented:
   `HomeView` now matches the IOI reference home posture: left rail session
   heading, centered prompt composer, project/add-context/model controls, prompt
@@ -1497,7 +1515,8 @@ Current implementation cut:
   landing and selection, the reference left rail set
   (`Home`, `Projects`, `Automations`, `Insights`, `Sessions`), and Agents
   product-surface copy that keeps daemon, Agentgres, and wallet implementation
-  truth out of the visible default chrome.
+  truth out of the visible default chrome. It also verifies the Settings
+  reference shell and governed Workbench adapter controls.
   The command is exposed as `npm run check:hypervisor-app-shell` and
   guarded by `check:runtime-layout` plus the lightweight
   `npm run test:hypervisor-app-harness` contract.

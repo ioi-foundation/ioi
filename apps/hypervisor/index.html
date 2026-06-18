@@ -221,7 +221,7 @@
           <section class="hypervisor-boot-fallback__status">
             <strong>Starting Hypervisor</strong>
             <p class="hypervisor-boot-fallback__detail">
-              Loading the operator shell and runtime bridge.
+              Opening the workspace.
             </p>
             <pre class="hypervisor-boot-fallback__error" data-hypervisor-boot-error></pre>
           </section>
@@ -234,7 +234,7 @@
         const target = root?.querySelector("[data-hypervisor-boot-error]");
         if (target) {
           target.textContent = [
-            "Hypervisor failed to load the operator shell module.",
+            "Hypervisor failed to open the workspace shell.",
             error && error.stack ? error.stack : String(error ?? ""),
           ]
             .filter(Boolean)

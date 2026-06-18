@@ -300,6 +300,66 @@ async function main() {
       "Agents surface leaked implementation-truth copy into the visible product surface.",
     );
 
+    await page.goto(new URL("?view=settings", url).toString(), {
+      waitUntil: "domcontentloaded",
+      timeout: 90_000,
+    });
+    await page.waitForSelector('[data-settings-reference-shell="ioi-settings"]');
+    const settingsText = await page.locator("body").innerText();
+    assert(settingsText.includes("User settings"), "Settings reference shell did not render.");
+    assert(settingsText.includes("Account"), "Settings did not expose Account navigation.");
+    assert(settingsText.includes("Secrets"), "Settings did not expose Secrets navigation.");
+    assert(
+      settingsText.includes("Git authentications"),
+      "Settings did not expose Git authentication navigation.",
+    );
+    assert(
+      settingsText.includes("Personal access tokens"),
+      "Settings did not expose personal access token navigation.",
+    );
+    assert(settingsText.includes("Integrations"), "Settings did not expose Integrations navigation.");
+    assert(settingsText.includes("Default Editor"), "Settings did not expose default editor preference.");
+    assert(settingsText.includes("Embedded Workbench"), "Settings still uses the old embedded editor label.");
+    assert(
+      !(settingsText.match(/Code tab|Show the embedded VS Code editor|adapter_preference_ref/i)),
+      "Settings leaked old Code tab or raw adapter-preference copy.",
+    );
+    const settingsShell = page.locator('[data-settings-reference-shell="ioi-settings"]');
+    const settingsAdvancedSummary = settingsShell
+      .locator("summary:has-text('Advanced')")
+      .first();
+    if (await settingsAdvancedSummary.isVisible()) {
+      await settingsAdvancedSummary.click();
+    }
+    const workbenchAdapterSettingsNav = settingsShell
+      .locator('.chat-settings-reference-advanced button:has-text("Workbench adapter")')
+      .first();
+    await workbenchAdapterSettingsNav.scrollIntoViewIfNeeded();
+    await workbenchAdapterSettingsNav.click();
+    const settingsMain = settingsShell.locator(".chat-settings-reference-main");
+    await settingsMain
+      .locator("[data-workbench-adapter-executor-lane]")
+      .first()
+      .waitFor({ state: "visible", timeout: 30_000 });
+    const settingsAdapterRows = await settingsMain
+      .locator("[data-workbench-adapter-executor-lane]")
+      .count();
+    assert(settingsAdapterRows >= 8, "Settings did not expose governed adapter target metadata.");
+    const settingsControlRows = await settingsMain
+      .locator("[data-workbench-adapter-control-action]")
+      .count();
+    assert(
+      settingsControlRows === settingsAdapterRows,
+      "Settings adapter rows did not carry control action metadata.",
+    );
+    const settingsAdapterText = await page.locator("body").innerText();
+    assert(
+      settingsAdapterText.includes("Open embedded") &&
+        settingsAdapterText.includes("Request bridge") &&
+        settingsAdapterText.includes("Local workspace"),
+      "Settings adapter section did not render product-facing adapter control labels.",
+    );
+
     const result = {
       schema_version: "ioi.hypervisor.app_shell_contract.v1",
       ok: true,
@@ -315,6 +375,8 @@ async function main() {
         "workbench_adapter_hub_rendered",
         "workbench_adapter_selection_live",
         "agents_reference_product_surface_rendered",
+        "settings_reference_surface_rendered",
+        "settings_adapter_controls_rendered",
       ],
       consoleMessages,
     };

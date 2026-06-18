@@ -329,10 +329,29 @@ export function ChatLocalActivityBar({
           ) : null}
         </div>
         <div
-          className="chat-activity-session-list chat-activity-session-list--empty"
-          aria-label="Session preview"
-          data-ioi-reference-session-list="empty"
-        />
+          className="chat-activity-project-label"
+          aria-label="Recent project sessions"
+        >
+          <span>Projects</span>
+        </div>
+        <div
+          className="chat-activity-project-skeleton"
+          aria-hidden="true"
+          data-ioi-reference-session-list="project-skeleton"
+        >
+          <span>
+            <i />
+            <b />
+          </span>
+          <span>
+            <i />
+            <b />
+          </span>
+          <span>
+            <i />
+            <b />
+          </span>
+        </div>
       </div>
 
       <div className="chat-activity-spacer" />
