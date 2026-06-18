@@ -487,6 +487,11 @@ test("new session modal is a shell-level governed launch flow", () => {
   assert.match(source, /CodeEditorAdapterLaunchAdmissionError/);
   assert.match(controller, /launchedSessionProjections/);
   assert.match(controller, /loadHypervisorLaunchedSessionProjections/);
+  assert.match(controller, /HYPERVISOR_REFERENCE_LAUNCHED_SESSION_PROJECTIONS/);
+  assert.match(
+    controller,
+    /loaded\.length > 0[\s\S]*HYPERVISOR_REFERENCE_LAUNCHED_SESSION_PROJECTIONS/,
+  );
   assert.match(controller, /mergeHypervisorLaunchedSessionProjection/);
   assert.match(controller, /persistHypervisorLaunchedSessionProjections/);
   assert.match(controller, /hypervisorBrowserStorage/);
@@ -503,6 +508,14 @@ test("new session modal is a shell-level governed launch flow", () => {
   assert.match(
     launchedSessionPersistence,
     /normalizeHypervisorLaunchedSessionProjection/,
+  );
+  assert.match(
+    launchedSessionPersistence,
+    /HYPERVISOR_REFERENCE_LAUNCHED_SESSION_PROJECTIONS/,
+  );
+  assert.match(
+    launchedSessionPersistence,
+    /Write Parent Harness Evidence Boundary Doc/,
   );
   assert.match(
     launchedSessionPersistence,

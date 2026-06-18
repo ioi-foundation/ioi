@@ -146,9 +146,21 @@ async function main() {
         (await page.locator(".chat-home-zero-recent").count()) === 0,
       "Home duplicates session recents below the prompt instead of leaving them in the left rail.",
     );
+    const initialSessionRows = page.locator(".chat-activity-session-row");
+    const initialSessionRowCount = await initialSessionRows.count();
     assert(
-      (await page.locator(".chat-activity-session-row").count()) === 0,
-      "Fresh Home must not render hardcoded session shortcuts in the left rail.",
+      initialSessionRowCount >= 3,
+      "Fresh Home should render normalized reference launched-session rail projections.",
+    );
+    const initialSessionRefs = await initialSessionRows.evaluateAll((rows) =>
+      rows.map((row) => row.getAttribute("data-launched-session-ref") ?? ""),
+    );
+    assert(
+      initialSessionRefs.every((ref) => ref.startsWith("session:launch/")) &&
+        bodyText.includes("Write Parent Harness Evidence Boundary Doc") &&
+        bodyText.includes("Write Harness Tool Call Documentation") &&
+        bodyText.includes("Design Postquantum Computers Website"),
+      "Fresh Home session rail rows are not backed by launched-session projection refs.",
     );
     assert(
       (await page.locator(".chat-activity-profile-indicator").count()) === 1 &&
@@ -253,6 +265,13 @@ async function main() {
       !compatibleLaunchDisabled,
       "Compatible redacted external harness launch should be available.",
     );
+    const launchedSessionRowCountBeforeRecipeSelection = await page
+      .locator(".chat-activity-session-row")
+      .count();
+    assert(
+      launchedSessionRowCountBeforeRecipeSelection >= 3,
+      "Fresh shells should render the IOI-reference launched-session rail seed.",
+    );
     await page
       .locator('[data-new-session-recipe="workbench.default"]')
       .click();
@@ -274,11 +293,16 @@ async function main() {
       "Selecting a New Session recipe should keep the governed setup modal open.",
     );
     assert(
-      (await page.locator(".chat-activity-session-row").count()) === 0,
-      "Selecting a New Session recipe must not create a launched session projection.",
+      (await page.locator(".chat-activity-session-row").count()) ===
+        launchedSessionRowCountBeforeRecipeSelection,
+      "Selecting a New Session recipe must not create an additional launched session projection.",
     );
     await page.locator('[data-new-session-start-selected="true"]').click();
-    await page.waitForSelector(".chat-activity-session-row");
+    await page.waitForFunction(() =>
+      Array.from(document.querySelectorAll(".chat-activity-session-row")).some(
+        (row) => row.textContent?.includes("Workbench for IOI Workspace"),
+      ),
+    );
     const launchedSessionRows = await page
       .locator(".chat-activity-session-row")
       .allInnerTexts();
@@ -286,7 +310,7 @@ async function main() {
       launchedSessionRows.some((row) =>
         row.includes("Workbench for IOI Workspace"),
       ),
-      "Launching the selected New Session recipe should create a readable launched-session rail row.",
+      `Launching the selected New Session recipe should create a readable launched-session rail row. rows=${JSON.stringify(launchedSessionRows)}`,
     );
     assert(
       launchedSessionRows.every(
@@ -600,6 +624,7 @@ async function main() {
         "left_rail_reference_brand_mark_rendered",
         "home_seed_intent_reaches_new_session",
         "home_reference_prompt_action_reaches_new_session",
+        "reference_launched_session_rail_seed_rendered",
         "new_session_launch_summary_rendered",
         "external_harness_ctee_blocked",
         "external_harness_redacted_projection_allowed",

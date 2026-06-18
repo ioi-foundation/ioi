@@ -1327,6 +1327,11 @@ Current implementation cut:
   replace the generic Home seed with recipe/project labels such as "Workbench
   for IOI Workspace", so the IOI-reference session list stays readable instead
   of becoming a stack of default prompt text.
+  Fresh shells now bootstrap the left session rail from normalized
+  daemon-runtime reference projections when local launched-session cache is
+  empty. This gives first-run Home the IOI-reference recent-session posture
+  without making local storage restore truth or duplicating recents in the Home
+  main canvas.
 
 0A.6 Automations / Workflow Compositor projection is implemented:
   `hypervisorAutomationCompositorModel.ts` defines

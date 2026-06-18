@@ -39,6 +39,7 @@ import {
   type PrimaryView,
 } from "./hypervisorShellModel";
 import {
+  HYPERVISOR_REFERENCE_LAUNCHED_SESSION_PROJECTIONS,
   loadHypervisorLaunchedSessionProjections,
   mergeHypervisorLaunchedSessionProjection,
   persistHypervisorLaunchedSessionProjections,
@@ -252,11 +253,14 @@ export function useHypervisorShellController() {
   );
   const [launchedSessionProjections, setLaunchedSessionProjections] = useState<
     HypervisorLaunchedSessionProjection[]
-  >(() =>
-    loadHypervisorLaunchedSessionProjections({
+  >(() => {
+    const loaded = loadHypervisorLaunchedSessionProjections({
       storage: hypervisorBrowserStorage(),
-    }),
-  );
+    });
+    return loaded.length > 0
+      ? loaded
+      : HYPERVISOR_REFERENCE_LAUNCHED_SESSION_PROJECTIONS;
+  });
   const [capabilitiesSurfaceSeed, setCapabilitiesSurfaceSeed] =
     useState<CapabilitySurface | null>(null);
   const [capabilitiesTargetConnectorId, setCapabilitiesTargetConnectorId] =
