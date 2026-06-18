@@ -1059,6 +1059,8 @@ Current implementation cut:
   Hypervisor rather than Autopilot; `check:runtime-layout` includes
   `packages/agent-sdk/test/computer-use.test.mjs` in the active fixture source
   bundle and rejects returned `appName` or `captureAppName` Autopilot targets.
+  active dev-start probes no longer accept both `[Autopilot]` and
+  `[Hypervisor]` log prefixes; the compatibility shim is cut and guarded.
   the code editor adapter shell patch path is retired entirely. The adapter host
   syncs the `ioi-code-editor-adapter` extension and launches a normal code-editor adapter
   target; Hypervisor Home, Sessions, Projects, Workbench, Foundry, Providers,

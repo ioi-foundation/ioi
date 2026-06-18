@@ -48,10 +48,10 @@ POLL_INTERVAL_SECS = 1.0
 WINDOW_WAIT_TIMEOUT_SECS = 240.0
 POST_SETTLE_CAPTURE_DELAY_SECS = 2.0
 HEARTBEAT_LOG_RE = re.compile(
-    r"^\[(?:Autopilot|Hypervisor)\] Block #\d+ committed \(Tx: 0\)$"
+    r"^\[Hypervisor\] Block #\d+ committed \(Tx: 0\)$"
 )
 CHAT_LAUNCH_STAGE_RE = re.compile(
-    r"\[(?:Autopilot|Hypervisor)\]\[ChatLaunch\] stage=([^\s]+)"
+    r"\[Hypervisor\]\[ChatLaunch\] stage=([^\s]+)"
 )
 THOUGHTS_DRAWER_FALLBACK_POINT = (670, 82)
 

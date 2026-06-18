@@ -135,6 +135,9 @@ const codeEditorAdapterTransportClient = read(
 const codeEditorAdapterPublisher = read(
   "code-editor-adapters/ioi-code-editor-adapter/editor-context/context-publisher.js",
 );
+const hypervisorDevStartIntentProbe = read(
+  "apps/hypervisor/scripts/dev_start_intent_probe.py",
+);
 const rootGitignore = read(".gitignore");
 const hypervisorInstallProductMetadataSource = read(
   "crates/services/src/agentic/runtime/resolver/software_install/product_metadata.rs",
@@ -520,6 +523,16 @@ assert(
     ),
   ["apps/hypervisor/src/services/HypervisorClientRuntime.ts"],
   "Hypervisor client runtime must emit Hypervisor-named host events and commands, not retired Autopilot bridge names.",
+);
+assert(
+  "hypervisor-dev-start-probe-no-dual-product-log-prefix",
+  hypervisorDevStartIntentProbe.includes("^\\[Hypervisor\\] Block #") &&
+    hypervisorDevStartIntentProbe.includes("\\[Hypervisor\\]\\[ChatLaunch\\]") &&
+    !/\(\?:Autopilot\|Hypervisor\)|\[Autopilot\]/.test(
+      hypervisorDevStartIntentProbe,
+    ),
+  ["apps/hypervisor/scripts/dev_start_intent_probe.py"],
+  "Active Hypervisor dev-start probes must not accept retired Autopilot log prefixes as a compatibility shim.",
 );
 assert(
   "code-editor-adapter-command-queue-retired",
