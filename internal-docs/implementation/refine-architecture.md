@@ -957,7 +957,7 @@ Implementation phases:
 | 0A.2 App shell IA | Build IOI-reference shell with left rail, New Session, sessions rail, main surface, right inspector, and bottom inspector. | `HypervisorShellContent.tsx`, `ChatLocalActivityBar.tsx`, `ChatLeftSidebarShell.tsx`, shell CSS | Home opens as app cockpit, not an editor-host console. |
 | 0A.3 Session/project model | Add session cards, project cards, restore state, blocked approvals, recent sessions. | `hypervisorShellModel.ts`, `operatorSubstrateModel.ts`, Home/Session services | Sessions persist visually and map to daemon/Agentgres refs where available. |
 | 0A.4 New Session flow | Create guided launch flow: Mission, Workbench, Agent, Automation, Foundry job, provider/environment job, Private Workspace. | New surface or Home components; runtime launch services | User can start a governed session with model/harness/privacy/authority summary. |
-| 0A.5 Workbench as code-editor workspace surface | Open the current project directly in the governed code-editor workspace substrate; keep adapter preference in New Session/Settings. | `WorkspaceShell.tsx`, `workspaceWorkbenchHost.ts`, settings | Workbench no longer owns project creation or intermediate chooser landings. Code editors are adapter targets; terminal, VM, provider, and node posture belong to Sessions/Providers/Environments. |
+| 0A.5 Workbench as code-editor workspace surface | Open the current project directly in the governed code-editor workspace substrate; keep adapter preference in New Session/Settings. | `WorkspaceShell.tsx`, `workspaceSessionHost.ts`, `useWorkspaceSession.ts`, settings | Workbench no longer owns project creation, adapter-state bridges, or intermediate chooser landings. Code editors are adapter targets; terminal, VM, provider, and node posture belong to Sessions/Providers/Environments. |
 | 0A.6 Automations / Workflow Compositor | Convert current workflow composer/runs into Automations/Workflows with templates, filters, run buttons, graph editing, receipt state. | Automations surface and Workflow Composer view, `packages/hypervisor-workbench/src/WorkflowComposer.tsx`, workbench webview | IOI-reference automations become Hypervisor compositor graphs and reusable recipes. |
 | 0A.7 Models as infrastructure and setup | Keep a Models surface, but also embed model mounting into New Session/Create Agent/Mission setup. | `ModelMountsSurfaceView.tsx`, model daemon actions, public `/v1/model-mount/*` clients | Model mounts are not a detached tab; each session shows selected model/provider/custody. |
 | 0A.8 Authority/privacy/receipts inspectors | Add persistent contextual right/bottom governance and environment panels. | Policy, Capabilities, Settings, cTEE/private workspace services, receipt components, environment ops projections | Selected session reveals changes, authority scope, privacy posture, latest receipts, environment lifecycle, access/log lease state, SCM auth requirements, ports/services, tasks, terminal/logs. |
@@ -1205,13 +1205,20 @@ Current implementation cut:
 
 0A.5 Workbench direct workspace session is implemented through the primary shell:
   `WorkspaceShell` now mounts the current project directly into the governed
-  code-editor workspace substrate through `useWorkspaceWorkbenchSession`.
+  code-editor workspace substrate through `useWorkspaceSession` and
+  `workspaceSessionHost`.
   Workbench no longer owns project creation, workspace gates, news rails,
   recents, favorites, or chooser landings. Projects owns project choice and
   creation; New Session and Settings own default code-editor adapter preference.
   Terminals, VMs, cloud providers, HypervisorOS nodes, and provider posture now
   belong to Sessions, Environments, Providers, and runtime operations rather than
   the Workbench editor-adapter surface.
+  The old adapter-state bridge path is deleted: `workspaceAdapterState`,
+  `workspaceAdapterStateLifecycle`, and `workspaceInspection` no longer project
+  chat, workflows, runs, policy, connectors, artifacts, or product navigation
+  into an editor/session adapter. Workspace sessions mount the governed
+  files/editor/terminal substrate only; product state stays in Hypervisor
+  Home/Sessions/Projects/Automations/Agents/Models/Authority/Receipts surfaces.
   The former Workbench chooser component and its tests are deleted instead of
   preserved as absence-test ballast.
   editor-adapter preference is a real New Session setting and shell launch
