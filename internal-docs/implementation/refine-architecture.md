@@ -1402,12 +1402,14 @@ Current implementation cut:
   workplane instead of a card grid with visible runtime-invariant banners. The
   surface keeps `data-runtime-truth-source`, `data-agent-harness-boundary`, and
   capability-lease attributes for conformance and replay, but the visible UX is
-  product-facing: agent rows, status dots, harness labels, capability lease
-  summaries, latest receipts, and a selected detail inspector. Runtime binding
-  remains available as muted detail metadata and no longer appears as a top-level
-  "daemon/Core owns this" badge. The source guard rejects the old Agents grid,
-  invariant banner, and status-badge DOM from returning. Verification screenshot:
-  `/tmp/hypervisor-agents-parity.png`.
+  product-facing: agent rows, status dots, execution labels, readable scope
+  summaries, updated timestamps, and a selected detail inspector. Internal
+  runtime ownership remains contract metadata only; it does not appear as a
+  title, badge, column heading, action label, or explanatory paragraph. The
+  source guard rejects the old Agents grid, invariant banner, status-badge DOM,
+  "Daemon Owned" / "Proposal Source Only" labels, and architecture-facing header
+  copy from returning. Current verification screenshot:
+  `/tmp/hypervisor-agents-cockpit-list.png`.
 
 0A.2 visible doctrine-copy sweep is implemented:
   Product surfaces keep runtime/authority/truth metadata in data attributes and

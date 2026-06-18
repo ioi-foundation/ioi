@@ -515,7 +515,7 @@ test("Automations surface renders workflow compositor projection before editor",
   assert.match(shellContent, /activeView === "automations"/);
 });
 
-test("Agents surface renders configured runtime actors over Core", () => {
+test("Agents surface renders workers as a cockpit list without internal doctrine copy", () => {
   assert.match(agentsModel, /HypervisorAgentsProjection/);
   assert.match(agentsModel, /HYPERVISOR_AGENTS_PROJECTION_FIXTURE/);
   assert.match(agentsModel, /HYPERVISOR_AGENTS_PROJECTION_PATH/);
@@ -539,9 +539,29 @@ test("Agents surface renders configured runtime actors over Core", () => {
   assert.match(shellContent, /data-agent-capability-lease/);
   assert.match(shellContent, /data-agent-capability-management-boundary/);
   assert.match(shellContent, /data-runtime-truth-source/);
+  assert.match(shellContent, /Manage workers, skills, memory, and scoped leases/);
+  assert.match(shellContent, /formatAgentHarnessLabel/);
+  assert.match(shellContent, /formatCapabilityRef/);
+  assert.match(shellContent, /formatModelRouteRef/);
+  assert.match(shellContent, /formatPrivacyPostureRef/);
+  assert.match(shellContent, /formatWorkspaceRef/);
+  assert.match(shellContent, /formatLeaseExpiry/);
+  assert.match(shellContent, />Execution</);
+  assert.match(shellContent, />Scope</);
+  assert.match(shellContent, />Updated</);
   assert.match(shellContent, /className="hypervisor-agents__workplane"/);
   assert.match(shellContent, /className="hypervisor-agents__list"/);
   assert.match(shellContent, /className="hypervisor-agents__detail"/);
+  assert.doesNotMatch(shellContent, /Runtime actors/);
+  assert.doesNotMatch(shellContent, /Configured workers/);
+  assert.doesNotMatch(shellContent, /Manage authority/);
+  assert.doesNotMatch(shellContent, /Review leases/);
+  assert.doesNotMatch(shellContent, /Daemon Owned/);
+  assert.doesNotMatch(shellContent, /Proposal Source Only/);
+  assert.doesNotMatch(shellContent, /<dd>\{agent\.state_root_ref\}<\/dd>/);
+  assert.doesNotMatch(shellContent, /<dd>\{agent\.latest_receipt_refs\[0\]\}<\/dd>/);
+  assert.match(shellContent, /data-agent-state-root-ref=\{agent\.state_root_ref\}/);
+  assert.match(shellContent, /data-agent-latest-receipt-ref=\{agent\.latest_receipt_refs\[0\] \?\? ""\}/);
   assert.doesNotMatch(shellContent, /className="hypervisor-agents__grid"/);
   assert.doesNotMatch(shellContent, /className="hypervisor-agents__invariants"/);
   assert.doesNotMatch(shellContent, /className="hypervisor-agents__status"/);

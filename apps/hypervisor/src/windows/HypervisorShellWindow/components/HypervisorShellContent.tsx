@@ -353,12 +353,12 @@ function HypervisorAgentsSurface({
           <span>Workspace</span>
           <h2>Agents</h2>
           <p>
-            Runtime actors, skills, memory, sessions, and capability leases for
-            this workspace.
+            Manage workers, skills, memory, and scoped leases for this
+            workspace.
           </p>
         </div>
         <button type="button" onClick={onOpenAuthority}>
-          Manage authority
+          Authority
         </button>
       </div>
 
@@ -381,9 +381,9 @@ function HypervisorAgentsSurface({
         <div className="hypervisor-agents__list" role="list" aria-label="Agents list">
           <div className="hypervisor-agents__list-head" role="presentation">
             <span>Agent</span>
-            <span>Harness</span>
-            <span>Lease</span>
-            <span>Last receipt</span>
+            <span>Execution</span>
+            <span>Scope</span>
+            <span>Updated</span>
           </div>
           {projection.records.map((agent) => (
             <HypervisorAgentRow
@@ -418,10 +418,10 @@ function HypervisorAgentsSurface({
 
 function formatAgentRuntimeBoundary(boundary: string): string {
   if (boundary === "daemon_owned") {
-    return "Managed session";
+    return "Managed";
   }
   if (boundary === "proposal_source_only") {
-    return "Adapter proposal";
+    return "Adapter";
   }
   return boundary.replace(/_/g, " ");
 }
@@ -430,8 +430,82 @@ function firstCapabilityLease(agent: HypervisorAgentRecord) {
   return agent.capability_leases[0] ?? null;
 }
 
+function formatAgentHarnessLabel(label: string): string {
+  if (/default harness profile/i.test(label)) {
+    return "IOI reference";
+  }
+  if (/generic cli harness/i.test(label)) {
+    return "CLI adapter";
+  }
+  return label.replace(/\s+harness$/i, "");
+}
+
+function formatCapabilityRef(ref: string): string {
+  return ref
+    .replace(/^scope:/, "")
+    .replace(/[._-]+/g, " ")
+    .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function formatModelRouteRef(ref: string): string {
+  if (ref === "model-route:hypervisor/default-local") {
+    return "Local model";
+  }
+  if (ref === "model-route:adapter-native") {
+    return "Adapter model";
+  }
+  if (ref.startsWith("model-route:provider/")) {
+    return `${ref.replace("model-route:provider/", "")} provider`;
+  }
+  return ref.replace(/^model-route:/, "").replace(/[/:_-]+/g, " ");
+}
+
+function formatPrivacyPostureRef(ref: string): string {
+  if (ref === "privacy:ctee-private-workspace") {
+    return "Private workspace";
+  }
+  if (ref === "privacy:redacted-projection") {
+    return "Redacted projection";
+  }
+  return ref.replace(/^privacy:/, "").replace(/[._-]+/g, " ");
+}
+
+function formatWorkspaceRef(ref: string): string {
+  return ref
+    .replace(/^workspace:\/\/ioi\//, "")
+    .replace(/^workspace:\/\//, "")
+    .replace(/[._-]+/g, " ")
+    .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function formatLeaseExpiry(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return `Until ${new Intl.DateTimeFormat("en", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date)}`;
+}
+
 function statusLabel(status: string): string {
   return status.replace(/_/g, " ");
+}
+
+function formatAgentUpdatedAt(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return new Intl.DateTimeFormat("en", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
 }
 
 function HypervisorAgentRow({
@@ -464,17 +538,17 @@ function HypervisorAgentRow({
         </span>
       </span>
       <span className="hypervisor-agents__row-harness">
-        {agent.runtime.harness_label}
+        {formatAgentHarnessLabel(agent.runtime.harness_label)}
       </span>
       <span
         className="hypervisor-agents__row-lease"
         data-agent-capability-lease={lease?.lease_ref ?? "none"}
         data-agent-capability-lease-status={lease?.status ?? "none"}
       >
-        {lease ? lease.capability_ref : "No active lease"}
+        {lease ? formatCapabilityRef(lease.capability_ref) : "No active scope"}
       </span>
       <span className="hypervisor-agents__row-receipt">
-        {agent.latest_receipt_refs[0] ?? "No receipt"}
+        {formatAgentUpdatedAt(agent.updated_at)}
       </span>
     </button>
   );
@@ -498,6 +572,11 @@ function HypervisorAgentDetail({
       data-hypervisor-agent-detail={agent.agent_ref}
       data-agent-status={agent.status}
       data-agent-harness-boundary={agent.runtime.truth_boundary}
+      data-agent-model-route-ref={agent.runtime.model_route_ref}
+      data-agent-privacy-posture-ref={agent.runtime.privacy_posture_ref}
+      data-agent-workspace-ref={agent.workspace_ref}
+      data-agent-state-root-ref={agent.state_root_ref}
+      data-agent-latest-receipt-ref={agent.latest_receipt_refs[0] ?? ""}
     >
       <div className="hypervisor-agents__detail-head">
         <span>{statusLabel(agent.status)}</span>
@@ -507,31 +586,31 @@ function HypervisorAgentDetail({
 
       <dl className="hypervisor-agents__runtime">
         <div>
-          <dt>Harness</dt>
+          <dt>Execution</dt>
           <dd>
-            <span>{agent.runtime.harness_label}</span>
+            <span>{formatAgentHarnessLabel(agent.runtime.harness_label)}</span>
           </dd>
         </div>
         <div>
           <dt>Model route</dt>
           <dd>
-            <code>{agent.runtime.model_route_ref}</code>
+            <span>{formatModelRouteRef(agent.runtime.model_route_ref)}</span>
           </dd>
         </div>
         <div>
           <dt>Privacy</dt>
           <dd>
-            <code>{agent.runtime.privacy_posture_ref}</code>
+            <span>{formatPrivacyPostureRef(agent.runtime.privacy_posture_ref)}</span>
           </dd>
         </div>
         <div>
           <dt>Workspace</dt>
           <dd>
-            <code>{agent.workspace_ref}</code>
+            <span>{formatWorkspaceRef(agent.workspace_ref)}</span>
           </dd>
         </div>
         <div>
-          <dt>Binding</dt>
+          <dt>Mode</dt>
           <dd>
             <span>{formatAgentRuntimeBoundary(agent.runtime.truth_boundary)}</span>
           </dd>
@@ -558,9 +637,9 @@ function HypervisorAgentDetail({
             data-agent-capability-lease={lease.lease_ref}
             data-agent-capability-lease-status={lease.status}
           >
-            <strong>{lease.capability_ref}</strong>
+            <strong>{formatCapabilityRef(lease.capability_ref)}</strong>
             <em>{lease.status.replace(/_/g, " ")}</em>
-            <code>{lease.receipt_ref}</code>
+            <small>{formatLeaseExpiry(lease.expires_at)}</small>
           </span>
         ))}
       </div>
@@ -568,12 +647,12 @@ function HypervisorAgentDetail({
 
       <dl className="hypervisor-agents__refs">
         <div>
-          <dt>State</dt>
-          <dd>{agent.state_root_ref}</dd>
+          <dt>Evidence</dt>
+          <dd>{agent.latest_receipt_refs.length} receipts</dd>
         </div>
         <div>
-          <dt>Receipt</dt>
-          <dd>{agent.latest_receipt_refs[0]}</dd>
+          <dt>Checkpoint</dt>
+          <dd>Current</dd>
         </div>
       </dl>
 
