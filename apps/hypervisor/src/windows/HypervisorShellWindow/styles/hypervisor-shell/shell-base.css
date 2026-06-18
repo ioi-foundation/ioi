@@ -2410,60 +2410,6 @@
   color: var(--workspace-repo-primary-bg);
 }
 
-.hypervisor-surface-placeholder {
-  display: flex;
-  min-height: 100%;
-  flex-direction: column;
-  justify-content: center;
-  gap: 14px;
-  padding: clamp(32px, 6vw, 88px);
-  color: var(--workspace-repo-text, #172033);
-}
-
-.hypervisor-surface-placeholder-eyebrow {
-  width: fit-content;
-  border: 1px solid var(--workspace-repo-border, rgba(93, 105, 128, 0.22));
-  border-radius: 999px;
-  padding: 5px 10px;
-  background: var(--workspace-repo-pill-active-bg, rgba(36, 99, 235, 0.08));
-  color: var(--workspace-repo-link, #1d4ed8);
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.hypervisor-surface-placeholder h2 {
-  max-width: 760px;
-  margin: 0;
-  color: var(--workspace-repo-text, #172033);
-  font-size: clamp(28px, 4vw, 48px);
-  line-height: 1.05;
-  letter-spacing: 0;
-}
-
-.hypervisor-surface-placeholder p {
-  max-width: 720px;
-  margin: 0;
-  color: var(--workspace-repo-text-secondary, #586174);
-  font-size: 16px;
-  line-height: 1.65;
-}
-
-.hypervisor-surface-placeholder-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.hypervisor-surface-placeholder-tags span {
-  border: 1px solid var(--workspace-repo-border, rgba(93, 105, 128, 0.2));
-  border-radius: 999px;
-  padding: 6px 10px;
-  background: var(--workspace-repo-panel-bg, #fff);
-  color: var(--workspace-repo-text-secondary, #586174);
-  font-size: 12px;
-  font-weight: 700;
-}
-
 .hypervisor-new-session-modal__backdrop {
   position: fixed;
   inset: 0;

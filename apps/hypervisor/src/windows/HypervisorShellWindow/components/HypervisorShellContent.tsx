@@ -102,74 +102,6 @@ interface HypervisorShellContentProps {
   runtime: HypervisorClientRuntime;
 }
 
-const PLACEHOLDER_SURFACE_COPY: Partial<
-  Record<PrimaryView, { eyebrow: string; title: string; body: string; tags: string[] }>
-> = {
-  providers: {
-    eyebrow: "Provider posture",
-    title: "Providers connect local machines, clouds, GPUs, and storage.",
-    body:
-      "Choose where sessions can run, what they may spend, and which privacy posture each provider supports.",
-    tags: ["Local", "Cloud", "DePIN"],
-  },
-  environments: {
-    eyebrow: "Environment estate",
-    title: "Environments keep workspaces, ports, tasks, and logs organized.",
-    body:
-      "Inspect live workspaces and restore points without exposing users to provider internals.",
-    tags: ["Sessions", "Ports", "Restore"],
-  },
-  foundry: {
-    eyebrow: "Evals and promotion",
-    title: "Foundry will govern evals, distillation, benchmarks, and package promotion.",
-    body:
-      "This is not the meta harness. It is the application surface for training, evaluation, scorecards, promotion candidates, and artifact-backed release evidence.",
-    tags: ["Evals", "Benchmarks", "Promotion"],
-  },
-  receipts: {
-    eyebrow: "Operational evidence",
-    title: "Receipts show what happened and what can be replayed.",
-    body:
-      "Review approvals, actions, artifacts, checkpoints, and restore history from one place.",
-    tags: ["State records", "Replay", "Checkpoints"],
-  },
-};
-
-function isPlaceholderSurface(view: PrimaryView): boolean {
-  return Boolean(PLACEHOLDER_SURFACE_COPY[view]);
-}
-
-function HypervisorSurfacePlaceholder({
-  activeView,
-}: {
-  activeView: PrimaryView;
-}) {
-  const copy = PLACEHOLDER_SURFACE_COPY[activeView];
-  if (!copy) {
-    return null;
-  }
-
-  return (
-    <section
-      className="hypervisor-surface-placeholder"
-      data-testid={`hypervisor-surface-placeholder-${activeView}`}
-      data-hypervisor-surface={activeView}
-      aria-label={copy.title}
-    >
-      <div className="hypervisor-surface-placeholder-eyebrow">
-        {copy.eyebrow}
-      </div>
-      <h2>{copy.title}</h2>
-      <p>{copy.body}</p>
-      <div className="hypervisor-surface-placeholder-tags" aria-label="Surface primitives">
-        {copy.tags.map((tag) => (
-          <span key={tag}>{tag}</span>
-        ))}
-      </div>
-    </section>
-  );
-}
-
 function HypervisorHarnessComparisonDashboard() {
   const [comparison, setComparison] = useState(
     HYPERVISOR_HARNESS_COMPARISON_RUN_FIXTURE,
@@ -3323,16 +3255,6 @@ export function HypervisorShellContent({
                     />
                   ) : null}
 
-                  {isPlaceholderSurface(activeView) &&
-                  activeView !== "projects" &&
-                  activeView !== "foundry" &&
-                  activeView !== "privacy" &&
-                      activeView !== "providers" &&
-                      activeView !== "environments" &&
-                      activeView !== "receipts" &&
-                      activeView !== "agents" ? (
-                        <HypervisorSurfacePlaceholder activeView={activeView} />
-                      ) : null}
                 </div>
 
                 {utilityDrawerVisible ? (

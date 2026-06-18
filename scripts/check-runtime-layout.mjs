@@ -95,6 +95,9 @@ const hypervisorShellWindowSource = read(
 const hypervisorShellContentSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorShellContent.tsx",
 );
+const hypervisorShellBaseCssSource = read(
+  "apps/hypervisor/src/windows/HypervisorShellWindow/styles/hypervisor-shell/shell-base.css",
+);
 const hypervisorNewSessionModalSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorNewSessionModal.tsx",
 );
@@ -1565,6 +1568,17 @@ assert(
     "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorNewSessionModal.tsx",
   ],
   "Phase 0A.10 must include a built-shell contract covering IOI-reference Home, New Session harness/privacy gating, Projects, Workbench adapter hub, and Agents product-surface copy.",
+);
+assert(
+  "hypervisor-shell-no-generic-surface-placeholders",
+  !/PLACEHOLDER_SURFACE_COPY|HypervisorSurfacePlaceholder|isPlaceholderSurface|hypervisor-surface-placeholder/.test(
+    `${hypervisorShellContentSource}\n${hypervisorShellBaseCssSource}`,
+  ),
+  [
+    "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorShellContent.tsx",
+    "apps/hypervisor/src/windows/HypervisorShellWindow/styles/hypervisor-shell/shell-base.css",
+  ],
+  "Hypervisor App surfaces must render explicit IOI-reference bodies instead of generic placeholder fallback screens.",
 );
 assert(
   "hypervisor-harness-public-fixture-runs-contract",

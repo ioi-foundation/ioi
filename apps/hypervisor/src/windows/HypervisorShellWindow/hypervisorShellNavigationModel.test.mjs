@@ -541,7 +541,6 @@ test("Projects surface renders the reference Projects page over hidden project t
   assert.doesNotMatch(shellContent, /hypervisor-project-state__card/);
   assert.doesNotMatch(shellContent, /hypervisor-project-state__refs/);
   assert.match(shellContent, /activeView === "projects"/);
-  assert.match(shellContent, /activeView !== "projects"/);
   assert.doesNotMatch(shellContent, /projects: \{\s*eyebrow: "Project state"/);
   assert.doesNotMatch(shellContent, /projection\.project_boundary_invariant/);
 });
@@ -668,7 +667,6 @@ test("Agents surface renders workers as a cockpit list without internal doctrine
   assert.doesNotMatch(shellContent, /className="hypervisor-agents__rail-summary"/);
   assert.doesNotMatch(shellContent, />What's new\?</);
   assert.match(shellContent, /activeView === "agents"/);
-  assert.match(shellContent, /activeView !== "agents"/);
   assert.match(shellContent, /<CapabilitiesView/);
 });
 
@@ -783,8 +781,13 @@ test("Providers and Environments surfaces are direct integrations, not Fleet pla
   );
   assert.match(shellContent, /activeView === "providers"/);
   assert.match(shellContent, /activeView === "environments"/);
-  assert.match(shellContent, /activeView !== "providers"/);
-  assert.match(shellContent, /activeView !== "environments"/);
+});
+
+test("Hypervisor shell surfaces do not fall back to generic placeholder bodies", () => {
+  assert.doesNotMatch(shellContent, /PLACEHOLDER_SURFACE_COPY/);
+  assert.doesNotMatch(shellContent, /HypervisorSurfacePlaceholder/);
+  assert.doesNotMatch(shellContent, /isPlaceholderSurface/);
+  assert.doesNotMatch(shellContent, /hypervisor-surface-placeholder/);
 });
 
 test("Receipts surface renders Agentgres-bound evidence instead of a placeholder", () => {
@@ -817,7 +820,6 @@ test("Receipts surface renders Agentgres-bound evidence instead of a placeholder
   assert.match(shellContent, /\[Hypervisor\]\[Receipts\] evidence projection unavailable/);
   assert.doesNotMatch(shellContent, /projection\.receipt_boundary_invariant/);
   assert.match(shellContent, /activeView === "receipts"/);
-  assert.match(shellContent, /activeView !== "receipts"/);
 });
 
 test("Privacy surface renders cTEE and model-weight custody admission posture", () => {
@@ -843,7 +845,6 @@ test("Privacy surface renders cTEE and model-weight custody admission posture", 
   assert.match(shellContent, /data-privacy-admission-control/);
   assert.doesNotMatch(shellContent, /projection\.invariant/);
   assert.match(shellContent, /activeView === "privacy"/);
-  assert.match(shellContent, /activeView !== "privacy"/);
   assert.doesNotMatch(shellContent, /privacy: \{\s*eyebrow: "Private workspace"/);
 });
 
