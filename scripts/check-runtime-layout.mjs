@@ -160,6 +160,7 @@ const hypervisorHomeSource = [
   "apps/hypervisor/src/surfaces/Home/HomeView.tsx",
   "apps/hypervisor/src/surfaces/Home/HomeWalkthroughDocument.tsx",
   "apps/hypervisor/src/surfaces/Home/homeOnboardingModel.ts",
+  "apps/hypervisor/scripts/home_onboarding_condition_matrix.ts",
   "apps/hypervisor/src/surfaces/Home/index.ts",
 ].map(read).join("\n");
 const hypervisorHomeCockpitModelSource = read(

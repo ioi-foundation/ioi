@@ -20,7 +20,7 @@ interface MatrixCase {
 const cases: MatrixCase[] = [
   {
     id: "default-workspace",
-    description: "Default contained OpenVSCode workspace with a Git repository.",
+    description: "Default governed Workbench adapter workspace with a Git repository.",
     state: {},
     expectVisible: ["setup-quick-open", "fundamentals-git", "accessibility-help"],
     expectHidden: ["setup-open-code", "setup-web-extensions", "fundamentals-install-git"],
@@ -196,7 +196,7 @@ function main() {
       "",
       "## Proven",
       "",
-      "- Conditional OpenVSCode walkthrough variants are modeled as explicit predicates.",
+      "- Conditional Workbench adapter walkthrough variants are modeled as explicit predicates.",
       "- Default first-run keeps non-applicable conditional variants hidden.",
       "- Alternate source states surface the expected route variants.",
       "- Hidden route diagnostics include condition ids and human-readable reasons.",
