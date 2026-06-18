@@ -42,6 +42,7 @@ function assert(id, condition, evidence, message) {
 
 const packageJson = JSON.parse(read("package.json"));
 const readme = read("README.md");
+const hypervisorAppReadme = read("apps/hypervisor/README.md");
 const developersDocs = read("apps/developers-ioi-ai/src/content/docs.tsx");
 const refineArchitectureGuide = read(
   "internal-docs/implementation/refine-architecture.md",
@@ -820,6 +821,18 @@ assert(
     "scripts/launch-hypervisor-code-editor-adapter-host.mjs",
   ],
   "Code editor adapter hosts must not patch editor chrome into a Hypervisor product shell; product UX stays in Hypervisor App/Web clients.",
+);
+assert(
+  "code-editor-adapter-host-scope-stays-editor-only",
+  hypervisorAppReadme.includes("code editor targets only") &&
+    hypervisorAppReadme.includes(
+      "context projection and daemon-admitted launch boundary",
+    ) &&
+    !/Code editor adapter hosts[\s\S]{0,220}(terminal|VM|hosted workspace)/.test(
+      hypervisorAppReadme,
+    ),
+  ["apps/hypervisor/README.md"],
+  "Code editor adapter host docs must stay limited to code-editor targets; terminal, VM, hosted workspace, and provider posture belong to sessions/environments.",
 );
 assert(
   "code-editor-adapter-extension-only",

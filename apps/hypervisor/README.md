@@ -24,8 +24,8 @@ Hypervisor App
 │
 ├── Code editor adapter hosts
 │   ├── packaged Electron/VS Code host for the current development path
-│   ├── editor, browser IDE, terminal, VM, and hosted workspace targets
-│   └── daemon request bridge and adapter capability boundary
+│   ├── code editor targets only
+│   └── context projection and daemon-admitted launch boundary
 │
 └── IOI daemon
     ├── runtime authority and durable execution boundary
