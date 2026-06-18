@@ -311,31 +311,31 @@ assert.match(
 assert.match(
   homeViewSource,
   /data-home-dashboard-variant="ioi-reference-home"/,
-  "Home should default to the IOI reference application workplane",
+  "Home should default to the IOI reference prompt surface",
 );
 
 assert.match(
   homeCss,
-  /\.chat-home-zero-reference-header\s*\{[\s\S]*\.chat-home-zero-workplane\s*\{[\s\S]*\.chat-home-zero-surface-list\s*\{/,
-  "Home should expose the IOI reference session workplane as the default surface",
+  /\.chat-home-zero-shell--prompt\s*\{[\s\S]*\.chat-home-zero-prompt-stage\s*\{[\s\S]*\.chat-home-zero-composer\s*\{/,
+  "Home should expose the IOI reference prompt surface as the default surface",
 );
 
 assert.match(
   homeViewSource,
-  /Sessions and workspaces[\s\S]*Recent sessions[\s\S]*HOME_REFERENCE_SURFACES/,
-  "Home should match the IOI reference session-home copy",
+  /What do you want to get done today\?[\s\S]*Describe your task or type \/ for commands[\s\S]*Recent Sessions/,
+  "Home should match the IOI reference prompt-home copy",
 );
 
 assert.doesNotMatch(
   homeViewSource,
-  /Welcome back, Operator|Recommended applications|HOME_REFERENCE_APPS|HOME_REFERENCE_ACTIONS/,
-  "Home should not return to the old marketing-card application portal",
+  /Welcome back, Operator|Recommended applications|HOME_REFERENCE_APPS|HOME_REFERENCE_ACTIONS|HOME_REFERENCE_SURFACES|Sessions and workspaces/,
+  "Home should not return to the old dashboard or marketing-card application portal",
 );
 
-assert.doesNotMatch(
+assert.match(
   homeViewSource,
   /What do you want to get done today\?|chat-home-zero-prompt-stage|chat-home-zero-composer/,
-  "Home should not fall back to the prompt-first shell",
+  "Home should keep the prompt-first session launcher",
 );
 
 assert.match(

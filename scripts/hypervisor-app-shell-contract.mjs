@@ -174,24 +174,31 @@ async function main() {
       );
     }
     const bodyText = await page.locator("body").innerText();
+    const promptPlaceholder = await page
+      .locator(".chat-home-zero-composer textarea")
+      .getAttribute("placeholder");
     assert(
-      bodyText.includes("Sessions and workspaces"),
-      "Home does not expose the IOI-reference session workplane.",
+      bodyText.includes("What do you want to get done today?"),
+      "Home does not expose the IOI-reference prompt surface.",
     );
     assert(
-      bodyText.includes("Recent sessions"),
+      promptPlaceholder === "Describe your task or type / for commands",
+      "Home does not expose the reference prompt composer.",
+    );
+    assert(
+      bodyText.includes("Recent Sessions"),
       "Home does not expose recent sessions.",
     );
     assert(
-      bodyText.includes("Surfaces"),
-      "Home does not expose the session surface list.",
+      !bodyText.includes("Sessions and workspaces"),
+      "Old dashboard workplane copy is visible in the shell.",
     );
     assert(!bodyText.includes("Welcome back, Operator"), "Old operator-home copy is visible in the shell.");
     assert(!bodyText.includes("Recommended applications"), "Old application-grid copy is visible in the shell.");
     assert(!bodyText.includes("Autopilot Code"), "Legacy Autopilot Code copy is visible in the shell.");
 
     const seededIntent =
-      "Open a governed Hypervisor session for this workspace with editor, terminal, model mount, policy, and receipts wired.";
+      "Open a governed Hypervisor session for this workspace.";
     await page.locator('[data-home-start-session="true"]').click();
     await page.waitForSelector(".hypervisor-new-session-modal");
     await page.waitForSelector('[data-new-session-launch-summary="ioi.hypervisor.new_session_launch_summary.v1"]');
@@ -367,9 +374,9 @@ async function main() {
       ok: true,
       url,
       checks: [
-        "home_reference_session_workplane_rendered",
+        "home_reference_prompt_surface_rendered",
         "home_seed_intent_reaches_new_session",
-        "home_reference_session_action_reaches_new_session",
+        "home_reference_prompt_action_reaches_new_session",
         "new_session_launch_summary_rendered",
         "external_harness_ctee_blocked",
         "external_harness_redacted_projection_allowed",

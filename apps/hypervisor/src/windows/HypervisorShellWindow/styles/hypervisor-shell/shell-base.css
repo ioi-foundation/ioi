@@ -6508,66 +6508,31 @@
 .chat-activity-project-label {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 14px 8px 7px;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 14px 8px 8px;
   color: var(--chat-activity-text-muted);
-  font-size: 11px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
 }
 
-.chat-activity-project-skeleton {
-  display: grid;
-  gap: 11px;
-  padding: 2px 8px 8px;
-}
-
-.chat-activity-project-skeleton span {
-  display: grid;
-  grid-template-columns: 10px minmax(0, 1fr);
-  align-items: center;
-  gap: 10px;
-}
-
-.chat-activity-project-skeleton i,
-.chat-activity-project-skeleton b {
-  display: block;
-  border-radius: 999px;
-  background: #e7e7e7;
-}
-
-.chat-activity-project-skeleton i {
-  width: 10px;
-  height: 10px;
-}
-
-.chat-activity-project-skeleton b {
-  height: 8px;
-}
-
-.chat-activity-project-skeleton span:nth-child(1) b {
-  width: 64%;
-}
-
-.chat-activity-project-skeleton span:nth-child(2) b {
-  width: 78%;
-}
-
-.chat-activity-project-skeleton span:nth-child(3) b {
-  width: 55%;
-}
-
-.chat-activity-project-skeleton span:nth-child(4) b {
-  width: 42%;
+.chat-activity-project-label span:first-child {
+  width: 12px;
+  color: var(--chat-activity-text-muted);
+  font-size: 12px;
+  transform: translateY(-1px);
 }
 
 .chat-activity-session-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 3px;
   padding: 4px 8px 10px;
 }
 
 .chat-activity-session-row {
-  min-height: 38px;
+  min-height: 44px;
   display: grid;
   grid-template-columns: 12px minmax(0, 1fr) 32px;
   align-items: center;
@@ -6618,16 +6583,16 @@
 
 .chat-activity-session-row__copy strong {
   color: var(--chat-activity-text-strong);
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 16px;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 18px;
 }
 
 .chat-activity-session-row__copy em {
   color: var(--chat-activity-text-muted);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 400;
-  line-height: 15px;
+  line-height: 16px;
 }
 
 .chat-activity-session-row__badge {
@@ -6637,7 +6602,7 @@
   align-items: center;
   justify-content: center;
   border-radius: 999px;
-  background: #eef3ff;
+  background: #dce6ff;
   color: #315cff;
   font-size: 11px;
   font-weight: 600;

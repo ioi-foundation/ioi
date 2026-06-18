@@ -206,53 +206,24 @@ function completionPercent(
   );
 }
 
-const HOME_REFERENCE_SURFACES: Array<{
-  label: string;
-  detail: string;
-  surface:
-    | "workspace"
-    | "automations"
-    | "agents"
-    | "models"
-    | "foundry"
-    | "authority"
-    | "providers"
-    | "receipts";
-}> = [
+const HOME_AGENT_PROMPTS = [
   {
-    label: "Workbench",
-    detail: "Code, terminals, editor adapters",
-    surface: "workspace",
+    label: "Automate env setup",
+    seedIntent:
+      "Create a fully working development environment as code configuration for this workspace.",
+    tone: "blue",
   },
   {
-    label: "Automations",
-    detail: "Workflow graphs and scheduled runs",
-    surface: "automations",
+    label: "Fix a bug",
+    seedIntent:
+      "Find an important bug in this workspace, fix it, and produce receipts for the change.",
+    tone: "red",
   },
   {
-    label: "Agents",
-    detail: "Workers, skills, memory, capabilities",
-    surface: "agents",
-  },
-  {
-    label: "Models",
-    detail: "Routes, mounts, providers, custody",
-    surface: "models",
-  },
-  {
-    label: "Providers",
-    detail: "Local, cloud, DePIN, storage",
-    surface: "providers",
-  },
-  {
-    label: "Authority",
-    detail: "Policy, approvals, leases",
-    surface: "authority",
-  },
-  {
-    label: "Receipts",
-    detail: "Activity, replay, evidence",
-    surface: "receipts",
+    label: "Boost your test coverage",
+    seedIntent:
+      "Find key areas in this workspace that need stronger test coverage and implement focused tests.",
+    tone: "purple",
   },
 ] as const;
 
@@ -282,40 +253,35 @@ function HomeDashboardView({
   projects,
   onOpenNewSession,
   onOpenWorkspace,
-  onOpenModels,
-  onOpenPolicy,
   onOpenCommandPalette,
-  onOpenCockpitSurface,
   onSelectProject,
 }: HomeDashboardViewProps) {
-  const seedIntent =
-    "Open a governed Hypervisor session for this workspace with editor, terminal, model mount, policy, and receipts wired.";
-  const openAppSurface = (
-    surface: (typeof HOME_REFERENCE_SURFACES)[number]["surface"],
-  ) => {
-    switch (surface) {
-      case "workspace":
-        onOpenWorkspace();
-        return;
-      case "automations":
-      case "agents":
-      case "foundry":
-      case "providers":
-      case "receipts":
-        onOpenCockpitSurface(`surface:${surface}`);
-        return;
-      case "models":
-        onOpenModels();
-        return;
-      case "authority":
-        onOpenPolicy();
-        return;
-      default:
-        return;
-    }
-  };
+  const defaultSeedIntent =
+    "Open a governed Hypervisor session for this workspace.";
+  const [intentDraft, setIntentDraft] = useState("");
   const visibleProjects = projects.length > 0 ? projects : [currentProject];
-  const activeProjectCount = visibleProjects.length;
+  const recentSessions = [
+    {
+      title: "Write Parent Harness Evidence Boundary Doc",
+      status: "running",
+      started: "6h ago",
+    },
+    {
+      title: "Write Harness Tool Call Documentation",
+      status: "stopped",
+      started: "6h ago",
+    },
+    {
+      title: "Design Postquantum Computers Website",
+      status: "stopped",
+      started: "6h ago",
+    },
+  ];
+  const launchSession = (seedIntent = intentDraft.trim() || defaultSeedIntent) =>
+    onOpenNewSession({
+      seedIntent,
+      recipeId: "ioi-reference-home",
+    });
 
   return (
     <section
@@ -323,136 +289,110 @@ function HomeDashboardView({
       aria-label="Hypervisor home"
       data-home-dashboard-variant="ioi-reference-home"
     >
-      <div className="chat-home-zero-shell chat-home-zero-shell--sessions">
-        <header className="chat-home-zero-reference-header">
-          <div>
-            <p>Home</p>
-            <h1>Sessions and workspaces</h1>
+      <div className="chat-home-zero-shell chat-home-zero-shell--prompt">
+        <main className="chat-home-zero-prompt-stage" aria-label="Start a session">
+          <div className="chat-home-zero-brand-lockup" aria-hidden="true">
+            <span className="chat-home-zero-brand-mark" />
+            <strong>IOI</strong>
           </div>
-          <button
-            type="button"
-            className="chat-home-zero-primary-action"
-            data-home-start-session="true"
-            onClick={() =>
-              onOpenNewSession({
-                seedIntent,
-                recipeId: "ioi-reference-home",
-              })
-            }
+          <h1>What do you want to get done today?</h1>
+
+          <form
+            className="chat-home-zero-composer"
+            data-home-intent-composer="ioi-reference"
+            onSubmit={(event) => {
+              event.preventDefault();
+              launchSession();
+            }}
           >
-            + New Session
-          </button>
-        </header>
+            <textarea
+              value={intentDraft}
+              onChange={(event) => setIntentDraft(event.currentTarget.value)}
+              placeholder="Describe your task or type / for commands"
+              aria-label="Describe your task"
+            />
+            <div className="chat-home-zero-composer-controls">
+              <button
+                type="button"
+                className="chat-home-zero-project-picker"
+                data-home-intent-project={currentProject.id}
+                onClick={onOpenWorkspace}
+              >
+                <span aria-hidden="true">⛶</span>
+                Work in a project
+                <small>{currentProject.name}</small>
+              </button>
+              <button
+                type="button"
+                className="chat-home-zero-icon-button"
+                aria-label="Open command palette"
+                onClick={onOpenCommandPalette}
+              >
+                +
+              </button>
+              <button
+                type="button"
+                className="chat-home-zero-model-picker"
+                data-home-intent-model="default-local"
+              >
+                5.5 Medium
+              </button>
+              <button
+                type="submit"
+                className="chat-home-zero-submit"
+                data-home-start-session="true"
+                aria-label="Start session"
+              >
+                ↑
+              </button>
+            </div>
+          </form>
 
-        <div className="chat-home-zero-workplane">
-          <main className="chat-home-zero-main" aria-label="Session workplane">
-            <section className="chat-home-zero-panel chat-home-zero-panel--recent">
-              <div className="chat-home-zero-section-heading">
-                <div>
-                  <h2>Recent sessions</h2>
-                  <p>
-                    Resume work across local projects, hosted workspaces, editor
-                    adapters, browser sessions, and worker nodes.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  className="chat-home-zero-link-button"
-                  onClick={onOpenCommandPalette}
-                >
-                  Search
-                </button>
-              </div>
-              <div className="chat-home-zero-table">
-                <div className="chat-home-zero-table-head">
-                  <span>Name</span>
-                  <span>Class</span>
-                  <span>Last updated</span>
-                </div>
-                <div className="chat-home-zero-project-rows">
-                  {visibleProjects.slice(0, 4).map((project) => (
-                    <button
-                      type="button"
-                      key={project.id}
-                      className={project.id === currentProject.id ? "is-active" : ""}
-                      onClick={() => {
-                        onSelectProject(project.id);
-                        onOpenWorkspace();
-                      }}
-                    >
-                      <span className="chat-home-zero-project-name">
-                        <strong>{project.name || "Current workspace"}</strong>
-                        <em>{project.rootPath || project.description}</em>
-                      </span>
-                      <span>{project.environment || "Workspace"}</span>
-                      <span>about 10 hours ago</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </section>
-          </main>
+          <div className="chat-home-zero-quickstarts" aria-label="Suggested actions">
+            {HOME_AGENT_PROMPTS.map((prompt) => (
+              <button
+                type="button"
+                key={prompt.label}
+                data-home-agent-prompt={prompt.label}
+                data-prompt-tone={prompt.tone}
+                onClick={() => launchSession(prompt.seedIntent)}
+              >
+                <span aria-hidden="true" />
+                {prompt.label}
+              </button>
+            ))}
+          </div>
 
-          <aside className="chat-home-zero-sidebar" aria-label="Workspace context">
-            <section className="chat-home-zero-side-card chat-home-zero-side-card--updates">
-              <div className="chat-home-zero-side-header">
-                <h2>What's new?</h2>
-                <button type="button" onClick={() => onOpenCockpitSurface("surface:activity")}>
-                  See all
-                </button>
-              </div>
-              <article className="chat-home-zero-update">
-                <span>Feature</span>
-                <time>Apr 21, 2026</time>
-                <p>
-                  Session views now surface editor adapters, hosted workers,
-                  ports, tasks, and restore points from one place.
-                </p>
-                <button type="button" onClick={() => onOpenCockpitSurface("surface:sessions")}>
-                  More
-                </button>
-              </article>
-            </section>
-
-            <section className="chat-home-zero-side-card">
-              <div className="chat-home-zero-side-header">
-                <h2>Surfaces</h2>
-              </div>
-              <div className="chat-home-zero-surface-list">
-                {HOME_REFERENCE_SURFACES.map((surface) => (
+          <section className="chat-home-zero-recent" aria-label="Recent sessions">
+            <div className="chat-home-zero-recent-heading">
+              <h2>Recent Sessions</h2>
+            </div>
+            <ul>
+              {recentSessions.map((session, index) => (
+                <li key={session.title}>
                   <button
                     type="button"
-                    key={surface.label}
-                    onClick={() => openAppSurface(surface.surface)}
+                    onClick={() => {
+                      const project = visibleProjects[index] ?? currentProject;
+                      onSelectProject(project.id);
+                      onOpenWorkspace();
+                    }}
                   >
+                    <span
+                      className="chat-home-zero-recent-status"
+                      data-session-status={session.status}
+                      aria-hidden="true"
+                    />
                     <span>
-                      <strong>{surface.label}</strong>
-                      <em>{surface.detail}</em>
+                      <strong>{session.title}</strong>
+                      <em>{session.started}</em>
                     </span>
                   </button>
-                ))}
-              </div>
-            </section>
-
-            <section className="chat-home-zero-side-card chat-home-zero-side-card--status">
-              <h2>Workspace</h2>
-              <dl>
-                <div>
-                  <dt>Projects</dt>
-                  <dd>{activeProjectCount}</dd>
-                </div>
-                <div>
-                  <dt>Selected</dt>
-                  <dd>{currentProject.name || "Current workspace"}</dd>
-                </div>
-                <div>
-                  <dt>Root</dt>
-                  <dd>{currentProject.rootPath || "Not attached"}</dd>
-                </div>
-              </dl>
-            </section>
-          </aside>
-        </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+        </main>
       </div>
     </section>
   );

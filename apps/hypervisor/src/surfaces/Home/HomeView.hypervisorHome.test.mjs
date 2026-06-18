@@ -24,29 +24,30 @@ const shellContent = readFileSync(
   "utf8",
 );
 
-test("home dashboard uses the IOI reference session workplane", () => {
+test("home dashboard uses the IOI reference prompt surface", () => {
   assert.match(homeView, /aria-label="Hypervisor home"/);
   assert.match(homeView, /data-home-dashboard-variant="ioi-reference-home"/);
   assert.match(homeView, /chat-home-zero--ioi-enterprise/);
-  assert.match(homeView, /Sessions and workspaces/);
-  assert.match(homeView, /Recent sessions/);
-  assert.match(homeView, /What's new\?/);
-  assert.match(homeView, /Surfaces/);
-  assert.match(homeView, /Workbench/);
-  assert.match(homeView, /Agents/);
-  assert.match(homeView, /Models/);
-  assert.match(homeView, /Providers/);
-  assert.match(homeView, /Authority/);
-  assert.match(homeView, /Receipts/);
+  assert.match(homeView, /What do you want to get done today\?/);
+  assert.match(homeView, /Describe your task or type \/ for commands/);
+  assert.match(homeView, /className="chat-home-zero-prompt-stage"/);
+  assert.match(homeView, /className="chat-home-zero-composer"/);
+  assert.match(homeView, /className="chat-home-zero-quickstarts"/);
+  assert.match(homeView, /Recent Sessions/);
+  assert.match(homeView, /HOME_AGENT_PROMPTS/);
+  assert.match(homeView, /data-home-intent-composer="ioi-reference"/);
+  assert.match(homeView, /data-home-agent-prompt/);
   assert.doesNotMatch(homeView, /Welcome back, Operator/);
   assert.doesNotMatch(homeView, /Search for anything in Hypervisor/);
   assert.doesNotMatch(homeView, /Get started/);
   assert.doesNotMatch(homeView, /Install examples/);
   assert.doesNotMatch(homeView, /Join Developer Community/);
   assert.doesNotMatch(homeView, /Recommended applications/);
-  assert.doesNotMatch(homeView, /What do you want to get done today\?/);
-  assert.doesNotMatch(homeView, /className="chat-home-zero-prompt-stage"/);
-  assert.doesNotMatch(homeView, /className="chat-home-zero-composer"/);
+  assert.doesNotMatch(homeView, /Sessions and workspaces/);
+  assert.doesNotMatch(homeView, /What's new\?/);
+  assert.doesNotMatch(homeView, /HOME_REFERENCE_SURFACES/);
+  assert.doesNotMatch(homeView, /chat-home-zero-workplane/);
+  assert.doesNotMatch(homeView, /chat-home-zero-sidebar/);
   assert.doesNotMatch(homeView, /Welcome back to Autopilot/);
   assert.doesNotMatch(homeView, /Search Autopilot, code, sessions, and commands/);
 });
@@ -71,24 +72,23 @@ test("home onboarding uses Hypervisor and Workbench adapter language", () => {
   assert.doesNotMatch(homeSource, /contained OpenVSCode/);
 });
 
-test("home dashboard exposes the reference-style application workplane", () => {
+test("home dashboard launches governed sessions from the reference prompt", () => {
   assert.match(homeView, /const showDashboard = !reviewingCompletedSetup;/);
   assert.doesNotMatch(homeView, /const showDashboard = allStepsComplete && !reviewingCompletedSetup;/);
   assert.doesNotMatch(homeView, /HYPERVISOR_NEW_SESSION_SETUP_MODEL/);
-  assert.doesNotMatch(homeView, /data-home-intent-composer/);
-  assert.doesNotMatch(homeView, /Describe your task or type \/ for commands/);
-  assert.doesNotMatch(homeView, /data-home-intent-project/);
-  assert.doesNotMatch(homeView, /data-home-intent-model/);
+  assert.match(homeView, /data-home-intent-composer/);
+  assert.match(homeView, /Describe your task or type \/ for commands/);
+  assert.match(homeView, /data-home-intent-project/);
+  assert.match(homeView, /data-home-intent-model/);
   assert.doesNotMatch(homeView, /data-home-intent-submit/);
   assert.doesNotMatch(homeView, /HOME_INTENT_QUICKSTARTS/);
-  assert.match(homeView, /HOME_REFERENCE_SURFACES/);
-  assert.match(homeView, /chat-home-zero-reference-header/);
-  assert.match(homeView, /chat-home-zero-workplane/);
-  assert.match(homeView, /chat-home-zero-sidebar/);
-  assert.match(homeView, /chat-home-zero-surface-list/);
+  assert.doesNotMatch(homeView, /HOME_REFERENCE_SURFACES/);
+  assert.doesNotMatch(homeView, /chat-home-zero-reference-header/);
+  assert.doesNotMatch(homeView, /chat-home-zero-workplane/);
+  assert.doesNotMatch(homeView, /chat-home-zero-sidebar/);
+  assert.doesNotMatch(homeView, /chat-home-zero-surface-list/);
   assert.match(homeView, /data-home-start-session/);
   assert.match(homeView, /onOpenCommandPalette/);
-  assert.match(homeView, /onOpenCockpitSurface/);
   assert.match(homeView, /onSelectProject/);
   assert.doesNotMatch(homeView, /Scan recent commits for issues/);
   assert.doesNotMatch(homeView, /Draft weekly release notes/);
@@ -112,9 +112,11 @@ test("home dashboard exposes the reference-style application workplane", () => {
     shellContent,
     /onOpenNewSession=\{controller\.modals\.openNewSessionModal\}/,
   );
-  assert.match(homeCss, /\.chat-home-zero-table \{/);
-  assert.match(homeCss, /\.chat-home-zero-side-card \{/);
-  assert.match(homeCss, /\.chat-home-zero-surface-list \{/);
+  assert.match(homeCss, /\.chat-home-zero-shell--prompt \{/);
+  assert.match(homeCss, /\.chat-home-zero-prompt-stage \{/);
+  assert.match(homeCss, /\.chat-home-zero-composer \{/);
+  assert.match(homeCss, /\.chat-home-zero-quickstarts \{/);
+  assert.match(homeCss, /\.chat-home-zero-recent \{/);
   assert.doesNotMatch(homeCss, /\.chat-home-zero-actions \{/);
   assert.doesNotMatch(homeCss, /\.chat-home-zero-app-grid \{/);
 });
@@ -142,19 +144,15 @@ test("home dashboard routes model setup to the Models surface", () => {
   );
 });
 
-test("home session workplane has responsive reference styling", () => {
+test("home prompt shell has responsive reference styling", () => {
   assert.match(homeCss, /\.chat-home-zero-shell\s*\{/);
   assert.match(homeCss, /\.chat-home-zero::before\s*\{[\s\S]*content: none;[\s\S]*display: none;/);
-  assert.match(homeCss, /\.chat-home-zero-reference-header\s*\{/);
-  assert.match(homeCss, /\.chat-home-zero-primary-action\s*\{/);
-  assert.match(homeCss, /\.chat-home-zero-workplane\s*\{/);
-  assert.match(homeCss, /\.chat-home-zero-surface-list\s*\{/);
+  assert.match(homeCss, /\.chat-home-zero-shell--prompt\s*\{/);
+  assert.match(homeCss, /\.chat-home-zero-brand-lockup\s*\{/);
+  assert.match(homeCss, /\.chat-home-zero-composer-controls\s*\{/);
+  assert.match(homeCss, /\.chat-home-zero-submit\s*\{/);
   assert.doesNotMatch(homeCss, /linear-gradient\(30deg/);
   assert.doesNotMatch(homeCss, /\.chat-home-zero-brand-mark__glyph/);
-  assert.match(
-    homeCss,
-    /@media \(max-width: 1200px\)[\s\S]*\.chat-home-zero-workplane/,
-  );
 });
 
 console.log("HomeView.hypervisorHome.test.mjs: ok");

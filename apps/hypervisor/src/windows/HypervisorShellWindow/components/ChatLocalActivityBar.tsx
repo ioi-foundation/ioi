@@ -78,6 +78,27 @@ const NAV_ICON_BY_SURFACE: Record<string, ReactNode> = {
   settings: <SettingsIcon />,
 };
 
+const REFERENCE_SESSION_ROWS = [
+  {
+    title: "Write Parent Harness Evidence Boundary Doc",
+    meta: "main · 6h ago",
+    status: "active",
+    badge: "3",
+  },
+  {
+    title: "Write Harness Tool Call Documentation",
+    meta: "main · 6h ago",
+    status: "idle",
+    badge: "4",
+  },
+  {
+    title: "Design Postquantum Computers Website",
+    meta: "main · 6h ago",
+    status: "idle",
+    badge: "5",
+  },
+] as const;
+
 function CollapseIcon({ collapsed }: { collapsed: boolean }) {
   return (
     <svg
@@ -376,27 +397,32 @@ export function ChatLocalActivityBar({
         ) : null}
       </div>
 
-      <div className="chat-activity-projects" aria-label="Projects">
+      <div className="chat-activity-projects" aria-label="Session shortcuts">
         <div className="chat-activity-project-label">
-          <span>Projects</span>
+          <span aria-hidden="true">⌄</span>
+          <span>From scratch</span>
         </div>
         <div
-          className="chat-activity-project-skeleton"
-          data-ioi-reference-session-list="project-skeleton"
-          aria-hidden="true"
+          className="chat-activity-session-list"
+          data-ioi-reference-session-list="from-scratch"
         >
-          <span>
-            <i />
-            <b />
-          </span>
-          <span>
-            <i />
-            <b />
-          </span>
-          <span>
-            <i />
-            <b />
-          </span>
+          {REFERENCE_SESSION_ROWS.map((session) => (
+            <button
+              type="button"
+              key={session.title}
+              className="chat-activity-session-row"
+              data-session-status={session.status}
+              title={session.title}
+              onClick={() => onViewChange("sessions")}
+            >
+              <span className="chat-activity-session-row__dot" aria-hidden="true" />
+              <span className="chat-activity-session-row__copy">
+                <strong>{session.title}</strong>
+                <em>{session.meta}</em>
+              </span>
+              <span className="chat-activity-session-row__badge">{session.badge}</span>
+            </button>
+          ))}
         </div>
       </div>
 
