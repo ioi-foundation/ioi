@@ -1,14 +1,6 @@
 import clsx from "clsx";
-import { ArrowLeft } from "lucide-react";
 import { workflowRuntimeUnavailableCopy } from "@ioi/hypervisor-workbench";
-import {
-  createElement,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-  type ComponentType,
-} from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   WorkspaceHost,
   type WorkspacePersistedState,
@@ -25,22 +17,6 @@ import type {
   WorkspaceWorkbenchProjectDescriptor,
 } from "../../services/workspaceWorkbenchHost";
 import { useWorkspaceWorkbenchSession } from "../../services/useWorkspaceWorkbenchSession";
-import { hostWorkspaceAdapter } from "../../services/workspaceAdapter";
-import {
-  createUniqueRepositorySlug,
-  consumePendingWorkspaceRepositoryOpen,
-  formatWorkspaceRepositoryMutationError,
-  getGeneratedRepositoryPath,
-  loadWorkspaceRepositories,
-  markWorkspaceRepositoryOpened,
-  persistCreatedWorkspaceRepository,
-  toggleWorkspaceRepositoryFavorite,
-  type WorkspaceRepositoryRecord,
-} from "../../services/workspaceRepositoryRegistry";
-import {
-  WorkspaceRepositoryGate,
-  type WorkspaceRepositoryCreateRequest,
-} from "./WorkspaceRepositoryGate";
 
 interface WorkspaceShellProps {
   active: boolean;
@@ -49,20 +25,6 @@ interface WorkspaceShellProps {
   runtime: HypervisorClientRuntime;
   host: WorkspaceWorkbenchHost;
   fullBleed?: boolean;
-}
-
-type WorkspaceShellMode = "repository-gate" | "workbench";
-interface OpenRepositoryOptions {
-  ensureDirectory?: boolean;
-}
-
-type ShellIconProps = {
-  size?: number;
-  "aria-hidden"?: boolean | "true" | "false";
-};
-
-function renderShellIcon(Icon: unknown, props: ShellIconProps = {}) {
-  return createElement(Icon as ComponentType<ShellIconProps>, props);
 }
 
 function defaultWorkspaceShellState(): WorkspacePersistedState {
@@ -79,130 +41,10 @@ function defaultWorkspaceShellState(): WorkspacePersistedState {
 export function WorkspaceShell({
   active,
   currentProject,
-  projects,
   runtime,
   host,
   fullBleed = false,
 }: WorkspaceShellProps) {
-  const seedProjects = useMemo(
-    () => (projects && projects.length > 0 ? projects : [currentProject]),
-    [currentProject, projects],
-  );
-  const [shellMode, setShellMode] =
-    useState<WorkspaceShellMode>("repository-gate");
-  const [repositories, setRepositories] = useState(() =>
-    loadWorkspaceRepositories(seedProjects),
-  );
-  const [selectedRepository, setSelectedRepository] =
-    useState<WorkspaceRepositoryRecord | null>(null);
-  const [creatingRepository, setCreatingRepository] = useState(false);
-  const [createRepositoryError, setCreateRepositoryError] = useState<
-    string | null
-  >(null);
-  const [createdRepositoryNotice, setCreatedRepositoryNotice] =
-    useState<WorkspaceRepositoryRecord | null>(null);
-  const workbenchProject = selectedRepository ?? currentProject;
-  const workbenchActive = active && shellMode === "workbench";
-
-  const refreshRepositories = useCallback(() => {
-    setRepositories(loadWorkspaceRepositories(seedProjects));
-  }, [seedProjects]);
-
-  useEffect(() => {
-    refreshRepositories();
-  }, [refreshRepositories]);
-
-  const openRepository = useCallback(
-    async (
-      repository: WorkspaceRepositoryRecord,
-      options: OpenRepositoryOptions = {},
-    ) => {
-      const ensureDirectory = options.ensureDirectory ?? true;
-      if (repository.source === "created" && ensureDirectory) {
-        await hostWorkspaceAdapter.createDirectory(".", repository.rootPath);
-      }
-
-      markWorkspaceRepositoryOpened(repository.id);
-      const nextRepositories = loadWorkspaceRepositories(seedProjects);
-      setRepositories(nextRepositories);
-      setSelectedRepository(
-        nextRepositories.find(
-          (nextRepository) => nextRepository.id === repository.id,
-        ) ?? repository,
-      );
-      setCreatedRepositoryNotice(null);
-      setCreateRepositoryError(null);
-      setShellMode("workbench");
-    },
-    [seedProjects],
-  );
-
-  const toggleRepositoryFavorite = useCallback(
-    (repository: WorkspaceRepositoryRecord) => {
-      toggleWorkspaceRepositoryFavorite(repository.id);
-      refreshRepositories();
-    },
-    [refreshRepositories],
-  );
-
-  useEffect(() => {
-    if (!active) {
-      return;
-    }
-
-    const pendingRepository =
-      consumePendingWorkspaceRepositoryOpen(seedProjects);
-    if (!pendingRepository) {
-      return;
-    }
-
-    void openRepository(pendingRepository, {
-      ensureDirectory: false,
-    });
-  }, [active, openRepository, seedProjects]);
-
-  const createRepository = useCallback(
-    async (request: WorkspaceRepositoryCreateRequest) => {
-      setCreatingRepository(true);
-      setCreateRepositoryError(null);
-
-      try {
-        const slug = createUniqueRepositorySlug(
-          request.name,
-          repositories.map((repository) => repository.rootPath),
-        );
-        const rootPath = getGeneratedRepositoryPath(slug);
-
-        await hostWorkspaceAdapter.createDirectory(".", rootPath);
-
-        const now = Date.now();
-        const repository: WorkspaceRepositoryRecord = {
-          id: `created:${rootPath}`,
-          name: request.name,
-          description: `${request.categoryLabel} / ${request.templateLabel}`,
-          environment: "Local",
-          rootPath,
-          source: "created",
-          category: request.category,
-          template: request.template,
-          createdAtMs: now,
-          lastOpenedAtMs: now,
-          favorite: false,
-        };
-
-        persistCreatedWorkspaceRepository(repository);
-        setRepositories(loadWorkspaceRepositories(seedProjects));
-        setCreatedRepositoryNotice(repository);
-        setCreatingRepository(false);
-        setCreateRepositoryError(null);
-      } catch (error) {
-        setCreatingRepository(false);
-        setCreateRepositoryError(formatWorkspaceRepositoryMutationError(error));
-      }
-    },
-    [repositories, seedProjects],
-  );
-
   const {
     status,
     session,
@@ -212,21 +54,21 @@ export function WorkspaceShell({
     bootPhase,
     restartWorkspace,
   } = useWorkspaceWorkbenchSession({
-    active: workbenchActive,
-    enabled: workbenchActive,
-    currentProject: workbenchProject,
+    active,
+    enabled: active,
+    currentProject,
     runtime,
     host,
   });
   const sessionDescriptor = session ? host.describeSession(session) : null;
   const [persistedState, setPersistedState] = useState(() =>
-    loadWorkspaceShellState(workbenchProject.rootPath),
+    loadWorkspaceShellState(currentProject.rootPath),
   );
   const [surfaceError, setSurfaceError] = useState<string | null>(null);
 
   useEffect(() => {
-    setPersistedState(loadWorkspaceShellState(workbenchProject.rootPath));
-  }, [workbenchProject.rootPath]);
+    setPersistedState(loadWorkspaceShellState(currentProject.rootPath));
+  }, [currentProject.rootPath]);
 
   useEffect(() => {
     setSurfaceError(null);
@@ -256,11 +98,11 @@ export function WorkspaceShell({
     !workspaceSurfaceReadyEnough;
 
   useEffect(() => {
-    if (!import.meta.env.DEV || !workbenchActive) {
+    if (!import.meta.env.DEV || !active) {
       return;
     }
     console.info("[WorkspaceBoot] shell state", {
-      rootPath: workbenchProject.rootPath,
+      rootPath: currentProject.rootPath,
       status,
       surfaceKind: surface?.kind ?? null,
       surfaceReady,
@@ -273,8 +115,8 @@ export function WorkspaceShell({
     status,
     surface,
     surfaceReady,
-    workbenchActive,
-    workbenchProject.rootPath,
+    active,
+    currentProject.rootPath,
   ]);
 
   const persistShellState = (
@@ -290,7 +132,7 @@ export function WorkspaceShell({
             : nextActivePath,
         snapshot: current?.snapshot ?? null,
       };
-      persistWorkspaceShellState(workbenchProject.rootPath, nextState);
+      persistWorkspaceShellState(currentProject.rootPath, nextState);
       return nextState;
     });
   };
@@ -302,15 +144,9 @@ export function WorkspaceShell({
         lastActivePath: current?.lastActivePath ?? null,
         snapshot: nextSnapshot,
       };
-      persistWorkspaceShellState(workbenchProject.rootPath, nextState);
+      persistWorkspaceShellState(currentProject.rootPath, nextState);
       return nextState;
     });
-  };
-
-  const returnToRepositoryGate = () => {
-    setShellMode("repository-gate");
-    setSelectedRepository(null);
-    setSurfaceError(null);
   };
 
   return (
@@ -323,67 +159,47 @@ export function WorkspaceShell({
       aria-label="Workspace"
       aria-hidden={!active}
     >
-      {shellMode === "repository-gate" ? (
-        <WorkspaceRepositoryGate
-          repositories={repositories}
-          createError={createRepositoryError}
-          createdRepository={createdRepositoryNotice}
-          creating={creatingRepository}
-          onCreateRepository={createRepository}
-          onDismissCreatedRepository={() => setCreatedRepositoryNotice(null)}
-          onOpenRepository={openRepository}
-          onToggleFavorite={toggleRepositoryFavorite}
-        />
-      ) : (
-        <div className="chat-workspace-oss-shell__workbench">
-          {!overlayVisible ? (
-            <header className="chat-workspace-oss-shell__workbench-header">
-              <button
-                type="button"
-                className="chat-workspace-oss-shell__back"
-                onClick={returnToRepositoryGate}
-              >
-                {renderShellIcon(ArrowLeft, { size: 15, "aria-hidden": true })}
-                <span>Workbench</span>
-              </button>
-              <div className="chat-workspace-oss-shell__workbench-title">
-                <strong>{workbenchProject.name}</strong>
-                <code>{workbenchProject.rootPath}</code>
-              </div>
-            </header>
-          ) : null}
+      <div className="chat-workspace-oss-shell__workbench">
+        {!overlayVisible ? (
+          <header className="chat-workspace-oss-shell__workbench-header">
+            <div className="chat-workspace-oss-shell__workbench-title">
+              <strong>{currentProject.name}</strong>
+              <code>{currentProject.rootPath}</code>
+            </div>
+          </header>
+        ) : null}
 
-          <div className="chat-workspace-oss-shell__workbench-surface">
-            <div className="chat-workspace-oss-shell__surface-stage">
-              {session && surface ? (
-                <WorkspaceHost
-                  key={surface.key}
-                  className="chat-workspace-host"
-                  adapter={surface.adapter}
-                  root={surface.rootPath}
-                  layoutMode={surface.layoutMode}
-                  defaultPane={surface.defaultPane}
-                  title={surface.title}
-                  showHeader={surface.showHeader}
-                  showBottomPanel={surface.showBottomPanel}
-                  initialSnapshot={
-                    surface.initialSnapshot ?? initialWorkspaceSnapshot
-                  }
-                  initialState={initialWorkspaceState}
-                  onStateChange={(nextState) => {
-                    persistShellState(nextState);
-                  }}
-                  onSnapshotChange={persistSnapshot}
-                  onActivePathChange={(path) => {
-                    persistShellState(
-                      persistedState?.shellState ?? initialWorkspaceState,
-                      path,
-                    );
-                  }}
-                />
-              ) : null}
+        <div className="chat-workspace-oss-shell__workbench-surface">
+          <div className="chat-workspace-oss-shell__surface-stage">
+            {session && surface ? (
+              <WorkspaceHost
+                key={surface.key}
+                className="chat-workspace-host"
+                adapter={surface.adapter}
+                root={surface.rootPath}
+                layoutMode={surface.layoutMode}
+                defaultPane={surface.defaultPane}
+                title={surface.title}
+                showHeader={surface.showHeader}
+                showBottomPanel={surface.showBottomPanel}
+                initialSnapshot={
+                  surface.initialSnapshot ?? initialWorkspaceSnapshot
+                }
+                initialState={initialWorkspaceState}
+                onStateChange={(nextState) => {
+                  persistShellState(nextState);
+                }}
+                onSnapshotChange={persistSnapshot}
+                onActivePathChange={(path) => {
+                  persistShellState(
+                    persistedState?.shellState ?? initialWorkspaceState,
+                    path,
+                  );
+                }}
+              />
+            ) : null}
 
-              {overlayVisible ? (
+            {overlayVisible ? (
               <div className="chat-workspace-oss-shell__overlay">
                 <div className="chat-workspace-oss-shell__fallback">
                   <div className="chat-workspace-oss-shell__fallback-bar">
@@ -399,7 +215,7 @@ export function WorkspaceShell({
                   </div>
                   <div className="chat-workspace-oss-shell__fallback-tabs">
                     <span>Code</span>
-                    <strong>{workbenchProject.name}</strong>
+                    <strong>{currentProject.name}</strong>
                     <span className="is-active">Environment</span>
                   </div>
 
@@ -444,9 +260,13 @@ export function WorkspaceShell({
 
                       <div className="chat-workspace-oss-shell__timeline">
                         {[
-                          ["Resolved workspace root", workbenchProject.rootPath],
+                          ["Resolved workspace root", currentProject.rootPath],
                           ["Loaded workspace refs", "Workspace state ready"],
-                          ["Selected adapter", sessionDescriptor?.runtimeLabel ?? "Workspace session"],
+                          [
+                            "Selected adapter",
+                            sessionDescriptor?.runtimeLabel ??
+                              "Workspace session",
+                          ],
                           [
                             blockingError
                               ? "Waiting for host adapter"
@@ -536,7 +356,11 @@ export function WorkspaceShell({
                       </div>
                       <label className="chat-workspace-oss-shell__search">
                         <span>⌕</span>
-                        <input readOnly value="" placeholder="Search files..." />
+                        <input
+                          readOnly
+                          value=""
+                          placeholder="Search files..."
+                        />
                       </label>
                       <div className="chat-workspace-oss-shell__change-list">
                         <div>
@@ -572,12 +396,10 @@ export function WorkspaceShell({
                   </div>
                 </div>
               </div>
-              ) : null}
-            </div>
-
+            ) : null}
           </div>
         </div>
-      )}
+      </div>
     </section>
   );
 }

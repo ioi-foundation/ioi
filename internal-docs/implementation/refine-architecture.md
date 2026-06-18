@@ -539,7 +539,7 @@ Reference inputs:
 Retired screenshot:
   editor parent chrome
   editor-owned composer / models / runs / policy / connectors / code tabs
-  active Code repositories gate
+  editor-owned project/workspace gate
 
 Primary IOI reference mirror:
   internal-docs/reverse-engineering/ioi
@@ -954,10 +954,10 @@ Implementation phases:
 | 0A.1B Retire IDE-root naming | Rename launcher/script/docs away from `ide`/Electron-as-product language and move tracked adapter metadata and ignored local adapter artifacts to `workbench-adapters/`. | `workbench-adapters/`, launcher scripts, package scripts, conformance readers | Electron/VS Code is one Workbench adapter host; root `ide/` is retired and must not be used as a product or artifact path. |
 | 0A.1C Retire Tauri app shims | Replace active `@tauri-apps/*` imports and `TauriRuntime` service naming with Hypervisor client bridge APIs; delete the retired Tauri tree from the active repo instead of keeping it as a contract archive. | `apps/hypervisor/src/services/*`, shell hooks/components, package deps, validation scripts | Active app code no longer depends on Tauri APIs, `apps/hypervisor/src-tauri`, or `internal-docs/legacy/autopilot-tauri-src`; git history is the recovery handle. |
 | 0A.1D Retire Autopilot proof-runner names | Rename or remove active root package scripts and proof-runner entry points that still advertise Autopilot as the product, while preserving historical evidence under legacy/evidence paths. | `package.json`, `scripts/run-*-goal.mjs`, `scripts/lib/*`, conformance readers | `npm run` exposes Hypervisor/App/Workbench/Foundry/provider-environment names; any remaining `autopilot` script/file names are historical fixtures or explicitly marked legacy. |
-| 0A.2 App shell IA | Build IOI-reference shell with left rail, New Session, sessions rail, main surface, right inspector, and bottom inspector. | `HypervisorShellContent.tsx`, `ChatLocalActivityBar.tsx`, `ChatLeftSidebarShell.tsx`, shell CSS | Home opens as app cockpit, not Code repositories or an editor-host console. |
+| 0A.2 App shell IA | Build IOI-reference shell with left rail, New Session, sessions rail, main surface, right inspector, and bottom inspector. | `HypervisorShellContent.tsx`, `ChatLocalActivityBar.tsx`, `ChatLeftSidebarShell.tsx`, shell CSS | Home opens as app cockpit, not an editor-host console. |
 | 0A.3 Session/project model | Add session cards, project cards, restore state, blocked approvals, recent sessions. | `hypervisorShellModel.ts`, `operatorSubstrateModel.ts`, Home/Session services | Sessions persist visually and map to daemon/Agentgres refs where available. |
 | 0A.4 New Session flow | Create guided launch flow: Mission, Workbench, Agent, Automation, Foundry job, provider/environment job, Private Workspace. | New surface or Home components; runtime launch services | User can start a governed session with model/harness/privacy/authority summary. |
-| 0A.5 Workbench as adapter hub | Move "Code repositories" under Workbench and expose Workbench target preference. | `WorkspaceShell.tsx`, `WorkspaceRepositoryGate.tsx`, `workspaceWorkbenchHost.ts`, settings | Code editors are adapter targets; browser IDE, terminal, provider workspace, HypervisorOS node, and substrate preview targets can be represented without becoming product identity. |
+| 0A.5 Workbench as code-editor workspace surface | Open the current project directly in the governed code-editor workspace substrate; keep adapter preference in New Session/Settings. | `WorkspaceShell.tsx`, `workspaceWorkbenchHost.ts`, settings | Workbench no longer owns project creation or intermediate chooser landings. Code editors are adapter targets; terminal, VM, provider, and node posture belong to Sessions/Providers/Environments. |
 | 0A.6 Automations / Workflow Compositor | Convert current workflow composer/runs into Automations/Workflows with templates, filters, run buttons, graph editing, receipt state. | MissionControl workflow views, `packages/hypervisor-workbench/src/WorkflowComposer.tsx`, workbench webview | IOI-reference automations become Hypervisor compositor graphs and reusable recipes. |
 | 0A.7 Models as infrastructure and setup | Keep a Models surface, but also embed model mounting into New Session/Create Agent/Mission setup. | `MissionControlMountsView.tsx`, model daemon actions, public `/v1/model-mount/*` clients | Model mounts are not a detached tab; each session shows selected model/provider/custody. |
 | 0A.8 Authority/privacy/receipts inspectors | Add persistent contextual right/bottom governance and environment panels. | Policy, Capabilities, Settings, cTEE/private workspace services, receipt components, environment ops projections | Selected session reveals changes, authority scope, privacy posture, latest receipts, environment lifecycle, access/log lease state, SCM auth requirements, ports/services, tasks, terminal/logs. |
@@ -1182,19 +1182,17 @@ Current implementation cut:
   are bound. Broader non-fixture project/session data coverage remains follow-up
   work.
 
-0A.5 Workbench adapter-hub landing is implemented through the primary shell:
-  `WorkspaceRepositoryGate` now opens as a Workbench adapter hub over
-  Hypervisor Core instead of a `Code repositories` / pull-request console
-  the landing models embedded, desktop, and browser-based code editor targets
-  only. Terminals, VMs, cloud providers, HypervisorOS nodes, and provider
-  posture now belong to Sessions, Environments, Providers, and runtime
-  operations rather than the Workbench editor-adapter surface.
-  the landing states that any editor host is one target, not the parent product
-  or runtime truth
-  existing workspace-root creation, recents, favorites, and open-workspace
-  behavior are preserved under the Workbench surface
-  `WorkspaceRepositoryGate.workbenchHub.test.mjs` and `check:runtime-layout`
-  reject the old first-screen `Code repositories` / `Pull requests` framing
+0A.5 Workbench direct workspace session is implemented through the primary shell:
+  `WorkspaceShell` now mounts the current project directly into the governed
+  code-editor workspace substrate through `useWorkspaceWorkbenchSession`.
+  Workbench no longer owns project creation, workspace gates, news rails,
+  recents, favorites, or chooser landings. Projects owns project choice and
+  creation; New Session and Settings own default code-editor adapter preference.
+  Terminals, VMs, cloud providers, HypervisorOS nodes, and provider posture now
+  belong to Sessions, Environments, Providers, and runtime operations rather than
+  the Workbench editor-adapter surface.
+  The former Workbench chooser component and its tests are deleted instead of
+  preserved as absence-test ballast.
   editor-adapter preference is a real New Session setting and shell launch
   request field
   `workbenchAdapterPreferences.ts` now owns `WorkbenchAdapterLaunchPlan`,
@@ -1205,9 +1203,8 @@ Current implementation cut:
   launch, so editor targets are governed session routes rather than decorative
   editor choices.
   The primary left rail now exposes Workbench directly, and `WorkspaceShell`
-  lands on the adapter hub before starting an embedded editor or other
-  workbench target. Explicit repository/session opens still transition into the
-  governed workbench runtime.
+  starts the governed code-editor workspace session for the active project
+  without an intermediate chooser.
   `runtime-workbench-adapter-launch-plan-admission.mjs` now admits those launch
   plans through `/v1/hypervisor/workbench-adapter-launch-plans`, blocking durable
   secret release, adapter-runtime-truth claims, retired provider/VM/node/terminal
@@ -1221,11 +1218,10 @@ Current implementation cut:
   `control_channel_ref` fields for embedded Workbench, desktop editor, browser
   code-editor URL, and browser IDE paths.
   The runtime daemon validates that the control action matches the connection
-  kind before admitting the launch plan, and the Workbench adapter hub renders
-  product-facing action labels while keeping the raw control metadata in stable
-  data attributes for tests and replay.
+  kind before admitting the launch plan. Product-facing adapter choice remains in
+  New Session and Settings, not in a Workbench chooser.
   Sessions now render each launched session's adapter admission record and
-  disable `Open surface` unless the Workbench adapter launch plan is
+  disable target entry unless the Workbench adapter launch plan is
   `daemon_admitted`. `daemon_blocked` and `daemon_unavailable` launches remain
   inspectable as governed session records, but they cannot silently enter the
   target application surface. The session operations projection now also carries
@@ -1260,7 +1256,7 @@ Current implementation cut:
   Workbench, Agent, Automation, Foundry, Provider/Environment, and Private
   Workspace sessions remain inspectable as cross-session Hypervisor routes while
   still opening their target application surfaces. Recent launched sessions also
-  expose an `Open surface` action back to the owning Hypervisor surface, making
+  expose a target-entry action back to the owning Hypervisor surface, making
   Sessions a cross-session switchboard rather than a passive receipt list.
 
 0A.6 Automations / Workflow Compositor projection is implemented:
@@ -1552,8 +1548,8 @@ Current implementation cut:
   `apps/hypervisor/dist` bundle and verifies the IOI-reference Hypervisor shell
   contract in Chromium. The contract covers the Home prompt shell, New Session launch
   summary, external-harness plus cTEE privacy blocking, redacted-projection
-  harness allowance, Projects reference empty state, Workbench adapter-hub
-  landing and selection, the reference left rail set
+  harness allowance, Projects reference empty state, direct Workbench workspace
+  session surface, the reference left rail set
   (`Home`, `Projects`, `Automations`, `Insights`, `Sessions`), and Agents
   product-surface copy that keeps daemon, Agentgres, and wallet implementation
   truth out of the visible default chrome. It also verifies the Settings
@@ -1605,14 +1601,16 @@ First implementation slice:
    New Session, Home, Projects, Sessions, Missions, Workbench, Automations,
    Insights, Agents, Models, Privacy, Providers, Environments, Foundry,
    Authority, Receipts, Settings.
-4. Move Code repositories under Workbench.
+4. Mount the active project directly in Workbench's code-editor workspace
+   surface; keep project creation in Projects and adapter preference in New
+   Session/Settings.
 5. Add a New Session modal with fixture-backed choices and model/harness/privacy
    summary rows.
 6. Add IOI-reference inspectors:
    Changes, Ports & Services, Tasks, Terminal, environment lifecycle,
    access/log leases, SCM auth requirements, and environment health.
 7. Add tests/source scans for:
-   - no "Autopilot Code" visible tab label;
+   - visible shell labels use Hypervisor/Home/Sessions/Projects/Workbench;
    - Workbench is a surface, not parent product;
    - model mounting appears in session setup and Models surface;
    - editor preference supports embedded and external adapter modes.
@@ -1623,13 +1621,13 @@ Verification ladder:
 ```text
 npm run build --workspace=@ioi/hypervisor-workbench --if-present
 npm run build --workspace=@ioi/workspace-substrate --if-present
-npm run build --workspace=autopilot
+npm run build --workspace=@ioi/hypervisor-app
 node --check touched .mjs files
 focused shell/navigation tests
 Built-shell contract:
   / -> Hypervisor Home
   New Session opens
-  Workbench opens repository gate/editor adapter selector
+  Workbench opens the current project workspace session
   Automations opens workflow/compositor templates
   Models surface opens daemon model-mount projection
   Changes/Authority/Privacy/Receipts inspector changes with selected session

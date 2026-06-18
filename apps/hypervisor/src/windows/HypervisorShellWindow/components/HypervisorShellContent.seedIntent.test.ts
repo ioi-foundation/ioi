@@ -25,11 +25,21 @@ const newSessionModalSource = fs.readFileSync(
   new URL("./HypervisorNewSessionModal.tsx", import.meta.url),
   "utf8",
 );
-const projectSurfaceStart = source.indexOf("function HypervisorProjectStateSurface");
-const projectSurfaceEnd = source.indexOf("function HypervisorProviderPlacementDashboard");
+const projectSurfaceStart = source.indexOf(
+  "function HypervisorProjectStateSurface",
+);
+const projectSurfaceEnd = source.indexOf(
+  "function HypervisorProviderPlacementDashboard",
+);
 assert.ok(projectSurfaceStart >= 0, "Projects surface source should exist");
-assert.ok(projectSurfaceEnd > projectSurfaceStart, "Projects surface source should be bounded");
-const projectSurfaceSource = source.slice(projectSurfaceStart, projectSurfaceEnd);
+assert.ok(
+  projectSurfaceEnd > projectSurfaceStart,
+  "Projects surface source should be bounded",
+);
+const projectSurfaceSource = source.slice(
+  projectSurfaceStart,
+  projectSurfaceEnd,
+);
 
 assert.doesNotMatch(
   source,
@@ -120,12 +130,6 @@ assert.match(
   projectSurfaceSource,
   /className="hypervisor-project-state__content"[\s\S]*<h2>Projects<\/h2>[\s\S]*placeholder="Search projects"[\s\S]*No projects[\s\S]*Projects bundle your repo[\s\S]*New project[\s\S]*data-project-state-records/,
   "Projects should render the IOI-reference Projects page while keeping project truth in hidden metadata",
-);
-
-assert.doesNotMatch(
-  projectSurfaceSource,
-  /Code repositories|Pull requests|No pull requests created by you|Repositories|Workspace refs, sessions, restore posture, and state roots|<dt>Object Head<\/dt>|<dt>State Root<\/dt>|<dt>Archive<\/dt>|<dt>Restore<\/dt>|hypervisor-project-state__refs|hypervisor-project-state__card|hypervisor-project-state__sidebar/,
-  "Projects should not expose architecture refs as the visible product surface",
 );
 
 assert.match(

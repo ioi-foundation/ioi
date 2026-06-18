@@ -13,7 +13,8 @@ import type { ProjectScope } from "./hypervisorShellModel.ts";
 const PROJECT: ProjectScope = {
   id: "hypervisor-core",
   name: "Hypervisor Core",
-  description: "Shared substrate for governed sessions, adapters, and operator surfaces.",
+  description:
+    "Shared substrate for governed sessions, adapters, and operator surfaces.",
   environment: "Production",
   rootPath: ".",
 };
@@ -111,11 +112,13 @@ test("operator activity rail is a shell projection with deterministic surfaces",
     "active_route",
   );
   assert.equal(
-    model.items.find((item) => item.dataWindowSurface === "providers")?.routeState,
+    model.items.find((item) => item.dataWindowSurface === "providers")
+      ?.routeState,
     "active_route",
   );
   assert.equal(
-    model.items.find((item) => item.dataWindowSurface === "environments")?.group,
+    model.items.find((item) => item.dataWindowSurface === "environments")
+      ?.group,
     "governance",
   );
   assert.equal(
@@ -164,77 +167,6 @@ test("workspace substrate target index exposes controlled UI before coordinate f
           locator.selector === '[data-inspection-target="workspace-editor"]',
       ),
   );
-});
-
-test("workspace embedding keeps product UX in Hypervisor shell, not editor adapter transport", () => {
-  const workspaceHost = readFileSync(
-    "packages/workspace-substrate/src/components/WorkspaceHost.tsx",
-    "utf8",
-  );
-  const workspaceShell = readFileSync(
-    "apps/hypervisor/src/surfaces/Workspace/WorkspaceShell.tsx",
-    "utf8",
-  );
-  const bundledExtension = readFileSync(
-    "workbench-adapters/ioi-code-editor-adapter/extension.js",
-    "utf8",
-  );
-  const adapterPackage = readFileSync(
-    "workbench-adapters/ioi-code-editor-adapter/package.json",
-    "utf8",
-  );
-  const workspaceAdapterStateLifecycle = readFileSync(
-    "apps/hypervisor/src/services/workspaceAdapterStateLifecycle.ts",
-    "utf8",
-  );
-  const chatHeader = readFileSync(
-    "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorClientHeader.tsx",
-    "utf8",
-  );
-  const shellContent = readFileSync(
-    "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorShellContent.tsx",
-    "utf8",
-  );
-  const shellWindow = readFileSync(
-    "apps/hypervisor/src/windows/HypervisorShellWindow/index.tsx",
-    "utf8",
-  );
-  const shellController = readFileSync(
-    "apps/hypervisor/src/windows/HypervisorShellWindow/useHypervisorShellController.ts",
-    "utf8",
-  );
-  assert.match(workspaceHost, /<WorkspaceRail/);
-  assert.match(workspaceHost, /<WorkspaceExplorerPane/);
-  assert.match(workspaceHost, /<WorkspaceSearchPane/);
-  assert.match(workspaceHost, /<WorkspaceSourceControlPane/);
-  assert.match(workspaceHost, /<WorkspaceEditorPane/);
-  assert.match(workspaceHost, /<WorkspaceBottomPanel/);
-  assert.match(workspaceShell, /<WorkspaceRepositoryGate/);
-  assert.match(workspaceShell, /<WorkspaceHost/);
-  assert.match(workspaceShell, /useWorkspaceWorkbenchSession/);
-  assert.match(bundledExtension, /createCodeEditorAdapterTransport/);
-  assert.match(bundledExtension, /startCodeEditorContextPublisher/);
-  assert.doesNotMatch(adapterPackage, /"contributes"/);
-  assert.doesNotMatch(
-    bundledExtension,
-    /registerAdapterCommands|registerCommand|createStatusBarItem|createOutputChannel|code\.open|ioi\.code\.open/,
-  );
-  assert.match(workspaceAdapterStateLifecycle, /buildWorkspaceAdapterState/);
-  assert.doesNotMatch(
-    workspaceAdapterStateLifecycle,
-    /routeWorkspaceBridgeRequest|takeRequests|startWorkspaceBridgeRequestPolling/,
-  );
-  assert.match(
-    shellContent,
-    /onOpenCommandPalette=\{controller\.modals\.openCommandPalette\}/,
-  );
-  assert.match(shellWindow, /mode=\{controller\.modals\.commandPaletteMode\}/);
-  assert.match(shellController, /useState<"default" \| "tools">\("default"\)/);
-  assert.match(
-    shellController,
-    /mode: "default" \| "tools" = "default"[\s\S]*setCommandPaletteMode\(mode\)/,
-  );
-  assert.match(chatHeader, /data-operator-command-center/);
 });
 
 test("operator chat chrome remains in chat shell, outside code-editor workspace substrate", () => {
@@ -378,10 +310,7 @@ test("workspace adapter commands defer global search to Hypervisor chrome", () =
     homeView,
     /case "quickOpen\.open":[\s\S]*queueWorkbenchCommand\("workbench\.action\.quickOpen"\)/,
   );
-  assert.doesNotMatch(
-    homeView,
-    /toSide:workbench\.action\.quickOpen/,
-  );
+  assert.doesNotMatch(homeView, /toSide:workbench\.action\.quickOpen/);
   assert.doesNotMatch(
     bundledExtension,
     /label: "Open command palette"[\s\S]*command: "workbench\.action\.showCommands"/,

@@ -91,7 +91,10 @@ test("hypervisor shell exposes the canonical core client and surface taxonomy", 
 
 test("hypervisor shell binds Phase 0A to the IOI reference cockpit contract", () => {
   assert.match(source, /HYPERVISOR_IOI_REFERENCE_SHELL_REQUIREMENTS/);
-  assert.match(source, /primaryReference: "internal-docs\/reverse-engineering\/ioi"/);
+  assert.match(
+    source,
+    /primaryReference: "internal-docs\/reverse-engineering\/ioi"/,
+  );
   assert.doesNotMatch(source, /internal-docs\/reverse-engineering\/ona/);
   for (const referenceSurface of [
     "home",
@@ -148,7 +151,10 @@ test("hypervisor shell binds Phase 0A to the IOI reference cockpit contract", ()
   ]) {
     assert.match(source, new RegExp(`"${settingsSection}"`));
   }
-  assert.match(source, /Codex CLI[\s\S]*Claude Code[\s\S]*DeepSeek TUI[\s\S]*Grok Build/);
+  assert.match(
+    source,
+    /Codex CLI[\s\S]*Claude Code[\s\S]*DeepSeek TUI[\s\S]*Grok Build/,
+  );
   assert.match(source, /HYPERVISOR_REFERENCE_LEFT_NAV_SURFACE_IDS/);
   assert.match(
     source,
@@ -191,7 +197,10 @@ test("hypervisor shell binds Phase 0A to the IOI reference cockpit contract", ()
   assert.match(activityBar, /hypervisor\.primaryRailCollapsed\.v2/);
   assert.doesNotMatch(activityBar, /hypervisor\.activityBarCollapsed/);
   assert.match(activityBar, /return stored === "true"/);
-  assert.doesNotMatch(activityBar, /stored === null \? true : stored === "true"/);
+  assert.doesNotMatch(
+    activityBar,
+    /stored === null \? true : stored === "true"/,
+  );
 });
 
 test("hypervisor shell keeps application surfaces separate from clients", () => {
@@ -205,10 +214,7 @@ test("hypervisor shell keeps application surfaces separate from clients", () => 
   assert.match(source, /id: "environments"[\s\S]*label: "Environments"/);
   assert.match(source, /Direct integrations for local, cloud, DePIN/);
   assert.doesNotMatch(source, /id: "fleet"[\s\S]*label: "Fleet"/);
-  assert.doesNotMatch(
-    source,
-    /Hypervisor IDE|reverse-engineering\/ona/,
-  );
+  assert.doesNotMatch(source, /Hypervisor IDE|reverse-engineering\/ona/);
 });
 
 test("hypervisor shell models IOI-reference session detail and inspectors", () => {
@@ -272,7 +278,10 @@ test("visible shell chrome uses Hypervisor labels over compatibility route keys"
   assert.match(operatorSubstrate, /models: "Models"/);
   assert.match(operatorSubstrate, /agents: "Agents"/);
   assert.match(operatorSubstrate, /authority: "Authority"/);
-  assert.doesNotMatch(operatorSubstrate, /HYPERVISOR_SURFACE_PRIMARY_VIEW_ROUTES/);
+  assert.doesNotMatch(
+    operatorSubstrate,
+    /HYPERVISOR_SURFACE_PRIMARY_VIEW_ROUTES/,
+  );
   assert.match(operatorSubstrate, /routeState: "active_route"/);
   assert.match(
     operatorSubstrate,
@@ -280,7 +289,10 @@ test("visible shell chrome uses Hypervisor labels over compatibility route keys"
   );
   assert.match(activityBar, /aria-label="Hypervisor navigation"/);
   assert.match(activityBar, /data-ioi-reference-primary-rail="true"/);
-  assert.match(activityBar, /data-left-nav-surfaces=\{referenceLeftNavSurfaceIds\.join\(" "\)\}/);
+  assert.match(
+    activityBar,
+    /data-left-nav-surfaces=\{referenceLeftNavSurfaceIds\.join\(" "\)\}/,
+  );
   assert.match(activityBar, /referenceLeftNavSurfaceIds\.flatMap/);
   assert.match(activityBar, /const topNavItems = primaryNavItems\.filter/);
   assert.match(activityBar, /sessionsNavItem/);
@@ -298,7 +310,10 @@ test("visible shell chrome uses Hypervisor labels over compatibility route keys"
   assert.match(activityBar, /Write Harness Tool Call Documentation/);
   assert.match(activityBar, /Design Postquantum Computers Website/);
   assert.doesNotMatch(activityBar, /chat-activity-project-skeleton/);
-  assert.doesNotMatch(activityBar, /data-ioi-reference-session-list="project-skeleton"/);
+  assert.doesNotMatch(
+    activityBar,
+    /data-ioi-reference-session-list="project-skeleton"/,
+  );
   assert.doesNotMatch(activityBar, /Search\.\.\./);
   assert.doesNotMatch(activityBar, /What's New/);
   assert.doesNotMatch(activityBar, /label="Applications"/);
@@ -311,7 +326,10 @@ test("visible shell chrome uses Hypervisor labels over compatibility route keys"
   assert.match(activityBar, /HYPERVISOR_PRIMARY_ACTION/);
   assert.match(activityBar, /aria-label="Session shortcuts"/);
   assert.doesNotMatch(activityBar, /aria-label="Projects"/);
-  assert.doesNotMatch(activityBar, /aria-label="Governance and infrastructure"/);
+  assert.doesNotMatch(
+    activityBar,
+    /aria-label="Governance and infrastructure"/,
+  );
   assert.match(activityBar, /data-route-state=\{item\.routeState\}/);
   assert.match(header, /`Hypervisor .*?\$\{windowSurfaceTitle/s);
   assert.doesNotMatch(header, /Autopilot Chat/);
@@ -327,17 +345,29 @@ test("new session modal is a shell-level governed launch flow", () => {
   assert.match(newSessionModal, /initialRecipeId/);
   assert.match(newSessionModal, /initialRecipeSelectionRef/);
   assert.match(newSessionModal, /useEffect/);
-  assert.match(newSessionModal, /setRecipeId\(initialRecipeSelectionRef\(initialRecipeId\)\)/);
-  assert.match(newSessionModal, /setSeedIntent\(initialSeedIntent\?\.trim\(\) \?\? ""\)/);
+  assert.match(
+    newSessionModal,
+    /setRecipeId\(initialRecipeSelectionRef\(initialRecipeId\)\)/,
+  );
+  assert.match(
+    newSessionModal,
+    /setSeedIntent\(initialSeedIntent\?\.trim\(\) \?\? ""\)/,
+  );
   assert.match(newSessionModal, /seedIntent/);
   assert.match(newSessionModal, /seed_intent: nextLaunchSummary\.seed_intent/);
-  assert.match(newSessionModal, /data-new-session-launch-cockpit="ioi-reference-governed-launch"/);
+  assert.match(
+    newSessionModal,
+    /data-new-session-launch-cockpit="ioi-reference-governed-launch"/,
+  );
   assert.match(newSessionModal, /hypervisor-new-session-modal__body--compact/);
   assert.match(newSessionModal, /compactLaunchChoices/);
   assert.match(newSessionModal, /Start from project/);
   assert.match(newSessionModal, /Start from URL/);
   assert.match(newSessionModal, /Start from scratch/);
-  assert.match(newSessionModal, /data-new-session-recipe=\{choice\.recipe_id\}/);
+  assert.match(
+    newSessionModal,
+    /data-new-session-recipe=\{choice\.recipe_id\}/,
+  );
   assert.match(newSessionModal, /data-new-session-seed-intent/);
   assert.match(newSessionModal, /launch_summary: nextLaunchSummary/);
   assert.match(newSessionModal, /data-new-session-launch-summary/);
@@ -345,7 +375,10 @@ test("new session modal is a shell-level governed launch flow", () => {
   assert.match(newSessionModal, /data-new-session-harness-selection-kind/);
   assert.match(newSessionModal, /selectedPrivacy\.ref/);
   assert.match(newSessionModal, /modelRouteSupportsHypervisorMount/);
-  assert.match(newSessionModal, /modelRouteSupportsHypervisorMountFromInventory/);
+  assert.match(
+    newSessionModal,
+    /modelRouteSupportsHypervisorMountFromInventory/,
+  );
   assert.match(newSessionModal, /modelMountInventory/);
   assert.match(newSessionModal, /data-new-session-model-route-inventory-state/);
   assert.match(newSessionModal, /launchBlockedByHarnessVerdict/);
@@ -364,7 +397,10 @@ test("new session modal is a shell-level governed launch flow", () => {
   assert.match(controller, /newSessionSeedIntent/);
   assert.match(controller, /newSessionRecipeId/);
   assert.match(controller, /type NewSessionModalSeed/);
-  assert.match(controller, /openNewSessionModal: \(seed\?: NewSessionModalSeed\)/);
+  assert.match(
+    controller,
+    /openNewSessionModal: \(seed\?: NewSessionModalSeed\)/,
+  );
   assert.match(controller, /typeof seed === "string"/);
   assert.match(controller, /recipeId/);
   assert.match(controller, /launchNewSession = async/);
@@ -396,10 +432,19 @@ test("new session modal is a shell-level governed launch flow", () => {
   assert.match(shellWindow, /loadHypervisorModelMountInventorySnapshot/);
   assert.match(shellWindow, /setModelMountInventory/);
   assert.match(shellWindow, /<HypervisorNewSessionModal/);
-  assert.match(shellWindow, /initialSeedIntent=\{controller\.modals\.newSessionSeedIntent\}/);
-  assert.match(shellWindow, /initialRecipeId=\{controller\.modals\.newSessionRecipeId\}/);
+  assert.match(
+    shellWindow,
+    /initialSeedIntent=\{controller\.modals\.newSessionSeedIntent\}/,
+  );
+  assert.match(
+    shellWindow,
+    /initialRecipeId=\{controller\.modals\.newSessionRecipeId\}/,
+  );
   assert.match(shellWindow, /modelMountInventory=\{modelMountInventory\}/);
-  assert.match(shellWindow, /onLaunch=\{controller\.modals\.launchNewSession\}/);
+  assert.match(
+    shellWindow,
+    /onLaunch=\{controller\.modals\.launchNewSession\}/,
+  );
 });
 
 test("Foundry exposes harness comparison as a governed runtime dashboard", () => {
@@ -412,7 +457,10 @@ test("Foundry exposes harness comparison as a governed runtime dashboard", () =>
   assert.match(shellContent, /setComparison\(nextComparison\)/);
   assert.match(shellContent, /unavailable/);
   assert.match(shellContent, /Harness comparison dashboard/);
-  assert.match(shellContent, /output, cost, verification, receipts, and evidence/);
+  assert.match(
+    shellContent,
+    /output, cost, verification, receipts, and evidence/,
+  );
   assert.match(shellContent, /candidate_reports\.map/);
   assert.match(shellContent, /data-harness-comparison-candidate/);
   assert.match(shellContent, /estimated_cost_usd/);
@@ -423,16 +471,34 @@ test("Foundry exposes harness comparison as a governed runtime dashboard", () =>
 
 test("Sessions surface renders session tabs and operations inspectors from daemon projections", () => {
   assert.match(sessionOperationsModel, /HypervisorSessionOperationsProjection/);
-  assert.match(sessionOperationsModel, /HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE/);
-  assert.match(sessionOperationsModel, /HYPERVISOR_SESSION_OPERATIONS_PROJECTION_PATH/);
-  assert.match(sessionOperationsModel, /HYPERVISOR_SESSION_OPERATION_PROPOSAL_PATH/);
+  assert.match(
+    sessionOperationsModel,
+    /HYPERVISOR_SESSION_OPERATIONS_PROJECTION_FIXTURE/,
+  );
+  assert.match(
+    sessionOperationsModel,
+    /HYPERVISOR_SESSION_OPERATIONS_PROJECTION_PATH/,
+  );
+  assert.match(
+    sessionOperationsModel,
+    /HYPERVISOR_SESSION_OPERATION_PROPOSAL_PATH/,
+  );
   assert.match(sessionOperationsModel, /HypervisorSessionOperationProposal/);
-  assert.match(sessionOperationsModel, /buildHypervisorSessionOperationProposal/);
+  assert.match(
+    sessionOperationsModel,
+    /buildHypervisorSessionOperationProposal/,
+  );
   assert.match(sessionOperationsModel, /proposeHypervisorSessionOperation/);
   assert.match(sessionOperationsModel, /wallet\.network grants/);
   assert.match(sessionOperationsModel, /Agentgres admits lifecycle/);
-  assert.match(sessionOperationsModel, /loadHypervisorSessionOperationsProjection/);
-  assert.match(sessionOperationsModel, /normalizeHypervisorSessionOperationsProjection/);
+  assert.match(
+    sessionOperationsModel,
+    /loadHypervisorSessionOperationsProjection/,
+  );
+  assert.match(
+    sessionOperationsModel,
+    /normalizeHypervisorSessionOperationsProjection/,
+  );
   assert.match(sessionOperationsModel, /HYPERVISOR_SESSION_DETAIL_TABS/);
   assert.match(sessionOperationsModel, /HYPERVISOR_RIGHT_INSPECTOR_PANELS/);
   assert.match(sessionOperationsModel, /HYPERVISOR_BOTTOM_INSPECTOR_PANELS/);
@@ -446,32 +512,62 @@ test("Sessions surface renders session tabs and operations inspectors from daemo
   assert.match(sessionOperationsModel, /access_log_leases/);
   assert.match(shellContent, /HypervisorSessionOperationsCockpit/);
   assert.match(shellContent, /<HypervisorSessionOperationsCockpit \/>/);
-  assert.doesNotMatch(shellContent, /launchedSessions: HypervisorLaunchedSessionProjection\[\]/);
+  assert.doesNotMatch(
+    shellContent,
+    /launchedSessions: HypervisorLaunchedSessionProjection\[\]/,
+  );
   assert.doesNotMatch(shellContent, /data-launched-session-/);
   assert.doesNotMatch(shellContent, /canOpenLaunchedSessionSurface/);
   assert.doesNotMatch(shellContent, /launchedSessionAdmissionLabel/);
   assert.doesNotMatch(shellContent, /launchedSessionAdmissionDetail/);
-  assert.doesNotMatch(shellContent, /controller\.sessions\.launchedSessionProjections/);
+  assert.doesNotMatch(
+    shellContent,
+    /controller\.sessions\.launchedSessionProjections/,
+  );
   assert.match(shellContent, /loadHypervisorSessionOperationsProjection/);
-  assert.match(shellContent, /\[Hypervisor\]\[Sessions\] operations projection unavailable/);
+  assert.match(
+    shellContent,
+    /\[Hypervisor\]\[Sessions\] operations projection unavailable/,
+  );
   assert.match(shellContent, /data-hypervisor-session-operations/);
   assert.match(shellContent, /data-session-operations-source/);
   assert.match(shellContent, /data-runtime-truth-source/);
   assert.match(shellContent, /HYPERVISOR_SESSION_WORKSPACE_MODES/);
   assert.match(shellContent, /HYPERVISOR_SESSION_CHANGE_INSPECTOR_MODES/);
-  assert.match(shellContent, /data-session-reference-detail="code-conversation"/);
+  assert.match(
+    shellContent,
+    /data-session-reference-detail="code-conversation"/,
+  );
   assert.match(shellContent, /aria-label="Session workspace modes"/);
   assert.match(shellContent, /data-session-workspace-mode-list/);
-  assert.match(shellContent, /\.filter\(\s*\(mode\) => mode\.mode_id === "code"/);
+  assert.match(
+    shellContent,
+    /\.filter\(\s*\(mode\) => mode\.mode_id === "code"/,
+  );
   assert.match(shellContent, /data-session-workspace-mode=\{mode\.mode_id\}/);
-  assert.match(shellContent, /aria-label="Changes, files, comments, and session inspectors"/);
-  assert.match(shellContent, /data-session-change-inspector="changes-files-comments"/);
+  assert.match(
+    shellContent,
+    /aria-label="Changes, files, comments, and session inspectors"/,
+  );
+  assert.match(
+    shellContent,
+    /data-session-change-inspector="changes-files-comments"/,
+  );
   assert.match(shellContent, /data-session-change-mode-list/);
-  assert.match(shellContent, /className="hypervisor-session-operations__change-filter-row"/);
-  assert.match(shellContent, /className="hypervisor-session-operations__status-filter"/);
+  assert.match(
+    shellContent,
+    /className="hypervisor-session-operations__change-filter-row"/,
+  );
+  assert.match(
+    shellContent,
+    /className="hypervisor-session-operations__status-filter"/,
+  );
   assert.match(shellContent, /data-session-changed-file/);
   assert.match(shellContent, /data-session-detail-tab-list/);
-  assert.match(shellContent, /\.filter\(\(tab\) => tab\.tab_id === "environment"\)/);
+  assert.match(
+    shellContent,
+    /\.filter\(\(tab\) => tab\.tab_id === "environment"\)/,
+  );
   assert.match(shellContent, /data-session-detail-tab/);
   assert.match(shellContent, /data-session-port-services-count/);
   assert.match(shellContent, /data-session-activity-signal-list/);
@@ -493,14 +589,20 @@ test("Sessions surface renders session tabs and operations inspectors from daemo
   assert.match(shellContent, /data-session-terminal-propose/);
   assert.match(shellContent, /proposeHypervisorSessionOperation/);
   assert.match(shellContent, /buildHypervisorSessionOperationProposal/);
-  assert.match(shellContent, /\[Hypervisor\]\[Sessions\] operation proposal unavailable/);
+  assert.match(
+    shellContent,
+    /\[Hypervisor\]\[Sessions\] operation proposal unavailable/,
+  );
   assert.doesNotMatch(shellContent, /operationProposal\.custody_invariant/);
   assert.match(shellContent, /activeView === "sessions"/);
 });
 
 test("Projects surface renders the reference Projects page over hidden project truth", () => {
   assert.match(projectStateModel, /HypervisorProjectStateProjection/);
-  assert.match(projectStateModel, /HYPERVISOR_PROJECT_STATE_PROJECTION_FIXTURE/);
+  assert.match(
+    projectStateModel,
+    /HYPERVISOR_PROJECT_STATE_PROJECTION_FIXTURE/,
+  );
   assert.match(projectStateModel, /HYPERVISOR_PROJECT_STATE_PROJECTION_PATH/);
   assert.match(projectStateModel, /loadHypervisorProjectStateProjection/);
   assert.match(projectStateModel, /normalizeHypervisorProjectStateProjection/);
@@ -513,7 +615,10 @@ test("Projects surface renders the reference Projects page over hidden project t
   assert.match(projectStateModel, /storage backends only hold bytes/);
   assert.match(shellContent, /HypervisorProjectStateSurface/);
   assert.match(shellContent, /loadHypervisorProjectStateProjection/);
-  assert.match(shellContent, /\[Hypervisor\]\[Projects\] state projection unavailable/);
+  assert.match(
+    shellContent,
+    /\[Hypervisor\]\[Projects\] state projection unavailable/,
+  );
   assert.match(shellContent, /data-hypervisor-project-state/);
   assert.match(shellContent, /data-project-state-source/);
   assert.match(shellContent, /data-project-state-record-count/);
@@ -531,43 +636,59 @@ test("Projects surface renders the reference Projects page over hidden project t
   assert.match(shellContent, /No projects/);
   assert.match(shellContent, /Projects bundle your repo/);
   assert.match(shellContent, /New project/);
-  assert.doesNotMatch(shellContent, /Code repositories/);
-  assert.doesNotMatch(shellContent, /No pull requests created by you/);
-  assert.doesNotMatch(shellContent, /className="hypervisor-project-state__repositories"/);
-  assert.doesNotMatch(shellContent, /"hypervisor-project-state__repo"/);
-  assert.doesNotMatch(shellContent, /data-project-select-action/);
-  assert.doesNotMatch(shellContent, /data-project-open-provider/);
-  assert.doesNotMatch(shellContent, /data-project-open-restore/);
-  assert.doesNotMatch(shellContent, /hypervisor-project-state__card/);
-  assert.doesNotMatch(shellContent, /hypervisor-project-state__refs/);
   assert.match(shellContent, /activeView === "projects"/);
-  assert.doesNotMatch(shellContent, /projects: \{\s*eyebrow: "Project state"/);
-  assert.doesNotMatch(shellContent, /projection\.project_boundary_invariant/);
 });
 
 test("Automations surface renders workflow compositor projection before editor", () => {
-  assert.match(automationCompositorModel, /HypervisorAutomationCompositorProjection/);
-  assert.match(automationCompositorModel, /HYPERVISOR_AUTOMATION_COMPOSITOR_PROJECTION_FIXTURE/);
-  assert.match(automationCompositorModel, /HYPERVISOR_AUTOMATION_COMPOSITOR_PROJECTION_PATH/);
-  assert.match(automationCompositorModel, /loadHypervisorAutomationCompositorProjection/);
-  assert.match(automationCompositorModel, /normalizeHypervisorAutomationCompositorProjection/);
+  assert.match(
+    automationCompositorModel,
+    /HypervisorAutomationCompositorProjection/,
+  );
+  assert.match(
+    automationCompositorModel,
+    /HYPERVISOR_AUTOMATION_COMPOSITOR_PROJECTION_FIXTURE/,
+  );
+  assert.match(
+    automationCompositorModel,
+    /HYPERVISOR_AUTOMATION_COMPOSITOR_PROJECTION_PATH/,
+  );
+  assert.match(
+    automationCompositorModel,
+    /loadHypervisorAutomationCompositorProjection/,
+  );
+  assert.match(
+    automationCompositorModel,
+    /normalizeHypervisorAutomationCompositorProjection/,
+  );
   assert.match(automationCompositorModel, /workflow_template_refs/);
   assert.match(automationCompositorModel, /run_recipe_refs/);
   assert.match(automationCompositorModel, /graph_refs/);
   assert.match(automationCompositorModel, /action_proposal_ref/);
   assert.match(automationCompositorModel, /agentgres_operation_refs/);
   assert.match(automationCompositorModel, /state_root_ref/);
-  assert.match(automationCompositorModel, /Workflow Compositor edits and proposes/);
+  assert.match(
+    automationCompositorModel,
+    /Workflow Compositor edits and proposes/,
+  );
   assert.match(automationCompositorModel, /Hypervisor Core admits execution/);
-  assert.match(automationCompositorModel, /Agentgres records operational truth/);
+  assert.match(
+    automationCompositorModel,
+    /Agentgres records operational truth/,
+  );
   assert.match(shellContent, /HypervisorAutomationCompositorSurface/);
   assert.match(shellContent, /loadHypervisorAutomationCompositorProjection/);
-  assert.match(shellContent, /\[Hypervisor\]\[Automations\] compositor projection unavailable/);
+  assert.match(
+    shellContent,
+    /\[Hypervisor\]\[Automations\] compositor projection unavailable/,
+  );
   assert.match(shellContent, /data-hypervisor-automation-compositor/);
   assert.match(shellContent, /data-automation-compositor-source/);
   assert.match(shellContent, /No automations yet/);
   assert.match(shellContent, /data-workflow-template-suggestion/);
-  assert.match(shellContent, /className="hypervisor-automation-compositor__empty"/);
+  assert.match(
+    shellContent,
+    /className="hypervisor-automation-compositor__empty"/,
+  );
   assert.doesNotMatch(shellContent, /data-workflow-template-ref/);
   assert.doesNotMatch(shellContent, /data-workflow-run-ref/);
   assert.match(shellContent, /data-workflow-compositor-editor-boundary/);
@@ -655,16 +776,31 @@ test("Agents surface renders workers as a cockpit list without internal doctrine
   assert.doesNotMatch(agentsSurface, />Capability leases</);
   assert.doesNotMatch(shellContent, /<dt>Mode<\/dt>/);
   assert.doesNotMatch(shellContent, /<dd>\{agent\.state_root_ref\}<\/dd>/);
-  assert.doesNotMatch(shellContent, /<dd>\{agent\.latest_receipt_refs\[0\]\}<\/dd>/);
-  assert.match(shellContent, /data-agent-state-root-ref=\{agent\.state_root_ref\}/);
-  assert.match(shellContent, /data-agent-latest-receipt-ref=\{agent\.latest_receipt_refs\[0\] \?\? ""\}/);
+  assert.doesNotMatch(
+    shellContent,
+    /<dd>\{agent\.latest_receipt_refs\[0\]\}<\/dd>/,
+  );
+  assert.match(
+    shellContent,
+    /data-agent-state-root-ref=\{agent\.state_root_ref\}/,
+  );
+  assert.match(
+    shellContent,
+    /data-agent-latest-receipt-ref=\{agent\.latest_receipt_refs\[0\] \?\? ""\}/,
+  );
   assert.doesNotMatch(shellContent, /className="hypervisor-agents__grid"/);
   assert.doesNotMatch(agentsSurface, /Configured workers, skills, memory/);
-  assert.doesNotMatch(shellContent, /className="hypervisor-agents__invariants"/);
+  assert.doesNotMatch(
+    shellContent,
+    /className="hypervisor-agents__invariants"/,
+  );
   assert.doesNotMatch(shellContent, /className="hypervisor-agents__status"/);
   assert.doesNotMatch(shellContent, /className="hypervisor-agents__aside"/);
   assert.doesNotMatch(shellContent, /className="hypervisor-agents__rail-card"/);
-  assert.doesNotMatch(shellContent, /className="hypervisor-agents__rail-summary"/);
+  assert.doesNotMatch(
+    shellContent,
+    /className="hypervisor-agents__rail-summary"/,
+  );
   assert.doesNotMatch(shellContent, />What's new\?</);
   assert.match(shellContent, /activeView === "agents"/);
   assert.match(shellContent, /<CapabilitiesView/);
@@ -694,24 +830,48 @@ test("Insights surface renders the IOI reference product surface before runtime 
 });
 
 test("Models surface renders model infrastructure projection before mount UI", () => {
-  assert.match(modelInfrastructureModel, /HypervisorModelInfrastructureProjection/);
-  assert.match(modelInfrastructureModel, /HYPERVISOR_MODEL_INFRASTRUCTURE_PROJECTION_FIXTURE/);
-  assert.match(modelInfrastructureModel, /HYPERVISOR_MODEL_INFRASTRUCTURE_PROJECTION_PATH/);
-  assert.match(modelInfrastructureModel, /buildHypervisorModelInfrastructureProjectionFromInventory/);
-  assert.match(modelInfrastructureModel, /loadHypervisorModelInfrastructureProjection/);
-  assert.match(modelInfrastructureModel, /normalizeHypervisorModelInfrastructureProjection/);
+  assert.match(
+    modelInfrastructureModel,
+    /HypervisorModelInfrastructureProjection/,
+  );
+  assert.match(
+    modelInfrastructureModel,
+    /HYPERVISOR_MODEL_INFRASTRUCTURE_PROJECTION_FIXTURE/,
+  );
+  assert.match(
+    modelInfrastructureModel,
+    /HYPERVISOR_MODEL_INFRASTRUCTURE_PROJECTION_PATH/,
+  );
+  assert.match(
+    modelInfrastructureModel,
+    /buildHypervisorModelInfrastructureProjectionFromInventory/,
+  );
+  assert.match(
+    modelInfrastructureModel,
+    /loadHypervisorModelInfrastructureProjection/,
+  );
+  assert.match(
+    modelInfrastructureModel,
+    /normalizeHypervisorModelInfrastructureProjection/,
+  );
   assert.match(modelInfrastructureModel, /model_route_refs/);
   assert.match(modelInfrastructureModel, /endpoint_refs/);
   assert.match(modelInfrastructureModel, /loaded_instance_refs/);
   assert.match(modelInfrastructureModel, /session_bindings/);
   assert.match(modelInfrastructureModel, /model_weight_custody_policy_refs/);
   assert.match(modelInfrastructureModel, /authority_scope_refs/);
-  assert.match(modelInfrastructureModel, /Models is an infrastructure projection/);
+  assert.match(
+    modelInfrastructureModel,
+    /Models is an infrastructure projection/,
+  );
   assert.match(modelInfrastructureModel, /Hypervisor Core admits execution/);
   assert.match(modelInfrastructureModel, /Agentgres records model-route truth/);
   assert.match(shellContent, /HypervisorModelInfrastructureSurface/);
   assert.match(shellContent, /loadHypervisorModelInfrastructureProjection/);
-  assert.match(shellContent, /\[Hypervisor\]\[Models\] infrastructure projection unavailable/);
+  assert.match(
+    shellContent,
+    /\[Hypervisor\]\[Models\] infrastructure projection unavailable/,
+  );
   assert.match(shellContent, /data-hypervisor-model-infrastructure/);
   assert.match(shellContent, /data-model-infrastructure-source/);
   assert.match(shellContent, /data-model-route-ref/);
@@ -719,24 +879,60 @@ test("Models surface renders model infrastructure projection before mount UI", (
   assert.match(shellContent, /data-model-provider-ref/);
   assert.match(shellContent, /data-model-session-binding/);
   assert.match(shellContent, /data-model-mounting-ui-boundary/);
-  assert.match(shellContent, /className="hypervisor-model-infrastructure__workplane"/);
-  assert.match(shellContent, /className="hypervisor-model-infrastructure__list"/);
-  assert.match(shellContent, /className="hypervisor-model-infrastructure__detail"/);
-  assert.doesNotMatch(shellContent, /className="hypervisor-model-infrastructure__summary"/);
-  assert.doesNotMatch(shellContent, /className="hypervisor-model-infrastructure__grid"/);
-  assert.doesNotMatch(shellContent, /className="hypervisor-model-infrastructure__card"/);
-  assert.doesNotMatch(shellContent, /\{projection\.infrastructure_boundary_invariant\}/);
+  assert.match(
+    shellContent,
+    /className="hypervisor-model-infrastructure__workplane"/,
+  );
+  assert.match(
+    shellContent,
+    /className="hypervisor-model-infrastructure__list"/,
+  );
+  assert.match(
+    shellContent,
+    /className="hypervisor-model-infrastructure__detail"/,
+  );
+  assert.doesNotMatch(
+    shellContent,
+    /className="hypervisor-model-infrastructure__summary"/,
+  );
+  assert.doesNotMatch(
+    shellContent,
+    /className="hypervisor-model-infrastructure__grid"/,
+  );
+  assert.doesNotMatch(
+    shellContent,
+    /className="hypervisor-model-infrastructure__card"/,
+  );
+  assert.doesNotMatch(
+    shellContent,
+    /\{projection\.infrastructure_boundary_invariant\}/,
+  );
   assert.match(shellContent, /activeView === "models"/);
 });
 
 test("Providers and Environments surfaces are direct integrations, not Fleet placeholders", () => {
   assert.match(providerPlacementModel, /HypervisorProviderPlacementProjection/);
-  assert.match(providerPlacementModel, /HYPERVISOR_PROVIDER_PLACEMENT_PROJECTION_FIXTURE/);
-  assert.match(providerPlacementModel, /HYPERVISOR_PROVIDER_PLACEMENT_PROJECTION_PATH/);
-  assert.match(providerPlacementModel, /HYPERVISOR_PROVIDER_OPERATION_PROPOSAL_PATH/);
+  assert.match(
+    providerPlacementModel,
+    /HYPERVISOR_PROVIDER_PLACEMENT_PROJECTION_FIXTURE/,
+  );
+  assert.match(
+    providerPlacementModel,
+    /HYPERVISOR_PROVIDER_PLACEMENT_PROJECTION_PATH/,
+  );
+  assert.match(
+    providerPlacementModel,
+    /HYPERVISOR_PROVIDER_OPERATION_PROPOSAL_PATH/,
+  );
   assert.match(providerPlacementModel, /HypervisorProviderOperationProposal/);
-  assert.match(providerPlacementModel, /loadHypervisorProviderPlacementProjection/);
-  assert.match(providerPlacementModel, /normalizeHypervisorProviderPlacementProjection/);
+  assert.match(
+    providerPlacementModel,
+    /loadHypervisorProviderPlacementProjection/,
+  );
+  assert.match(
+    providerPlacementModel,
+    /normalizeHypervisorProviderPlacementProjection/,
+  );
   assert.match(providerPlacementModel, /proposeHypervisorProviderOperation/);
   assert.match(providerPlacementModel, /wallet_lease_ref/);
   assert.match(providerPlacementModel, /agentgres_operation_ref/);
@@ -753,8 +949,14 @@ test("Providers and Environments surfaces are direct integrations, not Fleet pla
   assert.match(shellContent, /proposeHypervisorProviderOperation/);
   assert.match(shellContent, /data-provider-operation-kind/);
   assert.match(shellContent, /data-provider-operation-proposal/);
-  assert.match(shellContent, /\[Hypervisor\]\[Providers\] operation proposal unavailable/);
-  assert.match(shellContent, /\[Hypervisor\]\[Providers\] placement projection unavailable/);
+  assert.match(
+    shellContent,
+    /\[Hypervisor\]\[Providers\] operation proposal unavailable/,
+  );
+  assert.match(
+    shellContent,
+    /\[Hypervisor\]\[Providers\] placement projection unavailable/,
+  );
   assert.match(shellContent, /HypervisorEnvironmentEstateSurface/);
   assert.match(shellContent, /EnvironmentEstateView runtime=\{runtime\}/);
   assert.match(shellContent, /data-hypervisor-provider-placement/);
@@ -763,17 +965,32 @@ test("Providers and Environments surfaces are direct integrations, not Fleet pla
   assert.match(shellContent, /data-hypervisor-environment-estate/);
   assert.match(shellContent, /Choose where sessions can run/);
   assert.match(shellContent, /before attaching a workspace to infrastructure/);
-  assert.match(shellContent, /\{candidate\.wallet_authority_scope_refs\.length\} controls/);
-  assert.match(shellContent, /candidate\.agentgres_receipt_ref \? "Available" : "Pending"/);
+  assert.match(
+    shellContent,
+    /\{candidate\.wallet_authority_scope_refs\.length\} controls/,
+  );
+  assert.match(
+    shellContent,
+    /candidate\.agentgres_receipt_ref \? "Available" : "Pending"/,
+  );
   const providerSurface = sourceSlice(
     shellContent,
     "function HypervisorProviderPlacementDashboard",
     "function HypervisorEnvironmentEstateSurface",
   );
   assert.doesNotMatch(providerSurface, /governed sessions/);
-  assert.doesNotMatch(providerSurface, /<dd>\{candidate\.agentgres_receipt_ref\}<\/dd>/);
-  assert.doesNotMatch(providerSurface, /<dd>\{candidate\.storage_policy_ref\}<\/dd>/);
-  assert.doesNotMatch(providerSurface, /<dd>\{candidate\.restore_policy_ref\}<\/dd>/);
+  assert.doesNotMatch(
+    providerSurface,
+    /<dd>\{candidate\.agentgres_receipt_ref\}<\/dd>/,
+  );
+  assert.doesNotMatch(
+    providerSurface,
+    /<dd>\{candidate\.storage_policy_ref\}<\/dd>/,
+  );
+  assert.doesNotMatch(
+    providerSurface,
+    /<dd>\{candidate\.restore_policy_ref\}<\/dd>/,
+  );
   assert.doesNotMatch(shellContent, /projection\.anti_gateway_invariant/);
   assert.doesNotMatch(
     shellContent,
@@ -792,8 +1009,14 @@ test("Hypervisor shell surfaces do not fall back to generic placeholder bodies",
 
 test("Receipts surface renders Agentgres-bound evidence instead of a placeholder", () => {
   assert.match(receiptEvidenceModel, /HypervisorReceiptEvidenceProjection/);
-  assert.match(receiptEvidenceModel, /HYPERVISOR_RECEIPT_EVIDENCE_PROJECTION_FIXTURE/);
-  assert.match(receiptEvidenceModel, /HYPERVISOR_RECEIPT_EVIDENCE_PROJECTION_PATH/);
+  assert.match(
+    receiptEvidenceModel,
+    /HYPERVISOR_RECEIPT_EVIDENCE_PROJECTION_FIXTURE/,
+  );
+  assert.match(
+    receiptEvidenceModel,
+    /HYPERVISOR_RECEIPT_EVIDENCE_PROJECTION_PATH/,
+  );
   assert.match(receiptEvidenceModel, /loadHypervisorReceiptEvidenceProjection/);
   assert.match(receiptEvidenceModel, /daemon-receipt-evidence-projection/);
   assert.match(receiptEvidenceModel, /receipt_boundary_invariant/);
@@ -817,15 +1040,24 @@ test("Receipts surface renders Agentgres-bound evidence instead of a placeholder
   assert.match(shellContent, /data-receipt-evidence-detail/);
   assert.match(shellContent, /data-receipt-evidence-replay-ref/);
   assert.match(shellContent, /data-receipt-evidence-review/);
-  assert.match(shellContent, /\[Hypervisor\]\[Receipts\] evidence projection unavailable/);
+  assert.match(
+    shellContent,
+    /\[Hypervisor\]\[Receipts\] evidence projection unavailable/,
+  );
   assert.doesNotMatch(shellContent, /projection\.receipt_boundary_invariant/);
   assert.match(shellContent, /activeView === "receipts"/);
 });
 
 test("Privacy surface renders cTEE and model-weight custody admission posture", () => {
   assert.match(privacyPostureModel, /HypervisorPrivacyPostureProjection/);
-  assert.match(privacyPostureModel, /HYPERVISOR_PRIVACY_POSTURE_PROJECTION_FIXTURE/);
-  assert.match(privacyPostureModel, /Model-weight custody is a separate admission lane/);
+  assert.match(
+    privacyPostureModel,
+    /HYPERVISOR_PRIVACY_POSTURE_PROJECTION_FIXTURE/,
+  );
+  assert.match(
+    privacyPostureModel,
+    /Model-weight custody is a separate admission lane/,
+  );
   assert.match(privacyPostureModel, /WorkspaceCustodySegment/);
   assert.match(privacyPostureModel, /ModelWeightCustodyPolicy/);
   assert.match(privacyPostureModel, /node_plaintext_allowed/);
@@ -845,7 +1077,10 @@ test("Privacy surface renders cTEE and model-weight custody admission posture", 
   assert.match(shellContent, /data-privacy-admission-control/);
   assert.doesNotMatch(shellContent, /projection\.invariant/);
   assert.match(shellContent, /activeView === "privacy"/);
-  assert.doesNotMatch(shellContent, /privacy: \{\s*eyebrow: "Private workspace"/);
+  assert.doesNotMatch(
+    shellContent,
+    /privacy: \{\s*eyebrow: "Private workspace"/,
+  );
 });
 
 console.log("hypervisorShellNavigationModel.test.mjs: ok");

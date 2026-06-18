@@ -26,20 +26,32 @@ function allFiles(dir, predicate = () => true) {
 }
 
 function assert(id, condition, evidence, message) {
-  report.push({ id, status: condition ? "passed" : "failed", evidence, message });
+  report.push({
+    id,
+    status: condition ? "passed" : "failed",
+    evidence,
+    message,
+  });
   if (!condition) failures.push(`${id}: ${message}`);
 }
 
 const packageJson = JSON.parse(read("package.json"));
 const readme = read("README.md");
 const developersDocs = read("apps/developers-ioi-ai/src/content/docs.tsx");
-const refineArchitectureGuide = read("internal-docs/implementation/refine-architecture.md");
-const runtimePackageBoundaries = read("internal-docs/implementation/runtime-package-boundaries.md");
-const runtimeModuleMap = read("internal-docs/implementation/runtime-module-map.md");
+const refineArchitectureGuide = read(
+  "internal-docs/implementation/refine-architecture.md",
+);
+const runtimePackageBoundaries = read(
+  "internal-docs/implementation/runtime-package-boundaries.md",
+);
+const runtimeModuleMap = read(
+  "internal-docs/implementation/runtime-module-map.md",
+);
 const hypervisorCoreClientsSurfacesDoc = read(
   "docs/architecture/components/hypervisor/core-clients-surfaces.md",
 );
-const retiredHypervisorFleetDoc = "docs/architecture/components/hypervisor/fleet.md";
+const retiredHypervisorFleetDoc =
+  "docs/architecture/components/hypervisor/fleet.md";
 const retiredAutopilotWorkflowCanvasFixtures = [
   "test.workflow",
   "scripts/lib/prompt-parser.ts",
@@ -72,14 +84,26 @@ const retiredDirectWorkspaceSurfacePaths = [
 const hypervisorProvidersEnvironmentsDoc = read(
   "docs/architecture/components/hypervisor/providers-and-environments.md",
 );
-const daemonRuntimeApiDoc = read("docs/architecture/components/daemon-runtime/api.md");
-const architectureSourceOfTruthMap = read("docs/architecture/_meta/source-of-truth-map.md");
-const architectureImplementationMatrix = read("docs/architecture/_meta/implementation-matrix.md");
+const daemonRuntimeApiDoc = read(
+  "docs/architecture/components/daemon-runtime/api.md",
+);
+const architectureSourceOfTruthMap = read(
+  "docs/architecture/_meta/source-of-truth-map.md",
+);
+const architectureImplementationMatrix = read(
+  "docs/architecture/_meta/implementation-matrix.md",
+);
 const architectureVocabulary = read("docs/architecture/_meta/vocabulary.md");
-const workbenchAdapterLauncher = read("scripts/launch-hypervisor-workbench-adapter-host.mjs");
-const workbenchAdapterHostPaths = read("scripts/lib/hypervisor-workbench-adapter-host-paths.mjs");
+const workbenchAdapterLauncher = read(
+  "scripts/launch-hypervisor-workbench-adapter-host.mjs",
+);
+const workbenchAdapterHostPaths = read(
+  "scripts/lib/hypervisor-workbench-adapter-host-paths.mjs",
+);
 const workbenchAdaptersReadme = read("workbench-adapters/README.md");
-const workbenchAdapterHostManifest = read("workbench-adapters/adapter-host.manifest.json");
+const workbenchAdapterHostManifest = read(
+  "workbench-adapters/adapter-host.manifest.json",
+);
 const codeEditorAdapterPackage = read(
   "workbench-adapters/ioi-code-editor-adapter/package.json",
 );
@@ -104,7 +128,9 @@ const hypervisorRustProductFixtureSources = [
   "crates/services/src/agentic/runtime/service/decision_loop/cognition/tests_parts/root/final_reply_evidence.rs",
   "crates/services/src/agentic/runtime/execution/screen/semantics/tests.rs",
   "crates/services/src/agentic/runtime/execution/screen/tests.rs",
-].map(read).join("\n");
+]
+  .map(read)
+  .join("\n");
 const hypervisorShellNavigationSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorShellNavigationModel.ts",
 );
@@ -219,7 +245,9 @@ const hypervisorActivityBarSource = read(
 const hypervisorHomeSource = [
   "apps/hypervisor/src/surfaces/Home/HomeView.tsx",
   "apps/hypervisor/src/surfaces/Home/index.ts",
-].map(read).join("\n");
+]
+  .map(read)
+  .join("\n");
 const hypervisorHomeCockpitModelSource = read(
   "apps/hypervisor/src/surfaces/Home/homeCockpitModel.ts",
 );
@@ -232,9 +260,6 @@ const hypervisorProjectStateModelSource = read(
 const hypervisorProviderPlacementModelSource = read(
   "apps/hypervisor/src/windows/HypervisorShellWindow/hypervisorProviderPlacementModel.ts",
 );
-const workspaceRepositoryGateSource = read(
-  "apps/hypervisor/src/surfaces/Workspace/WorkspaceRepositoryGate.tsx",
-);
 const authorityCenterTestSource = read(
   "apps/hypervisor/src/surfaces/Policy/authorityCenter.test.ts",
 );
@@ -243,12 +268,16 @@ const activeHypervisorFixtureSources = [
   "apps/hypervisor/src/windows/ChatShellWindow/utils/assistantTurnProcessModel.test.ts",
   "apps/hypervisor/src/windows/ChatShellWindow/utils/turnWindows.test.ts",
   "packages/hypervisor-workbench/src/WorkflowComposer/computerUseRunOptions.test.ts",
-].map(read).join("\n");
+]
+  .map(read)
+  .join("\n");
 const workspaceWorkbenchCopySources = [
   "apps/hypervisor/src/surfaces/Workspace/WorkspaceShell.tsx",
   "apps/hypervisor/src/services/workspaceSubstratePreviewHost.ts",
   "apps/hypervisor/src/services/hypervisorAppearance.ts",
-].map(read).join("\n");
+]
+  .map(read)
+  .join("\n");
 const agentModelMatrixScopeSources = [
   "scripts/run-agent-model-matrix.mjs",
   "scripts/lib/agent-model-matrix.mjs",
@@ -256,7 +285,9 @@ const agentModelMatrixScopeSources = [
   "scripts/lib/agent-model-matrix.test.mjs",
   "apps/benchmarks/src/App.tsx",
   "apps/benchmarks/src/scorecardPreview.ts",
-].map(read).join("\n");
+]
+  .map(read)
+  .join("\n");
 const hypervisorVisibleSurfaceSources = [
   "apps/hypervisor/src/windows/ChatShellWindow/index.tsx",
   "apps/hypervisor/src/windows/ChatShellWindow/components/ArtifactHubTaskViews.tsx",
@@ -273,7 +304,9 @@ const hypervisorVisibleSurfaceSources = [
   "packages/hypervisor-workbench/src/features/Connectors/components/GenericConnectorPanel.tsx",
   "packages/hypervisor-workbench/src/features/Connectors/components/MailConnectorPanel.tsx",
   "packages/hypervisor-workbench/src/runtime/harness-workflow/core.ts",
-].map(read).join("\n");
+]
+  .map(read)
+  .join("\n");
 const hypervisorClientNamespaceSources = [
   "apps/hypervisor/index.html",
   "apps/hypervisor/src/services/workspaceShellState.ts",
@@ -290,7 +323,9 @@ const hypervisorClientNamespaceSources = [
   "packages/workspace-substrate/src/components/WorkspaceEditorPane.tsx",
   "apps/hypervisor/src/surfaces/Capabilities/components/model.ts",
   "packages/hypervisor-workbench/src/runtime/workflow-scratch-blueprints.ts",
-].map(read).join("\n");
+]
+  .map(read)
+  .join("\n");
 const hypervisorIndexHtmlSource = read("apps/hypervisor/index.html");
 const hypervisorClientRuntimeSource = read(
   "apps/hypervisor/src/services/HypervisorClientRuntime.ts",
@@ -307,28 +342,35 @@ const hypervisorTypeWrapperSources = [
   "apps/hypervisor/src/types/artifacts.ts",
   "apps/hypervisor/src/types/notifications.ts",
   "apps/hypervisor/src/types/atlas.ts",
-].map(read).join("\n");
-const hypervisorModelMountIdentitySources = [
-  "packages/runtime-daemon/src/model-mounting/default-records.mjs",
-  "packages/runtime-daemon/src/model-mounting/default-discovery.mjs",
-  "packages/runtime-daemon/src/model-mounting.mjs",
-  "apps/hypervisor/src/surfaces/MissionControl/MissionControlMountsView.tsx",
-  "scripts/lib/model-mounting-daemon-contract.test.mjs",
-  "scripts/validate-model-mounting-e2e.mjs",
-  "scripts/live-model-mounting-gate.mjs",
-  "packages/runtime-daemon/src/runtime-daemon-core-direct-invoker-service.test.mjs",
-  "packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs",
-  "packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs",
-  "packages/runtime-daemon/src/model-mounting/inflight-invocation.test.mjs",
-  "packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs",
-  "packages/runtime-daemon/src/model-mounting/model-mount-core.test.mjs",
-  "packages/runtime-daemon/src/model-mounting/read-projection-direct.test.mjs",
-].map(read).join("\n") +
+]
+  .map(read)
+  .join("\n");
+const hypervisorModelMountIdentitySources =
+  [
+    "packages/runtime-daemon/src/model-mounting/default-records.mjs",
+    "packages/runtime-daemon/src/model-mounting/default-discovery.mjs",
+    "packages/runtime-daemon/src/model-mounting.mjs",
+    "apps/hypervisor/src/surfaces/MissionControl/MissionControlMountsView.tsx",
+    "scripts/lib/model-mounting-daemon-contract.test.mjs",
+    "scripts/validate-model-mounting-e2e.mjs",
+    "scripts/live-model-mounting-gate.mjs",
+    "packages/runtime-daemon/src/runtime-daemon-core-direct-invoker-service.test.mjs",
+    "packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs",
+    "packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs",
+    "packages/runtime-daemon/src/model-mounting/inflight-invocation.test.mjs",
+    "packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs",
+    "packages/runtime-daemon/src/model-mounting/model-mount-core.test.mjs",
+    "packages/runtime-daemon/src/model-mounting/read-projection-direct.test.mjs",
+  ]
+    .map(read)
+    .join("\n") +
   "\n" +
   allFiles(
     "crates/services/src/agentic/runtime/kernel/model_mount",
     (relativePath) => relativePath.endsWith(".rs"),
-  ).map(read).join("\n");
+  )
+    .map(read)
+    .join("\n");
 const packageScriptNames = Object.keys(packageJson.scripts ?? {});
 const retiredAutopilotPackageScripts = packageScriptNames.filter((scriptName) =>
   /^(?:goal|validate|test):autopilot/.test(scriptName),
@@ -339,36 +381,49 @@ const retiredDesktopLaunchScripts = packageScriptNames.filter((scriptName) =>
 const retiredHypervisorGoalScripts = packageScriptNames.filter((scriptName) =>
   scriptName.startsWith("goal:hypervisor-"),
 );
-const retiredHypervisorHarnessValidationScripts = packageScriptNames.filter((scriptName) =>
-  scriptName.startsWith("validate:hypervisor-app-harness"),
+const retiredHypervisorHarnessValidationScripts = packageScriptNames.filter(
+  (scriptName) => scriptName.startsWith("validate:hypervisor-app-harness"),
 );
-const hypervisorAppHarnessContractSource = read("scripts/lib/hypervisor-app-harness-contract.mjs");
+const hypervisorAppHarnessContractSource = read(
+  "scripts/lib/hypervisor-app-harness-contract.mjs",
+);
 const daemonSource = read("packages/runtime-daemon/src/index.mjs");
 const sdkSubstrate = read("packages/agent-sdk/src/substrate-client.ts");
 const sdkIndex = read("packages/agent-sdk/src/index.ts");
-const workbenchRuntimeFiles = allFiles("packages/hypervisor-workbench/src/runtime", (file) =>
-  /\.(ts|tsx)$/.test(file),
+const workbenchRuntimeFiles = allFiles(
+  "packages/hypervisor-workbench/src/runtime",
+  (file) => /\.(ts|tsx)$/.test(file),
 );
 const activeTauriSrc = "apps/hypervisor/src-tauri/src";
-const activeTauriRuntimeService = "apps/hypervisor/src/services/TauriRuntime.ts";
+const activeTauriRuntimeService =
+  "apps/hypervisor/src/services/TauriRuntime.ts";
 const activeTauriDesktopLauncher = "apps/hypervisor/scripts/dev-desktop.sh";
 const legacyTauriArchive = "internal-docs/legacy/autopilot-tauri-src";
 const rootIdeDir = "ide";
 const retiredAgentIdePath = "packages/agent-ide";
-const retiredAutopilotShellWindow = "apps/hypervisor/src/windows/AutopilotShellWindow";
-const builtinFiles = allFiles("crates/services/src/agentic/runtime/tools/builtins", (file) =>
-  file.endsWith(".rs"),
+const retiredAutopilotShellWindow =
+  "apps/hypervisor/src/windows/AutopilotShellWindow";
+const builtinFiles = allFiles(
+  "crates/services/src/agentic/runtime/tools/builtins",
+  (file) => file.endsWith(".rs"),
 );
-const runtimeServiceFiles = allFiles("crates/services/src/agentic/runtime/service", (file) =>
-  /\.(rs|md)$/.test(file),
+const runtimeServiceFiles = allFiles(
+  "crates/services/src/agentic/runtime/service",
+  (file) => /\.(rs|md)$/.test(file),
 );
-const hypervisorDesktopProbeFiles = allFiles("apps/hypervisor/scripts", (file) =>
-  /^apps\/hypervisor\/scripts\/(?:desktop_.*_probe|dev_.*_probe)\.py$/.test(file),
+const hypervisorDesktopProbeFiles = allFiles(
+  "apps/hypervisor/scripts",
+  (file) =>
+    /^apps\/hypervisor\/scripts\/(?:desktop_.*_probe|dev_.*_probe)\.py$/.test(
+      file,
+    ),
 );
 const activeRuntimeSwarmFiles = [
   ...allFiles("apps/hypervisor/src", (file) => /\.(ts|tsx|css)$/.test(file)),
   ...allFiles("crates/api/src", (file) => file.endsWith(".rs")),
-  ...allFiles("crates/services/src/agentic/runtime", (file) => file.endsWith(".rs")),
+  ...allFiles("crates/services/src/agentic/runtime", (file) =>
+    file.endsWith(".rs"),
+  ),
   "crates/types/src/app/chat.rs",
 ].filter((file) => exists(file));
 const allowedSwarmCompatibilityFiles = new Set([
@@ -378,13 +433,20 @@ const allowedSwarmCompatibilityFiles = new Set([
   "crates/services/src/agentic/runtime/types.rs",
   "crates/types/src/app/chat.rs",
 ]);
-const generatedTs = read("packages/hypervisor-workbench/src/runtime/generated/action-schema.ts");
-const generatedRust = read("crates/types/src/app/generated/runtime_action_schema.rs");
-const actionSchema = JSON.parse(read("internal-docs/implementation/runtime-action-schema.json"));
+const generatedTs = read(
+  "packages/hypervisor-workbench/src/runtime/generated/action-schema.ts",
+);
+const generatedRust = read(
+  "crates/types/src/app/generated/runtime_action_schema.rs",
+);
+const actionSchema = JSON.parse(
+  read("internal-docs/implementation/runtime-action-schema.json"),
+);
 
 assert(
   "daemon-promoted",
-  exists("packages/runtime-daemon/src/index.mjs") && !exists("scripts/lib/local-runtime-daemon.mjs"),
+  exists("packages/runtime-daemon/src/index.mjs") &&
+    !exists("scripts/lib/local-runtime-daemon.mjs"),
   ["packages/runtime-daemon/src/index.mjs"],
   "daemon implementation must live outside scripts/lib",
 );
@@ -411,20 +473,26 @@ assert(
 assert(
   "compact-app-harness-contract",
   hypervisorAppHarnessContractSource.includes("hypervisorGuiHarnessContract") &&
-    hypervisorAppHarnessContractSource.includes("validateHypervisorGuiHarnessResult") &&
-    hypervisorAppHarnessContractSource.includes("buildBlockedHypervisorGuiHarnessResult") &&
-    hypervisorAppHarnessContractSource.includes("HYPERVISOR_RETAINED_QUERIES") &&
+    hypervisorAppHarnessContractSource.includes(
+      "validateHypervisorGuiHarnessResult",
+    ) &&
+    hypervisorAppHarnessContractSource.includes(
+      "buildBlockedHypervisorGuiHarnessResult",
+    ) &&
+    hypervisorAppHarnessContractSource.includes(
+      "HYPERVISOR_RETAINED_QUERIES",
+    ) &&
     !/autopilotGuiHarnessContract|validateAutopilotGuiHarnessResult|buildBlockedAutopilotGuiHarnessResult|AUTOPILOT_(?:GUI_HARNESS|REQUIRED|RETAINED|PROVIDER_GATED|READ_ONLY)/.test(
       hypervisorAppHarnessContractSource,
     ),
-  [
-    "scripts/lib/hypervisor-app-harness-contract.mjs",
-  ],
+  ["scripts/lib/hypervisor-app-harness-contract.mjs"],
   "keep the compact app harness contract as the app-harness authority",
 );
 assert(
   "hypervisor-client-runtime-command-names",
-  hypervisorClientRuntimeSource.includes("runtime_open_hypervisor_intent_requested") &&
+  hypervisorClientRuntimeSource.includes(
+    "runtime_open_hypervisor_intent_requested",
+  ) &&
     hypervisorClientRuntimeSource.includes('invoke("reset_hypervisor_data")') &&
     !/runtime_open_autopilot_intent_requested|reset_autopilot_data/.test(
       hypervisorClientRuntimeSource,
@@ -462,7 +530,9 @@ assert(
   "hypervisor-generated-contract-path",
   exists("apps/hypervisor/src/generated/hypervisor-contracts/index.ts") &&
     !exists("apps/hypervisor/src/generated/autopilot-contracts/index.ts") &&
-    hypervisorTypeWrapperSources.includes("../generated/hypervisor-contracts") &&
+    hypervisorTypeWrapperSources.includes(
+      "../generated/hypervisor-contracts",
+    ) &&
     !hypervisorTypeWrapperSources.includes("../generated/autopilot-contracts"),
   [
     "apps/hypervisor/src/generated/hypervisor-contracts",
@@ -491,7 +561,9 @@ assert(
 assert(
   "hypervisor-internal-maps-fold-fleet-into-provider-environment-views",
   runtimePackageBoundaries.includes("Hypervisor Providers / Environments") &&
-    runtimePackageBoundaries.includes("sessions, leases, and restore/archive refs") &&
+    runtimePackageBoundaries.includes(
+      "sessions, leases, and restore/archive refs",
+    ) &&
     runtimeModuleMap.includes("provider/environment views") &&
     runtimeModuleMap.includes("provider-environment names") &&
     !/Foundry\s*\/\s*Fleet|Workbench,\s*Foundry,\s*Fleet|Foundry\/Fleet|Fleet names/.test(
@@ -507,7 +579,9 @@ assert(
   "refine-architecture-ioi-reference-target",
   refineArchitectureGuide.includes("internal-docs/reverse-engineering/ioi") &&
     refineArchitectureGuide.includes("Primary IOI reference mirror") &&
-    !/internal-docs\/reverse-engineering\/ona|ONA-like/.test(refineArchitectureGuide),
+    !/internal-docs\/reverse-engineering\/ona|ONA-like/.test(
+      refineArchitectureGuide,
+    ),
   ["internal-docs/implementation/refine-architecture.md"],
   "refine-architecture Phase 0A must use the IOI reverse-engineering mirror as the primary UX target, not ONA-era wording.",
 );
@@ -515,17 +589,18 @@ assert(
   "refine-architecture-hard-cut-editor-surface-drift",
   refineArchitectureGuide.includes("code-editor and workspace target choice") &&
     refineArchitectureGuide.includes("deleted onboarding walkthroughs") &&
-    refineArchitectureGuide.includes("default Workbench target") &&
-    !/OpenVSCode direct surface|VS Code\/OpenVSCode|home onboarding condition-matrix|OpenVSCode parent chrome|Autopilot\/OpenVSCode|Code repositories\/OpenVSCode|embedded VS Code/.test(
-      refineArchitectureGuide,
-    ),
+    refineArchitectureGuide.includes("default Workbench target"),
   ["internal-docs/implementation/refine-architecture.md"],
   "refine-architecture Phase 0A must describe code-editor adapters and deleted onboarding fat, not a direct editor product surface.",
 );
 assert(
   "hypervisor-shell-ioi-reference-contract",
-  hypervisorShellNavigationSource.includes("HYPERVISOR_IOI_REFERENCE_SHELL_REQUIREMENTS") &&
-    hypervisorShellNavigationSource.includes('primaryReference: "internal-docs/reverse-engineering/ioi"') &&
+  hypervisorShellNavigationSource.includes(
+    "HYPERVISOR_IOI_REFERENCE_SHELL_REQUIREMENTS",
+  ) &&
+    hypervisorShellNavigationSource.includes(
+      'primaryReference: "internal-docs/reverse-engineering/ioi"',
+    ) &&
     [
       '"home"',
       '"sessions"',
@@ -561,7 +636,9 @@ assert(
     hypervisorShellNavigationSource.includes("Codex CLI") &&
     hypervisorShellNavigationSource.includes("Claude Code") &&
     hypervisorShellNavigationSource.includes("DeepSeek TUI") &&
-    hypervisorActivityBarSource.includes("HYPERVISOR_IOI_REFERENCE_SHELL_REQUIREMENTS") &&
+    hypervisorActivityBarSource.includes(
+      "HYPERVISOR_IOI_REFERENCE_SHELL_REQUIREMENTS",
+    ) &&
     hypervisorActivityBarSource.includes("referenceLeftNavSurfaceIds") &&
     hypervisorActivityBarSource.includes("primaryNavItems") &&
     !/internal-docs\/reverse-engineering\/ona|Hypervisor IDE/.test(
@@ -590,7 +667,9 @@ assert(
 assert(
   "repo-facing-hypervisor-client-map",
   readme.includes("[`apps/hypervisor`](apps/hypervisor)") &&
-    readme.includes("[`packages/hypervisor-workbench`](packages/hypervisor-workbench)") &&
+    readme.includes(
+      "[`packages/hypervisor-workbench`](packages/hypervisor-workbench)",
+    ) &&
     readme.includes("[`workbench-adapters`](workbench-adapters)") &&
     readme.includes("Hypervisor Workbench") &&
     !readme.includes("packages/agent-ide") &&
@@ -600,11 +679,19 @@ assert(
 );
 assert(
   "active-product-copy-hypervisor-taxonomy",
-  developersDocs.includes("Hypervisor exists today as a native operator client over Hypervisor Core") &&
-    developersDocs.includes("'apps/hypervisor/src/windows/HypervisorShellWindow'") &&
+  developersDocs.includes(
+    "Hypervisor exists today as a native operator client over Hypervisor Core",
+  ) &&
+    developersDocs.includes(
+      "'apps/hypervisor/src/windows/HypervisorShellWindow'",
+    ) &&
     developersDocs.includes("routePath: '/hypervisor'") &&
-    !developersDocs.includes("Autopilot exists today as a local Tauri desktop product") &&
-    !developersDocs.includes("'apps/hypervisor/src/windows/AutopilotShellWindow'") &&
+    !developersDocs.includes(
+      "Autopilot exists today as a local Tauri desktop product",
+    ) &&
+    !developersDocs.includes(
+      "'apps/hypervisor/src/windows/AutopilotShellWindow'",
+    ) &&
     !developersDocs.includes("daemon and Autopilot surfaces") &&
     !/configured-llama-cpp|IOI_DAEMON_ENDPOINT|IOI_DAEMON_TOKEN|IOI_MODEL_MOUNTING_API_URL/.test(
       workbenchAdapterLauncher,
@@ -619,18 +706,24 @@ assert(
   "install-resolver-current-product-hypervisor-named",
   hypervisorInstallProductMetadataSource.includes("IOI Hypervisor") &&
     hypervisorInstallProductMetadataSource.includes("ioi-hypervisor") &&
-    hypervisorInstallProductMetadataSource.includes("hypervisor,ioi hypervisor") &&
+    hypervisorInstallProductMetadataSource.includes(
+      "hypervisor,ioi hypervisor",
+    ) &&
     !/IOI Autopilot|ioi-autopilot|autopilot,ioi autopilot/.test(
       hypervisorInstallProductMetadataSource,
     ),
-  ["crates/services/src/agentic/runtime/resolver/software_install/product_metadata.rs"],
+  [
+    "crates/services/src/agentic/runtime/resolver/software_install/product_metadata.rs",
+  ],
   "Current-product install resolution must default to Hypervisor names and must not retain Autopilot aliases.",
 );
 assert(
   "rust-product-fixtures-hypervisor-named",
   hypervisorRustProductFixtureSources.includes("IOI Hypervisor") &&
     hypervisorRustProductFixtureSources.includes("Hypervisor Agent Studio") &&
-    hypervisorRustProductFixtureSources.includes("/tmp/hypervisor-agent-studio-") &&
+    hypervisorRustProductFixtureSources.includes(
+      "/tmp/hypervisor-agent-studio-",
+    ) &&
     !/IOI Autopilot|Autopilot Agent Studio|autopilot_agent_studio|autopilot-agent-studio|\/tmp\/autopilot|\.tmp\/autopilot/.test(
       hypervisorRustProductFixtureSources,
     ),
@@ -694,9 +787,13 @@ assert(
   "workbench-adapter-fork-sync-target-only",
   /workbench-adapters\/vscode\/\n/.test(rootGitignore) &&
     /workbench-adapters\/builds\/\n/.test(rootGitignore) &&
-    /"adapterSource":\s*"workbench-adapters\/ioi-code-editor-adapter"/.test(workbenchAdapterHostManifest) &&
+    /"adapterSource":\s*"workbench-adapters\/ioi-code-editor-adapter"/.test(
+      workbenchAdapterHostManifest,
+    ) &&
     /"optionalForRuntimeLaunch":\s*true/.test(workbenchAdapterHostManifest) &&
-    workbenchAdaptersReadme.includes("workbench-adapters/ioi-code-editor-adapter") &&
+    workbenchAdaptersReadme.includes(
+      "workbench-adapters/ioi-code-editor-adapter",
+    ) &&
     workbenchAdaptersReadme.includes("target optional local VS Code source") &&
     /const extensionSource = resolve\(\s*repoRoot,\s*"workbench-adapters\/ioi-code-editor-adapter",\s*\);/.test(
       workbenchAdapterHostPaths,
@@ -720,10 +817,14 @@ assert(
 );
 assert(
   "home-prompt-shell-without-onboarding-fat",
-  hypervisorHomeSource.includes("data-home-dashboard-variant=\"ioi-reference-home\"") &&
+  hypervisorHomeSource.includes(
+    'data-home-dashboard-variant="ioi-reference-home"',
+  ) &&
     hypervisorHomeSource.includes("What do you want to get done today?") &&
-    hypervisorHomeSource.includes("data-home-start-session=\"true\"") &&
-    retiredHomeOnboardingSurfacePaths.every((surfacePath) => !exists(surfacePath)) &&
+    hypervisorHomeSource.includes('data-home-start-session="true"') &&
+    retiredHomeOnboardingSurfacePaths.every(
+      (surfacePath) => !exists(surfacePath),
+    ) &&
     !/AUTOPILOT_ONBOARDING|AutopilotOnboarding|autopilot\.home\.onboarding|autopilot\.onboarding|HYPERVISOR_ONBOARDING|HomeWalkthroughDocument|homeOnboardingModel|OpenVSCode|contained OpenVSCode/.test(
       hypervisorHomeSource,
     ),
@@ -738,7 +839,9 @@ assert(
   "active-visible-surfaces-hypervisor-named",
   !/\bAutopilot\b/.test(hypervisorVisibleSurfaceSources) &&
     hypervisorVisibleSurfaceSources.includes("Hypervisor workspace") &&
-    hypervisorVisibleSurfaceSources.includes("Hypervisor native-local fixture") &&
+    hypervisorVisibleSurfaceSources.includes(
+      "Hypervisor native-local fixture",
+    ) &&
     hypervisorVisibleSurfaceSources.includes("inside Hypervisor"),
   [
     "apps/hypervisor/src/windows/ChatShellWindow/index.tsx",
@@ -779,7 +882,9 @@ assert(
   "active-test-fixtures-hypervisor-named",
   activeHypervisorFixtureSources.includes("Hypervisor validation run") &&
     activeHypervisorFixtureSources.includes("install hypervisor") &&
-    activeHypervisorFixtureSources.includes('"captureAppName"] = "Hypervisor"') &&
+    activeHypervisorFixtureSources.includes(
+      '"captureAppName"] = "Hypervisor"',
+    ) &&
     activeHypervisorFixtureSources.includes(
       "internal-docs/implementation/refine-architecture.md:50",
     ) &&
@@ -795,20 +900,21 @@ assert(
   "Active chat/workflow fixture inputs must use Hypervisor labels unless they are explicit negative assertions.",
 );
 assert(
-  "workspace-workbench-adapter-hub-only",
-  workspaceWorkbenchCopySources.includes("Workspace adapter hub") &&
-    workspaceWorkbenchCopySources.includes("Opening the governed code-editor adapter hub") &&
-    retiredDirectWorkspaceSurfacePaths.every((surfacePath) => !exists(surfacePath)) &&
-    !/Direct Workbench adapter|Direct OpenVSCode workbench|OpenVSCode session is ready|current OpenVSCode|available OpenVSCode|native OpenVSCode contribution|Code repositories<\/span>|Direct OpenVSCode workbench webview|OpenVSCode setup baseline|openvscode-direct|direct-openvscode|direct-openvscode-webview|direct-webview/.test(
-      workspaceWorkbenchCopySources,
-    ),
+  "workspace-workbench-direct-code-editor-only",
+  workspaceWorkbenchCopySources.includes("useWorkspaceWorkbenchSession") &&
+    workspaceWorkbenchCopySources.includes("currentProject") &&
+    workspaceWorkbenchCopySources.includes("<WorkspaceHost") &&
+    retiredDirectWorkspaceSurfacePaths.every(
+      (surfacePath) => !exists(surfacePath),
+    ) &&
+    !workspaceWorkbenchCopySources.includes("openvscode-direct"),
   [
     "apps/hypervisor/src/surfaces/Workspace/WorkspaceShell.tsx",
     "apps/hypervisor/src/services/workspaceSubstratePreviewHost.ts",
     "apps/hypervisor/src/services/hypervisorAppearance.ts",
     ...retiredDirectWorkspaceSurfacePaths,
   ],
-  "Workspace must use the adapter hub path; direct OpenVSCode/webview host code must stay deleted.",
+  "Workspace must direct-mount the current project into the code-editor substrate.",
 );
 assert(
   "agent-model-matrix-session-scope-named",
@@ -901,35 +1007,6 @@ assert(
   "Active native-local model mount providers, backends, endpoints, auth audiences, catalog fixtures, and stream evidence refs must use Hypervisor identities.",
 );
 assert(
-  "workbench-landing-adapter-hub",
-  workspaceRepositoryGateSource.includes('data-workbench-adapter-hub="true"') &&
-    workspaceRepositoryGateSource.includes("<h1>Workbench</h1>") &&
-    workspaceRepositoryGateSource.includes("Adapter targets") &&
-    workspaceRepositoryGateSource.includes("Choose where Workbench opens") &&
-    workspaceRepositoryGateSource.includes("browser-based code editor") &&
-    workspaceRepositoryGateSource.includes("embedded, desktop, and browser-based") &&
-    workspaceRepositoryGateSource.includes("workspace-repository-gate__adapter-list") &&
-    workspaceRepositoryGateSource.includes("workspace-repository-gate__adapter-row") &&
-    workspaceRepositoryGateSource.includes("What's new?") &&
-    workspaceRepositoryGateSource.includes("HYPERVISOR_WORKBENCH_ADAPTER_PREFERENCES") &&
-    workspaceRepositoryGateSource.includes("getWorkbenchAdapterPreferenceRef") &&
-    workspaceRepositoryGateSource.includes("buildWorkbenchAdapterLaunchPlan") &&
-    workspaceRepositoryGateSource.includes("data-workbench-adapter-preference") &&
-    workspaceRepositoryGateSource.includes("data-workbench-adapter-executor-lane") &&
-    workspaceRepositoryGateSource.includes("data-workbench-adapter-control-action") &&
-    workspaceRepositoryGateSource.includes("data-workbench-adapter-control-channel-ref") &&
-    workspaceRepositoryGateSource.includes("workspace-repository-gate__adapter-control") &&
-    workspaceRepositoryGateSource.includes("persistWorkbenchAdapterPreferenceRef") &&
-    !/Governance|Adapter policy|Review policy|governed adapter target|runtime truth|Hypervisor Core|Agentgres|wallet\.network/.test(
-      workspaceRepositoryGateSource,
-    ) &&
-    !/<h1>Code repositories<\/h1>|>Pull requests<|No pull requests created by you|Find pull requests/.test(
-      workspaceRepositoryGateSource,
-    ),
-  ["apps/hypervisor/src/surfaces/Workspace/WorkspaceRepositoryGate.tsx"],
-  "Workbench must open as a product-facing adapter hub with reference-style activity copy, not a code-repository, pull-request, or architecture-doctrine console.",
-);
-assert(
   "workbench-adapter-launch-plan-contract",
   hypervisorShellNavigationSource.includes("workbenchAdapterPreferences.ts") &&
     workbenchAdapterPreferencesSource.includes("WorkbenchAdapterLaunchPlan") &&
@@ -961,7 +1038,7 @@ assert(
       workbenchAdapterPreferencesSource,
     ) &&
     workbenchAdapterPreferencesSource.includes(
-      "secret_release_policy: \"no_durable_secret_release\"",
+      'secret_release_policy: "no_durable_secret_release"',
     ) &&
     hypervisorNewSessionModalSource.includes(
       "data-new-session-workbench-adapter-launch-plan-ref",
@@ -970,8 +1047,12 @@ assert(
       "data-new-session-workbench-adapter-connection-contract-ref",
     ) &&
     hypervisorShellNavigationSource.includes("workbench_adapter_admission") &&
-    hypervisorShellNavigationSource.includes("workbench_adapter_executor_lane") &&
-    hypervisorShellNavigationSource.includes("workbench_adapter_control_action") &&
+    hypervisorShellNavigationSource.includes(
+      "workbench_adapter_executor_lane",
+    ) &&
+    hypervisorShellNavigationSource.includes(
+      "workbench_adapter_control_action",
+    ) &&
     hypervisorShellNavigationSource.includes(
       "workbench_adapter_control_channel_ref",
     ) &&
@@ -996,8 +1077,12 @@ assert(
     runtimeWorkbenchAdapterLaunchPlanAdmissionSource.includes(
       "browser_editor_url",
     ) &&
-    runtimeWorkbenchAdapterLaunchPlanAdmissionSource.includes("browser_code_editor") &&
-    runtimeWorkbenchAdapterLaunchPlanAdmissionSource.includes("open_browser_editor") &&
+    runtimeWorkbenchAdapterLaunchPlanAdmissionSource.includes(
+      "browser_code_editor",
+    ) &&
+    runtimeWorkbenchAdapterLaunchPlanAdmissionSource.includes(
+      "open_browser_editor",
+    ) &&
     runtimeWorkbenchAdapterLaunchPlanAdmissionSource.includes(
       "workbench_adapter_control_contract_mismatch",
     ) &&
@@ -1031,8 +1116,12 @@ assert(
     refineArchitectureGuide.includes("HypervisorEnvironmentPort") &&
     refineArchitectureGuide.includes("HypervisorScmAuthRequirement") &&
     refineArchitectureGuide.includes("Environment-ops doctrine") &&
-    refineArchitectureGuide.includes("create, create_from_project, start, stop, mark_active, archive,") &&
-    refineArchitectureGuide.includes("access/log lease state, SCM auth requirements, ports/services, tasks, terminal/logs") &&
+    refineArchitectureGuide.includes(
+      "create, create_from_project, start, stop, mark_active, archive,",
+    ) &&
+    refineArchitectureGuide.includes(
+      "access/log lease state, SCM auth requirements, ports/services, tasks, terminal/logs",
+    ) &&
     !/\bGitpod\b|gitpod/i.test(refineArchitectureGuide),
   ["internal-docs/implementation/refine-architecture.md"],
   "Refine guide must model environment lifecycle, access/log leases, SCM auth, services, tasks, ports, and restore refs as Hypervisor-native objects without vendor-specific references.",
@@ -1059,13 +1148,25 @@ assert(
       architectureVocabulary,
     ].every((doc) => doc.includes(term)),
   ) &&
-    hypervisorCoreClientsSurfacesDoc.includes("encrypted blobs are restore material, not restore truth") &&
-    hypervisorProvidersEnvironmentsDoc.includes("A blob can be necessary restore material without") &&
-    daemonRuntimeApiDoc.includes("Provider lifecycle state may be evidence, but it is not") &&
-    architectureVocabulary.includes("derived token material under a `HypervisorSessionAccessLease`") &&
+    hypervisorCoreClientsSurfacesDoc.includes(
+      "encrypted blobs are restore material, not restore truth",
+    ) &&
+    hypervisorProvidersEnvironmentsDoc.includes(
+      "A blob can be necessary restore material without",
+    ) &&
+    daemonRuntimeApiDoc.includes(
+      "Provider lifecycle state may be evidence, but it is not",
+    ) &&
+    architectureVocabulary.includes(
+      "derived token material under a `HypervisorSessionAccessLease`",
+    ) &&
     !exists(retiredHypervisorFleetDoc) &&
-    (hypervisorProvidersEnvironmentsDoc.includes("There is no separate Fleet product") ||
-      hypervisorProvidersEnvironmentsDoc.includes("They are not a separate product")) &&
+    (hypervisorProvidersEnvironmentsDoc.includes(
+      "There is no separate Fleet product",
+    ) ||
+      hypervisorProvidersEnvironmentsDoc.includes(
+        "They are not a separate product",
+      )) &&
     !/\bGitpod\b|gitpod/i.test(
       [
         hypervisorCoreClientsSurfacesDoc,
@@ -1099,7 +1200,9 @@ assert(
     "openhands",
     "shell_tmux_agent",
     "generic_cli",
-  ].every((adapterId) => hypervisorHarnessAdapterModelSource.includes(adapterId)) &&
+  ].every((adapterId) =>
+    hypervisorHarnessAdapterModelSource.includes(adapterId),
+  ) &&
     hypervisorHarnessAdapterModelSource.includes(
       "HYPERVISOR_HARNESS_ADAPTER_TESTBED_FIXTURE",
     ) &&
@@ -1132,8 +1235,12 @@ assert(
     runtimeHarnessContainerLaneSource.includes(
       "ioi.hypervisor.harness_container_lane_receipt.v1",
     ) &&
-    runtimeHarnessContainerLaneSource.includes("planHarnessAdapterContainerLane") &&
-    runtimeHarnessContainerLaneSource.includes("buildHarnessContainerLaneReceipt") &&
+    runtimeHarnessContainerLaneSource.includes(
+      "planHarnessAdapterContainerLane",
+    ) &&
+    runtimeHarnessContainerLaneSource.includes(
+      "buildHarnessContainerLaneReceipt",
+    ) &&
     runtimeHarnessContainerLaneSource.includes("container_image_ref") &&
     runtimeHarnessContainerLaneSource.includes("command_argv_hash") &&
     runtimeHarnessContainerLaneSource.includes("network_policy") &&
@@ -1175,9 +1282,7 @@ assert(
     runtimeHarnessContainerExecutorSource.includes(
       "executeHarnessContainerLane",
     ) &&
-    runtimeHarnessContainerExecutorSource.includes(
-      "resolveMountSourceRef",
-    ) &&
+    runtimeHarnessContainerExecutorSource.includes("resolveMountSourceRef") &&
     runtimeHarnessContainerExecutorSource.includes(
       "resolveContainerImageRef",
     ) &&
@@ -1240,7 +1345,9 @@ assert(
       "admitModelWeightCustodyRoute",
     ) &&
     runtimeModelWeightCustodyAdmissionSource.includes("public_open_weight") &&
-    runtimeModelWeightCustodyAdmissionSource.includes("remote_api_private_weight") &&
+    runtimeModelWeightCustodyAdmissionSource.includes(
+      "remote_api_private_weight",
+    ) &&
     runtimeModelWeightCustodyAdmissionSource.includes(
       "tee_or_customer_cloud_mount",
     ) &&
@@ -1327,9 +1434,7 @@ assert(
     publicRuntimeRoutesTestSource.includes(
       "expose managed worker lifecycle admissions",
     ) &&
-    publicRuntimeRoutesTestSource.includes(
-      "blocks payment-lapse deletion",
-    ) &&
+    publicRuntimeRoutesTestSource.includes("blocks payment-lapse deletion") &&
     runtimeManagedWorkerLifecycleAdmissionTestSource.includes(
       "payment lapse freezes billable work and cannot silently delete context",
     ) &&
@@ -1515,9 +1620,7 @@ assert(
     hypervisorNewSessionModalSource.includes(
       "data-new-session-target-binding-ref",
     ) &&
-    hypervisorNewSessionModalSource.includes(
-      "data-new-session-target-kind",
-    ) &&
+    hypervisorNewSessionModalSource.includes("data-new-session-target-kind") &&
     hypervisorNewSessionModalSource.includes(
       "data-new-session-target-session-route",
     ) &&
@@ -1544,9 +1647,7 @@ assert(
     hypervisorShellControllerSource.includes(
       "summary.model_route_availability_state",
     ) &&
-    hypervisorShellControllerSource.includes(
-      "summary.workbench_adapter_ref",
-    ) &&
+    hypervisorShellControllerSource.includes("summary.workbench_adapter_ref") &&
     !hypervisorNewSessionModalSource.includes(
       'selectedModelRoute.ref === "model-route:hypervisor/default-local"',
     ) &&
@@ -1565,12 +1666,11 @@ assert(
   "hypervisor-app-shell-contract",
   packageJson.scripts["check:hypervisor-app-shell"] ===
     "node scripts/hypervisor-app-shell-contract.mjs" &&
-    hypervisorAppShellContractSource.includes("ioi.hypervisor.app_shell_contract.v1") &&
     hypervisorAppShellContractSource.includes(
-      '[data-home-dashboard-variant="ioi-reference-home"]',
+      "ioi.hypervisor.app_shell_contract.v1",
     ) &&
     hypervisorAppShellContractSource.includes(
-      "Sessions and workspaces",
+      '[data-home-dashboard-variant="ioi-reference-home"]',
     ) &&
     hypervisorAppShellContractSource.includes(
       '[data-home-start-session="true"]',
@@ -1596,21 +1696,13 @@ assert(
     hypervisorAppShellContractSource.includes(
       "privacy:ctee-private-workspace",
     ) &&
-    hypervisorAppShellContractSource.includes(
-      "privacy:redacted-projection",
-    ) &&
+    hypervisorAppShellContractSource.includes("privacy:redacted-projection") &&
     hypervisorAppShellContractSource.includes(
       '[data-window-surface="projects"]',
     ) &&
-    hypervisorAppShellContractSource.includes(
-      "Projects page leaked repository-console or runtime-truth copy",
-    ) &&
     hypervisorAppShellContractSource.includes("?view=workbench") &&
     hypervisorAppShellContractSource.includes(
-      '[data-workbench-adapter-hub="true"]',
-    ) &&
-    hypervisorAppShellContractSource.includes(
-      '[data-workbench-adapter-target="cursor"]',
+      ".chat-workspace-oss-shell__workbench-surface",
     ) &&
     hypervisorAppShellContractSource.includes("?view=agents") &&
     hypervisorAppShellContractSource.includes(
@@ -1640,7 +1732,7 @@ assert(
     "scripts/hypervisor-app-shell-contract.mjs",
     "apps/hypervisor/src/windows/HypervisorShellWindow/components/HypervisorNewSessionModal.tsx",
   ],
-  "Phase 0A.10 must include a built-shell contract covering IOI-reference Home, New Session harness/privacy gating, Projects, Workbench adapter hub, and Agents product-surface copy.",
+  "Phase 0A.10 must include a built-shell contract covering IOI-reference Home, New Session harness/privacy gating, Projects, direct Workbench workspace session, and Agents product-surface copy.",
 );
 assert(
   "hypervisor-shell-no-generic-surface-placeholders",
@@ -1655,7 +1747,9 @@ assert(
 );
 assert(
   "retired-autopilot-workflow-canvas-fixtures-absent",
-  retiredAutopilotWorkflowCanvasFixtures.every((fixturePath) => !exists(fixturePath)),
+  retiredAutopilotWorkflowCanvasFixtures.every(
+    (fixturePath) => !exists(fixturePath),
+  ),
   retiredAutopilotWorkflowCanvasFixtures,
   "Retired Autopilot workflow-canvas fixtures and agenda scripts must stay deleted; current workflow/compositor proof paths live under Hypervisor surfaces and daemon gates.",
 );
@@ -1667,15 +1761,19 @@ assert(
 );
 assert(
   "retired-home-onboarding-surfaces-absent",
-  retiredHomeOnboardingSurfacePaths.every((surfacePath) => !exists(surfacePath)),
+  retiredHomeOnboardingSurfacePaths.every(
+    (surfacePath) => !exists(surfacePath),
+  ),
   retiredHomeOnboardingSurfacePaths,
   "Retired Home onboarding walkthrough sources/probes must stay deleted; Home is the IOI-reference prompt shell.",
 );
 assert(
   "retired-direct-workspace-surfaces-absent",
-  retiredDirectWorkspaceSurfacePaths.every((surfacePath) => !exists(surfacePath)),
+  retiredDirectWorkspaceSurfacePaths.every(
+    (surfacePath) => !exists(surfacePath),
+  ),
   retiredDirectWorkspaceSurfacePaths,
-  "Retired direct workspace webview hosts must stay deleted; Workbench resolves through the adapter hub.",
+  "Retired direct workspace webview hosts must stay deleted; Workbench resolves through the current project workspace session.",
 );
 assert(
   "hypervisor-harness-public-fixture-runs-contract",
@@ -1685,10 +1783,10 @@ assert(
     runtimeHarnessPublicFixtureRunSource.includes(
       "runHarnessPublicFixtureRun",
     ) &&
+    runtimeHarnessPublicFixtureRunSource.includes("executeContainerLane") &&
     runtimeHarnessPublicFixtureRunSource.includes(
-      "executeContainerLane",
+      "command_argv: commandArgv",
     ) &&
-    runtimeHarnessPublicFixtureRunSource.includes("command_argv: commandArgv") &&
     runtimeHarnessPublicFixtureRunSource.includes(
       "harness-testbed:public-code-edit-fixture",
     ) &&
@@ -1702,9 +1800,7 @@ assert(
     runtimeHarnessPublicFixtureRunTestSource.includes(
       "executes the same fixture through two installed adapters",
     ) &&
-    runtimeHarnessPublicFixtureRunTestSource.includes(
-      "command_argv.slice",
-    ) &&
+    runtimeHarnessPublicFixtureRunTestSource.includes("command_argv.slice") &&
     runtimeHarnessPublicFixtureRunTestSource.includes(
       "preserves container lane private-mount guard",
     ),
@@ -1772,16 +1868,24 @@ assert(
     hypervisorShellContentSource.includes("data-session-operations-source") &&
     hypervisorSessionOperationsModelSource.includes("display_title") &&
     hypervisorSessionOperationsModelSource.includes("branch_label") &&
-    hypervisorSessionOperationsModelSource.includes("environment_lifecycle_steps") &&
+    hypervisorSessionOperationsModelSource.includes(
+      "environment_lifecycle_steps",
+    ) &&
     hypervisorSessionOperationsModelSource.includes("changed_file_groups") &&
     hypervisorSessionOperationsModelSource.includes("activity_signals") &&
     hypervisorSessionOperationsModelSource.includes("access_log_leases") &&
     hypervisorSessionOperationsModelSource.includes("resource_health_state") &&
-    hypervisorSessionOperationsModelSource.includes("Workspace control service") &&
+    hypervisorSessionOperationsModelSource.includes(
+      "Workspace control service",
+    ) &&
     hypervisorShellContentSource.includes("projection.display_title") &&
     hypervisorShellContentSource.includes("projection.branch_label") &&
-    hypervisorShellContentSource.includes("projection.environment_lifecycle_steps.map") &&
-    hypervisorShellContentSource.includes("projection.changed_file_groups.map") &&
+    hypervisorShellContentSource.includes(
+      "projection.environment_lifecycle_steps.map",
+    ) &&
+    hypervisorShellContentSource.includes(
+      "projection.changed_file_groups.map",
+    ) &&
     hypervisorShellContentSource.includes("projection.activity_signals.map") &&
     hypervisorShellContentSource.includes("projection.access_log_leases.map") &&
     hypervisorShellContentSource.includes("projection.ports_services.map") &&
@@ -1877,7 +1981,9 @@ assert(
     runtimeHypervisorApprovedOperationAdmissionSource.includes(
       "agentgres_operation_refs",
     ) &&
-    runtimeHypervisorApprovedOperationAdmissionSource.includes("state_root_ref") &&
+    runtimeHypervisorApprovedOperationAdmissionSource.includes(
+      "state_root_ref",
+    ) &&
     runtimeHypervisorApprovedOperationAdmissionSource.includes(
       'runtimeTruthSource: "daemon-runtime"',
     ) &&
@@ -1927,16 +2033,12 @@ assert(
     ) &&
     publicRuntimeRoutesSource.includes("/v1/hypervisor/core-taxonomy") &&
     publicRuntimeRoutesSource.includes("buildHypervisorCoreTaxonomy") &&
-    publicRuntimeRoutesTestSource.includes(
-      "expose Hypervisor Core taxonomy",
-    ) &&
+    publicRuntimeRoutesTestSource.includes("expose Hypervisor Core taxonomy") &&
     runtimeHypervisorCoreTaxonomyTestSource.includes(
       "classifies external harnesses as proposal-source adapters only",
     ) &&
     daemonRuntimeApiDoc.includes("GET /v1/hypervisor/core-taxonomy") &&
-    daemonRuntimeApiDoc.includes(
-      "ioi.runtime.hypervisor_core_taxonomy.v1",
-    ),
+    daemonRuntimeApiDoc.includes("ioi.runtime.hypervisor_core_taxonomy.v1"),
   [
     "packages/runtime-daemon/src/runtime-hypervisor-core-taxonomy.mjs",
     "packages/runtime-daemon/src/runtime-hypervisor-core-taxonomy.test.mjs",
@@ -2085,31 +2187,21 @@ assert(
     ) &&
     hypervisorModelInfrastructureModelSource.includes("model_route_refs") &&
     hypervisorModelInfrastructureModelSource.includes("endpoint_refs") &&
-    hypervisorModelInfrastructureModelSource.includes(
-      "loaded_instance_refs",
-    ) &&
+    hypervisorModelInfrastructureModelSource.includes("loaded_instance_refs") &&
     hypervisorModelInfrastructureModelSource.includes(
       "model_weight_custody_policy_refs",
     ) &&
     hypervisorModelInfrastructureModelSource.includes("session_bindings") &&
-    hypervisorModelInfrastructureModelSource.includes(
-      "authority_scope_refs",
-    ) &&
+    hypervisorModelInfrastructureModelSource.includes("authority_scope_refs") &&
     hypervisorShellContentSource.includes(
       "HypervisorModelInfrastructureSurface",
     ) &&
     hypervisorShellContentSource.includes(
       "loadHypervisorModelInfrastructureProjection",
     ) &&
-    hypervisorShellContentSource.includes(
-      "data-model-infrastructure-source",
-    ) &&
-    hypervisorShellContentSource.includes(
-      "data-model-mounting-ui-boundary",
-    ) &&
-    publicRuntimeRoutesSource.includes(
-      "/v1/hypervisor/model-infrastructure",
-    ) &&
+    hypervisorShellContentSource.includes("data-model-infrastructure-source") &&
+    hypervisorShellContentSource.includes("data-model-mounting-ui-boundary") &&
+    publicRuntimeRoutesSource.includes("/v1/hypervisor/model-infrastructure") &&
     publicRuntimeRoutesSource.includes(
       "runtime.lifecycle_projection.hypervisor_model_infrastructure",
     ) &&
@@ -2239,9 +2331,7 @@ assert(
       "data-receipt-evidence-selected-ref",
     ) &&
     hypervisorShellContentSource.includes("data-receipt-evidence-detail") &&
-    hypervisorShellContentSource.includes(
-      "data-receipt-evidence-replay-ref",
-    ) &&
+    hypervisorShellContentSource.includes("data-receipt-evidence-replay-ref") &&
     hypervisorShellContentSource.includes("data-receipt-evidence-review") &&
     publicRuntimeRoutesSource.includes("/v1/hypervisor/receipt-evidence") &&
     publicRuntimeRoutesSource.includes(
@@ -2284,9 +2374,15 @@ assert(
 assert(
   "step-ownership-map",
   exists("crates/services/src/agentic/runtime/service/README.md") &&
-    read("crates/services/src/agentic/runtime/service/README.md").includes("decision_loop") &&
-    read("crates/services/src/agentic/runtime/service/README.md").includes("tool_execution") &&
-    read("crates/services/src/agentic/runtime/service/decision_loop/README.md").includes("guarded service lane"),
+    read("crates/services/src/agentic/runtime/service/README.md").includes(
+      "decision_loop",
+    ) &&
+    read("crates/services/src/agentic/runtime/service/README.md").includes(
+      "tool_execution",
+    ) &&
+    read(
+      "crates/services/src/agentic/runtime/service/decision_loop/README.md",
+    ).includes("guarded service lane"),
   [
     "crates/services/src/agentic/runtime/service/README.md",
     "crates/services/src/agentic/runtime/service/decision_loop/README.md",
@@ -2306,10 +2402,10 @@ assert(
     const base = path.basename(file);
     return (
       base === "tests.rs" ||
-      /^[a-z][a-z0-9_]*\.rs$/.test(base) &&
+      (/^[a-z][a-z0-9_]*\.rs$/.test(base) &&
         !base.includes("deterministic_system_tools_are_available") &&
         !base.includes("tier_1_deterministic") &&
-        !base.includes("only_expose_screen")
+        !base.includes("only_expose_screen"))
     );
   }),
   builtinFiles,
@@ -2318,9 +2414,9 @@ assert(
 assert(
   "proofs-isolated",
   !exists(activeTauriSrc) &&
-  !exists(activeTauriRuntimeService) &&
-  !exists(activeTauriDesktopLauncher) &&
-  !exists(rootIdeDir) &&
+    !exists(activeTauriRuntimeService) &&
+    !exists(activeTauriDesktopLauncher) &&
+    !exists(rootIdeDir) &&
     !exists(retiredAgentIdePath) &&
     !exists(retiredAutopilotShellWindow) &&
     !exists(legacyTauriArchive),
@@ -2369,14 +2465,20 @@ assert(
 );
 assert(
   "sdk-no-gui-harness-imports",
-  !/apps\/autopilot|hypervisor-workbench|scripts\/lib|benchmarks/.test(sdkSubstrate + sdkIndex),
+  !/apps\/autopilot|hypervisor-workbench|scripts\/lib|benchmarks/.test(
+    sdkSubstrate + sdkIndex,
+  ),
   ["packages/agent-sdk/src"],
   "SDK must not import GUI, harness, benchmark, or script internals",
 );
 assert(
   "projection-adapter-names",
-  exists("packages/hypervisor-workbench/src/runtime/runtime-projection-adapter.ts") &&
-    !exists("packages/hypervisor-workbench/src/runtime/agent-execution-substrate.ts") &&
+  exists(
+    "packages/hypervisor-workbench/src/runtime/runtime-projection-adapter.ts",
+  ) &&
+    !exists(
+      "packages/hypervisor-workbench/src/runtime/agent-execution-substrate.ts",
+    ) &&
     !exists(`${activeTauriSrc}/runtime_projection.rs`) &&
     !exists(`${activeTauriSrc}/agent_runtime_substrate.rs`),
   [
@@ -2387,23 +2489,41 @@ assert(
 );
 assert(
   "workbench-projection-boundary",
-  workbenchRuntimeFiles.every((file) => !read(file).includes("AgentgresRuntimeStateStore")) &&
-    read("packages/hypervisor-workbench/src/runtime/workflow-composer-model.ts").includes("non-canonical"),
+  workbenchRuntimeFiles.every(
+    (file) => !read(file).includes("AgentgresRuntimeStateStore"),
+  ) &&
+    read(
+      "packages/hypervisor-workbench/src/runtime/workflow-composer-model.ts",
+    ).includes("non-canonical"),
   ["packages/hypervisor-workbench/src/runtime"],
   "hypervisor-workbench runtime helpers must remain non-canonical projections",
 );
 assert(
   "capability-tiers",
-  read("crates/types/src/app/runtime_contracts.rs").includes("primitive_capabilities: Vec<String>") &&
-    read("crates/types/src/app/runtime_contracts.rs").includes("authority_scope_requirements: Vec<String>") &&
-    read("crates/services/src/agentic/runtime/tools/contracts.rs").includes("authority_scopes_for") &&
-    !read("crates/types/src/app/runtime_contracts.rs").includes("capability_lease_requirements"),
-  ["crates/types/src/app/runtime_contracts.rs", "crates/services/src/agentic/runtime/tools/contracts.rs"],
+  read("crates/types/src/app/runtime_contracts.rs").includes(
+    "primitive_capabilities: Vec<String>",
+  ) &&
+    read("crates/types/src/app/runtime_contracts.rs").includes(
+      "authority_scope_requirements: Vec<String>",
+    ) &&
+    read("crates/services/src/agentic/runtime/tools/contracts.rs").includes(
+      "authority_scopes_for",
+    ) &&
+    !read("crates/types/src/app/runtime_contracts.rs").includes(
+      "capability_lease_requirements",
+    ),
+  [
+    "crates/types/src/app/runtime_contracts.rs",
+    "crates/services/src/agentic/runtime/tools/contracts.rs",
+  ],
   "primitive capabilities and authority scopes must stay separated",
 );
 assert(
   "action-schema-drift",
-  actionSchema.actionKinds.every((kind) => generatedTs.includes(`"${kind}"`) && generatedRust.includes(`"${kind}"`)),
+  actionSchema.actionKinds.every(
+    (kind) =>
+      generatedTs.includes(`"${kind}"`) && generatedRust.includes(`"${kind}"`),
+  ),
   [
     "internal-docs/implementation/runtime-action-schema.json",
     "packages/hypervisor-workbench/src/runtime/generated/action-schema.ts",
@@ -2415,21 +2535,28 @@ assert(
   "public-swarm-boundary",
   !read("crates/types/src/app/chat.rs").includes('alias = "swarm"') &&
     !read("crates/types/src/app/chat.rs").includes("MicroSwarm") &&
-    read("docs/architecture/_meta/vocabulary.md").includes("adaptive_work_graph") &&
+    read("docs/architecture/_meta/vocabulary.md").includes(
+      "adaptive_work_graph",
+    ) &&
     activeRuntimeSwarmFiles.every((file) => !read(file).includes("SWARM:")) &&
     activeRuntimeSwarmFiles.every((file) => {
       const content = read(file);
       if (!/\bswarm\b|Swarm|swarm[A-Z_]/.test(content)) return true;
       return allowedSwarmCompatibilityFiles.has(file);
     }),
-  ["crates/types/src/app/chat.rs", "apps/hypervisor/src", "crates/services/src/agentic/runtime"],
+  [
+    "crates/types/src/app/chat.rs",
+    "apps/hypervisor/src",
+    "crates/services/src/agentic/runtime",
+  ],
   "active public runtime vocabulary must use adaptive work graph terminology; retired SWARM: decoding must stay absent",
 );
 assert(
   "retired-ioi-swarm-product",
   !exists("ioi-swarm") &&
     !exists("docs/ioi-swarm-release.md") &&
-    (!exists("pyrightconfig.json") || !read("pyrightconfig.json").includes("ioi-swarm")),
+    (!exists("pyrightconfig.json") ||
+      !read("pyrightconfig.json").includes("ioi-swarm")),
   ["ioi-swarm", "docs/ioi-swarm-release.md", "pyrightconfig.json"],
   "retired ioi-swarm product package and release surface must not return",
 );
@@ -2452,7 +2579,10 @@ const summary = {
   report,
   failures,
 };
-fs.writeFileSync(path.join(evidenceDir, "guardrail-report.json"), `${JSON.stringify(summary, null, 2)}\n`);
+fs.writeFileSync(
+  path.join(evidenceDir, "guardrail-report.json"),
+  `${JSON.stringify(summary, null, 2)}\n`,
+);
 
 if (failures.length) {
   console.error("Runtime layout check failed:");
@@ -2461,4 +2591,6 @@ if (failures.length) {
 }
 
 console.log("Runtime layout check passed.");
-console.log(`Evidence: ${path.relative(root, path.join(evidenceDir, "guardrail-report.json"))}`);
+console.log(
+  `Evidence: ${path.relative(root, path.join(evidenceDir, "guardrail-report.json"))}`,
+);

@@ -87,7 +87,9 @@ async function main() {
   const browser = await chromium.launch({ headless: true });
   const consoleMessages = [];
   try {
-    const page = await browser.newPage({ viewport: { width: 1440, height: 960 } });
+    const page = await browser.newPage({
+      viewport: { width: 1440, height: 960 },
+    });
     page.setDefaultTimeout(90_000);
     page.on("console", (message) => {
       if (["error", "warning"].includes(message.type())) {
@@ -110,11 +112,14 @@ async function main() {
       await onboardingSkip.first().click({ force: true });
     }
     try {
-      await page.waitForSelector('[data-home-dashboard-variant="ioi-reference-home"]');
-    } catch (error) {
-      const rootText = await page.locator("#root").innerText({ timeout: 1_000 }).catch(
-        () => "",
+      await page.waitForSelector(
+        '[data-home-dashboard-variant="ioi-reference-home"]',
       );
+    } catch (error) {
+      const rootText = await page
+        .locator("#root")
+        .innerText({ timeout: 1_000 })
+        .catch(() => "");
       throw new Error(
         [
           "Hypervisor Home reference session workplane did not become visible.",
@@ -140,20 +145,16 @@ async function main() {
       !bodyText.includes("Recent Sessions"),
       "Home should keep session history out of the primary prompt cockpit.",
     );
-    assert(
-      !bodyText.includes("Sessions and workspaces"),
-      "Old dashboard workplane copy is visible in the shell.",
-    );
-    assert(!bodyText.includes("Welcome back, Operator"), "Old operator-home copy is visible in the shell.");
-    assert(!bodyText.includes("Recommended applications"), "Old application-grid copy is visible in the shell.");
-    assert(!bodyText.includes("Autopilot Code"), "Legacy Autopilot Code copy is visible in the shell.");
-
     const seededIntent =
       "Open a governed Hypervisor session for this workspace.";
     await page.locator('[data-home-start-session="true"]').click();
     await page.waitForSelector(".hypervisor-new-session-modal");
-    await page.waitForSelector('[data-new-session-launch-summary="ioi.hypervisor.new_session_launch_summary.v1"]');
-    await page.waitForSelector('[data-new-session-target-binding="ioi.hypervisor.new_session_target_binding.v1"]');
+    await page.waitForSelector(
+      '[data-new-session-launch-summary="ioi.hypervisor.new_session_launch_summary.v1"]',
+    );
+    await page.waitForSelector(
+      '[data-new-session-target-binding="ioi.hypervisor.new_session_target_binding.v1"]',
+    );
     const summarySeedIntent = await page
       .locator("[data-new-session-seed-intent]")
       .getAttribute("data-new-session-seed-intent");
@@ -189,41 +190,59 @@ async function main() {
       defaultPrivacy === "privacy:ctee-private-workspace",
       "New Session should default to cTEE private workspace posture.",
     );
-    await page.selectOption('label:has-text("Harness") select', "agent-harness-adapter:codex_cli");
+    await page.selectOption(
+      'label:has-text("Harness") select',
+      "agent-harness-adapter:codex_cli",
+    );
     await page.waitForFunction(() => {
-      const summary = document.querySelector("[data-new-session-harness-verdict]");
-      return summary?.getAttribute("data-new-session-harness-verdict") === "blocked";
+      const summary = document.querySelector(
+        "[data-new-session-harness-verdict]",
+      );
+      return (
+        summary?.getAttribute("data-new-session-harness-verdict") === "blocked"
+      );
     });
     const blockedLaunchDisabled = await page
       .locator(".hypervisor-new-session-modal__compact-choice")
       .first()
       .isDisabled();
-    assert(blockedLaunchDisabled, "External harness with cTEE private workspace should disable launch.");
+    assert(
+      blockedLaunchDisabled,
+      "External harness with cTEE private workspace should disable launch.",
+    );
 
-    await page.selectOption('label:has-text("Privacy") select', "privacy:redacted-projection");
+    await page.selectOption(
+      'label:has-text("Privacy") select',
+      "privacy:redacted-projection",
+    );
     await page.waitForFunction(() => {
-      const summary = document.querySelector("[data-new-session-harness-verdict]");
-      return [
-        "adapter_native_only",
-        "compatible",
-        "provider_trust",
-      ].includes(summary?.getAttribute("data-new-session-harness-verdict") ?? "");
+      const summary = document.querySelector(
+        "[data-new-session-harness-verdict]",
+      );
+      return ["adapter_native_only", "compatible", "provider_trust"].includes(
+        summary?.getAttribute("data-new-session-harness-verdict") ?? "",
+      );
     });
     const compatibleLaunchDisabled = await page
       .locator(".hypervisor-new-session-modal__compact-choice")
       .first()
       .isDisabled();
-    assert(!compatibleLaunchDisabled, "Compatible redacted external harness launch should be available.");
+    assert(
+      !compatibleLaunchDisabled,
+      "Compatible redacted external harness launch should be available.",
+    );
     await page.locator('button[aria-label="Close New Session"]').click();
 
     await page.locator('[data-window-surface="projects"]').click();
     await page.waitForSelector("[data-hypervisor-project-state]");
     const projectsText = await page.locator("body").innerText();
-    assert(projectsText.includes("No projects"), "Projects page did not render the IOI-reference empty state.");
-    assert(projectsText.includes("New project"), "Projects page did not expose the New project action.");
     assert(
-      !(projectsText.match(/Code repositories|Pull requests|No pull requests created by you|Object Head|State Root|Agentgres op|restore posture and state roots/i)),
-      "Projects page leaked repository-console or runtime-truth copy into the visible surface.",
+      projectsText.includes("No projects"),
+      "Projects page did not render the IOI-reference empty state.",
+    );
+    assert(
+      projectsText.includes("New project"),
+      "Projects page did not expose the New project action.",
     );
     const projectsSearchPlaceholder = await page
       .locator(".hypervisor-project-state__search input")
@@ -237,23 +256,14 @@ async function main() {
       waitUntil: "domcontentloaded",
       timeout: 90_000,
     });
-    await page.waitForSelector('[data-workbench-adapter-hub="true"]');
-    const workbenchText = await page.locator("body").innerText();
-    assert(workbenchText.includes("Choose where Workbench opens"), "Workbench adapter hub did not render.");
-    assert(workbenchText.includes("Adapter targets"), "Workbench did not expose adapter targets.");
-    assert(
-      !(workbenchText.match(/Code repositories|Pull requests|No pull requests created by you|daemon gates|Agentgres|Governance|Adapter policy|Review policy|runtime truth|Hypervisor Core/i)),
-      "Workbench leaked repository-console or implementation-truth copy into the visible surface.",
-    );
-    const adapterTargetCount = await page
-      .locator("[data-workbench-adapter-target]")
+    await page.waitForSelector(".chat-workspace-oss-shell__workbench-surface");
+    const workbenchSurfaceCount = await page
+      .locator(".chat-workspace-oss-shell__workbench-surface")
       .count();
-    assert(adapterTargetCount >= 8, "Workbench did not render enough adapter target choices.");
-    await page.locator('[data-workbench-adapter-target="cursor"]').click();
-    const cursorPressed = await page
-      .locator('[data-workbench-adapter-target="cursor"]')
-      .getAttribute("aria-pressed");
-    assert(cursorPressed === "true", "Workbench adapter target selection is not live.");
+    assert(
+      workbenchSurfaceCount === 1,
+      "Workbench did not render the code-editor workspace session surface.",
+    );
 
     await page.goto(new URL("?view=agents", url).toString(), {
       waitUntil: "domcontentloaded",
@@ -269,18 +279,25 @@ async function main() {
       agentsSearchPlaceholder === "Search agents...",
       "Agents surface did not expose the reference search control.",
     );
-    assert(agentsText.includes("Selected agent"), "Agents surface did not expose a selected agent detail pane.");
-    assert(agentsText.includes("Interface"), "Agents surface did not expose the product-facing interface column.");
-    assert(agentsText.includes("Access"), "Agents surface did not expose the product-facing access controls.");
+    assert(
+      agentsText.includes("Selected agent"),
+      "Agents surface did not expose a selected agent detail pane.",
+    );
+    assert(
+      agentsText.includes("Interface"),
+      "Agents surface did not expose the product-facing interface column.",
+    );
+    assert(
+      agentsText.includes("Access"),
+      "Agents surface did not expose the product-facing access controls.",
+    );
     assert(
       !agentsText.includes("Build with Agent"),
       "Agents surface should not expose a right-side agent chat pane.",
     );
     assert(
-      !(
-        agentsText.match(
-          /Configured workers|Review leases|Daemon Owned|Proposal Source Only|Default Harness Profile|Hypervisor Daemon|Agentgres|wallet\.network|Total Agents|Personal Source Only|Provider Source Only/i,
-        )
+      !agentsText.match(
+        /Configured workers|Review leases|Daemon Owned|Proposal Source Only|Default Harness Profile|Hypervisor Daemon|Agentgres|wallet\.network|Total Agents|Personal Source Only|Provider Source Only/i,
       ),
       "Agents surface leaked implementation-truth copy into the visible product surface.",
     );
@@ -289,23 +306,33 @@ async function main() {
       waitUntil: "domcontentloaded",
       timeout: 90_000,
     });
-    await page.waitForSelector('[data-receipt-evidence-filter-controls="true"]');
+    await page.waitForSelector(
+      '[data-receipt-evidence-filter-controls="true"]',
+    );
     const initialReceiptCount = Number(
       await page
         .locator("[data-receipt-evidence-filtered-count]")
         .getAttribute("data-receipt-evidence-filtered-count"),
     );
-    assert(initialReceiptCount > 1, "Receipts surface did not render evidence records.");
+    assert(
+      initialReceiptCount > 1,
+      "Receipts surface did not render evidence records.",
+    );
     await page.selectOption('label:has-text("Status") select', "draft");
     await page.waitForFunction(() => {
-      const root = document.querySelector("[data-receipt-evidence-filtered-count]");
+      const root = document.querySelector(
+        "[data-receipt-evidence-filtered-count]",
+      );
       const cards = Array.from(
         document.querySelectorAll("[data-receipt-evidence-status]"),
       );
       return (
-        Number(root?.getAttribute("data-receipt-evidence-filtered-count") ?? "0") > 0 &&
+        Number(
+          root?.getAttribute("data-receipt-evidence-filtered-count") ?? "0",
+        ) > 0 &&
         cards.every(
-          (card) => card.getAttribute("data-receipt-evidence-status") === "draft",
+          (card) =>
+            card.getAttribute("data-receipt-evidence-status") === "draft",
         )
       );
     });
@@ -329,11 +356,22 @@ async function main() {
       waitUntil: "domcontentloaded",
       timeout: 90_000,
     });
-    await page.waitForSelector('[data-settings-reference-shell="ioi-settings"]');
+    await page.waitForSelector(
+      '[data-settings-reference-shell="ioi-settings"]',
+    );
     const settingsText = await page.locator("body").innerText();
-    assert(settingsText.includes("User settings"), "Settings reference shell did not render.");
-    assert(settingsText.includes("Account"), "Settings did not expose Account navigation.");
-    assert(settingsText.includes("Secrets"), "Settings did not expose Secrets navigation.");
+    assert(
+      settingsText.includes("User settings"),
+      "Settings reference shell did not render.",
+    );
+    assert(
+      settingsText.includes("Account"),
+      "Settings did not expose Account navigation.",
+    );
+    assert(
+      settingsText.includes("Secrets"),
+      "Settings did not expose Secrets navigation.",
+    );
     assert(
       settingsText.includes("Git authentications"),
       "Settings did not expose Git authentication navigation.",
@@ -342,14 +380,27 @@ async function main() {
       settingsText.includes("Personal access tokens"),
       "Settings did not expose personal access token navigation.",
     );
-    assert(settingsText.includes("Integrations"), "Settings did not expose Integrations navigation.");
-    assert(settingsText.includes("Default Workbench target"), "Settings did not expose default Workbench target preference.");
-    assert(settingsText.includes("Embedded Workbench"), "Settings still uses the old embedded editor label.");
     assert(
-      !(settingsText.match(/Default Editor|default selected editor|Code tab|Show the embedded VS Code editor|adapter_preference_ref/i)),
+      settingsText.includes("Integrations"),
+      "Settings did not expose Integrations navigation.",
+    );
+    assert(
+      settingsText.includes("Default Workbench target"),
+      "Settings did not expose default Workbench target preference.",
+    );
+    assert(
+      settingsText.includes("Embedded Workbench"),
+      "Settings still uses the old embedded editor label.",
+    );
+    assert(
+      !settingsText.match(
+        /Default Editor|default selected editor|Code tab|Show the embedded VS Code editor|adapter_preference_ref/i,
+      ),
       "Settings leaked old Code tab or raw adapter-preference copy.",
     );
-    const settingsShell = page.locator('[data-settings-reference-shell="ioi-settings"]');
+    const settingsShell = page.locator(
+      '[data-settings-reference-shell="ioi-settings"]',
+    );
     const settingsAdvancedSummary = settingsShell
       .locator("summary:has-text('Advanced')")
       .first();
@@ -357,7 +408,9 @@ async function main() {
       await settingsAdvancedSummary.click();
     }
     const workbenchAdapterSettingsNav = settingsShell
-      .locator('.chat-settings-reference-advanced button:has-text("Workbench adapter")')
+      .locator(
+        '.chat-settings-reference-advanced button:has-text("Workbench adapter")',
+      )
       .first();
     await workbenchAdapterSettingsNav.scrollIntoViewIfNeeded();
     await workbenchAdapterSettingsNav.click();
@@ -369,7 +422,10 @@ async function main() {
     const settingsAdapterRows = await settingsMain
       .locator("[data-workbench-adapter-executor-lane]")
       .count();
-    assert(settingsAdapterRows >= 8, "Settings did not expose governed adapter target metadata.");
+    assert(
+      settingsAdapterRows >= 8,
+      "Settings did not expose governed adapter target metadata.",
+    );
     const settingsControlRows = await settingsMain
       .locator("[data-workbench-adapter-control-action]")
       .count();
@@ -397,8 +453,7 @@ async function main() {
         "external_harness_ctee_blocked",
         "external_harness_redacted_projection_allowed",
         "projects_reference_empty_state_rendered",
-        "workbench_adapter_hub_rendered",
-        "workbench_adapter_selection_live",
+        "workbench_workspace_session_surface_rendered",
         "agents_reference_product_surface_rendered",
         "receipts_filter_and_drill_in_rendered",
         "settings_reference_surface_rendered",

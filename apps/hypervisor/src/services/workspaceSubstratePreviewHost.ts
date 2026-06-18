@@ -64,14 +64,14 @@ export const substratePreviewWorkspaceWorkbenchHost: WorkspaceWorkbenchHost = {
   },
   describeSession(session) {
     return {
-      startupEyebrow: "Workspace adapter hub",
+      startupEyebrow: "Workspace session",
       startupDescription:
-        "Opening the governed code-editor adapter hub for this project.",
+        "Opening the current project in the governed code-editor workspace.",
       startupFailureDescription:
-        "The Workspace adapter hub did not initialize cleanly.",
-      runtimeLabel: `Workspace adapter hub for ${session.rootPath}`,
+        "The workspace session did not initialize cleanly.",
+      runtimeLabel: `Workspace session for ${session.rootPath}`,
       metricDetails: {
-        mode: "workspace-adapter-hub",
+        mode: "workspace-session",
       },
     };
   },
