@@ -34,6 +34,8 @@ const packageJson = JSON.parse(read("package.json"));
 const readme = read("README.md");
 const developersDocs = read("apps/developers-ioi-ai/src/content/docs.tsx");
 const refineArchitectureGuide = read("internal-docs/implementation/refine-architecture.md");
+const runtimePackageBoundaries = read("internal-docs/implementation/runtime-package-boundaries.md");
+const runtimeModuleMap = read("internal-docs/implementation/runtime-module-map.md");
 const hypervisorCoreClientsSurfacesDoc = read(
   "docs/architecture/components/hypervisor/core-clients-surfaces.md",
 );
@@ -432,16 +434,31 @@ assert(
 assert(
   "runtime-module-map",
   exists("internal-docs/implementation/runtime-module-map.md") &&
-    read("internal-docs/implementation/runtime-module-map.md").includes("RuntimeSubstrate") &&
-    read("internal-docs/implementation/runtime-package-boundaries.md").includes("runtime-module-map.md") &&
-    read("internal-docs/implementation/runtime-module-map.md").includes("WorkbenchAdapterHost") &&
-    read("internal-docs/implementation/runtime-module-map.md").includes("root `ide/` product path") &&
-    read("internal-docs/implementation/runtime-module-map.md").includes("not an active proof home"),
+    runtimeModuleMap.includes("RuntimeSubstrate") &&
+    runtimePackageBoundaries.includes("runtime-module-map.md") &&
+    runtimeModuleMap.includes("WorkbenchAdapterHost") &&
+    runtimeModuleMap.includes("root `ide/` product path") &&
+    runtimeModuleMap.includes("not an active proof home"),
   [
     "internal-docs/implementation/runtime-module-map.md",
     "internal-docs/implementation/runtime-package-boundaries.md",
   ],
   "runtime module map must identify canonical homes and be linked from boundary docs",
+);
+assert(
+  "hypervisor-internal-maps-fold-fleet-into-provider-environment-views",
+  runtimePackageBoundaries.includes("Hypervisor Providers / Environments") &&
+    runtimePackageBoundaries.includes("sessions, leases, and restore/archive refs") &&
+    runtimeModuleMap.includes("provider/environment views") &&
+    runtimeModuleMap.includes("provider-environment names") &&
+    !/Foundry\s*\/\s*Fleet|Workbench,\s*Foundry,\s*Fleet|Foundry\/Fleet|Fleet names/.test(
+      `${runtimePackageBoundaries}\n${runtimeModuleMap}`,
+    ),
+  [
+    "internal-docs/implementation/runtime-package-boundaries.md",
+    "internal-docs/implementation/runtime-module-map.md",
+  ],
+  "internal implementation maps must fold retired Fleet posture into Hypervisor provider/environment/session views",
 );
 assert(
   "refine-architecture-ioi-reference-target",
