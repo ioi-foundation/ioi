@@ -1771,6 +1771,9 @@ assert(
     hypervisorNewSessionModalSource.includes(
       "data-new-session-code-editor-adapter-ref",
     ) &&
+    hypervisorNewSessionModalSource.includes("data-new-session-project-ref") &&
+    hypervisorNewSessionModalSource.includes("setProjectId") &&
+    hypervisorNewSessionModalSource.includes("<span>Project</span>") &&
     hypervisorNewSessionModalSource.includes(
       "data-new-session-harness-selection-kind",
     ) &&

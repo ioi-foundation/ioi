@@ -123,7 +123,7 @@ export function HypervisorNewSessionModal({
   const [recipeId, setRecipeId] = useState(
     () => initialRecipeSelectionRef(initialRecipeId),
   );
-  const [projectId] = useState(currentProject.id);
+  const [projectId, setProjectId] = useState(currentProject.id);
   const [adapterPreferenceRef] = useState(
     readStoredCodeEditorAdapterPreferenceRef,
   );
@@ -143,15 +143,23 @@ export function HypervisorNewSessionModal({
       return;
     }
     setRecipeId(initialRecipeSelectionRef(initialRecipeId));
+    setProjectId(currentProject.id);
     setSeedIntent(initialSeedIntent?.trim() ?? "");
-  }, [initialRecipeId, initialSeedIntent, isOpen]);
+  }, [currentProject.id, initialRecipeId, initialSeedIntent, isOpen]);
 
   const recipe =
     HYPERVISOR_SESSION_LAUNCH_RECIPES.find(
       (candidate) => candidate.recipe_id === recipeId,
     ) ?? HYPERVISOR_SESSION_LAUNCH_RECIPES[0]!;
+  const projectOptions = useMemo(() => {
+    const options = projects.length ? [...projects] : [currentProject];
+    if (!options.some((project) => project.id === currentProject.id)) {
+      options.unshift(currentProject);
+    }
+    return options;
+  }, [currentProject, projects]);
   const selectedProject =
-    projects.find((project) => project.id === projectId) ?? currentProject;
+    projectOptions.find((project) => project.id === projectId) ?? currentProject;
   const selectedAdapterPreference =
     getCodeEditorAdapterPreferenceByRef(adapterPreferenceRef);
   const selectedHarness =
@@ -329,6 +337,7 @@ export function HypervisorNewSessionModal({
             data-new-session-seed-intent={launchSummary.seed_intent ?? ""}
             data-new-session-harness-verdict={harnessVerdict.state}
             data-new-session-model-route-ref={selectedModelRoute.ref}
+            data-new-session-project-ref={selectedProject.id}
             data-new-session-model-route-inventory-state={
               modelRouteAvailability.state
             }
@@ -399,6 +408,20 @@ export function HypervisorNewSessionModal({
             aria-label="Session launch governance"
             data-new-session-governance="harness-model-privacy"
           >
+            <label>
+              <span>Project</span>
+              <select
+                value={selectedProject.id}
+                onChange={(event) => setProjectId(event.currentTarget.value)}
+              >
+                {projectOptions.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
             <label>
               <span>Harness</span>
               <select

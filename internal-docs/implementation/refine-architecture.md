@@ -1290,6 +1290,10 @@ Current implementation cut:
   launch recipes without the retired `fleet_job` identifier
   `HypervisorNewSessionModal` binds project, harness, model route, privacy
   posture, authority scope templates, and receipt preview before launch
+  the modal now exposes Project as an operator-selectable launch field rather
+  than accepting a hidden current-project prop; the selected project id is bound
+  into the launch summary, target binding, receipt preview, and persisted
+  launched-session projection.
   the activity rail and Home dashboard open the shell-level New Session modal
   modal launch routes through the Hypervisor shell controller to the selected
   canonical surface and seeds Sessions when the recipe is a Mission

@@ -393,6 +393,10 @@ test("new session modal is a shell-level governed launch flow", () => {
   );
   assert.doesNotMatch(newSessionModal, /modelRouteRef !== "model-route:none"/);
   assert.match(newSessionModal, /data-new-session-receipt-preview/);
+  assert.match(newSessionModal, /data-new-session-project-ref/);
+  assert.match(newSessionModal, /setProjectId/);
+  assert.match(newSessionModal, /<span>Project<\/span>/);
+  assert.match(newSessionModal, /projectOptions\.map/);
   assert.match(newSessionModal, /data-new-session-harness-verdict/);
   assert.match(newSessionModal, /cTEE private workspace/);
   assert.doesNotMatch(newSessionModal, /Launch governed session/);
