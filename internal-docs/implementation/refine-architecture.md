@@ -1099,6 +1099,9 @@ Current implementation cut:
   approvals, session recovery, and intervention review now route back through
   Hypervisor Sessions and Authority surfaces instead of alternate product
   windows.
+  the dead package-level `ActivityBar` shell and aggregate `ConnectorsView`
+  wrapper are deleted from `@ioi/hypervisor-workbench`; the package keeps
+  reusable connector panels, workflow components, and runtime primitives only.
   workflow dogfood probes request `automations` as the initial shell surface
   `HYPERVISOR_IOI_REFERENCE_SHELL_REQUIREMENTS` binds the active shell to the
   `internal-docs/reverse-engineering/ioi` reference contract: source reference

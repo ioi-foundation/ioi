@@ -441,14 +441,12 @@ export {
   createRuntimeUsageMeterControlRequest,
   createRuntimeUsageMeterControlRequestFromWorkflowNode,
 } from "./runtime/workflow-runtime-usage-control-nodes";
-export { ActivityBar } from "./features/Shell/ActivityBar";
 export { AssistantWorkbenchView } from "./features/Shell/AssistantWorkbenchView";
 export { SessionHistorySidebar } from "./features/Shell/SessionHistorySidebar";
 export { EnvironmentEstateView } from "./features/Environments/EnvironmentEstateView";
 export { AgentsDashboard } from "./features/Dashboard/AgentsDashboard";
 export { BuilderView } from "./features/Builder/BuilderView";
 export { RuntimeCatalogView } from "./features/Marketplace/RuntimeCatalogView";
-export { ConnectorsView } from "./features/Connectors/ConnectorsView";
 export { GenericConnectorPanel } from "./features/Connectors/components/GenericConnectorPanel";
 export { GoogleWorkspaceConnectorPanel } from "./features/Connectors/components/GoogleWorkspaceConnectorPanel";
 export { MailConnectorPanel } from "./features/Connectors/components/MailConnectorPanel";
