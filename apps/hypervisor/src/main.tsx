@@ -14,7 +14,7 @@ import {
 import { markHypervisorMetric } from "./services/workspacePerf";
 
 import { HypervisorShellWindow } from "./windows/HypervisorShellWindow";
-import { WorkspaceWorkbenchPreview } from "./dev/WorkspaceWorkbenchPreview";
+import { WorkspaceSessionPreview } from "./dev/WorkspaceSessionPreview";
 
 applyHypervisorAppearance(loadHypervisorAppearance());
 
@@ -56,7 +56,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <BrowserRouter>
       <AppMetricsBeacon />
       <Routes>
-        <Route path="/workspace-preview" element={<WorkspaceWorkbenchPreview />} />
+        <Route path="/workspace-preview" element={<WorkspaceSessionPreview />} />
         {HYPERVISOR_PRIMARY_ROUTES.map((path) => (
           <Route key={path} path={path} element={<HypervisorShellWindow />} />
         ))}

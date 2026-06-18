@@ -13,17 +13,17 @@ import {
   persistWorkspaceShellState,
 } from "../../services/workspaceShellState";
 import type {
-  WorkspaceWorkbenchHost,
-  WorkspaceWorkbenchProjectDescriptor,
-} from "../../services/workspaceWorkbenchHost";
-import { useWorkspaceWorkbenchSession } from "../../services/useWorkspaceWorkbenchSession";
+  WorkspaceSessionHost,
+  WorkspaceSessionProjectDescriptor,
+} from "../../services/workspaceSessionHost";
+import { useWorkspaceSession } from "../../services/useWorkspaceSession";
 
 interface WorkspaceShellProps {
   active: boolean;
-  currentProject: WorkspaceWorkbenchProjectDescriptor;
-  projects?: WorkspaceWorkbenchProjectDescriptor[];
+  currentProject: WorkspaceSessionProjectDescriptor;
+  projects?: WorkspaceSessionProjectDescriptor[];
   runtime: HypervisorClientRuntime;
-  host: WorkspaceWorkbenchHost;
+  host: WorkspaceSessionHost;
   fullBleed?: boolean;
 }
 
@@ -53,7 +53,7 @@ export function WorkspaceShell({
     surface,
     bootPhase,
     restartWorkspace,
-  } = useWorkspaceWorkbenchSession({
+  } = useWorkspaceSession({
     active,
     enabled: active,
     currentProject,

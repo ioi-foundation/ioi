@@ -77,6 +77,7 @@ const retiredHomeOnboardingSurfacePaths = [
 const retiredDirectWorkspaceSurfacePaths = [
   "apps/hypervisor/src/surfaces/Workspace/OpenVsCodeDirectSurface.tsx",
   "apps/hypervisor/src/services/directWorkspaceWorkbenchHost.ts",
+  "apps/hypervisor/src/services/directWorkspaceSessionHost.ts",
   "apps/hypervisor/src/services/openVsCodeWorkbenchHost.ts",
   "apps/hypervisor/src/services/openVsCodeWorkbenchSession.ts",
   "apps/hypervisor/src/services/workspaceDirectWebview.ts",
@@ -271,7 +272,7 @@ const activeHypervisorFixtureSources = [
 ]
   .map(read)
   .join("\n");
-const workspaceWorkbenchCopySources = [
+const workspaceSessionCopySources = [
   "apps/hypervisor/src/surfaces/Workspace/WorkspaceShell.tsx",
   "apps/hypervisor/src/services/workspaceSubstratePreviewHost.ts",
   "apps/hypervisor/src/services/hypervisorAppearance.ts",
@@ -907,14 +908,14 @@ assert(
   "Active chat/workflow fixture inputs must use Hypervisor labels unless they are explicit negative assertions.",
 );
 assert(
-  "workspace-workbench-direct-code-editor-only",
-  workspaceWorkbenchCopySources.includes("useWorkspaceWorkbenchSession") &&
-    workspaceWorkbenchCopySources.includes("currentProject") &&
-    workspaceWorkbenchCopySources.includes("<WorkspaceHost") &&
+  "workspace-session-direct-code-editor-only",
+  workspaceSessionCopySources.includes("useWorkspaceSession") &&
+    workspaceSessionCopySources.includes("currentProject") &&
+    workspaceSessionCopySources.includes("<WorkspaceHost") &&
     retiredDirectWorkspaceSurfacePaths.every(
       (surfacePath) => !exists(surfacePath),
     ) &&
-    !workspaceWorkbenchCopySources.includes("openvscode-direct"),
+    !workspaceSessionCopySources.includes("openvscode-direct"),
   [
     "apps/hypervisor/src/surfaces/Workspace/WorkspaceShell.tsx",
     "apps/hypervisor/src/services/workspaceSubstratePreviewHost.ts",

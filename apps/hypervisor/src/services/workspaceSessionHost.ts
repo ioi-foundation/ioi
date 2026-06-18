@@ -6,18 +6,18 @@ import type {
   WorkspaceSnapshot,
 } from "@ioi/workspace-substrate";
 
-export interface WorkspaceWorkbenchHostSession {
+export interface WorkspaceSessionHostSession {
   rootPath: string;
   internal: unknown;
 }
 
-export interface WorkspaceWorkbenchProjectDescriptor {
+export interface WorkspaceSessionProjectDescriptor {
   id: string;
   name: string;
   rootPath: string;
 }
 
-export interface WorkspaceWorkbenchSubstratePreviewModel {
+export interface WorkspaceSessionSubstratePreviewModel {
   kind: "substrate-preview";
   key: string;
   title: string;
@@ -30,8 +30,8 @@ export interface WorkspaceWorkbenchSubstratePreviewModel {
   initialSnapshot?: WorkspaceSnapshot | null;
 }
 
-export type WorkspaceWorkbenchSurfaceModel =
-  WorkspaceWorkbenchSubstratePreviewModel;
+export type WorkspaceSessionSurfaceModel =
+  WorkspaceSessionSubstratePreviewModel;
 
 export interface WorkspaceCodeEditorAdapterWorkspaceModel {
   id: string;
@@ -39,7 +39,7 @@ export interface WorkspaceCodeEditorAdapterWorkspaceModel {
   rootPath: string;
 }
 
-export interface WorkspaceWorkbenchSessionDescriptor {
+export interface WorkspaceSessionDescriptor {
   startupEyebrow: string;
   startupDescription: string;
   startupFailureDescription: string;
@@ -47,40 +47,29 @@ export interface WorkspaceWorkbenchSessionDescriptor {
   metricDetails?: Record<string, unknown>;
 }
 
-export interface WorkspaceWorkbenchLifecyclePolicy {
+export interface WorkspaceSessionLifecyclePolicy {
   idlePrewarmDelayMs: number;
-  adapterStateRefreshMs: number;
 }
 
-export interface WorkspaceWorkbenchHost {
+export interface WorkspaceSessionHost {
   ensureSession(params: {
     rootPath: string;
     runtime: HypervisorClientRuntime;
     forceRestart?: boolean;
-  }): Promise<WorkspaceWorkbenchHostSession>;
-  publishAdapterState(
-    session: WorkspaceWorkbenchHostSession,
-    state: Record<string, unknown>,
-  ): Promise<void>;
-  describeLifecyclePolicy(): WorkspaceWorkbenchLifecyclePolicy;
-  startStateSync(params: {
-    runtime: HypervisorClientRuntime;
-    currentProject: WorkspaceWorkbenchProjectDescriptor;
-    session: WorkspaceWorkbenchHostSession;
-    refreshMs: number;
-  }): () => void;
+  }): Promise<WorkspaceSessionHostSession>;
+  describeLifecyclePolicy(): WorkspaceSessionLifecyclePolicy;
   buildSurface(
-    session: WorkspaceWorkbenchHostSession,
+    session: WorkspaceSessionHostSession,
     options: {
       projectName: string;
       refreshNonce: number;
     },
-  ): WorkspaceWorkbenchSurfaceModel;
+  ): WorkspaceSessionSurfaceModel;
   describeAdapterWorkspace(
-    session: WorkspaceWorkbenchHostSession,
-    project: WorkspaceWorkbenchProjectDescriptor,
+    session: WorkspaceSessionHostSession,
+    project: WorkspaceSessionProjectDescriptor,
   ): WorkspaceCodeEditorAdapterWorkspaceModel;
   describeSession(
-    session: WorkspaceWorkbenchHostSession,
-  ): WorkspaceWorkbenchSessionDescriptor;
+    session: WorkspaceSessionHostSession,
+  ): WorkspaceSessionDescriptor;
 }

@@ -26,7 +26,7 @@ import { HomeView } from "../../../surfaces/Home";
 import { ChatLeftUtilityPane } from "./ChatLeftUtilityPane";
 import { ChatUtilityDrawer } from "./ChatUtilityDrawer";
 import { WorkspaceShell } from "../../../surfaces/Workspace";
-import { getDefaultWorkspaceWorkbenchHost } from "../../../services/workspaceWorkbenchHostRegistry";
+import { getDefaultWorkspaceSessionHost } from "../../../services/workspaceSessionHostRegistry";
 import { buildOperatorCommandCenterModel } from "../operatorSubstrateModel";
 import {
   HYPERVISOR_AGENTS_PROJECTION_FIXTURE,
@@ -2871,7 +2871,7 @@ export function HypervisorShellContent({
 }: HypervisorShellContentProps) {
   const { activeView, currentProject, projects, notificationBadgeCount } =
     controller;
-  const workspaceHost = getDefaultWorkspaceWorkbenchHost();
+  const workspaceHost = getDefaultWorkspaceSessionHost();
   const workspaceActive = activeView === "workbench";
   const settingsActive = activeView === "settings";
   const workflowActive = activeView === "automations";

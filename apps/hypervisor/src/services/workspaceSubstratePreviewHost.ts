@@ -3,9 +3,9 @@ import {
   prewarmWorkspaceRoot,
   hostWorkspaceAdapter,
 } from "./workspaceAdapter";
-import type { WorkspaceWorkbenchHost } from "./workspaceWorkbenchHost";
+import type { WorkspaceSessionHost } from "./workspaceSessionHost";
 
-export const substratePreviewWorkspaceWorkbenchHost: WorkspaceWorkbenchHost = {
+export const substratePreviewWorkspaceSessionHost: WorkspaceSessionHost = {
   async ensureSession({ rootPath }) {
     const initialSnapshot = peekCachedWorkspaceSnapshot(rootPath);
     void prewarmWorkspaceRoot(rootPath).catch(() => {
@@ -21,17 +21,10 @@ export const substratePreviewWorkspaceWorkbenchHost: WorkspaceWorkbenchHost = {
       },
     };
   },
-  async publishAdapterState() {
-    return;
-  },
   describeLifecyclePolicy() {
     return {
       idlePrewarmDelayMs: 900,
-      adapterStateRefreshMs: 10_000,
     };
-  },
-  startStateSync() {
-    return () => {};
   },
   buildSurface(session, { projectName, refreshNonce }) {
     const internal = session.internal as

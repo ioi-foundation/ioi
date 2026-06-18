@@ -5,28 +5,27 @@ import {
 } from "@ioi/hypervisor-workbench";
 
 import type { HypervisorClientRuntime } from "./HypervisorClientRuntime";
-import { markWorkspaceMetric } from "./workspacePerf";
 import {
-  type WorkspaceWorkbenchHost,
-  type WorkspaceWorkbenchHostSession,
-  type WorkspaceWorkbenchProjectDescriptor,
-} from "./workspaceWorkbenchHost";
+  type WorkspaceSessionHost,
+  type WorkspaceSessionHostSession,
+  type WorkspaceSessionProjectDescriptor,
+} from "./workspaceSessionHost";
 
 export type WorkspaceStatus = "idle" | "starting" | "ready" | "error";
-export type WorkspaceWorkbenchSessionError = WorkflowRuntimeUnavailableCopy;
+export type WorkspaceSessionError = WorkflowRuntimeUnavailableCopy;
 
-export function useWorkspaceWorkbenchSession(params: {
+export function useWorkspaceSession(params: {
   active: boolean;
   enabled?: boolean;
-  currentProject: WorkspaceWorkbenchProjectDescriptor;
+  currentProject: WorkspaceSessionProjectDescriptor;
   runtime: HypervisorClientRuntime;
-  host: WorkspaceWorkbenchHost;
+  host: WorkspaceSessionHost;
 }) {
   const { active, currentProject, runtime, host } = params;
   const enabled = params.enabled ?? true;
   const [refreshNonce, setRefreshNonce] = useState(0);
-  const [session, setSession] = useState<WorkspaceWorkbenchHostSession | null>(null);
-  const [error, setError] = useState<WorkspaceWorkbenchSessionError | null>(null);
+  const [session, setSession] = useState<WorkspaceSessionHostSession | null>(null);
+  const [error, setError] = useState<WorkspaceSessionError | null>(null);
   const [surfaceReady, setSurfaceReady] = useState(false);
   const [bootPhase, setBootPhase] = useState("idle");
   const lastHandledRestartNonceRef = useRef(0);
@@ -128,36 +127,6 @@ export function useWorkspaceWorkbenchSession(params: {
         : null,
     [currentProject.name, host, refreshNonce, session],
   );
-
-  useEffect(() => {
-    if (!active || !session || error) {
-      return;
-    }
-
-    const sessionDescriptor = host.describeSession(session);
-    markWorkspaceMetric("workspace_view_revealed", {
-      projectId: currentProject.id,
-      rootPath: currentProject.rootPath,
-      mode: sessionDescriptor.metricDetails?.mode ?? "direct",
-    });
-    markWorkspaceMetric("workbench_mounted", {
-      projectId: currentProject.id,
-      rootPath: currentProject.rootPath,
-      ...sessionDescriptor.metricDetails,
-    });
-  }, [active, currentProject.id, currentProject.rootPath, error, host, session]);
-
-  useEffect(() => {
-    if (!session) {
-      return;
-    }
-    return host.startStateSync({
-      runtime,
-      currentProject,
-      session,
-      refreshMs: host.describeLifecyclePolicy().adapterStateRefreshMs,
-    });
-  }, [currentProject, host, runtime, session]);
 
   const status: WorkspaceStatus = !enabled
     ? "idle"

@@ -179,7 +179,7 @@ const previewAdapter: WorkspaceAdapter = {
   closeTerminalSession: async () => undefined,
 };
 
-export function WorkspaceWorkbenchPreview() {
+export function WorkspaceSessionPreview() {
   return (
     <main
       style={{
