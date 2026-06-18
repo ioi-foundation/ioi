@@ -71,6 +71,14 @@ const receiptEvidenceModel = readFileSync(
   "utf8",
 );
 
+function sourceSlice(contents, startMarker, endMarker) {
+  const start = contents.indexOf(startMarker);
+  const end = contents.indexOf(endMarker, start + startMarker.length);
+  assert.notEqual(start, -1, `missing source marker: ${startMarker}`);
+  assert.notEqual(end, -1, `missing source marker: ${endMarker}`);
+  return contents.slice(start, end);
+}
+
 test("hypervisor shell exposes the canonical core client and surface taxonomy", () => {
   assert.match(source, /export type HypervisorClientKind/);
   assert.match(source, /export type HypervisorSurfaceId/);
@@ -519,6 +527,11 @@ test("Automations surface renders workflow compositor projection before editor",
 });
 
 test("Agents surface renders workers as a cockpit list without internal doctrine copy", () => {
+  const agentsSurface = sourceSlice(
+    shellContent,
+    "function HypervisorAgentsSurface",
+    "function HypervisorAutomationCompositorSurface",
+  );
   assert.match(agentsModel, /HypervisorAgentsProjection/);
   assert.match(agentsModel, /HYPERVISOR_AGENTS_PROJECTION_FIXTURE/);
   assert.match(agentsModel, /HYPERVISOR_AGENTS_PROJECTION_PATH/);
@@ -542,19 +555,22 @@ test("Agents surface renders workers as a cockpit list without internal doctrine
   assert.match(shellContent, /data-agent-capability-lease/);
   assert.match(shellContent, /data-agent-capability-management-boundary/);
   assert.match(shellContent, /data-runtime-truth-source/);
-  assert.match(shellContent, /Manage workers, skills, memory, and scoped leases/);
+  assert.match(shellContent, /Configure workers, skills, memory, model access, and scoped/);
   assert.match(shellContent, /formatAgentHarnessLabel/);
   assert.match(shellContent, /formatCapabilityRef/);
   assert.match(shellContent, /formatModelRouteRef/);
   assert.match(shellContent, /formatPrivacyPostureRef/);
   assert.match(shellContent, /formatWorkspaceRef/);
   assert.match(shellContent, /formatLeaseExpiry/);
-  assert.match(shellContent, />Execution</);
-  assert.match(shellContent, />Scope</);
+  assert.match(shellContent, />Interface</);
+  assert.match(shellContent, />Access</);
   assert.match(shellContent, />Updated</);
   assert.match(shellContent, /className="hypervisor-agents__workplane"/);
   assert.match(shellContent, /className="hypervisor-agents__list"/);
   assert.match(shellContent, /className="hypervisor-agents__detail"/);
+  assert.match(shellContent, /return "Built-in"/);
+  assert.match(shellContent, /return "Terminal"/);
+  assert.match(shellContent, /return "Code tool"/);
   assert.doesNotMatch(shellContent, /Runtime actors/);
   assert.doesNotMatch(shellContent, /Configured workers/);
   assert.doesNotMatch(shellContent, /Manage authority/);
@@ -562,6 +578,10 @@ test("Agents surface renders workers as a cockpit list without internal doctrine
   assert.doesNotMatch(shellContent, /Daemon Owned/);
   assert.doesNotMatch(shellContent, /Proposal Source Only/);
   assert.doesNotMatch(shellContent, /formatAgentRuntimeBoundary/);
+  assert.doesNotMatch(agentsSurface, />Harness</);
+  assert.doesNotMatch(agentsSurface, />Model route</);
+  assert.doesNotMatch(agentsSurface, />Execution</);
+  assert.doesNotMatch(agentsSurface, />Capability leases</);
   assert.doesNotMatch(shellContent, /<dt>Mode<\/dt>/);
   assert.doesNotMatch(shellContent, /<dd>\{agent\.state_root_ref\}<\/dd>/);
   assert.doesNotMatch(shellContent, /<dd>\{agent\.latest_receipt_refs\[0\]\}<\/dd>/);

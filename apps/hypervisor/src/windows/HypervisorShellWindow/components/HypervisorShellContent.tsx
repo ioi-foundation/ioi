@@ -354,12 +354,12 @@ function HypervisorAgentsSurface({
           <span>Workspace</span>
           <h2>Agents</h2>
           <p>
-            Manage workers, skills, memory, and scoped leases for this
-            workspace.
+            Configure workers, skills, memory, model access, and scoped
+            permissions for this workspace.
           </p>
         </div>
         <button type="button" onClick={onOpenAuthority}>
-          Authority
+          Manage access
         </button>
       </div>
 
@@ -382,8 +382,8 @@ function HypervisorAgentsSurface({
         <div className="hypervisor-agents__list" role="list" aria-label="Agents list">
           <div className="hypervisor-agents__list-head" role="presentation">
             <span>Agent</span>
-            <span>Execution</span>
-            <span>Scope</span>
+            <span>Interface</span>
+            <span>Access</span>
             <span>Updated</span>
           </div>
           {projection.records.map((agent) => (
@@ -423,12 +423,15 @@ function firstCapabilityLease(agent: HypervisorAgentRecord) {
 
 function formatAgentHarnessLabel(label: string): string {
   if (/default harness profile/i.test(label)) {
-    return "IOI reference";
+    return "Built-in";
   }
   if (/generic cli harness/i.test(label)) {
-    return "CLI adapter";
+    return "Terminal";
   }
-  return label.replace(/\s+harness$/i, "");
+  if (/cli/i.test(label)) {
+    return "Code tool";
+  }
+  return label.replace(/\s+harness$/i, "").replace(/\s+adapter$/i, "");
 }
 
 function formatCapabilityRef(ref: string): string {
@@ -685,13 +688,13 @@ function HypervisorAgentDetail({
 
       <dl className="hypervisor-agents__runtime">
         <div>
-          <dt>Execution</dt>
+          <dt>Interface</dt>
           <dd>
             <span>{formatAgentHarnessLabel(agent.runtime.harness_label)}</span>
           </dd>
         </div>
         <div>
-          <dt>Model route</dt>
+          <dt>Model</dt>
           <dd>
             <span>{formatModelRouteRef(agent.runtime.model_route_ref)}</span>
           </dd>
@@ -722,8 +725,8 @@ function HypervisorAgentDetail({
       </section>
 
       <section className="hypervisor-agents__detail-section">
-        <h4>Capability leases</h4>
-      <div className="hypervisor-agents__lease-list" aria-label="Capability leases">
+        <h4>Access</h4>
+      <div className="hypervisor-agents__lease-list" aria-label="Agent access">
         {agent.capability_leases.slice(0, 2).map((lease) => (
           <span
             key={lease.lease_ref}
@@ -751,10 +754,10 @@ function HypervisorAgentDetail({
 
       <div className="hypervisor-agents__actions">
         <button type="button" onClick={onOpenSessions}>
-          Session
+          Open session
         </button>
         <button type="button" onClick={onOpenAuthority}>
-          Authority
+          Manage access
         </button>
         <button type="button" onClick={onOpenReceipts}>
           Receipts
